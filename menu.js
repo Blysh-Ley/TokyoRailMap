@@ -177,7 +177,8 @@ export class Menu {
             if (!sub) return;
 
             sub.style.display = 'block';
-            this.anchorSubMenu(item, sub, this.wrapperTop);
+            // 子菜单定位：不应使用 wrapperTop 做最小 top（否则屏幕越大，顶部项越被“往下顶”）
+            this.anchorSubMenu(item, sub, 10);
         });
 
         this.wrapper.addEventListener('mouseleave', () => {
@@ -209,17 +210,18 @@ export class Menu {
         });
     }
 
-    anchorSubMenu(itemEl, subEl, minTop) {
+    anchorSubMenu(itemEl, subEl, minTop = 10) {
         const subRect = subEl.getBoundingClientRect();
         const itemRect = itemEl.getBoundingClientRect();
 
-        let top = itemRect.top - 20;
+        const desiredTop = itemRect.top - 20;
         let left = itemRect.right < 200 ? 200 : itemRect.right;
 
-        if (itemRect.bottom + subRect.height >= window.innerHeight) {
-            top = window.innerHeight - subRect.height - 10;
-        }
-        if (top < minTop) top = minTop;
+        // 关键：不要在“可能超出底部”时直接把 top 设为 maxTop。
+        // 那会让顶部项（尤其是子菜单很高时）在大屏上被推得越来越下。
+        // 正确做法：对 desiredTop 做夹取，只在真的出屏时才上移。
+        const maxTop = Math.max(minTop, window.innerHeight - subRect.height - 10);
+        const top = Math.min(Math.max(desiredTop, minTop), maxTop);
 
         subEl.style.position = 'fixed';
         subEl.style.top = `${top}px`;

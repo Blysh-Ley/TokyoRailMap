@@ -97,6 +97,11 @@ map.on('load', async () => {
         小凑铁道:{'img':["xiaocou.png",35]},
         伊豆急行:{'img':["yidouji.png"]},
         伊豆箱根铁道: {'img':["yidouxianggen.png",35] },
+        秩父铁道: {'img':["zhifu.svg",35] },
+        上毛电气铁道: {'img':["shangmao.svg",35] },
+        真冈铁道: {'img':["zhengang.svg",35] },
+        上信电铁: {'img':["shangxin.svg",35] },
+        渡良濑溪谷铁道: {'img':["dulianglai.png",35] }
     };
 
     function applyLineSelectionStyle() {
