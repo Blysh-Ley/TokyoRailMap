@@ -14,7 +14,18 @@
  */
 
 export class Menu {
-    constructor({ companyObj, linesObj, onCompanyClick, onLineClick, onModeClick, onDirClick, companyLogoMap = {}, logoBasePath = './companyLogos/' }) {
+    constructor({
+        companyObj,
+        linesObj,
+        onCompanyClick,
+        onLineClick,
+        onModeClick,
+        onDirClick,
+        onCancelSelection,
+        hoverDelayMs = 500,
+        companyLogoMap = {},
+        logoBasePath = './companyLogos/'
+    }) {
         this.companyObj = companyObj;
         this.linesObj = linesObj;
 
@@ -22,6 +33,9 @@ export class Menu {
         this.onLineClick = onLineClick;
         this.onModeClick = onModeClick;
         this.onDirClick = onDirClick;
+        this.onCancelSelection = onCancelSelection;
+
+        this.hoverDelayMs = hoverDelayMs;
 
         this.companyLogoMap = companyLogoMap;
         this.logoBasePath = logoBasePath;
@@ -33,6 +47,10 @@ export class Menu {
         this.wrapperHeight = 0;
 
         this._activeMenuEl = null;
+
+        this._hoverTimerId = null;
+        this._hoverTargetEl = null;
+        this._committedSinceEnter = false;
     }
 
     // ---------------------------
@@ -156,7 +174,87 @@ export class Menu {
         this.preventPropagation();
         this.bindHoverShow();
         this.bindClickHighlight();
+        this.bindHoverSelectPreview();
         this.bindSlideInOut();
+    }
+
+    // ---------------------------
+    // 3.5) 悬停 0.5s = 预览选择；离开未点击则恢复“未选中”
+    // ---------------------------
+    bindHoverSelectPreview() {
+        if (!this.wrapper) return;
+
+        const clearHoverTimer = () => {
+            if (this._hoverTimerId != null) {
+                clearTimeout(this._hoverTimerId);
+                this._hoverTimerId = null;
+            }
+            this._hoverTargetEl = null;
+        };
+
+        this.wrapper.addEventListener('mouseenter', () => {
+            // 进入菜单一次算一个“会话”：只有真的点击过才算提交
+            this._committedSinceEnter = false;
+            clearHoverTimer();
+        });
+
+        this.wrapper.addEventListener('mouseleave', () => {
+            clearHoverTimer();
+
+            // 离开菜单且本次没有点击提交：恢复初始状态（什么都没选）
+            if (!this._committedSinceEnter) {
+                this.clearActive();
+                if (typeof this.onCancelSelection === 'function') {
+                    this.onCancelSelection();
+                }
+            }
+        });
+
+        this.wrapper.addEventListener('mouseover', (e) => {
+            const content = e.target.closest('.RW-company-content, .RW-line-content, .RW-linedirc-content');
+            if (!content || !this.wrapper.contains(content)) return;
+
+            // 同一个目标不重复启动计时器
+            if (this._hoverTargetEl === content) return;
+
+            clearHoverTimer();
+            this._hoverTargetEl = content;
+
+            this._hoverTimerId = setTimeout(() => {
+                this._hoverTimerId = null;
+
+                // 仍然停留在该项上才触发
+                if (!this._hoverTargetEl || !this._hoverTargetEl.matches(':hover')) return;
+
+                const companyEl = content.classList.contains('RW-company-content') ? content : null;
+                const lineEl = content.classList.contains('RW-line-content') ? content : null;
+                const modeEl = content.classList.contains('RW-linedirc-content') ? content : null;
+
+                if (companyEl) {
+                    const companyName = companyEl.querySelector('.RW-company-name')?.textContent?.trim();
+                    if (!companyName) return;
+                    this.markActive(companyEl);
+                    if (this.onCompanyClick) this.onCompanyClick(companyName, { source: 'hover' });
+                    return;
+                }
+
+                if (lineEl) {
+                    const lineId = lineEl.dataset.lineId;
+                    if (!lineId) return;
+                    this.markActive(lineEl);
+                    if (this.onLineClick) this.onLineClick(lineId, { source: 'hover' });
+                    return;
+                }
+
+                if (modeEl) {
+                    const lineId = modeEl.dataset.lineId;
+                    const mode = modeEl.dataset.mode;
+                    if (!lineId || !mode) return;
+                    this.markActive(modeEl);
+                    if (this.onModeClick) this.onModeClick({ lineId, mode }, { source: 'hover' });
+                }
+            }, this.hoverDelayMs);
+        });
     }
 
     // ---------------------------
@@ -244,8 +342,13 @@ export class Menu {
                 const companyName = companyA.querySelector('.RW-company-name')?.textContent?.trim();
                 if (!companyName) return;
 
+                // 若先通过 hover 预览选中了该项，则本次 click 视为“提交预览”，不应触发反向 toggle
+                const commitPreview = !this._committedSinceEnter && this._activeMenuEl === companyA;
+
                 this.markActive(companyA);
-                if (this.onCompanyClick) this.onCompanyClick(companyName);
+                this._committedSinceEnter = true;
+                if (this.onCompanyClick) this.onCompanyClick(companyName, { source: 'click', commitPreview });
+                this.collapse();
                 return;
             }
 
@@ -254,8 +357,12 @@ export class Menu {
                 const lineId = lineA.dataset.lineId;
                 if (!lineId) return;
 
+                const commitPreview = !this._committedSinceEnter && this._activeMenuEl === lineA;
+
                 this.markActive(lineA);
-                if (this.onLineClick) this.onLineClick(lineId);
+                this._committedSinceEnter = true;
+                if (this.onLineClick) this.onLineClick(lineId, { source: 'click', commitPreview });
+                this.collapse();
                 return;
             }
 
@@ -265,8 +372,11 @@ export class Menu {
                 const lineId = dirA.dataset.lineId;
                 const mode = dirA.dataset.mode;
                 if (lineId && mode) {
+                    const commitPreview = !this._committedSinceEnter && this._activeMenuEl === dirA;
                     this.markActive(dirA);
-                    if (this.onModeClick) this.onModeClick({ lineId, mode });
+                    this._committedSinceEnter = true;
+                    if (this.onModeClick) this.onModeClick({ lineId, mode }, { source: 'click', commitPreview });
+                    this.collapse();
                     return;
                 }
 
@@ -274,9 +384,17 @@ export class Menu {
                 const lineInfo = dirA._lineInfo;
                 if (!lineInfo) return;
                 this.markActive(dirA);
+                this._committedSinceEnter = true;
                 if (this.onDirClick) this.onDirClick(lineInfo);
+                this.collapse();
             }
         });
+    }
+
+    collapse() {
+        if (!this.wrapper) return;
+        this.hideAllSubMenus();
+        this.wrapper.style.left = '-190px';
     }
 
     markActive(el) {

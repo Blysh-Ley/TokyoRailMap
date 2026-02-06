@@ -54,7 +54,6 @@ map.on('load', async () => {
     let selectedLineId = null;
     let selectedServiceMode = 'all';
     let enabledLineIdsByCompany = new Map();
-
     const companyLogoMap = {
         JR东日本: {'img':["jreast.png"],'abb':"JR",'type':"JR铁路公司" },
         东京地下铁: {'img':["Tokyometro.png"],'abb':"东京地下铁" ,'type':"大手私铁"},
@@ -142,7 +141,7 @@ map.on('load', async () => {
             return;
         }
 
-        // 公司级：选中公司时，该公司线路正常，其它公司灰细
+        
         map.setPaintProperty('lines-layer', 'line-color', [
             'case',
             ['==', ['get', 'company'], selectedCompany],
@@ -281,6 +280,7 @@ map.on('load', async () => {
 
         map.setPaintProperty('stations-layer', 'circle-color', '#fff');
         map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
+        
     }
 
     function getEnabledLineIdsForLabels() {
@@ -329,6 +329,11 @@ map.on('load', async () => {
         const linesData = await loadGeoJSON('./lines.geojson');
         addLinesLayer(map, linesData);
 
+        // 线路偏移（像素）：从 lines.geojson 的 properties.offset 读取；没有则默认为 0
+        if (map.getLayer('lines-layer')) {
+            map.setPaintProperty('lines-layer', 'line-offset', ['coalesce', ['get', 'offset'], 0]);
+        }
+
         // 构造 RWMenuCore 所需数据：companyObj / linesObj
         const lineFeatures = Array.isArray(linesData?.features)
             ? linesData.features.filter((f) => f?.properties?.type === 'line')
@@ -367,28 +372,52 @@ map.on('load', async () => {
             linesObj,
             companyLogoMap,
             logoBasePath: './companyLogos/',
-            onCompanyClick: (companyName) => {
-                selectedCompany = selectedCompany === companyName ? null : companyName;
+            hoverDelayMs: 500,
+            onCancelSelection: clearSelectionsAndRestore,
+            onCompanyClick: (companyName, meta) => {
+                const source = meta?.source ?? 'click';
+                const commitPreview = meta?.commitPreview === true;
+                if (source === 'hover') {
+                    selectedCompany = companyName;
+                } else {
+                    // click 提交预览时不做反向 toggle
+                    selectedCompany = commitPreview ? companyName : (selectedCompany === companyName ? null : companyName);
+                }
                 selectedLineId = null;
                 selectedServiceMode = 'all';
                 applyLineSelectionStyle();
                 applyStationSelectionStyle();
                 if (collisionController) collisionController.scheduleUpdate();
             },
-            onLineClick: (lineId) => {
+            onLineClick: (lineId, meta) => {
+                const source = meta?.source ?? 'click';
+                const commitPreview = meta?.commitPreview === true;
                 // 线路点击：优先级高于公司点击
-                selectedLineId = selectedLineId === lineId ? null : lineId;
+                if (source === 'hover') {
+                    selectedLineId = lineId;
+                } else {
+                    selectedLineId = commitPreview ? lineId : (selectedLineId === lineId ? null : lineId);
+                }
                 if (selectedLineId) selectedCompany = null;
                 selectedServiceMode = 'all';
                 applyLineSelectionStyle();
                 applyStationSelectionStyle();
                 if (collisionController) collisionController.scheduleUpdate();
             },
-            onModeClick: ({ lineId, mode }) => {
+            onModeClick: ({ lineId, mode }, meta) => {
+                const source = meta?.source ?? 'click';
+                const commitPreview = meta?.commitPreview === true;
                 // 预留：目前地图高亮/站名过滤仍以 lineId 为主
-                selectedLineId = selectedLineId === lineId && selectedServiceMode === mode ? null : lineId;
+                if (source === 'hover') {
+                    selectedLineId = lineId;
+                    selectedServiceMode = mode;
+                } else {
+                    selectedLineId = commitPreview
+                        ? lineId
+                        : (selectedLineId === lineId && selectedServiceMode === mode ? null : lineId);
+                    selectedServiceMode = mode;
+                }
                 if (selectedLineId) selectedCompany = null;
-                selectedServiceMode = mode;
                 applyLineSelectionStyle();
                 applyStationSelectionStyle();
                 if (collisionController) collisionController.scheduleUpdate();
