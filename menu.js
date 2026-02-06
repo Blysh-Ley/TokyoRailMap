@@ -23,6 +23,7 @@ export class Menu {
         onDirClick,
         onCancelSelection,
         hoverDelayMs = 500,
+        exitGraceMs = 500,
         companyLogoMap = {},
         logoBasePath = './companyLogos/'
     }) {
@@ -36,6 +37,7 @@ export class Menu {
         this.onCancelSelection = onCancelSelection;
 
         this.hoverDelayMs = hoverDelayMs;
+        this.exitGraceMs = exitGraceMs;
 
         this.companyLogoMap = companyLogoMap;
         this.logoBasePath = logoBasePath;
@@ -51,6 +53,8 @@ export class Menu {
         this._hoverTimerId = null;
         this._hoverTargetEl = null;
         this._committedSinceEnter = false;
+
+        this._enteredAtMs = 0;
     }
 
     // ---------------------------
@@ -195,6 +199,7 @@ export class Menu {
         this.wrapper.addEventListener('mouseenter', () => {
             // 进入菜单一次算一个“会话”：只有真的点击过才算提交
             this._committedSinceEnter = false;
+            this._enteredAtMs = performance.now();
             clearHoverTimer();
         });
 
@@ -203,6 +208,10 @@ export class Menu {
 
             // 离开菜单且本次没有点击提交：恢复初始状态（什么都没选）
             if (!this._committedSinceEnter) {
+                // 防误触：进入菜单后 exitGraceMs 内退出，不重置选择
+                if (performance.now() - (this._enteredAtMs || 0) < this.exitGraceMs) {
+                    return;
+                }
                 this.clearActive();
                 if (typeof this.onCancelSelection === 'function') {
                     this.onCancelSelection();
