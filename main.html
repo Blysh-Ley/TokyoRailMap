@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8" />
+    <title>东京铁路网 (MapLibre + Carto底图)</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    
+    <!-- 1. 引入 MapLibre GL JS 的 CSS 和 JS -->
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+
+        /* 左上角控制面板：类别→公司→线路→运行模式(预留) */
+        #controls {
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            z-index: 2;
+            max-height: calc(100vh - 20px);
+            overflow: auto;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        #controls .panel-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        #controls .row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 3px 0;
+        }
+
+        #controls .row-cat { margin-top: 8px; }
+        #controls .row-company { padding-left: 14px; }
+        #controls .row-line { padding-left: 28px; }
+        #controls .row-mode { padding-left: 42px; }
+
+        /* 站名 DOM 标签（由 labels.js 创建），用于显示站点名称 */
+        .station-label {
+            font-size: 12px;
+            line-height: 1.2;
+            color: #111;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+            padding: 1px 4px;
+            white-space: nowrap;
+            pointer-events: none;
+            transform: translateY(-6px);
+        }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="controls"></div>
+
+<!-- ES Module 入口：负责初始化地图、加载数据、添加图层与碰撞逻辑 -->
+<script type="module" src="./app.js"></script>
+
+</body>
+</html>
