@@ -426,7 +426,10 @@ map.on('load', async () => {
                 lastFitKey = next.key ?? null;
                 map.fitBounds(bounds, {
                     padding: 60,
-                    duration: 650
+                    maxZoom: 10,
+                    duration: 300,
+                    easing: (t) => t,
+                    essential: true
                 });
             });
         }
