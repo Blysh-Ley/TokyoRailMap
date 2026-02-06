@@ -10,40 +10,216 @@
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
     
     <style>
-        body { margin: 0; padding: 0; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-
-        /* 左上角控制面板：类别→公司→线路→运行模式(预留) */
-        #controls {
-            position: absolute;
-            left: 10px;
-            top: 10px;
-            z-index: 2;
-            max-height: calc(100vh - 20px);
-            overflow: auto;
-            padding: 10px 12px;
-            background: rgba(255, 255, 255, 0.92);
-            border: 1px solid rgba(0, 0, 0, 0.15);
-            font-size: 12px;
-            line-height: 1.4;
+        :root {
+            --custom-icon-font-size: 12px;
         }
 
-        #controls .panel-title {
-            font-weight: 600;
-            margin-bottom: 6px;
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
         }
 
-        #controls .row {
+        #map {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* 隐藏滚动条 */
+        body::-webkit-scrollbar {
+            display: none;
+        }
+
+        .custom-button {
+            background-color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
-            gap: 6px;
-            margin: 3px 0;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            cursor: pointer !important;
+            font-size: 18px;
         }
 
-        #controls .row-cat { margin-top: 8px; }
-        #controls .row-company { padding-left: 14px; }
-        #controls .row-line { padding-left: 28px; }
-        #controls .row-mode { padding-left: 42px; }
+        .custom-button:hover {
+            background-color: #f0f0f0;
+        }
+
+        .video-button{
+            display: none;
+        }
+
+        .custom-textbox {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            font-size: 17px;
+            opacity: 0;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            z-index:9999;
+        }
+
+        .custom-icon {
+            font-size: var(--custom-icon-font-size);
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 0px;
+            border-radius: 5px;
+            color: #4e4e4e;
+            text-align: center;
+            white-space: nowrap;
+            display: inline-block;
+        }
+
+        .RW-wrapper {
+            display: none;
+            position: absolute;
+            top: 200px;
+            left: -190px;
+            z-index: 9999;
+            margin-top: 0px;
+            padding-top: 20px;
+            padding-bottom: 20px;
+            cursor: pointer;
+        }
+
+
+        .RW-list {
+            margin-top: 0px;
+            padding-left: 1px;
+            font-size: 16px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            border-radius: 8px;
+            background-color: #fff;
+            border: 1px solid #e3e5e7;
+            box-shadow: 0 0 30px rgba(0, 0, 0, .1);
+        }
+
+
+        .RW-content{
+            display: flex;
+            min-height:40px;
+            max-height:100px;
+            font-size: 15px;
+            flex-wrap: wrap;
+            color: black;
+            background-color:white;
+            align-items:center;
+            justify-content: space-between;
+            padding: .5rem 1rem;
+            position: relative;
+        }
+
+        /* 选中状态 */
+        .RW-item:hover > .RW-content {
+            background-color: #3498db;
+            color: #fff;
+        }
+
+        /* 点击后的选中态（不依赖 hover） */
+        .RW-active {
+            background-color: #3498db;
+            color: #fff;
+        }
+
+        /* 隐藏底部线条 */
+        .RW-item:hover > .RW-content::after {
+            background-color: transparent;
+        }
+
+        /* 显示底部线条 */
+        .RW-content::after {
+            content: '';
+            position: absolute;
+            left: 0.5rem;
+            right: 0.5rem;
+            bottom: 0;
+            height: 1px;
+            background-color: #efefef;
+        }
+
+        /* 隐藏滚动条 */
+        .RW-list::-webkit-scrollbar {
+            display: none;
+        }
+
+        ul {
+            list-style-type: none;
+        }
+
+        p{
+            margin-top: 10px;
+            margin-block-end:0px
+        }
+
+        .RW-company{
+            display: block !important;
+            opacity: 0.95;
+            transition: left 0.3s ease-in-out;
+        }
+
+        .RW-company-list{
+            min-width: 200px;
+        }
+
+        .RW-line{
+            min-width: 200px;
+        }
+
+        .RW-linedirc{
+            min-width: 200px;
+        }
+
+        .RW-linestation{
+            min-width: 200px;
+            width:max-content;
+        }
+
+        .RW-disabled{
+            cursor:default !important;
+            background-color: #e0e0e0
+        }
+
+        /* 公司logo：统一尺寸，保证每行高度/宽度一致 */
+        .RW-company-content {
+            align-items: center;
+        }
+
+        .RW-company-left {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .RW-company-name {
+            text-align: left;
+        }
+
+        .RW-company-type {
+            font-size: 10px;
+            line-height: 1.1;
+            color: #999;
+            margin-top: 2px;
+        }
+
+        .RW-company-logo {
+            width: 28px;
+            height: 28px;
+            flex: 0 0 28px;
+            object-fit: contain;
+        }
+
+        .RW-company-logo--placeholder {
+            display: inline-block;
+        }
 
         /* 站名 DOM 标签（由 labels.js 创建），用于显示站点名称 */
         .station-label {

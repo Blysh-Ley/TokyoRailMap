@@ -2,7 +2,7 @@ import { loadGeoJSON } from './data.js';
 import { addLinesLayer, addStationsLayer, setupStationPopup } from './layers.js';
 import { createStationMarkers } from './labels.js';
 import { setupCollisions } from './collision.js';
-import { setupLineControls } from './controls.js';
+import { Menu } from './menu.js';
 
 // MapLibre 通过 CDN 以全局变量方式引入
 const maplibregl = window.maplibregl;
@@ -48,30 +48,356 @@ const map = new maplibregl.Map({
 map.on('load', async () => {
     console.log('底图加载完毕，准备加载 GeoJSON...');
 
-    // 用于“线路开关 → 站点联动”的共享引用
-    let lineControls = null;
     let collisionController = null;
+    let menu = null;
+    let selectedCompany = null;
+    let selectedLineId = null;
+    let selectedServiceMode = 'all';
+    let enabledLineIdsByCompany = new Map();
+
+    const companyLogoMap = {
+        JR东日本: {'img':["jreast.png"],'abb':"JR",'type':"JR铁路公司" },
+        东京地下铁: {'img':["Tokyometro.png"],'abb':"东京地下铁" ,'type':"大手私铁"},
+        都营地下铁: {'img':["duyinmetro.svg"],'abb':"都营地下铁" },
+        都营交通: {'img':["duyinmetro.svg"],'abb':"都营交通" },
+        京王电铁: {'img':["jingwang.svg", 65],'abb':"京王",'type':"大手私铁"},
+        东武铁道: {'img':["dongwu.svg", 70],'abb':"东武",'type':"大手私铁" },
+        东急电铁: {'img':["dongji.png"],'abb':"东急",'type':"大手私铁" },
+        西武铁道: {'img':["xiwu.png"],'abb':"西武",'type':"大手私铁" },
+        京急电铁: {'img':["jingji.png", 65],'abb':"京急",'type':"大手私铁" },
+        小田急电铁: {'img':["xiaotianji.png"],'abb':"小田急",'type':"大手私铁" },
+        京成电铁: {'img':["jingcheng.png", 60],'abb':"京成" ,'type':"大手私铁"},
+        相模铁道: {'img':["xiangmo.png"],'abb':"相铁",'type':"大手私铁" },
+        北总铁道:{'img':["beizong.png", 80] },
+        首都圈新都市铁道: {'img':["TsukubaExpress.png", 40] },
+        东京单轨电车: {'img':["tokyoMonorail.png"] },
+        东京临海高速铁道: {'img':["linhai.png",40] },
+        新交通百合鸥: {'img':["yurikamome.png", 45] },
+        迪士尼: {'img':["disney.png", 65],'abb':" " },
+        横滨市营地下铁: {'img':["yokohamaMetro.svg"] },
+        横滨海岸线: {'img':["YokohamaSeaside.png", 45] },
+        横滨高速铁道: {'img':["gangweilai.png"]},
+        横滨索道: {'img':["quanyang.png"]},
+        千叶都市单轨: {'img':["chibaMonorail.png", 35] },
+        东叶高速铁道: {'img':["dongyegaosu.png",40] },
+        流铁: {'img':["liutie.png",35] },
+        山万: {'img':["shanwan.png",35] },
+        埼玉新都市交通: {'img':["SaitamaNUT.png"] },
+        埼玉高速铁道: {'img':["qiyugaosu.png",50] },
+        多摩都市单轨: {'img':["TamaMonorail.png"] },
+        湘南单轨电车: {'img':["shonanMonorail.png", 50] },
+        关东铁道: {'img':["guandong.png",35]},	
+        江之岛电铁:{'img':["jiangdian.png",60]},	
+        宇都宫轻轨:{'img':["yudugong.png",35]},
+        鹿岛临海铁道:{'img':["ludao.png",35]},
+        铫子电气铁道:{'img':["yaozi.png",35]},
+        夷隅铁道:{'img':["yiou.png",35]},
+        富士急行:{'img':["fushi.png",40]},
+        芝山铁道:{'img':["zhishan.png"]},
+        小凑铁道:{'img':["xiaocou.png",35]},
+        伊豆急行:{'img':["yidouji.png"]},
+        伊豆箱根铁道: {'img':["yidouxianggen.png",35] },
+    };
+
+    function applyLineSelectionStyle() {
+        if (!map.getLayer('lines-layer')) return;
+
+        const baseColorExpr = ['coalesce', ['get', 'color'], '#555'];
+
+        // 线路优先：选中线路时，忽略公司选中
+        if (selectedLineId) {
+            map.setPaintProperty('lines-layer', 'line-color', [
+                'case',
+                ['==', ['get', 'id'], selectedLineId],
+                baseColorExpr,
+                '#999'
+            ]);
+
+            map.setPaintProperty('lines-layer', 'line-width', [
+                'case',
+                ['==', ['get', 'id'], selectedLineId],
+                3,
+                1.2
+            ]);
+
+            map.setPaintProperty('lines-layer', 'line-opacity', [
+                'case',
+                ['==', ['get', 'id'], selectedLineId],
+                1,
+                0.6
+            ]);
+
+            return;
+        }
+
+        if (!selectedCompany) {
+            map.setPaintProperty('lines-layer', 'line-color', baseColorExpr);
+            map.setPaintProperty('lines-layer', 'line-width', 3);
+            map.setPaintProperty('lines-layer', 'line-opacity', 1);
+            return;
+        }
+
+        // 公司级：选中公司时，该公司线路正常，其它公司灰细
+        map.setPaintProperty('lines-layer', 'line-color', [
+            'case',
+            ['==', ['get', 'company'], selectedCompany],
+            baseColorExpr,
+            '#999'
+        ]);
+
+        map.setPaintProperty('lines-layer', 'line-width', [
+            'case',
+            ['==', ['get', 'company'], selectedCompany],
+            3,
+            1.2
+        ]);
+
+        map.setPaintProperty('lines-layer', 'line-opacity', [
+            'case',
+            ['==', ['get', 'company'], selectedCompany],
+            1,
+            0.6
+        ]);
+    }
+
+    function baseStationCircleRadiusExpr() {
+        return [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            6, [
+                'case',
+                ['==', ['length', ['get', 'serving_lines']], 1],
+                0.5,
+                0.5
+            ],
+            14, [
+                'case',
+                ['==', ['length', ['get', 'serving_lines']], 1],
+                3.5,
+                4
+            ],
+            22, [
+                'case',
+                ['==', ['length', ['get', 'serving_lines']], 1],
+                3.5,
+                4
+            ]
+        ];
+    }
+
+    function baseStationCircleStrokeWidthExpr() {
+        return [
+            'case',
+            ['==', ['length', ['get', 'serving_lines']], 1],
+            0,
+            2
+        ];
+    }
+
+    function buildStationAnyLineMatchExpr(lineIds) {
+        // 判断站点是否服务于给定线路集合：
+        // station.properties.serving_lines 是数组，因此用：any(in(lineId, serving_lines))
+        const ids = Array.isArray(lineIds) ? lineIds.filter(Boolean) : [];
+        if (!ids.length) return ['boolean', false];
+        if (ids.length === 1) return ['in', ids[0], ['get', 'serving_lines']];
+
+        const any = ['any'];
+        for (const id of ids) {
+            any.push(['in', id, ['get', 'serving_lines']]);
+        }
+        return any;
+    }
+
+    function applyStationSelectionStyle() {
+        if (!map.getLayer('stations-layer')) return;
+
+        // 未选择任何东西：恢复原样式
+        if (!selectedLineId && !selectedCompany) {
+            map.setPaintProperty('stations-layer', 'circle-radius', baseStationCircleRadiusExpr());
+            map.setPaintProperty('stations-layer', 'circle-stroke-width', baseStationCircleStrokeWidthExpr());
+            map.setPaintProperty('stations-layer', 'circle-color', '#fff');
+            map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
+            return;
+        }
+
+        const isSelectedStation = selectedLineId
+            ? ['in', selectedLineId, ['get', 'serving_lines']]
+            : buildStationAnyLineMatchExpr(Array.from(enabledLineIdsByCompany.get(selectedCompany) ?? []));
+
+        map.setPaintProperty('stations-layer', 'circle-radius', [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+
+            6, [
+                'case',
+                isSelectedStation,
+                [
+                    'case',
+                    ['==', ['length', ['get', 'serving_lines']], 1],
+                    0.5,
+                    0.5
+                ],
+                0.5
+            ],
+
+            14, [
+                'case',
+                isSelectedStation,
+                [
+                    'case',
+                    ['==', ['length', ['get', 'serving_lines']], 1],
+                    3.5,
+                    4
+                ],
+                0.5
+            ],
+
+            22, [
+                'case',
+                isSelectedStation,
+                [
+                    'case',
+                    ['==', ['length', ['get', 'serving_lines']], 1],
+                    3.5,
+                    4
+                ],
+                0.5
+            ]
+        ]);
+
+        map.setPaintProperty('stations-layer', 'circle-stroke-width', [
+            'case',
+            isSelectedStation,
+            baseStationCircleStrokeWidthExpr(),
+            0
+        ]);
+
+        map.setPaintProperty('stations-layer', 'circle-color', '#fff');
+        map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
+    }
+
+    function getEnabledLineIdsForLabels() {
+        // 需求：选择线路不变、其他线路变灰变细；且“其他线路站点不显示站点名”
+        // 这里返回“当前选中线路集合”，只用于站名筛选（圆点不筛选）。
+        if (selectedLineId) return new Set([selectedLineId]);
+
+        if (selectedCompany && enabledLineIdsByCompany.has(selectedCompany)) {
+            return enabledLineIdsByCompany.get(selectedCompany);
+        }
+
+        return null;
+    }
+
+    function clearSelectionsAndRestore() {
+        selectedCompany = null;
+        selectedLineId = null;
+        selectedServiceMode = 'all';
+
+        if (menu && typeof menu.clearActive === 'function') menu.clearActive();
+
+        applyLineSelectionStyle();
+        applyStationSelectionStyle();
+        if (collisionController) collisionController.scheduleUpdate();
+    }
+
+    function bindClickBlankToRestore() {
+        // 点击地图空白处：恢复所有线路显示（并同步恢复站点/站名联动）
+        map.on('click', (e) => {
+            const layers = [];
+            if (map.getLayer('lines-layer')) layers.push('lines-layer');
+            if (map.getLayer('stations-layer')) layers.push('stations-layer');
+
+            // 若没有可查询的图层，视为“空白”
+            const hits = layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [];
+            if (hits.length) return;
+
+            // 已经是“全显示”状态就不做任何事（避免多余刷新）
+            if (!selectedCompany && !selectedLineId) return;
+
+            clearSelectionsAndRestore();
+        });
+    }
 
     try {
         const linesData = await loadGeoJSON('./lines.geojson');
         addLinesLayer(map, linesData);
 
-        // 多级图层开关（类别→公司→线路→运行模式(预留)）
-        lineControls = setupLineControls(map, linesData, {
-            containerId: 'controls',
-            layerIds: ['lines-layer'],
-            companyField: 'company',
-            lineIdField: 'id',
-            lineNameField: 'name',
-            modeField: 'service_mode'
-        });
+        // 构造 RWMenuCore 所需数据：companyObj / linesObj
+        const lineFeatures = Array.isArray(linesData?.features)
+            ? linesData.features.filter((f) => f?.properties?.type === 'line')
+            : [];
 
-        // 线路隐藏/显示时，主动触发一次站点可见性更新
-        lineControls.onChange(() => {
-            if (collisionController) {
-                collisionController.scheduleUpdate();
+        const companyObj = {};
+        const linesObj = {};
+        enabledLineIdsByCompany = new Map();
+
+        for (const f of lineFeatures) {
+            const lineId = f?.properties?.id ?? f?.id;
+            if (!lineId) continue;
+
+            const company = f?.properties?.company ?? '未知公司';
+            const name = f?.properties?.name ?? String(lineId);
+
+            companyObj[company] = true;
+
+            if (!enabledLineIdsByCompany.has(company)) enabledLineIdsByCompany.set(company, new Set());
+            enabledLineIdsByCompany.get(company).add(String(lineId));
+
+            linesObj[String(lineId)] = {
+                company,
+                simplified: name,
+                // 运行模式预留：目前只提供 all
+                modes: ['all']
+            };
+        }
+
+        // 旧的 #controls 容器不再作为侧边栏使用，清空避免视觉干扰
+        const controlsEl = document.getElementById('controls');
+        if (controlsEl) controlsEl.innerHTML = '';
+
+        menu = new Menu({
+            companyObj,
+            linesObj,
+            companyLogoMap,
+            logoBasePath: './companyLogos/',
+            onCompanyClick: (companyName) => {
+                selectedCompany = selectedCompany === companyName ? null : companyName;
+                selectedLineId = null;
+                selectedServiceMode = 'all';
+                applyLineSelectionStyle();
+                applyStationSelectionStyle();
+                if (collisionController) collisionController.scheduleUpdate();
+            },
+            onLineClick: (lineId) => {
+                // 线路点击：优先级高于公司点击
+                selectedLineId = selectedLineId === lineId ? null : lineId;
+                if (selectedLineId) selectedCompany = null;
+                selectedServiceMode = 'all';
+                applyLineSelectionStyle();
+                applyStationSelectionStyle();
+                if (collisionController) collisionController.scheduleUpdate();
+            },
+            onModeClick: ({ lineId, mode }) => {
+                // 预留：目前地图高亮/站名过滤仍以 lineId 为主
+                selectedLineId = selectedLineId === lineId && selectedServiceMode === mode ? null : lineId;
+                if (selectedLineId) selectedCompany = null;
+                selectedServiceMode = mode;
+                applyLineSelectionStyle();
+                applyStationSelectionStyle();
+                if (collisionController) collisionController.scheduleUpdate();
             }
         });
+
+        menu.mount(document.body);
+        menu.setWrapperStyle();
+        window.addEventListener('resize', () => menu.setWrapperStyle());
+
+        bindClickBlankToRestore();
+
+        applyLineSelectionStyle();
+        applyStationSelectionStyle();
     } catch (e) {
         console.error('线路加载失败，请确保运行了 python -m http.server', e);
     }
@@ -80,20 +406,21 @@ map.on('load', async () => {
         const stationsData = await loadGeoJSON('./stations.geojson');
         addStationsLayer(map, stationsData);
 
+        // 确保 stations-layer 创建后立即应用一次“选中线路的站点样式策略”
+        applyStationSelectionStyle();
+
         const { stationLabels, stationCircles } = createStationMarkers(map, maplibregl, stationsData);
 
         // 站名碰撞：labelDyPx 需与 CSS translateY 的像素值保持一致
         collisionController = setupCollisions(map, stationLabels, stationCircles, {
             labelDyPx: 6,
             gridCellPx: 80,
-            // 线路联动：只显示服务于“当前启用线路集合”的站点
-            getEnabledLineIds: () => (lineControls ? lineControls.getEnabledLineIds() : null)
+            // 线路联动：只影响站名（圆点仍按碰撞显示）
+            getEnabledLineIds: getEnabledLineIdsForLabels,
+            lineFilterTarget: 'labels'
         });
 
-        // 如果线路控制已初始化，站点加载完成后立即按当前线路开关状态刷新一次
-        if (lineControls) {
-            collisionController.scheduleUpdate();
-        }
+        collisionController.scheduleUpdate();
 
         setupStationPopup(map, maplibregl);
     } catch (e) {
