@@ -343,6 +343,94 @@ map.on('load', async () => {
         const linesObj = {};
         enabledLineIdsByCompany = new Map();
 
+        // ====== 选中后自动缩放：预计算线路 bounds（支持 LineString / MultiLineString） ======
+        const lineBoundsById = new Map();
+        let lastFitKey = null;
+        let fitRafId = null;
+        let pendingFit = null;
+
+        function extendBBox(b, lng, lat) {
+            if (!b) return { minLng: lng, minLat: lat, maxLng: lng, maxLat: lat };
+            if (lng < b.minLng) b.minLng = lng;
+            if (lat < b.minLat) b.minLat = lat;
+            if (lng > b.maxLng) b.maxLng = lng;
+            if (lat > b.maxLat) b.maxLat = lat;
+            return b;
+        }
+
+        function bboxFromGeometry(geom) {
+            if (!geom) return null;
+            const type = geom.type;
+            const coords = geom.coordinates;
+            let b = null;
+
+            if (type === 'LineString' && Array.isArray(coords)) {
+                for (const pt of coords) {
+                    if (!Array.isArray(pt) || pt.length < 2) continue;
+                    b = extendBBox(b, Number(pt[0]), Number(pt[1]));
+                }
+                return b;
+            }
+
+            if (type === 'MultiLineString' && Array.isArray(coords)) {
+                for (const line of coords) {
+                    if (!Array.isArray(line)) continue;
+                    for (const pt of line) {
+                        if (!Array.isArray(pt) || pt.length < 2) continue;
+                        b = extendBBox(b, Number(pt[0]), Number(pt[1]));
+                    }
+                }
+                return b;
+            }
+
+            return null;
+        }
+
+        function unionBBox(a, b) {
+            if (!a) return b;
+            if (!b) return a;
+            return {
+                minLng: Math.min(a.minLng, b.minLng),
+                minLat: Math.min(a.minLat, b.minLat),
+                maxLng: Math.max(a.maxLng, b.maxLng),
+                maxLat: Math.max(a.maxLat, b.maxLat)
+            };
+        }
+
+        function bboxToFitBounds(b) {
+            if (!b) return null;
+            if (![b.minLng, b.minLat, b.maxLng, b.maxLat].every(Number.isFinite)) return null;
+            // MapLibre: [[west,south],[east,north]]
+            return [
+                [b.minLng, b.minLat],
+                [b.maxLng, b.maxLat]
+            ];
+        }
+
+        function scheduleFit(key, bbox) {
+            if (!bbox) return;
+            if (key && key === lastFitKey) return;
+
+            pendingFit = { key, bbox };
+            if (fitRafId != null) return;
+
+            fitRafId = requestAnimationFrame(() => {
+                fitRafId = null;
+                const next = pendingFit;
+                pendingFit = null;
+                if (!next) return;
+
+                const bounds = bboxToFitBounds(next.bbox);
+                if (!bounds) return;
+
+                lastFitKey = next.key ?? null;
+                map.fitBounds(bounds, {
+                    padding: 60,
+                    duration: 650
+                });
+            });
+        }
+
         for (const f of lineFeatures) {
             const lineId = f?.properties?.id ?? f?.id;
             if (!lineId) continue;
@@ -361,6 +449,35 @@ map.on('load', async () => {
                 // 运行模式预留：目前只提供 all
                 modes: ['all']
             };
+
+            // 预计算该线路 geometry bounds
+            const bbox = bboxFromGeometry(f.geometry);
+            if (bbox) lineBoundsById.set(String(lineId), bbox);
+        }
+
+        function getBBoxForSelected() {
+            if (selectedLineId) {
+                const b = lineBoundsById.get(String(selectedLineId));
+                return b ?? null;
+            }
+
+            if (selectedCompany) {
+                const ids = enabledLineIdsByCompany.get(selectedCompany);
+                if (!ids || ids.size === 0) return null;
+                let b = null;
+                for (const id of ids) {
+                    b = unionBBox(b, lineBoundsById.get(String(id)) ?? null);
+                }
+                return b;
+            }
+
+            return null;
+        }
+
+        function fitToCurrentSelection(triggerKey) {
+            const b = getBBoxForSelected();
+            if (!b) return;
+            scheduleFit(triggerKey, b);
         }
 
         // 旧的 #controls 容器不再作为侧边栏使用，清空避免视觉干扰
@@ -388,6 +505,7 @@ map.on('load', async () => {
                 applyLineSelectionStyle();
                 applyStationSelectionStyle();
                 if (collisionController) collisionController.scheduleUpdate();
+                if (selectedCompany) fitToCurrentSelection(`company:${selectedCompany}`);
             },
             onLineClick: (lineId, meta) => {
                 const source = meta?.source ?? 'click';
@@ -403,6 +521,7 @@ map.on('load', async () => {
                 applyLineSelectionStyle();
                 applyStationSelectionStyle();
                 if (collisionController) collisionController.scheduleUpdate();
+                if (selectedLineId) fitToCurrentSelection(`line:${selectedLineId}`);
             },
             onModeClick: ({ lineId, mode }, meta) => {
                 const source = meta?.source ?? 'click';
@@ -421,6 +540,7 @@ map.on('load', async () => {
                 applyLineSelectionStyle();
                 applyStationSelectionStyle();
                 if (collisionController) collisionController.scheduleUpdate();
+                if (selectedLineId) fitToCurrentSelection(`mode:${selectedLineId}:${selectedServiceMode}`);
             }
         });
 
