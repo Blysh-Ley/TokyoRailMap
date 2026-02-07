@@ -325,6 +325,50 @@ map.on('load', async () => {
         });
     }
 
+    function bindClickLineToSelect() {
+        if (!map.getLayer('lines-layer')) return;
+
+        const cssEscape = (value) => {
+            const s = String(value);
+            // CSS.escape is supported by modern browsers; fallback for simple ids
+            if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(s);
+            return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        };
+
+        // 点击线路：高亮该线路及其站点（复用现有逻辑）
+        map.on('click', 'lines-layer', (e) => {
+            const f = e?.features?.[0];
+            const lineId = f?.properties?.id ?? f?.id;
+            if (lineId == null) return;
+
+            const nextLineId = String(lineId);
+
+            // 点击线路：永远选中；取消选择仅通过“点击空白处”
+            selectedLineId = nextLineId;
+            selectedCompany = null;
+            selectedServiceMode = 'all';
+
+            // 同步菜单高亮（如果菜单已挂载且能找到对应项）
+            if (menu && typeof menu.markActive === 'function') {
+                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(selectedLineId)}"]`);
+                if (el) menu.markActive(el);
+            }
+
+            applyLineSelectionStyle();
+            applyStationSelectionStyle();
+            if (collisionController) collisionController.scheduleUpdate();
+            fitToCurrentSelection(`line:${selectedLineId}`);
+        });
+
+        // 鼠标样式提示可点击（可选但很轻量）
+        map.on('mouseenter', 'lines-layer', () => {
+            map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', 'lines-layer', () => {
+            map.getCanvas().style.cursor = '';
+        });
+    }
+
     try {
         const linesData = await loadGeoJSON('./lines.geojson');
         addLinesLayer(map, linesData);
@@ -550,6 +594,8 @@ map.on('load', async () => {
         menu.mount(document.body);
         menu.setWrapperStyle();
         window.addEventListener('resize', () => menu.setWrapperStyle());
+
+        bindClickLineToSelect();
 
         bindClickBlankToRestore();
 
