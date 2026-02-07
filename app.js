@@ -541,6 +541,30 @@ map.on('load', async () => {
         let lastFitKey = null;
         let fitRafId = null;
         let pendingFit = null;
+        let lastFitPaddingSig = null;
+
+        const getFitPadding = (paddingMode = 'auto') => {
+            const base = 60;
+            const extraLeft = 200;
+
+            // 默认：四周等距 padding
+            const fallback = { top: base, right: base, bottom: base, left: base };
+
+            // 提交选择：强制按全屏 fit（不扣除菜单宽度）
+            if (paddingMode === 'full') return fallback;
+
+            if (!menu?.wrapper) return fallback;
+
+            // 菜单展开时：扣除左侧菜单宽度，把 bbox fit 到剩余区域
+            const left = parseFloat(getComputedStyle(menu.wrapper).left || '0');
+            if (!Number.isFinite(left) || left < 0) return fallback;
+
+            const rect = menu.wrapper.getBoundingClientRect?.();
+            if (!rect || !Number.isFinite(rect.right)) return fallback;
+
+            const leftPad = Math.max(base, Math.ceil(rect.right + base + extraLeft));
+            return { top: base, right: base, bottom: base, left: leftPad };
+        };
 
         function isFiniteNum(n) {
             return Number.isFinite(n);
@@ -613,9 +637,11 @@ map.on('load', async () => {
 
         function scheduleFit(key, bbox, options = {}) {
             if (!bbox) return;
-            if (key && key === lastFitKey) return;
+            const padding = getFitPadding(options?.paddingMode);
+            const paddingSig = `l${padding.left}|r${padding.right}|t${padding.top}|b${padding.bottom}`;
+            if (key && key === lastFitKey && paddingSig === lastFitPaddingSig) return;
 
-            pendingFit = { key, bbox, options };
+            pendingFit = { key, bbox, options, padding, paddingSig };
             if (fitRafId != null) return;
 
             fitRafId = requestAnimationFrame(() => {
@@ -630,8 +656,9 @@ map.on('load', async () => {
                 if (!flat.every(isFiniteNum)) return;
 
                 lastFitKey = next.key ?? null;
+                lastFitPaddingSig = next.paddingSig ?? null;
                 const fitOptions = {
-                    padding: 60,
+                    padding: next.padding || 60,
                     duration: 300,
                     easing: (t) => t,
                     essential: true
@@ -694,14 +721,14 @@ map.on('load', async () => {
         const fitToCurrentSelectionPreview = (triggerKey) => {
             const b = getBBoxForSelected();
             if (!b) return;
-            scheduleFit(`preview:${triggerKey}`, b, { maxZoom: 10 });
+            scheduleFit(`preview:${triggerKey}`, b, { maxZoom: 11 });
         };
 
         const fitToCurrentSelectionCommit = (triggerKey) => {
             const b = getBBoxForSelected();
             if (!b) return;
             // 点击高亮：不限制放大倍率，按 bounds 实际大小 fit
-            scheduleFit(`commit:${triggerKey}`, b, { maxZoom: undefined });
+            scheduleFit(`commit:${triggerKey}`, b, { maxZoom: undefined, paddingMode: 'full' });
         };
 
         // 对外统一入口：既支持 mode 参数，也兼容 triggerKey 前缀（commit:/preview:）
@@ -803,6 +830,32 @@ map.on('load', async () => {
         menu.mount(document.body);
         menu.setWrapperStyle();
         window.addEventListener('resize', () => menu.setWrapperStyle());
+
+        // 菜单展开时：用“扣除菜单宽度后的可视区域”重新 fit 当前选中对象
+        const refitForMenuOpen = () => {
+            if (!selectedCompany && !selectedLineId) return;
+            // 用 preview 语义，避免改变“提交态”的选择逻辑
+            fitToCurrentSelection('menu-open', 'preview');
+        };
+
+        menu.wrapper?.addEventListener('mouseenter', () => {
+            refitForMenuOpen();
+        });
+
+        menu.wrapper?.addEventListener(
+            'pointerdown',
+            (evt) => {
+                const pt = evt?.pointerType;
+                if (pt !== 'touch' && pt !== 'pen') return;
+
+                // 仅在“从收起状态唤起”的那次触摸后 refit
+                const leftBefore = parseFloat(getComputedStyle(menu.wrapper).left || '0');
+                if (Number.isFinite(leftBefore) && leftBefore < 0) {
+                    setTimeout(() => refitForMenuOpen(), 0);
+                }
+            },
+            { passive: true }
+        );
 
         bindClickLineToSelect();
 
