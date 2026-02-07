@@ -114,6 +114,14 @@ export class Menu {
         });
         const lines = Object.entries(this.linesObj || {});
 
+        const computeLineDisplayName = (lineId, meta, abb) => {
+            let lineName = meta?.simplified || String(lineId);
+            if (lineName !== abb + '线' && lineName !== abb + '本线' && lineName !== abb + '新线') {
+                lineName = lineName.replace(abb, '').trim();
+            }
+            return lineName;
+        };
+
         companies.forEach((companyName) => {
             const [companyContent, lineListEl] = this.addSubMenu(this.wrapperList, 'company', 'line');
             companyContent.classList.add('RW-company-content');
@@ -156,18 +164,43 @@ export class Menu {
             companyContent.appendChild(rightEl);
 
             // 线路层（按公司过滤）
-            lines.forEach(([lineId, meta]) => {
-                if (!meta) return;
-                if (meta.company !== companyName) return;
+            const companyLines = lines.filter(([, meta]) => meta && meta.company === companyName);
 
+            const preferredLineOrderRaw = this.companyLogoMap?.[companyName]?.order;
+            const preferredLineOrder = Array.isArray(preferredLineOrderRaw)
+                ? preferredLineOrderRaw.map((x) => String(x)).filter(Boolean)
+                : null;
+
+            const decorated = companyLines.map(([lineId, meta], idx) => {
+                const lineName = computeLineDisplayName(lineId, meta, abb);
+
+                let orderRank = Number.POSITIVE_INFINITY;
+                if (preferredLineOrder && preferredLineOrder.length) {
+                    for (let i = 0; i < preferredLineOrder.length; i++) {
+                        const token = preferredLineOrder[i];
+                        if (token && lineName.includes(token)) {
+                            orderRank = i;
+                            break;
+                        }
+                    }
+                }
+
+                return { lineId, meta, idx, lineName, orderRank };
+            });
+
+            // 稳定排序：优先名单按指定顺序，其余线路保持原顺序
+            if (preferredLineOrder && preferredLineOrder.length) {
+                decorated.sort((a, b) => {
+                    if (a.orderRank !== b.orderRank) return a.orderRank - b.orderRank;
+                    return a.idx - b.idx;
+                });
+            }
+
+            decorated.forEach(({ lineId, meta, lineName }) => {
                 // 线路项 + 运行模式子菜单
                 const [lineContent, modeListEl] = this.addSubMenu(lineListEl, 'line', 'linedirc');
 
-                let lineName = meta.simplified || String(lineId);
-                if (lineName !== abb + '线' && lineName !== abb + '本线' && lineName !== abb + '新线')  {
-                    lineName = lineName.replace(abb, '').trim();
-                }
-                lineContent.textContent = lineName 
+                lineContent.textContent = lineName;
                 lineContent.dataset.lineId = String(lineId);
 
                 const modes = Array.isArray(meta.modes) && meta.modes.length ? meta.modes : ['all'];
