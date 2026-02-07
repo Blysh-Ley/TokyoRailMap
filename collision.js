@@ -70,6 +70,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
     const getEnabledLineIds = options.getEnabledLineIds;
     const getLabelsVisible = options.getLabelsVisible;
     const getLabelMode = options.getLabelMode;
+    const getCircleMode = options.getCircleMode;
     // 线路联动作用范围：
     // - 'labels'：只影响站名显示（不影响圆点）
     // - 'labels_and_circles'：同时影响站名与圆点（默认）
@@ -188,10 +189,30 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
         if (!stationCircles.length) return;
         if (!map.getLayer('stations-layer')) return;
 
+        const circleMode = (typeof getCircleMode === 'function' ? getCircleMode() : null) ?? 'collide';
+
         const enabledLineIdsSet =
             lineFilterTarget === 'labels_and_circles'
                 ? (typeof getEnabledLineIds === 'function' ? getEnabledLineIds() : null)
                 : null;
+
+        // 在需要“全部显示圆点”时，跳过碰撞计算（避免缩小地图后圆点被隐藏）
+        if (circleMode === 'all') {
+            const visibleIds = [];
+            for (const station of stationCircles) {
+                if (!station.priority) continue;
+                if (!isStationEnabledByLines(station.servingLineIds, enabledLineIdsSet)) continue;
+                visibleIds.push(station.stationId);
+            }
+
+            if (!visibleIds.length) {
+                map.setFilter('stations-layer', ['==', ['get', 'id'], '']);
+                return;
+            }
+
+            map.setFilter('stations-layer', ['in', ['get', 'id'], ['literal', visibleIds]]);
+            return;
+        }
 
         const sorted = stationCircles
             .slice()

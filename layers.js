@@ -24,6 +24,8 @@ export function addLinesLayer(map, linesData) {
 export function addStationsLayer(map, stationsData) {
     map.addSource('stations-source', { type: 'geojson', data: stationsData });
 
+    const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
+
     map.addLayer({
         id: 'stations-layer',
         type: 'circle',
@@ -39,7 +41,7 @@ export function addStationsLayer(map, stationsData) {
                 // zoom = 6
                 6, [
                     'case',
-                    ['==', ['length', ['get', 'serving_lines']], 1],
+                    ['==', ['length', servingIdsExpr], 1],
                     0.5,
                     0.5
                 ],
@@ -47,7 +49,7 @@ export function addStationsLayer(map, stationsData) {
                 // zoom = 14
                 14, [
                     'case',
-                    ['==', ['length', ['get', 'serving_lines']], 1],
+                    ['==', ['length', servingIdsExpr], 1],
                     3.5,
                     4
                 ],
@@ -55,7 +57,7 @@ export function addStationsLayer(map, stationsData) {
                 // zoom = 22
                 22, [
                     'case',
-                    ['==', ['length', ['get', 'serving_lines']], 1],
+                    ['==', ['length', servingIdsExpr], 1],
                     3.5,
                     4
                 ]
@@ -63,7 +65,7 @@ export function addStationsLayer(map, stationsData) {
             'circle-color': '#fff',
             'circle-stroke-width': [
                 'case',
-                ['==', ['length', ['get', 'serving_lines']], 1],
+                ['==', ['length', servingIdsExpr], 1],
                 2,
                 2
             ],

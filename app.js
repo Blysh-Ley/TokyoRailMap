@@ -60,6 +60,8 @@ map.on('load', async () => {
     let selectedLineId = null;
     let selectedServiceMode = 'all';
     let stationLabelMode = 'auto'; // 'off' | 'auto' | 'all'
+    // 在 ES module 严格模式下，try/catch 内的 function 声明可能是块级作用域；这里预先声明避免点击时未定义
+    let fitToCurrentSelection = () => {};
     let enabledLineIdsByCompany = new Map();
     const companyLogoMap = {
         JR东日本: {'img':["jreast.png"],'abb':"JR",'type':"JR铁路公司" },
@@ -172,25 +174,26 @@ map.on('load', async () => {
     }
 
     function baseStationCircleRadiusExpr() {
+        const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
         return [
             'interpolate',
             ['linear'],
             ['zoom'],
             6, [
                 'case',
-                ['==', ['length', ['get', 'serving_lines']], 1],
+                ['==', ['length', servingIdsExpr], 1],
                 0.5,
                 0.5
             ],
             14, [
                 'case',
-                ['==', ['length', ['get', 'serving_lines']], 1],
+                ['==', ['length', servingIdsExpr], 1],
                 3.5,
                 4
             ],
             22, [
                 'case',
-                ['==', ['length', ['get', 'serving_lines']], 1],
+                ['==', ['length', servingIdsExpr], 1],
                 3.5,
                 4
             ]
@@ -198,9 +201,10 @@ map.on('load', async () => {
     }
 
     function baseStationCircleStrokeWidthExpr() {
+        const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
         return [
             'case',
-            ['==', ['length', ['get', 'serving_lines']], 1],
+            ['==', ['length', servingIdsExpr], 1],
             0,
             2
         ];
@@ -208,20 +212,27 @@ map.on('load', async () => {
 
     function buildStationAnyLineMatchExpr(lineIds) {
         // 判断站点是否服务于给定线路集合：
-        // station.properties.serving_lines 是数组，因此用：any(in(lineId, serving_lines))
+        // 优先用 platform_line_id（平台所属线路 id）来判断，避免换乘站的“另一条线路站台”被误判为命中
+        // 兼容旧数据：没有 platform_line_id 时回退 serving_ids / serving_lines
+        const platformIdsExpr = ['coalesce', ['get', 'platform_line_id'], ['get', 'serving_ids'], ['get', 'serving_lines']];
         const ids = Array.isArray(lineIds) ? lineIds.filter(Boolean) : [];
         if (!ids.length) return ['boolean', false];
-        if (ids.length === 1) return ['in', ids[0], ['get', 'serving_lines']];
+        if (ids.length === 1) return ['in', ids[0], platformIdsExpr];
 
         const any = ['any'];
         for (const id of ids) {
-            any.push(['in', id, ['get', 'serving_lines']]);
+            any.push(['in', id, platformIdsExpr]);
         }
         return any;
     }
 
     function applyStationSelectionStyle() {
         if (!map.getLayer('stations-layer')) return;
+
+        // 换乘站判断仍用 serving_ids（全服务线路集合）
+        const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
+        // 高亮匹配用 platform_line_id（平台所属线路）
+        const platformIdsExpr = ['coalesce', ['get', 'platform_line_id'], servingIdsExpr];
 
         // 未选择任何东西：恢复原样式
         if (!selectedLineId && !selectedCompany) {
@@ -233,7 +244,7 @@ map.on('load', async () => {
         }
 
         const isSelectedStation = selectedLineId
-            ? ['in', selectedLineId, ['get', 'serving_lines']]
+            ? ['in', selectedLineId, platformIdsExpr]
             : buildStationAnyLineMatchExpr(Array.from(enabledLineIdsByCompany.get(selectedCompany) ?? []));
 
         map.setPaintProperty('stations-layer', 'circle-radius', [
@@ -246,7 +257,7 @@ map.on('load', async () => {
                 isSelectedStation,
                 [
                     'case',
-                    ['==', ['length', ['get', 'serving_lines']], 1],
+                    ['==', ['length', servingIdsExpr], 1],
                     0.5,
                     0.5
                 ],
@@ -258,7 +269,7 @@ map.on('load', async () => {
                 isSelectedStation,
                 [
                     'case',
-                    ['==', ['length', ['get', 'serving_lines']], 1],
+                    ['==', ['length', servingIdsExpr], 1],
                     3.5,
                     4
                 ],
@@ -270,7 +281,7 @@ map.on('load', async () => {
                 isSelectedStation,
                 [
                     'case',
-                    ['==', ['length', ['get', 'serving_lines']], 1],
+                    ['==', ['length', servingIdsExpr], 1],
                     3.5,
                     4
                 ],
@@ -452,7 +463,12 @@ map.on('load', async () => {
         let fitRafId = null;
         let pendingFit = null;
 
+        function isFiniteNum(n) {
+            return Number.isFinite(n);
+        }
+
         function extendBBox(b, lng, lat) {
+            if (!isFiniteNum(lng) || !isFiniteNum(lat)) return b;
             if (!b) return { minLng: lng, minLat: lat, maxLng: lng, maxLat: lat };
             if (lng < b.minLng) b.minLng = lng;
             if (lat < b.minLat) b.minLat = lat;
@@ -470,7 +486,9 @@ map.on('load', async () => {
             if (type === 'LineString' && Array.isArray(coords)) {
                 for (const pt of coords) {
                     if (!Array.isArray(pt) || pt.length < 2) continue;
-                    b = extendBBox(b, Number(pt[0]), Number(pt[1]));
+                    const lng = Number(pt[0]);
+                    const lat = Number(pt[1]);
+                    b = extendBBox(b, lng, lat);
                 }
                 return b;
             }
@@ -480,7 +498,9 @@ map.on('load', async () => {
                     if (!Array.isArray(line)) continue;
                     for (const pt of line) {
                         if (!Array.isArray(pt) || pt.length < 2) continue;
-                        b = extendBBox(b, Number(pt[0]), Number(pt[1]));
+                        const lng = Number(pt[0]);
+                        const lat = Number(pt[1]);
+                        b = extendBBox(b, lng, lat);
                     }
                 }
                 return b;
@@ -492,6 +512,8 @@ map.on('load', async () => {
         function unionBBox(a, b) {
             if (!a) return b;
             if (!b) return a;
+            if (![a.minLng, a.minLat, a.maxLng, a.maxLat].every(isFiniteNum)) return b;
+            if (![b.minLng, b.minLat, b.maxLng, b.maxLat].every(isFiniteNum)) return a;
             return {
                 minLng: Math.min(a.minLng, b.minLng),
                 minLat: Math.min(a.minLat, b.minLat),
@@ -525,6 +547,8 @@ map.on('load', async () => {
 
                 const bounds = bboxToFitBounds(next.bbox);
                 if (!bounds) return;
+                const flat = [bounds[0]?.[0], bounds[0]?.[1], bounds[1]?.[0], bounds[1]?.[1]];
+                if (!flat.every(isFiniteNum)) return;
 
                 lastFitKey = next.key ?? null;
                 map.fitBounds(bounds, {
@@ -580,11 +604,11 @@ map.on('load', async () => {
             return null;
         }
 
-        function fitToCurrentSelection(triggerKey) {
+        fitToCurrentSelection = (triggerKey) => {
             const b = getBBoxForSelected();
             if (!b) return;
             scheduleFit(triggerKey, b);
-        }
+        };
 
         // 旧的 #controls 容器不再作为侧边栏使用，清空避免视觉干扰
         const controlsEl = document.getElementById('controls');
@@ -680,6 +704,8 @@ map.on('load', async () => {
             getEnabledLineIds: getEnabledLineIdsForLabels,
             // 右上角三段开关：off/auto(碰撞)/all(无视碰撞)
             getLabelMode: () => stationLabelMode,
+            // 高亮线路/公司时：圆点全部显示，避免缩小后站点消失
+            getCircleMode: () => (selectedLineId || selectedCompany ? 'all' : 'collide'),
             lineFilterTarget: 'labels'
         });
 
