@@ -56,8 +56,8 @@ map.on('load', async () => {
     let enabledLineIdsByCompany = new Map();
     const companyLogoMap = {
         JR东日本: {'img':["jreast.png"],'abb':"JR",'type':"JR铁路公司" },
-        东京地下铁: {'img':["Tokyometro.png"],'abb':"东京地下铁" ,'type':"大手私铁"},
-        都营地下铁: {'img':["duyinmetro.svg"],'abb':"都营地下铁" },
+        东京地下铁: {'img':["Tokyometro.png"],'abb':"东京地下铁" ,'type':"大手私铁/地下铁"},
+        都营地下铁: {'img':["duyinmetro.svg"],'abb':"都营地下铁" ,'type':"地下铁"},
         都营交通: {'img':["duyinmetro.svg"],'abb':"都营交通" },
         京王电铁: {'img':["jingwang.svg", 65],'abb':"京王",'type':"大手私铁"},
         东武铁道: {'img':["dongwu.svg", 70],'abb':"东武",'type':"大手私铁" },
@@ -73,7 +73,7 @@ map.on('load', async () => {
         东京临海高速铁道: {'img':["linhai.png",40] },
         新交通百合鸥: {'img':["yurikamome.png", 45] },
         迪士尼: {'img':["disney.png", 65],'abb':" " },
-        横滨市营地下铁: {'img':["yokohamaMetro.svg"] },
+        横滨市营地下铁: {'img':["yokohamaMetro.svg"],'type':"地下铁" },
         横滨海岸线: {'img':["YokohamaSeaside.png", 45] },
         横滨高速铁道: {'img':["gangweilai.png"]},
         横滨索道: {'img':["quanyang.png"]},

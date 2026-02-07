@@ -92,7 +92,14 @@ export class Menu {
             '东急电铁',
             '京王电铁',
             '京急电铁',
-            '相模铁道'
+            '相模铁道',
+            '都营交通',
+            '东京单轨电车',
+            '首都圈新都市铁道',
+            '湘南单轨电车',
+            '千叶都市单轨',
+            '多摩都市单轨',
+            '北总铁道'
         ];
 
         const rank = new Map(preferredOrder.map((name, idx) => [name, idx]));
@@ -126,6 +133,7 @@ export class Menu {
                 typeSpan.textContent = type;
                 leftBox.appendChild(typeSpan);
             }
+            const abb = this.companyLogoMap?.[companyName]?.abb || companyName;
 
             const logoFile = this.companyLogoMap?.[companyName]?.img?.[0];
             const logoWidth = this.companyLogoMap?.[companyName]?.img?.[1] || 28;
@@ -154,17 +162,24 @@ export class Menu {
 
                 // 线路项 + 运行模式子菜单
                 const [lineContent, modeListEl] = this.addSubMenu(lineListEl, 'line', 'linedirc');
-                lineContent.textContent = meta.simplified || String(lineId);
+
+                let lineName = meta.simplified || String(lineId);
+                if (lineName !== abb + '线' && lineName !== abb + '本线' && lineName !== abb + '新线')  {
+                    lineName = lineName.replace(abb, '').trim();
+                }
+                lineContent.textContent = lineName 
                 lineContent.dataset.lineId = String(lineId);
 
                 const modes = Array.isArray(meta.modes) && meta.modes.length ? meta.modes : ['all'];
 
+                /*
                 modes.forEach((mode) => {
                     const modeContent = this.addSubMenu(modeListEl, 'linedirc');
                     modeContent.textContent = mode === 'all' ? '运行模式：全部（预留）' : `运行模式：${mode}`;
                     modeContent.dataset.lineId = String(lineId);
                     modeContent.dataset.mode = String(mode);
                 });
+                */
             });
         });
 
