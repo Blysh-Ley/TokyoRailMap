@@ -76,6 +76,8 @@ map.on('load', async () => {
 
     const lineNameById = new Map();
     const lineColorById = new Map();
+    const lineColorByName = new Map();
+    const lineCompanyById = new Map();
 
     function updateSelectionBadge() {
         if (selectedLineId) {
@@ -622,8 +624,11 @@ map.on('load', async () => {
             const name = f?.properties?.name ?? String(lineId);
             const color = f?.properties?.color;
 
+            lineCompanyById.set(String(lineId), String(company));
+
             lineNameById.set(String(lineId), String(name));
             if (typeof color === 'string' && color.trim()) lineColorById.set(String(lineId), color.trim());
+            if (typeof color === 'string' && color.trim()) lineColorByName.set(String(name), color.trim());
 
             companyObj[company] = true;
 
@@ -808,7 +813,18 @@ map.on('load', async () => {
 
         collisionController.scheduleUpdate();
 
-        setupStationPopup(map, maplibregl);
+        setupStationPopup(map, maplibregl, {
+            // 悬浮弹框：用 serving_ids 匹配 lines.geojson 的 meta
+            getLineMeta: (lineId) => {
+                const id = String(lineId);
+                return {
+                    company: lineCompanyById.get(id) || null,
+                    name: lineNameById.get(id) || id,
+                    color: lineColorById.get(id) || null
+                };
+            },
+            companyLogoMap
+        });
     } catch (e) {
         console.error('站点加载失败', e);
     }

@@ -234,6 +234,61 @@
             pointer-events: none;
         }
 
+        /* 站点悬浮弹框内容（由 layers.js 写入 popup HTML） */
+        .station-hover-popup {
+            font-size: 12px;
+            line-height: 1.2;
+            color: #111;
+        }
+
+        .station-hover-name {
+            font-size:20px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .station-hover-lines {
+            margin-top: 4px;
+            display: block;
+            white-space: normal;
+        }
+
+        .station-hover-line {
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+            display: block;
+        }
+
+        .station-hover-company {
+            margin-top: 6px;
+        }
+
+        .station-hover-company-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #111;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .station-hover-company-logo {
+            width: 16px;
+            height: 16px;
+            object-fit: contain;
+            flex: 0 0 16px;
+        }
+
+        .station-hover-company-lines {
+            margin-top: 4px;
+        }
+
+        /* 线路名称首行缩进两个字符（用 2em 近似） */
+        .station-hover-company-lines .station-hover-line {
+            padding-left: 2em;
+        }
+
         /* 右上角：站名显示开关 */
         .station-label-toggle {
             position: absolute;
