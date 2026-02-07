@@ -68,6 +68,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
     const labelDyPx = options.labelDyPx ?? 6;
     const gridCellPx = options.gridCellPx ?? 80;
     const getEnabledLineIds = options.getEnabledLineIds;
+    const getLabelsVisible = options.getLabelsVisible;
     // 线路联动作用范围：
     // - 'labels'：只影响站名显示（不影响圆点）
     // - 'labels_and_circles'：同时影响站名与圆点（默认）
@@ -87,6 +88,13 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
 
     function updateStationLabelVisibility() {
         if (!stationLabels.length) return;
+
+        if (typeof getLabelsVisible === 'function' && !getLabelsVisible()) {
+            stationLabels.forEach((label) => {
+                label.el.style.display = 'none';
+            });
+            return;
+        }
 
         const enabledLineIdsSet =
             lineFilterTarget === 'labels' || lineFilterTarget === 'labels_and_circles'

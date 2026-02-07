@@ -59,6 +59,7 @@ map.on('load', async () => {
     let selectedCompany = null;
     let selectedLineId = null;
     let selectedServiceMode = 'all';
+    let stationLabelsVisible = true;
     let enabledLineIdsByCompany = new Map();
     const companyLogoMap = {
         JR东日本: {'img':["jreast.png"],'abb':"JR",'type':"JR铁路公司" },
@@ -375,6 +376,42 @@ map.on('load', async () => {
         });
     }
 
+    function mountStationLabelToggle() {
+        const container = document.createElement('div');
+        container.className = 'station-label-toggle';
+
+        const text = document.createElement('span');
+        text.className = 'station-label-toggle-text';
+        text.textContent = '站名';
+
+        const switchLabel = document.createElement('label');
+        switchLabel.className = 'station-label-switch';
+
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = true;
+
+        const slider = document.createElement('span');
+        slider.className = 'station-label-slider';
+
+        switchLabel.appendChild(input);
+        switchLabel.appendChild(slider);
+
+        container.appendChild(text);
+        container.appendChild(switchLabel);
+        document.body.appendChild(container);
+
+        const apply = (visible) => {
+            stationLabelsVisible = !!visible;
+            if (collisionController) collisionController.scheduleUpdate();
+        };
+
+        input.addEventListener('change', () => apply(input.checked));
+        apply(true);
+    }
+
+    mountStationLabelToggle();
+
     try {
         const linesData = await loadGeoJSON('./lines.geojson');
         addLinesLayer(map, linesData);
@@ -626,6 +663,8 @@ map.on('load', async () => {
             gridCellPx: 80,
             // 线路联动：只影响站名（圆点仍按碰撞显示）
             getEnabledLineIds: getEnabledLineIdsForLabels,
+            // 右上角开关：控制站名显示/隐藏
+            getLabelsVisible: () => stationLabelsVisible,
             lineFilterTarget: 'labels'
         });
 

@@ -234,6 +234,74 @@
             pointer-events: none;
             transform: translateY(-6px);
         }
+
+        /* 右上角：站名显示开关 */
+        .station-label-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            background: #fff;
+            border: 1px solid #e3e5e7;
+            border-radius: 9999px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            user-select: none;
+        }
+
+        .station-label-toggle-text {
+            font-size: 14px;
+            color: #111;
+        }
+
+        .station-label-switch {
+            position: relative;
+            width: 42px;
+            height: 24px;
+            flex: 0 0 auto;
+        }
+
+        .station-label-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .station-label-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.2s;
+            border-radius: 9999px;
+        }
+
+        .station-label-slider:before {
+            position: absolute;
+            content: '';
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: #fff;
+            transition: 0.2s;
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .station-label-switch input:checked + .station-label-slider {
+            background-color: #3498db;
+        }
+
+        .station-label-switch input:checked + .station-label-slider:before {
+            transform: translateX(18px);
+        }
     </style>
 </head>
 <body>

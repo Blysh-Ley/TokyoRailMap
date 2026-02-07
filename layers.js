@@ -64,7 +64,7 @@ export function addStationsLayer(map, stationsData) {
             'circle-stroke-width': [
                 'case',
                 ['==', ['length', ['get', 'serving_lines']], 1],
-                0,
+                2,
                 2
             ],
             'circle-stroke-color': '#333'
