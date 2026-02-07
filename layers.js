@@ -90,11 +90,41 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         closeOnClick: false
     });
 
+    // 触屏适配：单击站点 = hover（只显示 popup），避免触屏触发 hover 预览导致“直接选中线路”
+    let lastPointerType = 'mouse';
+    let suppressMouseEventsUntilMs = 0;
+    const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
+    const isTouchLikePointer = (pt) => pt === 'touch' || pt === 'pen';
+    const readPointerType = (evt) => {
+        const pt = evt?.pointerType;
+        if (pt) return pt;
+        const t = evt?.type;
+        if (t && String(t).startsWith('touch')) return 'touch';
+        return 'mouse';
+    };
+
+    const canvas = map.getCanvas?.();
+    if (canvas && canvas.addEventListener) {
+        canvas.addEventListener(
+            'pointerdown',
+            (evt) => {
+                lastPointerType = readPointerType(evt);
+                if (isTouchLikePointer(lastPointerType)) {
+                    suppressMouseEventsUntilMs = nowMs() + 800;
+                }
+            },
+            { passive: true }
+        );
+    }
+
     let isOverStation = false;
     let isOverPopup = false;
     let hideTimerId = null;
     let boundPopupEl = null;
     let committedInPopup = false;
+
+    // 触屏：popup 内两段式点击（第一次 = hover 预览；第二次同一项 = click 提交）
+    let tapArmedKey = null;
 
     let hoverTimerId = null;
     let hoverCandidateKey = null;
@@ -120,8 +150,8 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         boundPopupEl.removeEventListener('mouseleave', onPopupLeave);
         boundPopupEl.removeEventListener('mousemove', onPopupMove);
         boundPopupEl.removeEventListener('click', onPopupClick);
+        boundPopupEl.removeEventListener('pointerdown', onPopupPointerDown);
         boundPopupEl.removeEventListener('mousedown', stopPropagation);
-        boundPopupEl.removeEventListener('touchstart', stopPropagation);
         boundPopupEl.removeEventListener('wheel', stopPropagation);
         boundPopupEl = null;
     };
@@ -131,6 +161,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         clearHoverTimer();
         hoverCandidateKey = null;
         lastFiredHoverKey = null;
+        tapArmedKey = null;
 
         popup.remove();
 
@@ -165,12 +196,61 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         isOverPopup = false;
         clearHoverTimer();
         hoverCandidateKey = null;
+        tapArmedKey = null;
         tryHidePopup();
     };
 
     const stopPropagation = (evt) => {
         evt.preventDefault?.();
         evt.stopPropagation?.();
+    };
+
+    const onPopupPointerDown = (evt) => {
+        const pt = readPointerType(evt);
+        if (!isTouchLikePointer(pt)) return;
+
+        lastPointerType = pt;
+        suppressMouseEventsUntilMs = nowMs() + 800;
+
+        const t = getInteractiveTarget(evt);
+        if (!t) {
+            // 仍然要阻止事件穿透到地图（避免拖拽/缩放）
+            stopPropagation(evt);
+            return;
+        }
+
+        stopPropagation(evt);
+        clearHoverTimer();
+        hoverCandidateKey = null;
+        lastFiredHoverKey = null;
+
+        const key = `${t.kind}:${t.value}`;
+        if (tapArmedKey !== key) {
+            tapArmedKey = key;
+            committedInPopup = false;
+
+            // 第一次：当 hover，立即预览
+            if (t.kind === 'line') {
+                if (typeof onSelectLine === 'function') onSelectLine(String(t.value), { source: 'popup-hover' });
+            } else if (t.kind === 'company') {
+                if (typeof onSelectCompany === 'function') onSelectCompany(String(t.value), { source: 'popup-hover' });
+            }
+            return;
+        }
+
+        // 第二次：提交 click
+        tapArmedKey = null;
+        committedInPopup = true;
+
+        if (t.kind === 'line') {
+            if (typeof onSelectLine === 'function') onSelectLine(String(t.value), { source: 'popup-click' });
+            removePopupNow({ committed: true });
+            return;
+        }
+
+        if (t.kind === 'company') {
+            if (typeof onSelectCompany === 'function') onSelectCompany(String(t.value), { source: 'popup-click' });
+        }
     };
 
     const getInteractiveTarget = (evt) => {
@@ -193,6 +273,9 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     };
 
     const onPopupMove = (evt) => {
+        // 触屏：不做 hover 预览（避免手指抬起时的合成 mousemove 导致“自动选中线路”）
+        if (isTouchLikePointer(lastPointerType)) return;
+
         const t = getInteractiveTarget(evt);
         if (!t) {
             clearHoverTimer();
@@ -223,14 +306,21 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     };
 
     const onPopupClick = (evt) => {
+        // 触屏/笔：由 pointerdown 完整接管两段式交互；忽略 click，避免第一下就被当成“第二下提交”
+        if (isTouchLikePointer(lastPointerType)) {
+            stopPropagation(evt);
+            return;
+        }
+
         const t = getInteractiveTarget(evt);
         if (!t) return;
 
         stopPropagation(evt);
-        committedInPopup = true;
         clearHoverTimer();
         hoverCandidateKey = null;
         lastFiredHoverKey = null;
+
+        committedInPopup = true;
 
         if (t.kind === 'line') {
             if (typeof onSelectLine === 'function') onSelectLine(String(t.value), { source: 'popup-click' });
@@ -255,8 +345,8 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         boundPopupEl.addEventListener('mouseleave', onPopupLeave);
         boundPopupEl.addEventListener('mousemove', onPopupMove);
         boundPopupEl.addEventListener('click', onPopupClick);
+        boundPopupEl.addEventListener('pointerdown', onPopupPointerDown, { passive: false });
         boundPopupEl.addEventListener('mousedown', stopPropagation);
-        boundPopupEl.addEventListener('touchstart', stopPropagation, { passive: false });
         boundPopupEl.addEventListener('wheel', stopPropagation, { passive: false });
     };
 
@@ -368,6 +458,9 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     };
 
     map.on('mouseenter', 'stations-layer', (e) => {
+        // 触屏会产生合成 mouseenter：这里直接忽略，改用 click 来显示 popup
+        if (nowMs() < suppressMouseEventsUntilMs || isTouchLikePointer(lastPointerType)) return;
+
         map.getCanvas().style.cursor = 'pointer';
         isOverStation = true;
         clearHideTimer();
@@ -382,8 +475,52 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     });
 
     map.on('mouseleave', 'stations-layer', () => {
+        if (nowMs() < suppressMouseEventsUntilMs || isTouchLikePointer(lastPointerType)) return;
         map.getCanvas().style.cursor = '';
         isOverStation = false;
         tryHidePopup();
+    });
+
+    // 触屏：单击站点显示 popup（等同 hover），但不触发任何选线逻辑
+    map.on('click', 'stations-layer', (e) => {
+        const pt = readPointerType(e?.originalEvent);
+        if (!isTouchLikePointer(pt)) return;
+
+        lastPointerType = pt;
+        suppressMouseEventsUntilMs = nowMs() + 800;
+
+        committedInPopup = false;
+        clearHideTimer();
+        clearHoverTimer();
+        hoverCandidateKey = null;
+        lastFiredHoverKey = null;
+
+        const f = e?.features?.[0];
+        if (!f) return;
+        const coordinates = f?.geometry?.coordinates?.slice?.();
+        if (!coordinates) return;
+        const props = f.properties || {};
+
+        popup.setLngLat(coordinates).setHTML(buildPopupHtml(props)).addTo(map);
+        bindPopupHover();
+    });
+
+    // 触屏：单击空白处收起 popup
+    map.on('click', (e) => {
+        const pt = readPointerType(e?.originalEvent);
+        if (!isTouchLikePointer(pt)) return;
+
+        const popupEl = popup.getElement?.();
+        if (!popupEl) return;
+
+        // 点在 popup 内部：不收起
+        const target = e?.originalEvent?.target;
+        if (target && popupEl.contains(target)) return;
+
+        // 点在站点圆点上：交给 stations-layer click 处理（显示/更新 popup）
+        const hits = map.queryRenderedFeatures?.(e.point, { layers: ['stations-layer'] }) || [];
+        if (hits.length) return;
+
+        removePopupNow({ committed: false });
     });
 }
