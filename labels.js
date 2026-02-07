@@ -15,6 +15,7 @@ export function createStationMarkers(map, maplibregl, stationsData) {
 
         const coordinates = feature.geometry.coordinates;
         const props = feature.properties || {};
+        const propsSnapshot = { ...props };
         const stationId = props.id || feature.id;
         const name = props.name_zh || props.name;
         // serving_ids：用于判断换乘站优先级（全服务线路集合）
@@ -47,6 +48,7 @@ export function createStationMarkers(map, maplibregl, stationsData) {
             el,
             stationId,
             coordinates,
+            props: propsSnapshot,
             priority,
             servingLineIds,
             labelDyPx,

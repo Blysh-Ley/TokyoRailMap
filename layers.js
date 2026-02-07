@@ -81,6 +81,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     const getLineMeta = typeof options.getLineMeta === 'function' ? options.getLineMeta : (() => null);
     const companyLogoMap = options.companyLogoMap || {};
     const hoverDelayMs = Number.isFinite(options.hoverDelayMs) ? options.hoverDelayMs : 500;
+    const hoverMinZoom = Number.isFinite(options.hoverMinZoom) ? options.hoverMinZoom : 11;
     const onSelectCompany = typeof options.onSelectCompany === 'function' ? options.onSelectCompany : null;
     const onSelectLine = typeof options.onSelectLine === 'function' ? options.onSelectLine : null;
     const onPopupClose = typeof options.onPopupClose === 'function' ? options.onPopupClose : null;
@@ -461,6 +462,13 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         // 触屏会产生合成 mouseenter：这里直接忽略，改用 click 来显示 popup
         if (nowMs() < suppressMouseEventsUntilMs || isTouchLikePointer(lastPointerType)) return;
 
+        // 缩放过小：禁用“鼠标 hover 站点弹窗”
+        const z = typeof map.getZoom === 'function' ? map.getZoom() : null;
+        if (typeof z === 'number' && z < hoverMinZoom) {
+            map.getCanvas().style.cursor = '';
+            return;
+        }
+
         map.getCanvas().style.cursor = 'pointer';
         isOverStation = true;
         clearHideTimer();
@@ -523,4 +531,41 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
         removePopupNow({ committed: false });
     });
+
+    // 外部触发（例如：站名 DOM 标签点击）
+    const showPopupAt = (coordinates, props = {}, meta = {}) => {
+        if (!coordinates) return;
+
+        const pt = meta?.pointerType;
+        if (pt) {
+            lastPointerType = String(pt);
+            if (isTouchLikePointer(lastPointerType)) {
+                suppressMouseEventsUntilMs = nowMs() + 800;
+            }
+        }
+
+        committedInPopup = false;
+        clearHideTimer();
+        clearHoverTimer();
+        hoverCandidateKey = null;
+        lastFiredHoverKey = null;
+        tapArmedKey = null;
+
+        popup.setLngLat(coordinates).setHTML(buildPopupHtml(props)).addTo(map);
+        bindPopupHover();
+    };
+
+    const setExternalStationHover = (over) => {
+        isOverStation = over === true;
+        if (isOverStation) {
+            clearHideTimer();
+            return;
+        }
+        tryHidePopup();
+    };
+
+    return {
+        showPopupAt,
+        setExternalStationHover
+    };
 }

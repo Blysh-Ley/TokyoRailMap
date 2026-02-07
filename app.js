@@ -838,7 +838,7 @@ map.on('load', async () => {
 
         collisionController.scheduleUpdate();
 
-        setupStationPopup(map, maplibregl, {
+        const stationPopup = setupStationPopup(map, maplibregl, {
             // 悬浮弹框：用 serving_ids 匹配 lines.geojson 的 meta
             getLineMeta: (lineId) => {
                 const id = String(lineId);
@@ -914,6 +914,56 @@ map.on('load', async () => {
                 popupPreviewWasApplied = false;
             }
         });
+
+        // 站名标签：鼠标点击/触屏点击也弹出 popup（等同 hover 站点圆点）
+        if (stationPopup && typeof stationPopup.showPopupAt === 'function') {
+            const isTouchLike = (pt) => pt === 'touch' || pt === 'pen';
+            const readPointerType = (evt) => {
+                const pt = evt?.pointerType;
+                if (pt) return pt;
+                const t = evt?.type;
+                if (t && String(t).startsWith('touch')) return 'touch';
+                return 'mouse';
+            };
+            const stop = (evt) => {
+                evt?.preventDefault?.();
+                evt?.stopPropagation?.();
+            };
+
+            stationLabels.forEach((item) => {
+                const el = item?.el;
+                if (!el) return;
+
+                // 用于 popup 自动隐藏的“是否在站点上方”判断
+                el.addEventListener('mouseenter', () => stationPopup.setExternalStationHover?.(true));
+                el.addEventListener('mouseleave', () => stationPopup.setExternalStationHover?.(false));
+
+                // 触屏/笔：用 pointerdown，避免合成 click 不稳定
+                el.addEventListener(
+                    'pointerdown',
+                    (evt) => {
+                        const pt = readPointerType(evt);
+                        if (!isTouchLike(pt)) return;
+                        stop(evt);
+                        stationPopup.setExternalStationHover?.(true);
+                        stationPopup.showPopupAt(item.coordinates, item.props || {}, { pointerType: pt });
+                    },
+                    { passive: false }
+                );
+
+                // 鼠标：click 弹出 popup
+                el.addEventListener('click', (evt) => {
+                    const pt = readPointerType(evt);
+                    if (isTouchLike(pt)) {
+                        stop(evt);
+                        return;
+                    }
+                    stop(evt);
+                    stationPopup.setExternalStationHover?.(true);
+                    stationPopup.showPopupAt(item.coordinates, item.props || {}, { pointerType: pt });
+                });
+            });
+        }
     } catch (e) {
         console.error('站点加载失败', e);
     }

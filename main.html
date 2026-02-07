@@ -259,7 +259,13 @@
             border-radius: 3px;
             padding: 1px 4px;
             white-space: nowrap;
-            pointer-events: none;
+            pointer-events: auto;
+            cursor: pointer;
+
+            /* 触屏：去掉浏览器默认点击高亮 */
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            user-select: none;
         }
 
         /* 站点悬浮弹框内容（由 layers.js 写入 popup HTML） */
