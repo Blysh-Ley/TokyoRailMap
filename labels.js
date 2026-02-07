@@ -28,6 +28,10 @@ export function createStationMarkers(map, maplibregl, stationsData) {
         el.className = 'station-label';
         el.textContent = name;
 
+        // 站名标签上移：换乘站 6px，非换乘站 3px（只在这里集中设置）
+        const labelDyPx = priority > 1 ? 5 : 2;
+        el.style.translate = `0 -${labelDyPx}px`;
+
         const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
             .setLngLat(coordinates)
             .addTo(map);
@@ -39,6 +43,7 @@ export function createStationMarkers(map, maplibregl, stationsData) {
             coordinates,
             priority,
             servingLineIds,
+            labelDyPx,
             width: null,
             height: null
         });

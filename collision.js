@@ -21,13 +21,14 @@ function measureLabelSize(label) {
     label.height = Math.max(1, label.el.offsetHeight);
 }
 
-function getLabelBBox(map, label, labelDyPx) {
+function getLabelBBox(map, label) {
     const p = map.project(label.coordinates);
     const w = label.width;
     const h = label.height;
+    const dy = Number.isFinite(label.labelDyPx) ? label.labelDyPx : 0;
     const left = p.x - w / 2;
     const right = p.x + w / 2;
-    const bottom = p.y - labelDyPx;
+    const bottom = p.y - dy;
     const top = bottom - h;
     return { left, right, top, bottom };
 }
@@ -65,7 +66,6 @@ function circleStrokeWidthPxForStation(priority) {
  * - 圆点：通过 setFilter 过滤 stations-layer 中可见的站点 id
  */
 export function setupCollisions(map, stationLabels, stationCircles, options = {}) {
-    const labelDyPx = options.labelDyPx ?? 6;
     const gridCellPx = options.gridCellPx ?? 80;
     const getEnabledLineIds = options.getEnabledLineIds;
     const getLabelsVisible = options.getLabelsVisible;
@@ -147,7 +147,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
                 return;
             }
 
-            const bbox = getLabelBBox(map, label, labelDyPx);
+            const bbox = getLabelBBox(map, label);
             const minCx = Math.floor(bbox.left / gridCellPx);
             const maxCx = Math.floor(bbox.right / gridCellPx);
             const minCy = Math.floor(bbox.top / gridCellPx);

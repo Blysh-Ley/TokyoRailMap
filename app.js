@@ -673,9 +673,8 @@ map.on('load', async () => {
 
         const { stationLabels, stationCircles } = createStationMarkers(map, maplibregl, stationsData);
 
-        // 站名碰撞：labelDyPx 需与 CSS translateY 的像素值保持一致
+        // 站名碰撞：标签上移偏移在 labels.js 内按站点类型设置
         collisionController = setupCollisions(map, stationLabels, stationCircles, {
-            labelDyPx: 6,
             gridCellPx: 80,
             // 线路联动：只影响站名（圆点仍按碰撞显示）
             getEnabledLineIds: getEnabledLineIdsForLabels,
