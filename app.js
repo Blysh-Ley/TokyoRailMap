@@ -62,7 +62,8 @@ map.on('load', async () => {
     let stationLabelMode = 'auto'; // 'off' | 'auto' | 'all'
     let setStationLabelMode = (_mode) => false;
     // 在 ES module 严格模式下，try/catch 内的 function 声明可能是块级作用域；这里预先声明避免点击时未定义
-    let fitToCurrentSelection = () => {};
+    // mode: 'preview' | 'commit'
+    let fitToCurrentSelection = (_triggerKey, _mode = 'preview') => {};
     let enabledLineIdsByCompany = new Map();
 
     // 底部居中提示条：显示当前高亮的公司/线路
@@ -411,7 +412,8 @@ map.on('load', async () => {
             applyStationSelectionStyle();
             if (collisionController) collisionController.scheduleUpdate();
             updateSelectionBadge();
-            fitToCurrentSelection(`line:${selectedLineId}`);
+            // 点击高亮：不限制放大倍率
+            fitToCurrentSelection(`line:${selectedLineId}`, 'commit');
         });
 
         // 鼠标样式提示可点击（可选但很轻量）
@@ -582,11 +584,11 @@ map.on('load', async () => {
             ];
         }
 
-        function scheduleFit(key, bbox) {
+        function scheduleFit(key, bbox, options = {}) {
             if (!bbox) return;
             if (key && key === lastFitKey) return;
 
-            pendingFit = { key, bbox };
+            pendingFit = { key, bbox, options };
             if (fitRafId != null) return;
 
             fitRafId = requestAnimationFrame(() => {
@@ -601,13 +603,14 @@ map.on('load', async () => {
                 if (!flat.every(isFiniteNum)) return;
 
                 lastFitKey = next.key ?? null;
-                map.fitBounds(bounds, {
+                const fitOptions = {
                     padding: 60,
-                    maxZoom: 10,
                     duration: 300,
                     easing: (t) => t,
                     essential: true
-                });
+                };
+                if (Number.isFinite(next.options?.maxZoom)) fitOptions.maxZoom = next.options.maxZoom;
+                map.fitBounds(bounds, fitOptions);
             });
         }
 
@@ -658,10 +661,28 @@ map.on('load', async () => {
             return null;
         }
 
-        fitToCurrentSelection = (triggerKey) => {
+        const fitToCurrentSelectionPreview = (triggerKey) => {
             const b = getBBoxForSelected();
             if (!b) return;
-            scheduleFit(triggerKey, b);
+            scheduleFit(`preview:${triggerKey}`, b, { maxZoom: 10 });
+        };
+
+        const fitToCurrentSelectionCommit = (triggerKey) => {
+            const b = getBBoxForSelected();
+            if (!b) return;
+            // 点击高亮：不限制放大倍率，按 bounds 实际大小 fit
+            scheduleFit(`commit:${triggerKey}`, b, { maxZoom: undefined });
+        };
+
+        // 对外统一入口：既支持 mode 参数，也兼容 triggerKey 前缀（commit:/preview:）
+        fitToCurrentSelection = (triggerKey, mode = 'preview') => {
+            const key = String(triggerKey ?? '');
+            const explicitCommit = key.startsWith('commit:');
+            const explicitPreview = key.startsWith('preview:');
+            const cleanKey = key.replace(/^(commit:|preview:)/, '');
+            const useCommit = explicitCommit || (!explicitPreview && mode === 'commit');
+            if (useCommit) fitToCurrentSelectionCommit(cleanKey);
+            else fitToCurrentSelectionPreview(cleanKey);
         };
 
         // 旧的 #controls 容器不再作为侧边栏使用，清空避免视觉干扰
@@ -680,6 +701,7 @@ map.on('load', async () => {
                 const commitPreview = meta?.commitPreview === true;
                 if (source === 'hover') {
                     selectedCompany = companyName;
+                    setStationLabelMode('auto');
                 } else {
                     // click 提交预览时不做反向 toggle
                     selectedCompany = commitPreview ? companyName : (selectedCompany === companyName ? null : companyName);
@@ -690,7 +712,10 @@ map.on('load', async () => {
                 applyStationSelectionStyle();
                 if (collisionController) collisionController.scheduleUpdate();
                 updateSelectionBadge();
-                if (selectedCompany) fitToCurrentSelection(`company:${selectedCompany}`);
+                if (selectedCompany) {
+                    if (source === 'hover') fitToCurrentSelectionPreview(`company:${selectedCompany}`);
+                    else fitToCurrentSelectionCommit(`company:${selectedCompany}`);
+                }
             },
             onLineClick: (lineId, meta) => {
                 const source = meta?.source ?? 'click';
@@ -698,6 +723,7 @@ map.on('load', async () => {
                 // 线路点击：优先级高于公司点击
                 if (source === 'hover') {
                     selectedLineId = lineId;
+                    setStationLabelMode('auto');
                 } else {
                     selectedLineId = commitPreview ? lineId : (selectedLineId === lineId ? null : lineId);
                 }
@@ -710,7 +736,10 @@ map.on('load', async () => {
                 applyStationSelectionStyle();
                 if (collisionController) collisionController.scheduleUpdate();
                 updateSelectionBadge();
-                if (selectedLineId) fitToCurrentSelection(`line:${selectedLineId}`);
+                if (selectedLineId) {
+                    if (source === 'hover') fitToCurrentSelectionPreview(`line:${selectedLineId}`);
+                    else fitToCurrentSelectionCommit(`line:${selectedLineId}`);
+                }
             },
             onModeClick: ({ lineId, mode }, meta) => {
                 const source = meta?.source ?? 'click';
@@ -719,6 +748,7 @@ map.on('load', async () => {
                 if (source === 'hover') {
                     selectedLineId = lineId;
                     selectedServiceMode = mode;
+                    setStationLabelMode('auto');
                 } else {
                     selectedLineId = commitPreview
                         ? lineId
@@ -733,7 +763,10 @@ map.on('load', async () => {
                 applyStationSelectionStyle();
                 if (collisionController) collisionController.scheduleUpdate();
                 updateSelectionBadge();
-                if (selectedLineId) fitToCurrentSelection(`mode:${selectedLineId}:${selectedServiceMode}`);
+                if (selectedLineId) {
+                    if (source === 'hover') fitToCurrentSelectionPreview(`mode:${selectedLineId}:${selectedServiceMode}`);
+                    else fitToCurrentSelectionCommit(`mode:${selectedLineId}:${selectedServiceMode}`);
+                }
             }
         });
 
