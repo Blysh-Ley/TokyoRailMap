@@ -44,6 +44,12 @@ const map = new maplibregl.Map({
     }
 });
 
+// 左下角比例尺
+map.addControl(
+    new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }),
+    'bottom-left'
+);
+
 // 2) 底图加载完成后再加载业务数据与图层
 map.on('load', async () => {
     console.log('底图加载完毕，准备加载 GeoJSON...');
