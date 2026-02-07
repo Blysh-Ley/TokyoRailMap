@@ -66,6 +66,12 @@ map.on('load', async () => {
     let fitToCurrentSelection = (_triggerKey, _mode = 'preview') => {};
     let enabledLineIdsByCompany = new Map();
 
+    const cssEscape = (value) => {
+        const s = String(value);
+        if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(s);
+        return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    };
+
     // 底部居中提示条：显示当前高亮的公司/线路
     const selectionBadgeEl = document.createElement('div');
     selectionBadgeEl.className = 'selection-badge is-hidden';
@@ -362,6 +368,32 @@ map.on('load', async () => {
         updateSelectionBadge();
     }
 
+    const applySelectionEffects = () => {
+        applyLineSelectionStyle();
+        applyStationSelectionStyle();
+        if (collisionController) collisionController.scheduleUpdate();
+        updateSelectionBadge();
+    };
+
+    let popupPreviewSnapshot = null;
+    let popupPreviewWasApplied = false;
+
+    const snapshotSelectionState = () => ({
+        selectedCompany,
+        selectedLineId,
+        selectedServiceMode,
+        stationLabelMode
+    });
+
+    const restoreSelectionState = (snapshot) => {
+        if (!snapshot) return;
+        selectedCompany = snapshot.selectedCompany;
+        selectedLineId = snapshot.selectedLineId;
+        selectedServiceMode = snapshot.selectedServiceMode;
+        setStationLabelMode(snapshot.stationLabelMode);
+        applySelectionEffects();
+    };
+
     function bindClickBlankToRestore() {
         // 点击地图空白处：恢复所有线路显示（并同步恢复站点/站名联动）
         map.on('click', (e) => {
@@ -382,13 +414,6 @@ map.on('load', async () => {
 
     function bindClickLineToSelect() {
         if (!map.getLayer('lines-layer')) return;
-
-        const cssEscape = (value) => {
-            const s = String(value);
-            // CSS.escape is supported by modern browsers; fallback for simple ids
-            if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(s);
-            return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-        };
 
         // 点击线路：高亮该线路及其站点（复用现有逻辑）
         map.on('click', 'lines-layer', (e) => {
@@ -823,7 +848,71 @@ map.on('load', async () => {
                     color: lineColorById.get(id) || null
                 };
             },
-            companyLogoMap
+            companyLogoMap,
+            hoverDelayMs: 50,
+            onSelectCompany: (companyName, meta) => {
+                const source = meta?.source;
+                const name = String(companyName ?? '').trim();
+                if (!name) return;
+
+                if (source === 'popup-hover') {
+                    if (!popupPreviewSnapshot) popupPreviewSnapshot = snapshotSelectionState();
+                    popupPreviewWasApplied = true;
+                    selectedCompany = name;
+                    selectedLineId = null;
+                    selectedServiceMode = 'all';
+                    setStationLabelMode('auto');
+                    applySelectionEffects();
+                    return;
+                }
+
+                // popup click：提交高亮，但不执行 fitBounds
+                popupPreviewSnapshot = null;
+                popupPreviewWasApplied = false;
+                selectedCompany = name;
+                selectedLineId = null;
+                selectedServiceMode = 'all';
+                applySelectionEffects();
+            },
+            onSelectLine: (lineId, meta) => {
+                const source = meta?.source;
+                const id = String(lineId ?? '').trim();
+                if (!id) return;
+
+                if (source === 'popup-hover') {
+                    if (!popupPreviewSnapshot) popupPreviewSnapshot = snapshotSelectionState();
+                    popupPreviewWasApplied = true;
+                    selectedLineId = id;
+                    selectedCompany = null;
+                    selectedServiceMode = 'all';
+                    setStationLabelMode('auto');
+                    applySelectionEffects();
+                    return;
+                }
+
+                // popup click：提交高亮（同“点击线路”效果），但不执行 fitBounds
+                popupPreviewSnapshot = null;
+                popupPreviewWasApplied = false;
+                selectedLineId = id;
+                selectedCompany = null;
+                selectedServiceMode = 'all';
+                setStationLabelMode('all');
+
+                // 同步菜单高亮（若菜单存在）
+                if (menu && typeof menu.markActive === 'function') {
+                    const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(selectedLineId)}"]`);
+                    if (el) menu.markActive(el);
+                }
+
+                applySelectionEffects();
+            },
+            onPopupClose: ({ committed }) => {
+                if (!committed && popupPreviewSnapshot && popupPreviewWasApplied) {
+                    restoreSelectionState(popupPreviewSnapshot);
+                }
+                popupPreviewSnapshot = null;
+                popupPreviewWasApplied = false;
+            }
         });
     } catch (e) {
         console.error('站点加载失败', e);
