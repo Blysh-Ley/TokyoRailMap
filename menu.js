@@ -198,14 +198,15 @@ export class Menu {
 
             decorated.forEach(({ lineId, meta, lineName }) => {
                 // 线路项 + 运行模式子菜单
-                const [lineContent, modeListEl] = this.addSubMenu(lineListEl, 'line', 'linedirc');
+                const lineContent = this.addSubMenu(lineListEl, 'line');
 
                 lineContent.textContent = lineName;
                 lineContent.dataset.lineId = String(lineId);
 
+                /*
+                const [lineContent,] = this.addSubMenu(lineListEl, 'line','linedirc');
                 const modes = Array.isArray(meta.modes) && meta.modes.length ? meta.modes : ['all'];
 
-                /*
                 modes.forEach((mode) => {
                     const modeContent = this.addSubMenu(modeListEl, 'linedirc');
                     modeContent.textContent = mode === 'all' ? '运行模式：全部（预留）' : `运行模式：${mode}`;
