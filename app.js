@@ -60,6 +60,7 @@ map.on('load', async () => {
     let selectedLineId = null;
     let selectedServiceMode = 'all';
     let stationLabelMode = 'auto'; // 'off' | 'auto' | 'all'
+    let setStationLabelMode = (_mode) => false;
     // 在 ES module 严格模式下，try/catch 内的 function 声明可能是块级作用域；这里预先声明避免点击时未定义
     let fitToCurrentSelection = () => {};
     let enabledLineIdsByCompany = new Map();
@@ -348,6 +349,7 @@ map.on('load', async () => {
         selectedCompany = null;
         selectedLineId = null;
         selectedServiceMode = 'all';
+        setStationLabelMode('auto');
 
         if (menu && typeof menu.clearActive === 'function') menu.clearActive();
 
@@ -397,6 +399,7 @@ map.on('load', async () => {
             selectedLineId = nextLineId;
             selectedCompany = null;
             selectedServiceMode = 'all';
+            setStationLabelMode('all');
 
             // 同步菜单高亮（如果菜单已挂载且能找到对应项）
             if (menu && typeof menu.markActive === 'function') {
@@ -457,17 +460,31 @@ map.on('load', async () => {
             btnAll.classList.toggle('is-active', stationLabelMode === 'all');
         };
 
-        const apply = (mode) => {
+        const setMode = (mode) => {
             stationLabelMode = mode;
             setActive();
-            if (collisionController) collisionController.scheduleUpdate();
         };
 
-        btnOff.addEventListener('click', () => apply('off'));
-        btnAuto.addEventListener('click', () => apply('auto'));
-        btnAll.addEventListener('click', () => apply('all'));
+        setStationLabelMode = (mode) => {
+            if (stationLabelMode === mode) return false;
+            setMode(mode);
+            return true;
+        };
 
-        apply('auto');
+        btnOff.addEventListener('click', () => {
+            setMode('off');
+            if (collisionController) collisionController.scheduleUpdate();
+        });
+        btnAuto.addEventListener('click', () => {
+            setMode('auto');
+            if (collisionController) collisionController.scheduleUpdate();
+        });
+        btnAll.addEventListener('click', () => {
+            setMode('all');
+            if (collisionController) collisionController.scheduleUpdate();
+        });
+
+        setMode('auto');
     }
 
     mountStationLabelToggle();
@@ -686,6 +703,9 @@ map.on('load', async () => {
                 }
                 if (selectedLineId) selectedCompany = null;
                 selectedServiceMode = 'all';
+
+                // 需求：高亮线路时自动切换为站名全显（仅对 click/commit 生效，避免 hover 预览频繁切换）
+                if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
                 applyLineSelectionStyle();
                 applyStationSelectionStyle();
                 if (collisionController) collisionController.scheduleUpdate();
@@ -706,6 +726,9 @@ map.on('load', async () => {
                     selectedServiceMode = mode;
                 }
                 if (selectedLineId) selectedCompany = null;
+
+                // 需求：高亮线路时自动切换为站名全显（仅对 click/commit 生效）
+                if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
                 applyLineSelectionStyle();
                 applyStationSelectionStyle();
                 if (collisionController) collisionController.scheduleUpdate();
