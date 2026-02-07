@@ -69,6 +69,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
     const gridCellPx = options.gridCellPx ?? 80;
     const getEnabledLineIds = options.getEnabledLineIds;
     const getLabelsVisible = options.getLabelsVisible;
+    const getLabelMode = options.getLabelMode;
     // 线路联动作用范围：
     // - 'labels'：只影响站名显示（不影响圆点）
     // - 'labels_and_circles'：同时影响站名与圆点（默认）
@@ -89,7 +90,11 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
     function updateStationLabelVisibility() {
         if (!stationLabels.length) return;
 
-        if (typeof getLabelsVisible === 'function' && !getLabelsVisible()) {
+        const mode =
+            (typeof getLabelMode === 'function' ? getLabelMode() : null) ??
+            (typeof getLabelsVisible === 'function' ? (getLabelsVisible() ? 'auto' : 'off') : 'auto');
+
+        if (mode === 'off') {
             stationLabels.forEach((label) => {
                 label.el.style.display = 'none';
             });
@@ -100,6 +105,21 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             lineFilterTarget === 'labels' || lineFilterTarget === 'labels_and_circles'
                 ? (typeof getEnabledLineIds === 'function' ? getEnabledLineIds() : null)
                 : null;
+
+        if (mode === 'all') {
+            stationLabels.forEach((label) => {
+                if (!label.priority) {
+                    label.el.style.display = 'none';
+                    return;
+                }
+                if (!isStationEnabledByLines(label.servingLineIds, enabledLineIdsSet)) {
+                    label.el.style.display = 'none';
+                    return;
+                }
+                label.el.style.display = 'block';
+            });
+            return;
+        }
 
         stationLabels.forEach((label) => {
             if (label.width == null || label.height == null || label.width <= 1 || label.height <= 1) {

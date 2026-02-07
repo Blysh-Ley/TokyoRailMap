@@ -59,7 +59,7 @@ map.on('load', async () => {
     let selectedCompany = null;
     let selectedLineId = null;
     let selectedServiceMode = 'all';
-    let stationLabelsVisible = true;
+    let stationLabelMode = 'auto'; // 'off' | 'auto' | 'all'
     let enabledLineIdsByCompany = new Map();
     const companyLogoMap = {
         JR东日本: {'img':["jreast.png"],'abb':"JR",'type':"JR铁路公司" },
@@ -384,30 +384,46 @@ map.on('load', async () => {
         text.className = 'station-label-toggle-text';
         text.textContent = '站名';
 
-        const switchLabel = document.createElement('label');
-        switchLabel.className = 'station-label-switch';
+        const seg = document.createElement('div');
+        seg.className = 'station-label-seg';
 
-        const input = document.createElement('input');
-        input.type = 'checkbox';
-        input.checked = true;
+        const btnOff = document.createElement('button');
+        btnOff.type = 'button';
+        btnOff.textContent = '隐藏';
 
-        const slider = document.createElement('span');
-        slider.className = 'station-label-slider';
+        const btnAuto = document.createElement('button');
+        btnAuto.type = 'button';
+        btnAuto.textContent = '自动';
 
-        switchLabel.appendChild(input);
-        switchLabel.appendChild(slider);
+        const btnAll = document.createElement('button');
+        btnAll.type = 'button';
+        btnAll.textContent = '全显';
+
+        seg.appendChild(btnOff);
+        seg.appendChild(btnAuto);
+        seg.appendChild(btnAll);
 
         container.appendChild(text);
-        container.appendChild(switchLabel);
+        container.appendChild(seg);
         document.body.appendChild(container);
 
-        const apply = (visible) => {
-            stationLabelsVisible = !!visible;
+        const setActive = () => {
+            btnOff.classList.toggle('is-active', stationLabelMode === 'off');
+            btnAuto.classList.toggle('is-active', stationLabelMode === 'auto');
+            btnAll.classList.toggle('is-active', stationLabelMode === 'all');
+        };
+
+        const apply = (mode) => {
+            stationLabelMode = mode;
+            setActive();
             if (collisionController) collisionController.scheduleUpdate();
         };
 
-        input.addEventListener('change', () => apply(input.checked));
-        apply(true);
+        btnOff.addEventListener('click', () => apply('off'));
+        btnAuto.addEventListener('click', () => apply('auto'));
+        btnAll.addEventListener('click', () => apply('all'));
+
+        apply('auto');
     }
 
     mountStationLabelToggle();
@@ -663,8 +679,8 @@ map.on('load', async () => {
             gridCellPx: 80,
             // 线路联动：只影响站名（圆点仍按碰撞显示）
             getEnabledLineIds: getEnabledLineIdsForLabels,
-            // 右上角开关：控制站名显示/隐藏
-            getLabelsVisible: () => stationLabelsVisible,
+            // 右上角三段开关：off/auto(碰撞)/all(无视碰撞)
+            getLabelMode: () => stationLabelMode,
             lineFilterTarget: 'labels'
         });
 
