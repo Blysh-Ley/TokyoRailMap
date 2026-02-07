@@ -63,6 +63,37 @@ map.on('load', async () => {
     // 在 ES module 严格模式下，try/catch 内的 function 声明可能是块级作用域；这里预先声明避免点击时未定义
     let fitToCurrentSelection = () => {};
     let enabledLineIdsByCompany = new Map();
+
+    // 底部居中提示条：显示当前高亮的公司/线路
+    const selectionBadgeEl = document.createElement('div');
+    selectionBadgeEl.className = 'selection-badge is-hidden';
+    const selectionBadgeTextEl = document.createElement('span');
+    selectionBadgeTextEl.className = 'selection-badge-text';
+    selectionBadgeEl.appendChild(selectionBadgeTextEl);
+    document.body.appendChild(selectionBadgeEl);
+
+    const lineNameById = new Map();
+    const lineColorById = new Map();
+
+    function updateSelectionBadge() {
+        if (selectedLineId) {
+            const name = lineNameById.get(String(selectedLineId)) || String(selectedLineId);
+            const color = lineColorById.get(String(selectedLineId)) || '#111';
+            selectionBadgeTextEl.textContent = name;
+            selectionBadgeTextEl.style.color = color;
+            selectionBadgeEl.classList.remove('is-hidden');
+            return;
+        }
+
+        if (selectedCompany) {
+            selectionBadgeTextEl.textContent = String(selectedCompany);
+            selectionBadgeTextEl.style.color = '#111';
+            selectionBadgeEl.classList.remove('is-hidden');
+            return;
+        }
+
+        selectionBadgeEl.classList.add('is-hidden');
+    }
     const companyLogoMap = {
         JR东日本: {'img':["jreast.png"],'abb':"JR",'type':"JR铁路公司" },
         东京地下铁: {'img':["Tokyometro.png"],'abb':"东京地下铁" ,'type':"大手私铁/地下铁"},
@@ -323,6 +354,7 @@ map.on('load', async () => {
         applyLineSelectionStyle();
         applyStationSelectionStyle();
         if (collisionController) collisionController.scheduleUpdate();
+        updateSelectionBadge();
     }
 
     function bindClickBlankToRestore() {
@@ -375,6 +407,7 @@ map.on('load', async () => {
             applyLineSelectionStyle();
             applyStationSelectionStyle();
             if (collisionController) collisionController.scheduleUpdate();
+            updateSelectionBadge();
             fitToCurrentSelection(`line:${selectedLineId}`);
         });
 
@@ -567,6 +600,10 @@ map.on('load', async () => {
 
             const company = f?.properties?.company ?? '未知公司';
             const name = f?.properties?.name ?? String(lineId);
+            const color = f?.properties?.color;
+
+            lineNameById.set(String(lineId), String(name));
+            if (typeof color === 'string' && color.trim()) lineColorById.set(String(lineId), color.trim());
 
             companyObj[company] = true;
 
@@ -635,6 +672,7 @@ map.on('load', async () => {
                 applyLineSelectionStyle();
                 applyStationSelectionStyle();
                 if (collisionController) collisionController.scheduleUpdate();
+                updateSelectionBadge();
                 if (selectedCompany) fitToCurrentSelection(`company:${selectedCompany}`);
             },
             onLineClick: (lineId, meta) => {
@@ -651,6 +689,7 @@ map.on('load', async () => {
                 applyLineSelectionStyle();
                 applyStationSelectionStyle();
                 if (collisionController) collisionController.scheduleUpdate();
+                updateSelectionBadge();
                 if (selectedLineId) fitToCurrentSelection(`line:${selectedLineId}`);
             },
             onModeClick: ({ lineId, mode }, meta) => {
@@ -670,6 +709,7 @@ map.on('load', async () => {
                 applyLineSelectionStyle();
                 applyStationSelectionStyle();
                 if (collisionController) collisionController.scheduleUpdate();
+                updateSelectionBadge();
                 if (selectedLineId) fitToCurrentSelection(`mode:${selectedLineId}:${selectedServiceMode}`);
             }
         });
@@ -684,6 +724,7 @@ map.on('load', async () => {
 
         applyLineSelectionStyle();
         applyStationSelectionStyle();
+        updateSelectionBadge();
     } catch (e) {
         console.error('线路加载失败，请确保运行了 python -m http.server', e);
     }

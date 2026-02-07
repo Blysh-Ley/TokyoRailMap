@@ -281,6 +281,37 @@
             background: #3498db;
             color: #fff;
         }
+
+        /* 底部居中：当前高亮公司/线路提示 */
+        .selection-badge {
+            position: fixed;
+            left: 50%;
+            bottom: 18px;
+            transform: translateX(-50%);
+            z-index: 9999;
+            padding: 8px 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.75);
+            border: 1px solid #e3e5e7;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(4px);
+            pointer-events: none;
+            max-width: calc(100vw - 24px);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .selection-badge.is-hidden {
+            display: none;
+        }
+
+        .selection-badge-text {
+            font-size: 16px;
+            line-height: 1.2;
+            font-weight: 600;
+            color: #111;
+        }
     </style>
 </head>
 <body>
