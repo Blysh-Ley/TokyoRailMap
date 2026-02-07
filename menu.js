@@ -55,6 +55,139 @@ export class Menu {
         this._committedSinceEnter = false;
 
         this._enteredAtMs = 0;
+
+        // 触屏适配：第一次 tap = hover，第二次 tap 同一项 = click
+        this._lastPointerType = 'mouse';
+        this._suppressMouseEventsUntilMs = 0;
+        this._tapArmedEl = null;
+        this._tapArmedAtMs = 0;
+
+        // 触屏从侧边“唤起菜单”的那一下：不应触发任何 hover/预览
+        this._ignoreTouchClickUntilMs = 0;
+
+        // 统一“进入/离开菜单会话”的语义（鼠标用 enter/leave，触屏用 tap in/out）
+        this._sessionActive = false;
+    }
+
+    // ---------------------------
+    // 触屏/指针 工具
+    // ---------------------------
+    _nowMs() {
+        return typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+    }
+
+    _isTouchLikePointer(pointerType) {
+        return pointerType === 'touch' || pointerType === 'pen';
+    }
+
+    _setLastPointerType(pointerType) {
+        this._lastPointerType = pointerType || 'mouse';
+        if (this._isTouchLikePointer(this._lastPointerType)) {
+            // 触屏会触发一串合成 mouseover/click，短时间内屏蔽 mouseover 以免重复逻辑
+            this._suppressMouseEventsUntilMs = this._nowMs() + 800;
+        }
+    }
+
+    _shouldSuppressMouseEvent() {
+        return this._nowMs() < (this._suppressMouseEventsUntilMs || 0);
+    }
+
+    _clearHoverPreviewTimer() {
+        if (this._hoverTimerId != null) {
+            clearTimeout(this._hoverTimerId);
+            this._hoverTimerId = null;
+        }
+        this._hoverTargetEl = null;
+    }
+
+    _startSession() {
+        this._committedSinceEnter = false;
+        this._enteredAtMs = this._nowMs();
+        this._sessionActive = true;
+        this._tapArmedEl = null;
+        this._tapArmedAtMs = 0;
+        this._clearHoverPreviewTimer();
+    }
+
+    _endSessionLikeLeave() {
+        this._clearHoverPreviewTimer();
+        this._tapArmedEl = null;
+        this._tapArmedAtMs = 0;
+
+        if (!this._committedSinceEnter) {
+            if (this._nowMs() - (this._enteredAtMs || 0) >= this.exitGraceMs) {
+                this.clearActive();
+                if (typeof this.onCancelSelection === 'function') {
+                    this.onCancelSelection();
+                }
+            }
+        }
+        this._sessionActive = false;
+    }
+
+    _fireHoverPreview(content) {
+        if (!content || !this.wrapper || !this.wrapper.contains(content)) return;
+
+        const companyEl = content.classList.contains('RW-company-content') ? content : null;
+        const lineEl = content.classList.contains('RW-line-content') ? content : null;
+        const modeEl = content.classList.contains('RW-linedirc-content') ? content : null;
+
+        if (companyEl) {
+            const companyName = companyEl.querySelector('.RW-company-name')?.textContent?.trim();
+            if (!companyName) return;
+            this.markActive(companyEl);
+            if (this.onCompanyClick) this.onCompanyClick(companyName, { source: 'hover' });
+            return;
+        }
+
+        if (lineEl) {
+            const lineId = lineEl.dataset.lineId;
+            if (!lineId) return;
+            this.markActive(lineEl);
+            if (this.onLineClick) this.onLineClick(lineId, { source: 'hover' });
+            return;
+        }
+
+        if (modeEl) {
+            const lineId = modeEl.dataset.lineId;
+            const mode = modeEl.dataset.mode;
+            if (!lineId || !mode) return;
+            this.markActive(modeEl);
+            if (this.onModeClick) this.onModeClick({ lineId, mode }, { source: 'hover' });
+        }
+    }
+
+    _queueHoverPreview(content) {
+        if (!content || !this.wrapper || !this.wrapper.contains(content)) return;
+        if (this._hoverTargetEl === content) return;
+
+        this._clearHoverPreviewTimer();
+        this._hoverTargetEl = content;
+
+        this._hoverTimerId = setTimeout(() => {
+            this._hoverTimerId = null;
+
+            // 鼠标：仍然停留在该项上才触发；触屏：以“仍是当前 armed/目标项”为准
+            if (!this._hoverTargetEl || this._hoverTargetEl !== content) return;
+            if (!this._isTouchLikePointer(this._lastPointerType)) {
+                if (!content.matches(':hover')) return;
+            }
+
+            this._fireHoverPreview(content);
+        }, this.hoverDelayMs);
+    }
+
+    _touchHoverShowSubMenuForContent(content) {
+        const item = content?.closest?.('.RW-item');
+        if (!item || !this.wrapper || !this.wrapper.contains(item)) return;
+
+        this.hideSiblingSubMenus(item);
+
+        const sub = item.querySelector(':scope > .RW-wrapper');
+        if (!sub) return;
+
+        sub.style.display = 'block';
+        this.anchorSubMenu(item, sub, 10);
     }
 
     // ---------------------------
@@ -229,6 +362,65 @@ export class Menu {
         this.bindClickHighlight();
         this.bindHoverSelectPreview();
         this.bindSlideInOut();
+
+        // 触屏：tap in/out 会话、点外部收起
+        this.bindTouchAdaptation();
+    }
+
+    // ---------------------------
+    // 触屏适配：第一下 tap 当 hover，第二下 tap 同一项才 click
+    // ---------------------------
+    bindTouchAdaptation() {
+        if (!this.wrapper) return;
+
+        this.wrapper.addEventListener(
+            'pointerdown',
+            (e) => {
+                this._setLastPointerType(e.pointerType);
+                if (!this._isTouchLikePointer(this._lastPointerType)) return;
+
+                // 触屏没有 mouseenter：第一次触摸视为进入菜单会话
+                if (!this._sessionActive) {
+                    this._startSession();
+                }
+
+                // 若菜单处于收起状态（只露边），先展开，避免误触直接触发项
+                const leftPx = parseFloat(getComputedStyle(this.wrapper).left || '0');
+                if (Number.isFinite(leftPx) && leftPx < 0) {
+                    this.wrapper.style.left = '10px';
+
+                    // 这一击是“唤起菜单”，吞掉随后的 click/hover
+                    const now = this._nowMs();
+                    this._ignoreTouchClickUntilMs = now + 600;
+                    this._tapArmedEl = null;
+                    this._tapArmedAtMs = 0;
+                    this._clearHoverPreviewTimer();
+
+                    // 阻止合成 click，避免点到第一项导致立即预览/选中
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            },
+            { passive: false }
+        );
+
+        // 触屏：点到菜单外部 = mouseleave（关闭子菜单/可能取消选择）
+        document.addEventListener(
+            'pointerdown',
+            (e) => {
+                const pointerType = e.pointerType || 'mouse';
+                if (!this._isTouchLikePointer(pointerType)) return;
+                if (!this.wrapper) return;
+                if (!this.wrapper.contains(e.target)) {
+                    if (this._sessionActive) {
+                        this.hideAllSubMenus();
+                        this.wrapper.style.left = '-190px';
+                        this._endSessionLikeLeave();
+                    }
+                }
+            },
+            { passive: true }
+        );
     }
 
     // ---------------------------
@@ -237,81 +429,21 @@ export class Menu {
     bindHoverSelectPreview() {
         if (!this.wrapper) return;
 
-        const clearHoverTimer = () => {
-            if (this._hoverTimerId != null) {
-                clearTimeout(this._hoverTimerId);
-                this._hoverTimerId = null;
-            }
-            this._hoverTargetEl = null;
-        };
-
         this.wrapper.addEventListener('mouseenter', () => {
             // 进入菜单一次算一个“会话”：只有真的点击过才算提交
-            this._committedSinceEnter = false;
-            this._enteredAtMs = performance.now();
-            clearHoverTimer();
+            this._startSession();
         });
 
         this.wrapper.addEventListener('mouseleave', () => {
-            clearHoverTimer();
-
-            // 离开菜单且本次没有点击提交：恢复初始状态（什么都没选）
-            if (!this._committedSinceEnter) {
-                // 防误触：进入菜单后 exitGraceMs 内退出，不重置选择
-                if (performance.now() - (this._enteredAtMs || 0) < this.exitGraceMs) {
-                    return;
-                }
-                this.clearActive();
-                if (typeof this.onCancelSelection === 'function') {
-                    this.onCancelSelection();
-                }
-            }
+            this._endSessionLikeLeave();
         });
 
         this.wrapper.addEventListener('mouseover', (e) => {
+            if (this._shouldSuppressMouseEvent()) return;
             const content = e.target.closest('.RW-company-content, .RW-line-content, .RW-linedirc-content');
             if (!content || !this.wrapper.contains(content)) return;
 
-            // 同一个目标不重复启动计时器
-            if (this._hoverTargetEl === content) return;
-
-            clearHoverTimer();
-            this._hoverTargetEl = content;
-
-            this._hoverTimerId = setTimeout(() => {
-                this._hoverTimerId = null;
-
-                // 仍然停留在该项上才触发
-                if (!this._hoverTargetEl || !this._hoverTargetEl.matches(':hover')) return;
-
-                const companyEl = content.classList.contains('RW-company-content') ? content : null;
-                const lineEl = content.classList.contains('RW-line-content') ? content : null;
-                const modeEl = content.classList.contains('RW-linedirc-content') ? content : null;
-
-                if (companyEl) {
-                    const companyName = companyEl.querySelector('.RW-company-name')?.textContent?.trim();
-                    if (!companyName) return;
-                    this.markActive(companyEl);
-                    if (this.onCompanyClick) this.onCompanyClick(companyName, { source: 'hover' });
-                    return;
-                }
-
-                if (lineEl) {
-                    const lineId = lineEl.dataset.lineId;
-                    if (!lineId) return;
-                    this.markActive(lineEl);
-                    if (this.onLineClick) this.onLineClick(lineId, { source: 'hover' });
-                    return;
-                }
-
-                if (modeEl) {
-                    const lineId = modeEl.dataset.lineId;
-                    const mode = modeEl.dataset.mode;
-                    if (!lineId || !mode) return;
-                    this.markActive(modeEl);
-                    if (this.onModeClick) this.onModeClick({ lineId, mode }, { source: 'hover' });
-                }
-            }, this.hoverDelayMs);
+            this._queueHoverPreview(content);
         });
     }
 
@@ -323,6 +455,7 @@ export class Menu {
 
         // 事件委托：对所有 li.RW-item 做 hover 展示子菜单（div.RW-wrapper）
         this.wrapper.addEventListener('mouseover', (e) => {
+            if (this._shouldSuppressMouseEvent()) return;
             const item = e.target.closest('.RW-item');
             if (!item || !this.wrapper.contains(item)) return;
 
@@ -394,6 +527,39 @@ export class Menu {
             const companyA = e.target.closest('.RW-company-content');
             const lineA = e.target.closest('.RW-line-content');
             const dirA = e.target.closest('.RW-linedirc-content');
+
+            // 触屏：第一下 tap 当 hover（不触发 click 回调），第二下 tap 同一项才继续走 click 逻辑
+            const isTouchLike = this._isTouchLikePointer(this._lastPointerType);
+            if (isTouchLike) {
+                // 刚从侧边唤起菜单的那一下：完全忽略（不 hover、不 click）
+                if (this._nowMs() < (this._ignoreTouchClickUntilMs || 0)) {
+                    e.preventDefault();
+                    return;
+                }
+
+                const content = companyA || lineA || dirA;
+                if (content && this.wrapper.contains(content)) {
+                    if (this._tapArmedEl !== content) {
+                        e.preventDefault();
+
+                        this._tapArmedEl = content;
+                        this._tapArmedAtMs = this._nowMs();
+
+                        // 1) 打开子菜单（hover show）
+                        this._touchHoverShowSubMenuForContent(content);
+
+                        // 2) 触屏不做 hoverDelay：直接执行 hover 预览选择
+                        this._clearHoverPreviewTimer();
+                        this._hoverTargetEl = content;
+                        this._fireHoverPreview(content);
+                        return;
+                    }
+
+                    // 第二次点击同一项：解除 armed，继续走原 click 行为
+                    this._tapArmedEl = null;
+                    this._tapArmedAtMs = 0;
+                }
+            }
 
             if (companyA && this.wrapper.contains(companyA)) {
                 e.preventDefault();
@@ -511,6 +677,9 @@ export class Menu {
 
         // 阻止点击穿透到地图，但不阻断本菜单自身的事件委托
         this.wrapper.addEventListener('click', (e) => e.stopPropagation());
+
+        // 触屏/笔：阻止 pointerdown 穿透到地图（否则可能触发地图拖动）
+        this.wrapper.addEventListener('pointerdown', (e) => e.stopPropagation(), { passive: true });
 
         this.wrapper.querySelectorAll('.RW-list').forEach((list) => {
             list.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });

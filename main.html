@@ -88,6 +88,18 @@
             padding-top: 20px;
             padding-bottom: 20px;
             cursor: pointer;
+
+            /* 触屏：尽量消除浏览器默认点击/高亮反馈 */
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            touch-action: manipulation;
+        }
+
+        /* 某些浏览器把 tap-highlight 画在父层/子层：统一关闭 */
+        .RW-wrapper,
+        .RW-wrapper * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
         }
 
 
@@ -116,6 +128,22 @@
             justify-content: space-between;
             padding: .5rem 1rem;
             position: relative;
+
+            /* 触屏：去掉浏览器默认的点击灰色高亮/长按菜单 */
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            user-select: none;
+        }
+
+        /* 触屏按下时不出现额外反馈（保留 .RW-active 的选中态） */
+        .RW-content:active {
+            background-color: inherit;
+        }
+
+        .RW-content:focus,
+        .RW-content:focus-visible {
+            outline: none;
+            box-shadow: none;
         }
 
         /* 选中状态 */
