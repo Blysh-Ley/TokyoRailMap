@@ -292,6 +292,69 @@ export function mountSearchUI() {
     root.appendChild(results);
     document.body.appendChild(root);
 
+    const getMapActions = () => {
+        try {
+            return window.TokyoRailSearchMapActions || null;
+        } catch {
+            return null;
+        }
+    };
+
+    const readPointerType = (evt) => {
+        const pt = evt?.pointerType;
+        if (pt) return String(pt);
+        const t = evt?.type;
+        if (t && String(t).startsWith('touch')) return 'touch';
+        return 'mouse';
+    };
+
+    const isTouchLike = (pt) => pt === 'touch' || pt === 'pen';
+
+    let previewSnapshot = null;
+    let previewAppliedKey = null;
+    let suppressEndPreviewCount = 0;
+
+    const startPreviewSessionIfNeeded = () => {
+        const actions = getMapActions();
+        if (!actions) return null;
+        if (!previewSnapshot && typeof actions.snapshotSelectionState === 'function') {
+            try {
+                previewSnapshot = actions.snapshotSelectionState();
+            } catch {
+                previewSnapshot = null;
+            }
+        }
+        return actions;
+    };
+
+    const endPreviewSession = () => {
+        const actions = getMapActions();
+        if (actions && previewSnapshot && typeof actions.restoreSelectionState === 'function') {
+            try {
+                actions.restoreSelectionState(previewSnapshot);
+            } catch {
+                // ignore
+            }
+        }
+        previewSnapshot = null;
+        previewAppliedKey = null;
+
+        // station 预览会打开固定 popup；离开预览时关闭
+        try {
+            actions?.closeStationPopup?.({ committed: false });
+        } catch {
+            // ignore
+        }
+    };
+
+    const maybeEndPreviewSession = () => {
+        if (suppressEndPreviewCount > 0) {
+            suppressEndPreviewCount -= 1;
+            return;
+        }
+        endPreviewSession();
+    };
+
     const expand = () => {
         if (!root.classList.contains('is-collapsed')) return;
         root.classList.remove('is-collapsed');
@@ -319,12 +382,15 @@ export function mountSearchUI() {
             this.results.classList.toggle('is-hidden', !show);
         },
         clear() {
+            maybeEndPreviewSession();
             this.setQuery('');
             this.input.value = '';
             this.setResults([]);
             this.showResults(false);
         },
         render() {
+            // 重新渲染前先结束预览，避免 DOM 被替换后 hover/mouseleave 无法触发导致高亮卡住
+            maybeEndPreviewSession();
             while (this.list.firstChild) this.list.removeChild(this.list.firstChild);
 
             const q = String(this.query || '').trim();
@@ -345,6 +411,64 @@ export function mountSearchUI() {
             for (const item of this.items) {
                 const li = document.createElement('li');
                 const row = el('div', 'search-result-item');
+
+                const itemKey = `${String(item?.type || '')}:${String(item?.id || item?.text || '')}`;
+
+                const previewItem = (meta = {}) => {
+                    const actions = startPreviewSessionIfNeeded();
+                    if (!actions) return;
+
+                    const type = item?.type;
+                    if (type === 'company') {
+                        actions.previewCompany?.(item.id);
+                        previewAppliedKey = itemKey;
+                        return;
+                    }
+
+                    if (type === 'line') {
+                        actions.previewLine?.(item.id);
+                        previewAppliedKey = itemKey;
+                        return;
+                    }
+
+                    if (type === 'station') {
+                        // station popup 依赖 isReady（stations/popup 初始化完成）
+                        if (actions.isReady !== true) return;
+                        actions.previewStation?.(item.id, { pointerType: meta.pointerType, maxZoom: 12 });
+                        previewAppliedKey = itemKey;
+                    }
+                };
+
+                const commitItem = (meta = {}) => {
+                    const actions = getMapActions();
+                    if (!actions) return;
+
+                    // 提交：不再回滚预览快照
+                    previewSnapshot = null;
+                    previewAppliedKey = null;
+
+                    const type = item?.type;
+                    if (type === 'company') {
+                        actions.commitCompany?.(item.id);
+                        ui.clearAndCollapse();
+                        return;
+                    }
+
+                    if (type === 'line') {
+                        actions.commitLine?.(item.id);
+                        ui.clearAndCollapse();
+                        return;
+                    }
+
+                    if (type === 'station') {
+                        if (actions.isReady !== true) return;
+                        actions.commitStation?.(item.id, { pointerType: meta.pointerType, maxZoom: 12 });
+
+                        // 提交站点：接下来 ui.clear()/render()/collapse 不应关闭固定 popup
+                        suppressEndPreviewCount = Math.max(suppressEndPreviewCount, 3);
+                        ui.clearAndCollapse();
+                    }
+                };
 
                 const icon = buildResultIcon(item);
                 // station：保持“换乘站圆点”风格（更粗描边）
@@ -397,11 +521,77 @@ export function mountSearchUI() {
                 row.appendChild(icon);
                 row.appendChild(text);
 
-                // 交互逻辑稍后实现：这里先阻止默认行为（未来可用于选择/定位）
+                // ===== 交互：mouse hover 0.5s 预览；mouse click 提交 =====
+                let hoverTimer = null;
+                row.addEventListener('mouseenter', (evt) => {
+                    const pt = readPointerType(evt);
+                    if (isTouchLike(pt)) return;
+                    if (hoverTimer) clearTimeout(hoverTimer);
+                    hoverTimer = setTimeout(() => {
+                        hoverTimer = null;
+                        previewItem({ pointerType: 'mouse' });
+                    }, 500);
+                });
+
+                row.addEventListener('mouseleave', (evt) => {
+                    const pt = readPointerType(evt);
+                    if (isTouchLike(pt)) return;
+                    if (hoverTimer) {
+                        clearTimeout(hoverTimer);
+                        hoverTimer = null;
+                    }
+                    if (previewAppliedKey === itemKey) {
+                        endPreviewSession();
+                    }
+                });
+
                 row.addEventListener('click', (evt) => {
+                    const pt = readPointerType(evt);
+                    if (isTouchLike(pt)) {
+                        // 触屏点击由 pointerdown 处理（用于双击识别）
+                        evt.preventDefault?.();
+                        evt.stopPropagation?.();
+                        return;
+                    }
                     evt.preventDefault?.();
                     evt.stopPropagation?.();
+                    if (hoverTimer) {
+                        clearTimeout(hoverTimer);
+                        hoverTimer = null;
+                    }
+                    commitItem({ pointerType: 'mouse' });
                 });
+
+                // ===== 交互：touch 单击预览 / 双击提交 =====
+                let lastTapAt = 0;
+                let lastTapKey = null;
+
+                row.addEventListener(
+                    'pointerdown',
+                    (evt) => {
+                        const pt = readPointerType(evt);
+                        if (!isTouchLike(pt)) return;
+                        evt.preventDefault?.();
+                        evt.stopPropagation?.();
+
+                        const now = Date.now();
+                        const isDouble = lastTapKey === itemKey && now - lastTapAt <= 350;
+                        lastTapAt = now;
+                        lastTapKey = itemKey;
+
+                        if (isDouble) {
+                            // 双击提交
+                            lastTapAt = 0;
+                            lastTapKey = null;
+                            commitItem({ pointerType: pt });
+                            return;
+                        }
+
+                        // 单击预览（立即）
+                        previewItem({ pointerType: pt });
+                    },
+                    { passive: false }
+                );
 
                 li.appendChild(row);
                 this.list.appendChild(li);
@@ -413,6 +603,7 @@ export function mountSearchUI() {
 
     const collapse = ({ clear = false } = {}) => {
         if (clear) ui.clear();
+        else maybeEndPreviewSession();
         root.classList.add('is-collapsed');
     };
 

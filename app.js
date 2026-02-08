@@ -590,6 +590,221 @@ map.on('load', async () => {
         applySelectionEffects();
     };
 
+    // 暴露给 search.js：复用“菜单同款”的预览/提交高亮 + fitBounds
+    // 注意：search.js 不能 import app.js（会重复初始化地图），因此用 window 作为桥接。
+    const searchMapActions = (() => {
+        try {
+            if (!window.TokyoRailSearchMapActions) window.TokyoRailSearchMapActions = {};
+            return window.TokyoRailSearchMapActions;
+        } catch {
+            return null;
+        }
+    })();
+
+    const normalizeLineIdArrayLike = (value) => {
+        const raw = normalizeArrayLike(value);
+        const out = [];
+        const seen = new Set();
+        for (const x of raw) {
+            const id = String(x).trim();
+            if (!id || seen.has(id)) continue;
+            seen.add(id);
+            out.push(id);
+        }
+        return out;
+    };
+
+    // “通过该站台的线路”：优先 platform_line_id；没有则回退 serving_ids / serving_lines
+    const getPlatformLineIdsFromStationProps = (props) => {
+        const p = props || {};
+        const platformIds = normalizeLineIdArrayLike(p.platform_line_id);
+        if (platformIds.length) return platformIds;
+
+        const servingIds = normalizeLineIdArrayLike(p.serving_ids);
+        if (servingIds.length) return servingIds;
+
+        const servingLines = normalizeLineIdArrayLike(p.serving_lines);
+        if (!servingLines.length) return [];
+
+        // 若 serving_lines 是“名称”，尝试用 lineNameById 反查 id
+        const out = [];
+        for (const name of servingLines) {
+            for (const [id, n] of lineNameById.entries()) {
+                if (String(n) === name) {
+                    out.push(String(id));
+                    break;
+                }
+            }
+        }
+        return out;
+    };
+
+    const selectPlatformLinesForStation = (props) => {
+        const ids = getPlatformLineIdsFromStationProps(props);
+        if (!ids.length) return;
+
+        selectedStationLineIds = new Set(ids);
+        selectedCompany = null;
+        selectedLineId = null;
+        selectedServiceMode = 'all';
+        isolateStationsToSelectedLine = false;
+
+        applyLineSelectionStyle();
+        applyStationSelectionStyle();
+        if (collisionController) collisionController.scheduleUpdate();
+        updateSelectionBadge();
+    };
+
+    const fitToPointAsBounds = (coordinates, { maxZoom } = {}) => {
+        if (!Array.isArray(coordinates) || coordinates.length < 2) return;
+        const lng = Number(coordinates[0]);
+        const lat = Number(coordinates[1]);
+        if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
+
+        // 点用一个很小的 bbox 来 fitBounds，实现“居中”语义
+        const dLng = 0.006;
+        const dLat = 0.004;
+        const bounds = [
+            [lng - dLng, lat - dLat],
+            [lng + dLng, lat + dLat]
+        ];
+
+        const opts = {
+            padding: 60,
+            duration: 300,
+            easing: (t) => t,
+            essential: true
+        };
+        if (Number.isFinite(maxZoom)) opts.maxZoom = maxZoom;
+        try {
+            map.fitBounds(bounds, opts);
+        } catch {
+            // ignore
+        }
+    };
+
+    const findStationLabelItemById = (stationId) => {
+        const id = String(stationId ?? '').trim();
+        if (!id) return null;
+        if (!Array.isArray(stationLabels) || !stationLabels.length) return null;
+        return (
+            stationLabels.find((x) => x && String(x.stationId) === id) ||
+            stationLabels.find((x) => x && String(x.props?.id ?? '') === id) ||
+            null
+        );
+    };
+
+    if (searchMapActions) {
+        searchMapActions.isReady = false;
+        searchMapActions.snapshotSelectionState = snapshotSelectionState;
+        searchMapActions.restoreSelectionState = restoreSelectionState;
+
+        searchMapActions.previewLine = (lineId) => {
+            const id = String(lineId ?? '').trim();
+            if (!id) return;
+            hideStationPopupForMenuInteraction();
+            selectedStationLineIds = null;
+            selectedLineId = id;
+            selectedCompany = null;
+            selectedServiceMode = 'all';
+            isolateStationsToSelectedLine = false;
+            setStationLabelMode('auto');
+            applySelectionEffects();
+            fitToCurrentSelection(`line:${id}`, 'preview');
+        };
+
+        searchMapActions.commitLine = (lineId) => {
+            const id = String(lineId ?? '').trim();
+            if (!id) return;
+            hideStationPopupForMenuInteraction();
+            selectedStationLineIds = null;
+            selectedLineId = id;
+            selectedCompany = null;
+            selectedServiceMode = 'all';
+            isolateStationsToSelectedLine = false;
+            setStationLabelMode('all');
+
+            if (menu && typeof menu.markActive === 'function') {
+                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(id)}"]`);
+                if (el) menu.markActive(el);
+            }
+
+            applySelectionEffects();
+            fitToCurrentSelection(`line:${id}`, 'commit');
+        };
+
+        searchMapActions.previewCompany = (companyName) => {
+            const name = String(companyName ?? '').trim();
+            if (!name) return;
+            hideStationPopupForMenuInteraction();
+            selectedStationLineIds = null;
+            selectedCompany = name;
+            selectedLineId = null;
+            selectedServiceMode = 'all';
+            isolateStationsToSelectedLine = false;
+            setStationLabelMode('auto');
+            applySelectionEffects();
+            fitToCurrentSelection(`company:${name}`, 'preview');
+        };
+
+        searchMapActions.commitCompany = (companyName) => {
+            const name = String(companyName ?? '').trim();
+            if (!name) return;
+            hideStationPopupForMenuInteraction();
+            selectedStationLineIds = null;
+            selectedCompany = name;
+            selectedLineId = null;
+            selectedServiceMode = 'all';
+            isolateStationsToSelectedLine = false;
+            setStationLabelMode('auto');
+
+            if (menu && typeof menu.markActive === 'function') {
+                const companyEls = menu.wrapper?.querySelectorAll?.('.RW-company-content') || [];
+                for (const el of companyEls) {
+                    const n = el?.querySelector?.('.RW-company-name')?.textContent?.trim();
+                    if (n === name) {
+                        menu.markActive(el);
+                        break;
+                    }
+                }
+            }
+
+            applySelectionEffects();
+            fitToCurrentSelection(`company:${name}`, 'commit');
+        };
+
+        // station 的 popup 依赖 stationsData 加载完成后初始化的 stationPopup；这里先挂函数，内部做空值保护
+        const openFixedPopupForStationId = (stationId, meta = {}) => {
+            const item = findStationLabelItemById(stationId);
+            if (!item) return null;
+
+            const props = item.props || {};
+            const coords = item.coordinates;
+            const pt = meta?.pointerType ? String(meta.pointerType) : 'mouse';
+
+            setFixedPopupStationLabelBelow(props.id ?? item.stationId);
+            selectPlatformLinesForStation(props);
+            stationPopup?.setExternalStationHover?.(true);
+            stationPopup?.showPopupAt?.(coords, props, { pointerType: pt });
+            fitToPointAsBounds(coords, { maxZoom: meta?.maxZoom });
+            return { props, coords };
+        };
+
+        searchMapActions.previewStation = (stationId, meta) => {
+            openFixedPopupForStationId(stationId, meta || {});
+        };
+
+        searchMapActions.commitStation = (stationId, meta) => {
+            openFixedPopupForStationId(stationId, meta || {});
+        };
+
+        // 方便搜索预览结束时收起 popup（如果需要）
+        searchMapActions.closeStationPopup = ({ committed } = {}) => {
+            stationPopup?.closePopup?.({ committed: committed !== false });
+            setFixedPopupStationLabelBelow(null);
+        };
+    }
+
     function bindClickBlankToRestore() {
         // 点击地图空白处：恢复所有线路显示（并同步恢复站点/站名联动）
         map.on('click', (e) => {
@@ -771,14 +986,14 @@ map.on('load', async () => {
 
             if (!menu?.wrapper) return fallback;
 
-            // 菜单展开时：扣除左侧菜单宽度，把 bbox fit 到剩余区域
-            const left = parseFloat(getComputedStyle(menu.wrapper).left || '0');
-            if (!Number.isFinite(left) || left < 0) return fallback;
-
+            // 需求：预览（hover）时也应扣除左侧菜单占用宽度。
+            // 注意：菜单可能处于“收起但仍在左侧”的状态，此时 rect.right 可能接近 0；
+            // 为保持一致，使用 max(rect.right, rect.width) 来估算需要预留的宽度。
             const rect = menu.wrapper.getBoundingClientRect?.();
-            if (!rect || !Number.isFinite(rect.right)) return fallback;
+            if (!rect || !Number.isFinite(rect.width)) return fallback;
 
-            const leftPad = Math.max(base, Math.ceil(rect.right + base + extraLeft));
+            const reserve = Math.max(0, Number.isFinite(rect.right) ? rect.right : 0, rect.width);
+            const leftPad = Math.max(base, Math.ceil(reserve + base + extraLeft));
             return { top: base, right: base, bottom: base, left: leftPad };
         };
 
@@ -1252,6 +1467,15 @@ map.on('load', async () => {
                 setFixedPopupStationLabelBelow(null);
             }
         });
+
+        // search.js bridge：stations/popup 已可用
+        try {
+            if (window.TokyoRailSearchMapActions) {
+                window.TokyoRailSearchMapActions.isReady = true;
+            }
+        } catch {
+            // ignore
+        }
 
         // 站名标签：鼠标点击/触屏点击也弹出 popup（等同 hover 站点圆点）
         if (stationPopup && typeof stationPopup.showPopupAt === 'function') {
