@@ -239,16 +239,18 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     const tryHidePopup = () => {
         if (popupOpenMode !== 'hover') return;
         clearHideTimer();
-        // 给一点点缓冲，避免从圆点移到 popup 时闪一下
+        // 需求调整：hover popup 不应因鼠标移入 popup 而保持；只要移出站点就隐藏
         hideTimerId = setTimeout(() => {
             hideTimerId = null;
-            if (!isOverStation && !isOverPopup) {
+            if (!isOverStation) {
                 removePopupNow({ committed: committedInPopup });
             }
         }, 50);
     };
 
     const onPopupEnter = () => {
+        // hover 打开的弹框：移入 popup 不应阻止隐藏
+        if (popupOpenMode === 'hover') return;
         isOverPopup = true;
         clearHideTimer();
         clearRestoreTimer();
