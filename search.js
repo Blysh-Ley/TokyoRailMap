@@ -262,6 +262,44 @@ export function mountSearchUI() {
 
     const root = el('div', 'search-ui is-collapsed');
 
+    const HISTORY_KEY = 'TokyoRailSearchHistory';
+    const MAX_HISTORY = 20;
+
+    const normalizeHistoryQuery = (q) =>
+        String(q ?? '')
+            .trim()
+            .replace(/\s+/g, ' ');
+
+    const loadHistory = () => {
+        try {
+            const raw = window.localStorage?.getItem?.(HISTORY_KEY);
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return [];
+            return parsed.map(normalizeHistoryQuery).filter(Boolean).slice(0, MAX_HISTORY);
+        } catch {
+            return [];
+        }
+    };
+
+    const saveHistory = (items) => {
+        try {
+            const list = Array.isArray(items) ? items.map(normalizeHistoryQuery).filter(Boolean) : [];
+            window.localStorage?.setItem?.(HISTORY_KEY, JSON.stringify(list.slice(0, MAX_HISTORY)));
+        } catch {
+            // ignore
+        }
+    };
+
+    const addHistory = (q) => {
+        const value = normalizeHistoryQuery(q);
+        if (!value) return;
+
+        const list = loadHistory();
+        const next = [value, ...list.filter((x) => x !== value)].slice(0, MAX_HISTORY);
+        saveHistory(next);
+    };
+
     const fab = el('button', 'search-fab', { type: 'button', 'aria-label': '搜索' });
     const fabIcon = el('img', 'search-fab-icon', { alt: '' });
     // 优先按需求使用绝对路径；若站点不是挂在域名根目录，则回退相对路径
@@ -360,7 +398,12 @@ export function mountSearchUI() {
         root.classList.remove('is-collapsed');
         // 展开后聚焦输入框，便于直接输入
         try { input.focus?.(); } catch {}
+
+        // 输入为空时：展示搜索记录
+        try { ui?.render?.(); } catch {}
     };
+
+    let refresh = async () => {};
 
     const ui = {
         root,
@@ -386,7 +429,9 @@ export function mountSearchUI() {
             this.setQuery('');
             this.input.value = '';
             this.setResults([]);
-            this.showResults(false);
+            // 清空后若仍处于展开态，则显示搜索记录
+            if (!root.classList.contains('is-collapsed')) this.render();
+            else this.showResults(false);
         },
         render() {
             // 重新渲染前先结束预览，避免 DOM 被替换后 hover/mouseleave 无法触发导致高亮卡住
@@ -395,7 +440,104 @@ export function mountSearchUI() {
 
             const q = String(this.query || '').trim();
             if (!q) {
-                this.showResults(false);
+                // 展开且输入为空：显示搜索记录（不显示“暂无结果”）
+                if (root.classList.contains('is-collapsed')) {
+                    this.showResults(false);
+                    return;
+                }
+
+                const history = loadHistory();
+                if (!history.length) {
+                    this.showResults(false);
+                    return;
+                }
+
+                // 顶部标题行：搜索记录
+                {
+                    const li = document.createElement('li');
+                    const head = el('div', 'search-empty', { text: '搜索记录' });
+                    head.style.fontSize = '12px';
+                    head.style.fontWeight = '600';
+                    head.style.paddingTop = '8px';
+                    head.style.paddingBottom = '8px';
+                    li.appendChild(head);
+                    this.list.appendChild(li);
+                }
+
+                for (const text of history) {
+                    const li = document.createElement('li');
+                    const row = el('div', 'search-result-item');
+                    const icon = el('span', 'search-result-icon');
+                    const label = el('div', 'search-result-text', { text });
+                    label.style.flex = '1 1 auto';
+                    row.appendChild(icon);
+                    row.appendChild(label);
+
+                    const del = el('button', '', { type: 'button', 'aria-label': '删除记录' });
+                    del.textContent = 'x';
+                    del.style.marginLeft = 'auto';
+                    del.style.background = 'transparent';
+                    del.style.border = 'none';
+                    del.style.padding = '0 2px';
+                    del.style.cursor = 'pointer';
+                    del.style.color = 'inherit';
+                    del.style.fontSize = '15px';
+                    del.style.lineHeight = '1';
+                    del.style.opacity = '0.7';
+
+                    del.addEventListener('click', (evt) => {
+                        evt.preventDefault?.();
+                        evt.stopPropagation?.();
+                        const next = loadHistory().filter((x) => x !== text);
+                        saveHistory(next);
+                        ui.render();
+                    });
+
+                    row.appendChild(del);
+
+                    row.addEventListener('click', (evt) => {
+                        evt.preventDefault?.();
+                        evt.stopPropagation?.();
+                        input.value = text;
+                        refresh();
+                        try { input.focus?.(); } catch {}
+                    });
+
+                    li.appendChild(row);
+                    this.list.appendChild(li);
+                }
+
+                // 底部：删除所有记录
+                {
+                    const li = document.createElement('li');
+                    const box = el('div', 'search-empty');
+                    box.style.textAlign = 'center';
+                    box.style.paddingTop = '10px';
+                    box.style.paddingBottom = '10px';
+
+                    const btn = el('button', '', { type: 'button' });
+                    btn.textContent = '删除所有记录';
+                    btn.style.background = 'transparent';
+                    btn.style.border = 'none';
+                    btn.style.padding = '0';
+                    btn.style.cursor = 'pointer';
+                    btn.style.color = 'inherit';
+                    btn.style.fontSize = '12px';
+                    btn.style.lineHeight = '1.2';
+
+                    btn.addEventListener('click', (evt) => {
+                        evt.preventDefault?.();
+                        evt.stopPropagation?.();
+                        saveHistory([]);
+                        ui.render();
+                    });
+
+                    box.appendChild(btn);
+                    li.appendChild(box);
+                    this.list.appendChild(li);
+                }
+
+                this.showResults(true);
                 return;
             }
 
@@ -417,6 +559,9 @@ export function mountSearchUI() {
                 const previewItem = (meta = {}) => {
                     const actions = startPreviewSessionIfNeeded();
                     if (!actions) return;
+
+                    // 仅当用户对结果发生预览/交互时才记录搜索内容
+                    addHistory(input.value);
 
                     const type = item?.type;
                     if (type === 'company') {
@@ -442,6 +587,9 @@ export function mountSearchUI() {
                 const commitItem = (meta = {}) => {
                     const actions = getMapActions();
                     if (!actions) return;
+
+                    // 提交也视为有效交互：记录搜索内容
+                    addHistory(input.value);
 
                     // 提交：不再回滚预览快照
                     previewSnapshot = null;
@@ -623,7 +771,7 @@ export function mountSearchUI() {
     ui.clearAndCollapse = clearAndCollapse;
 
     // “实时展示搜索结果”：目前仅做 UI 行为（显示/隐藏 + 空状态），不做真正搜索。
-    const refresh = async () => {
+    refresh = async () => {
         ui.setQuery(input.value);
         const q = String(ui.query || '').trim();
         if (!q) {
