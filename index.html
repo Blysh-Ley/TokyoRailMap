@@ -91,6 +91,51 @@
             user-select: none;
         }
 
+        /* 初始：圆形搜索按钮；hover/触屏点击后展开为 search-bar */
+        .search-ui.is-collapsed {
+            width: 36.4px;
+            max-width: 36.4px;
+        }
+
+        .search-ui.is-collapsed .search-bar,
+        .search-ui.is-collapsed .search-results {
+            display: none;
+        }
+
+        .search-ui:not(.is-collapsed) .search-fab {
+            display: none;
+        }
+
+        .search-fab {
+            width: 36.4px;
+            height: 36.4px;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.75);
+            border: 1px solid #e3e5e7;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(4px);
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            color: #111;
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .search-fab-icon {
+            width: 18px;
+            height: 18px;
+            display: block;
+            pointer-events: none;
+        }
+
+        .search-fab:focus {
+            outline: none;
+        }
+
         .search-bar {
             display: flex;
             align-items: center;

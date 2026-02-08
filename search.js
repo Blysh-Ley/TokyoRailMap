@@ -260,7 +260,18 @@ export function mountSearchUI() {
         return window.TokyoRailSearchUI;
     }
 
-    const root = el('div', 'search-ui');
+    const root = el('div', 'search-ui is-collapsed');
+
+    const fab = el('button', 'search-fab', { type: 'button', 'aria-label': '搜索' });
+    const fabIcon = el('img', 'search-fab-icon', { alt: '' });
+    // 优先按需求使用绝对路径；若站点不是挂在域名根目录，则回退相对路径
+    fabIcon.src = '/icons/search.svg';
+    fabIcon.addEventListener('error', () => {
+        if (fabIcon.src && String(fabIcon.src).includes('/icons/search.svg')) {
+            fabIcon.src = './icons/search.svg';
+        }
+    });
+    fab.appendChild(fabIcon);
 
     const bar = el('div', 'search-bar');
     const input = el('input', 'search-input', {
@@ -276,17 +287,27 @@ export function mountSearchUI() {
     const list = el('ul', 'search-results-list');
     results.appendChild(list);
 
+    root.appendChild(fab);
     root.appendChild(bar);
     root.appendChild(results);
     document.body.appendChild(root);
 
+    const expand = () => {
+        if (!root.classList.contains('is-collapsed')) return;
+        root.classList.remove('is-collapsed');
+        // 展开后聚焦输入框，便于直接输入
+        try { input.focus?.(); } catch {}
+    };
+
     const ui = {
         root,
+        fab,
         input,
         results,
         list,
         query: '',
         items: [],
+        expand,
         setQuery(q) {
             this.query = String(q ?? '');
         },
@@ -390,6 +411,26 @@ export function mountSearchUI() {
         }
     };
 
+    const collapse = ({ clear = false } = {}) => {
+        if (clear) ui.clear();
+        root.classList.add('is-collapsed');
+    };
+
+    const collapseIfEmpty = () => {
+        const q = String(input.value || '').trim();
+        if (q) return;
+        ui.showResults(false);
+        collapse({ clear: false });
+    };
+
+    const clearAndCollapse = () => {
+        ui.clear();
+        collapse({ clear: false });
+    };
+
+    ui.collapse = collapse;
+    ui.clearAndCollapse = clearAndCollapse;
+
     // “实时展示搜索结果”：目前仅做 UI 行为（显示/隐藏 + 空状态），不做真正搜索。
     const refresh = async () => {
         ui.setQuery(input.value);
@@ -416,10 +457,61 @@ export function mountSearchUI() {
         refresh();
     });
 
+    // 交互：鼠标 hover 或触屏点击后展开
+    root.addEventListener('mouseenter', () => {
+        expand();
+    });
+    root.addEventListener('mouseleave', () => {
+        // 仅在“输入为空”时自动收回
+        if (root.classList.contains('is-collapsed')) return;
+        collapseIfEmpty();
+    });
+    fab.addEventListener('pointerdown', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+        expand();
+    });
+    fab.addEventListener('click', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+        expand();
+    });
+    // 任何点击到搜索条也应展开（防止某些浏览器先点到外层）
+    bar.addEventListener('pointerdown', () => {
+        expand();
+    });
+
+    // 点击地图空白位置：无论是否有结果，都清除并收回
+    // 说明：这里不依赖 MapLibre 实例，仅基于 #map 容器区域判断。
+    const mapEl = document.getElementById('map');
+    const shouldIgnoreTarget = (target) => {
+        if (!target || !(target instanceof Element)) return false;
+        if (root.contains(target)) return true;
+        if (target.closest('.RW-wrapper')) return true; // 菜单
+        if (target.closest('.maplibregl-popup')) return true; // popup
+        if (target.closest('.maplibregl-ctrl')) return true; // 控件
+        return false;
+    };
+
+    const onMapPress = (evt) => {
+        if (root.classList.contains('is-collapsed')) return;
+        const target = evt?.target;
+        if (shouldIgnoreTarget(target)) return;
+        if (!mapEl || !target || !(target instanceof Node) || !mapEl.contains(target)) return;
+        clearAndCollapse();
+    };
+
+    if (typeof window !== 'undefined' && 'PointerEvent' in window) {
+        document.addEventListener('pointerdown', onMapPress, true);
+    } else {
+        document.addEventListener('mousedown', onMapPress, true);
+        document.addEventListener('touchstart', onMapPress, { capture: true, passive: true });
+    }
+
     // 首次加载：提前拉取数据，提高首个输入的响应
     ensureDataLoaded();
 
-    // 点击搜索框以外区域：先不做收起逻辑（避免超出你“仅 UI”范围）
+    // 收起逻辑：mouseleave(空输入) + 点击地图区域
 
     window.TokyoRailSearchUI = ui;
     return ui;
