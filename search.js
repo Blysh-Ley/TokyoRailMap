@@ -352,6 +352,10 @@ export function mountSearchUI() {
     let previewAppliedKey = null;
     let suppressEndPreviewCount = 0;
 
+    // 用于把 touch click 与 mouse click 区分开
+    let lastTouchDownAt = 0;
+    let lastTouchDownKey = null;
+
     const startPreviewSessionIfNeeded = () => {
         const actions = getMapActions();
         if (!actions) return null;
@@ -425,13 +429,11 @@ export function mountSearchUI() {
             this.results.classList.toggle('is-hidden', !show);
         },
         clear() {
-            maybeEndPreviewSession();
-            this.setQuery('');
+            // 清空本身会导致“预览结束”，交给 render() 统一处理（避免多次 render/endPreviewSession）
+            this.query = '';
+            this.items = [];
             this.input.value = '';
-            this.setResults([]);
-            // 清空后若仍处于展开态，则显示搜索记录
-            if (!root.classList.contains('is-collapsed')) this.render();
-            else this.showResults(false);
+            this.render();
         },
         render() {
             // 重新渲染前先结束预览，避免 DOM 被替换后 hover/mouseleave 无法触发导致高亮卡住
@@ -613,7 +615,7 @@ export function mountSearchUI() {
                         actions.commitStation?.(item.id, { pointerType: meta.pointerType, maxZoom: 12 });
 
                         // 提交站点：接下来 ui.clear()/render()/collapse 不应关闭固定 popup
-                        suppressEndPreviewCount = Math.max(suppressEndPreviewCount, 3);
+                        suppressEndPreviewCount = Math.max(suppressEndPreviewCount, 2);
                         ui.clearAndCollapse();
                     }
                 };
@@ -694,13 +696,32 @@ export function mountSearchUI() {
                 });
 
                 row.addEventListener('click', (evt) => {
-                    const pt = readPointerType(evt);
-                    if (isTouchLike(pt)) {
-                        // 触屏点击由 pointerdown 处理（用于双击识别）
+                    // 触屏：用 click 做单击预览 / 双击提交，避免在 pointerdown 阶段收起导致后续合成 click 落到地图上
+                    const now = Date.now();
+                    const isTouchClick = lastTouchDownKey === itemKey && now - lastTouchDownAt <= 1200;
+                    if (isTouchClick) {
                         evt.preventDefault?.();
                         evt.stopPropagation?.();
+
+                        // 双击判定（按同一 itemKey）
+                        if (!row.__lastTapAt) row.__lastTapAt = 0;
+                        if (!row.__lastTapKey) row.__lastTapKey = null;
+                        const lastAt = Number(row.__lastTapAt) || 0;
+                        const lastKey = row.__lastTapKey;
+                        const isDouble = lastKey === itemKey && now - lastAt <= 350;
+                        row.__lastTapAt = now;
+                        row.__lastTapKey = itemKey;
+
+                        if (isDouble) {
+                            row.__lastTapAt = 0;
+                            row.__lastTapKey = null;
+                            commitItem({ pointerType: 'touch' });
+                        } else {
+                            previewItem({ pointerType: 'touch' });
+                        }
                         return;
                     }
+
                     evt.preventDefault?.();
                     evt.stopPropagation?.();
                     if (hoverTimer) {
@@ -710,35 +731,16 @@ export function mountSearchUI() {
                     commitItem({ pointerType: 'mouse' });
                 });
 
-                // ===== 交互：touch 单击预览 / 双击提交 =====
-                let lastTapAt = 0;
-                let lastTapKey = null;
-
+                // touch 标记：记录最近一次 touch/pen 的按下，用于 click 阶段识别
                 row.addEventListener(
                     'pointerdown',
                     (evt) => {
                         const pt = readPointerType(evt);
                         if (!isTouchLike(pt)) return;
-                        evt.preventDefault?.();
-                        evt.stopPropagation?.();
-
-                        const now = Date.now();
-                        const isDouble = lastTapKey === itemKey && now - lastTapAt <= 350;
-                        lastTapAt = now;
-                        lastTapKey = itemKey;
-
-                        if (isDouble) {
-                            // 双击提交
-                            lastTapAt = 0;
-                            lastTapKey = null;
-                            commitItem({ pointerType: pt });
-                            return;
-                        }
-
-                        // 单击预览（立即）
-                        previewItem({ pointerType: pt });
+                        lastTouchDownAt = Date.now();
+                        lastTouchDownKey = itemKey;
                     },
-                    { passive: false }
+                    { passive: true }
                 );
 
                 li.appendChild(row);
