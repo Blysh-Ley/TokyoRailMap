@@ -321,7 +321,14 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         tapArmedKey = null;
         committedInPopup = true;
         if (t.kind === 'company') {
-            if (typeof onSelectCompany === 'function') onSelectCompany(String(t.value), { source: 'popup-click' });
+            if (typeof onSelectCompany === 'function') {
+                onSelectCompany(String(t.value), {
+                    source: 'popup-click',
+                    stationLineIds: Array.isArray(currentStationServingIds) ? currentStationServingIds.slice() : []
+                });
+            }
+            // 需求：点击公司后也关闭 popup
+            removePopupNow({ committed: true });
         }
     };
 
@@ -433,7 +440,12 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         }
 
         if (t.kind === 'company' && typeof onSelectCompany === 'function') {
-            onSelectCompany(String(t.value), { source: 'popup-click' });
+            onSelectCompany(String(t.value), {
+                source: 'popup-click',
+                stationLineIds: Array.isArray(currentStationServingIds) ? currentStationServingIds.slice() : []
+            });
+            // 需求：点击公司后也关闭 popup
+            removePopupNow({ committed: true });
         }
     };
 

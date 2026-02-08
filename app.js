@@ -1147,7 +1147,27 @@ map.on('load', async () => {
                     return;
                 }
 
-                // popup click：提交高亮，但不执行 fitBounds
+                if (source === 'popup-click') {
+                    // 修复：点击 popup 公司时，只高亮“通过该站点且属于该公司”的线路集合
+                    popupPreviewSnapshot = null;
+                    popupPreviewWasApplied = false;
+
+                    const stationLineIds = Array.isArray(meta?.stationLineIds)
+                        ? meta.stationLineIds.map(String).filter(Boolean)
+                        : [];
+                    const subset = stationLineIds.filter((id) => String(lineCompanyById.get(String(id)) || '') === name);
+
+                    selectedCompany = null;
+                    selectedLineId = null;
+                    selectedStationLineIds = new Set((subset.length ? subset : stationLineIds).map(String).filter(Boolean));
+                    selectedServiceMode = 'all';
+                    isolateStationsToSelectedLine = false;
+                    setStationLabelMode('auto');
+                    applySelectionEffects();
+                    return;
+                }
+
+                // 其它来源（例如菜单 click）：保持原逻辑，高亮该公司所有线路
                 popupPreviewSnapshot = null;
                 popupPreviewWasApplied = false;
                 selectedCompany = name;

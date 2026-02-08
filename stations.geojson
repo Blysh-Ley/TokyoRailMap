@@ -36,9 +36,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_7d22b828_0",
+      "id": "id_7d22b828_0_0",
       "properties": {
-        "id": "id_7d22b828_0",
+        "id": "id_7d22b828_0_0",
         "name": "自由が丘",
         "name_ja": "自由が丘",
         "name_zh": "自由之丘",
@@ -71,9 +71,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_7d22b828_1",
+      "id": "id_7d22b828_0_1",
       "properties": {
-        "id": "id_7d22b828_1",
+        "id": "id_7d22b828_0_1",
         "name": "自由が丘",
         "name_ja": "自由が丘",
         "name_zh": "自由之丘",
@@ -130,8 +130,8 @@
           "id_e93f6e0e"
         ],
         "line_colors": [
-          "#009cd2",
-          "#DA0442"
+          "#DA0442",
+          "#009cd2"
         ]
       },
       "geometry": {
@@ -144,9 +144,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e3724f24_0",
+      "id": "id_e3724f24_0_0",
       "properties": {
-        "id": "id_e3724f24_0",
+        "id": "id_e3724f24_0_0",
         "name": "武蔵小杉",
         "name_ja": "武蔵小杉",
         "name_zh": "武蔵小杉",
@@ -176,8 +176,8 @@
           "id_e93f6e0e"
         ],
         "line_colors": [
-          "#009cd2",
-          "#DA0442"
+          "#DA0442",
+          "#009cd2"
         ]
       },
       "geometry": {
@@ -190,9 +190,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e3724f24_1",
+      "id": "id_e3724f24_0_1",
       "properties": {
-        "id": "id_e3724f24_1",
+        "id": "id_e3724f24_0_1",
         "name": "武蔵小杉",
         "name_ja": "武蔵小杉",
         "name_zh": "武蔵小杉",
@@ -225,8 +225,8 @@
         ],
         "line_colors": [
           "#00ac9a",
-          "#007AC0",
-          "red"
+          "red",
+          "#007AC0"
         ]
       },
       "geometry": {
@@ -239,9 +239,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e3724f24_2",
+      "id": "id_e3724f24_0_2",
       "properties": {
-        "id": "id_e3724f24_2",
+        "id": "id_e3724f24_0_2",
         "name": "武蔵小杉",
         "name_ja": "武蔵小杉",
         "name_zh": "武蔵小杉",
@@ -282,9 +282,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8d1029db_0",
+      "id": "id_8d1029db_0_0",
       "properties": {
-        "id": "id_8d1029db_0",
+        "id": "id_8d1029db_0_0",
         "name": "菊名",
         "name_ja": "菊名",
         "name_zh": "菊名",
@@ -317,9 +317,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8d1029db_1",
+      "id": "id_8d1029db_0_1",
       "properties": {
-        "id": "id_8d1029db_1",
+        "id": "id_8d1029db_0_1",
         "name": "菊名",
         "name_ja": "",
         "name_zh": "菊名",
@@ -380,9 +380,9 @@
           "id_e93f6e0e"
         ],
         "line_colors": [
+          "#DA0442",
           "#ae0378",
-          "#009cd2",
-          "#DA0442"
+          "#009cd2"
         ]
       },
       "geometry": {
@@ -395,9 +395,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e31419a4_0",
+      "id": "id_e31419a4_0_0",
       "properties": {
-        "id": "id_e31419a4_0",
+        "id": "id_e31419a4_0_0",
         "name": "横浜",
         "name_ja": "横浜",
         "name_zh": "横浜",
@@ -437,8 +437,8 @@
           "id_e93f6e0e"
         ],
         "line_colors": [
-          "#00469c",
-          "#DA0442"
+          "#DA0442",
+          "#00469c"
         ]
       },
       "geometry": {
@@ -451,9 +451,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e31419a4_1",
+      "id": "id_e31419a4_0_1",
       "properties": {
-        "id": "id_e31419a4_1",
+        "id": "id_e31419a4_0_1",
         "name": "横浜",
         "name_ja": "横浜",
         "name_zh": "横浜",
@@ -504,9 +504,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e31419a4_2",
+      "id": "id_e31419a4_0_2",
       "properties": {
-        "id": "id_e31419a4_2",
+        "id": "id_e31419a4_0_2",
         "name": "横浜",
         "name_ja": "横浜",
         "name_zh": "横浜",
@@ -557,9 +557,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e31419a4_3",
+      "id": "id_e31419a4_0_3",
       "properties": {
-        "id": "id_e31419a4_3",
+        "id": "id_e31419a4_0_3",
         "name": "横浜",
         "name_ja": "横浜",
         "name_zh": "横浜",
@@ -607,11 +607,11 @@
           "id_e93f6e0e"
         ],
         "line_colors": [
-          "#007AC0",
+          "red",
           "#b1cb3a",
-          "#f28d01",
           "#00b2e5",
-          "red"
+          "#f28d01",
+          "#007AC0"
         ]
       },
       "geometry": {
@@ -624,9 +624,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e31419a4_4",
+      "id": "id_e31419a4_0_4",
       "properties": {
-        "id": "id_e31419a4_4",
+        "id": "id_e31419a4_0_4",
         "name": "横浜",
         "name_ja": "横浜",
         "name_zh": "横浜",
@@ -743,9 +743,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_49c4cf5f_0",
+      "id": "id_49c4cf5f_0_0",
       "properties": {
-        "id": "id_49c4cf5f_0",
+        "id": "id_49c4cf5f_0_0",
         "name": "元住吉",
         "name_ja": "元住吉",
         "name_zh": "元住吉",
@@ -778,9 +778,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_49c4cf5f_1",
+      "id": "id_49c4cf5f_0_1",
       "properties": {
-        "id": "id_49c4cf5f_1",
+        "id": "id_49c4cf5f_0_1",
         "name": "元住吉",
         "name_ja": "元住吉",
         "name_zh": "元住吉",
@@ -912,9 +912,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4a766797_0",
+      "id": "id_4a766797_0_0",
       "properties": {
-        "id": "id_4a766797_0",
+        "id": "id_4a766797_0_0",
         "name": "渋谷",
         "name_ja": "渋谷",
         "name_zh": "渋谷",
@@ -950,8 +950,8 @@
           "id_e93f6e0e"
         ],
         "line_colors": [
-          "#9C5E31",
-          "#DA0442"
+          "#DA0442",
+          "#9C5E31"
         ]
       },
       "geometry": {
@@ -964,9 +964,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4a766797_1",
+      "id": "id_4a766797_0_1",
       "properties": {
-        "id": "id_4a766797_1",
+        "id": "id_4a766797_0_1",
         "name": "渋谷",
         "name_ja": "渋谷",
         "name_zh": "渋谷",
@@ -1002,8 +1002,8 @@
           "id_e93f6e0e"
         ],
         "line_colors": [
-          "#8F76D6",
-          "#20a288"
+          "#20a288",
+          "#8F76D6"
         ]
       },
       "geometry": {
@@ -1016,9 +1016,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4a766797_2",
+      "id": "id_4a766797_0_2",
       "properties": {
-        "id": "id_4a766797_2",
+        "id": "id_4a766797_0_2",
         "name": "渋谷",
         "name_ja": "渋谷",
         "name_zh": "渋谷",
@@ -1065,9 +1065,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4a766797_3",
+      "id": "id_4a766797_0_3",
       "properties": {
-        "id": "id_4a766797_3",
+        "id": "id_4a766797_0_3",
         "name": "渋谷",
         "name_ja": "渋谷",
         "name_zh": "渋谷",
@@ -1106,8 +1106,8 @@
         ],
         "line_colors": [
           "#B1CB39",
-          "#00ac9a",
-          "red"
+          "red",
+          "#00ac9a"
         ]
       },
       "geometry": {
@@ -1120,9 +1120,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4a766797_4",
+      "id": "id_4a766797_0_4",
       "properties": {
-        "id": "id_4a766797_4",
+        "id": "id_4a766797_0_4",
         "name": "渋谷",
         "name_ja": "渋谷",
         "name_zh": "涩谷",
@@ -1193,8 +1193,8 @@
           "id_e93f6e0e"
         ],
         "line_colors": [
-          "#B5B5AC",
-          "#DA0442"
+          "#DA0442",
+          "#B5B5AC"
         ]
       },
       "geometry": {
@@ -1264,8 +1264,8 @@
           "id_e93f6e0e"
         ],
         "line_colors": [
-          "#009cd2",
-          "#DA0442"
+          "#DA0442",
+          "#009cd2"
         ]
       },
       "geometry": {
@@ -1278,9 +1278,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b90aee65_0",
+      "id": "id_b90aee65_0_0",
       "properties": {
-        "id": "id_b90aee65_0",
+        "id": "id_b90aee65_0_0",
         "name": "日吉",
         "name_ja": "日吉",
         "name_zh": "日吉",
@@ -1306,8 +1306,8 @@
           "id_e93f6e0e"
         ],
         "line_colors": [
-          "#009cd2",
-          "#DA0442"
+          "#DA0442",
+          "#009cd2"
         ]
       },
       "geometry": {
@@ -1320,9 +1320,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b90aee65_1",
+      "id": "id_b90aee65_0_1",
       "properties": {
-        "id": "id_b90aee65_1",
+        "id": "id_b90aee65_0_1",
         "name": "日吉",
         "name_ja": "日吉",
         "name_zh": "日吉",
@@ -1631,9 +1631,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_199dc5dc_0",
+      "id": "id_199dc5dc_0_0",
       "properties": {
-        "id": "id_199dc5dc_0",
+        "id": "id_199dc5dc_0_0",
         "name": "三軒茶屋",
         "name_ja": "三軒茶屋",
         "name_zh": "三轩茶屋",
@@ -1666,9 +1666,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_199dc5dc_1",
+      "id": "id_199dc5dc_0_1",
       "properties": {
-        "id": "id_199dc5dc_1",
+        "id": "id_199dc5dc_0_1",
         "name": "三軒茶屋",
         "name_ja": "三軒茶屋",
         "name_zh": "三轩茶屋",
@@ -1734,9 +1734,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_72d63916_0",
+      "id": "id_72d63916_0_0",
       "properties": {
-        "id": "id_72d63916_0",
+        "id": "id_72d63916_0_0",
         "name": "蓟野",
         "name_ja": "蓟野",
         "name_zh": "蓟野",
@@ -1769,9 +1769,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_72d63916_1",
+      "id": "id_72d63916_0_1",
       "properties": {
-        "id": "id_72d63916_1",
+        "id": "id_72d63916_0_1",
         "name": "蓟野",
         "name_ja": "蓟野",
         "name_zh": "蓟野",
@@ -2101,9 +2101,9 @@
           "id_b68ec381"
         ],
         "line_colors": [
-          "#b1cb3a",
           "#20a288",
-          "#0068b7"
+          "#0068b7",
+          "#b1cb3a"
         ]
       },
       "geometry": {
@@ -2149,9 +2149,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_62ada21d_0",
+      "id": "id_62ada21d_0_0",
       "properties": {
-        "id": "id_62ada21d_0",
+        "id": "id_62ada21d_0_0",
         "name": "中央林間",
         "name_ja": "中央林間",
         "name_zh": "中央林间",
@@ -2184,9 +2184,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_62ada21d_1",
+      "id": "id_62ada21d_0_1",
       "properties": {
-        "id": "id_62ada21d_1",
+        "id": "id_62ada21d_0_1",
         "name": "中央林間",
         "name_ja": "中央林間",
         "name_zh": "中央林间站",
@@ -2460,9 +2460,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_14074930_0",
+      "id": "id_14074930_0_0",
       "properties": {
-        "id": "id_14074930_0",
+        "id": "id_14074930_0_0",
         "name": "中延",
         "name_ja": "中延",
         "name_zh": "中延",
@@ -2495,9 +2495,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_14074930_1",
+      "id": "id_14074930_0_1",
       "properties": {
-        "id": "id_14074930_1",
+        "id": "id_14074930_0_1",
         "name": "中延",
         "name_ja": "中延",
         "name_zh": "中延",
@@ -2596,9 +2596,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_1bbb8040_0",
+      "id": "id_1bbb8040_0_0",
       "properties": {
-        "id": "id_1bbb8040_0",
+        "id": "id_1bbb8040_0_0",
         "name": "旗之台",
         "name_ja": "旗の台",
         "name_zh": "旗之台",
@@ -2631,9 +2631,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_1bbb8040_1",
+      "id": "id_1bbb8040_0_1",
       "properties": {
-        "id": "id_1bbb8040_1",
+        "id": "id_1bbb8040_0_1",
         "name": "旗之台",
         "name_ja": "旗の台",
         "name_zh": "旗之台",
@@ -2902,9 +2902,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8916321e_0",
+      "id": "id_8916321e_0_0",
       "properties": {
-        "id": "id_8916321e_0",
+        "id": "id_8916321e_0_0",
         "name": "大井町",
         "name_ja": "大井町",
         "name_zh": "大井町",
@@ -2939,9 +2939,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8916321e_1",
+      "id": "id_8916321e_0_1",
       "properties": {
-        "id": "id_8916321e_1",
+        "id": "id_8916321e_0_1",
         "name": "大井町",
         "name_ja": "大井町",
         "name_zh": "大井町",
@@ -2976,9 +2976,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8916321e_2",
+      "id": "id_8916321e_0_2",
       "properties": {
-        "id": "id_8916321e_2",
+        "id": "id_8916321e_0_2",
         "name": "大井町",
         "name_ja": "大井町",
         "name_zh": "大井町",
@@ -3046,9 +3046,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cc7614c5_0",
+      "id": "id_cc7614c5_0_0",
       "properties": {
-        "id": "id_cc7614c5_0",
+        "id": "id_cc7614c5_0_0",
         "name": "蒲田",
         "name_ja": "蒲田",
         "name_zh": "蒲田",
@@ -3072,8 +3072,8 @@
           "id_c44e6149"
         ],
         "line_colors": [
-          "#ae0378",
-          "#ee86a7"
+          "#ee86a7",
+          "#ae0378"
         ]
       },
       "geometry": {
@@ -3086,9 +3086,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cc7614c5_1",
+      "id": "id_cc7614c5_0_1",
       "properties": {
-        "id": "id_cc7614c5_1",
+        "id": "id_cc7614c5_0_1",
         "name": "蒲田",
         "name_ja": "蒲田",
         "name_zh": "蒲田",
@@ -3453,9 +3453,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_d4499040_0",
+      "id": "id_d4499040_0_0",
       "properties": {
-        "id": "id_d4499040_0",
+        "id": "id_d4499040_0_0",
         "name": "目黒",
         "name_ja": "",
         "name_zh": "目黑",
@@ -3498,9 +3498,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_d4499040_1",
+      "id": "id_d4499040_0_1",
       "properties": {
-        "id": "id_d4499040_1",
+        "id": "id_d4499040_0_1",
         "name": "目黒",
         "name_ja": "目黒",
         "name_zh": "目黑",
@@ -3570,9 +3570,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_5125b609_0",
+      "id": "id_5125b609_0_0",
       "properties": {
-        "id": "id_5125b609_0",
+        "id": "id_5125b609_0_0",
         "name": "五反田",
         "name_ja": "五反田",
         "name_zh": "五反田",
@@ -3607,9 +3607,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_5125b609_1",
+      "id": "id_5125b609_0_1",
       "properties": {
-        "id": "id_5125b609_1",
+        "id": "id_5125b609_0_1",
         "name": "五反田",
         "name_ja": "五反田",
         "name_zh": "五反田",
@@ -3644,9 +3644,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_5125b609_2",
+      "id": "id_5125b609_0_2",
       "properties": {
-        "id": "id_5125b609_2",
+        "id": "id_5125b609_0_2",
         "name": "五反田",
         "name_ja": "五反田",
         "name_zh": "五反田",
@@ -4143,9 +4143,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8063e656_0",
+      "id": "id_8063e656_0_0",
       "properties": {
-        "id": "id_8063e656_0",
+        "id": "id_8063e656_0_0",
         "name": "下高井戸",
         "name_ja": "下高井戸",
         "name_zh": "下高井户",
@@ -4178,9 +4178,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8063e656_1",
+      "id": "id_8063e656_0_1",
       "properties": {
-        "id": "id_8063e656_1",
+        "id": "id_8063e656_0_1",
         "name": "下高井戸",
         "name_ja": "下高井戸",
         "name_zh": "下高井户",
@@ -4369,8 +4369,8 @@
           "id_606b9073"
         ],
         "line_colors": [
-          "#0583c8",
-          "#fcc70d"
+          "#fcc70d",
+          "#0583c8"
         ]
       },
       "geometry": {
@@ -4449,9 +4449,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_9a691e47_0",
+      "id": "id_9a691e47_0_0",
       "properties": {
-        "id": "id_9a691e47_0",
+        "id": "id_9a691e47_0_0",
         "name": "新横浜",
         "name_ja": "新横浜",
         "name_zh": "新横滨",
@@ -4494,9 +4494,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_9a691e47_1",
+      "id": "id_9a691e47_0_1",
       "properties": {
-        "id": "id_9a691e47_1",
+        "id": "id_9a691e47_0_1",
         "name": "新横浜",
         "name_ja": "新横浜",
         "name_zh": "新横滨",
@@ -4632,9 +4632,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_69881925_0",
+      "id": "id_69881925_0_0",
       "properties": {
-        "id": "id_69881925_0",
+        "id": "id_69881925_0_0",
         "name": "池袋",
         "name_ja": "池袋",
         "name_zh": "池袋",
@@ -4679,9 +4679,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_69881925_1",
+      "id": "id_69881925_0_1",
       "properties": {
-        "id": "id_69881925_1",
+        "id": "id_69881925_0_1",
         "name": "池袋",
         "name_ja": "",
         "name_zh": "",
@@ -4718,8 +4718,8 @@
         ],
         "line_colors": [
           "#B1CB39",
-          "#00ac9a",
-          "red"
+          "red",
+          "#00ac9a"
         ]
       },
       "geometry": {
@@ -4732,9 +4732,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_69881925_2",
+      "id": "id_69881925_0_2",
       "properties": {
-        "id": "id_69881925_2",
+        "id": "id_69881925_0_2",
         "name": "池袋",
         "name_ja": "",
         "name_zh": "池袋",
@@ -4779,9 +4779,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_69881925_3",
+      "id": "id_69881925_0_3",
       "properties": {
-        "id": "id_69881925_3",
+        "id": "id_69881925_0_3",
         "name": "池袋",
         "name_ja": "池袋03",
         "name_zh": "池袋",
@@ -4826,9 +4826,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_69881925_4",
+      "id": "id_69881925_0_4",
       "properties": {
-        "id": "id_69881925_4",
+        "id": "id_69881925_0_4",
         "name": "池袋",
         "name_ja": "池袋",
         "name_zh": "池袋",
@@ -4873,9 +4873,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_69881925_5",
+      "id": "id_69881925_0_5",
       "properties": {
-        "id": "id_69881925_5",
+        "id": "id_69881925_0_5",
         "name": "池袋",
         "name_ja": "池袋",
         "name_zh": "池袋",
@@ -4920,9 +4920,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0409739f_0",
+      "id": "id_0409739f_0_0",
       "properties": {
-        "id": "id_0409739f_0",
+        "id": "id_0409739f_0_0",
         "name": "川越",
         "name_ja": "川越",
         "name_zh": "川越",
@@ -4946,8 +4946,8 @@
           "id_78497174"
         ],
         "line_colors": [
-          "#00408f",
-          "#525252"
+          "#525252",
+          "#00408f"
         ]
       },
       "geometry": {
@@ -4960,9 +4960,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0409739f_1",
+      "id": "id_0409739f_0_1",
       "properties": {
-        "id": "id_0409739f_1",
+        "id": "id_0409739f_0_1",
         "name": "川越",
         "name_ja": "川越",
         "name_zh": "川越",
@@ -5289,9 +5289,9 @@
           "id_f75f0daf"
         ],
         "line_colors": [
+          "#C1A470",
           "#00408f",
-          "#9C5E31",
-          "#C1A470"
+          "#9C5E31"
         ]
       },
       "geometry": {
@@ -5869,9 +5869,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_19d08016_0",
+      "id": "id_19d08016_0_0",
       "properties": {
-        "id": "id_19d08016_0",
+        "id": "id_19d08016_0_0",
         "name": "小川町",
         "name_ja": "小川町",
         "name_zh": "小川町",
@@ -5886,17 +5886,15 @@
         ],
         "serving_lines": [
           "JR川越线·八高线",
-          "东武东上线",
-          "都营地下铁新宿线"
+          "东武东上线"
         ],
         "serving_ids": [
           "id_0e2bf533",
-          "id_59eb4726",
-          "id_9d551126"
+          "id_59eb4726"
         ],
         "line_colors": [
-          "#00408f",
-          "#525252"
+          "#525252",
+          "#00408f"
         ]
       },
       "geometry": {
@@ -5909,9 +5907,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_19d08016_1",
+      "id": "id_19d08016_1_0",
       "properties": {
-        "id": "id_19d08016_1",
+        "id": "id_19d08016_1_0",
         "name": "小川町",
         "name_ja": "小川町",
         "name_zh": "小川町",
@@ -5923,13 +5921,9 @@
           "id_9d551126"
         ],
         "serving_lines": [
-          "JR川越线·八高线",
-          "东武东上线",
           "都营地下铁新宿线"
         ],
         "serving_ids": [
-          "id_0e2bf533",
-          "id_59eb4726",
           "id_9d551126"
         ],
         "line_colors": [
@@ -6012,9 +6006,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_7355d2c0_0",
+      "id": "id_7355d2c0_0_0",
       "properties": {
-        "id": "id_7355d2c0_0",
+        "id": "id_7355d2c0_0_0",
         "name": "寄居",
         "name_ja": "寄居",
         "name_zh": "寄居",
@@ -6052,9 +6046,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_7355d2c0_1",
+      "id": "id_7355d2c0_0_1",
       "properties": {
-        "id": "id_7355d2c0_1",
+        "id": "id_7355d2c0_0_1",
         "name": "寄居",
         "name_ja": "寄居",
         "name_zh": "寄居",
@@ -6984,8 +6978,8 @@
         ],
         "line_colors": [
           "#f5a300",
-          "#e71212",
-          "#006cbb"
+          "#006cbb",
+          "#e71212"
         ]
       },
       "geometry": {
@@ -7668,9 +7662,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_9144a3c1_0",
+      "id": "id_9144a3c1_0_0",
       "properties": {
-        "id": "id_9144a3c1_0",
+        "id": "id_9144a3c1_0_0",
         "name": "栗橋",
         "name_ja": "",
         "name_zh": "栗桥",
@@ -7705,9 +7699,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_9144a3c1_1",
+      "id": "id_9144a3c1_0_1",
       "properties": {
-        "id": "id_9144a3c1_1",
+        "id": "id_9144a3c1_0_1",
         "name": "栗橋",
         "name_ja": "栗橋",
         "name_zh": "栗桥",
@@ -7742,9 +7736,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_9144a3c1_2",
+      "id": "id_9144a3c1_0_2",
       "properties": {
-        "id": "id_9144a3c1_2",
+        "id": "id_9144a3c1_0_2",
         "name": "栗橋",
         "name_ja": "栗橋",
         "name_zh": "栗桥",
@@ -8067,8 +8061,8 @@
           "id_90739981"
         ],
         "line_colors": [
-          "#006cbb",
-          "#3eb5e6"
+          "#3eb5e6",
+          "#006cbb"
         ]
       },
       "geometry": {
@@ -8312,9 +8306,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_c0062f7a_0",
+      "id": "id_c0062f7a_0_0",
       "properties": {
-        "id": "id_c0062f7a_0",
+        "id": "id_c0062f7a_0_0",
         "name": "流山おおたか之森",
         "name_ja": "流山おおたかの森",
         "name_zh": "流山大鹰之森",
@@ -8347,9 +8341,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_c0062f7a_1",
+      "id": "id_c0062f7a_0_1",
       "properties": {
-        "id": "id_c0062f7a_1",
+        "id": "id_c0062f7a_0_1",
         "name": "流山おおたか之森",
         "name_ja": "流山おおたかの森02",
         "name_zh": "流山大鹰之森",
@@ -8443,9 +8437,9 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
+          "#3eb5e6",
           "red",
-          "#3eb5e6"
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -8491,9 +8485,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f6848aae_0",
+      "id": "id_f6848aae_0_0",
       "properties": {
-        "id": "id_f6848aae_0",
+        "id": "id_f6848aae_0_0",
         "name": "船橋",
         "name_ja": "船橋",
         "name_zh": "船桥",
@@ -8528,9 +8522,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f6848aae_1",
+      "id": "id_f6848aae_0_1",
       "properties": {
-        "id": "id_f6848aae_1",
+        "id": "id_f6848aae_0_1",
         "name": "船橋",
         "name_ja": "船橋",
         "name_zh": "船桥",
@@ -8565,9 +8559,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f6848aae_2",
+      "id": "id_f6848aae_0_2",
       "properties": {
-        "id": "id_f6848aae_2",
+        "id": "id_f6848aae_0_2",
         "name": "船橋",
         "name_ja": "船橋",
         "name_zh": "船桥",
@@ -8701,9 +8695,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8b7fec05_0",
+      "id": "id_8b7fec05_0_0",
       "properties": {
-        "id": "id_8b7fec05_0",
+        "id": "id_8b7fec05_0_0",
         "name": "柏",
         "name_ja": "柏",
         "name_zh": "柏",
@@ -8740,9 +8734,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8b7fec05_1",
+      "id": "id_8b7fec05_0_1",
       "properties": {
-        "id": "id_8b7fec05_1",
+        "id": "id_8b7fec05_0_1",
         "name": "柏",
         "name_ja": "柏",
         "name_zh": "柏",
@@ -8770,9 +8764,9 @@
           "id_d545c34f"
         ],
         "line_colors": [
-          "#10a956",
           "#0173bc",
-          "#525252"
+          "#525252",
+          "#10a956"
         ]
       },
       "geometry": {
@@ -8785,9 +8779,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f5d80999_0",
+      "id": "id_f5d80999_0_0",
       "properties": {
-        "id": "id_f5d80999_0",
+        "id": "id_f5d80999_0_0",
         "name": "大宮",
         "name_ja": "大宮",
         "name_zh": "大宫",
@@ -8830,9 +8824,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f5d80999_1",
+      "id": "id_f5d80999_0_1",
       "properties": {
-        "id": "id_f5d80999_1",
+        "id": "id_f5d80999_0_1",
         "name": "大宮",
         "name_ja": "大宮",
         "name_zh": "大宫",
@@ -8866,9 +8860,9 @@
           "id_f6878d32"
         ],
         "line_colors": [
+          "red",
           "#00b2e5",
-          "#FE642E",
-          "red"
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -8881,9 +8875,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f5d80999_2",
+      "id": "id_f5d80999_0_2",
       "properties": {
-        "id": "id_f5d80999_2",
+        "id": "id_f5d80999_0_2",
         "name": "大宮",
         "name_ja": "大宮",
         "name_zh": "大宫",
@@ -8915,8 +8909,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "#00ac9a"
+          "#00ac9a",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -8929,9 +8923,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f5d80999_3",
+      "id": "id_f5d80999_0_3",
       "properties": {
-        "id": "id_f5d80999_3",
+        "id": "id_f5d80999_0_3",
         "name": "大宮",
         "name_ja": "",
         "name_zh": "大宫",
@@ -9073,9 +9067,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4af6e9e2_0",
+      "id": "id_4af6e9e2_0_0",
       "properties": {
-        "id": "id_4af6e9e2_0",
+        "id": "id_4af6e9e2_0_0",
         "name": "新鎌谷",
         "name_ja": "新鎌ヶ谷",
         "name_zh": "新镰谷",
@@ -9112,9 +9106,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4af6e9e2_1",
+      "id": "id_4af6e9e2_0_1",
       "properties": {
-        "id": "id_4af6e9e2_1",
+        "id": "id_4af6e9e2_0_1",
         "name": "新鎌谷",
         "name_ja": "新鎌ヶ谷",
         "name_zh": "新镰谷",
@@ -9142,9 +9136,9 @@
           "id_b571bac6"
         ],
         "line_colors": [
-          "#ff8620",
           "#001368",
-          "#051b6d"
+          "#051b6d",
+          "#ff8620"
         ]
       },
       "geometry": {
@@ -9396,9 +9390,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_c059b11d_0",
+      "id": "id_c059b11d_0_0",
       "properties": {
-        "id": "id_c059b11d_0",
+        "id": "id_c059b11d_0_0",
         "name": "伊勢崎",
         "name_ja": "伊勢崎",
         "name_zh": "伊势崎",
@@ -9431,9 +9425,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_c059b11d_1",
+      "id": "id_c059b11d_0_1",
       "properties": {
-        "id": "id_c059b11d_1",
+        "id": "id_c059b11d_0_1",
         "name": "伊勢崎",
         "name_ja": "",
         "name_zh": "",
@@ -9862,9 +9856,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_7cdac081_0",
+      "id": "id_7cdac081_0_0",
       "properties": {
-        "id": "id_7cdac081_0",
+        "id": "id_7cdac081_0_0",
         "name": "羽生",
         "name_ja": "羽生",
         "name_zh": "羽生",
@@ -9897,9 +9891,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_7cdac081_1",
+      "id": "id_7cdac081_0_1",
       "properties": {
-        "id": "id_7cdac081_1",
+        "id": "id_7cdac081_0_1",
         "name": "羽生",
         "name_ja": "",
         "name_zh": "",
@@ -10130,9 +10124,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_590362da_0",
+      "id": "id_590362da_0_0",
       "properties": {
-        "id": "id_590362da_0",
+        "id": "id_590362da_0_0",
         "name": "久喜",
         "name_ja": "久喜",
         "name_zh": "久喜",
@@ -10167,9 +10161,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_590362da_1",
+      "id": "id_590362da_0_1",
       "properties": {
-        "id": "id_590362da_1",
+        "id": "id_590362da_0_1",
         "name": "久喜",
         "name_ja": "久喜",
         "name_zh": "久喜",
@@ -10193,8 +10187,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -10945,9 +10939,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f613d467_0",
+      "id": "id_f613d467_0_0",
       "properties": {
-        "id": "id_f613d467_0",
+        "id": "id_f613d467_0_0",
         "name": "西新井",
         "name_ja": "西新井",
         "name_zh": "西新井",
@@ -10980,9 +10974,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f613d467_1",
+      "id": "id_f613d467_0_1",
       "properties": {
-        "id": "id_f613d467_1",
+        "id": "id_f613d467_0_1",
         "name": "西新井",
         "name_ja": "西新井",
         "name_zh": "西新井",
@@ -11180,9 +11174,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_26198f09_0",
+      "id": "id_26198f09_0_0",
       "properties": {
-        "id": "id_26198f09_0",
+        "id": "id_26198f09_0_0",
         "name": "押上〈スカイツリ前〉",
         "name_ja": "",
         "name_zh": "押上",
@@ -11222,9 +11216,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_26198f09_1",
+      "id": "id_26198f09_0_1",
       "properties": {
-        "id": "id_26198f09_1",
+        "id": "id_26198f09_0_1",
         "name": "押上〈スカイツリ前〉",
         "name_ja": "",
         "name_zh": "押上",
@@ -11250,8 +11244,8 @@
           "id_90739981"
         ],
         "line_colors": [
-          "#E85298",
-          "#001368"
+          "#001368",
+          "#E85298"
         ]
       },
       "geometry": {
@@ -11264,9 +11258,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_75f8bfe0_0",
+      "id": "id_75f8bfe0_0_0",
       "properties": {
-        "id": "id_75f8bfe0_0",
+        "id": "id_75f8bfe0_0_0",
         "name": "浅草",
         "name_ja": "",
         "name_zh": "浅草",
@@ -11303,9 +11297,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_75f8bfe0_1",
+      "id": "id_75f8bfe0_0_1",
       "properties": {
-        "id": "id_75f8bfe0_1",
+        "id": "id_75f8bfe0_0_1",
         "name": "浅草",
         "name_ja": "浅草",
         "name_zh": "浅草",
@@ -11342,9 +11336,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_75f8bfe0_2",
+      "id": "id_75f8bfe0_0_2",
       "properties": {
-        "id": "id_75f8bfe0_2",
+        "id": "id_75f8bfe0_0_2",
         "name": "浅草",
         "name_ja": "浅草",
         "name_zh": "浅草",
@@ -11381,9 +11375,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_75f8bfe0_3",
+      "id": "id_75f8bfe0_0_3",
       "properties": {
-        "id": "id_75f8bfe0_3",
+        "id": "id_75f8bfe0_0_3",
         "name": "浅草",
         "name_ja": "浅草",
         "name_zh": "浅草",
@@ -11420,9 +11414,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cfec6727_0",
+      "id": "id_cfec6727_0_0",
       "properties": {
-        "id": "id_cfec6727_0",
+        "id": "id_cfec6727_0_0",
         "name": "北千住",
         "name_ja": "北千住",
         "name_zh": "北千住",
@@ -11452,8 +11446,8 @@
           "id_d545c34f"
         ],
         "line_colors": [
-          "#006cbb",
-          "#B5B5AC"
+          "#B5B5AC",
+          "#006cbb"
         ]
       },
       "geometry": {
@@ -11466,9 +11460,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cfec6727_1",
+      "id": "id_cfec6727_0_1",
       "properties": {
-        "id": "id_cfec6727_1",
+        "id": "id_cfec6727_0_1",
         "name": "北千住",
         "name_ja": "",
         "name_zh": "北千住",
@@ -11512,9 +11506,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cfec6727_2",
+      "id": "id_cfec6727_0_2",
       "properties": {
-        "id": "id_cfec6727_2",
+        "id": "id_cfec6727_0_2",
         "name": "北千住",
         "name_ja": "北千住01",
         "name_zh": "北千住",
@@ -11555,9 +11549,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cfec6727_3",
+      "id": "id_cfec6727_0_3",
       "properties": {
-        "id": "id_cfec6727_3",
+        "id": "id_cfec6727_0_3",
         "name": "北千住",
         "name_ja": "北千住",
         "name_zh": "北千住",
@@ -11829,9 +11823,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6259517c_0",
+      "id": "id_6259517c_0_0",
       "properties": {
-        "id": "id_6259517c_0",
+        "id": "id_6259517c_0_0",
         "name": "亀戸",
         "name_ja": "亀戸",
         "name_zh": "亀户",
@@ -11864,9 +11858,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6259517c_1",
+      "id": "id_6259517c_0_1",
       "properties": {
-        "id": "id_6259517c_1",
+        "id": "id_6259517c_0_1",
         "name": "亀戸",
         "name_ja": "亀戸",
         "name_zh": "亀户",
@@ -12253,8 +12247,8 @@
           "id_64b26576"
         ],
         "line_colors": [
-          "#e71212",
-          "#45352a"
+          "#45352a",
+          "#e71212"
         ]
       },
       "geometry": {
@@ -12399,9 +12393,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_220ef2f6_0",
+      "id": "id_220ef2f6_0_0",
       "properties": {
-        "id": "id_220ef2f6_0",
+        "id": "id_220ef2f6_0_0",
         "name": "赤城",
         "name_ja": "赤城",
         "name_zh": "赤城",
@@ -12434,9 +12428,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_220ef2f6_1",
+      "id": "id_220ef2f6_0_1",
       "properties": {
-        "id": "id_220ef2f6_1",
+        "id": "id_220ef2f6_0_1",
         "name": "赤城",
         "name_ja": "",
         "name_zh": "",
@@ -12469,9 +12463,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_1c7a6f9e_0",
+      "id": "id_1c7a6f9e_0_0",
       "properties": {
-        "id": "id_1c7a6f9e_0",
+        "id": "id_1c7a6f9e_0_0",
         "name": "相老",
         "name_ja": "",
         "name_zh": "相老",
@@ -12504,9 +12498,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_1c7a6f9e_1",
+      "id": "id_1c7a6f9e_0_1",
       "properties": {
-        "id": "id_1c7a6f9e_1",
+        "id": "id_1c7a6f9e_0_1",
         "name": "相老",
         "name_ja": "",
         "name_zh": "",
@@ -12704,9 +12698,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ae8ef996_0",
+      "id": "id_ae8ef996_0_0",
       "properties": {
-        "id": "id_ae8ef996_0",
+        "id": "id_ae8ef996_0_0",
         "name": "佐野",
         "name_ja": "佐野",
         "name_zh": "佐野",
@@ -12739,9 +12733,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ae8ef996_1",
+      "id": "id_ae8ef996_0_1",
       "properties": {
-        "id": "id_ae8ef996_1",
+        "id": "id_ae8ef996_0_1",
         "name": "佐野",
         "name_ja": "",
         "name_zh": "",
@@ -12972,9 +12966,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a1cb818c_0",
+      "id": "id_a1cb818c_0_0",
       "properties": {
-        "id": "id_a1cb818c_0",
+        "id": "id_a1cb818c_0_0",
         "name": "熊野前",
         "name_ja": "熊野前",
         "name_zh": "熊野前",
@@ -13007,9 +13001,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a1cb818c_1",
+      "id": "id_a1cb818c_0_1",
       "properties": {
-        "id": "id_a1cb818c_1",
+        "id": "id_a1cb818c_0_1",
         "name": "熊野前",
         "name_ja": "熊野前",
         "name_zh": "熊野前",
@@ -13306,9 +13300,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ae827f67_0",
+      "id": "id_ae827f67_0_0",
       "properties": {
-        "id": "id_ae827f67_0",
+        "id": "id_ae827f67_0_0",
         "name": "日暮里",
         "name_ja": "日暮里",
         "name_zh": "日暮里",
@@ -13349,9 +13343,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ae827f67_1",
+      "id": "id_ae827f67_0_1",
       "properties": {
-        "id": "id_ae827f67_1",
+        "id": "id_ae827f67_0_1",
         "name": "日暮里",
         "name_ja": "",
         "name_zh": "日暮里",
@@ -13392,9 +13386,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ae827f67_2",
+      "id": "id_ae827f67_0_2",
       "properties": {
-        "id": "id_ae827f67_2",
+        "id": "id_ae827f67_0_2",
         "name": "日暮里",
         "name_ja": "",
         "name_zh": "日暮里",
@@ -13428,10 +13422,10 @@
           "id_f8df044a"
         ],
         "line_colors": [
-          "#00b2e5",
-          "#B1CB39",
           "#0173bc",
-          "#10a956"
+          "#B1CB39",
+          "#10a956",
+          "#00b2e5"
         ]
       },
       "geometry": {
@@ -13444,9 +13438,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_de3f2e84_0",
+      "id": "id_de3f2e84_0_0",
       "properties": {
-        "id": "id_de3f2e84_0",
+        "id": "id_de3f2e84_0_0",
         "name": "西日暮里",
         "name_ja": "西日暮里",
         "name_zh": "西日暮里",
@@ -13483,9 +13477,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_de3f2e84_1",
+      "id": "id_de3f2e84_0_1",
       "properties": {
-        "id": "id_de3f2e84_1",
+        "id": "id_de3f2e84_0_1",
         "name": "西日暮里",
         "name_ja": "西日暮里",
         "name_zh": "西日暮里",
@@ -13511,8 +13505,8 @@
           "id_f8df044a"
         ],
         "line_colors": [
-          "#00b2e5",
-          "#B1CB39"
+          "#B1CB39",
+          "#00b2e5"
         ]
       },
       "geometry": {
@@ -13525,9 +13519,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_de3f2e84_2",
+      "id": "id_de3f2e84_0_2",
       "properties": {
-        "id": "id_de3f2e84_2",
+        "id": "id_de3f2e84_0_2",
         "name": "西日暮里",
         "name_ja": "西日暮里",
         "name_zh": "西日暮里",
@@ -13696,9 +13690,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6970bc61_0",
+      "id": "id_6970bc61_0_0",
       "properties": {
-        "id": "id_6970bc61_0",
+        "id": "id_6970bc61_0_0",
         "name": "早稲田",
         "name_ja": "早稲田",
         "name_zh": "早稻田",
@@ -13731,9 +13725,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6970bc61_1",
+      "id": "id_6970bc61_0_1",
       "properties": {
-        "id": "id_6970bc61_1",
+        "id": "id_6970bc61_0_1",
         "name": "早稲田",
         "name_ja": "早稲田",
         "name_zh": "早稻田",
@@ -14426,9 +14420,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_1e8375f5_0",
+      "id": "id_1e8375f5_0_0",
       "properties": {
-        "id": "id_1e8375f5_0",
+        "id": "id_1e8375f5_0_0",
         "name": "栄町",
         "name_ja": "栄町",
         "name_zh": "榮町",
@@ -14440,11 +14434,9 @@
           "id_38c128c1"
         ],
         "serving_lines": [
-          "千叶都市单轨1号线",
           "都电荒川线"
         ],
         "serving_ids": [
-          "id_157e2749",
           "id_38c128c1"
         ],
         "line_colors": [
@@ -14461,9 +14453,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_1e8375f5_1",
+      "id": "id_1e8375f5_1_0",
       "properties": {
-        "id": "id_1e8375f5_1",
+        "id": "id_1e8375f5_1_0",
         "name": "栄町",
         "name_ja": "栄町",
         "name_zh": "荣町",
@@ -14475,12 +14467,10 @@
           "id_157e2749"
         ],
         "serving_lines": [
-          "千叶都市单轨1号线",
-          "都电荒川线"
+          "千叶都市单轨1号线"
         ],
         "serving_ids": [
-          "id_157e2749",
-          "id_38c128c1"
+          "id_157e2749"
         ],
         "line_colors": [
           "#008eb2"
@@ -14760,9 +14750,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f42ddedf_0",
+      "id": "id_f42ddedf_0_0",
       "properties": {
-        "id": "id_f42ddedf_0",
+        "id": "id_f42ddedf_0_0",
         "name": "本八幡",
         "name_ja": "本八幡",
         "name_zh": "本八幡",
@@ -14795,9 +14785,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f42ddedf_1",
+      "id": "id_f42ddedf_0_1",
       "properties": {
-        "id": "id_f42ddedf_1",
+        "id": "id_f42ddedf_0_1",
         "name": "本八幡",
         "name_ja": "本八幡",
         "name_zh": "本八幡",
@@ -14929,9 +14919,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_79ed8f13_0",
+      "id": "id_79ed8f13_0_0",
       "properties": {
-        "id": "id_79ed8f13_0",
+        "id": "id_79ed8f13_0_0",
         "name": "市谷",
         "name_ja": "市ヶ谷",
         "name_zh": "市谷",
@@ -14968,9 +14958,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_79ed8f13_1",
+      "id": "id_79ed8f13_0_1",
       "properties": {
-        "id": "id_79ed8f13_1",
+        "id": "id_79ed8f13_0_1",
         "name": "市谷",
         "name_ja": "市ケ谷",
         "name_zh": "市谷",
@@ -15007,9 +14997,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_79ed8f13_2",
+      "id": "id_79ed8f13_0_2",
       "properties": {
-        "id": "id_79ed8f13_2",
+        "id": "id_79ed8f13_0_2",
         "name": "市谷",
         "name_ja": "市ケ谷",
         "name_zh": "市谷",
@@ -15046,9 +15036,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_79ed8f13_3",
+      "id": "id_79ed8f13_0_3",
       "properties": {
-        "id": "id_79ed8f13_3",
+        "id": "id_79ed8f13_0_3",
         "name": "市谷",
         "name_ja": "市ヶ谷",
         "name_zh": "市谷",
@@ -15118,9 +15108,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f01e2a13_0",
+      "id": "id_f01e2a13_0_0",
       "properties": {
-        "id": "id_f01e2a13_0",
+        "id": "id_f01e2a13_0_0",
         "name": "神保町",
         "name_ja": "神保町",
         "name_zh": "神保町",
@@ -15155,9 +15145,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f01e2a13_1",
+      "id": "id_f01e2a13_0_1",
       "properties": {
-        "id": "id_f01e2a13_1",
+        "id": "id_f01e2a13_0_1",
         "name": "神保町",
         "name_ja": "神保町",
         "name_zh": "神保町",
@@ -15192,9 +15182,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f01e2a13_2",
+      "id": "id_f01e2a13_0_2",
       "properties": {
-        "id": "id_f01e2a13_2",
+        "id": "id_f01e2a13_0_2",
         "name": "神保町",
         "name_ja": "神保町",
         "name_zh": "神保町",
@@ -15262,9 +15252,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f2c49b7e_0",
+      "id": "id_f2c49b7e_0_0",
       "properties": {
-        "id": "id_f2c49b7e_0",
+        "id": "id_f2c49b7e_0_0",
         "name": "森下",
         "name_ja": "森下",
         "name_zh": "森下",
@@ -15297,9 +15287,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f2c49b7e_1",
+      "id": "id_f2c49b7e_0_1",
       "properties": {
-        "id": "id_f2c49b7e_1",
+        "id": "id_f2c49b7e_0_1",
         "name": "森下",
         "name_ja": "森下",
         "name_zh": "森下",
@@ -15455,8 +15445,8 @@
           "id_9d551126"
         ],
         "line_colors": [
-          "#E50B84",
-          "#6CBB5A"
+          "#6CBB5A",
+          "#E50B84"
         ]
       },
       "geometry": {
@@ -15469,9 +15459,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_70dac8c9_0",
+      "id": "id_70dac8c9_0_0",
       "properties": {
-        "id": "id_70dac8c9_0",
+        "id": "id_70dac8c9_0_0",
         "name": "住吉",
         "name_ja": "住吉",
         "name_zh": "住吉",
@@ -15504,9 +15494,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_70dac8c9_1",
+      "id": "id_70dac8c9_0_1",
       "properties": {
-        "id": "id_70dac8c9_1",
+        "id": "id_70dac8c9_0_1",
         "name": "住吉",
         "name_ja": "住吉",
         "name_zh": "住吉",
@@ -15539,9 +15529,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_89369609_0",
+      "id": "id_89369609_0_0",
       "properties": {
-        "id": "id_89369609_0",
+        "id": "id_89369609_0_0",
         "name": "九段下",
         "name_ja": "九段下",
         "name_zh": "九段下",
@@ -15565,8 +15555,8 @@
           "id_9d551126"
         ],
         "line_colors": [
-          "#8F76D6",
-          "#6CBB5A"
+          "#6CBB5A",
+          "#8F76D6"
         ]
       },
       "geometry": {
@@ -15579,9 +15569,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_89369609_1",
+      "id": "id_89369609_0_1",
       "properties": {
-        "id": "id_89369609_1",
+        "id": "id_89369609_0_1",
         "name": "九段下",
         "name_ja": "九段下",
         "name_zh": "九段下",
@@ -15616,9 +15606,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_aae3c17f_0",
+      "id": "id_aae3c17f_0_0",
       "properties": {
-        "id": "id_aae3c17f_0",
+        "id": "id_aae3c17f_0_0",
         "name": "新宿三丁目",
         "name_ja": "新宿三丁目",
         "name_zh": "新宿三丁目",
@@ -15653,9 +15643,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_aae3c17f_1",
+      "id": "id_aae3c17f_0_1",
       "properties": {
-        "id": "id_aae3c17f_1",
+        "id": "id_aae3c17f_0_1",
         "name": "新宿三丁目",
         "name_ja": "新宿三丁目",
         "name_zh": "新宿三丁目",
@@ -15690,9 +15680,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_aae3c17f_2",
+      "id": "id_aae3c17f_0_2",
       "properties": {
-        "id": "id_aae3c17f_2",
+        "id": "id_aae3c17f_0_2",
         "name": "新宿三丁目",
         "name_ja": "新宿三丁目",
         "name_zh": "新宿三丁目",
@@ -15760,9 +15750,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b8f73860_0",
+      "id": "id_b8f73860_0_0",
       "properties": {
-        "id": "id_b8f73860_0",
+        "id": "id_b8f73860_0_0",
         "name": "三田",
         "name_ja": "三田",
         "name_zh": "三田",
@@ -15795,9 +15785,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b8f73860_1",
+      "id": "id_b8f73860_0_1",
       "properties": {
-        "id": "id_b8f73860_1",
+        "id": "id_b8f73860_0_1",
         "name": "三田",
         "name_ja": "三田",
         "name_zh": "三田",
@@ -15896,9 +15886,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a4f5c8dc_0",
+      "id": "id_a4f5c8dc_0_0",
       "properties": {
-        "id": "id_a4f5c8dc_0",
+        "id": "id_a4f5c8dc_0_0",
         "name": "大手町",
         "name_ja": "大手町",
         "name_zh": "大手町",
@@ -15937,9 +15927,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a4f5c8dc_1",
+      "id": "id_a4f5c8dc_0_1",
       "properties": {
-        "id": "id_a4f5c8dc_1",
+        "id": "id_a4f5c8dc_0_1",
         "name": "大手町",
         "name_ja": "大手町",
         "name_zh": "大手町",
@@ -15978,9 +15968,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a4f5c8dc_2",
+      "id": "id_a4f5c8dc_0_2",
       "properties": {
-        "id": "id_a4f5c8dc_2",
+        "id": "id_a4f5c8dc_0_2",
         "name": "大手町",
         "name_ja": "大手町",
         "name_zh": "大手町",
@@ -16019,9 +16009,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a4f5c8dc_3",
+      "id": "id_a4f5c8dc_0_3",
       "properties": {
-        "id": "id_a4f5c8dc_3",
+        "id": "id_a4f5c8dc_0_3",
         "name": "大手町",
         "name_ja": "大手町",
         "name_zh": "大手町",
@@ -16060,9 +16050,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a4f5c8dc_4",
+      "id": "id_a4f5c8dc_0_4",
       "properties": {
-        "id": "id_a4f5c8dc_4",
+        "id": "id_a4f5c8dc_0_4",
         "name": "大手町",
         "name_ja": "大手町",
         "name_zh": "大手町",
@@ -16134,9 +16124,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_9b1634ad_0",
+      "id": "id_9b1634ad_0_0",
       "properties": {
-        "id": "id_9b1634ad_0",
+        "id": "id_9b1634ad_0_0",
         "name": "春日",
         "name_ja": "春日",
         "name_zh": "春日",
@@ -16169,9 +16159,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_9b1634ad_1",
+      "id": "id_9b1634ad_0_1",
       "properties": {
-        "id": "id_9b1634ad_1",
+        "id": "id_9b1634ad_0_1",
         "name": "春日",
         "name_ja": "春日",
         "name_zh": "春日",
@@ -16204,9 +16194,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e3c54c7a_0",
+      "id": "id_e3c54c7a_0_0",
       "properties": {
-        "id": "id_e3c54c7a_0",
+        "id": "id_e3c54c7a_0_0",
         "name": "水道橋",
         "name_ja": "水道橋",
         "name_zh": "水道桥",
@@ -16239,9 +16229,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e3c54c7a_1",
+      "id": "id_e3c54c7a_0_1",
       "properties": {
-        "id": "id_e3c54c7a_1",
+        "id": "id_e3c54c7a_0_1",
         "name": "水道橋",
         "name_ja": "水道橋",
         "name_zh": "水道桥",
@@ -16670,9 +16660,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f55cef8b_0",
+      "id": "id_f55cef8b_0_0",
       "properties": {
-        "id": "id_f55cef8b_0",
+        "id": "id_f55cef8b_0_0",
         "name": "巣鴨",
         "name_ja": "巣鴨",
         "name_zh": "巣鸭",
@@ -16705,9 +16695,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f55cef8b_1",
+      "id": "id_f55cef8b_0_1",
       "properties": {
-        "id": "id_f55cef8b_1",
+        "id": "id_f55cef8b_0_1",
         "name": "巣鴨",
         "name_ja": "巣鴨",
         "name_zh": "巣鸭",
@@ -16849,9 +16839,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_27837757_0",
+      "id": "id_27837757_0_0",
       "properties": {
-        "id": "id_27837757_0",
+        "id": "id_27837757_0_0",
         "name": "日比谷",
         "name_ja": "",
         "name_zh": "日比谷",
@@ -16886,9 +16876,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_27837757_1",
+      "id": "id_27837757_0_1",
       "properties": {
-        "id": "id_27837757_1",
+        "id": "id_27837757_0_1",
         "name": "日比谷",
         "name_ja": "日比谷",
         "name_zh": "日比谷",
@@ -16923,9 +16913,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_27837757_2",
+      "id": "id_27837757_0_2",
       "properties": {
-        "id": "id_27837757_2",
+        "id": "id_27837757_0_2",
         "name": "日比谷",
         "name_ja": "日比谷",
         "name_zh": "日比谷",
@@ -16989,8 +16979,8 @@
         ],
         "line_colors": [
           "#B6007A",
-          "#8F76D6",
-          "#FF9500"
+          "#FF9500",
+          "#8F76D6"
         ]
       },
       "geometry": {
@@ -17069,9 +17059,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_393d7a73_0",
+      "id": "id_393d7a73_0_0",
       "properties": {
-        "id": "id_393d7a73_0",
+        "id": "id_393d7a73_0_0",
         "name": "両国",
         "name_ja": "両国",
         "name_zh": "両国",
@@ -17104,9 +17094,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_393d7a73_1",
+      "id": "id_393d7a73_0_1",
       "properties": {
-        "id": "id_393d7a73_1",
+        "id": "id_393d7a73_0_1",
         "name": "両国",
         "name_ja": "両国",
         "name_zh": "両国",
@@ -17276,9 +17266,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_fa0c872e_0",
+      "id": "id_fa0c872e_0_0",
       "properties": {
-        "id": "id_fa0c872e_0",
+        "id": "id_fa0c872e_0_0",
         "name": "汐留",
         "name_ja": "汐留",
         "name_zh": "汐留",
@@ -17311,9 +17301,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_fa0c872e_1",
+      "id": "id_fa0c872e_0_1",
       "properties": {
-        "id": "id_fa0c872e_1",
+        "id": "id_fa0c872e_0_1",
         "name": "汐留",
         "name_ja": "",
         "name_zh": "汐留",
@@ -17346,9 +17336,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_334614d4_0",
+      "id": "id_334614d4_0_0",
       "properties": {
-        "id": "id_334614d4_0",
+        "id": "id_334614d4_0_0",
         "name": "六本木",
         "name_ja": "六本木",
         "name_zh": "六本木",
@@ -17381,9 +17371,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_334614d4_1",
+      "id": "id_334614d4_0_1",
       "properties": {
-        "id": "id_334614d4_1",
+        "id": "id_334614d4_0_1",
         "name": "六本木",
         "name_ja": "六本木",
         "name_zh": "六本木",
@@ -17449,9 +17439,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_52f1525c_0",
+      "id": "id_52f1525c_0_0",
       "properties": {
-        "id": "id_52f1525c_0",
+        "id": "id_52f1525c_0_0",
         "name": "代代木",
         "name_ja": "代々木",
         "name_zh": "代代木",
@@ -17486,9 +17476,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_52f1525c_1",
+      "id": "id_52f1525c_0_1",
       "properties": {
-        "id": "id_52f1525c_1",
+        "id": "id_52f1525c_0_1",
         "name": "代代木",
         "name_ja": "代々木",
         "name_zh": "代代木",
@@ -17526,9 +17516,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_d913f1ad_0",
+      "id": "id_d913f1ad_0_0",
       "properties": {
-        "id": "id_d913f1ad_0",
+        "id": "id_d913f1ad_0_0",
         "name": "中野坂上",
         "name_ja": "中野坂上02",
         "name_zh": "中野坂上",
@@ -17561,9 +17551,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_d913f1ad_1",
+      "id": "id_d913f1ad_0_1",
       "properties": {
-        "id": "id_d913f1ad_1",
+        "id": "id_d913f1ad_0_1",
         "name": "中野坂上",
         "name_ja": "中野坂上",
         "name_zh": "中野坂上",
@@ -17596,9 +17586,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_22d0d7bc_0",
+      "id": "id_22d0d7bc_0_0",
       "properties": {
-        "id": "id_22d0d7bc_0",
+        "id": "id_22d0d7bc_0_0",
         "name": "東新宿",
         "name_ja": "東新宿",
         "name_zh": "东新宿",
@@ -17631,9 +17621,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_22d0d7bc_1",
+      "id": "id_22d0d7bc_0_1",
       "properties": {
-        "id": "id_22d0d7bc_1",
+        "id": "id_22d0d7bc_0_1",
         "name": "東新宿",
         "name_ja": "東新宿",
         "name_zh": "东新宿",
@@ -17666,9 +17656,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a0c7359e_0",
+      "id": "id_a0c7359e_0_0",
       "properties": {
-        "id": "id_a0c7359e_0",
+        "id": "id_a0c7359e_0_0",
         "name": "飯田橋",
         "name_ja": "飯田橋",
         "name_zh": "饭田桥",
@@ -17707,9 +17697,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a0c7359e_1",
+      "id": "id_a0c7359e_0_1",
       "properties": {
-        "id": "id_a0c7359e_1",
+        "id": "id_a0c7359e_0_1",
         "name": "飯田橋",
         "name_ja": "",
         "name_zh": "饭田桥",
@@ -17748,9 +17738,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a0c7359e_2",
+      "id": "id_a0c7359e_0_2",
       "properties": {
-        "id": "id_a0c7359e_2",
+        "id": "id_a0c7359e_0_2",
         "name": "飯田橋",
         "name_ja": "飯田橋",
         "name_zh": "饭田桥",
@@ -17789,9 +17779,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a0c7359e_3",
+      "id": "id_a0c7359e_0_3",
       "properties": {
-        "id": "id_a0c7359e_3",
+        "id": "id_a0c7359e_0_3",
         "name": "飯田橋",
         "name_ja": "飯田橋",
         "name_zh": "饭田桥",
@@ -17830,9 +17820,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a0c7359e_4",
+      "id": "id_a0c7359e_0_4",
       "properties": {
-        "id": "id_a0c7359e_4",
+        "id": "id_a0c7359e_0_4",
         "name": "飯田橋",
         "name_ja": "飯田橋",
         "name_zh": "饭田桥",
@@ -17937,9 +17927,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cbf89ad5_0",
+      "id": "id_cbf89ad5_0_0",
       "properties": {
-        "id": "id_cbf89ad5_0",
+        "id": "id_cbf89ad5_0_0",
         "name": "中井",
         "name_ja": "中井",
         "name_zh": "中井",
@@ -17972,9 +17962,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cbf89ad5_1",
+      "id": "id_cbf89ad5_0_1",
       "properties": {
-        "id": "id_cbf89ad5_1",
+        "id": "id_cbf89ad5_0_1",
         "name": "中井",
         "name_ja": "中井",
         "name_zh": "中井",
@@ -18007,9 +17997,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_88b0acdd_0",
+      "id": "id_88b0acdd_0_0",
       "properties": {
-        "id": "id_88b0acdd_0",
+        "id": "id_88b0acdd_0_0",
         "name": "東中野",
         "name_ja": "東中野",
         "name_zh": "东中野",
@@ -18042,9 +18032,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_88b0acdd_1",
+      "id": "id_88b0acdd_0_1",
       "properties": {
-        "id": "id_88b0acdd_1",
+        "id": "id_88b0acdd_0_1",
         "name": "東中野",
         "name_ja": "東中野",
         "name_zh": "东中野",
@@ -18077,9 +18067,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ebce61b3_0",
+      "id": "id_ebce61b3_0_0",
       "properties": {
-        "id": "id_ebce61b3_0",
+        "id": "id_ebce61b3_0_0",
         "name": "練馬",
         "name_ja": "練馬",
         "name_zh": "练马",
@@ -18116,9 +18106,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ebce61b3_1",
+      "id": "id_ebce61b3_0_1",
       "properties": {
-        "id": "id_ebce61b3_1",
+        "id": "id_ebce61b3_0_1",
         "name": "練馬",
         "name_ja": "練馬",
         "name_zh": "练马",
@@ -18192,9 +18182,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_bfe4c45e_0",
+      "id": "id_bfe4c45e_0_0",
       "properties": {
-        "id": "id_bfe4c45e_0",
+        "id": "id_bfe4c45e_0_0",
         "name": "蔵前",
         "name_ja": "蔵前",
         "name_zh": "蔵前",
@@ -18227,9 +18217,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_bfe4c45e_1",
+      "id": "id_bfe4c45e_0_1",
       "properties": {
-        "id": "id_bfe4c45e_1",
+        "id": "id_bfe4c45e_0_1",
         "name": "蔵前",
         "name_ja": "蔵前",
         "name_zh": "藏前",
@@ -18262,9 +18252,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_90a24bd2_0",
+      "id": "id_90a24bd2_0_0",
       "properties": {
-        "id": "id_90a24bd2_0",
+        "id": "id_90a24bd2_0_0",
         "name": "豊島園",
         "name_ja": "豊島園",
         "name_zh": "豊岛园",
@@ -18297,9 +18287,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_90a24bd2_1",
+      "id": "id_90a24bd2_0_1",
       "properties": {
-        "id": "id_90a24bd2_1",
+        "id": "id_90a24bd2_0_1",
         "name": "豊島園",
         "name_ja": "豊島園",
         "name_zh": "豊岛园",
@@ -18365,9 +18355,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_45c135fd_0",
+      "id": "id_45c135fd_0_0",
       "properties": {
-        "id": "id_45c135fd_0",
+        "id": "id_45c135fd_0_0",
         "name": "門前仲町",
         "name_ja": "門前仲町",
         "name_zh": "门前仲町",
@@ -18400,9 +18390,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_45c135fd_1",
+      "id": "id_45c135fd_0_1",
       "properties": {
-        "id": "id_45c135fd_1",
+        "id": "id_45c135fd_0_1",
         "name": "門前仲町",
         "name_ja": "門前仲町",
         "name_zh": "门前仲町",
@@ -18435,9 +18425,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6aa79df5_0",
+      "id": "id_6aa79df5_0_0",
       "properties": {
-        "id": "id_6aa79df5_0",
+        "id": "id_6aa79df5_0_0",
         "name": "清澄白河",
         "name_ja": "清澄白河",
         "name_zh": "清澄白河",
@@ -18470,9 +18460,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6aa79df5_1",
+      "id": "id_6aa79df5_0_1",
       "properties": {
-        "id": "id_6aa79df5_1",
+        "id": "id_6aa79df5_0_1",
         "name": "清澄白河",
         "name_ja": "清澄白河",
         "name_zh": "清澄白河",
@@ -18538,9 +18528,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_39d0f46b_0",
+      "id": "id_39d0f46b_0_0",
       "properties": {
-        "id": "id_39d0f46b_0",
+        "id": "id_39d0f46b_0_0",
         "name": "本郷三丁目",
         "name_ja": "本郷三丁目",
         "name_zh": "本乡三丁目",
@@ -18573,9 +18563,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_39d0f46b_1",
+      "id": "id_39d0f46b_0_1",
       "properties": {
-        "id": "id_39d0f46b_1",
+        "id": "id_39d0f46b_0_1",
         "name": "本郷三丁目",
         "name_ja": "本郷三丁目",
         "name_zh": "本郷三丁目",
@@ -18608,9 +18598,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_fd5933a0_0",
+      "id": "id_fd5933a0_0_0",
       "properties": {
-        "id": "id_fd5933a0_0",
+        "id": "id_fd5933a0_0_0",
         "name": "月島",
         "name_ja": "月島",
         "name_zh": "月岛",
@@ -18643,9 +18633,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_fd5933a0_1",
+      "id": "id_fd5933a0_0_1",
       "properties": {
-        "id": "id_fd5933a0_1",
+        "id": "id_fd5933a0_0_1",
         "name": "月島",
         "name_ja": "月島",
         "name_zh": "月岛",
@@ -18678,9 +18668,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_60be4b4d_0",
+      "id": "id_60be4b4d_0_0",
       "properties": {
-        "id": "id_60be4b4d_0",
+        "id": "id_60be4b4d_0_0",
         "name": "大門",
         "name_ja": "大門",
         "name_zh": "大门",
@@ -18713,9 +18703,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_60be4b4d_1",
+      "id": "id_60be4b4d_0_1",
       "properties": {
-        "id": "id_60be4b4d_1",
+        "id": "id_60be4b4d_0_1",
         "name": "大門",
         "name_ja": "大門",
         "name_zh": "大门",
@@ -18748,9 +18738,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0e60d65e_0",
+      "id": "id_0e60d65e_0_0",
       "properties": {
-        "id": "id_0e60d65e_0",
+        "id": "id_0e60d65e_0_0",
         "name": "新宿",
         "name_ja": "新宿",
         "name_zh": "新宿",
@@ -18797,9 +18787,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0e60d65e_1",
+      "id": "id_0e60d65e_0_1",
       "properties": {
-        "id": "id_0e60d65e_1",
+        "id": "id_0e60d65e_0_1",
         "name": "新宿",
         "name_ja": "新宿",
         "name_zh": "新宿",
@@ -18846,9 +18836,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0e60d65e_2",
+      "id": "id_0e60d65e_0_2",
       "properties": {
-        "id": "id_0e60d65e_2",
+        "id": "id_0e60d65e_0_2",
         "name": "新宿",
         "name_ja": "新宿",
         "name_zh": "新宿",
@@ -18898,9 +18888,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0e60d65e_3",
+      "id": "id_0e60d65e_0_3",
       "properties": {
-        "id": "id_0e60d65e_3",
+        "id": "id_0e60d65e_0_3",
         "name": "新宿",
         "name_ja": "新宿",
         "name_zh": "新宿",
@@ -18947,9 +18937,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0e60d65e_4",
+      "id": "id_0e60d65e_0_4",
       "properties": {
-        "id": "id_0e60d65e_4",
+        "id": "id_0e60d65e_0_4",
         "name": "新宿",
         "name_ja": "新宿",
         "name_zh": "新宿",
@@ -18996,9 +18986,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0e60d65e_5",
+      "id": "id_0e60d65e_0_5",
       "properties": {
-        "id": "id_0e60d65e_5",
+        "id": "id_0e60d65e_0_5",
         "name": "新宿",
         "name_ja": "新宿",
         "name_zh": "新宿",
@@ -19045,9 +19035,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0e60d65e_6",
+      "id": "id_0e60d65e_0_6",
       "properties": {
-        "id": "id_0e60d65e_6",
+        "id": "id_0e60d65e_0_6",
         "name": "新宿",
         "name_ja": "新宿",
         "name_zh": "新宿",
@@ -19094,9 +19084,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0e60d65e_7",
+      "id": "id_0e60d65e_0_7",
       "properties": {
-        "id": "id_0e60d65e_7",
+        "id": "id_0e60d65e_0_7",
         "name": "新宿",
         "name_ja": "新宿",
         "name_zh": "新宿",
@@ -19176,9 +19166,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4dd2830e_0",
+      "id": "id_4dd2830e_0_0",
       "properties": {
-        "id": "id_4dd2830e_0",
+        "id": "id_4dd2830e_0_0",
         "name": "麻布十番",
         "name_ja": "麻布十番",
         "name_zh": "麻布十番",
@@ -19211,9 +19201,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4dd2830e_1",
+      "id": "id_4dd2830e_0_1",
       "properties": {
-        "id": "id_4dd2830e_1",
+        "id": "id_4dd2830e_0_1",
         "name": "麻布十番",
         "name_ja": "麻布十番",
         "name_zh": "麻布十番",
@@ -19369,8 +19359,8 @@
           "id_b5e6b116"
         ],
         "line_colors": [
-          "#E85298",
-          "#32c2e4"
+          "#32c2e4",
+          "#E85298"
         ]
       },
       "geometry": {
@@ -19449,9 +19439,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f7424739_0",
+      "id": "id_f7424739_0_0",
       "properties": {
-        "id": "id_f7424739_0",
+        "id": "id_f7424739_0_0",
         "name": "新橋",
         "name_ja": "新橋",
         "name_zh": "新桥",
@@ -19496,9 +19486,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f7424739_1",
+      "id": "id_f7424739_0_1",
       "properties": {
-        "id": "id_f7424739_1",
+        "id": "id_f7424739_0_1",
         "name": "新橋",
         "name_ja": "新橋",
         "name_zh": "新桥",
@@ -19532,8 +19522,8 @@
           "id_dd625d9f"
         ],
         "line_colors": [
-          "#00b2e5",
-          "#B1CB39"
+          "#B1CB39",
+          "#00b2e5"
         ]
       },
       "geometry": {
@@ -19546,9 +19536,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f7424739_2",
+      "id": "id_f7424739_0_2",
       "properties": {
-        "id": "id_f7424739_2",
+        "id": "id_f7424739_0_2",
         "name": "新橋",
         "name_ja": "新橋",
         "name_zh": "新桥",
@@ -19596,9 +19586,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f7424739_3",
+      "id": "id_f7424739_0_3",
       "properties": {
-        "id": "id_f7424739_3",
+        "id": "id_f7424739_0_3",
         "name": "新橋",
         "name_ja": "新橋",
         "name_zh": "新桥",
@@ -19643,9 +19633,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f7424739_4",
+      "id": "id_f7424739_0_4",
       "properties": {
-        "id": "id_f7424739_4",
+        "id": "id_f7424739_0_4",
         "name": "新橋",
         "name_ja": "新橋",
         "name_zh": "新桥",
@@ -19690,9 +19680,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f7424739_5",
+      "id": "id_f7424739_0_5",
       "properties": {
-        "id": "id_f7424739_5",
+        "id": "id_f7424739_0_5",
         "name": "新橋",
         "name_ja": "新橋",
         "name_zh": "新桥",
@@ -19737,9 +19727,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f9ed94b6_0",
+      "id": "id_f9ed94b6_0_0",
       "properties": {
-        "id": "id_f9ed94b6_0",
+        "id": "id_f9ed94b6_0_0",
         "name": "日本橋",
         "name_ja": "日本橋",
         "name_zh": "日本桥",
@@ -19774,9 +19764,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f9ed94b6_1",
+      "id": "id_f9ed94b6_0_1",
       "properties": {
-        "id": "id_f9ed94b6_1",
+        "id": "id_f9ed94b6_0_1",
         "name": "日本橋",
         "name_ja": "日本橋",
         "name_zh": "日本桥",
@@ -19811,9 +19801,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f9ed94b6_2",
+      "id": "id_f9ed94b6_0_2",
       "properties": {
-        "id": "id_f9ed94b6_2",
+        "id": "id_f9ed94b6_0_2",
         "name": "日本橋",
         "name_ja": "日本橋",
         "name_zh": "日本桥",
@@ -19881,9 +19871,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_909a1993_0",
+      "id": "id_909a1993_0_0",
       "properties": {
-        "id": "id_909a1993_0",
+        "id": "id_909a1993_0_0",
         "name": "浅草橋",
         "name_ja": "浅草橋",
         "name_zh": "浅草桥",
@@ -19916,9 +19906,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_909a1993_1",
+      "id": "id_909a1993_0_1",
       "properties": {
-        "id": "id_909a1993_1",
+        "id": "id_909a1993_0_1",
         "name": "浅草橋",
         "name_ja": "浅草橋",
         "name_zh": "浅草桥",
@@ -20083,9 +20073,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b304b621_0",
+      "id": "id_b304b621_0_0",
       "properties": {
-        "id": "id_b304b621_0",
+        "id": "id_b304b621_0_0",
         "name": "人形町",
         "name_ja": "人形町 (都営地下鉄浅草線)",
         "name_zh": "人形町",
@@ -20118,9 +20108,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b304b621_1",
+      "id": "id_b304b621_0_1",
       "properties": {
-        "id": "id_b304b621_1",
+        "id": "id_b304b621_0_1",
         "name": "人形町",
         "name_ja": "人形町",
         "name_zh": "人形町",
@@ -20153,9 +20143,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_37039f0a_0",
+      "id": "id_37039f0a_0_0",
       "properties": {
-        "id": "id_37039f0a_0",
+        "id": "id_37039f0a_0_0",
         "name": "東銀座",
         "name_ja": "東銀座",
         "name_zh": "东银座",
@@ -20188,9 +20178,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_37039f0a_1",
+      "id": "id_37039f0a_0_1",
       "properties": {
-        "id": "id_37039f0a_1",
+        "id": "id_37039f0a_0_1",
         "name": "東銀座",
         "name_ja": "東銀座",
         "name_zh": "东银座",
@@ -20388,9 +20378,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0c23a7f1_0",
+      "id": "id_0c23a7f1_0_0",
       "properties": {
-        "id": "id_0c23a7f1_0",
+        "id": "id_0c23a7f1_0_0",
         "name": "中山",
         "name_ja": "中山",
         "name_zh": "中山",
@@ -20423,9 +20413,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0c23a7f1_1",
+      "id": "id_0c23a7f1_0_1",
       "properties": {
-        "id": "id_0c23a7f1_1",
+        "id": "id_0c23a7f1_0_1",
         "name": "中山",
         "name_ja": "",
         "name_zh": "中山",
@@ -20491,9 +20481,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e1c8e042_0",
+      "id": "id_e1c8e042_0_0",
       "properties": {
-        "id": "id_e1c8e042_0",
+        "id": "id_e1c8e042_0_0",
         "name": "中心北",
         "name_ja": "中心北",
         "name_zh": "中心北",
@@ -20526,9 +20516,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e1c8e042_1",
+      "id": "id_e1c8e042_0_1",
       "properties": {
-        "id": "id_e1c8e042_1",
+        "id": "id_e1c8e042_0_1",
         "name": "中心北",
         "name_ja": "中心北",
         "name_zh": "中心北",
@@ -20561,9 +20551,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f7891a1c_0",
+      "id": "id_f7891a1c_0_0",
       "properties": {
-        "id": "id_f7891a1c_0",
+        "id": "id_f7891a1c_0_0",
         "name": "中心南",
         "name_ja": "中心南",
         "name_zh": "中心南",
@@ -20596,9 +20586,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f7891a1c_1",
+      "id": "id_f7891a1c_0_1",
       "properties": {
-        "id": "id_f7891a1c_1",
+        "id": "id_f7891a1c_0_1",
         "name": "中心南",
         "name_ja": "中心南",
         "name_zh": "中心南",
@@ -20697,9 +20687,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_5a651a6f_0",
+      "id": "id_5a651a6f_0_0",
       "properties": {
-        "id": "id_5a651a6f_0",
+        "id": "id_5a651a6f_0_0",
         "name": "関内",
         "name_ja": "関内",
         "name_zh": "関内",
@@ -20732,9 +20722,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_5a651a6f_1",
+      "id": "id_5a651a6f_0_1",
       "properties": {
-        "id": "id_5a651a6f_1",
+        "id": "id_5a651a6f_0_1",
         "name": "関内",
         "name_ja": "関内",
         "name_zh": "関内",
@@ -20866,9 +20856,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e2841904_0",
+      "id": "id_e2841904_0_0",
       "properties": {
-        "id": "id_e2841904_0",
+        "id": "id_e2841904_0_0",
         "name": "上大岡",
         "name_ja": "上大岡",
         "name_zh": "上大冈",
@@ -20901,9 +20891,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e2841904_1",
+      "id": "id_e2841904_0_1",
       "properties": {
-        "id": "id_e2841904_1",
+        "id": "id_e2841904_0_1",
         "name": "上大岡",
         "name_ja": "上大岡",
         "name_zh": "上大冈",
@@ -20936,9 +20926,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_2ce82173_0",
+      "id": "id_2ce82173_0_0",
       "properties": {
-        "id": "id_2ce82173_0",
+        "id": "id_2ce82173_0_0",
         "name": "弘明寺",
         "name_ja": "弘明寺",
         "name_zh": "弘明寺",
@@ -20971,9 +20961,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_2ce82173_1",
+      "id": "id_2ce82173_0_1",
       "properties": {
-        "id": "id_2ce82173_1",
+        "id": "id_2ce82173_0_1",
         "name": "弘明寺",
         "name_ja": "弘明寺",
         "name_zh": "弘明寺",
@@ -21006,9 +20996,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6103be20_0",
+      "id": "id_6103be20_0_0",
       "properties": {
-        "id": "id_6103be20_0",
+        "id": "id_6103be20_0_0",
         "name": "湘南台",
         "name_ja": "湘南台",
         "name_zh": "湘南台站",
@@ -21043,9 +21033,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6103be20_1",
+      "id": "id_6103be20_0_1",
       "properties": {
-        "id": "id_6103be20_1",
+        "id": "id_6103be20_0_1",
         "name": "湘南台",
         "name_ja": "湘南台",
         "name_zh": "湘南台站",
@@ -21069,8 +21059,8 @@
           "id_6947e7c3"
         ],
         "line_colors": [
-          "#0583c8",
-          "#000d55"
+          "#000d55",
+          "#0583c8"
         ]
       },
       "geometry": {
@@ -21248,9 +21238,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0dd25c0f_0",
+      "id": "id_0dd25c0f_0_0",
       "properties": {
-        "id": "id_0dd25c0f_0",
+        "id": "id_0dd25c0f_0_0",
         "name": "戸塚",
         "name_ja": "戸塚",
         "name_zh": "户冢",
@@ -21287,9 +21277,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0dd25c0f_1",
+      "id": "id_0dd25c0f_0_1",
       "properties": {
-        "id": "id_0dd25c0f_1",
+        "id": "id_0dd25c0f_0_1",
         "name": "戸塚",
         "name_ja": "戸塚",
         "name_zh": "户冢",
@@ -21317,9 +21307,9 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#f28d01",
+          "red",
           "#007AC0",
-          "red"
+          "#f28d01"
         ]
       },
       "geometry": {
@@ -21596,9 +21586,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b3e04e8f_0",
+      "id": "id_b3e04e8f_0_0",
       "properties": {
-        "id": "id_b3e04e8f_0",
+        "id": "id_b3e04e8f_0_0",
         "name": "桜木町",
         "name_ja": "桜木町",
         "name_zh": "桜木町",
@@ -21635,9 +21625,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b3e04e8f_1",
+      "id": "id_b3e04e8f_0_1",
       "properties": {
-        "id": "id_b3e04e8f_1",
+        "id": "id_b3e04e8f_0_1",
         "name": "桜木町",
         "name_ja": "桜木町",
         "name_zh": "桜木町",
@@ -21677,9 +21667,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b3e04e8f_2",
+      "id": "id_b3e04e8f_0_2",
       "properties": {
-        "id": "id_b3e04e8f_2",
+        "id": "id_b3e04e8f_0_2",
         "name": "桜木町",
         "name_ja": "桜木町",
         "name_zh": "桜木町",
@@ -21876,8 +21866,8 @@
           "id_4c734dca"
         ],
         "line_colors": [
-          "#008059",
-          "#001368"
+          "#001368",
+          "#008059"
         ]
       },
       "geometry": {
@@ -22248,9 +22238,9 @@
           "id_a876af39"
         ],
         "line_colors": [
-          "#ff8620",
           "#001368",
-          "#10a956"
+          "#10a956",
+          "#ff8620"
         ]
       },
       "geometry": {
@@ -22324,9 +22314,9 @@
           "id_a876af39"
         ],
         "line_colors": [
-          "#ff8620",
           "#001368",
-          "#10a956"
+          "#10a956",
+          "#ff8620"
         ]
       },
       "geometry": {
@@ -22603,9 +22593,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0f68b072_0",
+      "id": "id_0f68b072_0_0",
       "properties": {
-        "id": "id_0f68b072_0",
+        "id": "id_0f68b072_0_0",
         "name": "町屋",
         "name_ja": "町屋",
         "name_zh": "町屋",
@@ -22638,9 +22628,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0f68b072_1",
+      "id": "id_0f68b072_0_1",
       "properties": {
-        "id": "id_0f68b072_1",
+        "id": "id_0f68b072_0_1",
         "name": "町屋",
         "name_ja": "町屋",
         "name_zh": "町屋",
@@ -22970,9 +22960,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f45b68b8_0",
+      "id": "id_f45b68b8_0_0",
       "properties": {
-        "id": "id_f45b68b8_0",
+        "id": "id_f45b68b8_0_0",
         "name": "ユカリが丘",
         "name_ja": "ユーカリが丘",
         "name_zh": "有加利丘",
@@ -23005,9 +22995,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f45b68b8_1",
+      "id": "id_f45b68b8_0_1",
       "properties": {
-        "id": "id_f45b68b8_1",
+        "id": "id_f45b68b8_0_1",
         "name": "ユカリが丘",
         "name_ja": "",
         "name_zh": "有加利丘",
@@ -23146,9 +23136,9 @@
           "id_f4e03e67"
         ],
         "line_colors": [
-          "#ff8620",
           "#001368",
-          "#051b6d"
+          "#051b6d",
+          "#ff8620"
         ]
       },
       "geometry": {
@@ -23995,9 +23985,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_16de666b_0",
+      "id": "id_16de666b_0_0",
       "properties": {
-        "id": "id_16de666b_0",
+        "id": "id_16de666b_0_0",
         "name": "松戸",
         "name_ja": "",
         "name_zh": "松户",
@@ -24037,9 +24027,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_16de666b_1",
+      "id": "id_16de666b_0_1",
       "properties": {
-        "id": "id_16de666b_1",
+        "id": "id_16de666b_0_1",
         "name": "松戸",
         "name_ja": "",
         "name_zh": "松户",
@@ -24079,9 +24069,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ccda5e1a_0",
+      "id": "id_ccda5e1a_0_0",
       "properties": {
-        "id": "id_ccda5e1a_0",
+        "id": "id_ccda5e1a_0_0",
         "name": "北習志野",
         "name_ja": "",
         "name_zh": "北习志野",
@@ -24114,9 +24104,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ccda5e1a_1",
+      "id": "id_ccda5e1a_0_1",
       "properties": {
-        "id": "id_ccda5e1a_1",
+        "id": "id_ccda5e1a_0_1",
         "name": "北習志野",
         "name_ja": "北習志野",
         "name_zh": "北习志野",
@@ -24474,8 +24464,8 @@
           "id_94d289e8"
         ],
         "line_colors": [
-          "#ff8620",
-          "#051b6d"
+          "#051b6d",
+          "#ff8620"
         ]
       },
       "geometry": {
@@ -24488,9 +24478,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ae3ffff0_0",
+      "id": "id_ae3ffff0_0_0",
       "properties": {
-        "id": "id_ae3ffff0_0",
+        "id": "id_ae3ffff0_0_0",
         "name": "東松戸",
         "name_ja": "東松戸",
         "name_zh": "东松户",
@@ -24514,8 +24504,8 @@
           "id_94d289e8"
         ],
         "line_colors": [
-          "#ff8620",
-          "#051b6d"
+          "#051b6d",
+          "#ff8620"
         ]
       },
       "geometry": {
@@ -24528,9 +24518,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ae3ffff0_1",
+      "id": "id_ae3ffff0_0_1",
       "properties": {
-        "id": "id_ae3ffff0_1",
+        "id": "id_ae3ffff0_0_1",
         "name": "東松戸",
         "name_ja": "東松戸",
         "name_zh": "东松户",
@@ -24589,8 +24579,8 @@
           "id_94d289e8"
         ],
         "line_colors": [
-          "#ff8620",
-          "#051b6d"
+          "#051b6d",
+          "#ff8620"
         ]
       },
       "geometry": {
@@ -25069,9 +25059,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e1cbfe75_0",
+      "id": "id_e1cbfe75_0_0",
       "properties": {
-        "id": "id_e1cbfe75_0",
+        "id": "id_e1cbfe75_0_0",
         "name": "品川",
         "name_ja": "品川",
         "name_zh": "品川",
@@ -25112,9 +25102,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e1cbfe75_1",
+      "id": "id_e1cbfe75_0_1",
       "properties": {
-        "id": "id_e1cbfe75_1",
+        "id": "id_e1cbfe75_0_1",
         "name": "品川",
         "name_ja": "品川",
         "name_zh": "品川",
@@ -25155,9 +25145,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e1cbfe75_2",
+      "id": "id_e1cbfe75_0_2",
       "properties": {
-        "id": "id_e1cbfe75_2",
+        "id": "id_e1cbfe75_0_2",
         "name": "品川",
         "name_ja": "品川",
         "name_zh": "品川",
@@ -25189,9 +25179,9 @@
           "id_c44e6149"
         ],
         "line_colors": [
-          "#00b2e5",
           "#f28d01",
-          "#10a956"
+          "#10a956",
+          "#00b2e5"
         ]
       },
       "geometry": {
@@ -25204,9 +25194,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e1cbfe75_3",
+      "id": "id_e1cbfe75_0_3",
       "properties": {
-        "id": "id_e1cbfe75_3",
+        "id": "id_e1cbfe75_0_3",
         "name": "品川",
         "name_ja": "品川13",
         "name_zh": "品川",
@@ -25412,9 +25402,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4d068c04_0",
+      "id": "id_4d068c04_0_0",
       "properties": {
-        "id": "id_4d068c04_0",
+        "id": "id_4d068c04_0_0",
         "name": "八丁畷",
         "name_ja": "",
         "name_zh": "八丁畷",
@@ -25447,9 +25437,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4d068c04_1",
+      "id": "id_4d068c04_0_1",
       "properties": {
-        "id": "id_4d068c04_1",
+        "id": "id_4d068c04_0_1",
         "name": "八丁畷",
         "name_ja": "八丁畷",
         "name_zh": "八丁畷",
@@ -26076,9 +26066,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_dfc3c124_0",
+      "id": "id_dfc3c124_0_0",
       "properties": {
-        "id": "id_dfc3c124_0",
+        "id": "id_dfc3c124_0_0",
         "name": "京急川崎",
         "name_ja": "京急川崎",
         "name_zh": "京急川崎",
@@ -26111,9 +26101,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_dfc3c124_1",
+      "id": "id_dfc3c124_0_1",
       "properties": {
-        "id": "id_dfc3c124_1",
+        "id": "id_dfc3c124_0_1",
         "name": "京急川崎",
         "name_ja": "京急川崎",
         "name_zh": "京急川崎",
@@ -26542,9 +26532,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_12598d97_0",
+      "id": "id_12598d97_0_0",
       "properties": {
-        "id": "id_12598d97_0",
+        "id": "id_12598d97_0_0",
         "name": "金沢八景",
         "name_ja": "金沢八景",
         "name_zh": "金沢八景",
@@ -26581,9 +26571,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_12598d97_1",
+      "id": "id_12598d97_0_1",
       "properties": {
-        "id": "id_12598d97_1",
+        "id": "id_12598d97_0_1",
         "name": "金沢八景",
         "name_ja": "金沢八景",
         "name_zh": "金沢八景",
@@ -27348,9 +27338,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_bd3ce7bf_0",
+      "id": "id_bd3ce7bf_0_0",
       "properties": {
-        "id": "id_bd3ce7bf_0",
+        "id": "id_bd3ce7bf_0_0",
         "name": "天空橋",
         "name_ja": "天空橋",
         "name_zh": "天空桥",
@@ -27383,9 +27373,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_bd3ce7bf_1",
+      "id": "id_bd3ce7bf_0_1",
       "properties": {
-        "id": "id_bd3ce7bf_1",
+        "id": "id_bd3ce7bf_0_1",
         "name": "天空橋",
         "name_ja": "天空橋",
         "name_zh": "天空桥",
@@ -27418,9 +27408,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_69df2283_0",
+      "id": "id_69df2283_0_0",
       "properties": {
-        "id": "id_69df2283_0",
+        "id": "id_69df2283_0_0",
         "name": "羽田空港第3タミナル",
         "name_ja": "羽田空港第3ターミナル",
         "name_zh": "羽田空港国际线航站楼",
@@ -27453,9 +27443,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_69df2283_1",
+      "id": "id_69df2283_0_1",
       "properties": {
-        "id": "id_69df2283_1",
+        "id": "id_69df2283_0_1",
         "name": "羽田空港第3タミナル",
         "name_ja": "羽田空港第3ターミナル",
         "name_zh": "羽田空港国际线航站楼",
@@ -27657,9 +27647,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_63f2d498_0",
+      "id": "id_63f2d498_0_0",
       "properties": {
-        "id": "id_63f2d498_0",
+        "id": "id_63f2d498_0_0",
         "name": "橋本",
         "name_ja": "橋本",
         "name_zh": "桥本",
@@ -27694,9 +27684,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_63f2d498_1",
+      "id": "id_63f2d498_0_1",
       "properties": {
-        "id": "id_63f2d498_1",
+        "id": "id_63f2d498_0_1",
         "name": "橋本",
         "name_ja": "",
         "name_zh": "桥本",
@@ -27731,9 +27721,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_63f2d498_2",
+      "id": "id_63f2d498_0_2",
       "properties": {
-        "id": "id_63f2d498_2",
+        "id": "id_63f2d498_0_2",
         "name": "橋本",
         "name_ja": "",
         "name_zh": "桥本",
@@ -28304,9 +28294,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_02018410_0",
+      "id": "id_02018410_0_0",
       "properties": {
-        "id": "id_02018410_0",
+        "id": "id_02018410_0_0",
         "name": "分倍河原",
         "name_ja": "分倍河原",
         "name_zh": "分倍河原",
@@ -28339,9 +28329,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_02018410_1",
+      "id": "id_02018410_0_1",
       "properties": {
-        "id": "id_02018410_1",
+        "id": "id_02018410_0_1",
         "name": "分倍河原",
         "name_ja": "分倍河原",
         "name_zh": "分倍河原",
@@ -28972,9 +28962,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ee924eca_0",
+      "id": "id_ee924eca_0_0",
       "properties": {
-        "id": "id_ee924eca_0",
+        "id": "id_ee924eca_0_0",
         "name": "明大前",
         "name_ja": "明大前",
         "name_zh": "明大前",
@@ -29007,9 +28997,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ee924eca_1",
+      "id": "id_ee924eca_0_1",
       "properties": {
-        "id": "id_ee924eca_1",
+        "id": "id_ee924eca_0_1",
         "name": "明大前",
         "name_ja": "明大前",
         "name_zh": "明大前",
@@ -29108,9 +29098,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e9114264_0",
+      "id": "id_e9114264_0_0",
       "properties": {
-        "id": "id_e9114264_0",
+        "id": "id_e9114264_0_0",
         "name": "高幡不動",
         "name_ja": "",
         "name_zh": "高幡不动",
@@ -29147,9 +29137,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e9114264_1",
+      "id": "id_e9114264_0_1",
       "properties": {
-        "id": "id_e9114264_1",
+        "id": "id_e9114264_0_1",
         "name": "高幡不動",
         "name_ja": "高幡不動",
         "name_zh": "高幡不动",
@@ -29283,9 +29273,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_86b38091_0",
+      "id": "id_86b38091_0_0",
       "properties": {
-        "id": "id_86b38091_0",
+        "id": "id_86b38091_0_0",
         "name": "高尾",
         "name_ja": "",
         "name_zh": "高尾",
@@ -29318,9 +29308,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_86b38091_1",
+      "id": "id_86b38091_0_1",
       "properties": {
-        "id": "id_86b38091_1",
+        "id": "id_86b38091_0_1",
         "name": "高尾",
         "name_ja": "",
         "name_zh": "高尾",
@@ -29551,9 +29541,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_c8a9b2a1_0",
+      "id": "id_c8a9b2a1_0_0",
       "properties": {
-        "id": "id_c8a9b2a1_0",
+        "id": "id_c8a9b2a1_0_0",
         "name": "吉祥寺",
         "name_ja": "吉祥寺",
         "name_zh": "吉祥寺",
@@ -29588,9 +29578,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_c8a9b2a1_1",
+      "id": "id_c8a9b2a1_0_1",
       "properties": {
-        "id": "id_c8a9b2a1_1",
+        "id": "id_c8a9b2a1_0_1",
         "name": "吉祥寺",
         "name_ja": "",
         "name_zh": "吉祥寺",
@@ -29925,9 +29915,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_32197ef4_0",
+      "id": "id_32197ef4_0_0",
       "properties": {
-        "id": "id_32197ef4_0",
+        "id": "id_32197ef4_0_0",
         "name": "下北沢",
         "name_ja": "",
         "name_zh": "下北沢",
@@ -29960,9 +29950,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_32197ef4_1",
+      "id": "id_32197ef4_0_1",
       "properties": {
-        "id": "id_32197ef4_1",
+        "id": "id_32197ef4_0_1",
         "name": "下北沢",
         "name_ja": "",
         "name_zh": "下北沢",
@@ -30061,9 +30051,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4ade6f94_0",
+      "id": "id_4ade6f94_0_0",
       "properties": {
-        "id": "id_4ade6f94_0",
+        "id": "id_4ade6f94_0_0",
         "name": "多摩動物公園",
         "name_ja": "多摩動物公園",
         "name_zh": "多摩动物公园",
@@ -30096,9 +30086,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4ade6f94_1",
+      "id": "id_4ade6f94_0_1",
       "properties": {
-        "id": "id_4ade6f94_1",
+        "id": "id_4ade6f94_0_1",
         "name": "多摩動物公園",
         "name_ja": "多摩動物公園",
         "name_zh": "多摩动物公园",
@@ -30188,8 +30178,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#f28d01",
-          "red"
+          "red",
+          "#f28d01"
         ]
       },
       "geometry": {
@@ -30226,8 +30216,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#f28d01",
-          "red"
+          "red",
+          "#f28d01"
         ]
       },
       "geometry": {
@@ -30240,9 +30230,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b97fbe98_0",
+      "id": "id_b97fbe98_0_0",
       "properties": {
-        "id": "id_b97fbe98_0",
+        "id": "id_b97fbe98_0_0",
         "name": "茅崎",
         "name_ja": "茅ヶ崎",
         "name_zh": "茅崎",
@@ -30266,8 +30256,8 @@
           "id_c472e892"
         ],
         "line_colors": [
-          "#f28d01",
-          "red"
+          "red",
+          "#f28d01"
         ]
       },
       "geometry": {
@@ -30280,9 +30270,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b97fbe98_1",
+      "id": "id_b97fbe98_0_1",
       "properties": {
-        "id": "id_b97fbe98_1",
+        "id": "id_b97fbe98_0_1",
         "name": "茅崎",
         "name_ja": "茅ヶ崎",
         "name_zh": "茅崎",
@@ -30341,8 +30331,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -30379,8 +30369,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -30417,8 +30407,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#007AC0",
-          "red"
+          "red",
+          "#007AC0"
         ]
       },
       "geometry": {
@@ -30431,9 +30421,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_159b520c_0",
+      "id": "id_159b520c_0_0",
       "properties": {
-        "id": "id_159b520c_0",
+        "id": "id_159b520c_0_0",
         "name": "鎌倉",
         "name_ja": "鎌倉",
         "name_zh": "镰仓",
@@ -30457,8 +30447,8 @@
           "id_cbc6fb7b"
         ],
         "line_colors": [
-          "#007AC0",
-          "red"
+          "red",
+          "#007AC0"
         ]
       },
       "geometry": {
@@ -30471,9 +30461,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_159b520c_1",
+      "id": "id_159b520c_0_1",
       "properties": {
-        "id": "id_159b520c_1",
+        "id": "id_159b520c_0_1",
         "name": "鎌倉",
         "name_ja": "鎌倉",
         "name_zh": "镰仓",
@@ -30532,8 +30522,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -30570,8 +30560,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -30608,8 +30598,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -30622,9 +30612,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3b0d04c8_0",
+      "id": "id_3b0d04c8_0_0",
       "properties": {
-        "id": "id_3b0d04c8_0",
+        "id": "id_3b0d04c8_0_0",
         "name": "小山",
         "name_ja": "小山",
         "name_zh": "小山",
@@ -30648,8 +30638,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -30662,9 +30652,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3b0d04c8_1",
+      "id": "id_3b0d04c8_0_1",
       "properties": {
-        "id": "id_3b0d04c8_1",
+        "id": "id_3b0d04c8_0_1",
         "name": "小山",
         "name_ja": "",
         "name_zh": "",
@@ -30723,8 +30713,8 @@
           "id_b4374c9a"
         ],
         "line_colors": [
-          "#02b3e6",
-          "red"
+          "red",
+          "#02b3e6"
         ]
       },
       "geometry": {
@@ -30761,8 +30751,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -30799,8 +30789,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -30837,8 +30827,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -30875,8 +30865,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -30889,9 +30879,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3ae037da_0",
+      "id": "id_3ae037da_0_0",
       "properties": {
-        "id": "id_3ae037da_0",
+        "id": "id_3ae037da_0_0",
         "name": "赤羽",
         "name_ja": "赤羽",
         "name_zh": "赤羽",
@@ -30931,9 +30921,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3ae037da_1",
+      "id": "id_3ae037da_0_1",
       "properties": {
-        "id": "id_3ae037da_1",
+        "id": "id_3ae037da_0_1",
         "name": "赤羽",
         "name_ja": "赤羽",
         "name_zh": "赤羽",
@@ -30997,8 +30987,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -31035,8 +31025,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#007AC0",
-          "red"
+          "red",
+          "#007AC0"
         ]
       },
       "geometry": {
@@ -31049,9 +31039,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_dbfba770_0",
+      "id": "id_dbfba770_0_0",
       "properties": {
-        "id": "id_dbfba770_0",
+        "id": "id_dbfba770_0_0",
         "name": "新前橋",
         "name_ja": "新前橋",
         "name_zh": "新前桥",
@@ -31075,8 +31065,8 @@
           "id_deafc1f7"
         ],
         "line_colors": [
-          "#02b3e6",
-          "red"
+          "red",
+          "#02b3e6"
         ]
       },
       "geometry": {
@@ -31089,9 +31079,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_dbfba770_1",
+      "id": "id_dbfba770_0_1",
       "properties": {
-        "id": "id_dbfba770_1",
+        "id": "id_dbfba770_0_1",
         "name": "新前橋",
         "name_ja": "",
         "name_zh": "",
@@ -31126,9 +31116,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8cf44770_0",
+      "id": "id_8cf44770_0_0",
       "properties": {
-        "id": "id_8cf44770_0",
+        "id": "id_8cf44770_0_0",
         "name": "大船",
         "name_ja": "大船",
         "name_zh": "大船",
@@ -31160,10 +31150,10 @@
           "id_df4243d9"
         ],
         "line_colors": [
-          "#f28d01",
-          "#00b2e5",
+          "red",
           "#007AC0",
-          "red"
+          "#00b2e5",
+          "#f28d01"
         ]
       },
       "geometry": {
@@ -31176,9 +31166,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8cf44770_1",
+      "id": "id_8cf44770_0_1",
       "properties": {
-        "id": "id_8cf44770_1",
+        "id": "id_8cf44770_0_1",
         "name": "大船",
         "name_ja": "大船",
         "name_zh": "大船",
@@ -31241,8 +31231,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#f28d01",
-          "red"
+          "red",
+          "#f28d01"
         ]
       },
       "geometry": {
@@ -31283,9 +31273,9 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
           "#525252",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -31327,8 +31317,8 @@
         ],
         "line_colors": [
           "#00ac9a",
-          "#007AC0",
-          "red"
+          "red",
+          "#007AC0"
         ]
       },
       "geometry": {
@@ -31341,9 +31331,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_00b5323e_0",
+      "id": "id_00b5323e_0_0",
       "properties": {
-        "id": "id_00b5323e_0",
+        "id": "id_00b5323e_0_0",
         "name": "恵比寿",
         "name_ja": "恵比寿",
         "name_zh": "恵比寿",
@@ -31372,8 +31362,8 @@
         ],
         "line_colors": [
           "#B1CB39",
-          "#00ac9a",
-          "red"
+          "red",
+          "#00ac9a"
         ]
       },
       "geometry": {
@@ -31386,9 +31376,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_00b5323e_1",
+      "id": "id_00b5323e_0_1",
       "properties": {
-        "id": "id_00b5323e_1",
+        "id": "id_00b5323e_0_1",
         "name": "恵比寿",
         "name_ja": "恵比寿",
         "name_zh": "惠比寿",
@@ -31425,9 +31415,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_71b35f1c_0",
+      "id": "id_71b35f1c_0_0",
       "properties": {
-        "id": "id_71b35f1c_0",
+        "id": "id_71b35f1c_0_0",
         "name": "小田原",
         "name_ja": "小田原",
         "name_zh": "小田原",
@@ -31455,8 +31445,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#f28d01",
-          "red"
+          "red",
+          "#f28d01"
         ]
       },
       "geometry": {
@@ -31469,9 +31459,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_71b35f1c_1",
+      "id": "id_71b35f1c_0_1",
       "properties": {
-        "id": "id_71b35f1c_1",
+        "id": "id_71b35f1c_0_1",
         "name": "小田原",
         "name_ja": "",
         "name_zh": "小田原",
@@ -31510,9 +31500,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_71b35f1c_2",
+      "id": "id_71b35f1c_0_2",
       "properties": {
-        "id": "id_71b35f1c_2",
+        "id": "id_71b35f1c_0_2",
         "name": "小田原",
         "name_ja": "",
         "name_zh": "小田原",
@@ -31551,9 +31541,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_71b35f1c_3",
+      "id": "id_71b35f1c_0_3",
       "properties": {
-        "id": "id_71b35f1c_3",
+        "id": "id_71b35f1c_0_3",
         "name": "小田原",
         "name_ja": "",
         "name_zh": "小田原",
@@ -31616,8 +31606,8 @@
           "id_deafc1f7"
         ],
         "line_colors": [
-          "#ffd400",
-          "red"
+          "red",
+          "#ffd400"
         ]
       },
       "geometry": {
@@ -31654,8 +31644,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#007AC0",
-          "red"
+          "red",
+          "#007AC0"
         ]
       },
       "geometry": {
@@ -31692,8 +31682,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -31706,9 +31696,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b7d3dfdd_0",
+      "id": "id_b7d3dfdd_0_0",
       "properties": {
-        "id": "id_b7d3dfdd_0",
+        "id": "id_b7d3dfdd_0_0",
         "name": "藤沢",
         "name_ja": "藤沢",
         "name_zh": "藤沢",
@@ -31736,9 +31726,9 @@
           "id_cbc6fb7b"
         ],
         "line_colors": [
+          "red",
           "#f28d01",
-          "#0583c8",
-          "red"
+          "#0583c8"
         ]
       },
       "geometry": {
@@ -31751,9 +31741,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b7d3dfdd_1",
+      "id": "id_b7d3dfdd_0_1",
       "properties": {
-        "id": "id_b7d3dfdd_1",
+        "id": "id_b7d3dfdd_0_1",
         "name": "藤沢",
         "name_ja": "藤沢",
         "name_zh": "藤泽",
@@ -31790,9 +31780,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6d3c4be2_0",
+      "id": "id_6d3c4be2_0_0",
       "properties": {
-        "id": "id_6d3c4be2_0",
+        "id": "id_6d3c4be2_0_0",
         "name": "大崎",
         "name_ja": "大崎",
         "name_zh": "大崎",
@@ -31824,9 +31814,9 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#00b48d",
           "#00ac9a",
-          "red"
+          "red",
+          "#00b48d"
         ]
       },
       "geometry": {
@@ -31839,9 +31829,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6d3c4be2_1",
+      "id": "id_6d3c4be2_0_1",
       "properties": {
-        "id": "id_6d3c4be2_1",
+        "id": "id_6d3c4be2_0_1",
         "name": "大崎",
         "name_ja": "大崎",
         "name_zh": "大崎",
@@ -31904,8 +31894,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#007AC0",
-          "red"
+          "red",
+          "#007AC0"
         ]
       },
       "geometry": {
@@ -31942,8 +31932,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#007AC0",
-          "red"
+          "red",
+          "#007AC0"
         ]
       },
       "geometry": {
@@ -31956,9 +31946,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e0e61bd6_0",
+      "id": "id_e0e61bd6_0_0",
       "properties": {
-        "id": "id_e0e61bd6_0",
+        "id": "id_e0e61bd6_0_0",
         "name": "浦和",
         "name_ja": "浦和",
         "name_zh": "浦和",
@@ -31993,9 +31983,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e0e61bd6_1",
+      "id": "id_e0e61bd6_0_1",
       "properties": {
-        "id": "id_e0e61bd6_1",
+        "id": "id_e0e61bd6_0_1",
         "name": "浦和",
         "name_ja": "浦和",
         "name_zh": "浦和",
@@ -32057,8 +32047,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32095,8 +32085,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32109,9 +32099,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ce69c4d2_0",
+      "id": "id_ce69c4d2_0_0",
       "properties": {
-        "id": "id_ce69c4d2_0",
+        "id": "id_ce69c4d2_0_0",
         "name": "高崎",
         "name_ja": "高崎",
         "name_zh": "高崎",
@@ -32143,9 +32133,9 @@
           "id_e642e031"
         ],
         "line_colors": [
-          "#FE642E",
           "#525252",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32158,9 +32148,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ce69c4d2_1",
+      "id": "id_ce69c4d2_0_1",
       "properties": {
-        "id": "id_ce69c4d2_1",
+        "id": "id_ce69c4d2_0_1",
         "name": "高崎",
         "name_ja": "",
         "name_zh": "",
@@ -32204,9 +32194,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ce69c4d2_2",
+      "id": "id_ce69c4d2_0_2",
       "properties": {
-        "id": "id_ce69c4d2_2",
+        "id": "id_ce69c4d2_0_2",
         "name": "高崎",
         "name_ja": "",
         "name_zh": "",
@@ -32271,8 +32261,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32309,8 +32299,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32347,8 +32337,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32385,8 +32375,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32423,8 +32413,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32461,8 +32451,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32499,8 +32489,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32537,8 +32527,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32551,9 +32541,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_39d50ef3_0",
+      "id": "id_39d50ef3_0_0",
       "properties": {
-        "id": "id_39d50ef3_0",
+        "id": "id_39d50ef3_0_0",
         "name": "熊谷",
         "name_ja": "熊谷",
         "name_zh": "熊谷",
@@ -32577,8 +32567,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32591,9 +32581,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_39d50ef3_1",
+      "id": "id_39d50ef3_0_1",
       "properties": {
-        "id": "id_39d50ef3_1",
+        "id": "id_39d50ef3_0_1",
         "name": "熊谷",
         "name_ja": "",
         "name_zh": "",
@@ -32652,8 +32642,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#f28d01",
-          "red"
+          "red",
+          "#f28d01"
         ]
       },
       "geometry": {
@@ -32690,8 +32680,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#f28d01",
-          "red"
+          "red",
+          "#f28d01"
         ]
       },
       "geometry": {
@@ -32728,8 +32718,8 @@
           "id_ab4c73ef"
         ],
         "line_colors": [
-          "#f28d01",
-          "red"
+          "red",
+          "#f28d01"
         ]
       },
       "geometry": {
@@ -32770,9 +32760,9 @@
           "id_f6878d32"
         ],
         "line_colors": [
+          "red",
           "#00b2e5",
-          "#FE642E",
-          "red"
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32785,9 +32775,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e54a4851_0",
+      "id": "id_e54a4851_0_0",
       "properties": {
-        "id": "id_e54a4851_0",
+        "id": "id_e54a4851_0_0",
         "name": "井野",
         "name_ja": "井野",
         "name_zh": "井野",
@@ -32802,17 +32792,15 @@
         ],
         "serving_lines": [
           "JR上越线",
-          "JR湘南新宿线",
-          "山万有加利丘线"
+          "JR湘南新宿线"
         ],
         "serving_ids": [
           "id_ab4c73ef",
-          "id_b4374c9a",
-          "id_ce57a34f"
+          "id_b4374c9a"
         ],
         "line_colors": [
-          "#02b3e6",
-          "red"
+          "red",
+          "#02b3e6"
         ]
       },
       "geometry": {
@@ -32825,9 +32813,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e54a4851_1",
+      "id": "id_e54a4851_1_0",
       "properties": {
-        "id": "id_e54a4851_1",
+        "id": "id_e54a4851_1_0",
         "name": "井野",
         "name_ja": "井野",
         "name_zh": "井野",
@@ -32839,13 +32827,9 @@
           "id_ce57a34f"
         ],
         "serving_lines": [
-          "JR上越线",
-          "JR湘南新宿线",
           "山万有加利丘线"
         ],
         "serving_ids": [
-          "id_ab4c73ef",
-          "id_b4374c9a",
           "id_ce57a34f"
         ],
         "line_colors": [
@@ -32886,8 +32870,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32924,8 +32908,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -32962,8 +32946,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -33000,8 +32984,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -33038,8 +33022,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -33076,8 +33060,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "red"
+          "red",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -33090,9 +33074,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_46a226b9_0",
+      "id": "id_46a226b9_0_0",
       "properties": {
-        "id": "id_46a226b9_0",
+        "id": "id_46a226b9_0_0",
         "name": "宇都宮",
         "name_ja": "宇都宮",
         "name_zh": "宇都宫",
@@ -33120,9 +33104,9 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
+          "red",
           "#f6ba00",
-          "red"
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -33135,9 +33119,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_46a226b9_1",
+      "id": "id_46a226b9_0_1",
       "properties": {
-        "id": "id_46a226b9_1",
+        "id": "id_46a226b9_0_1",
         "name": "宇都宮",
         "name_ja": "",
         "name_zh": "",
@@ -33174,9 +33158,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_707ba17c_0",
+      "id": "id_707ba17c_0_0",
       "properties": {
-        "id": "id_707ba17c_0",
+        "id": "id_707ba17c_0_0",
         "name": "東京",
         "name_ja": "東京",
         "name_zh": "东京",
@@ -33225,9 +33209,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_707ba17c_1",
+      "id": "id_707ba17c_0_1",
       "properties": {
-        "id": "id_707ba17c_1",
+        "id": "id_707ba17c_0_1",
         "name": "東京",
         "name_ja": "東京",
         "name_zh": "东京",
@@ -33270,8 +33254,8 @@
         ],
         "line_colors": [
           "#f28d01",
-          "#FE642E",
-          "#10a956"
+          "#10a956",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -33284,9 +33268,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_707ba17c_2",
+      "id": "id_707ba17c_0_2",
       "properties": {
-        "id": "id_707ba17c_2",
+        "id": "id_707ba17c_0_2",
         "name": "東京",
         "name_ja": "東京",
         "name_zh": "东京",
@@ -33335,9 +33319,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_707ba17c_3",
+      "id": "id_707ba17c_0_3",
       "properties": {
-        "id": "id_707ba17c_3",
+        "id": "id_707ba17c_0_3",
         "name": "東京",
         "name_ja": "東京",
         "name_zh": "东京",
@@ -33386,9 +33370,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_707ba17c_4",
+      "id": "id_707ba17c_0_4",
       "properties": {
-        "id": "id_707ba17c_4",
+        "id": "id_707ba17c_0_4",
         "name": "東京",
         "name_ja": "東京",
         "name_zh": "东京",
@@ -33439,9 +33423,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_707ba17c_5",
+      "id": "id_707ba17c_0_5",
       "properties": {
-        "id": "id_707ba17c_5",
+        "id": "id_707ba17c_0_5",
         "name": "東京",
         "name_ja": "",
         "name_zh": "东京",
@@ -33514,8 +33498,8 @@
           "id_c44e6149"
         ],
         "line_colors": [
-          "#00b2e5",
-          "#B1CB39"
+          "#B1CB39",
+          "#00b2e5"
         ]
       },
       "geometry": {
@@ -33561,9 +33545,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_414fe5ec_0",
+      "id": "id_414fe5ec_0_0",
       "properties": {
-        "id": "id_414fe5ec_0",
+        "id": "id_414fe5ec_0_0",
         "name": "神田",
         "name_ja": "神田",
         "name_zh": "神田",
@@ -33591,9 +33575,9 @@
           "id_dd625d9f"
         ],
         "line_colors": [
-          "#00b2e5",
+          "#B1CB39",
           "#ea5505",
-          "#B1CB39"
+          "#00b2e5"
         ]
       },
       "geometry": {
@@ -33606,9 +33590,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_414fe5ec_1",
+      "id": "id_414fe5ec_0_1",
       "properties": {
-        "id": "id_414fe5ec_1",
+        "id": "id_414fe5ec_0_1",
         "name": "神田",
         "name_ja": "神田",
         "name_zh": "神田",
@@ -33669,8 +33653,8 @@
           "id_c44e6149"
         ],
         "line_colors": [
-          "#00b2e5",
-          "#B1CB39"
+          "#B1CB39",
+          "#00b2e5"
         ]
       },
       "geometry": {
@@ -33683,9 +33667,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b5df7321_0",
+      "id": "id_b5df7321_0_0",
       "properties": {
-        "id": "id_b5df7321_0",
+        "id": "id_b5df7321_0_0",
         "name": "高田馬場",
         "name_ja": "高田馬場",
         "name_zh": "高田马场",
@@ -33723,9 +33707,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b5df7321_1",
+      "id": "id_b5df7321_0_1",
       "properties": {
-        "id": "id_b5df7321_1",
+        "id": "id_b5df7321_0_1",
         "name": "高田馬場",
         "name_ja": "高田馬場",
         "name_zh": "高田马场",
@@ -33760,9 +33744,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0481d3e2_0",
+      "id": "id_0481d3e2_0_0",
       "properties": {
-        "id": "id_0481d3e2_0",
+        "id": "id_0481d3e2_0_0",
         "name": "有楽町",
         "name_ja": "有楽町",
         "name_zh": "有楽町",
@@ -33797,9 +33781,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0481d3e2_1",
+      "id": "id_0481d3e2_0_1",
       "properties": {
-        "id": "id_0481d3e2_1",
+        "id": "id_0481d3e2_0_1",
         "name": "有楽町",
         "name_ja": "有楽町",
         "name_zh": "有楽町",
@@ -33834,9 +33818,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0481d3e2_2",
+      "id": "id_0481d3e2_0_2",
       "properties": {
-        "id": "id_0481d3e2_2",
+        "id": "id_0481d3e2_0_2",
         "name": "有楽町",
         "name_ja": "",
         "name_zh": "有楽町",
@@ -33871,9 +33855,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_1be696fe_0",
+      "id": "id_1be696fe_0_0",
       "properties": {
-        "id": "id_1be696fe_0",
+        "id": "id_1be696fe_0_0",
         "name": "駒込",
         "name_ja": "駒込",
         "name_zh": "驹込",
@@ -33906,9 +33890,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_1be696fe_1",
+      "id": "id_1be696fe_0_1",
       "properties": {
-        "id": "id_1be696fe_1",
+        "id": "id_1be696fe_0_1",
         "name": "駒込",
         "name_ja": "駒込",
         "name_zh": "驹込",
@@ -33974,9 +33958,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6aa86734_0",
+      "id": "id_6aa86734_0_0",
       "properties": {
-        "id": "id_6aa86734_0",
+        "id": "id_6aa86734_0_0",
         "name": "秋葉原",
         "name_ja": "秋葉原",
         "name_zh": "秋叶原",
@@ -34006,9 +33990,9 @@
           "id_c7e5f6f4"
         ],
         "line_colors": [
-          "#00b2e5",
           "#B1CB39",
-          "#ffd700"
+          "#ffd700",
+          "#00b2e5"
         ]
       },
       "geometry": {
@@ -34021,9 +34005,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6aa86734_1",
+      "id": "id_6aa86734_0_1",
       "properties": {
-        "id": "id_6aa86734_1",
+        "id": "id_6aa86734_0_1",
         "name": "秋葉原",
         "name_ja": "秋葉原",
         "name_zh": "秋叶原",
@@ -34062,9 +34046,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6aa86734_2",
+      "id": "id_6aa86734_0_2",
       "properties": {
-        "id": "id_6aa86734_2",
+        "id": "id_6aa86734_0_2",
         "name": "秋葉原",
         "name_ja": "秋葉原",
         "name_zh": "秋叶原",
@@ -34193,8 +34177,8 @@
           "id_c44e6149"
         ],
         "line_colors": [
-          "#00b2e5",
-          "#B1CB39"
+          "#B1CB39",
+          "#00b2e5"
         ]
       },
       "geometry": {
@@ -34231,8 +34215,8 @@
           "id_c44e6149"
         ],
         "line_colors": [
-          "#00b2e5",
-          "#B1CB39"
+          "#B1CB39",
+          "#00b2e5"
         ]
       },
       "geometry": {
@@ -34245,9 +34229,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f05265f6_0",
+      "id": "id_f05265f6_0_0",
       "properties": {
-        "id": "id_f05265f6_0",
+        "id": "id_f05265f6_0_0",
         "name": "上野",
         "name_ja": "上野",
         "name_zh": "上野",
@@ -34283,9 +34267,9 @@
           "id_f6878d32"
         ],
         "line_colors": [
+          "#B1CB39",
           "#00b2e5",
-          "#FE642E",
-          "#B1CB39"
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -34298,9 +34282,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f05265f6_1",
+      "id": "id_f05265f6_0_1",
       "properties": {
-        "id": "id_f05265f6_1",
+        "id": "id_f05265f6_0_1",
         "name": "上野",
         "name_ja": "上野",
         "name_zh": "上野",
@@ -34336,8 +34320,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#f28d01",
           "#0173bc",
+          "#f28d01",
           "#10a956"
         ]
       },
@@ -34351,9 +34335,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f05265f6_2",
+      "id": "id_f05265f6_0_2",
       "properties": {
-        "id": "id_f05265f6_2",
+        "id": "id_f05265f6_0_2",
         "name": "上野",
         "name_ja": "上野",
         "name_zh": "上野",
@@ -34398,9 +34382,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f05265f6_3",
+      "id": "id_f05265f6_0_3",
       "properties": {
-        "id": "id_f05265f6_3",
+        "id": "id_f05265f6_0_3",
         "name": "上野",
         "name_ja": "上野",
         "name_zh": "上野",
@@ -34469,8 +34453,8 @@
           "id_c44e6149"
         ],
         "line_colors": [
-          "#00b2e5",
-          "#B1CB39"
+          "#B1CB39",
+          "#00b2e5"
         ]
       },
       "geometry": {
@@ -34507,8 +34491,8 @@
           "id_c44e6149"
         ],
         "line_colors": [
-          "#00b2e5",
-          "#B1CB39"
+          "#B1CB39",
+          "#00b2e5"
         ]
       },
       "geometry": {
@@ -34521,9 +34505,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_00a8fcfc_0",
+      "id": "id_00a8fcfc_0_0",
       "properties": {
-        "id": "id_00a8fcfc_0",
+        "id": "id_00a8fcfc_0_0",
         "name": "王子",
         "name_ja": "",
         "name_zh": "王子",
@@ -34556,9 +34540,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_00a8fcfc_1",
+      "id": "id_00a8fcfc_0_1",
       "properties": {
-        "id": "id_00a8fcfc_1",
+        "id": "id_00a8fcfc_0_1",
         "name": "王子",
         "name_ja": "王子",
         "name_zh": "王子",
@@ -34619,8 +34603,8 @@
           "id_c44e6149"
         ],
         "line_colors": [
-          "#00b2e5",
           "#f28d01",
+          "#00b2e5",
           "#fdd900"
         ]
       },
@@ -34875,9 +34859,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0e4064af_0",
+      "id": "id_0e4064af_0_0",
       "properties": {
-        "id": "id_0e4064af_0",
+        "id": "id_0e4064af_0_0",
         "name": "鶴見",
         "name_ja": "鶴見",
         "name_zh": "鹤见",
@@ -34910,9 +34894,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0e4064af_1",
+      "id": "id_0e4064af_0_1",
       "properties": {
-        "id": "id_0e4064af_1",
+        "id": "id_0e4064af_0_1",
         "name": "鶴見",
         "name_ja": "鶴見",
         "name_zh": "鹤见",
@@ -35316,9 +35300,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_5f58c57c_0",
+      "id": "id_5f58c57c_0_0",
       "properties": {
-        "id": "id_5f58c57c_0",
+        "id": "id_5f58c57c_0_0",
         "name": "御茶之水",
         "name_ja": "",
         "name_zh": "御茶之水",
@@ -35356,9 +35340,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_5f58c57c_1",
+      "id": "id_5f58c57c_0_1",
       "properties": {
-        "id": "id_5f58c57c_1",
+        "id": "id_5f58c57c_0_1",
         "name": "御茶之水",
         "name_ja": "御茶ノ水",
         "name_zh": "御茶之水",
@@ -35525,9 +35509,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8c937486_0",
+      "id": "id_8c937486_0_0",
       "properties": {
-        "id": "id_8c937486_0",
+        "id": "id_8c937486_0_0",
         "name": "千葉",
         "name_ja": "千葉",
         "name_zh": "千叶",
@@ -35561,9 +35545,9 @@
           "id_fac8b2d3"
         ],
         "line_colors": [
-          "#deb400",
+          "#00833f",
           "#ffd700",
-          "#00833f"
+          "#deb400"
         ]
       },
       "geometry": {
@@ -35576,9 +35560,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8c937486_1",
+      "id": "id_8c937486_0_1",
       "properties": {
-        "id": "id_8c937486_1",
+        "id": "id_8c937486_0_1",
         "name": "千葉",
         "name_ja": "千葉",
         "name_zh": "千叶",
@@ -35610,8 +35594,8 @@
           "id_fac8b2d3"
         ],
         "line_colors": [
-          "#7A9959",
-          "#007AC0"
+          "#007AC0",
+          "#7A9959"
         ]
       },
       "geometry": {
@@ -35624,9 +35608,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8c937486_2",
+      "id": "id_8c937486_0_2",
       "properties": {
-        "id": "id_8c937486_2",
+        "id": "id_8c937486_0_2",
         "name": "千葉",
         "name_ja": "千葉",
         "name_zh": "千叶",
@@ -35671,9 +35655,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_608a41a9_0",
+      "id": "id_608a41a9_0_0",
       "properties": {
-        "id": "id_608a41a9_0",
+        "id": "id_608a41a9_0_0",
         "name": "荻窪",
         "name_ja": "荻窪",
         "name_zh": "荻洼",
@@ -35711,9 +35695,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_608a41a9_1",
+      "id": "id_608a41a9_0_1",
       "properties": {
-        "id": "id_608a41a9_1",
+        "id": "id_608a41a9_0_1",
         "name": "荻窪",
         "name_ja": "荻窪",
         "name_zh": "荻洼",
@@ -35824,9 +35808,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_d5d307ee_0",
+      "id": "id_d5d307ee_0_0",
       "properties": {
-        "id": "id_d5d307ee_0",
+        "id": "id_d5d307ee_0_0",
         "name": "錦糸町",
         "name_ja": "錦糸町",
         "name_zh": "锦糸町",
@@ -35864,9 +35848,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_d5d307ee_1",
+      "id": "id_d5d307ee_0_1",
       "properties": {
-        "id": "id_d5d307ee_1",
+        "id": "id_d5d307ee_0_1",
         "name": "錦糸町",
         "name_ja": "錦糸町",
         "name_zh": "锦糸町",
@@ -36005,9 +35989,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8a60d177_0",
+      "id": "id_8a60d177_0_0",
       "properties": {
-        "id": "id_8a60d177_0",
+        "id": "id_8a60d177_0_0",
         "name": "津田沼",
         "name_ja": "津田沼",
         "name_zh": "津田沼",
@@ -36040,9 +36024,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8a60d177_1",
+      "id": "id_8a60d177_0_1",
       "properties": {
-        "id": "id_8a60d177_1",
+        "id": "id_8a60d177_0_1",
         "name": "津田沼",
         "name_ja": "津田沼",
         "name_zh": "津田沼",
@@ -36075,9 +36059,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_abc8c34f_0",
+      "id": "id_abc8c34f_0_0",
       "properties": {
-        "id": "id_abc8c34f_0",
+        "id": "id_abc8c34f_0_0",
         "name": "中野",
         "name_ja": "",
         "name_zh": "中野",
@@ -36093,18 +36077,16 @@
         "serving_lines": [
           "JR中央·总武缓行线",
           "JR中央快速线",
-          "东京地下铁东西线",
-          "渡良濑溪谷线"
+          "东京地下铁东西线"
         ],
         "serving_ids": [
-          "id_23c8a59f",
           "id_6ac17848",
           "id_c7e5f6f4",
           "id_da78580d"
         ],
         "line_colors": [
-          "#009BBF",
-          "#ffd700"
+          "#ffd700",
+          "#009BBF"
         ]
       },
       "geometry": {
@@ -36117,9 +36099,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_abc8c34f_1",
+      "id": "id_abc8c34f_0_1",
       "properties": {
-        "id": "id_abc8c34f_1",
+        "id": "id_abc8c34f_0_1",
         "name": "中野",
         "name_ja": "",
         "name_zh": "中野",
@@ -36133,11 +36115,9 @@
         "serving_lines": [
           "JR中央·总武缓行线",
           "JR中央快速线",
-          "东京地下铁东西线",
-          "渡良濑溪谷线"
+          "东京地下铁东西线"
         ],
         "serving_ids": [
-          "id_23c8a59f",
           "id_6ac17848",
           "id_c7e5f6f4",
           "id_da78580d"
@@ -36156,9 +36136,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_abc8c34f_2",
+      "id": "id_abc8c34f_1_0",
       "properties": {
-        "id": "id_abc8c34f_2",
+        "id": "id_abc8c34f_1_0",
         "name": "中野",
         "name_ja": "",
         "name_zh": "",
@@ -36170,16 +36150,10 @@
           "id_23c8a59f"
         ],
         "serving_lines": [
-          "JR中央·总武缓行线",
-          "JR中央快速线",
-          "东京地下铁东西线",
           "渡良濑溪谷线"
         ],
         "serving_ids": [
-          "id_23c8a59f",
-          "id_6ac17848",
-          "id_c7e5f6f4",
-          "id_da78580d"
+          "id_23c8a59f"
         ],
         "line_colors": [
           "#a5292a"
@@ -36195,9 +36169,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_18296ad8_0",
+      "id": "id_18296ad8_0_0",
       "properties": {
-        "id": "id_18296ad8_0",
+        "id": "id_18296ad8_0_0",
         "name": "市川",
         "name_ja": "市川",
         "name_zh": "市川",
@@ -36230,9 +36204,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_18296ad8_1",
+      "id": "id_18296ad8_0_1",
       "properties": {
-        "id": "id_18296ad8_1",
+        "id": "id_18296ad8_0_1",
         "name": "市川",
         "name_ja": "市川",
         "name_zh": "市川",
@@ -36478,9 +36452,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cdfb0e40_0",
+      "id": "id_cdfb0e40_0_0",
       "properties": {
-        "id": "id_cdfb0e40_0",
+        "id": "id_cdfb0e40_0_0",
         "name": "四ツ谷",
         "name_ja": "",
         "name_zh": "四谷",
@@ -36520,9 +36494,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cdfb0e40_1",
+      "id": "id_cdfb0e40_0_1",
       "properties": {
-        "id": "id_cdfb0e40_1",
+        "id": "id_cdfb0e40_0_1",
         "name": "四ツ谷",
         "name_ja": "四ツ谷",
         "name_zh": "四谷",
@@ -36559,9 +36533,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cdfb0e40_2",
+      "id": "id_cdfb0e40_0_2",
       "properties": {
-        "id": "id_cdfb0e40_2",
+        "id": "id_cdfb0e40_0_2",
         "name": "四ツ谷",
         "name_ja": "四ツ谷",
         "name_zh": "四谷",
@@ -36598,9 +36572,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_af44ddb3_0",
+      "id": "id_af44ddb3_0_0",
       "properties": {
-        "id": "id_af44ddb3_0",
+        "id": "id_af44ddb3_0_0",
         "name": "西船橋",
         "name_ja": "西船橋",
         "name_zh": "西船桥",
@@ -36639,9 +36613,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_af44ddb3_1",
+      "id": "id_af44ddb3_0_1",
       "properties": {
-        "id": "id_af44ddb3_1",
+        "id": "id_af44ddb3_0_1",
         "name": "西船橋",
         "name_ja": "西船橋",
         "name_zh": "西船桥",
@@ -36669,8 +36643,8 @@
           "id_c7e5f6f4"
         ],
         "line_colors": [
-          "#FE642E",
-          "#c9242f"
+          "#c9242f",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -36683,9 +36657,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_af44ddb3_2",
+      "id": "id_af44ddb3_0_2",
       "properties": {
-        "id": "id_af44ddb3_2",
+        "id": "id_af44ddb3_0_2",
         "name": "西船橋",
         "name_ja": "西船橋",
         "name_zh": "西船桥",
@@ -36817,8 +36791,8 @@
           "id_fac8b2d3"
         ],
         "line_colors": [
-          "#deb400",
-          "#00833f"
+          "#00833f",
+          "#deb400"
         ]
       },
       "geometry": {
@@ -36859,9 +36833,9 @@
           "id_fac8b2d3"
         ],
         "line_colors": [
-          "#deb400",
+          "#00833f",
           "#c9242f",
-          "#00833f"
+          "#deb400"
         ]
       },
       "geometry": {
@@ -37233,8 +37207,8 @@
           "id_fac8b2d3"
         ],
         "line_colors": [
-          "#deb400",
-          "#00833f"
+          "#00833f",
+          "#deb400"
         ]
       },
       "geometry": {
@@ -38143,9 +38117,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ddd4fc52_0",
+      "id": "id_ddd4fc52_0_0",
       "properties": {
-        "id": "id_ddd4fc52_0",
+        "id": "id_ddd4fc52_0_0",
         "name": "大原",
         "name_ja": "大原",
         "name_zh": "大原",
@@ -38178,9 +38152,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ddd4fc52_1",
+      "id": "id_ddd4fc52_0_1",
       "properties": {
-        "id": "id_ddd4fc52_1",
+        "id": "id_ddd4fc52_0_1",
         "name": "大原",
         "name_ja": "",
         "name_zh": "大原",
@@ -38213,9 +38187,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3a4cd73d_0",
+      "id": "id_3a4cd73d_0_0",
       "properties": {
-        "id": "id_3a4cd73d_0",
+        "id": "id_3a4cd73d_0_0",
         "name": "永田",
         "name_ja": "永田",
         "name_zh": "永田",
@@ -38227,12 +38201,10 @@
           "id_803bfee7"
         ],
         "serving_lines": [
-          "JR外房线",
-          "秩父本线"
+          "JR外房线"
         ],
         "serving_ids": [
-          "id_803bfee7",
-          "id_8b5556ce"
+          "id_803bfee7"
         ],
         "line_colors": [
           "#00833f"
@@ -38248,9 +38220,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3a4cd73d_1",
+      "id": "id_3a4cd73d_1_0",
       "properties": {
-        "id": "id_3a4cd73d_1",
+        "id": "id_3a4cd73d_1_0",
         "name": "永田",
         "name_ja": "",
         "name_zh": "",
@@ -38262,11 +38234,9 @@
           "id_8b5556ce"
         ],
         "serving_lines": [
-          "JR外房线",
           "秩父本线"
         ],
         "serving_ids": [
-          "id_803bfee7",
           "id_8b5556ce"
         ],
         "line_colors": [
@@ -38684,9 +38654,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_d001c21a_0",
+      "id": "id_d001c21a_0_0",
       "properties": {
-        "id": "id_d001c21a_0",
+        "id": "id_d001c21a_0_0",
         "name": "新木場",
         "name_ja": "新木場",
         "name_zh": "新木场",
@@ -38710,8 +38680,8 @@
           "id_f75f0daf"
         ],
         "line_colors": [
-          "#00b48d",
-          "#c9242f"
+          "#c9242f",
+          "#00b48d"
         ]
       },
       "geometry": {
@@ -38724,9 +38694,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_d001c21a_1",
+      "id": "id_d001c21a_0_1",
       "properties": {
-        "id": "id_d001c21a_1",
+        "id": "id_d001c21a_0_1",
         "name": "新木場",
         "name_ja": "新木場",
         "name_zh": "新木场",
@@ -38761,9 +38731,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_7dd3c053_0",
+      "id": "id_7dd3c053_0_0",
       "properties": {
-        "id": "id_7dd3c053_0",
+        "id": "id_7dd3c053_0_0",
         "name": "八丁堀",
         "name_ja": "八丁堀",
         "name_zh": "八丁堀",
@@ -38796,9 +38766,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_7dd3c053_1",
+      "id": "id_7dd3c053_0_1",
       "properties": {
-        "id": "id_7dd3c053_1",
+        "id": "id_7dd3c053_0_1",
         "name": "八丁堀",
         "name_ja": "八丁堀",
         "name_zh": "八丁堀",
@@ -39029,9 +38999,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_7edfca45_0",
+      "id": "id_7edfca45_0_0",
       "properties": {
-        "id": "id_7edfca45_0",
+        "id": "id_7edfca45_0_0",
         "name": "千葉みなと",
         "name_ja": "",
         "name_zh": "千叶みなと",
@@ -39066,9 +39036,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_7edfca45_1",
+      "id": "id_7edfca45_0_1",
       "properties": {
-        "id": "id_7edfca45_1",
+        "id": "id_7edfca45_0_1",
         "name": "千葉みなと",
         "name_ja": "",
         "name_zh": "千叶みなと",
@@ -39365,8 +39335,8 @@
         ],
         "line_colors": [
           "#231816",
-          "#7A9959",
-          "#10a956"
+          "#10a956",
+          "#7A9959"
         ]
       },
       "geometry": {
@@ -39502,8 +39472,8 @@
           "id_8daf07b5"
         ],
         "line_colors": [
-          "#7A9959",
-          "#10a956"
+          "#10a956",
+          "#7A9959"
         ]
       },
       "geometry": {
@@ -39804,8 +39774,8 @@
           "id_8daf07b5"
         ],
         "line_colors": [
-          "#7A9959",
-          "#10a956"
+          "#10a956",
+          "#7A9959"
         ]
       },
       "geometry": {
@@ -40486,9 +40456,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_fe9c54f3_0",
+      "id": "id_fe9c54f3_0_0",
       "properties": {
-        "id": "id_fe9c54f3_0",
+        "id": "id_fe9c54f3_0_0",
         "name": "武蔵浦和",
         "name_ja": "武蔵浦和",
         "name_zh": "武蔵浦和",
@@ -40521,9 +40491,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_fe9c54f3_1",
+      "id": "id_fe9c54f3_0_1",
       "properties": {
-        "id": "id_fe9c54f3_1",
+        "id": "id_fe9c54f3_0_1",
         "name": "武蔵浦和",
         "name_ja": "武蔵浦和",
         "name_zh": "武蔵浦和",
@@ -40811,8 +40781,8 @@
           "id_dd3affac"
         ],
         "line_colors": [
-          "#000d55",
-          "#00ac9a"
+          "#00ac9a",
+          "#000d55"
         ]
       },
       "geometry": {
@@ -40825,9 +40795,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4f69eec9_0",
+      "id": "id_4f69eec9_0_0",
       "properties": {
-        "id": "id_4f69eec9_0",
+        "id": "id_4f69eec9_0_0",
         "name": "国分寺",
         "name_ja": "",
         "name_zh": "国分寺",
@@ -40865,9 +40835,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4f69eec9_1",
+      "id": "id_4f69eec9_0_1",
       "properties": {
-        "id": "id_4f69eec9_1",
+        "id": "id_4f69eec9_0_1",
         "name": "国分寺",
         "name_ja": "国分寺",
         "name_zh": "国分寺",
@@ -40902,9 +40872,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_229e3dcf_0",
+      "id": "id_229e3dcf_0_0",
       "properties": {
-        "id": "id_229e3dcf_0",
+        "id": "id_229e3dcf_0_0",
         "name": "立川",
         "name_ja": "立川",
         "name_zh": "立川",
@@ -40932,8 +40902,8 @@
           "id_da78580d"
         ],
         "line_colors": [
-          "#22625E",
           "#ea5505",
+          "#22625E",
           "#fdd900"
         ]
       },
@@ -40947,9 +40917,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_229e3dcf_1",
+      "id": "id_229e3dcf_0_1",
       "properties": {
-        "id": "id_229e3dcf_1",
+        "id": "id_229e3dcf_0_1",
         "name": "立川",
         "name_ja": "",
         "name_zh": "",
@@ -40986,9 +40956,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3ad31deb_0",
+      "id": "id_3ad31deb_0_0",
       "properties": {
-        "id": "id_3ad31deb_0",
+        "id": "id_3ad31deb_0_0",
         "name": "八王子",
         "name_ja": "",
         "name_zh": "八王子",
@@ -41012,8 +40982,8 @@
           "id_da78580d"
         ],
         "line_colors": [
-          "#ea5505",
-          "#525252"
+          "#525252",
+          "#ea5505"
         ]
       },
       "geometry": {
@@ -41026,9 +40996,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3ad31deb_1",
+      "id": "id_3ad31deb_0_1",
       "properties": {
-        "id": "id_3ad31deb_1",
+        "id": "id_3ad31deb_0_1",
         "name": "八王子",
         "name_ja": "",
         "name_zh": "八王子",
@@ -41063,9 +41033,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_de5ff259_0",
+      "id": "id_de5ff259_0_0",
       "properties": {
-        "id": "id_de5ff259_0",
+        "id": "id_de5ff259_0_0",
         "name": "西国分寺",
         "name_ja": "",
         "name_zh": "西国分寺",
@@ -41098,9 +41068,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_de5ff259_1",
+      "id": "id_de5ff259_0_1",
       "properties": {
-        "id": "id_de5ff259_1",
+        "id": "id_de5ff259_0_1",
         "name": "西国分寺",
         "name_ja": "西国分寺",
         "name_zh": "西国分寺",
@@ -41633,9 +41603,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_56dab5e5_0",
+      "id": "id_56dab5e5_0_0",
       "properties": {
-        "id": "id_56dab5e5_0",
+        "id": "id_56dab5e5_0_0",
         "name": "新松戸",
         "name_ja": "",
         "name_zh": "新松户",
@@ -41668,9 +41638,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_56dab5e5_1",
+      "id": "id_56dab5e5_0_1",
       "properties": {
-        "id": "id_56dab5e5_1",
+        "id": "id_56dab5e5_0_1",
         "name": "新松戸",
         "name_ja": "",
         "name_zh": "新松户",
@@ -42165,9 +42135,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3115a8bb_0",
+      "id": "id_3115a8bb_0_0",
       "properties": {
-        "id": "id_3115a8bb_0",
+        "id": "id_3115a8bb_0_0",
         "name": "南流山",
         "name_ja": "南流山",
         "name_zh": "南流山",
@@ -42200,9 +42170,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3115a8bb_1",
+      "id": "id_3115a8bb_0_1",
       "properties": {
-        "id": "id_3115a8bb_1",
+        "id": "id_3115a8bb_0_1",
         "name": "南流山",
         "name_ja": "南流山02",
         "name_zh": "南流山",
@@ -42339,9 +42309,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6f30202f_0",
+      "id": "id_6f30202f_0_0",
       "properties": {
-        "id": "id_6f30202f_0",
+        "id": "id_6f30202f_0_0",
         "name": "東川口",
         "name_ja": "",
         "name_zh": "东川口",
@@ -42374,9 +42344,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_6f30202f_1",
+      "id": "id_6f30202f_0_1",
       "properties": {
-        "id": "id_6f30202f_1",
+        "id": "id_6f30202f_0_1",
         "name": "東川口",
         "name_ja": "東川口",
         "name_zh": "东川口",
@@ -42664,8 +42634,8 @@
           "id_f6878d32"
         ],
         "line_colors": [
-          "#FE642E",
-          "#339966"
+          "#339966",
+          "#FE642E"
         ]
       },
       "geometry": {
@@ -43343,9 +43313,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3f56b36b_0",
+      "id": "id_3f56b36b_0_0",
       "properties": {
-        "id": "id_3f56b36b_0",
+        "id": "id_3f56b36b_0_0",
         "name": "南千住",
         "name_ja": "",
         "name_zh": "南千住",
@@ -43385,9 +43355,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3f56b36b_1",
+      "id": "id_3f56b36b_0_1",
       "properties": {
-        "id": "id_3f56b36b_1",
+        "id": "id_3f56b36b_0_1",
         "name": "南千住",
         "name_ja": "南千住02",
         "name_zh": "南千住",
@@ -43424,9 +43394,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3f56b36b_2",
+      "id": "id_3f56b36b_0_2",
       "properties": {
-        "id": "id_3f56b36b_2",
+        "id": "id_3f56b36b_0_2",
         "name": "南千住",
         "name_ja": "南千住",
         "name_zh": "南千住",
@@ -43623,9 +43593,9 @@
           "id_d545c34f"
         ],
         "line_colors": [
-          "#10a956",
           "#0173bc",
-          "#525252"
+          "#525252",
+          "#10a956"
         ]
       },
       "geometry": {
@@ -43742,9 +43712,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_33a97c67_0",
+      "id": "id_33a97c67_0_0",
       "properties": {
-        "id": "id_33a97c67_0",
+        "id": "id_33a97c67_0_0",
         "name": "水戸",
         "name_ja": "",
         "name_zh": "水户",
@@ -43768,8 +43738,8 @@
           "id_e9bf9a3f"
         ],
         "line_colors": [
-          "#358c44",
-          "#0173bc"
+          "#0173bc",
+          "#358c44"
         ]
       },
       "geometry": {
@@ -43782,9 +43752,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_33a97c67_1",
+      "id": "id_33a97c67_0_1",
       "properties": {
-        "id": "id_33a97c67_1",
+        "id": "id_33a97c67_0_1",
         "name": "水戸",
         "name_ja": "",
         "name_zh": "水户",
@@ -43885,9 +43855,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_bf57b5c0_0",
+      "id": "id_bf57b5c0_0_0",
       "properties": {
-        "id": "id_bf57b5c0_0",
+        "id": "id_bf57b5c0_0_0",
         "name": "取手",
         "name_ja": "取手",
         "name_zh": "取手",
@@ -43927,9 +43897,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_bf57b5c0_1",
+      "id": "id_bf57b5c0_0_1",
       "properties": {
-        "id": "id_bf57b5c0_1",
+        "id": "id_bf57b5c0_0_1",
         "name": "取手",
         "name_ja": "取手",
         "name_zh": "取手",
@@ -43966,9 +43936,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_bf57b5c0_2",
+      "id": "id_bf57b5c0_0_2",
       "properties": {
-        "id": "id_bf57b5c0_2",
+        "id": "id_bf57b5c0_0_2",
         "name": "取手",
         "name_ja": "",
         "name_zh": "取手",
@@ -44231,9 +44201,9 @@
           "id_d545c34f"
         ],
         "line_colors": [
-          "#10a956",
           "#0173bc",
-          "#525252"
+          "#525252",
+          "#10a956"
         ]
       },
       "geometry": {
@@ -44807,9 +44777,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_c929e2f8_0",
+      "id": "id_c929e2f8_0_0",
       "properties": {
-        "id": "id_c929e2f8_0",
+        "id": "id_c929e2f8_0_0",
         "name": "浜川崎",
         "name_ja": "",
         "name_zh": "滨川崎",
@@ -44842,9 +44812,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_c929e2f8_1",
+      "id": "id_c929e2f8_0_1",
       "properties": {
-        "id": "id_c929e2f8_1",
+        "id": "id_c929e2f8_0_1",
         "name": "浜川崎",
         "name_ja": "",
         "name_zh": "滨川崎",
@@ -45075,9 +45045,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a9e40ece_0",
+      "id": "id_a9e40ece_0_0",
       "properties": {
-        "id": "id_a9e40ece_0",
+        "id": "id_a9e40ece_0_0",
         "name": "登戸",
         "name_ja": "登戸",
         "name_zh": "登户",
@@ -45110,9 +45080,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a9e40ece_1",
+      "id": "id_a9e40ece_0_1",
       "properties": {
-        "id": "id_a9e40ece_1",
+        "id": "id_a9e40ece_0_1",
         "name": "登戸",
         "name_ja": "登戸",
         "name_zh": "登户站",
@@ -45475,9 +45445,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ce271c83_0",
+      "id": "id_ce271c83_0_0",
       "properties": {
-        "id": "id_ce271c83_0",
+        "id": "id_ce271c83_0_0",
         "name": "拝島",
         "name_ja": "拝島",
         "name_zh": "拝岛",
@@ -45503,8 +45473,8 @@
           "id_f689c511"
         ],
         "line_colors": [
-          "#00A6BF",
-          "#525252"
+          "#525252",
+          "#00A6BF"
         ]
       },
       "geometry": {
@@ -45517,9 +45487,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ce271c83_1",
+      "id": "id_ce271c83_0_1",
       "properties": {
-        "id": "id_ce271c83_1",
+        "id": "id_ce271c83_0_1",
         "name": "拝島",
         "name_ja": "",
         "name_zh": "",
@@ -45624,9 +45594,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_944e6cfb_0",
+      "id": "id_944e6cfb_0_0",
       "properties": {
-        "id": "id_944e6cfb_0",
+        "id": "id_944e6cfb_0_0",
         "name": "東飯能",
         "name_ja": "東飯能",
         "name_zh": "东饭能",
@@ -45659,9 +45629,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_944e6cfb_1",
+      "id": "id_944e6cfb_0_1",
       "properties": {
-        "id": "id_944e6cfb_1",
+        "id": "id_944e6cfb_0_1",
         "name": "東飯能",
         "name_ja": "東飯能",
         "name_zh": "东饭能",
@@ -45925,9 +45895,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_bf2aaf7b_0",
+      "id": "id_bf2aaf7b_0_0",
       "properties": {
-        "id": "id_bf2aaf7b_0",
+        "id": "id_bf2aaf7b_0_0",
         "name": "町田",
         "name_ja": "",
         "name_zh": "町田",
@@ -45960,9 +45930,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_bf2aaf7b_1",
+      "id": "id_bf2aaf7b_0_1",
       "properties": {
-        "id": "id_bf2aaf7b_1",
+        "id": "id_bf2aaf7b_0_1",
         "name": "町田",
         "name_ja": "町田",
         "name_zh": "町田站",
@@ -45995,9 +45965,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_37cfc4f8_0",
+      "id": "id_37cfc4f8_0_0",
       "properties": {
-        "id": "id_37cfc4f8_0",
+        "id": "id_37cfc4f8_0_0",
         "name": "十日市場",
         "name_ja": "",
         "name_zh": "十日市场",
@@ -46009,11 +45979,9 @@
           "id_af4b3a36"
         ],
         "serving_lines": [
-          "JR横滨线",
-          "富士急行大月线·河口湖线"
+          "JR横滨线"
         ],
         "serving_ids": [
-          "id_100c3ae4",
           "id_af4b3a36"
         ],
         "line_colors": [
@@ -46030,9 +45998,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_37cfc4f8_1",
+      "id": "id_37cfc4f8_1_0",
       "properties": {
-        "id": "id_37cfc4f8_1",
+        "id": "id_37cfc4f8_1_0",
         "name": "十日市場",
         "name_ja": "十日市場",
         "name_zh": "十日市场",
@@ -46044,12 +46012,10 @@
           "id_100c3ae4"
         ],
         "serving_lines": [
-          "JR横滨线",
           "富士急行大月线·河口湖线"
         ],
         "serving_ids": [
-          "id_100c3ae4",
-          "id_af4b3a36"
+          "id_100c3ae4"
         ],
         "line_colors": [
           "#0059ad"
@@ -46659,9 +46625,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f0f1720c_0",
+      "id": "id_f0f1720c_0_0",
       "properties": {
-        "id": "id_f0f1720c_0",
+        "id": "id_f0f1720c_0_0",
         "name": "厚木",
         "name_ja": "厚木",
         "name_zh": "厚木",
@@ -46694,9 +46660,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f0f1720c_1",
+      "id": "id_f0f1720c_0_1",
       "properties": {
-        "id": "id_f0f1720c_1",
+        "id": "id_f0f1720c_0_1",
         "name": "厚木",
         "name_ja": "",
         "name_zh": "厚木",
@@ -46729,9 +46695,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a0ccb68f_0",
+      "id": "id_a0ccb68f_0_0",
       "properties": {
-        "id": "id_a0ccb68f_0",
+        "id": "id_a0ccb68f_0_0",
         "name": "海老名",
         "name_ja": "海老名",
         "name_zh": "海老名",
@@ -46766,9 +46732,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a0ccb68f_1",
+      "id": "id_a0ccb68f_0_1",
       "properties": {
-        "id": "id_a0ccb68f_1",
+        "id": "id_a0ccb68f_0_1",
         "name": "海老名",
         "name_ja": "海老名",
         "name_zh": "海老名",
@@ -46803,9 +46769,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a0ccb68f_2",
+      "id": "id_a0ccb68f_0_2",
       "properties": {
-        "id": "id_a0ccb68f_2",
+        "id": "id_a0ccb68f_0_2",
         "name": "海老名",
         "name_ja": "",
         "name_zh": "海老名",
@@ -46840,9 +46806,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4a1ee680_0",
+      "id": "id_4a1ee680_0_0",
       "properties": {
-        "id": "id_4a1ee680_0",
+        "id": "id_4a1ee680_0_0",
         "name": "入谷",
         "name_ja": "入谷",
         "name_zh": "入谷",
@@ -46854,11 +46820,9 @@
           "id_c472e892"
         ],
         "serving_lines": [
-          "JR相模线",
-          "东京地下铁日比谷线"
+          "JR相模线"
         ],
         "serving_ids": [
-          "id_7c79cbc4",
           "id_c472e892"
         ],
         "line_colors": [
@@ -46875,9 +46839,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4a1ee680_1",
+      "id": "id_4a1ee680_1_0",
       "properties": {
-        "id": "id_4a1ee680_1",
+        "id": "id_4a1ee680_1_0",
         "name": "入谷",
         "name_ja": "入谷",
         "name_zh": "入谷",
@@ -46889,12 +46853,10 @@
           "id_7c79cbc4"
         ],
         "serving_lines": [
-          "JR相模线",
           "东京地下铁日比谷线"
         ],
         "serving_ids": [
-          "id_7c79cbc4",
-          "id_c472e892"
+          "id_7c79cbc4"
         ],
         "line_colors": [
           "#B5B5AC"
@@ -47198,8 +47160,8 @@
           "id_2e7d68d0"
         ],
         "line_colors": [
-          "#00BB85",
-          "#525252"
+          "#525252",
+          "#00BB85"
         ]
       },
       "geometry": {
@@ -47344,9 +47306,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_d43554dd_0",
+      "id": "id_d43554dd_0_0",
       "properties": {
-        "id": "id_d43554dd_0",
+        "id": "id_d43554dd_0_0",
         "name": "馬橋",
         "name_ja": "馬橋",
         "name_zh": "马桥",
@@ -47379,9 +47341,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_d43554dd_1",
+      "id": "id_d43554dd_0_1",
       "properties": {
-        "id": "id_d43554dd_1",
+        "id": "id_d43554dd_0_1",
         "name": "馬橋",
         "name_ja": "馬橋",
         "name_zh": "马桥",
@@ -47876,9 +47838,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a22b69e6_0",
+      "id": "id_a22b69e6_0_0",
       "properties": {
-        "id": "id_a22b69e6_0",
+        "id": "id_a22b69e6_0_0",
         "name": "都賀",
         "name_ja": "都賀",
         "name_zh": "都贺",
@@ -47911,9 +47873,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_a22b69e6_1",
+      "id": "id_a22b69e6_0_1",
       "properties": {
-        "id": "id_a22b69e6_1",
+        "id": "id_a22b69e6_0_1",
         "name": "都賀",
         "name_ja": "都賀",
         "name_zh": "都贺",
@@ -49040,9 +49002,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_2caabe8d_0",
+      "id": "id_2caabe8d_0_0",
       "properties": {
-        "id": "id_2caabe8d_0",
+        "id": "id_2caabe8d_0_0",
         "name": "新杉田",
         "name_ja": "新杉田",
         "name_zh": "新杉田",
@@ -49075,9 +49037,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_2caabe8d_1",
+      "id": "id_2caabe8d_0_1",
       "properties": {
-        "id": "id_2caabe8d_1",
+        "id": "id_2caabe8d_0_1",
         "name": "新杉田",
         "name_ja": "新杉田",
         "name_zh": "新杉田",
@@ -49332,8 +49294,8 @@
           "id_e9bf9a3f"
         ],
         "line_colors": [
-          "#c32f3d",
-          "#10a956"
+          "#10a956",
+          "#c32f3d"
         ]
       },
       "geometry": {
@@ -49370,8 +49332,8 @@
           "id_e9bf9a3f"
         ],
         "line_colors": [
-          "#c32f3d",
-          "#10a956"
+          "#10a956",
+          "#c32f3d"
         ]
       },
       "geometry": {
@@ -49785,9 +49747,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_242873e8_0",
+      "id": "id_242873e8_0_0",
       "properties": {
-        "id": "id_242873e8_0",
+        "id": "id_242873e8_0_0",
         "name": "大和",
         "name_ja": "",
         "name_zh": "",
@@ -49799,13 +49761,9 @@
           "id_56e359dc"
         ],
         "serving_lines": [
-          "JR水户线",
-          "小田急江之岛线",
-          "相铁本线"
+          "JR水户线"
         ],
         "serving_ids": [
-          "id_1b18d2fe",
-          "id_3f0fcec9",
           "id_56e359dc"
         ],
         "line_colors": [
@@ -49822,9 +49780,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_242873e8_1",
+      "id": "id_242873e8_1_0",
       "properties": {
-        "id": "id_242873e8_1",
+        "id": "id_242873e8_1_0",
         "name": "大和",
         "name_ja": "大和",
         "name_zh": "大和站",
@@ -49838,18 +49796,16 @@
           "id_3f0fcec9"
         ],
         "serving_lines": [
-          "JR水户线",
           "小田急江之岛线",
           "相铁本线"
         ],
         "serving_ids": [
           "id_1b18d2fe",
-          "id_3f0fcec9",
-          "id_56e359dc"
+          "id_3f0fcec9"
         ],
         "line_colors": [
-          "#0583c8",
-          "#000d55"
+          "#000d55",
+          "#0583c8"
         ]
       },
       "geometry": {
@@ -50093,9 +50049,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cc84a638_0",
+      "id": "id_cc84a638_0_0",
       "properties": {
-        "id": "id_cc84a638_0",
+        "id": "id_cc84a638_0_0",
         "name": "下館",
         "name_ja": "",
         "name_zh": "",
@@ -50119,8 +50075,8 @@
           "id_cc90bd3b"
         ],
         "line_colors": [
-          "#012d47",
-          "#3333ff"
+          "#3333ff",
+          "#012d47"
         ]
       },
       "geometry": {
@@ -50133,9 +50089,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cc84a638_1",
+      "id": "id_cc84a638_0_1",
       "properties": {
-        "id": "id_cc84a638_1",
+        "id": "id_cc84a638_0_1",
         "name": "下館",
         "name_ja": "",
         "name_zh": "下馆",
@@ -50392,8 +50348,8 @@
           "id_deafc1f7"
         ],
         "line_colors": [
-          "#ffd400",
-          "#a5292a"
+          "#a5292a",
+          "#ffd400"
         ]
       },
       "geometry": {
@@ -54305,9 +54261,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0d168ba3_0",
+      "id": "id_0d168ba3_0_0",
       "properties": {
-        "id": "id_0d168ba3_0",
+        "id": "id_0d168ba3_0_0",
         "name": "守谷",
         "name_ja": "守谷04",
         "name_zh": "守谷",
@@ -54340,9 +54296,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_0d168ba3_1",
+      "id": "id_0d168ba3_0_1",
       "properties": {
-        "id": "id_0d168ba3_1",
+        "id": "id_0d168ba3_0_1",
         "name": "守谷",
         "name_ja": "",
         "name_zh": "守谷",
@@ -54639,9 +54595,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cf0c6c80_0",
+      "id": "id_cf0c6c80_0_0",
       "properties": {
-        "id": "id_cf0c6c80_0",
+        "id": "id_cf0c6c80_0_0",
         "name": "天王洲アイル",
         "name_ja": "天王洲アイル",
         "name_zh": "天王洲アイル",
@@ -54674,9 +54630,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_cf0c6c80_1",
+      "id": "id_cf0c6c80_0_1",
       "properties": {
-        "id": "id_cf0c6c80_1",
+        "id": "id_cf0c6c80_0_1",
         "name": "天王洲アイル",
         "name_ja": "天王洲アイル",
         "name_zh": "天王洲アイル",
@@ -55129,8 +55085,8 @@
           "id_cbc6fb7b"
         ],
         "line_colors": [
-          "#FF0000",
-          "#005c3d"
+          "#005c3d",
+          "#FF0000"
         ]
       },
       "geometry": {
@@ -55638,9 +55594,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_dc72de03_0",
+      "id": "id_dc72de03_0_0",
       "properties": {
-        "id": "id_dc72de03_0",
+        "id": "id_dc72de03_0_0",
         "name": "玉川上水",
         "name_ja": "玉川上水",
         "name_zh": "玉川上水",
@@ -55673,9 +55629,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_dc72de03_1",
+      "id": "id_dc72de03_0_1",
       "properties": {
-        "id": "id_dc72de03_1",
+        "id": "id_dc72de03_0_1",
         "name": "玉川上水",
         "name_ja": "玉川上水",
         "name_zh": "玉川上水",
@@ -56693,8 +56649,8 @@
           "id_fcd42efb"
         ],
         "line_colors": [
-          "#ffd400",
-          "#ff6347"
+          "#ff6347",
+          "#ffd400"
         ]
       },
       "geometry": {
@@ -58296,9 +58252,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_2b1c81af_0",
+      "id": "id_2b1c81af_0_0",
       "properties": {
-        "id": "id_2b1c81af_0",
+        "id": "id_2b1c81af_0_0",
         "name": "豊洲",
         "name_ja": "豊洲",
         "name_zh": "豊洲",
@@ -58331,9 +58287,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_2b1c81af_1",
+      "id": "id_2b1c81af_0_1",
       "properties": {
-        "id": "id_2b1c81af_1",
+        "id": "id_2b1c81af_0_1",
         "name": "豊洲",
         "name_ja": "豊洲",
         "name_zh": "豊洲",
@@ -61336,9 +61292,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_2c80e1aa_0",
+      "id": "id_2c80e1aa_0_0",
       "properties": {
-        "id": "id_2c80e1aa_0",
+        "id": "id_2c80e1aa_0_0",
         "name": "赤坂",
         "name_ja": "赤坂",
         "name_zh": "赤坂",
@@ -61350,14 +61306,10 @@
           "id_100c3ae4"
         ],
         "serving_lines": [
-          "上毛电气铁道上毛线",
-          "东京地下铁千代田线",
           "富士急行大月线·河口湖线"
         ],
         "serving_ids": [
-          "id_100c3ae4",
-          "id_2e7d68d0",
-          "id_64b26576"
+          "id_100c3ae4"
         ],
         "line_colors": [
           "#0059ad"
@@ -61373,9 +61325,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_2c80e1aa_1",
+      "id": "id_2c80e1aa_1_0",
       "properties": {
-        "id": "id_2c80e1aa_1",
+        "id": "id_2c80e1aa_1_0",
         "name": "赤坂",
         "name_ja": "",
         "name_zh": "",
@@ -61387,13 +61339,9 @@
           "id_64b26576"
         ],
         "serving_lines": [
-          "上毛电气铁道上毛线",
-          "东京地下铁千代田线",
-          "富士急行大月线·河口湖线"
+          "上毛电气铁道上毛线"
         ],
         "serving_ids": [
-          "id_100c3ae4",
-          "id_2e7d68d0",
           "id_64b26576"
         ],
         "line_colors": [
@@ -61410,9 +61358,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_2c80e1aa_2",
+      "id": "id_2c80e1aa_2_0",
       "properties": {
-        "id": "id_2c80e1aa_2",
+        "id": "id_2c80e1aa_2_0",
         "name": "赤坂",
         "name_ja": "赤坂",
         "name_zh": "赤坂",
@@ -61424,14 +61372,10 @@
           "id_2e7d68d0"
         ],
         "serving_lines": [
-          "上毛电气铁道上毛线",
-          "东京地下铁千代田线",
-          "富士急行大月线·河口湖线"
+          "东京地下铁千代田线"
         ],
         "serving_ids": [
-          "id_100c3ae4",
-          "id_2e7d68d0",
-          "id_64b26576"
+          "id_2e7d68d0"
         ],
         "line_colors": [
           "#00BB85"
@@ -62602,9 +62546,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b4a1120c_0",
+      "id": "id_b4a1120c_0_0",
       "properties": {
-        "id": "id_b4a1120c_0",
+        "id": "id_b4a1120c_0_0",
         "name": "平和台",
         "name_ja": "平和台",
         "name_zh": "平和台",
@@ -62616,14 +62560,10 @@
           "id_b5b0964a"
         ],
         "serving_lines": [
-          "东京地下铁副都心线",
-          "东京地下铁有乐町线",
           "流铁流山线"
         ],
         "serving_ids": [
-          "id_5b9b8bf5",
-          "id_b5b0964a",
-          "id_f75f0daf"
+          "id_b5b0964a"
         ],
         "line_colors": [
           "#5d8354"
@@ -62639,9 +62579,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_b4a1120c_1",
+      "id": "id_b4a1120c_1_0",
       "properties": {
-        "id": "id_b4a1120c_1",
+        "id": "id_b4a1120c_1_0",
         "name": "平和台",
         "name_ja": "平和台",
         "name_zh": "平和台",
@@ -62656,17 +62596,15 @@
         ],
         "serving_lines": [
           "东京地下铁副都心线",
-          "东京地下铁有乐町线",
-          "流铁流山线"
+          "东京地下铁有乐町线"
         ],
         "serving_ids": [
           "id_5b9b8bf5",
-          "id_b5b0964a",
           "id_f75f0daf"
         ],
         "line_colors": [
-          "#9C5E31",
-          "#C1A470"
+          "#C1A470",
+          "#9C5E31"
         ]
       },
       "geometry": {
@@ -67794,9 +67732,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_58309488_0",
+      "id": "id_58309488_0_0",
       "properties": {
-        "id": "id_58309488_0",
+        "id": "id_58309488_0_0",
         "name": "茅場町",
         "name_ja": "",
         "name_zh": "茅场町",
@@ -67829,9 +67767,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_58309488_1",
+      "id": "id_58309488_0_1",
       "properties": {
-        "id": "id_58309488_1",
+        "id": "id_58309488_0_1",
         "name": "茅場町",
         "name_ja": "茅場町",
         "name_zh": "茅场町",
@@ -68095,9 +68033,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_1093eb3e_0",
+      "id": "id_1093eb3e_0_0",
       "properties": {
-        "id": "id_1093eb3e_0",
+        "id": "id_1093eb3e_0_0",
         "name": "三越前",
         "name_ja": "三越前",
         "name_zh": "三越前",
@@ -68130,9 +68068,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_1093eb3e_1",
+      "id": "id_1093eb3e_0_1",
       "properties": {
-        "id": "id_1093eb3e_1",
+        "id": "id_1093eb3e_0_1",
         "name": "三越前",
         "name_ja": "",
         "name_zh": "三越前",
@@ -68363,9 +68301,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8ad685d7_0",
+      "id": "id_8ad685d7_0_0",
       "properties": {
-        "id": "id_8ad685d7_0",
+        "id": "id_8ad685d7_0_0",
         "name": "銀座",
         "name_ja": "銀座",
         "name_zh": "银座",
@@ -68400,9 +68338,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8ad685d7_1",
+      "id": "id_8ad685d7_0_1",
       "properties": {
-        "id": "id_8ad685d7_1",
+        "id": "id_8ad685d7_0_1",
         "name": "銀座",
         "name_ja": "銀座",
         "name_zh": "银座",
@@ -68437,9 +68375,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_8ad685d7_2",
+      "id": "id_8ad685d7_0_2",
       "properties": {
-        "id": "id_8ad685d7_2",
+        "id": "id_8ad685d7_0_2",
         "name": "銀座",
         "name_ja": "銀座",
         "name_zh": "银座",
@@ -68502,9 +68440,9 @@
           "id_dd625d9f"
         ],
         "line_colors": [
-          "#8F76D6",
+          "#FF9500",
           "#00BB85",
-          "#FF9500"
+          "#8F76D6"
         ]
       },
       "geometry": {
@@ -68517,9 +68455,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_17bbdab2_0",
+      "id": "id_17bbdab2_0_0",
       "properties": {
-        "id": "id_17bbdab2_0",
+        "id": "id_17bbdab2_0_0",
         "name": "溜池山王",
         "name_ja": "溜池山王",
         "name_zh": "溜池山王",
@@ -68552,9 +68490,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_17bbdab2_1",
+      "id": "id_17bbdab2_0_1",
       "properties": {
-        "id": "id_17bbdab2_1",
+        "id": "id_17bbdab2_0_1",
         "name": "溜池山王",
         "name_ja": "溜池山王",
         "name_zh": "溜池山王",
@@ -68625,9 +68563,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_01ee4b86_0",
+      "id": "id_01ee4b86_0_0",
       "properties": {
-        "id": "id_01ee4b86_0",
+        "id": "id_01ee4b86_0_0",
         "name": "霞関",
         "name_ja": "霞ケ関",
         "name_zh": "霞关",
@@ -68662,9 +68600,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_01ee4b86_1",
+      "id": "id_01ee4b86_0_1",
       "properties": {
-        "id": "id_01ee4b86_1",
+        "id": "id_01ee4b86_0_1",
         "name": "霞関",
         "name_ja": "",
         "name_zh": "霞关",
@@ -68699,9 +68637,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_01ee4b86_2",
+      "id": "id_01ee4b86_0_2",
       "properties": {
-        "id": "id_01ee4b86_2",
+        "id": "id_01ee4b86_0_2",
         "name": "霞関",
         "name_ja": "霞ケ関",
         "name_zh": "霞关",
@@ -68991,8 +68929,8 @@
           "id_606b9073"
         ],
         "line_colors": [
-          "#0583c8",
-          "#00BB85"
+          "#00BB85",
+          "#0583c8"
         ]
       },
       "geometry": {
@@ -69236,9 +69174,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_12afda90_0",
+      "id": "id_12afda90_0_0",
       "properties": {
-        "id": "id_12afda90_0",
+        "id": "id_12afda90_0_0",
         "name": "国会議事堂前",
         "name_ja": "国会議事堂前",
         "name_zh": "国会议事堂前",
@@ -69271,9 +69209,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_12afda90_1",
+      "id": "id_12afda90_0_1",
       "properties": {
-        "id": "id_12afda90_1",
+        "id": "id_12afda90_0_1",
         "name": "国会議事堂前",
         "name_ja": "国会議事堂前",
         "name_zh": "国会议事堂前",
@@ -69339,9 +69277,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e5f6117b_0",
+      "id": "id_e5f6117b_0_0",
       "properties": {
-        "id": "id_e5f6117b_0",
+        "id": "id_e5f6117b_0_0",
         "name": "明治神宮前",
         "name_ja": "",
         "name_zh": "明治神宫前",
@@ -69374,9 +69312,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_e5f6117b_1",
+      "id": "id_e5f6117b_0_1",
       "properties": {
-        "id": "id_e5f6117b_1",
+        "id": "id_e5f6117b_0_1",
         "name": "明治神宮前",
         "name_ja": "",
         "name_zh": "明治神宫前",
@@ -69805,9 +69743,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_7e710a60_0",
+      "id": "id_7e710a60_0_0",
       "properties": {
-        "id": "id_7e710a60_0",
+        "id": "id_7e710a60_0_0",
         "name": "後楽園",
         "name_ja": "後楽園",
         "name_zh": "后楽园",
@@ -69840,9 +69778,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_7e710a60_1",
+      "id": "id_7e710a60_0_1",
       "properties": {
-        "id": "id_7e710a60_1",
+        "id": "id_7e710a60_0_1",
         "name": "後楽園",
         "name_ja": "後楽園",
         "name_zh": "后楽园",
@@ -70031,8 +69969,8 @@
           "id_f75f0daf"
         ],
         "line_colors": [
-          "#9C5E31",
-          "#C1A470"
+          "#C1A470",
+          "#9C5E31"
         ]
       },
       "geometry": {
@@ -70045,9 +69983,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f998b339_0",
+      "id": "id_f998b339_0_0",
       "properties": {
-        "id": "id_f998b339_0",
+        "id": "id_f998b339_0_0",
         "name": "小竹向原",
         "name_ja": "小竹向原",
         "name_zh": "小竹向原",
@@ -70071,8 +70009,8 @@
           "id_f75f0daf"
         ],
         "line_colors": [
-          "#9C5E31",
-          "#C1A470"
+          "#C1A470",
+          "#9C5E31"
         ]
       },
       "geometry": {
@@ -70085,9 +70023,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_f998b339_1",
+      "id": "id_f998b339_0_1",
       "properties": {
-        "id": "id_f998b339_1",
+        "id": "id_f998b339_0_1",
         "name": "小竹向原",
         "name_ja": "小竹向原04",
         "name_zh": "小竹向原",
@@ -70146,8 +70084,8 @@
           "id_f75f0daf"
         ],
         "line_colors": [
-          "#9C5E31",
-          "#C1A470"
+          "#C1A470",
+          "#9C5E31"
         ]
       },
       "geometry": {
@@ -70184,8 +70122,8 @@
           "id_f75f0daf"
         ],
         "line_colors": [
-          "#9C5E31",
-          "#C1A470"
+          "#C1A470",
+          "#9C5E31"
         ]
       },
       "geometry": {
@@ -70222,8 +70160,8 @@
           "id_f75f0daf"
         ],
         "line_colors": [
-          "#9C5E31",
-          "#C1A470"
+          "#C1A470",
+          "#9C5E31"
         ]
       },
       "geometry": {
@@ -70260,8 +70198,8 @@
           "id_f75f0daf"
         ],
         "line_colors": [
-          "#9C5E31",
-          "#C1A470"
+          "#C1A470",
+          "#9C5E31"
         ]
       },
       "geometry": {
@@ -70472,9 +70410,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_1cc8bb6e_0",
+      "id": "id_1cc8bb6e_0_0",
       "properties": {
-        "id": "id_1cc8bb6e_0",
+        "id": "id_1cc8bb6e_0_0",
         "name": "永田町",
         "name_ja": "永田町",
         "name_zh": "永田町",
@@ -70509,9 +70447,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_1cc8bb6e_1",
+      "id": "id_1cc8bb6e_0_1",
       "properties": {
-        "id": "id_1cc8bb6e_1",
+        "id": "id_1cc8bb6e_0_1",
         "name": "永田町",
         "name_ja": "永田町",
         "name_zh": "永田町",
@@ -70546,9 +70484,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_1cc8bb6e_2",
+      "id": "id_1cc8bb6e_0_2",
       "properties": {
-        "id": "id_1cc8bb6e_2",
+        "id": "id_1cc8bb6e_0_2",
         "name": "永田町",
         "name_ja": "永田町",
         "name_zh": "永田町",
@@ -71049,9 +70987,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3a60912f_0",
+      "id": "id_3a60912f_0_0",
       "properties": {
-        "id": "id_3a60912f_0",
+        "id": "id_3a60912f_0_0",
         "name": "西谷",
         "name_ja": "西谷",
         "name_zh": "西谷",
@@ -71084,9 +71022,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_3a60912f_1",
+      "id": "id_3a60912f_0_1",
       "properties": {
-        "id": "id_3a60912f_1",
+        "id": "id_3a60912f_0_1",
         "name": "西谷",
         "name_ja": "西谷",
         "name_zh": "西谷",
@@ -71647,9 +71585,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_35c9d1f2_0",
+      "id": "id_35c9d1f2_0_0",
       "properties": {
-        "id": "id_35c9d1f2_0",
+        "id": "id_35c9d1f2_0_0",
         "name": "相模大野",
         "name_ja": "",
         "name_zh": "相模大野",
@@ -71682,9 +71620,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_35c9d1f2_1",
+      "id": "id_35c9d1f2_0_1",
       "properties": {
-        "id": "id_35c9d1f2_1",
+        "id": "id_35c9d1f2_0_1",
         "name": "相模大野",
         "name_ja": "",
         "name_zh": "相模大野",
@@ -74290,8 +74228,8 @@
           "id_6e2aadfd"
         ],
         "line_colors": [
-          "#35b45c",
-          "#00A6BF"
+          "#00A6BF",
+          "#35b45c"
         ]
       },
       "geometry": {
@@ -74304,9 +74242,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4262b78c_0",
+      "id": "id_4262b78c_0_0",
       "properties": {
-        "id": "id_4262b78c_0",
+        "id": "id_4262b78c_0_0",
         "name": "東村山",
         "name_ja": "東村山",
         "name_zh": "东村山",
@@ -74341,9 +74279,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4262b78c_1",
+      "id": "id_4262b78c_0_1",
       "properties": {
-        "id": "id_4262b78c_1",
+        "id": "id_4262b78c_0_1",
         "name": "東村山",
         "name_ja": "東村山",
         "name_zh": "东村山",
@@ -74378,9 +74316,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_4262b78c_2",
+      "id": "id_4262b78c_0_2",
       "properties": {
-        "id": "id_4262b78c_2",
+        "id": "id_4262b78c_0_2",
         "name": "東村山",
         "name_ja": "東村山",
         "name_zh": "东村山",
@@ -75268,8 +75206,8 @@
           "id_fe430ed0"
         ],
         "line_colors": [
-          "#ED772D",
-          "#00A6BF"
+          "#00A6BF",
+          "#ED772D"
         ]
       },
       "geometry": {
@@ -76746,9 +76684,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ddd53167_0",
+      "id": "id_ddd53167_0_0",
       "properties": {
-        "id": "id_ddd53167_0",
+        "id": "id_ddd53167_0_0",
         "name": "多摩湖",
         "name_ja": "多摩湖",
         "name_zh": "多摩湖",
@@ -76781,9 +76719,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_ddd53167_1",
+      "id": "id_ddd53167_0_1",
       "properties": {
-        "id": "id_ddd53167_1",
+        "id": "id_ddd53167_0_1",
         "name": "多摩湖",
         "name_ja": "多摩湖",
         "name_zh": "多摩湖",
@@ -76986,9 +76924,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_c3a5b4fd_0",
+      "id": "id_c3a5b4fd_0_0",
       "properties": {
-        "id": "id_c3a5b4fd_0",
+        "id": "id_c3a5b4fd_0_0",
         "name": "西武球場前",
         "name_ja": "西武球場前",
         "name_zh": "西武球场前",
@@ -77021,9 +76959,9 @@
     },
     {
       "type": "Feature",
-      "id": "id_c3a5b4fd_1",
+      "id": "id_c3a5b4fd_0_1",
       "properties": {
-        "id": "id_c3a5b4fd_1",
+        "id": "id_c3a5b4fd_0_1",
         "name": "西武球場前",
         "name_ja": "西武球場前",
         "name_zh": "西武球场前",
