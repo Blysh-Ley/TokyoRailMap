@@ -25,9 +25,18 @@ function getLabelBBox(map, label) {
     const p = map.project(label.coordinates);
     const w = label.width;
     const h = label.height;
-    const dy = Number.isFinite(label.labelDyPx) ? label.labelDyPx : 0;
     const left = p.x - w / 2;
     const right = p.x + w / 2;
+
+    // 固定 popup：可将某个站名移动至站点正下方
+    if (label && label.labelPosition === 'below') {
+        const pad = Number.isFinite(label.labelBelowPadPx) ? label.labelBelowPadPx : 0;
+        const top = p.y + pad;
+        const bottom = top + h;
+        return { left, right, top, bottom };
+    }
+
+    const dy = Number.isFinite(label.labelDyPx) ? label.labelDyPx : 0;
     const bottom = p.y - dy;
     const top = bottom - h;
     return { left, right, top, bottom };
@@ -71,6 +80,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
     const getLabelsVisible = options.getLabelsVisible;
     const getLabelMode = options.getLabelMode;
     const getCircleMode = options.getCircleMode;
+    const getPinnedStationId = options.getPinnedStationId;
     // 线路联动作用范围：
     // - 'labels'：只影响站名显示（不影响圆点）
     // - 'labels_and_circles'：同时影响站名与圆点（默认）
@@ -90,6 +100,8 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
 
     function updateStationLabelVisibility() {
         if (!stationLabels.length) return;
+
+        const pinnedId = typeof getPinnedStationId === 'function' ? getPinnedStationId() : null;
 
         const mode =
             (typeof getLabelMode === 'function' ? getLabelMode() : null) ??
@@ -133,7 +145,13 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
 
         const sorted = stationLabels
             .slice()
-            .sort((a, b) => (b.priority - a.priority) || String(a.el.textContent).localeCompare(String(b.el.textContent)));
+            .sort((a, b) => {
+                const aPinned = pinnedId != null && String(a.stationId) === String(pinnedId);
+                const bPinned = pinnedId != null && String(b.stationId) === String(pinnedId);
+                if (aPinned && !bPinned) return -1;
+                if (!aPinned && bPinned) return 1;
+                return (b.priority - a.priority) || String(a.el.textContent).localeCompare(String(b.el.textContent));
+            });
 
         const grid = new Map();
 

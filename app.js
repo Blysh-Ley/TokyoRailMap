@@ -68,6 +68,8 @@ map.on('load', async () => {
     let fitToCurrentSelection = (_triggerKey, _mode = 'preview') => {};
     let enabledLineIdsByCompany = new Map();
     let stationPopup = null;
+    let stationLabels = [];
+    let fixedPopupStationId = null;
 
     const cssEscape = (value) => {
         const s = String(value);
@@ -506,6 +508,39 @@ map.on('load', async () => {
         updateSelectionBadge();
     };
 
+    const setFixedPopupStationLabelBelow = (stationId) => {
+        fixedPopupStationId = stationId != null ? String(stationId) : null;
+
+        if (!Array.isArray(stationLabels) || !stationLabels.length) return;
+
+        // 先恢复所有站名为默认“上移”位置
+        for (const label of stationLabels) {
+            label.labelPosition = null;
+            label.labelBelowPadPx = null;
+            const dy = Number.isFinite(label.labelDyPx) ? label.labelDyPx : 0;
+            label.el.style.translate = `0 -${dy}px`;
+        }
+
+        if (!fixedPopupStationId) {
+            if (collisionController) collisionController.scheduleUpdate();
+            return;
+        }
+
+        const pinned = stationLabels.find((x) => x && String(x.stationId) === fixedPopupStationId);
+        if (!pinned) {
+            if (collisionController) collisionController.scheduleUpdate();
+            return;
+        }
+
+        // 站点正下方：下移自身高度(100%)后再留一点间距
+        const pad = pinned.priority > 1 ? 6 : 4;
+        pinned.labelPosition = 'below';
+        pinned.labelBelowPadPx = pad;
+        pinned.el.style.translate = `0 calc(100% + ${pad}px)`;
+
+        if (collisionController) collisionController.scheduleUpdate();
+    };
+
     let popupPreviewSnapshot = null;
     let popupPreviewWasApplied = false;
 
@@ -616,6 +651,7 @@ map.on('load', async () => {
         map.on('click', 'stations-layer', (e) => {
             const f = e?.features?.[0];
             const props = f?.properties || {};
+            setFixedPopupStationLabelBelow(props.id ?? f?.id);
             selectServingLinesForStation(props);
         });
     }
@@ -1052,7 +1088,9 @@ map.on('load', async () => {
         // 确保 stations-layer 创建后立即应用一次“选中线路的站点样式策略”
         applyStationSelectionStyle();
 
-        const { stationLabels, stationCircles } = createStationMarkers(map, maplibregl, stationsData);
+        const markers = createStationMarkers(map, maplibregl, stationsData);
+        stationLabels = markers.stationLabels;
+        const stationCircles = markers.stationCircles;
 
         // 站名碰撞：标签上移偏移在 labels.js 内按站点类型设置
         collisionController = setupCollisions(map, stationLabels, stationCircles, {
@@ -1069,6 +1107,7 @@ map.on('load', async () => {
                     ? 'all'
                     : 'collide'
             ),
+            getPinnedStationId: () => fixedPopupStationId,
             lineFilterTarget: 'labels'
         });
 
@@ -1178,6 +1217,7 @@ map.on('load', async () => {
                 }
                 popupPreviewSnapshot = null;
                 popupPreviewWasApplied = false;
+                setFixedPopupStationLabelBelow(null);
             }
         });
 
@@ -1211,6 +1251,7 @@ map.on('load', async () => {
                         const pt = readPointerType(evt);
                         if (!isTouchLike(pt)) return;
                         stop(evt);
+                        setFixedPopupStationLabelBelow(item.props?.id ?? item.stationId);
                         selectServingLinesForStation(item.props || {});
                         stationPopup.setExternalStationHover?.(true);
                         stationPopup.showPopupAt(item.coordinates, item.props || {}, { pointerType: pt });
@@ -1226,6 +1267,7 @@ map.on('load', async () => {
                         return;
                     }
                     stop(evt);
+                    setFixedPopupStationLabelBelow(item.props?.id ?? item.stationId);
                     selectServingLinesForStation(item.props || {});
                     stationPopup.setExternalStationHover?.(true);
                     stationPopup.showPopupAt(item.coordinates, item.props || {}, { pointerType: pt });
