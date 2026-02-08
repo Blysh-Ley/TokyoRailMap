@@ -58,6 +58,7 @@ map.on('load', async () => {
     let menu = null;
     let selectedCompany = null;
     let selectedLineId = null;
+    let selectedStationLineIds = null; // Set<string>：点击站点/站名后高亮其 serving_lines
     let selectedServiceMode = 'all';
     let stationLabelMode = 'auto'; // 'off' | 'auto' | 'all'
     let setStationLabelMode = (_mode) => false;
@@ -84,6 +85,80 @@ map.on('load', async () => {
     const lineColorById = new Map();
     const lineColorByName = new Map();
     const lineCompanyById = new Map();
+
+    const normalizeArrayLike = (value) => {
+        if (Array.isArray(value)) return value;
+        if (typeof value !== 'string') return value != null ? [value] : [];
+
+        const s = value.trim();
+        if (!s) return [];
+
+        // 兼容：某些数据源会把数组写成 JSON 字符串（例如 "[\"A\",\"B\"]"）
+        if (s.startsWith('[') && s.endsWith(']')) {
+            try {
+                const parsed = JSON.parse(s);
+                return Array.isArray(parsed) ? parsed : [value];
+            } catch {
+                return [value];
+            }
+        }
+        return [s];
+    };
+
+    const getServingLineIdsFromStationProps = (props) => {
+        const p = props || {};
+        // 注意：stations.geojson 的 serving_lines 是“线路名称”，不一定等同于 lines.geojson 的 id。
+        // 目前 lines-layer 的匹配应优先使用 serving_ids / platform_line_id（都是线路 id）。
+        const servingIdsRaw = normalizeArrayLike(p.serving_ids);
+        const platformLineIdsRaw = normalizeArrayLike(p.platform_line_id);
+        const servingLinesRaw = normalizeArrayLike(p.serving_lines);
+
+        let ids = (servingIdsRaw && servingIdsRaw.length ? servingIdsRaw : platformLineIdsRaw)
+            .map((x) => String(x).trim())
+            .filter(Boolean);
+
+        // 兜底：若只有 serving_lines（名称），尝试用 lineNameById 反查 id
+        if ((!ids || ids.length === 0) && servingLinesRaw && servingLinesRaw.length) {
+            const names = servingLinesRaw.map((x) => String(x).trim()).filter(Boolean);
+            if (names.length) {
+                const out = [];
+                for (const name of names) {
+                    for (const [id, n] of lineNameById.entries()) {
+                        if (String(n) === name) {
+                            out.push(String(id));
+                            break;
+                        }
+                    }
+                }
+                ids = out;
+            }
+        }
+
+        // 去重且保持顺序
+        const seen = new Set();
+        const out = [];
+        for (const id of ids) {
+            if (seen.has(id)) continue;
+            seen.add(id);
+            out.push(id);
+        }
+        return out;
+    };
+
+    const selectServingLinesForStation = (props) => {
+        const ids = getServingLineIdsFromStationProps(props);
+        if (!ids.length) return;
+
+        selectedStationLineIds = new Set(ids);
+        selectedCompany = null;
+        selectedLineId = null;
+        selectedServiceMode = 'all';
+
+        applyLineSelectionStyle();
+        applyStationSelectionStyle();
+        if (collisionController) collisionController.scheduleUpdate();
+        updateSelectionBadge();
+    };
 
     function updateSelectionBadge() {
         if (selectedLineId) {
@@ -184,6 +259,37 @@ map.on('load', async () => {
             return;
         }
 
+        // 站点选中：高亮该站点的所有 serving_lines（不执行 fitBounds）
+        if (selectedStationLineIds && selectedStationLineIds.size) {
+            const ids = Array.from(selectedStationLineIds).map(String).filter(Boolean);
+            const hitExpr = ids.length === 1
+                ? ['==', ['get', 'id'], ids[0]]
+                : ['in', ['get', 'id'], ['literal', ids]];
+
+            map.setPaintProperty('lines-layer', 'line-color', [
+                'case',
+                hitExpr,
+                baseColorExpr,
+                '#999'
+            ]);
+
+            map.setPaintProperty('lines-layer', 'line-width', [
+                'case',
+                hitExpr,
+                3,
+                1.2
+            ]);
+
+            map.setPaintProperty('lines-layer', 'line-opacity', [
+                'case',
+                hitExpr,
+                1,
+                0.6
+            ]);
+
+            return;
+        }
+
         if (!selectedCompany) {
             map.setPaintProperty('lines-layer', 'line-color', baseColorExpr);
             map.setPaintProperty('lines-layer', 'line-width', 3);
@@ -276,7 +382,7 @@ map.on('load', async () => {
         const platformIdsExpr = ['coalesce', ['get', 'platform_line_id'], servingIdsExpr];
 
         // 未选择任何东西：恢复原样式
-        if (!selectedLineId && !selectedCompany) {
+        if (!selectedLineId && !selectedCompany && !(selectedStationLineIds && selectedStationLineIds.size)) {
             map.setPaintProperty('stations-layer', 'circle-radius', baseStationCircleRadiusExpr());
             map.setPaintProperty('stations-layer', 'circle-stroke-width', baseStationCircleStrokeWidthExpr());
             map.setPaintProperty('stations-layer', 'circle-color', '#fff');
@@ -286,7 +392,9 @@ map.on('load', async () => {
 
         const isSelectedStation = selectedLineId
             ? ['in', selectedLineId, platformIdsExpr]
-            : buildStationAnyLineMatchExpr(Array.from(enabledLineIdsByCompany.get(selectedCompany) ?? []));
+            : selectedCompany
+                ? buildStationAnyLineMatchExpr(Array.from(enabledLineIdsByCompany.get(selectedCompany) ?? []))
+                : buildStationAnyLineMatchExpr(Array.from(selectedStationLineIds ?? []));
 
         map.setPaintProperty('stations-layer', 'circle-radius', [
             'interpolate',
@@ -347,6 +455,10 @@ map.on('load', async () => {
         // 这里返回“当前选中线路集合”，只用于站名筛选（圆点不筛选）。
         if (selectedLineId) return new Set([selectedLineId]);
 
+        if (selectedStationLineIds && selectedStationLineIds.size) {
+            return selectedStationLineIds;
+        }
+
         if (selectedCompany && enabledLineIdsByCompany.has(selectedCompany)) {
             return enabledLineIdsByCompany.get(selectedCompany);
         }
@@ -357,6 +469,7 @@ map.on('load', async () => {
     function clearSelectionsAndRestore() {
         selectedCompany = null;
         selectedLineId = null;
+        selectedStationLineIds = null;
         selectedServiceMode = 'all';
         setStationLabelMode('auto');
 
@@ -381,6 +494,7 @@ map.on('load', async () => {
     const snapshotSelectionState = () => ({
         selectedCompany,
         selectedLineId,
+        selectedStationLineIds: selectedStationLineIds ? Array.from(selectedStationLineIds) : null,
         selectedServiceMode,
         stationLabelMode
     });
@@ -389,6 +503,9 @@ map.on('load', async () => {
         if (!snapshot) return;
         selectedCompany = snapshot.selectedCompany;
         selectedLineId = snapshot.selectedLineId;
+        selectedStationLineIds = Array.isArray(snapshot.selectedStationLineIds)
+            ? new Set(snapshot.selectedStationLineIds.map(String).filter(Boolean))
+            : null;
         selectedServiceMode = snapshot.selectedServiceMode;
         setStationLabelMode(snapshot.stationLabelMode);
         applySelectionEffects();
@@ -406,7 +523,7 @@ map.on('load', async () => {
             if (hits.length) return;
 
             // 已经是“全显示”状态就不做任何事（避免多余刷新）
-            if (!selectedCompany && !selectedLineId) return;
+            if (!selectedCompany && !selectedLineId && !(selectedStationLineIds && selectedStationLineIds.size)) return;
 
             clearSelectionsAndRestore();
         });
@@ -433,6 +550,7 @@ map.on('load', async () => {
             // 点击线路：永远选中；取消选择仅通过“点击空白处”
             selectedLineId = nextLineId;
             selectedCompany = null;
+            selectedStationLineIds = null;
             selectedServiceMode = 'all';
             setStationLabelMode('all');
 
@@ -456,6 +574,17 @@ map.on('load', async () => {
         });
         map.on('mouseleave', 'lines-layer', () => {
             map.getCanvas().style.cursor = '';
+        });
+    }
+
+    function bindClickStationToHighlightServingLines() {
+        if (!map.getLayer('stations-layer')) return;
+
+        // 点击站点圆点：高亮其 serving_lines（不执行 fitBounds）
+        map.on('click', 'stations-layer', (e) => {
+            const f = e?.features?.[0];
+            const props = f?.properties || {};
+            selectServingLinesForStation(props);
         });
     }
 
@@ -763,6 +892,7 @@ map.on('load', async () => {
             onCompanyClick: (companyName, meta) => {
                 const source = meta?.source ?? 'click';
                 const commitPreview = meta?.commitPreview === true;
+                selectedStationLineIds = null;
                 if (source === 'hover') {
                     selectedCompany = companyName;
                     setStationLabelMode('auto');
@@ -784,6 +914,7 @@ map.on('load', async () => {
             onLineClick: (lineId, meta) => {
                 const source = meta?.source ?? 'click';
                 const commitPreview = meta?.commitPreview === true;
+                selectedStationLineIds = null;
                 // 线路点击：优先级高于公司点击
                 if (source === 'hover') {
                     selectedLineId = lineId;
@@ -808,6 +939,7 @@ map.on('load', async () => {
             onModeClick: ({ lineId, mode }, meta) => {
                 const source = meta?.source ?? 'click';
                 const commitPreview = meta?.commitPreview === true;
+                selectedStationLineIds = null;
                 // 预留：目前地图高亮/站名过滤仍以 lineId 为主
                 if (source === 'hover') {
                     selectedLineId = lineId;
@@ -879,6 +1011,9 @@ map.on('load', async () => {
         const stationsData = await loadGeoJSON('./stations.geojson');
         addStationsLayer(map, stationsData);
 
+        // 站点圆点点击：高亮该站点所有 serving_lines（不执行 fitBounds）
+        bindClickStationToHighlightServingLines();
+
         // 确保 stations-layer 创建后立即应用一次“选中线路的站点样式策略”
         applyStationSelectionStyle();
 
@@ -920,6 +1055,7 @@ map.on('load', async () => {
                     popupPreviewWasApplied = true;
                     selectedCompany = name;
                     selectedLineId = null;
+                    selectedStationLineIds = null;
                     selectedServiceMode = 'all';
                     setStationLabelMode('auto');
                     applySelectionEffects();
@@ -931,6 +1067,7 @@ map.on('load', async () => {
                 popupPreviewWasApplied = false;
                 selectedCompany = name;
                 selectedLineId = null;
+                selectedStationLineIds = null;
                 selectedServiceMode = 'all';
                 applySelectionEffects();
             },
@@ -944,6 +1081,7 @@ map.on('load', async () => {
                     popupPreviewWasApplied = true;
                     selectedLineId = id;
                     selectedCompany = null;
+                    selectedStationLineIds = null;
                     selectedServiceMode = 'all';
                     setStationLabelMode('auto');
                     applySelectionEffects();
@@ -955,6 +1093,7 @@ map.on('load', async () => {
                 popupPreviewWasApplied = false;
                 selectedLineId = id;
                 selectedCompany = null;
+                selectedStationLineIds = null;
                 selectedServiceMode = 'all';
                 setStationLabelMode('all');
 
@@ -1005,6 +1144,7 @@ map.on('load', async () => {
                         const pt = readPointerType(evt);
                         if (!isTouchLike(pt)) return;
                         stop(evt);
+                        selectServingLinesForStation(item.props || {});
                         stationPopup.setExternalStationHover?.(true);
                         stationPopup.showPopupAt(item.coordinates, item.props || {}, { pointerType: pt });
                     },
@@ -1019,6 +1159,7 @@ map.on('load', async () => {
                         return;
                     }
                     stop(evt);
+                    selectServingLinesForStation(item.props || {});
                     stationPopup.setExternalStationHover?.(true);
                     stationPopup.showPopupAt(item.coordinates, item.props || {}, { pointerType: pt });
                 });
