@@ -3,6 +3,7 @@ import { addLinesLayer, addStationsLayer, setupStationPopup } from './layers.js'
 import { createStationMarkers } from './labels.js';
 import { setupCollisions } from './collision.js';
 import { Menu } from './menu.js';
+import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 
 // MapLibre 通过 CDN 以全局变量方式引入
 const maplibregl = window.maplibregl;
@@ -53,6 +54,9 @@ map.addControl(
 // 2) 底图加载完成后再加载业务数据与图层
 map.on('load', async () => {
     console.log('底图加载完毕，准备加载 GeoJSON...');
+
+    // 触屏防误触：仅短按且几乎不移动才视为 tap
+    const touchTapGuard = getGlobalTouchTapGuard({ maxDurationMs: 500, maxMovePx: 12 });
 
     let collisionController = null;
     let menu = null;
@@ -808,6 +812,8 @@ map.on('load', async () => {
     function bindClickBlankToRestore() {
         // 点击地图空白处：恢复所有线路显示（并同步恢复站点/站名联动）
         map.on('click', (e) => {
+            if (!touchTapGuard.allowTap(e?.originalEvent)) return;
+
             const layers = [];
             if (map.getLayer('lines-layer')) layers.push('lines-layer');
             if (map.getLayer('stations-layer')) layers.push('stations-layer');
@@ -828,6 +834,8 @@ map.on('load', async () => {
 
         // 点击线路：高亮该线路及其站点（复用现有逻辑）
         map.on('click', 'lines-layer', (e) => {
+            if (!touchTapGuard.allowTap(e?.originalEvent)) return;
+
             // 若点击点同时命中站点（站点覆盖在线路上），则视为“点击站点”，不高亮线路
             // 需求：点击站点（或站点与线路一起被点到）时，不应触发线路选中
             if (map.getLayer('stations-layer')) {
@@ -876,6 +884,8 @@ map.on('load', async () => {
 
         // 点击站点圆点：高亮其 serving_lines（不执行 fitBounds）
         map.on('click', 'stations-layer', (e) => {
+            if (!touchTapGuard.allowTap(e?.originalEvent)) return;
+
             const f = e?.features?.[0];
             const props = f?.properties || {};
             setFixedPopupStationLabelBelow(props.id ?? f?.id);
@@ -1492,6 +1502,13 @@ map.on('load', async () => {
                 evt?.stopPropagation?.();
             };
 
+            const fireStationLabelTap = (item, pt) => {
+                setFixedPopupStationLabelBelow(item.props?.id ?? item.stationId);
+                selectServingLinesForStation(item.props || {});
+                stationPopup.setExternalStationHover?.(true);
+                stationPopup.showPopupAt(item.coordinates, item.props || {}, { pointerType: pt });
+            };
+
             stationLabels.forEach((item) => {
                 const el = item?.el;
                 if (!el) return;
@@ -1500,17 +1517,25 @@ map.on('load', async () => {
                 el.addEventListener('mouseenter', () => stationPopup.setExternalStationHover?.(true));
                 el.addEventListener('mouseleave', () => stationPopup.setExternalStationHover?.(false));
 
-                // 触屏/笔：用 pointerdown，避免合成 click 不稳定
+                // 触屏/笔：按下时只阻止穿透；抬起时满足“短按+小位移”才触发
                 el.addEventListener(
                     'pointerdown',
                     (evt) => {
                         const pt = readPointerType(evt);
                         if (!isTouchLike(pt)) return;
                         stop(evt);
-                        setFixedPopupStationLabelBelow(item.props?.id ?? item.stationId);
-                        selectServingLinesForStation(item.props || {});
-                        stationPopup.setExternalStationHover?.(true);
-                        stationPopup.showPopupAt(item.coordinates, item.props || {}, { pointerType: pt });
+                    },
+                    { passive: false }
+                );
+
+                el.addEventListener(
+                    'pointerup',
+                    (evt) => {
+                        const pt = readPointerType(evt);
+                        if (!isTouchLike(pt)) return;
+                        stop(evt);
+                        if (!touchTapGuard.allowTap(evt)) return;
+                        fireStationLabelTap(item, pt);
                     },
                     { passive: false }
                 );
@@ -1523,10 +1548,7 @@ map.on('load', async () => {
                         return;
                     }
                     stop(evt);
-                    setFixedPopupStationLabelBelow(item.props?.id ?? item.stationId);
-                    selectServingLinesForStation(item.props || {});
-                    stationPopup.setExternalStationHover?.(true);
-                    stationPopup.showPopupAt(item.coordinates, item.props || {}, { pointerType: pt });
+                    fireStationLabelTap(item, pt);
                 });
             });
         }

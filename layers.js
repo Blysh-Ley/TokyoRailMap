@@ -1,6 +1,8 @@
 /**
  * 添加线路图层。
  */
+import { getGlobalTouchTapGuard } from './touchTapGuard.js';
+
 export function addLinesLayer(map, linesData) {
     map.addSource('lines-source', { type: 'geojson', data: linesData });
 
@@ -78,6 +80,8 @@ export function addStationsLayer(map, stationsData) {
  * 给站点圆点添加 hover 弹窗。
  */
 export function setupStationPopup(map, maplibregl, options = {}) {
+    const touchTapGuard = getGlobalTouchTapGuard({ maxDurationMs: 500, maxMovePx: 12 });
+
     const getLineMeta = typeof options.getLineMeta === 'function' ? options.getLineMeta : (() => null);
     const companyLogoMap = options.companyLogoMap || {};
     const hoverDelayMs = Number.isFinite(options.hoverDelayMs) ? options.hoverDelayMs : 500;
@@ -624,6 +628,8 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
     // 点击站点：打开固定 popup（鼠标/触屏均适用）
     map.on('click', 'stations-layer', (e) => {
+        if (!touchTapGuard.allowTap(e?.originalEvent)) return;
+
         const pt = readPointerType(e?.originalEvent);
         lastPointerType = pt;
         if (isTouchLikePointer(pt)) {
@@ -652,6 +658,8 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     // 点击空白处：收起固定 popup（鼠标/触屏）
     map.on('click', (e) => {
         if (popupOpenMode !== 'fixed') return;
+
+        if (!touchTapGuard.allowTap(e?.originalEvent)) return;
 
         const popupEl = popup.getElement?.();
         if (!popupEl) return;
