@@ -78,6 +78,145 @@
             display: inline-block;
         }
 
+        /* 左上角搜索框（仅 UI；逻辑在 search.js） */
+        .search-ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 9999;
+            width: 320px;
+            max-width: calc(100vw - 20px);
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            user-select: none;
+        }
+
+        .search-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.75);
+            border: 1px solid #e3e5e7;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(4px);
+        }
+
+        .search-input {
+            width: 100%;
+            border: none;
+            background: transparent;
+            outline: none;
+            font-size: 14px;
+            color: #111;
+        }
+
+        .search-input::placeholder {
+            color: #666;
+        }
+
+        .search-results {
+            margin-top: 8px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid #e3e5e7;
+            box-shadow: 0 0 30px rgba(0, 0, 0, .1);
+            overflow: hidden;
+        }
+
+        .search-results.is-hidden {
+            display: none;
+        }
+
+        .search-results-list {
+            list-style: none;
+            margin: 0;
+            padding: 4px 0;
+            max-height: 320px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .search-results-list::-webkit-scrollbar {
+            display: none;
+        }
+
+        .search-result-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            cursor: pointer;
+            color: #111;
+            position: relative;
+        }
+
+        .search-result-item:hover {
+            background-color: #3498db;
+            color: #fff;
+        }
+
+        .search-result-item::after {
+            content: '';
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            bottom: 0;
+            height: 1px;
+            background-color: #efefef;
+        }
+
+        .search-result-item:last-child::after {
+            display: none;
+        }
+
+        .search-result-icon {
+            width: 18px;
+            height: 18px;
+            flex: 0 0 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .search-result-icon--company {
+            width: 18px;
+            height: 18px;
+            object-fit: contain;
+        }
+
+        .search-result-icon--line {
+            width: 6px;
+            height: 18px;
+            border-radius: 3px;
+            background: #111;
+        }
+
+        .search-result-icon--station {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #fff;
+            border: 2px solid #333;
+            box-sizing: border-box;
+        }
+
+        .search-result-text {
+            font-size: 14px;
+            line-height: 1.2;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .search-empty {
+            padding: 10px 12px;
+            color: #666;
+            font-size: 13px;
+        }
+
         .RW-wrapper {
             display: none;
             position: absolute;
@@ -444,6 +583,9 @@
 
 <!-- ES Module 入口：负责初始化地图、加载数据、添加图层与碰撞逻辑 -->
 <script type="module" src="./app.js"></script>
+
+<!-- 搜索框 UI（先做 UI；交互逻辑后续补齐） -->
+<script type="module" src="./search.js"></script>
 
 </body>
 </html>
