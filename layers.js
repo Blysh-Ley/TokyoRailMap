@@ -85,6 +85,8 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     const onSelectCompany = typeof options.onSelectCompany === 'function' ? options.onSelectCompany : null;
     const onSelectLine = typeof options.onSelectLine === 'function' ? options.onSelectLine : null;
     const onPopupClose = typeof options.onPopupClose === 'function' ? options.onPopupClose : null;
+    const onRestoreStationLines = typeof options.onRestoreStationLines === 'function' ? options.onRestoreStationLines : null;
+    const onFixedPopupBlankClick = typeof options.onFixedPopupBlankClick === 'function' ? options.onFixedPopupBlankClick : null;
 
     const popup = new maplibregl.Popup({
         closeButton: false,
@@ -124,8 +126,30 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     let boundPopupEl = null;
     let committedInPopup = false;
 
-    // 触屏：popup 内两段式点击（第一次 = hover 预览；第二次同一项 = click 提交）
+    // popup 打开模式：
+    // - hover：鼠标悬浮站点弹出（只读，禁止交互），离开站点/弹框后自动关闭
+    // - fixed：鼠标/触屏点击站点弹出（可交互），固定在地图上，点击空白处才关闭
+    let popupOpenMode = null; // 'hover' | 'fixed' | null
+
+    // 触屏：固定 popup 内两段式点击（第一次 = 预览；第二次同一线路 = 提交并关闭）
     let tapArmedKey = null;
+
+    // 当前 popup 所属站点的 serving_ids（用于离开单条线路 hover 时恢复）
+    let currentStationServingIds = [];
+
+    // 当前已应用的 hover 预览对象（line:/company:）
+    let lastAppliedHoverKey = null;
+
+    // 线路 hover 预览离开后的“恢复站点线路”延迟（避免在两条线路之间移动时闪烁）
+    let restoreTimerId = null;
+    const restoreDelayMs = Math.max(hoverDelayMs, 60);
+
+    const clearRestoreTimer = () => {
+        if (restoreTimerId != null) {
+            clearTimeout(restoreTimerId);
+            restoreTimerId = null;
+        }
+    };
 
     let hoverTimerId = null;
     let hoverCandidateKey = null;
@@ -157,12 +181,47 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         boundPopupEl = null;
     };
 
+    const restoreStationLinesIfNeeded = () => {
+        if (popupOpenMode !== 'fixed') return;
+        if (!lastAppliedHoverKey) return;
+        if (typeof onRestoreStationLines !== 'function') {
+            lastAppliedHoverKey = null;
+            return;
+        }
+
+        try {
+            onRestoreStationLines(Array.isArray(currentStationServingIds) ? currentStationServingIds.slice() : []);
+        } catch {
+            // ignore
+        }
+        lastAppliedHoverKey = null;
+    };
+
+    const scheduleRestoreStationLines = () => {
+        if (popupOpenMode !== 'fixed') return;
+        if (!lastAppliedHoverKey) return;
+        if (typeof onRestoreStationLines !== 'function') {
+            lastAppliedHoverKey = null;
+            return;
+        }
+
+        clearRestoreTimer();
+        restoreTimerId = setTimeout(() => {
+            restoreTimerId = null;
+            restoreStationLinesIfNeeded();
+        }, restoreDelayMs);
+    };
+
     const removePopupNow = ({ committed } = {}) => {
         clearHideTimer();
         clearHoverTimer();
+        clearRestoreTimer();
         hoverCandidateKey = null;
         lastFiredHoverKey = null;
         tapArmedKey = null;
+        popupOpenMode = null;
+        currentStationServingIds = [];
+        lastAppliedHoverKey = null;
 
         popup.remove();
 
@@ -178,6 +237,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     };
 
     const tryHidePopup = () => {
+        if (popupOpenMode !== 'hover') return;
         clearHideTimer();
         // 给一点点缓冲，避免从圆点移到 popup 时闪一下
         hideTimerId = setTimeout(() => {
@@ -191,14 +251,18 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     const onPopupEnter = () => {
         isOverPopup = true;
         clearHideTimer();
+        clearRestoreTimer();
     };
 
     const onPopupLeave = () => {
         isOverPopup = false;
         clearHoverTimer();
+        clearRestoreTimer();
         hoverCandidateKey = null;
+        lastFiredHoverKey = null;
         tapArmedKey = null;
-        tryHidePopup();
+        restoreStationLinesIfNeeded();
+        if (popupOpenMode === 'hover') tryHidePopup();
     };
 
     const stopPropagation = (evt) => {
@@ -209,6 +273,12 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     const onPopupPointerDown = (evt) => {
         const pt = readPointerType(evt);
         if (!isTouchLikePointer(pt)) return;
+
+        // hover 打开的弹框：禁止交互
+        if (popupOpenMode !== 'fixed') {
+            stopPropagation(evt);
+            return;
+        }
 
         lastPointerType = pt;
         suppressMouseEventsUntilMs = nowMs() + 800;
@@ -226,29 +296,28 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         lastFiredHoverKey = null;
 
         const key = `${t.kind}:${t.value}`;
-        if (tapArmedKey !== key) {
-            tapArmedKey = key;
-            committedInPopup = false;
 
-            // 第一次：当 hover，立即预览
-            if (t.kind === 'line') {
-                if (typeof onSelectLine === 'function') onSelectLine(String(t.value), { source: 'popup-hover' });
-            } else if (t.kind === 'company') {
-                if (typeof onSelectCompany === 'function') onSelectCompany(String(t.value), { source: 'popup-hover' });
-            }
-            return;
-        }
-
-        // 第二次：提交 click
-        tapArmedKey = null;
-        committedInPopup = true;
-
+        // 触屏：线路需要双击提交
         if (t.kind === 'line') {
-            if (typeof onSelectLine === 'function') onSelectLine(String(t.value), { source: 'popup-click' });
+            if (tapArmedKey !== key) {
+                tapArmedKey = key;
+                committedInPopup = false;
+                // 第一次：当作预览
+                if (typeof onSelectLine === 'function') onSelectLine(String(t.value), { source: 'popup-hover' });
+                return;
+            }
+
+            // 第二次：提交并关闭
+            tapArmedKey = null;
+            committedInPopup = true;
+            if (typeof onSelectLine === 'function') onSelectLine(String(t.value), { source: 'popup-click', isolateStations: true });
             removePopupNow({ committed: true });
             return;
         }
 
+        // 公司：单击提交（不关闭）
+        tapArmedKey = null;
+        committedInPopup = true;
         if (t.kind === 'company') {
             if (typeof onSelectCompany === 'function') onSelectCompany(String(t.value), { source: 'popup-click' });
         }
@@ -274,15 +343,37 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     };
 
     const onPopupMove = (evt) => {
+        // hover 打开的弹框：禁止交互
+        if (popupOpenMode !== 'fixed') return;
+
         // 触屏：不做 hover 预览（避免手指抬起时的合成 mousemove 导致“自动选中线路”）
         if (isTouchLikePointer(lastPointerType)) return;
 
         const t = getInteractiveTarget(evt);
         if (!t) {
+            scheduleRestoreStationLines();
             clearHoverTimer();
             hoverCandidateKey = null;
+            lastFiredHoverKey = null;
             return;
         }
+
+        // 两条线路之间移动时，鼠标可能短暂落在容器上：这里用延迟恢复避免闪烁
+        if (t.kind !== 'line' && t.kind !== 'company') {
+            scheduleRestoreStationLines();
+            clearHoverTimer();
+            hoverCandidateKey = null;
+            lastFiredHoverKey = null;
+            return;
+        }
+
+        // 进入其他类型元素后再回来时，允许重新触发 hover
+        if (lastFiredHoverKey && !String(lastFiredHoverKey).startsWith(`${t.kind}:`)) {
+            lastFiredHoverKey = null;
+        }
+
+        // 进入可交互元素：取消待恢复
+        clearRestoreTimer();
 
         const key = `${t.kind}:${t.value}`;
         if (key === hoverCandidateKey) return;
@@ -300,13 +391,22 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
             if (t.kind === 'line' && typeof onSelectLine === 'function') {
                 onSelectLine(String(t.value), { source: 'popup-hover' });
+                lastAppliedHoverKey = `line:${String(t.value)}`;
             } else if (t.kind === 'company' && typeof onSelectCompany === 'function') {
-                onSelectCompany(String(t.value), { source: 'popup-hover' });
+                onSelectCompany(String(t.value), { source: 'popup-hover', stationLineIds: Array.isArray(currentStationServingIds) ? currentStationServingIds.slice() : [] });
+                lastAppliedHoverKey = `company:${String(t.value)}`;
             }
         }, hoverDelayMs);
     };
 
     const onPopupClick = (evt) => {
+        // hover 打开的弹框：禁止交互
+        if (popupOpenMode !== 'fixed') {
+            // 仍然阻止事件穿透到地图，避免点击弹框文本触发“点击空白处”逻辑
+            stopPropagation(evt);
+            return;
+        }
+
         // 触屏/笔：由 pointerdown 完整接管两段式交互；忽略 click，避免第一下就被当成“第二下提交”
         if (isTouchLikePointer(lastPointerType)) {
             stopPropagation(evt);
@@ -324,8 +424,8 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         committedInPopup = true;
 
         if (t.kind === 'line') {
-            if (typeof onSelectLine === 'function') onSelectLine(String(t.value), { source: 'popup-click' });
-            // 需求：点击线路后隐藏 popup
+            if (typeof onSelectLine === 'function') onSelectLine(String(t.value), { source: 'popup-click', isolateStations: true });
+            // 需求：点击弹出的 popup 中，鼠标单击线路后关闭 popup
             removePopupNow({ committed: true });
             return;
         }
@@ -358,8 +458,9 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
-    const buildPopupHtml = (props = {}) => {
+    const buildPopupHtml = (props = {}, meta = {}) => {
         const name = props.name_zh || props.name || '';
+        const interactive = meta?.interactive === true;
         const normalizeArrayLike = (value) => {
             if (Array.isArray(value)) return value;
             if (typeof value !== 'string') return value ? [value] : [];
@@ -380,13 +481,17 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         const servingIdsRaw = normalizeArrayLike(props.serving_ids);
         const servingIds = servingIdsRaw.map(String).filter(Boolean);
 
+        currentStationServingIds = servingIds.slice();
+
         const servingLinesRaw = normalizeArrayLike(props.serving_lines);
         const servingLines = servingLinesRaw.map(String).filter(Boolean);
 
         const nameHtml = `<div class="station-hover-name">${escapeHtml(name)}</div>`;
 
+        const rootClass = interactive ? 'station-hover-popup is-interactive' : 'station-hover-popup';
+
         if (!servingIds.length && !servingLines.length) {
-            return `<div class="station-hover-popup">${nameHtml}</div>`;
+            return `<div class="${rootClass}">${nameHtml}</div>`;
         }
 
         // 需求：
@@ -455,12 +560,15 @@ export function setupStationPopup(map, maplibregl, options = {}) {
             `;
         }
 
-        return `<div class="station-hover-popup">${nameHtml}${companiesHtml}</div>`;
+        return `<div class="${rootClass}">${nameHtml}${companiesHtml}</div>`;
     };
 
     map.on('mouseenter', 'stations-layer', (e) => {
         // 触屏会产生合成 mouseenter：这里直接忽略，改用 click 来显示 popup
         if (nowMs() < suppressMouseEventsUntilMs || isTouchLikePointer(lastPointerType)) return;
+
+        // 固定弹框存在时，不响应 hover
+        if (popupOpenMode === 'fixed') return;
 
         // 缩放过小：禁用“鼠标 hover 站点弹窗”
         const z = typeof map.getZoom === 'function' ? map.getZoom() : null;
@@ -473,12 +581,13 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         isOverStation = true;
         clearHideTimer();
         committedInPopup = false;
+        popupOpenMode = 'hover';
         clearHoverTimer();
         hoverCandidateKey = null;
         lastFiredHoverKey = null;
         const coordinates = e.features[0].geometry.coordinates.slice();
         const props = e.features[0].properties || {};
-        popup.setLngLat(coordinates).setHTML(buildPopupHtml(props)).addTo(map);
+        popup.setLngLat(coordinates).setHTML(buildPopupHtml(props, { interactive: false })).addTo(map);
         bindPopupHover();
     });
 
@@ -486,18 +595,21 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         if (nowMs() < suppressMouseEventsUntilMs || isTouchLikePointer(lastPointerType)) return;
         map.getCanvas().style.cursor = '';
         isOverStation = false;
-        tryHidePopup();
+        if (popupOpenMode === 'hover') tryHidePopup();
     });
 
-    // 触屏：单击站点显示 popup（等同 hover），但不触发任何选线逻辑
+    // 点击站点：打开固定 popup（鼠标/触屏均适用）
     map.on('click', 'stations-layer', (e) => {
         const pt = readPointerType(e?.originalEvent);
-        if (!isTouchLikePointer(pt)) return;
-
         lastPointerType = pt;
-        suppressMouseEventsUntilMs = nowMs() + 800;
+        if (isTouchLikePointer(pt)) {
+            suppressMouseEventsUntilMs = nowMs() + 800;
+        }
 
+        popupOpenMode = 'fixed';
         committedInPopup = false;
+        isOverStation = false;
+        isOverPopup = false;
         clearHideTimer();
         clearHoverTimer();
         hoverCandidateKey = null;
@@ -509,14 +621,13 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         if (!coordinates) return;
         const props = f.properties || {};
 
-        popup.setLngLat(coordinates).setHTML(buildPopupHtml(props)).addTo(map);
+        popup.setLngLat(coordinates).setHTML(buildPopupHtml(props, { interactive: true })).addTo(map);
         bindPopupHover();
     });
 
-    // 触屏：单击空白处收起 popup
+    // 点击空白处：收起固定 popup（鼠标/触屏）
     map.on('click', (e) => {
-        const pt = readPointerType(e?.originalEvent);
-        if (!isTouchLikePointer(pt)) return;
+        if (popupOpenMode !== 'fixed') return;
 
         const popupEl = popup.getElement?.();
         if (!popupEl) return;
@@ -525,11 +636,23 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         const target = e?.originalEvent?.target;
         if (target && popupEl.contains(target)) return;
 
-        // 点在站点圆点上：交给 stations-layer click 处理（显示/更新 popup）
-        const hits = map.queryRenderedFeatures?.(e.point, { layers: ['stations-layer'] }) || [];
+        // 点在站点/线路上：不算空白
+        const layers = [];
+        if (map.getLayer?.('lines-layer')) layers.push('lines-layer');
+        if (map.getLayer?.('stations-layer')) layers.push('stations-layer');
+        const hits = layers.length ? (map.queryRenderedFeatures?.(e.point, { layers }) || []) : [];
         if (hits.length) return;
 
-        removePopupNow({ committed: false });
+        // 固定 popup：点击空白处 = 关闭 popup + 由调用方恢复“全显示”
+        if (typeof onFixedPopupBlankClick === 'function') {
+            try {
+                onFixedPopupBlankClick();
+            } catch {
+                // ignore
+            }
+        }
+
+        removePopupNow({ committed: committedInPopup });
     });
 
     // 外部触发（例如：站名 DOM 标签点击）
@@ -544,18 +667,19 @@ export function setupStationPopup(map, maplibregl, options = {}) {
             }
         }
 
+        popupOpenMode = 'fixed';
         committedInPopup = false;
         clearHideTimer();
         clearHoverTimer();
         hoverCandidateKey = null;
         lastFiredHoverKey = null;
-        tapArmedKey = null;
 
-        popup.setLngLat(coordinates).setHTML(buildPopupHtml(props)).addTo(map);
+        popup.setLngLat(coordinates).setHTML(buildPopupHtml(props, { interactive: true })).addTo(map);
         bindPopupHover();
     };
 
     const setExternalStationHover = (over) => {
+        if (popupOpenMode !== 'hover') return;
         isOverStation = over === true;
         if (isOverStation) {
             clearHideTimer();
@@ -566,6 +690,11 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
     return {
         showPopupAt,
-        setExternalStationHover
+        setExternalStationHover,
+        getOpenMode: () => popupOpenMode,
+        closePopup: ({ committed } = {}) => {
+            // 用于：外部 UI（例如菜单）切换选择时，关闭固定 popup 并清理其内部选中/预览状态。
+            removePopupNow({ committed: committed !== false });
+        }
     };
 }

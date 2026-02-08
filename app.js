@@ -60,12 +60,14 @@ map.on('load', async () => {
     let selectedLineId = null;
     let selectedStationLineIds = null; // Set<string>：点击站点/站名后高亮其 serving_lines
     let selectedServiceMode = 'all';
+    let isolateStationsToSelectedLine = false; // 仅用于“popup 提交线路”：隐藏非该线路站点
     let stationLabelMode = 'auto'; // 'off' | 'auto' | 'all'
     let setStationLabelMode = (_mode) => false;
     // 在 ES module 严格模式下，try/catch 内的 function 声明可能是块级作用域；这里预先声明避免点击时未定义
     // mode: 'preview' | 'commit'
     let fitToCurrentSelection = (_triggerKey, _mode = 'preview') => {};
     let enabledLineIdsByCompany = new Map();
+    let stationPopup = null;
 
     const cssEscape = (value) => {
         const s = String(value);
@@ -153,6 +155,7 @@ map.on('load', async () => {
         selectedCompany = null;
         selectedLineId = null;
         selectedServiceMode = 'all';
+        isolateStationsToSelectedLine = false;
 
         applyLineSelectionStyle();
         applyStationSelectionStyle();
@@ -396,6 +399,8 @@ map.on('load', async () => {
                 ? buildStationAnyLineMatchExpr(Array.from(enabledLineIdsByCompany.get(selectedCompany) ?? []))
                 : buildStationAnyLineMatchExpr(Array.from(selectedStationLineIds ?? []));
 
+        const shouldIsolate = Boolean(selectedLineId) && isolateStationsToSelectedLine === true;
+
         map.setPaintProperty('stations-layer', 'circle-radius', [
             'interpolate',
             ['linear'],
@@ -438,6 +443,18 @@ map.on('load', async () => {
             ]
         ]);
 
+        // 需求（仅对“popup 提交线路”）：隐藏其他站点
+        if (shouldIsolate) {
+            map.setPaintProperty('stations-layer', 'circle-opacity', [
+                'case',
+                isSelectedStation,
+                1,
+                0
+            ]);
+        } else {
+            map.setPaintProperty('stations-layer', 'circle-opacity', 1);
+        }
+
         map.setPaintProperty('stations-layer', 'circle-stroke-width', [
             'case',
             isSelectedStation,
@@ -471,6 +488,7 @@ map.on('load', async () => {
         selectedLineId = null;
         selectedStationLineIds = null;
         selectedServiceMode = 'all';
+        isolateStationsToSelectedLine = false;
         setStationLabelMode('auto');
 
         if (menu && typeof menu.clearActive === 'function') menu.clearActive();
@@ -491,12 +509,25 @@ map.on('load', async () => {
     let popupPreviewSnapshot = null;
     let popupPreviewWasApplied = false;
 
+    const hideStationPopupForMenuInteraction = () => {
+        if (!stationPopup || typeof stationPopup.getOpenMode !== 'function') return;
+        const mode = stationPopup.getOpenMode();
+        if (!mode) return;
+
+        // 菜单 hover/commit 任一交互发生时：站点 popup 应立即隐藏
+        // 同时清理 popup 的预览快照，避免 popup 关闭时回滚干扰菜单预览。
+        popupPreviewSnapshot = null;
+        popupPreviewWasApplied = false;
+        stationPopup.closePopup?.({ committed: true });
+    };
+
     const snapshotSelectionState = () => ({
         selectedCompany,
         selectedLineId,
         selectedStationLineIds: selectedStationLineIds ? Array.from(selectedStationLineIds) : null,
         selectedServiceMode,
-        stationLabelMode
+        stationLabelMode,
+        isolateStationsToSelectedLine
     });
 
     const restoreSelectionState = (snapshot) => {
@@ -508,6 +539,7 @@ map.on('load', async () => {
             : null;
         selectedServiceMode = snapshot.selectedServiceMode;
         setStationLabelMode(snapshot.stationLabelMode);
+        isolateStationsToSelectedLine = snapshot.isolateStationsToSelectedLine === true;
         applySelectionEffects();
     };
 
@@ -890,6 +922,7 @@ map.on('load', async () => {
             hoverDelayMs: 500,
             onCancelSelection: clearSelectionsAndRestore,
             onCompanyClick: (companyName, meta) => {
+                hideStationPopupForMenuInteraction();
                 const source = meta?.source ?? 'click';
                 const commitPreview = meta?.commitPreview === true;
                 selectedStationLineIds = null;
@@ -912,6 +945,7 @@ map.on('load', async () => {
                 }
             },
             onLineClick: (lineId, meta) => {
+                hideStationPopupForMenuInteraction();
                 const source = meta?.source ?? 'click';
                 const commitPreview = meta?.commitPreview === true;
                 selectedStationLineIds = null;
@@ -937,6 +971,7 @@ map.on('load', async () => {
                 }
             },
             onModeClick: ({ lineId, mode }, meta) => {
+                hideStationPopupForMenuInteraction();
                 const source = meta?.source ?? 'click';
                 const commitPreview = meta?.commitPreview === true;
                 selectedStationLineIds = null;
@@ -1027,13 +1062,19 @@ map.on('load', async () => {
             // 右上角三段开关：off/auto(碰撞)/all(无视碰撞)
             getLabelMode: () => stationLabelMode,
             // 高亮线路/公司时：圆点全部显示，避免缩小后站点消失
-            getCircleMode: () => (selectedLineId || selectedCompany ? 'all' : 'collide'),
+            getCircleMode: () => (
+                selectedLineId ||
+                selectedCompany ||
+                (selectedStationLineIds && selectedStationLineIds.size)
+                    ? 'all'
+                    : 'collide'
+            ),
             lineFilterTarget: 'labels'
         });
 
         collisionController.scheduleUpdate();
 
-        const stationPopup = setupStationPopup(map, maplibregl, {
+        stationPopup = setupStationPopup(map, maplibregl, {
             // 悬浮弹框：用 serving_ids 匹配 lines.geojson 的 meta
             getLineMeta: (lineId) => {
                 const id = String(lineId);
@@ -1053,10 +1094,15 @@ map.on('load', async () => {
                 if (source === 'popup-hover') {
                     if (!popupPreviewSnapshot) popupPreviewSnapshot = snapshotSelectionState();
                     popupPreviewWasApplied = true;
-                    selectedCompany = name;
+                    // 需求调整：hover 公司时，不再显示“公司所有线路”，而是显示“通过该站点且属于该公司的线路”
+                    const stationLineIds = Array.isArray(meta?.stationLineIds) ? meta.stationLineIds.map(String).filter(Boolean) : [];
+                    const subset = stationLineIds.filter((id) => String(lineCompanyById.get(String(id)) || '') === name);
+
+                    selectedCompany = null;
                     selectedLineId = null;
-                    selectedStationLineIds = null;
+                    selectedStationLineIds = new Set((subset.length ? subset : stationLineIds).map(String).filter(Boolean));
                     selectedServiceMode = 'all';
+                    isolateStationsToSelectedLine = false;
                     setStationLabelMode('auto');
                     applySelectionEffects();
                     return;
@@ -1069,6 +1115,7 @@ map.on('load', async () => {
                 selectedLineId = null;
                 selectedStationLineIds = null;
                 selectedServiceMode = 'all';
+                isolateStationsToSelectedLine = false;
                 applySelectionEffects();
             },
             onSelectLine: (lineId, meta) => {
@@ -1081,8 +1128,8 @@ map.on('load', async () => {
                     popupPreviewWasApplied = true;
                     selectedLineId = id;
                     selectedCompany = null;
-                    selectedStationLineIds = null;
                     selectedServiceMode = 'all';
+                    isolateStationsToSelectedLine = false;
                     setStationLabelMode('auto');
                     applySelectionEffects();
                     return;
@@ -1096,6 +1143,7 @@ map.on('load', async () => {
                 selectedStationLineIds = null;
                 selectedServiceMode = 'all';
                 setStationLabelMode('all');
+                isolateStationsToSelectedLine = meta?.isolateStations === true;
 
                 // 同步菜单高亮（若菜单存在）
                 if (menu && typeof menu.markActive === 'function') {
@@ -1104,6 +1152,25 @@ map.on('load', async () => {
                 }
 
                 applySelectionEffects();
+            },
+            onRestoreStationLines: (lineIds) => {
+                // popup 内 hover 预览离开：恢复为“该站点所有线路”
+                selectedLineId = null;
+                selectedCompany = null;
+                isolateStationsToSelectedLine = false;
+                selectedServiceMode = 'all';
+
+                if (Array.isArray(lineIds) && lineIds.length) {
+                    selectedStationLineIds = new Set(lineIds.map(String).filter(Boolean));
+                }
+
+                applySelectionEffects();
+            },
+            onFixedPopupBlankClick: () => {
+                // 固定 popup：点击空白处直接恢复“全显示”，且不触发预览快照回滚
+                popupPreviewSnapshot = null;
+                popupPreviewWasApplied = false;
+                clearSelectionsAndRestore();
             },
             onPopupClose: ({ committed }) => {
                 if (!committed && popupPreviewSnapshot && popupPreviewWasApplied) {

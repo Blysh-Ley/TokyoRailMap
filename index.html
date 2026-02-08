@@ -292,7 +292,12 @@
             font-weight: 600;
             white-space: nowrap;
             display: block;
-            cursor: pointer;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding-top: 2px;
+            padding-bottom: 2px;
+            cursor: default;
         }
 
         .station-hover-company {
@@ -306,6 +311,11 @@
             color: #111;
             font-weight: 700;
             white-space: nowrap;
+            cursor: default;
+        }
+
+        .station-hover-popup.is-interactive .station-hover-line,
+        .station-hover-popup.is-interactive .station-hover-company-header {
             cursor: pointer;
         }
 
@@ -318,6 +328,9 @@
 
         .station-hover-company-lines {
             margin-top: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
         }
 
         /* 线路名称首行缩进两个字符（用 2em 近似） */
