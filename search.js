@@ -356,6 +356,9 @@ export function mountSearchUI() {
     let lastTouchDownAt = 0;
     let lastTouchDownKey = null;
 
+    // 触屏适配：第一次 tap = 预览；第二次 tap 同一项 = 提交（不限制间隔时长）
+    let touchTapArmedKey = null;
+
     const startPreviewSessionIfNeeded = () => {
         const actions = getMapActions();
         if (!actions) return null;
@@ -380,6 +383,7 @@ export function mountSearchUI() {
         }
         previewSnapshot = null;
         previewAppliedKey = null;
+        touchTapArmedKey = null;
 
         // station 预览会打开固定 popup；离开预览时关闭
         try {
@@ -596,6 +600,7 @@ export function mountSearchUI() {
                     // 提交：不再回滚预览快照
                     previewSnapshot = null;
                     previewAppliedKey = null;
+                    touchTapArmedKey = null;
 
                     const type = item?.type;
                     if (type === 'company') {
@@ -696,27 +701,19 @@ export function mountSearchUI() {
                 });
 
                 row.addEventListener('click', (evt) => {
-                    // 触屏：用 click 做单击预览 / 双击提交，避免在 pointerdown 阶段收起导致后续合成 click 落到地图上
+                    // 触屏：用 click 做“单击预览 / 同一项第二次点击提交（不限间隔）”，避免在 pointerdown 阶段收起导致后续合成 click 落到地图上
                     const now = Date.now();
                     const isTouchClick = lastTouchDownKey === itemKey && now - lastTouchDownAt <= 1200;
                     if (isTouchClick) {
                         evt.preventDefault?.();
                         evt.stopPropagation?.();
 
-                        // 双击判定（按同一 itemKey）
-                        if (!row.__lastTapAt) row.__lastTapAt = 0;
-                        if (!row.__lastTapKey) row.__lastTapKey = null;
-                        const lastAt = Number(row.__lastTapAt) || 0;
-                        const lastKey = row.__lastTapKey;
-                        const isDouble = lastKey === itemKey && now - lastAt <= 350;
-                        row.__lastTapAt = now;
-                        row.__lastTapKey = itemKey;
-
-                        if (isDouble) {
-                            row.__lastTapAt = 0;
-                            row.__lastTapKey = null;
+                        // 第二次点击同一项：提交；否则：仅预览并 armed
+                        if (touchTapArmedKey === itemKey) {
+                            touchTapArmedKey = null;
                             commitItem({ pointerType: 'touch' });
                         } else {
+                            touchTapArmedKey = itemKey;
                             previewItem({ pointerType: 'touch' });
                         }
                         return;
@@ -754,6 +751,7 @@ export function mountSearchUI() {
     const collapse = ({ clear = false } = {}) => {
         if (clear) ui.clear();
         else maybeEndPreviewSession();
+        touchTapArmedKey = null;
         root.classList.add('is-collapsed');
     };
 
