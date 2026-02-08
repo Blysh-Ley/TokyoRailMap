@@ -186,7 +186,7 @@ map.on('load', async () => {
     }
     const companyLogoMap = {
         JR东日本: {'img':["jreast.png"],'abb':"JR",'type':"JR铁路公司" },
-        东京地下铁: {'img':["Tokyometro.png"],'abb':"东京地下铁" ,'type':"大手私铁/地下铁"},
+        东京地下铁: {'img':["Tokyometro.png",60],'abb':"东京地下铁" ,'type':"大手私铁/地下铁"},
         都营地下铁: {'img':["duyinmetro.svg"],'abb':"都营地下铁" ,'type':"地下铁"},
         都营交通: {'img':["duyinmetro.svg"],'abb':"都营交通" },
         京王电铁: {'img':["jingwang.svg", 65],'abb':"京王",'type':"大手私铁", 'order': ['京王线','新线','井之头'] },

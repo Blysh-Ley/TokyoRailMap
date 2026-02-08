@@ -355,7 +355,8 @@ export function mountSearchUI() {
 
                     if (metas.length) {
                         const wrap = document.createElement('span');
-                        wrap.appendChild(document.createTextNode('（'));
+                        wrap.style.fontSize = '11px';
+                        wrap.appendChild(document.createTextNode('  '));
 
                         metas.forEach((x, idx) => {
                             if (idx > 0) wrap.appendChild(document.createTextNode('、'));
@@ -365,7 +366,7 @@ export function mountSearchUI() {
                             wrap.appendChild(seg);
                         });
 
-                        wrap.appendChild(document.createTextNode('）'));
+                        //wrap.appendChild(document.createTextNode('）'));
                         text.appendChild(wrap);
                     }
                 } else {
