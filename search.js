@@ -302,13 +302,19 @@ export function mountSearchUI() {
 
     const fab = el('button', 'search-fab', { type: 'button', 'aria-label': '搜索' });
     const fabIcon = el('img', 'search-fab-icon', { alt: '' });
-    // 优先按需求使用绝对路径；若站点不是挂在域名根目录，则回退相对路径
-    fabIcon.src = '/icons/search.svg';
-    fabIcon.addEventListener('error', () => {
-        if (fabIcon.src && String(fabIcon.src).includes('/icons/search.svg')) {
-            fabIcon.src = './icons/search.svg';
-        }
-    });
+    // GitHub Pages 往往部署在子路径（例如 /TokyoRailMap/），因此优先使用相对路径
+    // 同时保留“域名根目录”部署的兜底
+    {
+        const candidates = ['./icons/search.svg', '/icons/search.svg'];
+        let idx = 0;
+        fabIcon.src = candidates[idx];
+        fabIcon.addEventListener('error', () => {
+            idx += 1;
+            if (idx < candidates.length) {
+                fabIcon.src = candidates[idx];
+            }
+        });
+    }
     fab.appendChild(fabIcon);
 
     const bar = el('div', 'search-bar');

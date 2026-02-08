@@ -553,8 +553,18 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         let companiesHtml = '';
         for (const [company, lines] of groups) {
             const logoFile = companyLogoMap?.[company]?.img?.[0] || null;
-            const logoHtml = logoFile
-                ? `<img class="station-hover-company-logo" src="/companyLogos/${escapeHtml(logoFile)}" alt="" />`
+            const logoBase = (() => {
+                try {
+                    return window.TokyoRailCompanyLogoBasePath || './companyLogos/';
+                } catch {
+                    return './companyLogos/';
+                }
+            })();
+            const logoSrc = logoFile
+                ? (String(logoBase).endsWith('/') ? `${logoBase}${logoFile}` : `${logoBase}/${logoFile}`)
+                : null;
+            const logoHtml = logoSrc
+                ? `<img class="station-hover-company-logo" src="${escapeHtml(logoSrc)}" alt="" />`
                 : '';
 
             let linesHtml = '';
