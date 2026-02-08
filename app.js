@@ -233,6 +233,14 @@ map.on('load', async () => {
         渡良濑溪谷铁道: {'img':["dulianglai.png",35] }
     };
 
+    // 暴露给 search.js：复用公司 logo 元数据（避免 search.js import app.js 导致重复初始化）
+    try {
+        window.TokyoRailCompanyLogoMap = companyLogoMap;
+        window.TokyoRailCompanyLogoBasePath = './companyLogos/';
+    } catch {
+        // ignore
+    }
+
     function applyLineSelectionStyle() {
         if (!map.getLayer('lines-layer')) return;
 
@@ -390,6 +398,10 @@ map.on('load', async () => {
         if (!selectedLineId && !selectedCompany && !(selectedStationLineIds && selectedStationLineIds.size)) {
             map.setPaintProperty('stations-layer', 'circle-radius', baseStationCircleRadiusExpr());
             map.setPaintProperty('stations-layer', 'circle-stroke-width', baseStationCircleStrokeWidthExpr());
+            // 重要：上一次高亮可能设置过 circle-opacity（仅影响填充，不影响描边），
+            // 若不在“恢复原样式”时重置，会导致换乘站出现“空心圈/圆心透明”。
+            map.setPaintProperty('stations-layer', 'circle-opacity', 1);
+            map.setPaintProperty('stations-layer', 'circle-stroke-opacity', 1);
             map.setPaintProperty('stations-layer', 'circle-color', '#fff');
             map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
             return;

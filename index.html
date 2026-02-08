@@ -82,7 +82,7 @@
         .search-ui {
             position: absolute;
             top: 10px;
-            left: 10px;
+            left: 20px;
             z-index: 9999;
             width: 320px;
             max-width: calc(100vw - 20px);
@@ -187,9 +187,9 @@
         }
 
         .search-result-icon--line {
-            width: 6px;
+            width: 9px;
             height: 18px;
-            border-radius: 3px;
+            border-radius: 0;
             background: #111;
         }
 
@@ -198,7 +198,8 @@
             height: 18px;
             border-radius: 50%;
             background: #fff;
-            border: 2px solid #333;
+            /* 默认（非换乘站）：细描边；换乘站在 search.js 里动态加粗 */
+            border: 0.5px solid #333;
             box-sizing: border-box;
         }
 
