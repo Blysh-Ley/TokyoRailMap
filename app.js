@@ -417,6 +417,13 @@ map.on('load', async () => {
 
         // 点击线路：高亮该线路及其站点（复用现有逻辑）
         map.on('click', 'lines-layer', (e) => {
+            // 若点击点同时命中站点（站点覆盖在线路上），则视为“点击站点”，不高亮线路
+            // 需求：点击站点（或站点与线路一起被点到）时，不应触发线路选中
+            if (map.getLayer('stations-layer')) {
+                const stationHits = map.queryRenderedFeatures(e.point, { layers: ['stations-layer'] }) || [];
+                if (stationHits.length) return;
+            }
+
             const f = e?.features?.[0];
             const lineId = f?.properties?.id ?? f?.id;
             if (lineId == null) return;
