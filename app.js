@@ -726,34 +726,54 @@ map.on('load', async () => {
             const id = String(lineId ?? '').trim();
             if (!id) return;
             hideStationPopupForMenuInteraction();
-            selectedStationLineIds = null;
-            selectedLineId = id;
+
+            const resolved = (menu && typeof menu.resolveLineSelection === 'function')
+                ? menu.resolveLineSelection(id)
+                : null;
+
+            const mainLineId = String(resolved?.mainLineId ?? id);
+            const merged = Array.isArray(resolved?.mergedLineIds)
+                ? resolved.mergedLineIds.map(String).filter(Boolean)
+                : [mainLineId];
+
+            selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+            selectedLineId = mainLineId;
             selectedCompany = null;
             selectedServiceMode = 'all';
             isolateStationsToSelectedLine = false;
             setStationLabelMode('auto');
             applySelectionEffects();
-            fitToCurrentSelection(`line:${id}`, 'preview');
+            fitToCurrentSelection(`line:${selectedLineId}`, 'preview');
         };
 
         searchMapActions.commitLine = (lineId) => {
             const id = String(lineId ?? '').trim();
             if (!id) return;
             hideStationPopupForMenuInteraction();
-            selectedStationLineIds = null;
-            selectedLineId = id;
+
+            const resolved = (menu && typeof menu.resolveLineSelection === 'function')
+                ? menu.resolveLineSelection(id)
+                : null;
+
+            const mainLineId = String(resolved?.mainLineId ?? id);
+            const merged = Array.isArray(resolved?.mergedLineIds)
+                ? resolved.mergedLineIds.map(String).filter(Boolean)
+                : [mainLineId];
+
+            selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+            selectedLineId = mainLineId;
             selectedCompany = null;
             selectedServiceMode = 'all';
             isolateStationsToSelectedLine = false;
             setStationLabelMode('all');
 
             if (menu && typeof menu.markActive === 'function') {
-                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(id)}"]`);
+                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(selectedLineId)}"]`);
                 if (el) menu.markActive(el);
             }
 
             applySelectionEffects();
-            fitToCurrentSelection(`line:${id}`, 'commit');
+            fitToCurrentSelection(`line:${selectedLineId}`, 'commit');
         };
 
         searchMapActions.previewCompany = (companyName) => {
@@ -866,12 +886,20 @@ map.on('load', async () => {
             const lineId = f?.properties?.id ?? f?.id;
             if (lineId == null) return;
 
-            const nextLineId = String(lineId);
+            const rawLineId = String(lineId);
+            const resolved = (menu && typeof menu.resolveLineSelection === 'function')
+                ? menu.resolveLineSelection(rawLineId)
+                : null;
+
+            const mainLineId = String(resolved?.mainLineId ?? rawLineId);
+            const merged = Array.isArray(resolved?.mergedLineIds)
+                ? resolved.mergedLineIds.map(String).filter(Boolean)
+                : [mainLineId];
 
             // 点击线路：永远选中；取消选择仅通过“点击空白处”
-            selectedLineId = nextLineId;
+            selectedLineId = mainLineId;
             selectedCompany = null;
-            selectedStationLineIds = null;
+            selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
             selectedServiceMode = 'all';
             setStationLabelMode('all');
 
@@ -1282,17 +1310,26 @@ map.on('load', async () => {
                 const source = meta?.source ?? 'click';
                 const commitPreview = meta?.commitPreview === true;
 
+                // 菜单已将“支线 -> 主线”解析并给出 mergedLineIds（主线+支线）。
+                // 这里统一以主线作为 selectedLineId，保证底部显示主线名。
+                const resolved = (menu && typeof menu.resolveLineSelection === 'function')
+                    ? menu.resolveLineSelection(lineId)
+                    : null;
+
+                const mainLineId = String(meta?.mainLineId ?? resolved?.mainLineId ?? lineId);
                 const merged = Array.isArray(meta?.mergedLineIds)
                     ? meta.mergedLineIds.map(String).filter(Boolean)
-                    : [String(lineId)];
+                    : (Array.isArray(resolved?.mergedLineIds) ? resolved.mergedLineIds.map(String).filter(Boolean) : [mainLineId]);
 
                 // 线路点击：优先级高于公司点击
                 if (source === 'hover') {
-                    selectedLineId = lineId;
+                    selectedLineId = mainLineId;
                     selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
                     setStationLabelMode('auto');
                 } else {
-                    selectedLineId = commitPreview ? lineId : (selectedLineId === lineId ? null : lineId);
+                    selectedLineId = commitPreview
+                        ? mainLineId
+                        : (selectedLineId === mainLineId ? null : mainLineId);
                 }
                 if (selectedLineId) selectedCompany = null;
                 selectedServiceMode = 'all';
@@ -1489,11 +1526,20 @@ map.on('load', async () => {
                 const id = String(lineId ?? '').trim();
                 if (!id) return;
 
+                const resolved = (menu && typeof menu.resolveLineSelection === 'function')
+                    ? menu.resolveLineSelection(id)
+                    : null;
+                const mainLineId = String(resolved?.mainLineId ?? id);
+                const merged = Array.isArray(resolved?.mergedLineIds)
+                    ? resolved.mergedLineIds.map(String).filter(Boolean)
+                    : [mainLineId];
+
                 if (source === 'popup-hover') {
                     if (!popupPreviewSnapshot) popupPreviewSnapshot = snapshotSelectionState();
                     popupPreviewWasApplied = true;
-                    selectedLineId = id;
+                    selectedLineId = mainLineId;
                     selectedCompany = null;
+                    selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
                     selectedServiceMode = 'all';
                     isolateStationsToSelectedLine = false;
                     setStationLabelMode('auto');
@@ -1504,9 +1550,9 @@ map.on('load', async () => {
                 // popup click：提交高亮（同“点击线路”效果），但不执行 fitBounds
                 popupPreviewSnapshot = null;
                 popupPreviewWasApplied = false;
-                selectedLineId = id;
+                selectedLineId = mainLineId;
                 selectedCompany = null;
-                selectedStationLineIds = null;
+                selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
                 selectedServiceMode = 'all';
                 setStationLabelMode('all');
                 isolateStationsToSelectedLine = meta?.isolateStations === true;

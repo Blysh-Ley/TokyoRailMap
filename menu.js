@@ -70,6 +70,48 @@ export class Menu {
 
         // 菜单显示线路 -> 实际需要高亮的线路集合（主线 + 若干支线）
         this._mergedLineIdsByMenuLineId = new Map();
+
+        // 任意线路（主/支） -> 主线 id（用于统一选择/底部显示）
+        this._mainLineIdByAnyLineId = new Map();
+
+        // 主线 id -> 菜单显示名（用于底部显示主线名/外部 UI 需要时）
+        this._lineDisplayNameById = new Map();
+
+        // 主线 id -> 菜单中的 a.RW-line-content（用于“点支线时菜单高亮主线”）
+        this._lineContentElByLineId = new Map();
+    }
+
+    // ---------------------------
+    // 归并解析（对外/对内通用）
+    // ---------------------------
+    _resolveMainLineId(anyLineId) {
+        const id = String(anyLineId ?? '').trim();
+        if (!id) return '';
+        return this._mainLineIdByAnyLineId?.get(id) || id;
+    }
+
+    resolveLineSelection(anyLineId) {
+        const rawLineId = String(anyLineId ?? '').trim();
+        if (!rawLineId) return null;
+
+        const mainLineId = this._resolveMainLineId(rawLineId);
+        const mergedLineIds = this._mergedLineIdsByMenuLineId?.get(String(mainLineId)) || [String(mainLineId)];
+
+        const mainLineName =
+            this._lineDisplayNameById?.get(String(mainLineId)) ||
+            this.linesObj?.[String(mainLineId)]?.simplified ||
+            String(mainLineId);
+
+        return {
+            rawLineId,
+            mainLineId: String(mainLineId),
+            mainLineName: String(mainLineName),
+            mergedLineIds: Array.isArray(mergedLineIds) ? mergedLineIds.map(String).filter(Boolean) : [String(mainLineId)]
+        };
+    }
+
+    _getMenuLineElByMainLineId(mainLineId) {
+        return this._lineContentElByLineId?.get(String(mainLineId)) || null;
     }
 
     // ---------------------------
@@ -146,9 +188,22 @@ export class Menu {
         if (lineEl) {
             const lineId = lineEl.dataset.lineId;
             if (!lineId) return;
-            this.markActive(lineEl);
-            const mergedLineIds = this._mergedLineIdsByMenuLineId?.get(String(lineId)) || [String(lineId)];
-            if (this.onLineClick) this.onLineClick(lineId, { source: 'hover', mergedLineIds });
+
+            const resolved = this.resolveLineSelection(lineId);
+            if (!resolved) return;
+
+            // 若未来菜单显示支线：hover 支线时，菜单高亮应落在主线项上
+            const activeEl = this._getMenuLineElByMainLineId(resolved.mainLineId) || lineEl;
+
+            this.markActive(activeEl);
+            if (this.onLineClick) {
+                this.onLineClick(lineId, {
+                    source: 'hover',
+                    mainLineId: resolved.mainLineId,
+                    mainLineName: resolved.mainLineName,
+                    mergedLineIds: resolved.mergedLineIds
+                });
+            }
             return;
         }
 
@@ -200,6 +255,9 @@ export class Menu {
     build() {
         // 每次 build 重新计算（linesObj 可能会变）
         this._mergedLineIdsByMenuLineId = new Map();
+        this._mainLineIdByAnyLineId = new Map();
+        this._lineDisplayNameById = new Map();
+        this._lineContentElByLineId = new Map();
 
         const frag = document.createDocumentFragment();
 
@@ -374,6 +432,12 @@ export class Menu {
             const branchesByMain = new Map(); // mainId -> [branchIds]
             const mergedBranchIds = new Set();
 
+            // 先填默认映射：主线/支线都默认映射到自己（后面支线会覆盖为主线）
+            for (const [lineIdRaw] of companyLines) {
+                const id = String(lineIdRaw);
+                if (!this._mainLineIdByAnyLineId.has(id)) this._mainLineIdByAnyLineId.set(id, id);
+            }
+
             for (const [lineIdRaw, meta] of companyLines) {
                 const lineId = String(lineIdRaw);
                 if (!isBranchLineId(lineId)) continue;
@@ -384,6 +448,13 @@ export class Menu {
                     if (!branchesByMain.has(target)) branchesByMain.set(target, []);
                     branchesByMain.get(target).push(lineId);
                     mergedBranchIds.add(lineId);
+
+                    // 支线 -> 主线
+                    this._mainLineIdByAnyLineId.set(String(lineId), String(target));
+                    // 主线 -> 主线（确保存在）
+                    if (!this._mainLineIdByAnyLineId.has(String(target))) {
+                        this._mainLineIdByAnyLineId.set(String(target), String(target));
+                    }
                 }
             }
 
@@ -430,6 +501,10 @@ export class Menu {
 
                 lineContent.textContent = lineName;
                 lineContent.dataset.lineId = String(lineId);
+
+                // 缓存主线显示名与菜单元素
+                this._lineDisplayNameById.set(String(lineId), String(lineName));
+                this._lineContentElByLineId.set(String(lineId), lineContent);
 
                 const mergedLineIds = [String(lineId)].concat(branchesByMain.get(String(lineId)) || []);
                 this._mergedLineIdsByMenuLineId.set(String(lineId), mergedLineIds);
@@ -679,13 +754,24 @@ export class Menu {
                 const lineId = lineA.dataset.lineId;
                 if (!lineId) return;
 
-                const commitPreview = !this._committedSinceEnter && this._activeMenuEl === lineA;
+                const resolved = this.resolveLineSelection(lineId);
+                if (!resolved) return;
 
-                const mergedLineIds = this._mergedLineIdsByMenuLineId?.get(String(lineId)) || [String(lineId)];
+                const activeEl = this._getMenuLineElByMainLineId(resolved.mainLineId) || lineA;
+                const commitPreview = !this._committedSinceEnter && this._activeMenuEl === activeEl;
 
-                this.markActive(lineA);
+                this.markActive(activeEl);
                 this._committedSinceEnter = true;
-                if (this.onLineClick) this.onLineClick(lineId, { source: 'click', commitPreview, mergedLineIds });
+
+                if (this.onLineClick) {
+                    this.onLineClick(lineId, {
+                        source: 'click',
+                        commitPreview,
+                        mainLineId: resolved.mainLineId,
+                        mainLineName: resolved.mainLineName,
+                        mergedLineIds: resolved.mergedLineIds
+                    });
+                }
                 this.collapse();
                 return;
             }
