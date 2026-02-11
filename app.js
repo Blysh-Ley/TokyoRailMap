@@ -1,4 +1,4 @@
-import { loadGeoJSON } from './data.js';
+import { loadRailGeoDataFromDataFolder } from './data.js';
 import { addLinesLayer, addStationsLayer, setupStationPopup } from './layers.js';
 import { createStationMarkers } from './labels.js';
 import { setupCollisions } from './collision.js';
@@ -189,53 +189,55 @@ map.on('load', async () => {
         selectionBadgeEl.classList.add('is-hidden');
     }
     const companyLogoMap = {
-        JR东日本: {'img':["jreast.png"],'abb':"JR",'type':"JR铁路公司" },
-        东京地下铁: {'img':["Tokyometro.png",60],'abb':"东京地下铁" ,'type':"大手私铁/地下铁"},
-        都营地下铁: {'img':["duyinmetro.svg"],'abb':"都营地下铁" ,'type':"地下铁"},
-        都营交通: {'img':["duyinmetro.svg"],'abb':"都营交通" },
-        京王电铁: {'img':["jingwang.svg", 65],'abb':"京王",'type':"大手私铁", 'order': ['京王线','新线','井之头'] },
-        东武铁道: {'img':["dongwu.svg", 70],'abb':"东武",'type':"大手私铁", 'order': ['晴空塔','伊势崎','日光','东上','都市公园','龟户'] },
-        东急电铁: {'img':["dongji.png"],'abb':"东急",'type':"大手私铁" },
-        西武铁道: {'img':["xiwu.png"],'abb':"西武",'type':"大手私铁" ,'order': ['池袋','新宿'] },
-        京急电铁: {'img':["jingji.png", 65],'abb':"京急",'type':"大手私铁", 'order': ['本线','空港'] },
-        小田急电铁: {'img':["xiaotianji.png"],'abb':"小田急",'type':"大手私铁", 'order': ['小田原', '江之岛','多摩'] },
-        京成电铁: {'img':["jingcheng.png", 60],'abb':"京成" ,'type':"大手私铁",'order':['本线','空港','押上']},
-        相模铁道: {'img':["xiangmo.png"],'abb':"相铁",'type':"大手私铁" },
-        北总铁道:{'img':["beizong.png", 80] },
-        首都圈新都市铁道: {'img':["TsukubaExpress.png", 40] },
-        东京单轨电车: {'img':["tokyoMonorail.png"] },
-        东京临海高速铁道: {'img':["linhai.png",40] },
-        新交通百合鸥: {'img':["yurikamome.png", 45] },
-        迪士尼: {'img':["disney.png", 65],'abb':" " },
-        横滨市营地下铁: {'img':["yokohamaMetro.svg"],'type':"地下铁" },
-        横滨海岸线: {'img':["YokohamaSeaside.png", 45] },
-        横滨高速铁道: {'img':["gangweilai.png"]},
-        横滨索道: {'img':["quanyang.png"]},
-        千叶都市单轨: {'img':["chibaMonorail.png", 35] },
-        东叶高速铁道: {'img':["dongyegaosu.png",40] },
-        流铁: {'img':["liutie.png",35] },
-        山万: {'img':["shanwan.png",35] },
-        埼玉新都市交通: {'img':["SaitamaNUT.png"] },
-        埼玉高速铁道: {'img':["qiyugaosu.png",50] },
-        多摩都市单轨: {'img':["TamaMonorail.png"] },
-        湘南单轨电车: {'img':["shonanMonorail.png", 50] },
-        关东铁道: {'img':["guandong.png",35]},	
-        江之岛电铁:{'img':["jiangdian.png",60]},	
-        宇都宫轻轨:{'img':["yudugong.png",35]},
-        鹿岛临海铁道:{'img':["ludao.png",35]},
-        铫子电气铁道:{'img':["yaozi.png",35]},
-        夷隅铁道:{'img':["yiou.png",35]},
-        富士急行:{'img':["fushi.png",40]},
-        芝山铁道:{'img':["zhishan.png"]},
-        小凑铁道:{'img':["xiaocou.png",35]},
-        伊豆急行:{'img':["yidouji.png"]},
-        伊豆箱根铁道: {'img':["yidouxianggen.png",35] },
-        秩父铁道: {'img':["zhifu.svg",35] },
-        上毛电气铁道: {'img':["shangmao.svg",35] },
-        真冈铁道: {'img':["zhengang.svg",35] },
-        上信电铁: {'img':["shangxin.svg",35] },
-        渡良濑溪谷铁道: {'img':["dulianglai.png",35] }
-    };
+    'JR-East': { 'zh': 'JR东日本', 'img': ["jreast.png"], 'abb': "JR", 'type': "JR铁路公司" },
+    'TokyoMetro': { 'zh': '东京地下铁', 'img': ["Tokyometro.png", 60], 'abb': "东京地下铁", 'type': "大手私铁/地下铁" },
+    'Toei': { 'zh': '都营地下铁', 'img': ["duyinmetro.svg"], 'abb': "都营地下铁", 'type': "地下铁" },
+    //'Toei': { 'zh': '都营交通', 'img': ["duyinmetro.svg"],'abb':"都营交通" },
+    'Keio': { 'zh': '京王电铁', 'img': ["jingwang.svg", 65], 'abb': "京王", 'type': "大手私铁", 'order': ['京王线', '新线', '井之头'] },
+    'Tobu': { 'zh': '东武铁道', 'img': ["dongwu.svg", 70], 'abb': "东武", 'type': "大手私铁", 'order': ['晴空塔', '伊势崎', '日光', '东上', '都市公园', '龟户'] },
+    'Tokyu': { 'zh': '东急电铁', 'img': ["dongji.png"], 'abb': "东急", 'type': "大手私铁" },
+    'Seibu': { 'zh': '西武铁道', 'img': ["xiwu.png"], 'abb': "西武", 'type': "大手私铁", 'order': ['池袋', '新宿'] },
+    'Keikyu': { 'zh': '京急电铁', 'img': ["jingji.png", 65], 'abb': "京急", 'type': "大手私铁", 'order': ['本线', '空港'] },
+    'Odakyu': { 'zh': '小田急电铁', 'img': ["xiaotianji.png"], 'abb': "小田急", 'type': "大手私铁", 'order': ['小田原', '江之岛', '多摩'] },
+    'Keisei': { 'zh': '京成电铁', 'img': ["jingcheng.png", 60], 'abb': "京成", 'type': "大手私铁", 'order': ['本线', '空港', '押上'] },
+    'Sotetsu': { 'zh': '相模铁道', 'img': ["xiangmo.png"], 'abb': "相铁", 'type': "大手私铁" },
+    'Hokuso': { 'zh': '北总铁道', 'img': ["beizong.png", 80] },
+    'MIR': { 'zh': '首都圈新都市铁道', 'img': ["TsukubaExpress.png", 40] },
+    'TokyoMonorail': { 'zh': '东京单轨电车', 'img': ["tokyoMonorail.png"] },
+    'TWR': { 'zh': '东京临海高速铁道', 'img': ["linhai.png", 40] },
+    'Yurikamome': { 'zh': '新交通百合鸥', 'img': ["yurikamome.png", 45] },
+    'Disney': { 'zh': '迪士尼', 'img': ["disney.png", 65], 'abb': " " },
+    'YokohamaMunicipal': { 'zh': '横滨市营地下铁', 'img': ["yokohamaMetro.svg"], 'type': "地下铁" },
+    'YokohamaSeaside': { 'zh': '横滨海岸线', 'img': ["YokohamaSeaside.png", 45] },
+    'Minatomirai': { 'zh': '横滨高速铁道', 'img': ["gangweilai.png"] },
+    //'Yokohama Ropeway': { 'zh': '横滨索道', 'img': ["quanyang.png"]},
+    'ChinaMonorail': { 'zh': '千叶都市单轨', 'img': ["chibaMonorail.png", 35] },
+    'ToyoRapid': { 'zh': '东叶高速铁道', 'img': ["dongyegaosu.png", 40] },
+    'Ryutetsu': { 'zh': '流铁', 'img': ["liutie.png", 35] },
+    'Yamaman': { 'zh': '山万', 'img': ["shanwan.png", 35] },
+    'SaitamaTransit': { 'zh': '埼玉新都市交通', 'img': ["SaitamaNUT.png"] },
+    'SaitamaRailway': { 'zh': '埼玉高速铁道', 'img': ["qiyugaosu.png", 50] },
+    'TamaMonorail': { 'zh': '多摩都市单轨', 'img': ["TamaMonorail.png"] },
+    'ShonanMonorail': { 'zh': '湘南单轨电车', 'img': ["shonanMonorail.png", 50] },
+    'KantoRailway': { 'zh': '关东铁道', 'img': ["guandong.png", 35] },
+    'Enoden': { 'zh': '江之岛电铁', 'img': ["jiangdian.png", 60] },
+    'UtsunomiyaLightRail': { 'zh': '宇都宫轻轨', 'img': ["yudugong.png", 35] },
+    'KashimaRinkai': { 'zh': '鹿岛临海铁道', 'img': ["ludao.png", 35] },
+    'Choshi': { 'zh': '铫子电气铁道', 'img': ["yaozi.png", 35] },
+    'Isumi': { 'zh': '夷隅铁道', 'img': ["yiou.png", 35] },
+    'Fujikyu': { 'zh': '富士急行', 'img': ["fushi.png", 40] },
+    'Shibayama': { 'zh': '芝山铁道', 'img': ["zhishan.png"] },
+    'Kominato': { 'zh': '小凑铁道', 'img': ["xiaocou.png", 35] },
+    'Izukyu': { 'zh': '伊豆急行', 'img': ["yidouji.png"] },
+    //'Izuhakone Railway': { 'zh': '伊豆箱根铁道', 'img':["yidouxianggen.png",35] },
+    'Chichibu': { 'zh': '秩父铁道', 'img': ["zhifu.svg", 35] },
+    //'Jōmō Electric Railway': { 'zh': '上毛电气铁道', 'img':["shangmao.svg",35] },
+    //'Mooka Railway': { 'zh': '真冈铁道', 'img':["zhengang.svg",35] },
+    //'Jōshin Dentetsu': { 'zh': '上信电铁', 'img':["shangxin.svg",35] },
+    //'Watarase Keikoku Railway': { 'zh': '渡良濑溪谷铁道', 'img':["dulianglai.png",35] }
+};
+
+
 
     // 暴露给 search.js：复用公司 logo 元数据（避免 search.js import app.js 导致重复初始化）
     try {
@@ -251,24 +253,32 @@ map.on('load', async () => {
         const baseColorExpr = ['coalesce', ['get', 'color'], '#555'];
 
         // 线路优先：选中线路时，忽略公司选中
+        // 但如果菜单把支线合并到主线（selectedStationLineIds 里包含多条），则按集合高亮。
         if (selectedLineId) {
+            const mergedIds = (selectedStationLineIds && selectedStationLineIds.size > 1)
+                ? Array.from(selectedStationLineIds).map(String).filter(Boolean)
+                : null;
+            const hitExpr = mergedIds
+                ? ['in', ['get', 'id'], ['literal', mergedIds]]
+                : ['==', ['get', 'id'], selectedLineId];
+
             map.setPaintProperty('lines-layer', 'line-color', [
                 'case',
-                ['==', ['get', 'id'], selectedLineId],
+                hitExpr,
                 baseColorExpr,
                 '#999'
             ]);
 
             map.setPaintProperty('lines-layer', 'line-width', [
                 'case',
-                ['==', ['get', 'id'], selectedLineId],
+                hitExpr,
                 3,
                 1.2
-            ]);
+            ]); //线宽，线路宽度
 
             map.setPaintProperty('lines-layer', 'line-opacity', [
                 'case',
-                ['==', ['get', 'id'], selectedLineId],
+                hitExpr,
                 1,
                 0.6
             ]);
@@ -295,7 +305,7 @@ map.on('load', async () => {
                 hitExpr,
                 3,
                 1.2
-            ]);
+            ]);//线宽，线路宽度
 
             map.setPaintProperty('lines-layer', 'line-opacity', [
                 'case',
@@ -309,7 +319,7 @@ map.on('load', async () => {
 
         if (!selectedCompany) {
             map.setPaintProperty('lines-layer', 'line-color', baseColorExpr);
-            map.setPaintProperty('lines-layer', 'line-width', 3);
+            map.setPaintProperty('lines-layer', 'line-width', 3); //线宽
             map.setPaintProperty('lines-layer', 'line-opacity', 1);
             return;
         }
@@ -411,8 +421,14 @@ map.on('load', async () => {
             return;
         }
 
+        const mergedIdsForSelectedLine = (selectedLineId && selectedStationLineIds && selectedStationLineIds.size > 1)
+            ? Array.from(selectedStationLineIds).map(String).filter(Boolean)
+            : null;
+
         const isSelectedStation = selectedLineId
-            ? ['in', selectedLineId, platformIdsExpr]
+            ? (mergedIdsForSelectedLine
+                ? buildStationAnyLineMatchExpr(mergedIdsForSelectedLine)
+                : ['in', selectedLineId, platformIdsExpr])
             : selectedCompany
                 ? buildStationAnyLineMatchExpr(Array.from(enabledLineIdsByCompany.get(selectedCompany) ?? []))
                 : buildStationAnyLineMatchExpr(Array.from(selectedStationLineIds ?? []));
@@ -488,7 +504,10 @@ map.on('load', async () => {
     function getEnabledLineIdsForLabels() {
         // 需求：选择线路不变、其他线路变灰变细；且“其他线路站点不显示站点名”
         // 这里返回“当前选中线路集合”，只用于站名筛选（圆点不筛选）。
-        if (selectedLineId) return new Set([selectedLineId]);
+        if (selectedLineId) {
+            if (selectedStationLineIds && selectedStationLineIds.size > 1) return selectedStationLineIds;
+            return new Set([selectedLineId]);
+        }
 
         if (selectedStationLineIds && selectedStationLineIds.size) {
             return selectedStationLineIds;
@@ -959,14 +978,43 @@ map.on('load', async () => {
 
     mountStationLabelToggle();
 
+    let generatedLinesData = null;
+    let generatedStationsData = null;
+
     try {
-        const linesData = await loadGeoJSON('./lines.geojson');
+        const { linesGeoJSON, linesGeoJSONByZoom, stationsGeoJSON, diagnostics } = await loadRailGeoDataFromDataFolder();
+        generatedLinesData = linesGeoJSON;
+        generatedStationsData = stationsGeoJSON;
+
+        /*
+        try {
+            const items = Array.isArray(diagnostics?.largeGaps) ? diagnostics.largeGaps : [];
+            if (items.length) {
+                // 同一条线路可能有多个 segment 触发；按 id 取 max
+                const byId = new Map();
+                for (const it of items) {
+                    const id = String(it?.id || '').trim();
+                    if (!id) continue;
+                    const prev = byId.get(id);
+                    if (!prev || (it?.maxJumpMeters ?? 0) > (prev?.maxJumpMeters ?? 0)) byId.set(id, it);
+                }
+                const sorted = Array.from(byId.values()).sort((a, b) => (b?.maxJumpMeters ?? 0) - (a?.maxJumpMeters ?? 0));
+                console.warn('[数据检查] 存在“大跨度跳跃”的线路（按最大相邻点跳跃降序）：');
+                for (const it of sorted) {
+                    const km = ((it?.maxJumpMeters ?? 0) / 1000).toFixed(2);
+                    console.warn(`- ${it?.titleZhHans || it?.id} (${it?.id}): ${km}km`);
+                }
+            } else {
+                console.log('[数据检查] 未发现“大跨度跳跃”的线路');
+            }
+        } catch {
+            // ignore
+        }
+        */
+        const linesData = (linesGeoJSONByZoom && linesGeoJSONByZoom[18]) || linesGeoJSON;
         addLinesLayer(map, linesData);
 
-        // 线路偏移（像素）：从 lines.geojson 的 properties.offset 读取；没有则默认为 0
-        if (map.getLayer('lines-layer')) {
-            map.setPaintProperty('lines-layer', 'line-offset', ['coalesce', ['get', 'offset'], 0]);
-        }
+        // 需求：无视缩放比例，不做 zoom 级别切换
 
         // 构造 RWMenuCore 所需数据：companyObj / linesObj
         const lineFeatures = Array.isArray(linesData?.features)
@@ -1137,11 +1185,23 @@ map.on('load', async () => {
 
             // 预计算该线路 geometry bounds
             const bbox = bboxFromGeometry(f.geometry);
-            if (bbox) lineBoundsById.set(String(lineId), bbox);
+            if (bbox) {
+                const key = String(lineId);
+                const prev = lineBoundsById.get(key) ?? null;
+                lineBoundsById.set(key, unionBBox(prev, bbox));
+            }
         }
 
         function getBBoxForSelected() {
             if (selectedLineId) {
+                if (selectedStationLineIds && selectedStationLineIds.size > 1) {
+                    let b = null;
+                    for (const id of selectedStationLineIds) {
+                        b = unionBBox(b, lineBoundsById.get(String(id)) ?? null);
+                    }
+                    return b ?? null;
+                }
+
                 const b = lineBoundsById.get(String(selectedLineId));
                 return b ?? null;
             }
@@ -1221,16 +1281,26 @@ map.on('load', async () => {
                 hideStationPopupForMenuInteraction();
                 const source = meta?.source ?? 'click';
                 const commitPreview = meta?.commitPreview === true;
-                selectedStationLineIds = null;
+
+                const merged = Array.isArray(meta?.mergedLineIds)
+                    ? meta.mergedLineIds.map(String).filter(Boolean)
+                    : [String(lineId)];
+
                 // 线路点击：优先级高于公司点击
                 if (source === 'hover') {
                     selectedLineId = lineId;
+                    selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
                     setStationLabelMode('auto');
                 } else {
                     selectedLineId = commitPreview ? lineId : (selectedLineId === lineId ? null : lineId);
                 }
                 if (selectedLineId) selectedCompany = null;
                 selectedServiceMode = 'all';
+
+                // 菜单 Branch 合并：点击/提交时同时高亮其归并的支线
+                if (source !== 'hover') {
+                    selectedStationLineIds = selectedLineId && merged.length > 1 ? new Set(merged) : null;
+                }
 
                 // 需求：高亮线路时自动切换为站名全显（仅对 click/commit 生效，避免 hover 预览频繁切换）
                 if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
@@ -1316,7 +1386,7 @@ map.on('load', async () => {
     }
 
     try {
-        const stationsData = await loadGeoJSON('./stations.geojson');
+        const stationsData = generatedStationsData || (await loadRailGeoDataFromDataFolder()).stationsGeoJSON;
         addStationsLayer(map, stationsData);
 
         // 站点圆点点击：高亮该站点所有 serving_lines（不执行 fitBounds）

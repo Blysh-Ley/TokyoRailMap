@@ -67,6 +67,9 @@ export class Menu {
 
         // 统一“进入/离开菜单会话”的语义（鼠标用 enter/leave，触屏用 tap in/out）
         this._sessionActive = false;
+
+        // 菜单显示线路 -> 实际需要高亮的线路集合（主线 + 若干支线）
+        this._mergedLineIdsByMenuLineId = new Map();
     }
 
     // ---------------------------
@@ -133,10 +136,10 @@ export class Menu {
         const modeEl = content.classList.contains('RW-linedirc-content') ? content : null;
 
         if (companyEl) {
-            const companyName = companyEl.querySelector('.RW-company-name')?.textContent?.trim();
-            if (!companyName) return;
+            const companyId = companyEl.dataset.companyId || companyEl.getAttribute('data-company-id') || companyEl.querySelector('.RW-company-name')?.textContent?.trim();
+            if (!companyId) return;
             this.markActive(companyEl);
-            if (this.onCompanyClick) this.onCompanyClick(companyName, { source: 'hover' });
+            if (this.onCompanyClick) this.onCompanyClick(companyId, { source: 'hover' });
             return;
         }
 
@@ -144,7 +147,8 @@ export class Menu {
             const lineId = lineEl.dataset.lineId;
             if (!lineId) return;
             this.markActive(lineEl);
-            if (this.onLineClick) this.onLineClick(lineId, { source: 'hover' });
+            const mergedLineIds = this._mergedLineIdsByMenuLineId?.get(String(lineId)) || [String(lineId)];
+            if (this.onLineClick) this.onLineClick(lineId, { source: 'hover', mergedLineIds });
             return;
         }
 
@@ -194,6 +198,9 @@ export class Menu {
     // 1) 生成菜单 DOM
     // ---------------------------
     build() {
+        // 每次 build 重新计算（linesObj 可能会变）
+        this._mergedLineIdsByMenuLineId = new Map();
+
         const frag = document.createDocumentFragment();
 
         this.wrapper = this.addTag(
@@ -214,25 +221,25 @@ export class Menu {
 
         const companiesRaw = Object.keys(this.companyObj || {});
         const preferredOrder = [
-            'JR东日本',
-            '都营地下铁',
-            '横滨市营地下铁',
-            '东京地下铁',
-            '东武铁道',
-            '京成电铁',
-            '西武铁道',
-            '小田急电铁',
-            '东急电铁',
-            '京王电铁',
-            '京急电铁',
-            '相模铁道',
-            '都营交通',
-            '东京单轨电车',
-            '首都圈新都市铁道',
-            '湘南单轨电车',
-            '千叶都市单轨',
-            '多摩都市单轨',
-            '北总铁道'
+            'JR-East',           // JR东日本
+            'Toei',              // 都营地下铁
+            'YokohamaMunicipal', // 横滨市营地下铁
+            'TokyoMetro',        // 东京地下铁
+            'Tobu',              // 东武铁道
+            'Keisei',            // 京成电铁
+            'Seibu',             // 西武铁道
+            'Odakyu',            // 小田急电铁
+            'Tokyu',             // 东急电铁
+            'Keio',              // 京王电铁
+            'Keikyu',            // 京急电铁
+            'Sotetsu',           // 相模铁道
+            'Toei',              // 都营交通 (原数据中该项Key也为Toei)
+            'TokyoMonorail',     // 东京单轨电车
+            'MIR',               // 首都圈新都市铁道
+            'ShonanMonorail',    // 湘南单轨电车
+            'ChinaMonorail',     // 千叶都市单轨 (对应原数据Key)
+            'TamaMonorail',      // 多摩都市单轨
+            'Hokuso'             // 北总铁道
         ];
 
         const rank = new Map(preferredOrder.map((name, idx) => [name, idx]));
@@ -247,6 +254,53 @@ export class Menu {
         });
         const lines = Object.entries(this.linesObj || {});
 
+        const shouldHideInMenuByZhFreight = (meta) => {
+            const zhName = String(meta?.simplified || '').trim();
+            return zhName.includes('货物') || zhName.includes('大崎支线');
+        };
+
+        const isBranchLineId = (lineId) => typeof lineId === 'string' && lineId.endsWith('Branch');
+
+        const splitCamelWords = (s) => {
+            // e.g. MusashinoNishiUrawa -> [Musashino, Nishi, Urawa]
+            if (!s) return [];
+            const m = String(s).match(/[A-Z][a-z0-9]*/g);
+            return Array.isArray(m) ? m : [];
+        };
+
+        const findMergeTargetId = (branchLineId, existsFn) => {
+            if (!isBranchLineId(branchLineId)) return null;
+
+            // 特例：这两条支线在数据语义上应归并到武藏野线而非京叶线
+            // 需求：JR-East.KeiyoKoyaBranch / JR-East.KeiyoFutamataBranch -> JR-East.Musashino
+            const specialMainByBranch = {
+                'JR-East.KeiyoKoyaBranch': 'JR-East.Musashino',
+                'JR-East.KeiyoFutamataBranch': 'JR-East.Musashino'
+            };
+            const special = specialMainByBranch[String(branchLineId)];
+            if (special && existsFn(special)) return special;
+
+            const full = String(branchLineId);
+            const noBranch = full.slice(0, -'Branch'.length);
+
+            const dot = noBranch.lastIndexOf('.');
+            if (dot < 0) return existsFn(noBranch) ? noBranch : null;
+
+            const prefix = noBranch.slice(0, dot + 1);
+            const suffix = noBranch.slice(dot + 1);
+            const words = splitCamelWords(suffix);
+            if (!words.length) return existsFn(noBranch) ? noBranch : null;
+
+            // 尝试：JR-East.MusashinoNishiUrawa -> JR-East.MusashinoNishi -> JR-East.Musashino
+            for (let n = words.length; n >= 1; n--) {
+                const cand = prefix + words.slice(0, n).join('');
+                if (existsFn(cand)) return cand;
+            }
+
+            // 兜底：直接用去掉 Branch 后的完整 id
+            return existsFn(noBranch) ? noBranch : null;
+        };
+
         const computeLineDisplayName = (lineId, meta, abb) => {
             let lineName = meta?.simplified || String(lineId);
             if (lineName !== abb + '线' && lineName !== abb + '本线' && lineName !== abb + '新线') {
@@ -258,13 +312,16 @@ export class Menu {
         companies.forEach((companyName) => {
             const [companyContent, lineListEl] = this.addSubMenu(this.wrapperList, 'company', 'line');
             companyContent.classList.add('RW-company-content');
+            // 内部 id 固定用英文 key；显示可用中文。
+            // 注意：hover/click 回调会使用该 id 来匹配 lines-layer 的 properties.company。
+            companyContent.dataset.companyId = String(companyName);
 
             const leftBox = document.createElement('div');
             leftBox.className = 'RW-company-left';
 
             const nameSpan = document.createElement('span');
             nameSpan.className = 'RW-company-name';
-            nameSpan.textContent = companyName;
+            nameSpan.textContent = this.companyLogoMap?.[companyName]?.zh || companyName;
             leftBox.appendChild(nameSpan);
 
             const type = this.companyLogoMap?.[companyName]?.type || null;
@@ -299,12 +356,48 @@ export class Menu {
             // 线路层（按公司过滤）
             const companyLines = lines.filter(([, meta]) => meta && meta.company === companyName);
 
+            // ---- Branch 支线归并（只影响菜单显示/回调，不改变数据源/Popup 等）----
+            const companyLineMetaById = new Map(companyLines.map(([id, meta]) => [String(id), meta]));
+            const companyLineIds = new Set(companyLines.map(([id]) => String(id)));
+
+            const existsMainInCompany = (cand) => {
+                const id = String(cand);
+                if (!companyLineIds.has(id)) return false;
+                if (isBranchLineId(id)) return false;
+                const meta = companyLineMetaById.get(id);
+                if (!(meta && meta.company === companyName)) return false;
+                // 若主线本身会被菜单隐藏（货物线），则不要把支线归并过去，避免支线也一起“消失”。
+                if (shouldHideInMenuByZhFreight(meta)) return false;
+                return true;
+            };
+
+            const branchesByMain = new Map(); // mainId -> [branchIds]
+            const mergedBranchIds = new Set();
+
+            for (const [lineIdRaw, meta] of companyLines) {
+                const lineId = String(lineIdRaw);
+                if (!isBranchLineId(lineId)) continue;
+                if (!meta || meta.company !== companyName) continue;
+
+                const target = findMergeTargetId(lineId, existsMainInCompany);
+                if (target && target !== lineId) {
+                    if (!branchesByMain.has(target)) branchesByMain.set(target, []);
+                    branchesByMain.get(target).push(lineId);
+                    mergedBranchIds.add(lineId);
+                }
+            }
+
             const preferredLineOrderRaw = this.companyLogoMap?.[companyName]?.order;
             const preferredLineOrder = Array.isArray(preferredLineOrderRaw)
                 ? preferredLineOrderRaw.map((x) => String(x)).filter(Boolean)
                 : null;
 
             const decorated = companyLines.map(([lineId, meta], idx) => {
+                // 若该支线已归并到主线，则不在菜单中显示
+                if (mergedBranchIds.has(String(lineId))) return null;
+
+                // 仅菜单隐藏：中文名包含“货物”的线路不在菜单中显示
+                if (shouldHideInMenuByZhFreight(meta)) return null;
                 const lineName = computeLineDisplayName(lineId, meta, abb);
 
                 let orderRank = Number.POSITIVE_INFINITY;
@@ -321,20 +414,25 @@ export class Menu {
                 return { lineId, meta, idx, lineName, orderRank };
             });
 
+            const decoratedFiltered = decorated.filter(Boolean);
+
             // 稳定排序：优先名单按指定顺序，其余线路保持原顺序
             if (preferredLineOrder && preferredLineOrder.length) {
-                decorated.sort((a, b) => {
+                decoratedFiltered.sort((a, b) => {
                     if (a.orderRank !== b.orderRank) return a.orderRank - b.orderRank;
                     return a.idx - b.idx;
                 });
             }
 
-            decorated.forEach(({ lineId, meta, lineName }) => {
+            decoratedFiltered.forEach(({ lineId, meta, lineName }) => {
                 // 线路项 + 运行模式子菜单
                 const lineContent = this.addSubMenu(lineListEl, 'line');
 
                 lineContent.textContent = lineName;
                 lineContent.dataset.lineId = String(lineId);
+
+                const mergedLineIds = [String(lineId)].concat(branchesByMain.get(String(lineId)) || []);
+                this._mergedLineIdsByMenuLineId.set(String(lineId), mergedLineIds);
 
                 /*
                 const [lineContent,] = this.addSubMenu(lineListEl, 'line','linedirc');
@@ -563,15 +661,15 @@ export class Menu {
 
             if (companyA && this.wrapper.contains(companyA)) {
                 e.preventDefault();
-                const companyName = companyA.querySelector('.RW-company-name')?.textContent?.trim();
-                if (!companyName) return;
+                const companyId = companyA.dataset.companyId || companyA.getAttribute('data-company-id') || companyA.querySelector('.RW-company-name')?.textContent?.trim();
+                if (!companyId) return;
 
                 // 若先通过 hover 预览选中了该项，则本次 click 视为“提交预览”，不应触发反向 toggle
                 const commitPreview = !this._committedSinceEnter && this._activeMenuEl === companyA;
 
                 this.markActive(companyA);
                 this._committedSinceEnter = true;
-                if (this.onCompanyClick) this.onCompanyClick(companyName, { source: 'click', commitPreview });
+                if (this.onCompanyClick) this.onCompanyClick(companyId, { source: 'click', commitPreview });
                 this.collapse();
                 return;
             }
@@ -583,9 +681,11 @@ export class Menu {
 
                 const commitPreview = !this._committedSinceEnter && this._activeMenuEl === lineA;
 
+                const mergedLineIds = this._mergedLineIdsByMenuLineId?.get(String(lineId)) || [String(lineId)];
+
                 this.markActive(lineA);
                 this._committedSinceEnter = true;
-                if (this.onLineClick) this.onLineClick(lineId, { source: 'click', commitPreview });
+                if (this.onLineClick) this.onLineClick(lineId, { source: 'click', commitPreview, mergedLineIds });
                 this.collapse();
                 return;
             }

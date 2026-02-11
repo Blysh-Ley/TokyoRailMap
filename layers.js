@@ -12,7 +12,7 @@ export function addLinesLayer(map, linesData) {
         source: 'lines-source',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
-            'line-width': 3,
+            'line-width': 3, //线宽
             'line-color': ['coalesce', ['get', 'color'], '#555']
         }
     });
@@ -556,6 +556,9 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
         let companiesHtml = '';
         for (const [company, lines] of groups) {
+            const companyZh = companyLogoMap?.[company]?.zh || null;
+            const companyDisplay = String(companyZh || company);
+
             const logoFile = companyLogoMap?.[company]?.img?.[0] || null;
             const logoBase = (() => {
                 try {
@@ -582,7 +585,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
             companiesHtml += `
                 <div class="station-hover-company">
-                    <div class="station-hover-company-header" data-company="${escapeHtml(company)}">${logoHtml}<span class="station-hover-company-name">${escapeHtml(company)}</span></div>
+                    <div class="station-hover-company-header" data-company="${escapeHtml(company)}">${logoHtml}<span class="station-hover-company-name">${escapeHtml(companyDisplay)}</span></div>
                     <div class="station-hover-company-lines">${linesHtml}</div>
                 </div>
             `;
