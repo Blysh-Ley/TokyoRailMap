@@ -190,6 +190,7 @@ map.on('load', async () => {
     }
     const companyLogoMap = {
     'JR-East': { 'zh': 'JR东日本', 'img': ["jreast.png"], 'abb': "JR", 'type': "JR铁路公司" },
+    'JR-Central': { 'zh': 'JR东海', 'img': ["jrc.svg"], 'abb': "JR东海", 'type': "JR铁路公司" },
     'TokyoMetro': { 'zh': '东京地下铁', 'img': ["Tokyometro.png", 60], 'abb': "东京地下铁", 'type': "大手私铁/地下铁" },
     'Toei': { 'zh': '都营地下铁', 'img': ["duyinmetro.svg"], 'abb': "都营地下铁", 'type': "地下铁" },
     //'Toei': { 'zh': '都营交通', 'img': ["duyinmetro.svg"],'abb':"都营交通" },
@@ -211,7 +212,7 @@ map.on('load', async () => {
     'YokohamaSeaside': { 'zh': '横滨海岸线', 'img': ["YokohamaSeaside.png", 45] },
     'Minatomirai': { 'zh': '横滨高速铁道', 'img': ["gangweilai.png"] },
     //'Yokohama Ropeway': { 'zh': '横滨索道', 'img': ["quanyang.png"]},
-    'ChinaMonorail': { 'zh': '千叶都市单轨', 'img': ["chibaMonorail.png", 35] },
+    'ChibaMonorail': { 'zh': '千叶都市单轨', 'img': ["chibaMonorail.png", 35] },
     'ToyoRapid': { 'zh': '东叶高速铁道', 'img': ["dongyegaosu.png", 40] },
     'Ryutetsu': { 'zh': '流铁', 'img': ["liutie.png", 35] },
     'Yamaman': { 'zh': '山万', 'img': ["shanwan.png", 35] },
@@ -229,10 +230,12 @@ map.on('load', async () => {
     'Shibayama': { 'zh': '芝山铁道', 'img': ["zhishan.png"] },
     'Kominato': { 'zh': '小凑铁道', 'img': ["xiaocou.png", 35] },
     'Izukyu': { 'zh': '伊豆急行', 'img': ["yidouji.png"] },
-    //'Izuhakone Railway': { 'zh': '伊豆箱根铁道', 'img':["yidouxianggen.png",35] },
+    'Hitachinaka':{'zh':'常陆那珂海滨铁道','img':["hitachinaka.svg",35]},
+    'IzuHakone': { 'zh': '伊豆箱根铁道', 'img':["yidouxianggen.png",35] },
+    'OdakyuHakone': { 'zh': '箱根登山铁道', 'img':["xiaotianji.png"] },
     'Chichibu': { 'zh': '秩父铁道', 'img': ["zhifu.svg", 35] },
     //'Jōmō Electric Railway': { 'zh': '上毛电气铁道', 'img':["shangmao.svg",35] },
-    //'Mooka Railway': { 'zh': '真冈铁道', 'img':["zhengang.svg",35] },
+    'Moka': { 'zh': '真冈铁道', 'img':["zhengang.svg",35] },
     //'Jōshin Dentetsu': { 'zh': '上信电铁', 'img':["shangxin.svg",35] },
     //'Watarase Keikoku Railway': { 'zh': '渡良濑溪谷铁道', 'img':["dulianglai.png",35] }
 };
