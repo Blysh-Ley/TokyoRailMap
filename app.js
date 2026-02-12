@@ -4,6 +4,7 @@ import { createStationMarkers } from './labels.js';
 import { setupCollisions } from './collision.js';
 import { Menu } from './menu.js';
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
+import { createPanel } from './panel.js';
 
 // MapLibre 通过 CDN 以全局变量方式引入
 const maplibregl = window.maplibregl;
@@ -74,6 +75,9 @@ map.on('load', async () => {
     let stationPopup = null;
     let stationLabels = [];
     let fixedPopupStationId = null;
+
+    // 右侧界面：站点/站名点击时弹出
+    const panel = createPanel();
 
     const cssEscape = (value) => {
         const s = String(value);
@@ -841,7 +845,9 @@ map.on('load', async () => {
         };
 
         searchMapActions.commitStation = (stationId, meta) => {
-            openFixedPopupForStationId(stationId, meta || {});
+            const opened = openFixedPopupForStationId(stationId, meta || {});
+            // search 提交站点选择：弹出右侧 panel
+            panel?.showForStationProps?.(opened?.props || {});
         };
 
         // 方便搜索预览结束时收起 popup（如果需要）
@@ -863,6 +869,9 @@ map.on('load', async () => {
             // 若没有可查询的图层，视为“空白”
             const hits = layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [];
             if (hits.length) return;
+
+            // 点击空白处：隐藏右侧 panel
+            panel?.hide?.();
 
             // 已经是“全显示”状态就不做任何事（避免多余刷新）
             if (!selectedCompany && !selectedLineId && !(selectedStationLineIds && selectedStationLineIds.size)) return;
@@ -940,6 +949,9 @@ map.on('load', async () => {
             const props = f?.properties || {};
             setFixedPopupStationLabelBelow(props.id ?? f?.id);
             selectServingLinesForStation(props);
+
+            // 打开右侧界面 A
+            panel?.showForStationProps?.(props);
         });
     }
 
@@ -1626,6 +1638,9 @@ map.on('load', async () => {
                 selectServingLinesForStation(item.props || {});
                 stationPopup.setExternalStationHover?.(true);
                 stationPopup.showPopupAt(item.coordinates, item.props || {}, { pointerType: pt });
+
+                // 打开右侧界面 A
+                panel?.showForStationProps?.(item.props || {});
             };
 
             stationLabels.forEach((item) => {

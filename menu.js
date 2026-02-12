@@ -291,11 +291,11 @@ export class Menu {
             'Keio',              // 京王电铁
             'Keikyu',            // 京急电铁
             'Sotetsu',           // 相模铁道
-            'Toei',              // 都营交通 (原数据中该项Key也为Toei)
+            'Toei',              // 都营交通
             'TokyoMonorail',     // 东京单轨电车
             'MIR',               // 首都圈新都市铁道
             'ShonanMonorail',    // 湘南单轨电车
-            'ChinaMonorail',     // 千叶都市单轨 (对应原数据Key)
+            'ChibaMonorail',     // 千叶都市单轨 
             'TamaMonorail',      // 多摩都市单轨
             'Hokuso'             // 北总铁道
         ];
@@ -431,6 +431,8 @@ export class Menu {
 
             const branchesByMain = new Map(); // mainId -> [branchIds]
             const mergedBranchIds = new Set();
+            const exceptionSet = new Set();
+            exceptionSet.add('Odakyu.JROdakyuConnection'); // 小田急JR连接线 不归并
 
             // 先填默认映射：主线/支线都默认映射到自己（后面支线会覆盖为主线）
             for (const [lineIdRaw] of companyLines) {
@@ -469,6 +471,9 @@ export class Menu {
 
                 // 仅菜单隐藏：中文名包含“货物”的线路不在菜单中显示
                 if (shouldHideInMenuByZhFreight(meta)) return null;
+
+                if (exceptionSet.has(String(lineId))) return null;
+                
                 const lineName = computeLineDisplayName(lineId, meta, abb);
 
                 let orderRank = Number.POSITIVE_INFINITY;
