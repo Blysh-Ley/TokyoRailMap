@@ -246,6 +246,98 @@
             display: none;
         }
 
+        /* ===== 右侧 panel：样式隔离（panel-*） ===== */
+        .panel-container {
+            margin-top: 0;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.92);
+            border-style: solid;
+            border-color: #e3e5e7;
+            border-width: 1px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, .1);
+            overflow: hidden;
+            opacity: 1;
+            transition: opacity 0.2s ease;
+        }
+
+        .panel-list {
+            list-style: none;
+            margin: 0;
+            padding: 4px 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .panel-list::-webkit-scrollbar {
+            display: none;
+        }
+
+        .panel-popup {
+            font-size: 12px;
+            line-height: 1.2;
+            color: #111;
+        }
+
+        .panel-name {
+            font-size: 20px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .panel-line {
+            font-size: 15px;
+            font-weight: 600;
+            white-space: nowrap;
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding-top: 2px;
+            padding-bottom: 2px;
+            cursor: default;
+        }
+
+        .panel-company {
+            margin-top: 6px;
+        }
+
+        .panel-company-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #111;
+            font-weight: 700;
+            white-space: nowrap;
+            cursor: default;
+        }
+
+        .panel-popup.is-interactive .panel-line,
+        .panel-popup.is-interactive .panel-company-header {
+            cursor: pointer;
+        }
+
+        .panel-company-logo {
+            width: 20px;
+            height: 20px;
+            object-fit: contain;
+            flex: 0 0 20px;
+        }
+
+        .panel-company-lines {
+            margin-top: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .panel-company-name {
+            font-size: 18px;
+        }
+
+        .panel-company-lines .panel-line {
+            padding-left: 1.7em;
+        }
+
         .search-result-item {
             display: flex;
             align-items: center;

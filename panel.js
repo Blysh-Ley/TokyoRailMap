@@ -1,6 +1,6 @@
 /**
  * 右侧弹出界面：点击站点/站名时展示站名标题。
- * 约束：不引入新配色/主题；尽量复用 index.html 中 search-results 的视觉样式。
+ * 约束：不引入新配色/主题；panel 样式使用 panel-* 前缀与 search/popup/menu 隔离。
  */
 
 const toText = (v) => String(v ?? '').trim();
@@ -109,25 +109,25 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap } = {}) {
             ? (String(logoBase).endsWith('/') ? `${logoBase}${logoFile}` : `${logoBase}/${logoFile}`)
             : null;
         const logoHtml = logoSrc
-            ? `<img class="station-hover-company-logo" src="${escapeHtml(logoSrc)}" alt="" />`
+            ? `<img class="panel-company-logo" src="${escapeHtml(logoSrc)}" alt="" />`
             : '';
 
         let linesHtml = '';
         for (const line of lines) {
             const style = typeof line.color === 'string' && line.color.trim() ? ` style="color:${escapeHtml(line.color.trim())}"` : '';
             const idAttr = line.lineId ? ` data-line-id="${escapeHtml(String(line.lineId))}"` : '';
-            linesHtml += `<div class="station-hover-line"${idAttr}${style}>${escapeHtml(line.displayName)}</div>`;
+            linesHtml += `<div class="panel-line"${idAttr}${style}>${escapeHtml(line.displayName)}</div>`;
         }
 
         companiesHtml += `
-            <div class="station-hover-company">
-                <div class="station-hover-company-header" data-company="${escapeHtml(company)}">${logoHtml}<span class="station-hover-company-name">${escapeHtml(companyDisplay)}</span></div>
-                <div class="station-hover-company-lines">${linesHtml}</div>
+            <div class="panel-company">
+                <div class="panel-company-header" data-company="${escapeHtml(company)}">${logoHtml}<span class="panel-company-name">${escapeHtml(companyDisplay)}</span></div>
+                <div class="panel-company-lines">${linesHtml}</div>
             </div>
         `;
     }
 
-    return `<div class="station-hover-popup is-interactive">${companiesHtml}</div>`;
+    return `<div class="panel-popup is-interactive">${companiesHtml}</div>`;
 }
 
 export function createPanel(options = {}) {
@@ -154,9 +154,9 @@ export function createPanel(options = {}) {
     root.style.transform = 'translateX(calc(100% + 24px))';
     root.style.transition = 'transform 0.2s ease';
 
-    // 面板主体：复用 search-results 的圆角/边框/阴影等
+    // 面板主体：视觉同 search-results，但 class 使用 panel-* 隔离
     const panel = document.createElement('div');
-    panel.className = 'search-results';
+    panel.className = 'panel-container';
     panel.style.marginTop = '0';
     panel.style.maxHeight = 'none';
     panel.style.height = '100%';
@@ -189,7 +189,7 @@ export function createPanel(options = {}) {
     // 内容区：承载 popup 同结构的公司/线路列表
     const body = document.createElement('div');
     body.setAttribute('data-panel-body', '');
-    body.className = 'search-results-list';
+    body.className = 'panel-list';
     body.style.flex = '1 1 auto';
     body.style.paddingLeft = '10px';
     body.style.paddingRight = '10px';
@@ -418,7 +418,7 @@ export function createPanel(options = {}) {
         root.style.top = `${top}px`;
         root.style.height = `${height}px`;
 
-        // 复用 search-results 的圆角半径（若能读到）
+        // 保持可配置：允许通过 CSS 调整圆角
         try {
             const br = window.getComputedStyle(panel).borderRadius;
             if (br) {

@@ -5,6 +5,7 @@ import { setupCollisions } from './collision.js';
 import { Menu } from './menu.js';
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { createPanel } from './panel.js';
+import { getGlobalTimetableCache } from './timetableCache.js';
 
 // MapLibre 通过 CDN 以全局变量方式引入
 const maplibregl = window.maplibregl;
@@ -78,6 +79,9 @@ map.on('load', async () => {
 
     // 右侧界面：站点/站名/搜索提交站点时弹出（在 applySelectionEffects 定义后初始化）
     let panel = null;
+
+    // 时刻表虚拟内存缓存（按线路 id 预加载 train-timetables/*.json）
+    const timetableCache = getGlobalTimetableCache({ maxBytes: 50 * 1024 * 1024 });
 
     const cssEscape = (value) => {
         const s = String(value);
@@ -927,6 +931,14 @@ map.on('load', async () => {
         searchMapActions.commitStation = (stationId, meta) => {
             const opened = openStationForStationId(stationId, meta || {});
             panel?.showForStationProps?.(opened?.props || {});
+
+            // 预加载该站点关联线路的时刻表
+            try {
+                const ids = getServingLineIdsFromStationProps(opened?.props || {});
+                timetableCache?.preloadByLineIds?.(ids);
+            } catch {
+                // ignore
+            }
         };
 
         // 方便搜索预览结束时收起 popup（如果需要）
@@ -1030,6 +1042,14 @@ map.on('load', async () => {
 
             // 打开右侧界面 A
             panel?.showForStationProps?.(props);
+
+            // 预加载该站点关联线路的时刻表
+            try {
+                const ids = getServingLineIdsFromStationProps(props);
+                timetableCache?.preloadByLineIds?.(ids);
+            } catch {
+                // ignore
+            }
         });
     }
 
@@ -1714,6 +1734,14 @@ map.on('load', async () => {
             const fireStationLabelTap = (item, pt) => {
                 selectServingLinesForStation(item.props || {});
                 panel?.showForStationProps?.(item.props || {});
+
+                // 预加载该站点关联线路的时刻表
+                try {
+                    const ids = getServingLineIdsFromStationProps(item.props || {});
+                    timetableCache?.preloadByLineIds?.(ids);
+                } catch {
+                    // ignore
+                }
             };
 
             stationLabels.forEach((item) => {
