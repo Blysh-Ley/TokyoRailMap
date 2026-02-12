@@ -170,22 +170,8 @@ class LruTimetableCache {
         const promise = (async () => {
             try {
                 const url = `./data/train-timetables/${encodeURIComponent(key)}.json`;
-                if (this.logFetch) {
-                    try {
-                        console.log('[timetable] fetch', url);
-                    } catch {
-                        // ignore
-                    }
-                }
                 const resp = await fetch(url);
                 if (!resp.ok) {
-                    if (this.logFetch) {
-                        try {
-                            console.log('[timetable] fetch failed', resp.status, url);
-                        } catch {
-                            // ignore
-                        }
-                    }
                     return null;
                 }
                 const data = await resp.json();
@@ -278,13 +264,6 @@ class LruTimetableCache {
             const refs = collectPtNtRefs(data, { maxNodes: 20000 });
             if (!refs.length) continue;
 
-            if (this.logDiscover) {
-                try {
-                    console.log('[timetable] discover pt/nt', cacheKey, refs.length);
-                } catch {
-                    // ignore
-                }
-            }
 
             for (const ref of refs) {
                 const baseLineId = deriveBaseLineIdFromPtNt(ref);
@@ -293,14 +272,6 @@ class LruTimetableCache {
                 if (!baseKey || scheduledKeys.has(baseKey) || this.expanded.has(baseKey)) continue;
                 discovered += 1;
                 scheduledKeys.add(baseKey);
-
-                if (this.logDiscover) {
-                    try {
-                        console.log('[timetable] enqueue derived', ref, '->', baseKey);
-                    } catch {
-                        // ignore
-                    }
-                }
 
                 queue.push(baseLineId);
             }

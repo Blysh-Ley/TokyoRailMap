@@ -561,7 +561,10 @@ export function createPanel(options = {}) {
 
             const ds = Array.isArray(trip?.ds) ? trip.ds : (trip?.ds ? [trip.ds] : []);
             const destId = toText(ds?.[0]);
-            const destName = destId ? (stationsIndex?.idToNameZh?.get?.(destId) || destId) : '';
+
+            const dir = toText(trip?.d);
+            const loopDest = (dir === 'InnerLoop' ? '内环' : (dir === 'OuterLoop' ? '外环' : ''));
+            const destName = loopDest || (destId ? (stationsIndex?.idToNameZh?.get?.(destId) || destId) : '');
 
             const typeId = toText(trip?.y);
             const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
