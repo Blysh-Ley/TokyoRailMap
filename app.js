@@ -76,8 +76,8 @@ map.on('load', async () => {
     let stationLabels = [];
     let fixedPopupStationId = null;
 
-    // 右侧界面：站点/站名点击时弹出
-    const panel = createPanel();
+    // 右侧界面：站点/站名/搜索提交站点时弹出（在 applySelectionEffects 定义后初始化）
+    let panel = null;
 
     const cssEscape = (value) => {
         const s = String(value);
@@ -550,6 +550,89 @@ map.on('load', async () => {
         updateSelectionBadge();
     };
 
+    // 初始化右侧 panel，并复用 popup 的数据结构与交互语义（hover=预览，click=提交）
+    panel = createPanel({
+        hoverDelayMs: 50,
+        companyLogoMap,
+        getLineMeta: (lineId) => {
+            const id = String(lineId);
+            return {
+                company: lineCompanyById.get(id) || null,
+                name: lineNameById.get(id) || id,
+                color: lineColorById.get(id) || null
+            };
+        },
+        onSelectCompany: (companyName, meta) => {
+            const source = meta?.source;
+            const name = String(companyName ?? '').trim();
+            if (!name) return;
+
+            const stationLineIds = Array.isArray(meta?.stationLineIds) ? meta.stationLineIds.map(String).filter(Boolean) : [];
+            const subset = stationLineIds.filter((id) => String(lineCompanyById.get(String(id)) || '') === name);
+            const nextIds = (subset.length ? subset : stationLineIds).map(String).filter(Boolean);
+
+            selectedCompany = null;
+            selectedLineId = null;
+            selectedStationLineIds = nextIds.length ? new Set(nextIds) : null;
+            selectedServiceMode = 'all';
+            isolateStationsToSelectedLine = false;
+            setStationLabelMode('auto');
+            applySelectionEffects();
+        },
+        onSelectLine: (lineId, meta) => {
+            const source = meta?.source;
+            const id = String(lineId ?? '').trim();
+            if (!id) return;
+
+            const resolved = (menu && typeof menu.resolveLineSelection === 'function')
+                ? menu.resolveLineSelection(id)
+                : null;
+            const mainLineId = String(resolved?.mainLineId ?? id);
+            const merged = Array.isArray(resolved?.mergedLineIds)
+                ? resolved.mergedLineIds.map(String).filter(Boolean)
+                : [mainLineId];
+
+            if (source === 'panel-hover') {
+                selectedLineId = mainLineId;
+                selectedCompany = null;
+                selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+                selectedServiceMode = 'all';
+                isolateStationsToSelectedLine = false;
+                setStationLabelMode('auto');
+                applySelectionEffects();
+                return;
+            }
+
+            // panel click：提交高亮（不执行 fitBounds）
+            selectedLineId = mainLineId;
+            selectedCompany = null;
+            selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+            selectedServiceMode = 'all';
+            setStationLabelMode('all');
+            isolateStationsToSelectedLine = meta?.isolateStations === true;
+
+            if (menu && typeof menu.markActive === 'function') {
+                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(selectedLineId)}"]`);
+                if (el) menu.markActive(el);
+            }
+
+            applySelectionEffects();
+        },
+        onRestoreStationLines: (lineIds) => {
+            selectedLineId = null;
+            selectedCompany = null;
+            isolateStationsToSelectedLine = false;
+            selectedServiceMode = 'all';
+
+            if (Array.isArray(lineIds) && lineIds.length) {
+                selectedStationLineIds = new Set(lineIds.map(String).filter(Boolean));
+            }
+
+            setStationLabelMode('auto');
+            applySelectionEffects();
+        }
+    });
+
     const setFixedPopupStationLabelBelow = (stationId) => {
         fixedPopupStationId = stationId != null ? String(stationId) : null;
 
@@ -824,7 +907,7 @@ map.on('load', async () => {
         };
 
         // station 的 popup 依赖 stationsData 加载完成后初始化的 stationPopup；这里先挂函数，内部做空值保护
-        const openFixedPopupForStationId = (stationId, meta = {}) => {
+        const openStationForStationId = (stationId, meta = {}) => {
             const item = findStationLabelItemById(stationId);
             if (!item) return null;
 
@@ -832,21 +915,17 @@ map.on('load', async () => {
             const coords = item.coordinates;
             const pt = meta?.pointerType ? String(meta.pointerType) : 'mouse';
 
-            setFixedPopupStationLabelBelow(props.id ?? item.stationId);
             selectPlatformLinesForStation(props);
-            stationPopup?.setExternalStationHover?.(true);
-            stationPopup?.showPopupAt?.(coords, props, { pointerType: pt });
             fitToPointAsBounds(coords, { maxZoom: meta?.maxZoom });
             return { props, coords };
         };
 
         searchMapActions.previewStation = (stationId, meta) => {
-            openFixedPopupForStationId(stationId, meta || {});
+            openStationForStationId(stationId, meta || {});
         };
 
         searchMapActions.commitStation = (stationId, meta) => {
-            const opened = openFixedPopupForStationId(stationId, meta || {});
-            // search 提交站点选择：弹出右侧 panel
+            const opened = openStationForStationId(stationId, meta || {});
             panel?.showForStationProps?.(opened?.props || {});
         };
 
@@ -947,7 +1026,6 @@ map.on('load', async () => {
 
             const f = e?.features?.[0];
             const props = f?.properties || {};
-            setFixedPopupStationLabelBelow(props.id ?? f?.id);
             selectServingLinesForStation(props);
 
             // 打开右侧界面 A
@@ -1618,8 +1696,8 @@ map.on('load', async () => {
             // ignore
         }
 
-        // 站名标签：鼠标点击/触屏点击也弹出 popup（等同 hover 站点圆点）
-        if (stationPopup && typeof stationPopup.showPopupAt === 'function') {
+        // 站名标签：鼠标点击/触屏点击打开右侧 panel（popup 不再固定）
+        {
             const isTouchLike = (pt) => pt === 'touch' || pt === 'pen';
             const readPointerType = (evt) => {
                 const pt = evt?.pointerType;
@@ -1634,12 +1712,7 @@ map.on('load', async () => {
             };
 
             const fireStationLabelTap = (item, pt) => {
-                setFixedPopupStationLabelBelow(item.props?.id ?? item.stationId);
                 selectServingLinesForStation(item.props || {});
-                stationPopup.setExternalStationHover?.(true);
-                stationPopup.showPopupAt(item.coordinates, item.props || {}, { pointerType: pt });
-
-                // 打开右侧界面 A
                 panel?.showForStationProps?.(item.props || {});
             };
 
