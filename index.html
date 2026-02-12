@@ -323,12 +323,69 @@
             user-select: none;
         }
 
+        .panel-timetable-root {
+            margin-top: 2px;
+        }
+
+        .panel-dir-header {
+            margin: 6px 0 4px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #111;
+            padding-top: 3px;
+            padding-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .panel-dir-title {
+            flex: 1 1 auto;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .panel-dir-prefix,
+        .panel-dir-suffix {
+            flex: 0 0 auto;
+            pointer-events: none;
+        }
+
+        .panel-dir-marquee {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .panel-dir-marquee-inner {
+            display: inline-block;
+            white-space: nowrap;
+            will-change: transform;
+        }
+
+        .panel-dir-triangle {
+            flex: 0 0 auto;
+            font-size: 14px;
+            opacity: 0.75;
+            pointer-events: none;
+        }
+
         .panel-timetable {
             margin-top: 2px;
-            margin-bottom: 2px;
+            margin-bottom: 8px;
             /* 与线路名左对齐：外层 .panel-company-lines .panel-line 已经有 padding-left */
             padding-left: 0;
             touch-action: pan-y;
+            overflow: hidden;
         }
 
         .panel-timetable.is-collapsed {
@@ -358,8 +415,6 @@
             justify-content: space-between;
             gap: 8px;
             font-size: 12px;
-            font-weight: 500;
-            color: #111;
             padding-top: 1px;
             padding-bottom: 1px;
             white-space: nowrap;

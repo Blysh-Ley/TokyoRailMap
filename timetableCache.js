@@ -20,7 +20,9 @@ const toFileStem = (lineId) => {
         .replace(/^JR[.-]East\b/i, 'JREast')
         .replace(/^JR[.-]Central\b/i, 'JRCentral')
         .replace(/^JR-East\b/i, 'JREast')
-        .replace(/^JR-Central\b/i, 'JRCentral');
+        .replace(/^JR-Central\b/i, 'JRCentral')
+        .replace(/^Seibu.S-Yurakucho\b/i, 'Seibu.SYurakucho')
+        .replace(/^Seibu.S-Fukutoshin\b/i, 'Seibu.SFukutoshin'); // 特例：西武有乐町线
 
     return normalized.replace(/\./g, '-').toLowerCase();
 };

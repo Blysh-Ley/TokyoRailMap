@@ -275,14 +275,13 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap } = {}) {
             const style = typeof line.color === 'string' && line.color.trim() ? ` style="color:${escapeHtml(line.color.trim())}"` : '';
             const idAttr = line.lineId ? ` data-line-id="${escapeHtml(String(line.lineId))}"` : '';
 
-            // 线路条目：标题行 + 折叠按钮 + 班次列表容器（初始为空，showForStationProps 后异步填充）
+            // 线路条目：标题行 + 班次容器（内部按方向 d 分组；方向可展开/收回）
             linesHtml += `
                 <div class="panel-line"${idAttr}${style}>
                     <div class="panel-line-header">
                         <span class="panel-line-name">${escapeHtml(line.displayName)}</span>
-                        <span class="panel-line-toggle" data-line-toggle="1" aria-hidden="true">▸</span>
                     </div>
-                    <div class="panel-timetable is-collapsed" data-timetable-root="1"></div>
+                    <div class="panel-timetable-root" data-timetable-root="1"></div>
                 </div>
             `;
         }
@@ -422,29 +421,19 @@ export function createPanel(options = {}) {
     // 时刻表日类型过滤
     let currentServiceDay = 'Weekday'; // 'Weekday' | 'SaturdayHoliday'
 
-    // per-line expand state within current station view
-    let expandedLineIds = new Set();
     let mouseArmedKey = null;
     let timetableRenderToken = 0;
 
-    const setLineExpanded = (lineId, expanded) => {
-        const id = toText(lineId);
-        if (!id) return;
-        if (expanded) expandedLineIds.add(id);
-        else expandedLineIds.delete(id);
-
-        const el = body.querySelector(`[data-line-id="${escapeHtml(id)}"]`);
-        if (!el) return;
-        const toggle = el.querySelector('[data-line-toggle]');
-        const tt = el.querySelector('[data-timetable-root]');
-        if (toggle) toggle.textContent = expanded ? '▾' : '▸';
-        if (tt) {
-            tt.classList.toggle('is-expanded', expanded);
-            tt.classList.toggle('is-collapsed', !expanded);
-        }
+    // expanded state per (lineId, direction)
+    let expandedDirKeys = new Set();
+    const dirKeyOf = (lineId, dir) => `${toText(lineId)}||${toText(dir) || 'Unknown'}`;
+    const isDirExpanded = (lineId, dir) => expandedDirKeys.has(dirKeyOf(lineId, dir));
+    const setDirExpanded = (lineId, dir, expanded) => {
+        const k = dirKeyOf(lineId, dir);
+        if (!k) return;
+        if (expanded) expandedDirKeys.add(k);
+        else expandedDirKeys.delete(k);
     };
-
-    const getLineExpanded = (lineId) => expandedLineIds.has(toText(lineId));
 
     const applyDayToggleUi = () => {
         const day = currentServiceDay;
@@ -519,7 +508,7 @@ export function createPanel(options = {}) {
         return hit || sid || null;
     };
 
-    const buildTimetableRowsHtml = async ({ lineId, stationId, limit, showAll = false }) => {
+    const buildTimetableRowsHtml = async ({ lineId, stationId }) => {
         const stationKey = toText(stationId);
         if (!stationKey) return '';
 
@@ -566,6 +555,17 @@ export function createPanel(options = {}) {
             const loopDest = (dir === 'InnerLoop' ? '内环' : (dir === 'OuterLoop' ? '外环' : ''));
             const destName = loopDest || (destId ? (stationsIndex?.idToNameZh?.get?.(destId) || destId) : '');
 
+            const destNamesForDir = (() => {
+                if (loopDest) return [loopDest];
+                const out = [];
+                for (const x of ds) {
+                    const id = toText(x);
+                    if (!id) continue;
+                    out.push(stationsIndex?.idToNameZh?.get?.(id) || id);
+                }
+                return out.length ? out : (destName ? [destName] : []);
+            })();
+
             const typeId = toText(trip?.y);
             const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
 
@@ -580,18 +580,32 @@ export function createPanel(options = {}) {
                 depPlus: !!depParsed?.isNextDaySegment,
                 timeMs,
                 isPast: timeMs < now,
-                typeName
+                typeName,
+                dir,
+                destNamesForDir
             });
         }
 
         if (!rows.length) return '';
         rows.sort((a, b) => a.timeMs - b.timeMs);
 
-        let selected = rows;
-        if (!showAll) {
-            const future = rows.filter((r) => !r.isPast);
-            const n = Number.isFinite(limit) && limit > 0 ? limit : 3;
-            selected = future.slice(0, n);
+        // 统计每条线路的所有方向 d，并聚合/计数该方向下所有对应 ds 的中文名
+        const DEST_NAME_MIN_COUNT = 5;
+        const dirToDestNames = new Map(); // dir -> Set<string>
+        const dirToDestCounts = new Map(); // dir -> Map<string, number>
+        for (const r of rows) {
+            const k = toText(r.dir) || 'Unknown';
+            if (!dirToDestNames.has(k)) dirToDestNames.set(k, new Set());
+            if (!dirToDestCounts.has(k)) dirToDestCounts.set(k, new Map());
+            const set = dirToDestNames.get(k);
+            const counts = dirToDestCounts.get(k);
+            const names = Array.isArray(r.destNamesForDir) ? r.destNamesForDir : [];
+            for (const n of names) {
+                const s = toText(n);
+                if (!s) continue;
+                set.add(s);
+                counts.set(s, (counts.get(s) || 0) + 1);
+            }
         }
 
         const renderTime = (r) => {
@@ -604,17 +618,67 @@ export function createPanel(options = {}) {
             return `<span class="panel-time-arrive">${escapeHtml(formatTimeWithPlus(a, r.arrPlus))}</span> <span class="panel-time-depart">${escapeHtml(formatTimeWithPlus(d, r.depPlus))}</span>`;
         };
 
+        // 分组显示：默认显示所有方向；方向内默认展示 3 条未来班次
+        const dirOrder = [];
+        const dirSeen = new Set();
+        for (const r of rows) {
+            const k = toText(r.dir) || 'Unknown';
+            if (dirSeen.has(k)) continue;
+            dirSeen.add(k);
+            dirOrder.push(k);
+        }
+
         let html = '';
-        for (const r of selected) {
-            const klass = r.isPast ? 'panel-timetable-row is-past' : 'panel-timetable-row';
+        for (const dirKey of dirOrder) {
+            const counts = dirToDestCounts.get(dirKey);
+            const filteredNames = counts
+                ? Array.from(counts.entries())
+                      .filter(([, c]) => Number(c) >= DEST_NAME_MIN_COUNT)
+                      .sort((a, b) => {
+                          const dc = Number(b[1]) - Number(a[1]);
+                          if (dc) return dc;
+                          return String(a[0]).localeCompare(String(b[0]));
+                      })
+                      .map(([name]) => name)
+                : [];
+            const label = filteredNames.length ? filteredNames.join('，') : dirKey;
+            const expanded = isDirExpanded(lineId, dirKey);
+            const tri = expanded ? '▾' : '▸';
+
+            const rowsForDir = rows.filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
+            const future = rowsForDir.filter((r) => !r.isPast);
+            const visible = expanded ? rowsForDir : future.slice(0, 3);
+
             html += `
-                <div class="${klass}">
-                    <div class="panel-timetable-dest">to ${escapeHtml(r.destName || '')}</div>
-                    <div class="panel-timetable-time">${renderTime(r)}</div>
-                    <div class="panel-timetable-type">${escapeHtml(r.typeName || '')}</div>
+                <div class="panel-dir">
+                    <div class="panel-dir-header" data-dir-toggle="1" data-dir-key="${escapeHtml(dirKey)}">
+                        <span class="panel-dir-title">
+                            <span class="panel-dir-prefix" aria-hidden="true">往</span>
+                            <span class="panel-dir-marquee" aria-label="往 ${escapeHtml(label)} 方向">
+                                <span class="panel-dir-marquee-inner">${escapeHtml(label)}</span>
+                            </span>
+                            <span class="panel-dir-suffix" aria-hidden="true">方向</span>
+                        </span>
+                        <span class="panel-dir-triangle" aria-hidden="true">${tri}</span>
+                    </div>
+                    <div class="panel-timetable ${expanded ? 'is-expanded' : 'is-collapsed'}" data-dir-body="1" data-dir-key="${escapeHtml(dirKey)}">
+                        ${visible
+                            .map((r) => {
+                                const klass = r.isPast ? 'panel-timetable-row is-past' : 'panel-timetable-row';
+                                return `
+                                    <div class="${klass}">
+                                        <div class="panel-timetable-dest">to ${escapeHtml(r.destName || '')}</div>
+                                        <div class="panel-timetable-time">${renderTime(r)}</div>
+                                        <div class="panel-timetable-type">${escapeHtml(r.typeName || '')}</div>
+                                    </div>
+                                `;
+                            })
+                            .join('')}
+                    </div>
                 </div>
             `;
         }
+
         return html;
     };
 
@@ -631,45 +695,109 @@ export function createPanel(options = {}) {
         const resolvedStationId = await resolveStationIdForLine(lineId);
         if (token !== timetableRenderToken) return;
 
-        const expanded = getLineExpanded(lineId);
-        const limit = expanded ? 0 : 3;
-
-        // collapsed: strictly future-only; expanded: allow filling with past if future不足（灰色）
         const html = await buildTimetableRowsHtml({
             lineId,
-            stationId: resolvedStationId || stationId,
-            limit,
-            showAll: expanded
+            stationId: resolvedStationId || stationId
         });
 
         if (token !== timetableRenderToken) return;
         ttEl.innerHTML = html;
 
-        // 展开态：默认把可视区域滚到“最后一条已过班次”处，使窗口呈现 1 条已过 + 后面 9 条未来。
-        if (expanded) {
-            try {
-                const rows = Array.from(ttEl.querySelectorAll('.panel-timetable-row'));
-                if (rows.length) {
-                    let lastPastIndex = -1;
-                    for (let i = rows.length - 1; i >= 0; i -= 1) {
-                        if (rows[i]?.classList?.contains('is-past')) {
-                            lastPastIndex = i;
-                            break;
-                        }
-                    }
+        // 超长方向标题：自动滚动（“往/方向”固定，终点站列表滚动）
+        applyDirHeaderMarquees(ttEl);
 
-                    if (lastPastIndex > 0) {
-                        const rowH = rows[0]?.offsetHeight || 18;
-                        const desired = lastPastIndex * rowH;
-                        const maxScroll = Math.max(0, (ttEl.scrollHeight || 0) - (ttEl.clientHeight || 0));
-                        ttEl.scrollTop = Math.max(0, Math.min(desired, maxScroll));
-                    } else {
-                        ttEl.scrollTop = 0;
+        // 方向展开态：默认把各方向可视区域滚到“最后一条已过班次”处（1 past + 9 future 的视觉效果）
+        try {
+            const expandedBodies = Array.from(ttEl.querySelectorAll('.panel-timetable.is-expanded'));
+            for (const bodyEl of expandedBodies) {
+                const rows = Array.from(bodyEl.querySelectorAll('.panel-timetable-row'));
+                if (!rows.length) continue;
+
+                let lastPastIndex = -1;
+                for (let i = rows.length - 1; i >= 0; i -= 1) {
+                    if (rows[i]?.classList?.contains('is-past')) {
+                        lastPastIndex = i;
+                        break;
                     }
                 }
-            } catch {
-                // ignore
+
+                if (lastPastIndex > 0) {
+                    const rowH = rows[0]?.offsetHeight || 18;
+                    const desired = lastPastIndex * rowH;
+                    const maxScroll = Math.max(0, (bodyEl.scrollHeight || 0) - (bodyEl.clientHeight || 0));
+                    bodyEl.scrollTop = Math.max(0, Math.min(desired, maxScroll));
+                } else {
+                    bodyEl.scrollTop = 0;
+                }
             }
+        } catch {
+            // ignore
+        }
+    };
+
+    const applyDirHeaderMarquees = (rootEl) => {
+        try {
+            if (!rootEl || !(rootEl instanceof Element)) return;
+            if (typeof window === 'undefined') return;
+            if (!('animate' in Element.prototype)) return;
+
+            const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+            if (reduceMotion) return;
+
+            const marquees = Array.from(rootEl.querySelectorAll('.panel-dir-marquee'));
+            for (const marqueeEl of marquees) {
+                const innerEl = marqueeEl.querySelector('.panel-dir-marquee-inner');
+                if (!innerEl) continue;
+
+                // cancel previous animation on this element (if any)
+                try {
+                    marqueeEl.__panelMarqueeAnim?.cancel?.();
+                } catch {
+                    // ignore
+                }
+
+                // reset
+                innerEl.style.transform = '';
+                marqueeEl.__panelMarqueeAnim = null;
+
+                // If not overflowing, no marquee.
+                const viewportW = marqueeEl.clientWidth || 0;
+                const contentW = innerEl.scrollWidth || 0;
+                if (!viewportW || contentW <= viewportW + 1) continue;
+
+                const distancePx = Math.max(0, contentW - viewportW);
+                if (!distancePx) continue;
+
+                const holdMs = 3000;
+                const speedPxPerSec = 35; // readable pace
+                const travelMs = Math.max(1500, Math.round((distancePx / speedPxPerSec) * 1000));
+                const totalMs = holdMs + travelMs + holdMs + holdMs;
+
+                const startHoldOffset = holdMs / totalMs;
+                const endMoveOffset = (holdMs + travelMs) / totalMs;
+                const endHoldOffset = (holdMs + travelMs + holdMs) / totalMs;
+                const resetOffset = Math.min(0.999, endHoldOffset + 0.001);
+
+                const anim = innerEl.animate(
+                    [
+                        { transform: 'translateX(0px)', offset: 0 },
+                        { transform: 'translateX(0px)', offset: startHoldOffset },
+                        { transform: `translateX(${-distancePx}px)`, offset: endMoveOffset },
+                        { transform: `translateX(${-distancePx}px)`, offset: endHoldOffset },
+                        { transform: 'translateX(0px)', offset: resetOffset },
+                        { transform: 'translateX(0px)', offset: 1 }
+                    ],
+                    {
+                        duration: totalMs,
+                        iterations: Infinity,
+                        easing: 'linear'
+                    }
+                );
+
+                marqueeEl.__panelMarqueeAnim = anim;
+            }
+        } catch {
+            // ignore
         }
     };
 
@@ -727,16 +855,17 @@ export function createPanel(options = {}) {
         const target = evt?.target;
         if (!target || !(target instanceof Element)) return null;
 
-        // Clicking/scrolling inside timetable list should not trigger line/company selection.
-        const insideTimetable = target.closest?.('[data-timetable-root]');
-        if (insideTimetable && body.contains(insideTimetable)) return null;
-
-        const toggleEl = target.closest?.('[data-line-toggle]');
-        if (toggleEl && body.contains(toggleEl)) {
-            const lineEl = toggleEl.closest?.('[data-line-id]');
+        const dirEl = target.closest?.('[data-dir-toggle]');
+        if (dirEl && body.contains(dirEl)) {
+            const lineEl = dirEl.closest?.('[data-line-id]');
             const lineId = lineEl?.getAttribute?.('data-line-id');
-            return lineId ? { kind: 'line-toggle', value: String(lineId) } : null;
+            const dirKey = dirEl.getAttribute?.('data-dir-key');
+            return lineId && dirKey ? { kind: 'dir-toggle', value: `${String(lineId)}||${String(dirKey)}` } : null;
         }
+
+        // Clicking/scrolling inside timetable list should not trigger line/company selection.
+        const insideTimetable = target.closest?.('.panel-timetable');
+        if (insideTimetable && body.contains(insideTimetable)) return null;
 
         const lineEl = target.closest?.('[data-line-id]');
         if (lineEl && body.contains(lineEl)) {
@@ -776,10 +905,12 @@ export function createPanel(options = {}) {
 
         const key = `${t.kind}:${t.value}`;
 
-        if (t.kind === 'line-toggle') {
-            setLineExpanded(String(t.value), !getLineExpanded(String(t.value)));
-            // async refresh just this line
-            const lineEl = body.querySelector(`[data-line-id="${escapeHtml(String(t.value))}"]`);
+        if (t.kind === 'dir-toggle') {
+            const [lineId, dirKey] = String(t.value).split('||');
+            tapArmedKey = null;
+            mouseArmedKey = null;
+            setDirExpanded(lineId, dirKey, !isDirExpanded(lineId, dirKey));
+            const lineEl = body.querySelector(`[data-line-id="${escapeHtml(String(lineId))}"]`);
             const token = ++timetableRenderToken;
             renderTimetableForLineEl(lineEl, currentStationId, token);
             return;
@@ -787,19 +918,6 @@ export function createPanel(options = {}) {
 
         if (t.kind === 'line') {
             const lineId = String(t.value);
-
-            // First tap: expand timetable + preview
-            if (!getLineExpanded(lineId)) {
-                setLineExpanded(lineId, true);
-                const lineEl = body.querySelector(`[data-line-id="${escapeHtml(lineId)}"]`);
-                const token = ++timetableRenderToken;
-                renderTimetableForLineEl(lineEl, currentStationId, token);
-                tapArmedKey = key;
-                if (onSelectLine) onSelectLine(lineId, { source: 'panel-hover' });
-                return;
-            }
-
-            // Second tap: commit selection (keep existing two-step behavior)
             if (tapArmedKey !== key) {
                 tapArmedKey = key;
                 if (onSelectLine) onSelectLine(lineId, { source: 'panel-hover' });
@@ -808,8 +926,6 @@ export function createPanel(options = {}) {
 
             tapArmedKey = null;
             if (onSelectLine) onSelectLine(lineId, { source: 'panel-click', isolateStations: true });
-            // 收回展开列表
-            setLineExpanded(lineId, false);
             return;
         }
 
@@ -879,10 +995,11 @@ export function createPanel(options = {}) {
         lastFiredHoverKey = null;
         tapArmedKey = null;
 
-        if (t.kind === 'line-toggle') {
-            const lineId = String(t.value);
-            setLineExpanded(lineId, !getLineExpanded(lineId));
-            const lineEl = body.querySelector(`[data-line-id="${escapeHtml(lineId)}"]`);
+        if (t.kind === 'dir-toggle') {
+            const [lineId, dirKey] = String(t.value).split('||');
+            mouseArmedKey = null;
+            setDirExpanded(lineId, dirKey, !isDirExpanded(lineId, dirKey));
+            const lineEl = body.querySelector(`[data-line-id="${escapeHtml(String(lineId))}"]`);
             const token = ++timetableRenderToken;
             renderTimetableForLineEl(lineEl, currentStationId, token);
             return;
@@ -891,24 +1008,9 @@ export function createPanel(options = {}) {
         if (t.kind === 'line') {
             const lineId = String(t.value);
             const key = `line:${lineId}`;
-
-            // First click: expand + preview
-            if (!getLineExpanded(lineId)) {
-                setLineExpanded(lineId, true);
-                const lineEl = body.querySelector(`[data-line-id="${escapeHtml(lineId)}"]`);
-                const token = ++timetableRenderToken;
-                renderTimetableForLineEl(lineEl, currentStationId, token);
-                mouseArmedKey = key;
-                if (onSelectLine) onSelectLine(lineId, { source: 'panel-hover' });
-                return;
-            }
-
-            // Second click on same line: commit selection
             if (mouseArmedKey === key) {
                 mouseArmedKey = null;
                 if (onSelectLine) onSelectLine(lineId, { source: 'panel-click', isolateStations: true });
-                // 收回展开列表
-                setLineExpanded(lineId, false);
                 return;
             }
 
@@ -986,7 +1088,7 @@ export function createPanel(options = {}) {
         // 用 serving_ids 驱动交互恢复/公司过滤
         const servingIdsRaw = normalizeArrayLike(props?.serving_ids);
         currentStationServingIds = servingIdsRaw.map(String).filter(Boolean);
-        expandedLineIds = new Set();
+        expandedDirKeys = new Set();
         mouseArmedKey = null;
         lastAppliedHoverKey = null;
         tapArmedKey = null;
