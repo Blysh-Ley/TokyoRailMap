@@ -34,12 +34,80 @@ const estimateBytes = (value) => {
     }
 };
 
+const toCacheKey = (lineId) => {
+    const stem = toFileStem(lineId);
+    return stem ? stem : normalizeId(lineId);
+};
+
+const deriveBaseLineIdFromPtNt = (value) => {
+    const s = normalizeId(value);
+    if (!s) return '';
+    const parts = s.split('.').map((x) => x.trim()).filter(Boolean);
+    if (parts.length < 2) return '';
+    // 前两段用 '-' 连接（例：Tokyu.Toyoko.xxx -> Tokyu-Toyoko）
+    return `${parts[0]}-${parts[1]}`;
+};
+
+const collectPtNtRefs = (data, { maxNodes = 20000 } = {}) => {
+    // 深度遍历对象/数组，抽取任意层级的 pt/nt 字段；用节点上限避免超大数据卡死。
+    const refs = new Set();
+    const seen = new Set();
+    const stack = [data];
+    let visited = 0;
+
+    const addRef = (v) => {
+        if (typeof v === 'string' && v.trim()) refs.add(v.trim());
+    };
+
+    const addRefsFromValue = (v) => {
+        if (typeof v === 'string') {
+            addRef(v);
+            return;
+        }
+        if (Array.isArray(v)) {
+            for (const item of v) addRef(item);
+        }
+    };
+
+    while (stack.length && visited < maxNodes) {
+        const node = stack.pop();
+        if (!node || typeof node !== 'object') continue;
+
+        // 防循环引用（理论上 JSON 不会有，但保险）
+        if (seen.has(node)) continue;
+        seen.add(node);
+        visited += 1;
+
+        if (Array.isArray(node)) {
+            for (let i = node.length - 1; i >= 0; i -= 1) stack.push(node[i]);
+            continue;
+        }
+
+        // plain object
+        const pt = node.pt;
+        const nt = node.nt;
+        addRefsFromValue(pt);
+        addRefsFromValue(nt);
+
+        for (const v of Object.values(node)) {
+            if (v && typeof v === 'object') stack.push(v);
+        }
+    }
+
+    return Array.from(refs);
+};
+
 class LruTimetableCache {
-    constructor({ maxBytes = 50 * 1024 * 1024 } = {}) {
+    constructor({ maxBytes = 50 * 1024 * 1024, logFetch = false, logDiscover = false } = {}) {
         this.maxBytes = Number.isFinite(maxBytes) && maxBytes > 0 ? maxBytes : 50 * 1024 * 1024;
+        this.logFetch = logFetch === true;
+        this.logDiscover = logDiscover === true;
         this.bytes = 0;
         this.map = new Map(); // key(lineId) -> { data, bytes, at }
         this.pending = new Map(); // key(lineId) -> Promise<data|null>
+        // key -> true: this line has already been recursively scanned for pt/nt and expanded.
+        // This prevents repeated station selections from re-running recursion for the same line.
+        this.expanded = new Set();
     }
 
     _touch(key) {
@@ -69,24 +137,25 @@ class LruTimetableCache {
     clear() {
         this.map.clear();
         this.pending.clear();
+        this.expanded.clear();
         this.bytes = 0;
     }
 
     has(lineId) {
-        const key = normalizeId(lineId);
-        return this.map.has(key);
+        const key = toCacheKey(lineId);
+        return !!key && this.map.has(key);
     }
 
     get(lineId) {
-        const key = normalizeId(lineId);
-        const entry = this.map.get(key);
+        const key = toCacheKey(lineId);
+        const entry = key ? this.map.get(key) : null;
         if (!entry) return null;
         this._touch(key);
         return entry.data;
     }
 
     async _loadOne(lineId) {
-        const key = normalizeId(lineId);
+        const key = toCacheKey(lineId);
         if (!key) return null;
 
         if (this.map.has(key)) {
@@ -100,11 +169,25 @@ class LruTimetableCache {
 
         const promise = (async () => {
             try {
-                const stem = toFileStem(key);
-                if (!stem) return null;
-                const url = `./data/train-timetables/${encodeURIComponent(stem)}.json`;
+                const url = `./data/train-timetables/${encodeURIComponent(key)}.json`;
+                if (this.logFetch) {
+                    try {
+                        console.log('[timetable] fetch', url);
+                    } catch {
+                        // ignore
+                    }
+                }
                 const resp = await fetch(url);
-                if (!resp.ok) return null;
+                if (!resp.ok) {
+                    if (this.logFetch) {
+                        try {
+                            console.log('[timetable] fetch failed', resp.status, url);
+                        } catch {
+                            // ignore
+                        }
+                    }
+                    return null;
+                }
                 const data = await resp.json();
 
                 const bytes = estimateBytes(data);
@@ -123,7 +206,14 @@ class LruTimetableCache {
                 this._evictUntilFree(0);
 
                 return data;
-            } catch {
+            } catch (err) {
+                if (this.logFetch) {
+                    try {
+                        console.log('[timetable] fetch error', key, err);
+                    } catch {
+                        // ignore
+                    }
+                }
                 return null;
             } finally {
                 this.pending.delete(key);
@@ -146,6 +236,80 @@ class LruTimetableCache {
             if (r != null) loaded += 1;
         }
         return { loaded, attempted: unique.length };
+    }
+
+    async preloadRecursiveByLineIds(lineIds, options = {}) {
+        const maxIterations = Number.isFinite(options.maxIterations) ? options.maxIterations : 200;
+        const maxNewLoads = Number.isFinite(options.maxNewLoads) ? options.maxNewLoads : 200;
+
+        const queue = Array.isArray(lineIds) ? lineIds.map(normalizeId).filter(Boolean) : [];
+        if (!queue.length) return { loaded: 0, attempted: 0, discovered: 0 };
+
+        // seenKeys: 本次调用中已经“处理过”（出队并尝试 scan）
+        const seenKeys = new Set();
+        // scheduledKeys: 已经“调度过”（在 seenKeys 中 或 已经入队等待处理）
+        const scheduledKeys = new Set();
+        for (const id of queue) {
+            const k = toCacheKey(id);
+            if (k) scheduledKeys.add(k);
+        }
+        let attempted = 0;
+        let loaded = 0;
+        let discovered = 0;
+        let iterations = 0;
+
+        while (queue.length && iterations < maxIterations && attempted < maxNewLoads) {
+            iterations += 1;
+            const current = queue.shift();
+            const cacheKey = toCacheKey(current);
+            if (!cacheKey || seenKeys.has(cacheKey)) continue;
+            seenKeys.add(cacheKey);
+
+            // 如果该线路已经在历史调用中完成过递归展开，则直接跳过，避免重复递归读取。
+            if (this.expanded.has(cacheKey)) {
+                continue;
+            }
+
+            attempted += 1;
+            // 若已在虚拟内存中，直接用缓存；否则再加载。
+            const data = this.map.has(cacheKey) ? this.get(current) : await this._loadOne(current);
+            if (data != null) loaded += 1;
+
+            const refs = collectPtNtRefs(data, { maxNodes: 20000 });
+            if (!refs.length) continue;
+
+            if (this.logDiscover) {
+                try {
+                    console.log('[timetable] discover pt/nt', cacheKey, refs.length);
+                } catch {
+                    // ignore
+                }
+            }
+
+            for (const ref of refs) {
+                const baseLineId = deriveBaseLineIdFromPtNt(ref);
+                if (!baseLineId) continue;
+                const baseKey = toCacheKey(baseLineId);
+                if (!baseKey || scheduledKeys.has(baseKey) || this.expanded.has(baseKey)) continue;
+                discovered += 1;
+                scheduledKeys.add(baseKey);
+
+                if (this.logDiscover) {
+                    try {
+                        console.log('[timetable] enqueue derived', ref, '->', baseKey);
+                    } catch {
+                        // ignore
+                    }
+                }
+
+                queue.push(baseLineId);
+            }
+
+            // 标记该线路已经完成过递归扫描（无论 refs 是否为空，上面已 continue 过滤）。
+            this.expanded.add(cacheKey);
+        }
+
+        return { loaded, attempted, discovered };
     }
 
     // Useful for debugging

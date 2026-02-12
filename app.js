@@ -81,7 +81,7 @@ map.on('load', async () => {
     let panel = null;
 
     // 时刻表虚拟内存缓存（按线路 id 预加载 train-timetables/*.json）
-    const timetableCache = getGlobalTimetableCache({ maxBytes: 50 * 1024 * 1024 });
+    const timetableCache = getGlobalTimetableCache({ maxBytes: 50 * 1024 * 1024, logFetch: true, logDiscover: true });
 
     const cssEscape = (value) => {
         const s = String(value);
@@ -935,7 +935,7 @@ map.on('load', async () => {
             // 预加载该站点关联线路的时刻表
             try {
                 const ids = getServingLineIdsFromStationProps(opened?.props || {});
-                timetableCache?.preloadByLineIds?.(ids);
+                timetableCache?.preloadRecursiveByLineIds?.(ids);
             } catch {
                 // ignore
             }
@@ -1046,7 +1046,7 @@ map.on('load', async () => {
             // 预加载该站点关联线路的时刻表
             try {
                 const ids = getServingLineIdsFromStationProps(props);
-                timetableCache?.preloadByLineIds?.(ids);
+                timetableCache?.preloadRecursiveByLineIds?.(ids);
             } catch {
                 // ignore
             }
@@ -1738,7 +1738,7 @@ map.on('load', async () => {
                 // 预加载该站点关联线路的时刻表
                 try {
                     const ids = getServingLineIdsFromStationProps(item.props || {});
-                    timetableCache?.preloadByLineIds?.(ids);
+                    timetableCache?.preloadRecursiveByLineIds?.(ids);
                 } catch {
                     // ignore
                 }
