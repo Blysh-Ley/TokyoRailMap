@@ -354,6 +354,10 @@ export function createPanel(options = {}) {
     title.style.textOverflow = 'ellipsis';
     header.appendChild(title);
 
+    // 右侧控件区：工作日/休息日 + 时间
+    const controls = document.createElement('div');
+    controls.className = 'panel-controls';
+
     // 工作日/休息日切换（两段式圆角滑块）
     const dayToggle = document.createElement('div');
     dayToggle.className = 'panel-day-toggle';
@@ -374,7 +378,27 @@ export function createPanel(options = {}) {
     daySeg.appendChild(btnWeekday);
     daySeg.appendChild(btnHoliday);
     dayToggle.appendChild(daySeg);
-    header.appendChild(dayToggle);
+
+    // 时间控件：覆盖 panel 中的“当前时间”（用于判断已过/未来与默认定位）
+    const timeControl = document.createElement('div');
+    timeControl.className = 'panel-time-control';
+
+    const timeLabel = document.createElement('span');
+    timeLabel.className = 'panel-time-control-label';
+    timeLabel.textContent = '时间';
+
+    const timeInput = document.createElement('input');
+    timeInput.className = 'panel-time-input';
+    timeInput.type = 'time';
+    timeInput.step = '60';
+    timeInput.value = '';
+
+    timeControl.appendChild(timeLabel);
+    timeControl.appendChild(timeInput);
+
+    controls.appendChild(dayToggle);
+    controls.appendChild(timeControl);
+    header.appendChild(controls);
 
     // 内容区：承载 popup 同结构的公司/线路列表
     const body = document.createElement('div');
@@ -421,6 +445,17 @@ export function createPanel(options = {}) {
     // 时刻表日类型过滤
     let currentServiceDay = 'Weekday'; // 'Weekday' | 'SaturdayHoliday'
 
+    // 可选：覆盖显示的“当前时间”（HH:MM）；为空则使用真实时间
+    let currentNowOverrideHHMM = '';
+    const getDisplayNowMs = () => {
+        const baseNowMs = Date.now();
+        const hhmm = toText(currentNowOverrideHHMM);
+        if (!hhmm) return baseNowMs;
+        const serviceDayStartMs = getServiceDayStartMs(new Date(baseNowMs));
+        const parsed = parseHHMMToServiceDayMs(hhmm, serviceDayStartMs);
+        return parsed?.ms || baseNowMs;
+    };
+
     let mouseArmedKey = null;
     let timetableRenderToken = 0;
 
@@ -459,6 +494,13 @@ export function createPanel(options = {}) {
         setServiceDay('SaturdayHoliday');
     });
     applyDayToggleUi();
+
+    timeInput.addEventListener('input', (e) => {
+        stopEvent(e);
+        currentNowOverrideHHMM = toText(timeInput.value) || '';
+        renderAllTimetables();
+    });
+    timeInput.addEventListener('click', (e) => stopEvent(e), { passive: false });
 
     const loadTimetableForLineId = async (lineId) => {
         const id = toText(lineId);
@@ -521,9 +563,61 @@ export function createPanel(options = {}) {
         const list = Array.isArray(data) ? data : [];
         if (!list.length) return '';
 
-        const now = Date.now();
+        const now = getDisplayNowMs();
         const serviceDayStartMs = getServiceDayStartMs(new Date(now));
         const rows = [];
+
+        // Resolve pt/nt refs to get missing arrival/departure times.
+        const refTripCache = new Map(); // refId -> trip|null
+        const getRefLineId = (refId) => {
+            const s = toText(refId);
+            if (!s) return null;
+            const parts = s.split('.').map((x) => x.trim()).filter(Boolean);
+            if (parts.length < 2) return null;
+            return `${parts[0]}.${parts[1]}`;
+        };
+        const loadTripByRefId = async (refId) => {
+            const key = toText(refId);
+            if (!key) return null;
+            if (refTripCache.has(key)) return refTripCache.get(key);
+
+            const refLineId = getRefLineId(key);
+            if (!refLineId) {
+                refTripCache.set(key, null);
+                return null;
+            }
+
+            const data = await loadTimetableForLineId(refLineId);
+            const list = Array.isArray(data) ? data : [];
+            let hit = list.find((t) => toText(t?.id) === key) || null;
+            if (!hit) {
+                const parts = key.split('.').map((x) => x.trim()).filter(Boolean);
+                const maybeNoDay = parts.length >= 2 ? parts.slice(0, -1).join('.') : key;
+                hit =
+                    list.find((t) => toText(t?.t) === maybeNoDay) ||
+                    list.find((t) => toText(t?.id) === maybeNoDay) ||
+                    list.find((t) => {
+                        const id = toText(t?.id);
+                        return id ? id.startsWith(`${maybeNoDay}.`) : false;
+                    }) ||
+                    null;
+            }
+
+            refTripCache.set(key, hit);
+            return hit;
+        };
+        const getNtFirstDepartTime = async (refId) => {
+            const trip = await loadTripByRefId(refId);
+            const tt = Array.isArray(trip?.tt) ? trip.tt : [];
+            const first = tt.length ? tt[0] : null;
+            return toText(first?.d) || toText(first?.a) || null;
+        };
+        const getPtLastArriveTime = async (refId) => {
+            const trip = await loadTripByRefId(refId);
+            const tt = Array.isArray(trip?.tt) ? trip.tt : [];
+            const last = tt.length ? tt[tt.length - 1] : null;
+            return toText(last?.a) || toText(last?.d) || null;
+        };
 
         for (const trip of list) {
             // 按 timetables 的 id 最后一段区分工作日/休息日
@@ -541,14 +635,47 @@ export function createPanel(options = {}) {
             const stop = tt.find((x) => toText(x?.s) === stationKey);
             if (!stop) continue;
 
-            const arr = toText(stop?.a);
-            const dep = toText(stop?.d);
+            let arr = toText(stop?.a);
+            let dep = toText(stop?.d);
+
+            const os = Array.isArray(trip?.os) ? trip.os : (trip?.os ? [trip.os] : []);
+            const ds = Array.isArray(trip?.ds) ? trip.ds : (trip?.ds ? [trip.ds] : []);
+            const ptRefs = Array.isArray(trip?.pt) ? trip.pt : (trip?.pt ? [trip.pt] : []);
+            const ntRefs = Array.isArray(trip?.nt) ? trip.nt : (trip?.nt ? [trip.nt] : []);
+            const hasPt = ptRefs.some((x) => !!toText(x));
+            const hasNt = ntRefs.some((x) => !!toText(x));
+
+            const isOriginStation = os.some((x) => toText(x) === stationKey);
+            const isTerminalStation = ds.some((x) => toText(x) === stationKey);
+
+            // 真始发/真终点：没有 pt/nt 的端点站，不补全时间
+            const showOriginLabel = isOriginStation && !hasPt;
+            const showTerminalLabel = isTerminalStation && !hasNt;
+            const allowMirrorFill = !(showOriginLabel || showTerminalLabel);
+
+            // (2) If dep missing but has nt, take nt's first stop time as dep.
+            if (!dep) {
+                const ntRefId = toText(ntRefs?.[0]);
+                if (ntRefId) dep = await getNtFirstDepartTime(ntRefId);
+            }
+
+            // (2) If arr missing but has pt, take pt's last stop time as arr.
+            if (!arr) {
+                const ptRefId = toText(ptRefs?.[0]);
+                if (ptRefId) arr = await getPtLastArriveTime(ptRefId);
+            }
+
+            // (1) If only one side exists, mirror it (except true endpoints)
+            if (allowMirrorFill) {
+                if (!arr && dep) arr = dep;
+                if (!dep && arr) dep = arr;
+            }
+
             const timeStr = dep || arr;
             const parsed = parseHHMMToServiceDayMs(timeStr, serviceDayStartMs);
             if (!timeStr || !parsed) continue;
             const timeMs = parsed.ms;
 
-            const ds = Array.isArray(trip?.ds) ? trip.ds : (trip?.ds ? [trip.ds] : []);
             const destId = toText(ds?.[0]);
 
             const dir = toText(trip?.d);
@@ -582,7 +709,9 @@ export function createPanel(options = {}) {
                 isPast: timeMs < now,
                 typeName,
                 dir,
-                destNamesForDir
+                destNamesForDir,
+                showOriginLabel,
+                showTerminalLabel
             });
         }
 
@@ -590,7 +719,7 @@ export function createPanel(options = {}) {
         rows.sort((a, b) => a.timeMs - b.timeMs);
 
         // 统计每条线路的所有方向 d，并聚合/计数该方向下所有对应 ds 的中文名
-        const DEST_NAME_MIN_COUNT = 2;
+        const DEST_NAME_MIN_COUNT = 5;
         const dirToDestNames = new Map(); // dir -> Set<string>
         const dirToDestCounts = new Map(); // dir -> Map<string, number>
         for (const r of rows) {
@@ -612,10 +741,20 @@ export function createPanel(options = {}) {
             const a = toText(r.arr);
             const d = toText(r.dep);
             if (!a && !d) return '';
-            if (!a) return `<span class="panel-time-depart">${escapeHtml(formatTimeWithPlus(d, r.depPlus))}</span>`;
-            if (!d) return `<span class="panel-time-arrive">${escapeHtml(formatTimeWithPlus(a, r.arrPlus))}</span>`;
-            if (a === d) return `<span class="panel-time-depart">${escapeHtml(formatTimeWithPlus(d, r.depPlus))}</span>`;
-            return `<span class="panel-time-arrive">${escapeHtml(formatTimeWithPlus(a, r.arrPlus))}</span> <span class="panel-time-depart">${escapeHtml(formatTimeWithPlus(d, r.depPlus))}</span>`;
+
+            const base = (() => {
+                if (!a) return `<span class="panel-time-depart">${escapeHtml(formatTimeWithPlus(d, r.depPlus))}</span>`;
+                if (!d) return `<span class="panel-time-arrive">${escapeHtml(formatTimeWithPlus(a, r.arrPlus))}</span>`;
+                // 到达/发车时间相同也统一显示两者
+                return `<span class="panel-time-arrive">${escapeHtml(formatTimeWithPlus(a, r.arrPlus))}</span> <span class="panel-time-depart">${escapeHtml(formatTimeWithPlus(d, r.depPlus))}</span>`;
+            })();
+
+            if (r.showOriginLabel && r.showTerminalLabel) {
+                return `<span class="panel-time-label panel-time-label-origin">始发站</span> ${base} <span class="panel-time-label panel-time-label-terminal">终点站</span>`;
+            }
+            if (r.showOriginLabel) return `<span class="panel-time-label panel-time-label-origin">始发站</span> ${base}`;
+            if (r.showTerminalLabel) return `${base} <span class="panel-time-label panel-time-label-terminal">终点站</span>`;
+            return base;
         };
 
         // 分组显示：默认显示所有方向；方向内默认展示 3 条未来班次
@@ -667,7 +806,12 @@ export function createPanel(options = {}) {
                                 const klass = r.isPast ? 'panel-timetable-row is-past' : 'panel-timetable-row';
                                 return `
                                     <div class="${klass}">
-                                        <div class="panel-timetable-dest">to ${escapeHtml(r.destName || '')}</div>
+                                        <div class="panel-timetable-dest">
+                                            <span class="panel-timetable-dest-prefix" aria-hidden="true">to</span>
+                                            <span class="panel-timetable-dest-marquee" aria-label="to ${escapeHtml(r.destName || '')}">
+                                                <span class="panel-timetable-dest-marquee-inner">${escapeHtml(r.destName || '')}</span>
+                                            </span>
+                                        </div>
                                         <div class="panel-timetable-time">${renderTime(r)}</div>
                                         <div class="panel-timetable-type">${escapeHtml(r.typeName || '')}</div>
                                     </div>
@@ -703,9 +847,6 @@ export function createPanel(options = {}) {
         if (token !== timetableRenderToken) return;
         ttEl.innerHTML = html;
 
-        // 超长方向标题：自动滚动（“往/方向”固定，终点站列表滚动）
-        applyDirHeaderMarquees(ttEl);
-
         // 方向展开态：默认把各方向可视区域滚到“最后一条已过班次”处（1 past + 9 future 的视觉效果）
         try {
             const expandedBodies = Array.from(ttEl.querySelectorAll('.panel-timetable.is-expanded'));
@@ -730,6 +871,39 @@ export function createPanel(options = {}) {
                     bodyEl.scrollTop = 0;
                 }
             }
+        } catch {
+            // ignore
+        }
+
+        // 超长方向标题/班次终点站：自动滚动（等待布局稳定 + 已完成默认定位滚动后再测量）
+        scheduleMarqueeApply(ttEl);
+    };
+
+    const scheduleMarqueeApply = (rootEl) => {
+        try {
+            if (!rootEl || !(rootEl instanceof Element)) return;
+            if (typeof window === 'undefined') return;
+            const raf = window.requestAnimationFrame;
+            if (typeof raf !== 'function') return;
+
+            if (rootEl.__panelMarqueeRafId) {
+                try {
+                    window.cancelAnimationFrame?.(rootEl.__panelMarqueeRafId);
+                } catch {
+                    // ignore
+                }
+                rootEl.__panelMarqueeRafId = 0;
+            }
+
+            // One/two RAFs help ensure scrollWidth is correct for flex layouts.
+            rootEl.__panelMarqueeRafId = raf(() => {
+                rootEl.__panelMarqueeRafId = raf(() => {
+                    rootEl.__panelMarqueeRafId = 0;
+                    applyDirHeaderMarquees(rootEl);
+                    applyTimetableDestMarquees(rootEl);
+                    hookTimetableScrollMarquee(rootEl);
+                });
+            });
         } catch {
             // ignore
         }
@@ -795,6 +969,129 @@ export function createPanel(options = {}) {
                 );
 
                 marqueeEl.__panelMarqueeAnim = anim;
+            }
+        } catch {
+            // ignore
+        }
+    };
+
+    const applyTimetableDestMarquees = (rootEl) => {
+        try {
+            if (!rootEl || !(rootEl instanceof Element)) return;
+            if (typeof window === 'undefined') return;
+            if (!('animate' in Element.prototype)) return;
+
+            const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+            if (reduceMotion) return;
+
+            const MAX_ANIMS = 30;
+            const marquees = Array.from(rootEl.querySelectorAll('.panel-timetable-dest-marquee'));
+            const candidates = [];
+
+            for (const marqueeEl of marquees) {
+                const innerEl = marqueeEl.querySelector('.panel-timetable-dest-marquee-inner');
+                if (!innerEl) continue;
+
+                // cancel previous animation on this element (if any)
+                try {
+                    marqueeEl.__panelMarqueeAnim?.cancel?.();
+                } catch {
+                    // ignore
+                }
+
+                // reset
+                innerEl.style.transform = '';
+                marqueeEl.__panelMarqueeAnim = null;
+
+                const viewportW = marqueeEl.clientWidth || 0;
+                const contentW = innerEl.scrollWidth || 0;
+                if (!viewportW || contentW <= viewportW + 1) continue;
+
+                // Prefer visible rows (within the nearest timetable scroller) to get marquee first.
+                const rowEl = marqueeEl.closest?.('.panel-timetable-row');
+                const containerEl = marqueeEl.closest?.('.panel-timetable');
+                let score = 1e9;
+                if (rowEl && containerEl) {
+                    const rr = rowEl.getBoundingClientRect?.();
+                    const cr = containerEl.getBoundingClientRect?.();
+                    if (rr && cr) {
+                        const visible = rr.bottom > cr.top && rr.top < cr.bottom;
+                        if (visible) score = 0;
+                        else score = Math.min(Math.abs(rr.top - cr.bottom), Math.abs(rr.bottom - cr.top));
+                    }
+                }
+
+                candidates.push({ marqueeEl, innerEl, viewportW, contentW, score });
+            }
+
+            candidates.sort((a, b) => a.score - b.score);
+
+            let started = 0;
+            for (const c of candidates) {
+                if (started >= MAX_ANIMS) break;
+                started += 1;
+
+                const distancePx = Math.max(0, c.contentW - c.viewportW);
+                if (!distancePx) continue;
+
+                const holdMs = 3000;
+                const speedPxPerSec = 30;
+                const travelMs = Math.max(1200, Math.round((distancePx / speedPxPerSec) * 1000));
+                const totalMs = holdMs + travelMs + holdMs + holdMs;
+
+                const startHoldOffset = holdMs / totalMs;
+                const endMoveOffset = (holdMs + travelMs) / totalMs;
+                const endHoldOffset = (holdMs + travelMs + holdMs) / totalMs;
+                const resetOffset = Math.min(0.999, endHoldOffset + 0.001);
+
+                const anim = c.innerEl.animate(
+                    [
+                        { transform: 'translateX(0px)', offset: 0 },
+                        { transform: 'translateX(0px)', offset: startHoldOffset },
+                        { transform: `translateX(${-distancePx}px)`, offset: endMoveOffset },
+                        { transform: `translateX(${-distancePx}px)`, offset: endHoldOffset },
+                        { transform: 'translateX(0px)', offset: resetOffset },
+                        { transform: 'translateX(0px)', offset: 1 }
+                    ],
+                    {
+                        duration: totalMs,
+                        iterations: Infinity,
+                        easing: 'linear'
+                    }
+                );
+
+                c.marqueeEl.__panelMarqueeAnim = anim;
+            }
+        } catch {
+            // ignore
+        }
+    };
+
+    const hookTimetableScrollMarquee = (rootEl) => {
+        try {
+            if (!rootEl || !(rootEl instanceof Element)) return;
+            if (typeof window === 'undefined') return;
+            const raf = window.requestAnimationFrame;
+            if (typeof raf !== 'function') return;
+
+            const bodies = Array.from(rootEl.querySelectorAll('.panel-timetable.is-expanded'));
+            for (const bodyEl of bodies) {
+                if (bodyEl.__panelDestMarqueeHooked) continue;
+                bodyEl.__panelDestMarqueeHooked = true;
+
+                let pending = false;
+                bodyEl.addEventListener(
+                    'scroll',
+                    () => {
+                        if (pending) return;
+                        pending = true;
+                        raf(() => {
+                            pending = false;
+                            applyTimetableDestMarquees(bodyEl);
+                        });
+                    },
+                    { passive: true }
+                );
             }
         } catch {
             // ignore
