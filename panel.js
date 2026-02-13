@@ -424,6 +424,44 @@ export function createPanel(options = {}) {
 
     document.body.appendChild(root);
 
+    // 右侧 panel 左侧弹出的班次详情面板
+    const tripDetailRoot = document.createElement('div');
+    tripDetailRoot.className = 'panel-trip-detail is-hidden';
+    tripDetailRoot.setAttribute('data-panel-trip-detail', '');
+    tripDetailRoot.style.position = 'fixed';
+    tripDetailRoot.style.zIndex = String(zIndex + 1);
+
+    const tripDetailHeader = document.createElement('div');
+    tripDetailHeader.className = 'panel-trip-detail-header';
+
+    const tripDetailTitle = document.createElement('div');
+    tripDetailTitle.className = 'panel-trip-detail-title';
+    tripDetailHeader.appendChild(tripDetailTitle);
+
+    const tripDetailBody = document.createElement('div');
+    tripDetailBody.className = 'panel-trip-detail-body';
+
+    tripDetailRoot.appendChild(tripDetailHeader);
+    tripDetailRoot.appendChild(tripDetailBody);
+    document.body.appendChild(tripDetailRoot);
+
+    tripDetailRoot.addEventListener('pointerdown', (e) => {
+        tripDetailPinned = true;
+        clearTripDetailHideTimer();
+        stopPropagationOnly(e);
+    }, { passive: true });
+    tripDetailRoot.addEventListener('wheel', (e) => stopPropagationOnly(e), { passive: true });
+    tripDetailRoot.addEventListener('mouseenter', () => {
+        if (isTouchLikePointer(lastPointerType)) return;
+        tripDetailPinned = true;
+        clearTripDetailHideTimer();
+    });
+    tripDetailRoot.addEventListener('mouseleave', () => {
+        if (isTouchLikePointer(lastPointerType)) return;
+        tripDetailPinned = false;
+        scheduleTripDetailHide();
+    });
+
     // ===== 交互状态（对齐 popup 的逻辑） =====
     let lastPointerType = 'mouse';
     let suppressMouseEventsUntilMs = 0;
@@ -458,6 +496,29 @@ export function createPanel(options = {}) {
 
     let mouseArmedKey = null;
     let timetableRenderToken = 0;
+    let lastTripDetailKey = null;
+
+    let tripDetailToken = 0;
+    let tripDetailPinned = false;
+    let tripDetailHideTimer = null;
+
+    const clearTripDetailHideTimer = () => {
+        if (tripDetailHideTimer != null) {
+            clearTimeout(tripDetailHideTimer);
+            tripDetailHideTimer = null;
+        }
+    };
+
+    const scheduleTripDetailHide = (delayMs = 220) => {
+        clearTripDetailHideTimer();
+        tripDetailHideTimer = setTimeout(() => {
+            tripDetailHideTimer = null;
+            if (!tripDetailPinned) {
+                hideTripDetail();
+                lastTripDetailKey = null;
+            }
+        }, delayMs);
+    };
 
     // expanded state per (lineId, direction)
     let expandedDirKeys = new Set();
@@ -518,6 +579,79 @@ export function createPanel(options = {}) {
         }
     };
 
+    const refTripCache = new Map(); // refId -> trip|null
+    const getRefLineId = (refId) => {
+        const s = toText(refId);
+        if (!s) return null;
+        const parts = s.split('.').map((x) => x.trim()).filter(Boolean);
+        if (parts.length < 2) return null;
+        return `${parts[0]}.${parts[1]}`;
+    };
+    const loadTripByRefId = async (refId) => {
+        const key = toText(refId);
+        if (!key) return null;
+        if (refTripCache.has(key)) return refTripCache.get(key);
+
+        const refLineId = getRefLineId(key);
+        if (!refLineId) {
+            refTripCache.set(key, null);
+            return null;
+        }
+
+        const data = await loadTimetableForLineId(refLineId);
+        const list = Array.isArray(data) ? data : [];
+        let hit = list.find((t) => toText(t?.id) === key) || null;
+        if (!hit) {
+            const parts = key.split('.').map((x) => x.trim()).filter(Boolean);
+            const maybeNoDay = parts.length >= 2 ? parts.slice(0, -1).join('.') : key;
+            hit =
+                list.find((t) => toText(t?.t) === maybeNoDay) ||
+                list.find((t) => toText(t?.id) === maybeNoDay) ||
+                list.find((t) => {
+                    const id = toText(t?.id);
+                    return id ? id.startsWith(`${maybeNoDay}.`) : false;
+                }) ||
+                null;
+        }
+
+        refTripCache.set(key, hit);
+        return hit;
+    };
+    const getNtFirstDepartTime = async (refId) => {
+        const trip = await loadTripByRefId(refId);
+        const tt = Array.isArray(trip?.tt) ? trip.tt : [];
+        const first = tt.length ? tt[0] : null;
+        return toText(first?.d) || toText(first?.a) || null;
+    };
+    const getPtLastArriveTime = async (refId) => {
+        const trip = await loadTripByRefId(refId);
+        const tt = Array.isArray(trip?.tt) ? trip.tt : [];
+        const last = tt.length ? tt[tt.length - 1] : null;
+        return toText(last?.a) || toText(last?.d) || null;
+    };
+
+    const findTripByKey = async (lineId, tripKey) => {
+        const key = toText(tripKey);
+        if (!key) return null;
+        const data = await loadTimetableForLineId(lineId);
+        const list = Array.isArray(data) ? data : [];
+        if (!list.length) return null;
+
+        const candidates = list.filter((t) => {
+            const id = toText(t?.id);
+            const tkey = toText(t?.t);
+            if (id === key || tkey === key) return true;
+            return id ? id.startsWith(`${key}.`) : false;
+        });
+
+        if (!candidates.length) return null;
+        const withDay = candidates.find((t) => {
+            const id = toText(t?.id);
+            return id.endsWith(`.${currentServiceDay}`);
+        });
+        return withDay || candidates[0] || null;
+    };
+
     const resolveStationIdForLine = async (lineId) => {
         const rid = toText(lineId);
         if (!rid) return null;
@@ -568,56 +702,6 @@ export function createPanel(options = {}) {
         const rows = [];
 
         // Resolve pt/nt refs to get missing arrival/departure times.
-        const refTripCache = new Map(); // refId -> trip|null
-        const getRefLineId = (refId) => {
-            const s = toText(refId);
-            if (!s) return null;
-            const parts = s.split('.').map((x) => x.trim()).filter(Boolean);
-            if (parts.length < 2) return null;
-            return `${parts[0]}.${parts[1]}`;
-        };
-        const loadTripByRefId = async (refId) => {
-            const key = toText(refId);
-            if (!key) return null;
-            if (refTripCache.has(key)) return refTripCache.get(key);
-
-            const refLineId = getRefLineId(key);
-            if (!refLineId) {
-                refTripCache.set(key, null);
-                return null;
-            }
-
-            const data = await loadTimetableForLineId(refLineId);
-            const list = Array.isArray(data) ? data : [];
-            let hit = list.find((t) => toText(t?.id) === key) || null;
-            if (!hit) {
-                const parts = key.split('.').map((x) => x.trim()).filter(Boolean);
-                const maybeNoDay = parts.length >= 2 ? parts.slice(0, -1).join('.') : key;
-                hit =
-                    list.find((t) => toText(t?.t) === maybeNoDay) ||
-                    list.find((t) => toText(t?.id) === maybeNoDay) ||
-                    list.find((t) => {
-                        const id = toText(t?.id);
-                        return id ? id.startsWith(`${maybeNoDay}.`) : false;
-                    }) ||
-                    null;
-            }
-
-            refTripCache.set(key, hit);
-            return hit;
-        };
-        const getNtFirstDepartTime = async (refId) => {
-            const trip = await loadTripByRefId(refId);
-            const tt = Array.isArray(trip?.tt) ? trip.tt : [];
-            const first = tt.length ? tt[0] : null;
-            return toText(first?.d) || toText(first?.a) || null;
-        };
-        const getPtLastArriveTime = async (refId) => {
-            const trip = await loadTripByRefId(refId);
-            const tt = Array.isArray(trip?.tt) ? trip.tt : [];
-            const last = tt.length ? tt[tt.length - 1] : null;
-            return toText(last?.a) || toText(last?.d) || null;
-        };
 
         for (const trip of list) {
             // 按 timetables 的 id 最后一段区分工作日/休息日
@@ -696,6 +780,8 @@ export function createPanel(options = {}) {
             const typeId = toText(trip?.y);
             const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
 
+            const tripKey = tripId || toText(trip?.t) || '';
+
             const arrParsed = arr ? parseHHMMToServiceDayMs(arr, serviceDayStartMs) : null;
             const depParsed = dep ? parseHHMMToServiceDayMs(dep, serviceDayStartMs) : null;
 
@@ -711,7 +797,8 @@ export function createPanel(options = {}) {
                 dir,
                 destNamesForDir,
                 showOriginLabel,
-                showTerminalLabel
+                showTerminalLabel,
+                tripKey
             });
         }
 
@@ -847,8 +934,9 @@ export function createPanel(options = {}) {
                         ${visible
                             .map((r) => {
                                 const klass = r.isPast ? 'panel-timetable-row is-past' : 'panel-timetable-row';
+                                const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.tripKey)}"` : '';
                                 return `
-                                    <div class="${klass}">
+                                    <div class="${klass}"${tripAttr}>
                                         <div class="panel-timetable-dest">
                                             <span class="panel-timetable-dest-prefix" aria-hidden="true">to</span>
                                             <span class="panel-timetable-dest-marquee" aria-label="to ${escapeHtml(r.destName || '')}">
@@ -920,6 +1008,215 @@ export function createPanel(options = {}) {
 
         // 超长方向标题/班次终点站：自动滚动（等待布局稳定 + 已完成默认定位滚动后再测量）
         scheduleMarqueeApply(ttEl);
+    };
+
+    const buildTripStops = (trip, stationsIndex, serviceDayStartMs) => {
+        const tt = Array.isArray(trip?.tt) ? trip.tt : [];
+        const out = [];
+        for (const stop of tt) {
+            const sid = toText(stop?.s);
+            if (!sid) continue;
+            const name = stationsIndex?.idToNameZh?.get?.(sid) || sid;
+            const arr = toText(stop?.a);
+            const dep = toText(stop?.d);
+            const arrParsed = arr ? parseHHMMToServiceDayMs(arr, serviceDayStartMs) : null;
+            const depParsed = dep ? parseHHMMToServiceDayMs(dep, serviceDayStartMs) : null;
+            const timeMs = (depParsed?.ms || arrParsed?.ms || null);
+
+            out.push({
+                stationId: sid,
+                stationName: name,
+                arr: arr || null,
+                dep: dep || null,
+                arrPlus: !!arrParsed?.isNextDaySegment,
+                depPlus: !!depParsed?.isNextDaySegment,
+                timeMs
+            });
+        }
+        return out;
+    };
+
+    const normalizeTripStops = (stops, serviceDayStartMs, { originIds, terminalIds, showOriginLabel, showTerminalLabel }) => {
+        const out = [];
+        for (const s of Array.isArray(stops) ? stops : []) {
+            let arr = toText(s?.arr) || '';
+            let dep = toText(s?.dep) || '';
+
+            const isOriginStop = showOriginLabel && originIds?.has?.(toText(s?.stationId));
+            const isTerminalStop = showTerminalLabel && terminalIds?.has?.(toText(s?.stationId));
+            const allowMirrorFill = !(isOriginStop || isTerminalStop);
+
+            if (allowMirrorFill) {
+                if (!arr && dep) arr = dep;
+                if (!dep && arr) dep = arr;
+            }
+
+            const arrParsed = arr ? parseHHMMToServiceDayMs(arr, serviceDayStartMs) : null;
+            const depParsed = dep ? parseHHMMToServiceDayMs(dep, serviceDayStartMs) : null;
+            const timeMs = depParsed?.ms || arrParsed?.ms || null;
+
+            out.push({
+                stationId: toText(s?.stationId),
+                stationName: toText(s?.stationName),
+                arr: arr || null,
+                dep: dep || null,
+                arrPlus: !!arrParsed?.isNextDaySegment,
+                depPlus: !!depParsed?.isNextDaySegment,
+                timeMs,
+                isPast: false,
+                showOriginLabel: isOriginStop,
+                showTerminalLabel: isTerminalStop
+            });
+        }
+        return out;
+    };
+
+    const mergeStops = (base, next) => {
+        const out = Array.isArray(base) ? base.slice() : [];
+        const arr = Array.isArray(next) ? next : [];
+        if (!arr.length) return out;
+        if (!out.length) return arr.slice();
+
+        const last = out[out.length - 1];
+        const first = arr[0];
+        const sameStation = last?.stationId && first?.stationId && last.stationId === first.stationId;
+        const sameTime = toText(last?.arr) === toText(first?.arr) && toText(last?.dep) === toText(first?.dep);
+        if (sameStation && sameTime) {
+            return out.concat(arr.slice(1));
+        }
+        return out.concat(arr);
+    };
+
+    const getTripDestName = (trip, stationsIndex) => {
+        const dir = toText(trip?.d);
+        if (dir === 'InnerLoop') return '内环';
+        if (dir === 'OuterLoop') return '外环';
+        const ds = Array.isArray(trip?.ds) ? trip.ds : (trip?.ds ? [trip.ds] : []);
+        const destId = toText(ds?.[0]);
+        return destId ? (stationsIndex?.idToNameZh?.get?.(destId) || destId) : '';
+    };
+
+    const renderTripDetail = async ({ lineId, tripKey, clientX, clientY, pinned }) => {
+        const token = ++tripDetailToken;
+        tripDetailPinned = !!pinned;
+        clearTripDetailHideTimer();
+
+        const trip = await findTripByKey(lineId, tripKey);
+        if (token !== tripDetailToken) return;
+        if (!trip) {
+            tripDetailRoot.classList.add('is-hidden');
+            return;
+        }
+
+        const now = getDisplayNowMs();
+        const serviceDayStartMs = getServiceDayStartMs(new Date(now));
+
+        const [stationsIndex, trainTypesIndex] = await Promise.all([getStationsIndex(), getTrainTypesIndex()]);
+        if (token !== tripDetailToken) return;
+
+        const ptRefs = Array.isArray(trip?.pt) ? trip.pt : (trip?.pt ? [trip.pt] : []);
+        const ntRefs = Array.isArray(trip?.nt) ? trip.nt : (trip?.nt ? [trip.nt] : []);
+        const ptRefId = toText(ptRefs?.[0]);
+        const ntRefId = toText(ntRefs?.[0]);
+        const hasPt = ptRefs.some((x) => !!toText(x));
+        const hasNt = ntRefs.some((x) => !!toText(x));
+        const os = Array.isArray(trip?.os) ? trip.os : (trip?.os ? [trip.os] : []);
+        const ds = Array.isArray(trip?.ds) ? trip.ds : (trip?.ds ? [trip.ds] : []);
+        const originIds = new Set(os.map((x) => toText(x)).filter(Boolean));
+        const terminalIds = new Set(ds.map((x) => toText(x)).filter(Boolean));
+        const showOriginLabel = !!originIds.size && !hasPt;
+        const showTerminalLabel = !!terminalIds.size && !hasNt;
+
+        let stops = buildTripStops(trip, stationsIndex, serviceDayStartMs);
+
+        if (ptRefId) {
+            const ptTrip = await loadTripByRefId(ptRefId);
+            if (token !== tripDetailToken) return;
+            if (ptTrip) {
+                const ptStops = buildTripStops(ptTrip, stationsIndex, serviceDayStartMs);
+                stops = mergeStops(ptStops, stops);
+            }
+        }
+
+        if (ntRefId) {
+            const ntTrip = await loadTripByRefId(ntRefId);
+            if (token !== tripDetailToken) return;
+            if (ntTrip) {
+                const ntStops = buildTripStops(ntTrip, stationsIndex, serviceDayStartMs);
+                stops = mergeStops(stops, ntStops);
+            }
+        }
+
+        const normalizedStops = normalizeTripStops(stops, serviceDayStartMs, {
+            originIds,
+            terminalIds,
+            showOriginLabel,
+            showTerminalLabel
+        });
+
+        const stationIdForLine = await resolveStationIdForLine(lineId);
+        if (token !== tripDetailToken) return;
+        const currentIdx = normalizedStops.findIndex((s) => toText(s.stationId) === toText(stationIdForLine));
+        const stopsWithPast = normalizedStops.map((s, idx) => ({
+            ...s,
+            isPast: currentIdx >= 0 ? idx < currentIdx : false
+        }));
+
+        const destName = getTripDestName(trip, stationsIndex) || '未知方向';
+        const typeId = toText(trip?.y);
+        const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
+        tripDetailTitle.textContent = `往 ${destName}  ${typeName}`.trim();
+
+        const rowsHtml = stopsWithPast
+            .map((s) => {
+                const rowCls = s.isPast ? 'panel-trip-detail-row is-past' : 'panel-trip-detail-row';
+                const arrText = s.arr ? formatTimeWithPlus(s.arr, s.arrPlus) : '';
+                const depText = s.dep ? formatTimeWithPlus(s.dep, s.depPlus) : '';
+                const originCls = `panel-time-label panel-time-label-origin${s.isPast ? ' is-past' : ''}`;
+                const terminalCls = `panel-time-label panel-time-label-terminal${s.isPast ? ' is-past' : ''}`;
+                const arrivalLabel = s.showOriginLabel ? `<span class=\"${originCls}\">始发站</span> ` : '';
+                const departLabel = s.showTerminalLabel ? `<span class=\"${terminalCls}\">终点站</span> ` : '';
+
+                return `
+                    <div class="${rowCls}">
+                        <div class="panel-trip-detail-station">${escapeHtml(s.stationName || '')}</div>
+                        <div class="panel-trip-detail-time panel-trip-detail-arrive">${arrivalLabel}${arrText ? `<span class=\"panel-time-arrive\">${escapeHtml(arrText)}</span>` : ''}</div>
+                        <div class="panel-trip-detail-time panel-trip-detail-depart">${departLabel}${depText ? `<span class=\"panel-time-depart\">${escapeHtml(depText)}</span>` : ''}</div>
+                    </div>
+                `;
+            })
+            .join('');
+
+        tripDetailBody.innerHTML = `
+            <div class="panel-trip-detail-table">
+                <div class="panel-trip-detail-head">
+                    <div class="panel-trip-detail-station">车站</div>
+                    <div class="panel-trip-detail-time panel-trip-detail-arrive">到站时间</div>
+                    <div class="panel-trip-detail-time panel-trip-detail-depart">发车时间</div>
+                </div>
+                ${rowsHtml}
+                <div class="panel-trip-detail-spacer"></div>
+            </div>
+        `;
+
+        tripDetailRoot.classList.remove('is-hidden');
+
+        const panelW = tripDetailRoot.offsetWidth || 280;
+        const panelH = tripDetailRoot.offsetHeight || 240;
+        const pad = 12;
+        const panelRect = root.getBoundingClientRect?.();
+        const panelLeft = panelRect?.left ?? (window.innerWidth - panelW - pad);
+        const x = Math.max(pad, Math.min(panelLeft - panelW - pad + 10, window.innerWidth - panelW - pad + 10));
+        const y = Math.max(pad, Math.min((clientY || 0) - 20, window.innerHeight - panelH - pad));
+        tripDetailRoot.style.left = `${x}px`;
+        tripDetailRoot.style.top = `${y}px`;
+    };
+
+    const hideTripDetail = () => {
+        tripDetailPinned = false;
+        tripDetailToken += 1;
+        clearTripDetailHideTimer();
+        tripDetailRoot.classList.add('is-hidden');
     };
 
     const scheduleMarqueeApply = (rootEl) => {
@@ -1231,6 +1528,25 @@ export function createPanel(options = {}) {
 
         if (!isTouchLikePointer(pt)) return;
 
+        const rowEl = evt?.target?.closest?.('.panel-timetable-row');
+        if (rowEl && body.contains(rowEl)) {
+            const lineEl = rowEl.closest?.('[data-line-id]');
+            const lineId = lineEl?.getAttribute?.('data-line-id');
+            const tripKey = rowEl.getAttribute?.('data-trip-key');
+            if (lineId && tripKey) {
+                stopPropagationOnly(evt);
+                renderTripDetail({
+                    lineId: String(lineId),
+                    tripKey: String(tripKey),
+                    clientX: evt?.clientX || 0,
+                    clientY: evt?.clientY || 0,
+                    pinned: true
+                });
+                lastTripDetailKey = `${lineId}||${tripKey}`;
+                return;
+            }
+        }
+
         const t = getInteractiveTarget(evt);
         if (!t) {
             // 触屏在非交互区域（例如时间表滚动区）按下：允许默认滚动，但不要把事件传到地图
@@ -1367,7 +1683,7 @@ export function createPanel(options = {}) {
         }
     };
 
-    const onBodyLeave = () => {
+    const onBodyLeave = (evt) => {
         clearHoverTimer();
         clearRestoreTimer();
         hoverCandidateKey = null;
@@ -1375,12 +1691,55 @@ export function createPanel(options = {}) {
         tapArmedKey = null;
         mouseArmedKey = null;
         restoreStationLinesIfNeeded();
+        const toEl = evt?.relatedTarget;
+        if (toEl && tripDetailRoot.contains(toEl)) return;
+        if (!tripDetailPinned) scheduleTripDetailHide();
     };
 
     body.addEventListener('pointerdown', onBodyPointerDown, { passive: false });
     body.addEventListener('mousemove', onBodyMove);
     body.addEventListener('mouseleave', onBodyLeave);
     body.addEventListener('click', onBodyClick, { passive: false });
+
+    body.addEventListener('mouseover', (evt) => {
+        if (isTouchLikePointer(lastPointerType)) return;
+        const rowEl = evt?.target?.closest?.('.panel-timetable-row');
+        if (!rowEl || !body.contains(rowEl)) return;
+        const lineEl = rowEl.closest?.('[data-line-id]');
+        const lineId = lineEl?.getAttribute?.('data-line-id');
+        const tripKey = rowEl.getAttribute?.('data-trip-key');
+        if (!lineId || !tripKey) return;
+        const key = `${lineId}||${tripKey}`;
+        if (key === lastTripDetailKey && !tripDetailPinned) return;
+
+        clearTripDetailHideTimer();
+
+        renderTripDetail({
+            lineId: String(lineId),
+            tripKey: String(tripKey),
+            clientX: evt?.clientX || 0,
+            clientY: evt?.clientY || 0,
+            pinned: false
+        });
+        lastTripDetailKey = key;
+    });
+
+    body.addEventListener('mouseout', (evt) => {
+        if (tripDetailPinned) return;
+        const rowEl = evt?.target?.closest?.('.panel-timetable-row');
+        if (!rowEl || !body.contains(rowEl)) return;
+        const toEl = evt?.relatedTarget;
+        if (toEl && (rowEl.contains(toEl) || tripDetailRoot.contains(toEl))) return;
+        scheduleTripDetailHide();
+    });
+
+    document.addEventListener('pointerdown', (evt) => {
+        const target = evt?.target;
+        if (!tripDetailPinned) return;
+        if (target && (tripDetailRoot.contains(target) || target.closest?.('.panel-timetable-row'))) return;
+        hideTripDetail();
+        lastTripDetailKey = null;
+    });
 
     // 布局：高度与 menu 一致（80% 屏高），top 为 10% 屏高
     const layout = () => {
@@ -1434,6 +1793,8 @@ export function createPanel(options = {}) {
         tapArmedKey = null;
         clearHoverTimer();
         clearRestoreTimer();
+        hideTripDetail();
+        lastTripDetailKey = null;
 
         // 渲染 popup 同结构的内容（公司分组 + 线路）
         body.innerHTML = buildCompaniesHtml(props || {}, { getLineMeta, companyLogoMap });

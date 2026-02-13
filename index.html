@@ -429,7 +429,7 @@
 
         .panel-timetable-dest {
             flex: 1 1 auto;
-            min-width: 0;
+            min-width: 80px;
             display: flex;
             align-items: center;
             gap: 4px;
@@ -458,7 +458,7 @@
         .panel-timetable-time {
             flex: 0 0 auto;
             text-align: left;
-            min-width: 88px;
+            margin-left: 20px;
         }
 
         .panel-time-label {
@@ -485,10 +485,17 @@
 
         .panel-time-arrive {
             color: red;
+            display: inline-block;
+            min-width: 32px;
+            text-align: left;
+            margin-right: 5px;
         }
 
         .panel-time-depart {
             color: green;
+            display: inline-block;
+            min-width: 32px;
+            text-align: left;
         }
 
         .panel-timetable-row.is-past .panel-time-arrive,
@@ -498,6 +505,101 @@
 
         .panel-time-label.is-past {
             color: #ccc;
+        }
+
+        .panel-trip-detail {
+            min-width: 260px;
+            max-width: calc(100vw - 40px);
+            max-height: 60vh;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid #e3e5e7;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, .12);
+            overflow: hidden;
+            opacity: 1;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        .panel-trip-detail.is-hidden {
+            opacity: 0;
+            transform: translateX(8px);
+            pointer-events: none;
+        }
+
+        .panel-trip-detail-header {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid #e3e5e7;
+        }
+
+        .panel-trip-detail-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #111;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .panel-trip-detail-body {
+            padding: 6px 10px 8px;
+            max-height: calc(60vh - 36px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .panel-trip-detail-table {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .panel-trip-detail-head,
+        .panel-trip-detail-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            height: 18px;
+            white-space: nowrap;
+        }
+
+        .panel-trip-detail-head {
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 2px;
+        }
+
+        .panel-trip-detail-row.is-past {
+            color: #ccc;
+        }
+
+        .panel-trip-detail-station {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .panel-trip-detail-time {
+            flex: 0 0 auto;
+            min-width: 70px;
+            text-align: left;
+        }
+
+        .panel-trip-detail-row.is-past .panel-time-arrive,
+        .panel-trip-detail-row.is-past .panel-time-depart {
+            color: #ccc;
+        }
+
+        .panel-trip-detail-spacer {
+            height: 18px;
+            flex: 0 0 auto;
         }
 
         .panel-company {
