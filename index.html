@@ -600,6 +600,40 @@
             color: #ccc;
         }
 
+        .panel-trip-detail-note-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            height: 16px;
+            color: #666;
+            padding-left: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .panel-trip-detail-note-prefix {
+            flex: 0 0 auto;
+        }
+
+        .panel-trip-detail-note-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+            background: #999;
+            flex: 0 0 auto;
+        }
+
+        .panel-trip-detail-note-line {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #111;
+            font-weight: 600;
+        }
+
         .panel-trip-detail-spacer {
             height: 18px;
             flex: 0 0 auto;
@@ -609,6 +643,7 @@
         [data-panel-title].is-multiline {
             display: -webkit-box;
             -webkit-line-clamp: 2;
+            line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
             white-space: normal;

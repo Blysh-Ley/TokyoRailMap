@@ -229,7 +229,7 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap } = {}) {
         const meta = safeGetLineMeta(id);
         const company = (meta?.company ? String(meta.company) : '未知公司').trim() || '未知公司';
         const color = meta?.color || null;
-        const abb = logoMap?.[company]?.abb || company;
+        const abb = logoMap?.[company]?.abb || logoMap?.[company]?.zh || company;
 
         let displayName = String(meta?.name || '').trim();
         if (!displayName) {
@@ -1087,6 +1087,92 @@ export function createPanel(options = {}) {
         return out.concat(arr);
     };
 
+    const sameStopTime = (a, b) => {
+        if (!a || !b) return false;
+        return toText(a.stationId) === toText(b.stationId)
+            && toText(a.arr) === toText(b.arr)
+            && toText(a.dep) === toText(b.dep);
+    };
+
+    const getStationAKey = (stationId) => {
+        const s = toText(stationId);
+        if (!s) return '';
+        const parts = s.split('.').map((x) => x.trim()).filter(Boolean);
+        return parts.length ? parts[parts.length - 1] : '';
+    };
+
+    const getTripLineId = (trip) => {
+        const rid = toText(trip?.r);
+        if (rid) return rid;
+        const id = toText(trip?.id) || toText(trip?.t);
+        if (!id) return '';
+        const parts = id.split('.').map((x) => x.trim()).filter(Boolean);
+        if (parts.length < 2) return '';
+        return `${parts[0]}.${parts[1]}`;
+    };
+
+    const buildLineDescriptor = (lineIdRaw) => {
+        const lineId = toText(lineIdRaw);
+        if (!lineId) return null;
+        const meta = getLineMeta(lineId) || {};
+        const company = toText(meta?.company);
+        const abb = toText(companyLogoMap?.[company]?.abb || companyLogoMap?.[company]?.zh || company);
+        let lineName = toText(meta?.name || lineId);
+        if (abb && lineName.startsWith(abb)) {
+            lineName = lineName.slice(abb.length).trim();
+        }
+        const text = `${abb}${lineName}`.trim() || lineId;
+        const color = toText(meta?.color);
+        return {
+            lineId,
+            text,
+            color: color || null
+        };
+    };
+
+    const isSameLineName = (lineIdA, lineIdB) => {
+        const a = buildLineDescriptor(lineIdA);
+        const b = buildLineDescriptor(lineIdB);
+        const an = toText(a?.text || lineIdA);
+        const bn = toText(b?.text || lineIdB);
+        return !!an && !!bn && an === bn;
+    };
+
+    const buildRefLineDescriptor = (refId) => {
+        const lineId = getRefLineId(refId);
+        return buildLineDescriptor(lineId);
+    };
+
+    const collectRefChainTrips = async (startTrip, key, token) => {
+        const out = [];
+        const seenRefs = new Set();
+        const seenTrips = new Set();
+        let cursor = startTrip;
+
+        for (let i = 0; i < 24; i += 1) {
+            const refs = Array.isArray(cursor?.[key]) ? cursor[key] : (cursor?.[key] ? [cursor[key]] : []);
+            const refId = toText(refs?.[0]);
+            if (!refId) break;
+            if (seenRefs.has(refId)) break;
+            seenRefs.add(refId);
+
+            const refTrip = await loadTripByRefId(refId);
+            if (token !== tripDetailToken) return null;
+            if (!refTrip) break;
+
+            const sid = toText(refTrip?.id) || toText(refTrip?.t);
+            if (sid && seenTrips.has(sid)) break;
+
+            out.push(refTrip);
+
+            if (sid) seenTrips.add(sid);
+
+            cursor = refTrip;
+        }
+
+        return out;
+    };
+
     const getTripDestName = (trip, stationsIndex) => {
         const dir = toText(trip?.d);
         if (dir === 'InnerLoop') return '内环';
@@ -1116,8 +1202,6 @@ export function createPanel(options = {}) {
 
         const ptRefs = Array.isArray(trip?.pt) ? trip.pt : (trip?.pt ? [trip.pt] : []);
         const ntRefs = Array.isArray(trip?.nt) ? trip.nt : (trip?.nt ? [trip.nt] : []);
-        const ptRefId = toText(ptRefs?.[0]);
-        const ntRefId = toText(ntRefs?.[0]);
         const hasPt = ptRefs.some((x) => !!toText(x));
         const hasNt = ntRefs.some((x) => !!toText(x));
         const os = Array.isArray(trip?.os) ? trip.os : (trip?.os ? [trip.os] : []);
@@ -1127,48 +1211,112 @@ export function createPanel(options = {}) {
         const showOriginLabel = !!originIds.size && !hasPt;
         const showTerminalLabel = !!terminalIds.size && !hasNt;
 
-        let stops = buildTripStops(trip, stationsIndex, serviceDayStartMs);
+        const ptChain = await collectRefChainTrips(trip, 'pt', token);
+        if (token !== tripDetailToken) return;
+        const ntChain = await collectRefChainTrips(trip, 'nt', token);
+        if (token !== tripDetailToken) return;
 
-        if (ptRefId) {
-            const ptTrip = await loadTripByRefId(ptRefId);
-            if (token !== tripDetailToken) return;
-            if (ptTrip) {
-                const ptStops = buildTripStops(ptTrip, stationsIndex, serviceDayStartMs);
-                stops = mergeStops(ptStops, stops);
-            }
+        const segments = [];
+
+        for (const ptTrip of (Array.isArray(ptChain) ? ptChain.slice().reverse() : [])) {
+            const rows = normalizeTripStops(buildTripStops(ptTrip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
+                originIds,
+                terminalIds,
+                showOriginLabel,
+                showTerminalLabel
+            }).map((s) => ({ ...s, seg: 'pt', isMain: false }));
+            segments.push({ kind: 'pt', lineId: getTripLineId(ptTrip), rows });
         }
 
-        if (ntRefId) {
-            const ntTrip = await loadTripByRefId(ntRefId);
-            if (token !== tripDetailToken) return;
-            if (ntTrip) {
-                const ntStops = buildTripStops(ntTrip, stationsIndex, serviceDayStartMs);
-                stops = mergeStops(stops, ntStops);
-            }
-        }
-
-        const normalizedStops = normalizeTripStops(stops, serviceDayStartMs, {
+        const mainRowsRaw = normalizeTripStops(buildTripStops(trip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
             originIds,
             terminalIds,
             showOriginLabel,
             showTerminalLabel
-        });
+        }).map((s) => ({ ...s, seg: 'main', isMain: true }));
+        segments.push({ kind: 'main', lineId: getTripLineId(trip), rows: mainRowsRaw });
+
+        for (const ntTrip of (Array.isArray(ntChain) ? ntChain : [])) {
+            const rows = normalizeTripStops(buildTripStops(ntTrip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
+                originIds,
+                terminalIds,
+                showOriginLabel,
+                showTerminalLabel
+            }).map((s) => ({ ...s, seg: 'nt', isMain: false }));
+            segments.push({ kind: 'nt', lineId: getTripLineId(ntTrip), rows });
+        }
+
+        for (let i = 1; i < segments.length; i += 1) {
+            const prevSeg = segments[i - 1] || null;
+            const currSeg = segments[i] || null;
+            const prevRows = prevSeg?.rows || [];
+            const currRows = currSeg?.rows || [];
+            if (!prevRows.length || !currRows.length) continue;
+
+            const prevLast = prevRows[prevRows.length - 1];
+            const currFirst = currRows[0];
+            const prevSid = toText(prevLast?.stationId);
+            const currSid = toText(currFirst?.stationId);
+            const sameById = prevSid && prevSid === currSid;
+            const prevA = getStationAKey(prevSid);
+            const currA = getStationAKey(currSid);
+            const sameByA = prevA && currA && prevA === currA;
+            const sameStation = sameById || sameByA;
+            if (!sameStation) continue;
+
+            // pt 边界：视为同一站，使用当前段站名，时间采用“pt 到站 + 当前发车”。
+            if (prevSeg?.kind === 'pt') {
+                const merged = {
+                    ...currFirst,
+                    stationName: toText(currFirst?.stationName) || toText(prevLast?.stationName),
+                    arr: toText(prevLast?.arr) || toText(currFirst?.arr) || null,
+                    arrPlus: toText(prevLast?.arr) ? !!prevLast?.arrPlus : !!currFirst?.arrPlus,
+                    dep: toText(currFirst?.dep) || toText(prevLast?.dep) || null,
+                    depPlus: toText(currFirst?.dep) ? !!currFirst?.depPlus : !!prevLast?.depPlus
+                };
+                currRows[0] = merged;
+                prevRows.pop();
+                continue;
+            }
+
+            // nt 边界：视为同一站，使用当前段(上一段)站名，时间采用“当前到站 + nt 发车”。
+            currRows.shift();
+            const merged = {
+                ...prevLast,
+                stationName: toText(prevLast?.stationName) || toText(currFirst?.stationName),
+                arr: toText(prevLast?.arr) || toText(currFirst?.arr) || null,
+                arrPlus: toText(prevLast?.arr) ? !!prevLast?.arrPlus : !!currFirst?.arrPlus,
+                dep: toText(currFirst?.dep) || toText(prevLast?.dep) || null,
+                depPlus: toText(currFirst?.dep) ? !!currFirst?.depPlus : !!prevLast?.depPlus
+            };
+            prevRows[prevRows.length - 1] = merged;
+        }
+
+        const normalizedStops = segments.flatMap((x) => x.rows || []);
 
         const stationIdForLine = await resolveStationIdForLine(lineId);
         if (token !== tripDetailToken) return;
-        const currentIdx = normalizedStops.findIndex((s) => toText(s.stationId) === toText(stationIdForLine));
+        const currentIdx = normalizedStops.findIndex((s) => toText(s.stationId) === toText(stationIdForLine) && !!s.isMain);
         const stopsWithPast = normalizedStops.map((s, idx) => ({
             ...s,
             isPast: currentIdx >= 0 ? idx < currentIdx : false
         }));
 
+        let cursor = 0;
+        const segmentsWithPast = segments.map((seg) => {
+            const len = (seg.rows || []).length;
+            const rows = stopsWithPast.slice(cursor, cursor + len);
+            cursor += len;
+            return { ...seg, rows };
+        });
+
         const destName = getTripDestName(trip, stationsIndex) || '未知方向';
         const typeId = toText(trip?.y);
         const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
         tripDetailTitle.textContent = `往 ${destName}  ${typeName}`.trim();
+        const currentLineDesc = buildLineDescriptor(getTripLineId(trip) || lineId);
 
-        const rowsHtml = stopsWithPast
-            .map((s) => {
+        const renderStopRow = (s) => {
                 const rowCls = s.isPast ? 'panel-trip-detail-row is-past' : 'panel-trip-detail-row';
                 const arrText = s.arr ? formatTimeWithPlus(s.arr, s.arrPlus) : '';
                 const depText = s.dep ? formatTimeWithPlus(s.dep, s.depPlus) : '';
@@ -1184,8 +1332,51 @@ export function createPanel(options = {}) {
                         <div class="panel-trip-detail-time panel-trip-detail-depart">${departLabel}${depText ? `<span class=\"panel-time-depart\">${escapeHtml(depText)}</span>` : ''}</div>
                     </div>
                 `;
-            })
-            .join('');
+            };
+
+        const renderNoteRow = (prefix, descriptor) => {
+            if (!descriptor?.text) return '';
+            const colorStyle = descriptor.color ? ` style="color:${escapeHtml(descriptor.color)}"` : '';
+            const dotStyle = descriptor.color ? ` style="background:${escapeHtml(descriptor.color)}"` : '';
+            const prefixHtml = toText(prefix)
+                ? `<span class="panel-trip-detail-note-prefix">${escapeHtml(prefix)}</span>`
+                : '';
+            return `
+                <div class="panel-trip-detail-note-row">
+                    ${prefixHtml}
+                    <span class="panel-trip-detail-note-dot"${dotStyle}></span>
+                    <span class="panel-trip-detail-note-line"${colorStyle}>${escapeHtml(descriptor.text)}</span>
+                </div>
+            `;
+        };
+
+        let rowsHtml = '';
+        for (let i = 0; i < segmentsWithPast.length; i += 1) {
+            const seg = segmentsWithPast[i];
+            const prev = i > 0 ? segmentsWithPast[i - 1] : null;
+            const next = i + 1 < segmentsWithPast.length ? segmentsWithPast[i + 1] : null;
+            const sameAdjacentLineName = prev ? isSameLineName(prev.lineId, seg.lineId) : false;
+
+            if (prev?.kind === 'pt' && !sameAdjacentLineName) {
+                const desc = buildLineDescriptor(prev.lineId);
+                rowsHtml += renderNoteRow('经由', desc);
+            }
+
+            if (seg.kind === 'nt' && prev && !sameAdjacentLineName) {
+                const desc = buildLineDescriptor(seg.lineId);
+                rowsHtml += renderNoteRow('直通', desc);
+            }
+
+            if (seg.kind === 'main' && prev && currentLineDesc?.text) {
+                rowsHtml += renderNoteRow('', currentLineDesc);
+            }
+
+            rowsHtml += (seg.rows || []).map(renderStopRow).join('');
+
+            if (seg.kind === 'main' && next && currentLineDesc?.text) {
+                rowsHtml += renderNoteRow('', currentLineDesc);
+            }
+        }
 
         tripDetailBody.innerHTML = `
             <div class="panel-trip-detail-table">
