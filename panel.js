@@ -719,7 +719,7 @@ export function createPanel(options = {}) {
         rows.sort((a, b) => a.timeMs - b.timeMs);
 
         // 统计每条线路的所有方向 d，并聚合/计数该方向下所有对应 ds 的中文名
-        const DEST_NAME_MIN_COUNT = 5;
+        const DEST_NAME_MIN_COUNT = 5; // 方向下目的地名称至少出现两次才显示
         const dirToDestNames = new Map(); // dir -> Set<string>
         const dirToDestCounts = new Map(); // dir -> Map<string, number>
         for (const r of rows) {
@@ -749,15 +749,18 @@ export function createPanel(options = {}) {
                 return `<span class="panel-time-arrive">${escapeHtml(formatTimeWithPlus(a, r.arrPlus))}</span> <span class="panel-time-depart">${escapeHtml(formatTimeWithPlus(d, r.depPlus))}</span>`;
             })();
 
+            const originCls = `panel-time-label panel-time-label-origin${r.isPast ? ' is-past' : ''}`;
+            const terminalCls = `panel-time-label panel-time-label-terminal${r.isPast ? ' is-past' : ''}`;
             if (r.showOriginLabel && r.showTerminalLabel) {
-                return `<span class="panel-time-label panel-time-label-origin">始发站</span> ${base} <span class="panel-time-label panel-time-label-terminal">终点站</span>`;
+                return `<span class="${originCls}">始发站</span> ${base} <span class="${terminalCls}">终点站</span>`;
             }
-            if (r.showOriginLabel) return `<span class="panel-time-label panel-time-label-origin">始发站</span> ${base}`;
-            if (r.showTerminalLabel) return `${base} <span class="panel-time-label panel-time-label-terminal">终点站</span>`;
+            if (r.showOriginLabel) return `<span class="${originCls}">始发站</span> ${base}`;
+            if (r.showTerminalLabel) return `${base} <span class="${terminalCls}">终点站</span>`;
             return base;
         };
 
         // 分组显示：默认显示所有方向；方向内默认展示 3 条未来班次
+        // Build direction order: collect unique dirs
         const dirOrder = [];
         const dirSeen = new Set();
         for (const r of rows) {
@@ -767,19 +770,59 @@ export function createPanel(options = {}) {
             dirOrder.push(k);
         }
 
+        // Determine if any destination across all directions meets the threshold
+        let anyDestAboveThreshold = false;
+        for (const [dkey, counts] of dirToDestCounts) {
+            for (const [, c] of counts) {
+                if (Number(c) >= DEST_NAME_MIN_COUNT) {
+                    anyDestAboveThreshold = true;
+                    break;
+                }
+            }
+            if (anyDestAboveThreshold) break;
+        }
+
+        // Compute ranking metrics per direction: max dest count (primary), total trips (secondary)
+        const dirMetrics = new Map();
+        for (const dirKey of dirOrder) {
+            const counts = dirToDestCounts.get(dirKey) || new Map();
+            let maxCount = 0;
+            let sumCount = 0;
+            for (const [, c] of counts) {
+                const n = Number(c) || 0;
+                sumCount += n;
+                if (n > maxCount) maxCount = n;
+            }
+            // Fallback: if counts map is empty, use rowsForDir length as estimate
+            const rowsForDirLen = rows.filter((r) => (toText(r.dir) || 'Unknown') === dirKey).length;
+            if (!sumCount) sumCount = rowsForDirLen;
+            if (!maxCount) maxCount = rowsForDirLen ? Math.max(1, Math.floor(rowsForDirLen / 2)) : 0;
+            dirMetrics.set(dirKey, { maxCount, sumCount });
+        }
+
+        // Sort directions by maxCount desc, then sumCount desc, then dirKey
+        dirOrder.sort((a, b) => {
+            const ma = dirMetrics.get(a) || { maxCount: 0, sumCount: 0 };
+            const mb = dirMetrics.get(b) || { maxCount: 0, sumCount: 0 };
+            if (mb.maxCount !== ma.maxCount) return mb.maxCount - ma.maxCount;
+            if (mb.sumCount !== ma.sumCount) return mb.sumCount - ma.sumCount;
+            return String(a).localeCompare(String(b));
+        });
+
         let html = '';
         for (const dirKey of dirOrder) {
-            const counts = dirToDestCounts.get(dirKey);
-            const filteredNames = counts
-                ? Array.from(counts.entries())
-                      .filter(([, c]) => Number(c) >= DEST_NAME_MIN_COUNT)
-                      .sort((a, b) => {
-                          const dc = Number(b[1]) - Number(a[1]);
-                          if (dc) return dc;
-                          return String(a[0]).localeCompare(String(b[0]));
-                      })
-                      .map(([name]) => name)
-                : [];
+            const counts = dirToDestCounts.get(dirKey) || new Map();
+            // If no destination anywhere met threshold, show all destinations sorted by frequency
+            const useAllIfBelowThreshold = !anyDestAboveThreshold;
+            const entries = Array.from(counts.entries());
+            const filteredNames = entries
+                .filter(([name, c]) => useAllIfBelowThreshold ? true : Number(c) >= DEST_NAME_MIN_COUNT)
+                .sort((a, b) => {
+                    const dc = Number(b[1]) - Number(a[1]);
+                    if (dc) return dc;
+                    return String(a[0]).localeCompare(String(b[0]));
+                })
+                .map(([name]) => name);
             const label = filteredNames.length ? filteredNames.join('，') : dirKey;
             const expanded = isDirExpanded(lineId, dirKey);
             const tri = expanded ? '▾' : '▸';
