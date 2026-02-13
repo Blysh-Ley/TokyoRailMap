@@ -308,6 +308,8 @@ export function createPanel(options = {}) {
     const onSelectCompany = typeof options.onSelectCompany === 'function' ? options.onSelectCompany : null;
     const onSelectLine = typeof options.onSelectLine === 'function' ? options.onSelectLine : null;
     const onRestoreStationLines = typeof options.onRestoreStationLines === 'function' ? options.onRestoreStationLines : null;
+    const onTripPreview = typeof options.onTripPreview === 'function' ? options.onTripPreview : null;
+    const onTripClear = typeof options.onTripClear === 'function' ? options.onTripClear : null;
 
     const root = document.createElement('div');
     root.setAttribute('data-panel-root', '');
@@ -458,6 +460,11 @@ export function createPanel(options = {}) {
     });
     tripDetailRoot.addEventListener('mouseleave', () => {
         if (isTouchLikePointer(lastPointerType)) return;
+        if (tripLocked) {
+            tripDetailPinned = true;
+            clearTripDetailHideTimer();
+            return;
+        }
         tripDetailPinned = false;
         scheduleTripDetailHide();
     });
@@ -497,6 +504,13 @@ export function createPanel(options = {}) {
     let mouseArmedKey = null;
     let timetableRenderToken = 0;
     let lastTripDetailKey = null;
+    let tripArmedKey = null;
+    let tripLocked = false;
+    let lockedTripKey = null;
+    const tripHighlightDelayMs = 500;
+    let tripHighlightTimerId = null;
+    let tripHighlightCandidateKey = null;
+    let tripHighlightAppliedKey = null;
 
     let tripDetailToken = 0;
     let tripDetailPinned = false;
@@ -509,6 +523,44 @@ export function createPanel(options = {}) {
         }
     };
 
+    const clearTripHighlightTimer = () => {
+        if (tripHighlightTimerId != null) {
+            clearTimeout(tripHighlightTimerId);
+            tripHighlightTimerId = null;
+        }
+        tripHighlightCandidateKey = null;
+    };
+
+    const dispatchTripPreview = (previewKey, payload) => {
+        if (!onTripPreview) return;
+        try {
+            tripHighlightAppliedKey = toText(previewKey) || null;
+            onTripPreview(payload);
+        } catch {
+            // ignore
+        }
+    };
+
+    const scheduleTripPreview = ({ previewKey, payload, immediate }) => {
+        if (!onTripPreview) return;
+
+        if (immediate) {
+            clearTripHighlightTimer();
+            dispatchTripPreview(previewKey, payload);
+            return;
+        }
+
+        clearTripHighlightTimer();
+        tripHighlightCandidateKey = toText(previewKey);
+        const key = tripHighlightCandidateKey;
+        tripHighlightTimerId = setTimeout(() => {
+            tripHighlightTimerId = null;
+            if (tripHighlightCandidateKey !== key) return;
+            tripHighlightCandidateKey = null;
+            dispatchTripPreview(previewKey, payload);
+        }, tripHighlightDelayMs);
+    };
+
     const scheduleTripDetailHide = (delayMs = 220) => {
         clearTripDetailHideTimer();
         tripDetailHideTimer = setTimeout(() => {
@@ -518,6 +570,20 @@ export function createPanel(options = {}) {
                 lastTripDetailKey = null;
             }
         }, delayMs);
+    };
+
+    const lockTripPreview = (tripKey) => {
+        tripLocked = true;
+        lockedTripKey = toText(tripKey) || null;
+        tripDetailPinned = true;
+        clearTripDetailHideTimer();
+    };
+
+    const unlockTripPreview = () => {
+        tripLocked = false;
+        lockedTripKey = null;
+        tripArmedKey = null;
+        tripDetailPinned = false;
     };
 
     // expanded state per (lineId, direction)
@@ -1378,6 +1444,32 @@ export function createPanel(options = {}) {
             }
         }
 
+        try {
+            const payloadSegments = segmentsWithPast.map((seg) => ({
+                kind: seg.kind,
+                lineId: toText(seg.lineId),
+                stationIds: (seg.rows || []).map((r) => toText(r.stationId)).filter(Boolean)
+            }));
+            const mainSeg = segmentsWithPast.find((s) => s.kind === 'main') || null;
+            const mainRows = Array.isArray(mainSeg?.rows) ? mainSeg.rows : [];
+            const mainTerminalStationId = mainRows.length ? toText(mainRows[mainRows.length - 1]?.stationId) : '';
+            const payload = {
+                tripKey: toText(tripKey),
+                selectedLineId: toText(lineId),
+                mainLineId: toText(getTripLineId(trip) || lineId),
+                mainTerminalStationId,
+                hasNt,
+                segments: payloadSegments
+            };
+            scheduleTripPreview({
+                previewKey: `${toText(lineId)}||${toText(tripKey)}`,
+                payload,
+                immediate: !!pinned || tripLocked
+            });
+        } catch {
+            // ignore
+        }
+
         tripDetailBody.innerHTML = `
             <div class="panel-trip-detail-table">
                 <div class="panel-trip-detail-head">
@@ -1404,10 +1496,17 @@ export function createPanel(options = {}) {
     };
 
     const hideTripDetail = () => {
-        tripDetailPinned = false;
+        clearTripHighlightTimer();
+        tripHighlightAppliedKey = null;
+        unlockTripPreview();
         tripDetailToken += 1;
         clearTripDetailHideTimer();
         tripDetailRoot.classList.add('is-hidden');
+        try {
+            onTripClear?.();
+        } catch {
+            // ignore
+        }
     };
 
     const scheduleMarqueeApply = (rootEl) => {
@@ -1462,25 +1561,27 @@ export function createPanel(options = {}) {
                 }
 
                 // reset
-                innerEl.style.transform = '';
-                marqueeEl.__panelMarqueeAnim = null;
-
-                // If not overflowing, no marquee.
-                const viewportW = marqueeEl.clientWidth || 0;
-                const contentW = innerEl.scrollWidth || 0;
-                if (!viewportW || contentW <= viewportW + 1) continue;
-
-                const distancePx = Math.max(0, contentW - viewportW);
-                if (!distancePx) continue;
-
-                const holdMs = 3000;
-                const speedPxPerSec = 35; // readable pace
-                const travelMs = Math.max(1500, Math.round((distancePx / speedPxPerSec) * 1000));
-                const totalMs = holdMs + travelMs + holdMs + holdMs;
-
-                const startHoldOffset = holdMs / totalMs;
-                const endMoveOffset = (holdMs + travelMs) / totalMs;
-                const endHoldOffset = (holdMs + travelMs + holdMs) / totalMs;
+                    const payloadSegments = segmentsWithPast.map((seg) => ({
+                        kind: seg.kind,
+                        lineId: toText(seg.lineId),
+                        stationIds: (seg.rows || []).map((r) => toText(r.stationId)).filter(Boolean)
+                    }));
+                    const mainSeg = segmentsWithPast.find((s) => s.kind === 'main') || null;
+                    const mainRows = Array.isArray(mainSeg?.rows) ? mainSeg.rows : [];
+                    const mainTerminalStationId = mainRows.length ? toText(mainRows[mainRows.length - 1]?.stationId) : '';
+                    const payload = {
+                        tripKey: toText(tripKey),
+                        selectedLineId: toText(lineId),
+                        mainLineId: toText(getTripLineId(trip) || lineId),
+                        mainTerminalStationId,
+                        hasNt,
+                        segments: payloadSegments
+                    };
+                    scheduleTripPreview({
+                        previewKey: `${toText(lineId)}||${toText(tripKey)}`,
+                        payload,
+                        immediate: !!pinned || tripLocked
+                    });
                 const resetOffset = Math.min(0.999, endHoldOffset + 0.001);
 
                 const anim = innerEl.animate(
@@ -1717,15 +1818,58 @@ export function createPanel(options = {}) {
             suppressMouseEventsUntilMs = nowMs() + 800;
         }
 
+        if (tripLocked) {
+            const t = evt?.target;
+            const rowEl = t?.closest?.('.panel-timetable-row');
+            const lineEl = rowEl?.closest?.('[data-line-id]');
+            const lineId = lineEl?.getAttribute?.('data-line-id');
+            const tripKey = rowEl?.getAttribute?.('data-trip-key');
+            const rowKey = lineId && tripKey ? `${String(lineId)}||${String(tripKey)}` : null;
+            if (rowKey && rowKey === lockedTripKey) {
+                clearTripDetailHideTimer();
+            } else if (!(t && tripDetailRoot.contains(t))) {
+                hideTripDetail();
+                lastTripDetailKey = null;
+                // 点到其他位置即取消固定；本次触摸不继续触发其他车次预览
+                if (rowKey && rowKey !== lockedTripKey) {
+                    stopPropagationOnly(evt);
+                    return;
+                }
+            }
+        }
+
         if (!isTouchLikePointer(pt)) return;
 
         const rowEl = evt?.target?.closest?.('.panel-timetable-row');
         if (rowEl && body.contains(rowEl)) {
+            clearTripHighlightTimer();
             const lineEl = rowEl.closest?.('[data-line-id]');
             const lineId = lineEl?.getAttribute?.('data-line-id');
             const tripKey = rowEl.getAttribute?.('data-trip-key');
             if (lineId && tripKey) {
+                const key = `${String(lineId)}||${String(tripKey)}`;
+                if (tripLocked && key !== lockedTripKey) {
+                    hideTripDetail();
+                    lastTripDetailKey = null;
+                    stopPropagationOnly(evt);
+                    return;
+                }
                 stopPropagationOnly(evt);
+                if (tripArmedKey !== key) {
+                    tripArmedKey = key;
+                    renderTripDetail({
+                        lineId: String(lineId),
+                        tripKey: String(tripKey),
+                        clientX: evt?.clientX || 0,
+                        clientY: evt?.clientY || 0,
+                        pinned: tripLocked && key === lockedTripKey
+                    });
+                    lastTripDetailKey = key;
+                    return;
+                }
+
+                tripArmedKey = null;
+                lockTripPreview(key);
                 renderTripDetail({
                     lineId: String(lineId),
                     tripKey: String(tripKey),
@@ -1733,7 +1877,7 @@ export function createPanel(options = {}) {
                     clientY: evt?.clientY || 0,
                     pinned: true
                 });
-                lastTripDetailKey = `${lineId}||${tripKey}`;
+                lastTripDetailKey = key;
                 return;
             }
         }
@@ -1786,6 +1930,7 @@ export function createPanel(options = {}) {
     };
 
     const onBodyMove = (evt) => {
+        if (tripLocked) return;
         if (isTouchLikePointer(lastPointerType)) return;
 
         const t = getInteractiveTarget(evt);
@@ -1833,6 +1978,43 @@ export function createPanel(options = {}) {
             return;
         }
 
+        const rowEl = evt?.target?.closest?.('.panel-timetable-row');
+        if (rowEl && body.contains(rowEl)) {
+            clearTripHighlightTimer();
+            const lineEl = rowEl.closest?.('[data-line-id]');
+            const lineId = lineEl?.getAttribute?.('data-line-id');
+            const tripKey = rowEl.getAttribute?.('data-trip-key');
+            if (lineId && tripKey) {
+                const key = `${String(lineId)}||${String(tripKey)}`;
+                stopEvent(evt);
+                if (tripLocked && key !== lockedTripKey) {
+                    hideTripDetail();
+                    lastTripDetailKey = null;
+                    return;
+                }
+
+                tripArmedKey = null;
+                lockTripPreview(key);
+                renderTripDetail({
+                    lineId: String(lineId),
+                    tripKey: String(tripKey),
+                    clientX: evt?.clientX || 0,
+                    clientY: evt?.clientY || 0,
+                    pinned: true
+                });
+                lastTripDetailKey = key;
+                return;
+            }
+        }
+
+        if (tripLocked) {
+            const t = evt?.target;
+            if (!(t && tripDetailRoot.contains(t))) {
+                hideTripDetail();
+                lastTripDetailKey = null;
+            }
+        }
+
         const t = getInteractiveTarget(evt);
         if (!t) return;
 
@@ -1875,6 +2057,7 @@ export function createPanel(options = {}) {
     };
 
     const onBodyLeave = (evt) => {
+        clearTripHighlightTimer();
         clearHoverTimer();
         clearRestoreTimer();
         hoverCandidateKey = null;
@@ -1882,6 +2065,7 @@ export function createPanel(options = {}) {
         tapArmedKey = null;
         mouseArmedKey = null;
         restoreStationLinesIfNeeded();
+        if (tripLocked) return;
         const toEl = evt?.relatedTarget;
         if (toEl && tripDetailRoot.contains(toEl)) return;
         if (!tripDetailPinned) scheduleTripDetailHide();
@@ -1901,10 +2085,15 @@ export function createPanel(options = {}) {
         const tripKey = rowEl.getAttribute?.('data-trip-key');
         if (!lineId || !tripKey) return;
         const key = `${lineId}||${tripKey}`;
-        if (key === lastTripDetailKey && !tripDetailPinned) return;
+        if (tripLocked && key !== lockedTripKey) return;
+        if (key === lastTripDetailKey && !tripDetailPinned) {
+            const pendingSame = tripHighlightCandidateKey === key;
+            const appliedSame = tripHighlightAppliedKey === key;
+            if (pendingSame || appliedSame) return;
+        }
 
         clearTripDetailHideTimer();
-
+        clearTripHighlightTimer();
         renderTripDetail({
             lineId: String(lineId),
             tripKey: String(tripKey),
@@ -1916,6 +2105,8 @@ export function createPanel(options = {}) {
     });
 
     body.addEventListener('mouseout', (evt) => {
+        clearTripHighlightTimer();
+        if (tripLocked) return;
         if (tripDetailPinned) return;
         const rowEl = evt?.target?.closest?.('.panel-timetable-row');
         if (!rowEl || !body.contains(rowEl)) return;
@@ -1924,10 +2115,22 @@ export function createPanel(options = {}) {
         scheduleTripDetailHide();
     });
 
-    document.addEventListener('pointerdown', (evt) => {
+    document.addEventListener('click', (evt) => {
         const target = evt?.target;
-        if (!tripDetailPinned) return;
-        if (target && (tripDetailRoot.contains(target) || target.closest?.('.panel-timetable-row'))) return;
+        if (!tripDetailPinned && !tripLocked) return;
+        if (target && tripDetailRoot.contains(target)) return;
+        if (target && root.contains(target)) {
+            const rowEl = target.closest?.('.panel-timetable-row');
+            const lineEl = rowEl?.closest?.('[data-line-id]');
+            const lineId = lineEl?.getAttribute?.('data-line-id');
+            const tripKey = rowEl?.getAttribute?.('data-trip-key');
+            const key = lineId && tripKey ? `${String(lineId)}||${String(tripKey)}` : null;
+            if (tripLocked && key && key === lockedTripKey) return;
+            // panel 内除“已锁定同一车次”外，其他位置都取消固定
+            hideTripDetail();
+            lastTripDetailKey = null;
+            return;
+        }
         hideTripDetail();
         lastTripDetailKey = null;
     });
@@ -1961,6 +2164,7 @@ export function createPanel(options = {}) {
     };
 
     const hide = () => {
+        hideTripDetail();
         root.style.transform = 'translateX(calc(100% + 24px))';
     };
 
@@ -2016,6 +2220,7 @@ export function createPanel(options = {}) {
         tapArmedKey = null;
         clearHoverTimer();
         clearRestoreTimer();
+        clearTripHighlightTimer();
         hideTripDetail();
         lastTripDetailKey = null;
 

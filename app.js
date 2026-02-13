@@ -76,6 +76,11 @@ map.on('load', async () => {
     let stationPopup = null;
     let stationLabels = [];
     let fixedPopupStationId = null;
+    let previewTripPath = (_payload) => {};
+    let clearTripPathPreview = () => {};
+    let tripPreviewStationIds = null; // Set<string> | null
+    let tripPreviewLineIds = null; // Set<string> | null
+    let tripPreviewActive = false;
 
     // 右侧界面：站点/站名/搜索提交站点时弹出（在 applySelectionEffects 定义后初始化）
     let panel = null;
@@ -263,6 +268,14 @@ map.on('load', async () => {
 
         const baseColorExpr = ['coalesce', ['get', 'color'], '#555'];
 
+        // 车次预览态：底图线路统一弱化，真正高亮由“分段预览图层”承担（避免整条线被点亮）
+        if (tripPreviewActive) {
+            map.setPaintProperty('lines-layer', 'line-color', '#999');
+            map.setPaintProperty('lines-layer', 'line-width', 1.2);
+            map.setPaintProperty('lines-layer', 'line-opacity', 0.45);
+            return;
+        }
+
         // 线路优先：选中线路时，忽略公司选中
         // 但如果菜单把支线合并到主线（selectedStationLineIds 里包含多条），则按集合高亮。
         if (selectedLineId) {
@@ -413,6 +426,17 @@ map.on('load', async () => {
 
     function applyStationSelectionStyle() {
         if (!map.getLayer('stations-layer')) return;
+        // 车次预览态：站点画法恢复基础，由 collision 的显式站点过滤控制可见集合
+        if (tripPreviewActive) {
+            map.setPaintProperty('stations-layer', 'circle-radius', baseStationCircleRadiusExpr());
+            map.setPaintProperty('stations-layer', 'circle-stroke-width', baseStationCircleStrokeWidthExpr());
+            map.setPaintProperty('stations-layer', 'circle-opacity', 1);
+            map.setPaintProperty('stations-layer', 'circle-stroke-opacity', 1);
+            map.setPaintProperty('stations-layer', 'circle-color', '#fff');
+            map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
+            return;
+        }
+
 
         // 换乘站判断仍用 serving_ids（全服务线路集合）
         const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
@@ -513,6 +537,7 @@ map.on('load', async () => {
     }
 
     function getEnabledLineIdsForLabels() {
+        if (tripPreviewActive) return null;
         // 需求：选择线路不变、其他线路变灰变细；且“其他线路站点不显示站点名”
         // 这里返回“当前选中线路集合”，只用于站名筛选（圆点不筛选）。
         if (selectedLineId) {
@@ -634,6 +659,12 @@ map.on('load', async () => {
 
             setStationLabelMode('auto');
             applySelectionEffects();
+        },
+        onTripPreview: (payload) => {
+            previewTripPath(payload);
+        },
+        onTripClear: () => {
+            clearTripPathPreview();
         }
     });
 
@@ -1161,6 +1192,553 @@ map.on('load', async () => {
         const lineFeatures = Array.isArray(linesData?.features)
             ? linesData.features.filter((f) => f?.properties?.type === 'line')
             : [];
+        const lineFeatureById = new Map();
+
+        // 站点坐标索引：用于车次路径高亮（只高亮停靠站）
+        const stationCoordById = new Map();
+        const stationServingCountById = new Map();
+        try {
+            const stationFeaturesForPreview = Array.isArray(generatedStationsData?.features)
+                ? generatedStationsData.features
+                : [];
+            for (const sf of stationFeaturesForPreview) {
+                if (sf?.geometry?.type !== 'Point') continue;
+                const p = sf?.properties || {};
+                const sid = String(p?.id ?? sf?.id ?? '').trim();
+                const c = sf?.geometry?.coordinates;
+                if (!sid || !Array.isArray(c) || c.length < 2) continue;
+                const lng = Number(c[0]);
+                const lat = Number(c[1]);
+                if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+                stationCoordById.set(sid, [lng, lat]);
+
+                const servingIds = normalizeArrayLike(p?.serving_ids);
+                const servingLines = normalizeArrayLike(p?.serving_lines);
+                const servingCount = (servingIds.length || servingLines.length || 1);
+                stationServingCountById.set(sid, servingCount);
+            }
+        } catch {
+            // ignore
+        }
+
+        const ensureTripPreviewLayers = () => {
+            if (!map.getSource('trip-preview-source')) {
+                map.addSource('trip-preview-source', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] }
+                });
+            }
+
+            if (!map.getLayer('trip-preview-line-layer')) {
+                map.addLayer({
+                    id: 'trip-preview-line-layer',
+                    type: 'line',
+                    source: 'trip-preview-source',
+                    filter: ['!=', ['get', 'role'], 'connector'],
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: {
+                        'line-color': ['coalesce', ['get', 'color'], '#0a84ff'],
+                        'line-width': 3,
+                        'line-opacity': 1
+                    }
+                });
+            }
+
+            if (!map.getLayer('trip-preview-connector-layer')) {
+                map.addLayer({
+                    id: 'trip-preview-connector-layer',
+                    type: 'line',
+                    source: 'trip-preview-source',
+                    filter: ['==', ['get', 'role'], 'connector'],
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: {
+                        'line-color': ['coalesce', ['get', 'color'], '#0a84ff'],
+                        'line-width': 3,
+                        'line-opacity': 1
+                    }
+                });
+            }
+
+            if (!map.getSource('trip-preview-stops-source')) {
+                map.addSource('trip-preview-stops-source', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] }
+                });
+            }
+
+            if (!map.getLayer('trip-preview-stops-layer')) {
+                map.addLayer({
+                    id: 'trip-preview-stops-layer',
+                    type: 'circle',
+                    source: 'trip-preview-stops-source',
+                    paint: {
+                        'circle-radius': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            6, [
+                                'case',
+                                ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
+                                0.5,
+                                0.5
+                            ],
+                            14, [
+                                'case',
+                                ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
+                                3.5,
+                                4
+                            ],
+                            22, [
+                                'case',
+                                ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
+                                3.5,
+                                4
+                            ]
+                        ],
+                        'circle-color': '#fff',
+                        'circle-stroke-width': [
+                            'case',
+                            ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
+                            0,
+                            2
+                        ],
+                        'circle-stroke-color': '#111'
+                    }
+                });
+            }
+        };
+
+        const resetTripPreviewLayers = () => {
+            const emptyFc = { type: 'FeatureCollection', features: [] };
+            try {
+                map.getSource('trip-preview-source')?.setData?.(emptyFc);
+                map.getSource('trip-preview-stops-source')?.setData?.(emptyFc);
+            } catch {
+                // ignore
+            }
+        };
+
+        const distMeters = (a, b) => {
+            if (!Array.isArray(a) || !Array.isArray(b) || a.length < 2 || b.length < 2) return Number.POSITIVE_INFINITY;
+            const lng1 = Number(a[0]);
+            const lat1 = Number(a[1]);
+            const lng2 = Number(b[0]);
+            const lat2 = Number(b[1]);
+            if (![lng1, lat1, lng2, lat2].every(Number.isFinite)) return Number.POSITIVE_INFINITY;
+            const dLat = (lat2 - lat1) * (Math.PI / 180);
+            const dLng = (lng2 - lng1) * (Math.PI / 180);
+            const mLat = ((lat1 + lat2) / 2) * (Math.PI / 180);
+            const x = dLng * Math.cos(mLat);
+            const y = dLat;
+            return Math.sqrt(x * x + y * y) * 6371000;
+        };
+
+        const getLineChains = (lineIdRaw) => {
+            const lineId = String(lineIdRaw ?? '').trim();
+            if (!lineId) return [];
+            const f = lineFeatureById.get(lineId);
+            if (!f?.geometry) return [];
+            const g = f.geometry;
+            if (g.type === 'LineString' && Array.isArray(g.coordinates)) {
+                return [g.coordinates.filter((pt) => Array.isArray(pt) && pt.length >= 2)];
+            }
+            if (g.type === 'MultiLineString' && Array.isArray(g.coordinates)) {
+                return g.coordinates
+                    .filter((line) => Array.isArray(line))
+                    .map((line) => line.filter((pt) => Array.isArray(pt) && pt.length >= 2));
+            }
+            return [];
+        };
+
+        const findNearestIndex = (chain, coord) => {
+            if (!Array.isArray(chain) || !Array.isArray(coord)) return { index: -1, dist: Number.POSITIVE_INFINITY };
+            let bestIdx = -1;
+            let bestDist = Number.POSITIVE_INFINITY;
+            for (let i = 0; i < chain.length; i += 1) {
+                const d = distMeters(chain[i], coord);
+                if (d < bestDist) {
+                    bestDist = d;
+                    bestIdx = i;
+                }
+            }
+            return { index: bestIdx, dist: bestDist };
+        };
+
+        const projectToLocalXY = (lngLat, refLatDeg) => {
+            const lng = Number(lngLat?.[0]);
+            const lat = Number(lngLat?.[1]);
+            const k = Math.cos((Number(refLatDeg) || 0) * Math.PI / 180);
+            return {
+                x: lng * k,
+                y: lat
+            };
+        };
+
+        const closestPointOnSegmentLL = (p, a, b) => {
+            const refLat = (Number(p?.[1]) + Number(a?.[1]) + Number(b?.[1])) / 3;
+            const pp = projectToLocalXY(p, refLat);
+            const pa = projectToLocalXY(a, refLat);
+            const pb = projectToLocalXY(b, refLat);
+
+            const vx = pb.x - pa.x;
+            const vy = pb.y - pa.y;
+            const wx = pp.x - pa.x;
+            const wy = pp.y - pa.y;
+
+            const vv = vx * vx + vy * vy;
+            let t = vv > 0 ? (wx * vx + wy * vy) / vv : 0;
+            if (!Number.isFinite(t)) t = 0;
+            if (t < 0) t = 0;
+            if (t > 1) t = 1;
+
+            const out = [
+                Number(a?.[0]) + (Number(b?.[0]) - Number(a?.[0])) * t,
+                Number(a?.[1]) + (Number(b?.[1]) - Number(a?.[1])) * t
+            ];
+            return { point: out, t };
+        };
+
+        const closestPointOnChain = (chain, coord) => {
+            if (!Array.isArray(chain) || chain.length < 2 || !Array.isArray(coord)) {
+                return { point: null, segIndex: -1, t: 0, dist: Number.POSITIVE_INFINITY };
+            }
+
+            let best = { point: null, segIndex: -1, t: 0, dist: Number.POSITIVE_INFINITY };
+            for (let i = 0; i < chain.length - 1; i += 1) {
+                const a = chain[i];
+                const b = chain[i + 1];
+                if (!Array.isArray(a) || !Array.isArray(b)) continue;
+                const proj = closestPointOnSegmentLL(coord, a, b);
+                const d = distMeters(coord, proj.point);
+                if (d < best.dist) {
+                    best = { point: proj.point, segIndex: i, t: proj.t, dist: d };
+                }
+            }
+            return best;
+        };
+
+        const buildProjectedSubchain = (chain, fromProj, toProj) => {
+            if (!Array.isArray(chain) || chain.length < 2 || !fromProj?.point || !toProj?.point) return null;
+
+            const i = Number(fromProj.segIndex);
+            const j = Number(toProj.segIndex);
+            if (!Number.isFinite(i) || !Number.isFinite(j) || i < 0 || j < 0) return null;
+
+            const out = [fromProj.point];
+            if (i === j) {
+                out.push(toProj.point);
+                return out;
+            }
+
+            if (i < j) {
+                for (let k = i + 1; k <= j; k += 1) out.push(chain[k]);
+                out.push(toProj.point);
+                return out;
+            }
+
+            // reverse direction
+            for (let k = i; k >= j + 1; k -= 1) out.push(chain[k]);
+            out.push(toProj.point);
+            return out;
+        };
+
+        const extractLineSegment = (lineId, fromCoord, toCoord) => {
+            const chains = getLineChains(lineId);
+            let best = null;
+
+            for (const chain of chains) {
+                if (!Array.isArray(chain) || chain.length < 2) continue;
+                const a = closestPointOnChain(chain, fromCoord);
+                const b = closestPointOnChain(chain, toCoord);
+                if (a.segIndex < 0 || b.segIndex < 0 || !a.point || !b.point) continue;
+
+                const score = a.dist + b.dist;
+                if (!best || score < best.score) {
+                    const seg = buildProjectedSubchain(chain, a, b);
+                    best = { score, seg, endDist: Math.max(a.dist, b.dist) };
+                }
+            }
+
+            if (!best || !Array.isArray(best.seg) || best.seg.length < 2) return null;
+            // 近似阈值：端点距离线路过远则认为不可靠，走直连
+            if (best.endDist > 250) return null;
+            return best.seg;
+        };
+
+        const nearestBridgeBetweenLines = (lineIdA, lineIdB) => {
+            const chainsA = getLineChains(lineIdA);
+            const chainsB = getLineChains(lineIdB);
+            if (!chainsA.length || !chainsB.length) return null;
+
+            const MAX_SAMPLES = 900;
+            const sampleIndices = (len) => {
+                if (!Number.isFinite(len) || len <= 0) return [];
+                const step = Math.max(1, Math.ceil(len / MAX_SAMPLES));
+                const out = [];
+                for (let i = 0; i < len; i += step) out.push(i);
+                if (out[out.length - 1] !== len - 1) out.push(len - 1);
+                return out;
+            };
+
+            let best = null;
+            for (const ca of chainsA) {
+                if (!Array.isArray(ca) || ca.length < 2) continue;
+                const ia = sampleIndices(ca.length);
+                for (const ibase of ia) {
+                    const pa = ca[ibase];
+                    for (const cb of chainsB) {
+                        if (!Array.isArray(cb) || cb.length < 2) continue;
+                        const pbProj = closestPointOnChain(cb, pa);
+                        if (!pbProj?.point || pbProj.segIndex < 0) continue;
+                        const paProj = closestPointOnChain(ca, pbProj.point);
+                        if (!paProj?.point || paProj.segIndex < 0) continue;
+                        const d = distMeters(paProj.point, pbProj.point);
+                        if (!best || d < best.dist) {
+                            best = { a: paProj.point, b: pbProj.point, dist: d };
+                        }
+                    }
+                }
+            }
+            return best;
+        };
+
+        const isLineTerminalStation = (lineIdRaw, stationIdRaw) => {
+            const lineId = String(lineIdRaw ?? '').trim();
+            const stationId = String(stationIdRaw ?? '').trim();
+            if (!lineId || !stationId) return false;
+            const s = stationCoordById.get(stationId);
+            if (!s) return false;
+            const chains = getLineChains(lineId);
+            if (!chains.length) return false;
+
+            let minEndDist = Number.POSITIVE_INFINITY;
+            for (const chain of chains) {
+                if (!Array.isArray(chain) || chain.length < 2) continue;
+                const d1 = distMeters(s, chain[0]);
+                const d2 = distMeters(s, chain[chain.length - 1]);
+                minEndDist = Math.min(minEndDist, d1, d2);
+            }
+            return minEndDist <= 1200;
+        };
+
+        const stationAKey = (stationIdRaw) => {
+            const s = String(stationIdRaw ?? '').trim();
+            if (!s) return '';
+            const parts = s.split('.').map((x) => x.trim()).filter(Boolean);
+            return parts.length ? parts[parts.length - 1] : '';
+        };
+
+        const isSamePhysicalStation = (aRaw, bRaw) => {
+            const a = String(aRaw ?? '').trim();
+            const b = String(bRaw ?? '').trim();
+            if (!a || !b) return false;
+            if (a === b) return true;
+            const ak = stationAKey(a);
+            const bk = stationAKey(b);
+            if (ak && bk && ak === bk) return true;
+            const ca = stationCoordById.get(a);
+            const cb = stationCoordById.get(b);
+            if (!ca || !cb) return false;
+            return distMeters(ca, cb) <= 350;
+        };
+
+        const previewFitWithSidePanels = (bbox) => {
+            if (!bbox) return;
+            const bounds = [
+                [bbox.minLng, bbox.minLat],
+                [bbox.maxLng, bbox.maxLat]
+            ];
+
+            const base = 50;
+            let rightReserve = base;
+            let leftReserve = base;
+
+            try {
+                const menuRect = menu?.wrapper?.getBoundingClientRect?.();
+                if (menuRect && Number.isFinite(menuRect.width)) {
+                    leftReserve = Math.max(leftReserve, Math.ceil(Math.max(menuRect.right || 0, menuRect.width) + base));
+                }
+            } catch {
+                // ignore
+            }
+
+            try {
+                const panelRect = panel?.el?.getBoundingClientRect?.();
+                if (panelRect && Number.isFinite(panelRect.width)) {
+                    rightReserve = Math.max(rightReserve, Math.ceil(panelRect.width + base));
+                }
+            } catch {
+                // ignore
+            }
+
+            try {
+                const tripEl = document.querySelector('[data-panel-trip-detail]');
+                const hidden = tripEl?.classList?.contains('is-hidden');
+                const rect = tripEl?.getBoundingClientRect?.();
+                if (!hidden && rect && Number.isFinite(rect.width) && rect.width > 0) {
+                    rightReserve = Math.max(rightReserve, Math.ceil(rightReserve + rect.width));
+                }
+            } catch {
+                // ignore
+            }
+
+            try {
+                map.fitBounds(bounds, {
+                    padding: { top: base, bottom: base, left: leftReserve, right: rightReserve },
+                    duration: 280,
+                    easing: (t) => t,
+                    essential: true
+                });
+            } catch {
+                // ignore
+            }
+        };
+
+        const buildTripPreviewFeatures = (payload) => {
+            const outLineFeatures = [];
+            const outStopFeatures = [];
+            const coordsForBbox = [];
+            const stopIds = new Set();
+
+            const allSegments = Array.isArray(payload?.segments) ? payload.segments : [];
+            const ntFirstStationId = (() => {
+                const ntSeg = allSegments.find((s) => String(s?.kind) === 'nt');
+                const ids = Array.isArray(ntSeg?.stationIds) ? ntSeg.stationIds : [];
+                return ids.length ? String(ids[0] || '').trim() : '';
+            })();
+
+            let allowNt = !payload?.hasNt || isLineTerminalStation(payload?.mainLineId, payload?.mainTerminalStationId);
+            if (!allowNt && payload?.hasNt) {
+                allowNt = isSamePhysicalStation(payload?.mainTerminalStationId, ntFirstStationId);
+            }
+            const segments = allowNt ? allSegments : allSegments.filter((s) => String(s?.kind) !== 'nt');
+
+            const pushLineFeature = (coords, lineId, role = 'line') => {
+                if (!Array.isArray(coords) || coords.length < 2) return;
+                for (const c of coords) {
+                    if (Array.isArray(c) && c.length >= 2) coordsForBbox.push(c);
+                }
+                outLineFeatures.push({
+                    type: 'Feature',
+                    properties: {
+                        role,
+                        lineId: String(lineId || ''),
+                        color: lineColorById.get(String(lineId || '')) || '#0a84ff'
+                    },
+                    geometry: { type: 'LineString', coordinates: coords }
+                });
+            };
+
+            for (let i = 0; i < segments.length; i += 1) {
+                const seg = segments[i] || {};
+                const lineId = String(seg.lineId || '').trim();
+                const stationIds = Array.isArray(seg.stationIds) ? seg.stationIds.map((x) => String(x).trim()).filter(Boolean) : [];
+                for (const sid of stationIds) stopIds.add(sid);
+
+                for (let j = 0; j < stationIds.length - 1; j += 1) {
+                    const fromId = stationIds[j];
+                    const toId = stationIds[j + 1];
+                    const from = stationCoordById.get(fromId);
+                    const to = stationCoordById.get(toId);
+                    if (!from || !to) continue;
+
+                    const clipped = extractLineSegment(lineId, from, to);
+                    if (clipped && clipped.length >= 2) pushLineFeature(clipped, lineId, 'line');
+                    else pushLineFeature([from, to], lineId, 'connector');
+                }
+
+                if (i > 0) {
+                    const prev = segments[i - 1] || {};
+                    const prevIds = Array.isArray(prev.stationIds) ? prev.stationIds : [];
+                    const prevLast = String(prevIds.length ? prevIds[prevIds.length - 1] : '').trim();
+                    const currFirst = String(stationIds.length ? stationIds[0] : '').trim();
+                    if (prevLast && currFirst && prevLast !== currFirst) {
+                        const a = stationCoordById.get(prevLast);
+                        const b = stationCoordById.get(currFirst);
+                        if (a && b) {
+                            const bridge = nearestBridgeBetweenLines(prev.lineId, lineId);
+                            const canUseBridge = bridge && Number.isFinite(bridge.dist) && bridge.dist <= 3000;
+                            if (canUseBridge) {
+                                const segA = extractLineSegment(prev.lineId, a, bridge.a);
+                                const segB = extractLineSegment(lineId, bridge.b, b);
+                                if (segA && segA.length >= 2) pushLineFeature(segA, prev.lineId, 'line');
+                                if (bridge.dist > 25) pushLineFeature([bridge.a, bridge.b], lineId || prev.lineId, 'connector');
+                                if (segB && segB.length >= 2) pushLineFeature(segB, lineId, 'line');
+
+                                if ((!segA || segA.length < 2) && (!segB || segB.length < 2)) {
+                                    pushLineFeature([a, b], lineId || prev.lineId, 'connector');
+                                }
+                            } else {
+                                pushLineFeature([a, b], lineId || prev.lineId, 'connector');
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (const sid of stopIds) {
+                const c = stationCoordById.get(sid);
+                if (!c) continue;
+                outStopFeatures.push({
+                    type: 'Feature',
+                    properties: {
+                        id: sid,
+                        serving_count: Number(stationServingCountById.get(sid) || 1)
+                    },
+                    geometry: { type: 'Point', coordinates: c }
+                });
+            }
+
+            let bbox = null;
+            for (const c of coordsForBbox) {
+                const lng = Number(c?.[0]);
+                const lat = Number(c?.[1]);
+                bbox = extendBBox(bbox, lng, lat);
+            }
+
+            return {
+                lineFc: { type: 'FeatureCollection', features: outLineFeatures },
+                stopFc: { type: 'FeatureCollection', features: outStopFeatures },
+                lineIds: new Set(segments.map((s) => String(s?.lineId || '').trim()).filter(Boolean)),
+                stopIds,
+                bbox
+            };
+        };
+
+        clearTripPathPreview = () => {
+            tripPreviewActive = false;
+            tripPreviewStationIds = null;
+            tripPreviewLineIds = null;
+            resetTripPreviewLayers();
+            setStationLabelMode('auto');
+            applySelectionEffects();
+            collisionController?.scheduleUpdate?.();
+        };
+
+        previewTripPath = (payload) => {
+            if (!payload || !Array.isArray(payload?.segments) || !payload.segments.length) {
+                clearTripPathPreview();
+                return;
+            }
+
+            ensureTripPreviewLayers();
+            const built = buildTripPreviewFeatures(payload);
+            tripPreviewActive = true;
+            tripPreviewStationIds = built.stopIds;
+            tripPreviewLineIds = built.lineIds;
+
+            try {
+                map.getSource('trip-preview-source')?.setData?.(built.lineFc);
+                map.getSource('trip-preview-stops-source')?.setData?.(built.stopFc);
+            } catch {
+                // ignore
+            }
+
+            setStationLabelMode('all');
+            applySelectionEffects();
+            collisionController?.scheduleUpdate?.();
+            previewFitWithSidePanels(built.bbox);
+        };
 
         const companyObj = {};
         const linesObj = {};
@@ -1301,6 +1879,7 @@ map.on('load', async () => {
         for (const f of lineFeatures) {
             const lineId = f?.properties?.id ?? f?.id;
             if (!lineId) continue;
+            lineFeatureById.set(String(lineId), f);
 
             const company = f?.properties?.company ?? '未知公司';
             const name = f?.properties?.name ?? String(lineId);
@@ -1554,10 +2133,14 @@ map.on('load', async () => {
             gridCellPx: 80,
             // 线路联动：只影响站名（圆点仍按碰撞显示）
             getEnabledLineIds: getEnabledLineIdsForLabels,
+            getVisibleStationIds: () => (tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size
+                ? tripPreviewStationIds
+                : null),
             // 右上角三段开关：off/auto(碰撞)/all(无视碰撞)
             getLabelMode: () => stationLabelMode,
             // 高亮线路/公司时：圆点全部显示，避免缩小后站点消失
             getCircleMode: () => (
+                tripPreviewActive ||
                 selectedLineId ||
                 selectedCompany ||
                 (selectedStationLineIds && selectedStationLineIds.size)

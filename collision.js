@@ -80,6 +80,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
     const getLabelsVisible = options.getLabelsVisible;
     const getLabelMode = options.getLabelMode;
     const getCircleMode = options.getCircleMode;
+    const getVisibleStationIds = options.getVisibleStationIds;
     const getPinnedStationId = options.getPinnedStationId;
     // 线路联动作用范围：
     // - 'labels'：只影响站名显示（不影响圆点）
@@ -96,6 +97,13 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             if (enabledLineIdsSet.has(lineId)) return true;
         }
         return false;
+    }
+
+    function isStationEnabledByExplicitIds(stationId, explicitIdsSet) {
+        if (!explicitIdsSet) return true;
+        const id = String(stationId ?? '').trim();
+        if (!id) return false;
+        return explicitIdsSet.has(id);
     }
 
     function updateStationLabelVisibility() {
@@ -118,6 +126,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             lineFilterTarget === 'labels' || lineFilterTarget === 'labels_and_circles'
                 ? (typeof getEnabledLineIds === 'function' ? getEnabledLineIds() : null)
                 : null;
+        const explicitIdsSet = typeof getVisibleStationIds === 'function' ? getVisibleStationIds() : null;
 
         if (mode === 'all') {
             stationLabels.forEach((label) => {
@@ -126,6 +135,10 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
                     return;
                 }
                 if (!isStationEnabledByLines(label.servingLineIds, enabledLineIdsSet)) {
+                    label.el.style.display = 'none';
+                    return;
+                }
+                if (!isStationEnabledByExplicitIds(label.stationId, explicitIdsSet)) {
                     label.el.style.display = 'none';
                     return;
                 }
@@ -162,6 +175,10 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             }
 
             if (!isStationEnabledByLines(label.servingLineIds, enabledLineIdsSet)) {
+                label.el.style.display = 'none';
+                return;
+            }
+            if (!isStationEnabledByExplicitIds(label.stationId, explicitIdsSet)) {
                 label.el.style.display = 'none';
                 return;
             }
@@ -213,6 +230,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             lineFilterTarget === 'labels_and_circles'
                 ? (typeof getEnabledLineIds === 'function' ? getEnabledLineIds() : null)
                 : null;
+        const explicitIdsSet = typeof getVisibleStationIds === 'function' ? getVisibleStationIds() : null;
 
         // 在需要“全部显示圆点”时，跳过碰撞计算（避免缩小地图后圆点被隐藏）
         if (circleMode === 'all') {
@@ -220,6 +238,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             for (const station of stationCircles) {
                 if (!station.priority) continue;
                 if (!isStationEnabledByLines(station.servingLineIds, enabledLineIdsSet)) continue;
+                if (!isStationEnabledByExplicitIds(station.stationId, explicitIdsSet)) continue;
                 visibleIds.push(station.stationId);
             }
 
@@ -244,6 +263,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             if (!station.priority) return;
 
             if (!isStationEnabledByLines(station.servingLineIds, enabledLineIdsSet)) return;
+            if (!isStationEnabledByExplicitIds(station.stationId, explicitIdsSet)) return;
 
             const radius = circleRadiusPxForStation(zoom, station.priority);
             const strokePadding = circleStrokeWidthPxForStation(station.priority);
