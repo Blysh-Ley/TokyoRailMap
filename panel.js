@@ -73,7 +73,7 @@ const parseHHMMToServiceDayMs = (hhmm, serviceDayStartMs) => {
 const formatTimeWithPlus = (hhmm, isNextDaySegment) => {
     const s = toText(hhmm);
     if (!s) return '';
-    return isNextDaySegment ? `+${s}` : s;
+    return isNextDaySegment ? `${s}` : s;
 };
 
 const pickTitleZhHans = (titleObj) => {
@@ -1789,7 +1789,7 @@ export function createPanel(options = {}) {
         el.style.whiteSpace = 'nowrap';
         // Start from configured 30px down to 20px
         const maxFs = 30;
-        const minFs = 20;
+        const minFs = 25;
         let fitted = false;
         for (let fs = maxFs; fs >= minFs; fs -= 1) {
             el.style.fontSize = `${fs}px`;
