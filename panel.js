@@ -1439,7 +1439,11 @@ export function createPanel(options = {}) {
 
             rowsHtml += (seg.rows || []).map(renderStopRow).join('');
 
-            if (seg.kind === 'main' && next && currentLineDesc?.text) {
+            const isNtSameLineAsMain = seg.kind === 'main'
+                && next?.kind === 'nt'
+                && isSameLineName(seg.lineId, next.lineId);
+
+            if (seg.kind === 'main' && next && currentLineDesc?.text && !isNtSameLineAsMain) {
                 rowsHtml += renderNoteRow('', currentLineDesc);
             }
         }
