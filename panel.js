@@ -1775,6 +1775,38 @@ export function createPanel(options = {}) {
 
     const setTitle = (text) => {
         title.textContent = toText(text);
+        try {
+            adjustPanelTitleFit(title);
+        } catch {
+            // ignore
+        }
+    };
+
+    const adjustPanelTitleFit = (el) => {
+        if (!el || !(el instanceof Element)) return;
+        // Reset to single-line nowrap to test fitting
+        el.classList.remove('is-multiline');
+        el.style.whiteSpace = 'nowrap';
+        // Start from configured 30px down to 20px
+        const maxFs = 30;
+        const minFs = 20;
+        let fitted = false;
+        for (let fs = maxFs; fs >= minFs; fs -= 1) {
+            el.style.fontSize = `${fs}px`;
+            // Force layout
+            const fits = (el.scrollWidth || 0) <= (el.clientWidth || 0) + 1;
+            if (fits) {
+                fitted = true;
+                break;
+            }
+        }
+
+        if (!fitted) {
+            // Set min font size and allow two lines with clamp
+            el.style.fontSize = `${minFs}px`;
+            el.style.whiteSpace = 'normal';
+            el.classList.add('is-multiline');
+        }
     };
 
     const showForStationProps = (props) => {

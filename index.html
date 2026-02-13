@@ -602,6 +602,16 @@
             flex: 0 0 auto;
         }
 
+        /* Title multiline fallback when needed */
+        [data-panel-title].is-multiline {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            white-space: normal;
+            line-height: 1.05;
+        }
+
         .panel-company {
             margin-top: 6px;
         }
