@@ -65,6 +65,7 @@ map.on('load', async () => {
     let selectedCompany = null;
     let selectedLineId = null;
     let selectedStationLineIds = null; // Set<string>：点击站点/站名后高亮其 serving_lines
+    let selectedStationId = null; // 点击站点高亮时，仅高亮该站点
     let selectedServiceMode = 'all';
     let isolateStationsToSelectedLine = false; // 仅用于“popup 提交线路”：隐藏非该线路站点
     let stationLabelMode = 'auto'; // 'off' | 'auto' | 'all'
@@ -81,6 +82,8 @@ map.on('load', async () => {
     let tripPreviewStationIds = null; // Set<string> | null
     let tripPreviewLineIds = null; // Set<string> | null
     let tripPreviewActive = false;
+    let tripPreviewOriginPopup = null;
+    let tripPreviewTerminalPopup = null;
 
     // 右侧界面：站点/站名/搜索提交站点时弹出（在 applySelectionEffects 定义后初始化）
     let panel = null;
@@ -171,6 +174,7 @@ map.on('load', async () => {
         if (!ids.length) return;
 
         selectedStationLineIds = new Set(ids);
+        selectedStationId = String(props?.id ?? '').trim() || null;
         selectedCompany = null;
         selectedLineId = null;
         selectedServiceMode = 'all';
@@ -466,7 +470,9 @@ map.on('load', async () => {
                 : ['in', selectedLineId, platformIdsExpr])
             : selectedCompany
                 ? buildStationAnyLineMatchExpr(Array.from(enabledLineIdsByCompany.get(selectedCompany) ?? []))
-                : buildStationAnyLineMatchExpr(Array.from(selectedStationLineIds ?? []));
+                : (selectedStationId
+                    ? ['==', ['get', 'id'], selectedStationId]
+                    : buildStationAnyLineMatchExpr(Array.from(selectedStationLineIds ?? [])));
 
         const shouldIsolate = Boolean(selectedLineId) && isolateStationsToSelectedLine === true;
 
@@ -560,6 +566,7 @@ map.on('load', async () => {
         selectedCompany = null;
         selectedLineId = null;
         selectedStationLineIds = null;
+        selectedStationId = null;
         selectedServiceMode = 'all';
         isolateStationsToSelectedLine = false;
         setStationLabelMode('auto');
@@ -603,6 +610,7 @@ map.on('load', async () => {
             selectedCompany = null;
             selectedLineId = null;
             selectedStationLineIds = nextIds.length ? new Set(nextIds) : null;
+            selectedStationId = null;
             selectedServiceMode = 'all';
             isolateStationsToSelectedLine = false;
             setStationLabelMode('auto');
@@ -625,6 +633,7 @@ map.on('load', async () => {
                 selectedLineId = mainLineId;
                 selectedCompany = null;
                 selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+                selectedStationId = null;
                 selectedServiceMode = 'all';
                 isolateStationsToSelectedLine = false;
                 setStationLabelMode('auto');
@@ -636,6 +645,7 @@ map.on('load', async () => {
             selectedLineId = mainLineId;
             selectedCompany = null;
             selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+            selectedStationId = null;
             selectedServiceMode = 'all';
             setStationLabelMode('all');
             isolateStationsToSelectedLine = meta?.isolateStations === true;
@@ -647,7 +657,7 @@ map.on('load', async () => {
 
             applySelectionEffects();
         },
-        onRestoreStationLines: (lineIds) => {
+        onRestoreStationLines: (lineIds, meta) => {
             selectedLineId = null;
             selectedCompany = null;
             isolateStationsToSelectedLine = false;
@@ -656,6 +666,7 @@ map.on('load', async () => {
             if (Array.isArray(lineIds) && lineIds.length) {
                 selectedStationLineIds = new Set(lineIds.map(String).filter(Boolean));
             }
+            selectedStationId = meta?.stationId ? String(meta.stationId).trim() : selectedStationId;
 
             setStationLabelMode('auto');
             applySelectionEffects();
@@ -720,6 +731,7 @@ map.on('load', async () => {
         selectedCompany,
         selectedLineId,
         selectedStationLineIds: selectedStationLineIds ? Array.from(selectedStationLineIds) : null,
+        selectedStationId,
         selectedServiceMode,
         stationLabelMode,
         isolateStationsToSelectedLine
@@ -732,6 +744,7 @@ map.on('load', async () => {
         selectedStationLineIds = Array.isArray(snapshot.selectedStationLineIds)
             ? new Set(snapshot.selectedStationLineIds.map(String).filter(Boolean))
             : null;
+        selectedStationId = snapshot?.selectedStationId ? String(snapshot.selectedStationId) : null;
         selectedServiceMode = snapshot.selectedServiceMode;
         setStationLabelMode(snapshot.stationLabelMode);
         isolateStationsToSelectedLine = snapshot.isolateStationsToSelectedLine === true;
@@ -792,6 +805,7 @@ map.on('load', async () => {
         if (!ids.length) return;
 
         selectedStationLineIds = new Set(ids);
+        selectedStationId = String(props?.id ?? '').trim() || null;
         selectedCompany = null;
         selectedLineId = null;
         selectedServiceMode = 'all';
@@ -862,6 +876,7 @@ map.on('load', async () => {
                 : [mainLineId];
 
             selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+            selectedStationId = null;
             selectedLineId = mainLineId;
             selectedCompany = null;
             selectedServiceMode = 'all';
@@ -886,6 +901,7 @@ map.on('load', async () => {
                 : [mainLineId];
 
             selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+            selectedStationId = null;
             selectedLineId = mainLineId;
             selectedCompany = null;
             selectedServiceMode = 'all';
@@ -906,6 +922,7 @@ map.on('load', async () => {
             if (!name) return;
             hideStationPopupForMenuInteraction();
             selectedStationLineIds = null;
+            selectedStationId = null;
             selectedCompany = name;
             selectedLineId = null;
             selectedServiceMode = 'all';
@@ -920,6 +937,7 @@ map.on('load', async () => {
             if (!name) return;
             hideStationPopupForMenuInteraction();
             selectedStationLineIds = null;
+            selectedStationId = null;
             selectedCompany = name;
             selectedLineId = null;
             selectedServiceMode = 'all';
@@ -994,6 +1012,7 @@ map.on('load', async () => {
 
             // 点击空白处：隐藏右侧 panel
             panel?.hide?.();
+            clearTripPathPreview();
 
             // 已经是“全显示”状态就不做任何事（避免多余刷新）
             if (!selectedCompany && !selectedLineId && !(selectedStationLineIds && selectedStationLineIds.size)) return;
@@ -1034,6 +1053,7 @@ map.on('load', async () => {
             selectedLineId = mainLineId;
             selectedCompany = null;
             selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+            selectedStationId = null;
             selectedServiceMode = 'all';
             setStationLabelMode('all');
 
@@ -1769,13 +1789,92 @@ map.on('load', async () => {
                 bbox = extendBBox(bbox, lng, lat);
             }
 
+            const firstSeg = segments.find((s) => Array.isArray(s?.stationIds) && s.stationIds.length) || null;
+            const lastSeg = (() => {
+                for (let i = segments.length - 1; i >= 0; i -= 1) {
+                    const s = segments[i];
+                    if (Array.isArray(s?.stationIds) && s.stationIds.length) return s;
+                }
+                return null;
+            })();
+
+            const startStationId = firstSeg ? String(firstSeg.stationIds[0] || '').trim() : '';
+            const endStationId = lastSeg
+                ? String(lastSeg.stationIds[lastSeg.stationIds.length - 1] || '').trim()
+                : '';
+
             return {
                 lineFc: { type: 'FeatureCollection', features: outLineFeatures },
                 stopFc: { type: 'FeatureCollection', features: outStopFeatures },
                 lineIds: new Set(segments.map((s) => String(s?.lineId || '').trim()).filter(Boolean)),
                 stopIds,
+                startStationId,
+                endStationId,
                 bbox
             };
+        };
+
+        const clearTripEndpointPopups = () => {
+            try {
+                tripPreviewOriginPopup?.remove?.();
+            } catch {
+                // ignore
+            }
+            try {
+                tripPreviewTerminalPopup?.remove?.();
+            } catch {
+                // ignore
+            }
+            tripPreviewOriginPopup = null;
+            tripPreviewTerminalPopup = null;
+        };
+
+        const createTripEndpointPopup = ({ stationId, text, color, yOffset = 8 }) => {
+            const sid = String(stationId || '').trim();
+            if (!sid) return null;
+            const coord = stationCoordById.get(sid);
+            if (!Array.isArray(coord) || coord.length < 2) return null;
+
+            const el = document.createElement('div');
+            el.style.fontSize = '12px';
+            el.style.fontWeight = '700';
+            el.style.lineHeight = '1.2';
+            el.style.color = String(color || '#111');
+            el.textContent = String(text || '');
+
+            return new maplibregl.Popup({
+                closeButton: false,
+                closeOnClick: false,
+                closeOnMove: false,
+                anchor: 'top',
+                offset: [0, yOffset],
+                className: 'trip-endpoint-popup'
+            })
+                .setLngLat(coord)
+                .setDOMContent(el)
+                .addTo(map);
+        };
+
+        const updateTripEndpointPopups = (startStationId, endStationId) => {
+            clearTripEndpointPopups();
+
+            const startId = String(startStationId || '').trim();
+            const endId = String(endStationId || '').trim();
+            if (!startId && !endId) return;
+
+            tripPreviewOriginPopup = createTripEndpointPopup({
+                stationId: startId,
+                text: '起点站',
+                color: '#1A9B2D',
+                yOffset: 8
+            });
+
+            tripPreviewTerminalPopup = createTripEndpointPopup({
+                stationId: endId,
+                text: '终点站',
+                color: '#D32F2F',
+                yOffset: startId && endId && startId === endId ? 30 : 8
+            });
         };
 
         clearTripPathPreview = () => {
@@ -1783,6 +1882,7 @@ map.on('load', async () => {
             tripPreviewStationIds = null;
             tripPreviewLineIds = null;
             resetTripPreviewLayers();
+            clearTripEndpointPopups();
             setStationLabelMode('auto');
             applySelectionEffects();
             collisionController?.scheduleUpdate?.();
@@ -1806,6 +1906,8 @@ map.on('load', async () => {
             } catch {
                 // ignore
             }
+
+            updateTripEndpointPopups(built.startStationId, built.endStationId);
 
             setStationLabelMode('all');
             applySelectionEffects();
@@ -2205,9 +2307,15 @@ map.on('load', async () => {
             gridCellPx: 80,
             // 线路联动：只影响站名（圆点仍按碰撞显示）
             getEnabledLineIds: getEnabledLineIdsForLabels,
-            getVisibleStationIds: () => (tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size
-                ? tripPreviewStationIds
-                : null),
+            getVisibleStationIds: () => {
+                if (tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size) {
+                    return tripPreviewStationIds;
+                }
+                if (!selectedLineId && !selectedCompany && selectedStationId) {
+                    return new Set([String(selectedStationId)]);
+                }
+                return null;
+            },
             // 右上角三段开关：off/auto(碰撞)/all(无视碰撞)
             getLabelMode: () => stationLabelMode,
             // 高亮线路/公司时：圆点全部显示，避免缩小后站点消失
@@ -2252,6 +2360,7 @@ map.on('load', async () => {
                     selectedCompany = null;
                     selectedLineId = null;
                     selectedStationLineIds = new Set((subset.length ? subset : stationLineIds).map(String).filter(Boolean));
+                    selectedStationId = null;
                     selectedServiceMode = 'all';
                     isolateStationsToSelectedLine = false;
                     setStationLabelMode('auto');
@@ -2272,6 +2381,7 @@ map.on('load', async () => {
                     selectedCompany = null;
                     selectedLineId = null;
                     selectedStationLineIds = new Set((subset.length ? subset : stationLineIds).map(String).filter(Boolean));
+                    selectedStationId = null;
                     selectedServiceMode = 'all';
                     isolateStationsToSelectedLine = false;
                     setStationLabelMode('auto');
@@ -2285,6 +2395,7 @@ map.on('load', async () => {
                 selectedCompany = name;
                 selectedLineId = null;
                 selectedStationLineIds = null;
+                selectedStationId = null;
                 selectedServiceMode = 'all';
                 isolateStationsToSelectedLine = false;
                 applySelectionEffects();
@@ -2308,6 +2419,7 @@ map.on('load', async () => {
                     selectedLineId = mainLineId;
                     selectedCompany = null;
                     selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+                    selectedStationId = null;
                     selectedServiceMode = 'all';
                     isolateStationsToSelectedLine = false;
                     setStationLabelMode('auto');
@@ -2321,6 +2433,7 @@ map.on('load', async () => {
                 selectedLineId = mainLineId;
                 selectedCompany = null;
                 selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+                selectedStationId = null;
                 selectedServiceMode = 'all';
                 setStationLabelMode('all');
                 isolateStationsToSelectedLine = meta?.isolateStations === true;
@@ -2343,6 +2456,7 @@ map.on('load', async () => {
                 if (Array.isArray(lineIds) && lineIds.length) {
                     selectedStationLineIds = new Set(lineIds.map(String).filter(Boolean));
                 }
+                selectedStationId = fixedPopupStationId ? String(fixedPopupStationId).trim() : selectedStationId;
 
                 applySelectionEffects();
             },

@@ -1769,7 +1769,10 @@ export function createPanel(options = {}) {
             return;
         }
         try {
-            onRestoreStationLines(Array.isArray(currentStationServingIds) ? currentStationServingIds.slice() : []);
+            onRestoreStationLines(
+                Array.isArray(currentStationServingIds) ? currentStationServingIds.slice() : [],
+                { stationId: toText(currentStationId) || null }
+            );
         } catch {
             // ignore
         }
