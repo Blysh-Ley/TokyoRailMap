@@ -755,7 +755,11 @@ export async function loadRailGeoDataFromDataFolder() {
             }
         };
 
-        const buildRailwayCoordinatesForZoom = (railwayId, coordDef, zoom, unitKm, featureLookup) => {
+        const buildRailwayCoordinatesForZoom = (railwayId, coordDef, zoom, unitKm, featureLookup, options = {}) => {
+            const includeOpacityZero = options?.includeOpacityZero === true;
+            const onlyOpacityZero = options?.onlyOpacityZero === true;
+            const disableFallback = options?.disableFallback === true;
+            const disableDisplayTrim = options?.disableDisplayTrim === true;
             const sublines = Array.isArray(coordDef?.sublines) ? coordDef.sublines : [];
             const out = [];
 
@@ -811,7 +815,10 @@ export async function loadRailGeoDataFromDataFolder() {
 
                 // mini-tokyo-3d 的 coordinates.json 里存在“辅助段”（用于平滑/过渡/计算）
                 // 明确标记 opacity=0 的段不应作为可见线路绘制。
-                if (opacity === 0) {
+                const isOpacityZero = opacity === 0;
+                if (onlyOpacityZero) {
+                    if (!isOpacityZero) continue;
+                } else if (!includeOpacityZero && isOpacityZero) {
                     continue;
                 }
 
@@ -908,7 +915,7 @@ export async function loadRailGeoDataFromDataFolder() {
             }
 
             // 如果完全没能生成，兜底用 railways.json 的 stations 顺序连线
-            if (out.length < 2) {
+            if (!disableFallback && out.length < 2) {
                 const r = railwayById.get(railwayId);
                 if (Array.isArray(r?.stations) && r.stations.length) {
                     const pts = [];
@@ -925,7 +932,7 @@ export async function loadRailGeoDataFromDataFolder() {
 
             // 直通线路在地图上需要断开显示（仅影响渲染几何）
             const rule = DISPLAY_TRIM_RULES[railwayId];
-            if (rule && out.length >= 2) {
+            if (!disableDisplayTrim && rule && out.length >= 2) {
                 const boundaryStation = stationById.get(rule.boundaryStationId);
                 const keepStation = stationById.get(rule.keepSideNearStationId);
                 const boundaryLL = coordsToLngLat(boundaryStation?.coord);
@@ -944,10 +951,12 @@ export async function loadRailGeoDataFromDataFolder() {
         const ZOOMS = [18];
         const linesGeoJSONByZoom = {};
         const diagnosticsLargeGaps = [];
+        const routingCoordsByRailwayId = new Map();
 
         for (const zoom of ZOOMS) {
             const unitKm = Math.pow(2, 14 - zoom) * 0.1; // 偏移
-            const featureLookup = new Map();
+            const visibleFeatureLookup = new Map();
+            const fullFeatureLookup = new Map();
             const features = [];
 
             for (const c of coordsRailways) {
@@ -959,7 +968,48 @@ export async function loadRailGeoDataFromDataFolder() {
                 const color = railwayColorById.get(id) || normalizeText(c?.color) || null;
                 const company = getCompanyFromRailwayId(id) || '未知公司';
 
-                const coordinates = buildRailwayCoordinatesForZoom(id, c, zoom, unitKm, featureLookup);
+                const coordinatesVisible = buildRailwayCoordinatesForZoom(
+                    id,
+                    c,
+                    zoom,
+                    unitKm,
+                    visibleFeatureLookup,
+                    {
+                        includeOpacityZero: false,
+                        disableFallback: false,
+                        disableDisplayTrim: false
+                    }
+                );
+
+                const coordinatesAll = buildRailwayCoordinatesForZoom(
+                    id,
+                    c,
+                    zoom,
+                    unitKm,
+                    fullFeatureLookup,
+                    {
+                        includeOpacityZero: true,
+                        disableFallback: false,
+                        disableDisplayTrim: false
+                    }
+                );
+
+                if (zoom === 18 && Array.isArray(coordinatesAll) && coordinatesAll.length >= 2) {
+                    routingCoordsByRailwayId.set(id, coordinatesAll);
+                }
+
+                const coordinatesOpacityZero = buildRailwayCoordinatesForZoom(
+                    id,
+                    c,
+                    zoom,
+                    unitKm,
+                    fullFeatureLookup,
+                    {
+                        onlyOpacityZero: true,
+                        disableFallback: true,
+                        disableDisplayTrim: true
+                    }
+                );
 
                 const feature = {
                     type: 'Feature',
@@ -970,15 +1020,34 @@ export async function loadRailGeoDataFromDataFolder() {
                         color,
                         company,
                         type: 'line',
+                        hidden_by_opacity_zero: 0,
                         zoom
                     },
                     geometry: {
                         type: 'LineString',
-                        coordinates: Array.isArray(coordinates) ? coordinates : []
+                        coordinates: Array.isArray(coordinatesVisible) ? coordinatesVisible : []
                     }
                 };
 
-                featureLookup.set(id, feature);
+                fullFeatureLookup.set(id, {
+                    type: 'Feature',
+                    id: `${id}.${zoom}.all`,
+                    properties: {
+                        id,
+                        name,
+                        color,
+                        company,
+                        type: 'line',
+                        hidden_by_opacity_zero: 1,
+                        zoom
+                    },
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: Array.isArray(coordinatesAll) ? coordinatesAll : []
+                    }
+                });
+
+                visibleFeatureLookup.set(id, feature);
                 if (id.startsWith('Base.')) {
                     continue;
                 }
@@ -997,6 +1066,26 @@ export async function loadRailGeoDataFromDataFolder() {
                     }
                     features.push(feature);
                 }
+
+                if (Array.isArray(coordinatesOpacityZero) && coordinatesOpacityZero.length >= 2) {
+                    features.push({
+                        type: 'Feature',
+                        id: `${id}.${zoom}.opacity0`,
+                        properties: {
+                            id,
+                            name,
+                            color,
+                            company,
+                            type: 'line',
+                            hidden_by_opacity_zero: 1,
+                            zoom
+                        },
+                        geometry: {
+                            type: 'LineString',
+                            coordinates: coordinatesOpacityZero
+                        }
+                    });
+                }
             }
 
             linesGeoJSONByZoom[zoom] = { type: 'FeatureCollection', features };
@@ -1004,14 +1093,34 @@ export async function loadRailGeoDataFromDataFolder() {
 
         // station 坐标“吸附”到所属线路几何上（类似 mini-tokyo-3d 的 nearestPointOnLine 思路）
         // 这样即便 stations.json 中多个同名站坐标相同（如 Tokyo），也会因线路几何不同而分开。
-        const lineCoordsByRailwayId = new Map();
+        const lineVisibleChainsByRailwayId = new Map();
+        const lineAllChainsByRailwayId = new Map();
         const finestLines = linesGeoJSONByZoom[18];
         for (const f of finestLines?.features || []) {
             const rid = normalizeText(f?.properties?.id);
             const coords = f?.geometry?.coordinates;
             if (!rid || !Array.isArray(coords) || coords.length < 2) continue;
-            lineCoordsByRailwayId.set(rid, coords);
+            if (!lineAllChainsByRailwayId.has(rid)) lineAllChainsByRailwayId.set(rid, []);
+            lineAllChainsByRailwayId.get(rid).push(coords);
+
+            const isHidden = Number(f?.properties?.hidden_by_opacity_zero) === 1;
+            if (!isHidden) {
+                if (!lineVisibleChainsByRailwayId.has(rid)) lineVisibleChainsByRailwayId.set(rid, []);
+                lineVisibleChainsByRailwayId.get(rid).push(coords);
+            }
         }
+
+        const nearestPointOnChains = (chains, point) => {
+            if (!Array.isArray(chains) || !chains.length || !point) return null;
+            let best = null;
+            for (const chain of chains) {
+                if (!Array.isArray(chain) || chain.length < 2) continue;
+                const hit = nearestPointOnLineSimple(chain, point);
+                if (!hit || !Number.isFinite(hit.d2)) continue;
+                if (!best || hit.d2 < best.d2) best = hit;
+            }
+            return best;
+        };
 
         const MAX_STATION_SNAP_METERS = 2500;
         const MAX_STATION_LOAD_DISTANCE_METERS = 500;
@@ -1026,9 +1135,9 @@ export async function loadRailGeoDataFromDataFolder() {
 
             // 过滤：若站点距“所属线路（railwayId）的任一线段”超过阈值，则不加载该站点。
             // 这样地图渲染与搜索索引都会一起剔除。
-            const lineCoordsForFilter = lineCoordsByRailwayId.get(railwayId);
-            if (Array.isArray(lineCoordsForFilter) && lineCoordsForFilter.length >= 2) {
-                const nearestForFilter = nearestPointOnLineSimple(lineCoordsForFilter, ll);
+            const lineChainsForFilter = lineAllChainsByRailwayId.get(railwayId);
+            if (Array.isArray(lineChainsForFilter) && lineChainsForFilter.length) {
+                const nearestForFilter = nearestPointOnChains(lineChainsForFilter, ll);
                 const d2 = nearestForFilter?.d2;
                 if (Number.isFinite(d2)) {
                     const distMeters = Math.sqrt(Math.max(0, d2));
@@ -1039,9 +1148,9 @@ export async function loadRailGeoDataFromDataFolder() {
             }
 
             let snapped = ll;
-            const lineCoords = lineCoordsByRailwayId.get(railwayId);
-            if (Array.isArray(lineCoords) && lineCoords.length >= 2) {
-                const nearest = nearestPointOnLineSimple(lineCoords, ll);
+            const lineChainsAll = lineAllChainsByRailwayId.get(railwayId);
+            if (Array.isArray(lineChainsAll) && lineChainsAll.length) {
+                const nearest = nearestPointOnChains(lineChainsAll, ll);
                 const projected = nearest?.point;
                 if (Array.isArray(projected) && projected.length >= 2) {
                     const d = approxDistanceMeters(ll, projected);
@@ -1049,6 +1158,19 @@ export async function loadRailGeoDataFromDataFolder() {
                         snapped = projected;
                     }
                 }
+            }
+
+            const lineChainsVisible = lineVisibleChainsByRailwayId.get(railwayId);
+            let hiddenByOpacityZero = 0;
+            if (Array.isArray(lineChainsVisible) && lineChainsVisible.length) {
+                const nearestVisible = nearestPointOnChains(lineChainsVisible, ll);
+                const d2Visible = nearestVisible?.d2;
+                if (Number.isFinite(d2Visible)) {
+                    const distVisible = Math.sqrt(Math.max(0, d2Visible));
+                    hiddenByOpacityZero = distVisible > MAX_STATION_LOAD_DISTANCE_METERS ? 1 : 0;
+                }
+            } else {
+                hiddenByOpacityZero = 1;
             }
 
             const title = s?.title || {};
@@ -1080,7 +1202,8 @@ export async function loadRailGeoDataFromDataFolder() {
                     platform_line_id: [railwayId],
                     serving_lines: servingLines,
                     serving_ids: servingIds,
-                    line_colors: platformColor ? [platformColor] : []
+                    line_colors: platformColor ? [platformColor] : [],
+                    hidden_by_opacity_zero: hiddenByOpacityZero
                 },
                 geometry: {
                     type: 'Point',
@@ -1093,6 +1216,7 @@ export async function loadRailGeoDataFromDataFolder() {
             // 固定使用 zoom=18 的最精细几何
             linesGeoJSON: linesGeoJSONByZoom[18] || { type: 'FeatureCollection', features: [] },
             linesGeoJSONByZoom,
+            lineRoutingCoordsById: Object.fromEntries(Array.from(routingCoordsByRailwayId.entries())),
             stationsGeoJSON: { type: 'FeatureCollection', features: stationsFeatures },
             diagnostics: {
                 // 可能包含重复 id；打印时建议按 id 做 max 聚合

@@ -134,6 +134,10 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
                     label.el.style.display = 'none';
                     return;
                 }
+                if (label.hiddenByOpacityZero) {
+                    label.el.style.display = 'none';
+                    return;
+                }
                 if (!isStationEnabledByLines(label.servingLineIds, enabledLineIdsSet)) {
                     label.el.style.display = 'none';
                     return;
@@ -170,6 +174,11 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
 
         sorted.forEach((label) => {
             if (!label.priority) {
+                label.el.style.display = 'none';
+                return;
+            }
+
+            if (label.hiddenByOpacityZero) {
                 label.el.style.display = 'none';
                 return;
             }
@@ -224,6 +233,8 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
         if (!stationCircles.length) return;
         if (!map.getLayer('stations-layer')) return;
 
+        const hiddenExpr = ['!=', ['get', 'hidden_by_opacity_zero'], 1];
+
         const circleMode = (typeof getCircleMode === 'function' ? getCircleMode() : null) ?? 'collide';
 
         const enabledLineIdsSet =
@@ -237,17 +248,18 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             const visibleIds = [];
             for (const station of stationCircles) {
                 if (!station.priority) continue;
+                if (station.hiddenByOpacityZero) continue;
                 if (!isStationEnabledByLines(station.servingLineIds, enabledLineIdsSet)) continue;
                 if (!isStationEnabledByExplicitIds(station.stationId, explicitIdsSet)) continue;
                 visibleIds.push(station.stationId);
             }
 
             if (!visibleIds.length) {
-                map.setFilter('stations-layer', ['==', ['get', 'id'], '']);
+                map.setFilter('stations-layer', ['all', hiddenExpr, ['==', ['get', 'id'], '']]);
                 return;
             }
 
-            map.setFilter('stations-layer', ['in', ['get', 'id'], ['literal', visibleIds]]);
+            map.setFilter('stations-layer', ['all', hiddenExpr, ['in', ['get', 'id'], ['literal', visibleIds]]]);
             return;
         }
 
@@ -261,6 +273,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
 
         sorted.forEach((station) => {
             if (!station.priority) return;
+            if (station.hiddenByOpacityZero) return;
 
             if (!isStationEnabledByLines(station.servingLineIds, enabledLineIdsSet)) return;
             if (!isStationEnabledByExplicitIds(station.stationId, explicitIdsSet)) return;
@@ -310,11 +323,11 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
         });
 
         if (!visibleIds.length) {
-            map.setFilter('stations-layer', ['==', ['get', 'id'], '']);
+            map.setFilter('stations-layer', ['all', hiddenExpr, ['==', ['get', 'id'], '']]);
             return;
         }
 
-        map.setFilter('stations-layer', ['in', ['get', 'id'], ['literal', visibleIds]]);
+        map.setFilter('stations-layer', ['all', hiddenExpr, ['in', ['get', 'id'], ['literal', visibleIds]]]);
     }
 
     function scheduleUpdate() {

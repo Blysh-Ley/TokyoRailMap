@@ -1154,7 +1154,7 @@ map.on('load', async () => {
     let generatedStationsData = null;
 
     try {
-        const { linesGeoJSON, linesGeoJSONByZoom, stationsGeoJSON, diagnostics } = await loadRailGeoDataFromDataFolder();
+        const { linesGeoJSON, linesGeoJSONByZoom, lineRoutingCoordsById, stationsGeoJSON, diagnostics } = await loadRailGeoDataFromDataFolder();
         generatedLinesData = linesGeoJSON;
         generatedStationsData = stationsGeoJSON;
 
@@ -1189,10 +1189,11 @@ map.on('load', async () => {
         // 需求：无视缩放比例，不做 zoom 级别切换
 
         // 构造 RWMenuCore 所需数据：companyObj / linesObj
-        const lineFeatures = Array.isArray(linesData?.features)
+        const allLineFeatures = Array.isArray(linesData?.features)
             ? linesData.features.filter((f) => f?.properties?.type === 'line')
             : [];
-        const lineFeatureById = new Map();
+        const lineFeatures = allLineFeatures.filter((f) => Number(f?.properties?.hidden_by_opacity_zero) !== 1);
+        const lineChainsById = new Map();
 
         // 站点坐标索引：用于车次路径高亮（只高亮停靠站）
         const stationCoordById = new Map();
@@ -1333,21 +1334,51 @@ map.on('load', async () => {
             return Math.sqrt(x * x + y * y) * 6371000;
         };
 
+        const appendChainsFromGeometry = (lineIdRaw, geom) => {
+            const lineId = String(lineIdRaw ?? '').trim();
+            if (!lineId || !geom) return;
+            if (!lineChainsById.has(lineId)) lineChainsById.set(lineId, []);
+            const bucket = lineChainsById.get(lineId);
+
+            if (geom.type === 'LineString' && Array.isArray(geom.coordinates)) {
+                const chain = geom.coordinates.filter((pt) => Array.isArray(pt) && pt.length >= 2);
+                if (chain.length >= 2) bucket.push(chain);
+                return;
+            }
+
+            if (geom.type === 'MultiLineString' && Array.isArray(geom.coordinates)) {
+                for (const line of geom.coordinates) {
+                    if (!Array.isArray(line)) continue;
+                    const chain = line.filter((pt) => Array.isArray(pt) && pt.length >= 2);
+                    if (chain.length >= 2) bucket.push(chain);
+                }
+            }
+        };
+
+        // 直通计算优先使用“完整线路链路”（含 opacity:0 子段，按原 subline 顺序拼接）
+        if (lineRoutingCoordsById && typeof lineRoutingCoordsById === 'object') {
+            for (const [rawId, coords] of Object.entries(lineRoutingCoordsById)) {
+                const lineId = String(rawId || '').trim();
+                if (!lineId || !Array.isArray(coords) || coords.length < 2) continue;
+                const chain = coords.filter((pt) => Array.isArray(pt) && pt.length >= 2);
+                if (chain.length < 2) continue;
+                lineChainsById.set(lineId, [chain]);
+            }
+        }
+
+        for (const f of allLineFeatures) {
+            const lineId = f?.properties?.id ?? f?.id;
+            if (!lineId) continue;
+            // 已有完整链路时，不再用拆分 feature 覆盖，避免与“手动去掉 opacity:0”结果不一致
+            if (lineChainsById.has(String(lineId))) continue;
+            appendChainsFromGeometry(String(lineId), f?.geometry);
+        }
+
         const getLineChains = (lineIdRaw) => {
             const lineId = String(lineIdRaw ?? '').trim();
             if (!lineId) return [];
-            const f = lineFeatureById.get(lineId);
-            if (!f?.geometry) return [];
-            const g = f.geometry;
-            if (g.type === 'LineString' && Array.isArray(g.coordinates)) {
-                return [g.coordinates.filter((pt) => Array.isArray(pt) && pt.length >= 2)];
-            }
-            if (g.type === 'MultiLineString' && Array.isArray(g.coordinates)) {
-                return g.coordinates
-                    .filter((line) => Array.isArray(line))
-                    .map((line) => line.filter((pt) => Array.isArray(pt) && pt.length >= 2));
-            }
-            return [];
+            const chains = lineChainsById.get(lineId);
+            return Array.isArray(chains) ? chains : [];
         };
 
         const findNearestIndex = (chain, coord) => {
@@ -1921,7 +1952,6 @@ map.on('load', async () => {
         for (const f of lineFeatures) {
             const lineId = f?.properties?.id ?? f?.id;
             if (!lineId) continue;
-            lineFeatureById.set(String(lineId), f);
 
             const company = f?.properties?.company ?? '未知公司';
             const name = f?.properties?.name ?? String(lineId);

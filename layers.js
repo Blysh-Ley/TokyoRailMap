@@ -10,6 +10,7 @@ export function addLinesLayer(map, linesData) {
         id: 'lines-layer',
         type: 'line',
         source: 'lines-source',
+        filter: ['!=', ['get', 'hidden_by_opacity_zero'], 1],
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
             'line-width': 3, //线宽
@@ -32,6 +33,7 @@ export function addStationsLayer(map, stationsData) {
         id: 'stations-layer',
         type: 'circle',
         source: 'stations-source',
+        filter: ['!=', ['get', 'hidden_by_opacity_zero'], 1],
         paint: {
             // 随缩放等级变化：最大 4，缩小时线性变小
             // 注意：MapLibre 里 zoom 表达式只能作为顶层 step/interpolate 的输入

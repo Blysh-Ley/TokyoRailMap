@@ -994,13 +994,21 @@
 	"dynamic": true
 }, {
 	"id": "JR-East.YamanoteFreight",
-	"title": {
+	"_comment":{"title": {
 		"ja": "山手貨物線",
 		"en": "Yamanote Freight Line",
 		"ko": "야마노테 화물선",
 		"zh-Hans": "山手货物线",
 		"zh-Hant": "山手貨物線"
-	},
+	}},
+	"title":{
+		"ja": "成田エクスプレス",
+		"en": "Narita Express",
+		"ko": "나리타 익스프레스",
+		"zh-Hans": "成田特快",
+		"zh-Hant": "成田特快"
+	},	
+	
 	"stations": [
 		"JR-East.YamanoteFreight.Tokyo",
 		"JR-East.YamanoteFreight.Shinagawa",
