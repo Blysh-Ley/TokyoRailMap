@@ -881,7 +881,7 @@
 		"ja": "武蔵野線",
 		"en": "Musashino Line",
 		"ko": "무사시노 선",
-		"zh-Hans": "武藏野线",
+		"zh-Hans": "武藏野线（海滨幕张支线）",
 		"zh-Hant": "武藏野線"
 	},
 	"stations": [
@@ -901,7 +901,7 @@
 		"ja": "武蔵野線",
 		"en": "Musashino Line",
 		"ko": "무사시노 선",
-		"zh-Hans": "武藏野线",
+		"zh-Hans": "武藏野线（东京支线）",
 		"zh-Hant": "武藏野線"
 	},
 	"stations": [
@@ -1246,7 +1246,7 @@
 		"ja": "武蔵野線",
 		"en": "Musashino Line",
 		"ko": "무사시노 선",
-		"zh-Hans": "武藏野线",
+		"zh-Hans": "武藏野线（八王子支线）",
 		"zh-Hant": "武藏野線"
 	},
 	"stations": [
@@ -1267,7 +1267,7 @@
 		"ja": "武蔵野線",
 		"en": "Musashino Line",
 		"ko": "무사시노 선",
-		"zh-Hans": "武藏野线",
+		"zh-Hans": "武藏野线（西浦和-大宫支线）",
 		"zh-Hant": "武藏野線"
 	},
 	"stations": [
@@ -1284,7 +1284,7 @@
 		"ja": "武蔵野線",
 		"en": "Musashino Line",
 		"ko": "무사시노 선",
-		"zh-Hans": "武藏野线",
+		"zh-Hans": "武藏野线（武藏浦和-大宫支线）",
 		"zh-Hant": "武藏野線"
 	},
 	"stations": [
