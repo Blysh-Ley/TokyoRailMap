@@ -81,6 +81,8 @@ map.on('load', async () => {
     let tripPreviewStationIds = null; // Set<string> | null
     let tripPreviewLineIds = null; // Set<string> | null
     let tripPreviewActive = false;
+    let tripPreviewOriginPopup = null;
+    let tripPreviewTerminalPopup = null;
 
     // 右侧界面：站点/站名/搜索提交站点时弹出（在 applySelectionEffects 定义后初始化）
     let panel = null;
@@ -994,6 +996,7 @@ map.on('load', async () => {
 
             // 点击空白处：隐藏右侧 panel
             panel?.hide?.();
+            clearTripPathPreview();
 
             // 已经是“全显示”状态就不做任何事（避免多余刷新）
             if (!selectedCompany && !selectedLineId && !(selectedStationLineIds && selectedStationLineIds.size)) return;
@@ -1769,13 +1772,92 @@ map.on('load', async () => {
                 bbox = extendBBox(bbox, lng, lat);
             }
 
+            const firstSeg = segments.find((s) => Array.isArray(s?.stationIds) && s.stationIds.length) || null;
+            const lastSeg = (() => {
+                for (let i = segments.length - 1; i >= 0; i -= 1) {
+                    const s = segments[i];
+                    if (Array.isArray(s?.stationIds) && s.stationIds.length) return s;
+                }
+                return null;
+            })();
+
+            const startStationId = firstSeg ? String(firstSeg.stationIds[0] || '').trim() : '';
+            const endStationId = lastSeg
+                ? String(lastSeg.stationIds[lastSeg.stationIds.length - 1] || '').trim()
+                : '';
+
             return {
                 lineFc: { type: 'FeatureCollection', features: outLineFeatures },
                 stopFc: { type: 'FeatureCollection', features: outStopFeatures },
                 lineIds: new Set(segments.map((s) => String(s?.lineId || '').trim()).filter(Boolean)),
                 stopIds,
+                startStationId,
+                endStationId,
                 bbox
             };
+        };
+
+        const clearTripEndpointPopups = () => {
+            try {
+                tripPreviewOriginPopup?.remove?.();
+            } catch {
+                // ignore
+            }
+            try {
+                tripPreviewTerminalPopup?.remove?.();
+            } catch {
+                // ignore
+            }
+            tripPreviewOriginPopup = null;
+            tripPreviewTerminalPopup = null;
+        };
+
+        const createTripEndpointPopup = ({ stationId, text, color, yOffset = 8 }) => {
+            const sid = String(stationId || '').trim();
+            if (!sid) return null;
+            const coord = stationCoordById.get(sid);
+            if (!Array.isArray(coord) || coord.length < 2) return null;
+
+            const el = document.createElement('div');
+            el.style.fontSize = '12px';
+            el.style.fontWeight = '700';
+            el.style.lineHeight = '1.2';
+            el.style.color = String(color || '#111');
+            el.textContent = String(text || '');
+
+            return new maplibregl.Popup({
+                closeButton: false,
+                closeOnClick: false,
+                closeOnMove: false,
+                anchor: 'top',
+                offset: [0, yOffset],
+                className: 'trip-endpoint-popup'
+            })
+                .setLngLat(coord)
+                .setDOMContent(el)
+                .addTo(map);
+        };
+
+        const updateTripEndpointPopups = (startStationId, endStationId) => {
+            clearTripEndpointPopups();
+
+            const startId = String(startStationId || '').trim();
+            const endId = String(endStationId || '').trim();
+            if (!startId && !endId) return;
+
+            tripPreviewOriginPopup = createTripEndpointPopup({
+                stationId: startId,
+                text: '起点站',
+                color: '#1A9B2D',
+                yOffset: 8
+            });
+
+            tripPreviewTerminalPopup = createTripEndpointPopup({
+                stationId: endId,
+                text: '终点站',
+                color: '#D32F2F',
+                yOffset: startId && endId && startId === endId ? 30 : 8
+            });
         };
 
         clearTripPathPreview = () => {
@@ -1783,6 +1865,7 @@ map.on('load', async () => {
             tripPreviewStationIds = null;
             tripPreviewLineIds = null;
             resetTripPreviewLayers();
+            clearTripEndpointPopups();
             setStationLabelMode('auto');
             applySelectionEffects();
             collisionController?.scheduleUpdate?.();
@@ -1806,6 +1889,8 @@ map.on('load', async () => {
             } catch {
                 // ignore
             }
+
+            updateTripEndpointPopups(built.startStationId, built.endStationId);
 
             setStationLabelMode('all');
             applySelectionEffects();
