@@ -1465,10 +1465,13 @@ map.on('load', async () => {
             return best.seg;
         };
 
-        const nearestBridgeBetweenLines = (lineIdA, lineIdB) => {
+        const nearestBridgeBetweenLines = (lineIdA, lineIdB, anchorA = null, anchorB = null) => {
             const chainsA = getLineChains(lineIdA);
             const chainsB = getLineChains(lineIdB);
             if (!chainsA.length || !chainsB.length) return null;
+
+            const hasAnchorA = Array.isArray(anchorA) && anchorA.length >= 2;
+            const hasAnchorB = Array.isArray(anchorB) && anchorB.length >= 2;
 
             const MAX_SAMPLES = 900;
             const sampleIndices = (len) => {
@@ -1481,6 +1484,7 @@ map.on('load', async () => {
             };
 
             let best = null;
+            let bestLocal = null;
             for (const ca of chainsA) {
                 if (!Array.isArray(ca) || ca.length < 2) continue;
                 const ia = sampleIndices(ca.length);
@@ -1496,10 +1500,24 @@ map.on('load', async () => {
                         if (!best || d < best.dist) {
                             best = { a: paProj.point, b: pbProj.point, dist: d };
                         }
+
+                        if (hasAnchorA || hasAnchorB) {
+                            const da = hasAnchorA ? distMeters(anchorA, paProj.point) : 0;
+                            const db = hasAnchorB ? distMeters(anchorB, pbProj.point) : 0;
+                            const isLocalA = !hasAnchorA || da <= 12000;
+                            const isLocalB = !hasAnchorB || db <= 12000;
+
+                            if (isLocalA && isLocalB) {
+                                const score = d + (da * 0.15) + (db * 0.15);
+                                if (!bestLocal || score < bestLocal.score) {
+                                    bestLocal = { a: paProj.point, b: pbProj.point, dist: d, score };
+                                }
+                            }
+                        }
                     }
                 }
             }
-            return best;
+            return bestLocal || best;
         };
 
         const isLineTerminalStation = (lineIdRaw, stationIdRaw) => {
@@ -1601,8 +1619,8 @@ map.on('load', async () => {
             const stopIds = new Set();
 
             const allSegments = Array.isArray(payload?.segments) ? payload.segments : [];
+            const ntSeg = allSegments.find((s) => String(s?.kind) === 'nt') || null;
             const ntFirstStationId = (() => {
-                const ntSeg = allSegments.find((s) => String(s?.kind) === 'nt');
                 const ids = Array.isArray(ntSeg?.stationIds) ? ntSeg.stationIds : [];
                 return ids.length ? String(ids[0] || '').trim() : '';
             })();
@@ -1611,6 +1629,30 @@ map.on('load', async () => {
             if (!allowNt && payload?.hasNt) {
                 allowNt = isSamePhysicalStation(payload?.mainTerminalStationId, ntFirstStationId);
             }
+
+            // 非端点直通也允许：只要主段末站与 nt 首站在局部几何上可连通（避免同班次在不同入口显示不一致）
+            if (!allowNt && payload?.hasNt && ntSeg) {
+                const mainTerminalId = String(payload?.mainTerminalStationId || '').trim();
+                const mainTerminalCoord = stationCoordById.get(mainTerminalId);
+                const ntFirstCoord = stationCoordById.get(ntFirstStationId);
+                const ntLineId = String(ntSeg?.lineId || '').trim();
+
+                if (mainTerminalCoord && ntFirstCoord && ntLineId) {
+                    const directDist = distMeters(mainTerminalCoord, ntFirstCoord);
+                    if (directDist <= 8000) {
+                        allowNt = true;
+                    } else {
+                        const bridge = nearestBridgeBetweenLines(
+                            payload?.mainLineId,
+                            ntLineId,
+                            mainTerminalCoord,
+                            ntFirstCoord
+                        );
+                        allowNt = !!bridge && Number.isFinite(bridge.dist) && bridge.dist <= 3000;
+                    }
+                }
+            }
+
             const segments = allowNt ? allSegments : allSegments.filter((s) => String(s?.kind) !== 'nt');
 
             const pushLineFeature = (coords, lineId, role = 'line') => {
@@ -1656,7 +1698,7 @@ map.on('load', async () => {
                         const a = stationCoordById.get(prevLast);
                         const b = stationCoordById.get(currFirst);
                         if (a && b) {
-                            const bridge = nearestBridgeBetweenLines(prev.lineId, lineId);
+                            const bridge = nearestBridgeBetweenLines(prev.lineId, lineId, a, b);
                             const canUseBridge = bridge && Number.isFinite(bridge.dist) && bridge.dist <= 3000;
                             if (canUseBridge) {
                                 const segA = extractLineSegment(prev.lineId, a, bridge.a);
