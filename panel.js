@@ -1674,7 +1674,7 @@ export function createPanel(options = {}) {
                 const distancePx = Math.max(0, c.contentW - c.viewportW);
                 if (!distancePx) continue;
 
-                const holdMs = 3000;
+                const holdMs = 2000;
                 const speedPxPerSec = 30;
                 const travelMs = Math.max(1200, Math.round((distancePx / speedPxPerSec) * 1000));
                 const totalMs = holdMs + travelMs + holdMs + holdMs;
