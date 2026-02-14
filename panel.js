@@ -1513,6 +1513,8 @@ export function createPanel(options = {}) {
         }
     };
 
+    const MAX_PANEL_MARQUEE_ANIMS = 30;
+
     const scheduleMarqueeApply = (rootEl) => {
         try {
             if (!rootEl || !(rootEl instanceof Element)) return;
@@ -1533,8 +1535,9 @@ export function createPanel(options = {}) {
             rootEl.__panelMarqueeRafId = raf(() => {
                 rootEl.__panelMarqueeRafId = raf(() => {
                     rootEl.__panelMarqueeRafId = 0;
-                    applyDirHeaderMarquees(rootEl);
-                    applyTimetableDestMarquees(rootEl);
+                    const used = applyDirHeaderMarquees(rootEl, MAX_PANEL_MARQUEE_ANIMS);
+                    const remain = Math.max(0, MAX_PANEL_MARQUEE_ANIMS - used);
+                    applyTimetableDestMarquees(rootEl, remain);
                     hookTimetableScrollMarquee(rootEl);
                 });
             });
@@ -1543,17 +1546,19 @@ export function createPanel(options = {}) {
         }
     };
 
-    const applyDirHeaderMarquees = (rootEl) => {
+    const applyDirHeaderMarquees = (rootEl, maxAnims = Number.POSITIVE_INFINITY) => {
         try {
             if (!rootEl || !(rootEl instanceof Element)) return;
             if (typeof window === 'undefined') return;
             if (!('animate' in Element.prototype)) return;
 
             const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-            if (reduceMotion) return;
+            if (reduceMotion) return 0;
 
             const marquees = Array.from(rootEl.querySelectorAll('.panel-dir-marquee'));
+            let started = 0;
             for (const marqueeEl of marquees) {
+                if (started >= maxAnims) break;
                 const innerEl = marqueeEl.querySelector('.panel-dir-marquee-inner');
                 if (!innerEl) continue;
 
@@ -1565,27 +1570,24 @@ export function createPanel(options = {}) {
                 }
 
                 // reset
-                    const payloadSegments = segmentsWithPast.map((seg) => ({
-                        kind: seg.kind,
-                        lineId: toText(seg.lineId),
-                        stationIds: (seg.rows || []).map((r) => toText(r.stationId)).filter(Boolean)
-                    }));
-                    const mainSeg = segmentsWithPast.find((s) => s.kind === 'main') || null;
-                    const mainRows = Array.isArray(mainSeg?.rows) ? mainSeg.rows : [];
-                    const mainTerminalStationId = mainRows.length ? toText(mainRows[mainRows.length - 1]?.stationId) : '';
-                    const payload = {
-                        tripKey: toText(tripKey),
-                        selectedLineId: toText(lineId),
-                        mainLineId: toText(getTripLineId(trip) || lineId),
-                        mainTerminalStationId,
-                        hasNt,
-                        segments: payloadSegments
-                    };
-                    scheduleTripPreview({
-                        previewKey: `${toText(lineId)}||${toText(tripKey)}`,
-                        payload,
-                        immediate: !!pinned || tripLocked
-                    });
+                innerEl.style.transform = '';
+                marqueeEl.__panelMarqueeAnim = null;
+
+                const viewportW = marqueeEl.clientWidth || 0;
+                const contentW = innerEl.scrollWidth || 0;
+                if (!viewportW || contentW <= viewportW + 1) continue;
+
+                const distancePx = Math.max(0, contentW - viewportW);
+                if (!distancePx) continue;
+
+                const holdMs = 2000;
+                const speedPxPerSec = 35; // readable pace
+                const travelMs = Math.max(1500, Math.round((distancePx / speedPxPerSec) * 1000));
+                const totalMs = holdMs + travelMs + holdMs + holdMs;
+
+                const startHoldOffset = holdMs / totalMs;
+                const endMoveOffset = (holdMs + travelMs) / totalMs;
+                const endHoldOffset = (holdMs + travelMs + holdMs) / totalMs;
                 const resetOffset = Math.min(0.999, endHoldOffset + 0.001);
 
                 const anim = innerEl.animate(
@@ -1605,13 +1607,16 @@ export function createPanel(options = {}) {
                 );
 
                 marqueeEl.__panelMarqueeAnim = anim;
+                started += 1;
             }
+            return started;
         } catch {
             // ignore
+            return 0;
         }
     };
 
-    const applyTimetableDestMarquees = (rootEl) => {
+    const applyTimetableDestMarquees = (rootEl, maxAnims = MAX_PANEL_MARQUEE_ANIMS) => {
         try {
             if (!rootEl || !(rootEl instanceof Element)) return;
             if (typeof window === 'undefined') return;
@@ -1620,7 +1625,6 @@ export function createPanel(options = {}) {
             const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
             if (reduceMotion) return;
 
-            const MAX_ANIMS = 30;
             const marquees = Array.from(rootEl.querySelectorAll('.panel-timetable-dest-marquee'));
             const candidates = [];
 
@@ -1664,7 +1668,7 @@ export function createPanel(options = {}) {
 
             let started = 0;
             for (const c of candidates) {
-                if (started >= MAX_ANIMS) break;
+                if (started >= maxAnims) break;
                 started += 1;
 
                 const distancePx = Math.max(0, c.contentW - c.viewportW);
@@ -1723,7 +1727,8 @@ export function createPanel(options = {}) {
                         pending = true;
                         raf(() => {
                             pending = false;
-                            applyTimetableDestMarquees(bodyEl);
+                            const remain = Math.max(0, MAX_PANEL_MARQUEE_ANIMS - applyDirHeaderMarquees(bodyEl, MAX_PANEL_MARQUEE_ANIMS));
+                            applyTimetableDestMarquees(bodyEl, remain);
                         });
                     },
                     { passive: true }
