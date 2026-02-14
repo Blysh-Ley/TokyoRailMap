@@ -317,6 +317,13 @@ export class Menu {
             return zhName.includes('货物') || zhName.includes('大崎支线');
         };
 
+        const specialMainByBranch = {
+            'JR-East.KeiyoKoyaBranch': 'JR-East.Musashino',
+            'JR-East.KeiyoFutamataBranch': 'JR-East.Musashino',
+            'Seibu.S-Fukutoshin': 'Seibu.Ikebukuro',
+            'Seibu.S-Yurakucho': 'Seibu.Ikebukuro'
+        };
+
         const isBranchLineId = (lineId) => typeof lineId === 'string' && lineId.endsWith('Branch');
 
         const splitCamelWords = (s) => {
@@ -327,16 +334,11 @@ export class Menu {
         };
 
         const findMergeTargetId = (branchLineId, existsFn) => {
-            if (!isBranchLineId(branchLineId)) return null;
-
-            // 特例：这两条支线在数据语义上应归并到武藏野线而非京叶线
-            // 需求：JR-East.KeiyoKoyaBranch / JR-East.KeiyoFutamataBranch -> JR-East.Musashino
-            const specialMainByBranch = {
-                'JR-East.KeiyoKoyaBranch': 'JR-East.Musashino',
-                'JR-East.KeiyoFutamataBranch': 'JR-East.Musashino'
-            };
+            // 自定义合并：某些支线虽然命名上不是简单的“主线 + Branch”，但实际上应该归并到主线下（如武藏野线大宫支线）。这种特殊情况单独列出来，优先判断。
             const special = specialMainByBranch[String(branchLineId)];
             if (special && existsFn(special)) return special;
+
+            if (!isBranchLineId(branchLineId)) return null;
 
             const full = String(branchLineId);
             const noBranch = full.slice(0, -'Branch'.length);
@@ -444,7 +446,7 @@ export class Menu {
 
             for (const [lineIdRaw, meta] of companyLines) {
                 const lineId = String(lineIdRaw);
-                if (!isBranchLineId(lineId)) continue;
+                if (!isBranchLineId(lineId) && !specialMainByBranch[lineId]) continue;
                 if (!meta || meta.company !== companyName) continue;
 
                 const target = findMergeTargetId(lineId, existsMainInCompany);
