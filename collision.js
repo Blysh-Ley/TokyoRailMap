@@ -106,6 +106,13 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
         return explicitIdsSet.has(id);
     }
 
+    function shouldHideByOpacity(stationLike, explicitIdsSet) {
+        if (!stationLike?.hiddenByOpacityZero) return false;
+        // 车次预览显式要求展示的站点，允许显示站名（用于 opacity:0 线段上的停靠站）
+        if (explicitIdsSet && isStationEnabledByExplicitIds(stationLike.stationId, explicitIdsSet)) return false;
+        return true;
+    }
+
     function updateStationLabelVisibility() {
         if (!stationLabels.length) return;
 
@@ -134,7 +141,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
                     label.el.style.display = 'none';
                     return;
                 }
-                if (label.hiddenByOpacityZero) {
+                if (shouldHideByOpacity(label, explicitIdsSet)) {
                     label.el.style.display = 'none';
                     return;
                 }
@@ -178,7 +185,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
                 return;
             }
 
-            if (label.hiddenByOpacityZero) {
+            if (shouldHideByOpacity(label, explicitIdsSet)) {
                 label.el.style.display = 'none';
                 return;
             }
