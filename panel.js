@@ -383,14 +383,14 @@ export function createPanel(options = {}) {
 
     // 时间控件：覆盖 panel 中的“当前时间”（用于判断已过/未来与默认定位）
     const timeControl = document.createElement('div');
-    timeControl.className = 'panel-time-control';
+    timeControl.className = 'map-time-control';
 
     const timeLabel = document.createElement('span');
-    timeLabel.className = 'panel-time-control-label';
+    timeLabel.className = 'map-time-control-label';
     timeLabel.textContent = '时间';
 
     const timeInput = document.createElement('input');
-    timeInput.className = 'panel-time-input';
+    timeInput.className = 'map-time-control-input';
     timeInput.type = 'time';
     timeInput.step = '60';
     timeInput.value = '';
@@ -399,7 +399,6 @@ export function createPanel(options = {}) {
     timeControl.appendChild(timeInput);
 
     controls.appendChild(dayToggle);
-    controls.appendChild(timeControl);
     header.appendChild(controls);
 
     // 内容区：承载 popup 同结构的公司/线路列表
@@ -425,6 +424,20 @@ export function createPanel(options = {}) {
     root.addEventListener('click', (e) => stopEvent(e), { passive: false });
 
     document.body.appendChild(root);
+
+    // 地图右上：站名开关下方的时间控件浮层（z-index 高于 panel）
+    const timeOverlay = document.createElement('div');
+    timeOverlay.className = 'map-time-overlay';
+    timeOverlay.style.position = 'fixed';
+    timeOverlay.style.zIndex = String(zIndex + 2);
+    timeOverlay.style.display = 'flex';
+    timeOverlay.appendChild(timeControl);
+    timeOverlay.addEventListener('pointerdown', (e) => stopPropagationOnly(e), { passive: true });
+    timeOverlay.addEventListener('pointermove', (e) => stopPropagationOnly(e), { passive: true });
+    timeOverlay.addEventListener('touchmove', (e) => stopPropagationOnly(e), { passive: true });
+    timeOverlay.addEventListener('wheel', (e) => stopPropagationOnly(e), { passive: true });
+    timeOverlay.addEventListener('click', (e) => stopEvent(e), { passive: false });
+    document.body.appendChild(timeOverlay);
 
     // 右侧 panel 左侧弹出的班次详情面板
     const tripDetailRoot = document.createElement('div');
@@ -2155,6 +2168,25 @@ export function createPanel(options = {}) {
 
         root.style.top = `${top}px`;
         root.style.height = `${height}px`;
+
+        // 时间控件浮层：固定在 station-label-toggle 下方
+        try {
+            const anchor = document.querySelector('.station-label-toggle');
+            const gap = 2;
+            if (anchor && anchor.getBoundingClientRect) {
+                const rect = anchor.getBoundingClientRect();
+                const right = Math.max(10, window.innerWidth - rect.right);
+                const y = Math.max(10, rect.bottom + gap);
+                timeOverlay.style.right = `${right}px`;
+                timeOverlay.style.top = `${y}px`;
+            } else {
+                timeOverlay.style.right = '10px';
+                timeOverlay.style.top = '53px';
+            }
+        } catch {
+            timeOverlay.style.right = '10px';
+            timeOverlay.style.top = '53px';
+        }
 
         // 保持可配置：允许通过 CSS 调整圆角
         try {
