@@ -395,8 +395,16 @@ export function createPanel(options = {}) {
     timeInput.step = '60';
     timeInput.value = '';
 
+    const btnAutoNow = document.createElement('button');
+    btnAutoNow.type = 'button';
+    btnAutoNow.className = 'map-time-control-reset';
+    btnAutoNow.title = '恢复自动时间';
+    btnAutoNow.setAttribute('aria-label', '恢复自动时间');
+    btnAutoNow.textContent = '🔄';
+
     timeControl.appendChild(timeLabel);
     timeControl.appendChild(timeInput);
+    timeControl.appendChild(btnAutoNow);
 
     controls.appendChild(dayToggle);
     header.appendChild(controls);
@@ -505,6 +513,8 @@ export function createPanel(options = {}) {
 
     // 可选：覆盖显示的“当前时间”（HH:MM）；为空则使用真实时间
     let currentNowOverrideHHMM = '';
+    let isAutoNowClock = true;
+    let autoNowClockTimerId = null;
     const getDisplayNowMs = () => {
         const baseNowMs = Date.now();
         const hhmm = toText(currentNowOverrideHHMM);
@@ -512,6 +522,40 @@ export function createPanel(options = {}) {
         const serviceDayStartMs = getServiceDayStartMs(new Date(baseNowMs));
         const parsed = parseHHMMToServiceDayMs(hhmm, serviceDayStartMs);
         return parsed?.ms || baseNowMs;
+    };
+
+    const formatNowHHMM = (d = new Date()) => {
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return `${hh}:${mm}`;
+    };
+
+    const syncAutoNowClock = ({ forceRender = false } = {}) => {
+        if (!isAutoNowClock) return;
+        const hhmm = formatNowHHMM(new Date());
+        if (toText(timeInput.value) !== hhmm) {
+            timeInput.value = hhmm;
+        }
+
+        const changed = toText(currentNowOverrideHHMM) !== hhmm;
+        currentNowOverrideHHMM = hhmm;
+
+        if ((changed || forceRender) && toText(currentStationId)) {
+            renderAllTimetables();
+        }
+    };
+
+    const startAutoNowClock = () => {
+        if (autoNowClockTimerId != null) return;
+        syncAutoNowClock({ forceRender: false });
+        autoNowClockTimerId = setInterval(() => {
+            syncAutoNowClock({ forceRender: false });
+        }, 15000);
+    };
+
+    const restoreAutoNowClock = () => {
+        isAutoNowClock = true;
+        syncAutoNowClock({ forceRender: true });
     };
 
     let mouseArmedKey = null;
@@ -637,10 +681,22 @@ export function createPanel(options = {}) {
 
     timeInput.addEventListener('input', (e) => {
         stopEvent(e);
-        currentNowOverrideHHMM = toText(timeInput.value) || '';
+        const v = toText(timeInput.value) || '';
+        if (!v) {
+            isAutoNowClock = true;
+            syncAutoNowClock({ forceRender: true });
+            return;
+        }
+
+        isAutoNowClock = false;
+        currentNowOverrideHHMM = v;
         renderAllTimetables();
     });
     timeInput.addEventListener('click', (e) => stopEvent(e), { passive: false });
+    btnAutoNow.addEventListener('click', (e) => {
+        stopEvent(e);
+        restoreAutoNowClock();
+    }, { passive: false });
 
     const loadTimetableForLineId = async (lineId) => {
         const id = toText(lineId);
@@ -1760,6 +1816,8 @@ export function createPanel(options = {}) {
             await renderTimetableForLineEl(el, stationId, token);
         }
     };
+
+    startAutoNowClock();
 
     const clearHoverTimer = () => {
         if (hoverTimerId != null) {
