@@ -872,7 +872,7 @@ export function createPanel(options = {}) {
         rows.sort((a, b) => a.timeMs - b.timeMs);
 
         // 统计每条线路的所有方向 d，并聚合/计数该方向下所有对应 ds 的中文名
-        const DEST_NAME_MIN_COUNT = 5; // 方向下目的地名称至少出现两次才显示
+        const DEST_NAME_MIN_COUNT = 0; // 方向下目的地名称至少出现x次才显示
         const dirToDestNames = new Map(); // dir -> Set<string>
         const dirToDestCounts = new Map(); // dir -> Map<string, number>
         for (const r of rows) {
