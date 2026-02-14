@@ -361,9 +361,11 @@ export class Menu {
 
         const computeLineDisplayName = (lineId, meta, abb) => {
             let lineName = meta?.simplified || String(lineId);
+            /*
             if (lineName !== abb + '线' && lineName !== abb + '本线' && lineName !== abb + '新线') {
                 lineName = lineName.replace(abb, '').trim();
             }
+                */
             return lineName;
         };
 
