@@ -316,14 +316,14 @@ export class Menu {
             const zhName = String(meta?.simplified || '').trim();
             return zhName.includes('货物') || zhName.includes('大崎支线');
         };
-
+        // 自定义合并
         const specialMainByBranch = {
             'JR-East.KeiyoKoyaBranch': 'JR-East.Musashino',
             'JR-East.KeiyoFutamataBranch': 'JR-East.Musashino',
             'Seibu.S-Fukutoshin': 'Seibu.Ikebukuro',
-            'Seibu.S-Yurakucho': 'Seibu.Ikebukuro'
+            'Seibu.S-Yurakucho': 'Seibu.Ikebukuro',
+            'Tobu.JRTobuConnection' : 'Tobu.Nikko'
         };
-
         const isBranchLineId = (lineId) => typeof lineId === 'string' && lineId.endsWith('Branch');
 
         const splitCamelWords = (s) => {
