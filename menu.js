@@ -280,9 +280,9 @@ export class Menu {
         const companiesRaw = Object.keys(this.companyObj || {});
         const preferredOrder = [
             'JR-East',           // JR东日本
+            'TokyoMetro',        // 东京地下铁
             'Toei',              // 都营地下铁
             'YokohamaMunicipal', // 横滨市营地下铁
-            'TokyoMetro',        // 东京地下铁
             'Tobu',              // 东武铁道
             'Keisei',            // 京成电铁
             'Seibu',             // 西武铁道
@@ -291,7 +291,7 @@ export class Menu {
             'Keio',              // 京王电铁
             'Keikyu',            // 京急电铁
             'Sotetsu',           // 相模铁道
-            'Toei',              // 都营交通
+            'JR-Central',        // JR东海
             'TokyoMonorail',     // 东京单轨电车
             'MIR',               // 首都圈新都市铁道
             'ShonanMonorail',    // 湘南单轨电车
