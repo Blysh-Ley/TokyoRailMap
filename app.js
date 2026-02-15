@@ -261,7 +261,9 @@ map.on('load', async () => {
         }
 
         if (selectedCompany) {
-            selectionBadgeTextEl.textContent = String(selectedCompany);
+            const companyKey = String(selectedCompany);
+            const companyZh = String(companyLogoMap?.[companyKey]?.zh || '').trim();
+            selectionBadgeTextEl.textContent = companyZh || companyKey;
             selectionBadgeTextEl.style.color = '#111';
             selectionBadgeEl.classList.remove('is-hidden');
             return;
