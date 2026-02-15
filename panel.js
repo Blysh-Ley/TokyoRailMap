@@ -316,6 +316,7 @@ export function createPanel(options = {}) {
     const onRestoreStationLines = typeof options.onRestoreStationLines === 'function' ? options.onRestoreStationLines : null;
     const onTripPreview = typeof options.onTripPreview === 'function' ? options.onTripPreview : null;
     const onTripClear = typeof options.onTripClear === 'function' ? options.onTripClear : null;
+    const settingsContentEl = options.settingsContentEl && options.settingsContentEl.appendChild ? options.settingsContentEl : null;
 
     const buildTransferLineStationNameMap = async ({ stationId, stationNameZh, servingLineIds }) => {
         const sid = toText(stationId);
@@ -418,28 +419,44 @@ export function createPanel(options = {}) {
 
     // 时间控件：覆盖 panel 中的“当前时间”（用于判断已过/未来与默认定位）
     const timeControl = document.createElement('div');
-    timeControl.className = 'map-time-control';
+    timeControl.className = 'settings-item-control settings-time-control';
 
     const timeLabel = document.createElement('span');
-    timeLabel.className = 'map-time-control-label';
+    timeLabel.className = 'settings-item-title';
     timeLabel.textContent = '时间';
 
     const timeInput = document.createElement('input');
-    timeInput.className = 'map-time-control-input';
+    timeInput.className = 'settings-time-input';
     timeInput.type = 'time';
     timeInput.step = '60';
     timeInput.value = '';
 
     const btnAutoNow = document.createElement('button');
     btnAutoNow.type = 'button';
-    btnAutoNow.className = 'map-time-control-reset';
+    btnAutoNow.className = 'settings-time-reset';
     btnAutoNow.title = '恢复自动时间';
     btnAutoNow.setAttribute('aria-label', '恢复自动时间');
-    btnAutoNow.textContent = '⟳ ';
+    const autoNowIcon = document.createElement('img');
+    autoNowIcon.className = 'settings-time-reset-icon';
+    autoNowIcon.alt = '';
+    {
+        const candidates = ['./icons/clockwise.svg', '/icons/clockwise.svg'];
+        let idx = 0;
+        autoNowIcon.src = candidates[idx];
+        autoNowIcon.addEventListener('error', () => {
+            idx += 1;
+            if (idx < candidates.length) autoNowIcon.src = candidates[idx];
+        });
+    }
+    btnAutoNow.appendChild(autoNowIcon);
+
+    const timeOps = document.createElement('div');
+    timeOps.className = 'settings-time-ops';
+    timeOps.appendChild(timeInput);
+    timeOps.appendChild(btnAutoNow);
 
     timeControl.appendChild(timeLabel);
-    timeControl.appendChild(timeInput);
-    timeControl.appendChild(btnAutoNow);
+    timeControl.appendChild(timeOps);
 
     controls.appendChild(dayToggle);
     header.appendChild(controls);
@@ -470,9 +487,7 @@ export function createPanel(options = {}) {
 
     // 地图右上：站名开关下方的时间控件浮层（z-index 高于 panel）
     const timeOverlay = document.createElement('div');
-    timeOverlay.className = 'map-time-overlay';
-    timeOverlay.style.position = 'fixed';
-    timeOverlay.style.zIndex = String(zIndex + 2);
+    timeOverlay.className = 'settings-item settings-item-time';
     timeOverlay.style.display = 'flex';
     timeOverlay.appendChild(timeControl);
     timeOverlay.addEventListener('pointerdown', (e) => stopPropagationOnly(e), { passive: true });
@@ -480,7 +495,13 @@ export function createPanel(options = {}) {
     timeOverlay.addEventListener('touchmove', (e) => stopPropagationOnly(e), { passive: true });
     timeOverlay.addEventListener('wheel', (e) => stopPropagationOnly(e), { passive: true });
     timeOverlay.addEventListener('click', (e) => stopEvent(e), { passive: false });
-    document.body.appendChild(timeOverlay);
+    if (settingsContentEl) {
+        settingsContentEl.appendChild(timeOverlay);
+    } else {
+        timeOverlay.style.position = 'fixed';
+        timeOverlay.style.zIndex = String(zIndex + 2);
+        document.body.appendChild(timeOverlay);
+    }
 
     // 右侧 panel 左侧弹出的班次详情面板
     const tripDetailRoot = document.createElement('div');
@@ -2355,23 +2376,25 @@ export function createPanel(options = {}) {
         root.style.top = `${top}px`;
         root.style.height = `${height}px`;
 
-        // 时间控件浮层：固定在 station-label-toggle 下方
-        try {
-            const anchor = document.querySelector('.station-label-toggle');
-            const gap = 2;
-            if (anchor && anchor.getBoundingClientRect) {
-                const rect = anchor.getBoundingClientRect();
-                const right = Math.max(10, window.innerWidth - rect.right);
-                const y = Math.max(10, rect.bottom + gap);
-                timeOverlay.style.right = `${right}px`;
-                timeOverlay.style.top = `${y}px`;
-            } else {
+        if (!settingsContentEl) {
+            // 时间控件浮层：固定在 station-label-toggle 下方
+            try {
+                const anchor = document.querySelector('.settings-item-station-label, .station-label-toggle');
+                const gap = 2;
+                if (anchor && anchor.getBoundingClientRect) {
+                    const rect = anchor.getBoundingClientRect();
+                    const right = Math.max(10, window.innerWidth - rect.right);
+                    const y = Math.max(10, rect.bottom + gap);
+                    timeOverlay.style.right = `${right}px`;
+                    timeOverlay.style.top = `${y}px`;
+                } else {
+                    timeOverlay.style.right = '10px';
+                    timeOverlay.style.top = '53px';
+                }
+            } catch {
                 timeOverlay.style.right = '10px';
                 timeOverlay.style.top = '53px';
             }
-        } catch {
-            timeOverlay.style.right = '10px';
-            timeOverlay.style.top = '53px';
         }
 
         // 保持可配置：允许通过 CSS 调整圆角

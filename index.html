@@ -246,6 +246,113 @@
             display: none;
         }
 
+        .settings-ui {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            z-index: 9999;
+            width: 320px;
+            max-width: calc(100vw - 20px);
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            user-select: none;
+            transition: width 0.2s ease;
+        }
+
+        .settings-ui::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 36.4px;
+            width: 100%;
+            border-radius: 18.2px;
+            background: rgba(255, 255, 255, 0.75);
+            border: 1px solid #e3e5e7;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(4px);
+            transition: border-radius 0.2s ease, opacity 0.2s ease;
+            pointer-events: none;
+            opacity: 1;
+        }
+
+        .settings-ui.is-collapsed {
+            width: 36.4px;
+        }
+
+        .settings-ui.is-collapsed::before {
+            border-radius: 18.2px;
+        }
+
+        .settings-ui:not(.is-collapsed)::before {
+            opacity: 0;
+        }
+
+        .settings-fab {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100%;
+            height: 36.4px;
+            border-radius: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            backdrop-filter: none;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1;
+        }
+
+        .settings-ui.is-collapsed .settings-fab {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .settings-fab-icon {
+            width: 18px;
+            height: 18px;
+            display: block;
+            pointer-events: none;
+        }
+
+        .settings-fab:focus {
+            outline: none;
+        }
+
+        .settings-content {
+            margin-top: 0;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.92);
+            border-style: solid;
+            border-color: #e3e5e7;
+            border-width: 1px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, .1);
+            overflow: hidden;
+            opacity: 1;
+            max-height: 360px;
+            transition: opacity 0.2s ease, max-height 0.2s ease, margin-top 0.2s ease, border-width 0.2s ease;
+            padding: 8px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .settings-content.is-hidden {
+            opacity: 0;
+            max-height: 0;
+            margin-top: 0;
+            border-width: 0;
+            pointer-events: none;
+        }
+
         /* ===== 右侧 panel：样式隔离（panel-*） ===== */
         .panel-container {
             margin-top: 0;
@@ -763,31 +870,50 @@
                 flex: 0 0 auto;
             }
 
-            .map-time-overlay {
+            .settings-item {
                 display: flex;
                 align-items: center;
+                justify-content: space-between;
+                gap: 8px;
                 padding: 6px 10px;
                 background: #fff;
                 border: 1px solid #e3e5e7;
-                border-radius: 9999px;
-                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+                border-radius: 12px;
                 user-select: none;
+                width: 100%;
+                box-sizing: border-box;
             }
 
-            .map-time-control {
+            .settings-item-title {
+                font-size: 14px;
+                color: #111;
+                flex: 0 0 auto;
+                text-align: left;
+            }
+
+            .settings-item-control {
+                flex: 0 0 auto;
+                display: inline-flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 6px;
+            }
+
+            .settings-time-control {
+                width: 100%;
                 display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+            }
+
+            .settings-time-ops {
+                display: inline-flex;
                 align-items: center;
                 gap: 6px;
             }
 
-            .map-time-control-label {
-                font-size: 12px;
-                color: #666;
-                font-weight: 600;
-                user-select: none;
-            }
-
-            .map-time-control-input {
+            .settings-time-input {
                 font-size: 12px;
                 border: 1px solid #e3e5e7;
                 border-radius: 8px;
@@ -795,24 +921,26 @@
                 background: rgba(255, 255, 255, 0.95);
             }
 
-            .map-time-control-reset {
+            .settings-time-reset {
                 width: 24px;
                 height: 24px;
                 border: 1px solid #fff;
                 background: #fff;
-                color: #3498db;
-                font-size: 14px;
-                line-height: 1;
-                font-weight: 700;
                 cursor: pointer;
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
                 padding: 0;
-                font-size: 30px;
             }
 
-            .map-time-control-reset:hover {
+            .settings-time-reset-icon {
+                width: 16px;
+                height: 16px;
+                display: block;
+                pointer-events: none;
+            }
+
+            .settings-time-reset:hover {
                 background: #f0f8ff;
             }
 
@@ -1173,28 +1301,7 @@
         }
 
         /* 右上角：站名显示开关 */
-        .station-label-toggle {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
-            background: #fff;
-            border: 1px solid #e3e5e7;
-            border-radius: 9999px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-            user-select: none;
-        }
-
-        .station-label-toggle-text {
-            font-size: 14px;
-            color: #111;
-        }
-
-        .station-label-seg {
+        .settings-seg {
             display: inline-flex;
             border: 1px solid #e3e5e7;
             border-radius: 9999px;
@@ -1202,7 +1309,7 @@
             background: #fff;
         }
 
-        .station-label-seg button {
+        .settings-seg button {
             border: none;
             background: transparent;
             padding: 4px 10px;
@@ -1211,11 +1318,11 @@
             cursor: pointer;
         }
 
-        .station-label-seg button:hover {
+        .settings-seg button:hover {
             background: #f0f0f0;
         }
 
-        .station-label-seg button.is-active {
+        .settings-seg button.is-active {
             background: #3498db;
             color: #fff;
         }

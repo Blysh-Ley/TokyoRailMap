@@ -657,9 +657,89 @@ map.on('load', async () => {
         updateSelectionBadge();
     };
 
+    function mountSettingsMenu() {
+        const existing = document.querySelector('.settings-ui');
+        if (existing) {
+            return existing.querySelector('.settings-content') || existing;
+        }
+
+        const root = document.createElement('div');
+        root.className = 'settings-ui is-collapsed';
+
+        const fab = document.createElement('button');
+        fab.type = 'button';
+        fab.className = 'settings-fab';
+        fab.setAttribute('aria-label', '设置');
+
+        const fabIcon = document.createElement('img');
+        fabIcon.className = 'settings-fab-icon';
+        fabIcon.alt = '';
+        {
+            const candidates = ['./icons/settings.svg', '/icons/settings.svg'];
+            let idx = 0;
+            fabIcon.src = candidates[idx];
+            fabIcon.addEventListener('error', () => {
+                idx += 1;
+                if (idx < candidates.length) fabIcon.src = candidates[idx];
+            });
+        }
+        fab.appendChild(fabIcon);
+
+        const content = document.createElement('div');
+        content.className = 'settings-content is-hidden';
+
+        root.appendChild(fab);
+        root.appendChild(content);
+        document.body.appendChild(root);
+
+        const expand = () => {
+            root.classList.remove('is-collapsed');
+            content.classList.remove('is-hidden');
+        };
+
+        const collapse = () => {
+            root.classList.add('is-collapsed');
+            content.classList.add('is-hidden');
+        };
+
+        root.addEventListener('mouseenter', () => {
+            expand();
+        });
+
+        root.addEventListener('mouseleave', () => {
+            collapse();
+        });
+
+        fab.addEventListener('pointerdown', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            if (root.classList.contains('is-collapsed')) expand();
+            else collapse();
+        });
+
+        fab.addEventListener('click', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            if (root.classList.contains('is-collapsed')) expand();
+            else collapse();
+        });
+
+        document.addEventListener('pointerdown', (evt) => {
+            if (root.classList.contains('is-collapsed')) return;
+            const t = evt?.target;
+            if (t && root.contains(t)) return;
+            collapse();
+        }, true);
+
+        return content;
+    }
+
+    const settingsMenuContentEl = mountSettingsMenu();
+
     // 初始化右侧 panel，并复用 popup 的数据结构与交互语义（hover=预览，click=提交）
     panel = createPanel({
         hoverDelayMs: 50,
+        settingsContentEl: settingsMenuContentEl,
         companyLogoMap,
         getLineMeta: (lineId) => {
             const id = String(lineId);
@@ -1175,16 +1255,16 @@ map.on('load', async () => {
         });
     }
 
-    function mountStationLabelToggle() {
+    function mountStationLabelToggle(hostEl) {
         const container = document.createElement('div');
-        container.className = 'station-label-toggle';
+        container.className = 'settings-item settings-item-station-label';
 
         const text = document.createElement('span');
-        text.className = 'station-label-toggle-text';
+        text.className = 'settings-item-title';
         text.textContent = '站名';
 
         const seg = document.createElement('div');
-        seg.className = 'station-label-seg';
+        seg.className = 'settings-item-control settings-seg';
 
         const btnOff = document.createElement('button');
         btnOff.type = 'button';
@@ -1204,7 +1284,9 @@ map.on('load', async () => {
 
         container.appendChild(text);
         container.appendChild(seg);
-        document.body.appendChild(container);
+        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
+        if (host.firstChild) host.insertBefore(container, host.firstChild);
+        else host.appendChild(container);
 
         const setActive = () => {
             btnOff.classList.toggle('is-active', stationLabelMode === 'off');
@@ -1239,7 +1321,7 @@ map.on('load', async () => {
         setMode('auto');
     }
 
-    mountStationLabelToggle();
+    mountStationLabelToggle(settingsMenuContentEl);
 
     let generatedLinesData = null;
     let generatedStationsData = null;
