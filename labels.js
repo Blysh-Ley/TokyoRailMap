@@ -27,6 +27,7 @@ export function createStationMarkers(map, maplibregl, stationsData) {
 
         const priority = servingIds.length;
         const servingLineIds = platformIds;
+        const hiddenByOpacityZero = Number(props.hidden_by_opacity_zero) === 1 || props.hidden_by_opacity_zero === true;
 
         if (!Array.isArray(coordinates) || coordinates.length < 2) return;
         if (!name) return;
@@ -51,6 +52,7 @@ export function createStationMarkers(map, maplibregl, stationsData) {
             props: propsSnapshot,
             priority,
             servingLineIds,
+            hiddenByOpacityZero,
             labelDyPx,
             width: null,
             height: null
@@ -61,7 +63,8 @@ export function createStationMarkers(map, maplibregl, stationsData) {
                 stationId,
                 coordinates,
                 priority,
-                servingLineIds
+                servingLineIds,
+                hiddenByOpacityZero
             });
         }
     });

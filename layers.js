@@ -10,9 +10,10 @@ export function addLinesLayer(map, linesData) {
         id: 'lines-layer',
         type: 'line',
         source: 'lines-source',
+        filter: ['!=', ['get', 'hidden_by_opacity_zero'], 1],
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
-            'line-width': 3,
+            'line-width': 3, //线宽
             'line-color': ['coalesce', ['get', 'color'], '#555']
         }
     });
@@ -32,6 +33,7 @@ export function addStationsLayer(map, stationsData) {
         id: 'stations-layer',
         type: 'circle',
         source: 'stations-source',
+        filter: ['!=', ['get', 'hidden_by_opacity_zero'], 1],
         paint: {
             // 随缩放等级变化：最大 4，缩小时线性变小
             // 注意：MapLibre 里 zoom 表达式只能作为顶层 step/interpolate 的输入
@@ -556,6 +558,9 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
         let companiesHtml = '';
         for (const [company, lines] of groups) {
+            const companyZh = companyLogoMap?.[company]?.zh || null;
+            const companyDisplay = String(companyZh || company);
+
             const logoFile = companyLogoMap?.[company]?.img?.[0] || null;
             const logoBase = (() => {
                 try {
@@ -582,7 +587,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
             companiesHtml += `
                 <div class="station-hover-company">
-                    <div class="station-hover-company-header" data-company="${escapeHtml(company)}">${logoHtml}<span class="station-hover-company-name">${escapeHtml(company)}</span></div>
+                    <div class="station-hover-company-header" data-company="${escapeHtml(company)}">${logoHtml}<span class="station-hover-company-name">${escapeHtml(companyDisplay)}</span></div>
                     <div class="station-hover-company-lines">${linesHtml}</div>
                 </div>
             `;
@@ -626,66 +631,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         if (popupOpenMode === 'hover') tryHidePopup();
     });
 
-    // 点击站点：打开固定 popup（鼠标/触屏均适用）
-    map.on('click', 'stations-layer', (e) => {
-        if (!touchTapGuard.allowTap(e?.originalEvent)) return;
-
-        const pt = readPointerType(e?.originalEvent);
-        lastPointerType = pt;
-        if (isTouchLikePointer(pt)) {
-            suppressMouseEventsUntilMs = nowMs() + 800;
-        }
-
-        popupOpenMode = 'fixed';
-        committedInPopup = false;
-        isOverStation = false;
-        isOverPopup = false;
-        clearHideTimer();
-        clearHoverTimer();
-        hoverCandidateKey = null;
-        lastFiredHoverKey = null;
-
-        const f = e?.features?.[0];
-        if (!f) return;
-        const coordinates = f?.geometry?.coordinates?.slice?.();
-        if (!coordinates) return;
-        const props = f.properties || {};
-
-        popup.setLngLat(coordinates).setHTML(buildPopupHtml(props, { interactive: true })).addTo(map);
-        bindPopupHover();
-    });
-
-    // 点击空白处：收起固定 popup（鼠标/触屏）
-    map.on('click', (e) => {
-        if (popupOpenMode !== 'fixed') return;
-
-        if (!touchTapGuard.allowTap(e?.originalEvent)) return;
-
-        const popupEl = popup.getElement?.();
-        if (!popupEl) return;
-
-        // 点在 popup 内部：不收起
-        const target = e?.originalEvent?.target;
-        if (target && popupEl.contains(target)) return;
-
-        // 点在站点/线路上：不算空白
-        const layers = [];
-        if (map.getLayer?.('lines-layer')) layers.push('lines-layer');
-        if (map.getLayer?.('stations-layer')) layers.push('stations-layer');
-        const hits = layers.length ? (map.queryRenderedFeatures?.(e.point, { layers }) || []) : [];
-        if (hits.length) return;
-
-        // 固定 popup：点击空白处 = 关闭 popup + 由调用方恢复“全显示”
-        if (typeof onFixedPopupBlankClick === 'function') {
-            try {
-                onFixedPopupBlankClick();
-            } catch {
-                // ignore
-            }
-        }
-
-        removePopupNow({ committed: committedInPopup });
-    });
+    // 点击站点/空白处不再打开/固定 popup：交互迁移到右侧 panel。
 
     // 外部触发（例如：站名 DOM 标签点击）
     const showPopupAt = (coordinates, props = {}, meta = {}) => {

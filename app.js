@@ -1,9 +1,11 @@
-import { loadGeoJSON } from './data.js';
+import { loadRailGeoDataFromDataFolder } from './data.js';
 import { addLinesLayer, addStationsLayer, setupStationPopup } from './layers.js';
 import { createStationMarkers } from './labels.js';
 import { setupCollisions } from './collision.js';
 import { Menu } from './menu.js';
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
+import { createPanel } from './panel.js';
+import { getGlobalTimetableCache } from './timetableCache.js';
 
 // MapLibre 通过 CDN 以全局变量方式引入
 const maplibregl = window.maplibregl;
@@ -55,6 +57,26 @@ map.addControl(
 map.on('load', async () => {
     console.log('底图加载完毕，准备加载 GeoJSON...');
 
+    const applyCustomAttribution = () => {
+        try {
+            const inner = document.querySelector('.maplibregl-ctrl-attrib-inner');
+            if (!inner) return;
+
+            inner.innerHTML = [
+                '&copy; <a href="https://carto.com/">Carto</a>',
+                '<a href="https://maplibre.org/" target="_blank" rel="noopener noreferrer">© MapLibre</a>',
+                '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a>',
+                '<a href="https://github.com/nagix/mini-tokyo-3d" target="_blank" rel="noopener noreferrer">Data: mini-tokyo-3d</a>',
+                'Special thanks to <a href="https://github.com/nagix" target="_blank" rel="noopener noreferrer">@nagix</a>'
+            ].join(' | ');
+        } catch {
+            // ignore
+        }
+    };
+
+    applyCustomAttribution();
+    map.on('styledata', applyCustomAttribution);
+
     // 触屏防误触：仅短按且几乎不移动才视为 tap
     const touchTapGuard = getGlobalTouchTapGuard({ maxDurationMs: 500, maxMovePx: 12 });
 
@@ -63,6 +85,7 @@ map.on('load', async () => {
     let selectedCompany = null;
     let selectedLineId = null;
     let selectedStationLineIds = null; // Set<string>：点击站点/站名后高亮其 serving_lines
+    let selectedStationId = null; // 点击站点高亮时，仅高亮该站点
     let selectedServiceMode = 'all';
     let isolateStationsToSelectedLine = false; // 仅用于“popup 提交线路”：隐藏非该线路站点
     let stationLabelMode = 'auto'; // 'off' | 'auto' | 'all'
@@ -74,6 +97,19 @@ map.on('load', async () => {
     let stationPopup = null;
     let stationLabels = [];
     let fixedPopupStationId = null;
+    let previewTripPath = (_payload) => {};
+    let clearTripPathPreview = () => {};
+    let tripPreviewStationIds = null; // Set<string> | null
+    let tripPreviewLineIds = null; // Set<string> | null
+    let tripPreviewActive = false;
+    let tripPreviewOriginPopup = null;
+    let tripPreviewTerminalPopup = null;
+
+    // 右侧界面：站点/站名/搜索提交站点时弹出（在 applySelectionEffects 定义后初始化）
+    let panel = null;
+
+    // 时刻表虚拟内存缓存（按线路 id 预加载 train-timetables/*.json）
+    const timetableCache = getGlobalTimetableCache({ maxBytes: 50 * 1024 * 1024, logFetch: true, logDiscover: true });
 
     const cssEscape = (value) => {
         const s = String(value);
@@ -158,6 +194,7 @@ map.on('load', async () => {
         if (!ids.length) return;
 
         selectedStationLineIds = new Set(ids);
+        selectedStationId = String(props?.id ?? '').trim() || null;
         selectedCompany = null;
         selectedLineId = null;
         selectedServiceMode = 'all';
@@ -189,53 +226,58 @@ map.on('load', async () => {
         selectionBadgeEl.classList.add('is-hidden');
     }
     const companyLogoMap = {
-        JR东日本: {'img':["jreast.png"],'abb':"JR",'type':"JR铁路公司" },
-        东京地下铁: {'img':["Tokyometro.png",60],'abb':"东京地下铁" ,'type':"大手私铁/地下铁"},
-        都营地下铁: {'img':["duyinmetro.svg"],'abb':"都营地下铁" ,'type':"地下铁"},
-        都营交通: {'img':["duyinmetro.svg"],'abb':"都营交通" },
-        京王电铁: {'img':["jingwang.svg", 65],'abb':"京王",'type':"大手私铁", 'order': ['京王线','新线','井之头'] },
-        东武铁道: {'img':["dongwu.svg", 70],'abb':"东武",'type':"大手私铁", 'order': ['晴空塔','伊势崎','日光','东上','都市公园','龟户'] },
-        东急电铁: {'img':["dongji.png"],'abb':"东急",'type':"大手私铁" },
-        西武铁道: {'img':["xiwu.png"],'abb':"西武",'type':"大手私铁" ,'order': ['池袋','新宿'] },
-        京急电铁: {'img':["jingji.png", 65],'abb':"京急",'type':"大手私铁", 'order': ['本线','空港'] },
-        小田急电铁: {'img':["xiaotianji.png"],'abb':"小田急",'type':"大手私铁", 'order': ['小田原', '江之岛','多摩'] },
-        京成电铁: {'img':["jingcheng.png", 60],'abb':"京成" ,'type':"大手私铁",'order':['本线','空港','押上']},
-        相模铁道: {'img':["xiangmo.png"],'abb':"相铁",'type':"大手私铁" },
-        北总铁道:{'img':["beizong.png", 80] },
-        首都圈新都市铁道: {'img':["TsukubaExpress.png", 40] },
-        东京单轨电车: {'img':["tokyoMonorail.png"] },
-        东京临海高速铁道: {'img':["linhai.png",40] },
-        新交通百合鸥: {'img':["yurikamome.png", 45] },
-        迪士尼: {'img':["disney.png", 65],'abb':" " },
-        横滨市营地下铁: {'img':["yokohamaMetro.svg"],'type':"地下铁" },
-        横滨海岸线: {'img':["YokohamaSeaside.png", 45] },
-        横滨高速铁道: {'img':["gangweilai.png"]},
-        横滨索道: {'img':["quanyang.png"]},
-        千叶都市单轨: {'img':["chibaMonorail.png", 35] },
-        东叶高速铁道: {'img':["dongyegaosu.png",40] },
-        流铁: {'img':["liutie.png",35] },
-        山万: {'img':["shanwan.png",35] },
-        埼玉新都市交通: {'img':["SaitamaNUT.png"] },
-        埼玉高速铁道: {'img':["qiyugaosu.png",50] },
-        多摩都市单轨: {'img':["TamaMonorail.png"] },
-        湘南单轨电车: {'img':["shonanMonorail.png", 50] },
-        关东铁道: {'img':["guandong.png",35]},	
-        江之岛电铁:{'img':["jiangdian.png",60]},	
-        宇都宫轻轨:{'img':["yudugong.png",35]},
-        鹿岛临海铁道:{'img':["ludao.png",35]},
-        铫子电气铁道:{'img':["yaozi.png",35]},
-        夷隅铁道:{'img':["yiou.png",35]},
-        富士急行:{'img':["fushi.png",40]},
-        芝山铁道:{'img':["zhishan.png"]},
-        小凑铁道:{'img':["xiaocou.png",35]},
-        伊豆急行:{'img':["yidouji.png"]},
-        伊豆箱根铁道: {'img':["yidouxianggen.png",35] },
-        秩父铁道: {'img':["zhifu.svg",35] },
-        上毛电气铁道: {'img':["shangmao.svg",35] },
-        真冈铁道: {'img':["zhengang.svg",35] },
-        上信电铁: {'img':["shangxin.svg",35] },
-        渡良濑溪谷铁道: {'img':["dulianglai.png",35] }
-    };
+    'JR-East': { 'zh': 'JR东日本', 'img': ["jreast.png"], 'abb': "JR", 'type': "JR铁路公司" },
+    'JR-Central': { 'zh': 'JR东海', 'img': ["jrc.svg"], 'abb': "JR东海", 'type': "JR铁路公司" },
+    'TokyoMetro': { 'zh': '东京地下铁', 'img': ["Tokyometro.png", 60], 'abb': "东京地下铁", 'type': "大手私铁/地下铁" },
+    'Toei': { 'zh': '都营地下铁', 'img': ["duyinmetro.svg"], 'abb': "都营地下铁", 'type': "地下铁" },
+    //'Toei': { 'zh': '都营交通', 'img': ["duyinmetro.svg"],'abb':"都营交通" },
+    'Keio': { 'zh': '京王电铁', 'img': ["jingwang.svg", 65], 'abb': "京王", 'type': "大手私铁", 'order': ['京王线', '新线', '井之头'] },
+    'Tobu': { 'zh': '东武铁道', 'img': ["dongwu.svg", 70], 'abb': "东武", 'type': "大手私铁", 'order': ['晴空塔', '伊势崎', '日光', '东上', '都市公园', '龟户'] },
+    'Tokyu': { 'zh': '东急电铁', 'img': ["dongji.png"], 'abb': "东急", 'type': "大手私铁" },
+    'Seibu': { 'zh': '西武铁道', 'img': ["xiwu.png"], 'abb': "西武", 'type': "大手私铁", 'order': ['池袋', '新宿'] },
+    'Keikyu': { 'zh': '京急电铁', 'img': ["jingji.png", 65], 'abb': "京急", 'type': "大手私铁", 'order': ['本线', '空港'] },
+    'Odakyu': { 'zh': '小田急电铁', 'img': ["xiaotianji.png"], 'abb': "小田急", 'type': "大手私铁", 'order': ['小田原', '江之岛', '多摩'] },
+    'Keisei': { 'zh': '京成电铁', 'img': ["jingcheng.png", 60], 'abb': "京成", 'type': "大手私铁", 'order': ['本线', '空港', '押上'] },
+    'Sotetsu': { 'zh': '相模铁道', 'img': ["xiangmo.png"], 'abb': "相铁", 'type': "大手私铁" },
+    'Hokuso': { 'zh': '北总铁道', 'img': ["beizong.png", 80] },
+    'MIR': { 'zh': '首都圈新都市铁道', 'img': ["TsukubaExpress.png", 40] },
+    'TokyoMonorail': { 'zh': '东京单轨电车', 'img': ["tokyoMonorail.png"] },
+    'TWR': { 'zh': '东京临海高速铁道', 'img': ["linhai.png", 40] },
+    'Yurikamome': { 'zh': '新交通百合鸥', 'img': ["yurikamome.png", 45] },
+    'Disney': { 'zh': '迪士尼', 'img': ["disney.png", 65], 'abb': " " },
+    'YokohamaMunicipal': { 'zh': '横滨市营地下铁', 'img': ["yokohamaMetro.svg"], 'type': "地下铁" },
+    'YokohamaSeaside': { 'zh': '横滨海岸线', 'img': ["YokohamaSeaside.png", 45] },
+    'Minatomirai': { 'zh': '横滨高速铁道', 'img': ["gangweilai.png"] },
+    //'Yokohama Ropeway': { 'zh': '横滨索道', 'img': ["quanyang.png"]},
+    'ChibaMonorail': { 'zh': '千叶都市单轨', 'img': ["chibaMonorail.png", 35] },
+    'ToyoRapid': { 'zh': '东叶高速铁道', 'img': ["dongyegaosu.png", 40] },
+    'Ryutetsu': { 'zh': '流铁', 'img': ["liutie.png", 35] },
+    'Yamaman': { 'zh': '山万', 'img': ["shanwan.png", 35] },
+    'SaitamaTransit': { 'zh': '埼玉新都市交通', 'img': ["SaitamaNUT.png"] },
+    'SaitamaRailway': { 'zh': '埼玉高速铁道', 'img': ["qiyugaosu.png", 50] },
+    'TamaMonorail': { 'zh': '多摩都市单轨', 'img': ["TamaMonorail.png"] },
+    'ShonanMonorail': { 'zh': '湘南单轨电车', 'img': ["shonanMonorail.png", 50] },
+    'KantoRailway': { 'zh': '关东铁道', 'img': ["guandong.png", 35] },
+    'Enoden': { 'zh': '江之岛电铁', 'img': ["jiangdian.png", 60] },
+    'UtsunomiyaLightRail': { 'zh': '宇都宫轻轨', 'img': ["yudugong.png", 35] },
+    'KashimaRinkai': { 'zh': '鹿岛临海铁道', 'img': ["ludao.png", 35] },
+    'Choshi': { 'zh': '铫子电气铁道', 'img': ["yaozi.png", 35] },
+    'Isumi': { 'zh': '夷隅铁道', 'img': ["yiou.png", 35] },
+    'Fujikyu': { 'zh': '富士急行', 'img': ["fushi.png", 40] },
+    'Shibayama': { 'zh': '芝山铁道', 'img': ["zhishan.png"] },
+    'Kominato': { 'zh': '小凑铁道', 'img': ["xiaocou.png", 35] },
+    'Izukyu': { 'zh': '伊豆急行', 'img': ["yidouji.png"] },
+    'Hitachinaka':{'zh':'常陆那珂海滨铁道','img':["hitachinaka.svg",35]},
+    'IzuHakone': { 'zh': '伊豆箱根铁道', 'img':["yidouxianggen.png",35] },
+    'OdakyuHakone': { 'zh': '箱根登山铁道', 'img':["xiaotianji.png"] },
+    'Chichibu': { 'zh': '秩父铁道', 'img': ["zhifu.svg", 35] },
+    //'Jōmō Electric Railway': { 'zh': '上毛电气铁道', 'img':["shangmao.svg",35] },
+    'Moka': { 'zh': '真冈铁道', 'img':["zhengang.svg",35] },
+    //'Jōshin Dentetsu': { 'zh': '上信电铁', 'img':["shangxin.svg",35] },
+    //'Watarase Keikoku Railway': { 'zh': '渡良濑溪谷铁道', 'img':["dulianglai.png",35] }
+};
+
+
 
     // 暴露给 search.js：复用公司 logo 元数据（避免 search.js import app.js 导致重复初始化）
     try {
@@ -250,25 +292,41 @@ map.on('load', async () => {
 
         const baseColorExpr = ['coalesce', ['get', 'color'], '#555'];
 
+        // 车次预览态：底图线路统一弱化，真正高亮由“分段预览图层”承担（避免整条线被点亮）
+        if (tripPreviewActive) {
+            map.setPaintProperty('lines-layer', 'line-color', '#999');
+            map.setPaintProperty('lines-layer', 'line-width', 1.2);
+            map.setPaintProperty('lines-layer', 'line-opacity', 0.45);
+            return;
+        }
+
         // 线路优先：选中线路时，忽略公司选中
+        // 但如果菜单把支线合并到主线（selectedStationLineIds 里包含多条），则按集合高亮。
         if (selectedLineId) {
+            const mergedIds = (selectedStationLineIds && selectedStationLineIds.size > 1)
+                ? Array.from(selectedStationLineIds).map(String).filter(Boolean)
+                : null;
+            const hitExpr = mergedIds
+                ? ['in', ['get', 'id'], ['literal', mergedIds]]
+                : ['==', ['get', 'id'], selectedLineId];
+
             map.setPaintProperty('lines-layer', 'line-color', [
                 'case',
-                ['==', ['get', 'id'], selectedLineId],
+                hitExpr,
                 baseColorExpr,
                 '#999'
             ]);
 
             map.setPaintProperty('lines-layer', 'line-width', [
                 'case',
-                ['==', ['get', 'id'], selectedLineId],
+                hitExpr,
                 3,
                 1.2
-            ]);
+            ]); //线宽，线路宽度
 
             map.setPaintProperty('lines-layer', 'line-opacity', [
                 'case',
-                ['==', ['get', 'id'], selectedLineId],
+                hitExpr,
                 1,
                 0.6
             ]);
@@ -295,7 +353,7 @@ map.on('load', async () => {
                 hitExpr,
                 3,
                 1.2
-            ]);
+            ]);//线宽，线路宽度
 
             map.setPaintProperty('lines-layer', 'line-opacity', [
                 'case',
@@ -309,7 +367,7 @@ map.on('load', async () => {
 
         if (!selectedCompany) {
             map.setPaintProperty('lines-layer', 'line-color', baseColorExpr);
-            map.setPaintProperty('lines-layer', 'line-width', 3);
+            map.setPaintProperty('lines-layer', 'line-width', 3); //线宽
             map.setPaintProperty('lines-layer', 'line-opacity', 1);
             return;
         }
@@ -392,6 +450,17 @@ map.on('load', async () => {
 
     function applyStationSelectionStyle() {
         if (!map.getLayer('stations-layer')) return;
+        // 车次预览态：站点画法恢复基础，由 collision 的显式站点过滤控制可见集合
+        if (tripPreviewActive) {
+            map.setPaintProperty('stations-layer', 'circle-radius', baseStationCircleRadiusExpr());
+            map.setPaintProperty('stations-layer', 'circle-stroke-width', baseStationCircleStrokeWidthExpr());
+            map.setPaintProperty('stations-layer', 'circle-opacity', 1);
+            map.setPaintProperty('stations-layer', 'circle-stroke-opacity', 1);
+            map.setPaintProperty('stations-layer', 'circle-color', '#fff');
+            map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
+            return;
+        }
+
 
         // 换乘站判断仍用 serving_ids（全服务线路集合）
         const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
@@ -411,11 +480,19 @@ map.on('load', async () => {
             return;
         }
 
+        const mergedIdsForSelectedLine = (selectedLineId && selectedStationLineIds && selectedStationLineIds.size > 1)
+            ? Array.from(selectedStationLineIds).map(String).filter(Boolean)
+            : null;
+
         const isSelectedStation = selectedLineId
-            ? ['in', selectedLineId, platformIdsExpr]
+            ? (mergedIdsForSelectedLine
+                ? buildStationAnyLineMatchExpr(mergedIdsForSelectedLine)
+                : ['in', selectedLineId, platformIdsExpr])
             : selectedCompany
                 ? buildStationAnyLineMatchExpr(Array.from(enabledLineIdsByCompany.get(selectedCompany) ?? []))
-                : buildStationAnyLineMatchExpr(Array.from(selectedStationLineIds ?? []));
+                : (selectedStationId
+                    ? ['==', ['get', 'id'], selectedStationId]
+                    : buildStationAnyLineMatchExpr(Array.from(selectedStationLineIds ?? [])));
 
         const shouldIsolate = Boolean(selectedLineId) && isolateStationsToSelectedLine === true;
 
@@ -486,9 +563,13 @@ map.on('load', async () => {
     }
 
     function getEnabledLineIdsForLabels() {
+        if (tripPreviewActive) return null;
         // 需求：选择线路不变、其他线路变灰变细；且“其他线路站点不显示站点名”
         // 这里返回“当前选中线路集合”，只用于站名筛选（圆点不筛选）。
-        if (selectedLineId) return new Set([selectedLineId]);
+        if (selectedLineId) {
+            if (selectedStationLineIds && selectedStationLineIds.size > 1) return selectedStationLineIds;
+            return new Set([selectedLineId]);
+        }
 
         if (selectedStationLineIds && selectedStationLineIds.size) {
             return selectedStationLineIds;
@@ -505,6 +586,7 @@ map.on('load', async () => {
         selectedCompany = null;
         selectedLineId = null;
         selectedStationLineIds = null;
+        selectedStationId = null;
         selectedServiceMode = 'all';
         isolateStationsToSelectedLine = false;
         setStationLabelMode('auto');
@@ -523,6 +605,99 @@ map.on('load', async () => {
         if (collisionController) collisionController.scheduleUpdate();
         updateSelectionBadge();
     };
+
+    // 初始化右侧 panel，并复用 popup 的数据结构与交互语义（hover=预览，click=提交）
+    panel = createPanel({
+        hoverDelayMs: 50,
+        companyLogoMap,
+        getLineMeta: (lineId) => {
+            const id = String(lineId);
+            return {
+                company: lineCompanyById.get(id) || null,
+                name: lineNameById.get(id) || id,
+                color: lineColorById.get(id) || null
+            };
+        },
+        onSelectCompany: (companyName, meta) => {
+            const source = meta?.source;
+            const name = String(companyName ?? '').trim();
+            if (!name) return;
+
+            const stationLineIds = Array.isArray(meta?.stationLineIds) ? meta.stationLineIds.map(String).filter(Boolean) : [];
+            const subset = stationLineIds.filter((id) => String(lineCompanyById.get(String(id)) || '') === name);
+            const nextIds = (subset.length ? subset : stationLineIds).map(String).filter(Boolean);
+
+            selectedCompany = null;
+            selectedLineId = null;
+            selectedStationLineIds = nextIds.length ? new Set(nextIds) : null;
+            selectedStationId = null;
+            selectedServiceMode = 'all';
+            isolateStationsToSelectedLine = false;
+            setStationLabelMode('auto');
+            applySelectionEffects();
+        },
+        onSelectLine: (lineId, meta) => {
+            const source = meta?.source;
+            const id = String(lineId ?? '').trim();
+            if (!id) return;
+
+            const resolved = (menu && typeof menu.resolveLineSelection === 'function')
+                ? menu.resolveLineSelection(id)
+                : null;
+            const mainLineId = String(resolved?.mainLineId ?? id);
+            const merged = Array.isArray(resolved?.mergedLineIds)
+                ? resolved.mergedLineIds.map(String).filter(Boolean)
+                : [mainLineId];
+
+            if (source === 'panel-hover') {
+                selectedLineId = mainLineId;
+                selectedCompany = null;
+                selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+                selectedStationId = null;
+                selectedServiceMode = 'all';
+                isolateStationsToSelectedLine = false;
+                setStationLabelMode('auto');
+                applySelectionEffects();
+                return;
+            }
+
+            // panel click：提交高亮（不执行 fitBounds）
+            selectedLineId = mainLineId;
+            selectedCompany = null;
+            selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+            selectedStationId = null;
+            selectedServiceMode = 'all';
+            setStationLabelMode('all');
+            isolateStationsToSelectedLine = meta?.isolateStations === true;
+
+            if (menu && typeof menu.markActive === 'function') {
+                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(selectedLineId)}"]`);
+                if (el) menu.markActive(el);
+            }
+
+            applySelectionEffects();
+        },
+        onRestoreStationLines: (lineIds, meta) => {
+            selectedLineId = null;
+            selectedCompany = null;
+            isolateStationsToSelectedLine = false;
+            selectedServiceMode = 'all';
+
+            if (Array.isArray(lineIds) && lineIds.length) {
+                selectedStationLineIds = new Set(lineIds.map(String).filter(Boolean));
+            }
+            selectedStationId = meta?.stationId ? String(meta.stationId).trim() : selectedStationId;
+
+            setStationLabelMode('auto');
+            applySelectionEffects();
+        },
+        onTripPreview: (payload) => {
+            previewTripPath(payload);
+        },
+        onTripClear: () => {
+            clearTripPathPreview();
+        }
+    });
 
     const setFixedPopupStationLabelBelow = (stationId) => {
         fixedPopupStationId = stationId != null ? String(stationId) : null;
@@ -576,6 +751,7 @@ map.on('load', async () => {
         selectedCompany,
         selectedLineId,
         selectedStationLineIds: selectedStationLineIds ? Array.from(selectedStationLineIds) : null,
+        selectedStationId,
         selectedServiceMode,
         stationLabelMode,
         isolateStationsToSelectedLine
@@ -588,6 +764,7 @@ map.on('load', async () => {
         selectedStationLineIds = Array.isArray(snapshot.selectedStationLineIds)
             ? new Set(snapshot.selectedStationLineIds.map(String).filter(Boolean))
             : null;
+        selectedStationId = snapshot?.selectedStationId ? String(snapshot.selectedStationId) : null;
         selectedServiceMode = snapshot.selectedServiceMode;
         setStationLabelMode(snapshot.stationLabelMode);
         isolateStationsToSelectedLine = snapshot.isolateStationsToSelectedLine === true;
@@ -648,6 +825,7 @@ map.on('load', async () => {
         if (!ids.length) return;
 
         selectedStationLineIds = new Set(ids);
+        selectedStationId = String(props?.id ?? '').trim() || null;
         selectedCompany = null;
         selectedLineId = null;
         selectedServiceMode = 'all';
@@ -707,34 +885,56 @@ map.on('load', async () => {
             const id = String(lineId ?? '').trim();
             if (!id) return;
             hideStationPopupForMenuInteraction();
-            selectedStationLineIds = null;
-            selectedLineId = id;
+
+            const resolved = (menu && typeof menu.resolveLineSelection === 'function')
+                ? menu.resolveLineSelection(id)
+                : null;
+
+            const mainLineId = String(resolved?.mainLineId ?? id);
+            const merged = Array.isArray(resolved?.mergedLineIds)
+                ? resolved.mergedLineIds.map(String).filter(Boolean)
+                : [mainLineId];
+
+            selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+            selectedStationId = null;
+            selectedLineId = mainLineId;
             selectedCompany = null;
             selectedServiceMode = 'all';
             isolateStationsToSelectedLine = false;
             setStationLabelMode('auto');
             applySelectionEffects();
-            fitToCurrentSelection(`line:${id}`, 'preview');
+            fitToCurrentSelection(`line:${selectedLineId}`, 'preview');
         };
 
         searchMapActions.commitLine = (lineId) => {
             const id = String(lineId ?? '').trim();
             if (!id) return;
             hideStationPopupForMenuInteraction();
-            selectedStationLineIds = null;
-            selectedLineId = id;
+
+            const resolved = (menu && typeof menu.resolveLineSelection === 'function')
+                ? menu.resolveLineSelection(id)
+                : null;
+
+            const mainLineId = String(resolved?.mainLineId ?? id);
+            const merged = Array.isArray(resolved?.mergedLineIds)
+                ? resolved.mergedLineIds.map(String).filter(Boolean)
+                : [mainLineId];
+
+            selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+            selectedStationId = null;
+            selectedLineId = mainLineId;
             selectedCompany = null;
             selectedServiceMode = 'all';
             isolateStationsToSelectedLine = false;
             setStationLabelMode('all');
 
             if (menu && typeof menu.markActive === 'function') {
-                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(id)}"]`);
+                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(selectedLineId)}"]`);
                 if (el) menu.markActive(el);
             }
 
             applySelectionEffects();
-            fitToCurrentSelection(`line:${id}`, 'commit');
+            fitToCurrentSelection(`line:${selectedLineId}`, 'commit');
         };
 
         searchMapActions.previewCompany = (companyName) => {
@@ -742,6 +942,7 @@ map.on('load', async () => {
             if (!name) return;
             hideStationPopupForMenuInteraction();
             selectedStationLineIds = null;
+            selectedStationId = null;
             selectedCompany = name;
             selectedLineId = null;
             selectedServiceMode = 'all';
@@ -756,6 +957,7 @@ map.on('load', async () => {
             if (!name) return;
             hideStationPopupForMenuInteraction();
             selectedStationLineIds = null;
+            selectedStationId = null;
             selectedCompany = name;
             selectedLineId = null;
             selectedServiceMode = 'all';
@@ -778,7 +980,7 @@ map.on('load', async () => {
         };
 
         // station 的 popup 依赖 stationsData 加载完成后初始化的 stationPopup；这里先挂函数，内部做空值保护
-        const openFixedPopupForStationId = (stationId, meta = {}) => {
+        const openStationForStationId = (stationId, meta = {}) => {
             const item = findStationLabelItemById(stationId);
             if (!item) return null;
 
@@ -786,20 +988,26 @@ map.on('load', async () => {
             const coords = item.coordinates;
             const pt = meta?.pointerType ? String(meta.pointerType) : 'mouse';
 
-            setFixedPopupStationLabelBelow(props.id ?? item.stationId);
             selectPlatformLinesForStation(props);
-            stationPopup?.setExternalStationHover?.(true);
-            stationPopup?.showPopupAt?.(coords, props, { pointerType: pt });
             fitToPointAsBounds(coords, { maxZoom: meta?.maxZoom });
             return { props, coords };
         };
 
         searchMapActions.previewStation = (stationId, meta) => {
-            openFixedPopupForStationId(stationId, meta || {});
+            openStationForStationId(stationId, meta || {});
         };
 
         searchMapActions.commitStation = (stationId, meta) => {
-            openFixedPopupForStationId(stationId, meta || {});
+            const opened = openStationForStationId(stationId, meta || {});
+            panel?.showForStationProps?.(opened?.props || {});
+
+            // 预加载该站点关联线路的时刻表
+            try {
+                const ids = getServingLineIdsFromStationProps(opened?.props || {});
+                timetableCache?.preloadRecursiveByLineIds?.(ids);
+            } catch {
+                // ignore
+            }
         };
 
         // 方便搜索预览结束时收起 popup（如果需要）
@@ -821,6 +1029,10 @@ map.on('load', async () => {
             // 若没有可查询的图层，视为“空白”
             const hits = layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [];
             if (hits.length) return;
+
+            // 点击空白处：隐藏右侧 panel
+            panel?.hide?.();
+            clearTripPathPreview();
 
             // 已经是“全显示”状态就不做任何事（避免多余刷新）
             if (!selectedCompany && !selectedLineId && !(selectedStationLineIds && selectedStationLineIds.size)) return;
@@ -847,12 +1059,21 @@ map.on('load', async () => {
             const lineId = f?.properties?.id ?? f?.id;
             if (lineId == null) return;
 
-            const nextLineId = String(lineId);
+            const rawLineId = String(lineId);
+            const resolved = (menu && typeof menu.resolveLineSelection === 'function')
+                ? menu.resolveLineSelection(rawLineId)
+                : null;
+
+            const mainLineId = String(resolved?.mainLineId ?? rawLineId);
+            const merged = Array.isArray(resolved?.mergedLineIds)
+                ? resolved.mergedLineIds.map(String).filter(Boolean)
+                : [mainLineId];
 
             // 点击线路：永远选中；取消选择仅通过“点击空白处”
-            selectedLineId = nextLineId;
+            selectedLineId = mainLineId;
             selectedCompany = null;
-            selectedStationLineIds = null;
+            selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+            selectedStationId = null;
             selectedServiceMode = 'all';
             setStationLabelMode('all');
 
@@ -888,8 +1109,18 @@ map.on('load', async () => {
 
             const f = e?.features?.[0];
             const props = f?.properties || {};
-            setFixedPopupStationLabelBelow(props.id ?? f?.id);
             selectServingLinesForStation(props);
+
+            // 打开右侧界面 A
+            panel?.showForStationProps?.(props);
+
+            // 预加载该站点关联线路的时刻表
+            try {
+                const ids = getServingLineIdsFromStationProps(props);
+                timetableCache?.preloadRecursiveByLineIds?.(ids);
+            } catch {
+                // ignore
+            }
         });
     }
 
@@ -959,19 +1190,750 @@ map.on('load', async () => {
 
     mountStationLabelToggle();
 
+    let generatedLinesData = null;
+    let generatedStationsData = null;
+
     try {
-        const linesData = await loadGeoJSON('./lines.geojson');
+        const { linesGeoJSON, linesGeoJSONByZoom, lineRoutingCoordsById, stationsGeoJSON, diagnostics } = await loadRailGeoDataFromDataFolder();
+        generatedLinesData = linesGeoJSON;
+        generatedStationsData = stationsGeoJSON;
+
+        /*
+        try {
+            const items = Array.isArray(diagnostics?.largeGaps) ? diagnostics.largeGaps : [];
+            if (items.length) {
+                // 同一条线路可能有多个 segment 触发；按 id 取 max
+                const byId = new Map();
+                for (const it of items) {
+                    const id = String(it?.id || '').trim();
+                    if (!id) continue;
+                    const prev = byId.get(id);
+                    if (!prev || (it?.maxJumpMeters ?? 0) > (prev?.maxJumpMeters ?? 0)) byId.set(id, it);
+                }
+                const sorted = Array.from(byId.values()).sort((a, b) => (b?.maxJumpMeters ?? 0) - (a?.maxJumpMeters ?? 0));
+                console.warn('[数据检查] 存在“大跨度跳跃”的线路（按最大相邻点跳跃降序）：');
+                for (const it of sorted) {
+                    const km = ((it?.maxJumpMeters ?? 0) / 1000).toFixed(2);
+                    console.warn(`- ${it?.titleZhHans || it?.id} (${it?.id}): ${km}km`);
+                }
+            } else {
+                console.log('[数据检查] 未发现“大跨度跳跃”的线路');
+            }
+        } catch {
+            // ignore
+        }
+        */
+        const linesData = (linesGeoJSONByZoom && linesGeoJSONByZoom[18]) || linesGeoJSON;
         addLinesLayer(map, linesData);
 
-        // 线路偏移（像素）：从 lines.geojson 的 properties.offset 读取；没有则默认为 0
-        if (map.getLayer('lines-layer')) {
-            map.setPaintProperty('lines-layer', 'line-offset', ['coalesce', ['get', 'offset'], 0]);
-        }
+        // 需求：无视缩放比例，不做 zoom 级别切换
 
         // 构造 RWMenuCore 所需数据：companyObj / linesObj
-        const lineFeatures = Array.isArray(linesData?.features)
+        const allLineFeatures = Array.isArray(linesData?.features)
             ? linesData.features.filter((f) => f?.properties?.type === 'line')
             : [];
+        const lineFeatures = allLineFeatures.filter((f) => Number(f?.properties?.hidden_by_opacity_zero) !== 1);
+        const lineChainsById = new Map();
+
+        // 站点坐标索引：用于车次路径高亮（只高亮停靠站）
+        const stationCoordById = new Map();
+        const stationServingCountById = new Map();
+        try {
+            const stationFeaturesForPreview = Array.isArray(generatedStationsData?.features)
+                ? generatedStationsData.features
+                : [];
+            for (const sf of stationFeaturesForPreview) {
+                if (sf?.geometry?.type !== 'Point') continue;
+                const p = sf?.properties || {};
+                const sid = String(p?.id ?? sf?.id ?? '').trim();
+                const c = sf?.geometry?.coordinates;
+                if (!sid || !Array.isArray(c) || c.length < 2) continue;
+                const lng = Number(c[0]);
+                const lat = Number(c[1]);
+                if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+                stationCoordById.set(sid, [lng, lat]);
+
+                const servingIds = normalizeArrayLike(p?.serving_ids);
+                const servingLines = normalizeArrayLike(p?.serving_lines);
+                const servingCount = (servingIds.length || servingLines.length || 1);
+                stationServingCountById.set(sid, servingCount);
+            }
+        } catch {
+            // ignore
+        }
+
+        const ensureTripPreviewLayers = () => {
+            if (!map.getSource('trip-preview-source')) {
+                map.addSource('trip-preview-source', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] }
+                });
+            }
+
+            if (!map.getLayer('trip-preview-line-layer')) {
+                map.addLayer({
+                    id: 'trip-preview-line-layer',
+                    type: 'line',
+                    source: 'trip-preview-source',
+                    filter: ['!=', ['get', 'role'], 'connector'],
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: {
+                        'line-color': ['coalesce', ['get', 'color'], '#0a84ff'],
+                        'line-width': 3,
+                        'line-opacity': 1
+                    }
+                });
+            }
+
+            if (!map.getLayer('trip-preview-connector-layer')) {
+                map.addLayer({
+                    id: 'trip-preview-connector-layer',
+                    type: 'line',
+                    source: 'trip-preview-source',
+                    filter: ['==', ['get', 'role'], 'connector'],
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: {
+                        'line-color': ['coalesce', ['get', 'color'], '#0a84ff'],
+                        'line-width': 3,
+                        'line-opacity': 1
+                    }
+                });
+            }
+
+            if (!map.getSource('trip-preview-stops-source')) {
+                map.addSource('trip-preview-stops-source', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] }
+                });
+            }
+
+            if (!map.getLayer('trip-preview-stops-layer')) {
+                map.addLayer({
+                    id: 'trip-preview-stops-layer',
+                    type: 'circle',
+                    source: 'trip-preview-stops-source',
+                    paint: {
+                        'circle-radius': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            6, [
+                                'case',
+                                ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
+                                0.5,
+                                0.5
+                            ],
+                            14, [
+                                'case',
+                                ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
+                                3.5,
+                                4
+                            ],
+                            22, [
+                                'case',
+                                ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
+                                3.5,
+                                4
+                            ]
+                        ],
+                        'circle-color': '#fff',
+                        'circle-stroke-width': [
+                            'case',
+                            ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
+                            0,
+                            2
+                        ],
+                        'circle-stroke-color': '#111'
+                    }
+                });
+            }
+        };
+
+        const resetTripPreviewLayers = () => {
+            const emptyFc = { type: 'FeatureCollection', features: [] };
+            try {
+                map.getSource('trip-preview-source')?.setData?.(emptyFc);
+                map.getSource('trip-preview-stops-source')?.setData?.(emptyFc);
+            } catch {
+                // ignore
+            }
+        };
+
+        const distMeters = (a, b) => {
+            if (!Array.isArray(a) || !Array.isArray(b) || a.length < 2 || b.length < 2) return Number.POSITIVE_INFINITY;
+            const lng1 = Number(a[0]);
+            const lat1 = Number(a[1]);
+            const lng2 = Number(b[0]);
+            const lat2 = Number(b[1]);
+            if (![lng1, lat1, lng2, lat2].every(Number.isFinite)) return Number.POSITIVE_INFINITY;
+            const dLat = (lat2 - lat1) * (Math.PI / 180);
+            const dLng = (lng2 - lng1) * (Math.PI / 180);
+            const mLat = ((lat1 + lat2) / 2) * (Math.PI / 180);
+            const x = dLng * Math.cos(mLat);
+            const y = dLat;
+            return Math.sqrt(x * x + y * y) * 6371000;
+        };
+
+        const appendChainsFromGeometry = (lineIdRaw, geom) => {
+            const lineId = String(lineIdRaw ?? '').trim();
+            if (!lineId || !geom) return;
+            if (!lineChainsById.has(lineId)) lineChainsById.set(lineId, []);
+            const bucket = lineChainsById.get(lineId);
+
+            if (geom.type === 'LineString' && Array.isArray(geom.coordinates)) {
+                const chain = geom.coordinates.filter((pt) => Array.isArray(pt) && pt.length >= 2);
+                if (chain.length >= 2) bucket.push(chain);
+                return;
+            }
+
+            if (geom.type === 'MultiLineString' && Array.isArray(geom.coordinates)) {
+                for (const line of geom.coordinates) {
+                    if (!Array.isArray(line)) continue;
+                    const chain = line.filter((pt) => Array.isArray(pt) && pt.length >= 2);
+                    if (chain.length >= 2) bucket.push(chain);
+                }
+            }
+        };
+
+        // 直通计算优先使用“完整线路链路”（含 opacity:0 子段，按原 subline 顺序拼接）
+        if (lineRoutingCoordsById && typeof lineRoutingCoordsById === 'object') {
+            for (const [rawId, coords] of Object.entries(lineRoutingCoordsById)) {
+                const lineId = String(rawId || '').trim();
+                if (!lineId || !Array.isArray(coords) || coords.length < 2) continue;
+                const chain = coords.filter((pt) => Array.isArray(pt) && pt.length >= 2);
+                if (chain.length < 2) continue;
+                lineChainsById.set(lineId, [chain]);
+            }
+        }
+
+        for (const f of allLineFeatures) {
+            const lineId = f?.properties?.id ?? f?.id;
+            if (!lineId) continue;
+            // 已有完整链路时，不再用拆分 feature 覆盖，避免与“手动去掉 opacity:0”结果不一致
+            if (lineChainsById.has(String(lineId))) continue;
+            appendChainsFromGeometry(String(lineId), f?.geometry);
+        }
+
+        const getLineChains = (lineIdRaw) => {
+            const lineId = String(lineIdRaw ?? '').trim();
+            if (!lineId) return [];
+            const chains = lineChainsById.get(lineId);
+            return Array.isArray(chains) ? chains : [];
+        };
+
+        const findNearestIndex = (chain, coord) => {
+            if (!Array.isArray(chain) || !Array.isArray(coord)) return { index: -1, dist: Number.POSITIVE_INFINITY };
+            let bestIdx = -1;
+            let bestDist = Number.POSITIVE_INFINITY;
+            for (let i = 0; i < chain.length; i += 1) {
+                const d = distMeters(chain[i], coord);
+                if (d < bestDist) {
+                    bestDist = d;
+                    bestIdx = i;
+                }
+            }
+            return { index: bestIdx, dist: bestDist };
+        };
+
+        const projectToLocalXY = (lngLat, refLatDeg) => {
+            const lng = Number(lngLat?.[0]);
+            const lat = Number(lngLat?.[1]);
+            const k = Math.cos((Number(refLatDeg) || 0) * Math.PI / 180);
+            return {
+                x: lng * k,
+                y: lat
+            };
+        };
+
+        const closestPointOnSegmentLL = (p, a, b) => {
+            const refLat = (Number(p?.[1]) + Number(a?.[1]) + Number(b?.[1])) / 3;
+            const pp = projectToLocalXY(p, refLat);
+            const pa = projectToLocalXY(a, refLat);
+            const pb = projectToLocalXY(b, refLat);
+
+            const vx = pb.x - pa.x;
+            const vy = pb.y - pa.y;
+            const wx = pp.x - pa.x;
+            const wy = pp.y - pa.y;
+
+            const vv = vx * vx + vy * vy;
+            let t = vv > 0 ? (wx * vx + wy * vy) / vv : 0;
+            if (!Number.isFinite(t)) t = 0;
+            if (t < 0) t = 0;
+            if (t > 1) t = 1;
+
+            const out = [
+                Number(a?.[0]) + (Number(b?.[0]) - Number(a?.[0])) * t,
+                Number(a?.[1]) + (Number(b?.[1]) - Number(a?.[1])) * t
+            ];
+            return { point: out, t };
+        };
+
+        const closestPointOnChain = (chain, coord) => {
+            if (!Array.isArray(chain) || chain.length < 2 || !Array.isArray(coord)) {
+                return { point: null, segIndex: -1, t: 0, dist: Number.POSITIVE_INFINITY };
+            }
+
+            let best = { point: null, segIndex: -1, t: 0, dist: Number.POSITIVE_INFINITY };
+            for (let i = 0; i < chain.length - 1; i += 1) {
+                const a = chain[i];
+                const b = chain[i + 1];
+                if (!Array.isArray(a) || !Array.isArray(b)) continue;
+                const proj = closestPointOnSegmentLL(coord, a, b);
+                const d = distMeters(coord, proj.point);
+                if (d < best.dist) {
+                    best = { point: proj.point, segIndex: i, t: proj.t, dist: d };
+                }
+            }
+            return best;
+        };
+
+        const buildProjectedSubchain = (chain, fromProj, toProj) => {
+            if (!Array.isArray(chain) || chain.length < 2 || !fromProj?.point || !toProj?.point) return null;
+
+            const i = Number(fromProj.segIndex);
+            const j = Number(toProj.segIndex);
+            if (!Number.isFinite(i) || !Number.isFinite(j) || i < 0 || j < 0) return null;
+
+            const out = [fromProj.point];
+            if (i === j) {
+                out.push(toProj.point);
+                return out;
+            }
+
+            if (i < j) {
+                for (let k = i + 1; k <= j; k += 1) out.push(chain[k]);
+                out.push(toProj.point);
+                return out;
+            }
+
+            // reverse direction
+            for (let k = i; k >= j + 1; k -= 1) out.push(chain[k]);
+            out.push(toProj.point);
+            return out;
+        };
+
+        const extractLineSegment = (lineId, fromCoord, toCoord) => {
+            const chains = getLineChains(lineId);
+            let best = null;
+
+            for (const chain of chains) {
+                if (!Array.isArray(chain) || chain.length < 2) continue;
+                const a = closestPointOnChain(chain, fromCoord);
+                const b = closestPointOnChain(chain, toCoord);
+                if (a.segIndex < 0 || b.segIndex < 0 || !a.point || !b.point) continue;
+
+                const score = a.dist + b.dist;
+                if (!best || score < best.score) {
+                    const seg = buildProjectedSubchain(chain, a, b);
+                    best = { score, seg, endDist: Math.max(a.dist, b.dist) };
+                }
+            }
+
+            if (!best || !Array.isArray(best.seg) || best.seg.length < 2) return null;
+            // 近似阈值：端点距离线路过远则认为不可靠，走直连
+            if (best.endDist > 250) return null;
+            return best.seg;
+        };
+
+        const nearestBridgeBetweenLines = (lineIdA, lineIdB, anchorA = null, anchorB = null) => {
+            const chainsA = getLineChains(lineIdA);
+            const chainsB = getLineChains(lineIdB);
+            if (!chainsA.length || !chainsB.length) return null;
+
+            const hasAnchorA = Array.isArray(anchorA) && anchorA.length >= 2;
+            const hasAnchorB = Array.isArray(anchorB) && anchorB.length >= 2;
+
+            const MAX_SAMPLES = 900;
+            const sampleIndices = (len) => {
+                if (!Number.isFinite(len) || len <= 0) return [];
+                const step = Math.max(1, Math.ceil(len / MAX_SAMPLES));
+                const out = [];
+                for (let i = 0; i < len; i += step) out.push(i);
+                if (out[out.length - 1] !== len - 1) out.push(len - 1);
+                return out;
+            };
+
+            let best = null;
+            let bestLocal = null;
+            for (const ca of chainsA) {
+                if (!Array.isArray(ca) || ca.length < 2) continue;
+                const ia = sampleIndices(ca.length);
+                for (const ibase of ia) {
+                    const pa = ca[ibase];
+                    for (const cb of chainsB) {
+                        if (!Array.isArray(cb) || cb.length < 2) continue;
+                        const pbProj = closestPointOnChain(cb, pa);
+                        if (!pbProj?.point || pbProj.segIndex < 0) continue;
+                        const paProj = closestPointOnChain(ca, pbProj.point);
+                        if (!paProj?.point || paProj.segIndex < 0) continue;
+                        const d = distMeters(paProj.point, pbProj.point);
+                        if (!best || d < best.dist) {
+                            best = { a: paProj.point, b: pbProj.point, dist: d };
+                        }
+
+                        if (hasAnchorA || hasAnchorB) {
+                            const da = hasAnchorA ? distMeters(anchorA, paProj.point) : 0;
+                            const db = hasAnchorB ? distMeters(anchorB, pbProj.point) : 0;
+                            const isLocalA = !hasAnchorA || da <= 12000;
+                            const isLocalB = !hasAnchorB || db <= 12000;
+
+                            if (isLocalA && isLocalB) {
+                                const score = d + (da * 0.15) + (db * 0.15);
+                                if (!bestLocal || score < bestLocal.score) {
+                                    bestLocal = { a: paProj.point, b: pbProj.point, dist: d, score };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return bestLocal || best;
+        };
+
+        const isLineTerminalStation = (lineIdRaw, stationIdRaw) => {
+            const lineId = String(lineIdRaw ?? '').trim();
+            const stationId = String(stationIdRaw ?? '').trim();
+            if (!lineId || !stationId) return false;
+            const s = stationCoordById.get(stationId);
+            if (!s) return false;
+            const chains = getLineChains(lineId);
+            if (!chains.length) return false;
+
+            let minEndDist = Number.POSITIVE_INFINITY;
+            for (const chain of chains) {
+                if (!Array.isArray(chain) || chain.length < 2) continue;
+                const d1 = distMeters(s, chain[0]);
+                const d2 = distMeters(s, chain[chain.length - 1]);
+                minEndDist = Math.min(minEndDist, d1, d2);
+            }
+            return minEndDist <= 1200;
+        };
+
+        const stationAKey = (stationIdRaw) => {
+            const s = String(stationIdRaw ?? '').trim();
+            if (!s) return '';
+            const parts = s.split('.').map((x) => x.trim()).filter(Boolean);
+            return parts.length ? parts[parts.length - 1] : '';
+        };
+
+        const isSamePhysicalStation = (aRaw, bRaw) => {
+            const a = String(aRaw ?? '').trim();
+            const b = String(bRaw ?? '').trim();
+            if (!a || !b) return false;
+            if (a === b) return true;
+            const ak = stationAKey(a);
+            const bk = stationAKey(b);
+            if (ak && bk && ak === bk) return true;
+            const ca = stationCoordById.get(a);
+            const cb = stationCoordById.get(b);
+            if (!ca || !cb) return false;
+            return distMeters(ca, cb) <= 350;
+        };
+
+        const previewFitWithSidePanels = (bbox) => {
+            if (!bbox) return;
+            const bounds = [
+                [bbox.minLng, bbox.minLat],
+                [bbox.maxLng, bbox.maxLat]
+            ];
+
+            const base = 50;
+            let rightReserve = base;
+            let leftReserve = base;
+
+            try {
+                const menuRect = menu?.wrapper?.getBoundingClientRect?.();
+                if (menuRect && Number.isFinite(menuRect.width)) {
+                    leftReserve = Math.max(leftReserve, Math.ceil(Math.max(menuRect.right || 0, menuRect.width) + base));
+                }
+            } catch {
+                // ignore
+            }
+
+            try {
+                const panelRect = panel?.el?.getBoundingClientRect?.();
+                if (panelRect && Number.isFinite(panelRect.width)) {
+                    rightReserve = Math.max(rightReserve, Math.ceil(panelRect.width + base));
+                }
+            } catch {
+                // ignore
+            }
+
+            try {
+                const tripEl = document.querySelector('[data-panel-trip-detail]');
+                const hidden = tripEl?.classList?.contains('is-hidden');
+                const rect = tripEl?.getBoundingClientRect?.();
+                if (!hidden && rect && Number.isFinite(rect.width) && rect.width > 0) {
+                    rightReserve = Math.max(rightReserve, Math.ceil(rightReserve + rect.width));
+                }
+            } catch {
+                // ignore
+            }
+
+            try {
+                map.fitBounds(bounds, {
+                    padding: { top: base, bottom: base, left: leftReserve, right: rightReserve },
+                    duration: 280,
+                    easing: (t) => t,
+                    essential: true
+                });
+            } catch {
+                // ignore
+            }
+        };
+
+        const buildTripPreviewFeatures = (payload) => {
+            const outLineFeatures = [];
+            const outStopFeatures = [];
+            const coordsForBbox = [];
+            const stopIds = new Set();
+
+            const allSegments = Array.isArray(payload?.segments) ? payload.segments : [];
+            const ntSeg = allSegments.find((s) => String(s?.kind) === 'nt') || null;
+            const ntFirstStationId = (() => {
+                const ids = Array.isArray(ntSeg?.stationIds) ? ntSeg.stationIds : [];
+                return ids.length ? String(ids[0] || '').trim() : '';
+            })();
+
+            let allowNt = !payload?.hasNt || isLineTerminalStation(payload?.mainLineId, payload?.mainTerminalStationId);
+            if (!allowNt && payload?.hasNt) {
+                allowNt = isSamePhysicalStation(payload?.mainTerminalStationId, ntFirstStationId);
+            }
+
+            // 非端点直通也允许：只要主段末站与 nt 首站在局部几何上可连通（避免同班次在不同入口显示不一致）
+            if (!allowNt && payload?.hasNt && ntSeg) {
+                const mainTerminalId = String(payload?.mainTerminalStationId || '').trim();
+                const mainTerminalCoord = stationCoordById.get(mainTerminalId);
+                const ntFirstCoord = stationCoordById.get(ntFirstStationId);
+                const ntLineId = String(ntSeg?.lineId || '').trim();
+
+                if (mainTerminalCoord && ntFirstCoord && ntLineId) {
+                    const directDist = distMeters(mainTerminalCoord, ntFirstCoord);
+                    if (directDist <= 8000) {
+                        allowNt = true;
+                    } else {
+                        const bridge = nearestBridgeBetweenLines(
+                            payload?.mainLineId,
+                            ntLineId,
+                            mainTerminalCoord,
+                            ntFirstCoord
+                        );
+                        allowNt = !!bridge && Number.isFinite(bridge.dist) && bridge.dist <= 3000;
+                    }
+                }
+            }
+
+            const segments = allowNt ? allSegments : allSegments.filter((s) => String(s?.kind) !== 'nt');
+
+            const pushLineFeature = (coords, lineId, role = 'line') => {
+                if (!Array.isArray(coords) || coords.length < 2) return;
+                for (const c of coords) {
+                    if (Array.isArray(c) && c.length >= 2) coordsForBbox.push(c);
+                }
+                outLineFeatures.push({
+                    type: 'Feature',
+                    properties: {
+                        role,
+                        lineId: String(lineId || ''),
+                        color: lineColorById.get(String(lineId || '')) || '#0a84ff'
+                    },
+                    geometry: { type: 'LineString', coordinates: coords }
+                });
+            };
+
+            for (let i = 0; i < segments.length; i += 1) {
+                const seg = segments[i] || {};
+                const lineId = String(seg.lineId || '').trim();
+                const stationIds = Array.isArray(seg.stationIds) ? seg.stationIds.map((x) => String(x).trim()).filter(Boolean) : [];
+                for (const sid of stationIds) stopIds.add(sid);
+
+                for (let j = 0; j < stationIds.length - 1; j += 1) {
+                    const fromId = stationIds[j];
+                    const toId = stationIds[j + 1];
+                    const from = stationCoordById.get(fromId);
+                    const to = stationCoordById.get(toId);
+                    if (!from || !to) continue;
+
+                    const clipped = extractLineSegment(lineId, from, to);
+                    if (clipped && clipped.length >= 2) pushLineFeature(clipped, lineId, 'line');
+                    else pushLineFeature([from, to], lineId, 'connector');
+                }
+
+                if (i > 0) {
+                    const prev = segments[i - 1] || {};
+                    const prevIds = Array.isArray(prev.stationIds) ? prev.stationIds : [];
+                    const prevLast = String(prevIds.length ? prevIds[prevIds.length - 1] : '').trim();
+                    const currFirst = String(stationIds.length ? stationIds[0] : '').trim();
+                    if (prevLast && currFirst && prevLast !== currFirst) {
+                        const a = stationCoordById.get(prevLast);
+                        const b = stationCoordById.get(currFirst);
+                        if (a && b) {
+                            const bridge = nearestBridgeBetweenLines(prev.lineId, lineId, a, b);
+                            const canUseBridge = bridge && Number.isFinite(bridge.dist) && bridge.dist <= 3000;
+                            if (canUseBridge) {
+                                const segA = extractLineSegment(prev.lineId, a, bridge.a);
+                                const segB = extractLineSegment(lineId, bridge.b, b);
+                                if (segA && segA.length >= 2) pushLineFeature(segA, prev.lineId, 'line');
+                                if (bridge.dist > 25) pushLineFeature([bridge.a, bridge.b], lineId || prev.lineId, 'connector');
+                                if (segB && segB.length >= 2) pushLineFeature(segB, lineId, 'line');
+
+                                if ((!segA || segA.length < 2) && (!segB || segB.length < 2)) {
+                                    pushLineFeature([a, b], lineId || prev.lineId, 'connector');
+                                }
+                            } else {
+                                pushLineFeature([a, b], lineId || prev.lineId, 'connector');
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (const sid of stopIds) {
+                const c = stationCoordById.get(sid);
+                if (!c) continue;
+                outStopFeatures.push({
+                    type: 'Feature',
+                    properties: {
+                        id: sid,
+                        serving_count: Number(stationServingCountById.get(sid) || 1)
+                    },
+                    geometry: { type: 'Point', coordinates: c }
+                });
+            }
+
+            let bbox = null;
+            for (const c of coordsForBbox) {
+                const lng = Number(c?.[0]);
+                const lat = Number(c?.[1]);
+                bbox = extendBBox(bbox, lng, lat);
+            }
+
+            const firstSeg = segments.find((s) => Array.isArray(s?.stationIds) && s.stationIds.length) || null;
+            const lastSeg = (() => {
+                for (let i = segments.length - 1; i >= 0; i -= 1) {
+                    const s = segments[i];
+                    if (Array.isArray(s?.stationIds) && s.stationIds.length) return s;
+                }
+                return null;
+            })();
+
+            const startStationId = firstSeg ? String(firstSeg.stationIds[0] || '').trim() : '';
+            const endStationId = lastSeg
+                ? String(lastSeg.stationIds[lastSeg.stationIds.length - 1] || '').trim()
+                : '';
+
+            return {
+                lineFc: { type: 'FeatureCollection', features: outLineFeatures },
+                stopFc: { type: 'FeatureCollection', features: outStopFeatures },
+                lineIds: new Set(segments.map((s) => String(s?.lineId || '').trim()).filter(Boolean)),
+                stopIds,
+                startStationId,
+                endStationId,
+                bbox
+            };
+        };
+
+        const clearTripEndpointPopups = () => {
+            try {
+                tripPreviewOriginPopup?.remove?.();
+            } catch {
+                // ignore
+            }
+            try {
+                tripPreviewTerminalPopup?.remove?.();
+            } catch {
+                // ignore
+            }
+            tripPreviewOriginPopup = null;
+            tripPreviewTerminalPopup = null;
+        };
+
+        const createTripEndpointPopup = ({ stationId, text, color, yOffset = 8 }) => {
+            const sid = String(stationId || '').trim();
+            if (!sid) return null;
+            const coord = stationCoordById.get(sid);
+            if (!Array.isArray(coord) || coord.length < 2) return null;
+
+            const el = document.createElement('div');
+            el.style.fontSize = '12px';
+            el.style.fontWeight = '700';
+            el.style.lineHeight = '1.2';
+            el.style.color = String(color || '#111');
+            el.textContent = String(text || '');
+
+            return new maplibregl.Popup({
+                closeButton: false,
+                closeOnClick: false,
+                closeOnMove: false,
+                anchor: 'top',
+                offset: [0, yOffset],
+                className: 'trip-endpoint-popup'
+            })
+                .setLngLat(coord)
+                .setDOMContent(el)
+                .addTo(map);
+        };
+
+        const updateTripEndpointPopups = (startStationId, endStationId) => {
+            clearTripEndpointPopups();
+
+            const startId = String(startStationId || '').trim();
+            const endId = String(endStationId || '').trim();
+            if (!startId && !endId) return;
+
+            tripPreviewOriginPopup = createTripEndpointPopup({
+                stationId: startId,
+                text: '起点站',
+                color: '#1A9B2D',
+                yOffset: 8
+            });
+
+            tripPreviewTerminalPopup = createTripEndpointPopup({
+                stationId: endId,
+                text: '终点站',
+                color: '#D32F2F',
+                yOffset: startId && endId && startId === endId ? 30 : 8
+            });
+        };
+
+        clearTripPathPreview = () => {
+            tripPreviewActive = false;
+            tripPreviewStationIds = null;
+            tripPreviewLineIds = null;
+            resetTripPreviewLayers();
+            clearTripEndpointPopups();
+            setStationLabelMode('auto');
+            applySelectionEffects();
+            collisionController?.scheduleUpdate?.();
+        };
+
+        previewTripPath = (payload) => {
+            if (!payload || !Array.isArray(payload?.segments) || !payload.segments.length) {
+                clearTripPathPreview();
+                return;
+            }
+
+            ensureTripPreviewLayers();
+            const built = buildTripPreviewFeatures(payload);
+            tripPreviewActive = true;
+            tripPreviewStationIds = built.stopIds;
+            tripPreviewLineIds = built.lineIds;
+
+            try {
+                map.getSource('trip-preview-source')?.setData?.(built.lineFc);
+                map.getSource('trip-preview-stops-source')?.setData?.(built.stopFc);
+            } catch {
+                // ignore
+            }
+
+            updateTripEndpointPopups(built.startStationId, built.endStationId);
+
+            setStationLabelMode('all');
+            applySelectionEffects();
+            collisionController?.scheduleUpdate?.();
+            previewFitWithSidePanels(built.bbox);
+        };
 
         const companyObj = {};
         const linesObj = {};
@@ -1137,11 +2099,23 @@ map.on('load', async () => {
 
             // 预计算该线路 geometry bounds
             const bbox = bboxFromGeometry(f.geometry);
-            if (bbox) lineBoundsById.set(String(lineId), bbox);
+            if (bbox) {
+                const key = String(lineId);
+                const prev = lineBoundsById.get(key) ?? null;
+                lineBoundsById.set(key, unionBBox(prev, bbox));
+            }
         }
 
         function getBBoxForSelected() {
             if (selectedLineId) {
+                if (selectedStationLineIds && selectedStationLineIds.size > 1) {
+                    let b = null;
+                    for (const id of selectedStationLineIds) {
+                        b = unionBBox(b, lineBoundsById.get(String(id)) ?? null);
+                    }
+                    return b ?? null;
+                }
+
                 const b = lineBoundsById.get(String(selectedLineId));
                 return b ?? null;
             }
@@ -1221,16 +2195,35 @@ map.on('load', async () => {
                 hideStationPopupForMenuInteraction();
                 const source = meta?.source ?? 'click';
                 const commitPreview = meta?.commitPreview === true;
-                selectedStationLineIds = null;
+
+                // 菜单已将“支线 -> 主线”解析并给出 mergedLineIds（主线+支线）。
+                // 这里统一以主线作为 selectedLineId，保证底部显示主线名。
+                const resolved = (menu && typeof menu.resolveLineSelection === 'function')
+                    ? menu.resolveLineSelection(lineId)
+                    : null;
+
+                const mainLineId = String(meta?.mainLineId ?? resolved?.mainLineId ?? lineId);
+                const merged = Array.isArray(meta?.mergedLineIds)
+                    ? meta.mergedLineIds.map(String).filter(Boolean)
+                    : (Array.isArray(resolved?.mergedLineIds) ? resolved.mergedLineIds.map(String).filter(Boolean) : [mainLineId]);
+
                 // 线路点击：优先级高于公司点击
                 if (source === 'hover') {
-                    selectedLineId = lineId;
+                    selectedLineId = mainLineId;
+                    selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
                     setStationLabelMode('auto');
                 } else {
-                    selectedLineId = commitPreview ? lineId : (selectedLineId === lineId ? null : lineId);
+                    selectedLineId = commitPreview
+                        ? mainLineId
+                        : (selectedLineId === mainLineId ? null : mainLineId);
                 }
                 if (selectedLineId) selectedCompany = null;
                 selectedServiceMode = 'all';
+
+                // 菜单 Branch 合并：点击/提交时同时高亮其归并的支线
+                if (source !== 'hover') {
+                    selectedStationLineIds = selectedLineId && merged.length > 1 ? new Set(merged) : null;
+                }
 
                 // 需求：高亮线路时自动切换为站名全显（仅对 click/commit 生效，避免 hover 预览频繁切换）
                 if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
@@ -1316,7 +2309,7 @@ map.on('load', async () => {
     }
 
     try {
-        const stationsData = await loadGeoJSON('./stations.geojson');
+        const stationsData = generatedStationsData || (await loadRailGeoDataFromDataFolder()).stationsGeoJSON;
         addStationsLayer(map, stationsData);
 
         // 站点圆点点击：高亮该站点所有 serving_lines（不执行 fitBounds）
@@ -1334,10 +2327,20 @@ map.on('load', async () => {
             gridCellPx: 80,
             // 线路联动：只影响站名（圆点仍按碰撞显示）
             getEnabledLineIds: getEnabledLineIdsForLabels,
+            getVisibleStationIds: () => {
+                if (tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size) {
+                    return tripPreviewStationIds;
+                }
+                if (!selectedLineId && !selectedCompany && selectedStationId) {
+                    return new Set([String(selectedStationId)]);
+                }
+                return null;
+            },
             // 右上角三段开关：off/auto(碰撞)/all(无视碰撞)
             getLabelMode: () => stationLabelMode,
             // 高亮线路/公司时：圆点全部显示，避免缩小后站点消失
             getCircleMode: () => (
+                tripPreviewActive ||
                 selectedLineId ||
                 selectedCompany ||
                 (selectedStationLineIds && selectedStationLineIds.size)
@@ -1377,6 +2380,7 @@ map.on('load', async () => {
                     selectedCompany = null;
                     selectedLineId = null;
                     selectedStationLineIds = new Set((subset.length ? subset : stationLineIds).map(String).filter(Boolean));
+                    selectedStationId = null;
                     selectedServiceMode = 'all';
                     isolateStationsToSelectedLine = false;
                     setStationLabelMode('auto');
@@ -1397,6 +2401,7 @@ map.on('load', async () => {
                     selectedCompany = null;
                     selectedLineId = null;
                     selectedStationLineIds = new Set((subset.length ? subset : stationLineIds).map(String).filter(Boolean));
+                    selectedStationId = null;
                     selectedServiceMode = 'all';
                     isolateStationsToSelectedLine = false;
                     setStationLabelMode('auto');
@@ -1410,6 +2415,7 @@ map.on('load', async () => {
                 selectedCompany = name;
                 selectedLineId = null;
                 selectedStationLineIds = null;
+                selectedStationId = null;
                 selectedServiceMode = 'all';
                 isolateStationsToSelectedLine = false;
                 applySelectionEffects();
@@ -1419,11 +2425,21 @@ map.on('load', async () => {
                 const id = String(lineId ?? '').trim();
                 if (!id) return;
 
+                const resolved = (menu && typeof menu.resolveLineSelection === 'function')
+                    ? menu.resolveLineSelection(id)
+                    : null;
+                const mainLineId = String(resolved?.mainLineId ?? id);
+                const merged = Array.isArray(resolved?.mergedLineIds)
+                    ? resolved.mergedLineIds.map(String).filter(Boolean)
+                    : [mainLineId];
+
                 if (source === 'popup-hover') {
                     if (!popupPreviewSnapshot) popupPreviewSnapshot = snapshotSelectionState();
                     popupPreviewWasApplied = true;
-                    selectedLineId = id;
+                    selectedLineId = mainLineId;
                     selectedCompany = null;
+                    selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+                    selectedStationId = null;
                     selectedServiceMode = 'all';
                     isolateStationsToSelectedLine = false;
                     setStationLabelMode('auto');
@@ -1434,9 +2450,10 @@ map.on('load', async () => {
                 // popup click：提交高亮（同“点击线路”效果），但不执行 fitBounds
                 popupPreviewSnapshot = null;
                 popupPreviewWasApplied = false;
-                selectedLineId = id;
+                selectedLineId = mainLineId;
                 selectedCompany = null;
-                selectedStationLineIds = null;
+                selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+                selectedStationId = null;
                 selectedServiceMode = 'all';
                 setStationLabelMode('all');
                 isolateStationsToSelectedLine = meta?.isolateStations === true;
@@ -1459,6 +2476,7 @@ map.on('load', async () => {
                 if (Array.isArray(lineIds) && lineIds.length) {
                     selectedStationLineIds = new Set(lineIds.map(String).filter(Boolean));
                 }
+                selectedStationId = fixedPopupStationId ? String(fixedPopupStationId).trim() : selectedStationId;
 
                 applySelectionEffects();
             },
@@ -1487,8 +2505,8 @@ map.on('load', async () => {
             // ignore
         }
 
-        // 站名标签：鼠标点击/触屏点击也弹出 popup（等同 hover 站点圆点）
-        if (stationPopup && typeof stationPopup.showPopupAt === 'function') {
+        // 站名标签：鼠标点击/触屏点击打开右侧 panel（popup 不再固定）
+        {
             const isTouchLike = (pt) => pt === 'touch' || pt === 'pen';
             const readPointerType = (evt) => {
                 const pt = evt?.pointerType;
@@ -1503,10 +2521,16 @@ map.on('load', async () => {
             };
 
             const fireStationLabelTap = (item, pt) => {
-                setFixedPopupStationLabelBelow(item.props?.id ?? item.stationId);
                 selectServingLinesForStation(item.props || {});
-                stationPopup.setExternalStationHover?.(true);
-                stationPopup.showPopupAt(item.coordinates, item.props || {}, { pointerType: pt });
+                panel?.showForStationProps?.(item.props || {});
+
+                // 预加载该站点关联线路的时刻表
+                try {
+                    const ids = getServingLineIdsFromStationProps(item.props || {});
+                    timetableCache?.preloadRecursiveByLineIds?.(ids);
+                } catch {
+                    // ignore
+                }
             };
 
             stationLabels.forEach((item) => {

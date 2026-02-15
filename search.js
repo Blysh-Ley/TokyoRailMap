@@ -4,7 +4,7 @@
  * 设计目标：风格尽量与左侧菜单一致；顶部左侧圆角半透明；结果面板为圆角矩形列表。
  */
 
-import { loadGeoJSON } from './data.js';
+import { loadRailGeoDataFromDataFolder } from './data.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -64,15 +64,55 @@ const matchScore = (haystack, tokens) => {
     return 10 + prefix + compact;
 };
 
-const getCompanyLogoUrl = (companyName) => {
+const getCompanyLogoUrl = (companyId) => {
     const map = window.TokyoRailCompanyLogoMap || {};
     const base = window.TokyoRailCompanyLogoBasePath || './companyLogos/';
-    const meta = map?.[companyName];
+    const meta = map?.[companyId];
     const file = meta?.img?.[0];
     if (!file) return null;
     // base 可能是 './companyLogos/' 或 '/companyLogos/'
     return String(base).endsWith('/') ? `${base}${file}` : `${base}/${file}`;
 };
+
+// ===== railways.json 多语言 title（用于线路搜索） =====
+let railwayTitleById = null; // Map<string, any>
+let railwayTitleLoading = null;
+
+const getTitleText = (titleObj, key) => normalizeText(titleObj?.[key] || '');
+
+const getTitleZhHans = (titleObj) =>
+    normalizeText(titleObj?.['zh-Hans'] || titleObj?.['zh-hans'] || titleObj?.['zh_CN'] || titleObj?.['zh-CN'] || '');
+
+const getTitleZhHant = (titleObj) =>
+    normalizeText(titleObj?.['zh-Hant'] || titleObj?.['zh-hant'] || titleObj?.['zh_TW'] || titleObj?.['zh-TW'] || '');
+
+async function ensureRailwayTitlesLoaded() {
+    if (railwayTitleById) return railwayTitleById;
+    if (railwayTitleLoading) return railwayTitleLoading;
+    railwayTitleLoading = (async () => {
+        try {
+            const resp = await fetch('./data/railways.json');
+            if (!resp.ok) throw new Error(`load railways.json failed: ${resp.status}`);
+            const list = await resp.json();
+            const arr = Array.isArray(list) ? list : [];
+            const map = new Map();
+            for (const r of arr) {
+                const id = normalizeText(r?.id);
+                if (!id) continue;
+                map.set(id, r?.title || null);
+            }
+            railwayTitleById = map;
+            return railwayTitleById;
+        } catch (e) {
+            console.warn('search.js: 无法加载 railways.json（线路多语言搜索将退化）', e);
+            railwayTitleById = new Map();
+            return railwayTitleById;
+        } finally {
+            railwayTitleLoading = null;
+        }
+    })();
+    return railwayTitleLoading;
+}
 
 let stationIndex = []; // { type:'station', id, text, names[], isTransfer }
 let lineIndex = [];    // { type:'line', id, text, names[], company, color }
@@ -81,14 +121,58 @@ let lineMetaById = new Map(); // lineId -> { name, color }
 let dataReady = false;
 let dataLoading = false;
 
+let companyMetaMerged = false;
+
+function mergeCompanyMetaIfAvailable() {
+    if (companyMetaMerged) return;
+    const logoMap = window.TokyoRailCompanyLogoMap || null;
+    if (!logoMap || typeof logoMap !== 'object') return;
+    const keys = Object.keys(logoMap);
+    if (!keys.length) return;
+
+    // 更新 companyIndex：加入中文 zh，可用中文/英文都能搜索，展示优先 zh
+    companyIndex = (Array.isArray(companyIndex) ? companyIndex : [])
+        .map((c) => {
+            if (!c?.id) return c;
+            const companyId = normalizeText(c.id);
+            const meta = logoMap?.[companyId] || null;
+            const zh = normalizeText(meta?.zh || '');
+            const display = zh || companyId;
+            const names = [display, companyId, zh].map(normalizeText).filter(Boolean);
+            return {
+                ...c,
+                id: companyId,
+                text: display,
+                names
+            };
+        })
+        .filter(Boolean);
+
+    // 线路索引也补充 company 的中文（不改变展示名，只增强可搜性）
+    lineIndex = (Array.isArray(lineIndex) ? lineIndex : [])
+        .map((l) => {
+            const companyId = normalizeText(l?.company || '');
+            if (!companyId) return l;
+            const meta = logoMap?.[companyId] || null;
+            const zh = normalizeText(meta?.zh || '');
+            if (!zh) return l;
+            const names = Array.isArray(l?.names) ? l.names.slice() : [];
+            if (!names.includes(zh)) names.push(zh);
+            return { ...l, names };
+        })
+        .filter(Boolean);
+
+    companyMetaMerged = true;
+}
+
 async function ensureDataLoaded() {
     if (dataReady || dataLoading) return;
     dataLoading = true;
     try {
-        const [stationsData, linesData] = await Promise.all([
-            loadGeoJSON('./stations.geojson'),
-            loadGeoJSON('./lines.geojson')
-        ]);
+        const { stationsGeoJSON: stationsData, linesGeoJSON: linesData } = await loadRailGeoDataFromDataFolder();
+
+        // 线路多语言 title：用于搜索 + 展示（显示 zh-Hans）
+        const titles = await ensureRailwayTitlesLoaded();
 
         const stations = Array.isArray(stationsData?.features) ? stationsData.features : [];
         const lines = Array.isArray(linesData?.features) ? linesData.features : [];
@@ -135,34 +219,57 @@ async function ensureDataLoaded() {
             })
             .filter(Boolean);
 
-        lineIndex = lines
-            .map((f) => {
-                const p = f?.properties || {};
-                const id = p.id ?? f?.id;
-                const name = normalizeText(p.name || id);
-                const company = normalizeText(p.company || '');
-                const color = normalizeText(p.color || '');
-                if (!id || !name) return null;
-                // 去掉公司名括号：只保留空格分隔
-                const text = name;
-                return {
-                    type: 'line',
-                    id: String(id),
-                    text,
-                    names: [name, company, text].map(normalizeText).filter(Boolean),
+        const lineById = new Map();
+        for (const f of lines) {
+            const p = f?.properties || {};
+            const id = p.id ?? f?.id;
+            if (!id) continue;
+            const key = String(id);
+            if (lineById.has(key)) continue;
+
+            const titleObj = titles?.get?.(key) || null;
+            const titleJa = getTitleText(titleObj, 'ja');
+            const titleEn = getTitleText(titleObj, 'en');
+            const titleKo = getTitleText(titleObj, 'ko');
+            const titleZhHans = getTitleZhHans(titleObj);
+            const titleZhHant = getTitleZhHant(titleObj);
+
+            // 展示：按需求固定显示 zh-Hans（缺失则回退 name/id）
+            const nameRaw = normalizeText(p.name || '');
+            const displayName = titleZhHans || nameRaw || key;
+
+            const company = normalizeText(p.company || '');
+            const color = normalizeText(p.color || '');
+            if (!displayName) continue;
+
+            lineById.set(key, {
+                type: 'line',
+                id: key,
+                text: displayName,
+                // 可搜：title 的 ja/en/ko/zh-Hans/zh-Hant + properties.name + company + id
+                names: [
+                    titleJa,
+                    titleEn,
+                    titleKo,
+                    titleZhHans,
+                    titleZhHant,
+                    nameRaw,
                     company,
-                    color: color || null
-                };
-            })
-            .filter(Boolean);
+                    key
+                ]
+                    .map(normalizeText)
+                    .filter(Boolean),
+                company,
+                color: color || null
+            });
+        }
+        lineIndex = Array.from(lineById.values());
 
         lineMetaById = new Map();
         for (const l of lineIndex) {
             if (!l?.id) continue;
             const displayName = normalizeText(l.text);
-            // l.text 里可能含公司名；展示线路名时优先用原始 name
-            const baseName = normalizeText(l.names?.[0] || '') || displayName;
-            lineMetaById.set(String(l.id), { name: baseName, color: l.color || null });
+            lineMetaById.set(String(l.id), { name: displayName, color: l.color || null });
         }
 
         // 公司：从 companyLogoMap + lines 的 company 汇总
@@ -174,17 +281,28 @@ async function ensureDataLoaded() {
         });
 
         companyIndex = Array.from(companies)
-            .map((name) => {
-                const n = normalizeText(name);
-                if (!n) return null;
+            .map((companyIdRaw) => {
+                const companyId = normalizeText(companyIdRaw);
+                if (!companyId) return null;
+
+                const meta = (window.TokyoRailCompanyLogoMap || {})?.[companyId] || null;
+                const zh = normalizeText(meta?.zh || '');
+                const display = zh || companyId;
+
+                // names: 同时支持用中文/英文 id 搜索
+                const names = [display, companyId, zh].map(normalizeText).filter(Boolean);
+
                 return {
                     type: 'company',
-                    id: n,
-                    text: n,
-                    names: [n]
+                    id: companyId,
+                    text: display,
+                    names
                 };
             })
             .filter(Boolean);
+
+        // 若 app.js 还没把 companyLogoMap 写到 window，则这里先建基本索引；之后在搜索时会自动补齐中文。
+        mergeCompanyMetaIfAvailable();
 
         dataReady = true;
     } catch (e) {
@@ -200,18 +318,22 @@ function buildSearchResults(query, { limit = 12 } = {}) {
     if (!tokens.length) return [];
     if (!dataReady) return [];
 
+    // app.js 的 companyLogoMap 可能晚于索引初始化；每次搜索前尝试补齐一次
+    mergeCompanyMetaIfAvailable();
+
     const scored = [];
 
     for (const c of companyIndex) {
-        const score = matchScore(c.text, tokens);
-        if (score >= 0) {
+        let best = -1;
+        for (const n of c.names) best = Math.max(best, matchScore(n, tokens));
+        if (best >= 0) {
             scored.push({
-                score,
+                score: best,
                 item: {
                     type: 'company',
                     id: c.id,
                     text: c.text,
-                    logoUrl: getCompanyLogoUrl(c.text)
+                    logoUrl: getCompanyLogoUrl(c.id)
                 }
             });
         }
@@ -797,8 +919,24 @@ export function mountSearchUI() {
         ui.setResults(buildSearchResults(q));
     };
 
+    // 中文/日文等 IME 输入：composition 期间 input 事件行为不一致（不同浏览器/平台差异较大）。
+    // 这里做稳妥处理：composition 中不刷新，compositionend 时强制刷新。
+    let isComposing = false;
+    input.addEventListener('compositionstart', () => {
+        isComposing = true;
+    });
+    input.addEventListener('compositionend', () => {
+        isComposing = false;
+        refresh();
+    });
     input.addEventListener('input', () => {
+        if (isComposing) return;
         // 输入时实时刷新
+        refresh();
+    });
+
+    // 有些浏览器在回车/点清除按钮时触发 search 事件而不是 input
+    input.addEventListener('search', () => {
         refresh();
     });
 
