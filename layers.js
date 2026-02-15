@@ -94,6 +94,63 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     const onRestoreStationLines = typeof options.onRestoreStationLines === 'function' ? options.onRestoreStationLines : null;
     const onFixedPopupBlankClick = typeof options.onFixedPopupBlankClick === 'function' ? options.onFixedPopupBlankClick : null;
 
+    let stationsIndexPromise = null;
+    const getStationsIndex = async () => {
+        if (stationsIndexPromise) return stationsIndexPromise;
+        stationsIndexPromise = (async () => {
+            try {
+                const resp = await fetch('./data/stations.json');
+                if (!resp.ok) return { idToNameZh: new Map() };
+                const list = await resp.json();
+                const idToNameZh = new Map();
+                for (const s of Array.isArray(list) ? list : []) {
+                    const id = String(s?.id ?? '').trim();
+                    if (!id) continue;
+                    const t = s?.title || {};
+                    const name = String(t['zh-Hans'] || t.zh || t.ja || t.en || '').trim();
+                    if (name) idToNameZh.set(id, name);
+                }
+                return { idToNameZh };
+            } catch {
+                return { idToNameZh: new Map() };
+            }
+        })();
+        return stationsIndexPromise;
+    };
+
+    let stationGroupsIndexPromise = null;
+    const getStationGroupsIndex = async () => {
+        if (stationGroupsIndexPromise) return stationGroupsIndexPromise;
+        stationGroupsIndexPromise = (async () => {
+            try {
+                const resp = await fetch('./data/station-groups.json');
+                if (!resp.ok) return new Map();
+                const groups = await resp.json();
+                const map = new Map();
+                for (const g of Array.isArray(groups) ? groups : []) {
+                    if (!Array.isArray(g)) continue;
+                    const ids = [];
+                    const seen = new Set();
+                    for (const chunk of g) {
+                        if (!Array.isArray(chunk)) continue;
+                        for (const sid of chunk) {
+                            const id = String(sid ?? '').trim();
+                            if (!id || seen.has(id)) continue;
+                            seen.add(id);
+                            ids.push(id);
+                        }
+                    }
+                    if (!ids.length) continue;
+                    for (const id of ids) map.set(id, ids);
+                }
+                return map;
+            } catch {
+                return new Map();
+            }
+        })();
+        return stationGroupsIndexPromise;
+    };
+
     const popup = new maplibregl.Popup({
         closeButton: false,
         closeOnClick: false
@@ -478,7 +535,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
-    const buildPopupHtml = (props = {}, meta = {}) => {
+    const buildPopupHtml = async (props = {}, meta = {}) => {
         const name = props.name_zh || props.name || '';
         const interactive = meta?.interactive === true;
         const normalizeArrayLike = (value) => {
@@ -500,6 +557,32 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
         const servingIdsRaw = normalizeArrayLike(props.serving_ids);
         const servingIds = servingIdsRaw.map(String).filter(Boolean);
+
+        const stationId = String(props?.id ?? '').trim();
+        const currentStationNameZh = String(props?.name_zh || props?.['name:zh'] || name || '').trim();
+        const platformLineIdsRaw = normalizeArrayLike(props?.platform_line_id);
+        const currentPlatformLineId = String(platformLineIdsRaw?.[0] ?? '').trim();
+
+        const lineStationNameByLineId = new Map();
+        if (stationId) {
+            try {
+                const [groupsIndex, stationsIndex] = await Promise.all([getStationGroupsIndex(), getStationsIndex()]);
+                const groupIds = groupsIndex.get(stationId) || [stationId];
+                for (const lineIdRaw of servingIds) {
+                    const lineId = String(lineIdRaw ?? '').trim();
+                    if (!lineId) continue;
+                    const candidateId = groupIds.find((sid) => {
+                        const id = String(sid ?? '').trim();
+                        return id && (id === lineId || id.startsWith(`${lineId}.`));
+                    });
+                    if (!candidateId) continue;
+                    const n = String(stationsIndex?.idToNameZh?.get?.(candidateId) || '').trim();
+                    if (n) lineStationNameByLineId.set(lineId, n);
+                }
+            } catch {
+                // ignore
+            }
+        }
 
         currentStationServingIds = servingIds.slice();
 
@@ -582,7 +665,24 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                     ? ` style="color:${escapeHtml(line.color.trim())}"`
                     : '';
                 const idAttr = line.lineId ? ` data-line-id="${escapeHtml(String(line.lineId))}"` : '';
-                linesHtml += `<div class="station-hover-line"${idAttr}${style}>${escapeHtml(line.displayName)}</div>`;
+                const lineId = String(line.lineId ?? '').trim();
+                const isTransferStation = servingIds.length > 1;
+                const isCurrentLine = !!lineId && !!currentPlatformLineId && lineId === currentPlatformLineId;
+                const transferStationName = String(lineStationNameByLineId.get(lineId) || '').trim();
+                const showTransferNameSuffix = !!transferStationName && !!currentStationNameZh && transferStationName !== currentStationNameZh;
+
+                const suffixParts = [];
+                if (isTransferStation && isCurrentLine) {
+                    suffixParts.push('（当前）');
+                }
+                if (showTransferNameSuffix) {
+                    suffixParts.push(`（${transferStationName}站）`);
+                }
+                const suffixHtml = suffixParts.length
+                    ? `<span class="station-hover-line-suffix">${escapeHtml(suffixParts.join(''))}</span>`
+                    : '';
+
+                linesHtml += `<div class="station-hover-line"${idAttr}${style}>${escapeHtml(line.displayName)}${suffixHtml}</div>`;
             }
 
             companiesHtml += `
@@ -596,7 +696,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         return `<div class="${rootClass}">${nameHtml}${companiesHtml}</div>`;
     };
 
-    map.on('mouseenter', 'stations-layer', (e) => {
+    map.on('mouseenter', 'stations-layer', async (e) => {
         // 触屏会产生合成 mouseenter：这里直接忽略，改用 click 来显示 popup
         if (nowMs() < suppressMouseEventsUntilMs || isTouchLikePointer(lastPointerType)) return;
 
@@ -620,7 +720,8 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         lastFiredHoverKey = null;
         const coordinates = e.features[0].geometry.coordinates.slice();
         const props = e.features[0].properties || {};
-        popup.setLngLat(coordinates).setHTML(buildPopupHtml(props, { interactive: false })).addTo(map);
+        const html = await buildPopupHtml(props, { interactive: false });
+        popup.setLngLat(coordinates).setHTML(html).addTo(map);
         bindPopupHover();
     });
 
@@ -634,7 +735,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     // 点击站点/空白处不再打开/固定 popup：交互迁移到右侧 panel。
 
     // 外部触发（例如：站名 DOM 标签点击）
-    const showPopupAt = (coordinates, props = {}, meta = {}) => {
+    const showPopupAt = async (coordinates, props = {}, meta = {}) => {
         if (!coordinates) return;
 
         const pt = meta?.pointerType;
@@ -652,7 +753,8 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         hoverCandidateKey = null;
         lastFiredHoverKey = null;
 
-        popup.setLngLat(coordinates).setHTML(buildPopupHtml(props, { interactive: true })).addTo(map);
+        const html = await buildPopupHtml(props, { interactive: true });
+        popup.setLngLat(coordinates).setHTML(html).addTo(map);
         bindPopupHover();
     };
 
