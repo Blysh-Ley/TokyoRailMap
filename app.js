@@ -105,6 +105,15 @@ map.on('load', async () => {
     let tripPreviewActive = false;
     let tripPreviewOriginPopup = null;
     let tripPreviewTerminalPopup = null;
+    let dirPreviewActive = false;
+    let dirPreviewLineIds = null; // Set<string> | null
+    let dirPreviewStationIds = null; // Set<string> | null
+    let dirPreviewOriginPopups = [];
+    let dirPreviewTerminalPopups = [];
+    let previewDirHeader = (_payload) => {};
+    let clearDirHeaderPreview = () => {};
+    let stationCoordById = new Map();
+    let stationServingCountById = new Map();
 
     // 右侧界面：站点/站名/搜索提交站点时弹出（在 applySelectionEffects 定义后初始化）
     let panel = null;
@@ -346,6 +355,33 @@ map.on('load', async () => {
             return;
         }
 
+        if (dirPreviewActive && dirPreviewLineIds && dirPreviewLineIds.size) {
+            const ids = Array.from(dirPreviewLineIds).map(String).filter(Boolean);
+            const hitExpr = ids.length === 1
+                ? ['==', ['get', 'id'], ids[0]]
+                : ['in', ['get', 'id'], ['literal', ids]];
+
+            map.setPaintProperty('lines-layer', 'line-color', [
+                'case',
+                hitExpr,
+                baseColorExpr,
+                '#999'
+            ]);
+            map.setPaintProperty('lines-layer', 'line-width', [
+                'case',
+                hitExpr,
+                3,
+                1.2
+            ]);
+            map.setPaintProperty('lines-layer', 'line-opacity', [
+                'case',
+                hitExpr,
+                1,
+                0.6
+            ]);
+            return;
+        }
+
         // 线路优先：选中线路时，忽略公司选中
         // 但如果菜单把支线合并到主线（selectedStationLineIds 里包含多条），则按集合高亮。
         if (selectedLineId) {
@@ -507,6 +543,33 @@ map.on('load', async () => {
             return;
         }
 
+        if (dirPreviewActive && dirPreviewStationIds && dirPreviewStationIds.size) {
+            const ids = Array.from(dirPreviewStationIds).map(String).filter(Boolean);
+            const isPreviewStation = ids.length === 1
+                ? ['==', ['get', 'id'], ids[0]]
+                : ['in', ['get', 'id'], ['literal', ids]];
+
+            map.setPaintProperty('stations-layer', 'circle-radius', [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                6, ['case', isPreviewStation, 0.5, 0.5],
+                14, ['case', isPreviewStation, 4, 0.5],
+                22, ['case', isPreviewStation, 4, 0.5]
+            ]);
+            map.setPaintProperty('stations-layer', 'circle-stroke-width', [
+                'case',
+                isPreviewStation,
+                baseStationCircleStrokeWidthExpr(),
+                0
+            ]);
+            map.setPaintProperty('stations-layer', 'circle-opacity', 1);
+            map.setPaintProperty('stations-layer', 'circle-stroke-opacity', 1);
+            map.setPaintProperty('stations-layer', 'circle-color', '#fff');
+            map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
+            return;
+        }
+
 
         // 换乘站判断仍用 serving_ids（全服务线路集合）
         const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
@@ -615,6 +678,7 @@ map.on('load', async () => {
 
     function getEnabledLineIdsForLabels() {
         if (tripPreviewActive) return null;
+        if (dirPreviewActive) return null;
         // 需求：选择线路不变、其他线路变灰变细；且“其他线路站点不显示站点名”
         // 这里返回“当前选中线路集合”，只用于站名筛选（圆点不筛选）。
         if (selectedLineId) {
@@ -771,6 +835,9 @@ map.on('load', async () => {
             isolateStationsToSelectedLine = false;
             setStationLabelMode('auto');
             applySelectionEffects();
+
+            const fitMode = source === 'panel-hover' ? 'preview' : 'commit';
+            fitToCurrentSelection(`company:${name}`, fitMode);
         },
         onSelectLine: (lineId, meta) => {
             const source = meta?.source;
@@ -794,6 +861,7 @@ map.on('load', async () => {
                 isolateStationsToSelectedLine = false;
                 setStationLabelMode('auto');
                 applySelectionEffects();
+                fitToCurrentSelection(`line:${mainLineId}`, 'preview');
                 return;
             }
 
@@ -812,6 +880,7 @@ map.on('load', async () => {
             }
 
             applySelectionEffects();
+            fitToCurrentSelection(`line:${mainLineId}`, 'commit');
         },
         onRestoreStationLines: (lineIds, meta) => {
             selectedLineId = null;
@@ -832,6 +901,12 @@ map.on('load', async () => {
         },
         onTripClear: () => {
             clearTripPathPreview();
+        },
+        onDirPreviewEnter: (payload) => {
+            previewDirHeader(payload);
+        },
+        onDirPreviewLeave: () => {
+            clearDirHeaderPreview();
         }
     });
 
@@ -1375,8 +1450,8 @@ map.on('load', async () => {
         const lineChainsById = new Map();
 
         // 站点坐标索引：用于车次路径高亮（只高亮停靠站）
-        const stationCoordById = new Map();
-        const stationServingCountById = new Map();
+        stationCoordById = new Map();
+        stationServingCountById = new Map();
         try {
             const stationFeaturesForPreview = Array.isArray(generatedStationsData?.features)
                 ? generatedStationsData.features
@@ -1822,6 +1897,22 @@ map.on('load', async () => {
             }
         };
 
+        const bboxFromStationIds = (stationIds) => {
+            const list = Array.isArray(stationIds) ? stationIds : [];
+            let bbox = null;
+            for (const stationId of list) {
+                const sid = String(stationId || '').trim();
+                if (!sid) continue;
+                const coord = stationCoordById.get(sid);
+                if (!Array.isArray(coord) || coord.length < 2) continue;
+                const lng = Number(coord[0]);
+                const lat = Number(coord[1]);
+                if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+                bbox = extendBBox(bbox, lng, lat);
+            }
+            return bbox;
+        };
+
         const buildTripPreviewFeatures = (payload) => {
             const outLineFeatures = [];
             const outStopFeatures = [];
@@ -2036,6 +2127,113 @@ map.on('load', async () => {
             });
         };
 
+        const clearDirEndpointPopups = () => {
+            for (const popup of dirPreviewOriginPopups) {
+                try { popup?.remove?.(); } catch { /* ignore */ }
+            }
+            for (const popup of dirPreviewTerminalPopups) {
+                try { popup?.remove?.(); } catch { /* ignore */ }
+            }
+            dirPreviewOriginPopups = [];
+            dirPreviewTerminalPopups = [];
+        };
+
+        const createDirEndpointPopup = ({ stationId, text, color, yOffset = 10 }) => {
+            const sid = String(stationId || '').trim();
+            if (!sid) return null;
+            const coord = stationCoordById.get(sid);
+            if (!Array.isArray(coord) || coord.length < 2) return null;
+
+            const el = document.createElement('div');
+            el.style.fontSize = '12px';
+            el.style.fontWeight = '700';
+            el.style.lineHeight = '1.2';
+            el.style.color = String(color || '#111');
+            el.textContent = String(text || '');
+
+            return new maplibregl.Popup({
+                closeButton: false,
+                closeOnClick: false,
+                closeOnMove: false,
+                anchor: 'top',
+                offset: [0, yOffset],
+                className: 'trip-endpoint-popup'
+            })
+                .setLngLat(coord)
+                .setDOMContent(el)
+                .addTo(map);
+        };
+
+        clearDirHeaderPreview = () => {
+            if (!dirPreviewActive) return;
+            dirPreviewActive = false;
+            dirPreviewLineIds = null;
+            dirPreviewStationIds = null;
+            clearDirEndpointPopups();
+            applySelectionEffects();
+            collisionController?.scheduleUpdate?.();
+        };
+
+        previewDirHeader = (payload) => {
+            const lineId = String(payload?.lineId || '').trim();
+            if (!lineId) {
+                clearDirHeaderPreview();
+                return;
+            }
+
+            const originIds = Array.isArray(payload?.originStationIds)
+                ? payload.originStationIds.map((x) => String(x).trim()).filter(Boolean)
+                : [];
+            const terminalIds = Array.isArray(payload?.terminalStationIds)
+                ? payload.terminalStationIds.map((x) => String(x).trim()).filter(Boolean)
+                : [];
+
+            const stationIds = new Set([...originIds, ...terminalIds]);
+            dirPreviewActive = true;
+            dirPreviewLineIds = new Set([lineId]);
+            dirPreviewStationIds = stationIds;
+
+            clearDirEndpointPopups();
+            const roleMap = new Map();
+            for (const sid of originIds) {
+                if (!roleMap.has(sid)) roleMap.set(sid, new Set());
+                roleMap.get(sid).add('origin');
+            }
+            for (const sid of terminalIds) {
+                if (!roleMap.has(sid)) roleMap.set(sid, new Set());
+                roleMap.get(sid).add('terminal');
+            }
+
+            for (const [sid, roles] of roleMap.entries()) {
+                const hasOrigin = roles.has('origin');
+                const hasTerminal = roles.has('terminal');
+                if (hasOrigin) {
+                    const popup = createDirEndpointPopup({
+                        stationId: sid,
+                        text: '始发站',
+                        color: '#1A9B2D',
+                        yOffset: 10
+                    });
+                    if (popup) dirPreviewOriginPopups.push(popup);
+                }
+                if (hasTerminal) {
+                    const popup = createDirEndpointPopup({
+                        stationId: sid,
+                        text: '终点站',
+                        color: '#D32F2F',
+                        yOffset: hasOrigin ? 30 : 10
+                    });
+                    if (popup) dirPreviewTerminalPopups.push(popup);
+                }
+            }
+
+            applySelectionEffects();
+            collisionController?.scheduleUpdate?.();
+
+            const fitBbox = bboxFromStationIds(Array.from(stationIds));
+            previewFitWithSidePanels(fitBbox);
+        };
+
         clearTripPathPreview = () => {
             tripPreviewActive = false;
             tripPreviewStationIds = null;
@@ -2095,17 +2293,40 @@ map.on('load', async () => {
             // 提交选择：强制按全屏 fit（不扣除菜单宽度）
             if (paddingMode === 'full') return fallback;
 
-            if (!menu?.wrapper) return fallback;
+            let leftPad = base;
+            if (menu?.wrapper) {
+                // 需求：预览（hover）时也应扣除左侧菜单占用宽度。
+                // 注意：菜单可能处于“收起但仍在左侧”的状态，此时 rect.right 可能接近 0；
+                // 为保持一致，使用 max(rect.right, rect.width) 来估算需要预留的宽度。
+                const rect = menu.wrapper.getBoundingClientRect?.();
+                if (rect && Number.isFinite(rect.width)) {
+                    const reserve = Math.max(0, Number.isFinite(rect.right) ? rect.right : 0, rect.width);
+                    leftPad = Math.max(base, Math.ceil(reserve + base + extraLeft));
+                }
+            }
 
-            // 需求：预览（hover）时也应扣除左侧菜单占用宽度。
-            // 注意：菜单可能处于“收起但仍在左侧”的状态，此时 rect.right 可能接近 0；
-            // 为保持一致，使用 max(rect.right, rect.width) 来估算需要预留的宽度。
-            const rect = menu.wrapper.getBoundingClientRect?.();
-            if (!rect || !Number.isFinite(rect.width)) return fallback;
+            let rightPad = base;
+            try {
+                const panelRect = panel?.el?.getBoundingClientRect?.();
+                if (panelRect && Number.isFinite(panelRect.width) && panelRect.width > 0) {
+                    rightPad = Math.max(rightPad, Math.ceil(panelRect.width + base));
+                }
+            } catch {
+                // ignore
+            }
 
-            const reserve = Math.max(0, Number.isFinite(rect.right) ? rect.right : 0, rect.width);
-            const leftPad = Math.max(base, Math.ceil(reserve + base + extraLeft));
-            return { top: base, right: base, bottom: base, left: leftPad };
+            try {
+                const tripEl = document.querySelector('[data-panel-trip-detail]');
+                const hidden = tripEl?.classList?.contains('is-hidden');
+                const rect = tripEl?.getBoundingClientRect?.();
+                if (!hidden && rect && Number.isFinite(rect.width) && rect.width > 0) {
+                    rightPad = Math.max(rightPad, Math.ceil(rightPad + rect.width));
+                }
+            } catch {
+                // ignore
+            }
+
+            return { top: base, right: rightPad, bottom: base, left: leftPad };
         };
 
         function isFiniteNum(n) {
@@ -2470,16 +2691,23 @@ map.on('load', async () => {
                 if (tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size) {
                     return tripPreviewStationIds;
                 }
+                if (dirPreviewActive && dirPreviewStationIds && dirPreviewStationIds.size) {
+                    return dirPreviewStationIds;
+                }
                 if (!selectedLineId && !selectedCompany && selectedStationId) {
                     return new Set(getSelectedStationHighlightIds());
                 }
                 return null;
             },
             // 右上角三段开关：off/auto(碰撞)/all(无视碰撞)
-            getLabelMode: () => stationLabelMode,
+            getLabelMode: () => {
+                if (tripPreviewActive || dirPreviewActive) return 'all';
+                return stationLabelMode;
+            },
             // 高亮线路/公司时：圆点全部显示，避免缩小后站点消失
             getCircleMode: () => (
                 tripPreviewActive ||
+                dirPreviewActive ||
                 selectedLineId ||
                 selectedCompany ||
                 (selectedStationLineIds && selectedStationLineIds.size)

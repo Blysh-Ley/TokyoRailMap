@@ -316,6 +316,8 @@ export function createPanel(options = {}) {
     const onRestoreStationLines = typeof options.onRestoreStationLines === 'function' ? options.onRestoreStationLines : null;
     const onTripPreview = typeof options.onTripPreview === 'function' ? options.onTripPreview : null;
     const onTripClear = typeof options.onTripClear === 'function' ? options.onTripClear : null;
+    const onDirPreviewEnter = typeof options.onDirPreviewEnter === 'function' ? options.onDirPreviewEnter : null;
+    const onDirPreviewLeave = typeof options.onDirPreviewLeave === 'function' ? options.onDirPreviewLeave : null;
     const settingsContentEl = options.settingsContentEl && options.settingsContentEl.appendChild ? options.settingsContentEl : null;
 
     const buildTransferLineStationNameMap = async ({ stationId, stationNameZh, servingLineIds }) => {
@@ -895,6 +897,8 @@ export function createPanel(options = {}) {
     let expandedDirKeys = new Set();
     const dirFilterStateByKey = new Map(); // lineId||dir -> { origins:Set, terminals:Set, types:Set }
     const dirFilterRowsByKey = new Map(); // lineId||dir -> Array<{origin,terminal,type}>
+    const dirPreviewMetaByKey = new Map(); // lineId||dir -> { lineId, originStationIds:string[], terminalStationIds:string[] }
+    let activeDirPreviewKey = '';
     const makeLineDirKey = (lineId, dirKey) => `${toText(lineId)}||${toText(dirKey) || 'Unknown'}`;
     const dirKeyOf = (lineId, dir) => `${toText(lineId)}||${toText(dir) || 'Unknown'}`;
     const isDirExpanded = (lineId, dir) => expandedDirKeys.has(dirKeyOf(lineId, dir));
@@ -903,6 +907,34 @@ export function createPanel(options = {}) {
         if (!k) return;
         if (expanded) expandedDirKeys.add(k);
         else expandedDirKeys.delete(k);
+    };
+
+    const applyDirPreviewByKey = (lineDirKey, { force = false } = {}) => {
+        const key = toText(lineDirKey);
+        if (!key) return;
+        if (!force && activeDirPreviewKey === key) return;
+        const meta = dirPreviewMetaByKey.get(key);
+        if (!meta) return;
+        activeDirPreviewKey = key;
+        try {
+            onDirPreviewEnter?.({
+                lineId: toText(meta.lineId),
+                originStationIds: Array.isArray(meta.originStationIds) ? meta.originStationIds.slice() : [],
+                terminalStationIds: Array.isArray(meta.terminalStationIds) ? meta.terminalStationIds.slice() : []
+            });
+        } catch {
+            // ignore
+        }
+    };
+
+    const clearDirPreview = () => {
+        if (!activeDirPreviewKey) return;
+        activeDirPreviewKey = '';
+        try {
+            onDirPreviewLeave?.();
+        } catch {
+            // ignore
+        }
     };
 
     const applyDayToggleUi = () => {
@@ -1212,6 +1244,7 @@ export function createPanel(options = {}) {
 
             rows.push({
                 destName,
+                destId,
                 arr: arr || null,
                 dep: dep || null,
                 arrPlus: !!arrParsed?.isNextDaySegment,
@@ -1219,7 +1252,9 @@ export function createPanel(options = {}) {
                 timeMs,
                 isPast: timeMs < now,
                 typeName,
+                originId,
                 originName,
+                terminalId: destId,
                 terminalName,
                 dir,
                 destNamesForDir,
@@ -1361,6 +1396,13 @@ export function createPanel(options = {}) {
                 const terminalOk = !state.terminals.size || state.terminals.has(toText(r.terminalName || r.destName));
                 const typeOk = !state.types.size || state.types.has(toText(r.typeName));
                 return originOk && terminalOk && typeOk;
+            });
+
+            const uniqueIds = (arr) => Array.from(new Set((Array.isArray(arr) ? arr : []).map((x) => toText(x)).filter(Boolean)));
+            dirPreviewMetaByKey.set(lineDirKey, {
+                lineId: toText(lineId),
+                originStationIds: uniqueIds(filteredRowsForDir.map((r) => r.originId)),
+                terminalStationIds: uniqueIds(filteredRowsForDir.map((r) => r.terminalId || r.destId))
             });
 
             const labelRows = filteredRowsForDir.length ? filteredRowsForDir : rowsForDir;
@@ -2291,6 +2333,7 @@ export function createPanel(options = {}) {
     const closeDirFilterPopover = () => {
         activeDirFilterKey = '';
         dirFilterPopover.classList.add('is-hidden');
+        clearDirPreview();
     };
 
     const positionDirFilterPopover = (anchorEl) => {
@@ -2402,6 +2445,7 @@ export function createPanel(options = {}) {
         activeDirFilterKey = lineDirKey;
         dirFilterPopover.classList.remove('is-hidden');
         positionDirFilterPopover(anchorEl);
+        applyDirPreviewByKey(lineDirKey, { force: true });
     };
 
     const toggleDirFilterPopoverFromButton = (btnEl) => {
@@ -2443,6 +2487,18 @@ export function createPanel(options = {}) {
         if (anchorEl) openDirFilterPopover({ lineId, dirKey, anchorEl });
         else closeDirFilterPopover();
     });
+
+    dirFilterPopover.addEventListener('mouseenter', () => {
+        if (!activeDirFilterKey) return;
+        applyDirPreviewByKey(activeDirFilterKey, { force: true });
+    });
+
+    dirFilterPopover.addEventListener('pointerdown', (evt) => {
+        const t = evt?.target;
+        if (!(t instanceof Element)) return;
+        if (!activeDirFilterKey) return;
+        applyDirPreviewByKey(activeDirFilterKey, { force: true });
+    }, { passive: true });
 
     dirFilterPopover.addEventListener('click', async (evt) => {
         const clearBtn = evt?.target?.closest?.('[data-dir-filter-clear]');
@@ -2664,6 +2720,7 @@ export function createPanel(options = {}) {
 
         if (t.kind === 'dir-toggle') {
             const [lineId, dirKey] = String(t.value).split('||');
+            applyDirPreviewByKey(makeLineDirKey(lineId, dirKey));
             tapArmedKey = null;
             mouseArmedKey = null;
             setDirExpanded(lineId, dirKey, !isDirExpanded(lineId, dirKey));
@@ -2705,7 +2762,15 @@ export function createPanel(options = {}) {
             clearHoverTimer();
             hoverCandidateKey = null;
             lastFiredHoverKey = null;
+            if (!(evt?.relatedTarget && dirFilterPopover.contains(evt.relatedTarget))) {
+                clearDirPreview();
+            }
             return;
+        }
+
+        if (t.kind === 'dir-toggle') {
+            const [lineId, dirKey] = String(t.value).split('||');
+            applyDirPreviewByKey(makeLineDirKey(lineId, dirKey));
         }
 
         clearRestoreTimer();
@@ -2841,6 +2906,9 @@ export function createPanel(options = {}) {
         if (tripLocked) return;
         const toEl = evt?.relatedTarget;
         if (toEl && tripDetailRoot.contains(toEl)) return;
+        if (!(toEl && dirFilterPopover.contains(toEl))) {
+            clearDirPreview();
+        }
         if (!tripDetailPinned) scheduleTripDetailHide();
     };
 
@@ -2960,6 +3028,7 @@ export function createPanel(options = {}) {
     const hide = () => {
         closeTimePicker();
         closeDirFilterPopover();
+        clearDirPreview();
         hideTripDetail();
         root.style.transform = 'translateX(calc(100% + 24px))';
     };
@@ -3020,6 +3089,7 @@ export function createPanel(options = {}) {
         clearTripHighlightTimer();
         hideTripDetail();
         closeDirFilterPopover();
+        clearDirPreview();
         lastTripDetailKey = null;
 
         const lineStationNameByLineId = await buildTransferLineStationNameMap({
