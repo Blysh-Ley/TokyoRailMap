@@ -400,7 +400,7 @@ export function createPanel(options = {}) {
     btnAutoNow.className = 'map-time-control-reset';
     btnAutoNow.title = '恢复自动时间';
     btnAutoNow.setAttribute('aria-label', '恢复自动时间');
-    btnAutoNow.textContent = '🔄';
+    btnAutoNow.textContent = '⟳ ';
 
     timeControl.appendChild(timeLabel);
     timeControl.appendChild(timeInput);

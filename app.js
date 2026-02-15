@@ -57,6 +57,26 @@ map.addControl(
 map.on('load', async () => {
     console.log('底图加载完毕，准备加载 GeoJSON...');
 
+    const applyCustomAttribution = () => {
+        try {
+            const inner = document.querySelector('.maplibregl-ctrl-attrib-inner');
+            if (!inner) return;
+
+            inner.innerHTML = [
+                '&copy; <a href="https://carto.com/">Carto</a>',
+                '<a href="https://maplibre.org/" target="_blank" rel="noopener noreferrer">© MapLibre</a>',
+                '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a>',
+                '<a href="https://github.com/nagix/mini-tokyo-3d" target="_blank" rel="noopener noreferrer">Data: mini-tokyo-3d</a>',
+                'Special thanks to <a href="https://github.com/nagix" target="_blank" rel="noopener noreferrer">@nagix</a>'
+            ].join(' | ');
+        } catch {
+            // ignore
+        }
+    };
+
+    applyCustomAttribution();
+    map.on('styledata', applyCustomAttribution);
+
     // 触屏防误触：仅短按且几乎不移动才视为 tap
     const touchTapGuard = getGlobalTouchTapGuard({ maxDurationMs: 500, maxMovePx: 12 });
 
