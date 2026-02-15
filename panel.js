@@ -209,7 +209,7 @@ const normalizeArrayLike = (value) => {
     return s ? [s] : [];
 };
 
-function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap } = {}) {
+function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStationNameByLineId } = {}) {
     const servingIdsRaw = normalizeArrayLike(props.serving_ids);
     const servingIds = servingIdsRaw.map(String).filter(Boolean);
     const servingLinesRaw = normalizeArrayLike(props.serving_lines);
@@ -274,12 +274,18 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap } = {}) {
         for (const line of lines) {
             const style = typeof line.color === 'string' && line.color.trim() ? ` style="color:${escapeHtml(line.color.trim())}"` : '';
             const idAttr = line.lineId ? ` data-line-id="${escapeHtml(String(line.lineId))}"` : '';
+            const transferStationName = line.lineId
+                ? toText(lineStationNameByLineId?.get?.(line.lineId) || lineStationNameByLineId?.[line.lineId])
+                : '';
+            const suffixHtml = transferStationName
+                ? `<span class="panel-line-name-suffix">（${escapeHtml(transferStationName)}站）</span>`
+                : '';
 
             // 线路条目：标题行 + 班次容器（内部按方向 d 分组；方向可展开/收回）
             linesHtml += `
                 <div class="panel-line"${idAttr}${style}>
                     <div class="panel-line-header">
-                        <span class="panel-line-name">${escapeHtml(line.displayName)}</span>
+                        <span class="panel-line-name">${escapeHtml(line.displayName)}${suffixHtml}</span>
                     </div>
                     <div class="panel-timetable-root" data-timetable-root="1"></div>
                 </div>
@@ -310,6 +316,35 @@ export function createPanel(options = {}) {
     const onRestoreStationLines = typeof options.onRestoreStationLines === 'function' ? options.onRestoreStationLines : null;
     const onTripPreview = typeof options.onTripPreview === 'function' ? options.onTripPreview : null;
     const onTripClear = typeof options.onTripClear === 'function' ? options.onTripClear : null;
+
+    const buildTransferLineStationNameMap = async ({ stationId, stationNameZh, servingLineIds }) => {
+        const sid = toText(stationId);
+        const clickedName = toText(stationNameZh);
+        const lineIds = Array.isArray(servingLineIds) ? servingLineIds.map((x) => toText(x)).filter(Boolean) : [];
+        const out = new Map();
+        if (!sid || !lineIds.length) return out;
+
+        try {
+            const [groupsIndex, stationsIndex] = await Promise.all([getStationGroupsIndex(), getStationsIndex()]);
+            const groupIdsRaw = groupsIndex?.get?.(sid);
+            const groupIds = Array.isArray(groupIdsRaw) && groupIdsRaw.length
+                ? groupIdsRaw.map((x) => toText(x)).filter(Boolean)
+                : [sid];
+
+            for (const lineId of lineIds) {
+                const candidateId = groupIds.find((gid) => gid === lineId || gid.startsWith(`${lineId}.`));
+                if (!candidateId) continue;
+                const transferName = toText(stationsIndex?.idToNameZh?.get?.(candidateId) || '');
+                if (!transferName) continue;
+                if (clickedName && transferName === clickedName) continue;
+                out.set(lineId, transferName);
+            }
+        } catch {
+            return out;
+        }
+
+        return out;
+    };
 
     const root = document.createElement('div');
     root.setAttribute('data-panel-root', '');
@@ -507,6 +542,7 @@ export function createPanel(options = {}) {
     let currentStationServingIds = [];
     let currentStationId = null;
     let currentStationNameZh = '';
+    let stationRenderToken = 0;
 
     // 时刻表日类型过滤
     let currentServiceDay = 'Weekday'; // 'Weekday' | 'SaturdayHoliday'
@@ -2356,7 +2392,8 @@ export function createPanel(options = {}) {
         }
     };
 
-    const showForStationProps = (props) => {
+    const showForStationProps = async (props) => {
+        const renderToken = ++stationRenderToken;
         const name = readStationName(props);
         setTitle(name);
 
@@ -2376,8 +2413,15 @@ export function createPanel(options = {}) {
         hideTripDetail();
         lastTripDetailKey = null;
 
+        const lineStationNameByLineId = await buildTransferLineStationNameMap({
+            stationId: currentStationId,
+            stationNameZh: currentStationNameZh,
+            servingLineIds: currentStationServingIds
+        });
+        if (renderToken !== stationRenderToken) return;
+
         // 渲染 popup 同结构的内容（公司分组 + 线路）
-        body.innerHTML = buildCompaniesHtml(props || {}, { getLineMeta, companyLogoMap });
+        body.innerHTML = buildCompaniesHtml(props || {}, { getLineMeta, companyLogoMap, lineStationNameByLineId });
 
         // 默认折叠态：填充每条线路的“未来最近 3 条”班次
         renderAllTimetables();
