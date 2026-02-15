@@ -351,7 +351,7 @@ export function createPanel(options = {}) {
     root.setAttribute('data-panel-root', '');
     root.style.position = 'fixed';
     root.style.right = `${rightPx}px`;
-    root.style.zIndex = String(zIndex);
+    root.style.zIndex = 9000;
     root.style.width = `${widthPx}px`;
     root.style.maxWidth = 'calc(100vw - 20px)';
 
@@ -893,6 +893,9 @@ export function createPanel(options = {}) {
 
     // expanded state per (lineId, direction)
     let expandedDirKeys = new Set();
+    const dirFilterStateByKey = new Map(); // lineId||dir -> { origins:Set, terminals:Set, types:Set }
+    const dirFilterRowsByKey = new Map(); // lineId||dir -> Array<{origin,terminal,type}>
+    const makeLineDirKey = (lineId, dirKey) => `${toText(lineId)}||${toText(dirKey) || 'Unknown'}`;
     const dirKeyOf = (lineId, dir) => `${toText(lineId)}||${toText(dir) || 'Unknown'}`;
     const isDirExpanded = (lineId, dir) => expandedDirKeys.has(dirKeyOf(lineId, dir));
     const setDirExpanded = (lineId, dir, expanded) => {
@@ -1184,6 +1187,9 @@ export function createPanel(options = {}) {
             const destId = toText(ds?.[0]);
             const loopDest = (dir === 'InnerLoop' ? '内环' : (dir === 'OuterLoop' ? '外环' : ''));
             const destName = loopDest || (destId ? (stationsIndex?.idToNameZh?.get?.(destId) || destId) : '');
+            const originId = toText(os?.[0]);
+            const originName = originId ? (stationsIndex?.idToNameZh?.get?.(originId) || originId) : '';
+            const terminalName = loopDest || (destId ? (stationsIndex?.idToNameZh?.get?.(destId) || destId) : '');
 
             const destNamesForDir = (() => {
                 if (loopDest) return [loopDest];
@@ -1213,6 +1219,8 @@ export function createPanel(options = {}) {
                 timeMs,
                 isPast: timeMs < now,
                 typeName,
+                originName,
+                terminalName,
                 dir,
                 destNamesForDir,
                 showOriginLabel,
@@ -1329,13 +1337,53 @@ export function createPanel(options = {}) {
                     return String(a[0]).localeCompare(String(b[0]));
                 })
                 .map(([name]) => name);
-            const label = filteredNames.length ? filteredNames.join('，') : dirKey;
+            const lineDirKey = makeLineDirKey(lineId, dirKey);
             const expanded = isDirExpanded(lineId, dirKey);
             const tri = expanded ? '▾' : '▸';
 
             const rowsForDir = rows.filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
-            const future = rowsForDir.filter((r) => !r.isPast);
-            const visible = expanded ? rowsForDir : future.slice(0, 3);
+            const filterRowsForDir = rowsForDir
+                .map((r) => ({
+                    origin: toText(r.originName),
+                    terminal: toText(r.terminalName || r.destName),
+                    type: toText(r.typeName)
+                }))
+                .filter((r) => r.origin || r.terminal || r.type);
+            dirFilterRowsByKey.set(lineDirKey, filterRowsForDir);
+
+            const state = dirFilterStateByKey.get(lineDirKey) || { origins: new Set(), terminals: new Set(), types: new Set() };
+            if (!dirFilterStateByKey.has(lineDirKey)) {
+                dirFilterStateByKey.set(lineDirKey, state);
+            }
+
+            const filteredRowsForDir = rowsForDir.filter((r) => {
+                const originOk = !state.origins.size || state.origins.has(toText(r.originName));
+                const terminalOk = !state.terminals.size || state.terminals.has(toText(r.terminalName || r.destName));
+                const typeOk = !state.types.size || state.types.has(toText(r.typeName));
+                return originOk && terminalOk && typeOk;
+            });
+
+            const labelRows = filteredRowsForDir.length ? filteredRowsForDir : rowsForDir;
+            const labelCount = new Map();
+            for (const item of labelRows) {
+                const names = Array.isArray(item.destNamesForDir) ? item.destNamesForDir : [];
+                for (const n of names) {
+                    const s = toText(n);
+                    if (!s) continue;
+                    labelCount.set(s, (labelCount.get(s) || 0) + 1);
+                }
+            }
+            const labelEntries = Array.from(labelCount.entries())
+                .sort((a, b) => {
+                    const dc = Number(b[1]) - Number(a[1]);
+                    if (dc) return dc;
+                    return String(a[0]).localeCompare(String(b[0]));
+                })
+                .map(([name]) => name);
+            const label = labelEntries.length ? labelEntries.join('，') : (filteredNames.length ? filteredNames.join('，') : dirKey);
+
+            const future = filteredRowsForDir.filter((r) => !r.isPast);
+            const visible = expanded ? filteredRowsForDir : future.slice(0, 3);
 
             html += `
                 <div class="panel-dir">
@@ -1347,10 +1395,16 @@ export function createPanel(options = {}) {
                             </span>
                             <span class="panel-dir-suffix" aria-hidden="true">方向</span>
                         </span>
-                        <span class="panel-dir-triangle" aria-hidden="true">${tri}</span>
+                        <span class="panel-dir-actions">
+                            <span class="panel-dir-triangle" aria-hidden="true">${tri}</span>
+                            <button type="button" class="panel-dir-filter-btn" data-dir-filter-btn="1" data-line-id="${escapeHtml(lineId)}" data-dir-key="${escapeHtml(dirKey)}" aria-label="筛选">
+                                <img class="panel-dir-filter-icon" alt="" src="./icons/filter.svg" />
+                            </button>
+                        </span>
                     </div>
                     <div class="panel-timetable ${expanded ? 'is-expanded' : 'is-collapsed'}" data-dir-body="1" data-dir-key="${escapeHtml(dirKey)}">
-                        ${visible
+                        ${visible.length
+                            ? visible
                             .map((r) => {
                                 const klass = r.isPast ? 'panel-timetable-row is-past' : 'panel-timetable-row';
                                 const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.tripKey)}"` : '';
@@ -1367,7 +1421,8 @@ export function createPanel(options = {}) {
                                     </div>
                                 `;
                             })
-                            .join('')}
+                            .join('')
+                            : '<div class="panel-timetable-empty">当前无班次</div>'}
                     </div>
                 </div>
             `;
@@ -1396,6 +1451,21 @@ export function createPanel(options = {}) {
 
         if (token !== timetableRenderToken) return;
         ttEl.innerHTML = html;
+
+        try {
+            const icons = Array.from(ttEl.querySelectorAll('.panel-dir-filter-icon'));
+            for (const icon of icons) {
+                if (icon.__panelFilterIconHooked) continue;
+                icon.__panelFilterIconHooked = true;
+                icon.addEventListener('error', () => {
+                    if (icon.__panelFilterIconFallbackTried) return;
+                    icon.__panelFilterIconFallbackTried = true;
+                    icon.src = '/icons/filter.svg';
+                });
+            }
+        } catch {
+            // ignore
+        }
 
         // 方向展开态：默认把各方向可视区域滚到“最后一条已过班次”处（1 past + 9 future 的视觉效果）
         try {
@@ -2184,6 +2254,7 @@ export function createPanel(options = {}) {
     };
 
     const renderAllTimetables = async () => {
+        closeDirFilterPopover();
         const token = ++timetableRenderToken;
         const stationId = currentStationId;
         const lineEls = Array.from(body.querySelectorAll('[data-line-id]'));
@@ -2191,6 +2262,233 @@ export function createPanel(options = {}) {
             await renderTimetableForLineEl(el, stationId, token);
         }
     };
+
+    const dirFilterPopover = document.createElement('div');
+    dirFilterPopover.className = 'panel-dir-filter-popover is-hidden';
+    dirFilterPopover.innerHTML = `
+        <div class="panel-dir-filter-popover-head">
+            <span class="panel-dir-filter-popover-title">筛选</span>
+            <span class="panel-dir-filter-popover-head-actions">
+                <button type="button" class="panel-dir-filter-popover-clear" data-dir-filter-clear="1" aria-label="清除筛选">清除筛选</button>
+                <button type="button" class="panel-dir-filter-popover-close" data-dir-filter-close="1" aria-label="关闭">x</button>
+            </span>
+        </div>
+        <div class="panel-dir-filter-popover-body" data-dir-filter-popover-body="1"></div>
+    `;
+    dirFilterPopover.addEventListener('pointerdown', (e) => stopPropagationOnly(e), { passive: true });
+    dirFilterPopover.addEventListener('click', (e) => stopPropagationOnly(e), { passive: true });
+    document.body.appendChild(dirFilterPopover);
+
+    let activeDirFilterKey = '';
+
+    const rerenderLineById = async (lineId) => {
+        const lineEl = body.querySelector(`[data-line-id="${escapeHtml(String(lineId))}"]`);
+        if (!lineEl) return;
+        const token = ++timetableRenderToken;
+        await renderTimetableForLineEl(lineEl, currentStationId, token);
+    };
+
+    const closeDirFilterPopover = () => {
+        activeDirFilterKey = '';
+        dirFilterPopover.classList.add('is-hidden');
+    };
+
+    const positionDirFilterPopover = (anchorEl) => {
+        if (!anchorEl || !(anchorEl instanceof Element)) return;
+        const rect = anchorEl.getBoundingClientRect();
+        const popRect = dirFilterPopover.getBoundingClientRect();
+        const popW = Math.max(360, Math.ceil(popRect.width || 360));
+        const popH = Math.max(180, Math.ceil(popRect.height || 260));
+        const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
+        const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
+        const gap = 8;
+
+        let left = rect.right - popW;
+        left = Math.max(8, Math.min(left, Math.max(8, viewportW - popW - 8)));
+
+        const canShowAbove = rect.top - gap - popH >= 8;
+        const top = canShowAbove
+            ? rect.top - gap - popH
+            : Math.min(viewportH - popH - 8, rect.bottom + gap);
+
+        dirFilterPopover.style.left = `${Math.round(left)}px`;
+        dirFilterPopover.style.top = `${Math.round(Math.max(8, top))}px`;
+    };
+
+    const FILTER_FIELD_TO_ROW_KEY = {
+        origins: 'origin',
+        terminals: 'terminal',
+        types: 'type'
+    };
+
+    const getFilterRowsForState = ({ rows, state, ignoreField = '' }) => {
+        const list = Array.isArray(rows) ? rows : [];
+        return list.filter((row) => {
+            const originOk = ignoreField === 'origins' || !state?.origins?.size || state.origins.has(toText(row?.origin));
+            const terminalOk = ignoreField === 'terminals' || !state?.terminals?.size || state.terminals.has(toText(row?.terminal));
+            const typeOk = ignoreField === 'types' || !state?.types?.size || state.types.has(toText(row?.type));
+            return originOk && terminalOk && typeOk;
+        });
+    };
+
+    const buildFilterFacetEntries = ({ rows, field, state }) => {
+        const rowKey = FILTER_FIELD_TO_ROW_KEY[field];
+        if (!rowKey) return [];
+
+        const scopedRows = getFilterRowsForState({ rows, state, ignoreField: field });
+        const counts = new Map();
+        for (const row of scopedRows) {
+            const value = toText(row?.[rowKey]);
+            if (!value) continue;
+            counts.set(value, (counts.get(value) || 0) + 1);
+        }
+
+        const selected = state?.[field] instanceof Set ? state[field] : new Set();
+        for (const value of selected) {
+            const v = toText(value);
+            if (!v || counts.has(v)) continue;
+            counts.set(v, 0);
+        }
+
+        return Array.from(counts.entries())
+            .map(([value, count]) => ({ value, count: Number(count) || 0 }))
+            .sort((a, b) => {
+                const dc = b.count - a.count;
+                if (dc) return dc;
+                return String(a.value).localeCompare(String(b.value));
+            });
+    };
+
+    const buildDirFilterColumnHtml = ({ title, field, entries, selected }) => {
+        const items = Array.isArray(entries) ? entries : [];
+        const rowsHtml = items.length
+            ? items.map(({ value, count }) => {
+                const checked = selected?.has?.(value) ? ' checked' : '';
+                return `
+                    <label class="panel-dir-filter-option">
+                        <input type="checkbox" data-dir-filter-field="${escapeHtml(field)}" value="${escapeHtml(value)}"${checked} />
+                        <span class="panel-dir-filter-option-name">${escapeHtml(value)}</span>
+                        <span class="panel-dir-filter-option-count">（${escapeHtml(String(count))}）</span>
+                    </label>
+                `;
+            }).join('')
+            : '<div class="panel-dir-filter-empty">无可选项</div>';
+
+        return `
+            <div class="panel-dir-filter-col">
+                <div class="panel-dir-filter-col-title">${escapeHtml(title)}</div>
+                <div class="panel-dir-filter-col-body">${rowsHtml}</div>
+            </div>
+        `;
+    };
+
+    const openDirFilterPopover = ({ lineId, dirKey, anchorEl }) => {
+        const lineDirKey = makeLineDirKey(lineId, dirKey);
+        const rows = dirFilterRowsByKey.get(lineDirKey) || [];
+        const state = dirFilterStateByKey.get(lineDirKey) || { origins: new Set(), terminals: new Set(), types: new Set() };
+        if (!dirFilterStateByKey.has(lineDirKey)) dirFilterStateByKey.set(lineDirKey, state);
+
+        const bodyEl = dirFilterPopover.querySelector('[data-dir-filter-popover-body]');
+        if (!bodyEl) return;
+        const originEntries = buildFilterFacetEntries({ rows, field: 'origins', state });
+        const terminalEntries = buildFilterFacetEntries({ rows, field: 'terminals', state });
+        const typeEntries = buildFilterFacetEntries({ rows, field: 'types', state });
+        bodyEl.innerHTML = [
+            buildDirFilterColumnHtml({ title: '始发站', field: 'origins', entries: originEntries, selected: state.origins }),
+            buildDirFilterColumnHtml({ title: '终点站', field: 'terminals', entries: terminalEntries, selected: state.terminals }),
+            buildDirFilterColumnHtml({ title: '种别', field: 'types', entries: typeEntries, selected: state.types })
+        ].join('');
+
+        activeDirFilterKey = lineDirKey;
+        dirFilterPopover.classList.remove('is-hidden');
+        positionDirFilterPopover(anchorEl);
+    };
+
+    const toggleDirFilterPopoverFromButton = (btnEl) => {
+        if (!btnEl || !(btnEl instanceof Element)) return;
+        const lineId = toText(btnEl.getAttribute('data-line-id'));
+        const dirKey = toText(btnEl.getAttribute('data-dir-key'));
+        if (!lineId || !dirKey) return;
+        const lineDirKey = makeLineDirKey(lineId, dirKey);
+
+        if (!dirFilterPopover.classList.contains('is-hidden') && activeDirFilterKey === lineDirKey) {
+            closeDirFilterPopover();
+            return;
+        }
+
+        openDirFilterPopover({ lineId, dirKey, anchorEl: btnEl });
+    };
+
+    dirFilterPopover.addEventListener('change', async (evt) => {
+        const target = evt?.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (target.type !== 'checkbox') return;
+        const field = toText(target.getAttribute('data-dir-filter-field'));
+        if (field !== 'origins' && field !== 'terminals' && field !== 'types') return;
+        if (!activeDirFilterKey) return;
+
+        const state = dirFilterStateByKey.get(activeDirFilterKey) || { origins: new Set(), terminals: new Set(), types: new Set() };
+        if (!dirFilterStateByKey.has(activeDirFilterKey)) dirFilterStateByKey.set(activeDirFilterKey, state);
+        const value = toText(target.value);
+        if (!value) return;
+
+        const bucket = state[field];
+        if (target.checked) bucket.add(value);
+        else bucket.delete(value);
+
+        const [lineId, dirKey] = activeDirFilterKey.split('||');
+        await rerenderLineById(lineId);
+
+        const anchorEl = body.querySelector(`.panel-dir-filter-btn[data-line-id="${escapeHtml(String(lineId))}"][data-dir-key="${escapeHtml(String(dirKey))}"]`);
+        if (anchorEl) openDirFilterPopover({ lineId, dirKey, anchorEl });
+        else closeDirFilterPopover();
+    });
+
+    dirFilterPopover.addEventListener('click', async (evt) => {
+        const clearBtn = evt?.target?.closest?.('[data-dir-filter-clear]');
+        if (clearBtn) {
+            stopEvent(evt);
+            if (!activeDirFilterKey) return;
+            const state = dirFilterStateByKey.get(activeDirFilterKey) || { origins: new Set(), terminals: new Set(), types: new Set() };
+            state.origins.clear();
+            state.terminals.clear();
+            state.types.clear();
+            dirFilterStateByKey.set(activeDirFilterKey, state);
+
+            const [lineId, dirKey] = activeDirFilterKey.split('||');
+            await rerenderLineById(lineId);
+            const anchorEl = body.querySelector(`.panel-dir-filter-btn[data-line-id="${escapeHtml(String(lineId))}"][data-dir-key="${escapeHtml(String(dirKey))}"]`);
+            if (anchorEl) openDirFilterPopover({ lineId, dirKey, anchorEl });
+            else closeDirFilterPopover();
+            return;
+        }
+
+        const closeBtn = evt?.target?.closest?.('[data-dir-filter-close]');
+        if (!closeBtn) return;
+        stopEvent(evt);
+        closeDirFilterPopover();
+    }, { passive: false });
+
+    document.addEventListener('pointerdown', (evt) => {
+        if (dirFilterPopover.classList.contains('is-hidden')) return;
+        const t = evt?.target;
+        if (t && dirFilterPopover.contains(t)) return;
+        if (t && t instanceof Element && t.closest('.panel-dir-filter-btn')) return;
+        closeDirFilterPopover();
+    }, true);
+
+    document.addEventListener('keydown', (evt) => {
+        if (evt?.key !== 'Escape') return;
+        if (dirFilterPopover.classList.contains('is-hidden')) return;
+        closeDirFilterPopover();
+    });
+
+    window.addEventListener('resize', () => {
+        if (dirFilterPopover.classList.contains('is-hidden') || !activeDirFilterKey) return;
+        const [lineId, dirKey] = activeDirFilterKey.split('||');
+        const anchorEl = body.querySelector(`.panel-dir-filter-btn[data-line-id="${escapeHtml(String(lineId))}"][data-dir-key="${escapeHtml(String(dirKey))}"]`);
+        if (anchorEl) positionDirFilterPopover(anchorEl);
+    });
 
     startAutoNowClock();
 
@@ -2241,6 +2539,9 @@ export function createPanel(options = {}) {
     const getInteractiveTarget = (evt) => {
         const target = evt?.target;
         if (!target || !(target instanceof Element)) return null;
+
+        const filterBtn = target.closest?.('[data-dir-filter-btn]');
+        if (filterBtn && body.contains(filterBtn)) return null;
 
         const dirEl = target.closest?.('[data-dir-toggle]');
         if (dirEl && body.contains(dirEl)) {
@@ -2297,6 +2598,13 @@ export function createPanel(options = {}) {
         }
 
         if (!isTouchLikePointer(pt)) return;
+
+        const filterBtn = evt?.target?.closest?.('[data-dir-filter-btn]');
+        if (filterBtn && body.contains(filterBtn)) {
+            stopEvent(evt);
+            toggleDirFilterPopoverFromButton(filterBtn);
+            return;
+        }
 
         const rowEl = evt?.target?.closest?.('.panel-timetable-row');
         if (rowEl && body.contains(rowEl)) {
@@ -2473,6 +2781,13 @@ export function createPanel(options = {}) {
             }
         }
 
+        const filterBtn = evt?.target?.closest?.('[data-dir-filter-btn]');
+        if (filterBtn && body.contains(filterBtn)) {
+            stopEvent(evt);
+            toggleDirFilterPopoverFromButton(filterBtn);
+            return;
+        }
+
         const t = getInteractiveTarget(evt);
         if (!t) return;
 
@@ -2644,6 +2959,7 @@ export function createPanel(options = {}) {
 
     const hide = () => {
         closeTimePicker();
+        closeDirFilterPopover();
         hideTripDetail();
         root.style.transform = 'translateX(calc(100% + 24px))';
     };
@@ -2703,6 +3019,7 @@ export function createPanel(options = {}) {
         clearRestoreTimer();
         clearTripHighlightTimer();
         hideTripDetail();
+        closeDirFilterPopover();
         lastTripDetailKey = null;
 
         const lineStationNameByLineId = await buildTransferLineStationNameMap({

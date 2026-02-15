@@ -493,6 +493,38 @@
             pointer-events: none;
         }
 
+        .panel-dir-actions {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .panel-dir-filter-btn {
+            width: 18px;
+            height: 18px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex: 0 0 auto;
+        }
+
+        .panel-dir-filter-btn:hover {
+            background: #f3f7ff;
+        }
+
+        .panel-dir-filter-icon {
+            width: 12px;
+            height: 12px;
+            display: block;
+            pointer-events: none;
+        }
+
         .panel-timetable {
             color: #555;
             margin-top: 2px;
@@ -539,6 +571,14 @@
 
         .panel-timetable-row.is-past {
             color: #ccc;
+        }
+
+        .panel-timetable-empty {
+            font-size: 12px;
+            color: #999;
+            height: 22px;
+            display: flex;
+            align-items: center;
         }
 
         .panel-timetable-dest {
@@ -622,6 +662,146 @@
 
         .panel-time-label.is-past {
             color: #ccc;
+        }
+
+        .panel-dir-filter-popover {
+            position: fixed;
+            width: min(450px, calc(100vw - 24px));
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid #e3e5e7;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, .12);
+            overflow: hidden;
+            z-index: 10020;
+        }
+
+        .panel-dir-filter-popover.is-hidden {
+            display: none;
+        }
+
+        .panel-dir-filter-popover-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            border-bottom: 1px solid #e3e5e7;
+        }
+
+        .panel-dir-filter-popover-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #111;
+        }
+
+        .panel-dir-filter-popover-head-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .panel-dir-filter-popover-clear {
+            border: 1px solid #d5dce3;
+            border-radius: 8px;
+            height: 22px;
+            padding: 0 8px;
+            background: #fff;
+            color: #555;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .panel-dir-filter-popover-clear:hover {
+            background: #f3f7ff;
+        }
+
+        .panel-dir-filter-popover-close {
+            width: 18px;
+            height: 18px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: #666;
+            cursor: pointer;
+            padding: 0;
+            font-size: 13px;
+            line-height: 1;
+        }
+
+        .panel-dir-filter-popover-close:hover {
+            background: #f0f0f0;
+        }
+
+        .panel-dir-filter-popover-body {
+            display: grid;
+            grid-template-columns: 35fr 35fr 30fr;
+            gap: 5px;
+            padding: 8px 10px 10px;
+        }
+
+        .panel-dir-filter-col {
+            min-width: 0;
+        }
+
+        .panel-dir-filter-col-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #111;
+            margin-bottom: 6px;
+        }
+
+        .panel-dir-filter-col-body {
+            border: 1px solid #e3e5e7;
+            border-radius: 8px;
+            max-height: 190px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 4px 6px;
+        }
+
+        .panel-dir-filter-col-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .panel-dir-filter-col-body::-webkit-scrollbar-thumb {
+            background: #d8dde3;
+            border-radius: 999px;
+        }
+
+        .panel-dir-filter-option {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #333;
+            line-height: 1.35;
+            padding: 2px 0;
+            cursor: pointer;
+        }
+
+        .panel-dir-filter-option input {
+            margin: 0;
+            flex: 0 0 auto;
+        }
+
+        .panel-dir-filter-option-name {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .panel-dir-filter-option-count {
+            flex: 0 0 auto;
+            white-space: nowrap;
+            color: #666;
+            font-size: 11px;
+        }
+
+        .panel-dir-filter-empty {
+            font-size: 12px;
+            color: #999;
+            padding: 4px 0;
         }
 
         .panel-trip-detail {
