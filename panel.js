@@ -2960,6 +2960,13 @@ export function createPanel(options = {}) {
         const target = evt?.target;
         if (!tripDetailPinned && !tripLocked) return;
         if (target && tripDetailRoot.contains(target)) return;
+        if (
+            target instanceof Element && (
+                (settingsContentEl && settingsContentEl.contains(target)) ||
+                target.closest('.settings-content') ||
+                target.closest('.settings-ui')
+            )
+        ) return;
         if (target && root.contains(target)) {
             const rowEl = target.closest?.('.panel-timetable-row');
             const lineEl = rowEl?.closest?.('[data-line-id]');

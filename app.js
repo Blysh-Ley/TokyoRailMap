@@ -2701,7 +2701,7 @@ map.on('load', async () => {
             },
             // 右上角三段开关：off/auto(碰撞)/all(无视碰撞)
             getLabelMode: () => {
-                if (tripPreviewActive || dirPreviewActive) return 'all';
+                if (dirPreviewActive) return 'all';
                 return stationLabelMode;
             },
             // 高亮线路/公司时：圆点全部显示，避免缩小后站点消失
