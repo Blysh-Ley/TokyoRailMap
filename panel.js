@@ -863,6 +863,9 @@ export function createPanel(options = {}) {
             const ntRefs = Array.isArray(trip?.nt) ? trip.nt : (trip?.nt ? [trip.nt] : []);
             const hasPt = ptRefs.some((x) => !!toText(x));
             const hasNt = ntRefs.some((x) => !!toText(x));
+            const dir = toText(trip?.d);
+            const isLoopDirection = /Loop/i.test(dir);
+            const skipCrossTripFillForLoop = isLoopDirection && (hasPt || hasNt);
 
             const isOriginStation = os.some((x) => toText(x) === stationKey);
             const isTerminalStation = ds.some((x) => toText(x) === stationKey);
@@ -873,13 +876,13 @@ export function createPanel(options = {}) {
             const allowMirrorFill = !(showOriginLabel || showTerminalLabel);
 
             // (2) If dep missing but has nt, take nt's first stop time as dep.
-            if (!dep) {
+            if (!dep && !skipCrossTripFillForLoop) {
                 const ntRefId = toText(ntRefs?.[0]);
                 if (ntRefId) dep = await getNtFirstDepartTime(ntRefId);
             }
 
             // (2) If arr missing but has pt, take pt's last stop time as arr.
-            if (!arr) {
+            if (!arr && !skipCrossTripFillForLoop) {
                 const ptRefId = toText(ptRefs?.[0]);
                 if (ptRefId) arr = await getPtLastArriveTime(ptRefId);
             }
@@ -896,8 +899,6 @@ export function createPanel(options = {}) {
             const timeMs = parsed.ms;
 
             const destId = toText(ds?.[0]);
-
-            const dir = toText(trip?.d);
             const loopDest = (dir === 'InnerLoop' ? '内环' : (dir === 'OuterLoop' ? '外环' : ''));
             const destName = loopDest || (destId ? (stationsIndex?.idToNameZh?.get?.(destId) || destId) : '');
 
@@ -1339,6 +1340,9 @@ export function createPanel(options = {}) {
         const ntRefs = Array.isArray(trip?.nt) ? trip.nt : (trip?.nt ? [trip.nt] : []);
         const hasPt = ptRefs.some((x) => !!toText(x));
         const hasNt = ntRefs.some((x) => !!toText(x));
+        const dirRaw = toText(trip?.d);
+        const isLoopDirection = /Loop/i.test(dirRaw);
+        const hideThroughSegmentsForLoop = isLoopDirection && (hasPt || hasNt);
         const os = Array.isArray(trip?.os) ? trip.os : (trip?.os ? [trip.os] : []);
         const ds = Array.isArray(trip?.ds) ? trip.ds : (trip?.ds ? [trip.ds] : []);
         const originIds = new Set(os.map((x) => toText(x)).filter(Boolean));
@@ -1353,32 +1357,64 @@ export function createPanel(options = {}) {
 
         const segments = [];
 
-        for (const ptTrip of (Array.isArray(ptChain) ? ptChain.slice().reverse() : [])) {
-            const rows = normalizeTripStops(buildTripStops(ptTrip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
-                originIds,
-                terminalIds,
-                showOriginLabel,
-                showTerminalLabel
-            }).map((s) => ({ ...s, seg: 'pt', isMain: false }));
-            segments.push({ kind: 'pt', lineId: getTripLineId(ptTrip), rows });
-        }
-
         const mainRowsRaw = normalizeTripStops(buildTripStops(trip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
             originIds,
             terminalIds,
             showOriginLabel,
             showTerminalLabel
         }).map((s) => ({ ...s, seg: 'main', isMain: true }));
+
+        if (hideThroughSegmentsForLoop && mainRowsRaw.length) {
+            const firstMain = mainRowsRaw[0];
+            const lastMain = mainRowsRaw[mainRowsRaw.length - 1];
+
+            const ptRefId = toText(ptRefs?.[0]);
+            if (ptRefId && firstMain) {
+                const ptArr = await getPtLastArriveTime(ptRefId);
+                if (token !== tripDetailToken) return;
+                const parsed = ptArr ? parseHHMMToServiceDayMs(ptArr, serviceDayStartMs) : null;
+                if (ptArr) {
+                    firstMain.arr = ptArr;
+                    firstMain.arrPlus = !!parsed?.isNextDaySegment;
+                }
+            }
+
+            const ntRefId = toText(ntRefs?.[0]);
+            if (ntRefId && lastMain) {
+                const ntDep = await getNtFirstDepartTime(ntRefId);
+                if (token !== tripDetailToken) return;
+                const parsed = ntDep ? parseHHMMToServiceDayMs(ntDep, serviceDayStartMs) : null;
+                if (ntDep) {
+                    lastMain.dep = ntDep;
+                    lastMain.depPlus = !!parsed?.isNextDaySegment;
+                }
+            }
+        }
+
+        if (!hideThroughSegmentsForLoop) {
+            for (const ptTrip of (Array.isArray(ptChain) ? ptChain.slice().reverse() : [])) {
+                const rows = normalizeTripStops(buildTripStops(ptTrip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
+                    originIds,
+                    terminalIds,
+                    showOriginLabel,
+                    showTerminalLabel
+                }).map((s) => ({ ...s, seg: 'pt', isMain: false }));
+                segments.push({ kind: 'pt', lineId: getTripLineId(ptTrip), rows });
+            }
+        }
+
         segments.push({ kind: 'main', lineId: getTripLineId(trip), rows: mainRowsRaw });
 
-        for (const ntTrip of (Array.isArray(ntChain) ? ntChain : [])) {
-            const rows = normalizeTripStops(buildTripStops(ntTrip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
-                originIds,
-                terminalIds,
-                showOriginLabel,
-                showTerminalLabel
-            }).map((s) => ({ ...s, seg: 'nt', isMain: false }));
-            segments.push({ kind: 'nt', lineId: getTripLineId(ntTrip), rows });
+        if (!hideThroughSegmentsForLoop) {
+            for (const ntTrip of (Array.isArray(ntChain) ? ntChain : [])) {
+                const rows = normalizeTripStops(buildTripStops(ntTrip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
+                    originIds,
+                    terminalIds,
+                    showOriginLabel,
+                    showTerminalLabel
+                }).map((s) => ({ ...s, seg: 'nt', isMain: false }));
+                segments.push({ kind: 'nt', lineId: getTripLineId(ntTrip), rows });
+            }
         }
 
         for (let i = 1; i < segments.length; i += 1) {
@@ -1399,7 +1435,6 @@ export function createPanel(options = {}) {
             const sameStation = sameById || sameByA;
             if (!sameStation) continue;
 
-            // pt 边界：视为同一站，使用当前段站名，时间采用“pt 到站 + 当前发车”。
             if (prevSeg?.kind === 'pt') {
                 const merged = {
                     ...currFirst,
@@ -1414,7 +1449,6 @@ export function createPanel(options = {}) {
                 continue;
             }
 
-            // nt 边界：视为同一站，使用当前段(上一段)站名，时间采用“当前到站 + nt 发车”。
             currRows.shift();
             const merged = {
                 ...prevLast,
@@ -1485,7 +1519,20 @@ export function createPanel(options = {}) {
             `;
         };
 
+        const renderLoopMarkerRow = (text) => {
+            const label = toText(text);
+            if (!label) return '';
+            return `
+                <div class="panel-trip-detail-note-row">
+                    <span class="panel-trip-detail-note-line">${escapeHtml(label)}</span>
+                </div>
+            `;
+        };
+
         let rowsHtml = '';
+        if (hideThroughSegmentsForLoop) {
+            rowsHtml += renderLoopMarkerRow('↑环线');
+        }
         for (let i = 0; i < segmentsWithPast.length; i += 1) {
             const seg = segmentsWithPast[i];
             const prev = i > 0 ? segmentsWithPast[i - 1] : null;
@@ -1515,6 +1562,9 @@ export function createPanel(options = {}) {
             if (seg.kind === 'main' && next && currentLineDesc?.text && !isNtSameLineAsMain) {
                 rowsHtml += renderNoteRow('', currentLineDesc);
             }
+        }
+        if (hideThroughSegmentsForLoop) {
+            rowsHtml += renderLoopMarkerRow('↓环线');
         }
 
         try {
