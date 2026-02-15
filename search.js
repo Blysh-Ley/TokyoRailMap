@@ -313,7 +313,7 @@ async function ensureDataLoaded() {
     }
 }
 
-function buildSearchResults(query, { limit = 12 } = {}) {
+function buildSearchResults(query, { limit = 30 } = {}) {
     const tokens = tokenizeQuery(query);
     if (!tokens.length) return [];
     if (!dataReady) return [];
@@ -321,13 +321,15 @@ function buildSearchResults(query, { limit = 12 } = {}) {
     // app.js 的 companyLogoMap 可能晚于索引初始化；每次搜索前尝试补齐一次
     mergeCompanyMetaIfAvailable();
 
-    const scored = [];
+    const stationHits = [];
+    const lineHits = [];
+    const companyHits = [];
 
     for (const c of companyIndex) {
         let best = -1;
         for (const n of c.names) best = Math.max(best, matchScore(n, tokens));
         if (best >= 0) {
-            scored.push({
+            companyHits.push({
                 score: best,
                 item: {
                     type: 'company',
@@ -343,7 +345,7 @@ function buildSearchResults(query, { limit = 12 } = {}) {
         let best = -1;
         for (const n of l.names) best = Math.max(best, matchScore(n, tokens));
         if (best >= 0) {
-            scored.push({
+            lineHits.push({
                 score: best,
                 item: {
                     type: 'line',
@@ -359,7 +361,7 @@ function buildSearchResults(query, { limit = 12 } = {}) {
         let best = -1;
         for (const n of s.names) best = Math.max(best, matchScore(n, tokens));
         if (best >= 0) {
-            scored.push({
+            stationHits.push({
                 score: best + (s.isTransfer ? 3 : 0),
                 item: {
                     type: 'station',
@@ -372,8 +374,31 @@ function buildSearchResults(query, { limit = 12 } = {}) {
         }
     }
 
-    scored.sort((a, b) => b.score - a.score || String(a.item.text).localeCompare(String(b.item.text)));
-    return scored.slice(0, limit).map((x) => x.item);
+    const byScoreThenName = (a, b) => b.score - a.score || String(a.item.text).localeCompare(String(b.item.text));
+    stationHits.sort(byScoreThenName);
+    lineHits.sort(byScoreThenName);
+    companyHits.sort(byScoreThenName);
+
+    const hasNonStation = lineHits.length > 0 || companyHits.length > 0;
+    const nonStationReserve = hasNonStation ? Math.min(4, Math.max(1, Math.floor(limit / 3))) : 0;
+    const stationTake = Math.max(0, Math.min(stationHits.length, limit - nonStationReserve));
+
+    const out = [];
+    out.push(...stationHits.slice(0, stationTake).map((x) => x.item));
+
+    let remaining = Math.max(0, limit - out.length);
+    if (remaining > 0) {
+        const mergedNonStation = [...lineHits, ...companyHits].sort(byScoreThenName);
+        out.push(...mergedNonStation.slice(0, remaining).map((x) => x.item));
+    }
+
+    // 若站点本身不足且还有空位，继续补站点尾部（仍保持“站点优先在前”）
+    remaining = Math.max(0, limit - out.length);
+    if (remaining > 0 && stationHits.length > stationTake) {
+        out.push(...stationHits.slice(stationTake, stationTake + remaining).map((x) => x.item));
+    }
+
+    return out.slice(0, limit);
 }
 
 export function mountSearchUI() {
