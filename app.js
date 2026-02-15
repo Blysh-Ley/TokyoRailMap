@@ -97,6 +97,7 @@ map.on('load', async () => {
     let stationPopup = null;
     let stationLabels = [];
     let fixedPopupStationId = null;
+    let transferStationIdsByStationId = new Map();
     let previewTripPath = (_payload) => {};
     let clearTripPathPreview = () => {};
     let tripPreviewStationIds = null; // Set<string> | null
@@ -147,6 +148,49 @@ map.on('load', async () => {
             }
         }
         return [s];
+    };
+
+    const loadTransferStationIdMap = async () => {
+        try {
+            const resp = await fetch('./data/station-groups.json');
+            if (!resp.ok) return new Map();
+            const groups = await resp.json();
+            const map = new Map();
+
+            for (const group of Array.isArray(groups) ? groups : []) {
+                if (!Array.isArray(group)) continue;
+                const ids = [];
+                const seen = new Set();
+
+                for (const chunk of group) {
+                    if (!Array.isArray(chunk)) continue;
+                    for (const sid of chunk) {
+                        const id = String(sid ?? '').trim();
+                        if (!id || seen.has(id)) continue;
+                        seen.add(id);
+                        ids.push(id);
+                    }
+                }
+
+                if (!ids.length) continue;
+                const groupSet = new Set(ids);
+                for (const id of ids) {
+                    map.set(id, groupSet);
+                }
+            }
+
+            return map;
+        } catch {
+            return new Map();
+        }
+    };
+
+    const getSelectedStationHighlightIds = () => {
+        const sid = String(selectedStationId ?? '').trim();
+        if (!sid) return [];
+        const groupSet = transferStationIdsByStationId.get(sid);
+        if (groupSet && groupSet.size) return Array.from(groupSet).map(String).filter(Boolean);
+        return [sid];
     };
 
     const getServingLineIdsFromStationProps = (props) => {
@@ -491,7 +535,12 @@ map.on('load', async () => {
             : selectedCompany
                 ? buildStationAnyLineMatchExpr(Array.from(enabledLineIdsByCompany.get(selectedCompany) ?? []))
                 : (selectedStationId
-                    ? ['==', ['get', 'id'], selectedStationId]
+                    ? (() => {
+                        const ids = getSelectedStationHighlightIds();
+                        if (!ids.length) return ['==', ['get', 'id'], String(selectedStationId)];
+                        if (ids.length === 1) return ['==', ['get', 'id'], ids[0]];
+                        return ['in', ['get', 'id'], ['literal', ids]];
+                    })()
                     : buildStationAnyLineMatchExpr(Array.from(selectedStationLineIds ?? [])));
 
         const shouldIsolate = Boolean(selectedLineId) && isolateStationsToSelectedLine === true;
@@ -1197,6 +1246,7 @@ map.on('load', async () => {
         const { linesGeoJSON, linesGeoJSONByZoom, lineRoutingCoordsById, stationsGeoJSON, diagnostics } = await loadRailGeoDataFromDataFolder();
         generatedLinesData = linesGeoJSON;
         generatedStationsData = stationsGeoJSON;
+        transferStationIdsByStationId = await loadTransferStationIdMap();
 
         /*
         try {
@@ -2332,7 +2382,7 @@ map.on('load', async () => {
                     return tripPreviewStationIds;
                 }
                 if (!selectedLineId && !selectedCompany && selectedStationId) {
-                    return new Set([String(selectedStationId)]);
+                    return new Set(getSelectedStationHighlightIds());
                 }
                 return null;
             },
