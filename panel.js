@@ -427,8 +427,10 @@ export function createPanel(options = {}) {
 
     const timeInput = document.createElement('input');
     timeInput.className = 'settings-time-input';
-    timeInput.type = 'time';
-    timeInput.step = '60';
+    timeInput.type = 'text';
+    timeInput.inputMode = 'numeric';
+    timeInput.placeholder = 'HH:MM';
+    timeInput.maxLength = 5;
     timeInput.value = '';
 
     const btnAutoNow = document.createElement('button');
@@ -454,6 +456,195 @@ export function createPanel(options = {}) {
     timeOps.className = 'settings-time-ops';
     timeOps.appendChild(timeInput);
     timeOps.appendChild(btnAutoNow);
+
+    const timePicker = document.createElement('div');
+    timePicker.className = 'settings-time-picker is-hidden';
+    timePicker.style.position = 'fixed';
+    timePicker.style.zIndex = String(zIndex + 3);
+
+    const timePickerHourCol = document.createElement('div');
+    timePickerHourCol.className = 'settings-time-picker-col';
+    const timePickerHourList = document.createElement('div');
+    timePickerHourList.className = 'settings-time-picker-list';
+    timePickerHourCol.appendChild(timePickerHourList);
+
+    const timePickerMinuteCol = document.createElement('div');
+    timePickerMinuteCol.className = 'settings-time-picker-col';
+    const timePickerMinuteList = document.createElement('div');
+    timePickerMinuteList.className = 'settings-time-picker-list';
+    timePickerMinuteCol.appendChild(timePickerMinuteList);
+
+    const timePickerState = {
+        open: false,
+        hour: null,
+        minute: null,
+        hourButtons: [],
+        minuteButtons: []
+    };
+
+    const setTimePickerOpenState = (open) => {
+        try {
+            window.__TokyoRailTimePickerOpen = !!open;
+        } catch {
+            // ignore
+        }
+    };
+
+    const formatTwoDigits = (v) => String(Number(v)).padStart(2, '0');
+    const normalizeHHMM = (value) => {
+        const s = toText(value);
+        const m = s.match(/^(\d{1,2}):(\d{1,2})$/);
+        if (!m) return '';
+        const hh = Number(m[1]);
+        const mm = Number(m[2]);
+        if (!Number.isFinite(hh) || !Number.isFinite(mm)) return '';
+        if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return '';
+        return `${formatTwoDigits(hh)}:${formatTwoDigits(mm)}`;
+    };
+
+    const parsePickerSeed = () => {
+        const normalized = normalizeHHMM(timeInput.value);
+        if (normalized) {
+            const [h, m] = normalized.split(':').map((x) => Number(x));
+            return { hour: h, minute: m };
+        }
+
+        const now = new Date();
+        return { hour: now.getHours(), minute: now.getMinutes() };
+    };
+
+    const applyPickerSelectionUi = () => {
+        for (const btn of timePickerState.hourButtons) {
+            const selected = Number(btn?.dataset?.value) === timePickerState.hour;
+            btn.classList.toggle('is-selected', selected);
+        }
+        for (const btn of timePickerState.minuteButtons) {
+            const selected = Number(btn?.dataset?.value) === timePickerState.minute;
+            btn.classList.toggle('is-selected', selected);
+        }
+    };
+
+    const scrollPickerSelectionIntoView = () => {
+        const hourBtn = timePickerState.hourButtons.find((x) => Number(x?.dataset?.value) === timePickerState.hour);
+        const minuteBtn = timePickerState.minuteButtons.find((x) => Number(x?.dataset?.value) === timePickerState.minute);
+        hourBtn?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+        minuteBtn?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    };
+
+    const applyPickerValueToInput = () => {
+        if (!Number.isFinite(timePickerState.hour) || !Number.isFinite(timePickerState.minute)) return;
+        const value = `${formatTwoDigits(timePickerState.hour)}:${formatTwoDigits(timePickerState.minute)}`;
+        if (toText(timeInput.value) !== value) {
+            timeInput.value = value;
+            timeInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    };
+
+    const positionTimePicker = () => {
+        if (!timePickerState.open) return;
+        const rect = timeInput.getBoundingClientRect();
+        const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
+        const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
+        const pickerRect = timePicker.getBoundingClientRect();
+        const pickerW = Math.max(168, Math.ceil(pickerRect.width || 168));
+        const pickerH = Math.max(120, Math.ceil(pickerRect.height || 196));
+        const gap = 6;
+
+        let left = rect.right - pickerW;
+        left = Math.max(8, Math.min(left, Math.max(8, viewportW - pickerW - 8)));
+
+        const canShowBelow = rect.bottom + gap + pickerH <= viewportH - 8;
+        const top = canShowBelow
+            ? Math.min(viewportH - pickerH - 8, rect.bottom + gap)
+            : Math.max(8, rect.top - gap - pickerH);
+
+        timePicker.style.left = `${Math.round(left)}px`;
+        timePicker.style.top = `${Math.round(top)}px`;
+    };
+
+    const closeTimePicker = () => {
+        if (!timePickerState.open) return;
+        timePickerState.open = false;
+        timePicker.classList.add('is-hidden');
+        setTimePickerOpenState(false);
+    };
+
+    const openTimePicker = () => {
+        const seed = parsePickerSeed();
+        timePickerState.hour = seed.hour;
+        timePickerState.minute = seed.minute;
+        applyPickerSelectionUi();
+        timePicker.classList.remove('is-hidden');
+        timePickerState.open = true;
+        setTimePickerOpenState(true);
+        scrollPickerSelectionIntoView();
+        positionTimePicker();
+    };
+
+    const confirmTimePickerSelection = () => {
+        applyPickerValueToInput();
+        closeTimePicker();
+    };
+
+    const buildPickerOptionButton = (value, type) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'settings-time-picker-option';
+        btn.textContent = formatTwoDigits(value);
+        btn.dataset.value = String(value);
+        btn.dataset.type = type;
+        btn.addEventListener('click', (evt) => {
+            stopEvent(evt);
+            if (type === 'hour') timePickerState.hour = value;
+            else timePickerState.minute = value;
+            applyPickerSelectionUi();
+            scrollPickerSelectionIntoView();
+        }, { passive: false });
+        return btn;
+    };
+
+    const timePickerActions = document.createElement('div');
+    timePickerActions.className = 'settings-time-picker-actions';
+
+    const timePickerCancelBtn = document.createElement('button');
+    timePickerCancelBtn.type = 'button';
+    timePickerCancelBtn.className = 'settings-time-picker-btn settings-time-picker-btn-cancel';
+    timePickerCancelBtn.textContent = '取消';
+    timePickerCancelBtn.addEventListener('click', (evt) => {
+        stopEvent(evt);
+        closeTimePicker();
+    }, { passive: false });
+
+    const timePickerConfirmBtn = document.createElement('button');
+    timePickerConfirmBtn.type = 'button';
+    timePickerConfirmBtn.className = 'settings-time-picker-btn settings-time-picker-btn-confirm';
+    timePickerConfirmBtn.textContent = '确认';
+    timePickerConfirmBtn.addEventListener('click', (evt) => {
+        stopEvent(evt);
+        confirmTimePickerSelection();
+    }, { passive: false });
+
+    timePickerActions.appendChild(timePickerCancelBtn);
+    timePickerActions.appendChild(timePickerConfirmBtn);
+
+    for (let h = 0; h < 24; h += 1) {
+        const btn = buildPickerOptionButton(h, 'hour');
+        timePickerState.hourButtons.push(btn);
+        timePickerHourList.appendChild(btn);
+    }
+    for (let m = 0; m < 60; m += 1) {
+        const btn = buildPickerOptionButton(m, 'minute');
+        timePickerState.minuteButtons.push(btn);
+        timePickerMinuteList.appendChild(btn);
+    }
+
+    timePicker.appendChild(timePickerHourCol);
+    timePicker.appendChild(timePickerMinuteCol);
+    timePicker.appendChild(timePickerActions);
+    timePicker.addEventListener('pointerdown', (e) => stopPropagationOnly(e), { passive: true });
+    timePicker.addEventListener('wheel', (e) => stopPropagationOnly(e), { passive: true });
+    timePicker.addEventListener('click', (e) => stopEvent(e), { passive: false });
+    document.body.appendChild(timePicker);
 
     timeControl.appendChild(timeLabel);
     timeControl.appendChild(timeOps);
@@ -738,7 +929,8 @@ export function createPanel(options = {}) {
 
     timeInput.addEventListener('input', (e) => {
         stopEvent(e);
-        const v = toText(timeInput.value) || '';
+        const normalized = normalizeHHMM(timeInput.value);
+        const v = normalized || toText(timeInput.value) || '';
         if (!v) {
             isAutoNowClock = true;
             syncAutoNowClock({ forceRender: true });
@@ -749,9 +941,43 @@ export function createPanel(options = {}) {
         currentNowOverrideHHMM = v;
         renderAllTimetables();
     });
-    timeInput.addEventListener('click', (e) => stopEvent(e), { passive: false });
+    timeInput.addEventListener('blur', () => {
+        const normalized = normalizeHHMM(timeInput.value);
+        if (normalized) timeInput.value = normalized;
+    });
+    timeInput.addEventListener('click', (e) => {
+        stopEvent(e);
+        openTimePicker();
+    }, { passive: false });
+    timeInput.addEventListener('focus', () => {
+        openTimePicker();
+    });
+    window.addEventListener('resize', () => {
+        positionTimePicker();
+    });
+    window.addEventListener('scroll', () => {
+        positionTimePicker();
+    }, true);
+    document.addEventListener('pointerdown', (evt) => {
+        if (!timePickerState.open) return;
+        const t = evt?.target;
+        if (t && (timeOps.contains(t) || timePicker.contains(t))) return;
+        closeTimePicker();
+    }, true);
+    document.addEventListener('keydown', (evt) => {
+        if (!timePickerState.open) return;
+        if (evt?.key === 'Escape') {
+            closeTimePicker();
+            return;
+        }
+        if (evt?.key === 'Enter') {
+            stopEvent(evt);
+            confirmTimePickerSelection();
+        }
+    });
     btnAutoNow.addEventListener('click', (e) => {
         stopEvent(e);
+        closeTimePicker();
         restoreAutoNowClock();
     }, { passive: false });
 
@@ -2417,6 +2643,7 @@ export function createPanel(options = {}) {
     };
 
     const hide = () => {
+        closeTimePicker();
         hideTripDetail();
         root.style.transform = 'translateX(calc(100% + 24px))';
     };

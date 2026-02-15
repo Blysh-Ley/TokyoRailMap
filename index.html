@@ -911,6 +911,7 @@
                 display: inline-flex;
                 align-items: center;
                 gap: 6px;
+                position: relative;
             }
 
             .settings-time-input {
@@ -942,6 +943,101 @@
 
             .settings-time-reset:hover {
                 background: #f0f8ff;
+            }
+
+            .settings-time-picker {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 168px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                background: rgba(255, 255, 255, 0.98);
+                border: 1px solid #e3e5e7;
+                border-radius: 12px;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+                padding: 8px;
+                z-index: 10001;
+                pointer-events: auto;
+            }
+
+            .settings-time-picker.is-hidden {
+                display: none;
+            }
+
+            .settings-time-picker-col {
+                flex: 1 1 0;
+                min-width: 0;
+            }
+
+            .settings-time-picker-actions {
+                width: 100%;
+                display: flex;
+                justify-content: flex-end;
+                gap: 6px;
+                padding-top: 2px;
+            }
+
+            .settings-time-picker-btn {
+                border: 1px solid #d5dce3;
+                border-radius: 8px;
+                height: 28px;
+                min-width: 52px;
+                padding: 0 10px;
+                font-size: 12px;
+                cursor: pointer;
+                background: #fff;
+                color: #333;
+            }
+
+            .settings-time-picker-btn:hover {
+                background: #f3f7ff;
+            }
+
+            .settings-time-picker-btn-confirm {
+                border-color: #3498db;
+                color: #3498db;
+                font-weight: 600;
+            }
+
+            .settings-time-picker-list {
+                max-height: 180px;
+                overflow-y: auto;
+                overflow-x: hidden;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                padding-right: 2px;
+            }
+
+            .settings-time-picker-list::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .settings-time-picker-list::-webkit-scrollbar-thumb {
+                background: #d8dde3;
+                border-radius: 999px;
+            }
+
+            .settings-time-picker-option {
+                border: none;
+                background: transparent;
+                border-radius: 8px;
+                height: 28px;
+                font-size: 13px;
+                color: #333;
+                cursor: pointer;
+            }
+
+            .settings-time-picker-option:hover {
+                background: #f3f7ff;
+            }
+
+            .settings-time-picker-option.is-selected {
+                background: #3498db;
+                color: #fff;
+                font-weight: 600;
             }
 
         .search-result-item:hover {

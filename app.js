@@ -706,7 +706,10 @@ map.on('load', async () => {
             expand();
         });
 
-        root.addEventListener('mouseleave', () => {
+        root.addEventListener('mouseleave', (evt) => {
+            const toEl = evt?.relatedTarget;
+            if (toEl && toEl instanceof Element && toEl.closest('.settings-time-picker')) return;
+            if (window.__TokyoRailTimePickerOpen === true) return;
             collapse();
         });
 
@@ -728,6 +731,8 @@ map.on('load', async () => {
             if (root.classList.contains('is-collapsed')) return;
             const t = evt?.target;
             if (t && root.contains(t)) return;
+            if (t && t instanceof Element && t.closest('.settings-time-picker')) return;
+            if (window.__TokyoRailTimePickerOpen === true) return;
             collapse();
         }, true);
 
