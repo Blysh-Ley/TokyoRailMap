@@ -1354,6 +1354,12 @@ export function createPanel(options = {}) {
         return destId ? (stationsIndex?.idToNameZh?.get?.(destId) || destId) : '';
     };
 
+    const getTripTypeName = (trip, trainTypesIndex) => {
+        const typeId = toText(trip?.y);
+        if (!typeId) return '';
+        return toText(trainTypesIndex?.get?.(typeId) || typeId);
+    };
+
     const renderTripDetail = async ({ lineId, tripKey, clientX, clientY, pinned }) => {
         const token = ++tripDetailToken;
         tripDetailPinned = !!pinned;
@@ -1435,11 +1441,21 @@ export function createPanel(options = {}) {
                     showOriginLabel,
                     showTerminalLabel
                 }).map((s) => ({ ...s, seg: 'pt', isMain: false }));
-                segments.push({ kind: 'pt', lineId: getTripLineId(ptTrip), rows });
+                segments.push({
+                    kind: 'pt',
+                    lineId: getTripLineId(ptTrip),
+                    rows,
+                    typeName: getTripTypeName(ptTrip, trainTypesIndex)
+                });
             }
         }
 
-        segments.push({ kind: 'main', lineId: getTripLineId(trip), rows: mainRowsRaw });
+        segments.push({
+            kind: 'main',
+            lineId: getTripLineId(trip),
+            rows: mainRowsRaw,
+            typeName: getTripTypeName(trip, trainTypesIndex)
+        });
 
         if (!hideThroughSegmentsForLoop) {
             for (const ntTrip of (Array.isArray(ntChain) ? ntChain : [])) {
@@ -1449,7 +1465,12 @@ export function createPanel(options = {}) {
                     showOriginLabel,
                     showTerminalLabel
                 }).map((s) => ({ ...s, seg: 'nt', isMain: false }));
-                segments.push({ kind: 'nt', lineId: getTripLineId(ntTrip), rows });
+                segments.push({
+                    kind: 'nt',
+                    lineId: getTripLineId(ntTrip),
+                    rows,
+                    typeName: getTripTypeName(ntTrip, trainTypesIndex)
+                });
             }
         }
 
@@ -1539,20 +1560,36 @@ export function createPanel(options = {}) {
                 `;
             };
 
-        const renderNoteRow = (prefix, descriptor) => {
+        const renderNoteRow = (descriptor, typeName, isPast) => {
             if (!descriptor?.text) return '';
-            const colorStyle = descriptor.color ? ` style="color:${escapeHtml(descriptor.color)}"` : '';
-            const dotStyle = descriptor.color ? ` style="background:${escapeHtml(descriptor.color)}"` : '';
-            const prefixHtml = toText(prefix)
-                ? `<span class="panel-trip-detail-note-prefix">${escapeHtml(prefix)}</span>`
+            const past = !!isPast;
+            const colorStyle = past
+                ? ' style="color:#ccc"'
+                : (descriptor.color ? ` style="color:${escapeHtml(descriptor.color)}"` : '');
+            const dotStyle = past
+                ? ' style="background:#ccc"'
+                : (descriptor.color ? ` style="background:${escapeHtml(descriptor.color)}"` : '');
+            const typeText = toText(typeName);
+            const typeHtml = typeText
+                ? `<span class="panel-trip-detail-note-type">${escapeHtml(typeText)}</span>`
                 : '';
+            const rowCls = past ? 'panel-trip-detail-note-row is-past' : 'panel-trip-detail-note-row';
             return `
-                <div class="panel-trip-detail-note-row">
-                    ${prefixHtml}
+                <div class="${rowCls}">
                     <span class="panel-trip-detail-note-dot"${dotStyle}></span>
                     <span class="panel-trip-detail-note-line"${colorStyle}>${escapeHtml(descriptor.text)}</span>
+                    ${typeHtml}
                 </div>
             `;
+        };
+
+        const getSegmentFirstRow = (segment) => (Array.isArray(segment?.rows) && segment.rows.length ? segment.rows[0] : null);
+        const getSegmentLastRow = (segment) => (Array.isArray(segment?.rows) && segment.rows.length ? segment.rows[segment.rows.length - 1] : null);
+        const isBoundaryPast = (leftRow, rightRow) => {
+            if (leftRow && rightRow) return !!(leftRow.isPast && rightRow.isPast);
+            if (leftRow) return !!leftRow.isPast;
+            if (rightRow) return !!rightRow.isPast;
+            return false;
         };
 
         const renderLoopMarkerRow = (text) => {
@@ -1569,34 +1606,39 @@ export function createPanel(options = {}) {
         if (hideThroughSegmentsForLoop) {
             rowsHtml += renderLoopMarkerRow('↑环线');
         }
-        for (let i = 0; i < segmentsWithPast.length; i += 1) {
-            const seg = segmentsWithPast[i];
-            const prev = i > 0 ? segmentsWithPast[i - 1] : null;
-            const next = i + 1 < segmentsWithPast.length ? segmentsWithPast[i + 1] : null;
-            const sameAdjacentLineName = prev ? isSameLineName(prev.lineId, seg.lineId) : false;
-
-            if (prev?.kind === 'pt' && !sameAdjacentLineName) {
-                const desc = buildLineDescriptor(prev.lineId);
-                rowsHtml += renderNoteRow('经由', desc);
+        const segmentBlocks = [];
+        for (const seg of segmentsWithPast) {
+            const lastBlock = segmentBlocks.length ? segmentBlocks[segmentBlocks.length - 1] : null;
+            const sameLine = !!lastBlock && isSameLineName(lastBlock.lineId, seg.lineId);
+            if (!sameLine) {
+                segmentBlocks.push({
+                    lineId: seg.lineId,
+                    descriptor: buildLineDescriptor(seg.lineId) || (seg.kind === 'main' ? currentLineDesc : null),
+                    typeName: toText(seg.typeName),
+                    segments: [seg]
+                });
+                continue;
             }
 
-            if (seg.kind === 'nt' && prev && !sameAdjacentLineName) {
-                const desc = buildLineDescriptor(seg.lineId);
-                rowsHtml += renderNoteRow('直通', desc);
+            lastBlock.segments.push(seg);
+            if (!toText(lastBlock.typeName) && toText(seg.typeName)) {
+                lastBlock.typeName = toText(seg.typeName);
             }
+        }
 
-            if (seg.kind === 'main' && prev && currentLineDesc?.text) {
-                rowsHtml += renderNoteRow('', currentLineDesc);
-            }
+        for (let i = 0; i < segmentBlocks.length; i += 1) {
+            const block = segmentBlocks[i];
+            const prevBlock = i > 0 ? segmentBlocks[i - 1] : null;
 
-            rowsHtml += (seg.rows || []).map(renderStopRow).join('');
+            const firstSeg = block.segments[0] || null;
+            const prevLastSeg = prevBlock?.segments?.[prevBlock.segments.length - 1] || null;
 
-            const isNtSameLineAsMain = seg.kind === 'main'
-                && next?.kind === 'nt'
-                && isSameLineName(seg.lineId, next.lineId);
+            const prevLastRow = getSegmentLastRow(prevLastSeg);
+            const firstRow = getSegmentFirstRow(firstSeg);
 
-            if (seg.kind === 'main' && next && currentLineDesc?.text && !isNtSameLineAsMain) {
-                rowsHtml += renderNoteRow('', currentLineDesc);
+            rowsHtml += renderNoteRow(block.descriptor, block.typeName, isBoundaryPast(prevLastRow, firstRow));
+            for (const seg of block.segments) {
+                rowsHtml += (seg.rows || []).map(renderStopRow).join('');
             }
         }
         if (hideThroughSegmentsForLoop) {
