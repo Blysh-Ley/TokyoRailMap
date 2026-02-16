@@ -2114,7 +2114,7 @@ map.on('load', async () => {
 
             tripPreviewOriginPopup = createTripEndpointPopup({
                 stationId: startId,
-                text: '起点站',
+                text: '始发站',
                 color: '#1A9B2D',
                 yOffset: 8
             });
