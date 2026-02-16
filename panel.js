@@ -2766,6 +2766,10 @@ export function createPanel(options = {}) {
         <div class="panel-dir-filter-popover-head">
             <span class="panel-dir-filter-popover-title">筛选</span>
             <span class="panel-dir-filter-popover-head-actions">
+                <label class="panel-dir-filter-toggle-all" data-dir-filter-toggle-all-wrap="1">
+                    <input type="checkbox" data-dir-filter-toggle-all="1" checked />
+                    <span>全选</span>
+                </label>
                 <button type="button" class="panel-dir-filter-popover-clear" data-dir-filter-clear="1" aria-label="清除筛选">清除筛选</button>
                 <button type="button" class="panel-dir-filter-popover-close" data-dir-filter-close="1" aria-label="关闭">x</button>
             </span>
@@ -2819,12 +2823,59 @@ export function createPanel(options = {}) {
         types: 'type'
     };
 
+    const createEmptyDirFilterState = () => ({ origins: new Set(), terminals: new Set(), types: new Set() });
+
+    const collectDirFilterOptionSets = (rows) => {
+        const list = Array.isArray(rows) ? rows : [];
+        const out = createEmptyDirFilterState();
+        for (const row of list) {
+            const origin = toText(row?.origin);
+            const terminal = toText(row?.terminal);
+            const type = toText(row?.type);
+            if (origin) out.origins.add(origin);
+            if (terminal) out.terminals.add(terminal);
+            if (type) out.types.add(type);
+        }
+        return out;
+    };
+
+    const createAllSelectedDirFilterState = (rows) => collectDirFilterOptionSets(rows);
+
+    const syncDirFilterStateWithRows = (state, rows) => {
+        const source = state || createEmptyDirFilterState();
+        const allValues = collectDirFilterOptionSets(rows);
+        const next = createEmptyDirFilterState();
+        for (const key of ['origins', 'terminals', 'types']) {
+            const selected = source[key] instanceof Set ? source[key] : new Set();
+            for (const value of selected) {
+                if (allValues[key].has(value)) next[key].add(value);
+            }
+        }
+        return next;
+    };
+
+    const isAllSelectedDirFilterState = (state, rows) => {
+        const allValues = collectDirFilterOptionSets(rows);
+        const current = state || createEmptyDirFilterState();
+        for (const key of ['origins', 'terminals', 'types']) {
+            const selected = current[key] instanceof Set ? current[key] : new Set();
+            if (selected.size !== allValues[key].size) return false;
+            for (const value of allValues[key]) {
+                if (!selected.has(value)) return false;
+            }
+        }
+        return true;
+    };
+
     const getFilterRowsForState = ({ rows, state, ignoreField = '' }) => {
         const list = Array.isArray(rows) ? rows : [];
         return list.filter((row) => {
-            const originOk = ignoreField === 'origins' || !state?.origins?.size || state.origins.has(toText(row?.origin));
-            const terminalOk = ignoreField === 'terminals' || !state?.terminals?.size || state.terminals.has(toText(row?.terminal));
-            const typeOk = ignoreField === 'types' || !state?.types?.size || state.types.has(toText(row?.type));
+            const origin = toText(row?.origin);
+            const terminal = toText(row?.terminal);
+            const type = toText(row?.type);
+            const originOk = ignoreField === 'origins' || (state?.origins instanceof Set && state.origins.has(origin));
+            const terminalOk = ignoreField === 'terminals' || (state?.terminals instanceof Set && state.terminals.has(terminal));
+            const typeOk = ignoreField === 'types' || (state?.types instanceof Set && state.types.has(type));
             return originOk && terminalOk && typeOk;
         });
     };
@@ -2834,8 +2885,9 @@ export function createPanel(options = {}) {
         if (!rowKey) return [];
 
         const scopedRows = getFilterRowsForState({ rows, state, ignoreField: field });
+        const sourceRows = scopedRows.length ? scopedRows : (Array.isArray(rows) ? rows : []);
         const counts = new Map();
-        for (const row of scopedRows) {
+        for (const row of sourceRows) {
             const value = toText(row?.[rowKey]);
             if (!value) continue;
             counts.set(value, (counts.get(value) || 0) + 1);
@@ -2883,8 +2935,14 @@ export function createPanel(options = {}) {
     const openDirFilterPopover = ({ lineId, dirKey, anchorEl }) => {
         const lineDirKey = makeLineDirKey(lineId, dirKey);
         const rows = dirFilterRowsByKey.get(lineDirKey) || [];
-        const state = dirFilterStateByKey.get(lineDirKey) || { origins: new Set(), terminals: new Set(), types: new Set() };
-        if (!dirFilterStateByKey.has(lineDirKey)) dirFilterStateByKey.set(lineDirKey, state);
+        let state;
+        if (!dirFilterStateByKey.has(lineDirKey)) {
+            state = createAllSelectedDirFilterState(rows);
+            dirFilterStateByKey.set(lineDirKey, state);
+        } else {
+            state = syncDirFilterStateWithRows(dirFilterStateByKey.get(lineDirKey), rows);
+            dirFilterStateByKey.set(lineDirKey, state);
+        }
 
         const bodyEl = dirFilterPopover.querySelector('[data-dir-filter-popover-body]');
         if (!bodyEl) return;
@@ -2896,6 +2954,11 @@ export function createPanel(options = {}) {
             buildDirFilterColumnHtml({ title: '终点站', field: 'terminals', entries: terminalEntries, selected: state.terminals }),
             buildDirFilterColumnHtml({ title: '种别', field: 'types', entries: typeEntries, selected: state.types })
         ].join('');
+
+        const toggleAllInput = dirFilterPopover.querySelector('[data-dir-filter-toggle-all="1"]');
+        if (toggleAllInput instanceof HTMLInputElement) {
+            toggleAllInput.checked = isAllSelectedDirFilterState(state, rows);
+        }
 
         activeDirFilterKey = lineDirKey;
         dirFilterPopover.classList.remove('is-hidden');
@@ -2922,11 +2985,27 @@ export function createPanel(options = {}) {
         const target = evt?.target;
         if (!(target instanceof HTMLInputElement)) return;
         if (target.type !== 'checkbox') return;
+        if (target.hasAttribute('data-dir-filter-toggle-all')) {
+            if (!activeDirFilterKey) return;
+            const rows = dirFilterRowsByKey.get(activeDirFilterKey) || [];
+            const state = target.checked
+                ? createAllSelectedDirFilterState(rows)
+                : createEmptyDirFilterState();
+            dirFilterStateByKey.set(activeDirFilterKey, state);
+
+            const [lineId, dirKey] = activeDirFilterKey.split('||');
+            await rerenderLineById(lineId);
+
+            const anchorEl = body.querySelector(`.panel-dir-filter-btn[data-line-id="${escapeHtml(String(lineId))}"][data-dir-key="${escapeHtml(String(dirKey))}"]`);
+            if (anchorEl) openDirFilterPopover({ lineId, dirKey, anchorEl });
+            else closeDirFilterPopover();
+            return;
+        }
         const field = toText(target.getAttribute('data-dir-filter-field'));
         if (field !== 'origins' && field !== 'terminals' && field !== 'types') return;
         if (!activeDirFilterKey) return;
 
-        const state = dirFilterStateByKey.get(activeDirFilterKey) || { origins: new Set(), terminals: new Set(), types: new Set() };
+        const state = dirFilterStateByKey.get(activeDirFilterKey) || createAllSelectedDirFilterState(dirFilterRowsByKey.get(activeDirFilterKey) || []);
         if (!dirFilterStateByKey.has(activeDirFilterKey)) dirFilterStateByKey.set(activeDirFilterKey, state);
         const value = toText(target.value);
         if (!value) return;
@@ -2960,10 +3039,8 @@ export function createPanel(options = {}) {
         if (clearBtn) {
             stopEvent(evt);
             if (!activeDirFilterKey) return;
-            const state = dirFilterStateByKey.get(activeDirFilterKey) || { origins: new Set(), terminals: new Set(), types: new Set() };
-            state.origins.clear();
-            state.terminals.clear();
-            state.types.clear();
+            const rows = dirFilterRowsByKey.get(activeDirFilterKey) || [];
+            const state = createAllSelectedDirFilterState(rows);
             dirFilterStateByKey.set(activeDirFilterKey, state);
 
             const [lineId, dirKey] = activeDirFilterKey.split('||');
