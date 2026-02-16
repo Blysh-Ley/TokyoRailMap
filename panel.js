@@ -1156,7 +1156,6 @@ export function createPanel(options = {}) {
     // expanded state per (lineId, direction)
     let expandedDirKeys = new Set();
     const dirFilterStateByKey = new Map(); // lineId||dir -> { origins:Set, terminals:Set, types:Set }
-    const dirFilterToggleModeByKey = new Map(); // lineId||dir -> true:全选模式(显式), false:取消全选模式(隐式全量)
     const dirFilterRowsByKey = new Map(); // lineId||dir -> Array<{origin,terminal,type}>
     const dirPreviewMetaByKey = new Map(); // lineId||dir -> { lineId, originStationIds:string[], terminalStationIds:string[] }
     let activeDirPreviewKey = '';
@@ -1903,7 +1902,6 @@ export function createPanel(options = {}) {
             const lineDirKey = makeLineDirKey(lineId, dirKey);
             const expanded = isDirExpanded(lineId, dirKey);
             const tri = expanded ? '▾' : '▸';
-            if (!dirFilterToggleModeByKey.has(lineDirKey)) dirFilterToggleModeByKey.set(lineDirKey, true);
 
             const rowsForDir = rows.filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
             const { typeHints, terminalHints } = buildDirectionGridHints(rowsForDir);
@@ -1916,50 +1914,15 @@ export function createPanel(options = {}) {
                 .filter((r) => r.origin || r.terminal || r.type);
             dirFilterRowsByKey.set(lineDirKey, filterRowsForDir);
 
-            const allOrigins = new Set(filterRowsForDir.map((r) => toText(r.origin)).filter(Boolean));
-            const allTerminals = new Set(filterRowsForDir.map((r) => toText(r.terminal)).filter(Boolean));
-            const allTypes = new Set(filterRowsForDir.map((r) => toText(r.type)).filter(Boolean));
-
-            const explicitAllMode = dirFilterToggleModeByKey.get(lineDirKey) !== false;
-            let state = dirFilterStateByKey.get(lineDirKey);
-            if (!state) {
-                state = explicitAllMode
-                    ? {
-                        origins: new Set(allOrigins),
-                        terminals: new Set(allTerminals),
-                        types: new Set(allTypes)
-                    }
-                    : {
-                        origins: new Set(),
-                        terminals: new Set(),
-                        types: new Set()
-                    };
-                dirFilterStateByKey.set(lineDirKey, state);
-            } else {
-                const syncBucket = (selected, all) => {
-                    const out = new Set();
-                    const src = selected instanceof Set ? selected : new Set();
-                    for (const value of src) {
-                        if (all.has(value)) out.add(value);
-                    }
-                    return out;
-                };
-                const synced = {
-                    origins: syncBucket(state.origins, allOrigins),
-                    terminals: syncBucket(state.terminals, allTerminals),
-                    types: syncBucket(state.types, allTypes)
-                };
-                state = synced;
+            const state = dirFilterStateByKey.get(lineDirKey) || { origins: new Set(), terminals: new Set(), types: new Set() };
+            if (!dirFilterStateByKey.has(lineDirKey)) {
                 dirFilterStateByKey.set(lineDirKey, state);
             }
 
             const filteredRowsForDir = rowsForDir.filter((r) => {
-                const originText = toText(r.originName);
-                const terminalText = toText(r.terminalName || r.destName);
-                const typeText = toText(r.typeName);
-                const originOk = (!explicitAllMode && !state.origins.size) || state.origins.has(originText);
-                const terminalOk = (!explicitAllMode && !state.terminals.size) || state.terminals.has(terminalText);
-                const typeOk = (!explicitAllMode && !state.types.size) || state.types.has(typeText);
+                const originOk = !state.origins.size || state.origins.has(toText(r.originName));
+                const terminalOk = !state.terminals.size || state.terminals.has(toText(r.terminalName || r.destName));
+                const typeOk = !state.types.size || state.types.has(toText(r.typeName));
                 return originOk && terminalOk && typeOk;
             });
 
@@ -3048,28 +3011,25 @@ export function createPanel(options = {}) {
         return true;
     };
 
-    const getFilterRowsForState = ({ rows, state, ignoreField = '', treatEmptyAsAll = false }) => {
+    const getFilterRowsForState = ({ rows, state, ignoreField = '' }) => {
         const list = Array.isArray(rows) ? rows : [];
         return list.filter((row) => {
             const origin = toText(row?.origin);
             const terminal = toText(row?.terminal);
             const type = toText(row?.type);
-            const origins = state?.origins instanceof Set ? state.origins : new Set();
-            const terminals = state?.terminals instanceof Set ? state.terminals : new Set();
-            const types = state?.types instanceof Set ? state.types : new Set();
-            const originOk = ignoreField === 'origins' || ((treatEmptyAsAll && !origins.size) || origins.has(origin));
-            const terminalOk = ignoreField === 'terminals' || ((treatEmptyAsAll && !terminals.size) || terminals.has(terminal));
-            const typeOk = ignoreField === 'types' || ((treatEmptyAsAll && !types.size) || types.has(type));
+            const originOk = ignoreField === 'origins' || (state?.origins instanceof Set && state.origins.has(origin));
+            const terminalOk = ignoreField === 'terminals' || (state?.terminals instanceof Set && state.terminals.has(terminal));
+            const typeOk = ignoreField === 'types' || (state?.types instanceof Set && state.types.has(type));
             return originOk && terminalOk && typeOk;
         });
     };
 
-    const buildFilterFacetEntries = ({ rows, field, state, treatEmptyAsAll = false }) => {
+    const buildFilterFacetEntries = ({ rows, field, state }) => {
         const rowKey = FILTER_FIELD_TO_ROW_KEY[field];
         if (!rowKey) return [];
 
-        const scopedRows = getFilterRowsForState({ rows, state, ignoreField: field, treatEmptyAsAll });
-        const sourceRows = scopedRows;
+        const scopedRows = getFilterRowsForState({ rows, state, ignoreField: field });
+        const sourceRows = scopedRows.length ? scopedRows : (Array.isArray(rows) ? rows : []);
         const counts = new Map();
         for (const row of sourceRows) {
             const value = toText(row?.[rowKey]);
@@ -3119,11 +3079,9 @@ export function createPanel(options = {}) {
     const openDirFilterPopover = ({ lineId, dirKey, anchorEl }) => {
         const lineDirKey = makeLineDirKey(lineId, dirKey);
         const rows = dirFilterRowsByKey.get(lineDirKey) || [];
-        if (!dirFilterToggleModeByKey.has(lineDirKey)) dirFilterToggleModeByKey.set(lineDirKey, true);
-        const explicitAllMode = dirFilterToggleModeByKey.get(lineDirKey) !== false;
         let state;
         if (!dirFilterStateByKey.has(lineDirKey)) {
-            state = explicitAllMode ? createAllSelectedDirFilterState(rows) : createEmptyDirFilterState();
+            state = createAllSelectedDirFilterState(rows);
             dirFilterStateByKey.set(lineDirKey, state);
         } else {
             state = syncDirFilterStateWithRows(dirFilterStateByKey.get(lineDirKey), rows);
@@ -3132,9 +3090,9 @@ export function createPanel(options = {}) {
 
         const bodyEl = dirFilterPopover.querySelector('[data-dir-filter-popover-body]');
         if (!bodyEl) return;
-        const originEntries = buildFilterFacetEntries({ rows, field: 'origins', state, treatEmptyAsAll: !explicitAllMode });
-        const terminalEntries = buildFilterFacetEntries({ rows, field: 'terminals', state, treatEmptyAsAll: !explicitAllMode });
-        const typeEntries = buildFilterFacetEntries({ rows, field: 'types', state, treatEmptyAsAll: !explicitAllMode });
+        const originEntries = buildFilterFacetEntries({ rows, field: 'origins', state });
+        const terminalEntries = buildFilterFacetEntries({ rows, field: 'terminals', state });
+        const typeEntries = buildFilterFacetEntries({ rows, field: 'types', state });
         bodyEl.innerHTML = [
             buildDirFilterColumnHtml({ title: '始发站', field: 'origins', entries: originEntries, selected: state.origins }),
             buildDirFilterColumnHtml({ title: '终点站', field: 'terminals', entries: terminalEntries, selected: state.terminals }),
@@ -3143,7 +3101,7 @@ export function createPanel(options = {}) {
 
         const toggleAllInput = dirFilterPopover.querySelector('[data-dir-filter-toggle-all="1"]');
         if (toggleAllInput instanceof HTMLInputElement) {
-            toggleAllInput.checked = explicitAllMode;
+            toggleAllInput.checked = isAllSelectedDirFilterState(state, rows);
         }
 
         activeDirFilterKey = lineDirKey;
@@ -3174,7 +3132,6 @@ export function createPanel(options = {}) {
         if (target.hasAttribute('data-dir-filter-toggle-all')) {
             if (!activeDirFilterKey) return;
             const rows = dirFilterRowsByKey.get(activeDirFilterKey) || [];
-            dirFilterToggleModeByKey.set(activeDirFilterKey, target.checked);
             const state = target.checked
                 ? createAllSelectedDirFilterState(rows)
                 : createEmptyDirFilterState();
@@ -3192,25 +3149,14 @@ export function createPanel(options = {}) {
         if (field !== 'origins' && field !== 'terminals' && field !== 'types') return;
         if (!activeDirFilterKey) return;
 
-        const explicitAllMode = dirFilterToggleModeByKey.get(activeDirFilterKey) !== false;
-        const fallbackState = explicitAllMode
-            ? createAllSelectedDirFilterState(dirFilterRowsByKey.get(activeDirFilterKey) || [])
-            : createEmptyDirFilterState();
-        const state = dirFilterStateByKey.get(activeDirFilterKey) || fallbackState;
+        const state = dirFilterStateByKey.get(activeDirFilterKey) || createAllSelectedDirFilterState(dirFilterRowsByKey.get(activeDirFilterKey) || []);
         if (!dirFilterStateByKey.has(activeDirFilterKey)) dirFilterStateByKey.set(activeDirFilterKey, state);
         const value = toText(target.value);
         if (!value) return;
 
         const bucket = state[field];
-        if (target.checked) {
-            if (explicitAllMode) bucket.add(value);
-            else {
-                bucket.clear();
-                bucket.add(value);
-            }
-        } else {
-            bucket.delete(value);
-        }
+        if (target.checked) bucket.add(value);
+        else bucket.delete(value);
 
         const [lineId, dirKey] = activeDirFilterKey.split('||');
         await rerenderLineById(lineId);
@@ -3238,7 +3184,6 @@ export function createPanel(options = {}) {
             stopEvent(evt);
             if (!activeDirFilterKey) return;
             const rows = dirFilterRowsByKey.get(activeDirFilterKey) || [];
-            dirFilterToggleModeByKey.set(activeDirFilterKey, true);
             const state = createAllSelectedDirFilterState(rows);
             dirFilterStateByKey.set(activeDirFilterKey, state);
 
@@ -3426,6 +3371,17 @@ export function createPanel(options = {}) {
         renderTimetableForLineEl(lineEl, currentStationId, token);
     };
 
+    const toggleDirectionTimetable = (lineId, dirKey) => {
+        const lid = toText(lineId);
+        const dkey = toText(dirKey);
+        if (!lid || !dkey) return;
+        const nextExpanded = !isDirExpanded(lid, dkey);
+        setDirExpanded(lid, dkey, nextExpanded);
+        const lineEl = body.querySelector(`[data-line-id="${escapeHtml(String(lid))}"]`);
+        const token = ++timetableRenderToken;
+        renderTimetableForLineEl(lineEl, currentStationId, token);
+    };
+
     const onBodyPointerDown = (evt) => {
         const pt = readPointerType(evt);
         lastPointerType = pt;
@@ -3509,20 +3465,14 @@ export function createPanel(options = {}) {
         const dirTriangle = getDirTriangleTarget(evt?.target);
         if (dirTriangle) {
             stopEvent(evt);
-            unpinDirPreview();
-            pinnedPanelSelection = null;
-            expandDirectionTimetable(dirTriangle.lineId, dirTriangle.dirKey);
+            toggleDirectionTimetable(dirTriangle.lineId, dirTriangle.dirKey);
             return;
         }
 
         const dirTitle = getDirTitleTarget(evt?.target);
         if (dirTitle) {
             stopEvent(evt);
-            const lineDirKey = makeLineDirKey(dirTitle.lineId, dirTitle.dirKey);
-            applyDirPreviewByKey(lineDirKey, { fitMode: 'commit' });
-            pinDirPreviewByKey(lineDirKey);
-            setPinnedPanelSelection('dir', lineDirKey);
-            expandDirectionTimetable(dirTitle.lineId, dirTitle.dirKey);
+            toggleDirectionTimetable(dirTitle.lineId, dirTitle.dirKey);
             return;
         }
 
@@ -3710,23 +3660,14 @@ export function createPanel(options = {}) {
         const dirTriangle = getDirTriangleTarget(evt?.target);
         if (dirTriangle) {
             stopEvent(evt);
-            unpinDirPreview();
-            pinnedPanelSelection = null;
-            expandDirectionTimetable(dirTriangle.lineId, dirTriangle.dirKey);
+            toggleDirectionTimetable(dirTriangle.lineId, dirTriangle.dirKey);
             return;
         }
 
         const dirTitle = getDirTitleTarget(evt?.target);
         if (dirTitle) {
             stopEvent(evt);
-            const lineDirKey = makeLineDirKey(dirTitle.lineId, dirTitle.dirKey);
-            if (lastMousePrimaryKey !== `dir:${lineDirKey}`) {
-                applyDirPreviewByKey(lineDirKey, { fitMode: 'preview' });
-                lastMousePrimaryKey = `dir:${lineDirKey}`;
-            }
-            pinDirPreviewByKey(lineDirKey);
-            setPinnedPanelSelection('dir', lineDirKey);
-            expandDirectionTimetable(dirTitle.lineId, dirTitle.dirKey);
+            toggleDirectionTimetable(dirTitle.lineId, dirTitle.dirKey);
             return;
         }
 
