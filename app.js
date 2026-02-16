@@ -13,6 +13,36 @@ const maplibregl = window.maplibregl;
 if (!maplibregl) {
     throw new Error('MapLibre GL JS 未加载：请检查 maplibre-gl.js 引入是否成功');
 }
+const APPEARANCE_STORAGE_KEY = 'tokyorail.appearance.mode';
+const TIMETABLE_VIEW_STORAGE_KEY = 'tokyorail.timetable.view.mode';
+const getSystemTheme = () => (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+const readAppearanceMode = () => {
+    try {
+        const raw = String(window.localStorage.getItem(APPEARANCE_STORAGE_KEY) || 'system').trim();
+        if (raw === 'light' || raw === 'dark' || raw === 'system') return raw;
+    } catch {
+        // ignore
+    }
+    return 'system';
+};
+const resolveThemeFromAppearance = (mode) => {
+    if (mode === 'dark') return 'dark';
+    if (mode === 'light') return 'light';
+    return getSystemTheme();
+};
+const readTimetableViewMode = () => {
+    try {
+        const raw = String(window.localStorage.getItem(TIMETABLE_VIEW_STORAGE_KEY) || 'list').trim();
+        if (raw === 'list' || raw === 'grid') return raw;
+    } catch {
+        // ignore
+    }
+    return 'list';
+};
+
+const initialTheme = resolveThemeFromAppearance(readAppearanceMode());
+document.documentElement.setAttribute('data-theme', initialTheme);
+let mapMode = initialTheme;
 
 // 1) 初始化地图（底图使用 Carto raster tiles）
 const map = new maplibregl.Map({
@@ -32,6 +62,17 @@ const map = new maplibregl.Map({
                 ],
                 tileSize: 256,
                 attribution: '&copy; <a href="https://carto.com/">Carto</a>'
+            },
+            'carto-dark-source': {
+                type: 'raster',
+                tiles: [
+                    'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+                ],
+                tileSize: 256,
+                attribution: '&copy; <a href="https://carto.com/">Carto</a>'
             }
         },
         layers: [
@@ -39,6 +80,16 @@ const map = new maplibregl.Map({
                 id: 'carto-light-layer',
                 type: 'raster',
                 source: 'carto-light-source',
+                layout: { visibility: mapMode === 'light' ? 'visible' : 'none' },
+                minzoom: 0,
+                maxzoom: 18,
+                paint: {}
+            },
+            {
+                id: 'carto-dark-layer',
+                type: 'raster',
+                source: 'carto-dark-source',
+                layout: { visibility: mapMode === 'dark' ? 'visible' : 'none' },
                 minzoom: 0,
                 maxzoom: 18,
                 paint: {}
@@ -46,6 +97,20 @@ const map = new maplibregl.Map({
         ]
     }
 });
+
+const applyBasemapTheme = (theme) => {
+    const next = theme === 'dark' ? 'dark' : 'light';
+    mapMode = next;
+    const lightVisibility = next === 'light' ? 'visible' : 'none';
+    const darkVisibility = next === 'dark' ? 'visible' : 'none';
+
+    try {
+        if (map.getLayer('carto-light-layer')) map.setLayoutProperty('carto-light-layer', 'visibility', lightVisibility);
+        if (map.getLayer('carto-dark-layer')) map.setLayoutProperty('carto-dark-layer', 'visibility', darkVisibility);
+    } catch {
+        // ignore
+    }
+};
 
 // 左下角比例尺
 map.addControl(
@@ -76,6 +141,7 @@ map.on('load', async () => {
 
     applyCustomAttribution();
     map.on('styledata', applyCustomAttribution);
+    applyBasemapTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
 
     // 触屏防误触：仅短按且几乎不移动才视为 tap
     const touchTapGuard = getGlobalTouchTapGuard({ maxDurationMs: 500, maxMovePx: 12 });
@@ -273,7 +339,7 @@ map.on('load', async () => {
             const companyKey = String(selectedCompany);
             const companyZh = String(companyLogoMap?.[companyKey]?.zh || '').trim();
             selectionBadgeTextEl.textContent = companyZh || companyKey;
-            selectionBadgeTextEl.style.color = '#111';
+            selectionBadgeTextEl.style.color = isDarkThemeActive() ? '#f2f2f2' : '#111';
             selectionBadgeEl.classList.remove('is-hidden');
             return;
         }
@@ -514,6 +580,54 @@ map.on('load', async () => {
         ];
     }
 
+    function isDarkThemeActive() {
+        return document.documentElement.getAttribute('data-theme') === 'dark';
+    }
+
+    function stationCircleColorPaintExpr() {
+        if (!isDarkThemeActive()) return '#fff';
+        const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
+        return [
+            'case',
+            ['==', ['length', servingIdsExpr], 1],
+            '#8e95a1',
+            '#111'
+        ];
+    }
+
+    function stationCircleStrokeColorPaint() {
+        return isDarkThemeActive() ? '#fff' : '#333';
+    }
+
+    function tripPreviewStopCircleColorPaintExpr() {
+        if (!isDarkThemeActive()) return '#fff';
+        return [
+            'case',
+            ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
+            '#8e95a1',
+            '#111'
+        ];
+    }
+
+    function tripPreviewStopStrokeColorPaint() {
+        return isDarkThemeActive() ? '#fff' : '#111';
+    }
+
+    function applyStationThemePaintToMapLayers() {
+        try {
+            if (map.getLayer('stations-layer')) {
+                map.setPaintProperty('stations-layer', 'circle-color', stationCircleColorPaintExpr());
+                map.setPaintProperty('stations-layer', 'circle-stroke-color', stationCircleStrokeColorPaint());
+            }
+            if (map.getLayer('trip-preview-stops-layer')) {
+                map.setPaintProperty('trip-preview-stops-layer', 'circle-color', tripPreviewStopCircleColorPaintExpr());
+                map.setPaintProperty('trip-preview-stops-layer', 'circle-stroke-color', tripPreviewStopStrokeColorPaint());
+            }
+        } catch {
+            // ignore
+        }
+    }
+
     function buildStationAnyLineMatchExpr(lineIds) {
         // 判断站点是否服务于给定线路集合：
         // 优先用 platform_line_id（平台所属线路 id）来判断，避免换乘站的“另一条线路站台”被误判为命中
@@ -538,8 +652,7 @@ map.on('load', async () => {
             map.setPaintProperty('stations-layer', 'circle-stroke-width', baseStationCircleStrokeWidthExpr());
             map.setPaintProperty('stations-layer', 'circle-opacity', 1);
             map.setPaintProperty('stations-layer', 'circle-stroke-opacity', 1);
-            map.setPaintProperty('stations-layer', 'circle-color', '#fff');
-            map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
+            applyStationThemePaintToMapLayers();
             return;
         }
 
@@ -565,8 +678,7 @@ map.on('load', async () => {
             ]);
             map.setPaintProperty('stations-layer', 'circle-opacity', 1);
             map.setPaintProperty('stations-layer', 'circle-stroke-opacity', 1);
-            map.setPaintProperty('stations-layer', 'circle-color', '#fff');
-            map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
+            applyStationThemePaintToMapLayers();
             return;
         }
 
@@ -584,8 +696,7 @@ map.on('load', async () => {
             // 若不在“恢复原样式”时重置，会导致换乘站出现“空心圈/圆心透明”。
             map.setPaintProperty('stations-layer', 'circle-opacity', 1);
             map.setPaintProperty('stations-layer', 'circle-stroke-opacity', 1);
-            map.setPaintProperty('stations-layer', 'circle-color', '#fff');
-            map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
+            applyStationThemePaintToMapLayers();
             return;
         }
 
@@ -670,9 +781,7 @@ map.on('load', async () => {
             baseStationCircleStrokeWidthExpr(),
             0
         ]);
-
-        map.setPaintProperty('stations-layer', 'circle-color', '#fff');
-        map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
+        applyStationThemePaintToMapLayers();
         
     }
 
@@ -810,6 +919,7 @@ map.on('load', async () => {
         hoverDelayMs: 50,
         settingsContentEl: settingsMenuContentEl,
         companyLogoMap,
+        getTimetableViewMode: () => readTimetableViewMode(),
         getLineMeta: (lineId) => {
             const id = String(lineId);
             return {
@@ -1401,6 +1511,176 @@ map.on('load', async () => {
         setMode('auto');
     }
 
+    function mountAppearanceToggle(hostEl) {
+        const storageKey = APPEARANCE_STORAGE_KEY;
+        const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+        const container = document.createElement('div');
+        container.className = 'settings-item settings-item-appearance';
+
+        const text = document.createElement('span');
+        text.className = 'settings-item-title';
+        text.textContent = '外观';
+
+        const seg = document.createElement('div');
+        seg.className = 'settings-item-control settings-seg';
+
+        const btnLight = document.createElement('button');
+        btnLight.type = 'button';
+        btnLight.textContent = '浅色';
+
+        const btnDark = document.createElement('button');
+        btnDark.type = 'button';
+        btnDark.textContent = '深色';
+
+        const btnSystem = document.createElement('button');
+        btnSystem.type = 'button';
+        btnSystem.textContent = '跟随系统';
+
+        seg.appendChild(btnLight);
+        seg.appendChild(btnDark);
+        seg.appendChild(btnSystem);
+
+        container.appendChild(text);
+        container.appendChild(seg);
+
+        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
+        if (host.firstChild) host.insertBefore(container, host.firstChild);
+        else host.appendChild(container);
+
+        const resolveTheme = (mode) => {
+            if (mode === 'dark') return 'dark';
+            if (mode === 'light') return 'light';
+            return media?.matches ? 'dark' : 'light';
+        };
+
+        const setThemeMode = (mode) => {
+            const m = (mode === 'light' || mode === 'dark' || mode === 'system') ? mode : 'system';
+            btnLight.classList.toggle('is-active', m === 'light');
+            btnDark.classList.toggle('is-active', m === 'dark');
+            btnSystem.classList.toggle('is-active', m === 'system');
+            const resolved = resolveTheme(m);
+            document.documentElement.setAttribute('data-theme', resolved);
+            applyBasemapTheme(resolved);
+            applyStationThemePaintToMapLayers();
+            try {
+                window.localStorage.setItem(storageKey, m);
+            } catch {
+                // ignore
+            }
+        };
+
+        btnLight.addEventListener('click', () => setThemeMode('light'));
+        btnDark.addEventListener('click', () => setThemeMode('dark'));
+        btnSystem.addEventListener('click', () => setThemeMode('system'));
+
+        const onSystemThemeChange = () => {
+            let currentMode = 'system';
+            try {
+                const saved = String(window.localStorage.getItem(storageKey) || 'system').trim();
+                if (saved === 'light' || saved === 'dark' || saved === 'system') currentMode = saved;
+            } catch {
+                // ignore
+            }
+            if (currentMode === 'system') setThemeMode('system');
+        };
+
+        if (media && typeof media.addEventListener === 'function') {
+            media.addEventListener('change', onSystemThemeChange);
+        } else if (media && typeof media.addListener === 'function') {
+            media.addListener(onSystemThemeChange);
+        }
+
+        let initial = 'system';
+        try {
+            const saved = String(window.localStorage.getItem(storageKey) || 'system').trim();
+            if (saved === 'light' || saved === 'dark' || saved === 'system') initial = saved;
+        } catch {
+            // ignore
+        }
+        setThemeMode(initial);
+    }
+
+    function mountTimetableViewToggle(hostEl) {
+        const storageKey = TIMETABLE_VIEW_STORAGE_KEY;
+
+        const container = document.createElement('div');
+        container.className = 'settings-item settings-item-timetable-view';
+
+        const text = document.createElement('span');
+        text.className = 'settings-item-title';
+        text.textContent = '班次视图';
+
+        const seg = document.createElement('div');
+        seg.className = 'settings-item-control settings-view-seg';
+
+        const btnList = document.createElement('button');
+        btnList.type = 'button';
+        btnList.className = 'settings-view-btn settings-view-btn-list';
+        btnList.setAttribute('aria-label', '列表视图');
+
+        const listIcon = document.createElement('img');
+        listIcon.className = 'settings-view-btn-icon';
+        listIcon.alt = '';
+        {
+            const candidates = ['./icons/list.svg', '/icons/list.svg'];
+            let idx = 0;
+            listIcon.src = candidates[idx];
+            listIcon.addEventListener('error', () => {
+                idx += 1;
+                if (idx < candidates.length) listIcon.src = candidates[idx];
+            });
+        }
+        btnList.appendChild(listIcon);
+
+        const btnGrid = document.createElement('button');
+        btnGrid.type = 'button';
+        btnGrid.className = 'settings-view-btn settings-view-btn-grid';
+        btnGrid.setAttribute('aria-label', '网格视图');
+
+        const gridIcon = document.createElement('img');
+        gridIcon.className = 'settings-view-btn-icon';
+        gridIcon.alt = '';
+        {
+            const candidates = ['./icons/grid.svg', '/icons/grid.svg'];
+            let idx = 0;
+            gridIcon.src = candidates[idx];
+            gridIcon.addEventListener('error', () => {
+                idx += 1;
+                if (idx < candidates.length) gridIcon.src = candidates[idx];
+            });
+        }
+        btnGrid.appendChild(gridIcon);
+
+        seg.appendChild(btnList);
+        seg.appendChild(btnGrid);
+        container.appendChild(text);
+        container.appendChild(seg);
+
+        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
+        if (host.firstChild) host.insertBefore(container, host.firstChild);
+        else host.appendChild(container);
+
+        const setMode = (mode) => {
+            const m = mode === 'grid' ? 'grid' : 'list';
+            btnList.classList.toggle('is-active', m === 'list');
+            btnGrid.classList.toggle('is-active', m === 'grid');
+            panel?.setTimetableViewMode?.(m);
+            try {
+                window.localStorage.setItem(storageKey, m);
+            } catch {
+                // ignore
+            }
+        };
+
+        btnList.addEventListener('click', () => setMode('list'));
+        btnGrid.addEventListener('click', () => setMode('grid'));
+
+        setMode(readTimetableViewMode());
+    }
+
+    mountAppearanceToggle(settingsMenuContentEl);
+    mountTimetableViewToggle(settingsMenuContentEl);
     mountStationLabelToggle(settingsMenuContentEl);
 
     let generatedLinesData = null;
@@ -1550,14 +1830,14 @@ map.on('load', async () => {
                                 4
                             ]
                         ],
-                        'circle-color': '#fff',
+                        'circle-color': tripPreviewStopCircleColorPaintExpr(),
                         'circle-stroke-width': [
                             'case',
                             ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
                             0,
                             2
                         ],
-                        'circle-stroke-color': '#111'
+                        'circle-stroke-color': tripPreviewStopStrokeColorPaint()
                     }
                 });
             }
@@ -2085,11 +2365,21 @@ map.on('load', async () => {
             const coord = stationCoordById.get(sid);
             if (!Array.isArray(coord) || coord.length < 2) return null;
 
+            const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark';
+            const role = String(text || '').includes('始发') ? 'origin' : (String(text || '').includes('终点') ? 'terminal' : 'normal');
+            const resolvedColor = role === 'origin'
+                ? (isDarkTheme ? '#59e37d' : (color || '#1A9B2D'))
+                : role === 'terminal'
+                    ? (isDarkTheme ? '#ff6b6b' : (color || '#D32F2F'))
+                    : String(color || '#111');
+
             const el = document.createElement('div');
             el.style.fontSize = '12px';
             el.style.fontWeight = '700';
             el.style.lineHeight = '1.2';
-            el.style.color = String(color || '#111');
+            el.style.color = resolvedColor;
+            if (role === 'origin') el.classList.add('trip-endpoint-origin');
+            if (role === 'terminal') el.classList.add('trip-endpoint-terminal');
             el.textContent = String(text || '');
 
             return new maplibregl.Popup({
@@ -2114,7 +2404,7 @@ map.on('load', async () => {
 
             tripPreviewOriginPopup = createTripEndpointPopup({
                 stationId: startId,
-                text: '起点站',
+                text: '始发站',
                 color: '#1A9B2D',
                 yOffset: 8
             });
@@ -2144,11 +2434,21 @@ map.on('load', async () => {
             const coord = stationCoordById.get(sid);
             if (!Array.isArray(coord) || coord.length < 2) return null;
 
+            const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark';
+            const role = String(text || '').includes('始发') ? 'origin' : (String(text || '').includes('终点') ? 'terminal' : 'normal');
+            const resolvedColor = role === 'origin'
+                ? (isDarkTheme ? '#59e37d' : (color || '#1A9B2D'))
+                : role === 'terminal'
+                    ? (isDarkTheme ? '#ff6b6b' : (color || '#D32F2F'))
+                    : String(color || '#111');
+
             const el = document.createElement('div');
             el.style.fontSize = '12px';
             el.style.fontWeight = '700';
             el.style.lineHeight = '1.2';
-            el.style.color = String(color || '#111');
+            el.style.color = resolvedColor;
+            if (role === 'origin') el.classList.add('trip-endpoint-origin');
+            if (role === 'terminal') el.classList.add('trip-endpoint-terminal');
             el.textContent = String(text || '');
 
             return new maplibregl.Popup({

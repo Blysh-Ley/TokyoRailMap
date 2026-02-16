@@ -12,6 +12,13 @@
     <style>
         :root {
             --custom-icon-font-size: 12px;
+            --ui-text: #111;
+            --ui-border: #e3e5e7;
+        }
+
+        html[data-theme='dark'] {
+            --ui-text: #f2f2f2;
+            --ui-border: #5a5d62;
         }
 
         html, body {
@@ -401,8 +408,8 @@
             width: 100%;
             box-sizing: border-box;
             margin: 0;
-            padding-top: 2px;
-            padding-bottom: 2px;
+            padding-top: 10px;
+            padding-bottom: 10px;
             cursor: default;
         }
 
@@ -415,6 +422,7 @@
         }
 
         .panel-line-name {
+            font-size: 20px;
             flex: 1 1 auto;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -554,6 +562,157 @@
 
         .panel-timetable.is-expanded::-webkit-scrollbar {
             display: none;
+        }
+
+        .panel-timetable.panel-timetable-view-grid {
+            padding-left: 0;
+            margin-top: 4px;
+        }
+
+        .panel-timetable.panel-timetable-view-grid.is-collapsed {
+            max-height: calc(2 * 34px + 2px);
+            overflow: hidden;
+        }
+
+        .panel-timetable.panel-timetable-view-grid.is-expanded {
+            max-height: calc(10 * 34px + 10px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+
+        .panel-timetable-grid {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-grid-hints {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 2px 2px 4px 2px;
+            box-sizing: border-box;
+        }
+
+        .panel-grid-hint-line {
+            display: flex;
+            align-items: flex-start;
+            gap: 4px;
+            width: 100%;
+            font-size: 11px;
+            line-height: 1.25;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .panel-grid-hint-label {
+            flex: 0 0 auto;
+            color: #666 !important;
+            white-space: nowrap;
+        }
+
+        .panel-grid-hint-content {
+            flex: 1 1 auto;
+            min-width: 0;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .panel-grid-hint-item {
+            white-space: normal;
+        }
+
+        .panel-grid-hint-sep {
+            color: #999;
+        }
+
+        .panel-grid-row {
+            display: grid;
+            grid-template-columns: 30px minmax(0, 1fr);
+            align-items: stretch;
+            min-height: 34px;
+        }
+
+        .panel-grid-row.is-alt-a {
+            background: #f6f7f9;
+        }
+
+        .panel-grid-row.is-alt-b {
+            background: #eef1f5;
+        }
+
+        .panel-grid-hour {
+            width: 30px;
+            min-height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            background: #3498db;
+            border-top: 1px solid rgba(255, 255, 255, 0.9);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.9);
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        .panel-grid-trips {
+            min-height: 34px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: stretch;
+            align-content: flex-start;
+            gap: 0;
+        }
+
+        .panel-grid-cell {
+            min-height: 34px;
+            border-left: 1px solid rgba(0, 0, 0, 0.06);
+            padding: 1px 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+
+        .panel-grid-cell.is-hour-last {
+            border-right: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .panel-grid-cell.is-empty {
+            color: transparent;
+        }
+
+        .panel-grid-cell-trip {
+            cursor: pointer;
+            flex: 0 0 20%;
+            width: 20%;
+            max-width: 20%;
+        }
+
+        .panel-grid-trip {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            line-height: 1.05;
+            color: #111;
+        }
+
+        .panel-grid-trip-abbr {
+            font-size: 10px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .panel-grid-trip-minute {
+            font-size: 14px;
+            font-weight: 700;
         }
 
         .panel-timetable-row {
@@ -697,6 +856,20 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
+        }
+
+        .panel-dir-filter-toggle-all {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: #555;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .panel-dir-filter-toggle-all input {
+            margin: 0;
         }
 
         .panel-dir-filter-popover-clear {
@@ -977,8 +1150,8 @@
         }
 
         .panel-company-logo {
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
             object-fit: contain;
             flex: 0 0 20px;
         }
@@ -991,7 +1164,7 @@
         }
 
         .panel-company-name {
-            font-size: 18px;
+            font-size: 25px;
         }
 
         .panel-company-lines .panel-line {
@@ -1076,7 +1249,41 @@
                 display: inline-flex;
                 align-items: center;
                 justify-content: flex-end;
-                gap: 6px;
+            }
+
+            .settings-view-seg {
+                display: inline-flex;
+                border: 1px solid #e3e5e7;
+                border-radius: 9999px;
+                overflow: hidden;
+                background: #fff;
+            }
+
+            .settings-view-btn {
+                width: 32px;
+                height: 24px;
+                border: none;
+                background: transparent;
+                padding: 0;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+            }
+
+            .settings-view-btn:hover {
+                background: #f0f0f0;
+            }
+
+            .settings-view-btn.is-active {
+                background: #3498db;
+            }
+
+            .settings-view-btn-icon {
+                width: 14px;
+                height: 14px;
+                display: block;
+                pointer-events: none;
             }
 
             .settings-time-control {
@@ -1095,7 +1302,7 @@
             }
 
             .settings-time-input {
-                font-size: 15px;
+                font-size: 13px;
                 width: 50px;
                 text-align: center;
                 border: 1px solid #e3e5e7;
@@ -1634,6 +1841,239 @@
             line-height: 1.2;
             font-weight: 600;
             color: #111;
+        }
+
+        html[data-theme='dark'] .search-ui::before,
+        html[data-theme='dark'] .settings-ui::before,
+        html[data-theme='dark'] .search-results,
+        html[data-theme='dark'] .settings-content,
+        html[data-theme='dark'] .panel-container,
+        html[data-theme='dark'] .panel-dir-filter-popover,
+        html[data-theme='dark'] .panel-trip-detail,
+        html[data-theme='dark'] .RW-list,
+        html[data-theme='dark'] .RW-content,
+        html[data-theme='dark'] .settings-item,
+        html[data-theme='dark'] .settings-time-input,
+        html[data-theme='dark'] .settings-time-picker,
+        html[data-theme='dark'] .panel-day-seg,
+        html[data-theme='dark'] .settings-seg,
+        html[data-theme='dark'] .settings-view-seg {
+            background: rgba(28, 28, 28, 0.94);
+            border-color: #5a5d62;
+            box-shadow: 0 0 30px rgba(0, 0, 0, .35);
+        }
+
+        html[data-theme='dark'] .selection-badge,
+        html[data-theme='dark'] .maplibregl-ctrl.maplibregl-ctrl-scale,
+        html[data-theme='dark'] .maplibregl-ctrl-scale {
+            background: rgba(28, 28, 28, 0.94);
+            border-color: #5a5d62;
+            color: #f2f2f2;
+            box-shadow: 0 0 30px rgba(0, 0, 0, .35);
+        }
+
+        html[data-theme='dark'] .selection-badge-text {
+            color: #f2f2f2;
+        }
+
+        html[data-theme='dark'] .search-input,
+        html[data-theme='dark'] .search-fab,
+        html[data-theme='dark'] .search-result-item,
+        html[data-theme='dark'] .search-result-text,
+        html[data-theme='dark'] .panel-popup,
+        html[data-theme='dark'] .panel-dir-header,
+        html[data-theme='dark'] .panel-dir-filter-popover-title,
+        html[data-theme='dark'] .panel-dir-filter-col-title,
+        html[data-theme='dark'] .panel-trip-detail-title,
+        html[data-theme='dark'] .panel-company-header,
+        html[data-theme='dark'] .panel-line-name,
+        html[data-theme='dark'] .panel-trip-detail-note-line,
+        html[data-theme='dark'] .panel-trip-detail-note-type,
+        html[data-theme='dark'] .settings-item-title,
+        html[data-theme='dark'] .settings-seg button,
+        html[data-theme='dark'] .panel-day-seg button,
+        html[data-theme='dark'] .RW-content,
+        html[data-theme='dark'] .RW-company-name {
+            color: #f2f2f2;
+        }
+
+        html[data-theme='dark'] .search-input::placeholder,
+        html[data-theme='dark'] .search-empty,
+        html[data-theme='dark'] .panel-timetable,
+        html[data-theme='dark'] .panel-time-label,
+        html[data-theme='dark'] .panel-line-name-suffix,
+        html[data-theme='dark'] .panel-dir-filter-option-count,
+        html[data-theme='dark'] .panel-dir-filter-popover-close,
+        html[data-theme='dark'] .panel-trip-detail-head,
+        html[data-theme='dark'] .panel-trip-detail-note-row,
+        html[data-theme='dark'] .RW-company-type {
+            color: #b8bcc3;
+        }
+
+        html[data-theme='dark'] .search-result-item::after,
+        html[data-theme='dark'] .RW-content::after,
+        html[data-theme='dark'] .panel-dir-filter-popover-head,
+        html[data-theme='dark'] .panel-trip-detail-header,
+        html[data-theme='dark'] .panel-dir-filter-col-body {
+            border-color: #5a5d62;
+            background-color: transparent;
+        }
+
+        html[data-theme='dark'] .panel-dir-filter-option {
+            color: #d8dbe1;
+        }
+
+        html[data-theme='dark'] .panel-grid-row.is-alt-a {
+            background: #1e232a;
+        }
+
+        html[data-theme='dark'] .panel-grid-row.is-alt-b {
+            background: #242a32;
+        }
+
+        html[data-theme='dark'] .panel-grid-cell {
+            border-left-color: rgba(255, 255, 255, 0.1);
+        }
+
+        html[data-theme='dark'] .panel-grid-cell.is-hour-last {
+            border-right-color: rgba(255, 255, 255, 0.1);
+        }
+
+        html[data-theme='dark'] .panel-dir-filter-popover-close:hover,
+        html[data-theme='dark'] .panel-day-seg button:hover,
+        html[data-theme='dark'] .settings-seg button:hover,
+        html[data-theme='dark'] .settings-time-picker-option:hover,
+        html[data-theme='dark'] .settings-time-picker-btn:hover,
+        html[data-theme='dark'] .panel-dir-filter-popover-clear:hover {
+            background: #2d323a;
+        }
+
+        html[data-theme='dark'] .panel-dir-filter-toggle-all {
+            color: #d8dbe1;
+        }
+
+        html[data-theme='dark'] .settings-time-picker-btn,
+        html[data-theme='dark'] .panel-dir-filter-popover-clear,
+        html[data-theme='dark'] .settings-time-picker-option {
+            background: #22262d;
+            border-color: #5a5d62;
+            color: #d8dbe1;
+        }
+
+        html[data-theme='dark'] .settings-time-input {
+            background: #22262d;
+            border-color: #5a5d62;
+            color: #f2f2f2;
+            caret-color: #f2f2f2;
+        }
+
+        html[data-theme='dark'] .settings-time-input::placeholder {
+            color: #9aa2ae;
+        }
+
+        html[data-theme='dark'] .settings-time-reset {
+            background: #22262d;
+            border-color: #5a5d62;
+        }
+
+        html[data-theme='dark'] .settings-time-reset:hover {
+            background: #2d323a;
+        }
+
+        html[data-theme='dark'] .panel-dir-filter-col-body::-webkit-scrollbar-thumb,
+        html[data-theme='dark'] .settings-time-picker-list::-webkit-scrollbar-thumb {
+            background: #5a5d62;
+        }
+
+        html[data-theme='dark'] .search-fab-icon,
+        html[data-theme='dark'] .settings-fab-icon,
+        html[data-theme='dark'] .panel-dir-filter-icon,
+        html[data-theme='dark'] .settings-time-reset-icon,
+        html[data-theme='dark'] .settings-view-btn-icon {
+            filter: invert(1) brightness(1.1);
+        }
+
+        html[data-theme='dark'] .settings-view-btn:hover {
+            background: #2d323a;
+        }
+
+        html[data-theme='dark'] .search-result-icon--line {
+            background: #f2f2f2;
+        }
+
+        html[data-theme='dark'] .search-result-icon--station {
+            background: #101216;
+            border-color: #c8cdd6;
+        }
+
+        html[data-theme='dark'] .panel-timetable-row.is-past,
+        html[data-theme='dark'] .panel-timetable-row.is-past .panel-time-arrive,
+        html[data-theme='dark'] .panel-timetable-row.is-past .panel-time-depart,
+        html[data-theme='dark'] .panel-time-label.is-past,
+        html[data-theme='dark'] .panel-trip-detail-row.is-past,
+        html[data-theme='dark'] .panel-trip-detail-row.is-past .panel-time-arrive,
+        html[data-theme='dark'] .panel-trip-detail-row.is-past .panel-time-depart,
+        html[data-theme='dark'] .panel-trip-detail-note-row.is-past,
+        html[data-theme='dark'] .panel-trip-detail-note-row.is-past .panel-trip-detail-note-prefix,
+        html[data-theme='dark'] .panel-trip-detail-note-row.is-past .panel-trip-detail-note-line,
+        html[data-theme='dark'] .panel-trip-detail-note-row.is-past .panel-trip-detail-note-type {
+            color: #6f7682;
+        }
+
+        html[data-theme='dark'] .station-label {
+            color: #f2f2f2;
+            background: rgba(24, 26, 31, 0.88);
+            border-color: rgba(210, 216, 226, 0.35);
+        }
+
+        html[data-theme='dark'] .maplibregl-popup-content {
+            background: rgba(24, 26, 31, 0.94);
+            color: #f2f2f2;
+        }
+
+        html[data-theme='dark'] .maplibregl-popup-content .station-hover-popup,
+        html[data-theme='dark'] .maplibregl-popup-content .station-hover-name,
+        html[data-theme='dark'] .maplibregl-popup-content .station-hover-line,
+        html[data-theme='dark'] .maplibregl-popup-content .station-hover-company-header,
+        html[data-theme='dark'] .maplibregl-popup-content .station-hover-company-name,
+        html[data-theme='dark'] .maplibregl-popup-content .panel-popup,
+        html[data-theme='dark'] .maplibregl-popup-content .panel-name,
+        html[data-theme='dark'] .maplibregl-popup-content .panel-line,
+        html[data-theme='dark'] .maplibregl-popup-content .panel-company-header,
+        html[data-theme='dark'] .maplibregl-popup-content .panel-company-name {
+            color: #f2f2f2;
+        }
+
+        html[data-theme='dark'] .maplibregl-popup-content .station-hover-line-suffix,
+        html[data-theme='dark'] .maplibregl-popup-content .station-hover-company-type,
+        html[data-theme='dark'] .maplibregl-popup-content .panel-line-name-suffix,
+        html[data-theme='dark'] .maplibregl-popup-content .panel-line-toggle,
+        html[data-theme='dark'] .maplibregl-popup-content .panel-time-label,
+        html[data-theme='dark'] .maplibregl-popup-content .panel-timetable {
+            color: #b8bcc3;
+        }
+
+        html[data-theme='dark'] .maplibregl-popup-anchor-top .maplibregl-popup-tip {
+            border-bottom-color: rgba(24, 26, 31, 0.94);
+        }
+        html[data-theme='dark'] .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+            border-top-color: rgba(24, 26, 31, 0.94);
+        }
+        html[data-theme='dark'] .maplibregl-popup-anchor-left .maplibregl-popup-tip {
+            border-right-color: rgba(24, 26, 31, 0.94);
+        }
+        html[data-theme='dark'] .maplibregl-popup-anchor-right .maplibregl-popup-tip {
+            border-left-color: rgba(24, 26, 31, 0.94);
+        }
+
+        html[data-theme='dark'] .maplibregl-popup-content .panel-time-label-origin,
+        html[data-theme='dark'] .maplibregl-popup-content .trip-endpoint-origin {
+            color: #59e37d !important;
+        }
+
+        html[data-theme='dark'] .maplibregl-popup-content .panel-time-label-terminal,
+        html[data-theme='dark'] .maplibregl-popup-content .trip-endpoint-terminal {
+            color: #ff6b6b !important;
         }
     </style>
 </head>
