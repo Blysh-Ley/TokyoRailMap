@@ -329,7 +329,7 @@ map.on('load', async () => {
             const companyKey = String(selectedCompany);
             const companyZh = String(companyLogoMap?.[companyKey]?.zh || '').trim();
             selectionBadgeTextEl.textContent = companyZh || companyKey;
-            selectionBadgeTextEl.style.color = '#111';
+            selectionBadgeTextEl.style.color = isDarkThemeActive() ? '#f2f2f2' : '#111';
             selectionBadgeEl.classList.remove('is-hidden');
             return;
         }
@@ -570,6 +570,54 @@ map.on('load', async () => {
         ];
     }
 
+    function isDarkThemeActive() {
+        return document.documentElement.getAttribute('data-theme') === 'dark';
+    }
+
+    function stationCircleColorPaintExpr() {
+        if (!isDarkThemeActive()) return '#fff';
+        const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
+        return [
+            'case',
+            ['==', ['length', servingIdsExpr], 1],
+            '#8e95a1',
+            '#111'
+        ];
+    }
+
+    function stationCircleStrokeColorPaint() {
+        return isDarkThemeActive() ? '#fff' : '#333';
+    }
+
+    function tripPreviewStopCircleColorPaintExpr() {
+        if (!isDarkThemeActive()) return '#fff';
+        return [
+            'case',
+            ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
+            '#8e95a1',
+            '#111'
+        ];
+    }
+
+    function tripPreviewStopStrokeColorPaint() {
+        return isDarkThemeActive() ? '#fff' : '#111';
+    }
+
+    function applyStationThemePaintToMapLayers() {
+        try {
+            if (map.getLayer('stations-layer')) {
+                map.setPaintProperty('stations-layer', 'circle-color', stationCircleColorPaintExpr());
+                map.setPaintProperty('stations-layer', 'circle-stroke-color', stationCircleStrokeColorPaint());
+            }
+            if (map.getLayer('trip-preview-stops-layer')) {
+                map.setPaintProperty('trip-preview-stops-layer', 'circle-color', tripPreviewStopCircleColorPaintExpr());
+                map.setPaintProperty('trip-preview-stops-layer', 'circle-stroke-color', tripPreviewStopStrokeColorPaint());
+            }
+        } catch {
+            // ignore
+        }
+    }
+
     function buildStationAnyLineMatchExpr(lineIds) {
         // 判断站点是否服务于给定线路集合：
         // 优先用 platform_line_id（平台所属线路 id）来判断，避免换乘站的“另一条线路站台”被误判为命中
@@ -594,8 +642,7 @@ map.on('load', async () => {
             map.setPaintProperty('stations-layer', 'circle-stroke-width', baseStationCircleStrokeWidthExpr());
             map.setPaintProperty('stations-layer', 'circle-opacity', 1);
             map.setPaintProperty('stations-layer', 'circle-stroke-opacity', 1);
-            map.setPaintProperty('stations-layer', 'circle-color', '#fff');
-            map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
+            applyStationThemePaintToMapLayers();
             return;
         }
 
@@ -621,8 +668,7 @@ map.on('load', async () => {
             ]);
             map.setPaintProperty('stations-layer', 'circle-opacity', 1);
             map.setPaintProperty('stations-layer', 'circle-stroke-opacity', 1);
-            map.setPaintProperty('stations-layer', 'circle-color', '#fff');
-            map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
+            applyStationThemePaintToMapLayers();
             return;
         }
 
@@ -640,8 +686,7 @@ map.on('load', async () => {
             // 若不在“恢复原样式”时重置，会导致换乘站出现“空心圈/圆心透明”。
             map.setPaintProperty('stations-layer', 'circle-opacity', 1);
             map.setPaintProperty('stations-layer', 'circle-stroke-opacity', 1);
-            map.setPaintProperty('stations-layer', 'circle-color', '#fff');
-            map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
+            applyStationThemePaintToMapLayers();
             return;
         }
 
@@ -726,9 +771,7 @@ map.on('load', async () => {
             baseStationCircleStrokeWidthExpr(),
             0
         ]);
-
-        map.setPaintProperty('stations-layer', 'circle-color', '#fff');
-        map.setPaintProperty('stations-layer', 'circle-stroke-color', '#333');
+        applyStationThemePaintToMapLayers();
         
     }
 
@@ -1508,6 +1551,7 @@ map.on('load', async () => {
             const resolved = resolveTheme(m);
             document.documentElement.setAttribute('data-theme', resolved);
             applyBasemapTheme(resolved);
+            applyStationThemePaintToMapLayers();
             try {
                 window.localStorage.setItem(storageKey, m);
             } catch {
@@ -1696,14 +1740,14 @@ map.on('load', async () => {
                                 4
                             ]
                         ],
-                        'circle-color': '#fff',
+                        'circle-color': tripPreviewStopCircleColorPaintExpr(),
                         'circle-stroke-width': [
                             'case',
                             ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
                             0,
                             2
                         ],
-                        'circle-stroke-color': '#111'
+                        'circle-stroke-color': tripPreviewStopStrokeColorPaint()
                     }
                 });
             }
