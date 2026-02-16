@@ -1086,6 +1086,41 @@
                 gap: 6px;
             }
 
+            .settings-view-seg {
+                display: inline-flex;
+                border: 1px solid #e3e5e7;
+                border-radius: 9999px;
+                overflow: hidden;
+                background: #fff;
+            }
+
+            .settings-view-btn {
+                width: 32px;
+                height: 24px;
+                border: none;
+                background: transparent;
+                padding: 0;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+            }
+
+            .settings-view-btn:hover {
+                background: #f0f0f0;
+            }
+
+            .settings-view-btn.is-active {
+                background: #3498db;
+            }
+
+            .settings-view-btn-icon {
+                width: 14px;
+                height: 14px;
+                display: block;
+                pointer-events: none;
+            }
+
             .settings-time-control {
                 width: 100%;
                 display: flex;
@@ -1656,7 +1691,8 @@
         html[data-theme='dark'] .settings-time-input,
         html[data-theme='dark'] .settings-time-picker,
         html[data-theme='dark'] .panel-day-seg,
-        html[data-theme='dark'] .settings-seg {
+        html[data-theme='dark'] .settings-seg,
+        html[data-theme='dark'] .settings-view-seg {
             background: rgba(28, 28, 28, 0.94);
             border-color: #5a5d62;
             box-shadow: 0 0 30px rgba(0, 0, 0, .35);
@@ -1767,8 +1803,13 @@
         html[data-theme='dark'] .search-fab-icon,
         html[data-theme='dark'] .settings-fab-icon,
         html[data-theme='dark'] .panel-dir-filter-icon,
-        html[data-theme='dark'] .settings-time-reset-icon {
+        html[data-theme='dark'] .settings-time-reset-icon,
+        html[data-theme='dark'] .settings-view-btn-icon {
             filter: invert(1) brightness(1.1);
+        }
+
+        html[data-theme='dark'] .settings-view-btn:hover {
+            background: #2d323a;
         }
 
         html[data-theme='dark'] .search-result-icon--line {

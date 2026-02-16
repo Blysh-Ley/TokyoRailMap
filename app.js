@@ -14,6 +14,7 @@ if (!maplibregl) {
     throw new Error('MapLibre GL JS 未加载：请检查 maplibre-gl.js 引入是否成功');
 }
 const APPEARANCE_STORAGE_KEY = 'tokyorail.appearance.mode';
+const TIMETABLE_VIEW_STORAGE_KEY = 'tokyorail.timetable.view.mode';
 const getSystemTheme = () => (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
 const readAppearanceMode = () => {
     try {
@@ -28,6 +29,15 @@ const resolveThemeFromAppearance = (mode) => {
     if (mode === 'dark') return 'dark';
     if (mode === 'light') return 'light';
     return getSystemTheme();
+};
+const readTimetableViewMode = () => {
+    try {
+        const raw = String(window.localStorage.getItem(TIMETABLE_VIEW_STORAGE_KEY) || 'list').trim();
+        if (raw === 'list' || raw === 'grid') return raw;
+    } catch {
+        // ignore
+    }
+    return 'list';
 };
 
 const initialTheme = resolveThemeFromAppearance(readAppearanceMode());
@@ -909,6 +919,7 @@ map.on('load', async () => {
         hoverDelayMs: 50,
         settingsContentEl: settingsMenuContentEl,
         companyLogoMap,
+        getTimetableViewMode: () => readTimetableViewMode(),
         getLineMeta: (lineId) => {
             const id = String(lineId);
             return {
@@ -1590,7 +1601,86 @@ map.on('load', async () => {
         setThemeMode(initial);
     }
 
+    function mountTimetableViewToggle(hostEl) {
+        const storageKey = TIMETABLE_VIEW_STORAGE_KEY;
+
+        const container = document.createElement('div');
+        container.className = 'settings-item settings-item-timetable-view';
+
+        const text = document.createElement('span');
+        text.className = 'settings-item-title';
+        text.textContent = '班次视图';
+
+        const seg = document.createElement('div');
+        seg.className = 'settings-item-control settings-view-seg';
+
+        const btnList = document.createElement('button');
+        btnList.type = 'button';
+        btnList.className = 'settings-view-btn settings-view-btn-list';
+        btnList.setAttribute('aria-label', '列表视图');
+
+        const listIcon = document.createElement('img');
+        listIcon.className = 'settings-view-btn-icon';
+        listIcon.alt = '';
+        {
+            const candidates = ['./icons/list.svg', '/icons/list.svg'];
+            let idx = 0;
+            listIcon.src = candidates[idx];
+            listIcon.addEventListener('error', () => {
+                idx += 1;
+                if (idx < candidates.length) listIcon.src = candidates[idx];
+            });
+        }
+        btnList.appendChild(listIcon);
+
+        const btnGrid = document.createElement('button');
+        btnGrid.type = 'button';
+        btnGrid.className = 'settings-view-btn settings-view-btn-grid';
+        btnGrid.setAttribute('aria-label', '网格视图');
+
+        const gridIcon = document.createElement('img');
+        gridIcon.className = 'settings-view-btn-icon';
+        gridIcon.alt = '';
+        {
+            const candidates = ['./icons/grid.svg', '/icons/grid.svg'];
+            let idx = 0;
+            gridIcon.src = candidates[idx];
+            gridIcon.addEventListener('error', () => {
+                idx += 1;
+                if (idx < candidates.length) gridIcon.src = candidates[idx];
+            });
+        }
+        btnGrid.appendChild(gridIcon);
+
+        seg.appendChild(btnList);
+        seg.appendChild(btnGrid);
+        container.appendChild(text);
+        container.appendChild(seg);
+
+        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
+        if (host.firstChild) host.insertBefore(container, host.firstChild);
+        else host.appendChild(container);
+
+        const setMode = (mode) => {
+            const m = mode === 'grid' ? 'grid' : 'list';
+            btnList.classList.toggle('is-active', m === 'list');
+            btnGrid.classList.toggle('is-active', m === 'grid');
+            panel?.setTimetableViewMode?.(m);
+            try {
+                window.localStorage.setItem(storageKey, m);
+            } catch {
+                // ignore
+            }
+        };
+
+        btnList.addEventListener('click', () => setMode('list'));
+        btnGrid.addEventListener('click', () => setMode('grid'));
+
+        setMode(readTimetableViewMode());
+    }
+
     mountAppearanceToggle(settingsMenuContentEl);
+    mountTimetableViewToggle(settingsMenuContentEl);
     mountStationLabelToggle(settingsMenuContentEl);
 
     let generatedLinesData = null;

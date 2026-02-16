@@ -319,6 +319,7 @@ export function createPanel(options = {}) {
     const onDirPreviewEnter = typeof options.onDirPreviewEnter === 'function' ? options.onDirPreviewEnter : null;
     const onDirPreviewLeave = typeof options.onDirPreviewLeave === 'function' ? options.onDirPreviewLeave : null;
     const settingsContentEl = options.settingsContentEl && options.settingsContentEl.appendChild ? options.settingsContentEl : null;
+    const getTimetableViewMode = typeof options.getTimetableViewMode === 'function' ? options.getTimetableViewMode : null;
 
     const buildTransferLineStationNameMap = async ({ stationId, stationNameZh, servingLineIds }) => {
         const sid = toText(stationId);
@@ -822,6 +823,18 @@ export function createPanel(options = {}) {
     let tripDetailToken = 0;
     let tripDetailPinned = false;
     let tripDetailHideTimer = null;
+    let timetableViewMode = 'list';
+
+    const normalizeTimetableViewMode = (mode) => (mode === 'grid' ? 'grid' : 'list');
+
+    const applyTimetableViewMode = (mode, { rerender = true } = {}) => {
+        const next = normalizeTimetableViewMode(mode);
+        timetableViewMode = next;
+        body.setAttribute('data-timetable-view', next);
+        body.classList.toggle('is-timetable-view-list', next === 'list');
+        body.classList.toggle('is-timetable-view-grid', next === 'grid');
+        if (rerender && toText(currentStationId)) renderAllTimetables();
+    };
 
     const clearTripDetailHideTimer = () => {
         if (tripDetailHideTimer != null) {
@@ -1427,6 +1440,8 @@ export function createPanel(options = {}) {
             const future = filteredRowsForDir.filter((r) => !r.isPast);
             const visible = expanded ? filteredRowsForDir : future.slice(0, 3);
 
+            const timetableViewClass = timetableViewMode === 'grid' ? 'panel-timetable-view-grid' : 'panel-timetable-view-list';
+
             html += `
                 <div class="panel-dir">
                     <div class="panel-dir-header" data-dir-toggle="1" data-dir-key="${escapeHtml(dirKey)}">
@@ -1444,7 +1459,7 @@ export function createPanel(options = {}) {
                             </button>
                         </span>
                     </div>
-                    <div class="panel-timetable ${expanded ? 'is-expanded' : 'is-collapsed'}" data-dir-body="1" data-dir-key="${escapeHtml(dirKey)}">
+                    <div class="panel-timetable ${timetableViewClass} ${expanded ? 'is-expanded' : 'is-collapsed'}" data-dir-body="1" data-dir-key="${escapeHtml(dirKey)}">
                         ${visible.length
                             ? visible
                             .map((r) => {
@@ -2547,6 +2562,7 @@ export function createPanel(options = {}) {
     });
 
     startAutoNowClock();
+    applyTimetableViewMode(getTimetableViewMode ? getTimetableViewMode() : 'list', { rerender: false });
 
     const clearHoverTimer = () => {
         if (hoverTimerId != null) {
@@ -3120,6 +3136,7 @@ export function createPanel(options = {}) {
         show,
         hide,
         setTitle,
+        setTimetableViewMode: (mode) => applyTimetableViewMode(mode, { rerender: true }),
         showForStationProps,
         layout
     };
