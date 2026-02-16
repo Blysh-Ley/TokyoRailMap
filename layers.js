@@ -93,6 +93,9 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     const onPopupClose = typeof options.onPopupClose === 'function' ? options.onPopupClose : null;
     const onRestoreStationLines = typeof options.onRestoreStationLines === 'function' ? options.onRestoreStationLines : null;
     const onFixedPopupBlankClick = typeof options.onFixedPopupBlankClick === 'function' ? options.onFixedPopupBlankClick : null;
+    const getHoverPreviewEnabled = typeof options.getHoverPreviewEnabled === 'function' ? options.getHoverPreviewEnabled : null;
+    let hoverPreviewEnabled = getHoverPreviewEnabled ? getHoverPreviewEnabled() !== false : true;
+    const isHoverPreviewEnabled = () => hoverPreviewEnabled !== false;
 
     let stationsIndexPromise = null;
     const getStationsIndex = async () => {
@@ -417,6 +420,13 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     const onPopupMove = (evt) => {
         // hover 打开的弹框：禁止交互
         if (popupOpenMode !== 'fixed') return;
+        if (!isHoverPreviewEnabled()) {
+            scheduleRestoreStationLines();
+            clearHoverTimer();
+            hoverCandidateKey = null;
+            lastFiredHoverKey = null;
+            return;
+        }
 
         // 触屏：不做 hover 预览（避免手指抬起时的合成 mousemove 导致“自动选中线路”）
         if (isTouchLikePointer(lastPointerType)) return;
@@ -697,6 +707,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     };
 
     map.on('mouseenter', 'stations-layer', async (e) => {
+        if (!isHoverPreviewEnabled()) return;
         // 触屏会产生合成 mouseenter：这里直接忽略，改用 click 来显示 popup
         if (nowMs() < suppressMouseEventsUntilMs || isTouchLikePointer(lastPointerType)) return;
 
@@ -726,6 +737,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     });
 
     map.on('mouseleave', 'stations-layer', () => {
+        if (!isHoverPreviewEnabled()) return;
         if (nowMs() < suppressMouseEventsUntilMs || isTouchLikePointer(lastPointerType)) return;
         map.getCanvas().style.cursor = '';
         isOverStation = false;
@@ -771,6 +783,17 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     return {
         showPopupAt,
         setExternalStationHover,
+        setHoverPreviewEnabled: (enabled) => {
+            hoverPreviewEnabled = enabled !== false;
+            if (hoverPreviewEnabled) return;
+            clearHoverTimer();
+            clearRestoreTimer();
+            hoverCandidateKey = null;
+            lastFiredHoverKey = null;
+            if (popupOpenMode === 'hover') {
+                removePopupNow({ committed: false });
+            }
+        },
         getOpenMode: () => popupOpenMode,
         closePopup: ({ committed } = {}) => {
             // 用于：外部 UI（例如菜单）切换选择时，关闭固定 popup 并清理其内部选中/预览状态。

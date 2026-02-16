@@ -344,6 +344,9 @@ export function createPanel(options = {}) {
     const onDirPreviewLeave = typeof options.onDirPreviewLeave === 'function' ? options.onDirPreviewLeave : null;
     const settingsContentEl = options.settingsContentEl && options.settingsContentEl.appendChild ? options.settingsContentEl : null;
     const getTimetableViewMode = typeof options.getTimetableViewMode === 'function' ? options.getTimetableViewMode : null;
+    const getHoverPreviewEnabled = typeof options.getHoverPreviewEnabled === 'function' ? options.getHoverPreviewEnabled : null;
+    let hoverPreviewEnabled = getHoverPreviewEnabled ? getHoverPreviewEnabled() !== false : true;
+    const isHoverPreviewEnabled = () => hoverPreviewEnabled !== false;
 
     const buildTransferLineStationNameMap = async ({ stationId, stationNameZh, servingLineIds }) => {
         const sid = toText(stationId);
@@ -1064,6 +1067,7 @@ export function createPanel(options = {}) {
 
     const scheduleTripPreview = ({ previewKey, payload, immediate }) => {
         if (!onTripPreview) return;
+        if (!immediate && !isHoverPreviewEnabled()) return;
 
         if (immediate) {
             clearTripHighlightTimer();
@@ -3288,6 +3292,14 @@ export function createPanel(options = {}) {
     const onBodyMove = (evt) => {
         if (tripLocked) return;
         if (isTouchLikePointer(lastPointerType)) return;
+        if (!isHoverPreviewEnabled()) {
+            scheduleRestoreStationLines();
+            clearHoverTimer();
+            hoverCandidateKey = null;
+            lastFiredHoverKey = null;
+            clearDirPreview();
+            return;
+        }
 
         const t = getInteractiveTarget(evt);
         if (!t) {
@@ -3451,6 +3463,7 @@ export function createPanel(options = {}) {
     body.addEventListener('click', onBodyClick, { passive: false });
 
     body.addEventListener('mouseover', (evt) => {
+        if (!isHoverPreviewEnabled()) return;
         if (isTouchLikePointer(lastPointerType)) return;
         const rowEl = findTripTarget(evt?.target);
         if (!rowEl || !body.contains(rowEl)) return;
@@ -3479,6 +3492,7 @@ export function createPanel(options = {}) {
     });
 
     body.addEventListener('mouseout', (evt) => {
+        if (!isHoverPreviewEnabled()) return;
         clearTripHighlightTimer();
         if (tripLocked) return;
         if (tripDetailPinned) return;
@@ -3649,11 +3663,33 @@ export function createPanel(options = {}) {
         show();
     };
 
+    const setHoverPreviewEnabled = (enabled) => {
+        const next = enabled !== false;
+        if (hoverPreviewEnabled === next) return;
+        hoverPreviewEnabled = next;
+        if (hoverPreviewEnabled) return;
+
+        clearHoverTimer();
+        clearRestoreTimer();
+        clearTripHighlightTimer();
+        hoverCandidateKey = null;
+        lastFiredHoverKey = null;
+        tapArmedKey = null;
+        mouseArmedKey = null;
+        restoreStationLinesIfNeeded();
+        clearDirPreview();
+        if (!tripLocked) {
+            hideTripDetail();
+            lastTripDetailKey = null;
+        }
+    };
+
     return {
         el: root,
         show,
         hide,
         setTitle,
+        setHoverPreviewEnabled,
         setTimetableViewMode: (mode) => applyTimetableViewMode(mode, { rerender: true }),
         showForStationProps,
         layout

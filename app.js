@@ -15,6 +15,7 @@ if (!maplibregl) {
 }
 const APPEARANCE_STORAGE_KEY = 'tokyorail.appearance.mode';
 const TIMETABLE_VIEW_STORAGE_KEY = 'tokyorail.timetable.view.mode';
+const HOVER_PREVIEW_STORAGE_KEY = 'tokyorail.hover.preview.enabled';
 const getSystemTheme = () => (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
 const readAppearanceMode = () => {
     try {
@@ -38,6 +39,17 @@ const readTimetableViewMode = () => {
         // ignore
     }
     return 'list';
+};
+
+const readHoverPreviewEnabled = () => {
+    try {
+        const raw = String(window.localStorage.getItem(HOVER_PREVIEW_STORAGE_KEY) || '1').trim();
+        if (raw === '0' || raw === 'false') return false;
+        if (raw === '1' || raw === 'true') return true;
+    } catch {
+        // ignore
+    }
+    return true;
 };
 
 const initialTheme = resolveThemeFromAppearance(readAppearanceMode());
@@ -178,11 +190,19 @@ map.on('load', async () => {
     let dirPreviewTerminalPopups = [];
     let previewDirHeader = (_payload) => {};
     let clearDirHeaderPreview = () => {};
+    let hoverPreviewEnabled = readHoverPreviewEnabled();
     let stationCoordById = new Map();
     let stationServingCountById = new Map();
 
     // 右侧界面：站点/站名/搜索提交站点时弹出（在 applySelectionEffects 定义后初始化）
     let panel = null;
+
+    const isHoverPreviewEnabled = () => hoverPreviewEnabled !== false;
+    const applyHoverPreviewEnabled = (enabled) => {
+        hoverPreviewEnabled = enabled !== false;
+        panel?.setHoverPreviewEnabled?.(hoverPreviewEnabled);
+        stationPopup?.setHoverPreviewEnabled?.(hoverPreviewEnabled);
+    };
 
     // 时刻表虚拟内存缓存（按线路 id 预加载 train-timetables/*.json）
     const timetableCache = getGlobalTimetableCache({ maxBytes: 50 * 1024 * 1024, logFetch: true, logDiscover: true });
@@ -919,6 +939,7 @@ map.on('load', async () => {
         hoverDelayMs: 50,
         settingsContentEl: settingsMenuContentEl,
         companyLogoMap,
+        getHoverPreviewEnabled: () => isHoverPreviewEnabled(),
         getTimetableViewMode: () => readTimetableViewMode(),
         getLineMeta: (lineId) => {
             const id = String(lineId);
@@ -930,6 +951,7 @@ map.on('load', async () => {
         },
         onSelectCompany: (companyName, meta) => {
             const source = meta?.source;
+            if (source === 'panel-hover' && !isHoverPreviewEnabled()) return;
             const name = String(companyName ?? '').trim();
             if (!name) return;
 
@@ -951,6 +973,7 @@ map.on('load', async () => {
         },
         onSelectLine: (lineId, meta) => {
             const source = meta?.source;
+            if (source === 'panel-hover' && !isHoverPreviewEnabled()) return;
             const id = String(lineId ?? '').trim();
             if (!id) return;
 
@@ -1679,8 +1702,57 @@ map.on('load', async () => {
         setMode(readTimetableViewMode());
     }
 
+    function mountHoverPreviewToggle(hostEl) {
+        const storageKey = HOVER_PREVIEW_STORAGE_KEY;
+
+        const container = document.createElement('div');
+        container.className = 'settings-item settings-item-hover-preview';
+
+        const text = document.createElement('span');
+        text.className = 'settings-item-title';
+        text.textContent = '悬浮预览';
+
+        const seg = document.createElement('div');
+        seg.className = 'settings-item-control settings-seg';
+
+        const btnOn = document.createElement('button');
+        btnOn.type = 'button';
+        btnOn.textContent = '开启';
+
+        const btnOff = document.createElement('button');
+        btnOff.type = 'button';
+        btnOff.textContent = '关闭';
+
+        seg.appendChild(btnOn);
+        seg.appendChild(btnOff);
+        container.appendChild(text);
+        container.appendChild(seg);
+
+        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
+        if (host.firstChild) host.insertBefore(container, host.firstChild);
+        else host.appendChild(container);
+
+        const setEnabled = (enabled) => {
+            const on = enabled !== false;
+            btnOn.classList.toggle('is-active', on);
+            btnOff.classList.toggle('is-active', !on);
+            applyHoverPreviewEnabled(on);
+            try {
+                window.localStorage.setItem(storageKey, on ? '1' : '0');
+            } catch {
+                // ignore
+            }
+        };
+
+        btnOn.addEventListener('click', () => setEnabled(true));
+        btnOff.addEventListener('click', () => setEnabled(false));
+
+        setEnabled(readHoverPreviewEnabled());
+    }
+
     mountAppearanceToggle(settingsMenuContentEl);
     mountTimetableViewToggle(settingsMenuContentEl);
+    mountHoverPreviewToggle(settingsMenuContentEl);
     mountStationLabelToggle(settingsMenuContentEl);
 
     let generatedLinesData = null;
@@ -2829,8 +2901,9 @@ map.on('load', async () => {
             hoverDelayMs: 500,
             onCancelSelection: clearSelectionsAndRestore,
             onCompanyClick: (companyName, meta) => {
-                hideStationPopupForMenuInteraction();
                 const source = meta?.source ?? 'click';
+                if (source === 'hover' && !isHoverPreviewEnabled()) return;
+                hideStationPopupForMenuInteraction();
                 const commitPreview = meta?.commitPreview === true;
                 selectedStationLineIds = null;
                 if (source === 'hover') {
@@ -2852,8 +2925,9 @@ map.on('load', async () => {
                 }
             },
             onLineClick: (lineId, meta) => {
-                hideStationPopupForMenuInteraction();
                 const source = meta?.source ?? 'click';
+                if (source === 'hover' && !isHoverPreviewEnabled()) return;
+                hideStationPopupForMenuInteraction();
                 const commitPreview = meta?.commitPreview === true;
 
                 // 菜单已将“支线 -> 主线”解析并给出 mergedLineIds（主线+支线）。
@@ -2897,8 +2971,9 @@ map.on('load', async () => {
                 }
             },
             onModeClick: ({ lineId, mode }, meta) => {
-                hideStationPopupForMenuInteraction();
                 const source = meta?.source ?? 'click';
+                if (source === 'hover' && !isHoverPreviewEnabled()) return;
+                hideStationPopupForMenuInteraction();
                 const commitPreview = meta?.commitPreview === true;
                 selectedStationLineIds = null;
                 // 预留：目前地图高亮/站名过滤仍以 lineId 为主
@@ -2933,6 +3008,7 @@ map.on('load', async () => {
 
         // 菜单展开时：用“扣除菜单宽度后的可视区域”重新 fit 当前选中对象
         const refitForMenuOpen = () => {
+            if (!isHoverPreviewEnabled()) return;
             if (!selectedCompany && !selectedLineId) return;
             // 用 preview 语义，避免改变“提交态”的选择逻辑
             fitToCurrentSelection('menu-open', 'preview');
@@ -3032,6 +3108,7 @@ map.on('load', async () => {
             },
             companyLogoMap,
             hoverDelayMs: 50,
+            getHoverPreviewEnabled: () => isHoverPreviewEnabled(),
             onSelectCompany: (companyName, meta) => {
                 const source = meta?.source;
                 const name = String(companyName ?? '').trim();
