@@ -12,6 +12,13 @@
     <style>
         :root {
             --custom-icon-font-size: 12px;
+            --ui-text: #111;
+            --ui-border: #e3e5e7;
+        }
+
+        html[data-theme='dark'] {
+            --ui-text: #f2f2f2;
+            --ui-border: #5a5d62;
         }
 
         html, body {
@@ -1634,6 +1641,178 @@
             line-height: 1.2;
             font-weight: 600;
             color: #111;
+        }
+
+        html[data-theme='dark'] .search-ui::before,
+        html[data-theme='dark'] .settings-ui::before,
+        html[data-theme='dark'] .search-results,
+        html[data-theme='dark'] .settings-content,
+        html[data-theme='dark'] .panel-container,
+        html[data-theme='dark'] .panel-dir-filter-popover,
+        html[data-theme='dark'] .panel-trip-detail,
+        html[data-theme='dark'] .RW-list,
+        html[data-theme='dark'] .RW-content,
+        html[data-theme='dark'] .settings-item,
+        html[data-theme='dark'] .settings-time-input,
+        html[data-theme='dark'] .settings-time-picker,
+        html[data-theme='dark'] .panel-day-seg,
+        html[data-theme='dark'] .settings-seg {
+            background: rgba(28, 28, 28, 0.94);
+            border-color: #5a5d62;
+            box-shadow: 0 0 30px rgba(0, 0, 0, .35);
+        }
+
+        html[data-theme='dark'] .search-input,
+        html[data-theme='dark'] .search-fab,
+        html[data-theme='dark'] .search-result-item,
+        html[data-theme='dark'] .search-result-text,
+        html[data-theme='dark'] .panel-popup,
+        html[data-theme='dark'] .panel-dir-header,
+        html[data-theme='dark'] .panel-dir-filter-popover-title,
+        html[data-theme='dark'] .panel-dir-filter-col-title,
+        html[data-theme='dark'] .panel-trip-detail-title,
+        html[data-theme='dark'] .panel-company-header,
+        html[data-theme='dark'] .panel-line-name,
+        html[data-theme='dark'] .panel-trip-detail-note-line,
+        html[data-theme='dark'] .panel-trip-detail-note-type,
+        html[data-theme='dark'] .settings-item-title,
+        html[data-theme='dark'] .settings-seg button,
+        html[data-theme='dark'] .panel-day-seg button,
+        html[data-theme='dark'] .RW-content,
+        html[data-theme='dark'] .RW-company-name {
+            color: #f2f2f2;
+        }
+
+        html[data-theme='dark'] .search-input::placeholder,
+        html[data-theme='dark'] .search-empty,
+        html[data-theme='dark'] .panel-timetable,
+        html[data-theme='dark'] .panel-time-label,
+        html[data-theme='dark'] .panel-line-name-suffix,
+        html[data-theme='dark'] .panel-dir-filter-option-count,
+        html[data-theme='dark'] .panel-dir-filter-popover-close,
+        html[data-theme='dark'] .panel-trip-detail-head,
+        html[data-theme='dark'] .panel-trip-detail-note-row,
+        html[data-theme='dark'] .RW-company-type {
+            color: #b8bcc3;
+        }
+
+        html[data-theme='dark'] .search-result-item::after,
+        html[data-theme='dark'] .RW-content::after,
+        html[data-theme='dark'] .panel-dir-filter-popover-head,
+        html[data-theme='dark'] .panel-trip-detail-header,
+        html[data-theme='dark'] .panel-dir-filter-col-body {
+            border-color: #5a5d62;
+            background-color: transparent;
+        }
+
+        html[data-theme='dark'] .panel-dir-filter-option {
+            color: #d8dbe1;
+        }
+
+        html[data-theme='dark'] .panel-dir-filter-popover-close:hover,
+        html[data-theme='dark'] .panel-day-seg button:hover,
+        html[data-theme='dark'] .settings-seg button:hover,
+        html[data-theme='dark'] .settings-time-picker-option:hover,
+        html[data-theme='dark'] .settings-time-picker-btn:hover,
+        html[data-theme='dark'] .panel-dir-filter-popover-clear:hover {
+            background: #2d323a;
+        }
+
+        html[data-theme='dark'] .settings-time-picker-btn,
+        html[data-theme='dark'] .panel-dir-filter-popover-clear,
+        html[data-theme='dark'] .settings-time-picker-option {
+            background: #22262d;
+            border-color: #5a5d62;
+            color: #d8dbe1;
+        }
+
+        html[data-theme='dark'] .settings-time-input {
+            background: #22262d;
+            border-color: #5a5d62;
+            color: #f2f2f2;
+            caret-color: #f2f2f2;
+        }
+
+        html[data-theme='dark'] .settings-time-input::placeholder {
+            color: #9aa2ae;
+        }
+
+        html[data-theme='dark'] .settings-time-reset {
+            background: #22262d;
+            border-color: #5a5d62;
+        }
+
+        html[data-theme='dark'] .settings-time-reset:hover {
+            background: #2d323a;
+        }
+
+        html[data-theme='dark'] .panel-dir-filter-col-body::-webkit-scrollbar-thumb,
+        html[data-theme='dark'] .settings-time-picker-list::-webkit-scrollbar-thumb {
+            background: #5a5d62;
+        }
+
+        html[data-theme='dark'] .search-fab-icon,
+        html[data-theme='dark'] .settings-fab-icon,
+        html[data-theme='dark'] .panel-dir-filter-icon,
+        html[data-theme='dark'] .settings-time-reset-icon {
+            filter: invert(1) brightness(1.1);
+        }
+
+        html[data-theme='dark'] .search-result-icon--line {
+            background: #f2f2f2;
+        }
+
+        html[data-theme='dark'] .search-result-icon--station {
+            background: #101216;
+            border-color: #c8cdd6;
+        }
+
+        html[data-theme='dark'] .panel-timetable-row.is-past,
+        html[data-theme='dark'] .panel-timetable-row.is-past .panel-time-arrive,
+        html[data-theme='dark'] .panel-timetable-row.is-past .panel-time-depart,
+        html[data-theme='dark'] .panel-time-label.is-past,
+        html[data-theme='dark'] .panel-trip-detail-row.is-past,
+        html[data-theme='dark'] .panel-trip-detail-row.is-past .panel-time-arrive,
+        html[data-theme='dark'] .panel-trip-detail-row.is-past .panel-time-depart,
+        html[data-theme='dark'] .panel-trip-detail-note-row.is-past,
+        html[data-theme='dark'] .panel-trip-detail-note-row.is-past .panel-trip-detail-note-prefix,
+        html[data-theme='dark'] .panel-trip-detail-note-row.is-past .panel-trip-detail-note-line,
+        html[data-theme='dark'] .panel-trip-detail-note-row.is-past .panel-trip-detail-note-type {
+            color: #6f7682;
+        }
+
+        html[data-theme='dark'] .station-label {
+            color: #f2f2f2;
+            background: rgba(24, 26, 31, 0.88);
+            border-color: rgba(210, 216, 226, 0.35);
+        }
+
+        html[data-theme='dark'] .maplibregl-popup-content {
+            background: rgba(24, 26, 31, 0.94);
+            color: #f2f2f2;
+        }
+
+        html[data-theme='dark'] .maplibregl-popup-anchor-top .maplibregl-popup-tip {
+            border-bottom-color: rgba(24, 26, 31, 0.94);
+        }
+        html[data-theme='dark'] .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+            border-top-color: rgba(24, 26, 31, 0.94);
+        }
+        html[data-theme='dark'] .maplibregl-popup-anchor-left .maplibregl-popup-tip {
+            border-right-color: rgba(24, 26, 31, 0.94);
+        }
+        html[data-theme='dark'] .maplibregl-popup-anchor-right .maplibregl-popup-tip {
+            border-left-color: rgba(24, 26, 31, 0.94);
+        }
+
+        html[data-theme='dark'] .maplibregl-popup-content .panel-time-label-origin,
+        html[data-theme='dark'] .maplibregl-popup-content .trip-endpoint-origin {
+            color: #59e37d !important;
+        }
+
+        html[data-theme='dark'] .maplibregl-popup-content .panel-time-label-terminal,
+        html[data-theme='dark'] .maplibregl-popup-content .trip-endpoint-terminal {
+            color: #ff6b6b !important;
         }
     </style>
 </head>

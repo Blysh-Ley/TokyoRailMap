@@ -13,6 +13,26 @@ const maplibregl = window.maplibregl;
 if (!maplibregl) {
     throw new Error('MapLibre GL JS 未加载：请检查 maplibre-gl.js 引入是否成功');
 }
+const APPEARANCE_STORAGE_KEY = 'tokyorail.appearance.mode';
+const getSystemTheme = () => (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+const readAppearanceMode = () => {
+    try {
+        const raw = String(window.localStorage.getItem(APPEARANCE_STORAGE_KEY) || 'system').trim();
+        if (raw === 'light' || raw === 'dark' || raw === 'system') return raw;
+    } catch {
+        // ignore
+    }
+    return 'system';
+};
+const resolveThemeFromAppearance = (mode) => {
+    if (mode === 'dark') return 'dark';
+    if (mode === 'light') return 'light';
+    return getSystemTheme();
+};
+
+const initialTheme = resolveThemeFromAppearance(readAppearanceMode());
+document.documentElement.setAttribute('data-theme', initialTheme);
+let mapMode = initialTheme;
 
 // 1) 初始化地图（底图使用 Carto raster tiles）
 const map = new maplibregl.Map({
@@ -32,6 +52,17 @@ const map = new maplibregl.Map({
                 ],
                 tileSize: 256,
                 attribution: '&copy; <a href="https://carto.com/">Carto</a>'
+            },
+            'carto-dark-source': {
+                type: 'raster',
+                tiles: [
+                    'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+                ],
+                tileSize: 256,
+                attribution: '&copy; <a href="https://carto.com/">Carto</a>'
             }
         },
         layers: [
@@ -39,6 +70,16 @@ const map = new maplibregl.Map({
                 id: 'carto-light-layer',
                 type: 'raster',
                 source: 'carto-light-source',
+                layout: { visibility: mapMode === 'light' ? 'visible' : 'none' },
+                minzoom: 0,
+                maxzoom: 18,
+                paint: {}
+            },
+            {
+                id: 'carto-dark-layer',
+                type: 'raster',
+                source: 'carto-dark-source',
+                layout: { visibility: mapMode === 'dark' ? 'visible' : 'none' },
                 minzoom: 0,
                 maxzoom: 18,
                 paint: {}
@@ -46,6 +87,20 @@ const map = new maplibregl.Map({
         ]
     }
 });
+
+const applyBasemapTheme = (theme) => {
+    const next = theme === 'dark' ? 'dark' : 'light';
+    mapMode = next;
+    const lightVisibility = next === 'light' ? 'visible' : 'none';
+    const darkVisibility = next === 'dark' ? 'visible' : 'none';
+
+    try {
+        if (map.getLayer('carto-light-layer')) map.setLayoutProperty('carto-light-layer', 'visibility', lightVisibility);
+        if (map.getLayer('carto-dark-layer')) map.setLayoutProperty('carto-dark-layer', 'visibility', darkVisibility);
+    } catch {
+        // ignore
+    }
+};
 
 // 左下角比例尺
 map.addControl(
@@ -76,6 +131,7 @@ map.on('load', async () => {
 
     applyCustomAttribution();
     map.on('styledata', applyCustomAttribution);
+    applyBasemapTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
 
     // 触屏防误触：仅短按且几乎不移动才视为 tap
     const touchTapGuard = getGlobalTouchTapGuard({ maxDurationMs: 500, maxMovePx: 12 });
@@ -1401,6 +1457,96 @@ map.on('load', async () => {
         setMode('auto');
     }
 
+    function mountAppearanceToggle(hostEl) {
+        const storageKey = APPEARANCE_STORAGE_KEY;
+        const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+        const container = document.createElement('div');
+        container.className = 'settings-item settings-item-appearance';
+
+        const text = document.createElement('span');
+        text.className = 'settings-item-title';
+        text.textContent = '外观';
+
+        const seg = document.createElement('div');
+        seg.className = 'settings-item-control settings-seg';
+
+        const btnLight = document.createElement('button');
+        btnLight.type = 'button';
+        btnLight.textContent = '浅色';
+
+        const btnDark = document.createElement('button');
+        btnDark.type = 'button';
+        btnDark.textContent = '深色';
+
+        const btnSystem = document.createElement('button');
+        btnSystem.type = 'button';
+        btnSystem.textContent = '跟随系统';
+
+        seg.appendChild(btnLight);
+        seg.appendChild(btnDark);
+        seg.appendChild(btnSystem);
+
+        container.appendChild(text);
+        container.appendChild(seg);
+
+        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
+        if (host.firstChild) host.insertBefore(container, host.firstChild);
+        else host.appendChild(container);
+
+        const resolveTheme = (mode) => {
+            if (mode === 'dark') return 'dark';
+            if (mode === 'light') return 'light';
+            return media?.matches ? 'dark' : 'light';
+        };
+
+        const setThemeMode = (mode) => {
+            const m = (mode === 'light' || mode === 'dark' || mode === 'system') ? mode : 'system';
+            btnLight.classList.toggle('is-active', m === 'light');
+            btnDark.classList.toggle('is-active', m === 'dark');
+            btnSystem.classList.toggle('is-active', m === 'system');
+            const resolved = resolveTheme(m);
+            document.documentElement.setAttribute('data-theme', resolved);
+            applyBasemapTheme(resolved);
+            try {
+                window.localStorage.setItem(storageKey, m);
+            } catch {
+                // ignore
+            }
+        };
+
+        btnLight.addEventListener('click', () => setThemeMode('light'));
+        btnDark.addEventListener('click', () => setThemeMode('dark'));
+        btnSystem.addEventListener('click', () => setThemeMode('system'));
+
+        const onSystemThemeChange = () => {
+            let currentMode = 'system';
+            try {
+                const saved = String(window.localStorage.getItem(storageKey) || 'system').trim();
+                if (saved === 'light' || saved === 'dark' || saved === 'system') currentMode = saved;
+            } catch {
+                // ignore
+            }
+            if (currentMode === 'system') setThemeMode('system');
+        };
+
+        if (media && typeof media.addEventListener === 'function') {
+            media.addEventListener('change', onSystemThemeChange);
+        } else if (media && typeof media.addListener === 'function') {
+            media.addListener(onSystemThemeChange);
+        }
+
+        let initial = 'system';
+        try {
+            const saved = String(window.localStorage.getItem(storageKey) || 'system').trim();
+            if (saved === 'light' || saved === 'dark' || saved === 'system') initial = saved;
+        } catch {
+            // ignore
+        }
+        setThemeMode(initial);
+    }
+
+    mountAppearanceToggle(settingsMenuContentEl);
     mountStationLabelToggle(settingsMenuContentEl);
 
     let generatedLinesData = null;
@@ -2085,11 +2231,21 @@ map.on('load', async () => {
             const coord = stationCoordById.get(sid);
             if (!Array.isArray(coord) || coord.length < 2) return null;
 
+            const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark';
+            const role = String(text || '').includes('始发') ? 'origin' : (String(text || '').includes('终点') ? 'terminal' : 'normal');
+            const resolvedColor = role === 'origin'
+                ? (isDarkTheme ? '#59e37d' : (color || '#1A9B2D'))
+                : role === 'terminal'
+                    ? (isDarkTheme ? '#ff6b6b' : (color || '#D32F2F'))
+                    : String(color || '#111');
+
             const el = document.createElement('div');
             el.style.fontSize = '12px';
             el.style.fontWeight = '700';
             el.style.lineHeight = '1.2';
-            el.style.color = String(color || '#111');
+            el.style.color = resolvedColor;
+            if (role === 'origin') el.classList.add('trip-endpoint-origin');
+            if (role === 'terminal') el.classList.add('trip-endpoint-terminal');
             el.textContent = String(text || '');
 
             return new maplibregl.Popup({
@@ -2144,11 +2300,21 @@ map.on('load', async () => {
             const coord = stationCoordById.get(sid);
             if (!Array.isArray(coord) || coord.length < 2) return null;
 
+            const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark';
+            const role = String(text || '').includes('始发') ? 'origin' : (String(text || '').includes('终点') ? 'terminal' : 'normal');
+            const resolvedColor = role === 'origin'
+                ? (isDarkTheme ? '#59e37d' : (color || '#1A9B2D'))
+                : role === 'terminal'
+                    ? (isDarkTheme ? '#ff6b6b' : (color || '#D32F2F'))
+                    : String(color || '#111');
+
             const el = document.createElement('div');
             el.style.fontSize = '12px';
             el.style.fontWeight = '700';
             el.style.lineHeight = '1.2';
-            el.style.color = String(color || '#111');
+            el.style.color = resolvedColor;
+            if (role === 'origin') el.classList.add('trip-endpoint-origin');
+            if (role === 'terminal') el.classList.add('trip-endpoint-terminal');
             el.textContent = String(text || '');
 
             return new maplibregl.Popup({

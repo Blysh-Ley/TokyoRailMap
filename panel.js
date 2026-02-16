@@ -380,7 +380,7 @@ export function createPanel(options = {}) {
     header.style.justifyContent = 'flex-start';
     header.style.gap = '8px';
     header.style.padding = '10px 12px';
-    header.style.borderBottom = '1px solid #e3e5e7';
+    header.style.borderBottom = '1px solid var(--ui-border, #e3e5e7)';
 
     const title = document.createElement('div');
     title.setAttribute('data-panel-title', '');
@@ -388,7 +388,7 @@ export function createPanel(options = {}) {
     title.style.fontSize = '30px';
     title.style.lineHeight = '1.2';
     title.style.fontWeight = '700';
-    title.style.color = '#111';
+    title.style.color = 'var(--ui-text, #111)';
     title.style.whiteSpace = 'nowrap';
     title.style.overflow = 'hidden';
     title.style.textOverflow = 'ellipsis';
