@@ -419,14 +419,19 @@
             justify-content: space-between;
             gap: 8px;
             width: 100%;
+            pointer-events: none;
         }
 
         .panel-line-name {
             font-size: 20px;
-            flex: 1 1 auto;
+            flex: 0 1 auto;
+            display: inline-block;
+            width: fit-content;
+            max-width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            pointer-events: auto;
         }
 
         .panel-line-name-suffix {
@@ -1142,10 +1147,12 @@
             font-weight: 700;
             white-space: nowrap;
             cursor: default;
+            pointer-events: none;
         }
 
-        .panel-popup.is-interactive .panel-line,
-        .panel-popup.is-interactive .panel-company-header {
+        .panel-popup.is-interactive .panel-line-name,
+        .panel-popup.is-interactive .panel-company-name,
+        .panel-popup.is-interactive .panel-company-logo {
             cursor: pointer;
         }
 
@@ -1154,6 +1161,7 @@
             height: 22px;
             object-fit: contain;
             flex: 0 0 20px;
+            pointer-events: auto;
         }
 
         .panel-company-lines {
@@ -1165,6 +1173,9 @@
 
         .panel-company-name {
             font-size: 25px;
+            display: inline-block;
+            width: fit-content;
+            pointer-events: auto;
         }
 
         .panel-company-lines .panel-line {

@@ -971,7 +971,9 @@ map.on('load', async () => {
             applySelectionEffects();
 
             const fitMode = source === 'panel-hover' ? 'preview' : 'commit';
-            fitToCurrentSelection(`company:${name}`, fitMode);
+            if (meta?.skipFit !== true) {
+                fitToCurrentSelection(`company:${name}`, fitMode);
+            }
         },
         onSelectLine: (lineId, meta) => {
             const source = meta?.source;
@@ -996,7 +998,9 @@ map.on('load', async () => {
                 isolateStationsToSelectedLine = false;
                 setStationLabelMode('auto');
                 applySelectionEffects();
-                fitToCurrentSelection(`line:${mainLineId}`, 'preview');
+                if (meta?.skipFit !== true) {
+                    fitToCurrentSelection(`line:${mainLineId}`, 'preview');
+                }
                 return;
             }
 
@@ -1015,7 +1019,9 @@ map.on('load', async () => {
             }
 
             applySelectionEffects();
-            fitToCurrentSelection(`line:${mainLineId}`, 'commit');
+            if (meta?.skipFit !== true) {
+                fitToCurrentSelection(`line:${mainLineId}`, 'commit');
+            }
         },
         onRestoreStationLines: (lineIds, meta) => {
             selectedLineId = null;
@@ -2641,6 +2647,7 @@ map.on('load', async () => {
 
         previewDirHeader = (payload) => {
             const lineId = String(payload?.lineId || '').trim();
+            const fitMode = String(payload?.fitMode || 'preview').trim() || 'preview';
             if (!lineId) {
                 clearDirHeaderPreview();
                 return;
@@ -2695,8 +2702,10 @@ map.on('load', async () => {
             applySelectionEffects();
             collisionController?.scheduleUpdate?.();
 
-            const fitBbox = bboxFromStationIds(Array.from(stationIds));
-            previewFitWithSidePanels(fitBbox);
+            if (fitMode !== 'none') {
+                const fitBbox = bboxFromStationIds(Array.from(stationIds));
+                previewFitWithSidePanels(fitBbox);
+            }
         };
 
         clearTripPathPreview = () => {
@@ -2716,6 +2725,8 @@ map.on('load', async () => {
                 return;
             }
 
+            const fitMode = String(payload?.fitMode || 'preview').trim() || 'preview';
+
             ensureTripPreviewLayers();
             const built = buildTripPreviewFeatures(payload);
             tripPreviewActive = true;
@@ -2734,7 +2745,9 @@ map.on('load', async () => {
             setStationLabelMode('all');
             applySelectionEffects();
             collisionController?.scheduleUpdate?.();
-            previewFitWithSidePanels(built.bbox);
+            if (fitMode !== 'none') {
+                previewFitWithSidePanels(built.bbox);
+            }
         };
 
         const companyObj = {};
