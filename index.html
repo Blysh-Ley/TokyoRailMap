@@ -1694,21 +1694,22 @@
 
         /* popup 半透明（80%）：仅透明背景，不影响文字 */
         .maplibregl-popup-content {
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
         }
 
         /* tip（三角箭头）也同步半透明 */
         .maplibregl-popup-anchor-top .maplibregl-popup-tip {
-            border-bottom-color: rgba(255, 255, 255, 0.9);
+            border-bottom-color: rgba(255, 255, 255, 0.8);
         }
         .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
-            border-top-color: rgba(255, 255, 255, 0.9);
+            border-top-color: rgba(255, 255, 255, 0.8);
         }
         .maplibregl-popup-anchor-left .maplibregl-popup-tip {
-            border-right-color: rgba(255, 255, 255, 0.9);
+            border-right-color: rgba(255, 255, 255, 0.8);
         }
         .maplibregl-popup-anchor-right .maplibregl-popup-tip {
-            border-left-color: rgba(255, 255, 255, 0.9);
+            border-left-color: rgba(255, 255, 255, 0.8);
         }
 
         .station-hover-name {
@@ -1843,6 +1844,42 @@
             color: #111;
         }
 
+        .trip-current-station-popup .maplibregl-popup-content {
+            padding: 4px 8px;
+            border-radius: 8px;
+        }
+
+        .trip-endpoint-popup .maplibregl-popup-content {
+            padding: 4px 8px;
+            border-radius: 8px;
+        }
+
+        .trip-current-station-label {
+            font-size: 12px;
+            line-height: 1.2;
+            font-weight: 700;
+            color: #111;
+            white-space: nowrap;
+        }
+
+        .trip-detail-station-indicator {
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 8px solid #111;
+            transform: rotate(180deg);
+            pointer-events: none;
+        }
+
+        /* Outer wrapper used as Marker element so MapLibre doesn't overwrite
+           the inner element's transform when positioning the marker. */
+        .trip-detail-station-indicator-outer {
+            display: inline-block;
+            line-height: 0;
+            pointer-events: none;
+        }
+
         html[data-theme='dark'] .search-ui::before,
         html[data-theme='dark'] .settings-ui::before,
         html[data-theme='dark'] .search-results,
@@ -1874,6 +1911,14 @@
 
         html[data-theme='dark'] .selection-badge-text {
             color: #f2f2f2;
+        }
+
+        html[data-theme='dark'] .trip-current-station-label {
+            color: #f2f2f2;
+        }
+
+        html[data-theme='dark'] .trip-detail-station-indicator {
+            border-top-color: #f2f2f2;
         }
 
         html[data-theme='dark'] .search-input,
@@ -2092,7 +2137,8 @@
         }
 
         html[data-theme='dark'] .maplibregl-popup-content {
-            background: rgba(24, 26, 31, 0.94);
+            background: rgba(24, 26, 31, 0.8);
+            box-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
             color: #f2f2f2;
         }
 

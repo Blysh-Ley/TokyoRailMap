@@ -183,6 +183,8 @@ map.on('load', async () => {
     let tripPreviewActive = false;
     let tripPreviewOriginPopup = null;
     let tripPreviewTerminalPopup = null;
+    let tripCurrentStationPopup = null;
+    let tripDetailStationTriangleMarker = null;
     let dirPreviewActive = false;
     let dirPreviewLineIds = null; // Set<string> | null
     let dirPreviewStationIds = null; // Set<string> | null
@@ -1034,6 +1036,97 @@ map.on('load', async () => {
         },
         onTripClear: () => {
             clearTripPathPreview();
+            try {
+                tripCurrentStationPopup?.remove?.();
+            } catch {
+                // ignore
+            }
+            tripCurrentStationPopup = null;
+            try {
+                tripDetailStationTriangleMarker?.remove?.();
+            } catch {
+                // ignore
+            }
+            tripDetailStationTriangleMarker = null;
+        },
+        onTripCurrentStationShow: ({ stationId }) => {
+            const sid = String(stationId || '').trim();
+            if (!sid) return;
+            const coord = stationCoordById.get(sid);
+            if (!Array.isArray(coord) || coord.length < 2) return;
+
+            try {
+                tripCurrentStationPopup?.remove?.();
+            } catch {
+                // ignore
+            }
+            tripCurrentStationPopup = null;
+
+            const el = document.createElement('div');
+            el.className = 'trip-current-station-label';
+            el.textContent = '当前站';
+
+            try {
+                tripCurrentStationPopup = new maplibregl.Popup({
+                    closeButton: false,
+                    closeOnClick: false,
+                    closeOnMove: false,
+                    anchor: 'top',
+                    offset: [0, 8],
+                    className: 'trip-current-station-popup'
+                })
+                    .setLngLat(coord)
+                    .setDOMContent(el)
+                    .addTo(map);
+            } catch {
+                tripCurrentStationPopup = null;
+            }
+        },
+        onTripCurrentStationHide: () => {
+            try {
+                tripCurrentStationPopup?.remove?.();
+            } catch {
+                // ignore
+            }
+            tripCurrentStationPopup = null;
+        },
+        onTripDetailStationIndicator: ({ stationId }) => {
+            const sid = String(stationId || '').trim();
+            if (!sid) return;
+            const coord = stationCoordById.get(sid);
+            if (!Array.isArray(coord) || coord.length < 2) return;
+
+            try {
+                tripDetailStationTriangleMarker?.remove?.();
+            } catch {
+                // ignore
+            }
+            tripDetailStationTriangleMarker = null;
+
+            // Wrap the visual indicator in an outer container so MapLibre's
+            // internal `transform` applied to position the marker doesn't
+            // overwrite our rotation on the visual element.
+            const outer = document.createElement('div');
+            outer.className = 'trip-detail-station-indicator-outer';
+            const inner = document.createElement('div');
+            inner.className = 'trip-detail-station-indicator';
+            outer.appendChild(inner);
+
+            try {
+                tripDetailStationTriangleMarker = new maplibregl.Marker({ element: outer, anchor: 'top', offset: [0, 6] })
+                    .setLngLat(coord)
+                    .addTo(map);
+            } catch {
+                tripDetailStationTriangleMarker = null;
+            }
+        },
+        onTripDetailStationIndicatorClear: () => {
+            try {
+                tripDetailStationTriangleMarker?.remove?.();
+            } catch {
+                // ignore
+            }
+            tripDetailStationTriangleMarker = null;
         },
         onDirPreviewEnter: (payload) => {
             previewDirHeader(payload);

@@ -340,6 +340,10 @@ export function createPanel(options = {}) {
     const onRestoreStationLines = typeof options.onRestoreStationLines === 'function' ? options.onRestoreStationLines : null;
     const onTripPreview = typeof options.onTripPreview === 'function' ? options.onTripPreview : null;
     const onTripClear = typeof options.onTripClear === 'function' ? options.onTripClear : null;
+    const onTripCurrentStationShow = typeof options.onTripCurrentStationShow === 'function' ? options.onTripCurrentStationShow : null;
+    const onTripCurrentStationHide = typeof options.onTripCurrentStationHide === 'function' ? options.onTripCurrentStationHide : null;
+    const onTripDetailStationIndicator = typeof options.onTripDetailStationIndicator === 'function' ? options.onTripDetailStationIndicator : null;
+    const onTripDetailStationIndicatorClear = typeof options.onTripDetailStationIndicatorClear === 'function' ? options.onTripDetailStationIndicatorClear : null;
     const onDirPreviewEnter = typeof options.onDirPreviewEnter === 'function' ? options.onDirPreviewEnter : null;
     const onDirPreviewLeave = typeof options.onDirPreviewLeave === 'function' ? options.onDirPreviewLeave : null;
     const settingsContentEl = options.settingsContentEl && options.settingsContentEl.appendChild ? options.settingsContentEl : null;
@@ -1060,6 +1064,46 @@ export function createPanel(options = {}) {
         try {
             tripHighlightAppliedKey = toText(previewKey) || null;
             onTripPreview(payload);
+        } catch {
+            // ignore
+        }
+    };
+
+    const showTripCurrentStationHint = () => {
+        if (!onTripCurrentStationShow) return;
+        const sid = toText(currentStationId);
+        if (!sid) return;
+        try {
+            onTripCurrentStationShow({ stationId: sid });
+        } catch {
+            // ignore
+        }
+    };
+
+    const hideTripCurrentStationHint = () => {
+        if (!onTripCurrentStationHide) return;
+        try {
+            onTripCurrentStationHide();
+        } catch {
+            // ignore
+        }
+    };
+
+    const showTripDetailStationIndicator = (stationId) => {
+        if (!onTripDetailStationIndicator) return;
+        const sid = toText(stationId);
+        if (!sid) return;
+        try {
+            onTripDetailStationIndicator({ stationId: sid });
+        } catch {
+            // ignore
+        }
+    };
+
+    const clearTripDetailStationIndicator = () => {
+        if (!onTripDetailStationIndicatorClear) return;
+        try {
+            onTripDetailStationIndicatorClear();
         } catch {
             // ignore
         }
@@ -2170,6 +2214,8 @@ export function createPanel(options = {}) {
         const token = ++tripDetailToken;
         tripDetailPinned = !!pinned;
         clearTripDetailHideTimer();
+        showTripCurrentStationHint();
+        clearTripDetailStationIndicator();
 
         const trip = await findTripByKey(lineId, tripKey);
         if (token !== tripDetailToken) return;
@@ -2359,7 +2405,7 @@ export function createPanel(options = {}) {
 
                 return `
                     <div class="${rowCls}">
-                        <div class="panel-trip-detail-station">${escapeHtml(s.stationName || '')}</div>
+                        <div class="panel-trip-detail-station" data-station-id="${escapeHtml(toText(s.stationId))}">${escapeHtml(s.stationName || '')}</div>
                         <div class="panel-trip-detail-time panel-trip-detail-arrive">${arrivalLabel}${arrText ? `<span class=\"panel-time-arrive\">${escapeHtml(arrText)}</span>` : ''}</div>
                         <div class="panel-trip-detail-time panel-trip-detail-depart">${departLabel}${depText ? `<span class=\"panel-time-depart\">${escapeHtml(depText)}</span>` : ''}</div>
                     </div>
@@ -2508,6 +2554,8 @@ export function createPanel(options = {}) {
         unlockTripPreview();
         tripDetailToken += 1;
         clearTripDetailHideTimer();
+        hideTripCurrentStationHint();
+        clearTripDetailStationIndicator();
         tripDetailRoot.classList.add('is-hidden');
         try {
             onTripClear?.();
@@ -3503,6 +3551,47 @@ export function createPanel(options = {}) {
         scheduleTripDetailHide();
     });
 
+    const getTripDetailStationTarget = (target) => {
+        if (!(target instanceof Element)) return null;
+        return target.closest?.('.panel-trip-detail-station[data-station-id]') || null;
+    };
+
+    tripDetailBody.addEventListener('mouseover', (evt) => {
+        if (!isHoverPreviewEnabled()) return;
+        if (isTouchLikePointer(lastPointerType)) return;
+        const stationEl = getTripDetailStationTarget(evt?.target);
+        if (!stationEl) return;
+        const sid = toText(stationEl.getAttribute('data-station-id'));
+        if (!sid) return;
+        showTripDetailStationIndicator(sid);
+    });
+
+    tripDetailBody.addEventListener('mouseout', (evt) => {
+        if (!isHoverPreviewEnabled()) return;
+        if (isTouchLikePointer(lastPointerType)) return;
+        const fromEl = getTripDetailStationTarget(evt?.target);
+        if (!fromEl) return;
+        const toEl = evt?.relatedTarget;
+        const toStation = getTripDetailStationTarget(toEl);
+        if (toStation) return;
+        clearTripDetailStationIndicator();
+    });
+
+    tripDetailBody.addEventListener('mouseleave', () => {
+        clearTripDetailStationIndicator();
+    });
+
+    tripDetailBody.addEventListener('pointerdown', (evt) => {
+        const pt = readPointerType(evt);
+        lastPointerType = pt;
+        if (!isTouchLikePointer(pt)) return;
+        const stationEl = getTripDetailStationTarget(evt?.target);
+        if (!stationEl) return;
+        const sid = toText(stationEl.getAttribute('data-station-id'));
+        if (!sid) return;
+        showTripDetailStationIndicator(sid);
+    }, { passive: true });
+
     document.addEventListener('click', (evt) => {
         const target = evt?.target;
         if (!tripDetailPinned && !tripLocked) return;
@@ -3678,6 +3767,8 @@ export function createPanel(options = {}) {
         mouseArmedKey = null;
         restoreStationLinesIfNeeded();
         clearDirPreview();
+        hideTripCurrentStationHint();
+        clearTripDetailStationIndicator();
         if (!tripLocked) {
             hideTripDetail();
             lastTripDetailKey = null;
