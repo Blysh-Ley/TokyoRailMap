@@ -193,6 +193,30 @@ const getTrainTypesIndex = async () => {
     return trainTypesIndexPromise;
 };
 
+let trainTypeColorIndexPromise = null;
+const getTrainTypeColorIndex = async () => {
+    if (trainTypeColorIndexPromise) return trainTypeColorIndexPromise;
+    trainTypeColorIndexPromise = (async () => {
+        try {
+            const resp = await fetch('./data/train-types.json');
+            if (!resp.ok) return new Map();
+            const list = await resp.json();
+            const map = new Map();
+            for (const t of Array.isArray(list) ? list : []) {
+                const id = toText(t?.id);
+                if (!id) continue;
+                const color = toText(t?.color);
+                if (!color) continue;
+                map.set(id, color);
+            }
+            return map;
+        } catch {
+            return new Map();
+        }
+    })();
+    return trainTypeColorIndexPromise;
+};
+
 const normalizeArrayLike = (value) => {
     if (Array.isArray(value)) return value;
     if (typeof value !== 'string') return value ? [value] : [];
@@ -824,8 +848,185 @@ export function createPanel(options = {}) {
     let tripDetailPinned = false;
     let tripDetailHideTimer = null;
     let timetableViewMode = 'list';
+    let pendingGridDataDebugLog = false;
+    const gridDataDebugByLineId = new Map();
+
+    const TYPE_BASE_SEQUENCE = ['特急', '急行', '准急', '快速', '普通'];
 
     const normalizeTimetableViewMode = (mode) => (mode === 'grid' ? 'grid' : 'list');
+
+    const hasLatin = (text) => /[A-Za-z]/.test(toText(text));
+    const hasCjk = (text) => /[\u3400-\u9FFF]/.test(toText(text));
+
+    const extractDisplayChars = (text) => {
+        const s = toText(text);
+        if (!s) return [];
+        return Array.from(s).filter((ch) => /[A-Za-z0-9\u3400-\u9FFF]/.test(ch));
+    };
+
+    const buildTypeAbbr = (typeNameRaw) => {
+        const typeName = toText(typeNameRaw);
+        if (!typeName) return '';
+
+        const latin = hasLatin(typeName);
+        const cjk = hasCjk(typeName);
+
+        if (latin && cjk) {
+            const englishParts = typeName.match(/[A-Za-z]+/g) || [];
+            const enAbbr = englishParts.map((part) => part[0]?.toUpperCase?.() || '').join('');
+            const zhChars = Array.from(typeName).filter((ch) => /[\u3400-\u9FFF]/.test(ch));
+            const zhAbbr = zhChars.length ? zhChars[0] : '';
+            const mixed = `${enAbbr}${zhAbbr}`;
+            return mixed || typeName;
+        }
+
+        if (latin && !cjk) {
+            const m = typeName.match(/[A-Za-z]/);
+            return m ? m[0].toUpperCase() : typeName;
+        }
+
+        if (cjk && !latin) {
+            const chars = Array.from(typeName).filter((ch) => /[\u3400-\u9FFF]/.test(ch));
+            const len = chars.length;
+            if (len >= 4) return `${chars[0]}${chars[2]}`;
+            if (len > 0 && len <= 3) return typeName;
+        }
+
+        const fallbackChars = extractDisplayChars(typeName);
+        return fallbackChars.length ? fallbackChars[0].toUpperCase?.() || fallbackChars[0] : typeName;
+    };
+
+    const resolveTypeBaseIndex = (typeNameRaw) => {
+        const typeName = toText(typeNameRaw);
+        let best = Number.POSITIVE_INFINITY;
+        for (let i = 0; i < TYPE_BASE_SEQUENCE.length; i += 1) {
+            const kw = TYPE_BASE_SEQUENCE[i];
+            if (!typeName.includes(kw)) continue;
+            if (i < best) best = i;
+        }
+        return Number.isFinite(best) ? best : -1;
+    };
+
+    const sortTypeNamesForGridHint = (typeNames, countByType) => {
+        const names = Array.from(new Set((Array.isArray(typeNames) ? typeNames : []).map((x) => toText(x)).filter(Boolean)));
+        return names.sort((a, b) => {
+            const ia = resolveTypeBaseIndex(a);
+            const ib = resolveTypeBaseIndex(b);
+            const aInBase = ia >= 0;
+            const bInBase = ib >= 0;
+
+            if (aInBase !== bInBase) return aInBase ? 1 : -1;
+
+            if (!aInBase && !bInBase) {
+                const dl = b.length - a.length;
+                if (dl) return dl;
+                const dc = (Number(countByType?.get?.(b) || 0)) - (Number(countByType?.get?.(a) || 0));
+                if (dc) return dc;
+                return String(a).localeCompare(String(b));
+            }
+
+            if (ia !== ib) return ia - ib;
+
+            const baseKw = TYPE_BASE_SEQUENCE[ia] || '';
+            const aExact = baseKw && a === baseKw;
+            const bExact = baseKw && b === baseKw;
+            if (aExact !== bExact) return aExact ? 1 : -1;
+
+            const dl = b.length - a.length;
+            if (dl) return dl;
+            const dc = (Number(countByType?.get?.(b) || 0)) - (Number(countByType?.get?.(a) || 0));
+            if (dc) return dc;
+            return String(a).localeCompare(String(b));
+        });
+    };
+
+    const buildUniqueLeadAbbrMap = (orderedNames) => {
+        const names = Array.isArray(orderedNames) ? orderedNames.map((x) => toText(x)).filter(Boolean) : [];
+        const tokens = names.map((name) => {
+            const chars = extractDisplayChars(name);
+            return chars.length ? chars : Array.from(name);
+        });
+        const idx = new Array(tokens.length).fill(0);
+
+        const pick = (tokenChars, i) => {
+            if (!Array.isArray(tokenChars) || !tokenChars.length) return '';
+            const pos = Math.max(0, Math.min(i, tokenChars.length - 1));
+            return tokenChars[pos] || tokenChars[tokenChars.length - 1] || '';
+        };
+
+        for (let round = 0; round < 12; round += 1) {
+            const bucket = new Map();
+            for (let i = 0; i < tokens.length; i += 1) {
+                const abbr = pick(tokens[i], idx[i]);
+                if (!bucket.has(abbr)) bucket.set(abbr, []);
+                bucket.get(abbr).push(i);
+            }
+
+            let changed = false;
+            for (const [, indices] of bucket.entries()) {
+                if (!Array.isArray(indices) || indices.length <= 1) continue;
+                for (const i of indices) {
+                    if (idx[i] < tokens[i].length - 1) {
+                        idx[i] += 1;
+                        changed = true;
+                    }
+                }
+            }
+            if (!changed) break;
+        }
+
+        const out = new Map();
+        for (let i = 0; i < names.length; i += 1) {
+            out.set(names[i], pick(tokens[i], idx[i]));
+        }
+        return out;
+    };
+
+    const buildDirectionGridHints = (rowsForDir) => {
+        const rows = Array.isArray(rowsForDir) ? rowsForDir : [];
+
+        const typeCount = new Map();
+        const typeColorByName = new Map();
+        const terminalCount = new Map();
+
+        for (const row of rows) {
+            const typeName = toText(row?.typeName);
+            if (typeName) {
+                typeCount.set(typeName, (typeCount.get(typeName) || 0) + 1);
+                if (!typeColorByName.has(typeName)) {
+                    const c = toText(row?.typeColor);
+                    if (c) typeColorByName.set(typeName, c);
+                }
+            }
+
+            const terminalName = toText(row?.terminalName || row?.destName);
+            if (terminalName) terminalCount.set(terminalName, (terminalCount.get(terminalName) || 0) + 1);
+        }
+
+        const typeNames = sortTypeNamesForGridHint(Array.from(typeCount.keys()), typeCount);
+        const typeHints = typeNames.map((name) => ({
+            full: name,
+            abbr: buildTypeAbbr(name),
+            color: toText(typeColorByName.get(name)) || '#888',
+            count: Number(typeCount.get(name) || 0)
+        }));
+
+        const terminalNames = Array.from(terminalCount.entries())
+            .sort((a, b) => {
+                const dc = Number(b[1] || 0) - Number(a[1] || 0);
+                if (dc) return dc;
+                return String(a[0]).localeCompare(String(b[0]));
+            })
+            .map(([name]) => name);
+        const terminalAbbrMap = buildUniqueLeadAbbrMap(terminalNames);
+        const terminalHints = terminalNames.map((name) => ({
+            full: name,
+            abbr: toText(terminalAbbrMap.get(name)) || toText(name).slice(0, 1),
+            count: Number(terminalCount.get(name) || 0)
+        }));
+
+        return { typeHints, terminalHints };
+    };
 
     const applyTimetableViewMode = (mode, { rerender = true } = {}) => {
         const next = normalizeTimetableViewMode(mode);
@@ -1150,13 +1351,182 @@ export function createPanel(options = {}) {
         return hit || sid || null;
     };
 
+    const toServiceHourIndex = (timeMs, serviceDayStartMs) => {
+        const ms = Number(timeMs);
+        const base = Number(serviceDayStartMs);
+        if (!Number.isFinite(ms) || !Number.isFinite(base)) return null;
+        return Math.floor((ms - base) / 3600000);
+    };
+
+    const formatServiceHourLabel = (serviceHourIndex) => {
+        const idx = Number(serviceHourIndex);
+        if (!Number.isFinite(idx)) return '';
+        const hour = (SERVICE_DAY_BOUNDARY_HOUR + idx) % 24;
+        return String((hour + 24) % 24);
+    };
+
+    const chooseHourWindow = ({ minHour, maxHour, currentHour, expanded }) => {
+        if (!Number.isFinite(minHour) || !Number.isFinite(maxHour)) return [];
+        if (maxHour < minHour) return [];
+
+        if (!expanded) {
+            let start = Number.isFinite(currentHour) ? currentHour : minHour;
+            if (start < minHour) start = minHour;
+            if (start > maxHour) start = maxHour;
+            const out = [];
+            for (let hour = start; hour <= maxHour; hour += 1) out.push(hour);
+            return out;
+        }
+
+        const size = 10;
+        let start = currentHour - 1;
+        if (!Number.isFinite(start)) start = minHour;
+
+        if (start < minHour) start = minHour;
+        if (start > maxHour) start = Math.max(minHour, maxHour - size + 1);
+
+        let end = Math.min(maxHour, start + size - 1);
+        if ((end - start + 1) < size) start = Math.max(minHour, end - size + 1);
+
+        const out = [];
+        for (let hour = start; hour <= end; hour += 1) out.push(hour);
+        return out;
+    };
+
+    const buildGridHintsHtml = ({ typeHints, terminalHints }) => {
+        const typeLegendItems = (Array.isArray(typeHints) ? typeHints : [])
+            .map((item) => {
+                const full = toText(item?.full);
+                const abbr = toText(item?.abbr);
+                const color = toText(item?.color) || '#888';
+                if (!full || !abbr) return '';
+                const sameLabel = full === abbr;
+                const text = sameLabel ? full : `${full}=${abbr}`;
+                return `<span class="panel-grid-hint-item panel-grid-hint-item-type" style="color:${escapeHtml(color)}">${escapeHtml(text)}</span>`;
+            })
+            .filter(Boolean)
+            .join('<span class="panel-grid-hint-sep"> / </span>');
+
+        const terminalLegendItems = (Array.isArray(terminalHints) ? terminalHints : [])
+            .map((item) => {
+                const full = toText(item?.full);
+                const abbr = toText(item?.abbr);
+                if (!full || !abbr) return '';
+                return `<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888">${escapeHtml(abbr)}−${escapeHtml(full)}</span>`;
+            })
+            .filter(Boolean)
+            .join('<span class="panel-grid-hint-sep"> / </span>');
+
+        return `
+            <div class="panel-grid-hints">
+                <div class="panel-grid-hint-line">
+                    <span class="panel-grid-hint-label">种别：</span>
+                    <span class="panel-grid-hint-content">${typeLegendItems || '<span class="panel-grid-hint-item" style="color:#888">无</span>'}</span>
+                </div>
+                <div class="panel-grid-hint-line">
+                    <span class="panel-grid-hint-label">终点站：</span>
+                    <span class="panel-grid-hint-content">${terminalLegendItems || '<span class="panel-grid-hint-item" style="color:#888">无</span>'}</span>
+                </div>
+            </div>
+        `;
+    };
+
+    const buildGridTableHtmlForDirection = ({
+        rowsForDir,
+        typeHints,
+        terminalHints,
+        expanded,
+        nowMs,
+        serviceDayStartMs
+    }) => {
+        const rows = Array.isArray(rowsForDir) ? rowsForDir.slice().sort((a, b) => (Number(a?.timeMs) || 0) - (Number(b?.timeMs) || 0)) : [];
+        if (!rows.length) return '<div class="panel-timetable-empty">当前无班次</div>';
+
+        const byHour = new Map();
+        let minHour = Number.POSITIVE_INFINITY;
+        let maxHour = Number.NEGATIVE_INFINITY;
+
+        for (const row of rows) {
+            const hour = Number(row?.serviceHourIndex);
+            if (!Number.isFinite(hour)) continue;
+            if (!byHour.has(hour)) byHour.set(hour, []);
+            byHour.get(hour).push(row);
+            if (hour < minHour) minHour = hour;
+            if (hour > maxHour) maxHour = hour;
+        }
+
+        if (!Number.isFinite(minHour) || !Number.isFinite(maxHour)) {
+            return '<div class="panel-timetable-empty">当前无班次</div>';
+        }
+
+        const currentHour = toServiceHourIndex(nowMs, serviceDayStartMs);
+        const currentHourForFocus = Number.isFinite(currentHour)
+            ? Math.max(minHour, Math.min(maxHour, currentHour))
+            : minHour;
+        const focusStartHour = currentHourForFocus;
+        const hourWindow = expanded
+            ? Array.from({ length: maxHour - minHour + 1 }, (_, i) => minHour + i)
+            : chooseHourWindow({ minHour, maxHour, currentHour, expanded: false });
+        if (!hourWindow.length) return '<div class="panel-timetable-empty">当前无班次</div>';
+
+        const typeAbbrByName = new Map((Array.isArray(typeHints) ? typeHints : []).map((x) => [toText(x?.full), toText(x?.abbr)]));
+        const terminalAbbrByName = new Map((Array.isArray(terminalHints) ? terminalHints : []).map((x) => [toText(x?.full), toText(x?.abbr)]));
+
+        const rowHtml = hourWindow.map((hour, idx) => {
+            const trips = Array.isArray(byHour.get(hour)) ? byHour.get(hour) : [];
+            const bgClass = idx % 2 === 0 ? 'is-alt-a' : 'is-alt-b';
+            const focusAttr = expanded && hour === focusStartHour ? ' data-grid-focus-start="1"' : '';
+            const currentAttr = (!expanded && hour === currentHourForFocus) ? ' data-grid-current-hour="1"' : '';
+
+            const cellsHtml = trips.length
+                ? trips.map((trip, tripIndex) => {
+                const typeName = toText(trip?.typeName);
+                const destName = toText(trip?.terminalName || trip?.destName);
+                const typeAbbr = toText(typeAbbrByName.get(typeName)) || buildTypeAbbr(typeName);
+                const destAbbr = toText(terminalAbbrByName.get(destName)) || toText(destName).slice(0, 1);
+                const minute = toText(trip?.minuteLabel).slice(0, 2);
+                const tripKey = toText(trip?.tripKey);
+                const color = toText(trip?.typeColor) || '#111';
+                const tripAttr = tripKey ? ` data-trip-key="${escapeHtml(tripKey)}"` : '';
+                const lastClass = tripIndex === trips.length - 1 ? ' is-hour-last' : '';
+
+                    return `
+                        <div class="panel-grid-cell panel-grid-cell-trip${lastClass}"${tripAttr}>
+                            <span class="panel-grid-trip" style="color:${escapeHtml(color)}">
+                                <span class="panel-grid-trip-abbr">[${escapeHtml(typeAbbr)}]${escapeHtml(destAbbr)}</span>
+                                <span class="panel-grid-trip-minute">${escapeHtml(minute)}</span>
+                            </span>
+                        </div>
+                    `;
+                }).join('')
+                : '<div class="panel-grid-cell is-empty is-hour-last"></div>';
+
+            return `
+                <div class="panel-grid-row ${bgClass}"${focusAttr}${currentAttr} data-grid-hour="${escapeHtml(String(hour))}">
+                    <div class="panel-grid-hour">${escapeHtml(formatServiceHourLabel(hour))}</div>
+                    <div class="panel-grid-trips">
+                        ${cellsHtml}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `<div class="panel-timetable-grid">${rowHtml}</div>`;
+    };
+
+    const findTripTarget = (target) => {
+        if (!(target instanceof Element)) return null;
+        return target.closest?.('[data-trip-key]') || null;
+    };
+
     const buildTimetableRowsHtml = async ({ lineId, stationId }) => {
         const stationKey = toText(stationId);
         if (!stationKey) return '';
 
-        const [stationsIndex, trainTypesIndex, data] = await Promise.all([
+        const [stationsIndex, trainTypesIndex, trainTypeColorIndex, data] = await Promise.all([
             getStationsIndex(),
             getTrainTypesIndex(),
+            getTrainTypeColorIndex(),
             loadTimetableForLineId(lineId)
         ]);
 
@@ -1249,6 +1619,7 @@ export function createPanel(options = {}) {
 
             const typeId = toText(trip?.y);
             const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
+            const typeColor = typeId ? toText(trainTypeColorIndex.get(typeId)) : '';
 
             const tripKey = tripId || toText(trip?.t) || '';
 
@@ -1263,8 +1634,11 @@ export function createPanel(options = {}) {
                 arrPlus: !!arrParsed?.isNextDaySegment,
                 depPlus: !!depParsed?.isNextDaySegment,
                 timeMs,
+                serviceHourIndex: toServiceHourIndex(timeMs, serviceDayStartMs),
+                minuteLabel: toText(timeStr).slice(3, 5),
                 isPast: timeMs < now,
                 typeName,
+                typeColor,
                 originId,
                 originName,
                 terminalId: destId,
@@ -1372,6 +1746,7 @@ export function createPanel(options = {}) {
         });
 
         let html = '';
+        const directionDebug = [];
         for (const dirKey of dirOrder) {
             const counts = dirToDestCounts.get(dirKey) || new Map();
             // If no destination anywhere met threshold, show all destinations sorted by frequency
@@ -1390,6 +1765,7 @@ export function createPanel(options = {}) {
             const tri = expanded ? '▾' : '▸';
 
             const rowsForDir = rows.filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
+            const { typeHints, terminalHints } = buildDirectionGridHints(rowsForDir);
             const filterRowsForDir = rowsForDir
                 .map((r) => ({
                     origin: toText(r.originName),
@@ -1437,10 +1813,48 @@ export function createPanel(options = {}) {
                 .map(([name]) => name);
             const label = labelEntries.length ? labelEntries.join('，') : (filteredNames.length ? filteredNames.join('，') : dirKey);
 
-            const future = filteredRowsForDir.filter((r) => !r.isPast);
-            const visible = expanded ? filteredRowsForDir : future.slice(0, 3);
+            directionDebug.push({
+                dirKey,
+                dirLabel: label,
+                typeHints,
+                terminalHints
+            });
 
             const timetableViewClass = timetableViewMode === 'grid' ? 'panel-timetable-view-grid' : 'panel-timetable-view-list';
+            const gridHintsHtml = timetableViewMode === 'grid'
+                ? buildGridHintsHtml({ typeHints, terminalHints })
+                : '';
+            const future = filteredRowsForDir.filter((r) => !r.isPast);
+            const visible = expanded ? filteredRowsForDir : future.slice(0, 3);
+            const timetableHtml = timetableViewMode === 'grid'
+                ? buildGridTableHtmlForDirection({
+                    rowsForDir: filteredRowsForDir,
+                    typeHints,
+                    terminalHints,
+                    expanded,
+                    nowMs: now,
+                    serviceDayStartMs
+                })
+                : (visible.length
+                    ? visible
+                        .map((r) => {
+                            const klass = r.isPast ? 'panel-timetable-row is-past' : 'panel-timetable-row';
+                            const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.tripKey)}"` : '';
+                            return `
+                                <div class="${klass}"${tripAttr}>
+                                    <div class="panel-timetable-dest">
+                                        <span class="panel-timetable-dest-prefix" aria-hidden="true">to</span>
+                                        <span class="panel-timetable-dest-marquee" aria-label="to ${escapeHtml(r.destName || '')}">
+                                            <span class="panel-timetable-dest-marquee-inner">${escapeHtml(r.destName || '')}</span>
+                                        </span>
+                                    </div>
+                                    <div class="panel-timetable-time">${renderTime(r)}</div>
+                                    <div class="panel-timetable-type">${escapeHtml(r.typeName || '')}</div>
+                                </div>
+                            `;
+                        })
+                        .join('')
+                    : '<div class="panel-timetable-empty">当前无班次</div>');
 
             html += `
                 <div class="panel-dir">
@@ -1459,31 +1873,20 @@ export function createPanel(options = {}) {
                             </button>
                         </span>
                     </div>
+                    ${gridHintsHtml}
                     <div class="panel-timetable ${timetableViewClass} ${expanded ? 'is-expanded' : 'is-collapsed'}" data-dir-body="1" data-dir-key="${escapeHtml(dirKey)}">
-                        ${visible.length
-                            ? visible
-                            .map((r) => {
-                                const klass = r.isPast ? 'panel-timetable-row is-past' : 'panel-timetable-row';
-                                const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.tripKey)}"` : '';
-                                return `
-                                    <div class="${klass}"${tripAttr}>
-                                        <div class="panel-timetable-dest">
-                                            <span class="panel-timetable-dest-prefix" aria-hidden="true">to</span>
-                                            <span class="panel-timetable-dest-marquee" aria-label="to ${escapeHtml(r.destName || '')}">
-                                                <span class="panel-timetable-dest-marquee-inner">${escapeHtml(r.destName || '')}</span>
-                                            </span>
-                                        </div>
-                                        <div class="panel-timetable-time">${renderTime(r)}</div>
-                                        <div class="panel-timetable-type">${escapeHtml(r.typeName || '')}</div>
-                                    </div>
-                                `;
-                            })
-                            .join('')
-                            : '<div class="panel-timetable-empty">当前无班次</div>'}
+                        ${timetableHtml}
                     </div>
                 </div>
             `;
         }
+
+        const lineMeta = getLineMeta?.(lineId) || {};
+        gridDataDebugByLineId.set(toText(lineId), {
+            lineId: toText(lineId),
+            lineName: toText(lineMeta?.name) || toText(lineId),
+            directions: directionDebug
+        });
 
         return html;
     };
@@ -1528,6 +1931,17 @@ export function createPanel(options = {}) {
         try {
             const expandedBodies = Array.from(ttEl.querySelectorAll('.panel-timetable.is-expanded'));
             for (const bodyEl of expandedBodies) {
+                if (bodyEl.classList.contains('panel-timetable-view-grid')) {
+                    bodyEl.style.maxHeight = '';
+                    const focusRow = bodyEl.querySelector('[data-grid-focus-start="1"]');
+                    if (focusRow instanceof Element) {
+                        bodyEl.scrollTop = Math.max(0, focusRow.offsetTop || 0);
+                    } else {
+                        bodyEl.scrollTop = 0;
+                    }
+                    continue;
+                }
+
                 const rows = Array.from(bodyEl.querySelectorAll('.panel-timetable-row'));
                 if (!rows.length) continue;
 
@@ -1547,6 +1961,20 @@ export function createPanel(options = {}) {
                 } else {
                     bodyEl.scrollTop = 0;
                 }
+            }
+
+            const collapsedGridBodies = Array.from(ttEl.querySelectorAll('.panel-timetable.panel-timetable-view-grid.is-collapsed'));
+            for (const bodyEl of collapsedGridBodies) {
+                const collapsedBaseHeight = 70; // 两行车次（不按小时数）
+                bodyEl.style.maxHeight = `${collapsedBaseHeight}px`;
+
+                const currentHourRow = bodyEl.querySelector('[data-grid-current-hour="1"]') || bodyEl.querySelector('.panel-grid-row');
+                if (!(currentHourRow instanceof Element)) continue;
+
+                const currentHourFullHeight = Math.ceil((currentHourRow.offsetHeight || 0) + 1);
+                const targetHeight = Math.max(collapsedBaseHeight, currentHourFullHeight);
+                bodyEl.style.maxHeight = `${targetHeight}px`;
+                bodyEl.scrollTop = 0;
             }
         } catch {
             // ignore
@@ -2314,9 +2742,21 @@ export function createPanel(options = {}) {
         closeDirFilterPopover();
         const token = ++timetableRenderToken;
         const stationId = currentStationId;
+        if (pendingGridDataDebugLog) gridDataDebugByLineId.clear();
         const lineEls = Array.from(body.querySelectorAll('[data-line-id]'));
         for (const el of lineEls) {
             await renderTimetableForLineEl(el, stationId, token);
+        }
+
+        if (pendingGridDataDebugLog) {
+            const lines = Array.from(gridDataDebugByLineId.values()).sort((a, b) => String(a?.lineName || '').localeCompare(String(b?.lineName || '')));
+            console.log('[班次视图][grid-data]', {
+                stationId: toText(currentStationId),
+                stationName: toText(currentStationNameZh),
+                serviceDay: currentServiceDay,
+                lines
+            });
+            pendingGridDataDebugLog = false;
         }
     };
 
@@ -2651,7 +3091,7 @@ export function createPanel(options = {}) {
 
         if (tripLocked) {
             const t = evt?.target;
-            const rowEl = t?.closest?.('.panel-timetable-row');
+            const rowEl = findTripTarget(t);
             const lineEl = rowEl?.closest?.('[data-line-id]');
             const lineId = lineEl?.getAttribute?.('data-line-id');
             const tripKey = rowEl?.getAttribute?.('data-trip-key');
@@ -2678,7 +3118,7 @@ export function createPanel(options = {}) {
             return;
         }
 
-        const rowEl = evt?.target?.closest?.('.panel-timetable-row');
+        const rowEl = findTripTarget(evt?.target);
         if (rowEl && body.contains(rowEl)) {
             clearTripHighlightTimer();
             const lineEl = rowEl.closest?.('[data-line-id]');
@@ -2825,7 +3265,7 @@ export function createPanel(options = {}) {
             return;
         }
 
-        const rowEl = evt?.target?.closest?.('.panel-timetable-row');
+        const rowEl = findTripTarget(evt?.target);
         if (rowEl && body.contains(rowEl)) {
             clearTripHighlightTimer();
             const lineEl = rowEl.closest?.('[data-line-id]');
@@ -2935,7 +3375,7 @@ export function createPanel(options = {}) {
 
     body.addEventListener('mouseover', (evt) => {
         if (isTouchLikePointer(lastPointerType)) return;
-        const rowEl = evt?.target?.closest?.('.panel-timetable-row');
+        const rowEl = findTripTarget(evt?.target);
         if (!rowEl || !body.contains(rowEl)) return;
         const lineEl = rowEl.closest?.('[data-line-id]');
         const lineId = lineEl?.getAttribute?.('data-line-id');
@@ -2965,7 +3405,7 @@ export function createPanel(options = {}) {
         clearTripHighlightTimer();
         if (tripLocked) return;
         if (tripDetailPinned) return;
-        const rowEl = evt?.target?.closest?.('.panel-timetable-row');
+        const rowEl = findTripTarget(evt?.target);
         if (!rowEl || !body.contains(rowEl)) return;
         const toEl = evt?.relatedTarget;
         if (toEl && (rowEl.contains(toEl) || tripDetailRoot.contains(toEl))) return;
@@ -2984,7 +3424,7 @@ export function createPanel(options = {}) {
             )
         ) return;
         if (target && root.contains(target)) {
-            const rowEl = target.closest?.('.panel-timetable-row');
+            const rowEl = findTripTarget(target);
             const lineEl = rowEl?.closest?.('[data-line-id]');
             const lineId = lineEl?.getAttribute?.('data-line-id');
             const tripKey = rowEl?.getAttribute?.('data-trip-key');
@@ -3103,6 +3543,7 @@ export function createPanel(options = {}) {
         // 用 serving_ids 驱动交互恢复/公司过滤
         const servingIdsRaw = normalizeArrayLike(props?.serving_ids);
         currentStationServingIds = servingIdsRaw.map(String).filter(Boolean);
+        pendingGridDataDebugLog = true;
         expandedDirKeys = new Set();
         mouseArmedKey = null;
         lastAppliedHoverKey = null;
