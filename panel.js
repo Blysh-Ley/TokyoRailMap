@@ -1490,7 +1490,7 @@ export function createPanel(options = {}) {
                 const destAbbr = toText(terminalAbbrByName.get(destName)) || toText(destName).slice(0, 1);
                 const minute = toText(trip?.minuteLabel).slice(0, 2);
                 const tripKey = toText(trip?.tripKey);
-                const color = toText(trip?.typeColor) || '#111';
+                const color = toText(trip?.typeColor) || 'var(--ui-text, #111)';
                 const tripAttr = tripKey ? ` data-trip-key="${escapeHtml(tripKey)}"` : '';
                 const lastClass = tripIndex === trips.length - 1 ? ' is-hour-last' : '';
 

@@ -671,7 +671,7 @@
 
         .panel-grid-cell {
             min-height: 34px;
-            border-left: 1px solid rgba(0, 0, 0, 0.06);
+            border-right: 1px solid rgba(0, 0, 0, 0.06);
             padding: 1px 3px;
             display: flex;
             align-items: center;
@@ -679,9 +679,7 @@
             box-sizing: border-box;
         }
 
-        .panel-grid-cell.is-hour-last {
-            border-right: 1px solid rgba(0, 0, 0, 0.06);
-        }
+
 
         .panel-grid-cell.is-empty {
             color: transparent;
@@ -1047,6 +1045,7 @@
         .panel-trip-detail-row.is-past {
             color: #ccc;
         }
+
 
         .panel-trip-detail-station {
             flex: 1 1 auto;
@@ -1923,6 +1922,47 @@
             color: #d8dbe1;
         }
 
+        html[data-theme='dark'] .panel-trip-detail {
+            background: rgba(24, 27, 33, 0.94);
+            border-color: #5a5d62;
+        }
+
+        html[data-theme='dark'] .panel-trip-detail-body {
+            background: rgba(24, 27, 33, 0.82);
+        }
+
+        html[data-theme='dark'] .panel-trip-detail-head {
+            color: #9aa2ae;
+        }
+
+        html[data-theme='dark'] .panel-trip-detail-row {
+            color: #d8dbe1;
+        }
+
+        html[data-theme='dark'] .panel-trip-detail-note-row {
+            color: #9aa2ae;
+        }
+
+        html[data-theme='dark'] .panel-trip-detail-note-dot {
+            background: #7d8592;
+        }
+
+        html[data-theme='dark'] .panel-trip-detail-row .panel-time-arrive,
+        html[data-theme='dark'] .panel-trip-detail-row .panel-time-depart,
+        html[data-theme='dark'] .panel-trip-detail-row .panel-time-label-origin,
+        html[data-theme='dark'] .panel-trip-detail-row .panel-time-label-terminal {
+            filter: saturate(1.05) brightness(1.05);
+        }
+
+        html[data-theme='dark'] .panel-trip-detail-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        html[data-theme='dark'] .panel-trip-detail-body::-webkit-scrollbar-thumb {
+            background: #5a5d62;
+            border-radius: 999px;
+        }
+
         html[data-theme='dark'] .panel-grid-row.is-alt-a {
             background: #1e232a;
         }
@@ -1931,12 +1971,38 @@
             background: #242a32;
         }
 
-        html[data-theme='dark'] .panel-grid-cell {
-            border-left-color: rgba(255, 255, 255, 0.1);
+        html[data-theme='dark'] .panel-timetable.panel-timetable-view-grid {
+            background: rgba(24, 27, 33, 0.65);
+            border: 1px solid rgba(90, 93, 98, 0.55);
+            border-radius: 8px;
         }
 
-        html[data-theme='dark'] .panel-grid-cell.is-hour-last {
+        html[data-theme='dark'] .panel-grid-hints {
+            background: rgba(32, 36, 44, 0.65);
+            border-bottom: 1px solid rgba(90, 93, 98, 0.5);
+        }
+
+        html[data-theme='dark'] .panel-grid-hint-label {
+            color: #9aa2ae !important;
+        }
+
+        html[data-theme='dark'] .panel-grid-hint-sep {
+            color: #7d8592;
+        }
+
+        html[data-theme='dark'] .panel-grid-hour {
+            background: #2f7bb6;
+            border-top-color: rgba(255, 255, 255, 0.35);
+            border-bottom-color: rgba(255, 255, 255, 0.35);
+        }
+
+        html[data-theme='dark'] .panel-grid-cell {
             border-right-color: rgba(255, 255, 255, 0.1);
+        }
+
+
+        html[data-theme='dark'] .panel-timetable.panel-timetable-view-grid .panel-timetable-empty {
+            color: #9aa2ae;
         }
 
         html[data-theme='dark'] .panel-dir-filter-popover-close:hover,
