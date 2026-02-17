@@ -2010,6 +2010,15 @@
             filter: saturate(1.05) brightness(1.05);
         }
 
+        /* Dark mode: keep endpoint labels colored (override .panel-time-label) */
+        html[data-theme='dark'] .panel-trip-detail .panel-time-label-origin {
+            color: #59e37d;
+        }
+
+        html[data-theme='dark'] .panel-trip-detail .panel-time-label-terminal {
+            color: #ff6b6b !important;
+        }
+
         html[data-theme='dark'] .panel-trip-detail-body::-webkit-scrollbar {
             width: 6px;
         }

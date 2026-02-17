@@ -783,6 +783,12 @@ export function createPanel(options = {}) {
         clearTripDetailHideTimer();
         stopPropagationOnly(e);
     }, { passive: true });
+    tripDetailRoot.addEventListener('click', (e) => {
+        // 仅阻止冒泡：避免点详情面板触发“空白处点击=恢复选择”等全局逻辑
+        tripDetailPinned = true;
+        clearTripDetailHideTimer();
+        stopPropagationOnly(e);
+    }, { passive: true });
     tripDetailRoot.addEventListener('wheel', (e) => stopPropagationOnly(e), { passive: true });
     tripDetailRoot.addEventListener('mouseenter', () => {
         if (isTouchLikePointer(lastPointerType)) return;
@@ -1790,6 +1796,7 @@ export function createPanel(options = {}) {
             const typeColor = typeId ? toText(trainTypeColorIndex.get(typeId)) : '';
 
             const tripKey = tripId || toText(trip?.t) || '';
+            const baseTripKey = toText(trip?.t) || (tripId ? tripId.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '') : '');
 
             const arrParsed = arr ? parseHHMMToServiceDayMs(arr, serviceDayStartMs) : null;
             const depParsed = dep ? parseHHMMToServiceDayMs(dep, serviceDayStartMs) : null;
@@ -1815,11 +1822,77 @@ export function createPanel(options = {}) {
                 destNamesForDir,
                 showOriginLabel,
                 showTerminalLabel,
-                tripKey
+                tripKey,
+                baseTripKey
             });
         }
 
         if (!rows.length) return '';
+
+        // 去重：同一物理班次在同一站点可能被拆成多个记录（如 *.Weekday.1 / *.Weekday.2），
+        // 且种别 y 可能不同，导致 UI 同一时刻出现“多条不同种别”。
+        // 这里按 (baseTripKey + dir + timeMs) 合并，优先保留“有 dep 的记录”（更符合站点时刻表的上车语义）。
+        {
+            const pickScore = (r) => {
+                let score = 0;
+                if (toText(r?.dep)) score += 10;
+                if (toText(r?.typeName)) score += 5;
+                if (toText(r?.typeColor)) score += 2;
+                if (toText(r?.terminalName) || toText(r?.destName)) score += 1;
+                return score;
+            };
+
+            const merged = new Map();
+            for (const r of rows) {
+                const base = toText(r?.baseTripKey) || toText(r?.tripKey);
+                const dkey = toText(r?.dir) || 'Unknown';
+                const tms = Number(r?.timeMs);
+                if (!base || !Number.isFinite(tms)) {
+                    merged.set(Symbol('row'), r);
+                    continue;
+                }
+                const key = `${base}||${dkey}||${tms}`;
+                const prev = merged.get(key);
+                if (!prev) {
+                    merged.set(key, r);
+                    continue;
+                }
+
+                const a = prev;
+                const b = r;
+                const keepB = pickScore(b) > pickScore(a);
+                const primary = keepB ? b : a;
+                const secondary = keepB ? a : b;
+
+                // merge times
+                if (!toText(primary.arr) && toText(secondary.arr)) {
+                    primary.arr = secondary.arr;
+                    primary.arrPlus = !!secondary.arrPlus;
+                }
+                if (!toText(primary.dep) && toText(secondary.dep)) {
+                    primary.dep = secondary.dep;
+                    primary.depPlus = !!secondary.depPlus;
+                }
+
+                // merge labels / metadata
+                primary.showOriginLabel = !!(primary.showOriginLabel || secondary.showOriginLabel);
+                primary.showTerminalLabel = !!(primary.showTerminalLabel || secondary.showTerminalLabel);
+
+                if (!toText(primary.typeName) && toText(secondary.typeName)) primary.typeName = secondary.typeName;
+                if (!toText(primary.typeColor) && toText(secondary.typeColor)) primary.typeColor = secondary.typeColor;
+                if (!toText(primary.originId) && toText(secondary.originId)) primary.originId = secondary.originId;
+                if (!toText(primary.originName) && toText(secondary.originName)) primary.originName = secondary.originName;
+                if (!toText(primary.terminalId) && toText(secondary.terminalId)) primary.terminalId = secondary.terminalId;
+                if (!toText(primary.terminalName) && toText(secondary.terminalName)) primary.terminalName = secondary.terminalName;
+
+                merged.set(key, primary);
+            }
+
+            // keep insertion order stable (Map preserves)
+            rows.length = 0;
+            for (const v of merged.values()) rows.push(v);
+        }
+
         rows.sort((a, b) => a.timeMs - b.timeMs);
 
         // 统计每条线路的所有方向 d，并聚合/计数该方向下所有对应 ds 的中文名
@@ -2178,14 +2251,22 @@ export function createPanel(options = {}) {
         return out;
     };
 
-    const normalizeTripStops = (stops, serviceDayStartMs, { originIds, terminalIds, showOriginLabel, showTerminalLabel }) => {
+    const normalizeTripStops = (stops, serviceDayStartMs, { originIds, terminalIds, originAKeys, terminalAKeys, showOriginLabel, showTerminalLabel }) => {
         const out = [];
         for (const s of Array.isArray(stops) ? stops : []) {
             let arr = toText(s?.arr) || '';
             let dep = toText(s?.dep) || '';
 
-            const isOriginStop = showOriginLabel && originIds?.has?.(toText(s?.stationId));
-            const isTerminalStop = showTerminalLabel && terminalIds?.has?.(toText(s?.stationId));
+            const stationId = toText(s?.stationId);
+            const stationAKey = getStationAKey(stationId);
+            const isOriginStop = !!showOriginLabel && (
+                !!originIds?.has?.(stationId) ||
+                (!!stationAKey && !!originAKeys?.has?.(stationAKey))
+            );
+            const isTerminalStop = !!showTerminalLabel && (
+                !!terminalIds?.has?.(stationId) ||
+                (!!stationAKey && !!terminalAKeys?.has?.(stationAKey))
+            );
             const allowMirrorFill = !(isOriginStop || isTerminalStop);
 
             if (allowMirrorFill) {
@@ -2198,7 +2279,7 @@ export function createPanel(options = {}) {
             const timeMs = depParsed?.ms || arrParsed?.ms || null;
 
             out.push({
-                stationId: toText(s?.stationId),
+                stationId,
                 stationName: toText(s?.stationName),
                 arr: arr || null,
                 dep: dep || null,
@@ -2361,8 +2442,12 @@ export function createPanel(options = {}) {
         const ds = Array.isArray(trip?.ds) ? trip.ds : (trip?.ds ? [trip.ds] : []);
         const originIds = new Set(os.map((x) => toText(x)).filter(Boolean));
         const terminalIds = new Set(ds.map((x) => toText(x)).filter(Boolean));
-        const showOriginLabel = !!originIds.size && !hasPt;
-        const showTerminalLabel = !!terminalIds.size && !hasNt;
+        // Trip detail 展示包含直通( pt/nt )链路：始发/终点标记应始终显示在全链路端点，
+        // 且需兼容“同名换乘站不同线路 stationId”场景（用 AKey 兜底匹配）。
+        const originAKeys = new Set(Array.from(originIds).map((id) => getStationAKey(id)).filter(Boolean));
+        const terminalAKeys = new Set(Array.from(terminalIds).map((id) => getStationAKey(id)).filter(Boolean));
+        const showOriginLabel = !!originIds.size;
+        const showTerminalLabel = !!terminalIds.size;
 
         const ptChain = await collectRefChainTrips(trip, 'pt', token);
         if (token !== tripDetailToken) return;
@@ -2374,6 +2459,8 @@ export function createPanel(options = {}) {
         const mainRowsRaw = normalizeTripStops(buildTripStops(trip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
             originIds,
             terminalIds,
+            originAKeys,
+            terminalAKeys,
             showOriginLabel,
             showTerminalLabel
         }).map((s) => ({ ...s, seg: 'main', isMain: true }));
@@ -2410,6 +2497,8 @@ export function createPanel(options = {}) {
                 const rows = normalizeTripStops(buildTripStops(ptTrip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
                     originIds,
                     terminalIds,
+                    originAKeys,
+                    terminalAKeys,
                     showOriginLabel,
                     showTerminalLabel
                 }).map((s) => ({ ...s, seg: 'pt', isMain: false }));
@@ -2434,6 +2523,8 @@ export function createPanel(options = {}) {
                 const rows = normalizeTripStops(buildTripStops(ntTrip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
                     originIds,
                     terminalIds,
+                    originAKeys,
+                    terminalAKeys,
                     showOriginLabel,
                     showTerminalLabel
                 }).map((s) => ({ ...s, seg: 'nt', isMain: false }));
