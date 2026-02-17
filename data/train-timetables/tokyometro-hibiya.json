@@ -15,9 +15,6 @@
 		"Tobu.TobuSkytree.A4845T.Weekday"
 	],
 	"tt": [{
-		"s": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"d": "08:41"
-	}, {
 		"s": "TokyoMetro.Hibiya.Ueno",
 		"a": "09:08",
 		"d": "09:10"
@@ -17796,10 +17793,7 @@
 	"pt": [
 		"Tobu.TobuSkytree.A4643T.Weekday"
 	],
-	"tt": [{
-		"s": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"d": "06:39"
-	}, {
+	"tt": [ {
 		"s": "TokyoMetro.Hibiya.Ueno",
 		"a": "07:07",
 		"d": "07:08"
@@ -32191,9 +32185,6 @@
 		"s": "TokyoMetro.Hibiya.Ueno",
 		"a": "17:24",
 		"d": "17:25"
-	}, {
-		"s": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"a": "17:53"
 	}],
 	"nm": [{
 		"ja": "THライナー 1号",
@@ -33799,9 +33790,6 @@
 		"s": "TokyoMetro.Hibiya.Ueno",
 		"a": "19:24",
 		"d": "19:25"
-	}, {
-		"s": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"a": "19:53"
 	}],
 	"nm": [{
 		"ja": "THライナー 5号",
@@ -33845,9 +33833,6 @@
 		"s": "TokyoMetro.Hibiya.Ueno",
 		"a": "18:24",
 		"d": "18:25"
-	}, {
-		"s": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"a": "18:53"
 	}],
 	"nm": [{
 		"ja": "THライナー 3号",
@@ -35450,9 +35435,6 @@
 		"s": "TokyoMetro.Hibiya.Ueno",
 		"a": "20:24",
 		"d": "20:25"
-	}, {
-		"s": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"a": "20:53"
 	}],
 	"nm": [{
 		"ja": "THライナー 7号",
@@ -36723,9 +36705,6 @@
 		"s": "TokyoMetro.Hibiya.Ueno",
 		"a": "21:24",
 		"d": "21:25"
-	}, {
-		"s": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"a": "21:53"
 	}],
 	"nm": [{
 		"ja": "THライナー 9号",
@@ -46966,10 +46945,7 @@
 	"pt": [
 		"Tobu.TobuSkytree.A4845T.SaturdayHoliday"
 	],
-	"tt": [{
-		"s": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"d": "08:39"
-	}, {
+	"tt": [ {
 		"s": "TokyoMetro.Hibiya.Ueno",
 		"a": "09:07",
 		"d": "09:08"
@@ -63952,10 +63928,7 @@
 	"pt": [
 		"Tobu.TobuSkytree.A4947T.SaturdayHoliday"
 	],
-	"tt": [{
-		"s": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"d": "09:48"
-	}, {
+	"tt": [ {
 		"s": "TokyoMetro.Hibiya.Ueno",
 		"a": "10:17",
 		"d": "10:18"
@@ -71055,9 +71028,6 @@
 		"s": "TokyoMetro.Hibiya.Ueno",
 		"a": "16:24",
 		"d": "16:25"
-	}, {
-		"s": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"a": "16:52"
 	}],
 	"nm": [{
 		"ja": "THライナー 1号",
@@ -72002,9 +71972,6 @@
 		"s": "TokyoMetro.Hibiya.Ueno",
 		"a": "17:24",
 		"d": "17:25"
-	}, {
-		"s": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"a": "17:53"
 	}],
 	"nm": [{
 		"ja": "THライナー 3号",
@@ -73041,9 +73008,6 @@
 		"s": "TokyoMetro.Hibiya.Ueno",
 		"a": "18:24",
 		"d": "18:25"
-	}, {
-		"s": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"a": "18:53"
 	}],
 	"nm": [{
 		"ja": "THライナー 5号",
@@ -73087,9 +73051,6 @@
 		"s": "TokyoMetro.Hibiya.Ueno",
 		"a": "19:24",
 		"d": "19:25"
-	}, {
-		"s": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"a": "19:53"
 	}],
 	"nm": [{
 		"ja": "THライナー 7号",
@@ -74117,9 +74078,6 @@
 		"s": "TokyoMetro.Hibiya.Ueno",
 		"a": "20:24",
 		"d": "20:25"
-	}, {
-		"s": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"a": "20:53"
 	}],
 	"nm": [{
 		"ja": "THライナー 9号",

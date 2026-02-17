@@ -1844,8 +1844,7 @@
 		"TokyoMetro.Hibiya.Iriya",
 		"TokyoMetro.Hibiya.Minowa",
 		"TokyoMetro.Hibiya.MinamiSenju",
-		"TokyoMetro.Hibiya.KitaSenju",
-		"TokyoMetro.Hibiya.ShinKoshigaya"
+		"TokyoMetro.Hibiya.KitaSenju"
 	],
 	"ascending": "TokyoMetro.KitaSenju",
 	"descending": "TokyoMetro.NakaMeguro",
@@ -1901,8 +1900,6 @@
 		"zh-Hant": "千代田線"
 	},
 	"stations": [
-		"TokyoMetro.Chiyoda.Machida",
-		"TokyoMetro.Chiyoda.SeijogakuenMae",
 		"TokyoMetro.Chiyoda.YoyogiUehara",
 		"TokyoMetro.Chiyoda.YoyogiKoen",
 		"TokyoMetro.Chiyoda.MeijiJingumae",

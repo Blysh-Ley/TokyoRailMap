@@ -5951,9 +5951,6 @@
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "17:42",
 		"d": "17:44"
-	}, {
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"a": "18:01"
 	}],
 	"nm": [{
 		"ja": "メトロホームウェイ 41号",
@@ -7028,9 +7025,6 @@
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "18:42",
 		"d": "18:44"
-	}, {
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"a": "19:01"
 	}],
 	"nm": [{
 		"ja": "メトロホームウェイ 43号",
@@ -8500,9 +8494,6 @@
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "19:42",
 		"d": "19:44"
-	}, {
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"a": "20:01"
 	}],
 	"nm": [{
 		"ja": "メトロホームウェイ 45号",
@@ -9690,9 +9681,6 @@
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "20:42",
 		"d": "20:44"
-	}, {
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"a": "21:01"
 	}],
 	"nm": [{
 		"ja": "メトロホームウェイ 47号",
@@ -10678,9 +10666,6 @@
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "21:42",
 		"d": "21:44"
-	}, {
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"a": "21:57"
 	}],
 	"nm": [{
 		"ja": "メトロホームウェイ 49号",
@@ -18011,9 +17996,6 @@
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "10:16",
 		"d": "10:18"
-	}, {
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"a": "10:31"
 	}],
 	"nm": [{
 		"ja": "メトロはこね 21号",
@@ -22827,9 +22809,6 @@
 		"Odakyu.Odawara.0420.Weekday"
 	],
 	"tt": [{
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"d": "15:38"
-	}, {
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "15:51",
 		"d": "15:53"
@@ -33696,9 +33675,6 @@
 		"Odakyu.Odawara.0940.Weekday"
 	],
 	"tt": [{
-		"s": "TokyoMetro.Chiyoda.Machida",
-		"d": "06:44"
-	}, {
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "07:21",
 		"d": "07:23"
@@ -36247,10 +36223,7 @@
 	"pt": [
 		"Odakyu.Odawara.0942.Weekday"
 	],
-	"tt": [{
-		"s": "TokyoMetro.Chiyoda.Machida",
-		"d": "08:34"
-	}, {
+	"tt": [ {
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "09:08",
 		"d": "09:10"
@@ -40990,9 +40963,6 @@
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "11:02",
 		"d": "11:04"
-	}, {
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"a": "11:20"
 	}],
 	"nm": [{
 		"ja": "メトロはこね 93号",
@@ -45151,9 +45121,6 @@
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "15:51",
 		"d": "15:53"
-	}, {
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"a": "16:05"
 	}],
 	"nm": [{
 		"ja": "メトロはこね 21号",
@@ -48958,9 +48925,6 @@
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "20:04",
 		"d": "20:05"
-	}, {
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"a": "20:21"
 	}],
 	"nm": [{
 		"ja": "メトロホームウェイ 41号",
@@ -50023,9 +49987,6 @@
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "21:04",
 		"d": "21:05"
-	}, {
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"a": "21:21"
 	}],
 	"nm": [{
 		"ja": "メトロホームウェイ 43号",
@@ -54451,9 +54412,6 @@
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "09:02",
 		"d": "09:04"
-	}, {
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"a": "09:19"
 	}],
 	"nm": [{
 		"ja": "メトロはこね 91号",
@@ -56450,10 +56408,7 @@
 	"pt": [
 		"Odakyu.Odawara.0420.SaturdayHoliday"
 	],
-	"tt": [{
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"d": "12:04"
-	}, {
+	"tt": [ {
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "12:17",
 		"d": "12:19"
@@ -62372,10 +62327,7 @@
 	"pt": [
 		"Odakyu.Odawara.0422.SaturdayHoliday"
 	],
-	"tt": [{
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"d": "17:34"
-	}, {
+	"tt": [ {
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "17:51",
 		"d": "17:53"
@@ -63332,10 +63284,7 @@
 	"pt": [
 		"Odakyu.Odawara.0490.SaturdayHoliday.1"
 	],
-	"tt": [{
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"d": "19:09"
-	}, {
+	"tt": [ {
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "19:23",
 		"d": "19:25"
@@ -70548,10 +70497,7 @@
 	"pt": [
 		"Odakyu.Odawara.0930.SaturdayHoliday"
 	],
-	"tt": [{
-		"s": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"d": "09:03"
-	}, {
+	"tt": [ {
 		"s": "TokyoMetro.Chiyoda.OmoteSando",
 		"a": "09:16",
 		"d": "09:18"
