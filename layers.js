@@ -86,6 +86,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
     const getLineMeta = typeof options.getLineMeta === 'function' ? options.getLineMeta : (() => null);
     const companyLogoMap = options.companyLogoMap || {};
+    const railwaysOrderIndex = options.railwaysOrderIndex instanceof Map ? options.railwaysOrderIndex : null;
     const hoverDelayMs = Number.isFinite(options.hoverDelayMs) ? options.hoverDelayMs : 500;
     const hoverMinZoom = Number.isFinite(options.hoverMinZoom) ? options.hoverMinZoom : 11;
     const onSelectCompany = typeof options.onSelectCompany === 'function' ? options.onSelectCompany : null;
@@ -616,6 +617,16 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         const groups = new Map(); // company -> [{ lineId, displayName, color }]
         const seenLineIds = new Set();
 
+        const toRailwaysOrderKey = (lineId) => {
+            const raw = String(lineId ?? '').trim();
+            if (!raw) return '';
+            const parts = raw.split('.');
+            const company = String(parts[0] ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const name = String(parts.slice(1).join('') ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (!company || !name) return '';
+            return `${company}-${name}`;
+        };
+
         // 以 serving_ids 为准：company/name/color 都来自 lines.geojson，避免 serving_lines 与 serving_ids 不对齐
         for (const lineId of servingIds) {
             const id = String(lineId);
@@ -651,6 +662,23 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
         let companiesHtml = '';
         for (const [company, lines] of groups) {
+            // 同公司内线路排序：按 /data/railways-order.json 的顺序（若提供）
+            const sortedLines = (() => {
+                if (!railwaysOrderIndex || !railwaysOrderIndex.size) return Array.isArray(lines) ? lines : [];
+                const src = Array.isArray(lines) ? lines : [];
+                const decorated = src.map((line, idx) => {
+                    const k = toRailwaysOrderKey(line?.lineId);
+                    const r = k ? railwaysOrderIndex.get(k) : undefined;
+                    const rank = (typeof r === 'number' && Number.isFinite(r)) ? r : Number.POSITIVE_INFINITY;
+                    return { line, idx, rank };
+                });
+                decorated.sort((a, b) => {
+                    if (a.rank !== b.rank) return a.rank - b.rank;
+                    return a.idx - b.idx;
+                });
+                return decorated.map((x) => x.line);
+            })();
+
             const companyZh = companyLogoMap?.[company]?.zh || null;
             const companyDisplay = String(companyZh || company);
 
@@ -670,7 +698,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                 : '';
 
             let linesHtml = '';
-            for (const line of lines) {
+            for (const line of sortedLines) {
                 const style = (typeof line.color === 'string' && line.color.trim())
                     ? ` style="color:${escapeHtml(line.color.trim())}"`
                     : '';

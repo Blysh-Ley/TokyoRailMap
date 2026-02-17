@@ -52,6 +52,37 @@ const readHoverPreviewEnabled = () => {
     return true;
 };
 
+// /data/railways-order.json: [{ "jreast-yamanote": "1037" }, ...]
+// 我们只需要其“数组顺序”，用于 UI 中同公司线路排序。
+const loadRailwaysOrderIndex = (() => {
+    let promise = null;
+    return async () => {
+        if (promise) return promise;
+        promise = (async () => {
+            try {
+                const resp = await fetch('./data/railways-order.json');
+                if (!resp.ok) return new Map();
+                const list = await resp.json();
+                const arr = Array.isArray(list) ? list : [];
+                const map = new Map();
+                for (let i = 0; i < arr.length; i++) {
+                    const obj = arr[i];
+                    if (!obj || typeof obj !== 'object') continue;
+                    const keys = Object.keys(obj);
+                    if (!keys.length) continue;
+                    const k = String(keys[0] ?? '').trim();
+                    if (!k) continue;
+                    if (!map.has(k)) map.set(k, i);
+                }
+                return map;
+            } catch {
+                return new Map();
+            }
+        })();
+        return promise;
+    };
+})();
+
 const initialTheme = resolveThemeFromAppearance(readAppearanceMode());
 document.documentElement.setAttribute('data-theme', initialTheme);
 let mapMode = initialTheme;
@@ -154,6 +185,8 @@ map.on('load', async () => {
     applyCustomAttribution();
     map.on('styledata', applyCustomAttribution);
     applyBasemapTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+
+    const railwaysOrderIndex = await loadRailwaysOrderIndex();
 
     // 触屏防误触：仅短按且几乎不移动才视为 tap
     const touchTapGuard = getGlobalTouchTapGuard({ maxDurationMs: 500, maxMovePx: 12 });
@@ -941,6 +974,7 @@ map.on('load', async () => {
         hoverDelayMs: 50,
         settingsContentEl: settingsMenuContentEl,
         companyLogoMap,
+        railwaysOrderIndex,
         getHoverPreviewEnabled: () => isHoverPreviewEnabled(),
         getTimetableViewMode: () => readTimetableViewMode(),
         getLineMeta: (lineId) => {
@@ -3003,6 +3037,7 @@ map.on('load', async () => {
             companyObj,
             linesObj,
             companyLogoMap,
+            railwaysOrderIndex,
             logoBasePath: './companyLogos/',
             hoverDelayMs: 500,
             onCancelSelection: clearSelectionsAndRestore,
@@ -3213,6 +3248,7 @@ map.on('load', async () => {
                 };
             },
             companyLogoMap,
+            railwaysOrderIndex,
             hoverDelayMs: 50,
             getHoverPreviewEnabled: () => isHoverPreviewEnabled(),
             onSelectCompany: (companyName, meta) => {

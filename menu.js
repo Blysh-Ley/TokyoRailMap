@@ -25,7 +25,8 @@ export class Menu {
         hoverDelayMs = 500,
         exitGraceMs = 500,
         companyLogoMap = {},
-        logoBasePath = './companyLogos/'
+        logoBasePath = './companyLogos/',
+        railwaysOrderIndex = null
     }) {
         this.companyObj = companyObj;
         this.linesObj = linesObj;
@@ -41,6 +42,7 @@ export class Menu {
 
         this.companyLogoMap = companyLogoMap;
         this.logoBasePath = logoBasePath;
+        this.railwaysOrderIndex = railwaysOrderIndex instanceof Map ? railwaysOrderIndex : null;
 
         this.wrapper = null;
         this.wrapperList = null;
@@ -333,6 +335,16 @@ export class Menu {
             return Array.isArray(m) ? m : [];
         };
 
+        const toRailwaysOrderKey = (lineId) => {
+            const raw = String(lineId ?? '').trim();
+            if (!raw) return '';
+            const parts = raw.split('.');
+            const company = String(parts[0] ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const name = String(parts.slice(1).join('') ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (!company || !name) return '';
+            return `${company}-${name}`;
+        };
+
         const findMergeTargetId = (branchLineId, existsFn) => {
             // 自定义合并：某些支线虽然命名上不是简单的“主线 + Branch”，但实际上应该归并到主线下（如武藏野线大宫支线）。这种特殊情况单独列出来，优先判断。
             const special = specialMainByBranch[String(branchLineId)];
@@ -469,6 +481,8 @@ export class Menu {
                 ? preferredLineOrderRaw.map((x) => String(x)).filter(Boolean)
                 : null;
 
+            const orderIndex = this.railwaysOrderIndex;
+
             const decorated = companyLines.map(([lineId, meta], idx) => {
                 // 若该支线已归并到主线，则不在菜单中显示
                 if (mergedBranchIds.has(String(lineId))) return null;
@@ -481,7 +495,11 @@ export class Menu {
                 const lineName = computeLineDisplayName(lineId, meta, abb);
 
                 let orderRank = Number.POSITIVE_INFINITY;
-                if (preferredLineOrder && preferredLineOrder.length) {
+                if (orderIndex && orderIndex.size) {
+                    const k = toRailwaysOrderKey(lineId);
+                    const r = k ? orderIndex.get(k) : undefined;
+                    if (typeof r === 'number' && Number.isFinite(r)) orderRank = r;
+                } else if (preferredLineOrder && preferredLineOrder.length) {
                     for (let i = 0; i < preferredLineOrder.length; i++) {
                         const token = preferredLineOrder[i];
                         if (token && lineName.includes(token)) {
@@ -496,8 +514,10 @@ export class Menu {
 
             const decoratedFiltered = decorated.filter(Boolean);
 
-            // 稳定排序：优先名单按指定顺序，其余线路保持原顺序
-            if (preferredLineOrder && preferredLineOrder.length) {
+            // 稳定排序：
+            // 1) 若传入 railways-order 索引，则按其排序（同公司内）
+            // 2) 否则沿用公司自定义优先名单（若存在）
+            if ((orderIndex && orderIndex.size) || (preferredLineOrder && preferredLineOrder.length)) {
                 decoratedFiltered.sort((a, b) => {
                     if (a.orderRank !== b.orderRank) return a.orderRank - b.orderRank;
                     return a.idx - b.idx;

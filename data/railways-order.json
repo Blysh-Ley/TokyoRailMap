@@ -1,0 +1,518 @@
+[
+  {
+    "jreast-yamanote": "1037"
+  },
+  {
+    "keikyu-main": "2183"
+  },
+  {
+    "odakyu-odawara": "2113"
+  },
+  {
+    "seibu-ikebukuro": "1926"
+  },
+  {
+    "tobu-tojo": "1760"
+  },
+  {
+    "tobu-tobuskytree": "1717"
+  },
+  {
+    "keio-keio": "1675"
+  },
+  {
+    "sotetsu-main": "1458"
+  },
+  {
+    "keisei-main": "1413"
+  },
+  {
+    "tokyu-toyoko": "1397"
+  },
+  {
+    "toei-asakusa": "1260"
+  },
+  {
+    "jreast-keihintohokunegishi": "1255"
+  },
+  {
+    "jreast-chuosobulocal": "1247"
+  },
+  {
+    "tobu-tobuurbanpark": "1247"
+  },
+  {
+    "jreast-chuorapid": "1232"
+  },
+  {
+    "tokyometro-chiyoda": "1193"
+  },
+  {
+    "tokyu-denentoshi": "1193"
+  },
+  {
+    "keio-inokashira": "1178"
+  },
+  {
+    "tokyometro-ginza": "1160"
+  },
+  {
+    "seibu-shinjuku": "1147"
+  },
+  {
+    "minatomirai-minatomirai": "1144"
+  },
+  {
+    "tokyometro-marunouchi": "1105"
+  },
+  {
+    "odakyu-enoshima": "1089"
+  },
+  {
+    "toei-arakawa": "1060"
+  },
+  {
+    "tokyometro-hibiya": "1023"
+  },
+  {
+    "tokyometro-tozai": "1007"
+  },
+  {
+    "tokyometro-hanzomon": "994"
+  },
+  {
+    "tokyometro-fukutoshin": "993"
+  },
+  {
+    "yurikamome-yurikamome": "991"
+  },
+  {
+    "tokyu-meguro": "966"
+  },
+  {
+    "jreast-saikyokawagoe": "960"
+  },
+  {
+    "tokyu-oimachi": "933"
+  },
+  {
+    "keisei-oshiage": "931"
+  },
+  {
+    "toei-nipporitoneri": "928"
+  },
+  {
+    "tokyometro-yurakucho": "843"
+  },
+  {
+    "mir-tsukubaexpress": "841"
+  },
+  {
+    "toei-oedo": "839"
+  },
+  {
+    "tokyomonorail-hanedaairport": "834"
+  },
+  {
+    "keio-sagamihara": "818"
+  },
+  {
+    "tokyu-ikegami": "812"
+  },
+  {
+    "jreast-soburapid": "782"
+  },
+  {
+    "toei-mita": "758"
+  },
+  {
+    "toei-shinjuku": "755"
+  },
+  {
+    "tokyometro-namboku": "744"
+  },
+  {
+    "jreast-nambu": "733"
+  },
+  {
+    "keikyu-airport": "724"
+  },
+  {
+    "keio-keionew": "714"
+  },
+  {
+    "tokyu-tokyutamagawa": "706"
+  },
+  {
+    "jreast-tokaido": "698"
+  },
+  {
+    "yokohamamunicipal-blue": "698"
+  },
+  {
+    "tobu-isesaki": "696"
+  },
+  {
+    "tokyu-setagaya": "695"
+  },
+  {
+    "chibamonorail-line1": "686"
+  },
+  {
+    "jreast-jobanrapid": "682"
+  },
+  {
+    "tobu-nikko": "668"
+  },
+  {
+    "tokyometro-marunouchibranch": "658"
+  },
+  {
+    "jreast-yokosuka": "647"
+  },
+  {
+    "tokyu-tokyushinyokohama": "644"
+  },
+  {
+    "jreast-utsunomiya": "641"
+  },
+  {
+    "jreast-ome": "629"
+  },
+  {
+    "jreast-yokohama": "622"
+  },
+  {
+    "jreast-joban": "614"
+  },
+  {
+    "yokohamamunicipal-green": "605"
+  },
+  {
+    "jreast-keiyo": "597"
+  },
+  {
+    "sotetsu-sotetsushinyokohama": "568"
+  },
+  {
+    "twr-rinkai": "564"
+  },
+  {
+    "jreast-jobanlocal": "562"
+  },
+  {
+    "jreast-musashino": "551"
+  },
+  {
+    "yokohamaseaside-kanazawaseaside": "551"
+  },
+  {
+    "shonanmonorail-shonanmonorail": "549"
+  },
+  {
+    "seibu-seibuyurakucho": "543"
+  },
+  {
+    "saitamarailway-saitamarailway": "533"
+  },
+  {
+    "keisei-matsudo": "524"
+  },
+  {
+    "keikyu-kurihama": "513"
+  },
+  {
+    "odakyuhakone-hakonetozan": "501"
+  },
+  {
+    "keikyu-daishi": "475"
+  },
+  {
+    "sotetsu-izumino": "473"
+  },
+  {
+    "tamamonorail-tamamonorail": "472"
+  },
+  {
+    "odakyu-tama": "464"
+  },
+  {
+    "tobu-kameido": "452"
+  },
+  {
+    "toyorapid-toyorapid": "449"
+  },
+  {
+    "jreast-takasaki": "448"
+  },
+  {
+    "keikyu-zushi": "447"
+  },
+  {
+    "keio-takao": "441"
+  },
+  {
+    "seibu-haijima": "441"
+  },
+  {
+    "tobu-daishi": "437"
+  },
+  {
+    "jreast-sotobo": "432"
+  },
+  {
+    "seibu-tamako": "432"
+  },
+  {
+    "kantorailway-joso": "428"
+  },
+  {
+    "tobu-tobuskytreebranch": "427"
+  },
+  {
+    "seibu-kokubunji": "424"
+  },
+  {
+    "jreast-chuo": "420"
+  },
+  {
+    "chibamonorail-line2": "417"
+  },
+  {
+    "keisei-chiba": "408"
+  },
+  {
+    "saitamatransit-newshuttle": "406"
+  },
+  {
+    "jreast-shonanshinjuku": "383"
+  },
+  {
+    "jreast-uchibo": "372"
+  },
+  {
+    "utsunomiyalightrail-utsunomiyalightrail": "369"
+  },
+  {
+    "jrcentral-tokaido": "358"
+  },
+  {
+    "seibu-tamagawa": "358"
+  },
+  {
+    "keisei-kanamachi": "328"
+  },
+  {
+    "jreast-tsurumi": "326"
+  },
+  {
+    "hokuso-hokuso": "325"
+  },
+  {
+    "enoden-enoden": "312"
+  },
+  {
+    "seibu-toshima": "305"
+  },
+  {
+    "jreast-hachiko": "298"
+  },
+  {
+    "jreast-keiyokoyabranch": "298"
+  },
+  {
+    "jreast-sobu": "298"
+  },
+  {
+    "tobu-ogose": "290"
+  },
+  {
+    "keisei-naritaskyaccess": "279"
+  },
+  {
+    "izuhakone-daiyuzan": "274"
+  },
+  {
+    "keio-dobutsuen": "263"
+  },
+  {
+    "seibu-sayama": "262"
+  },
+  {
+    "izuhakone-sunzu": "260"
+  },
+  {
+    "seibu-seibuen": "260"
+  },
+  {
+    "tokyu-kodomonokuni": "248"
+  },
+  {
+    "ryutetsu-nagareyama": "246"
+  },
+  {
+    "jreast-keiyofutamatabranch": "242"
+  },
+  {
+    "jreast-sagami": "242"
+  },
+  {
+    "yamaman-yukarigaoka": "236"
+  },
+  {
+    "jreast-ryomo": "233"
+  },
+  {
+    "keio-keibajo": "210"
+  },
+  {
+    "seibu-seibuchichibu": "208"
+  },
+  {
+    "keisei-chihara": "206"
+  },
+  {
+    "chichibu-chichibu": "201"
+  },
+  {
+    "jreast-itsukaichi": "196"
+  },
+  {
+    "jreast-kawagoe": "186"
+  },
+  {
+    "jreast-sotetsudirect": "184"
+  },
+  {
+    "jrcentral-gotemba": "179"
+  },
+  {
+    "tobu-utsunomiya": "172"
+  },
+  {
+    "tobu-kiryu": "164"
+  },
+  {
+    "seibu-yamaguchi": "162"
+  },
+  {
+    "jreast-nambubranch": "160"
+  },
+  {
+    "jreast-naritaabikobranch": "160"
+  },
+  {
+    "kantorailway-ryugasaki": "160"
+  },
+  {
+    "jreast-ito": "158"
+  },
+  {
+    "fujikyu-fujikyu": "152"
+  },
+  {
+    "izukyu-izukyu": "152"
+  },
+  {
+    "kashimarinkai-oaraikashima": "146"
+  },
+  {
+    "jreast-narita": "144"
+  },
+  {
+    "jreast-joetsu": "142"
+  },
+  {
+    "tobu-kinugawa": "142"
+  },
+  {
+    "hitachinaka-minato": "126"
+  },
+  {
+    "tobu-koizumi": "126"
+  },
+  {
+    "tobu-sano": "126"
+  },
+  {
+    "jreast-mito": "124"
+  },
+  {
+    "jreast-togane": "122"
+  },
+  {
+    "keisei-higashinarita": "122"
+  },
+  {
+    "shibayama-shibayama": "122"
+  },
+  {
+    "jreast-yamanotefreight": "104"
+  },
+  {
+    "moka-moka": "102"
+  },
+  {
+    "jreast-nikko": "101"
+  },
+  {
+    "tobu-koizumibranch": "96"
+  },
+  {
+    "kominato-kominato": "92"
+  },
+  {
+    "jreast-tsurumiumishibaurabranch": "82"
+  },
+  {
+    "jreast-kururi": "80"
+  },
+  {
+    "choshi-choshi": "76"
+  },
+  {
+    "jreast-kashima": "64"
+  },
+  {
+    "isumi-isumi": "54"
+  },
+  {
+    "jreast-karasuyama": "54"
+  },
+  {
+    "jreast-naritaairportbranch": "24"
+  },
+  {
+    "jreast-tsurumiokawabranch": "24"
+  },
+  {
+    "jreast-musashinoomiyabranch": "15"
+  },
+  {
+    "jreast-musashinokunitachibranch": "12"
+  },
+  {
+    "jreast-musashinonishiurawabranch": "12"
+  },
+  {
+    "odakyu-jrodakyuconnection": "12"
+  },
+  {
+    "tobu-jrtobuconnection": "8"
+  },
+  {
+    "seibu-syurakucho": "7"
+  },
+  {
+    "jreast-osakibranch": "5"
+  },
+  {
+    "seibu-sfukutoshin": "5"
+  },
+  {
+    "jreast-tokaidofreight": "3"
+  },
+  {
+    "seibu-seibuchichibubranch": "2"
+  }
+]

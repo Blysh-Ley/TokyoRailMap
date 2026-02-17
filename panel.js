@@ -233,7 +233,7 @@ const normalizeArrayLike = (value) => {
     return s ? [s] : [];
 };
 
-function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStationNameByLineId } = {}) {
+function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStationNameByLineId, railwaysOrderIndex } = {}) {
     const servingIdsRaw = normalizeArrayLike(props.serving_ids);
     const servingIds = servingIdsRaw.map(String).filter(Boolean);
     const servingLinesRaw = normalizeArrayLike(props.serving_lines);
@@ -241,6 +241,17 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
 
     const safeGetLineMeta = typeof getLineMeta === 'function' ? getLineMeta : (() => null);
     const logoMap = companyLogoMap || {};
+    const orderIndex = railwaysOrderIndex instanceof Map ? railwaysOrderIndex : null;
+
+    const toRailwaysOrderKey = (lineId) => {
+        const raw = String(lineId ?? '').trim();
+        if (!raw) return '';
+        const parts = raw.split('.');
+        const company = String(parts[0] ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const name = String(parts.slice(1).join('') ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!company || !name) return '';
+        return `${company}-${name}`;
+    };
 
     const groups = new Map(); // company -> [{ lineId, displayName, color }]
     const seenLineIds = new Set();
@@ -276,6 +287,23 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
 
     let companiesHtml = '';
     for (const [company, lines] of groups) {
+        // 同公司内线路排序：按 /data/railways-order.json 的顺序（若传入）
+        const sortedLines = (() => {
+            if (!orderIndex || !orderIndex.size) return Array.isArray(lines) ? lines : [];
+            const src = Array.isArray(lines) ? lines : [];
+            const decorated = src.map((line, idx) => {
+                const k = toRailwaysOrderKey(line?.lineId);
+                const r = k ? orderIndex.get(k) : undefined;
+                const rank = (typeof r === 'number' && Number.isFinite(r)) ? r : Number.POSITIVE_INFINITY;
+                return { line, idx, rank };
+            });
+            decorated.sort((a, b) => {
+                if (a.rank !== b.rank) return a.rank - b.rank;
+                return a.idx - b.idx;
+            });
+            return decorated.map((x) => x.line);
+        })();
+
         const companyZh = logoMap?.[company]?.zh || null;
         const companyDisplay = String(companyZh || company);
 
@@ -295,7 +323,7 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
             : '';
 
         let linesHtml = '';
-        for (const line of lines) {
+        for (const line of sortedLines) {
             const style = typeof line.color === 'string' && line.color.trim() ? ` style="color:${escapeHtml(line.color.trim())}"` : '';
             const idAttr = line.lineId ? ` data-line-id="${escapeHtml(String(line.lineId))}"` : '';
             const transferStationName = line.lineId
@@ -335,6 +363,7 @@ export function createPanel(options = {}) {
     const hoverDelayMs = Number.isFinite(options.hoverDelayMs) ? options.hoverDelayMs : 50;
     const getLineMeta = typeof options.getLineMeta === 'function' ? options.getLineMeta : (() => null);
     const companyLogoMap = options.companyLogoMap || {};
+    const railwaysOrderIndex = options.railwaysOrderIndex instanceof Map ? options.railwaysOrderIndex : null;
     const onSelectCompany = typeof options.onSelectCompany === 'function' ? options.onSelectCompany : null;
     const onSelectLine = typeof options.onSelectLine === 'function' ? options.onSelectLine : null;
     const onRestoreStationLines = typeof options.onRestoreStationLines === 'function' ? options.onRestoreStationLines : null;
@@ -3974,7 +4003,7 @@ export function createPanel(options = {}) {
         if (renderToken !== stationRenderToken) return;
 
         // 渲染 popup 同结构的内容（公司分组 + 线路）
-        body.innerHTML = buildCompaniesHtml(props || {}, { getLineMeta, companyLogoMap, lineStationNameByLineId });
+        body.innerHTML = buildCompaniesHtml(props || {}, { getLineMeta, companyLogoMap, lineStationNameByLineId, railwaysOrderIndex });
 
         // 默认折叠态：填充每条线路的“未来最近 3 条”班次
         renderAllTimetables();
