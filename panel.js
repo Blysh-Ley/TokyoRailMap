@@ -1693,9 +1693,11 @@ export function createPanel(options = {}) {
                 const tripAttr = tripKey ? ` data-trip-key="${escapeHtml(tripKey)}"` : '';
                 const lastClass = tripIndex === trips.length - 1 ? ' is-hour-last' : '';
 
+                    const pastClass = trip?.isPast ? ' is-past' : '';
+
                     return `
-                        <div class="panel-grid-cell panel-grid-cell-trip${lastClass}"${tripAttr}>
-                            <span class="panel-grid-trip" style="color:${escapeHtml(color)}">
+                        <div class="panel-grid-cell panel-grid-cell-trip${pastClass}${lastClass}"${tripAttr}>
+                            <span class="panel-grid-trip${pastClass}" style="color:${escapeHtml(color)}">
                                 <span class="panel-grid-trip-abbr">[${escapeHtml(typeAbbr)}]${escapeHtml(destAbbr)}</span>
                                 <span class="panel-grid-trip-minute">${escapeHtml(minute)}</span>
                             </span>
@@ -3972,6 +3974,15 @@ export function createPanel(options = {}) {
     document.addEventListener('click', (evt) => {
         const target = evt?.target;
 
+        // 点击设置区域不应触发“取消固定”或关闭详情
+        if (
+            target instanceof Element && (
+                (settingsContentEl && settingsContentEl.contains(target)) ||
+                target.closest('.settings-content') ||
+                target.closest('.settings-ui')
+            )
+        ) return;
+
         if (pinnedDirPreviewKey) {
             const insidePanel = !!(target && root.contains(target));
             const insideFilterPopover = !!(target && dirFilterPopover.contains(target));
@@ -3991,13 +4002,6 @@ export function createPanel(options = {}) {
 
         if (!tripDetailPinned && !tripLocked) return;
         if (target && tripDetailRoot.contains(target)) return;
-        if (
-            target instanceof Element && (
-                (settingsContentEl && settingsContentEl.contains(target)) ||
-                target.closest('.settings-content') ||
-                target.closest('.settings-ui')
-            )
-        ) return;
         if (target && root.contains(target)) {
             const rowEl = findTripTarget(target);
             const lineEl = rowEl?.closest?.('[data-line-id]');

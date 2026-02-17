@@ -171,11 +171,11 @@ map.on('load', async () => {
             if (!inner) return;
 
             inner.innerHTML = [
-                '&copy; <a href="https://carto.com/">Carto</a>',
                 '<a href="https://maplibre.org/" target="_blank" rel="noopener noreferrer">© MapLibre</a>',
-                '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a>',
-                '<a href="https://github.com/nagix/mini-tokyo-3d" target="_blank" rel="noopener noreferrer">Data: mini-tokyo-3d</a>',
-                'Special thanks to <a href="https://github.com/nagix" target="_blank" rel="noopener noreferrer">@nagix</a>'
+                '&copy; <a href="https://carto.com/">Carto</a>',
+                '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>',
+                
+                '<a href="https://github.com/nagix/mini-tokyo-3d" target="_blank" rel="noopener noreferrer">Data based on mini-tokyo-3d</a>'
             ].join(' | ');
         } catch {
             // ignore
