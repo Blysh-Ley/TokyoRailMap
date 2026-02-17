@@ -1253,9 +1253,11 @@ export function createPanel(options = {}) {
         const v = toText(key);
         if (!k || !v) {
             pinnedPanelSelection = null;
+            body.classList.remove('is-pinned');
             return;
         }
         pinnedPanelSelection = { kind: k, key: v };
+        body.classList.add('is-pinned');
     };
 
     const getCurrentPinnedInteractionKey = () => {
@@ -1268,6 +1270,32 @@ export function createPanel(options = {}) {
     };
 
     const hasPinnedPanelState = () => !!getCurrentPinnedInteractionKey();
+
+    const isDirFilterPinned = () => {
+        // 仅“方向筛选按钮点击后”的固定态允许被时刻表 hover 打断。
+        // 其他固定态（公司/线路/车次锁定）仍然禁止 hover 变更。
+        const k = toText(pinnedPanelSelection?.kind);
+        const key = toText(pinnedPanelSelection?.key);
+        const pinnedDir = toText(pinnedDirPreviewKey);
+        return k === 'dir' && !!pinnedDir && key === pinnedDir;
+    };
+
+    // 从 timetable row/grid-cell 向上查找所属 lineId + dirKey，判断是否与 pinnedDirPreviewKey 同方向
+    const isTripRowInPinnedDir = (rowEl) => {
+        if (!(rowEl instanceof Element)) return false;
+        const pinnedDir = toText(pinnedDirPreviewKey);
+        if (!pinnedDir) return false;
+
+        const dirBody = rowEl.closest?.('[data-dir-body][data-dir-key]');
+        const lineEl = rowEl.closest?.('[data-line-id]');
+        if (!dirBody || !lineEl) return false;
+
+        const dirKey = toText(dirBody.getAttribute('data-dir-key'));
+        const lineId = toText(lineEl.getAttribute('data-line-id'));
+        if (!dirKey || !lineId) return false;
+
+        return makeLineDirKey(lineId, dirKey) === pinnedDir;
+    };
 
     const getInteractionKeyFromTarget = (target) => {
         const rowEl = findTripTarget(target);
@@ -1311,6 +1339,7 @@ export function createPanel(options = {}) {
     const clearPinnedPanelState = ({ restoreStation = true } = {}) => {
         const hadPinned = hasPinnedPanelState();
         pinnedPanelSelection = null;
+        body.classList.remove('is-pinned');
         if (tripLocked || tripDetailPinned) {
             hideTripDetail();
             lastTripDetailKey = null;
@@ -3477,7 +3506,8 @@ export function createPanel(options = {}) {
     const armCancelInteractionSuppression = () => {
         const until = nowMs() + 260;
         suppressMouseClickUntilMs = until;
-        suppressMouseHoverUntilMs = until;
+        // 取消固定后 1s 内不响应 hover，避免鼠标仍在面板上立即重新触发预览
+        suppressMouseHoverUntilMs = nowMs() + 1000;
     };
 
     const expandDirectionTimetable = (lineId, dirKey) => {
@@ -3843,11 +3873,14 @@ export function createPanel(options = {}) {
     body.addEventListener('click', onBodyClick, { passive: false });
 
     body.addEventListener('mouseover', (evt) => {
-        if (hasPinnedPanelState()) return;
         if (!isHoverPreviewEnabled()) return;
         if (isTouchLikePointer(lastPointerType)) return;
         const rowEl = findTripTarget(evt?.target);
         if (!rowEl || !body.contains(rowEl)) return;
+        // 有固定态时：仅当 dir-filter 固定 且 row 属于同一方向 才允许 hover 打断
+        if (hasPinnedPanelState()) {
+            if (!isDirFilterPinned() || !isTripRowInPinnedDir(rowEl)) return;
+        }
         const lineEl = rowEl.closest?.('[data-line-id]');
         const lineId = lineEl?.getAttribute?.('data-line-id');
         const tripKey = rowEl.getAttribute?.('data-trip-key');
@@ -3858,6 +3891,11 @@ export function createPanel(options = {}) {
             const pendingSame = tripHighlightCandidateKey === key;
             const appliedSame = tripHighlightAppliedKey === key;
             if (pendingSame || appliedSame) return;
+        }
+
+        // 若 dir-filter 固定态被同方向 row hover 打断，清除方向高亮
+        if (isDirFilterPinned()) {
+            clearDirPreview();
         }
 
         clearTripDetailHideTimer();
@@ -3874,15 +3912,21 @@ export function createPanel(options = {}) {
     });
 
     body.addEventListener('mouseout', (evt) => {
-        if (hasPinnedPanelState()) return;
         if (!isHoverPreviewEnabled()) return;
         clearTripHighlightTimer();
         if (tripLocked) return;
         if (tripDetailPinned) return;
         const rowEl = findTripTarget(evt?.target);
         if (!rowEl || !body.contains(rowEl)) return;
+        if (hasPinnedPanelState()) {
+            if (!isDirFilterPinned() || !isTripRowInPinnedDir(rowEl)) return;
+        }
         const toEl = evt?.relatedTarget;
         if (toEl && (rowEl.contains(toEl) || tripDetailRoot.contains(toEl))) return;
+        // dir-filter 固定态下 row mouseout：恢复方向高亮并隐藏 trip detail
+        if (isDirFilterPinned()) {
+            applyDirPreviewByKey(pinnedDirPreviewKey, { force: true });
+        }
         scheduleTripDetailHide();
     });
 

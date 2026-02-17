@@ -432,6 +432,7 @@
             text-overflow: ellipsis;
             white-space: nowrap;
             pointer-events: auto;
+            cursor: pointer;
         }
 
         .panel-line-name-suffix {
@@ -692,10 +693,10 @@
         }
 
         .panel-grid-cell-trip {
-            cursor: pointer;
             flex: 0 0 20%;
             width: 20%;
             max-width: 20%;
+            cursor: pointer;
         }
 
         .panel-grid-trip {
@@ -730,6 +731,7 @@
             white-space: nowrap;
             height: 18px;
             box-sizing: border-box;
+            cursor: pointer;
         }
 
         .panel-timetable-row.is-past {
@@ -1180,6 +1182,21 @@
 
         .panel-company-lines .panel-line {
             padding-left: 1.7em;
+        }
+
+        /* panel：固定态下的鼠标样式（由 body.is-pinned 驱动） */
+        body.is-pinned .panel-line-name,
+        body.is-pinned .panel-company-name,
+        body.is-pinned .panel-company-logo,
+        body.is-pinned .panel-dir-header,
+        body.is-pinned .panel-dir-filter-btn {
+            cursor: default;
+        }
+
+        /* 固定态下仍允许 hover 的车次（具体是否生效由 JS 决定），维持 pointer */
+        body.is-pinned .panel-timetable-row,
+        body.is-pinned .panel-grid-cell-trip {
+            cursor: pointer;
         }
 
         /* panel：工作日/休息日切换（圆角滑块，风格对齐 station-label-toggle） */
