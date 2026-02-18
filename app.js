@@ -6,6 +6,7 @@ import { Menu } from './menu.js';
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { createPanel } from './panel.js';
 import { getGlobalTimetableCache } from './timetableCache.js';
+import { initFullscreen, isInFullscreenMode } from './fullscreen.js';
 
 // MapLibre 通过 CDN 以全局变量方式引入
 const maplibregl = window.maplibregl;
@@ -1498,6 +1499,9 @@ map.on('load', async () => {
         // 点击地图空白处：恢复所有线路显示（并同步恢复站点/站名联动）
         map.on('click', (e) => {
             if (!touchTapGuard.allowTap(e?.originalEvent)) return;
+
+            // 全屏模式下，空白点击由 fullscreen.js 处理退出，不重置高亮
+            if (isInFullscreenMode()) return;
 
             const layers = [];
             if (map.getLayer('lines-layer')) layers.push('lines-layer');
@@ -3177,6 +3181,9 @@ map.on('load', async () => {
         bindClickLineToSelect();
 
         bindClickBlankToRestore();
+
+        // 全屏浏览按钮
+        initFullscreen(map, touchTapGuard);
 
         applyLineSelectionStyle();
         applyStationSelectionStyle();

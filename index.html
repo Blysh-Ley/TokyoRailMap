@@ -334,6 +334,48 @@
             outline: none;
         }
 
+        /* ===== 全屏浏览 FAB ===== */
+        .fullscreen-fab {
+            position: fixed;
+            top: 10px;
+            right: 62px;
+            width: 36.4px;
+            height: 36.4px;
+            border-radius: 18.2px;
+            background: rgba(255, 255, 255, 0.75);
+            border: 1px solid #e3e5e7;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            z-index: 8000;
+            -webkit-tap-highlight-color: transparent;
+            transition: opacity 0.18s ease, transform 0.18s ease;
+        }
+
+        .fullscreen-fab:hover {
+            background: rgba(255, 255, 255, 0.92);
+        }
+
+        .fullscreen-fab:active {
+            transform: scale(0.92);
+        }
+
+        .fullscreen-fab:focus {
+            outline: none;
+        }
+
+        .fullscreen-fab-icon {
+            width: 16px;
+            height: 16px;
+            display: block;
+            pointer-events: none;
+        }
+
         .settings-content {
             margin-top: 0;
             border-radius: 12px;
@@ -1639,7 +1681,7 @@
         }
 
         .RW-company{
-            display: block !important;
+            display: block;
             opacity: 0.95;
             transition: left 0.3s ease-in-out;
         }
@@ -1911,6 +1953,20 @@
             display: inline-block;
             line-height: 0;
             pointer-events: none;
+        }
+
+        html[data-theme='dark'] .fullscreen-fab {
+            background: rgba(28, 28, 28, 0.82);
+            border-color: #5a5d62;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+        }
+
+        html[data-theme='dark'] .fullscreen-fab:hover {
+            background: rgba(28, 28, 28, 0.94);
+        }
+
+        html[data-theme='dark'] .fullscreen-fab-icon {
+            filter: invert(1);
         }
 
         html[data-theme='dark'] .search-ui::before,
