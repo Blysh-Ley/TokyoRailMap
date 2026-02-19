@@ -297,12 +297,15 @@ export function initScreenshot(map, options = {}) {
      */
     async function captureScreenshot() {
         try {
+            console.log('开始截图...');
+
             // 1. 计算选中范围和边界
             const { bounds: rawBounds, aspectRatio } = calculateSelectionBounds();
             
             if (!rawBounds) {
-                // 没有选中内容，使用当前视图
                 console.log('没有选中内容，使用当前视图进行截图');
+            } else {
+                console.log('检测到选中内容，范围:', rawBounds);
             }
 
             // 2. 调整边界到16:9或9:16
@@ -310,9 +313,9 @@ export function initScreenshot(map, options = {}) {
 
             // 3. 计算导出分辨率
             const resolution = calculateExportResolution(adjustedBounds);
+            console.log('目标分辨率:', resolution);
 
             // 4. 保存当前地图状态
-            const originalSize = map.getCanvas().getBoundingClientRect();
             const originalCenter = map.getCenter();
             const originalZoom = map.getZoom();
             const originalBearing = map.getBearing();
@@ -321,8 +324,9 @@ export function initScreenshot(map, options = {}) {
             // 5. 隐藏 UI
             hideAllUI();
 
-            // 6. 调整地图视图
+            // 6. 调整地图视图（如果有选中范围）
             if (adjustedBounds) {
+                console.log('调整视图到选中范围...');
                 // 使用 fitBounds 调整视图，但不带动画
                 map.fitBounds(adjustedBounds, {
                     padding: 20,
@@ -333,8 +337,15 @@ export function initScreenshot(map, options = {}) {
 
             // 7. 等待地图渲染完成
             await new Promise(resolve => {
+                let attempts = 0;
+                const maxAttempts = 100; // 最多等待10秒
                 const checkIdle = () => {
+                    attempts++;
                     if (map.loaded() && !map.isMoving()) {
+                        console.log('地图渲染完成');
+                        resolve();
+                    } else if (attempts >= maxAttempts) {
+                        console.warn('地图渲染超时，继续截图');
                         resolve();
                     } else {
                         requestAnimationFrame(checkIdle);
@@ -343,12 +354,14 @@ export function initScreenshot(map, options = {}) {
                 checkIdle();
             });
 
-            // 再等待一帧确保所有绘制完成
+            // 再等待几帧确保所有绘制完成
             await new Promise(resolve => requestAnimationFrame(resolve));
             await new Promise(resolve => requestAnimationFrame(resolve));
+            await new Promise(resolve => setTimeout(resolve, 100));
 
             // 8. 导出 canvas
             const canvas = map.getCanvas();
+            console.log('Canvas 尺寸:', canvas.width, 'x', canvas.height);
             
             // 使用 toBlob 获取高质量图片
             await new Promise((resolve, reject) => {
@@ -357,6 +370,8 @@ export function initScreenshot(map, options = {}) {
                         reject(new Error('截图失败：无法生成图片'));
                         return;
                     }
+
+                    console.log('图片生成成功，大小:', (blob.size / 1024 / 1024).toFixed(2), 'MB');
 
                     // 生成文件名
                     const state = getSelectionState ? getSelectionState() : {};
@@ -370,7 +385,9 @@ export function initScreenshot(map, options = {}) {
                         filename = `TokyoRailMap_${selectedCompany}`;
                     }
                     
-                    filename += `_${resolution.width}x${resolution.height}`;
+                    const canvasWidth = canvas.width;
+                    const canvasHeight = canvas.height;
+                    filename += `_${canvasWidth}x${canvasHeight}`;
                     filename += `_${new Date().toISOString().slice(0, 10)}.png`;
 
                     // 下载图片
@@ -380,20 +397,21 @@ export function initScreenshot(map, options = {}) {
             });
 
             // 9. 恢复地图状态
-            map.jumpTo({
-                center: originalCenter,
-                zoom: originalZoom,
-                bearing: originalBearing,
-                pitch: originalPitch
-            });
+            if (adjustedBounds) {
+                map.jumpTo({
+                    center: originalCenter,
+                    zoom: originalZoom,
+                    bearing: originalBearing,
+                    pitch: originalPitch
+                });
+            }
 
             // 10. 恢复 UI
             setTimeout(() => {
                 restoreAllUI();
                 map.resize();
+                console.log('截图导出成功！');
             }, 100);
-
-            console.log('截图导出成功！');
 
         } catch (error) {
             console.error('截图失败:', error);
@@ -402,7 +420,7 @@ export function initScreenshot(map, options = {}) {
             restoreAllUI();
             map.resize();
             
-            alert('截图失败，请重试');
+            alert('截图失败，请重试。错误: ' + error.message);
         }
     }
 
