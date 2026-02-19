@@ -338,7 +338,7 @@ export function initScreenshot(map, options = {}) {
             // 7. 等待地图渲染完成
             await new Promise(resolve => {
                 let attempts = 0;
-                const maxAttempts = 100; // 最多等待10秒
+                const maxAttempts = 100; // 最多等待约1.7秒 (100帧 @ 60fps)
                 const checkIdle = () => {
                     attempts++;
                     if (map.loaded() && !map.isMoving()) {
@@ -393,7 +393,7 @@ export function initScreenshot(map, options = {}) {
                     // 下载图片
                     downloadImage(blob, filename);
                     resolve();
-                }, 'image/png', 0.95);
+                }, 'image/png'); // PNG format (quality parameter not applicable for PNG)
             });
 
             // 9. 恢复地图状态
