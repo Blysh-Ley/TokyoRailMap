@@ -7,6 +7,7 @@ import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { createPanel } from './panel.js';
 import { getGlobalTimetableCache } from './timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './fullscreen.js';
+import { initScreenshot } from './screenshot.js';
 
 // MapLibre 通过 CDN 以全局变量方式引入
 const maplibregl = window.maplibregl;
@@ -3184,6 +3185,19 @@ map.on('load', async () => {
 
         // 全屏浏览按钮
         initFullscreen(map, touchTapGuard);
+
+        // 截图导出按钮
+        initScreenshot(map, {
+            getSelectionState: () => ({
+                selectedCompany,
+                selectedLineId,
+                selectedStationLineIds
+            }),
+            getLineBounds: (lineId) => lineBoundsById.get(lineId),
+            lineNameById,
+            lineColorById,
+            getStationCoord: (stationId) => stationCoordById.get(stationId)
+        });
 
         applyLineSelectionStyle();
         applyStationSelectionStyle();
