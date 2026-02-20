@@ -1103,10 +1103,19 @@ export function createPanel(options = {}) {
         }
     };
 
-    const showTripCurrentStationHint = () => {
+    const showTripCurrentStationHint = async ({ lineId, token } = {}) => {
         if (!onTripCurrentStationShow) return;
-        const sid = toText(currentStationId);
+
+        let sid = toText(currentStationId);
+        const lid = toText(lineId);
+        if (lid) {
+            const resolved = await resolveStationIdForLine(lid);
+            sid = toText(resolved) || sid;
+        }
+
+        if (token != null && token !== tripDetailToken) return;
         if (!sid) return;
+
         try {
             onTripCurrentStationShow({ stationId: sid });
         } catch {
@@ -2450,7 +2459,6 @@ export function createPanel(options = {}) {
         const token = ++tripDetailToken;
         tripDetailPinned = !!pinned;
         clearTripDetailHideTimer();
-        showTripCurrentStationHint();
         clearTripDetailStationIndicator();
 
         const trip = await findTripByKey(lineId, tripKey);
@@ -2459,6 +2467,9 @@ export function createPanel(options = {}) {
             tripDetailRoot.classList.add('is-hidden');
             return;
         }
+
+        await showTripCurrentStationHint({ lineId, token });
+        if (token !== tripDetailToken) return;
 
         const now = getDisplayNowMs();
         const serviceDayStartMs = getServiceDayStartMs(new Date(now));
