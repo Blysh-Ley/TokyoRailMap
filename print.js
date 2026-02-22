@@ -721,7 +721,8 @@
             if (!obj || typeof obj !== 'object') return null;
             const format = obj.format === 'png' ? 'png' : 'svg+png';
             const res = obj.resolution === '1080p' ? '1080p' : '4k';
-            return { format, resolution: res };
+            const zoomMode = obj.zoomMode === 'auto' ? 'auto' : 'current';
+            return { format, resolution: res, zoomMode };
         } catch {
             return null;
         }
@@ -759,6 +760,7 @@
         if (!geoBbox) return;
 
         const format = options?.format === 'png' ? 'png' : 'svg+png';
+        const zoomMode = options?.zoomMode === 'auto' ? 'auto' : 'current';
         exporting = true;
         try {
             const baseZoom = (typeof baseMap.getZoom === 'function') ? baseMap.getZoom() : 11;
@@ -784,32 +786,58 @@
             const tryExportPng = async ({ baseW, baseH, paddingPx }) => {
                 await ensureStyleMatchesTheme(vmap);
 
-                // 关键：保持与当前视图一致的 zoom，不用 fitBounds（fitBounds 会自动改 zoom）
-                const size = computeExportSizeAtFixedZoom({
-                    map: vmap,
-                    container: vcontainer,
-                    geoBbox,
-                    baseW,
-                    baseH,
-                    paddingPx,
-                    zoom: baseZoom,
-                    bearing: baseBearing,
-                    pitch: basePitch,
-                });
+                if (zoomMode === 'auto') {
+                    // 自动：使用 fitBounds 自适应缩放，输出尺寸严格等于 baseW/baseH
+                    const w = Math.max(1, Math.round(Number(baseW) || 1));
+                    const h = Math.max(1, Math.round(Number(baseH) || 1));
+                    vcontainer.style.width = `${w}px`;
+                    vcontainer.style.height = `${h}px`;
+                    vmap.resize?.();
 
-                vmap.jumpTo?.({
-                    center: size.center,
-                    zoom: Number(baseZoom) || 11,
-                    bearing: Number(baseBearing) || 0,
-                    pitch: Number(basePitch) || 0,
-                });
+                    // 先同步角度，再 fitBounds（fitBounds 会调 zoom）
+                    vmap.jumpTo?.({
+                        center: [(geoBbox.minLng + geoBbox.maxLng) / 2, (geoBbox.minLat + geoBbox.maxLat) / 2],
+                        zoom: Number(baseZoom) || 11,
+                        bearing: Number(baseBearing) || 0,
+                        pitch: Number(basePitch) || 0,
+                    });
+
+                    vmap.fitBounds?.(
+                        [[geoBbox.minLng, geoBbox.minLat], [geoBbox.maxLng, geoBbox.maxLat]],
+                        { padding: Math.max(0, Number(paddingPx) || 0), duration: 0 }
+                    );
+                } else {
+                    // 当前：保持与当前视图一致的 zoom，不用 fitBounds（fitBounds 会自动改 zoom）
+                    const size = computeExportSizeAtFixedZoom({
+                        map: vmap,
+                        container: vcontainer,
+                        geoBbox,
+                        baseW,
+                        baseH,
+                        paddingPx,
+                        zoom: baseZoom,
+                        bearing: baseBearing,
+                        pitch: basePitch,
+                    });
+
+                    vmap.jumpTo?.({
+                        center: size.center,
+                        zoom: Number(baseZoom) || 11,
+                        bearing: Number(baseBearing) || 0,
+                        pitch: Number(basePitch) || 0,
+                    });
+                }
 
                 await waitForEventOnce(vmap, 'moveend', 2000);
                 await waitForEventOnce(vmap, 'idle', 8000);
 
                 const canvas = vmap.getCanvas?.();
                 if (!canvas) throw new Error('canvas not available');
-                return { blob: await canvasToPngBlob(canvas), w: size.w, h: size.h };
+                if (zoomMode === 'auto') {
+                    return { blob: await canvasToPngBlob(canvas), w: Math.round(Number(baseW) || 1), h: Math.round(Number(baseH) || 1) };
+                }
+                // zoomMode === 'current': 使用实际画布尺寸
+                return { blob: await canvasToPngBlob(canvas), w: canvas.width, h: canvas.height };
             };
 
             const resolution = String(options?.resolution || '4k');
@@ -966,9 +994,10 @@
 
         const content = el('div', 'settings-content export-content is-hidden');
 
-        const prefs = readExportPrefs() || { format: 'svg+png', resolution: '4k' };
+        const prefs = readExportPrefs() || { format: 'svg+png', resolution: '4k', zoomMode: 'current' };
         let format = prefs.format;
         let resolution = prefs.resolution;
+        let zoomMode = prefs.zoomMode;
 
         const mkSeg = (opts, getValue, setValue) => {
             const seg = el('div', 'settings-seg');
@@ -985,7 +1014,7 @@
                     setValue(o.value);
                     seg.querySelectorAll('button').forEach((x) => x.classList.remove('is-active'));
                     b.classList.add('is-active');
-                    writeExportPrefs({ format, resolution });
+                    writeExportPrefs({ format, resolution, zoomMode });
                 });
                 seg.appendChild(b);
             }
@@ -1022,6 +1051,21 @@
             rowRes.appendChild(ctrl);
         }
 
+        const rowZoom = el('div', 'settings-item');
+        rowZoom.appendChild(el('div', 'settings-item-title', '放大倍率'));
+        {
+            const ctrl = el('div', 'settings-item-control');
+            ctrl.appendChild(mkSeg(
+                [
+                    { label: '当前', value: 'current' },
+                    { label: '自动', value: 'auto' },
+                ],
+                () => zoomMode,
+                (v) => { zoomMode = v; }
+            ));
+            rowZoom.appendChild(ctrl);
+        }
+
         const rowExport = el('div', 'settings-item-control');
         const btn = el('button', 'settings-time-picker-btn settings-time-picker-btn-confirm', '导出');
         btn.type = 'button';
@@ -1030,13 +1074,14 @@
             evt.stopPropagation?.();
 
             if (!lastSnapshot || !lastSnapshotAt) return;
-            exportSnapshot(lastSnapshot, { resolution, format });
+            exportSnapshot(lastSnapshot, { resolution, format, zoomMode });
         });
         rowExport.appendChild(btn);
         
 
         content.appendChild(rowFormat);
         content.appendChild(rowRes);
+        content.appendChild(rowZoom);
         content.appendChild(rowExport);
 
         root.appendChild(fab);
