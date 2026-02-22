@@ -159,7 +159,7 @@ export function initFullscreen(map, touchTapGuard) {
             if (map.getLayer('stations-layer')) layers.push('stations-layer');
 
             const hits = layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [];
-            if (hits.length) return; // 点击到了线路或站点，不退出
+            //if (hits.length) return; // 点击到了线路或站点，不退出
 
             // 空白点击 → 退出全屏（不重置高亮）
             exitFullscreenMode();

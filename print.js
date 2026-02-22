@@ -18,6 +18,8 @@
 
     const EXPORT_EVENT = '__TokyoRailTripPreviewUpdated';
     const CLEAR_EVENT = '__TokyoRailTripPreviewCleared';
+    const BASE_HL_EVENT = '__TokyoRailBaseHighlightUpdated';
+    const BASE_HL_CLEAR_EVENT = '__TokyoRailBaseHighlightCleared';
     const EXPORT_UI_STORAGE_KEY = 'tokyorail.export.ui';
 
     // ---- virtual backend map (offscreen) ----
@@ -116,6 +118,130 @@
         } catch {
             return false;
         }
+    };
+
+    const getCurrentStationLabelMode = () => {
+        try {
+            const host = document.querySelector('.settings-item.settings-item-station-label');
+            const active = host?.querySelector('button.is-active');
+            const t = String(active?.textContent || '').trim();
+            if (t.includes('隐藏')) return 'off';
+            if (t.includes('全显')) return 'all';
+            if (t.includes('自动')) return 'auto';
+        } catch {
+            // ignore
+        }
+        return 'auto';
+    };
+
+    // ---- text measure + simple collision filter (export only) ----
+    const __textMeasure = (() => {
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            return { ctx, cache: new Map() };
+        } catch {
+            return { ctx: null, cache: new Map() };
+        }
+    })();
+
+    const measureTextWidthPx = (text, font) => {
+        const s = String(text ?? '');
+        const f = String(font ?? '');
+        const key = `${f}::${s}`;
+        const cached = __textMeasure.cache.get(key);
+        if (typeof cached === 'number') return cached;
+        const ctx = __textMeasure.ctx;
+        if (!ctx) {
+            const fallback = Math.max(1, s.length * 7);
+            __textMeasure.cache.set(key, fallback);
+            return fallback;
+        }
+        ctx.font = f || '12px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+        const w = Math.max(1, Number(ctx.measureText(s).width) || 1);
+        __textMeasure.cache.set(key, w);
+        return w;
+    };
+
+    const bboxesIntersect = (a, b) => !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+    const gridKey = (cx, cy) => `${cx},${cy}`;
+
+    const pickVisibleLabelIdsByCollision = ({ map, candidates, gridCellPx = 80 }) => {
+        const list = Array.isArray(candidates) ? candidates : [];
+        if (!list.length) return new Set();
+
+        const sorted = list.slice().sort((a, b) => {
+            const pa = Number(a?.priority || 0);
+            const pb = Number(b?.priority || 0);
+            if (pb !== pa) return pb - pa;
+            return String(a?.text || '').localeCompare(String(b?.text || ''));
+        });
+
+        const grid = new Map();
+        const visible = new Set();
+
+        for (const item of sorted) {
+            const coord = item?.coordinates;
+            if (!Array.isArray(coord) || coord.length < 2) continue;
+            const text = String(item?.text || '').trim();
+            if (!text) continue;
+            const id = String(item?.id || '').trim();
+            if (!id) continue;
+
+            const x = Number(coord[0]);
+            const y = Number(coord[1]);
+            if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+
+            const fontPx = Number(item?.fontPx || 12);
+            const font = String(item?.font || `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`);
+            const w = Number(item?.widthPx || 0) || measureTextWidthPx(text, font);
+            const h = Number(item?.heightPx || 0) || fontPx;
+
+            const p = map.project({ lng: x, lat: y });
+            const px = Number(p?.x);
+            const py = Number(p?.y);
+            if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
+
+            // label baseline y = py - dy
+            const dy = Number(item?.labelDyPx || 0);
+            const bottom = py - dy;
+            const top = bottom - h;
+            const left = px - w / 2;
+            const right = px + w / 2;
+            const bbox = { left, right, top, bottom };
+
+            const minCx = Math.floor(left / gridCellPx);
+            const maxCx = Math.floor(right / gridCellPx);
+            const minCy = Math.floor(top / gridCellPx);
+            const maxCy = Math.floor(bottom / gridCellPx);
+
+            let collides = false;
+            for (let cx = minCx; cx <= maxCx && !collides; cx += 1) {
+                for (let cy = minCy; cy <= maxCy && !collides; cy += 1) {
+                    const key = gridKey(cx, cy);
+                    const bucket = grid.get(key);
+                    if (!bucket) continue;
+                    for (let i = 0; i < bucket.length; i += 1) {
+                        if (bboxesIntersect(bbox, bucket[i])) {
+                            collides = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (collides) continue;
+
+            visible.add(id);
+            for (let cx = minCx; cx <= maxCx; cx += 1) {
+                for (let cy = minCy; cy <= maxCy; cy += 1) {
+                    const key = gridKey(cx, cy);
+                    if (!grid.has(key)) grid.set(key, []);
+                    grid.get(key).push(bbox);
+                }
+            }
+        }
+
+        return visible;
     };
 
     const nowIsoCompact = () => {
@@ -344,27 +470,54 @@
         parts.push(`</g>`);
 
         // labels
-        parts.push(`<g id="trip-preview-labels" font-family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="12" fill="${labelFill()}">`);
-        for (const f of stopFeatures) {
-            const sid = String(f?.properties?.id || '').trim();
-            if (!sid) continue;
-            const geom = f?.geometry;
-            if (!geom || geom.type !== 'Point') continue;
-            const c = geom.coordinates;
-            if (!Array.isArray(c) || c.length < 2) continue;
+        {
+            const mode = getCurrentStationLabelMode();
+            if (mode !== 'off') {
+                const fontPx = 12;
+                const font = `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
 
-            const name = stationNameById.get(sid) || sid;
-            const servingCount = Number(f?.properties?.serving_count ?? 1);
-            const r = radiusForStop(z, servingCount);
+                const candidates = [];
+                for (const f of stopFeatures) {
+                    const sid = String(f?.properties?.id || '').trim();
+                    if (!sid) continue;
+                    const geom = f?.geometry;
+                    if (!geom || geom.type !== 'Point') continue;
+                    const c = geom.coordinates;
+                    if (!Array.isArray(c) || c.length < 2) continue;
 
-            const p = project(map, { lng: Number(c[0]), lat: Number(c[1]) });
-            if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+                    const name = stationNameById.get(sid) || sid;
+                    if (!name) continue;
+                    const servingCount = Number(f?.properties?.serving_count ?? 1);
+                    const r = radiusForStop(z, servingCount);
 
-            const x = p.x;
-            const y = p.y - r - 6;
-            parts.push(`<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" text-anchor="middle">${escapeXml(name)}</text>`);
+                    candidates.push({
+                        id: sid,
+                        text: name,
+                        priority: servingCount,
+                        coordinates: [Number(c[0]), Number(c[1])],
+                        fontPx,
+                        font,
+                        labelDyPx: r + 6
+                    });
+                }
+
+                const visible = mode === 'auto'
+                    ? pickVisibleLabelIdsByCollision({ map, candidates, gridCellPx: 80 })
+                    : new Set(candidates.map((c) => c.id));
+
+                parts.push(`<g id="trip-preview-labels" font-family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="12" fill="${labelFill()}">`);
+                for (const item of candidates) {
+                    if (!visible.has(item.id)) continue;
+                    const coord = item.coordinates;
+                    const p = project(map, { lng: Number(coord[0]), lat: Number(coord[1]) });
+                    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+                    const x = p.x;
+                    const y = p.y - Number(item.labelDyPx || 0);
+                    parts.push(`<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" text-anchor="middle">${escapeXml(item.text)}</text>`);
+                }
+                parts.push(`</g>`);
+            }
         }
-        parts.push(`</g>`);
 
         parts.push(`</g>`);
         parts.push(`</svg>`);
@@ -743,6 +896,10 @@
     let lastSnapshot = null;
     let lastSnapshotAt = 0;
 
+    /** @type {{ kind: string, lineIds: Set<string>, label: string } | null} */
+    let lastBaseHighlight = null;
+    let lastBaseHighlightAt = 0;
+
     const exportSnapshot = async (snapshot, options) => {
         if (exporting) return;
         const baseMap = window.__TokyoRailMap;
@@ -959,6 +1116,541 @@
         lastSnapshotAt = 0;
     });
 
+    window.addEventListener(BASE_HL_EVENT, (evt) => {
+        const kind = String(evt?.detail?.kind || '').trim() || 'unknown';
+        const lineIdsRaw = evt?.detail?.lineIds;
+        const ids = Array.isArray(lineIdsRaw) ? lineIdsRaw.map(String).filter(Boolean) : [];
+        if (!ids.length) return;
+        const selectedLineId = evt?.detail?.selectedLineId ? String(evt.detail.selectedLineId) : '';
+        const selectedCompany = evt?.detail?.selectedCompany ? String(evt.detail.selectedCompany) : '';
+        const label = selectedLineId || selectedCompany || kind;
+        lastBaseHighlight = { kind, lineIds: new Set(ids), label };
+        lastBaseHighlightAt = Date.now();
+    });
+
+    window.addEventListener(BASE_HL_CLEAR_EVENT, () => {
+        lastBaseHighlight = null;
+        lastBaseHighlightAt = 0;
+    });
+
+    const isTripPreviewActiveNow = () => {
+        try {
+            const map = window.__TokyoRailMap;
+            if (!map) return false;
+            const src = map.getSource?.('trip-preview-source');
+            const data = src?._data || src?._options?.data || null;
+            const features = Array.isArray(data?.features) ? data.features : [];
+            return features.length > 0;
+        } catch {
+            return false;
+        }
+    };
+
+    const calcBboxFromLineFeatures = (features) => {
+        const fs = Array.isArray(features) ? features : [];
+        let minLng = Infinity;
+        let minLat = Infinity;
+        let maxLng = -Infinity;
+        let maxLat = -Infinity;
+
+        const eat = (lng, lat) => {
+            const x = Number(lng);
+            const y = Number(lat);
+            if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+            if (x < minLng) minLng = x;
+            if (y < minLat) minLat = y;
+            if (x > maxLng) maxLng = x;
+            if (y > maxLat) maxLat = y;
+        };
+
+        const eatCoords = (coords) => {
+            if (!Array.isArray(coords)) return;
+            if (coords.length >= 2 && typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+                eat(coords[0], coords[1]);
+                return;
+            }
+            for (const c of coords) eatCoords(c);
+        };
+
+        for (const f of fs) {
+            const g = f?.geometry;
+            if (!g) continue;
+            if (g.type === 'LineString' || g.type === 'MultiLineString') eatCoords(g.coordinates);
+        }
+
+        if (!Number.isFinite(minLng) || !Number.isFinite(minLat) || !Number.isFinite(maxLng) || !Number.isFinite(maxLat)) return null;
+        return { minLng, minLat, maxLng, maxLat };
+    };
+
+    const pickLineFeaturesByIds = async ({ baseMap, lineIds }) => {
+        const fc = await getGeoJsonSourceData(baseMap, 'lines-source');
+        const features = Array.isArray(fc?.features) ? fc.features : [];
+        if (!features.length) return [];
+        const ids = lineIds instanceof Set ? lineIds : new Set();
+        const out = [];
+        for (const f of features) {
+            const props = f?.properties || {};
+            if (Number(props.hidden_by_opacity_zero) === 1) continue;
+            const id = String(props.id || '').trim();
+            if (!id || !ids.has(id)) continue;
+            out.push(f);
+        }
+        return out;
+    };
+
+    const pointInBbox = (lng, lat, bbox) => {
+        const x = Number(lng);
+        const y = Number(lat);
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !bbox) return false;
+        return x >= bbox.minLng && x <= bbox.maxLng && y >= bbox.minLat && y <= bbox.maxLat;
+    };
+
+    const stationServesAnyLineId = (props, lineIds) => {
+        const ids = lineIds instanceof Set ? lineIds : new Set();
+        if (!ids.size) return false;
+
+        // 优先使用 platform_line_id（站点“所属线路 id”），避免换乘站的“其他线路站点”被 serving_ids 误判为命中。
+        const platform = props?.platform_line_id;
+        if (platform != null) {
+            if (Array.isArray(platform)) {
+                for (const v of platform) {
+                    const s = String(v ?? '').trim();
+                    if (s && ids.has(s)) return true;
+                }
+                return false;
+            }
+            const s = String(platform ?? '').trim();
+            return s ? ids.has(s) : false;
+        }
+
+        // 兼容旧数据：回退 serving_ids / serving_lines
+        const serving = props?.serving_ids ?? props?.serving_lines;
+        if (Array.isArray(serving)) {
+            for (const v of serving) {
+                const s = String(v ?? '').trim();
+                if (s && ids.has(s)) return true;
+            }
+            return false;
+        }
+        // 兜底：少数数据可能是单个字符串
+        const s = String(serving ?? '').trim();
+        return s ? ids.has(s) : false;
+    };
+
+    const stationServingCount = (props) => {
+        const serving = props?.serving_ids ?? props?.serving_lines;
+        if (Array.isArray(serving)) return Math.max(1, serving.length);
+        const s = String(serving ?? '').trim();
+        return s ? 1 : 1;
+    };
+
+    const pickStationsInBboxForLineIds = async ({ baseMap, bbox, lineIds }) => {
+        const fc = await getGeoJsonSourceData(baseMap, 'stations-source');
+        const features = Array.isArray(fc?.features) ? fc.features : [];
+        if (!features.length) return [];
+
+        const ids = lineIds instanceof Set ? lineIds : new Set();
+        const out = [];
+        for (const f of features) {
+            const props = f?.properties || {};
+            if (Number(props.hidden_by_opacity_zero) === 1) continue;
+            const g = f?.geometry;
+            if (!g || g.type !== 'Point') continue;
+            const c = g.coordinates;
+            if (!Array.isArray(c) || c.length < 2) continue;
+            const lng = Number(c[0]);
+            const lat = Number(c[1]);
+            if (!pointInBbox(lng, lat, bbox)) continue;
+            if (!stationServesAnyLineId(props, ids)) continue;
+            out.push(f);
+        }
+
+        // 去重：换乘站往往会有多个“站点要素”（不同铁路/站台），但名称相同且位置很近。
+        // 导出时只保留同名且近距离的一份，避免“换乘站的其他站点”被一起导出。
+        const CELL_M = 160; // 约一个站区范围
+        const seen = new Set();
+        const deduped = [];
+        for (const f of out) {
+            const props = f?.properties || {};
+            const g = f?.geometry;
+            const c = g?.coordinates;
+            if (!Array.isArray(c) || c.length < 2) continue;
+            const lng = Number(c[0]);
+            const lat = Number(c[1]);
+            if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+
+            const nameKey = String(props.name || props.name_zh || props.name_ja || props.id || '').trim() || 'station';
+
+            // 简易米制投影（足够用于 100~200m 的格网去重）
+            const rad = (lat * Math.PI) / 180;
+            const x = lng * 111320 * Math.cos(rad);
+            const y = lat * 110540;
+            const cx = Math.floor(x / CELL_M);
+            const cy = Math.floor(y / CELL_M);
+
+            const key = `${nameKey}|${cx}|${cy}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            deduped.push(f);
+        }
+
+        return deduped;
+    };
+
+    const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, lowlightLineFeatures, stationFeatures, backgroundImageHref, transparentBackground = false }) => {
+        const container = map.getContainer?.();
+        const rect = container?.getBoundingClientRect?.();
+        const width = Math.max(1, Math.round(rect?.width || 0));
+        const height = Math.max(1, Math.round(rect?.height || 0));
+
+        const z = (typeof map.getZoom === 'function') ? map.getZoom() : 14;
+        const stationNameById = await getStationNameById();
+
+        const bg = isDarkTheme() ? '#000' : '#fff';
+        const title = kind ? `base highlight: ${String(kind)}` : 'base highlight';
+
+        const parts = [];
+        parts.push(`<?xml version="1.0" encoding="UTF-8"?>`);
+        parts.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" overflow="hidden">`);
+        parts.push(`<title>${escapeXml(title)}</title>`);
+        parts.push(`<defs>`);
+        parts.push(`<clipPath id="export-clip"><rect x="0" y="0" width="${width}" height="${height}"/></clipPath>`);
+        parts.push(`</defs>`);
+        parts.push(`<g clip-path="url(#export-clip)">`);
+
+        if (!transparentBackground) {
+            parts.push(`<rect x="0" y="0" width="${width}" height="${height}" fill="${bg}"/>`);
+            if (backgroundImageHref) {
+                const href = escapeXml(String(backgroundImageHref));
+                parts.push(`<image x="0" y="0" width="${width}" height="${height}" href="${href}" xlink:href="${href}" preserveAspectRatio="none"/>`);
+            }
+        }
+
+        // lowlight base lines (grey)
+        const lowlight = Array.isArray(lowlightLineFeatures) ? lowlightLineFeatures : [];
+        if (lowlight.length) {
+            const stroke = isDarkTheme() ? '#666' : '#999';
+            parts.push(`<g id="base-lines-lowlight" fill="none" stroke="${stroke}" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2" opacity="0.45">`);
+            for (const f of lowlight) {
+                const geom = f?.geometry;
+                if (!geom) continue;
+                if (geom.type === 'LineString') {
+                    const d = pathFromCoords(map, geom.coordinates);
+                    if (!d) continue;
+                    parts.push(`<path d="${d}"/>`);
+                } else if (geom.type === 'MultiLineString' && Array.isArray(geom.coordinates)) {
+                    for (const line of geom.coordinates) {
+                        const d = pathFromCoords(map, line);
+                        if (!d) continue;
+                        parts.push(`<path d="${d}"/>`);
+                    }
+                }
+            }
+            parts.push(`</g>`);
+        }
+
+        // highlighted lines (by their own colors)
+        const highlights = Array.isArray(highlightLineFeatures) ? highlightLineFeatures : [];
+        parts.push(`<g id="base-lines-highlight" fill="none" stroke-linecap="round" stroke-linejoin="round">`);
+        for (const f of highlights) {
+            const geom = f?.geometry;
+            if (!geom) continue;
+            const color = String(f?.properties?.color || '#0a84ff');
+            const strokeWidth = 3;
+            if (geom.type === 'LineString') {
+                const d = pathFromCoords(map, geom.coordinates);
+                if (!d) continue;
+                parts.push(`<path d="${d}" stroke="${escapeXml(color)}" stroke-width="${strokeWidth}" opacity="1"/>`);
+            } else if (geom.type === 'MultiLineString' && Array.isArray(geom.coordinates)) {
+                for (const line of geom.coordinates) {
+                    const d = pathFromCoords(map, line);
+                    if (!d) continue;
+                    parts.push(`<path d="${d}" stroke="${escapeXml(color)}" stroke-width="${strokeWidth}" opacity="1"/>`);
+                }
+            }
+        }
+        parts.push(`</g>`);
+
+        // stations
+        const stations = Array.isArray(stationFeatures) ? stationFeatures : [];
+        if (stations.length) {
+            parts.push(`<g id="base-stations">`);
+            for (const f of stations) {
+                const g = f?.geometry;
+                if (!g || g.type !== 'Point') continue;
+                const c = g.coordinates;
+                if (!Array.isArray(c) || c.length < 2) continue;
+                const p = project(map, { lng: Number(c[0]), lat: Number(c[1]) });
+                if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+
+                const sc = stationServingCount(f?.properties || {});
+                const r = radiusForStop(z, sc);
+                const sw = stopStrokeWidth(sc);
+                parts.push(
+                    `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${r.toFixed(2)}" fill="${stopFill(sc)}" stroke="${stopStroke()}" stroke-width="${sw}"/>`
+                );
+            }
+            parts.push(`</g>`);
+
+            {
+                const mode = getCurrentStationLabelMode();
+                if (mode !== 'off') {
+                    const fontPx = 12;
+                    const font = `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
+                    const candidates = [];
+
+                    for (const f of stations) {
+                        const props = f?.properties || {};
+                        const sid = String(props?.id || '').trim();
+                        if (!sid) continue;
+                        const g = f?.geometry;
+                        if (!g || g.type !== 'Point') continue;
+                        const c = g.coordinates;
+                        if (!Array.isArray(c) || c.length < 2) continue;
+
+                        const name = stationNameById.get(sid) || sid;
+                        if (!name) continue;
+                        const sc = stationServingCount(props);
+                        const r = radiusForStop(z, sc);
+
+                        candidates.push({
+                            id: sid,
+                            text: name,
+                            priority: sc,
+                            coordinates: [Number(c[0]), Number(c[1])],
+                            fontPx,
+                            font,
+                            labelDyPx: r + 6
+                        });
+                    }
+
+                    const visible = mode === 'auto'
+                        ? pickVisibleLabelIdsByCollision({ map, candidates, gridCellPx: 80 })
+                        : new Set(candidates.map((c) => c.id));
+
+                    parts.push(`<g id="base-station-labels" font-family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="12" fill="${labelFill()}">`);
+                    for (const item of candidates) {
+                        if (!visible.has(item.id)) continue;
+                        const coord = item.coordinates;
+                        const p = project(map, { lng: Number(coord[0]), lat: Number(coord[1]) });
+                        if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+                        const x = p.x;
+                        const y = p.y - Number(item.labelDyPx || 0);
+                        parts.push(`<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" text-anchor="middle">${escapeXml(item.text)}</text>`);
+                    }
+                    parts.push(`</g>`);
+                }
+            }
+        }
+
+        parts.push(`</g>`);
+        parts.push(`</svg>`);
+        return parts.join('\n');
+    };
+
+    const exportBaseHighlight = async (snapshot, options) => {
+        if (exporting) return;
+        const baseMap = window.__TokyoRailMap;
+        if (!baseMap) return;
+        const kind = snapshot?.kind || 'unknown';
+        const label = String(snapshot?.label || kind || 'highlight');
+        const lineIds = snapshot?.lineIds;
+        if (!(lineIds instanceof Set) || !lineIds.size) return;
+
+        const format = options?.format === 'png' ? 'png' : 'svg+png';
+        const zoomMode = options?.zoomMode === 'auto' ? 'auto' : 'current';
+        exporting = true;
+        try {
+            const highlightFeatures = await pickLineFeaturesByIds({ baseMap, lineIds });
+            const bboxRaw = calcBboxFromLineFeatures(highlightFeatures);
+            const geoBbox = normalizeBbox(bboxRaw);
+            if (!geoBbox) return;
+
+            const baseZoom = (typeof baseMap.getZoom === 'function') ? baseMap.getZoom() : 11;
+            const baseBearing = (typeof baseMap.getBearing === 'function') ? baseMap.getBearing() : 0;
+            const basePitch = (typeof baseMap.getPitch === 'function') ? baseMap.getPitch() : 0;
+            const { map: vmap, container: vcontainer } = await ensureVirtualMap();
+
+            const baseName = ['highlight', sanitizeFilePart(label), nowIsoCompact()].join('_');
+            const pngName = `${baseName}.png`;
+            const svgName = `${baseName}.svg`;
+            const zipName = `${baseName}.zip`;
+
+            const a = approxBboxAspect(geoBbox);
+            const targetRatio = chooseAspectRatio(a, 1);
+            const isLandscape = targetRatio >= 1;
+
+            const tryExportPng = async ({ baseW, baseH, paddingPx }) => {
+                await ensureStyleMatchesTheme(vmap);
+                if (zoomMode === 'auto') {
+                    const w = Math.max(1, Math.round(Number(baseW) || 1));
+                    const h = Math.max(1, Math.round(Number(baseH) || 1));
+                    vcontainer.style.width = `${w}px`;
+                    vcontainer.style.height = `${h}px`;
+                    vmap.resize?.();
+                    vmap.jumpTo?.({
+                        center: [(geoBbox.minLng + geoBbox.maxLng) / 2, (geoBbox.minLat + geoBbox.maxLat) / 2],
+                        zoom: Number(baseZoom) || 11,
+                        bearing: Number(baseBearing) || 0,
+                        pitch: Number(basePitch) || 0,
+                    });
+                    vmap.fitBounds?.(
+                        [[geoBbox.minLng, geoBbox.minLat], [geoBbox.maxLng, geoBbox.maxLat]],
+                        { padding: Math.max(0, Number(paddingPx) || 0), duration: 0 }
+                    );
+                } else {
+                    const size = computeExportSizeAtFixedZoom({
+                        map: vmap,
+                        container: vcontainer,
+                        geoBbox,
+                        baseW,
+                        baseH,
+                        paddingPx,
+                        zoom: baseZoom,
+                        bearing: baseBearing,
+                        pitch: basePitch,
+                    });
+                    vmap.jumpTo?.({
+                        center: size.center,
+                        zoom: Number(baseZoom) || 11,
+                        bearing: Number(baseBearing) || 0,
+                        pitch: Number(basePitch) || 0,
+                    });
+                }
+
+                await waitForEventOnce(vmap, 'moveend', 2000);
+                await waitForEventOnce(vmap, 'idle', 8000);
+
+                const canvas = vmap.getCanvas?.();
+                if (!canvas) throw new Error('canvas not available');
+                if (zoomMode === 'auto') {
+                    return { blob: await canvasToPngBlob(canvas), w: Math.round(Number(baseW) || 1), h: Math.round(Number(baseH) || 1) };
+                }
+                return { blob: await canvasToPngBlob(canvas), w: canvas.width, h: canvas.height };
+            };
+
+            const resolution = String(options?.resolution || '4k');
+            let pngBlob = null;
+            let outW = isLandscape ? 3840 : 2160;
+            let outH = isLandscape ? 2160 : 3840;
+            if (resolution === '1080p') {
+                const r = await tryExportPng({
+                    baseW: isLandscape ? 1920 : 1080,
+                    baseH: isLandscape ? 1080 : 1920,
+                    paddingPx: 60,
+                });
+                pngBlob = r.blob;
+                outW = r.w;
+                outH = r.h;
+            } else {
+                try {
+                    const r = await tryExportPng({
+                        baseW: isLandscape ? 3840 : 2160,
+                        baseH: isLandscape ? 2160 : 3840,
+                        paddingPx: 120,
+                    });
+                    pngBlob = r.blob;
+                    outW = r.w;
+                    outH = r.h;
+                } catch {
+                    const r = await tryExportPng({
+                        baseW: isLandscape ? 1920 : 1080,
+                        baseH: isLandscape ? 1080 : 1920,
+                        paddingPx: 60,
+                    });
+                    pngBlob = r.blob;
+                    outW = r.w;
+                    outH = r.h;
+                }
+            }
+
+            // lowlight lines + stations inside export view
+            let lowlightLines = [];
+            let stationFeatures = [];
+            try {
+                const bounds = vmap.getBounds?.();
+                if (bounds) {
+                    const viewBbox = {
+                        minLng: bounds.getWest(),
+                        minLat: bounds.getSouth(),
+                        maxLng: bounds.getEast(),
+                        maxLat: bounds.getNorth(),
+                    };
+                    lowlightLines = await pickLowlightLinesInBbox({ baseMap, bbox: viewBbox, excludeLineIds: lineIds });
+                    stationFeatures = await pickStationsInBboxForLineIds({ baseMap, bbox: viewBbox, lineIds });
+                }
+            } catch {
+                // ignore
+            }
+
+            if (format === 'png') {
+                try {
+                    const overlaySvgText = await buildSvgFromBaseHighlight({
+                        map: vmap,
+                        kind,
+                        highlightLineFeatures: highlightFeatures,
+                        lowlightLineFeatures: lowlightLines,
+                        stationFeatures,
+                        backgroundImageHref: null,
+                        transparentBackground: true,
+                    });
+                    const merged = await compositePngAndSvgToPngBlob({
+                        backgroundPngBlob: pngBlob,
+                        overlaySvgText,
+                        width: outW,
+                        height: outH,
+                    });
+                    downloadBlob({ blob: merged, filename: pngName });
+                } catch {
+                    downloadBlob({ blob: pngBlob, filename: pngName });
+                }
+                return;
+            }
+
+            const svgText = await buildSvgFromBaseHighlight({
+                map: vmap,
+                kind,
+                highlightLineFeatures: highlightFeatures,
+                lowlightLineFeatures: lowlightLines,
+                stationFeatures,
+                backgroundImageHref: pngName,
+                transparentBackground: false,
+            });
+
+            const JSZipCtor = window.JSZip;
+            if (!JSZipCtor) {
+                downloadBlob({ blob: pngBlob, filename: pngName });
+                downloadBlob({ blob: new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' }), filename: svgName });
+                return;
+            }
+
+            const zip = new JSZipCtor();
+            zip.file(pngName, pngBlob);
+            zip.file(svgName, svgText);
+            const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+            downloadBlob({ blob: zipBlob, filename: zipName });
+        } catch {
+            // ignore
+        } finally {
+            exporting = false;
+        }
+    };
+
+    const exportCurrentSelection = async (options) => {
+        if (isTripPreviewActiveNow()) {
+            if (!lastSnapshot || !lastSnapshotAt) return false;
+            await exportSnapshot(lastSnapshot, options);
+            return true;
+        }
+
+        if (lastBaseHighlight && lastBaseHighlightAt) {
+            await exportBaseHighlight(lastBaseHighlight, options);
+            return true;
+        }
+
+        return false;
+    };
+
     // ---- export UI (settings-fab-like hover menu) ----
 
     const el = (tag, className, text) => {
@@ -1080,12 +1772,34 @@
         const rowExport = el('div', 'settings-item-control');
         const btn = el('button', 'settings-time-picker-btn settings-time-picker-btn-confirm', '导出');
         btn.type = 'button';
-        btn.addEventListener('click', (evt) => {
+
+        const setLoading = (loading) => {
+            const on = loading === true;
+            root.classList.toggle('is-loading', on);
+            try {
+                fab.disabled = on;
+                fab.setAttribute('aria-busy', on ? 'true' : 'false');
+            } catch {
+                // ignore
+            }
+        };
+
+        btn.addEventListener('click', async (evt) => {
             evt.preventDefault?.();
             evt.stopPropagation?.();
 
-            if (!lastSnapshot || !lastSnapshotAt) return;
-            exportSnapshot(lastSnapshot, { resolution, format, zoomMode });
+            // 点击导出后立刻收回菜单
+            try { collapse?.(); } catch {}
+
+            // 避免重复触发
+            if (exporting) return;
+
+            setLoading(true);
+            try {
+                await exportCurrentSelection({ resolution, format, zoomMode });
+            } finally {
+                setLoading(false);
+            }
         });
         rowExport.appendChild(btn);
         

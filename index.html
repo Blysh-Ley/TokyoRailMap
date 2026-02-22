@@ -433,6 +433,32 @@
             border-color: #aeb0b5;
         }
 
+        /* export-ui: export-fab loading spinner (blue rounded arc) */
+        .export-ui.is-loading.is-collapsed .export-fab {
+            pointer-events: none;
+            cursor: default;
+        }
+
+        .export-ui.is-loading.is-collapsed .export-fab::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border-radius: 999px;
+            border: 3px solid transparent;
+            border-top-color: #3498db;
+            border-right-color: #3498db;
+            animation: export-btn-spinner 0.9s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes export-btn-spinner {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
         /* ===== 全屏浏览 FAB ===== */
         .fullscreen-fab {
             position: fixed;

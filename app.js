@@ -379,10 +379,7 @@ map.on('load', async () => {
         selectedServiceMode = 'all';
         isolateStationsToSelectedLine = false;
 
-        applyLineSelectionStyle();
-        applyStationSelectionStyle();
-        if (collisionController) collisionController.scheduleUpdate();
-        updateSelectionBadge();
+        applySelectionEffects();
     };
 
     function updateSelectionBadge() {
@@ -877,10 +874,7 @@ map.on('load', async () => {
 
         if (menu && typeof menu.clearActive === 'function') menu.clearActive();
 
-        applyLineSelectionStyle();
-        applyStationSelectionStyle();
-        if (collisionController) collisionController.scheduleUpdate();
-        updateSelectionBadge();
+        applySelectionEffects();
     }
 
     const applySelectionEffects = () => {
@@ -888,6 +882,39 @@ map.on('load', async () => {
         applyStationSelectionStyle();
         if (collisionController) collisionController.scheduleUpdate();
         updateSelectionBadge();
+        try {
+            const lineIds = (() => {
+                if (selectedLineId) {
+                    if (selectedStationLineIds && selectedStationLineIds.size > 1) return Array.from(selectedStationLineIds).map(String).filter(Boolean);
+                    return [String(selectedLineId)];
+                }
+                if (selectedStationLineIds && selectedStationLineIds.size) {
+                    return Array.from(selectedStationLineIds).map(String).filter(Boolean);
+                }
+                if (selectedCompany && enabledLineIdsByCompany && enabledLineIdsByCompany.has(selectedCompany)) {
+                    return Array.from(enabledLineIdsByCompany.get(selectedCompany) || []).map(String).filter(Boolean);
+                }
+                return [];
+            })();
+
+            if (!lineIds.length) {
+                window.dispatchEvent(new CustomEvent('__TokyoRailBaseHighlightCleared'));
+                return;
+            }
+
+            const kind = selectedLineId ? 'line' : (selectedCompany ? 'company' : (selectedStationLineIds && selectedStationLineIds.size ? 'station' : 'unknown'));
+            window.dispatchEvent(new CustomEvent('__TokyoRailBaseHighlightUpdated', {
+                detail: {
+                    kind,
+                    lineIds,
+                    selectedLineId: selectedLineId ? String(selectedLineId) : null,
+                    selectedCompany: selectedCompany ? String(selectedCompany) : null,
+                    selectedStationId: selectedStationId ? String(selectedStationId) : null,
+                }
+            }));
+        } catch {
+            // ignore
+        }
     };
 
     function mountSettingsMenu() {
@@ -1313,10 +1340,7 @@ map.on('load', async () => {
         selectedServiceMode = 'all';
         isolateStationsToSelectedLine = false;
 
-        applyLineSelectionStyle();
-        applyStationSelectionStyle();
-        if (collisionController) collisionController.scheduleUpdate();
-        updateSelectionBadge();
+        applySelectionEffects();
     };
 
     const fitToPointAsBounds = (coordinates, { maxZoom } = {}) => {
@@ -1568,10 +1592,7 @@ map.on('load', async () => {
                 if (el) menu.markActive(el);
             }
 
-            applyLineSelectionStyle();
-            applyStationSelectionStyle();
-            if (collisionController) collisionController.scheduleUpdate();
-            updateSelectionBadge();
+            applySelectionEffects();
             // 点击高亮：不限制放大倍率
             fitToCurrentSelection(`line:${selectedLineId}`, 'commit');
         });
@@ -3082,10 +3103,7 @@ map.on('load', async () => {
                 }
                 selectedLineId = null;
                 selectedServiceMode = 'all';
-                applyLineSelectionStyle();
-                applyStationSelectionStyle();
-                if (collisionController) collisionController.scheduleUpdate();
-                updateSelectionBadge();
+                applySelectionEffects();
                 if (selectedCompany) {
                     if (source === 'hover') fitToCurrentSelectionPreview(`company:${selectedCompany}`);
                     else fitToCurrentSelectionCommit(`company:${selectedCompany}`);
@@ -3128,10 +3146,7 @@ map.on('load', async () => {
 
                 // 需求：高亮线路时自动切换为站名全显（仅对 click/commit 生效，避免 hover 预览频繁切换）
                 if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
-                applyLineSelectionStyle();
-                applyStationSelectionStyle();
-                if (collisionController) collisionController.scheduleUpdate();
-                updateSelectionBadge();
+                applySelectionEffects();
                 if (selectedLineId) {
                     if (source === 'hover') fitToCurrentSelectionPreview(`line:${selectedLineId}`);
                     else fitToCurrentSelectionCommit(`line:${selectedLineId}`);
@@ -3158,10 +3173,7 @@ map.on('load', async () => {
 
                 // 需求：高亮线路时自动切换为站名全显（仅对 click/commit 生效）
                 if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
-                applyLineSelectionStyle();
-                applyStationSelectionStyle();
-                if (collisionController) collisionController.scheduleUpdate();
-                updateSelectionBadge();
+                applySelectionEffects();
                 if (selectedLineId) {
                     if (source === 'hover') fitToCurrentSelectionPreview(`mode:${selectedLineId}:${selectedServiceMode}`);
                     else fitToCurrentSelectionCommit(`mode:${selectedLineId}:${selectedServiceMode}`);
@@ -3207,9 +3219,7 @@ map.on('load', async () => {
         // 全屏浏览按钮
         initFullscreen(map, touchTapGuard);
 
-        applyLineSelectionStyle();
-        applyStationSelectionStyle();
-        updateSelectionBadge();
+        applySelectionEffects();
     } catch (e) {
         console.error('线路加载失败，请确保运行了 python -m http.server', e);
     }
@@ -3222,7 +3232,7 @@ map.on('load', async () => {
         bindClickStationToHighlightServingLines();
 
         // 确保 stations-layer 创建后立即应用一次“选中线路的站点样式策略”
-        applyStationSelectionStyle();
+        applySelectionEffects();
 
         const markers = createStationMarkers(map, maplibregl, stationsData);
         stationLabels = markers.stationLabels;
