@@ -225,7 +225,7 @@
         setTimeout(() => URL.revokeObjectURL(url), 2000);
     };
 
-    const buildSvgFromBuilt = async ({ map, payload, built, backgroundImageHref }) => {
+    const buildSvgFromBuilt = async ({ map, payload, built, backgroundImageHref, transparentBackground = false }) => {
         const container = map.getContainer?.();
         const rect = container?.getBoundingClientRect?.();
         const width = Math.max(1, Math.round(rect?.width || 0));
@@ -259,10 +259,12 @@
         parts.push(`<clipPath id="export-clip"><rect x="0" y="0" width="${width}" height="${height}"/></clipPath>`);
         parts.push(`</defs>`);
         parts.push(`<g clip-path="url(#export-clip)">`);
-        parts.push(`<rect x="0" y="0" width="${width}" height="${height}" fill="${bg}"/>`);
-        if (backgroundImageHref) {
-            const href = escapeXml(String(backgroundImageHref));
-            parts.push(`<image x="0" y="0" width="${width}" height="${height}" href="${href}" xlink:href="${href}" preserveAspectRatio="none"/>`);
+        if (!transparentBackground) {
+            parts.push(`<rect x="0" y="0" width="${width}" height="${height}" fill="${bg}"/>`);
+            if (backgroundImageHref) {
+                const href = escapeXml(String(backgroundImageHref));
+                parts.push(`<image x="0" y="0" width="${width}" height="${height}" href="${href}" xlink:href="${href}" preserveAspectRatio="none"/>`);
+            }
         }
 
         // lowlight base lines (grey)
@@ -573,6 +575,35 @@
         }
     });
 
+    const loadImage = (url) => new Promise((resolve, reject) => {
+        const img = new Image();
+        img.decoding = 'async';
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = (e) => reject(e);
+        img.src = url;
+    });
+
+    const compositePngAndSvgToPngBlob = async ({ backgroundPngBlob, overlaySvgText, width, height }) => {
+        const bgUrl = URL.createObjectURL(backgroundPngBlob);
+        const svgUrl = URL.createObjectURL(new Blob([overlaySvgText], { type: 'image/svg+xml;charset=utf-8' }));
+
+        try {
+            const [bgImg, svgImg] = await Promise.all([loadImage(bgUrl), loadImage(svgUrl)]);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Number(width) || 1);
+            canvas.height = Math.max(1, Number(height) || 1);
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error('2d context not available');
+            ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+            ctx.drawImage(svgImg, 0, 0, canvas.width, canvas.height);
+            return await canvasToPngBlob(canvas);
+        } finally {
+            try { URL.revokeObjectURL(bgUrl); } catch {}
+            try { URL.revokeObjectURL(svgUrl); } catch {}
+        }
+    };
+
     const ensureStyleMatchesTheme = async (map) => {
         const style = buildRasterStyle(isDarkTheme());
         if (typeof map.setStyle !== 'function') return;
@@ -625,6 +656,7 @@
         const geoBbox = normalizeBbox(geoBboxRaw);
         if (!geoBbox) return;
 
+        const format = options?.format === 'png' ? 'png' : 'svg+png';
         exporting = true;
         try {
             const baseBearing = (typeof baseMap.getBearing === 'function') ? baseMap.getBearing() : 0;
@@ -675,25 +707,32 @@
 
             const resolution = String(options?.resolution || '4k');
 
+            let outW = isLandscape ? 3840 : 2160;
+            let outH = isLandscape ? 2160 : 3840;
+
             // 4K：优先 4K，失败回退 1080P；1080P：直接 1080P（不尝试 4K）
             let pngBlob = null;
             if (resolution === '1080p') {
+                outW = isLandscape ? 1920 : 1080;
+                outH = isLandscape ? 1080 : 1920;
                 pngBlob = await tryExportPng({
-                    w: isLandscape ? 1920 : 1080,
-                    h: isLandscape ? 1080 : 1920,
+                    w: outW,
+                    h: outH,
                     paddingPx: 60,
                 });
             } else {
                 try {
                     pngBlob = await tryExportPng({
-                        w: isLandscape ? 3840 : 2160,
-                        h: isLandscape ? 2160 : 3840,
+                        w: outW,
+                        h: outH,
                         paddingPx: 120,
                     });
                 } catch {
+                    outW = isLandscape ? 1920 : 1080;
+                    outH = isLandscape ? 1080 : 1920;
                     pngBlob = await tryExportPng({
-                        w: isLandscape ? 1920 : 1080,
-                        h: isLandscape ? 1080 : 1920,
+                        w: outW,
+                        h: outH,
                         paddingPx: 60,
                     });
                 }
@@ -720,6 +759,30 @@
                 }
             } catch {
                 // ignore
+            }
+
+            if (format === 'png') {
+                // 纯 PNG：将（透明背景的）SVG 叠加层光栅化并与底图 PNG 合成
+                try {
+                    const overlaySvgText = await buildSvgFromBuilt({
+                        map: vmap,
+                        payload,
+                        built: builtForSvg,
+                        backgroundImageHref: null,
+                        transparentBackground: true,
+                    });
+                    const merged = await compositePngAndSvgToPngBlob({
+                        backgroundPngBlob: pngBlob,
+                        overlaySvgText,
+                        width: outW,
+                        height: outH,
+                    });
+                    downloadBlob({ blob: merged, filename: pngName });
+                } catch {
+                    // 部分浏览器可能限制 SVG -> Canvas；兜底至少提供底图 PNG
+                    downloadBlob({ blob: pngBlob, filename: pngName });
+                }
+                return;
             }
 
             const svgText = await buildSvgFromBuilt({ map: vmap, payload, built: builtForSvg, backgroundImageHref: pngName });
@@ -855,12 +918,8 @@
             evt.preventDefault?.();
             evt.stopPropagation?.();
 
-            if (format === 'png') {
-                window.alert('暂不支持纯 PNG 导出');
-                return;
-            }
             if (!lastSnapshot || !lastSnapshotAt) return;
-            exportSnapshot(lastSnapshot, { resolution });
+            exportSnapshot(lastSnapshot, { resolution, format });
         });
         rowExport.appendChild(btn);
         
