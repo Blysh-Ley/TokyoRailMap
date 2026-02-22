@@ -142,6 +142,13 @@ const map = new maplibregl.Map({
     }
 });
 
+// 暴露给 print.js：用于导出 trip-preview 的 SVG（避免 print.js import app.js 导致重复初始化）
+try {
+    window.__TokyoRailMap = map;
+} catch {
+    // ignore
+}
+
 const applyBasemapTheme = (theme) => {
     const next = theme === 'dark' ? 'dark' : 'light';
     mapMode = next;
@@ -2755,6 +2762,12 @@ map.on('load', async () => {
             setStationLabelMode('auto');
             applySelectionEffects();
             collisionController?.scheduleUpdate?.();
+
+            try {
+                window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewCleared', { detail: { ts: Date.now() } }));
+            } catch {
+                // ignore
+            }
         };
 
         previewTripPath = (payload) => {
@@ -2779,6 +2792,18 @@ map.on('load', async () => {
             }
 
             updateTripEndpointPopups(built.startStationId, built.endStationId);
+
+            try {
+                window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {
+                    detail: {
+                        ts: Date.now(),
+                        payload,
+                        built
+                    }
+                }));
+            } catch {
+                // ignore
+            }
 
             setStationLabelMode('all');
             applySelectionEffects();

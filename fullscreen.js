@@ -24,29 +24,30 @@ export function isInFullscreenMode() {
  */
 export function initFullscreen(map, touchTapGuard) {
     // 在 settings-ui 按钮左侧创建全屏 FAB
-    const fab = document.createElement('button');
-    fab.type = 'button';
-    fab.className = 'fullscreen-fab';
-    fab.setAttribute('aria-label', '全屏浏览');
+    const fullscreenFab = document.createElement('button');
+    fullscreenFab.type = 'button';
+    fullscreenFab.className = 'fullscreen-fab';
+    fullscreenFab.setAttribute('aria-label', '全屏浏览');
 
-    const icon = document.createElement('img');
-    icon.className = 'fullscreen-fab-icon';
-    icon.alt = '';
+    const fullscreenIcon = document.createElement('img');
+    fullscreenIcon.className = 'fullscreen-fab-icon';
+    fullscreenIcon.alt = '';
     {
         const candidates = ['./icons/fs.svg', '/icons/fs.svg'];
         let idx = 0;
-        icon.src = candidates[idx];
-        icon.addEventListener('error', () => {
+        fullscreenIcon.src = candidates[idx];
+        fullscreenIcon.addEventListener('error', () => {
             idx += 1;
-            if (idx < candidates.length) icon.src = candidates[idx];
+            if (idx < candidates.length) fullscreenIcon.src = candidates[idx];
         });
     }
-    fab.appendChild(icon);
-    document.body.appendChild(fab);
+    fullscreenFab.appendChild(fullscreenIcon);
+    document.body.appendChild(fullscreenFab);
 
     // ---- 需要隐藏/恢复的 UI 选择器 ----
     const UI_SELECTORS = [
         '.settings-ui',
+        '.export-ui',
         '.search-ui',
         '.RW-company',
         '.selection-badge',
@@ -182,7 +183,7 @@ export function initFullscreen(map, touchTapGuard) {
     document.addEventListener('webkitfullscreenchange', onFullscreenChange);
 
     // ---- 绑定 FAB 点击 ----
-    fab.addEventListener('click', (e) => {
+    fullscreenFab.addEventListener('click', (e) => {
         e.stopPropagation();
         enterFullscreen();
     });

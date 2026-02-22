@@ -334,6 +334,88 @@
             outline: none;
         }
 
+        /* ===== 导出（截图）菜单：仿 settings-fab 的 hover 弹出 ===== */
+        .export-ui {
+            position: fixed;
+            top: 10px;
+            right: 104px;
+            z-index: 9999;
+            width: 260px;
+            max-width: calc(100vw - 20px);
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            user-select: none;
+            transition: width 0.2s ease;
+        }
+
+        .export-ui::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 36.4px;
+            width: 100%;
+            border-radius: 18.2px;
+            background: rgba(255, 255, 255, 0.75);
+            border: 1px solid #e3e5e7;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(4px);
+            transition: border-radius 0.2s ease, opacity 0.2s ease;
+            pointer-events: none;
+            opacity: 1;
+        }
+
+        .export-ui.is-collapsed {
+            width: 36.4px;
+        }
+
+        .export-ui.is-collapsed::before {
+            border-radius: 18.2px;
+        }
+
+        .export-ui:not(.is-collapsed)::before {
+            opacity: 0;
+        }
+
+        .export-fab {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100%;
+            height: 36.4px;
+            border-radius: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            backdrop-filter: none;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1;
+        }
+
+        .export-ui.is-collapsed .export-fab {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .export-fab-icon {
+            width: 18px;
+            height: 18px;
+            display: block;
+            pointer-events: none;
+        }
+
+        .export-fab:focus {
+            outline: none;
+        }
+
         /* ===== 全屏浏览 FAB ===== */
         .fullscreen-fab {
             position: fixed;
@@ -2292,6 +2374,12 @@
 
 <div id="map"></div>
 <div id="controls"></div>
+
+<!-- 打包导出（SVG + PNG 背景） -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+<!-- 导出：生成 PNG 背景 + SVG 覆盖，并打包下载 -->
+<script src="./print.js"></script>
 
 <!-- ES Module 入口：负责初始化地图、加载数据、添加图层与碰撞逻辑 -->
 <script type="module" src="./app.js"></script>
