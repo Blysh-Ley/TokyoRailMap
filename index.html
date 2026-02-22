@@ -416,6 +416,23 @@
             outline: none;
         }
 
+        /* export-ui: disabled row (used when svg+png + current zoom) */
+        .export-ui .settings-item.is-disabled {
+            background: rgba(93, 93, 93, 0.5);
+            border-color: #aeb0b5;
+        }
+
+        .export-ui .settings-item.is-disabled .settings-item-title,
+        .export-ui .settings-item.is-disabled .settings-seg button {
+            color: #5f6062;
+            cursor: default;
+        }
+
+        .export-ui .settings-item.is-disabled .settings-seg {
+            background: rgba(123, 123, 123, 0.94);
+            border-color: #aeb0b5;
+        }
+
         /* ===== 全屏浏览 FAB ===== */
         .fullscreen-fab {
             position: fixed;

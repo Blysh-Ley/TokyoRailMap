@@ -999,6 +999,8 @@
         let resolution = prefs.resolution;
         let zoomMode = prefs.zoomMode;
 
+        let refreshResolutionDisabled = null;
+
         const mkSeg = (opts, getValue, setValue) => {
             const seg = el('div', 'settings-seg');
             for (const o of opts) {
@@ -1015,6 +1017,7 @@
                     seg.querySelectorAll('button').forEach((x) => x.classList.remove('is-active'));
                     b.classList.add('is-active');
                     writeExportPrefs({ format, resolution, zoomMode });
+                    try { refreshResolutionDisabled?.(); } catch {}
                 });
                 seg.appendChild(b);
             }
@@ -1066,6 +1069,14 @@
             rowZoom.appendChild(ctrl);
         }
 
+        refreshResolutionDisabled = () => {
+            const disabled = (format === 'svg+png') && (zoomMode === 'current');
+            rowRes.classList.toggle('is-disabled', disabled);
+            // 禁用鼠标/触摸交互（整行）
+            rowRes.style.pointerEvents = disabled ? 'none' : '';
+        };
+        refreshResolutionDisabled();
+
         const rowExport = el('div', 'settings-item-control');
         const btn = el('button', 'settings-time-picker-btn settings-time-picker-btn-confirm', '导出');
         btn.type = 'button';
@@ -1080,8 +1091,8 @@
         
 
         content.appendChild(rowFormat);
-        content.appendChild(rowRes);
         content.appendChild(rowZoom);
+        content.appendChild(rowRes);
         content.appendChild(rowExport);
 
         root.appendChild(fab);

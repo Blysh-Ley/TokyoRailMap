@@ -126,7 +126,6 @@ const map = new maplibregl.Map({
                 source: 'carto-light-source',
                 layout: { visibility: mapMode === 'light' ? 'visible' : 'none' },
                 minzoom: 0,
-                maxzoom: 18,
                 paint: {}
             },
             {
@@ -135,7 +134,6 @@ const map = new maplibregl.Map({
                 source: 'carto-dark-source',
                 layout: { visibility: mapMode === 'dark' ? 'visible' : 'none' },
                 minzoom: 0,
-                maxzoom: 18,
                 paint: {}
             }
         ]
@@ -209,7 +207,6 @@ map.on('load', async () => {
     let isolateStationsToSelectedLine = false; // 仅用于“popup 提交线路”：隐藏非该线路站点
     let stationLabelMode = 'auto'; // 'off' | 'auto' | 'all'
     let setStationLabelMode = (_mode) => false;
-    // 在 ES module 严格模式下，try/catch 内的 function 声明可能是块级作用域；这里预先声明避免点击时未定义
     // mode: 'preview' | 'commit'
     let fitToCurrentSelection = (_triggerKey, _mode = 'preview') => {};
     let enabledLineIdsByCompany = new Map();
