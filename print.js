@@ -539,6 +539,108 @@
         return d1 <= d2 ? r1 : r2;
     };
 
+    const clampCanvasSize = ({ w, h }) => {
+        // 常见浏览器单边上限约 16384；这里留一点余量
+        const MAX_SIDE = 16384;
+        const ww = Math.max(1, Math.min(MAX_SIDE, Math.round(Number(w) || 1)));
+        const hh = Math.max(1, Math.min(MAX_SIDE, Math.round(Number(h) || 1)));
+        return { w: ww, h: hh };
+    };
+
+    const projectLngLat = (map, lng, lat) => {
+        const p = map.project({ lng: Number(lng), lat: Number(lat) });
+        return { x: Number(p.x), y: Number(p.y) };
+    };
+
+    const calcPixelBboxForGeoBbox = (map, geoBbox) => {
+        const b = normalizeBbox(geoBbox);
+        if (!b) return null;
+        const pts = [
+            projectLngLat(map, b.minLng, b.minLat),
+            projectLngLat(map, b.minLng, b.maxLat),
+            projectLngLat(map, b.maxLng, b.minLat),
+            projectLngLat(map, b.maxLng, b.maxLat),
+        ].filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+        if (pts.length < 2) return null;
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        for (const p of pts) {
+            if (p.x < minX) minX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y > maxY) maxY = p.y;
+        }
+        if (![minX, minY, maxX, maxY].every(Number.isFinite)) return null;
+        return { minX, minY, maxX, maxY };
+    };
+
+    const pickCenterForBbox = (map, geoBbox, paddingPx, bearing, pitch) => {
+        const b = normalizeBbox(geoBbox);
+        if (!b) return null;
+        const fallback = {
+            lng: (b.minLng + b.maxLng) / 2,
+            lat: (b.minLat + b.maxLat) / 2,
+        };
+        try {
+            if (typeof map.cameraForBounds === 'function') {
+                const cam = map.cameraForBounds(
+                    [[b.minLng, b.minLat], [b.maxLng, b.maxLat]],
+                    { padding: Math.max(0, Number(paddingPx) || 0), bearing: Number(bearing) || 0, pitch: Number(pitch) || 0 }
+                );
+                if (cam?.center && Number.isFinite(cam.center.lng) && Number.isFinite(cam.center.lat)) return cam.center;
+            }
+        } catch {
+            // ignore
+        }
+        return fallback;
+    };
+
+    const computeExportSizeAtFixedZoom = ({ map, container, geoBbox, baseW, baseH, paddingPx, zoom, bearing, pitch }) => {
+        let w = Math.max(1, Math.round(Number(baseW) || 1));
+        let h = Math.max(1, Math.round(Number(baseH) || 1));
+        const pad = Math.max(0, Math.round(Number(paddingPx) || 0));
+
+        const applySize = (ww, hh) => {
+            if (!container) return;
+            container.style.width = `${ww}px`;
+            container.style.height = `${hh}px`;
+            map.resize?.();
+        };
+
+        // 等比放大画布，直到 bbox 在当前 zoom 下能放下
+        for (let i = 0; i < 8; i += 1) {
+            ({ w, h } = clampCanvasSize({ w, h }));
+
+            applySize(w, h);
+
+            const center = pickCenterForBbox(map, geoBbox, pad, bearing, pitch);
+            map.jumpTo?.({ center, zoom: Number(zoom) || 0, bearing: Number(bearing) || 0, pitch: Number(pitch) || 0 });
+
+            const px = calcPixelBboxForGeoBbox(map, geoBbox);
+            if (!px) break;
+
+            const needW = (px.maxX - px.minX) + pad * 2;
+            const needH = (px.maxY - px.minY) + pad * 2;
+
+            if (needW <= w && needH <= h) return { w, h, center };
+
+            const scale = Math.max(needW / Math.max(1, w), needH / Math.max(1, h)) * 1.02;
+            w = Math.ceil(w * scale);
+            h = Math.ceil(h * scale);
+
+            // 如果已经到上限，别死循环
+            const atLimit = w >= 16384 || h >= 16384;
+            if (atLimit) break;
+        }
+
+        const center = pickCenterForBbox(map, geoBbox, pad, bearing, pitch);
+        ({ w, h } = clampCanvasSize({ w, h }));
+        applySize(w, h);
+        return { w, h, center };
+    };
+
     const waitForEventOnce = (target, eventName, timeoutMs) => new Promise((resolve) => {
         let done = false;
         const onDone = () => {
@@ -659,6 +761,7 @@
         const format = options?.format === 'png' ? 'png' : 'svg+png';
         exporting = true;
         try {
+            const baseZoom = (typeof baseMap.getZoom === 'function') ? baseMap.getZoom() : 11;
             const baseBearing = (typeof baseMap.getBearing === 'function') ? baseMap.getBearing() : 0;
             const basePitch = (typeof baseMap.getPitch === 'function') ? baseMap.getPitch() : 0;
             const { map: vmap, container: vcontainer } = await ensureVirtualMap();
@@ -678,63 +781,71 @@
             const targetRatio = chooseAspectRatio(a, 1);
             const isLandscape = targetRatio >= 1;
 
-            const tryExportPng = async ({ w, h, paddingPx }) => {
+            const tryExportPng = async ({ baseW, baseH, paddingPx }) => {
                 await ensureStyleMatchesTheme(vmap);
 
-                vcontainer.style.width = `${w}px`;
-                vcontainer.style.height = `${h}px`;
-                vmap.resize?.();
+                // 关键：保持与当前视图一致的 zoom，不用 fitBounds（fitBounds 会自动改 zoom）
+                const size = computeExportSizeAtFixedZoom({
+                    map: vmap,
+                    container: vcontainer,
+                    geoBbox,
+                    baseW,
+                    baseH,
+                    paddingPx,
+                    zoom: baseZoom,
+                    bearing: baseBearing,
+                    pitch: basePitch,
+                });
 
                 vmap.jumpTo?.({
-                    center: [(geoBbox.minLng + geoBbox.maxLng) / 2, (geoBbox.minLat + geoBbox.maxLat) / 2],
-                    zoom: 11,
+                    center: size.center,
+                    zoom: Number(baseZoom) || 11,
                     bearing: Number(baseBearing) || 0,
                     pitch: Number(basePitch) || 0,
                 });
-
-                vmap.fitBounds?.(
-                    [[geoBbox.minLng, geoBbox.minLat], [geoBbox.maxLng, geoBbox.maxLat]],
-                    { padding: Math.max(0, Number(paddingPx) || 0), duration: 0 }
-                );
 
                 await waitForEventOnce(vmap, 'moveend', 2000);
                 await waitForEventOnce(vmap, 'idle', 8000);
 
                 const canvas = vmap.getCanvas?.();
                 if (!canvas) throw new Error('canvas not available');
-                return canvasToPngBlob(canvas);
+                return { blob: await canvasToPngBlob(canvas), w: size.w, h: size.h };
             };
 
             const resolution = String(options?.resolution || '4k');
 
-            let outW = isLandscape ? 3840 : 2160;
-            let outH = isLandscape ? 2160 : 3840;
-
             // 4K：优先 4K，失败回退 1080P；1080P：直接 1080P（不尝试 4K）
             let pngBlob = null;
+            let outW = isLandscape ? 3840 : 2160;
+            let outH = isLandscape ? 2160 : 3840;
             if (resolution === '1080p') {
-                outW = isLandscape ? 1920 : 1080;
-                outH = isLandscape ? 1080 : 1920;
-                pngBlob = await tryExportPng({
-                    w: outW,
-                    h: outH,
+                const r = await tryExportPng({
+                    baseW: isLandscape ? 1920 : 1080,
+                    baseH: isLandscape ? 1080 : 1920,
                     paddingPx: 60,
                 });
+                pngBlob = r.blob;
+                outW = r.w;
+                outH = r.h;
             } else {
                 try {
-                    pngBlob = await tryExportPng({
-                        w: outW,
-                        h: outH,
+                    const r = await tryExportPng({
+                        baseW: isLandscape ? 3840 : 2160,
+                        baseH: isLandscape ? 2160 : 3840,
                         paddingPx: 120,
                     });
+                    pngBlob = r.blob;
+                    outW = r.w;
+                    outH = r.h;
                 } catch {
-                    outW = isLandscape ? 1920 : 1080;
-                    outH = isLandscape ? 1080 : 1920;
-                    pngBlob = await tryExportPng({
-                        w: outW,
-                        h: outH,
+                    const r = await tryExportPng({
+                        baseW: isLandscape ? 1920 : 1080,
+                        baseH: isLandscape ? 1080 : 1920,
                         paddingPx: 60,
                     });
+                    pngBlob = r.blob;
+                    outW = r.w;
+                    outH = r.h;
                 }
             }
 
