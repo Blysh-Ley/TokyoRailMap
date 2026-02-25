@@ -205,7 +205,7 @@ const getTrainTypeColorIndex = async () => {
             for (const t of Array.isArray(list) ? list : []) {
                 const id = toText(t?.id);
                 if (!id) continue;
-                const color = toText(t?.color);
+                const color = toText(t?.title?.color);
                 if (!color) continue;
                 map.set(id, color);
             }
@@ -2125,6 +2125,9 @@ export function createPanel(options = {}) {
                         .map((r) => {
                             const klass = r.isPast ? 'panel-timetable-row is-past' : 'panel-timetable-row';
                             const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.tripKey)}"` : '';
+                            const typeStyle = (!r.isPast && toText(r.typeColor))
+                                ? ` style="color:${escapeHtml(toText(r.typeColor))}"`
+                                : '';
                             return `
                                 <div class="${klass}"${tripAttr}>
                                     <div class="panel-timetable-dest">
@@ -2134,7 +2137,11 @@ export function createPanel(options = {}) {
                                         </span>
                                     </div>
                                     <div class="panel-timetable-time">${renderTime(r)}</div>
-                                    <div class="panel-timetable-type">${escapeHtml(r.typeName || '')}</div>
+                                    <div class="panel-timetable-type"${typeStyle}>
+                                        <span class="panel-timetable-type-marquee" aria-label="${escapeHtml(r.typeName || '')}">
+                                            <span class="panel-timetable-type-marquee-inner">${escapeHtml(r.typeName || '')}</span>
+                                        </span>
+                                    </div>
                                 </div>
                             `;
                         })
@@ -2455,6 +2462,12 @@ export function createPanel(options = {}) {
         return toText(trainTypesIndex?.get?.(typeId) || typeId);
     };
 
+    const getTripTypeColor = (trip, trainTypeColorIndex) => {
+        const typeId = toText(trip?.y);
+        if (!typeId) return '';
+        return toText(trainTypeColorIndex?.get?.(typeId));
+    };
+
     const renderTripDetail = async ({ lineId, tripKey, clientX, clientY, pinned, fitMode }) => {
         const token = ++tripDetailToken;
         tripDetailPinned = !!pinned;
@@ -2474,7 +2487,11 @@ export function createPanel(options = {}) {
         const now = getDisplayNowMs();
         const serviceDayStartMs = getServiceDayStartMs(new Date(now));
 
-        const [stationsIndex, trainTypesIndex] = await Promise.all([getStationsIndex(), getTrainTypesIndex()]);
+        const [stationsIndex, trainTypesIndex, trainTypeColorIndex] = await Promise.all([
+            getStationsIndex(),
+            getTrainTypesIndex(),
+            getTrainTypeColorIndex()
+        ]);
         if (token !== tripDetailToken) return;
 
         const ptRefs = Array.isArray(trip?.pt) ? trip.pt : (trip?.pt ? [trip.pt] : []);
@@ -2552,7 +2569,8 @@ export function createPanel(options = {}) {
                     kind: 'pt',
                     lineId: getTripLineId(ptTrip),
                     rows,
-                    typeName: getTripTypeName(ptTrip, trainTypesIndex)
+                    typeName: getTripTypeName(ptTrip, trainTypesIndex),
+                    typeColor: getTripTypeColor(ptTrip, trainTypeColorIndex)
                 });
             }
         }
@@ -2561,7 +2579,8 @@ export function createPanel(options = {}) {
             kind: 'main',
             lineId: getTripLineId(trip),
             rows: mainRowsRaw,
-            typeName: getTripTypeName(trip, trainTypesIndex)
+            typeName: getTripTypeName(trip, trainTypesIndex),
+            typeColor: getTripTypeColor(trip, trainTypeColorIndex)
         });
 
         if (!hideThroughSegmentsForLoop) {
@@ -2578,7 +2597,8 @@ export function createPanel(options = {}) {
                     kind: 'nt',
                     lineId: getTripLineId(ntTrip),
                     rows,
-                    typeName: getTripTypeName(ntTrip, trainTypesIndex)
+                    typeName: getTripTypeName(ntTrip, trainTypesIndex),
+                    typeColor: getTripTypeColor(ntTrip, trainTypeColorIndex)
                 });
             }
         }
@@ -2669,7 +2689,7 @@ export function createPanel(options = {}) {
                 `;
             };
 
-        const renderNoteRow = (descriptor, typeName, isPast) => {
+        const renderNoteRow = (descriptor, typeName, typeColor, isPast) => {
             if (!descriptor?.text) return '';
             const past = !!isPast;
             const colorStyle = past
@@ -2679,8 +2699,11 @@ export function createPanel(options = {}) {
                 ? ' style="background:#ccc"'
                 : (descriptor.color ? ` style="background:${escapeHtml(descriptor.color)}"` : '');
             const typeText = toText(typeName);
+            const typeStyle = (!past && toText(typeColor))
+                ? ` style="color:${escapeHtml(toText(typeColor))}"`
+                : '';
             const typeHtml = typeText
-                ? `<span class="panel-trip-detail-note-type">${escapeHtml(typeText)}</span>`
+                ? `<span class="panel-trip-detail-note-type"${typeStyle}>${escapeHtml(typeText)}</span>`
                 : '';
             const rowCls = past ? 'panel-trip-detail-note-row is-past' : 'panel-trip-detail-note-row';
             return `
@@ -2724,6 +2747,7 @@ export function createPanel(options = {}) {
                     lineId: seg.lineId,
                     descriptor: buildLineDescriptor(seg.lineId) || (seg.kind === 'main' ? currentLineDesc : null),
                     typeName: toText(seg.typeName),
+                    typeColor: toText(seg.typeColor),
                     segments: [seg]
                 });
                 continue;
@@ -2732,6 +2756,9 @@ export function createPanel(options = {}) {
             lastBlock.segments.push(seg);
             if (!toText(lastBlock.typeName) && toText(seg.typeName)) {
                 lastBlock.typeName = toText(seg.typeName);
+            }
+            if (!toText(lastBlock.typeColor) && toText(seg.typeColor)) {
+                lastBlock.typeColor = toText(seg.typeColor);
             }
         }
 
@@ -2745,7 +2772,7 @@ export function createPanel(options = {}) {
             const prevLastRow = getSegmentLastRow(prevLastSeg);
             const firstRow = getSegmentFirstRow(firstSeg);
 
-            rowsHtml += renderNoteRow(block.descriptor, block.typeName, isBoundaryPast(prevLastRow, firstRow));
+            rowsHtml += renderNoteRow(block.descriptor, block.typeName, block.typeColor, isBoundaryPast(prevLastRow, firstRow));
             for (const seg of block.segments) {
                 rowsHtml += (seg.rows || []).map(renderStopRow).join('');
             }
@@ -2934,11 +2961,11 @@ export function createPanel(options = {}) {
             const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
             if (reduceMotion) return;
 
-            const marquees = Array.from(rootEl.querySelectorAll('.panel-timetable-dest-marquee'));
+            const marquees = Array.from(rootEl.querySelectorAll('.panel-timetable-dest-marquee, .panel-timetable-type-marquee'));
             const candidates = [];
 
             for (const marqueeEl of marquees) {
-                const innerEl = marqueeEl.querySelector('.panel-timetable-dest-marquee-inner');
+                const innerEl = marqueeEl.querySelector('.panel-timetable-dest-marquee-inner, .panel-timetable-type-marquee-inner');
                 if (!innerEl) continue;
 
                 // cancel previous animation on this element (if any)

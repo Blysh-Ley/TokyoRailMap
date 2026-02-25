@@ -5,7 +5,8 @@
 		"ja": "中央特快",
 		"ko": "주오 특별쾌속",
 		"zh-Hans": "中央特快",
-		"zh-Hant": "中央特快"
+		"zh-Hant": "中央特快",
+		"color": "#0299CB"
 	}
 }, {
 	"id": "JR-East.CommuterRapid",
@@ -14,7 +15,8 @@
 		"ja": "通勤快速",
 		"ko": "통근쾌속",
 		"zh-Hans": "通勤快速",
-		"zh-Hant": "通勤快速"
+		"zh-Hant": "通勤快速",
+		"color":"#00CBC9"
 	}
 }, {
 	"id": "JR-East.CommuterSpecialRapid",
@@ -23,7 +25,8 @@
 		"ja": "通勤特快",
 		"ko": "통근 특별쾌속",
 		"zh-Hans": "通勤特快",
-		"zh-Hant": "通勤特快"
+		"zh-Hant": "通勤特快",
+		"color": "#FF3366"
 	}
 }, {
 	"id": "JR-East.Express",
@@ -482,7 +485,8 @@
 		"ja": "アクセス特急",
 		"ko": "엑세스특급",
 		"zh-Hans": "Access特急",
-		"zh-Hant": "Access特急"
+		"zh-Hant": "Access特急",
+		"color":"#F47B22"
 	}
 }, {
 	"id": "Keisei.CommuterLimitedExpress",
@@ -491,7 +495,8 @@
 		"ja": "通勤特急",
 		"ko": "통근특급",
 		"zh-Hans": "通勤特急",
-		"zh-Hant": "通勤特急"
+		"zh-Hant": "通勤特急",
+		"color":"#1EB0E6"
 	}
 }, {
 	"id": "Keisei.Eveningliner",
@@ -500,7 +505,8 @@
 		"ja": "イブニングライナー",
 		"ko": "이브닝 라이너",
 		"zh-Hans": "Evening Liner",
-		"zh-Hant": "Evening Liner"
+		"zh-Hant": "Evening Liner",
+		"color":"#5464AE"
 	}
 }, {
 	"id": "Keisei.Express",
@@ -518,7 +524,8 @@
 		"ja": "特急",
 		"ko": "특급",
 		"zh-Hans": "特急",
-		"zh-Hant": "特急"
+		"zh-Hant": "特急",
+		"color":"#EE3D56"
 	}
 }, {
 	"id": "Keisei.Local",
@@ -536,7 +543,8 @@
 		"ja": "モーニングライナー",
 		"ko": "모닝 라이너",
 		"zh-Hans": "Morning Liner",
-		"zh-Hant": "Morning Liner"
+		"zh-Hant": "Morning Liner",
+		"color":"#5464AE"
 	}
 }, {
 	"id": "Keisei.RapidLimitedExpress",
@@ -545,7 +553,8 @@
 		"ja": "快速特急",
 		"ko": "쾌속특급",
 		"zh-Hans": "快速特急",
-		"zh-Hant": "快速特急"
+		"zh-Hant": "快速特急",
+		"color":"#0FA268"
 	}
 }, {
 	"id": "Keisei.Rapid",
@@ -554,7 +563,8 @@
 		"ja": "快速",
 		"ko": "쾌속",
 		"zh-Hans": "快速",
-		"zh-Hant": "快速"
+		"zh-Hant": "快速",
+		"color":"#F386A0"
 	}
 }, {
 	"id": "Keisei.Skyliner",
@@ -563,7 +573,8 @@
 		"ja": "スカイライナー",
 		"ko": "스카이라이너",
 		"zh-Hans": "Skyliner",
-		"zh-Hant": "Skyliner"
+		"zh-Hant": "Skyliner",
+		"color":"#1E3267"
 	}
 }, {
 	"id": "Hokuso.Local",

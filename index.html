@@ -805,9 +805,10 @@
 
         .panel-grid-row {
             display: grid;
-            grid-template-columns: 30px minmax(0, 1fr);
+            grid-template-columns: 48px minmax(0, 1fr);
             align-items: stretch;
-            min-height: 34px;
+            min-height: 45px;
+            
         }
 
         .panel-grid-row.is-alt-a {
@@ -819,16 +820,15 @@
         }
 
         .panel-grid-hour {
-            width: 30px;
-            min-height: 34px;
+            width: 48px;
+            min-height: 45px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 15px;
+            font-size: 18px;
             font-weight: 700;
             color: #fff;
             background: #3498db;
-            border-top: 1px solid rgba(255, 255, 255, 0.9);
             border-bottom: 1px solid rgba(255, 255, 255, 0.9);
             user-select: none;
             box-sizing: border-box;
@@ -841,11 +841,11 @@
             align-items: stretch;
             align-content: flex-start;
             gap: 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
         }
 
         .panel-grid-cell {
-            min-height: 34px;
-            border-right: 1px solid rgba(0, 0, 0, 0.06);
+            min-height: 45px;
             padding: 1px 3px;
             display: flex;
             align-items: center;
@@ -877,13 +877,13 @@
         }
 
         .panel-grid-trip-abbr {
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 600;
             white-space: nowrap;
         }
 
         .panel-grid-trip-minute {
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 700;
         }
 
@@ -971,10 +971,23 @@
         .panel-timetable-type {
             flex: 0 0 auto;
             text-align: right;
-            min-width: 60px;
+            width: 60px;
             overflow: hidden;
-            text-overflow: ellipsis;
+        }
+
+        .panel-timetable-type-marquee {
+            width: 100%;
+            display: block;
+            overflow: hidden;
             white-space: nowrap;
+            text-align: right;
+            pointer-events: none;
+        }
+
+        .panel-timetable-type-marquee-inner {
+            display: inline-block;
+            white-space: nowrap;
+            will-change: transform;
         }
 
         .panel-time-arrive {
@@ -1353,7 +1366,7 @@
         }
 
         .panel-company-lines .panel-line {
-            padding-left: 1.7em;
+            padding-left: 10px;/*1.7em;*/
         }
 
         /* panel：固定态下的鼠标样式（由 body.is-pinned 驱动） */
