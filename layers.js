@@ -72,7 +72,7 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
                 <div class="station-hover-company line-hover-company">
                     <div class="station-hover-company-header">${logoHtml}<span class="station-hover-company-name">${escapeHtml(companyDisplay)}</span></div>
                     <div class="station-hover-company-lines">
-                        <div class="station-hover-line is-current"${lineIdAttr}${lineStyle}>${escapeHtml(lineName)}</div>
+                        <div class="station-hover-line"${lineIdAttr}${lineStyle}>${escapeHtml(lineName)}</div>
                     </div>
                 </div>
             </div>
