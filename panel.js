@@ -356,6 +356,7 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
 }
 
 export function createPanel(options = {}) {
+    const TIMETABLE_PRINT_EVENT = '__TokyoRailPrintTimetableRequested';
     const widthPx = Number.isFinite(options.widthPx) ? options.widthPx : 320;
     const rightPx = Number.isFinite(options.rightPx) ? options.rightPx : 20;
     const zIndex = Number.isFinite(options.zIndex) ? options.zIndex : 9999;
@@ -1201,6 +1202,7 @@ export function createPanel(options = {}) {
     let expandedDirKeys = new Set();
     const dirFilterStateByKey = new Map(); // lineId||dir -> { origins:Set, terminals:Set, types:Set }
     const dirFilterRowsByKey = new Map(); // lineId||dir -> Array<{origin,terminal,type}>
+    const dirPrintPayloadByKey = new Map(); // lineId||dir -> export payload for print-timetables.js
     const dirPreviewMetaByKey = new Map(); // lineId||dir -> { lineId, originStationIds:string[], terminalStationIds:string[] }
     let activeDirPreviewKey = '';
     let pinnedDirPreviewKey = '';
@@ -1321,6 +1323,9 @@ export function createPanel(options = {}) {
 
         const dirFilter = getDirFilterButtonTarget(target);
         if (dirFilter) return `dir:${makeLineDirKey(dirFilter.lineId, dirFilter.dirKey)}`;
+
+        const dirPrint = getDirPrintButtonTarget(target);
+        if (dirPrint) return `dir:${makeLineDirKey(dirPrint.lineId, dirPrint.dirKey)}`;
 
         const dirTitle = getDirTitleTarget(target);
         if (dirTitle) return `dir:${makeLineDirKey(dirTitle.lineId, dirTitle.dirKey)}`;
@@ -1980,6 +1985,8 @@ export function createPanel(options = {}) {
             return base;
         };
 
+        const renderTimeForPrint = (r) => renderTime({ ...(r || {}), isPast: false });
+
         // 分组显示：默认显示所有方向；方向内默认展示 3 条未来班次
         // Build direction order: collect unique dirs
         const dirOrder = [];
@@ -2111,6 +2118,66 @@ export function createPanel(options = {}) {
                 : '';
             const future = filteredRowsForDir.filter((r) => !r.isPast);
             const visible = expanded ? filteredRowsForDir : future.slice(0, 3);
+
+            const printableRowsForDir = filteredRowsForDir.map((r) => ({ ...(r || {}), isPast: false }));
+            const printableListHtml = printableRowsForDir.length
+                ? printableRowsForDir
+                    .map((r) => {
+                        const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.tripKey)}"` : '';
+                        const typeStyle = toText(r.typeColor)
+                            ? ` style="color:${escapeHtml(toText(r.typeColor))}"`
+                            : '';
+                        return `
+                            <div class="panel-timetable-row"${tripAttr}>
+                                <div class="panel-timetable-dest">
+                                    <span class="panel-timetable-dest-prefix" aria-hidden="true">to</span>
+                                    <span class="panel-timetable-dest-marquee" aria-label="to ${escapeHtml(r.destName || '')}">
+                                        <span class="panel-timetable-dest-marquee-inner">${escapeHtml(r.destName || '')}</span>
+                                    </span>
+                                </div>
+                                <div class="panel-timetable-time">${renderTimeForPrint(r)}</div>
+                                <div class="panel-timetable-type"${typeStyle}>
+                                    <span class="panel-timetable-type-marquee" aria-label="${escapeHtml(r.typeName || '')}">
+                                        <span class="panel-timetable-type-marquee-inner">${escapeHtml(r.typeName || '')}</span>
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    })
+                    .join('')
+                : '<div class="panel-timetable-empty">当前无班次</div>';
+
+            const printableGridHtml = buildGridTableHtmlForDirection({
+                rowsForDir: printableRowsForDir,
+                typeHints,
+                terminalHints,
+                expanded: true,
+                nowMs: now,
+                serviceDayStartMs
+            });
+
+            const lineMetaForPrint = getLineMeta?.(lineId) || {};
+            const companyKeyForPrint = toText(lineMetaForPrint?.company);
+            const companyZhForPrint = toText(companyLogoMap?.[companyKeyForPrint]?.zh);
+            const companyTypeForPrint = toText(companyLogoMap?.[companyKeyForPrint]?.type);
+            const lineColorForPrint = toText(lineMetaForPrint?.color);
+            dirPrintPayloadByKey.set(lineDirKey, {
+                lineId: toText(lineId),
+                dirKey: toText(dirKey),
+                dirLabel: toText(label),
+                stationName: toText(currentStationNameZh) || toText(title.textContent),
+                lineName: toText(lineMetaForPrint?.name) || toText(lineId),
+                lineColor: lineColorForPrint,
+                companyName: companyZhForPrint || companyKeyForPrint || '未知公司',
+                companyType: companyTypeForPrint || '',
+                timetableViewMode,
+                serviceDay: toText(currentServiceDay),
+                generatedAt: Date.now(),
+                listHtml: printableListHtml,
+                gridHtml: printableGridHtml,
+                gridHintsHtml
+            });
+
             const timetableHtml = timetableViewMode === 'grid'
                 ? buildGridTableHtmlForDirection({
                     rowsForDir: filteredRowsForDir,
@@ -2163,6 +2230,9 @@ export function createPanel(options = {}) {
                             ${isLoopLine(lineId) ? '' : `<button type="button" class="panel-dir-filter-btn" data-dir-filter-btn="1" data-line-id="${escapeHtml(lineId)}" data-dir-key="${escapeHtml(dirKey)}" aria-label="筛选">
                                 <img class="panel-dir-filter-icon" alt="" src="./icons/filter.svg" />
                             </button>`}
+                            ${timetableViewMode === 'grid' ? `<button type="button" class="panel-dir-print-btn" data-dir-print-btn="1" data-line-id="${escapeHtml(lineId)}" data-dir-key="${escapeHtml(dirKey)}" aria-label="打印时刻表">
+                                <img class="panel-dir-print-icon" alt="" src="./icons/print.svg" />
+                            </button>` : ''}
                         </span>
                     </div>
                     ${gridHintsHtml}
@@ -2213,6 +2283,17 @@ export function createPanel(options = {}) {
                     if (icon.__panelFilterIconFallbackTried) return;
                     icon.__panelFilterIconFallbackTried = true;
                     icon.src = '/icons/filter.svg';
+                });
+            }
+
+            const printIcons = Array.from(ttEl.querySelectorAll('.panel-dir-print-icon'));
+            for (const icon of printIcons) {
+                if (icon.__panelPrintIconHooked) continue;
+                icon.__panelPrintIconHooked = true;
+                icon.addEventListener('error', () => {
+                    if (icon.__panelPrintIconFallbackTried) return;
+                    icon.__panelPrintIconFallbackTried = true;
+                    icon.src = '/icons/print.svg';
                 });
             }
         } catch {
@@ -3579,6 +3660,29 @@ export function createPanel(options = {}) {
         return { buttonEl: btn, lineId: String(lineId), dirKey: String(dirKey) };
     };
 
+    const getDirPrintButtonTarget = (target) => {
+        if (!(target instanceof Element)) return null;
+        const btn = target.closest?.('.panel-dir-print-btn[data-dir-print-btn]');
+        if (!btn || !body.contains(btn)) return null;
+        const lineId = btn.getAttribute('data-line-id');
+        const dirKey = btn.getAttribute('data-dir-key');
+        if (!lineId || !dirKey) return null;
+        return { buttonEl: btn, lineId: String(lineId), dirKey: String(dirKey) };
+    };
+
+    const requestPrintTimetable = (lineId, dirKey) => {
+        const key = makeLineDirKey(lineId, dirKey);
+        const payload = dirPrintPayloadByKey.get(key);
+        if (!payload) return;
+        try {
+            window.dispatchEvent(new CustomEvent(TIMETABLE_PRINT_EVENT, {
+                detail: { ...payload }
+            }));
+        } catch {
+            // ignore
+        }
+    };
+
     const resolveMousePrimaryTarget = (target) => {
         const dirTitle = getDirTitleTarget(target);
         if (dirTitle) {
@@ -3643,6 +3747,13 @@ export function createPanel(options = {}) {
         lastPointerType = pt;
         if (isTouchLikePointer(pt)) {
             suppressMouseEventsUntilMs = nowMs() + 800;
+        }
+
+        const earlyPrintTarget = getDirPrintButtonTarget(evt?.target);
+        if (earlyPrintTarget) {
+            stopEvent(evt);
+            requestPrintTimetable(earlyPrintTarget.lineId, earlyPrintTarget.dirKey);
+            return;
         }
 
         if (evt?.target instanceof Element && body.contains(evt.target) && hasPinnedPanelState()) {
@@ -3845,6 +3956,13 @@ export function createPanel(options = {}) {
         // 触屏：由 pointerdown 接管两段式逻辑
         if (isTouchLikePointer(lastPointerType) || nowMs() < suppressMouseEventsUntilMs) {
             stopEvent(evt);
+            return;
+        }
+
+        const earlyPrintTarget = getDirPrintButtonTarget(evt?.target);
+        if (earlyPrintTarget) {
+            stopEvent(evt);
+            requestPrintTimetable(earlyPrintTarget.lineId, earlyPrintTarget.dirKey);
             return;
         }
 

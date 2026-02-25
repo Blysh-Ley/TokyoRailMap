@@ -695,11 +695,36 @@
             flex: 0 0 auto;
         }
 
+        .panel-dir-print-btn {
+            width: 18px;
+            height: 18px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex: 0 0 auto;
+        }
+
         .panel-dir-filter-btn:hover {
             background: #f3f7ff;
         }
 
+        .panel-dir-print-btn:hover {
+            background: #f3f7ff;
+        }
+
         .panel-dir-filter-icon {
+            width: 12px;
+            height: 12px;
+            display: block;
+            pointer-events: none;
+        }
+
+        .panel-dir-print-icon {
             width: 12px;
             height: 12px;
             display: block;
@@ -2335,7 +2360,8 @@
         html[data-theme='dark'] .settings-seg button:hover,
         html[data-theme='dark'] .settings-time-picker-option:hover,
         html[data-theme='dark'] .settings-time-picker-btn:hover,
-        html[data-theme='dark'] .panel-dir-filter-popover-clear:hover {
+        html[data-theme='dark'] .panel-dir-filter-popover-clear:hover,
+        html[data-theme='dark'] .panel-dir-print-btn:hover {
             background: #2d323a;
         }
 
@@ -2379,6 +2405,7 @@
         html[data-theme='dark'] .search-fab-icon,
         html[data-theme='dark'] .settings-fab-icon,
         html[data-theme='dark'] .panel-dir-filter-icon,
+        html[data-theme='dark'] .panel-dir-print-icon,
         html[data-theme='dark'] .settings-time-reset-icon,
         html[data-theme='dark'] .settings-view-btn-icon {
             filter: invert(1) brightness(1.1);
@@ -2482,6 +2509,9 @@
 
 <!-- 导出：生成 PNG 背景 + SVG 覆盖，并打包下载 -->
 <script src="./print.js"></script>
+
+<!-- 导出：方向班次表 PDF -->
+<script type="module" src="./print-timetables.js"></script>
 
 <!-- ES Module 入口：负责初始化地图、加载数据、添加图层与碰撞逻辑 -->
 <script type="module" src="./app.js"></script>
