@@ -17,6 +17,7 @@ if (!maplibregl) {
 const APPEARANCE_STORAGE_KEY = 'tokyorail.appearance.mode';
 const TIMETABLE_VIEW_STORAGE_KEY = 'tokyorail.timetable.view.mode';
 const HOVER_PREVIEW_STORAGE_KEY = 'tokyorail.hover.preview.enabled';
+const HOVER_PREVIEW_MIN_ZOOM = 10;
 const getSystemTheme = () => (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
 const readAppearanceMode = () => {
     try {
@@ -3058,6 +3059,11 @@ map.on('load', async () => {
             scheduleFit(`preview:${triggerKey}`, b, { maxZoom: 11 });
         };
 
+        const canRunHoverPreviewAtCurrentZoom = () => {
+            const z = typeof map.getZoom === 'function' ? map.getZoom() : null;
+            return !(typeof z === 'number' && z < HOVER_PREVIEW_MIN_ZOOM);
+        };
+
         const fitToCurrentSelectionCommit = (triggerKey) => {
             const b = getBBoxForSelected();
             if (!b) return;
@@ -3091,6 +3097,7 @@ map.on('load', async () => {
             onCompanyClick: (companyName, meta) => {
                 const source = meta?.source ?? 'click';
                 if (source === 'hover' && !isHoverPreviewEnabled()) return;
+                if (source === 'hover' && !canRunHoverPreviewAtCurrentZoom()) return;
                 hideStationPopupForMenuInteraction();
                 const commitPreview = meta?.commitPreview === true;
                 selectedStationLineIds = null;
@@ -3112,6 +3119,7 @@ map.on('load', async () => {
             onLineClick: (lineId, meta) => {
                 const source = meta?.source ?? 'click';
                 if (source === 'hover' && !isHoverPreviewEnabled()) return;
+                if (source === 'hover' && !canRunHoverPreviewAtCurrentZoom()) return;
                 hideStationPopupForMenuInteraction();
                 const commitPreview = meta?.commitPreview === true;
 
@@ -3155,6 +3163,7 @@ map.on('load', async () => {
             onModeClick: ({ lineId, mode }, meta) => {
                 const source = meta?.source ?? 'click';
                 if (source === 'hover' && !isHoverPreviewEnabled()) return;
+                if (source === 'hover' && !canRunHoverPreviewAtCurrentZoom()) return;
                 hideStationPopupForMenuInteraction();
                 const commitPreview = meta?.commitPreview === true;
                 selectedStationLineIds = null;
@@ -3289,6 +3298,7 @@ map.on('load', async () => {
             companyLogoMap,
             railwaysOrderIndex,
             hoverDelayMs: 50,
+            hoverMinZoom: HOVER_PREVIEW_MIN_ZOOM,
             getHoverPreviewEnabled: () => isHoverPreviewEnabled(),
             onSelectCompany: (companyName, meta) => {
                 const source = meta?.source;
@@ -3296,6 +3306,7 @@ map.on('load', async () => {
                 if (!name) return;
 
                 if (source === 'popup-hover') {
+                    if (!canRunHoverPreviewAtCurrentZoom()) return;
                     if (!popupPreviewSnapshot) popupPreviewSnapshot = snapshotSelectionState();
                     popupPreviewWasApplied = true;
                     // 需求调整：hover 公司时，不再显示“公司所有线路”，而是显示“通过该站点且属于该公司的线路”
@@ -3359,6 +3370,7 @@ map.on('load', async () => {
                     : [mainLineId];
 
                 if (source === 'popup-hover') {
+                    if (!canRunHoverPreviewAtCurrentZoom()) return;
                     if (!popupPreviewSnapshot) popupPreviewSnapshot = snapshotSelectionState();
                     popupPreviewWasApplied = true;
                     selectedLineId = mainLineId;

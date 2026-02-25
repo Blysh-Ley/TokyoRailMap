@@ -88,7 +88,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
     const companyLogoMap = options.companyLogoMap || {};
     const railwaysOrderIndex = options.railwaysOrderIndex instanceof Map ? options.railwaysOrderIndex : null;
     const hoverDelayMs = Number.isFinite(options.hoverDelayMs) ? options.hoverDelayMs : 500;
-    const hoverMinZoom = Number.isFinite(options.hoverMinZoom) ? options.hoverMinZoom : 11;
+    const hoverMinZoom = Number.isFinite(options.hoverMinZoom) ? options.hoverMinZoom : 9;
     const onSelectCompany = typeof options.onSelectCompany === 'function' ? options.onSelectCompany : null;
     const onSelectLine = typeof options.onSelectLine === 'function' ? options.onSelectLine : null;
     const onPopupClose = typeof options.onPopupClose === 'function' ? options.onPopupClose : null;
@@ -710,17 +710,15 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                 const showTransferNameSuffix = !!transferStationName && !!currentStationNameZh && transferStationName !== currentStationNameZh;
 
                 const suffixParts = [];
-                if (isTransferStation && isCurrentLine) {
-                    suffixParts.push('（当前）');
-                }
                 if (showTransferNameSuffix) {
                     suffixParts.push(`（${transferStationName}站）`);
                 }
                 const suffixHtml = suffixParts.length
                     ? `<span class="station-hover-line-suffix">${escapeHtml(suffixParts.join(''))}</span>`
                     : '';
+                const currentClass = isTransferStation && isCurrentLine ? ' is-current' : '';
 
-                linesHtml += `<div class="station-hover-line"${idAttr}${style}>${escapeHtml(line.displayName)}${suffixHtml}</div>`;
+                linesHtml += `<div class="station-hover-line${currentClass}"${idAttr}${style}>${escapeHtml(line.displayName)}${suffixHtml}</div>`;
             }
 
             companiesHtml += `
