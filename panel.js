@@ -357,6 +357,7 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
 
 export function createPanel(options = {}) {
     const TIMETABLE_PRINT_EVENT = '__TokyoRailPrintTimetableRequested';
+    const TIMETABLE_PRINT_ALL_EVENT = '__TokyoRailPrintAllTimetablesRequested';
     const widthPx = Number.isFinite(options.widthPx) ? options.widthPx : 320;
     const rightPx = Number.isFinite(options.rightPx) ? options.rightPx : 20;
     const zIndex = Number.isFinite(options.zIndex) ? options.zIndex : 9999;
@@ -480,6 +481,26 @@ export function createPanel(options = {}) {
     daySeg.appendChild(btnWeekday);
     daySeg.appendChild(btnHoliday);
     dayToggle.appendChild(daySeg);
+
+    const dayPrintBtn = document.createElement('button');
+    dayPrintBtn.type = 'button';
+    dayPrintBtn.className = 'panel-day-print-btn is-hidden';
+    dayPrintBtn.setAttribute('data-day-print-btn', '1');
+    dayPrintBtn.setAttribute('aria-label', '打印本站全部方向时刻表');
+    const dayPrintIcon = document.createElement('img');
+    dayPrintIcon.className = 'panel-day-print-icon';
+    dayPrintIcon.alt = '';
+    {
+        const candidates = ['./icons/print.svg', '/icons/print.svg'];
+        let idx = 0;
+        dayPrintIcon.src = candidates[idx];
+        dayPrintIcon.addEventListener('error', () => {
+            idx += 1;
+            if (idx < candidates.length) dayPrintIcon.src = candidates[idx];
+        });
+    }
+    dayPrintBtn.appendChild(dayPrintIcon);
+    dayToggle.appendChild(dayPrintBtn);
 
     // 时间控件：覆盖 panel 中的“当前时间”（用于判断已过/未来与默认定位）
     const timeControl = document.createElement('div');
@@ -1076,6 +1097,7 @@ export function createPanel(options = {}) {
         body.setAttribute('data-timetable-view', next);
         body.classList.toggle('is-timetable-view-list', next === 'list');
         body.classList.toggle('is-timetable-view-grid', next === 'grid');
+        dayPrintBtn.classList.toggle('is-hidden', next !== 'grid');
         if (rerender && toText(currentStationId)) renderAllTimetables();
     };
 
@@ -3682,6 +3704,55 @@ export function createPanel(options = {}) {
             // ignore
         }
     };
+
+    const collectAllDirectionPrintPayloads = () => {
+        const out = [];
+        const seen = new Set();
+        const lineEls = Array.from(body.querySelectorAll('[data-line-id]'));
+        for (const lineEl of lineEls) {
+            const lineId = toText(lineEl.getAttribute('data-line-id'));
+            if (!lineId) continue;
+            const dirEls = Array.from(lineEl.querySelectorAll('[data-dir-toggle][data-dir-key]'));
+            for (const dirEl of dirEls) {
+                const dirKey = toText(dirEl.getAttribute('data-dir-key'));
+                const lineDirKey = makeLineDirKey(lineId, dirKey);
+                if (!lineDirKey || seen.has(lineDirKey)) continue;
+                seen.add(lineDirKey);
+                const payload = dirPrintPayloadByKey.get(lineDirKey);
+                if (payload) out.push({ ...payload });
+            }
+        }
+
+        for (const [lineDirKey, payload] of dirPrintPayloadByKey.entries()) {
+            if (!payload || seen.has(lineDirKey)) continue;
+            seen.add(lineDirKey);
+            out.push({ ...payload });
+        }
+
+        return out;
+    };
+
+    const requestPrintAllTimetables = () => {
+        const payloads = collectAllDirectionPrintPayloads();
+        if (!payloads.length) return;
+        try {
+            window.dispatchEvent(new CustomEvent(TIMETABLE_PRINT_ALL_EVENT, {
+                detail: {
+                    stationName: toText(currentStationNameZh) || toText(title.textContent),
+                    serviceDay: toText(currentServiceDay),
+                    timetableViewMode,
+                    pages: payloads
+                }
+            }));
+        } catch {
+            // ignore
+        }
+    };
+
+    dayPrintBtn.addEventListener('click', (evt) => {
+        stopEvent(evt);
+        requestPrintAllTimetables();
+    }, { passive: false });
 
     const resolveMousePrimaryTarget = (target) => {
         const dirTitle = getDirTitleTarget(target);

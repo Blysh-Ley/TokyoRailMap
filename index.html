@@ -1412,9 +1412,10 @@
         /* panel：工作日/休息日切换（圆角滑块，风格对齐 station-label-toggle） */
         .panel-day-toggle {
             display: inline-flex;
-            align-items: center;
+            align-items: flex-end;
             gap: 8px;
             user-select: none;
+            flex-direction: column;
         }
 
         .panel-day-seg {
@@ -1441,6 +1442,52 @@
         .panel-day-seg button.is-active {
             background: #3498db;
             color: #fff;
+        }
+
+        .panel-day-print-btn {
+            width: 28px;
+            height: 28px;
+            border: 1px solid #e3e5e7;
+            border-radius: 9999px;
+            background: #fff;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex: 0 0 auto;
+            position: relative;
+        }
+
+        .panel-day-print-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .panel-day-print-icon {
+            width: 14px;
+            height: 14px;
+            display: block;
+            pointer-events: none;
+        }
+
+        .panel-day-print-btn.is-printing-timetables {
+            pointer-events: none;
+            cursor: default;
+        }
+
+        .panel-day-print-btn.is-printing-timetables::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border-radius: 999px;
+            border: 3px solid transparent;
+            border-top-color: #3498db;
+            border-right-color: #3498db;
+            animation: export-btn-spinner 0.9s linear infinite;
+            pointer-events: none;
         }
 
         .search-result-item {
@@ -2233,6 +2280,7 @@
         html[data-theme='dark'] .settings-item-title,
         html[data-theme='dark'] .settings-seg button,
         html[data-theme='dark'] .panel-day-seg button,
+        html[data-theme='dark'] .panel-day-print-btn,
         html[data-theme='dark'] .RW-content,
         html[data-theme='dark'] .RW-company-name {
             color: #f2f2f2;
@@ -2357,6 +2405,7 @@
 
         html[data-theme='dark'] .panel-dir-filter-popover-close:hover,
         html[data-theme='dark'] .panel-day-seg button:hover,
+        html[data-theme='dark'] .panel-day-print-btn:hover,
         html[data-theme='dark'] .settings-seg button:hover,
         html[data-theme='dark'] .settings-time-picker-option:hover,
         html[data-theme='dark'] .settings-time-picker-btn:hover,
@@ -2404,6 +2453,7 @@
 
         html[data-theme='dark'] .search-fab-icon,
         html[data-theme='dark'] .settings-fab-icon,
+        html[data-theme='dark'] .panel-day-print-icon,
         html[data-theme='dark'] .panel-dir-filter-icon,
         html[data-theme='dark'] .panel-dir-print-icon,
         html[data-theme='dark'] .settings-time-reset-icon,

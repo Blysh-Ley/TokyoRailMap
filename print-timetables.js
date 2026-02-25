@@ -7,7 +7,9 @@
     'use strict';
 
     const PRINT_EVENT = '__TokyoRailPrintTimetableRequested';
+    const PRINT_ALL_EVENT = '__TokyoRailPrintAllTimetablesRequested';
     const LOADING_CLASS = 'is-printing-timetables';
+    const GRID_MIN_COLS = 10;
 
     let libsPromise = null;
     let styleInjected = false;
@@ -143,6 +145,15 @@
                 flex: 0 0 calc(100% / var(--grid-cols, 10));
                 width: calc(100% / var(--grid-cols, 10));
                 max-width: calc(100% / var(--grid-cols, 10));
+                justify-content: center;
+                align-items: center;
+                padding-left: 0;
+                box-sizing: border-box;
+                text-align: center;
+            }
+
+            .timetable-print-content .panel-grid-cell {
+                justify-content: center;
             }
 
             .timetable-print-content .panel-grid-row {
@@ -159,6 +170,12 @@
 
             .timetable-print-content .panel-grid-hour {
                 font-size: calc(20px * var(--grid-font-scale, 1));
+            }
+
+            .timetable-print-content .panel-grid-trip {
+                align-items: center;
+                justify-content: center;
+                text-align: center;
             }
 
             .timetable-print-root.is-dark .timetable-print-card {
@@ -237,7 +254,7 @@
                 if (count > maxTripsInHour) maxTripsInHour = count;
             }
 
-            const cols = Math.max(1, Math.min(60, maxTripsInHour));
+            const cols = Math.max(GRID_MIN_COLS, Math.min(60, maxTripsInHour));
             let fontScale = 1;
             if (cols > 30) fontScale = 0.58;
             else if (cols > 24) fontScale = 0.64;
@@ -335,6 +352,67 @@
         }
     };
 
+    const addCanvasAsSinglePage = (pdf, canvas, { appendPage = false } = {}) => {
+        if (!canvas) return;
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        const dataUrl = canvas.toDataURL('image/png');
+        const imgWmm = pageW;
+        const imgHmm = (canvas.height * imgWmm) / canvas.width;
+        const fitScale = Math.min(1, pageH / imgHmm);
+        const drawW = imgWmm * fitScale;
+        const drawH = imgHmm * fitScale;
+        const offsetX = (pageW - drawW) / 2;
+        const offsetY = (pageH - drawH) / 2;
+        if (appendPage) pdf.addPage();
+        pdf.addImage(dataUrl, 'PNG', offsetX, offsetY, drawW, drawH, undefined, 'FAST');
+    };
+
+    const exportAllDirectionsToPdf = async (detail = {}) => {
+        injectStyles();
+        const { html2canvas, jsPDF } = await ensureLibs();
+
+        const pages = Array.isArray(detail?.pages) ? detail.pages : [];
+        if (!pages.length) return;
+
+        const pdf = new jsPDF({
+            orientation: 'landscape',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        let pageIndex = 0;
+        for (const pageDetailRaw of pages) {
+            const pageDetail = {
+                ...pageDetailRaw,
+                stationName: toText(pageDetailRaw?.stationName) || toText(detail?.stationName),
+                serviceDay: toText(pageDetailRaw?.serviceDay) || toText(detail?.serviceDay),
+                timetableViewMode: 'grid'
+            };
+
+            const root = createExportDom(pageDetail);
+            document.body.appendChild(root);
+            try {
+                const canvas = await html2canvas(root, {
+                    scale: Math.max(2, window.devicePixelRatio || 1),
+                    useCORS: true,
+                    backgroundColor: null,
+                    logging: false
+                });
+                addCanvasAsSinglePage(pdf, canvas, { appendPage: pageIndex > 0 });
+                pageIndex += 1;
+            } finally {
+                root.remove();
+            }
+        }
+
+        if (!pageIndex) return;
+
+        const stationName = sanitizeFilePart(detail.stationName || pages[0]?.stationName || 'station');
+        const fileName = `timetable_all_${stationName}_${nowIsoCompact()}.pdf`;
+        pdf.save(fileName);
+    };
+
     const onPrintRequest = async (evt) => {
         const detail = evt?.detail || {};
         const lineId = toText(detail.lineId);
@@ -360,5 +438,27 @@
         }
     };
 
+    const onPrintAllRequest = async (evt) => {
+        const detail = evt?.detail || {};
+        const target = document.querySelector('.panel-day-print-btn[data-day-print-btn]');
+
+        try {
+            if (target instanceof Element) {
+                target.classList.add(LOADING_CLASS);
+                target.setAttribute('aria-busy', 'true');
+            }
+            await exportAllDirectionsToPdf(detail);
+        } catch (err) {
+            console.error('[print-timetables] 全量导出失败', err);
+            alert('导出全部方向 PDF 失败，请稍后重试。');
+        } finally {
+            if (target instanceof Element) {
+                target.classList.remove(LOADING_CLASS);
+                target.removeAttribute('aria-busy');
+            }
+        }
+    };
+
     window.addEventListener(PRINT_EVENT, onPrintRequest);
+    window.addEventListener(PRINT_ALL_EVENT, onPrintAllRequest);
 })();
