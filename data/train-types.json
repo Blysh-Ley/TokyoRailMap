@@ -35,7 +35,8 @@
 		"ja": "急行",
 		"ko": "급행",
 		"zh-Hans": "急行",
-		"zh-Hant": "急行"
+		"zh-Hant": "急行",
+		"color":"#0032FF"
 	}
 }, {
 	"id": "JR-East.LimitedExpress",
@@ -44,7 +45,8 @@
 		"ja": "特急",
 		"ko": "특급",
 		"zh-Hans": "特急",
-		"zh-Hant": "特急"
+		"zh-Hant": "特急",
+		"color":"#FF1000"
 	}
 }, {
 	"id": "JR-East.Liner",
@@ -71,7 +73,8 @@
 		"ja": "青梅特快",
 		"ko": "오메 특별쾌속",
 		"zh-Hans": "青梅特快",
-		"zh-Hant": "青梅特快"
+		"zh-Hant": "青梅特快",
+		"color": "#EB6519"
 	}
 }, {
 	"id": "JR-East.Rapid",
@@ -80,7 +83,8 @@
 		"ja": "快速",
 		"ko": "쾌속",
 		"zh-Hans": "快速",
-		"zh-Hant": "快速"
+		"zh-Hant": "快速",
+		"color":"#0032FF"
 	}
 }, {
 	"id": "JR-East.SpecialRapid",
@@ -89,7 +93,8 @@
 		"ja": "特別快速",
 		"ko": "특별쾌속",
 		"zh-Hans": "特別快速",
-		"zh-Hant": "特別快速"
+		"zh-Hant": "特別快速",
+		"color":"#A52A2A"
 	}
 }, {
 	"id": "TokyoMetro.CommuterExpress",
@@ -98,7 +103,8 @@
 		"ja": "通勤急行",
 		"ko": "통근급행",
 		"zh-Hans": "通勤急行",
-		"zh-Hant": "通勤急行"
+		"zh-Hant": "通勤急行",
+		"color": "#0040FF"
 	}
 }, {
 	"id": "JR-Central.LimitedExpress",
@@ -125,7 +131,8 @@
 		"ja": "通勤特急",
 		"ko": "통근특급",
 		"zh-Hans": "通勤特急",
-		"zh-Hant": "通勤特急"
+		"zh-Hant": "通勤特急",
+		"color": "#FF8A00"
 	}
 }, {
 	"id": "TokyoMetro.CommuterRapid",
@@ -134,7 +141,8 @@
 		"ja": "通勤快速",
 		"ko": "통근쾌속",
 		"zh-Hans": "通勤快速",
-		"zh-Hant": "通勤快速"
+		"zh-Hant": "通勤快速",
+		"color": "#00CBC9"
 	}
 }, {
 	"id": "TokyoMetro.Express",
@@ -143,7 +151,8 @@
 		"ja": "急行",
 		"ko": "급행",
 		"zh-Hans": "急行",
-		"zh-Hant": "急行"
+		"zh-Hant": "急行",
+		"color": "#FC4226"
 	}
 }, {
 	"id": "TokyoMetro.F-Liner",
@@ -152,7 +161,8 @@
 		"ja": "Fライナー",
 		"ko": "F-라이너",
 		"zh-Hans": "F-liner",
-		"zh-Hant": "F-liner"
+		"zh-Hant": "F-liner",
+		"color": "#01B050"
 	}
 }, {
 	"id": "TokyoMetro.LimitedExpress",
@@ -161,7 +171,8 @@
 		"ja": "特急",
 		"ko": "특급",
 		"zh-Hans": "特急",
-		"zh-Hant": "特急"
+		"zh-Hant": "特急",
+		"color": "#FC4226"
 	}
 }, {
 	"id": "TokyoMetro.Local",
@@ -197,7 +208,8 @@
 		"ja": "Sトレイン",
 		"ko": "S-트레인",
 		"zh-Hans": "S-Train",
-		"zh-Hant": "S-Train"
+		"zh-Hant": "S-Train",
+		"color": "#0270FF"
 	}
 }, {
 	"id": "TokyoMetro.SemiExpress",
@@ -206,7 +218,8 @@
 		"ja": "準急",
 		"ko": "준급",
 		"zh-Hans": "准急",
-		"zh-Hant": "準急"
+		"zh-Hant": "準急",
+		"color": "#01B050"
 	}
 }, {
 	"id": "TokyoMetro.TH-LINER",
@@ -215,7 +228,8 @@
 		"ja": "THライナー",
 		"ko": "준급",
 		"zh-Hans": "TH Liner",
-		"zh-Hant": "TH Liner"
+		"zh-Hant": "TH Liner",
+		"color": "#E70E12"
 	}
 }, {
 	"id": "TWR.CommuterRapid",
@@ -224,7 +238,8 @@
 		"ja": "通勤快速",
 		"ko": "통근쾌속",
 		"zh-Hans": "通勤快速",
-		"zh-Hant": "通勤快速"
+		"zh-Hant": "通勤快速",
+		"color": "#CC0A00"
 	}
 }, {
 	"id": "TWR.Local",
@@ -242,7 +257,8 @@
 		"ja": "快速",
 		"ko": "쾌속",
 		"zh-Hans": "快速",
-		"zh-Hant": "快速"
+		"zh-Hant": "快速",
+		"color": "#001A99"
 	}
 }, {
 	"id": "Toei.AccessExpress",
@@ -251,7 +267,8 @@
 		"ja": "アクセス特急",
 		"ko": "엑세스특급",
 		"zh-Hans": "Access特急",
-		"zh-Hant": "Access特急"
+		"zh-Hant": "Access特急",
+		"color": "#F47B22"
 	}
 }, {
 	"id": "Toei.AirportRapidLimitedExpress",
@@ -260,7 +277,8 @@
 		"ja": "エアポート快特",
 		"ko": "에어포트 쾌속특급",
 		"zh-Hans": "机场快特",
-		"zh-Hant": "機場快特"
+		"zh-Hant": "機場快特",
+		"color": "#0B7309"
 	}
 }, {
 	"id": "Toei.CommuterLimitedExpress",
@@ -269,7 +287,8 @@
 		"ja": "通勤特急",
 		"ko": "통근특급",
 		"zh-Hans": "通勤特急",
-		"zh-Hant": "通勤特急"
+		"zh-Hant": "通勤特急",
+		"color": "#1EB0E6"
 	}
 }, {
 	"id": "Toei.Express",
@@ -278,7 +297,8 @@
 		"ja": "急行",
 		"ko": "급행",
 		"zh-Hans": "急行",
-		"zh-Hant": "急行"
+		"zh-Hant": "急行",
+		"color": "#0059B2"
 	}
 }, {
 	"id": "Toei.LimitedExpress",
@@ -287,7 +307,8 @@
 		"ja": "特急",
 		"ko": "특급",
 		"zh-Hans": "特急",
-		"zh-Hant": "特急"
+		"zh-Hant": "特急",
+		"color": "#9C2400"
 	}
 }, {
 	"id": "Toei.Local",
@@ -305,7 +326,8 @@
 		"ja": "快特",
 		"ko": "쾌속특급",
 		"zh-Hans": "快特",
-		"zh-Hant": "快特"
+		"zh-Hant": "快特",
+		"color": "#0B7309"
 	}
 }, {
 	"id": "Toei.Rapid",
@@ -314,7 +336,8 @@
 		"ja": "快速",
 		"ko": "쾌속",
 		"zh-Hans": "快速",
-		"zh-Hant": "快速"
+		"zh-Hant": "快速",
+		"color": "#9C2400"
 	}
 }, {
 	"id": "YokohamaMunicipal.Local",
@@ -332,7 +355,8 @@
 		"ja": "快速",
 		"ko": "쾌속",
 		"zh-Hans": "快速",
-		"zh-Hant": "快速"
+		"zh-Hant": "快速",
+		"color": "#FF5802"
 	}
 }, {
 	"id": "Keio.Express",
@@ -341,7 +365,8 @@
 		"ja": "急行",
 		"ko": "급행",
 		"zh-Hans": "急行",
-		"zh-Hant": "急行"
+		"zh-Hant": "急行",
+		"color": "#07B08D"
 	}
 }, {
 	"id": "Keio.KeioLiner",
@@ -350,7 +375,8 @@
 		"ja": "京王ライナー",
 		"ko": "케이오 라이너",
 		"zh-Hans": "Keio Liner",
-		"zh-Hant": "Keio Liner"
+		"zh-Hant": "Keio Liner",
+		"color": "#CF197C"
 	}
 }, {
 	"id": "Keio.LimitedExpress",
@@ -359,7 +385,8 @@
 		"ja": "特急",
 		"ko": "특급",
 		"zh-Hans": "特急",
-		"zh-Hant": "特急"
+		"zh-Hant": "特急",
+		"color": "#CF197C"
 	}
 }, {
 	"id": "Keio.Local",
@@ -377,7 +404,8 @@
 		"ja": "快速",
 		"ko": "쾌속",
 		"zh-Hans": "快速",
-		"zh-Hant": "快速"
+		"zh-Hant": "快速",
+		"color": "#104E8C"
 	}
 }, {
 	"id": "Keio.SemiExpress",
@@ -386,7 +414,8 @@
 		"ja": "区間急行",
 		"ko": "구간급행",
 		"zh-Hans": "区间急行",
-		"zh-Hant": "區間急行"
+		"zh-Hant": "區間急行",
+		"color": "#D3C426"
 	}
 }, {
 	"id": "Keikyu.AccessExpress",
@@ -395,7 +424,8 @@
 		"ja": "アクセス特急",
 		"ko": "엑세스특급",
 		"zh-Hans": "Access特急",
-		"zh-Hant": "Access特急"
+		"zh-Hant": "Access特急",
+		"color": "#F47B22"
 	}
 }, {
 	"id": "Keikyu.AirportRapidLimitedExpress",
@@ -404,7 +434,8 @@
 		"ja": "エアポート快特",
 		"ko": "에어포트 쾌속특급",
 		"zh-Hans": "机场快特",
-		"zh-Hant": "機場快特"
+		"zh-Hant": "機場快特",
+		"color": "#0B7309"
 	}
 }, {
 	"id": "Keikyu.CommuterLimitedExpress",
@@ -422,7 +453,8 @@
 		"ja": "急行",
 		"ko": "급행",
 		"zh-Hans": "急行",
-		"zh-Hant": "急行"
+		"zh-Hant": "急行",
+		"color": "#0E83C3"
 	}
 }, {
 	"id": "Keikyu.EveningWing",
@@ -440,7 +472,8 @@
 		"ja": "特急",
 		"ko": "특급",
 		"zh-Hans": "特急",
-		"zh-Hant": "特急"
+		"zh-Hant": "特急",
+		"color": "#EA0E04"
 	}
 }, {
 	"id": "Keikyu.Local",
@@ -467,7 +500,8 @@
 		"ja": "快特",
 		"ko": "쾌속특급",
 		"zh-Hans": "快特",
-		"zh-Hant": "快特"
+		"zh-Hant": "快特",
+		"color": "#379414"
 	}
 }, {
 	"id": "Keikyu.Rapid",
@@ -574,7 +608,8 @@
 		"ko": "스카이라이너",
 		"zh-Hans": "Skyliner",
 		"zh-Hant": "Skyliner",
-		"color":"#1E3267"
+		"color":"#1E3267",
+		"bg":"#0A2D67"
 	}
 }, {
 	"id": "Hokuso.Local",
@@ -610,7 +645,8 @@
 		"en": "Express",
 		"ko": "급행",
 		"zh-Hans": "急行",
-		"zh-Hant": "急行"
+		"zh-Hant": "急行",
+		"color": "#DF2E8B"
 	}
 }, {
 	"id": "Tobu.F-Liner",
@@ -619,7 +655,8 @@
 		"en": "F-Liner",
 		"ko": "F-라이너",
 		"zh-Hans": "F-liner",
-		"zh-Hant": "F-liner"
+		"zh-Hant": "F-liner",
+		"color": "#01B050"
 	}
 }, {
 	"id": "Tobu.KawagoeLimitedExpress",
@@ -628,7 +665,8 @@
 		"en": "Kawagoe Limited Express",
 		"ko": "가와고에 특급",
 		"zh-Hans": "川越特急",
-		"zh-Hant": "川越特急"
+		"zh-Hant": "川越特急",
+		"color": "#B22F92"
 	}
 }, {
 	"id": "Tobu.LimitedExpress",
@@ -655,7 +693,8 @@
 		"en": "Rapid Express",
 		"ko": "쾌속 급행",
 		"zh-Hans": "快速急行",
-		"zh-Hant": "快速急行"
+		"zh-Hant": "快速急行",
+		"color": "#0062A9"
 	}
 }, {
 	"id": "Tobu.Rapid",
@@ -682,7 +721,8 @@
 		"en": "Section Express",
 		"ko": "구간 급행",
 		"zh-Hans": "区间急行",
-		"zh-Hant": "區間急行"
+		"zh-Hant": "區間急行",
+		"color": "#F2A2C5"
 	}
 }, {
 	"id": "Tobu.SectionSemiExpress",
@@ -691,7 +731,8 @@
 		"en": "Section Semi Express",
 		"ko": "구간 준급",
 		"zh-Hans": "区间准急",
-		"zh-Hant": "區間準急"
+		"zh-Hant": "區間準急",
+		"color": "#CAD30A"
 	}
 }, {
 	"id": "Tobu.SemiExpress",
@@ -700,7 +741,8 @@
 		"en": "Semi Express",
 		"ko": "준급",
 		"zh-Hans": "准急",
-		"zh-Hant": "準急"
+		"zh-Hant": "準急",
+		"color": "#44B035"
 	}
 }, {
 	"id": "Tobu.TJ-Liner",
@@ -709,7 +751,8 @@
 		"en": "TJ-Liner",
 		"ko": "TJ 라이너",
 		"zh-Hans": "TJ Liner",
-		"zh-Hant": "TJ Liner"
+		"zh-Hant": "TJ Liner",
+		"color": "#03AB4D"
 	}
 }, {
 	"id": "Tobu.TH-LINER",
@@ -718,7 +761,8 @@
 		"en": "TH-LINER",
 		"ko": "TH 라이너",
 		"zh-Hans": "TH Liner",
-		"zh-Hant": "TH Liner"
+		"zh-Hant": "TH Liner",
+		"color": "#E70E12"
 	}
 }, {
 	"id": "Seibu.CommuterExpress",
@@ -727,7 +771,8 @@
 		"ja": "通勤急行",
 		"ko": "통근 급행",
 		"zh-Hans": "通勤急行",
-		"zh-Hant": "通勤急行"
+		"zh-Hant": "通勤急行",
+		"color": "#FFB700"
 	}
 }, {
 	"id": "Seibu.CommuterSemiExpress",
@@ -736,7 +781,8 @@
 		"ja": "通勤準急",
 		"ko": "통근 준급",
 		"zh-Hans": "通勤准急",
-		"zh-Hant": "通勤準急"
+		"zh-Hant": "通勤準急",
+		"color": "#0072BA"
 	}
 }, {
 	"id": "Seibu.Express",
@@ -745,7 +791,8 @@
 		"ja": "急行",
 		"ko": "급행",
 		"zh-Hans": "急行",
-		"zh-Hant": "急行"
+		"zh-Hant": "急行",
+		"color": "#FF6B01"
 	}
 }, {
 	"id": "Seibu.F-Liner",
@@ -754,7 +801,8 @@
 		"ja": "Fライナー",
 		"ko": "F-라이너",
 		"zh-Hans": "F-liner",
-		"zh-Hant": "F-liner"
+		"zh-Hant": "F-liner",
+		"color": "#01B050"
 	}
 }, {
 	"id": "Seibu.HaijimaLiner",
@@ -790,7 +838,8 @@
 		"ja": "快速急行",
 		"ko": "쾌속 급행",
 		"zh-Hans": "快速急行",
-		"zh-Hant": "快速急行"
+		"zh-Hant": "快速急行",
+		"color": "#C05EC4"
 	}
 }, {
 	"id": "Seibu.Rapid",
@@ -799,7 +848,8 @@
 		"ja": "快速",
 		"ko": "쾌속",
 		"zh-Hans": "快速",
-		"zh-Hant": "快速"
+		"zh-Hant": "快速",
+		"color": "#00ACD1"
 	}
 }, {
 	"id": "Seibu.S-TRAIN",
@@ -808,7 +858,8 @@
 		"ja": "Sトレイン",
 		"ko": "S-트레인",
 		"zh-Hans": "S-Train",
-		"zh-Hant": "S-Train"
+		"zh-Hant": "S-Train",
+		"color": "#0270FF"
 	}
 }, {
 	"id": "Seibu.SemiExpress",
@@ -817,7 +868,8 @@
 		"ja": "準急",
 		"ko": "준급",
 		"zh-Hans": "准急",
-		"zh-Hant": "準急"
+		"zh-Hant": "準急",
+		"color": "#00A794"
 	}
 }, {
 	"id": "Odakyu.CommuterExpress",
@@ -826,7 +878,8 @@
 		"en": "Commuter Express",
 		"ko": "통근 급행",
 		"zh-Hans": "通勤急行",
-		"zh-Hant": "通勤急行"
+		"zh-Hant": "通勤急行",
+		"color": "#DC5215"
 	}
 }, {
 	"id": "Odakyu.CommuterSemiExpress",
@@ -835,7 +888,8 @@
 		"en": "Commuter Semi Express",
 		"ko": "통근 준급",
 		"zh-Hans": "通勤准急",
-		"zh-Hant": "通勤準急"
+		"zh-Hant": "通勤準急",
+		"color": "#029970"
 	}
 }, {
 	"id": "Odakyu.Express",
@@ -844,7 +898,8 @@
 		"en": "Express",
 		"ko": "급행",
 		"zh-Hans": "急行",
-		"zh-Hant": "急行"
+		"zh-Hant": "急行",
+		"color": "#DC5215"
 	}
 }, {
 	"id": "Odakyu.LimitedExpress",
@@ -871,7 +926,8 @@
 		"en": "Rapid Express",
 		"ko": "쾌속 급행",
 		"zh-Hans": "快速急行",
-		"zh-Hant": "快速急行"
+		"zh-Hant": "快速急行",
+		"color": "#E89401"
 	}
 }, {
 	"id": "Odakyu.SemiExpress",
@@ -880,7 +936,8 @@
 		"en": "Semi Express",
 		"ko": "준급",
 		"zh-Hans": "准急",
-		"zh-Hant": "準急"
+		"zh-Hant": "準急",
+		"color": "#029970"
 	}
 }, {
 	"id": "OdakyuHakone.LimitedExpress",
@@ -907,7 +964,8 @@
 		"ja": "通勤特急",
 		"ko": "통근특급",
 		"zh-Hans": "通勤特急",
-		"zh-Hant": "通勤特急"
+		"zh-Hant": "通勤特急",
+		"color":"#FF8A00"
 	}
 }, {
 	"id": "Tokyu.Express",
@@ -916,7 +974,8 @@
 		"ja": "急行",
 		"ko": "급행",
 		"zh-Hans": "急行",
-		"zh-Hant": "急行"
+		"zh-Hant": "急行",
+		"color":"#FF1000"
 	}
 }, {
 	"id": "Tokyu.F-Liner",
@@ -925,7 +984,8 @@
 		"ja": "Fライナー",
 		"ko": "F-라이너",
 		"zh-Hans": "F-liner",
-		"zh-Hant": "F-liner"
+		"zh-Hant": "F-liner",
+		"color":"#01B050"
 	}
 }, {
 	"id": "Tokyu.LimitedExpress",
@@ -934,7 +994,8 @@
 		"ja": "特急",
 		"ko": "특급",
 		"zh-Hans": "特急",
-		"zh-Hant": "特急"
+		"zh-Hant": "特急",
+		"color":"#B222B0"
 	}
 }, {
 	"id": "Tokyu.Local",
@@ -952,7 +1013,8 @@
 		"ja": "Sトレイン",
 		"ko": "S-트레인",
 		"zh-Hans": "S-Train",
-		"zh-Hant": "S-Train"
+		"zh-Hant": "S-Train",
+		"color":"#0270FF"
 	}
 }, {
 	"id": "Tokyu.SemiExpress",
@@ -961,7 +1023,8 @@
 		"ja": "準急",
 		"ko": "준급",
 		"zh-Hans": "准急",
-		"zh-Hant": "準急"
+		"zh-Hant": "準急",
+		"color":"#01B050"
 	}
 }, {
 	"id": "Minatomirai.CommuterLimitedExpress",
@@ -970,7 +1033,8 @@
 		"en": "Commuter Limited Express",
 		"ko": "통근특급",
 		"zh-Hans": "通勤特急",
-		"zh-Hant": "通勤特急"
+		"zh-Hant": "通勤特急",
+		"color":"#FF8A00"
 	}
 }, {
 	"id": "Minatomirai.Express",
@@ -979,7 +1043,8 @@
 		"en": "Express",
 		"ko": "급행",
 		"zh-Hans": "急行",
-		"zh-Hant": "急行"
+		"zh-Hant": "急行",
+		"color":"#FF1000"
 	}
 }, {
 	"id": "Minatomirai.F-Liner",
@@ -988,7 +1053,8 @@
 		"en": "F-Liner",
 		"ko": "F-라이너",
 		"zh-Hans": "F-liner",
-		"zh-Hant": "F-liner"
+		"zh-Hant": "F-liner",
+		"color":"#01B050"
 	}
 }, {
 	"id": "Minatomirai.LimitedExpress",
@@ -997,7 +1063,8 @@
 		"en": "Limited Express",
 		"ko": "특급",
 		"zh-Hans": "特急",
-		"zh-Hant": "特急"
+		"zh-Hant": "特急",
+		"color":"#B222B0"
 	}
 }, {
 	"id": "Minatomirai.Local",
@@ -1015,7 +1082,8 @@
 		"en": "S-TRAIN",
 		"ko": "S-트레인",
 		"zh-Hans": "S-Train",
-		"zh-Hant": "S-Train"
+		"zh-Hant": "S-Train",
+		"color":"#0270FF"
 	}
 }, {
 	"id": "Sotetsu.CommuterExpress",
@@ -1024,7 +1092,8 @@
 		"en": "Commuter Express",
 		"ko": "통근급행",
 		"zh-Hans": "通勤急行",
-		"zh-Hant": "通勤急行"
+		"zh-Hant": "通勤急行",
+		"color": "#F2994A"
 	}
 }, {
 	"id": "Sotetsu.CommuterLimitedExpress",
@@ -1033,7 +1102,8 @@
 		"en": "Commuter Limited Express",
 		"ko": "통근특급",
 		"zh-Hans": "通勤特急",
-		"zh-Hant": "通勤特急"
+		"zh-Hant": "通勤特急",
+		"color": "#F2994A"
 	}
 }, {
 	"id": "Sotetsu.Express",
@@ -1051,7 +1121,8 @@
 		"en": "Limited Express",
 		"ko": "특급",
 		"zh-Hans": "特急",
-		"zh-Hant": "特急"
+		"zh-Hant": "特急",
+		"color": "#F2994A"
 	}
 }, {
 	"id": "Sotetsu.Local",
@@ -1069,7 +1140,8 @@
 		"en": "Rapid",
 		"ko": "쾌속",
 		"zh-Hans": "快速",
-		"zh-Hant": "快速"
+		"zh-Hant": "快速",
+		"color": "#2E9CDB"
 	}
 }, {
 	"id": "SaitamaRailway.Local",
