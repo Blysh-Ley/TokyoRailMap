@@ -1,5 +1,5 @@
 import { loadRailGeoDataFromDataFolder } from './data.js';
-import { addLinesLayer, addStationsLayer, setupStationPopup } from './layers.js';
+import { addLinesLayer, addStationsLayer, setupLineHoverPopup, setupStationPopup } from './layers.js';
 import { createStationMarkers } from './labels.js';
 import { setupCollisions } from './collision.js';
 import { Menu } from './menu.js';
@@ -212,6 +212,7 @@ map.on('load', async () => {
     let fitToCurrentSelection = (_triggerKey, _mode = 'preview') => {};
     let enabledLineIdsByCompany = new Map();
     let stationPopup = null;
+    let lineHoverPopup = null;
     let stationLabels = [];
     let fixedPopupStationId = null;
     let transferStationIdsByStationId = new Map();
@@ -3193,6 +3194,12 @@ map.on('load', async () => {
         menu.mount(document.body);
         menu.setWrapperStyle();
         window.addEventListener('resize', () => menu.setWrapperStyle());
+
+        lineHoverPopup = setupLineHoverPopup(map, maplibregl, {
+            hoverMinZoom: HOVER_PREVIEW_MIN_ZOOM,
+            companyLogoMap,
+            getHoverPreviewEnabled: () => isHoverPreviewEnabled()
+        });
 
         // 菜单展开时：用“扣除菜单宽度后的可视区域”重新 fit 当前选中对象
         const refitForMenuOpen = () => {

@@ -20,6 +20,140 @@ export function addLinesLayer(map, linesData) {
 }
 
 /**
+ * 给线路添加 hover 弹窗（仅显示当前线路，不显示站名）。
+ */
+export function setupLineHoverPopup(map, maplibregl, options = {}) {
+    const hoverMinZoom = Number.isFinite(options.hoverMinZoom) ? options.hoverMinZoom : 9;
+    const companyLogoMap = options.companyLogoMap || {};
+    const getHoverPreviewEnabled = typeof options.getHoverPreviewEnabled === 'function' ? options.getHoverPreviewEnabled : null;
+
+    const popup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false
+    });
+
+    const isEnabled = () => (getHoverPreviewEnabled ? getHoverPreviewEnabled() !== false : true);
+
+    const escapeHtml = (s) => String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const buildPopupHtml = (props = {}) => {
+        const lineId = String(props?.id ?? '').trim();
+        const lineName = String(props?.name ?? lineId ?? '').trim() || lineId || '未知线路';
+        const company = String(props?.company ?? '').trim();
+        const companyZh = String(companyLogoMap?.[company]?.zh || '').trim();
+        const companyDisplay = companyZh || company || '未知公司';
+        const lineColor = String(props?.color ?? '').trim();
+
+        const logoFile = companyLogoMap?.[company]?.img?.[0] || null;
+        const logoBase = (() => {
+            try {
+                return window.TokyoRailCompanyLogoBasePath || './companyLogos/';
+            } catch {
+                return './companyLogos/';
+            }
+        })();
+        const logoSrc = logoFile
+            ? (String(logoBase).endsWith('/') ? `${logoBase}${logoFile}` : `${logoBase}/${logoFile}`)
+            : null;
+        const logoHtml = logoSrc
+            ? `<img class="station-hover-company-logo" src="${escapeHtml(logoSrc)}" alt="" />`
+            : '';
+
+        const lineStyle = lineColor ? ` style="color:${escapeHtml(lineColor)}"` : '';
+        const lineIdAttr = lineId ? ` data-line-id="${escapeHtml(lineId)}"` : '';
+
+        return `
+            <div class="line-hover-popup">
+                <div class="station-hover-company line-hover-company">
+                    <div class="station-hover-company-header">${logoHtml}<span class="station-hover-company-name">${escapeHtml(companyDisplay)}</span></div>
+                    <div class="station-hover-company-lines">
+                        <div class="station-hover-line is-current"${lineIdAttr}${lineStyle}>${escapeHtml(lineName)}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    let lastHoverLineId = null;
+    let popupShown = false;
+
+    const hidePopup = () => {
+        popup.remove();
+        popupShown = false;
+        lastHoverLineId = null;
+    };
+
+    map.on('mouseenter', 'lines-layer', (e) => {
+        if (!isEnabled()) return;
+        const z = typeof map.getZoom === 'function' ? map.getZoom() : null;
+        if (typeof z === 'number' && z < hoverMinZoom) return;
+
+        const f = e?.features?.[0];
+        const props = f?.properties || {};
+        const lineId = String(props?.id ?? f?.id ?? '').trim();
+        if (!lineId) return;
+
+        map.getCanvas().style.cursor = 'pointer';
+        const html = buildPopupHtml(props);
+        popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
+        popupShown = true;
+        lastHoverLineId = lineId;
+    });
+
+    map.on('mousemove', 'lines-layer', (e) => {
+        if (!isEnabled()) {
+            if (popupShown) hidePopup();
+            return;
+        }
+
+        const z = typeof map.getZoom === 'function' ? map.getZoom() : null;
+        if (typeof z === 'number' && z < hoverMinZoom) {
+            if (popupShown) hidePopup();
+            return;
+        }
+
+        const f = e?.features?.[0];
+        const props = f?.properties || {};
+        const lineId = String(props?.id ?? f?.id ?? '').trim();
+        if (!lineId) {
+            if (popupShown) hidePopup();
+            return;
+        }
+
+        if (!popupShown || lineId !== lastHoverLineId) {
+            popup.setHTML(buildPopupHtml(props));
+            lastHoverLineId = lineId;
+        }
+
+        popup.setLngLat(e.lngLat);
+        if (!popupShown) {
+            popup.addTo(map);
+            popupShown = true;
+        }
+    });
+
+    map.on('mouseleave', 'lines-layer', () => {
+        map.getCanvas().style.cursor = '';
+        hidePopup();
+    });
+
+    map.on('zoom', () => {
+        if (!popupShown) return;
+        const z = typeof map.getZoom === 'function' ? map.getZoom() : null;
+        if (typeof z === 'number' && z < hoverMinZoom) hidePopup();
+    });
+
+    return {
+        closePopup: () => hidePopup()
+    };
+}
+
+/**
  * 添加站点圆点图层。
  * - 换乘站：随缩放变化，最大半径 4
  * - 非换乘站：更小的白点（描边为 0）
