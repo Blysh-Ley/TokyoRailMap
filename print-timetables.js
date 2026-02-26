@@ -11,6 +11,9 @@
     const LOADING_CLASS = 'is-printing-timetables';
     const GRID_MIN_COLS = 10;
 
+    const A4_PORTRAIT_ASPECT = 297 / 210;
+    const A4_LANDSCAPE_ASPECT = 210 / 297;
+
     let libsPromise = null;
     let styleInjected = false;
 
@@ -156,6 +159,11 @@
                 justify-content: center;
             }
 
+            .timetable-print-content .panel-grid-trips {
+                flex-wrap: wrap !important;
+                align-content: flex-start !important;
+            }
+
             .timetable-print-content .panel-grid-row {
                 min-height: 44px;
             }
@@ -252,28 +260,88 @@
         card.appendChild(content);
 
         if (useGrid) {
-            const tripRows = Array.from(content.querySelectorAll('.panel-grid-trips'));
-            let maxTripsInHour = 1;
-            for (const row of tripRows) {
-                const count = row.querySelectorAll('.panel-grid-cell-trip').length;
-                if (count > maxTripsInHour) maxTripsInHour = count;
-            }
-
-            const cols = Math.max(GRID_MIN_COLS, Math.min(60, maxTripsInHour));
-            let fontScale = 1;
-            if (cols > 30) fontScale = 0.58;
-            else if (cols > 24) fontScale = 0.64;
-            else if (cols > 18) fontScale = 0.72;
-            else if (cols > 14) fontScale = 0.8;
-            else if (cols > 10) fontScale = 0.9;
-
-            root.style.setProperty('--grid-cols', String(cols));
-            root.style.setProperty('--grid-font-scale', String(fontScale));
+            // Default: allow wrapping within hour; actual fitting happens after DOM is attached.
+            root.style.setProperty('--grid-cols', String(GRID_MIN_COLS));
+            root.style.setProperty('--grid-font-scale', '1');
         }
 
         root.appendChild(card);
 
         return root;
+    };
+
+    const getMaxTripsInHour = (root) => {
+        const tripRows = Array.from(root.querySelectorAll('.panel-grid-trips'));
+        let maxTripsInHour = 1;
+        for (const row of tripRows) {
+            const count = row.querySelectorAll('.panel-grid-cell-trip').length;
+            if (count > maxTripsInHour) maxTripsInHour = count;
+        }
+        return maxTripsInHour;
+    };
+
+    const fitGridToSinglePage = (root, { pageAspect } = {}) => {
+        if (!(root instanceof Element)) return;
+        const hasGrid = !!root.querySelector('.panel-timetable-view-grid');
+        if (!hasGrid) return;
+
+        const maxTripsInHour = getMaxTripsInHour(root);
+        const maxCols = Math.max(GRID_MIN_COLS, Math.min(60, maxTripsInHour));
+
+        const colsCandidates = [];
+        for (let c = GRID_MIN_COLS; c <= Math.min(maxCols, 30); c += 1) colsCandidates.push(c);
+        for (const c of [36, 42, 48, 54, 60]) {
+            if (c <= maxCols && !colsCandidates.includes(c)) colsCandidates.push(c);
+        }
+
+        const fontScaleCandidates = [
+            1,
+            0.95,
+            0.9,
+            0.85,
+            0.8,
+            0.75,
+            0.72,
+            0.7,
+            0.66,
+            0.64,
+            0.6,
+            0.58
+        ];
+
+        const targetAspect = Number.isFinite(pageAspect) ? pageAspect * 0.98 : A4_PORTRAIT_ASPECT * 0.98;
+
+        const measureAspect = () => {
+            const rect = root.getBoundingClientRect();
+            const w = Math.max(1, rect.width);
+            const h = Math.max(1, rect.height);
+            return h / w;
+        };
+
+        let best = null;
+        for (const fontScale of fontScaleCandidates) {
+            for (const cols of colsCandidates) {
+                root.style.setProperty('--grid-cols', String(cols));
+                root.style.setProperty('--grid-font-scale', String(fontScale));
+                // Force layout.
+                void root.offsetHeight;
+                if (measureAspect() <= targetAspect) {
+                    best = { cols, fontScale };
+                    break;
+                }
+            }
+            if (best) break;
+        }
+
+        if (!best) {
+            best = {
+                cols: Math.min(maxCols, 60),
+                fontScale: fontScaleCandidates[fontScaleCandidates.length - 1]
+            };
+        }
+
+        root.style.setProperty('--grid-cols', String(best.cols));
+        root.style.setProperty('--grid-font-scale', String(best.fontScale));
     };
 
     const exportToPdf = async (detail = {}) => {
@@ -283,9 +351,12 @@
         const root = createExportDom(detail);
         document.body.appendChild(root);
 
+        const isGrid = toText(detail.timetableViewMode) === 'grid';
+        if (isGrid) fitGridToSinglePage(root, { pageAspect: A4_PORTRAIT_ASPECT });
+
         try {
             const pdf = new jsPDF({
-                orientation: 'landscape',
+                orientation: 'portrait',
                 unit: 'mm',
                 format: 'a4'
             });
@@ -300,7 +371,6 @@
             const pageW = pdf.internal.pageSize.getWidth();
             const pageH = pdf.internal.pageSize.getHeight();
 
-            const isGrid = toText(detail.timetableViewMode) === 'grid';
             if (isGrid) {
                 const dataUrl = canvas.toDataURL('image/png');
                 const imgWmm = pageW;
@@ -373,6 +443,49 @@
         pdf.addImage(dataUrl, 'PNG', offsetX, offsetY, drawW, drawH, undefined, 'FAST');
     };
 
+    const addCanvasAsPagedSlices = (pdf, canvas, { appendPage = false } = {}) => {
+        if (!canvas) return 0;
+
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        const pagePxH = (canvas.width * pageH) / pageW;
+
+        let renderedPx = 0;
+        let pageIndex = 0;
+
+        while (renderedPx < canvas.height - 1) {
+            const slicePxH = Math.min(pagePxH, canvas.height - renderedPx);
+            const pageCanvas = document.createElement('canvas');
+            pageCanvas.width = canvas.width;
+            pageCanvas.height = Math.max(1, Math.floor(slicePxH));
+            const ctx = pageCanvas.getContext('2d');
+            if (!ctx) break;
+
+            ctx.drawImage(
+                canvas,
+                0,
+                renderedPx,
+                canvas.width,
+                slicePxH,
+                0,
+                0,
+                canvas.width,
+                slicePxH
+            );
+
+            const dataUrl = pageCanvas.toDataURL('image/png');
+            const sliceMmH = (slicePxH * pageW) / canvas.width;
+
+            if ((appendPage && pageIndex === 0) || pageIndex > 0) pdf.addPage();
+            pdf.addImage(dataUrl, 'PNG', 0, 0, pageW, sliceMmH, undefined, 'FAST');
+
+            renderedPx += slicePxH;
+            pageIndex += 1;
+        }
+
+        return pageIndex;
+    };
+
     const exportAllDirectionsToPdf = async (detail = {}) => {
         injectStyles();
         const { html2canvas, jsPDF } = await ensureLibs();
@@ -381,37 +494,45 @@
         if (!pages.length) return;
 
         const pdf = new jsPDF({
-            orientation: 'landscape',
+            orientation: 'portrait',
             unit: 'mm',
             format: 'a4'
         });
 
-        let pageIndex = 0;
+        let pageCount = 0;
         for (const pageDetailRaw of pages) {
+            const viewMode = toText(pageDetailRaw?.timetableViewMode) || toText(detail?.timetableViewMode);
             const pageDetail = {
                 ...pageDetailRaw,
                 stationName: toText(pageDetailRaw?.stationName) || toText(detail?.stationName),
                 serviceDay: toText(pageDetailRaw?.serviceDay) || toText(detail?.serviceDay),
-                timetableViewMode: 'grid'
+                timetableViewMode: viewMode
             };
 
             const root = createExportDom(pageDetail);
             document.body.appendChild(root);
             try {
+                const isGrid = toText(pageDetail.timetableViewMode) === 'grid';
+                if (isGrid) fitGridToSinglePage(root, { pageAspect: A4_PORTRAIT_ASPECT });
                 const canvas = await html2canvas(root, {
                     scale: Math.max(2, window.devicePixelRatio || 1),
                     useCORS: true,
                     backgroundColor: null,
                     logging: false
                 });
-                addCanvasAsSinglePage(pdf, canvas, { appendPage: pageIndex > 0 });
-                pageIndex += 1;
+
+                if (isGrid) {
+                    addCanvasAsSinglePage(pdf, canvas, { appendPage: pageCount > 0 });
+                    pageCount += 1;
+                } else {
+                    pageCount += addCanvasAsPagedSlices(pdf, canvas, { appendPage: pageCount > 0 });
+                }
             } finally {
                 root.remove();
             }
         }
 
-        if (!pageIndex) return;
+        if (!pageCount) return;
 
         const stationName = sanitizeFilePart(detail.stationName || pages[0]?.stationName || 'station');
         const fileName = `timetable_all_${stationName}_${nowIsoCompact()}.pdf`;
