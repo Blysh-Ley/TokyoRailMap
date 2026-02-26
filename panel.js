@@ -5,6 +5,89 @@
 
 const toText = (v) => String(v ?? '').trim();
 
+const panelIsDarkThemeActive = () => {
+    try {
+        return document.documentElement.getAttribute('data-theme') === 'dark';
+    } catch {
+        return false;
+    }
+};
+
+const panelParseCssColorToRgb = (input) => {
+    const s = String(input || '').trim();
+    if (!s) return null;
+
+    const hex = s.match(/^#([0-9a-fA-F]{3,8})$/);
+    if (hex) {
+        const raw = hex[1];
+        if (raw.length === 3 || raw.length === 4) {
+            const r = parseInt(raw[0] + raw[0], 16);
+            const g = parseInt(raw[1] + raw[1], 16);
+            const b = parseInt(raw[2] + raw[2], 16);
+            return { r, g, b };
+        }
+        if (raw.length === 6 || raw.length === 8) {
+            const r = parseInt(raw.slice(0, 2), 16);
+            const g = parseInt(raw.slice(2, 4), 16);
+            const b = parseInt(raw.slice(4, 6), 16);
+            return { r, g, b };
+        }
+    }
+
+    const rgb = s.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*([0-9]+(?:\.[0-9]+)?))?\s*\)$/i);
+    if (rgb) {
+        const r = Math.max(0, Math.min(255, Math.round(Number(rgb[1]))));
+        const g = Math.max(0, Math.min(255, Math.round(Number(rgb[2]))));
+        const b = Math.max(0, Math.min(255, Math.round(Number(rgb[3]))));
+        return { r, g, b };
+    }
+
+    return null;
+};
+
+const panelRgbToHex = ({ r, g, b }) => {
+    const to2 = (v) => Math.max(0, Math.min(255, Math.round(Number(v) || 0))).toString(16).padStart(2, '0');
+    return `#${to2(r)}${to2(g)}${to2(b)}`;
+};
+
+const panelRelativeLuminance = ({ r, g, b }) => {
+    const toLinear = (v) => {
+        const x = Math.max(0, Math.min(255, Number(v) || 0)) / 255;
+        return x <= 0.03928 ? (x / 12.92) : Math.pow((x + 0.055) / 1.055, 2.4);
+    };
+    const lr = toLinear(r);
+    const lg = toLinear(g);
+    const lb = toLinear(b);
+    return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+};
+
+const PANEL_DARK_INVERT_TRIGGER_LUMINANCE = (() => {
+    const ref = panelParseCssColorToRgb('#005AAA');
+    return ref ? panelRelativeLuminance(ref) : 0.102;
+})();
+
+const panelAdjustColorForDarkThemeIfNeeded = (color) => {
+    const parsed = panelParseCssColorToRgb(color);
+    if (!parsed) return toText(color);
+
+    const lum = panelRelativeLuminance(parsed);
+    if (!(lum < PANEL_DARK_INVERT_TRIGGER_LUMINANCE)) return toText(color);
+
+    const inverted = {
+        r: 255 - parsed.r,
+        g: 255 - parsed.g,
+        b: 255 - parsed.b
+    };
+    return panelRgbToHex(inverted);
+};
+
+const resolveTrainTypeColorForTheme = (color) => {
+    const raw = toText(color);
+    if (!raw) return raw;
+    if (!panelIsDarkThemeActive()) return raw;
+    return panelAdjustColorForDarkThemeIfNeeded(raw);
+};
+
 const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
 
 const isTouchLikePointer = (pt) => pt === 'touch' || pt === 'pen';
@@ -1059,7 +1142,7 @@ export function createPanel(options = {}) {
             if (typeName) {
                 typeCount.set(typeName, (typeCount.get(typeName) || 0) + 1);
                 if (!typeColorByName.has(typeName)) {
-                    const c = toText(row?.typeColor);
+                    const c = resolveTrainTypeColorForTheme(row?.typeColor);
                     if (c) typeColorByName.set(typeName, c);
                 }
             }
@@ -1732,7 +1815,7 @@ export function createPanel(options = {}) {
                 const destAbbr = toText(terminalAbbrByName.get(destName)) || toText(destName).slice(0, 1);
                 const minute = toText(trip?.minuteLabel).slice(0, 2);
                 const tripKey = toText(trip?.tripKey);
-                const color = toText(trip?.typeColor) || 'var(--ui-text, #111)';
+                const color = resolveTrainTypeColorForTheme(trip?.typeColor) || 'var(--ui-text, #111)';
                 const tripAttr = tripKey ? ` data-trip-key="${escapeHtml(tripKey)}"` : '';
                 const lastClass = tripIndex === trips.length - 1 ? ' is-hour-last' : '';
 
@@ -1869,7 +1952,7 @@ export function createPanel(options = {}) {
 
             const typeId = toText(trip?.y);
             const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
-            const typeColor = typeId ? toText(trainTypeColorIndex.get(typeId)) : '';
+            const typeColor = typeId ? resolveTrainTypeColorForTheme(trainTypeColorIndex.get(typeId)) : '';
 
             const tripKey = tripId || toText(trip?.t) || '';
             const baseTripKey = toText(trip?.t) || (tripId ? tripId.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '') : '');
@@ -2573,7 +2656,7 @@ export function createPanel(options = {}) {
     const getTripTypeColor = (trip, trainTypeColorIndex) => {
         const typeId = toText(trip?.y);
         if (!typeId) return '';
-        return toText(trainTypeColorIndex?.get?.(typeId));
+        return resolveTrainTypeColorForTheme(trainTypeColorIndex?.get?.(typeId));
     };
 
     const renderTripDetail = async ({ lineId, tripKey, clientX, clientY, pinned, fitMode }) => {

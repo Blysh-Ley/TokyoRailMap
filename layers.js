@@ -33,6 +33,13 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
     });
 
     const isEnabled = () => (getHoverPreviewEnabled ? getHoverPreviewEnabled() !== false : true);
+    const isDarkThemeActive = () => {
+        try {
+            return document.documentElement.getAttribute('data-theme') === 'dark';
+        } catch {
+            return false;
+        }
+    };
 
     const escapeHtml = (s) => String(s)
         .replace(/&/g, '&amp;')
@@ -47,7 +54,7 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
         const company = String(props?.company ?? '').trim();
         const companyZh = String(companyLogoMap?.[company]?.zh || '').trim();
         const companyDisplay = companyZh || company || '未知公司';
-        const lineColor = String(props?.color ?? '').trim();
+        const lineColor = String((isDarkThemeActive() ? (props?._dark_color ?? props?.color) : props?.color) ?? '').trim();
 
         const logoFile = companyLogoMap?.[company]?.img?.[0] || null;
         const logoBase = (() => {

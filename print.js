@@ -120,6 +120,13 @@
         }
     };
 
+    const resolveLineColorForTheme = (props, fallback = '#0a84ff') => {
+        const p = props && typeof props === 'object' ? props : {};
+        const raw = isDarkTheme() ? (p._dark_color ?? p.color) : p.color;
+        const out = String(raw ?? '').trim();
+        return out || String(fallback || '#0a84ff');
+    };
+
     const getCurrentStationLabelMode = () => {
         try {
             const host = document.querySelector('.settings-item.settings-item-station-label');
@@ -430,7 +437,7 @@
             const geom = f?.geometry;
             if (!geom) continue;
             const role = String(f?.properties?.role || 'line');
-            const color = String(f?.properties?.color || '#0a84ff');
+            const color = resolveLineColorForTheme(f?.properties, '#0a84ff');
             const opacity = role === 'connector' ? 0.95 : 1;
             const strokeWidth = 3;
 
@@ -1087,7 +1094,7 @@
                         for (const f of extraBaseLines) {
                             const props = f?.properties || {};
                             const id = String(props.id || '').trim();
-                            const color = String(props.color || '#0a84ff').trim() || '#0a84ff';
+                            const color = resolveLineColorForTheme(props, '#0a84ff');
                             if (!id) continue;
                             baseLineOut.push({
                                 type: 'Feature',
@@ -1460,7 +1467,7 @@
         for (const f of highlights) {
             const geom = f?.geometry;
             if (!geom) continue;
-            const color = String(f?.properties?.color || '#0a84ff');
+            const color = resolveLineColorForTheme(f?.properties, '#0a84ff');
             const strokeWidth = 3;
             if (geom.type === 'LineString') {
                 const d = pathFromCoords(map, geom.coordinates);

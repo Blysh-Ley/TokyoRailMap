@@ -520,7 +520,7 @@ map.on('load', async () => {
     function updateSelectionBadge() {
         if (selectedLineId) {
             const name = lineNameById.get(String(selectedLineId)) || String(selectedLineId);
-            const color = lineColorById.get(String(selectedLineId)) || '#111';
+            const color = resolveRailColorForTheme(lineColorById.get(String(selectedLineId)) || '#111') || '#111';
             selectionBadgeTextEl.textContent = name;
             selectionBadgeTextEl.style.color = color;
             selectionBadgeEl.classList.remove('is-hidden');
@@ -603,7 +603,9 @@ map.on('load', async () => {
     function applyLineSelectionStyle() {
         if (!map.getLayer('lines-layer')) return;
 
-        const baseColorExpr = ['coalesce', ['get', 'color'], '#555'];
+        const baseColorExpr = isDarkThemeActive()
+            ? ['coalesce', ['get', '_dark_color'], ['get', 'color'], '#555']
+            : ['coalesce', ['get', 'color'], '#555'];
         const multiLineIds = getBaseMultiSelectedLineIds();
 
         const applyMultiLineHighlight = (dimOpacity = 0.6) => {
@@ -806,6 +808,81 @@ map.on('load', async () => {
 
     function isDarkThemeActive() {
         return document.documentElement.getAttribute('data-theme') === 'dark';
+    }
+
+    function parseCssColorToRgb(input) {
+        const s = String(input || '').trim();
+        if (!s) return null;
+
+        const hex = s.match(/^#([0-9a-fA-F]{3,8})$/);
+        if (hex) {
+            const raw = hex[1];
+            if (raw.length === 3 || raw.length === 4) {
+                const r = parseInt(raw[0] + raw[0], 16);
+                const g = parseInt(raw[1] + raw[1], 16);
+                const b = parseInt(raw[2] + raw[2], 16);
+                return { r, g, b };
+            }
+            if (raw.length === 6 || raw.length === 8) {
+                const r = parseInt(raw.slice(0, 2), 16);
+                const g = parseInt(raw.slice(2, 4), 16);
+                const b = parseInt(raw.slice(4, 6), 16);
+                return { r, g, b };
+            }
+        }
+
+        const rgb = s.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*([0-9]+(?:\.[0-9]+)?))?\s*\)$/i);
+        if (rgb) {
+            const r = Math.max(0, Math.min(255, Math.round(Number(rgb[1]))));
+            const g = Math.max(0, Math.min(255, Math.round(Number(rgb[2]))));
+            const b = Math.max(0, Math.min(255, Math.round(Number(rgb[3]))));
+            return { r, g, b };
+        }
+
+        return null;
+    }
+
+    function rgbToHex({ r, g, b }) {
+        const to2 = (v) => Math.max(0, Math.min(255, Math.round(Number(v) || 0))).toString(16).padStart(2, '0');
+        return `#${to2(r)}${to2(g)}${to2(b)}`;
+    }
+
+    function relativeLuminance({ r, g, b }) {
+        const toLinear = (v) => {
+            const x = Math.max(0, Math.min(255, Number(v) || 0)) / 255;
+            return x <= 0.03928 ? (x / 12.92) : Math.pow((x + 0.055) / 1.055, 2.4);
+        };
+        const lr = toLinear(r);
+        const lg = toLinear(g);
+        const lb = toLinear(b);
+        return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+    }
+
+    const DARK_INVERT_TRIGGER_LUMINANCE = (() => {
+        const ref = parseCssColorToRgb('#005AAA');
+        return ref ? relativeLuminance(ref) : 0.102;
+    })();
+
+    function adjustColorForDarkThemeIfNeeded(color) {
+        const parsed = parseCssColorToRgb(color);
+        if (!parsed) return String(color || '');
+
+        const lum = relativeLuminance(parsed);
+        if (!(lum < DARK_INVERT_TRIGGER_LUMINANCE)) return String(color || '');
+
+        const inverted = {
+            r: 255 - parsed.r,
+            g: 255 - parsed.g,
+            b: 255 - parsed.b
+        };
+        return rgbToHex(inverted);
+    }
+
+    function resolveRailColorForTheme(color) {
+        const raw = String(color || '').trim();
+        if (!raw) return raw;
+        if (!isDarkThemeActive()) return raw;
+        return adjustColorForDarkThemeIfNeeded(raw);
     }
 
     function stationCircleColorPaintExpr() {
@@ -1251,7 +1328,7 @@ map.on('load', async () => {
             return {
                 company: lineCompanyById.get(id) || null,
                 name: lineNameById.get(id) || id,
-                color: lineColorById.get(id) || null
+                color: resolveRailColorForTheme(lineColorById.get(id) || null) || null
             };
         },
         onSelectCompany: (companyName, meta) => {
@@ -2002,6 +2079,7 @@ map.on('load', async () => {
             document.documentElement.setAttribute('data-theme', resolved);
             applyBasemapTheme(resolved);
             applyStationThemePaintToMapLayers();
+            applySelectionEffects();
             try {
                 window.localStorage.setItem(storageKey, m);
             } catch {
@@ -2233,6 +2311,17 @@ map.on('load', async () => {
         }
         */
         const linesData = (linesGeoJSONByZoom && linesGeoJSONByZoom[18]) || linesGeoJSON;
+        try {
+            const fs = Array.isArray(linesData?.features) ? linesData.features : [];
+            for (const f of fs) {
+                if (!f?.properties || typeof f.properties !== 'object') continue;
+                const color = f.properties.color;
+                if (typeof color !== 'string' || !color.trim()) continue;
+                f.properties._dark_color = adjustColorForDarkThemeIfNeeded(color.trim());
+            }
+        } catch {
+            // ignore
+        }
         addLinesLayer(map, linesData);
 
         // 需求：无视缩放比例，不做 zoom 级别切换
@@ -2761,7 +2850,7 @@ map.on('load', async () => {
                     properties: {
                         role,
                         lineId: String(lineId || ''),
-                        color: lineColorById.get(String(lineId || '')) || '#0a84ff'
+                        color: resolveRailColorForTheme(lineColorById.get(String(lineId || '')) || '#0a84ff') || '#0a84ff'
                     },
                     geometry: { type: 'LineString', coordinates: coords }
                 });
@@ -3446,6 +3535,10 @@ map.on('load', async () => {
             const name = f?.properties?.name ?? String(lineId);
             const color = f?.properties?.color;
 
+            if (typeof color === 'string' && color.trim() && f?.properties && typeof f.properties === 'object') {
+                f.properties._dark_color = adjustColorForDarkThemeIfNeeded(color.trim());
+            }
+
             lineCompanyById.set(String(lineId), String(company));
 
             lineNameById.set(String(lineId), String(name));
@@ -3784,7 +3877,7 @@ map.on('load', async () => {
                 return {
                     company: lineCompanyById.get(id) || null,
                     name: lineNameById.get(id) || id,
-                    color: lineColorById.get(id) || null
+                    color: resolveRailColorForTheme(lineColorById.get(id) || null) || null
                 };
             },
             companyLogoMap,
