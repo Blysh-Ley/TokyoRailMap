@@ -2980,12 +2980,16 @@ export function createPanel(options = {}) {
             }));
             const mainSeg = segmentsWithPast.find((s) => s.kind === 'main') || null;
             const mainRows = Array.isArray(mainSeg?.rows) ? mainSeg.rows : [];
+            const mainOriginStationId = mainRows.length ? toText(mainRows[0]?.stationId) : '';
             const mainTerminalStationId = mainRows.length ? toText(mainRows[mainRows.length - 1]?.stationId) : '';
             const payload = {
                 tripKey: toText(tripKey),
                 selectedLineId: toText(lineId),
                 mainLineId: toText(getTripLineId(trip) || lineId),
+                originStationId: mainOriginStationId,
                 mainTerminalStationId,
+                terminalStationId: mainTerminalStationId,
+                typeName: toText(typeName),
                 hasNt,
                 segments: payloadSegments,
                 fitMode: toText(fitMode)

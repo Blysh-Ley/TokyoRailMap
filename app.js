@@ -18,6 +18,8 @@ const APPEARANCE_STORAGE_KEY = 'tokyorail.appearance.mode';
 const TIMETABLE_VIEW_STORAGE_KEY = 'tokyorail.timetable.view.mode';
 const HOVER_PREVIEW_STORAGE_KEY = 'tokyorail.hover.preview.enabled';
 const MULTI_SELECT_EVENT = '__TokyoRailMultiSelectModeChanged';
+const MULTI_SELECT_LAYERS_EVENT = '__TokyoRailMultiSelectLayersUpdated';
+const MULTI_SELECT_LAYERS_COMMAND_EVENT = '__TokyoRailMultiSelectLayersCommand';
 const HOVER_PREVIEW_MIN_ZOOM = 10;
 const getSystemTheme = () => (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
 const readAppearanceMode = () => {
@@ -226,8 +228,8 @@ map.on('load', async () => {
     let tripPreviewTerminalPopup = null;
     let tripCurrentStationPopup = null;
     let tripDetailStationTriangleMarker = null;
-    let tripPreviewSelectionsByKey = new Map(); // key -> { payload, built }
-    let baseMultiSelectionsByKey = new Map(); // key -> { kind, lineIds:Set<string> }
+    let tripPreviewSelectionsByKey = new Map(); // key -> { payload, built, hidden?:boolean }
+    let baseMultiSelectionsByKey = new Map(); // key -> { kind, lineIds:Set<string>, hidden?:boolean }
     let dirPreviewActive = false;
     let dirPreviewLineIds = null; // Set<string> | null
     let dirPreviewStationIds = null; // Set<string> | null
@@ -259,7 +261,9 @@ map.on('load', async () => {
 
     const getBaseMultiSelectedLineIds = () => {
         const out = new Set();
-        for (const entry of baseMultiSelectionsByKey.values()) {
+        for (const [key, entry] of baseMultiSelectionsByKey.entries()) {
+            if (!key) continue;
+            if (entry?.hidden === true) continue;
             const ids = entry?.lineIds;
             if (!(ids instanceof Set)) continue;
             for (const id of ids) {
@@ -278,17 +282,42 @@ map.on('load', async () => {
         if (!k || !ids.length) return false;
         if (baseMultiSelectionsByKey.has(k)) {
             baseMultiSelectionsByKey.delete(k);
+            emitMultiSelectLayersUpdated();
             return false;
         }
         baseMultiSelectionsByKey.set(k, {
             kind: String(kind || 'line').trim() || 'line',
-            lineIds: new Set(ids)
+            lineIds: new Set(ids),
+            hidden: false
         });
+        emitMultiSelectLayersUpdated();
         return true;
+    };
+
+    const toggleBaseMultiSelectionVisibility = (key) => {
+        const k = String(key || '').trim();
+        if (!k || !baseMultiSelectionsByKey.has(k)) return false;
+        const current = baseMultiSelectionsByKey.get(k) || {};
+        const next = {
+            ...current,
+            hidden: !(current?.hidden === true)
+        };
+        baseMultiSelectionsByKey.set(k, next);
+        emitMultiSelectLayersUpdated();
+        return true;
+    };
+
+    const removeBaseMultiSelection = (key) => {
+        const k = String(key || '').trim();
+        if (!k) return false;
+        const removed = baseMultiSelectionsByKey.delete(k);
+        if (removed) emitMultiSelectLayersUpdated();
+        return removed;
     };
 
     const clearBaseMultiSelections = () => {
         baseMultiSelectionsByKey = new Map();
+        emitMultiSelectLayersUpdated();
     };
 
     const getVisibleStationIdsForBaseMultiSelection = () => {
@@ -377,6 +406,7 @@ map.on('load', async () => {
 
         applyMultiSelectBaseLayerState(next);
         applyMultiSelectTripPreviewLayerState(next);
+        emitMultiSelectLayersUpdated();
     };
 
     // 时刻表虚拟内存缓存（按线路 id 预加载 train-timetables/*.json）
@@ -400,6 +430,88 @@ map.on('load', async () => {
     const lineColorById = new Map();
     const lineColorByName = new Map();
     const lineCompanyById = new Map();
+
+    const getStationNameForMultiSelect = (stationId) => {
+        const sid = String(stationId || '').trim();
+        if (!sid) return '-';
+        const labels = Array.isArray(stationLabels) ? stationLabels : [];
+        for (const item of labels) {
+            const props = item?.props || {};
+            const id = String(item?.stationId || props?.id || '').trim();
+            if (id !== sid) continue;
+            const n = String(props?.name_zh || props?.name || props?.name_ja || '').trim();
+            if (n) return n;
+        }
+        return sid;
+    };
+
+    const getLineNameForMultiSelect = (lineId) => {
+        const id = String(lineId || '').trim();
+        if (!id) return '未知线路';
+        return String(lineNameById.get(id) || id);
+    };
+
+    const getBaseKindNameForMultiSelect = (kind) => {
+        const k = String(kind || '').trim();
+        if (k === 'company') return '公司筛选';
+        if (k === 'mode') return '模式筛选';
+        return '基础线路';
+    };
+
+    const buildMultiSelectLayerItems = () => {
+        const items = [];
+
+        for (const [key, entry] of baseMultiSelectionsByKey.entries()) {
+            const ids = entry?.lineIds instanceof Set ? Array.from(entry.lineIds).map(String).filter(Boolean) : [];
+            const firstLineId = ids[0] || '';
+            items.push({
+                id: `base:${key}`,
+                scope: 'base',
+                key,
+                visible: entry?.hidden !== true,
+                lineName: getLineNameForMultiSelect(firstLineId),
+                originName: '-',
+                terminalName: '-',
+                typeName: getBaseKindNameForMultiSelect(entry?.kind)
+            });
+        }
+
+        for (const [key, entry] of tripPreviewSelectionsByKey.entries()) {
+            const payload = entry?.payload || {};
+            const built = entry?.built || {};
+            const lineId = String(payload?.selectedLineId || payload?.mainLineId || '').trim();
+            const typeName = String(payload?.typeName || payload?.tripTypeName || '').trim() || '-';
+            const originName = getStationNameForMultiSelect(built?.startStationId || payload?.originStationId || '');
+            const terminalName = getStationNameForMultiSelect(built?.endStationId || payload?.terminalStationId || '');
+
+            items.push({
+                id: `trip:${key}`,
+                scope: 'trip',
+                key,
+                visible: entry?.hidden !== true,
+                lineName: getLineNameForMultiSelect(lineId),
+                originName,
+                terminalName,
+                typeName
+            });
+        }
+
+        return items;
+    };
+
+    const emitMultiSelectLayersUpdated = () => {
+        try {
+            window.dispatchEvent(new CustomEvent(MULTI_SELECT_LAYERS_EVENT, {
+                detail: {
+                    ts: Date.now(),
+                    enabled: isMultiSelectModeEnabled(),
+                    items: buildMultiSelectLayerItems()
+                }
+            }));
+        } catch {
+            // ignore
+        }
+    };
 
     const normalizeArrayLike = (value) => {
         if (Array.isArray(value)) return value;
@@ -3109,6 +3221,7 @@ map.on('load', async () => {
             let bbox = null;
 
             for (const entry of tripPreviewSelectionsByKey.values()) {
+                if (entry?.hidden === true) continue;
                 const built = entry?.built;
                 const lineFeatures = Array.isArray(built?.lineFc?.features) ? built.lineFc.features : [];
                 const stopFeatures = Array.isArray(built?.stopFc?.features) ? built.stopFc.features : [];
@@ -3161,6 +3274,66 @@ map.on('load', async () => {
                 stopIds,
                 bbox
             };
+        };
+
+        const rebuildTripPreviewFromMultiSelections = (fitMode = 'none') => {
+            const aggregate = buildMultiTripPreviewAggregate();
+            const hasVisible = aggregate.lineIds instanceof Set && aggregate.lineIds.size > 0;
+            const hasAnySelection = tripPreviewSelectionsByKey.size > 0;
+
+            ensureTripPreviewLayers();
+            try {
+                map.getSource('trip-preview-source')?.setData?.(aggregate.lineFc);
+                map.getSource('trip-preview-stops-source')?.setData?.(aggregate.stopFc);
+            } catch {
+                // ignore
+            }
+
+            clearTripEndpointPopups();
+
+            tripPreviewActive = hasVisible;
+            tripPreviewStationIds = hasVisible ? aggregate.stopIds : null;
+            tripPreviewLineIds = hasVisible ? aggregate.lineIds : null;
+
+            if (!hasVisible) {
+                setStationLabelMode(getBaseMultiSelectedLineIds().size ? 'all' : 'auto');
+                applySelectionEffects();
+                collisionController?.scheduleUpdate?.();
+                try {
+                    window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewCleared', { detail: { ts: Date.now() } }));
+                } catch {
+                    // ignore
+                }
+                emitMultiSelectLayersUpdated();
+                return;
+            }
+
+            const payloadForExport = hasAnySelection && tripPreviewSelectionsByKey.size === 1
+                ? Array.from(tripPreviewSelectionsByKey.values())[0]?.payload
+                : {
+                    selectedLineId: 'multi',
+                    tripKey: Array.from(tripPreviewSelectionsByKey.keys()).join(' + ')
+                };
+
+            try {
+                window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {
+                    detail: {
+                        ts: Date.now(),
+                        payload: payloadForExport,
+                        built: aggregate
+                    }
+                }));
+            } catch {
+                // ignore
+            }
+
+            setStationLabelMode('all');
+            applySelectionEffects();
+            collisionController?.scheduleUpdate?.();
+            if (fitMode !== 'none' && aggregate.bbox) {
+                previewFitWithSidePanels(aggregate.bbox);
+            }
+            emitMultiSelectLayersUpdated();
         };
 
         clearDirHeaderPreview = () => {
@@ -3252,6 +3425,7 @@ map.on('load', async () => {
             } catch {
                 // ignore
             }
+            emitMultiSelectLayersUpdated();
         };
 
         previewTripPath = (payload) => {
@@ -3272,64 +3446,12 @@ map.on('load', async () => {
                     const builtSingle = buildTripPreviewFeatures(payload);
                     tripPreviewSelectionsByKey.set(selectionKey, {
                         payload: { ...(payload || {}) },
-                        built: builtSingle
+                        built: builtSingle,
+                        hidden: false
                     });
                 }
 
-                const aggregate = buildMultiTripPreviewAggregate();
-                const hasAny = tripPreviewSelectionsByKey.size > 0;
-
-                ensureTripPreviewLayers();
-                try {
-                    map.getSource('trip-preview-source')?.setData?.(aggregate.lineFc);
-                    map.getSource('trip-preview-stops-source')?.setData?.(aggregate.stopFc);
-                } catch {
-                    // ignore
-                }
-
-                clearTripEndpointPopups();
-
-                tripPreviewActive = hasAny;
-                tripPreviewStationIds = hasAny ? aggregate.stopIds : null;
-                tripPreviewLineIds = hasAny ? aggregate.lineIds : null;
-
-                if (!hasAny) {
-                    setStationLabelMode('auto');
-                    applySelectionEffects();
-                    collisionController?.scheduleUpdate?.();
-                    try {
-                        window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewCleared', { detail: { ts: Date.now() } }));
-                    } catch {
-                        // ignore
-                    }
-                    return;
-                }
-
-                const payloadForExport = tripPreviewSelectionsByKey.size === 1
-                    ? Array.from(tripPreviewSelectionsByKey.values())[0]?.payload
-                    : {
-                        selectedLineId: 'multi',
-                        tripKey: Array.from(tripPreviewSelectionsByKey.keys()).join(' + ')
-                    };
-
-                try {
-                    window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {
-                        detail: {
-                            ts: Date.now(),
-                            payload: payloadForExport,
-                            built: aggregate
-                        }
-                    }));
-                } catch {
-                    // ignore
-                }
-
-                setStationLabelMode('all');
-                applySelectionEffects();
-                collisionController?.scheduleUpdate?.();
-                if (fitMode !== 'none' && aggregate.bbox) {
-                    previewFitWithSidePanels(aggregate.bbox);
-                }
+                rebuildTripPreviewFromMultiSelections(fitMode);
                 return;
             }
 
@@ -3367,6 +3489,85 @@ map.on('load', async () => {
                 previewFitWithSidePanels(built.bbox);
             }
         };
+
+        const toggleTripPreviewSelectionVisibility = (key) => {
+            const k = String(key || '').trim();
+            if (!k || !tripPreviewSelectionsByKey.has(k)) return false;
+            const current = tripPreviewSelectionsByKey.get(k) || {};
+            tripPreviewSelectionsByKey.set(k, {
+                ...current,
+                hidden: !(current?.hidden === true)
+            });
+            rebuildTripPreviewFromMultiSelections('none');
+            return true;
+        };
+
+        const removeTripPreviewSelection = (key) => {
+            const k = String(key || '').trim();
+            if (!k) return false;
+            const removed = tripPreviewSelectionsByKey.delete(k);
+            if (!removed) return false;
+            rebuildTripPreviewFromMultiSelections('none');
+            return true;
+        };
+
+        const parseMultiSelectItemScope = (id) => {
+            const raw = String(id || '').trim();
+            if (!raw) return null;
+            if (raw.startsWith('base:')) return { scope: 'base', key: raw.slice(5) };
+            if (raw.startsWith('trip:')) return { scope: 'trip', key: raw.slice(5) };
+            return null;
+        };
+
+        const runMultiSelectLayersCommand = (action, itemId) => {
+            const parsed = parseMultiSelectItemScope(itemId);
+            if (!parsed?.key) return false;
+
+            if (parsed.scope === 'base') {
+                if (action === 'toggle-visibility') {
+                    const ok = toggleBaseMultiSelectionVisibility(parsed.key);
+                    if (ok) {
+                        applySelectionEffects();
+                        collisionController?.scheduleUpdate?.();
+                    }
+                    return ok;
+                }
+                if (action === 'remove') {
+                    const ok = removeBaseMultiSelection(parsed.key);
+                    if (ok) {
+                        if (!getBaseMultiSelectedLineIds().size && !tripPreviewActive) setStationLabelMode('auto');
+                        applySelectionEffects();
+                        collisionController?.scheduleUpdate?.();
+                    }
+                    return ok;
+                }
+                return false;
+            }
+
+            if (parsed.scope === 'trip') {
+                if (action === 'toggle-visibility') return toggleTripPreviewSelectionVisibility(parsed.key);
+                if (action === 'remove') return removeTripPreviewSelection(parsed.key);
+                return false;
+            }
+
+            return false;
+        };
+
+        try {
+            window.__TokyoRailMultiSelectLayerControl = {
+                runCommand: (action, itemId) => runMultiSelectLayersCommand(action, itemId),
+                requestSync: () => emitMultiSelectLayersUpdated()
+            };
+        } catch {
+            // ignore
+        }
+
+        window.addEventListener(MULTI_SELECT_LAYERS_COMMAND_EVENT, (evt) => {
+            const action = String(evt?.detail?.action || '').trim();
+            const itemId = String(evt?.detail?.id || '').trim();
+            if (!action || !itemId) return;
+            runMultiSelectLayersCommand(action, itemId);
+        });
 
         const companyObj = {};
         const linesObj = {};
@@ -3565,6 +3766,8 @@ map.on('load', async () => {
                 lineBoundsById.set(key, unionBBox(prev, bbox));
             }
         }
+
+        emitMultiSelectLayersUpdated();
 
         function getBBoxForSelected() {
             if (selectedLineId) {
