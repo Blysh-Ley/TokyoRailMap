@@ -380,8 +380,10 @@ export function createPanel(options = {}) {
     const settingsContentEl = options.settingsContentEl && options.settingsContentEl.appendChild ? options.settingsContentEl : null;
     const getTimetableViewMode = typeof options.getTimetableViewMode === 'function' ? options.getTimetableViewMode : null;
     const getHoverPreviewEnabled = typeof options.getHoverPreviewEnabled === 'function' ? options.getHoverPreviewEnabled : null;
+    const getMultiSelectModeEnabled = typeof options.getMultiSelectModeEnabled === 'function' ? options.getMultiSelectModeEnabled : null;
     let hoverPreviewEnabled = getHoverPreviewEnabled ? getHoverPreviewEnabled() !== false : true;
     const isHoverPreviewEnabled = () => hoverPreviewEnabled !== false;
+    const isMultiSelectModeEnabled = () => getMultiSelectModeEnabled ? getMultiSelectModeEnabled() === true : false;
 
     const buildTransferLineStationNameMap = async ({ stationId, stationNameZh, servingLineIds }) => {
         const sid = toText(stationId);
@@ -1244,6 +1246,7 @@ export function createPanel(options = {}) {
     };
 
     const applyDirPreviewByKey = (lineDirKey, { force = false, fitMode } = {}) => {
+        if (isMultiSelectModeEnabled()) return;
         const key = toText(lineDirKey);
         if (!key) return;
         if (!force && activeDirPreviewKey === key) return;
@@ -3961,6 +3964,14 @@ export function createPanel(options = {}) {
             clearHoverTimer();
             hoverCandidateKey = null;
             lastFiredHoverKey = null;
+            return;
+        }
+        if (isMultiSelectModeEnabled()) {
+            scheduleRestoreStationLines();
+            clearHoverTimer();
+            hoverCandidateKey = null;
+            lastFiredHoverKey = null;
+            if (!pinnedDirPreviewKey) clearDirPreview();
             return;
         }
         if (hasPinnedPanelState()) {

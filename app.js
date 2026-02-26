@@ -17,6 +17,7 @@ if (!maplibregl) {
 const APPEARANCE_STORAGE_KEY = 'tokyorail.appearance.mode';
 const TIMETABLE_VIEW_STORAGE_KEY = 'tokyorail.timetable.view.mode';
 const HOVER_PREVIEW_STORAGE_KEY = 'tokyorail.hover.preview.enabled';
+const MULTI_SELECT_EVENT = '__TokyoRailMultiSelectModeChanged';
 const HOVER_PREVIEW_MIN_ZOOM = 10;
 const getSystemTheme = () => (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
 const readAppearanceMode = () => {
@@ -225,6 +226,8 @@ map.on('load', async () => {
     let tripPreviewTerminalPopup = null;
     let tripCurrentStationPopup = null;
     let tripDetailStationTriangleMarker = null;
+    let tripPreviewSelectionsByKey = new Map(); // key -> { payload, built }
+    let baseMultiSelectionsByKey = new Map(); // key -> { kind, lineIds:Set<string> }
     let dirPreviewActive = false;
     let dirPreviewLineIds = null; // Set<string> | null
     let dirPreviewStationIds = null; // Set<string> | null
@@ -233,6 +236,12 @@ map.on('load', async () => {
     let previewDirHeader = (_payload) => {};
     let clearDirHeaderPreview = () => {};
     let hoverPreviewEnabled = readHoverPreviewEnabled();
+    let multiSelectModeEnabled = window.__TokyoRailMultiSelectEnabled === true;
+    let hoverPreviewEnabledBeforeMultiSelect = hoverPreviewEnabled;
+    let hoverPreviewToggleController = {
+        setEnabled: () => {},
+        setDisabled: () => {}
+    };
     let stationCoordById = new Map();
     let stationServingCountById = new Map();
 
@@ -244,6 +253,130 @@ map.on('load', async () => {
         hoverPreviewEnabled = enabled !== false;
         panel?.setHoverPreviewEnabled?.(hoverPreviewEnabled);
         stationPopup?.setHoverPreviewEnabled?.(hoverPreviewEnabled);
+    };
+
+    const isMultiSelectModeEnabled = () => multiSelectModeEnabled === true;
+
+    const getBaseMultiSelectedLineIds = () => {
+        const out = new Set();
+        for (const entry of baseMultiSelectionsByKey.values()) {
+            const ids = entry?.lineIds;
+            if (!(ids instanceof Set)) continue;
+            for (const id of ids) {
+                const s = String(id || '').trim();
+                if (s) out.add(s);
+            }
+        }
+        return out;
+    };
+
+    const toggleBaseMultiSelection = (key, lineIds, kind = 'line') => {
+        const k = String(key || '').trim();
+        const ids = Array.isArray(lineIds)
+            ? lineIds.map((x) => String(x || '').trim()).filter(Boolean)
+            : [];
+        if (!k || !ids.length) return false;
+        if (baseMultiSelectionsByKey.has(k)) {
+            baseMultiSelectionsByKey.delete(k);
+            return false;
+        }
+        baseMultiSelectionsByKey.set(k, {
+            kind: String(kind || 'line').trim() || 'line',
+            lineIds: new Set(ids)
+        });
+        return true;
+    };
+
+    const clearBaseMultiSelections = () => {
+        baseMultiSelectionsByKey = new Map();
+    };
+
+    const getVisibleStationIdsForBaseMultiSelection = () => {
+        const selectedLineIds = getBaseMultiSelectedLineIds();
+        if (!selectedLineIds.size) return new Set();
+
+        const out = new Set();
+        const labels = Array.isArray(stationLabels) ? stationLabels : [];
+        for (const item of labels) {
+            const props = item?.props || {};
+            const sid = String(item?.stationId || props?.id || '').trim();
+            if (!sid) continue;
+
+            const platform = normalizeArrayLike(props?.platform_line_id).map((x) => String(x || '').trim()).filter(Boolean);
+            const servingIds = normalizeArrayLike(props?.serving_ids).map((x) => String(x || '').trim()).filter(Boolean);
+            const servingLines = normalizeArrayLike(props?.serving_lines).map((x) => String(x || '').trim()).filter(Boolean);
+            const lines = platform.length ? platform : (servingIds.length ? servingIds : servingLines);
+
+            if (!lines.length) continue;
+            let hit = false;
+            for (const lid of lines) {
+                if (selectedLineIds.has(lid)) {
+                    hit = true;
+                    break;
+                }
+            }
+            if (hit) out.add(sid);
+        }
+        return out;
+    };
+
+    const applyMultiSelectBaseLayerState = (enabled) => {
+        const active = enabled === true;
+        if (active) {
+            try {
+                clearBaseMultiSelections();
+            } catch {
+                // ignore
+            }
+            return;
+        }
+        try {
+            clearBaseMultiSelections();
+            clearSelectionsAndRestore();
+        } catch {
+            // ignore
+        }
+    };
+
+    const applyMultiSelectTripPreviewLayerState = (enabled) => {
+        const active = enabled === true;
+        try {
+            // 进入/退出多选模式都重置直通图层状态
+            clearTripPathPreview();
+            clearDirHeaderPreview();
+        } catch {
+            // ignore
+        }
+        if (active) return;
+        try {
+            // 预留：后续在这里恢复“trip-preview 图层多选态”专属逻辑
+        } catch {
+            // ignore
+        }
+    };
+
+    const applyMultiSelectModeState = (enabled) => {
+        const next = enabled === true;
+        if (multiSelectModeEnabled === next) return;
+        multiSelectModeEnabled = next;
+
+        try {
+            window.__TokyoRailMultiSelectEnabled = next;
+        } catch {
+            // ignore
+        }
+
+        if (next) {
+            hoverPreviewEnabledBeforeMultiSelect = isHoverPreviewEnabled();
+            hoverPreviewToggleController.setEnabled(false, { persistStorage: false });
+            hoverPreviewToggleController.setDisabled(true);
+        } else {
+            hoverPreviewToggleController.setDisabled(false);
+            hoverPreviewToggleController.setEnabled(hoverPreviewEnabledBeforeMultiSelect, { persistStorage: false });
+        }
+
+        applyMultiSelectBaseLayerState(next);
+        applyMultiSelectTripPreviewLayerState(next);
     };
 
     // 时刻表虚拟内存缓存（按线路 id 预加载 train-timetables/*.json）
@@ -471,14 +604,46 @@ map.on('load', async () => {
         if (!map.getLayer('lines-layer')) return;
 
         const baseColorExpr = ['coalesce', ['get', 'color'], '#555'];
+        const multiLineIds = getBaseMultiSelectedLineIds();
+
+        const applyMultiLineHighlight = (dimOpacity = 0.6) => {
+            const ids = Array.from(multiLineIds).map(String).filter(Boolean);
+            if (!ids.length) return false;
+            const hitExpr = ids.length === 1
+                ? ['==', ['get', 'id'], ids[0]]
+                : ['in', ['get', 'id'], ['literal', ids]];
+
+            map.setPaintProperty('lines-layer', 'line-color', [
+                'case',
+                hitExpr,
+                baseColorExpr,
+                '#999'
+            ]);
+            map.setPaintProperty('lines-layer', 'line-width', [
+                'case',
+                hitExpr,
+                3,
+                1.2
+            ]);
+            map.setPaintProperty('lines-layer', 'line-opacity', [
+                'case',
+                hitExpr,
+                1,
+                dimOpacity
+            ]);
+            return true;
+        };
 
         // 车次预览态：底图线路统一弱化，真正高亮由“分段预览图层”承担（避免整条线被点亮）
         if (tripPreviewActive) {
+            if (isMultiSelectModeEnabled() && applyMultiLineHighlight(0.45)) return;
             map.setPaintProperty('lines-layer', 'line-color', '#999');
             map.setPaintProperty('lines-layer', 'line-width', 1.2);
             map.setPaintProperty('lines-layer', 'line-opacity', 0.45);
             return;
         }
+
+        if (isMultiSelectModeEnabled() && applyMultiLineHighlight(0.6)) return;
 
         if (dirPreviewActive && dirPreviewLineIds && dirPreviewLineIds.size) {
             const ids = Array.from(dirPreviewLineIds).map(String).filter(Boolean);
@@ -705,8 +870,9 @@ map.on('load', async () => {
 
     function applyStationSelectionStyle() {
         if (!map.getLayer('stations-layer')) return;
+        const multiLineIds = getBaseMultiSelectedLineIds();
         // 车次预览态：站点画法恢复基础，由 collision 的显式站点过滤控制可见集合
-        if (tripPreviewActive) {
+        if (tripPreviewActive && !(isMultiSelectModeEnabled() && multiLineIds.size)) {
             map.setPaintProperty('stations-layer', 'circle-radius', baseStationCircleRadiusExpr());
             map.setPaintProperty('stations-layer', 'circle-stroke-width', baseStationCircleStrokeWidthExpr());
             map.setPaintProperty('stations-layer', 'circle-opacity', 1);
@@ -746,6 +912,64 @@ map.on('load', async () => {
         const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
         // 高亮匹配用 platform_line_id（平台所属线路）
         const platformIdsExpr = ['coalesce', ['get', 'platform_line_id'], servingIdsExpr];
+
+        if (isMultiSelectModeEnabled() && multiLineIds.size) {
+            const isSelectedStation = buildStationAnyLineMatchExpr(Array.from(multiLineIds));
+
+            map.setPaintProperty('stations-layer', 'circle-radius', [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+
+                6, [
+                    'case',
+                    isSelectedStation,
+                    [
+                        'case',
+                        ['==', ['length', servingIdsExpr], 1],
+                        0.5,
+                        0.5
+                    ],
+                    0.5
+                ],
+
+                14, [
+                    'case',
+                    isSelectedStation,
+                    [
+                        'case',
+                        ['==', ['length', servingIdsExpr], 1],
+                        3.5,
+                        4
+                    ],
+                    0.5
+                ],
+
+                22, [
+                    'case',
+                    isSelectedStation,
+                    [
+                        'case',
+                        ['==', ['length', servingIdsExpr], 1],
+                        3.5,
+                        4
+                    ],
+                    0.5
+                ]
+            ]);
+
+            map.setPaintProperty('stations-layer', 'circle-opacity', 1);
+            map.setPaintProperty('stations-layer', 'circle-stroke-opacity', 1);
+
+            map.setPaintProperty('stations-layer', 'circle-stroke-width', [
+                'case',
+                isSelectedStation,
+                baseStationCircleStrokeWidthExpr(),
+                0
+            ]);
+            applyStationThemePaintToMapLayers();
+            return;
+        }
 
         // 未选择任何东西：恢复原样式
         if (!selectedLineId && !selectedCompany && !(selectedStationLineIds && selectedStationLineIds.size)) {
@@ -847,6 +1071,10 @@ map.on('load', async () => {
     function getEnabledLineIdsForLabels() {
         if (tripPreviewActive) return null;
         if (dirPreviewActive) return null;
+        if (isMultiSelectModeEnabled()) {
+            const ids = getBaseMultiSelectedLineIds();
+            if (ids.size) return ids;
+        }
         // 需求：选择线路不变、其他线路变灰变细；且“其他线路站点不显示站点名”
         // 这里返回“当前选中线路集合”，只用于站名筛选（圆点不筛选）。
         if (selectedLineId) {
@@ -886,6 +1114,10 @@ map.on('load', async () => {
         updateSelectionBadge();
         try {
             const lineIds = (() => {
+                if (isMultiSelectModeEnabled()) {
+                    const ids = Array.from(getBaseMultiSelectedLineIds()).map(String).filter(Boolean);
+                    if (ids.length) return ids;
+                }
                 if (selectedLineId) {
                     if (selectedStationLineIds && selectedStationLineIds.size > 1) return Array.from(selectedStationLineIds).map(String).filter(Boolean);
                     return [String(selectedLineId)];
@@ -904,7 +1136,9 @@ map.on('load', async () => {
                 return;
             }
 
-            const kind = selectedLineId ? 'line' : (selectedCompany ? 'company' : (selectedStationLineIds && selectedStationLineIds.size ? 'station' : 'unknown'));
+            const kind = isMultiSelectModeEnabled() && getBaseMultiSelectedLineIds().size
+                ? 'multi-base'
+                : (selectedLineId ? 'line' : (selectedCompany ? 'company' : (selectedStationLineIds && selectedStationLineIds.size ? 'station' : 'unknown')));
             window.dispatchEvent(new CustomEvent('__TokyoRailBaseHighlightUpdated', {
                 detail: {
                     kind,
@@ -1010,6 +1244,7 @@ map.on('load', async () => {
         companyLogoMap,
         railwaysOrderIndex,
         getHoverPreviewEnabled: () => isHoverPreviewEnabled(),
+        getMultiSelectModeEnabled: () => isMultiSelectModeEnabled(),
         getTimetableViewMode: () => readTimetableViewMode(),
         getLineMeta: (lineId) => {
             const id = String(lineId);
@@ -1021,6 +1256,7 @@ map.on('load', async () => {
         },
         onSelectCompany: (companyName, meta) => {
             const source = meta?.source;
+            if (isMultiSelectModeEnabled() && String(source || '').startsWith('panel-')) return;
             if (source === 'panel-hover' && !isHoverPreviewEnabled()) return;
             const name = String(companyName ?? '').trim();
             if (!name) return;
@@ -1045,6 +1281,7 @@ map.on('load', async () => {
         },
         onSelectLine: (lineId, meta) => {
             const source = meta?.source;
+            if (isMultiSelectModeEnabled() && String(source || '').startsWith('panel-')) return;
             if (source === 'panel-hover' && !isHoverPreviewEnabled()) return;
             const id = String(lineId ?? '').trim();
             if (!id) return;
@@ -1109,7 +1346,9 @@ map.on('load', async () => {
             previewTripPath(payload);
         },
         onTripClear: () => {
-            clearTripPathPreview();
+            if (!isMultiSelectModeEnabled()) {
+                clearTripPathPreview();
+            }
             try {
                 tripCurrentStationPopup?.remove?.();
             } catch {
@@ -1203,6 +1442,7 @@ map.on('load', async () => {
             tripDetailStationTriangleMarker = null;
         },
         onDirPreviewEnter: (payload) => {
+            if (isMultiSelectModeEnabled()) return;
             previewDirHeader(payload);
         },
         onDirPreviewLeave: () => {
@@ -1543,7 +1783,9 @@ map.on('load', async () => {
 
             // 点击空白处：隐藏右侧 panel
             panel?.hide?.();
-            clearTripPathPreview();
+            if (!isMultiSelectModeEnabled()) {
+                clearTripPathPreview();
+            }
 
             // 已经是“全显示”状态就不做任何事（避免多余刷新）
             if (!selectedCompany && !selectedLineId && !(selectedStationLineIds && selectedStationLineIds.size)) return;
@@ -1579,6 +1821,14 @@ map.on('load', async () => {
             const merged = Array.isArray(resolved?.mergedLineIds)
                 ? resolved.mergedLineIds.map(String).filter(Boolean)
                 : [mainLineId];
+
+            if (isMultiSelectModeEnabled()) {
+                toggleBaseMultiSelection(`line:${mainLineId}`, merged, 'line');
+                if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
+                else setStationLabelMode('auto');
+                applySelectionEffects();
+                return;
+            }
 
             // 点击线路：永远选中；取消选择仅通过“点击空白处”
             selectedLineId = mainLineId;
@@ -1617,7 +1867,9 @@ map.on('load', async () => {
 
             const f = e?.features?.[0];
             const props = f?.properties || {};
-            selectServingLinesForStation(props);
+            if (!isMultiSelectModeEnabled()) {
+                selectServingLinesForStation(props);
+            }
 
             // 打开右侧界面 A
             panel?.showForStationProps?.(props);
@@ -1896,28 +2148,55 @@ map.on('load', async () => {
         if (host.firstChild) host.insertBefore(container, host.firstChild);
         else host.appendChild(container);
 
-        const setEnabled = (enabled) => {
+        const setEnabled = (enabled, { persistStorage = true } = {}) => {
             const on = enabled !== false;
             btnOn.classList.toggle('is-active', on);
             btnOff.classList.toggle('is-active', !on);
             applyHoverPreviewEnabled(on);
-            try {
-                window.localStorage.setItem(storageKey, on ? '1' : '0');
-            } catch {
-                // ignore
+            if (persistStorage) {
+                try {
+                    window.localStorage.setItem(storageKey, on ? '1' : '0');
+                } catch {
+                    // ignore
+                }
             }
+        };
+
+        const setDisabled = (disabled) => {
+            const on = disabled === true;
+            container.classList.toggle('is-disabled', on);
+            btnOn.disabled = on;
+            btnOff.disabled = on;
+            btnOn.setAttribute('aria-disabled', on ? 'true' : 'false');
+            btnOff.setAttribute('aria-disabled', on ? 'true' : 'false');
         };
 
         btnOn.addEventListener('click', () => setEnabled(true));
         btnOff.addEventListener('click', () => setEnabled(false));
 
         setEnabled(readHoverPreviewEnabled());
+
+        hoverPreviewToggleController = {
+            setEnabled,
+            setDisabled
+        };
     }
 
     mountAppearanceToggle(settingsMenuContentEl);
     mountTimetableViewToggle(settingsMenuContentEl);
     mountHoverPreviewToggle(settingsMenuContentEl);
     mountStationLabelToggle(settingsMenuContentEl);
+
+    {
+        const initialMultiSelect = multiSelectModeEnabled;
+        multiSelectModeEnabled = false;
+        applyMultiSelectModeState(initialMultiSelect);
+
+        window.addEventListener(MULTI_SELECT_EVENT, (evt) => {
+            const enabled = evt?.detail?.enabled === true;
+            applyMultiSelectModeState(enabled);
+        });
+    }
 
     let generatedLinesData = null;
     let generatedStationsData = null;
@@ -2700,6 +2979,101 @@ map.on('load', async () => {
                 .addTo(map);
         };
 
+        const toCoordKey = (coord) => {
+            if (!Array.isArray(coord) || coord.length < 2) return '';
+            const lng = Number(coord[0]);
+            const lat = Number(coord[1]);
+            if (!Number.isFinite(lng) || !Number.isFinite(lat)) return '';
+            return `${lng.toFixed(6)},${lat.toFixed(6)}`;
+        };
+
+        const buildLineCoordsCanonicalKey = (coords) => {
+            const arr = Array.isArray(coords) ? coords.map((c) => toCoordKey(c)).filter(Boolean) : [];
+            if (arr.length < 2) return '';
+            const fwd = arr.join('>');
+            const rev = arr.slice().reverse().join('>');
+            return fwd <= rev ? fwd : rev;
+        };
+
+        const buildLineFeatureDedupKey = (feature) => {
+            const role = String(feature?.properties?.role || 'line');
+            const lineId = String(feature?.properties?.lineId || '');
+            const geom = feature?.geometry;
+            if (!geom || geom.type !== 'LineString') return '';
+            const pathKey = buildLineCoordsCanonicalKey(geom.coordinates);
+            if (!pathKey) return '';
+            return `${role}||${lineId}||${pathKey}`;
+        };
+
+        const buildTripPreviewSelectionKey = (payload) => {
+            const lineId = String(payload?.selectedLineId || payload?.mainLineId || '').trim();
+            const tripKey = String(payload?.tripKey || '').trim();
+            if (!lineId || !tripKey) return '';
+            return `${lineId}||${tripKey}`;
+        };
+
+        const buildMultiTripPreviewAggregate = () => {
+            const lineFeatureByKey = new Map();
+            const stopFeatureByStationId = new Map();
+            const lineIds = new Set();
+            const stopIds = new Set();
+            let bbox = null;
+
+            for (const entry of tripPreviewSelectionsByKey.values()) {
+                const built = entry?.built;
+                const lineFeatures = Array.isArray(built?.lineFc?.features) ? built.lineFc.features : [];
+                const stopFeatures = Array.isArray(built?.stopFc?.features) ? built.stopFc.features : [];
+
+                for (const lf of lineFeatures) {
+                    const key = buildLineFeatureDedupKey(lf);
+                    if (!key || lineFeatureByKey.has(key)) continue;
+                    lineFeatureByKey.set(key, lf);
+                }
+
+                for (const sf of stopFeatures) {
+                    const sid = String(sf?.properties?.id || '').trim();
+                    if (!sid) continue;
+                    if (!stopFeatureByStationId.has(sid)) stopFeatureByStationId.set(sid, sf);
+                }
+
+                const ids = built?.lineIds instanceof Set ? built.lineIds : null;
+                if (ids) {
+                    for (const id of ids) {
+                        const s = String(id || '').trim();
+                        if (s) lineIds.add(s);
+                    }
+                }
+
+                const sids = built?.stopIds instanceof Set ? built.stopIds : null;
+                if (sids) {
+                    for (const sid of sids) {
+                        const s = String(sid || '').trim();
+                        if (s) stopIds.add(s);
+                    }
+                }
+
+                const b = built?.bbox;
+                if (b && Number.isFinite(b.minLng) && Number.isFinite(b.maxLng) && Number.isFinite(b.minLat) && Number.isFinite(b.maxLat)) {
+                    bbox = bbox
+                        ? {
+                            minLng: Math.min(bbox.minLng, b.minLng),
+                            minLat: Math.min(bbox.minLat, b.minLat),
+                            maxLng: Math.max(bbox.maxLng, b.maxLng),
+                            maxLat: Math.max(bbox.maxLat, b.maxLat)
+                        }
+                        : { ...b };
+                }
+            }
+
+            return {
+                lineFc: { type: 'FeatureCollection', features: Array.from(lineFeatureByKey.values()) },
+                stopFc: { type: 'FeatureCollection', features: Array.from(stopFeatureByStationId.values()) },
+                lineIds,
+                stopIds,
+                bbox
+            };
+        };
+
         clearDirHeaderPreview = () => {
             if (!dirPreviewActive) return;
             dirPreviewActive = false;
@@ -2777,6 +3151,7 @@ map.on('load', async () => {
             tripPreviewActive = false;
             tripPreviewStationIds = null;
             tripPreviewLineIds = null;
+            tripPreviewSelectionsByKey = new Map();
             resetTripPreviewLayers();
             clearTripEndpointPopups();
             setStationLabelMode('auto');
@@ -2797,6 +3172,77 @@ map.on('load', async () => {
             }
 
             const fitMode = String(payload?.fitMode || 'preview').trim() || 'preview';
+
+            if (isMultiSelectModeEnabled()) {
+                const selectionKey = buildTripPreviewSelectionKey(payload);
+                if (!selectionKey) return;
+
+                if (tripPreviewSelectionsByKey.has(selectionKey)) {
+                    tripPreviewSelectionsByKey.delete(selectionKey);
+                } else {
+                    const builtSingle = buildTripPreviewFeatures(payload);
+                    tripPreviewSelectionsByKey.set(selectionKey, {
+                        payload: { ...(payload || {}) },
+                        built: builtSingle
+                    });
+                }
+
+                const aggregate = buildMultiTripPreviewAggregate();
+                const hasAny = tripPreviewSelectionsByKey.size > 0;
+
+                ensureTripPreviewLayers();
+                try {
+                    map.getSource('trip-preview-source')?.setData?.(aggregate.lineFc);
+                    map.getSource('trip-preview-stops-source')?.setData?.(aggregate.stopFc);
+                } catch {
+                    // ignore
+                }
+
+                clearTripEndpointPopups();
+
+                tripPreviewActive = hasAny;
+                tripPreviewStationIds = hasAny ? aggregate.stopIds : null;
+                tripPreviewLineIds = hasAny ? aggregate.lineIds : null;
+
+                if (!hasAny) {
+                    setStationLabelMode('auto');
+                    applySelectionEffects();
+                    collisionController?.scheduleUpdate?.();
+                    try {
+                        window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewCleared', { detail: { ts: Date.now() } }));
+                    } catch {
+                        // ignore
+                    }
+                    return;
+                }
+
+                const payloadForExport = tripPreviewSelectionsByKey.size === 1
+                    ? Array.from(tripPreviewSelectionsByKey.values())[0]?.payload
+                    : {
+                        selectedLineId: 'multi',
+                        tripKey: Array.from(tripPreviewSelectionsByKey.keys()).join(' + ')
+                    };
+
+                try {
+                    window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {
+                        detail: {
+                            ts: Date.now(),
+                            payload: payloadForExport,
+                            built: aggregate
+                        }
+                    }));
+                } catch {
+                    // ignore
+                }
+
+                setStationLabelMode('all');
+                applySelectionEffects();
+                collisionController?.scheduleUpdate?.();
+                if (fitMode !== 'none' && aggregate.bbox) {
+                    previewFitWithSidePanels(aggregate.bbox);
+                }
+                return;
+            }
 
             ensureTripPreviewLayers();
             const built = buildTripPreviewFeatures(payload);
@@ -3101,6 +3547,17 @@ map.on('load', async () => {
                 if (source === 'hover' && !canRunHoverPreviewAtCurrentZoom()) return;
                 hideStationPopupForMenuInteraction();
                 const commitPreview = meta?.commitPreview === true;
+
+                if (isMultiSelectModeEnabled() && source !== 'hover') {
+                    const name = String(companyName ?? '').trim();
+                    if (!name) return;
+                    const ids = Array.from(enabledLineIdsByCompany.get(name) ?? []).map(String).filter(Boolean);
+                    if (!ids.length) return;
+                    toggleBaseMultiSelection(`company:${name}`, ids, 'company');
+                    applySelectionEffects();
+                    return;
+                }
+
                 selectedStationLineIds = null;
                 if (source === 'hover') {
                     selectedCompany = companyName;
@@ -3135,6 +3592,14 @@ map.on('load', async () => {
                     ? meta.mergedLineIds.map(String).filter(Boolean)
                     : (Array.isArray(resolved?.mergedLineIds) ? resolved.mergedLineIds.map(String).filter(Boolean) : [mainLineId]);
 
+                if (isMultiSelectModeEnabled() && source !== 'hover') {
+                    toggleBaseMultiSelection(`line:${mainLineId}`, merged, 'line');
+                    if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
+                    else setStationLabelMode('auto');
+                    applySelectionEffects();
+                    return;
+                }
+
                 // 线路点击：优先级高于公司点击
                 if (source === 'hover') {
                     selectedLineId = mainLineId;
@@ -3167,6 +3632,17 @@ map.on('load', async () => {
                 if (source === 'hover' && !canRunHoverPreviewAtCurrentZoom()) return;
                 hideStationPopupForMenuInteraction();
                 const commitPreview = meta?.commitPreview === true;
+
+                if (isMultiSelectModeEnabled() && source !== 'hover') {
+                    const id = String(lineId ?? '').trim();
+                    if (!id) return;
+                    toggleBaseMultiSelection(`mode:${id}:${String(mode || 'all').trim() || 'all'}`, [id], 'mode');
+                    if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
+                    else setStationLabelMode('auto');
+                    applySelectionEffects();
+                    return;
+                }
+
                 selectedStationLineIds = null;
                 // 预留：目前地图高亮/站名过滤仍以 lineId 为主
                 if (source === 'hover') {
@@ -3261,6 +3737,14 @@ map.on('load', async () => {
             getEnabledLineIds: getEnabledLineIdsForLabels,
             getVisibleStationIds: () => {
                 if (tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size) {
+                    if (isMultiSelectModeEnabled()) {
+                        const baseIds = getVisibleStationIdsForBaseMultiSelection();
+                        if (baseIds.size) {
+                            const merged = new Set(baseIds);
+                            for (const sid of tripPreviewStationIds) merged.add(String(sid || '').trim());
+                            return merged;
+                        }
+                    }
                     return tripPreviewStationIds;
                 }
                 if (dirPreviewActive && dirPreviewStationIds && dirPreviewStationIds.size) {
@@ -3280,6 +3764,7 @@ map.on('load', async () => {
             getCircleMode: () => (
                 tripPreviewActive ||
                 dirPreviewActive ||
+                (isMultiSelectModeEnabled() && getBaseMultiSelectedLineIds().size) ||
                 selectedLineId ||
                 selectedCompany ||
                 (selectedStationLineIds && selectedStationLineIds.size)
@@ -3309,6 +3794,7 @@ map.on('load', async () => {
             getHoverPreviewEnabled: () => isHoverPreviewEnabled(),
             onSelectCompany: (companyName, meta) => {
                 const source = meta?.source;
+                if (isMultiSelectModeEnabled() && (source === 'popup-hover' || source === 'popup-click')) return;
                 const name = String(companyName ?? '').trim();
                 if (!name) return;
 
@@ -3365,6 +3851,7 @@ map.on('load', async () => {
             },
             onSelectLine: (lineId, meta) => {
                 const source = meta?.source;
+                if (isMultiSelectModeEnabled() && (source === 'popup-hover' || source === 'popup-click')) return;
                 const id = String(lineId ?? '').trim();
                 if (!id) return;
 
@@ -3465,7 +3952,9 @@ map.on('load', async () => {
             };
 
             const fireStationLabelTap = (item, pt) => {
-                selectServingLinesForStation(item.props || {});
+                if (!isMultiSelectModeEnabled()) {
+                    selectServingLinesForStation(item.props || {});
+                }
                 panel?.showForStationProps?.(item.props || {});
 
                 // 预加载该站点关联线路的时刻表

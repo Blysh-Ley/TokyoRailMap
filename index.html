@@ -501,6 +501,52 @@
             pointer-events: none;
         }
 
+        .ms-fab {
+            position: fixed;
+            top: 10px;
+            right: 146px;
+            width: 36.4px;
+            height: 36.4px;
+            border-radius: 18.2px;
+            background: rgba(255, 255, 255, 0.75);
+            border: 1px solid #e3e5e7;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            z-index: 8000;
+            -webkit-tap-highlight-color: transparent;
+            transition: opacity 0.18s ease, transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+        }
+
+        .ms-fab:hover {
+            background: rgba(255, 255, 255, 0.92);
+        }
+
+        .ms-fab:active {
+            transform: scale(0.92);
+        }
+
+        .ms-fab:focus {
+            outline: none;
+        }
+
+        .ms-fab.is-active {
+            background: #3498db;
+            border-color: #3498db;
+        }
+
+        .ms-fab-icon {
+            width: 16px;
+            height: 16px;
+            display: block;
+            pointer-events: none;
+        }
+
         .settings-content {
             margin-top: 0;
             border-radius: 12px;
@@ -1538,6 +1584,16 @@
                 box-sizing: border-box;
             }
 
+            .settings-item.is-disabled {
+                opacity: 0.6;
+                cursor: default;
+            }
+
+            .settings-item.is-disabled .settings-item-title,
+            .settings-item.is-disabled .settings-seg button {
+                cursor: default;
+            }
+
             .settings-item-title {
                 font-size: 14px;
                 color: #111;
@@ -2226,6 +2282,25 @@
             filter: invert(1);
         }
 
+        html[data-theme='dark'] .ms-fab {
+            background: rgba(28, 28, 28, 0.82);
+            border-color: #5a5d62;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+        }
+
+        html[data-theme='dark'] .ms-fab:hover {
+            background: rgba(28, 28, 28, 0.94);
+        }
+
+        html[data-theme='dark'] .ms-fab-icon {
+            filter: invert(1);
+        }
+
+        html[data-theme='dark'] .ms-fab.is-active {
+            background: #3498db;
+            border-color: #3498db;
+        }
+
         html[data-theme='dark'] .export-ui::before {
             background: rgba(28, 28, 28, 0.82);
             border-color: #5a5d62;
@@ -2581,6 +2656,9 @@
 
 <!-- 导出：生成 PNG 背景 + SVG 覆盖，并打包下载 -->
 <script src="./print.js"></script>
+
+<!-- 多选模式按钮 -->
+<script src="./mul-select.js"></script>
 
 <!-- 导出：方向班次表 PDF -->
 <script type="module" src="./print-timetables.js"></script>

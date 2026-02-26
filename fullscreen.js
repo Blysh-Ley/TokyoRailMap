@@ -48,6 +48,7 @@ export function initFullscreen(map, touchTapGuard) {
     const UI_SELECTORS = [
         '.settings-ui',
         '.export-ui',
+        '.ms-fab',
         '.search-ui',
         '.RW-company',
         '.selection-badge',
