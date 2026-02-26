@@ -910,6 +910,22 @@
         .panel-grid-trip-minute {
             font-size: 16px;
             font-weight: 700;
+            position: relative;
+            display: inline-block;
+        }
+
+        .panel-grid-trip-minute-flag {
+            position: absolute;
+            bottom: 0;
+            font-size: 0.65em;
+            font-weight: 700;
+            color: red;
+            line-height: 1;
+        }
+
+        .panel-grid-cell-trip.is-past .panel-grid-trip-minute-flag,
+        .panel-grid-trip.is-past .panel-grid-trip-minute-flag {
+            color: #ccc !important;
         }
 
         .panel-timetable-row {
@@ -2370,6 +2386,11 @@
         html[data-theme='dark'] .panel-grid-row.is-alt-b {
             background: rgb(53, 52, 52);
         }
+
+        html[data-theme='dark'] .panel-grid-trip-minute-flag {
+            color: #ff6b6b;
+        }
+
 
         html[data-theme='dark'] .panel-timetable.panel-timetable-view-grid {
             background: rgba(24, 27, 33, 0.65);

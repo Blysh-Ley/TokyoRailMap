@@ -1721,7 +1721,7 @@ export function createPanel(options = {}) {
             const focusAttr = expanded && hour === focusStartHour ? ' data-grid-focus-start="1"' : '';
             const currentAttr = (!expanded && hour === currentHourForFocus) ? ' data-grid-current-hour="1"' : '';
 
-            const cellsHtml = trips.length
+                const cellsHtml = trips.length
                 ? trips.map((trip, tripIndex) => {
                 const typeName = toText(trip?.typeName);
                 const destName = toText(trip?.terminalName || trip?.destName);
@@ -1733,13 +1733,15 @@ export function createPanel(options = {}) {
                 const tripAttr = tripKey ? ` data-trip-key="${escapeHtml(tripKey)}"` : '';
                 const lastClass = tripIndex === trips.length - 1 ? ' is-hour-last' : '';
 
+                    const isTerminal = !!trip?.showTerminalLabel;
+
                     const pastClass = trip?.isPast ? ' is-past' : '';
 
                     return `
                         <div class="panel-grid-cell panel-grid-cell-trip${pastClass}${lastClass}"${tripAttr}>
                             <span class="panel-grid-trip${pastClass}" style="color:${escapeHtml(color)}">
                                 <span class="panel-grid-trip-abbr">[${escapeHtml(typeAbbr)}]${escapeHtml(destAbbr)}</span>
-                                <span class="panel-grid-trip-minute">${escapeHtml(minute)}</span>
+                                <span class="panel-grid-trip-minute"><span class="panel-grid-trip-minute-text">${escapeHtml(minute)}</span>${isTerminal ? '<span class="panel-grid-trip-minute-flag" aria-label="终点站">终</span>' : ''}</span>
                             </span>
                         </div>
                     `;

@@ -168,6 +168,11 @@
                 font-size: calc(20px * var(--grid-font-scale, 1));
             }
 
+            .timetable-print-content .panel-grid-cell-trip.is-past .panel-grid-trip-minute-flag,
+            .timetable-print-content .panel-grid-trip.is-past .panel-grid-trip-minute-flag {
+                color: red !important;
+            }
+
             .timetable-print-content .panel-grid-hour {
                 font-size: calc(20px * var(--grid-font-scale, 1));
             }
