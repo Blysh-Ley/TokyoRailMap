@@ -4267,8 +4267,14 @@ map.on('load', async () => {
                 if (!el) return;
 
                 // 用于 popup 自动隐藏的“是否在站点上方”判断
-                el.addEventListener('mouseenter', () => stationPopup.setExternalStationHover?.(true));
-                el.addEventListener('mouseleave', () => stationPopup.setExternalStationHover?.(false));
+                el.addEventListener('mouseenter', () => {
+                    stationPopup.setExternalStationHover?.(true);
+                    lineHoverPopup?.setExternalStationHover?.(true);
+                });
+                el.addEventListener('mouseleave', () => {
+                    stationPopup.setExternalStationHover?.(false);
+                    lineHoverPopup?.setExternalStationHover?.(false);
+                });
 
                 // 触屏/笔：按下时只阻止穿透；抬起时满足“短按+小位移”才触发
                 el.addEventListener(

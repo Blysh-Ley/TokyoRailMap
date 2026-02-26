@@ -24,6 +24,7 @@ export function addLinesLayer(map, linesData) {
  */
 export function setupLineHoverPopup(map, maplibregl, options = {}) {
     const hoverMinZoom = Number.isFinite(options.hoverMinZoom) ? options.hoverMinZoom : 9;
+    const stationProximityPx = Number.isFinite(options.stationProximityPx) ? Math.max(0, Number(options.stationProximityPx)) : 10;
     const companyLogoMap = options.companyLogoMap || {};
     const getHoverPreviewEnabled = typeof options.getHoverPreviewEnabled === 'function' ? options.getHoverPreviewEnabled : null;
 
@@ -88,6 +89,7 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
 
     let lastHoverLineId = null;
     let popupShown = false;
+    let externalStationHover = false;
 
     const hidePopup = () => {
         popup.remove();
@@ -95,10 +97,38 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
         lastHoverLineId = null;
     };
 
+    const hasStationNearPoint = (point) => {
+        try {
+            if (!point || !map.getLayer?.('stations-layer')) return false;
+            const x = Number(point.x);
+            const y = Number(point.y);
+            if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+            const r = stationProximityPx;
+            const bbox = [
+                [x - r, y - r],
+                [x + r, y + r]
+            ];
+            const hits = map.queryRenderedFeatures(bbox, { layers: ['stations-layer'] }) || [];
+            return hits.length > 0;
+        } catch {
+            return false;
+        }
+    };
+
+    const shouldSuppressLineHover = (evt) => {
+        if (externalStationHover) return true;
+        return hasStationNearPoint(evt?.point);
+    };
+
     map.on('mouseenter', 'lines-layer', (e) => {
         if (!isEnabled()) return;
         const z = typeof map.getZoom === 'function' ? map.getZoom() : null;
         if (typeof z === 'number' && z < hoverMinZoom) return;
+        if (shouldSuppressLineHover(e)) {
+            map.getCanvas().style.cursor = '';
+            if (popupShown) hidePopup();
+            return;
+        }
 
         const f = e?.features?.[0];
         const props = f?.properties || {};
@@ -114,6 +144,12 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
 
     map.on('mousemove', 'lines-layer', (e) => {
         if (!isEnabled()) {
+            if (popupShown) hidePopup();
+            return;
+        }
+
+        if (shouldSuppressLineHover(e)) {
+            map.getCanvas().style.cursor = '';
             if (popupShown) hidePopup();
             return;
         }
@@ -156,7 +192,11 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
     });
 
     return {
-        closePopup: () => hidePopup()
+        closePopup: () => hidePopup(),
+        setExternalStationHover: (hovering) => {
+            externalStationHover = hovering === true;
+            if (externalStationHover && popupShown) hidePopup();
+        }
     };
 }
 
