@@ -616,7 +616,7 @@ export class Menu {
                 if (!this.wrapper.contains(e.target)) {
                     if (this._sessionActive) {
                         this.hideAllSubMenus();
-                        this.wrapper.style.left = '-190px';
+                        this.wrapper.style.left = '-200px';
                         this._endSessionLikeLeave();
                     }
                 }
@@ -833,7 +833,7 @@ export class Menu {
     collapse() {
         if (!this.wrapper) return;
         this.hideAllSubMenus();
-        this.wrapper.style.left = '-190px';
+        this.wrapper.style.left = '-200px';
     }
 
     markActive(el) {
@@ -872,15 +872,16 @@ export class Menu {
 
         // 默认收起（只露出一点边缘，方便鼠标移入触发）
         if (!this.wrapper.style.left) {
-            this.wrapper.style.left = '-190px';
+            this.wrapper.style.left = '-200px';
+            this.wrapper.style.paddingLeft = '10px';
         }
 
         this.wrapper.addEventListener('mouseenter', () => {
-            this.wrapper.style.left = '10px';
+            this.wrapper.style.left = '0px';
         });
 
         this.wrapper.addEventListener('mouseleave', () => {
-            this.wrapper.style.left = '-190px';
+            this.wrapper.style.left = '-200px';
         });
     }
 
