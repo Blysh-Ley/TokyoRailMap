@@ -190,7 +190,8 @@
 		"ja": "快速急行",
 		"ko": "쾌속급행",
 		"zh-Hans": "快速急行",
-		"zh-Hant": "快速急行"
+		"zh-Hant": "快速急行",
+		"color": "#C05EC4"
 	}
 }, {
 	"id": "TokyoMetro.Rapid",
@@ -199,7 +200,8 @@
 		"ja": "快速",
 		"ko": "쾌속",
 		"zh-Hans": "快速",
-		"zh-Hant": "快速"
+		"zh-Hant": "快速",
+		"color": "#00ACD1"
 	}
 }, {
 	"id": "TokyoMetro.S-TRAIN",
