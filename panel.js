@@ -4536,10 +4536,75 @@ export function createPanel(options = {}) {
         // 渲染 popup 同结构的内容（公司分组 + 线路）
         body.innerHTML = buildCompaniesHtml(props || {}, { getLineMeta, companyLogoMap, lineStationNameByLineId, railwaysOrderIndex });
 
-        // 默认折叠态：填充每条线路的“未来最近 3 条”班次
-        renderAllTimetables();
-
         show();
+
+        // 默认折叠态：填充每条线路的“未来最近 3 条”班次
+        // 这里等待渲染完成，避免外部随后执行的 scrollToLineId 被后续异步渲染“拉回顶部”。
+        await renderAllTimetables();
+    };
+
+    const scrollToLineId = (lineId, options = {}) => {
+        const id = toText(lineId);
+        if (!id) return false;
+
+        const behavior = options?.behavior === 'auto' ? 'auto' : 'smooth';
+        const block = options?.block === 'center' ? 'center' : 'start';
+
+        const findLineEl = () => {
+            const all = body.querySelectorAll('[data-line-id]');
+            for (const el of all) {
+                if (!(el instanceof Element)) continue;
+                if (toText(el.getAttribute('data-line-id')) === id) return el;
+            }
+            return null;
+        };
+
+        const applyScroll = (lineEl) => {
+            if (!(lineEl instanceof Element)) return false;
+            const bodyRect = body.getBoundingClientRect();
+            const lineRect = lineEl.getBoundingClientRect();
+            const naturalTop = body.scrollTop + (lineRect.top - bodyRect.top);
+            const centerOffset = block === 'center'
+                ? Math.max(0, (body.clientHeight - lineRect.height) / 2)
+                : 0;
+            const top = Math.max(0, Math.round(naturalTop - centerOffset));
+            try {
+                body.scrollTo({ top, behavior });
+                return true;
+            } catch {
+                body.scrollTop = top;
+                return true;
+            }
+        };
+
+        const immediate = findLineEl();
+        if (immediate && applyScroll(immediate)) return true;
+
+        setTimeout(() => {
+            const retry = findLineEl();
+            if (retry) applyScroll(retry);
+        }, 120);
+        return false;
+    };
+
+    const getScrollTop = () => {
+        try {
+            return Math.max(0, Number(body.scrollTop) || 0);
+        } catch {
+            return 0;
+        }
+    };
+
+    const setScrollTop = (top, options = {}) => {
+        const next = Math.max(0, Number(top) || 0);
+        const behavior = options?.behavior === 'smooth' ? 'smooth' : 'auto';
+        try {
+            body.scrollTo({ top: next, behavior });
+            return true;
+        } catch {
+            body.scrollTop = next;
+            return true;
+        }
     };
 
     const setHoverPreviewEnabled = (enabled) => {
@@ -4572,6 +4637,9 @@ export function createPanel(options = {}) {
         setHoverPreviewEnabled,
         setTimetableViewMode: (mode) => applyTimetableViewMode(mode, { rerender: true }),
         showForStationProps,
+        scrollToLineId,
+        getScrollTop,
+        setScrollTop,
         layout
     };
 }

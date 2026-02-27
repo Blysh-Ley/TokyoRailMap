@@ -625,6 +625,7 @@ map.on('load', async () => {
         selectedLineId = null;
         selectedServiceMode = 'all';
         isolateStationsToSelectedLine = false;
+        setStationLabelMode('all');
 
         applySelectionEffects();
     };
@@ -1760,6 +1761,27 @@ map.on('load', async () => {
         return out;
     };
 
+    const getPreferredPanelScrollLineIdFromStationProps = (props) => {
+        const platformIds = getPlatformLineIdsFromStationProps(props || {});
+        if (platformIds.length) return String(platformIds[0]);
+        const servingIds = getServingLineIdsFromStationProps(props || {});
+        return servingIds.length ? String(servingIds[0]) : '';
+    };
+
+    const openPanelForStationWithAutoScroll = async (props, options = {}) => {
+        const p = props || {};
+        const prevScrollTop = panel?.getScrollTop?.() || 0;
+        await panel?.showForStationProps?.(p);
+        const shouldAutoScroll = options?.autoScroll !== false;
+        if (!shouldAutoScroll) {
+            panel?.setScrollTop?.(0, { behavior: 'auto' });
+            return;
+        }
+        panel?.setScrollTop?.(prevScrollTop, { behavior: 'auto' });
+        const lineId = getPreferredPanelScrollLineIdFromStationProps(p);
+        if (lineId) panel?.scrollToLineId?.(lineId, { behavior: 'smooth', block: 'start' });
+    };
+
     const selectPlatformLinesForStation = (props) => {
         const ids = getPlatformLineIdsFromStationProps(props);
         if (!ids.length) return;
@@ -1936,7 +1958,7 @@ map.on('load', async () => {
 
         searchMapActions.commitStation = (stationId, meta) => {
             const opened = openStationForStationId(stationId, meta || {});
-            panel?.showForStationProps?.(opened?.props || {});
+            openPanelForStationWithAutoScroll(opened?.props || {});
 
             // 预加载该站点关联线路的时刻表
             try {
@@ -2051,17 +2073,18 @@ map.on('load', async () => {
         if (!map.getLayer('stations-layer')) return;
 
         // 点击站点圆点：高亮其 serving_lines（不执行 fitBounds）
-        map.on('click', 'stations-layer', (e) => {
+        map.on('click', 'stations-layer', async (e) => {
             if (!touchTapGuard.allowTap(e?.originalEvent)) return;
 
             const f = e?.features?.[0];
             const props = f?.properties || {};
+            const hadStationSelection = !!String(selectedStationId || '').trim();
             if (!isMultiSelectModeEnabled()) {
                 selectServingLinesForStation(props);
             }
 
             // 打开右侧界面 A
-            panel?.showForStationProps?.(props);
+            await openPanelForStationWithAutoScroll(props, { autoScroll: hadStationSelection });
 
             // 预加载该站点关联线路的时刻表
             try {
@@ -4245,10 +4268,11 @@ map.on('load', async () => {
             };
 
             const fireStationLabelTap = (item, pt) => {
+                const hadStationSelection = !!String(selectedStationId || '').trim();
                 if (!isMultiSelectModeEnabled()) {
                     selectServingLinesForStation(item.props || {});
                 }
-                panel?.showForStationProps?.(item.props || {});
+                openPanelForStationWithAutoScroll(item.props || {}, { autoScroll: hadStationSelection });
 
                 // 预加载该站点关联线路的时刻表
                 try {
