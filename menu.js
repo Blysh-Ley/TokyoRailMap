@@ -55,6 +55,7 @@ export class Menu {
         this._hoverTimerId = null;
         this._hoverTargetEl = null;
         this._committedSinceEnter = false;
+        this._activeSetByHover = false;
 
         this._enteredAtMs = 0;
 
@@ -235,6 +236,7 @@ export class Menu {
             const companyId = companyEl.dataset.companyId || companyEl.getAttribute('data-company-id') || companyEl.querySelector('.RW-company-name')?.textContent?.trim();
             if (!companyId) return;
             this.markActive(companyEl);
+            this._activeSetByHover = true;
             if (this.onCompanyClick) this.onCompanyClick(companyId, { source: 'hover' });
             return;
         }
@@ -250,6 +252,7 @@ export class Menu {
             const activeEl = this._getMenuLineElByMainLineId(resolved.mainLineId) || lineEl;
 
             this.markActive(activeEl);
+            this._activeSetByHover = true;
             if (this.onLineClick) {
                 this.onLineClick(lineId, {
                     source: 'hover',
@@ -266,12 +269,36 @@ export class Menu {
             const mode = modeEl.dataset.mode;
             if (!lineId || !mode) return;
             this.markActive(modeEl);
+            this._activeSetByHover = true;
             if (this.onModeClick) this.onModeClick({ lineId, mode }, { source: 'hover' });
         }
     }
 
+    _getExpectedActiveElForContent(content) {
+        if (!content || !this.wrapper || !this.wrapper.contains(content)) return null;
+
+        if (content.classList.contains('RW-company-content')) return content;
+
+        if (content.classList.contains('RW-line-content')) {
+            const lineId = content.dataset.lineId;
+            if (!lineId) return content;
+            const resolved = this.resolveLineSelection(lineId);
+            if (!resolved) return content;
+            return this._getMenuLineElByMainLineId(resolved.mainLineId) || content;
+        }
+
+        if (content.classList.contains('RW-linedirc-content')) return content;
+        return null;
+    }
+
     _queueHoverPreview(content) {
         if (!content || !this.wrapper || !this.wrapper.contains(content)) return;
+
+        const expectedActiveEl = this._getExpectedActiveElForContent(content);
+        if (this._activeSetByHover && this._activeMenuEl && expectedActiveEl && this._activeMenuEl !== expectedActiveEl) {
+            this.clearActive();
+        }
+
         if (this._hoverTargetEl === content) return;
 
         this._clearHoverPreviewTimer();
@@ -718,6 +745,7 @@ export class Menu {
 
             // 不在任何可预览项上时，清理 pending 预览，避免目标“卡住”
             this._clearHoverPreviewTimer();
+            if (this._activeSetByHover) this.clearActive();
         });
     }
 
@@ -847,6 +875,7 @@ export class Menu {
                 const commitPreview = !this._committedSinceEnter && this._activeMenuEl === companyA;
 
                 this.markActive(companyA);
+                this._activeSetByHover = false;
                 this._committedSinceEnter = true;
                 if (this.onCompanyClick) this.onCompanyClick(companyId, { source: 'click', commitPreview });
                 this.collapse();
@@ -865,6 +894,7 @@ export class Menu {
                 const commitPreview = !this._committedSinceEnter && this._activeMenuEl === activeEl;
 
                 this.markActive(activeEl);
+                this._activeSetByHover = false;
                 this._committedSinceEnter = true;
 
                 if (this.onLineClick) {
@@ -888,6 +918,7 @@ export class Menu {
                 if (lineId && mode) {
                     const commitPreview = !this._committedSinceEnter && this._activeMenuEl === dirA;
                     this.markActive(dirA);
+                    this._activeSetByHover = false;
                     this._committedSinceEnter = true;
                     if (this.onModeClick) this.onModeClick({ lineId, mode }, { source: 'click', commitPreview });
                     this.collapse();
@@ -898,6 +929,7 @@ export class Menu {
                 const lineInfo = dirA._lineInfo;
                 if (!lineInfo) return;
                 this.markActive(dirA);
+                this._activeSetByHover = false;
                 this._committedSinceEnter = true;
                 if (this.onDirClick) this.onDirClick(lineInfo);
                 this.collapse();
@@ -920,6 +952,7 @@ export class Menu {
     clearActive() {
         if (this._activeMenuEl) this._activeMenuEl.classList.remove('RW-active');
         this._activeMenuEl = null;
+        this._activeSetByHover = false;
     }
 
     // ---------------------------
