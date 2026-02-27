@@ -81,6 +81,18 @@ export class Menu {
 
         // 主线 id -> 菜单中的 a.RW-line-content（用于“点支线时菜单高亮主线”）
         this._lineContentElByLineId = new Map();
+
+        // 菜单侧滑过程中，禁止 hover 触发子菜单展开
+        this._allowHoverSubMenuOpen = false;
+        this._slideInUnlockTimerId = null;
+
+        // 从最左边缘离开时的收起缓冲（2s）
+        this._leftEdgeLeaveCollapseTimerId = null;
+        this._leftEdgeLeaveGraceMs = 1000;
+
+        // 鼠标最近位置：用于侧滑解锁后定位当前实际 hover 项
+        this._lastMouseClientX = null;
+        this._lastMouseClientY = null;
     }
 
     // ---------------------------
@@ -145,6 +157,46 @@ export class Menu {
             this._hoverTimerId = null;
         }
         this._hoverTargetEl = null;
+    }
+
+    _clearSlideInUnlockTimer() {
+        if (this._slideInUnlockTimerId != null) {
+            clearTimeout(this._slideInUnlockTimerId);
+            this._slideInUnlockTimerId = null;
+        }
+    }
+
+    _clearLeftEdgeLeaveCollapseTimer() {
+        if (this._leftEdgeLeaveCollapseTimerId != null) {
+            clearTimeout(this._leftEdgeLeaveCollapseTimerId);
+            this._leftEdgeLeaveCollapseTimerId = null;
+        }
+    }
+
+    _rememberMousePosition(e) {
+        const x = Number.isFinite(e?.clientX) ? e.clientX : null;
+        const y = Number.isFinite(e?.clientY) ? e.clientY : null;
+        if (x !== null) this._lastMouseClientX = x;
+        if (y !== null) this._lastMouseClientY = y;
+    }
+
+    _resolveHoveredMenuTargetsByPointer() {
+        if (!this.wrapper) return { content: null, item: null };
+
+        const x = this._lastMouseClientX;
+        const y = this._lastMouseClientY;
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return { content: null, item: null };
+
+        const topEl = document.elementFromPoint(x, y);
+        if (!topEl) return { content: null, item: null };
+
+        const content = topEl.closest?.('.RW-company-content, .RW-line-content, .RW-linedirc-content') || null;
+        const item = topEl.closest?.('.RW-item') || null;
+
+        return {
+            content: content && this.wrapper.contains(content) ? content : null,
+            item: item && this.wrapper.contains(item) ? item : null
+        };
     }
 
     _startSession() {
@@ -231,7 +283,12 @@ export class Menu {
             // 鼠标：仍然停留在该项上才触发；触屏：以“仍是当前 armed/目标项”为准
             if (!this._hoverTargetEl || this._hoverTargetEl !== content) return;
             if (!this._isTouchLikePointer(this._lastPointerType)) {
-                if (!content.matches(':hover')) return;
+                const x = this._lastMouseClientX;
+                const y = this._lastMouseClientY;
+                if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+                const topEl = document.elementFromPoint(x, y);
+                if (!topEl) return;
+                if (!(topEl === content || content.contains(topEl))) return;
             }
 
             this._fireHoverPreview(content);
@@ -642,10 +699,25 @@ export class Menu {
 
         this.wrapper.addEventListener('mouseover', (e) => {
             if (this._shouldSuppressMouseEvent()) return;
+            this._rememberMousePosition(e);
             const content = e.target.closest('.RW-company-content, .RW-line-content, .RW-linedirc-content');
             if (!content || !this.wrapper.contains(content)) return;
 
             this._queueHoverPreview(content);
+        });
+
+        this.wrapper.addEventListener('mousemove', (e) => {
+            this._rememberMousePosition(e);
+
+            if (this._shouldSuppressMouseEvent()) return;
+            const content = e.target.closest('.RW-company-content, .RW-line-content, .RW-linedirc-content');
+            if (content && this.wrapper.contains(content)) {
+                this._queueHoverPreview(content);
+                return;
+            }
+
+            // 不在任何可预览项上时，清理 pending 预览，避免目标“卡住”
+            this._clearHoverPreviewTimer();
         });
     }
 
@@ -658,8 +730,11 @@ export class Menu {
         // 事件委托：对所有 li.RW-item 做 hover 展示子菜单（div.RW-wrapper）
         this.wrapper.addEventListener('mouseover', (e) => {
             if (this._shouldSuppressMouseEvent()) return;
+            this._rememberMousePosition(e);
             const item = e.target.closest('.RW-item');
             if (!item || !this.wrapper.contains(item)) return;
+
+            if (!this._allowHoverSubMenuOpen) return;
 
             // 关键：从 A 移到 B 时，先把同级的旧子菜单全部关掉
             this.hideSiblingSubMenus(item);
@@ -876,11 +951,77 @@ export class Menu {
             this.wrapper.style.paddingLeft = '10px';
         }
 
+        const getSlideDurationMs = () => {
+            const computed = getComputedStyle(this.wrapper);
+            const durations = String(computed.transitionDuration || '')
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
+                .map((s) => {
+                    if (s.endsWith('ms')) return parseFloat(s);
+                    if (s.endsWith('s')) return parseFloat(s) * 1000;
+                    return NaN;
+                })
+                .filter((n) => Number.isFinite(n));
+            if (!durations.length) return 320;
+            return Math.max(...durations) + 20;
+        };
+
+        const isLeftEdgeLeave = (e) => {
+            // 鼠标贴到屏幕最左边缘时，部分环境会触发 wrapper.mouseleave。
+            // 这里统一视为“边缘离开”，进入缓冲期而不是立刻收起。
+            const x = Number.isFinite(e?.clientX) ? e.clientX : null;
+            return x !== null && x <= 1;
+        };
+
         this.wrapper.addEventListener('mouseenter', () => {
+            this._clearLeftEdgeLeaveCollapseTimer();
+            this._allowHoverSubMenuOpen = false;
+            this._clearSlideInUnlockTimer();
             this.wrapper.style.left = '0px';
+
+            this._slideInUnlockTimerId = setTimeout(() => {
+                this._slideInUnlockTimerId = null;
+                this._allowHoverSubMenuOpen = true;
+
+                // 侧滑解锁后，若鼠标已停在某一项上（没有新的 mouseover 事件），
+                // 主动补一次“展开子菜单 + hover 预览排队”，避免体感“hover 失效”。
+                const { content: hoveredContent, item: hoveredItem } = this._resolveHoveredMenuTargetsByPointer();
+
+                if (hoveredItem && this.wrapper.contains(hoveredItem)) {
+                    this.hideSiblingSubMenus(hoveredItem);
+                    const sub = hoveredItem.querySelector(':scope > .RW-wrapper');
+                    if (sub) {
+                        sub.style.display = 'block';
+                        this.anchorSubMenu(hoveredItem, sub, 10);
+                    }
+                }
+
+                if (hoveredContent && this.wrapper.contains(hoveredContent)) {
+                    this._queueHoverPreview(hoveredContent);
+                }
+            }, getSlideDurationMs());
         });
 
-        this.wrapper.addEventListener('mouseleave', () => {
+        this.wrapper.addEventListener('mouseleave', (e) => {
+            if (isLeftEdgeLeave(e)) {
+                this._clearLeftEdgeLeaveCollapseTimer();
+                this._leftEdgeLeaveCollapseTimerId = setTimeout(() => {
+                    this._leftEdgeLeaveCollapseTimerId = null;
+
+                    // 缓冲期结束时若鼠标已回到菜单上，则不收起
+                    if (this.wrapper && this.wrapper.matches(':hover')) return;
+
+                    this._allowHoverSubMenuOpen = false;
+                    this._clearSlideInUnlockTimer();
+                    this.wrapper.style.left = '-200px';
+                }, this._leftEdgeLeaveGraceMs);
+                return;
+            }
+
+            this._clearLeftEdgeLeaveCollapseTimer();
+            this._allowHoverSubMenuOpen = false;
+            this._clearSlideInUnlockTimer();
             this.wrapper.style.left = '-200px';
         });
     }

@@ -3840,7 +3840,6 @@ map.on('load', async () => {
             onCompanyClick: (companyName, meta) => {
                 const source = meta?.source ?? 'click';
                 if (source === 'hover' && !isHoverPreviewEnabled()) return;
-                if (source === 'hover' && !canRunHoverPreviewAtCurrentZoom()) return;
                 hideStationPopupForMenuInteraction();
                 const commitPreview = meta?.commitPreview === true;
 
@@ -3873,7 +3872,6 @@ map.on('load', async () => {
             onLineClick: (lineId, meta) => {
                 const source = meta?.source ?? 'click';
                 if (source === 'hover' && !isHoverPreviewEnabled()) return;
-                if (source === 'hover' && !canRunHoverPreviewAtCurrentZoom()) return;
                 hideStationPopupForMenuInteraction();
                 const commitPreview = meta?.commitPreview === true;
 
@@ -3925,7 +3923,6 @@ map.on('load', async () => {
             onModeClick: ({ lineId, mode }, meta) => {
                 const source = meta?.source ?? 'click';
                 if (source === 'hover' && !isHoverPreviewEnabled()) return;
-                if (source === 'hover' && !canRunHoverPreviewAtCurrentZoom()) return;
                 hideStationPopupForMenuInteraction();
                 const commitPreview = meta?.commitPreview === true;
 
