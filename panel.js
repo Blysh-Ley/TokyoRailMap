@@ -1132,6 +1132,15 @@ export function createPanel(options = {}) {
         return out;
     };
 
+    const NO_MARK_TYPE_NAMES = new Set(['各站停车', '普通']);
+
+    const isNoMarkTypeName = (typeNameRaw) => NO_MARK_TYPE_NAMES.has(toText(typeNameRaw));
+
+    const getNoMarkTerminalFullName = (terminalHints) => {
+        const first = Array.isArray(terminalHints) ? terminalHints[0] : null;
+        return toText(first?.full);
+    };
+
     const buildDirectionGridHints = (rowsForDir) => {
         const rows = Array.isArray(rowsForDir) ? rowsForDir : [];
 
@@ -1731,6 +1740,9 @@ export function createPanel(options = {}) {
                 const abbr = toText(item?.abbr);
                 const color = toText(item?.color) || '#888';
                 if (!full || !abbr) return '';
+                if (isNoMarkTypeName(full)) {
+                    return `<span class="panel-grid-hint-item panel-grid-hint-item-type" style="color:${escapeHtml(color)}"><i>无标</i>=${escapeHtml(full)}</span>`;
+                }
                 const sameLabel = full === abbr;
                 const text = sameLabel ? full : `${full}=${abbr}`;
                 return `<span class="panel-grid-hint-item panel-grid-hint-item-type" style="color:${escapeHtml(color)}">${escapeHtml(text)}</span>`;
@@ -1738,11 +1750,16 @@ export function createPanel(options = {}) {
             .filter(Boolean)
             .join('<span class="panel-grid-hint-sep"> / </span>');
 
+        const noMarkTerminalFullName = getNoMarkTerminalFullName(terminalHints);
         const terminalLegendItems = (Array.isArray(terminalHints) ? terminalHints : [])
             .map((item) => {
                 const full = toText(item?.full);
                 const abbr = toText(item?.abbr);
-                if (!full || !abbr) return '';
+                if (!full) return '';
+                if (full === noMarkTerminalFullName) {
+                    return `<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888"><i>无标</i>-${escapeHtml(full)}</span>`;
+                }
+                if (!abbr) return '';
                 return `<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888">${escapeHtml(abbr)}−${escapeHtml(full)}</span>`;
             })
             .filter(Boolean)
@@ -1802,6 +1819,7 @@ export function createPanel(options = {}) {
 
         const typeAbbrByName = new Map((Array.isArray(typeHints) ? typeHints : []).map((x) => [toText(x?.full), toText(x?.abbr)]));
         const terminalAbbrByName = new Map((Array.isArray(terminalHints) ? terminalHints : []).map((x) => [toText(x?.full), toText(x?.abbr)]));
+        const noMarkTerminalFullName = getNoMarkTerminalFullName(terminalHints);
 
         const rowHtml = hourWindow.map((hour, idx) => {
             const trips = Array.isArray(byHour.get(hour)) ? byHour.get(hour) : [];
@@ -1820,6 +1838,9 @@ export function createPanel(options = {}) {
                 const color = resolveTrainTypeColorForTheme(trip?.typeColor) || 'var(--ui-text, #111)';
                 const tripAttr = tripKey ? ` data-trip-key="${escapeHtml(tripKey)}"` : '';
                 const lastClass = tripIndex === trips.length - 1 ? ' is-hour-last' : '';
+                const showTypeAbbr = !isNoMarkTypeName(typeName);
+                const showDestAbbr = !(noMarkTerminalFullName && destName === noMarkTerminalFullName);
+                const tripAbbrText = `${showTypeAbbr ? `[${typeAbbr}]` : ''}${showDestAbbr ? destAbbr : ''}`;
 
                     const isTerminal = !!trip?.showTerminalLabel;
 
@@ -1828,7 +1849,7 @@ export function createPanel(options = {}) {
                     return `
                         <div class="panel-grid-cell panel-grid-cell-trip${pastClass}${lastClass}"${tripAttr}>
                             <span class="panel-grid-trip${pastClass}" style="color:${escapeHtml(color)}">
-                                <span class="panel-grid-trip-abbr">[${escapeHtml(typeAbbr)}]${escapeHtml(destAbbr)}</span>
+                                ${tripAbbrText ? `<span class="panel-grid-trip-abbr">${escapeHtml(tripAbbrText)}</span>` : ''}
                                 <span class="panel-grid-trip-minute"><span class="panel-grid-trip-minute-text">${escapeHtml(minute)}</span>${isTerminal ? '<span class="panel-grid-trip-minute-flag" aria-label="终点站">终</span>' : ''}</span>
                             </span>
                         </div>
