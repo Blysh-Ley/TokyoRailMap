@@ -3283,12 +3283,14 @@ export function createPanel(options = {}) {
 
         if (pendingGridDataDebugLog) {
             const lines = Array.from(gridDataDebugByLineId.values()).sort((a, b) => String(a?.lineName || '').localeCompare(String(b?.lineName || '')));
+            /*
             console.log('[班次视图][grid-data]', {
                 stationId: toText(currentStationId),
                 stationName: toText(currentStationNameZh),
                 serviceDay: currentServiceDay,
                 lines
             });
+            */
             pendingGridDataDebugLog = false;
         }
     };

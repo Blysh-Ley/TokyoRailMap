@@ -173,7 +173,7 @@ map.addControl(
 
 // 2) 底图加载完成后再加载业务数据与图层
 map.on('load', async () => {
-    console.log('底图加载完毕，准备加载 GeoJSON...');
+    //console.log('底图加载完毕，准备加载 GeoJSON...');
 
     const applyCustomAttribution = () => {
         try {
