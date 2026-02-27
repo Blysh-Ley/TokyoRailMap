@@ -258,6 +258,48 @@ map.on('load', async () => {
         stationPopup?.setHoverPreviewEnabled?.(hoverPreviewEnabled);
     };
 
+    const clearTripDetailStationIndicator = () => {
+        try {
+            tripDetailStationTriangleMarker?.remove?.();
+        } catch {
+            // ignore
+        }
+        tripDetailStationTriangleMarker = null;
+    };
+
+    const showTripDetailStationIndicatorById = (stationId) => {
+        const sid = String(stationId || '').trim();
+        if (!sid) return;
+        const coord = stationCoordById.get(sid);
+        if (!Array.isArray(coord) || coord.length < 2) return;
+
+        clearTripDetailStationIndicator();
+
+        const outer = document.createElement('div');
+        outer.className = 'trip-detail-station-indicator-outer';
+        const inner = document.createElement('div');
+        inner.className = 'trip-detail-station-indicator';
+        outer.appendChild(inner);
+
+        try {
+            tripDetailStationTriangleMarker = new maplibregl.Marker({ element: outer, anchor: 'top', offset: [0, 6] })
+                .setLngLat(coord)
+                .addTo(map);
+        } catch {
+            tripDetailStationTriangleMarker = null;
+        }
+    };
+
+    window.addEventListener('__TokyoRailTrainTypeStationIndicatorShow', (evt) => {
+        const sid = String(evt?.detail?.stationId || '').trim();
+        if (!sid) return;
+        showTripDetailStationIndicatorById(sid);
+    });
+
+    window.addEventListener('__TokyoRailTrainTypeStationIndicatorClear', () => {
+        clearTripDetailStationIndicator();
+    });
+
     const isMultiSelectModeEnabled = () => multiSelectModeEnabled === true;
 
     const getBaseMultiSelectedLineIds = () => {
@@ -1546,12 +1588,7 @@ map.on('load', async () => {
                 // ignore
             }
             tripCurrentStationPopup = null;
-            try {
-                tripDetailStationTriangleMarker?.remove?.();
-            } catch {
-                // ignore
-            }
-            tripDetailStationTriangleMarker = null;
+            clearTripDetailStationIndicator();
         },
         onTripCurrentStationShow: ({ stationId }) => {
             const sid = String(stationId || '').trim();
@@ -1595,42 +1632,10 @@ map.on('load', async () => {
             tripCurrentStationPopup = null;
         },
         onTripDetailStationIndicator: ({ stationId }) => {
-            const sid = String(stationId || '').trim();
-            if (!sid) return;
-            const coord = stationCoordById.get(sid);
-            if (!Array.isArray(coord) || coord.length < 2) return;
-
-            try {
-                tripDetailStationTriangleMarker?.remove?.();
-            } catch {
-                // ignore
-            }
-            tripDetailStationTriangleMarker = null;
-
-            // Wrap the visual indicator in an outer container so MapLibre's
-            // internal `transform` applied to position the marker doesn't
-            // overwrite our rotation on the visual element.
-            const outer = document.createElement('div');
-            outer.className = 'trip-detail-station-indicator-outer';
-            const inner = document.createElement('div');
-            inner.className = 'trip-detail-station-indicator';
-            outer.appendChild(inner);
-
-            try {
-                tripDetailStationTriangleMarker = new maplibregl.Marker({ element: outer, anchor: 'top', offset: [0, 6] })
-                    .setLngLat(coord)
-                    .addTo(map);
-            } catch {
-                tripDetailStationTriangleMarker = null;
-            }
+            showTripDetailStationIndicatorById(stationId);
         },
         onTripDetailStationIndicatorClear: () => {
-            try {
-                tripDetailStationTriangleMarker?.remove?.();
-            } catch {
-                // ignore
-            }
-            tripDetailStationTriangleMarker = null;
+            clearTripDetailStationIndicator();
         },
         onDirPreviewEnter: (payload) => {
             if (isMultiSelectModeEnabled()) return;
@@ -1783,6 +1788,23 @@ map.on('load', async () => {
         if (lineId) panel?.scrollToLineId?.(lineId, { behavior: 'smooth', block: 'start' });
     };
 
+    const showTrainTypeFloatingPanelForLine = (mainLineId) => {
+        const id = String(mainLineId || '').trim();
+        if (!id) return;
+        const lineName = String(lineNameById.get(id) || id).trim() || id;
+        try {
+            window.dispatchEvent(new CustomEvent('__TokyoRailShowTrainTypePanel', {
+                detail: {
+                    lineId: id,
+                    lineName,
+                    placement: 'panel'
+                }
+            }));
+        } catch {
+            // ignore
+        }
+    };
+
     const selectPlatformLinesForStation = (props) => {
         const ids = getPlatformLineIdsFromStationProps(props);
         if (!ids.length) return;
@@ -1895,6 +1917,8 @@ map.on('load', async () => {
 
             applySelectionEffects();
             fitToCurrentSelection(`line:${selectedLineId}`, 'commit');
+
+            showTrainTypeFloatingPanelForLine(mainLineId);
         };
 
         searchMapActions.previewCompany = (companyName) => {
@@ -2059,6 +2083,8 @@ map.on('load', async () => {
             applySelectionEffects();
             // 点击高亮：不限制放大倍率
             fitToCurrentSelection(`line:${selectedLineId}`, 'commit');
+
+            showTrainTypeFloatingPanelForLine(mainLineId);
         });
 
         // 鼠标样式提示可点击（可选但很轻量）
@@ -3941,7 +3967,10 @@ map.on('load', async () => {
                 applySelectionEffects();
                 if (selectedLineId) {
                     if (source === 'hover') fitToCurrentSelectionPreview(`line:${selectedLineId}`);
-                    else fitToCurrentSelectionCommit(`line:${selectedLineId}`);
+                    else {
+                        fitToCurrentSelectionCommit(`line:${selectedLineId}`);
+                        showTrainTypeFloatingPanelForLine(mainLineId);
+                    }
                 }
             },
             onModeClick: ({ lineId, mode }, meta) => {

@@ -35,14 +35,59 @@ const ensureStyleInstalled = () => {
     const style = document.createElement('style');
     style.setAttribute('data-panel-train-type-style', '1');
     style.textContent = `
+        .panel-train-type-popover {
+            min-width: 100px;
+            max-width: calc(100vw - 40px);
+            max-height: 60vh;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid #e3e5e7;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, .12);
+            overflow: hidden;
+            opacity: 1;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+        .panel-train-type-popover.is-hidden {
+            opacity: 0;
+            transform: translateX(8px);
+            pointer-events: none;
+        }
+        .panel-train-type-header {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid #e3e5e7;
+        }
+        .panel-train-type-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #111;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .panel-train-type-body {
+            padding: 6px 10px 8px;
+            max-height: calc(60vh - 36px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
         .panel-train-type {
             min-width: 100px;
             max-height: 72vh;
             overflow: hidden;
         }
-        .panel-train-type .panel-trip-detail-body {
+        .panel-train-type .panel-train-type-body {
             overflow: auto;
             max-height: calc(72vh - 44px);
+        }
+        .panel-train-type.is-panel-placement .panel-train-type-body {
+            height: 100%;
+            max-height: none;
+            box-sizing: border-box;
         }
         .panel-train-type-meta {
             padding: 10px 12px;
@@ -53,6 +98,10 @@ const ensureStyleInstalled = () => {
         }
         .panel-train-type-section {
             padding: 10px 12px;
+            box-sizing: border-box;
+        }
+        .panel-train-type.is-panel-placement .panel-train-type-section {
+            min-height: 100%;
         }
         .panel-train-type-section-title {
             font-weight: 700;
@@ -99,6 +148,9 @@ const ensureStyleInstalled = () => {
             position: relative;
             background: linear-gradient(var(--tt-color, #888), var(--tt-color, #888)) center/10px calc(100% + 2px) no-repeat;
         }
+        .panel-train-type-cell.is-hidden-tail {
+            visibility: hidden;
+        }
         .panel-train-type-cell.is-stop::after {
             content: '';
             position: absolute;
@@ -133,6 +185,18 @@ const ensureStyleInstalled = () => {
             height: 1px;
             background: var(--ui-border);
             margin: 0;
+        }
+        html[data-theme='dark'] .panel-train-type-popover {
+            background: rgba(24, 27, 33, 0.94);
+            border-color: #5a5d62;
+            box-shadow: 0 0 30px rgba(0, 0, 0, .35);
+        }
+        html[data-theme='dark'] .panel-train-type-header {
+            border-bottom-color: #5a5d62;
+        }
+        html[data-theme='dark'] .panel-train-type-title,
+        html[data-theme='dark'] .panel-train-type-station {
+            color: #f2f2f2;
         }
     `;
     document.head.appendChild(style);
@@ -203,19 +267,19 @@ const setupPanelTrainTypeUi = () => {
     ensureStyleInstalled();
 
     const root = document.createElement('div');
-    root.className = 'panel-trip-detail panel-train-type is-hidden';
+    root.className = 'panel-train-type-popover panel-train-type is-hidden';
     root.setAttribute('data-panel-train-type', '');
     root.style.position = 'fixed';
     root.style.zIndex = '10000';
 
     const header = document.createElement('div');
-    header.className = 'panel-trip-detail-header';
+    header.className = 'panel-train-type-header';
     const title = document.createElement('div');
-    title.className = 'panel-trip-detail-title';
+    title.className = 'panel-train-type-title';
     header.appendChild(title);
 
     const body = document.createElement('div');
-    body.className = 'panel-trip-detail-body';
+    body.className = 'panel-train-type-body';
 
     //root.appendChild(header);
     root.appendChild(body);
@@ -226,6 +290,7 @@ const setupPanelTrainTypeUi = () => {
     let activeLineId = '';
     let activeLineName = '';
     let lastAnchorRect = null;
+    let lastPlacement = 'anchor';
     let lastPointer = { x: 0, y: 0 };
     let showTimer = 0;
     let hideTimer = 0;
@@ -255,7 +320,54 @@ const setupPanelTrainTypeUi = () => {
         }, delayMs);
     };
 
+    const getPanelLikePlacementRect = () => {
+        const panelRoot = document.querySelector('[data-panel-root]');
+        if (!(panelRoot instanceof HTMLElement)) return null;
+
+        const style = window.getComputedStyle(panelRoot);
+        const width = Number.parseFloat(panelRoot.style.width || style.width || '0');
+        const right = Number.parseFloat(panelRoot.style.right || style.right || '0');
+        const top = Number.parseFloat(panelRoot.style.top || style.top || '0');
+        const height = Number.parseFloat(panelRoot.style.height || style.height || '0');
+
+        const safeWidth = Number.isFinite(width) && width > 0 ? width : 320;
+        const safeRight = Number.isFinite(right) ? right : 20;
+        const safeTop = Number.isFinite(top) ? top : 56;
+        const safeHeight = Number.isFinite(height) && height > 0 ? height : Math.max(220, window.innerHeight - safeTop - 12);
+
+        return {
+            left: Math.max(8, window.innerWidth - safeRight - safeWidth ),
+            top: Math.max(8, safeTop),
+            width: safeWidth,
+            height: safeHeight
+        };
+    };
+
     const positionPanel = () => {
+        if (lastPlacement === 'panel') {
+            const rect = getPanelLikePlacementRect();
+            if (rect) {
+                root.classList.add('is-panel-placement');
+                const pad = 8;
+                const maxW = Math.max(180, window.innerWidth - pad * 2);
+                const maxH = Math.max(180, window.innerHeight - rect.top - pad);
+                const w = Math.min(rect.width, maxW);
+                const h = Math.min(rect.height, maxH);
+                root.style.left = '';
+                root.style.right = '20px';
+                root.style.top = `${Math.max(pad, rect.top)}px`;
+                root.style.minWidth = '100px';
+                root.style.height = `${h}px`;
+                root.style.maxHeight = `${h}px`;
+                return;
+            }
+        }
+
+        root.classList.remove('is-panel-placement');
+        root.style.right = '';
+        root.style.width = '';
+        root.style.height = '';
+        root.style.maxHeight = '';
         const panelW = root.offsetWidth || 420;
         const panelH = root.offsetHeight || 260;
         const pad = 12;
@@ -298,14 +410,13 @@ const setupPanelTrainTypeUi = () => {
         const directions = Array.isArray(payload?.directions) ? payload.directions : [];
         const { stationIds: orderedStationIds, stationNames: orderedStationNames } = pickUnifiedStationOrder(stationIds, stationNames, directions);
 
-        const dirMap = new Map(directions.map((d) => [toText(d?.dir) || 'Unknown', d]));
-        const outDir = dirMap.get('Outbound') || null;
-        const inDir = dirMap.get('Inbound') || null;
-        const hasBidirectional = !!outDir && !!inDir;
-        const firstDir = directions.find((d) => Array.isArray(d?.types) && d.types.length > 0) || null;
-        const anchorBlock = outDir || firstDir || null;
+        const dirKeys = Array.from(new Set(directions.map((d) => toText(d?.dir) || 'Unknown').filter(Boolean)));
+        const preferredPrimaryDir = dirKeys.includes('Outbound') ? 'Outbound' : (dirKeys[0] || 'Unknown');
+        const preferredSecondaryDir = dirKeys.includes('Inbound')
+            ? 'Inbound'
+            : (dirKeys.find((k) => k !== preferredPrimaryDir) || '');
 
-        const mergedTypeMap = new Map(); // typeKey -> { typeId, typeName, color, outMask, inMask }
+        const mergedTypeMap = new Map(); // typeKey -> { typeId, typeName, color, dirMasks:Record<string,boolean[]> }
         const addDirTypes = (dirBlock, dirKey) => {
             for (const t of Array.isArray(dirBlock?.types) ? dirBlock.types : []) {
                 const typeId = toText(t?.typeId) || 'Unknown';
@@ -317,18 +428,17 @@ const setupPanelTrainTypeUi = () => {
                         typeId,
                         typeName,
                         color,
-                        outMask: new Array(orderedStationIds.length).fill(false),
-                        inMask: new Array(orderedStationIds.length).fill(false),
-                        anchorMask: new Array(orderedStationIds.length).fill(false)
+                        dirMasks: {}
                     });
                 }
                 const row = mergedTypeMap.get(key);
+                if (!Array.isArray(row.dirMasks?.[dirKey])) {
+                    row.dirMasks[dirKey] = new Array(orderedStationIds.length).fill(false);
+                }
                 const mask = Array.isArray(t?.pattern?.stopMask) ? t.pattern.stopMask : [];
                 for (let i = 0; i < orderedStationIds.length; i += 1) {
                     const v = !!mask?.[i];
-                    if (dirKey === 'Outbound') row.outMask[i] = row.outMask[i] || v;
-                    if (dirKey === 'Inbound') row.inMask[i] = row.inMask[i] || v;
-                    if (anchorBlock && toText(anchorBlock?.dir) === dirKey) row.anchorMask[i] = row.anchorMask[i] || v;
+                    row.dirMasks[dirKey][i] = row.dirMasks[dirKey][i] || v;
                 }
             }
         };
@@ -340,6 +450,52 @@ const setupPanelTrainTypeUi = () => {
             return `
                 <div class="panel-train-type-meta">当前无可用班次</div>
             `;
+        }
+
+        // Per type: choose best display direction(s) to avoid false all-pass for one-direction services.
+        for (const t of types) {
+            const masks = t?.dirMasks || {};
+            const keys = Object.keys(masks);
+            const hasAnyTrue = (key) => Array.isArray(masks[key]) && masks[key].some(Boolean);
+
+            let primaryDir = preferredPrimaryDir;
+            if (!hasAnyTrue(primaryDir)) {
+                primaryDir = keys.find((k) => hasAnyTrue(k)) || primaryDir;
+            }
+
+            let secondaryDir = preferredSecondaryDir;
+            if (!secondaryDir || secondaryDir === primaryDir || !hasAnyTrue(secondaryDir)) {
+                secondaryDir = keys.find((k) => k !== primaryDir && hasAnyTrue(k)) || '';
+            }
+
+            t._primaryMask = Array.isArray(masks[primaryDir])
+                ? masks[primaryDir]
+                : new Array(orderedStationIds.length).fill(false);
+            t._secondaryMask = secondaryDir && Array.isArray(masks[secondaryDir])
+                ? masks[secondaryDir]
+                : new Array(orderedStationIds.length).fill(false);
+            t._hasPair = !!secondaryDir;
+
+            const anyMask = new Array(orderedStationIds.length).fill(false);
+            for (const k of keys) {
+                const m = Array.isArray(masks[k]) ? masks[k] : [];
+                for (let i = 0; i < orderedStationIds.length; i += 1) {
+                    if (m[i]) anyMask[i] = true;
+                }
+            }
+            t._anyMask = anyMask;
+
+            let lastStop = -1;
+            let firstStop = -1;
+            for (let i = 0; i < orderedStationIds.length; i += 1) {
+                const active = t._hasPair
+                    ? (!!t._primaryMask[i] || !!t._secondaryMask[i])
+                    : !!anyMask[i];
+                if (active && firstStop < 0) firstStop = i;
+                if (active) lastStop = i;
+            }
+            t._firstStopIndex = firstStop;
+            t._lastStopIndex = lastStop;
         }
 
         const typeCount = new Map();
@@ -372,22 +528,27 @@ const setupPanelTrainTypeUi = () => {
             for (let ti = 0; ti < types.length; ti += 1) {
                 const t = types[ti];
                 const color = toText(t?.color) || '#888';
-                const outStop = !!t.outMask?.[si];
-                const inStop = !!t.inMask?.[si];
-                const anchorStop = !!t.anchorMask?.[si];
+                const firstStop = !!t?._primaryMask?.[si];
+                const secondStop = !!t?._secondaryMask?.[si];
+                const anyStop = !!t?._anyMask?.[si];
+                const hideHead = Number.isFinite(t?._firstStopIndex) && t._firstStopIndex >= 0 && si < t._firstStopIndex;
+                const hideTail = Number.isFinite(t?._lastStopIndex) && t._lastStopIndex >= 0 && si > t._lastStopIndex;
 
                 let cls = 'panel-train-type-cell';
-                if (hasBidirectional) {
-                    if (outStop && inStop) cls += ' is-stop';
-                    else if (inStop && !outStop) cls += ' is-stop-up';
-                    else if (outStop && !inStop) cls += ' is-stop-down';
-                } else if (anchorStop) {
+                if ((hideHead && (t?._hasPair ? (!firstStop && !secondStop) : !anyStop)) || hideTail) {
+                    cls += ' is-hidden-tail';
+                } else if (t?._hasPair) {
+                    if (firstStop && secondStop) cls += ' is-stop';
+                    else if (secondStop && !firstStop) cls += ' is-stop-up';
+                    else if (firstStop && !secondStop) cls += ' is-stop-down';
+                } else if (anyStop) {
                     cls += ' is-stop';
                 }
 
                 rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)}"></div>`);
             }
-            rows.push(`<div class="panel-train-type-station" title="${escapeHtml(stName)}">${escapeHtml(stName)}</div>`);
+            const sid = toText(orderedStationIds?.[si]);
+            rows.push(`<div class="panel-train-type-station" data-station-id="${escapeHtml(sid)}" title="${escapeHtml(stName)}">${escapeHtml(stName)}</div>`);
         }
 
         const metaLine = (() => {
@@ -406,7 +567,7 @@ const setupPanelTrainTypeUi = () => {
             </div>`;
     };
 
-    const showForLine = async ({ lineId, lineName, anchorRect }) => {
+    const showForLine = async ({ lineId, lineName, anchorRect, placement = 'anchor' }) => {
         const lid = toText(lineId);
         if (!lid) return;
         if (!window?.TokyoRailTimetableCache) return;
@@ -417,6 +578,7 @@ const setupPanelTrainTypeUi = () => {
         activeLineId = lid;
         activeLineName = toText(lineName) || lid;
         lastAnchorRect = anchorRect || null;
+        lastPlacement = toText(placement) === 'panel' ? 'panel' : 'anchor';
 
         title.textContent = activeLineName;
         body.innerHTML = '<div class="panel-train-type-meta">加载中…</div>';
@@ -456,6 +618,31 @@ const setupPanelTrainTypeUi = () => {
         };
     };
 
+    const showTrainTypeStationIndicator = (stationId) => {
+        const sid = toText(stationId);
+        if (!sid) return;
+        try {
+            window.dispatchEvent(new CustomEvent('__TokyoRailTrainTypeStationIndicatorShow', {
+                detail: { stationId: sid }
+            }));
+        } catch {
+            // ignore
+        }
+    };
+
+    const clearTrainTypeStationIndicator = () => {
+        try {
+            window.dispatchEvent(new CustomEvent('__TokyoRailTrainTypeStationIndicatorClear'));
+        } catch {
+            // ignore
+        }
+    };
+
+    const getTrainTypeStationTarget = (target) => {
+        if (!(target instanceof Element)) return null;
+        return target.closest?.('.panel-train-type-station[data-station-id]') || null;
+    };
+
     // Keep panel open when pointer is inside it
     root.addEventListener('pointerdown', (e) => {
         pinned = true;
@@ -475,7 +662,37 @@ const setupPanelTrainTypeUi = () => {
     root.addEventListener('mouseleave', () => {
         hoverInsidePanel = false;
         if (!pinned) scheduleHide(180);
+        clearTrainTypeStationIndicator();
     });
+
+    body.addEventListener('mouseover', (evt) => {
+        const stationEl = getTrainTypeStationTarget(evt?.target);
+        if (!stationEl) return;
+        const sid = toText(stationEl.getAttribute('data-station-id'));
+        if (!sid) return;
+        showTrainTypeStationIndicator(sid);
+    });
+
+    body.addEventListener('mouseout', (evt) => {
+        const fromEl = getTrainTypeStationTarget(evt?.target);
+        if (!fromEl) return;
+        const toEl = evt?.relatedTarget;
+        const toStation = getTrainTypeStationTarget(toEl);
+        if (toStation) return;
+        clearTrainTypeStationIndicator();
+    });
+
+    body.addEventListener('mouseleave', () => {
+        clearTrainTypeStationIndicator();
+    });
+
+    body.addEventListener('pointerdown', (evt) => {
+        const stationEl = getTrainTypeStationTarget(evt?.target);
+        if (!stationEl) return;
+        const sid = toText(stationEl.getAttribute('data-station-id'));
+        if (!sid) return;
+        showTrainTypeStationIndicator(sid);
+    }, { passive: true });
 
     // Hover: show
     document.addEventListener('pointermove', (evt) => {
@@ -525,8 +742,21 @@ const setupPanelTrainTypeUi = () => {
         showForLine({ lineId, lineName, anchorRect });
     }, true);
 
+    window.addEventListener('__TokyoRailShowTrainTypePanel', (evt) => {
+        const d = evt?.detail || {};
+        const lineId = toText(d?.lineId);
+        if (!lineId) return;
+        const lineName = toText(d?.lineName) || lineId;
+        const placement = toText(d?.placement) === 'panel' ? 'panel' : 'anchor';
+
+        pinned = true;
+        clearTimers();
+        showForLine({ lineId, lineName, anchorRect: null, placement });
+    });
+
     // Click outside: unpin & hide
-    document.addEventListener('pointerdown', (evt) => {
+    // Use click (not pointerdown) so dragging map does not close pinned panel.
+    document.addEventListener('click', (evt) => {
         if (!pinned) return;
         const t = evt?.target;
         if (t instanceof Element) {
@@ -537,6 +767,7 @@ const setupPanelTrainTypeUi = () => {
         root.classList.add('is-hidden');
         activeLineId = '';
         activeLineName = '';
+        clearTrainTypeStationIndicator();
     }, true);
 
     document.addEventListener('keydown', (evt) => {
@@ -546,6 +777,7 @@ const setupPanelTrainTypeUi = () => {
         root.classList.add('is-hidden');
         activeLineId = '';
         activeLineName = '';
+        clearTrainTypeStationIndicator();
     });
 
     // Day toggle: refresh if panel is visible
