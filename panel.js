@@ -446,6 +446,7 @@ export function createPanel(options = {}) {
     const zIndex = Number.isFinite(options.zIndex) ? options.zIndex : 9999;
 
     const hoverDelayMs = Number.isFinite(options.hoverDelayMs) ? options.hoverDelayMs : 50;
+    const primaryHoverDelayMs = 500;
     const getLineMeta = typeof options.getLineMeta === 'function' ? options.getLineMeta : (() => null);
     const companyLogoMap = options.companyLogoMap || {};
     const railwaysOrderIndex = options.railwaysOrderIndex instanceof Map ? options.railwaysOrderIndex : null;
@@ -4099,13 +4100,6 @@ export function createPanel(options = {}) {
         clearHoverTimer();
         hoverCandidateKey = key;
 
-        if (target.kind === 'dir') {
-            applyDirPreviewByKey(target.lineDirKey, { fitMode: 'preview' });
-            lastFiredHoverKey = key;
-            lastMousePrimaryKey = key;
-            return;
-        }
-
         if (key === lastFiredHoverKey) return;
 
         hoverTimerId = setTimeout(() => {
@@ -4113,14 +4107,17 @@ export function createPanel(options = {}) {
             if (hoverCandidateKey !== key) return;
             lastFiredHoverKey = key;
 
-            if (target.kind === 'line') {
+            if (target.kind === 'dir') {
+                applyDirPreviewByKey(target.lineDirKey, { fitMode: 'preview' });
+                lastMousePrimaryKey = key;
+            } else if (target.kind === 'line') {
                 applyLineHoverSelection(target.lineId);
                 lastMousePrimaryKey = key;
             } else if (target.kind === 'company') {
                 applyCompanyHoverSelection(target.companyName);
                 lastMousePrimaryKey = key;
             }
-        }, hoverDelayMs);
+        }, primaryHoverDelayMs);
     };
 
     const onBodyClick = (evt) => {

@@ -2,6 +2,7 @@
 /tools
 .DS_Store
 .venv
+.vscode
 __pycache__
 /images/.DS_Store
 /icons/.DS_Store
