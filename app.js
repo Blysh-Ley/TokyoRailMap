@@ -7,6 +7,7 @@ import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { createPanel } from './panel.js';
 import { getGlobalTimetableCache } from './timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './fullscreen.js';
+import './panel-train-type-ui.js';
 
 // MapLibre 通过 CDN 以全局变量方式引入
 const maplibregl = window.maplibregl;
