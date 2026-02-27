@@ -40,6 +40,8 @@ const ensureStyleInstalled = () => {
             max-width: calc(100vw - 40px);
             max-height: 60vh;
             background: rgba(255, 255, 255, 0.96);
+            --panel-train-type-bg: rgba(255, 255, 255, 0.96);
+            --panel-train-type-head-divider: #e3e5e7;
             border: 1px solid #e3e5e7;
             border-radius: 12px;
             box-shadow: 0 0 30px rgba(0, 0, 0, .12);
@@ -48,6 +50,8 @@ const ensureStyleInstalled = () => {
             transition: opacity 0.15s ease, transform 0.15s ease;
             transform: translateX(0);
             pointer-events: auto;
+            display: flex;
+            flex-direction: column;
         }
         .panel-train-type-popover.is-hidden {
             opacity: 0;
@@ -69,11 +73,11 @@ const ensureStyleInstalled = () => {
             text-overflow: ellipsis;
         }
         .panel-train-type-body {
-            padding: 6px 10px 8px;
             max-height: calc(60vh - 36px);
             overflow-y: auto;
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
+            flex: 1 1 auto;
         }
         .panel-train-type {
             min-width: 100px;
@@ -97,7 +101,9 @@ const ensureStyleInstalled = () => {
             display:none;
         }
         .panel-train-type-section {
-            padding: 10px 12px;
+            padding-left:18px;
+            padding-right:18px;
+            padding-bottom: 12px;
             box-sizing: border-box;
         }
         .panel-train-type.is-panel-placement .panel-train-type-section {
@@ -120,6 +126,20 @@ const ensureStyleInstalled = () => {
             justify-content: start;
             width: max-content;
         }
+        .panel-train-type-grid-header {
+            display: block;
+            flex: 0 0 auto;
+            padding: 10px 12px 6px;
+            background: var(--panel-train-type-bg);
+            overflow: hidden;
+        }
+        .panel-train-type-grid-header .panel-train-type-grid {
+            display: grid;
+            align-items: end;
+            gap: 0;
+            justify-content: start;
+            width: max-content;
+        }
         .panel-train-type-station {
             font-size: 13px;
             text-align: left;
@@ -138,9 +158,39 @@ const ensureStyleInstalled = () => {
             line-height: 1;
             width: 12px;
             display: flex;
-            align-items: center;
+            align-items: flex-end;
             justify-content: center;
-            padding: 0;
+            padding-left: 6px;
+            background: transparent;
+        }
+        .panel-train-type-typehead.is-sideways-rl {
+            writing-mode: sideways-rl;
+            text-orientation: mixed;
+        }
+        .panel-train-type-typehead.is-mixed-writing {
+            writing-mode: horizontal-tb;
+            text-orientation: mixed;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 1px;
+        }
+        .panel-train-type-typehead-chunk {
+            display: inline-block;
+            line-height: 1;
+            white-space: pre;
+        }
+        .panel-train-type-typehead-chunk.is-en {
+            writing-mode: sideways-rl;
+            text-orientation: mixed;
+        }
+        .panel-train-type-typehead-chunk.is-other {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+        }
+        .panel-train-type-headspacer {
+            min-height: 30px;
+            background: transparent;
         }
         .panel-train-type-cell {
             height: 30px;
@@ -188,6 +238,8 @@ const ensureStyleInstalled = () => {
         }
         html[data-theme='dark'] .panel-train-type-popover {
             background: rgba(24, 27, 33, 0.94);
+            --panel-train-type-bg: rgba(24, 27, 33, 0.94);
+            --panel-train-type-head-divider: #5a5d62;
             border-color: #5a5d62;
             box-shadow: 0 0 30px rgba(0, 0, 0, .35);
         }
@@ -197,6 +249,12 @@ const ensureStyleInstalled = () => {
         html[data-theme='dark'] .panel-train-type-title,
         html[data-theme='dark'] .panel-train-type-station {
             color: #f2f2f2;
+        }
+    
+        html[data-theme='dark'] .panel-train-type-cell.is-stop::after,
+        html[data-theme='dark'] .panel-train-type-cell.is-stop-up::after,
+        html[data-theme='dark'] .panel-train-type-cell.is-stop-down::after {
+            background: #111;
         }
     `;
     document.head.appendChild(style);
@@ -256,6 +314,122 @@ const sortTypeNamesForGridHint = (typeNames, countByType) => {
     });
 };
 
+const isEnglishTypeHeadText = (value) => {
+    const s = toText(value);
+    if (!s) return false;
+    if (!/[A-Za-z]/.test(s)) return false;
+    return /^[A-Za-z0-9\s\-+&/().,'’]+$/.test(s);
+};
+
+const isDarkThemeActive = () => {
+    try {
+        return document.documentElement.getAttribute('data-theme') === 'dark';
+    } catch {
+        return false;
+    }
+};
+
+const parseCssColorToRgb = (input) => {
+    const s = String(input || '').trim();
+    if (!s) return null;
+
+    const hex = s.match(/^#([0-9a-fA-F]{3,8})$/);
+    if (hex) {
+        const raw = hex[1];
+        if (raw.length === 3 || raw.length === 4) {
+            const r = parseInt(raw[0] + raw[0], 16);
+            const g = parseInt(raw[1] + raw[1], 16);
+            const b = parseInt(raw[2] + raw[2], 16);
+            return { r, g, b };
+        }
+        if (raw.length === 6 || raw.length === 8) {
+            const r = parseInt(raw.slice(0, 2), 16);
+            const g = parseInt(raw.slice(2, 4), 16);
+            const b = parseInt(raw.slice(4, 6), 16);
+            return { r, g, b };
+        }
+    }
+
+    const rgb = s.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*([0-9]+(?:\.[0-9]+)?))?\s*\)$/i);
+    if (!rgb) return null;
+
+    const r = Math.max(0, Math.min(255, Math.round(Number(rgb[1]))));
+    const g = Math.max(0, Math.min(255, Math.round(Number(rgb[2]))));
+    const b = Math.max(0, Math.min(255, Math.round(Number(rgb[3]))));
+    return { r, g, b };
+};
+
+const rgbToHex = ({ r, g, b }) => {
+    const to2 = (v) => Math.max(0, Math.min(255, Math.round(Number(v) || 0))).toString(16).padStart(2, '0');
+    return `#${to2(r)}${to2(g)}${to2(b)}`;
+};
+
+const relativeLuminance = ({ r, g, b }) => {
+    const toLinear = (v) => {
+        const x = Math.max(0, Math.min(255, Number(v) || 0)) / 255;
+        return x <= 0.03928 ? (x / 12.92) : Math.pow((x + 0.055) / 1.055, 2.4);
+    };
+    const lr = toLinear(r);
+    const lg = toLinear(g);
+    const lb = toLinear(b);
+    return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+};
+
+const DARK_INVERT_TRIGGER_LUMINANCE = (() => {
+    const ref = parseCssColorToRgb('#005AAA');
+    return ref ? relativeLuminance(ref) : 0.102;
+})();
+
+const resolveTrainTypeColorInfoForTheme = (color) => {
+    const raw = toText(color);
+    if (!raw) return { color: raw, darkAdjusted: false };
+    if (!isDarkThemeActive()) return { color: raw, darkAdjusted: false };
+
+    const parsed = parseCssColorToRgb(raw);
+    if (!parsed) return { color: raw, darkAdjusted: false };
+    const lum = relativeLuminance(parsed);
+    if (!(lum < DARK_INVERT_TRIGGER_LUMINANCE)) return { color: raw, darkAdjusted: false };
+
+    const adjusted = rgbToHex({
+        r: 255 - parsed.r,
+        g: 255 - parsed.g,
+        b: 255 - parsed.b
+    });
+    return { color: adjusted, darkAdjusted: true };
+};
+
+const splitTypeHeadTextChunks = (value) => {
+    const s = toText(value);
+    if (!s) return [];
+
+    const chunks = [];
+    const isAsciiWordChar = (ch) => /[A-Za-z0-9]/.test(ch);
+
+    let i = 0;
+    while (i < s.length) {
+        const ch = s[i];
+        if (isAsciiWordChar(ch)) {
+            let j = i + 1;
+            while (j < s.length) {
+                const c = s[j];
+                if (isAsciiWordChar(c) || /[\s\-+&/().,'’]/.test(c)) {
+                    j += 1;
+                    continue;
+                }
+                break;
+            }
+            chunks.push({ text: s.slice(i, j), kind: 'en' });
+            i = j;
+            continue;
+        }
+
+        chunks.push({ text: ch, kind: 'other' });
+        i += 1;
+    }
+
+    return chunks.filter((x) => toText(x?.text));
+};
+
 const setupPanelTrainTypeUi = () => {
     try {
         if (window.__TokyoRailPanelTrainTypeUiInstalled) return;
@@ -272,16 +446,13 @@ const setupPanelTrainTypeUi = () => {
     root.style.position = 'fixed';
     root.style.zIndex = '10000';
 
-    const header = document.createElement('div');
-    header.className = 'panel-train-type-header';
-    const title = document.createElement('div');
-    title.className = 'panel-train-type-title';
-    header.appendChild(title);
+    const gridHeader = document.createElement('div');
+    gridHeader.className = 'panel-train-type-grid-header';
 
     const body = document.createElement('div');
     body.className = 'panel-train-type-body';
 
-    //root.appendChild(header);
+    root.appendChild(gridHeader);
     root.appendChild(body);
     document.body.appendChild(root);
 
@@ -447,9 +618,10 @@ const setupPanelTrainTypeUi = () => {
 
         let types = Array.from(mergedTypeMap.values());
         if (!types.length) {
-            return `
-                <div class="panel-train-type-meta">当前无可用班次</div>
-            `;
+            return {
+                headHtml: '',
+                bodyHtml: '<div class="panel-train-type-meta">当前无可用班次</div>'
+            };
         }
 
         // Per type: choose best display direction(s) to avoid false all-pass for one-direction services.
@@ -517,17 +689,39 @@ const setupPanelTrainTypeUi = () => {
         const gridStyle = `grid-template-columns: repeat(${types.length}, 12px) minmax(120px, max-content); column-gap: 1px;`;
 
         const headCells = types.map((t) => {
-            const color = toText(t?.color) || '#888';
+            const colorInfo = resolveTrainTypeColorInfoForTheme(toText(t?.color) || '#888');
+            const color = colorInfo.color || '#888';
             const name = toText(t?.typeName) || '-';
-            return `<div class="panel-train-type-typehead" style="color:${escapeHtml(color)}">${escapeHtml(name)}</div>`;
-        }).concat(['<div></div>']).join('');
+
+            const clsBase = colorInfo.darkAdjusted
+                ? 'panel-train-type-typehead is-dark-adjusted'
+                : 'panel-train-type-typehead';
+
+            if (isEnglishTypeHeadText(name)) {
+                return `<div class="${clsBase} is-sideways-rl" style="color:${escapeHtml(color)}">${escapeHtml(name)}</div>`;
+            }
+
+            const chunks = splitTypeHeadTextChunks(name);
+            const hasEn = chunks.some((c) => c.kind === 'en');
+            const hasOther = chunks.some((c) => c.kind !== 'en');
+            if (hasEn && hasOther) {
+                const inner = chunks.map((c) => {
+                    const cls = c.kind === 'en' ? 'panel-train-type-typehead-chunk is-en' : 'panel-train-type-typehead-chunk is-other';
+                    return `<span class="${cls}">${escapeHtml(c.text)}</span>`;
+                }).join('');
+                return `<div class="${clsBase} is-mixed-writing" style="color:${escapeHtml(color)}">${inner}</div>`;
+            }
+
+            return `<div class="${clsBase}" style="color:${escapeHtml(color)}">${escapeHtml(name)}</div>`;
+        }).concat(['<div class="panel-train-type-headspacer"></div>']).join('');
 
         const rows = [];
         for (let si = 0; si < orderedStationIds.length; si += 1) {
             const stName = toText(orderedStationNames?.[si]) || toText(orderedStationIds[si]) || '';
             for (let ti = 0; ti < types.length; ti += 1) {
                 const t = types[ti];
-                const color = toText(t?.color) || '#888';
+                const colorInfo = resolveTrainTypeColorInfoForTheme(toText(t?.color) || '#888');
+                const color = colorInfo.color || '#888';
                 const firstStop = !!t?._primaryMask?.[si];
                 const secondStop = !!t?._secondaryMask?.[si];
                 const anyStop = !!t?._anyMask?.[si];
@@ -545,6 +739,10 @@ const setupPanelTrainTypeUi = () => {
                     cls += ' is-stop';
                 }
 
+                if (colorInfo.darkAdjusted) {
+                    cls += ' is-dark-adjusted';
+                }
+
                 rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)}"></div>`);
             }
             const sid = toText(orderedStationIds?.[si]);
@@ -557,14 +755,16 @@ const setupPanelTrainTypeUi = () => {
             return `<div class="panel-train-type-meta">${escapeHtml(dayText)}</div>`;
         })();
 
-        return `${metaLine}
-            <div class="panel-train-type-section">
-                <div class="panel-train-type-section-title">站序</div>
-                <div class="panel-train-type-grid" style="${gridStyle}">
-                    ${headCells}
-                    ${rows.join('')}
-                </div>
-            </div>`;
+        return {
+            headHtml: `<div class="panel-train-type-grid" style="${gridStyle}">${headCells}</div>`,
+            bodyHtml: `${metaLine}
+                <div class="panel-train-type-section">
+                    <div class="panel-train-type-section-title">站序</div>
+                    <div class="panel-train-type-grid" style="${gridStyle}">
+                        ${rows.join('')}
+                    </div>
+                </div>`
+        };
     };
 
     const showForLine = async ({ lineId, lineName, anchorRect, placement = 'anchor' }) => {
@@ -580,7 +780,7 @@ const setupPanelTrainTypeUi = () => {
         lastAnchorRect = anchorRect || null;
         lastPlacement = toText(placement) === 'panel' ? 'panel' : 'anchor';
 
-        title.textContent = activeLineName;
+        gridHeader.innerHTML = '';
         body.innerHTML = '<div class="panel-train-type-meta">加载中…</div>';
         root.classList.remove('is-hidden');
         positionPanel();
@@ -589,6 +789,7 @@ const setupPanelTrainTypeUi = () => {
             ? cache.get(cacheKey)
             : await computeLineStopDiagramData(lid, { serviceDay, minTripsPerDay: 0 });
         if (!payload) {
+            gridHeader.innerHTML = '';
             body.innerHTML = '<div class="panel-train-type-meta">无法生成（该线路无时刻表数据或尚未加载）</div>';
             positionPanel();
             return;
@@ -598,7 +799,9 @@ const setupPanelTrainTypeUi = () => {
         // If user already hovered to another line, drop this render.
         if (activeLineId !== lid) return;
 
-        body.innerHTML = renderDiagram(payload);
+        const rendered = renderDiagram(payload);
+        gridHeader.innerHTML = rendered?.headHtml || '';
+        body.innerHTML = rendered?.bodyHtml || '';
         positionPanel();
     };
 
