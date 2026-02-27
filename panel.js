@@ -924,6 +924,7 @@ export function createPanel(options = {}) {
     let lastMousePrimaryKey = '';
     let suppressMouseClickUntilMs = 0;
     let suppressMouseHoverUntilMs = 0;
+    let trainTypePopoverHoverActive = false;
 
     let lastAppliedHoverKey = null;
     let restoreTimerId = null;
@@ -4250,10 +4251,13 @@ export function createPanel(options = {}) {
         hoverCandidateKey = null;
         lastFiredHoverKey = null;
         lastMousePrimaryKey = '';
+        const toEl = evt?.relatedTarget;
+        if (trainTypePopoverHoverActive || (toEl instanceof Element && toEl.closest?.('[data-panel-train-type]'))) {
+            return;
+        }
         if (hasPinnedPanelState()) return;
         restoreStationLinesIfNeeded();
         if (tripLocked) return;
-        const toEl = evt?.relatedTarget;
         if (toEl && tripDetailRoot.contains(toEl)) return;
         if (!(toEl && dirFilterPopover.contains(toEl)) && !pinnedDirPreviewKey) {
             clearDirPreview();
@@ -4322,6 +4326,20 @@ export function createPanel(options = {}) {
             applyDirPreviewByKey(pinnedDirPreviewKey, { force: true });
         }
         scheduleTripDetailHide();
+    });
+
+    window.addEventListener('__TokyoRailTrainTypePopoverHoverEnter', () => {
+        trainTypePopoverHoverActive = true;
+        clearRestoreTimer();
+    });
+
+    window.addEventListener('__TokyoRailTrainTypePopoverHoverLeave', () => {
+        trainTypePopoverHoverActive = false;
+        if (hasPinnedPanelState()) return;
+        restoreStationLinesIfNeeded();
+        if (!pinnedDirPreviewKey) {
+            clearDirPreview();
+        }
     });
 
     const getTripDetailStationTarget = (target) => {

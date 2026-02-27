@@ -377,7 +377,7 @@ const setupPanelTrainTypeUi = () => {
         const preferY = anchor ? anchor.top : lastPointer.y;
 
         // Prefer showing to the left of the anchor (like trip detail), else clamp.
-        let x = preferX - panelW - pad;
+        let x = preferX - panelW - pad - 10;
         if (!Number.isFinite(x)) x = pad;
         x = Math.max(pad, Math.min(x, window.innerWidth - panelW - pad));
 
@@ -638,6 +638,22 @@ const setupPanelTrainTypeUi = () => {
         }
     };
 
+    const notifyTrainTypePopoverHoverEnter = () => {
+        try {
+            window.dispatchEvent(new CustomEvent('__TokyoRailTrainTypePopoverHoverEnter'));
+        } catch {
+            // ignore
+        }
+    };
+
+    const notifyTrainTypePopoverHoverLeave = () => {
+        try {
+            window.dispatchEvent(new CustomEvent('__TokyoRailTrainTypePopoverHoverLeave'));
+        } catch {
+            // ignore
+        }
+    };
+
     const getTrainTypeStationTarget = (target) => {
         if (!(target instanceof Element)) return null;
         return target.closest?.('.panel-train-type-station[data-station-id]') || null;
@@ -658,11 +674,13 @@ const setupPanelTrainTypeUi = () => {
     root.addEventListener('mouseenter', () => {
         hoverInsidePanel = true;
         clearTimers();
+        notifyTrainTypePopoverHoverEnter();
     });
     root.addEventListener('mouseleave', () => {
         hoverInsidePanel = false;
         if (!pinned) scheduleHide(180);
         clearTrainTypeStationIndicator();
+        notifyTrainTypePopoverHoverLeave();
     });
 
     body.addEventListener('mouseover', (evt) => {
@@ -768,6 +786,7 @@ const setupPanelTrainTypeUi = () => {
         activeLineId = '';
         activeLineName = '';
         clearTrainTypeStationIndicator();
+        notifyTrainTypePopoverHoverLeave();
     }, true);
 
     document.addEventListener('keydown', (evt) => {
@@ -778,6 +797,7 @@ const setupPanelTrainTypeUi = () => {
         activeLineId = '';
         activeLineName = '';
         clearTrainTypeStationIndicator();
+        notifyTrainTypePopoverHoverLeave();
     });
 
     // Day toggle: refresh if panel is visible
