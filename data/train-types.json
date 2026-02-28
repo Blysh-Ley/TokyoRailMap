@@ -1173,7 +1173,8 @@
 		"ja": "通勤快速",
 		"ko": "통근쾌속",
 		"zh-Hans": "通勤快速",
-		"zh-Hant": "通勤快速"
+		"zh-Hant": "通勤快速",
+		"color":"#FF9827"
 	}
 }, {
 	"id": "MIR.Local",
@@ -1191,7 +1192,8 @@
 		"ja": "快速",
 		"ko": "쾌속",
 		"zh-Hans": "快速",
-		"zh-Hant": "快速"
+		"zh-Hant": "快速",
+		"color":"#F72F5A"
 	}
 }, {
 	"id": "MIR.SemiRapid",
@@ -1200,7 +1202,8 @@
 		"ja": "区間快速",
 		"ko": "구간쾌속",
 		"zh-Hans": "区间快速",
-		"zh-Hant": "區間快速"
+		"zh-Hant": "區間快速",
+		"color":"#0C81E0"
 	}
 }, {
 	"id": "ToyoRapid.Local",
@@ -1218,7 +1221,8 @@
 		"en": "Rapid",
 		"ko": "쾌속",
 		"zh-Hans": "快速",
-		"zh-Hant": "快速"
+		"zh-Hant": "快速",
+		"color": "#00ACD1"
 	}
 }, {
 	"id": "ToyoRapid.CommuterRapid",
@@ -1227,7 +1231,8 @@
 		"en": "Commuter Rapid",
 		"ko": "통근쾌속",
 		"zh-Hans": "通勤快速",
-		"zh-Hant": "通勤快速"
+		"zh-Hant": "通勤快速",
+		"color": "#00CBC9"
 	}
 }, {
 	"id": "Shibayama.CommuterLimitedExpress",
