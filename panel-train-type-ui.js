@@ -129,7 +129,7 @@ const ensureStyleInstalled = () => {
         .panel-train-type-grid-header {
             display: block;
             flex: 0 0 auto;
-            padding: 10px 12px 6px;
+            padding: 10px 12px 0px;
             background: var(--panel-train-type-bg);
             overflow: hidden;
         }
@@ -193,7 +193,7 @@ const ensureStyleInstalled = () => {
             background: transparent;
         }
         .panel-train-type-cell {
-            height: 30px;
+            height: 35px;
             width: 12px;
             position: relative;
             background: linear-gradient(var(--tt-color, #888), var(--tt-color, #888)) center/10px calc(100% + 2px) no-repeat;
@@ -244,13 +244,13 @@ const ensureStyleInstalled = () => {
         }
         .panel-train-type-through-branch {
             position: absolute;
-            top: 50%;
+            top: 0;
             left: 10%;
             width: var(--through-line-width, 14px);
             height: 5px;
             border-radius: 0;
             background: var(--branch-color, var(--tt-color, #888));
-            transform: translate(0, calc(-50% + var(--branch-offset, 0px) - var(--through-row-translate-y, 0px)));
+            transform: translate(0, calc(var(--branch-top-y, 15px) - var(--through-row-translate-y, 0px)));
             pointer-events: none;
             z-index: 999;
         }
@@ -951,18 +951,25 @@ const setupPanelTrainTypeUi = () => {
                 ? true
                 : (isBottomThrough ? false : (directionScore > 0));
 
-            // Translate the whole through-row consistently per gap (NOT per type).
-            // We keep branch positions visually unchanged by compensating in the branch transform.
-            const THROUGH_ROW_CELL_HEIGHT_PX = 30;
             const THROUGH_BRANCH_HEIGHT_PX = 5;
-            const THROUGH_ROW_COMPRESS_SHIFT_PX = (THROUGH_ROW_CELL_HEIGHT_PX - THROUGH_BRANCH_HEIGHT_PX) / 2;
-            const resolveThroughRowTranslateY = () => {
-                if (si === -1) return THROUGH_ROW_COMPRESS_SHIFT_PX;
-                if (isBottomThrough) return -THROUGH_ROW_COMPRESS_SHIFT_PX;
-                if (directionScore === 0) return 0;
-                return directionScore > 0 ? THROUGH_ROW_COMPRESS_SHIFT_PX : -THROUGH_ROW_COMPRESS_SHIFT_PX;
+            const THROUGH_BRANCH_HALF_HEIGHT_PX = THROUGH_BRANCH_HEIGHT_PX / 2;
+            const THROUGH_ROW_CENTER_Y_PX = 17.5;
+            const THROUGH_ROW_SEAM_FUDGE_PX = 0.5;
+            const resolveDirectionSign = () => {
+                if (si === -1) return 1;
+                if (isBottomThrough) return -1;
+                if (directionScore === 0) return 1;
+                return directionScore > 0 ? 1 : -1;
             };
-            const rowTranslateY = resolveThroughRowTranslateY();
+            const directionSign = resolveDirectionSign();
+
+            const isTypeAtOwnBoundary = (t) => {
+                const firstStopIndex = Number(t?._firstStopIndex);
+                const lastStopIndex = Number(t?._lastStopIndex);
+                const isStartBoundary = Number.isFinite(firstStopIndex) && firstStopIndex === (si + 1);
+                const isEndBoundary = Number.isFinite(lastStopIndex) && lastStopIndex === si;
+                return isStartBoundary || isEndBoundary;
+            };
 
             const activeTypeRows = [];
             for (let ti = 0; ti < types.length; ti += 1) {
@@ -979,6 +986,24 @@ const setupPanelTrainTypeUi = () => {
                 : activeTypeRows.slice().reverse();
             const activeIndexByTi = new Map(activeRowsForOrder.map((row, idx) => [row.ti, idx]));
             const activeCount = activeTypeRows.length;
+            const stackCenter = (activeCount - 1) / 2;
+            const endpointTypeIndexByTi = new Map();
+            const endpointTis = [];
+            for (let ti = 0; ti < types.length; ti += 1) {
+                if (!activeIndexByTi.has(ti)) continue;
+                if (!isTypeAtOwnBoundary(types[ti])) continue;
+                endpointTis.push(ti);
+            }
+            endpointTis.sort((a, b) => {
+                const da = Math.abs(Number(activeIndexByTi.get(a)) - stackCenter);
+                const db = Math.abs(Number(activeIndexByTi.get(b)) - stackCenter);
+                if (da !== db) return da - db;
+                // tie-breaker: keep stable w.r.t. current stacked order
+                return Number(activeIndexByTi.get(a)) - Number(activeIndexByTi.get(b));
+            });
+            for (let i = 0; i < endpointTis.length; i += 1) {
+                endpointTypeIndexByTi.set(endpointTis[i], i + 1);
+            }
 
             for (let ti = 0; ti < types.length; ti += 1) {
                 const t = types[ti];
@@ -995,13 +1020,31 @@ const setupPanelTrainTypeUi = () => {
                 if (isBottomThrough) cls += ' is-through-bottom';
 
                 const activeIdx = activeIndexByTi.get(ti);
-                const offset = (activeIdx - (activeCount - 1) / 2) * 5;
+                const branchCenterY = THROUGH_ROW_CENTER_Y_PX
+                    + (activeIdx - (activeCount - 1) / 2) * THROUGH_BRANCH_HEIGHT_PX;
+                const branchTopY = branchCenterY - THROUGH_BRANCH_HALF_HEIGHT_PX;
                 const remainingCols = Math.max(0, types.length - ti - 1);
                 const throughWidth = remainingCols * (12 + 1) + 26;
                 const z = (types.length - ti) + 1;
-                const branches = `<span class="panel-train-type-through-branch" style="--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;"></span>`;
+                const endpointOrder = Number(endpointTypeIndexByTi.get(ti) || 0);
+                const throughRowTranslateY = endpointOrder <= 0
+                    ? '0px'
+                    : (() => {
+                        const rowSign = directionSign;
+                        let signedBase;
+                        signedBase = rowSign * THROUGH_ROW_CENTER_Y_PX + (activeIdx - stackCenter) * THROUGH_BRANCH_HEIGHT_PX;
+                        let y = signedBase;
+                        if (!shouldReverseBranchOrder) {
+                            // For reversed rows, shift uniformly by -0.5px (e.g. -12.5 -> -13.0, -22.5 -> -23.0).
+                            y += THROUGH_ROW_SEAM_FUDGE_PX;
+                        } else {
+                            y -= THROUGH_ROW_SEAM_FUDGE_PX;
+                        }
+                        return `${y.toFixed(2)}px`;
+                    })();
+                const branches = `<span class="panel-train-type-through-branch" style="--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;--branch-top-y:${branchTopY.toFixed(2)}px;"></span>`;
 
-                rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)};--branch-offset:${offset.toFixed(2)}px;--through-row-translate-y:${rowTranslateY.toFixed(2)}px;--through-z:${z}">${branches}</div>`);
+                rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)};--through-row-translate-y:${throughRowTranslateY};--through-z:${z}">${branches}</div>`);
             }
 
             const allTargets = Array.from(throughGap.allTargetsByKey.values());
