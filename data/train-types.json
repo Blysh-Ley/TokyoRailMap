@@ -827,7 +827,8 @@
 		"ja": "特急",
 		"ko": "특급",
 		"zh-Hans": "特急",
-		"zh-Hant": "特急"
+		"zh-Hant": "特急",
+		"color": "#000000"
 	}
 }, {
 	"id": "Seibu.Local",

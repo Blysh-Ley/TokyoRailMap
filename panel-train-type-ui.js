@@ -200,6 +200,7 @@ const ensureStyleInstalled = () => {
             z-index:100;
         }
         .panel-train-type-cell.is-through-row {
+            height: 40px;
             background-size: 10px 100%;
             overflow: visible;
             transform: translateY(var(--through-row-translate-y, 0px));
@@ -953,7 +954,7 @@ const setupPanelTrainTypeUi = () => {
 
             const THROUGH_BRANCH_HEIGHT_PX = 5;
             const THROUGH_BRANCH_HALF_HEIGHT_PX = THROUGH_BRANCH_HEIGHT_PX / 2;
-            const THROUGH_ROW_CENTER_Y_PX = 17.5;
+            const THROUGH_ROW_CENTER_Y_PX = 20;
             const THROUGH_ROW_SEAM_FUDGE_PX = 0.5;
             const resolveDirectionSign = () => {
                 if (si === -1) return 1;
