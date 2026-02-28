@@ -681,7 +681,8 @@
 		"en": "Limited Express",
 		"ko": "특급",
 		"zh-Hans": "特急",
-		"zh-Hant": "特急"
+		"zh-Hant": "特急",
+		"color":"#024E9F"
 	}
 }, {
 	"id": "Tobu.Local",
