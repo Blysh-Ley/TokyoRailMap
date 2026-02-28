@@ -153,6 +153,16 @@ const parseHHMMToServiceDayMs = (hhmm, serviceDayStartMs) => {
     return { ms: d.getTime(), isNextDaySegment };
 };
 
+const parseTripServiceDayFromId = (tripId) => {
+    const id = toText(tripId);
+    if (!id) return '';
+    const m = id.match(/\.(Weekday|SaturdayHoliday)(?:\.[0-9]+)?$/);
+    if (m?.[1]) return m[1];
+    if (id.includes('.Weekday')) return 'Weekday';
+    if (id.includes('.SaturdayHoliday')) return 'SaturdayHoliday';
+    return '';
+};
+
 const formatTimeWithPlus = (hhmm, isNextDaySegment) => {
     const s = toText(hhmm);
     if (!s) return '';
@@ -1652,10 +1662,7 @@ export function createPanel(options = {}) {
         });
 
         if (!candidates.length) return null;
-        const withDay = candidates.find((t) => {
-            const id = toText(t?.id);
-            return id.endsWith(`.${currentServiceDay}`);
-        });
+        const withDay = candidates.find((t) => parseTripServiceDayFromId(t?.id) === currentServiceDay);
         return withDay || candidates[0] || null;
     };
 
@@ -1841,6 +1848,9 @@ export function createPanel(options = {}) {
                 const showTypeAbbr = !isNoMarkTypeName(typeName);
                 const showDestAbbr = !(noMarkTerminalFullName && destName === noMarkTerminalFullName);
                 const tripAbbrText = `${showTypeAbbr ? `[${typeAbbr}]` : ''}${showDestAbbr ? destAbbr : ''}`;
+                const tripAbbrHtml = tripAbbrText
+                    ? `<span class="panel-grid-trip-abbr">${escapeHtml(tripAbbrText)}</span>`
+                    : '<span class="panel-grid-trip-abbr" aria-hidden="true">&nbsp;</span>';
 
                     const isTerminal = !!trip?.showTerminalLabel;
 
@@ -1849,7 +1859,7 @@ export function createPanel(options = {}) {
                     return `
                         <div class="panel-grid-cell panel-grid-cell-trip${pastClass}${lastClass}"${tripAttr}>
                             <span class="panel-grid-trip${pastClass}" style="color:${escapeHtml(color)}">
-                                ${tripAbbrText ? `<span class="panel-grid-trip-abbr">${escapeHtml(tripAbbrText)}</span>` : ''}
+                                ${tripAbbrHtml}
                                 <span class="panel-grid-trip-minute"><span class="panel-grid-trip-minute-text">${escapeHtml(minute)}</span>${isTerminal ? '<span class="panel-grid-trip-minute-flag" aria-label="终点站">终</span>' : ''}</span>
                             </span>
                         </div>
@@ -1898,13 +1908,8 @@ export function createPanel(options = {}) {
         for (const trip of list) {
             // 按 timetables 的 id 最后一段区分工作日/休息日
             const tripId = toText(trip?.id);
-            if (tripId) {
-                const parts = tripId.split('.').map((x) => x.trim()).filter(Boolean);
-                const day = parts.length ? parts[parts.length - 1] : '';
-                if (day === 'Weekday' || day === 'SaturdayHoliday') {
-                    if (day !== currentServiceDay) continue;
-                }
-            }
+            const tripServiceDay = parseTripServiceDayFromId(tripId);
+            if (tripServiceDay && tripServiceDay !== currentServiceDay) continue;
 
             const tt = Array.isArray(trip?.tt) ? trip.tt : [];
             if (!tt.length) continue;
