@@ -7,7 +7,6 @@
  * 3) Renders a vertical (transposed) stop-pattern diagram for the current line only.
  *    - Type order follows the rendered .panel-grid-hint-content order (when available).
  *    - Local/All-stop use gray; missing colors also use gray.
- *    - Ignores small services: per direction+type, total trips per day < 5.
  */
 
 import { computeLineStopDiagramData } from './panel-train-type.js';
@@ -200,7 +199,7 @@ const ensureStyleInstalled = () => {
             z-index:100;
         }
         .panel-train-type-cell.is-through-row {
-            height: 40px;
+            height: 50px;
             background-size: 10px 100%;
             overflow: visible;
             transform: translateY(var(--through-row-translate-y, 0px));
@@ -929,21 +928,31 @@ const setupPanelTrainTypeUi = () => {
 
         const rows = [];
 
-        const isBaseCellVisibleAt = (t, si) => {
-            const firstStop = !!t?._primaryMask?.[si];
-            const secondStop = !!t?._secondaryMask?.[si];
-            const anyStop = !!t?._anyMask?.[si];
-            const hideHead = Number.isFinite(t?._firstStopIndex) && t._firstStopIndex >= 0 && si < t._firstStopIndex;
-            const hideTail = Number.isFinite(t?._lastStopIndex) && t._lastStopIndex >= 0 && si > t._lastStopIndex;
-            if ((hideHead && (t?._hasPair ? (!firstStop && !secondStop) : !anyStop)) || hideTail) {
-                return false;
-            }
-            return true;
-        };
-
         const appendThroughGapRow = (si) => {
             const throughGap = throughGapMap.get(si);
             if (!throughGap) return;
+
+            const isTypePassingGap = (t, gapIndex) => {
+                const stationCount = orderedStationIds.length;
+                if (stationCount <= 0) return false;
+                const gap = Number(gapIndex);
+                if (!Number.isFinite(gap)) return false;
+                if (gap < 0 || gap >= stationCount - 1) return false;
+
+                const isVisibleAtStation = (stationIndex) => {
+                    const firstStop = !!t?._primaryMask?.[stationIndex];
+                    const secondStop = !!t?._secondaryMask?.[stationIndex];
+                    const anyStop = !!t?._anyMask?.[stationIndex];
+                    const hideHead = Number.isFinite(t?._firstStopIndex) && t._firstStopIndex >= 0 && stationIndex < t._firstStopIndex;
+                    const hideTail = Number.isFinite(t?._lastStopIndex) && t._lastStopIndex >= 0 && stationIndex > t._lastStopIndex;
+                    if ((hideHead && (t?._hasPair ? (!firstStop && !secondStop) : !anyStop)) || hideTail) {
+                        return false;
+                    }
+                    return true;
+                };
+
+                return isVisibleAtStation(gap) && isVisibleAtStation(gap + 1);
+            };
 
             const isBottomThrough = si === orderedStationIds.length - 1;
 
@@ -954,7 +963,7 @@ const setupPanelTrainTypeUi = () => {
 
             const THROUGH_BRANCH_HEIGHT_PX = 5;
             const THROUGH_BRANCH_HALF_HEIGHT_PX = THROUGH_BRANCH_HEIGHT_PX / 2;
-            const THROUGH_ROW_CENTER_Y_PX = 20;
+            const THROUGH_ROW_CENTER_Y_PX = 25;
             const THROUGH_ROW_SEAM_FUDGE_PX = 0.5;
             const resolveDirectionSign = () => {
                 if (si === -1) return 1;
@@ -977,8 +986,7 @@ const setupPanelTrainTypeUi = () => {
                 const t = types[ti];
                 const typeId = toText(t?.typeId) || 'Unknown';
                 const hasExplicitThroughForType = !!throughGap?.byTypeId?.has?.(typeId);
-                const anchorStationIndex = Math.max(0, Math.min(orderedStationIds.length - 1, Number.isFinite(si) ? si : 0));
-                if (!hasExplicitThroughForType && !isBaseCellVisibleAt(t, anchorStationIndex)) continue;
+                if (!hasExplicitThroughForType) continue;
                 activeTypeRows.push({ ti, t });
             }
 
@@ -1008,17 +1016,21 @@ const setupPanelTrainTypeUi = () => {
 
             for (let ti = 0; ti < types.length; ti += 1) {
                 const t = types[ti];
-                if (!activeIndexByTi.has(ti)) {
-                    rows.push('<div class="panel-train-type-through-empty"></div>');
-                    continue;
-                }
-
                 const colorInfo = resolveTrainTypeColorInfoForTheme(toText(t?.color) || '#888');
                 const color = colorInfo.color || '#888';
 
                 let cls = 'panel-train-type-cell is-through-row';
                 if (colorInfo.darkAdjusted) cls += ' is-dark-adjusted';
                 if (isBottomThrough) cls += ' is-through-bottom';
+
+                if (!activeIndexByTi.has(ti)) {
+                    if (isTypePassingGap(t, si)) {
+                        rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)}"></div>`);
+                    } else {
+                        rows.push('<div class="panel-train-type-through-empty"></div>');
+                    }
+                    continue;
+                }
 
                 const activeIdx = activeIndexByTi.get(ti);
                 const branchCenterY = THROUGH_ROW_CENTER_Y_PX
@@ -1134,7 +1146,7 @@ const setupPanelTrainTypeUi = () => {
         if (!window?.TokyoRailTimetableCache) return;
 
         const serviceDay = getCurrentServiceDayFromPanelDom();
-        const minTripsPerDay = 5;
+        const minTripsPerDay = 0;
         const cacheKey = `${lid}||${serviceDay}||minTrips=${minTripsPerDay}`;
 
         activeLineId = lid;
