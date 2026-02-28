@@ -197,13 +197,13 @@ const ensureStyleInstalled = () => {
             width: 12px;
             position: relative;
             background: linear-gradient(var(--tt-color, #888), var(--tt-color, #888)) center/10px calc(100% + 2px) no-repeat;
+            z-index:100;
         }
         .panel-train-type-cell.is-through-row {
             background-size: 10px 100%;
             overflow: visible;
-        }
-        .panel-train-type-cell.is-through-row.is-through-bottom {
-            background: transparent;
+            transform: translateY(var(--through-row-translate-y, 0px));
+            z-index: var(--through-z, 0);
         }
         .panel-train-type-through-empty {
             width: 12px;
@@ -250,7 +250,7 @@ const ensureStyleInstalled = () => {
             height: 5px;
             border-radius: 0;
             background: var(--branch-color, var(--tt-color, #888));
-            transform: translate(0, calc(-50% + var(--branch-offset, 0px)));
+            transform: translate(0, calc(-50% + var(--branch-offset, 0px) - var(--through-row-translate-y, 0px)));
             pointer-events: none;
             z-index: 999;
         }
@@ -330,7 +330,7 @@ const getCurrentServiceDayFromPanelDom = () => {
     return 'Weekday';
 };
 
-const TYPE_BASE_SEQUENCE = ['特急', '急行', '准急', '快速', '普通'];
+const TYPE_BASE_SEQUENCE = ['特急', '急行', '准急', '快速', '普通','各站停车'];
 
 const resolveTypeBaseIndex = (typeNameRaw) => {
     const typeName = toText(typeNameRaw);
@@ -947,7 +947,22 @@ const setupPanelTrainTypeUi = () => {
             const isBottomThrough = si === orderedStationIds.length - 1;
 
             const directionScore = Number(throughGapDirectionScore.get(si) || 0);
-            const shouldReverseBranchOrder = directionScore > 0;
+            const shouldReverseBranchOrder = si === -1
+                ? true
+                : (isBottomThrough ? false : (directionScore > 0));
+
+            // Translate the whole through-row consistently per gap (NOT per type).
+            // We keep branch positions visually unchanged by compensating in the branch transform.
+            const THROUGH_ROW_CELL_HEIGHT_PX = 30;
+            const THROUGH_BRANCH_HEIGHT_PX = 5;
+            const THROUGH_ROW_COMPRESS_SHIFT_PX = (THROUGH_ROW_CELL_HEIGHT_PX - THROUGH_BRANCH_HEIGHT_PX) / 2;
+            const resolveThroughRowTranslateY = () => {
+                if (si === -1) return THROUGH_ROW_COMPRESS_SHIFT_PX;
+                if (isBottomThrough) return -THROUGH_ROW_COMPRESS_SHIFT_PX;
+                if (directionScore === 0) return 0;
+                return directionScore > 0 ? THROUGH_ROW_COMPRESS_SHIFT_PX : -THROUGH_ROW_COMPRESS_SHIFT_PX;
+            };
+            const rowTranslateY = resolveThroughRowTranslateY();
 
             const activeTypeRows = [];
             for (let ti = 0; ti < types.length; ti += 1) {
@@ -983,9 +998,10 @@ const setupPanelTrainTypeUi = () => {
                 const offset = (activeIdx - (activeCount - 1) / 2) * 5;
                 const remainingCols = Math.max(0, types.length - ti - 1);
                 const throughWidth = remainingCols * (12 + 1) + 26;
-                const branches = `<span class="panel-train-type-through-branch" style="--branch-color:${escapeHtml(color)};--branch-offset:${offset.toFixed(2)}px;--through-line-width:${throughWidth.toFixed(2)}px;"></span>`;
+                const z = (types.length - ti) + 1;
+                const branches = `<span class="panel-train-type-through-branch" style="--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;"></span>`;
 
-                rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)}">${branches}</div>`);
+                rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)};--branch-offset:${offset.toFixed(2)}px;--through-row-translate-y:${rowTranslateY.toFixed(2)}px;--through-z:${z}">${branches}</div>`);
             }
 
             const allTargets = Array.from(throughGap.allTargetsByKey.values());

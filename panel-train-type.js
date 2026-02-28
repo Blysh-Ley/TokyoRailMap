@@ -692,7 +692,7 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
 const isLocalLikeTypeName = (name) => {
     const n = toText(name);
     if (!n) return false;
-    return n.includes('普通') || n.includes('各停') || n.toLowerCase() === 'local' || n.includes('各駅停車');
+    return n.includes('普通') || n.includes('各停') || n.toLowerCase() === 'local' || n.includes('各駅停車') || n.includes('各站停车');
 };
 
 /**

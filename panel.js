@@ -1001,7 +1001,7 @@ export function createPanel(options = {}) {
     let pendingGridDataDebugLog = false;
     const gridDataDebugByLineId = new Map();
 
-    const TYPE_BASE_SEQUENCE = ['特急', '急行', '准急', '快速', '普通'];
+    const TYPE_BASE_SEQUENCE = ['特急', '急行', '准急', '快速', '普通','各站停车'];
 
     const normalizeTimetableViewMode = (mode) => (mode === 'grid' ? 'grid' : 'list');
 

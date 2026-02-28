@@ -514,7 +514,8 @@
 		"ja": "快速",
 		"ko": "쾌속",
 		"zh-Hans": "快速",
-		"zh-Hant": "快速"
+		"zh-Hant": "快速",
+		"color": "#9C2400"
 	}
 }, {
 	"id": "Keisei.AccessExpress",
