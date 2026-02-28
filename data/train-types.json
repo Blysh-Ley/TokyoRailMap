@@ -465,7 +465,8 @@
 		"ja": "イブニング・ウィング",
 		"ko": "저녁 윙",
 		"zh-Hans": "晚上翼号",
-		"zh-Hant": "晚上翼號"
+		"zh-Hant": "晚上翼號",
+		"color":"#21B488"
 	}
 }, {
 	"id": "Keikyu.LimitedExpress",
@@ -493,7 +494,8 @@
 		"ja": "モーニング・ウィング",
 		"ko": "모닝 윙",
 		"zh-Hans": "早上翼号",
-		"zh-Hant": "早上翼號"
+		"zh-Hant": "早上翼號",
+		"color":"#21B488"
 	}
 }, {
 	"id": "Keikyu.RapidLimitedExpress",
