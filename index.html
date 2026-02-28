@@ -1424,15 +1424,48 @@
             align-items: center;
             padding: 8px 10px;
             border-bottom: 1px solid #e3e5e7;
+            gap: 6px;
         }
 
         .panel-trip-detail-title {
+            flex: 1 1 auto;
+            min-width: 0;
             font-size: 13px;
             font-weight: 700;
             color: #111;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .panel-capture-btn {
+            width: 18px;
+            height: 18px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex: 0 0 auto;
+        }
+
+        .panel-capture-btn:hover {
+            background: #f3f7ff;
+        }
+
+        .panel-capture-btn:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        .panel-capture-icon {
+            width: 12px;
+            height: 12px;
+            display: block;
+            pointer-events: none;
         }
 
         .panel-trip-detail-body {
@@ -2685,7 +2718,8 @@
         html[data-theme='dark'] .settings-time-picker-option:hover,
         html[data-theme='dark'] .settings-time-picker-btn:hover,
         html[data-theme='dark'] .panel-dir-filter-popover-clear:hover,
-        html[data-theme='dark'] .panel-dir-print-btn:hover {
+        html[data-theme='dark'] .panel-dir-print-btn:hover,
+        html[data-theme='dark'] .panel-capture-btn:hover {
             background: #2d323a;
         }
 
@@ -2731,6 +2765,7 @@
         html[data-theme='dark'] .panel-day-print-icon,
         html[data-theme='dark'] .panel-dir-filter-icon,
         html[data-theme='dark'] .panel-dir-print-icon,
+        html[data-theme='dark'] .panel-capture-icon,
         html[data-theme='dark'] .settings-time-reset-icon,
         html[data-theme='dark'] .settings-view-btn-icon {
             filter: invert(1) brightness(1.1);

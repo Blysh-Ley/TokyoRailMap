@@ -163,6 +163,166 @@ const parseTripServiceDayFromId = (tripId) => {
     return '';
 };
 
+let html2canvasPromise = null;
+const loadScript = (src) => new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[data-html2canvas-lib="${src}"]`);
+    if (existing) {
+        if (existing.dataset.loaded === '1') return resolve();
+        existing.addEventListener('load', () => resolve(), { once: true });
+        existing.addEventListener('error', () => reject(new Error(`加载失败: ${src}`)), { once: true });
+        return;
+    }
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.dataset.html2canvasLib = src;
+    s.addEventListener('load', () => {
+        s.dataset.loaded = '1';
+        resolve();
+    }, { once: true });
+    s.addEventListener('error', () => reject(new Error(`加载失败: ${src}`)), { once: true });
+    document.head.appendChild(s);
+});
+
+const ensureHtml2canvas = async () => {
+    if (html2canvasPromise) return html2canvasPromise;
+    html2canvasPromise = (async () => {
+        await loadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+        if (!window.html2canvas) throw new Error('html2canvas 未加载');
+        return window.html2canvas;
+    })();
+    return html2canvasPromise;
+};
+
+const nowIsoCompact = () => {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return [
+        d.getFullYear(),
+        pad(d.getMonth() + 1),
+        pad(d.getDate()),
+        '-',
+        pad(d.getHours()),
+        pad(d.getMinutes()),
+        pad(d.getSeconds())
+    ].join('');
+};
+
+const sanitizeFilePart = (s) => String(s || '')
+    .replace(/\s+/g, '_')
+    .replace(/[^A-Za-z0-9_.\-\u4e00-\u9fa5]/g, '_')
+    .slice(0, 120);
+
+const nextFrame = () => new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+
+const canvasToBlobPng = (canvas) => new Promise((resolve, reject) => {
+    try {
+        canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('toBlob 返回空结果'));
+        }, 'image/png');
+    } catch (err) {
+        reject(err);
+    }
+});
+
+const collectScrollableState = (rootEl) => {
+    const states = [];
+    if (!(rootEl instanceof HTMLElement)) return states;
+    const nodes = [rootEl, ...Array.from(rootEl.querySelectorAll('*'))];
+    for (const node of nodes) {
+        if (!(node instanceof HTMLElement)) continue;
+        const cs = window.getComputedStyle(node);
+        const overflowY = toText(cs.overflowY || cs.overflow).toLowerCase();
+        const overflowX = toText(cs.overflowX || cs.overflow).toLowerCase();
+        const canScrollY = overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay';
+        const canScrollX = overflowX === 'auto' || overflowX === 'scroll' || overflowX === 'overlay';
+        const needsExpand = (canScrollY && node.scrollHeight > node.clientHeight + 1)
+            || (canScrollX && node.scrollWidth > node.clientWidth + 1)
+            || node === rootEl;
+        if (!needsExpand) continue;
+
+        states.push({
+            node,
+            height: node.style.height,
+            maxHeight: node.style.maxHeight,
+            overflowY: node.style.overflowY,
+            overflowX: node.style.overflowX,
+            scrollTop: node.scrollTop,
+            scrollLeft: node.scrollLeft
+        });
+
+        if (node === rootEl) {
+            node.style.height = 'auto';
+            node.style.maxHeight = 'none';
+        }
+        if (canScrollY && node.scrollHeight > node.clientHeight + 1) {
+            node.style.overflowY = 'visible';
+            node.style.maxHeight = 'none';
+            node.style.height = `${node.scrollHeight}px`;
+        }
+        if (canScrollX && node.scrollWidth > node.clientWidth + 1) {
+            node.style.overflowX = 'visible';
+        }
+    }
+    return states;
+};
+
+const restoreScrollableState = (states) => {
+    for (const s of Array.isArray(states) ? states : []) {
+        const node = s?.node;
+        if (!(node instanceof HTMLElement)) continue;
+        node.style.height = s.height;
+        node.style.maxHeight = s.maxHeight;
+        node.style.overflowY = s.overflowY;
+        node.style.overflowX = s.overflowX;
+        node.scrollTop = Number(s.scrollTop) || 0;
+        node.scrollLeft = Number(s.scrollLeft) || 0;
+    }
+};
+
+const downloadBlob = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+const exportElementToPng = async (element, filenameBase, buttonEl) => {
+    if (!(element instanceof HTMLElement)) return;
+    const btn = buttonEl instanceof HTMLButtonElement ? buttonEl : null;
+    const prevDisabled = btn?.disabled;
+    try {
+        if (btn) btn.disabled = true;
+        const html2canvas = await ensureHtml2canvas();
+        const states = collectScrollableState(element);
+        await nextFrame();
+        await nextFrame();
+        let blob = null;
+        try {
+            const canvas = await html2canvas(element, {
+                useCORS: true,
+                backgroundColor: null,
+                logging: false,
+                scale: Math.max(2, Math.ceil(window.devicePixelRatio || 1))
+            });
+            blob = await canvasToBlobPng(canvas);
+        } finally {
+            restoreScrollableState(states);
+        }
+        const base = sanitizeFilePart(filenameBase) || 'panel';
+        downloadBlob(blob, `${base}-${nowIsoCompact()}.png`);
+    } catch (err) {
+        console.error('[panel] export png failed', err);
+    } finally {
+        if (btn) btn.disabled = !!prevDisabled;
+    }
+};
+
 const formatTimeWithPlus = (hhmm, isNextDaySegment) => {
     const s = toText(hhmm);
     if (!s) return '';
@@ -888,6 +1048,29 @@ export function createPanel(options = {}) {
     const tripDetailTitle = document.createElement('div');
     tripDetailTitle.className = 'panel-trip-detail-title';
     tripDetailHeader.appendChild(tripDetailTitle);
+
+    const tripDetailCaptureBtn = document.createElement('button');
+    tripDetailCaptureBtn.type = 'button';
+    tripDetailCaptureBtn.className = 'panel-capture-btn panel-trip-detail-capture-btn';
+    tripDetailCaptureBtn.setAttribute('aria-label', '截图');
+    tripDetailCaptureBtn.title = '截图';
+    tripDetailCaptureBtn.innerHTML = '<img class="panel-capture-icon panel-trip-detail-capture-icon" alt="" src="./icons/camera.svg" />';
+    tripDetailCaptureBtn.addEventListener('click', async (evt) => {
+        stopEvent(evt);
+        tripDetailPinned = true;
+        clearTripDetailHideTimer();
+        const baseName = `trip-detail-${toText(currentStationNameZh) || 'line'}`;
+        await exportElementToPng(tripDetailRoot, baseName, tripDetailCaptureBtn);
+    }, { passive: false });
+    const tripDetailCaptureIcon = tripDetailCaptureBtn.querySelector('.panel-trip-detail-capture-icon');
+    if (tripDetailCaptureIcon instanceof HTMLImageElement) {
+        tripDetailCaptureIcon.addEventListener('error', () => {
+            if (tripDetailCaptureIcon.dataset.fallbackTried === '1') return;
+            tripDetailCaptureIcon.dataset.fallbackTried = '1';
+            tripDetailCaptureIcon.src = '/icons/camera.svg';
+        });
+    }
+    tripDetailHeader.appendChild(tripDetailCaptureBtn);
 
     const tripDetailBody = document.createElement('div');
     tripDetailBody.className = 'panel-trip-detail-body';
