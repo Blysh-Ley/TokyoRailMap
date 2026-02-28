@@ -202,6 +202,9 @@ const ensureStyleInstalled = () => {
             background-size: 10px 100%;
             overflow: visible;
         }
+        .panel-train-type-cell.is-through-row.is-through-bottom {
+            background: transparent;
+        }
         .panel-train-type-through-empty {
             width: 12px;
             height: 18px;
@@ -242,7 +245,7 @@ const ensureStyleInstalled = () => {
         .panel-train-type-through-branch {
             position: absolute;
             top: 50%;
-            left: 50%;
+            left: 10%;
             width: var(--through-line-width, 14px);
             height: 5px;
             border-radius: 0;
@@ -764,11 +767,18 @@ const setupPanelTrainTypeUi = () => {
         const gridStyle = `grid-template-columns: repeat(${types.length}, 12px) minmax(120px, max-content); column-gap: 1px;`;
 
         const throughGapMap = new Map(); // afterStationIndex -> { byTypeId: Map<typeId, target[]>, allTargets: target[] }
-        for (const dirBlock of directions) {
+        const preferredGapByLineId = new Map(); // refLineId -> preferred gapIndex (primary dir first)
+        const primaryDirBlock = directions.find((d) => toText(d?.dir) === preferredPrimaryDir) || null;
+        const throughDirBlocks = primaryDirBlock
+            ? [primaryDirBlock, ...directions.filter((d) => d !== primaryDirBlock)]
+            : directions.slice();
+
+        for (const dirBlock of throughDirBlocks) {
             for (const row of Array.isArray(dirBlock?.throughRows) ? dirBlock.throughRows : []) {
                 const gapIndex = Number(row?.afterStationIndex);
                 if (!Number.isFinite(gapIndex)) continue;
-                if (gapIndex < 0 || gapIndex >= Math.max(0, orderedStationIds.length - 1)) continue;
+                // allow [-1, N-1] so we can show "before first" and "after last" throughs
+                if (gapIndex < -1 || gapIndex > Math.max(-1, orderedStationIds.length - 1)) continue;
 
                 if (!throughGapMap.has(gapIndex)) {
                     throughGapMap.set(gapIndex, {
@@ -780,19 +790,100 @@ const setupPanelTrainTypeUi = () => {
 
                 for (const byType of Array.isArray(row?.byType) ? row.byType : []) {
                     const typeId = toText(byType?.typeId) || 'Unknown';
-                    if (!gap.byTypeId.has(typeId)) gap.byTypeId.set(typeId, new Map());
-                    const targetMap = gap.byTypeId.get(typeId);
-
                     for (const target of Array.isArray(byType?.targets) ? byType.targets : []) {
                         const refLineId = toText(target?.refLineId);
-                        const refTypeId = toText(target?.refTypeId);
                         const kind = toText(target?.kind) || 'nt';
-                        const entryKey = `${kind}||${refLineId}||${refTypeId}`;
                         if (!refLineId) continue;
-                        if (!targetMap.has(entryKey)) targetMap.set(entryKey, target);
-                        if (!gap.allTargetsByKey.has(entryKey)) gap.allTargetsByKey.set(entryKey, target);
+                        const lineKey = refLineId;
+
+                        if (!preferredGapByLineId.has(lineKey)) {
+                            preferredGapByLineId.set(lineKey, gapIndex);
+                        }
+                        const preferredGap = Number(preferredGapByLineId.get(lineKey));
+                        if (!Number.isFinite(preferredGap)) continue;
+
+                        let targetGap = gap;
+                        if (preferredGap !== gapIndex) {
+                            if (!throughGapMap.has(preferredGap)) {
+                                throughGapMap.set(preferredGap, {
+                                    byTypeId: new Map(),
+                                    allTargetsByKey: new Map()
+                                });
+                            }
+                            targetGap = throughGapMap.get(preferredGap);
+                        }
+
+                        if (!targetGap.byTypeId.has(typeId)) targetGap.byTypeId.set(typeId, new Map());
+                        const targetTypeMap = targetGap.byTypeId.get(typeId);
+                        if (!targetTypeMap.has(lineKey)) {
+                            targetTypeMap.set(lineKey, target);
+                        } else {
+                            const prev = targetTypeMap.get(lineKey);
+                            const prevKind = toText(prev?.kind) || 'nt';
+                            if (prevKind !== 'nt' && kind === 'nt') {
+                                targetTypeMap.set(lineKey, target);
+                            }
+                        }
+
+                        if (!targetGap.allTargetsByKey.has(lineKey)) {
+                            targetGap.allTargetsByKey.set(lineKey, target);
+                        } else {
+                            const prev = targetGap.allTargetsByKey.get(lineKey);
+                            const prevKind = toText(prev?.kind) || 'nt';
+                            if (prevKind !== 'nt' && kind === 'nt') {
+                                targetGap.allTargetsByKey.set(lineKey, target);
+                            }
+                        }
                     }
                 }
+            }
+        }
+
+        for (const [gapIndex, gap] of Array.from(throughGapMap.entries())) {
+            for (const [typeId, targetMap] of Array.from(gap?.byTypeId?.entries?.() || [])) {
+                if (!(targetMap instanceof Map) || targetMap.size === 0) {
+                    gap.byTypeId.delete(typeId);
+                }
+            }
+            const hasAnyTypeTargets = (gap?.byTypeId instanceof Map) && gap.byTypeId.size > 0;
+            const hasAnyLabelTargets = (gap?.allTargetsByKey instanceof Map) && gap.allTargetsByKey.size > 0;
+            if (!hasAnyTypeTargets && !hasAnyLabelTargets) {
+                throughGapMap.delete(gapIndex);
+            }
+        }
+
+        const throughGapRangeByTypeId = new Map(); // typeId -> { minGap, maxGap }
+        for (const [gapIndex, gap] of throughGapMap.entries()) {
+            for (const typeId of gap?.byTypeId?.keys?.() || []) {
+                const tid = toText(typeId) || 'Unknown';
+                if (!throughGapRangeByTypeId.has(tid)) {
+                    throughGapRangeByTypeId.set(tid, { minGap: gapIndex, maxGap: gapIndex });
+                    continue;
+                }
+                const range = throughGapRangeByTypeId.get(tid);
+                range.minGap = Math.min(Number(range.minGap), Number(gapIndex));
+                range.maxGap = Math.max(Number(range.maxGap), Number(gapIndex));
+            }
+        }
+
+        for (const t of types) {
+            const typeId = toText(t?.typeId) || 'Unknown';
+            const range = throughGapRangeByTypeId.get(typeId);
+            if (!range) continue;
+
+            const minVisibleByThrough = Math.max(0, Math.min(orderedStationIds.length - 1, Number(range.minGap) + 1));
+            const maxVisibleByThrough = Math.max(0, Math.min(orderedStationIds.length - 1, Number(range.maxGap)));
+
+            if (Number.isFinite(t?._firstStopIndex) && t._firstStopIndex >= 0) {
+                t._firstStopIndex = Math.min(t._firstStopIndex, minVisibleByThrough);
+            } else {
+                t._firstStopIndex = minVisibleByThrough;
+            }
+
+            if (Number.isFinite(t?._lastStopIndex) && t._lastStopIndex >= 0) {
+                t._lastStopIndex = Math.max(t._lastStopIndex, maxVisibleByThrough);
+            } else {
+                t._lastStopIndex = maxVisibleByThrough;
             }
         }
 
@@ -837,6 +928,75 @@ const setupPanelTrainTypeUi = () => {
             return true;
         };
 
+        const appendThroughGapRow = (si) => {
+            const throughGap = throughGapMap.get(si);
+            if (!throughGap) return;
+
+            const isBottomThrough = si === orderedStationIds.length - 1;
+
+            const activeTypeRows = [];
+            for (let ti = 0; ti < types.length; ti += 1) {
+                const t = types[ti];
+                const typeId = toText(t?.typeId) || 'Unknown';
+                const hasExplicitThroughForType = !!throughGap?.byTypeId?.has?.(typeId);
+                const anchorStationIndex = Math.max(0, Math.min(orderedStationIds.length - 1, Number.isFinite(si) ? si : 0));
+                if (!hasExplicitThroughForType && !isBaseCellVisibleAt(t, anchorStationIndex)) continue;
+                activeTypeRows.push({ ti, t });
+            }
+
+            const activeIndexByTi = new Map(activeTypeRows.map((row, idx) => [row.ti, idx]));
+            const activeCount = activeTypeRows.length;
+
+            for (let ti = 0; ti < types.length; ti += 1) {
+                const t = types[ti];
+                if (!activeIndexByTi.has(ti)) {
+                    rows.push('<div class="panel-train-type-through-empty"></div>');
+                    continue;
+                }
+
+                const colorInfo = resolveTrainTypeColorInfoForTheme(toText(t?.color) || '#888');
+                const color = colorInfo.color || '#888';
+
+                let cls = 'panel-train-type-cell is-through-row';
+                if (colorInfo.darkAdjusted) cls += ' is-dark-adjusted';
+                if (isBottomThrough) cls += ' is-through-bottom';
+
+                const activeIdx = activeIndexByTi.get(ti);
+                const offset = (activeIdx - (activeCount - 1) / 2) * 5;
+                const remainingCols = Math.max(0, types.length - ti - 1);
+                const throughWidth = remainingCols * (12 + 1) + 26;
+                const branches = `<span class="panel-train-type-through-branch" style="--branch-color:${escapeHtml(color)};--branch-offset:${offset.toFixed(2)}px;--through-line-width:${throughWidth.toFixed(2)}px;"></span>`;
+
+                rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)}">${branches}</div>`);
+            }
+
+            const allTargets = Array.from(throughGap.allTargetsByKey.values());
+            const lineMap = new Map();
+            for (const target of allTargets) {
+                const lineId = toText(target?.refLineId);
+                if (!lineId || lineMap.has(lineId)) continue;
+                lineMap.set(lineId, target);
+            }
+            const throughItems = Array.from(lineMap.values()).map((target) => {
+                const company = toText(target?.refCompany);
+                const logoUrl = resolveCompanyLogoUrl(company);
+                const lineName = toText(target?.refLineName) || toText(target?.refLineId) || '';
+                const lineColor = resolveColorForTheme(target?.refLineColor || '#888', '#888');
+                const logoHtml = logoUrl
+                    ? `<img class="panel-train-type-through-logo" src="${escapeHtml(logoUrl)}" alt="${escapeHtml(company || lineName)}" loading="lazy" decoding="async">`
+                    : '';
+                return `<span class="panel-train-type-through-item">${logoHtml}<span class="panel-train-type-through-line" style="color:${escapeHtml(lineColor)}">${escapeHtml(lineName)}</span></span>`;
+            }).join('');
+
+            const labelHtml = throughItems
+                ? `<span class="panel-train-type-through-prefix">直通：</span><span class="panel-train-type-through-items">${throughItems}</span>`
+                : '';
+            rows.push(`<div class="panel-train-type-station is-through-label">${labelHtml}</div>`);
+        };
+
+        // before first station
+        appendThroughGapRow(-1);
+
         for (let si = 0; si < orderedStationIds.length; si += 1) {
             const stName = toText(orderedStationNames?.[si]) || toText(orderedStationIds[si]) || '';
             for (let ti = 0; ti < types.length; ti += 1) {
@@ -869,64 +1029,7 @@ const setupPanelTrainTypeUi = () => {
             const sid = toText(orderedStationIds?.[si]);
             rows.push(`<div class="panel-train-type-station" data-station-id="${escapeHtml(sid)}" title="${escapeHtml(stName)}">${escapeHtml(stName)}</div>`);
 
-            const throughGap = throughGapMap.get(si);
-            if (throughGap) {
-                const activeTypeRows = [];
-                for (let ti = 0; ti < types.length; ti += 1) {
-                    const t = types[ti];
-                    if (!isBaseCellVisibleAt(t, si)) continue;
-
-                    activeTypeRows.push({ ti, t });
-                }
-
-                const activeIndexByTi = new Map(activeTypeRows.map((row, idx) => [row.ti, idx]));
-                const activeCount = activeTypeRows.length;
-
-                for (let ti = 0; ti < types.length; ti += 1) {
-                    const t = types[ti];
-                    if (!activeIndexByTi.has(ti)) {
-                        rows.push('<div class="panel-train-type-through-empty"></div>');
-                        continue;
-                    }
-
-                    const colorInfo = resolveTrainTypeColorInfoForTheme(toText(t?.color) || '#888');
-                    const color = colorInfo.color || '#888';
-
-                    let cls = 'panel-train-type-cell is-through-row';
-                    if (colorInfo.darkAdjusted) cls += ' is-dark-adjusted';
-
-                    const activeIdx = activeIndexByTi.get(ti);
-                    const offset = (activeIdx - (activeCount - 1) / 2) * 5;
-                    const remainingCols = Math.max(0, types.length - ti - 1);
-                    const throughWidth = remainingCols * (12 + 1) + 26;
-                    const branches = `<span class="panel-train-type-through-branch" style="--branch-color:${escapeHtml(color)};--branch-offset:${offset.toFixed(2)}px;--through-line-width:${throughWidth.toFixed(2)}px;"></span>`;
-
-                    rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)}">${branches}</div>`);
-                }
-
-                const allTargets = Array.from(throughGap.allTargetsByKey.values());
-                const lineMap = new Map();
-                for (const target of allTargets) {
-                    const lineId = toText(target?.refLineId);
-                    if (!lineId || lineMap.has(lineId)) continue;
-                    lineMap.set(lineId, target);
-                }
-                const throughItems = Array.from(lineMap.values()).map((target) => {
-                    const company = toText(target?.refCompany);
-                    const logoUrl = resolveCompanyLogoUrl(company);
-                    const lineName = toText(target?.refLineName) || toText(target?.refLineId) || '';
-                    const lineColor = resolveColorForTheme(target?.refLineColor || '#888', '#888');
-                    const logoHtml = logoUrl
-                        ? `<img class="panel-train-type-through-logo" src="${escapeHtml(logoUrl)}" alt="${escapeHtml(company || lineName)}" loading="lazy" decoding="async">`
-                        : '';
-                    return `<span class="panel-train-type-through-item">${logoHtml}<span class="panel-train-type-through-line" style="color:${escapeHtml(lineColor)}">${escapeHtml(lineName)}</span></span>`;
-                }).join('');
-
-                const labelHtml = throughItems
-                    ? `<span class="panel-train-type-through-prefix">直通：</span><span class="panel-train-type-through-items">${throughItems}</span>`
-                    : '';
-                rows.push(`<div class="panel-train-type-station is-through-label">${labelHtml}</div>`);
-            }
+            appendThroughGapRow(si);
         }
 
         const metaLine = (() => {
@@ -953,7 +1056,8 @@ const setupPanelTrainTypeUi = () => {
         if (!window?.TokyoRailTimetableCache) return;
 
         const serviceDay = getCurrentServiceDayFromPanelDom();
-        const cacheKey = `${lid}||${serviceDay}`;
+        const minTripsPerDay = 5;
+        const cacheKey = `${lid}||${serviceDay}||minTrips=${minTripsPerDay}`;
 
         activeLineId = lid;
         activeLineName = toText(lineName) || lid;
@@ -967,7 +1071,7 @@ const setupPanelTrainTypeUi = () => {
 
         const payload = cache.has(cacheKey)
             ? cache.get(cacheKey)
-            : await computeLineStopDiagramData(lid, { serviceDay, minTripsPerDay: 0 });
+            : await computeLineStopDiagramData(lid, { serviceDay, minTripsPerDay });
         if (!payload) {
             gridHeader.innerHTML = '';
             body.innerHTML = '<div class="panel-train-type-meta">无法生成（该线路无时刻表数据或尚未加载）</div>';

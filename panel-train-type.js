@@ -364,23 +364,61 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
     const { loadTripByRefId } = createTripResolver();
     const throughByDir = new Map(); // dir -> Map<afterIndex, Map<typeId, Map<entryKey, entry>>>
 
+    const dirStepCounts = new Map(); // dir -> { pos, neg }
+
+    const inferTripStep = (indices) => {
+        const a = Number(indices?.[0]);
+        const b = Number(indices?.[1]);
+        if (Number.isFinite(a) && Number.isFinite(b) && a !== b) return b > a ? 1 : -1;
+        const first = Number(indices?.[0]);
+        const last = Number(indices?.[indices.length - 1]);
+        if (Number.isFinite(first) && Number.isFinite(last) && first !== last) return last > first ? 1 : -1;
+        return 1;
+    };
+
     const pushThroughEntry = (dirRaw, afterStationIndex, typeIdRaw, entryKey, entry) => {
         const dir = toText(dirRaw) || 'Unknown';
         const typeId = toText(typeIdRaw) || 'Unknown';
         const idx = Number(afterStationIndex);
-        if (!Number.isFinite(idx) || idx < 0 || idx >= Math.max(0, lineStationIds.length - 1)) return;
+        // allow [-1, N-1]
+        if (!Number.isFinite(idx) || idx < -1 || idx > Math.max(-1, lineStationIds.length - 1)) return;
         if (!throughByDir.has(dir)) throughByDir.set(dir, new Map());
         const byGap = throughByDir.get(dir);
         if (!byGap.has(idx)) byGap.set(idx, new Map());
         const byType = byGap.get(idx);
         if (!byType.has(typeId)) byType.set(typeId, new Map());
         const byEntry = byType.get(typeId);
-        if (!byEntry.has(entryKey)) byEntry.set(entryKey, entry);
+        if (!byEntry.has(entryKey)) {
+            byEntry.set(entryKey, { ...entry, _hits: 1 });
+            return;
+        }
+        const existing = byEntry.get(entryKey);
+        existing._hits = Number(existing?._hits || 0) + 1;
+    };
+
+    const shouldPreferGapIndex = (dirRaw, kindRaw, nextGapIndex, prevGapIndex, nextHits = 0, prevHits = 0) => {
+        const dir = toText(dirRaw) || 'Unknown';
+        const kind = toText(kindRaw);
+        const step = (dirStepCounts.get(dir)?.pos || 0) >= (dirStepCounts.get(dir)?.neg || 0) ? 1 : -1;
+
+        if (kind === 'pt') {
+            if (nextGapIndex !== prevGapIndex) return step > 0 ? nextGapIndex < prevGapIndex : nextGapIndex > prevGapIndex;
+            if (nextHits !== prevHits) return nextHits > prevHits;
+            return false;
+        }
+        if (kind === 'nt') {
+            if (nextGapIndex !== prevGapIndex) return step > 0 ? nextGapIndex > prevGapIndex : nextGapIndex < prevGapIndex;
+            if (nextHits !== prevHits) return nextHits > prevHits;
+            return false;
+        }
+        if (nextHits !== prevHits) return nextHits > prevHits;
+        return nextGapIndex > prevGapIndex;
     };
 
     const resolveThroughEntryFromRefTrip = (refTrip, kind) => {
         const refLineId = getTripLineId(refTrip);
         if (!refLineId) return null;
+        if (refLineId === lineId) return null;
         const refLineMeta = railwaysIndex.get(refLineId) || {};
         const refTypeId = toText(refTrip?.y) || 'Unknown';
         const refTypeName = typeName(refTypeId) || refTypeId;
@@ -411,12 +449,25 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
         const stopIndices = stopIdsOnLine.map((sid) => stationIndexById.get(sid)).filter((x) => Number.isFinite(x));
         if (stopIndices.length < 2) continue;
 
+        const step = inferTripStep(stopIndices);
+        if (!dirStepCounts.has(dir)) dirStepCounts.set(dir, { pos: 0, neg: 0 });
+        if (step > 0) dirStepCounts.get(dir).pos += 1;
+        else dirStepCounts.get(dir).neg += 1;
+
         const firstIndex = stopIndices[0];
         const secondIndex = stopIndices[1];
         const prevIndex = stopIndices[stopIndices.length - 2];
         const lastIndex = stopIndices[stopIndices.length - 1];
-        const ptGapIndex = Math.min(firstIndex, secondIndex);
-        const ntGapIndex = Math.min(prevIndex, lastIndex);
+        // Gap indices are "afterStationIndex" in [station0..stationN-1],
+        // plus -1 (before first station) and N-1 (after last station).
+        // For a trip traveling in the station list order (step>0):
+        // - pt is behind the first on-line stop => firstIndex - 1
+        // - nt is ahead of the last on-line stop => lastIndex
+        // For reverse travel (step<0):
+        // - pt is behind the first on-line stop (towards higher indices) => firstIndex
+        // - nt is ahead of the last on-line stop (towards lower indices) => lastIndex - 1
+        const ptGapIndex = step > 0 ? (firstIndex - 1) : firstIndex;
+        const ntGapIndex = step > 0 ? lastIndex : (lastIndex - 1);
 
         const ptRefs = normalizeArrayLike(trip?.pt).map((x) => toText(x)).filter(Boolean);
         for (const refId of ptRefs) {
@@ -424,7 +475,7 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
             if (!refTrip) continue;
             const entry = resolveThroughEntryFromRefTrip(refTrip, 'pt');
             if (!entry) continue;
-            const key = `${entry.kind}||${entry.refLineId}||${entry.refTypeId}`;
+            const key = `${entry.kind}||${entry.refLineId}`;
             pushThroughEntry(dir, ptGapIndex, typeId, key, entry);
         }
 
@@ -434,7 +485,7 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
             if (!refTrip) continue;
             const entry = resolveThroughEntryFromRefTrip(refTrip, 'nt');
             if (!entry) continue;
-            const key = `${entry.kind}||${entry.refLineId}||${entry.refTypeId}`;
+            const key = `${entry.kind}||${entry.refLineId}`;
             pushThroughEntry(dir, ntGapIndex, typeId, key, entry);
         }
 
@@ -442,7 +493,145 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
     }
 
     const throughTransitions = Array.from(throughByDir.entries()).map(([dir, byGap]) => {
-        const rows = Array.from(byGap.entries())
+        const bestByTypeAndLine = new Map(); // typeId -> Map<entryKey, { gapIndex, entry, hits }>
+
+        for (const [gapIndex, byType] of byGap.entries()) {
+            for (const [typeId, byEntry] of byType.entries()) {
+                if (!bestByTypeAndLine.has(typeId)) bestByTypeAndLine.set(typeId, new Map());
+                const bestByKey = bestByTypeAndLine.get(typeId);
+
+                for (const [entryKey, entry] of byEntry.entries()) {
+                    const hits = Number(entry?._hits || 0);
+                    if (!bestByKey.has(entryKey)) {
+                        bestByKey.set(entryKey, { gapIndex, entry, hits });
+                        continue;
+                    }
+
+                    const prev = bestByKey.get(entryKey);
+                    const preferNew = shouldPreferGapIndex(
+                        dir,
+                        entry?.kind,
+                        Number(gapIndex),
+                        Number(prev?.gapIndex),
+                        hits,
+                        Number(prev?.hits || 0)
+                    );
+                    if (preferNew) {
+                        bestByKey.set(entryKey, { gapIndex, entry, hits });
+                    }
+                }
+            }
+        }
+
+        const pickedByType = new Map(); // typeId -> Map<refLineId, { entryKey, gapIndex, entry, hits }>
+        for (const [typeId, bestByKey] of bestByTypeAndLine.entries()) {
+            // Further collapse by refLineId: if both pt+nt exist for the same line,
+            // prefer nt ("go to") to avoid duplicate branches for one junction.
+            const bestByRefLine = new Map(); // refLineId -> { entryKey, gapIndex, entry, hits }
+            for (const [entryKey, picked] of bestByKey.entries()) {
+                const refLineId = toText(picked?.entry?.refLineId) || '';
+                if (!refLineId) continue;
+
+                if (!bestByRefLine.has(refLineId)) {
+                    bestByRefLine.set(refLineId, { entryKey, ...picked });
+                    continue;
+                }
+
+                const prev = bestByRefLine.get(refLineId);
+                const prevKind = toText(prev?.entry?.kind);
+                const nextKind = toText(picked?.entry?.kind);
+
+                if (prevKind !== nextKind) {
+                    // nt beats pt
+                    if (nextKind === 'nt') bestByRefLine.set(refLineId, { entryKey, ...picked });
+                    continue;
+                }
+
+                const preferNew = shouldPreferGapIndex(
+                    dir,
+                    picked?.entry?.kind,
+                    Number(picked?.gapIndex),
+                    Number(prev?.gapIndex),
+                    Number(picked?.hits || 0),
+                    Number(prev?.hits || 0)
+                );
+                if (preferNew) bestByRefLine.set(refLineId, { entryKey, ...picked });
+            }
+
+            pickedByType.set(typeId, bestByRefLine);
+        }
+
+        // Global collapse: one refLineId should use one junction gap per direction
+        // (avoid multiple branch rows for the same target line).
+        const bestGapByRefLine = new Map(); // refLineId -> { gapIndex, kind, hits }
+        for (const bestByRefLine of pickedByType.values()) {
+            for (const [refLineId, picked] of bestByRefLine.entries()) {
+                const nextGapIndex = Number(picked?.gapIndex);
+                if (!Number.isFinite(nextGapIndex)) continue;
+                const nextHits = Number(picked?.hits || 0);
+                const nextKind = toText(picked?.entry?.kind);
+                if (!bestGapByRefLine.has(refLineId)) {
+                    bestGapByRefLine.set(refLineId, {
+                        gapIndex: nextGapIndex,
+                        kind: nextKind,
+                        hits: nextHits
+                    });
+                    continue;
+                }
+
+                const prev = bestGapByRefLine.get(refLineId);
+                const prevKind = toText(prev?.kind);
+                if (prevKind !== nextKind) {
+                    if (nextKind === 'nt') {
+                        bestGapByRefLine.set(refLineId, {
+                            gapIndex: nextGapIndex,
+                            kind: nextKind,
+                            hits: nextHits
+                        });
+                    }
+                    continue;
+                }
+
+                const preferNew = shouldPreferGapIndex(
+                    dir,
+                    nextKind,
+                    nextGapIndex,
+                    Number(prev?.gapIndex),
+                    nextHits,
+                    Number(prev?.hits || 0)
+                );
+                if (preferNew) {
+                    bestGapByRefLine.set(refLineId, {
+                        gapIndex: nextGapIndex,
+                        kind: toText(picked?.entry?.kind),
+                        hits: nextHits
+                    });
+                }
+            }
+        }
+
+        const collapsedByGap = new Map(); // afterStationIndex -> Map<typeId, Map<entryKey, entry>>
+        for (const [typeId, bestByRefLine] of pickedByType.entries()) {
+            for (const [refLineId, picked] of bestByRefLine.entries()) {
+                const forcedGap = Number(bestGapByRefLine.get(refLineId)?.gapIndex);
+                const gapIndex = Number.isFinite(forcedGap)
+                    ? forcedGap
+                    : Number(picked?.gapIndex);
+                if (!Number.isFinite(gapIndex)) continue;
+
+                if (!collapsedByGap.has(gapIndex)) collapsedByGap.set(gapIndex, new Map());
+                const byType = collapsedByGap.get(gapIndex);
+                if (!byType.has(typeId)) byType.set(typeId, new Map());
+                const byEntry = byType.get(typeId);
+
+                const cleanEntry = { ...(picked?.entry || {}) };
+                delete cleanEntry._hits;
+                const entryKey = `${toText(cleanEntry?.kind) || 'nt'}||${refLineId}`;
+                byEntry.set(entryKey, cleanEntry);
+            }
+        }
+
+        const rows = Array.from(collapsedByGap.entries())
             .sort((a, b) => a[0] - b[0])
             .map(([afterStationIndex, byType]) => {
                 const byTypeRows = Array.from(byType.entries()).map(([typeId, byEntry]) => ({
@@ -451,6 +640,7 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
                 }));
                 return { afterStationIndex, byType: byTypeRows };
             });
+
         return { dir, rows };
     });
 
@@ -578,10 +768,27 @@ export async function computeLineStopDiagramData(lineId, {
             });
         }
 
+        // Apply the same threshold to throughRows so low-frequency types don't
+        // create through rows/labels after they are filtered out.
+        const allowedTypeIds = new Set(typesOut.map((t) => toText(t?.typeId) || 'Unknown'));
+        const rawThroughRows = Array.isArray(throughRowsByDir.get(dir)) ? throughRowsByDir.get(dir) : [];
+        const filteredThroughRows = rawThroughRows
+            .map((row) => {
+                const afterStationIndex = Number(row?.afterStationIndex);
+                const byType = (Array.isArray(row?.byType) ? row.byType : [])
+                    .filter((bt) => allowedTypeIds.has(toText(bt?.typeId) || 'Unknown'))
+                    .map((bt) => ({
+                        typeId: toText(bt?.typeId) || 'Unknown',
+                        targets: Array.isArray(bt?.targets) ? bt.targets : []
+                    }));
+                return { afterStationIndex, byType };
+            })
+            .filter((row) => Array.isArray(row?.byType) && row.byType.length > 0);
+
         return {
             dir,
             types: typesOut,
-            throughRows: throughRowsByDir.get(dir) || []
+            throughRows: filteredThroughRows
         };
     });
 
