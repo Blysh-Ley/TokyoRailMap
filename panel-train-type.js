@@ -360,6 +360,100 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
         if (i > 0 && i % 1200 === 0) await yieldToMain();
     }
 
+    const stationIndexById = new Map(lineStationIds.map((sid, idx) => [sid, idx]));
+    const { loadTripByRefId } = createTripResolver();
+    const throughByDir = new Map(); // dir -> Map<afterIndex, Map<typeId, Map<entryKey, entry>>>
+
+    const pushThroughEntry = (dirRaw, afterStationIndex, typeIdRaw, entryKey, entry) => {
+        const dir = toText(dirRaw) || 'Unknown';
+        const typeId = toText(typeIdRaw) || 'Unknown';
+        const idx = Number(afterStationIndex);
+        if (!Number.isFinite(idx) || idx < 0 || idx >= Math.max(0, lineStationIds.length - 1)) return;
+        if (!throughByDir.has(dir)) throughByDir.set(dir, new Map());
+        const byGap = throughByDir.get(dir);
+        if (!byGap.has(idx)) byGap.set(idx, new Map());
+        const byType = byGap.get(idx);
+        if (!byType.has(typeId)) byType.set(typeId, new Map());
+        const byEntry = byType.get(typeId);
+        if (!byEntry.has(entryKey)) byEntry.set(entryKey, entry);
+    };
+
+    const resolveThroughEntryFromRefTrip = (refTrip, kind) => {
+        const refLineId = getTripLineId(refTrip);
+        if (!refLineId) return null;
+        const refLineMeta = railwaysIndex.get(refLineId) || {};
+        const refTypeId = toText(refTrip?.y) || 'Unknown';
+        const refTypeName = typeName(refTypeId) || refTypeId;
+        const refRawTypeColor = typeColor(refTypeId);
+        const refTypeColor = isLocalLikeTypeName(refTypeName) ? '#888' : (refRawTypeColor || '#888');
+        return {
+            kind: toText(kind) || 'nt',
+            refLineId,
+            refLineName: toText(refLineMeta?.name) || refLineId,
+            refLineColor: toText(refLineMeta?.color) || '#888',
+            refCompany: toText(refLineMeta?.company) || '',
+            refTypeId,
+            refTypeName,
+            refTypeColor
+        };
+    };
+
+    for (let i = 0; i < list.length; i += 1) {
+        const trip = list[i];
+        const day = getTripServiceDay(trip);
+        if (serviceDay && day && day !== serviceDay) continue;
+
+        const dir = toText(trip?.d) || 'Unknown';
+        const typeId = toText(trip?.y) || 'Unknown';
+
+        const stopIdsOnLine = buildStopStationIds(trip).filter((sid) => stationIndexById.has(sid));
+        if (stopIdsOnLine.length < 2) continue;
+        const stopIndices = stopIdsOnLine.map((sid) => stationIndexById.get(sid)).filter((x) => Number.isFinite(x));
+        if (stopIndices.length < 2) continue;
+
+        const firstIndex = stopIndices[0];
+        const secondIndex = stopIndices[1];
+        const prevIndex = stopIndices[stopIndices.length - 2];
+        const lastIndex = stopIndices[stopIndices.length - 1];
+        const ptGapIndex = Math.min(firstIndex, secondIndex);
+        const ntGapIndex = Math.min(prevIndex, lastIndex);
+
+        const ptRefs = normalizeArrayLike(trip?.pt).map((x) => toText(x)).filter(Boolean);
+        for (const refId of ptRefs) {
+            const refTrip = await loadTripByRefId(refId);
+            if (!refTrip) continue;
+            const entry = resolveThroughEntryFromRefTrip(refTrip, 'pt');
+            if (!entry) continue;
+            const key = `${entry.kind}||${entry.refLineId}||${entry.refTypeId}`;
+            pushThroughEntry(dir, ptGapIndex, typeId, key, entry);
+        }
+
+        const ntRefs = normalizeArrayLike(trip?.nt).map((x) => toText(x)).filter(Boolean);
+        for (const refId of ntRefs) {
+            const refTrip = await loadTripByRefId(refId);
+            if (!refTrip) continue;
+            const entry = resolveThroughEntryFromRefTrip(refTrip, 'nt');
+            if (!entry) continue;
+            const key = `${entry.kind}||${entry.refLineId}||${entry.refTypeId}`;
+            pushThroughEntry(dir, ntGapIndex, typeId, key, entry);
+        }
+
+        if (i > 0 && i % 1200 === 0) await yieldToMain();
+    }
+
+    const throughTransitions = Array.from(throughByDir.entries()).map(([dir, byGap]) => {
+        const rows = Array.from(byGap.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([afterStationIndex, byType]) => {
+                const byTypeRows = Array.from(byType.entries()).map(([typeId, byEntry]) => ({
+                    typeId,
+                    targets: Array.from(byEntry.values())
+                }));
+                return { afterStationIndex, byType: byTypeRows };
+            });
+        return { dir, rows };
+    });
+
     const basePatterns = [];
     for (const [dir, byType] of byDirType.entries()) {
         const trainTypes = [];
@@ -394,6 +488,7 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
             stationNames: lineStationIds.map(stationName)
         },
         basePatterns,
+        throughTransitions,
         trainTypeMeta: {
             // Expose raw mapping for UI (color may be overridden for Local)
             typeNameById: Object.fromEntries(Array.from(trainTypesIndex.entries())),
@@ -426,6 +521,12 @@ export async function computeLineStopDiagramData(lineId, {
     const threshold = Number.isFinite(minTrips) ? minTrips : 0;
 
     const typeColorById = raw?.trainTypeMeta?.typeColorById || {};
+    const throughRowsByDir = new Map();
+    for (const block of Array.isArray(raw?.throughTransitions) ? raw.throughTransitions : []) {
+        const dir = toText(block?.dir) || 'Unknown';
+        const rows = Array.isArray(block?.rows) ? block.rows : [];
+        throughRowsByDir.set(dir, rows);
+    }
 
     const directions = (Array.isArray(raw?.basePatterns) ? raw.basePatterns : []).map((dirBlock) => {
         const dir = toText(dirBlock?.dir) || 'Unknown';
@@ -477,7 +578,11 @@ export async function computeLineStopDiagramData(lineId, {
             });
         }
 
-        return { dir, types: typesOut };
+        return {
+            dir,
+            types: typesOut,
+            throughRows: throughRowsByDir.get(dir) || []
+        };
     });
 
     return {

@@ -198,6 +198,14 @@ const ensureStyleInstalled = () => {
             position: relative;
             background: linear-gradient(var(--tt-color, #888), var(--tt-color, #888)) center/10px calc(100% + 2px) no-repeat;
         }
+        .panel-train-type-cell.is-through-row {
+            background-size: 10px 100%;
+            overflow: visible;
+        }
+        .panel-train-type-through-empty {
+            width: 12px;
+            height: 18px;
+        }
         .panel-train-type-cell.is-hidden-tail {
             visibility: hidden;
         }
@@ -231,6 +239,54 @@ const ensureStyleInstalled = () => {
         .panel-train-type-cell.is-stop-down::after {
             clip-path: polygon(0% 0%, 100% 0%, 50% 100%);
         }
+        .panel-train-type-through-branch {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: var(--through-line-width, 14px);
+            height: 5px;
+            border-radius: 0;
+            background: var(--branch-color, var(--tt-color, #888));
+            transform: translate(0, calc(-50% + var(--branch-offset, 0px)));
+            pointer-events: none;
+            z-index: 999;
+        }
+        .panel-train-type-station.is-through-label {
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            min-height: 18px;
+            white-space: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-left:20px;
+        }
+        .panel-train-type-through-prefix {
+            color: var(--ui-text-subtle, #666);
+            flex: 0 0 auto;
+        }
+        .panel-train-type-through-items {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .panel-train-type-through-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            flex: 0 0 auto;
+        }
+        .panel-train-type-through-logo {
+            width: 18px;
+            height: 18px;
+            object-fit: contain;
+            border-radius: 2px;
+            background: transparent;
+            flex: 0 0 18px;
+        }
+        .panel-train-type-through-line {
+            font-weight: 600;
+        }
         .panel-train-type-divider {
             height: 1px;
             background: var(--ui-border);
@@ -249,6 +305,9 @@ const ensureStyleInstalled = () => {
         html[data-theme='dark'] .panel-train-type-title,
         html[data-theme='dark'] .panel-train-type-station {
             color: #f2f2f2;
+        }
+        html[data-theme='dark'] .panel-train-type-through-prefix {
+            color: #b9bec8;
         }
     
         html[data-theme='dark'] .panel-train-type-cell.is-stop::after,
@@ -428,6 +487,22 @@ const splitTypeHeadTextChunks = (value) => {
     }
 
     return chunks.filter((x) => toText(x?.text));
+};
+
+const resolveCompanyLogoUrl = (companyKey) => {
+    const key = toText(companyKey);
+    if (!key) return '';
+    const logoMap = window?.TokyoRailCompanyLogoMap || {};
+    const base = toText(window?.TokyoRailCompanyLogoBasePath) || './companyLogos/';
+    const file = toText(logoMap?.[key]?.img?.[0]);
+    if (!file) return '';
+    const normalizedBase = base.endsWith('/') ? base : `${base}/`;
+    return `${normalizedBase}${file}`;
+};
+
+const resolveColorForTheme = (color, fallback = '#888') => {
+    const info = resolveTrainTypeColorInfoForTheme(toText(color) || fallback);
+    return info.color || fallback;
 };
 
 const setupPanelTrainTypeUi = () => {
@@ -688,6 +763,39 @@ const setupPanelTrainTypeUi = () => {
         // grid: N type columns (left) + 1 station column (right)
         const gridStyle = `grid-template-columns: repeat(${types.length}, 12px) minmax(120px, max-content); column-gap: 1px;`;
 
+        const throughGapMap = new Map(); // afterStationIndex -> { byTypeId: Map<typeId, target[]>, allTargets: target[] }
+        for (const dirBlock of directions) {
+            for (const row of Array.isArray(dirBlock?.throughRows) ? dirBlock.throughRows : []) {
+                const gapIndex = Number(row?.afterStationIndex);
+                if (!Number.isFinite(gapIndex)) continue;
+                if (gapIndex < 0 || gapIndex >= Math.max(0, orderedStationIds.length - 1)) continue;
+
+                if (!throughGapMap.has(gapIndex)) {
+                    throughGapMap.set(gapIndex, {
+                        byTypeId: new Map(),
+                        allTargetsByKey: new Map()
+                    });
+                }
+                const gap = throughGapMap.get(gapIndex);
+
+                for (const byType of Array.isArray(row?.byType) ? row.byType : []) {
+                    const typeId = toText(byType?.typeId) || 'Unknown';
+                    if (!gap.byTypeId.has(typeId)) gap.byTypeId.set(typeId, new Map());
+                    const targetMap = gap.byTypeId.get(typeId);
+
+                    for (const target of Array.isArray(byType?.targets) ? byType.targets : []) {
+                        const refLineId = toText(target?.refLineId);
+                        const refTypeId = toText(target?.refTypeId);
+                        const kind = toText(target?.kind) || 'nt';
+                        const entryKey = `${kind}||${refLineId}||${refTypeId}`;
+                        if (!refLineId) continue;
+                        if (!targetMap.has(entryKey)) targetMap.set(entryKey, target);
+                        if (!gap.allTargetsByKey.has(entryKey)) gap.allTargetsByKey.set(entryKey, target);
+                    }
+                }
+            }
+        }
+
         const headCells = types.map((t) => {
             const colorInfo = resolveTrainTypeColorInfoForTheme(toText(t?.color) || '#888');
             const color = colorInfo.color || '#888';
@@ -716,6 +824,19 @@ const setupPanelTrainTypeUi = () => {
         }).concat(['<div class="panel-train-type-headspacer"></div>']).join('');
 
         const rows = [];
+
+        const isBaseCellVisibleAt = (t, si) => {
+            const firstStop = !!t?._primaryMask?.[si];
+            const secondStop = !!t?._secondaryMask?.[si];
+            const anyStop = !!t?._anyMask?.[si];
+            const hideHead = Number.isFinite(t?._firstStopIndex) && t._firstStopIndex >= 0 && si < t._firstStopIndex;
+            const hideTail = Number.isFinite(t?._lastStopIndex) && t._lastStopIndex >= 0 && si > t._lastStopIndex;
+            if ((hideHead && (t?._hasPair ? (!firstStop && !secondStop) : !anyStop)) || hideTail) {
+                return false;
+            }
+            return true;
+        };
+
         for (let si = 0; si < orderedStationIds.length; si += 1) {
             const stName = toText(orderedStationNames?.[si]) || toText(orderedStationIds[si]) || '';
             for (let ti = 0; ti < types.length; ti += 1) {
@@ -747,6 +868,65 @@ const setupPanelTrainTypeUi = () => {
             }
             const sid = toText(orderedStationIds?.[si]);
             rows.push(`<div class="panel-train-type-station" data-station-id="${escapeHtml(sid)}" title="${escapeHtml(stName)}">${escapeHtml(stName)}</div>`);
+
+            const throughGap = throughGapMap.get(si);
+            if (throughGap) {
+                const activeTypeRows = [];
+                for (let ti = 0; ti < types.length; ti += 1) {
+                    const t = types[ti];
+                    if (!isBaseCellVisibleAt(t, si)) continue;
+
+                    activeTypeRows.push({ ti, t });
+                }
+
+                const activeIndexByTi = new Map(activeTypeRows.map((row, idx) => [row.ti, idx]));
+                const activeCount = activeTypeRows.length;
+
+                for (let ti = 0; ti < types.length; ti += 1) {
+                    const t = types[ti];
+                    if (!activeIndexByTi.has(ti)) {
+                        rows.push('<div class="panel-train-type-through-empty"></div>');
+                        continue;
+                    }
+
+                    const colorInfo = resolveTrainTypeColorInfoForTheme(toText(t?.color) || '#888');
+                    const color = colorInfo.color || '#888';
+
+                    let cls = 'panel-train-type-cell is-through-row';
+                    if (colorInfo.darkAdjusted) cls += ' is-dark-adjusted';
+
+                    const activeIdx = activeIndexByTi.get(ti);
+                    const offset = (activeIdx - (activeCount - 1) / 2) * 5;
+                    const remainingCols = Math.max(0, types.length - ti - 1);
+                    const throughWidth = remainingCols * (12 + 1) + 26;
+                    const branches = `<span class="panel-train-type-through-branch" style="--branch-color:${escapeHtml(color)};--branch-offset:${offset.toFixed(2)}px;--through-line-width:${throughWidth.toFixed(2)}px;"></span>`;
+
+                    rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)}">${branches}</div>`);
+                }
+
+                const allTargets = Array.from(throughGap.allTargetsByKey.values());
+                const lineMap = new Map();
+                for (const target of allTargets) {
+                    const lineId = toText(target?.refLineId);
+                    if (!lineId || lineMap.has(lineId)) continue;
+                    lineMap.set(lineId, target);
+                }
+                const throughItems = Array.from(lineMap.values()).map((target) => {
+                    const company = toText(target?.refCompany);
+                    const logoUrl = resolveCompanyLogoUrl(company);
+                    const lineName = toText(target?.refLineName) || toText(target?.refLineId) || '';
+                    const lineColor = resolveColorForTheme(target?.refLineColor || '#888', '#888');
+                    const logoHtml = logoUrl
+                        ? `<img class="panel-train-type-through-logo" src="${escapeHtml(logoUrl)}" alt="${escapeHtml(company || lineName)}" loading="lazy" decoding="async">`
+                        : '';
+                    return `<span class="panel-train-type-through-item">${logoHtml}<span class="panel-train-type-through-line" style="color:${escapeHtml(lineColor)}">${escapeHtml(lineName)}</span></span>`;
+                }).join('');
+
+                const labelHtml = throughItems
+                    ? `<span class="panel-train-type-through-prefix">直通：</span><span class="panel-train-type-through-items">${throughItems}</span>`
+                    : '';
+                rows.push(`<div class="panel-train-type-station is-through-label">${labelHtml}</div>`);
+            }
         }
 
         const metaLine = (() => {
