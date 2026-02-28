@@ -18,6 +18,7 @@ if (!maplibregl) {
 const APPEARANCE_STORAGE_KEY = 'tokyorail.appearance.mode';
 const TIMETABLE_VIEW_STORAGE_KEY = 'tokyorail.timetable.view.mode';
 const HOVER_PREVIEW_STORAGE_KEY = 'tokyorail.hover.preview.enabled';
+const ADAPTIVE_VIEWPORT_STORAGE_KEY = 'tokyorail.adaptive.viewport.enabled';
 const MULTI_SELECT_EVENT = '__TokyoRailMultiSelectModeChanged';
 const MULTI_SELECT_LAYERS_EVENT = '__TokyoRailMultiSelectLayersUpdated';
 const MULTI_SELECT_LAYERS_COMMAND_EVENT = '__TokyoRailMultiSelectLayersCommand';
@@ -50,6 +51,17 @@ const readTimetableViewMode = () => {
 const readHoverPreviewEnabled = () => {
     try {
         const raw = String(window.localStorage.getItem(HOVER_PREVIEW_STORAGE_KEY) || '1').trim();
+        if (raw === '0' || raw === 'false') return false;
+        if (raw === '1' || raw === 'true') return true;
+    } catch {
+        // ignore
+    }
+    return true;
+};
+
+const readAdaptiveViewportEnabled = () => {
+    try {
+        const raw = String(window.localStorage.getItem(ADAPTIVE_VIEWPORT_STORAGE_KEY) || '1').trim();
         if (raw === '0' || raw === 'false') return false;
         if (raw === '1' || raw === 'true') return true;
     } catch {
@@ -239,6 +251,7 @@ map.on('load', async () => {
     let previewDirHeader = (_payload) => {};
     let clearDirHeaderPreview = () => {};
     let hoverPreviewEnabled = readHoverPreviewEnabled();
+    let adaptiveViewportEnabled = readAdaptiveViewportEnabled();
     let multiSelectModeEnabled = window.__TokyoRailMultiSelectEnabled === true;
     let hoverPreviewEnabledBeforeMultiSelect = hoverPreviewEnabled;
     let hoverPreviewToggleController = {
@@ -252,10 +265,14 @@ map.on('load', async () => {
     let panel = null;
 
     const isHoverPreviewEnabled = () => hoverPreviewEnabled !== false;
+    const isAdaptiveViewportEnabled = () => adaptiveViewportEnabled !== false;
     const applyHoverPreviewEnabled = (enabled) => {
         hoverPreviewEnabled = enabled !== false;
         panel?.setHoverPreviewEnabled?.(hoverPreviewEnabled);
         stationPopup?.setHoverPreviewEnabled?.(hoverPreviewEnabled);
+    };
+    const applyAdaptiveViewportEnabled = (enabled) => {
+        adaptiveViewportEnabled = enabled !== false;
     };
 
     const clearTripDetailStationIndicator = () => {
@@ -1820,6 +1837,7 @@ map.on('load', async () => {
     };
 
     const fitToPointAsBounds = (coordinates, { maxZoom } = {}) => {
+        if (!isAdaptiveViewportEnabled()) return;
         if (!Array.isArray(coordinates) || coordinates.length < 2) return;
         const lng = Number(coordinates[0]);
         const lat = Number(coordinates[1]);
@@ -2422,8 +2440,59 @@ map.on('load', async () => {
         };
     }
 
+    function mountAdaptiveViewportToggle(hostEl) {
+        const storageKey = ADAPTIVE_VIEWPORT_STORAGE_KEY;
+
+        const container = document.createElement('div');
+        container.className = 'settings-item settings-item-adaptive-viewport';
+
+        const text = document.createElement('span');
+        text.className = 'settings-item-title';
+        text.textContent = '自适应视野';
+
+        const seg = document.createElement('div');
+        seg.className = 'settings-item-control settings-seg';
+
+        const btnOn = document.createElement('button');
+        btnOn.type = 'button';
+        btnOn.textContent = '开启';
+
+        const btnOff = document.createElement('button');
+        btnOff.type = 'button';
+        btnOff.textContent = '关闭';
+
+        seg.appendChild(btnOn);
+        seg.appendChild(btnOff);
+        container.appendChild(text);
+        container.appendChild(seg);
+
+        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
+        if (host.firstChild) host.insertBefore(container, host.firstChild);
+        else host.appendChild(container);
+
+        const setEnabled = (enabled, { persistStorage = true } = {}) => {
+            const on = enabled !== false;
+            btnOn.classList.toggle('is-active', on);
+            btnOff.classList.toggle('is-active', !on);
+            applyAdaptiveViewportEnabled(on);
+            if (persistStorage) {
+                try {
+                    window.localStorage.setItem(storageKey, on ? '1' : '0');
+                } catch {
+                    // ignore
+                }
+            }
+        };
+
+        btnOn.addEventListener('click', () => setEnabled(true));
+        btnOff.addEventListener('click', () => setEnabled(false));
+
+        setEnabled(readAdaptiveViewportEnabled());
+    }
+
     mountAppearanceToggle(settingsMenuContentEl);
     mountTimetableViewToggle(settingsMenuContentEl);
+    mountAdaptiveViewportToggle(settingsMenuContentEl);
     mountHoverPreviewToggle(settingsMenuContentEl);
     mountStationLabelToggle(settingsMenuContentEl);
 
@@ -2892,6 +2961,7 @@ map.on('load', async () => {
         };
 
         const previewFitWithSidePanels = (bbox) => {
+            if (!isAdaptiveViewportEnabled()) return;
             if (!bbox) return;
             const bounds = [
                 [bbox.minLng, bbox.minLat],
@@ -3746,6 +3816,7 @@ map.on('load', async () => {
         }
 
         function scheduleFit(key, bbox, options = {}) {
+            if (!isAdaptiveViewportEnabled()) return;
             if (!bbox) return;
             const padding = getFitPadding(options?.paddingMode);
             const paddingSig = `l${padding.left}|r${padding.right}|t${padding.top}|b${padding.bottom}`;
