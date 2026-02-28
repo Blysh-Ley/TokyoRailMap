@@ -767,6 +767,7 @@ const setupPanelTrainTypeUi = () => {
         const gridStyle = `grid-template-columns: repeat(${types.length}, 12px) minmax(120px, max-content); column-gap: 1px;`;
 
         const throughGapMap = new Map(); // afterStationIndex -> { byTypeId: Map<typeId, target[]>, allTargets: target[] }
+        const throughGapDirectionScore = new Map(); // afterStationIndex -> score(pt:+1, nt:-1)
         const preferredGapByLineId = new Map(); // refLineId -> preferred gapIndex (primary dir first)
         const primaryDirBlock = directions.find((d) => toText(d?.dir) === preferredPrimaryDir) || null;
         const throughDirBlocks = primaryDirBlock
@@ -774,6 +775,10 @@ const setupPanelTrainTypeUi = () => {
             : directions.slice();
 
         for (const dirBlock of throughDirBlocks) {
+            const dirKey = toText(dirBlock?.dir) || '';
+            const dirOrientationSign = dirKey && preferredSecondaryDir && dirKey === preferredSecondaryDir
+                ? -1
+                : 1;
             for (const row of Array.isArray(dirBlock?.throughRows) ? dirBlock.throughRows : []) {
                 const gapIndex = Number(row?.afterStationIndex);
                 if (!Number.isFinite(gapIndex)) continue;
@@ -801,6 +806,13 @@ const setupPanelTrainTypeUi = () => {
                         }
                         const preferredGap = Number(preferredGapByLineId.get(lineKey));
                         if (!Number.isFinite(preferredGap)) continue;
+
+                        const rawKindScore = kind === 'pt' ? 1 : (kind === 'nt' ? -1 : 0);
+                        const kindScore = rawKindScore * dirOrientationSign;
+                        throughGapDirectionScore.set(
+                            preferredGap,
+                            Number(throughGapDirectionScore.get(preferredGap) || 0) + kindScore
+                        );
 
                         let targetGap = gap;
                         if (preferredGap !== gapIndex) {
@@ -934,6 +946,9 @@ const setupPanelTrainTypeUi = () => {
 
             const isBottomThrough = si === orderedStationIds.length - 1;
 
+            const directionScore = Number(throughGapDirectionScore.get(si) || 0);
+            const shouldReverseBranchOrder = directionScore > 0;
+
             const activeTypeRows = [];
             for (let ti = 0; ti < types.length; ti += 1) {
                 const t = types[ti];
@@ -944,7 +959,10 @@ const setupPanelTrainTypeUi = () => {
                 activeTypeRows.push({ ti, t });
             }
 
-            const activeIndexByTi = new Map(activeTypeRows.map((row, idx) => [row.ti, idx]));
+            const activeRowsForOrder = shouldReverseBranchOrder
+                ? activeTypeRows.slice()
+                : activeTypeRows.slice().reverse();
+            const activeIndexByTi = new Map(activeRowsForOrder.map((row, idx) => [row.ti, idx]));
             const activeCount = activeTypeRows.length;
 
             for (let ti = 0; ti < types.length; ti += 1) {
