@@ -386,6 +386,14 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                         background: var(--tt-color, #888) !important;
                         background-size: 12px 100% !important;
                     }
+                    html.${EXPORT_CLASS} .panel-train-type-through-branch {
+                        left: 0% !important;
+                    }
+                    html.${EXPORT_CLASS} .panel-train-type-through-branch.is-single-branch {
+                        left: var(--single-branch-left, 120%) !important;
+                        top: var(--single-branch-y-offsetY, 50%) !important;
+                    }
+
                 `;
                 document.head.appendChild(exportStyleEl);
             }
@@ -457,7 +465,7 @@ const ensureStyleInstalled = () => {
         .panel-train-type-title {
             flex: 1 1 auto;
             min-width: 0;
-            font-size: 13px;
+            font-size: 20px;
             font-weight: 700;
             color: #111;
             white-space: nowrap;
@@ -554,7 +562,7 @@ const ensureStyleInstalled = () => {
         .panel-train-type-grid-header {
             display: block;
             flex: 0 0 auto;
-            padding: 10px 12px 0px;
+            padding: 10px 12px 3px;
             background: var(--panel-train-type-bg);
             overflow: hidden;
         }
@@ -683,6 +691,12 @@ const ensureStyleInstalled = () => {
             transform: translate(0, calc(var(--branch-top-y, 15px) - var(--through-row-translate-y, 0px)));
             pointer-events: none;
             z-index: 999;
+        }
+        .panel-train-type-through-branch.is-single-branch {
+            left: var(--single-branch-left, 120%);
+            top: var(--single-branch-y-offsetY, 50%);
+            transform: translate(-50%, -50%) rotate(var(--single-branch-rotate, 0deg));
+            transform-origin: center center;
         }
         .panel-train-type-station.is-through-label {
             font-size: 12px;
@@ -1503,7 +1517,19 @@ const setupPanelTrainTypeUi = () => {
                         }
                         return `${y.toFixed(2)}px`;
                     })();
-                const branches = `<span class="panel-train-type-through-branch" style="--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;--branch-top-y:${branchTopY.toFixed(2)}px;"></span>`;
+                const hasSingleBranchInGap = activeCount === 1;
+                const isCurrentTypeBoundary = endpointOrder > 0;
+                const enableSingleBranchRotate = hasSingleBranchInGap && !isCurrentTypeBoundary;
+                const singleRotateDeg = shouldReverseBranchOrder ? -20 : 20;
+                const singleYoffset = shouldReverseBranchOrder ? '60%' : '40%';
+                const branchCls = enableSingleBranchRotate
+                    ? 'panel-train-type-through-branch is-single-branch'
+                    : 'panel-train-type-through-branch';
+                const branchStyle = enableSingleBranchRotate
+                    ? `--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;--single-branch-rotate:${singleRotateDeg}deg;--single-branch-left:${throughWidth.toFixed(2)/2 + 3}px;--single-branch-y-offsetY:${singleYoffset}`
+
+                    : `--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;--branch-top-y:${branchTopY.toFixed(2)}px;`;
+                const branches = `<span class="${branchCls}" style="${branchStyle}"></span>`;
 
                 rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)};--through-row-translate-y:${throughRowTranslateY};--through-z:${z}">${branches}</div>`);
             }
@@ -1600,6 +1626,7 @@ const setupPanelTrainTypeUi = () => {
         activeLineId = lid;
         activeLineName = toText(lineName) || lid;
         topTitle.textContent = activeLineName;
+        topTitle.style.color = '';
         lastAnchorRect = anchorRect || null;
         lastPlacement = toText(placement) === 'panel' ? 'panel' : 'anchor';
 
@@ -1621,6 +1648,9 @@ const setupPanelTrainTypeUi = () => {
 
         // If user already hovered to another line, drop this render.
         if (activeLineId !== lid) return;
+
+        const lineColor = resolveColorForTheme(toText(payload?.selectedLine?.lineColor) || '', '');
+        topTitle.style.color = lineColor || '';
 
         const rendered = renderDiagram(payload);
         gridHeader.innerHTML = rendered?.headHtml || '';

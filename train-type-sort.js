@@ -34,10 +34,12 @@ export const sortTypeNamesByBaseAndStopCount = (typeNames, countByType, stopCoun
 
         if (aInBase !== bInBase) return aInBase ? 1 : -1;
 
+        // Base types must follow fixed base order first
+        // then apply stop-count ordering only inside the same base group.
+        if (aInBase && bInBase && ia !== ib) return ia - ib;
+
         const stopCmp = compareStopCountAsc(a, b, stopCountByType);
         if (stopCmp) return stopCmp;
-
-        if (aInBase && bInBase && ia !== ib) return ia - ib;
 
         const dc = (Number(countByType?.get?.(b) || 0)) - (Number(countByType?.get?.(a) || 0));
         if (dc) return dc;

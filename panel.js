@@ -3063,7 +3063,16 @@ export function createPanel(options = {}) {
         const destName = getTripDestName(trip, stationsIndex) || '未知方向';
         const typeId = toText(trip?.y);
         const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
-        tripDetailTitle.textContent = `往 ${destName}  ${typeName}`.trim();
+        const typeColor = typeId ? resolveTrainTypeColorForTheme(trainTypeColorIndex.get(typeId)) : '';
+        const titlePrefix = `往 ${destName}`.trim();
+        const safeTypeName = toText(typeName);
+        const safeTypeColor = toText(typeColor);
+        if (safeTypeName) {
+            const typeStyle = safeTypeColor ? ` style="color:${escapeHtml(safeTypeColor)}"` : '';
+            tripDetailTitle.innerHTML = `${escapeHtml(titlePrefix)} <span class="panel-trip-detail-title-type"${typeStyle}>${escapeHtml(safeTypeName)}</span>`;
+        } else {
+            tripDetailTitle.textContent = titlePrefix;
+        }
         const currentLineDesc = buildLineDescriptor(getTripLineId(trip) || lineId);
 
         const renderStopRow = (s) => {
