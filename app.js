@@ -16,6 +16,7 @@ if (!maplibregl) {
     throw new Error('MapLibre GL JS 未加载：请检查 maplibre-gl.js 引入是否成功');
 }
 const APPEARANCE_STORAGE_KEY = 'tokyorail.appearance.mode';
+const BASEMAP_STORAGE_KEY = 'tokyorail.basemap.mode';
 const TIMETABLE_VIEW_STORAGE_KEY = 'tokyorail.timetable.view.mode';
 const HOVER_PREVIEW_STORAGE_KEY = 'tokyorail.hover.preview.enabled';
 const ADAPTIVE_VIEWPORT_STORAGE_KEY = 'tokyorail.adaptive.viewport.enabled';
@@ -37,6 +38,15 @@ const resolveThemeFromAppearance = (mode) => {
     if (mode === 'dark') return 'dark';
     if (mode === 'light') return 'light';
     return getSystemTheme();
+};
+const readBasemapMode = () => {
+    try {
+        const raw = String(window.localStorage.getItem(BASEMAP_STORAGE_KEY) || 'carto').trim().toLowerCase();
+        if (raw === 'carto' || raw === 'ost' || raw === 'transparent') return raw;
+    } catch {
+        // ignore
+    }
+    return 'carto';
 };
 const readTimetableViewMode = () => {
     try {
@@ -103,9 +113,10 @@ const loadRailwaysOrderIndex = (() => {
 
 const initialTheme = resolveThemeFromAppearance(readAppearanceMode());
 document.documentElement.setAttribute('data-theme', initialTheme);
-let mapMode = initialTheme;
+let mapTheme = initialTheme;
+let basemapMode = readBasemapMode();
 
-// 1) 初始化地图（底图使用 Carto raster tiles）
+// 1) 初始化地图（底图支持 Carto / OSM / 透明）
 const map = new maplibregl.Map({
     container: 'map',
     center: [139.767, 35.681],
@@ -134,6 +145,16 @@ const map = new maplibregl.Map({
                 ],
                 tileSize: 256,
                 attribution: '&copy; <a href="https://carto.com/">Carto</a>'
+            },
+            'ost-source': {
+                type: 'raster',
+                tiles: [
+                    'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                ],
+                tileSize: 256,
+                attribution: '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>'
             }
         },
         layers: [
@@ -141,7 +162,7 @@ const map = new maplibregl.Map({
                 id: 'carto-light-layer',
                 type: 'raster',
                 source: 'carto-light-source',
-                layout: { visibility: mapMode === 'light' ? 'visible' : 'none' },
+                layout: { visibility: (basemapMode === 'carto' && mapTheme === 'light') ? 'visible' : 'none' },
                 minzoom: 0,
                 paint: {}
             },
@@ -149,7 +170,15 @@ const map = new maplibregl.Map({
                 id: 'carto-dark-layer',
                 type: 'raster',
                 source: 'carto-dark-source',
-                layout: { visibility: mapMode === 'dark' ? 'visible' : 'none' },
+                layout: { visibility: (basemapMode === 'carto' && mapTheme === 'dark') ? 'visible' : 'none' },
+                minzoom: 0,
+                paint: {}
+            },
+            {
+                id: 'ost-layer',
+                type: 'raster',
+                source: 'ost-source',
+                layout: { visibility: basemapMode === 'ost' ? 'visible' : 'none' },
                 minzoom: 0,
                 paint: {}
             }
@@ -166,16 +195,28 @@ try {
 
 const applyBasemapTheme = (theme) => {
     const next = theme === 'dark' ? 'dark' : 'light';
-    mapMode = next;
-    const lightVisibility = next === 'light' ? 'visible' : 'none';
-    const darkVisibility = next === 'dark' ? 'visible' : 'none';
+    mapTheme = next;
+    const lightVisibility = (basemapMode === 'carto' && next === 'light') ? 'visible' : 'none';
+    const darkVisibility = (basemapMode === 'carto' && next === 'dark') ? 'visible' : 'none';
+    const ostVisibility = basemapMode === 'ost' ? 'visible' : 'none';
 
     try {
         if (map.getLayer('carto-light-layer')) map.setLayoutProperty('carto-light-layer', 'visibility', lightVisibility);
         if (map.getLayer('carto-dark-layer')) map.setLayoutProperty('carto-dark-layer', 'visibility', darkVisibility);
+        if (map.getLayer('ost-layer')) map.setLayoutProperty('ost-layer', 'visibility', ostVisibility);
+
+        const canvas = map.getCanvas?.();
+        if (canvas && canvas.style) {
+            canvas.style.background = basemapMode === 'transparent' ? 'transparent' : '';
+        }
     } catch {
         // ignore
     }
+};
+
+const setBasemapMode = (mode) => {
+    basemapMode = (mode === 'carto' || mode === 'ost' || mode === 'transparent') ? mode : 'carto';
+    applyBasemapTheme(mapTheme);
 };
 
 // 左下角比例尺
@@ -2298,6 +2339,68 @@ map.on('load', async () => {
         setThemeMode(initial);
     }
 
+    function mountBasemapToggle(hostEl) {
+        const storageKey = BASEMAP_STORAGE_KEY;
+
+        const container = document.createElement('div');
+        container.className = 'settings-item settings-item-basemap';
+
+        const text = document.createElement('span');
+        text.className = 'settings-item-title';
+        text.textContent = '地图底图';
+
+        const seg = document.createElement('div');
+        seg.className = 'settings-item-control settings-seg';
+
+        const btnCarto = document.createElement('button');
+        btnCarto.type = 'button';
+        btnCarto.textContent = 'Carto';
+
+        const btnOst = document.createElement('button');
+        btnOst.type = 'button';
+        btnOst.textContent = 'OST';
+
+        const btnTransparent = document.createElement('button');
+        btnTransparent.type = 'button';
+        btnTransparent.textContent = '透明';
+
+        seg.appendChild(btnCarto);
+        seg.appendChild(btnOst);
+        seg.appendChild(btnTransparent);
+        container.appendChild(text);
+        container.appendChild(seg);
+
+        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
+        if (host.firstChild) host.insertBefore(container, host.firstChild);
+        else host.appendChild(container);
+
+        const setMode = (mode) => {
+            const m = (mode === 'carto' || mode === 'ost' || mode === 'transparent') ? mode : 'carto';
+            btnCarto.classList.toggle('is-active', m === 'carto');
+            btnOst.classList.toggle('is-active', m === 'ost');
+            btnTransparent.classList.toggle('is-active', m === 'transparent');
+            setBasemapMode(m);
+            try {
+                window.localStorage.setItem(storageKey, m);
+            } catch {
+                // ignore
+            }
+        };
+
+        btnCarto.addEventListener('click', () => setMode('carto'));
+        btnOst.addEventListener('click', () => setMode('ost'));
+        btnTransparent.addEventListener('click', () => setMode('transparent'));
+
+        let initial = 'carto';
+        try {
+            const saved = String(window.localStorage.getItem(storageKey) || 'carto').trim().toLowerCase();
+            if (saved === 'carto' || saved === 'ost' || saved === 'transparent') initial = saved;
+        } catch {
+            // ignore
+        }
+        setMode(initial);
+    }
+
     function mountTimetableViewToggle(hostEl) {
         const storageKey = TIMETABLE_VIEW_STORAGE_KEY;
 
@@ -2491,6 +2594,7 @@ map.on('load', async () => {
     }
 
     mountAppearanceToggle(settingsMenuContentEl);
+    mountBasemapToggle(settingsMenuContentEl);
     mountTimetableViewToggle(settingsMenuContentEl);
     mountAdaptiveViewportToggle(settingsMenuContentEl);
     mountHoverPreviewToggle(settingsMenuContentEl);
