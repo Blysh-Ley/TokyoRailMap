@@ -129,6 +129,7 @@ export function initFullscreen(map, touchTapGuard) {
 
         restoreAllUI();
 
+        /*
         // 退出浏览器全屏（如果仍在全屏状态）
         if (document.fullscreenElement || document.webkitFullscreenElement) {
             const exitFn = document.exitFullscreen
@@ -137,7 +138,7 @@ export function initFullscreen(map, touchTapGuard) {
                 || document.msExitFullscreen;
             if (exitFn) exitFn.call(document).catch(() => {});
         }
-
+        */
         // 触发地图 resize 以适应窗口变化
         setTimeout(() => map.resize(), 100);
     }
