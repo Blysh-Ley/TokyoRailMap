@@ -308,7 +308,7 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
         try {
             const canvas = await html2canvas(element, {
                 useCORS: true,
-                backgroundColor: null,
+                backgroundColor: '#fff',
                 logging: false,
                 scale: Math.max(2, Math.ceil(window.devicePixelRatio || 1))
             });

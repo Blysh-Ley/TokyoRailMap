@@ -173,6 +173,161 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
     if (!(element instanceof HTMLElement)) return;
     const btn = buttonEl instanceof HTMLButtonElement ? buttonEl : null;
     const prevDisabled = btn?.disabled;
+    const EXPORT_CLASS = 'is-panel-train-type-exporting';
+    let exportStyleEl = null;
+
+    const typeheadPatches = [];
+    let exportMeasureSpan = null;
+    const applyTypeheadExportPatch = (root) => {
+        const nodes = Array.from(root.querySelectorAll('.panel-train-type-typehead'));
+
+        const ensureMeasureSpan = (doc) => {
+            if (exportMeasureSpan && exportMeasureSpan.isConnected) return exportMeasureSpan;
+            exportMeasureSpan = doc.createElement('span');
+            exportMeasureSpan.setAttribute('data-export-measure-span', '1');
+            exportMeasureSpan.style.position = 'absolute';
+            exportMeasureSpan.style.left = '-99999px';
+            exportMeasureSpan.style.top = '-99999px';
+            exportMeasureSpan.style.visibility = 'hidden';
+            exportMeasureSpan.style.whiteSpace = 'nowrap';
+            exportMeasureSpan.style.pointerEvents = 'none';
+            (doc.body || doc.documentElement).appendChild(exportMeasureSpan);
+            return exportMeasureSpan;
+        };
+
+        const measureTextWidthPx = (text, refEl) => {
+            const doc = refEl?.ownerDocument || document;
+            const span = ensureMeasureSpan(doc);
+            const cs = refEl instanceof Element ? window.getComputedStyle(refEl) : null;
+            if (cs) {
+                span.style.fontFamily = cs.fontFamily;
+                span.style.fontSize = cs.fontSize;
+                span.style.fontWeight = cs.fontWeight;
+                span.style.fontStyle = cs.fontStyle;
+                span.style.letterSpacing = cs.letterSpacing;
+            }
+            span.textContent = toText(text);
+            const w = span.getBoundingClientRect?.().width;
+            const width = Number(w);
+            return Number.isFinite(width) ? width : 0;
+        };
+
+        const makeRotatedEnBlock = (text, refEl) => {
+            const t = toText(text);
+            const block = document.createElement('div');
+            block.style.position = 'relative';
+            block.style.width = '12px';
+            block.style.display = 'block';
+            block.style.flex = '0 0 auto';
+
+            // transform rotation doesn't affect layout size; reserve height using measured width.
+            const measuredW = measureTextWidthPx(t, refEl);
+            const reserveH = Math.max(14, Math.ceil(measuredW) + 2);
+            block.style.height = `${reserveH}px`;
+
+            const span = document.createElement('span');
+            span.textContent = t;
+            span.style.position = 'absolute';
+            span.style.left = '50%';
+            span.style.top = '50%';
+            span.style.whiteSpace = 'nowrap';
+            // Match sideways-rl: rotate clockwise.
+            span.style.transform = 'translate(-50%, -50%) rotate(90deg)';
+            span.style.transformOrigin = 'center';
+            block.appendChild(span);
+            return block;
+        };
+
+        const setExportTypeheadContent = (el) => {
+            const text = toText(el.textContent);
+            if (!text) return;
+
+            const orig = {
+                el,
+                html: el.innerHTML,
+                style: {
+                    writingMode: el.style.writingMode,
+                    textOrientation: el.style.textOrientation,
+                    transform: el.style.transform,
+                    transformOrigin: el.style.transformOrigin,
+                    justifyContent: el.style.justifyContent,
+                    alignItems: el.style.alignItems,
+                    paddingLeft: el.style.paddingLeft,
+                    height: el.style.height,
+                    lineHeight: el.style.lineHeight,
+                    display: el.style.display,
+                    flexDirection: el.style.flexDirection
+                }
+            };
+
+            // Force a stable layout for html2canvas (writing-mode is flaky there).
+            el.innerHTML = '';
+            el.classList.add('is-export-typehead');
+            el.style.writingMode = 'horizontal-tb';
+            el.style.textOrientation = 'mixed';
+            el.style.display = 'flex';
+            el.style.flexDirection = 'column';
+            el.style.alignItems = 'center';
+            el.style.justifyContent = 'flex-end';
+            el.style.paddingLeft = '0';
+            el.style.lineHeight = '1';
+
+            const chunks = splitTypeHeadTextChunks(text);
+            for (const c of Array.isArray(chunks) ? chunks : []) {
+                const kind = toText(c?.kind);
+                const t = toText(c?.text);
+                if (!t) continue;
+                if (kind === 'en') {
+                    el.appendChild(makeRotatedEnBlock(t, el));
+                    continue;
+                }
+                // Upright CJK / other: one glyph per line.
+                for (const ch of Array.from(t)) {
+                    const span = document.createElement('span');
+                    span.textContent = ch === ' ' ? '\u00A0' : ch;
+                    span.style.display = 'block';
+                    span.style.lineHeight = '1';
+                    el.appendChild(span);
+                }
+            }
+
+            typeheadPatches.push(orig);
+        };
+
+        for (const el of nodes) {
+            if (!(el instanceof HTMLElement)) continue;
+            // Skip already-patched nodes.
+            if (el.classList.contains('is-export-typehead')) continue;
+            setExportTypeheadContent(el);
+        }
+    };
+
+    const restoreTypeheadExportPatch = () => {
+        for (let i = typeheadPatches.length - 1; i >= 0; i -= 1) {
+            const p = typeheadPatches[i];
+            const el = p?.el;
+            if (!(el instanceof HTMLElement)) continue;
+            el.classList.remove('is-export-typehead');
+            el.innerHTML = p.html;
+            el.style.writingMode = p.style.writingMode;
+            el.style.textOrientation = p.style.textOrientation;
+            el.style.transform = p.style.transform;
+            el.style.transformOrigin = p.style.transformOrigin;
+            el.style.justifyContent = p.style.justifyContent;
+            el.style.alignItems = p.style.alignItems;
+            el.style.paddingLeft = p.style.paddingLeft;
+            el.style.height = p.style.height;
+            el.style.lineHeight = p.style.lineHeight;
+            el.style.display = p.style.display;
+            el.style.flexDirection = p.style.flexDirection;
+        }
+        typeheadPatches.length = 0;
+
+        if (exportMeasureSpan) {
+            try { exportMeasureSpan.remove(); } catch { /* ignore */ }
+            exportMeasureSpan = null;
+        }
+    };
     try {
         if (btn) btn.disabled = true;
         const html2canvas = await ensureHtml2canvas();
@@ -181,14 +336,78 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
         await nextFrame();
         let blob = null;
         try {
+            document.documentElement.classList.add(EXPORT_CLASS);
+            if (!document.querySelector(`style[data-panel-train-type-export-style="1"]`)) {
+                exportStyleEl = document.createElement('style');
+                exportStyleEl.setAttribute('data-panel-train-type-export-style', '1');
+                exportStyleEl.textContent = `
+                    html.${EXPORT_CLASS} .panel-train-type-popover,
+                    html.${EXPORT_CLASS} .panel-train-type-grid-header,
+                    html.${EXPORT_CLASS} .panel-train-type-section,
+                    html.${EXPORT_CLASS} .panel-train-type-body {
+                        background: #fff !important;
+                        --panel-train-type-bg: #fff !important;
+                    }
+                    html.${EXPORT_CLASS} .panel-capture-btn {
+                        display: none !important;
+                    }
+                    html.${EXPORT_CLASS} .panel-train-type-popover {
+                        border-radius: 0 !important;
+                        border: none !important;
+                        box-shadow: none !important;
+                        overflow: visible !important;
+                    }
+                    html.${EXPORT_CLASS} .panel-train-type-grid-header {
+                        overflow: visible !important;
+                        padding-left: 18px !important;
+                        padding-right: 18px !important;
+                        padding-bottom: 5px !important;
+                    }
+                    html.${EXPORT_CLASS} .panel-train-type-grid-header .panel-train-type-grid {
+                        align-items: end !important;
+                    }
+                    html.${EXPORT_CLASS} .panel-train-type-typehead {
+                        padding-left: 0 !important;
+                        height: auto !important;
+                        min-height: 35px !important;
+                        align-items: center !important;
+                        justify-content: flex-end !important;
+                        box-sizing: border-box !important;
+                    }
+                    html.${EXPORT_CLASS} .panel-train-type-typehead.is-export-typehead {
+                        writing-mode: horizontal-tb !important;
+                        text-orientation: mixed !important;
+                    }
+                    html.${EXPORT_CLASS} .panel-train-type-cell {
+                        background: var(--tt-color, #888) !important;
+                        background-size: 12px 100% !important;
+                    }
+                    html.${EXPORT_CLASS} .panel-train-type-cell.is-through-row {
+                        background: var(--tt-color, #888) !important;
+                        background-size: 12px 100% !important;
+                    }
+                `;
+                document.head.appendChild(exportStyleEl);
+            }
+
+            applyTypeheadExportPatch(element);
+
+            await nextFrame();
+
             const canvas = await html2canvas(element, {
                 useCORS: true,
-                backgroundColor: null,
+                backgroundColor: '#fff',
                 logging: false,
                 scale: Math.max(2, Math.ceil(window.devicePixelRatio || 1))
             });
             blob = await canvasToBlobPng(canvas);
         } finally {
+            restoreTypeheadExportPatch();
+            document.documentElement.classList.remove(EXPORT_CLASS);
+            if (exportStyleEl) {
+                try { exportStyleEl.remove(); } catch { /* ignore */ }
+                exportStyleEl = null;
+            }
             restoreScrollableState(states);
         }
         const base = sanitizeFilePart(filenameBase) || 'panel-train-type';
@@ -310,6 +529,7 @@ const ensureStyleInstalled = () => {
             padding-right:18px;
             padding-bottom: 12px;
             box-sizing: border-box;
+            background: var(--panel-train-type-bg);
         }
         .panel-train-type.is-panel-placement .panel-train-type-section {
             min-height: 100%;
@@ -436,17 +656,21 @@ const ensureStyleInstalled = () => {
             position: absolute;
             left: 50%;
             top: 50%;
-            width: 10px;
-            height: 8px;
             transform: translate(-50%, -50%);
-            background: #fff;
+            width: 0;
+            height: 0;
+            background: transparent;
             box-sizing: border-box;
         }
         .panel-train-type-cell.is-stop-up::after {
-            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-bottom: 8px solid #fff;
         }
         .panel-train-type-cell.is-stop-down::after {
-            clip-path: polygon(0% 0%, 100% 0%, 50% 100%);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 8px solid #fff;
         }
         .panel-train-type-through-branch {
             position: absolute;
@@ -529,6 +753,15 @@ const ensureStyleInstalled = () => {
         html[data-theme='dark'] .panel-train-type-cell.is-stop-up::after,
         html[data-theme='dark'] .panel-train-type-cell.is-stop-down::after {
             background: #111;
+        }
+
+        html[data-theme='dark'] .panel-train-type-cell.is-stop-up::after {
+            background: transparent;
+            border-bottom-color: #111;
+        }
+        html[data-theme='dark'] .panel-train-type-cell.is-stop-down::after {
+            background: transparent;
+            border-top-color: #111;
         }
     `;
     document.head.appendChild(style);
