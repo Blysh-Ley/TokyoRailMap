@@ -3,6 +3,8 @@
  * 约束：不引入新配色/主题；panel 样式使用 panel-* 前缀与 search/popup/menu 隔离。
  */
 
+import { sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
+
 const toText = (v) => String(v ?? '').trim();
 
 const panelIsDarkThemeActive = () => {
@@ -1197,8 +1199,6 @@ export function createPanel(options = {}) {
     let pendingGridDataDebugLog = false;
     const gridDataDebugByLineId = new Map();
 
-    const TYPE_BASE_SEQUENCE = ['特急', '急行', '准急', '快速', '普通','各站停车'];
-
     const normalizeTimetableViewMode = (mode) => (mode === 'grid' ? 'grid' : 'list');
 
     const hasLatin = (text) => /[A-Za-z]/.test(toText(text));
@@ -1240,50 +1240,6 @@ export function createPanel(options = {}) {
 
         const fallbackChars = extractDisplayChars(typeName);
         return fallbackChars.length ? fallbackChars[0].toUpperCase?.() || fallbackChars[0] : typeName;
-    };
-
-    const resolveTypeBaseIndex = (typeNameRaw) => {
-        const typeName = toText(typeNameRaw);
-        let best = Number.POSITIVE_INFINITY;
-        for (let i = 0; i < TYPE_BASE_SEQUENCE.length; i += 1) {
-            const kw = TYPE_BASE_SEQUENCE[i];
-            if (!typeName.includes(kw)) continue;
-            if (i < best) best = i;
-        }
-        return Number.isFinite(best) ? best : -1;
-    };
-
-    const sortTypeNamesForGridHint = (typeNames, countByType) => {
-        const names = Array.from(new Set((Array.isArray(typeNames) ? typeNames : []).map((x) => toText(x)).filter(Boolean)));
-        return names.sort((a, b) => {
-            const ia = resolveTypeBaseIndex(a);
-            const ib = resolveTypeBaseIndex(b);
-            const aInBase = ia >= 0;
-            const bInBase = ib >= 0;
-
-            if (aInBase !== bInBase) return aInBase ? 1 : -1;
-
-            if (!aInBase && !bInBase) {
-                const dl = b.length - a.length;
-                if (dl) return dl;
-                const dc = (Number(countByType?.get?.(b) || 0)) - (Number(countByType?.get?.(a) || 0));
-                if (dc) return dc;
-                return String(a).localeCompare(String(b));
-            }
-
-            if (ia !== ib) return ia - ib;
-
-            const baseKw = TYPE_BASE_SEQUENCE[ia] || '';
-            const aExact = baseKw && a === baseKw;
-            const bExact = baseKw && b === baseKw;
-            if (aExact !== bExact) return aExact ? 1 : -1;
-
-            const dl = b.length - a.length;
-            if (dl) return dl;
-            const dc = (Number(countByType?.get?.(b) || 0)) - (Number(countByType?.get?.(a) || 0));
-            if (dc) return dc;
-            return String(a).localeCompare(String(b));
-        });
     };
 
     const buildUniqueLeadAbbrMap = (orderedNames) => {
@@ -1342,6 +1298,7 @@ export function createPanel(options = {}) {
 
         const typeCount = new Map();
         const typeColorByName = new Map();
+        const typeStopCountByName = new Map();
         const terminalCount = new Map();
 
         for (const row of rows) {
@@ -1352,13 +1309,21 @@ export function createPanel(options = {}) {
                     const c = resolveTrainTypeColorForTheme(row?.typeColor);
                     if (c) typeColorByName.set(typeName, c);
                 }
+                const stopCount = Number(row?.stopCount);
+                if (Number.isFinite(stopCount) && stopCount > 0) {
+                    const prev = Number(typeStopCountByName.get(typeName));
+                    typeStopCountByName.set(
+                        typeName,
+                        Number.isFinite(prev) ? Math.min(prev, stopCount) : stopCount
+                    );
+                }
             }
 
             const terminalName = toText(row?.terminalName || row?.destName);
             if (terminalName) terminalCount.set(terminalName, (terminalCount.get(terminalName) || 0) + 1);
         }
 
-        const typeNames = sortTypeNamesForGridHint(Array.from(typeCount.keys()), typeCount);
+        const typeNames = sortTypeNamesByBaseAndStopCount(Array.from(typeCount.keys()), typeCount, typeStopCountByName);
         const typeHints = typeNames.map((name) => ({
             full: name,
             abbr: buildTypeAbbr(name),
@@ -2196,7 +2161,8 @@ export function createPanel(options = {}) {
                 showOriginLabel,
                 showTerminalLabel,
                 tripKey,
-                baseTripKey
+                baseTripKey,
+                stopCount: Array.isArray(tt) ? tt.length : null
             });
         }
 

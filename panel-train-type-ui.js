@@ -10,6 +10,7 @@
  */
 
 import { computeLineStopDiagramData } from './panel-train-type.js';
+import { sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -541,52 +542,6 @@ const getCurrentServiceDayFromPanelDom = () => {
     return 'Weekday';
 };
 
-const TYPE_BASE_SEQUENCE = ['特急', '急行', '准急', '快速', '普通','各站停车'];
-
-const resolveTypeBaseIndex = (typeNameRaw) => {
-    const typeName = toText(typeNameRaw);
-    let best = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < TYPE_BASE_SEQUENCE.length; i += 1) {
-        const kw = TYPE_BASE_SEQUENCE[i];
-        if (!typeName.includes(kw)) continue;
-        if (i < best) best = i;
-    }
-    return Number.isFinite(best) ? best : -1;
-};
-
-const sortTypeNamesForGridHint = (typeNames, countByType) => {
-    const names = Array.from(new Set((Array.isArray(typeNames) ? typeNames : []).map((x) => toText(x)).filter(Boolean)));
-    return names.sort((a, b) => {
-        const ia = resolveTypeBaseIndex(a);
-        const ib = resolveTypeBaseIndex(b);
-        const aInBase = ia >= 0;
-        const bInBase = ib >= 0;
-
-        if (aInBase !== bInBase) return aInBase ? 1 : -1;
-
-        if (!aInBase && !bInBase) {
-            const dl = b.length - a.length;
-            if (dl) return dl;
-            const dc = (Number(countByType?.get?.(b) || 0)) - (Number(countByType?.get?.(a) || 0));
-            if (dc) return dc;
-            return String(a).localeCompare(String(b));
-        }
-
-        if (ia !== ib) return ia - ib;
-
-        const baseKw = TYPE_BASE_SEQUENCE[ia] || '';
-        const aExact = baseKw && a === baseKw;
-        const bExact = baseKw && b === baseKw;
-        if (aExact !== bExact) return aExact ? 1 : -1;
-
-        const dl = b.length - a.length;
-        if (dl) return dl;
-        const dc = (Number(countByType?.get?.(b) || 0)) - (Number(countByType?.get?.(a) || 0));
-        if (dc) return dc;
-        return String(a).localeCompare(String(b));
-    });
-};
-
 const isEnglishTypeHeadText = (value) => {
     const s = toText(value);
     if (!s) return false;
@@ -998,7 +953,21 @@ const setupPanelTrainTypeUi = () => {
         for (const t of types) {
             typeCount.set(toText(t?.typeName), Number(t?.totalTrips) || 0);
         }
-        const orderedNames = sortTypeNamesForGridHint(types.map((t) => toText(t?.typeName)), typeCount);
+        const typeStopCountByName = new Map();
+        for (const t of types) {
+            const typeName = toText(t?.typeName);
+            if (!typeName) continue;
+            const mask = Array.isArray(t?._anyMask) ? t._anyMask : [];
+            const stopCount = mask.reduce((sum, flag) => sum + (flag ? 1 : 0), 0);
+            if (stopCount <= 0) continue;
+            const prev = Number(typeStopCountByName.get(typeName));
+            typeStopCountByName.set(typeName, Number.isFinite(prev) ? Math.min(prev, stopCount) : stopCount);
+        }
+        const orderedNames = sortTypeNamesByBaseAndStopCount(
+            types.map((t) => toText(t?.typeName)),
+            typeCount,
+            typeStopCountByName
+        );
         const orderIndex = new Map(orderedNames.map((n, i) => [n, i]));
         types.sort((a, b) => {
             const an = toText(a?.typeName);
