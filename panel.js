@@ -298,6 +298,8 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
     if (!(element instanceof HTMLElement)) return;
     const btn = buttonEl instanceof HTMLButtonElement ? buttonEl : null;
     const prevDisabled = btn?.disabled;
+    const EXPORT_CLASS = 'is-panel-trip-detail-exporting';
+    let exportStyleEl = null;
     try {
         if (btn) btn.disabled = true;
         const html2canvas = await ensureHtml2canvas();
@@ -306,6 +308,23 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
         await nextFrame();
         let blob = null;
         try {
+            document.documentElement.classList.add(EXPORT_CLASS);
+            if (!document.querySelector('style[data-panel-trip-detail-export-style="1"]')) {
+                exportStyleEl = document.createElement('style');
+                exportStyleEl.setAttribute('data-panel-trip-detail-export-style', '1');
+                exportStyleEl.textContent = `
+                    html.${EXPORT_CLASS} .panel-trip-detail {
+                        border-radius: 0 !important;
+                        border: none !important;
+                        box-shadow: none !important;
+                    }
+                    html.${EXPORT_CLASS} .panel-trip-detail .panel-trip-detail-capture-btn {
+                        display: none !important;
+                    }
+                `;
+                document.head.appendChild(exportStyleEl);
+            }
+
             const canvas = await html2canvas(element, {
                 useCORS: true,
                 backgroundColor: '#fff',
@@ -314,6 +333,11 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
             });
             blob = await canvasToBlobPng(canvas);
         } finally {
+            document.documentElement.classList.remove(EXPORT_CLASS);
+            if (exportStyleEl) {
+                try { exportStyleEl.remove(); } catch { /* ignore */ }
+                exportStyleEl = null;
+            }
             restoreScrollableState(states);
         }
         const base = sanitizeFilePart(filenameBase) || 'panel';
