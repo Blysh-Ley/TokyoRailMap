@@ -1541,7 +1541,8 @@
 		"en": "Haneda Express",
 		"ko": "공항쾌속",
 		"zh-Hans": "机场快速",
-		"zh-Hant": "機場快速"
+		"zh-Hant": "機場快速",
+		"color": "#E60013"
 	}
 }, {
 	"id": "TokyoMonorail.Local",
@@ -1559,7 +1560,8 @@
 		"en": "Rapid",
 		"ko": "구간쾌속",
 		"zh-Hans": "区间快速",
-		"zh-Hant": "區間快速"
+		"zh-Hant": "區間快速",
+		"color":"#E57D27"
 	}
 }, {
 	"id": "TamaMonorail.Local",

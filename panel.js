@@ -1135,6 +1135,7 @@ export function createPanel(options = {}) {
     let currentNowOverrideHHMM = '';
     let isAutoNowClock = true;
     let autoNowClockTimerId = null;
+    let isPanelVisible = false;
     const getDisplayNowMs = () => {
         const baseNowMs = Date.now();
         const hhmm = toText(currentNowOverrideHHMM);
@@ -1161,7 +1162,9 @@ export function createPanel(options = {}) {
         currentNowOverrideHHMM = hhmm;
 
         if ((changed || forceRender) && toText(currentStationId)) {
-            renderAllTimetables();
+            if (forceRender || !isPanelVisible) {
+                renderAllTimetables();
+            }
         }
     };
 
@@ -4683,6 +4686,7 @@ export function createPanel(options = {}) {
 
     const show = () => {
         layout();
+        isPanelVisible = true;
         root.style.transform = 'translateX(0)';
     };
 
@@ -4692,6 +4696,7 @@ export function createPanel(options = {}) {
         clearPinnedPanelState({ restoreStation: false });
         hideTripDetail();
         dirFilterStateByKey.clear();
+        isPanelVisible = false;
         root.style.transform = 'translateX(calc(100% + 24px))';
     };
 
