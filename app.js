@@ -1846,8 +1846,8 @@ map.on('load', async () => {
         if (lineId) panel?.scrollToLineId?.(lineId, { behavior: 'smooth', block: 'start' });
     };
 
-    const showRouteMapFloatingPanelForLine = (mainLineId) => {
-        const id = String(mainLineId || '').trim();
+    const showRouteMapFloatingPanelForLine = (lineId) => {
+        const id = String(lineId || '').trim();
         if (!id) return;
         const lineName = String(lineNameById.get(id) || id).trim() || id;
         try {
@@ -1977,7 +1977,7 @@ map.on('load', async () => {
             applySelectionEffects();
             fitToCurrentSelection(`line:${selectedLineId}`, 'commit');
 
-            showRouteMapFloatingPanelForLine(mainLineId);
+            showRouteMapFloatingPanelForLine(id);
         };
 
         searchMapActions.previewCompany = (companyName) => {
@@ -2143,7 +2143,7 @@ map.on('load', async () => {
             // 点击高亮：不限制放大倍率
             fitToCurrentSelection(`line:${selectedLineId}`, 'commit');
 
-            showRouteMapFloatingPanelForLine(mainLineId);
+            showRouteMapFloatingPanelForLine(rawLineId);
         });
 
         // 鼠标样式提示可点击（可选但很轻量）
@@ -4144,7 +4144,7 @@ map.on('load', async () => {
                     if (source === 'hover') fitToCurrentSelectionPreview(`line:${selectedLineId}`);
                     else {
                         fitToCurrentSelectionCommit(`line:${selectedLineId}`);
-                        showRouteMapFloatingPanelForLine(mainLineId);
+                        showRouteMapFloatingPanelForLine(lineId);
                     }
                 }
             },
