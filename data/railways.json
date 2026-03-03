@@ -191,7 +191,7 @@
 		"ja": "中央・総武各駅停車",
 		"en": "Chuo Sobu Local Line",
 		"ko": "주오·소부 각역정차",
-		"zh-Hans": "中央·总武各站停车",
+		"zh-Hans": "中央·总武缓行线",
 		"zh-Hant": "中央·總武各站停車"
 	},
 	"stations": [
@@ -496,7 +496,7 @@
 		"ja": "常磐線各駅停車",
 		"en": "Joban Local Line",
 		"ko": "조반 선 각역정차",
-		"zh-Hans": "常磐线各站停车",
+		"zh-Hans": "常磐线缓行线",
 		"zh-Hant": "常磐線各站停車"
 	},
 	"stations": [
@@ -571,7 +571,7 @@
 		"ja": "総武快速線",
 		"en": "Sobu Rapid Line",
 		"ko": "소부 쾌속선",
-		"zh-Hans": "总武快速线",
+		"zh-Hans": "总武线快速",
 		"zh-Hant": "總武快速線"
 	},
 	"stations": [
@@ -2272,8 +2272,8 @@
 		"ja": "東京さくらトラム（都電荒川線）",
 		"en": "Tokyo Sakura Tram (Arakawa Line)",
 		"ko": "도쿄 사쿠라 트램 (아라카와 선)",
-		"zh-Hans": "东京樱电 (荒川线)",
-		"zh-Hant": "東京櫻花 (荒川線)"
+		"zh-Hans": "都电荒川线",
+		"zh-Hant": "都電荒川線"
 	},
 	"stations": [
 		"Toei.Arakawa.Minowabashi",
@@ -3020,8 +3020,8 @@
 		"ja": "東武スカイツリーライン",
 		"en": "TOBU SKYTREE Line",
 		"ko": "도부 스카이트리 라인",
-		"zh-Hans": "东武晴空塔线",
-		"zh-Hant": "東武晴空塔線"
+		"zh-Hans": "晴空塔线",
+		"zh-Hant": "晴空塔線"
 	},
 	"stations": [
 		"Tobu.TobuSkytree.Asakusa",
@@ -3356,8 +3356,8 @@
 		"ja": "東武アーバンパークライン",
 		"en": "TOBU URBAN PARK Line",
 		"ko": "도부 어번 파크 라인",
-		"zh-Hans": "东武都市公园线",
-		"zh-Hant": "東武都市公園線"
+		"zh-Hans": "都市公园线",
+		"zh-Hant": "都市公園線"
 	},
 	"stations": [
 		"Tobu.TobuUrbanPark.Omiya",

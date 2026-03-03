@@ -69,9 +69,6 @@
     "odakyu-enoshima": "1089"
   },
   {
-    "toei-arakawa": "1060"
-  },
-  {
     "tokyometro-hibiya": "1023"
   },
   {
@@ -99,9 +96,6 @@
     "keisei-oshiage": "931"
   },
   {
-    "toei-nipporitoneri": "928"
-  },
-  {
     "tokyometro-yurakucho": "843"
   },
   {
@@ -127,6 +121,12 @@
   },
   {
     "toei-shinjuku": "755"
+  },
+  {
+    "toei-nipporitoneri": "928"
+  },
+  {
+    "toei-arakawa": "1060"
   },
   {
     "tokyometro-namboku": "744"
