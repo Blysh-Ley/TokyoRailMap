@@ -1144,6 +1144,10 @@ export function createPanel(options = {}) {
     let suppressMouseClickUntilMs = 0;
     let suppressMouseHoverUntilMs = 0;
     let trainTypePopoverHoverActive = false;
+    let pendingTouchTripTap = null;
+
+    const touchTripTapMaxMovePx = 12;
+    const touchTripTapMaxMoveSq = touchTripTapMaxMovePx * touchTripTapMaxMovePx;
 
     let lastAppliedHoverKey = null;
     let restoreTimerId = null;
@@ -4125,6 +4129,7 @@ export function createPanel(options = {}) {
         lastPointerType = pt;
         if (isTouchLikePointer(pt)) {
             suppressMouseEventsUntilMs = nowMs() + 800;
+            pendingTouchTripTap = null;
         }
 
         const earlyPrintTarget = getDirPrintButtonTarget(evt?.target);
@@ -4184,25 +4189,15 @@ export function createPanel(options = {}) {
             const lineId = lineEl?.getAttribute?.('data-line-id');
             const tripKey = rowEl.getAttribute?.('data-trip-key');
             if (lineId && tripKey) {
-                const key = `${String(lineId)}||${String(tripKey)}`;
-                if (tripLocked && key !== lockedTripKey) {
-                    hideTripDetail();
-                    lastTripDetailKey = null;
-                    stopPropagationOnly(evt);
-                    return;
-                }
                 stopPropagationOnly(evt);
-                lockTripPreview(key);
-                setPinnedPanelSelection('trip', key);
-                renderTripDetail({
+                pendingTouchTripTap = {
+                    pointerId: evt?.pointerId,
+                    startX: evt?.clientX ?? 0,
+                    startY: evt?.clientY ?? 0,
                     lineId: String(lineId),
                     tripKey: String(tripKey),
-                    clientX: evt?.clientX || 0,
-                    clientY: evt?.clientY || 0,
-                    pinned: true,
-                    fitMode: 'commit'
-                });
-                lastTripDetailKey = key;
+                    moved: false
+                };
                 return;
             }
         }
@@ -4259,6 +4254,71 @@ export function createPanel(options = {}) {
         }
 
         stopPropagationOnly(evt);
+    };
+
+    const onBodyPointerMoveTouchTap = (evt) => {
+        if (!pendingTouchTripTap) return;
+        const pt = readPointerType(evt);
+        if (!isTouchLikePointer(pt)) return;
+
+        const pendingPointerId = pendingTouchTripTap.pointerId;
+        const evtPointerId = evt?.pointerId;
+        if (pendingPointerId != null && evtPointerId != null && pendingPointerId !== evtPointerId) return;
+
+        const dx = (evt?.clientX ?? pendingTouchTripTap.startX) - pendingTouchTripTap.startX;
+        const dy = (evt?.clientY ?? pendingTouchTripTap.startY) - pendingTouchTripTap.startY;
+        const d2 = dx * dx + dy * dy;
+        if (d2 > touchTripTapMaxMoveSq) {
+            pendingTouchTripTap.moved = true;
+        }
+    };
+
+    const onBodyPointerCancelTouchTap = () => {
+        pendingTouchTripTap = null;
+    };
+
+    const onBodyPointerUpTouchTap = (evt) => {
+        const pending = pendingTouchTripTap;
+        if (!pending) return;
+
+        const pt = readPointerType(evt);
+        lastPointerType = pt;
+        if (!isTouchLikePointer(pt)) {
+            pendingTouchTripTap = null;
+            return;
+        }
+
+        const pendingPointerId = pending.pointerId;
+        const evtPointerId = evt?.pointerId;
+        if (pendingPointerId != null && evtPointerId != null && pendingPointerId !== evtPointerId) return;
+
+        pendingTouchTripTap = null;
+
+        const dx = (evt?.clientX ?? pending.startX) - pending.startX;
+        const dy = (evt?.clientY ?? pending.startY) - pending.startY;
+        const moved = pending.moved || (dx * dx + dy * dy) > touchTripTapMaxMoveSq;
+        if (moved) return;
+
+        stopPropagationOnly(evt);
+
+        const key = `${pending.lineId}||${pending.tripKey}`;
+        if (tripLocked && key !== lockedTripKey) {
+            hideTripDetail();
+            lastTripDetailKey = null;
+            return;
+        }
+
+        lockTripPreview(key);
+        setPinnedPanelSelection('trip', key);
+        renderTripDetail({
+            lineId: pending.lineId,
+            tripKey: pending.tripKey,
+            clientX: evt?.clientX || pending.startX,
+            clientY: evt?.clientY || pending.startY,
+            pinned: true,
+            fitMode: 'commit'
+        });
+        lastTripDetailKey = key;
     };
 
     const onBodyMove = (evt) => {
@@ -4477,6 +4537,9 @@ export function createPanel(options = {}) {
     };
 
     body.addEventListener('pointerdown', onBodyPointerDown, { passive: false });
+    body.addEventListener('pointermove', onBodyPointerMoveTouchTap, { passive: true });
+    body.addEventListener('pointerup', onBodyPointerUpTouchTap, { passive: true });
+    body.addEventListener('pointercancel', onBodyPointerCancelTouchTap, { passive: true });
     body.addEventListener('mousemove', onBodyMove);
     body.addEventListener('mouseleave', onBodyLeave);
     body.addEventListener('click', onBodyClick, { passive: false });
