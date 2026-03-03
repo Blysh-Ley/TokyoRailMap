@@ -523,7 +523,14 @@ const ensureStyleInstalled = () => {
             overflow-y: auto;
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
             flex: 1 1 auto;
+        }
+        .route-map-body::-webkit-scrollbar {
+            width: 0;
+            height: 0;
+            display: none;
         }
         .route-map {
             min-width: 100px;
