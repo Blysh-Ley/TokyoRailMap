@@ -7,7 +7,7 @@ import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { createPanel } from './panel.js';
 import { getGlobalTimetableCache } from './timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './fullscreen.js';
-import './panel-train-type-ui.js';
+import './route-map-ui.js';
 
 // MapLibre 通过 CDN 以全局变量方式引入
 const maplibregl = window.maplibregl;
@@ -348,13 +348,13 @@ map.on('load', async () => {
         }
     };
 
-    window.addEventListener('__TokyoRailTrainTypeStationIndicatorShow', (evt) => {
+    window.addEventListener('__TokyoRailRouteMapStationIndicatorShow', (evt) => {
         const sid = String(evt?.detail?.stationId || '').trim();
         if (!sid) return;
         showTripDetailStationIndicatorById(sid);
     });
 
-    window.addEventListener('__TokyoRailTrainTypeStationIndicatorClear', () => {
+    window.addEventListener('__TokyoRailRouteMapStationIndicatorClear', () => {
         clearTripDetailStationIndicator();
     });
 
@@ -1846,12 +1846,12 @@ map.on('load', async () => {
         if (lineId) panel?.scrollToLineId?.(lineId, { behavior: 'smooth', block: 'start' });
     };
 
-    const showTrainTypeFloatingPanelForLine = (mainLineId) => {
+    const showRouteMapFloatingPanelForLine = (mainLineId) => {
         const id = String(mainLineId || '').trim();
         if (!id) return;
         const lineName = String(lineNameById.get(id) || id).trim() || id;
         try {
-            window.dispatchEvent(new CustomEvent('__TokyoRailShowTrainTypePanel', {
+            window.dispatchEvent(new CustomEvent('__TokyoRailShowRouteMapPanel', {
                 detail: {
                     lineId: id,
                     lineName,
@@ -1977,7 +1977,7 @@ map.on('load', async () => {
             applySelectionEffects();
             fitToCurrentSelection(`line:${selectedLineId}`, 'commit');
 
-            showTrainTypeFloatingPanelForLine(mainLineId);
+            showRouteMapFloatingPanelForLine(mainLineId);
         };
 
         searchMapActions.previewCompany = (companyName) => {
@@ -2143,7 +2143,7 @@ map.on('load', async () => {
             // 点击高亮：不限制放大倍率
             fitToCurrentSelection(`line:${selectedLineId}`, 'commit');
 
-            showTrainTypeFloatingPanelForLine(mainLineId);
+            showRouteMapFloatingPanelForLine(mainLineId);
         });
 
         // 鼠标样式提示可点击（可选但很轻量）
@@ -4144,7 +4144,7 @@ map.on('load', async () => {
                     if (source === 'hover') fitToCurrentSelectionPreview(`line:${selectedLineId}`);
                     else {
                         fitToCurrentSelectionCommit(`line:${selectedLineId}`);
-                        showTrainTypeFloatingPanelForLine(mainLineId);
+                        showRouteMapFloatingPanelForLine(mainLineId);
                     }
                 }
             },

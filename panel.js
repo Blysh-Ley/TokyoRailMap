@@ -1143,7 +1143,7 @@ export function createPanel(options = {}) {
     let lastMousePrimaryKey = '';
     let suppressMouseClickUntilMs = 0;
     let suppressMouseHoverUntilMs = 0;
-    let trainTypePopoverHoverActive = false;
+    let routeMapPopoverHoverActive = false;
     let pendingTouchTripTap = null;
 
     const touchTripTapMaxMovePx = 12;
@@ -4523,7 +4523,7 @@ export function createPanel(options = {}) {
         lastFiredHoverKey = null;
         lastMousePrimaryKey = '';
         const toEl = evt?.relatedTarget;
-        if (trainTypePopoverHoverActive || (toEl instanceof Element && toEl.closest?.('[data-panel-train-type]'))) {
+        if (routeMapPopoverHoverActive || (toEl instanceof Element && toEl.closest?.('[data-route-map]'))) {
             return;
         }
         if (hasPinnedPanelState()) return;
@@ -4602,13 +4602,13 @@ export function createPanel(options = {}) {
         scheduleTripDetailHide();
     });
 
-    window.addEventListener('__TokyoRailTrainTypePopoverHoverEnter', () => {
-        trainTypePopoverHoverActive = true;
+    window.addEventListener('__TokyoRailRouteMapPopoverHoverEnter', () => {
+        routeMapPopoverHoverActive = true;
         clearRestoreTimer();
     });
 
-    window.addEventListener('__TokyoRailTrainTypePopoverHoverLeave', () => {
-        trainTypePopoverHoverActive = false;
+    window.addEventListener('__TokyoRailRouteMapPopoverHoverLeave', () => {
+        routeMapPopoverHoverActive = false;
         if (hasPinnedPanelState()) return;
         restoreStationLinesIfNeeded();
         if (!pinnedDirPreviewKey) {

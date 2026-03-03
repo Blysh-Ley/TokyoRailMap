@@ -1,11 +1,11 @@
 /**
- * panel-train-type.js
+ * route-map.js
  *
  * Data utilities for building “train type stop pattern” UI.
  *
  * Notes:
  * - This module intentionally contains NO UI code.
- * - UI is implemented in panel-train-type-ui.js.
+ * - UI is implemented in route-map-ui.js.
  */
 
 const toText = (v) => String(v ?? '').trim();

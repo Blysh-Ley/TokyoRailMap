@@ -1,5 +1,5 @@
 /**
- * panel-train-type-ui.js
+ * route-map-ui.js
  *
  * UI feature:
  * 1) Hover on .panel-line-name shows a trip-detail-like floating panel.
@@ -9,7 +9,7 @@
  *    - Local/All-stop use gray; missing colors also use gray.
  */
 
-import { computeLineStopDiagramData } from './panel-train-type.js';
+import { computeLineStopDiagramData } from './route-map.js';
 import { sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
 
 const toText = (v) => String(v ?? '').trim();
@@ -173,13 +173,13 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
     if (!(element instanceof HTMLElement)) return;
     const btn = buttonEl instanceof HTMLButtonElement ? buttonEl : null;
     const prevDisabled = btn?.disabled;
-    const EXPORT_CLASS = 'is-panel-train-type-exporting';
+    const EXPORT_CLASS = 'is-route-map-exporting';
     let exportStyleEl = null;
 
     const typeheadPatches = [];
     let exportMeasureSpan = null;
     const applyTypeheadExportPatch = (root) => {
-        const nodes = Array.from(root.querySelectorAll('.panel-train-type-typehead'));
+        const nodes = Array.from(root.querySelectorAll('.route-map-typehead'));
 
         const ensureMeasureSpan = (doc) => {
             if (exportMeasureSpan && exportMeasureSpan.isConnected) return exportMeasureSpan;
@@ -337,36 +337,36 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
         let blob = null;
         try {
             document.documentElement.classList.add(EXPORT_CLASS);
-            if (!document.querySelector(`style[data-panel-train-type-export-style="1"]`)) {
+            if (!document.querySelector(`style[data-route-map-export-style="1"]`)) {
                 exportStyleEl = document.createElement('style');
-                exportStyleEl.setAttribute('data-panel-train-type-export-style', '1');
+                exportStyleEl.setAttribute('data-route-map-export-style', '1');
                 exportStyleEl.textContent = `
-                    html.${EXPORT_CLASS} .panel-train-type-popover,
-                    html.${EXPORT_CLASS} .panel-train-type-grid-header,
-                    html.${EXPORT_CLASS} .panel-train-type-section,
-                    html.${EXPORT_CLASS} .panel-train-type-body {
+                    html.${EXPORT_CLASS} .route-map-popover,
+                    html.${EXPORT_CLASS} .route-map-grid-header,
+                    html.${EXPORT_CLASS} .route-map-section,
+                    html.${EXPORT_CLASS} .route-map-body {
                         background: #fff !important;
-                        --panel-train-type-bg: #fff !important;
+                        --route-map-bg: #fff !important;
                     }
                     html.${EXPORT_CLASS} .panel-capture-btn {
                         display: none !important;
                     }
-                    html.${EXPORT_CLASS} .panel-train-type-popover {
+                    html.${EXPORT_CLASS} .route-map-popover {
                         border-radius: 0 !important;
                         border: none !important;
                         box-shadow: none !important;
                         overflow: visible !important;
                     }
-                    html.${EXPORT_CLASS} .panel-train-type-grid-header {
+                    html.${EXPORT_CLASS} .route-map-grid-header {
                         overflow: visible !important;
                         padding-left: 18px !important;
                         padding-right: 18px !important;
                         padding-bottom: 5px !important;
                     }
-                    html.${EXPORT_CLASS} .panel-train-type-grid-header .panel-train-type-grid {
+                    html.${EXPORT_CLASS} .route-map-grid-header .route-map-grid {
                         align-items: end !important;
                     }
-                    html.${EXPORT_CLASS} .panel-train-type-typehead {
+                    html.${EXPORT_CLASS} .route-map-typehead {
                         padding-left: 0 !important;
                         height: auto !important;
                         min-height: 35px !important;
@@ -374,22 +374,22 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                         justify-content: flex-end !important;
                         box-sizing: border-box !important;
                     }
-                    html.${EXPORT_CLASS} .panel-train-type-typehead.is-export-typehead {
+                    html.${EXPORT_CLASS} .route-map-typehead.is-export-typehead {
                         writing-mode: horizontal-tb !important;
                         text-orientation: mixed !important;
                     }
-                    html.${EXPORT_CLASS} .panel-train-type-cell {
+                    html.${EXPORT_CLASS} .route-map-cell {
                         background: var(--tt-color, #888) !important;
                         background-size: 12px 100% !important;
                     }
-                    html.${EXPORT_CLASS} .panel-train-type-cell.is-through-row {
+                    html.${EXPORT_CLASS} .route-map-cell.is-through-row {
                         background: var(--tt-color, #888) !important;
                         background-size: 12px 100% !important;
                     }
-                    html.${EXPORT_CLASS} .panel-train-type-through-branch {
+                    html.${EXPORT_CLASS} .route-map-through-branch {
                         left: 0% !important;
                     }
-                    html.${EXPORT_CLASS} .panel-train-type-through-branch.is-single-branch {
+                    html.${EXPORT_CLASS} .route-map-through-branch.is-single-branch {
                         left: var(--single-branch-left, 120%) !important;
                         top: var(--single-branch-y-offsetY, 50%) !important;
                     }
@@ -418,27 +418,27 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
             }
             restoreScrollableState(states);
         }
-        const base = sanitizeFilePart(filenameBase) || 'panel-train-type';
+        const base = sanitizeFilePart(filenameBase) || 'route-map';
         downloadBlob(blob, `${base}-${nowIsoCompact()}.png`);
     } catch (err) {
-        console.error('[panel-train-type] export png failed', err);
+        console.error('[route-map] export png failed', err);
     } finally {
         if (btn) btn.disabled = !!prevDisabled;
     }
 };
 
 const ensureStyleInstalled = () => {
-    if (document.querySelector('style[data-panel-train-type-style="1"]')) return;
+    if (document.querySelector('style[data-route-map-style="1"]')) return;
     const style = document.createElement('style');
-    style.setAttribute('data-panel-train-type-style', '1');
+    style.setAttribute('data-route-map-style', '1');
     style.textContent = `
-        .panel-train-type-popover {
+        .route-map-popover {
             min-width: 100px;
             max-width: calc(100vw - 40px);
             max-height: 60vh;
             background: rgba(255, 255, 255, 0.96);
-            --panel-train-type-bg: rgba(255, 255, 255, 0.96);
-            --panel-train-type-head-divider: #e3e5e7;
+            --route-map-bg: rgba(255, 255, 255, 0.96);
+            --route-map-head-divider: #e3e5e7;
             border: 1px solid #e3e5e7;
             border-radius: 12px;
             box-shadow: 0 0 30px rgba(0, 0, 0, .12);
@@ -450,19 +450,19 @@ const ensureStyleInstalled = () => {
             display: flex;
             flex-direction: column;
         }
-        .panel-train-type-popover.is-hidden {
+        .route-map-popover.is-hidden {
             opacity: 0;
             transform: translateX(8px);
             pointer-events: none;
         }
-        .panel-train-type-header {
+        .route-map-header {
             display: flex;
             align-items: center;
             padding: 8px 10px;
             border-bottom: 1px solid #e3e5e7;
             gap: 6px;
         }
-        .panel-train-type-title {
+        .route-map-title {
             flex: 1 1 auto;
             min-width: 0;
             font-size: 20px;
@@ -472,7 +472,7 @@ const ensureStyleInstalled = () => {
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .panel-train-type-actions {
+        .route-map-actions {
             flex: 0 0 auto;
             display: inline-flex;
             align-items: center;
@@ -504,76 +504,76 @@ const ensureStyleInstalled = () => {
             display: block;
             pointer-events: none;
         }
-        .panel-train-type-body {
+        .route-map-body {
             max-height: calc(60vh - 36px);
             overflow-y: auto;
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
             flex: 1 1 auto;
         }
-        .panel-train-type {
+        .route-map {
             min-width: 100px;
             max-height: 72vh;
             overflow: hidden;
         }
-        .panel-train-type .panel-train-type-body {
+        .route-map .route-map-body {
             overflow: auto;
             max-height: calc(72vh - 44px);
         }
-        .panel-train-type.is-panel-placement .panel-train-type-body {
+        .route-map.is-panel-placement .route-map-body {
             height: 100%;
             max-height: none;
             box-sizing: border-box;
         }
-        .panel-train-type-meta {
+        .route-map-meta {
             padding: 10px 12px;
             border-bottom: 1px solid var(--ui-border);
             font-size: 12px;
             line-height: 1.4;
             display:none;
         }
-        .panel-train-type-section {
+        .route-map-section {
             padding-left:18px;
             padding-right:18px;
             padding-bottom: 12px;
             box-sizing: border-box;
-            background: var(--panel-train-type-bg);
+            background: var(--route-map-bg);
         }
-        .panel-train-type.is-panel-placement .panel-train-type-section {
+        .route-map.is-panel-placement .route-map-section {
             min-height: 100%;
         }
-        .panel-train-type-section-title {
+        .route-map-section-title {
             font-weight: 700;
             font-size: 13px;
             margin-bottom: 8px;
             display:none;
         }
-        .panel-train-type-empty {
+        .route-map-empty {
             font-size: 12px;
             padding: 8px 0;
         }
-        .panel-train-type-grid {
+        .route-map-grid {
             display: grid;
             align-items: center;
             gap: 0;
             justify-content: start;
             width: max-content;
         }
-        .panel-train-type-grid-header {
+        .route-map-grid-header {
             display: block;
             flex: 0 0 auto;
             padding: 10px 12px 3px;
-            background: var(--panel-train-type-bg);
+            background: var(--route-map-bg);
             overflow: hidden;
         }
-        .panel-train-type-grid-header .panel-train-type-grid {
+        .route-map-grid-header .route-map-grid {
             display: grid;
             align-items: end;
             gap: 0;
             justify-content: start;
             width: max-content;
         }
-        .panel-train-type-station {
+        .route-map-station {
             font-size: 13px;
             text-align: left;
             padding: 2px 0 2px 6px;
@@ -581,7 +581,7 @@ const ensureStyleInstalled = () => {
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .panel-train-type-typehead {
+        .route-map-typehead {
             font-size: 11px;
             font-weight: 700;
             text-align: center;
@@ -596,11 +596,11 @@ const ensureStyleInstalled = () => {
             padding-left: 6px;
             background: transparent;
         }
-        .panel-train-type-typehead.is-sideways-rl {
+        .route-map-typehead.is-sideways-rl {
             writing-mode: sideways-rl;
             text-orientation: mixed;
         }
-        .panel-train-type-typehead.is-mixed-writing {
+        .route-map-typehead.is-mixed-writing {
             writing-mode: horizontal-tb;
             text-orientation: mixed;
             flex-direction: column;
@@ -608,45 +608,45 @@ const ensureStyleInstalled = () => {
             align-items: center;
             gap: 1px;
         }
-        .panel-train-type-typehead-chunk {
+        .route-map-typehead-chunk {
             display: inline-block;
             line-height: 1;
             white-space: pre;
         }
-        .panel-train-type-typehead-chunk.is-en {
+        .route-map-typehead-chunk.is-en {
             writing-mode: sideways-rl;
             text-orientation: mixed;
         }
-        .panel-train-type-typehead-chunk.is-other {
+        .route-map-typehead-chunk.is-other {
             writing-mode: vertical-rl;
             text-orientation: upright;
         }
-        .panel-train-type-headspacer {
+        .route-map-headspacer {
             min-height: 30px;
             background: transparent;
         }
-        .panel-train-type-cell {
+        .route-map-cell {
             height: 35px;
             width: 12px;
             position: relative;
             background: linear-gradient(var(--tt-color, #888), var(--tt-color, #888)) center/10px calc(100% + 2px) no-repeat;
             z-index:100;
         }
-        .panel-train-type-cell.is-through-row {
+        .route-map-cell.is-through-row {
             height: 50px;
             background-size: 10px 100%;
             overflow: visible;
             transform: translateY(var(--through-row-translate-y, 0px));
             z-index: var(--through-z, 0);
         }
-        .panel-train-type-through-empty {
+        .route-map-through-empty {
             width: 12px;
             height: 18px;
         }
-        .panel-train-type-cell.is-hidden-tail {
+        .route-map-cell.is-hidden-tail {
             visibility: hidden;
         }
-        .panel-train-type-cell.is-stop::after {
+        .route-map-cell.is-stop::after {
             content: '';
             position: absolute;
             left: 50%;
@@ -658,8 +658,8 @@ const ensureStyleInstalled = () => {
             background: #fff;
             box-sizing: border-box;
         }
-        .panel-train-type-cell.is-stop-up::after,
-        .panel-train-type-cell.is-stop-down::after {
+        .route-map-cell.is-stop-up::after,
+        .route-map-cell.is-stop-down::after {
             content: '';
             position: absolute;
             left: 50%;
@@ -670,17 +670,17 @@ const ensureStyleInstalled = () => {
             background: transparent;
             box-sizing: border-box;
         }
-        .panel-train-type-cell.is-stop-up::after {
+        .route-map-cell.is-stop-up::after {
             border-left: 5px solid transparent;
             border-right: 5px solid transparent;
             border-bottom: 8px solid #fff;
         }
-        .panel-train-type-cell.is-stop-down::after {
+        .route-map-cell.is-stop-down::after {
             border-left: 5px solid transparent;
             border-right: 5px solid transparent;
             border-top: 8px solid #fff;
         }
-        .panel-train-type-through-branch {
+        .route-map-through-branch {
             position: absolute;
             top: 0;
             left: 10%;
@@ -692,13 +692,13 @@ const ensureStyleInstalled = () => {
             pointer-events: none;
             z-index: 999;
         }
-        .panel-train-type-through-branch.is-single-branch {
+        .route-map-through-branch.is-single-branch {
             left: var(--single-branch-left, 120%);
             top: var(--single-branch-y-offsetY, 50%);
             transform: translate(-50%, -50%) rotate(var(--single-branch-rotate, 0deg));
             transform-origin: center center;
         }
-        .panel-train-type-station.is-through-label {
+        .route-map-station.is-through-label {
             font-size: 12px;
             display: flex;
             align-items: center;
@@ -708,22 +708,22 @@ const ensureStyleInstalled = () => {
             overflow-y: hidden;
             padding-left:20px;
         }
-        .panel-train-type-through-prefix {
+        .route-map-through-prefix {
             color: var(--ui-text-subtle, #666);
             flex: 0 0 auto;
         }
-        .panel-train-type-through-items {
+        .route-map-through-items {
             display: flex;
             align-items: center;
             gap: 10px;
         }
-        .panel-train-type-through-item {
+        .route-map-through-item {
             display: inline-flex;
             align-items: center;
             gap: 4px;
             flex: 0 0 auto;
         }
-        .panel-train-type-through-logo {
+        .route-map-through-logo {
             width: 18px;
             height: 18px;
             object-fit: contain;
@@ -731,26 +731,26 @@ const ensureStyleInstalled = () => {
             background: transparent;
             flex: 0 0 18px;
         }
-        .panel-train-type-through-line {
+        .route-map-through-line {
             font-weight: 600;
         }
-        .panel-train-type-divider {
+        .route-map-divider {
             height: 1px;
             background: var(--ui-border);
             margin: 0;
         }
-        html[data-theme='dark'] .panel-train-type-popover {
+        html[data-theme='dark'] .route-map-popover {
             background: rgba(24, 27, 33, 0.94);
-            --panel-train-type-bg: rgba(24, 27, 33, 0.94);
-            --panel-train-type-head-divider: #5a5d62;
+            --route-map-bg: rgba(24, 27, 33, 0.94);
+            --route-map-head-divider: #5a5d62;
             border-color: #5a5d62;
             box-shadow: 0 0 30px rgba(0, 0, 0, .35);
         }
-        html[data-theme='dark'] .panel-train-type-header {
+        html[data-theme='dark'] .route-map-header {
             border-bottom-color: #5a5d62;
         }
-        html[data-theme='dark'] .panel-train-type-title,
-        html[data-theme='dark'] .panel-train-type-station {
+        html[data-theme='dark'] .route-map-title,
+        html[data-theme='dark'] .route-map-station {
             color: #f2f2f2;
         }
         html[data-theme='dark'] .panel-capture-btn:hover {
@@ -759,21 +759,21 @@ const ensureStyleInstalled = () => {
         html[data-theme='dark'] .panel-capture-icon {
             filter: invert(1) brightness(1.1);
         }
-        html[data-theme='dark'] .panel-train-type-through-prefix {
+        html[data-theme='dark'] .route-map-through-prefix {
             color: #b9bec8;
         }
     
-        html[data-theme='dark'] .panel-train-type-cell.is-stop::after,
-        html[data-theme='dark'] .panel-train-type-cell.is-stop-up::after,
-        html[data-theme='dark'] .panel-train-type-cell.is-stop-down::after {
+        html[data-theme='dark'] .route-map-cell.is-stop::after,
+        html[data-theme='dark'] .route-map-cell.is-stop-up::after,
+        html[data-theme='dark'] .route-map-cell.is-stop-down::after {
             background: #111;
         }
 
-        html[data-theme='dark'] .panel-train-type-cell.is-stop-up::after {
+        html[data-theme='dark'] .route-map-cell.is-stop-up::after {
             background: transparent;
             border-bottom-color: #111;
         }
-        html[data-theme='dark'] .panel-train-type-cell.is-stop-down::after {
+        html[data-theme='dark'] .route-map-cell.is-stop-down::after {
             background: transparent;
             border-top-color: #111;
         }
@@ -921,10 +921,10 @@ const resolveColorForTheme = (color, fallback = '#888') => {
     return info.color || fallback;
 };
 
-const setupPanelTrainTypeUi = () => {
+const setupRouteMapUi = () => {
     try {
-        if (window.__TokyoRailPanelTrainTypeUiInstalled) return;
-        window.__TokyoRailPanelTrainTypeUiInstalled = true;
+        if (window.__TokyoRailRouteMapUiInstalled) return;
+        window.__TokyoRailRouteMapUiInstalled = true;
     } catch {
         // ignore
     }
@@ -932,34 +932,34 @@ const setupPanelTrainTypeUi = () => {
     ensureStyleInstalled();
 
     const root = document.createElement('div');
-    root.className = 'panel-train-type-popover panel-train-type is-hidden';
-    root.setAttribute('data-panel-train-type', '');
+    root.className = 'route-map-popover route-map is-hidden';
+    root.setAttribute('data-route-map', '');
     root.style.position = 'fixed';
     root.style.zIndex = '10000';
 
     const topHeader = document.createElement('div');
-    topHeader.className = 'panel-train-type-header';
+    topHeader.className = 'route-map-header';
 
     const topTitle = document.createElement('div');
-    topTitle.className = 'panel-train-type-title';
+    topTitle.className = 'route-map-title';
     topHeader.appendChild(topTitle);
 
     const topActions = document.createElement('div');
-    topActions.className = 'panel-train-type-actions';
+    topActions.className = 'route-map-actions';
     const captureBtn = document.createElement('button');
     captureBtn.type = 'button';
-    captureBtn.className = 'panel-capture-btn panel-train-type-capture-btn';
+    captureBtn.className = 'panel-capture-btn route-map-capture-btn';
     captureBtn.setAttribute('aria-label', '截图');
     captureBtn.title = '截图';
-    captureBtn.innerHTML = '<img class="panel-capture-icon panel-train-type-capture-icon" alt="" src="./icons/camera.svg" />';
+    captureBtn.innerHTML = '<img class="panel-capture-icon route-map-capture-icon" alt="" src="./icons/camera.svg" />';
     topActions.appendChild(captureBtn);
     topHeader.appendChild(topActions);
 
     const gridHeader = document.createElement('div');
-    gridHeader.className = 'panel-train-type-grid-header';
+    gridHeader.className = 'route-map-grid-header';
 
     const body = document.createElement('div');
-    body.className = 'panel-train-type-body';
+    body.className = 'route-map-body';
 
     root.appendChild(topHeader);
     root.appendChild(gridHeader);
@@ -980,10 +980,10 @@ const setupPanelTrainTypeUi = () => {
         stopEvent(evt);
         pinned = true;
         clearTimers();
-        const baseName = `panel-train-type-${toText(activeLineName) || toText(activeLineId) || 'line'}`;
+        const baseName = `route-map-${toText(activeLineName) || toText(activeLineId) || 'line'}`;
         await exportElementToPng(root, baseName, captureBtn);
     }, { passive: false });
-    const captureIcon = captureBtn.querySelector('.panel-train-type-capture-icon');
+    const captureIcon = captureBtn.querySelector('.route-map-capture-icon');
     if (captureIcon instanceof HTMLImageElement) {
         captureIcon.addEventListener('error', () => {
             if (captureIcon.dataset.fallbackTried === '1') return;
@@ -1146,7 +1146,7 @@ const setupPanelTrainTypeUi = () => {
         if (!types.length) {
             return {
                 headHtml: '',
-                bodyHtml: '<div class="panel-train-type-meta">当前无可用班次</div>'
+                bodyHtml: '<div class="route-map-meta">当前无可用班次</div>'
             };
         }
 
@@ -1367,8 +1367,8 @@ const setupPanelTrainTypeUi = () => {
             const name = toText(t?.typeName) || '-';
 
             const clsBase = colorInfo.darkAdjusted
-                ? 'panel-train-type-typehead is-dark-adjusted'
-                : 'panel-train-type-typehead';
+                ? 'route-map-typehead is-dark-adjusted'
+                : 'route-map-typehead';
 
             if (isEnglishTypeHeadText(name)) {
                 return `<div class="${clsBase} is-sideways-rl" style="color:${escapeHtml(color)}">${escapeHtml(name)}</div>`;
@@ -1379,14 +1379,14 @@ const setupPanelTrainTypeUi = () => {
             const hasOther = chunks.some((c) => c.kind !== 'en');
             if (hasEn && hasOther) {
                 const inner = chunks.map((c) => {
-                    const cls = c.kind === 'en' ? 'panel-train-type-typehead-chunk is-en' : 'panel-train-type-typehead-chunk is-other';
+                    const cls = c.kind === 'en' ? 'route-map-typehead-chunk is-en' : 'route-map-typehead-chunk is-other';
                     return `<span class="${cls}">${escapeHtml(c.text)}</span>`;
                 }).join('');
                 return `<div class="${clsBase} is-mixed-writing" style="color:${escapeHtml(color)}">${inner}</div>`;
             }
 
             return `<div class="${clsBase}" style="color:${escapeHtml(color)}">${escapeHtml(name)}</div>`;
-        }).concat(['<div class="panel-train-type-headspacer"></div>']).join('');
+        }).concat(['<div class="route-map-headspacer"></div>']).join('');
 
         const rows = [];
 
@@ -1481,7 +1481,7 @@ const setupPanelTrainTypeUi = () => {
                 const colorInfo = resolveTrainTypeColorInfoForTheme(toText(t?.color) || '#888');
                 const color = colorInfo.color || '#888';
 
-                let cls = 'panel-train-type-cell is-through-row';
+                let cls = 'route-map-cell is-through-row';
                 if (colorInfo.darkAdjusted) cls += ' is-dark-adjusted';
                 if (isBottomThrough) cls += ' is-through-bottom';
 
@@ -1489,7 +1489,7 @@ const setupPanelTrainTypeUi = () => {
                     if (isTypePassingGap(t, si)) {
                         rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)}"></div>`);
                     } else {
-                        rows.push('<div class="panel-train-type-through-empty"></div>');
+                        rows.push('<div class="route-map-through-empty"></div>');
                     }
                     continue;
                 }
@@ -1523,8 +1523,8 @@ const setupPanelTrainTypeUi = () => {
                 const singleRotateDeg = shouldReverseBranchOrder ? -20 : 20;
                 const singleYoffset = shouldReverseBranchOrder ? '60%' : '40%';
                 const branchCls = enableSingleBranchRotate
-                    ? 'panel-train-type-through-branch is-single-branch'
-                    : 'panel-train-type-through-branch';
+                    ? 'route-map-through-branch is-single-branch'
+                    : 'route-map-through-branch';
                 const branchStyle = enableSingleBranchRotate
                     ? `--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;--single-branch-rotate:${singleRotateDeg}deg;--single-branch-left:${throughWidth.toFixed(2)/2 + 3}px;--single-branch-y-offsetY:${singleYoffset}`
 
@@ -1547,15 +1547,15 @@ const setupPanelTrainTypeUi = () => {
                 const lineName = toText(target?.refLineName) || toText(target?.refLineId) || '';
                 const lineColor = resolveColorForTheme(target?.refLineColor || '#888', '#888');
                 const logoHtml = logoUrl
-                    ? `<img class="panel-train-type-through-logo" src="${escapeHtml(logoUrl)}" alt="${escapeHtml(company || lineName)}" loading="lazy" decoding="async">`
+                    ? `<img class="route-map-through-logo" src="${escapeHtml(logoUrl)}" alt="${escapeHtml(company || lineName)}" loading="lazy" decoding="async">`
                     : '';
-                return `<span class="panel-train-type-through-item">${logoHtml}<span class="panel-train-type-through-line" style="color:${escapeHtml(lineColor)}">${escapeHtml(lineName)}</span></span>`;
+                return `<span class="route-map-through-item">${logoHtml}<span class="route-map-through-line" style="color:${escapeHtml(lineColor)}">${escapeHtml(lineName)}</span></span>`;
             }).join('');
 
             const labelHtml = throughItems
-                ? `<span class="panel-train-type-through-prefix">直通：</span><span class="panel-train-type-through-items">${throughItems}</span>`
+                ? `<span class="route-map-through-prefix">直通：</span><span class="route-map-through-items">${throughItems}</span>`
                 : '';
-            rows.push(`<div class="panel-train-type-station is-through-label">${labelHtml}</div>`);
+            rows.push(`<div class="route-map-station is-through-label">${labelHtml}</div>`);
         };
 
         // before first station
@@ -1573,7 +1573,7 @@ const setupPanelTrainTypeUi = () => {
                 const hideHead = Number.isFinite(t?._firstStopIndex) && t._firstStopIndex >= 0 && si < t._firstStopIndex;
                 const hideTail = Number.isFinite(t?._lastStopIndex) && t._lastStopIndex >= 0 && si > t._lastStopIndex;
 
-                let cls = 'panel-train-type-cell';
+                let cls = 'route-map-cell';
                 if ((hideHead && (t?._hasPair ? (!firstStop && !secondStop) : !anyStop)) || hideTail) {
                     cls += ' is-hidden-tail';
                 } else if (t?._hasPair) {
@@ -1591,7 +1591,7 @@ const setupPanelTrainTypeUi = () => {
                 rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)}"></div>`);
             }
             const sid = toText(orderedStationIds?.[si]);
-            rows.push(`<div class="panel-train-type-station" data-station-id="${escapeHtml(sid)}" title="${escapeHtml(stName)}">${escapeHtml(stName)}</div>`);
+            rows.push(`<div class="route-map-station" data-station-id="${escapeHtml(sid)}" title="${escapeHtml(stName)}">${escapeHtml(stName)}</div>`);
 
             appendThroughGapRow(si);
         }
@@ -1599,15 +1599,15 @@ const setupPanelTrainTypeUi = () => {
         const metaLine = (() => {
             const day = toText(payload?.serviceDay);
             const dayText = day === 'SaturdayHoliday' ? '休息日' : '工作日';
-            return `<div class="panel-train-type-meta">${escapeHtml(dayText)}</div>`;
+            return `<div class="route-map-meta">${escapeHtml(dayText)}</div>`;
         })();
 
         return {
-            headHtml: `<div class="panel-train-type-grid" style="${gridStyle}">${headCells}</div>`,
+            headHtml: `<div class="route-map-grid" style="${gridStyle}">${headCells}</div>`,
             bodyHtml: `${metaLine}
-                <div class="panel-train-type-section">
-                    <div class="panel-train-type-section-title">站序</div>
-                    <div class="panel-train-type-grid" style="${gridStyle}">
+                <div class="route-map-section">
+                    <div class="route-map-section-title">站序</div>
+                    <div class="route-map-grid" style="${gridStyle}">
                         ${rows.join('')}
                     </div>
                 </div>`
@@ -1631,7 +1631,7 @@ const setupPanelTrainTypeUi = () => {
         lastPlacement = toText(placement) === 'panel' ? 'panel' : 'anchor';
 
         gridHeader.innerHTML = '';
-        body.innerHTML = '<div class="panel-train-type-meta">加载中…</div>';
+        body.innerHTML = '<div class="route-map-meta">加载中…</div>';
         root.classList.remove('is-hidden');
         positionPanel();
 
@@ -1640,7 +1640,7 @@ const setupPanelTrainTypeUi = () => {
             : await computeLineStopDiagramData(lid, { serviceDay, minTripsPerDay });
         if (!payload) {
             gridHeader.innerHTML = '';
-            body.innerHTML = '<div class="panel-train-type-meta">无法生成（该线路无时刻表数据或尚未加载）</div>';
+            body.innerHTML = '<div class="route-map-meta">无法生成（该线路无时刻表数据或尚未加载）</div>';
             positionPanel();
             return;
         }
@@ -1674,11 +1674,11 @@ const setupPanelTrainTypeUi = () => {
         };
     };
 
-    const showTrainTypeStationIndicator = (stationId) => {
+    const showRouteMapStationIndicator = (stationId) => {
         const sid = toText(stationId);
         if (!sid) return;
         try {
-            window.dispatchEvent(new CustomEvent('__TokyoRailTrainTypeStationIndicatorShow', {
+            window.dispatchEvent(new CustomEvent('__TokyoRailRouteMapStationIndicatorShow', {
                 detail: { stationId: sid }
             }));
         } catch {
@@ -1686,33 +1686,33 @@ const setupPanelTrainTypeUi = () => {
         }
     };
 
-    const clearTrainTypeStationIndicator = () => {
+    const clearRouteMapStationIndicator = () => {
         try {
-            window.dispatchEvent(new CustomEvent('__TokyoRailTrainTypeStationIndicatorClear'));
+            window.dispatchEvent(new CustomEvent('__TokyoRailRouteMapStationIndicatorClear'));
         } catch {
             // ignore
         }
     };
 
-    const notifyTrainTypePopoverHoverEnter = () => {
+    const notifyRouteMapPopoverHoverEnter = () => {
         try {
-            window.dispatchEvent(new CustomEvent('__TokyoRailTrainTypePopoverHoverEnter'));
+            window.dispatchEvent(new CustomEvent('__TokyoRailRouteMapPopoverHoverEnter'));
         } catch {
             // ignore
         }
     };
 
-    const notifyTrainTypePopoverHoverLeave = () => {
+    const notifyRouteMapPopoverHoverLeave = () => {
         try {
-            window.dispatchEvent(new CustomEvent('__TokyoRailTrainTypePopoverHoverLeave'));
+            window.dispatchEvent(new CustomEvent('__TokyoRailRouteMapPopoverHoverLeave'));
         } catch {
             // ignore
         }
     };
 
-    const getTrainTypeStationTarget = (target) => {
+    const getRouteMapStationTarget = (target) => {
         if (!(target instanceof Element)) return null;
-        return target.closest?.('.panel-train-type-station[data-station-id]') || null;
+        return target.closest?.('.route-map-station[data-station-id]') || null;
     };
 
     // Keep panel open when pointer is inside it
@@ -1730,42 +1730,42 @@ const setupPanelTrainTypeUi = () => {
     root.addEventListener('mouseenter', () => {
         hoverInsidePanel = true;
         clearTimers();
-        notifyTrainTypePopoverHoverEnter();
+        notifyRouteMapPopoverHoverEnter();
     });
     root.addEventListener('mouseleave', () => {
         hoverInsidePanel = false;
         if (!pinned) scheduleHide(180);
-        clearTrainTypeStationIndicator();
-        notifyTrainTypePopoverHoverLeave();
+        clearRouteMapStationIndicator();
+        notifyRouteMapPopoverHoverLeave();
     });
 
     body.addEventListener('mouseover', (evt) => {
-        const stationEl = getTrainTypeStationTarget(evt?.target);
+        const stationEl = getRouteMapStationTarget(evt?.target);
         if (!stationEl) return;
         const sid = toText(stationEl.getAttribute('data-station-id'));
         if (!sid) return;
-        showTrainTypeStationIndicator(sid);
+        showRouteMapStationIndicator(sid);
     });
 
     body.addEventListener('mouseout', (evt) => {
-        const fromEl = getTrainTypeStationTarget(evt?.target);
+        const fromEl = getRouteMapStationTarget(evt?.target);
         if (!fromEl) return;
         const toEl = evt?.relatedTarget;
-        const toStation = getTrainTypeStationTarget(toEl);
+        const toStation = getRouteMapStationTarget(toEl);
         if (toStation) return;
-        clearTrainTypeStationIndicator();
+        clearRouteMapStationIndicator();
     });
 
     body.addEventListener('mouseleave', () => {
-        clearTrainTypeStationIndicator();
+        clearRouteMapStationIndicator();
     });
 
     body.addEventListener('pointerdown', (evt) => {
-        const stationEl = getTrainTypeStationTarget(evt?.target);
+        const stationEl = getRouteMapStationTarget(evt?.target);
         if (!stationEl) return;
         const sid = toText(stationEl.getAttribute('data-station-id'));
         if (!sid) return;
-        showTrainTypeStationIndicator(sid);
+        showRouteMapStationIndicator(sid);
     }, { passive: true });
 
     // Hover: show
@@ -1816,7 +1816,7 @@ const setupPanelTrainTypeUi = () => {
         showForLine({ lineId, lineName, anchorRect });
     }, true);
 
-    window.addEventListener('__TokyoRailShowTrainTypePanel', (evt) => {
+    window.addEventListener('__TokyoRailShowRouteMapPanel', (evt) => {
         const d = evt?.detail || {};
         const lineId = toText(d?.lineId);
         if (!lineId) return;
@@ -1841,8 +1841,8 @@ const setupPanelTrainTypeUi = () => {
         root.classList.add('is-hidden');
         activeLineId = '';
         activeLineName = '';
-        clearTrainTypeStationIndicator();
-        notifyTrainTypePopoverHoverLeave();
+        clearRouteMapStationIndicator();
+        notifyRouteMapPopoverHoverLeave();
     }, true);
 
     document.addEventListener('keydown', (evt) => {
@@ -1852,8 +1852,8 @@ const setupPanelTrainTypeUi = () => {
         root.classList.add('is-hidden');
         activeLineId = '';
         activeLineName = '';
-        clearTrainTypeStationIndicator();
-        notifyTrainTypePopoverHoverLeave();
+        clearRouteMapStationIndicator();
+        notifyRouteMapPopoverHoverLeave();
     });
 
     // Day toggle: refresh if panel is visible
@@ -1876,4 +1876,4 @@ const setupPanelTrainTypeUi = () => {
     }, true);
 };
 
-setupPanelTrainTypeUi();
+setupRouteMapUi();
