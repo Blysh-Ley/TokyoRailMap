@@ -10,6 +10,10 @@
 
 const toText = (v) => String(v ?? '').trim();
 
+const getTripIdText = (trip) => toText(trip?.id) || toText(trip?.t);
+
+const isTripIdSuffixExcluded = (tripIdRaw) => /\.(1|2)$/.test(toText(tripIdRaw));
+
 const pickTitleZhHans = (titleObj) => {
     const t = titleObj || {};
     return (
@@ -205,6 +209,10 @@ const createTripResolver = () => {
     const loadTripByRefId = async (refId) => {
         const key = toText(refId);
         if (!key) return null;
+        if (isTripIdSuffixExcluded(key)) {
+            refTripCache.set(key, null);
+            return null;
+        }
         if (refTripCache.has(key)) return refTripCache.get(key);
 
         const refLineId = getRefLineId(key);
@@ -215,14 +223,15 @@ const createTripResolver = () => {
 
         const data = await loadTimetableForLineId(refLineId);
         const list = Array.isArray(data) ? data : [];
-        let hit = list.find((t) => toText(t?.id) === key) || null;
+        const filteredList = list.filter((trip) => !isTripIdSuffixExcluded(getTripIdText(trip)));
+        let hit = filteredList.find((t) => toText(t?.id) === key) || null;
         if (!hit) {
             const parts = key.split('.').map((x) => x.trim()).filter(Boolean);
             const maybeNoDay = parts.length >= 2 ? parts.slice(0, -1).join('.') : key;
             hit =
-                list.find((t) => toText(t?.t) === maybeNoDay) ||
-                list.find((t) => toText(t?.id) === maybeNoDay) ||
-                list.find((t) => {
+                filteredList.find((t) => toText(t?.t) === maybeNoDay) ||
+                filteredList.find((t) => toText(t?.id) === maybeNoDay) ||
+                filteredList.find((t) => {
                     const id = toText(t?.id);
                     return id ? id.startsWith(`${maybeNoDay}.`) : false;
                 }) ||
@@ -278,7 +287,8 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
     ]);
 
     const list = Array.isArray(timetableData) ? timetableData : [];
-    const lineMeta = railwaysIndex.get(lineId) || { id: lineId, name: lineId, color: '', company: '', stationIds: [] };
+        const lineMeta = railwaysIndex.get(lineId) || { id: lineId, name: lineId, color: '', company: '', stationIds: [] };
+        const filteredList = list.filter((trip) => !isTripIdSuffixExcluded(getTripIdText(trip)));
     const lineStationIds = Array.isArray(lineMeta?.stationIds) ? lineMeta.stationIds : [];
 
     const stationName = (sid) => stationsIndex?.idToNameZh?.get?.(sid) || sid;
@@ -344,8 +354,8 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
     };
 
     // base patterns (selected line only)
-    for (let i = 0; i < list.length; i += 1) {
-        const trip = list[i];
+    for (let i = 0; i < filteredList.length; i += 1) {
+        const trip = filteredList[i];
         const day = getTripServiceDay(trip);
         if (serviceDay && day && day !== serviceDay) continue;
         const dir = toText(trip?.d) || 'Unknown';
@@ -416,6 +426,8 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
     };
 
     const resolveThroughEntryFromRefTrip = (refTrip, kind) => {
+        const refTripId = getTripIdText(refTrip);
+        if (isTripIdSuffixExcluded(refTripId)) return null;
         const refLineId = getTripLineId(refTrip);
         if (!refLineId) return null;
         if (refLineId === lineId) return null;
@@ -436,8 +448,8 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
         };
     };
 
-    for (let i = 0; i < list.length; i += 1) {
-        const trip = list[i];
+    for (let i = 0; i < filteredList.length; i += 1) {
+        const trip = filteredList[i];
         const day = getTripServiceDay(trip);
         if (serviceDay && day && day !== serviceDay) continue;
 
@@ -727,6 +739,7 @@ export async function computeLineStopDiagramData(lineId, {
             const typeName = toText(t?.typeName) || typeId;
             const patterns = Array.isArray(t?.patterns) ? t.patterns : [];
             const totalTrips = patterns.reduce((sum, p) => sum + (Number(p?.tripCount) || 0), 0);
+            const isFixedStopPattern = patterns.length === 1;
             if (threshold > 0 && totalTrips < threshold) continue;
 
             const lineStationIds = Array.isArray(raw?.lineStations?.stationIds) ? raw.lineStations.stationIds : [];
@@ -759,6 +772,7 @@ export async function computeLineStopDiagramData(lineId, {
                 typeName,
                 color,
                 totalTrips,
+                isFixedStopPattern,
                 pattern: {
                     tripCount: totalTrips,
                     stopMask: unionMask,

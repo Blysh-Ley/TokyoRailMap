@@ -10,9 +10,23 @@
  */
 
 import { computeLineStopDiagramData } from './route-map.js';
-import { sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
+import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
 
 const toText = (v) => String(v ?? '').trim();
+
+const isTypeInBaseSequence = (typeNameRaw) => {
+    const typeName = toText(typeNameRaw);
+    if (!typeName) return false;
+    return TYPE_BASE_SEQUENCE.some((kw) => typeName.includes(toText(kw)));
+};
+
+const shouldDisplayRouteMapType = (typeInfo) => {
+    const typeName = toText(typeInfo?.typeName);
+    if (isTypeInBaseSequence(typeName)) return true;
+    const totalTrips = Number(typeInfo?.totalTrips || 0);
+    const isFixedStopPattern = true;//typeInfo?.isFixedStopPattern === true;
+    return totalTrips > 30 && isFixedStopPattern;
+};
 
 const stopPropagationOnly = (evt) => {
     try {
@@ -582,7 +596,7 @@ const ensureStyleInstalled = () => {
             text-overflow: ellipsis;
         }
         .route-map-typehead {
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 700;
             text-align: center;
             writing-mode: vertical-rl;
@@ -703,9 +717,9 @@ const ensureStyleInstalled = () => {
             display: flex;
             align-items: center;
             min-height: 18px;
-            white-space: nowrap;
-            overflow-x: auto;
-            overflow-y: hidden;
+            white-space: normal;
+            overflow-x: hidden;
+            overflow-y: visible;
             padding-left:20px;
         }
         .route-map-through-prefix {
@@ -714,11 +728,12 @@ const ensureStyleInstalled = () => {
         }
         .route-map-through-items {
             display: flex;
-            align-items: center;
-            gap: 10px;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
         }
         .route-map-through-item {
-            display: inline-flex;
+            display: flex;
             align-items: center;
             gap: 4px;
             flex: 0 0 auto;
@@ -1118,6 +1133,7 @@ const setupRouteMapUi = () => {
             for (const t of Array.isArray(dirBlock?.types) ? dirBlock.types : []) {
                 const typeId = toText(t?.typeId) || 'Unknown';
                 const typeName = toText(t?.typeName) || typeId;
+                if (!shouldDisplayRouteMapType(t)) continue;
                 const color = toText(t?.color) || '#888';
                 const key = `${typeId}||${typeName}`;
                 if (!mergedTypeMap.has(key)) {
@@ -1143,6 +1159,7 @@ const setupRouteMapUi = () => {
         for (const d of directions) addDirTypes(d, toText(d?.dir) || 'Unknown');
 
         let types = Array.from(mergedTypeMap.values());
+        const allowedTypeIds = new Set(types.map((t) => toText(t?.typeId) || 'Unknown'));
         if (!types.length) {
             return {
                 headHtml: '',
@@ -1257,6 +1274,7 @@ const setupRouteMapUi = () => {
 
                 for (const byType of Array.isArray(row?.byType) ? row.byType : []) {
                     const typeId = toText(byType?.typeId) || 'Unknown';
+                    if (!allowedTypeIds.has(typeId)) continue;
                     for (const target of Array.isArray(byType?.targets) ? byType.targets : []) {
                         const refLineId = toText(target?.refLineId);
                         const kind = toText(target?.kind) || 'nt';
@@ -1620,7 +1638,7 @@ const setupRouteMapUi = () => {
         if (!window?.TokyoRailTimetableCache) return;
 
         const serviceDay = getCurrentServiceDayFromPanelDom();
-        const minTripsPerDay = 0;
+        const minTripsPerDay = 5;
         const cacheKey = `${lid}||${serviceDay}||minTrips=${minTripsPerDay}`;
 
         activeLineId = lid;
