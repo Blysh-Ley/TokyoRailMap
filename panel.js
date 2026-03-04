@@ -4,6 +4,7 @@
  */
 
 import { sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
+import { buildTripPreviewKey, createTripPreviewScheduler } from './trip-preview.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -1356,10 +1357,11 @@ export function createPanel(options = {}) {
     let lastTripDetailKey = null;
     let tripLocked = false;
     let lockedTripKey = null;
-    const tripHighlightDelayMs = 500;
-    let tripHighlightTimerId = null;
-    let tripHighlightCandidateKey = null;
-    let tripHighlightAppliedKey = null;
+    const tripPreviewScheduler = createTripPreviewScheduler({
+        onPreview: onTripPreview,
+        getHoverPreviewEnabled: isHoverPreviewEnabled,
+        delayMs: 500
+    });
 
     let tripDetailToken = 0;
     let tripDetailPinned = false;
@@ -1535,21 +1537,7 @@ export function createPanel(options = {}) {
     };
 
     const clearTripHighlightTimer = () => {
-        if (tripHighlightTimerId != null) {
-            clearTimeout(tripHighlightTimerId);
-            tripHighlightTimerId = null;
-        }
-        tripHighlightCandidateKey = null;
-    };
-
-    const dispatchTripPreview = (previewKey, payload) => {
-        if (!onTripPreview) return;
-        try {
-            tripHighlightAppliedKey = toText(previewKey) || null;
-            onTripPreview(payload);
-        } catch {
-            // ignore
-        }
+        tripPreviewScheduler.clearPending();
     };
 
     const showTripCurrentStationHint = async ({ lineId, token } = {}) => {
@@ -1602,24 +1590,7 @@ export function createPanel(options = {}) {
     };
 
     const scheduleTripPreview = ({ previewKey, payload, immediate }) => {
-        if (!onTripPreview) return;
-        if (!immediate && !isHoverPreviewEnabled()) return;
-
-        if (immediate) {
-            clearTripHighlightTimer();
-            dispatchTripPreview(previewKey, payload);
-            return;
-        }
-
-        clearTripHighlightTimer();
-        tripHighlightCandidateKey = toText(previewKey);
-        const key = tripHighlightCandidateKey;
-        tripHighlightTimerId = setTimeout(() => {
-            tripHighlightTimerId = null;
-            if (tripHighlightCandidateKey !== key) return;
-            tripHighlightCandidateKey = null;
-            dispatchTripPreview(previewKey, payload);
-        }, tripHighlightDelayMs);
+        tripPreviewScheduler.schedule({ previewKey, payload, immediate });
     };
 
     const scheduleTripDetailHide = (delayMs = 220) => {
@@ -3367,7 +3338,7 @@ export function createPanel(options = {}) {
                 fitMode: toText(fitMode)
             };
             scheduleTripPreview({
-                previewKey: `${toText(lineId)}||${toText(tripKey)}`,
+                previewKey: buildTripPreviewKey(lineId, tripKey),
                 payload,
                 immediate: !!pinned || tripLocked
             });
@@ -3402,7 +3373,7 @@ export function createPanel(options = {}) {
 
     const hideTripDetail = () => {
         clearTripHighlightTimer();
-        tripHighlightAppliedKey = null;
+        tripPreviewScheduler.clearApplied();
         unlockTripPreview();
         tripDetailToken += 1;
         clearTripDetailHideTimer();
@@ -4595,7 +4566,7 @@ export function createPanel(options = {}) {
 
                 lockTripPreview(key);
                 setPinnedPanelSelection('trip', key);
-                const fitMode = (tripHighlightAppliedKey === key) ? 'none' : 'commit';
+                const fitMode = tripPreviewScheduler.isAppliedKey(key) ? 'none' : 'commit';
                 renderTripDetail({
                     lineId: String(lineId),
                     tripKey: String(tripKey),
@@ -4715,8 +4686,8 @@ export function createPanel(options = {}) {
         const key = `${lineId}||${tripKey}`;
         if (tripLocked && key !== lockedTripKey) return;
         if (key === lastTripDetailKey && !tripDetailPinned) {
-            const pendingSame = tripHighlightCandidateKey === key;
-            const appliedSame = tripHighlightAppliedKey === key;
+            const pendingSame = tripPreviewScheduler.isPendingKey(key);
+            const appliedSame = tripPreviewScheduler.isAppliedKey(key);
             if (pendingSame || appliedSame) return;
         }
 
