@@ -12,6 +12,89 @@ function el(tag, className, attrs = {}) {
 }
 
 const normalizeText = (v) => String(v ?? '').trim();
+
+const travelIsDarkThemeActive = () => {
+    try {
+        return document.documentElement.getAttribute('data-theme') === 'dark';
+    } catch {
+        return false;
+    }
+};
+
+const travelParseCssColorToRgb = (input) => {
+    const s = String(input || '').trim();
+    if (!s) return null;
+
+    const hex = s.match(/^#([0-9a-fA-F]{3,8})$/);
+    if (hex) {
+        const raw = hex[1];
+        if (raw.length === 3 || raw.length === 4) {
+            const r = parseInt(raw[0] + raw[0], 16);
+            const g = parseInt(raw[1] + raw[1], 16);
+            const b = parseInt(raw[2] + raw[2], 16);
+            return { r, g, b };
+        }
+        if (raw.length === 6 || raw.length === 8) {
+            const r = parseInt(raw.slice(0, 2), 16);
+            const g = parseInt(raw.slice(2, 4), 16);
+            const b = parseInt(raw.slice(4, 6), 16);
+            return { r, g, b };
+        }
+    }
+
+    const rgb = s.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*([0-9]+(?:\.[0-9]+)?))?\s*\)$/i);
+    if (rgb) {
+        const r = Math.max(0, Math.min(255, Math.round(Number(rgb[1]))));
+        const g = Math.max(0, Math.min(255, Math.round(Number(rgb[2]))));
+        const b = Math.max(0, Math.min(255, Math.round(Number(rgb[3]))));
+        return { r, g, b };
+    }
+
+    return null;
+};
+
+const travelRgbToHex = ({ r, g, b }) => {
+    const to2 = (v) => Math.max(0, Math.min(255, Math.round(Number(v) || 0))).toString(16).padStart(2, '0');
+    return `#${to2(r)}${to2(g)}${to2(b)}`;
+};
+
+const travelRelativeLuminance = ({ r, g, b }) => {
+    const toLinear = (v) => {
+        const x = Math.max(0, Math.min(255, Number(v) || 0)) / 255;
+        return x <= 0.03928 ? (x / 12.92) : Math.pow((x + 0.055) / 1.055, 2.4);
+    };
+    const lr = toLinear(r);
+    const lg = toLinear(g);
+    const lb = toLinear(b);
+    return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+};
+
+const TRAVEL_DARK_INVERT_TRIGGER_LUMINANCE = (() => {
+    const ref = travelParseCssColorToRgb('#005AAA');
+    return ref ? travelRelativeLuminance(ref) : 0.102;
+})();
+
+const travelAdjustColorForDarkThemeIfNeeded = (color) => {
+    const parsed = travelParseCssColorToRgb(color);
+    if (!parsed) return normalizeText(color);
+
+    const lum = travelRelativeLuminance(parsed);
+    if (!(lum < TRAVEL_DARK_INVERT_TRIGGER_LUMINANCE)) return normalizeText(color);
+
+    const inverted = {
+        r: 255 - parsed.r,
+        g: 255 - parsed.g,
+        b: 255 - parsed.b
+    };
+    return travelRgbToHex(inverted);
+};
+
+const resolveJourneyColorForTheme = (color) => {
+    const raw = normalizeText(color);
+    if (!raw) return raw;
+    if (!travelIsDarkThemeActive()) return raw;
+    return travelAdjustColorForDarkThemeIfNeeded(raw);
+};
 const SERVICE_DAY_BOUNDARY_HOUR = 3;
 const INF_TIME = Number.POSITIVE_INFINITY;
 
@@ -1676,6 +1759,8 @@ export function mountTravelSearchUI() {
             return;
         }
 
+        const overallDestinationStationId = normalizeText(row?.destinationStationId || (displayPlan?.legs && displayPlan.legs.length ? displayPlan.legs[displayPlan.legs.length - 1]?.toStop : '') || '');
+
         for (const block of blocks) {
             if (block.kind === 'transfer') {
                 const transferRow = el('div', 'journey-trip-transfer-row');
@@ -1686,11 +1771,11 @@ export function mountTravelSearchUI() {
 
             const note = el('div', 'journey-trip-note-row');
             const noteDot = el('span', 'journey-trip-note-dot');
-            if (block.lineColor) noteDot.style.background = String(block.lineColor);
+            if (block.lineColor) noteDot.style.background = String(resolveJourneyColorForTheme(block.lineColor));
             const noteLine = el('span', 'journey-trip-note-line', { text: block.lineDisplayName || block.lineName });
-            if (block.lineColor) noteLine.style.color = String(block.lineColor);
+            if (block.lineColor) noteLine.style.color = String(resolveJourneyColorForTheme(block.lineColor));
             const noteType = el('span', 'journey-trip-note-type', { text: block.typeName });
-            if (block.typeColor) noteType.style.color = String(block.typeColor);
+            if (block.typeColor) noteType.style.color = String(resolveJourneyColorForTheme(block.typeColor));
             note.appendChild(noteDot);
             note.appendChild(noteLine);
             note.appendChild(noteType);
@@ -1698,18 +1783,28 @@ export function mountTravelSearchUI() {
 
             for (let i = 0; i < block.rows.length; i += 1) {
                 const s = block.rows[i];
+                const isFirst = i === 0;
+                const isLast = i === block.rows.length - 1;
+                const stationId = normalizeText(s.stationId || '');
                 const rowEl = el('div', 'journey-trip-row');
                 rowEl.appendChild(el('div', 'journey-trip-station', { text: s.stationName || s.stationId }));
 
                 const arrCell = el('div', 'journey-trip-time journey-trip-arrive');
-                if (i > 0 && s.arrText) {
-                    const arr = el('span', 'journey-trip-time-arrive', { text: s.arrText });
+                const arriveText = normalizeText(s.arrText || '') || (isFirst ? normalizeText(s.depText || '') : '');
+                if (arriveText) {
+                    const arr = el('span', 'journey-trip-time-arrive', { text: arriveText });
                     arrCell.appendChild(arr);
                 }
                 rowEl.appendChild(arrCell);
 
                 const depCell = el('div', 'journey-trip-time journey-trip-depart');
-                if (i < block.rows.length - 1 && s.depText) {
+                if (overallDestinationStationId && stationId && overallDestinationStationId === stationId) {
+                    const destLabel = el('span', 'journey-trip-time-arrive journey-trip-time-destination', { text: '目的地' });
+                    depCell.appendChild(destLabel);
+                } else if (isLast) {
+                    const terminalDash = el('span', 'journey-trip-time-arrive', { text: '-' });
+                    depCell.appendChild(terminalDash);
+                } else if (s.depText) {
                     const dep = el('span', 'journey-trip-time-depart', { text: s.depText });
                     depCell.appendChild(dep);
                 }
@@ -1783,11 +1878,11 @@ export function mountTravelSearchUI() {
             const lineMeta = await getLineMeta(leg.lineId);
 
             const lineSpan = el('span', 'journey-plan-line', { text: lineMeta?.name || leg.lineId || '线路' });
-            if (lineMeta?.color) lineSpan.style.color = String(lineMeta.color);
+            if (lineMeta?.color) lineSpan.style.color = String(resolveJourneyColorForTheme(lineMeta.color));
             container.appendChild(lineSpan);
 
             const typeSpan = el('span', 'journey-plan-type', { text: `${normalizeText(leg.typeName) || '普通'}` });
-            if (leg?.typeColor) typeSpan.style.color = String(leg.typeColor);
+            if (leg?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(leg.typeColor));
             container.appendChild(typeSpan);
 
             if (i < legs.length - 1) {
@@ -2091,7 +2186,7 @@ export function mountTravelSearchUI() {
                     if (idx > 0) wrap.appendChild(document.createTextNode('、'));
                     const seg = document.createElement('span');
                     seg.textContent = String(meta?.name || '');
-                    if (meta?.color) seg.style.color = String(meta.color);
+                    if (meta?.color) seg.style.color = String(resolveJourneyColorForTheme(meta.color));
                     wrap.appendChild(seg);
                 });
 
