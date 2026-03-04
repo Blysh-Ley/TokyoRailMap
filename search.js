@@ -313,10 +313,17 @@ async function ensureDataLoaded() {
     }
 }
 
-function buildSearchResults(query, { limit = 30 } = {}) {
+function buildSearchResults(query, { limit = 30, allowedTypes = null } = {}) {
     const tokens = tokenizeQuery(query);
     if (!tokens.length) return [];
     if (!dataReady) return [];
+
+    const allowSet = allowedTypes instanceof Set
+        ? new Set(Array.from(allowedTypes).map((t) => normalizeText(t).toLowerCase()).filter(Boolean))
+        : null;
+    const allowStation = !allowSet || allowSet.has('station');
+    const allowLine = !allowSet || allowSet.has('line');
+    const allowCompany = !allowSet || allowSet.has('company');
 
     // app.js 的 companyLogoMap 可能晚于索引初始化；每次搜索前尝试补齐一次
     mergeCompanyMetaIfAvailable();
@@ -325,52 +332,58 @@ function buildSearchResults(query, { limit = 30 } = {}) {
     const lineHits = [];
     const companyHits = [];
 
-    for (const c of companyIndex) {
-        let best = -1;
-        for (const n of c.names) best = Math.max(best, matchScore(n, tokens));
-        if (best >= 0) {
-            companyHits.push({
-                score: best,
-                item: {
-                    type: 'company',
-                    id: c.id,
-                    text: c.text,
-                    logoUrl: getCompanyLogoUrl(c.id)
-                }
-            });
+    if (allowCompany) {
+        for (const c of companyIndex) {
+            let best = -1;
+            for (const n of c.names) best = Math.max(best, matchScore(n, tokens));
+            if (best >= 0) {
+                companyHits.push({
+                    score: best,
+                    item: {
+                        type: 'company',
+                        id: c.id,
+                        text: c.text,
+                        logoUrl: getCompanyLogoUrl(c.id)
+                    }
+                });
+            }
         }
     }
 
-    for (const l of lineIndex) {
-        let best = -1;
-        for (const n of l.names) best = Math.max(best, matchScore(n, tokens));
-        if (best >= 0) {
-            lineHits.push({
-                score: best,
-                item: {
-                    type: 'line',
-                    id: l.id,
-                    text: l.text,
-                    color: l.color || null
-                }
-            });
+    if (allowLine) {
+        for (const l of lineIndex) {
+            let best = -1;
+            for (const n of l.names) best = Math.max(best, matchScore(n, tokens));
+            if (best >= 0) {
+                lineHits.push({
+                    score: best,
+                    item: {
+                        type: 'line',
+                        id: l.id,
+                        text: l.text,
+                        color: l.color || null
+                    }
+                });
+            }
         }
     }
 
-    for (const s of stationIndex) {
-        let best = -1;
-        for (const n of s.names) best = Math.max(best, matchScore(n, tokens));
-        if (best >= 0) {
-            stationHits.push({
-                score: best + (s.isTransfer ? 3 : 0),
-                item: {
-                    type: 'station',
-                    id: s.id,
-                    text: s.text,
-                    isTransfer: s.isTransfer,
-                    lineIds: Array.isArray(s.lineIds) ? s.lineIds.slice() : []
-                }
-            });
+    if (allowStation) {
+        for (const s of stationIndex) {
+            let best = -1;
+            for (const n of s.names) best = Math.max(best, matchScore(n, tokens));
+            if (best >= 0) {
+                stationHits.push({
+                    score: best + (s.isTransfer ? 3 : 0),
+                    item: {
+                        type: 'station',
+                        id: s.id,
+                        text: s.text,
+                        isTransfer: s.isTransfer,
+                        lineIds: Array.isArray(s.lineIds) ? s.lineIds.slice() : []
+                    }
+                });
+            }
         }
     }
 
@@ -399,6 +412,30 @@ function buildSearchResults(query, { limit = 30 } = {}) {
     }
 
     return out.slice(0, limit);
+}
+
+export async function searchRailEntities(query, { limit = 30, allowedTypes = null } = {}) {
+    const q = normalizeText(query);
+    if (!q) return [];
+
+    await ensureDataLoaded();
+    if (!dataReady) return [];
+
+    return buildSearchResults(q, { limit, allowedTypes });
+}
+
+export async function getLineMetaByIds(lineIds) {
+    await ensureDataLoaded();
+    if (!dataReady) return [];
+
+    const ids = Array.isArray(lineIds) ? lineIds.map((id) => normalizeText(id)).filter(Boolean) : [];
+    const out = [];
+    for (const id of ids) {
+        const meta = lineMetaById.get(String(id));
+        if (!meta || !meta.name) continue;
+        out.push({ id: String(id), name: String(meta.name), color: meta.color || null });
+    }
+    return out;
 }
 
 export function mountSearchUI() {

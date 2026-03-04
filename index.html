@@ -253,6 +253,206 @@
             display: none;
         }
 
+        /* 左上角行程搜索框（双输入，逻辑在 travel-search.js） */
+        .journey-ui {
+            position: absolute;
+            top: 10px;
+            left: 64px;
+            z-index: 8000;
+            width: 320px;
+            max-width: calc(100vw - 64px);
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            user-select: none;
+            transition: width 0.2s ease;
+            display: grid;
+            grid-template-rows: 36.4px auto;
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+
+        .journey-ui::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 36.4px;
+            width: 100%;
+            border-radius: 18.2px;
+            background: rgba(255, 255, 255, 0.75);
+            border: 1px solid #e3e5e7;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(4px);
+            transition: border-radius 0.2s ease;
+            pointer-events: none;
+        }
+
+        .journey-ui.is-collapsed {
+            width: 36.4px;
+        }
+
+        .journey-ui.is-collapsed::before {
+            border-radius: 18.2px;
+        }
+
+        .journey-ui.is-collapsed .journey-results {
+            opacity: 0;
+            max-height: 0;
+            margin-top: 0;
+            border-width: 0;
+            pointer-events: none;
+        }
+
+        .journey-fab {
+            grid-row: 1;
+            grid-column: 1;
+            width: 100%;
+            height: 36.4px;
+            border-radius: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            backdrop-filter: none;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            color: #111;
+            font-size: 18px;
+            line-height: 1;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1;
+        }
+
+        .journey-ui.is-collapsed .journey-fab {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .journey-fab-icon {
+            width: 16px;
+            height: 16px;
+            display: block;
+            pointer-events: none;
+            object-fit: contain;
+            object-position: center;
+            transform: translateY(0.5px);
+        }
+
+        .journey-fab:focus {
+            outline: none;
+        }
+
+        .journey-bar {
+            grid-row: 1;
+            grid-column: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            backdrop-filter: none;
+            opacity: 1;
+            transition: opacity 0.2s ease;
+            z-index: 1;
+        }
+
+        .journey-ui.is-collapsed .journey-bar {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .journey-input {
+            width: 100%;
+            border: none;
+            background: transparent;
+            outline: none;
+            font-size: 14px;
+            color: #111;
+            min-width: 0;
+        }
+
+        .journey-input-wrap {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex: 1 1 0;
+            min-width: 0;
+        }
+
+        .journey-map-pick-btn {
+            width: 20px;
+            height: 20px;
+            border: none;
+            background: transparent;
+            border-radius: 999px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex: 0 0 20px;
+            opacity: 0.9;
+        }
+
+        .journey-map-pick-btn:hover {
+            background: rgba(52, 152, 219, 0.12);
+            opacity: 1;
+        }
+
+        .journey-map-pick-btn.is-active {
+            background: rgba(52, 152, 219, 0.2);
+        }
+
+        .journey-map-pick-icon {
+            width: 14px;
+            height: 14px;
+            display: block;
+            pointer-events: none;
+        }
+
+        .journey-input::placeholder {
+            color: #666;
+        }
+
+        .journey-divider {
+            width: 1px;
+            height: 18px;
+            background: #e3e5e7;
+            flex: 0 0 1px;
+        }
+
+        .journey-results {
+            grid-row: 2;
+            grid-column: 1;
+            margin-top: 8px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.92);
+            border-style: solid;
+            border-color: #e3e5e7;
+            border-width: 1px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, .1);
+            overflow: hidden;
+            opacity: 1;
+            max-height: 360px;
+            transition: opacity 0.2s ease, max-height 0.2s ease, margin-top 0.2s ease, border-width 0.2s ease;
+        }
+
+        .journey-results.is-hidden {
+            opacity: 0;
+            max-height: 0;
+            margin-top: 0;
+            border-width: 0;
+            pointer-events: none;
+        }
+
         .settings-ui {
             position: absolute;
             top: 10px;
@@ -2569,7 +2769,9 @@
         }
 
         html[data-theme='dark'] .search-input,
+        html[data-theme='dark'] .journey-input,
         html[data-theme='dark'] .search-fab,
+        html[data-theme='dark'] .journey-fab,
         html[data-theme='dark'] .search-result-item,
         html[data-theme='dark'] .search-result-text,
         html[data-theme='dark'] .panel-popup,
@@ -2590,6 +2792,7 @@
         }
 
         html[data-theme='dark'] .search-input::placeholder,
+        html[data-theme='dark'] .journey-input::placeholder,
         html[data-theme='dark'] .search-empty,
         html[data-theme='dark'] .panel-timetable,
         html[data-theme='dark'] .panel-time-label,
@@ -2761,6 +2964,8 @@
         }
 
         html[data-theme='dark'] .search-fab-icon,
+        html[data-theme='dark'] .journey-fab-icon,
+        html[data-theme='dark'] .journey-map-pick-icon,
         html[data-theme='dark'] .settings-fab-icon,
         html[data-theme='dark'] .panel-day-print-icon,
         html[data-theme='dark'] .panel-dir-filter-icon,
@@ -2782,6 +2987,18 @@
         html[data-theme='dark'] .search-result-icon--station {
             background: #101216;
             border-color: #c8cdd6;
+        }
+
+        html[data-theme='dark'] .journey-divider {
+            background: #5a5d62;
+        }
+
+        html[data-theme='dark'] .journey-map-pick-btn:hover {
+            background: rgba(52, 152, 219, 0.26);
+        }
+
+        html[data-theme='dark'] .journey-map-pick-btn.is-active {
+            background: rgba(52, 152, 219, 0.36);
         }
 
         html[data-theme='dark'] .panel-timetable-row.is-past,
@@ -2881,6 +3098,9 @@
 
 <!-- 搜索框 UI（先做 UI；交互逻辑后续补齐） -->
 <script type="module" src="./search.js"></script>
+
+<!-- 行程搜索 UI（起终点双输入） -->
+<script type="module" src="./travel-search.js"></script>
 
 </body>
 </html>
