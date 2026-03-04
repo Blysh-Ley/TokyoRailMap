@@ -1277,6 +1277,10 @@ export function mountTravelSearchUI() {
     let lastPlanComputeKey = '';
     let planComputeToken = 0;
     let popoverHideTimer = null;
+    let planPreviewHideTimer = null;
+    let activePlanPreviewKey = '';
+    let pinnedPlanPreviewKey = '';
+    let planPreviewRequestToken = 0;
 
     try {
         window.__TokyoRailJourneyMapPickActive = false;
@@ -1456,6 +1460,19 @@ export function mountTravelSearchUI() {
     const getActiveInput = () => (activeField === 'destination' ? destinationInput : originInput);
 
     const clearPlanList = () => {
+        try {
+            const actions = window?.TokyoRailSearchMapActions;
+            actions?.clearTripPathPreview?.();
+        } catch {
+            // ignore
+        }
+        activePlanPreviewKey = '';
+        pinnedPlanPreviewKey = '';
+        planPreviewRequestToken += 1;
+        if (planPreviewHideTimer) {
+            window.clearTimeout(planPreviewHideTimer);
+            planPreviewHideTimer = null;
+        }
         while (planList.firstChild) planList.removeChild(planList.firstChild);
     };
 
@@ -1479,6 +1496,105 @@ export function mountTravelSearchUI() {
         if (!popoverHideTimer) return;
         window.clearTimeout(popoverHideTimer);
         popoverHideTimer = null;
+    };
+
+    const cancelHidePlanPreview = () => {
+        if (!planPreviewHideTimer) return;
+        window.clearTimeout(planPreviewHideTimer);
+        planPreviewHideTimer = null;
+    };
+
+    const clearJourneyPlanPreview = ({ force = false } = {}) => {
+        if (!force && pinnedPlanPreviewKey) return;
+        cancelHidePlanPreview();
+        if (!activePlanPreviewKey && !force) return;
+        try {
+            window?.TokyoRailSearchMapActions?.clearTripPathPreview?.();
+        } catch {
+            // ignore
+        }
+        activePlanPreviewKey = '';
+    };
+
+    const scheduleClearJourneyPlanPreview = (delayMs = 120) => {
+        cancelHidePlanPreview();
+        planPreviewHideTimer = window.setTimeout(() => {
+            planPreviewHideTimer = null;
+            clearJourneyPlanPreview({ force: false });
+        }, Math.max(0, Number(delayMs) || 0));
+    };
+
+    const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan }) => {
+        const legs = Array.isArray(displayPlan?.legs) ? displayPlan.legs : [];
+        if (!legs.length) return null;
+
+        const segments = [];
+        for (const leg of legs) {
+            const lineId = normalizeText(leg?.lineId);
+            if (!lineId) continue;
+
+            const trip = await resolveTripForLeg({ leg, serviceDay: row?.serviceDay });
+            let stationIds = [];
+            if (trip) {
+                const rows = toLegStopRows({ trip, leg });
+                stationIds = rows.map((x) => normalizeText(x?.stationId)).filter(Boolean);
+            } else {
+                stationIds = [normalizeText(leg?.fromStop), normalizeText(leg?.toStop)].filter(Boolean);
+            }
+
+            const compactIds = [];
+            for (const sid of stationIds) {
+                if (!sid) continue;
+                if (compactIds.length && compactIds[compactIds.length - 1] === sid) continue;
+                compactIds.push(sid);
+            }
+            if (compactIds.length < 2) continue;
+
+            segments.push({
+                kind: 'main',
+                lineId,
+                stationIds: compactIds
+            });
+        }
+
+        if (!segments.length) return null;
+
+        const firstSeg = segments[0];
+        const lastSeg = segments[segments.length - 1];
+        const firstLeg = legs[0] || null;
+
+        return {
+            tripKey: normalizeText(firstLeg?.tripKey || `${toHHMM(displayPlan?.firstDepMs)}-${toHHMM(displayPlan?.arrivalMs)}`),
+            selectedLineId: normalizeText(firstSeg?.lineId),
+            mainLineId: normalizeText(firstSeg?.lineId),
+            originStationId: normalizeText(row?.originStationId || firstSeg?.stationIds?.[0]),
+            mainTerminalStationId: normalizeText(firstSeg?.stationIds?.[firstSeg.stationIds.length - 1]),
+            terminalStationId: normalizeText(lastSeg?.stationIds?.[lastSeg.stationIds.length - 1]),
+            typeName: normalizeText(firstLeg?.typeName || '普通'),
+            hasNt: false,
+            fitMode: 'none',
+            segments
+        };
+    };
+
+    const applyJourneyPlanPreview = async ({ row, previewKey, pin = false } = {}) => {
+        const actions = window?.TokyoRailSearchMapActions;
+        if (!actions || typeof actions.previewTripPath !== 'function') return;
+
+        const token = ++planPreviewRequestToken;
+        const displayPlan = await getDisplayPlanForRow(row);
+        const payload = await buildTripPreviewPayloadFromDisplayPlan({ row, displayPlan });
+        if (token !== planPreviewRequestToken) return;
+        if (!payload) return;
+
+        try {
+            actions.previewTripPath(payload, { clearBefore: true, fitMode: 'none' });
+        } catch {
+            return;
+        }
+
+        activePlanPreviewKey = normalizeText(previewKey);
+        if (pin) pinnedPlanPreviewKey = activePlanPreviewKey;
     };
 
     const getDisplayPlanForRow = async (row) => {
@@ -1704,10 +1820,33 @@ export function mountTravelSearchUI() {
             }
 
             li.addEventListener('mouseenter', () => {
+                cancelHidePlanPreview();
                 showTripPopover({ anchorEl: li, row });
+                const previewKey = `row-${i}`;
+                if (pinnedPlanPreviewKey && pinnedPlanPreviewKey !== previewKey) return;
+                applyJourneyPlanPreview({ row, previewKey, pin: false });
             });
             li.addEventListener('mouseleave', () => {
                 scheduleHideTripPopover();
+                if (!pinnedPlanPreviewKey) {
+                    scheduleClearJourneyPlanPreview(120);
+                }
+            });
+
+            li.addEventListener('click', (evt) => {
+                evt.preventDefault?.();
+                evt.stopPropagation?.();
+                cancelHidePlanPreview();
+                const previewKey = `row-${i}`;
+
+                if (pinnedPlanPreviewKey === previewKey) {
+                    pinnedPlanPreviewKey = '';
+                    clearJourneyPlanPreview({ force: true });
+                    return;
+                }
+
+                pinnedPlanPreviewKey = previewKey;
+                applyJourneyPlanPreview({ row, previewKey, pin: true });
             });
 
             planList.appendChild(li);
@@ -1857,6 +1996,8 @@ export function mountTravelSearchUI() {
         root.classList.add('is-collapsed');
         results.classList.add('is-hidden');
         hideTripPopover();
+        clearJourneyPlanPreview({ force: true });
+        pinnedPlanPreviewKey = '';
         if (!mapPickTarget) hidePlanResultsIfEmptyInputs();
     };
 
@@ -2142,9 +2283,13 @@ export function mountTravelSearchUI() {
 
     tripPopover.addEventListener('mouseenter', () => {
         cancelHideTripPopover();
+        cancelHidePlanPreview();
     });
     tripPopover.addEventListener('mouseleave', () => {
         scheduleHideTripPopover();
+        if (!pinnedPlanPreviewKey) {
+            scheduleClearJourneyPlanPreview(120);
+        }
     });
     tripCaptureBtn.addEventListener('click', async (evt) => {
         evt.preventDefault?.();
