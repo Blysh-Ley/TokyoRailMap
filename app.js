@@ -1932,6 +1932,14 @@ map.on('load', async () => {
         searchMapActions.snapshotSelectionState = snapshotSelectionState;
         searchMapActions.restoreSelectionState = restoreSelectionState;
 
+        // 供其他模块（如 panel header 的 map-select 下拉）使用：仅清除“站点点击高亮”。
+        // 不做全量 reset，避免影响多选/公司/线路模式的外部状态。
+        searchMapActions.clearStationSelection = () => {
+            selectedStationId = null;
+            selectedStationLineIds = null;
+            applySelectionEffects();
+        };
+
         searchMapActions.previewLine = (lineId) => {
             const id = String(lineId ?? '').trim();
             if (!id) return;

@@ -781,7 +781,157 @@ export function createPanel(options = {}) {
         });
     }
     dayPrintBtn.appendChild(dayPrintIcon);
-    dayToggle.appendChild(dayPrintBtn);
+
+    // 站点快速加入行程：作为起点/终点（map-select dropdown）
+    const mapSelectUi = document.createElement('div');
+    mapSelectUi.className = 'panel-map-select-ui';
+
+    const mapSelectBtn = document.createElement('button');
+    mapSelectBtn.type = 'button';
+    mapSelectBtn.className = 'panel-map-select-btn';
+    mapSelectBtn.setAttribute('data-panel-map-select-btn', '1');
+    mapSelectBtn.setAttribute('aria-label', '将本站加入行程（起点/终点）');
+
+    const mapSelectIcon = document.createElement('img');
+    mapSelectIcon.className = 'panel-map-select-icon';
+    mapSelectIcon.alt = '';
+    {
+        const candidates = ['./icons/map-select.svg', '/icons/map-select.svg'];
+        let idx = 0;
+        mapSelectIcon.src = candidates[idx];
+        mapSelectIcon.addEventListener('error', () => {
+            idx += 1;
+            if (idx < candidates.length) mapSelectIcon.src = candidates[idx];
+        });
+    }
+    mapSelectBtn.appendChild(mapSelectIcon);
+
+    const mapSelectMenu = document.createElement('div');
+    mapSelectMenu.className = 'panel-map-select-menu';
+    mapSelectMenu.setAttribute('role', 'menu');
+    mapSelectMenu.setAttribute('aria-label', '将本站作为起点或终点');
+
+    const mapSelectItemOrigin = document.createElement('button');
+    mapSelectItemOrigin.type = 'button';
+    mapSelectItemOrigin.className = 'panel-map-select-item';
+    mapSelectItemOrigin.textContent = '作为起点';
+    mapSelectItemOrigin.setAttribute('role', 'menuitem');
+
+    const mapSelectItemDestination = document.createElement('button');
+    mapSelectItemDestination.type = 'button';
+    mapSelectItemDestination.className = 'panel-map-select-item';
+    mapSelectItemDestination.textContent = '作为终点';
+    mapSelectItemDestination.setAttribute('role', 'menuitem');
+
+    mapSelectMenu.appendChild(mapSelectItemOrigin);
+    mapSelectMenu.appendChild(mapSelectItemDestination);
+    mapSelectUi.appendChild(mapSelectBtn);
+    mapSelectUi.appendChild(mapSelectMenu);
+
+    const openMapSelectMenu = () => {
+        mapSelectUi.classList.add('is-open');
+        mapSelectBtn.setAttribute('aria-expanded', 'true');
+    };
+    const closeMapSelectMenu = () => {
+        mapSelectUi.classList.remove('is-open');
+        mapSelectBtn.setAttribute('aria-expanded', 'false');
+    };
+    const toggleMapSelectMenu = () => {
+        if (mapSelectUi.classList.contains('is-open')) closeMapSelectMenu();
+        else openMapSelectMenu();
+    };
+
+    // 由于 menu 是 absolute 且在按钮盒子之外，直接用 wrapper 的 mouseleave 会过于严格。
+    // 这里改为：按钮/菜单分别监听 enter/leave，并在 leave 时延迟收起，给鼠标移动留缓冲。
+    let mapSelectHoverCloseTimer = null;
+    const cancelMapSelectHoverClose = () => {
+        if (mapSelectHoverCloseTimer != null) {
+            clearTimeout(mapSelectHoverCloseTimer);
+            mapSelectHoverCloseTimer = null;
+        }
+    };
+    const scheduleMapSelectHoverClose = (ms = 200) => {
+        cancelMapSelectHoverClose();
+        mapSelectHoverCloseTimer = setTimeout(() => {
+            mapSelectHoverCloseTimer = null;
+            closeMapSelectMenu();
+        }, Math.max(0, Number(ms) || 0));
+    };
+
+    mapSelectBtn.addEventListener('mouseenter', () => {
+        cancelMapSelectHoverClose();
+        openMapSelectMenu();
+    });
+    mapSelectBtn.addEventListener('mouseleave', () => {
+        scheduleMapSelectHoverClose(220);
+    });
+
+    mapSelectMenu.addEventListener('mouseenter', () => {
+        cancelMapSelectHoverClose();
+        openMapSelectMenu();
+    });
+    mapSelectMenu.addEventListener('mouseleave', () => {
+        scheduleMapSelectHoverClose(220);
+    });
+
+    mapSelectBtn.addEventListener('pointerdown', (evt) => {
+        stopEvent(evt);
+        toggleMapSelectMenu();
+    }, { passive: false });
+    mapSelectBtn.addEventListener('click', (evt) => {
+        stopEvent(evt);
+        toggleMapSelectMenu();
+    }, { passive: false });
+
+    const applyStationToJourneyField = (field) => {
+        const stationId = toText(currentStationId);
+        const stationName = toText(currentStationNameZh) || toText(title.textContent);
+        if (!stationId && !stationName) return;
+
+        try {
+            const ui = window.TokyoRailJourneyUI;
+            if (field === 'destination') ui?.setDestinationStation?.(stationId, stationName, { expand: true, recompute: true });
+            else ui?.setOriginStation?.(stationId, stationName, { expand: true, recompute: true });
+        } catch {
+            // ignore
+        }
+
+        // 取消当前站点高亮（不影响行程 map pick 的抑制逻辑）
+        try {
+            window.TokyoRailSearchMapActions?.clearStationSelection?.();
+        } catch {
+            // ignore
+        }
+    };
+
+    mapSelectItemOrigin.addEventListener('click', (evt) => {
+        stopEvent(evt);
+        closeMapSelectMenu();
+        applyStationToJourneyField('origin');
+    }, { passive: false });
+    mapSelectItemDestination.addEventListener('click', (evt) => {
+        stopEvent(evt);
+        closeMapSelectMenu();
+        applyStationToJourneyField('destination');
+    }, { passive: false });
+
+    document.addEventListener('pointerdown', (evt) => {
+        if (!mapSelectUi.classList.contains('is-open')) return;
+        const t = evt?.target;
+        if (t && mapSelectUi.contains(t)) return;
+        closeMapSelectMenu();
+    }, true);
+
+    // 打印按钮 + map-select 按钮同行（位于 daySeg 下方）
+    const dayActionRow = document.createElement('div');
+    dayActionRow.className = 'panel-day-action-row';
+    dayActionRow.style.display = 'inline-flex';
+    dayActionRow.style.alignItems = 'center';
+    dayActionRow.style.gap = '8px';
+    dayActionRow.appendChild(mapSelectUi);
+    dayActionRow.appendChild(dayPrintBtn);
+
+    dayToggle.appendChild(dayActionRow);
 
     // 时间控件：覆盖 panel 中的“当前时间”（用于判断已过/未来与默认定位）
     const timeControl = document.createElement('div');

@@ -2243,6 +2243,97 @@
             pointer-events: none;
         }
 
+        /* panel：站点快速加入行程（map-select 下拉） */
+        .panel-map-select-ui {
+            position: relative;
+            flex: 0 0 auto;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        .panel-map-select-btn {
+            width: 28px;
+            height: 28px;
+            border: 1px solid #e3e5e7;
+            border-radius: 9999px;
+            background: #fff;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .panel-map-select-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .panel-map-select-btn:focus {
+            outline: none;
+        }
+
+        .panel-map-select-icon {
+            width: 14px;
+            height: 14px;
+            display: block;
+            pointer-events: none;
+        }
+
+        .panel-map-select-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            min-width: 132px;
+            padding: 4px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid #e3e5e7;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+            backdrop-filter: blur(4px);
+            transform-origin: top right;
+            opacity: 0;
+            transform: translateY(-6px) scale(0.985);
+            visibility: hidden;
+            pointer-events: none;
+            transition:
+                opacity 0.18s ease,
+                transform 0.18s ease,
+                visibility 0s linear 0.18s;
+            z-index: 30;
+        }
+
+        .panel-map-select-ui.is-open .panel-map-select-menu {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            visibility: visible;
+            pointer-events: auto;
+            transition:
+                opacity 0.18s ease,
+                transform 0.18s ease,
+                visibility 0s;
+        }
+
+        .panel-map-select-item {
+            width: 100%;
+            border: none;
+            background: transparent;
+            text-align: left;
+            padding: 7px 10px;
+            border-radius: 10px;
+            font-size: 13px;
+            color: #111;
+            cursor: pointer;
+        }
+
+        .panel-map-select-item:hover {
+            background: rgba(240, 240, 240, 0.9);
+        }
+
+        .panel-map-select-item:active {
+            background: rgba(232, 232, 232, 0.95);
+        }
+
         .search-result-item {
             display: flex;
             align-items: center;
@@ -3107,6 +3198,8 @@
         html[data-theme='dark'] .settings-time-picker,
         html[data-theme='dark'] .panel-day-seg,
         html[data-theme='dark'] .panel-day-print-btn,
+        html[data-theme='dark'] .panel-map-select-btn,
+        html[data-theme='dark'] .panel-map-select-menu,
         html[data-theme='dark'] .settings-seg,
         html[data-theme='dark'] .settings-view-seg {
             background: rgba(28, 28, 28, 0.94);
@@ -3159,6 +3252,7 @@
         html[data-theme='dark'] .settings-seg button,
         html[data-theme='dark'] .panel-day-seg button,
         html[data-theme='dark'] .panel-day-print-btn,
+        html[data-theme='dark'] .panel-map-select-item,
         html[data-theme='dark'] .RW-content,
         html[data-theme='dark'] .RW-company-name {
             color: #f2f2f2;
@@ -3330,6 +3424,8 @@
         html[data-theme='dark'] .panel-dir-filter-popover-close:hover,
         html[data-theme='dark'] .panel-day-seg button:hover,
         html[data-theme='dark'] .panel-day-print-btn:hover,
+        html[data-theme='dark'] .panel-map-select-btn:hover,
+        html[data-theme='dark'] .panel-map-select-item:hover,
         html[data-theme='dark'] .settings-seg button:hover,
         html[data-theme='dark'] .settings-time-picker-option:hover,
         html[data-theme='dark'] .settings-time-picker-btn:hover,
@@ -3337,6 +3433,10 @@
         html[data-theme='dark'] .panel-dir-print-btn:hover,
         html[data-theme='dark'] .panel-capture-btn:hover {
             background: #2d323a;
+        }
+
+        html[data-theme='dark'] .panel-map-select-icon {
+            filter: invert(1);
         }
 
         html[data-theme='dark'] .panel-dir-filter-toggle-all {

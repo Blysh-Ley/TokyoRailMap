@@ -1359,6 +1359,36 @@ export function mountTravelSearchUI() {
         maybeComputePlans();
     };
 
+    // 供外部 UI（如 panel header 下拉）直接写入起终点。
+    // 注意：规划时优先使用 selectedOriginId/selectedDestinationId，因此必须同步更新它们。
+    const applyExternalStationSelection = (field, stationId, stationName, options = {}) => {
+        const key = field === 'destination' ? 'destination' : 'origin';
+        const input = key === 'destination' ? destinationInput : originInput;
+
+        const resolvedId = normalizeText(stationId);
+        const resolvedName = normalizeText(stationName);
+        if (!resolvedId && !resolvedName) return false;
+
+        if (options?.expand !== false) {
+            try { root.classList.remove('is-collapsed'); } catch {}
+        }
+
+        input.value = resolvedName || input.value;
+        input.dataset.stationId = resolvedId || '';
+        if (key === 'origin') selectedOriginId = resolvedId || '';
+        else selectedDestinationId = resolvedId || '';
+
+        // 外部写入也应退出 map pick 状态
+        try { setMapPickTarget(null); } catch {}
+        results.classList.add('is-hidden');
+
+        if (options?.recompute !== false) {
+            lastPlanComputeKey = '';
+            maybeComputePlans();
+        }
+        return true;
+    };
+
     const handleMapStationPick = async (eventLike) => {
         if (!mapPickTarget) return;
 
@@ -2138,6 +2168,8 @@ export function mountTravelSearchUI() {
         fab,
         originInput,
         destinationInput,
+        setOriginStation: (stationId, stationName, options) => applyExternalStationSelection('origin', stationId, stationName, options),
+        setDestinationStation: (stationId, stationName, options) => applyExternalStationSelection('destination', stationId, stationName, options),
         recompute: () => {
             lastPlanComputeKey = '';
             return maybeComputePlans();
