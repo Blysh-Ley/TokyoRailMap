@@ -1228,9 +1228,26 @@ export function mountTravelSearchUI() {
     destinationWrap.appendChild(destinationInput);
     destinationWrap.appendChild(destinationMapPickBtn);
 
+    const closeBtn = el('button', 'journey-close-btn', {
+        type: 'button',
+        'aria-label': '关闭行程搜索并清空'
+    });
+    const closeIcon = el('img', 'journey-close-icon', { alt: '' });
+    {
+        const candidates = ['./icons/x.svg', '/icons/x.svg'];
+        let idx = 0;
+        closeIcon.src = candidates[idx];
+        closeIcon.addEventListener('error', () => {
+            idx += 1;
+            if (idx < candidates.length) closeIcon.src = candidates[idx];
+        });
+    }
+    closeBtn.appendChild(closeIcon);
+
     bar.appendChild(originWrap);
     bar.appendChild(divider);
     bar.appendChild(destinationWrap);
+    bar.appendChild(closeBtn);
 
     const results = el('div', 'journey-results is-hidden');
     const list = el('ul', 'search-results-list');
@@ -1277,6 +1294,7 @@ export function mountTravelSearchUI() {
     let lastPlanComputeKey = '';
     let planComputeToken = 0;
     let popoverHideTimer = null;
+    let pinnedTripPopoverKey = '';
     let planPreviewHideTimer = null;
     let activePlanPreviewKey = '';
     let pinnedPlanPreviewKey = '';
@@ -1474,6 +1492,7 @@ export function mountTravelSearchUI() {
             planPreviewHideTimer = null;
         }
         while (planList.firstChild) planList.removeChild(planList.firstChild);
+        hideTripPopover();
     };
 
     const clearTripPopoverBody = () => {
@@ -1483,9 +1502,11 @@ export function mountTravelSearchUI() {
     const hideTripPopover = () => {
         tripPopover.classList.add('is-hidden');
         clearTripPopoverBody();
+        pinnedTripPopoverKey = '';
     };
 
     const scheduleHideTripPopover = () => {
+        if (pinnedTripPopoverKey) return;
         if (popoverHideTimer) window.clearTimeout(popoverHideTimer);
         popoverHideTimer = window.setTimeout(() => {
             hideTripPopover();
@@ -1821,13 +1842,18 @@ export function mountTravelSearchUI() {
 
             li.addEventListener('mouseenter', () => {
                 cancelHidePlanPreview();
-                showTripPopover({ anchorEl: li, row });
                 const previewKey = `row-${i}`;
+                if (!pinnedTripPopoverKey || pinnedTripPopoverKey === previewKey) {
+                    showTripPopover({ anchorEl: li, row });
+                }
                 if (pinnedPlanPreviewKey && pinnedPlanPreviewKey !== previewKey) return;
                 applyJourneyPlanPreview({ row, previewKey, pin: false });
             });
             li.addEventListener('mouseleave', () => {
-                scheduleHideTripPopover();
+                const previewKey = `row-${i}`;
+                if (pinnedTripPopoverKey !== previewKey) {
+                    scheduleHideTripPopover();
+                }
                 if (!pinnedPlanPreviewKey) {
                     scheduleClearJourneyPlanPreview(120);
                 }
@@ -1838,6 +1864,14 @@ export function mountTravelSearchUI() {
                 evt.stopPropagation?.();
                 cancelHidePlanPreview();
                 const previewKey = `row-${i}`;
+
+                if (pinnedTripPopoverKey === previewKey) {
+                    pinnedTripPopoverKey = '';
+                    scheduleHideTripPopover();
+                } else {
+                    pinnedTripPopoverKey = previewKey;
+                    showTripPopover({ anchorEl: li, row });
+                }
 
                 if (pinnedPlanPreviewKey === previewKey) {
                     pinnedPlanPreviewKey = '';
@@ -1999,6 +2033,22 @@ export function mountTravelSearchUI() {
         clearJourneyPlanPreview({ force: true });
         pinnedPlanPreviewKey = '';
         if (!mapPickTarget) hidePlanResultsIfEmptyInputs();
+    };
+
+    const clearJourneyInputsAndCollapse = () => {
+        originInput.value = '';
+        destinationInput.value = '';
+        originInput.dataset.stationId = '';
+        destinationInput.dataset.stationId = '';
+        selectedOriginId = '';
+        selectedDestinationId = '';
+        lastPlanComputeKey = '';
+        setMapPickTarget(null);
+        hideTripPopover();
+        clearPlanList();
+        planResults.classList.add('is-hidden');
+        results.classList.add('is-hidden');
+        collapse();
     };
 
     const collapseIfBothEmpty = () => {
@@ -2233,6 +2283,16 @@ export function mountTravelSearchUI() {
         armMapPick('destination');
     });
 
+    closeBtn.addEventListener('pointerdown', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+    });
+    closeBtn.addEventListener('click', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+        clearJourneyInputsAndCollapse();
+    });
+
     divider.addEventListener('pointerdown', (evt) => {
         evt.preventDefault?.();
         evt.stopPropagation?.();
@@ -2286,7 +2346,9 @@ export function mountTravelSearchUI() {
         cancelHidePlanPreview();
     });
     tripPopover.addEventListener('mouseleave', () => {
-        scheduleHideTripPopover();
+        if (!pinnedTripPopoverKey) {
+            scheduleHideTripPopover();
+        }
         if (!pinnedPlanPreviewKey) {
             scheduleClearJourneyPlanPreview(120);
         }
