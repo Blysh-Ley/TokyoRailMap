@@ -11,6 +11,7 @@ import {
     isThroughLegPairByMeta,
     expandLegsForDisplay,
     buildPlanDetailBlocks,
+    buildSectionLineRunsForDisplay,
     buildTripPreviewPayloadFromDisplayPlan,
     toHHMM,
     formatDuration,
@@ -632,14 +633,20 @@ export function mountTravelSearchUI() {
             ? (arrivalMs - baseDepartureMs)
             : ((Number.isFinite(firstDepMs) && Number.isFinite(arrivalMs)) ? (arrivalMs - firstDepMs) : row.plan.durationMs);
 
+        const sections = Array.isArray(row?.plan?.sections) ? row.plan.sections : [];
         let transfers = 0;
-        for (let i = 0; i < expandedLegs.length - 1; i += 1) {
-            if (!isThroughLegPairByMeta({ currentLeg: expandedLegs[i], nextLeg: expandedLegs[i + 1] })) transfers += 1;
+        if (sections.length) {
+            transfers = Math.max(0, sections.length - 1);
+        } else {
+            for (let i = 0; i < expandedLegs.length - 1; i += 1) {
+                if (!isThroughLegPairByMeta({ currentLeg: expandedLegs[i], nextLeg: expandedLegs[i + 1] })) transfers += 1;
+            }
         }
 
         row.__displayPlan = {
             ...row.plan,
             legs: expandedLegs,
+            sections,
             firstDepMs: Number.isFinite(firstDepMs) ? firstDepMs : row.plan.firstDepMs,
             arrivalMs: Number.isFinite(arrivalMs) ? arrivalMs : row.plan.arrivalMs,
             durationMs,
@@ -654,6 +661,7 @@ export function mountTravelSearchUI() {
         const blocks = await buildPlanDetailBlocks({
             plan: row.plan,
             legsOverride: displayPlan?.legs,
+            sectionsOverride: displayPlan?.sections,
             serviceDay: row.serviceDay,
             originStationId: row.originStationId
         });
@@ -778,7 +786,68 @@ export function mountTravelSearchUI() {
         planResults.classList.add('is-hidden');
     };
 
-    const appendJourneyPath = async (container, legs) => {
+    const appendJourneyPath = async (container, displayPlan, serviceDayHint = '') => {
+        const sectionList = Array.isArray(displayPlan?.sections) ? displayPlan.sections : [];
+        if (sectionList.length) {
+            for (let i = 0; i < sectionList.length; i += 1) {
+                const section = sectionList[i] || {};
+                const lineRuns = await buildSectionLineRunsForDisplay({
+                    section,
+                    serviceDay: normalizeText(serviceDayHint || displayPlan?.serviceDay || 'Weekday') || 'Weekday'
+                });
+
+                if (!lineRuns.length) {
+                    const lineIds = Array.isArray(section?.lineIds)
+                        ? section.lineIds.map((x) => normalizeText(x)).filter(Boolean)
+                        : [];
+                    for (const lineId of lineIds) {
+                        lineRuns.push({ lineId, typeName: '', typeColor: null });
+                    }
+                }
+
+                if (!lineRuns.length) continue;
+
+                for (let r = 0; r < lineRuns.length; r += 1) {
+                    const run = lineRuns[r];
+                    const lineMeta = await getLineMeta(run.lineId);
+                    const lineText = normalizeText(lineMeta?.name || run.lineId || '线路');
+                    const lineColor = normalizeText(lineMeta?.color || '');
+                    const lineSpan = el('span', 'journey-plan-line', { text: lineText || '线路' });
+                    if (lineColor) lineSpan.style.color = String(resolveJourneyColorForTheme(lineColor));
+                    container.appendChild(lineSpan);
+
+                    if (normalizeText(run?.typeName || '')) {
+                        const typeSpan = el('span', 'journey-plan-type', { text: `${normalizeText(run.typeName)}` });
+                        if (run?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(run.typeColor));
+                        container.appendChild(typeSpan);
+                    }
+
+                    if (r < lineRuns.length - 1) {
+                        const sep = el('span', 'journey-plan-line-sep', { text: '·' });
+                        sep.style.color = travelIsDarkThemeActive() ? '#fff' : '#000';
+                        container.appendChild(sep);
+                    }
+                }
+
+                if (i < sectionList.length - 1) {
+                    const wrap = el('span', 'journey-plan-arrow');
+                    const icon = el('img', 'journey-plan-arrow-icon', { alt: '' });
+                    const candidates = ['./icons/arrow-right.svg', '/icons/arrow-right.svg'];
+                    let idx = 0;
+                    icon.src = candidates[idx];
+                    if (travelIsDarkThemeActive()) icon.style.filter = 'brightness(0) invert(1)';
+                    icon.addEventListener('error', () => {
+                        idx += 1;
+                        if (idx < candidates.length) icon.src = candidates[idx];
+                    });
+                    wrap.appendChild(icon);
+                    container.appendChild(wrap);
+                }
+            }
+            return;
+        }
+
+        const legs = Array.isArray(displayPlan?.legs) ? displayPlan.legs : [];
         for (let i = 0; i < legs.length; i += 1) {
             const leg = legs[i];
             const throughLineIds = Array.isArray(leg?.throughLineIds)
@@ -868,7 +937,7 @@ export function mountTravelSearchUI() {
             li.appendChild(head);
 
             const path = el('div', 'journey-plan-path');
-            await appendJourneyPath(path, displayPlan?.legs || []);
+            await appendJourneyPath(path, displayPlan, row?.serviceDay || '');
             li.appendChild(path);
 
             if (i < rows.length - 1) {

@@ -835,15 +835,63 @@ const reconstructJourney = ({ runResult, targetRound, targetStop, departureMs })
     legs.reverse();
     if (!legs.length) return null;
 
+    const sections = [];
+    {
+        let current = [];
+        for (let i = 0; i < legs.length; i += 1) {
+            const leg = legs[i];
+            current.push(leg);
+            const next = legs[i + 1] || null;
+            const keep = next && isThroughLegPairByMeta({ currentLeg: leg, nextLeg: next });
+            if (keep) continue;
+
+            const first = current[0] || null;
+            const last = current[current.length - 1] || null;
+            const tripIds = [];
+            const lineIds = [];
+            const throughTripIds = [];
+            for (const x of current) {
+                const tid = normalizeText(x?.rawTripId || x?.tripId || '');
+                if (tid && !tripIds.includes(tid)) tripIds.push(tid);
+                const lid = normalizeText(x?.lineId || '');
+                if (lid && !lineIds.includes(lid)) lineIds.push(lid);
+                const tl = Array.isArray(x?.throughLineIds) ? x.throughLineIds : [];
+                for (const id of tl) {
+                    const v = normalizeText(id);
+                    if (v && !lineIds.includes(v)) lineIds.push(v);
+                }
+                const tt = Array.isArray(x?.throughTripIds) ? x.throughTripIds : [];
+                for (const id of tt) {
+                    const v = normalizeText(id);
+                    if (v && !throughTripIds.includes(v)) throughTripIds.push(v);
+                }
+            }
+            if (!throughTripIds.length) {
+                for (const id of tripIds) {
+                    if (id && !throughTripIds.includes(id)) throughTripIds.push(id);
+                }
+            }
+
+            sections.push({
+                fromStop: normalizeText(first?.fromStop || ''),
+                toStop: normalizeText(last?.toStop || ''),
+                depMs: Number.isFinite(first?.depMs) ? Number(first.depMs) : null,
+                arrMs: Number.isFinite(last?.arrMs) ? Number(last.arrMs) : null,
+                tripIds,
+                throughTripIds,
+                lineIds,
+                legs: current.slice()
+            });
+            current = [];
+        }
+    }
+
     const firstDepMs = Number.isFinite(legs[0]?.depMs) ? legs[0].depMs : departureMs;
     const arrivalMs = Number.isFinite(legs[legs.length - 1]?.arrMs) ? legs[legs.length - 1].arrMs : INF_TIME;
     const durationMs = arrivalMs - firstDepMs;
-    let transfers = 0;
-    for (let i = 0; i < legs.length - 1; i += 1) {
-        if (!isThroughLegPairByMeta({ currentLeg: legs[i], nextLeg: legs[i + 1] })) transfers += 1;
-    }
+    const transfers = Math.max(0, sections.length - 1);
 
-    return { legs, firstDepMs, arrivalMs, durationMs, transfers };
+    return { legs, sections, firstDepMs, arrivalMs, durationMs, transfers };
 };
 
 const dedupePlans = (plans) => {
@@ -952,16 +1000,19 @@ const resolveLegSliceIndexes = (trip, leg) => {
     const stops = Array.isArray(trip?.stops) ? trip.stops : [];
     if (!stops.length) return { fromIdx: -1, toIdx: -1 };
 
-    let fromIdx = Number.isFinite(leg?.boardIndex) ? Number(leg.boardIndex) : -1;
-    let toIdx = Number.isFinite(leg?.alightIndex) ? Number(leg.alightIndex) : -1;
+    const fromStop = normalizeText(leg?.fromStop);
+    const toStop = normalizeText(leg?.toStop);
 
-    if (fromIdx < 0) {
-        const fromStop = normalizeText(leg?.fromStop);
-        fromIdx = stops.findIndex((s) => isSamePhysicalStop(s?.stopId, fromStop));
+    let fromIdx = stops.findIndex((s) => isSamePhysicalStop(s?.stopId, fromStop));
+    let toIdx = stops.findIndex((s) => isSamePhysicalStop(s?.stopId, toStop));
+
+    if (fromIdx < 0 && Number.isFinite(leg?.boardIndex)) {
+        const idx = Number(leg.boardIndex);
+        if (idx >= 0 && idx < stops.length) fromIdx = idx;
     }
-    if (toIdx < 0) {
-        const toStop = normalizeText(leg?.toStop);
-        toIdx = stops.findIndex((s) => isSamePhysicalStop(s?.stopId, toStop));
+    if (toIdx < 0 && Number.isFinite(leg?.alightIndex)) {
+        const idx = Number(leg.alightIndex);
+        if (idx >= 0 && idx < stops.length) toIdx = idx;
     }
 
     if (fromIdx < 0 || toIdx < 0 || toIdx <= fromIdx) return { fromIdx: -1, toIdx: -1 };
@@ -1013,6 +1064,115 @@ const buildRowsForTripSlice = ({ trip, fromIdx, toIdx, serviceDayStartMs }) => {
     return rows;
 };
 
+const buildSectionThroughSegments = async ({ section, serviceDay }) => {
+    const day = normalizeText(serviceDay) || 'Weekday';
+    const fromStopId = normalizeText(section?.fromStop || '');
+    const toStopId = normalizeText(section?.toStop || '');
+    const ids = Array.isArray(section?.throughTripIds)
+        ? section.throughTripIds.map((x) => normalizeText(x)).filter(Boolean)
+        : [];
+    if (!fromStopId || !toStopId || !ids.length) return [];
+
+    const trips = [];
+    for (const tripId of ids) {
+        const trip = await getParsedTripByTripId({ tripId, serviceDay: day });
+        if (!trip || !Array.isArray(trip?.stops) || !trip.stops.length) continue;
+        trips.push(trip);
+    }
+    if (!trips.length) return [];
+
+    let startTripIdx = -1;
+    let startStopIdx = -1;
+    for (let ti = 0; ti < trips.length; ti += 1) {
+        const stops = Array.isArray(trips[ti]?.stops) ? trips[ti].stops : [];
+        const idx = stops.findIndex((s) => isSamePhysicalStop(s?.stopId, fromStopId));
+        if (idx >= 0) {
+            startTripIdx = ti;
+            startStopIdx = idx;
+            break;
+        }
+    }
+    if (startTripIdx < 0 || startStopIdx < 0) return [];
+
+    let endTripIdx = -1;
+    let endStopIdx = -1;
+    for (let ti = startTripIdx; ti < trips.length; ti += 1) {
+        const stops = Array.isArray(trips[ti]?.stops) ? trips[ti].stops : [];
+        const begin = ti === startTripIdx ? startStopIdx : 0;
+        for (let si = begin; si < stops.length; si += 1) {
+            if (isSamePhysicalStop(stops[si]?.stopId, toStopId)) {
+                endTripIdx = ti;
+                endStopIdx = si;
+                break;
+            }
+        }
+        if (endTripIdx >= 0) break;
+    }
+    if (endTripIdx < 0 || endStopIdx < 0) return [];
+
+    const serviceDayStartMs = getServiceDayStartMs(new Date(Number(section?.depMs) || Date.now()));
+    const out = [];
+    for (let ti = startTripIdx; ti <= endTripIdx; ti += 1) {
+        const trip = trips[ti];
+        const stops = Array.isArray(trip?.stops) ? trip.stops : [];
+        if (!stops.length) continue;
+
+        const fromIdx = ti === startTripIdx ? startStopIdx : 0;
+        const toIdx = ti === endTripIdx ? endStopIdx : (stops.length - 1);
+        const rows = buildRowsForTripSlice({ trip, fromIdx, toIdx, serviceDayStartMs });
+        if (!rows.length) continue;
+
+        const lineId = normalizeText(trip?.lineId || '');
+        const prev = out[out.length - 1] || null;
+        if (prev && prev.lineId === lineId) {
+            const mergedRows = Array.isArray(prev.rows) ? prev.rows.slice() : [];
+            for (const row of rows) {
+                const last = mergedRows[mergedRows.length - 1] || null;
+                if (last && isSamePhysicalStop(last.stationId, row.stationId)) continue;
+                mergedRows.push(row);
+            }
+            prev.rows = mergedRows;
+            continue;
+        }
+
+        out.push({
+            lineId,
+            typeName: normalizeText(trip?.typeName || section?.legs?.[0]?.typeName || '普通'),
+            typeColor: normalizeText(trip?.typeColor || section?.legs?.[0]?.typeColor || '') || null,
+            rows
+        });
+    }
+
+    return out.filter((seg) => Array.isArray(seg?.rows) && seg.rows.length >= 2);
+};
+
+export const buildSectionLineRunsForDisplay = async ({ section, serviceDay }) => {
+    const segs = await buildSectionThroughSegments({ section, serviceDay });
+    if (segs.length) {
+        return segs.map((seg) => ({
+            lineId: normalizeText(seg?.lineId || ''),
+            typeName: normalizeText(seg?.typeName || '普通'),
+            typeColor: normalizeText(seg?.typeColor || '') || null
+        })).filter((x) => x.lineId);
+    }
+
+    const legs = Array.isArray(section?.legs) ? section.legs : [];
+    const out = [];
+    for (const leg of legs) {
+        const lineId = normalizeText(leg?.lineId || '');
+        if (!lineId) continue;
+        const run = {
+            lineId,
+            typeName: normalizeText(leg?.typeName || '普通'),
+            typeColor: normalizeText(leg?.typeColor || '') || null
+        };
+        const prev = out[out.length - 1] || null;
+        if (prev && prev.lineId === run.lineId && normalizeText(prev.typeName) === run.typeName) continue;
+        out.push(run);
+    }
+    return out;
+};
+
 const buildThroughDisplaySegments = async ({ leg, serviceDay }) => {
     const day = normalizeText(serviceDay) || 'Weekday';
     const ids = Array.isArray(leg?.throughTripIds)
@@ -1034,9 +1194,11 @@ const buildThroughDisplaySegments = async ({ leg, serviceDay }) => {
     const firstTripStops = Array.isArray(trips[0]?.stops) ? trips[0].stops : [];
     if (!firstTripStops.length) return [];
 
-    let firstFromIdx = Number.isFinite(leg?.boardIndex)
-        ? Number(leg.boardIndex)
-        : firstTripStops.findIndex((s) => isSamePhysicalStop(s?.stopId, leg?.fromStop));
+    let firstFromIdx = firstTripStops.findIndex((s) => isSamePhysicalStop(s?.stopId, leg?.fromStop));
+    if (firstFromIdx < 0 && Number.isFinite(leg?.boardIndex)) {
+        const idx = Number(leg.boardIndex);
+        if (idx >= 0 && idx < firstTripStops.length) firstFromIdx = idx;
+    }
     if (!Number.isFinite(firstFromIdx) || firstFromIdx < 0) firstFromIdx = 0;
 
     const targetToStopId = normalizeText(leg?.toStop || '');
@@ -1181,12 +1343,103 @@ export const expandLegsForDisplay = async ({ legs, serviceDay, originStationId }
     return out;
 };
 
-export const buildPlanDetailBlocks = async ({ plan, legsOverride, serviceDay, originStationId }) => {
+export const buildPlanDetailBlocks = async ({ plan, legsOverride, sectionsOverride, serviceDay, originStationId }) => {
     const blocks = [];
     const rawLegs = Array.isArray(legsOverride) ? legsOverride : (Array.isArray(plan?.legs) ? plan.legs : []);
+    const sectionSource = Array.isArray(sectionsOverride)
+        ? sectionsOverride
+        : (Array.isArray(plan?.sections) ? plan.sections : []);
     const legs = Array.isArray(legsOverride)
         ? rawLegs
         : await expandLegsForDisplay({ legs: rawLegs, serviceDay, originStationId });
+
+    const sectionRowsFromLegs = async (section) => {
+        const out = [];
+        const list = Array.isArray(section?.legs) ? section.legs : [];
+        for (const leg of list) {
+            const trip = await resolveTripForLeg({ leg, serviceDay });
+            let rows = [];
+            if (trip) {
+                rows = toLegStopRows({ trip, leg });
+            } else {
+                const fromId = normalizeText(leg?.fromStop);
+                const toId = normalizeText(leg?.toStop);
+                const depText = Number.isFinite(Number(leg?.depMs)) ? toHHMM(Number(leg.depMs)) : '';
+                const arrText = Number.isFinite(Number(leg?.arrMs)) ? toHHMM(Number(leg.arrMs)) : '';
+                if (fromId && toId) {
+                    rows = [
+                        { stationId: fromId, stationName: getStationNameById(fromId), arrText: '', depText },
+                        { stationId: toId, stationName: getStationNameById(toId), arrText, depText: '' }
+                    ];
+                }
+            }
+
+            for (const row of rows) {
+                const prev = out[out.length - 1] || null;
+                if (prev && isSamePhysicalStop(prev.stationId, row.stationId)) continue;
+                out.push(row);
+            }
+        }
+        return out;
+    };
+
+    if (sectionSource.length) {
+        for (let i = 0; i < sectionSource.length; i += 1) {
+            const section = sectionSource[i] || {};
+            const throughSegs = await buildSectionThroughSegments({ section, serviceDay });
+            if (throughSegs.length) {
+                for (const seg of throughSegs) {
+                    const lineMeta = await getLineMeta(seg?.lineId);
+                    const rows = Array.isArray(seg?.rows) ? seg.rows.slice() : [];
+                    if (!rows.length) continue;
+                    if (blocks.length) {
+                        const prev = blocks[blocks.length - 1];
+                        if (prev?.kind === 'ride' && Array.isArray(prev.rows) && prev.rows.length) {
+                            const prevLastId = normalizeText(prev.rows[prev.rows.length - 1]?.stationId || '');
+                            const currFirstId = normalizeText(rows[0]?.stationId || '');
+                            if (prevLastId && currFirstId && isSamePhysicalStop(prevLastId, currFirstId)) rows.shift();
+                        }
+                    }
+                    if (!rows.length) continue;
+                    blocks.push({
+                        kind: 'ride',
+                        lineName: normalizeText(lineMeta?.name || seg?.lineId),
+                        lineDisplayName: buildLineDescriptorText(lineMeta),
+                        lineColor: lineMeta?.color || null,
+                        typeName: normalizeText(seg?.typeName || '普通'),
+                        typeColor: normalizeText(seg?.typeColor || '') || null,
+                        rows
+                    });
+                }
+            } else {
+                const rows = await sectionRowsFromLegs(section);
+                if (!rows.length) continue;
+
+                const lineIds = Array.isArray(section?.lineIds) ? section.lineIds.map((x) => normalizeText(x)).filter(Boolean) : [];
+                const firstLineId = normalizeText(lineIds[0] || section?.legs?.[0]?.lineId || '');
+                const firstMeta = await getLineMeta(firstLineId);
+                let lineDisplayName = buildLineDescriptorText(firstMeta);
+                if (lineIds.length > 1) {
+                    const metas = await Promise.all(lineIds.map((lineId) => getLineMeta(lineId)));
+                    const names = metas.map((meta, idx) => normalizeText(meta?.name || lineIds[idx] || '')).filter(Boolean);
+                    if (names.length) lineDisplayName = names.join('·');
+                }
+
+                blocks.push({
+                    kind: 'ride',
+                    lineName: normalizeText(firstMeta?.name || firstLineId),
+                    lineDisplayName,
+                    lineColor: firstMeta?.color || null,
+                    typeName: normalizeText(section?.legs?.[0]?.typeName || '普通'),
+                    typeColor: normalizeText(section?.legs?.[0]?.typeColor || '') || null,
+                    rows
+                });
+            }
+
+            if (i < sectionSource.length - 1) blocks.push({ kind: 'transfer' });
+        }
+        return blocks;
+    }
 
     const resolved = [];
     for (let i = 0; i < legs.length; i += 1) {
@@ -1276,9 +1529,62 @@ export const buildPlanDetailBlocks = async ({ plan, legsOverride, serviceDay, or
 
 export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan }) => {
     const legs = Array.isArray(displayPlan?.legs) ? displayPlan.legs : [];
+    const sections = Array.isArray(displayPlan?.sections)
+        ? displayPlan.sections
+        : (Array.isArray(row?.plan?.sections) ? row.plan.sections : []);
     if (!legs.length) return null;
 
     const segments = [];
+    if (sections.length) {
+        for (const section of sections) {
+            const throughSegs = await buildSectionThroughSegments({ section, serviceDay: row?.serviceDay });
+            if (throughSegs.length) {
+                for (const seg of throughSegs) {
+                    const stationIds = Array.isArray(seg?.rows)
+                        ? seg.rows.map((r) => normalizeText(r?.stationId)).filter(Boolean)
+                        : [];
+                    if (stationIds.length < 2) continue;
+                    const lineId = normalizeText(seg?.lineId || '');
+                    if (!lineId) continue;
+                    segments.push({ kind: 'main', lineId, stationIds });
+                }
+                continue;
+            }
+
+            const secLegs = Array.isArray(section?.legs) ? section.legs : [];
+            if (!secLegs.length) continue;
+
+            const stationIds = [];
+            for (const leg of secLegs) {
+                const trip = await resolveTripForLeg({ leg, serviceDay: row?.serviceDay });
+                const rows = trip
+                    ? toLegStopRows({ trip, leg })
+                    : [
+                        { stationId: normalizeText(leg?.fromStop) },
+                        { stationId: normalizeText(leg?.toStop) }
+                    ];
+                for (const r of rows) {
+                    const sid = normalizeText(r?.stationId);
+                    if (!sid) continue;
+                    if (stationIds.length && isSamePhysicalStop(stationIds[stationIds.length - 1], sid)) continue;
+                    stationIds.push(sid);
+                }
+            }
+
+            const compactIds = stationIds.filter(Boolean);
+            if (compactIds.length < 2) continue;
+
+            const lineIds = Array.isArray(section?.lineIds)
+                ? section.lineIds.map((x) => normalizeText(x)).filter(Boolean)
+                : [];
+            const segmentLineId = normalizeText(lineIds[0] || secLegs[0]?.lineId || '');
+            if (!segmentLineId) continue;
+
+            segments.push({ kind: 'main', lineId: segmentLineId, stationIds: compactIds });
+        }
+    }
+
+    if (!segments.length) {
     for (const leg of legs) {
         const lineId = normalizeText(leg?.lineId);
         if (!lineId) continue;
@@ -1319,6 +1625,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
         if (compactIds.length < 2) continue;
 
         segments.push({ kind: 'main', lineId, stationIds: compactIds });
+    }
     }
 
     if (!segments.length) return null;
