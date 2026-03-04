@@ -1,0 +1,1352 @@
+import { searchRailEntities, getLineMetaByIds } from './search.js';
+import {
+    collectJourneyCandidatesRaptor,
+    pickPlanBuckets,
+    ensurePlannerStaticData,
+    getGroupStops,
+    filterNearbyStops,
+    sameSet,
+    getStationNameById,
+    getLineMeta,
+    isThroughLegPairByMeta,
+    expandLegsForDisplay,
+    buildPlanDetailBlocks,
+    buildTripPreviewPayloadFromDisplayPlan,
+    toHHMM,
+    formatDuration,
+    getServiceDayStartMs,
+    normalizeHHMM,
+    hhmmToOffsetMinutes
+} from './travel-search-planner-raptor.js';
+
+function el(tag, className, attrs = {}) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    for (const [k, v] of Object.entries(attrs || {})) {
+        if (v == null) continue;
+        if (k === 'text') node.textContent = String(v);
+        else node.setAttribute(k, String(v));
+    }
+    return node;
+}
+
+const normalizeText = (v) => String(v ?? '').trim();
+
+const travelIsDarkThemeActive = () => {
+    try {
+        return document.documentElement.getAttribute('data-theme') === 'dark';
+    } catch {
+        return false;
+    }
+};
+
+const travelParseCssColorToRgb = (input) => {
+    const s = String(input || '').trim();
+    if (!s) return null;
+
+    const hex = s.match(/^#([0-9a-fA-F]{3,8})$/);
+    if (hex) {
+        const raw = hex[1];
+        if (raw.length === 3 || raw.length === 4) {
+            const r = parseInt(raw[0] + raw[0], 16);
+            const g = parseInt(raw[1] + raw[1], 16);
+            const b = parseInt(raw[2] + raw[2], 16);
+            return { r, g, b };
+        }
+        if (raw.length === 6 || raw.length === 8) {
+            const r = parseInt(raw.slice(0, 2), 16);
+            const g = parseInt(raw.slice(2, 4), 16);
+            const b = parseInt(raw.slice(4, 6), 16);
+            return { r, g, b };
+        }
+    }
+
+    const rgb = s.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*([0-9]+(?:\.[0-9]+)?))?\s*\)$/i);
+    if (rgb) {
+        const r = Math.max(0, Math.min(255, Math.round(Number(rgb[1]))));
+        const g = Math.max(0, Math.min(255, Math.round(Number(rgb[2]))));
+        const b = Math.max(0, Math.min(255, Math.round(Number(rgb[3]))));
+        return { r, g, b };
+    }
+
+    return null;
+};
+
+const travelRgbToHex = ({ r, g, b }) => {
+    const to2 = (v) => Math.max(0, Math.min(255, Math.round(Number(v) || 0))).toString(16).padStart(2, '0');
+    return `#${to2(r)}${to2(g)}${to2(b)}`;
+};
+
+const travelRelativeLuminance = ({ r, g, b }) => {
+    const toLinear = (v) => {
+        const x = Math.max(0, Math.min(255, Number(v) || 0)) / 255;
+        return x <= 0.03928 ? (x / 12.92) : Math.pow((x + 0.055) / 1.055, 2.4);
+    };
+    const lr = toLinear(r);
+    const lg = toLinear(g);
+    const lb = toLinear(b);
+    return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+};
+
+const TRAVEL_DARK_INVERT_TRIGGER_LUMINANCE = (() => {
+    const ref = travelParseCssColorToRgb('#005AAA');
+    return ref ? travelRelativeLuminance(ref) : 0.102;
+})();
+
+const travelAdjustColorForDarkThemeIfNeeded = (color) => {
+    const parsed = travelParseCssColorToRgb(color);
+    if (!parsed) return normalizeText(color);
+
+    const lum = travelRelativeLuminance(parsed);
+    if (!(lum < TRAVEL_DARK_INVERT_TRIGGER_LUMINANCE)) return normalizeText(color);
+
+    const inverted = {
+        r: 255 - parsed.r,
+        g: 255 - parsed.g,
+        b: 255 - parsed.b
+    };
+    return travelRgbToHex(inverted);
+};
+
+const resolveJourneyColorForTheme = (color) => {
+    const raw = normalizeText(color);
+    if (!raw) return raw;
+    if (!travelIsDarkThemeActive()) return raw;
+    return travelAdjustColorForDarkThemeIfNeeded(raw);
+};
+function buildStationIcon(isTransfer) {
+    const wrap = el('span', 'search-result-icon');
+    const dot = el('span', 'search-result-icon--station');
+    const border = isTransfer ? 4 : 0.5;
+    const size = isTransfer ? 18 : 12;
+    dot.style.width = `${size}px`;
+    dot.style.height = `${size}px`;
+    dot.style.borderWidth = `${border}px`;
+    wrap.appendChild(dot);
+    return wrap;
+}
+
+export function mountTravelSearchUI() {
+    if (document.querySelector('.journey-ui')) {
+        return window.TokyoRailJourneyUI;
+    }
+
+    const root = el('div', 'journey-ui is-collapsed');
+
+    const fab = el('button', 'journey-fab', { type: 'button', 'aria-label': '行程搜索' });
+    const fabIcon = el('img', 'journey-fab-icon', { alt: '' });
+    {
+        const candidates = ['./icons/travel.svg', '/icons/travel.svg', './icons/search.svg', '/icons/search.svg'];
+        let idx = 0;
+        fabIcon.src = candidates[idx];
+        fabIcon.addEventListener('error', () => {
+            idx += 1;
+            if (idx < candidates.length) fabIcon.src = candidates[idx];
+        });
+    }
+    fab.appendChild(fabIcon);
+
+    const bar = el('div', 'journey-bar');
+    const originWrap = el('div', 'journey-input-wrap');
+    const originInput = el('input', 'journey-input journey-input-origin', {
+        type: 'search',
+        placeholder: '起点站',
+        autocomplete: 'off',
+        spellcheck: 'false'
+    });
+    const originMapPickBtn = el('button', 'journey-map-pick-btn', { type: 'button', 'aria-label': '地图选择起点站' });
+    const originMapPickIcon = el('img', 'journey-map-pick-icon', { alt: '' });
+    {
+        const candidates = ['./icons/map-select.svg', '/icons/map-select.svg'];
+        let idx = 0;
+        originMapPickIcon.src = candidates[idx];
+        originMapPickIcon.addEventListener('error', () => {
+            idx += 1;
+            if (idx < candidates.length) originMapPickIcon.src = candidates[idx];
+        });
+    }
+    originMapPickBtn.appendChild(originMapPickIcon);
+    originWrap.appendChild(originInput);
+    originWrap.appendChild(originMapPickBtn);
+
+    const divider = el('button', 'journey-divider', {
+        type: 'button',
+        'aria-label': '切换起点和终点'
+    });
+    const dividerIcon = el('img', 'journey-divider-icon', { alt: '' });
+    {
+        const candidates = ['./icons/change-dirc.svg', '/icons/change-dirc.svg'];
+        let idx = 0;
+        dividerIcon.src = candidates[idx];
+        dividerIcon.addEventListener('error', () => {
+            idx += 1;
+            if (idx < candidates.length) dividerIcon.src = candidates[idx];
+        });
+    }
+    divider.appendChild(dividerIcon);
+
+    const destinationWrap = el('div', 'journey-input-wrap');
+    const destinationInput = el('input', 'journey-input journey-input-destination', {
+        type: 'search',
+        placeholder: '终点站',
+        autocomplete: 'off',
+        spellcheck: 'false'
+    });
+    const destinationMapPickBtn = el('button', 'journey-map-pick-btn', { type: 'button', 'aria-label': '地图选择终点站' });
+    const destinationMapPickIcon = el('img', 'journey-map-pick-icon', { alt: '' });
+    {
+        const candidates = ['./icons/map-select.svg', '/icons/map-select.svg'];
+        let idx = 0;
+        destinationMapPickIcon.src = candidates[idx];
+        destinationMapPickIcon.addEventListener('error', () => {
+            idx += 1;
+            if (idx < candidates.length) destinationMapPickIcon.src = candidates[idx];
+        });
+    }
+    destinationMapPickBtn.appendChild(destinationMapPickIcon);
+    destinationWrap.appendChild(destinationInput);
+    destinationWrap.appendChild(destinationMapPickBtn);
+
+    const closeBtn = el('button', 'journey-close-btn', {
+        type: 'button',
+        'aria-label': '关闭行程搜索并清空'
+    });
+    const closeIcon = el('img', 'journey-close-icon', { alt: '' });
+    {
+        const candidates = ['./icons/x.svg', '/icons/x.svg'];
+        let idx = 0;
+        closeIcon.src = candidates[idx];
+        closeIcon.addEventListener('error', () => {
+            idx += 1;
+            if (idx < candidates.length) closeIcon.src = candidates[idx];
+        });
+    }
+    closeBtn.appendChild(closeIcon);
+
+    bar.appendChild(originWrap);
+    bar.appendChild(divider);
+    bar.appendChild(destinationWrap);
+    bar.appendChild(closeBtn);
+
+    const results = el('div', 'journey-results is-hidden');
+    const list = el('ul', 'search-results-list');
+    results.appendChild(list);
+
+    const planResults = el('div', 'journey-plan-results is-hidden');
+    const planList = el('ul', 'journey-plan-list');
+    planResults.appendChild(planList);
+
+    const tripPopover = el('div', 'journey-trip-popover is-hidden');
+    const tripPopoverHeader = el('div', 'journey-trip-header');
+    const tripPopoverTitle = el('div', 'journey-trip-title');
+    const tripCaptureBtn = el('button', 'journey-trip-capture-btn', { type: 'button', 'aria-label': '截图' });
+    const tripCaptureIcon = el('img', 'journey-trip-capture-icon', { alt: '' });
+    {
+        const candidates = ['./icons/camera.svg', '/icons/camera.svg'];
+        let idx = 0;
+        tripCaptureIcon.src = candidates[idx];
+        tripCaptureIcon.addEventListener('error', () => {
+            idx += 1;
+            if (idx < candidates.length) tripCaptureIcon.src = candidates[idx];
+        });
+    }
+    tripCaptureBtn.appendChild(tripCaptureIcon);
+    tripPopoverHeader.appendChild(tripPopoverTitle);
+    tripPopoverHeader.appendChild(tripCaptureBtn);
+    const tripPopoverBody = el('div', 'journey-trip-body');
+    tripPopover.appendChild(tripPopoverHeader);
+    tripPopover.appendChild(tripPopoverBody);
+    document.body.appendChild(tripPopover);
+
+    root.appendChild(fab);
+    root.appendChild(bar);
+    root.appendChild(results);
+    root.appendChild(planResults);
+    document.body.appendChild(root);
+
+    let activeField = 'origin';
+    let selectedOriginId = '';
+    let selectedDestinationId = '';
+    let composingOrigin = false;
+    let composingDestination = false;
+    let mapPickTarget = null; // 'origin' | 'destination' | null
+    let lastPlanComputeKey = '';
+    let planComputeToken = 0;
+    let popoverHideTimer = null;
+    let pinnedTripPopoverKey = '';
+    let planPreviewHideTimer = null;
+    let activePlanPreviewKey = '';
+    let pinnedPlanPreviewKey = '';
+    let planPreviewRequestToken = 0;
+
+    try {
+        window.__TokyoRailJourneyMapPickActive = false;
+        window.__TokyoRailSuppressStationSelectionUntil = 0;
+    } catch {
+        // ignore
+    }
+
+    const suppressStationSelectionOnce = (ms = 700) => {
+        try {
+            const now = Date.now();
+            const until = now + Math.max(0, Number(ms) || 0);
+            const prev = Number(window.__TokyoRailSuppressStationSelectionUntil) || 0;
+            window.__TokyoRailSuppressStationSelectionUntil = Math.max(prev, until);
+        } catch {
+            // ignore
+        }
+    };
+
+    const getMapInstance = () => {
+        try {
+            return window.__TokyoRailMap || null;
+        } catch {
+            return null;
+        }
+    };
+
+    const setMapPickTarget = (target) => {
+        mapPickTarget = target === 'origin' || target === 'destination' ? target : null;
+        originMapPickBtn.classList.toggle('is-active', mapPickTarget === 'origin');
+        destinationMapPickBtn.classList.toggle('is-active', mapPickTarget === 'destination');
+        try {
+            window.__TokyoRailJourneyMapPickActive = !!mapPickTarget;
+        } catch {
+            // ignore
+        }
+    };
+
+    const resolveStationByName = async (name) => {
+        const q = normalizeText(name);
+        if (!q) return null;
+        const hits = await searchRailEntities(q, { limit: 20, allowedTypes: new Set(['station']) });
+        const list = Array.isArray(hits) ? hits : [];
+        const exact = list.find((x) => normalizeText(x?.text) === q);
+        return exact || list[0] || null;
+    };
+
+    const applyPickedStation = async ({ target, stationId, stationName }) => {
+        suppressStationSelectionOnce(900);
+        const key = target === 'destination' ? 'destination' : 'origin';
+        const input = key === 'destination' ? destinationInput : originInput;
+
+        let resolvedId = normalizeText(stationId);
+        let resolvedName = normalizeText(stationName);
+
+        if (!resolvedId && resolvedName) {
+            const hit = await resolveStationByName(resolvedName);
+            if (hit) {
+                resolvedId = normalizeText(hit.id);
+                if (!resolvedName) resolvedName = normalizeText(hit.text);
+            }
+        }
+
+        if (!resolvedName && resolvedId) {
+            const byId = await searchRailEntities(resolvedId, { limit: 10, allowedTypes: new Set(['station']) });
+            const list = Array.isArray(byId) ? byId : [];
+            const hit = list.find((x) => normalizeText(x?.id) === resolvedId) || list[0] || null;
+            if (hit) resolvedName = normalizeText(hit.text);
+        }
+
+        if (!resolvedName && !resolvedId) return;
+
+        input.value = resolvedName || input.value;
+        input.dataset.stationId = resolvedId || '';
+        if (key === 'origin') selectedOriginId = resolvedId || '';
+        else selectedDestinationId = resolvedId || '';
+
+        setMapPickTarget(null);
+        results.classList.add('is-hidden');
+        maybeComputePlans();
+    };
+
+    // 供外部 UI（如 panel header 下拉）直接写入起终点。
+    // 注意：规划时优先使用 selectedOriginId/selectedDestinationId，因此必须同步更新它们。
+    const applyExternalStationSelection = (field, stationId, stationName, options = {}) => {
+        const key = field === 'destination' ? 'destination' : 'origin';
+        const input = key === 'destination' ? destinationInput : originInput;
+
+        const resolvedId = normalizeText(stationId);
+        const resolvedName = normalizeText(stationName);
+        if (!resolvedId && !resolvedName) return false;
+
+        if (options?.expand !== false) {
+            try { root.classList.remove('is-collapsed'); } catch {}
+        }
+
+        input.value = resolvedName || input.value;
+        input.dataset.stationId = resolvedId || '';
+        if (key === 'origin') selectedOriginId = resolvedId || '';
+        else selectedDestinationId = resolvedId || '';
+
+        // 外部写入也应退出 map pick 状态
+        try { setMapPickTarget(null); } catch {}
+        results.classList.add('is-hidden');
+
+        if (options?.recompute !== false) {
+            lastPlanComputeKey = '';
+            maybeComputePlans();
+        }
+        return true;
+    };
+
+    const handleMapStationPick = async (eventLike) => {
+        if (!mapPickTarget) return;
+
+        const map = getMapInstance();
+        if (!map) return;
+
+        const point = eventLike?.point;
+        const fromFeatures = (() => {
+            const list = Array.isArray(eventLike?.features) ? eventLike.features : [];
+            if (list.length) return list;
+            if (!point) return [];
+            try {
+                return map.queryRenderedFeatures(point, { layers: ['stations-layer'] }) || [];
+            } catch {
+                return [];
+            }
+        })();
+
+        const feature = fromFeatures[0];
+        const props = feature?.properties || {};
+        const stationId = normalizeText(props?.id || feature?.id || '');
+        const stationName = normalizeText(props?.name_zh || props?.name || props?.name_ja || '');
+        if (!stationId && !stationName) return;
+
+        await applyPickedStation({
+            target: mapPickTarget,
+            stationId,
+            stationName
+        });
+    };
+
+    const onDocumentClickCapture = async (evt) => {
+        if (!mapPickTarget) return;
+        const target = evt?.target;
+        if (!(target instanceof Element)) return;
+        const labelEl = target.closest('.station-label');
+        if (!labelEl) return;
+
+        const stationName = normalizeText(labelEl.textContent || '');
+        if (!stationName) return;
+
+        await applyPickedStation({
+            target: mapPickTarget,
+            stationId: '',
+            stationName
+        });
+    };
+
+    let mapPickHookBound = false;
+    const ensureMapPickHook = () => {
+        if (mapPickHookBound) return;
+        const map = getMapInstance();
+        if (!map || typeof map.on !== 'function') return;
+        map.on('click', (e) => {
+            handleMapStationPick(e);
+        });
+        mapPickHookBound = true;
+    };
+
+    const mapPickBindTimer = window.setInterval(() => {
+        ensureMapPickHook();
+        if (mapPickHookBound) window.clearInterval(mapPickBindTimer);
+    }, 400);
+
+    const getActiveInput = () => (activeField === 'destination' ? destinationInput : originInput);
+
+    const clearPlanList = () => {
+        try {
+            const actions = window?.TokyoRailSearchMapActions;
+            actions?.clearTripPathPreview?.();
+        } catch {
+            // ignore
+        }
+        activePlanPreviewKey = '';
+        pinnedPlanPreviewKey = '';
+        planPreviewRequestToken += 1;
+        if (planPreviewHideTimer) {
+            window.clearTimeout(planPreviewHideTimer);
+            planPreviewHideTimer = null;
+        }
+        while (planList.firstChild) planList.removeChild(planList.firstChild);
+        hideTripPopover();
+    };
+
+    const clearTripPopoverBody = () => {
+        while (tripPopoverBody.firstChild) tripPopoverBody.removeChild(tripPopoverBody.firstChild);
+    };
+
+    const hideTripPopover = () => {
+        tripPopover.classList.add('is-hidden');
+        clearTripPopoverBody();
+        pinnedTripPopoverKey = '';
+    };
+
+    const scheduleHideTripPopover = () => {
+        if (pinnedTripPopoverKey) return;
+        if (popoverHideTimer) window.clearTimeout(popoverHideTimer);
+        popoverHideTimer = window.setTimeout(() => {
+            hideTripPopover();
+        }, 120);
+    };
+
+    const cancelHideTripPopover = () => {
+        if (!popoverHideTimer) return;
+        window.clearTimeout(popoverHideTimer);
+        popoverHideTimer = null;
+    };
+
+    const cancelHidePlanPreview = () => {
+        if (!planPreviewHideTimer) return;
+        window.clearTimeout(planPreviewHideTimer);
+        planPreviewHideTimer = null;
+    };
+
+    const clearJourneyPlanPreview = ({ force = false } = {}) => {
+        if (!force && pinnedPlanPreviewKey) return;
+        cancelHidePlanPreview();
+        if (!activePlanPreviewKey && !force) return;
+        try {
+            window?.TokyoRailSearchMapActions?.clearTripPathPreview?.();
+        } catch {
+            // ignore
+        }
+        activePlanPreviewKey = '';
+    };
+
+    const scheduleClearJourneyPlanPreview = (delayMs = 120) => {
+        cancelHidePlanPreview();
+        planPreviewHideTimer = window.setTimeout(() => {
+            planPreviewHideTimer = null;
+            clearJourneyPlanPreview({ force: false });
+        }, Math.max(0, Number(delayMs) || 0));
+    };
+
+    const buildTripPreviewPayloadFromDisplayPlanLegacy = async ({ row, displayPlan }) => {
+        const legs = Array.isArray(displayPlan?.legs) ? displayPlan.legs : [];
+        if (!legs.length) return null;
+
+        const segments = [];
+        for (const leg of legs) {
+            const lineId = normalizeText(leg?.lineId);
+            if (!lineId) continue;
+
+            const trip = await resolveTripForLeg({ leg, serviceDay: row?.serviceDay });
+            let stationIds = [];
+            if (trip) {
+                const rows = toLegStopRows({ trip, leg });
+                stationIds = rows.map((x) => normalizeText(x?.stationId)).filter(Boolean);
+            } else {
+                stationIds = [normalizeText(leg?.fromStop), normalizeText(leg?.toStop)].filter(Boolean);
+            }
+
+            const compactIds = [];
+            for (const sid of stationIds) {
+                if (!sid) continue;
+                if (compactIds.length && compactIds[compactIds.length - 1] === sid) continue;
+                compactIds.push(sid);
+            }
+            if (compactIds.length < 2) continue;
+
+            segments.push({
+                kind: 'main',
+                lineId,
+                stationIds: compactIds
+            });
+        }
+
+        if (!segments.length) return null;
+
+        const firstSeg = segments[0];
+        const lastSeg = segments[segments.length - 1];
+        const firstLeg = legs[0] || null;
+
+        return {
+            tripKey: normalizeText(firstLeg?.tripKey || `${toHHMM(displayPlan?.firstDepMs)}-${toHHMM(displayPlan?.arrivalMs)}`),
+            selectedLineId: normalizeText(firstSeg?.lineId),
+            mainLineId: normalizeText(firstSeg?.lineId),
+            originStationId: normalizeText(row?.originStationId || firstSeg?.stationIds?.[0]),
+            mainTerminalStationId: normalizeText(firstSeg?.stationIds?.[firstSeg.stationIds.length - 1]),
+            terminalStationId: normalizeText(lastSeg?.stationIds?.[lastSeg.stationIds.length - 1]),
+            typeName: normalizeText(firstLeg?.typeName || '普通'),
+            hasNt: false,
+            fitMode: 'none',
+            segments
+        };
+    };
+
+    const applyJourneyPlanPreview = async ({ row, previewKey, pin = false } = {}) => {
+        const actions = window?.TokyoRailSearchMapActions;
+        if (!actions || typeof actions.previewTripPath !== 'function') return;
+
+        const token = ++planPreviewRequestToken;
+        const displayPlan = await getDisplayPlanForRow(row);
+        const payload = await buildTripPreviewPayloadFromDisplayPlan({ row, displayPlan });
+        if (token !== planPreviewRequestToken) return;
+        if (!payload) return;
+
+        try {
+            actions.previewTripPath(payload, { clearBefore: true, fitMode: 'none' });
+        } catch {
+            return;
+        }
+
+        activePlanPreviewKey = normalizeText(previewKey);
+        if (pin) pinnedPlanPreviewKey = activePlanPreviewKey;
+    };
+
+    const getDisplayPlanForRow = async (row) => {
+        if (!row || !row.plan) return null;
+        if (row.__displayPlan) return row.__displayPlan;
+
+        const expandedLegs = await expandLegsForDisplay({
+            legs: row?.plan?.legs || [],
+            serviceDay: row?.serviceDay,
+            originStationId: row?.originStationId
+        });
+
+        const firstLeg = expandedLegs[0] || null;
+        const lastLeg = expandedLegs[expandedLegs.length - 1] || null;
+
+        const firstDepMs = Number.isFinite(Number(firstLeg?.depMs))
+            ? Number(firstLeg.depMs)
+            : (Number.isFinite(Number(row.plan.firstDepMs)) ? Number(row.plan.firstDepMs) : null);
+        const arrivalMs = Number.isFinite(Number(lastLeg?.arrMs))
+            ? Number(lastLeg.arrMs)
+            : (Number.isFinite(Number(row.plan.arrivalMs)) ? Number(row.plan.arrivalMs) : null);
+
+        const baseDepartureMs = Number.isFinite(Number(row?.baseDepartureMs))
+            ? Number(row.baseDepartureMs)
+            : (Number.isFinite(Number(row?.plan?.baseDepartureMs)) ? Number(row.plan.baseDepartureMs) : null);
+
+        const durationMs = (Number.isFinite(baseDepartureMs) && Number.isFinite(arrivalMs))
+            ? (arrivalMs - baseDepartureMs)
+            : ((Number.isFinite(firstDepMs) && Number.isFinite(arrivalMs)) ? (arrivalMs - firstDepMs) : row.plan.durationMs);
+
+        let transfers = 0;
+        for (let i = 0; i < expandedLegs.length - 1; i += 1) {
+            if (!isThroughLegPairByMeta({ currentLeg: expandedLegs[i], nextLeg: expandedLegs[i + 1] })) transfers += 1;
+        }
+
+        row.__displayPlan = {
+            ...row.plan,
+            legs: expandedLegs,
+            firstDepMs: Number.isFinite(firstDepMs) ? firstDepMs : row.plan.firstDepMs,
+            arrivalMs: Number.isFinite(arrivalMs) ? arrivalMs : row.plan.arrivalMs,
+            durationMs,
+            transfers
+        };
+        return row.__displayPlan;
+    };
+
+    const renderTripDetailBody = async ({ row }) => {
+        clearTripPopoverBody();
+        const displayPlan = await getDisplayPlanForRow(row);
+        const blocks = await buildPlanDetailBlocks({
+            plan: row.plan,
+            legsOverride: displayPlan?.legs,
+            serviceDay: row.serviceDay,
+            originStationId: row.originStationId
+        });
+        if (!blocks.length) {
+            tripPopoverBody.appendChild(el('div', 'journey-trip-empty', { text: '无详细停站信息' }));
+            return;
+        }
+
+        const overallDestinationStationId = normalizeText(row?.destinationStationId || (displayPlan?.legs && displayPlan.legs.length ? displayPlan.legs[displayPlan.legs.length - 1]?.toStop : '') || '');
+
+        for (const block of blocks) {
+            if (block.kind === 'transfer') {
+                const transferRow = el('div', 'journey-trip-transfer-row');
+                transferRow.appendChild(el('span', 'journey-trip-transfer-label', { text: '换乘' }));
+                tripPopoverBody.appendChild(transferRow);
+                continue;
+            }
+
+            const note = el('div', 'journey-trip-note-row');
+            const noteDot = el('span', 'journey-trip-note-dot');
+            if (block.lineColor) noteDot.style.background = String(resolveJourneyColorForTheme(block.lineColor));
+            const noteLine = el('span', 'journey-trip-note-line', { text: block.lineDisplayName || block.lineName });
+            if (block.lineColor) noteLine.style.color = String(resolveJourneyColorForTheme(block.lineColor));
+            const noteType = el('span', 'journey-trip-note-type', { text: block.typeName });
+            if (block.typeColor) noteType.style.color = String(resolveJourneyColorForTheme(block.typeColor));
+            note.appendChild(noteDot);
+            note.appendChild(noteLine);
+            note.appendChild(noteType);
+            tripPopoverBody.appendChild(note);
+
+            for (let i = 0; i < block.rows.length; i += 1) {
+                const s = block.rows[i];
+                const isFirst = i === 0;
+                const isLast = i === block.rows.length - 1;
+                const stationId = normalizeText(s.stationId || '');
+                const rowEl = el('div', 'journey-trip-row');
+                rowEl.appendChild(el('div', 'journey-trip-station', { text: s.stationName || s.stationId }));
+
+                const arrCell = el('div', 'journey-trip-time journey-trip-arrive');
+                const arriveText = normalizeText(s.arrText || '') || (isFirst ? normalizeText(s.depText || '') : '');
+                if (arriveText) {
+                    const arr = el('span', 'journey-trip-time-arrive', { text: arriveText });
+                    arrCell.appendChild(arr);
+                }
+                rowEl.appendChild(arrCell);
+
+                const depCell = el('div', 'journey-trip-time journey-trip-depart');
+                if (overallDestinationStationId && stationId && overallDestinationStationId === stationId) {
+                    const destLabel = el('span', 'journey-trip-time-arrive journey-trip-time-destination', { text: '目的地' });
+                    depCell.appendChild(destLabel);
+                } else if (isLast) {
+                    const terminalDash = el('span', 'journey-trip-time-arrive', { text: '-' });
+                    depCell.appendChild(terminalDash);
+                } else if (s.depText) {
+                    const dep = el('span', 'journey-trip-time-depart', { text: s.depText });
+                    depCell.appendChild(dep);
+                }
+                rowEl.appendChild(depCell);
+                tripPopoverBody.appendChild(rowEl);
+            }
+        }
+    };
+
+    const positionTripPopover = (anchorEl) => {
+        const rect = anchorEl.getBoundingClientRect();
+        const maxW = 360;
+        tripPopover.style.width = `${maxW}px`;
+        tripPopover.style.maxWidth = `${maxW}px`;
+        tripPopover.classList.remove('is-hidden');
+
+        const popRect = tripPopover.getBoundingClientRect();
+        const gap = 10;
+        const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+        const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+
+        let left = rect.right + gap;
+        if (left + popRect.width > vw - 8) {
+            left = Math.max(8, rect.left - gap - popRect.width);
+        }
+
+        let top = rect.top;
+        if (top + popRect.height > vh - 8) {
+            top = Math.max(8, vh - popRect.height - 8);
+        }
+        top = Math.max(8, top);
+
+        tripPopover.style.left = `${Math.round(left)}px`;
+        tripPopover.style.top = `${Math.round(top)}px`;
+    };
+
+    const showTripPopover = async ({ anchorEl, row }) => {
+        cancelHideTripPopover();
+        const displayPlan = await getDisplayPlanForRow(row);
+        const planLegs = Array.isArray(displayPlan?.legs) ? displayPlan.legs : (Array.isArray(row?.plan?.legs) ? row.plan.legs : []);
+        const fallbackOriginId = normalizeText(planLegs[0]?.fromStop || '');
+        const fallbackDestinationId = normalizeText(planLegs[planLegs.length - 1]?.toStop || '');
+        const originStationId = normalizeText(row?.originStationId || fallbackOriginId);
+        const destinationStationId = normalizeText(row?.destinationStationId || fallbackDestinationId);
+        const originZh = getStationNameById(originStationId) || normalizeText(row?.originName || originStationId);
+        const destinationZh = getStationNameById(destinationStationId) || normalizeText(row?.destinationName || destinationStationId);
+        tripPopoverTitle.textContent = `${originZh} → ${destinationZh}`;
+        await renderTripDetailBody({ row });
+        positionTripPopover(anchorEl);
+    };
+
+    const showPlanMessage = (message) => {
+        clearPlanList();
+        const li = document.createElement('li');
+        li.className = 'journey-plan-item';
+        const empty = el('div', 'journey-plan-empty', { text: message });
+        li.appendChild(empty);
+        planList.appendChild(li);
+        planResults.classList.remove('is-hidden');
+    };
+
+    const hidePlanResultsIfEmptyInputs = () => {
+        if (normalizeText(originInput.value) || normalizeText(destinationInput.value)) return;
+        clearPlanList();
+        planResults.classList.add('is-hidden');
+    };
+
+    const appendJourneyPath = async (container, legs) => {
+        for (let i = 0; i < legs.length; i += 1) {
+            const leg = legs[i];
+            const lineMeta = await getLineMeta(leg.lineId);
+
+            const lineSpan = el('span', 'journey-plan-line', { text: lineMeta?.name || leg.lineId || '线路' });
+            if (lineMeta?.color) lineSpan.style.color = String(resolveJourneyColorForTheme(lineMeta.color));
+            container.appendChild(lineSpan);
+
+            const typeSpan = el('span', 'journey-plan-type', { text: `${normalizeText(leg.typeName) || '普通'}` });
+            if (leg?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(leg.typeColor));
+            container.appendChild(typeSpan);
+
+            if (i < legs.length - 1) {
+                const through = isThroughLegPairByMeta({ currentLeg: leg, nextLeg: legs[i + 1] });
+                const wrap = el('span', 'journey-plan-arrow');
+                const icon = el('img', 'journey-plan-arrow-icon', { alt: '' });
+                {
+                    const candidates = through
+                        ? ['./icons/arrows.svg', '/icons/arrows.svg']
+                        : ['./icons/arrow-right.svg', '/icons/arrow-right.svg'];
+                    let idx = 0;
+                    icon.src = candidates[idx];
+                    icon.addEventListener('error', () => {
+                        idx += 1;
+                        if (idx < candidates.length) icon.src = candidates[idx];
+                    });
+                }
+                wrap.appendChild(icon);
+                container.appendChild(wrap);
+            }
+        }
+    };
+
+    const renderPlanResults = async (rows) => {
+        clearPlanList();
+        if (!rows.length) {
+            showPlanMessage('无可用路线');
+            return;
+        }
+
+        for (let i = 0; i < rows.length; i += 1) {
+            const row = rows[i];
+            const displayPlan = await getDisplayPlanForRow(row);
+            const li = document.createElement('li');
+            li.className = 'journey-plan-item';
+
+            const tag = el('div', 'journey-plan-tag', { text: row.label });
+            li.appendChild(tag);
+
+            const head = el('div', 'journey-plan-head');
+            head.appendChild(el('span', 'journey-plan-duration', { text: formatDuration(displayPlan?.durationMs) }));
+            head.appendChild(el('span', 'journey-plan-arrive', { text: `${toHHMM(displayPlan?.arrivalMs)}到达` }));
+            li.appendChild(head);
+
+            const path = el('div', 'journey-plan-path');
+            await appendJourneyPath(path, displayPlan?.legs || []);
+            li.appendChild(path);
+
+            if (i < rows.length - 1) {
+                li.appendChild(el('div', 'journey-plan-sep'));
+            }
+
+            li.addEventListener('mouseenter', () => {
+                cancelHidePlanPreview();
+                const previewKey = `row-${i}`;
+                if (!pinnedTripPopoverKey || pinnedTripPopoverKey === previewKey) {
+                    showTripPopover({ anchorEl: li, row });
+                }
+                if (pinnedPlanPreviewKey && pinnedPlanPreviewKey !== previewKey) return;
+                applyJourneyPlanPreview({ row, previewKey, pin: false });
+            });
+            li.addEventListener('mouseleave', () => {
+                const previewKey = `row-${i}`;
+                if (pinnedTripPopoverKey !== previewKey) {
+                    scheduleHideTripPopover();
+                }
+                if (!pinnedPlanPreviewKey) {
+                    scheduleClearJourneyPlanPreview(120);
+                }
+            });
+
+            li.addEventListener('click', (evt) => {
+                evt.preventDefault?.();
+                evt.stopPropagation?.();
+                cancelHidePlanPreview();
+                const previewKey = `row-${i}`;
+
+                if (pinnedTripPopoverKey === previewKey) {
+                    pinnedTripPopoverKey = '';
+                    scheduleHideTripPopover();
+                } else {
+                    pinnedTripPopoverKey = previewKey;
+                    showTripPopover({ anchorEl: li, row });
+                }
+
+                if (pinnedPlanPreviewKey === previewKey) {
+                    pinnedPlanPreviewKey = '';
+                    clearJourneyPlanPreview({ force: true });
+                    return;
+                }
+
+                pinnedPlanPreviewKey = previewKey;
+                applyJourneyPlanPreview({ row, previewKey, pin: true });
+            });
+
+            planList.appendChild(li);
+        }
+
+        planResults.classList.remove('is-hidden');
+    };
+
+    const readServiceDayFromPanel = () => {
+        const active = document.querySelector('.panel-day-seg button.is-active[data-day]');
+        const day = normalizeText(active?.getAttribute?.('data-day') || '');
+        return day === 'SaturdayHoliday' ? 'SaturdayHoliday' : 'Weekday';
+    };
+
+    const readDepartureBase = () => {
+        const now = new Date();
+        const serviceDayStartMs = getServiceDayStartMs(now);
+        const input = document.querySelector('.settings-time-input');
+        const hhmm = normalizeHHMM(input?.value || '') || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const offset = hhmmToOffsetMinutes(hhmm);
+        const depMs = Number.isFinite(offset) ? serviceDayStartMs + offset * 60000 : now.getTime();
+        return { serviceDayStartMs, departureMs: depMs };
+    };
+
+    const collectJourneyCandidates = async ({ sourceStops, destinationStops, serviceDay, baseDepartureMs }) => {
+        const plans = await collectJourneyCandidatesRaptor({
+            sourceStops,
+            destinationStops,
+            serviceDay,
+            baseDepartureMs
+        });
+        return Array.isArray(plans) ? plans : [];
+    };
+
+    const maybeComputePlans = async () => {
+        const originId = normalizeText(selectedOriginId || originInput.dataset.stationId || '');
+        const destinationId = normalizeText(selectedDestinationId || destinationInput.dataset.stationId || '');
+
+        if (!originId || !destinationId) {
+            hidePlanResultsIfEmptyInputs();
+            return;
+        }
+        if (originId === destinationId) {
+            showPlanMessage('起点与终点相同');
+            return;
+        }
+
+        const serviceDay = readServiceDayFromPanel();
+        const originName = getStationNameById(originId) || normalizeText(originInput.value) || originId;
+        const destinationName = getStationNameById(destinationId) || normalizeText(destinationInput.value) || destinationId;
+        const { departureMs } = readDepartureBase();
+        const key = `${originId}||${destinationId}||${serviceDay}||${Math.floor(departureMs / 60000)}`;
+        if (key === lastPlanComputeKey) return;
+        lastPlanComputeKey = key;
+
+        const token = ++planComputeToken;
+        showPlanMessage('正在计算路线...');
+
+        await ensurePlannerStaticData();
+
+        let sourceStops = getGroupStops(originId);
+        sourceStops.add(originId);
+        sourceStops = filterNearbyStops(originId, sourceStops, 800);
+        const destinationStops = getGroupStops(destinationId);
+        if (!sourceStops.size || !destinationStops.size || sameSet(sourceStops, destinationStops)) {
+            showPlanMessage('未找到有效起终点');
+            return;
+        }
+
+        const plans = await collectJourneyCandidates({
+            sourceStops,
+            destinationStops,
+            serviceDay,
+            baseDepartureMs: departureMs
+        });
+
+        if (token !== planComputeToken) return;
+        if (!plans.length) {
+            showPlanMessage('无可用路线');
+            return;
+        }
+
+        const picked = pickPlanBuckets(plans).map((x) => ({
+            ...x,
+            serviceDay,
+            baseDepartureMs: departureMs,
+            originStationId: originId,
+            destinationStationId: destinationId,
+            originName,
+            destinationName
+        }));
+        await renderPlanResults(picked);
+    };
+
+    const clearList = () => {
+        while (list.firstChild) list.removeChild(list.firstChild);
+    };
+
+    const expand = () => {
+        if (!root.classList.contains('is-collapsed')) return;
+        root.classList.remove('is-collapsed');
+        try {
+            getActiveInput().focus?.();
+        } catch {
+            // ignore
+        }
+    };
+
+    const collapse = () => {
+        root.classList.add('is-collapsed');
+        results.classList.add('is-hidden');
+        hideTripPopover();
+        clearJourneyPlanPreview({ force: true });
+        pinnedPlanPreviewKey = '';
+        if (!mapPickTarget) hidePlanResultsIfEmptyInputs();
+    };
+
+    const clearJourneyInputsAndCollapse = () => {
+        originInput.value = '';
+        destinationInput.value = '';
+        originInput.dataset.stationId = '';
+        destinationInput.dataset.stationId = '';
+        selectedOriginId = '';
+        selectedDestinationId = '';
+        lastPlanComputeKey = '';
+        setMapPickTarget(null);
+        hideTripPopover();
+        clearPlanList();
+        planResults.classList.add('is-hidden');
+        results.classList.add('is-hidden');
+        collapse();
+    };
+
+    const collapseIfBothEmpty = () => {
+        if (mapPickTarget) return;
+        if (normalizeText(originInput.value) || normalizeText(destinationInput.value)) return;
+        collapse();
+    };
+
+    const renderEmpty = (text) => {
+        clearList();
+        const li = document.createElement('li');
+        li.appendChild(el('div', 'search-empty', { text }));
+        list.appendChild(li);
+        results.classList.remove('is-hidden');
+    };
+
+    const renderStationResults = async (items) => {
+        clearList();
+        if (!items.length) {
+            renderEmpty('暂无站点结果');
+            return;
+        }
+
+        for (const item of items) {
+            const li = document.createElement('li');
+            const row = el('div', 'search-result-item');
+            const icon = buildStationIcon(item?.isTransfer === true);
+            const text = el('div', 'search-result-text');
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = String(item?.text ?? '');
+            text.appendChild(nameSpan);
+
+            const lineMetas = await getLineMetaByIds(item?.lineIds);
+            if (Array.isArray(lineMetas) && lineMetas.length) {
+                const wrap = document.createElement('span');
+                wrap.style.fontSize = '11px';
+                wrap.appendChild(document.createTextNode('  '));
+
+                lineMetas.forEach((meta, idx) => {
+                    if (idx > 0) wrap.appendChild(document.createTextNode('、'));
+                    const seg = document.createElement('span');
+                    seg.textContent = String(meta?.name || '');
+                    if (meta?.color) seg.style.color = String(resolveJourneyColorForTheme(meta.color));
+                    wrap.appendChild(seg);
+                });
+
+                text.appendChild(wrap);
+            }
+
+            row.appendChild(icon);
+            row.appendChild(text);
+
+            row.addEventListener('click', (evt) => {
+                evt.preventDefault?.();
+                evt.stopPropagation?.();
+
+                const input = getActiveInput();
+                input.value = String(item?.text ?? '');
+                input.dataset.stationId = String(item?.id ?? '');
+
+                if (activeField === 'origin') selectedOriginId = String(item?.id ?? '');
+                else selectedDestinationId = String(item?.id ?? '');
+
+                results.classList.add('is-hidden');
+                maybeComputePlans();
+            });
+
+            li.appendChild(row);
+            list.appendChild(li);
+        }
+
+        results.classList.remove('is-hidden');
+    };
+
+    const refresh = async () => {
+        const input = getActiveInput();
+        const q = normalizeText(input.value);
+        if (!q) {
+            clearList();
+            results.classList.add('is-hidden');
+            return;
+        }
+
+        const stationItems = await searchRailEntities(q, { limit: 30, allowedTypes: new Set(['station']) });
+        await renderStationResults(Array.isArray(stationItems) ? stationItems : []);
+    };
+
+    const bindInput = (input, key) => {
+        const isOrigin = key === 'origin';
+
+        input.addEventListener('focus', () => {
+            activeField = key;
+            expand();
+            refresh();
+        });
+
+        input.addEventListener('compositionstart', () => {
+            if (isOrigin) composingOrigin = true;
+            else composingDestination = true;
+        });
+
+        input.addEventListener('compositionend', () => {
+            if (isOrigin) composingOrigin = false;
+            else composingDestination = false;
+            refresh();
+        });
+
+        input.addEventListener('input', () => {
+            const composing = isOrigin ? composingOrigin : composingDestination;
+            if (composing) return;
+
+            if (isOrigin) selectedOriginId = '';
+            else selectedDestinationId = '';
+
+            lastPlanComputeKey = '';
+
+            refresh();
+        });
+
+        input.addEventListener('search', () => {
+            refresh();
+        });
+    };
+
+    bindInput(originInput, 'origin');
+    bindInput(destinationInput, 'destination');
+
+    root.addEventListener('mouseenter', () => {
+        expand();
+    });
+
+    root.addEventListener('mouseleave', () => {
+        if (root.classList.contains('is-collapsed')) return;
+        if (mapPickTarget) return;
+        collapseIfBothEmpty();
+    });
+
+    fab.addEventListener('pointerdown', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+        expand();
+    });
+
+    fab.addEventListener('click', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+        expand();
+    });
+
+    bar.addEventListener('pointerdown', () => {
+        expand();
+    });
+
+    const mapEl = document.getElementById('map');
+    const shouldIgnoreTarget = (target) => {
+        if (!target || !(target instanceof Element)) return false;
+        if (root.contains(target)) return true;
+        if (target.closest('.search-ui')) return true;
+        if (target.closest('.RW-wrapper')) return true;
+        if (target.closest('.maplibregl-popup')) return true;
+        if (target.closest('.maplibregl-ctrl')) return true;
+        return false;
+    };
+
+    const onMapPress = (evt) => {
+        if (root.classList.contains('is-collapsed')) return;
+        if (mapPickTarget) return;
+        const target = evt?.target;
+        if (shouldIgnoreTarget(target)) return;
+        if (!mapEl || !target || !(target instanceof Node) || !mapEl.contains(target)) return;
+        results.classList.add('is-hidden');
+        collapseIfBothEmpty();
+    };
+
+    const armMapPick = (target) => {
+        activeField = target === 'destination' ? 'destination' : 'origin';
+        expand();
+        setMapPickTarget(activeField);
+        try {
+            getActiveInput().focus?.();
+        } catch {
+            // ignore
+        }
+        ensureMapPickHook();
+    };
+
+    const swapOriginDestination = () => {
+        const prevOriginText = normalizeText(originInput.value);
+        const prevOriginId = normalizeText(selectedOriginId || originInput.dataset.stationId || '');
+        const prevDestinationText = normalizeText(destinationInput.value);
+        const prevDestinationId = normalizeText(selectedDestinationId || destinationInput.dataset.stationId || '');
+
+        originInput.value = prevDestinationText;
+        destinationInput.value = prevOriginText;
+
+        originInput.dataset.stationId = prevDestinationId;
+        destinationInput.dataset.stationId = prevOriginId;
+
+        selectedOriginId = prevDestinationId;
+        selectedDestinationId = prevOriginId;
+
+        activeField = 'origin';
+        setMapPickTarget(null);
+        lastPlanComputeKey = '';
+
+        if (normalizeText(originInput.value) || normalizeText(destinationInput.value)) {
+            expand();
+        }
+
+        maybeComputePlans();
+    };
+
+    originMapPickBtn.addEventListener('pointerdown', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+    });
+
+    destinationMapPickBtn.addEventListener('pointerdown', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+    });
+
+    originMapPickBtn.addEventListener('click', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+        armMapPick('origin');
+    });
+
+    destinationMapPickBtn.addEventListener('click', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+        armMapPick('destination');
+    });
+
+    closeBtn.addEventListener('pointerdown', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+    });
+    closeBtn.addEventListener('click', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+        clearJourneyInputsAndCollapse();
+    });
+
+    divider.addEventListener('pointerdown', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+    });
+
+    divider.addEventListener('click', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+        swapOriginDestination();
+    });
+
+    originInput.addEventListener('keydown', (evt) => {
+        if (evt?.key === 'Enter') {
+            evt.preventDefault?.();
+            maybeComputePlans();
+        }
+    });
+    destinationInput.addEventListener('keydown', (evt) => {
+        if (evt?.key === 'Enter') {
+            evt.preventDefault?.();
+            maybeComputePlans();
+        }
+    });
+
+    const timeInput = document.querySelector('.settings-time-input');
+    if (timeInput) {
+        timeInput.addEventListener('input', () => {
+            lastPlanComputeKey = '';
+            maybeComputePlans();
+        });
+    }
+
+    const dayButtons = document.querySelectorAll('.panel-day-seg button[data-day]');
+    dayButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            lastPlanComputeKey = '';
+            maybeComputePlans();
+        });
+    });
+
+    if (typeof window !== 'undefined' && 'PointerEvent' in window) {
+        document.addEventListener('pointerdown', onMapPress, true);
+    } else {
+        document.addEventListener('mousedown', onMapPress, true);
+        document.addEventListener('touchstart', onMapPress, { capture: true, passive: true });
+    }
+    document.addEventListener('click', onDocumentClickCapture, true);
+
+    tripPopover.addEventListener('mouseenter', () => {
+        cancelHideTripPopover();
+        cancelHidePlanPreview();
+    });
+    tripPopover.addEventListener('mouseleave', () => {
+        if (!pinnedTripPopoverKey) {
+            scheduleHideTripPopover();
+        }
+        if (!pinnedPlanPreviewKey) {
+            scheduleClearJourneyPlanPreview(120);
+        }
+    });
+    tripCaptureBtn.addEventListener('click', async (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+        try {
+            const h2c = window?.html2canvas;
+            if (typeof h2c !== 'function') return;
+            const canvas = await h2c(tripPopover, { backgroundColor: null, scale: 2 });
+            const url = canvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `journey-detail-${Date.now()}.png`;
+            a.click();
+        } catch {
+            // ignore
+        }
+    });
+
+    const ui = {
+        root,
+        fab,
+        originInput,
+        destinationInput,
+        setOriginStation: (stationId, stationName, options) => applyExternalStationSelection('origin', stationId, stationName, options),
+        setDestinationStation: (stationId, stationName, options) => applyExternalStationSelection('destination', stationId, stationName, options),
+        recompute: () => {
+            lastPlanComputeKey = '';
+            return maybeComputePlans();
+        },
+        getSelection() {
+            return {
+                originStationId: selectedOriginId,
+                destinationStationId: selectedDestinationId,
+                originText: normalizeText(originInput.value),
+                destinationText: normalizeText(destinationInput.value)
+            };
+        }
+    };
+
+    window.TokyoRailJourneyUI = ui;
+    return ui;
+}
+
+mountTravelSearchUI();
