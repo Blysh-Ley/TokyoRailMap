@@ -762,7 +762,6 @@ export function createPanel(options = {}) {
 
     daySeg.appendChild(btnWeekday);
     daySeg.appendChild(btnHoliday);
-    dayToggle.appendChild(daySeg);
 
     const dayPrintBtn = document.createElement('button');
     dayPrintBtn.type = 'button';
@@ -787,10 +786,6 @@ export function createPanel(options = {}) {
     // 时间控件：覆盖 panel 中的“当前时间”（用于判断已过/未来与默认定位）
     const timeControl = document.createElement('div');
     timeControl.className = 'settings-item-control settings-time-control';
-
-    const timeLabel = document.createElement('span');
-    timeLabel.className = 'settings-item-title';
-    timeLabel.textContent = '时间';
 
     const timeInput = document.createElement('input');
     timeInput.className = 'settings-time-input';
@@ -1013,7 +1008,6 @@ export function createPanel(options = {}) {
     timePicker.addEventListener('click', (e) => stopEvent(e), { passive: false });
     document.body.appendChild(timePicker);
 
-    timeControl.appendChild(timeLabel);
     timeControl.appendChild(timeOps);
 
     controls.appendChild(dayToggle);
@@ -1045,21 +1039,18 @@ export function createPanel(options = {}) {
 
     // 地图右上：站名开关下方的时间控件浮层（z-index 高于 panel）
     const timeOverlay = document.createElement('div');
-    timeOverlay.className = 'settings-item settings-item-time';
+    timeOverlay.className = 'settings-top-timebar';
     timeOverlay.style.display = 'flex';
+    timeOverlay.appendChild(daySeg);
     timeOverlay.appendChild(timeControl);
     timeOverlay.addEventListener('pointerdown', (e) => stopPropagationOnly(e), { passive: true });
     timeOverlay.addEventListener('pointermove', (e) => stopPropagationOnly(e), { passive: true });
     timeOverlay.addEventListener('touchmove', (e) => stopPropagationOnly(e), { passive: true });
     timeOverlay.addEventListener('wheel', (e) => stopPropagationOnly(e), { passive: true });
     timeOverlay.addEventListener('click', (e) => stopEvent(e), { passive: false });
-    if (settingsContentEl) {
-        settingsContentEl.appendChild(timeOverlay);
-    } else {
-        timeOverlay.style.position = 'fixed';
-        timeOverlay.style.zIndex = String(zIndex + 2);
-        document.body.appendChild(timeOverlay);
-    }
+    timeOverlay.style.position = 'fixed';
+    timeOverlay.style.zIndex = 8000;
+    document.body.appendChild(timeOverlay);
 
     // 右侧 panel 左侧弹出的班次详情面板
     const tripDetailRoot = document.createElement('div');
@@ -1686,6 +1677,17 @@ export function createPanel(options = {}) {
         btnHoliday.classList.toggle('is-active', day === 'SaturdayHoliday');
     };
 
+    const notifyJourneyRecompute = () => {
+        try {
+            const ui = window?.TokyoRailJourneyUI;
+            if (ui && typeof ui.recompute === 'function') {
+                ui.recompute();
+            }
+        } catch {
+            // ignore
+        }
+    };
+
     const setServiceDay = (day) => {
         const v = String(day || '').trim();
         if (v !== 'Weekday' && v !== 'SaturdayHoliday') return;
@@ -1693,6 +1695,7 @@ export function createPanel(options = {}) {
         currentServiceDay = v;
         applyDayToggleUi();
         renderAllTimetables();
+        notifyJourneyRecompute();
     };
 
     btnWeekday.addEventListener('click', (e) => {
@@ -1718,6 +1721,7 @@ export function createPanel(options = {}) {
         isAutoNowClock = false;
         currentNowOverrideHHMM = v;
         renderAllTimetables();
+        notifyJourneyRecompute();
     });
     timeInput.addEventListener('blur', () => {
         const normalized = normalizeHHMM(timeInput.value);
@@ -1757,6 +1761,7 @@ export function createPanel(options = {}) {
         stopEvent(e);
         closeTimePicker();
         restoreAutoNowClock();
+        notifyJourneyRecompute();
     }, { passive: false });
 
     const loadTimetableForLineId = async (lineId) => {
@@ -4662,6 +4667,7 @@ export function createPanel(options = {}) {
         if (
             target instanceof Element && (
                 (settingsContentEl && settingsContentEl.contains(target)) ||
+                timeOverlay.contains(target) ||
                 target.closest('.settings-content') ||
                 target.closest('.settings-ui')
             )
@@ -4711,26 +4717,9 @@ export function createPanel(options = {}) {
         root.style.top = `${top}px`;
         root.style.height = `${height}px`;
 
-        if (!settingsContentEl) {
-            // 时间控件浮层：固定在 station-label-toggle 下方
-            try {
-                const anchor = document.querySelector('.settings-item-station-label, .station-label-toggle');
-                const gap = 2;
-                if (anchor && anchor.getBoundingClientRect) {
-                    const rect = anchor.getBoundingClientRect();
-                    const right = Math.max(10, window.innerWidth - rect.right);
-                    const y = Math.max(10, rect.bottom + gap);
-                    timeOverlay.style.right = `${right}px`;
-                    timeOverlay.style.top = `${y}px`;
-                } else {
-                    timeOverlay.style.right = '10px';
-                    timeOverlay.style.top = '53px';
-                }
-            } catch {
-                timeOverlay.style.right = '10px';
-                timeOverlay.style.top = '53px';
-            }
-        }
+        // 时间控件浮层：置于右上功能区同一行，位于 ms-fab 左侧
+        timeOverlay.style.top = '10px';
+        timeOverlay.style.right = '194px';
 
         // 保持可配置：允许通过 CSS 调整圆角
         try {

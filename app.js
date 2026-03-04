@@ -731,6 +731,16 @@ map.on('load', async () => {
         applySelectionEffects();
     };
 
+    const isJourneyMapPickActive = () => {
+        try {
+            if (window.__TokyoRailJourneyMapPickActive === true) return true;
+            const until = Number(window.__TokyoRailSuppressStationSelectionUntil) || 0;
+            return until > Date.now();
+        } catch {
+            return false;
+        }
+    };
+
     function updateSelectionBadge() {
         if (selectedLineId) {
             const name = lineNameById.get(String(selectedLineId)) || String(selectedLineId);
@@ -2161,6 +2171,7 @@ map.on('load', async () => {
         // 点击站点圆点：高亮其 serving_lines（不执行 fitBounds）
         map.on('click', 'stations-layer', async (e) => {
             if (!touchTapGuard.allowTap(e?.originalEvent)) return;
+            if (isJourneyMapPickActive()) return;
 
             const f = e?.features?.[0];
             const props = f?.properties || {};
@@ -4473,6 +4484,7 @@ map.on('load', async () => {
             };
 
             const fireStationLabelTap = (item, pt) => {
+                if (isJourneyMapPickActive()) return;
                 const hadStationSelection = !!String(selectedStationId || '').trim();
                 if (!isMultiSelectModeEnabled()) {
                     selectServingLinesForStation(item.props || {});
