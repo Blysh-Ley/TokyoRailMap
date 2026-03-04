@@ -523,6 +523,12 @@ const rideTripFromBoardRaptor = ({ trip, lineId, boardIndex, boardStopId, boardD
             roundParent.set(stopId, {
                 kind: 'ride',
                 lineId,
+                throughLineIds: Array.isArray(trip?.throughLineIds)
+                    ? trip.throughLineIds.map((x) => normalizeText(x)).filter(Boolean)
+                    : [],
+                throughTripIds: Array.isArray(trip?.throughTripIds)
+                    ? trip.throughTripIds.map((x) => normalizeText(x)).filter(Boolean)
+                    : [],
                 tripId: trip.tripId,
                 rawTripId: trip.rawTripId,
                 tripFile: normalizeText(trip?.timetableFile || `${lineId}.json`),
@@ -583,6 +589,17 @@ const relaxChainFromBoardRaptor = ({ chainTrips, throughRootTripId, startSegment
     // 核心修复 1：锁定乘客最初的物理上车点和时间，贯穿整个直通链
     const originalBoardStopId = normalizeText(startBoardStopId || '');
     const originalBoardDepMs = Number.isFinite(startBoardDepMs) ? Number(startBoardDepMs) : null;
+    const throughLineIds = [];
+    const throughTripIds = [];
+    for (let seg = startSegmentIndex; seg < chainTrips.length; seg += 1) {
+        const tripId = normalizeText(chainTrips?.[seg]?.rawTripId || chainTrips?.[seg]?.tripId || '');
+        if (tripId) throughTripIds.push(tripId);
+        const lineId = normalizeText(chainTrips?.[seg]?.lineId || '');
+        if (!lineId) continue;
+        if (!throughLineIds.length || throughLineIds[throughLineIds.length - 1] !== lineId) {
+            throughLineIds.push(lineId);
+        }
+    }
 
     if (!originalBoardStopId || !Number.isFinite(originalBoardDepMs)) return;
 
@@ -601,6 +618,8 @@ const relaxChainFromBoardRaptor = ({ chainTrips, throughRootTripId, startSegment
                 ...trip,
                 throughRootTripId,
                 isThroughContinuation,
+                throughLineIds,
+                throughTripIds,
                 timetableFile: normalizeText(trip?.timetableFile || getTripFileNameByLineId(trip?.lineId))
             },
             lineId: normalizeText(trip?.lineId || ''),
@@ -785,6 +804,12 @@ const reconstructJourney = ({ runResult, targetRound, targetStop, departureMs })
 
         legs.push({
             lineId: p.lineId,
+            throughLineIds: Array.isArray(p?.throughLineIds)
+                ? p.throughLineIds.map((x) => normalizeText(x)).filter(Boolean)
+                : [],
+            throughTripIds: Array.isArray(p?.throughTripIds)
+                ? p.throughTripIds.map((x) => normalizeText(x)).filter(Boolean)
+                : [],
             tripId: p.tripId,
             rawTripId: p.rawTripId,
             tripFile: normalizeText(p.tripFile || ''),
@@ -965,6 +990,108 @@ const toLegStopRows = ({ trip, leg }) => {
     return out;
 };
 
+const buildRowsForTripSlice = ({ trip, fromIdx, toIdx, serviceDayStartMs }) => {
+    const stops = Array.isArray(trip?.stops) ? trip.stops : [];
+    if (!stops.length) return [];
+    const a = Math.max(0, Number.isFinite(fromIdx) ? Number(fromIdx) : 0);
+    const b = Math.min(stops.length - 1, Number.isFinite(toIdx) ? Number(toIdx) : (stops.length - 1));
+    if (b < a) return [];
+
+    const rows = [];
+    for (let i = a; i <= b; i += 1) {
+        const s = stops[i];
+        const stationId = normalizeText(s?.stopId);
+        const arrMs = Number.isFinite(s?.arrMin) ? serviceDayStartMs + Number(s.arrMin) * 60000 : null;
+        const depMs = Number.isFinite(s?.depMin) ? serviceDayStartMs + Number(s.depMin) * 60000 : null;
+        rows.push({
+            stationId,
+            stationName: getStationNameById(stationId),
+            arrText: Number.isFinite(arrMs) ? toHHMM(arrMs) : '',
+            depText: Number.isFinite(depMs) ? toHHMM(depMs) : ''
+        });
+    }
+    return rows;
+};
+
+const buildThroughDisplaySegments = async ({ leg, serviceDay }) => {
+    const day = normalizeText(serviceDay) || 'Weekday';
+    const ids = Array.isArray(leg?.throughTripIds)
+        ? leg.throughTripIds.map((x) => normalizeText(x)).filter(Boolean)
+        : [];
+    if (ids.length < 2) return [];
+
+    const trips = [];
+    for (const tripId of ids) {
+        const trip = await getParsedTripByTripId({ tripId, serviceDay: day });
+        if (!trip || !Array.isArray(trip?.stops) || !trip.stops.length) continue;
+        trips.push(trip);
+    }
+    if (trips.length < 2) return [];
+
+    const segments = [];
+    const serviceDayStartMs = getServiceDayStartMs(new Date(Number(leg?.depMs) || Date.now()));
+
+    const firstTripStops = Array.isArray(trips[0]?.stops) ? trips[0].stops : [];
+    if (!firstTripStops.length) return [];
+
+    let firstFromIdx = Number.isFinite(leg?.boardIndex)
+        ? Number(leg.boardIndex)
+        : firstTripStops.findIndex((s) => isSamePhysicalStop(s?.stopId, leg?.fromStop));
+    if (!Number.isFinite(firstFromIdx) || firstFromIdx < 0) firstFromIdx = 0;
+
+    const targetToStopId = normalizeText(leg?.toStop || '');
+    let endTripIndex = -1;
+    let endStopIndex = -1;
+
+    for (let tripIndex = 0; tripIndex < trips.length; tripIndex += 1) {
+        const stops = Array.isArray(trips[tripIndex]?.stops) ? trips[tripIndex].stops : [];
+        if (!stops.length) continue;
+
+        const startIdx = tripIndex === 0 ? firstFromIdx : 0;
+        for (let i = startIdx; i < stops.length; i += 1) {
+            if (isSamePhysicalStop(stops[i]?.stopId, targetToStopId)) {
+                endTripIndex = tripIndex;
+                endStopIndex = i;
+                break;
+            }
+        }
+        if (endTripIndex >= 0) break;
+    }
+
+    if (endTripIndex <= 0 || endStopIndex < 0) return [];
+
+    for (let tripIndex = 0; tripIndex <= endTripIndex; tripIndex += 1) {
+        const trip = trips[tripIndex];
+        const stops = Array.isArray(trip?.stops) ? trip.stops : [];
+        if (!stops.length) continue;
+
+        const fromIdx = tripIndex === 0 ? firstFromIdx : 0;
+        const toIdx = tripIndex === endTripIndex ? endStopIndex : (stops.length - 1);
+
+        const rows = buildRowsForTripSlice({ trip, fromIdx, toIdx, serviceDayStartMs });
+        if (!rows.length) continue;
+
+        if (segments.length) {
+            const prevRows = segments[segments.length - 1].rows || [];
+            const prevLast = prevRows[prevRows.length - 1] || null;
+            const currFirst = rows[0] || null;
+            if (prevLast && currFirst && isSamePhysicalStop(prevLast.stationId, currFirst.stationId)) {
+                rows.shift();
+            }
+        }
+
+        if (!rows.length) continue;
+        segments.push({
+            lineId: normalizeText(trip?.lineId || leg?.lineId || ''),
+            typeName: normalizeText(trip?.typeName || leg?.typeName || '普通'),
+            typeColor: normalizeText(trip?.typeColor || leg?.typeColor || '') || null,
+            rows
+        });
+    }
+
+    return segments;
+};
+
 const isThroughLegPair = ({ currentLeg, nextLeg, currentTrip, nextTrip }) => {
     if (!currentLeg || !nextLeg || !currentTrip || !nextTrip) return false;
 
@@ -1068,48 +1195,71 @@ export const buildPlanDetailBlocks = async ({ plan, legsOverride, serviceDay, or
         resolved.push({ leg, trip });
     }
 
+    const trimLeadingDup = (rows) => {
+        if (!(Array.isArray(rows) && rows.length)) return rows;
+        if (!blocks.length) return rows;
+        const prev = blocks[blocks.length - 1];
+        if (!(prev?.kind === 'ride' && Array.isArray(prev.rows) && prev.rows.length)) return rows;
+        const prevLastId = normalizeText(prev.rows[prev.rows.length - 1]?.stationId || '');
+        const currFirstId = normalizeText(rows[0]?.stationId || '');
+        const sameStop = prevLastId && currFirstId && (
+            prevLastId === currFirstId ||
+            (plannerState.groupByStop.get(prevLastId) instanceof Set && plannerState.groupByStop.get(prevLastId).has(currFirstId))
+        );
+        if (sameStop) rows.shift();
+        return rows;
+    };
+
     for (let i = 0; i < resolved.length; i += 1) {
         const { leg, trip } = resolved[i];
-        const lineMeta = await getLineMeta(leg?.lineId);
-        let rows = [];
-
-        if (trip) {
-            rows = toLegStopRows({ trip, leg });
+        const throughSegments = await buildThroughDisplaySegments({ leg, serviceDay });
+        if (throughSegments.length) {
+            for (const seg of throughSegments) {
+                const lineMeta = await getLineMeta(seg?.lineId);
+                const rows = trimLeadingDup(Array.isArray(seg?.rows) ? seg.rows.slice() : []);
+                if (!rows.length) continue;
+                blocks.push({
+                    kind: 'ride',
+                    lineName: normalizeText(lineMeta?.name || seg?.lineId),
+                    lineDisplayName: buildLineDescriptorText(lineMeta),
+                    lineColor: lineMeta?.color || null,
+                    typeName: normalizeText(seg?.typeName || '普通'),
+                    typeColor: normalizeText(seg?.typeColor || '') || null,
+                    rows
+                });
+            }
         } else {
-            const fromId = normalizeText(leg?.fromStop);
-            const toId = normalizeText(leg?.toStop);
-            const depText = Number.isFinite(Number(leg?.depMs)) ? toHHMM(Number(leg.depMs)) : '';
-            const arrText = Number.isFinite(Number(leg?.arrMs)) ? toHHMM(Number(leg.arrMs)) : '';
-            if (fromId && toId) {
-                rows = [
-                    { stationId: fromId, stationName: getStationNameById(fromId), arrText: '', depText },
-                    { stationId: toId, stationName: getStationNameById(toId), arrText, depText: '' }
-                ];
+            const lineMeta = await getLineMeta(leg?.lineId);
+            let rows = [];
+
+            if (trip) {
+                rows = toLegStopRows({ trip, leg });
+            } else {
+                const fromId = normalizeText(leg?.fromStop);
+                const toId = normalizeText(leg?.toStop);
+                const depText = Number.isFinite(Number(leg?.depMs)) ? toHHMM(Number(leg.depMs)) : '';
+                const arrText = Number.isFinite(Number(leg?.arrMs)) ? toHHMM(Number(leg.arrMs)) : '';
+                if (fromId && toId) {
+                    rows = [
+                        { stationId: fromId, stationName: getStationNameById(fromId), arrText: '', depText },
+                        { stationId: toId, stationName: getStationNameById(toId), arrText, depText: '' }
+                    ];
+                }
+            }
+
+            rows = trimLeadingDup(rows);
+            if (rows.length) {
+                blocks.push({
+                    kind: 'ride',
+                    lineName: normalizeText(lineMeta?.name || leg?.lineId),
+                    lineDisplayName: buildLineDescriptorText(lineMeta),
+                    lineColor: lineMeta?.color || null,
+                    typeName: normalizeText(leg?.typeName || trip?.typeName || '普通'),
+                    typeColor: normalizeText(leg?.typeColor || trip?.typeColor || '') || null,
+                    rows
+                });
             }
         }
-
-        if (blocks.length && rows.length) {
-            const prev = blocks[blocks.length - 1];
-            if (prev?.kind === 'ride' && Array.isArray(prev.rows) && prev.rows.length) {
-                const prevLastId = normalizeText(prev.rows[prev.rows.length - 1]?.stationId || '');
-                const currFirstId = normalizeText(rows[0]?.stationId || '');
-                const sameStop = prevLastId && currFirstId && (
-                    prevLastId === currFirstId ||
-                    (plannerState.groupByStop.get(prevLastId) instanceof Set && plannerState.groupByStop.get(prevLastId).has(currFirstId))
-                );
-                if (sameStop) rows.shift();
-            }
-        }
-
-        blocks.push({
-            kind: 'ride',
-            lineName: normalizeText(lineMeta?.name || leg?.lineId),
-            lineDisplayName: buildLineDescriptorText(lineMeta),
-            lineColor: lineMeta?.color || null,
-            typeName: normalizeText(leg?.typeName || trip?.typeName || '普通'),
-            typeColor: normalizeText(leg?.typeColor || trip?.typeColor || '') || null,
-            rows
-        });
 
         const next = resolved[i + 1] || null;
         if (!next) continue;
@@ -1133,6 +1283,24 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
         const lineId = normalizeText(leg?.lineId);
         if (!lineId) continue;
 
+        const throughSegments = await buildThroughDisplaySegments({ leg, serviceDay: row?.serviceDay });
+        if (throughSegments.length) {
+            for (const seg of throughSegments) {
+                const stationIds = Array.isArray(seg?.rows)
+                    ? seg.rows.map((x) => normalizeText(x?.stationId)).filter(Boolean)
+                    : [];
+                const compactIds = [];
+                for (const sid of stationIds) {
+                    if (!sid) continue;
+                    if (compactIds.length && compactIds[compactIds.length - 1] === sid) continue;
+                    compactIds.push(sid);
+                }
+                if (compactIds.length < 2) continue;
+                segments.push({ kind: 'main', lineId: normalizeText(seg?.lineId || lineId), stationIds: compactIds });
+            }
+            continue;
+        }
+
         const trip = await resolveTripForLeg({ leg, serviceDay: row?.serviceDay });
         let stationIds = [];
         if (trip) {
@@ -1155,8 +1323,27 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
 
     if (!segments.length) return null;
 
-    const firstSeg = segments[0];
-    const lastSeg = segments[segments.length - 1];
+    const mergedSegments = [];
+    for (const seg of segments) {
+        const lineId = normalizeText(seg?.lineId || '');
+        const ids = Array.isArray(seg?.stationIds) ? seg.stationIds.map((x) => normalizeText(x)).filter(Boolean) : [];
+        if (!lineId || ids.length < 2) continue;
+        const prev = mergedSegments[mergedSegments.length - 1] || null;
+        if (prev && normalizeText(prev.lineId) === lineId) {
+            const a = prev.stationIds[prev.stationIds.length - 1] || '';
+            const b = ids[0] || '';
+            if (a && b && isSamePhysicalStop(a, b)) {
+                prev.stationIds.push(...ids.slice(1));
+                continue;
+            }
+        }
+        mergedSegments.push({ kind: 'main', lineId, stationIds: ids.slice() });
+    }
+
+    if (!mergedSegments.length) return null;
+
+    const firstSeg = mergedSegments[0];
+    const lastSeg = mergedSegments[mergedSegments.length - 1];
     const firstLeg = legs[0] || null;
 
     return {
@@ -1169,7 +1356,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
         typeName: normalizeText(firstLeg?.typeName || '普通'),
         hasNt: false,
         fitMode: 'none',
-        segments
+        segments: mergedSegments
     };
 };
 

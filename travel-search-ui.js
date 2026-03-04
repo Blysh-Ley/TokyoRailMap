@@ -114,6 +114,13 @@ const resolveJourneyColorForTheme = (color) => {
     if (!travelIsDarkThemeActive()) return raw;
     return travelAdjustColorForDarkThemeIfNeeded(raw);
 };
+
+const isLocalTypeName = (name) => {
+    const text = normalizeText(name).toLowerCase();
+    if (!text) return false;
+    return text === '普通' || text === '各站停车' || text === '各駅停車' || text === 'local';
+};
+
 function buildStationIcon(isTransfer) {
     const wrap = el('span', 'search-result-icon');
     const dot = el('span', 'search-result-icon--station');
@@ -672,6 +679,9 @@ export function mountTravelSearchUI() {
             if (block.lineColor) noteLine.style.color = String(resolveJourneyColorForTheme(block.lineColor));
             const noteType = el('span', 'journey-trip-note-type', { text: block.typeName });
             if (block.typeColor) noteType.style.color = String(resolveJourneyColorForTheme(block.typeColor));
+            if (travelIsDarkThemeActive() && isLocalTypeName(block.typeName)) {
+                noteType.style.color = '#fff';
+            }
             note.appendChild(noteDot);
             note.appendChild(noteLine);
             note.appendChild(noteType);
@@ -697,12 +707,12 @@ export function mountTravelSearchUI() {
                 if (overallDestinationStationId && stationId && overallDestinationStationId === stationId) {
                     const destLabel = el('span', 'journey-trip-time-arrive journey-trip-time-destination', { text: '目的地' });
                     depCell.appendChild(destLabel);
-                } else if (isLast) {
-                    const terminalDash = el('span', 'journey-trip-time-arrive', { text: '-' });
-                    depCell.appendChild(terminalDash);
                 } else if (s.depText) {
                     const dep = el('span', 'journey-trip-time-depart', { text: s.depText });
                     depCell.appendChild(dep);
+                } else if (isLast) {
+                    const terminalDash = el('span', 'journey-trip-time-arrive', { text: '-' });
+                    depCell.appendChild(terminalDash);
                 }
                 rowEl.appendChild(depCell);
                 tripPopoverBody.appendChild(rowEl);
@@ -771,11 +781,42 @@ export function mountTravelSearchUI() {
     const appendJourneyPath = async (container, legs) => {
         for (let i = 0; i < legs.length; i += 1) {
             const leg = legs[i];
-            const lineMeta = await getLineMeta(leg.lineId);
+            const throughLineIds = Array.isArray(leg?.throughLineIds)
+                ? leg.throughLineIds.map((x) => normalizeText(x)).filter(Boolean)
+                : [];
+            const uniqueThroughLineIds = [];
+            for (const lineId of throughLineIds) {
+                if (!lineId) continue;
+                if (!uniqueThroughLineIds.length || uniqueThroughLineIds[uniqueThroughLineIds.length - 1] !== lineId) {
+                    uniqueThroughLineIds.push(lineId);
+                }
+            }
 
-            const lineSpan = el('span', 'journey-plan-line', { text: lineMeta?.name || leg.lineId || '线路' });
-            if (lineMeta?.color) lineSpan.style.color = String(resolveJourneyColorForTheme(lineMeta.color));
-            container.appendChild(lineSpan);
+            if (uniqueThroughLineIds.length > 1) {
+                const metas = await Promise.all(uniqueThroughLineIds.map((lineId) => getLineMeta(lineId)));
+                for (let m = 0; m < metas.length; m += 1) {
+                    const meta = metas[m];
+                    const lineId = uniqueThroughLineIds[m] || '';
+                    const lineText = normalizeText(meta?.name || lineId || '线路');
+                    const lineColor = normalizeText(meta?.color || '');
+                    const lineSpan = el('span', 'journey-plan-line', { text: lineText || '线路' });
+                    if (lineColor) lineSpan.style.color = String(resolveJourneyColorForTheme(lineColor));
+                    container.appendChild(lineSpan);
+
+                    if (m < metas.length - 1) {
+                        const sep = el('span', 'journey-plan-line-sep', { text: '·' });
+                        sep.style.color = travelIsDarkThemeActive() ? '#fff' : '#000';
+                        container.appendChild(sep);
+                    }
+                }
+            } else {
+                const lineMeta = await getLineMeta(leg.lineId);
+                const lineText = normalizeText(lineMeta?.name || leg.lineId || '线路');
+                const lineColor = normalizeText(lineMeta?.color || '');
+                const lineSpan = el('span', 'journey-plan-line', { text: lineText || '线路' });
+                if (lineColor) lineSpan.style.color = String(resolveJourneyColorForTheme(lineColor));
+                container.appendChild(lineSpan);
+            }
 
             const typeSpan = el('span', 'journey-plan-type', { text: `${normalizeText(leg.typeName) || '普通'}` });
             if (leg?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(leg.typeColor));
@@ -791,6 +832,9 @@ export function mountTravelSearchUI() {
                         : ['./icons/arrow-right.svg', '/icons/arrow-right.svg'];
                     let idx = 0;
                     icon.src = candidates[idx];
+                    if (!through && travelIsDarkThemeActive()) {
+                        icon.style.filter = 'brightness(0) invert(1)';
+                    }
                     icon.addEventListener('error', () => {
                         idx += 1;
                         if (idx < candidates.length) icon.src = candidates[idx];
