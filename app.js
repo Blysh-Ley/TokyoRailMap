@@ -1401,6 +1401,110 @@ map.on('load', async () => {
         return null;
     }
 
+    function updateMultiSelectStationLabelChips() {
+        if (!Array.isArray(stationLabels) || !stationLabels.length) return;
+
+        const activeLineIds = isMultiSelectModeEnabled()
+            ? Array.from(getBaseMultiSelectedLineIds()).map(String).filter(Boolean)
+            : [];
+
+        const resolveBaseLabelText = (item) => {
+            const cached = String(item?._multiSelectBaseLabelText || '').trim();
+            if (cached) return cached;
+            const fromProps = String(item?.props?.name_zh || item?.props?.name || item?.stationId || '').trim();
+            const fromDom = String(item?.el?.textContent || '').trim();
+            const text = fromProps || fromDom;
+            item._multiSelectBaseLabelText = text;
+            return text;
+        };
+
+        const restoreLabel = (item) => {
+            const el = item?.el;
+            if (!el) return;
+            const text = resolveBaseLabelText(item);
+            el.textContent = text;
+        };
+
+        if (!activeLineIds.length) {
+            for (const item of stationLabels) {
+                restoreLabel(item);
+            }
+            return;
+        }
+
+        const servingLineIdsByStationId = new Map();
+        for (const item of stationLabels) {
+            const sid = String(item?.stationId || item?.props?.id || '').trim();
+            if (!sid) continue;
+            if (!servingLineIdsByStationId.has(sid)) servingLineIdsByStationId.set(sid, new Set());
+            const targetSet = servingLineIdsByStationId.get(sid);
+            const ids = Array.isArray(item?.servingLineIds) ? item.servingLineIds : [];
+            for (const lineId of ids) {
+                const id = String(lineId || '').trim();
+                if (id) targetSet.add(id);
+            }
+        }
+
+        for (const item of stationLabels) {
+            const el = item?.el;
+            if (!el) continue;
+
+            const sid = String(item?.stationId || item?.props?.id || '').trim();
+            const transferGroup = sid ? transferStationIdsByStationId.get(sid) : null;
+            const groupedStationIds = (transferGroup && transferGroup.size)
+                ? Array.from(transferGroup).map((x) => String(x || '').trim()).filter(Boolean)
+                : (sid ? [sid] : []);
+
+            const stationLineIdSet = new Set();
+            for (const gid of groupedStationIds) {
+                const lineSet = servingLineIdsByStationId.get(gid);
+                if (!lineSet || !lineSet.size) continue;
+                for (const lineId of lineSet) stationLineIdSet.add(String(lineId));
+            }
+
+            if (!stationLineIdSet.size) {
+                const fallbackIds = Array.isArray(item?.servingLineIds) ? item.servingLineIds : [];
+                for (const lineId of fallbackIds) {
+                    const id = String(lineId || '').trim();
+                    if (id) stationLineIdSet.add(id);
+                }
+            }
+
+            const matchedLineIds = activeLineIds.filter((id) => stationLineIdSet.has(id));
+            if (!matchedLineIds.length) {
+                restoreLabel(item);
+                continue;
+            }
+
+            const labelText = resolveBaseLabelText(item);
+
+            let nameEl = el.querySelector('.station-label-name');
+            if (!nameEl) {
+                el.textContent = '';
+                nameEl = document.createElement('div');
+                nameEl.className = 'station-label-name';
+                el.appendChild(nameEl);
+            }
+            nameEl.textContent = labelText;
+
+            let chipsRowEl = el.querySelector('.station-label-multi-row');
+            if (!chipsRowEl) {
+                chipsRowEl = document.createElement('div');
+                chipsRowEl.className = 'station-label-multi-row';
+                el.appendChild(chipsRowEl);
+            }
+            chipsRowEl.innerHTML = '';
+
+            for (const lineId of matchedLineIds) {
+                const chip = document.createElement('span');
+                chip.className = 'station-label-multi-chip';
+                const color = resolveRailColorForTheme(lineColorById.get(String(lineId)) || null) || '#999999';
+                chip.style.backgroundColor = String(color);
+                chipsRowEl.appendChild(chip);
+            }
+        }
+    }
+
     function clearSelectionsAndRestore() {
         selectedCompany = null;
         selectedLineId = null;
@@ -1418,6 +1522,7 @@ map.on('load', async () => {
     const applySelectionEffects = () => {
         applyLineSelectionStyle();
         applyStationSelectionStyle();
+        updateMultiSelectStationLabelChips();
         if (collisionController) collisionController.scheduleUpdate();
         updateSelectionBadge();
         try {
@@ -4293,6 +4398,7 @@ map.on('load', async () => {
         const markers = createStationMarkers(map, maplibregl, stationsData);
         stationLabels = markers.stationLabels;
         const stationCircles = markers.stationCircles;
+        updateMultiSelectStationLabelChips();
 
         // 站名碰撞：标签上移偏移在 labels.js 内按站点类型设置
         collisionController = setupCollisions(map, stationLabels, stationCircles, {
