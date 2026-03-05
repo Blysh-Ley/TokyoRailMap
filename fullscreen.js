@@ -23,6 +23,16 @@ export function isInFullscreenMode() {
  * @param {{ allowTap: (evt: Event) => boolean }} touchTapGuard
  */
 export function initFullscreen(map, touchTapGuard) {
+    const isPhoneBrowser = () => {
+        const isCoarsePointer = typeof window.matchMedia === 'function'
+            ? window.matchMedia('(pointer: coarse)').matches
+            : false;
+        const isNarrowScreen = typeof window.matchMedia === 'function'
+            ? window.matchMedia('(max-width: 900px)').matches
+            : false;
+        return isCoarsePointer && isNarrowScreen;
+    };
+
     // 在 settings-ui 按钮左侧创建全屏 FAB
     const fullscreenFab = document.createElement('button');
     fullscreenFab.type = 'button';
@@ -134,16 +144,16 @@ export function initFullscreen(map, touchTapGuard) {
 
         restoreAllUI();
 
-        /*
-        // 退出浏览器全屏（如果仍在全屏状态）
-        if (document.fullscreenElement || document.webkitFullscreenElement) {
+        
+        // 退出浏览器全屏（仅桌面端保持当前逻辑；手机版仅恢复 UI）
+        if (!isPhoneBrowser() && (document.fullscreenElement || document.webkitFullscreenElement)) {
             const exitFn = document.exitFullscreen
                 || document.webkitExitFullscreen
                 || document.mozCancelFullScreen
                 || document.msExitFullscreen;
             if (exitFn) exitFn.call(document).catch(() => {});
         }
-        */
+        
         // 触发地图 resize 以适应窗口变化
         setTimeout(() => map.resize(), 100);
     }
