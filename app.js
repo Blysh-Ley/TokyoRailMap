@@ -375,11 +375,12 @@ map.on('load', async () => {
         return out;
     };
 
-    const toggleBaseMultiSelection = (key, lineIds, kind = 'line') => {
+    const toggleBaseMultiSelection = (key, lineIds, kind = 'line', displayName = '') => {
         const k = String(key || '').trim();
         const ids = Array.isArray(lineIds)
             ? lineIds.map((x) => String(x || '').trim()).filter(Boolean)
             : [];
+        const label = String(displayName || '').trim();
         if (!k || !ids.length) return false;
         if (baseMultiSelectionsByKey.has(k)) {
             baseMultiSelectionsByKey.delete(k);
@@ -389,6 +390,7 @@ map.on('load', async () => {
         baseMultiSelectionsByKey.set(k, {
             kind: String(kind || 'line').trim() || 'line',
             lineIds: new Set(ids),
+            displayName: label,
             hidden: false
         });
         emitMultiSelectLayersUpdated();
@@ -565,12 +567,17 @@ map.on('load', async () => {
         for (const [key, entry] of baseMultiSelectionsByKey.entries()) {
             const ids = entry?.lineIds instanceof Set ? Array.from(entry.lineIds).map(String).filter(Boolean) : [];
             const firstLineId = ids[0] || '';
+            const kind = String(entry?.kind || '').trim();
+            const fallbackCompanyName = key.startsWith('company:') ? key.slice('company:'.length) : '';
+            const baseDisplayName = String(entry?.displayName || '').trim();
             items.push({
                 id: `base:${key}`,
                 scope: 'base',
                 key,
                 visible: entry?.hidden !== true,
-                lineName: getLineNameForMultiSelect(firstLineId),
+                lineName: kind === 'company'
+                    ? (baseDisplayName || fallbackCompanyName || getLineNameForMultiSelect(firstLineId))
+                    : getLineNameForMultiSelect(firstLineId),
                 originName: '-',
                 terminalName: '-',
                 typeName: getBaseKindNameForMultiSelect(entry?.kind)
@@ -4108,7 +4115,8 @@ map.on('load', async () => {
                     if (!name) return;
                     const ids = Array.from(enabledLineIdsByCompany.get(name) ?? []).map(String).filter(Boolean);
                     if (!ids.length) return;
-                    toggleBaseMultiSelection(`company:${name}`, ids, 'company');
+                    const companyDisplayName = String(companyLogoMap?.[name]?.zh || name).trim() || name;
+                    toggleBaseMultiSelection(`company:${name}`, ids, 'company', companyDisplayName);
                     applySelectionEffects();
                     return;
                 }
