@@ -3319,7 +3319,8 @@ export function createPanel(options = {}) {
             const payloadSegments = segmentsWithPast.map((seg) => ({
                 kind: seg.kind,
                 lineId: toText(seg.lineId),
-                stationIds: (seg.rows || []).map((r) => toText(r.stationId)).filter(Boolean)
+                stationIds: (seg.rows || []).map((r) => toText(r.stationId)).filter(Boolean),
+                typeColor: toText(seg.typeColor)
             }));
             const mainSeg = segmentsWithPast.find((s) => s.kind === 'main') || null;
             const mainRows = Array.isArray(mainSeg?.rows) ? mainSeg.rows : [];
@@ -3333,6 +3334,7 @@ export function createPanel(options = {}) {
                 mainTerminalStationId,
                 terminalStationId: mainTerminalStationId,
                 typeName: toText(typeName),
+                typeColor: toText(typeColor),
                 hasNt,
                 segments: payloadSegments,
                 fitMode: toText(fitMode)

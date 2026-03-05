@@ -1546,7 +1546,12 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
                     if (stationIds.length < 2) continue;
                     const lineId = normalizeText(seg?.lineId || '');
                     if (!lineId) continue;
-                    segments.push({ kind: 'main', lineId, stationIds });
+                    segments.push({
+                        kind: 'main',
+                        lineId,
+                        stationIds,
+                        typeColor: normalizeText(seg?.typeColor || section?.legs?.[0]?.typeColor || '') || null
+                    });
                 }
                 continue;
             }
@@ -1580,7 +1585,12 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
             const segmentLineId = normalizeText(lineIds[0] || secLegs[0]?.lineId || '');
             if (!segmentLineId) continue;
 
-            segments.push({ kind: 'main', lineId: segmentLineId, stationIds: compactIds });
+            segments.push({
+                kind: 'main',
+                lineId: segmentLineId,
+                stationIds: compactIds,
+                typeColor: normalizeText(section?.legs?.[0]?.typeColor || '') || null
+            });
         }
     }
 
@@ -1602,7 +1612,12 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
                     compactIds.push(sid);
                 }
                 if (compactIds.length < 2) continue;
-                segments.push({ kind: 'main', lineId: normalizeText(seg?.lineId || lineId), stationIds: compactIds });
+                segments.push({
+                    kind: 'main',
+                    lineId: normalizeText(seg?.lineId || lineId),
+                    stationIds: compactIds,
+                    typeColor: normalizeText(seg?.typeColor || leg?.typeColor || '') || null
+                });
             }
             continue;
         }
@@ -1624,7 +1639,12 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
         }
         if (compactIds.length < 2) continue;
 
-        segments.push({ kind: 'main', lineId, stationIds: compactIds });
+        segments.push({
+            kind: 'main',
+            lineId,
+            stationIds: compactIds,
+            typeColor: normalizeText(leg?.typeColor || trip?.typeColor || '') || null
+        });
     }
     }
 
@@ -1634,6 +1654,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
     for (const seg of segments) {
         const lineId = normalizeText(seg?.lineId || '');
         const ids = Array.isArray(seg?.stationIds) ? seg.stationIds.map((x) => normalizeText(x)).filter(Boolean) : [];
+        const segTypeColor = normalizeText(seg?.typeColor || '') || null;
         if (!lineId || ids.length < 2) continue;
         const prev = mergedSegments[mergedSegments.length - 1] || null;
         if (prev && normalizeText(prev.lineId) === lineId) {
@@ -1641,10 +1662,11 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
             const b = ids[0] || '';
             if (a && b && isSamePhysicalStop(a, b)) {
                 prev.stationIds.push(...ids.slice(1));
+                if (!prev.typeColor && segTypeColor) prev.typeColor = segTypeColor;
                 continue;
             }
         }
-        mergedSegments.push({ kind: 'main', lineId, stationIds: ids.slice() });
+        mergedSegments.push({ kind: 'main', lineId, stationIds: ids.slice(), typeColor: segTypeColor });
     }
 
     if (!mergedSegments.length) return null;
@@ -1661,6 +1683,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
         mainTerminalStationId: normalizeText(firstSeg?.stationIds?.[firstSeg.stationIds.length - 1]),
         terminalStationId: normalizeText(lastSeg?.stationIds?.[lastSeg.stationIds.length - 1]),
         typeName: normalizeText(firstLeg?.typeName || '普通'),
+        typeColor: normalizeText(firstSeg?.typeColor || firstLeg?.typeColor || '') || null,
         hasNt: false,
         fitMode: 'none',
         segments: mergedSegments

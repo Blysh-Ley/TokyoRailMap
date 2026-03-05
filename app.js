@@ -1405,8 +1405,12 @@ map.on('load', async () => {
     function updateMultiSelectStationLabelChips() {
         if (!Array.isArray(stationLabels) || !stationLabels.length) return;
 
-        const activeLineIds = isMultiSelectModeEnabled()
+        const inMultiSelectMode = isMultiSelectModeEnabled();
+        const activeLineIds = inMultiSelectMode
             ? Array.from(getBaseMultiSelectedLineIds()).map(String).filter(Boolean)
+            : [];
+        const visibleTripSelections = inMultiSelectMode
+            ? Array.from(tripPreviewSelectionsByKey.values()).filter((entry) => entry?.hidden !== true)
             : [];
 
         const resolveBaseLabelText = (item) => {
@@ -1426,7 +1430,7 @@ map.on('load', async () => {
             el.textContent = text;
         };
 
-        if (!activeLineIds.length) {
+        if (!inMultiSelectMode || (!activeLineIds.length && !visibleTripSelections.length)) {
             for (const item of stationLabels) {
                 restoreLabel(item);
             }
@@ -1462,6 +1466,7 @@ map.on('load', async () => {
                 if (!lineSet || !lineSet.size) continue;
                 for (const lineId of lineSet) stationLineIdSet.add(String(lineId));
             }
+            const groupedStationIdSet = new Set(groupedStationIds);
 
             if (!stationLineIdSet.size) {
                 const fallbackIds = Array.isArray(item?.servingLineIds) ? item.servingLineIds : [];
@@ -1471,8 +1476,61 @@ map.on('load', async () => {
                 }
             }
 
-            const matchedLineIds = activeLineIds.filter((id) => stationLineIdSet.has(id));
-            if (!matchedLineIds.length) {
+            const renderByLineId = new Map();
+            const renderOrder = [];
+            const ensureRenderLine = (lineId) => {
+                const id = String(lineId || '').trim();
+                if (!id) return null;
+                if (!renderByLineId.has(id)) {
+                    renderByLineId.set(id, {
+                        lineId: id,
+                        chipColor: resolveRailColorForTheme(lineColorById.get(id) || null) || '#999999',
+                        typeColors: []
+                    });
+                    renderOrder.push(id);
+                }
+                return renderByLineId.get(id);
+            };
+
+            for (const id of activeLineIds) {
+                if (!stationLineIdSet.has(id)) continue;
+                ensureRenderLine(id);
+            }
+
+            const stationMatchesGroup = (candidateStationId) => {
+                const sid = String(candidateStationId || '').trim();
+                if (!sid) return false;
+                if (groupedStationIdSet.has(sid)) return true;
+                const transferGroup = transferStationIdsByStationId.get(sid);
+                if (!(transferGroup && transferGroup.size)) return false;
+                for (const gid of transferGroup) {
+                    if (groupedStationIdSet.has(String(gid || '').trim())) return true;
+                }
+                return false;
+            };
+
+            for (const entry of visibleTripSelections) {
+                const payload = entry?.payload || {};
+                const segs = Array.isArray(payload?.segments) ? payload.segments : [];
+                const payloadTypeColor = String(payload?.typeColor || '').trim();
+                for (const seg of segs) {
+                    const segLineId = String(seg?.lineId || '').trim();
+                    if (!segLineId) continue;
+                    const segStationIds = Array.isArray(seg?.stationIds) ? seg.stationIds : [];
+                    const hitCurrentStation = segStationIds.some((sid) => stationMatchesGroup(sid));
+                    if (!hitCurrentStation) continue;
+
+                    const model = ensureRenderLine(segLineId);
+                    if (!model) continue;
+
+                    const typeColor = String(seg?.typeColor || payloadTypeColor).trim();
+                    if (typeColor) {
+                        model.typeColors.push(typeColor);
+                    }
+                }
+            }
+
+            if (!renderOrder.length) {
                 restoreLabel(item);
                 continue;
             }
@@ -1496,12 +1554,27 @@ map.on('load', async () => {
             }
             chipsRowEl.innerHTML = '';
 
-            for (const lineId of matchedLineIds) {
+            for (const lineId of renderOrder) {
+                const lineModel = renderByLineId.get(lineId);
+                if (!lineModel) continue;
+
+                const cluster = document.createElement('span');
+                cluster.className = 'station-label-multi-cluster';
+
                 const chip = document.createElement('span');
                 chip.className = 'station-label-multi-chip';
-                const color = resolveRailColorForTheme(lineColorById.get(String(lineId)) || null) || '#999999';
-                chip.style.backgroundColor = String(color);
-                chipsRowEl.appendChild(chip);
+                chip.style.backgroundColor = String(lineModel.chipColor || '#999999');
+                cluster.appendChild(chip);
+
+                for (const typeColor of lineModel.typeColors) {
+                    const typeDot = document.createElement('span');
+                    typeDot.className = 'station-label-multi-type-dot';
+                    const resolvedTypeColor = resolveRailColorForTheme(typeColor) || String(typeColor || '');
+                    typeDot.style.backgroundColor = String(resolvedTypeColor);
+                    cluster.appendChild(typeDot);
+                }
+
+                chipsRowEl.appendChild(cluster);
             }
         }
     }
