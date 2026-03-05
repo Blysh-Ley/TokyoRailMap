@@ -46,10 +46,15 @@ export function initFullscreen(map, touchTapGuard) {
 
     // ---- 需要隐藏/恢复的 UI 选择器 ----
     const UI_SELECTORS = [
+        '.settings-top-timebar',
         '.settings-ui',
         '.export-ui',
         '.ms-ui',
         '.search-ui',
+        '.journey-ui',
+        '.journey-results',
+        '.journey-plan-results',
+        '.journey-trip-popover',
         '.RW-company',
         '.selection-badge',
         '.maplibregl-ctrl-top-left',
