@@ -464,12 +464,14 @@ export function mountTravelSearchUI() {
 
     const getActiveInput = () => (activeField === 'destination' ? destinationInput : originInput);
 
-    const clearPlanList = () => {
-        try {
-            const actions = window?.TokyoRailSearchMapActions;
-            actions?.clearTripPathPreview?.();
-        } catch {
-            // ignore
+    const clearPlanList = ({ clearMapPreview = false } = {}) => {
+        if (clearMapPreview) {
+            try {
+                const actions = window?.TokyoRailSearchMapActions;
+                actions?.clearTripPathPreview?.();
+            } catch {
+                // ignore
+            }
         }
         activePlanPreviewKey = '';
         pinnedPlanPreviewKey = '';
@@ -512,14 +514,16 @@ export function mountTravelSearchUI() {
         planPreviewHideTimer = null;
     };
 
-    const clearJourneyPlanPreview = ({ force = false } = {}) => {
+    const clearJourneyPlanPreview = ({ force = false, clearMapPreview = true } = {}) => {
         if (!force && pinnedPlanPreviewKey) return;
         cancelHidePlanPreview();
         if (!activePlanPreviewKey && !force) return;
-        try {
-            window?.TokyoRailSearchMapActions?.clearTripPathPreview?.();
-        } catch {
-            // ignore
+        if (clearMapPreview) {
+            try {
+                window?.TokyoRailSearchMapActions?.clearTripPathPreview?.();
+            } catch {
+                // ignore
+            }
         }
         activePlanPreviewKey = '';
     };
@@ -585,7 +589,7 @@ export function mountTravelSearchUI() {
         };
     };
 
-    const applyJourneyPlanPreview = async ({ row, previewKey, pin = false } = {}) => {
+    const applyJourneyPlanPreview = async ({ row, previewKey, pin = false, interaction = 'hover', clearBefore = true } = {}) => {
         const actions = window?.TokyoRailSearchMapActions;
         if (!actions || typeof actions.previewTripPath !== 'function') return;
 
@@ -596,7 +600,13 @@ export function mountTravelSearchUI() {
         if (!payload) return;
 
         try {
-            actions.previewTripPath(payload, { clearBefore: true, fitMode: 'none' });
+            actions.previewTripPath(
+                {
+                    ...(payload || {}),
+                    __previewInteraction: String(interaction || '').trim() || 'hover'
+                },
+                { clearBefore: clearBefore === true, fitMode: 'none' }
+            );
         } catch {
             return;
         }
@@ -780,9 +790,9 @@ export function mountTravelSearchUI() {
         planResults.classList.remove('is-hidden');
     };
 
-    const hidePlanResultsIfEmptyInputs = () => {
+    const hidePlanResultsIfEmptyInputs = ({ clearMapPreview = false } = {}) => {
         if (normalizeText(originInput.value) || normalizeText(destinationInput.value)) return;
-        clearPlanList();
+        clearPlanList({ clearMapPreview });
         planResults.classList.add('is-hidden');
     };
 
@@ -951,7 +961,7 @@ export function mountTravelSearchUI() {
                     showTripPopover({ anchorEl: li, row });
                 }
                 if (pinnedPlanPreviewKey && pinnedPlanPreviewKey !== previewKey) return;
-                applyJourneyPlanPreview({ row, previewKey, pin: false });
+                applyJourneyPlanPreview({ row, previewKey, pin: false, interaction: 'hover' });
             });
             li.addEventListener('mouseleave', () => {
                 const previewKey = `row-${i}`;
@@ -963,7 +973,7 @@ export function mountTravelSearchUI() {
                 }
             });
 
-            li.addEventListener('click', (evt) => {
+            li.addEventListener('click', async (evt) => {
                 evt.preventDefault?.();
                 evt.stopPropagation?.();
                 cancelHidePlanPreview();
@@ -979,12 +989,23 @@ export function mountTravelSearchUI() {
 
                 if (pinnedPlanPreviewKey === previewKey) {
                     pinnedPlanPreviewKey = '';
-                    clearJourneyPlanPreview({ force: true });
+                    if (window?.__TokyoRailMultiSelectEnabled === true) {
+                        await applyJourneyPlanPreview({
+                            row,
+                            previewKey,
+                            pin: false,
+                            interaction: 'click',
+                            clearBefore: false
+                        });
+                        activePlanPreviewKey = '';
+                    } else {
+                        clearJourneyPlanPreview({ force: true });
+                    }
                     return;
                 }
 
                 pinnedPlanPreviewKey = previewKey;
-                applyJourneyPlanPreview({ row, previewKey, pin: true });
+                applyJourneyPlanPreview({ row, previewKey, pin: true, interaction: 'click' });
             });
 
             planList.appendChild(li);
@@ -1097,9 +1118,9 @@ export function mountTravelSearchUI() {
         root.classList.add('is-collapsed');
         results.classList.add('is-hidden');
         hideTripPopover();
-        clearJourneyPlanPreview({ force: true });
+        clearJourneyPlanPreview({ force: true, clearMapPreview: false });
         pinnedPlanPreviewKey = '';
-        if (!mapPickTarget) hidePlanResultsIfEmptyInputs();
+        if (!mapPickTarget) hidePlanResultsIfEmptyInputs({ clearMapPreview: false });
     };
 
     const clearJourneyInputsAndCollapse = () => {
@@ -1112,7 +1133,7 @@ export function mountTravelSearchUI() {
         lastPlanComputeKey = '';
         setMapPickTarget(null);
         hideTripPopover();
-        clearPlanList();
+        clearPlanList({ clearMapPreview: false });
         planResults.classList.add('is-hidden');
         results.classList.add('is-hidden');
         collapse();

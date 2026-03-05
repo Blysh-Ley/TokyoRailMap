@@ -278,11 +278,12 @@ map.on('load', async () => {
     let tripPreviewStationIds = null; // Set<string> | null
     let tripPreviewLineIds = null; // Set<string> | null
     let tripPreviewActive = false;
+    let tripPreviewActiveSource = '';
     let tripPreviewOriginPopup = null;
     let tripPreviewTerminalPopup = null;
     let tripCurrentStationPopup = null;
     let tripDetailStationTriangleMarker = null;
-    let tripPreviewSelectionsByKey = new Map(); // key -> { payload, built, hidden?:boolean }
+    let tripPreviewSelectionsByKey = new Map(); // key -> { payload, built, hidden?:boolean, source?:string }
     let baseMultiSelectionsByKey = new Map(); // key -> { kind, lineIds:Set<string>, hidden?:boolean }
     let dirPreviewActive = false;
     let dirPreviewLineIds = null; // Set<string> | null
@@ -2049,15 +2050,18 @@ map.on('load', async () => {
             const fitMode = String(options?.fitMode || payload?.fitMode || 'none').trim() || 'none';
             const nextPayload = {
                 ...(payload || {}),
+                __previewSource: 'journey',
                 fitMode
             };
             if (options?.clearBefore === true) {
-                clearTripPathPreview();
+                if (!isMultiSelectModeEnabled()) {
+                    clearTripPathPreview({ source: 'journey' });
+                }
             }
             previewTripPath(nextPayload);
         };
         searchMapActions.clearTripPathPreview = () => {
-            clearTripPathPreview();
+            clearTripPathPreview({ source: 'journey' });
         };
 
         // 供其他模块（如 panel header 的 map-select 下拉）使用：仅清除“站点点击高亮”。
@@ -2106,6 +2110,15 @@ map.on('load', async () => {
             const merged = Array.isArray(resolved?.mergedLineIds)
                 ? resolved.mergedLineIds.map(String).filter(Boolean)
                 : [mainLineId];
+
+            if (isMultiSelectModeEnabled()) {
+                toggleBaseMultiSelection(`line:${mainLineId}`, merged, 'line');
+                if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
+                else setStationLabelMode('auto');
+                applySelectionEffects();
+                showRouteMapFloatingPanelForLine(id);
+                return;
+            }
 
             selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
             selectedStationId = null;
@@ -3581,7 +3594,12 @@ map.on('load', async () => {
             const lineId = String(payload?.selectedLineId || payload?.mainLineId || '').trim();
             const tripKey = String(payload?.tripKey || '').trim();
             if (!lineId || !tripKey) return '';
-            return `${lineId}||${tripKey}`;
+            const source = String(payload?.previewSource || payload?.__previewSource || payload?.source || '').trim() || 'default';
+            return `${source}||${lineId}||${tripKey}`;
+        };
+
+        const resolveTripPreviewPayloadSource = (payload) => {
+            return String(payload?.previewSource || payload?.__previewSource || payload?.source || '').trim() || '';
         };
 
         const buildMultiTripPreviewAggregate = () => {
@@ -3780,8 +3798,30 @@ map.on('load', async () => {
             }
         };
 
-        clearTripPathPreview = () => {
+        clearTripPathPreview = (options = {}) => {
+            const targetSource = String(options?.source || '').trim();
+
+            if (targetSource && isMultiSelectModeEnabled()) {
+                let removed = false;
+                for (const [key, entry] of tripPreviewSelectionsByKey.entries()) {
+                    const source = String(entry?.source || resolveTripPreviewPayloadSource(entry?.payload) || '').trim();
+                    if (source !== targetSource) continue;
+                    tripPreviewSelectionsByKey.delete(key);
+                    removed = true;
+                }
+                if (removed) {
+                    rebuildTripPreviewFromMultiSelections('none');
+                }
+                return;
+            }
+
+            if (targetSource && !isMultiSelectModeEnabled()) {
+                const currentSource = String(tripPreviewActiveSource || '').trim();
+                if (currentSource && currentSource !== targetSource) return;
+            }
+
             tripPreviewActive = false;
+            tripPreviewActiveSource = '';
             tripPreviewStationIds = null;
             tripPreviewLineIds = null;
             tripPreviewSelectionsByKey = new Map();
@@ -3806,8 +3846,13 @@ map.on('load', async () => {
             }
 
             const fitMode = String(payload?.fitMode || 'preview').trim() || 'preview';
+            const payloadSource = resolveTripPreviewPayloadSource(payload);
+            const previewInteraction = String(payload?.__previewInteraction || payload?.previewInteraction || '').trim() || '';
 
             if (isMultiSelectModeEnabled()) {
+                if (previewInteraction === 'hover') {
+                    return;
+                }
                 const selectionKey = buildTripPreviewSelectionKey(payload);
                 if (!selectionKey) return;
 
@@ -3818,6 +3863,7 @@ map.on('load', async () => {
                     tripPreviewSelectionsByKey.set(selectionKey, {
                         payload: { ...(payload || {}) },
                         built: builtSingle,
+                        source: payloadSource,
                         hidden: false
                     });
                 }
@@ -3829,6 +3875,7 @@ map.on('load', async () => {
             ensureTripPreviewLayers();
             const built = buildTripPreviewFeatures(payload);
             tripPreviewActive = true;
+            tripPreviewActiveSource = payloadSource;
             tripPreviewStationIds = built.stopIds;
             tripPreviewLineIds = built.lineIds;
 
