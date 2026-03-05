@@ -1200,7 +1200,7 @@ export function createPanel(options = {}) {
     timeOverlay.addEventListener('wheel', (e) => stopPropagationOnly(e), { passive: true });
     timeOverlay.addEventListener('click', (e) => stopEvent(e), { passive: false });
     timeOverlay.style.position = 'fixed';
-    timeOverlay.style.zIndex = 8000;
+    timeOverlay.style.zIndex = 5000;
     document.body.appendChild(timeOverlay);
 
     // 右侧 panel 左侧弹出的班次详情面板
