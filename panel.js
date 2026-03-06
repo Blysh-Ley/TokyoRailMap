@@ -2750,11 +2750,23 @@ export function createPanel(options = {}) {
             for (const bodyEl of expandedBodies) {
                 if (bodyEl.classList.contains('panel-timetable-view-grid')) {
                     bodyEl.style.maxHeight = '';
-                    const focusRow = bodyEl.querySelector('[data-grid-focus-start="1"]');
-                    if (focusRow instanceof Element) {
-                        bodyEl.scrollTop = Math.max(0, focusRow.offsetTop || 0);
+
+                    const pastCells = Array.from(bodyEl.querySelectorAll('.panel-grid-cell-trip.is-past'));
+                    const lastPastCell = pastCells.length ? pastCells[pastCells.length - 1] : null;
+                    if (lastPastCell instanceof Element) {
+                        const bodyRect = bodyEl.getBoundingClientRect();
+                        const cellRect = lastPastCell.getBoundingClientRect();
+                        const naturalTop = bodyEl.scrollTop + (cellRect.top - bodyRect.top);
+                        const desired = Math.max(0, Math.floor(naturalTop) - 10);
+                        const maxScroll = Math.max(0, (bodyEl.scrollHeight || 0) - (bodyEl.clientHeight || 0));
+                        bodyEl.scrollTop = Math.max(0, Math.min(desired, maxScroll));
                     } else {
-                        bodyEl.scrollTop = 0;
+                        const focusRow = bodyEl.querySelector('[data-grid-focus-start="1"]');
+                        if (focusRow instanceof Element) {
+                            bodyEl.scrollTop = Math.max(0, focusRow.offsetTop || 0);
+                        } else {
+                            bodyEl.scrollTop = 0;
+                        }
                     }
                     continue;
                 }
