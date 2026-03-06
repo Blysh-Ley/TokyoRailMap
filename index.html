@@ -632,6 +632,7 @@
             background: rgba(255, 255, 255, 0.9);
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
             overflow: hidden;
+            touch-action: pan-y;
         }
 
         .journey-trip-popover.is-hidden {
@@ -688,6 +689,9 @@
             overflow-y: auto;
             overflow-x: hidden;
             padding: 6px 10px 8px;
+            touch-action: pan-y;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
         }
 
         .journey-trip-body::-webkit-scrollbar {
