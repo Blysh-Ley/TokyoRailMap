@@ -1685,7 +1685,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
         typeName: normalizeText(firstLeg?.typeName || '普通'),
         typeColor: normalizeText(firstSeg?.typeColor || firstLeg?.typeColor || '') || null,
         hasNt: false,
-        fitMode: 'none',
+        fitMode: 'preview',
         segments: mergedSegments
     };
 };

@@ -1162,7 +1162,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
         terminalStationId: normalizeText(lastSeg?.stationIds?.[lastSeg.stationIds.length - 1]),
         typeName: normalizeText(firstLeg?.typeName || '普通'),
         hasNt: false,
-        fitMode: 'none',
+        fitMode: 'preview',
         segments
     };
 };

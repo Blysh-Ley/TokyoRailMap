@@ -584,7 +584,7 @@ export function mountTravelSearchUI() {
             terminalStationId: normalizeText(lastSeg?.stationIds?.[lastSeg.stationIds.length - 1]),
             typeName: normalizeText(firstLeg?.typeName || '普通'),
             hasNt: false,
-            fitMode: 'none',
+            fitMode: 'preview',
             segments
         };
     };
@@ -592,6 +592,9 @@ export function mountTravelSearchUI() {
     const applyJourneyPlanPreview = async ({ row, previewKey, pin = false, interaction = 'hover', clearBefore = true } = {}) => {
         const actions = window?.TokyoRailSearchMapActions;
         if (!actions || typeof actions.previewTripPath !== 'function') return;
+
+        const interactionText = String(interaction || '').trim() || 'hover';
+        const fitMode = interactionText === 'click' ? 'commit' : 'preview';
 
         const token = ++planPreviewRequestToken;
         const displayPlan = await getDisplayPlanForRow(row);
@@ -603,9 +606,10 @@ export function mountTravelSearchUI() {
             actions.previewTripPath(
                 {
                     ...(payload || {}),
-                    __previewInteraction: String(interaction || '').trim() || 'hover'
+                    __previewInteraction: interactionText,
+                    fitMode
                 },
-                { clearBefore: clearBefore === true, fitMode: 'none' }
+                { clearBefore: clearBefore === true, fitMode }
             );
         } catch {
             return;

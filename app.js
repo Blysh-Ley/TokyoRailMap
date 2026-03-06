@@ -2120,7 +2120,11 @@ map.on('load', async () => {
 
         // 供 journey-search 等模块复用 trip preview 高亮（线路/站点/站名）
         searchMapActions.previewTripPath = (payload, options = {}) => {
-            const fitMode = String(options?.fitMode || payload?.fitMode || 'none').trim() || 'none';
+            const interaction = String(payload?.__previewInteraction || payload?.previewInteraction || '').trim() || '';
+            const inferredFitMode = interaction === 'click'
+                ? 'commit'
+                : (interaction === 'hover' ? 'preview' : 'none');
+            const fitMode = String(options?.fitMode || payload?.fitMode || inferredFitMode).trim() || 'none';
             const nextPayload = {
                 ...(payload || {}),
                 __previewSource: 'journey',
