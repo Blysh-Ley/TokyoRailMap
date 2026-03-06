@@ -565,9 +565,15 @@ const lineSetFromMarkedStops = (markedStops) => {
     return out;
 };
 
-const findBoardingOnChain = ({ chainTrips, prevArr, minBoardSlackMs, serviceDayStartMs }) => {
+const findBoardingOnChain = ({ chainTrips, prevRoundEarliestArrivals, minBoardSlackMs, serviceDayStartMs }) => {
+    let activeBoard = null;
+    let activeTripId = '';
+    let activeBoardDepMs = INF_TIME;
+    let boardStopPrevArrMs = INF_TIME;
+
     for (let seg = 0; seg < chainTrips.length; seg += 1) {
         const trip = chainTrips[seg];
+        const tripId = normalizeText(trip?.rawTripId || trip?.tripId || '');
         const stops = Array.isArray(trip?.stops) ? trip.stops : [];
         for (let i = 0; i < stops.length; i += 1) {
             const stop = stops[i];
@@ -575,13 +581,26 @@ const findBoardingOnChain = ({ chainTrips, prevArr, minBoardSlackMs, serviceDayS
             if (!stopId) continue;
             const depMs = Number.isFinite(stop?.depMin) ? serviceDayStartMs + stop.depMin * 60000 : null;
             if (!Number.isFinite(depMs)) continue;
-            const prevBest = prevArr.get(stopId);
-            if (!Number.isFinite(prevBest)) continue;
-            if (depMs < prevBest + minBoardSlackMs) continue;
-            return { segmentIndex: seg, boardIndex: i, boardStopId: stopId, boardDepMs: depMs };
+            const prevArrMs = prevRoundEarliestArrivals.get(stopId);
+            if (!Number.isFinite(prevArrMs)) continue;
+            if (depMs < prevArrMs + minBoardSlackMs) continue;
+
+            if (!activeBoard || depMs < activeBoardDepMs) {
+                activeBoard = { segmentIndex: seg, boardIndex: i, boardStopId: stopId, boardDepMs: depMs };
+                activeTripId = tripId;
+                activeBoardDepMs = depMs;
+                boardStopPrevArrMs = prevArrMs;
+                continue;
+            }
+
+            if (activeBoard && tripId && tripId === activeTripId && prevArrMs <= boardStopPrevArrMs) {
+                activeBoard = { segmentIndex: seg, boardIndex: i, boardStopId: stopId, boardDepMs: depMs };
+                boardStopPrevArrMs = prevArrMs;
+            }
         }
     }
-    return null;
+
+    return activeBoard;
 };
 
 const relaxChainFromBoardRaptor = ({ chainTrips, throughRootTripId, startSegmentIndex, startBoardIndex, startBoardStopId, startBoardDepMs, serviceDayStartMs, roundArr, roundParent, improvedStops }) => {
@@ -667,7 +686,7 @@ const scanRoundRaptor = async ({ prevArr, markedStops, serviceDay, serviceDaySta
 
             const board = findBoardingOnChain({
                 chainTrips: merged.chainTrips,
-                prevArr,
+                prevRoundEarliestArrivals: prevArr,
                 minBoardSlackMs,
                 serviceDayStartMs
             });
