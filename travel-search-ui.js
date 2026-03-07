@@ -33,6 +33,29 @@ function el(tag, className, attrs = {}) {
 
 const normalizeText = (v) => String(v ?? '').trim();
 
+let journeyStationCodeMapPromise = null;
+const getJourneyStationCodeMap = async () => {
+    if (journeyStationCodeMapPromise) return journeyStationCodeMapPromise;
+    journeyStationCodeMapPromise = (async () => {
+        try {
+            const resp = await fetch('./data/stations.json');
+            if (!resp.ok) return new Map();
+            const list = await resp.json();
+            const map = new Map();
+            for (const s of Array.isArray(list) ? list : []) {
+                const id = normalizeText(s?.id);
+                const code = normalizeText(s?.title?.code || '');
+                if (!id || !code) continue;
+                map.set(id, code);
+            }
+            return map;
+        } catch {
+            return new Map();
+        }
+    })();
+    return journeyStationCodeMapPromise;
+};
+
 const travelIsDarkThemeActive = () => {
     try {
         return document.documentElement.getAttribute('data-theme') === 'dark';
@@ -884,6 +907,7 @@ export function mountTravelSearchUI() {
         }
 
         const overallDestinationStationId = normalizeText(row?.destinationStationId || (displayPlan?.legs && displayPlan.legs.length ? displayPlan.legs[displayPlan.legs.length - 1]?.toStop : '') || '');
+        const stationCodeMap = await getJourneyStationCodeMap();
 
         for (const block of blocks) {
             if (block.kind === 'transfer') {
@@ -913,8 +937,13 @@ export function mountTravelSearchUI() {
                 const isFirst = i === 0;
                 const isLast = i === block.rows.length - 1;
                 const stationId = normalizeText(s.stationId || '');
-                const rowEl = el('div', 'journey-trip-row');
-                rowEl.appendChild(el('div', 'journey-trip-station', { text: s.stationName || s.stationId }));
+                const rowEl = el('div', s?.isPast ? 'journey-trip-row is-past' : 'journey-trip-row');
+                const stationCode = normalizeText(stationCodeMap.get(stationId) || '');
+                const stationName = normalizeText(s.stationName || s.stationId);
+                const stationText = stationCode ? `${stationCode} ${stationName}` : stationName;
+                const stationEl = el('div', 'journey-trip-station', { text: stationText });
+                if (stationId) stationEl.setAttribute('data-station-id', stationId);
+                rowEl.appendChild(stationEl);
 
                 const arrCell = el('div', 'journey-trip-time journey-trip-arrive');
                 const arriveText = normalizeText(s.arrText || '') || (isFirst ? normalizeText(s.depText || '') : '');
@@ -944,7 +973,7 @@ export function mountTravelSearchUI() {
     const positionTripPopover = (anchorEl) => {
         const rect = anchorEl.getBoundingClientRect();
         const maxW = 360;
-        tripPopover.style.width = `${maxW}px`;
+        tripPopover.style.minWidth = `250px`;
         tripPopover.style.maxWidth = `${maxW}px`;
         tripPopover.classList.remove('is-hidden');
 

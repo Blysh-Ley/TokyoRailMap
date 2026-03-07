@@ -11,9 +11,62 @@
 
 import { computeLineStopDiagramData } from './route-map.js';
 import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
-import { createLineIconElement, getResolvedRouteIconMeta } from './line-icons.js';
+import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
 
 const toText = (v) => String(v ?? '').trim();
+
+let stationCodeIndexPromise = null;
+const getStationCodeIndex = async () => {
+    if (stationCodeIndexPromise) return stationCodeIndexPromise;
+    stationCodeIndexPromise = (async () => {
+        try {
+            const resp = await fetch('./data/stations.json');
+            if (!resp.ok) return new Map();
+            const list = await resp.json();
+            const map = new Map();
+            for (const s of Array.isArray(list) ? list : []) {
+                const id = toText(s?.id);
+                const code = toText(s?.title?.code || '');
+                if (!id || !code) continue;
+                map.set(id, code);
+            }
+            return map;
+        } catch {
+            return new Map();
+        }
+    })();
+    return stationCodeIndexPromise;
+};
+
+const enhanceRouteMapStationCodeBadges = async (containerEl, { lineId, lineColor } = {}) => {
+    if (!(containerEl instanceof HTMLElement)) return;
+
+    const codeMap = await getStationCodeIndex();
+    let badgeColor = toText(lineColor);
+    if (!badgeColor) {
+        const lineMeta = await getResolvedRouteIconMeta(toText(lineId));
+        badgeColor = toText(lineMeta?.color || '');
+    }
+
+    const stationEls = containerEl.querySelectorAll('.route-map-station[data-station-id]:not(.is-through-label)');
+    for (const stEl of stationEls) {
+        if (!(stEl instanceof HTMLElement)) continue;
+        if (stEl.querySelector('.rw-station-code-badge')) continue;
+
+        const sid = toText(stEl.getAttribute('data-station-id'));
+        if (!sid) continue;
+        const code = toText(codeMap.get(sid) || '');
+        if (!code) continue;
+
+        const badge = createStationCodeBadgeElement({ code, color: badgeColor });
+        if (!badge) continue;
+        badge.style.marginRight = '4px';
+        badge.style.verticalAlign = 'middle';
+        badge.style.transform = 'translateY(-1px)';
+
+        stEl.insertBefore(badge, stEl.firstChild);
+    }
+};
 
 const renderRouteMapTitleWithIcon = async (titleEl, lineId, lineName) => {
     if (!(titleEl instanceof HTMLElement)) return;
@@ -1706,6 +1759,10 @@ const setupRouteMapUi = () => {
         const rendered = renderDiagram(payload);
         gridHeader.innerHTML = rendered?.headHtml || '';
         body.innerHTML = rendered?.bodyHtml || '';
+        await enhanceRouteMapStationCodeBadges(body, {
+            lineId: lid,
+            lineColor: toText(payload?.selectedLine?.lineColor || '')
+        });
         positionPanel();
     };
 

@@ -442,6 +442,58 @@ const applyIconStyleForTheme = (el) => {
     }
 };
 
+const applyStationCodeBadgeStyleForTheme = (el) => {
+    if (!(el instanceof HTMLElement)) return;
+
+    const code = toText(el.dataset.code);
+    if (!code) return;
+
+    const routeColor = toText(el.dataset.lineColor);
+    const dark = isDarkThemeActive();
+    const borderColor = resolveBorderColorForTheme(routeColor) || routeColor || 'transparent';
+
+    el.style.display = 'inline-flex';
+    el.style.alignItems = 'center';
+    el.style.justifyContent = 'center';
+    el.style.boxSizing = 'border-box';
+    el.style.userSelect = 'none';
+    el.style.backgroundColor = dark ? '#000' : '#fff';
+    el.style.color = dark ? '#fff' : '#000';
+    el.style.border = `2px solid ${borderColor}`;
+    el.style.borderRadius = '10px';
+    el.style.height = '20px';
+    el.style.minWidth = '20px';
+    el.style.padding = '0 5px';
+    el.style.lineHeight = '1';
+    el.style.fontWeight = '700';
+
+    if (code.length <= 2) {
+        el.style.fontSize = '11px';
+        el.style.letterSpacing = '0px';
+    } else if (code.length <= 4) {
+        el.style.fontSize = '10px';
+        el.style.letterSpacing = '-0.1px';
+    } else {
+        el.style.fontSize = '9px';
+        el.style.letterSpacing = '-0.2px';
+    }
+};
+
+export const createStationCodeBadgeElement = ({ code, color }) => {
+    const c = toText(code);
+    if (!c) return null;
+
+    const el = document.createElement('span');
+    el.className = 'rw-station-code-badge';
+    el.textContent = c;
+    el.dataset.code = c;
+    el.dataset.lineColor = toText(color);
+
+    applyStationCodeBadgeStyleForTheme(el);
+    ensureThemeObserver();
+    return el;
+};
+
 let _themeObserverStarted = false;
 
 const ensureThemeObserver = () => {
@@ -452,6 +504,7 @@ const ensureThemeObserver = () => {
         const target = document.documentElement;
         const obs = new MutationObserver(() => {
             document.querySelectorAll('.rw-line-icon').forEach((el) => applyIconStyleForTheme(el));
+            document.querySelectorAll('.rw-station-code-badge').forEach((el) => applyStationCodeBadgeStyleForTheme(el));
         });
         obs.observe(target, { attributes: true, attributeFilter: ['data-theme'] });
     } catch {

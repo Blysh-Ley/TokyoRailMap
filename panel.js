@@ -5,7 +5,7 @@
 
 import { sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
 import { buildTripPreviewKey, createTripPreviewScheduler } from './trip-preview.js';
-import { createLineIconElement, getResolvedRouteIconMeta } from './line-icons.js';
+import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -15,7 +15,6 @@ const enhancePanelLineHeaderIcons = async (rootEl) => {
 
     for (const nameEl of names) {
         if (!(nameEl instanceof HTMLElement)) continue;
-        if (nameEl.querySelector('.rw-line-icon')) continue;
 
         const lineEl = nameEl.closest('.panel-line');
         const lineId = toText(lineEl?.getAttribute?.('data-line-id'));
@@ -24,15 +23,36 @@ const enhancePanelLineHeaderIcons = async (rootEl) => {
         const meta = await getResolvedRouteIconMeta(lineId);
         if (!meta || (!meta.code && !meta.color)) continue;
 
-        const icon = createLineIconElement({ routeId: meta.id, code: meta.code, color: meta.color });
-        if (!icon) continue;
+        if (!nameEl.querySelector('.rw-line-icon')) {
+            const icon = createLineIconElement({ routeId: meta.id, code: meta.code, color: meta.color });
+            if (icon) {
+                icon.style.marginRight = '4px';
+                icon.style.verticalAlign = 'middle';
+                icon.style.transform = 'translateY(-2px)';
+                nameEl.prepend(icon);
+            }
+        }
 
-        icon.style.marginRight = '4px';
-        icon.style.verticalAlign = 'middle';
-        icon.style.transform = 'translateY(-2px)';
-        nameEl.prepend(icon);
+        const stationCode = toText(nameEl.getAttribute('data-transfer-station-code'));
+        if (!stationCode || nameEl.querySelector('.rw-station-code-badge')) continue;
+
+        const stationBadge = createStationCodeBadgeElement({ code: stationCode, color: meta.color });
+        if (!stationBadge) continue;
+        stationBadge.style.marginLeft = '6px';
+        stationBadge.style.marginRight = '4px';
+        stationBadge.style.verticalAlign = 'middle';
+        stationBadge.style.transform = 'translateY(-2px)';
+
+        const suffixEl = nameEl.querySelector('.panel-line-name-suffix');
+        if (suffixEl) nameEl.insertBefore(stationBadge, suffixEl);
+        else {
+            const mainEl = nameEl.querySelector('.panel-line-name-main');
+            if (mainEl && mainEl.nextSibling) nameEl.insertBefore(stationBadge, mainEl.nextSibling);
+            else nameEl.appendChild(stationBadge);
+        }
     }
 };
+
 
 const panelIsDarkThemeActive = () => {
     try {
@@ -393,16 +413,19 @@ const getStationsIndex = async () => {
     stationsIndexPromise = (async () => {
         try {
             const resp = await fetch('./data/stations.json');
-            if (!resp.ok) return { idToNameZh: new Map(), stationIdByRailwayAndNameZh: new Map() };
+            if (!resp.ok) return { idToNameZh: new Map(), idToCode: new Map(), stationIdByRailwayAndNameZh: new Map() };
             const list = await resp.json();
             const idToNameZh = new Map();
+            const idToCode = new Map();
             const stationIdByRailwayAndNameZh = new Map();
             for (const s of Array.isArray(list) ? list : []) {
                 const id = toText(s?.id);
                 if (!id) continue;
                 const railway = toText(s?.railway);
                 const name = pickTitleZhHans(s?.title) || id;
+                const code = toText(s?.title?.code || '');
                 idToNameZh.set(id, name);
+                if (code) idToCode.set(id, code);
 
                 if (railway && name) {
                     const k = `${railway}||${name}`;
@@ -411,9 +434,9 @@ const getStationsIndex = async () => {
                     }
                 }
             }
-            return { idToNameZh, stationIdByRailwayAndNameZh };
+            return { idToNameZh, idToCode, stationIdByRailwayAndNameZh };
         } catch {
-            return { idToNameZh: new Map(), stationIdByRailwayAndNameZh: new Map() };
+            return { idToNameZh: new Map(), idToCode: new Map(), stationIdByRailwayAndNameZh: new Map() };
         }
     })();
     return stationsIndexPromise;
@@ -632,18 +655,27 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
         for (const line of sortedLines) {
             const style = typeof line.color === 'string' && line.color.trim() ? ` style="color:${escapeHtml(line.color.trim())}"` : '';
             const idAttr = line.lineId ? ` data-line-id="${escapeHtml(String(line.lineId))}"` : '';
-            const transferStationName = line.lineId
-                ? toText(lineStationNameByLineId?.get?.(line.lineId) || lineStationNameByLineId?.[line.lineId])
-                : '';
+            const transferMetaRaw = line.lineId
+                ? (lineStationNameByLineId?.get?.(line.lineId) || lineStationNameByLineId?.[line.lineId] || null)
+                : null;
+            const transferStationName = typeof transferMetaRaw === 'string'
+                ? toText(transferMetaRaw)
+                : toText(transferMetaRaw?.name || '');
+            const transferStationCode = typeof transferMetaRaw === 'string'
+                ? ''
+                : toText(transferMetaRaw?.code || '');
             const suffixHtml = transferStationName
                 ? `<span class="panel-line-name-suffix">（${escapeHtml(transferStationName)}站）</span>`
+                : '';
+            const transferCodeAttr = transferStationCode
+                ? ` data-transfer-station-code="${escapeHtml(transferStationCode)}"`
                 : '';
 
             // 线路条目：标题行 + 班次容器（内部按方向 d 分组；方向可展开/收回）
             linesHtml += `
                 <div class="panel-line"${idAttr}${style}>
                     <div class="panel-line-header">
-                        <span class="panel-line-name" data-line-name="${escapeHtml(line.displayName)}">${escapeHtml(line.displayName)}${suffixHtml}</span>
+                        <span class="panel-line-name" data-line-name="${escapeHtml(line.displayName)}"${transferCodeAttr}><span class="panel-line-name-main">${escapeHtml(line.displayName)}</span>${suffixHtml}</span>
                     </div>
                     <div class="panel-timetable-root" data-timetable-root="1"></div>
                 </div>
@@ -707,12 +739,23 @@ export function createPanel(options = {}) {
                 : [sid];
 
             for (const lineId of lineIds) {
-                const candidateId = groupIds.find((gid) => gid === lineId || gid.startsWith(`${lineId}.`));
+                let candidateId = groupIds.find((gid) => gid === lineId || gid.startsWith(`${lineId}.`));
+
+                // 兜底：若组内没找到，用“线路 + 当前站名”反查 station id（用于同名非换乘后缀场景）
+                if (!candidateId && clickedName) {
+                    const k = `${lineId}||${clickedName}`;
+                    candidateId = toText(stationsIndex?.stationIdByRailwayAndNameZh?.get?.(k) || '');
+                }
+
                 if (!candidateId) continue;
-                const transferName = toText(stationsIndex?.idToNameZh?.get?.(candidateId) || '');
-                if (!transferName) continue;
-                if (clickedName && transferName === clickedName) continue;
-                out.set(lineId, transferName);
+
+                const transferNameRaw = toText(stationsIndex?.idToNameZh?.get?.(candidateId) || '');
+                const transferCode = toText(stationsIndex?.idToCode?.get?.(candidateId) || '');
+                const transferName = (clickedName && transferNameRaw === clickedName) ? '' : transferNameRaw;
+
+                // code 可独立于 suffix 存在：无异名后缀时也允许显示站点 code badge
+                if (!transferName && !transferCode) continue;
+                out.set(lineId, { name: transferName, code: transferCode });
             }
         } catch {
             return out;
@@ -3251,10 +3294,13 @@ export function createPanel(options = {}) {
                 const terminalCls = `panel-time-label panel-time-label-terminal${s.isPast ? ' is-past' : ''}`;
                 const arrivalLabel = s.showOriginLabel ? `<span class=\"${originCls}\">始发站</span> ` : '';
                 const departLabel = s.showTerminalLabel ? `<span class=\"${terminalCls}\">终点站</span> ` : '';
+                const stationName = toText(s.stationName || s.stationId);
+                const stationCode = toText(stationsIndex?.idToCode?.get?.(toText(s.stationId)) || '');
+                const stationText = stationCode ? `${stationCode} ${stationName}` : stationName;
 
                 return `
                     <div class="${rowCls}">
-                        <div class="panel-trip-detail-station" data-station-id="${escapeHtml(toText(s.stationId))}">${escapeHtml(s.stationName || '')}</div>
+                        <div class="panel-trip-detail-station" data-station-id="${escapeHtml(toText(s.stationId))}" data-line-color="${escapeHtml(toText(s.lineColor || ''))}">${escapeHtml(stationText)}</div>
                         <div class="panel-trip-detail-time panel-trip-detail-arrive">${arrivalLabel}${arrText ? `<span class=\"panel-time-arrive\">${escapeHtml(arrText)}</span>` : ''}</div>
                         <div class="panel-trip-detail-time panel-trip-detail-depart">${departLabel}${depText ? `<span class=\"panel-time-depart\">${escapeHtml(depText)}</span>` : ''}</div>
                     </div>
@@ -3346,7 +3392,8 @@ export function createPanel(options = {}) {
 
             rowsHtml += renderNoteRow(block.descriptor, block.typeName, block.typeColor, isBoundaryPast(prevLastRow, firstRow));
             for (const seg of block.segments) {
-                rowsHtml += (seg.rows || []).map(renderStopRow).join('');
+                const segLineColor = toText(block?.descriptor?.color || seg?.typeColor || '');
+                rowsHtml += (seg.rows || []).map((r) => renderStopRow({ ...r, lineColor: segLineColor })).join('');
             }
         }
         if (hideThroughSegmentsForLoop) {
