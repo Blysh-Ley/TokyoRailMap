@@ -445,6 +445,7 @@ const loadTripsForLineAndDay = async ({ lineId, serviceDay }) => {
             baseTripKey: getTripBaseKey(trip),
             lineId: line,
             timetableFile: getTripFileNameByLineId(line),
+            d: normalizeText(trip?.d || ''),
             typeId,
             typeName: normalizeText(typeMeta?.name || typeId || '普通'),
             typeColor: normalizeText(typeMeta?.color || '') || null,
@@ -1151,11 +1152,13 @@ const buildSectionThroughSegments = async ({ section, serviceDay }) => {
                 mergedRows.push(row);
             }
             prev.rows = mergedRows;
+            if (!prev.d) prev.d = normalizeText(trip?.d) || null;
             continue;
         }
 
         out.push({
             lineId,
+            d: normalizeText(trip?.d) || null,
             typeName: normalizeText(trip?.typeName || section?.legs?.[0]?.typeName || '普通'),
             typeColor: normalizeText(trip?.typeColor || section?.legs?.[0]?.typeColor || '') || null,
             rows
@@ -1264,6 +1267,7 @@ const buildThroughDisplaySegments = async ({ leg, serviceDay }) => {
         if (!rows.length) continue;
         segments.push({
             lineId: normalizeText(trip?.lineId || leg?.lineId || ''),
+            d: normalizeText(trip?.d) || null,
             typeName: normalizeText(trip?.typeName || leg?.typeName || '普通'),
             typeColor: normalizeText(trip?.typeColor || leg?.typeColor || '') || null,
             rows
@@ -1569,6 +1573,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
                         kind: 'main',
                         lineId,
                         stationIds,
+                        d: normalizeText(seg?.d) || null,
                         typeColor: normalizeText(seg?.typeColor || section?.legs?.[0]?.typeColor || '') || null
                     });
                 }
@@ -1579,8 +1584,10 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
             if (!secLegs.length) continue;
 
             const stationIds = [];
+            let sectionDir = null;
             for (const leg of secLegs) {
                 const trip = await resolveTripForLeg({ leg, serviceDay: row?.serviceDay });
+                if (!sectionDir && trip) sectionDir = normalizeText(trip?.d) || null;
                 const rows = trip
                     ? toLegStopRows({ trip, leg })
                     : [
@@ -1608,6 +1615,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
                 kind: 'main',
                 lineId: segmentLineId,
                 stationIds: compactIds,
+                d: sectionDir,
                 typeColor: normalizeText(section?.legs?.[0]?.typeColor || '') || null
             });
         }
@@ -1635,6 +1643,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
                     kind: 'main',
                     lineId: normalizeText(seg?.lineId || lineId),
                     stationIds: compactIds,
+                    d: normalizeText(seg?.d) || null,
                     typeColor: normalizeText(seg?.typeColor || leg?.typeColor || '') || null
                 });
             }
@@ -1662,6 +1671,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
             kind: 'main',
             lineId,
             stationIds: compactIds,
+            d: normalizeText(trip?.d) || null,
             typeColor: normalizeText(leg?.typeColor || trip?.typeColor || '') || null
         });
     }
@@ -1674,6 +1684,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
         const lineId = normalizeText(seg?.lineId || '');
         const ids = Array.isArray(seg?.stationIds) ? seg.stationIds.map((x) => normalizeText(x)).filter(Boolean) : [];
         const segTypeColor = normalizeText(seg?.typeColor || '') || null;
+        const segDir = normalizeText(seg?.d) || null;
         if (!lineId || ids.length < 2) continue;
         const prev = mergedSegments[mergedSegments.length - 1] || null;
         if (prev && normalizeText(prev.lineId) === lineId) {
@@ -1682,10 +1693,12 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
             if (a && b && isSamePhysicalStop(a, b)) {
                 prev.stationIds.push(...ids.slice(1));
                 if (!prev.typeColor && segTypeColor) prev.typeColor = segTypeColor;
+                if (!prev.d && segDir) prev.d = segDir;
+                else if (prev.d && segDir && normalizeText(prev.d) !== segDir) prev.d = null;
                 continue;
             }
         }
-        mergedSegments.push({ kind: 'main', lineId, stationIds: ids.slice(), typeColor: segTypeColor });
+        mergedSegments.push({ kind: 'main', lineId, stationIds: ids.slice(), d: segDir, typeColor: segTypeColor });
     }
 
     if (!mergedSegments.length) return null;

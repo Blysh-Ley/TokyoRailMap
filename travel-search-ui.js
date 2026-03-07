@@ -736,10 +736,13 @@ export function mountTravelSearchUI() {
 
         const segments = [];
         for (const leg of legs) {
+            if (!leg || leg.kind !== 'rail') continue;
+
             const lineId = normalizeText(leg?.lineId);
             if (!lineId) continue;
 
             const trip = await resolveTripForLeg({ leg, serviceDay: row?.serviceDay });
+            const segDir = trip ? (normalizeText(trip?.d) || null) : null;
             let stationIds = [];
             if (trip) {
                 const rows = toLegStopRows({ trip, leg });
@@ -756,11 +759,13 @@ export function mountTravelSearchUI() {
             }
             if (compactIds.length < 2) continue;
 
-            segments.push({
+            const seg = {
                 kind: 'main',
                 lineId,
                 stationIds: compactIds
-            });
+            };
+            if (segDir) seg.d = segDir;
+            segments.push(seg);
         }
 
         if (!segments.length) return null;

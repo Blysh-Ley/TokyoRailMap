@@ -7,6 +7,7 @@ import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { createPanel } from './panel.js';
 import { getGlobalTimetableCache } from './timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './fullscreen.js';
+import { extractShortestLoopSegmentByIndex, isLoopDirection } from './trip-preview.js';
 import './route-map-ui.js';
 
 // MapLibre 通过 CDN 以全局变量方式引入
@@ -3183,12 +3184,39 @@ map.on('load', async () => {
             return out;
         };
 
-        const extractLineSegment = (lineId, fromCoord, toCoord) => {
+        const extractLineSegment = (lineId, fromCoord, toCoord, options = {}) => {
             const chains = getLineChains(lineId);
             let best = null;
+            const preferLoopShortest = options?.preferLoopShortest === true;
+
+            const measurePolylineMeters = (coords) => {
+                if (!Array.isArray(coords) || coords.length < 2) return Number.POSITIVE_INFINITY;
+                let sum = 0;
+                for (let i = 0; i < coords.length - 1; i += 1) {
+                    const d = distMeters(coords[i], coords[i + 1]);
+                    if (!Number.isFinite(d)) return Number.POSITIVE_INFINITY;
+                    sum += d;
+                }
+                return sum;
+            };
 
             for (const chain of chains) {
                 if (!Array.isArray(chain) || chain.length < 2) continue;
+
+                if (preferLoopShortest) {
+                    const loopSeg = extractShortestLoopSegmentByIndex(chain, fromCoord, toCoord, {
+                        maxSnapMeters: 250,
+                        direction: options?.direction
+                    });
+                    if (Array.isArray(loopSeg) && loopSeg.length >= 2) {
+                        const score = measurePolylineMeters(loopSeg);
+                        if (!best || score < best.score) {
+                            best = { score, seg: loopSeg, endDist: 0 };
+                        }
+                        continue;
+                    }
+                }
+
                 const a = closestPointOnChain(chain, fromCoord);
                 const b = closestPointOnChain(chain, toCoord);
                 if (a.segIndex < 0 || b.segIndex < 0 || !a.point || !b.point) continue;
@@ -3376,6 +3404,14 @@ map.on('load', async () => {
             const coordsForBbox = [];
             const stopIds = new Set();
 
+            const debugLoop = (() => {
+                try {
+                    return globalThis?.__TokyoRailDebugLoopSlice === true;
+                } catch {
+                    return false;
+                }
+            })();
+
             const allSegments = Array.isArray(payload?.segments) ? payload.segments : [];
             const ntSeg = allSegments.find((s) => String(s?.kind) === 'nt') || null;
             const ntFirstStationId = (() => {
@@ -3432,7 +3468,25 @@ map.on('load', async () => {
             for (let i = 0; i < segments.length; i += 1) {
                 const seg = segments[i] || {};
                 const lineId = String(seg.lineId || '').trim();
+                const isLoopDirectionSeg = isLoopDirection(seg?.d);
                 const stationIds = Array.isArray(seg.stationIds) ? seg.stationIds.map((x) => String(x).trim()).filter(Boolean) : [];
+
+                if (debugLoop && (seg?.d || isLoopDirectionSeg)) {
+                    try {
+                        // eslint-disable-next-line no-console
+                        console.debug('[trip-preview seg]', {
+                            lineId,
+                            d: seg?.d,
+                            preferLoopShortest: isLoopDirectionSeg,
+                            stationCount: stationIds.length,
+                            first: stationIds[0] || null,
+                            last: stationIds[stationIds.length - 1] || null
+                        });
+                    } catch {
+                        // ignore
+                    }
+                }
+
                 for (const sid of stationIds) stopIds.add(sid);
 
                 for (let j = 0; j < stationIds.length - 1; j += 1) {
@@ -3442,7 +3496,10 @@ map.on('load', async () => {
                     const to = stationCoordById.get(toId);
                     if (!from || !to) continue;
 
-                    const clipped = extractLineSegment(lineId, from, to);
+                    const clipped = extractLineSegment(lineId, from, to, {
+                        preferLoopShortest: isLoopDirectionSeg,
+                        direction: seg?.d
+                    });
                     if (clipped && clipped.length >= 2) pushLineFeature(clipped, lineId, 'line');
                     else pushLineFeature([from, to], lineId, 'connector');
                 }

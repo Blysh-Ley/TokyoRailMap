@@ -3331,6 +3331,7 @@ export function createPanel(options = {}) {
             const payloadSegments = segmentsWithPast.map((seg) => ({
                 kind: seg.kind,
                 lineId: toText(seg.lineId),
+                d: toText(trip?.d),
                 stationIds: (seg.rows || []).map((r) => toText(r.stationId)).filter(Boolean),
                 typeColor: toText(seg.typeColor)
             }));
