@@ -501,7 +501,7 @@ export const ensureLineIconForRwLineContent = async (rwLineContentEl, routeId) =
     if (!icon) return;
 
     // Keep spacing stable.
-    icon.style.marginRight = '8px';
+    icon.style.marginRight = '4px';
 
     left.prepend(icon);
 };

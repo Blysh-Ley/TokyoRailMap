@@ -5,6 +5,7 @@
  */
 
 import { loadRailGeoDataFromDataFolder } from './data.js';
+import { createLineIconElement, getRoutesIndex, resolveMainLineIdForIcon } from './line-icons.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -21,17 +22,20 @@ function buildResultIcon(item) {
     if (!item || !item.type) return buildResultIcon({ type: 'station' });
 
     if (item.type === 'company') {
-        const img = el('img', 'search-result-icon search-result-icon--company', { alt: '' });
+        const wrap = el('span', 'search-result-icon');
+        const img = el('img', 'search-result-icon--company', { alt: '' });
         if (item.logoUrl) img.src = String(item.logoUrl);
-        return img;
+        wrap.appendChild(img);
+        return wrap;
     }
 
     if (item.type === 'line') {
-        // line：保持 18px 槽位对齐；内部色条水平居中
+        const icon = createLineIconElement({ routeId: item.id, code: item.code, color: item.color });
+        if (icon) {
+            icon.classList.add('search-result-icon');
+            return icon;
+        }
         const wrap = el('span', 'search-result-icon');
-        const bar = el('span', 'search-result-icon--line');
-        if (item.color) bar.style.background = String(item.color);
-        wrap.appendChild(bar);
         return wrap;
     }
 
@@ -115,9 +119,9 @@ async function ensureRailwayTitlesLoaded() {
 }
 
 let stationIndex = []; // { type:'station', id, text, names[], isTransfer }
-let lineIndex = [];    // { type:'line', id, text, names[], company, color }
+let lineIndex = [];    // { type:'line', id, text, names[], company, color, code }
 let companyIndex = []; // { type:'company', id, text, names[] }
-let lineMetaById = new Map(); // lineId -> { name, color }
+let lineMetaById = new Map(); // lineId -> { name, color, code }
 let dataReady = false;
 let dataLoading = false;
 
@@ -170,6 +174,7 @@ async function ensureDataLoaded() {
     dataLoading = true;
     try {
         const { stationsGeoJSON: stationsData, linesGeoJSON: linesData } = await loadRailGeoDataFromDataFolder();
+        const routesIndex = await getRoutesIndex();
 
         // 线路多语言 title：用于搜索 + 展示（显示 zh-Hans）
         const titles = await ensureRailwayTitlesLoaded();
@@ -240,6 +245,9 @@ async function ensureDataLoaded() {
 
             const company = normalizeText(p.company || '');
             const color = normalizeText(p.color || '');
+            const resolvedId = resolveMainLineIdForIcon(key, routesIndex) || key;
+            const routeMeta = routesIndex.get(resolvedId) || routesIndex.get(key) || null;
+            const code = normalizeText(routeMeta?.code || '');
             if (!displayName) continue;
 
             lineById.set(key, {
@@ -260,7 +268,8 @@ async function ensureDataLoaded() {
                     .map(normalizeText)
                     .filter(Boolean),
                 company,
-                color: color || null
+                color: color || normalizeText(routeMeta?.color || '') || null,
+                code: code || null
             });
         }
         lineIndex = Array.from(lineById.values());
@@ -269,7 +278,7 @@ async function ensureDataLoaded() {
         for (const l of lineIndex) {
             if (!l?.id) continue;
             const displayName = normalizeText(l.text);
-            lineMetaById.set(String(l.id), { name: displayName, color: l.color || null });
+            lineMetaById.set(String(l.id), { name: displayName, color: l.color || null, code: l.code || null });
         }
 
         // 公司：从 companyLogoMap + lines 的 company 汇总
@@ -361,7 +370,8 @@ function buildSearchResults(query, { limit = 30, allowedTypes = null } = {}) {
                         type: 'line',
                         id: l.id,
                         text: l.text,
-                        color: l.color || null
+                        color: l.color || null,
+                        code: l.code || null
                     }
                 });
             }

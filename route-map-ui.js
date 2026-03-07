@@ -31,7 +31,8 @@ const renderRouteMapTitleWithIcon = async (titleEl, lineId, lineName) => {
     if (meta && (meta.code || meta.color)) {
         const icon = createLineIconElement({ routeId: meta.id, code: meta.code, color: meta.color });
         if (icon) {
-            icon.style.marginRight = '8px';
+            icon.style.marginRight = '4px';
+            icon.style.transform = 'translateY(-3px)';
             titleEl.appendChild(icon);
         }
     }

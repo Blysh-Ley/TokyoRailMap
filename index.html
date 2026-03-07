@@ -2164,7 +2164,7 @@
         }
 
         .panel-company-logo {
-            width: 22px;
+            width: 36px;
             height: 22px;
             object-fit: contain;
             flex: 0 0 20px;
@@ -2385,9 +2385,11 @@
             align-items: center;
             gap: 10px;
             padding: 10px 12px;
+            min-height: 45px;
             cursor: pointer;
             color: #111;
             position: relative;
+            box-sizing: border-box;
         }
 
             .panel-controls {
@@ -2689,18 +2691,23 @@
         }
 
         .search-result-icon {
-            width: 18px;
-            height: 18px;
-            flex: 0 0 18px;
+            width: 25px;
+            height: 25px;
+            min-width: 25px;
+            min-height: 25px;
+            flex: 0 0 25px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            align-self: center;
+            box-sizing: border-box;
         }
 
         .search-result-icon--company {
-            width: 18px;
-            height: 18px;
+            width: 25px;
+            height: 25px;
             object-fit: contain;
+            display: block;
         }
 
         .search-result-icon--line {
@@ -2711,8 +2718,8 @@
         }
 
         .search-result-icon--station {
-            width: 18px;
-            height: 18px;
+            width: 14px;
+            height: 14px;
             border-radius: 50%;
             background: #fff;
             /* 默认（非换乘站）：细描边；换乘站在 search.js 里动态加粗 */
@@ -2721,9 +2728,12 @@
         }
 
         .search-result-text {
-            font-size: 14px;
+            font-size: 15px;
             line-height: 1.2;
             font-weight: 600;
+            min-height: 25px;
+            display: flex;
+            align-items: center;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;

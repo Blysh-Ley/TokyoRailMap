@@ -27,8 +27,9 @@ const enhancePanelLineHeaderIcons = async (rootEl) => {
         const icon = createLineIconElement({ routeId: meta.id, code: meta.code, color: meta.color });
         if (!icon) continue;
 
-        icon.style.marginRight = '8px';
+        icon.style.marginRight = '4px';
         icon.style.verticalAlign = 'middle';
+        icon.style.transform = 'translateY(-2px)';
         nameEl.prepend(icon);
     }
 };
