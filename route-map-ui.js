@@ -11,8 +11,33 @@
 
 import { computeLineStopDiagramData } from './route-map.js';
 import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
+import { createLineIconElement, getResolvedRouteIconMeta } from './line-icons.js';
 
 const toText = (v) => String(v ?? '').trim();
+
+const renderRouteMapTitleWithIcon = async (titleEl, lineId, lineName) => {
+    if (!(titleEl instanceof HTMLElement)) return;
+
+    const safeId = toText(lineId);
+    const safeName = toText(lineName) || safeId;
+
+    titleEl.textContent = '';
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'route-map-title-text';
+    textSpan.textContent = safeName;
+
+    const meta = await getResolvedRouteIconMeta(safeId);
+    if (meta && meta.code) {
+        const icon = createLineIconElement({ routeId: meta.id, code: meta.code, color: meta.color });
+        if (icon) {
+            icon.style.marginRight = '8px';
+            titleEl.appendChild(icon);
+        }
+    }
+
+    titleEl.appendChild(textSpan);
+};
 
 const isTypeInBaseSequence = (typeNameRaw) => {
     const typeName = toText(typeNameRaw);
@@ -1650,7 +1675,7 @@ const setupRouteMapUi = () => {
 
         activeLineId = lid;
         activeLineName = toText(lineName) || lid;
-        topTitle.textContent = activeLineName;
+        await renderRouteMapTitleWithIcon(topTitle, lid, activeLineName);
         topTitle.style.color = '';
         lastAnchorRect = anchorRect || null;
         lastPlacement = toText(placement) === 'panel' ? 'panel' : 'anchor';
@@ -1690,7 +1715,7 @@ const setupRouteMapUi = () => {
         const lineEl = hit.closest?.('[data-line-id]');
         const lineId = toText(lineEl?.getAttribute?.('data-line-id'));
         if (!lineId) return null;
-        const displayName = toText(hit.textContent) || lineId;
+        const displayName = toText(hit.getAttribute?.('data-line-name')) || lineId;
         return {
             lineId,
             lineName: displayName,

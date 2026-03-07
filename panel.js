@@ -5,8 +5,33 @@
 
 import { sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
 import { buildTripPreviewKey, createTripPreviewScheduler } from './trip-preview.js';
+import { createLineIconElement, getResolvedRouteIconMeta } from './line-icons.js';
 
 const toText = (v) => String(v ?? '').trim();
+
+const enhancePanelLineHeaderIcons = async (rootEl) => {
+    if (!(rootEl instanceof Element)) return;
+    const names = rootEl.querySelectorAll('.panel-line-name');
+
+    for (const nameEl of names) {
+        if (!(nameEl instanceof HTMLElement)) continue;
+        if (nameEl.querySelector('.rw-line-icon')) continue;
+
+        const lineEl = nameEl.closest('.panel-line');
+        const lineId = toText(lineEl?.getAttribute?.('data-line-id'));
+        if (!lineId) continue;
+
+        const meta = await getResolvedRouteIconMeta(lineId);
+        if (!meta || !meta.code) continue;
+
+        const icon = createLineIconElement({ routeId: meta.id, code: meta.code, color: meta.color });
+        if (!icon) continue;
+
+        icon.style.marginRight = '8px';
+        icon.style.verticalAlign = 'middle';
+        nameEl.prepend(icon);
+    }
+};
 
 const panelIsDarkThemeActive = () => {
     try {
@@ -617,7 +642,7 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
             linesHtml += `
                 <div class="panel-line"${idAttr}${style}>
                     <div class="panel-line-header">
-                        <span class="panel-line-name">${escapeHtml(line.displayName)}${suffixHtml}</span>
+                        <span class="panel-line-name" data-line-name="${escapeHtml(line.displayName)}">${escapeHtml(line.displayName)}${suffixHtml}</span>
                     </div>
                     <div class="panel-timetable-root" data-timetable-root="1"></div>
                 </div>
@@ -4956,6 +4981,7 @@ export function createPanel(options = {}) {
 
         // 渲染 popup 同结构的内容（公司分组 + 线路）
         body.innerHTML = buildCompaniesHtml(props || {}, { getLineMeta, companyLogoMap, lineStationNameByLineId, railwaysOrderIndex });
+        await enhancePanelLineHeaderIcons(body);
 
         show();
 

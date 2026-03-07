@@ -13,6 +13,8 @@
  * - logoBasePath: './companyLogos/'
  */
 
+import { ensureLineIconForRwLineContent } from './line-icons.js';
+
 export class Menu {
     constructor({
         companyObj,
@@ -612,8 +614,26 @@ export class Menu {
                 // 线路项 + 运行模式子菜单
                 const lineContent = this.addSubMenu(lineListEl, 'line');
 
-                lineContent.textContent = lineName;
+                // 左侧：线路 icon + 线路名（保持 RW-content 的 flex 布局）
+                lineContent.textContent = '';
+
+                const leftBox = document.createElement('div');
+                leftBox.className = 'RW-line-left';
+                leftBox.style.display = 'flex';
+                leftBox.style.alignItems = 'center';
+                leftBox.style.minWidth = '0';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'RW-line-name';
+                nameSpan.textContent = lineName;
+
+                leftBox.appendChild(nameSpan);
+                lineContent.appendChild(leftBox);
+
                 lineContent.dataset.lineId = String(lineId);
+
+                // 异步注入线路 code icon（routes.csv 无 code 则跳过）
+                ensureLineIconForRwLineContent(lineContent, String(lineId));
 
                 // 缓存主线显示名与菜单元素
                 this._lineDisplayNameById.set(String(lineId), String(lineName));

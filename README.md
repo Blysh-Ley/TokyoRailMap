@@ -35,11 +35,13 @@
 
 ![zhitong](./images/zhitong.png)
 
-### 4) 搜索
+### 4) 搜索及路径规划
 
-支持线路与站点的简单搜索。暂不支持路径规划。
+支持线路与站点的简单搜索。
 
 ![搜索](./images/t-search.png)
+
+支持两个站点之间的线路规划。
 
 ### 5) 截图功能
 
@@ -53,7 +55,8 @@
 
 ## 数据说明
 
-数据主要来源于 [mini-tokyo-3d](https://github.com/nagix/mini-tokyo-3d) 的静态数据。
+数据主要来源于 [mini-tokyo-3d](https://github.com/nagix/mini-tokyo-3d) 以及 [
+TokyoGTFS](https://github.com/MKuranowski/TokyoGTFS) 的静态数据。
 
 - 当前不包含实时数据；
 - 班次信息仅供参考，请勿作为实际出行的唯一依据。
@@ -61,11 +64,7 @@
 
 ## License
 
-本项目使用 [MIT License](https://opensource.org/license/MIT)。
-
-## 致谢
-
-感谢 [mini-tokyo-3d](https://github.com/nagix/mini-tokyo-3d) 提供的数据基础。
+本项目使用 GPL3.0 License。
 
 ## 声明
 
