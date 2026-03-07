@@ -6,6 +6,7 @@
 
 import { loadRailGeoDataFromDataFolder } from './data.js';
 import { createLineIconElement, getRoutesIndex, resolveMainLineIdForIcon } from './line-icons.js';
+import { resolveLineColorForTheme } from './line-icons.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -125,7 +126,81 @@ let lineMetaById = new Map(); // lineId -> { name, color, code }
 let dataReady = false;
 let dataLoading = false;
 
+let sameCompanyTransferClusterByStationId = null; // Map<stationId, { clusterKey, lineIds:string[] }>
+let sameCompanyTransferClusterLoading = null;
+
 let companyMetaMerged = false;
+
+const parseStationNodeId = (nodeId) => {
+    const id = normalizeText(nodeId);
+    if (!id) return null;
+    const parts = id.split('.').filter(Boolean);
+    if (parts.length < 3) return null;
+    const company = normalizeText(parts[0]);
+    const stationName = normalizeText(parts[parts.length - 1]);
+    const lineId = normalizeText(parts.slice(0, -1).join('.'));
+    if (!company || !stationName || !lineId) return null;
+    return { id, company, stationName, lineId };
+};
+
+async function ensureSameCompanyTransferClusterLoaded() {
+    if (sameCompanyTransferClusterByStationId instanceof Map) return sameCompanyTransferClusterByStationId;
+    if (sameCompanyTransferClusterLoading) return sameCompanyTransferClusterLoading;
+
+    sameCompanyTransferClusterLoading = (async () => {
+        try {
+            const resp = await fetch('./data/station-groups.json');
+            if (!resp.ok) throw new Error(`load station-groups.json failed: ${resp.status}`);
+            const raw = await resp.json();
+            const groups = Array.isArray(raw) ? raw : [];
+
+            const out = new Map();
+
+            for (const group of groups) {
+                const subGroups = Array.isArray(group) ? group : [];
+                const allNodes = [];
+                for (const sub of subGroups) {
+                    if (!Array.isArray(sub)) continue;
+                    for (const nodeId of sub) {
+                        const p = parseStationNodeId(nodeId);
+                        if (p) allNodes.push(p);
+                    }
+                }
+                if (!allNodes.length) continue;
+
+                const byCompany = new Map();
+                for (const node of allNodes) {
+                    if (!byCompany.has(node.company)) byCompany.set(node.company, []);
+                    byCompany.get(node.company).push(node);
+                }
+
+                for (const [company, nodes] of byCompany.entries()) {
+                    if (!Array.isArray(nodes) || nodes.length <= 1) continue;
+
+                    const stationName = normalizeText(nodes[0]?.stationName || '');
+                    const sortedIds = nodes.map((x) => x.id).sort();
+                    const clusterKey = `same-company-transfer:${company}:${stationName}:${sortedIds.join('|')}`;
+                    const lineIds = Array.from(new Set(nodes.map((x) => x.lineId))).filter(Boolean);
+
+                    for (const n of nodes) {
+                        out.set(n.id, { clusterKey, lineIds });
+                    }
+                }
+            }
+
+            sameCompanyTransferClusterByStationId = out;
+            return sameCompanyTransferClusterByStationId;
+        } catch (e) {
+            console.warn('search.js: 无法加载 station-groups.json（换乘同公司聚类将退化）', e);
+            sameCompanyTransferClusterByStationId = new Map();
+            return sameCompanyTransferClusterByStationId;
+        } finally {
+            sameCompanyTransferClusterLoading = null;
+        }
+    })();
+
+    return sameCompanyTransferClusterLoading;
+}
 
 function mergeCompanyMetaIfAvailable() {
     if (companyMetaMerged) return;
@@ -175,6 +250,7 @@ async function ensureDataLoaded() {
     try {
         const { stationsGeoJSON: stationsData, linesGeoJSON: linesData } = await loadRailGeoDataFromDataFolder();
         const routesIndex = await getRoutesIndex();
+        const sameCompanyCluster = await ensureSameCompanyTransferClusterLoaded();
 
         // 线路多语言 title：用于搜索 + 展示（显示 zh-Hans）
         const titles = await ensureRailwayTitlesLoaded();
@@ -182,7 +258,7 @@ async function ensureDataLoaded() {
         const stations = Array.isArray(stationsData?.features) ? stationsData.features : [];
         const lines = Array.isArray(linesData?.features) ? linesData.features : [];
 
-        stationIndex = stations
+        const stationRaw = stations
             .map((f) => {
                 const p = f?.properties || {};
                 const id = p.id ?? f?.id;
@@ -213,16 +289,47 @@ async function ensureDataLoaded() {
                 );
 
                 if (!id || !nameZh) return null;
+                const sid = String(id);
+                const clusterMeta = sameCompanyCluster?.get?.(sid) || null;
+                const mergedLineIds = clusterMeta?.lineIds?.length
+                    ? clusterMeta.lineIds.slice()
+                    : lineIds;
+
                 return {
                     type: 'station',
-                    id: String(id),
+                    id: sid,
                     text: nameZh,
                     names: [nameZh, nameAltZh, name, nameJa].map(normalizeText).filter(Boolean),
-                    isTransfer,
-                    lineIds
+                    isTransfer: isTransfer || !!clusterMeta,
+                    lineIds: mergedLineIds,
+                    sameCompanyClusterKey: normalizeText(clusterMeta?.clusterKey || '')
                 };
             })
             .filter(Boolean);
+
+        if (sameCompanyCluster?.size) {
+            const mergedMap = new Map();
+            for (const s of stationRaw) {
+                const key = s.sameCompanyClusterKey || `single:${s.id}`;
+                const prev = mergedMap.get(key);
+                if (!prev) {
+                    mergedMap.set(key, {
+                        ...s,
+                        names: Array.isArray(s.names) ? Array.from(new Set(s.names)) : [],
+                        lineIds: Array.isArray(s.lineIds) ? Array.from(new Set(s.lineIds)) : []
+                    });
+                    continue;
+                }
+
+                prev.isTransfer = prev.isTransfer || s.isTransfer;
+                prev.names = Array.from(new Set([...(prev.names || []), ...(s.names || [])]));
+                prev.lineIds = Array.from(new Set([...(prev.lineIds || []), ...(s.lineIds || [])]));
+                if (!prev.text && s.text) prev.text = s.text;
+            }
+            stationIndex = Array.from(mergedMap.values());
+        } else {
+            stationIndex = stationRaw;
+        }
 
         const lineById = new Map();
         for (const f of lines) {
@@ -844,25 +951,27 @@ export function mountSearchUI() {
                 let text;
                 if (item?.type === 'station') {
                     text = el('div', 'search-result-text');
+                    text.classList.add('search-result-text--station');
                     const nameSpan = document.createElement('span');
                     nameSpan.textContent = String(item?.text ?? '');
                     text.appendChild(nameSpan);
 
                     const ids = Array.isArray(item?.lineIds) ? item.lineIds : [];
-                    const metas = ids
-                        .map((id) => ({ id: String(id), meta: lineMetaById.get(String(id)) }))
-                        .filter((x) => x.meta && x.meta.name);
+                    const metas = ids.map((id) => ({ id: String(id), meta: lineMetaById.get(String(id)) }));
 
                     if (metas.length) {
                         const wrap = document.createElement('span');
                         wrap.style.fontSize = '11px';
+                        wrap.style.whiteSpace = 'normal';
+                        wrap.style.display = 'inline';
+                        wrap.style.marginLeft = '6px';
                         wrap.appendChild(document.createTextNode('  '));
 
                         metas.forEach((x, idx) => {
                             if (idx > 0) wrap.appendChild(document.createTextNode('、'));
                             const seg = document.createElement('span');
-                            seg.textContent = String(x.meta.name);
-                            if (x.meta.color) seg.style.color = String(x.meta.color);
+                            seg.textContent = String(x.meta?.name || x.id);
+                            if (x.meta?.color) seg.style.color = String(resolveLineColorForTheme(x.meta.color));
                             wrap.appendChild(seg);
                         });
 
