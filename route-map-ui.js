@@ -28,7 +28,7 @@ const renderRouteMapTitleWithIcon = async (titleEl, lineId, lineName) => {
     textSpan.textContent = safeName;
 
     const meta = await getResolvedRouteIconMeta(safeId);
-    if (meta && meta.code) {
+    if (meta && (meta.code || meta.color)) {
         const icon = createLineIconElement({ routeId: meta.id, code: meta.code, color: meta.color });
         if (icon) {
             icon.style.marginRight = '8px';

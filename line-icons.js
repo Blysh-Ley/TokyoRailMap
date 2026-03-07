@@ -62,13 +62,7 @@ export const resolveMainLineIdForIcon = (lineId, index = null) => {
     return exists(noBranch) ? noBranch : id;
 };
 
-// ---------------------------
-// Line icon preset selection (place exceptions here)
-// ---------------------------
-// Three presets (A/B/C):
-// A) default: rounded-rect ring (JR/other + Toei exceptions)
-// B) metro: circle thick ring (TokyoMetro/Toei)
-// C) id-specific solid circle
+
 
 export const selectLineIconPreset = (routeId, code) => {
     const id = toText(routeId);
@@ -184,17 +178,6 @@ export const resolveLineColorForTheme = (color) => {
     return adjustColorForDarkThemeIfNeeded(raw);
 };
 
-export const shouldUseCircleLineIcon = (routeId) => {
-    // Backward-compatible helper: true if preset uses circle.
-    const preset = selectLineIconPreset(routeId, '');
-    switch (preset) {
-        case 'B':
-        case 'C':
-            return true;
-        default:
-            return false;
-    }
-};
 
 const parseCsvLine = (line) => {
     // Minimal CSV parser supporting quoted fields.
@@ -320,6 +303,21 @@ const applyIconStyleForTheme = (el) => {
     el.style.flex = '0 0 auto';
     el.style.userSelect = 'none';
 
+    if (!code) {
+        el.textContent = '';
+        el.style.backgroundColor = fillColor || (dark ? '#000' : '#fff');
+        el.style.color = 'transparent';
+        el.style.border = '0';
+        el.style.borderRadius = '4px';
+        el.style.height = '25px';
+        el.style.width = '25px';
+        el.style.padding = '0';
+        el.style.paddingBottom = '0';
+        el.style.fontSize = '0';
+        el.style.letterSpacing = '0';
+        return;
+    }
+
     // 每个 preset 一组完整样式
     switch (preset) {
         case 'rectangle': {
@@ -368,7 +366,7 @@ const applyIconStyleForTheme = (el) => {
         }
         case 'circle-border': {
             // B) circle thick ring, transparent background
-            el.style.backgroundColor = 'transparent';
+            el.style.backgroundColor = dark ? '#000' : '#fff';
             el.style.color = dark ? '#fff' : '#000';
 
             el.style.border = `5px solid ${borderColor || 'transparent'}`;
@@ -392,7 +390,7 @@ const applyIconStyleForTheme = (el) => {
             break;
         }
         case 'circle-thin-border': {
-            el.style.backgroundColor = 'transparent';
+            el.style.backgroundColor =  dark ? '#000' : '#fff';
             el.style.color = dark ? '#fff' : '#000';
 
             el.style.border = `3px solid ${borderColor || 'transparent'}`;
@@ -418,7 +416,7 @@ const applyIconStyleForTheme = (el) => {
         case 'rectangle-border':
         default: {
             // A) rounded-rect ring, transparent background
-            el.style.backgroundColor = 'transparent';
+            el.style.backgroundColor = dark ? '#000' : '#fff';
             el.style.color = dark ? '#fff' : '#000';
 
             el.style.border = `3.5px solid ${borderColor || 'transparent'}`;
@@ -467,7 +465,7 @@ export const createLineIconElement = ({ routeId, code, color }) => {
     const resolvedMeta = _routesIndex instanceof Map ? (_routesIndex.get(resolvedId) || _routesIndex.get(id) || null) : null;
     const c = toText(resolvedMeta?.code) || toText(code);
     const resolvedColor = toText(resolvedMeta?.color) || toText(color);
-    if (!resolvedId || !c) return null;
+    if (!resolvedId || (!c && !resolvedColor)) return null;
 
     const el = document.createElement('span');
     el.className = 'rw-line-icon';
@@ -497,7 +495,7 @@ export const ensureLineIconForRwLineContent = async (rwLineContentEl, routeId) =
     if (left.querySelector('.rw-line-icon')) return;
 
     const meta = await getResolvedRouteIconMeta(routeId);
-    if (!meta || !meta.code) return;
+    if (!meta || (!meta.code && !meta.color)) return;
 
     const icon = createLineIconElement({ routeId: meta.id, code: meta.code, color: meta.color });
     if (!icon) return;

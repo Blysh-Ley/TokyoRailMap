@@ -22,7 +22,7 @@ const enhancePanelLineHeaderIcons = async (rootEl) => {
         if (!lineId) continue;
 
         const meta = await getResolvedRouteIconMeta(lineId);
-        if (!meta || !meta.code) continue;
+        if (!meta || (!meta.code && !meta.color)) continue;
 
         const icon = createLineIconElement({ routeId: meta.id, code: meta.code, color: meta.color });
         if (!icon) continue;
