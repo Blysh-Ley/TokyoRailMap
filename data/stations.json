@@ -42995,4 +42995,65 @@
 			"zh-Hant": "會津田島"
 		}
 	}
+	,
+	{
+		"id": "Disney.DisneyResortLine.ResortGateway",
+		"railway": "Disney.DisneyResortLine",
+		"coord": [
+			139.885083,
+			35.635222
+		],
+		"title": {
+			"ja": "リゾートゲートウェイ・ステーション",
+			"en": "Resort Gateway",
+			"ko": "리조트 게이트웨이",
+			"zh-Hans": "度假区总站",
+			"zh-Hant": "度假區總站"
+		}
+	},
+	{
+		"id": "Disney.DisneyResortLine.TokyoDisneyland",
+		"railway": "Disney.DisneyResortLine",
+		"coord": [
+			139.878639,
+			35.635889
+		],
+		"title": {
+			"ja": "東京ディズニーランド・ステーション",
+			"en": "Tokyo Disneyland",
+			"ko": "도쿄 디즈니랜드",
+			"zh-Hans": "东京迪士尼乐园",
+			"zh-Hant": "東京迪士尼樂園"
+		}
+	},
+	{
+		"id": "Disney.DisneyResortLine.Bayside",
+		"railway": "Disney.DisneyResortLine",
+		"coord": [
+			139.876417,
+			35.627944
+		],
+		"title": {
+			"ja": "ベイサイド・ステーション",
+			"en": "Bayside",
+			"ko": "베이사이드",
+			"zh-Hans": "海滨",
+			"zh-Hant": "海濱"
+		}
+	},
+	{
+		"id": "Disney.DisneyResortLine.TokyoDisneySea",
+		"railway": "Disney.DisneyResortLine",
+		"coord": [
+			139.889472,
+			35.627389
+		],
+		"title": {
+			"ja": "東京ディズニーシー・ステーション",
+			"en": "Tokyo DisneySea",
+			"ko": "도쿄 디즈니씨",
+			"zh-Hans": "东京迪士尼海洋",
+			"zh-Hant": "東京迪士尼海洋"
+		}
+	}
 ]
