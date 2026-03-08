@@ -137,8 +137,8 @@ has_geo,id,mode,code,name_ja,name_en,name_ko,name_zh-Hans,name_zh-Hant,color
 1,TamaMonorail.TamaMonorail,monorail,TT,多摩モノレール,Tama Monorail,다마 모노레일,多摩单轨电车,多摩單軌電車,22625E
 1,ShonanMonorail.ShonanMonorail,monorail,SMR,湘南モノレール江の島線,Shōnan Monorail Enoshima Line,쇼난 모노레일 에노시마선,湘南单轨电车江之岛线,湘南單軌電車江之島線,B30000
 1,TokyoMonorail.HanedaAirport,monorail,MO,東京モノレール羽田空港線,Tokyo Monorail Haneda Airport Line,도쿄 모노레일 하네다 공항선,东京单轨电车羽田机场线,東京單軌電車羽田機場線,000080
-1,ChibaMonorail.Line1,monorail,CM1,千葉モノレール1号線,Chiba Monorail Line 1,지바 모노레일 1호선,千叶单轨电车1号线,千葉單軌電車1號線,008EB2
-1,ChibaMonorail.Line2,monorail,CM2,千葉モノレール2号線,Chiba Monorail Line 2,지바 모노레일 2호선,千叶单轨电车2号线,千葉單軌電車2號線,008EB2
+1,ChibaMonorail.Line1,monorail,CM,千葉モノレール1号線,Chiba Monorail Line 1,지바 모노레일 1호선,千叶单轨电车1号线,千葉單軌電車1號線,008EB2
+1,ChibaMonorail.Line2,monorail,CM,千葉モノレール2号線,Chiba Monorail Line 2,지바 모노레일 2호선,千叶单轨电车2号线,千葉單軌電車2號線,008EB2
 1,Ryutetsu.Nagareyama,rail,RN,流鉄流山線,Ryūtetsu Nagareyama Line,류테쓰 나가레야마선,流铁流山线,流鐵流山線,D64022
 1,Enoden.Enoden,tram,EN,江ノ島電鉄線,Enoshima Electric Railway Line,에노시마 전철선,江之岛电铁线,江之島電鐵線,0C6346
 1,YokohamaSeaside.KanazawaSeaside,rail,,金沢シーサイドライン,Kanazawa Seaside Line,가나자와 시사이드 라인,金泽海岸线,金澤海岸線,F68B1E

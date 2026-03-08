@@ -2,6 +2,7 @@
  * Line icons (code badges) for RW menu and other UI.
  *
  * - Reads ./data/routes.csv and maps route id -> { code, color }
+ * - Reads ./data/railways.json for canonical line color (preferred over routes.csv)
  * - Generates icon styles:
  *   - JR/other: rounded rectangle, thin border
  *   - TokyoMetro/Toei: circle, thick border
@@ -68,19 +69,43 @@ export const selectLineIconPreset = (routeId, code) => {
     const id = toText(routeId);
     if (!id) return 'default';
 
-    if(id=='Toei.Arakawa'||id=='Toei.NipporiToneri') {
+    if(
+        id=='Toei.Arakawa'||
+        id=='Toei.NipporiToneri'
+    ) {
         return 'rectangle-border';
     }
-    else if(id.startsWith('TokyoMetro.')||id.startsWith('Toei.')) {
+    else if(
+        id.startsWith('TokyoMetro.')||
+        id.startsWith('Toei.')
+    ) {
         return 'circle-border';
     }
-    else if(id=='TWR.Rinkai'||id=='Yurikamome.Yurikamome' || id.startsWith('YokohamaMunicipal.')) {
+    else if(
+        id=='TWR.Rinkai'||
+        id=='Yurikamome.Yurikamome' || 
+        id.startsWith('YokohamaMunicipal.')
+    ) {
         return 'circle';
     }
-    else if(id.startsWith('MIR.')||id.startsWith('Sotetsu.')||id.startsWith('Tokyu.')||id.startsWith('JR-Central')||id=='Minatomirai.Minatomirai') {
+    else if(
+        id.startsWith('MIR.')||
+        id.startsWith('Sotetsu.')||
+        id.startsWith('Tokyu.')||
+        id.startsWith('JR-Central')||
+        id=='Minatomirai.Minatomirai'
+    ) {
         return 'rectangle';
     }
-    else if(id.startsWith('Keikyu.')||id.startsWith('Keisei.')||id.startsWith('Hokuso.')||id.startsWith('Odakyu.')||id.startsWith('Keio.')) {
+    else if(
+        id.startsWith('Keikyu.')||
+        id.startsWith('Keisei.')||
+        id.startsWith('Hokuso.')||
+        id.startsWith('Odakyu.')||
+        id.startsWith('Keio.')||
+        id.startsWith('ChibaMonorail.')||
+        id=="Enoden.Enoden"
+    ) {
         return 'circle-thin-border';
     }
     else{
@@ -246,6 +271,8 @@ const parseRoutesCsv = (text) => {
 
 let _routesIndexPromise = null;
 let _routesIndex = null;
+let _railwayColorIndexPromise = null;
+let _railwayColorIndex = null;
 
 export const getRoutesIndex = async (url = './data/routes.csv') => {
     if (_routesIndex instanceof Map) return _routesIndex;
@@ -268,19 +295,56 @@ export const getRoutesIndex = async (url = './data/routes.csv') => {
     return _routesIndexPromise;
 };
 
+const getRailwayColorIndex = async (url = './data/railways.json') => {
+    if (_railwayColorIndex instanceof Map) return _railwayColorIndex;
+    if (_railwayColorIndexPromise) return _railwayColorIndexPromise;
+
+    _railwayColorIndexPromise = (async () => {
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`railways.json fetch failed: ${resp.status}`);
+            const list = await resp.json();
+            const map = new Map();
+            for (const row of Array.isArray(list) ? list : []) {
+                const id = toText(row?.id);
+                if (!id) continue;
+                const raw = toText(row?.color);
+                const color = raw ? (raw.startsWith('#') ? raw : `#${raw}`) : '';
+                map.set(id, color);
+            }
+            _railwayColorIndex = map;
+        } catch {
+            _railwayColorIndex = new Map();
+        } finally {
+            _railwayColorIndexPromise = null;
+        }
+        return _railwayColorIndex;
+    })();
+
+    return _railwayColorIndexPromise;
+};
+
 export const getResolvedRouteIconMeta = async (routeId, fallback = {}) => {
     const id = toText(routeId);
     if (!id) return null;
 
-    const index = await getRoutesIndex();
+    const [index, railwayColorIndex] = await Promise.all([
+        getRoutesIndex(),
+        getRailwayColorIndex()
+    ]);
     const resolvedId = resolveMainLineIdForIcon(id, index);
-    const meta = index.get(resolvedId) || index.get(id) || null;
-    if (!meta && !fallback?.code && !fallback?.color) return null;
+    const sourceMeta = index.get(id) || null;
+    const mainMeta = index.get(resolvedId) || null;
+
+    const sourceRailColor = toText(railwayColorIndex?.get?.(id) || '');
+    const mainRailColor = toText(railwayColorIndex?.get?.(resolvedId) || '');
+
+    if (!sourceMeta && !mainMeta && !sourceRailColor && !mainRailColor && !fallback?.code && !fallback?.color) return null;
 
     return {
-        id: toText(meta?.id) || resolvedId || id,
-        code: toText(meta?.code) || toText(fallback?.code),
-        color: toText(meta?.color) || toText(fallback?.color)
+        id: toText(sourceMeta?.id) || toText(mainMeta?.id) || resolvedId || id,
+        code: toText(sourceMeta?.code) || toText(mainMeta?.code) || toText(fallback?.code),
+        color: sourceRailColor || mainRailColor || toText(sourceMeta?.color) || toText(mainMeta?.color) || toText(fallback?.color)
     };
 };
 
@@ -296,6 +360,7 @@ const applyIconStyleForTheme = (el) => {
     const borderColor = resolveBorderColorForTheme(routeColor) || routeColor;
     const fillColor = resolveLineColorForTheme(routeColor) || routeColor;
 
+    const darkBackground = dark ?  'rgba(28, 28, 28, 0.94)' : '#fff';
     el.style.display = 'inline-flex';
     el.style.alignItems = 'center';
     el.style.justifyContent = 'center';
@@ -304,17 +369,20 @@ const applyIconStyleForTheme = (el) => {
     el.style.userSelect = 'none';
 
     if (!code) {
-        el.textContent = '';
-        el.style.backgroundColor = fillColor || (dark ? '#000' : '#fff');
+        el.textContent = '1';
+        el.style.backgroundColor = darkBackground;
         el.style.color = 'transparent';
-        el.style.border = '0';
+
+        el.style.border = `3.5px solid ${borderColor || 'transparent'}`;
         el.style.borderRadius = '4px';
         el.style.height = '25px';
         el.style.width = '25px';
         el.style.padding = '0';
-        el.style.paddingBottom = '0';
-        el.style.fontSize = '0';
+        el.style.paddingBottom = '2px';
+        el.style.fontSize = '12px';
         el.style.letterSpacing = '0';
+
+        
         return;
     }
 
@@ -333,7 +401,7 @@ const applyIconStyleForTheme = (el) => {
             el.style.padding = '0 6px';
             el.style.paddingBottom = '2px';
 
-            el.style.fontWeight = '800';
+            el.style.fontWeight = 'bold';
             if (code.length <= 1) {
                 el.style.fontSize = '14px';
                 el.style.letterSpacing = '0px';
@@ -357,16 +425,16 @@ const applyIconStyleForTheme = (el) => {
             el.style.width = '25px';
             el.style.height = '25px';
             el.style.padding = '0';
-            el.style.paddingBottom = '2px';
+            el.style.paddingBottom = '1px';
 
-            el.style.fontWeight = '800';
-            el.style.fontSize =  '14px';
+            el.style.fontWeight = 'bold';
+            el.style.fontSize =  '15px';
             el.style.letterSpacing = '0px';
             break;
         }
         case 'circle-border': {
             // B) circle thick ring, transparent background
-            el.style.backgroundColor = dark ? '#000' : '#fff';
+            el.style.backgroundColor = darkBackground;
             el.style.color = dark ? '#fff' : '#000';
 
             el.style.border = `5px solid ${borderColor || 'transparent'}`;
@@ -374,7 +442,7 @@ const applyIconStyleForTheme = (el) => {
             el.style.width = '25px';
             el.style.height = '25px';
             el.style.padding = '0';
-            el.style.paddingBottom = '2px';
+            el.style.paddingBottom = '1px';
 
             el.style.fontWeight = '800';
             if (code.length <= 1) {
@@ -390,7 +458,7 @@ const applyIconStyleForTheme = (el) => {
             break;
         }
         case 'circle-thin-border': {
-            el.style.backgroundColor =  dark ? '#000' : '#fff';
+            el.style.backgroundColor =  darkBackground;
             el.style.color = dark ? '#fff' : '#000';
 
             el.style.border = `3px solid ${borderColor || 'transparent'}`;
@@ -416,7 +484,7 @@ const applyIconStyleForTheme = (el) => {
         case 'rectangle-border':
         default: {
             // A) rounded-rect ring, transparent background
-            el.style.backgroundColor = dark ? '#000' : '#fff';
+            el.style.backgroundColor = darkBackground;
             el.style.color = dark ? '#fff' : '#000';
 
             el.style.border = `3.5px solid ${borderColor || 'transparent'}`;
@@ -515,9 +583,12 @@ const ensureThemeObserver = () => {
 export const createLineIconElement = ({ routeId, code, color }) => {
     const id = toText(routeId);
     const resolvedId = resolveMainLineIdForIcon(id, _routesIndex instanceof Map ? _routesIndex : null) || id;
-    const resolvedMeta = _routesIndex instanceof Map ? (_routesIndex.get(resolvedId) || _routesIndex.get(id) || null) : null;
-    const c = toText(resolvedMeta?.code) || toText(code);
-    const resolvedColor = toText(resolvedMeta?.color) || toText(color);
+    const sourceMeta = _routesIndex instanceof Map ? (_routesIndex.get(id) || null) : null;
+    const mainMeta = _routesIndex instanceof Map ? (_routesIndex.get(resolvedId) || null) : null;
+    const sourceRailColor = _railwayColorIndex instanceof Map ? toText(_railwayColorIndex.get(id) || '') : '';
+    const mainRailColor = _railwayColorIndex instanceof Map ? toText(_railwayColorIndex.get(resolvedId) || '') : '';
+    const c = toText(sourceMeta?.code) || toText(mainMeta?.code) || toText(code);
+    const resolvedColor = toText(color) || sourceRailColor || mainRailColor || toText(sourceMeta?.color) || toText(mainMeta?.color);
     if (!resolvedId || (!c && !resolvedColor)) return null;
 
     const el = document.createElement('span');
