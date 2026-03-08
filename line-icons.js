@@ -80,7 +80,7 @@ export const selectLineIconPreset = (routeId, code) => {
     else if(id.startsWith('MIR.')||id.startsWith('Sotetsu.')||id.startsWith('Tokyu.')||id.startsWith('JR-Central')||id=='Minatomirai.Minatomirai') {
         return 'rectangle';
     }
-    else if(id.startsWith('Keikyu.')||id.startsWith('Keisei.')||id.startsWith('Hokuso.')||id.startsWith('Odakyu.')||id.startsWith('Keio.')) {
+    else if(id.startsWith('Keikyu.')||id.startsWith('Keisei.')||id.startsWith('Hokuso.')||id.startsWith('Odakyu.')||id.startsWith('Keio.')||id.startsWith('ChibaMonorail.')) {
         return 'circle-thin-border';
     }
     else{
@@ -296,6 +296,7 @@ const applyIconStyleForTheme = (el) => {
     const borderColor = resolveBorderColorForTheme(routeColor) || routeColor;
     const fillColor = resolveLineColorForTheme(routeColor) || routeColor;
 
+    const darkBackground = dark ?  'rgba(28, 28, 28, 0.94)' : '#fff';
     el.style.display = 'inline-flex';
     el.style.alignItems = 'center';
     el.style.justifyContent = 'center';
@@ -305,16 +306,19 @@ const applyIconStyleForTheme = (el) => {
 
     if (!code) {
         el.textContent = '';
-        el.style.backgroundColor = fillColor || (dark ? '#000' : '#fff');
-        el.style.color = 'transparent';
-        el.style.border = '0';
+        el.style.backgroundColor = darkBackground;
+        el.style.color = dark ? '#fff' : '#000';
+
+        el.style.border = `3.5px solid ${borderColor || 'transparent'}`;
         el.style.borderRadius = '4px';
         el.style.height = '25px';
         el.style.width = '25px';
         el.style.padding = '0';
-        el.style.paddingBottom = '0';
+        el.style.paddingBottom = '2px';
         el.style.fontSize = '0';
         el.style.letterSpacing = '0';
+
+        
         return;
     }
 
@@ -333,7 +337,7 @@ const applyIconStyleForTheme = (el) => {
             el.style.padding = '0 6px';
             el.style.paddingBottom = '2px';
 
-            el.style.fontWeight = '800';
+            el.style.fontWeight = 'bold';
             if (code.length <= 1) {
                 el.style.fontSize = '14px';
                 el.style.letterSpacing = '0px';
@@ -357,16 +361,16 @@ const applyIconStyleForTheme = (el) => {
             el.style.width = '25px';
             el.style.height = '25px';
             el.style.padding = '0';
-            el.style.paddingBottom = '2px';
+            el.style.paddingBottom = '1px';
 
-            el.style.fontWeight = '800';
-            el.style.fontSize =  '14px';
+            el.style.fontWeight = 'bold';
+            el.style.fontSize =  '15px';
             el.style.letterSpacing = '0px';
             break;
         }
         case 'circle-border': {
             // B) circle thick ring, transparent background
-            el.style.backgroundColor = dark ? '#000' : '#fff';
+            el.style.backgroundColor = darkBackground;
             el.style.color = dark ? '#fff' : '#000';
 
             el.style.border = `5px solid ${borderColor || 'transparent'}`;
@@ -374,7 +378,7 @@ const applyIconStyleForTheme = (el) => {
             el.style.width = '25px';
             el.style.height = '25px';
             el.style.padding = '0';
-            el.style.paddingBottom = '2px';
+            el.style.paddingBottom = '1px';
 
             el.style.fontWeight = '800';
             if (code.length <= 1) {
@@ -390,7 +394,7 @@ const applyIconStyleForTheme = (el) => {
             break;
         }
         case 'circle-thin-border': {
-            el.style.backgroundColor =  dark ? '#000' : '#fff';
+            el.style.backgroundColor =  darkBackground;
             el.style.color = dark ? '#fff' : '#000';
 
             el.style.border = `3px solid ${borderColor || 'transparent'}`;
@@ -416,7 +420,7 @@ const applyIconStyleForTheme = (el) => {
         case 'rectangle-border':
         default: {
             // A) rounded-rect ring, transparent background
-            el.style.backgroundColor = dark ? '#000' : '#fff';
+            el.style.backgroundColor = darkBackground;
             el.style.color = dark ? '#fff' : '#000';
 
             el.style.border = `3.5px solid ${borderColor || 'transparent'}`;
