@@ -829,14 +829,23 @@ const dedupePlans = (plans) => {
 
 export const pickPlanBuckets = (plans) => {
     if (!plans.length) return [];
+    const planSignature = (p) => [
+        (Array.isArray(p?.legs) ? p.legs : []).map((x) => `${x?.lineId || ''}:${x?.typeId || ''}`).join('->'),
+        String(Math.round((p?.firstDepMs || 0) / 60000)),
+        String(Math.round((p?.arrivalMs || 0) / 60000))
+    ].join('||');
+
     const shortest = plans.slice().sort((a, b) => a.durationMs - b.durationMs || a.transfers - b.transfers || a.arrivalMs - b.arrivalMs)[0];
     const fewestTransfers = plans.slice().sort((a, b) => a.transfers - b.transfers || a.durationMs - b.durationMs || a.arrivalMs - b.arrivalMs)[0];
     const earliestDeparture = plans.slice().sort((a, b) => a.firstDepMs - b.firstDepMs || a.arrivalMs - b.arrivalMs)[0];
 
     const picked = [];
+    const pickedSignatures = new Set();
     const addUnique = (plan, label) => {
         if (!plan) return;
-        if (picked.some((x) => x.plan === plan)) return;
+        const sig = planSignature(plan);
+        if (pickedSignatures.has(sig)) return;
+        pickedSignatures.add(sig);
         picked.push({ label, plan });
     };
     addUnique(shortest, '最短用时');
@@ -846,7 +855,7 @@ export const pickPlanBuckets = (plans) => {
     const backup = plans
         .slice()
         .sort((a, b) => a.arrivalMs - b.arrivalMs || a.durationMs - b.durationMs)
-        .filter((p) => !picked.some((x) => x.plan === p))
+        .filter((p) => !pickedSignatures.has(planSignature(p)))
         .slice(0, 3)
         .map((plan, idx) => ({ label: `备用方案${idx + 1}`, plan }));
 
