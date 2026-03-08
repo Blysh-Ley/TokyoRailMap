@@ -351,6 +351,44 @@ function buildStationIcon(isTransfer) {
     return wrap;
 }
 
+const isElementTextMultiLine = (node) => {
+    if (!(node instanceof HTMLElement)) return false;
+    const cs = window.getComputedStyle(node);
+    const lineHeight = Number.parseFloat(cs.lineHeight || '0');
+    if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
+        return node.getClientRects().length > 1;
+    }
+    return node.scrollHeight > (lineHeight * 1.45);
+};
+
+const refreshJourneyStationLineAlignment = (rootEl) => {
+    if (!(rootEl instanceof HTMLElement)) return;
+    const lineNodes = rootEl.querySelectorAll('.journey-station-result-lines');
+    lineNodes.forEach((lineNode) => {
+        if (!(lineNode instanceof HTMLElement)) return;
+        const textNode = lineNode.closest('.journey-station-result-text');
+        if (!(textNode instanceof HTMLElement)) return;
+        const isMultiline = isElementTextMultiLine(lineNode);
+        textNode.classList.toggle('is-lines-multiline', isMultiline);
+        if (isMultiline) {
+            textNode.style.setProperty('--journey-line-offset', '0px');
+            return;
+        }
+
+        const nameNode = textNode.querySelector('.journey-station-result-name');
+        if (!(nameNode instanceof HTMLElement)) {
+            textNode.style.setProperty('--journey-line-offset', '0px');
+            return;
+        }
+
+        const nameRect = nameNode.getBoundingClientRect();
+        const lineRect = lineNode.getBoundingClientRect();
+        const delta = nameRect.bottom - lineRect.bottom;
+        const clamped = Math.max(-8, Math.min(8, delta));
+        textNode.style.setProperty('--journey-line-offset', `${clamped.toFixed(2)}px`);
+    });
+};
+
 export function mountTravelSearchUI() {
     if (document.querySelector('.journey-ui')) {
         return window.TokyoRailJourneyUI;
@@ -1396,16 +1434,18 @@ export function mountTravelSearchUI() {
             const li = document.createElement('li');
             const row = el('div', 'search-result-item');
             const icon = buildStationIcon(item?.isTransfer === true);
-            const text = el('div', 'search-result-text');
+            const text = el('div', 'search-result-text journey-station-result-text');
             const nameSpan = document.createElement('span');
+            nameSpan.className = 'journey-station-result-name';
             nameSpan.textContent = String(item?.text ?? '');
             text.appendChild(nameSpan);
 
             const lineMetas = await getLineMetaByIds(item?.lineIds);
             if (Array.isArray(lineMetas) && lineMetas.length) {
                 const wrap = document.createElement('span');
+                wrap.className = 'journey-station-result-lines';
                 wrap.style.fontSize = '11px';
-                wrap.appendChild(document.createTextNode('  '));
+                wrap.style.whiteSpace = 'normal';
 
                 lineMetas.forEach((meta, idx) => {
                     if (idx > 0) wrap.appendChild(document.createTextNode('、'));
@@ -1439,6 +1479,10 @@ export function mountTravelSearchUI() {
             li.appendChild(row);
             list.appendChild(li);
         }
+
+        window.requestAnimationFrame(() => {
+            refreshJourneyStationLineAlignment(list);
+        });
 
         results.classList.remove('is-hidden');
     };

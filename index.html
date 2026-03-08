@@ -2400,6 +2400,40 @@
             word-break: break-word;
         }
 
+        .journey-station-result-text {
+            min-height: 25px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            min-width: 0;
+        }
+
+        .journey-station-result-name {
+            display: inline-block;
+            line-height: 1.2;
+            align-self: center;
+            flex: 0 0 auto;
+        }
+
+        .journey-station-result-lines {
+            display: inline-block;
+            line-height: 1.35;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            min-width: 0;
+            max-width: 100%;
+            align-self: flex-end;
+            transform: translateY(var(--journey-line-offset, 0px));
+        }
+
+        .journey-station-result-text.is-lines-multiline .journey-station-result-lines {
+            align-self: center;
+            transform: none;
+        }
+
             .panel-controls {
                 display: flex;
                 flex-direction: column;
