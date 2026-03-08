@@ -68,19 +68,43 @@ export const selectLineIconPreset = (routeId, code) => {
     const id = toText(routeId);
     if (!id) return 'default';
 
-    if(id=='Toei.Arakawa'||id=='Toei.NipporiToneri') {
+    if(
+        id=='Toei.Arakawa'||
+        id=='Toei.NipporiToneri'
+    ) {
         return 'rectangle-border';
     }
-    else if(id.startsWith('TokyoMetro.')||id.startsWith('Toei.')) {
+    else if(
+        id.startsWith('TokyoMetro.')||
+        id.startsWith('Toei.')
+    ) {
         return 'circle-border';
     }
-    else if(id=='TWR.Rinkai'||id=='Yurikamome.Yurikamome' || id.startsWith('YokohamaMunicipal.')) {
+    else if(
+        id=='TWR.Rinkai'||
+        id=='Yurikamome.Yurikamome' || 
+        id.startsWith('YokohamaMunicipal.')
+    ) {
         return 'circle';
     }
-    else if(id.startsWith('MIR.')||id.startsWith('Sotetsu.')||id.startsWith('Tokyu.')||id.startsWith('JR-Central')||id=='Minatomirai.Minatomirai') {
+    else if(
+        id.startsWith('MIR.')||
+        id.startsWith('Sotetsu.')||
+        id.startsWith('Tokyu.')||
+        id.startsWith('JR-Central')||
+        id=='Minatomirai.Minatomirai'
+    ) {
         return 'rectangle';
     }
-    else if(id.startsWith('Keikyu.')||id.startsWith('Keisei.')||id.startsWith('Hokuso.')||id.startsWith('Odakyu.')||id.startsWith('Keio.')||id.startsWith('ChibaMonorail.')) {
+    else if(
+        id.startsWith('Keikyu.')||
+        id.startsWith('Keisei.')||
+        id.startsWith('Hokuso.')||
+        id.startsWith('Odakyu.')||
+        id.startsWith('Keio.')||
+        id.startsWith('ChibaMonorail.')||
+        id=="Enoden.Enoden"
+    ) {
         return 'circle-thin-border';
     }
     else{
