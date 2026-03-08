@@ -979,12 +979,14 @@ export function mountTravelSearchUI() {
 
         const overallDestinationStationId = normalizeText(row?.destinationStationId || (displayPlan?.legs && displayPlan.legs.length ? displayPlan.legs[displayPlan.legs.length - 1]?.toStop : '') || '');
         const stationCodeMap = await getJourneyStationCodeMap();
+        let shouldAppendDirectionForNextNote = true;
 
         for (const block of blocks) {
             if (block.kind === 'transfer') {
                 const transferRow = el('div', 'journey-trip-transfer-row');
                 transferRow.appendChild(el('span', 'journey-trip-transfer-label', { text: '换乘' }));
                 tripPopoverBody.appendChild(transferRow);
+                shouldAppendDirectionForNextNote = true;
                 continue;
             }
 
@@ -993,13 +995,29 @@ export function mountTravelSearchUI() {
             if (block.lineColor) noteDot.style.background = String(resolveJourneyColorForTheme(block.lineColor));
             const noteLine = el('span', 'journey-trip-note-line', { text: block.lineDisplayName || block.lineName });
             if (block.lineColor) noteLine.style.color = String(resolveJourneyColorForTheme(block.lineColor));
+            if (shouldAppendDirectionForNextNote) {
+                const blockRows = Array.isArray(block?.rows) ? block.rows : [];
+                const blockLast = blockRows.length ? blockRows[blockRows.length - 1] : null;
+                const directionDestination = normalizeText(blockLast?.stationName || blockLast?.stationId || '');
+                if (directionDestination) {
+                    const direction = el('span', 'journey-trip-note-direction', { text: ` 往 ${directionDestination} /` });
+                    note.appendChild(noteDot);
+                    note.appendChild(noteLine);
+                    note.appendChild(direction);
+                } else {
+                    note.appendChild(noteDot);
+                    note.appendChild(noteLine);
+                }
+                shouldAppendDirectionForNextNote = false;
+            } else {
+                note.appendChild(noteDot);
+                note.appendChild(noteLine);
+            }
             const noteType = el('span', 'journey-trip-note-type', { text: block.typeName });
             if (block.typeColor) noteType.style.color = String(resolveJourneyColorForTheme(block.typeColor));
             if (travelIsDarkThemeActive() && isLocalTypeName(block.typeName)) {
                 noteType.style.color = '#fff';
             }
-            note.appendChild(noteDot);
-            note.appendChild(noteLine);
             note.appendChild(noteType);
             tripPopoverBody.appendChild(note);
 
@@ -1241,11 +1259,24 @@ export function mountTravelSearchUI() {
             const li = document.createElement('li');
             li.className = 'journey-plan-item';
 
-            const tag = el('div', 'journey-plan-tag', { text: row.label });
-            li.appendChild(tag);
+            const tagLabels = Array.isArray(row?.tagLabels)
+                ? row.tagLabels.map((x) => normalizeText(x)).filter(Boolean)
+                : [normalizeText(row?.label)].filter(Boolean);
+            if (tagLabels.length) {
+                const tagsWrap = el('div', 'journey-plan-tags');
+                for (const tagText of tagLabels) {
+                    let addText = tagText + "  ";
+                    tagsWrap.appendChild(el('div', 'journey-plan-tag', { text: addText }));
+                }
+                li.appendChild(tagsWrap);
+            }
 
             const head = el('div', 'journey-plan-head');
             head.appendChild(el('span', 'journey-plan-duration', { text: formatDuration(displayPlan?.durationMs) }));
+            const transferText = Number(displayPlan?.transfers) > 0
+                ? `${Number(displayPlan.transfers)}次换乘`
+                : '直达';
+            head.appendChild(el('span', 'journey-plan-transfer', { text: transferText }));
             head.appendChild(el('span', 'journey-plan-arrive', { text: `${toHHMM(displayPlan?.arrivalMs)}到达` }));
             li.appendChild(head);
 
@@ -1391,15 +1422,29 @@ export function mountTravelSearchUI() {
             return;
         }
 
-        const picked = pickPlanBuckets(plans).map((x) => ({
-            ...x,
-            serviceDay,
-            baseDepartureMs: departureMs,
-            originStationId: originId,
-            destinationStationId: destinationId,
-            originName,
-            destinationName
-        }));
+        const shortest = plans.slice().sort((a, b) => a.durationMs - b.durationMs || a.transfers - b.transfers || a.arrivalMs - b.arrivalMs)[0] || null;
+        const fewestTransfers = plans.slice().sort((a, b) => a.transfers - b.transfers || a.durationMs - b.durationMs || a.arrivalMs - b.arrivalMs)[0] || null;
+        const earliestDeparture = plans.slice().sort((a, b) => a.firstDepMs - b.firstDepMs || a.arrivalMs - b.arrivalMs)[0] || null;
+
+        const picked = pickPlanBuckets(plans).map((x) => {
+            const plan = x?.plan || null;
+            const tagLabels = [];
+            if (plan && shortest === plan) tagLabels.push('最短用时');
+            if (plan && fewestTransfers === plan) tagLabels.push('最少换乘');
+            if (plan && earliestDeparture === plan) tagLabels.push('最早出发');
+            if (!tagLabels.length) tagLabels.push(normalizeText(x?.label || '备用方案'));
+
+            return {
+                ...x,
+                tagLabels,
+                serviceDay,
+                baseDepartureMs: departureMs,
+                originStationId: originId,
+                destinationStationId: destinationId,
+                originName,
+                destinationName
+            };
+        });
         await renderPlanResults(picked);
     };
 

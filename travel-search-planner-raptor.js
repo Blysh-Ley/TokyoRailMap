@@ -70,6 +70,7 @@ export const formatDuration = (durationMs) => {
     const totalMin = Math.round(durationMs / 60000);
     const h = Math.floor(totalMin / 60);
     const m = totalMin % 60;
+    if (h <= 0) return `用时${m}分钟`;
     return `用时${h}小时${m}分钟`;
 };
 
