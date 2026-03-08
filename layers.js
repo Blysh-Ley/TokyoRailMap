@@ -3,6 +3,57 @@
  */
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { getCachedJson } from './fetch.js';
+import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
+
+const toText = (v) => String(v ?? '').trim();
+
+const enhancePopupLineBadges = async ({ popup, mode }) => {
+    const root = popup?.getElement?.();
+    if (!(root instanceof HTMLElement)) return;
+
+    const lineEls = root.querySelectorAll('.station-hover-line[data-line-id]');
+    for (const lineEl of lineEls) {
+        if (!(lineEl instanceof HTMLElement)) continue;
+
+        const lineId = toText(lineEl.getAttribute('data-line-id'));
+        if (!lineId) continue;
+
+        const fallbackColor = toText(lineEl.style?.color || '');
+        const meta = await getResolvedRouteIconMeta(lineId, { color: fallbackColor });
+
+        if (mode === 'line') {
+            if (lineEl.querySelector('.rw-line-icon')) continue;
+            const icon = createLineIconElement({
+                routeId: toText(meta?.id) || lineId,
+                code: toText(meta?.code),
+                color: toText(meta?.color) || fallbackColor
+            });
+            if (!icon) continue;
+            icon.style.marginRight = '4px';
+            lineEl.prepend(icon);
+            continue;
+        }
+
+        if (mode === 'station') {
+            if (lineEl.querySelector('.rw-station-code-badge')) continue;
+            const stationCode = toText(lineEl.getAttribute('data-station-code'));
+            if (!stationCode) continue;
+            const badge = createStationCodeBadgeElement({
+                code: stationCode,
+                color: toText(meta?.color) || fallbackColor
+            });
+            if (!badge) continue;
+            badge.style.marginLeft = '6px';
+            const suffixEl = lineEl.querySelector('.station-hover-line-suffix');
+            if (suffixEl) {
+                badge.style.marginRight = '4px';
+                lineEl.insertBefore(badge, suffixEl);
+            } else {
+                lineEl.append(badge);
+            }
+        }
+    }
+};
 
 export function addLinesLayer(map, linesData) {
     map.addSource('lines-source', { type: 'geojson', data: linesData });
@@ -139,6 +190,7 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
         map.getCanvas().style.cursor = 'pointer';
         const html = buildPopupHtml(props);
         popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
+        void enhancePopupLineBadges({ popup, mode: 'line' });
         popupShown = true;
         lastHoverLineId = lineId;
     });
@@ -171,12 +223,14 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
 
         if (!popupShown || lineId !== lastHoverLineId) {
             popup.setHTML(buildPopupHtml(props));
+            void enhancePopupLineBadges({ popup, mode: 'line' });
             lastHoverLineId = lineId;
         }
 
         popup.setLngLat(e.lngLat);
         if (!popupShown) {
             popup.addTo(map);
+            void enhancePopupLineBadges({ popup, mode: 'line' });
             popupShown = true;
         }
     });
@@ -287,16 +341,19 @@ export function setupStationPopup(map, maplibregl, options = {}) {
             try {
                 const list = await getCachedJson('./data/stations.json');
                 const idToNameZh = new Map();
+                const idToCode = new Map();
                 for (const s of Array.isArray(list) ? list : []) {
                     const id = String(s?.id ?? '').trim();
                     if (!id) continue;
                     const t = s?.title || {};
                     const name = String(t['zh-Hans'] || t.zh || t.ja || t.en || '').trim();
                     if (name) idToNameZh.set(id, name);
+                    const stationCode = String(s?.code ?? t?.code ?? '').trim();
+                    if (stationCode) idToCode.set(id, stationCode);
                 }
-                return { idToNameZh };
+                return { idToNameZh, idToCode };
             } catch {
-                return { idToNameZh: new Map() };
+                return { idToNameZh: new Map(), idToCode: new Map() };
             }
         })();
         return stationsIndexPromise;
@@ -753,6 +810,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         const currentPlatformLineId = String(platformLineIdsRaw?.[0] ?? '').trim();
 
         const lineStationNameByLineId = new Map();
+        const lineStationCodeByLineId = new Map();
         if (stationId) {
             try {
                 const [groupsIndex, stationsIndex] = await Promise.all([getStationGroupsIndex(), getStationsIndex()]);
@@ -767,6 +825,8 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                     if (!candidateId) continue;
                     const n = String(stationsIndex?.idToNameZh?.get?.(candidateId) || '').trim();
                     if (n) lineStationNameByLineId.set(lineId, n);
+                    const c = String(stationsIndex?.idToCode?.get?.(candidateId) || '').trim();
+                    if (c) lineStationCodeByLineId.set(lineId, c);
                 }
             } catch {
                 // ignore
@@ -882,6 +942,8 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                     : '';
                 const idAttr = line.lineId ? ` data-line-id="${escapeHtml(String(line.lineId))}"` : '';
                 const lineId = String(line.lineId ?? '').trim();
+                const stationCode = String(lineStationCodeByLineId.get(lineId) || '').trim();
+                const stationCodeAttr = stationCode ? ` data-station-code="${escapeHtml(stationCode)}"` : '';
                 const isTransferStation = servingIds.length > 1;
                 const isCurrentLine = !!lineId && !!currentPlatformLineId && lineId === currentPlatformLineId;
                 const transferStationName = String(lineStationNameByLineId.get(lineId) || '').trim();
@@ -896,7 +958,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                     : '';
                 const currentClass = isTransferStation && isCurrentLine ? ' is-current' : '';
 
-                linesHtml += `<div class="station-hover-line${currentClass}"${idAttr}${style}>${escapeHtml(line.displayName)}${suffixHtml}</div>`;
+                linesHtml += `<div class="station-hover-line${currentClass}"${idAttr}${stationCodeAttr}${style}>${escapeHtml(line.displayName)}${suffixHtml}</div>`;
             }
 
             companiesHtml += `
@@ -937,6 +999,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         const props = e.features[0].properties || {};
         const html = await buildPopupHtml(props, { interactive: false });
         popup.setLngLat(coordinates).setHTML(html).addTo(map);
+        void enhancePopupLineBadges({ popup, mode: 'station' });
         bindPopupHover();
     });
 
@@ -971,6 +1034,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
         const html = await buildPopupHtml(props, { interactive: true });
         popup.setLngLat(coordinates).setHTML(html).addTo(map);
+        void enhancePopupLineBadges({ popup, mode: 'station' });
         bindPopupHover();
     };
 
