@@ -632,7 +632,7 @@ export class Menu {
 
                 lineContent.dataset.lineId = String(lineId);
 
-                // 异步注入线路 code icon（routes.csv 无 code 则跳过）
+                // 异步注入线路 code icon（railways.json 无 code 则跳过）
                 ensureLineIconForRwLineContent(lineContent, String(lineId));
 
                 // 缓存主线显示名与菜单元素

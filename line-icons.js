@@ -1,8 +1,7 @@
 /**
  * Line icons (code badges) for RW menu and other UI.
  *
- * - Reads ./data/routes.csv and maps route id -> { code, color }
- * - Reads ./data/railways.json for canonical line color (preferred over routes.csv)
+ * - Reads ./data/railways.json and maps route id -> { code, color }
  * - Generates icon styles:
  *   - JR/other: rounded rectangle, thin border
  *   - TokyoMetro/Toei: circle, thick border
@@ -204,86 +203,30 @@ export const resolveLineColorForTheme = (color) => {
 };
 
 
-const parseCsvLine = (line) => {
-    // Minimal CSV parser supporting quoted fields.
-    const out = [];
-    let cur = '';
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (inQuotes) {
-            if (ch === '"') {
-                const next = line[i + 1];
-                if (next === '"') {
-                    cur += '"';
-                    i++;
-                } else {
-                    inQuotes = false;
-                }
-            } else {
-                cur += ch;
-            }
-            continue;
-        }
-
-        if (ch === '"') {
-            inQuotes = true;
-            continue;
-        }
-        if (ch === ',') {
-            out.push(cur);
-            cur = '';
-            continue;
-        }
-        cur += ch;
-    }
-    out.push(cur);
-    return out;
-};
-
-const parseRoutesCsv = (text) => {
-    const s = String(text ?? '');
-    const lines = s.split(/\r?\n/).filter((x) => x && String(x).trim().length);
-    if (!lines.length) return new Map();
-
-    const header = parseCsvLine(lines[0]).map((x) => toText(x));
-    const idxId = header.indexOf('id');
-    const idxCode = header.indexOf('code');
-    const idxColor = header.indexOf('color');
-
-    const map = new Map();
-
-    for (let i = 1; i < lines.length; i++) {
-        const cols = parseCsvLine(lines[i]);
-        const id = idxId >= 0 ? toText(cols[idxId]) : '';
-        if (!id) continue;
-
-        const code = idxCode >= 0 ? toText(cols[idxCode]) : '';
-        const rawColor = idxColor >= 0 ? toText(cols[idxColor]) : '';
-        const color = rawColor ? (rawColor.startsWith('#') ? rawColor : `#${rawColor}`) : '';
-
-        map.set(id, { id, code, color });
-    }
-
-    return map;
-};
-
 let _routesIndexPromise = null;
 let _routesIndex = null;
 let _railwayColorIndexPromise = null;
 let _railwayColorIndex = null;
 
-export const getRoutesIndex = async (url = './data/routes.csv') => {
+export const getRoutesIndex = async (url = './data/railways.json') => {
     if (_routesIndex instanceof Map) return _routesIndex;
     if (_routesIndexPromise) return _routesIndexPromise;
 
     _routesIndexPromise = (async () => {
         try {
             const resp = await fetch(url);
-            if (!resp.ok) throw new Error(`routes.csv fetch failed: ${resp.status}`);
-            const text = await resp.text();
-            _routesIndex = parseRoutesCsv(text);
+            if (!resp.ok) throw new Error(`railways.json fetch failed: ${resp.status}`);
+            const list = await resp.json();
+            const map = new Map();
+            for (const row of Array.isArray(list) ? list : []) {
+                const id = toText(row?.id);
+                if (!id) continue;
+                const code = toText(row?.code);
+                const rawColor = toText(row?.color);
+                const color = rawColor ? (rawColor.startsWith('#') ? rawColor : `#${rawColor}`) : '';
+                map.set(id, { id, code, color });
+            }
+            _routesIndex = map;
         } catch {
             _routesIndex = new Map();
         } finally {
@@ -301,14 +244,10 @@ const getRailwayColorIndex = async (url = './data/railways.json') => {
 
     _railwayColorIndexPromise = (async () => {
         try {
-            const resp = await fetch(url);
-            if (!resp.ok) throw new Error(`railways.json fetch failed: ${resp.status}`);
-            const list = await resp.json();
             const map = new Map();
-            for (const row of Array.isArray(list) ? list : []) {
-                const id = toText(row?.id);
-                if (!id) continue;
-                const raw = toText(row?.color);
+            const index = await getRoutesIndex(url);
+            for (const [id, meta] of index.entries()) {
+                const raw = toText(meta?.color);
                 const color = raw ? (raw.startsWith('#') ? raw : `#${raw}`) : '';
                 map.set(id, color);
             }

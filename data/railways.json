@@ -44,6 +44,7 @@
 		"ascending": "OuterLoop",
 		"descending": "InnerLoop",
 		"color": "#80C342",
+		"code": "JY",
 		"carComposition": 11
 	},
 	{
@@ -84,6 +85,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F15A22",
+		"code": "JC",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -122,6 +124,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0074BE",
+		"code": "CO",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -164,6 +167,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F15A22",
+		"code": "JC",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -188,6 +192,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F15A22",
+		"code": "JC",
 		"carComposition": 6,
 		"dynamic": true
 	},
@@ -244,6 +249,7 @@
 		"ascending": "Westbound",
 		"descending": "Eastbound",
 		"color": "#FFD400",
+		"code": "JB",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -282,6 +288,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F68B1E",
+		"code": "JT",
 		"carComposition": 15,
 		"dynamic": true
 	},
@@ -333,6 +340,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F68B1E",
+		"code": "JU",
 		"carComposition": 15,
 		"dynamic": true
 	},
@@ -375,6 +383,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F68B1E",
+		"code": "JU",
 		"carComposition": 15,
 		"dynamic": true
 	},
@@ -470,6 +479,7 @@
 		"ascending": "Southbound",
 		"descending": "Northbound",
 		"color": "#00B2E5",
+		"code": "JK",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -500,6 +510,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#00B261",
+		"code": "JJ",
 		"carComposition": 15,
 		"dynamic": true
 	},
@@ -531,6 +542,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#A8A39D",
+		"code": "JL",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -612,6 +624,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#007AC1",
+		"code": "JO",
 		"carComposition": 15,
 		"dynamic": true
 	},
@@ -861,6 +874,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#007AC1",
+		"code": "JO",
 		"carComposition": 15,
 		"dynamic": true
 	},
@@ -896,6 +910,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#C9252F",
+		"code": "JE",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -984,6 +999,7 @@
 		"ascending": "Northbound",
 		"descending": "Southbound",
 		"color": "#00B48D",
+		"code": "JA",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -1017,6 +1033,7 @@
 		"ascending": "Northbound",
 		"descending": "Southbound",
 		"color": "#E31F26",
+		"code": "JS",
 		"carComposition": 15,
 		"dynamic": true
 	},
@@ -1129,6 +1146,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFD400",
+		"code": "JI",
 		"carComposition": 3,
 		"dynamic": true
 	},
@@ -1211,6 +1229,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFD400",
+		"code": "JN",
 		"carComposition": 6,
 		"dynamic": true
 	},
@@ -1233,6 +1252,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFD400",
+		"code": "JN",
 		"carComposition": 2,
 		"dynamic": true
 	},
@@ -1276,6 +1296,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F15A22",
+		"code": "JM",
 		"carComposition": 8,
 		"dynamic": true
 	},
@@ -1371,6 +1392,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#80C342",
+		"code": "JH",
 		"carComposition": 8,
 		"dynamic": true
 	},
@@ -1570,6 +1592,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F68B1E",
+		"code": "JT",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -1712,6 +1735,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F68B1E",
+		"code": "CA",
 		"carComposition": 15
 	},
 	{
@@ -1747,6 +1771,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#3F743A",
+		"code": "CB",
 		"carComposition": 5
 	},
 	{
@@ -1772,6 +1797,7 @@
 		"descending": "Inbound",
 		"altitude": -1,
 		"color": "#00418E",
+		"code": "R",
 		"carComposition": 10
 	},
 	{
@@ -1808,6 +1834,7 @@
 		"descending": "TokyoMetro.Shibuya",
 		"altitude": -1,
 		"color": "#FF9500",
+		"code": "G",
 		"carComposition": 6
 	},
 	{
@@ -1850,6 +1877,7 @@
 		"descending": "TokyoMetro.Ogikubo",
 		"altitude": -1,
 		"color": "#F62E36",
+		"code": "M",
 		"carComposition": 6
 	},
 	{
@@ -1871,6 +1899,7 @@
 		"descending": "TokyoMetro.Honancho",
 		"altitude": -1,
 		"color": "#F62E36",
+		"code": "Mb",
 		"carComposition": 6
 	},
 	{
@@ -1910,6 +1939,7 @@
 		"descending": "TokyoMetro.NakaMeguro",
 		"altitude": -1,
 		"color": "#B5B5AC",
+		"code": "H",
 		"carComposition": 7
 	},
 	{
@@ -1950,6 +1980,7 @@
 		"descending": "TokyoMetro.Nakano",
 		"altitude": -1,
 		"color": "#009BBF",
+		"code": "T",
 		"carComposition": 10
 	},
 	{
@@ -1987,6 +2018,7 @@
 		"descending": "TokyoMetro.YoyogiUehara",
 		"altitude": -1,
 		"color": "#00BB85",
+		"code": "C",
 		"carComposition": 10
 	},
 	{
@@ -2028,6 +2060,7 @@
 		"descending": "TokyoMetro.Wakoshi",
 		"altitude": -1,
 		"color": "#C1A470",
+		"code": "Y",
 		"carComposition": 10
 	},
 	{
@@ -2059,6 +2092,7 @@
 		"descending": "TokyoMetro.Shibuya",
 		"altitude": -1,
 		"color": "#8F76D6",
+		"code": "Z",
 		"carComposition": 10
 	},
 	{
@@ -2095,6 +2129,7 @@
 		"descending": "TokyoMetro.Meguro",
 		"altitude": -1,
 		"color": "#00AC9B",
+		"code": "N",
 		"carComposition": 8
 	},
 	{
@@ -2128,6 +2163,7 @@
 		"descending": "TokyoMetro.Wakoshi",
 		"altitude": -1,
 		"color": "#9C5E31",
+		"code": "F",
 		"carComposition": 10
 	},
 	{
@@ -2165,6 +2201,7 @@
 		"descending": "Southbound",
 		"altitude": -1,
 		"color": "#DC435F",
+		"code": "A",
 		"carComposition": 8,
 		"dynamic": true
 	},
@@ -2210,6 +2247,7 @@
 		"descending": "Southbound",
 		"altitude": -1,
 		"color": "#006AB8",
+		"code": "I",
 		"carComposition": 8,
 		"dynamic": true
 	},
@@ -2249,6 +2287,7 @@
 		"descending": "Westbound",
 		"altitude": -1,
 		"color": "#B0BF1E",
+		"code": "S",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -2306,6 +2345,7 @@
 		"descending": "InnerLoop",
 		"altitude": -1,
 		"color": "#CE045B",
+		"code": "E",
 		"carComposition": 8,
 		"dynamic": true
 	},
@@ -2336,6 +2376,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#D53A77",
+		"code": "NT",
 		"carComposition": 5
 	},
 	{
@@ -2382,6 +2423,7 @@
 		"ascending": "Toei.Waseda",
 		"descending": "Toei.Minowabashi",
 		"color": "#EE86A7",
+		"code": "SA",
 		"carComposition": 1,
 		"dynamic": true
 	},
@@ -2432,6 +2474,7 @@
 		"descending": "Outbound",
 		"altitude": -1,
 		"color": "#093F86",
+		"code": "B",
 		"carComposition": 6,
 		"dynamic": true
 	},
@@ -2460,6 +2503,7 @@
 		"descending": "Outbound",
 		"altitude": -1,
 		"color": "#00A15A",
+		"code": "G",
 		"carComposition": 4,
 		"dynamic": true
 	},
@@ -2482,6 +2526,7 @@
 		"descending": "Inbound",
 		"altitude": -1,
 		"color": "#DD0077",
+		"code": "KO",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -2531,6 +2576,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#DD0077",
+		"code": "KO",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -2561,6 +2607,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#DD0077",
+		"code": "KO",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -2580,6 +2627,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#DD0077",
+		"code": "KO",
 		"carComposition": 2,
 		"dynamic": true
 	},
@@ -2599,6 +2647,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#DD0077",
+		"code": "KO",
 		"carComposition": 4,
 		"dynamic": true
 	},
@@ -2624,6 +2673,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#DD0077",
+		"code": "KO",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -2658,6 +2708,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#000088",
+		"code": "IN",
 		"carComposition": 5,
 		"dynamic": true
 	},
@@ -2725,6 +2776,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33C2E4",
+		"code": "KK",
 		"carComposition": 8
 	},
 	{
@@ -2749,6 +2801,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33C2E4",
+		"code": "KK",
 		"carComposition": 8
 	},
 	{
@@ -2772,6 +2825,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33C2E4",
+		"code": "KK",
 		"carComposition": 4
 	},
 	{
@@ -2792,6 +2846,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33C2E4",
+		"code": "KK",
 		"carComposition": 8
 	},
 	{
@@ -2818,6 +2873,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33C2E4",
+		"code": "KK",
 		"carComposition": 8
 	},
 	{
@@ -2876,6 +2932,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005AAA",
+		"code": "KS",
 		"carComposition": 6,
 		"dynamic": true
 	},
@@ -2895,6 +2952,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005AAA",
+		"code": "KS",
 		"carComposition": 6,
 		"dynamic": true
 	},
@@ -2918,6 +2976,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005AAA",
+		"code": "KS",
 		"carComposition": 8,
 		"dynamic": true
 	},
@@ -2945,6 +3004,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005AAA",
+		"code": "KS",
 		"carComposition": 6,
 		"dynamic": true
 	},
@@ -2968,6 +3028,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005AAA",
+		"code": "KS",
 		"carComposition": 6,
 		"dynamic": true
 	},
@@ -2996,6 +3057,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF8620",
+		"code": "KS",
 		"carComposition": 8,
 		"dynamic": true
 	},
@@ -3016,6 +3078,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005AAA",
+		"code": "KS",
 		"carComposition": 4,
 		"dynamic": true
 	},
@@ -3057,6 +3120,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005AAA",
+		"code": "KS",
 		"carComposition": 6,
 		"dynamic": true
 	},
@@ -3089,6 +3153,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#00BDF2",
+		"code": "HS",
 		"carComposition": 8,
 		"dynamic": true
 	},
@@ -3108,6 +3173,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#00A650",
+		"code": "SR",
 		"carComposition": 6,
 		"dynamic": true
 	},
@@ -3154,6 +3220,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0F6CC3",
+		"code": "TS",
 		"carComposition": 6
 	},
 	{
@@ -3214,6 +3281,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF0000",
+		"code": "TI",
 		"carComposition": 10
 	},
 	{
@@ -3240,6 +3308,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF0000",
+		"code": "TI",
 		"carComposition": 3
 	},
 	{
@@ -3263,6 +3332,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF0000",
+		"code": "TI",
 		"carComposition": 2
 	},
 	{
@@ -3282,6 +3352,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF0000",
+		"code": "TI",
 		"carComposition": 2
 	},
 	{
@@ -3306,6 +3377,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF0000",
+		"code": "TI",
 		"carComposition": 2
 	},
 	{
@@ -3349,6 +3421,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFA500",
+		"code": "TN",
 		"carComposition": 6
 	},
 	{
@@ -3394,6 +3467,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFA500",
+		"code": "TN",
 		"carComposition": 4
 	},
 	{
@@ -3419,6 +3493,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFA500",
+		"code": "TN",
 		"carComposition": 2
 	},
 	{
@@ -3440,6 +3515,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0F6CC3",
+		"code": "TS",
 		"carComposition": 2
 	},
 	{
@@ -3458,6 +3534,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0F6CC3",
+		"code": "TS",
 		"carComposition": 2
 	},
 	{
@@ -3509,6 +3586,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33CCCC",
+		"code": "TD",
 		"carComposition": 6
 	},
 	{
@@ -3564,6 +3642,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#000099",
+		"code": "TJ",
 		"carComposition": 10
 	},
 	{
@@ -3588,6 +3667,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#000099",
+		"code": "TJ",
 		"carComposition": 4
 	},
 	{
@@ -3635,6 +3715,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF6600",
+		"code": "SI",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -3654,6 +3735,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF6600",
+		"code": "SI",
 		"carComposition": 8,
 		"dynamic": true
 	},
@@ -3674,6 +3756,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF6600",
+		"code": "SI",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -3699,6 +3782,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF6600",
+		"code": "SI",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -3737,6 +3821,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF6600",
+		"code": "SI",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -3820,6 +3905,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0099CC",
+		"code": "SS",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -3845,6 +3931,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0099CC",
+		"code": "SS",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -3869,6 +3956,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFCC33",
+		"code": "ST",
 		"carComposition": 8,
 		"dynamic": true
 	},
@@ -3891,6 +3979,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33CC66",
+		"code": "SK",
 		"carComposition": 6,
 		"dynamic": true
 	},
@@ -3910,6 +3999,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33CC66",
+		"code": "SK",
 		"carComposition": 6,
 		"dynamic": true
 	},
@@ -3933,6 +4023,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF6600",
+		"code": "SW",
 		"carComposition": 4,
 		"dynamic": true
 	},
@@ -3953,6 +4044,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF3333",
+		"code": "SY",
 		"carComposition": 4,
 		"dynamic": true
 	},
@@ -4017,6 +4109,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#2288CC",
+		"code": "OH",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -4042,6 +4135,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#2288CC",
+		"code": "OT",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -4076,6 +4170,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#2288CC",
+		"code": "OE",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -4122,6 +4217,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F15A22",
+		"code": "OH",
 		"carComposition": 3
 	},
 	{
@@ -4165,6 +4261,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#20A288",
+		"code": "DT",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -4203,6 +4300,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#DA0442",
+		"code": "TY",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -4233,6 +4331,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#009CD2",
+		"code": "ME",
 		"carComposition": 8,
 		"dynamic": true
 	},
@@ -4253,6 +4352,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#5D4D8D",
+		"code": "SH",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -4288,6 +4388,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F18C43",
+		"code": "OM",
 		"carComposition": 5,
 		"dynamic": true
 	},
@@ -4320,6 +4421,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#EE86A7",
+		"code": "IK",
 		"carComposition": 3
 	},
 	{
@@ -4343,6 +4445,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#AE0378",
+		"code": "TM",
 		"carComposition": 3
 	},
 	{
@@ -4362,6 +4465,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0068B7",
+		"code": "KD",
 		"carComposition": 2
 	},
 	{
@@ -4388,6 +4492,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FCC70D",
+		"code": "SG",
 		"carComposition": 2
 	},
 	{
@@ -4411,6 +4516,7 @@
 		"descending": "Inbound",
 		"altitude": -1,
 		"color": "#09357F",
+		"code": "MM",
 		"carComposition": 10
 	},
 	{
@@ -4445,6 +4551,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#000080",
+		"code": "SO",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -4470,6 +4577,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#000080",
+		"code": "SO",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -4490,6 +4598,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#000080",
+		"code": "SO",
 		"carComposition": 10,
 		"dynamic": true
 	},
@@ -4516,6 +4625,7 @@
 		"descending": "Inbound",
 		"altitude": -1,
 		"color": "#2351A5",
+		"code": "SR",
 		"carComposition": 6
 	},
 	{
@@ -4552,6 +4662,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#000084",
+		"code": "TX",
 		"carComposition": 6
 	},
 	{
@@ -4577,6 +4688,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#3FB036",
+		"code": "TR",
 		"carComposition": 10
 	},
 	{
@@ -4659,6 +4771,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#C64F24",
+		"code": "RN",
 		"carComposition": 2
 	},
 	{
@@ -4749,6 +4862,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#B00000",
+		"code": "CD",
 		"carComposition": 2
 	},
 	{
@@ -4907,6 +5021,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005B1A",
+		"code": "EN",
 		"carComposition": 4
 	},
 	{
@@ -4935,6 +5050,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#2A639D",
+		"code": "ID",
 		"carComposition": 3
 	},
 	{
@@ -4964,6 +5080,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#2A639D",
+		"code": "IS",
 		"carComposition": 3
 	},
 	{
@@ -4996,6 +5113,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#00BFFF",
+		"code": "IZ",
 		"carComposition": 9
 	},
 	{
@@ -5030,6 +5148,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#3B85E0",
+		"code": "FJ",
 		"carComposition": 3
 	},
 	{
@@ -5083,6 +5202,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0054A6",
+		"code": "CR",
 		"carComposition": 3
 	},
 	{
@@ -5115,6 +5235,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#27404E",
+		"code": "U",
 		"carComposition": 6
 	},
 	{
@@ -5174,6 +5295,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFFF00",
+		"code": "NS",
 		"carComposition": 6
 	},
 	{
@@ -5226,6 +5348,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#003686",
+		"code": "MO",
 		"carComposition": 6
 	},
 	{
@@ -5261,6 +5384,7 @@
 		"ascending": "Northbound",
 		"descending": "Southbound",
 		"color": "#FF6633",
+		"code": "TT",
 		"carComposition": 4
 	},
 	{
@@ -5283,6 +5407,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#2843BA",
+		"code": "CM",
 		"carComposition": 2
 	},
 	{
@@ -5312,6 +5437,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#2843BA",
+		"code": "CM",
 		"carComposition": 2
 	},
 	{
@@ -5336,6 +5462,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF0000",
+		"code": "SMR",
 		"carComposition": 3
 	},
 	{
