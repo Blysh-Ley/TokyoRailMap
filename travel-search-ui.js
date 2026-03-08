@@ -33,6 +33,40 @@ function el(tag, className, attrs = {}) {
 
 const normalizeText = (v) => String(v ?? '').trim();
 
+const TRAVEL_HISTORY_KEY = 'TokyoRailSearchHistory';
+const TRAVEL_MAX_HISTORY = 20;
+
+const normalizeTravelHistoryQuery = (q) => normalizeText(q).slice(0, 120);
+
+const loadTravelHistory = () => {
+    try {
+        const raw = window.localStorage?.getItem?.(TRAVEL_HISTORY_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map(normalizeTravelHistoryQuery).filter(Boolean).slice(0, TRAVEL_MAX_HISTORY);
+    } catch {
+        return [];
+    }
+};
+
+const saveTravelHistory = (items) => {
+    try {
+        const list = Array.isArray(items) ? items.map(normalizeTravelHistoryQuery).filter(Boolean) : [];
+        window.localStorage?.setItem?.(TRAVEL_HISTORY_KEY, JSON.stringify(list.slice(0, TRAVEL_MAX_HISTORY)));
+    } catch {
+        // ignore
+    }
+};
+
+const addTravelHistory = (q) => {
+    const value = normalizeTravelHistoryQuery(q);
+    if (!value) return;
+    const list = loadTravelHistory();
+    const next = [value, ...list.filter((x) => x !== value)].slice(0, TRAVEL_MAX_HISTORY);
+    saveTravelHistory(next);
+};
+
 let journeyStationCodeMapPromise = null;
 const getJourneyStationCodeMap = async () => {
     if (journeyStationCodeMapPromise) return journeyStationCodeMapPromise;
@@ -1423,6 +1457,101 @@ export function mountTravelSearchUI() {
         results.classList.remove('is-hidden');
     };
 
+    const renderHistoryResults = () => {
+        clearList();
+        const history = loadTravelHistory();
+        if (!history.length) {
+            results.classList.add('is-hidden');
+            return;
+        }
+
+        {
+            const li = document.createElement('li');
+            const head = el('div', 'search-empty', { text: '搜索记录' });
+            head.style.fontSize = '12px';
+            head.style.fontWeight = '600';
+            head.style.paddingTop = '8px';
+            head.style.paddingBottom = '8px';
+            li.appendChild(head);
+            list.appendChild(li);
+        }
+
+        for (const text of history) {
+            const li = document.createElement('li');
+            const row = el('div', 'search-result-item');
+            const icon = el('span', 'search-result-icon');
+            const label = el('div', 'search-result-text', { text });
+            label.style.flex = '1 1 auto';
+            row.appendChild(icon);
+            row.appendChild(label);
+
+            const del = el('button', '', { type: 'button', 'aria-label': '删除记录' });
+            del.textContent = 'x';
+            del.style.marginLeft = 'auto';
+            del.style.background = 'transparent';
+            del.style.border = 'none';
+            del.style.padding = '0 2px';
+            del.style.cursor = 'pointer';
+            del.style.color = 'inherit';
+            del.style.fontSize = '15px';
+            del.style.lineHeight = '1';
+            del.style.opacity = '0.7';
+
+            del.addEventListener('click', (evt) => {
+                evt.preventDefault?.();
+                evt.stopPropagation?.();
+                const next = loadTravelHistory().filter((x) => x !== text);
+                saveTravelHistory(next);
+                renderHistoryResults();
+            });
+
+            row.appendChild(del);
+
+            row.addEventListener('click', (evt) => {
+                evt.preventDefault?.();
+                evt.stopPropagation?.();
+                const input = getActiveInput();
+                input.value = text;
+                refresh();
+                try { input.focus?.(); } catch { /* ignore */ }
+            });
+
+            li.appendChild(row);
+            list.appendChild(li);
+        }
+
+        {
+            const li = document.createElement('li');
+            const box = el('div', 'search-empty');
+            box.style.textAlign = 'center';
+            box.style.paddingTop = '10px';
+            box.style.paddingBottom = '10px';
+
+            const btn = el('button', '', { type: 'button' });
+            btn.textContent = '删除所有记录';
+            btn.style.background = 'transparent';
+            btn.style.border = 'none';
+            btn.style.padding = '0';
+            btn.style.cursor = 'pointer';
+            btn.style.color = 'inherit';
+            btn.style.fontSize = '12px';
+            btn.style.lineHeight = '1.2';
+
+            btn.addEventListener('click', (evt) => {
+                evt.preventDefault?.();
+                evt.stopPropagation?.();
+                saveTravelHistory([]);
+                renderHistoryResults();
+            });
+
+            box.appendChild(btn);
+            li.appendChild(box);
+            list.appendChild(li);
+        }
+
+        results.classList.remove('is-hidden');
+    };
+
     const renderStationResults = async (items) => {
         clearList();
         if (!items.length) {
@@ -1465,6 +1594,8 @@ export function mountTravelSearchUI() {
                 evt.preventDefault?.();
                 evt.stopPropagation?.();
 
+                addTravelHistory(getActiveInput().value);
+
                 const input = getActiveInput();
                 input.value = String(item?.text ?? '');
                 input.dataset.stationId = String(item?.id ?? '');
@@ -1492,7 +1623,7 @@ export function mountTravelSearchUI() {
         const q = normalizeText(input.value);
         if (!q) {
             clearList();
-            results.classList.add('is-hidden');
+            renderHistoryResults();
             return;
         }
 
