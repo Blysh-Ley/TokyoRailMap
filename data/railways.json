@@ -2264,7 +2264,7 @@
 	],
 	"ascending": "Outbound",
 	"descending": "Inbound",
-	"color": "#227324",
+	"color": "#D53A77",
 	"carComposition": 5
 }, {
 	"id": "Toei.Arakawa",
