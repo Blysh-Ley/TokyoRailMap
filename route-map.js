@@ -8,6 +8,8 @@
  * - UI is implemented in route-map-ui.js.
  */
 
+import { getCachedJson } from './fetch.js';
+
 const toText = (v) => String(v ?? '').trim();
 
 const getTripIdText = (trip) => toText(trip?.id) || toText(trip?.t);
@@ -96,9 +98,7 @@ const getStationsIndex = async () => {
     if (stationsIndexPromise) return stationsIndexPromise;
     stationsIndexPromise = (async () => {
         try {
-            const resp = await fetch('./data/stations.json');
-            if (!resp.ok) return { idToNameZh: new Map() };
-            const list = await resp.json();
+            const list = await getCachedJson('./data/stations.json');
             const idToNameZh = new Map();
             for (const s of Array.isArray(list) ? list : []) {
                 const id = toText(s?.id);
@@ -119,9 +119,7 @@ const getTrainTypesIndex = async () => {
     if (trainTypesIndexPromise) return trainTypesIndexPromise;
     trainTypesIndexPromise = (async () => {
         try {
-            const resp = await fetch('./data/train-types.json');
-            if (!resp.ok) return new Map();
-            const list = await resp.json();
+            const list = await getCachedJson('./data/train-types.json');
             const map = new Map();
             for (const t of Array.isArray(list) ? list : []) {
                 const id = toText(t?.id);
@@ -141,9 +139,7 @@ const getTrainTypeColorIndex = async () => {
     if (trainTypeColorIndexPromise) return trainTypeColorIndexPromise;
     trainTypeColorIndexPromise = (async () => {
         try {
-            const resp = await fetch('./data/train-types.json');
-            if (!resp.ok) return new Map();
-            const list = await resp.json();
+            const list = await getCachedJson('./data/train-types.json');
             const map = new Map();
             for (const t of Array.isArray(list) ? list : []) {
                 const id = toText(t?.id);
@@ -165,9 +161,7 @@ const getRailwaysIndex = async () => {
     if (railwaysIndexPromise) return railwaysIndexPromise;
     railwaysIndexPromise = (async () => {
         try {
-            const resp = await fetch('./data/railways.json');
-            if (!resp.ok) return new Map();
-            const list = await resp.json();
+            const list = await getCachedJson('./data/railways.json');
             const map = new Map();
             for (const r of Array.isArray(list) ? list : []) {
                 const id = toText(r?.id);

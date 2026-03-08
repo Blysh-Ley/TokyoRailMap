@@ -7,6 +7,7 @@
 import { loadRailGeoDataFromDataFolder } from './data.js';
 import { createLineIconElement, getRoutesIndex, resolveMainLineIdForIcon } from './line-icons.js';
 import { resolveLineColorForTheme } from './line-icons.js';
+import { getCachedJson } from './fetch.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -134,9 +135,7 @@ async function ensureRailwayTitlesLoaded() {
     if (railwayTitleLoading) return railwayTitleLoading;
     railwayTitleLoading = (async () => {
         try {
-            const resp = await fetch('./data/railways.json');
-            if (!resp.ok) throw new Error(`load railways.json failed: ${resp.status}`);
-            const list = await resp.json();
+            const list = await getCachedJson('./data/railways.json');
             const arr = Array.isArray(list) ? list : [];
             const map = new Map();
             for (const r of arr) {
@@ -187,9 +186,7 @@ async function ensureSameCompanyTransferClusterLoaded() {
 
     sameCompanyTransferClusterLoading = (async () => {
         try {
-            const resp = await fetch('./data/station-groups.json');
-            if (!resp.ok) throw new Error(`load station-groups.json failed: ${resp.status}`);
-            const raw = await resp.json();
+            const raw = await getCachedJson('./data/station-groups.json');
             const groups = Array.isArray(raw) ? raw : [];
 
             const out = new Map();

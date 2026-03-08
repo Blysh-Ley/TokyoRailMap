@@ -16,6 +16,29 @@
 (() => {
     'use strict';
 
+    const getCachedJsonSafe = async (url) => {
+        try {
+            const api = window?.TokyoRailFetchCache;
+            if (typeof api?.getCachedJson === 'function') {
+                const data = await api.getCachedJson(url);
+                if (data != null) return data;
+            }
+            const resp = await fetch(url);
+            if (!resp.ok) return null;
+            return await resp.json();
+        } catch {
+            return null;
+        }
+    };
+
+    const cachedFetchSafe = async (url) => {
+        try {
+            return await fetch(url);
+        } catch {
+            return null;
+        }
+    };
+
     const EXPORT_EVENT = '__TokyoRailTripPreviewUpdated';
     const CLEAR_EVENT = '__TokyoRailTripPreviewCleared';
     const BASE_HL_EVENT = '__TokyoRailBaseHighlightUpdated';
@@ -276,9 +299,7 @@
         if (stationsIndexPromise) return stationsIndexPromise;
         stationsIndexPromise = (async () => {
             try {
-                const resp = await fetch('./data/stations.json');
-                if (!resp.ok) return new Map();
-                const list = await resp.json();
+                const list = await getCachedJsonSafe('./data/stations.json');
                 const map = new Map();
                 for (const s of Array.isArray(list) ? list : []) {
                     const id = String(s?.id ?? '').trim();
@@ -542,8 +563,8 @@
             }
             if (!data) return null;
             if (typeof data === 'string') {
-                const resp = await fetch(data);
-                if (!resp.ok) return null;
+                const resp = await cachedFetchSafe(data);
+                if (!resp || !resp.ok) return null;
                 return await resp.json();
             }
             return data;

@@ -1,4 +1,5 @@
 import { getLineMetaByIds } from './search.js';
+import { getCachedJson } from './fetch.js';
 
 const SERVICE_DAY_BOUNDARY_HOUR = 3;
 const INF_TIME = Number.POSITIVE_INFINITY;
@@ -225,16 +226,12 @@ export const ensurePlannerStaticData = async () => {
     if (plannerState.staticLoadingPromise) return plannerState.staticLoadingPromise;
 
     plannerState.staticLoadingPromise = (async () => {
-        const [railwaysResp, groupsResp, trainTypesResp, stationsResp] = await Promise.all([
-            fetch('./data/railways.json'),
-            fetch('./data/station-groups.json'),
-            fetch('./data/train-types.json'),
-            fetch('./data/stations.json')
+        const [railways, groups, trainTypes, stationList] = await Promise.all([
+            getCachedJson('./data/railways.json'),
+            getCachedJson('./data/station-groups.json'),
+            getCachedJson('./data/train-types.json'),
+            getCachedJson('./data/stations.json')
         ]);
-
-        const railways = railwaysResp.ok ? await railwaysResp.json() : [];
-        const groups = groupsResp.ok ? await groupsResp.json() : [];
-        const trainTypes = trainTypesResp.ok ? await trainTypesResp.json() : [];
 
         const groupByStop = new Map();
         for (const group of Array.isArray(groups) ? groups : []) {
@@ -282,7 +279,6 @@ export const ensurePlannerStaticData = async () => {
 
         const stationNameById = new Map();
         const stationCoordById = new Map();
-        const stationList = stationsResp.ok ? await stationsResp.json() : [];
         for (const item of Array.isArray(stationList) ? stationList : []) {
             const sid = normalizeText(item?.id);
             if (!sid) continue;

@@ -12,6 +12,7 @@
 import { computeLineStopDiagramData } from './route-map.js';
 import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
+import { getCachedJson } from './fetch.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -20,9 +21,7 @@ const getStationCodeIndex = async () => {
     if (stationCodeIndexPromise) return stationCodeIndexPromise;
     stationCodeIndexPromise = (async () => {
         try {
-            const resp = await fetch('./data/stations.json');
-            if (!resp.ok) return new Map();
-            const list = await resp.json();
+            const list = await getCachedJson('./data/stations.json');
             const map = new Map();
             for (const s of Array.isArray(list) ? list : []) {
                 const id = toText(s?.id);

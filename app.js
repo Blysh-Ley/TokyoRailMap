@@ -1,3 +1,4 @@
+import { getCachedJson, initializeFetchCache, preloadAllDataAssets } from './fetch.js';
 import { loadRailGeoDataFromDataFolder } from './data.js';
 import { addLinesLayer, addStationsLayer, setupLineHoverPopup, setupStationPopup } from './layers.js';
 import { createStationMarkers } from './labels.js';
@@ -9,6 +10,16 @@ import { getGlobalTimetableCache } from './timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './fullscreen.js';
 import { extractShortestLoopSegmentByIndex, isLoopDirection } from './trip-preview.js';
 import './route-map-ui.js';
+
+initializeFetchCache();
+
+try {
+    preloadAllDataAssets({ includeTimetables: true, timetableConcurrency: 10 }).catch((err) => {
+        console.warn('预加载数据失败（将回退按需加载）', err);
+    });
+} catch (err) {
+    console.warn('初始化预加载失败（将回退按需加载）', err);
+}
 
 // MapLibre 通过 CDN 以全局变量方式引入
 const maplibregl = window.maplibregl;
@@ -89,9 +100,7 @@ const loadRailwaysOrderIndex = (() => {
         if (promise) return promise;
         promise = (async () => {
             try {
-                const resp = await fetch('./data/railways-order.json');
-                if (!resp.ok) return new Map();
-                const list = await resp.json();
+                const list = await getCachedJson('./data/railways-order.json');
                 const arr = Array.isArray(list) ? list : [];
                 const map = new Map();
                 for (let i = 0; i < arr.length; i++) {
@@ -644,9 +653,7 @@ map.on('load', async () => {
 
     const loadTransferStationIdMap = async () => {
         try {
-            const resp = await fetch('./data/station-groups.json');
-            if (!resp.ok) return new Map();
-            const groups = await resp.json();
+            const groups = await getCachedJson('./data/station-groups.json');
             const map = new Map();
 
             for (const group of Array.isArray(groups) ? groups : []) {

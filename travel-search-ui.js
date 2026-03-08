@@ -19,6 +19,7 @@ import {
     normalizeHHMM,
     hhmmToOffsetMinutes
 } from './travel-search-planner-raptor.js';
+import { getCachedJson } from './fetch.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -72,9 +73,7 @@ const getJourneyStationCodeMap = async () => {
     if (journeyStationCodeMapPromise) return journeyStationCodeMapPromise;
     journeyStationCodeMapPromise = (async () => {
         try {
-            const resp = await fetch('./data/stations.json');
-            if (!resp.ok) return new Map();
-            const list = await resp.json();
+            const list = await getCachedJson('./data/stations.json');
             const map = new Map();
             for (const s of Array.isArray(list) ? list : []) {
                 const id = normalizeText(s?.id);

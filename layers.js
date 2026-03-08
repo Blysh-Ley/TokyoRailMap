@@ -2,6 +2,7 @@
  * 添加线路图层。
  */
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
+import { getCachedJson } from './fetch.js';
 
 export function addLinesLayer(map, linesData) {
     map.addSource('lines-source', { type: 'geojson', data: linesData });
@@ -284,9 +285,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         if (stationsIndexPromise) return stationsIndexPromise;
         stationsIndexPromise = (async () => {
             try {
-                const resp = await fetch('./data/stations.json');
-                if (!resp.ok) return { idToNameZh: new Map() };
-                const list = await resp.json();
+                const list = await getCachedJson('./data/stations.json');
                 const idToNameZh = new Map();
                 for (const s of Array.isArray(list) ? list : []) {
                     const id = String(s?.id ?? '').trim();
@@ -308,9 +307,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         if (stationGroupsIndexPromise) return stationGroupsIndexPromise;
         stationGroupsIndexPromise = (async () => {
             try {
-                const resp = await fetch('./data/station-groups.json');
-                if (!resp.ok) return new Map();
-                const groups = await resp.json();
+                const groups = await getCachedJson('./data/station-groups.json');
                 const map = new Map();
                 for (const g of Array.isArray(groups) ? groups : []) {
                     if (!Array.isArray(g)) continue;

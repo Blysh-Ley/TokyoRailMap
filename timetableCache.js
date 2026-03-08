@@ -5,6 +5,8 @@
  * - Uses approximate byte size (JSON string length) with LRU eviction
  */
 
+import { cachedFetch } from './fetch.js';
+
 const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
 
 const normalizeId = (v) => String(v ?? '').trim();
@@ -172,7 +174,7 @@ class LruTimetableCache {
         const promise = (async () => {
             try {
                 const url = `./data/train-timetables/${encodeURIComponent(key)}.json`;
-                const resp = await fetch(url);
+                const resp = await cachedFetch(url);
                 if (!resp.ok) {
                     return null;
                 }

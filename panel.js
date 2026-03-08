@@ -6,6 +6,7 @@
 import { sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
 import { buildTripPreviewKey, createTripPreviewScheduler } from './trip-preview.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
+import { getCachedJson } from './fetch.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -412,9 +413,7 @@ const getStationsIndex = async () => {
     if (stationsIndexPromise) return stationsIndexPromise;
     stationsIndexPromise = (async () => {
         try {
-            const resp = await fetch('./data/stations.json');
-            if (!resp.ok) return { idToNameZh: new Map(), idToCode: new Map(), stationIdByRailwayAndNameZh: new Map() };
-            const list = await resp.json();
+            const list = await getCachedJson('./data/stations.json');
             const idToNameZh = new Map();
             const idToCode = new Map();
             const stationIdByRailwayAndNameZh = new Map();
@@ -447,9 +446,7 @@ const getStationGroupsIndex = async () => {
     if (stationGroupsIndexPromise) return stationGroupsIndexPromise;
     stationGroupsIndexPromise = (async () => {
         try {
-            const resp = await fetch('./data/station-groups.json');
-            if (!resp.ok) return new Map();
-            const groups = await resp.json();
+            const groups = await getCachedJson('./data/station-groups.json');
             const map = new Map(); // stationId -> string[] (all ids in same group)
 
             for (const g of Array.isArray(groups) ? groups : []) {
@@ -504,9 +501,7 @@ const getTrainTypesIndex = async () => {
     if (trainTypesIndexPromise) return trainTypesIndexPromise;
     trainTypesIndexPromise = (async () => {
         try {
-            const resp = await fetch('./data/train-types.json');
-            if (!resp.ok) return new Map();
-            const list = await resp.json();
+            const list = await getCachedJson('./data/train-types.json');
             const map = new Map();
             for (const t of Array.isArray(list) ? list : []) {
                 const id = toText(t?.id);
@@ -527,9 +522,7 @@ const getTrainTypeColorIndex = async () => {
     if (trainTypeColorIndexPromise) return trainTypeColorIndexPromise;
     trainTypeColorIndexPromise = (async () => {
         try {
-            const resp = await fetch('./data/train-types.json');
-            if (!resp.ok) return new Map();
-            const list = await resp.json();
+            const list = await getCachedJson('./data/train-types.json');
             const map = new Map();
             for (const t of Array.isArray(list) ? list : []) {
                 const id = toText(t?.id);

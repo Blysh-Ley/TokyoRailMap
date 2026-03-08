@@ -11,6 +11,8 @@
  * - Border color uses existing "invert-on-dark-if-too-dark" logic
  */
 
+import { getCachedJson } from './fetch.js';
+
 const toText = (v) => String(v ?? '').trim();
 
 const specialMainByBranch = {
@@ -214,9 +216,7 @@ export const getRoutesIndex = async (url = './data/railways.json') => {
 
     _routesIndexPromise = (async () => {
         try {
-            const resp = await fetch(url);
-            if (!resp.ok) throw new Error(`railways.json fetch failed: ${resp.status}`);
-            const list = await resp.json();
+            const list = await getCachedJson(url);
             const map = new Map();
             for (const row of Array.isArray(list) ? list : []) {
                 const id = toText(row?.id);
