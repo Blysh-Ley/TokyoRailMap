@@ -5348,14 +5348,13 @@
 			"zh-Hant": "迪士尼度假區線"
 		},
 		"stations": [
-			"Disney.DisneyResortLine.ResortGatewa",
+			"Disney.DisneyResortLine.ResortGateway",
 			"Disney.DisneyResortLine.TokyoDisneyland",
 			"Disney.DisneyResortLine.Bayside",
 			"Disney.DisneyResortLine.TokyoDisneySea"
 		],
 		"color": "#cf98de",
 		"ascending": "OuterLoop",
-		"descending": "InnerLoop",
 		"carComposition": 6,
 		"dynamic": true,
 		"altitude": -1
