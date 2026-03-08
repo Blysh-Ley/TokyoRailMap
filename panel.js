@@ -937,12 +937,15 @@ export function createPanel(options = {}) {
         scheduleMapSelectHoverClose(220);
     });
 
+    let mapSelectLastPointerDownAt = 0;
     mapSelectBtn.addEventListener('pointerdown', (evt) => {
         stopEvent(evt);
+        mapSelectLastPointerDownAt = Date.now();
         toggleMapSelectMenu();
     }, { passive: false });
     mapSelectBtn.addEventListener('click', (evt) => {
         stopEvent(evt);
+        if (Date.now() - mapSelectLastPointerDownAt < 700) return;
         toggleMapSelectMenu();
     }, { passive: false });
 
