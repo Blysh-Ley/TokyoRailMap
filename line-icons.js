@@ -105,6 +105,7 @@ export const selectLineIconPreset = (routeId, code) => {
         id.startsWith('Odakyu.')||
         id.startsWith('Keio.')||
         id.startsWith('ChibaMonorail.')||
+        id.startsWith('OdakyuHakone.')||
         id=="Enoden.Enoden"
     ) {
         return 'circle-thin-border';
