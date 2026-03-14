@@ -43055,5 +43055,101 @@
 			"zh-Hans": "东京迪士尼海洋",
 			"zh-Hant": "東京迪士尼海洋"
 		}
+	},
+	{
+		"id": "OdakyuHakone.Kosaku.Gora",
+		"railway": "OdakyuHakone.Kosaku",
+		"coord": [
+			139.048194,
+			35.250767
+		],
+		"title": {
+			"ja": "強羅",
+			"en": "Gora",
+			"ko": "",
+			"zh-Hans": "强罗",
+			"zh-Hant": "強羅",
+			"code":"OH57"
+		}
+	},
+	{
+		"id": "OdakyuHakone.Kosaku.KoenShimo",
+		"railway": "OdakyuHakone.Kosaku",
+		"coord": [
+			139.045653,
+			35.249931
+		],
+		"title": {
+			"ja": "公園下",
+			"en": "Koen-Shimo",
+			"ko": "",
+			"zh-Hans": "公园下",
+			"zh-Hant": "公園下",
+			"code":"OH58"
+		}
+	},
+	{
+		"id": "OdakyuHakone.Kosaku.KoenKami",
+		"railway": "OdakyuHakone.Kosaku",
+		"coord": [
+			139.043169,
+			35.249058
+		],
+		"title": {
+			"ja": "公園上",
+			"en": "Koen-Kami",
+			"ko": "",
+			"zh-Hans": "公园上",
+			"zh-Hant": "公園上",
+			"code":"OH59"
+		}
+	},
+	{
+		"id": "OdakyuHakone.Kosaku.NakaGora",
+		"railway": "OdakyuHakone.Kosaku",
+		"coord": [
+			139.040658,
+			35.248183
+		],
+		"title": {
+			"ja": "中強羅",
+			"en": "Naka-Gora",
+			"ko": "",
+			"zh-Hans": "中强罗",
+			"zh-Hant": "中強羅",
+			"code":"OH60"
+		}
+	},
+	{
+		"id": "OdakyuHakone.Kosaku.KamiGora",
+		"railway": "OdakyuHakone.Kosaku",
+		"coord": [
+			139.038122,
+			35.247289
+		],
+		"title": {
+			"ja": "上強羅",
+			"en": "Kami-Gora",
+			"ko": "",
+			"zh-Hans": "上强罗",
+			"zh-Hant": "上強羅",
+			"code":"OH61"
+		}
+	},
+	{
+		"id": "OdakyuHakone.Kosaku.Sounzan",
+		"railway": "OdakyuHakone.Kosaku",
+		"coord": [
+			139.035278,
+			35.242778
+		],
+		"title": {
+			"ja": "早雲山",
+			"en": "Sounzan",
+			"ko": "",
+			"zh-Hans": "早云山",
+			"zh-Hant": "早雲山",
+			"code":"OH62"
+		}
 	}
 ]

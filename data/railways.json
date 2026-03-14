@@ -4195,11 +4195,11 @@
 	{
 		"id": "OdakyuHakone.HakoneTozan",
 		"title": {
-			"ja": "箱根登山線",
+			"ja": "箱根登山電車",
 			"en": "Hakone-Tozan Line",
 			"ko": "하코네 등산선",
-			"zh-Hans": "箱根登山线",
-			"zh-Hant": "箱根登山線"
+			"zh-Hans": "箱根登山电车",
+			"zh-Hant": "箱根登山電車"
 		},
 		"stations": [
 			"OdakyuHakone.HakoneTozan.Odawara",
@@ -5483,6 +5483,25 @@
 		"color": "#cf98de",
 		"ascending": "OuterLoop",
 		"carComposition": 6,
+		"dynamic": true,
+		"altitude": -1
+	},
+	{
+		"id": "OdakyuHakone.Kosaku",
+		"title": {
+			"ja": "箱根登山鉄道鋼索線",
+			"en": "Hakone-Kosaku Line",
+			"ko": "오다큐 하코네 강삭선",
+			"zh-Hans": "箱根登山缆车",
+			"zh-Hant": "箱根登山纜車"
+		},
+		"stations": [
+		],
+		"color": "#f15a22",
+		"ascending": "Outbound",
+		"descending": "Inbound",
+		"code": "OH",
+		"carComposition": 1,
 		"dynamic": true,
 		"altitude": -1
 	}
