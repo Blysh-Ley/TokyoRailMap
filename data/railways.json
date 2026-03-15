@@ -5274,8 +5274,8 @@
 			"ja": "ニューシャトル",
 			"en": "New Shuttle",
 			"ko": "뉴셔틀",
-			"zh-Hans": "New Shuttle",
-			"zh-Hant": "New Shuttle"
+			"zh-Hans": "伊奈线 New Shuttle",
+			"zh-Hant": "伊奈線 New Shuttle"
 		},
 		"stations": [
 			"SaitamaTransit.NewShuttle.Omiya",
@@ -5294,7 +5294,7 @@
 		],
 		"ascending": "Outbound",
 		"descending": "Inbound",
-		"color": "#FFFF00",
+		"color": "#32A699",
 		"code": "NS",
 		"carComposition": 6
 	},

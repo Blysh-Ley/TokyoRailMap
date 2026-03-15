@@ -106,9 +106,21 @@ export const selectLineIconPreset = (routeId, code) => {
         id.startsWith('Keio.')||
         id.startsWith('ChibaMonorail.')||
         id.startsWith('OdakyuHakone.')||
+        id.startsWith('ToyoRapid.')||
+        id.startsWith('SaitamaRailway.')||
         id=="Enoden.Enoden"
     ) {
         return 'circle-thin-border';
+    }
+    else if(
+        id.startsWith('SaitamaTransit.')
+    ){
+        return 'hexagon'
+    }
+    else if(
+        id.startsWith('Seibu.')
+    ){
+        return 'seibu';
     }
     else{
         return 'rectangle-border';
@@ -203,6 +215,20 @@ export const resolveLineColorForTheme = (color) => {
     if (!raw) return raw;
     if (!isDarkThemeActive()) return raw;
     return adjustColorForDarkThemeIfNeeded(raw);
+};
+
+const _seibuSvgDataUrlCache = new Map();
+
+const getSeibuSvgDataUrl = (fill) => {
+    const color = toText(fill) || '#000';
+    const cached = _seibuSvgDataUrlCache.get(color);
+    if (cached) return cached;
+
+    const safeFill = color.replace(/"/g, '&quot;');
+    const svg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 110"><g><path fill="${safeFill}" d="M95.8,110.2H84.6L71.3,93.5H38.7l-13.2,16.7H14.2l20-24.9c-3-0.4-6-1-9-1.6c-3.5-6.5-5.6-14.1-5.6-22.2V17.9c0-6.8,5.1-12.5,11.6-13.4h47.7c6.5,0.9,11.6,6.6,11.6,13.4v43.6c0,8-2.2,15.6-5.6,22.2c-2.9,0.6-6,1.3-9,1.8L95.8,110.2z"/><path fill="#FFFFFF" d="M83.2,37.2c0,15.6-12.6,28.2-28.2,28.2c-15.6,0-28.2-12.6-28.2-28.2V19.9c0-5.6,4.6-10.2,10.2-10.2h36c5.6,0,10.2,4.6,10.2,10.2V37.2z"/><path fill="#FFFFFF" d="M40.1,68.4c0-3-2.3-5.2-5.1-5.2c-2.8,0-5.1,2.2-5.1,5.2c0,2.7,2.3,5.1,5.1,5.1C37.9,73.4,40.1,71.1,40.1,68.4"/><path fill="#FFFFFF" d="M75,73.4c2.8,0,5.1-2.4,5.1-5.1c0-3-2.3-5.2-5.1-5.2c-2.8,0-5.1,2.2-5.1,5.2C69.9,71.1,72.2,73.4,75,73.4"/></g></svg>`;
+    const dataUrl = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+    _seibuSvgDataUrlCache.set(color, dataUrl);
+    return dataUrl;
 };
 
 
@@ -418,7 +444,71 @@ const applyIconStyleForTheme = (el) => {
             } else {
                 el.style.fontSize = '8px';
                 el.style.letterSpacing = '-0.4px';
+            }
+            break;
         }
+        case 'hexagon': {
+            el.style.backgroundColor = fillColor || (dark ? '#000' : '#fff');
+            el.style.color = dark ? '#000' : '#fff';
+            el.style.border = '0';
+            el.style.width = '25px';
+            el.style.height = '25px';
+            el.style.padding = '0';
+            el.style.paddingBottom = '1px';
+            el.style.clipPath = 'polygon(25% 6.7%, 75% 6.7%, 100% 50%, 75% 93.3%, 25% 93.3%, 0% 50%)';
+            el.style.fontWeight = 'bold';
+            if (code.length <= 1) {
+                el.style.fontSize = '12px';
+                el.style.letterSpacing = '0px';
+            } else if (code.length === 2) {
+                el.style.fontSize = '11px';
+                el.style.letterSpacing = '-0.2px';
+            }
+            else {
+                el.style.fontSize = '8px';
+                el.style.letterSpacing = '-0.4px';
+            }   
+            break;
+        }
+        case 'seibu': {
+            const seibuColor = fillColor || (dark ? '#000' : '#fff');
+
+            el.style.backgroundColor = 'transparent';
+            el.style.backgroundImage = getSeibuSvgDataUrl(seibuColor);
+            el.style.backgroundRepeat = 'no-repeat';
+            el.style.backgroundPosition = 'center';
+            el.style.backgroundSize = 'contain';
+            el.style.color = '#000';
+            el.style.border = '0';
+            el.style.borderRadius = '0';
+            el.style.width = '25px';
+            el.style.height = '25px';
+            el.style.padding = '0';
+            el.style.paddingBottom = '10px';
+
+            // Reset mask fields in case this element style was previously masked.
+            el.style.maskImage = 'none';
+            el.style.maskRepeat = '';
+            el.style.maskPosition = '';
+            el.style.maskSize = '';
+            el.style.setProperty('-webkit-mask-image', 'none');
+            el.style.setProperty('-webkit-mask-repeat', '');
+            el.style.setProperty('-webkit-mask-position', '');
+            el.style.setProperty('-webkit-mask-size', '');
+
+            // 文字叠在 SVG 之上
+            el.style.fontWeight = '800';
+            if (code.length <= 1) {
+                el.style.fontSize = '10px';
+                el.style.letterSpacing = '0px';
+            } else if (code.length === 2) {
+                el.style.fontSize = '9px';
+                el.style.letterSpacing = '-0.2px';
+            } else {
+                el.style.fontSize = '7px';
+                el.style.letterSpacing = '-0.4px';
+            }
+
             break;
         }
         case 'rectangle-border':
