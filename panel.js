@@ -7,6 +7,12 @@ import { sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
 import { buildTripPreviewKey, createTripPreviewScheduler } from './trip-preview.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
 import { getCachedJson } from './fetch.js';
+import {
+    buildTimetableStationText,
+    renderTimetableNoteRowHtml,
+    renderTimetablePlainNoteRowHtml,
+    renderTimetableStationRowHtml
+} from './timetable-table.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -3283,50 +3289,51 @@ export function createPanel(options = {}) {
         const currentLineDesc = buildLineDescriptor(getTripLineId(trip) || lineId);
 
         const renderStopRow = (s) => {
-                const rowCls = s.isPast ? 'panel-trip-detail-row is-past' : 'panel-trip-detail-row';
-                const arrText = s.arr ? formatTimeWithPlus(s.arr, s.arrPlus) : '';
-                const depText = s.dep ? formatTimeWithPlus(s.dep, s.depPlus) : '';
-                const originCls = `panel-time-label panel-time-label-origin${s.isPast ? ' is-past' : ''}`;
-                const terminalCls = `panel-time-label panel-time-label-terminal${s.isPast ? ' is-past' : ''}`;
-                const arrivalLabel = s.showOriginLabel ? `<span class=\"${originCls}\">始发站</span> ` : '';
-                const departLabel = s.showTerminalLabel ? `<span class=\"${terminalCls}\">终点站</span> ` : '';
-                const stationName = toText(s.stationName || s.stationId);
-                const stationCode = toText(stationsIndex?.idToCode?.get?.(toText(s.stationId)) || '');
-                const stationText = stationCode ? `${stationCode} ${stationName}` : stationName;
+            const rowCls = s.isPast ? 'panel-trip-detail-row is-past' : 'panel-trip-detail-row';
+            const arrText = s.arr ? formatTimeWithPlus(s.arr, s.arrPlus) : '';
+            const depText = s.dep ? formatTimeWithPlus(s.dep, s.depPlus) : '';
+            const originCls = `panel-time-label panel-time-label-origin${s.isPast ? ' is-past' : ''}`;
+            const terminalCls = `panel-time-label panel-time-label-terminal${s.isPast ? ' is-past' : ''}`;
+            const arrivalLabel = s.showOriginLabel ? `<span class=\"${originCls}\">始发站</span> ` : '';
+            const departLabel = s.showTerminalLabel ? `<span class=\"${terminalCls}\">终点站</span> ` : '';
+            const stationText = buildTimetableStationText({
+                stationCode: toText(stationsIndex?.idToCode?.get?.(toText(s.stationId)) || ''),
+                stationName: toText(s.stationName || s.stationId),
+                stationId: toText(s.stationId)
+            });
 
-                return `
-                    <div class="${rowCls}">
-                        <div class="panel-trip-detail-station" data-station-id="${escapeHtml(toText(s.stationId))}" data-line-color="${escapeHtml(toText(s.lineColor || ''))}">${escapeHtml(stationText)}</div>
-                        <div class="panel-trip-detail-time panel-trip-detail-arrive">${arrivalLabel}${arrText ? `<span class=\"panel-time-arrive\">${escapeHtml(arrText)}</span>` : ''}</div>
-                        <div class="panel-trip-detail-time panel-trip-detail-depart">${departLabel}${depText ? `<span class=\"panel-time-depart\">${escapeHtml(depText)}</span>` : ''}</div>
-                    </div>
-                `;
-            };
+            return renderTimetableStationRowHtml({
+                rowClass: rowCls,
+                stationClass: 'panel-trip-detail-station',
+                arriveCellClass: 'panel-trip-detail-time panel-trip-detail-arrive',
+                departCellClass: 'panel-trip-detail-time panel-trip-detail-depart',
+                arriveTextClass: 'panel-time-arrive',
+                departTextClass: 'panel-time-depart',
+                stationId: toText(s.stationId),
+                stationText,
+                lineColor: toText(s.lineColor || ''),
+                arrivalLabelHtml: arrivalLabel,
+                departLabelHtml: departLabel,
+                arrivalText: arrText,
+                departureText: depText
+            });
+        };
 
         const renderNoteRow = (descriptor, typeName, typeColor, isPast) => {
             if (!descriptor?.text) return '';
             const past = !!isPast;
-            const colorStyle = past
-                ? ' style="color:#ccc"'
-                : (descriptor.color ? ` style="color:${escapeHtml(descriptor.color)}"` : '');
-            const dotStyle = past
-                ? ' style="background:#ccc"'
-                : (descriptor.color ? ` style="background:${escapeHtml(descriptor.color)}"` : '');
-            const typeText = toText(typeName);
-            const typeStyle = (!past && toText(typeColor))
-                ? ` style="color:${escapeHtml(toText(typeColor))}"`
-                : '';
-            const typeHtml = typeText
-                ? `<span class="panel-trip-detail-note-type"${typeStyle}>${escapeHtml(typeText)}</span>`
-                : '';
             const rowCls = past ? 'panel-trip-detail-note-row is-past' : 'panel-trip-detail-note-row';
-            return `
-                <div class="${rowCls}">
-                    <span class="panel-trip-detail-note-dot"${dotStyle}></span>
-                    <span class="panel-trip-detail-note-line"${colorStyle}>${escapeHtml(descriptor.text)}</span>
-                    ${typeHtml}
-                </div>
-            `;
+            return renderTimetableNoteRowHtml({
+                rowClass: rowCls,
+                dotClass: 'panel-trip-detail-note-dot',
+                lineClass: 'panel-trip-detail-note-line',
+                typeClass: 'panel-trip-detail-note-type',
+                lineText: descriptor.text,
+                lineColor: past ? '#ccc' : toText(descriptor.color),
+                dotColor: past ? '#ccc' : toText(descriptor.color),
+                typeText: toText(typeName),
+                typeColor: past ? '' : toText(typeColor)
+            });
         };
 
         const getSegmentFirstRow = (segment) => (Array.isArray(segment?.rows) && segment.rows.length ? segment.rows[0] : null);
@@ -3341,11 +3348,11 @@ export function createPanel(options = {}) {
         const renderLoopMarkerRow = (text) => {
             const label = toText(text);
             if (!label) return '';
-            return `
-                <div class="panel-trip-detail-note-row">
-                    <span class="panel-trip-detail-note-line">${escapeHtml(label)}</span>
-                </div>
-            `;
+            return renderTimetablePlainNoteRowHtml({
+                rowClass: 'panel-trip-detail-note-row',
+                lineClass: 'panel-trip-detail-note-line',
+                text: label
+            });
         };
 
         let rowsHtml = '';

@@ -20,6 +20,11 @@ import {
     hhmmToOffsetMinutes
 } from './travel-search-planner-raptor.js';
 import { getCachedJson } from './fetch.js';
+import {
+    buildTimetableStationText,
+    createTimetableNoteRow,
+    createTimetableStationRow
+} from './timetable-table.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -990,35 +995,29 @@ export function mountTravelSearchUI() {
                 continue;
             }
 
-            const note = el('div', 'journey-trip-note-row');
-            const noteDot = el('span', 'journey-trip-note-dot');
-            if (block.lineColor) noteDot.style.background = String(resolveJourneyColorForTheme(block.lineColor));
-            const noteLine = el('span', 'journey-trip-note-line', { text: block.lineDisplayName || block.lineName });
-            if (block.lineColor) noteLine.style.color = String(resolveJourneyColorForTheme(block.lineColor));
-            if (shouldAppendDirectionForNextNote) {
-                const blockRows = Array.isArray(block?.rows) ? block.rows : [];
-                const blockLast = blockRows.length ? blockRows[blockRows.length - 1] : null;
-                const directionDestination = normalizeText(blockLast?.stationName || blockLast?.stationId || '');
-                if (directionDestination) {
-                    const direction = el('span', 'journey-trip-note-direction', { text: ` 往 ${directionDestination} /` });
-                    note.appendChild(noteDot);
-                    note.appendChild(noteLine);
-                    note.appendChild(direction);
-                } else {
-                    note.appendChild(noteDot);
-                    note.appendChild(noteLine);
-                }
-                shouldAppendDirectionForNextNote = false;
-            } else {
-                note.appendChild(noteDot);
-                note.appendChild(noteLine);
-            }
-            const noteType = el('span', 'journey-trip-note-type', { text: block.typeName });
-            if (block.typeColor) noteType.style.color = String(resolveJourneyColorForTheme(block.typeColor));
+            const blockRows = Array.isArray(block?.rows) ? block.rows : [];
+            const blockLast = blockRows.length ? blockRows[blockRows.length - 1] : null;
+            const directionDestination = shouldAppendDirectionForNextNote
+                ? normalizeText(blockLast?.stationName || blockLast?.stationId || '')
+                : '';
+            const note = createTimetableNoteRow({
+                rowClass: 'journey-trip-note-row',
+                dotClass: 'journey-trip-note-dot',
+                lineClass: 'journey-trip-note-line',
+                typeClass: 'journey-trip-note-type',
+                directionClass: 'journey-trip-note-direction',
+                lineText: block.lineDisplayName || block.lineName,
+                lineColor: block.lineColor ? String(resolveJourneyColorForTheme(block.lineColor)) : '',
+                dotColor: block.lineColor ? String(resolveJourneyColorForTheme(block.lineColor)) : '',
+                typeText: block.typeName,
+                typeColor: block.typeColor ? String(resolveJourneyColorForTheme(block.typeColor)) : '',
+                directionText: directionDestination ? ` 往 ${directionDestination} /` : ''
+            });
             if (travelIsDarkThemeActive() && isLocalTypeName(block.typeName)) {
-                noteType.style.color = '#fff';
+                const noteTypeEl = note.querySelector('.journey-trip-note-type');
+                if (noteTypeEl instanceof HTMLElement) noteTypeEl.style.color = '#fff';
             }
-            note.appendChild(noteType);
+            if (shouldAppendDirectionForNextNote) shouldAppendDirectionForNextNote = false;
             tripPopoverBody.appendChild(note);
 
             for (let i = 0; i < block.rows.length; i += 1) {
@@ -1026,34 +1025,30 @@ export function mountTravelSearchUI() {
                 const isFirst = i === 0;
                 const isLast = i === block.rows.length - 1;
                 const stationId = normalizeText(s.stationId || '');
-                const rowEl = el('div', s?.isPast ? 'journey-trip-row is-past' : 'journey-trip-row');
-                const stationCode = normalizeText(stationCodeMap.get(stationId) || '');
-                const stationName = normalizeText(s.stationName || s.stationId);
-                const stationText = stationCode ? `${stationCode} ${stationName}` : stationName;
-                const stationEl = el('div', 'journey-trip-station', { text: stationText });
-                if (stationId) stationEl.setAttribute('data-station-id', stationId);
-                rowEl.appendChild(stationEl);
-
-                const arrCell = el('div', 'journey-trip-time journey-trip-arrive');
                 const arriveText = normalizeText(s.arrText || '') || (isFirst ? normalizeText(s.depText || '') : '');
-                if (arriveText) {
-                    const arr = el('span', 'journey-trip-time-arrive', { text: arriveText });
-                    arrCell.appendChild(arr);
-                }
-                rowEl.appendChild(arrCell);
-
-                const depCell = el('div', 'journey-trip-time journey-trip-depart');
-                if (overallDestinationStationId && stationId && overallDestinationStationId === stationId) {
-                    const destLabel = el('span', 'journey-trip-time-arrive journey-trip-time-destination', { text: '目的地' });
-                    depCell.appendChild(destLabel);
-                } else if (s.depText) {
-                    const dep = el('span', 'journey-trip-time-depart', { text: s.depText });
-                    depCell.appendChild(dep);
-                } else if (isLast) {
-                    const terminalDash = el('span', 'journey-trip-time-arrive', { text: '-' });
-                    depCell.appendChild(terminalDash);
-                }
-                rowEl.appendChild(depCell);
+                const stationText = buildTimetableStationText({
+                    stationCode: normalizeText(stationCodeMap.get(stationId) || ''),
+                    stationName: normalizeText(s.stationName || s.stationId),
+                    stationId
+                });
+                const depText = overallDestinationStationId && stationId && overallDestinationStationId === stationId
+                    ? ''
+                    : (normalizeText(s.depText || '') || (isLast ? '-' : ''));
+                const rowEl = createTimetableStationRow({
+                    rowClass: s?.isPast ? 'journey-trip-row is-past' : 'journey-trip-row',
+                    stationClass: 'journey-trip-station',
+                    arriveCellClass: 'journey-trip-time journey-trip-arrive',
+                    departCellClass: 'journey-trip-time journey-trip-depart',
+                    arriveTextClass: 'journey-trip-time-arrive',
+                    departTextClass: 'journey-trip-time-depart',
+                    destinationTextClass: 'journey-trip-time-arrive journey-trip-time-destination',
+                    stationId,
+                    stationText,
+                    arrivalText: arriveText,
+                    departureText: depText,
+                    showDestination: !!(overallDestinationStationId && stationId && overallDestinationStationId === stationId),
+                    destinationText: '目的地'
+                });
                 tripPopoverBody.appendChild(rowEl);
             }
         }
