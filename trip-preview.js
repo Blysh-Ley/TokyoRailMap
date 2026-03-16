@@ -229,6 +229,62 @@ export const extractShortestLoopSegmentByIndex = (chain, fromCoord, toCoord, opt
 
 export const buildTripPreviewKey = (lineId, tripKey) => `${toText(lineId)}||${toText(tripKey)}`;
 
+export const buildVirtualTripPreviewPayload = ({
+    lineId,
+    lineName,
+    stationIds,
+    segments,
+    tripKey,
+    previewSource = 'virtual',
+    fitMode = 'none'
+} = {}) => {
+    const lid = toText(lineId);
+    const key = toText(tripKey);
+    const segList = Array.isArray(segments)
+        ? segments
+            .map((seg) => {
+                const line = toText(seg?.lineId);
+                const ids = Array.isArray(seg?.stationIds)
+                    ? seg.stationIds.map((x) => toText(x)).filter(Boolean)
+                    : [];
+                if (!line || ids.length < 2) return null;
+                return {
+                    kind: 'main',
+                    lineId: line,
+                    stationIds: ids
+                };
+            })
+            .filter(Boolean)
+        : [];
+    const stops = Array.isArray(stationIds)
+        ? stationIds.map((x) => toText(x)).filter(Boolean)
+        : [];
+    const firstSeg = segList[0] || null;
+    const lastSeg = segList.length ? segList[segList.length - 1] : null;
+    const fallbackLineId = toText(firstSeg?.lineId || lid);
+    const fallbackStops = firstSeg?.stationIds || stops;
+
+    if (!key) return null;
+    if (!segList.length && (!lid || stops.length < 2)) return null;
+
+    return {
+        selectedLineId: lid || fallbackLineId,
+        selectedLineName: toText(lineName) || lid || fallbackLineId,
+        mainLineId: fallbackLineId,
+        mainTerminalStationId: toText(lastSeg?.stationIds?.[lastSeg.stationIds.length - 1]) || fallbackStops[fallbackStops.length - 1] || '',
+        tripKey: key,
+        previewSource: toText(previewSource) || 'virtual',
+        fitMode: toText(fitMode) || 'none',
+        segments: segList.length
+            ? segList
+            : [{
+                kind: 'main',
+                lineId: lid,
+                stationIds: stops
+            }]
+    };
+};
+
 export function createTripPreviewScheduler(options = {}) {
     const onPreview = typeof options.onPreview === 'function' ? options.onPreview : null;
     const getHoverPreviewEnabled = typeof options.getHoverPreviewEnabled === 'function'

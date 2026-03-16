@@ -13,6 +13,7 @@ import { computeLineStopDiagramData } from './route-map.js';
 import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
 import { getCachedJson } from './fetch.js';
+import { previewBranchesForLine } from './analyze_branch.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -586,6 +587,12 @@ const ensureStyleInstalled = () => {
         .panel-capture-btn:hover {
             background: #f3f7ff;
         }
+        .route-map-branch-btn.is-active {
+            background: #e7f4ff;
+        }
+        .route-map-branch-btn.is-busy {
+            opacity: 0.7;
+        }
         .panel-capture-btn:disabled {
             opacity: 0.6;
             cursor: default;
@@ -1046,6 +1053,15 @@ const setupRouteMapUi = () => {
 
     const topActions = document.createElement('div');
     topActions.className = 'route-map-actions';
+
+    const branchBtn = document.createElement('button');
+    branchBtn.type = 'button';
+    branchBtn.className = 'panel-capture-btn route-map-branch-btn';
+    branchBtn.setAttribute('aria-label', '分支高亮');
+    branchBtn.title = '分支高亮';
+    branchBtn.innerHTML = '<img class="panel-capture-icon route-map-branch-icon" alt="" src="./icons/lr.svg" />';
+    topActions.appendChild(branchBtn);
+
     const captureBtn = document.createElement('button');
     captureBtn.type = 'button';
     captureBtn.className = 'panel-capture-btn route-map-capture-btn';
@@ -1075,6 +1091,57 @@ const setupRouteMapUi = () => {
     let lastPointer = { x: 0, y: 0 };
     let showTimer = 0;
     let hideTimer = 0;
+    let branchPreviewLineId = '';
+    let branchPreviewActive = false;
+    let branchPreviewBusy = false;
+
+    const setBranchButtonState = ({ active = false, busy = false } = {}) => {
+        branchPreviewActive = active === true;
+        branchPreviewBusy = busy === true;
+        branchBtn.classList.toggle('is-active', branchPreviewActive);
+        branchBtn.classList.toggle('is-busy', branchPreviewBusy);
+        branchBtn.disabled = branchPreviewBusy;
+        branchBtn.title = branchPreviewBusy ? '正在分析分支…' : (branchPreviewActive ? '关闭分支高亮' : '分支高亮');
+    };
+
+    const clearBranchPreviewBySource = () => {
+        const actions = window?.TokyoRailSearchMapActions;
+        if (typeof actions?.clearTripPathPreviewBySource === 'function') {
+            actions.clearTripPathPreviewBySource('route-map-branch');
+        }
+    };
+
+    branchBtn.addEventListener('click', async (evt) => {
+        stopEvent(evt);
+        pinned = true;
+        clearTimers();
+
+        const lid = toText(activeLineId);
+        if (!lid || branchPreviewBusy) return;
+
+        const isSameActive = branchPreviewActive && branchPreviewLineId === lid;
+        if (isSameActive) {
+            clearBranchPreviewBySource();
+            branchPreviewLineId = '';
+            setBranchButtonState({ active: false, busy: false });
+            return;
+        }
+
+        setBranchButtonState({ active: false, busy: true });
+        try {
+            const result = await previewBranchesForLine({
+                lineId: lid,
+                lineName: activeLineName,
+                fitMode: 'commit'
+            });
+            const ok = result?.ok === true;
+            branchPreviewLineId = ok ? lid : '';
+            setBranchButtonState({ active: ok, busy: false });
+        } catch {
+            branchPreviewLineId = '';
+            setBranchButtonState({ active: false, busy: false });
+        }
+    }, { passive: false });
 
     captureBtn.addEventListener('click', async (evt) => {
         stopEvent(evt);
@@ -1089,6 +1156,14 @@ const setupRouteMapUi = () => {
             if (captureIcon.dataset.fallbackTried === '1') return;
             captureIcon.dataset.fallbackTried = '1';
             captureIcon.src = '/icons/camera.svg';
+        });
+    }
+    const branchIcon = branchBtn.querySelector('.route-map-branch-icon');
+    if (branchIcon instanceof HTMLImageElement) {
+        branchIcon.addEventListener('error', () => {
+            if (branchIcon.dataset.fallbackTried === '1') return;
+            branchIcon.dataset.fallbackTried = '1';
+            branchIcon.src = '/icons/lr.svg';
         });
     }
 
@@ -1728,6 +1803,8 @@ const setupRouteMapUi = () => {
 
         activeLineId = lid;
         activeLineName = toText(lineName) || lid;
+        const isSameBranchLine = branchPreviewActive && branchPreviewLineId === lid;
+        setBranchButtonState({ active: isSameBranchLine, busy: false });
         await renderRouteMapTitleWithIcon(topTitle, lid, activeLineName);
         topTitle.style.color = '';
         lastAnchorRect = anchorRect || null;

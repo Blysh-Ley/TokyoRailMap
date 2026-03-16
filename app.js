@@ -2148,6 +2148,11 @@ map.on('load', async () => {
         searchMapActions.clearTripPathPreview = () => {
             clearTripPathPreview({ source: 'journey' });
         };
+        searchMapActions.clearTripPathPreviewBySource = (source) => {
+            const s = String(source || '').trim();
+            if (!s) return;
+            clearTripPathPreview({ source: s });
+        };
 
         // 供其他模块（如 panel header 的 map-select 下拉）使用：仅清除“站点点击高亮”。
         // 不做全量 reset，避免影响多选/公司/线路模式的外部状态。
@@ -3806,6 +3811,76 @@ map.on('load', async () => {
             };
         };
 
+        const buildTripPreviewAggregateFromPayloadList = (payloadList) => {
+            const list = Array.isArray(payloadList) ? payloadList : [];
+            const lineFeatureByKey = new Map();
+            const stopFeatureByStationId = new Map();
+            const lineIds = new Set();
+            const stopIds = new Set();
+            let bbox = null;
+            let startStationId = '';
+            let endStationId = '';
+
+            for (const payload of list) {
+                const built = buildTripPreviewFeatures(payload);
+                const lineFeatures = Array.isArray(built?.lineFc?.features) ? built.lineFc.features : [];
+                const stopFeatures = Array.isArray(built?.stopFc?.features) ? built.stopFc.features : [];
+
+                if (!startStationId) startStationId = String(built?.startStationId || '').trim();
+                if (String(built?.endStationId || '').trim()) endStationId = String(built?.endStationId || '').trim();
+
+                for (const lf of lineFeatures) {
+                    const key = buildLineFeatureDedupKey(lf);
+                    if (!key || lineFeatureByKey.has(key)) continue;
+                    lineFeatureByKey.set(key, lf);
+                }
+
+                for (const sf of stopFeatures) {
+                    const sid = String(sf?.properties?.id || '').trim();
+                    if (!sid) continue;
+                    if (!stopFeatureByStationId.has(sid)) stopFeatureByStationId.set(sid, sf);
+                }
+
+                const ids = built?.lineIds instanceof Set ? built.lineIds : null;
+                if (ids) {
+                    for (const id of ids) {
+                        const s = String(id || '').trim();
+                        if (s) lineIds.add(s);
+                    }
+                }
+
+                const sids = built?.stopIds instanceof Set ? built.stopIds : null;
+                if (sids) {
+                    for (const sid of sids) {
+                        const s = String(sid || '').trim();
+                        if (s) stopIds.add(s);
+                    }
+                }
+
+                const b = built?.bbox;
+                if (b && Number.isFinite(b.minLng) && Number.isFinite(b.maxLng) && Number.isFinite(b.minLat) && Number.isFinite(b.maxLat)) {
+                    bbox = bbox
+                        ? {
+                            minLng: Math.min(bbox.minLng, b.minLng),
+                            minLat: Math.min(bbox.minLat, b.minLat),
+                            maxLng: Math.max(bbox.maxLng, b.maxLng),
+                            maxLat: Math.max(bbox.maxLat, b.maxLat)
+                        }
+                        : { ...b };
+                }
+            }
+
+            return {
+                lineFc: { type: 'FeatureCollection', features: Array.from(lineFeatureByKey.values()) },
+                stopFc: { type: 'FeatureCollection', features: Array.from(stopFeatureByStationId.values()) },
+                lineIds,
+                stopIds,
+                startStationId,
+                endStationId,
+                bbox
+            };
+        };
+
         const rebuildTripPreviewFromMultiSelections = (fitMode = 'none') => {
             const aggregate = buildMultiTripPreviewAggregate();
             const hasVisible = aggregate.lineIds instanceof Set && aggregate.lineIds.size > 0;
@@ -3982,13 +4057,66 @@ map.on('load', async () => {
 
         previewTripPath = (payload) => {
             if (!payload || !Array.isArray(payload?.segments) || !payload.segments.length) {
-                clearTripPathPreview();
-                return;
+                const virtualTrips = Array.isArray(payload?.virtualTrips)
+                    ? payload.virtualTrips.filter((x) => x && Array.isArray(x?.segments) && x.segments.length)
+                    : [];
+                if (!virtualTrips.length) {
+                    clearTripPathPreview();
+                    return;
+                }
             }
 
             const fitMode = String(payload?.fitMode || 'preview').trim() || 'preview';
             const payloadSource = resolveTripPreviewPayloadSource(payload);
             const previewInteraction = String(payload?.__previewInteraction || payload?.previewInteraction || '').trim() || '';
+            const virtualTrips = Array.isArray(payload?.virtualTrips)
+                ? payload.virtualTrips.filter((x) => x && Array.isArray(x?.segments) && x.segments.length)
+                : [];
+
+            if (virtualTrips.length) {
+                ensureTripPreviewLayers();
+                const aggregate = buildTripPreviewAggregateFromPayloadList(virtualTrips);
+                const hasVisible = aggregate.lineIds instanceof Set && aggregate.lineIds.size > 0;
+
+                if (!hasVisible) {
+                    clearTripPathPreview({ source: payloadSource || '' });
+                    return;
+                }
+
+                tripPreviewActive = true;
+                tripPreviewActiveSource = payloadSource;
+                tripPreviewStationIds = aggregate.stopIds;
+                tripPreviewLineIds = aggregate.lineIds;
+
+                try {
+                    map.getSource('trip-preview-source')?.setData?.(aggregate.lineFc);
+                    map.getSource('trip-preview-stops-source')?.setData?.(aggregate.stopFc);
+                } catch {
+                    // ignore
+                }
+
+                clearTripEndpointPopups();
+
+                try {
+                    window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {
+                        detail: {
+                            ts: Date.now(),
+                            payload,
+                            built: aggregate
+                        }
+                    }));
+                } catch {
+                    // ignore
+                }
+
+                setStationLabelMode('all');
+                applySelectionEffects();
+                collisionController?.scheduleUpdate?.();
+                if (fitMode !== 'none') {
+                    previewFitWithSidePanels(aggregate.bbox);
+                }
+                return;
+            }
 
             if (isMultiSelectModeEnabled()) {
                 if (previewInteraction === 'hover') {
