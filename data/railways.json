@@ -5512,7 +5512,7 @@
 		"altitude": -1
 	},
 	{
-		"id": "JR-East.NaritaExpress.System",
+		"id": "JR-East.NaritaExpressSystem",
 		"title": {
 			"ja": "成田エクスプレス",
 			"en": "Narita Express",
@@ -5576,7 +5576,7 @@
 		"dynamic": true
 	},
 	{
-		"id": "JR-East.ShonanShinjuku.System",
+		"id": "JR-East.ShonanShinjukuSystem",
 		"title": {
 			"ja": "湘南新宿ライン",
 			"en": "Shonan-Shinjuku Line",
@@ -5672,7 +5672,7 @@
 		"dynamic": true
 	},
 	{
-		"id": "JR-East.UenoTokyo.System",
+		"id": "JR-East.UenoTokyoSystem",
 		"title": {
 			"ja": "上野東京ライン",
 			"en": "Ueno-Tokyo Line",
