@@ -3881,6 +3881,36 @@ map.on('load', async () => {
             };
         };
 
+        const buildEndpointStationIdSetFromPayloadList = (payloadList) => {
+            const out = new Set();
+            const list = Array.isArray(payloadList) ? payloadList : [];
+
+            for (const payload of list) {
+                const segments = Array.isArray(payload?.segments)
+                    ? payload.segments
+                    : [];
+                if (!segments.length) continue;
+
+                const firstSeg = segments.find((s) => Array.isArray(s?.stationIds) && s.stationIds.length) || null;
+                const lastSeg = (() => {
+                    for (let i = segments.length - 1; i >= 0; i -= 1) {
+                        const seg = segments[i];
+                        if (Array.isArray(seg?.stationIds) && seg.stationIds.length) return seg;
+                    }
+                    return null;
+                })();
+
+                const startId = String(firstSeg?.stationIds?.[0] || '').trim();
+                const endIds = Array.isArray(lastSeg?.stationIds) ? lastSeg.stationIds : [];
+                const endId = String(endIds.length ? endIds[endIds.length - 1] : '').trim();
+
+                if (startId) out.add(startId);
+                if (endId) out.add(endId);
+            }
+
+            return out;
+        };
+
         const rebuildTripPreviewFromMultiSelections = (fitMode = 'none') => {
             const aggregate = buildMultiTripPreviewAggregate();
             const hasVisible = aggregate.lineIds instanceof Set && aggregate.lineIds.size > 0;
@@ -4085,7 +4115,21 @@ map.on('load', async () => {
 
                 tripPreviewActive = true;
                 tripPreviewActiveSource = payloadSource;
-                tripPreviewStationIds = aggregate.stopIds;
+                if (payloadSource === 'panel-dir-branch') {
+                    const explicitHighlightIds = new Set(
+                        (Array.isArray(payload?.highlightStationIds) ? payload.highlightStationIds : [])
+                            .map((x) => String(x || '').trim())
+                            .filter(Boolean)
+                    );
+                    if (explicitHighlightIds.size) {
+                        tripPreviewStationIds = explicitHighlightIds;
+                    } else {
+                        const endpointIds = buildEndpointStationIdSetFromPayloadList(virtualTrips);
+                        tripPreviewStationIds = endpointIds.size ? endpointIds : aggregate.stopIds;
+                    }
+                } else {
+                    tripPreviewStationIds = aggregate.stopIds;
+                }
                 tripPreviewLineIds = aggregate.lineIds;
 
                 try {

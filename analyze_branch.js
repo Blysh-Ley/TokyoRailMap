@@ -472,14 +472,46 @@ const loadAllTimetableRecords = async () => {
     return allTimetableRecordsPromise;
 };
 
-export const analyzeBranchesForLine = async (lineId) => {
+const toTripFilterSet = (targetTripKeys) => {
+    const list = Array.isArray(targetTripKeys) ? targetTripKeys : [];
+    const set = new Set();
+    for (const item of list) {
+        const k = toText(item);
+        if (!k) continue;
+        set.add(k);
+        const base = k.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '');
+        if (base) set.add(base);
+    }
+    return set;
+};
+
+const matchesTripFilter = (rec, tripFilterSet) => {
+    if (!(tripFilterSet instanceof Set) || !tripFilterSet.size) return true;
+    const id = toText(rec?.id);
+    const t = toText(rec?.t);
+    const idBase = id ? id.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '') : '';
+    const tBase = t ? t.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '') : '';
+    return tripFilterSet.has(id)
+        || tripFilterSet.has(t)
+        || (idBase && tripFilterSet.has(idBase))
+        || (tBase && tripFilterSet.has(tBase));
+};
+
+export const analyzeBranchesForLine = async (lineId, options = {}) => {
     const lid = toText(lineId);
     if (!lid) return null;
 
-    if (!branchAnalysisCacheByLine.has(lid)) {
+    const tripFilterSet = toTripFilterSet(options?.targetTripKeys);
+    const tripFilterKey = (() => {
+        if (!tripFilterSet.size) return '*';
+        return Array.from(tripFilterSet).sort().join('||');
+    })();
+    const cacheKey = `${lid}##${tripFilterKey}`;
+
+    if (!branchAnalysisCacheByLine.has(cacheKey)) {
         const p = (async () => {
             const { allRecords, idMap } = await loadAllTimetableRecords();
-            const targetTimetables = allRecords.filter((rec) => getTripLineId(rec) === lid);
+            const targetTimetables = allRecords.filter((rec) => getTripLineId(rec) === lid && matchesTripFilter(rec, tripFilterSet));
 
             if (!targetTimetables.length) {
                 return {
@@ -505,10 +537,10 @@ export const analyzeBranchesForLine = async (lineId) => {
             };
         })();
 
-        branchAnalysisCacheByLine.set(lid, p);
+        branchAnalysisCacheByLine.set(cacheKey, p);
     }
 
-    return branchAnalysisCacheByLine.get(lid);
+    return branchAnalysisCacheByLine.get(cacheKey);
 };
 
 export const buildBranchVirtualTrips = ({ lineId, lineName, branchList } = {}) => {
@@ -585,7 +617,7 @@ const buildBranchSegmentsByRailway = (stationIds, stationRailwayByStationId, fal
     return segments.filter((seg) => toText(seg?.lineId) && Array.isArray(seg?.stationIds) && seg.stationIds.length >= 2);
 };
 
-export const previewBranchesForLine = async ({ lineId, lineName, fitMode = 'commit' } = {}) => {
+export const previewBranchesForLine = async ({ lineId, lineName, fitMode = 'commit', targetTripKeys, highlightStationIds, previewSource = 'route-map-branch' } = {}) => {
     const lid = toText(lineId);
     if (!lid) return { ok: false, reason: 'line-id-empty' };
 
@@ -594,7 +626,8 @@ export const previewBranchesForLine = async ({ lineId, lineName, fitMode = 'comm
         return { ok: false, reason: 'map-actions-unavailable' };
     }
 
-    const result = await analyzeBranchesForLine(lid);
+    const source = toText(previewSource) || 'route-map-branch';
+    const result = await analyzeBranchesForLine(lid, { targetTripKeys });
     const stationRailwayByStationId = await getStationRailwayIndex();
     const rawBranchList = Array.isArray(result?.branchList) ? result.branchList : [];
     const virtualTrips = [];
@@ -611,7 +644,7 @@ export const previewBranchesForLine = async ({ lineId, lineName, fitMode = 'comm
             segments,
             stationIds,
             tripKey: `branch-${i + 1}`,
-            previewSource: 'route-map-branch',
+            previewSource: source,
             fitMode: 'none'
         });
         if (payload) virtualTrips.push(payload);
@@ -619,7 +652,7 @@ export const previewBranchesForLine = async ({ lineId, lineName, fitMode = 'comm
 
     if (!virtualTrips.length) {
         if (typeof actions.clearTripPathPreviewBySource === 'function') {
-            actions.clearTripPathPreviewBySource('route-map-branch');
+            actions.clearTripPathPreviewBySource(source);
         }
         return {
             ok: false,
@@ -632,7 +665,10 @@ export const previewBranchesForLine = async ({ lineId, lineName, fitMode = 'comm
         selectedLineId: lid,
         mainLineId: lid,
         tripKey: `branches:${lid}`,
-        previewSource: 'route-map-branch',
+        previewSource: source,
+        highlightStationIds: Array.isArray(highlightStationIds)
+            ? highlightStationIds.map((x) => toText(x)).filter(Boolean)
+            : [],
         fitMode: toText(fitMode) || 'commit',
         virtualTrips
     }, {

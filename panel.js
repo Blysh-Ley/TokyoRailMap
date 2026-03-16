@@ -7,6 +7,7 @@ import { sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
 import { buildTripPreviewKey, createTripPreviewScheduler } from './trip-preview.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
 import { getCachedJson } from './fetch.js';
+import { previewBranchesForLine } from './analyze_branch.js';
 import {
     buildTimetableStationText,
     renderTimetableNoteRowHtml,
@@ -1692,10 +1693,12 @@ export function createPanel(options = {}) {
     let expandedDirKeys = new Set();
     const dirFilterStateByKey = new Map(); // lineId||dir -> { origins:Set, terminals:Set, types:Set }
     const dirFilterRowsByKey = new Map(); // lineId||dir -> Array<{origin,terminal,type}>
+    const dirFilteredTripKeysByKey = new Map(); // lineId||dir -> Array<tripKey|baseTripKey>
     const dirPrintPayloadByKey = new Map(); // lineId||dir -> export payload for print-timetables.js
     const dirPreviewMetaByKey = new Map(); // lineId||dir -> { lineId, originStationIds:string[], terminalStationIds:string[] }
     let activeDirPreviewKey = '';
     let pinnedDirPreviewKey = '';
+    let dirBranchPreviewSeq = 0;
     let pinnedPanelSelection = null; // { kind:'line'|'company'|'dir'|'trip', key:string }
     const makeLineDirKey = (lineId, dirKey) => `${toText(lineId)}||${toText(dirKey) || 'Unknown'}`;
     const dirKeyOf = (lineId, dir) => `${toText(lineId)}||${toText(dir) || 'Unknown'}`;
@@ -1729,13 +1732,53 @@ export function createPanel(options = {}) {
         } catch {
             // ignore
         }
+
+        const requestSeq = ++dirBranchPreviewSeq;
+        const tripKeys = Array.isArray(dirFilteredTripKeysByKey.get(key))
+            ? dirFilteredTripKeysByKey.get(key)
+            : [];
+        const highlightStationIds = Array.from(new Set([
+            ...(Array.isArray(meta.originStationIds) ? meta.originStationIds : []),
+            ...(Array.isArray(meta.terminalStationIds) ? meta.terminalStationIds : [])
+        ].map((x) => toText(x)).filter(Boolean)));
+        const source = 'panel-dir-branch';
+
+        previewBranchesForLine({
+            lineId: toText(meta.lineId),
+            lineName: '',
+            fitMode: toText(fitMode),
+            targetTripKeys: tripKeys,
+            highlightStationIds,
+            previewSource: source
+        }).then(() => {
+            if (requestSeq !== dirBranchPreviewSeq) return;
+        }).catch(() => {
+            if (requestSeq !== dirBranchPreviewSeq) return;
+            try {
+                const actions = window?.TokyoRailSearchMapActions;
+                if (typeof actions?.clearTripPathPreviewBySource === 'function') {
+                    actions.clearTripPathPreviewBySource(source);
+                }
+            } catch {
+                // ignore
+            }
+        });
     };
 
     const clearDirPreview = () => {
         if (!activeDirPreviewKey) return;
         activeDirPreviewKey = '';
+        dirBranchPreviewSeq += 1;
         try {
             onDirPreviewLeave?.();
+        } catch {
+            // ignore
+        }
+        try {
+            const actions = window?.TokyoRailSearchMapActions;
+            if (typeof actions?.clearTripPathPreviewBySource === 'function') {
+                actions.clearTripPathPreviewBySource('panel-dir-branch');
+            }
         } catch {
             // ignore
         }
@@ -2593,6 +2636,13 @@ export function createPanel(options = {}) {
                 const typeOk = !state.types.size || state.types.has(toText(r.typeName));
                 return originOk && terminalOk && typeOk;
             });
+
+            const filteredTripKeys = Array.from(new Set(
+                filteredRowsForDir
+                    .flatMap((r) => [toText(r.tripKey), toText(r.baseTripKey)])
+                    .filter(Boolean)
+            ));
+            dirFilteredTripKeysByKey.set(lineDirKey, filteredTripKeys);
 
             const uniqueIds = (arr) => Array.from(new Set((Array.isArray(arr) ? arr : []).map((x) => toText(x)).filter(Boolean)));
             dirPreviewMetaByKey.set(lineDirKey, {
