@@ -348,10 +348,55 @@
     const stopStroke = () => (isDarkTheme() ? '#fff' : '#111');
 
     const labelFill = () => (isDarkTheme() ? '#f2f2f2' : '#111');
+    const stationLabelBoxFill = () => (isDarkTheme() ? 'rgba(24, 26, 31, 0.88)' : 'rgba(255, 255, 255, 0.8)');
+    const stationLabelBoxStroke = () => (isDarkTheme() ? 'rgba(210, 216, 226, 0.35)' : 'rgba(0, 0, 0, 0.2)');
 
     const project = (map, lngLat) => {
         const p = map.project(lngLat);
         return { x: Number(p.x), y: Number(p.y) };
+    };
+
+    const appendStationLabelBoxesSvg = ({ parts, groupId, map, candidates, visibleIds }) => {
+        const list = Array.isArray(candidates) ? candidates : [];
+        if (!list.length) return;
+
+        const visible = visibleIds instanceof Set
+            ? visibleIds
+            : new Set(list.map((x) => String(x?.id || '').trim()).filter(Boolean));
+
+        const fontFamily = 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+        const padX = 4;
+        const radius = 3;
+
+        parts.push(`<g id="${escapeXml(groupId)}">`);
+        for (const item of list) {
+            const id = String(item?.id || '').trim();
+            if (!id || !visible.has(id)) continue;
+
+            const coord = item?.coordinates;
+            if (!Array.isArray(coord) || coord.length < 2) continue;
+            const text = String(item?.text || '').trim();
+            if (!text) continue;
+
+            const p = project(map, { lng: Number(coord[0]), lat: Number(coord[1]) });
+            if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+
+            const fontPx = Number(item?.fontPx || 12);
+            const y = p.y - Number(item?.labelDyPx || 0);
+            const boxW = Math.max(8, Number(item?.widthPx || 0) || (measureTextWidthPx(text, `${fontPx}px ${fontFamily}`) + padX * 2));
+            const boxH = Math.max(12, Number(item?.heightPx || 0) || Math.ceil(fontPx * 1.2 + 2));
+            const boxX = p.x - boxW / 2;
+            const boxY = y - boxH;
+            const textY = boxY + boxH / 2;
+
+            parts.push(
+                `<rect x="${boxX.toFixed(2)}" y="${boxY.toFixed(2)}" width="${boxW.toFixed(2)}" height="${boxH.toFixed(2)}" rx="${radius}" ry="${radius}" fill="${stationLabelBoxFill()}" stroke="${stationLabelBoxStroke()}" stroke-width="1"/>`
+            );
+            parts.push(
+                `<text x="${p.x.toFixed(2)}" y="${textY.toFixed(2)}" text-anchor="middle" dominant-baseline="middle" font-family="${fontFamily}" font-size="${fontPx}" fill="${labelFill()}">${escapeXml(text)}</text>`
+            );
+        }
+        parts.push(`</g>`);
     };
 
     const pathFromCoords = (map, coords) => {
@@ -517,6 +562,7 @@
                     if (!name) continue;
                     const servingCount = Number(f?.properties?.serving_count ?? 1);
                     const r = radiusForStop(z, servingCount);
+                    const textW = measureTextWidthPx(name, font);
 
                     candidates.push({
                         id: sid,
@@ -525,6 +571,8 @@
                         coordinates: [Number(c[0]), Number(c[1])],
                         fontPx,
                         font,
+                        widthPx: textW + 8,
+                        heightPx: Math.ceil(fontPx * 1.2 + 2),
                         labelDyPx: r + 6
                     });
                 }
@@ -532,18 +580,13 @@
                 const visible = mode === 'auto'
                     ? pickVisibleLabelIdsByCollision({ map, candidates, gridCellPx: 80 })
                     : new Set(candidates.map((c) => c.id));
-
-                parts.push(`<g id="trip-preview-labels" font-family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="12" fill="${labelFill()}">`);
-                for (const item of candidates) {
-                    if (!visible.has(item.id)) continue;
-                    const coord = item.coordinates;
-                    const p = project(map, { lng: Number(coord[0]), lat: Number(coord[1]) });
-                    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
-                    const x = p.x;
-                    const y = p.y - Number(item.labelDyPx || 0);
-                    parts.push(`<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" text-anchor="middle">${escapeXml(item.text)}</text>`);
-                }
-                parts.push(`</g>`);
+                appendStationLabelBoxesSvg({
+                    parts,
+                    groupId: 'trip-preview-labels',
+                    map,
+                    candidates,
+                    visibleIds: visible
+                });
             }
         }
 
@@ -1545,6 +1588,7 @@
                         if (!name) continue;
                         const sc = stationServingCount(props);
                         const r = radiusForStop(z, sc);
+                        const textW = measureTextWidthPx(name, font);
 
                         candidates.push({
                             id: sid,
@@ -1553,6 +1597,8 @@
                             coordinates: [Number(c[0]), Number(c[1])],
                             fontPx,
                             font,
+                            widthPx: textW + 8,
+                            heightPx: Math.ceil(fontPx * 1.2 + 2),
                             labelDyPx: r + 6
                         });
                     }
@@ -1560,18 +1606,13 @@
                     const visible = mode === 'auto'
                         ? pickVisibleLabelIdsByCollision({ map, candidates, gridCellPx: 80 })
                         : new Set(candidates.map((c) => c.id));
-
-                    parts.push(`<g id="base-station-labels" font-family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="12" fill="${labelFill()}">`);
-                    for (const item of candidates) {
-                        if (!visible.has(item.id)) continue;
-                        const coord = item.coordinates;
-                        const p = project(map, { lng: Number(coord[0]), lat: Number(coord[1]) });
-                        if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
-                        const x = p.x;
-                        const y = p.y - Number(item.labelDyPx || 0);
-                        parts.push(`<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" text-anchor="middle">${escapeXml(item.text)}</text>`);
-                    }
-                    parts.push(`</g>`);
+                    appendStationLabelBoxesSvg({
+                        parts,
+                        groupId: 'base-station-labels',
+                        map,
+                        candidates,
+                        visibleIds: visible
+                    });
                 }
             }
         }
