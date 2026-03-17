@@ -108,6 +108,7 @@
         let enabled = false;
         let expanded = false;
         let items = [];
+        let collapseTimer = null;
 
         const updateFabState = () => {
             fab.classList.toggle(ACTIVE_CLASS, enabled);
@@ -117,15 +118,32 @@
 
         const expand = () => {
             if (!enabled) return;
+            if (collapseTimer) {
+                window.clearTimeout(collapseTimer);
+                collapseTimer = null;
+            }
             expanded = true;
             root.classList.remove('is-collapsed');
             content.classList.remove('is-hidden');
         };
 
         const collapse = () => {
+            if (collapseTimer) {
+                window.clearTimeout(collapseTimer);
+                collapseTimer = null;
+            }
             expanded = false;
             root.classList.add('is-collapsed');
             content.classList.add('is-hidden');
+        };
+
+        const scheduleCollapse = () => {
+            if (!enabled) return;
+            if (collapseTimer) window.clearTimeout(collapseTimer);
+            collapseTimer = window.setTimeout(() => {
+                collapseTimer = null;
+                collapse();
+            }, 120);
         };
 
         const buildRow = (item) => {
@@ -247,16 +265,17 @@
             }
         };
 
-        fab.addEventListener('mouseenter', () => {
-            if (enabled) expand();
-        });
-
         root.addEventListener('mouseenter', () => {
-            if (enabled) expand();
+            if (!enabled) return;
+            if (collapseTimer) {
+                window.clearTimeout(collapseTimer);
+                collapseTimer = null;
+            }
+            expand();
         });
 
         root.addEventListener('mouseleave', () => {
-            if (enabled) collapse();
+            scheduleCollapse();
         });
 
         fab.addEventListener('click', (evt) => {
