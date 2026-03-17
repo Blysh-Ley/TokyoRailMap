@@ -749,12 +749,7 @@ export async function loadRailGeoDataFromDataFolder() {
         };
 
         const DISPLAY_TRIM_RULES = {
-            // 千代田线与小田急直通：地图显示时应在代々木上原断开，保留向代々木公园方向的一侧
-            // 说明：这里仅影响“线路渲染几何”，不影响站点/换乘数据。
-            'TokyoMetro.Chiyoda': {
-                boundaryStationId: 'TokyoMetro.Chiyoda.YoyogiUehara',
-                keepSideNearStationId: 'TokyoMetro.Chiyoda.YoyogiKoen'
-            }
+            
         };
 
         const buildRailwayCoordinatesForZoom = (railwayId, coordDef, zoom, unitKm, featureLookup, options = {}) => {

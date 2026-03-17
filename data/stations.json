@@ -15876,25 +15876,6 @@
 		"descending": null
 	},
 	{
-		"id": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"railway": "TokyoMetro.Chiyoda",
-		"coord": [
-			139.59916,
-			35.64015
-		],
-		"title": {
-			"ja": "成城学園前",
-			"en": "Seijogakuen-Mae",
-			"ko": "세이조가쿠엔마에",
-			"zh-Hans": "成城学园前",
-			"zh-Hant": "成城學園前",
-			"code": "OH14"
-		},
-		"alternate": "Odakyu.Odawara.SeijogakuenMae",
-		"ascending": "Inbound",
-		"descending": null
-	},
-	{
 		"id": "TokyoMetro.Chiyoda.YoyogiUehara",
 		"railway": "TokyoMetro.Chiyoda",
 		"coord": [
