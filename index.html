@@ -1228,8 +1228,57 @@
             padding-top: 6px;
             border-top: 1px solid #e3e5e7;
             display: inline-flex;
-            justify-content:flex-end;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 6px;
         }
+
+        .ms-show-icon-btn {
+            width: 70px;
+            height: 30px;
+            border-radius: 8px;
+            border: 1px solid #d8dade;
+            background: rgba(255, 255, 255, 0.94);
+            color: #111;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+        }
+        
+
+        html[data-theme="dark"] .ms-show-icon-btn {
+            background: rgba(28, 28, 28, 0.94);
+            border-color: #5a5d62;
+            color: #f2f2f2;
+        }
+
+        .ms-show-icon-btn-text{
+            padding-left: 6px;
+        }
+
+        .ms-show-icon-btn:hover {
+            background: #f2f4f7;
+        }
+
+        .ms-show-icon-btn.is-active {
+            background: #3498db;
+            border-color: #3498db;
+        }
+
+        .ms-show-icon-btn-icon {
+            width: 14px;
+            height: 14px;
+            display: block;
+            pointer-events: none;
+        }
+
+        .ms-show-icon-btn.is-active .ms-show-icon-btn-icon {
+            filter: brightness(0) invert(1);
+        }
+
+
 
         .ms-exit-btn {
             width: 80px;
@@ -3304,6 +3353,28 @@
             background: rgba(28, 28, 28, 0.94);
             border-color: #5a5d62;
             color: #f2f2f2;
+        }
+
+        html[data-theme='dark'] .ms-show-icon-btn {
+            background: rgba(28, 28, 28, 0.94);
+            border-color: #5a5d62;
+        }
+
+        html[data-theme='dark'] .ms-show-icon-btn:hover {
+            background: rgba(46, 46, 46, 0.95);
+        }
+
+        html[data-theme='dark'] .ms-show-icon-btn-icon {
+            filter: invert(1);
+        }
+
+        html[data-theme='dark'] .ms-show-icon-btn.is-active {
+            background: #3498db;
+            border-color: #3498db;
+        }
+
+        html[data-theme='dark'] .ms-show-icon-btn.is-active .ms-show-icon-btn-icon {
+            filter: brightness(0) invert(1);
         }
 
         html[data-theme='dark'] .ms-exit-btn:hover {

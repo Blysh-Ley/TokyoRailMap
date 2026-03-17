@@ -36,6 +36,7 @@ const ADAPTIVE_VIEWPORT_STORAGE_KEY = 'tokyorail.adaptive.viewport.enabled';
 const MULTI_SELECT_EVENT = '__TokyoRailMultiSelectModeChanged';
 const MULTI_SELECT_LAYERS_EVENT = '__TokyoRailMultiSelectLayersUpdated';
 const MULTI_SELECT_LAYERS_COMMAND_EVENT = '__TokyoRailMultiSelectLayersCommand';
+const MULTI_SELECT_SHOW_ICONS_EVENT = '__TokyoRailMultiSelectShowIconsChanged';
 const HOVER_PREVIEW_MIN_ZOOM = 10;
 const getSystemTheme = () => (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
 const readAppearanceMode = () => {
@@ -1473,6 +1474,7 @@ map.on('load', async () => {
         const visibleTripSelections = inMultiSelectMode
             ? Array.from(tripPreviewSelectionsByKey.values()).filter((entry) => entry?.hidden !== true)
             : [];
+        const showMultiSelectIcons = window.__TokyoRailMultiSelectShowIcons !== false;
 
         const resolveBaseLabelText = (item) => {
             const cached = String(item?._multiSelectBaseLabelText || '').trim();
@@ -1599,6 +1601,11 @@ map.on('load', async () => {
             }
 
             if (!renderOrder.length) {
+                restoreLabel(item);
+                continue;
+            }
+
+            if (!showMultiSelectIcons) {
                 restoreLabel(item);
                 continue;
             }
@@ -2918,6 +2925,10 @@ map.on('load', async () => {
         window.addEventListener(MULTI_SELECT_EVENT, (evt) => {
             const enabled = evt?.detail?.enabled === true;
             applyMultiSelectModeState(enabled);
+        });
+
+        window.addEventListener(MULTI_SELECT_SHOW_ICONS_EVENT, () => {
+            applySelectionEffects();
         });
     }
 

@@ -9,6 +9,7 @@
     const EVENT = '__TokyoRailMultiSelectModeChanged';
     const LAYERS_EVENT = '__TokyoRailMultiSelectLayersUpdated';
     const COMMAND_EVENT = '__TokyoRailMultiSelectLayersCommand';
+    const SHOW_ICONS_EVENT = '__TokyoRailMultiSelectShowIconsChanged';
     const ACTIVE_CLASS = 'is-active';
 
     const dispatchState = (enabled) => {
@@ -65,6 +66,25 @@
         }
     };
 
+    const dispatchShowIconsState = (visible) => {
+        try {
+            window.__TokyoRailMultiSelectShowIcons = visible !== false;
+        } catch {
+            // ignore
+        }
+
+        try {
+            window.dispatchEvent(new CustomEvent(SHOW_ICONS_EVENT, {
+                detail: {
+                    visible: visible !== false,
+                    ts: Date.now()
+                }
+            }));
+        } catch {
+            // ignore
+        }
+    };
+
     const mount = () => {
         if (document.querySelector('.ms-ui')) return;
 
@@ -94,10 +114,27 @@
         const footer = document.createElement('div');
         footer.className = 'ms-footer';
 
+        const showIconBtn = document.createElement('button');
+        showIconBtn.type = 'button';
+        showIconBtn.className = 'ms-show-icon-btn is-active';
+        showIconBtn.setAttribute('aria-label', '隐藏线路色块与种别圆圈');
+
+        const showIconBtnIcon = document.createElement('img');
+        showIconBtnIcon.className = 'ms-show-icon-btn-icon';
+        showIconBtnIcon.alt = '';
+        setImgWithFallback(showIconBtnIcon, ['./icons/eye.svg', '/icons/eye.svg']);
+        showIconBtn.appendChild(showIconBtnIcon);
+
+        const showIconBtnText = document.createElement('span');
+        showIconBtnText.className = 'ms-show-icon-btn-text';
+        showIconBtnText.textContent = '图标';
+        showIconBtn.appendChild(showIconBtnText);
+
         const exitBtn = document.createElement('button');
         exitBtn.type = 'button';
         exitBtn.className = 'ms-exit-btn';
         exitBtn.textContent = '退出全选';
+        footer.appendChild(showIconBtn);
         footer.appendChild(exitBtn);
         content.appendChild(footer);
 
@@ -109,6 +146,7 @@
         let expanded = false;
         let items = [];
         let collapseTimer = null;
+        let showIcons = true;
 
         const updateFabState = () => {
             fab.classList.toggle(ACTIVE_CLASS, enabled);
@@ -265,6 +303,14 @@
             }
         };
 
+        const updateShowIconBtnState = () => {
+            showIconBtn.classList.toggle('is-active', showIcons === true);
+            showIconBtn.setAttribute('aria-label', showIcons ? '隐藏线路色块与种别圆圈' : '显示线路色块与种别圆圈');
+            setImgWithFallback(showIconBtnIcon, showIcons
+                ? ['./icons/eye.svg', '/icons/eye.svg']
+                : ['./icons/eye-slash.svg', '/icons/eye-slash.svg']);
+        };
+
         root.addEventListener('mouseenter', () => {
             if (!enabled) return;
             if (collapseTimer) {
@@ -301,6 +347,14 @@
             setEnabled(false);
         });
 
+        showIconBtn.addEventListener('click', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            showIcons = !showIcons;
+            updateShowIconBtnState();
+            dispatchShowIconsState(showIcons);
+        });
+
         window.addEventListener(LAYERS_EVENT, (evt) => {
             const detail = evt?.detail || {};
             items = Array.isArray(detail?.items) ? detail.items : [];
@@ -313,6 +367,8 @@
         });
 
         updateFabState();
+        updateShowIconBtnState();
+        dispatchShowIconsState(showIcons);
         dispatchState(false);
     };
 
