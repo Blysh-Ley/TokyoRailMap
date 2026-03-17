@@ -9,6 +9,7 @@ import { createPanel } from './panel.js';
 import { getGlobalTimetableCache } from './timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './fullscreen.js';
 import { extractShortestLoopSegmentByIndex, isLoopDirection } from './trip-preview.js';
+import { previewBranchesForLine } from './analyze_branch.js';
 import './route-map-ui.js';
 
 initializeFetchCache();
@@ -572,6 +573,50 @@ map.on('load', async () => {
         return '基础线路';
     };
 
+    const getMultiSelectLineBranchSource = (lineId) => {
+        const id = String(lineId || '').trim();
+        if (!id) return '';
+        return `ms-line-branch:${id}`;
+    };
+
+    const getLineIdFromBaseMultiSelectKey = (key) => {
+        const k = String(key || '').trim();
+        if (!k.startsWith('line:')) return '';
+        return String(k.slice('line:'.length) || '').trim();
+    };
+
+    const hasTripPreviewSelectionBySource = (source) => {
+        const target = String(source || '').trim();
+        if (!target) return false;
+        for (const entry of tripPreviewSelectionsByKey.values()) {
+            const current = String(entry?.source || resolveTripPreviewPayloadSource(entry?.payload) || '').trim();
+            if (current === target && entry?.hidden !== true) return true;
+        }
+        return false;
+    };
+
+    const toggleBaseLineBranchPreview = (baseKey) => {
+        const lineId = getLineIdFromBaseMultiSelectKey(baseKey);
+        if (!lineId) return false;
+        const source = getMultiSelectLineBranchSource(lineId);
+        if (!source) return false;
+
+        if (hasTripPreviewSelectionBySource(source)) {
+            clearTripPathPreview({ source });
+            return false;
+        }
+
+        previewBranchesForLine({
+            lineId,
+            lineName: getLineNameForMultiSelect(lineId),
+            fitMode: 'none',
+            previewSource: source
+        }).catch(() => {
+            clearTripPathPreview({ source });
+        });
+        return true;
+    };
+
     const buildMultiSelectLayerItems = () => {
         const items = [];
 
@@ -581,6 +626,7 @@ map.on('load', async () => {
             const kind = String(entry?.kind || '').trim();
             const fallbackCompanyName = key.startsWith('company:') ? key.slice('company:'.length) : '';
             const baseDisplayName = String(entry?.displayName || '').trim();
+            const branchSource = getMultiSelectLineBranchSource(firstLineId);
             items.push({
                 id: `base:${key}`,
                 scope: 'base',
@@ -591,7 +637,9 @@ map.on('load', async () => {
                     : getLineNameForMultiSelect(firstLineId),
                 originName: '-',
                 terminalName: '-',
-                typeName: getBaseKindNameForMultiSelect(entry?.kind)
+                typeName: getBaseKindNameForMultiSelect(entry?.kind),
+                branchToggleSupported: kind === 'line' && !!firstLineId,
+                branchVisible: kind === 'line' && !!branchSource ? hasTripPreviewSelectionBySource(branchSource) : false
             });
         }
 
@@ -599,19 +647,24 @@ map.on('load', async () => {
             const payload = entry?.payload || {};
             const built = entry?.built || {};
             const lineId = String(payload?.selectedLineId || payload?.mainLineId || '').trim();
+            const source = String(entry?.source || resolveTripPreviewPayloadSource(payload) || '').trim();
+            const isBranchSource = source.startsWith('ms-line-branch:');
             const typeName = String(payload?.typeName || payload?.tripTypeName || '').trim() || '-';
             const originName = getStationNameForMultiSelect(built?.startStationId || payload?.originStationId || '');
             const terminalName = getStationNameForMultiSelect(built?.endStationId || payload?.terminalStationId || '');
+            const baseLineName = getLineNameForMultiSelect(lineId);
+            const displayLineName = isBranchSource ? `${baseLineName}（直通线路）` : baseLineName;
 
             items.push({
                 id: `trip:${key}`,
                 scope: 'trip',
                 key,
                 visible: entry?.hidden !== true,
-                lineName: getLineNameForMultiSelect(lineId),
+                lineName: displayLineName,
                 originName,
                 terminalName,
-                typeName
+                typeName,
+                displayText: isBranchSource ? displayLineName : ''
             });
         }
 
@@ -1519,9 +1572,16 @@ map.on('load', async () => {
 
             for (const entry of visibleTripSelections) {
                 const payload = entry?.payload || {};
-                const segs = Array.isArray(payload?.segments) ? payload.segments : [];
+                const segs = Array.isArray(payload?.segments)
+                    ? payload.segments
+                    : [];
+                const virtualTripSegs = Array.isArray(payload?.virtualTrips)
+                    ? payload.virtualTrips
+                        .flatMap((v) => Array.isArray(v?.segments) ? v.segments : [])
+                    : [];
+                const allSegs = [...segs, ...virtualTripSegs];
                 const payloadTypeColor = String(payload?.typeColor || '').trim();
-                for (const seg of segs) {
+                for (const seg of allSegs) {
                     const segLineId = String(seg?.lineId || '').trim();
                     if (!segLineId) continue;
                     const segStationIds = Array.isArray(seg?.stationIds) ? seg.stationIds : [];
@@ -4104,6 +4164,41 @@ map.on('load', async () => {
                 : [];
 
             if (virtualTrips.length) {
+                if (isMultiSelectModeEnabled()) {
+                    if (previewInteraction === 'hover') {
+                        return;
+                    }
+
+                    const selectionKey = buildTripPreviewSelectionKey(payload);
+                    if (!selectionKey) return;
+
+                    const aggregate = buildTripPreviewAggregateFromPayloadList(virtualTrips);
+                    const hasVisible = aggregate.lineIds instanceof Set && aggregate.lineIds.size > 0;
+                    if (!hasVisible) {
+                        tripPreviewSelectionsByKey.delete(selectionKey);
+                        rebuildTripPreviewFromMultiSelections('none');
+                        return;
+                    }
+
+                    tripPreviewSelectionsByKey.set(selectionKey, {
+                        payload: { ...(payload || {}) },
+                        built: {
+                            lineFc: aggregate.lineFc,
+                            stopFc: aggregate.stopFc,
+                            lineIds: aggregate.lineIds,
+                            stopIds: aggregate.stopIds,
+                            startStationId: aggregate.startStationId,
+                            endStationId: aggregate.endStationId,
+                            bbox: aggregate.bbox
+                        },
+                        source: payloadSource,
+                        hidden: false
+                    });
+
+                    rebuildTripPreviewFromMultiSelections(fitMode);
+                    return;
+                }
+
                 ensureTripPreviewLayers();
                 const aggregate = buildTripPreviewAggregateFromPayloadList(virtualTrips);
                 const hasVisible = aggregate.lineIds instanceof Set && aggregate.lineIds.size > 0;
@@ -4263,9 +4358,15 @@ map.on('load', async () => {
                     }
                     return ok;
                 }
+                if (action === 'toggle-branch-preview') {
+                    return toggleBaseLineBranchPreview(parsed.key);
+                }
                 if (action === 'remove') {
+                    const lineId = getLineIdFromBaseMultiSelectKey(parsed.key);
+                    const source = getMultiSelectLineBranchSource(lineId);
                     const ok = removeBaseMultiSelection(parsed.key);
                     if (ok) {
+                        if (source) clearTripPathPreview({ source });
                         if (!getBaseMultiSelectedLineIds().size && !tripPreviewActive) setStationLabelMode('auto');
                         applySelectionEffects();
                         collisionController?.scheduleUpdate?.();

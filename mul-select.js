@@ -148,14 +148,30 @@
             }
             toggleBtn.appendChild(toggleIcon);
 
+            const branchBtn = document.createElement('button');
+            branchBtn.type = 'button';
+            branchBtn.className = 'ms-layer-btn ms-layer-btn-branch';
+            branchBtn.setAttribute('aria-label', item?.branchVisible ? '隐藏直通线路' : '显示直通线路');
+            branchBtn.classList.toggle('is-active', item?.branchVisible === true);
+
+            const branchIcon = document.createElement('img');
+            branchIcon.className = 'ms-layer-btn-icon';
+            branchIcon.alt = '';
+            setImgWithFallback(branchIcon, ['./icons/lr.svg', '/icons/lr.svg']);
+            branchBtn.appendChild(branchIcon);
+            branchBtn.style.display = item?.branchToggleSupported ? '' : 'none';
+
             const text = document.createElement('div');
             text.className = 'ms-layer-text';
             const lineName = String(item?.lineName || '未知线路').trim() || '未知线路';
             const originName = String(item?.originName || '-').trim() || '-';
             const terminalName = String(item?.terminalName || '-').trim() || '-';
             const typeName = String(item?.typeName || '-').trim() || '-';
+            const displayText = String(item?.displayText || '').trim();
             if (String(item?.scope || '') === 'base') {
                 text.textContent = lineName;
+            } else if (displayText) {
+                text.textContent = displayText;
             } else {
                 text.textContent = `${lineName} / ${originName} - ${terminalName} / ${typeName}`;
             }
@@ -183,7 +199,14 @@
                 sendLayerCommand('remove', String(item?.id || ''));
             });
 
+            branchBtn.addEventListener('click', (evt) => {
+                evt.preventDefault?.();
+                evt.stopPropagation?.();
+                sendLayerCommand('toggle-branch-preview', String(item?.id || ''));
+            });
+
             row.appendChild(toggleBtn);
+            row.appendChild(branchBtn);
             row.appendChild(text);
             row.appendChild(removeBtn);
             return row;
