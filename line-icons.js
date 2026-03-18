@@ -77,6 +77,11 @@ export const selectLineIconPreset = (routeId, code) => {
         return 'rectangle-border';
     }
     else if(
+        id=='JR-East.NaritaExpress'
+    ){
+        return 'nex';
+    }
+    else if(
         id.startsWith('TokyoMetro.')||
         id.startsWith('Toei.')
     ) {
@@ -233,12 +238,29 @@ const getTrainSvgDataUrl = (fill, company = 'seibu', defaultColor = '#000') => {
     const safeFill = color.replace(/"/g, '&quot;');
     let svg = '';
 
-    if (brand === 'odakyu') {
+        if (brand === 'odakyu') {
         // 外圈使用 fillColor，内部白底固定白色
         svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 105.72 106.48">
   <path fill="${safeFill}" d="M108,55.24c0,36.43-20.52,53.24-52.86,53.24-32.06,0-52.86-16.81-52.86-53.24C2.28,19.86,23.08,2,55.14,2,87.48,2,108,19.48,108,55.24Z" transform="translate(-2.28 -2)"/>
   <path fill="#FFFFFF" d="M94.18,55.25c0,28.63-13.35,39.51-39.23,39.51S15.72,84.07,15.72,55.25c0-27.41,13.44-39.52,39.23-39.52C80.26,15.73,94.18,26.7,94.18,55.25Z" transform="translate(-2.28 -2)"/>
+</svg>`;
+        } else if (brand === 'nex') {
+                svg = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="64.492188mm" height="64.492188mm" viewBox="0 0 64.492187 64.492187" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(-7.937503,-7.937503)">
+        <rect style="display:inline;fill:#ff0000;fill-opacity:1;stroke:#ff0000;stroke-width:0.115812;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1" width="64.376373" height="64.376373" x="7.995409" y="7.995409"/>
+    </g>
+    <g transform="translate(-7.937503,-7.937503)">
+        <path style="fill:#ffffff;fill-opacity:1;stroke:#ffffff;stroke-width:0.0992187;stroke-dasharray:none;stroke-opacity:1" d="m 11.910618,39.312146 39.218276,-3.463669 14.922052,-14.892802 -0.0098,8.85697 -5.034364,5.082863 5.035477,-0.303955 -0.0011,9.029304 -5.020484,-0.375036 4.9892,4.972906 0.03665,8.888254 L 51.12892,42.427617 Z"/>
+    </g>
+    <g transform="translate(-519.8682,114.84832)">
+        <path style="fill:#ffffff;fill-opacity:1;stroke:#ffffff;stroke-width:0.0966675;stroke-dasharray:none;stroke-opacity:1" d="m 523.88532,-66.782095 1.93612,0.0064 0.0281,-5.535806 5.4518,5.529438 h 1.4169 l -0.003,-8.81015 -1.90484,-0.01593 -0.006,5.558104 -5.5425,-5.507139 -1.36999,-0.01593 z"/>
+        <path style="fill:#ffffff;fill-opacity:1;stroke:#ffffff;stroke-width:0.0942312;stroke-dasharray:none;stroke-opacity:1" d="m 533.30985,-75.609739 v 1.819472 l 1.82247,-1.817285 z"/>
+        <path style="display:inline;fill:#ffffff;fill-opacity:1;stroke:#ffffff;stroke-width:0.0986585;stroke-dasharray:none;stroke-opacity:1" d="m 535.80645,-75.607581 h 8.79353 l 0.023,1.973453 -6.78976,-0.009 -0.009,1.42377 6.78516,0.01802 0.005,1.973456 -6.78976,-0.009 -0.005,1.495858 6.78516,0.0045 0.005,1.950924 -8.81657,0.009 z"/>
+        <path style="fill:#ffffff;fill-opacity:1;stroke:#ffffff;stroke-width:0.0977648;stroke-dasharray:none;stroke-opacity:1" d="m 556.75832,-75.585343 -2.7461,-0.02252 -2.95019,3.003691 -3.05323,-2.99018 -2.70992,-0.0045 4.38786,4.339118 -4.40143,4.461039 2.69634,0.01351 3.09393,-3.09904 3.14927,3.108048 2.73253,-0.009 -4.54001,-4.488034 z"/>
+        <path style="fill:#ff0000;fill-opacity:1;stroke:#ff0000;stroke-width:0.0986635;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1" d="m 551.06167,-72.604479 -1.37337,1.345016 1.38688,1.373972 1.34241,-1.386833 z"/>
+    </g>
 </svg>`;
     } else {
         // seibu: 外圈用 fillColor，内部白区固定白色
@@ -576,6 +598,35 @@ const applyIconStyleForTheme = (el) => {
                 el.style.fontSize = '7px';
                 el.style.letterSpacing = '-0.4px';
             }
+
+            break;
+        }
+        case 'nex': {
+            el.style.backgroundColor = 'transparent';
+            el.style.backgroundImage = getTrainSvgDataUrl('', 'nex');
+            el.style.backgroundRepeat = 'no-repeat';
+            el.style.backgroundPosition = 'center';
+            el.style.backgroundSize = 'contain';
+            el.style.color = '#fff';
+            el.style.border = '0';
+            el.style.borderRadius = '4px';
+            el.style.width = '25px';
+            el.style.height = '25px';
+            el.style.padding = '0';
+            el.style.paddingBottom = '0';
+
+            // Reset mask fields in case this element style was previously masked.
+            el.style.maskImage = 'none';
+            el.style.maskRepeat = '';
+            el.style.maskPosition = '';
+            el.style.maskSize = '';
+            el.style.setProperty('-webkit-mask-image', 'none');
+            el.style.setProperty('-webkit-mask-repeat', '');
+            el.style.setProperty('-webkit-mask-position', '');
+            el.style.setProperty('-webkit-mask-size', '');
+
+            // NEX 图标仅显示徽标，不叠加线路代码文字。
+            el.textContent = '';
 
             break;
         }

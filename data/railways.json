@@ -1061,6 +1061,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#E60012",
+		"code": "NEX",
 		"carComposition": 6
 	},
 	{
