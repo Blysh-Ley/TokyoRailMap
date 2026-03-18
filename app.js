@@ -3486,6 +3486,7 @@ map.on('load', async () => {
             const outStopFeatures = [];
             const coordsForBbox = [];
             const stopIds = new Set();
+            const clippedSublines = [];
 
             const debugLoop = (() => {
                 try {
@@ -3583,8 +3584,15 @@ map.on('load', async () => {
                         preferLoopShortest: isLoopDirectionSeg,
                         direction: seg?.d
                     });
-                    if (clipped && clipped.length >= 2) pushLineFeature(clipped, lineId, 'line');
-                    else pushLineFeature([from, to], lineId, 'connector');
+                    if (clipped && clipped.length >= 2) {
+                        clippedSublines.push({
+                            type: 'main',
+                            coords: clipped
+                        });
+                        pushLineFeature(clipped, lineId, 'line');
+                    } else {
+                        pushLineFeature([from, to], lineId, 'connector');
+                    }
                 }
 
                 if (i > 0) {
@@ -3615,6 +3623,9 @@ map.on('load', async () => {
                     }
                 }
             }
+
+            // eslint-disable-next-line no-console
+            console.log(clippedSublines);
 
             for (const sid of stopIds) {
                 const c = stationCoordById.get(sid);
