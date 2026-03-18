@@ -9042,8 +9042,7 @@
 			"en": "Tokyo",
 			"ko": "도쿄",
 			"zh-Hans": "东京",
-			"zh-Hant": "東京",
-			"code": "JO19"
+			"zh-Hant": "東京"
 		},
 		"altitude": -1,
 		"alternate": "JR-East.Yokosuka.Tokyo",
@@ -9062,8 +9061,7 @@
 			"en": "Shinagawa",
 			"ko": "시나가와",
 			"zh-Hans": "品川",
-			"zh-Hant": "品川",
-			"code": "JO17"
+			"zh-Hant": "品川"
 		},
 		"alternate": "JR-East.Yokosuka.Shinagawa",
 		"ascending": "Outbound",
@@ -9081,8 +9079,7 @@
 			"en": "Shibuya",
 			"ko": "시부야",
 			"zh-Hans": "涩谷",
-			"zh-Hant": "澀谷",
-			"code": "JS19"
+			"zh-Hant": "澀谷"
 		},
 		"alternate": "JR-East.ShonanShinjuku.Shibuya",
 		"ascending": null,
