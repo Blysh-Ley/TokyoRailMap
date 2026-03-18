@@ -183,16 +183,6 @@ export const extractShortestLoopSegmentByIndex = (chain, fromCoord, toCoord, opt
     const primary = runOnRing(ring, preferredOrientation);
     const secondary = runOnRing(ring, preferredOrientation === 'reversed' ? 'normal' : 'reversed');
 
-    const clippedSublines = [primary, secondary]
-        .map((item) => item?.coords)
-        .filter((coords) => Array.isArray(coords) && coords.length >= 2)
-        .map((coords) => ({
-            type: 'main',
-            coords
-        }));
-    // eslint-disable-next-line no-console
-    console.log(clippedSublines);
-
     const pick = (() => {
         if (primary && secondary) {
             const a = Number(primary?.bestTrip?.score);
