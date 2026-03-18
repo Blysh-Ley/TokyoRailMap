@@ -203,10 +203,6 @@ const createTripResolver = () => {
     const loadTripByRefId = async (refId) => {
         const key = toText(refId);
         if (!key) return null;
-        if (isTripIdSuffixExcluded(key)) {
-            refTripCache.set(key, null);
-            return null;
-        }
         if (refTripCache.has(key)) return refTripCache.get(key);
 
         const refLineId = getRefLineId(key);
@@ -217,15 +213,16 @@ const createTripResolver = () => {
 
         const data = await loadTimetableForLineId(refLineId);
         const list = Array.isArray(data) ? data : [];
-        const filteredList = list.filter((trip) => !isTripIdSuffixExcluded(getTripIdText(trip)));
-        let hit = filteredList.find((t) => toText(t?.id) === key) || null;
+        const preferredList = list.filter((trip) => !isTripIdSuffixExcluded(getTripIdText(trip)));
+        const candidateList = preferredList.length ? preferredList : list;
+        let hit = candidateList.find((t) => toText(t?.id) === key) || null;
         if (!hit) {
             const parts = key.split('.').map((x) => x.trim()).filter(Boolean);
             const maybeNoDay = parts.length >= 2 ? parts.slice(0, -1).join('.') : key;
             hit =
-                filteredList.find((t) => toText(t?.t) === maybeNoDay) ||
-                filteredList.find((t) => toText(t?.id) === maybeNoDay) ||
-                filteredList.find((t) => {
+                candidateList.find((t) => toText(t?.t) === maybeNoDay) ||
+                candidateList.find((t) => toText(t?.id) === maybeNoDay) ||
+                candidateList.find((t) => {
                     const id = toText(t?.id);
                     return id ? id.startsWith(`${maybeNoDay}.`) : false;
                 }) ||
@@ -282,7 +279,8 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
 
     const list = Array.isArray(timetableData) ? timetableData : [];
         const lineMeta = railwaysIndex.get(lineId) || { id: lineId, name: lineId, color: '', company: '', stationIds: [] };
-        const filteredList = list.filter((trip) => !isTripIdSuffixExcluded(getTripIdText(trip)));
+        const preferredList = list.filter((trip) => !isTripIdSuffixExcluded(getTripIdText(trip)));
+        const effectiveList = preferredList.length ? preferredList : list;
     const lineStationIds = Array.isArray(lineMeta?.stationIds) ? lineMeta.stationIds : [];
 
     const stationName = (sid) => stationsIndex?.idToNameZh?.get?.(sid) || sid;
@@ -348,8 +346,8 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
     };
 
     // base patterns (selected line only)
-    for (let i = 0; i < filteredList.length; i += 1) {
-        const trip = filteredList[i];
+    for (let i = 0; i < effectiveList.length; i += 1) {
+        const trip = effectiveList[i];
         const day = getTripServiceDay(trip);
         if (serviceDay && day && day !== serviceDay) continue;
         const dir = toText(trip?.d) || 'Unknown';
@@ -442,8 +440,8 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
         };
     };
 
-    for (let i = 0; i < filteredList.length; i += 1) {
-        const trip = filteredList[i];
+    for (let i = 0; i < effectiveList.length; i += 1) {
+        const trip = effectiveList[i];
         const day = getTripServiceDay(trip);
         if (serviceDay && day && day !== serviceDay) continue;
 

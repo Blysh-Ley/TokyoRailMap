@@ -613,7 +613,6 @@ const applyIconStyleForTheme = (el) => {
             el.style.width = '25px';
             el.style.height = '25px';
             el.style.padding = '0';
-            el.style.paddingBottom = '0';
 
             // Reset mask fields in case this element style was previously masked.
             el.style.maskImage = 'none';

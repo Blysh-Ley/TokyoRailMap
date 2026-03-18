@@ -31,12 +31,14 @@ const enhancePanelLineHeaderIcons = async (rootEl) => {
         const meta = await getResolvedRouteIconMeta(lineId);
         if (!meta || (!meta.code && !meta.color)) continue;
 
+        const exceptCode = ['NEX'];
+
         if (!nameEl.querySelector('.rw-line-icon')) {
             const icon = createLineIconElement({ routeId: meta.id, code: meta.code, color: meta.color });
             if (icon) {
                 icon.style.marginRight = '4px';
                 icon.style.verticalAlign = 'middle';
-                icon.style.transform = 'translateY(-2px)';
+                icon.style.transform = exceptCode.includes(meta.code) ? 'translateY(5px)' : 'translateY(-2px)';
                 nameEl.prepend(icon);
             }
         }
