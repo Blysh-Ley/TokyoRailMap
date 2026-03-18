@@ -50,7 +50,8 @@
 	"JR-East.Yamanote.Shinjuku",
 	"JR-East.ChuoRapid.Shinjuku",
 	"JR-East.SaikyoKawagoe.Shinjuku",
-	"JR-East.ShonanShinjuku.Shinjuku"
+	"JR-East.ShonanShinjuku.Shinjuku",
+	"JR-East.NaritaExpress.Shinjuku"
 ], [
 	"Toei.Oedo.Shinjuku"
 ], [
@@ -310,7 +311,8 @@
 	"JR-East.Sobu.Chiba",
 	"JR-East.ChuoSobuLocal.Chiba",
 	"JR-East.Sotobo.Chiba",
-	"JR-East.Uchibo.Chiba"
+	"JR-East.Uchibo.Chiba",
+	"JR-East.NaritaExpress.Chiba"
 ], [
 	"ChibaMonorail.Line1.Chiba",
 	"ChibaMonorail.Line2.Chiba"
@@ -651,12 +653,14 @@
 ], [
 	"ChibaMonorail.Line2.Tsuga"
 ]], [[
+	"JR-East.NaritaExpress.Yotsukaido",
 	"JR-East.Sobu.Yotsukaido",
 	"JR-East.SobuRapid.Yotsukaido"
 ]], [[
 	"JR-East.Sobu.Monoi",
 	"JR-East.SobuRapid.Monoi"
 ]], [[
+	"JR-East.NaritaExpress.Sakura",
 	"JR-East.Sobu.Sakura",
 	"JR-East.SobuRapid.Sakura",
 	"JR-East.Narita.Sakura"
@@ -664,17 +668,20 @@
 	"JR-East.Narita.Shisui",
 	"JR-East.SobuRapid.Shisui"
 ]], [[
+	"JR-East.NaritaExpress.Narita",
 	"JR-East.NaritaAbikoBranch.Narita",
 	"JR-East.Narita.Narita",
 	"JR-East.NaritaAirportBranch.Narita",
 	"JR-East.SobuRapid.Narita"
 ]], [[
+	"JR-East.NaritaExpress.NaritaAirportTerminal2and3",
 	"JR-East.NaritaAirportBranch.NaritaAirportTerminal2and3",
 	"JR-East.SobuRapid.NaritaAirportTerminal2and3"
 ], [
 	"Keisei.NaritaSkyAccess.NaritaAirportTerminal2and3",
 	"Keisei.Main.NaritaAirportTerminal2and3"
 ]], [[
+	"JR-East.NaritaExpress.NaritaAirportTerminal1",
 	"JR-East.NaritaAirportBranch.NaritaAirportTerminal1",
 	"JR-East.SobuRapid.NaritaAirportTerminal1"
 ], [
