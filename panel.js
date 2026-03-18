@@ -1531,9 +1531,11 @@ export function createPanel(options = {}) {
 
     const isNoMarkTypeName = (typeNameRaw) => NO_MARK_TYPE_NAMES.has(toText(typeNameRaw));
 
-    const getNoMarkTerminalFullName = (terminalHints) => {
-        const first = Array.isArray(terminalHints) ? terminalHints[0] : null;
-        return toText(first?.full);
+    const buildTerminalDisplayLabel = (names) => {
+        const list = Array.isArray(names)
+            ? Array.from(new Set(names.map((x) => toText(x)).filter(Boolean)))
+            : [];
+        return list.join(' / ');
     };
 
     const buildDirectionGridHints = (rowsForDir) => {
@@ -1543,6 +1545,7 @@ export function createPanel(options = {}) {
         const typeColorByName = new Map();
         const typeStopCountByName = new Map();
         const terminalCount = new Map();
+        const terminalNamesByLabel = new Map();
 
         for (const row of rows) {
             const typeName = toText(row?.typeName);
@@ -1562,8 +1565,14 @@ export function createPanel(options = {}) {
                 }
             }
 
-            const terminalName = toText(row?.terminalName || row?.destName);
-            if (terminalName) terminalCount.set(terminalName, (terminalCount.get(terminalName) || 0) + 1);
+            const terminalNames = Array.isArray(row?.terminalNames)
+                ? row.terminalNames.map((x) => toText(x)).filter(Boolean)
+                : [];
+            const displayName = toText(row?.terminalDisplayName || row?.terminalName || row?.destName) || buildTerminalDisplayLabel(terminalNames);
+            if (displayName) {
+                terminalCount.set(displayName, (terminalCount.get(displayName) || 0) + 1);
+                terminalNamesByLabel.set(displayName, terminalNames.length ? terminalNames : [displayName]);
+            }
         }
 
         const typeNames = sortTypeNamesByBaseAndStopCount(Array.from(typeCount.keys()), typeCount, typeStopCountByName);
@@ -1581,10 +1590,23 @@ export function createPanel(options = {}) {
                 return String(a[0]).localeCompare(String(b[0]));
             })
             .map(([name]) => name);
-        const terminalAbbrMap = buildUniqueLeadAbbrMap(terminalNames);
+        const terminalAtomicNames = Array.from(new Set(
+            terminalNames
+                .flatMap((name) => terminalNamesByLabel.get(name) || [name])
+                .map((x) => toText(x))
+                .filter(Boolean)
+        ));
+        const terminalAbbrMap = buildUniqueLeadAbbrMap(terminalAtomicNames);
         const terminalHints = terminalNames.map((name) => ({
             full: name,
-            abbr: toText(terminalAbbrMap.get(name)) || toText(name).slice(0, 1),
+            abbr: (() => {
+                const fullNames = terminalNamesByLabel.get(name) || [name];
+                const parts = fullNames
+                    .map((fullName) => toText(terminalAbbrMap.get(fullName)) || toText(fullName).slice(0, 1))
+                    .filter(Boolean);
+                if (!parts.length) return toText(name).slice(0, 1);
+                return parts.join('/');
+            })(),
             count: Number(terminalCount.get(name) || 0)
         }));
 
@@ -2075,6 +2097,11 @@ export function createPanel(options = {}) {
         return '';
     };
 
+    const getStationIds = (value) => {
+        const list = Array.isArray(value) ? value : (value ? [value] : []);
+        return Array.from(new Set(list.map((x) => toText(x)).filter(Boolean)));
+    };
+
     const getTripId = (trip) => {
         const id = toText(trip?.id);
         if (id) return id;
@@ -2104,28 +2131,78 @@ export function createPanel(options = {}) {
             cur = prevTrip;
         }
 
-        visited.clear();
-        let terminalId = getFirstStationId(trip?.ds);
-        cur = trip;
-        while (cur) {
-            const curId = getTripId(cur);
-            if (curId) {
-                if (visited.has(curId)) break;
-                visited.add(curId);
+        const followTerminalByNextRef = async ({ startRefId, fallbackTerminalId }) => {
+            const seen = new Set();
+            let terminalId = toText(fallbackTerminalId);
+            let refId = toText(startRefId);
+
+            while (refId) {
+                if (seen.has(refId)) break;
+                seen.add(refId);
+
+                const nextTrip = await loadTripByRefId(refId);
+                if (!nextTrip) break;
+
+                const nextDs = getStationIds(nextTrip?.ds);
+                if (nextDs.length) {
+                    if (!terminalId || !nextDs.includes(terminalId)) {
+                        terminalId = nextDs[0];
+                    }
+                }
+
+                const nextRefs = Array.isArray(nextTrip?.nt) ? nextTrip.nt : (nextTrip?.nt ? [nextTrip.nt] : []);
+                refId = toText(nextRefs?.[0]);
             }
 
-            const refs = Array.isArray(cur?.nt) ? cur.nt : (cur?.nt ? [cur.nt] : []);
-            const refId = toText(refs?.[0]);
-            if (!refId) break;
-            const nextTrip = await loadTripByRefId(refId);
-            if (!nextTrip) break;
+            return terminalId;
+        };
 
-            const nextTerminal = getFirstStationId(nextTrip?.ds);
-            if (nextTerminal) terminalId = nextTerminal;
-            cur = nextTrip;
+        visited.clear();
+        const dsList = getStationIds(trip?.ds);
+        const ntRefs = (Array.isArray(trip?.nt) ? trip.nt : (trip?.nt ? [trip.nt] : []))
+            .map((x) => toText(x))
+            .filter(Boolean);
+
+        let terminalIds = [];
+
+        if (dsList.length >= 2) {
+            const resolved = [];
+            for (let i = 0; i < dsList.length; i += 1) {
+                const fallbackTerminalId = dsList[i];
+                const startRefId = ntRefs[i] || '';
+                const traced = await followTerminalByNextRef({
+                    startRefId,
+                    fallbackTerminalId
+                });
+                if (traced) resolved.push(traced);
+                else if (fallbackTerminalId) resolved.push(fallbackTerminalId);
+            }
+            terminalIds = Array.from(new Set(resolved.filter(Boolean)));
+        } else {
+            let terminalId = getFirstStationId(dsList);
+            cur = trip;
+            while (cur) {
+                const curId = getTripId(cur);
+                if (curId) {
+                    if (visited.has(curId)) break;
+                    visited.add(curId);
+                }
+
+                const refs = Array.isArray(cur?.nt) ? cur.nt : (cur?.nt ? [cur.nt] : []);
+                const refId = toText(refs?.[0]);
+                if (!refId) break;
+                const nextTrip = await loadTripByRefId(refId);
+                if (!nextTrip) break;
+
+                const nextTerminal = getFirstStationId(nextTrip?.ds);
+                if (nextTerminal) terminalId = nextTerminal;
+                cur = nextTrip;
+            }
+            terminalIds = terminalId ? [terminalId] : [];
         }
 
-        return { originId, terminalId };
+        const terminalId = terminalIds[0] || '';
+        return { originId, terminalId, terminalIds };
     };
 
     const findTripByKey = async (lineId, tripKey) => {
@@ -2238,20 +2315,37 @@ export function createPanel(options = {}) {
             .filter(Boolean)
             .join('<span class="panel-grid-hint-sep"> / </span>');
 
-        const noMarkTerminalFullName = getNoMarkTerminalFullName(terminalHints);
-        const terminalLegendItems = (Array.isArray(terminalHints) ? terminalHints : [])
-            .map((item) => {
-                const full = toText(item?.full);
-                const abbr = toText(item?.abbr);
-                if (!full) return '';
-                if (full === noMarkTerminalFullName) {
-                    return `<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888"><i>无标</i>-${escapeHtml(full)}</span>`;
-                }
-                if (!abbr) return '';
-                return `<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888">${escapeHtml(abbr)}−${escapeHtml(full)}</span>`;
-            })
-            .filter(Boolean)
-            .join('<span class="panel-grid-hint-sep"> / </span>');
+        const terminalPairHtml = [];
+        const seenTerminalPair = new Set();
+        for (const item of (Array.isArray(terminalHints) ? terminalHints : [])) {
+            const full = toText(item?.full);
+            const abbr = toText(item?.abbr);
+            if (!full || !abbr) continue;
+
+            const fullParts = full.split('/').map((x) => toText(x)).filter(Boolean);
+            const abbrParts = abbr.split('/').map((x) => toText(x)).filter(Boolean);
+            const pairLen = Math.max(fullParts.length, abbrParts.length);
+
+            if (pairLen <= 1) {
+                const key = `${abbr}||${full}`;
+                if (seenTerminalPair.has(key)) continue;
+                seenTerminalPair.add(key);
+                terminalPairHtml.push(`<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888">${escapeHtml(abbr)}-${escapeHtml(full)}</span>`);
+                continue;
+            }
+
+            for (let i = 0; i < pairLen; i += 1) {
+                const fullPart = toText(fullParts[i] || fullParts[fullParts.length - 1]);
+                const abbrPart = toText(abbrParts[i] || abbrParts[abbrParts.length - 1]);
+                if (!fullPart || !abbrPart) continue;
+                const key = `${abbrPart}||${fullPart}`;
+                if (seenTerminalPair.has(key)) continue;
+                seenTerminalPair.add(key);
+                terminalPairHtml.push(`<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888">${escapeHtml(abbrPart)}-${escapeHtml(fullPart)}</span>`);
+            }
+        }
+
+        const terminalLegendItems = terminalPairHtml.join('<span class="panel-grid-hint-sep"> / </span>');
 
         return `
             <div class="panel-grid-hints">
@@ -2307,7 +2401,6 @@ export function createPanel(options = {}) {
 
         const typeAbbrByName = new Map((Array.isArray(typeHints) ? typeHints : []).map((x) => [toText(x?.full), toText(x?.abbr)]));
         const terminalAbbrByName = new Map((Array.isArray(terminalHints) ? terminalHints : []).map((x) => [toText(x?.full), toText(x?.abbr)]));
-        const noMarkTerminalFullName = getNoMarkTerminalFullName(terminalHints);
 
         const rowHtml = hourWindow.map((hour, idx) => {
             const trips = Array.isArray(byHour.get(hour)) ? byHour.get(hour) : [];
@@ -2318,7 +2411,7 @@ export function createPanel(options = {}) {
                 const cellsHtml = trips.length
                 ? trips.map((trip, tripIndex) => {
                 const typeName = toText(trip?.typeName);
-                const destName = toText(trip?.terminalName || trip?.destName);
+                const destName = toText(trip?.terminalDisplayName || trip?.terminalName || trip?.destName);
                 const typeAbbr = toText(typeAbbrByName.get(typeName)) || buildTypeAbbr(typeName);
                 const destAbbr = toText(terminalAbbrByName.get(destName)) || toText(destName).slice(0, 1);
                 const minute = toText(trip?.minuteLabel).slice(0, 2);
@@ -2327,10 +2420,11 @@ export function createPanel(options = {}) {
                 const tripAttr = tripKey ? ` data-trip-key="${escapeHtml(tripKey)}"` : '';
                 const lastClass = tripIndex === trips.length - 1 ? ' is-hour-last' : '';
                 const showTypeAbbr = !isNoMarkTypeName(typeName);
-                const showDestAbbr = !(noMarkTerminalFullName && destName === noMarkTerminalFullName);
+                const showDestAbbr = !!destAbbr;
                 const tripAbbrText = `${showTypeAbbr ? `[${typeAbbr}]` : ''}${showDestAbbr ? destAbbr : ''}`;
+                const tripAbbrStyle = tripAbbrText.length > 5 ? ' style="transform:scale(0.8,1)"' : '';
                 const tripAbbrHtml = tripAbbrText
-                    ? `<span class="panel-grid-trip-abbr">${escapeHtml(tripAbbrText)}</span>`
+                    ? `<span class="panel-grid-trip-abbr"${tripAbbrStyle}>${escapeHtml(tripAbbrText)}</span>`
                     : '<span class="panel-grid-trip-abbr" aria-hidden="true">&nbsp;</span>';
 
                     const isTerminal = !!trip?.showTerminalLabel;
@@ -2444,14 +2538,26 @@ export function createPanel(options = {}) {
             const throughEndpoints = await resolveThroughServiceEndpointIds(trip);
             const destId = toText(ds?.[0]);
             const loopDest = (dir === 'InnerLoop' ? '内环' : (dir === 'OuterLoop' ? '外环' : ''));
-            const destName = loopDest || (destId ? (stationsIndex?.idToNameZh?.get?.(destId) || destId) : '');
+            const resolvedTerminalIds = Array.isArray(throughEndpoints?.terminalIds)
+                ? throughEndpoints.terminalIds.map((x) => toText(x)).filter(Boolean)
+                : [];
+            const primaryTerminalId = toText(resolvedTerminalIds[0]) || toText(throughEndpoints?.terminalId) || destId;
+            const secondaryTerminalId = toText(resolvedTerminalIds[1]) || '';
+            const primaryTerminalName = loopDest || (primaryTerminalId ? (stationsIndex?.idToNameZh?.get?.(primaryTerminalId) || primaryTerminalId) : '');
+            const secondaryTerminalName = loopDest || (secondaryTerminalId ? (stationsIndex?.idToNameZh?.get?.(secondaryTerminalId) || secondaryTerminalId) : '');
+            const terminalNames = loopDest
+                ? [loopDest]
+                : Array.from(new Set([primaryTerminalName, secondaryTerminalName].map((x) => toText(x)).filter(Boolean)));
+            const terminalDisplayName = buildTerminalDisplayLabel(terminalNames);
+            const destName = terminalDisplayName || primaryTerminalName;
             const originId = toText(throughEndpoints?.originId) || toText(os?.[0]);
             const originName = originId ? (stationsIndex?.idToNameZh?.get?.(originId) || originId) : '';
-            const terminalIdForFilter = toText(throughEndpoints?.terminalId) || destId;
-            const terminalName = loopDest || (terminalIdForFilter ? (stationsIndex?.idToNameZh?.get?.(terminalIdForFilter) || terminalIdForFilter) : '');
+            const terminalIdForFilter = primaryTerminalId || destId;
+            const terminalName = destName || (loopDest || (terminalIdForFilter ? (stationsIndex?.idToNameZh?.get?.(terminalIdForFilter) || terminalIdForFilter) : ''));
 
             const destNamesForDir = (() => {
                 if (loopDest) return [loopDest];
+                if (terminalNames.length) return terminalNames;
                 const out = [];
                 for (const x of ds) {
                     const id = toText(x);
@@ -2488,6 +2594,9 @@ export function createPanel(options = {}) {
                 originName,
                 terminalId: terminalIdForFilter,
                 terminalName,
+                terminalDisplayName,
+                terminalNames,
+                terminalIds: resolvedTerminalIds.length ? resolvedTerminalIds : (terminalIdForFilter ? [terminalIdForFilter] : []),
                 dir,
                 destNamesForDir,
                 showOriginLabel,
@@ -2555,6 +2664,13 @@ export function createPanel(options = {}) {
                 if (!toText(primary.originName) && toText(secondary.originName)) primary.originName = secondary.originName;
                 if (!toText(primary.terminalId) && toText(secondary.terminalId)) primary.terminalId = secondary.terminalId;
                 if (!toText(primary.terminalName) && toText(secondary.terminalName)) primary.terminalName = secondary.terminalName;
+                if (!toText(primary.terminalDisplayName) && toText(secondary.terminalDisplayName)) primary.terminalDisplayName = secondary.terminalDisplayName;
+                if (!Array.isArray(primary.terminalNames) || !primary.terminalNames.length) {
+                    primary.terminalNames = Array.isArray(secondary.terminalNames) ? secondary.terminalNames.slice() : [];
+                }
+                if (!Array.isArray(primary.terminalIds) || !primary.terminalIds.length) {
+                    primary.terminalIds = Array.isArray(secondary.terminalIds) ? secondary.terminalIds.slice() : [];
+                }
 
                 merged.set(key, primary);
             }
@@ -2683,7 +2799,7 @@ export function createPanel(options = {}) {
             const filterRowsForDir = rowsForDir
                 .map((r) => ({
                     origin: toText(r.originName),
-                    terminal: toText(r.terminalName || r.destName),
+                    terminal: toText(r.terminalDisplayName || r.terminalName || r.destName),
                     type: toText(r.typeName)
                 }))
                 .filter((r) => r.origin || r.terminal || r.type);
@@ -2696,7 +2812,7 @@ export function createPanel(options = {}) {
 
             const filteredRowsForDir = rowsForDir.filter((r) => {
                 const originOk = !state.origins.size || state.origins.has(toText(r.originName));
-                const terminalOk = !state.terminals.size || state.terminals.has(toText(r.terminalName || r.destName));
+                const terminalOk = !state.terminals.size || state.terminals.has(toText(r.terminalDisplayName || r.terminalName || r.destName));
                 const typeOk = !state.types.size || state.types.has(toText(r.typeName));
                 return originOk && terminalOk && typeOk;
             });
@@ -2712,7 +2828,10 @@ export function createPanel(options = {}) {
             dirPreviewMetaByKey.set(lineDirKey, {
                 lineId: toText(lineId),
                 originStationIds: uniqueIds(filteredRowsForDir.map((r) => r.originId)),
-                terminalStationIds: uniqueIds(filteredRowsForDir.map((r) => r.terminalId || r.destId))
+                terminalStationIds: uniqueIds(filteredRowsForDir.flatMap((r) => {
+                    const ids = Array.isArray(r?.terminalIds) ? r.terminalIds : [];
+                    return ids.length ? ids : [r.terminalId || r.destId];
+                }))
             });
 
             const labelRows = filteredRowsForDir.length ? filteredRowsForDir : rowsForDir;
@@ -2756,12 +2875,13 @@ export function createPanel(options = {}) {
                         const typeStyle = toText(r.typeColor)
                             ? ` style="color:${escapeHtml(toText(r.typeColor))}"`
                             : '';
+                        const destText = toText(r.terminalDisplayName || r.destName || r.terminalName);
                         return `
                             <div class="panel-timetable-row"${tripAttr}>
                                 <div class="panel-timetable-dest">
                                     <span class="panel-timetable-dest-prefix" aria-hidden="true">to</span>
-                                    <span class="panel-timetable-dest-marquee" aria-label="to ${escapeHtml(r.destName || '')}">
-                                        <span class="panel-timetable-dest-marquee-inner">${escapeHtml(r.destName || '')}</span>
+                                    <span class="panel-timetable-dest-marquee" aria-label="to ${escapeHtml(destText)}">
+                                        <span class="panel-timetable-dest-marquee-inner">${escapeHtml(destText)}</span>
                                     </span>
                                 </div>
                                 <div class="panel-timetable-time">${renderTimeForPrint(r)}</div>
@@ -2824,12 +2944,13 @@ export function createPanel(options = {}) {
                             const typeStyle = (!r.isPast && toText(r.typeColor))
                                 ? ` style="color:${escapeHtml(toText(r.typeColor))}"`
                                 : '';
+                            const destText = toText(r.terminalDisplayName || r.destName || r.terminalName);
                             return `
                                 <div class="${klass}"${tripAttr}>
                                     <div class="panel-timetable-dest">
                                         <span class="panel-timetable-dest-prefix" aria-hidden="true">to</span>
-                                        <span class="panel-timetable-dest-marquee" aria-label="to ${escapeHtml(r.destName || '')}">
-                                            <span class="panel-timetable-dest-marquee-inner">${escapeHtml(r.destName || '')}</span>
+                                        <span class="panel-timetable-dest-marquee" aria-label="to ${escapeHtml(destText)}">
+                                            <span class="panel-timetable-dest-marquee-inner">${escapeHtml(destText)}</span>
                                         </span>
                                     </div>
                                     <div class="panel-timetable-time">${renderTime(r)}</div>
