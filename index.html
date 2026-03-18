@@ -2191,6 +2191,70 @@
             flex: 0 0 auto;
         }
 
+        .panel-trip-detail-table.is-branch-grid {
+            display: grid;
+            grid-template-columns: repeat(var(--panel-trip-detail-cols, 7), minmax(0, 1fr));
+            column-gap: 6px;
+            row-gap: 2px;
+            align-items: center;
+            position: relative;
+        }
+
+        .panel-trip-detail-head-cell {
+            font-weight: 600;
+            color: #666;
+            font-size: 12px;
+            height: 18px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell {
+            font-size: 12px;
+            height: 18px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+
+        .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell.is-past,
+        .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell.is-past .panel-time-arrive,
+        .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell.is-past .panel-time-depart,
+        .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell.is-past .panel-time-label-origin,
+        .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell.is-past .panel-time-label-terminal {
+            color: #ccc;
+        }
+
+        .panel-trip-detail-grid-note {
+            overflow: hidden;
+        }
+
+        .panel-trip-detail-grid-break-marker {
+            font-size: 12px;
+            color: #666;
+            height: 16px;
+            line-height: 16px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            align-self: center;
+            justify-self: start;
+        }
+
+        .panel-trip-detail-grid-break-row {
+            display: grid;
+            grid-template-columns: repeat(var(--panel-trip-detail-cols, 7), minmax(0, 1fr));
+            column-gap: 6px;
+            min-height: 16px;
+            align-items: center;
+        }
+
+        .panel-trip-detail-grid-spacer {
+            height: 18px;
+        }
+
         /* Title multiline fallback when needed */
         [data-panel-title].is-multiline {
             display: -webkit-box;
@@ -3494,6 +3558,7 @@
         html[data-theme='dark'] .panel-dir-filter-option-count,
         html[data-theme='dark'] .panel-dir-filter-popover-close,
         html[data-theme='dark'] .panel-trip-detail-head,
+        html[data-theme='dark'] .panel-trip-detail-head-cell,
         html[data-theme='dark'] .panel-trip-detail-note-row,
         html[data-theme='dark'] .RW-company-type {
             color: #b8bcc3;

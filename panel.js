@@ -1535,7 +1535,7 @@ export function createPanel(options = {}) {
         const list = Array.isArray(names)
             ? Array.from(new Set(names.map((x) => toText(x)).filter(Boolean)))
             : [];
-        return list.join(' / ');
+        return list.join('·');
     };
 
     const buildDirectionGridHints = (rowsForDir) => {
@@ -1605,7 +1605,7 @@ export function createPanel(options = {}) {
                     .map((fullName) => toText(terminalAbbrMap.get(fullName)) || toText(fullName).slice(0, 1))
                     .filter(Boolean);
                 if (!parts.length) return toText(name).slice(0, 1);
-                return parts.join('/');
+                return parts.join('·');
             })(),
             count: Number(terminalCount.get(name) || 0)
         }));
@@ -2322,8 +2322,8 @@ export function createPanel(options = {}) {
             const abbr = toText(item?.abbr);
             if (!full || !abbr) continue;
 
-            const fullParts = full.split('/').map((x) => toText(x)).filter(Boolean);
-            const abbrParts = abbr.split('/').map((x) => toText(x)).filter(Boolean);
+            const fullParts = full.split(/[\/·]/).map((x) => toText(x)).filter(Boolean);
+            const abbrParts = abbr.split(/[\/·]/).map((x) => toText(x)).filter(Boolean);
             const pairLen = Math.max(fullParts.length, abbrParts.length);
 
             if (pairLen <= 1) {
@@ -3260,6 +3260,35 @@ export function createPanel(options = {}) {
         return buildLineDescriptor(lineId);
     };
 
+    const collectRefChainTripsFromRef = async (startRefId, token, key = 'nt') => {
+        const out = [];
+        const seenRefs = new Set();
+        const seenTrips = new Set();
+        let refId = toText(startRefId);
+        const stepKey = key === 'pt' ? 'pt' : 'nt';
+
+        for (let i = 0; i < 24; i += 1) {
+            if (!refId) break;
+            if (seenRefs.has(refId)) break;
+            seenRefs.add(refId);
+
+            const refTrip = await loadTripByRefId(refId);
+            if (token !== tripDetailToken) return null;
+            if (!refTrip) break;
+
+            const sid = toText(refTrip?.id) || toText(refTrip?.t);
+            if (sid && seenTrips.has(sid)) break;
+
+            out.push(refTrip);
+            if (sid) seenTrips.add(sid);
+
+            const refs = Array.isArray(refTrip?.[stepKey]) ? refTrip[stepKey] : (refTrip?.[stepKey] ? [refTrip[stepKey]] : []);
+            refId = toText(refs?.[0]);
+        }
+
+        return out;
+    };
+
     const collectRefChainTrips = async (startTrip, key, token) => {
         const out = [];
         const seenRefs = new Set();
@@ -3339,6 +3368,8 @@ export function createPanel(options = {}) {
 
         const ptRefs = Array.isArray(trip?.pt) ? trip.pt : (trip?.pt ? [trip.pt] : []);
         const ntRefs = Array.isArray(trip?.nt) ? trip.nt : (trip?.nt ? [trip.nt] : []);
+        const ptRefIds = ptRefs.map((x) => toText(x)).filter(Boolean);
+        const ntRefIds = ntRefs.map((x) => toText(x)).filter(Boolean);
         const hasPt = ptRefs.some((x) => !!toText(x));
         const hasNt = ntRefs.some((x) => !!toText(x));
         const dirRaw = toText(trip?.d);
@@ -3590,52 +3621,260 @@ export function createPanel(options = {}) {
             });
         };
 
-        let rowsHtml = '';
-        if (hideThroughSegmentsForLoop) {
-            rowsHtml += renderLoopMarkerRow('↑环线');
-        }
-        const segmentBlocks = [];
-        for (const seg of segmentsWithPast) {
-            const lastBlock = segmentBlocks.length ? segmentBlocks[segmentBlocks.length - 1] : null;
-            const sameLine = !!lastBlock && isSameLineName(lastBlock.lineId, seg.lineId);
-            if (!sameLine) {
-                segmentBlocks.push({
-                    lineId: seg.lineId,
-                    descriptor: buildLineDescriptor(seg.lineId) || (seg.kind === 'main' ? currentLineDesc : null),
-                    typeName: toText(seg.typeName),
-                    typeColor: toText(seg.typeColor),
-                    segments: [seg]
+        const renderGridNoteCell = ({ descriptor, typeName, typeColor, isPast, colStart }) => {
+            if (!descriptor?.text) return '';
+            const past = !!isPast;
+            const lineColor = past ? '#ccc' : toText(descriptor?.color);
+            const dotColor = past ? '#ccc' : toText(descriptor?.color);
+            const safeTypeName2 = toText(typeName);
+            const safeTypeColor2 = past ? '' : toText(typeColor);
+            const noteCls = `panel-trip-detail-note-row panel-trip-detail-grid-note${past ? ' is-past' : ''}`;
+            const col = Number(colStart) || 1;
+            return `
+                <div class="${noteCls}" style="grid-column:${col} / span 3;">
+                    <span class="panel-trip-detail-note-dot"${dotColor ? ` style="background:${escapeHtml(dotColor)}"` : ''}></span>
+                    <span class="panel-trip-detail-note-line"${lineColor ? ` style="color:${escapeHtml(lineColor)}"` : ''}>${escapeHtml(toText(descriptor?.text))}</span>
+                    ${safeTypeName2 ? `<span class="panel-trip-detail-note-type"${safeTypeColor2 ? ` style="color:${escapeHtml(safeTypeColor2)}"` : ''}>${escapeHtml(safeTypeName2)}</span>` : ''}
+                </div>
+            `;
+        };
+
+        const renderGridStopCellsAt = ({ stop, colStart, lineColor }) => {
+            const s = stop || {};
+            const col = Number(colStart) || 1;
+            const stationId = toText(s.stationId);
+            const stationText = buildTimetableStationText({
+                stationCode: toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
+                stationName: toText(s.stationName || s.stationId),
+                stationId
+            });
+            const arrText = s.arr ? formatTimeWithPlus(s.arr, s.arrPlus) : '';
+            const depText = s.dep ? formatTimeWithPlus(s.dep, s.depPlus) : '';
+            const originCls = `panel-time-label panel-time-label-origin${s.isPast ? ' is-past' : ''}`;
+            const terminalCls = `panel-time-label panel-time-label-terminal${s.isPast ? ' is-past' : ''}`;
+            const arrivalLabel = s.showOriginLabel ? `<span class="${originCls}">始发站</span> ` : '';
+            const departLabel = s.showTerminalLabel ? `<span class="${terminalCls}">终点站</span> ` : '';
+            const pastCls = s.isPast ? ' is-past' : '';
+            const safeLineColor = toText(lineColor);
+            return `
+                <div class="panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}" style="grid-column:${col};"${stationId ? ` data-station-id="${escapeHtml(stationId)}"` : ''}${safeLineColor ? ` data-line-color="${escapeHtml(safeLineColor)}"` : ''}>${escapeHtml(stationText)}</div>
+                <div class="panel-trip-detail-time panel-trip-detail-arrive panel-trip-detail-grid-cell${pastCls}" style="grid-column:${col + 1};">${arrivalLabel}${arrText ? `<span class="panel-time-arrive">${escapeHtml(arrText)}</span>` : ''}</div>
+                <div class="panel-trip-detail-time panel-trip-detail-depart panel-trip-detail-grid-cell${pastCls}" style="grid-column:${col + 2};">${departLabel}${depText ? `<span class="panel-time-depart">${escapeHtml(depText)}</span>` : ''}</div>
+            `;
+        };
+
+        const buildBranchLanesFromRefs = async (refIds, kind) => {
+            const ids = Array.isArray(refIds) ? refIds.map((x) => toText(x)).filter(Boolean) : [];
+            const out = [];
+            for (let i = 0; i < ids.length; i += 1) {
+                const chainTrips = await collectRefChainTripsFromRef(ids[i], token, kind);
+                if (token !== tripDetailToken) return null;
+                const chain = Array.isArray(chainTrips) ? chainTrips : [];
+                if (!chain.length) continue;
+
+                let laneRows = [];
+                for (const laneTrip of chain) {
+                    const rows = normalizeTripStops(buildTripStops(laneTrip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
+                        originIds,
+                        terminalIds,
+                        originAKeys,
+                        terminalAKeys,
+                        showOriginLabel,
+                        showTerminalLabel
+                    }).map((s) => ({
+                        ...s,
+                        seg: kind,
+                        isMain: false,
+                        isPast: Number.isFinite(Number(s?.timeMs)) ? Number(s.timeMs) < now : false
+                    }));
+                    laneRows = mergeStops(laneRows, rows);
+                }
+
+                const firstTrip = chain[0] || null;
+                out.push({
+                    kind,
+                    lineId: getTripLineId(firstTrip),
+                    descriptor: buildLineDescriptor(getTripLineId(firstTrip)) || buildRefLineDescriptor(ids[i]),
+                    typeName: getTripTypeName(firstTrip, trainTypesIndex),
+                    typeColor: getTripTypeColor(firstTrip, trainTypeColorIndex),
+                    rows: laneRows
                 });
-                continue;
+            }
+            return out;
+        };
+
+        const ntBranchLanes = await buildBranchLanesFromRefs(ntRefIds, 'nt');
+        if (token !== tripDetailToken) return;
+        const ptBranchLanes = await buildBranchLanesFromRefs(ptRefIds, 'pt');
+        if (token !== tripDetailToken) return;
+
+        const activeBranchLanes = (Array.isArray(ntBranchLanes) && ntBranchLanes.length >= 2)
+            ? ntBranchLanes
+            : ((Array.isArray(ptBranchLanes) && ptBranchLanes.length >= 2) ? ptBranchLanes : []);
+        const branchCount = activeBranchLanes.length;
+        const useBranchGridLayout = branchCount >= 2;
+        const branchMode = (Array.isArray(ntBranchLanes) && ntBranchLanes.length >= 2)
+            ? 'split'
+            : ((Array.isArray(ptBranchLanes) && ptBranchLanes.length >= 2) ? 'merge' : '');
+
+        let rowsHtml = '';
+        let tripDetailTableClass = 'panel-trip-detail-table';
+        let tripDetailTableInlineStyle = '';
+        let headerHtml = '';
+        let spacerHtml = '<div class="panel-trip-detail-spacer"></div>';
+
+        if (!useBranchGridLayout) {
+            if (hideThroughSegmentsForLoop) {
+                rowsHtml += renderLoopMarkerRow('↑环线');
+            }
+            const segmentBlocks = [];
+            for (const seg of segmentsWithPast) {
+                const lastBlock = segmentBlocks.length ? segmentBlocks[segmentBlocks.length - 1] : null;
+                const sameLine = !!lastBlock && isSameLineName(lastBlock.lineId, seg.lineId);
+                if (!sameLine) {
+                    segmentBlocks.push({
+                        lineId: seg.lineId,
+                        descriptor: buildLineDescriptor(seg.lineId) || (seg.kind === 'main' ? currentLineDesc : null),
+                        typeName: toText(seg.typeName),
+                        typeColor: toText(seg.typeColor),
+                        segments: [seg]
+                    });
+                    continue;
+                }
+
+                lastBlock.segments.push(seg);
+                if (!toText(lastBlock.typeName) && toText(seg.typeName)) {
+                    lastBlock.typeName = toText(seg.typeName);
+                }
+                if (!toText(lastBlock.typeColor) && toText(seg.typeColor)) {
+                    lastBlock.typeColor = toText(seg.typeColor);
+                }
             }
 
-            lastBlock.segments.push(seg);
-            if (!toText(lastBlock.typeName) && toText(seg.typeName)) {
-                lastBlock.typeName = toText(seg.typeName);
+            for (let i = 0; i < segmentBlocks.length; i += 1) {
+                const block = segmentBlocks[i];
+                const prevBlock = i > 0 ? segmentBlocks[i - 1] : null;
+
+                const firstSeg = block.segments[0] || null;
+                const prevLastSeg = prevBlock?.segments?.[prevBlock.segments.length - 1] || null;
+
+                const prevLastRow = getSegmentLastRow(prevLastSeg);
+                const firstRow = getSegmentFirstRow(firstSeg);
+
+                rowsHtml += renderNoteRow(block.descriptor, block.typeName, block.typeColor, isBoundaryPast(prevLastRow, firstRow));
+                for (const seg of block.segments) {
+                    const segLineColor = toText(block?.descriptor?.color || seg?.typeColor || '');
+                    rowsHtml += (seg.rows || []).map((r) => renderStopRow({ ...r, lineColor: segLineColor })).join('');
+                }
             }
-            if (!toText(lastBlock.typeColor) && toText(seg.typeColor)) {
-                lastBlock.typeColor = toText(seg.typeColor);
+            if (hideThroughSegmentsForLoop) {
+                rowsHtml += renderLoopMarkerRow('↓环线');
             }
-        }
 
-        for (let i = 0; i < segmentBlocks.length; i += 1) {
-            const block = segmentBlocks[i];
-            const prevBlock = i > 0 ? segmentBlocks[i - 1] : null;
+            headerHtml = `
+                <div class="panel-trip-detail-head">
+                    <div class="panel-trip-detail-station">车站</div>
+                    <div class="panel-trip-detail-time panel-trip-detail-arrive">到站时间</div>
+                    <div class="panel-trip-detail-time panel-trip-detail-depart">发车时间</div>
+                </div>
+            `;
+        } else {
+            const totalCols = 4 * branchCount - 1;
+            const centerStart = 2 * branchCount - 1;
+            const centerDividerCol = 2 * branchCount;
+            tripDetailTableClass = 'panel-trip-detail-table is-branch-grid';
+            tripDetailTableInlineStyle = ` style="--panel-trip-detail-cols:${totalCols};--panel-trip-detail-center-col:${centerDividerCol};"`;
+            spacerHtml = `<div class="panel-trip-detail-spacer panel-trip-detail-grid-spacer" style="grid-column:1 / span ${totalCols};"></div>`;
 
-            const firstSeg = block.segments[0] || null;
-            const prevLastSeg = prevBlock?.segments?.[prevBlock.segments.length - 1] || null;
+            headerHtml = `
+                <div class="panel-trip-detail-head-cell panel-trip-detail-station" style="grid-column:${centerStart};">车站</div>
+                <div class="panel-trip-detail-head-cell panel-trip-detail-time panel-trip-detail-arrive" style="grid-column:${centerStart + 1};">到站时间</div>
+                <div class="panel-trip-detail-head-cell panel-trip-detail-time panel-trip-detail-depart" style="grid-column:${centerStart + 2};">发车时间</div>
+            `;
 
-            const prevLastRow = getSegmentLastRow(prevLastSeg);
-            const firstRow = getSegmentFirstRow(firstSeg);
+            const mainSegWithPast = segmentsWithPast.find((s) => s.kind === 'main') || null;
+            const mainRows = Array.isArray(mainSegWithPast?.rows) ? mainSegWithPast.rows : [];
+            const mainDescriptor = currentLineDesc || buildLineDescriptor(getTripLineId(trip) || lineId);
+            const mainPast = mainRows.length ? !!mainRows[0]?.isPast : false;
 
-            rowsHtml += renderNoteRow(block.descriptor, block.typeName, block.typeColor, isBoundaryPast(prevLastRow, firstRow));
-            for (const seg of block.segments) {
-                const segLineColor = toText(block?.descriptor?.color || seg?.typeColor || '');
-                rowsHtml += (seg.rows || []).map((r) => renderStopRow({ ...r, lineColor: segLineColor })).join('');
+            const renderMainBlock = () => {
+                let html = '';
+                html += renderGridNoteCell({
+                    descriptor: mainDescriptor,
+                    typeName,
+                    typeColor,
+                    isPast: mainPast,
+                    colStart: centerStart
+                });
+
+                const mainLineColor = toText(mainDescriptor?.color || typeColor || '');
+                for (const s of mainRows) {
+                    html += renderGridStopCellsAt({ stop: { ...s, lineColor: mainLineColor }, colStart: centerStart, lineColor: mainLineColor });
+                }
+                return html;
+            };
+
+            const renderLaneBlocks = () => {
+                let html = '';
+                for (let i = 0; i < activeBranchLanes.length; i += 1) {
+                    const lane = activeBranchLanes[i] || {};
+                    const colStart = 4 * i + 1;
+                    const laneRows = Array.isArray(lane.rows) ? lane.rows : [];
+                    const lanePast = laneRows.length ? !!laneRows[0]?.isPast : false;
+                    html += renderGridNoteCell({
+                        descriptor: lane.descriptor,
+                        typeName: lane.typeName,
+                        typeColor: lane.typeColor,
+                        isPast: lanePast,
+                        colStart
+                    });
+                }
+
+                const maxLaneRows = activeBranchLanes.reduce((m, lane) => {
+                    const len = Array.isArray(lane?.rows) ? lane.rows.length : 0;
+                    return Math.max(m, len);
+                }, 0);
+
+                for (let rowIndex = 0; rowIndex < maxLaneRows; rowIndex += 1) {
+                    for (let i = 0; i < activeBranchLanes.length; i += 1) {
+                        const lane = activeBranchLanes[i] || {};
+                        const laneRows = Array.isArray(lane.rows) ? lane.rows : [];
+                        const stop = laneRows[rowIndex] || null;
+                        if (!stop) continue;
+                        const colStart = 4 * i + 1;
+                        const laneLineColor = toText(lane?.descriptor?.color || lane?.typeColor || '');
+                        html += renderGridStopCellsAt({ stop: { ...stop, lineColor: laneLineColor }, colStart, lineColor: laneLineColor });
+                    }
+                }
+                return html;
+            };
+
+            const renderBreakRow = () => {
+                const startRow = `<div class="panel-trip-detail-grid-break-row" style="grid-column:1 / span ${totalCols}; --panel-trip-detail-cols:${totalCols};">`;
+                const endRow = '</div>';
+                if (branchMode === 'split') {
+                    const parts = [];
+                    for (let i = 0; i < activeBranchLanes.length; i += 1) {
+                        const markerCol = 4 * i + 2;
+                        parts.push(`<div class="panel-trip-detail-grid-break-marker" style="grid-column:${markerCol};">｜解编</div>`);
+                    }
+                    return `${startRow}${parts.join('')}${endRow}`;
+                }
+                if (branchMode === 'merge') {
+                    return `${startRow}<div class="panel-trip-detail-grid-break-marker" style="grid-column:${centerDividerCol};">｜并结</div>${endRow}`;
+                }
+                return '';
+            };
+
+            if (branchMode === 'merge') {
+                rowsHtml += renderLaneBlocks();
+                rowsHtml += renderBreakRow();
+                rowsHtml += renderMainBlock();
+            } else {
+                rowsHtml += renderMainBlock();
+                rowsHtml += renderBreakRow();
+                rowsHtml += renderLaneBlocks();
             }
-        }
-        if (hideThroughSegmentsForLoop) {
-            rowsHtml += renderLoopMarkerRow('↓环线');
         }
 
         try {
@@ -3673,14 +3912,10 @@ export function createPanel(options = {}) {
         }
 
         tripDetailBody.innerHTML = `
-            <div class="panel-trip-detail-table">
-                <div class="panel-trip-detail-head">
-                    <div class="panel-trip-detail-station">车站</div>
-                    <div class="panel-trip-detail-time panel-trip-detail-arrive">到站时间</div>
-                    <div class="panel-trip-detail-time panel-trip-detail-depart">发车时间</div>
-                </div>
+            <div class="${tripDetailTableClass}"${tripDetailTableInlineStyle}>
+                ${headerHtml}
                 ${rowsHtml}
-                <div class="panel-trip-detail-spacer"></div>
+                ${spacerHtml}
             </div>
         `;
 
