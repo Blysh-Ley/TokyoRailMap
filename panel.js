@@ -3442,6 +3442,7 @@ export function createPanel(options = {}) {
                 segments.push({
                     kind: 'pt',
                     lineId: getTripLineId(ptTrip),
+                    d: toText(ptTrip?.d),
                     rows,
                     typeName: getTripTypeName(ptTrip, trainTypesIndex),
                     typeColor: getTripTypeColor(ptTrip, trainTypeColorIndex)
@@ -3452,6 +3453,7 @@ export function createPanel(options = {}) {
         segments.push({
             kind: 'main',
             lineId: getTripLineId(trip),
+            d: toText(trip?.d),
             rows: mainRowsRaw,
             typeName: getTripTypeName(trip, trainTypesIndex),
             typeColor: getTripTypeColor(trip, trainTypeColorIndex)
@@ -3470,6 +3472,7 @@ export function createPanel(options = {}) {
                 segments.push({
                     kind: 'nt',
                     lineId: getTripLineId(ntTrip),
+                    d: toText(ntTrip?.d),
                     rows,
                     typeName: getTripTypeName(ntTrip, trainTypesIndex),
                     typeColor: getTripTypeColor(ntTrip, trainTypeColorIndex)
@@ -3694,6 +3697,7 @@ export function createPanel(options = {}) {
                 out.push({
                     kind,
                     lineId: getTripLineId(firstTrip),
+                    d: toText(firstTrip?.d),
                     descriptor: buildLineDescriptor(getTripLineId(firstTrip)) || buildRefLineDescriptor(ids[i]),
                     typeName: getTripTypeName(firstTrip, trainTypesIndex),
                     typeColor: getTripTypeColor(firstTrip, trainTypeColorIndex),
@@ -3881,7 +3885,7 @@ export function createPanel(options = {}) {
             const payloadSegments = segmentsWithPast.map((seg) => ({
                 kind: seg.kind,
                 lineId: toText(seg.lineId),
-                d: toText(trip?.d),
+                d: toText(seg?.d || trip?.d),
                 stationIds: (seg.rows || []).map((r) => toText(r.stationId)).filter(Boolean),
                 typeColor: toText(seg.typeColor)
             }));
@@ -3902,6 +3906,93 @@ export function createPanel(options = {}) {
                 segments: payloadSegments,
                 fitMode: toText(fitMode)
             };
+
+            if (branchMode && Array.isArray(activeBranchLanes) && activeBranchLanes.length >= 2) {
+                const mainSegForPreview = segmentsWithPast.find((s) => toText(s?.kind) === 'main') || null;
+                const mainSegStationIds = Array.isArray(mainSegForPreview?.rows)
+                    ? mainSegForPreview.rows.map((r) => toText(r?.stationId)).filter(Boolean)
+                    : [];
+                const mainSegLineId = toText(mainSegForPreview?.lineId || payload?.mainLineId || payload?.selectedLineId);
+                const mainSegDir = toText(mainSegForPreview?.d || trip?.d);
+
+                const virtualTrips = [];
+                for (let i = 0; i < activeBranchLanes.length; i += 1) {
+                    const lane = activeBranchLanes[i] || {};
+                    const laneStationIds = Array.isArray(lane?.rows)
+                        ? lane.rows.map((r) => toText(r?.stationId)).filter(Boolean)
+                        : [];
+                    const laneLineId = toText(lane?.lineId || mainSegLineId);
+                    const laneDir = toText(lane?.d || mainSegDir);
+
+                    const chainSegments = [];
+                    if (branchMode === 'merge') {
+                        if (laneStationIds.length >= 2) {
+                            chainSegments.push({
+                                kind: 'pt',
+                                lineId: laneLineId,
+                                d: laneDir,
+                                stationIds: laneStationIds,
+                                typeColor: toText(lane?.typeColor || payload?.typeColor)
+                            });
+                        }
+                        if (mainSegStationIds.length >= 2) {
+                            chainSegments.push({
+                                kind: 'main',
+                                lineId: mainSegLineId,
+                                d: mainSegDir,
+                                stationIds: mainSegStationIds,
+                                typeColor: toText(payload?.typeColor)
+                            });
+                        }
+                    } else {
+                        if (mainSegStationIds.length >= 2) {
+                            chainSegments.push({
+                                kind: 'main',
+                                lineId: mainSegLineId,
+                                d: mainSegDir,
+                                stationIds: mainSegStationIds,
+                                typeColor: toText(payload?.typeColor)
+                            });
+                        }
+                        if (laneStationIds.length >= 2) {
+                            chainSegments.push({
+                                kind: 'nt',
+                                lineId: laneLineId,
+                                d: laneDir,
+                                stationIds: laneStationIds,
+                                typeColor: toText(lane?.typeColor || payload?.typeColor)
+                            });
+                        }
+                    }
+
+                    if (!chainSegments.length) continue;
+
+                    const firstIds = chainSegments[0]?.stationIds || [];
+                    const lastIds = chainSegments[chainSegments.length - 1]?.stationIds || [];
+                    virtualTrips.push({
+                        tripKey: `${toText(tripKey)}::branch-${i + 1}`,
+                        selectedLineId: payload.selectedLineId,
+                        mainLineId: payload.mainLineId,
+                        originStationId: toText(firstIds[0]),
+                        mainTerminalStationId: toText(lastIds[lastIds.length - 1]),
+                        terminalStationId: toText(lastIds[lastIds.length - 1]),
+                        typeName: payload.typeName,
+                        typeColor: payload.typeColor,
+                        hasNt: branchMode === 'split',
+                        segments: chainSegments,
+                        fitMode: payload.fitMode,
+                        previewSource: payload.previewSource,
+                        __previewSource: payload.__previewSource,
+                        previewInteraction: payload.previewInteraction,
+                        __previewInteraction: payload.__previewInteraction
+                    });
+                }
+
+                if (virtualTrips.length >= 2) {
+                    payload.virtualTrips = virtualTrips;
+                }
+            }
+
             scheduleTripPreview({
                 previewKey: buildTripPreviewKey(lineId, tripKey),
                 payload,

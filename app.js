@@ -293,6 +293,8 @@ map.on('load', async () => {
     let tripPreviewActiveSource = '';
     let tripPreviewOriginPopup = null;
     let tripPreviewTerminalPopup = null;
+    let tripPreviewOriginPopups = [];
+    let tripPreviewTerminalPopups = [];
     let tripCurrentStationPopup = null;
     let tripDetailStationTriangleMarker = null;
     let tripPreviewSelectionsByKey = new Map(); // key -> { payload, built, hidden?:boolean, source?:string }
@@ -3672,8 +3674,16 @@ map.on('load', async () => {
             } catch {
                 // ignore
             }
+            for (const popup of tripPreviewOriginPopups) {
+                try { popup?.remove?.(); } catch { /* ignore */ }
+            }
+            for (const popup of tripPreviewTerminalPopups) {
+                try { popup?.remove?.(); } catch { /* ignore */ }
+            }
             tripPreviewOriginPopup = null;
             tripPreviewTerminalPopup = null;
+            tripPreviewOriginPopups = [];
+            tripPreviewTerminalPopups = [];
         };
 
         const createTripEndpointPopup = ({ stationId, text, color, yOffset = 8 }) => {
@@ -3732,6 +3742,66 @@ map.on('load', async () => {
                 color: '#D32F2F',
                 yOffset: startId && endId && startId === endId ? 30 : 8
             });
+
+            tripPreviewOriginPopups = tripPreviewOriginPopup ? [tripPreviewOriginPopup] : [];
+            tripPreviewTerminalPopups = tripPreviewTerminalPopup ? [tripPreviewTerminalPopup] : [];
+        };
+
+        const updateTripEndpointPopupsFromPayloadList = (payloadList) => {
+            clearTripEndpointPopups();
+
+            const list = Array.isArray(payloadList) ? payloadList : [];
+            if (!list.length) return;
+
+            const originIds = new Set();
+            const terminalIds = new Set();
+
+            for (const payload of list) {
+                const segments = Array.isArray(payload?.segments) ? payload.segments : [];
+                if (!segments.length) continue;
+
+                const firstSeg = segments.find((s) => Array.isArray(s?.stationIds) && s.stationIds.length) || null;
+                const lastSeg = (() => {
+                    for (let i = segments.length - 1; i >= 0; i -= 1) {
+                        const seg = segments[i];
+                        if (Array.isArray(seg?.stationIds) && seg.stationIds.length) return seg;
+                    }
+                    return null;
+                })();
+
+                const startId = String(firstSeg?.stationIds?.[0] || '').trim();
+                const endIds = Array.isArray(lastSeg?.stationIds) ? lastSeg.stationIds : [];
+                const endId = String(endIds.length ? endIds[endIds.length - 1] : '').trim();
+
+                if (startId) originIds.add(startId);
+                if (endId) terminalIds.add(endId);
+            }
+
+            const sharedIds = new Set();
+            for (const sid of originIds) {
+                if (terminalIds.has(sid)) sharedIds.add(sid);
+            }
+
+            tripPreviewOriginPopups = Array.from(originIds)
+                .map((sid) => createTripEndpointPopup({
+                    stationId: sid,
+                    text: '始发站',
+                    color: '#1A9B2D',
+                    yOffset: sharedIds.has(sid) ? 30 : 8
+                }))
+                .filter(Boolean);
+
+            tripPreviewTerminalPopups = Array.from(terminalIds)
+                .map((sid) => createTripEndpointPopup({
+                    stationId: sid,
+                    text: '终点站',
+                    color: '#D32F2F',
+                    yOffset: 8
+                }))
+                .filter(Boolean);
+
+            tripPreviewOriginPopup = tripPreviewOriginPopups[0] || null;
+            tripPreviewTerminalPopup = tripPreviewTerminalPopups[0] || null;
         };
 
         const clearDirEndpointPopups = () => {
@@ -4245,7 +4315,7 @@ map.on('load', async () => {
                     // ignore
                 }
 
-                clearTripEndpointPopups();
+                updateTripEndpointPopupsFromPayloadList(virtualTrips);
 
                 try {
                     window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {
