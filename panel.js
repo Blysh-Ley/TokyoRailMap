@@ -768,7 +768,7 @@ export function createPanel(options = {}) {
     root.setAttribute('data-panel-root', '');
     root.style.position = 'fixed';
     root.style.right = `${rightPx}px`;
-    root.style.zIndex = 9000;
+    root.style.zIndex = 4000;
     root.style.width = `${widthPx}px`;
     root.style.maxWidth = 'calc(100vw - 20px)';
 
