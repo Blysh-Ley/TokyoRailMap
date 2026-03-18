@@ -3504,30 +3504,34 @@ map.on('load', async () => {
                 return ids.length ? String(ids[0] || '').trim() : '';
             })();
 
-            let allowNt = !payload?.hasNt || isLineTerminalStation(payload?.mainLineId, payload?.mainTerminalStationId);
-            if (!allowNt && payload?.hasNt) {
-                allowNt = isSamePhysicalStation(payload?.mainTerminalStationId, ntFirstStationId);
-            }
+            const forceIncludeNt = payload?.forceIncludeNt === true || payload?.__forceIncludeNt === true;
+            let allowNt = true;
+            if (!forceIncludeNt) {
+                allowNt = !payload?.hasNt || isLineTerminalStation(payload?.mainLineId, payload?.mainTerminalStationId);
+                if (!allowNt && payload?.hasNt) {
+                    allowNt = isSamePhysicalStation(payload?.mainTerminalStationId, ntFirstStationId);
+                }
 
-            // 非端点直通也允许：只要主段末站与 nt 首站在局部几何上可连通（避免同班次在不同入口显示不一致）
-            if (!allowNt && payload?.hasNt && ntSeg) {
-                const mainTerminalId = String(payload?.mainTerminalStationId || '').trim();
-                const mainTerminalCoord = stationCoordById.get(mainTerminalId);
-                const ntFirstCoord = stationCoordById.get(ntFirstStationId);
-                const ntLineId = String(ntSeg?.lineId || '').trim();
+                // 非端点直通也允许：只要主段末站与 nt 首站在局部几何上可连通（避免同班次在不同入口显示不一致）
+                if (!allowNt && payload?.hasNt && ntSeg) {
+                    const mainTerminalId = String(payload?.mainTerminalStationId || '').trim();
+                    const mainTerminalCoord = stationCoordById.get(mainTerminalId);
+                    const ntFirstCoord = stationCoordById.get(ntFirstStationId);
+                    const ntLineId = String(ntSeg?.lineId || '').trim();
 
-                if (mainTerminalCoord && ntFirstCoord && ntLineId) {
-                    const directDist = distMeters(mainTerminalCoord, ntFirstCoord);
-                    if (directDist <= 8000) {
-                        allowNt = true;
-                    } else {
-                        const bridge = nearestBridgeBetweenLines(
-                            payload?.mainLineId,
-                            ntLineId,
-                            mainTerminalCoord,
-                            ntFirstCoord
-                        );
-                        allowNt = !!bridge && Number.isFinite(bridge.dist) && bridge.dist <= 3000;
+                    if (mainTerminalCoord && ntFirstCoord && ntLineId) {
+                        const directDist = distMeters(mainTerminalCoord, ntFirstCoord);
+                        if (directDist <= 8000) {
+                            allowNt = true;
+                        } else {
+                            const bridge = nearestBridgeBetweenLines(
+                                payload?.mainLineId,
+                                ntLineId,
+                                mainTerminalCoord,
+                                ntFirstCoord
+                            );
+                            allowNt = !!bridge && Number.isFinite(bridge.dist) && bridge.dist <= 3000;
+                        }
                     }
                 }
             }
@@ -3594,7 +3598,7 @@ map.on('load', async () => {
                     const prevIds = Array.isArray(prev.stationIds) ? prev.stationIds : [];
                     const prevLast = String(prevIds.length ? prevIds[prevIds.length - 1] : '').trim();
                     const currFirst = String(stationIds.length ? stationIds[0] : '').trim();
-                    if (prevLast && currFirst && prevLast !== currFirst) {
+                    if (prevLast && currFirst && !isSamePhysicalStation(prevLast, currFirst)) {
                         const a = stationCoordById.get(prevLast);
                         const b = stationCoordById.get(currFirst);
                         if (a && b) {
@@ -3608,10 +3612,17 @@ map.on('load', async () => {
                                 if (segB && segB.length >= 2) pushLineFeature(segB, lineId, 'line');
 
                                 if ((!segA || segA.length < 2) && (!segB || segB.length < 2)) {
-                                    pushLineFeature([a, b], lineId || prev.lineId, 'connector');
+                                    const fallbackDist = distMeters(a, b);
+                                    if (Number.isFinite(fallbackDist) && fallbackDist <= 3000) {
+                                        pushLineFeature([a, b], lineId || prev.lineId, 'connector');
+                                    }
                                 }
                             } else {
-                                pushLineFeature([a, b], lineId || prev.lineId, 'connector');
+                                // Prevent long-range false connectors across unrelated branch segments.
+                                const directDist = distMeters(a, b);
+                                if (Number.isFinite(directDist) && directDist <= 3000) {
+                                    pushLineFeature([a, b], lineId || prev.lineId, 'connector');
+                                }
                             }
                         }
                     }
