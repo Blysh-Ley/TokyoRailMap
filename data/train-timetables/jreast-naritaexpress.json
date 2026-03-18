@@ -5,7 +5,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2201M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -99,7 +99,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2203M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -193,7 +193,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2205M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -287,7 +287,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2207M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -381,7 +381,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2209M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -473,7 +473,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2213M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -565,7 +565,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2215M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -659,7 +659,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2217M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -751,7 +751,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2219M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -845,7 +845,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2221M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -937,7 +937,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2223M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -1031,7 +1031,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2225M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -1123,7 +1123,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2227M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -1217,7 +1217,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2229M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -1309,7 +1309,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2231M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -1403,7 +1403,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2233M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -1495,7 +1495,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2235M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -1589,7 +1589,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2237M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -1681,7 +1681,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2239M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -1775,7 +1775,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2241M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -1867,7 +1867,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2243M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -1961,7 +1961,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2245M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -2058,7 +2058,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2247M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -2167,7 +2167,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2249M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -2279,7 +2279,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2251M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -2388,7 +2388,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2253M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -2561,7 +2561,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2202M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -2668,7 +2668,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2204M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -2782,7 +2782,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2206M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -2869,7 +2869,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2208M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -2968,7 +2968,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2210M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -3055,7 +3055,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2212M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -3154,7 +3154,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2214M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -3241,7 +3241,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2216M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -3340,7 +3340,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2218M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -3427,7 +3427,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2220M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -3526,7 +3526,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2222M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -3613,7 +3613,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2224M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -3712,7 +3712,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2226M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -3799,7 +3799,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2228M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -3898,7 +3898,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2230M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -3985,7 +3985,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2232M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -4084,7 +4084,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2234M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -4171,7 +4171,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2236M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -4270,7 +4270,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2238M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -4359,7 +4359,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2240M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -4446,7 +4446,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2244M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -4545,7 +4545,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2246M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -4632,7 +4632,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2248M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -4731,7 +4731,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2250M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -4825,7 +4825,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2252M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -4914,7 +4914,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2254M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -4959,7 +4959,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2201M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -5053,7 +5053,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2203M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -5147,7 +5147,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2205M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -5241,7 +5241,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2207M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -5335,7 +5335,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2209M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -5427,7 +5427,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2213M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -5519,7 +5519,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2215M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -5613,7 +5613,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2217M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -5705,7 +5705,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2219M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -5799,7 +5799,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2221M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -5891,7 +5891,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2223M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -5985,7 +5985,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2225M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -6077,7 +6077,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2227M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -6171,7 +6171,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2229M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -6263,7 +6263,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2231M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -6357,7 +6357,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2233M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -6449,7 +6449,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2235M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -6543,7 +6543,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2237M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -6635,7 +6635,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2239M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -6729,7 +6729,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2241M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -6821,7 +6821,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2243M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -6915,7 +6915,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2245M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -7012,7 +7012,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2247M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -7121,7 +7121,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2249M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -7233,7 +7233,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2251M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -7342,7 +7342,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2253M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
+		"d": "Outbound",
 		"os": [
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
@@ -7515,7 +7515,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2202M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -7622,7 +7622,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2204M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -7736,7 +7736,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2206M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -7823,7 +7823,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2208M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -7922,7 +7922,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2210M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -8009,7 +8009,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2212M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -8108,7 +8108,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2214M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -8195,7 +8195,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2216M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -8294,7 +8294,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2218M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -8381,7 +8381,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2220M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -8480,7 +8480,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2222M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -8567,7 +8567,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2224M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -8666,7 +8666,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2226M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -8753,7 +8753,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2228M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -8852,7 +8852,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2230M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -8939,7 +8939,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2232M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -9038,7 +9038,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2234M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -9125,7 +9125,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2236M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -9224,7 +9224,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2238M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -9313,7 +9313,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2240M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -9400,7 +9400,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2244M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -9499,7 +9499,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2246M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -9586,7 +9586,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2248M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -9685,7 +9685,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2250M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -9779,7 +9779,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2252M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
@@ -9868,7 +9868,7 @@
 		"r": "JR-East.NaritaExpress",
 		"n": "2254M",
 		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
+		"d": "Inbound",
 		"os": [
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
