@@ -2193,9 +2193,9 @@
 
         .panel-trip-detail-table.is-branch-grid {
             display: grid;
-            grid-template-columns: repeat(var(--panel-trip-detail-cols, 7), minmax(0, 1fr));
+            grid-template-columns: minmax(0, 1.5fr) repeat(var(--panel-trip-detail-branch-count, 2), minmax(0, 0.9fr) minmax(0, 0.9fr));
             column-gap: 6px;
-            row-gap: 2px;
+            row-gap: 3px;
             align-items: center;
             position: relative;
         }
@@ -2240,15 +2240,25 @@
             overflow: hidden;
             text-overflow: ellipsis;
             align-self: center;
-            justify-self: start;
+            justify-self: center;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+        }
+
+        .panel-trip-detail-grid-break-marker.is-past {
+            color: #c8c8c8;
         }
 
         .panel-trip-detail-grid-break-row {
             display: grid;
-            grid-template-columns: repeat(var(--panel-trip-detail-cols, 7), minmax(0, 1fr));
+            grid-template-columns: minmax(0, 1.5fr) repeat(var(--panel-trip-detail-branch-count, 2), minmax(0, 0.9fr) minmax(0, 0.9fr));
             column-gap: 6px;
             min-height: 16px;
             align-items: center;
+        }
+
+        .panel-trip-detail-grid-flow-marker {
+            opacity: 0.85;
         }
 
         .panel-trip-detail-grid-spacer {
