@@ -1725,8 +1725,10 @@
             color: #ccc !important;
         }
 
-        [data-theme="dark"] .panel-grid-cell-trip.is-past .panel-grid-trip-minute-flag,
-        .panel-grid-trip.is-past .panel-grid-trip-minute-flag {
+        html[data-theme="dark"] .panel-grid-cell-trip.is-past,
+        html[data-theme="dark"] .panel-grid-trip-minute-flag,
+        html[data-theme="dark"] .panel-grid-trip.is-past,
+        html[data-theme="dark"] .panel-grid-trip-minute-flag {
             color: #555 !important;
         }
         .panel-timetable-row {
@@ -1752,10 +1754,7 @@
             color: #ccc !important;
         }
 
-        html[data-theme="dark"] .panel-grid-cell-trip.is-past,
-        .panel-grid-trip.is-past {
-            color: #555 !important;
-        }
+
 
         .panel-timetable-empty {
             font-size: 12px;
