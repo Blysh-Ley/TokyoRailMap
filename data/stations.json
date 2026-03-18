@@ -9031,8 +9031,8 @@
 		}
 	},
 	{
-		"id": "JR-East.YamanoteFreight.Tokyo",
-		"railway": "JR-East.YamanoteFreight",
+		"id": "JR-East.NaritaExpress.Tokyo",
+		"railway": "JR-East.NaritaExpress",
 		"coord": [
 			139.76704,
 			35.6813
@@ -9051,8 +9051,8 @@
 		"descending": null
 	},
 	{
-		"id": "JR-East.YamanoteFreight.Shinagawa",
-		"railway": "JR-East.YamanoteFreight",
+		"id": "JR-East.NaritaExpress.Shinagawa",
+		"railway": "JR-East.NaritaExpress",
 		"coord": [
 			139.73871,
 			35.6288
@@ -9070,8 +9070,8 @@
 		"descending": "Inbound"
 	},
 	{
-		"id": "JR-East.YamanoteFreight.Shibuya",
-		"railway": "JR-East.YamanoteFreight",
+		"id": "JR-East.NaritaExpress.Shibuya",
+		"railway": "JR-East.NaritaExpress",
 		"coord": [
 			139.70149,
 			35.65796
@@ -43132,5 +43132,116 @@
 			"zh-Hant": "早雲山",
 			"code":"OH62"
 		}
+	},
+	{
+		"id": "JR-East.NaritaExpress.Shinjuku",
+		"railway": "JR-East.NaritaExpress",
+		"coord": [
+			139.70038,
+			35.69018
+		],
+		"title": {
+			"ja": "新宿",
+			"en": "Shinjuku",
+			"ko": "신주쿠",
+			"zh-Hans": "新宿",
+			"zh-Hant": "新宿"
+		}
+	},
+	{
+		"id": "JR-East.NaritaExpress.Chiba",
+		"railway": "JR-East.NaritaExpress",
+		"coord": [
+			140.11257,
+			35.61353
+		],
+		"title": {
+			"ja": "千葉",
+			"en": "Chiba",
+			"ko": "지바",
+			"zh-Hans": "千叶",
+			"zh-Hant": "千葉"
+		}
+	},
+
+	{
+		"id": "JR-East.NaritaExpress.Yotsukaido",
+		"railway": "JR-East.NaritaExpress",
+		"coord": [
+			140.16479,
+			35.6627
+		],
+		"title": {
+			"ja": "四街道",
+			"en": "Yotsukaido",
+			"ko": "요쓰카이도",
+			"zh-Hans": "四街道",
+			"zh-Hant": "四街道"
+		}
+	},
+	
+	{
+		"id": "JR-East.NaritaExpress.Sakura",
+		"railway": "JR-East.NaritaExpress",
+		"coord": [
+			140.22645,
+			35.70964
+		],
+		"title": {
+			"ja": "佐倉",
+			"en": "Sakura",
+			"ko": "사쿠라",
+			"zh-Hans": "佐仓",
+			"zh-Hant": "佐倉"
+		}
+	},
+	
+	{
+		"id": "JR-East.NaritaExpress.Narita",
+		"railway": "JR-East.NaritaExpress",
+		"coord": [
+			140.31338,
+			35.77741
+		],
+		"title": {
+			"ja": "成田",
+			"en": "Narita",
+			"ko": "나리타",
+			"zh-Hans": "成田",
+			"zh-Hant": "成田"
+		}
+	},
+	{
+		"id": "JR-East.NaritaExpress.NaritaAirportTerminal2and3",
+		"railway": "JR-East.NaritaExpress",
+		"coord": [
+			140.38699,
+			35.77408
+		],
+		"title": {
+			"ja": "空港第２ビル",
+			"en": "Narita Airport Terminal 2 and 3",
+			"ko": "공항 제2빌딩",
+			"zh-Hans": "机场第2候机楼",
+			"zh-Hant": "機場第2候機樓",
+			"ja-Wiki": "空港第2ビル駅"
+		},
+		"altitude": -1
+	},
+	{
+		"id": "JR-East.NaritaExpress.NaritaAirportTerminal1",
+		"railway": "JR-East.NaritaExpress",
+		"coord": [
+			140.38532,
+			35.76436
+		],
+		"title": {
+			"ja": "成田空港",
+			"en": "Narita Airport Terminal 1",
+			"ko": "나리타 공항",
+			"zh-Hans": "成田机场",
+			"zh-Hant": "成田機場"
+		},
+		"altitude": -1
 	}
 ]

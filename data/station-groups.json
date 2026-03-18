@@ -29,7 +29,7 @@
 	"JR-East.Yamanote.Shibuya",
 	"JR-East.SaikyoKawagoe.Shibuya",
 	"JR-East.ShonanShinjuku.Shibuya",
-	"JR-East.YamanoteFreight.Shibuya"
+	"JR-East.NaritaExpress.Shibuya"
 ], [
 	"TokyoMetro.Ginza.Shibuya"
 ], [
@@ -164,7 +164,7 @@
 ], [
 	"JR-East.SobuRapid.Tokyo",
 	"JR-East.Yokosuka.Tokyo",
-	"JR-East.YamanoteFreight.Tokyo"
+	"JR-East.NaritaExpress.Tokyo"
 ], [
 	"JR-East.KeiyoFutamataBranch.Tokyo",
 	"JR-East.Keiyo.Tokyo"
@@ -205,7 +205,7 @@
 	"JR-East.Yamanote.TakanawaGateway"
 ]], [[
 	"JR-East.Yokosuka.Shinagawa",
-	"JR-East.YamanoteFreight.Shinagawa",
+	"JR-East.NaritaExpress.Shinagawa",
 	"JR-East.TokaidoFreight.Shinagawa",
 	"JR-East.JobanRapid.Shinagawa",
 	"JR-East.Tokaido.Shinagawa",

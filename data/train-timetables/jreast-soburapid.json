@@ -252,7 +252,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2001M.Weekday",
-		"JR-East.YamanoteFreight.2201M.Weekday"
+		"JR-East.NaritaExpress.2201M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -390,7 +390,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2003M.Weekday",
-		"JR-East.YamanoteFreight.2203M.Weekday"
+		"JR-East.NaritaExpress.2203M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -648,7 +648,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2005M.Weekday",
-		"JR-East.YamanoteFreight.2205M.Weekday"
+		"JR-East.NaritaExpress.2205M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -936,7 +936,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2007M.Weekday",
-		"JR-East.YamanoteFreight.2207M.Weekday"
+		"JR-East.NaritaExpress.2207M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -1295,7 +1295,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2209M.Weekday"
+		"JR-East.NaritaExpress.2209M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -1906,7 +1906,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2213M.Weekday"
+		"JR-East.NaritaExpress.2213M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -2172,7 +2172,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2015M.Weekday",
-		"JR-East.YamanoteFreight.2215M.Weekday"
+		"JR-East.NaritaExpress.2215M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -2391,7 +2391,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2217M.Weekday"
+		"JR-East.NaritaExpress.2217M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -2566,7 +2566,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2019M.Weekday",
-		"JR-East.YamanoteFreight.2219M.Weekday"
+		"JR-East.NaritaExpress.2219M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -2746,7 +2746,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2221M.Weekday"
+		"JR-East.NaritaExpress.2221M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -2880,7 +2880,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2023M.Weekday",
-		"JR-East.YamanoteFreight.2223M.Weekday"
+		"JR-East.NaritaExpress.2223M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -3060,7 +3060,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2225M.Weekday"
+		"JR-East.NaritaExpress.2225M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -3194,7 +3194,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2027M.Weekday",
-		"JR-East.YamanoteFreight.2227M.Weekday"
+		"JR-East.NaritaExpress.2227M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -3374,7 +3374,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2229M.Weekday"
+		"JR-East.NaritaExpress.2229M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -3508,7 +3508,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2031M.Weekday",
-		"JR-East.YamanoteFreight.2231M.Weekday"
+		"JR-East.NaritaExpress.2231M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -3688,7 +3688,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2233M.Weekday"
+		"JR-East.NaritaExpress.2233M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -3864,7 +3864,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2035M.Weekday",
-		"JR-East.YamanoteFreight.2235M.Weekday"
+		"JR-East.NaritaExpress.2235M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -4044,7 +4044,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2237M.Weekday"
+		"JR-East.NaritaExpress.2237M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -4225,7 +4225,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2039M.Weekday",
-		"JR-East.YamanoteFreight.2239M.Weekday"
+		"JR-East.NaritaExpress.2239M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -4405,7 +4405,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2241M.Weekday"
+		"JR-East.NaritaExpress.2241M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -4589,7 +4589,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2043M.Weekday",
-		"JR-East.YamanoteFreight.2243M.Weekday"
+		"JR-East.NaritaExpress.2243M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -4848,7 +4848,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2245M.Weekday"
+		"JR-East.NaritaExpress.2245M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -5121,7 +5121,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2047M.Weekday",
-		"JR-East.YamanoteFreight.2247M.Weekday"
+		"JR-East.NaritaExpress.2247M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -5446,7 +5446,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2249M.Weekday"
+		"JR-East.NaritaExpress.2249M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -5771,7 +5771,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2051M.Weekday",
-		"JR-East.YamanoteFreight.2251M.Weekday"
+		"JR-East.NaritaExpress.2251M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -6321,7 +6321,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2053M.Weekday",
-		"JR-East.YamanoteFreight.2253M.Weekday"
+		"JR-East.NaritaExpress.2253M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -10556,7 +10556,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2202M.Weekday",
+		"JR-East.NaritaExpress.2202M.Weekday",
 		"JR-East.Yokosuka.2002M.Weekday"
 	],
 	"tt": [{
@@ -10608,7 +10608,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2204M.Weekday"
+		"JR-East.NaritaExpress.2204M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -10660,7 +10660,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2206M.Weekday",
+		"JR-East.NaritaExpress.2206M.Weekday",
 		"JR-East.Yokosuka.2006M.Weekday"
 	],
 	"tt": [{
@@ -10712,7 +10712,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2208M.Weekday"
+		"JR-East.NaritaExpress.2208M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -10748,7 +10748,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2210M.Weekday",
+		"JR-East.NaritaExpress.2210M.Weekday",
 		"JR-East.Yokosuka.2010M.Weekday"
 	],
 	"tt": [{
@@ -10788,7 +10788,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2212M.Weekday"
+		"JR-East.NaritaExpress.2212M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -10824,7 +10824,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2214M.Weekday",
+		"JR-East.NaritaExpress.2214M.Weekday",
 		"JR-East.Yokosuka.2014M.Weekday"
 	],
 	"tt": [{
@@ -10864,7 +10864,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2216M.Weekday"
+		"JR-East.NaritaExpress.2216M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -10900,7 +10900,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2218M.Weekday",
+		"JR-East.NaritaExpress.2218M.Weekday",
 		"JR-East.Yokosuka.2018M.Weekday"
 	],
 	"tt": [{
@@ -10940,7 +10940,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2220M.Weekday"
+		"JR-East.NaritaExpress.2220M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -10976,7 +10976,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2222M.Weekday",
+		"JR-East.NaritaExpress.2222M.Weekday",
 		"JR-East.Yokosuka.2022M.Weekday"
 	],
 	"tt": [{
@@ -11016,7 +11016,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2224M.Weekday"
+		"JR-East.NaritaExpress.2224M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -11052,7 +11052,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2226M.Weekday",
+		"JR-East.NaritaExpress.2226M.Weekday",
 		"JR-East.Yokosuka.2026M.Weekday"
 	],
 	"tt": [{
@@ -11092,7 +11092,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2228M.Weekday"
+		"JR-East.NaritaExpress.2228M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -11128,7 +11128,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2230M.Weekday",
+		"JR-East.NaritaExpress.2230M.Weekday",
 		"JR-East.Yokosuka.2030M.Weekday"
 	],
 	"tt": [{
@@ -11168,7 +11168,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2232M.Weekday"
+		"JR-East.NaritaExpress.2232M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -11204,7 +11204,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2234M.Weekday",
+		"JR-East.NaritaExpress.2234M.Weekday",
 		"JR-East.Yokosuka.2034M.Weekday"
 	],
 	"tt": [{
@@ -11244,7 +11244,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2236M.Weekday"
+		"JR-East.NaritaExpress.2236M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -11280,7 +11280,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2238M.Weekday",
+		"JR-East.NaritaExpress.2238M.Weekday",
 		"JR-East.Yokosuka.2038M.Weekday"
 	],
 	"tt": [{
@@ -11321,7 +11321,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2240M.Weekday",
+		"JR-East.NaritaExpress.2240M.Weekday",
 		"JR-East.Yokosuka.2040M.Weekday"
 	],
 	"tt": [{
@@ -11396,7 +11396,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2244M.Weekday"
+		"JR-East.NaritaExpress.2244M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -11432,7 +11432,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2246M.Weekday",
+		"JR-East.NaritaExpress.2246M.Weekday",
 		"JR-East.Yokosuka.2046M.Weekday"
 	],
 	"tt": [{
@@ -11472,7 +11472,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2248M.Weekday"
+		"JR-East.NaritaExpress.2248M.Weekday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -11508,7 +11508,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2250M.Weekday",
+		"JR-East.NaritaExpress.2250M.Weekday",
 		"JR-East.Yokosuka.2050M.Weekday"
 	],
 	"tt": [{
@@ -11549,7 +11549,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2252M.Weekday",
+		"JR-East.NaritaExpress.2252M.Weekday",
 		"JR-East.Yokosuka.2052M.Weekday"
 	],
 	"tt": [{
@@ -11590,7 +11590,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2254M.Weekday",
+		"JR-East.NaritaExpress.2254M.Weekday",
 		"JR-East.Yokosuka.2054M.Weekday"
 	],
 	"tt": [{
@@ -18937,7 +18937,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2001M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2201M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2201M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -19075,7 +19075,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2003M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2203M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2203M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -19295,7 +19295,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2005M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2205M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2205M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -19466,7 +19466,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2007M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2207M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2207M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -19740,7 +19740,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2209M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2209M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -20219,7 +20219,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2213M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2213M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -20444,7 +20444,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2015M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2215M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2215M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -20713,7 +20713,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2217M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2217M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -20847,7 +20847,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2019M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2219M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2219M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -21065,7 +21065,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2221M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2221M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -21196,7 +21196,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2023M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2223M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2223M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -21376,7 +21376,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2225M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2225M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -21510,7 +21510,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2027M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2227M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2227M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -21690,7 +21690,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2229M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2229M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -21824,7 +21824,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2031M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2231M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2231M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -22004,7 +22004,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2233M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2233M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -22180,7 +22180,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2035M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2235M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2235M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -22360,7 +22360,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2237M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2237M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -22541,7 +22541,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2039M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2239M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2239M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -22721,7 +22721,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2241M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2241M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -22905,7 +22905,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2043M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2243M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2243M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -23126,7 +23126,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2245M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2245M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -23361,7 +23361,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2047M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2247M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2247M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -23554,7 +23554,7 @@
 		"JR-East.SobuRapid.NaritaAirportTerminal1"
 	],
 	"pt": [
-		"JR-East.YamanoteFreight.2249M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2249M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -23835,7 +23835,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2051M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2251M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2251M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -24176,7 +24176,7 @@
 	],
 	"pt": [
 		"JR-East.Yokosuka.2053M.SaturdayHoliday",
-		"JR-East.YamanoteFreight.2253M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2253M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.Tokyo",
@@ -28117,7 +28117,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2202M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2202M.SaturdayHoliday",
 		"JR-East.Yokosuka.2002M.SaturdayHoliday"
 	],
 	"tt": [{
@@ -28169,7 +28169,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2204M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2204M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -28221,7 +28221,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2206M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2206M.SaturdayHoliday",
 		"JR-East.Yokosuka.2006M.SaturdayHoliday"
 	],
 	"tt": [{
@@ -28273,7 +28273,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2208M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2208M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -28309,7 +28309,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2210M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2210M.SaturdayHoliday",
 		"JR-East.Yokosuka.2010M.SaturdayHoliday"
 	],
 	"tt": [{
@@ -28349,7 +28349,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2212M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2212M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -28385,7 +28385,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2214M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2214M.SaturdayHoliday",
 		"JR-East.Yokosuka.2014M.SaturdayHoliday"
 	],
 	"tt": [{
@@ -28425,7 +28425,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2216M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2216M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -28461,7 +28461,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2218M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2218M.SaturdayHoliday",
 		"JR-East.Yokosuka.2018M.SaturdayHoliday"
 	],
 	"tt": [{
@@ -28501,7 +28501,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2220M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2220M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -28537,7 +28537,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2222M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2222M.SaturdayHoliday",
 		"JR-East.Yokosuka.2022M.SaturdayHoliday"
 	],
 	"tt": [{
@@ -28577,7 +28577,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2224M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2224M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -28613,7 +28613,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2226M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2226M.SaturdayHoliday",
 		"JR-East.Yokosuka.2026M.SaturdayHoliday"
 	],
 	"tt": [{
@@ -28653,7 +28653,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2228M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2228M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -28689,7 +28689,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2230M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2230M.SaturdayHoliday",
 		"JR-East.Yokosuka.2030M.SaturdayHoliday"
 	],
 	"tt": [{
@@ -28729,7 +28729,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2232M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2232M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -28765,7 +28765,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2234M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2234M.SaturdayHoliday",
 		"JR-East.Yokosuka.2034M.SaturdayHoliday"
 	],
 	"tt": [{
@@ -28805,7 +28805,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2236M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2236M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -28841,7 +28841,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2238M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2238M.SaturdayHoliday",
 		"JR-East.Yokosuka.2038M.SaturdayHoliday"
 	],
 	"tt": [{
@@ -28882,7 +28882,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2240M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2240M.SaturdayHoliday",
 		"JR-East.Yokosuka.2040M.SaturdayHoliday"
 	],
 	"tt": [{
@@ -28957,7 +28957,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2244M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2244M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -28993,7 +28993,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2246M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2246M.SaturdayHoliday",
 		"JR-East.Yokosuka.2046M.SaturdayHoliday"
 	],
 	"tt": [{
@@ -29033,7 +29033,7 @@
 		"JR-East.ShonanShinjuku.Shinjuku"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2248M.SaturdayHoliday"
+		"JR-East.NaritaExpress.2248M.SaturdayHoliday"
 	],
 	"tt": [{
 		"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
@@ -29069,7 +29069,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2250M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2250M.SaturdayHoliday",
 		"JR-East.Yokosuka.2050M.SaturdayHoliday"
 	],
 	"tt": [{
@@ -29110,7 +29110,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2252M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2252M.SaturdayHoliday",
 		"JR-East.Yokosuka.2052M.SaturdayHoliday"
 	],
 	"tt": [{
@@ -29151,7 +29151,7 @@
 		"JR-East.Yokosuka.Ofuna"
 	],
 	"nt": [
-		"JR-East.YamanoteFreight.2254M.SaturdayHoliday",
+		"JR-East.NaritaExpress.2254M.SaturdayHoliday",
 		"JR-East.Yokosuka.2054M.SaturdayHoliday"
 	],
 	"tt": [{

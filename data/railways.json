@@ -1038,16 +1038,7 @@
 		"dynamic": true
 	},
 	{
-		"id": "JR-East.YamanoteFreight",
-		"_comment": {
-			"title": {
-				"ja": "山手貨物線",
-				"en": "Yamanote Freight Line",
-				"ko": "야마노테 화물선",
-				"zh-Hans": "山手货物线",
-				"zh-Hant": "山手貨物線"
-			}
-		},
+		"id": "JR-East.NaritaExpress",
 		"title": {
 			"ja": "成田エクスプレス",
 			"en": "Narita Express",
@@ -1056,13 +1047,20 @@
 			"zh-Hant": "成田特快"
 		},
 		"stations": [
-			"JR-East.YamanoteFreight.Tokyo",
-			"JR-East.YamanoteFreight.Shinagawa",
-			"JR-East.YamanoteFreight.Shibuya"
+			"JR-East.NaritaExpress.Shinjuku",
+			"JR-East.NaritaExpress.Shibuya",
+			"JR-East.NaritaExpress.Shinagawa",
+			"JR-East.NaritaExpress.Tokyo",
+			"JR-East.NaritaExpress.Chiba",
+			"JR-East.NaritaExpress.Yotsukaido",
+			"JR-East.NaritaExpress.Sakura",
+			"JR-East.NaritaExpress.Narita",
+			"JR-East.NaritaExpress.NaritaAirportTerminal2and3",
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ascending": "Outbound",
 		"descending": "Inbound",
-		"color": "#007AC1",
+		"color": "#E60012",
 		"carComposition": 6
 	},
 	{
