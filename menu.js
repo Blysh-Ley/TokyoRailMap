@@ -420,12 +420,14 @@ export class Menu {
 
         const RW_MENU_THROUGH_ENTRIES = Object.freeze([
             {
+                category: 'UenoTokyo',
                 lineId: MENU_THROUGH_LINE_IDS.UENO_TOKYO,
                 lineName: THROUGH_SERVICE_DISPLAY.UenoTokyo.name,
                 color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color,
                 codes: ['JU', 'JT']
             },
             {
+                category: 'ShonanShinjuku',
                 lineId: MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU,
                 lineName: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name,
                 color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color,
@@ -440,6 +442,7 @@ export class Menu {
             const iconCodes = Array.isArray(codes) ? codes.map((x) => String(x || '').trim()).filter(Boolean) : [];
             if (!iconCodes.length) return;
 
+            const iconNodes = [];
             for (const code of iconCodes) {
                 const icon = createLineIconElement({
                     routeId: `${String(lineId || '').trim()}.${code}`,
@@ -448,7 +451,12 @@ export class Menu {
                 });
                 if (!icon) continue;
                 icon.style.marginRight = '4px';
-                leftBox.appendChild(icon);
+                iconNodes.push(icon);
+            }
+
+            // 与普通线路一致：图标在名称前显示，避免产生“名称与图标错位”的观感。
+            for (let i = iconNodes.length - 1; i >= 0; i -= 1) {
+                leftBox.prepend(iconNodes[i]);
             }
         };
 

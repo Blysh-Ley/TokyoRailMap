@@ -51,10 +51,27 @@ const STATION_TOKENS = Object.freeze({
     TOKYO: 'Tokyo'
 });
 
+const SHONAN_SHINJUKU_EXCLUDED_CHAIN_PREFIXES = Object.freeze([
+    'JR-East.Ito',
+    'Izukyu.Izukyu'
+]);
+
 const getTripId = (trip) => {
     const id = toText(trip?.id);
     if (id) return id;
     return toText(trip?.t);
+};
+
+const getTripLineId = (trip) => {
+    const rid = toText(trip?.r);
+    if (rid) return rid;
+
+    const id = toText(trip?.id) || toText(trip?.t);
+    if (!id) return '';
+
+    const parts = id.split('.').map((x) => x.trim()).filter(Boolean);
+    if (parts.length < 2) return '';
+    return `${parts[0]}.${parts[1]}`;
 };
 
 const getBaseTripId = (trip) => {
@@ -94,10 +111,24 @@ const collectStopFlagsFromTrip = (trip, flags) => {
     }
 };
 
-const classifyByFlags = (flags) => {
+const hasExcludedShonanChainLine = (lineIds) => {
+    const ids = Array.isArray(lineIds) ? lineIds : [];
+    for (const lineId of ids) {
+        const lid = toText(lineId);
+        if (!lid) continue;
+        for (const prefix of SHONAN_SHINJUKU_EXCLUDED_CHAIN_PREFIXES) {
+            if (lid === prefix || lid.startsWith(`${prefix}.`)) return true;
+        }
+    }
+    return false;
+};
+
+const classifyByFlags = (flags, options = {}) => {
     const isShonanShinjuku = !!(flags.hasShinjuku && flags.hasShibuya);
     const isUenoTokyo = !!(flags.hasUeno && flags.hasTokyo);
-    if (isShonanShinjuku) return 'ShonanShinjuku';
+    const shonanExcluded = hasExcludedShonanChainLine(options?.chainLineIds);
+
+    if (isShonanShinjuku && !shonanExcluded) return 'ShonanShinjuku';
     if (isUenoTokyo) return 'UenoTokyo';
     return '';
 };
@@ -110,10 +141,13 @@ export const detectThroughServiceCategoryFromTrips = (trips) => {
         hasTokyo: false
     };
     const list = Array.isArray(trips) ? trips : [];
+    const chainLineIds = [];
     for (const trip of list) {
         collectStopFlagsFromTrip(trip, flags);
+        const lineId = getTripLineId(trip);
+        if (lineId) chainLineIds.push(lineId);
     }
-    return classifyByFlags(flags);
+    return classifyByFlags(flags, { chainLineIds });
 };
 
 const isTripStoppingAtStation = (trip, stationIdSet) => {

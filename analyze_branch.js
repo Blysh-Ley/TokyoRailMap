@@ -504,6 +504,33 @@ const THROUGH_STATION_TOKENS = Object.freeze({
     TOKYO: 'Tokyo'
 });
 
+const SHONAN_SHINJUKU_EXCLUDED_CHAIN_PREFIXES = Object.freeze([
+    'JR-East.Ito',
+    'Izukyu.Izukyu'
+]);
+
+const getTripLineIdForThrough = (trip) => {
+    const rid = toText(trip?.r);
+    if (rid) return rid;
+    const id = toText(trip?.id) || toText(trip?.t);
+    if (!id) return '';
+    const parts = id.split('.').map((x) => x.trim()).filter(Boolean);
+    if (parts.length < 2) return '';
+    return `${parts[0]}.${parts[1]}`;
+};
+
+const hasExcludedShonanChainLine = (lineIds) => {
+    const ids = Array.isArray(lineIds) ? lineIds : [];
+    for (const lineId of ids) {
+        const lid = toText(lineId);
+        if (!lid) continue;
+        for (const prefix of SHONAN_SHINJUKU_EXCLUDED_CHAIN_PREFIXES) {
+            if (lid === prefix || lid.startsWith(`${prefix}.`)) return true;
+        }
+    }
+    return false;
+};
+
 const addRefId = (outSet, raw) => {
     const id = toText(raw);
     if (id) outSet.add(id);
@@ -552,8 +579,11 @@ const detectThroughServiceCategory = (trips) => {
         hasUeno: false,
         hasTokyo: false
     };
+    const chainLineIds = [];
 
     for (const trip of Array.isArray(trips) ? trips : []) {
+        const lineId = getTripLineIdForThrough(trip);
+        if (lineId) chainLineIds.push(lineId);
         const tt = Array.isArray(trip?.tt) ? trip.tt : [];
         for (const row of tt) {
             const stationId = toText(row?.s);
@@ -566,7 +596,7 @@ const detectThroughServiceCategory = (trips) => {
         }
     }
 
-    if (flags.hasShinjuku && flags.hasShibuya) return 'ShonanShinjuku';
+    if (flags.hasShinjuku && flags.hasShibuya && !hasExcludedShonanChainLine(chainLineIds)) return 'ShonanShinjuku';
     if (flags.hasUeno && flags.hasTokyo) return 'UenoTokyo';
     return '';
 };
