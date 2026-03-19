@@ -3488,6 +3488,7 @@ map.on('load', async () => {
             const outStopFeatures = [];
             const coordsForBbox = [];
             const stopIds = new Set();
+            const payloadTypeColor = String(payload?.typeColor || '').trim();
 
             const debugLoop = (() => {
                 try {
@@ -3538,17 +3539,20 @@ map.on('load', async () => {
 
             const segments = allowNt ? allSegments : allSegments.filter((s) => String(s?.kind) !== 'nt');
 
-            const pushLineFeature = (coords, lineId, role = 'line') => {
+            const pushLineFeature = (coords, lineId, role = 'line', colorOverride = '') => {
                 if (!Array.isArray(coords) || coords.length < 2) return;
                 for (const c of coords) {
                     if (Array.isArray(c) && c.length >= 2) coordsForBbox.push(c);
                 }
+                const rawColor = String(colorOverride || '').trim()
+                    || resolveRailColorForTheme(lineColorById.get(String(lineId || '')) || '#0a84ff')
+                    || '#0a84ff';
                 outLineFeatures.push({
                     type: 'Feature',
                     properties: {
                         role,
                         lineId: String(lineId || ''),
-                        color: resolveRailColorForTheme(lineColorById.get(String(lineId || '')) || '#0a84ff') || '#0a84ff'
+                        color: rawColor
                     },
                     geometry: { type: 'LineString', coordinates: coords }
                 });
@@ -3557,6 +3561,7 @@ map.on('load', async () => {
             for (let i = 0; i < segments.length; i += 1) {
                 const seg = segments[i] || {};
                 const lineId = String(seg.lineId || '').trim();
+                const segColor = String(seg?.typeColor || payloadTypeColor).trim();
                 const isLoopDirectionSeg = isLoopDirection(seg?.d);
                 const stationIds = Array.isArray(seg.stationIds) ? seg.stationIds.map((x) => String(x).trim()).filter(Boolean) : [];
 
@@ -3589,8 +3594,8 @@ map.on('load', async () => {
                         preferLoopShortest: isLoopDirectionSeg,
                         direction: seg?.d
                     });
-                    if (clipped && clipped.length >= 2) pushLineFeature(clipped, lineId, 'line');
-                    else pushLineFeature([from, to], lineId, 'connector');
+                    if (clipped && clipped.length >= 2) pushLineFeature(clipped, lineId, 'line', segColor);
+                    else pushLineFeature([from, to], lineId, 'connector', segColor);
                 }
 
                 if (i > 0) {
@@ -3607,21 +3612,22 @@ map.on('load', async () => {
                             if (canUseBridge) {
                                 const segA = extractLineSegment(prev.lineId, a, bridge.a);
                                 const segB = extractLineSegment(lineId, bridge.b, b);
-                                if (segA && segA.length >= 2) pushLineFeature(segA, prev.lineId, 'line');
-                                if (bridge.dist > 25) pushLineFeature([bridge.a, bridge.b], lineId || prev.lineId, 'connector');
-                                if (segB && segB.length >= 2) pushLineFeature(segB, lineId, 'line');
+                                const prevSegColor = String(prev?.typeColor || payloadTypeColor).trim() || segColor;
+                                if (segA && segA.length >= 2) pushLineFeature(segA, prev.lineId, 'line', prevSegColor);
+                                if (bridge.dist > 25) pushLineFeature([bridge.a, bridge.b], lineId || prev.lineId, 'connector', segColor || prevSegColor);
+                                if (segB && segB.length >= 2) pushLineFeature(segB, lineId, 'line', segColor);
 
                                 if ((!segA || segA.length < 2) && (!segB || segB.length < 2)) {
                                     const fallbackDist = distMeters(a, b);
                                     if (Number.isFinite(fallbackDist) && fallbackDist <= 3000) {
-                                        pushLineFeature([a, b], lineId || prev.lineId, 'connector');
+                                        pushLineFeature([a, b], lineId || prev.lineId, 'connector', segColor);
                                     }
                                 }
                             } else {
                                 // Prevent long-range false connectors across unrelated branch segments.
                                 const directDist = distMeters(a, b);
                                 if (Number.isFinite(directDist) && directDist <= 3000) {
-                                    pushLineFeature([a, b], lineId || prev.lineId, 'connector');
+                                    pushLineFeature([a, b], lineId || prev.lineId, 'connector', segColor);
                                 }
                             }
                         }

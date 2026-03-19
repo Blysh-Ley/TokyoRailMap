@@ -8,6 +8,7 @@ import { buildTripPreviewKey, createTripPreviewScheduler } from './trip-preview.
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, resolveMainLineIdForIcon } from './line-icons.js';
 import { getCachedJson } from './fetch.js';
 import { previewBranchesForLine } from './analyze_branch.js';
+import { debugExtractShonanShinjukuUenoTokyoTrips, detectThroughServiceCategoryFromTrips } from './shonanshinjuku-uenotokyo.js';
 import {
     buildTimetableStationText,
     renderTimetableNoteRowHtml,
@@ -3970,7 +3971,20 @@ export function createPanel(options = {}) {
             ? ntBranchLanes
             : ((Array.isArray(ptBranchLanes) && ptBranchLanes.length >= 2) ? ptBranchLanes : []);
         const branchCount = activeBranchLanes.length;
-        const useBranchGridLayout = branchCount >= 2;
+        const throughCategory = detectThroughServiceCategoryFromTrips([
+            ...(Array.isArray(ptChain) ? ptChain : []),
+            trip,
+            ...(Array.isArray(ntChain) ? ntChain : [])
+        ]);
+        const THROUGH_CATEGORY_COLOR = {
+            ShonanShinjuku: '#E31F26',
+            UenoTokyo: '#F68B1E'
+        };
+        const throughCategoryLabel = throughCategory === 'ShonanShinjuku'
+            ? '湘南新宿线'
+            : (throughCategory === 'UenoTokyo' ? '上野东京线' : '');
+        const throughCategoryColor = toText(THROUGH_CATEGORY_COLOR[throughCategory] || '');
+        const useBranchGridLayout = branchCount >= 2 && !throughCategoryLabel;
         const branchMode = (Array.isArray(ntBranchLanes) && ntBranchLanes.length >= 2)
             ? 'split'
             : ((Array.isArray(ptBranchLanes) && ptBranchLanes.length >= 2) ? 'merge' : '');
@@ -3986,26 +4000,45 @@ export function createPanel(options = {}) {
                 rowsHtml += renderLoopMarkerRow('↑环线');
             }
             const segmentBlocks = [];
-            for (const seg of segmentsWithPast) {
-                const lastBlock = segmentBlocks.length ? segmentBlocks[segmentBlocks.length - 1] : null;
-                const sameLine = !!lastBlock && isSameLineName(lastBlock.lineId, seg.lineId);
-                if (!sameLine) {
-                    segmentBlocks.push({
-                        lineId: seg.lineId,
-                        descriptor: buildLineDescriptor(seg.lineId) || (seg.kind === 'main' ? currentLineDesc : null),
-                        typeName: toText(seg.typeName),
-                        typeColor: toText(seg.typeColor),
-                        segments: [seg]
-                    });
-                    continue;
-                }
+            if (throughCategoryLabel) {
+                const mainSegForType = segmentsWithPast.find((seg) => seg?.kind === 'main') || segmentsWithPast[0] || null;
+                const mergedColor = throughCategoryColor
+                    || toText(currentLineDesc?.color)
+                    || toText(mainSegForType?.typeColor)
+                    || toText(buildLineDescriptor(mainSegForType?.lineId)?.color);
+                segmentBlocks.push({
+                    lineId: '__through-category__',
+                    descriptor: {
+                        lineId: '__through-category__',
+                        text: throughCategoryLabel,
+                        color: mergedColor || null
+                    },
+                    typeName: toText(mainSegForType?.typeName),
+                    typeColor: toText(mainSegForType?.typeColor),
+                    segments: segmentsWithPast.slice()
+                });
+            } else {
+                for (const seg of segmentsWithPast) {
+                    const lastBlock = segmentBlocks.length ? segmentBlocks[segmentBlocks.length - 1] : null;
+                    const sameLine = !!lastBlock && isSameLineName(lastBlock.lineId, seg.lineId);
+                    if (!sameLine) {
+                        segmentBlocks.push({
+                            lineId: seg.lineId,
+                            descriptor: buildLineDescriptor(seg.lineId) || (seg.kind === 'main' ? currentLineDesc : null),
+                            typeName: toText(seg.typeName),
+                            typeColor: toText(seg.typeColor),
+                            segments: [seg]
+                        });
+                        continue;
+                    }
 
-                lastBlock.segments.push(seg);
-                if (!toText(lastBlock.typeName) && toText(seg.typeName)) {
-                    lastBlock.typeName = toText(seg.typeName);
-                }
-                if (!toText(lastBlock.typeColor) && toText(seg.typeColor)) {
-                    lastBlock.typeColor = toText(seg.typeColor);
+                    lastBlock.segments.push(seg);
+                    if (!toText(lastBlock.typeName) && toText(seg.typeName)) {
+                        lastBlock.typeName = toText(seg.typeName);
+                    }
+                    if (!toText(lastBlock.typeColor) && toText(seg.typeColor)) {
+                        lastBlock.typeColor = toText(seg.typeColor);
+                    }
                 }
             }
 
@@ -4188,7 +4221,7 @@ export function createPanel(options = {}) {
                 lineId: toText(seg.lineId),
                 d: toText(seg?.d || trip?.d),
                 stationIds: (seg.rows || []).map((r) => toText(r.stationId)).filter(Boolean),
-                typeColor: toText(seg.typeColor)
+                typeColor: throughCategoryColor || toText(seg.typeColor)
             }));
             const mainSeg = segmentsWithPast.find((s) => s.kind === 'main') || null;
             const mainRows = Array.isArray(mainSeg?.rows) ? mainSeg.rows : [];
@@ -4202,13 +4235,13 @@ export function createPanel(options = {}) {
                 mainTerminalStationId,
                 terminalStationId: mainTerminalStationId,
                 typeName: toText(typeName),
-                typeColor: toText(typeColor),
+                typeColor: throughCategoryColor || toText(typeColor),
                 hasNt,
                 segments: payloadSegments,
                 fitMode: toText(fitMode)
             };
 
-            if (branchMode && Array.isArray(activeBranchLanes) && activeBranchLanes.length >= 2) {
+            if (!throughCategoryLabel && branchMode && Array.isArray(activeBranchLanes) && activeBranchLanes.length >= 2) {
                 const mainSegForPreview = segmentsWithPast.find((s) => toText(s?.kind) === 'main') || null;
                 const mainSegStationIds = Array.isArray(mainSegForPreview?.rows)
                     ? mainSegForPreview.rows.map((r) => toText(r?.stationId)).filter(Boolean)
@@ -5959,6 +5992,28 @@ export function createPanel(options = {}) {
         // 默认折叠态：填充每条线路的“未来最近 3 条”班次
         // 这里等待渲染完成，避免外部随后执行的 scrollToLineId 被后续异步渲染“拉回顶部”。
         await renderAllTimetables();
+
+        void debugExtractShonanShinjukuUenoTokyoTrips({
+            stationId: currentStationId,
+            stationNameZh: currentStationNameZh,
+            servingLineIds: Array.isArray(currentStationServingIds) ? currentStationServingIds.slice() : [],
+            currentServiceDay,
+            loadTimetableForLineId,
+            resolveStationIdForLine,
+            loadTripByRefId,
+            parseTripServiceDayFromId,
+            isStillCurrentStation: () => (
+                renderToken === stationRenderToken &&
+                toText(currentStationId) === toText(props?.id)
+            ),
+            logger: (...args) => {
+                try {
+                    console.log(...args);
+                } catch {
+                    // ignore
+                }
+            }
+        });
     };
 
     const scrollToLineId = (lineId, options = {}) => {
