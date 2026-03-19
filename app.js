@@ -625,7 +625,10 @@ map.on('load', async () => {
         return true;
     };
 
-    const MENU_THROUGH_SOURCE_LINE_IDS = Object.freeze(['JR-East.Tokaido']);
+    const MENU_THROUGH_SOURCE_BY_CATEGORY = Object.freeze({
+        UenoTokyo: Object.freeze(['JR-East.Tokaido', 'JR-East.JobanRapid']),
+        ShonanShinjuku: Object.freeze(['JR-East.ShonanShinjuku'])
+    });
 
     const getMenuThroughDisplayByCategory = (category) => {
         if (category === 'UenoTokyo') return THROUGH_SERVICE_DISPLAY.UenoTokyo;
@@ -637,14 +640,18 @@ map.on('load', async () => {
         const menuLineId = String(lineId || '').trim();
         const throughCategory = getMenuThroughCategoryByLineId(menuLineId);
         if (!throughCategory) return false;
+        const sourceLineIds = Array.isArray(MENU_THROUGH_SOURCE_BY_CATEGORY[throughCategory])
+            ? MENU_THROUGH_SOURCE_BY_CATEGORY[throughCategory]
+            : [];
+        if (!sourceLineIds.length) return false;
 
         const display = getMenuThroughDisplayByCategory(throughCategory);
         const previewSource = `rw-menu-through:${menuLineId}`;
         const fitMode = source === 'hover' ? 'preview' : 'commit';
 
         previewBranchesForLine({
-            lineId: MENU_THROUGH_SOURCE_LINE_IDS[0],
-            sourceLineIds: MENU_THROUGH_SOURCE_LINE_IDS,
+            lineId: sourceLineIds[0],
+            sourceLineIds,
             lineName: String(display?.name || menuLineId),
             throughServiceCategory: throughCategory,
             highlightColor: String(display?.color || '').trim(),

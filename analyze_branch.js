@@ -506,7 +506,8 @@ const THROUGH_STATION_TOKENS = Object.freeze({
 
 const SHONAN_SHINJUKU_EXCLUDED_CHAIN_PREFIXES = Object.freeze([
     'JR-East.Ito',
-    'Izukyu.Izukyu'
+    'Izukyu.Izukyu',
+    'JR-East.OsakiBranch'
 ]);
 
 const getTripLineIdForThrough = (trip) => {
