@@ -300,6 +300,29 @@ const selectFullRoutes = (ttLists) => {
     return Array.from(byEndpoint.values());
 };
 
+const collectRouteEndpoints = (routes) => {
+    const originStationIds = [];
+    const terminalStationIds = [];
+    const seenPair = new Set();
+
+    for (const route of Array.isArray(routes) ? routes : []) {
+        const seq = Array.isArray(route) ? route.map((x) => toText(x)).filter(Boolean) : [];
+        if (seq.length < 2) continue;
+        const originId = seq[0];
+        const terminalId = seq[seq.length - 1];
+        const pairKey = `${originId}||${terminalId}`;
+        if (seenPair.has(pairKey)) continue;
+        seenPair.add(pairKey);
+        originStationIds.push(originId);
+        terminalStationIds.push(terminalId);
+    }
+
+    return {
+        originStationIds,
+        terminalStationIds
+    };
+};
+
 const buildGraph = (routes) => {
     const detailedPairs = new Set();
     for (const route of Array.isArray(routes) ? routes : []) {
@@ -656,6 +679,8 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
                     lineId: lid,
                     sourceLineIds: activeLineIds,
                     throughServiceCategory,
+                    originStationIds: [],
+                    terminalStationIds: [],
                     targetCount: 0,
                     throughServiceCount: 0,
                     fullRouteCount: 0,
@@ -667,11 +692,14 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
             const fullRoutes = selectFullRoutes(ttLists);
             const graph = buildGraph(fullRoutes);
             const branchList = extractBranchLists(graph, fullRoutes).map((seq) => dedupKeepOrder(seq));
+            const endpoints = collectRouteEndpoints(fullRoutes);
 
             return {
                 lineId: lid,
                 sourceLineIds: activeLineIds,
                 throughServiceCategory,
+                originStationIds: endpoints.originStationIds,
+                terminalStationIds: endpoints.terminalStationIds,
                 targetCount: targetTimetables.length,
                 throughServiceCount: ttLists.length,
                 fullRouteCount: fullRoutes.length,
@@ -789,6 +817,12 @@ export const previewBranchesForLine = async ({
         throughServiceCategory: normalizedCategory,
         sourceLineIds: normalizedSourceLineIds
     });
+    const fullChainOriginStationIds = Array.isArray(result?.originStationIds)
+        ? result.originStationIds.map((x) => toText(x)).filter(Boolean)
+        : [];
+    const fullChainTerminalStationIds = Array.isArray(result?.terminalStationIds)
+        ? result.terminalStationIds.map((x) => toText(x)).filter(Boolean)
+        : [];
     const stationRailwayByStationId = await getStationRailwayIndex();
     const rawBranchList = Array.isArray(result?.branchList) ? result.branchList : [];
     const virtualTrips = [];
@@ -835,6 +869,8 @@ export const previewBranchesForLine = async ({
         mainLineId: lid,
         tripKey: `branches:${lid}`,
         previewSource: source,
+        originStationIds: fullChainOriginStationIds,
+        terminalStationIds: fullChainTerminalStationIds,
         highlightStationIds: Array.isArray(highlightStationIds)
             ? highlightStationIds.map((x) => toText(x)).filter(Boolean)
             : [],

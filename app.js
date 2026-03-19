@@ -3808,7 +3808,7 @@ map.on('load', async () => {
             tripPreviewTerminalPopups = tripPreviewTerminalPopup ? [tripPreviewTerminalPopup] : [];
         };
 
-        const updateTripEndpointPopupsFromPayloadList = (payloadList) => {
+        const updateTripEndpointPopupsFromPayloadList = (payloadList, rootPayload = null) => {
             clearTripEndpointPopups();
 
             const list = Array.isArray(payloadList) ? payloadList : [];
@@ -3817,25 +3817,39 @@ map.on('load', async () => {
             const originIds = new Set();
             const terminalIds = new Set();
 
-            for (const payload of list) {
-                const segments = Array.isArray(payload?.segments) ? payload.segments : [];
-                if (!segments.length) continue;
+            const explicitOriginIds = Array.isArray(rootPayload?.originStationIds)
+                ? rootPayload.originStationIds.map((x) => String(x || '').trim()).filter(Boolean)
+                : [];
+            const explicitTerminalIds = Array.isArray(rootPayload?.terminalStationIds)
+                ? rootPayload.terminalStationIds.map((x) => String(x || '').trim()).filter(Boolean)
+                : [];
 
-                const firstSeg = segments.find((s) => Array.isArray(s?.stationIds) && s.stationIds.length) || null;
-                const lastSeg = (() => {
-                    for (let i = segments.length - 1; i >= 0; i -= 1) {
-                        const seg = segments[i];
-                        if (Array.isArray(seg?.stationIds) && seg.stationIds.length) return seg;
-                    }
-                    return null;
-                })();
+            if (explicitOriginIds.length || explicitTerminalIds.length) {
+                for (const sid of explicitOriginIds) originIds.add(sid);
+                for (const sid of explicitTerminalIds) terminalIds.add(sid);
+            }
 
-                const startId = String(firstSeg?.stationIds?.[0] || '').trim();
-                const endIds = Array.isArray(lastSeg?.stationIds) ? lastSeg.stationIds : [];
-                const endId = String(endIds.length ? endIds[endIds.length - 1] : '').trim();
+            if (!originIds.size && !terminalIds.size) {
+                for (const payload of list) {
+                    const segments = Array.isArray(payload?.segments) ? payload.segments : [];
+                    if (!segments.length) continue;
 
-                if (startId) originIds.add(startId);
-                if (endId) terminalIds.add(endId);
+                    const firstSeg = segments.find((s) => Array.isArray(s?.stationIds) && s.stationIds.length) || null;
+                    const lastSeg = (() => {
+                        for (let i = segments.length - 1; i >= 0; i -= 1) {
+                            const seg = segments[i];
+                            if (Array.isArray(seg?.stationIds) && seg.stationIds.length) return seg;
+                        }
+                        return null;
+                    })();
+
+                    const startId = String(firstSeg?.stationIds?.[0] || '').trim();
+                    const endIds = Array.isArray(lastSeg?.stationIds) ? lastSeg.stationIds : [];
+                    const endId = String(endIds.length ? endIds[endIds.length - 1] : '').trim();
+
+                    if (startId) originIds.add(startId);
+                    if (endId) terminalIds.add(endId);
+                }
             }
 
             const sharedIds = new Set();
@@ -4376,7 +4390,7 @@ map.on('load', async () => {
                     // ignore
                 }
 
-                updateTripEndpointPopupsFromPayloadList(virtualTrips);
+                updateTripEndpointPopupsFromPayloadList(virtualTrips, payload);
 
                 try {
                     window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {
