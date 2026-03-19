@@ -10,6 +10,11 @@ import { getGlobalTimetableCache } from './timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './fullscreen.js';
 import { extractShortestLoopSegmentByIndex, isLoopDirection } from './trip-preview.js';
 import { previewBranchesForLine } from './analyze_branch.js';
+import {
+    THROUGH_SERVICE_DISPLAY,
+    getMenuThroughCategoryByLineId,
+    isMenuThroughLineId
+} from './shonanshinjuku-uenotokyo.js';
 import './route-map-ui.js';
 
 initializeFetchCache();
@@ -617,6 +622,38 @@ map.on('load', async () => {
         }).catch(() => {
             clearTripPathPreview({ source });
         });
+        return true;
+    };
+
+    const MENU_THROUGH_SOURCE_LINE_IDS = Object.freeze(['JR-East.Tokaido']);
+
+    const getMenuThroughDisplayByCategory = (category) => {
+        if (category === 'UenoTokyo') return THROUGH_SERVICE_DISPLAY.UenoTokyo;
+        if (category === 'ShonanShinjuku') return THROUGH_SERVICE_DISPLAY.ShonanShinjuku;
+        return null;
+    };
+
+    const previewMenuThroughLine = ({ lineId, source }) => {
+        const menuLineId = String(lineId || '').trim();
+        const throughCategory = getMenuThroughCategoryByLineId(menuLineId);
+        if (!throughCategory) return false;
+
+        const display = getMenuThroughDisplayByCategory(throughCategory);
+        const previewSource = `rw-menu-through:${menuLineId}`;
+        const fitMode = source === 'hover' ? 'preview' : 'commit';
+
+        previewBranchesForLine({
+            lineId: MENU_THROUGH_SOURCE_LINE_IDS[0],
+            sourceLineIds: MENU_THROUGH_SOURCE_LINE_IDS,
+            lineName: String(display?.name || menuLineId),
+            throughServiceCategory: throughCategory,
+            highlightColor: String(display?.color || '').trim(),
+            fitMode,
+            previewSource
+        }).catch(() => {
+            clearTripPathPreview({ source: previewSource });
+        });
+
         return true;
     };
 
@@ -4806,6 +4843,11 @@ map.on('load', async () => {
                 if (source === 'hover' && !isHoverPreviewEnabled()) return;
                 hideStationPopupForMenuInteraction();
                 const commitPreview = meta?.commitPreview === true;
+
+                if (isMenuThroughLineId(lineId)) {
+                    previewMenuThroughLine({ lineId, source: source === 'hover' ? 'hover' : 'click' });
+                    return;
+                }
 
                 // 菜单已将“支线 -> 主线”解析并给出 mergedLineIds（主线+支线）。
                 // 这里统一以主线作为 selectedLineId，保证底部显示主线名。

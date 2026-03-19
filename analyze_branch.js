@@ -497,25 +497,134 @@ const matchesTripFilter = (rec, tripFilterSet) => {
         || (tBase && tripFilterSet.has(tBase));
 };
 
+const THROUGH_STATION_TOKENS = Object.freeze({
+    SHINJUKU: 'Shinjuku',
+    SHIBUYA: 'Shibuya',
+    UENO: 'Ueno',
+    TOKYO: 'Tokyo'
+});
+
+const addRefId = (outSet, raw) => {
+    const id = toText(raw);
+    if (id) outSet.add(id);
+};
+
+const collectRefTripIds = (trip) => {
+    const out = new Set();
+    const pt = Array.isArray(trip?.pt) ? trip.pt : (trip?.pt ? [trip.pt] : []);
+    const nt = Array.isArray(trip?.nt) ? trip.nt : (trip?.nt ? [trip.nt] : []);
+    for (const id of pt) addRefId(out, id);
+    for (const id of nt) addRefId(out, id);
+    return Array.from(out);
+};
+
+const collectConnectedTrips = (seedTrip, idMap) => {
+    const map = idMap instanceof Map ? idMap : new Map();
+    const queue = [seedTrip];
+    const visited = new Set();
+    const out = [];
+
+    while (queue.length) {
+        const cur = queue.shift();
+        if (!cur) continue;
+        const id = toText(cur?.id) || toText(cur?.t);
+        if (id && visited.has(id)) continue;
+        if (id) visited.add(id);
+        out.push(cur);
+
+        const refIds = collectRefTripIds(cur);
+        for (const refId of refIds) {
+            const ref = map.get(refId);
+            if (!ref) continue;
+            const refTripId = toText(ref?.id) || toText(ref?.t);
+            if (refTripId && visited.has(refTripId)) continue;
+            queue.push(ref);
+        }
+    }
+
+    return out;
+};
+
+const detectThroughServiceCategory = (trips) => {
+    const flags = {
+        hasShinjuku: false,
+        hasShibuya: false,
+        hasUeno: false,
+        hasTokyo: false
+    };
+
+    for (const trip of Array.isArray(trips) ? trips : []) {
+        const tt = Array.isArray(trip?.tt) ? trip.tt : [];
+        for (const row of tt) {
+            const stationId = toText(row?.s);
+            if (!stationId) continue;
+            const token = stationId.split('.').pop();
+            if (token === THROUGH_STATION_TOKENS.SHINJUKU) flags.hasShinjuku = true;
+            if (token === THROUGH_STATION_TOKENS.SHIBUYA) flags.hasShibuya = true;
+            if (token === THROUGH_STATION_TOKENS.UENO) flags.hasUeno = true;
+            if (token === THROUGH_STATION_TOKENS.TOKYO) flags.hasTokyo = true;
+        }
+    }
+
+    if (flags.hasShinjuku && flags.hasShibuya) return 'ShonanShinjuku';
+    if (flags.hasUeno && flags.hasTokyo) return 'UenoTokyo';
+    return '';
+};
+
+const matchesThroughServiceCategory = (trip, idMap, expectedCategory, cache) => {
+    const wanted = toText(expectedCategory);
+    if (!wanted) return true;
+
+    const tripId = toText(trip?.id) || toText(trip?.t);
+    if (cache instanceof Map && tripId && cache.has(tripId)) {
+        return cache.get(tripId) === wanted;
+    }
+
+    const connectedTrips = collectConnectedTrips(trip, idMap);
+    const category = detectThroughServiceCategory(connectedTrips);
+    if (cache instanceof Map && tripId) cache.set(tripId, category);
+    return category === wanted;
+};
+
 export const analyzeBranchesForLine = async (lineId, options = {}) => {
-    const lid = toText(lineId);
+    const sourceLineIds = Array.isArray(options?.sourceLineIds)
+        ? options.sourceLineIds.map((x) => toText(x)).filter(Boolean)
+        : [];
+
+    const lid = toText(lineId) || sourceLineIds[0] || '';
     if (!lid) return null;
+
+    const activeLineIds = sourceLineIds.length
+        ? Array.from(new Set(sourceLineIds))
+        : [lid];
+    const activeLineSet = new Set(activeLineIds);
+    const throughServiceCategory = toText(options?.throughServiceCategory);
 
     const tripFilterSet = toTripFilterSet(options?.targetTripKeys);
     const tripFilterKey = (() => {
         if (!tripFilterSet.size) return '*';
         return Array.from(tripFilterSet).sort().join('||');
     })();
-    const cacheKey = `${lid}##${tripFilterKey}`;
+    const lineIdsKey = activeLineIds.slice().sort().join('|');
+    const categoryKey = throughServiceCategory || '*';
+    const cacheKey = `${lineIdsKey}##${tripFilterKey}##${categoryKey}`;
 
     if (!branchAnalysisCacheByLine.has(cacheKey)) {
         const p = (async () => {
             const { allRecords, idMap } = await loadAllTimetableRecords();
-            const targetTimetables = allRecords.filter((rec) => getTripLineId(rec) === lid && matchesTripFilter(rec, tripFilterSet));
+            const throughCategoryCache = new Map();
+            const targetTimetables = allRecords.filter((rec) => {
+                const currentLineId = getTripLineId(rec);
+                if (!activeLineSet.has(currentLineId)) return false;
+                if (!matchesTripFilter(rec, tripFilterSet)) return false;
+                return matchesThroughServiceCategory(rec, idMap, throughServiceCategory, throughCategoryCache);
+            });
 
             if (!targetTimetables.length) {
                 return {
                     lineId: lid,
+                    sourceLineIds: activeLineIds,
+                    throughServiceCategory,
                     targetCount: 0,
                     throughServiceCount: 0,
                     fullRouteCount: 0,
@@ -530,6 +639,8 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
 
             return {
                 lineId: lid,
+                sourceLineIds: activeLineIds,
+                throughServiceCategory,
                 targetCount: targetTimetables.length,
                 throughServiceCount: ttLists.length,
                 fullRouteCount: fullRoutes.length,
@@ -617,7 +728,17 @@ const buildBranchSegmentsByRailway = (stationIds, stationRailwayByStationId, fal
     return segments.filter((seg) => toText(seg?.lineId) && Array.isArray(seg?.stationIds) && seg.stationIds.length >= 2);
 };
 
-export const previewBranchesForLine = async ({ lineId, lineName, fitMode = 'commit', targetTripKeys, highlightStationIds, previewSource = 'route-map-branch' } = {}) => {
+export const previewBranchesForLine = async ({
+    lineId,
+    lineName,
+    fitMode = 'commit',
+    targetTripKeys,
+    highlightStationIds,
+    previewSource = 'route-map-branch',
+    throughServiceCategory,
+    sourceLineIds,
+    highlightColor
+} = {}) => {
     const lid = toText(lineId);
     if (!lid) return { ok: false, reason: 'line-id-empty' };
 
@@ -627,7 +748,16 @@ export const previewBranchesForLine = async ({ lineId, lineName, fitMode = 'comm
     }
 
     const source = toText(previewSource) || 'route-map-branch';
-    const result = await analyzeBranchesForLine(lid, { targetTripKeys });
+    const normalizedCategory = toText(throughServiceCategory);
+    const normalizedSourceLineIds = Array.isArray(sourceLineIds)
+        ? sourceLineIds.map((x) => toText(x)).filter(Boolean)
+        : [];
+    const normalizedHighlightColor = toText(highlightColor);
+    const result = await analyzeBranchesForLine(lid, {
+        targetTripKeys,
+        throughServiceCategory: normalizedCategory,
+        sourceLineIds: normalizedSourceLineIds
+    });
     const stationRailwayByStationId = await getStationRailwayIndex();
     const rawBranchList = Array.isArray(result?.branchList) ? result.branchList : [];
     const virtualTrips = [];
@@ -647,7 +777,15 @@ export const previewBranchesForLine = async ({ lineId, lineName, fitMode = 'comm
             previewSource: source,
             fitMode: 'none'
         });
-        if (payload) virtualTrips.push(payload);
+        if (payload) {
+            if (normalizedHighlightColor) {
+                payload.typeColor = normalizedHighlightColor;
+                if (Array.isArray(payload.segments)) {
+                    payload.segments = payload.segments.map((seg) => ({ ...seg, typeColor: normalizedHighlightColor }));
+                }
+            }
+            virtualTrips.push(payload);
+        }
     }
 
     if (!virtualTrips.length) {

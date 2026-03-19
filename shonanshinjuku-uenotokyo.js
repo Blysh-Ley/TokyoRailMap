@@ -24,6 +24,26 @@ export const THROUGH_SERVICE_DISPLAY = Object.freeze({
     UenoTokyo: { name: '上野东京线', color: '#F68B1E' }
 });
 
+export const MENU_THROUGH_LINE_IDS = Object.freeze({
+    UENO_TOKYO: 'TokyoRail.MenuThrough.UenoTokyo',
+    SHONAN_SHINJUKU: 'TokyoRail.MenuThrough.ShonanShinjuku'
+});
+
+const MENU_THROUGH_CATEGORY_BY_LINE_ID = Object.freeze({
+    [MENU_THROUGH_LINE_IDS.UENO_TOKYO]: 'UenoTokyo',
+    [MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU]: 'ShonanShinjuku'
+});
+
+export const isMenuThroughLineId = (lineId) => {
+    const id = toText(lineId);
+    return !!MENU_THROUGH_CATEGORY_BY_LINE_ID[id];
+};
+
+export const getMenuThroughCategoryByLineId = (lineId) => {
+    const id = toText(lineId);
+    return MENU_THROUGH_CATEGORY_BY_LINE_ID[id] || '';
+};
+
 const STATION_TOKENS = Object.freeze({
     SHINJUKU: 'Shinjuku',
     SHIBUYA: 'Shibuya',

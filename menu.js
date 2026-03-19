@@ -13,7 +13,11 @@
  * - logoBasePath: './companyLogos/'
  */
 
-import { ensureLineIconForRwLineContent } from './line-icons.js';
+import { createLineIconElement, ensureLineIconForRwLineContent } from './line-icons.js';
+import {
+    MENU_THROUGH_LINE_IDS,
+    THROUGH_SERVICE_DISPLAY
+} from './shonanshinjuku-uenotokyo.js';
 
 export class Menu {
     constructor({
@@ -414,6 +418,40 @@ export class Menu {
         };
         const isBranchLineId = (lineId) => typeof lineId === 'string' && lineId.endsWith('Branch');
 
+        const RW_MENU_THROUGH_ENTRIES = Object.freeze([
+            {
+                lineId: MENU_THROUGH_LINE_IDS.UENO_TOKYO,
+                lineName: THROUGH_SERVICE_DISPLAY.UenoTokyo.name,
+                color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color,
+                codes: ['JU', 'JT']
+            },
+            {
+                lineId: MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU,
+                lineName: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name,
+                color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color,
+                codes: ['JS']
+            }
+        ]);
+
+        const shouldUseRwMenuThroughEntries = (companyName) => String(companyName || '').trim() === 'JR-East';
+
+        const appendCustomLineIcons = (leftBox, lineId, codes, color) => {
+            if (!(leftBox instanceof HTMLElement)) return;
+            const iconCodes = Array.isArray(codes) ? codes.map((x) => String(x || '').trim()).filter(Boolean) : [];
+            if (!iconCodes.length) return;
+
+            for (const code of iconCodes) {
+                const icon = createLineIconElement({
+                    routeId: `${String(lineId || '').trim()}.${code}`,
+                    code,
+                    color: String(color || '').trim()
+                });
+                if (!icon) continue;
+                icon.style.marginRight = '4px';
+                leftBox.appendChild(icon);
+            }
+        };
+
         const splitCamelWords = (s) => {
             // e.g. MusashinoNishiUrawa -> [Musashino, Nishi, Urawa]
             if (!s) return [];
@@ -598,7 +636,11 @@ export class Menu {
                 return { lineId, meta, idx, lineName, orderRank };
             });
 
-            const decoratedFiltered = decorated.filter(Boolean);
+            let decoratedFiltered = decorated.filter(Boolean);
+
+            if (shouldUseRwMenuThroughEntries(companyName)) {
+                decoratedFiltered = decoratedFiltered.filter((item) => String(item?.lineId || '') !== 'JR-East.ShonanShinjuku');
+            }
 
             // 稳定排序：
             // 1) 若传入 railways-order 索引，则按其排序（同公司内）
@@ -610,7 +652,27 @@ export class Menu {
                 });
             }
 
-            decoratedFiltered.forEach(({ lineId, meta, lineName }) => {
+            let decoratedWithMenuThrough = decoratedFiltered;
+            if (shouldUseRwMenuThroughEntries(companyName)) {
+                const insertIndex = Math.min(7, decoratedFiltered.length);
+                decoratedWithMenuThrough = decoratedFiltered.slice();
+                const virtualRows = RW_MENU_THROUGH_ENTRIES.map((entry, idx) => ({
+                    lineId: entry.lineId,
+                    meta: {
+                        company: companyName,
+                        modes: ['all']
+                    },
+                    lineName: entry.lineName,
+                    idx: Number.MAX_SAFE_INTEGER - (RW_MENU_THROUGH_ENTRIES.length - idx),
+                    orderRank: Number.POSITIVE_INFINITY,
+                    isVirtualThrough: true,
+                    virtualCodes: entry.codes,
+                    virtualColor: entry.color
+                }));
+                decoratedWithMenuThrough.splice(insertIndex, 0, ...virtualRows);
+            }
+
+            decoratedWithMenuThrough.forEach(({ lineId, meta, lineName, isVirtualThrough, virtualCodes, virtualColor }) => {
                 // 线路项 + 运行模式子菜单
                 const lineContent = this.addSubMenu(lineListEl, 'line');
 
@@ -632,8 +694,12 @@ export class Menu {
 
                 lineContent.dataset.lineId = String(lineId);
 
-                // 异步注入线路 code icon（railways.json 无 code 则跳过）
-                ensureLineIconForRwLineContent(lineContent, String(lineId));
+                // 常规线路走数据驱动 icon；RW 菜单虚拟线走固定 code icon。
+                if (isVirtualThrough) {
+                    appendCustomLineIcons(leftBox, lineId, virtualCodes, virtualColor);
+                } else {
+                    ensureLineIconForRwLineContent(lineContent, String(lineId));
+                }
 
                 // 缓存主线显示名与菜单元素
                 this._lineDisplayNameById.set(String(lineId), String(lineName));
