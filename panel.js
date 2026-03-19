@@ -5,7 +5,7 @@
 
 import { sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
 import { buildTripPreviewKey, createTripPreviewScheduler } from './trip-preview.js';
-import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
+import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, resolveMainLineIdForIcon } from './line-icons.js';
 import { getCachedJson } from './fetch.js';
 import { previewBranchesForLine } from './analyze_branch.js';
 import {
@@ -564,8 +564,53 @@ const normalizeArrayLike = (value) => {
     return s ? [s] : [];
 };
 
+const buildPanelLineMergeInfo = ({ servingLineIds, getLineMeta } = {}) => {
+    const ids = Array.from(new Set(
+        (Array.isArray(servingLineIds) ? servingLineIds : [])
+            .map((x) => toText(x))
+            .filter(Boolean)
+    ));
+    const safeGetLineMeta = typeof getLineMeta === 'function' ? getLineMeta : (() => null);
+    const idIndex = new Map(ids.map((id) => [id, true]));
+
+    const lineGroupByMainId = new Map();
+    const displayLineIds = [];
+
+    for (const id of ids) {
+        const resolved = toText(resolveMainLineIdForIcon(id, idIndex)) || id;
+
+        let mainId = id;
+        if (resolved && resolved !== id && idIndex.has(resolved)) {
+            const srcCompany = toText(safeGetLineMeta(id)?.company);
+            const dstCompany = toText(safeGetLineMeta(resolved)?.company);
+            const sameCompany = !srcCompany || !dstCompany || srcCompany === dstCompany;
+            if (sameCompany) mainId = resolved;
+        }
+
+        if (!lineGroupByMainId.has(mainId)) {
+            lineGroupByMainId.set(mainId, []);
+            displayLineIds.push(mainId);
+        }
+        lineGroupByMainId.get(mainId).push(id);
+    }
+
+    for (const [mainId, grouped] of lineGroupByMainId.entries()) {
+        const deduped = Array.from(new Set(grouped));
+        if (deduped.includes(mainId)) {
+            deduped.sort((a, b) => {
+                if (a === mainId) return -1;
+                if (b === mainId) return 1;
+                return 0;
+            });
+        }
+        lineGroupByMainId.set(mainId, deduped);
+    }
+
+    return { displayLineIds, lineGroupByMainId };
+};
+
 function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStationNameByLineId, railwaysOrderIndex } = {}) {
-    const servingIdsRaw = normalizeArrayLike(props.serving_ids);
+    const servingIdsRaw = normalizeArrayLike(props.display_serving_ids ?? props.serving_ids);
     const servingIds = servingIdsRaw.map(String).filter(Boolean);
     const servingLinesRaw = normalizeArrayLike(props.serving_lines);
     const servingLines = servingLinesRaw.map(String).filter(Boolean);
@@ -726,10 +771,13 @@ export function createPanel(options = {}) {
     const isHoverPreviewEnabled = () => hoverPreviewEnabled !== false;
     const isMultiSelectModeEnabled = () => getMultiSelectModeEnabled ? getMultiSelectModeEnabled() === true : false;
 
-    const buildTransferLineStationNameMap = async ({ stationId, stationNameZh, servingLineIds }) => {
+    let currentLineGroupByMainId = new Map();
+
+    const buildTransferLineStationNameMap = async ({ stationId, stationNameZh, servingLineIds, lineGroupByMainId }) => {
         const sid = toText(stationId);
         const clickedName = toText(stationNameZh);
         const lineIds = Array.isArray(servingLineIds) ? servingLineIds.map((x) => toText(x)).filter(Boolean) : [];
+        const grouped = lineGroupByMainId instanceof Map ? lineGroupByMainId : new Map();
         const out = new Map();
         if (!sid || !lineIds.length) return out;
 
@@ -741,12 +789,24 @@ export function createPanel(options = {}) {
                 : [sid];
 
             for (const lineId of lineIds) {
-                let candidateId = groupIds.find((gid) => gid === lineId || gid.startsWith(`${lineId}.`));
+                const sourceLineIds = Array.from(new Set([
+                    lineId,
+                    ...(Array.isArray(grouped.get(lineId)) ? grouped.get(lineId) : [])
+                ].map((x) => toText(x)).filter(Boolean)));
+
+                let candidateId = '';
+                for (const srcLineId of sourceLineIds) {
+                    candidateId = toText(groupIds.find((gid) => gid === srcLineId || gid.startsWith(`${srcLineId}.`)) || '');
+                    if (candidateId) break;
+                }
 
                 // 兜底：若组内没找到，用“线路 + 当前站名”反查 station id（用于同名非换乘后缀场景）
                 if (!candidateId && clickedName) {
-                    const k = `${lineId}||${clickedName}`;
-                    candidateId = toText(stationsIndex?.stationIdByRailwayAndNameZh?.get?.(k) || '');
+                    for (const srcLineId of sourceLineIds) {
+                        const k = `${srcLineId}||${clickedName}`;
+                        candidateId = toText(stationsIndex?.stationIdByRailwayAndNameZh?.get?.(k) || '');
+                        if (candidateId) break;
+                    }
                 }
 
                 if (!candidateId) continue;
@@ -2210,20 +2270,38 @@ export function createPanel(options = {}) {
     const findTripByKey = async (lineId, tripKey) => {
         const key = toText(tripKey);
         if (!key) return null;
-        const data = await loadTimetableForLineId(lineId);
-        const list = Array.isArray(data) ? data : [];
-        if (!list.length) return null;
 
-        const candidates = list.filter((t) => {
-            const id = toText(t?.id);
-            const tkey = toText(t?.t);
-            if (id === key || tkey === key) return true;
-            return id ? id.startsWith(`${key}.`) : false;
-        });
+        const candidateLineIds = Array.from(new Set([
+            toText(getRefLineId(key)),
+            toText(lineId),
+            ...((Array.isArray(currentLineGroupByMainId?.get?.(toText(lineId)))
+                ? currentLineGroupByMainId.get(toText(lineId))
+                : [])
+                .map((x) => toText(x))
+                .filter(Boolean))
+        ].filter(Boolean)));
+        if (!candidateLineIds.length) return null;
 
-        if (!candidates.length) return null;
-        const withDay = candidates.find((t) => parseTripServiceDayFromId(t?.id) === currentServiceDay);
-        return withDay || candidates[0] || null;
+        let fallback = null;
+        for (const candLineId of candidateLineIds) {
+            const data = await loadTimetableForLineId(candLineId);
+            const list = Array.isArray(data) ? data : [];
+            if (!list.length) continue;
+
+            const candidates = list.filter((t) => {
+                const id = toText(t?.id);
+                const tkey = toText(t?.t);
+                if (id === key || tkey === key) return true;
+                return id ? id.startsWith(`${key}.`) : false;
+            });
+            if (!candidates.length) continue;
+
+            const withDay = candidates.find((t) => parseTripServiceDayFromId(t?.id) === currentServiceDay);
+            if (withDay) return withDay;
+            if (!fallback) fallback = candidates[0] || null;
+        }
+
+        return fallback;
     };
 
     const resolveStationIdForLine = async (lineId) => {
@@ -2462,19 +2540,36 @@ export function createPanel(options = {}) {
         return target.closest?.('.panel-timetable-row[data-trip-key], .panel-grid-cell[data-trip-key]') || null;
     };
 
-    const buildTimetableRowsHtml = async ({ lineId, stationId }) => {
-        const stationKey = toText(stationId);
-        if (!stationKey) return '';
+    const buildTimetableRowsHtml = async ({ lineId, stationId, sourceLineIds }) => {
+        const fallbackStationKey = toText(stationId);
 
-        const [stationsIndex, trainTypesIndex, trainTypeColorIndex, data] = await Promise.all([
+        const [stationsIndex, trainTypesIndex, trainTypeColorIndex] = await Promise.all([
             getStationsIndex(),
             getTrainTypesIndex(),
-            getTrainTypeColorIndex(),
-            loadTimetableForLineId(lineId)
+            getTrainTypeColorIndex()
         ]);
 
-        const list = Array.isArray(data) ? data : [];
-        if (!list.length) return '';
+        const mergedSourceLineIds = Array.from(new Set(
+            (Array.isArray(sourceLineIds) ? sourceLineIds : [lineId])
+                .map((x) => toText(x))
+                .filter(Boolean)
+        ));
+        if (!mergedSourceLineIds.length) return '';
+
+        const sourceDatas = await Promise.all(mergedSourceLineIds.map(async (sourceLineId) => {
+            const [resolvedStationId, data] = await Promise.all([
+                resolveStationIdForLine(sourceLineId),
+                loadTimetableForLineId(sourceLineId)
+            ]);
+            const stationKey = toText(resolvedStationId) || fallbackStationKey;
+            return {
+                sourceLineId,
+                stationKey,
+                list: Array.isArray(data) ? data : []
+            };
+        }));
+
+        if (!sourceDatas.some((x) => x.stationKey && x.list.length)) return '';
 
         const now = getDisplayNowMs();
         const serviceDayStartMs = getServiceDayStartMs(new Date(now));
@@ -2482,19 +2577,24 @@ export function createPanel(options = {}) {
 
         // Resolve pt/nt refs to get missing arrival/departure times.
 
-        for (const trip of list) {
+        for (const sourceData of sourceDatas) {
+            const stationKey = toText(sourceData?.stationKey);
+            const list = Array.isArray(sourceData?.list) ? sourceData.list : [];
+            if (!stationKey || !list.length) continue;
+
+            for (const trip of list) {
             // 按 timetables 的 id 最后一段区分工作日/休息日
-            const tripId = toText(trip?.id);
-            const tripServiceDay = parseTripServiceDayFromId(tripId);
-            if (tripServiceDay && tripServiceDay !== currentServiceDay) continue;
+                const tripId = toText(trip?.id);
+                const tripServiceDay = parseTripServiceDayFromId(tripId);
+                if (tripServiceDay && tripServiceDay !== currentServiceDay) continue;
 
-            const tt = Array.isArray(trip?.tt) ? trip.tt : [];
-            if (!tt.length) continue;
-            const stop = tt.find((x) => toText(x?.s) === stationKey);
-            if (!stop) continue;
+                const tt = Array.isArray(trip?.tt) ? trip.tt : [];
+                if (!tt.length) continue;
+                const stop = tt.find((x) => toText(x?.s) === stationKey);
+                if (!stop) continue;
 
-            let arr = toText(stop?.a);
-            let dep = toText(stop?.d);
+                let arr = toText(stop?.a);
+                let dep = toText(stop?.d);
 
             const os = Array.isArray(trip?.os) ? trip.os : (trip?.os ? [trip.os] : []);
             const ds = Array.isArray(trip?.ds) ? trip.ds : (trip?.ds ? [trip.ds] : []);
@@ -2579,34 +2679,36 @@ export function createPanel(options = {}) {
             const arrParsed = arr ? parseHHMMToServiceDayMs(arr, serviceDayStartMs) : null;
             const depParsed = dep ? parseHHMMToServiceDayMs(dep, serviceDayStartMs) : null;
 
-            rows.push({
-                destName,
-                destId,
-                arr: arr || null,
-                dep: dep || null,
-                arrPlus: !!arrParsed?.isNextDaySegment,
-                depPlus: !!depParsed?.isNextDaySegment,
-                timeMs,
-                serviceHourIndex: toServiceHourIndex(timeMs, serviceDayStartMs),
-                minuteLabel: toText(timeStr).slice(3, 5),
-                isPast: timeMs < now,
-                typeName,
-                typeColor,
-                originId,
-                originName,
-                terminalId: terminalIdForFilter,
-                terminalName,
-                terminalDisplayName,
-                terminalNames,
-                terminalIds: resolvedTerminalIds.length ? resolvedTerminalIds : (terminalIdForFilter ? [terminalIdForFilter] : []),
-                dir,
-                destNamesForDir,
-                showOriginLabel,
-                showTerminalLabel,
-                tripKey,
-                baseTripKey,
-                stopCount: Array.isArray(tt) ? tt.length : null
-            });
+                rows.push({
+                    destName,
+                    destId,
+                    arr: arr || null,
+                    dep: dep || null,
+                    arrPlus: !!arrParsed?.isNextDaySegment,
+                    depPlus: !!depParsed?.isNextDaySegment,
+                    timeMs,
+                    serviceHourIndex: toServiceHourIndex(timeMs, serviceDayStartMs),
+                    minuteLabel: toText(timeStr).slice(3, 5),
+                    isPast: timeMs < now,
+                    typeName,
+                    typeColor,
+                    originId,
+                    originName,
+                    terminalId: terminalIdForFilter,
+                    terminalName,
+                    terminalDisplayName,
+                    terminalNames,
+                    terminalIds: resolvedTerminalIds.length ? resolvedTerminalIds : (terminalIdForFilter ? [terminalIdForFilter] : []),
+                    dir,
+                    destNamesForDir,
+                    showOriginLabel,
+                    showTerminalLabel,
+                    tripKey,
+                    baseTripKey,
+                    stopCount: Array.isArray(tt) ? tt.length : null,
+                    sourceLineId: toText(sourceData?.sourceLineId)
+                });
+            }
         }
 
         if (!rows.length) return '';
@@ -3015,12 +3117,21 @@ export function createPanel(options = {}) {
         const ttEl = lineEl.querySelector('[data-timetable-root]');
         if (!ttEl) return;
 
-        const resolvedStationId = await resolveStationIdForLine(lineId);
+        const sourceLineIds = (() => {
+            const grouped = currentLineGroupByMainId?.get?.(lineId);
+            const list = Array.isArray(grouped) && grouped.length ? grouped : [lineId];
+            return Array.from(new Set(list.map((x) => toText(x)).filter(Boolean)));
+        })();
+
+        const resolvedStationId = sourceLineIds.length === 1
+            ? await resolveStationIdForLine(sourceLineIds[0])
+            : toText(stationId);
         if (token !== timetableRenderToken) return;
 
         const html = await buildTimetableRowsHtml({
             lineId,
-            stationId: resolvedStationId || stationId
+            stationId: resolvedStationId || stationId,
+            sourceLineIds
         });
 
         if (token !== timetableRenderToken) return;
@@ -3387,7 +3498,9 @@ export function createPanel(options = {}) {
             return;
         }
 
-        await showTripCurrentStationHint({ lineId, token });
+        const tripLineId = getTripLineId(trip) || toText(lineId);
+
+        await showTripCurrentStationHint({ lineId: tripLineId, token });
         if (token !== tripDetailToken) return;
 
         const now = getDisplayNowMs();
@@ -3560,7 +3673,7 @@ export function createPanel(options = {}) {
 
         const normalizedStops = segments.flatMap((x) => x.rows || []);
 
-        const stationIdForLine = await resolveStationIdForLine(lineId);
+        const stationIdForLine = await resolveStationIdForLine(tripLineId);
         if (token !== tripDetailToken) return;
         const currentIdx = normalizedStops.findIndex((s) => toText(s.stationId) === toText(stationIdForLine) && !!s.isMain);
         const stopsWithPast = normalizedStops.map((s, idx) => ({
@@ -5814,15 +5927,23 @@ export function createPanel(options = {}) {
         clearPinnedPanelState({ restoreStation: false });
         lastTripDetailKey = null;
 
+        const mergeInfo = buildPanelLineMergeInfo({
+            servingLineIds: currentStationServingIds,
+            getLineMeta
+        });
+        const displayServingIds = Array.isArray(mergeInfo?.displayLineIds) ? mergeInfo.displayLineIds : currentStationServingIds;
+        currentLineGroupByMainId = mergeInfo?.lineGroupByMainId instanceof Map ? mergeInfo.lineGroupByMainId : new Map();
+
         const lineStationNameByLineId = await buildTransferLineStationNameMap({
             stationId: currentStationId,
             stationNameZh: currentStationNameZh,
-            servingLineIds: currentStationServingIds
+            servingLineIds: displayServingIds,
+            lineGroupByMainId: currentLineGroupByMainId
         });
         if (renderToken !== stationRenderToken) return;
 
         // 渲染 popup 同结构的内容（公司分组 + 线路）
-        body.innerHTML = buildCompaniesHtml(props || {}, { getLineMeta, companyLogoMap, lineStationNameByLineId, railwaysOrderIndex });
+        body.innerHTML = buildCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId, railwaysOrderIndex });
         await enhancePanelLineHeaderIcons(body);
 
         show();
