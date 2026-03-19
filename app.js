@@ -4390,7 +4390,11 @@ map.on('load', async () => {
                     // ignore
                 }
 
-                updateTripEndpointPopupsFromPayloadList(virtualTrips, payload);
+                if (payloadSource === 'panel-dir-branch') {
+                    updateTripEndpointPopupsFromPayloadList(virtualTrips, payload);
+                } else {
+                    clearTripEndpointPopups();
+                }
 
                 try {
                     window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {
