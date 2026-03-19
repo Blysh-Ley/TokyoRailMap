@@ -4025,14 +4025,16 @@ export function createPanel(options = {}) {
                     ? (mainRows[mainRows.length - 1] || null)
                     : ((Array.isArray(primaryLane?.rows) ? primaryLane.rows[primaryLane.rows.length - 1] : null) || null);
                 const breakStationId = toText(breakStop?.stationId || '');
-                const breakStationText = breakStationId
+                const breakStationText = ''
+                /*
+                breakStationId
                     ? buildTimetableStationText({
                         stationCode: toText(stationsIndex?.idToCode?.get?.(breakStationId) || ''),
                         stationName: toText(breakStop?.stationName || breakStationId),
                         stationId: breakStationId
                     })
                     : (branchMode === 'split' ? '解编点' : '并结点');
-
+                */
                 if (branchMode === 'split') {
                     return `${startRow}<div class="panel-trip-detail-station panel-trip-detail-grid-cell" style="grid-column:1;">${escapeHtml(breakStationText)}</div>${markerLeft}${markerCenter}${markerRight}${endRow}`;
                 }

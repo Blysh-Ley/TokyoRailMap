@@ -9048,6 +9048,25 @@
 		"alternate": "JR-East.Yokosuka.Tokyo",
 		"ascending": "Outbound",
 		"descending": null
+	},	
+	{
+		"id": "JR-East.NaritaExpressBranch.Tokyo",
+		"railway": "JR-East.NaritaExpressBranch",
+		"coord": [
+			139.76704,
+			35.6813
+		],
+		"title": {
+			"ja": "東京",
+			"en": "Tokyo",
+			"ko": "도쿄",
+			"zh-Hans": "东京",
+			"zh-Hant": "東京"
+		},
+		"altitude": -1,
+		"alternate": "JR-East.Yokosuka.Tokyo",
+		"ascending": "Outbound",
+		"descending": null
 	},
 	{
 		"id": "JR-East.NaritaExpress.Shinagawa",
@@ -42972,8 +42991,7 @@
 			"zh-Hans": "会津田岛",
 			"zh-Hant": "會津田島"
 		}
-	}
-	,
+	},
 	{
 		"id": "Disney.DisneyResortLine.ResortGateway",
 		"railway": "Disney.DisneyResortLine",
@@ -43047,7 +43065,7 @@
 			"ko": "",
 			"zh-Hans": "强罗",
 			"zh-Hant": "強羅",
-			"code":"OH57"
+			"code": "OH57"
 		}
 	},
 	{
@@ -43063,7 +43081,7 @@
 			"ko": "",
 			"zh-Hans": "公园下",
 			"zh-Hant": "公園下",
-			"code":"OH58"
+			"code": "OH58"
 		}
 	},
 	{
@@ -43079,7 +43097,7 @@
 			"ko": "",
 			"zh-Hans": "公园上",
 			"zh-Hant": "公園上",
-			"code":"OH59"
+			"code": "OH59"
 		}
 	},
 	{
@@ -43095,7 +43113,7 @@
 			"ko": "",
 			"zh-Hans": "中强罗",
 			"zh-Hant": "中強羅",
-			"code":"OH60"
+			"code": "OH60"
 		}
 	},
 	{
@@ -43111,7 +43129,7 @@
 			"ko": "",
 			"zh-Hans": "上强罗",
 			"zh-Hant": "上強羅",
-			"code":"OH61"
+			"code": "OH61"
 		}
 	},
 	{
@@ -43127,7 +43145,7 @@
 			"ko": "",
 			"zh-Hans": "早云山",
 			"zh-Hant": "早雲山",
-			"code":"OH62"
+			"code": "OH62"
 		}
 	},
 	{
@@ -43160,7 +43178,6 @@
 			"zh-Hant": "千葉"
 		}
 	},
-
 	{
 		"id": "JR-East.NaritaExpress.Yotsukaido",
 		"railway": "JR-East.NaritaExpress",
@@ -43176,7 +43193,6 @@
 			"zh-Hant": "四街道"
 		}
 	},
-	
 	{
 		"id": "JR-East.NaritaExpress.Sakura",
 		"railway": "JR-East.NaritaExpress",
@@ -43192,7 +43208,6 @@
 			"zh-Hant": "佐倉"
 		}
 	},
-	
 	{
 		"id": "JR-East.NaritaExpress.Narita",
 		"railway": "JR-East.NaritaExpress",
@@ -43240,5 +43255,80 @@
 			"zh-Hant": "成田機場"
 		},
 		"altitude": -1
+	},
+	{
+		"id": "JR-East.NaritaExpressBranch.Shinagawa",
+		"railway": "JR-East.NaritaExpressBranch",
+		"coord": [
+			139.73871,
+			35.6288
+		],
+		"title": {
+			"ja": "品川",
+			"en": "Shinagawa",
+			"ko": "시나가와",
+			"zh-Hans": "品川",
+			"zh-Hant": "品川"
+		}
+	},
+	{
+		"id": "JR-East.NaritaExpressBranch.MusashiKosugi",
+		"railway": "JR-East.NaritaExpressBranch",
+		"coord": [
+			139.66194,
+			35.57562
+		],
+		"title": {
+			"ja": "武蔵小杉",
+			"en": "Musashi-Kosugi",
+			"ko": "무사시코스기",
+			"zh-Hans": "武藏小杉",
+			"zh-Hant": "武藏小杉"
+		}
+	},
+	{
+		"id": "JR-East.NaritaExpressBranch.Yokohama",
+		"railway": "JR-East.NaritaExpressBranch",
+		"coord": [
+			139.62234,
+			35.46576
+		],
+		"title": {
+			"ja": "横浜",
+			"en": "Yokohama",
+			"ko": "요코하마",
+			"zh-Hans": "横滨",
+			"zh-Hant": "橫濱"
+		}
+	},
+	{
+		"id": "JR-East.NaritaExpressBranch.Totsuka",
+		"railway": "JR-East.NaritaExpressBranch",
+		"coord": [
+			139.5343,
+			35.40049
+		],
+		"title": {
+			"ja": "戸塚",
+			"en": "Totsuka",
+			"ko": "도쓰카",
+			"zh-Hans": "户冢",
+			"zh-Hant": "戶塚"
+		}
+	},
+	{
+		"id": "JR-East.NaritaExpressBranch.Ofuna",
+		"railway": "JR-East.NaritaExpressBranch",
+		"coord": [
+			139.53124,
+			35.35383
+		],
+		"title": {
+			"ja": "大船",
+			"en": "Ofuna",
+			"ko": "오후나",
+			"zh-Hans": "大船",
+			"zh-Hant": "大船"
+		}
 	}
 ]

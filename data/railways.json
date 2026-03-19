@@ -1065,6 +1065,29 @@
 		"carComposition": 6
 	},
 	{
+		"id":"JR-East.NaritaExpressBranch",
+		"title": {
+			"ja": "成田エクスプレス",
+			"en": "Narita Express",
+			"ko": "나리타 익스프레스",
+			"zh-Hans": "成田特快",
+			"zh-Hant": "成田特快"
+		},
+		"stations": [
+			"JR-East.NaritaExpressBranch.Tokyo",
+			"JR-East.NaritaExpressBranch.Shinagawa",
+			"JR-East.NaritaExpressBranch.MusashiKosugi",
+			"JR-East.NaritaExpressBranch.Yokohama",
+			"JR-East.NaritaExpressBranch.Totsuka",
+			"JR-East.NaritaExpressBranch.Ofuna"
+		],
+		"ascending": "Outbound",
+		"descending": "Inbound",
+		"color": "#E60012",
+		"code": "NEX",
+		"carComposition": 6
+	},
+	{
 		"id": "JR-East.SotetsuDirect",
 		"title": {
 			"ja": "相鉄直通線",
