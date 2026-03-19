@@ -38,7 +38,7 @@ const enhancePanelLineHeaderIcons = async (rootEl) => {
             if (icon) {
                 icon.style.marginRight = '4px';
                 icon.style.verticalAlign = 'middle';
-                icon.style.transform = exceptCode.includes(meta.code) ? 'translateY(5px)' : 'translateY(-2px)';
+                icon.style.transform = 'translateY(-2px)' //exceptCode.includes(meta.code) ? 'translateY(3px)' : 'translateY(-2px)';
                 nameEl.prepend(icon);
             }
         }
@@ -3910,8 +3910,7 @@ export function createPanel(options = {}) {
                     }).map((s) => ({
                         ...s,
                         seg: kind,
-                        isMain: false,
-                        isPast: Number.isFinite(Number(s?.timeMs)) ? Number(s.timeMs) < now : false
+                        isMain: false
                     }));
 
                     const laneStationIds = rows.map((r) => toText(r?.stationId)).filter(Boolean);
@@ -4117,41 +4116,50 @@ export function createPanel(options = {}) {
             };
 
             const renderBreakRow = () => {
-                const startRow = `<div class="panel-trip-detail-grid-break-row" style="grid-column:1 / span ${totalCols}; --panel-trip-detail-cols:${totalCols};">`;
+                const laneRowsForBreak = markRowsPastByCurrentStation(
+                    Array.isArray(primaryLane?.rows) ? primaryLane.rows : [],
+                    branchMode === 'split'
+                        ? !!mainRows[mainRows.length - 1]?.isPast
+                        : !!mainRows[0]?.isPast
+                );
+                const breakStop = branchMode === 'split'
+                    ? (laneRowsForBreak[0] || null)
+                    : (laneRowsForBreak[laneRowsForBreak.length - 1] || null);
+                const breakIsPast = !!breakStop?.isPast;
+                const pastCls = breakIsPast ? ' is-past' : '';
+
+                const startRow = `<div class="panel-trip-detail-grid-break-row${pastCls}" style="grid-column:1 / span ${totalCols}; --panel-trip-detail-cols:${totalCols};">`;
                 const endRow = '</div>';
                 const markerLeft = renderGridMarkerCell({
-                    text: branchMode === 'split' ? '|' : '|',
-                    col: primaryTimeColStart
+                    text: branchMode === 'split' ? '┣' : '┣',
+                    col: primaryTimeColStart,
+                    isPast: breakIsPast
                 });
                 const markerCenter = renderGridMarkerCell({
                     text: branchMode === 'split' ? '解编' : '并结',
-                    col: primaryTimeColStart + 1
+                    col: primaryTimeColStart + 1,
+                    isPast: breakIsPast
                 });
                 const markerRight = firstBranchMarkerCol
                     ? renderGridMarkerCell({
-                        text: branchMode === 'split' ? '┐' : '┘',
-                        col: firstBranchMarkerCol
+                        text: branchMode === 'split' ? '┓' : '┛',
+                        col: firstBranchMarkerCol,
+                        isPast: breakIsPast
                     })
                     : '';
 
-                const breakStop = branchMode === 'split'
-                    ? (mainRows[mainRows.length - 1] || null)
-                    : ((Array.isArray(primaryLane?.rows) ? primaryLane.rows[primaryLane.rows.length - 1] : null) || null);
                 const breakStationId = toText(breakStop?.stationId || '');
-                const breakStationText = ''
-                /*
-                breakStationId
+                const breakStationText = breakStationId
                     ? buildTimetableStationText({
                         stationCode: toText(stationsIndex?.idToCode?.get?.(breakStationId) || ''),
                         stationName: toText(breakStop?.stationName || breakStationId),
                         stationId: breakStationId
-                    })
-                    : (branchMode === 'split' ? '解编点' : '并结点');
-                */
-                if (branchMode === 'split') {
-                    return `${startRow}<div class="panel-trip-detail-station panel-trip-detail-grid-cell" style="grid-column:1;">${escapeHtml(breakStationText)}</div>${markerLeft}${markerCenter}${markerRight}${endRow}`;
-                }
-                return `${startRow}<div class="panel-trip-detail-station panel-trip-detail-grid-cell" style="grid-column:1;">${escapeHtml(breakStationText)}</div>${markerLeft}${markerCenter}${markerRight}${endRow}`;
+                    }) 
+                    +
+                    (branchMode === 'split' ? '站解编' : '站并结')
+                    : (branchMode === 'split' ? '解编站' : '并结站');
+
+                return `${startRow}<div class="panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}" style="grid-column:1;">${escapeHtml(breakStationText)}</div>${markerLeft}${markerCenter}${markerRight}${endRow}`;
             };
 
             if (branchMode === 'merge') {
