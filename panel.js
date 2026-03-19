@@ -8,7 +8,13 @@ import { buildTripPreviewKey, createTripPreviewScheduler } from './trip-preview.
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, resolveMainLineIdForIcon } from './line-icons.js';
 import { getCachedJson } from './fetch.js';
 import { previewBranchesForLine } from './analyze_branch.js';
-import { debugExtractShonanShinjukuUenoTokyoTrips, detectThroughServiceCategoryFromTrips } from './shonanshinjuku-uenotokyo.js';
+import {
+    buildTemporaryThroughServicePanelPlan,
+    debugExtractShonanShinjukuUenoTokyoTrips,
+    detectThroughServiceCategoryFromTrips,
+    TRIGGER_LINE_IDS,
+    THROUGH_SERVICE_TEMP_LINE_IDS
+} from './shonanshinjuku-uenotokyo.js';
 import {
     buildTimetableStationText,
     renderTimetableNoteRowHtml,
@@ -17,6 +23,10 @@ import {
 } from './timetable-table.js';
 
 const toText = (v) => String(v ?? '').trim();
+
+const UENO_TOKYO_TEMP_LINE_ID = THROUGH_SERVICE_TEMP_LINE_IDS.UENO_TOKYO;
+const SHONAN_SHINJUKU_TEMP_LINE_ID = THROUGH_SERVICE_TEMP_LINE_IDS.SHONAN_SHINJUKU;
+const SHONAN_SHINJUKU_MAIN_LINE_ID = 'JR-East.ShonanShinjuku';
 
 const enhancePanelLineHeaderIcons = async (rootEl) => {
     if (!(rootEl instanceof Element)) return;
@@ -28,6 +38,43 @@ const enhancePanelLineHeaderIcons = async (rootEl) => {
         const lineEl = nameEl.closest('.panel-line');
         const lineId = toText(lineEl?.getAttribute?.('data-line-id'));
         if (!lineId) continue;
+
+        if (lineId === UENO_TOKYO_TEMP_LINE_ID) {
+            if (!nameEl.querySelector('.rw-line-icon')) {
+                const iconJu = createLineIconElement({ routeId: 'JR-East.Utsunomiya', code: 'JU', color: '#F68B1E' });
+                const iconJt = createLineIconElement({ routeId: 'JR-East.Tokaido', code: 'JT', color: '#F68B1E' });
+                if (iconJu) {
+                    iconJu.style.marginRight = '3px';
+                    iconJu.style.verticalAlign = 'middle';
+                    iconJu.style.transform = 'translateY(-2px)';
+                    nameEl.prepend(iconJu);
+                }
+                if (iconJt) {
+                    iconJt.style.marginRight = '4px';
+                    iconJt.style.verticalAlign = 'middle';
+                    iconJt.style.transform = 'translateY(-2px)';
+                    if (iconJu && iconJu.nextSibling) {
+                        nameEl.insertBefore(iconJt, iconJu.nextSibling);
+                    } else {
+                        nameEl.prepend(iconJt);
+                    }
+                }
+            }
+            continue;
+        }
+
+        if (lineId === SHONAN_SHINJUKU_MAIN_LINE_ID || lineId === SHONAN_SHINJUKU_TEMP_LINE_ID) {
+            if (!nameEl.querySelector('.rw-line-icon')) {
+                const iconJs = createLineIconElement({ routeId: SHONAN_SHINJUKU_MAIN_LINE_ID, code: 'JS', color: '#E31F26' });
+                if (iconJs) {
+                    iconJs.style.marginRight = '4px';
+                    iconJs.style.verticalAlign = 'middle';
+                    iconJs.style.transform = 'translateY(-2px)';
+                    nameEl.prepend(iconJs);
+                }
+            }
+            continue;
+        }
 
         const meta = await getResolvedRouteIconMeta(lineId);
         if (!meta || (!meta.code && !meta.color)) continue;
@@ -750,7 +797,17 @@ export function createPanel(options = {}) {
 
     const hoverDelayMs = Number.isFinite(options.hoverDelayMs) ? options.hoverDelayMs : 50;
     const primaryHoverDelayMs = 500;
-    const getLineMeta = typeof options.getLineMeta === 'function' ? options.getLineMeta : (() => null);
+    const getLineMetaBase = typeof options.getLineMeta === 'function' ? options.getLineMeta : (() => null);
+    let temporaryPanelLineMetaById = new Map();
+    let temporaryPanelSourceLineIdsByDisplayLineId = new Map();
+    let temporaryPanelAllowedTripKeysByDisplayLineId = new Map();
+    const getLineMeta = (lineId) => {
+        const id = toText(lineId);
+        if (!id) return null;
+        const temp = temporaryPanelLineMetaById.get(id);
+        if (temp) return temp;
+        return getLineMetaBase(id);
+    };
     const companyLogoMap = options.companyLogoMap || {};
     const railwaysOrderIndex = options.railwaysOrderIndex instanceof Map ? options.railwaysOrderIndex : null;
     const onSelectCompany = typeof options.onSelectCompany === 'function' ? options.onSelectCompany : null;
@@ -2138,6 +2195,17 @@ export function createPanel(options = {}) {
         refTripCache.set(key, hit);
         return hit;
     };
+
+    const buildTripFilterKeys = (trip) => {
+        const keys = [];
+        const id = toText(trip?.id);
+        const t = toText(trip?.t);
+        const baseFromId = id ? id.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '') : '';
+        if (id) keys.push(id);
+        if (t) keys.push(t);
+        if (baseFromId) keys.push(baseFromId);
+        return keys;
+    };
     const getNtFirstDepartTime = async (refId) => {
         const trip = await loadTripByRefId(refId);
         const tt = Array.isArray(trip?.tt) ? trip.tt : [];
@@ -2541,8 +2609,11 @@ export function createPanel(options = {}) {
         return target.closest?.('.panel-timetable-row[data-trip-key], .panel-grid-cell[data-trip-key]') || null;
     };
 
-    const buildTimetableRowsHtml = async ({ lineId, stationId, sourceLineIds }) => {
+    const buildTimetableRowsHtml = async ({ lineId, stationId, sourceLineIds, allowedTripKeySet }) => {
         const fallbackStationKey = toText(stationId);
+        const allowedKeys = allowedTripKeySet instanceof Set
+            ? allowedTripKeySet
+            : (Array.isArray(allowedTripKeySet) ? new Set(allowedTripKeySet.map((x) => toText(x)).filter(Boolean)) : null);
 
         const [stationsIndex, trainTypesIndex, trainTypeColorIndex] = await Promise.all([
             getStationsIndex(),
@@ -2584,6 +2655,10 @@ export function createPanel(options = {}) {
             if (!stationKey || !list.length) continue;
 
             for (const trip of list) {
+            if (allowedKeys && allowedKeys.size) {
+                const hit = buildTripFilterKeys(trip).some((k) => allowedKeys.has(k));
+                if (!hit) continue;
+            }
             // 按 timetables 的 id 最后一段区分工作日/休息日
                 const tripId = toText(trip?.id);
                 const tripServiceDay = parseTripServiceDayFromId(tripId);
@@ -3119,6 +3194,10 @@ export function createPanel(options = {}) {
         if (!ttEl) return;
 
         const sourceLineIds = (() => {
+            const temp = temporaryPanelSourceLineIdsByDisplayLineId.get(lineId);
+            if (Array.isArray(temp) && temp.length) {
+                return Array.from(new Set(temp.map((x) => toText(x)).filter(Boolean)));
+            }
             const grouped = currentLineGroupByMainId?.get?.(lineId);
             const list = Array.isArray(grouped) && grouped.length ? grouped : [lineId];
             return Array.from(new Set(list.map((x) => toText(x)).filter(Boolean)));
@@ -3132,7 +3211,8 @@ export function createPanel(options = {}) {
         const html = await buildTimetableRowsHtml({
             lineId,
             stationId: resolvedStationId || stationId,
-            sourceLineIds
+            sourceLineIds,
+            allowedTripKeySet: temporaryPanelAllowedTripKeysByDisplayLineId.get(lineId) || null
         });
 
         if (token !== timetableRenderToken) return;
@@ -5904,6 +5984,9 @@ export function createPanel(options = {}) {
         clearPinnedPanelState({ restoreStation: false });
         hideTripDetail();
         dirFilterStateByKey.clear();
+        temporaryPanelLineMetaById = new Map();
+        temporaryPanelSourceLineIdsByDisplayLineId = new Map();
+        temporaryPanelAllowedTripKeysByDisplayLineId = new Map();
         isPanelVisible = false;
         root.style.transform = 'translateX(calc(100% + 24px))';
     };
@@ -5972,8 +6055,82 @@ export function createPanel(options = {}) {
             servingLineIds: currentStationServingIds,
             getLineMeta
         });
-        const displayServingIds = Array.isArray(mergeInfo?.displayLineIds) ? mergeInfo.displayLineIds : currentStationServingIds;
-        currentLineGroupByMainId = mergeInfo?.lineGroupByMainId instanceof Map ? mergeInfo.lineGroupByMainId : new Map();
+
+        temporaryPanelLineMetaById = new Map();
+        temporaryPanelSourceLineIdsByDisplayLineId = new Map();
+        temporaryPanelAllowedTripKeysByDisplayLineId = new Map();
+
+        let displayServingIds = Array.isArray(mergeInfo?.displayLineIds) ? mergeInfo.displayLineIds : currentStationServingIds;
+
+        const throughPlan = await buildTemporaryThroughServicePanelPlan({
+            stationId: currentStationId,
+            servingLineIds: Array.isArray(currentStationServingIds) ? currentStationServingIds.slice() : [],
+            currentServiceDay,
+            loadTimetableForLineId,
+            resolveStationIdForLine,
+            loadTripByRefId,
+            parseTripServiceDayFromId,
+            isStillCurrentStation: () => (
+                renderToken === stationRenderToken &&
+                toText(currentStationId) === toText(props?.id)
+            )
+        });
+        if (renderToken !== stationRenderToken) return;
+
+        if (throughPlan) {
+            temporaryPanelLineMetaById = throughPlan.temporaryLineMetaById instanceof Map
+                ? throughPlan.temporaryLineMetaById
+                : new Map();
+            temporaryPanelSourceLineIdsByDisplayLineId = throughPlan.temporarySourceLineIdsByDisplayLineId instanceof Map
+                ? throughPlan.temporarySourceLineIdsByDisplayLineId
+                : new Map();
+            temporaryPanelAllowedTripKeysByDisplayLineId = throughPlan.temporaryAllowedTripKeysByDisplayLineId instanceof Map
+                ? throughPlan.temporaryAllowedTripKeysByDisplayLineId
+                : new Map();
+
+            const injectedLineIds = [];
+            if (temporaryPanelSourceLineIdsByDisplayLineId.has(UENO_TOKYO_TEMP_LINE_ID)) {
+                injectedLineIds.push(UENO_TOKYO_TEMP_LINE_ID);
+            }
+            if (temporaryPanelSourceLineIdsByDisplayLineId.has(SHONAN_SHINJUKU_MAIN_LINE_ID)) {
+                injectedLineIds.push(SHONAN_SHINJUKU_MAIN_LINE_ID);
+            } else if (temporaryPanelSourceLineIdsByDisplayLineId.has(SHONAN_SHINJUKU_TEMP_LINE_ID)) {
+                injectedLineIds.push(SHONAN_SHINJUKU_TEMP_LINE_ID);
+            }
+
+            if (injectedLineIds.length) {
+                const base = displayServingIds.filter((id) => !injectedLineIds.includes(toText(id)));
+                const anchor = (() => {
+                    const idx = base.findIndex((id) => TRIGGER_LINE_IDS.has(toText(id)));
+                    return idx >= 0 ? idx : base.length;
+                })();
+                base.splice(anchor, 0, ...injectedLineIds);
+                displayServingIds = base;
+            }
+        }
+
+        const mergedDisplayInfo = buildPanelLineMergeInfo({
+            servingLineIds: displayServingIds,
+            getLineMeta
+        });
+        displayServingIds = Array.isArray(mergedDisplayInfo?.displayLineIds)
+            ? mergedDisplayInfo.displayLineIds
+            : displayServingIds;
+        currentLineGroupByMainId = mergedDisplayInfo?.lineGroupByMainId instanceof Map
+            ? mergedDisplayInfo.lineGroupByMainId
+            : new Map();
+
+        if (temporaryPanelSourceLineIdsByDisplayLineId.size) {
+            for (const [displayLineId, srcLineIds] of temporaryPanelSourceLineIdsByDisplayLineId.entries()) {
+                const did = toText(displayLineId);
+                if (!did) continue;
+                const src = Array.isArray(srcLineIds)
+                    ? Array.from(new Set(srcLineIds.map((x) => toText(x)).filter(Boolean)))
+                    : [];
+                if (!src.length) continue;
+                currentLineGroupByMainId.set(did, src);
+            }
+        }
 
         const lineStationNameByLineId = await buildTransferLineStationNameMap({
             stationId: currentStationId,
