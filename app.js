@@ -10,7 +10,9 @@ import { getGlobalTimetableCache } from './timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './fullscreen.js';
 import { extractShortestLoopSegmentByIndex, isLoopDirection } from './trip-preview.js';
 import { previewBranchesForLine } from './analyze_branch.js';
+import { createLineIconElement } from './line-icons.js';
 import {
+    MENU_THROUGH_LINE_IDS,
     THROUGH_SERVICE_DISPLAY,
     getMenuThroughCategoryByLineId,
     isMenuThroughLineId
@@ -544,8 +546,13 @@ map.on('load', async () => {
     // 底部居中提示条：显示当前高亮的公司/线路
     const selectionBadgeEl = document.createElement('div');
     selectionBadgeEl.className = 'selection-badge is-hidden';
+    const selectionBadgeIconEl = document.createElement('span');
+    selectionBadgeIconEl.className = 'selection-badge-icon';
+    selectionBadgeIconEl.style.gap = '4px';
+    selectionBadgeIconEl.style.marginRight = '6px';
     const selectionBadgeTextEl = document.createElement('span');
     selectionBadgeTextEl.className = 'selection-badge-text';
+    selectionBadgeEl.appendChild(selectionBadgeIconEl);
     selectionBadgeEl.appendChild(selectionBadgeTextEl);
     document.body.appendChild(selectionBadgeEl);
 
@@ -630,10 +637,26 @@ map.on('load', async () => {
         ShonanShinjuku: Object.freeze(['JR-East.ShonanShinjuku'])
     });
 
+    const MENU_THROUGH_PREVIEW_SOURCES = Object.freeze([
+        `rw-menu-through:${MENU_THROUGH_LINE_IDS.UENO_TOKYO}`,
+        `rw-menu-through:${MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU}`
+    ]);
+
     const getMenuThroughDisplayByCategory = (category) => {
         if (category === 'UenoTokyo') return THROUGH_SERVICE_DISPLAY.UenoTokyo;
         if (category === 'ShonanShinjuku') return THROUGH_SERVICE_DISPLAY.ShonanShinjuku;
         return null;
+    };
+
+    const getMenuThroughDisplayByLineId = (lineId) => {
+        const category = getMenuThroughCategoryByLineId(lineId);
+        return getMenuThroughDisplayByCategory(category);
+    };
+
+    const clearMenuThroughPreview = () => {
+        for (const source of MENU_THROUGH_PREVIEW_SOURCES) {
+            clearTripPathPreview({ source });
+        }
     };
 
     const previewMenuThroughLine = ({ lineId, source }) => {
@@ -648,6 +671,15 @@ map.on('load', async () => {
         const display = getMenuThroughDisplayByCategory(throughCategory);
         const previewSource = `rw-menu-through:${menuLineId}`;
         const fitMode = source === 'hover' ? 'preview' : 'commit';
+
+        // 让虚拟线走统一选中态，避免切到其它线路时残留高亮状态。
+        selectedCompany = null;
+        selectedStationLineIds = null;
+        selectedLineId = menuLineId;
+        selectedServiceMode = 'all';
+        if (source === 'hover') setStationLabelMode('auto');
+        else setStationLabelMode('all');
+        applySelectionEffects();
 
         previewBranchesForLine({
             lineId: sourceLineIds[0],
@@ -858,9 +890,33 @@ map.on('load', async () => {
     };
 
     function updateSelectionBadge() {
+        const clearSelectionBadgeIcons = () => {
+            selectionBadgeIconEl.innerHTML = '';
+        };
+
+        const appendBadgeIcon = ({ routeId, code, color }) => {
+            const icon = createLineIconElement({ routeId, code, color });
+            if (!icon) return;
+            icon.style.marginRight = '0';
+            selectionBadgeIconEl.appendChild(icon);
+        };
+
         if (selectedLineId) {
-            const name = lineNameById.get(String(selectedLineId)) || String(selectedLineId);
-            const color = resolveRailColorForTheme(lineColorById.get(String(selectedLineId)) || '#111') || '#111';
+            const sid = String(selectedLineId);
+            const throughDisplay = getMenuThroughDisplayByLineId(sid);
+            const name = throughDisplay?.name || lineNameById.get(sid) || sid;
+            const color = resolveRailColorForTheme(throughDisplay?.color || lineColorById.get(sid) || '#111') || '#111';
+
+            clearSelectionBadgeIcons();
+            if (sid === MENU_THROUGH_LINE_IDS.UENO_TOKYO) {
+                appendBadgeIcon({ routeId: 'JR-East.Tokaido', code: 'JU', color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color });
+                appendBadgeIcon({ routeId: 'JR-East.Tokaido', code: 'JT', color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color });
+            } else if (sid === MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU) {
+                appendBadgeIcon({ routeId: 'JR-East.ShonanShinjuku', code: 'JS', color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color });
+            } else {
+                appendBadgeIcon({ routeId: sid, code: '', color: lineColorById.get(sid) || '' });
+            }
+
             selectionBadgeTextEl.textContent = name;
             selectionBadgeTextEl.style.color = color;
             selectionBadgeEl.classList.remove('is-hidden');
@@ -868,6 +924,7 @@ map.on('load', async () => {
         }
 
         if (selectedCompany) {
+            clearSelectionBadgeIcons();
             const companyKey = String(selectedCompany);
             const companyZh = String(companyLogoMap?.[companyKey]?.zh || '').trim();
             selectionBadgeTextEl.textContent = companyZh || companyKey;
@@ -876,6 +933,7 @@ map.on('load', async () => {
             return;
         }
 
+        clearSelectionBadgeIcons();
         selectionBadgeEl.classList.add('is-hidden');
     }
     const companyLogoMap = {
@@ -4835,6 +4893,7 @@ map.on('load', async () => {
                 if (source === 'hover' && !isHoverPreviewEnabled()) return;
                 hideStationPopupForMenuInteraction();
                 const commitPreview = meta?.commitPreview === true;
+                clearMenuThroughPreview();
 
                 if (isMultiSelectModeEnabled() && source !== 'hover') {
                     const name = String(companyName ?? '').trim();
@@ -4873,6 +4932,8 @@ map.on('load', async () => {
                     previewMenuThroughLine({ lineId, source: source === 'hover' ? 'hover' : 'click' });
                     return;
                 }
+
+                clearMenuThroughPreview();
 
                 // 菜单已将“支线 -> 主线”解析并给出 mergedLineIds（主线+支线）。
                 // 这里统一以主线作为 selectedLineId，保证底部显示主线名。
@@ -4927,6 +4988,7 @@ map.on('load', async () => {
                 if (source === 'hover' && !isHoverPreviewEnabled()) return;
                 hideStationPopupForMenuInteraction();
                 const commitPreview = meta?.commitPreview === true;
+                clearMenuThroughPreview();
 
                 if (isMultiSelectModeEnabled() && source !== 'hover') {
                     const id = String(lineId ?? '').trim();
