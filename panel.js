@@ -2838,16 +2838,21 @@ export function createPanel(options = {}) {
 
                 let tripAbbrText = `${showTypeAbbr ? `[${typeAbbr}]` : ''}${showDestAbbr ? destAbbr : ''}`;
                 if (hasSpecialNames) {
-                    const terminalLabel = toText(trip?.terminalDisplayName || trip?.terminalName || trip?.destName);
-                    if (specialAbbrs.length >= 2 && terminalLabel) {
-                        tripAbbrText = `[${specialAbbrs.join('·')}]${terminalLabel}`;
+                    const specialPrefix = `[${specialAbbrs.join('·')}]`;
+                    if (specialAbbrs.length >= 2) {
+                        const multiDestAbbr = toText(rawDestAbbr);
+                        const fallbackDest = toText(trip?.terminalDisplayName || trip?.terminalName || trip?.destName);
+                        tripAbbrText = `${specialPrefix}${multiDestAbbr || fallbackDest}`;
                     } else {
-                        tripAbbrText = `[${specialAbbrs.join('·')}]${toText(rawDestAbbr)}`;
+                        tripAbbrText = `${specialPrefix}${toText(rawDestAbbr)}`;
                     }
                 }
 
-                const needScale = specialAbbrs.length >= 2 || tripAbbrText.length > 5;
-                const tripAbbrStyle = needScale ? ' style="transform:scale(0.7,1)"' : '';
+                const tripAbbrLen = Array.from(toText(tripAbbrText)).length;
+                const needScale = specialAbbrs.length >= 2 || tripAbbrLen > 5;
+                const tripAbbrStyle = tripAbbrLen > 8
+                    ? ' style="transform:scale(0.45,1)"'
+                    : (needScale ? ' style="transform:scale(0.7,1)"' : '');
                 const tripAbbrHtml = tripAbbrText
                     ? `<span class="panel-grid-trip-abbr"${tripAbbrStyle}>${escapeHtml(tripAbbrText)}</span>`
                     : '<span class="panel-grid-trip-abbr" aria-hidden="true">&nbsp;</span>';
