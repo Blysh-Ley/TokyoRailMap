@@ -53,7 +53,9 @@ const STATION_TOKENS = Object.freeze({
 
 const SHONAN_SHINJUKU_EXCLUDED_CHAIN_PREFIXES = Object.freeze([
     'JR-East.Ito',
-    'Izukyu.Izukyu'
+    'Izukyu.Izukyu',
+    'JR-East.NaritaExpress',
+    'JR-East.NaritaAbikoBranch'
 ]);
 
 const getTripId = (trip) => {
