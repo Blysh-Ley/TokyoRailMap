@@ -10,7 +10,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2201M.Weekday.2"
@@ -45,7 +45,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -98,7 +98,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2203M.Weekday.2"
@@ -133,7 +133,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -186,7 +186,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2205M.Weekday.2"
@@ -221,7 +221,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -274,7 +274,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2207M.Weekday.2"
@@ -309,7 +309,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -362,7 +362,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2209M.Weekday.2"
@@ -448,7 +448,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2213M.Weekday.2"
@@ -534,7 +534,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2215M.Weekday.2"
@@ -569,7 +569,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -622,7 +622,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2217M.Weekday.2"
@@ -708,7 +708,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2219M.Weekday.2"
@@ -743,7 +743,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -796,7 +796,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2221M.Weekday.2"
@@ -882,7 +882,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2223M.Weekday.2"
@@ -917,7 +917,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -970,7 +970,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2225M.Weekday.2"
@@ -1056,7 +1056,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2227M.Weekday.2"
@@ -1091,7 +1091,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -1144,7 +1144,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2229M.Weekday.2"
@@ -1230,7 +1230,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2231M.Weekday.2"
@@ -1265,7 +1265,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -1318,7 +1318,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2233M.Weekday.2"
@@ -1404,7 +1404,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2235M.Weekday.2"
@@ -1439,7 +1439,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -1492,7 +1492,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2237M.Weekday.2"
@@ -1578,7 +1578,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2239M.Weekday.2"
@@ -1613,7 +1613,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -1666,7 +1666,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2241M.Weekday.2"
@@ -1752,7 +1752,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2243M.Weekday.2"
@@ -1787,7 +1787,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -1840,7 +1840,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2245M.Weekday.2"
@@ -1931,7 +1931,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2247M.Weekday.2"
@@ -1966,7 +1966,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -2034,7 +2034,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2249M.Weekday.2"
@@ -2140,7 +2140,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2251M.Weekday.2"
@@ -2175,7 +2175,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -2243,7 +2243,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2253M.Weekday.2"
@@ -2278,7 +2278,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -2347,7 +2347,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2202M.Weekday.2",
@@ -2403,7 +2403,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -2504,7 +2504,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -2556,7 +2556,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2206M.Weekday.2",
@@ -2612,7 +2612,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -2693,7 +2693,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -2745,7 +2745,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2210M.Weekday.2",
@@ -2786,7 +2786,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -2867,7 +2867,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -2919,7 +2919,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2214M.Weekday.2",
@@ -2960,7 +2960,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -3041,7 +3041,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -3093,7 +3093,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2218M.Weekday.2",
@@ -3134,7 +3134,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -3215,7 +3215,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -3267,7 +3267,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2222M.Weekday.2",
@@ -3308,7 +3308,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -3389,7 +3389,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -3441,7 +3441,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2226M.Weekday.2",
@@ -3482,7 +3482,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -3563,7 +3563,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -3615,7 +3615,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2230M.Weekday.2",
@@ -3656,7 +3656,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -3737,7 +3737,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -3789,7 +3789,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2234M.Weekday.2",
@@ -3830,7 +3830,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -3911,7 +3911,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -3963,7 +3963,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2238M.Weekday.2",
@@ -4004,7 +4004,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -4051,7 +4051,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2240M.Weekday.2",
@@ -4087,7 +4087,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -4168,7 +4168,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -4220,7 +4220,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2246M.Weekday.2",
@@ -4261,7 +4261,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -4342,7 +4342,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -4394,7 +4394,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2250M.Weekday.2",
@@ -4435,7 +4435,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -4482,7 +4482,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2252M.Weekday.2",
@@ -4523,7 +4523,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -4570,7 +4570,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2254M.Weekday.2",
@@ -4606,7 +4606,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -4652,7 +4652,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2201M.SaturdayHoliday.2"
@@ -4687,7 +4687,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -4740,7 +4740,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2203M.SaturdayHoliday.2"
@@ -4775,7 +4775,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -4828,7 +4828,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2205M.SaturdayHoliday.2"
@@ -4863,7 +4863,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -4916,7 +4916,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2207M.SaturdayHoliday.2"
@@ -4951,7 +4951,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -5004,7 +5004,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2209M.SaturdayHoliday.2"
@@ -5090,7 +5090,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2213M.SaturdayHoliday.2"
@@ -5176,7 +5176,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2215M.SaturdayHoliday.2"
@@ -5211,7 +5211,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -5264,7 +5264,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2217M.SaturdayHoliday.2"
@@ -5350,7 +5350,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2219M.SaturdayHoliday.2"
@@ -5385,7 +5385,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -5438,7 +5438,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2221M.SaturdayHoliday.2"
@@ -5524,7 +5524,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2223M.SaturdayHoliday.2"
@@ -5559,7 +5559,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -5612,7 +5612,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2225M.SaturdayHoliday.2"
@@ -5698,7 +5698,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2227M.SaturdayHoliday.2"
@@ -5733,7 +5733,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -5786,7 +5786,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2229M.SaturdayHoliday.2"
@@ -5872,7 +5872,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2231M.SaturdayHoliday.2"
@@ -5907,7 +5907,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -5960,7 +5960,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2233M.SaturdayHoliday.2"
@@ -6046,7 +6046,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2235M.SaturdayHoliday.2"
@@ -6081,7 +6081,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -6134,7 +6134,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2237M.SaturdayHoliday.2"
@@ -6220,7 +6220,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2239M.SaturdayHoliday.2"
@@ -6255,7 +6255,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -6308,7 +6308,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2241M.SaturdayHoliday.2"
@@ -6394,7 +6394,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2243M.SaturdayHoliday.2"
@@ -6429,7 +6429,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -6482,7 +6482,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2245M.SaturdayHoliday.2"
@@ -6573,7 +6573,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2247M.SaturdayHoliday.2"
@@ -6608,7 +6608,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -6676,7 +6676,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2249M.SaturdayHoliday.2"
@@ -6782,7 +6782,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2251M.SaturdayHoliday.2"
@@ -6817,7 +6817,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -6885,7 +6885,7 @@
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2253M.SaturdayHoliday.2"
@@ -6920,7 +6920,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Outbound",
 		"os": [
-			"JR-East.Yokosuka.Ofuna",
+			"JR-East.NaritaExpressBranch.Ofuna",
 			"JR-East.ShonanShinjuku.Shinjuku"
 		],
 		"ds": [
@@ -6989,7 +6989,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2202M.SaturdayHoliday.2",
@@ -7045,7 +7045,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -7146,7 +7146,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -7198,7 +7198,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2206M.SaturdayHoliday.2",
@@ -7254,7 +7254,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -7335,7 +7335,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -7387,7 +7387,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2210M.SaturdayHoliday.2",
@@ -7428,7 +7428,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -7509,7 +7509,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -7561,7 +7561,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2214M.SaturdayHoliday.2",
@@ -7602,7 +7602,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -7683,7 +7683,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -7735,7 +7735,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2218M.SaturdayHoliday.2",
@@ -7776,7 +7776,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -7857,7 +7857,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -7909,7 +7909,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2222M.SaturdayHoliday.2",
@@ -7950,7 +7950,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -8031,7 +8031,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -8083,7 +8083,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2226M.SaturdayHoliday.2",
@@ -8124,7 +8124,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -8205,7 +8205,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -8257,7 +8257,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2230M.SaturdayHoliday.2",
@@ -8298,7 +8298,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -8379,7 +8379,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -8431,7 +8431,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2234M.SaturdayHoliday.2",
@@ -8472,7 +8472,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -8553,7 +8553,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -8605,7 +8605,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2238M.SaturdayHoliday.2",
@@ -8646,7 +8646,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -8693,7 +8693,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2240M.SaturdayHoliday.2",
@@ -8729,7 +8729,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -8810,7 +8810,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -8862,7 +8862,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2246M.SaturdayHoliday.2",
@@ -8903,7 +8903,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -8984,7 +8984,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -9036,7 +9036,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2250M.SaturdayHoliday.2",
@@ -9077,7 +9077,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -9124,7 +9124,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2252M.SaturdayHoliday.2",
@@ -9165,7 +9165,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -9212,7 +9212,7 @@
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku",
-			"JR-East.Yokosuka.Ofuna"
+			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"nt": [
 			"JR-East.NaritaExpress.2254M.SaturdayHoliday.2",
@@ -9248,7 +9248,7 @@
 		"y": "JR-East.LimitedExpress",
 		"d": "Inbound",
 		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
 		],
 		"ds": [
 			"JR-East.ShonanShinjuku.Shinjuku"
@@ -9279,6 +9279,195 @@
 				"ko": "나리타 익스프레스 54",
 				"zh-Hans": "成田特快 54",
 				"zh-Hant": "成田特快 54"
+			}
+		],
+		"v": "E259"
+	},
+	
+	{
+		"id": "JR-East.NaritaExpress.2011M.Weekday",
+		"t": "JR-East.NaritaExpress.2011M",
+		"r": "JR-East.NaritaExpress",
+		"n": "2011M",
+		"y": "JR-East.LimitedExpress",
+		"d": "Outbound",
+		"os": [
+			"JR-East.NaritaExpressBranch.Ofuna"
+		],
+		"ds": [
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
+		],
+		"pt": [
+			"JR-East.NaritaExpressBranch.2011M.Weekday"
+		],
+		"tt": [
+			{
+				"s": "JR-East.NaritaExpress.Tokyo",
+				"d": "09:00"
+			},
+			{
+				"s": "JR-East.NaritaExpress.Chiba",
+				"a": "09:28",
+				"d": "09:29"
+			},
+			{
+				"s": "JR-East.NaritaExpress.NaritaAirportTerminal2and3",
+				"a": "09:54",
+				"d": "09:56"
+			},
+			{
+				"s": "JR-East.NaritaExpress.NaritaAirportTerminal1",
+				"a": "09:58"
+			}
+		],
+		"nm": [
+			{
+				"ja": "成田エクスプレス 11号",
+				"en": "Narita Express 11",
+				"ko": "나리타 익스프레스 11",
+				"zh-Hans": "成田特快 11",
+				"zh-Hant": "成田特快 11"
+			}
+		],
+		"v": "E259"
+	},
+	{
+		"id": "JR-East.NaritaExpress.2042M.Weekday",
+		"t": "JR-East.NaritaExpress.2042M",
+		"r": "JR-East.NaritaExpress",
+		"n": "2042M",
+		"y": "JR-East.LimitedExpress",
+		"d": "Inbound",
+		"os": [
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
+		],
+		"ds": [
+			"JR-East.NaritaExpressBranch.Ofuna"
+		],
+		"nt": [
+			"JR-East.NaritaExpressBranch.2042M.Weekday"
+		],
+		"tt": [
+			{
+				"s": "JR-East.NaritaExpress.NaritaAirportTerminal1",
+				"d": "17:45"
+			},
+			{
+				"s": "JR-East.NaritaExpress.NaritaAirportTerminal2and3",
+				"a": "17:46",
+				"d": "17:48"
+			},
+			{
+				"s": "JR-East.NaritaExpress.Chiba",
+				"a": "18:19",
+				"d": "18:20"
+			},
+			{
+				"s": "JR-East.NaritaExpress.Tokyo",
+				"a": "18:48"
+			}
+		],
+		"nm": [
+			{
+				"ja": "成田エクスプレス 42号",
+				"en": "Narita Express 42",
+				"ko": "나리타 익스프레스 42",
+				"zh-Hans": "成田特快 42",
+				"zh-Hant": "成田特快 42"
+			}
+		],
+		"v": "E259"
+	},
+	{
+		"id": "JR-East.NaritaExpress.2011M.SaturdayHoliday",
+		"t": "JR-East.NaritaExpress.2011M",
+		"r": "JR-East.NaritaExpress",
+		"n": "2011M",
+		"y": "JR-East.LimitedExpress",
+		"d": "Outbound",
+		"os": [
+			"JR-East.NaritaExpressBranch.Ofuna"
+		],
+		"ds": [
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
+		],
+		"pt": [
+			"JR-East.NaritaExpressBranch.2011M.SaturdayHoliday"
+		],
+		"tt": [
+			{
+				"s": "JR-East.NaritaExpress.Tokyo",
+				"d": "09:00"
+			},
+			{
+				"s": "JR-East.NaritaExpress.Chiba",
+				"a": "09:28",
+				"d": "09:29"
+			},
+			{
+				"s": "JR-East.NaritaExpress.NaritaAirportTerminal2and3",
+				"a": "09:54",
+				"d": "09:56"
+			},
+			{
+				"s": "JR-East.NaritaExpress.NaritaAirportTerminal1",
+				"a": "09:58"
+			}
+		],
+		"nm": [
+			{
+				"ja": "成田エクスプレス 11号",
+				"en": "Narita Express 11",
+				"ko": "나리타 익스프레스 11",
+				"zh-Hans": "成田特快 11",
+				"zh-Hant": "成田特快 11"
+			}
+		],
+		"v": "E259"
+	},
+	{
+		"id": "JR-East.NaritaExpress.2042M.SaturdayHoliday",
+		"t": "JR-East.NaritaExpress.2042M",
+		"r": "JR-East.NaritaExpress",
+		"n": "2042M",
+		"y": "JR-East.LimitedExpress",
+		"d": "Inbound",
+		"os": [
+			"JR-East.NaritaExpress.NaritaAirportTerminal1"
+		],
+		"ds": [
+			"JR-East.NaritaExpressBranch.Ofuna"
+		],
+		"nt": [
+			"JR-East.NaritaExpressBranch.2042M.SaturdayHoliday"
+		],
+		"tt": [
+			{
+				"s": "JR-East.NaritaExpress.NaritaAirportTerminal1",
+				"d": "17:45"
+			},
+			{
+				"s": "JR-East.NaritaExpress.NaritaAirportTerminal2and3",
+				"a": "17:46",
+				"d": "17:48"
+			},
+			{
+				"s": "JR-East.NaritaExpress.Chiba",
+				"a": "18:19",
+				"d": "18:20"
+			},
+			{
+				"s": "JR-East.NaritaExpress.Tokyo",
+				"a": "18:48"
+			}
+		],
+		"nm": [
+			{
+				"ja": "成田エクスプレス 42号",
+				"en": "Narita Express 42",
+				"ko": "나리타 익스프레스 42",
+				"zh-Hans": "成田特快 42",
+				"zh-Hant": "成田特快 42"
 			}
 		],
 		"v": "E259"

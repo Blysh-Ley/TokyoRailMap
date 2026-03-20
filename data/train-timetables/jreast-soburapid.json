@@ -1791,53 +1791,6 @@
 		]
 	},
 	{
-		"id": "JR-East.SobuRapid.2011M.Weekday",
-		"t": "JR-East.SobuRapid.2011M",
-		"r": "JR-East.SobuRapid",
-		"n": "2011M",
-		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
-		"os": [
-			"JR-East.Yokosuka.Ofuna"
-		],
-		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
-		],
-		"pt": [
-			"JR-East.Yokosuka.2011M.Weekday"
-		],
-		"tt": [
-			{
-				"s": "JR-East.SobuRapid.Tokyo",
-				"d": "09:00"
-			},
-			{
-				"s": "JR-East.SobuRapid.Chiba",
-				"a": "09:28",
-				"d": "09:29"
-			},
-			{
-				"s": "JR-East.SobuRapid.NaritaAirportTerminal2and3",
-				"a": "09:54",
-				"d": "09:56"
-			},
-			{
-				"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
-				"a": "09:58"
-			}
-		],
-		"nm": [
-			{
-				"ja": "成田エクスプレス 11号",
-				"en": "Narita Express 11",
-				"ko": "나리타 익스프레스 11",
-				"zh-Hans": "成田特快 11",
-				"zh-Hant": "成田特快 11"
-			}
-		],
-		"v": "E259"
-	},
-	{
 		"id": "JR-East.SobuRapid.763F.Weekday",
 		"t": "JR-East.SobuRapid.763F",
 		"r": "JR-East.SobuRapid",
@@ -11750,53 +11703,6 @@
 				"a": "00:23"
 			}
 		]
-	},
-	{
-		"id": "JR-East.SobuRapid.2042M.Weekday",
-		"t": "JR-East.SobuRapid.2042M",
-		"r": "JR-East.SobuRapid",
-		"n": "2042M",
-		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
-		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
-		],
-		"ds": [
-			"JR-East.Yokosuka.Ofuna"
-		],
-		"nt": [
-			"JR-East.Yokosuka.2042M.Weekday"
-		],
-		"tt": [
-			{
-				"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
-				"d": "17:45"
-			},
-			{
-				"s": "JR-East.SobuRapid.NaritaAirportTerminal2and3",
-				"a": "17:46",
-				"d": "17:48"
-			},
-			{
-				"s": "JR-East.SobuRapid.Chiba",
-				"a": "18:19",
-				"d": "18:20"
-			},
-			{
-				"s": "JR-East.SobuRapid.Tokyo",
-				"a": "18:48"
-			}
-		],
-		"nm": [
-			{
-				"ja": "成田エクスプレス 42号",
-				"en": "Narita Express 42",
-				"ko": "나리타 익스프레스 42",
-				"zh-Hans": "成田特快 42",
-				"zh-Hant": "成田特快 42"
-			}
-		],
-		"v": "E259"
 	},
 	{
 		"id": "JR-East.SobuRapid.3574F.Weekday",
@@ -21991,53 +21897,6 @@
 		]
 	},
 	{
-		"id": "JR-East.SobuRapid.2011M.SaturdayHoliday",
-		"t": "JR-East.SobuRapid.2011M",
-		"r": "JR-East.SobuRapid",
-		"n": "2011M",
-		"y": "JR-East.LimitedExpress",
-		"d": "Outbound",
-		"os": [
-			"JR-East.Yokosuka.Ofuna"
-		],
-		"ds": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
-		],
-		"pt": [
-			"JR-East.Yokosuka.2011M.SaturdayHoliday"
-		],
-		"tt": [
-			{
-				"s": "JR-East.SobuRapid.Tokyo",
-				"d": "09:00"
-			},
-			{
-				"s": "JR-East.SobuRapid.Chiba",
-				"a": "09:28",
-				"d": "09:29"
-			},
-			{
-				"s": "JR-East.SobuRapid.NaritaAirportTerminal2and3",
-				"a": "09:54",
-				"d": "09:56"
-			},
-			{
-				"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
-				"a": "09:58"
-			}
-		],
-		"nm": [
-			{
-				"ja": "成田エクスプレス 11号",
-				"en": "Narita Express 11",
-				"ko": "나리타 익스프레스 11",
-				"zh-Hans": "成田特快 11",
-				"zh-Hant": "成田特快 11"
-			}
-		],
-		"v": "E259"
-	},
-	{
 		"id": "JR-East.SobuRapid.793F.SaturdayHoliday",
 		"t": "JR-East.SobuRapid.793F",
 		"r": "JR-East.SobuRapid",
@@ -30954,53 +30813,6 @@
 				"a": "00:23"
 			}
 		]
-	},
-	{
-		"id": "JR-East.SobuRapid.2042M.SaturdayHoliday",
-		"t": "JR-East.SobuRapid.2042M",
-		"r": "JR-East.SobuRapid",
-		"n": "2042M",
-		"y": "JR-East.LimitedExpress",
-		"d": "Inbound",
-		"os": [
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
-		],
-		"ds": [
-			"JR-East.Yokosuka.Ofuna"
-		],
-		"nt": [
-			"JR-East.Yokosuka.2042M.SaturdayHoliday"
-		],
-		"tt": [
-			{
-				"s": "JR-East.SobuRapid.NaritaAirportTerminal1",
-				"d": "17:45"
-			},
-			{
-				"s": "JR-East.SobuRapid.NaritaAirportTerminal2and3",
-				"a": "17:46",
-				"d": "17:48"
-			},
-			{
-				"s": "JR-East.SobuRapid.Chiba",
-				"a": "18:19",
-				"d": "18:20"
-			},
-			{
-				"s": "JR-East.SobuRapid.Tokyo",
-				"a": "18:48"
-			}
-		],
-		"nm": [
-			{
-				"ja": "成田エクスプレス 42号",
-				"en": "Narita Express 42",
-				"ko": "나리타 익스프레스 42",
-				"zh-Hans": "成田特快 42",
-				"zh-Hant": "成田特快 42"
-			}
-		],
-		"v": "E259"
 	},
 	{
 		"id": "JR-East.SobuRapid.3574F.SaturdayHoliday",
