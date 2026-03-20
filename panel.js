@@ -1647,6 +1647,56 @@ export function createPanel(options = {}) {
         return out;
     };
 
+    const deriveSpecialSp = (nameRaw) => {
+        const name = toText(nameRaw);
+        if (!name) return '';
+        const sp = name.split(/\s+/).filter(Boolean)[0] || name;
+        return toText(sp);
+    };
+
+    const buildUniqueSpecialAbbrMap = (orderedSpecialSp) => {
+        const names = Array.isArray(orderedSpecialSp) ? orderedSpecialSp.map((x) => toText(x)).filter(Boolean) : [];
+        const tokens = names.map((sp) => {
+            const chars = Array.from(sp);
+            return chars.length ? chars : Array.from(toText(sp));
+        });
+        const lengths = tokens.map((chars) => (chars.length >= 2 ? 2 : 1));
+
+        const pick = (chars, len) => {
+            if (!Array.isArray(chars) || !chars.length) return '';
+            const n = Math.max(1, Math.min(len, chars.length));
+            return chars.slice(0, n).join('');
+        };
+
+        for (let round = 0; round < 16; round += 1) {
+            const bucket = new Map();
+            for (let i = 0; i < tokens.length; i += 1) {
+                const abbr = pick(tokens[i], lengths[i]);
+                if (!bucket.has(abbr)) bucket.set(abbr, []);
+                bucket.get(abbr).push(i);
+            }
+
+            let changed = false;
+            for (const [, indices] of bucket.entries()) {
+                if (!Array.isArray(indices) || indices.length <= 1) continue;
+                for (const i of indices) {
+                    const maxLen = Math.max(1, Math.min(tokens[i].length, 4));
+                    if (lengths[i] < maxLen) {
+                        lengths[i] += 1;
+                        changed = true;
+                    }
+                }
+            }
+            if (!changed) break;
+        }
+
+        const out = new Map();
+        for (let i = 0; i < names.length; i += 1) {
+            out.set(names[i], pick(tokens[i], lengths[i]));
+        }
+        return out;
+    };
+
     const NO_MARK_TYPE_NAMES = new Set(['各站停车', '普通']);
 
     const isNoMarkTypeName = (typeNameRaw) => NO_MARK_TYPE_NAMES.has(toText(typeNameRaw));
@@ -1669,6 +1719,7 @@ export function createPanel(options = {}) {
         const terminalAtomicCount = new Map();
         const splitMergeTerminalNames = new Set();
         const splitNtMultiDestTerminalNames = new Set();
+        const specialBySp = new Map();
 
         for (const row of rows) {
             const typeName = toText(row?.typeName);
@@ -1709,6 +1760,22 @@ export function createPanel(options = {}) {
             const isSplitByNtMultiDestTrip = !!row?.hasNt && Number(row?.resolvedTerminalIdsCount) > 1;
             if (isSplitByNtMultiDestTrip) {
                 for (const terminalName of terminalNames) splitNtMultiDestTerminalNames.add(terminalName);
+            }
+
+            const specialNames = Array.isArray(row?.specialNames)
+                ? row.specialNames.map((x) => toText(x)).filter(Boolean)
+                : [];
+            const seenSpInRow = new Set();
+            for (const specialName of specialNames) {
+                const sp = deriveSpecialSp(specialName);
+                if (!sp || seenSpInRow.has(sp)) continue;
+                seenSpInRow.add(sp);
+                const prev = specialBySp.get(sp) || { sp, full: specialName, count: 0 };
+                specialBySp.set(sp, {
+                    sp,
+                    full: prev.full || specialName,
+                    count: Number(prev.count || 0) + 1
+                });
             }
         }
 
@@ -1783,7 +1850,22 @@ export function createPanel(options = {}) {
             count: Number(terminalCount.get(name) || 0)
         }));
 
-        return { typeHints, terminalHints };
+        const specialEntries = Array.from(specialBySp.values())
+            .sort((a, b) => {
+                const dc = Number(b?.count || 0) - Number(a?.count || 0);
+                if (dc) return dc;
+                return String(a?.sp || '').localeCompare(String(b?.sp || ''));
+            });
+        const specialSpList = specialEntries.map((x) => toText(x?.sp)).filter(Boolean);
+        const specialAbbrMap = buildUniqueSpecialAbbrMap(specialSpList);
+        const specialHints = specialEntries.map((entry) => ({
+            full: toText(entry?.full),
+            sp: toText(entry?.sp),
+            abbr: toText(specialAbbrMap.get(toText(entry?.sp))) || toText(entry?.sp).slice(0, 1),
+            count: Number(entry?.count || 0)
+        }));
+
+        return { typeHints, terminalHints, specialHints };
     };
 
     const applyTimetableViewMode = (mode, { rerender = true } = {}) => {
@@ -2249,6 +2331,62 @@ export function createPanel(options = {}) {
         return hit;
     };
 
+    const extractTripSpecialNames = (tripLike) => {
+        const list = Array.isArray(tripLike?.nm) ? tripLike.nm : [];
+        const out = [];
+        for (const item of list) {
+            const name = toText(item?.['zh-Hans'] || item?.['zh-Hnas'] || item?.ja || item?.en);
+            if (name) out.push(name);
+        }
+        return Array.from(new Set(out));
+    };
+
+    const tripSpecialNamesCache = new Map();
+    const collectTripSpecialNames = async (trip) => {
+        const rootKey = toText(trip?.id) || toText(trip?.t);
+        if (rootKey && tripSpecialNamesCache.has(rootKey)) {
+            return tripSpecialNamesCache.get(rootKey) || [];
+        }
+
+        const visitedTripKeys = new Set();
+        const visitedRefs = new Set();
+        const queue = [trip];
+        const names = new Set();
+
+        while (queue.length) {
+            const cur = queue.shift();
+            if (!cur) continue;
+
+            const curKey = toText(cur?.id) || toText(cur?.t);
+            if (curKey) {
+                if (visitedTripKeys.has(curKey)) continue;
+                visitedTripKeys.add(curKey);
+            }
+
+            for (const name of extractTripSpecialNames(cur)) {
+                names.add(name);
+            }
+
+            const refs = [
+                ...(Array.isArray(cur?.pt) ? cur.pt : (cur?.pt ? [cur.pt] : [])),
+                ...(Array.isArray(cur?.nt) ? cur.nt : (cur?.nt ? [cur.nt] : []))
+            ]
+                .map((x) => toText(x))
+                .filter(Boolean);
+
+            for (const refId of refs) {
+                if (visitedRefs.has(refId)) continue;
+                visitedRefs.add(refId);
+                const refTrip = await loadTripByRefId(refId);
+                if (refTrip) queue.push(refTrip);
+            }
+        }
+
+        const result = Array.from(names);
+        if (rootKey) tripSpecialNamesCache.set(rootKey, result);
+        return result;
+    };
+
     const buildTripFilterKeys = (trip) => {
         const keys = [];
         const id = toText(trip?.id);
@@ -2500,7 +2638,7 @@ export function createPanel(options = {}) {
         return out;
     };
 
-    const buildGridHintsHtml = ({ typeHints, terminalHints }) => {
+    const buildGridHintsHtml = ({ typeHints, terminalHints, specialHints }) => {
         const typeLegendItems = (Array.isArray(typeHints) ? typeHints : [])
             .map((item) => {
                 const full = toText(item?.full);
@@ -2579,6 +2717,16 @@ export function createPanel(options = {}) {
         }
 
         const terminalLegendItems = terminalPairHtml.join('<span class="panel-grid-hint-sep"> / </span>');
+        const specialLegendItems = (Array.isArray(specialHints) ? specialHints : [])
+            .map((item) => {
+                const full = toText(item?.full);
+                const abbr = toText(item?.abbr);
+                const sp = full.split(" ")[0];
+                if (!full || !abbr) return '';
+                return `<span class="panel-grid-hint-item panel-grid-hint-item-special" style="color:#888">${escapeHtml(abbr)}-${escapeHtml(sp)}</span>`;
+            })
+            .filter(Boolean)
+            .join('<span class="panel-grid-hint-sep"> / </span>');
 
         return `
             <div class="panel-grid-hints">
@@ -2590,6 +2738,7 @@ export function createPanel(options = {}) {
                     <span class="panel-grid-hint-label">终点站：</span>
                     <span class="panel-grid-hint-content">${terminalLegendItems || '<span class="panel-grid-hint-item" style="color:#888">无</span>'}</span>
                 </div>
+                ${specialLegendItems ? `<div class="panel-grid-hint-line"><span class="panel-grid-hint-label">特殊班次：</span><span class="panel-grid-hint-content">${specialLegendItems}</span></div>` : ''}
             </div>
         `;
     };
@@ -2598,6 +2747,7 @@ export function createPanel(options = {}) {
         rowsForDir,
         typeHints,
         terminalHints,
+        specialHints,
         expanded,
         nowMs,
         serviceDayStartMs
@@ -2644,6 +2794,7 @@ export function createPanel(options = {}) {
                 terminalNoMarkModeByName.set(full, noMarkMode);
             }
         }
+        const specialAbbrBySp = new Map((Array.isArray(specialHints) ? specialHints : []).map((x) => [toText(x?.sp), toText(x?.abbr)]));
 
         const rowHtml = hourWindow.map((hour, idx) => {
             const trips = Array.isArray(byHour.get(hour)) ? byHour.get(hour) : [];
@@ -2674,8 +2825,29 @@ export function createPanel(options = {}) {
                 const lastClass = tripIndex === trips.length - 1 ? ' is-hour-last' : '';
                 const showTypeAbbr = !isNoMarkTypeName(typeName);
                 const showDestAbbr = !!destAbbr;
-                const tripAbbrText = `${showTypeAbbr ? `[${typeAbbr}]` : ''}${showDestAbbr ? destAbbr : ''}`;
-                const tripAbbrStyle = tripAbbrText.length > 5 ? ' style="transform:scale(0.7,1)"' : '';
+                const specialNames = Array.isArray(trip?.specialNames)
+                    ? trip.specialNames.map((x) => toText(x)).filter(Boolean)
+                    : [];
+                const specialSps = Array.from(new Set(
+                    specialNames.map((name) => deriveSpecialSp(name)).filter(Boolean)
+                ));
+                const specialAbbrs = Array.from(new Set(
+                    specialSps.map((sp) => toText(specialAbbrBySp.get(sp)) || sp.slice(0, 1)).filter(Boolean)
+                ));
+                const hasSpecialNames = specialAbbrs.length > 0;
+
+                let tripAbbrText = `${showTypeAbbr ? `[${typeAbbr}]` : ''}${showDestAbbr ? destAbbr : ''}`;
+                if (hasSpecialNames) {
+                    const terminalLabel = toText(trip?.terminalDisplayName || trip?.terminalName || trip?.destName);
+                    if (specialAbbrs.length >= 2 && terminalLabel) {
+                        tripAbbrText = `[${specialAbbrs.join('·')}]${terminalLabel}`;
+                    } else {
+                        tripAbbrText = `[${specialAbbrs.join('·')}]${toText(rawDestAbbr)}`;
+                    }
+                }
+
+                const needScale = specialAbbrs.length >= 2 || tripAbbrText.length > 5;
+                const tripAbbrStyle = needScale ? ' style="transform:scale(0.7,1)"' : '';
                 const tripAbbrHtml = tripAbbrText
                     ? `<span class="panel-grid-trip-abbr"${tripAbbrStyle}>${escapeHtml(tripAbbrText)}</span>`
                     : '<span class="panel-grid-trip-abbr" aria-hidden="true">&nbsp;</span>';
@@ -2685,7 +2857,7 @@ export function createPanel(options = {}) {
                     const pastClass = trip?.isPast ? ' is-past' : '';
 
                     return `
-                        <div class="panel-grid-cell panel-grid-cell-trip${pastClass}${lastClass}"${tripAttr}>
+                        <div class="panel-grid-cell panel-grid-cell-trip${hasSpecialNames ? ' has-special' : ''}${pastClass}${lastClass}"${tripAttr}>
                             <span class="panel-grid-trip${pastClass}" style="color:${escapeHtml(color)}">
                                 ${tripAbbrHtml}
                                 <span class="panel-grid-trip-minute"><span class="panel-grid-trip-minute-text">${escapeHtml(minute)}</span>${isTerminal ? '<span class="panel-grid-trip-minute-flag" aria-label="终点站">终</span>' : ''}</span>
@@ -2852,6 +3024,7 @@ export function createPanel(options = {}) {
             const typeId = toText(trip?.y);
             const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
             const typeColor = typeId ? resolveTrainTypeColorForTheme(trainTypeColorIndex.get(typeId)) : '';
+            const specialNames = await collectTripSpecialNames(trip);
 
             const tripKey = tripId || toText(trip?.t) || '';
             const baseTripKey = toText(trip?.t) || (tripId ? tripId.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '') : '');
@@ -2872,6 +3045,7 @@ export function createPanel(options = {}) {
                     isPast: timeMs < now,
                     typeName,
                     typeColor,
+                    specialNames,
                     originId,
                     originName,
                     terminalId: terminalIdForFilter,
@@ -2959,6 +3133,10 @@ export function createPanel(options = {}) {
                 if (!Array.isArray(primary.terminalIds) || !primary.terminalIds.length) {
                     primary.terminalIds = Array.isArray(secondary.terminalIds) ? secondary.terminalIds.slice() : [];
                 }
+                primary.specialNames = Array.from(new Set([
+                    ...(Array.isArray(primary.specialNames) ? primary.specialNames : []),
+                    ...(Array.isArray(secondary.specialNames) ? secondary.specialNames : [])
+                ].map((x) => toText(x)).filter(Boolean)));
                 primary.originIdsCount = Math.max(Number(primary.originIdsCount) || 0, Number(secondary.originIdsCount) || 0);
                 primary.terminalIdsCount = Math.max(Number(primary.terminalIdsCount) || 0, Number(secondary.terminalIdsCount) || 0);
                 primary.hasNt = !!(primary.hasNt || secondary.hasNt);
@@ -3087,7 +3265,7 @@ export function createPanel(options = {}) {
             const tri = expanded ? '▾' : '▸';
 
             const rowsForDir = rows.filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
-            const { typeHints, terminalHints } = buildDirectionGridHints(rowsForDir);
+            const { typeHints, terminalHints, specialHints } = buildDirectionGridHints(rowsForDir);
             const filterRowsForDir = rowsForDir
                 .map((r) => ({
                     origin: toText(r.originName),
@@ -3149,12 +3327,13 @@ export function createPanel(options = {}) {
                 dirKey,
                 dirLabel: label,
                 typeHints,
-                terminalHints
+                terminalHints,
+                specialHints
             });
 
             const timetableViewClass = timetableViewMode === 'grid' ? 'panel-timetable-view-grid' : 'panel-timetable-view-list';
             const gridHintsHtml = timetableViewMode === 'grid'
-                ? buildGridHintsHtml({ typeHints, terminalHints })
+                ? buildGridHintsHtml({ typeHints, terminalHints, specialHints })
                 : '';
             const future = filteredRowsForDir.filter((r) => !r.isPast);
             const visible = expanded ? filteredRowsForDir : future.slice(0, 3);
@@ -3192,6 +3371,7 @@ export function createPanel(options = {}) {
                 rowsForDir: printableRowsForDir,
                 typeHints,
                 terminalHints,
+                specialHints,
                 expanded: true,
                 nowMs: now,
                 serviceDayStartMs
@@ -3224,6 +3404,7 @@ export function createPanel(options = {}) {
                     rowsForDir: filteredRowsForDir,
                     typeHints,
                     terminalHints,
+                    specialHints,
                     expanded,
                     nowMs: now,
                     serviceDayStartMs
@@ -3907,12 +4088,20 @@ export function createPanel(options = {}) {
         const titlePrefix = `往 ${destName}`.trim();
         const safeTypeName = toText(typeName);
         const safeTypeColor = toText(typeColor);
-        if (safeTypeName) {
-            const typeStyle = safeTypeColor ? ` style="color:${escapeHtml(safeTypeColor)}"` : '';
-            tripDetailTitle.innerHTML = `${escapeHtml(titlePrefix)} <span class="panel-trip-detail-title-type"${typeStyle}>${escapeHtml(safeTypeName)}</span>`;
-        } else {
-            tripDetailTitle.textContent = titlePrefix;
-        }
+        const titleSpecialNames = await collectTripSpecialNames(trip);
+        if (token !== tripDetailToken) return;
+        const titleSpecialText = Array.from(new Set((Array.isArray(titleSpecialNames) ? titleSpecialNames : []).map((x) => toText(x)).filter(Boolean))).join(' / ');
+        const titleMainHtml = (() => {
+            if (safeTypeName) {
+                const typeStyle = safeTypeColor ? ` style="color:${escapeHtml(safeTypeColor)}"` : '';
+                return `${escapeHtml(titlePrefix)} <span class="panel-trip-detail-title-type"${typeStyle}>${escapeHtml(safeTypeName)}</span>`;
+            }
+            return escapeHtml(titlePrefix);
+        })();
+        const titleSpecialHtml = titleSpecialText
+            ? `<div class="panel-trip-detail-title-special">${escapeHtml(titleSpecialText)}</div>`
+            : '';
+        tripDetailTitle.innerHTML = `<div class="panel-trip-detail-title-main">${titleMainHtml}</div>${titleSpecialHtml}`;
         const currentLineDesc = buildLineDescriptor(getTripLineId(trip) || lineId);
 
         const renderStopRow = (s) => {

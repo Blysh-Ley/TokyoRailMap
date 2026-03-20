@@ -1688,6 +1688,28 @@
             cursor: pointer;
         }
 
+        .panel-grid-cell-trip.has-special {
+            background: #3498db;
+        }
+
+        .panel-grid-cell-trip.has-special .panel-grid-trip,
+        .panel-grid-cell-trip.has-special .panel-grid-trip-abbr,
+        .panel-grid-cell-trip.has-special .panel-grid-trip-minute,
+        .panel-grid-cell-trip.has-special .panel-grid-trip-minute-flag {
+            color: #fff !important;
+        }
+
+        .panel-grid-cell-trip.has-special.is-past {
+            background: #cfe7f8;
+        }
+
+        .panel-grid-cell-trip.has-special.is-past .panel-grid-trip,
+        .panel-grid-cell-trip.has-special.is-past .panel-grid-trip-abbr,
+        .panel-grid-cell-trip.has-special.is-past .panel-grid-trip-minute,
+        .panel-grid-cell-trip.has-special.is-past .panel-grid-trip-minute-flag {
+            color: inherit !important;
+        }
+
         .panel-grid-trip {
             display: inline-flex;
             flex-direction: column;
@@ -2050,6 +2072,23 @@
             font-size: 13px;
             font-weight: 700;
             color: #111;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            white-space: normal;
+            overflow: hidden;
+        }
+
+        .panel-trip-detail-title-main {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .panel-trip-detail-title-special {
+            font-size: 12px;
+            font-weight: 500;
+            color: #111 !important;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
