@@ -3590,7 +3590,6 @@ map.on('load', async () => {
             const outStopFeatures = [];
             const coordsForBbox = [];
             const stopIds = new Set();
-            const payloadTypeColor = String(payload?.typeColor || '').trim();
 
             const debugLoop = (() => {
                 try {
@@ -3663,7 +3662,7 @@ map.on('load', async () => {
             for (let i = 0; i < segments.length; i += 1) {
                 const seg = segments[i] || {};
                 const lineId = String(seg.lineId || '').trim();
-                const segColor = String(seg?.typeColor || payloadTypeColor).trim();
+                const segColor = resolveRailColorForTheme(lineColorById.get(lineId) || '') || '';
                 const isLoopDirectionSeg = isLoopDirection(seg?.d);
                 const stationIds = Array.isArray(seg.stationIds) ? seg.stationIds.map((x) => String(x).trim()).filter(Boolean) : [];
 
@@ -3714,7 +3713,7 @@ map.on('load', async () => {
                             if (canUseBridge) {
                                 const segA = extractLineSegment(prev.lineId, a, bridge.a);
                                 const segB = extractLineSegment(lineId, bridge.b, b);
-                                const prevSegColor = String(prev?.typeColor || payloadTypeColor).trim() || segColor;
+                                const prevSegColor = resolveRailColorForTheme(lineColorById.get(String(prev?.lineId || '').trim()) || '') || segColor;
                                 if (segA && segA.length >= 2) pushLineFeature(segA, prev.lineId, 'line', prevSegColor);
                                 if (bridge.dist > 25) pushLineFeature([bridge.a, bridge.b], lineId || prev.lineId, 'connector', segColor || prevSegColor);
                                 if (segB && segB.length >= 2) pushLineFeature(segB, lineId, 'line', segColor);
