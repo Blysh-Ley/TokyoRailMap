@@ -1666,6 +1666,9 @@ export function createPanel(options = {}) {
         const typeStopCountByName = new Map();
         const terminalCount = new Map();
         const terminalNamesByLabel = new Map();
+        const terminalAtomicCount = new Map();
+        const splitMergeTerminalNames = new Set();
+        const splitNtMultiDestTerminalNames = new Set();
 
         for (const row of rows) {
             const typeName = toText(row?.typeName);
@@ -1693,6 +1696,42 @@ export function createPanel(options = {}) {
                 terminalCount.set(displayName, (terminalCount.get(displayName) || 0) + 1);
                 terminalNamesByLabel.set(displayName, terminalNames.length ? terminalNames : [displayName]);
             }
+
+            for (const terminalName of terminalNames) {
+                terminalAtomicCount.set(terminalName, (terminalAtomicCount.get(terminalName) || 0) + 1);
+            }
+
+            const isSplitMergeTrip = Number(row?.originIdsCount) > 1 || Number(row?.terminalIdsCount) > 1;
+            if (isSplitMergeTrip) {
+                for (const terminalName of terminalNames) splitMergeTerminalNames.add(terminalName);
+            }
+
+            const isSplitByNtMultiDestTrip = !!row?.hasNt && Number(row?.resolvedTerminalIdsCount) > 1;
+            if (isSplitByNtMultiDestTrip) {
+                for (const terminalName of terminalNames) splitNtMultiDestTerminalNames.add(terminalName);
+            }
+        }
+
+        let maxTerminalAtomicCount = 0;
+        for (const [, count] of terminalAtomicCount.entries()) {
+            const n = Number(count) || 0;
+            if (n > maxTerminalAtomicCount) maxTerminalAtomicCount = n;
+        }
+
+        const topTerminalNames = new Set();
+        if (maxTerminalAtomicCount > 0) {
+            for (const [name, count] of terminalAtomicCount.entries()) {
+                if ((Number(count) || 0) === maxTerminalAtomicCount) topTerminalNames.add(name);
+            }
+        }
+
+        const topSplitNtMultiDestTerminalNames = new Set(
+            Array.from(topTerminalNames).filter((name) => splitNtMultiDestTerminalNames.has(name))
+        );
+
+        const noMarkModeByTerminalName = new Map();
+        for (const name of topTerminalNames) {
+            noMarkModeByTerminalName.set(name, topSplitNtMultiDestTerminalNames.has(name) ? 'dual' : 'label');
         }
 
         const typeNames = sortTypeNamesByBaseAndStopCount(Array.from(typeCount.keys()), typeCount, typeStopCountByName);
@@ -1726,6 +1765,20 @@ export function createPanel(options = {}) {
                     .filter(Boolean);
                 if (!parts.length) return toText(name).slice(0, 1);
                 return parts.join('·');
+            })(),
+            hintParts: (() => {
+                const fullNames = terminalNamesByLabel.get(name) || [name];
+                return fullNames
+                    .map((fullName) => {
+                        const normalized = toText(fullName);
+                        if (!normalized) return null;
+                        return {
+                            full: normalized,
+                            abbr: toText(terminalAbbrMap.get(normalized)) || normalized.slice(0, 1),
+                            noMarkMode: toText(noMarkModeByTerminalName.get(normalized))
+                        };
+                    })
+                    .filter(Boolean);
             })(),
             count: Number(terminalCount.get(name) || 0)
         }));
@@ -2467,6 +2520,37 @@ export function createPanel(options = {}) {
         const terminalPairHtml = [];
         const seenTerminalPair = new Set();
         for (const item of (Array.isArray(terminalHints) ? terminalHints : [])) {
+            const hintParts = Array.isArray(item?.hintParts)
+                ? item.hintParts
+                    .map((part) => ({
+                        full: toText(part?.full),
+                        abbr: toText(part?.abbr),
+                        noMarkMode: toText(part?.noMarkMode)
+                    }))
+                    .filter((part) => part.full && part.abbr)
+                : [];
+
+            if (hintParts.length) {
+                for (const part of hintParts) {
+                    const noMarkMode = part.noMarkMode;
+                    if (noMarkMode === 'label' || noMarkMode === 'dual') {
+                        const nmKey = `nm||${part.full}`;
+                        if (!seenTerminalPair.has(nmKey)) {
+                            seenTerminalPair.add(nmKey);
+                            terminalPairHtml.push(`<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888"><i>无标</i>-${escapeHtml(part.full)}</span>`);
+                        }
+                    }
+
+                    if (noMarkMode === 'label') continue;
+
+                    const abbrKey = `${part.abbr}||${part.full}`;
+                    if (seenTerminalPair.has(abbrKey)) continue;
+                    seenTerminalPair.add(abbrKey);
+                    terminalPairHtml.push(`<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888">${escapeHtml(part.abbr)}-${escapeHtml(part.full)}</span>`);
+                }
+                continue;
+            }
+
             const full = toText(item?.full);
             const abbr = toText(item?.abbr);
             if (!full || !abbr) continue;
@@ -2550,6 +2634,16 @@ export function createPanel(options = {}) {
 
         const typeAbbrByName = new Map((Array.isArray(typeHints) ? typeHints : []).map((x) => [toText(x?.full), toText(x?.abbr)]));
         const terminalAbbrByName = new Map((Array.isArray(terminalHints) ? terminalHints : []).map((x) => [toText(x?.full), toText(x?.abbr)]));
+        const terminalNoMarkModeByName = new Map();
+        for (const hint of (Array.isArray(terminalHints) ? terminalHints : [])) {
+            const parts = Array.isArray(hint?.hintParts) ? hint.hintParts : [];
+            for (const part of parts) {
+                const full = toText(part?.full);
+                const noMarkMode = toText(part?.noMarkMode);
+                if (!full || !noMarkMode) continue;
+                terminalNoMarkModeByName.set(full, noMarkMode);
+            }
+        }
 
         const rowHtml = hourWindow.map((hour, idx) => {
             const trips = Array.isArray(byHour.get(hour)) ? byHour.get(hour) : [];
@@ -2562,7 +2656,17 @@ export function createPanel(options = {}) {
                 const typeName = toText(trip?.typeName);
                 const destName = toText(trip?.terminalDisplayName || trip?.terminalName || trip?.destName);
                 const typeAbbr = toText(typeAbbrByName.get(typeName)) || buildTypeAbbr(typeName);
-                const destAbbr = toText(terminalAbbrByName.get(destName)) || toText(destName).slice(0, 1);
+                const rawDestAbbr = toText(terminalAbbrByName.get(destName)) || toText(destName).slice(0, 1);
+                const rowTerminalNames = Array.isArray(trip?.terminalNames)
+                    ? trip.terminalNames.map((x) => toText(x)).filter(Boolean)
+                    : [];
+                const rowHasSplitByNtMultiDest = !!trip?.hasNt && Number(trip?.resolvedTerminalIdsCount) > 1;
+                const rowNoMarkModes = rowTerminalNames
+                    .map((name) => toText(terminalNoMarkModeByName.get(name)))
+                    .filter(Boolean);
+                const shouldHideDestAbbr = rowNoMarkModes.length > 0
+                    && !(rowHasSplitByNtMultiDest && rowNoMarkModes.some((mode) => mode === 'dual'));
+                const destAbbr = shouldHideDestAbbr ? '' : rawDestAbbr;
                 const minute = toText(trip?.minuteLabel).slice(0, 2);
                 const tripKey = toText(trip?.tripKey);
                 const color = resolveTrainTypeColorForTheme(trip?.typeColor) || 'var(--ui-text, #111)';
@@ -2774,6 +2878,10 @@ export function createPanel(options = {}) {
                     terminalName,
                     terminalDisplayName,
                     terminalNames,
+                    originIdsCount: os.length,
+                    terminalIdsCount: ds.length,
+                    hasNt,
+                    resolvedTerminalIdsCount: resolvedTerminalIds.length,
                     terminalIds: resolvedTerminalIds.length ? resolvedTerminalIds : (terminalIdForFilter ? [terminalIdForFilter] : []),
                     dir,
                     destNamesForDir,
@@ -2851,6 +2959,10 @@ export function createPanel(options = {}) {
                 if (!Array.isArray(primary.terminalIds) || !primary.terminalIds.length) {
                     primary.terminalIds = Array.isArray(secondary.terminalIds) ? secondary.terminalIds.slice() : [];
                 }
+                primary.originIdsCount = Math.max(Number(primary.originIdsCount) || 0, Number(secondary.originIdsCount) || 0);
+                primary.terminalIdsCount = Math.max(Number(primary.terminalIdsCount) || 0, Number(secondary.terminalIdsCount) || 0);
+                primary.hasNt = !!(primary.hasNt || secondary.hasNt);
+                primary.resolvedTerminalIdsCount = Math.max(Number(primary.resolvedTerminalIdsCount) || 0, Number(secondary.resolvedTerminalIdsCount) || 0);
 
                 merged.set(key, primary);
             }
