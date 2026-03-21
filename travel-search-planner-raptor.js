@@ -109,35 +109,45 @@ const getTripFileNameByLineId = (lineId) => {
 };
 
 const buildThroughChainFromTrip = async ({ seedTrip, serviceDay, serviceDayStartMs }) => {
-    const chain = [];
-    const seen = new Set();
-    let current = seedTrip;
-    let throughRootTripId = '';
+    const rootId = getTripCanonicalId(seedTrip);
+    if (!rootId) return { throughRootTripId: '', chainTrips: [], chainTripsList: [] };
 
-    for (let hop = 0; hop < 128; hop += 1) {
-        if (!current) break;
+    const throughRootTripId = rootId;
+    const MAX_HOPS = 128;
+    const MAX_PATHS = 128;
+    const allPaths = [];
+
+    const dfs = async (current, path, seenInPath) => {
+        if (!current || allPaths.length >= MAX_PATHS) return;
         const currentId = getTripCanonicalId(current);
-        if (!currentId || seen.has(currentId)) break;
-        seen.add(currentId);
-        if (!throughRootTripId) throughRootTripId = currentId;
+        if (!currentId || seenInPath.has(currentId)) return;
+        if (path.length >= MAX_HOPS) return;
 
-        chain.push({
-            ...current,
-            throughRootTripId,
-            isThroughContinuation: hop > 0,
-            timetableFile: getTripFileNameByLineId(current?.lineId)
-        });
+        const nextPath = path.concat([
+            {
+                ...current,
+                throughRootTripId,
+                isThroughContinuation: path.length > 0,
+                timetableFile: getTripFileNameByLineId(current?.lineId)
+            }
+        ]);
+        const nextSeen = new Set(seenInPath);
+        nextSeen.add(currentId);
 
         const refs = normalizeRefArray(current?.ntRefs);
-        if (!refs.length) break;
+        if (!refs.length) {
+            allPaths.push(nextPath);
+            return;
+        }
 
-        let nextTrip = null;
+        const currTimes = getTripStartEndTimes(current, serviceDayStartMs);
+        let extended = false;
+
         for (const refId of refs) {
-            // 关键：直通链条动态按需加载，必须 await，确保同一轮次内原子完成。
+            // 直通链条动态按需加载，必须 await，确保同一轮次内原子完成。
             const candidate = await getParsedTripByTripId({ tripId: refId, serviceDay });
             if (!candidate) continue;
 
-            const currTimes = getTripStartEndTimes(current, serviceDayStartMs);
             const nextTimes = getTripStartEndTimes(candidate, serviceDayStartMs);
             if (!currTimes || !nextTimes) continue;
             if (!isSamePhysicalStop(currTimes.lastStopId, nextTimes.firstStopId)) continue;
@@ -145,21 +155,35 @@ const buildThroughChainFromTrip = async ({ seedTrip, serviceDay, serviceDayStart
                 continue;
             }
 
-            nextTrip = candidate;
-            break;
+            extended = true;
+            await dfs(candidate, nextPath, nextSeen);
+            if (allPaths.length >= MAX_PATHS) break;
         }
 
-        if (!nextTrip) break;
-        current = nextTrip;
+        if (!extended) allPaths.push(nextPath);
+    };
+
+    await dfs(seedTrip, [], new Set());
+
+    // 去重：不同 nt 引用可能在后续重新汇聚为同一条路径。
+    const uniqMap = new Map();
+    for (const path of allPaths) {
+        const sig = path.map((x) => getTripCanonicalId(x)).filter(Boolean).join('->');
+        if (!sig || uniqMap.has(sig)) continue;
+        uniqMap.set(sig, path);
     }
+    const chainTripsList = Array.from(uniqMap.values());
+    const chainTrips = chainTripsList[0] || [];
 
     const rootMap = getDayMergedThroughRootMap(serviceDay);
-    for (const item of chain) {
-        const id = getTripCanonicalId(item);
-        if (id && throughRootTripId) rootMap.set(id, throughRootTripId);
+    for (const path of chainTripsList) {
+        for (const item of path) {
+            const id = getTripCanonicalId(item);
+            if (id && throughRootTripId) rootMap.set(id, throughRootTripId);
+        }
     }
 
-    return { throughRootTripId, chainTrips: chain };
+    return { throughRootTripId, chainTrips, chainTripsList };
 };
 
 const extractLineIdFromTripId = (tripId) => {
@@ -680,31 +704,37 @@ const scanRoundRaptor = async ({ prevArr, markedStops, serviceDay, serviceDaySta
                 serviceDay,
                 serviceDayStartMs
             });
-            if (!merged || !Array.isArray(merged.chainTrips) || !merged.chainTrips.length) continue;
+            const chainVariants = Array.isArray(merged?.chainTripsList) && merged.chainTripsList.length
+                ? merged.chainTripsList
+                : (Array.isArray(merged?.chainTrips) && merged.chainTrips.length ? [merged.chainTrips] : []);
+            if (!chainVariants.length) continue;
 
-            const board = findBoardingOnChain({
-                chainTrips: merged.chainTrips,
-                prevRoundEarliestArrivals: prevArr,
-                minBoardSlackMs,
-                serviceDayStartMs
-            });
-            if (!board) continue;
+            for (const chainTrips of chainVariants) {
+                if (!Array.isArray(chainTrips) || !chainTrips.length) continue;
 
-            // 关键约束 1 + 2：
-            // 一旦上车，整条 nt 直通链必须在同一 round 扫描到底；
-            // 扫描过程中绝不因已有更优到达时间而中断，仅做逐站松弛更新。
-            relaxChainFromBoardRaptor({
-                chainTrips: merged.chainTrips,
-                throughRootTripId: normalizeText(merged?.throughRootTripId || ''),
-                startSegmentIndex: board.segmentIndex,
-                startBoardIndex: board.boardIndex,
-                startBoardStopId: board.boardStopId,
-                startBoardDepMs: board.boardDepMs,
-                serviceDayStartMs,
-                roundArr,
-                roundParent,
-                improvedStops
-            });
+                const board = findBoardingOnChain({
+                    chainTrips,
+                    prevRoundEarliestArrivals: prevArr,
+                    minBoardSlackMs,
+                    serviceDayStartMs
+                });
+                if (!board) continue;
+
+                // 一旦上车，当前分支的 nt 直通链必须在同一 round 扫描到底；
+                // 扫描过程中绝不因已有更优到达时间而中断，仅做逐站松弛更新。
+                relaxChainFromBoardRaptor({
+                    chainTrips,
+                    throughRootTripId: normalizeText(merged?.throughRootTripId || ''),
+                    startSegmentIndex: board.segmentIndex,
+                    startBoardIndex: board.boardIndex,
+                    startBoardStopId: board.boardStopId,
+                    startBoardDepMs: board.boardDepMs,
+                    serviceDayStartMs,
+                    roundArr,
+                    roundParent,
+                    improvedStops
+                });
+            }
         }
     }
 
