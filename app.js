@@ -278,7 +278,7 @@ map.on('load', async () => {
     let menu = null;
     let selectedCompany = null;
     let selectedLineId = null;
-    let selectedStationLineIds = null; // Set<string>：点击站点/站名后高亮其 serving_lines
+    let selectedStationLineIds = null; // Set<string>：点击站点/站名后高亮其线路
     let selectedStationId = null; // 点击站点高亮时，仅高亮该站点
     let selectedServiceMode = 'all';
     let isolateStationsToSelectedLine = false; // 仅用于“popup 提交线路”：隐藏非该线路站点
@@ -458,8 +458,7 @@ map.on('load', async () => {
 
             const platform = normalizeArrayLike(props?.platform_line_id).map((x) => String(x || '').trim()).filter(Boolean);
             const servingIds = normalizeArrayLike(props?.serving_ids).map((x) => String(x || '').trim()).filter(Boolean);
-            const servingLines = normalizeArrayLike(props?.serving_lines).map((x) => String(x || '').trim()).filter(Boolean);
-            const lines = platform.length ? platform : (servingIds.length ? servingIds : servingLines);
+            const lines = platform.length ? platform : servingIds;
 
             if (!lines.length) continue;
             let hit = false;
@@ -826,32 +825,12 @@ map.on('load', async () => {
 
     const getServingLineIdsFromStationProps = (props) => {
         const p = props || {};
-        // 注意：stations.geojson 的 serving_lines 是“线路名称”，不一定等同于 lines.geojson 的 id。
-        // 目前 lines-layer 的匹配应优先使用 serving_ids / platform_line_id（都是线路 id）。
         const servingIdsRaw = normalizeArrayLike(p.serving_ids);
         const platformLineIdsRaw = normalizeArrayLike(p.platform_line_id);
-        const servingLinesRaw = normalizeArrayLike(p.serving_lines);
 
-        let ids = (servingIdsRaw && servingIdsRaw.length ? servingIdsRaw : platformLineIdsRaw)
+        const ids = (servingIdsRaw && servingIdsRaw.length ? servingIdsRaw : platformLineIdsRaw)
             .map((x) => String(x).trim())
             .filter(Boolean);
-
-        // 兜底：若只有 serving_lines（名称），尝试用 lineNameById 反查 id
-        if ((!ids || ids.length === 0) && servingLinesRaw && servingLinesRaw.length) {
-            const names = servingLinesRaw.map((x) => String(x).trim()).filter(Boolean);
-            if (names.length) {
-                const out = [];
-                for (const name of names) {
-                    for (const [id, n] of lineNameById.entries()) {
-                        if (String(n) === name) {
-                            out.push(String(id));
-                            break;
-                        }
-                    }
-                }
-                ids = out;
-            }
-        }
 
         // 去重且保持顺序
         const seen = new Set();
@@ -1106,7 +1085,7 @@ map.on('load', async () => {
             return;
         }
 
-        // 站点选中：高亮该站点的所有 serving_lines（不执行 fitBounds）
+        // 站点选中：高亮该站点的所有线路（不执行 fitBounds）
         if (selectedStationLineIds && selectedStationLineIds.size) {
             const ids = Array.from(selectedStationLineIds).map(String).filter(Boolean);
             const hitExpr = ids.length === 1
@@ -1168,7 +1147,7 @@ map.on('load', async () => {
     }
 
     function baseStationCircleRadiusExpr() {
-        const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
+        const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
         return [
             'interpolate',
             ['linear'],
@@ -1195,7 +1174,7 @@ map.on('load', async () => {
     }
 
     function baseStationCircleStrokeWidthExpr() {
-        const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
+        const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
         return [
             'case',
             ['==', ['length', servingIdsExpr], 1],
@@ -1285,7 +1264,7 @@ map.on('load', async () => {
 
     function stationCircleColorPaintExpr() {
         if (!isDarkThemeActive()) return '#fff';
-        const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
+        const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
         return [
             'case',
             ['==', ['length', servingIdsExpr], 1],
@@ -1330,8 +1309,7 @@ map.on('load', async () => {
     function buildStationAnyLineMatchExpr(lineIds) {
         // 判断站点是否服务于给定线路集合：
         // 优先用 platform_line_id（平台所属线路 id）来判断，避免换乘站的“另一条线路站台”被误判为命中
-        // 兼容旧数据：没有 platform_line_id 时回退 serving_ids / serving_lines
-        const platformIdsExpr = ['coalesce', ['get', 'platform_line_id'], ['get', 'serving_ids'], ['get', 'serving_lines']];
+        const platformIdsExpr = ['coalesce', ['get', 'platform_line_id'], ['get', 'serving_ids'], ['literal', []]];
         const ids = Array.isArray(lineIds) ? lineIds.filter(Boolean) : [];
         if (!ids.length) return ['boolean', false];
         if (ids.length === 1) return ['in', ids[0], platformIdsExpr];
@@ -1384,7 +1362,7 @@ map.on('load', async () => {
 
 
         // 换乘站判断仍用 serving_ids（全服务线路集合）
-        const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
+        const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
         // 高亮匹配用 platform_line_id（平台所属线路）
         const platformIdsExpr = ['coalesce', ['get', 'platform_line_id'], servingIdsExpr];
 
@@ -2175,7 +2153,7 @@ map.on('load', async () => {
         return out;
     };
 
-    // “通过该站台的线路”：优先 platform_line_id；没有则回退 serving_ids / serving_lines
+    // “通过该站台的线路”：优先 platform_line_id；没有则回退 serving_ids
     const getPlatformLineIdsFromStationProps = (props) => {
         const p = props || {};
         const platformIds = normalizeLineIdArrayLike(p.platform_line_id);
@@ -2183,21 +2161,7 @@ map.on('load', async () => {
 
         const servingIds = normalizeLineIdArrayLike(p.serving_ids);
         if (servingIds.length) return servingIds;
-
-        const servingLines = normalizeLineIdArrayLike(p.serving_lines);
-        if (!servingLines.length) return [];
-
-        // 若 serving_lines 是“名称”，尝试用 lineNameById 反查 id
-        const out = [];
-        for (const name of servingLines) {
-            for (const [id, n] of lineNameById.entries()) {
-                if (String(n) === name) {
-                    out.push(String(id));
-                    break;
-                }
-            }
-        }
-        return out;
+        return [];
     };
 
     const getPreferredPanelScrollLineIdFromStationProps = (props) => {
@@ -2578,7 +2542,7 @@ map.on('load', async () => {
     function bindClickStationToHighlightServingLines() {
         if (!map.getLayer('stations-layer')) return;
 
-        // 点击站点圆点：高亮其 serving_lines（不执行 fitBounds）
+        // 点击站点圆点：高亮其线路（不执行 fitBounds）
         map.on('click', 'stations-layer', async (e) => {
             if (!touchTapGuard.allowTap(e?.originalEvent)) return;
             if (isJourneyMapPickActive()) return;
@@ -3112,8 +3076,7 @@ map.on('load', async () => {
                 stationCoordById.set(sid, [lng, lat]);
 
                 const servingIds = normalizeArrayLike(p?.serving_ids);
-                const servingLines = normalizeArrayLike(p?.serving_lines);
-                const servingCount = (servingIds.length || servingLines.length || 1);
+                const servingCount = (servingIds.length || 1);
                 stationServingCountById.set(sid, servingCount);
             }
         } catch {
@@ -5076,7 +5039,7 @@ map.on('load', async () => {
         const stationsData = generatedStationsData || (await loadRailGeoDataFromDataFolder()).stationsGeoJSON;
         addStationsLayer(map, stationsData);
 
-        // 站点圆点点击：高亮该站点所有 serving_lines（不执行 fitBounds）
+        // 站点圆点点击：高亮该站点所有线路（不执行 fitBounds）
         bindClickStationToHighlightServingLines();
 
         // 确保 stations-layer 创建后立即应用一次“选中线路的站点样式策略”
@@ -5135,7 +5098,7 @@ map.on('load', async () => {
         collisionController.scheduleUpdate();
 
         stationPopup = setupStationPopup(map, maplibregl, {
-            // 悬浮弹框：用 serving_ids 匹配 lines.geojson 的 meta
+            // 悬浮弹框：用 serving_ids 匹配线路元信息
             getLineMeta: (lineId) => {
                 const id = String(lineId);
                 return {

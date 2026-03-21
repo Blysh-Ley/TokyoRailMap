@@ -660,8 +660,6 @@ const buildPanelLineMergeInfo = ({ servingLineIds, getLineMeta } = {}) => {
 function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStationNameByLineId, railwaysOrderIndex } = {}) {
     const servingIdsRaw = normalizeArrayLike(props.display_serving_ids ?? props.serving_ids);
     const servingIds = servingIdsRaw.map(String).filter(Boolean);
-    const servingLinesRaw = normalizeArrayLike(props.serving_lines);
-    const servingLines = servingLinesRaw.map(String).filter(Boolean);
 
     const safeGetLineMeta = typeof getLineMeta === 'function' ? getLineMeta : (() => null);
     const logoMap = companyLogoMap || {};
@@ -691,10 +689,7 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
         const abb = logoMap?.[company]?.abb || logoMap?.[company]?.zh || company;
 
         let displayName = String(meta?.name || '').trim();
-        if (!displayName) {
-            displayName = servingLines.find((s) => typeof s === 'string' && s.includes(abb)) || servingLines[0] || id;
-            displayName = String(displayName).trim();
-        }
+        if (!displayName) displayName = id;
 
         const isSpecial = displayName === `${abb}线` || displayName === `${abb}本线` || displayName === `${abb}新线`;
         if (!isSpecial && abb) displayName = displayName.replace(abb, '').trim();
@@ -703,10 +698,8 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
         groups.get(company).push({ lineId: id, displayName, color });
     }
 
-    if (!groups.size && servingLines.length) {
-        const company = '未知公司';
-        const lines = servingLines.map((s) => ({ displayName: String(s).trim(), color: null }));
-        groups.set(company, lines);
+    if (!groups.size) {
+        return '';
     }
 
     let companiesHtml = '';

@@ -23,7 +23,7 @@ export function createStationMarkers(map, maplibregl, stationsData) {
         // platform_line_id：用于“当前高亮线路是否命中该站台/点”
         const platformIds = Array.isArray(props.platform_line_id)
             ? props.platform_line_id.map(String)
-            : (servingIds.length ? servingIds : (Array.isArray(props.serving_lines) ? props.serving_lines.map(String) : []));
+            : servingIds;
 
         const priority = servingIds.length;
         const servingLineIds = platformIds;

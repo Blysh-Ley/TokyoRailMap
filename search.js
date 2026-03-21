@@ -307,17 +307,14 @@ async function ensureDataLoaded() {
                 const isTransfer = servingIds.length > 1;
 
                 // 用于展示“对应线路名”：优先用 platform_line_id（站台所属线路）
-                // 若没有则回退 serving_ids / serving_lines
+                // 若没有则回退 serving_ids
                 const platformIds = Array.isArray(p.platform_line_id)
                     ? p.platform_line_id.map(String).filter(Boolean)
                     : [];
-                const servingLinesFallback = Array.isArray(p.serving_lines)
-                    ? p.serving_lines.map(String).filter(Boolean)
-                    : (typeof p.serving_lines === 'string' ? [p.serving_lines] : []);
 
                 const lineIds = Array.from(
                     new Set(
-                        (platformIds.length ? platformIds : (servingIds.length ? servingIds : servingLinesFallback))
+                        (platformIds.length ? platformIds : servingIds)
                             .map(String)
                             .filter(Boolean)
                     )

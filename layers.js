@@ -263,7 +263,7 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
 export function addStationsLayer(map, stationsData) {
     map.addSource('stations-source', { type: 'geojson', data: stationsData });
 
-    const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['get', 'serving_lines']];
+    const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
 
     map.addLayer({
         id: 'stations-layer',
@@ -835,19 +835,16 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
         currentStationServingIds = servingIds.slice();
 
-        const servingLinesRaw = normalizeArrayLike(props.serving_lines);
-        const servingLines = servingLinesRaw.map(String).filter(Boolean);
-
         const nameHtml = `<div class="station-hover-name">${escapeHtml(name)}</div>`;
 
         const rootClass = interactive ? 'station-hover-popup is-interactive' : 'station-hover-popup';
 
-        if (!servingIds.length && !servingLines.length) {
+        if (!servingIds.length) {
             return `<div class="${rootClass}">${nameHtml}</div>`;
         }
 
         // 需求：
-        // 1) 用 serving_ids 匹配 lines.geojson 里的 company/name/color
+        // 1) 用 serving_ids 匹配线路元数据里的 company/name/color
         // 2) 按 company 分组显示，公司单独一行（含 logo）
         // 3) abb 从 companyLogoMap 取，缺失则用公司全名
         // 4) 线路名去掉 abb（除非仅由 abb+线/本线/新线 构成）
@@ -865,7 +862,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
             return `${company}-${name}`;
         };
 
-        // 以 serving_ids 为准：company/name/color 都来自 lines.geojson，避免 serving_lines 与 serving_ids 不对齐
+        // 以 serving_ids 为准：company/name/color 都来自线路元数据
         for (const lineId of servingIds) {
             const id = String(lineId);
             if (!id || seenLineIds.has(id)) continue;
@@ -876,13 +873,8 @@ export function setupStationPopup(map, maplibregl, options = {}) {
             const color = meta?.color || null;
             const abb = companyLogoMap?.[company]?.abb || company;
 
-            // 显示名：优先用 meta.name（更可靠），serving_lines 仅作兜底
             let displayName = String(meta?.name || '').trim();
-            if (!displayName) {
-                // 尝试从 serving_lines 找一个包含 abb 的名称，否则取第一个
-                displayName = servingLines.find((s) => typeof s === 'string' && s.includes(abb)) || servingLines[0] || id;
-                displayName = String(displayName).trim();
-            }
+            if (!displayName) displayName = id;
 
             const isSpecial = (displayName === `${abb}线` || displayName === `${abb}本线` || displayName === `${abb}新线`);
             if (!isSpecial && abb) displayName = displayName.replace(abb, '').trim();
@@ -891,11 +883,8 @@ export function setupStationPopup(map, maplibregl, options = {}) {
             groups.get(company).push({ lineId: id, displayName, color });
         }
 
-        // 如果没有 serving_ids（或全部无法解析），回退：按 serving_lines 显示，但无法可靠分公司/颜色
-        if (!groups.size && servingLines.length) {
-            const company = '未知公司';
-            const lines = servingLines.map((s) => ({ displayName: String(s).trim(), color: null }));
-            groups.set(company, lines);
+        if (!groups.size) {
+            return `<div class="${rootClass}">${nameHtml}</div>`;
         }
 
         let companiesHtml = '';

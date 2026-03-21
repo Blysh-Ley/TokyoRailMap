@@ -1,7 +1,7 @@
 /**
  * 基于屏幕像素的简易“碰撞检测”。
  * 核心思想：
- * 1) 按 serving_lines.length 排序（越大优先级越高）
+ * 1) 按 serving_ids.length 排序（越大优先级越高）
  * 2) 高优先级先放入网格；低优先级若与已放置元素重叠则隐藏
  *
  * 说明：这里的“网格”是用来加速碰撞判断（避免 O(n^2) 全量比对）。
@@ -59,7 +59,7 @@ function circleRadiusPxAtZoomNonTransfer(zoom) {
 }
 
 function circleRadiusPxForStation(zoom, priority) {
-    // priority === serving_lines.length
+    // priority === serving_ids.length
     if (priority === 1) return circleRadiusPxAtZoomNonTransfer(zoom);
     return circleRadiusPxAtZoom(zoom);
 }

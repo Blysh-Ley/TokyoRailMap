@@ -596,6 +596,14 @@ const getTitleZhHans = (titleObj) => {
     return normalizeText(t['zh-Hans']);
 };
 
+const getLineIdFromStationNodeId = (stationNodeId) => {
+    const id = normalizeText(stationNodeId);
+    if (!id) return '';
+    const parts = id.split('.').filter(Boolean);
+    if (parts.length < 2) return '';
+    return `${parts[0]}.${parts[1]}`;
+};
+
 /**
  * 从 /data/ 下的 JSON 数据生成 lines/stations GeoJSON。
  * 数据来源约定（按用户说明）：
@@ -658,7 +666,7 @@ export async function loadRailGeoDataFromDataFolder() {
         const LARGE_SPAN_JUMP_METERS = 5000;
         const largeSpanRailways = [];
 
-        // stationId -> Set<railwayId>（同一换乘组内的所有线路）
+        // stationId -> Set<railwayId>（由 station-groups 中 stationId 前两段推导）
         const servingRailwayIdsByStationId = new Map();
         for (const group of groupList) {
             if (!Array.isArray(group)) continue;
@@ -674,12 +682,11 @@ export async function loadRailGeoDataFromDataFolder() {
 
             const railwayIds = new Set();
             for (const sid of stationIds) {
-                const st = stationById.get(sid);
-                const rid = normalizeText(st?.railway) || '';
+                const rid = getLineIdFromStationNodeId(sid);
                 if (rid) railwayIds.add(rid);
             }
 
-            if (railwayIds.size <= 1) continue;
+            if (!railwayIds.size) continue;
             for (const sid of stationIds) {
                 if (!servingRailwayIdsByStationId.has(sid)) {
                     servingRailwayIdsByStationId.set(sid, new Set());
@@ -1175,16 +1182,14 @@ export async function loadRailGeoDataFromDataFolder() {
             const nameJa = normalizeText(title.ja);
             const nameEn = normalizeText(title.en);
 
+            const stationLineId = getLineIdFromStationNodeId(id) || railwayId;
             const servingSet = servingRailwayIdsByStationId.get(id);
-            const servingIds = servingSet && servingSet.size ? Array.from(servingSet) : [railwayId];
+            const servingIds = servingSet && servingSet.size ? Array.from(servingSet) : [stationLineId];
+            if (stationLineId && !servingIds.includes(stationLineId)) servingIds.push(stationLineId);
             servingIds.sort((a, b) => String(a).localeCompare(String(b)));
 
-            const servingLines = servingIds
-                .map((rid) => railwayNameById.get(String(rid)) || String(rid))
-                .filter((x) => normalizeText(x));
-
-            const platformLineName = railwayNameById.get(railwayId) || railwayId;
-            const platformColor = railwayColorById.get(railwayId) || null;
+            const platformLineName = railwayNameById.get(stationLineId) || railwayNameById.get(railwayId) || stationLineId;
+            const platformColor = railwayColorById.get(stationLineId) || railwayColorById.get(railwayId) || null;
 
             stationsFeatures.push({
                 type: 'Feature',
@@ -1196,8 +1201,7 @@ export async function loadRailGeoDataFromDataFolder() {
                     name_zh: nameZh || null,
                     type: 'station',
                     platform_line: [platformLineName],
-                    platform_line_id: [railwayId],
-                    serving_lines: servingLines,
+                    platform_line_id: [stationLineId],
                     serving_ids: servingIds,
                     line_colors: platformColor ? [platformColor] : [],
                     hidden_by_opacity_zero: hiddenByOpacityZero

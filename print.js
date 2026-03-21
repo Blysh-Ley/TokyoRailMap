@@ -1399,8 +1399,7 @@
             return s ? ids.has(s) : false;
         }
 
-        // 兼容旧数据：回退 serving_ids / serving_lines
-        const serving = props?.serving_ids ?? props?.serving_lines;
+        const serving = props?.serving_ids;
         if (Array.isArray(serving)) {
             for (const v of serving) {
                 const s = String(v ?? '').trim();
@@ -1414,7 +1413,7 @@
     };
 
     const stationServingCount = (props) => {
-        const serving = props?.serving_ids ?? props?.serving_lines;
+        const serving = props?.serving_ids;
         if (Array.isArray(serving)) return Math.max(1, serving.length);
         const s = String(serving ?? '').trim();
         return s ? 1 : 1;
