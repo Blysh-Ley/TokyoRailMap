@@ -221,6 +221,22 @@ const detectJourneySpecialNameText = async ({ tripIds, serviceDay }) => {
     return Array.from(names).join(' / ');
 };
 
+const collectPlanCandidateTripIds = (displayPlan) => {
+    const sections = Array.isArray(displayPlan?.sections) ? displayPlan.sections : [];
+    if (sections.length) {
+        const ids = [];
+        for (const section of sections) {
+            ids.push(...collectSectionCandidateTripIds(section));
+        }
+        return collectUniqueTripIds(ids);
+    }
+
+    const legs = Array.isArray(displayPlan?.legs) ? displayPlan.legs : [];
+    const ids = [];
+    for (const leg of legs) ids.push(...collectLegCandidateTripIds(leg));
+    return collectUniqueTripIds(ids);
+};
+
 const TRAVEL_HISTORY_KEY = 'TokyoRailSearchHistory';
 const TRAVEL_MAX_HISTORY = 20;
 
@@ -1199,26 +1215,28 @@ export function mountTravelSearchUI() {
             const directionDestination = shouldAppendDirectionForNextNote
                 ? normalizeText(blockLast?.stationName || blockLast?.stationId || '')
                 : '';
-            const note = createTimetableNoteRow({
-                rowClass: 'journey-trip-note-row',
-                dotClass: shouldRenderLineNote ? 'journey-trip-note-dot' : '',
-                lineClass: shouldRenderLineNote ? 'journey-trip-note-line' : '',
-                typeClass: 'journey-trip-note-type',
-                directionClass: 'journey-trip-note-direction',
-                lineText: shouldRenderLineNote ? lineText : '',
-                lineColor: shouldRenderLineNote && lineColorResolved ? String(resolveJourneyColorForTheme(lineColorResolved)) : '',
-                dotColor: shouldRenderLineNote && lineColorResolved ? String(resolveJourneyColorForTheme(lineColorResolved)) : '',
-                typeText: block.typeName,
-                typeColor: block.typeColor ? String(resolveJourneyColorForTheme(block.typeColor)) : '',
-                directionText: directionDestination ? ` 往 ${directionDestination} /` : ''
-            });
-            if (travelIsDarkThemeActive() && isLocalTypeName(block.typeName)) {
-                const noteTypeEl = note.querySelector('.journey-trip-note-type');
-                if (noteTypeEl instanceof HTMLElement) noteTypeEl.style.color = '#fff';
+            if (shouldRenderLineNote) {
+                const note = createTimetableNoteRow({
+                    rowClass: 'journey-trip-note-row',
+                    dotClass: 'journey-trip-note-dot',
+                    lineClass: 'journey-trip-note-line',
+                    typeClass: 'journey-trip-note-type',
+                    directionClass: 'journey-trip-note-direction',
+                    lineText,
+                    lineColor: lineColorResolved ? String(resolveJourneyColorForTheme(lineColorResolved)) : '',
+                    dotColor: lineColorResolved ? String(resolveJourneyColorForTheme(lineColorResolved)) : '',
+                    typeText: block.typeName,
+                    typeColor: block.typeColor ? String(resolveJourneyColorForTheme(block.typeColor)) : '',
+                    directionText: directionDestination ? ` 往 ${directionDestination} /` : ''
+                });
+                if (travelIsDarkThemeActive() && isLocalTypeName(block.typeName)) {
+                    const noteTypeEl = note.querySelector('.journey-trip-note-type');
+                    if (noteTypeEl instanceof HTMLElement) noteTypeEl.style.color = '#fff';
+                }
+                if (shouldAppendDirectionForNextNote) shouldAppendDirectionForNextNote = false;
+                hasRenderedSectionLineNote = true;
+                tripPopoverBody.appendChild(note);
             }
-            if (shouldAppendDirectionForNextNote) shouldAppendDirectionForNextNote = false;
-            hasRenderedSectionLineNote = true;
-            tripPopoverBody.appendChild(note);
 
             for (let i = 0; i < block.rows.length; i += 1) {
                 const s = block.rows[i];
@@ -1326,10 +1344,6 @@ export function mountTravelSearchUI() {
                     tripIds: collectSectionCandidateTripIds(section),
                     serviceDay: effectiveServiceDay
                 });
-                const sectionSpecialName = await detectJourneySpecialNameText({
-                    tripIds: collectSectionCandidateTripIds(section),
-                    serviceDay: effectiveServiceDay
-                });
 
                 if (sectionThroughMeta?.name) {
                     const lineSpan = el('span', 'journey-plan-line', { text: sectionThroughMeta.name });
@@ -1338,10 +1352,9 @@ export function mountTravelSearchUI() {
 
                     const fallbackType = normalizeText(lineRuns?.[0]?.typeName || section?.legs?.[0]?.typeName || '');
                     const fallbackTypeColor = normalizeText(lineRuns?.[0]?.typeColor || section?.legs?.[0]?.typeColor || '');
-                    const typeOrSpecial = normalizeText(sectionSpecialName || fallbackType);
-                    if (typeOrSpecial) {
-                        const typeSpan = el('span', 'journey-plan-type', { text: typeOrSpecial });
-                        if (!sectionSpecialName && fallbackTypeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(fallbackTypeColor));
+                    if (fallbackType) {
+                        const typeSpan = el('span', 'journey-plan-type', { text: fallbackType });
+                        if (fallbackTypeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(fallbackTypeColor));
                         container.appendChild(typeSpan);
                     }
 
@@ -1382,14 +1395,10 @@ export function mountTravelSearchUI() {
                     if (lineColor) lineSpan.style.color = String(resolveJourneyColorForTheme(lineColor));
                     container.appendChild(lineSpan);
 
-                    const runTypeText = normalizeText(
-                        sectionSpecialName
-                            ? (r === 0 ? sectionSpecialName : '')
-                            : (run?.typeName || '')
-                    );
+                    const runTypeText = normalizeText(run?.typeName || '');
                     if (runTypeText) {
                         const typeSpan = el('span', 'journey-plan-type', { text: runTypeText });
-                        if (!sectionSpecialName && run?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(run.typeColor));
+                        if (run?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(run.typeColor));
                         container.appendChild(typeSpan);
                     }
 
@@ -1425,20 +1434,16 @@ export function mountTravelSearchUI() {
                 tripIds: collectLegCandidateTripIds(leg),
                 serviceDay: effectiveServiceDay
             });
-            const legSpecialName = await detectJourneySpecialNameText({
-                tripIds: collectLegCandidateTripIds(leg),
-                serviceDay: effectiveServiceDay
-            });
 
             if (legThroughMeta?.name) {
                 const lineSpan = el('span', 'journey-plan-line', { text: legThroughMeta.name });
                 if (legThroughMeta?.color) lineSpan.style.color = String(resolveJourneyColorForTheme(legThroughMeta.color));
                 container.appendChild(lineSpan);
 
-                const typeText = normalizeText(legSpecialName || leg?.typeName || '');
+                const typeText = normalizeText(leg?.typeName || '');
                 if (typeText) {
                     const typeSpan = el('span', 'journey-plan-type', { text: typeText });
-                    if (!legSpecialName && leg?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(leg.typeColor));
+                    if (leg?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(leg.typeColor));
                     container.appendChild(typeSpan);
                 }
 
@@ -1503,9 +1508,9 @@ export function mountTravelSearchUI() {
                 container.appendChild(lineSpan);
             }
 
-            const typeText = normalizeText(legSpecialName || leg.typeName || '普通');
+            const typeText = normalizeText(leg.typeName || '普通');
             const typeSpan = el('span', 'journey-plan-type', { text: typeText });
-            if (!legSpecialName && leg?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(leg.typeColor));
+            if (leg?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(leg.typeColor));
             container.appendChild(typeSpan);
 
             if (i < legs.length - 1) {
@@ -1569,6 +1574,15 @@ export function mountTravelSearchUI() {
             const path = el('div', 'journey-plan-path');
             await appendJourneyPath(path, displayPlan, row?.serviceDay || '');
             li.appendChild(path);
+
+            const planSpecialName = await detectJourneySpecialNameText({
+                tripIds: collectPlanCandidateTripIds(displayPlan),
+                serviceDay: row?.serviceDay || ''
+            });
+            if (planSpecialName) {
+                const specialLine = el('div', 'journey-plan-special-line', { text: planSpecialName });
+                li.appendChild(specialLine);
+            }
 
             if (i < rows.length - 1) {
                 li.appendChild(el('div', 'journey-plan-sep'));
