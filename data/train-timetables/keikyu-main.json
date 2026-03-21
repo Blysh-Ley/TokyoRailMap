@@ -86935,7 +86935,7 @@
 	"t": "Keikyu.Main.773K",
 	"r": "Keikyu.Main",
 	"n": "773K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -87871,7 +87871,7 @@
 	"t": "Keikyu.Main.1007K",
 	"r": "Keikyu.Main",
 	"n": "1007K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -87897,7 +87897,7 @@
 	"t": "Keikyu.Main.1079SH",
 	"r": "Keikyu.Main",
 	"n": "1079SH",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -87975,7 +87975,7 @@
 	"t": "Keikyu.Main.1115T",
 	"r": "Keikyu.Main",
 	"n": "1115T",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -88027,7 +88027,7 @@
 	"t": "Keikyu.Main.1117T",
 	"r": "Keikyu.Main",
 	"n": "1117T",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -88105,7 +88105,7 @@
 	"t": "Keikyu.Main.1181K",
 	"r": "Keikyu.Main",
 	"n": "1181K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -88157,7 +88157,7 @@
 	"t": "Keikyu.Main.1233T",
 	"r": "Keikyu.Main",
 	"n": "1233T",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -88235,7 +88235,7 @@
 	"t": "Keikyu.Main.1255K",
 	"r": "Keikyu.Main",
 	"n": "1255K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -88287,7 +88287,7 @@
 	"t": "Keikyu.Main.1259K",
 	"r": "Keikyu.Main",
 	"n": "1259K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -88365,7 +88365,7 @@
 	"t": "Keikyu.Main.1351K",
 	"r": "Keikyu.Main",
 	"n": "1351K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -88417,7 +88417,7 @@
 	"t": "Keikyu.Main.1363K",
 	"r": "Keikyu.Main",
 	"n": "1363K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -88495,7 +88495,7 @@
 	"t": "Keikyu.Main.1377K",
 	"r": "Keikyu.Main",
 	"n": "1377K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -88547,7 +88547,7 @@
 	"t": "Keikyu.Main.1475H",
 	"r": "Keikyu.Main",
 	"n": "1475H",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -88625,7 +88625,7 @@
 	"t": "Keikyu.Main.1469K",
 	"r": "Keikyu.Main",
 	"n": "1469K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -88677,7 +88677,7 @@
 	"t": "Keikyu.Main.1491K",
 	"r": "Keikyu.Main",
 	"n": "1491K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -89795,7 +89795,7 @@
 	"t": "Keikyu.Main.1927T",
 	"r": "Keikyu.Main",
 	"n": "1927T",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -89951,7 +89951,7 @@
 	"t": "Keikyu.Main.2067K",
 	"r": "Keikyu.Main",
 	"n": "2067K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -90263,7 +90263,7 @@
 	"t": "Keikyu.Main.2163K",
 	"r": "Keikyu.Main",
 	"n": "2163K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -169328,7 +169328,7 @@
 	"t": "Keikyu.Main.759K",
 	"r": "Keikyu.Main",
 	"n": "759K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -169614,7 +169614,7 @@
 	"t": "Keikyu.Main.969K",
 	"r": "Keikyu.Main",
 	"n": "969K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -169718,7 +169718,7 @@
 	"t": "Keikyu.Main.971K",
 	"r": "Keikyu.Main",
 	"n": "971K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -169796,7 +169796,7 @@
 	"t": "Keikyu.Main.973K",
 	"r": "Keikyu.Main",
 	"n": "973K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -169848,7 +169848,7 @@
 	"t": "Keikyu.Main.1021H",
 	"r": "Keikyu.Main",
 	"n": "1021H",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -169926,7 +169926,7 @@
 	"t": "Keikyu.Main.1051K",
 	"r": "Keikyu.Main",
 	"n": "1051K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -169978,7 +169978,7 @@
 	"t": "Keikyu.Main.1075K",
 	"r": "Keikyu.Main",
 	"n": "1075K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170056,7 +170056,7 @@
 	"t": "Keikyu.Main.1155K",
 	"r": "Keikyu.Main",
 	"n": "1155K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170108,7 +170108,7 @@
 	"t": "Keikyu.Main.1177K",
 	"r": "Keikyu.Main",
 	"n": "1177K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170186,7 +170186,7 @@
 	"t": "Keikyu.Main.1157K",
 	"r": "Keikyu.Main",
 	"n": "1157K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170238,7 +170238,7 @@
 	"t": "Keikyu.Main.1275H",
 	"r": "Keikyu.Main",
 	"n": "1275H",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170316,7 +170316,7 @@
 	"t": "Keikyu.Main.1261K",
 	"r": "Keikyu.Main",
 	"n": "1261K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170368,7 +170368,7 @@
 	"t": "Keikyu.Main.1253K",
 	"r": "Keikyu.Main",
 	"n": "1253K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170446,7 +170446,7 @@
 	"t": "Keikyu.Main.1301T",
 	"r": "Keikyu.Main",
 	"n": "1301T",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170498,7 +170498,7 @@
 	"t": "Keikyu.Main.1331T",
 	"r": "Keikyu.Main",
 	"n": "1331T",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170576,7 +170576,7 @@
 	"t": "Keikyu.Main.1367K",
 	"r": "Keikyu.Main",
 	"n": "1367K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170628,7 +170628,7 @@
 	"t": "Keikyu.Main.1459K",
 	"r": "Keikyu.Main",
 	"n": "1459K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170706,7 +170706,7 @@
 	"t": "Keikyu.Main.1471K",
 	"r": "Keikyu.Main",
 	"n": "1471K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170758,7 +170758,7 @@
 	"t": "Keikyu.Main.1463K",
 	"r": "Keikyu.Main",
 	"n": "1463K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170836,7 +170836,7 @@
 	"t": "Keikyu.Main.1521H",
 	"r": "Keikyu.Main",
 	"n": "1521H",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170888,7 +170888,7 @@
 	"t": "Keikyu.Main.1565K",
 	"r": "Keikyu.Main",
 	"n": "1565K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -170966,7 +170966,7 @@
 	"t": "Keikyu.Main.1575K",
 	"r": "Keikyu.Main",
 	"n": "1575K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -171018,7 +171018,7 @@
 	"t": "Keikyu.Main.1669K",
 	"r": "Keikyu.Main",
 	"n": "1669K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -171096,7 +171096,7 @@
 	"t": "Keikyu.Main.1677K",
 	"r": "Keikyu.Main",
 	"n": "1677K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -171148,7 +171148,7 @@
 	"t": "Keikyu.Main.1673K",
 	"r": "Keikyu.Main",
 	"n": "1673K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -171226,7 +171226,7 @@
 	"t": "Keikyu.Main.1775H",
 	"r": "Keikyu.Main",
 	"n": "1775H",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -171356,7 +171356,7 @@
 	"t": "Keikyu.Main.1753K",
 	"r": "Keikyu.Main",
 	"n": "1753K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -171486,7 +171486,7 @@
 	"t": "Keikyu.Main.1831T",
 	"r": "Keikyu.Main",
 	"n": "1831T",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"
@@ -171616,7 +171616,7 @@
 	"t": "Keikyu.Main.1959K",
 	"r": "Keikyu.Main",
 	"n": "1959K",
-	"y": "Keikyu.LimitedExpress",
+	"y": "Keikyu.Rapid",
 	"d": "Inbound",
 	"os": [
 		"Keikyu.Airport.HanedaAirportTerminal1and2"

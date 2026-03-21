@@ -107,12 +107,12 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "06:57",
-				"d": "06:57"
+				"a": "06:58",
+				"d": "06:59"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
-				"a": "07:08",
+				"a": "07:09",
 				"d": "07:10"
 			},
 			{
@@ -202,13 +202,13 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
-				"a": "07:08",
+				"a": "07:09",
 				"d": "07:09"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "07:17",
-				"d": "07:18"
+				"a": "07:18",
+				"d": "07:19"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
@@ -275,81 +275,81 @@
 		"tt": [
 			{
 				"s": "JR-East.ShonanShinjuku.Omiya",
-				"d": "07:13"
+				"d": "07:12"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
-				"a": "07:19",
-				"d": "07:19"
+				"a": "07:17",
+				"d": "07:18"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "07:29",
-				"d": "07:29"
+				"a": "07:26",
+				"d": "07:27"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
-				"a": "07:39",
-				"d": "07:40"
+				"a": "07:36",
+				"d": "07:37"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
-				"a": "07:45",
-				"d": "07:47"
+				"a": "07:42",
+				"d": "07:43"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
-				"a": "07:51",
-				"d": "07:52"
+				"a": "07:48",
+				"d": "07:48"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ebisu",
-				"a": "07:54",
-				"d": "07:54"
+				"a": "07:50",
+				"d": "07:51"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
-				"a": "07:58",
-				"d": "07:59"
+				"a": "07:54",
+				"d": "07:56"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.NishiOi",
-				"a": "08:02",
-				"d": "08:03"
+				"a": "08:01",
+				"d": "08:02"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
-				"a": "08:08",
-				"d": "08:08"
+				"a": "08:07",
+				"d": "08:07"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.ShinKawasaki",
-				"a": "08:11",
-				"d": "08:11"
+				"a": "08:10",
+				"d": "08:10"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
-				"a": "08:20",
-				"d": "08:20"
+				"a": "08:19",
+				"d": "08:19"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Hodogaya",
-				"a": "08:23",
+				"a": "08:22",
 				"d": "08:23"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.HigashiTotsuka",
-				"a": "08:28",
+				"a": "08:27",
 				"d": "08:28"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Totsuka",
-				"a": "08:32",
+				"a": "08:31",
 				"d": "08:32"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ofuna",
-				"a": "08:38"
+				"a": "08:37"
 			}
 		]
 	},
@@ -375,61 +375,61 @@
 		"tt": [
 			{
 				"s": "JR-East.ShonanShinjuku.Omiya",
-				"d": "07:19"
+				"d": "07:18"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
-				"a": "07:26",
-				"d": "07:27"
+				"a": "07:24",
+				"d": "07:25"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "07:36",
-				"d": "07:37"
+				"a": "07:33",
+				"d": "07:34"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
-				"a": "07:48",
-				"d": "07:49"
+				"a": "07:43",
+				"d": "07:44"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
-				"a": "07:54",
-				"d": "07:55"
+				"a": "07:50",
+				"d": "07:51"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
-				"a": "07:59",
-				"d": "07:59"
+				"a": "07:56",
+				"d": "07:56"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ebisu",
-				"a": "08:02",
-				"d": "08:02"
+				"a": "07:58",
+				"d": "07:59"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
-				"a": "08:06",
-				"d": "08:08"
+				"a": "08:02",
+				"d": "08:03"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
-				"a": "08:16",
-				"d": "08:16"
+				"a": "08:12",
+				"d": "08:12"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
-				"a": "08:27",
-				"d": "08:28"
+				"a": "08:24",
+				"d": "08:25"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Totsuka",
-				"a": "08:38",
-				"d": "08:39"
+				"a": "08:37",
+				"d": "08:37"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ofuna",
-				"a": "08:44"
+				"a": "08:42"
 			}
 		]
 	},
@@ -456,77 +456,77 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
-				"a": "07:36",
-				"d": "07:37"
+				"a": "07:35",
+				"d": "07:36"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "07:46",
-				"d": "07:47"
+				"a": "07:45",
+				"d": "07:46"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
-				"a": "07:58",
-				"d": "07:59"
+				"a": "07:55",
+				"d": "07:56"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
-				"a": "08:04",
-				"d": "08:05"
+				"a": "08:01",
+				"d": "08:02"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
+				"a": "08:07",
+				"d": "08:07"
+			},
+			{
+				"s": "JR-East.ShonanShinjuku.Ebisu",
 				"a": "08:09",
 				"d": "08:10"
 			},
 			{
-				"s": "JR-East.ShonanShinjuku.Ebisu",
-				"a": "08:12",
-				"d": "08:12"
-			},
-			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
-				"a": "08:16",
-				"d": "08:17"
+				"a": "08:13",
+				"d": "08:14"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.NishiOi",
-				"a": "08:21",
-				"d": "08:21"
+				"a": "08:17",
+				"d": "08:18"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
-				"a": "08:26",
-				"d": "08:27"
+				"a": "08:23",
+				"d": "08:23"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.ShinKawasaki",
-				"a": "08:29",
-				"d": "08:30"
+				"a": "08:26",
+				"d": "08:26"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
-				"a": "08:39",
-				"d": "08:39"
+				"a": "08:35",
+				"d": "08:35"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Hodogaya",
-				"a": "08:42",
-				"d": "08:42"
+				"a": "08:38",
+				"d": "08:39"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.HigashiTotsuka",
-				"a": "08:47",
-				"d": "08:47"
+				"a": "08:43",
+				"d": "08:44"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Totsuka",
-				"a": "08:51",
-				"d": "08:51"
+				"a": "08:47",
+				"d": "08:48"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ofuna",
-				"a": "08:57"
+				"a": "08:53"
 			}
 		]
 	},
@@ -552,61 +552,61 @@
 		"tt": [
 			{
 				"s": "JR-East.ShonanShinjuku.Omiya",
-				"d": "07:39"
+				"d": "07:37"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
-				"a": "07:44",
-				"d": "07:45"
+				"a": "07:43",
+				"d": "07:44"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "07:53",
-				"d": "07:54"
+				"a": "07:52",
+				"d": "07:53"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
-				"a": "08:05",
-				"d": "08:06"
+				"a": "08:02",
+				"d": "08:03"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
-				"a": "08:11",
-				"d": "08:12"
+				"a": "08:08",
+				"d": "08:10"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
+				"a": "08:14",
+				"d": "08:15"
+			},
+			{
+				"s": "JR-East.ShonanShinjuku.Ebisu",
 				"a": "08:17",
 				"d": "08:17"
 			},
 			{
-				"s": "JR-East.ShonanShinjuku.Ebisu",
-				"a": "08:19",
-				"d": "08:20"
-			},
-			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
-				"a": "08:23",
-				"d": "08:24"
+				"a": "08:21",
+				"d": "08:21"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
-				"a": "08:34",
-				"d": "08:35"
+				"a": "08:29",
+				"d": "08:30"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
-				"a": "08:46",
-				"d": "08:47"
+				"a": "08:41",
+				"d": "08:42"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Totsuka",
-				"a": "08:58",
-				"d": "08:58"
+				"a": "08:53",
+				"d": "08:54"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ofuna",
-				"a": "09:03"
+				"a": "09:00"
 			}
 		]
 	},
@@ -636,13 +636,13 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
-				"a": "07:51",
+				"a": "07:52",
 				"d": "07:52"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "08:01",
-				"d": "08:01"
+				"a": "08:02",
+				"d": "08:03"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
@@ -672,21 +672,21 @@
 			{
 				"s": "JR-East.ShonanShinjuku.NishiOi",
 				"a": "08:35",
-				"d": "08:35"
+				"d": "08:36"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
-				"a": "08:40",
+				"a": "08:41",
 				"d": "08:41"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.ShinKawasaki",
 				"a": "08:44",
-				"d": "08:44"
+				"d": "08:45"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
-				"a": "08:53",
+				"a": "08:54",
 				"d": "08:54"
 			},
 			{
@@ -736,13 +736,13 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
-				"a": "07:58",
+				"a": "07:59",
 				"d": "07:59"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "08:08",
-				"d": "08:08"
+				"a": "08:09",
+				"d": "08:10"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
@@ -752,7 +752,7 @@
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
 				"a": "08:25",
-				"d": "08:27"
+				"d": "08:26"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
@@ -767,12 +767,12 @@
 			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
 				"a": "08:38",
-				"d": "08:38"
+				"d": "08:39"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
 				"a": "08:48",
-				"d": "08:48"
+				"d": "08:49"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
@@ -781,7 +781,7 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Totsuka",
-				"a": "09:12",
+				"a": "09:13",
 				"d": "09:13"
 			},
 			{
@@ -809,17 +809,17 @@
 		"tt": [
 			{
 				"s": "JR-East.ShonanShinjuku.Omiya",
-				"d": "07:57"
+				"d": "07:58"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
-				"a": "08:04",
-				"d": "08:04"
+				"a": "08:05",
+				"d": "08:05"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "08:14",
-				"d": "08:15"
+				"a": "08:16",
+				"d": "08:17"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
@@ -844,22 +844,22 @@
 			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
 				"a": "08:45",
-				"d": "08:45"
+				"d": "08:46"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.NishiOi",
-				"a": "08:48",
+				"a": "08:49",
 				"d": "08:49"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
 				"a": "08:54",
-				"d": "08:54"
+				"d": "08:55"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.ShinKawasaki",
 				"a": "08:57",
-				"d": "08:57"
+				"d": "08:58"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
@@ -913,13 +913,13 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
-				"a": "08:12",
+				"a": "08:13",
 				"d": "08:13"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "08:22",
-				"d": "08:22"
+				"a": "08:23",
+				"d": "08:24"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
@@ -989,27 +989,27 @@
 		"tt": [
 			{
 				"s": "JR-East.ShonanShinjuku.Omiya",
-				"d": "08:11"
+				"d": "08:12"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
-				"a": "08:20",
-				"d": "08:20"
+				"a": "08:21",
+				"d": "08:21"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "08:30",
-				"d": "08:31"
+				"a": "08:32",
+				"d": "08:33"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
-				"a": "08:42",
-				"d": "08:43"
+				"a": "08:43",
+				"d": "08:44"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
-				"a": "08:48",
-				"d": "08:49"
+				"a": "08:49",
+				"d": "08:50"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
@@ -1093,13 +1093,13 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
-				"a": "08:34",
+				"a": "08:35",
 				"d": "08:35"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "08:44",
-				"d": "08:45"
+				"a": "08:46",
+				"d": "08:47"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
@@ -3578,7 +3578,7 @@
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
 				"a": "16:19",
-				"d": "16:19"
+				"d": "16:20"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Hodogaya",
@@ -3588,12 +3588,12 @@
 			{
 				"s": "JR-East.ShonanShinjuku.HigashiTotsuka",
 				"a": "16:27",
-				"d": "16:27"
+				"d": "16:28"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Totsuka",
 				"a": "16:31",
-				"d": "16:31"
+				"d": "16:32"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ofuna",
@@ -3932,12 +3932,12 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
-				"a": "17:20",
-				"d": "17:21"
+				"a": "17:19",
+				"d": "17:20"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Hodogaya",
-				"a": "17:24",
+				"a": "17:23",
 				"d": "17:24"
 			},
 			{
@@ -5423,17 +5423,17 @@
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
 				"a": "20:49",
-				"d": "20:50"
+				"d": "20:49"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ebisu",
-				"a": "20:52",
+				"a": "20:51",
 				"d": "20:52"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
 				"a": "20:56",
-				"d": "20:57"
+				"d": "20:56"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.NishiOi",
@@ -5702,57 +5702,57 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
-				"a": "21:49",
-				"d": "21:50"
+				"a": "21:50",
+				"d": "21:51"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ebisu",
-				"a": "21:52",
-				"d": "21:52"
+				"a": "21:53",
+				"d": "21:53"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
-				"a": "21:56",
-				"d": "21:57"
+				"a": "21:57",
+				"d": "21:58"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.NishiOi",
-				"a": "22:00",
-				"d": "22:00"
+				"a": "22:01",
+				"d": "22:02"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
-				"a": "22:05",
-				"d": "22:06"
+				"a": "22:07",
+				"d": "22:08"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.ShinKawasaki",
-				"a": "22:08",
-				"d": "22:09"
+				"a": "22:11",
+				"d": "22:11"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
-				"a": "22:18",
-				"d": "22:19"
+				"a": "22:20",
+				"d": "22:21"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Hodogaya",
-				"a": "22:21",
-				"d": "22:22"
+				"a": "22:24",
+				"d": "22:24"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.HigashiTotsuka",
-				"a": "22:26",
-				"d": "22:27"
+				"a": "22:29",
+				"d": "22:29"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Totsuka",
-				"a": "22:30",
-				"d": "22:31"
+				"a": "22:33",
+				"d": "22:34"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ofuna",
-				"a": "22:36"
+				"a": "22:39"
 			}
 		]
 	},
@@ -5817,7 +5817,7 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
-				"a": "22:19",
+				"a": "22:20",
 				"d": "22:20"
 			},
 			{
@@ -6521,16 +6521,16 @@
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
 				"a": "08:14",
-				"d": "08:15"
+				"d": "08:14"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
 				"a": "08:22",
-				"d": "08:23"
+				"d": "08:22"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Omiya",
-				"a": "08:29"
+				"a": "08:28"
 			}
 		]
 	},
@@ -6590,27 +6590,27 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
-				"a": "08:07",
-				"d": "08:08"
+				"a": "08:08",
+				"d": "08:09"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
-				"a": "08:13",
-				"d": "08:14"
+				"a": "08:14",
+				"d": "08:15"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "08:23",
+				"a": "08:24",
 				"d": "08:24"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
-				"a": "08:32",
+				"a": "08:33",
 				"d": "08:33"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Omiya",
-				"a": "08:39"
+				"a": "08:41"
 			}
 		]
 	},
@@ -6707,7 +6707,7 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Omiya",
-				"a": "08:48"
+				"a": "08:49"
 			}
 		]
 	},
@@ -6743,11 +6743,11 @@
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
 				"a": "07:50",
-				"d": "07:51"
+				"d": "07:50"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
-				"a": "08:03",
+				"a": "08:02",
 				"d": "08:03"
 			},
 			{
@@ -6813,11 +6813,11 @@
 		"tt": [
 			{
 				"s": "JR-East.ShonanShinjuku.Ofuna",
-				"d": "07:45"
+				"d": "07:43"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Totsuka",
-				"a": "07:50",
+				"a": "07:49",
 				"d": "07:50"
 			},
 			{
@@ -6863,16 +6863,16 @@
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
 				"a": "08:32",
-				"d": "08:33"
+				"d": "08:32"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
-				"a": "08:38",
-				"d": "08:39"
+				"a": "08:37",
+				"d": "08:38"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
-				"a": "08:44",
+				"a": "08:43",
 				"d": "08:45"
 			},
 			{
@@ -6938,21 +6938,21 @@
 			{
 				"s": "JR-East.ShonanShinjuku.Ebisu",
 				"a": "08:35",
-				"d": "08:36"
+				"d": "08:35"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
-				"a": "08:38",
-				"d": "08:38"
+				"a": "08:37",
+				"d": "08:37"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
-				"a": "08:43",
-				"d": "08:44"
+				"a": "08:42",
+				"d": "08:43"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
-				"a": "08:49",
+				"a": "08:48",
 				"d": "08:49"
 			},
 			{
@@ -7267,27 +7267,27 @@
 		"tt": [
 			{
 				"s": "JR-East.ShonanShinjuku.Ofuna",
-				"d": "08:46"
+				"d": "08:45"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Totsuka",
-				"a": "08:51",
+				"a": "08:50",
 				"d": "08:51"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.HigashiTotsuka",
-				"a": "08:55",
+				"a": "08:54",
 				"d": "08:55"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Hodogaya",
-				"a": "09:00",
+				"a": "08:59",
 				"d": "09:00"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
 				"a": "09:03",
-				"d": "09:04"
+				"d": "09:03"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.ShinKawasaki",
@@ -7296,43 +7296,43 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
-				"a": "09:16",
+				"a": "09:15",
 				"d": "09:16"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.NishiOi",
 				"a": "09:21",
-				"d": "09:22"
+				"d": "09:21"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
-				"a": "09:26",
-				"d": "09:27"
+				"a": "09:25",
+				"d": "09:25"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ebisu",
-				"a": "09:31",
-				"d": "09:31"
+				"a": "09:29",
+				"d": "09:30"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
-				"a": "09:33",
-				"d": "09:34"
+				"a": "09:31",
+				"d": "09:32"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
-				"a": "09:38",
-				"d": "09:40"
+				"a": "09:36",
+				"d": "09:37"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
-				"a": "09:45",
-				"d": "09:46"
+				"a": "09:43",
+				"d": "09:44"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "09:56",
-				"d": "09:57"
+				"a": "09:55",
+				"d": "09:56"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
@@ -7403,18 +7403,18 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
-				"a": "09:40",
-				"d": "09:41"
+				"a": "09:41",
+				"d": "09:42"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ebisu",
-				"a": "09:45",
-				"d": "09:45"
+				"a": "09:46",
+				"d": "09:46"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
-				"a": "09:47",
-				"d": "09:48"
+				"a": "09:48",
+				"d": "09:49"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
@@ -7484,12 +7484,12 @@
 			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
 				"a": "09:57",
-				"d": "09:57"
+				"d": "09:58"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
-				"a": "10:02",
-				"d": "10:03"
+				"a": "10:03",
+				"d": "10:04"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
@@ -7596,7 +7596,7 @@
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
 				"a": "10:41",
-				"d": "10:41"
+				"d": "10:42"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
@@ -8207,22 +8207,22 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
-				"a": "11:54",
-				"d": "11:55"
+				"a": "11:55",
+				"d": "11:56"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ebisu",
-				"a": "11:59",
-				"d": "11:59"
+				"a": "12:00",
+				"d": "12:00"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
-				"a": "12:01",
-				"d": "12:01"
+				"a": "12:02",
+				"d": "12:03"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
-				"a": "12:06",
+				"a": "12:07",
 				"d": "12:10"
 			},
 			{
@@ -8823,12 +8823,12 @@
 			{
 				"s": "JR-East.ShonanShinjuku.Ebisu",
 				"a": "13:40",
-				"d": "13:40"
+				"d": "13:41"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
 				"a": "13:42",
-				"d": "13:42"
+				"d": "13:43"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
@@ -9702,7 +9702,7 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
-				"a": "15:59",
+				"a": "16:00",
 				"d": "16:00"
 			},
 			{
@@ -9943,42 +9943,42 @@
 		"tt": [
 			{
 				"s": "JR-East.ShonanShinjuku.Ofuna",
-				"d": "16:15"
+				"d": "16:14"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Totsuka",
-				"a": "16:19",
-				"d": "16:20"
+				"a": "16:18",
+				"d": "16:19"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.HigashiTotsuka",
-				"a": "16:24",
-				"d": "16:24"
+				"a": "16:23",
+				"d": "16:23"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Hodogaya",
-				"a": "16:29",
-				"d": "16:29"
+				"a": "16:28",
+				"d": "16:28"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
-				"a": "16:32",
-				"d": "16:33"
+				"a": "16:31",
+				"d": "16:32"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.ShinKawasaki",
-				"a": "16:42",
-				"d": "16:42"
+				"a": "16:41",
+				"d": "16:41"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
 				"a": "16:45",
-				"d": "16:46"
+				"d": "16:45"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.NishiOi",
-				"a": "16:51",
-				"d": "16:52"
+				"a": "16:50",
+				"d": "16:51"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
@@ -10298,37 +10298,37 @@
 		"tt": [
 			{
 				"s": "JR-East.ShonanShinjuku.Ofuna",
-				"d": "17:16"
+				"d": "17:17"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Totsuka",
-				"a": "17:20",
-				"d": "17:21"
+				"a": "17:22",
+				"d": "17:22"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.HigashiTotsuka",
-				"a": "17:24",
-				"d": "17:25"
+				"a": "17:26",
+				"d": "17:26"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Hodogaya",
-				"a": "17:29",
-				"d": "17:29"
+				"a": "17:30",
+				"d": "17:31"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
-				"a": "17:32",
-				"d": "17:34"
+				"a": "17:34",
+				"d": "17:35"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.ShinKawasaki",
 				"a": "17:43",
-				"d": "17:43"
+				"d": "17:44"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
 				"a": "17:46",
-				"d": "17:46"
+				"d": "17:47"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.NishiOi",
@@ -11472,7 +11472,7 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
-				"a": "20:47",
+				"a": "20:48",
 				"d": "20:48"
 			},
 			{
@@ -11732,18 +11732,18 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
-				"a": "21:36",
-				"d": "21:37"
+				"a": "21:37",
+				"d": "21:38"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
-				"a": "21:45",
+				"a": "21:47",
 				"d": "21:47"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ebisu",
 				"a": "21:51",
-				"d": "21:51"
+				"d": "21:52"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
@@ -12729,26 +12729,26 @@
 		"tt": [
 			{
 				"s": "JR-East.ShonanShinjuku.Omiya",
-				"d": "07:28"
+				"d": "07:29"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
-				"a": "07:33",
-				"d": "07:33"
+				"a": "07:34",
+				"d": "07:35"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
-				"a": "07:41",
-				"d": "07:42"
+				"a": "07:43",
+				"d": "07:43"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
-				"a": "07:51",
-				"d": "07:53"
+				"a": "07:53",
+				"d": "07:54"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
-				"a": "07:58",
+				"a": "07:59",
 				"d": "08:00"
 			},
 			{
@@ -15614,7 +15614,7 @@
 			{
 				"s": "JR-East.ShonanShinjuku.Hodogaya",
 				"a": "16:22",
-				"d": "16:22"
+				"d": "16:23"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.HigashiTotsuka",
@@ -15909,17 +15909,17 @@
 		"tt": [
 			{
 				"s": "JR-East.ShonanShinjuku.Omiya",
-				"d": "16:12"
+				"d": "16:14"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Urawa",
-				"a": "16:18",
-				"d": "16:19"
+				"a": "16:19",
+				"d": "16:20"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Akabane",
 				"a": "16:27",
-				"d": "16:27"
+				"d": "16:28"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ikebukuro",
@@ -15963,8 +15963,8 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
-				"a": "17:20",
-				"d": "17:21"
+				"a": "17:19",
+				"d": "17:20"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Hodogaya",
@@ -18264,7 +18264,7 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
-				"a": "06:46",
+				"a": "06:45",
 				"d": "06:46"
 			},
 			{
@@ -18556,7 +18556,7 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shinjuku",
-				"a": "08:07",
+				"a": "08:08",
 				"d": "08:09"
 			},
 			{
@@ -18679,56 +18679,56 @@
 		"tt": [
 			{
 				"s": "JR-East.ShonanShinjuku.Ofuna",
-				"d": "07:46"
+				"d": "07:47"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Totsuka",
-				"a": "07:50",
-				"d": "07:51"
+				"a": "07:52",
+				"d": "07:53"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.HigashiTotsuka",
-				"a": "07:54",
-				"d": "07:55"
+				"a": "07:56",
+				"d": "07:57"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Hodogaya",
-				"a": "07:59",
-				"d": "08:00"
+				"a": "08:01",
+				"d": "08:01"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Yokohama",
-				"a": "08:03",
-				"d": "08:04"
+				"a": "08:04",
+				"d": "08:05"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.ShinKawasaki",
-				"a": "08:12",
-				"d": "08:13"
+				"a": "08:13",
+				"d": "08:14"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.MusashiKosugi",
 				"a": "08:16",
-				"d": "08:16"
+				"d": "08:17"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.NishiOi",
-				"a": "08:21",
+				"a": "08:22",
 				"d": "08:22"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Osaki",
-				"a": "08:25",
-				"d": "08:26"
+				"a": "08:26",
+				"d": "08:27"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Ebisu",
 				"a": "08:30",
-				"d": "08:30"
+				"d": "08:31"
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Shibuya",
-				"a": "08:32",
+				"a": "08:33",
 				"d": "08:33"
 			},
 			{
@@ -19279,7 +19279,7 @@
 			},
 			{
 				"s": "JR-East.ShonanShinjuku.Omiya",
-				"a": "10:44"
+				"a": "10:45"
 			}
 		]
 	},
