@@ -8,3 +8,4 @@ __pycache__
 /icons/.DS_Store
 /data/.DS_Store
 data/**/*.bak
+/remotedata
