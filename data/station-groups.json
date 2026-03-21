@@ -221,12 +221,6 @@
 	],
 	[
 		[
-			"JR-East.KeihinTohokuNegishi.Okachimachi",
-			"JR-East.Yamanote.Okachimachi"
-		]
-	],
-	[
-		[
 			"JR-East.ChuoSobuLocal.Akihabara"
 		],
 		[
@@ -1869,6 +1863,10 @@
 		],
 		[
 			"TokyoMetro.Hibiya.NakaOkachimachi"
+		],
+		[
+			"JR-East.KeihinTohokuNegishi.Okachimachi",
+			"JR-East.Yamanote.Okachimachi"
 		]
 	],
 	[
