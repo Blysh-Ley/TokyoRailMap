@@ -299,7 +299,9 @@ export const ensurePlannerStaticData = async () => {
                 normalizeText(title?.en) ||
                 id;
             const color = normalizeText(title?.color || '');
-            typeMetaById.set(id, { id, name, color: color || null });
+            const surchargeRaw = title?.surcharge;
+            const surcharge = surchargeRaw === true ? true : (surchargeRaw === false ? false : null);
+            typeMetaById.set(id, { id, name, color: color || null, surcharge });
         }
 
         const stationNameById = new Map();
@@ -414,11 +416,44 @@ const buildLineDescriptorText = (lineMeta) => {
     return normalizeText(`${abb}${lineName}`) || rawName;
 };
 
-const loadTripsForLineAndDay = async ({ lineId, serviceDay }) => {
+const hasTripNmMarker = (tripLike) => {
+    const nm = tripLike?.nm;
+    if (nm == null) return false;
+    if (typeof nm === 'string') return normalizeText(nm) !== '';
+    if (Array.isArray(nm)) return nm.length > 0;
+    if (typeof nm === 'object') return Object.keys(nm).length > 0;
+    return Boolean(nm);
+};
+
+const isTypeIdSurcharge = (typeId) => {
+    const id = normalizeText(typeId);
+    if (!id) return false;
+
+    const meta = plannerState.typeMetaById.get(id) || null;
+    const explicit = meta?.surcharge;
+    if (explicit === true) return true;
+
+    const lower = id.toLowerCase();
+    if (lower.includes('liner')) return true;
+    if (lower.includes('limited') && explicit !== false) return true;
+
+    return false;
+};
+
+const planContainsSurcharge = (plan) => {
+    const legs = Array.isArray(plan?.legs) ? plan.legs : [];
+    for (const leg of legs) {
+        if (leg?.hasNm) return true;
+        if (isTypeIdSurcharge(leg?.typeId)) return true;
+    }
+    return false;
+};
+
+const loadTripsForLineAndDay = async ({ lineId, serviceDay, excludeSurchargeTypes = false }) => {
     const line = normalizeText(lineId);
     const day = normalizeText(serviceDay) || 'Weekday';
     if (!line) return [];
-    const cacheKey = `${line}||${day}`;
+    const cacheKey = `${line}||${day}||${excludeSurchargeTypes ? 'nosurcharge' : 'all'}`;
     if (plannerState.lineTripsCache.has(cacheKey)) return plannerState.lineTripsCache.get(cacheKey);
 
     const cache = window?.TokyoRailTimetableCache;
@@ -459,6 +494,8 @@ const loadTripsForLineAndDay = async ({ lineId, serviceDay }) => {
         if (stops.length < 2) continue;
 
         const typeId = normalizeText(trip?.y || '');
+        const hasNm = hasTripNmMarker(trip);
+        if (excludeSurchargeTypes && (hasNm || isTypeIdSurcharge(typeId))) continue;
         const typeMeta = plannerState.typeMetaById.get(typeId) || null;
         parsedTrips.push({
             tripId: tripId || normalizeText(trip?.t || ''),
@@ -470,6 +507,7 @@ const loadTripsForLineAndDay = async ({ lineId, serviceDay }) => {
             typeId,
             typeName: normalizeText(typeMeta?.name || typeId || '普通'),
             typeColor: normalizeText(typeMeta?.color || '') || null,
+            hasNm,
             ptRefs: normalizeRefArray(trip?.pt),
             ntRefs: normalizeRefArray(trip?.nt),
             stops
@@ -562,6 +600,7 @@ const rideTripFromBoardRaptor = ({ trip, lineId, boardIndex, boardStopId, boardD
                 typeId: trip.typeId,
                 typeName: trip.typeName,
                 typeColor: trip.typeColor,
+                hasNm: trip?.hasNm === true,
                 fromStop: boardStopId,
                 toStop: stopId,
                 boardIndex: start,
@@ -681,7 +720,7 @@ const relaxChainFromBoardRaptor = ({ chainTrips, throughRootTripId, startSegment
     }
 };
 
-const scanRoundRaptor = async ({ prevArr, markedStops, serviceDay, serviceDayStartMs, roundIndex }) => {
+const scanRoundRaptor = async ({ prevArr, markedStops, serviceDay, serviceDayStartMs, roundIndex, excludeSurchargeTypes = false }) => {
     const roundArr = new Map(prevArr);
     const roundParent = new Map();
     const improvedStops = new Set();
@@ -692,7 +731,7 @@ const scanRoundRaptor = async ({ prevArr, markedStops, serviceDay, serviceDaySta
 
     const routeArr = Array.from(routeIds);
     const routeTripsPairs = await Promise.all(
-        routeArr.map(async (lineId) => ({ lineId, trips: await loadTripsForLineAndDay({ lineId, serviceDay }) }))
+        routeArr.map(async (lineId) => ({ lineId, trips: await loadTripsForLineAndDay({ lineId, serviceDay, excludeSurchargeTypes }) }))
     );
 
     for (const { lineId, trips } of routeTripsPairs) {
@@ -766,7 +805,7 @@ const applyRealTransfersForNextRound = ({ roundArr, roundParent, improvedStops }
     }
 };
 
-const runRaptorSearch = async ({ sourceStops, destinationStops, departureMs, serviceDay, maxRounds = 7 }) => {
+const runRaptorSearch = async ({ sourceStops, destinationStops, departureMs, serviceDay, maxRounds = 7, excludeSurchargeTypes = false }) => {
     const arrivals = [new Map()];
     const parents = [new Map()];
     const serviceDayStartMs = getServiceDayStartMs(new Date(departureMs));
@@ -785,7 +824,8 @@ const runRaptorSearch = async ({ sourceStops, destinationStops, departureMs, ser
             markedStops,
             serviceDay,
             serviceDayStartMs,
-            roundIndex: round
+            roundIndex: round,
+            excludeSurchargeTypes
         });
 
         // 关键约束 4：仅在本 round 所有列车（含直通链）扫描完成后，才做站内换乘扩散。
@@ -868,6 +908,7 @@ const reconstructJourney = ({ runResult, targetRound, targetStop, departureMs })
             typeId: p.typeId,
             typeName: p.typeName,
             typeColor: p.typeColor,
+            hasNm: p?.hasNm === true,
             fromStop: p.fromStop,
             toStop: p.toStop,
             boardIndex: Number.isFinite(p.boardIndex) ? p.boardIndex : null,
@@ -1763,7 +1804,7 @@ export const collectJourneyCandidatesRaptor = async ({ sourceStops, destinationS
 
     const offsetsMin = [0, 10];
 
-    const runWithMaxRounds = async (maxRounds) => {
+    const runWithMaxRounds = async (maxRounds, { excludeSurchargeTypes = false } = {}) => {
         const candidates = [];
         for (const addMin of offsetsMin) {
             const depMs = baseDepartureMs + addMin * 60000;
@@ -1772,7 +1813,8 @@ export const collectJourneyCandidatesRaptor = async ({ sourceStops, destinationS
                 destinationStops,
                 departureMs: depMs,
                 serviceDay,
-                maxRounds
+                maxRounds,
+                excludeSurchargeTypes
             });
 
             for (const best of runResult.bestByRound || []) {
@@ -1802,7 +1844,25 @@ export const collectJourneyCandidatesRaptor = async ({ sourceStops, destinationS
     let candidates = await runWithMaxRounds(7);
     if (!candidates.length) candidates = await runWithMaxRounds(10);
 
-    return dedupePlans(candidates).sort((a, b) => a.arrivalMs - b.arrivalMs || a.durationMs - b.durationMs);
+    let sortedPlans = dedupePlans(candidates).sort((a, b) => a.arrivalMs - b.arrivalMs || a.durationMs - b.durationMs);
+    sortedPlans.forEach((plan) => {
+        plan.hasSurcharge = planContainsSurcharge(plan);
+    });
+    const allPlansContainSurcharge = sortedPlans.length > 0 && sortedPlans.every((plan) => planContainsSurcharge(plan));
+
+    if (allPlansContainSurcharge) {
+        let nonSurchargeCandidates = await runWithMaxRounds(7, { excludeSurchargeTypes: true });
+        if (!nonSurchargeCandidates.length) nonSurchargeCandidates = await runWithMaxRounds(10, { excludeSurchargeTypes: true });
+        if (nonSurchargeCandidates.length) {
+            const merged = dedupePlans(sortedPlans.concat(nonSurchargeCandidates));
+            sortedPlans = merged.sort((a, b) => a.arrivalMs - b.arrivalMs || a.durationMs - b.durationMs);
+            sortedPlans.forEach((plan) => {
+                plan.hasSurcharge = planContainsSurcharge(plan);
+            });
+        }
+    }
+
+    return sortedPlans;
 };
 
 const inferServiceDayFromDate = (dateLike) => {
