@@ -4086,7 +4086,17 @@ export function createPanel(options = {}) {
             return { ...seg, rows };
         });
 
-        const destName = getTripDestName(trip, stationsIndex) || '未知方向';
+        const titleThroughEndpoints = await resolveThroughServiceEndpointIds(trip);
+        if (token !== tripDetailToken) return;
+        const titleResolvedTerminalIds = Array.isArray(titleThroughEndpoints?.terminalIds)
+            ? titleThroughEndpoints.terminalIds.map((x) => toText(x)).filter(Boolean)
+            : [];
+        const fallbackTitleTerminalIds = getStationIds(trip?.ds);
+        const titleTerminalIds = titleResolvedTerminalIds.length ? titleResolvedTerminalIds : fallbackTitleTerminalIds;
+        const titleTerminalNames = Array.from(new Set(
+            titleTerminalIds.map((id) => toText(stationsIndex?.idToNameZh?.get?.(id) || id)).filter(Boolean)
+        ));
+        const destName = buildTerminalDisplayLabel(titleTerminalNames) || getTripDestName(trip, stationsIndex) || '未知方向';
         const typeId = toText(trip?.y);
         const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
         const typeColor = typeId ? resolveTrainTypeColorForTheme(trainTypeColorIndex.get(typeId)) : '';

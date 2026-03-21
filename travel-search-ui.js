@@ -25,6 +25,10 @@ import {
     createTimetableNoteRow,
     createTimetableStationRow
 } from './timetable-table.js';
+import {
+    detectThroughServiceCategoryFromTrips,
+    THROUGH_SERVICE_DISPLAY
+} from './shonanshinjuku-uenotokyo.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -38,6 +42,184 @@ function el(tag, className, attrs = {}) {
 }
 
 const normalizeText = (v) => String(v ?? '').trim();
+
+const getJourneyServiceDay = (serviceDay) => (normalizeText(serviceDay) === 'SaturdayHoliday' ? 'SaturdayHoliday' : 'Weekday');
+
+const getJourneyTripBaseKey = (tripLike) => {
+    const t = normalizeText(tripLike?.t || '');
+    if (t) return t;
+    const id = normalizeText(tripLike?.id || '');
+    if (!id) return '';
+    return id.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '');
+};
+
+const extractJourneyLineIdFromTripId = (tripId) => {
+    const id = normalizeText(tripId);
+    if (!id) return '';
+    const m = id.match(/^(.*)\.[^.]+\.(Weekday|SaturdayHoliday)(?:\.[0-9]+)?$/);
+    return normalizeText(m?.[1] || '');
+};
+
+const normalizeRefArray = (value) => {
+    if (Array.isArray(value)) return value.map((x) => normalizeText(x)).filter(Boolean);
+    const s = normalizeText(value);
+    return s ? [s] : [];
+};
+
+const journeyTripByIdCacheByDay = new Map();
+
+const getJourneyTripByIdCache = (serviceDay) => {
+    const day = getJourneyServiceDay(serviceDay);
+    if (!journeyTripByIdCacheByDay.has(day)) journeyTripByIdCacheByDay.set(day, new Map());
+    return journeyTripByIdCacheByDay.get(day);
+};
+
+const findJourneyTripByRefInList = (list, key) => {
+    const tripKey = normalizeText(key);
+    if (!tripKey) return null;
+    const rows = Array.isArray(list) ? list : [];
+
+    const exact = rows.find((trip) => {
+        const id = normalizeText(trip?.id || '');
+        const t = normalizeText(trip?.t || '');
+        return id === tripKey || t === tripKey;
+    });
+    if (exact) return exact;
+
+    const baseExact = rows.find((trip) => getJourneyTripBaseKey(trip) === tripKey);
+    if (baseExact) return baseExact;
+
+    const pref = rows.find((trip) => {
+        const id = normalizeText(trip?.id || '');
+        const t = normalizeText(trip?.t || '');
+        return id.startsWith(`${tripKey}.`) || t.startsWith(`${tripKey}.`);
+    });
+    if (pref) return pref;
+
+    return rows.find((trip) => {
+        const pt = normalizeRefArray(trip?.pt);
+        const nt = normalizeRefArray(trip?.nt);
+        return pt.includes(tripKey) || nt.includes(tripKey);
+    }) || null;
+};
+
+const loadJourneyTripByTripId = async ({ tripId, serviceDay }) => {
+    const key = normalizeText(tripId);
+    if (!key) return null;
+
+    const dayCache = getJourneyTripByIdCache(serviceDay);
+    if (dayCache.has(key)) return dayCache.get(key) || null;
+
+    const cache = window?.TokyoRailTimetableCache;
+    if (!cache) {
+        dayCache.set(key, null);
+        return null;
+    }
+
+    const lineId = extractJourneyLineIdFromTripId(key);
+    if (!lineId) {
+        dayCache.set(key, null);
+        return null;
+    }
+
+    const has = cache.get(lineId);
+    if (!has) await cache.preloadByLineIds([lineId]);
+    const list = Array.isArray(cache.get(lineId)) ? cache.get(lineId) : [];
+
+    const day = getJourneyServiceDay(serviceDay);
+    const filtered = list.filter((trip) => {
+        const id = normalizeText(trip?.id || '');
+        if (!id) return true;
+        if (day === 'Weekday') return !id.includes('.SaturdayHoliday');
+        return id.includes('.SaturdayHoliday');
+    });
+
+    const found = findJourneyTripByRefInList(filtered, key) || findJourneyTripByRefInList(list, key) || null;
+    dayCache.set(key, found);
+    return found;
+};
+
+const collectUniqueTripIds = (values) => {
+    const out = [];
+    const seen = new Set();
+    for (const value of Array.isArray(values) ? values : []) {
+        const id = normalizeText(value);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        out.push(id);
+    }
+    return out;
+};
+
+const collectSectionCandidateTripIds = (section) => {
+    const ids = [];
+    const throughTripIds = Array.isArray(section?.throughTripIds) ? section.throughTripIds : [];
+    const tripIds = Array.isArray(section?.tripIds) ? section.tripIds : [];
+    const legs = Array.isArray(section?.legs) ? section.legs : [];
+
+    ids.push(...throughTripIds, ...tripIds);
+    for (const leg of legs) {
+        ids.push(
+            normalizeText(leg?.rawTripId || ''),
+            normalizeText(leg?.tripId || ''),
+            ...(Array.isArray(leg?.throughTripIds) ? leg.throughTripIds : [])
+        );
+    }
+
+    return collectUniqueTripIds(ids);
+};
+
+const collectLegCandidateTripIds = (leg) => collectUniqueTripIds([
+    normalizeText(leg?.rawTripId || ''),
+    normalizeText(leg?.tripId || ''),
+    ...(Array.isArray(leg?.throughTripIds) ? leg.throughTripIds : [])
+]);
+
+const detectJourneyThroughCategoryMeta = async ({ tripIds, serviceDay }) => {
+    const ids = collectUniqueTripIds(tripIds);
+    if (!ids.length) return null;
+
+    const trips = [];
+    for (const tripId of ids) {
+        const trip = await loadJourneyTripByTripId({ tripId, serviceDay });
+        if (trip) trips.push(trip);
+    }
+    if (!trips.length) return null;
+
+    const category = normalizeText(detectThroughServiceCategoryFromTrips(trips));
+    const display = THROUGH_SERVICE_DISPLAY?.[category] || null;
+    if (!category || !display) return null;
+
+    return {
+        category,
+        name: normalizeText(display?.name || ''),
+        color: normalizeText(display?.color || '') || null
+    };
+};
+
+const extractJourneyTripSpecialNames = (tripLike) => {
+    const list = Array.isArray(tripLike?.nm) ? tripLike.nm : [];
+    const out = [];
+    for (const item of list) {
+        const name = normalizeText(item?.['zh-Hans'] || item?.['zh-Hnas'] || item?.ja || item?.en);
+        if (name) out.push(name);
+    }
+    return Array.from(new Set(out));
+};
+
+const detectJourneySpecialNameText = async ({ tripIds, serviceDay }) => {
+    const ids = collectUniqueTripIds(tripIds);
+    if (!ids.length) return '';
+
+    const names = new Set();
+    for (const tripId of ids) {
+        const trip = await loadJourneyTripByTripId({ tripId, serviceDay });
+        if (!trip) continue;
+        for (const name of extractJourneyTripSpecialNames(trip)) names.add(name);
+    }
+
+    return Array.from(names).join(' / ');
+};
 
 const TRAVEL_HISTORY_KEY = 'TokyoRailSearchHistory';
 const TRAVEL_MAX_HISTORY = 20;
@@ -970,6 +1152,14 @@ export function mountTravelSearchUI() {
     const renderTripDetailBody = async ({ row }) => {
         clearTripPopoverBody();
         const displayPlan = await getDisplayPlanForRow(row);
+        const sectionsForDisplay = Array.isArray(displayPlan?.sections) ? displayPlan.sections : [];
+        const sectionThroughMetaList = sectionsForDisplay.length
+            ? await Promise.all(sectionsForDisplay.map((section) => detectJourneyThroughCategoryMeta({
+                tripIds: collectSectionCandidateTripIds(section),
+                serviceDay: row?.serviceDay
+            })))
+            : [];
+
         const blocks = await buildPlanDetailBlocks({
             plan: row.plan,
             legsOverride: displayPlan?.legs,
@@ -985,6 +1175,8 @@ export function mountTravelSearchUI() {
         const overallDestinationStationId = normalizeText(row?.destinationStationId || (displayPlan?.legs && displayPlan.legs.length ? displayPlan.legs[displayPlan.legs.length - 1]?.toStop : '') || '');
         const stationCodeMap = await getJourneyStationCodeMap();
         let shouldAppendDirectionForNextNote = true;
+        let currentSectionIndex = 0;
+        let hasRenderedSectionLineNote = false;
 
         for (const block of blocks) {
             if (block.kind === 'transfer') {
@@ -992,8 +1184,15 @@ export function mountTravelSearchUI() {
                 transferRow.appendChild(el('span', 'journey-trip-transfer-label', { text: '换乘' }));
                 tripPopoverBody.appendChild(transferRow);
                 shouldAppendDirectionForNextNote = true;
+                currentSectionIndex += 1;
+                hasRenderedSectionLineNote = false;
                 continue;
             }
+
+            const sectionThroughMeta = sectionThroughMetaList[currentSectionIndex] || null;
+            const lineText = normalizeText(sectionThroughMeta?.name || block.lineDisplayName || block.lineName);
+            const lineColorResolved = normalizeText(sectionThroughMeta?.color || block.lineColor || '');
+            const shouldRenderLineNote = !hasRenderedSectionLineNote;
 
             const blockRows = Array.isArray(block?.rows) ? block.rows : [];
             const blockLast = blockRows.length ? blockRows[blockRows.length - 1] : null;
@@ -1002,13 +1201,13 @@ export function mountTravelSearchUI() {
                 : '';
             const note = createTimetableNoteRow({
                 rowClass: 'journey-trip-note-row',
-                dotClass: 'journey-trip-note-dot',
-                lineClass: 'journey-trip-note-line',
+                dotClass: shouldRenderLineNote ? 'journey-trip-note-dot' : '',
+                lineClass: shouldRenderLineNote ? 'journey-trip-note-line' : '',
                 typeClass: 'journey-trip-note-type',
                 directionClass: 'journey-trip-note-direction',
-                lineText: block.lineDisplayName || block.lineName,
-                lineColor: block.lineColor ? String(resolveJourneyColorForTheme(block.lineColor)) : '',
-                dotColor: block.lineColor ? String(resolveJourneyColorForTheme(block.lineColor)) : '',
+                lineText: shouldRenderLineNote ? lineText : '',
+                lineColor: shouldRenderLineNote && lineColorResolved ? String(resolveJourneyColorForTheme(lineColorResolved)) : '',
+                dotColor: shouldRenderLineNote && lineColorResolved ? String(resolveJourneyColorForTheme(lineColorResolved)) : '',
                 typeText: block.typeName,
                 typeColor: block.typeColor ? String(resolveJourneyColorForTheme(block.typeColor)) : '',
                 directionText: directionDestination ? ` 往 ${directionDestination} /` : ''
@@ -1018,6 +1217,7 @@ export function mountTravelSearchUI() {
                 if (noteTypeEl instanceof HTMLElement) noteTypeEl.style.color = '#fff';
             }
             if (shouldAppendDirectionForNextNote) shouldAppendDirectionForNextNote = false;
+            hasRenderedSectionLineNote = true;
             tripPopoverBody.appendChild(note);
 
             for (let i = 0; i < block.rows.length; i += 1) {
@@ -1113,14 +1313,54 @@ export function mountTravelSearchUI() {
     };
 
     const appendJourneyPath = async (container, displayPlan, serviceDayHint = '') => {
+        const effectiveServiceDay = normalizeText(serviceDayHint || displayPlan?.serviceDay || 'Weekday') || 'Weekday';
         const sectionList = Array.isArray(displayPlan?.sections) ? displayPlan.sections : [];
         if (sectionList.length) {
             for (let i = 0; i < sectionList.length; i += 1) {
                 const section = sectionList[i] || {};
                 const lineRuns = await buildSectionLineRunsForDisplay({
                     section,
-                    serviceDay: normalizeText(serviceDayHint || displayPlan?.serviceDay || 'Weekday') || 'Weekday'
+                    serviceDay: effectiveServiceDay
                 });
+                const sectionThroughMeta = await detectJourneyThroughCategoryMeta({
+                    tripIds: collectSectionCandidateTripIds(section),
+                    serviceDay: effectiveServiceDay
+                });
+                const sectionSpecialName = await detectJourneySpecialNameText({
+                    tripIds: collectSectionCandidateTripIds(section),
+                    serviceDay: effectiveServiceDay
+                });
+
+                if (sectionThroughMeta?.name) {
+                    const lineSpan = el('span', 'journey-plan-line', { text: sectionThroughMeta.name });
+                    if (sectionThroughMeta?.color) lineSpan.style.color = String(resolveJourneyColorForTheme(sectionThroughMeta.color));
+                    container.appendChild(lineSpan);
+
+                    const fallbackType = normalizeText(lineRuns?.[0]?.typeName || section?.legs?.[0]?.typeName || '');
+                    const fallbackTypeColor = normalizeText(lineRuns?.[0]?.typeColor || section?.legs?.[0]?.typeColor || '');
+                    const typeOrSpecial = normalizeText(sectionSpecialName || fallbackType);
+                    if (typeOrSpecial) {
+                        const typeSpan = el('span', 'journey-plan-type', { text: typeOrSpecial });
+                        if (!sectionSpecialName && fallbackTypeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(fallbackTypeColor));
+                        container.appendChild(typeSpan);
+                    }
+
+                    if (i < sectionList.length - 1) {
+                        const wrap = el('span', 'journey-plan-arrow');
+                        const icon = el('img', 'journey-plan-arrow-icon', { alt: '' });
+                        const candidates = ['./icons/arrow-right.svg', '/icons/arrow-right.svg'];
+                        let idx = 0;
+                        icon.src = candidates[idx];
+                        if (travelIsDarkThemeActive()) icon.style.filter = 'brightness(0) invert(1)';
+                        icon.addEventListener('error', () => {
+                            idx += 1;
+                            if (idx < candidates.length) icon.src = candidates[idx];
+                        });
+                        wrap.appendChild(icon);
+                        container.appendChild(wrap);
+                    }
+                    continue;
+                }
 
                 if (!lineRuns.length) {
                     const lineIds = Array.isArray(section?.lineIds)
@@ -1142,9 +1382,14 @@ export function mountTravelSearchUI() {
                     if (lineColor) lineSpan.style.color = String(resolveJourneyColorForTheme(lineColor));
                     container.appendChild(lineSpan);
 
-                    if (normalizeText(run?.typeName || '')) {
-                        const typeSpan = el('span', 'journey-plan-type', { text: `${normalizeText(run.typeName)}` });
-                        if (run?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(run.typeColor));
+                    const runTypeText = normalizeText(
+                        sectionSpecialName
+                            ? (r === 0 ? sectionSpecialName : '')
+                            : (run?.typeName || '')
+                    );
+                    if (runTypeText) {
+                        const typeSpan = el('span', 'journey-plan-type', { text: runTypeText });
+                        if (!sectionSpecialName && run?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(run.typeColor));
                         container.appendChild(typeSpan);
                     }
 
@@ -1176,6 +1421,51 @@ export function mountTravelSearchUI() {
         const legs = Array.isArray(displayPlan?.legs) ? displayPlan.legs : [];
         for (let i = 0; i < legs.length; i += 1) {
             const leg = legs[i];
+            const legThroughMeta = await detectJourneyThroughCategoryMeta({
+                tripIds: collectLegCandidateTripIds(leg),
+                serviceDay: effectiveServiceDay
+            });
+            const legSpecialName = await detectJourneySpecialNameText({
+                tripIds: collectLegCandidateTripIds(leg),
+                serviceDay: effectiveServiceDay
+            });
+
+            if (legThroughMeta?.name) {
+                const lineSpan = el('span', 'journey-plan-line', { text: legThroughMeta.name });
+                if (legThroughMeta?.color) lineSpan.style.color = String(resolveJourneyColorForTheme(legThroughMeta.color));
+                container.appendChild(lineSpan);
+
+                const typeText = normalizeText(legSpecialName || leg?.typeName || '');
+                if (typeText) {
+                    const typeSpan = el('span', 'journey-plan-type', { text: typeText });
+                    if (!legSpecialName && leg?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(leg.typeColor));
+                    container.appendChild(typeSpan);
+                }
+
+                if (i < legs.length - 1) {
+                    const through = isThroughLegPairByMeta({ currentLeg: leg, nextLeg: legs[i + 1] });
+                    const wrap = el('span', 'journey-plan-arrow');
+                    const icon = el('img', 'journey-plan-arrow-icon', { alt: '' });
+                    {
+                        const candidates = through
+                            ? ['./icons/arrows.svg', '/icons/arrows.svg']
+                            : ['./icons/arrow-right.svg', '/icons/arrow-right.svg'];
+                        let idx = 0;
+                        icon.src = candidates[idx];
+                        if (!through && travelIsDarkThemeActive()) {
+                            icon.style.filter = 'brightness(0) invert(1)';
+                        }
+                        icon.addEventListener('error', () => {
+                            idx += 1;
+                            if (idx < candidates.length) icon.src = candidates[idx];
+                        });
+                    }
+                    wrap.appendChild(icon);
+                    container.appendChild(wrap);
+                }
+                continue;
+            }
+
             const throughLineIds = Array.isArray(leg?.throughLineIds)
                 ? leg.throughLineIds.map((x) => normalizeText(x)).filter(Boolean)
                 : [];
@@ -1213,8 +1503,9 @@ export function mountTravelSearchUI() {
                 container.appendChild(lineSpan);
             }
 
-            const typeSpan = el('span', 'journey-plan-type', { text: `${normalizeText(leg.typeName) || '普通'}` });
-            if (leg?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(leg.typeColor));
+            const typeText = normalizeText(legSpecialName || leg.typeName || '普通');
+            const typeSpan = el('span', 'journey-plan-type', { text: typeText });
+            if (!legSpecialName && leg?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(leg.typeColor));
             container.appendChild(typeSpan);
 
             if (i < legs.length - 1) {

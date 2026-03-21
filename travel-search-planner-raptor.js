@@ -1761,7 +1761,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
 export const collectJourneyCandidatesRaptor = async ({ sourceStops, destinationStops, serviceDay, baseDepartureMs }) => {
     await ensurePlannerStaticData();
 
-    const offsetsMin = [0, 10 ,30];
+    const offsetsMin = [0, 10];
 
     const runWithMaxRounds = async (maxRounds) => {
         const candidates = [];
