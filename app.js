@@ -3332,6 +3332,10 @@ map.on('load', async () => {
         }
 
         const ensureTripPreviewLayers = () => {
+            const tripLineBeforeLayerId = map.getLayer('transfer-capsule-outline-layer')
+                ? 'transfer-capsule-outline-layer'
+                : (map.getLayer('stations-layer') ? 'stations-layer' : undefined);
+
             if (!map.getSource('trip-preview-source')) {
                 map.addSource('trip-preview-source', {
                     type: 'geojson',
@@ -3351,7 +3355,9 @@ map.on('load', async () => {
                         'line-width': 3,
                         'line-opacity': 1
                     }
-                });
+                }, tripLineBeforeLayerId);
+            } else if (tripLineBeforeLayerId) {
+                try { map.moveLayer('trip-preview-line-layer', tripLineBeforeLayerId); } catch { /* ignore */ }
             }
 
             if (!map.getLayer('trip-preview-connector-layer')) {
@@ -3366,7 +3372,9 @@ map.on('load', async () => {
                         'line-width': 3,
                         'line-opacity': 1
                     }
-                });
+                }, tripLineBeforeLayerId);
+            } else if (tripLineBeforeLayerId) {
+                try { map.moveLayer('trip-preview-connector-layer', tripLineBeforeLayerId); } catch { /* ignore */ }
             }
 
             if (!map.getSource('trip-preview-stops-source')) {
@@ -3390,9 +3398,15 @@ map.on('load', async () => {
                         ],
                         'circle-color': tripPreviewStopCircleColorPaintExpr(),
                         'circle-stroke-width': 0,
-                        'circle-stroke-color': tripPreviewStopStrokeColorPaint()
+                        'circle-stroke-color': tripPreviewStopStrokeColorPaint(),
+                        // 由 stations-layer 统一承载线路色站点，避免 trip-preview 额外白点覆盖样式。
+                        'circle-opacity': 0,
+                        'circle-stroke-opacity': 0
                     }
                 });
+            } else {
+                map.setPaintProperty('trip-preview-stops-layer', 'circle-opacity', 0);
+                map.setPaintProperty('trip-preview-stops-layer', 'circle-stroke-opacity', 0);
             }
         };
 
