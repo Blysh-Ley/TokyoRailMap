@@ -324,6 +324,10 @@ map.on('load', async () => {
     };
     let stationCoordById = new Map();
     let stationServingCountById = new Map();
+    let transferCapsuleStationsData = null;
+    let transferCapsuleStationGroups = null;
+    let transferCapsuleRefreshRafId = null;
+    let transferCapsuleVisibleKey = '__init__';
 
     // 右侧界面：站点/站名/搜索提交站点时弹出（在 applySelectionEffects 定义后初始化）
     let panel = null;
@@ -472,6 +476,126 @@ map.on('load', async () => {
             if (hit) out.add(sid);
         }
         return out;
+    };
+
+    const getVisibleStationIdsByLineIds = (lineIds) => {
+        const ids = lineIds instanceof Set
+            ? lineIds
+            : new Set(Array.isArray(lineIds) ? lineIds.map((x) => String(x || '').trim()).filter(Boolean) : []);
+        if (!ids.size) return new Set();
+
+        const out = new Set();
+        const labels = Array.isArray(stationLabels) ? stationLabels : [];
+        for (const item of labels) {
+            const props = item?.props || {};
+            const sid = String(item?.stationId || props?.id || '').trim();
+            if (!sid) continue;
+
+            const platform = normalizeArrayLike(props?.platform_line_id).map((x) => String(x || '').trim()).filter(Boolean);
+            const servingIds = normalizeArrayLike(props?.serving_ids).map((x) => String(x || '').trim()).filter(Boolean);
+            const lines = platform.length ? platform : servingIds;
+            if (!lines.length) continue;
+
+            let hit = false;
+            for (const lid of lines) {
+                if (ids.has(lid)) {
+                    hit = true;
+                    break;
+                }
+            }
+            if (hit) out.add(sid);
+        }
+        return out;
+    };
+
+    const getVisibleStationIdsForTransferCapsules = () => {
+        if (tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size) {
+            if (isMultiSelectModeEnabled()) {
+                const baseIds = getVisibleStationIdsForBaseMultiSelection();
+                if (baseIds.size) {
+                    const merged = new Set(baseIds);
+                    for (const sid of tripPreviewStationIds) merged.add(String(sid || '').trim());
+                    return merged;
+                }
+            }
+            return new Set(Array.from(tripPreviewStationIds).map((x) => String(x || '').trim()).filter(Boolean));
+        }
+
+        if (dirPreviewActive && dirPreviewStationIds && dirPreviewStationIds.size) {
+            return new Set(Array.from(dirPreviewStationIds).map((x) => String(x || '').trim()).filter(Boolean));
+        }
+
+        if (isMultiSelectModeEnabled()) {
+            const baseIds = getVisibleStationIdsForBaseMultiSelection();
+            if (baseIds.size) return baseIds;
+        }
+
+        if (!selectedLineId && !selectedCompany && selectedStationId) {
+            return new Set(getSelectedStationHighlightIds().map(String).filter(Boolean));
+        }
+
+        const highlightLineIds = (() => {
+            if (selectedLineId) {
+                if (selectedStationLineIds && selectedStationLineIds.size > 1) {
+                    return new Set(Array.from(selectedStationLineIds).map(String).filter(Boolean));
+                }
+                return new Set([String(selectedLineId)]);
+            }
+
+            if (selectedStationLineIds && selectedStationLineIds.size) {
+                return new Set(Array.from(selectedStationLineIds).map(String).filter(Boolean));
+            }
+
+            if (selectedCompany && enabledLineIdsByCompany && enabledLineIdsByCompany.has(selectedCompany)) {
+                return new Set(Array.from(enabledLineIdsByCompany.get(selectedCompany) || []).map(String).filter(Boolean));
+            }
+
+            return null;
+        })();
+
+        if (highlightLineIds && highlightLineIds.size) {
+            return getVisibleStationIdsByLineIds(highlightLineIds);
+        }
+
+        return null;
+    };
+
+    const toTransferCapsuleVisibleKey = (visibleIds) => {
+        if (!(visibleIds instanceof Set)) return '*';
+        if (!visibleIds.size) return '__empty__';
+        return Array.from(visibleIds).map(String).filter(Boolean).sort().join('|');
+    };
+
+    const refreshTransferCapsulesNow = () => {
+        if (!map || !transferCapsuleStationsData || !Array.isArray(transferCapsuleStationGroups)) return;
+
+        const visibleStationIds = getVisibleStationIdsForTransferCapsules();
+        const nextKey = toTransferCapsuleVisibleKey(visibleStationIds);
+        if (nextKey === transferCapsuleVisibleKey) return;
+        transferCapsuleVisibleKey = nextKey;
+
+        const transferCapsuleData = buildTransferCapsuleGeoJSON(transferCapsuleStationsData, transferCapsuleStationGroups, {
+            visibleStationIds,
+            singleStationFallbackCircle: true,
+            resolveLineColor: (lineId) => {
+                const id = String(lineId || '').trim();
+                if (!id) return '';
+                return resolveRailColorForTheme(lineColorById.get(id) || '') || '';
+            }
+        });
+
+        addTransferCapsuleLayers(map, transferCapsuleData, {
+            beforeLayerId: 'stations-layer',
+            minZoom: 8
+        });
+    };
+
+    const scheduleTransferCapsuleRefresh = () => {
+        if (transferCapsuleRefreshRafId != null) return;
+        transferCapsuleRefreshRafId = requestAnimationFrame(() => {
+            transferCapsuleRefreshRafId = null;
+            refreshTransferCapsulesNow();
+        });
     };
 
     const applyMultiSelectBaseLayerState = (enabled) => {
@@ -1686,6 +1810,7 @@ map.on('load', async () => {
     const applySelectionEffects = () => {
         applyLineSelectionStyle();
         applyStationSelectionStyle();
+        scheduleTransferCapsuleRefresh();
         updateMultiSelectStationLabelChips();
         if (collisionController) collisionController.scheduleUpdate();
         updateSelectionBadge();
@@ -4990,19 +5115,10 @@ map.on('load', async () => {
 
         // 换乘站 MST“变形胶囊”：固定启用，无额外开关。
         try {
-            const transferStationGroups = await getCachedJson('./data/station-groups.json');
-            const transferCapsuleData = buildTransferCapsuleGeoJSON(stationsData, transferStationGroups, {
-                resolveLineColor: (lineId) => {
-                    const id = String(lineId || '').trim();
-                    if (!id) return '';
-                    return resolveRailColorForTheme(lineColorById.get(id) || '') || '';
-                }
-            });
-
-            addTransferCapsuleLayers(map, transferCapsuleData, {
-                beforeLayerId: 'stations-layer',
-                minZoom: 8
-            });
+            transferCapsuleStationsData = stationsData;
+            transferCapsuleStationGroups = await getCachedJson('./data/station-groups.json');
+            transferCapsuleVisibleKey = '__init__';
+            scheduleTransferCapsuleRefresh();
         } catch (e) {
             console.warn('换乘站 MST 胶囊渲染初始化失败', e);
         }
