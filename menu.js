@@ -651,10 +651,19 @@ export class Menu {
             }
 
             // 稳定排序：
-            // 1) 若传入 railways-order 索引，则按其排序（同公司内）
+            // 1) 若传入 railways-order 索引，则按 data/railways-order.json 的数组顺序（同公司内）
+            //    （loadRailwaysOrderIndex 当前是反向建索引，因此这里按 rank 倒序）
             // 2) 否则沿用公司自定义优先名单（若存在）
             if ((orderIndex && orderIndex.size) || (preferredLineOrder && preferredLineOrder.length)) {
                 decoratedFiltered.sort((a, b) => {
+                    if (orderIndex && orderIndex.size) {
+                        const aFinite = Number.isFinite(a.orderRank);
+                        const bFinite = Number.isFinite(b.orderRank);
+                        if (aFinite !== bFinite) return aFinite ? -1 : 1;
+                        if (aFinite && bFinite && a.orderRank !== b.orderRank) return b.orderRank - a.orderRank;
+                        return a.idx - b.idx;
+                    }
+
                     if (a.orderRank !== b.orderRank) return a.orderRank - b.orderRank;
                     return a.idx - b.idx;
                 });
