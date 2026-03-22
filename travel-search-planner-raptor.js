@@ -150,7 +150,6 @@ const buildThroughChainFromTrip = async ({ seedTrip, serviceDay, serviceDayStart
 
             const nextTimes = getTripStartEndTimes(candidate, serviceDayStartMs);
             if (!currTimes || !nextTimes) continue;
-            if (!isSamePhysicalStop(currTimes.lastStopId, nextTimes.firstStopId)) continue;
             if (Number.isFinite(currTimes.endArrMs) && Number.isFinite(nextTimes.startDepMs) && nextTimes.startDepMs < currTimes.endArrMs) {
                 continue;
             }
@@ -224,7 +223,7 @@ export const isThroughLegPairByMeta = ({ currentLeg, nextLeg }) => {
     const nextBase = normalizeText(nextLeg?.baseTripKey || '');
     const linkedByBaseTrip = currBase && currBase === nextBase;
 
-    return isSamePhysicalStop(currentLeg?.toStop, nextLeg?.fromStop) && (linkedByRef || linkedByBaseTrip);
+    return (linkedByRef || linkedByBaseTrip);
 };
 
 const toRadians = (deg) => (Number(deg) * Math.PI) / 180;
@@ -302,7 +301,7 @@ export const ensurePlannerStaticData = async () => {
             const surchargeRaw = title?.surcharge;
             const surcharge = surchargeRaw === true ? true : (surchargeRaw === false ? false : null);
             typeMetaById.set(id, { id, name, color: color || null, surcharge });
-        }
+       }
 
         const stationNameById = new Map();
         const stationCoordById = new Map();
@@ -1374,8 +1373,7 @@ const isThroughLegPair = ({ currentLeg, nextLeg, currentTrip, nextTrip }) => {
         normalizeText(currentTrip?.baseTripKey || '') &&
         normalizeText(currentTrip?.baseTripKey || '') === normalizeText(nextTrip?.baseTripKey || '');
 
-    const sameStopPhysical = isSamePhysicalStop(currentLeg?.toStop, nextLeg?.fromStop);
-    return sameStopPhysical && (linkedByRef || linkedByBaseTrip);
+    return (linkedByRef || linkedByBaseTrip);
 };
 
 export const expandLegsForDisplay = async ({ legs, serviceDay, originStationId }) => {
