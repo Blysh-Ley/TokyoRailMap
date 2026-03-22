@@ -305,6 +305,7 @@ map.on('load', async () => {
     let clearTripPathPreview = () => {};
     let tripPreviewStationIds = null; // Set<string> | null
     let tripPreviewLineIds = null; // Set<string> | null
+    let tripPreviewStationOverrideColor = '';
     let tripPreviewActive = false;
     let tripPreviewActiveSource = '';
     let tripPreviewOriginPopup = null;
@@ -952,6 +953,33 @@ map.on('load', async () => {
         return getMenuThroughDisplayByCategory(category);
     };
 
+    const getMenuThroughDisplayByPreviewSource = (source) => {
+        const raw = String(source || '').trim();
+        if (!raw.startsWith('rw-menu-through:')) return null;
+        const lineId = raw.slice('rw-menu-through:'.length).trim();
+        if (!lineId) return null;
+        return getMenuThroughDisplayByLineId(lineId);
+    };
+
+    const resolveTripPreviewStationOverrideColor = (payload, source) => {
+        const throughFromSource = getMenuThroughDisplayByPreviewSource(source);
+        const bySourceColor = String(throughFromSource?.color || '').trim();
+        if (bySourceColor) return resolveRailColorForTheme(bySourceColor) || bySourceColor;
+
+        const byCategory = getMenuThroughDisplayByCategory(String(payload?.throughServiceCategory || '').trim());
+        const byCategoryColor = String(byCategory?.color || '').trim();
+        if (byCategoryColor) return resolveRailColorForTheme(byCategoryColor) || byCategoryColor;
+
+        const fallback = String(payload?.highlightColor || payload?.typeColor || '').trim();
+        const throughColors = new Set([
+            String(THROUGH_SERVICE_DISPLAY?.ShonanShinjuku?.color || '').trim().toLowerCase(),
+            String(THROUGH_SERVICE_DISPLAY?.UenoTokyo?.color || '').trim().toLowerCase()
+        ].filter(Boolean));
+        const fallbackNorm = fallback.toLowerCase();
+        if (!fallbackNorm || !throughColors.has(fallbackNorm)) return '';
+        return resolveRailColorForTheme(fallback) || fallback;
+    };
+
     const clearMenuThroughPreview = () => {
         for (const source of MENU_THROUGH_PREVIEW_SOURCES) {
             clearTripPathPreview({ source });
@@ -1570,7 +1598,21 @@ map.on('load', async () => {
         const baseNonTransferColor = isDarkThemeActive() ? '#8e95a1' : '#fff';
         const transferLineColorExpr = buildPrimaryLineColorExpr(baseNonTransferColor);
         const nonTransferLineColorExpr = buildPrimaryLineColorExpr(baseNonTransferColor);
-        return ['case', isTransferExpr, transferLineColorExpr, nonTransferLineColorExpr];
+        const baseExpr = ['case', isTransferExpr, transferLineColorExpr, nonTransferLineColorExpr];
+
+        const overrideColor = String(tripPreviewStationOverrideColor || '').trim();
+        if (!(tripPreviewActive && overrideColor && tripPreviewStationIds && tripPreviewStationIds.size)) {
+            return baseExpr;
+        }
+
+        const ids = Array.from(tripPreviewStationIds).map((x) => String(x || '').trim()).filter(Boolean);
+        if (!ids.length) return baseExpr;
+
+        const isPreviewStationExpr = ids.length === 1
+            ? ['==', ['get', 'id'], ids[0]]
+            : ['in', ['get', 'id'], ['literal', ids]];
+
+        return ['case', isPreviewStationExpr, overrideColor, baseExpr];
     }
 
     function stationCircleStrokeColorPaint() {
@@ -4476,6 +4518,7 @@ map.on('load', async () => {
             tripPreviewActive = hasVisible;
             tripPreviewStationIds = hasVisible ? aggregate.stopIds : null;
             tripPreviewLineIds = hasVisible ? aggregate.lineIds : null;
+            tripPreviewStationOverrideColor = '';
 
             if (!hasVisible) {
                 setStationLabelMode(getBaseMultiSelectedLineIds().size ? 'all' : 'auto');
@@ -4617,6 +4660,7 @@ map.on('load', async () => {
             tripPreviewActiveSource = '';
             tripPreviewStationIds = null;
             tripPreviewLineIds = null;
+            tripPreviewStationOverrideColor = '';
             tripPreviewSelectionsByKey = new Map();
             resetTripPreviewLayers();
             clearTripEndpointPopups();
@@ -4697,6 +4741,7 @@ map.on('load', async () => {
 
                 tripPreviewActive = true;
                 tripPreviewActiveSource = payloadSource;
+                tripPreviewStationOverrideColor = resolveTripPreviewStationOverrideColor(payload, payloadSource);
                 if (payloadSource === 'panel-dir-branch') {
                     const explicitHighlightIds = new Set(
                         (Array.isArray(payload?.highlightStationIds) ? payload.highlightStationIds : [])
@@ -4775,6 +4820,7 @@ map.on('load', async () => {
             const built = buildTripPreviewFeatures(payload);
             tripPreviewActive = true;
             tripPreviewActiveSource = payloadSource;
+            tripPreviewStationOverrideColor = resolveTripPreviewStationOverrideColor(payload, payloadSource);
             tripPreviewStationIds = built.stopIds;
             tripPreviewLineIds = built.lineIds;
 
