@@ -65,7 +65,7 @@ export function addLinesLayer(map, linesData) {
         filter: ['!=', ['get', 'hidden_by_opacity_zero'], 1],
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
-            'line-width': 3, //线宽
+            'line-width': 4, //线宽
             'line-color': ['coalesce', ['get', 'color'], '#555']
         }
     });

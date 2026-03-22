@@ -111,7 +111,8 @@ const loadRailwaysOrderIndex = (() => {
         promise = (async () => {
             try {
                 const list = await getCachedJson('./data/railways-order.json');
-                const arr = Array.isArray(list) ? list : [];
+                const arr_re = Array.isArray(list) ? list : [];
+                const arr = arr_re.toReversed()
                 const map = new Map();
                 for (let i = 0; i < arr.length; i++) {
                     const obj = arr[i];
@@ -1293,7 +1294,7 @@ map.on('load', async () => {
             map.setPaintProperty('lines-layer', 'line-width', [
                 'case',
                 hitExpr,
-                3,
+                4,
                 1.2
             ]);
             map.setPaintProperty('lines-layer', 'line-opacity', [
@@ -1331,7 +1332,7 @@ map.on('load', async () => {
             map.setPaintProperty('lines-layer', 'line-width', [
                 'case',
                 hitExpr,
-                3,
+                4,
                 1.2
             ]);
             map.setPaintProperty('lines-layer', 'line-opacity', [
@@ -1363,7 +1364,7 @@ map.on('load', async () => {
             map.setPaintProperty('lines-layer', 'line-width', [
                 'case',
                 hitExpr,
-                3,
+                4,
                 1.2
             ]); //线宽，线路宽度
 
@@ -1394,7 +1395,7 @@ map.on('load', async () => {
             map.setPaintProperty('lines-layer', 'line-width', [
                 'case',
                 hitExpr,
-                3,
+                4,
                 1.2
             ]);//线宽，线路宽度
 
@@ -1410,7 +1411,7 @@ map.on('load', async () => {
 
         if (!selectedCompany) {
             map.setPaintProperty('lines-layer', 'line-color', baseColorExpr);
-            map.setPaintProperty('lines-layer', 'line-width', 3); //线宽
+            map.setPaintProperty('lines-layer', 'line-width', 4); //线宽
             map.setPaintProperty('lines-layer', 'line-opacity', 1);
             return;
         }
@@ -1426,7 +1427,7 @@ map.on('load', async () => {
         map.setPaintProperty('lines-layer', 'line-width', [
             'case',
             ['==', ['get', 'company'], selectedCompany],
-            3,
+            4,
             1.2
         ]);
 
@@ -3283,6 +3284,53 @@ map.on('load', async () => {
         }
         */
         const linesData = (linesGeoJSONByZoom && linesGeoJSONByZoom[18]) || linesGeoJSON;
+        // 按 data/railways-order.json 的顺序对 linesData.features 排序：
+        // - 将 order 文件的 key 处理为匹配的 id 格式：把 '-' 替换为 '.'，如果首段以 'jr' 开头则插入 '-' 使之成为 'jr-...'（不区分大小写）
+        // - 未出现在 order 文件中的线路排到末尾（保持稳定性）
+        try {
+            const orderList = await getCachedJson('./data/railways-order.json');
+            if (Array.isArray(orderList) && Array.isArray(linesData?.features)) {
+                const normOrderMap = new Map();
+                for (let i = 0; i < orderList.length; i++) {
+                    const obj = orderList[i];
+                    if (!obj || typeof obj !== 'object') continue;
+                    const keys = Object.keys(obj);
+                    if (!keys.length) continue;
+                    const raw = String(keys[0] ?? '').trim().toLowerCase();
+                    if (!raw) continue;
+                    const parts = raw.split('-');
+                    if (parts[0] && parts[0].startsWith('jr') && parts[0].length > 2) {
+                        parts[0] = 'jr-' + parts[0].slice(2);
+                    }
+                    const norm = parts.join('.');
+                    if (!normOrderMap.has(norm)) normOrderMap.set(norm, i);
+                }
+
+                const getFeatId = (f) => {
+                    try {
+                        const maybe = (f && (f.properties && (f.properties.id || f.properties._id))) || (f && f.id) || '';
+                        return String(maybe ?? '').toLowerCase();
+                    } catch {
+                        return '';
+                    }
+                };
+
+                linesData.features.sort((a, b) => {
+                    const aid = getFeatId(a);
+                    const bid = getFeatId(b);
+                    const ai = normOrderMap.has(aid) ? normOrderMap.get(aid) : Number.MAX_SAFE_INTEGER;
+                    const bi = normOrderMap.has(bid) ? normOrderMap.get(bid) : Number.MAX_SAFE_INTEGER;
+                    if (ai === bi) return 0;
+                    // 我们希望 order 文件中靠前的线路最终出现在 GeoJSON features 的后面（绘制时覆盖在上面），
+                    // 因此把未命中的（MAX）排在前面，命中的按索引倒序排列（索引小的放后面）。
+                    if (ai === Number.MAX_SAFE_INTEGER) return -1;
+                    if (bi === Number.MAX_SAFE_INTEGER) return 1;
+                    return bi - ai;
+                });
+            }
+        } catch {
+            // ignore
+        }
         try {
             const fs = Array.isArray(linesData?.features) ? linesData.features : [];
             for (const f of fs) {
@@ -3352,7 +3400,7 @@ map.on('load', async () => {
                     layout: { 'line-join': 'round', 'line-cap': 'round' },
                     paint: {
                         'line-color': ['coalesce', ['get', 'color'], '#0a84ff'],
-                        'line-width': 3,
+                        'line-width': 4,
                         'line-opacity': 1
                     }
                 }, tripLineBeforeLayerId);
@@ -3369,7 +3417,7 @@ map.on('load', async () => {
                     layout: { 'line-join': 'round', 'line-cap': 'round' },
                     paint: {
                         'line-color': ['coalesce', ['get', 'color'], '#0a84ff'],
-                        'line-width': 3,
+                        'line-width': 4,
                         'line-opacity': 1
                     }
                 }, tripLineBeforeLayerId);
