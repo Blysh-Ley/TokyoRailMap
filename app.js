@@ -230,6 +230,13 @@ const applyBasemapTheme = (theme) => {
         if (canvas && canvas.style) {
             canvas.style.background = basemapMode === 'transparent' ? 'transparent' : '';
         }
+        try {
+            if (typeof window !== 'undefined' && window && typeof window.dispatchEvent === 'function') {
+                window.dispatchEvent(new Event('__TokyoRailThemeChanged'));
+            }
+        } catch {
+            // ignore
+        }
     } catch {
         // ignore
     }

@@ -269,6 +269,51 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
         map.getSource(ids.centroidSourceId).setData(data?.centroids || { type: 'FeatureCollection', features: [] });
     }
 
+    const getThemeCapsuleColors = () => {
+        try {
+            const theme = String(document.documentElement.getAttribute('data-theme') || '').trim();
+            const isDark = theme === 'dark';
+            return {
+                outline: isDark ? '#fff' : '#111',
+                inner: isDark ? '#111' : '#fff'
+            };
+        } catch {
+            return { outline: '#111', inner: '#fff' };
+        }
+    };
+
+    const applyCapsulePaintColors = () => {
+        const cols = getThemeCapsuleColors();
+        if (map.getLayer(ids.slaveOutlineLayerId)) {
+            try { map.setPaintProperty(ids.slaveOutlineLayerId, 'line-color', cols.outline); } catch {}
+            try { map.setPaintProperty(ids.slaveOutlineLayerId, 'line-opacity', 1); } catch {}
+        }
+        if (map.getLayer(ids.slaveInnerLayerId)) {
+            try { map.setPaintProperty(ids.slaveInnerLayerId, 'line-color', cols.inner); } catch {}
+            try { map.setPaintProperty(ids.slaveInnerLayerId, 'line-opacity', 1); } catch {}
+        }
+        if (map.getLayer(ids.fallbackCircleOutlineLayerId)) {
+            try { map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-color', cols.outline); } catch {}
+            try { map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-opacity', 1); } catch {}
+        }
+        if (map.getLayer(ids.fallbackCircleInnerLayerId)) {
+            try { map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-color', cols.inner); } catch {}
+            try { map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-opacity', 1); } catch {}
+        }
+    };
+
+    // 监听页面层主题变化（app.js 会触发 __TokyoRailThemeChanged 事件）以更新颜色
+    try {
+        if (typeof window !== 'undefined' && window && !window.__TokyoRailCapsuleThemeHooked) {
+            window.addEventListener('__TokyoRailThemeChanged', () => {
+                applyCapsulePaintColors();
+            });
+            window.__TokyoRailCapsuleThemeHooked = true;
+        }
+    } catch {
+        // ignore
+    }
+
     if (!map.getLayer(ids.slaveOutlineLayerId)) {
         map.addLayer({
             id: ids.slaveOutlineLayerId,
@@ -281,7 +326,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
                 'line-cap': 'round'
             },
             paint: {
-                'line-color': '#111',
+                'line-color': getThemeCapsuleColors().outline,
                 'line-opacity': 1,
                 'line-width': [
                     'interpolate',
@@ -293,7 +338,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             }
         }, beforeLayerId);
     } else {
-        map.setPaintProperty(ids.slaveOutlineLayerId, 'line-color', '#111');
+        map.setPaintProperty(ids.slaveOutlineLayerId, 'line-color', getThemeCapsuleColors().outline);
         map.setPaintProperty(ids.slaveOutlineLayerId, 'line-opacity', 1);
         map.setPaintProperty(ids.slaveOutlineLayerId, 'line-width', [
             'interpolate',
@@ -317,7 +362,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
                 'line-cap': 'round'
             },
             paint: {
-                'line-color': '#fff',
+                'line-color': getThemeCapsuleColors().inner,
                 'line-opacity': 1,
                 'line-width': [
                     'interpolate',
@@ -329,7 +374,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             }
         }, beforeLayerId);
     } else {
-        map.setPaintProperty(ids.slaveInnerLayerId, 'line-color', '#fff');
+        map.setPaintProperty(ids.slaveInnerLayerId, 'line-color', getThemeCapsuleColors().inner);
         map.setPaintProperty(ids.slaveInnerLayerId, 'line-opacity', 1);
         map.setPaintProperty(ids.slaveInnerLayerId, 'line-width', [
             'interpolate',
@@ -349,7 +394,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             minzoom: minZoom,
             filter: ['==', ['get', 'fallbackCircle'], 1],
             paint: {
-                'circle-color': '#111',
+                'circle-color': getThemeCapsuleColors().outline,
                 'circle-opacity': 1,
                 'circle-radius': [
                     'interpolate',
@@ -361,7 +406,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             }
         }, beforeLayerId);
     } else {
-        map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-color', '#111');
+        map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-color', getThemeCapsuleColors().outline);
         map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-opacity', 1);
         map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-radius', [
             'interpolate',
@@ -381,7 +426,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             minzoom: minZoom,
             filter: ['==', ['get', 'fallbackCircle'], 1],
             paint: {
-                'circle-color': '#fff',
+                'circle-color': getThemeCapsuleColors().inner,
                 'circle-opacity': 1,
                 'circle-radius': [
                     'interpolate',
@@ -393,7 +438,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             }
         }, beforeLayerId);
     } else {
-        map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-color', '#fff');
+        map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-color', getThemeCapsuleColors().inner);
         map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-opacity', 1);
         map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-radius', [
             'interpolate',
