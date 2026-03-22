@@ -5341,6 +5341,59 @@ map.on('load', async () => {
 
     try {
         const stationsData = generatedStationsData || (await loadRailGeoDataFromDataFolder()).stationsGeoJSON;
+        // 按 data/railways-order.json 排序 stationsData.features 的绘制顺序：
+        // - 从站点 id 用 "." 分割取前两项作为线路 id（如 JR-East.Yamanote.Osaki -> JR-East.Yamanote）
+        // - 规范化 order key：小写后把 '-' 替换为 '.'，若首段以 'jr' 开头且长度>2，则改为 'jr-xxx'（例如 jreast-yamanote -> jr-east.yamanote）
+        // - 使用 fetch.js 的 getCachedJson 读取，不重复加载
+        try {
+            const orderList = await getCachedJson('./data/railways-order.json');
+            if (Array.isArray(orderList) && Array.isArray(stationsData?.features)) {
+                const normOrderMap = new Map();
+                for (let i = 0; i < orderList.length; i++) {
+                    const obj = orderList[i];
+                    if (!obj || typeof obj !== 'object') continue;
+                    const keys = Object.keys(obj);
+                    if (!keys.length) continue;
+                    const raw = String(keys[0] ?? '').trim().toLowerCase();
+                    if (!raw) continue;
+                    const parts = raw.split('-');
+                    if (parts[0] && parts[0].startsWith('jr') && parts[0].length > 2) {
+                        parts[0] = 'jr-' + parts[0].slice(2);
+                    }
+                    const norm = parts.join('.');
+                    if (!normOrderMap.has(norm)) normOrderMap.set(norm, i);
+                }
+
+                const getStationLineId = (f) => {
+                    try {
+                        const maybe = (f && (f.properties && (f.properties.id || f.properties._id))) || (f && f.id) || '';
+                        const id = String(maybe || '').trim();
+                        if (!id) return '';
+                        const parts = id.split('.').map((s) => String(s || '').trim()).filter(Boolean);
+                        if (!parts.length) return '';
+                        const two = parts.length >= 2 ? `${parts[0]}.${parts[1]}` : parts[0];
+                        return String(two || '').toLowerCase();
+                    } catch {
+                        return '';
+                    }
+                };
+
+                const MAX = Number.MAX_SAFE_INTEGER;
+                stationsData.features.sort((a, b) => {
+                    const aid = getStationLineId(a);
+                    const bid = getStationLineId(b);
+                    const ai = normOrderMap.has(aid) ? normOrderMap.get(aid) : MAX;
+                    const bi = normOrderMap.has(bid) ? normOrderMap.get(bid) : MAX;
+                    if (ai === bi) return 0;
+                    if (ai === MAX) return -1;
+                    if (bi === MAX) return 1;
+                    return bi - ai; // order 索引小的放后面（覆盖在上）
+                });
+            }
+        } catch {
+            // ignore
+        }
+
         addStationsLayer(map, stationsData);
 
         // 换乘站 MST“变形胶囊”：固定启用，无额外开关。
