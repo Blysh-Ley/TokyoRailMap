@@ -9048,7 +9048,7 @@
 		"alternate": "JR-East.Yokosuka.Tokyo",
 		"ascending": "Outbound",
 		"descending": null
-	},	
+	},
 	{
 		"id": "JR-East.NaritaExpressBranch.Tokyo",
 		"railway": "JR-East.NaritaExpressBranch",
@@ -15318,25 +15318,6 @@
 		]
 	},
 	{
-		"id": "TokyoMetro.Hibiya.ShinKoshigaya",
-		"railway": "TokyoMetro.Hibiya",
-		"coord": [
-			139.78981,
-			35.87556
-		],
-		"title": {
-			"ja": "新越谷",
-			"en": "Shin-koshigaya",
-			"ko": "신코시가야",
-			"zh-Hans": "新越谷",
-			"zh-Hant": "新越谷",
-			"code": "TS20"
-		},
-		"alternate": "Tobu.TobuSkytree.ShinKoshigaya",
-		"ascending": null,
-		"descending": "Inbound"
-	},
-	{
 		"id": "TokyoMetro.Tozai.Nakano",
 		"railway": "TokyoMetro.Tozai",
 		"coord": [
@@ -15871,25 +15852,6 @@
 			"TokyoMetro.NishiFunabashi.South",
 			"TokyoMetro.NishiFunabashi.North"
 		]
-	},
-	{
-		"id": "TokyoMetro.Chiyoda.Machida",
-		"railway": "TokyoMetro.Chiyoda",
-		"coord": [
-			139.44517,
-			35.54394
-		],
-		"title": {
-			"ja": "町田",
-			"en": "Machida",
-			"ko": "마치다",
-			"zh-Hans": "町田",
-			"zh-Hant": "町田",
-			"code": "OH27"
-		},
-		"alternate": "Odakyu.Odawara.Machida",
-		"ascending": "Inbound",
-		"descending": null
 	},
 	{
 		"id": "TokyoMetro.Chiyoda.YoyogiUehara",
@@ -32194,22 +32156,6 @@
 	{
 		"id": "Odakyu.Odawara.SeijogakuenMae",
 		"railway": "Odakyu.Odawara",
-		"coord": [
-			139.59916,
-			35.64015
-		],
-		"title": {
-			"ja": "成城学園前",
-			"en": "Seijogakuen-Mae",
-			"ko": "세이조가쿠엔마에",
-			"zh-Hans": "成城学园前",
-			"zh-Hant": "成城學園前",
-			"code": "OH14"
-		}
-	},
-	{
-		"id": "TokyoMetro.Chiyoda.SeijogakuenMae",
-		"railway": "Tokyometro.Chiyoda",
 		"coord": [
 			139.59916,
 			35.64015

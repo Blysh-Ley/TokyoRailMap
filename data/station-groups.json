@@ -1557,8 +1557,7 @@
 			"JR-East.Musashino.MinamiKoshigaya"
 		],
 		[
-			"Tobu.TobuSkytree.ShinKoshigaya",
-			"TokyoMetro.Hibiya.ShinKoshigaya"
+			"Tobu.TobuSkytree.ShinKoshigaya"
 		]
 	],
 	[
@@ -1611,8 +1610,7 @@
 			"JR-East.Yokohama.Machida"
 		],
 		[
-			"Odakyu.Odawara.Machida",
-			"TokyoMetro.Chiyoda.Machida"
+			"Odakyu.Odawara.Machida"
 		]
 	],
 	[
@@ -2744,8 +2742,7 @@
 	],
 	[
 		[
-			"Odakyu.Odawara.SeijogakuenMae",
-			"TokyoMetro.Chiyoda.SeijogakuenMae"
+			"Odakyu.Odawara.SeijogakuenMae"
 		]
 	],
 	[
