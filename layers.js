@@ -271,44 +271,14 @@ export function addStationsLayer(map, stationsData) {
         source: 'stations-source',
         filter: ['!=', ['get', 'hidden_by_opacity_zero'], 1],
         paint: {
-            // 随缩放等级变化：最大 4，缩小时线性变小
-            // 注意：MapLibre 里 zoom 表达式只能作为顶层 step/interpolate 的输入
             'circle-radius': [
-                'interpolate',
-                ['linear'],
-                ['zoom'],
-
-                // zoom = 6
-                6, [
-                    'case',
-                    ['==', ['length', servingIdsExpr], 1],
-                    0.5,
-                    0.5
-                ],
-
-                // zoom = 14
-                14, [
-                    'case',
-                    ['==', ['length', servingIdsExpr], 1],
-                    3.5,
-                    4
-                ],
-
-                // zoom = 22
-                22, [
-                    'case',
-                    ['==', ['length', servingIdsExpr], 1],
-                    3.5,
-                    4
-                ]
-            ],
-            'circle-color': '#fff',
-            'circle-stroke-width': [
                 'case',
                 ['==', ['length', servingIdsExpr], 1],
-                2,
-                2
+                3.5,
+                3.5
             ],
+            'circle-color': '#fff',
+            'circle-stroke-width': 0,
             'circle-stroke-color': '#333'
         }
     });

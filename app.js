@@ -3,6 +3,7 @@ import { loadRailGeoDataFromDataFolder } from './data.js';
 import { addLinesLayer, addStationsLayer, setupLineHoverPopup, setupStationPopup } from './layers.js';
 import { createStationMarkers } from './labels.js';
 import { setupCollisions } from './collision.js';
+import { buildTransferCapsuleGeoJSON, addTransferCapsuleLayers } from './transfer-capsules.js';
 import { Menu } from './menu.js';
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { createPanel } from './panel.js';
@@ -1149,27 +1150,10 @@ map.on('load', async () => {
     function baseStationCircleRadiusExpr() {
         const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
         return [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            6, [
-                'case',
-                ['==', ['length', servingIdsExpr], 1],
-                0.5,
-                0.5
-            ],
-            14, [
-                'case',
-                ['==', ['length', servingIdsExpr], 1],
-                3.5,
-                4
-            ],
-            22, [
-                'case',
-                ['==', ['length', servingIdsExpr], 1],
-                3.5,
-                4
-            ]
+            'case',
+            ['==', ['length', servingIdsExpr], 1],
+            3.5,
+            3.5
         ];
     }
 
@@ -1178,8 +1162,8 @@ map.on('load', async () => {
         return [
             'case',
             ['==', ['length', servingIdsExpr], 1],
-            0,
-            2
+            2,
+            0
         ];
     }
 
@@ -1262,19 +1246,36 @@ map.on('load', async () => {
         return adjustColorForDarkThemeIfNeeded(raw);
     }
 
+    function buildPrimaryLineColorExpr(defaultColor = '#fff') {
+        const fallback = String(defaultColor || '#fff');
+        const lineIdsExpr = ['coalesce', ['get', 'platform_line_id'], ['get', 'serving_ids'], ['literal', []]];
+        const primaryLineIdExpr = ['coalesce', ['at', 0, lineIdsExpr], ''];
+        const matchExpr = ['match', primaryLineIdExpr];
+
+        let hasAny = false;
+        for (const [lineId, rawColor] of lineColorById.entries()) {
+            const id = String(lineId || '').trim();
+            const color = resolveRailColorForTheme(String(rawColor || '').trim()) || '';
+            if (!id || !color) continue;
+            matchExpr.push(id, color);
+            hasAny = true;
+        }
+
+        matchExpr.push(fallback);
+        return hasAny ? matchExpr : fallback;
+    }
+
     function stationCircleColorPaintExpr() {
-        if (!isDarkThemeActive()) return '#fff';
         const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
-        return [
-            'case',
-            ['==', ['length', servingIdsExpr], 1],
-            '#8e95a1',
-            '#111'
-        ];
+        const isTransferExpr = ['>', ['length', servingIdsExpr], 1];
+        const baseNonTransferColor = isDarkThemeActive() ? '#8e95a1' : '#fff';
+        const transferLineColorExpr = buildPrimaryLineColorExpr(baseNonTransferColor);
+        const nonTransferLineColorExpr = buildPrimaryLineColorExpr(baseNonTransferColor);
+        return ['case', isTransferExpr, transferLineColorExpr, nonTransferLineColorExpr];
     }
 
     function stationCircleStrokeColorPaint() {
-        return isDarkThemeActive() ? '#fff' : '#333';
+        return isDarkThemeActive() ? '#111' : '#fff';
     }
 
     function tripPreviewStopCircleColorPaintExpr() {
@@ -1340,14 +1341,7 @@ map.on('load', async () => {
                 ? ['==', ['get', 'id'], ids[0]]
                 : ['in', ['get', 'id'], ['literal', ids]];
 
-            map.setPaintProperty('stations-layer', 'circle-radius', [
-                'interpolate',
-                ['linear'],
-                ['zoom'],
-                6, ['case', isPreviewStation, 0.5, 0.5],
-                14, ['case', isPreviewStation, 4, 0.5],
-                22, ['case', isPreviewStation, 4, 0.5]
-            ]);
+            map.setPaintProperty('stations-layer', 'circle-radius', ['case', isPreviewStation, 4, 0.5]);
             map.setPaintProperty('stations-layer', 'circle-stroke-width', [
                 'case',
                 isPreviewStation,
@@ -1370,45 +1364,15 @@ map.on('load', async () => {
             const isSelectedStation = buildStationAnyLineMatchExpr(Array.from(multiLineIds));
 
             map.setPaintProperty('stations-layer', 'circle-radius', [
-                'interpolate',
-                ['linear'],
-                ['zoom'],
-
-                6, [
+                'case',
+                isSelectedStation,
+                [
                     'case',
-                    isSelectedStation,
-                    [
-                        'case',
-                        ['==', ['length', servingIdsExpr], 1],
-                        0.5,
-                        0.5
-                    ],
-                    0.5
+                    ['==', ['length', servingIdsExpr], 1],
+                    3.5,
+                    3.5
                 ],
-
-                14, [
-                    'case',
-                    isSelectedStation,
-                    [
-                        'case',
-                        ['==', ['length', servingIdsExpr], 1],
-                        3.5,
-                        4
-                    ],
-                    0.5
-                ],
-
-                22, [
-                    'case',
-                    isSelectedStation,
-                    [
-                        'case',
-                        ['==', ['length', servingIdsExpr], 1],
-                        3.5,
-                        4
-                    ],
-                    0.5
-                ]
+                0.5
             ]);
 
             map.setPaintProperty('stations-layer', 'circle-opacity', 1);
@@ -1458,45 +1422,15 @@ map.on('load', async () => {
         const shouldIsolate = Boolean(selectedLineId) && isolateStationsToSelectedLine === true;
 
         map.setPaintProperty('stations-layer', 'circle-radius', [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-
-            6, [
+            'case',
+            isSelectedStation,
+            [
                 'case',
-                isSelectedStation,
-                [
-                    'case',
-                    ['==', ['length', servingIdsExpr], 1],
-                    0.5,
-                    0.5
-                ],
-                0.5
+                ['==', ['length', servingIdsExpr], 1],
+                3.5,
+                3.5
             ],
-
-            14, [
-                'case',
-                isSelectedStation,
-                [
-                    'case',
-                    ['==', ['length', servingIdsExpr], 1],
-                    3.5,
-                    4
-                ],
-                0.5
-            ],
-
-            22, [
-                'case',
-                isSelectedStation,
-                [
-                    'case',
-                    ['==', ['length', servingIdsExpr], 1],
-                    3.5,
-                    4
-                ],
-                0.5
-            ]
+            0.5
         ]);
 
         // 需求（仅对“popup 提交线路”）：隐藏其他站点
@@ -1594,7 +1528,6 @@ map.on('load', async () => {
                 if (id) targetSet.add(id);
             }
         }
-
         for (const item of stationLabels) {
             const el = item?.el;
             if (!el) continue;
@@ -3157,35 +3090,13 @@ map.on('load', async () => {
                     source: 'trip-preview-stops-source',
                     paint: {
                         'circle-radius': [
-                            'interpolate',
-                            ['linear'],
-                            ['zoom'],
-                            6, [
-                                'case',
-                                ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
-                                0.5,
-                                0.5
-                            ],
-                            14, [
-                                'case',
-                                ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
-                                3.5,
-                                4
-                            ],
-                            22, [
-                                'case',
-                                ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
-                                3.5,
-                                4
-                            ]
-                        ],
-                        'circle-color': tripPreviewStopCircleColorPaintExpr(),
-                        'circle-stroke-width': [
                             'case',
                             ['<=', ['coalesce', ['get', 'serving_count'], 1], 1],
-                            0,
-                            2
+                            3.5,
+                            3.5
                         ],
+                        'circle-color': tripPreviewStopCircleColorPaintExpr(),
+                        'circle-stroke-width': 0,
                         'circle-stroke-color': tripPreviewStopStrokeColorPaint()
                     }
                 });
@@ -5076,6 +4987,25 @@ map.on('load', async () => {
     try {
         const stationsData = generatedStationsData || (await loadRailGeoDataFromDataFolder()).stationsGeoJSON;
         addStationsLayer(map, stationsData);
+
+        // 换乘站 MST“变形胶囊”：固定启用，无额外开关。
+        try {
+            const transferStationGroups = await getCachedJson('./data/station-groups.json');
+            const transferCapsuleData = buildTransferCapsuleGeoJSON(stationsData, transferStationGroups, {
+                resolveLineColor: (lineId) => {
+                    const id = String(lineId || '').trim();
+                    if (!id) return '';
+                    return resolveRailColorForTheme(lineColorById.get(id) || '') || '';
+                }
+            });
+
+            addTransferCapsuleLayers(map, transferCapsuleData, {
+                beforeLayerId: 'stations-layer',
+                minZoom: 8
+            });
+        } catch (e) {
+            console.warn('换乘站 MST 胶囊渲染初始化失败', e);
+        }
 
         // 站点圆点点击：高亮该站点所有线路（不执行 fitBounds）
         bindClickStationToHighlightServingLines();

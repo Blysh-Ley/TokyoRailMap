@@ -285,6 +285,12 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             if (!isStationEnabledByLines(station.servingLineIds, enabledLineIdsSet)) return;
             if (!isStationEnabledByExplicitIds(station.stationId, explicitIdsSet)) return;
 
+            // Keep transfer dots visible by skipping collision checks inside transfer stations.
+            if (station.priority > 1) {
+                visibleIds.push(station.stationId);
+                return;
+            }
+
             const radius = circleRadiusPxForStation(zoom, station.priority);
             const strokePadding = circleStrokeWidthPxForStation(station.priority);
             const r = radius + strokePadding;
