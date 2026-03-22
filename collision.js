@@ -137,6 +137,10 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
 
         if (mode === 'all') {
             stationLabels.forEach((label) => {
+                if (label.forceHiddenByTransferCollapse) {
+                    label.el.style.display = 'none';
+                    return;
+                }
                 if (!label.priority) {
                     label.el.style.display = 'none';
                     return;
@@ -180,6 +184,10 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
         const grid = new Map();
 
         sorted.forEach((label) => {
+            if (label.forceHiddenByTransferCollapse) {
+                label.el.style.display = 'none';
+                return;
+            }
             if (!label.priority) {
                 label.el.style.display = 'none';
                 return;

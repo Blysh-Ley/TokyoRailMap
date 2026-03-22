@@ -560,6 +560,173 @@ map.on('load', async () => {
         return null;
     };
 
+    const getStationIdTailToken = (stationId) => {
+        const sid = String(stationId || '').trim();
+        if (!sid) return '';
+        const parts = sid.split('.').map((x) => String(x || '').trim()).filter(Boolean);
+        return parts.length ? parts[parts.length - 1] : sid;
+    };
+
+    const applyTransferStationLabelCollapse = () => {
+        if (!Array.isArray(stationLabels) || !stationLabels.length) return;
+
+        const visibleIds = getVisibleStationIdsForTransferCapsules();
+        const visibleSet = visibleIds instanceof Set ? visibleIds : null;
+        const labelById = new Map();
+
+        const labelOffsets = [
+            '0 -14px',
+            '14px -4px',
+            '0 10px',
+            '-14px -4px'
+        ];
+
+        const getBaseName = (item) => {
+            const cached = String(item?._transferLabelBaseName || '').trim();
+            if (cached) return cached;
+            const baseName = String(item?.props?.name_zh || item?.props?.name || item?.stationId || '').trim();
+            item._transferLabelBaseName = baseName;
+            return baseName;
+        };
+
+        const getBasePriority = (item) => {
+            if (Number.isFinite(item?._transferLabelBasePriority)) return Number(item._transferLabelBasePriority);
+            const base = Number(item?.priority || 0);
+            item._transferLabelBasePriority = base;
+            return base;
+        };
+
+        const getBaseTranslate = (item) => {
+            const cached = String(item?._transferLabelBaseTranslate || '').trim();
+            if (cached) return cached;
+            const dy = Number.isFinite(item?.labelDyPx) ? Number(item.labelDyPx) : 3;
+            const baseTranslate = `0 -${dy}px`;
+            item._transferLabelBaseTranslate = baseTranslate;
+            return baseTranslate;
+        };
+
+        const pickNorthernmost = (items) => {
+            let best = null;
+            let bestLat = Number.NEGATIVE_INFINITY;
+            for (const it of items) {
+                if (!it) continue;
+                const lat = Number(it?.coordinates?.[1]);
+                if (!Number.isFinite(lat)) continue;
+                const sid = String(it?.stationId || it?.props?.id || '').trim();
+                const bestSid = String(best?.stationId || best?.props?.id || '').trim();
+                if (lat > bestLat || (lat === bestLat && sid < bestSid)) {
+                    bestLat = lat;
+                    best = it;
+                }
+            }
+            return best;
+        };
+
+        for (const item of stationLabels) {
+            const sid = String(item?.stationId || item?.props?.id || '').trim();
+            if (!sid) continue;
+            labelById.set(sid, item);
+        }
+
+        const repIdsByGroupKey = new Map();
+        const offsetByStationId = new Map();
+
+        for (const item of stationLabels) {
+            const sid = String(item?.stationId || item?.props?.id || '').trim();
+            if (!sid) continue;
+
+            const groupSet = transferStationIdsByStationId.get(sid);
+            if (!(groupSet instanceof Set) || groupSet.size <= 1) continue;
+
+            const groupIds = Array.from(groupSet).map((x) => String(x || '').trim()).filter(Boolean);
+            if (!groupIds.length) continue;
+
+            const candidateIds = visibleSet
+                ? groupIds.filter((id) => visibleSet.has(id))
+                : groupIds.slice();
+            if (!candidateIds.length) continue;
+
+            const groupKey = groupIds.slice().sort().join('|');
+            if (repIdsByGroupKey.has(groupKey)) continue;
+
+            const candidates = candidateIds.map((id) => labelById.get(id)).filter(Boolean);
+            if (!candidates.length) continue;
+
+            const nameBuckets = new Map();
+            for (const cand of candidates) {
+                const nm = getBaseName(cand) || String(cand?.stationId || '').trim();
+                if (!nameBuckets.has(nm)) nameBuckets.set(nm, []);
+                nameBuckets.get(nm).push(cand);
+            }
+
+            const reps = [];
+            if (nameBuckets.size <= 1) {
+                const rep = pickNorthernmost(candidates);
+                if (rep) reps.push(rep);
+            } else {
+                for (const bucket of nameBuckets.values()) {
+                    const rep = pickNorthernmost(bucket);
+                    if (rep) reps.push(rep);
+                }
+            }
+
+            reps.sort((a, b) => {
+                const latA = Number(a?.coordinates?.[1]);
+                const latB = Number(b?.coordinates?.[1]);
+                if (latA !== latB) return latB - latA;
+                return String(a?.stationId || '').localeCompare(String(b?.stationId || ''));
+            });
+
+            const repIdSet = new Set();
+            for (let i = 0; i < reps.length; i += 1) {
+                const rep = reps[i];
+                const repId = String(rep?.stationId || rep?.props?.id || '').trim();
+                if (!repId) continue;
+                repIdSet.add(repId);
+                if (nameBuckets.size > 1) {
+                    offsetByStationId.set(repId, labelOffsets[i % labelOffsets.length]);
+                }
+            }
+
+            repIdsByGroupKey.set(groupKey, repIdSet);
+        }
+
+        for (const item of stationLabels) {
+            const sid = String(item?.stationId || item?.props?.id || '').trim();
+            if (!sid) continue;
+
+            const basePriority = getBasePriority(item);
+            const baseName = getBaseName(item);
+            const baseTranslate = getBaseTranslate(item);
+            const groupSet = transferStationIdsByStationId.get(sid);
+
+            if (!(groupSet instanceof Set) || groupSet.size <= 1) {
+                item.priority = basePriority;
+                item.forceHiddenByTransferCollapse = false;
+                item._multiSelectBaseLabelText = baseName;
+                if (item?.el) item.el.style.translate = baseTranslate;
+                if (!isMultiSelectModeEnabled() && item?.el) item.el.textContent = baseName;
+                continue;
+            }
+
+            const groupIds = Array.from(groupSet).map((x) => String(x || '').trim()).filter(Boolean);
+            const groupKey = groupIds.slice().sort().join('|');
+            const repIds = repIdsByGroupKey.get(groupKey);
+            const visibleByScope = !visibleSet || visibleSet.has(sid);
+            const isRepresentative = visibleByScope && repIds instanceof Set && repIds.has(sid);
+
+            item.priority = isRepresentative ? basePriority : 0;
+            item.forceHiddenByTransferCollapse = !isRepresentative;
+            item._multiSelectBaseLabelText = baseName;
+            if (item?.el) {
+                item.el.style.translate = isRepresentative
+                    ? (offsetByStationId.get(sid) || baseTranslate)
+                    : baseTranslate;
+            }
+            if (!isMultiSelectModeEnabled() && item?.el) item.el.textContent = baseName;
+        }
+    };
+
     const toTransferCapsuleVisibleKey = (visibleIds) => {
         if (!(visibleIds instanceof Set)) return '*';
         if (!visibleIds.size) return '__empty__';
@@ -1811,6 +1978,7 @@ map.on('load', async () => {
         applyLineSelectionStyle();
         applyStationSelectionStyle();
         scheduleTransferCapsuleRefresh();
+        applyTransferStationLabelCollapse();
         updateMultiSelectStationLabelChips();
         if (collisionController) collisionController.scheduleUpdate();
         updateSelectionBadge();
@@ -5132,6 +5300,10 @@ map.on('load', async () => {
         const markers = createStationMarkers(map, maplibregl, stationsData);
         stationLabels = markers.stationLabels;
         const stationCircles = markers.stationCircles;
+
+        // 关键：站名 marker 创建后立刻执行一次“换乘组仅保留最北站名”收缩，
+        // 否则首次进入页面会看到全部站名，直到下一次交互触发 applySelectionEffects 才更新。
+        applyTransferStationLabelCollapse();
         updateMultiSelectStationLabelChips();
 
         // 站名碰撞：标签上移偏移在 labels.js 内按站点类型设置
@@ -5180,6 +5352,9 @@ map.on('load', async () => {
         });
 
         collisionController.scheduleUpdate();
+
+        // 再次调度一次，确保强制隐藏标记立即反映到 DOM 显示状态。
+        applySelectionEffects();
 
         stationPopup = setupStationPopup(map, maplibregl, {
             // 悬浮弹框：用 serving_ids 匹配线路元信息
@@ -5357,6 +5532,7 @@ map.on('load', async () => {
 
             const fireStationLabelTap = (item, pt) => {
                 if (isJourneyMapPickActive()) return;
+                if (item?.forceHiddenByTransferCollapse) return;
                 const hadStationSelection = !!String(selectedStationId || '').trim();
                 if (!isMultiSelectModeEnabled()) {
                     selectServingLinesForStation(item.props || {});

@@ -785,6 +785,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
             try {
                 const [groupsIndex, stationsIndex] = await Promise.all([getStationGroupsIndex(), getStationsIndex()]);
                 const groupIds = groupsIndex.get(stationId) || [stationId];
+
                 for (const lineIdRaw of servingIds) {
                     const lineId = String(lineIdRaw ?? '').trim();
                     if (!lineId) continue;
@@ -805,7 +806,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
         currentStationServingIds = servingIds.slice();
 
-        const nameHtml = `<div class="station-hover-name">${escapeHtml(name)}</div>`;
+    const nameHtml = `<div class="station-hover-name">${escapeHtml(name)}</div>`;
 
         const rootClass = interactive ? 'station-hover-popup is-interactive' : 'station-hover-popup';
 
