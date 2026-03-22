@@ -1044,7 +1044,7 @@ const setupRouteMapUi = () => {
     root.className = 'route-map-popover route-map is-hidden';
     root.setAttribute('data-route-map', '');
     root.style.position = 'fixed';
-    root.style.zIndex = '10000';
+    root.style.zIndex = '5000';
 
     const topHeader = document.createElement('div');
     topHeader.className = 'route-map-header';

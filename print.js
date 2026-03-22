@@ -1999,17 +1999,40 @@
         root.appendChild(content);
         document.body.appendChild(root);
 
+
+        let collapseTimer = null;
         const expand = () => {
+            if (collapseTimer) {
+                window.clearTimeout(collapseTimer);
+                collapseTimer = null;
+            }
             root.classList.remove('is-collapsed');
             content.classList.remove('is-hidden');
         };
         const collapse = () => {
+            if (collapseTimer) {
+                window.clearTimeout(collapseTimer);
+                collapseTimer = null;
+            }
             root.classList.add('is-collapsed');
             content.classList.add('is-hidden');
         };
+        const scheduleCollapse = () => {
+            if (collapseTimer) window.clearTimeout(collapseTimer);
+            collapseTimer = window.setTimeout(() => {
+                collapseTimer = null;
+                collapse();
+            }, 120);
+        };
 
-        root.addEventListener('mouseenter', () => expand());
-        root.addEventListener('mouseleave', () => collapse());
+        root.addEventListener('mouseenter', () => {
+            if (collapseTimer) {
+                window.clearTimeout(collapseTimer);
+                collapseTimer = null;
+            }
+            expand();
+        });
+        root.addEventListener('mouseleave', () => scheduleCollapse());
 
         fab.addEventListener('pointerdown', (evt) => {
             evt.preventDefault?.();
