@@ -533,6 +533,24 @@ const SHONAN_SHINJUKU_EXCLUDED_CHAIN_PREFIXES = Object.freeze([
     'JR-East.OsakiBranch'
 ]);
 
+const COMMON_THROUGH_SERVICE_EXCLUDED_CHAIN_PREFIXES = Object.freeze([
+    'JR-East.KeihinTohokuNegishi',
+    'JR-East.Yamanote',
+    'JR-East.SaikyoKawagoe'
+]);
+
+const hasExcludedCommonChainLine = (lineIds) => {
+    const ids = Array.isArray(lineIds) ? lineIds : [];
+    for (const lineId of ids) {
+        const lid = toText(lineId);
+        if (!lid) continue;
+        for (const prefix of COMMON_THROUGH_SERVICE_EXCLUDED_CHAIN_PREFIXES) {
+            if (lid === prefix || lid.startsWith(`${prefix}.`)) return true;
+        }
+    }
+    return false;
+};
+
 const getTripLineIdForThrough = (trip) => {
     const rid = toText(trip?.r);
     if (rid) return rid;
@@ -620,8 +638,8 @@ const detectThroughServiceCategory = (trips) => {
         }
     }
 
-    if (flags.hasShinjuku && flags.hasShibuya && !hasExcludedShonanChainLine(chainLineIds)) return 'ShonanShinjuku';
-    if (flags.hasUeno && flags.hasTokyo) return 'UenoTokyo';
+    if (flags.hasShinjuku && flags.hasShibuya && !hasExcludedShonanChainLine(chainLineIds) && !hasExcludedCommonChainLine(chainLineIds)) return 'ShonanShinjuku';
+    if (flags.hasUeno && flags.hasTokyo && !hasExcludedCommonChainLine(chainLineIds)) return 'UenoTokyo';
     return '';
 };
 
