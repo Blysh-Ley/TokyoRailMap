@@ -4197,24 +4197,6 @@
 		"dynamic": true
 	},
 	{
-		"id": "Odakyu.JROdakyuConnection",
-		"title": {
-			"ja": "小田原線",
-			"en": "Odawara Line",
-			"ko": "오다와라 선",
-			"zh-Hans": "小田原线JR连接线",
-			"zh-Hant": "小田原線"
-		},
-		"stations": [
-			"Odakyu.JROdakyuConnection.Hadano",
-			"Odakyu.JROdakyuConnection.Matsuda"
-		],
-		"ascending": "Outbound",
-		"descending": "Inbound",
-		"color": "#2288CC",
-		"carComposition": 6
-	},
-	{
 		"id": "OdakyuHakone.HakoneTozan",
 		"title": {
 			"ja": "箱根登山電車",

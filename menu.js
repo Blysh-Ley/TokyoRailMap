@@ -580,7 +580,7 @@ export class Menu {
             const branchesByMain = new Map(); // mainId -> [branchIds]
             const mergedBranchIds = new Set();
             const exceptionSet = new Set();
-            exceptionSet.add('Odakyu.JROdakyuConnection'); // 小田急JR连接线 不归并
+
 
             // 先填默认映射：主线/支线都默认映射到自己（后面支线会覆盖为主线）
             for (const [lineIdRaw] of companyLines) {

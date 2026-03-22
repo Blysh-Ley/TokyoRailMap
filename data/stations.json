@@ -33120,44 +33120,6 @@
 		}
 	},
 	{
-		"id": "Odakyu.JROdakyuConnection.Hadano",
-		"railway": "Odakyu.JROdakyuConnection",
-		"coord": [
-			139.22577,
-			35.37025
-		],
-		"title": {
-			"ja": "秦野",
-			"en": "Hadano",
-			"ko": "하다노",
-			"zh-Hans": "秦野",
-			"zh-Hant": "秦野",
-			"code": "OH39"
-		},
-		"alternate": "Odakyu.Odawara.Hadano",
-		"ascending": "Outbound",
-		"descending": null
-	},
-	{
-		"id": "Odakyu.JROdakyuConnection.Matsuda",
-		"railway": "Odakyu.JROdakyuConnection",
-		"coord": [
-			139.1385751,
-			35.3462321
-		],
-		"title": {
-			"ja": "松田",
-			"en": "Matsuda",
-			"ko": "마쓰다",
-			"zh-Hans": "松田",
-			"zh-Hant": "松田",
-			"code": "CB04"
-		},
-		"alternate": "JR-Central.Gotemba.Matsuda",
-		"ascending": null,
-		"descending": "Inbound"
-	},
-	{
 		"id": "OdakyuHakone.HakoneTozan.Odawara",
 		"railway": "OdakyuHakone.HakoneTozan",
 		"coord": [

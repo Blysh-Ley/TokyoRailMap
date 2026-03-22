@@ -2348,7 +2348,7 @@
 			"JR-Central.Gotemba.Gotemba"
 		],
 		"nt": [
-			"Odakyu.JROdakyuConnection.0401M.Weekday"
+			"JR-Central.Gotemba.1M.Weekday"
 		],
 		"tt": [
 			{
@@ -2372,7 +2372,8 @@
 			},
 			{
 				"s": "Odakyu.Odawara.Hadano",
-				"a": "07:34"
+				"a": "07:34",
+				"d": "07:35"
 			}
 		],
 		"nm": [
@@ -10468,7 +10469,7 @@
 			"JR-Central.Gotemba.Gotemba"
 		],
 		"nt": [
-			"Odakyu.JROdakyuConnection.0403M.Weekday"
+			"JR-Central.Gotemba.3M.Weekday"
 		],
 		"tt": [
 			{
@@ -10492,7 +10493,8 @@
 			},
 			{
 				"s": "Odakyu.Odawara.Hadano",
-				"a": "11:36"
+				"a": "11:36",
+				"d": "11:38"
 			}
 		],
 		"nm": [
@@ -17925,7 +17927,7 @@
 			"JR-Central.Gotemba.Gotemba"
 		],
 		"nt": [
-			"Odakyu.JROdakyuConnection.0405M.Weekday"
+			"JR-Central.Gotemba.5M.Weekday"
 		],
 		"tt": [
 			{
@@ -17949,7 +17951,8 @@
 			},
 			{
 				"s": "Odakyu.Odawara.Hadano",
-				"a": "15:36"
+				"a": "15:36",
+				"d": "15:37"
 			}
 		],
 		"nm": [
@@ -65433,11 +65436,12 @@
 			"Odakyu.Odawara.Shinjuku"
 		],
 		"pt": [
-			"Odakyu.JROdakyuConnection.0402M.Weekday"
+			"JR-Central.Gotemba.2M.Weekday"
 		],
 		"tt": [
 			{
 				"s": "Odakyu.Odawara.Hadano",
+				"a": "09:25",
 				"d": "09:26"
 			},
 			{
@@ -65485,11 +65489,12 @@
 			"Odakyu.Odawara.Shinjuku"
 		],
 		"pt": [
-			"Odakyu.JROdakyuConnection.0404M.Weekday"
+			"JR-Central.Gotemba.4M.Weekday"
 		],
 		"tt": [
 			{
 				"s": "Odakyu.Odawara.Hadano",
+				"a": "13:26",
 				"d": "13:27"
 			},
 			{
@@ -65537,11 +65542,12 @@
 			"Odakyu.Odawara.Shinjuku"
 		],
 		"pt": [
-			"Odakyu.JROdakyuConnection.0406M.Weekday"
+			"JR-Central.Gotemba.6M.Weekday"
 		],
 		"tt": [
 			{
 				"s": "Odakyu.Odawara.Hadano",
+				"a": "18:06",
 				"d": "18:07"
 			},
 			{
@@ -101701,7 +101707,7 @@
 			"JR-Central.Gotemba.Gotemba"
 		],
 		"nt": [
-			"Odakyu.JROdakyuConnection.0401M.SaturdayHoliday"
+			"JR-Central.Gotemba.1M.SaturdayHoliday"
 		],
 		"tt": [
 			{
@@ -101725,7 +101731,8 @@
 			},
 			{
 				"s": "Odakyu.Odawara.Hadano",
-				"a": "07:34"
+				"a": "07:34",
+				"d": "07:35"
 			}
 		],
 		"nm": [
@@ -109190,7 +109197,7 @@
 			"JR-Central.Gotemba.Gotemba"
 		],
 		"nt": [
-			"Odakyu.JROdakyuConnection.0403M.SaturdayHoliday"
+			"JR-Central.Gotemba.3M.SaturdayHoliday"
 		],
 		"tt": [
 			{
@@ -109214,7 +109221,8 @@
 			},
 			{
 				"s": "Odakyu.Odawara.Hadano",
-				"a": "11:37"
+				"a": "11:37",
+				"d": "11:38"
 			}
 		],
 		"nm": [
@@ -116735,7 +116743,7 @@
 			"JR-Central.Gotemba.Gotemba"
 		],
 		"nt": [
-			"Odakyu.JROdakyuConnection.0405M.SaturdayHoliday"
+			"JR-Central.Gotemba.5M.SaturdayHoliday"
 		],
 		"tt": [
 			{
@@ -116759,7 +116767,8 @@
 			},
 			{
 				"s": "Odakyu.Odawara.Hadano",
-				"a": "15:36"
+				"a": "15:36",
+				"d": "15:37"
 			}
 		],
 		"nm": [
@@ -159990,11 +159999,12 @@
 			"Odakyu.Odawara.Shinjuku"
 		],
 		"pt": [
-			"Odakyu.JROdakyuConnection.0402M.SaturdayHoliday"
+			"JR-Central.Gotemba.2M.SaturdayHoliday"
 		],
 		"tt": [
 			{
 				"s": "Odakyu.Odawara.Hadano",
+				"a": "09:25",
 				"d": "09:26"
 			},
 			{
@@ -160086,11 +160096,12 @@
 			"Odakyu.Odawara.Shinjuku"
 		],
 		"pt": [
-			"Odakyu.JROdakyuConnection.0404M.SaturdayHoliday"
+			"JR-Central.Gotemba.4M.SaturdayHoliday"
 		],
 		"tt": [
 			{
 				"s": "Odakyu.Odawara.Hadano",
+				"a": "13:26",
 				"d": "13:27"
 			},
 			{
@@ -160138,11 +160149,12 @@
 			"Odakyu.Odawara.Shinjuku"
 		],
 		"pt": [
-			"Odakyu.JROdakyuConnection.0406M.SaturdayHoliday"
+			"JR-Central.Gotemba.6M.SaturdayHoliday"
 		],
 		"tt": [
 			{
 				"s": "Odakyu.Odawara.Hadano",
+				"a": "18:08",
 				"d": "18:09"
 			},
 			{
