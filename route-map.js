@@ -185,6 +185,7 @@ const getRailwaysIndex = async () => {
 const loadTimetableForLineId = async (lineId) => {
     const id = toText(lineId);
     if (!id) return null;
+    if (id.startsWith('TokyoRail.Temp.') || id.startsWith('TokyoRail.MenuThrough.')) return null;
     try {
         const cache = window?.TokyoRailTimetableCache;
         if (!cache) return null;

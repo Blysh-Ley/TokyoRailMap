@@ -1227,10 +1227,11 @@ map.on('load', async () => {
             const color = resolveRailColorForTheme(throughDisplay?.color || lineColorById.get(sid) || '#111') || '#111';
 
             clearSelectionBadgeIcons();
-            if (sid === MENU_THROUGH_LINE_IDS.UENO_TOKYO) {
+            const throughCategory = getMenuThroughCategoryByLineId(sid);
+            if (throughCategory === 'UenoTokyo') {
                 appendBadgeIcon({ routeId: 'JR-East.Tokaido', code: 'JU', color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color });
                 appendBadgeIcon({ routeId: 'JR-East.Tokaido', code: 'JT', color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color });
-            } else if (sid === MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU) {
+            } else if (throughCategory === 'ShonanShinjuku') {
                 appendBadgeIcon({ routeId: 'JR-East.ShonanShinjuku', code: 'JS', color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color });
             } else {
                 appendBadgeIcon({ routeId: sid, code: '', color: lineColorById.get(sid) || '' });
@@ -1953,6 +1954,11 @@ map.on('load', async () => {
             if (source === 'panel-hover' && !isHoverPreviewEnabled()) return;
             const id = String(lineId ?? '').trim();
             if (!id) return;
+
+            if (isMenuThroughLineId(id)) {
+                previewMenuThroughLine({ lineId: id, source: source === 'panel-hover' ? 'hover' : 'click' });
+                return;
+            }
 
             const resolved = (menu && typeof menu.resolveLineSelection === 'function')
                 ? menu.resolveLineSelection(id)
@@ -4297,6 +4303,9 @@ map.on('load', async () => {
             const stationIds = new Set([...originIds, ...terminalIds]);
             dirPreviewActive = true;
             dirPreviewLineIds = new Set([lineId]);
+            if (payload && Array.isArray(payload.sourceLineIds) && payload.sourceLineIds.length) {
+                payload.sourceLineIds.forEach(id => dirPreviewLineIds.add(String(id)));
+            }
             dirPreviewStationIds = stationIds;
 
             clearDirEndpointPopups();
@@ -5309,6 +5318,11 @@ map.on('load', async () => {
                 if (isMultiSelectModeEnabled() && (source === 'popup-hover' || source === 'popup-click')) return;
                 const id = String(lineId ?? '').trim();
                 if (!id) return;
+
+                if (isMenuThroughLineId(id)) {
+                    previewMenuThroughLine({ lineId: id, source: source === 'popup-hover' ? 'hover' : 'click' });
+                    return;
+                }
 
                 const resolved = (menu && typeof menu.resolveLineSelection === 'function')
                     ? menu.resolveLineSelection(id)

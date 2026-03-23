@@ -2017,9 +2017,17 @@ export function createPanel(options = {}) {
         const meta = dirPreviewMetaByKey.get(key);
         if (!meta) return;
         activeDirPreviewKey = key;
+
+        const sourceLineIds = (() => {
+            const temp = temporaryPanelSourceLineIdsByDisplayLineId.get(toText(meta.lineId));
+            if (Array.isArray(temp) && temp.length) return Array.from(new Set(temp.map(x => toText(x)).filter(Boolean)));
+            return [];
+        })();
+
         try {
             onDirPreviewEnter?.({
                 lineId: toText(meta.lineId),
+                sourceLineIds: Array.isArray(sourceLineIds) ? sourceLineIds.slice() : [],
                 originStationIds: Array.isArray(meta.originStationIds) ? meta.originStationIds.slice() : [],
                 terminalStationIds: Array.isArray(meta.terminalStationIds) ? meta.terminalStationIds.slice() : [],
                 fitMode: toText(fitMode)
@@ -2038,13 +2046,21 @@ export function createPanel(options = {}) {
         ].map((x) => toText(x)).filter(Boolean)));
         const source = 'panel-dir-branch';
 
+        const throughServiceCategory = (() => {
+            if (toText(meta.lineId) === UENO_TOKYO_TEMP_LINE_ID) return 'UenoTokyo';
+            if (toText(meta.lineId) === SHONAN_SHINJUKU_TEMP_LINE_ID || toText(meta.lineId) === SHONAN_SHINJUKU_MAIN_LINE_ID) return 'ShonanShinjuku';
+            return '';
+        })();
+
         previewBranchesForLine({
             lineId: toText(meta.lineId),
             lineName: '',
             fitMode: toText(fitMode),
             targetTripKeys: tripKeys,
             highlightStationIds,
-            previewSource: source
+            previewSource: source,
+            sourceLineIds,
+            throughServiceCategory
         }).then(() => {
             if (requestSeq !== dirBranchPreviewSeq) return;
         }).catch(() => {
@@ -3072,6 +3088,8 @@ export function createPanel(options = {}) {
                     originId,
                     originName,
                     terminalId: terminalIdForFilter,
+                    terminalIds: resolvedTerminalIds.length ? resolvedTerminalIds : [],
+                    throughEndpoints,
                     terminalName,
                     terminalDisplayName,
                     terminalNames,
@@ -3320,8 +3338,14 @@ export function createPanel(options = {}) {
             const uniqueIds = (arr) => Array.from(new Set((Array.isArray(arr) ? arr : []).map((x) => toText(x)).filter(Boolean)));
             dirPreviewMetaByKey.set(lineDirKey, {
                 lineId: toText(lineId),
-                originStationIds: uniqueIds(filteredRowsForDir.map((r) => r.originId)),
+                originStationIds: uniqueIds(filteredRowsForDir.flatMap((r) => {
+                    if (r?.throughEndpoints?.originIds?.length) return r.throughEndpoints.originIds;
+                    if (r?.throughEndpoints?.originId) return [r.throughEndpoints.originId];
+                    return [r.originId];
+                })),
                 terminalStationIds: uniqueIds(filteredRowsForDir.flatMap((r) => {
+                    if (r?.throughEndpoints?.terminalIds?.length) return r.throughEndpoints.terminalIds;
+                    if (r?.throughEndpoints?.terminalId) return [r.throughEndpoints.terminalId];
                     const ids = Array.isArray(r?.terminalIds) ? r.terminalIds : [];
                     return ids.length ? ids : [r.terminalId || r.destId];
                 }))
@@ -6498,11 +6522,6 @@ export function createPanel(options = {}) {
                 toText(currentStationId) === toText(props?.id)
             ),
             logger: (...args) => {
-                try {
-                    console.log(...args);
-                } catch {
-                    // ignore
-                }
             }
         });
     };

@@ -31,7 +31,9 @@ export const MENU_THROUGH_LINE_IDS = Object.freeze({
 
 const MENU_THROUGH_CATEGORY_BY_LINE_ID = Object.freeze({
     [MENU_THROUGH_LINE_IDS.UENO_TOKYO]: 'UenoTokyo',
-    [MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU]: 'ShonanShinjuku'
+    [MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU]: 'ShonanShinjuku',
+    [THROUGH_SERVICE_TEMP_LINE_IDS.UENO_TOKYO]: 'UenoTokyo',
+    [THROUGH_SERVICE_TEMP_LINE_IDS.SHONAN_SHINJUKU]: 'ShonanShinjuku'
 });
 
 export const isMenuThroughLineId = (lineId) => {
