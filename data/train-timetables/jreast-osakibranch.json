@@ -18,10 +18,10 @@
 		"JR-East.Tokaido.3091M.Weekday"
 	],
 	"tt": [{
-		"s": "JR-East.OsakiBranch.Osaki",
+		"s": "JR-East.ShonanShinjuku.Osaki",
 		"d": "18:38"
 	}, {
-		"s": "JR-East.OsakiBranch.Fujisawa",
+		"s": "JR-East.Tokaido.Fujisawa",
 		"a": "19:20"
 	}],
 	"nm": [{
@@ -52,10 +52,10 @@
 		"JR-East.Tokaido.3093M.Weekday"
 	],
 	"tt": [{
-		"s": "JR-East.OsakiBranch.Osaki",
+		"s": "JR-East.ShonanShinjuku.Osaki",
 		"d": "19:42"
 	}, {
-		"s": "JR-East.OsakiBranch.Fujisawa",
+		"s": "JR-East.Tokaido.Fujisawa",
 		"a": "20:20"
 	}],
 	"nm": [{
@@ -86,10 +86,10 @@
 		"JR-East.ShonanShinjuku.3092M.Weekday"
 	],
 	"tt": [{
-		"s": "JR-East.OsakiBranch.Fujisawa",
+		"s": "JR-East.Tokaido.Fujisawa",
 		"d": "06:54"
 	}, {
-		"s": "JR-East.OsakiBranch.Osaki",
+		"s": "JR-East.ShonanShinjuku.Osaki",
 		"a": "07:32"
 	}],
 	"nm": [{
@@ -120,10 +120,10 @@
 		"JR-East.ShonanShinjuku.3094M.Weekday"
 	],
 	"tt": [{
-		"s": "JR-East.OsakiBranch.Fujisawa",
+		"s": "JR-East.Tokaido.Fujisawa",
 		"d": "07:45"
 	}, {
-		"s": "JR-East.OsakiBranch.Osaki",
+		"s": "JR-East.ShonanShinjuku.Osaki",
 		"a": "08:23"
 	}],
 	"nm": [{
@@ -154,10 +154,10 @@
 		"JR-East.ShonanShinjuku.3096M.Weekday"
 	],
 	"tt": [{
-		"s": "JR-East.OsakiBranch.Fujisawa",
+		"s": "JR-East.Tokaido.Fujisawa",
 		"d": "08:11"
 	}, {
-		"s": "JR-East.OsakiBranch.Osaki",
+		"s": "JR-East.ShonanShinjuku.Osaki",
 		"a": "08:49"
 	}],
 	"nm": [{
