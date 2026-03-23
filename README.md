@@ -1,9 +1,8 @@
 # TokyoRailMap 东京铁路地图
 
-东京都市圈铁路线网与班次信息可视化。
+东京都市圈铁路线网与班次信息可视化。支持浅色/深色/跟随系统模式
 
-![浅色](./images/t-bright.png)
-![深色](./images/t-dark.png)
+![浅色](./images/map.png)
 
 ## 在线使用
 
@@ -19,7 +18,7 @@
 
 左侧菜单可按运营公司或单条线路高亮展示。
 
-![menu](./images/t-menu.png)
+![menu](./images/menu.png)
 
 ### 2) 站点面板与双视图
 
@@ -37,13 +36,13 @@
 
 ### 4) 搜索及路径规划
 
-支持线路与站点的搜索。
+支持运营公司、线路与站点的搜索。
 
 ![搜索](./images/t-search.png)
 
 支持两个站点之间的线路规划。
 
-![规划](./images/t-travel.png)
+![规划](./images/travel.png)
 
 ### 5) 截图功能
 
@@ -57,13 +56,12 @@
 
 ## 数据说明
 
-数据主要来源于 [mini-tokyo-3d](https://github.com/nagix/mini-tokyo-3d) 以及 [
-TokyoGTFS](https://github.com/MKuranowski/TokyoGTFS) 的静态数据。
+线路、站点、班次数据主要来源于 [mini-tokyo-3d](https://github.com/nagix/mini-tokyo-3d)  
+线路和站点编号数据来源于 [TokyoGTFS](https://github.com/MKuranowski/TokyoGTFS) 的静态数据
+部分线路班次信息源于线路官网或根据官网数据生成。
 
 - 当前不包含实时数据；
 - 班次信息仅供参考，请勿作为实际出行的唯一依据。
-
-## 已知问题
 
 ## License
 
