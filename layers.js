@@ -4,6 +4,15 @@
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { getCachedJson } from './fetch.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
+import {
+    isDarkThemeActive,
+    buildBaseLineColorExpr,
+    buildFocusedLinePaint,
+    baseStationCircleRadiusExpr,
+    baseStationCircleStrokeWidthExpr,
+    buildStationCircleColorPaintExpr,
+    stationCircleStrokeColorPaint
+} from './element_ui.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -57,6 +66,8 @@ const enhancePopupLineBadges = async ({ popup, mode }) => {
 
 export function addLinesLayer(map, linesData) {
     map.addSource('lines-source', { type: 'geojson', data: linesData });
+    const baseColorExpr = buildBaseLineColorExpr({ isDarkThemeActive: isDarkThemeActive() });
+    const paint = buildFocusedLinePaint({ baseColorExpr });
 
     map.addLayer({
         id: 'lines-layer',
@@ -64,10 +75,7 @@ export function addLinesLayer(map, linesData) {
         source: 'lines-source',
         filter: ['!=', ['get', 'hidden_by_opacity_zero'], 1],
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: {
-            'line-width': 4, //线宽
-            'line-color': ['coalesce', ['get', 'color'], '#555']
-        }
+        paint
     });
 }
 
@@ -262,8 +270,7 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
  */
 export function addStationsLayer(map, stationsData) {
     map.addSource('stations-source', { type: 'geojson', data: stationsData });
-
-    const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
+    const dark = isDarkThemeActive();
 
     map.addLayer({
         id: 'stations-layer',
@@ -271,15 +278,13 @@ export function addStationsLayer(map, stationsData) {
         source: 'stations-source',
         filter: ['!=', ['get', 'hidden_by_opacity_zero'], 1],
         paint: {
-            'circle-radius': [
-                'case',
-                ['==', ['length', servingIdsExpr], 1],
-                3.5,
-                3.5
-            ],
-            'circle-color': '#fff',
-            'circle-stroke-width': 0,
-            'circle-stroke-color': '#333'
+            'circle-radius': baseStationCircleRadiusExpr(),
+            'circle-color': buildStationCircleColorPaintExpr({
+                isDarkThemeActive: dark,
+                lineColorById: new Map()
+            }),
+            'circle-stroke-width': baseStationCircleStrokeWidthExpr(),
+            'circle-stroke-color': stationCircleStrokeColorPaint({ isDarkThemeActive: dark })
         }
     });
 }
