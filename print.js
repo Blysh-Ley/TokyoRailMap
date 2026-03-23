@@ -150,6 +150,96 @@
         return out || String(fallback || '#0a84ff');
     };
 
+    const toText = (v) => String(v ?? '').trim();
+
+    const normalizeArrayLike = (value) => {
+        if (Array.isArray(value)) return value;
+        if (value == null) return [];
+        return [value];
+    };
+
+    const parseCssColorToRgb = (input) => {
+        const s = toText(input);
+        if (!s) return null;
+
+        const hex = s.match(/^#([0-9a-fA-F]{3,8})$/);
+        if (hex) {
+            const raw = hex[1];
+            if (raw.length === 3 || raw.length === 4) {
+                const r = parseInt(raw[0] + raw[0], 16);
+                const g = parseInt(raw[1] + raw[1], 16);
+                const b = parseInt(raw[2] + raw[2], 16);
+                return { r, g, b };
+            }
+            if (raw.length === 6 || raw.length === 8) {
+                const r = parseInt(raw.slice(0, 2), 16);
+                const g = parseInt(raw.slice(2, 4), 16);
+                const b = parseInt(raw.slice(4, 6), 16);
+                return { r, g, b };
+            }
+        }
+
+        const rgb = s.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*([0-9]+(?:\.[0-9]+)?))?\s*\)$/i);
+        if (rgb) {
+            const r = Math.max(0, Math.min(255, Math.round(Number(rgb[1]))));
+            const g = Math.max(0, Math.min(255, Math.round(Number(rgb[2]))));
+            const b = Math.max(0, Math.min(255, Math.round(Number(rgb[3]))));
+            return { r, g, b };
+        }
+
+        return null;
+    };
+
+    const rgbToHex = ({ r, g, b }) => {
+        const to2 = (v) => Math.max(0, Math.min(255, Math.round(Number(v) || 0))).toString(16).padStart(2, '0');
+        return `#${to2(r)}${to2(g)}${to2(b)}`;
+    };
+
+    const relativeLuminance = ({ r, g, b }) => {
+        const toLinear = (v) => {
+            const x = Math.max(0, Math.min(255, Number(v) || 0)) / 255;
+            return x <= 0.03928 ? (x / 12.92) : Math.pow((x + 0.055) / 1.055, 2.4);
+        };
+        const lr = toLinear(r);
+        const lg = toLinear(g);
+        const lb = toLinear(b);
+        return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+    };
+
+    const DARK_INVERT_TRIGGER_LUMINANCE = (() => {
+        const ref = parseCssColorToRgb('#005AAA');
+        return ref ? relativeLuminance(ref) : 0.102;
+    })();
+
+    const adjustColorForDarkThemeIfNeeded = (color) => {
+        const parsed = parseCssColorToRgb(color);
+        if (!parsed) return String(color || '');
+
+        const lum = relativeLuminance(parsed);
+        if (!(lum < DARK_INVERT_TRIGGER_LUMINANCE)) return String(color || '');
+
+        return rgbToHex({
+            r: 255 - parsed.r,
+            g: 255 - parsed.g,
+            b: 255 - parsed.b
+        });
+    };
+
+    const resolveRailColorForTheme = (color, options = {}) => {
+        const raw = toText(color);
+        if (!raw) return raw;
+        const dark = options.isDarkThemeActive === true || (options.isDarkThemeActive == null && isDarkTheme());
+        if (!dark) return raw;
+        return adjustColorForDarkThemeIfNeeded(raw);
+    };
+
+    const resolvePrimaryStationLineId = (props) => {
+        const platform = normalizeArrayLike(props?.platform_line_id).map((x) => toText(x)).filter(Boolean);
+        if (platform.length) return platform[0];
+        const serving = normalizeArrayLike(props?.serving_ids).map((x) => toText(x)).filter(Boolean);
+        return serving.length ? serving[0] : '';
+    };
+
     const getCurrentStationLabelMode = () => {
         try {
             const host = document.querySelector('.settings-item.settings-item-station-label');
@@ -326,34 +416,167 @@
     const lerp = (a, b, t) => a + (b - a) * t;
 
     const radiusForStop = (zoom, servingCount) => {
-        const sc = Number(servingCount || 1);
         const z = Number(zoom);
-        const r6 = 0.5;
-        const r14 = (sc <= 1) ? 3.5 : 4;
-        const r22 = r14;
-        if (!Number.isFinite(z)) return r14;
-        if (z <= 6) return r6;
-        if (z >= 22) return r22;
-        if (z >= 14) return lerp(r14, r22, (z - 14) / (22 - 14));
-        return lerp(r6, r14, (z - 6) / (14 - 6));
+        const rBase = 3.5;
+        const rMax = 5;
+        if (!Number.isFinite(z)) return rBase;
+        if (z <= 12) return rBase;
+        if (z >= 16) return rMax;
+        return lerp(rBase, rMax, (z - 12) / (16 - 12));
     };
 
-    const stopStrokeWidth = (servingCount) => (Number(servingCount || 1) <= 1 ? 0 : 2);
-
-    const stopFill = (servingCount) => {
-        if (!isDarkTheme()) return '#fff';
-        return (Number(servingCount || 1) <= 1) ? '#8e95a1' : '#111';
+    const stopStrokeWidth = (zoom, servingCount) => {
+        const sc = Number(servingCount || 1);
+        if (sc > 1) return 0;
+        const z = Number(zoom);
+        const wBase = 2;
+        const wMax = 2.8;
+        if (!Number.isFinite(z)) return wBase;
+        if (z <= 12) return wBase;
+        if (z >= 16) return wMax;
+        return lerp(wBase, wMax, (z - 12) / (16 - 12));
     };
 
-    const stopStroke = () => (isDarkTheme() ? '#fff' : '#111');
+    let stationStyleContextPromise = null;
+
+    const getStationStyleContext = async (map) => {
+        if (stationStyleContextPromise) return stationStyleContextPromise;
+        stationStyleContextPromise = (async () => {
+            const baseMap = window.__TokyoRailMap || map;
+            const lineColorById = new Map();
+            const stationPrimaryLineIdByStationId = new Map();
+
+            if (baseMap) {
+                const linesFc = await getGeoJsonSourceData(baseMap, 'lines-source');
+                for (const f of Array.isArray(linesFc?.features) ? linesFc.features : []) {
+                    const props = f?.properties || {};
+                    const lineId = toText(props.id);
+                    if (!lineId || lineColorById.has(lineId)) continue;
+                    const c = toText(props.color || props._dark_color);
+                    if (c) lineColorById.set(lineId, c);
+                }
+
+                const stationsFc = await getGeoJsonSourceData(baseMap, 'stations-source');
+                for (const f of Array.isArray(stationsFc?.features) ? stationsFc.features : []) {
+                    const props = f?.properties || {};
+                    const stationId = toText(props.id);
+                    if (!stationId || stationPrimaryLineIdByStationId.has(stationId)) continue;
+                    const primary = resolvePrimaryStationLineId(props);
+                    if (primary) stationPrimaryLineIdByStationId.set(stationId, primary);
+                }
+            }
+
+            return { lineColorById, stationPrimaryLineIdByStationId };
+        })();
+        return stationStyleContextPromise;
+    };
+
+    const stationServingCountForStyle = (props) => {
+        const serving = normalizeArrayLike(props?.serving_ids).map((x) => toText(x)).filter(Boolean);
+        if (serving.length) return Math.max(1, serving.length);
+        const raw = Number(props?.serving_count);
+        if (Number.isFinite(raw) && raw > 0) return Math.max(1, Math.round(raw));
+        return 1;
+    };
+
+    const resolveStationFillColor = ({ props, styleContext }) => {
+        const dark = isDarkTheme();
+        const fallback = dark ? '#8e95a1' : '#fff';
+        const sid = toText(props?.id);
+
+        let lineId = resolvePrimaryStationLineId(props);
+        if (!lineId && sid) lineId = toText(styleContext?.stationPrimaryLineIdByStationId?.get(sid));
+        if (!lineId) return fallback;
+
+        const rawColor = toText(styleContext?.lineColorById?.get(lineId));
+        if (!rawColor) return fallback;
+
+        return resolveRailColorForTheme(rawColor, { isDarkThemeActive: dark }) || fallback;
+    };
+
+    const stopStroke = () => (isDarkTheme() ? '#111' : '#fff');
 
     const labelFill = () => (isDarkTheme() ? '#f2f2f2' : '#111');
     const stationLabelBoxFill = () => (isDarkTheme() ? 'rgba(24, 26, 31, 0.88)' : 'rgba(255, 255, 255, 0.8)');
     const stationLabelBoxStroke = () => (isDarkTheme() ? 'rgba(210, 216, 226, 0.35)' : 'rgba(0, 0, 0, 0.2)');
 
+    const getThemeCapsuleColors = () => {
+        const isDark = isDarkTheme();
+        return {
+            outline: isDark ? '#fff' : '#111',
+            inner: isDark ? '#111' : '#fff'
+        };
+    };
+
+    const capsuleLineWidths = (z) => {
+        const zoom = Number(z);
+        if (zoom <= 12) return { outline: 12, inner: 8 };
+        if (zoom >= 16) return { outline: 24, inner: 14 };
+        const t = (zoom - 12) / 4;
+        return { outline: lerp(12, 24, t), inner: lerp(8, 14, t) };
+    };
+
+    const capsuleCircleRadii = (z) => {
+        const zoom = Number(z);
+        if (zoom <= 12) return { outline: 6.8, inner: 5.0 };
+        if (zoom >= 16) return { outline: 11.5, inner: 8.6 };
+        const t = (zoom - 12) / 4;
+        return { outline: lerp(6.8, 11.5, t), inner: lerp(5.0, 8.6, t) };
+    };
+
     const project = (map, lngLat) => {
         const p = map.project(lngLat);
         return { x: Number(p.x), y: Number(p.y) };
+    };
+
+    const appendTransferCapsulesSvg = ({ parts, map, z, capsuleLines, capsuleCentroids }) => {
+        if (!capsuleLines?.length && !capsuleCentroids?.length) return;
+
+        const colors = getThemeCapsuleColors();
+        const widths = capsuleLineWidths(z);
+        const radii = capsuleCircleRadii(z);
+
+        // Draw Capsule Lines - Outline (排除 fallbackCircle)
+        if (capsuleLines?.length) {
+            parts.push(`<g id="capsules-outline" fill="none" stroke="${colors.outline}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${widths.outline}">`);
+            for (const f of capsuleLines) {
+                if (f.properties?.fallbackCircle === 1) continue;
+                const d = pathFromCoords(map, f.geometry?.coordinates);
+                if (d) parts.push(`<path d="${d}"/>`);
+            }
+            parts.push(`</g>`);
+
+            // Draw Capsule Lines - Inner (排除 fallbackCircle)
+            parts.push(`<g id="capsules-inner" fill="none" stroke="${colors.inner}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${widths.inner}">`);
+            for (const f of capsuleLines) {
+                if (f.properties?.fallbackCircle === 1) continue;
+                const d = pathFromCoords(map, f.geometry?.coordinates);
+                if (d) parts.push(`<path d="${d}"/>`);
+            }
+            parts.push(`</g>`);
+        }
+
+        // Draw Fallback Circles (Centroids marked with fallbackCircle = 1)
+        const fallbacks = (capsuleCentroids || []).filter(f => f.properties?.fallbackCircle === 1);
+        if (fallbacks.length) {
+            parts.push(`<g id="capsules-fallback-outline" fill="${colors.outline}">`);
+            for (const f of fallbacks) {
+                const c = f.geometry?.coordinates;
+                if (!Array.isArray(c) || c.length < 2) continue;
+                const p = project(map, { lng: Number(c[0]), lat: Number(c[1]) });
+                if (Number.isFinite(p.x)) parts.push(`<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${radii.outline.toFixed(2)}"/>`);
+            }
+            parts.push(`</g>`);
+
+            parts.push(`<g id="capsules-fallback-inner" fill="${colors.inner}">`);
+            for (const f of fallbacks) {
+                const c = f.geometry?.coordinates;
+                if (!Array.isArray(c) || c.length < 2) continue;
+                const p = project(map, { lng: Number(c[0]), lat: Number(c[1]) });
+                if (Number.isFinite(p.x)) parts.push(`<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${radii.inner.toFixed(2)}"/>`);
+            }
+            parts.push(`</g>`);
+        }
     };
 
     const appendStationLabelBoxesSvg = ({ parts, groupId, map, candidates, visibleIds }) => {
@@ -424,13 +647,15 @@
         setTimeout(() => URL.revokeObjectURL(url), 2000);
     };
 
-    const buildSvgFromBuilt = async ({ map, payload, built, backgroundImageHref, transparentBackground = false }) => {
+    // 增加 capsules 参数
+    const buildSvgFromBuilt = async ({ map, payload, built, backgroundImageHref, transparentBackground = false, capsules }) => {
         const container = map.getContainer?.();
         const rect = container?.getBoundingClientRect?.();
         const width = Math.max(1, Math.round(rect?.width || 0));
         const height = Math.max(1, Math.round(rect?.height || 0));
 
         const z = (typeof map.getZoom === 'function') ? map.getZoom() : 14;
+        const stationStyleContext = await getStationStyleContext(map);
 
         const stationNameById = await getStationNameById();
 
@@ -486,6 +711,15 @@
                 }
             }
             parts.push(`</g>`);
+
+            appendTransferCapsulesSvg({ 
+            parts, map, z, 
+            capsuleLines: capsules?.lines, 
+                capsuleCentroids: capsules?.centroids 
+            });
+
+            // stops
+            parts.push(`<g id="trip-preview-stops">`);
         }
 
         // lines
@@ -531,13 +765,14 @@
 
             const servingCount = Number(f?.properties?.serving_count ?? 1);
             const r = radiusForStop(z, servingCount);
-            const sw = stopStrokeWidth(servingCount);
+            const sw = stopStrokeWidth(z, servingCount);
+            const fill = resolveStationFillColor({ props: f?.properties || {}, styleContext: stationStyleContext });
 
             const p = project(map, { lng: Number(c[0]), lat: Number(c[1]) });
             if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
 
             parts.push(
-                `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${r.toFixed(2)}" fill="${stopFill(servingCount)}" stroke="${stopStroke()}" stroke-width="${sw}"/>`
+                `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${r.toFixed(2)}" fill="${escapeXml(fill)}" stroke="${stopStroke()}" stroke-width="${sw.toFixed(2)}"/>`
             );
         }
         parts.push(`</g>`);
@@ -1129,6 +1364,7 @@
 
             // 低亮基础线路：取自主地图 lines-source，按“最终导出视野”过滤
             let builtForSvg = built;
+            let capsules = null;
             try {
                 const bounds = vmap.getBounds?.();
                 const baseMap = window.__TokyoRailMap;
@@ -1139,6 +1375,9 @@
                         maxLng: bounds.getEast(),
                         maxLat: bounds.getNorth(),
                     };
+
+                    capsules = await pickCapsulesInBbox(baseMap, viewBbox);
+
                     const lowlightLines = await pickLowlightLinesInBbox({
                         baseMap,
                         bbox: viewBbox,
@@ -1234,6 +1473,7 @@
                         built: builtForSvg,
                         backgroundImageHref: null,
                         transparentBackground: true,
+                        capsules
                     });
                     const merged = await compositePngAndSvgToPngBlob({
                         backgroundPngBlob: pngBlob,
@@ -1249,7 +1489,7 @@
                 return;
             }
 
-            const svgText = await buildSvgFromBuilt({ map: vmap, payload, built: builtForSvg, backgroundImageHref: pngName });
+            const svgText = await buildSvgFromBuilt({ map: vmap, payload, built: builtForSvg, backgroundImageHref: pngName,capsules });
 
             const JSZipCtor = window.JSZip;
             if (!JSZipCtor) {
@@ -1472,13 +1712,40 @@
         return deduped;
     };
 
-    const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, lowlightLineFeatures, stationFeatures, backgroundImageHref, transparentBackground = false }) => {
-        const container = map.getContainer?.();
+    const pickCapsulesInBbox = async (baseMap, bbox) => {
+        const linesFc = await getGeoJsonSourceData(baseMap, 'transfer-capsule-lines-source');
+        const centsFc = await getGeoJsonSourceData(baseMap, 'transfer-capsule-centroids-source');
+
+        const filterFeatures = (fc, isPoint) => {
+            const out = [];
+            for (const f of (Array.isArray(fc?.features) ? fc.features : [])) {
+                if (!f?.geometry) continue;
+                if (isPoint) {
+                    if (f.geometry.type !== 'Point') continue;
+                    const c = f.geometry.coordinates;
+                    if (pointInBbox(c[0], c[1], bbox)) out.push(f);
+                } else {
+                    if (f.geometry.type === 'LineString' && featureBboxIntersects(f.geometry.coordinates, bbox)) {
+                        out.push(f);
+                    }
+                }
+            }
+            return out;
+        };
+
+        return {
+            lines: filterFeatures(linesFc, false),
+            centroids: filterFeatures(centsFc, true)
+        };
+    };
+    // 同样增加 capsules 参数
+    const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, lowlightLineFeatures, stationFeatures, backgroundImageHref, transparentBackground = false, capsules }) => {        const container = map.getContainer?.();
         const rect = container?.getBoundingClientRect?.();
         const width = Math.max(1, Math.round(rect?.width || 0));
         const height = Math.max(1, Math.round(rect?.height || 0));
 
         const z = (typeof map.getZoom === 'function') ? map.getZoom() : 14;
+        const stationStyleContext = await getStationStyleContext(map);
         const stationNameById = await getStationNameById();
 
         const bg = isDarkTheme() ? '#000' : '#fff';
@@ -1546,6 +1813,12 @@
         }
         parts.push(`</g>`);
 
+        appendTransferCapsulesSvg({ 
+            parts, map, z, 
+            capsuleLines: capsules?.lines, 
+            capsuleCentroids: capsules?.centroids 
+        });
+
         // stations
         const stations = Array.isArray(stationFeatures) ? stationFeatures : [];
         if (stations.length) {
@@ -1560,9 +1833,10 @@
 
                 const sc = stationServingCount(f?.properties || {});
                 const r = radiusForStop(z, sc);
-                const sw = stopStrokeWidth(sc);
+                const sw = stopStrokeWidth(z, sc);
+                const fill = resolveStationFillColor({ props: f?.properties || {}, styleContext: stationStyleContext });
                 parts.push(
-                    `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${r.toFixed(2)}" fill="${stopFill(sc)}" stroke="${stopStroke()}" stroke-width="${sw}"/>`
+                    `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${r.toFixed(2)}" fill="${escapeXml(fill)}" stroke="${stopStroke()}" stroke-width="${sw.toFixed(2)}"/>`
                 );
             }
             parts.push(`</g>`);
@@ -1740,6 +2014,7 @@
             // lowlight lines + stations inside export view
             let lowlightLines = [];
             let stationFeatures = [];
+            let capsules = null;
             try {
                 const bounds = vmap.getBounds?.();
                 if (bounds) {
@@ -1749,6 +2024,7 @@
                         maxLng: bounds.getEast(),
                         maxLat: bounds.getNorth(),
                     };
+                    capsules = await pickCapsulesInBbox(baseMap, viewBbox);
                     lowlightLines = await pickLowlightLinesInBbox({ baseMap, bbox: viewBbox, excludeLineIds: lineIds });
                     stationFeatures = await pickStationsInBboxForLineIds({ baseMap, bbox: viewBbox, lineIds });
                 }
@@ -1766,6 +2042,7 @@
                         stationFeatures,
                         backgroundImageHref: null,
                         transparentBackground: true,
+                        capsules,
                     });
                     const merged = await compositePngAndSvgToPngBlob({
                         backgroundPngBlob: pngBlob,
@@ -1788,6 +2065,7 @@
                 stationFeatures,
                 backgroundImageHref: pngName,
                 transparentBackground: false,
+                capsules,
             });
 
             const JSZipCtor = window.JSZip;
