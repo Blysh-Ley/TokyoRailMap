@@ -577,7 +577,12 @@ const rideTripFromBoardRaptor = ({ trip, lineId, boardIndex, boardStopId, boardD
         if (!Number.isFinite(arrMs)) continue;
 
         const best = roundArr.get(stopId);
-        if (!Number.isFinite(best) || arrMs < best) {
+        const prevParent = roundParent.get(stopId);
+
+        // 🌟 决胜局裁判：如果到达目标站的时间一模一样，谁的出发时间晚（在车上熬的时间短），谁就能覆盖历史记录！
+        const isShorterRideTieBreak = (arrMs === best) && prevParent && (boardDepMs > prevParent.depMs);
+
+        if (!Number.isFinite(best) || arrMs < best || isShorterRideTieBreak) {
             roundArr.set(stopId, arrMs);
             roundParent.set(stopId, {
                 kind: 'ride',
@@ -625,42 +630,40 @@ const lineSetFromMarkedStops = (markedStops) => {
     return out;
 };
 
-const findBoardingOnChain = ({ chainTrips, prevRoundEarliestArrivals, minBoardSlackMs, serviceDayStartMs }) => {
-    let activeBoard = null;
-    let activeTripId = '';
-    let activeBoardDepMs = INF_TIME;
-    let boardStopPrevArrMs = INF_TIME;
+const findBoardingOnChain = ({ chainTrips, prevRoundEarliestArrivals, markedStops, minBoardSlackMs, serviceDayStartMs }) => {
+    // 🛡️ 核心修复 1：改为数组，收集该班次所有合法上车点（而不是找到一个就 break）
+    const activeBoards = []; 
 
     for (let seg = 0; seg < chainTrips.length; seg += 1) {
         const trip = chainTrips[seg];
-        const tripId = normalizeText(trip?.rawTripId || trip?.tripId || '');
         const stops = Array.isArray(trip?.stops) ? trip.stops : [];
+        
         for (let i = 0; i < stops.length; i += 1) {
             const stop = stops[i];
             const stopId = normalizeText(stop?.stopId);
             if (!stopId) continue;
+            
+            // 盾牌：只允许从本轮活跃的车站上车
+            if (!markedStops.has(stopId)) continue;
+
             const depMs = Number.isFinite(stop?.depMin) ? serviceDayStartMs + stop.depMin * 60000 : null;
             if (!Number.isFinite(depMs)) continue;
+            
             const prevArrMs = prevRoundEarliestArrivals.get(stopId);
             if (!Number.isFinite(prevArrMs)) continue;
             if (depMs < prevArrMs + minBoardSlackMs) continue;
 
-            if (!activeBoard || depMs < activeBoardDepMs) {
-                activeBoard = { segmentIndex: seg, boardIndex: i, boardStopId: stopId, boardDepMs: depMs };
-                activeTripId = tripId;
-                activeBoardDepMs = depMs;
-                boardStopPrevArrMs = prevArrMs;
-                continue;
-            }
-
-            if (activeBoard && tripId && tripId === activeTripId && prevArrMs <= boardStopPrevArrMs) {
-                activeBoard = { segmentIndex: seg, boardIndex: i, boardStopId: stopId, boardDepMs: depMs };
-                boardStopPrevArrMs = prevArrMs;
-            }
+            // 🛡️ 只要合法，全部加入队列！允许乘客在环线不同段落合法上车
+            activeBoards.push({ 
+                segmentIndex: seg, 
+                boardIndex: i, 
+                boardStopId: stopId, 
+                boardDepMs: depMs 
+            });
         }
     }
 
-    return activeBoard;
+    return activeBoards;
 };
 
 const relaxChainFromBoardRaptor = ({ chainTrips, throughRootTripId, startSegmentIndex, startBoardIndex, startBoardStopId, startBoardDepMs, serviceDayStartMs, roundArr, roundParent, improvedStops }) => {
@@ -750,28 +753,31 @@ const scanRoundRaptor = async ({ prevArr, markedStops, serviceDay, serviceDaySta
             for (const chainTrips of chainVariants) {
                 if (!Array.isArray(chainTrips) || !chainTrips.length) continue;
 
-                const board = findBoardingOnChain({
+            const boards = findBoardingOnChain({
                     chainTrips,
                     prevRoundEarliestArrivals: prevArr,
+                    markedStops,
                     minBoardSlackMs,
                     serviceDayStartMs
                 });
-                if (!board) continue;
+                
+                if (!boards || !boards.length) continue;
 
-                // 一旦上车，当前分支的 nt 直通链必须在同一 round 扫描到底；
-                // 扫描过程中绝不因已有更优到达时间而中断，仅做逐站松弛更新。
-                relaxChainFromBoardRaptor({
-                    chainTrips,
-                    throughRootTripId: normalizeText(merged?.throughRootTripId || ''),
-                    startSegmentIndex: board.segmentIndex,
-                    startBoardIndex: board.boardIndex,
-                    startBoardStopId: board.boardStopId,
-                    startBoardDepMs: board.boardDepMs,
-                    serviceDayStartMs,
-                    roundArr,
-                    roundParent,
-                    improvedStops
-                });
+                // 🌟 让这趟列车的多个分身上车点，各自向后探索
+                for (const board of boards) {
+                    relaxChainFromBoardRaptor({
+                        chainTrips,
+                        throughRootTripId: normalizeText(merged?.throughRootTripId || ''),
+                        startSegmentIndex: board.segmentIndex,
+                        startBoardIndex: board.boardIndex,
+                        startBoardStopId: board.boardStopId,
+                        startBoardDepMs: board.boardDepMs,
+                        serviceDayStartMs,
+                        roundArr,
+                        roundParent,
+                        improvedStops
+                    });
+                }
             }
         }
     }
@@ -981,6 +987,167 @@ const reconstructJourney = ({ runResult, targetRound, targetStop, departureMs })
     return { legs, sections, firstDepMs, arrivalMs, durationMs, transfers };
 };
 
+const optimizeSharedCorridorTransfers = async ({ plan, serviceDay }) => {
+    if (!plan || !Array.isArray(plan.legs) || plan.legs.length < 2) return plan;
+
+    // 深拷贝 legs，避免污染原始 RAPTOR 输出结果
+    const optimizedLegs = JSON.parse(JSON.stringify(plan.legs)); 
+    // 获取当天的毫秒基准，用于将 arrMin/depMin 转换为绝对时间戳
+    const serviceDayStartMs = getServiceDayStartMs(new Date(Number(plan.firstDepMs) || Date.now()));
+
+    for (let i = 0; i < optimizedLegs.length - 1; i += 1) {
+        const currLeg = optimizedLegs[i];
+        const nextLeg = optimizedLegs[i + 1];
+
+        // 1. 如果是直通运转（不需要真下车），直接跳过
+        if (isThroughLegPairByMeta({ currentLeg: currLeg, nextLeg })) continue;
+
+        // 2. 获取这两趟车的完整时刻表数据
+        const tripA = await resolveTripForLeg({ leg: currLeg, serviceDay });
+        const tripB = await resolveTripForLeg({ leg: nextLeg, serviceDay });
+        if (!tripA || !tripB) continue;
+
+        const stopsA = Array.isArray(tripA.stops) ? tripA.stops : [];
+        const stopsB = Array.isArray(tripB.stops) ? tripB.stops : [];
+
+        // 获取或推算当前记录的下车点与上车点索引
+        let idxA = Number(currLeg.alightIndex);
+        let idxB = Number(nextLeg.boardIndex);
+        if (!Number.isFinite(idxA) || !Number.isFinite(idxB) || idxA < 0 || idxB < 0) {
+            const resolvedA = resolveLegSliceIndexes(tripA, currLeg);
+            const resolvedB = resolveLegSliceIndexes(tripB, nextLeg);
+            idxA = resolvedA.toIdx;
+            idxB = resolvedB.fromIdx;
+        }
+        if (idxA < 0 || idxB < 0) continue;
+
+        // 3. 核心滑动逻辑准备
+        const originalStopA = stopsA[idxA];
+        const originalStopB = stopsB[idxB];
+        if (!originalStopA || !originalStopB) continue;
+
+        // 获取原定换乘点的步行惩罚（作为基准线）
+        let currentPenalty = Math.max(MIN_TRANSFER_MS, getTransferPenaltyMs(originalStopA.stopId, originalStopB.stopId));
+        let bestTransfer = null;
+        
+        // B 车最多只能滑动到乘客的最终下车点
+        const nextLegAlightIdx = Number.isFinite(nextLeg.alightIndex) ? nextLeg.alightIndex : stopsB.length - 1;
+
+        // 开始向后探测共线段
+        while (idxA + 1 < stopsA.length && idxB + 1 <= nextLegAlightIdx) {
+            const nextStopA = stopsA[idxA + 1];
+            const nextStopB = stopsB[idxB + 1];
+
+            // 终止条件 A: 物理站点不一致，说明共线段结束/分叉了
+            if (!isSamePhysicalStop(nextStopA.stopId, nextStopB.stopId)) break;
+
+            // 计算如果滑动到这下一站，需要步行的换乘惩罚
+            const nextPenalty = Math.max(MIN_TRANSFER_MS, getTransferPenaltyMs(nextStopA.stopId, nextStopB.stopId));
+            
+            // 终止条件 B: 防劣化机制！如果下一站换乘走得更远（比如小站变大站迷宫），立刻放弃滑动
+            if (nextPenalty > currentPenalty) break; 
+
+            const arrMsA = serviceDayStartMs + (Number(nextStopA.arrMin) * 60000);
+            const depMsB = serviceDayStartMs + (Number(nextStopB.depMin) * 60000);
+
+            // 终止条件 C: 被超车了，来不及换乘（A 车到达 + 惩罚 > B 车发车）
+            if (arrMsA + nextPenalty > depMsB) break;
+
+            // 记录发现的更优晚换乘点
+            bestTransfer = {
+                idxA: idxA + 1,
+                idxB: idxB + 1,
+                stopIdA: nextStopA.stopId,
+                stopIdB: nextStopB.stopId,
+                arrMsA,
+                depMsB
+            };
+
+            // 把当前惩罚设为新的基准，继续往后看能不能更好
+            currentPenalty = nextPenalty;
+            idxA += 1;
+            idxB += 1;
+        }
+
+        // 4. 如果找到了更晚的换乘点，修改 A 车的下车信息和 B 车的上车信息
+        if (bestTransfer) {
+            currLeg.toStop = bestTransfer.stopIdA;
+            currLeg.alightIndex = bestTransfer.idxA;
+            currLeg.arrMs = bestTransfer.arrMsA;
+
+            nextLeg.fromStop = bestTransfer.stopIdB;
+            nextLeg.boardIndex = bestTransfer.idxB;
+            nextLeg.depMs = bestTransfer.depMsB;
+        }
+    }
+
+    // 5. 重新拼装 Sections，让 UI 根据新的换乘点切分行程条
+    const sections = [];
+    let current = [];
+    for (let i = 0; i < optimizedLegs.length; i += 1) {
+        const leg = optimizedLegs[i];
+        current.push(leg);
+        const next = optimizedLegs[i + 1] || null;
+        const keep = next && isThroughLegPairByMeta({ currentLeg: leg, nextLeg: next });
+        if (keep) continue;
+
+        const first = current[0];
+        const last = current[current.length - 1];
+        const tripIds = [];
+        const lineIds = [];
+        const throughTripIds = [];
+
+        for (const x of current) {
+            const tid = normalizeText(x.rawTripId || x.tripId || '');
+            if (tid && !tripIds.includes(tid)) tripIds.push(tid);
+            const lid = normalizeText(x.lineId || '');
+            if (lid && !lineIds.includes(lid)) lineIds.push(lid);
+            
+            for (const id of (Array.isArray(x.throughLineIds) ? x.throughLineIds : [])) {
+                const v = normalizeText(id);
+                if (v && !lineIds.includes(v)) lineIds.push(v);
+            }
+            for (const id of (Array.isArray(x.throughTripIds) ? x.throughTripIds : [])) {
+                const v = normalizeText(id);
+                if (v && !throughTripIds.includes(v)) throughTripIds.push(v);
+            }
+        }
+        if (!throughTripIds.length) {
+            for (const id of tripIds) {
+                if (id && !throughTripIds.includes(id)) throughTripIds.push(id);
+            }
+        }
+
+        sections.push({
+            fromStop: normalizeText(first.fromStop),
+            toStop: normalizeText(last.toStop),
+            depMs: Number(first.depMs),
+            arrMs: Number(last.arrMs),
+            tripIds,
+            throughTripIds,
+            lineIds,
+            legs: current.slice() // 使用已滑动优化的 legs
+        });
+        current = [];
+    }
+
+    // 6. 重新校准该 Plan 的起止时间与耗时（虽然滑动通常不会改变总时长，但严谨起见更新一下）
+    const firstDepMs = Number.isFinite(optimizedLegs[0]?.depMs) ? optimizedLegs[0].depMs : plan.firstDepMs;
+    const arrivalMs = Number.isFinite(optimizedLegs[optimizedLegs.length - 1]?.arrMs) ? optimizedLegs[optimizedLegs.length - 1].arrMs : plan.arrivalMs;
+    const durationMs = (Number.isFinite(arrivalMs) && Number.isFinite(plan.baseDepartureMs)) 
+        ? arrivalMs - plan.baseDepartureMs 
+        : plan.durationMs;
+
+    return {
+        ...plan,
+        firstDepMs,
+        arrivalMs,
+        durationMs,
+        legs: optimizedLegs,
+        sections
+    };
+};
+
 const dedupePlans = (plans) => {
     const seen = new Set();
     const out = [];
@@ -1092,24 +1259,46 @@ const resolveTripForLeg = async ({ leg, serviceDay }) => {
     return null;
 };
 
+// 🌟 新增：带时间校验的站点安全定位器
+const findSafeStopIndex = (stops, targetStopId, targetMs, serviceDayStartMs, isDeparture) => {
+    let bestIdx = -1;
+    let minDiff = Infinity;
+
+    for (let i = 0; i < stops.length; i += 1) {
+        const s = stops[i];
+        if (isSamePhysicalStop(s.stopId, targetStopId)) {
+            // 匹配出发或到达时间
+            const timeMin = isDeparture ? (s.depMin ?? s.arrMin) : (s.arrMin ?? s.depMin);
+            if (timeMin != null && Number.isFinite(targetMs)) {
+                const ms = serviceDayStartMs + timeMin * 60000;
+                const diff = Math.abs(ms - targetMs);
+                // 寻找时间最接近的那一圈
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    bestIdx = i;
+                }
+            } else if (bestIdx < 0) {
+                bestIdx = i; // 兜底
+            }
+        }
+    }
+    // 只要时间误差在 2 分钟内，绝对是这个站
+    if (bestIdx >= 0 && minDiff <= 120000) return bestIdx;
+    
+    // 终极兜底退化：只看名字
+    return stops.findIndex(s => isSamePhysicalStop(s.stopId, targetStopId));
+};
+
+// 🌟 替换 1：基础片段切分定位
 const resolveLegSliceIndexes = (trip, leg) => {
     const stops = Array.isArray(trip?.stops) ? trip.stops : [];
     if (!stops.length) return { fromIdx: -1, toIdx: -1 };
 
-    const fromStop = normalizeText(leg?.fromStop);
-    const toStop = normalizeText(leg?.toStop);
-
-    let fromIdx = stops.findIndex((s) => isSamePhysicalStop(s?.stopId, fromStop));
-    let toIdx = stops.findIndex((s) => isSamePhysicalStop(s?.stopId, toStop));
-
-    if (fromIdx < 0 && Number.isFinite(leg?.boardIndex)) {
-        const idx = Number(leg.boardIndex);
-        if (idx >= 0 && idx < stops.length) fromIdx = idx;
-    }
-    if (toIdx < 0 && Number.isFinite(leg?.alightIndex)) {
-        const idx = Number(leg.alightIndex);
-        if (idx >= 0 && idx < stops.length) toIdx = idx;
-    }
+    const serviceDayStartMs = getServiceDayStartMs(new Date(Number(leg?.depMs) || Date.now()));
+    
+    // 彻底抛弃 findIndex，使用双重校验定位器
+    const fromIdx = findSafeStopIndex(stops, leg?.fromStop, Number(leg?.depMs), serviceDayStartMs, true);
+    const toIdx = findSafeStopIndex(stops, leg?.toStop, Number(leg?.arrMs), serviceDayStartMs, false);
 
     if (fromIdx < 0 || toIdx < 0 || toIdx <= fromIdx) return { fromIdx: -1, toIdx: -1 };
     return { fromIdx, toIdx };
@@ -1160,6 +1349,7 @@ const buildRowsForTripSlice = ({ trip, fromIdx, toIdx, serviceDayStartMs }) => {
     return rows;
 };
 
+// 🌟 替换 2：UI 详情面板用的行程段拆解合并器
 const buildSectionThroughSegments = async ({ section, serviceDay }) => {
     const day = normalizeText(serviceDay) || 'Weekday';
     const fromStopId = normalizeText(section?.fromStop || '');
@@ -1177,11 +1367,16 @@ const buildSectionThroughSegments = async ({ section, serviceDay }) => {
     }
     if (!trips.length) return [];
 
+    const serviceDayStartMs = getServiceDayStartMs(new Date(Number(section?.depMs) || Date.now()));
+    const targetDepMs = Number(section?.depMs);
+    const targetArrMs = Number(section?.arrMs);
+
     let startTripIdx = -1;
     let startStopIdx = -1;
     for (let ti = 0; ti < trips.length; ti += 1) {
         const stops = Array.isArray(trips[ti]?.stops) ? trips[ti].stops : [];
-        const idx = stops.findIndex((s) => isSamePhysicalStop(s?.stopId, fromStopId));
+        // 防御：时间+空间双重验证寻找上车点
+        const idx = findSafeStopIndex(stops, fromStopId, targetDepMs, serviceDayStartMs, true);
         if (idx >= 0) {
             startTripIdx = ti;
             startStopIdx = idx;
@@ -1195,18 +1390,33 @@ const buildSectionThroughSegments = async ({ section, serviceDay }) => {
     for (let ti = startTripIdx; ti < trips.length; ti += 1) {
         const stops = Array.isArray(trips[ti]?.stops) ? trips[ti].stops : [];
         const begin = ti === startTripIdx ? startStopIdx : 0;
+        
+        let bestIdx = -1;
+        let minDiff = Infinity;
         for (let si = begin; si < stops.length; si += 1) {
-            if (isSamePhysicalStop(stops[si]?.stopId, toStopId)) {
-                endTripIdx = ti;
-                endStopIdx = si;
-                break;
+            const s = stops[si];
+            if (isSamePhysicalStop(s.stopId, toStopId)) {
+                const timeMin = s.arrMin ?? s.depMin;
+                if (timeMin != null && Number.isFinite(targetArrMs)) {
+                    const ms = serviceDayStartMs + timeMin * 60000;
+                    const diff = Math.abs(ms - targetArrMs);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        bestIdx = si;
+                    }
+                } else if (bestIdx < 0) {
+                    bestIdx = si;
+                }
             }
         }
-        if (endTripIdx >= 0) break;
+        if (bestIdx >= 0) {
+            endTripIdx = ti;
+            endStopIdx = bestIdx;
+            break;
+        }
     }
     if (endTripIdx < 0 || endStopIdx < 0) return [];
 
-    const serviceDayStartMs = getServiceDayStartMs(new Date(Number(section?.depMs) || Date.now()));
     const out = [];
     for (let ti = startTripIdx; ti <= endTripIdx; ti += 1) {
         const trip = trips[ti];
@@ -1271,6 +1481,7 @@ export const buildSectionLineRunsForDisplay = async ({ section, serviceDay }) =>
     return out;
 };
 
+// 🌟 替换 3：供地图悬浮高亮预览用的拆解器
 const buildThroughDisplaySegments = async ({ leg, serviceDay }) => {
     const day = normalizeText(serviceDay) || 'Weekday';
     const ids = Array.isArray(leg?.throughTripIds)
@@ -1292,12 +1503,12 @@ const buildThroughDisplaySegments = async ({ leg, serviceDay }) => {
     const firstTripStops = Array.isArray(trips[0]?.stops) ? trips[0].stops : [];
     if (!firstTripStops.length) return [];
 
-    let firstFromIdx = firstTripStops.findIndex((s) => isSamePhysicalStop(s?.stopId, leg?.fromStop));
-    if (firstFromIdx < 0 && Number.isFinite(leg?.boardIndex)) {
-        const idx = Number(leg.boardIndex);
-        if (idx >= 0 && idx < firstTripStops.length) firstFromIdx = idx;
-    }
-    if (!Number.isFinite(firstFromIdx) || firstFromIdx < 0) firstFromIdx = 0;
+    const targetDepMs = Number(leg?.depMs);
+    const targetArrMs = Number(leg?.arrMs);
+
+    // 防御：时间+空间双重验证
+    let firstFromIdx = findSafeStopIndex(firstTripStops, leg?.fromStop, targetDepMs, serviceDayStartMs, true);
+    if (firstFromIdx < 0) firstFromIdx = 0;
 
     const targetToStopId = normalizeText(leg?.toStop || '');
     let endTripIndex = -1;
@@ -1308,18 +1519,35 @@ const buildThroughDisplaySegments = async ({ leg, serviceDay }) => {
         if (!stops.length) continue;
 
         const startIdx = tripIndex === 0 ? firstFromIdx : 0;
+        
+        let bestIdx = -1;
+        let minDiff = Infinity;
         for (let i = startIdx; i < stops.length; i += 1) {
-            if (isSamePhysicalStop(stops[i]?.stopId, targetToStopId)) {
-                endTripIndex = tripIndex;
-                endStopIndex = i;
-                break;
+            const s = stops[i];
+            if (isSamePhysicalStop(s.stopId, targetToStopId)) {
+                const timeMin = s.arrMin ?? s.depMin;
+                if (timeMin != null && Number.isFinite(targetArrMs)) {
+                    const ms = serviceDayStartMs + timeMin * 60000;
+                    const diff = Math.abs(ms - targetArrMs);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        bestIdx = i;
+                    }
+                } else if (bestIdx < 0) {
+                    bestIdx = i;
+                }
             }
         }
-        if (endTripIndex >= 0) break;
+        if (bestIdx >= 0) {
+            endTripIndex = tripIndex;
+            endStopIndex = bestIdx;
+            break;
+        }
     }
 
     if (endTripIndex <= 0 || endStopIndex < 0) return [];
 
+    // 循环 push 所有子班次，恢复多段高亮能力
     for (let tripIndex = 0; tripIndex <= endTripIndex; tripIndex += 1) {
         const trip = trips[tripIndex];
         const stops = Array.isArray(trip?.stops) ? trip.stops : [];
@@ -1625,6 +1853,7 @@ export const buildPlanDetailBlocks = async ({ plan, legsOverride, sectionsOverri
     return blocks;
 };
 
+// 🌟 替换：生成地图高亮预览 Payload 的构造器（修复环线大回环 Bug）
 export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan }) => {
     const legs = Array.isArray(displayPlan?.legs) ? displayPlan.legs : [];
     const sections = Array.isArray(displayPlan?.sections)
@@ -1657,56 +1886,15 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
 
             const secLegs = Array.isArray(section?.legs) ? section.legs : [];
             if (!secLegs.length) continue;
-
-            const stationIds = [];
-            let sectionDir = null;
             for (const leg of secLegs) {
                 const trip = await resolveTripForLeg({ leg, serviceDay: row?.serviceDay });
-                if (!sectionDir && trip) sectionDir = normalizeText(trip?.d) || null;
-                const rows = trip
-                    ? toLegStopRows({ trip, leg })
-                    : [
-                        { stationId: normalizeText(leg?.fromStop) },
-                        { stationId: normalizeText(leg?.toStop) }
-                    ];
-                for (const r of rows) {
-                    const sid = normalizeText(r?.stationId);
-                    if (!sid) continue;
-                    if (stationIds.length && isSamePhysicalStop(stationIds[stationIds.length - 1], sid)) continue;
-                    stationIds.push(sid);
+                let stationIds = [];
+                if (trip) {
+                    const rows = toLegStopRows({ trip, leg });
+                    stationIds = rows.map((x) => normalizeText(x?.stationId)).filter(Boolean);
+                } else {
+                    stationIds = [normalizeText(leg?.fromStop), normalizeText(leg?.toStop)].filter(Boolean);
                 }
-            }
-
-            const compactIds = stationIds.filter(Boolean);
-            if (compactIds.length < 2) continue;
-
-            const lineIds = Array.isArray(section?.lineIds)
-                ? section.lineIds.map((x) => normalizeText(x)).filter(Boolean)
-                : [];
-            const segmentLineId = normalizeText(lineIds[0] || secLegs[0]?.lineId || '');
-            if (!segmentLineId) continue;
-
-            segments.push({
-                kind: 'main',
-                lineId: segmentLineId,
-                stationIds: compactIds,
-                d: sectionDir,
-                typeColor: normalizeText(section?.legs?.[0]?.typeColor || '') || null
-            });
-        }
-    }
-
-    if (!segments.length) {
-    for (const leg of legs) {
-        const lineId = normalizeText(leg?.lineId);
-        if (!lineId) continue;
-
-        const throughSegments = await buildThroughDisplaySegments({ leg, serviceDay: row?.serviceDay });
-        if (throughSegments.length) {
-            for (const seg of throughSegments) {
-                const stationIds = Array.isArray(seg?.rows)
-                    ? seg.rows.map((x) => normalizeText(x?.stationId)).filter(Boolean)
-                    : [];
                 const compactIds = [];
                 for (const sid of stationIds) {
                     if (!sid) continue;
@@ -1714,72 +1902,83 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
                     compactIds.push(sid);
                 }
                 if (compactIds.length < 2) continue;
+
+                const lineIds = Array.isArray(section?.lineIds) ? section.lineIds.map((x) => normalizeText(x)).filter(Boolean) : [];
+                const segmentLineId = normalizeText(lineIds[0] || leg?.lineId || '');
+                if (!segmentLineId) continue;
+
                 segments.push({
                     kind: 'main',
-                    lineId: normalizeText(seg?.lineId || lineId),
+                    lineId: segmentLineId,
                     stationIds: compactIds,
-                    d: normalizeText(seg?.d) || null,
-                    typeColor: normalizeText(seg?.typeColor || leg?.typeColor || '') || null
+                    d: normalizeText(trip?.d) || null,
+                    typeColor: normalizeText(leg?.typeColor || trip?.typeColor || '') || null
                 });
             }
-            continue;
         }
+    } else {
+        for (const leg of legs) {
+            const lineId = normalizeText(leg?.lineId);
+            if (!lineId) continue;
 
-        const trip = await resolveTripForLeg({ leg, serviceDay: row?.serviceDay });
-        let stationIds = [];
-        if (trip) {
-            const rows = toLegStopRows({ trip, leg });
-            stationIds = rows.map((x) => normalizeText(x?.stationId)).filter(Boolean);
-        } else {
-            stationIds = [normalizeText(leg?.fromStop), normalizeText(leg?.toStop)].filter(Boolean);
+            const throughSegments = await buildThroughDisplaySegments({ leg, serviceDay: row?.serviceDay });
+            if (throughSegments.length) {
+                for (const seg of throughSegments) {
+                    const stationIds = Array.isArray(seg?.rows)
+                        ? seg.rows.map((x) => normalizeText(x?.stationId)).filter(Boolean)
+                        : [];
+                    const compactIds = [];
+                    for (const sid of stationIds) {
+                        if (!sid) continue;
+                        if (compactIds.length && compactIds[compactIds.length - 1] === sid) continue;
+                        compactIds.push(sid);
+                    }
+                    if (compactIds.length < 2) continue;
+                    segments.push({
+                        kind: 'main',
+                        lineId: normalizeText(seg?.lineId || lineId),
+                        stationIds: compactIds,
+                        d: normalizeText(seg?.d) || null,
+                        typeColor: normalizeText(seg?.typeColor || leg?.typeColor || '') || null
+                    });
+                }
+                continue;
+            }
+
+            const trip = await resolveTripForLeg({ leg, serviceDay: row?.serviceDay });
+            let stationIds = [];
+            if (trip) {
+                const rows = toLegStopRows({ trip, leg });
+                stationIds = rows.map((x) => normalizeText(x?.stationId)).filter(Boolean);
+            } else {
+                stationIds = [normalizeText(leg?.fromStop), normalizeText(leg?.toStop)].filter(Boolean);
+            }
+
+            const compactIds = [];
+            for (const sid of stationIds) {
+                if (!sid) continue;
+                if (compactIds.length && compactIds[compactIds.length - 1] === sid) continue;
+                compactIds.push(sid);
+            }
+            if (compactIds.length < 2) continue;
+
+            segments.push({
+                kind: 'main',
+                lineId,
+                stationIds: compactIds,
+                d: normalizeText(trip?.d) || null,
+                typeColor: normalizeText(leg?.typeColor || trip?.typeColor || '') || null
+            });
         }
-
-        const compactIds = [];
-        for (const sid of stationIds) {
-            if (!sid) continue;
-            if (compactIds.length && compactIds[compactIds.length - 1] === sid) continue;
-            compactIds.push(sid);
-        }
-        if (compactIds.length < 2) continue;
-
-        segments.push({
-            kind: 'main',
-            lineId,
-            stationIds: compactIds,
-            d: normalizeText(trip?.d) || null,
-            typeColor: normalizeText(leg?.typeColor || trip?.typeColor || '') || null
-        });
-    }
     }
 
     if (!segments.length) return null;
 
-    const mergedSegments = [];
-    for (const seg of segments) {
-        const lineId = normalizeText(seg?.lineId || '');
-        const ids = Array.isArray(seg?.stationIds) ? seg.stationIds.map((x) => normalizeText(x)).filter(Boolean) : [];
-        const segTypeColor = normalizeText(seg?.typeColor || '') || null;
-        const segDir = normalizeText(seg?.d) || null;
-        if (!lineId || ids.length < 2) continue;
-        const prev = mergedSegments[mergedSegments.length - 1] || null;
-        if (prev && normalizeText(prev.lineId) === lineId) {
-            const a = prev.stationIds[prev.stationIds.length - 1] || '';
-            const b = ids[0] || '';
-            if (a && b && isSamePhysicalStop(a, b)) {
-                prev.stationIds.push(...ids.slice(1));
-                if (!prev.typeColor && segTypeColor) prev.typeColor = segTypeColor;
-                if (!prev.d && segDir) prev.d = segDir;
-                else if (prev.d && segDir && normalizeText(prev.d) !== segDir) prev.d = null;
-                continue;
-            }
-        }
-        mergedSegments.push({ kind: 'main', lineId, stationIds: ids.slice(), d: segDir, typeColor: segTypeColor });
-    }
+    // 🌟 核心防御：完全移除危险的跨段合并逻辑！
+    // 保留最纯净的分段数组，地图渲染器 extractShortestLoopSegmentByIndex 将分别裁切每一段，再也不会越界报错。
 
-    if (!mergedSegments.length) return null;
-
-    const firstSeg = mergedSegments[0];
-    const lastSeg = mergedSegments[mergedSegments.length - 1];
+    const firstSeg = segments[0];
+    const lastSeg = segments[segments.length - 1];
     const firstLeg = legs[0] || null;
 
     return {
@@ -1793,9 +1992,10 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
         typeColor: normalizeText(firstSeg?.typeColor || firstLeg?.typeColor || '') || null,
         hasNt: false,
         fitMode: 'preview',
-        segments: mergedSegments
+        segments: segments // 👈 直接返回未被强行捏合的数组！
     };
 };
+
 
 export const collectJourneyCandidatesRaptor = async ({ sourceStops, destinationStops, serviceDay, baseDepartureMs }) => {
     await ensurePlannerStaticData();
@@ -1816,7 +2016,7 @@ export const collectJourneyCandidatesRaptor = async ({ sourceStops, destinationS
             });
 
             for (const best of runResult.bestByRound || []) {
-                const plan = reconstructJourney({
+                let plan = reconstructJourney({
                     runResult,
                     targetRound: best.round,
                     targetStop: best.stopId,
@@ -1830,6 +2030,10 @@ export const collectJourneyCandidatesRaptor = async ({ sourceStops, destinationS
                         if (Number.isFinite(plan.arrivalMs) && Number.isFinite(baseDepartureMs)) {
                             plan.durationMs = plan.arrivalMs - baseDepartureMs;
                         }
+                        plan = await optimizeSharedCorridorTransfers({
+                            plan,
+                            serviceDay
+                        });
                         candidates.push(plan);
                     }
                 }
@@ -1859,7 +2063,6 @@ export const collectJourneyCandidatesRaptor = async ({ sourceStops, destinationS
             });
         }
     }
-
     return sortedPlans;
 };
 
