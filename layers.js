@@ -876,7 +876,10 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                     return { line, idx, rank };
                 });
                 decorated.sort((a, b) => {
-                    if (a.rank !== b.rank) return a.rank - b.rank;
+                    const aFinite = Number.isFinite(a.rank);
+                    const bFinite = Number.isFinite(b.rank);
+                    if (aFinite !== bFinite) return aFinite ? -1 : 1;
+                    if (aFinite && bFinite && a.rank !== b.rank) return b.rank - a.rank;
                     return a.idx - b.idx;
                 });
                 return decorated.map((x) => x.line);

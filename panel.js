@@ -708,14 +708,39 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
         const sortedLines = (() => {
             if (!orderIndex || !orderIndex.size) return Array.isArray(lines) ? lines : [];
             const src = Array.isArray(lines) ? lines : [];
+
+            let maxTriggerRank = Number.NEGATIVE_INFINITY;
+            for (const item of src) {
+                if (item?.lineId && TRIGGER_LINE_IDS.has(item.lineId)) {
+                    const tk = toRailwaysOrderKey(item.lineId);
+                    const tr = tk ? orderIndex.get(tk) : undefined;
+                    if (typeof tr === 'number' && Number.isFinite(tr) && tr > maxTriggerRank) {
+                        maxTriggerRank = tr;
+                    }
+                }
+            }
+
             const decorated = src.map((line, idx) => {
                 const k = toRailwaysOrderKey(line?.lineId);
-                const r = k ? orderIndex.get(k) : undefined;
+                let r = k ? orderIndex.get(k) : undefined;
+                
+                // 特殊处理贯通运营生成的虚拟线路，使其排在首个触发的线路之上
+                if (!Number.isFinite(r) && maxTriggerRank > Number.NEGATIVE_INFINITY) {
+                    if (line?.lineId === THROUGH_SERVICE_TEMP_LINE_IDS.UENO_TOKYO) {
+                        r = maxTriggerRank + 0.2;
+                    } else if (line?.lineId === THROUGH_SERVICE_TEMP_LINE_IDS.SHONAN_SHINJUKU) {
+                        r = maxTriggerRank + 0.1;
+                    }
+                }
+                
                 const rank = (typeof r === 'number' && Number.isFinite(r)) ? r : Number.POSITIVE_INFINITY;
                 return { line, idx, rank };
             });
             decorated.sort((a, b) => {
-                if (a.rank !== b.rank) return a.rank - b.rank;
+                const aFinite = Number.isFinite(a.rank);
+                const bFinite = Number.isFinite(b.rank);
+                if (aFinite !== bFinite) return aFinite ? -1 : 1;
+                if (aFinite && bFinite && a.rank !== b.rank) return b.rank - a.rank;
                 return a.idx - b.idx;
             });
             return decorated.map((x) => x.line);
