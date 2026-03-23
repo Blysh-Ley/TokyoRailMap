@@ -562,36 +562,54 @@ const getTripStartEndTimes = (trip, serviceDayStartMs) => {
     };
 };
 
-const rideTripFromBoardRaptor = ({ trip, lineId, boardIndex, boardStopId, boardDepMs, serviceDayStartMs, roundArr, roundParent, improvedStops }) => {
+const rideTripFromBoardRaptor = ({ trip, lineId, tripStartIndex, boardIndex, boardStopId, boardDepMs, serviceDayStartMs, roundArr, roundParent, improvedStops, markedStops, prevArr, minBoardSlackMs }) => {
     let changed = false;
-    if (!trip || !Array.isArray(trip.stops) || trip.stops.length < 2) return changed;
+    let currentBoardStopId = boardStopId;
+    let currentBoardDepMs = boardDepMs;
+    let currentBoardIndex = boardIndex;
 
-    const start = Number.isFinite(boardIndex) ? Number(boardIndex) : -1;
-    if (start < 0 || start >= trip.stops.length) return changed;
+    if (!trip || !Array.isArray(trip.stops) || trip.stops.length < 2) {
+        return { changed, currentBoardStopId, currentBoardDepMs, currentBoardIndex };
+    }
 
-    for (let i = start + 1; i < trip.stops.length; i += 1) {
+    const start = Number.isFinite(tripStartIndex) ? Number(tripStartIndex) : 0;
+
+    for (let i = start; i < trip.stops.length; i += 1) {
         const stop = trip.stops[i];
         const stopId = normalizeText(stop?.stopId);
-        if (!stopId || stopId === boardStopId) continue;
+        if (!stopId) continue;
+
         const arrMs = Number.isFinite(stop?.arrMin) ? serviceDayStartMs + stop.arrMin * 60000 : null;
-        if (!Number.isFinite(arrMs)) continue;
+        const depMs = Number.isFinite(stop?.depMin) ? serviceDayStartMs + stop.depMin * 60000 : null;
+
+        // 🌟 优雅核心 1：动态上车点升级！(Hop on later for a shorter ride)
+        // 列车开到了这一站，如果乘客也能在这个站合法上车，我们就丢弃之前的旧起点！
+        // （对于大江户线，如果扫到了第二圈的都厅前，上车点会在这里瞬间升级成 14:25，防绕圈生效！）
+        if (markedStops.has(stopId) && Number.isFinite(depMs)) {
+            const prevArrMs = prevArr.get(stopId);
+            if (Number.isFinite(prevArrMs) && depMs >= prevArrMs + minBoardSlackMs) {
+                currentBoardStopId = stopId;
+                currentBoardDepMs = depMs;
+                currentBoardIndex = i;
+            }
+        }
+
+        // 🌟 优雅核心 2：如果是当前的上车点本身，就不用松弛了，继续往下开
+        if (!currentBoardStopId || stopId === currentBoardStopId || !Number.isFinite(arrMs)) continue;
 
         const best = roundArr.get(stopId);
         const prevParent = roundParent.get(stopId);
 
-        const isShorterRideTieBreak = (arrMs === best) && prevParent && (boardDepMs > prevParent.depMs);
+        // 决胜裁判保留（应对在完全不同的两趟车中做选择的情况）
+        const isShorterRideTieBreak = (arrMs === best) && prevParent && (currentBoardDepMs > prevParent.depMs);
 
         if (!Number.isFinite(best) || arrMs < best || isShorterRideTieBreak) {
             roundArr.set(stopId, arrMs);
             roundParent.set(stopId, {
                 kind: 'ride',
                 lineId,
-                throughLineIds: Array.isArray(trip?.throughLineIds)
-                    ? trip.throughLineIds.map((x) => normalizeText(x)).filter(Boolean)
-                    : [],
-                throughTripIds: Array.isArray(trip?.throughTripIds)
-                    ? trip.throughTripIds.map((x) => normalizeText(x)).filter(Boolean)
-                    : [],
+                throughLineIds: Array.isArray(trip?.throughLineIds) ? trip.throughLineIds.map((x) => normalizeText(x)).filter(Boolean) : [],
+                throughTripIds: Array.isArray(trip?.throughTripIds) ? trip.throughTripIds.map((x) => normalizeText(x)).filter(Boolean) : [],
                 tripId: trip.tripId,
                 rawTripId: trip.rawTripId,
                 tripFile: normalizeText(trip?.timetableFile || `${lineId}.json`),
@@ -604,11 +622,11 @@ const rideTripFromBoardRaptor = ({ trip, lineId, boardIndex, boardStopId, boardD
                 typeName: trip.typeName,
                 typeColor: trip.typeColor,
                 hasNm: trip?.hasNm === true,
-                fromStop: boardStopId,
+                fromStop: currentBoardStopId, // 👈 写入升级后的最短用时起点！
                 toStop: stopId,
-                boardIndex: start,
+                boardIndex: currentBoardIndex,
                 alightIndex: i,
-                depMs: boardDepMs,
+                depMs: currentBoardDepMs,
                 arrMs
             });
             improvedStops.add(stopId);
@@ -616,7 +634,8 @@ const rideTripFromBoardRaptor = ({ trip, lineId, boardIndex, boardStopId, boardD
         }
     }
 
-    return changed;
+    // 将升级后的状态返回，供跨段直通车继续接力
+    return { changed, currentBoardStopId, currentBoardDepMs, currentBoardIndex };
 };
 
 const lineSetFromMarkedStops = (markedStops) => {
@@ -630,9 +649,6 @@ const lineSetFromMarkedStops = (markedStops) => {
 };
 
 const findBoardingOnChain = ({ chainTrips, prevRoundEarliestArrivals, markedStops, minBoardSlackMs, serviceDayStartMs }) => {
-    // 🛡️ 核心修复 1：改为数组，收集该班次所有合法上车点（而不是找到一个就 break）
-    const activeBoards = []; 
-
     for (let seg = 0; seg < chainTrips.length; seg += 1) {
         const trip = chainTrips[seg];
         const stops = Array.isArray(trip?.stops) ? trip.stops : [];
@@ -642,7 +658,6 @@ const findBoardingOnChain = ({ chainTrips, prevRoundEarliestArrivals, markedStop
             const stopId = normalizeText(stop?.stopId);
             if (!stopId) continue;
             
-            // 盾牌：只允许从本轮活跃的车站上车
             if (!markedStops.has(stopId)) continue;
 
             const depMs = Number.isFinite(stop?.depMin) ? serviceDayStartMs + stop.depMin * 60000 : null;
@@ -652,24 +667,25 @@ const findBoardingOnChain = ({ chainTrips, prevRoundEarliestArrivals, markedStop
             if (!Number.isFinite(prevArrMs)) continue;
             if (depMs < prevArrMs + minBoardSlackMs) continue;
 
-            // 🛡️ 只要合法，全部加入队列！允许乘客在环线不同段落合法上车
-            activeBoards.push({ 
-                segmentIndex: seg, 
-                boardIndex: i, 
-                boardStopId: stopId, 
-                boardDepMs: depMs 
-            });
+            // 🌟 极速回归：找到第一个合法上车点直接返回，拒绝返回数组！
+            return {
+                segmentIndex: seg,
+                boardIndex: i,
+                boardStopId: stopId,
+                boardDepMs: depMs
+            };
         }
     }
-
-    return activeBoards;
+    return null;
 };
 
-const relaxChainFromBoardRaptor = ({ chainTrips, throughRootTripId, startSegmentIndex, startBoardIndex, startBoardStopId, startBoardDepMs, serviceDayStartMs, roundArr, roundParent, improvedStops }) => {
+const relaxChainFromBoardRaptor = ({ chainTrips, throughRootTripId, startSegmentIndex, startBoardIndex, startBoardStopId, startBoardDepMs, serviceDayStartMs, roundArr, roundParent, improvedStops, markedStops, prevArr, minBoardSlackMs }) => {
     
-    // 核心修复 1：锁定乘客最初的物理上车点和时间，贯穿整个直通链
-    const originalBoardStopId = normalizeText(startBoardStopId || '');
-    const originalBoardDepMs = Number.isFinite(startBoardDepMs) ? Number(startBoardDepMs) : null;
+    // 维护一个可变的上车点状态
+    let activeBoardStopId = normalizeText(startBoardStopId || '');
+    let activeBoardDepMs = Number.isFinite(startBoardDepMs) ? Number(startBoardDepMs) : null;
+    let activeBoardIndex = startBoardIndex; 
+
     const throughLineIds = [];
     const throughTripIds = [];
     for (let seg = startSegmentIndex; seg < chainTrips.length; seg += 1) {
@@ -682,19 +698,19 @@ const relaxChainFromBoardRaptor = ({ chainTrips, throughRootTripId, startSegment
         }
     }
 
-    if (!originalBoardStopId || !Number.isFinite(originalBoardDepMs)) return;
+    if (!activeBoardStopId || !Number.isFinite(activeBoardDepMs)) return;
 
     for (let seg = startSegmentIndex; seg < chainTrips.length; seg += 1) {
         const trip = chainTrips[seg];
         if (!trip) continue;
 
         const isThroughContinuation = seg > startSegmentIndex;
-        
-        // 核心修复 2：决定当前这段 Trip 的数组遍历起点
-        // 如果是第一段，从乘客实际上车点对应的 index 开始；如果是直通后续段，直接从数组第 0 个站（边界站）开始更新
-        const tripLoopStartIndex = isThroughContinuation ? 0 : (Number.isFinite(startBoardIndex) ? Number(startBoardIndex) : 0);
+        // 确保跨越不同路段时的遍历起点
+        const tripLoopStartIndex = isThroughContinuation ? 0 : (Number.isFinite(activeBoardIndex) ? Number(activeBoardIndex) : 0);
+        const currentTripBoardIndex = isThroughContinuation ? 0 : activeBoardIndex;
 
-        rideTripFromBoardRaptor({
+        // 🌟 接收底层返回的最新的上车点状态
+        const res = rideTripFromBoardRaptor({
             trip: {
                 ...trip,
                 throughRootTripId,
@@ -704,20 +720,23 @@ const relaxChainFromBoardRaptor = ({ chainTrips, throughRootTripId, startSegment
                 timetableFile: normalizeText(trip?.timetableFile || getTripFileNameByLineId(trip?.lineId))
             },
             lineId: normalizeText(trip?.lineId || ''),
-            
-            // 传给底层的循环起始索引
-            tripStartIndex: tripLoopStartIndex, 
-            boardIndex: tripLoopStartIndex,     // 兼容保留
-            
-            // 永远传入最初的上车点，欺骗底层逻辑这是一次完整的单次乘车
-            boardStopId: originalBoardStopId, 
-            boardDepMs: originalBoardDepMs,   
-            
+            tripStartIndex: tripLoopStartIndex,
+            boardIndex: currentTripBoardIndex,
+            boardStopId: activeBoardStopId,
+            boardDepMs: activeBoardDepMs,
             serviceDayStartMs,
             roundArr,
             roundParent,
-            improvedStops
+            improvedStops,
+            // 传给最底层
+            markedStops,
+            prevArr,
+            minBoardSlackMs
         });
+
+        // 跨路段接力：将升级后的上车点带入下一段直通车
+        activeBoardStopId = res.currentBoardStopId;
+        activeBoardDepMs = res.currentBoardDepMs;
     }
 };
 
@@ -752,7 +771,8 @@ const scanRoundRaptor = async ({ prevArr, markedStops, serviceDay, serviceDaySta
             for (const chainTrips of chainVariants) {
                 if (!Array.isArray(chainTrips) || !chainTrips.length) continue;
 
-            const boards = findBoardingOnChain({
+                // 直接获取单一的起始上车点
+                const board = findBoardingOnChain({
                     chainTrips,
                     prevRoundEarliestArrivals: prevArr,
                     markedStops,
@@ -760,22 +780,24 @@ const scanRoundRaptor = async ({ prevArr, markedStops, serviceDay, serviceDaySta
                     serviceDayStartMs
                 });
                 
-                if (!boards || !boards.length) continue;
+                if (!board) continue;
 
-                for (const board of boards) {
-                    relaxChainFromBoardRaptor({
-                        chainTrips,
-                        throughRootTripId: normalizeText(merged?.throughRootTripId || ''),
-                        startSegmentIndex: board.segmentIndex,
-                        startBoardIndex: board.boardIndex,
-                        startBoardStopId: board.boardStopId,
-                        startBoardDepMs: board.boardDepMs,
-                        serviceDayStartMs,
-                        roundArr,
-                        roundParent,
-                        improvedStops
-                    });
-                }
+                relaxChainFromBoardRaptor({
+                    chainTrips,
+                    throughRootTripId: normalizeText(merged?.throughRootTripId || ''),
+                    startSegmentIndex: board.segmentIndex,
+                    startBoardIndex: board.boardIndex,
+                    startBoardStopId: board.boardStopId,
+                    startBoardDepMs: board.boardDepMs,
+                    serviceDayStartMs,
+                    roundArr,
+                    roundParent,
+                    improvedStops,
+                    // 🌟 新增：把这些环境数据传下去，供底层进行“中途上车点升级”
+                    markedStops,
+                    prevArr,
+                    minBoardSlackMs
+                });
             }
         }
     }
