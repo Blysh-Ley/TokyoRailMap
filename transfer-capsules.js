@@ -249,6 +249,10 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
     const beforeLayerId = options.beforeLayerId || 'stations-layer';
     const minZoom = Number.isFinite(options.minZoom) ? Number(options.minZoom) : 8;
 
+    // If the requested before layer does not exist yet, avoid passing it to map.addLayer to
+    // prevent MapLibre from throwing. We'll add layers at the top-level in that case.
+    const insertBefore = map.getLayer(beforeLayerId) ? beforeLayerId : undefined;
+
     if (!map.getSource(ids.lineSourceId)) {
         map.addSource(ids.lineSourceId, {
             type: 'geojson',
@@ -315,7 +319,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
     }
 
     if (!map.getLayer(ids.slaveOutlineLayerId)) {
-        map.addLayer({
+        const layerDef = {
             id: ids.slaveOutlineLayerId,
             type: 'line',
             source: ids.lineSourceId,
@@ -332,11 +336,13 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
                     'interpolate',
                     ['linear'],
                     ['zoom'],
+                    0, 12,
                     12, 12,
                     16, 24
                 ]
             }
-        }, beforeLayerId);
+        };
+        if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
     } else {
         map.setPaintProperty(ids.slaveOutlineLayerId, 'line-color', getThemeCapsuleColors().outline);
         map.setPaintProperty(ids.slaveOutlineLayerId, 'line-opacity', 1);
@@ -344,6 +350,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             'interpolate',
             ['linear'],
             ['zoom'],
+            0, 12,
             12, 12,
             16, 24
         ]);
@@ -351,7 +358,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
     }
 
     if (!map.getLayer(ids.slaveInnerLayerId)) {
-        map.addLayer({
+        const layerDef = {
             id: ids.slaveInnerLayerId,
             type: 'line',
             source: ids.lineSourceId,
@@ -368,11 +375,13 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
                     'interpolate',
                     ['linear'],
                     ['zoom'],
+                    0, 8,
                     12, 8,
                     16, 14
                 ]
             }
-        }, beforeLayerId);
+        };
+        if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
     } else {
         map.setPaintProperty(ids.slaveInnerLayerId, 'line-color', getThemeCapsuleColors().inner);
         map.setPaintProperty(ids.slaveInnerLayerId, 'line-opacity', 1);
@@ -380,6 +389,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             'interpolate',
             ['linear'],
             ['zoom'],
+            0, 8,
             12, 8,
             16, 14
         ]);
@@ -387,7 +397,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
     }
 
     if (!map.getLayer(ids.fallbackCircleOutlineLayerId)) {
-        map.addLayer({
+        const layerDef = {
             id: ids.fallbackCircleOutlineLayerId,
             type: 'circle',
             source: ids.centroidSourceId,
@@ -400,11 +410,13 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
                     'interpolate',
                     ['linear'],
                     ['zoom'],
+                    0, 6.8,
                     12, 6.8,
                     16, 11.5
                 ]
             }
-        }, beforeLayerId);
+        };
+        if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
     } else {
         map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-color', getThemeCapsuleColors().outline);
         map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-opacity', 1);
@@ -412,6 +424,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             'interpolate',
             ['linear'],
             ['zoom'],
+            0, 6.8,
             12, 6.8,
             16, 11.5
         ]);
@@ -419,7 +432,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
     }
 
     if (!map.getLayer(ids.fallbackCircleInnerLayerId)) {
-        map.addLayer({
+        const layerDef = {
             id: ids.fallbackCircleInnerLayerId,
             type: 'circle',
             source: ids.centroidSourceId,
@@ -432,11 +445,13 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
                     'interpolate',
                     ['linear'],
                     ['zoom'],
+                    0, 5.0,
                     12, 5.0,
                     16, 8.6
                 ]
             }
-        }, beforeLayerId);
+        };
+        if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
     } else {
         map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-color', getThemeCapsuleColors().inner);
         map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-opacity', 1);
@@ -444,6 +459,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             'interpolate',
             ['linear'],
             ['zoom'],
+            0, 5.0,
             12, 5.0,
             16, 8.6
         ]);

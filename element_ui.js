@@ -7,6 +7,10 @@ export const ELEMENT_UI_CONSTANTS = Object.freeze({
     stationBaseRadius: 3.5,
     stationSingleStrokeWidth: 2,
     stationTransferStrokeWidth: 0,
+    stationZoomBase: 12,
+    stationZoomMax: 16,
+    stationBaseRadiusAtMaxZoom: 5,
+    stationSingleStrokeWidthAtMaxZoom: 2.8,
     tripPreviewFallbackColor: '#0a84ff'
 });
 
@@ -125,17 +129,34 @@ export const buildLowlightLinePaint = (options = {}) => {
 };
 
 export const baseStationCircleRadiusExpr = () => {
+    const z0 = 0;
+    const z1 = ELEMENT_UI_CONSTANTS.stationZoomBase;
+    const z2 = ELEMENT_UI_CONSTANTS.stationZoomMax;
+    const r1 = ELEMENT_UI_CONSTANTS.stationBaseRadius;
+    const r2 = ELEMENT_UI_CONSTANTS.stationBaseRadiusAtMaxZoom;
     const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
-    return ['case', ['==', ['length', servingIdsExpr], 1], ELEMENT_UI_CONSTANTS.stationBaseRadius, ELEMENT_UI_CONSTANTS.stationBaseRadius];
+    // Use a single top-level zoom interpolate expression (MapLibre allows only one zoom-based
+    // interpolate/step per expression). Previously this returned a `case` wrapping identical
+    // interpolate expressions which triggers validation errors.
+    const zoomRadiusExpr = ['interpolate', ['linear'], ['zoom'], z0, r1, z1, r1, z2, r2];
+    return zoomRadiusExpr;
 };
 
 export const baseStationCircleStrokeWidthExpr = () => {
+    const z0 = 0;
+    const z1 = ELEMENT_UI_CONSTANTS.stationZoomBase;
+    const z2 = ELEMENT_UI_CONSTANTS.stationZoomMax;
+    const w1 = ELEMENT_UI_CONSTANTS.stationSingleStrokeWidth;
+    const w2 = ELEMENT_UI_CONSTANTS.stationSingleStrokeWidthAtMaxZoom;
     const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
-    return [
-        'case',
-        ['==', ['length', servingIdsExpr], 1],
-        ELEMENT_UI_CONSTANTS.stationSingleStrokeWidth,
-        ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth
+    // Produce a single top-level interpolate where each zoom stop contains a case deciding
+    // whether the station is a single-served station (has single stroke) or a transfer (use
+    // transfer stroke width). This avoids nesting a zoom-expression inside a case.
+    const isSingleExpr = ['==', ['length', servingIdsExpr], 1];
+    return ['interpolate', ['linear'], ['zoom'],
+        z0, ['case', isSingleExpr, w1, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth],
+        z1, ['case', isSingleExpr, w1, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth],
+        z2, ['case', isSingleExpr, w2, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth]
     ];
 };
 
@@ -200,9 +221,29 @@ export const buildStationSelectionPaint = (options = {}) => {
         };
     }
 
+    // Construct a single zoom-interpolate expression for stroke-width that encodes selection
+    // per-stop. This prevents nesting a zoom expression inside a case (which MapLibre forbids).
+    const z0 = 0;
+    const z1 = ELEMENT_UI_CONSTANTS.stationZoomBase;
+    const z2 = ELEMENT_UI_CONSTANTS.stationZoomMax;
+    const w1 = ELEMENT_UI_CONSTANTS.stationSingleStrokeWidth;
+    const w2 = ELEMENT_UI_CONSTANTS.stationSingleStrokeWidthAtMaxZoom;
+    const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
+    const isSingleExpr = ['==', ['length', servingIdsExpr], 1];
+
+    const strokeAtZ0 = ['case', isSingleExpr, w1, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
+    const strokeAtZ1 = ['case', isSingleExpr, w1, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
+    const strokeAtZ2 = ['case', isSingleExpr, w2, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
+
+    const strokeWidthExpr = ['interpolate', ['linear'], ['zoom'],
+        z0, ['case', isSelectedExpr, strokeAtZ0, 0],
+        z1, ['case', isSelectedExpr, strokeAtZ1, 0],
+        z2, ['case', isSelectedExpr, strokeAtZ2, 0]
+    ];
+
     return {
         'circle-radius': baseStationCircleRadiusExpr(),
-        'circle-stroke-width': ['case', isSelectedExpr, baseStationCircleStrokeWidthExpr(), 0],
+        'circle-stroke-width': strokeWidthExpr,
         'circle-opacity': hideOthers ? ['case', isSelectedExpr, 1, 0] : 1,
         'circle-stroke-opacity': hideOthers ? ['case', isSelectedExpr, 1, 0] : 1
     };
