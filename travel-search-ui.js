@@ -1733,7 +1733,7 @@ export function mountTravelSearchUI() {
             if (plan && fewestTransfers === plan) tagLabels.push('最少换乘');
             if (plan && earliestDeparture === plan) tagLabels.push('最早出发');
             if (!tagLabels.length) tagLabels.push(normalizeText(x?.label || '备用方案'));
-            if (plan?.hasSurcharge) tagLabels.push('!额外费用！');
+            if (plan?.hasSurcharge) tagLabels.push('额外费用！');
 
             return {
                 ...x,
