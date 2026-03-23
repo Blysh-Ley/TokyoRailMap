@@ -579,7 +579,6 @@ const rideTripFromBoardRaptor = ({ trip, lineId, boardIndex, boardStopId, boardD
         const best = roundArr.get(stopId);
         const prevParent = roundParent.get(stopId);
 
-        // 🌟 决胜局裁判：如果到达目标站的时间一模一样，谁的出发时间晚（在车上熬的时间短），谁就能覆盖历史记录！
         const isShorterRideTieBreak = (arrMs === best) && prevParent && (boardDepMs > prevParent.depMs);
 
         if (!Number.isFinite(best) || arrMs < best || isShorterRideTieBreak) {
@@ -763,7 +762,6 @@ const scanRoundRaptor = async ({ prevArr, markedStops, serviceDay, serviceDaySta
                 
                 if (!boards || !boards.length) continue;
 
-                // 🌟 让这趟列车的多个分身上车点，各自向后探索
                 for (const board of boards) {
                     relaxChainFromBoardRaptor({
                         chainTrips,
@@ -1259,7 +1257,6 @@ const resolveTripForLeg = async ({ leg, serviceDay }) => {
     return null;
 };
 
-// 🌟 新增：带时间校验的站点安全定位器
 const findSafeStopIndex = (stops, targetStopId, targetMs, serviceDayStartMs, isDeparture) => {
     let bestIdx = -1;
     let minDiff = Infinity;
@@ -1289,7 +1286,6 @@ const findSafeStopIndex = (stops, targetStopId, targetMs, serviceDayStartMs, isD
     return stops.findIndex(s => isSamePhysicalStop(s.stopId, targetStopId));
 };
 
-// 🌟 替换 1：基础片段切分定位
 const resolveLegSliceIndexes = (trip, leg) => {
     const stops = Array.isArray(trip?.stops) ? trip.stops : [];
     if (!stops.length) return { fromIdx: -1, toIdx: -1 };
@@ -1349,7 +1345,6 @@ const buildRowsForTripSlice = ({ trip, fromIdx, toIdx, serviceDayStartMs }) => {
     return rows;
 };
 
-// 🌟 替换 2：UI 详情面板用的行程段拆解合并器
 const buildSectionThroughSegments = async ({ section, serviceDay }) => {
     const day = normalizeText(serviceDay) || 'Weekday';
     const fromStopId = normalizeText(section?.fromStop || '');
@@ -1481,7 +1476,6 @@ export const buildSectionLineRunsForDisplay = async ({ section, serviceDay }) =>
     return out;
 };
 
-// 🌟 替换 3：供地图悬浮高亮预览用的拆解器
 const buildThroughDisplaySegments = async ({ leg, serviceDay }) => {
     const day = normalizeText(serviceDay) || 'Weekday';
     const ids = Array.isArray(leg?.throughTripIds)
@@ -1853,7 +1847,6 @@ export const buildPlanDetailBlocks = async ({ plan, legsOverride, sectionsOverri
     return blocks;
 };
 
-// 🌟 替换：生成地图高亮预览 Payload 的构造器（修复环线大回环 Bug）
 export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan }) => {
     const legs = Array.isArray(displayPlan?.legs) ? displayPlan.legs : [];
     const sections = Array.isArray(displayPlan?.sections)
@@ -1974,8 +1967,6 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
 
     if (!segments.length) return null;
 
-    // 🌟 核心防御：完全移除危险的跨段合并逻辑！
-    // 保留最纯净的分段数组，地图渲染器 extractShortestLoopSegmentByIndex 将分别裁切每一段，再也不会越界报错。
 
     const firstSeg = segments[0];
     const lastSeg = segments[segments.length - 1];
@@ -1992,7 +1983,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
         typeColor: normalizeText(firstSeg?.typeColor || firstLeg?.typeColor || '') || null,
         hasNt: false,
         fitMode: 'preview',
-        segments: segments // 👈 直接返回未被强行捏合的数组！
+        segments: segments 
     };
 };
 
