@@ -1,5 +1,6 @@
 import { getCachedJson } from './fetch.js';
 import { buildVirtualTripPreviewPayload } from './trip-preview.js';
+import { detectThroughServiceCategoryFromTrips } from './shonanshinjuku-uenotokyo.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -520,58 +521,6 @@ const matchesTripFilter = (rec, tripFilterSet) => {
         || (tBase && tripFilterSet.has(tBase));
 };
 
-const THROUGH_STATION_TOKENS = Object.freeze({
-    SHINJUKU: 'Shinjuku',
-    SHIBUYA: 'Shibuya',
-    UENO: 'Ueno',
-    TOKYO: 'Tokyo'
-});
-
-const SHONAN_SHINJUKU_EXCLUDED_CHAIN_PREFIXES = Object.freeze([
-    'JR-East.Ito',
-    'Izukyu.Izukyu',
-    'JR-East.OsakiBranch'
-]);
-
-const COMMON_THROUGH_SERVICE_EXCLUDED_CHAIN_PREFIXES = Object.freeze([
-    'JR-East.KeihinTohokuNegishi',
-    'JR-East.Yamanote',
-    'JR-East.SaikyoKawagoe'
-]);
-
-const hasExcludedCommonChainLine = (lineIds) => {
-    const ids = Array.isArray(lineIds) ? lineIds : [];
-    for (const lineId of ids) {
-        const lid = toText(lineId);
-        if (!lid) continue;
-        for (const prefix of COMMON_THROUGH_SERVICE_EXCLUDED_CHAIN_PREFIXES) {
-            if (lid === prefix || lid.startsWith(`${prefix}.`)) return true;
-        }
-    }
-    return false;
-};
-
-const getTripLineIdForThrough = (trip) => {
-    const rid = toText(trip?.r);
-    if (rid) return rid;
-    const id = toText(trip?.id) || toText(trip?.t);
-    if (!id) return '';
-    const parts = id.split('.').map((x) => x.trim()).filter(Boolean);
-    if (parts.length < 2) return '';
-    return `${parts[0]}.${parts[1]}`;
-};
-
-const hasExcludedShonanChainLine = (lineIds) => {
-    const ids = Array.isArray(lineIds) ? lineIds : [];
-    for (const lineId of ids) {
-        const lid = toText(lineId);
-        if (!lid) continue;
-        for (const prefix of SHONAN_SHINJUKU_EXCLUDED_CHAIN_PREFIXES) {
-            if (lid === prefix || lid.startsWith(`${prefix}.`)) return true;
-        }
-    }
-    return false;
-};
 
 const addRefId = (outSet, raw) => {
     const id = toText(raw);
@@ -614,35 +563,6 @@ const collectConnectedTrips = (seedTrip, idMap) => {
     return out;
 };
 
-const detectThroughServiceCategory = (trips) => {
-    const flags = {
-        hasShinjuku: false,
-        hasShibuya: false,
-        hasUeno: false,
-        hasTokyo: false
-    };
-    const chainLineIds = [];
-
-    for (const trip of Array.isArray(trips) ? trips : []) {
-        const lineId = getTripLineIdForThrough(trip);
-        if (lineId) chainLineIds.push(lineId);
-        const tt = Array.isArray(trip?.tt) ? trip.tt : [];
-        for (const row of tt) {
-            const stationId = toText(row?.s);
-            if (!stationId) continue;
-            const token = stationId.split('.').pop();
-            if (token === THROUGH_STATION_TOKENS.SHINJUKU) flags.hasShinjuku = true;
-            if (token === THROUGH_STATION_TOKENS.SHIBUYA) flags.hasShibuya = true;
-            if (token === THROUGH_STATION_TOKENS.UENO) flags.hasUeno = true;
-            if (token === THROUGH_STATION_TOKENS.TOKYO) flags.hasTokyo = true;
-        }
-    }
-
-    if (flags.hasShinjuku && flags.hasShibuya && !hasExcludedShonanChainLine(chainLineIds) && !hasExcludedCommonChainLine(chainLineIds)) return 'ShonanShinjuku';
-    if (flags.hasUeno && flags.hasTokyo && !hasExcludedCommonChainLine(chainLineIds)) return 'UenoTokyo';
-    return '';
-};
-
 const matchesThroughServiceCategory = (trip, idMap, expectedCategory, cache) => {
     const wanted = toText(expectedCategory);
     if (!wanted) return true;
@@ -653,7 +573,7 @@ const matchesThroughServiceCategory = (trip, idMap, expectedCategory, cache) => 
     }
 
     const connectedTrips = collectConnectedTrips(trip, idMap);
-    const category = detectThroughServiceCategory(connectedTrips);
+    const category = detectThroughServiceCategoryFromTrips(connectedTrips);
     if (cache instanceof Map && tripId) cache.set(tripId, category);
     return category === wanted;
 };

@@ -154,6 +154,14 @@ const classifyByFlags = (flags, options = {}) => {
     return '';
 };
 
+const hasNmServiceMarker = (trip) => {
+    if (!trip || typeof trip !== 'object') return false;
+    if (!Object.prototype.hasOwnProperty.call(trip, 'nm')) return false;
+    const nm = trip.nm;
+    if (Array.isArray(nm)) return nm.length > 0;
+    return nm !== null && nm !== undefined && toText(nm) !== '';
+};
+
 export const detectThroughServiceCategoryFromTrips = (trips) => {
     const flags = {
         hasShinjuku: false,
@@ -162,6 +170,8 @@ export const detectThroughServiceCategoryFromTrips = (trips) => {
         hasTokyo: false
     };
     const list = Array.isArray(trips) ? trips : [];
+    if (list.some((trip) => hasNmServiceMarker(trip))) return '';
+
     const chainLineIds = [];
     for (const trip of list) {
         collectStopFlagsFromTrip(trip, flags);
