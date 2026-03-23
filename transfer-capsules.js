@@ -165,7 +165,23 @@ export function buildTransferCapsuleGeoJSON(stationsData, stationGroups, options
             };
         }).filter((x) => Number.isFinite(x.coordinates[0]) && Number.isFinite(x.coordinates[1]));
 
-        if (points.length === 1 && useSingleStationFallbackCircle) {
+        if (!points.length) continue;
+
+        // 1. 检查当前 group 内的所有点是否在同一个物理坐标上
+        let isSameLocation = true;
+        if (points.length > 1) {
+            const firstCoord = points[0].coordinates;
+            for (let i = 1; i < points.length; i++) {
+                // 允许极小的浮点数误差，防范精度问题
+                if (euclideanDistanceSqLngLat(firstCoord, points[i].coordinates) > 1e-12) {
+                    isSameLocation = false;
+                    break;
+                }
+            }
+        }
+
+        // 2. 如果只有1个点，或者虽然有多个点但坐标完全重合 -> 触发黑边白圆换乘站样式
+        if ((points.length === 1 || isSameLocation) && useSingleStationFallbackCircle) {
             const center = points[0].coordinates;
             centroidFeatures.push({
                 type: 'Feature',
@@ -173,11 +189,11 @@ export function buildTransferCapsuleGeoJSON(stationsData, stationGroups, options
                 properties: {
                     groupId,
                     name,
-                    stationCount: 1,
-                    fallbackCircle: 1
+                    stationCount: points.length, // 保留真实的车站数量
+                    fallbackCircle: 1            // 核心：告诉 MapLibre 渲染器画黑边白圆
                 }
             });
-            continue;
+            continue; // 提前结束当前 group，不再往下画线
         }
 
         if (points.length < 2) continue;
