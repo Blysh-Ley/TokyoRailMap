@@ -1118,8 +1118,6 @@
 			"zh-Hant": "大崎支線"
 		},
 		"stations": [
-			"JR-East.OsakiBranch.Osaki",
-			"JR-East.OsakiBranch.Fujisawa"
 		],
 		"ascending": "Outbound",
 		"descending": "Inbound",
@@ -1136,8 +1134,6 @@
 			"zh-Hant": "東海道貨物線"
 		},
 		"stations": [
-			"JR-East.TokaidoFreight.Shinagawa",
-			"JR-East.TokaidoFreight.Fujisawa"
 		],
 		"ascending": "Outbound",
 		"descending": "Inbound",
