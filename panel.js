@@ -27,6 +27,10 @@ const toText = (v) => String(v ?? '').trim();
 const UENO_TOKYO_TEMP_LINE_ID = THROUGH_SERVICE_TEMP_LINE_IDS.UENO_TOKYO;
 const SHONAN_SHINJUKU_TEMP_LINE_ID = THROUGH_SERVICE_TEMP_LINE_IDS.SHONAN_SHINJUKU;
 const SHONAN_SHINJUKU_MAIN_LINE_ID = 'JR-East.ShonanShinjuku';
+const STATION_TOKEN_TOKYO = 'Tokyo';
+const STATION_TOKEN_UENO = 'Ueno';
+const STATION_TOKEN_SHIBUYA = 'Shibuya';
+const STATION_TOKEN_SHINJUKU = 'Shinjuku';
 
 const enhancePanelLineHeaderIcons = async (rootEl) => {
     if (!(rootEl instanceof Element)) return;
@@ -2466,6 +2470,82 @@ export function createPanel(options = {}) {
         return null;
     }
 
+    const getStationToken = (stationId) => {
+        const sid = toText(stationId);
+        if (!sid) return '';
+        const parts = sid.split('.').map((x) => x.trim()).filter(Boolean);
+        return parts.length ? parts[parts.length - 1] : '';
+    };
+
+    const collectTripChainByRef = async (startTrip, key) => {
+        const out = [];
+        const seenRefs = new Set();
+        const seenTrips = new Set();
+        let cursor = startTrip;
+
+        for (let i = 0; i < 24; i += 1) {
+            const refs = Array.isArray(cursor?.[key]) ? cursor[key] : (cursor?.[key] ? [cursor[key]] : []);
+            const refId = toText(refs?.[0]);
+            if (!refId) break;
+            if (seenRefs.has(refId)) break;
+            seenRefs.add(refId);
+
+            const refTrip = await loadTripByRefId(refId);
+            if (!refTrip) break;
+
+            const sid = toText(refTrip?.id) || toText(refTrip?.t);
+            if (sid && seenTrips.has(sid)) break;
+
+            out.push(refTrip);
+            if (sid) seenTrips.add(sid);
+
+            cursor = refTrip;
+        }
+
+        return out;
+    };
+
+    const deriveThroughServiceDirectionFromChain = async (trip, displayLineId) => {
+        const lineId = toText(displayLineId);
+        if (lineId !== UENO_TOKYO_TEMP_LINE_ID && lineId !== SHONAN_SHINJUKU_TEMP_LINE_ID) return '';
+
+        const ptChain = await collectTripChainByRef(trip, 'pt');
+        const ntChain = await collectTripChainByRef(trip, 'nt');
+        const orderedTrips = [
+            ...(Array.isArray(ptChain) ? ptChain.slice().reverse() : []),
+            trip,
+            ...(Array.isArray(ntChain) ? ntChain : [])
+        ];
+
+        const stationTokens = [];
+        for (const chainTrip of orderedTrips) {
+            const tt = Array.isArray(chainTrip?.tt) ? chainTrip.tt : [];
+            for (const stop of tt) {
+                const token = getStationToken(stop?.s);
+                if (token) stationTokens.push(token);
+            }
+        }
+        if (!stationTokens.length) return '';
+
+        const getFirstIdx = (token) => stationTokens.findIndex((x) => x === token);
+
+        if (lineId === UENO_TOKYO_TEMP_LINE_ID) {
+            const tokyoIdx = getFirstIdx(STATION_TOKEN_TOKYO);
+            const uenoIdx = getFirstIdx(STATION_TOKEN_UENO);
+            if (tokyoIdx >= 0 && uenoIdx >= 0) {
+                return tokyoIdx < uenoIdx ? 'Northbound' : 'Southbound';
+            }
+            return '';
+        }
+
+        const shibuyaIdx = getFirstIdx(STATION_TOKEN_SHIBUYA);
+        const shinjukuIdx = getFirstIdx(STATION_TOKEN_SHINJUKU);
+        if (shibuyaIdx >= 0 && shinjukuIdx >= 0) {
+            return shibuyaIdx < shinjukuIdx ? 'Northbound' : 'Southbound';
+        }
+        return '';
+    };
+
     const resolveThroughServiceEndpointIds = async (trip) => {
         const visited = new Set();
 
@@ -2963,6 +3043,7 @@ export function createPanel(options = {}) {
         const now = getDisplayNowMs();
         const serviceDayStartMs = getServiceDayStartMs(new Date(now));
         const rows = [];
+        const throughDirectionCache = new Map();
 
         // Resolve pt/nt refs to get missing arrival/departure times.
 
@@ -2995,7 +3076,13 @@ export function createPanel(options = {}) {
             const ntRefs = Array.isArray(trip?.nt) ? trip.nt : (trip?.nt ? [trip.nt] : []);
             const hasPt = ptRefs.some((x) => !!toText(x));
             const hasNt = ntRefs.some((x) => !!toText(x));
-            const dir = toText(trip?.d);
+            const tripDirectionCacheKey = `${toText(lineId)}||${toText(trip?.id) || toText(trip?.t)}`;
+            let derivedThroughDirection = throughDirectionCache.get(tripDirectionCacheKey);
+            if (derivedThroughDirection === undefined) {
+                derivedThroughDirection = await deriveThroughServiceDirectionFromChain(trip, lineId);
+                throughDirectionCache.set(tripDirectionCacheKey, derivedThroughDirection);
+            }
+            const dir = toText(derivedThroughDirection || trip?.d);
             const isLoopDirection = /Loop/i.test(dir);
             const skipCrossTripFillForLoop = isLoopDirection && (hasPt || hasNt);
 
