@@ -734,7 +734,9 @@ export const previewBranchesForLine = async ({
     previewSource = 'route-map-branch',
     throughServiceCategory,
     sourceLineIds,
-    highlightColor
+    highlightColor,
+    originStationIds,
+    terminalStationIds
 } = {}) => {
     const lid = toText(lineId);
     if (!lid) return { ok: false, reason: 'line-id-empty' };
@@ -755,12 +757,12 @@ export const previewBranchesForLine = async ({
         throughServiceCategory: normalizedCategory,
         sourceLineIds: normalizedSourceLineIds
     });
-    const fullChainOriginStationIds = Array.isArray(result?.originStationIds)
-        ? result.originStationIds.map((x) => toText(x)).filter(Boolean)
-        : [];
-    const fullChainTerminalStationIds = Array.isArray(result?.terminalStationIds)
-        ? result.terminalStationIds.map((x) => toText(x)).filter(Boolean)
-        : [];
+    const fullChainOriginStationIds = Array.isArray(originStationIds) && originStationIds.length
+        ? originStationIds.map((x) => toText(x)).filter(Boolean)
+        : (Array.isArray(result?.originStationIds) ? result.originStationIds.map((x) => toText(x)).filter(Boolean) : []);
+    const fullChainTerminalStationIds = Array.isArray(terminalStationIds) && terminalStationIds.length
+        ? terminalStationIds.map((x) => toText(x)).filter(Boolean)
+        : (Array.isArray(result?.terminalStationIds) ? result.terminalStationIds.map((x) => toText(x)).filter(Boolean) : []);
     const stationRailwayByStationId = await getStationRailwayIndex();
     const rawBranchList = Array.isArray(result?.branchList) ? result.branchList : [];
     const virtualTrips = [];

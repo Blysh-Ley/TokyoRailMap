@@ -3156,6 +3156,22 @@ map.on('load', async () => {
                 const servingCount = (servingIds.length || 1);
                 stationServingCountById.set(sid, servingCount);
             }
+
+            // Fallback: also load raw coordinates from stations.json for off-map branch endpoints
+            const rawStations = await getCachedJson('./data/stations.json');
+            if (Array.isArray(rawStations)) {
+                for (const s of rawStations) {
+                    const sid = String(s?.id || '').trim();
+                    const c = Array.isArray(s?.coord) ? s.coord : null;
+                    if (sid && c && c.length >= 2 && !stationCoordById.has(sid)) {
+                        const lng = Number(c[0]);
+                        const lat = Number(c[1]);
+                        if (Number.isFinite(lng) && Number.isFinite(lat)) {
+                            stationCoordById.set(sid, [lng, lat]);
+                        }
+                    }
+                }
+            }
         } catch {
             // ignore
         }
@@ -4483,11 +4499,7 @@ map.on('load', async () => {
                     // ignore
                 }
 
-                if (payloadSource === 'panel-dir-branch') {
-                    updateTripEndpointPopupsFromPayloadList(virtualTrips, payload);
-                } else {
-                    clearTripEndpointPopups();
-                }
+                clearTripEndpointPopups();
 
                 try {
                     window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {

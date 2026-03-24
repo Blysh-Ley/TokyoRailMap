@@ -2060,7 +2060,9 @@ export function createPanel(options = {}) {
             highlightStationIds,
             previewSource: source,
             sourceLineIds,
-            throughServiceCategory
+            throughServiceCategory,
+            originStationIds: Array.isArray(meta.originStationIds) ? meta.originStationIds.slice() : [],
+            terminalStationIds: Array.isArray(meta.terminalStationIds) ? meta.terminalStationIds.slice() : []
         }).then(() => {
             if (requestSeq !== dirBranchPreviewSeq) return;
         }).catch(() => {
@@ -3088,7 +3090,6 @@ export function createPanel(options = {}) {
                     originId,
                     originName,
                     terminalId: terminalIdForFilter,
-                    terminalIds: resolvedTerminalIds.length ? resolvedTerminalIds : [],
                     throughEndpoints,
                     terminalName,
                     terminalDisplayName,
