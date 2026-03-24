@@ -3209,6 +3209,7 @@ export function createPanel(options = {}) {
                     tripKey,
                     baseTripKey,
                     stopCount: Array.isArray(tt) ? tt.length : null,
+                    rawStopNames: (Array.isArray(tt) ? tt : []).map(x => stationsIndex?.idToNameZh?.get?.(toText(x?.s)) || toText(x?.s)),
                     sourceLineId: toText(sourceData?.sourceLineId)
                 });
             }
@@ -3465,14 +3466,39 @@ export function createPanel(options = {}) {
                     labelCount.set(s, (labelCount.get(s) || 0) + 1);
                 }
             }
+
+            const lineMetaStations = getLineMeta?.(lineId)?.stations || [];
+            const lineStationNamesSet = new Set(lineMetaStations.map(x => toText(stationsIndex?.idToNameZh?.get?.(toText(x)) || toText(x))));
+
             const labelEntries = Array.from(labelCount.entries())
+                .filter(([name, count]) => {
+                    if (count >= 20) return true;
+                    if (count <= 5) return false;
+                    if (lineStationNamesSet.has(name)) return true;
+
+                    for (const row of labelRows) {
+                        const rowDests = Array.isArray(row.destNamesForDir) ? row.destNamesForDir : [];
+                        if (rowDests.includes(name)) continue;
+
+                        const validOtherDest = rowDests.some(d => (labelCount.get(d) || 0) > 5);
+                        if (!validOtherDest) continue;
+
+                        const rawStopNames = Array.isArray(row.rawStopNames) ? row.rawStopNames : [];
+                        if (rawStopNames.includes(name)) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                })
                 .sort((a, b) => {
                     const dc = Number(b[1]) - Number(a[1]);
                     if (dc) return dc;
                     return String(a[0]).localeCompare(String(b[0]));
                 })
                 .map(([name]) => name);
-            const label = labelEntries.length ? labelEntries.join('，') : (filteredNames.length ? filteredNames.join('，') : dirKey);
+
+            const label = labelEntries.length ? labelEntries.join('，') : (filteredNames.length ? filteredNames.slice(0, 1).join('，') : dirKey);
 
             directionDebug.push({
                 dirKey,
