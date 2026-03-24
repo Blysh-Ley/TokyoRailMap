@@ -325,6 +325,8 @@ map.on('load', async () => {
     let tripPreviewOriginPopups = [];
     let tripPreviewTerminalPopups = [];
     let tripCurrentStationPopup = null;
+    let selectedStationCurrentPopup = null;
+    let selectedStationCurrentPopupStationId = null;
     let tripDetailStationTriangleMarker = null;
     let tripPreviewSelectionsByKey = new Map(); // key -> { payload, built, hidden?:boolean, source?:string }
     let baseMultiSelectionsByKey = new Map(); // key -> { kind, lineIds:Set<string>, hidden?:boolean }
@@ -552,7 +554,7 @@ map.on('load', async () => {
         }
 
         if (!selectedLineId && !selectedCompany && selectedStationId) {
-            return new Set(getSelectedStationHighlightIds().map(String).filter(Boolean));
+            return getVisibleStationIdsForSelectedStationSelection();
         }
 
         const highlightLineIds = (() => {
@@ -1163,6 +1165,72 @@ map.on('load', async () => {
         return [sid];
     };
 
+    const clearSelectedStationCurrentPopup = () => {
+        try {
+            selectedStationCurrentPopup?.remove?.();
+        } catch {
+            // ignore
+        }
+        selectedStationCurrentPopup = null;
+        selectedStationCurrentPopupStationId = null;
+    };
+
+    const updateSelectedStationCurrentPopup = () => {
+        const sid = String(selectedStationId ?? '').trim();
+        if (!sid) {
+            clearSelectedStationCurrentPopup();
+            return;
+        }
+
+        const coord = stationCoordById.get(sid);
+        if (!Array.isArray(coord) || coord.length < 2) {
+            clearSelectedStationCurrentPopup();
+            return;
+        }
+
+        if (selectedStationCurrentPopup && selectedStationCurrentPopupStationId === sid) {
+            return;
+        }
+
+        clearSelectedStationCurrentPopup();
+
+        const el = document.createElement('div');
+        el.className = 'station-selected-current-label';
+        el.textContent = '当前站';
+
+        try {
+            selectedStationCurrentPopup = new maplibregl.Popup({
+                closeButton: false,
+                closeOnClick: false,
+                closeOnMove: false,
+                anchor: 'top',
+                offset: [0, 8],
+                className: 'station-selected-current-popup'
+            })
+                .setLngLat(coord)
+                .setDOMContent(el)
+                .addTo(map);
+            selectedStationCurrentPopupStationId = sid;
+        } catch {
+            selectedStationCurrentPopup = null;
+            selectedStationCurrentPopupStationId = null;
+        }
+    };
+
+    const getVisibleStationIdsForSelectedStationSelection = () => {
+        if (!selectedStationId) return null;
+
+        const selectedIds = new Set(getSelectedStationHighlightIds().map(String).filter(Boolean));
+        if (selectedStationLineIds && selectedStationLineIds.size) {
+            const lineStationIds = getVisibleStationIdsByLineIds(selectedStationLineIds);
+            for (const id of selectedIds) {
+                lineStationIds.add(String(id || '').trim());
+            }
+            if (lineStationIds.size) return lineStationIds;
+        }
+        return selectedIds;
+    };
+
     const getServingLineIdsFromStationProps = (props) => {
         const p = props || {};
         const servingIdsRaw = normalizeArrayLike(p.serving_ids);
@@ -1512,10 +1580,19 @@ map.on('load', async () => {
                 ? buildStationAnyLineMatchExpr(Array.from(enabledLineIdsByCompany.get(selectedCompany) ?? []))
                 : (selectedStationId
                     ? (() => {
-                        const ids = getSelectedStationHighlightIds();
-                        if (!ids.length) return ['==', ['get', 'id'], String(selectedStationId)];
-                        if (ids.length === 1) return ['==', ['get', 'id'], ids[0]];
-                        return ['in', ['get', 'id'], ['literal', ids]];
+                        const ids = getSelectedStationHighlightIds().map(String).filter(Boolean);
+                        const stationExpr = (() => {
+                            if (!ids.length) return ['==', ['get', 'id'], String(selectedStationId)];
+                            if (ids.length === 1) return ['==', ['get', 'id'], ids[0]];
+                            return ['in', ['get', 'id'], ['literal', ids]];
+                        })();
+
+                        if (selectedStationLineIds && selectedStationLineIds.size) {
+                            const lineExpr = buildStationAnyLineMatchExpr(Array.from(selectedStationLineIds));
+                            return ['any', stationExpr, lineExpr];
+                        }
+
+                        return stationExpr;
                     })()
                     : buildStationAnyLineMatchExpr(Array.from(selectedStationLineIds ?? [])));
 
@@ -1754,6 +1831,7 @@ map.on('load', async () => {
     const applySelectionEffects = () => {
         applyLineSelectionStyle();
         applyStationSelectionStyle();
+        updateSelectedStationCurrentPopup();
         scheduleTransferCapsuleRefresh();
         applyTransferStationLabelCollapse();
         updateMultiSelectStationLabelChips();
@@ -5224,7 +5302,7 @@ map.on('load', async () => {
                     return dirPreviewStationIds;
                 }
                 if (!selectedLineId && !selectedCompany && selectedStationId) {
-                    return new Set(getSelectedStationHighlightIds());
+                    return getVisibleStationIdsForSelectedStationSelection();
                 }
                 return null;
             },
