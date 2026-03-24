@@ -2109,47 +2109,6 @@ map.on('load', async () => {
             tripCurrentStationPopup = null;
             clearTripDetailStationIndicator();
         },
-        onTripCurrentStationShow: ({ stationId }) => {
-            const sid = String(stationId || '').trim();
-            if (!sid) return;
-            const coord = stationCoordById.get(sid);
-            if (!Array.isArray(coord) || coord.length < 2) return;
-
-            try {
-                tripCurrentStationPopup?.remove?.();
-            } catch {
-                // ignore
-            }
-            tripCurrentStationPopup = null;
-
-            const el = document.createElement('div');
-            el.className = 'trip-current-station-label';
-            el.textContent = '当前站';
-
-            try {
-                tripCurrentStationPopup = new maplibregl.Popup({
-                    closeButton: false,
-                    closeOnClick: false,
-                    closeOnMove: false,
-                    anchor: 'top',
-                    offset: [0, 8],
-                    className: 'trip-current-station-popup'
-                })
-                    .setLngLat(coord)
-                    .setDOMContent(el)
-                    .addTo(map);
-            } catch {
-                tripCurrentStationPopup = null;
-            }
-        },
-        onTripCurrentStationHide: () => {
-            try {
-                tripCurrentStationPopup?.remove?.();
-            } catch {
-                // ignore
-            }
-            tripCurrentStationPopup = null;
-        },
         onTripDetailStationIndicator: ({ stationId }) => {
             showTripDetailStationIndicatorById(stationId);
         },
@@ -4393,8 +4352,11 @@ map.on('load', async () => {
             const terminalIds = Array.isArray(payload?.terminalStationIds)
                 ? payload.terminalStationIds.map((x) => String(x).trim()).filter(Boolean)
                 : [];
+            const currentIds = Array.isArray(payload?.currentStationIds)
+                ? payload.currentStationIds.map((x) => String(x).trim()).filter(Boolean)
+                : [];
 
-            const stationIds = new Set([...originIds, ...terminalIds]);
+            const stationIds = new Set([...originIds, ...terminalIds, ...currentIds]);
             dirPreviewActive = true;
             dirPreviewLineIds = new Set([lineId]);
             if (payload && Array.isArray(payload.sourceLineIds) && payload.sourceLineIds.length) {

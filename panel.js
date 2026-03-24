@@ -2013,7 +2013,7 @@ export function createPanel(options = {}) {
         else expandedDirKeys.delete(k);
     };
 
-    const applyDirPreviewByKey = (lineDirKey, { force = false, fitMode } = {}) => {
+    const applyDirPreviewByKey = async (lineDirKey, { force = false, fitMode } = {}) => {
         if (isMultiSelectModeEnabled()) return;
         const key = toText(lineDirKey);
         if (!key) return;
@@ -2021,6 +2021,20 @@ export function createPanel(options = {}) {
         const meta = dirPreviewMetaByKey.get(key);
         if (!meta) return;
         activeDirPreviewKey = key;
+
+        const currentStationIds = (() => {
+            const out = [];
+            const sid = toText(currentStationId);
+            if (sid) out.push(sid);
+            return out;
+        })();
+        try {
+            const resolved = await resolveStationIdForLine(toText(meta.lineId));
+            const rid = toText(resolved);
+            if (rid && !currentStationIds.includes(rid)) currentStationIds.push(rid);
+        } catch {
+            // ignore
+        }
 
         const sourceLineIds = (() => {
             const temp = temporaryPanelSourceLineIdsByDisplayLineId.get(toText(meta.lineId));
@@ -2034,6 +2048,7 @@ export function createPanel(options = {}) {
                 sourceLineIds: Array.isArray(sourceLineIds) ? sourceLineIds.slice() : [],
                 originStationIds: Array.isArray(meta.originStationIds) ? meta.originStationIds.slice() : [],
                 terminalStationIds: Array.isArray(meta.terminalStationIds) ? meta.terminalStationIds.slice() : [],
+                currentStationIds: currentStationIds.slice(),
                 fitMode: toText(fitMode)
             });
         } catch {
@@ -2046,7 +2061,8 @@ export function createPanel(options = {}) {
             : [];
         const highlightStationIds = Array.from(new Set([
             ...(Array.isArray(meta.originStationIds) ? meta.originStationIds : []),
-            ...(Array.isArray(meta.terminalStationIds) ? meta.terminalStationIds : [])
+            ...(Array.isArray(meta.terminalStationIds) ? meta.terminalStationIds : []),
+            ...currentStationIds
         ].map((x) => toText(x)).filter(Boolean)));
         const source = 'panel-dir-branch';
 
