@@ -265,6 +265,46 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
     const beforeLayerId = options.beforeLayerId || 'stations-layer';
     const minZoom = Number.isFinite(options.minZoom) ? Number(options.minZoom) : 8;
 
+    const capsuleOutlineLineWidthExpr = [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        0, 7,
+        6, 7,
+        14, 12,
+        22, 12
+    ];
+
+    const capsuleInnerLineWidthExpr = [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        0, 4.8,
+        6, 4.8,
+        14, 8,
+        22, 8
+    ];
+
+    const capsuleFallbackOutlineRadiusExpr = [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        0, 4.2,
+        6, 4.2,
+        14, 6.8,
+        22, 6.8
+    ];
+
+    const capsuleFallbackInnerRadiusExpr = [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        0, 3.1,
+        6, 3.1,
+        14, 5.0,
+        22, 5.0
+    ];
+
     // If the requested before layer does not exist yet, avoid passing it to map.addLayer to
     // prevent MapLibre from throwing. We'll add layers at the top-level in that case.
     const insertBefore = map.getLayer(beforeLayerId) ? beforeLayerId : undefined;
@@ -348,28 +388,14 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             paint: {
                 'line-color': getThemeCapsuleColors().outline,
                 'line-opacity': 1,
-                'line-width': [
-                    'interpolate',
-                    ['linear'],
-                    ['zoom'],
-                    0, 12,
-                    12, 12,
-                    16, 24
-                ]
+                'line-width': capsuleOutlineLineWidthExpr
             }
         };
         if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
     } else {
         map.setPaintProperty(ids.slaveOutlineLayerId, 'line-color', getThemeCapsuleColors().outline);
         map.setPaintProperty(ids.slaveOutlineLayerId, 'line-opacity', 1);
-        map.setPaintProperty(ids.slaveOutlineLayerId, 'line-width', [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            0, 12,
-            12, 12,
-            16, 24
-        ]);
+        map.setPaintProperty(ids.slaveOutlineLayerId, 'line-width', capsuleOutlineLineWidthExpr);
         map.setFilter(ids.slaveOutlineLayerId, ['!=', ['get', 'fallbackCircle'], 1]);
     }
 
@@ -387,28 +413,14 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             paint: {
                 'line-color': getThemeCapsuleColors().inner,
                 'line-opacity': 1,
-                'line-width': [
-                    'interpolate',
-                    ['linear'],
-                    ['zoom'],
-                    0, 8,
-                    12, 8,
-                    16, 14
-                ]
+                'line-width': capsuleInnerLineWidthExpr
             }
         };
         if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
     } else {
         map.setPaintProperty(ids.slaveInnerLayerId, 'line-color', getThemeCapsuleColors().inner);
         map.setPaintProperty(ids.slaveInnerLayerId, 'line-opacity', 1);
-        map.setPaintProperty(ids.slaveInnerLayerId, 'line-width', [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            0, 8,
-            12, 8,
-            16, 14
-        ]);
+        map.setPaintProperty(ids.slaveInnerLayerId, 'line-width', capsuleInnerLineWidthExpr);
         map.setFilter(ids.slaveInnerLayerId, ['!=', ['get', 'fallbackCircle'], 1]);
     }
 
@@ -422,28 +434,14 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             paint: {
                 'circle-color': getThemeCapsuleColors().outline,
                 'circle-opacity': 1,
-                'circle-radius': [
-                    'interpolate',
-                    ['linear'],
-                    ['zoom'],
-                    0, 6.8,
-                    12, 6.8,
-                    16, 11.5
-                ]
+                'circle-radius': capsuleFallbackOutlineRadiusExpr
             }
         };
         if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
     } else {
         map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-color', getThemeCapsuleColors().outline);
         map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-opacity', 1);
-        map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-radius', [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            0, 6.8,
-            12, 6.8,
-            16, 11.5
-        ]);
+        map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-radius', capsuleFallbackOutlineRadiusExpr);
         map.setFilter(ids.fallbackCircleOutlineLayerId, ['==', ['get', 'fallbackCircle'], 1]);
     }
 
@@ -457,28 +455,14 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             paint: {
                 'circle-color': getThemeCapsuleColors().inner,
                 'circle-opacity': 1,
-                'circle-radius': [
-                    'interpolate',
-                    ['linear'],
-                    ['zoom'],
-                    0, 5.0,
-                    12, 5.0,
-                    16, 8.6
-                ]
+                'circle-radius': capsuleFallbackInnerRadiusExpr
             }
         };
         if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
     } else {
         map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-color', getThemeCapsuleColors().inner);
         map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-opacity', 1);
-        map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-radius', [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            0, 5.0,
-            12, 5.0,
-            16, 8.6
-        ]);
+        map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-radius', capsuleFallbackInnerRadiusExpr);
         map.setFilter(ids.fallbackCircleInnerLayerId, ['==', ['get', 'fallbackCircle'], 1]);
     }
 
