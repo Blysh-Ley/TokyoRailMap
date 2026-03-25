@@ -352,6 +352,7 @@ map.on('load', async () => {
     let transferCapsuleRefreshRafId = null;
     let transferCapsuleVisibleKey = '__init__';
     let collisionVisibleStationIds = null;
+    let pendingTransferCapsuleRefreshAfterCollision = false;
     let stationCircleRefs = [];
     let requestLineOffsetRefresh = () => {};
 
@@ -1842,6 +1843,11 @@ map.on('load', async () => {
         isolateStationsToSelectedLine = false;
         setStationLabelMode('auto');
 
+        // 关键：重置高亮后，等下一次碰撞结果产出再刷新胶囊，
+        // 避免首次点击空白时使用旧碰撞可见集导致胶囊延后一拍出现。
+        pendingTransferCapsuleRefreshAfterCollision = true;
+        transferCapsuleVisibleKey = '__init__';
+
         if (menu && typeof menu.clearActive === 'function') menu.clearActive();
 
         applySelectionEffects();
@@ -1851,10 +1857,11 @@ map.on('load', async () => {
         applyLineSelectionStyle();
         applyStationSelectionStyle();
         updateSelectedStationCurrentPopup();
-        scheduleTransferCapsuleRefresh();
         applyTransferStationLabelCollapse();
         updateMultiSelectStationLabelChips();
         if (collisionController) collisionController.scheduleUpdate();
+        // 顺序很重要：先调度碰撞，再刷新胶囊，确保本帧优先使用最新碰撞可见集。
+        scheduleTransferCapsuleRefresh();
         updateSelectionBadge();
         try {
             const lineIds = (() => {
@@ -5268,6 +5275,11 @@ map.on('load', async () => {
             transferGroupByStationId: transferStationIdsByStationId,
             onCircleCollisionResolved: ({ visibleStationIds }) => {
                 collisionVisibleStationIds = visibleStationIds instanceof Set ? new Set(visibleStationIds) : null;
+                if (pendingTransferCapsuleRefreshAfterCollision) {
+                    pendingTransferCapsuleRefreshAfterCollision = false;
+                    transferCapsuleVisibleKey = '__init__';
+                    scheduleTransferCapsuleRefresh();
+                }
             },
             // 线路联动：只影响站名（圆点仍按碰撞显示）
             getEnabledLineIds: getEnabledLineIdsForLabels,
