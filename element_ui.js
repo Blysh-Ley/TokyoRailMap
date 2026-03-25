@@ -130,16 +130,19 @@ export const buildLowlightLinePaint = (options = {}) => {
 
 export const baseStationCircleRadiusExpr = () => {
     const z0 = 0;
-    const z1 = ELEMENT_UI_CONSTANTS.stationZoomBase;
+    const zShrinkStart = 6;
+    const zStable = 14;
     const z2 = ELEMENT_UI_CONSTANTS.stationZoomMax;
-    const r1 = ELEMENT_UI_CONSTANTS.stationBaseRadius;
-    const r2 = ELEMENT_UI_CONSTANTS.stationBaseRadiusAtMaxZoom;
-    const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
-    // Use a single top-level zoom interpolate expression (MapLibre allows only one zoom-based
-    // interpolate/step per expression). Previously this returned a `case` wrapping identical
-    // interpolate expressions which triggers validation errors.
-    const zoomRadiusExpr = ['interpolate', ['linear'], ['zoom'], z0, r1, z1, r1, z2, r2];
-    return zoomRadiusExpr;
+    const rMin = 0.5;
+    const rStable = ELEMENT_UI_CONSTANTS.stationBaseRadius;
+
+    // 仅修改“大小”：换乘站与非换乘站使用同一缩放曲线，zoom>=14 保持当前大小。
+    return ['interpolate', ['linear'], ['zoom'],
+        z0, rMin,
+        zShrinkStart, rMin,
+        zStable, rStable,
+        z2, rStable
+    ];
 };
 
 export const baseStationCircleStrokeWidthExpr = () => {
