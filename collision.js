@@ -82,12 +82,43 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
     const getCircleMode = options.getCircleMode;
     const getVisibleStationIds = options.getVisibleStationIds;
     const getPinnedStationId = options.getPinnedStationId;
+    const onCircleCollisionResolved = typeof options.onCircleCollisionResolved === 'function'
+        ? options.onCircleCollisionResolved
+        : null;
+    const transferGroupByStationId = options.transferGroupByStationId instanceof Map
+        ? options.transferGroupByStationId
+        : null;
     // 线路联动作用范围：
     // - 'labels'：只影响站名显示（不影响圆点）
     // - 'labels_and_circles'：同时影响站名与圆点（默认）
     const lineFilterTarget = options.lineFilterTarget ?? 'labels_and_circles';
 
     let rafId = null;
+
+    const toTransferGroupKey = (groupSet) => {
+        if (!(groupSet instanceof Set) || !groupSet.size) return '';
+        return Array.from(groupSet).map((x) => String(x || '').trim()).filter(Boolean).sort().join('|');
+    };
+
+    const applyTransferCapsuleGroupFilter = (groupIds) => {
+        const ids = Array.isArray(groupIds) ? groupIds.filter(Boolean) : [];
+        const has = ids.length > 0;
+        const lineFilter = has
+            ? ['all', ['!=', ['get', 'fallbackCircle'], 1], ['in', ['get', 'groupId'], ['literal', ids]]]
+            : ['all', ['!=', ['get', 'fallbackCircle'], 1], ['==', ['get', 'groupId'], '']];
+        const fallbackFilter = has
+            ? ['all', ['==', ['get', 'fallbackCircle'], 1], ['in', ['get', 'groupId'], ['literal', ids]]]
+            : ['all', ['==', ['get', 'fallbackCircle'], 1], ['==', ['get', 'groupId'], '']];
+
+        try {
+            if (map.getLayer('transfer-capsule-outline-layer')) map.setFilter('transfer-capsule-outline-layer', lineFilter);
+            if (map.getLayer('transfer-capsule-inner-layer')) map.setFilter('transfer-capsule-inner-layer', lineFilter);
+            if (map.getLayer('transfer-capsule-fallback-circle-outline-layer')) map.setFilter('transfer-capsule-fallback-circle-outline-layer', fallbackFilter);
+            if (map.getLayer('transfer-capsule-fallback-circle-inner-layer')) map.setFilter('transfer-capsule-fallback-circle-inner-layer', fallbackFilter);
+        } catch {
+            // ignore
+        }
+    };
 
     function isStationEnabledByLines(servingLineIds, enabledLineIdsSet) {
         // 未提供 enabledLineIds 时，默认不做线路联动限制
@@ -261,55 +292,122 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
         // 在需要“全部显示圆点”时，跳过碰撞计算（避免缩小地图后圆点被隐藏）
         if (circleMode === 'all') {
             const visibleIds = [];
+            const visibleCapsuleGroupKeys = new Set();
             for (const station of stationCircles) {
                 if (!station.priority) continue;
                 if (station.hiddenByOpacityZero) continue;
                 if (!isStationEnabledByLines(station.servingLineIds, enabledLineIdsSet)) continue;
                 if (!isStationEnabledByExplicitIds(station.stationId, explicitIdsSet)) continue;
                 visibleIds.push(station.stationId);
+
+                const transferGroup = transferGroupByStationId?.get?.(station.stationId);
+                const groupKey = toTransferGroupKey(transferGroup);
+                if (groupKey) visibleCapsuleGroupKeys.add(groupKey);
             }
 
             if (!visibleIds.length) {
                 map.setFilter('stations-layer', ['all', hiddenExpr, ['==', ['get', 'id'], '']]);
+                applyTransferCapsuleGroupFilter([]);
+                try {
+                    onCircleCollisionResolved?.({
+                        visibleStationIds: new Set(),
+                        visibleCapsuleGroupKeys: new Set()
+                    });
+                } catch {
+                    // ignore
+                }
                 return;
             }
 
             map.setFilter('stations-layer', ['all', hiddenExpr, ['in', ['get', 'id'], ['literal', visibleIds]]]);
+            applyTransferCapsuleGroupFilter(Array.from(visibleCapsuleGroupKeys));
+            try {
+                onCircleCollisionResolved?.({
+                    visibleStationIds: new Set(visibleIds),
+                    visibleCapsuleGroupKeys: new Set(visibleCapsuleGroupKeys)
+                });
+            } catch {
+                // ignore
+            }
             return;
         }
 
-        const sorted = stationCircles
-            .slice()
-            .sort((a, b) => (b.priority - a.priority) || String(a.stationId).localeCompare(String(b.stationId)));
+        const entityByKey = new Map();
+        for (const station of stationCircles) {
+            if (!station.priority) continue;
+            if (station.hiddenByOpacityZero) continue;
+            if (!isStationEnabledByLines(station.servingLineIds, enabledLineIdsSet)) continue;
+            if (!isStationEnabledByExplicitIds(station.stationId, explicitIdsSet)) continue;
+
+            const transferGroup = transferGroupByStationId?.get?.(station.stationId);
+            const transferIds = transferGroup instanceof Set && transferGroup.size > 1
+                ? Array.from(transferGroup).map((x) => String(x || '').trim()).filter(Boolean).sort()
+                : [String(station.stationId || '').trim()];
+            const key = transferIds.join('|');
+            if (!key) continue;
+
+            if (!entityByKey.has(key)) {
+                entityByKey.set(key, {
+                    key,
+                    stationIds: transferIds,
+                    transferCount: transferIds.length,
+                    priority: Number(station.priority) || 1,
+                    points: []
+                });
+            }
+
+            const entity = entityByKey.get(key);
+            entity.priority = Math.max(entity.priority, Number(station.priority) || 1);
+            if (Array.isArray(station.coordinates) && station.coordinates.length >= 2) {
+                entity.points.push(station.coordinates);
+            }
+        }
+
+        const sorted = Array.from(entityByKey.values())
+            .sort((a, b) => (b.transferCount - a.transferCount) || (b.priority - a.priority) || String(a.key).localeCompare(String(b.key)));
 
         const zoom = map.getZoom();
         const grid = new Map();
-        const visibleIds = [];
+        const visibleIds = new Set();
+        const visibleCapsuleGroupKeys = new Set();
 
-        sorted.forEach((station) => {
-            if (!station.priority) return;
-            if (station.hiddenByOpacityZero) return;
+        sorted.forEach((entity) => {
+            if (!entity?.stationIds?.length || !entity?.points?.length) return;
 
-            if (!isStationEnabledByLines(station.servingLineIds, enabledLineIdsSet)) return;
-            if (!isStationEnabledByExplicitIds(station.stationId, explicitIdsSet)) return;
-
-            // Keep transfer dots visible by skipping collision checks inside transfer stations.
-            if (station.priority > 1) {
-                visibleIds.push(station.stationId);
-                return;
+            let bbox = null;
+            if (entity.transferCount > 1) {
+                // 将换乘胶囊整体作为一个碰撞元素：包围盒覆盖整组站点并加上胶囊线宽余量。
+                let minX = Number.POSITIVE_INFINITY;
+                let maxX = Number.NEGATIVE_INFINITY;
+                let minY = Number.POSITIVE_INFINITY;
+                let maxY = Number.NEGATIVE_INFINITY;
+                for (const c of entity.points) {
+                    const p = map.project(c);
+                    minX = Math.min(minX, p.x);
+                    maxX = Math.max(maxX, p.x);
+                    minY = Math.min(minY, p.y);
+                    maxY = Math.max(maxY, p.y);
+                }
+                if (![minX, maxX, minY, maxY].every(Number.isFinite)) return;
+                const capsulePadding = Math.max(2, circleRadiusPxForStation(zoom, Math.max(2, entity.priority)) + 4);
+                bbox = {
+                    left: minX - capsulePadding,
+                    right: maxX + capsulePadding,
+                    top: minY - capsulePadding,
+                    bottom: maxY + capsulePadding
+                };
+            } else {
+                const radius = circleRadiusPxForStation(zoom, entity.priority);
+                const strokePadding = circleStrokeWidthPxForStation(entity.priority);
+                const r = radius + strokePadding;
+                const p = map.project(entity.points[0]);
+                bbox = {
+                    left: p.x - r,
+                    right: p.x + r,
+                    top: p.y - r,
+                    bottom: p.y + r
+                };
             }
-
-            const radius = circleRadiusPxForStation(zoom, station.priority);
-            const strokePadding = circleStrokeWidthPxForStation(station.priority);
-            const r = radius + strokePadding;
-
-            const p = map.project(station.coordinates);
-            const bbox = {
-                left: p.x - r,
-                right: p.x + r,
-                top: p.y - r,
-                bottom: p.y + r
-            };
 
             const minCx = Math.floor(bbox.left / gridCellPx);
             const maxCx = Math.floor(bbox.right / gridCellPx);
@@ -333,7 +431,13 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
 
             if (collides) return;
 
-            visibleIds.push(station.stationId);
+            for (const sid of entity.stationIds) {
+                if (sid) visibleIds.add(sid);
+            }
+            if (entity.transferCount > 1) {
+                visibleCapsuleGroupKeys.add(entity.key);
+            }
+
             for (let cx = minCx; cx <= maxCx; cx++) {
                 for (let cy = minCy; cy <= maxCy; cy++) {
                     const key = gridKey(cx, cy);
@@ -343,12 +447,30 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             }
         });
 
-        if (!visibleIds.length) {
+        if (!visibleIds.size) {
             map.setFilter('stations-layer', ['all', hiddenExpr, ['==', ['get', 'id'], '']]);
+            applyTransferCapsuleGroupFilter([]);
+            try {
+                onCircleCollisionResolved?.({
+                    visibleStationIds: new Set(),
+                    visibleCapsuleGroupKeys: new Set()
+                });
+            } catch {
+                // ignore
+            }
             return;
         }
 
-        map.setFilter('stations-layer', ['all', hiddenExpr, ['in', ['get', 'id'], ['literal', visibleIds]]]);
+        map.setFilter('stations-layer', ['all', hiddenExpr, ['in', ['get', 'id'], ['literal', Array.from(visibleIds)]]]);
+        applyTransferCapsuleGroupFilter(Array.from(visibleCapsuleGroupKeys));
+        try {
+            onCircleCollisionResolved?.({
+                visibleStationIds: new Set(visibleIds),
+                visibleCapsuleGroupKeys: new Set(visibleCapsuleGroupKeys)
+            });
+        } catch {
+            // ignore
+        }
     }
 
     function scheduleUpdate() {

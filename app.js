@@ -351,6 +351,9 @@ map.on('load', async () => {
     let transferCapsuleStationGroups = null;
     let transferCapsuleRefreshRafId = null;
     let transferCapsuleVisibleKey = '__init__';
+    let collisionVisibleStationIds = null;
+    let stationCircleRefs = [];
+    let requestLineOffsetRefresh = () => {};
 
     // 右侧界面：站点/站名/搜索提交站点时弹出（在 applySelectionEffects 定义后初始化）
     let panel = null;
@@ -759,13 +762,29 @@ map.on('load', async () => {
     const refreshTransferCapsulesNow = () => {
         if (!map || !transferCapsuleStationsData || !Array.isArray(transferCapsuleStationGroups)) return;
 
-        const visibleStationIds = getVisibleStationIdsForTransferCapsules();
-        const nextKey = toTransferCapsuleVisibleKey(visibleStationIds);
+        const selectedVisibleStationIds = getVisibleStationIdsForTransferCapsules();
+        let effectiveVisibleStationIds = selectedVisibleStationIds instanceof Set
+            ? new Set(selectedVisibleStationIds)
+            : null;
+
+        // 关键优化：把已算出的碰撞可见集前置到胶囊生成阶段，
+        // 避免 offset 触发重建后再由碰撞过滤导致“先出现再消失”的闪烁。
+        if (collisionVisibleStationIds instanceof Set) {
+            if (effectiveVisibleStationIds instanceof Set) {
+                effectiveVisibleStationIds = new Set(
+                    Array.from(effectiveVisibleStationIds).filter((id) => collisionVisibleStationIds.has(String(id || '').trim()))
+                );
+            } else {
+                effectiveVisibleStationIds = new Set(collisionVisibleStationIds);
+            }
+        }
+
+        const nextKey = toTransferCapsuleVisibleKey(effectiveVisibleStationIds);
         if (nextKey === transferCapsuleVisibleKey) return;
         transferCapsuleVisibleKey = nextKey;
 
         const transferCapsuleData = buildTransferCapsuleGeoJSON(transferCapsuleStationsData, transferCapsuleStationGroups, {
-            visibleStationIds,
+            visibleStationIds: effectiveVisibleStationIds,
             singleStationFallbackCircle: true,
             resolveLineColor: (lineId) => {
                 const id = String(lineId || '').trim();
@@ -5246,6 +5265,10 @@ map.on('load', async () => {
         // 站名碰撞：标签上移偏移在 labels.js 内按站点类型设置
         collisionController = setupCollisions(map, stationLabels, stationCircles, {
             gridCellPx: 80,
+            transferGroupByStationId: transferStationIdsByStationId,
+            onCircleCollisionResolved: ({ visibleStationIds }) => {
+                collisionVisibleStationIds = visibleStationIds instanceof Set ? new Set(visibleStationIds) : null;
+            },
             // 线路联动：只影响站名（圆点仍按碰撞显示）
             getEnabledLineIds: getEnabledLineIdsForLabels,
             getVisibleStationIds: () => {
