@@ -4,6 +4,9 @@ export const ELEMENT_UI_CONSTANTS = Object.freeze({
     lineBaseWidth: 4,
     lineLowlightWidth: 1.2,
     lineLowlightColor: '#999',
+    lineBaseWidthAtMaxZoom: 6,       
+    lineLowlightWidthAtMaxZoom: 1.8, 
+
     stationBaseRadius: 3.5,
     stationSingleStrokeWidth: 2,
     stationTransferStrokeWidth: 0,
@@ -99,6 +102,52 @@ export const buildBaseLineColorExpr = (options = {}) => {
         : ['coalesce', ['get', 'color'], '#555'];
 };
 
+// 重写：动态计算线宽的插值表达式（支持传入 focusExpr 解决 MapLibre 嵌套限制）
+export const buildDynamicLineWidthExpr = (options = {}) => {
+    const { isLowlight = false, focusExpr = null } = options;
+
+    const z0 = 0;
+    const zShrinkStart = 6;
+    const z1 = ELEMENT_UI_CONSTANTS.stationZoomBase; // 12
+    const z2 = ELEMENT_UI_CONSTANTS.stationZoomMax;  // 16
+
+    const wBaseMin = 0.8;
+    const wBaseMid = ELEMENT_UI_CONSTANTS.lineBaseWidth;
+    const wBaseMax = ELEMENT_UI_CONSTANTS.lineBaseWidthAtMaxZoom;
+
+    const wLowMin = 0.3;
+    const wLowMid = ELEMENT_UI_CONSTANTS.lineLowlightWidth;
+    const wLowMax = ELEMENT_UI_CONSTANTS.lineLowlightWidthAtMaxZoom;
+
+    // 1. 如果有 focus 表达式，必须把 case 写在 interpolate 内部的每一个 zoom 节点上
+    if (focusExpr) {
+        return ['interpolate', ['linear'], ['zoom'],
+            z0, ['case', focusExpr, wBaseMin, wLowMin],
+            zShrinkStart, ['case', focusExpr, wBaseMin, wLowMin],
+            z1, ['case', focusExpr, wBaseMid, wLowMid],
+            z2, ['case', focusExpr, wBaseMax, wLowMax]
+        ];
+    }
+
+    // 2. 如果明确是全局低亮模式
+    if (isLowlight) {
+        return ['interpolate', ['linear'], ['zoom'],
+            z0, wLowMin,
+            zShrinkStart, wLowMin,
+            z1, wLowMid,
+            z2, wLowMax
+        ];
+    }
+
+    // 3. 默认的基础宽度模式
+    return ['interpolate', ['linear'], ['zoom'],
+        z0, wBaseMin,
+        zShrinkStart, wBaseMin,
+        z1, wBaseMid,
+        z2, wBaseMax
+    ];
+};
+
 export const buildFocusedLinePaint = (options = {}) => {
     const baseColorExpr = options.baseColorExpr || buildBaseLineColorExpr(options);
     const focusExpr = options.focusExpr || null;
@@ -107,14 +156,15 @@ export const buildFocusedLinePaint = (options = {}) => {
     if (!focusExpr) {
         return {
             'line-color': baseColorExpr,
-            'line-width': ELEMENT_UI_CONSTANTS.lineBaseWidth,
+            'line-width': buildDynamicLineWidthExpr(), 
             'line-opacity': 1
         };
     }
 
     return {
         'line-color': ['case', focusExpr, baseColorExpr, ELEMENT_UI_CONSTANTS.lineLowlightColor],
-        'line-width': ['case', focusExpr, ELEMENT_UI_CONSTANTS.lineBaseWidth, ELEMENT_UI_CONSTANTS.lineLowlightWidth],
+        // 将 focusExpr 传进去，让 case 表达式在 zoom 插值内部生成
+        'line-width': buildDynamicLineWidthExpr({ focusExpr }), 
         'line-opacity': ['case', focusExpr, 1, dimOpacity]
     };
 };
@@ -123,25 +173,32 @@ export const buildLowlightLinePaint = (options = {}) => {
     const dimOpacity = Number.isFinite(options.dimOpacity) ? options.dimOpacity : 0.45;
     return {
         'line-color': ELEMENT_UI_CONSTANTS.lineLowlightColor,
-        'line-width': ELEMENT_UI_CONSTANTS.lineLowlightWidth,
+        'line-width': buildDynamicLineWidthExpr({ isLowlight: true }),
         'line-opacity': dimOpacity
     };
 };
+
+export const tripPreviewLineLayerPaint = () => ({
+    'line-color': ['coalesce', ['get', 'color'], ELEMENT_UI_CONSTANTS.tripPreviewFallbackColor],
+    'line-width': buildDynamicLineWidthExpr(),
+    'line-opacity': 1
+});
 
 export const baseStationCircleRadiusExpr = () => {
     const z0 = 0;
     const zShrinkStart = 6;
     const zStable = 14;
     const z2 = ELEMENT_UI_CONSTANTS.stationZoomMax;
-    const rMin = 0.5;
-    const rStable = ELEMENT_UI_CONSTANTS.stationBaseRadius;
+    
+    const rMin = 0.5; // 最小视角大小
+    const rStable = ELEMENT_UI_CONSTANTS.stationBaseRadius; // 14级大小 (3.5)
+    const rMax = ELEMENT_UI_CONSTANTS.stationBaseRadiusAtMaxZoom; // 新增：引入最大视角大小 (5)
 
-    // 仅修改“大小”：换乘站与非换乘站使用同一缩放曲线，zoom>=14 保持当前大小。
     return ['interpolate', ['linear'], ['zoom'],
         z0, rMin,
         zShrinkStart, rMin,
         zStable, rStable,
-        z2, rStable
+        z2, rMax // 修改这里：达到最大缩放时，使用 rMax
     ];
 };
 
@@ -252,11 +309,7 @@ export const buildStationSelectionPaint = (options = {}) => {
     };
 };
 
-export const tripPreviewLineLayerPaint = () => ({
-    'line-color': ['coalesce', ['get', 'color'], ELEMENT_UI_CONSTANTS.tripPreviewFallbackColor],
-    'line-width': ELEMENT_UI_CONSTANTS.lineBaseWidth,
-    'line-opacity': 1
-});
+
 
 export const tripPreviewStopLayerPaint = (options = {}) => ({
     'circle-radius': baseStationCircleRadiusExpr(),
