@@ -148,7 +148,7 @@ export function buildTransferCapsuleGeoJSON(stationsData, stationGroups, options
         const features = pickedIds.map((id) => byId.get(id)).filter(Boolean);
         if (!features.length) continue;
 
-        const groupId = pickedIds.slice().sort().join('|');
+        const groupId = ids.slice().sort().join('|');
         const name = pickGroupDisplayName(features) || pickedIds[0];
 
         const points = features.map((f) => {
@@ -265,6 +265,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
     const beforeLayerId = options.beforeLayerId || 'stations-layer';
     const minZoom = Number.isFinite(options.minZoom) ? Number(options.minZoom) : 8;
 
+    // 1. 胶囊外边框线宽 (12 * 2 ≈ 24)
     const capsuleOutlineLineWidthExpr = [
         'interpolate',
         ['linear'],
@@ -272,9 +273,11 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
         0, 7,
         6, 7,
         14, 12,
-        22, 12
+        16, 24, 
+        22, 24  
     ];
 
+    // 2. 胶囊内部白线线宽 (8 * 2 ≈ 16)
     const capsuleInnerLineWidthExpr = [
         'interpolate',
         ['linear'],
@@ -282,9 +285,11 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
         0, 4.8,
         6, 4.8,
         14, 8,
-        22, 8
+        16, 16, 
+        22, 16
     ];
 
+    // 3. 换乘单站的回退外圆半径 (6.8 * 2 ≈ 13.6)
     const capsuleFallbackOutlineRadiusExpr = [
         'interpolate',
         ['linear'],
@@ -292,9 +297,11 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
         0, 4.2,
         6, 4.2,
         14, 6.8,
-        22, 6.8
+        16, 13.6, 
+        22, 13.6
     ];
 
+    // 4. 换乘单站的回退内圆半径 (5.0 * 2 ≈ 10)
     const capsuleFallbackInnerRadiusExpr = [
         'interpolate',
         ['linear'],
@@ -302,7 +309,8 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
         0, 3.1,
         6, 3.1,
         14, 5.0,
-        22, 5.0
+        16, 10,
+        22, 10
     ];
 
     // If the requested before layer does not exist yet, avoid passing it to map.addLayer to
