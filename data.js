@@ -3,6 +3,9 @@
  * 注意：需要通过 HTTP 服务器访问（不能直接双击打开 html）。
  */
 import { cachedFetch } from './fetch.js';
+import {
+    buildStationOffsetAlgorithmContext
+} from './offset.js';
 
 export async function loadGeoJSON(url) {
     const response = await cachedFetch(url);
@@ -616,11 +619,12 @@ export async function loadRailGeoDataFromDataFolder() {
     if (railDataCachePromise) return railDataCachePromise;
 
     railDataCachePromise = (async () => {
-        const [railways, stations, stationGroups, coordinates] = await Promise.all([
+        const [railways, stations, stationGroups, coordinates, lineOffsetConfig] = await Promise.all([
             loadGeoJSON('./data/railways.json'),
             loadGeoJSON('./data/stations.json'),
             loadGeoJSON('./data/station-groups.json'),
-            loadGeoJSON('./data/coordinates.json')
+            loadGeoJSON('./data/coordinates.json'),
+            loadGeoJSON('./data/line-offset.json')
         ]);
 
         const railwayList = Array.isArray(railways) ? railways : [];
@@ -632,6 +636,17 @@ export async function loadRailGeoDataFromDataFolder() {
             const id = normalizeText(r?.id);
             if (!id) continue;
             railwayById.set(id, r);
+        }
+
+        const lineOffsetByRailwayId = new Map();
+        if (lineOffsetConfig && typeof lineOffsetConfig === 'object' && !Array.isArray(lineOffsetConfig)) {
+            for (const [rawId, rawOffset] of Object.entries(lineOffsetConfig)) {
+                const id = normalizeText(rawId);
+                if (!id) continue;
+                const n = Number(rawOffset);
+                if (!Number.isFinite(n)) continue;
+                lineOffsetByRailwayId.set(id, n);
+            }
         }
 
         const stationById = new Map();
@@ -966,6 +981,7 @@ export async function loadRailGeoDataFromDataFolder() {
             for (const c of coordsRailways) {
                 const id = normalizeText(c?.id);
                 if (!id) continue;
+                const lineOffsetUnits = Number(lineOffsetByRailwayId.get(id)) || 0;
 
                 const meta = railwayById.get(id);
                 const name = pickI18nTitle(meta?.title) || id;
@@ -1023,6 +1039,7 @@ export async function loadRailGeoDataFromDataFolder() {
                         name,
                         color,
                         company,
+                        line_offset_units: lineOffsetUnits,
                         type: 'line',
                         hidden_by_opacity_zero: 0,
                         zoom
@@ -1041,6 +1058,7 @@ export async function loadRailGeoDataFromDataFolder() {
                         name,
                         color,
                         company,
+                        line_offset_units: lineOffsetUnits,
                         type: 'line',
                         hidden_by_opacity_zero: 1,
                         zoom
@@ -1080,6 +1098,7 @@ export async function loadRailGeoDataFromDataFolder() {
                             name,
                             color,
                             company,
+                            line_offset_units: lineOffsetUnits,
                             type: 'line',
                             hidden_by_opacity_zero: 1,
                             zoom
@@ -1213,12 +1232,22 @@ export async function loadRailGeoDataFromDataFolder() {
             });
         }
 
+        const stationOffsetAlgorithmContext = buildStationOffsetAlgorithmContext({
+            stationFeatures: stationsFeatures,
+            lineOffsetByRailwayId,
+            lineChainsByRailwayId: lineAllChainsByRailwayId,
+            options: {
+                maxNearestDistancePxAtZoom12: 24
+            }
+        });
+
         return {
             // 固定使用 zoom=18 的最精细几何
             linesGeoJSON: linesGeoJSONByZoom[18] || { type: 'FeatureCollection', features: [] },
             linesGeoJSONByZoom,
             lineRoutingCoordsById: Object.fromEntries(Array.from(routingCoordsByRailwayId.entries())),
             stationsGeoJSON: { type: 'FeatureCollection', features: stationsFeatures },
+            stationOffsetAlgorithmContext,
             diagnostics: {
                 // 可能包含重复 id；打印时建议按 id 做 max 聚合
                 largeGaps: diagnosticsLargeGaps

@@ -383,6 +383,10 @@
         .replace(/[^A-Za-z0-9_.\-]/g, '_')
         .slice(0, 120);
 
+    // SVG 导出为手工几何绘制，无法可靠复刻 GPU line-offset 表达式；
+    // 因此导出时默认回退：站点/站名/换乘胶囊使用原始未偏移坐标。
+    const EXPORT_NO_OFFSET_OVERLAY = true;
+
     // ---- station id -> name index ----
     let stationsIndexPromise = null;
     const getStationNameById = async () => {
@@ -411,30 +415,63 @@
         getStationNameById().catch(() => {});
     }, 0);
 
+    let rawStationsCoordByIdPromise = null;
+    const getRawStationsCoordById = async () => {
+        if (rawStationsCoordByIdPromise) return rawStationsCoordByIdPromise;
+        rawStationsCoordByIdPromise = (async () => {
+            const out = new Map();
+            try {
+                const list = await getCachedJsonSafe('./data/stations.json');
+                for (const s of Array.isArray(list) ? list : []) {
+                    const id = String(s?.id || '').trim();
+                    const c = Array.isArray(s?.coord) ? s.coord : null;
+                    if (!id || !c || c.length < 2) continue;
+                    const lng = Number(c[0]);
+                    const lat = Number(c[1]);
+                    if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+                    out.set(id, [lng, lat]);
+                }
+            } catch {
+                // ignore
+            }
+            return out;
+        })();
+        return rawStationsCoordByIdPromise;
+    };
+
     // ---- geometry helpers ----
 
     const lerp = (a, b, t) => a + (b - a) * t;
 
-    const radiusForStop = (zoom, servingCount) => {
+    const expSizeAtZoom = (zoom, baseAtZ12, maxAtZ16) => {
         const z = Number(zoom);
-        const rBase = 3.5;
-        const rMax = 5;
-        if (!Number.isFinite(z)) return rBase;
-        if (z <= 12) return rBase;
-        if (z >= 16) return rMax;
-        return lerp(rBase, rMax, (z - 12) / (16 - 12));
+        const a = Number(baseAtZ12);
+        const b = Number(maxAtZ16);
+        if (!Number.isFinite(z) || !Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) return a;
+        const growthPerZoom = Math.pow(b / a, 1 / 4);
+        return a * Math.pow(growthPerZoom, z - 12);
+    };
+
+    const lineBaseWidthForZoom = (zoom) => {
+        const at12 = 4;
+        const at16 = 4 * (5 / 3.5);
+        return expSizeAtZoom(zoom, at12, at16);
+    };
+
+    const lineLowlightWidthForZoom = (zoom) => {
+        const at12 = 1.2;
+        const at16 = 1.2 * (5 / 3.5);
+        return expSizeAtZoom(zoom, at12, at16);
+    };
+
+    const radiusForStop = (zoom, servingCount) => {
+        return expSizeAtZoom(zoom, 3.5, 5);
     };
 
     const stopStrokeWidth = (zoom, servingCount) => {
         const sc = Number(servingCount || 1);
         if (sc > 1) return 0;
-        const z = Number(zoom);
-        const wBase = 2;
-        const wMax = 2.8;
-        if (!Number.isFinite(z)) return wBase;
-        if (z <= 12) return wBase;
-        if (z >= 16) return wMax;
-        return lerp(wBase, wMax, (z - 12) / (16 - 12));
+        return expSizeAtZoom(zoom, 2, 2.8);
     };
 
     let stationStyleContextPromise = null;
@@ -508,20 +545,38 @@
         };
     };
 
-    const capsuleLineWidths = (z) => {
-        const zoom = Number(z);
-        if (zoom <= 12) return { outline: 12, inner: 8 };
-        if (zoom >= 16) return { outline: 24, inner: 14 };
-        const t = (zoom - 12) / 4;
-        return { outline: lerp(12, 24, t), inner: lerp(8, 14, t) };
-    };
+    const capsuleLineWidths = (z) => ({
+        outline: expSizeAtZoom(z, 12, 24),
+        inner: expSizeAtZoom(z, 8, 14)
+    });
 
-    const capsuleCircleRadii = (z) => {
-        const zoom = Number(z);
-        if (zoom <= 12) return { outline: 6.8, inner: 5.0 };
-        if (zoom >= 16) return { outline: 11.5, inner: 8.6 };
-        const t = (zoom - 12) / 4;
-        return { outline: lerp(6.8, 11.5, t), inner: lerp(5.0, 8.6, t) };
+    const capsuleCircleRadii = (z) => ({
+        outline: expSizeAtZoom(z, 6.8, 11.5),
+        inner: expSizeAtZoom(z, 5.0, 8.6)
+    });
+
+    const remapStopFeatureCoordsToRawStations = async (stopFeatures) => {
+        const fs = Array.isArray(stopFeatures) ? stopFeatures : [];
+        if (!fs.length) return fs;
+        const rawById = await getRawStationsCoordById();
+        if (!(rawById instanceof Map) || !rawById.size) return fs;
+
+        return fs.map((f) => {
+            const sid = String(f?.properties?.id || f?.id || '').trim();
+            const raw = sid ? rawById.get(sid) : null;
+            if (!raw || raw.length < 2) return f;
+            const lng = Number(raw[0]);
+            const lat = Number(raw[1]);
+            if (!Number.isFinite(lng) || !Number.isFinite(lat)) return f;
+            return {
+                ...f,
+                geometry: {
+                    ...(f?.geometry || {}),
+                    type: 'Point',
+                    coordinates: [lng, lat]
+                }
+            };
+        });
     };
 
     const project = (map, lngLat) => {
@@ -711,15 +766,6 @@
                 }
             }
             parts.push(`</g>`);
-
-            appendTransferCapsulesSvg({ 
-            parts, map, z, 
-            capsuleLines: capsules?.lines, 
-                capsuleCentroids: capsules?.centroids 
-            });
-
-            // stops
-            parts.push(`<g id="trip-preview-stops">`);
         }
 
         // lines
@@ -739,7 +785,9 @@
             const role = String(f?.properties?.role || 'line');
             const color = resolveLineColorForTheme(f?.properties, '#0a84ff');
             const opacity = role === 'connector' ? 0.95 : 1;
-            const strokeWidth = 3;
+            const strokeWidth = role === 'connector'
+                ? lineLowlightWidthForZoom(z)
+                : lineBaseWidthForZoom(z);
 
             if (geom.type === 'LineString') {
                 const d = pathFromCoords(map, geom.coordinates);
@@ -754,6 +802,15 @@
             }
         }
         parts.push(`</g>`);
+
+        // capsules: above lines, below stops/labels
+        appendTransferCapsulesSvg({
+            parts,
+            map,
+            z,
+            capsuleLines: capsules?.lines,
+            capsuleCentroids: capsules?.centroids
+        });
 
         // stops
         parts.push(`<g id="trip-preview-stops">`);
@@ -1206,13 +1263,109 @@
     let lastBaseHighlight = null;
     let lastBaseHighlightAt = 0;
 
+    const normalizeFeatureCollection = (fc) => ({
+        type: 'FeatureCollection',
+        features: Array.isArray(fc?.features) ? fc.features : []
+    });
+
+    const buildLineIdSetFromLineFeatures = (lineFeatures) => {
+        const out = new Set();
+        const fs = Array.isArray(lineFeatures) ? lineFeatures : [];
+        for (const f of fs) {
+            const props = f?.properties || {};
+            const lineId = String(props?.lineId || props?.id || f?.id || '').trim();
+            if (lineId) out.add(lineId);
+        }
+        return out;
+    };
+
+    const normalizeBuiltSnapshot = (built) => {
+        const lineFc = normalizeFeatureCollection(built?.lineFc);
+        const stopFc = normalizeFeatureCollection(built?.stopFc);
+        const lineFeatures = lineFc.features;
+        const stopFeatures = stopFc.features;
+
+        if (!lineFeatures.length && !stopFeatures.length) return null;
+
+        const lineIds = built?.lineIds instanceof Set
+            ? new Set(Array.from(built.lineIds).map((x) => String(x || '').trim()).filter(Boolean))
+            : buildLineIdSetFromLineFeatures(lineFeatures);
+
+        const stopIds = built?.stopIds instanceof Set
+            ? new Set(Array.from(built.stopIds).map((x) => String(x || '').trim()).filter(Boolean))
+            : new Set(
+                stopFeatures
+                    .map((f) => String(f?.properties?.id || f?.id || '').trim())
+                    .filter(Boolean)
+            );
+
+        return {
+            ...(built && typeof built === 'object' ? built : {}),
+            lineFc,
+            stopFc,
+            lineIds,
+            stopIds
+        };
+    };
+
+    const normalizePayloadSnapshot = (payload, built) => {
+        const p = payload && typeof payload === 'object' ? payload : {};
+        const lineIdsFromBuilt = built?.lineIds instanceof Set ? Array.from(built.lineIds) : [];
+        const selectedLineId = String(
+            p?.selectedLineId
+            || p?.mainLineId
+            || lineIdsFromBuilt[0]
+            || ''
+        ).trim();
+
+        let tripKey = String(p?.tripKey || '').trim();
+        if (!tripKey) {
+            const source = String(p?.previewSource || p?.__previewSource || '').trim();
+            if (source) tripKey = `source:${source}`;
+        }
+        if (!tripKey) {
+            tripKey = `snapshot:${Date.now()}`;
+        }
+
+        return {
+            ...p,
+            selectedLineId,
+            selectedLineName: String(p?.selectedLineName || p?.lineName || p?.mainLineName || selectedLineId || '').trim(),
+            tripKey
+        };
+    };
+
+    const normalizeTripSnapshot = (snapshot) => {
+        const built = normalizeBuiltSnapshot(snapshot?.built);
+        if (!built) return null;
+        const payload = normalizePayloadSnapshot(snapshot?.payload, built);
+        return { payload, built };
+    };
+
+    const ensureBuiltHasRenderableFeatures = async (baseMap, built) => {
+        const normalizedBuilt = normalizeBuiltSnapshot(built);
+        const hasLine = Array.isArray(normalizedBuilt?.lineFc?.features) && normalizedBuilt.lineFc.features.length > 0;
+        const hasStop = Array.isArray(normalizedBuilt?.stopFc?.features) && normalizedBuilt.stopFc.features.length > 0;
+        if (hasLine || hasStop) return normalizedBuilt;
+
+        const lineFcFromSource = await getGeoJsonSourceData(baseMap, 'trip-preview-source');
+        const stopFcFromSource = await getGeoJsonSourceData(baseMap, 'trip-preview-stops-source');
+        const hydrated = normalizeBuiltSnapshot({
+            ...(normalizedBuilt && typeof normalizedBuilt === 'object' ? normalizedBuilt : {}),
+            lineFc: lineFcFromSource,
+            stopFc: stopFcFromSource
+        });
+        return hydrated;
+    };
+
     const exportSnapshot = async (snapshot, options, extra = {}) => {
         if (exporting) return;
         const baseMap = window.__TokyoRailMap;
         if (!baseMap) return;
 
-        const payload = snapshot?.payload;
-        const built = snapshot?.built;
+        const normalized = normalizeTripSnapshot(snapshot);
+        const payload = normalized?.payload;
+        const built = await ensureBuiltHasRenderableFeatures(baseMap, normalized?.built);
         if (!payload || !built) return;
 
         const lineId = String(payload?.selectedLineId || '').trim();
@@ -1376,8 +1529,6 @@
                         maxLat: bounds.getNorth(),
                     };
 
-                    capsules = await pickCapsulesInBbox(baseMap, viewBbox);
-
                     const lowlightLines = await pickLowlightLinesInBbox({
                         baseMap,
                         bbox: viewBbox,
@@ -1453,6 +1604,21 @@
                         }
                     }
 
+                    if (EXPORT_NO_OFFSET_OVERLAY) {
+                        mergedStopFeatures = await remapStopFeatureCoordsToRawStations(mergedStopFeatures);
+                    }
+
+                    const visibleStationIdsForCapsules = new Set(
+                        mergedStopFeatures
+                            .map((f) => String(f?.properties?.id || f?.id || '').trim())
+                            .filter(Boolean)
+                    );
+
+                    capsules = await pickCapsulesInBbox(baseMap, viewBbox, {
+                        noOffset: EXPORT_NO_OFFSET_OVERLAY,
+                        visibleStationIds: visibleStationIdsForCapsules
+                    });
+
                     builtForSvg = Object.assign({}, built, {
                         lineFc: { type: 'FeatureCollection', features: mergedLineFeatures },
                         stopFc: { type: 'FeatureCollection', features: mergedStopFeatures },
@@ -1512,10 +1678,12 @@
     };
 
     window.addEventListener(EXPORT_EVENT, (evt) => {
-        const payload = evt?.detail?.payload;
-        const built = evt?.detail?.built;
-        if (!payload || !built) return;
-        lastSnapshot = { payload, built };
+        const normalized = normalizeTripSnapshot({
+            payload: evt?.detail?.payload,
+            built: evt?.detail?.built
+        });
+        if (!normalized) return;
+        lastSnapshot = normalized;
         lastSnapshotAt = Date.now();
     });
 
@@ -1545,10 +1713,37 @@
         try {
             const map = window.__TokyoRailMap;
             if (!map) return false;
+
+            const fromSourceData = (() => {
+                const src = map.getSource?.('trip-preview-source');
+                const data = src?._data || src?._options?.data || null;
+                const features = Array.isArray(data?.features) ? data.features : [];
+                return features.length > 0;
+            })();
+            if (fromSourceData) return true;
+
+            const fromQuery = (() => {
+                try {
+                    const fs = map.querySourceFeatures?.('trip-preview-source');
+                    return Array.isArray(fs) && fs.length > 0;
+                } catch {
+                    return false;
+                }
+            })();
+            if (fromQuery) return true;
+
+            const fromSnapshot = (() => {
+                if (!lastSnapshot || !lastSnapshotAt) return false;
+                if (Date.now() - lastSnapshotAt > 15000) return false;
+                const lineFeatures = Array.isArray(lastSnapshot?.built?.lineFc?.features)
+                    ? lastSnapshot.built.lineFc.features
+                    : [];
+                return lineFeatures.length > 0;
+            })();
+            if (fromSnapshot) return true;
+
             const src = map.getSource?.('trip-preview-source');
-            const data = src?._data || src?._options?.data || null;
-            const features = Array.isArray(data?.features) ? data.features : [];
-            return features.length > 0;
+            return !!src;
         } catch {
             return false;
         }
@@ -1712,9 +1907,159 @@
         return deduped;
     };
 
-    const pickCapsulesInBbox = async (baseMap, bbox) => {
-        const linesFc = await getGeoJsonSourceData(baseMap, 'transfer-capsule-lines-source');
-        const centsFc = await getGeoJsonSourceData(baseMap, 'transfer-capsule-centroids-source');
+    const normalizeGroupChunksForExport = (group) => {
+        if (!Array.isArray(group)) return [];
+        const out = [];
+        const seen = new Set();
+        for (const chunk of group) {
+            if (!Array.isArray(chunk)) continue;
+            for (const sid of chunk) {
+                const id = String(sid || '').trim();
+                if (!id || seen.has(id)) continue;
+                seen.add(id);
+                out.push(id);
+            }
+        }
+        return out;
+    };
+
+    const euclideanDistanceSqLngLat = (a, b) => {
+        const dx = Number(a?.[0]) - Number(b?.[0]);
+        const dy = Number(a?.[1]) - Number(b?.[1]);
+        if (!Number.isFinite(dx) || !Number.isFinite(dy)) return Number.POSITIVE_INFINITY;
+        return dx * dx + dy * dy;
+    };
+
+    const buildMstEdgesForExport = (points) => {
+        const n = Array.isArray(points) ? points.length : 0;
+        if (n <= 1) return [];
+        const visited = new Set([0]);
+        const edges = [];
+
+        while (visited.size < n) {
+            let bestFrom = -1;
+            let bestTo = -1;
+            let bestDist = Number.POSITIVE_INFINITY;
+            for (const i of visited) {
+                const from = points[i]?.coordinates;
+                if (!Array.isArray(from) || from.length < 2) continue;
+                for (let j = 0; j < n; j += 1) {
+                    if (visited.has(j)) continue;
+                    const to = points[j]?.coordinates;
+                    if (!Array.isArray(to) || to.length < 2) continue;
+                    const d = euclideanDistanceSqLngLat(from, to);
+                    if (d < bestDist) {
+                        bestDist = d;
+                        bestFrom = i;
+                        bestTo = j;
+                    }
+                }
+            }
+            if (bestFrom < 0 || bestTo < 0) break;
+            visited.add(bestTo);
+            edges.push([bestFrom, bestTo]);
+        }
+
+        return edges;
+    };
+
+    const buildNoOffsetCapsulesGeoJSON = async (visibleStationIds) => {
+        const stationsById = await getRawStationsCoordById();
+        const groups = await getCachedJsonSafe('./data/station-groups.json');
+        if (!(stationsById instanceof Map) || !stationsById.size || !Array.isArray(groups)) {
+            return { lines: [], centroids: [] };
+        }
+
+        const lineFeatures = [];
+        const centroidFeatures = [];
+
+        for (const rawGroup of groups) {
+            const ids = normalizeGroupChunksForExport(rawGroup);
+            if (ids.length < 2) continue;
+
+            const pickedIds = visibleStationIds instanceof Set
+                ? ids.filter((id) => visibleStationIds.has(id))
+                : ids;
+            if (!pickedIds.length) continue;
+
+            const points = pickedIds
+                .map((id) => {
+                    const c = stationsById.get(id);
+                    if (!Array.isArray(c) || c.length < 2) return null;
+                    const lng = Number(c[0]);
+                    const lat = Number(c[1]);
+                    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+                    return { stationId: id, coordinates: [lng, lat] };
+                })
+                .filter(Boolean);
+
+            if (!points.length) continue;
+
+            let isSameLocation = true;
+            if (points.length > 1) {
+                const first = points[0].coordinates;
+                for (let i = 1; i < points.length; i += 1) {
+                    if (euclideanDistanceSqLngLat(first, points[i].coordinates) > 1e-12) {
+                        isSameLocation = false;
+                        break;
+                    }
+                }
+            }
+
+            if (points.length === 1 || isSameLocation) {
+                centroidFeatures.push({
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: points[0].coordinates.slice() },
+                    properties: { fallbackCircle: 1 }
+                });
+                continue;
+            }
+
+            const edges = buildMstEdgesForExport(points);
+            for (const [i, j] of edges) {
+                const a = points[i]?.coordinates;
+                const b = points[j]?.coordinates;
+                if (!a || !b) continue;
+                lineFeatures.push({
+                    type: 'Feature',
+                    geometry: { type: 'LineString', coordinates: [a.slice(), b.slice()] },
+                    properties: { fallbackCircle: 0 }
+                });
+            }
+
+            let sumLng = 0;
+            let sumLat = 0;
+            for (const p of points) {
+                sumLng += p.coordinates[0];
+                sumLat += p.coordinates[1];
+            }
+            centroidFeatures.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [sumLng / points.length, sumLat / points.length] },
+                properties: { fallbackCircle: 0 }
+            });
+        }
+
+        return { lines: lineFeatures, centroids: centroidFeatures };
+    };
+
+    const pickCapsulesInBbox = async (baseMap, bbox, options = {}) => {
+        const noOffset = options?.noOffset === true;
+        const visibleStationIds = options?.visibleStationIds instanceof Set ? options.visibleStationIds : null;
+
+        const sourceCapsules = noOffset
+            ? await buildNoOffsetCapsulesGeoJSON(visibleStationIds)
+            : {
+                lines: await getGeoJsonSourceData(baseMap, 'transfer-capsule-lines-source'),
+                centroids: await getGeoJsonSourceData(baseMap, 'transfer-capsule-centroids-source')
+            };
+
+        const linesFc = noOffset
+            ? { type: 'FeatureCollection', features: Array.isArray(sourceCapsules?.lines) ? sourceCapsules.lines : [] }
+            : sourceCapsules.lines;
+        const centsFc = noOffset
+            ? { type: 'FeatureCollection', features: Array.isArray(sourceCapsules?.centroids) ? sourceCapsules.centroids : [] }
+            : sourceCapsules.centroids;
 
         const filterFeatures = (fc, isPoint) => {
             const out = [];
@@ -1772,7 +2117,7 @@
         const lowlight = Array.isArray(lowlightLineFeatures) ? lowlightLineFeatures : [];
         if (lowlight.length) {
             const stroke = isDarkTheme() ? '#666' : '#999';
-            parts.push(`<g id="base-lines-lowlight" fill="none" stroke="${stroke}" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2" opacity="0.45">`);
+            parts.push(`<g id="base-lines-lowlight" fill="none" stroke="${stroke}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${lineLowlightWidthForZoom(z)}" opacity="0.45">`);
             for (const f of lowlight) {
                 const geom = f?.geometry;
                 if (!geom) continue;
@@ -1798,7 +2143,7 @@
             const geom = f?.geometry;
             if (!geom) continue;
             const color = resolveLineColorForTheme(f?.properties, '#0a84ff');
-            const strokeWidth = 3;
+            const strokeWidth = lineBaseWidthForZoom(z);
             if (geom.type === 'LineString') {
                 const d = pathFromCoords(map, geom.coordinates);
                 if (!d) continue;
@@ -2024,9 +2369,21 @@
                         maxLng: bounds.getEast(),
                         maxLat: bounds.getNorth(),
                     };
-                    capsules = await pickCapsulesInBbox(baseMap, viewBbox);
                     lowlightLines = await pickLowlightLinesInBbox({ baseMap, bbox: viewBbox, excludeLineIds: lineIds });
                     stationFeatures = await pickStationsInBboxForLineIds({ baseMap, bbox: viewBbox, lineIds });
+                    if (EXPORT_NO_OFFSET_OVERLAY) {
+                        stationFeatures = await remapStopFeatureCoordsToRawStations(stationFeatures);
+                    }
+
+                    const visibleStationIdsForCapsules = new Set(
+                        (Array.isArray(stationFeatures) ? stationFeatures : [])
+                            .map((f) => String(f?.properties?.id || f?.id || '').trim())
+                            .filter(Boolean)
+                    );
+                    capsules = await pickCapsulesInBbox(baseMap, viewBbox, {
+                        noOffset: EXPORT_NO_OFFSET_OVERLAY,
+                        visibleStationIds: visibleStationIdsForCapsules
+                    });
                 }
             } catch {
                 // ignore
@@ -2091,6 +2448,23 @@
         const tripActive = isTripPreviewActiveNow();
         const baseActive = !!(lastBaseHighlight && lastBaseHighlightAt && lastBaseHighlight.lineIds instanceof Set && lastBaseHighlight.lineIds.size);
         const multiSelect = isMultiSelectModeEnabledNow();
+        const baseMap = window.__TokyoRailMap;
+
+        const ensureSnapshotFromMapSources = async () => {
+            if (!baseMap) return null;
+            const lineFc = await getGeoJsonSourceData(baseMap, 'trip-preview-source');
+            const stopFc = await getGeoJsonSourceData(baseMap, 'trip-preview-stops-source');
+            const normalizedBuilt = normalizeBuiltSnapshot({ lineFc, stopFc });
+            if (!normalizedBuilt) return null;
+            const normalized = normalizeTripSnapshot({
+                payload: lastSnapshot?.payload || {},
+                built: normalizedBuilt
+            });
+            if (!normalized) return null;
+            lastSnapshot = normalized;
+            lastSnapshotAt = Date.now();
+            return normalized;
+        };
 
         // 逻辑1：单独导出基础图层
         if (!tripActive && baseActive) {
@@ -2100,7 +2474,10 @@
 
         // 逻辑2/3：直通活跃时，默认单独导出直通；仅在“多选模式 + 基础也活跃”时合并导出
         if (tripActive) {
-            if (!lastSnapshot || !lastSnapshotAt) return false;
+            if (!lastSnapshot || !lastSnapshotAt) {
+                const hydrated = await ensureSnapshotFromMapSources();
+                if (!hydrated) return false;
+            }
 
             // 逻辑3：同时导出直通和基础图层
             if (multiSelect && baseActive) {

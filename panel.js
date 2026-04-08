@@ -629,7 +629,8 @@ const buildPanelLineMergeInfo = ({ servingLineIds, getLineMeta } = {}) => {
     const displayLineIds = [];
 
     for (const id of ids) {
-        const resolved = toText(resolveMainLineIdForIcon(id, idIndex)) || id;
+        // 先拿“理论主线”，再按 serving 内是否存在该主线来决定是否并线。
+        const resolved = toText(resolveMainLineIdForIcon(id)) || id;
 
         let mainId = id;
         if (resolved && resolved !== id && idIndex.has(resolved)) {
@@ -664,6 +665,7 @@ const buildPanelLineMergeInfo = ({ servingLineIds, getLineMeta } = {}) => {
 function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStationNameByLineId, railwaysOrderIndex } = {}) {
     const servingIdsRaw = normalizeArrayLike(props.display_serving_ids ?? props.serving_ids);
     const servingIds = servingIdsRaw.map(String).filter(Boolean);
+    const servingIdSet = new Set(servingIds);
 
     const safeGetLineMeta = typeof getLineMeta === 'function' ? getLineMeta : (() => null);
     const logoMap = companyLogoMap || {};
@@ -694,6 +696,19 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
 
         let displayName = String(meta?.name || '').trim();
         if (!displayName) displayName = id;
+
+        // 仅 UI 显示：当当前站仅出现支线（主线不在 serving）时，名称展示为主线名。
+        const resolvedMainId = toText(resolveMainLineIdForIcon(id));
+        if (resolvedMainId && resolvedMainId !== id && !servingIdSet.has(resolvedMainId)) {
+            const resolvedMeta = safeGetLineMeta(resolvedMainId);
+            const srcCompany = toText(meta?.company);
+            const dstCompany = toText(resolvedMeta?.company);
+            const sameCompany = !srcCompany || !dstCompany || srcCompany === dstCompany;
+            const resolvedName = toText(resolvedMeta?.name);
+            if (sameCompany && resolvedName) {
+                displayName = resolvedName;
+            }
+        }
 
         const isSpecial = displayName === `${abb}线` || displayName === `${abb}本线` || displayName === `${abb}新线`;
         if (!isSpecial && abb) displayName = displayName.replace(abb, '').trim();
@@ -4798,6 +4813,7 @@ export function createPanel(options = {}) {
             const payload = {
                 tripKey: toText(tripKey),
                 selectedLineId: toText(lineId),
+                selectedLineName: toText(getLineMeta(toText(lineId))?.name || toText(lineId)),
                 mainLineId: toText(getTripLineId(trip) || lineId),
                 originStationId: mainOriginStationId,
                 mainTerminalStationId,
@@ -4806,6 +4822,7 @@ export function createPanel(options = {}) {
                 typeColor: throughCategoryColor || toText(typeColor),
                 hasNt,
                 segments: payloadSegments,
+                previewSource: 'panel-trip',
                 fitMode: toText(fitMode)
             };
 
@@ -4923,6 +4940,7 @@ export function createPanel(options = {}) {
                     virtualTrips.push({
                         tripKey: `${toText(tripKey)}::branch-${i + 1}`,
                         selectedLineId: payload.selectedLineId,
+                        selectedLineName: payload.selectedLineName,
                         mainLineId: payload.mainLineId,
                         originStationId: toText(firstIds[0]),
                         mainTerminalStationId: toText(lastIds[lastIds.length - 1]),

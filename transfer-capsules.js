@@ -1,5 +1,31 @@
 const toText = (v) => String(v ?? '').trim();
 
+const buildZoomBasedExponentialSizeExpr = (sizeAtZoom12, sizeAtZoom16, options = {}) => {
+    const zBase = Number.isFinite(options.zoomBase) ? Number(options.zoomBase) : 12;
+    const zMax = Number.isFinite(options.zoomMax) ? Number(options.zoomMax) : 16;
+    const interpBase = Number.isFinite(options.interpolationBase) ? Number(options.interpolationBase) : 2;
+
+    const baseSize = Number(sizeAtZoom12);
+    const maxSize = Number(sizeAtZoom16);
+    const zoomDelta = zMax - zBase;
+
+    if (!(Number.isFinite(baseSize) && Number.isFinite(maxSize) && baseSize > 0 && maxSize > 0 && Number.isFinite(zoomDelta) && zoomDelta > 0)) {
+        return baseSize;
+    }
+
+    const growthPerZoom = Math.pow(maxSize / baseSize, 1 / zoomDelta);
+    const sizeAtZoom0 = baseSize * Math.pow(growthPerZoom, -zBase);
+
+    return [
+        'interpolate',
+        ['exponential', interpBase],
+        ['zoom'],
+        0, sizeAtZoom0,
+        zBase, baseSize,
+        zMax, maxSize
+    ];
+};
+
 const normalizeGroupChunks = (group) => {
     if (!Array.isArray(group)) return [];
 
@@ -112,6 +138,56 @@ const getPrimaryLineIdFromStationProps = (props) => {
     return servingIds.length ? servingIds[0] : '';
 };
 
+export function buildTransferCapsuleConnectionOrder(stationsData, stationGroups) {
+    const stationFeatures = Array.isArray(stationsData?.features) ? stationsData.features : [];
+    const groups = Array.isArray(stationGroups) ? stationGroups : [];
+
+    const byId = new Map();
+    for (const f of stationFeatures) {
+        if (f?.geometry?.type !== 'Point') continue;
+        const coords = f.geometry?.coordinates;
+        if (!Array.isArray(coords) || coords.length < 2) continue;
+        const lng = Number(coords[0]);
+        const lat = Number(coords[1]);
+        if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+        const p = f?.properties || {};
+        const id = toText(p?.id || f?.id);
+        if (!id) continue;
+        byId.set(id, [lng, lat]);
+    }
+
+    const fixedConnectionsByGroupId = {};
+
+    for (const rawGroup of groups) {
+        const ids = normalizeGroupChunks(rawGroup);
+        if (ids.length < 2) continue;
+
+        const groupId = ids.slice().sort().join('|');
+        if (!groupId) continue;
+
+        const points = ids
+            .map((stationId) => ({ stationId, coordinates: byId.get(stationId) }))
+            .filter((x) => Array.isArray(x.coordinates) && x.coordinates.length >= 2);
+
+        if (points.length < 2) {
+            fixedConnectionsByGroupId[groupId] = [];
+            continue;
+        }
+
+        const mst = buildMstEdges(points);
+        fixedConnectionsByGroupId[groupId] = mst
+            .map(([i, j]) => {
+                const a = points[i]?.stationId;
+                const b = points[j]?.stationId;
+                if (!a || !b || a === b) return null;
+                return [a, b];
+            })
+            .filter(Boolean);
+    }
+
+    return fixedConnectionsByGroupId;
+}
+
 export function buildTransferCapsuleGeoJSON(stationsData, stationGroups, options = {}) {
     const stationFeatures = Array.isArray(stationsData?.features) ? stationsData.features : [];
     const groups = Array.isArray(stationGroups) ? stationGroups : [];
@@ -131,6 +207,9 @@ export function buildTransferCapsuleGeoJSON(stationsData, stationGroups, options
     const lineFeatures = [];
     const centroidFeatures = [];
     const useSingleStationFallbackCircle = options?.singleStationFallbackCircle !== false;
+    const fixedConnectionsByGroupId = options?.fixedConnectionsByGroupId && typeof options.fixedConnectionsByGroupId === 'object'
+        ? options.fixedConnectionsByGroupId
+        : null;
     const resolveLineColor = typeof options.resolveLineColor === 'function'
         ? options.resolveLineColor
         : (() => '');
@@ -198,7 +277,35 @@ export function buildTransferCapsuleGeoJSON(stationsData, stationGroups, options
 
         if (points.length < 2) continue;
 
-        const edges = buildMstEdges(points);
+        let edges = [];
+        if (fixedConnectionsByGroupId && Array.isArray(fixedConnectionsByGroupId[groupId])) {
+            const indexByStationId = new Map();
+            for (let i = 0; i < points.length; i += 1) {
+                const stationId = toText(points[i]?.stationId);
+                if (!stationId) continue;
+                indexByStationId.set(stationId, i);
+            }
+
+            const seenPairs = new Set();
+            for (const pair of fixedConnectionsByGroupId[groupId]) {
+                if (!Array.isArray(pair) || pair.length < 2) continue;
+                const aId = toText(pair[0]);
+                const bId = toText(pair[1]);
+                if (!aId || !bId || aId === bId) continue;
+                if (!indexByStationId.has(aId) || !indexByStationId.has(bId)) continue;
+                const ia = indexByStationId.get(aId);
+                const ib = indexByStationId.get(bId);
+                if (!(Number.isInteger(ia) && Number.isInteger(ib)) || ia === ib) continue;
+                const key = ia < ib ? `${ia}|${ib}` : `${ib}|${ia}`;
+                if (seenPairs.has(key)) continue;
+                seenPairs.add(key);
+                edges.push([ia, ib]);
+            }
+        }
+
+        if (!edges.length) {
+            edges = buildMstEdges(points);
+        }
         if (!edges.length) continue;
 
         let sumLng = 0;
@@ -396,14 +503,14 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             paint: {
                 'line-color': getThemeCapsuleColors().outline,
                 'line-opacity': 1,
-                'line-width': capsuleOutlineLineWidthExpr
+                'line-width': buildZoomBasedExponentialSizeExpr(12, 24)
             }
         };
         if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
     } else {
         map.setPaintProperty(ids.slaveOutlineLayerId, 'line-color', getThemeCapsuleColors().outline);
         map.setPaintProperty(ids.slaveOutlineLayerId, 'line-opacity', 1);
-        map.setPaintProperty(ids.slaveOutlineLayerId, 'line-width', capsuleOutlineLineWidthExpr);
+        map.setPaintProperty(ids.slaveOutlineLayerId, 'line-width', buildZoomBasedExponentialSizeExpr(12, 24));
         map.setFilter(ids.slaveOutlineLayerId, ['!=', ['get', 'fallbackCircle'], 1]);
     }
 
@@ -421,14 +528,14 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             paint: {
                 'line-color': getThemeCapsuleColors().inner,
                 'line-opacity': 1,
-                'line-width': capsuleInnerLineWidthExpr
+                'line-width': buildZoomBasedExponentialSizeExpr(8, 14)
             }
         };
         if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
     } else {
         map.setPaintProperty(ids.slaveInnerLayerId, 'line-color', getThemeCapsuleColors().inner);
         map.setPaintProperty(ids.slaveInnerLayerId, 'line-opacity', 1);
-        map.setPaintProperty(ids.slaveInnerLayerId, 'line-width', capsuleInnerLineWidthExpr);
+        map.setPaintProperty(ids.slaveInnerLayerId, 'line-width', buildZoomBasedExponentialSizeExpr(8, 14));
         map.setFilter(ids.slaveInnerLayerId, ['!=', ['get', 'fallbackCircle'], 1]);
     }
 
@@ -442,14 +549,14 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             paint: {
                 'circle-color': getThemeCapsuleColors().outline,
                 'circle-opacity': 1,
-                'circle-radius': capsuleFallbackOutlineRadiusExpr
+                'circle-radius': buildZoomBasedExponentialSizeExpr(6.8, 11.5)
             }
         };
         if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
     } else {
         map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-color', getThemeCapsuleColors().outline);
         map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-opacity', 1);
-        map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-radius', capsuleFallbackOutlineRadiusExpr);
+        map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-radius', buildZoomBasedExponentialSizeExpr(6.8, 11.5));
         map.setFilter(ids.fallbackCircleOutlineLayerId, ['==', ['get', 'fallbackCircle'], 1]);
     }
 
@@ -463,14 +570,14 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
             paint: {
                 'circle-color': getThemeCapsuleColors().inner,
                 'circle-opacity': 1,
-                'circle-radius': capsuleFallbackInnerRadiusExpr
+                'circle-radius': buildZoomBasedExponentialSizeExpr(5.0, 8.6)
             }
         };
         if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
     } else {
         map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-color', getThemeCapsuleColors().inner);
         map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-opacity', 1);
-        map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-radius', capsuleFallbackInnerRadiusExpr);
+        map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-radius', buildZoomBasedExponentialSizeExpr(5.0, 8.6));
         map.setFilter(ids.fallbackCircleInnerLayerId, ['==', ['get', 'fallbackCircle'], 1]);
     }
 

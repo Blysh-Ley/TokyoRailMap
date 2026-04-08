@@ -214441,7 +214441,7 @@
 					"type": "main",
 					"start": {
 						"railway": "Seibu.S-Fukutoshin",
-						"offset": -1
+						"offset": -2
 					},
 					"coords": [
 						[
@@ -252718,7 +252718,7 @@
 					"type": "sub",
 					"start": {
 						"railway": "JR-East.Tokaido",
-						"offset": 3
+						"offset": 0
 					},
 					"coords": [
 						[
@@ -252872,14 +252872,14 @@
 					],
 					"end": {
 						"railway": "JR-East.Tokaido",
-						"offset": 3
+						"offset": 0
 					}
 				},
 				{
 					"type": "main",
 					"start": {
 						"railway": "JR-East.Tokaido",
-						"offset": 3
+						"offset": 0
 					},
 					"coords": [
 						[

@@ -9,3 +9,4 @@ __pycache__
 /data/.DS_Store
 data/**/*.bak
 /remotedata
+.github

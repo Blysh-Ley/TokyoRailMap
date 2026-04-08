@@ -116,7 +116,7 @@
 
         const showIconBtn = document.createElement('button');
         showIconBtn.type = 'button';
-        showIconBtn.className = 'ms-show-icon-btn is-active';
+        showIconBtn.className = 'ms-show-icon-btn';
         showIconBtn.setAttribute('aria-label', '隐藏线路色块与种别圆圈');
 
         const showIconBtnIcon = document.createElement('img');
@@ -146,7 +146,7 @@
         let expanded = false;
         let items = [];
         let collapseTimer = null;
-        let showIcons = true;
+        let showIcons = false;
 
         const updateFabState = () => {
             fab.classList.toggle(ACTIVE_CLASS, enabled);
@@ -291,6 +291,11 @@
             updateFabState();
             if (!enabled) {
                 collapse();
+            }
+            if (enabled) {
+                showIcons = false;
+                updateShowIconBtnState();
+                dispatchShowIconsState(showIcons);
             }
             renderItems();
             dispatchState(enabled);

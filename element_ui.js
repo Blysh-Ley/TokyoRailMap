@@ -14,8 +14,49 @@ export const ELEMENT_UI_CONSTANTS = Object.freeze({
     stationZoomMax: 16,
     stationBaseRadiusAtMaxZoom: 5,
     stationSingleStrokeWidthAtMaxZoom: 2.8,
+    zoomScaleInterpolationBase: 2,
     tripPreviewFallbackColor: '#0a84ff'
 });
+
+const buildZoomBasedExponentialSizeExpr = (sizeAtBaseZoom, sizeAtMaxZoom) => {
+    const zBase = ELEMENT_UI_CONSTANTS.stationZoomBase;
+    const zMax = ELEMENT_UI_CONSTANTS.stationZoomMax;
+    const interpBase = ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase;
+
+    const baseSize = Number(sizeAtBaseZoom);
+    const maxSize = Number(sizeAtMaxZoom);
+    const zoomDelta = zMax - zBase;
+
+    if (!(Number.isFinite(baseSize) && Number.isFinite(maxSize) && baseSize > 0 && maxSize > 0 && Number.isFinite(zoomDelta) && zoomDelta > 0)) {
+        return baseSize;
+    }
+
+    const growthPerZoom = Math.pow(maxSize / baseSize, 1 / zoomDelta);
+    const sizeAtZoom0 = baseSize * Math.pow(growthPerZoom, -zBase);
+
+    return [
+        'interpolate',
+        ['exponential', interpBase],
+        ['zoom'],
+        0, sizeAtZoom0,
+        zBase, baseSize,
+        zMax, maxSize
+    ];
+};
+
+const lineWidthScaleAtMaxZoom = ELEMENT_UI_CONSTANTS.stationBaseRadiusAtMaxZoom / ELEMENT_UI_CONSTANTS.stationBaseRadius;
+const lineBaseWidthAtMaxZoom = ELEMENT_UI_CONSTANTS.lineBaseWidth * lineWidthScaleAtMaxZoom;
+const lineLowlightWidthAtMaxZoom = ELEMENT_UI_CONSTANTS.lineLowlightWidth * lineWidthScaleAtMaxZoom;
+
+const baseLineWidthExpr = () => buildZoomBasedExponentialSizeExpr(
+    ELEMENT_UI_CONSTANTS.lineBaseWidth,
+    lineBaseWidthAtMaxZoom
+);
+
+const lowlightLineWidthExpr = () => buildZoomBasedExponentialSizeExpr(
+    ELEMENT_UI_CONSTANTS.lineLowlightWidth,
+    lineLowlightWidthAtMaxZoom
+);
 
 export const isDarkThemeActive = () => document.documentElement.getAttribute('data-theme') === 'dark';
 
@@ -156,15 +197,24 @@ export const buildFocusedLinePaint = (options = {}) => {
     if (!focusExpr) {
         return {
             'line-color': baseColorExpr,
-            'line-width': buildDynamicLineWidthExpr(), 
+            'line-width': baseLineWidthExpr(),
             'line-opacity': 1
         };
     }
 
+    const z0 = 0;
+    const z1 = ELEMENT_UI_CONSTANTS.stationZoomBase;
+    const z2 = ELEMENT_UI_CONSTANTS.stationZoomMax;
+    const baseWidthAtZ0 = baseLineWidthExpr()[4];
+    const lowlightWidthAtZ0 = lowlightLineWidthExpr()[4];
+
     return {
         'line-color': ['case', focusExpr, baseColorExpr, ELEMENT_UI_CONSTANTS.lineLowlightColor],
-        // 将 focusExpr 传进去，让 case 表达式在 zoom 插值内部生成
-        'line-width': buildDynamicLineWidthExpr({ focusExpr }), 
+        'line-width': ['interpolate', ['exponential', ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase], ['zoom'],
+            z0, ['case', focusExpr, baseWidthAtZ0, lowlightWidthAtZ0],
+            z1, ['case', focusExpr, ELEMENT_UI_CONSTANTS.lineBaseWidth, ELEMENT_UI_CONSTANTS.lineLowlightWidth],
+            z2, ['case', focusExpr, lineBaseWidthAtMaxZoom, lineLowlightWidthAtMaxZoom]
+        ],
         'line-opacity': ['case', focusExpr, 1, dimOpacity]
     };
 };
@@ -173,7 +223,7 @@ export const buildLowlightLinePaint = (options = {}) => {
     const dimOpacity = Number.isFinite(options.dimOpacity) ? options.dimOpacity : 0.45;
     return {
         'line-color': ELEMENT_UI_CONSTANTS.lineLowlightColor,
-        'line-width': buildDynamicLineWidthExpr({ isLowlight: true }),
+        'line-width': lowlightLineWidthExpr(),
         'line-opacity': dimOpacity
     };
 };
@@ -185,21 +235,9 @@ export const tripPreviewLineLayerPaint = () => ({
 });
 
 export const baseStationCircleRadiusExpr = () => {
-    const z0 = 0;
-    const zShrinkStart = 6;
-    const zStable = 14;
-    const z2 = ELEMENT_UI_CONSTANTS.stationZoomMax;
-    
-    const rMin = 0.5; // 最小视角大小
-    const rStable = ELEMENT_UI_CONSTANTS.stationBaseRadius; // 14级大小 (3.5)
-    const rMax = ELEMENT_UI_CONSTANTS.stationBaseRadiusAtMaxZoom; // 新增：引入最大视角大小 (5)
-
-    return ['interpolate', ['linear'], ['zoom'],
-        z0, rMin,
-        zShrinkStart, rMin,
-        zStable, rStable,
-        z2, rMax // 修改这里：达到最大缩放时，使用 rMax
-    ];
+    const r1 = ELEMENT_UI_CONSTANTS.stationBaseRadius;
+    const r2 = ELEMENT_UI_CONSTANTS.stationBaseRadiusAtMaxZoom;
+    return buildZoomBasedExponentialSizeExpr(r1, r2);
 };
 
 export const baseStationCircleStrokeWidthExpr = () => {
@@ -208,13 +246,14 @@ export const baseStationCircleStrokeWidthExpr = () => {
     const z2 = ELEMENT_UI_CONSTANTS.stationZoomMax;
     const w1 = ELEMENT_UI_CONSTANTS.stationSingleStrokeWidth;
     const w2 = ELEMENT_UI_CONSTANTS.stationSingleStrokeWidthAtMaxZoom;
+    const w0 = buildZoomBasedExponentialSizeExpr(w1, w2)[4];
     const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
     // Produce a single top-level interpolate where each zoom stop contains a case deciding
     // whether the station is a single-served station (has single stroke) or a transfer (use
     // transfer stroke width). This avoids nesting a zoom-expression inside a case.
     const isSingleExpr = ['==', ['length', servingIdsExpr], 1];
-    return ['interpolate', ['linear'], ['zoom'],
-        z0, ['case', isSingleExpr, w1, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth],
+    return ['interpolate', ['exponential', ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase], ['zoom'],
+        z0, ['case', isSingleExpr, w0, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth],
         z1, ['case', isSingleExpr, w1, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth],
         z2, ['case', isSingleExpr, w2, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth]
     ];
@@ -288,14 +327,15 @@ export const buildStationSelectionPaint = (options = {}) => {
     const z2 = ELEMENT_UI_CONSTANTS.stationZoomMax;
     const w1 = ELEMENT_UI_CONSTANTS.stationSingleStrokeWidth;
     const w2 = ELEMENT_UI_CONSTANTS.stationSingleStrokeWidthAtMaxZoom;
+    const w0 = buildZoomBasedExponentialSizeExpr(w1, w2)[4];
     const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
     const isSingleExpr = ['==', ['length', servingIdsExpr], 1];
 
-    const strokeAtZ0 = ['case', isSingleExpr, w1, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
+    const strokeAtZ0 = ['case', isSingleExpr, w0, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
     const strokeAtZ1 = ['case', isSingleExpr, w1, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
     const strokeAtZ2 = ['case', isSingleExpr, w2, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
 
-    const strokeWidthExpr = ['interpolate', ['linear'], ['zoom'],
+    const strokeWidthExpr = ['interpolate', ['exponential', ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase], ['zoom'],
         z0, ['case', isSelectedExpr, strokeAtZ0, 0],
         z1, ['case', isSelectedExpr, strokeAtZ1, 0],
         z2, ['case', isSelectedExpr, strokeAtZ2, 0]
@@ -309,7 +349,11 @@ export const buildStationSelectionPaint = (options = {}) => {
     };
 };
 
-
+export const tripPreviewLineLayerPaint = () => ({
+    'line-color': ['coalesce', ['get', 'color'], ELEMENT_UI_CONSTANTS.tripPreviewFallbackColor],
+    'line-width': baseLineWidthExpr(),
+    'line-opacity': 1
+});
 
 export const tripPreviewStopLayerPaint = (options = {}) => ({
     'circle-radius': baseStationCircleRadiusExpr(),

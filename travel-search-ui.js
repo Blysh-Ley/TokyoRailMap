@@ -1213,7 +1213,7 @@ export function mountTravelSearchUI() {
             const blockRows = Array.isArray(block?.rows) ? block.rows : [];
             const blockLast = blockRows.length ? blockRows[blockRows.length - 1] : null;
             const directionDestination = shouldAppendDirectionForNextNote
-                ? normalizeText(blockLast?.stationName || blockLast?.stationId || '')
+                ? normalizeText(getStationNameById(overallDestinationStationId) || blockLast?.stationName || blockLast?.stationId || '')
                 : '';
             if (shouldRenderLineNote) {
                 const note = createTimetableNoteRow({

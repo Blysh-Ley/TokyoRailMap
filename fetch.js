@@ -12,7 +12,8 @@ const defaultCoreUrls = [
     './data/train-types.json',
     './data/poi.json',
     './data/airports.json',
-    './data/coordinates.json'
+    './data/coordinates.json',
+    './data/line-offset.json'
 ];
 
 const state = {

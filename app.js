@@ -1,9 +1,10 @@
 import { getCachedJson, initializeFetchCache, preloadAllDataAssets } from './fetch.js';
 import { loadRailGeoDataFromDataFolder } from './data.js';
+import { buildStationOffsetGeoJSONAtZoom } from './offset.js';
 import { addLinesLayer, addStationsLayer, setupLineHoverPopup, setupStationPopup } from './layers.js';
 import { createStationMarkers } from './labels.js';
 import { setupCollisions } from './collision.js';
-import { buildTransferCapsuleGeoJSON, addTransferCapsuleLayers } from './transfer-capsules.js';
+import { buildTransferCapsuleGeoJSON, addTransferCapsuleLayers, buildTransferCapsuleConnectionOrder } from './transfer-capsules.js';
 import { Menu } from './menu.js';
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { createPanel } from './panel.js';
@@ -346,15 +347,14 @@ map.on('load', async () => {
         setDisabled: () => {}
     };
     let stationCoordById = new Map();
+    let stationCoordByIdBase = new Map();
     let stationServingCountById = new Map();
     let transferCapsuleStationsData = null;
     let transferCapsuleStationGroups = null;
+    let transferCapsuleBaseConnectionOrder = null;
     let transferCapsuleRefreshRafId = null;
     let transferCapsuleVisibleKey = '__init__';
-    let collisionVisibleStationIds = null;
-    let pendingTransferCapsuleRefreshAfterCollision = false;
-    let stationCircleRefs = [];
-    let requestLineOffsetRefresh = () => {};
+    let syncStationOffsetForTripPreviewState = () => {};
 
     // 右侧界面：站点/站名/搜索提交站点时弹出（在 applySelectionEffects 定义后初始化）
     let panel = null;
@@ -754,38 +754,35 @@ map.on('load', async () => {
         }
     };
 
-    const toTransferCapsuleVisibleKey = (visibleIds) => {
-        if (!(visibleIds instanceof Set)) return '*';
-        if (!visibleIds.size) return '__empty__';
-        return Array.from(visibleIds).map(String).filter(Boolean).sort().join('|');
+    const toTransferCapsuleVisibleKey = (visibleIds, options = {}) => {
+        const mode = options?.useFixedConnections ? 'fixed' : 'auto';
+        if (!(visibleIds instanceof Set)) return `${mode}:*`;
+        if (!visibleIds.size) return `${mode}:__empty__`;
+        return `${mode}:${Array.from(visibleIds).map(String).filter(Boolean).sort().join('|')}`;
+    };
+
+    const shouldUseFixedTransferCapsuleConnections = () => {
+        if (dirPreviewActive) return false;
+        if (isMultiSelectModeEnabled() && getBaseMultiSelectedLineIds().size) return false;
+        if (selectedLineId) return false;
+        if (selectedCompany) return false;
+        if (selectedStationId) return false;
+        if (selectedStationLineIds && selectedStationLineIds.size) return false;
+        return true;
     };
 
     const refreshTransferCapsulesNow = () => {
         if (!map || !transferCapsuleStationsData || !Array.isArray(transferCapsuleStationGroups)) return;
 
-        const selectedVisibleStationIds = getVisibleStationIdsForTransferCapsules();
-        let effectiveVisibleStationIds = selectedVisibleStationIds instanceof Set
-            ? new Set(selectedVisibleStationIds)
-            : null;
-
-        // 关键优化：把已算出的碰撞可见集前置到胶囊生成阶段，
-        // 避免 offset 触发重建后再由碰撞过滤导致“先出现再消失”的闪烁。
-        if (collisionVisibleStationIds instanceof Set) {
-            if (effectiveVisibleStationIds instanceof Set) {
-                effectiveVisibleStationIds = new Set(
-                    Array.from(effectiveVisibleStationIds).filter((id) => collisionVisibleStationIds.has(String(id || '').trim()))
-                );
-            } else {
-                effectiveVisibleStationIds = new Set(collisionVisibleStationIds);
-            }
-        }
-
-        const nextKey = toTransferCapsuleVisibleKey(effectiveVisibleStationIds);
+        const useFixedConnections = shouldUseFixedTransferCapsuleConnections();
+        const visibleStationIds = useFixedConnections ? null : getVisibleStationIdsForTransferCapsules();
+        const nextKey = toTransferCapsuleVisibleKey(visibleStationIds, { useFixedConnections });
         if (nextKey === transferCapsuleVisibleKey) return;
         transferCapsuleVisibleKey = nextKey;
 
         const transferCapsuleData = buildTransferCapsuleGeoJSON(transferCapsuleStationsData, transferCapsuleStationGroups, {
-            visibleStationIds: effectiveVisibleStationIds,
+            visibleStationIds,
+            fixedConnectionsByGroupId: useFixedConnections ? transferCapsuleBaseConnectionOrder : null,
             singleStationFallbackCircle: true,
             resolveLineColor: (lineId) => {
                 const id = String(lineId || '').trim();
@@ -1086,13 +1083,20 @@ map.on('load', async () => {
         for (const [key, entry] of tripPreviewSelectionsByKey.entries()) {
             const payload = entry?.payload || {};
             const built = entry?.built || {};
-            const lineId = String(payload?.selectedLineId || payload?.mainLineId || '').trim();
+            const builtLineIds = built?.lineIds instanceof Set
+                ? Array.from(built.lineIds).map((x) => String(x || '').trim()).filter(Boolean)
+                : [];
+            const selectedLineId = String(payload?.selectedLineId || '').trim();
+            const mainLineId = String(payload?.mainLineId || '').trim();
+            const lineIdCandidates = [selectedLineId, mainLineId, ...builtLineIds].filter(Boolean);
+            const lineId = lineIdCandidates.find((id) => lineNameById.has(id)) || lineIdCandidates[0] || '';
             const source = String(entry?.source || resolveTripPreviewPayloadSource(payload) || '').trim();
             const isBranchSource = source.startsWith('ms-line-branch:');
             const typeName = String(payload?.typeName || payload?.tripTypeName || '').trim() || '-';
             const originName = getStationNameForMultiSelect(built?.startStationId || payload?.originStationId || '');
             const terminalName = getStationNameForMultiSelect(built?.endStationId || payload?.terminalStationId || '');
-            const baseLineName = getLineNameForMultiSelect(lineId);
+            const baseLineName = String(payload?.selectedLineName || payload?.lineName || payload?.mainLineName || '').trim()
+                || getLineNameForMultiSelect(lineId);
             const displayLineName = isBranchSource ? `${baseLineName}（直通线路）` : baseLineName;
 
             items.push({
@@ -3095,11 +3099,20 @@ map.on('load', async () => {
 
     let generatedLinesData = null;
     let generatedStationsData = null;
+    let generatedStationOffsetAlgorithmContext = null;
 
     try {
-        const { linesGeoJSON, linesGeoJSONByZoom, lineRoutingCoordsById, stationsGeoJSON, diagnostics } = await loadRailGeoDataFromDataFolder();
+        const {
+            linesGeoJSON,
+            linesGeoJSONByZoom,
+            lineRoutingCoordsById,
+            stationsGeoJSON,
+            stationOffsetAlgorithmContext,
+            diagnostics
+        } = await loadRailGeoDataFromDataFolder();
         generatedLinesData = linesGeoJSON;
         generatedStationsData = stationsGeoJSON;
+        generatedStationOffsetAlgorithmContext = stationOffsetAlgorithmContext;
         transferStationIdsByStationId = await loadTransferStationIdMap();
 
         /*
@@ -3199,6 +3212,7 @@ map.on('load', async () => {
 
         // 站点坐标索引：用于车次路径高亮（只高亮停靠站）
         stationCoordById = new Map();
+        stationCoordByIdBase = new Map();
         stationServingCountById = new Map();
         try {
             const stationFeaturesForPreview = Array.isArray(generatedStationsData?.features)
@@ -3214,6 +3228,7 @@ map.on('load', async () => {
                 const lat = Number(c[1]);
                 if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
                 stationCoordById.set(sid, [lng, lat]);
+                stationCoordByIdBase.set(sid, [lng, lat]);
 
                 const servingIds = normalizeArrayLike(p?.serving_ids);
                 const servingCount = (servingIds.length || 1);
@@ -3231,6 +3246,7 @@ map.on('load', async () => {
                         const lat = Number(c[1]);
                         if (Number.isFinite(lng) && Number.isFinite(lat)) {
                             stationCoordById.set(sid, [lng, lat]);
+                            stationCoordByIdBase.set(sid, [lng, lat]);
                         }
                     }
                 }
@@ -3573,7 +3589,7 @@ map.on('load', async () => {
             const lineId = String(lineIdRaw ?? '').trim();
             const stationId = String(stationIdRaw ?? '').trim();
             if (!lineId || !stationId) return false;
-            const s = stationCoordById.get(stationId);
+            const s = stationCoordByIdBase.get(stationId) || stationCoordById.get(stationId);
             if (!s) return false;
             const chains = getLineChains(lineId);
             if (!chains.length) return false;
@@ -3603,8 +3619,8 @@ map.on('load', async () => {
             const ak = stationAKey(a);
             const bk = stationAKey(b);
             if (ak && bk && ak === bk) return true;
-            const ca = stationCoordById.get(a);
-            const cb = stationCoordById.get(b);
+            const ca = stationCoordByIdBase.get(a) || stationCoordById.get(a);
+            const cb = stationCoordByIdBase.get(b) || stationCoordById.get(b);
             if (!ca || !cb) return false;
             return distMeters(ca, cb) <= 350;
         };
@@ -3668,7 +3684,7 @@ map.on('load', async () => {
             for (const stationId of list) {
                 const sid = String(stationId || '').trim();
                 if (!sid) continue;
-                const coord = stationCoordById.get(sid);
+                const coord = stationCoordByIdBase.get(sid) || stationCoordById.get(sid);
                 if (!Array.isArray(coord) || coord.length < 2) continue;
                 const lng = Number(coord[0]);
                 const lat = Number(coord[1]);
@@ -3718,8 +3734,8 @@ map.on('load', async () => {
                 // 非端点直通也允许：只要主段末站与 nt 首站在局部几何上可连通（避免同班次在不同入口显示不一致）
                 if (!allowNt && payload?.hasNt && ntSeg) {
                     const mainTerminalId = String(payload?.mainTerminalStationId || '').trim();
-                    const mainTerminalCoord = stationCoordById.get(mainTerminalId);
-                    const ntFirstCoord = stationCoordById.get(ntFirstStationId);
+                    const mainTerminalCoord = stationCoordByIdBase.get(mainTerminalId) || stationCoordById.get(mainTerminalId);
+                    const ntFirstCoord = stationCoordByIdBase.get(ntFirstStationId) || stationCoordById.get(ntFirstStationId);
                     const ntLineId = String(ntSeg?.lineId || '').trim();
 
                     if (mainTerminalCoord && ntFirstCoord && ntLineId) {
@@ -3796,8 +3812,8 @@ map.on('load', async () => {
                 for (let j = 0; j < stationIds.length - 1; j += 1) {
                     const fromId = stationIds[j];
                     const toId = stationIds[j + 1];
-                    const from = stationCoordById.get(fromId);
-                    const to = stationCoordById.get(toId);
+                    const from = stationCoordByIdBase.get(fromId) || stationCoordById.get(fromId);
+                    const to = stationCoordByIdBase.get(toId) || stationCoordById.get(toId);
                     if (!from || !to) continue;
 
                     const clipped = extractLineSegment(lineId, from, to, {
@@ -3814,8 +3830,8 @@ map.on('load', async () => {
                     const prevLast = String(prevIds.length ? prevIds[prevIds.length - 1] : '').trim();
                     const currFirst = String(stationIds.length ? stationIds[0] : '').trim();
                     if (prevLast && currFirst && !isSamePhysicalStation(prevLast, currFirst)) {
-                        const a = stationCoordById.get(prevLast);
-                        const b = stationCoordById.get(currFirst);
+                        const a = stationCoordByIdBase.get(prevLast) || stationCoordById.get(prevLast);
+                        const b = stationCoordByIdBase.get(currFirst) || stationCoordById.get(currFirst);
                         if (a && b) {
                             const bridge = nearestBridgeBetweenLines(prev.lineId, lineId, a, b);
                             const canUseBridge = bridge && Number.isFinite(bridge.dist) && bridge.dist <= 3000;
@@ -3846,7 +3862,7 @@ map.on('load', async () => {
             }
 
             for (const sid of stopIds) {
-                const c = stationCoordById.get(sid);
+                const c = stationCoordByIdBase.get(sid) || stationCoordById.get(sid);
                 if (!c) continue;
                 outStopFeatures.push({
                     type: 'Feature',
@@ -3916,7 +3932,7 @@ map.on('load', async () => {
         const createTripEndpointPopup = ({ stationId, text, color, yOffset = 8 }) => {
             const sid = String(stationId || '').trim();
             if (!sid) return null;
-            const coord = stationCoordById.get(sid);
+            const coord = stationCoordByIdBase.get(sid) || stationCoordById.get(sid);
             if (!Array.isArray(coord) || coord.length < 2) return null;
 
             const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -4059,7 +4075,7 @@ map.on('load', async () => {
         const createDirEndpointPopup = ({ stationId, text, color, yOffset = 10 }) => {
             const sid = String(stationId || '').trim();
             if (!sid) return null;
-            const coord = stationCoordById.get(sid);
+            const coord = stationCoordByIdBase.get(sid) || stationCoordById.get(sid);
             if (!Array.isArray(coord) || coord.length < 2) return null;
 
             const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -4119,11 +4135,52 @@ map.on('load', async () => {
         };
 
         const buildTripPreviewSelectionKey = (payload) => {
-            const lineId = String(payload?.selectedLineId || payload?.mainLineId || '').trim();
-            const tripKey = String(payload?.tripKey || '').trim();
-            if (!lineId || !tripKey) return '';
             const source = String(payload?.previewSource || payload?.__previewSource || payload?.source || '').trim() || 'default';
-            return `${source}||${lineId}||${tripKey}`;
+
+            const segmentList = Array.isArray(payload?.segments) ? payload.segments : [];
+            const lineIdFromSegments = String(segmentList.find((seg) => String(seg?.lineId || '').trim())?.lineId || '').trim();
+            const lineId = String(payload?.selectedLineId || payload?.mainLineId || lineIdFromSegments || '').trim();
+
+            let tripKey = String(payload?.tripKey || '').trim();
+            if (!tripKey) {
+                const fromSegments = segmentList
+                    .map((seg) => {
+                        const lid = String(seg?.lineId || '').trim();
+                        const ids = Array.isArray(seg?.stationIds)
+                            ? seg.stationIds.map((x) => String(x || '').trim()).filter(Boolean)
+                            : [];
+                        if (!lid || ids.length < 2) return '';
+                        return `${lid}:${ids.join('>')}`;
+                    })
+                    .filter(Boolean)
+                    .join('||');
+
+                const virtualTrips = Array.isArray(payload?.virtualTrips) ? payload.virtualTrips : [];
+                const fromVirtualTrips = !fromSegments && virtualTrips.length
+                    ? virtualTrips
+                        .map((vt) => {
+                            const segs = Array.isArray(vt?.segments) ? vt.segments : [];
+                            return segs
+                                .map((seg) => {
+                                    const lid = String(seg?.lineId || '').trim();
+                                    const ids = Array.isArray(seg?.stationIds)
+                                        ? seg.stationIds.map((x) => String(x || '').trim()).filter(Boolean)
+                                        : [];
+                                    if (!lid || ids.length < 2) return '';
+                                    return `${lid}:${ids.join('>')}`;
+                                })
+                                .filter(Boolean)
+                                .join('||');
+                        })
+                        .filter(Boolean)
+                        .join('~~~')
+                    : '';
+
+                tripKey = fromSegments || fromVirtualTrips;
+            }
+
+            if (!tripKey) return '';
+            return `${source}||${lineId || 'unknown-line'}||${tripKey}`;
         };
 
         const resolveTripPreviewPayloadSource = (payload) => {
@@ -4312,6 +4369,7 @@ map.on('load', async () => {
             tripPreviewStationIds = hasVisible ? aggregate.stopIds : null;
             tripPreviewLineIds = hasVisible ? aggregate.lineIds : null;
             tripPreviewStationOverrideColor = '';
+            syncStationOffsetForTripPreviewState();
 
             if (!hasVisible) {
                 setStationLabelMode(getBaseMultiSelectedLineIds().size ? 'all' : 'auto');
@@ -4463,6 +4521,7 @@ map.on('load', async () => {
             tripPreviewSelectionsByKey = new Map();
             resetTripPreviewLayers();
             clearTripEndpointPopups();
+            syncStationOffsetForTripPreviewState();
             setStationLabelMode('auto');
             applySelectionEffects();
             collisionController?.scheduleUpdate?.();
@@ -4557,6 +4616,7 @@ map.on('load', async () => {
                     tripPreviewStationIds = aggregate.stopIds;
                 }
                 tripPreviewLineIds = aggregate.lineIds;
+                syncStationOffsetForTripPreviewState();
 
                 try {
                     map.getSource('trip-preview-source')?.setData?.(aggregate.lineFc);
@@ -4618,6 +4678,7 @@ map.on('load', async () => {
             tripPreviewStationOverrideColor = resolveTripPreviewStationOverrideColor(payload, payloadSource);
             tripPreviewStationIds = built.stopIds;
             tripPreviewLineIds = built.lineIds;
+            syncStationOffsetForTripPreviewState();
 
             try {
                 map.getSource('trip-preview-source')?.setData?.(built.lineFc);
@@ -5188,7 +5249,11 @@ map.on('load', async () => {
     }
 
     try {
-        const stationsData = generatedStationsData || (await loadRailGeoDataFromDataFolder()).stationsGeoJSON;
+        const loadedGeoData = generatedStationsData && generatedStationOffsetAlgorithmContext
+            ? null
+            : await loadRailGeoDataFromDataFolder();
+        const stationsData = generatedStationsData || loadedGeoData?.stationsGeoJSON;
+        const stationOffsetAlgorithmContext = generatedStationOffsetAlgorithmContext || loadedGeoData?.stationOffsetAlgorithmContext;
         // 按 data/railways-order.json 排序 stationsData.features 的绘制顺序：
         // - 从站点 id 用 "." 分割取前两项作为线路 id（如 JR-East.Yamanote.Osaki -> JR-East.Yamanote）
         // - 规范化 order key：小写后把 '-' 替换为 '.'，若首段以 'jr' 开头且长度>2，则改为 'jr-xxx'（例如 jreast-yamanote -> jr-east.yamanote）
@@ -5244,10 +5309,13 @@ map.on('load', async () => {
 
         addStationsLayer(map, stationsData);
 
+        let currentStationOffsetStateKey = null;
+
         // 换乘站 MST“变形胶囊”：固定启用，无额外开关。
         try {
             transferCapsuleStationsData = stationsData;
             transferCapsuleStationGroups = await getCachedJson('./data/station-groups.json');
+            transferCapsuleBaseConnectionOrder = buildTransferCapsuleConnectionOrder(stationsData, transferCapsuleStationGroups);
             transferCapsuleVisibleKey = '__init__';
             scheduleTransferCapsuleRefresh();
         } catch (e) {
@@ -5263,6 +5331,94 @@ map.on('load', async () => {
         const markers = createStationMarkers(map, maplibregl, stationsData);
         stationLabels = markers.stationLabels;
         const stationCircles = markers.stationCircles;
+
+        const rebuildStationCoordMap = (geojson) => {
+            stationCoordById = new Map();
+            const fs = Array.isArray(geojson?.features) ? geojson.features : [];
+            for (const sf of fs) {
+                if (sf?.geometry?.type !== 'Point') continue;
+                const sid = String(sf?.properties?.id ?? sf?.id ?? '').trim();
+                const c = sf?.geometry?.coordinates;
+                if (!sid || !Array.isArray(c) || c.length < 2) continue;
+                const lng = Number(c[0]);
+                const lat = Number(c[1]);
+                if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+                stationCoordById.set(sid, [lng, lat]);
+            }
+        };
+
+        const applyStationGeoJSON = (geojson, keyHint = '') => {
+            const nextGeoJSON = geojson && typeof geojson === 'object' ? geojson : null;
+            if (!nextGeoJSON) return;
+
+            try {
+                map.getSource('stations-source')?.setData?.(nextGeoJSON);
+            } catch {
+                // ignore
+            }
+
+            const coordById = new Map();
+            const fs = Array.isArray(nextGeoJSON?.features) ? nextGeoJSON.features : [];
+            for (const f of fs) {
+                const sid = String(f?.properties?.id ?? f?.id ?? '').trim();
+                const c = f?.geometry?.coordinates;
+                if (!sid || !Array.isArray(c) || c.length < 2) continue;
+                const lng = Number(c[0]);
+                const lat = Number(c[1]);
+                if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+                coordById.set(sid, [lng, lat]);
+            }
+
+            for (const item of stationLabels) {
+                const sid = String(item?.stationId ?? item?.props?.id ?? '').trim();
+                const c = sid ? coordById.get(sid) : null;
+                if (!c) continue;
+                item.coordinates = c;
+                try { item.marker?.setLngLat?.(c); } catch { /* ignore */ }
+            }
+
+            for (const item of stationCircles) {
+                const sid = String(item?.stationId ?? '').trim();
+                const c = sid ? coordById.get(sid) : null;
+                if (!c) continue;
+                item.coordinates = c;
+            }
+
+            rebuildStationCoordMap(nextGeoJSON);
+            transferCapsuleStationsData = nextGeoJSON;
+            transferCapsuleVisibleKey = String(keyHint || '__station-geojson__');
+            scheduleTransferCapsuleRefresh();
+            collisionController?.scheduleUpdate?.();
+        };
+
+        const applyRealtimeStationOffsetForZoom = (zoom) => {
+            const z = Number(zoom);
+            if (!Number.isFinite(z)) return;
+
+            const stateKey = `offset-zoom:${z.toFixed(3)}`;
+            if (stateKey === currentStationOffsetStateKey) return;
+
+            const nextGeoJSON = buildStationOffsetGeoJSONAtZoom({
+                baseStationsGeoJSON: stationsData,
+                stationOffsetAlgorithmContext,
+                zoom: z
+            });
+
+            applyStationGeoJSON(nextGeoJSON, stateKey);
+            currentStationOffsetStateKey = stateKey;
+        };
+
+        syncStationOffsetForTripPreviewState = () => {
+            if (tripPreviewActive) {
+                const tripPreviewBaseKey = '__trip-preview-base__';
+                if (currentStationOffsetStateKey === tripPreviewBaseKey) return;
+                applyStationGeoJSON(stationsData, tripPreviewBaseKey);
+                currentStationOffsetStateKey = tripPreviewBaseKey;
+                return;
+            }
+
+            applyRealtimeStationOffsetForZoom(map.getZoom());
+        };
 
         // 关键：站名 marker 创建后立刻执行一次“换乘组仅保留最北站名”收缩，
         // 否则首次进入页面会看到全部站名，直到下一次交互触发 applySelectionEffects 才更新。
@@ -5324,6 +5480,13 @@ map.on('load', async () => {
         });
 
         collisionController.scheduleUpdate();
+
+        applyRealtimeStationOffsetForZoom(map.getZoom());
+
+        map.on('zoomend', () => {
+            if (tripPreviewActive) return;
+            applyRealtimeStationOffsetForZoom(map.getZoom());
+        });
 
         // 再次调度一次，确保强制隐藏标记立即反映到 DOM 显示状态。
         applySelectionEffects();
