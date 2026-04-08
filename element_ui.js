@@ -228,11 +228,7 @@ export const buildLowlightLinePaint = (options = {}) => {
     };
 };
 
-export const tripPreviewLineLayerPaint = () => ({
-    'line-color': ['coalesce', ['get', 'color'], ELEMENT_UI_CONSTANTS.tripPreviewFallbackColor],
-    'line-width': buildDynamicLineWidthExpr(),
-    'line-opacity': 1
-});
+
 
 export const baseStationCircleRadiusExpr = () => {
     const r1 = ELEMENT_UI_CONSTANTS.stationBaseRadius;
