@@ -414,6 +414,55 @@ map.on('load', async () => {
 
     const isMultiSelectModeEnabled = () => multiSelectModeEnabled === true;
 
+    const BASE_LAYER_HIDDEN_LINE_IDS = new Set([
+        'Seibu.S-Yurakucho',
+        'Seibu.S-Fukutoshin'
+    ]);
+
+    const shouldApplyBaseLayerHiddenFilter = () => !(tripPreviewActive || dirPreviewActive);
+
+    const isBaseLayerHiddenStationId = (stationId) => {
+        const sid = String(stationId || '').trim();
+        if (!sid) return false;
+        for (const lineId of BASE_LAYER_HIDDEN_LINE_IDS) {
+            if (sid === lineId || sid.startsWith(`${lineId}.`)) return true;
+        }
+        return false;
+    };
+
+    const isStationHiddenInBaseLayer = (stationId) => {
+        if (!shouldApplyBaseLayerHiddenFilter()) return false;
+        return isBaseLayerHiddenStationId(stationId);
+    };
+
+    const filterStationIdsForBaseLayer = (ids) => {
+        if (!(ids instanceof Set)) return ids;
+        if (!shouldApplyBaseLayerHiddenFilter()) return ids;
+
+        const out = new Set();
+        for (const rawId of ids) {
+            const id = String(rawId || '').trim();
+            if (!id) continue;
+            if (isBaseLayerHiddenStationId(id)) continue;
+            out.add(id);
+        }
+        return out;
+    };
+
+    const getFixedVisibleStationIdsForTransferCapsules = () => {
+        if (!shouldApplyBaseLayerHiddenFilter()) return null;
+        if (!transferCapsuleStationsData || !Array.isArray(transferCapsuleStationsData.features)) return null;
+
+        const out = new Set();
+        for (const feature of transferCapsuleStationsData.features) {
+            const sid = String(feature?.properties?.id ?? feature?.id ?? '').trim();
+            if (!sid) continue;
+            if (isBaseLayerHiddenStationId(sid)) continue;
+            out.add(sid);
+        }
+        return out;
+    };
+
     const getBaseMultiSelectedLineIds = () => {
         const out = new Set();
         for (const [key, entry] of baseMultiSelectionsByKey.entries()) {
@@ -487,6 +536,7 @@ map.on('load', async () => {
             const props = item?.props || {};
             const sid = String(item?.stationId || props?.id || '').trim();
             if (!sid) continue;
+            if (isStationHiddenInBaseLayer(sid)) continue;
 
             const platform = normalizeArrayLike(props?.platform_line_id).map((x) => String(x || '').trim()).filter(Boolean);
             const servingIds = normalizeArrayLike(props?.serving_ids).map((x) => String(x || '').trim()).filter(Boolean);
@@ -517,6 +567,7 @@ map.on('load', async () => {
             const props = item?.props || {};
             const sid = String(item?.stationId || props?.id || '').trim();
             if (!sid) continue;
+            if (isStationHiddenInBaseLayer(sid)) continue;
 
             const platform = normalizeArrayLike(props?.platform_line_id).map((x) => String(x || '').trim()).filter(Boolean);
             const servingIds = normalizeArrayLike(props?.serving_ids).map((x) => String(x || '').trim()).filter(Boolean);
@@ -532,7 +583,7 @@ map.on('load', async () => {
             }
             if (hit) out.add(sid);
         }
-        return out;
+        return filterStationIdsForBaseLayer(out);
     };
 
     const getVisibleStationIdsForTransferCapsules = () => {
@@ -599,6 +650,7 @@ map.on('load', async () => {
 
         const visibleIds = getVisibleStationIdsForTransferCapsules();
         const visibleSet = visibleIds instanceof Set ? visibleIds : null;
+        const hideInBaseLayer = shouldApplyBaseLayerHiddenFilter();
         const labelById = new Map();
 
         const labelOffsets = [
@@ -665,7 +717,10 @@ map.on('load', async () => {
             const groupSet = transferStationIdsByStationId.get(sid);
             if (!(groupSet instanceof Set) || groupSet.size <= 1) continue;
 
-            const groupIds = Array.from(groupSet).map((x) => String(x || '').trim()).filter(Boolean);
+            const groupIds = Array.from(groupSet)
+                .map((x) => String(x || '').trim())
+                .filter(Boolean)
+                .filter((id) => !(hideInBaseLayer && isBaseLayerHiddenStationId(id)));
             if (!groupIds.length) continue;
 
             const candidateIds = visibleSet
@@ -725,6 +780,16 @@ map.on('load', async () => {
             const basePriority = getBasePriority(item);
             const baseName = getBaseName(item);
             const baseTranslate = getBaseTranslate(item);
+
+            if (hideInBaseLayer && isBaseLayerHiddenStationId(sid)) {
+                item.priority = 0;
+                item.forceHiddenByTransferCollapse = true;
+                item._multiSelectBaseLabelText = baseName;
+                if (item?.el) item.el.style.translate = baseTranslate;
+                if (!isMultiSelectModeEnabled() && item?.el) item.el.textContent = baseName;
+                continue;
+            }
+
             const groupSet = transferStationIdsByStationId.get(sid);
 
             if (!(groupSet instanceof Set) || groupSet.size <= 1) {
@@ -736,7 +801,20 @@ map.on('load', async () => {
                 continue;
             }
 
-            const groupIds = Array.from(groupSet).map((x) => String(x || '').trim()).filter(Boolean);
+            const groupIds = Array.from(groupSet)
+                .map((x) => String(x || '').trim())
+                .filter(Boolean)
+                .filter((id) => !(hideInBaseLayer && isBaseLayerHiddenStationId(id)));
+
+            if (groupIds.length <= 1) {
+                item.priority = basePriority;
+                item.forceHiddenByTransferCollapse = false;
+                item._multiSelectBaseLabelText = baseName;
+                if (item?.el) item.el.style.translate = baseTranslate;
+                if (!isMultiSelectModeEnabled() && item?.el) item.el.textContent = baseName;
+                continue;
+            }
+
             const groupKey = groupIds.slice().sort().join('|');
             const repIds = repIdsByGroupKey.get(groupKey);
             const visibleByScope = !visibleSet || visibleSet.has(sid);
@@ -756,6 +834,9 @@ map.on('load', async () => {
 
     const toTransferCapsuleVisibleKey = (visibleIds, options = {}) => {
         const mode = options?.useFixedConnections ? 'fixed' : 'auto';
+        if (options?.useFixedConnections && options?.baseHiddenFilterActive) {
+            return `${mode}:__base-hidden-filter__`;
+        }
         if (!(visibleIds instanceof Set)) return `${mode}:*`;
         if (!visibleIds.size) return `${mode}:__empty__`;
         return `${mode}:${Array.from(visibleIds).map(String).filter(Boolean).sort().join('|')}`;
@@ -776,8 +857,12 @@ map.on('load', async () => {
         if (!map || !transferCapsuleStationsData || !Array.isArray(transferCapsuleStationGroups)) return;
 
         const useFixedConnections = shouldUseFixedTransferCapsuleConnections();
-        const visibleStationIds = useFixedConnections ? null : getVisibleStationIdsForTransferCapsules();
-        const nextKey = toTransferCapsuleVisibleKey(visibleStationIds, { useFixedConnections });
+        const fixedVisibleStationIds = useFixedConnections ? getFixedVisibleStationIdsForTransferCapsules() : null;
+        const visibleStationIds = useFixedConnections ? fixedVisibleStationIds : getVisibleStationIdsForTransferCapsules();
+        const nextKey = toTransferCapsuleVisibleKey(visibleStationIds, {
+            useFixedConnections,
+            baseHiddenFilterActive: fixedVisibleStationIds instanceof Set
+        });
         if (nextKey === transferCapsuleVisibleKey) return;
         transferCapsuleVisibleKey = nextKey;
 
@@ -1245,13 +1330,16 @@ map.on('load', async () => {
     const getVisibleStationIdsForSelectedStationSelection = () => {
         if (!selectedStationId) return null;
 
-        const selectedIds = new Set(getSelectedStationHighlightIds().map(String).filter(Boolean));
+        const selectedIds = filterStationIdsForBaseLayer(
+            new Set(getSelectedStationHighlightIds().map(String).filter(Boolean))
+        );
         if (selectedStationLineIds && selectedStationLineIds.size) {
             const lineStationIds = getVisibleStationIdsByLineIds(selectedStationLineIds);
             for (const id of selectedIds) {
                 lineStationIds.add(String(id || '').trim());
             }
-            if (lineStationIds.size) return lineStationIds;
+            const filteredLineStationIds = filterStationIdsForBaseLayer(lineStationIds);
+            if (filteredLineStationIds.size) return filteredLineStationIds;
         }
         return selectedIds;
     };
@@ -1489,6 +1577,24 @@ map.on('load', async () => {
             dimOpacity: 0.6
         }));
     }
+
+    const applyBaseLayerVisibilityFilters = () => {
+        if (!map.getLayer('lines-layer')) return;
+
+        const baseFilterExpr = ['!=', ['get', 'hidden_by_opacity_zero'], 1];
+        const hideSeibuBranches = shouldApplyBaseLayerHiddenFilter();
+        const hiddenLineIds = Array.from(BASE_LAYER_HIDDEN_LINE_IDS);
+
+        const lineFilterExpr = hideSeibuBranches && hiddenLineIds.length
+            ? ['all', baseFilterExpr, ...hiddenLineIds.map((id) => ['!=', ['get', 'id'], id])]
+            : baseFilterExpr;
+
+        try {
+            map.setFilter('lines-layer', lineFilterExpr);
+        } catch {
+            // ignore
+        }
+    };
 
     function applyStationThemePaintToMapLayers() {
         const dark = isDarkThemeActive();
@@ -1863,6 +1969,7 @@ map.on('load', async () => {
         if (applySelectionEffectsRafId != null) cancelAnimationFrame(applySelectionEffectsRafId);
         applySelectionEffectsRafId = requestAnimationFrame(() => {
             applySelectionEffectsRafId = null;
+            applyBaseLayerVisibilityFilters();
             applyLineSelectionStyle();
             applyStationSelectionStyle();
             updateSelectedStationCurrentPopup();
@@ -5482,6 +5589,12 @@ map.on('load', async () => {
                     : 'collide'
             ),
             getPinnedStationId: () => fixedPopupStationId,
+            shouldHideStation: (stationLike) => {
+                if (!shouldApplyBaseLayerHiddenFilter()) return false;
+                const sid = String(stationLike?.stationId || '').trim();
+                if (!sid) return false;
+                return isBaseLayerHiddenStationId(sid);
+            },
             lineFilterTarget: 'labels'
         });
 

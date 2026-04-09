@@ -82,6 +82,9 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
     const getCircleMode = options.getCircleMode;
     const getVisibleStationIds = options.getVisibleStationIds;
     const getPinnedStationId = options.getPinnedStationId;
+    const shouldHideStation = typeof options.shouldHideStation === 'function'
+        ? options.shouldHideStation
+        : null;
     const onCircleCollisionResolved = typeof options.onCircleCollisionResolved === 'function'
         ? options.onCircleCollisionResolved
         : null;
@@ -144,6 +147,15 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
         return true;
     }
 
+    function shouldHideByExternalRule(stationLike, explicitIdsSet) {
+        if (!shouldHideStation) return false;
+        try {
+            return shouldHideStation(stationLike, { explicitIdsSet }) === true;
+        } catch {
+            return false;
+        }
+    }
+
     function updateStationLabelVisibility() {
         if (!stationLabels.length) return;
 
@@ -173,6 +185,10 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
                     return;
                 }
                 if (!label.priority) {
+                    label.el.style.display = 'none';
+                    return;
+                }
+                if (shouldHideByExternalRule(label, explicitIdsSet)) {
                     label.el.style.display = 'none';
                     return;
                 }
@@ -220,6 +236,11 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
                 return;
             }
             if (!label.priority) {
+                label.el.style.display = 'none';
+                return;
+            }
+
+            if (shouldHideByExternalRule(label, explicitIdsSet)) {
                 label.el.style.display = 'none';
                 return;
             }
@@ -296,6 +317,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             for (const station of stationCircles) {
                 if (!station.priority) continue;
                 if (station.hiddenByOpacityZero) continue;
+                if (shouldHideByExternalRule(station, explicitIdsSet)) continue;
                 if (!isStationEnabledByLines(station.servingLineIds, enabledLineIdsSet)) continue;
                 if (!isStationEnabledByExplicitIds(station.stationId, explicitIdsSet)) continue;
                 visibleIds.push(station.stationId);
@@ -336,6 +358,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
         for (const station of stationCircles) {
             if (!station.priority) continue;
             if (station.hiddenByOpacityZero) continue;
+            if (shouldHideByExternalRule(station, explicitIdsSet)) continue;
             if (!isStationEnabledByLines(station.servingLineIds, enabledLineIdsSet)) continue;
             if (!isStationEnabledByExplicitIds(station.stationId, explicitIdsSet)) continue;
 
