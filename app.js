@@ -762,6 +762,7 @@ map.on('load', async () => {
     };
 
     const shouldUseFixedTransferCapsuleConnections = () => {
+        if (tripPreviewActive) return false;
         if (dirPreviewActive) return false;
         if (isMultiSelectModeEnabled() && getBaseMultiSelectedLineIds().size) return false;
         if (selectedLineId) return false;
