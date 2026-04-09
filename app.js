@@ -1858,55 +1858,60 @@ map.on('load', async () => {
         applySelectionEffects();
     }
 
+    let applySelectionEffectsRafId = null;
     const applySelectionEffects = () => {
-        applyLineSelectionStyle();
-        applyStationSelectionStyle();
-        updateSelectedStationCurrentPopup();
-        applyTransferStationLabelCollapse();
-        updateMultiSelectStationLabelChips();
-        if (collisionController) collisionController.scheduleUpdate();
-        // 顺序很重要：先调度碰撞，再刷新胶囊，确保本帧优先使用最新碰撞可见集。
-        scheduleTransferCapsuleRefresh();
-        updateSelectionBadge();
-        try {
-            const lineIds = (() => {
-                if (isMultiSelectModeEnabled()) {
-                    const ids = Array.from(getBaseMultiSelectedLineIds()).map(String).filter(Boolean);
-                    if (ids.length) return ids;
-                }
-                if (selectedLineId) {
-                    if (selectedStationLineIds && selectedStationLineIds.size > 1) return Array.from(selectedStationLineIds).map(String).filter(Boolean);
-                    return [String(selectedLineId)];
-                }
-                if (selectedStationLineIds && selectedStationLineIds.size) {
-                    return Array.from(selectedStationLineIds).map(String).filter(Boolean);
-                }
-                if (selectedCompany && enabledLineIdsByCompany && enabledLineIdsByCompany.has(selectedCompany)) {
-                    return Array.from(enabledLineIdsByCompany.get(selectedCompany) || []).map(String).filter(Boolean);
-                }
-                return [];
-            })();
+        if (applySelectionEffectsRafId != null) cancelAnimationFrame(applySelectionEffectsRafId);
+        applySelectionEffectsRafId = requestAnimationFrame(() => {
+            applySelectionEffectsRafId = null;
+            applyLineSelectionStyle();
+            applyStationSelectionStyle();
+            updateSelectedStationCurrentPopup();
+            applyTransferStationLabelCollapse();
+            updateMultiSelectStationLabelChips();
+            if (collisionController) collisionController.scheduleUpdate();
+            // 顺序很重要：先调度碰撞，再刷新胶囊，确保本帧优先使用最新碰撞可见集。
+            scheduleTransferCapsuleRefresh();
+            updateSelectionBadge();
+            try {
+                const lineIds = (() => {
+                    if (isMultiSelectModeEnabled()) {
+                        const ids = Array.from(getBaseMultiSelectedLineIds()).map(String).filter(Boolean);
+                        if (ids.length) return ids;
+                    }
+                    if (selectedLineId) {
+                        if (selectedStationLineIds && selectedStationLineIds.size > 1) return Array.from(selectedStationLineIds).map(String).filter(Boolean);
+                        return [String(selectedLineId)];
+                    }
+                    if (selectedStationLineIds && selectedStationLineIds.size) {
+                        return Array.from(selectedStationLineIds).map(String).filter(Boolean);
+                    }
+                    if (selectedCompany && enabledLineIdsByCompany && enabledLineIdsByCompany.has(selectedCompany)) {
+                        return Array.from(enabledLineIdsByCompany.get(selectedCompany) || []).map(String).filter(Boolean);
+                    }
+                    return [];
+                })();
 
-            if (!lineIds.length) {
-                window.dispatchEvent(new CustomEvent('__TokyoRailBaseHighlightCleared'));
-                return;
+                if (!lineIds.length) {
+                    window.dispatchEvent(new CustomEvent('__TokyoRailBaseHighlightCleared'));
+                    return;
+                }
+
+                const kind = isMultiSelectModeEnabled() && getBaseMultiSelectedLineIds().size
+                    ? 'multi-base'
+                    : (selectedLineId ? 'line' : (selectedCompany ? 'company' : (selectedStationLineIds && selectedStationLineIds.size ? 'station' : 'unknown')));
+                window.dispatchEvent(new CustomEvent('__TokyoRailBaseHighlightUpdated', {
+                    detail: {
+                        kind,
+                        lineIds,
+                        selectedLineId: selectedLineId ? String(selectedLineId) : null,
+                        selectedCompany: selectedCompany ? String(selectedCompany) : null,
+                        selectedStationId: selectedStationId ? String(selectedStationId) : null,
+                    }
+                }));
+            } catch {
+                // ignore
             }
-
-            const kind = isMultiSelectModeEnabled() && getBaseMultiSelectedLineIds().size
-                ? 'multi-base'
-                : (selectedLineId ? 'line' : (selectedCompany ? 'company' : (selectedStationLineIds && selectedStationLineIds.size ? 'station' : 'unknown')));
-            window.dispatchEvent(new CustomEvent('__TokyoRailBaseHighlightUpdated', {
-                detail: {
-                    kind,
-                    lineIds,
-                    selectedLineId: selectedLineId ? String(selectedLineId) : null,
-                    selectedCompany: selectedCompany ? String(selectedCompany) : null,
-                    selectedStationId: selectedStationId ? String(selectedStationId) : null,
-                }
-            }));
-        } catch {
-            // ignore
-        }
+        });
     };
 
     function mountSettingsMenu() {
