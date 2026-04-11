@@ -12,7 +12,7 @@
     "JR-East.NaritaExpress":0,
     "JR-East.Yamanote":2,
     "JR-East.ShonanShinjuku":1,
-    "JR-East.SaikyoKawagoe":0,
+    "JR-East.SaikyoKawagoe":-1,
     "JR-East.KeiyoFutamataBranch":1,
     "JR-East.Narita":-1,
     "JR-East.NaritaAirportBranch":0,
@@ -25,5 +25,6 @@
     "Ryutetsu.Nagareyama":-1,
     "Tokyu.Toyoko":1,
     "Tokyu.TokyuTamagawa":-1,
-    "MIR.TsukubaExpress":1
+    "MIR.TsukubaExpress":1,
+    "JR-East.SotetsuDirect":1
 }
