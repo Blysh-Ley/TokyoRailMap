@@ -500,7 +500,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
         if (rafId != null) return;
         rafId = requestAnimationFrame(() => {
             rafId = null;
-            updateStationCircleVisibility();
+            // updateStationCircleVisibility();
             updateStationLabelVisibility();
         });
     }
