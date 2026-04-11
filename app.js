@@ -1,4 +1,14 @@
-import { getCachedJson, initializeFetchCache, preloadAllDataAssets } from './fetch.js';
+import {
+    COMPANY_LOGO_BASE_PATH,
+    getCachedJson,
+    getIconCandidates,
+    getPreferredCachedImageSrc,
+    initializeFetchCache,
+    preloadAllDataAssets,
+    preloadIcons,
+    registerCompanyLogoMap,
+    setImageElementFromCache
+} from './fetch.js';
 import { loadRailGeoDataFromDataFolder } from './data.js';
 import { buildStationOffsetGeoJSONAtZoom } from './offset.js';
 import { addLinesLayer, addStationsLayer, setupLineHoverPopup, setupStationPopup } from './layers.js';
@@ -34,6 +44,32 @@ import {
 import './route-map-ui.js';
 
 initializeFetchCache();
+
+try {
+    preloadIcons([
+        'settings.svg',
+        'list.svg',
+        'grid.svg',
+        'search.svg',
+        'camera.svg',
+        'print.svg',
+        'map-select.svg',
+        'clockwise.svg',
+        'filter.svg',
+        'fs.svg',
+        'travel.svg',
+        'change-dirc.svg',
+        'x.svg',
+        'arrow-right.svg',
+        'arrows.svg',
+        'mul-select.svg',
+        'eye.svg',
+        'eye-slash.svg',
+        'lr.svg'
+    ], { concurrency: 12 }).catch(() => null);
+} catch {
+    // ignore
+}
 
 try {
     preloadAllDataAssets({ includeTimetables: true, timetableConcurrency: 10 }).catch((err) => {
@@ -1489,15 +1525,7 @@ map.on('load', async () => {
     //'Watarase Keikoku Railway': { 'zh': '渡良濑溪谷铁道', 'img':["dulianglai.png",35] }
 };
 
-
-
-    // 暴露给 search.js：复用公司 logo 元数据（避免 search.js import app.js 导致重复初始化）
-    try {
-        window.TokyoRailCompanyLogoMap = companyLogoMap;
-        window.TokyoRailCompanyLogoBasePath = './companyLogos/';
-    } catch {
-        // ignore
-    }
+    registerCompanyLogoMap(companyLogoMap, { preload: true, concurrency: 8 });
 
     function applyLineSelectionStyle() {
         if (!map.getLayer('lines-layer')) return;
@@ -2038,15 +2066,10 @@ map.on('load', async () => {
         const fabIcon = document.createElement('img');
         fabIcon.className = 'settings-fab-icon';
         fabIcon.alt = '';
-        {
-            const candidates = ['./icons/settings.svg', '/icons/settings.svg'];
-            let idx = 0;
-            fabIcon.src = candidates[idx];
-            fabIcon.addEventListener('error', () => {
-                idx += 1;
-                if (idx < candidates.length) fabIcon.src = candidates[idx];
-            });
-        }
+        setImageElementFromCache(fabIcon, getIconCandidates('settings.svg'), {
+            cacheKey: 'icon:settings.svg',
+            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('settings.svg'), { cacheKey: 'icon:settings.svg' })
+        }).catch(() => null);
         fab.appendChild(fabIcon);
 
         const content = document.createElement('div');
@@ -3017,15 +3040,10 @@ map.on('load', async () => {
         const listIcon = document.createElement('img');
         listIcon.className = 'settings-view-btn-icon';
         listIcon.alt = '';
-        {
-            const candidates = ['./icons/list.svg', '/icons/list.svg'];
-            let idx = 0;
-            listIcon.src = candidates[idx];
-            listIcon.addEventListener('error', () => {
-                idx += 1;
-                if (idx < candidates.length) listIcon.src = candidates[idx];
-            });
-        }
+        setImageElementFromCache(listIcon, getIconCandidates('list.svg'), {
+            cacheKey: 'icon:list.svg',
+            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('list.svg'), { cacheKey: 'icon:list.svg' })
+        }).catch(() => null);
         btnList.appendChild(listIcon);
 
         const btnGrid = document.createElement('button');
@@ -3036,15 +3054,10 @@ map.on('load', async () => {
         const gridIcon = document.createElement('img');
         gridIcon.className = 'settings-view-btn-icon';
         gridIcon.alt = '';
-        {
-            const candidates = ['./icons/grid.svg', '/icons/grid.svg'];
-            let idx = 0;
-            gridIcon.src = candidates[idx];
-            gridIcon.addEventListener('error', () => {
-                idx += 1;
-                if (idx < candidates.length) gridIcon.src = candidates[idx];
-            });
-        }
+        setImageElementFromCache(gridIcon, getIconCandidates('grid.svg'), {
+            cacheKey: 'icon:grid.svg',
+            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('grid.svg'), { cacheKey: 'icon:grid.svg' })
+        }).catch(() => null);
         btnGrid.appendChild(gridIcon);
 
         seg.appendChild(btnList);
@@ -5173,7 +5186,7 @@ map.on('load', async () => {
             linesObj,
             companyLogoMap,
             railwaysOrderIndex,
-            logoBasePath: './companyLogos/',
+            logoBasePath: COMPANY_LOGO_BASE_PATH,
             hoverDelayMs: 500,
             onCancelSelection: clearSelectionsAndRestore,
             onCompanyClick: (companyName, meta) => {

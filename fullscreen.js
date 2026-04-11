@@ -6,6 +6,8 @@
  * 按 Escape 退出全屏同样恢复 UI。
  */
 
+import { getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from './fetch.js';
+
 /** @type {boolean} 当前是否处于全屏浏览模式 */
 let isFullscreenMode = false;
 
@@ -42,15 +44,10 @@ export function initFullscreen(map, touchTapGuard) {
     const fullscreenIcon = document.createElement('img');
     fullscreenIcon.className = 'fullscreen-fab-icon';
     fullscreenIcon.alt = '';
-    {
-        const candidates = ['./icons/fs.svg', '/icons/fs.svg'];
-        let idx = 0;
-        fullscreenIcon.src = candidates[idx];
-        fullscreenIcon.addEventListener('error', () => {
-            idx += 1;
-            if (idx < candidates.length) fullscreenIcon.src = candidates[idx];
-        });
-    }
+    setImageElementFromCache(fullscreenIcon, getIconCandidates('fs.svg'), {
+        cacheKey: 'icon:fs.svg',
+        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('fs.svg'), { cacheKey: 'icon:fs.svg' })
+    }).catch(() => null);
     fullscreenFab.appendChild(fullscreenIcon);
     document.body.appendChild(fullscreenFab);
 

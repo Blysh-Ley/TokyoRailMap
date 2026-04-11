@@ -12,7 +12,7 @@
 import { computeLineStopDiagramData } from './route-map.js';
 import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
-import { getCachedJson } from './fetch.js';
+import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from './fetch.js';
 import { previewBranchesForLine } from './analyze_branch.js';
 
 const toText = (v) => String(v ?? '').trim();
@@ -1018,11 +1018,7 @@ const resolveCompanyLogoUrl = (companyKey) => {
     const key = toText(companyKey);
     if (!key) return '';
     const logoMap = window?.TokyoRailCompanyLogoMap || {};
-    const base = toText(window?.TokyoRailCompanyLogoBasePath) || './companyLogos/';
-    const file = toText(logoMap?.[key]?.img?.[0]);
-    if (!file) return '';
-    const normalizedBase = base.endsWith('/') ? base : `${base}/`;
-    return `${normalizedBase}${file}`;
+    return getCompanyLogoSrc(key, logoMap) || '';
 };
 
 const resolveColorForTheme = (color, fallback = '#888') => {
@@ -1061,7 +1057,14 @@ const setupRouteMapUi = () => {
     branchBtn.className = 'panel-capture-btn route-map-branch-btn';
     branchBtn.setAttribute('aria-label', '分支高亮');
     branchBtn.title = '分支高亮';
-    branchBtn.innerHTML = '<img class="panel-capture-icon route-map-branch-icon" alt="" src="./icons/lr.svg" />';
+    const branchIcon = document.createElement('img');
+    branchIcon.className = 'panel-capture-icon route-map-branch-icon';
+    branchIcon.alt = '';
+    setImageElementFromCache(branchIcon, getIconCandidates('lr.svg'), {
+        cacheKey: 'icon:lr.svg',
+        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('lr.svg'), { cacheKey: 'icon:lr.svg' })
+    }).catch(() => null);
+    branchBtn.appendChild(branchIcon);
     topActions.appendChild(branchBtn);
 
     const captureBtn = document.createElement('button');
@@ -1069,7 +1072,14 @@ const setupRouteMapUi = () => {
     captureBtn.className = 'panel-capture-btn route-map-capture-btn';
     captureBtn.setAttribute('aria-label', '截图');
     captureBtn.title = '截图';
-    captureBtn.innerHTML = '<img class="panel-capture-icon route-map-capture-icon" alt="" src="./icons/camera.svg" />';
+    const captureIcon = document.createElement('img');
+    captureIcon.className = 'panel-capture-icon route-map-capture-icon';
+    captureIcon.alt = '';
+    setImageElementFromCache(captureIcon, getIconCandidates('camera.svg'), {
+        cacheKey: 'icon:camera.svg',
+        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('camera.svg'), { cacheKey: 'icon:camera.svg' })
+    }).catch(() => null);
+    captureBtn.appendChild(captureIcon);
     topActions.appendChild(captureBtn);
     topHeader.appendChild(topActions);
 
@@ -1152,22 +1162,6 @@ const setupRouteMapUi = () => {
         const baseName = `route-map-${toText(activeLineName) || toText(activeLineId) || 'line'}`;
         await exportElementToPng(root, baseName, captureBtn);
     }, { passive: false });
-    const captureIcon = captureBtn.querySelector('.route-map-capture-icon');
-    if (captureIcon instanceof HTMLImageElement) {
-        captureIcon.addEventListener('error', () => {
-            if (captureIcon.dataset.fallbackTried === '1') return;
-            captureIcon.dataset.fallbackTried = '1';
-            captureIcon.src = '/icons/camera.svg';
-        });
-    }
-    const branchIcon = branchBtn.querySelector('.route-map-branch-icon');
-    if (branchIcon instanceof HTMLImageElement) {
-        branchIcon.addEventListener('error', () => {
-            if (branchIcon.dataset.fallbackTried === '1') return;
-            branchIcon.dataset.fallbackTried = '1';
-            branchIcon.src = '/icons/lr.svg';
-        });
-    }
 
     const cache = new Map(); // key: lineId||serviceDay -> payload
 

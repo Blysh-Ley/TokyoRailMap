@@ -10,10 +10,11 @@
  *
  * Logo：
  * - companyLogoMap: { [companyName]: string }  // 你手动维护
- * - logoBasePath: './companyLogos/'
+ * - logoBasePath: COMPANY_LOGO_BASE_PATH
  */
 
 import { createLineIconElement, ensureLineIconForRwLineContent } from './line-icons.js';
+import { COMPANY_LOGO_BASE_PATH, getCompanyLogoCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from './fetch.js';
 import {
     MENU_THROUGH_LINE_IDS,
     THROUGH_SERVICE_DISPLAY
@@ -31,7 +32,7 @@ export class Menu {
         hoverDelayMs = 500,
         exitGraceMs = 500,
         companyLogoMap = {},
-        logoBasePath = './companyLogos/',
+        logoBasePath = COMPANY_LOGO_BASE_PATH,
         railwaysOrderIndex = null
     }) {
         this.companyObj = companyObj;
@@ -547,7 +548,11 @@ export class Menu {
                 const img = document.createElement('img');
                 img.className = 'RW-company-logo';
                 img.alt = companyName;
-                img.src = `${this.logoBasePath}${logoFile}`;
+                const candidates = getCompanyLogoCandidates(logoFile);
+                setImageElementFromCache(img, candidates, {
+                    cacheKey: `companyLogo:${logoFile}`,
+                    fallbackSrc: getPreferredCachedImageSrc(candidates, { cacheKey: `companyLogo:${logoFile}` })
+                }).catch(() => null);
                 img.style.width = `${logoWidth}px`;
                 rightEl = img;
             } else {

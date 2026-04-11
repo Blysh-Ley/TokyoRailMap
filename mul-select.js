@@ -31,15 +31,45 @@
         }
     };
 
-    const setImgWithFallback = (img, candidates) => {
-        const list = Array.isArray(candidates) ? candidates.slice() : [];
-        if (!img || !list.length) return;
-        let idx = 0;
-        img.src = list[idx];
-        img.addEventListener('error', () => {
-            idx += 1;
-            if (idx < list.length) img.src = list[idx];
-        });
+    const setIconFromCache = (img, iconFile) => {
+        const file = String(iconFile ?? '').trim();
+        if (!(img instanceof HTMLImageElement) || !file) return;
+
+        const apply = () => {
+            const api = window?.TokyoRailFetchCache;
+            if (!api) return false;
+
+            const getIconCandidates = typeof api.getIconCandidates === 'function' ? api.getIconCandidates : null;
+            const getPreferredCachedImageSrc = typeof api.getPreferredCachedImageSrc === 'function'
+                ? api.getPreferredCachedImageSrc
+                : null;
+            const setImageElementFromCache = typeof api.setImageElementFromCache === 'function'
+                ? api.setImageElementFromCache
+                : null;
+
+            if (!getIconCandidates || !getPreferredCachedImageSrc) return false;
+
+            const candidates = getIconCandidates(file);
+            if (!Array.isArray(candidates) || !candidates.length) return false;
+
+            const cacheKey = `icon:${file}`;
+            const preferred = getPreferredCachedImageSrc(candidates, { cacheKey }) || '';
+            if (preferred) img.src = preferred;
+
+            if (setImageElementFromCache) {
+                setImageElementFromCache(img, candidates, {
+                    cacheKey,
+                    fallbackSrc: preferred || candidates[0] || ''
+                }).catch(() => null);
+            }
+
+            return true;
+        };
+
+        if (apply()) return;
+        window.addEventListener('__TokyoRailFetchCacheReady', () => {
+            apply();
+        }, { once: true });
     };
 
     const sendLayerCommand = (action, id) => {
@@ -100,7 +130,7 @@
         const icon = document.createElement('img');
         icon.className = 'ms-fab-icon';
         icon.alt = '';
-        setImgWithFallback(icon, ['./icons/mul-select.svg', '/icons/mul-select.svg']);
+        setIconFromCache(icon, 'mul-select.svg');
 
         fab.appendChild(icon);
 
@@ -122,7 +152,7 @@
         const showIconBtnIcon = document.createElement('img');
         showIconBtnIcon.className = 'ms-show-icon-btn-icon';
         showIconBtnIcon.alt = '';
-        setImgWithFallback(showIconBtnIcon, ['./icons/eye.svg', '/icons/eye.svg']);
+        setIconFromCache(showIconBtnIcon, 'eye.svg');
         showIconBtn.appendChild(showIconBtnIcon);
 
         const showIconBtnText = document.createElement('span');
@@ -198,9 +228,9 @@
             toggleIcon.className = 'ms-layer-btn-icon';
             toggleIcon.alt = '';
             if (item?.visible === false) {
-                setImgWithFallback(toggleIcon, ['./icons/eye-slash.svg', '/icons/eye-slash.svg']);
+                setIconFromCache(toggleIcon, 'eye-slash.svg');
             } else {
-                setImgWithFallback(toggleIcon, ['./icons/eye.svg', '/icons/eye.svg']);
+                setIconFromCache(toggleIcon, 'eye.svg');
             }
             toggleBtn.appendChild(toggleIcon);
 
@@ -213,7 +243,7 @@
             const branchIcon = document.createElement('img');
             branchIcon.className = 'ms-layer-btn-icon';
             branchIcon.alt = '';
-            setImgWithFallback(branchIcon, ['./icons/lr.svg', '/icons/lr.svg']);
+            setIconFromCache(branchIcon, 'lr.svg');
             branchBtn.appendChild(branchIcon);
             branchBtn.style.display = item?.branchToggleSupported ? '' : 'none';
 
@@ -240,7 +270,7 @@
             const removeIcon = document.createElement('img');
             removeIcon.className = 'ms-layer-btn-icon';
             removeIcon.alt = '';
-            setImgWithFallback(removeIcon, ['./icons/x.svg', '/icons/x.svg']);
+            setIconFromCache(removeIcon, 'x.svg');
             removeBtn.appendChild(removeIcon);
 
             toggleBtn.addEventListener('click', (evt) => {
@@ -311,9 +341,7 @@
         const updateShowIconBtnState = () => {
             showIconBtn.classList.toggle('is-active', showIcons === true);
             showIconBtn.setAttribute('aria-label', showIcons ? '隐藏线路色块与种别圆圈' : '显示线路色块与种别圆圈');
-            setImgWithFallback(showIconBtnIcon, showIcons
-                ? ['./icons/eye.svg', '/icons/eye.svg']
-                : ['./icons/eye-slash.svg', '/icons/eye-slash.svg']);
+            setIconFromCache(showIconBtnIcon, showIcons ? 'eye.svg' : 'eye-slash.svg');
         };
 
         root.addEventListener('mouseenter', () => {

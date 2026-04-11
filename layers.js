@@ -2,7 +2,7 @@
  * 添加线路图层。
  */
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
-import { getCachedJson } from './fetch.js';
+import { getCachedJson, getCompanyLogoSrc } from './fetch.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
 import {
     ELEMENT_UI_CONSTANTS,
@@ -144,17 +144,7 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
         const companyDisplay = companyZh || company || '未知公司';
         const lineColor = String((isDarkThemeActive() ? (props?._dark_color ?? props?.color) : props?.color) ?? '').trim();
 
-        const logoFile = companyLogoMap?.[company]?.img?.[0] || null;
-        const logoBase = (() => {
-            try {
-                return window.TokyoRailCompanyLogoBasePath || './companyLogos/';
-            } catch {
-                return './companyLogos/';
-            }
-        })();
-        const logoSrc = logoFile
-            ? (String(logoBase).endsWith('/') ? `${logoBase}${logoFile}` : `${logoBase}/${logoFile}`)
-            : null;
+        const logoSrc = getCompanyLogoSrc(company, companyLogoMap) || null;
         const logoHtml = logoSrc
             ? `<img class="station-hover-company-logo" src="${escapeHtml(logoSrc)}" alt="" />`
             : '';
@@ -915,17 +905,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
             const companyZh = companyLogoMap?.[company]?.zh || null;
             const companyDisplay = String(companyZh || company);
 
-            const logoFile = companyLogoMap?.[company]?.img?.[0] || null;
-            const logoBase = (() => {
-                try {
-                    return window.TokyoRailCompanyLogoBasePath || './companyLogos/';
-                } catch {
-                    return './companyLogos/';
-                }
-            })();
-            const logoSrc = logoFile
-                ? (String(logoBase).endsWith('/') ? `${logoBase}${logoFile}` : `${logoBase}/${logoFile}`)
-                : null;
+            const logoSrc = getCompanyLogoSrc(company, companyLogoMap) || null;
             const logoHtml = logoSrc
                 ? `<img class="station-hover-company-logo" src="${escapeHtml(logoSrc)}" alt="" />`
                 : '';

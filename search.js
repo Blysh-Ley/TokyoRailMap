@@ -7,7 +7,7 @@
 import { loadRailGeoDataFromDataFolder } from './data.js';
 import { createLineIconElement, getRoutesIndex, resolveMainLineIdForIcon } from './line-icons.js';
 import { resolveLineColorForTheme } from './line-icons.js';
-import { getCachedJson } from './fetch.js';
+import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from './fetch.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -110,12 +110,8 @@ const matchScore = (haystack, tokens) => {
 
 const getCompanyLogoUrl = (companyId) => {
     const map = window.TokyoRailCompanyLogoMap || {};
-    const base = window.TokyoRailCompanyLogoBasePath || './companyLogos/';
-    const meta = map?.[companyId];
-    const file = meta?.img?.[0];
-    if (!file) return null;
-    // base 可能是 './companyLogos/' 或 '/companyLogos/'
-    return String(base).endsWith('/') ? `${base}${file}` : `${base}/${file}`;
+    const src = getCompanyLogoSrc(companyId, map);
+    return src || null;
 };
 
 // ===== railways.json 多语言 title（用于线路搜索） =====
@@ -635,19 +631,10 @@ export function mountSearchUI() {
 
     const fab = el('button', 'search-fab', { type: 'button', 'aria-label': '搜索' });
     const fabIcon = el('img', 'search-fab-icon', { alt: '' });
-    // GitHub Pages 往往部署在子路径（例如 /TokyoRailMap/），因此优先使用相对路径
-    // 同时保留“域名根目录”部署的兜底
-    {
-        const candidates = ['./icons/search.svg', '/icons/search.svg'];
-        let idx = 0;
-        fabIcon.src = candidates[idx];
-        fabIcon.addEventListener('error', () => {
-            idx += 1;
-            if (idx < candidates.length) {
-                fabIcon.src = candidates[idx];
-            }
-        });
-    }
+    setImageElementFromCache(fabIcon, getIconCandidates('search.svg'), {
+        cacheKey: 'icon:search.svg',
+        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('search.svg'), { cacheKey: 'icon:search.svg' })
+    }).catch(() => null);
     fab.appendChild(fabIcon);
 
     const bar = el('div', 'search-bar');
