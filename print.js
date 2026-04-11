@@ -389,22 +389,41 @@
 
     // ---- station id -> name index ----
     let stationsIndexPromise = null;
-    const getStationNameById = async () => {
+    const getStationNameById = async (mapForSource = null) => {
         if (stationsIndexPromise) return stationsIndexPromise;
         stationsIndexPromise = (async () => {
+            const out = new Map();
+
+            // 优先复用主地图 stations-source：与 app.js 的站名来源保持一致。
+            try {
+                const baseMap = window.__TokyoRailMap || mapForSource;
+                const stationsFc = baseMap ? await getGeoJsonSourceData(baseMap, 'stations-source') : null;
+                for (const f of Array.isArray(stationsFc?.features) ? stationsFc.features : []) {
+                    const props = f?.properties || {};
+                    const id = String(props?.id ?? f?.id ?? '').trim();
+                    if (!id) continue;
+                    const name = String(props?.name_zh || props?.name || '').trim();
+                    if (name) out.set(id, name);
+                }
+            } catch {
+                // ignore
+            }
+
+            if (out.size) return out;
+
             try {
                 const list = await getCachedJsonSafe('./data/stations.json');
-                const map = new Map();
                 for (const s of Array.isArray(list) ? list : []) {
                     const id = String(s?.id ?? '').trim();
                     if (!id) continue;
                     const t = s?.title || {};
-                    const name = String(t['zh-Hans'] || t.zh || t.ja || t.en || '').trim();
-                    if (name) map.set(id, name);
+                    // 与 app.js/data.js 一致：zh-Hans -> zh -> en -> ja
+                    const name = String(t['zh-Hans'] || t.zh || t.en || t.ja || '').trim();
+                    if (name) out.set(id, name);
                 }
-                return map;
+                return out;
             } catch {
-                return new Map();
+                return out;
             }
         })();
         return stationsIndexPromise;
@@ -536,6 +555,17 @@
     const labelFill = () => (isDarkTheme() ? '#f2f2f2' : '#111');
     const stationLabelBoxFill = () => (isDarkTheme() ? 'rgba(24, 26, 31, 0.88)' : 'rgba(255, 255, 255, 0.8)');
     const stationLabelBoxStroke = () => (isDarkTheme() ? 'rgba(210, 216, 226, 0.35)' : 'rgba(0, 0, 0, 0.2)');
+
+    const resolveStationDisplayName = ({ props, stationId, stationNameById }) => {
+        const fromProps = toText(props?.name_zh) || toText(props?.name);
+        if (fromProps) return fromProps;
+
+        const sid = toText(stationId);
+        if (!sid) return '';
+
+        const fromIndex = toText(stationNameById?.get?.(sid));
+        return fromIndex || sid;
+    };
 
     const getThemeCapsuleColors = () => {
         const isDark = isDarkTheme();
@@ -712,7 +742,7 @@
         const z = (typeof map.getZoom === 'function') ? map.getZoom() : 14;
         const stationStyleContext = await getStationStyleContext(map);
 
-        const stationNameById = await getStationNameById();
+        const stationNameById = await getStationNameById(map);
 
         const lineFc = built?.lineFc;
         const stopFc = built?.stopFc;
@@ -843,17 +873,17 @@
 
                 const candidates = [];
                 for (const f of stopFeatures) {
-                    const sid = String(f?.properties?.id || '').trim();
+                    const props = f?.properties || {};
+                    const sid = String(props?.id || '').trim();
                     if (!sid) continue;
                     const geom = f?.geometry;
                     if (!geom || geom.type !== 'Point') continue;
                     const c = geom.coordinates;
                     if (!Array.isArray(c) || c.length < 2) continue;
 
-                    const name = stationNameById.get(sid) || sid;
+                    const name = resolveStationDisplayName({ props, stationId: sid, stationNameById });
                     if (!name) continue;
-                    const servingCount = Number(f?.properties?.serving_count ?? 1);
-                    const r = radiusForStop(z, servingCount);
+                    const servingCount = Number(props?.serving_count ?? 1);
                     const textW = measureTextWidthPx(name, font);
 
                     candidates.push({
@@ -865,7 +895,7 @@
                         font,
                         widthPx: textW + 8,
                         heightPx: Math.ceil(fontPx * 1.2 + 2),
-                        labelDyPx: r + 6
+                        labelDyPx: servingCount > 1 ? 6 : 3
                     });
                 }
 
@@ -2091,7 +2121,7 @@
 
         const z = (typeof map.getZoom === 'function') ? map.getZoom() : 14;
         const stationStyleContext = await getStationStyleContext(map);
-        const stationNameById = await getStationNameById();
+        const stationNameById = await getStationNameById(map);
 
         const bg = isDarkTheme() ? '#000' : '#fff';
         const title = kind ? `base highlight: ${String(kind)}` : 'base highlight';
@@ -2202,10 +2232,9 @@
                         const c = g.coordinates;
                         if (!Array.isArray(c) || c.length < 2) continue;
 
-                        const name = stationNameById.get(sid) || sid;
+                        const name = resolveStationDisplayName({ props, stationId: sid, stationNameById });
                         if (!name) continue;
                         const sc = stationServingCount(props);
-                        const r = radiusForStop(z, sc);
                         const textW = measureTextWidthPx(name, font);
 
                         candidates.push({
@@ -2217,7 +2246,7 @@
                             font,
                             widthPx: textW + 8,
                             heightPx: Math.ceil(fontPx * 1.2 + 2),
-                            labelDyPx: r + 6
+                            labelDyPx: sc > 1 ? 6 : 3
                         });
                     }
 

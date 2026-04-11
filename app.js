@@ -59,6 +59,7 @@ const MULTI_SELECT_LAYERS_EVENT = '__TokyoRailMultiSelectLayersUpdated';
 const MULTI_SELECT_LAYERS_COMMAND_EVENT = '__TokyoRailMultiSelectLayersCommand';
 const MULTI_SELECT_SHOW_ICONS_EVENT = '__TokyoRailMultiSelectShowIconsChanged';
 const HOVER_PREVIEW_MIN_ZOOM = 10;
+let pendingTransferCapsuleRefreshAfterCollision;
 const getSystemTheme = () => (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
 const readAppearanceMode = () => {
     try {
