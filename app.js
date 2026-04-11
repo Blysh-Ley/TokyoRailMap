@@ -341,7 +341,7 @@ map.on('load', async () => {
     let selectedStationId = null; // 点击站点高亮时，仅高亮该站点
     let selectedServiceMode = 'all';
     let isolateStationsToSelectedLine = false; // 仅用于“popup 提交线路”：隐藏非该线路站点
-    let stationLabelMode = 'auto'; // 'off' | 'auto' | 'all'
+    let stationLabelMode = 'auto'; // 'off' | 'auto' | 'all'（仅用户在设置中手动修改）
     let setStationLabelMode = (_mode) => false;
     // mode: 'preview' | 'commit'
     let fitToCurrentSelection = (_triggerKey, _mode = 'preview') => {};
@@ -2841,30 +2841,37 @@ map.on('load', async () => {
         };
 
         const setMode = (mode) => {
-            stationLabelMode = mode;
+            const next = mode === 'off' || mode === 'all' ? mode : 'auto';
+            if (stationLabelMode === next) return false;
+            stationLabelMode = next;
             setActive();
-        };
-
-        setStationLabelMode = (mode) => {
-            if (stationLabelMode === mode) return false;
-            setMode(mode);
             return true;
         };
 
+        // 程序内的自动联动不再改动站名显示模式；仅允许用户在设置面板手动切换。
+        setStationLabelMode = (mode, options = {}) => {
+            if (options?.fromUser !== true) return false;
+            return setMode(mode);
+        };
+
         btnOff.addEventListener('click', () => {
-            setMode('off');
-            if (collisionController) collisionController.scheduleUpdate();
+            if (setStationLabelMode('off', { fromUser: true })) {
+                if (collisionController) collisionController.scheduleUpdate();
+            }
         });
         btnAuto.addEventListener('click', () => {
-            setMode('auto');
-            if (collisionController) collisionController.scheduleUpdate();
+            if (setStationLabelMode('auto', { fromUser: true })) {
+                if (collisionController) collisionController.scheduleUpdate();
+            }
         });
         btnAll.addEventListener('click', () => {
-            setMode('all');
-            if (collisionController) collisionController.scheduleUpdate();
+            if (setStationLabelMode('all', { fromUser: true })) {
+                if (collisionController) collisionController.scheduleUpdate();
+            }
         });
 
-        setMode('auto');
+        // 尊重当前模式，不在挂载时强制改回 auto。
+        setActive();
     }
 
     function mountAppearanceToggle(hostEl) {
