@@ -482,11 +482,7 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                         background-size: 12px 100% !important;
                     }
                     html.${EXPORT_CLASS} .route-map-through-branch {
-                        left: 0% !important;
-                    }
-                    html.${EXPORT_CLASS} .route-map-through-branch.is-single-branch {
-                        left: var(--single-branch-left, 120%) !important;
-                        top: var(--single-branch-y-offsetY, 50%) !important;
+                        left: calc(0px + var(--branch-start-offset, 0px)) !important;
                     }
 
                 `;
@@ -791,20 +787,20 @@ const ensureStyleInstalled = () => {
         .route-map-through-branch {
             position: absolute;
             top: 0;
-            left: 10%;
-            width: var(--through-line-width, 14px);
-            height: 5px;
+            left: calc(10% + var(--branch-start-offset, 0px));
+            width: var(--branch-total-width, var(--through-line-width, 14px));
+            height: var(--through-branch-height, 5px);
             border-radius: 0;
-            background: var(--branch-color, var(--tt-color, #888));
             transform: translate(0, calc(var(--branch-top-y, 15px) - var(--through-row-translate-y, 0px)));
             pointer-events: none;
             z-index: 999;
+            overflow: visible;
         }
-        .route-map-through-branch.is-single-branch {
-            left: var(--single-branch-left, 120%);
-            top: var(--single-branch-y-offsetY, 50%);
-            transform: translate(-50%, -50%) rotate(var(--single-branch-rotate, 0deg));
-            transform-origin: center center;
+        .route-map-through-branch-svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+            overflow: visible;
         }
         .route-map-station.is-through-label {
             font-size: 12px;
@@ -814,7 +810,7 @@ const ensureStyleInstalled = () => {
             white-space: normal;
             overflow-x: hidden;
             overflow-y: visible;
-            padding-left:20px;
+            padding-left:30px;
         }
         .route-map-through-prefix {
             color: var(--ui-text-subtle, #666);
@@ -1598,7 +1594,9 @@ const setupRouteMapUi = () => {
                 : (isBottomThrough ? false : (directionScore > 0));
 
             const THROUGH_BRANCH_HEIGHT_PX = 5;
-            const THROUGH_BRANCH_HALF_HEIGHT_PX = THROUGH_BRANCH_HEIGHT_PX / 2;
+            const THROUGH_BRANCH_TURN_PX = 12;
+            const THROUGH_BRANCH_ELBOW_HEIGHT_PX = THROUGH_BRANCH_HEIGHT_PX + THROUGH_BRANCH_TURN_PX * 2;
+            const THROUGH_BRANCH_HEAD_OFFSET_PX = 4.8;
             const THROUGH_ROW_CENTER_Y_PX = 25;
             const THROUGH_ROW_SEAM_FUDGE_PX = 0.5;
             const resolveDirectionSign = () => {
@@ -1615,6 +1613,22 @@ const setupRouteMapUi = () => {
                 const isStartBoundary = Number.isFinite(firstStopIndex) && firstStopIndex === (si + 1);
                 const isEndBoundary = Number.isFinite(lastStopIndex) && lastStopIndex === si;
                 return isStartBoundary || isEndBoundary;
+            };
+
+            const buildRoundedBranchSvg = (branchWidth, direction) => {
+                const w = Math.max(4, Number(branchWidth) || 0);
+                const stroke = THROUGH_BRANCH_HEIGHT_PX;
+                const maxTurnByWidth = Math.max(1, Math.floor(w - stroke - 2));
+                const turn = Math.max(1, Math.min(THROUGH_BRANCH_TURN_PX, maxTurnByWidth));
+                const h = stroke + turn * 2;
+                const startX = stroke / 2;
+                const centerY = h / 2;
+                const targetY = direction === 'up' ? (centerY - turn) : (centerY + turn);
+                const elbowX = startX + turn;
+                const endX = Math.max(elbowX + 1, w - stroke / 2);
+                const sweep = direction === 'up' ? 1 : 0;
+                const d = `M ${startX} ${centerY} A ${turn} ${turn} 0 0 ${sweep} ${elbowX} ${targetY} L ${endX} ${targetY}`;
+                return `<svg class="route-map-through-branch-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" fill="none" stroke="var(--branch-color, var(--tt-color, #888))" stroke-width="${stroke}" stroke-linejoin="round" stroke-linecap="butt"></path></svg>`;
             };
 
             const activeTypeRows = [];
@@ -1671,7 +1685,7 @@ const setupRouteMapUi = () => {
                 const activeIdx = activeIndexByTi.get(ti);
                 const branchCenterY = THROUGH_ROW_CENTER_Y_PX
                     + (activeIdx - (activeCount - 1) / 2) * THROUGH_BRANCH_HEIGHT_PX;
-                const branchTopY = branchCenterY - THROUGH_BRANCH_HALF_HEIGHT_PX;
+                const elbowTopY = branchCenterY - (THROUGH_BRANCH_ELBOW_HEIGHT_PX / 2);
                 const remainingCols = Math.max(0, types.length - ti - 1);
                 const throughWidth = remainingCols * (12 + 1) + 26;
                 const z = (types.length - ti) + 1;
@@ -1691,19 +1705,18 @@ const setupRouteMapUi = () => {
                         }
                         return `${y.toFixed(2)}px`;
                     })();
-                const hasSingleBranchInGap = activeCount === 1;
-                const isCurrentTypeBoundary = endpointOrder > 0;
-                const enableSingleBranchRotate = hasSingleBranchInGap && !isCurrentTypeBoundary;
-                const singleRotateDeg = shouldReverseBranchOrder ? -20 : 20;
-                const singleYoffset = shouldReverseBranchOrder ? '60%' : '40%';
-                const branchCls = enableSingleBranchRotate
-                    ? 'route-map-through-branch is-single-branch'
-                    : 'route-map-through-branch';
-                const branchStyle = enableSingleBranchRotate
-                    ? `--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;--single-branch-rotate:${singleRotateDeg}deg;--single-branch-left:${throughWidth.toFixed(2)/2 + 3}px;--single-branch-y-offsetY:${singleYoffset}`
-
-                    : `--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;--branch-top-y:${branchTopY.toFixed(2)}px;`;
-                const branches = `<span class="${branchCls}" style="${branchStyle}"></span>`;
+                const branchDirection = directionSign > 0 ? 'up' : 'down';
+                const renderedWidth = throughWidth + THROUGH_BRANCH_HEAD_OFFSET_PX;
+                const branchInner = buildRoundedBranchSvg(renderedWidth, branchDirection);
+                const isLineBoundaryGap = si === -1 || isBottomThrough;
+                const isTypeBoundaryGap = isTypeAtOwnBoundary(t);
+                const branchOffsets = (isLineBoundaryGap || isTypeBoundaryGap)
+                    ? [0, THROUGH_BRANCH_HEAD_OFFSET_PX]
+                    : [THROUGH_BRANCH_HEAD_OFFSET_PX];
+                const branches = branchOffsets.map((offset) => {
+                    const branchStyle = `--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;--branch-total-width:${renderedWidth.toFixed(2)}px;--branch-start-offset:${Number(offset).toFixed(1)}px;--through-branch-height:${THROUGH_BRANCH_ELBOW_HEIGHT_PX}px;--branch-top-y:${elbowTopY.toFixed(2)}px;`;
+                    return `<span class="route-map-through-branch" style="${branchStyle}">${branchInner}</span>`;
+                }).join('');
 
                 rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)};--through-row-translate-y:${throughRowTranslateY};--through-z:${z}">${branches}</div>`);
             }
@@ -1727,9 +1740,10 @@ const setupRouteMapUi = () => {
             }).join('');
 
             const labelHtml = throughItems
-                ? `<span class="route-map-through-prefix">直通：</span><span class="route-map-through-items">${throughItems}</span>`
+                ? `<span class="route-map-through-items">${throughItems}</span>`
                 : '';
-            rows.push(`<div class="route-map-station is-through-label">${labelHtml}</div>`);
+            const throughLabelShiftY = directionSign > 0 ? -THROUGH_BRANCH_TURN_PX : THROUGH_BRANCH_TURN_PX;
+            rows.push(`<div class="route-map-station is-through-label" style="transform:translateY(${throughLabelShiftY}px)">${labelHtml}</div>`);
         };
 
         // before first station
