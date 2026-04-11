@@ -3,7 +3,7 @@
  * 约束：不引入新配色/主题；panel 样式使用 panel-* 前缀与 search/popup/menu 隔离。
  */
 
-import { sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
+import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
 import { buildTripPreviewKey, createTripPreviewScheduler } from './trip-preview.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, resolveMainLineIdForIcon } from './line-icons.js';
 import {
@@ -101,21 +101,32 @@ const enhancePanelLineHeaderIcons = async (rootEl) => {
             }
         }
 
+        const stationInfoLeftEl = lineEl?.querySelector?.('.panel-station-info-left') || null;
+
+        const suffixInNameEl = nameEl.querySelector('.panel-line-name-suffix');
+        if (suffixInNameEl && stationInfoLeftEl) {
+            stationInfoLeftEl.appendChild(suffixInNameEl);
+        }
+
         const stationCode = toText(nameEl.getAttribute('data-transfer-station-code'));
-        if (!stationCode || nameEl.querySelector('.rw-station-code-badge')) continue;
+        if (!stationCode) continue;
+
+        const stationInfoHostEl = stationInfoLeftEl || nameEl;
+        if (stationInfoHostEl.querySelector('.rw-station-code-badge')) continue;
 
         const stationBadge = createStationCodeBadgeElement({ code: stationCode, color: meta.color });
         if (!stationBadge) continue;
-        stationBadge.style.marginLeft = '6px';
-        stationBadge.style.marginRight = '4px';
+        stationBadge.style.marginLeft = '0';
+        stationBadge.style.marginRight = '0';
         stationBadge.style.verticalAlign = 'middle';
-        stationBadge.style.transform = 'translateY(-2px)';
+        stationBadge.style.transform = 'none';
 
-        const suffixEl = nameEl.querySelector('.panel-line-name-suffix');
-        if (suffixEl) nameEl.insertBefore(stationBadge, suffixEl);
+        const suffixEl = stationInfoHostEl.querySelector('.panel-line-name-suffix');
+        if (suffixEl) stationInfoHostEl.insertBefore(stationBadge, suffixEl);
         else {
             const mainEl = nameEl.querySelector('.panel-line-name-main');
-            if (mainEl && mainEl.nextSibling) nameEl.insertBefore(stationBadge, mainEl.nextSibling);
+            if (stationInfoHostEl !== nameEl) stationInfoHostEl.prepend(stationBadge);
+            else if (mainEl && mainEl.nextSibling) nameEl.insertBefore(stationBadge, mainEl.nextSibling);
             else nameEl.appendChild(stationBadge);
         }
     }
@@ -803,7 +814,11 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
             linesHtml += `
                 <div class="panel-line"${idAttr}${style}>
                     <div class="panel-line-header">
-                        <span class="panel-line-name" data-line-name="${escapeHtml(line.displayName)}"${transferCodeAttr}><span class="panel-line-name-main">${escapeHtml(line.displayName)}</span>${suffixHtml}</span>
+                        <span class="panel-line-name" data-line-name="${escapeHtml(line.displayName)}"${transferCodeAttr}><span class="panel-line-name-main">${escapeHtml(line.displayName)}</span></span>
+                    </div>
+                    <div class="panel-station-info" data-station-info="1">
+                        <span class="panel-station-info-left">${suffixHtml}</span>
+                        <span class="panel-station-info-types" data-station-type-summary="1"></span>
                     </div>
                     <div class="panel-timetable-root" data-timetable-root="1"></div>
                 </div>
@@ -1717,6 +1732,47 @@ export function createPanel(options = {}) {
     const NO_MARK_TYPE_NAMES = new Set(['各站停车', '普通']);
 
     const isNoMarkTypeName = (typeNameRaw) => NO_MARK_TYPE_NAMES.has(toText(typeNameRaw));
+
+    const resolveTypeBaseName = (typeNameRaw) => {
+        const typeName = toText(typeNameRaw);
+        if (!typeName) return '';
+        for (const base of TYPE_BASE_SEQUENCE) {
+            if (typeName.includes(base)) return base;
+        }
+        return '';
+    };
+
+    const buildStationTypeSummaryItems = ({
+        allTypeColorByName,
+        stopTypeColorByName,
+        stopTypeNameSet,
+        typeCountByName,
+        typeStopCountByName
+    }) => {
+        const allColorMap = allTypeColorByName instanceof Map ? allTypeColorByName : new Map();
+        const stopColorMap = stopTypeColorByName instanceof Map ? stopTypeColorByName : new Map();
+        const stopSet = stopTypeNameSet instanceof Set ? stopTypeNameSet : new Set();
+        const countMap = typeCountByName instanceof Map ? typeCountByName : new Map();
+        const stopCountMap = typeStopCountByName instanceof Map ? typeStopCountByName : new Map();
+
+        const typeNames = sortTypeNamesByBaseAndStopCount(Array.from(allColorMap.keys()), countMap, stopCountMap);
+        const stopFallbackColor = panelIsDarkThemeActive() ? '#fff' : '#111';
+
+        const out = [];
+        for (const typeName of typeNames) {
+            const name = toText(typeName);
+            if (!name) continue;
+            const isStop = stopSet.has(name);
+            out.push({
+                name,
+                isStop,
+                color: isStop
+                    ? (toText(stopColorMap.get(name)) || toText(allColorMap.get(name)) || stopFallbackColor)
+                    : ''
+            });
+        }
+        return out;
+    };
 
     const buildTerminalDisplayLabel = (names) => {
         const list = Array.isArray(names)
@@ -3034,7 +3090,12 @@ export function createPanel(options = {}) {
                 .map((x) => toText(x))
                 .filter(Boolean)
         ));
-        if (!mergedSourceLineIds.length) return '';
+        if (!mergedSourceLineIds.length) {
+            return {
+                html: '',
+                stationInfo: { typeItems: [] }
+            };
+        }
 
         const sourceDatas = await Promise.all(mergedSourceLineIds.map(async (sourceLineId) => {
             const [resolvedStationId, data] = await Promise.all([
@@ -3049,12 +3110,22 @@ export function createPanel(options = {}) {
             };
         }));
 
-        if (!sourceDatas.some((x) => x.stationKey && x.list.length)) return '';
+        if (!sourceDatas.some((x) => x.stationKey && x.list.length)) {
+            return {
+                html: '',
+                stationInfo: { typeItems: [] }
+            };
+        }
 
         const now = getDisplayNowMs();
         const serviceDayStartMs = getServiceDayStartMs(new Date(now));
         const rows = [];
         const throughDirectionCache = new Map();
+        const allTypeColorByName = new Map();
+        const stopTypeColorByName = new Map();
+        const stopTypeNameSet = new Set();
+        const typeCountByName = new Map();
+        const typeStopCountByName = new Map();
 
         // Resolve pt/nt refs to get missing arrival/departure times.
 
@@ -3073,10 +3144,38 @@ export function createPanel(options = {}) {
                 const tripServiceDay = parseTripServiceDayFromId(tripId);
                 if (tripServiceDay && tripServiceDay !== currentServiceDay) continue;
 
+                const typeId = toText(trip?.y);
+                const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
+                const typeColor = typeId ? resolveTrainTypeColorForTheme(trainTypeColorIndex.get(typeId)) : '';
+                const typeBaseName = resolveTypeBaseName(typeName);
+                if (typeBaseName) {
+                    typeCountByName.set(typeName, (Number(typeCountByName.get(typeName) || 0)) + 1);
+                    if (!allTypeColorByName.has(typeName)) {
+                        allTypeColorByName.set(typeName, toText(typeColor));
+                    }
+                }
+
                 const tt = Array.isArray(trip?.tt) ? trip.tt : [];
                 if (!tt.length) continue;
+                if (typeBaseName) {
+                    const stopCount = Number(tt.length);
+                    if (Number.isFinite(stopCount) && stopCount > 0) {
+                        const prev = Number(typeStopCountByName.get(typeName));
+                        typeStopCountByName.set(
+                            typeName,
+                            Number.isFinite(prev) ? Math.min(prev, stopCount) : stopCount
+                        );
+                    }
+                }
                 const stop = tt.find((x) => toText(x?.s) === stationKey);
                 if (!stop) continue;
+
+                if (typeBaseName) {
+                    stopTypeNameSet.add(typeName);
+                    if (!stopTypeColorByName.has(typeName) && toText(typeColor)) {
+                        stopTypeColorByName.set(typeName, toText(typeColor));
+                    }
+                }
 
                 let arr = toText(stop?.a);
                 let dep = toText(stop?.d);
@@ -3160,9 +3259,6 @@ export function createPanel(options = {}) {
                 return out.length ? out : (destName ? [destName] : []);
             })();
 
-            const typeId = toText(trip?.y);
-            const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
-            const typeColor = typeId ? resolveTrainTypeColorForTheme(trainTypeColorIndex.get(typeId)) : '';
             const specialNames = await collectTripSpecialNames(trip);
 
             const tripKey = tripId || toText(trip?.t) || '';
@@ -3210,7 +3306,22 @@ export function createPanel(options = {}) {
             }
         }
 
-        if (!rows.length) return '';
+        const stationTypeSummaryItems = buildStationTypeSummaryItems({
+            allTypeColorByName,
+            stopTypeColorByName,
+            stopTypeNameSet,
+            typeCountByName,
+            typeStopCountByName
+        });
+
+        if (!rows.length) {
+            return {
+                html: '',
+                stationInfo: {
+                    typeItems: stationTypeSummaryItems
+                }
+            };
+        }
 
         // 去重：同一物理班次在同一站点可能被拆成多个记录（如 *.Weekday.1 / *.Weekday.2），
         // 且种别 y 可能不同，导致 UI 同一时刻出现“多条不同种别”。
@@ -3645,7 +3756,49 @@ export function createPanel(options = {}) {
             directions: directionDebug
         });
 
-        return html;
+        return {
+            html,
+            stationInfo: {
+                typeItems: stationTypeSummaryItems
+            }
+        };
+    };
+
+    const applyLineStationInfo = (lineEl, stationInfo) => {
+        if (!(lineEl instanceof Element)) return;
+        const infoEl = lineEl.querySelector('[data-station-info]');
+        if (!(infoEl instanceof Element)) return;
+        const infoLeftEl = infoEl.querySelector('.panel-station-info-left');
+        const typesEl = infoEl.querySelector('[data-station-type-summary]');
+        if (!(typesEl instanceof Element)) return;
+
+        const hasBadge = !!infoLeftEl?.querySelector?.('.rw-station-code-badge');
+        const hasSuffix = !!infoLeftEl?.querySelector?.('.panel-line-name-suffix');
+        infoEl.classList.toggle('is-badge-only-no-suffix', hasBadge && !hasSuffix);
+
+        const typeItems = Array.isArray(stationInfo?.typeItems)
+            ? stationInfo.typeItems
+                .map((item) => ({
+                    name: toText(item?.name),
+                    isStop: item?.isStop === true,
+                    color: toText(item?.color)
+                }))
+                .filter((item) => item.name)
+            : [];
+
+        if (!typeItems.length) {
+            typesEl.innerHTML = '';
+            return;
+        }
+
+        const html = typeItems.map((item, idx) => {
+            const cls = item.isStop ? 'panel-station-info-type is-stop' : 'panel-station-info-type is-pass';
+            const style = item.isStop && item.color ? ` style="color:${escapeHtml(item.color)}"` : '';
+            const sep = idx < typeItems.length - 1 ? '<span class="panel-station-info-type-sep">/</span>' : '';
+            return `<span class="${cls}"${style}>${escapeHtml(item.name)}</span>${sep}`;
+        }).join('');
+
+        typesEl.innerHTML = html;
     };
 
     const renderTimetableForLineEl = async (lineEl, stationId, token) => {
@@ -3673,7 +3826,7 @@ export function createPanel(options = {}) {
             : toText(stationId);
         if (token !== timetableRenderToken) return;
 
-        const html = await buildTimetableRowsHtml({
+        const rendered = await buildTimetableRowsHtml({
             lineId,
             stationId: resolvedStationId || stationId,
             sourceLineIds,
@@ -3681,7 +3834,8 @@ export function createPanel(options = {}) {
         });
 
         if (token !== timetableRenderToken) return;
-        ttEl.innerHTML = html;
+        ttEl.innerHTML = toText(rendered?.html) || '';
+        applyLineStationInfo(lineEl, rendered?.stationInfo || null);
 
         try {
             const icons = Array.from(ttEl.querySelectorAll('.panel-dir-filter-icon'));

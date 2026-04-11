@@ -1411,6 +1411,71 @@
             margin-left: 2px;
         }
 
+        .panel-station-info {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            width: 100%;
+            margin-top: 2px;
+            margin-bottom: 2px;
+            min-height: 20px;
+            overflow: hidden;
+            white-space: nowrap;
+            font-size: 13px;
+            line-height: 1.2;
+        }
+
+        .panel-station-info-left {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 0;
+            min-width: 0;
+        }
+
+        .panel-station-info-left .panel-line-name-suffix {
+            margin-left: 0;
+        }
+
+        .panel-station-info-types {
+            flex: 1 1 auto;
+            min-width: 0;
+            display: inline-flex;
+            align-items: center;
+            flex-wrap: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-left: 0;
+        }
+
+        .panel-station-info-type {
+            font-size: 13px;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        .panel-station-info-type.is-stop {
+            font-weight: bolder;
+        }
+
+        .panel-station-info-type.is-pass {
+            color: #ddd;
+            font-weight: lighter;
+        }
+
+        .panel-station-info-type-sep {
+            color: #9aa0a8;
+            font-size: 12px;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .panel-station-info.is-badge-only-no-suffix .panel-station-info-types {
+            margin-left: 1ch;
+            margin-top: 0;
+        }
+
         .panel-line-toggle {
             flex: 0 0 auto;
             color: #666;
@@ -3635,6 +3700,8 @@
         html[data-theme='dark'] .panel-timetable,
         html[data-theme='dark'] .panel-time-label,
         html[data-theme='dark'] .panel-line-name-suffix,
+        html[data-theme='dark'] .panel-station-info-type.is-pass,
+        html[data-theme='dark'] .panel-station-info-type-sep,
         html[data-theme='dark'] .panel-dir-filter-option-count,
         html[data-theme='dark'] .panel-dir-filter-popover-close,
         html[data-theme='dark'] .panel-trip-detail-head,
@@ -3772,10 +3839,6 @@
             border: 1px solid rgba(90, 93, 98, 0.55);
         }
 
-        html[data-theme='dark'] .panel-grid-hints {
-            background: rgba(32, 36, 44, 0.65);
-            border-bottom: 1px solid rgba(90, 93, 98, 0.5);
-        }
 
         html[data-theme='dark'] .panel-grid-hint-label {
             color: #9aa2ae !important;
@@ -3971,10 +4034,17 @@
         html[data-theme='dark'] .maplibregl-popup-content .station-hover-line-suffix,
         html[data-theme='dark'] .maplibregl-popup-content .station-hover-company-type,
         html[data-theme='dark'] .maplibregl-popup-content .panel-line-name-suffix,
+        html[data-theme='dark'] .maplibregl-popup-content .panel-station-info-type.is-pass,
+        html[data-theme='dark'] .maplibregl-popup-content .panel-station-info-type-sep,
         html[data-theme='dark'] .maplibregl-popup-content .panel-line-toggle,
         html[data-theme='dark'] .maplibregl-popup-content .panel-time-label,
         html[data-theme='dark'] .maplibregl-popup-content .panel-timetable {
             color: #b8bcc3;
+        }
+
+        html[data-theme='dark'] .panel-station-info-type.is-pass,
+        html[data-theme='dark'] .maplibregl-popup-content .panel-station-info-type.is-pass {
+            color: #888;
         }
 
         html[data-theme='dark'] .maplibregl-popup-anchor-top .maplibregl-popup-tip {
