@@ -19,7 +19,7 @@ import {
     normalizeHHMM,
     hhmmToOffsetMinutes
 } from './travel-search-planner-raptor.js';
-import { getCachedJson } from './fetch.js';
+import { getCachedJson, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from './fetch.js';
 import {
     buildTimetableStationText,
     createTimetableNoteRow,
@@ -42,6 +42,16 @@ function el(tag, className, attrs = {}) {
 }
 
 const normalizeText = (v) => String(v ?? '').trim();
+
+const setJourneyIconFromCache = (imgEl, iconFile) => {
+    const file = normalizeText(iconFile);
+    if (!(imgEl instanceof HTMLImageElement) || !file) return;
+    const candidates = getIconCandidates(file);
+    setImageElementFromCache(imgEl, candidates, {
+        cacheKey: `icon:${file}`,
+        fallbackSrc: getPreferredCachedImageSrc(candidates, { cacheKey: `icon:${file}` })
+    }).catch(() => null);
+};
 
 const getJourneyServiceDay = (serviceDay) => (normalizeText(serviceDay) === 'SaturdayHoliday' ? 'SaturdayHoliday' : 'Weekday');
 
@@ -634,15 +644,13 @@ export function mountTravelSearchUI() {
 
     const fab = el('button', 'journey-fab', { type: 'button', 'aria-label': '行程搜索' });
     const fabIcon = el('img', 'journey-fab-icon', { alt: '' });
-    {
-        const candidates = ['./icons/travel.svg', '/icons/travel.svg', './icons/search.svg', '/icons/search.svg'];
-        let idx = 0;
-        fabIcon.src = candidates[idx];
-        fabIcon.addEventListener('error', () => {
-            idx += 1;
-            if (idx < candidates.length) fabIcon.src = candidates[idx];
-        });
-    }
+    setImageElementFromCache(fabIcon, [
+        ...getIconCandidates('travel.svg'),
+        ...getIconCandidates('search.svg')
+    ], {
+        cacheKey: 'icon:travel_or_search',
+        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('travel.svg'), { cacheKey: 'icon:travel.svg' })
+    }).catch(() => null);
     fab.appendChild(fabIcon);
 
     const bar = el('div', 'journey-bar');
@@ -655,15 +663,7 @@ export function mountTravelSearchUI() {
     });
     const originMapPickBtn = el('button', 'journey-map-pick-btn', { type: 'button', 'aria-label': '地图选择起点站' });
     const originMapPickIcon = el('img', 'journey-map-pick-icon', { alt: '' });
-    {
-        const candidates = ['./icons/map-select.svg', '/icons/map-select.svg'];
-        let idx = 0;
-        originMapPickIcon.src = candidates[idx];
-        originMapPickIcon.addEventListener('error', () => {
-            idx += 1;
-            if (idx < candidates.length) originMapPickIcon.src = candidates[idx];
-        });
-    }
+    setJourneyIconFromCache(originMapPickIcon, 'map-select.svg');
     originMapPickBtn.appendChild(originMapPickIcon);
     originWrap.appendChild(originInput);
     originWrap.appendChild(originMapPickBtn);
@@ -673,15 +673,7 @@ export function mountTravelSearchUI() {
         'aria-label': '切换起点和终点'
     });
     const dividerIcon = el('img', 'journey-divider-icon', { alt: '' });
-    {
-        const candidates = ['./icons/change-dirc.svg', '/icons/change-dirc.svg'];
-        let idx = 0;
-        dividerIcon.src = candidates[idx];
-        dividerIcon.addEventListener('error', () => {
-            idx += 1;
-            if (idx < candidates.length) dividerIcon.src = candidates[idx];
-        });
-    }
+    setJourneyIconFromCache(dividerIcon, 'change-dirc.svg');
     divider.appendChild(dividerIcon);
 
     const destinationWrap = el('div', 'journey-input-wrap');
@@ -693,15 +685,7 @@ export function mountTravelSearchUI() {
     });
     const destinationMapPickBtn = el('button', 'journey-map-pick-btn', { type: 'button', 'aria-label': '地图选择终点站' });
     const destinationMapPickIcon = el('img', 'journey-map-pick-icon', { alt: '' });
-    {
-        const candidates = ['./icons/map-select.svg', '/icons/map-select.svg'];
-        let idx = 0;
-        destinationMapPickIcon.src = candidates[idx];
-        destinationMapPickIcon.addEventListener('error', () => {
-            idx += 1;
-            if (idx < candidates.length) destinationMapPickIcon.src = candidates[idx];
-        });
-    }
+    setJourneyIconFromCache(destinationMapPickIcon, 'map-select.svg');
     destinationMapPickBtn.appendChild(destinationMapPickIcon);
     destinationWrap.appendChild(destinationInput);
     destinationWrap.appendChild(destinationMapPickBtn);
@@ -711,15 +695,7 @@ export function mountTravelSearchUI() {
         'aria-label': '关闭行程搜索并清空'
     });
     const closeIcon = el('img', 'journey-close-icon', { alt: '' });
-    {
-        const candidates = ['./icons/x.svg', '/icons/x.svg'];
-        let idx = 0;
-        closeIcon.src = candidates[idx];
-        closeIcon.addEventListener('error', () => {
-            idx += 1;
-            if (idx < candidates.length) closeIcon.src = candidates[idx];
-        });
-    }
+    setJourneyIconFromCache(closeIcon, 'x.svg');
     closeBtn.appendChild(closeIcon);
 
     bar.appendChild(originWrap);
@@ -740,15 +716,7 @@ export function mountTravelSearchUI() {
     const tripPopoverTitle = el('div', 'journey-trip-title');
     const tripCaptureBtn = el('button', 'journey-trip-capture-btn', { type: 'button', 'aria-label': '截图' });
     const tripCaptureIcon = el('img', 'journey-trip-capture-icon', { alt: '' });
-    {
-        const candidates = ['./icons/camera.svg', '/icons/camera.svg'];
-        let idx = 0;
-        tripCaptureIcon.src = candidates[idx];
-        tripCaptureIcon.addEventListener('error', () => {
-            idx += 1;
-            if (idx < candidates.length) tripCaptureIcon.src = candidates[idx];
-        });
-    }
+    setJourneyIconFromCache(tripCaptureIcon, 'camera.svg');
     tripCaptureBtn.appendChild(tripCaptureIcon);
     tripPopoverHeader.appendChild(tripPopoverTitle);
     tripPopoverHeader.appendChild(tripCaptureBtn);
@@ -1361,14 +1329,8 @@ export function mountTravelSearchUI() {
                     if (i < sectionList.length - 1) {
                         const wrap = el('span', 'journey-plan-arrow');
                         const icon = el('img', 'journey-plan-arrow-icon', { alt: '' });
-                        const candidates = ['./icons/arrow-right.svg', '/icons/arrow-right.svg'];
-                        let idx = 0;
-                        icon.src = candidates[idx];
+                        setJourneyIconFromCache(icon, 'arrow-right.svg');
                         if (travelIsDarkThemeActive()) icon.style.filter = 'brightness(0) invert(1)';
-                        icon.addEventListener('error', () => {
-                            idx += 1;
-                            if (idx < candidates.length) icon.src = candidates[idx];
-                        });
                         wrap.appendChild(icon);
                         container.appendChild(wrap);
                     }
@@ -1412,14 +1374,8 @@ export function mountTravelSearchUI() {
                 if (i < sectionList.length - 1) {
                     const wrap = el('span', 'journey-plan-arrow');
                     const icon = el('img', 'journey-plan-arrow-icon', { alt: '' });
-                    const candidates = ['./icons/arrow-right.svg', '/icons/arrow-right.svg'];
-                    let idx = 0;
-                    icon.src = candidates[idx];
+                    setJourneyIconFromCache(icon, 'arrow-right.svg');
                     if (travelIsDarkThemeActive()) icon.style.filter = 'brightness(0) invert(1)';
-                    icon.addEventListener('error', () => {
-                        idx += 1;
-                        if (idx < candidates.length) icon.src = candidates[idx];
-                    });
                     wrap.appendChild(icon);
                     container.appendChild(wrap);
                 }
@@ -1451,19 +1407,10 @@ export function mountTravelSearchUI() {
                     const through = isThroughLegPairByMeta({ currentLeg: leg, nextLeg: legs[i + 1] });
                     const wrap = el('span', 'journey-plan-arrow');
                     const icon = el('img', 'journey-plan-arrow-icon', { alt: '' });
-                    {
-                        const candidates = through
-                            ? ['./icons/arrows.svg', '/icons/arrows.svg']
-                            : ['./icons/arrow-right.svg', '/icons/arrow-right.svg'];
-                        let idx = 0;
-                        icon.src = candidates[idx];
-                        if (!through && travelIsDarkThemeActive()) {
-                            icon.style.filter = 'brightness(0) invert(1)';
-                        }
-                        icon.addEventListener('error', () => {
-                            idx += 1;
-                            if (idx < candidates.length) icon.src = candidates[idx];
-                        });
+                    const arrowIconFile = through ? 'arrows.svg' : 'arrow-right.svg';
+                    setJourneyIconFromCache(icon, arrowIconFile);
+                    if (!through && travelIsDarkThemeActive()) {
+                        icon.style.filter = 'brightness(0) invert(1)';
                     }
                     wrap.appendChild(icon);
                     container.appendChild(wrap);
@@ -1517,19 +1464,10 @@ export function mountTravelSearchUI() {
                 const through = isThroughLegPairByMeta({ currentLeg: leg, nextLeg: legs[i + 1] });
                 const wrap = el('span', 'journey-plan-arrow');
                 const icon = el('img', 'journey-plan-arrow-icon', { alt: '' });
-                {
-                    const candidates = through
-                        ? ['./icons/arrows.svg', '/icons/arrows.svg']
-                        : ['./icons/arrow-right.svg', '/icons/arrow-right.svg'];
-                    let idx = 0;
-                    icon.src = candidates[idx];
-                    if (!through && travelIsDarkThemeActive()) {
-                        icon.style.filter = 'brightness(0) invert(1)';
-                    }
-                    icon.addEventListener('error', () => {
-                        idx += 1;
-                        if (idx < candidates.length) icon.src = candidates[idx];
-                    });
+                const arrowIconFile = through ? 'arrows.svg' : 'arrow-right.svg';
+                setJourneyIconFromCache(icon, arrowIconFile);
+                if (!through && travelIsDarkThemeActive()) {
+                    icon.style.filter = 'brightness(0) invert(1)';
                 }
                 wrap.appendChild(icon);
                 container.appendChild(wrap);

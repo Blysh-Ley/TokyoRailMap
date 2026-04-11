@@ -6,7 +6,13 @@
 import { sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
 import { buildTripPreviewKey, createTripPreviewScheduler } from './trip-preview.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, resolveMainLineIdForIcon } from './line-icons.js';
-import { getCachedJson } from './fetch.js';
+import {
+    getCachedJson,
+    getCompanyLogoSrc,
+    getIconCandidates,
+    getPreferredCachedImageSrc,
+    setImageElementFromCache
+} from './fetch.js';
 import { previewBranchesForLine } from './analyze_branch.js';
 import {
     buildTemporaryThroughServicePanelPlan,
@@ -768,17 +774,7 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
         const companyZh = logoMap?.[company]?.zh || null;
         const companyDisplay = String(companyZh || company);
 
-        const logoFile = logoMap?.[company]?.img?.[0] || null;
-        const logoBase = (() => {
-            try {
-                return window.TokyoRailCompanyLogoBasePath || './companyLogos/';
-            } catch {
-                return './companyLogos/';
-            }
-        })();
-        const logoSrc = logoFile
-            ? (String(logoBase).endsWith('/') ? `${logoBase}${logoFile}` : `${logoBase}/${logoFile}`)
-            : null;
+        const logoSrc = getCompanyLogoSrc(company, logoMap) || null;
         const logoHtml = logoSrc
             ? `<img class="panel-company-logo" src="${escapeHtml(logoSrc)}" alt="" />`
             : '';
@@ -998,15 +994,10 @@ export function createPanel(options = {}) {
     const dayPrintIcon = document.createElement('img');
     dayPrintIcon.className = 'panel-day-print-icon';
     dayPrintIcon.alt = '';
-    {
-        const candidates = ['./icons/print.svg', '/icons/print.svg'];
-        let idx = 0;
-        dayPrintIcon.src = candidates[idx];
-        dayPrintIcon.addEventListener('error', () => {
-            idx += 1;
-            if (idx < candidates.length) dayPrintIcon.src = candidates[idx];
-        });
-    }
+    setImageElementFromCache(dayPrintIcon, getIconCandidates('print.svg'), {
+        cacheKey: 'icon:print.svg',
+        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('print.svg'), { cacheKey: 'icon:print.svg' })
+    }).catch(() => null);
     dayPrintBtn.appendChild(dayPrintIcon);
 
     // 站点快速加入行程：作为起点/终点（map-select dropdown）
@@ -1022,15 +1013,10 @@ export function createPanel(options = {}) {
     const mapSelectIcon = document.createElement('img');
     mapSelectIcon.className = 'panel-map-select-icon';
     mapSelectIcon.alt = '';
-    {
-        const candidates = ['./icons/map-select.svg', '/icons/map-select.svg'];
-        let idx = 0;
-        mapSelectIcon.src = candidates[idx];
-        mapSelectIcon.addEventListener('error', () => {
-            idx += 1;
-            if (idx < candidates.length) mapSelectIcon.src = candidates[idx];
-        });
-    }
+    setImageElementFromCache(mapSelectIcon, getIconCandidates('map-select.svg'), {
+        cacheKey: 'icon:map-select.svg',
+        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('map-select.svg'), { cacheKey: 'icon:map-select.svg' })
+    }).catch(() => null);
     mapSelectBtn.appendChild(mapSelectIcon);
 
     const mapSelectMenu = document.createElement('div');
@@ -1183,15 +1169,10 @@ export function createPanel(options = {}) {
     const autoNowIcon = document.createElement('img');
     autoNowIcon.className = 'settings-time-reset-icon';
     autoNowIcon.alt = '';
-    {
-        const candidates = ['./icons/clockwise.svg', '/icons/clockwise.svg'];
-        let idx = 0;
-        autoNowIcon.src = candidates[idx];
-        autoNowIcon.addEventListener('error', () => {
-            idx += 1;
-            if (idx < candidates.length) autoNowIcon.src = candidates[idx];
-        });
-    }
+    setImageElementFromCache(autoNowIcon, getIconCandidates('clockwise.svg'), {
+        cacheKey: 'icon:clockwise.svg',
+        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('clockwise.svg'), { cacheKey: 'icon:clockwise.svg' })
+    }).catch(() => null);
     btnAutoNow.appendChild(autoNowIcon);
 
     const timeOps = document.createElement('div');
@@ -1451,7 +1432,14 @@ export function createPanel(options = {}) {
     tripDetailCaptureBtn.className = 'panel-capture-btn panel-trip-detail-capture-btn';
     tripDetailCaptureBtn.setAttribute('aria-label', '截图');
     tripDetailCaptureBtn.title = '截图';
-    tripDetailCaptureBtn.innerHTML = '<img class="panel-capture-icon panel-trip-detail-capture-icon" alt="" src="./icons/camera.svg" />';
+    const tripDetailCaptureIcon = document.createElement('img');
+    tripDetailCaptureIcon.className = 'panel-capture-icon panel-trip-detail-capture-icon';
+    tripDetailCaptureIcon.alt = '';
+    setImageElementFromCache(tripDetailCaptureIcon, getIconCandidates('camera.svg'), {
+        cacheKey: 'icon:camera.svg',
+        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('camera.svg'), { cacheKey: 'icon:camera.svg' })
+    }).catch(() => null);
+    tripDetailCaptureBtn.appendChild(tripDetailCaptureIcon);
     tripDetailCaptureBtn.addEventListener('click', async (evt) => {
         stopEvent(evt);
         tripDetailPinned = true;
@@ -1459,14 +1447,6 @@ export function createPanel(options = {}) {
         const baseName = `trip-detail-${toText(currentStationNameZh) || 'line'}`;
         await exportElementToPng(tripDetailRoot, baseName, tripDetailCaptureBtn);
     }, { passive: false });
-    const tripDetailCaptureIcon = tripDetailCaptureBtn.querySelector('.panel-trip-detail-capture-icon');
-    if (tripDetailCaptureIcon instanceof HTMLImageElement) {
-        tripDetailCaptureIcon.addEventListener('error', () => {
-            if (tripDetailCaptureIcon.dataset.fallbackTried === '1') return;
-            tripDetailCaptureIcon.dataset.fallbackTried = '1';
-            tripDetailCaptureIcon.src = '/icons/camera.svg';
-        });
-    }
     tripDetailHeader.appendChild(tripDetailCaptureBtn);
 
     const tripDetailBody = document.createElement('div');
@@ -3643,10 +3623,10 @@ export function createPanel(options = {}) {
                         <span class="panel-dir-actions">
                             <span class="panel-dir-triangle" aria-hidden="true">${tri}</span>
                             ${isLoopLine(lineId) ? '' : `<button type="button" class="panel-dir-filter-btn" data-dir-filter-btn="1" data-line-id="${escapeHtml(lineId)}" data-dir-key="${escapeHtml(dirKey)}" aria-label="筛选">
-                                <img class="panel-dir-filter-icon" alt="" src="./icons/filter.svg" />
+                                <img class="panel-dir-filter-icon" alt="" src="${escapeHtml(getPreferredCachedImageSrc(getIconCandidates('filter.svg'), { cacheKey: 'icon:filter.svg' }))}" />
                             </button>`}
                             ${timetableViewMode === 'grid' ? `<button type="button" class="panel-dir-print-btn" data-dir-print-btn="1" data-line-id="${escapeHtml(lineId)}" data-dir-key="${escapeHtml(dirKey)}" aria-label="打印时刻表">
-                                <img class="panel-dir-print-icon" alt="" src="./icons/print.svg" />
+                                <img class="panel-dir-print-icon" alt="" src="${escapeHtml(getPreferredCachedImageSrc(getIconCandidates('print.svg'), { cacheKey: 'icon:print.svg' }))}" />
                             </button>` : ''}
                         </span>
                     </div>
@@ -3706,24 +3686,20 @@ export function createPanel(options = {}) {
         try {
             const icons = Array.from(ttEl.querySelectorAll('.panel-dir-filter-icon'));
             for (const icon of icons) {
-                if (icon.__panelFilterIconHooked) continue;
-                icon.__panelFilterIconHooked = true;
-                icon.addEventListener('error', () => {
-                    if (icon.__panelFilterIconFallbackTried) return;
-                    icon.__panelFilterIconFallbackTried = true;
-                    icon.src = '/icons/filter.svg';
-                });
+                if (!(icon instanceof HTMLImageElement)) continue;
+                setImageElementFromCache(icon, getIconCandidates('filter.svg'), {
+                    cacheKey: 'icon:filter.svg',
+                    fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('filter.svg'), { cacheKey: 'icon:filter.svg' })
+                }).catch(() => null);
             }
 
             const printIcons = Array.from(ttEl.querySelectorAll('.panel-dir-print-icon'));
             for (const icon of printIcons) {
-                if (icon.__panelPrintIconHooked) continue;
-                icon.__panelPrintIconHooked = true;
-                icon.addEventListener('error', () => {
-                    if (icon.__panelPrintIconFallbackTried) return;
-                    icon.__panelPrintIconFallbackTried = true;
-                    icon.src = '/icons/print.svg';
-                });
+                if (!(icon instanceof HTMLImageElement)) continue;
+                setImageElementFromCache(icon, getIconCandidates('print.svg'), {
+                    cacheKey: 'icon:print.svg',
+                    fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('print.svg'), { cacheKey: 'icon:print.svg' })
+                }).catch(() => null);
             }
         } catch {
             // ignore

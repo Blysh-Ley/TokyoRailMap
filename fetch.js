@@ -1,5 +1,10 @@
 const normalizeText = (v) => String(v ?? '').trim();
 
+export const ICON_BASE_PATH = './icons/';
+export const ICON_ROOT_PATH = '/icons/';
+export const COMPANY_LOGO_BASE_PATH = './companyLogos/';
+export const COMPANY_LOGO_ROOT_PATH = '/companyLogos/';
+
 const defaultCoreUrls = [
     './data/railways.json',
     './data/stations.json',
@@ -22,8 +27,15 @@ const state = {
     responseMetaByUrl: new Map(),
     responsePromiseByUrl: new Map(),
     jsonPromiseByUrl: new Map(),
-    preloadAllPromise: null
+    preloadAllPromise: null,
+    imageObjectUrlByAbsUrl: new Map(),
+    imagePromiseByAbsUrl: new Map(),
+    imageFailedAbsUrls: new Set(),
+    resolvedImageSrcByKey: new Map(),
+    companyLogoMap: null
 };
+
+let imageLoadRequestSeq = 0;
 
 const toAbsoluteUrl = (input) => {
     try {
@@ -41,6 +53,223 @@ const shouldCacheRequest = (input, init = {}) => {
     if (reqMethod && reqMethod !== 'GET') return false;
     if (init?.body != null) return false;
     return true;
+};
+
+const normalizeImageCandidates = (candidates) => {
+    if (Array.isArray(candidates)) {
+        return Array.from(new Set(candidates.map((x) => normalizeText(x)).filter(Boolean)));
+    }
+    const s = normalizeText(candidates);
+    return s ? [s] : [];
+};
+
+const normalizeAssetFileName = (value, relBase, rootBase) => {
+    const raw = normalizeText(value);
+    if (!raw) return '';
+    if (/^[a-z]+:\/\//i.test(raw)) return raw;
+
+    if (raw.startsWith(relBase)) return raw.slice(relBase.length);
+    if (raw.startsWith(rootBase)) return raw.slice(rootBase.length);
+    return raw.replace(/^\/+/, '');
+};
+
+const buildAssetCandidates = (value, relBase, rootBase) => {
+    const file = normalizeAssetFileName(value, relBase, rootBase);
+    if (!file) return [];
+    if (/^[a-z]+:\/\//i.test(file)) return [file];
+    return [`${relBase}${file}`, `${rootBase}${file}`];
+};
+
+export const getIconCandidates = (iconFile) => buildAssetCandidates(iconFile, ICON_BASE_PATH, ICON_ROOT_PATH);
+
+export const getCompanyLogoCandidates = (logoFile) => buildAssetCandidates(logoFile, COMPANY_LOGO_BASE_PATH, COMPANY_LOGO_ROOT_PATH);
+
+const buildImageResolutionKey = (candidates, cacheKey = '') => {
+    const key = normalizeText(cacheKey);
+    if (key) return `key:${key}`;
+    const absList = candidates.map((x) => toAbsoluteUrl(x)).filter(Boolean);
+    return absList.length ? `cand:${absList.join('|')}` : '';
+};
+
+const fetchImageObjectUrlByAbs = async (absUrl) => {
+    const abs = normalizeText(absUrl);
+    if (!abs) return '';
+
+    if (state.imageObjectUrlByAbsUrl.has(abs)) {
+        return state.imageObjectUrlByAbsUrl.get(abs) || '';
+    }
+    if (state.imageFailedAbsUrls.has(abs)) return '';
+    if (state.imagePromiseByAbsUrl.has(abs)) {
+        return state.imagePromiseByAbsUrl.get(abs);
+    }
+
+    const p = (async () => {
+        try {
+            const resp = await cachedFetch(abs);
+            if (!resp || !resp.ok) throw new Error(`image fetch failed: ${abs}`);
+
+            const blob = await resp.blob();
+            if (!(blob instanceof Blob)) throw new Error(`invalid image blob: ${abs}`);
+
+            const objectUrl = URL.createObjectURL(blob);
+            state.imageObjectUrlByAbsUrl.set(abs, objectUrl);
+            state.imageFailedAbsUrls.delete(abs);
+            return objectUrl;
+        } catch {
+            state.imageFailedAbsUrls.add(abs);
+            return '';
+        } finally {
+            state.imagePromiseByAbsUrl.delete(abs);
+        }
+    })();
+
+    state.imagePromiseByAbsUrl.set(abs, p);
+    return p;
+};
+
+export const resolveCachedImageSrc = async (candidates, { cacheKey = '' } = {}) => {
+    const list = normalizeImageCandidates(candidates);
+    if (!list.length) return '';
+
+    const resolutionKey = buildImageResolutionKey(list, cacheKey);
+    if (resolutionKey && state.resolvedImageSrcByKey.has(resolutionKey)) {
+        return state.resolvedImageSrcByKey.get(resolutionKey) || '';
+    }
+
+    for (const candidate of list) {
+        const abs = toAbsoluteUrl(candidate);
+        if (!abs) continue;
+        const src = await fetchImageObjectUrlByAbs(abs);
+        if (!src) continue;
+        if (resolutionKey) state.resolvedImageSrcByKey.set(resolutionKey, src);
+        return src;
+    }
+
+    if (resolutionKey) state.resolvedImageSrcByKey.set(resolutionKey, '');
+    return '';
+};
+
+export const primeCachedImage = async (candidates, options = {}) => {
+    try {
+        return await resolveCachedImageSrc(candidates, options);
+    } catch {
+        return '';
+    }
+};
+
+export const getPreferredCachedImageSrc = (candidates, { cacheKey = '' } = {}) => {
+    const list = normalizeImageCandidates(candidates);
+    if (!list.length) return '';
+
+    const resolutionKey = buildImageResolutionKey(list, cacheKey);
+    if (resolutionKey && state.resolvedImageSrcByKey.has(resolutionKey)) {
+        const resolved = state.resolvedImageSrcByKey.get(resolutionKey);
+        if (resolved) return resolved;
+    }
+
+    for (const candidate of list) {
+        const abs = toAbsoluteUrl(candidate);
+        if (!abs) continue;
+        const cached = state.imageObjectUrlByAbsUrl.get(abs);
+        if (cached) return cached;
+    }
+
+    primeCachedImage(list, { cacheKey }).catch(() => null);
+    return list[0] || '';
+};
+
+export const setImageElementFromCache = async (imgEl, candidates, { cacheKey = '', fallbackSrc = '' } = {}) => {
+    const list = normalizeImageCandidates(candidates);
+    if (!list.length) return '';
+    if (!(typeof HTMLImageElement !== 'undefined' && imgEl instanceof HTMLImageElement)) return '';
+
+    imageLoadRequestSeq += 1;
+    const requestId = String(imageLoadRequestSeq);
+    imgEl.dataset.fetchCacheReqId = requestId;
+
+    const preferred = normalizeText(fallbackSrc) || getPreferredCachedImageSrc(list, { cacheKey });
+    if (preferred) imgEl.src = preferred;
+
+    const resolved = await resolveCachedImageSrc(list, { cacheKey });
+    if (imgEl.dataset.fetchCacheReqId !== requestId) return '';
+
+    if (resolved) {
+        imgEl.src = resolved;
+        return resolved;
+    }
+
+    if (preferred) {
+        imgEl.src = preferred;
+        return preferred;
+    }
+
+    return '';
+};
+
+export const registerCompanyLogoMap = (companyLogoMap, { preload = true, concurrency = 8 } = {}) => {
+    state.companyLogoMap = companyLogoMap && typeof companyLogoMap === 'object' ? companyLogoMap : {};
+
+    try {
+        if (typeof window !== 'undefined') {
+            window.TokyoRailCompanyLogoMap = state.companyLogoMap;
+            window.TokyoRailCompanyLogoBasePath = COMPANY_LOGO_BASE_PATH;
+        }
+    } catch {
+        // ignore
+    }
+
+    if (preload) {
+        preloadCompanyLogos(state.companyLogoMap, { concurrency }).catch(() => null);
+    }
+
+    return state.companyLogoMap;
+};
+
+export const getCompanyLogoSrc = (companyKey, companyLogoMap = state.companyLogoMap) => {
+    const key = normalizeText(companyKey);
+    if (!key) return '';
+
+    const map = companyLogoMap && typeof companyLogoMap === 'object' ? companyLogoMap : state.companyLogoMap;
+    const file = normalizeText(map?.[key]?.img?.[0]);
+    if (!file) return '';
+
+    const candidates = getCompanyLogoCandidates(file);
+    return getPreferredCachedImageSrc(candidates, { cacheKey: `companyLogo:${file}` });
+};
+
+export const preloadCompanyLogos = async (companyLogoMap = state.companyLogoMap, { concurrency = 8 } = {}) => {
+    const map = companyLogoMap && typeof companyLogoMap === 'object' ? companyLogoMap : {};
+    const files = Array.from(new Set(
+        Object.values(map)
+            .map((row) => normalizeText(row?.img?.[0]))
+            .filter(Boolean)
+    ));
+
+    let loaded = 0;
+    const tasks = files.map((file) => async () => {
+        const src = await primeCachedImage(getCompanyLogoCandidates(file), { cacheKey: `companyLogo:${file}` });
+        if (src) loaded += 1;
+    });
+
+    await runWithConcurrency(tasks, concurrency);
+    return { total: files.length, loaded };
+};
+
+export const preloadIcons = async (iconFiles = [], { concurrency = 8 } = {}) => {
+    const files = Array.from(new Set(
+        (Array.isArray(iconFiles) ? iconFiles : [])
+            .map((x) => normalizeText(x))
+            .filter(Boolean)
+    ));
+
+    let loaded = 0;
+    const tasks = files.map((file) => async () => {
+        const src = await primeCachedImage(getIconCandidates(file), { cacheKey: `icon:${file}` });
+        if (src) loaded += 1;
+    });
+
+    await runWithConcurrency(tasks, concurrency);
+    return { total: files.length, loaded };
 };
 
 const buildResponseFromMeta = (meta) => {
@@ -213,12 +442,32 @@ export const initializeFetchCache = () => {
         window.fetch = patched;
         window.TokyoRailFetchCache = {
             getCachedJson,
-            preloadAllDataAssets
+            preloadAllDataAssets,
+            getIconCandidates,
+            getCompanyLogoCandidates,
+            resolveCachedImageSrc,
+            getPreferredCachedImageSrc,
+            setImageElementFromCache,
+            primeCachedImage,
+            registerCompanyLogoMap,
+            getCompanyLogoSrc,
+            preloadCompanyLogos,
+            preloadIcons
         };
+        if (window.TokyoRailCompanyLogoMap == null) window.TokyoRailCompanyLogoMap = state.companyLogoMap || {};
+        if (!window.TokyoRailCompanyLogoBasePath) window.TokyoRailCompanyLogoBasePath = COMPANY_LOGO_BASE_PATH;
     }
     if (typeof globalThis !== 'undefined') {
         globalThis.fetch = patched;
     }
 
     state.installed = true;
+
+    try {
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('__TokyoRailFetchCacheReady'));
+        }
+    } catch {
+        // ignore
+    }
 };

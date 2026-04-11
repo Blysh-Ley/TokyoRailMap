@@ -39,6 +39,47 @@
         }
     };
 
+    const setIconFromCache = (img, iconFile) => {
+        const file = String(iconFile ?? '').trim();
+        if (!(img instanceof HTMLImageElement) || !file) return;
+
+        const apply = () => {
+            const api = window?.TokyoRailFetchCache;
+            if (!api) return false;
+
+            const getIconCandidates = typeof api.getIconCandidates === 'function' ? api.getIconCandidates : null;
+            const getPreferredCachedImageSrc = typeof api.getPreferredCachedImageSrc === 'function'
+                ? api.getPreferredCachedImageSrc
+                : null;
+            const setImageElementFromCache = typeof api.setImageElementFromCache === 'function'
+                ? api.setImageElementFromCache
+                : null;
+
+            if (!getIconCandidates || !getPreferredCachedImageSrc) return false;
+
+            const candidates = getIconCandidates(file);
+            if (!Array.isArray(candidates) || !candidates.length) return false;
+
+            const cacheKey = `icon:${file}`;
+            const preferred = getPreferredCachedImageSrc(candidates, { cacheKey }) || '';
+            if (preferred) img.src = preferred;
+
+            if (setImageElementFromCache) {
+                setImageElementFromCache(img, candidates, {
+                    cacheKey,
+                    fallbackSrc: preferred || candidates[0] || ''
+                }).catch(() => null);
+            }
+
+            return true;
+        };
+
+        if (apply()) return;
+        window.addEventListener('__TokyoRailFetchCacheReady', () => {
+            apply();
+        }, { once: true });
+    };
+
     const EXPORT_EVENT = '__TokyoRailTripPreviewUpdated';
     const CLEAR_EVENT = '__TokyoRailTripPreviewCleared';
     const BASE_HL_EVENT = '__TokyoRailBaseHighlightUpdated';
@@ -2543,15 +2584,7 @@
         const fabIcon = document.createElement('img');
         fabIcon.className = 'export-fab-icon';
         fabIcon.alt = '';
-        {
-            const candidates = ['./icons/camera.svg', '/icons/camera.svg'];
-            let idx = 0;
-            fabIcon.src = candidates[idx];
-            fabIcon.addEventListener('error', () => {
-                idx += 1;
-                if (idx < candidates.length) fabIcon.src = candidates[idx];
-            });
-        }
+        setIconFromCache(fabIcon, 'camera.svg');
         fab.appendChild(fabIcon);
 
         const content = el('div', 'settings-content export-content is-hidden');
