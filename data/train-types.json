@@ -923,7 +923,8 @@
 		"en": "Limited Express",
 		"ko": "특급",
 		"zh-Hans": "特急",
-		"zh-Hant": "特急"
+		"zh-Hant": "特急",
+		"color":"#FF1000"
 	}
 }, {
 	"id": "Odakyu.Local",

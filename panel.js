@@ -102,16 +102,18 @@ const enhancePanelLineHeaderIcons = async (rootEl) => {
         }
 
         const stationInfoLeftEl = lineEl?.querySelector?.('.panel-station-info-left') || null;
+        const suffixRowEl = lineEl?.querySelector?.('[data-line-suffix-row]') || null;
 
         const suffixInNameEl = nameEl.querySelector('.panel-line-name-suffix');
-        if (suffixInNameEl && stationInfoLeftEl) {
-            stationInfoLeftEl.appendChild(suffixInNameEl);
+        if (suffixInNameEl) {
+            if (suffixRowEl) suffixRowEl.appendChild(suffixInNameEl);
+            else if (stationInfoLeftEl) stationInfoLeftEl.appendChild(suffixInNameEl);
         }
 
         const stationCode = toText(nameEl.getAttribute('data-transfer-station-code'));
         if (!stationCode) continue;
 
-        const stationInfoHostEl = stationInfoLeftEl || nameEl;
+        const stationInfoHostEl = suffixRowEl || stationInfoLeftEl || nameEl;
         if (stationInfoHostEl.querySelector('.rw-station-code-badge')) continue;
 
         const stationBadge = createStationCodeBadgeElement({ code: stationCode, color: meta.color });
@@ -816,8 +818,9 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
                     <div class="panel-line-header">
                         <span class="panel-line-name" data-line-name="${escapeHtml(line.displayName)}"${transferCodeAttr}><span class="panel-line-name-main">${escapeHtml(line.displayName)}</span></span>
                     </div>
+                    ${suffixHtml ? `<div class="panel-line-suffix-row" data-line-suffix-row="1">${suffixHtml}</div>` : ''}
                     <div class="panel-station-info" data-station-info="1">
-                        <span class="panel-station-info-left">${suffixHtml}</span>
+                        <span class="panel-station-info-left"></span>
                         <span class="panel-station-info-types" data-station-type-summary="1"></span>
                     </div>
                     <div class="panel-timetable-root" data-timetable-root="1"></div>
@@ -1730,13 +1733,16 @@ export function createPanel(options = {}) {
     };
 
     const NO_MARK_TYPE_NAMES = new Set(['各站停车', '普通']);
+    const BASE_TYPE_KEYWORDS = TYPE_BASE_SEQUENCE
+        .map((kw) => toText(kw))
+        .filter(Boolean);
 
     const isNoMarkTypeName = (typeNameRaw) => NO_MARK_TYPE_NAMES.has(toText(typeNameRaw));
 
     const resolveTypeBaseName = (typeNameRaw) => {
         const typeName = toText(typeNameRaw);
         if (!typeName) return '';
-        for (const base of TYPE_BASE_SEQUENCE) {
+        for (const base of BASE_TYPE_KEYWORDS) {
             if (typeName.includes(base)) return base;
         }
         return '';
@@ -1752,10 +1758,12 @@ export function createPanel(options = {}) {
         const allColorMap = allTypeColorByName instanceof Map ? allTypeColorByName : new Map();
         const stopColorMap = stopTypeColorByName instanceof Map ? stopTypeColorByName : new Map();
         const stopSet = stopTypeNameSet instanceof Set ? stopTypeNameSet : new Set();
-        const countMap = typeCountByName instanceof Map ? typeCountByName : new Map();
         const stopCountMap = typeStopCountByName instanceof Map ? typeStopCountByName : new Map();
 
-        const typeNames = sortTypeNamesByBaseAndStopCount(Array.from(allColorMap.keys()), countMap, stopCountMap);
+        const filteredTypeNames = Array.from(allColorMap.keys())
+            .map((x) => toText(x))
+            .filter((name) => !!resolveTypeBaseName(name));
+        const typeNames = sortTypeNamesByBaseAndStopCount(filteredTypeNames, null, stopCountMap);
         const stopFallbackColor = '#555';
 
         const out = [];
@@ -3126,6 +3134,7 @@ export function createPanel(options = {}) {
         const stopTypeNameSet = new Set();
         const typeCountByName = new Map();
         const typeStopCountByName = new Map();
+        const typeStopStationSetByName = new Map();
 
         // Resolve pt/nt refs to get missing arrival/departure times.
 
@@ -3135,10 +3144,6 @@ export function createPanel(options = {}) {
             if (!stationKey || !list.length) continue;
 
             for (const trip of list) {
-            if (allowedKeys && allowedKeys.size) {
-                const hit = buildTripFilterKeys(trip).some((k) => allowedKeys.has(k));
-                if (!hit) continue;
-            }
             // 按 timetables 的 id 最后一段区分工作日/休息日
                 const tripId = toText(trip?.id);
                 const tripServiceDay = parseTripServiceDayFromId(tripId);
@@ -3158,24 +3163,32 @@ export function createPanel(options = {}) {
                 const tt = Array.isArray(trip?.tt) ? trip.tt : [];
                 if (!tt.length) continue;
                 if (typeBaseName) {
-                    const stopCount = Number(tt.length);
-                    if (Number.isFinite(stopCount) && stopCount > 0) {
-                        const prev = Number(typeStopCountByName.get(typeName));
-                        typeStopCountByName.set(
-                            typeName,
-                            Number.isFinite(prev) ? Math.min(prev, stopCount) : stopCount
-                        );
+                    if (!typeStopStationSetByName.has(typeName)) {
+                        typeStopStationSetByName.set(typeName, new Set());
                     }
+                    const stopSet = typeStopStationSetByName.get(typeName);
+                    for (const ttRow of tt) {
+                        const sid = toText(ttRow?.s);
+                        if (!sid) continue;
+                        stopSet.add(sid);
+                    }
+                    typeStopCountByName.set(typeName, stopSet.size);
                 }
                 const stop = tt.find((x) => toText(x?.s) === stationKey);
-                if (!stop) continue;
-
                 if (typeBaseName) {
-                    stopTypeNameSet.add(typeName);
-                    if (!stopTypeColorByName.has(typeName) && toText(typeColor)) {
-                        stopTypeColorByName.set(typeName, toText(typeColor));
+                    if (stop) {
+                        stopTypeNameSet.add(typeName);
+                        if (!stopTypeColorByName.has(typeName) && toText(typeColor)) {
+                            stopTypeColorByName.set(typeName, toText(typeColor));
+                        }
                     }
                 }
+
+            if (allowedKeys && allowedKeys.size) {
+                const hit = buildTripFilterKeys(trip).some((k) => allowedKeys.has(k));
+                if (!hit) continue;
+            }
+                if (!stop) continue;
 
                 let arr = toText(stop?.a);
                 let dep = toText(stop?.d);
@@ -3773,6 +3786,12 @@ export function createPanel(options = {}) {
         return `${chars[0]}      ${chars[1]}`;
     };
 
+    const shouldUseSmallStationTypeBadgeFont = (typeNameRaw) => {
+        const plain = toText(typeNameRaw).replace(/\s+/g, '');
+        if (!plain) return false;
+        return Array.from(plain).length > 4;
+    };
+
     const applyLineStationInfo = (lineEl, stationInfo) => {
         if (!(lineEl instanceof Element)) return;
         const infoEl = lineEl.querySelector('[data-station-info]');
@@ -3782,7 +3801,7 @@ export function createPanel(options = {}) {
         if (!(typesEl instanceof Element)) return;
 
         const hasBadge = !!infoLeftEl?.querySelector?.('.rw-station-code-badge');
-        const hasSuffix = !!infoLeftEl?.querySelector?.('.panel-line-name-suffix');
+        const hasSuffix = !!lineEl.querySelector?.('[data-line-suffix-row] .panel-line-name-suffix');
         infoEl.classList.toggle('is-badge-only-no-suffix', hasBadge && !hasSuffix);
 
         const typeItems = Array.isArray(stationInfo?.typeItems)
@@ -3803,7 +3822,8 @@ export function createPanel(options = {}) {
         const html = typeItems.map((item) => {
             const cls = item.isStop ? 'panel-station-info-type is-stop' : 'panel-station-info-type is-pass';
             const bgColor = item.isStop ? (toText(item.color) || '#555') : '#ddd';
-            const style = ` style="background-color:${escapeHtml(bgColor)}"`;
+            const smallFontStyle = shouldUseSmallStationTypeBadgeFont(item.name) ? ';font-size:10px' : '';
+            const style = ` style="background-color:${escapeHtml(bgColor)}${smallFontStyle}"`;
             const label = formatStationTypeBadgeLabel(item.name);
             return `<span class="${cls}"${style}>${escapeHtml(label)}</span>`;
         }).join('');

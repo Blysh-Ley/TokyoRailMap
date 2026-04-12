@@ -1411,6 +1411,27 @@
             margin-left: 2px;
         }
 
+        .panel-line-suffix-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            width: 100%;
+            margin-top: 2px;
+            margin-bottom: 2px;
+            min-height: 18px;
+            overflow: hidden;
+            white-space: nowrap;
+            font-size: 13px;
+            line-height: 1.2;
+        }
+
+        .panel-line-suffix-row .panel-line-name-suffix {
+            margin-left: 0;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .panel-station-info {
             display: flex;
             align-items: center;
@@ -1456,7 +1477,7 @@
             align-items: center;
             justify-content: center;
             min-height: 18px;
-            width: 46px;
+            width: 42px;
             max-width: 100%;
             padding: 0 6px;
             border-radius: 6px;

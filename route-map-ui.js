@@ -98,15 +98,15 @@ const renderRouteMapTitleWithIcon = async (titleEl, lineId, lineName) => {
 const isTypeInBaseSequence = (typeNameRaw) => {
     const typeName = toText(typeNameRaw);
     if (!typeName) return false;
-    return TYPE_BASE_SEQUENCE.some((kw) => typeName.includes(toText(kw)));
+    const baseKeywords = TYPE_BASE_SEQUENCE
+        .map((kw) => toText(kw))
+        .filter(Boolean);
+    return baseKeywords.some((kw) => typeName.includes(kw));
 };
 
 const shouldDisplayRouteMapType = (typeInfo) => {
     const typeName = toText(typeInfo?.typeName);
-    if (isTypeInBaseSequence(typeName)) return true;
-    const totalTrips = Number(typeInfo?.totalTrips || 0);
-    const isFixedStopPattern = true;//typeInfo?.isFixedStopPattern === true;
-    return totalTrips > 30 && isFixedStopPattern;
+    return isTypeInBaseSequence(typeName);
 };
 
 const stopPropagationOnly = (evt) => {
@@ -1808,7 +1808,7 @@ const setupRouteMapUi = () => {
         if (!window?.TokyoRailTimetableCache) return;
 
         const serviceDay = getCurrentServiceDayFromPanelDom();
-        const minTripsPerDay = 5;
+        const minTripsPerDay = 0;
         const cacheKey = `${lid}||${serviceDay}||minTrips=${minTripsPerDay}`;
 
         activeLineId = lid;
