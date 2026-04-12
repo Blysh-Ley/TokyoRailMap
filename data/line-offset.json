@@ -26,5 +26,10 @@
     "Tokyu.Toyoko":1,
     "Tokyu.TokyuTamagawa":-1,
     "MIR.TsukubaExpress":1,
-    "JR-East.SotetsuDirect":1
+    "JR-East.SotetsuDirect":1,
+    "TokyoMetro.Hanzomon":1,
+    "Tokyu.DenEnToshi":-1,
+    "Tokyu.Kodomonokuni":1,
+    "Tobu.TobuSkytreeBranch":1,
+    "YokohamaMunicipal.Green":-1
 }
