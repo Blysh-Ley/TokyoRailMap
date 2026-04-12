@@ -102,18 +102,74 @@
                 color: #111;
             }
 
-            .timetable-print-title {
-                font-size: 24px;
-                font-weight: 700;
-                line-height: 1.25;
+            .timetable-print-head {
                 margin-bottom: 6px;
             }
 
-            .timetable-print-subtitle {
-                font-size: 14px;
+            .timetable-print-card .panel-name {
+                font-size: 24px;
+                line-height: 1.25;
+                margin-bottom: 4px;
+            }
+
+            .timetable-print-meta {
+                font-size: 13px;
                 color: #555;
-                margin-bottom: 8px;
                 line-height: 1.35;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .timetable-print-card .panel-company {
+                margin-top: 6px;
+            }
+
+            .timetable-print-card .panel-company-lines {
+                margin-top: 2px;
+            }
+
+            .timetable-print-card .panel-company-logo {
+                pointer-events: none;
+            }
+
+            .timetable-print-card .panel-line {
+                padding-top: 6px;
+                padding-bottom: 4px;
+            }
+
+            .timetable-print-card .panel-line-header {
+                pointer-events: none;
+            }
+
+            .timetable-print-card .panel-line-name {
+                pointer-events: none;
+                cursor: default;
+            }
+
+            .timetable-print-card .panel-dir-header {
+                cursor: default;
+                user-select: none;
+                margin: 4px 0 2px;
+            }
+
+            .timetable-print-card .panel-dir-title {
+                width: 100%;
+            }
+
+            .timetable-print-card .panel-dir-marquee {
+                overflow: visible;
+            }
+
+            .timetable-print-card .panel-dir-marquee-inner {
+                white-space: normal;
+            }
+
+            .timetable-print-card .panel-dir-actions,
+            .timetable-print-card .panel-dir-print-btn,
+            .timetable-print-card .panel-dir-filter-btn,
+            .timetable-print-card .panel-dir-triangle {
+                display: none !important;
             }
 
             .timetable-print-content .panel-timetable {
@@ -197,7 +253,7 @@
                 box-shadow: none;
             }
 
-            .timetable-print-root.is-dark .timetable-print-subtitle {
+            .timetable-print-root.is-dark .timetable-print-meta {
                 color: #b8bcc3;
             }
         `;
@@ -216,30 +272,105 @@
 
         const stationName = toText(detail.stationName) || '未知站点';
         const companyName = toText(detail.companyName) || '未知公司';
-        const companyType = toText(detail.companyType);
+        const companyLogoSrc = toText(detail.companyLogoSrc);
         const lineName = toText(detail.lineName) || toText(detail.lineId) || '未知线路';
         const lineColor = toText(detail.lineColor);
         const dirLabel = toText(detail.dirLabel) || toText(detail.dirKey) || '未知方向';
         const serviceDay = toText(detail.serviceDay) === 'SaturdayHoliday' ? '休息日' : '工作日';
-        const viewMode = toText(detail.timetableViewMode) === 'grid' ? '网格视图' : '列表视图';
+        const lineSuffixHtml = toText(detail.lineSuffixHtml);
+        const stationInfoHtml = toText(detail.stationInfoHtml);
 
-        const title = document.createElement('div');
-        title.className = 'timetable-print-title';
-        title.textContent = '';
-        title.appendChild(document.createTextNode(`${stationName} / `));
-        const lineNameEl = document.createElement('span');
-        lineNameEl.textContent = lineName;
-        if (lineColor) lineNameEl.style.color = lineColor;
-        title.appendChild(lineNameEl);
-        title.appendChild(document.createTextNode(` / 往${dirLabel}方向`));
+        const head = document.createElement('div');
+        head.className = 'timetable-print-head';
 
-        const subtitle = document.createElement('div');
-        subtitle.className = 'timetable-print-subtitle';
-        subtitle.textContent = [
-            `${companyName}`,
-            `${serviceDay}`,
-            `导出时间：${new Date().toLocaleString()}`
-        ].join('   |   ');
+        const stationTitle = document.createElement('div');
+        stationTitle.className = 'panel-name';
+        stationTitle.textContent = stationName;
+
+        const meta = document.createElement('div');
+        meta.className = 'timetable-print-meta';
+        meta.textContent = serviceDay;
+
+        head.appendChild(stationTitle);
+        head.appendChild(meta);
+
+        const company = document.createElement('div');
+        company.className = 'panel-company';
+
+        const companyHeader = document.createElement('div');
+        companyHeader.className = 'panel-company-header';
+        if (companyLogoSrc) {
+            const logo = document.createElement('img');
+            logo.className = 'panel-company-logo';
+            logo.alt = '';
+            logo.src = companyLogoSrc;
+            companyHeader.appendChild(logo);
+        }
+        const companyNameEl = document.createElement('span');
+        companyNameEl.className = 'panel-company-name';
+        companyNameEl.textContent = companyName;
+        companyHeader.appendChild(companyNameEl);
+
+        const companyLines = document.createElement('div');
+        companyLines.className = 'panel-company-lines';
+
+        const line = document.createElement('div');
+        line.className = 'panel-line';
+        if (lineColor) line.style.color = lineColor;
+
+        const lineHeader = document.createElement('div');
+        lineHeader.className = 'panel-line-header';
+        const lineNameWrap = document.createElement('span');
+        lineNameWrap.className = 'panel-line-name';
+        const lineNameMain = document.createElement('span');
+        lineNameMain.className = 'panel-line-name-main';
+        lineNameMain.textContent = lineName;
+        lineNameWrap.appendChild(lineNameMain);
+        lineHeader.appendChild(lineNameWrap);
+
+        if (lineSuffixHtml) {
+            const suffixHost = document.createElement('div');
+            suffixHost.innerHTML = lineSuffixHtml;
+            const suffixEl = suffixHost.firstElementChild;
+            if (suffixEl) line.appendChild(suffixEl);
+        }
+
+        if (stationInfoHtml) {
+            const stationInfoHost = document.createElement('div');
+            stationInfoHost.innerHTML = stationInfoHtml;
+            const stationInfoEl = stationInfoHost.firstElementChild;
+            if (stationInfoEl) line.appendChild(stationInfoEl);
+        }
+
+        const dir = document.createElement('div');
+        dir.className = 'panel-dir';
+        const dirHeader = document.createElement('div');
+        dirHeader.className = 'panel-dir-header';
+        const dirTitle = document.createElement('span');
+        dirTitle.className = 'panel-dir-title';
+        const dirPrefix = document.createElement('span');
+        dirPrefix.className = 'panel-dir-prefix';
+        dirPrefix.setAttribute('aria-hidden', 'true');
+        dirPrefix.textContent = '往';
+
+        const dirMarquee = document.createElement('span');
+        dirMarquee.className = 'panel-dir-marquee';
+        dirMarquee.setAttribute('aria-label', `往 ${dirLabel} 方向`);
+        const dirMarqueeInner = document.createElement('span');
+        dirMarqueeInner.className = 'panel-dir-marquee-inner';
+        dirMarqueeInner.textContent = dirLabel;
+        dirMarquee.appendChild(dirMarqueeInner);
+
+        const dirSuffix = document.createElement('span');
+        dirSuffix.className = 'panel-dir-suffix';
+        dirSuffix.setAttribute('aria-hidden', 'true');
+        dirSuffix.textContent = '方向';
+
+        dirTitle.appendChild(dirPrefix);
+        dirTitle.appendChild(dirMarquee);
+        dirTitle.appendChild(dirSuffix);
+        dirHeader.appendChild(dirTitle);
+        dir.appendChild(dirHeader);
 
         const content = document.createElement('div');
         content.className = 'timetable-print-content';
@@ -255,9 +386,15 @@
             </div>
         `;
 
-        card.appendChild(title);
-        card.appendChild(subtitle);
-        card.appendChild(content);
+        dir.appendChild(content);
+        line.appendChild(lineHeader);
+        line.appendChild(dir);
+        companyLines.appendChild(line);
+        company.appendChild(companyHeader);
+        company.appendChild(companyLines);
+
+        card.appendChild(head);
+        card.appendChild(company);
 
         if (useGrid) {
             // Default: allow wrapping within hour; actual fitting happens after DOM is attached.

@@ -3692,6 +3692,7 @@ export function createPanel(options = {}) {
             const companyKeyForPrint = toText(lineMetaForPrint?.company);
             const companyZhForPrint = toText(companyLogoMap?.[companyKeyForPrint]?.zh);
             const companyTypeForPrint = toText(companyLogoMap?.[companyKeyForPrint]?.type);
+            const companyLogoSrcForPrint = toText(getCompanyLogoSrc(companyKeyForPrint, companyLogoMap));
             const lineColorForPrint = toText(lineMetaForPrint?.color);
             dirPrintPayloadByKey.set(lineDirKey, {
                 lineId: toText(lineId),
@@ -3702,6 +3703,7 @@ export function createPanel(options = {}) {
                 lineColor: lineColorForPrint,
                 companyName: companyZhForPrint || companyKeyForPrint || '未知公司',
                 companyType: companyTypeForPrint || '',
+                companyLogoSrc: companyLogoSrcForPrint,
                 timetableViewMode,
                 serviceDay: toText(currentServiceDay),
                 generatedAt: Date.now(),
@@ -5930,9 +5932,17 @@ export function createPanel(options = {}) {
         const key = makeLineDirKey(lineId, dirKey);
         const payload = dirPrintPayloadByKey.get(key);
         if (!payload) return;
+        const lid = toText(lineId);
+        const lineEl = Array.from(body.querySelectorAll('[data-line-id]')).find((el) => toText(el.getAttribute('data-line-id')) === lid) || null;
+        const lineSuffixHtml = toText(lineEl?.querySelector?.('[data-line-suffix-row]')?.outerHTML || '');
+        const stationInfoHtml = toText(lineEl?.querySelector?.('[data-station-info]')?.outerHTML || '');
         try {
             window.dispatchEvent(new CustomEvent(TIMETABLE_PRINT_EVENT, {
-                detail: { ...payload }
+                detail: {
+                    ...payload,
+                    lineSuffixHtml,
+                    stationInfoHtml
+                }
             }));
         } catch {
             // ignore
@@ -5946,6 +5956,8 @@ export function createPanel(options = {}) {
         for (const lineEl of lineEls) {
             const lineId = toText(lineEl.getAttribute('data-line-id'));
             if (!lineId) continue;
+            const lineSuffixHtml = toText(lineEl.querySelector?.('[data-line-suffix-row]')?.outerHTML || '');
+            const stationInfoHtml = toText(lineEl.querySelector?.('[data-station-info]')?.outerHTML || '');
             const dirEls = Array.from(lineEl.querySelectorAll('[data-dir-toggle][data-dir-key]'));
             for (const dirEl of dirEls) {
                 const dirKey = toText(dirEl.getAttribute('data-dir-key'));
@@ -5953,7 +5965,13 @@ export function createPanel(options = {}) {
                 if (!lineDirKey || seen.has(lineDirKey)) continue;
                 seen.add(lineDirKey);
                 const payload = dirPrintPayloadByKey.get(lineDirKey);
-                if (payload) out.push({ ...payload });
+                if (payload) {
+                    out.push({
+                        ...payload,
+                        lineSuffixHtml,
+                        stationInfoHtml
+                    });
+                }
             }
         }
 
