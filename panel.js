@@ -33,6 +33,7 @@ const toText = (v) => String(v ?? '').trim();
 const UENO_TOKYO_TEMP_LINE_ID = THROUGH_SERVICE_TEMP_LINE_IDS.UENO_TOKYO;
 const SHONAN_SHINJUKU_TEMP_LINE_ID = THROUGH_SERVICE_TEMP_LINE_IDS.SHONAN_SHINJUKU;
 const SHONAN_SHINJUKU_MAIN_LINE_ID = 'JR-East.ShonanShinjuku';
+const KEISEI_NARITA_SKY_ACCESS_LINE_ID = 'Keisei.NaritaSkyAccess';
 const STATION_TOKEN_TOKYO = 'Tokyo';
 const STATION_TOKEN_UENO = 'Ueno';
 const STATION_TOKEN_SHIBUYA = 'Shibuya';
@@ -3029,13 +3030,27 @@ export function createPanel(options = {}) {
 
                 let tripAbbrText = `${showTypeAbbr ? `[${typeAbbr}]` : ''}${showDestAbbr ? destAbbr : ''}`;
                 if (hasSpecialNames) {
-                    const specialPrefix = `[${specialAbbrs.join('·')}]`;
-                    if (specialAbbrs.length >= 2) {
-                        const multiDestAbbr = toText(rawDestAbbr);
-                        const fallbackDest = toText(trip?.terminalDisplayName || trip?.terminalName || trip?.destName);
-                        tripAbbrText = `${specialPrefix}${multiDestAbbr || fallbackDest}`;
+                    const tripLineId = toText(trip?.sourceLineId);
+                    const tripKey = toText(trip?.tripKey);
+                    const baseTripKey = toText(trip?.baseTripKey);
+                    const isNaritaSkyAccessTrip = tripLineId === KEISEI_NARITA_SKY_ACCESS_LINE_ID
+                        || tripKey.startsWith(`${KEISEI_NARITA_SKY_ACCESS_LINE_ID}.`)
+                        || baseTripKey.startsWith(`${KEISEI_NARITA_SKY_ACCESS_LINE_ID}.`);
+                    const isSkylinerType = /skyliner/i.test(typeName);
+                    const hasSkylinerSpecial = specialSps.some((sp) => /skyliner/i.test(toText(sp)));
+
+                    if (isNaritaSkyAccessTrip && isSkylinerType && hasSkylinerSpecial) {
+                        // Narita Sky Access: keep hint-consistent type abbreviation for Skyliner.
+                        tripAbbrText = showTypeAbbr ? `[${typeAbbr}]` : '';
                     } else {
-                        tripAbbrText = `${specialPrefix}${toText(rawDestAbbr)}`;
+                        const specialPrefix = `[${specialAbbrs.join('·')}]`;
+                        if (specialAbbrs.length >= 2) {
+                            const multiDestAbbr = toText(rawDestAbbr);
+                            const fallbackDest = toText(trip?.terminalDisplayName || trip?.terminalName || trip?.destName);
+                            tripAbbrText = `${specialPrefix}${multiDestAbbr || fallbackDest}`;
+                        } else {
+                            tripAbbrText = `${specialPrefix}${toText(rawDestAbbr)}`;
+                        }
                     }
                 }
 

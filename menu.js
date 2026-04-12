@@ -412,10 +412,12 @@ export class Menu {
         // 自定义合并
         const specialMainByBranch = {
             'JR-East.KeiyoKoyaBranch': 'JR-East.Musashino',
-            'JR-East.KeiyoFutamataBranch': 'JR-East.Musashino',
+            'JR-East.KeiyoFutamataBranch': 'JR-East.Musashino', 
             'Seibu.S-Fukutoshin': 'Seibu.Ikebukuro',
             'Seibu.S-Yurakucho': 'Seibu.Ikebukuro',
-            'Tobu.JRTobuConnection' : 'Tobu.Nikko'
+            'Tobu.JRTobuConnection' : 'Tobu.Nikko',
+            "JR-East.NaritaAirportBranch": 'JR-East.Narita',
+            "JR-East.NaritaAbikoBranch": 'JR-East.Narita'
         };
         const isBranchLineId = (lineId) => typeof lineId === 'string' && lineId.endsWith('Branch');
 
