@@ -481,8 +481,25 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                         background: var(--tt-color, #888) !important;
                         background-size: 12px 100% !important;
                     }
+                    html.${EXPORT_CLASS} .route-map-station.is-through-label,
+                    html.${EXPORT_CLASS} .route-map-through-items,
+                    html.${EXPORT_CLASS} .route-map-through-item {
+                        overflow: visible !important;
+                    }
+                    html.${EXPORT_CLASS} .route-map-through-item {
+                        align-items: center !important;
+                    }
+                    html.${EXPORT_CLASS} .route-map-through-line {
+                        display: inline-block !important;
+                        line-height: 1.2 !important;
+                        vertical-align: middle !important;
+                    }
+                    html.${EXPORT_CLASS} .route-map-station .rw-station-code-badge {
+                        line-height: 20px !important;
+                        transform: translateY(-2px) !important;
+                    }
                     html.${EXPORT_CLASS} .route-map-through-branch {
-                        left: calc(0px + var(--branch-start-offset, 0px)) !important;
+                        left: calc(10% + var(--branch-start-offset, 0px)) !important;
                     }
 
                 `;
