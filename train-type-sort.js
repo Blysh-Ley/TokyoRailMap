@@ -1,6 +1,6 @@
 const toText = (v) => String(v ?? '').trim();
 
-export const TYPE_BASE_SEQUENCE = ['快特','特急', '急行', '准急', '快速', '普通', '各站停车'];
+export const TYPE_BASE_SEQUENCE = ['快特','特急', '急行', , '快速','准急', '普通', '各站停车'];
 
 export const resolveTypeBaseIndex = (typeNameRaw) => {
     const typeName = toText(typeNameRaw);

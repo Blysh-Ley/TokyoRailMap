@@ -1756,7 +1756,7 @@ export function createPanel(options = {}) {
         const stopCountMap = typeStopCountByName instanceof Map ? typeStopCountByName : new Map();
 
         const typeNames = sortTypeNamesByBaseAndStopCount(Array.from(allColorMap.keys()), countMap, stopCountMap);
-        const stopFallbackColor = panelIsDarkThemeActive() ? '#fff' : '#111';
+        const stopFallbackColor = '#555';
 
         const out = [];
         for (const typeName of typeNames) {
@@ -3764,6 +3764,15 @@ export function createPanel(options = {}) {
         };
     };
 
+    const formatStationTypeBadgeLabel = (typeNameRaw) => {
+        const name = toText(typeNameRaw);
+        if (!name) return '';
+        if (/\s/.test(name)) return name;
+        const chars = Array.from(name);
+        if (chars.length !== 2) return name;
+        return `${chars[0]}      ${chars[1]}`;
+    };
+
     const applyLineStationInfo = (lineEl, stationInfo) => {
         if (!(lineEl instanceof Element)) return;
         const infoEl = lineEl.querySelector('[data-station-info]');
@@ -3791,11 +3800,12 @@ export function createPanel(options = {}) {
             return;
         }
 
-        const html = typeItems.map((item, idx) => {
+        const html = typeItems.map((item) => {
             const cls = item.isStop ? 'panel-station-info-type is-stop' : 'panel-station-info-type is-pass';
-            const style = item.isStop && item.color ? ` style="color:${escapeHtml(item.color)}"` : '';
-            const sep = idx < typeItems.length - 1 ? '<span class="panel-station-info-type-sep">/</span>' : '';
-            return `<span class="${cls}"${style}>${escapeHtml(item.name)}</span>${sep}`;
+            const bgColor = item.isStop ? (toText(item.color) || '#555') : '#ddd';
+            const style = ` style="background-color:${escapeHtml(bgColor)}"`;
+            const label = formatStationTypeBadgeLabel(item.name);
+            return `<span class="${cls}"${style}>${escapeHtml(label)}</span>`;
         }).join('');
 
         typesEl.innerHTML = html;

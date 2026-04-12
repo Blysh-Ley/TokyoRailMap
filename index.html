@@ -1441,27 +1441,40 @@
             flex: 1 1 auto;
             min-width: 0;
             display: inline-flex;
-            align-items: center;
-            flex-wrap: nowrap;
+            align-items: flex-start;
+            align-content: flex-start;
+            flex-wrap: wrap;
+            column-gap: 4px;
+            row-gap: 2px;
             overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            max-height: calc(18px * 2 + 2px);
             margin-left: 0;
         }
 
         .panel-station-info-type {
-            font-size: 13px;
-            line-height: 1.2;
-            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 18px;
+            width: 46px;
+            max-width: 100%;
+            padding: 0 6px;
+            border-radius: 6px;
+            font-size: 12px;
+            line-height: 18px;
+            color: #fff;
+            font-weight: 600;
+            white-space: pre;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .panel-station-info-type.is-stop {
-            font-weight: bolder;
+            font-weight: 700;
         }
 
         .panel-station-info-type.is-pass {
-            color: #ddd;
-            font-weight: lighter;
+            font-weight: 600;
         }
 
         .panel-station-info-type-sep {
@@ -3700,7 +3713,6 @@
         html[data-theme='dark'] .panel-timetable,
         html[data-theme='dark'] .panel-time-label,
         html[data-theme='dark'] .panel-line-name-suffix,
-        html[data-theme='dark'] .panel-station-info-type.is-pass,
         html[data-theme='dark'] .panel-station-info-type-sep,
         html[data-theme='dark'] .panel-dir-filter-option-count,
         html[data-theme='dark'] .panel-dir-filter-popover-close,
@@ -4034,17 +4046,11 @@
         html[data-theme='dark'] .maplibregl-popup-content .station-hover-line-suffix,
         html[data-theme='dark'] .maplibregl-popup-content .station-hover-company-type,
         html[data-theme='dark'] .maplibregl-popup-content .panel-line-name-suffix,
-        html[data-theme='dark'] .maplibregl-popup-content .panel-station-info-type.is-pass,
         html[data-theme='dark'] .maplibregl-popup-content .panel-station-info-type-sep,
         html[data-theme='dark'] .maplibregl-popup-content .panel-line-toggle,
         html[data-theme='dark'] .maplibregl-popup-content .panel-time-label,
         html[data-theme='dark'] .maplibregl-popup-content .panel-timetable {
             color: #b8bcc3;
-        }
-
-        html[data-theme='dark'] .panel-station-info-type.is-pass,
-        html[data-theme='dark'] .maplibregl-popup-content .panel-station-info-type.is-pass {
-            color: #888;
         }
 
         html[data-theme='dark'] .maplibregl-popup-anchor-top .maplibregl-popup-tip {
