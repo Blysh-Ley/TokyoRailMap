@@ -409,7 +409,7 @@ export class Menu {
             const zhName = String(meta?.simplified || '').trim();
             return zhName.includes('货物') || zhName.includes('大崎支线');
         };
-        // 自定义合并
+        // 自定义合并支线：某些支线虽然命名上是“主线 + Branch”，但实际上应该归并到主线下（如武藏野线大宫支线）。这种特殊情况单独列出来，优先判断。
         const specialMainByBranch = {
             'JR-East.KeiyoKoyaBranch': 'JR-East.Musashino',
             'JR-East.KeiyoFutamataBranch': 'JR-East.Musashino', 
@@ -417,7 +417,8 @@ export class Menu {
             'Seibu.S-Yurakucho': 'Seibu.Ikebukuro',
             'Tobu.JRTobuConnection' : 'Tobu.Nikko',
             "JR-East.NaritaAirportBranch": 'JR-East.Narita',
-            "JR-East.NaritaAbikoBranch": 'JR-East.Narita'
+            "JR-East.NaritaAbikoBranch": 'JR-East.Narita',
+            "Keio.KeioNew": "Keio.Keio"
         };
         const isBranchLineId = (lineId) => typeof lineId === 'string' && lineId.endsWith('Branch');
 
