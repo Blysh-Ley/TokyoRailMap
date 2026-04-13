@@ -1799,7 +1799,10 @@ const setupRouteMapUi = () => {
                     return throughItemList.length >= 2 ? '-2px' : '-12px';
                 }
                 if (isBottomThrough) {
-                    return '-12px';
+                    // 如果是最顶部的 through（紧靠第一个站点前），偏移向上
+                    if (si === 0) return '-12px';
+                    // 如果是最后一行 through（紧靠最后一个站点后），偏移向下
+                    if (si === (orderedStationIds.length - 1)) return '12px';
                 }
                 return '3px';
             })();
