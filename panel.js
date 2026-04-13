@@ -33,7 +33,6 @@ const toText = (v) => String(v ?? '').trim();
 const UENO_TOKYO_TEMP_LINE_ID = THROUGH_SERVICE_TEMP_LINE_IDS.UENO_TOKYO;
 const SHONAN_SHINJUKU_TEMP_LINE_ID = THROUGH_SERVICE_TEMP_LINE_IDS.SHONAN_SHINJUKU;
 const SHONAN_SHINJUKU_MAIN_LINE_ID = 'JR-East.ShonanShinjuku';
-const KEISEI_NARITA_SKY_ACCESS_LINE_ID = 'Keisei.NaritaSkyAccess';
 const STATION_TOKEN_TOKYO = 'Tokyo';
 const STATION_TOKEN_UENO = 'Ueno';
 const STATION_TOKEN_SHIBUYA = 'Shibuya';
@@ -2448,9 +2447,18 @@ export function createPanel(options = {}) {
     };
 
     const extractTripSpecialNames = (tripLike) => {
+        const normalizeCompact = (value) => toText(value).toLowerCase().replace(/\s+/g, '');
+        const typeId = toText(tripLike?.y);
+        const typeToken = normalizeCompact(typeId.split('.')[1] || '');
         const list = Array.isArray(tripLike?.nm) ? tripLike.nm : [];
         const out = [];
         for (const item of list) {
+            const enName = toText(item?.en);
+            const enCompact = normalizeCompact(enName);
+            const isNaritaExpressName = enCompact.includes('naritaexpress');
+            const isSpecial = !isNaritaExpressName && (!enCompact || !typeToken || !enCompact.includes(typeToken));
+            if (!isSpecial) continue;
+
             const name = toText(item?.['zh-Hans'] || item?.['zh-Hnas'] || item?.ja || item?.en);
             if (name) out.push(name);
         }
@@ -3027,22 +3035,10 @@ export function createPanel(options = {}) {
                     specialSps.map((sp) => toText(specialAbbrBySp.get(sp)) || sp.slice(0, 1)).filter(Boolean)
                 ));
                 const hasSpecialNames = specialAbbrs.length > 0;
+                const useSpecialBackground = hasSpecialNames || !!trip?.hasNameMeta;
 
                 let tripAbbrText = `${showTypeAbbr ? `[${typeAbbr}]` : ''}${showDestAbbr ? destAbbr : ''}`;
                 if (hasSpecialNames) {
-                    const tripLineId = toText(trip?.sourceLineId);
-                    const tripKey = toText(trip?.tripKey);
-                    const baseTripKey = toText(trip?.baseTripKey);
-                    const isNaritaSkyAccessTrip = tripLineId === KEISEI_NARITA_SKY_ACCESS_LINE_ID
-                        || tripKey.startsWith(`${KEISEI_NARITA_SKY_ACCESS_LINE_ID}.`)
-                        || baseTripKey.startsWith(`${KEISEI_NARITA_SKY_ACCESS_LINE_ID}.`);
-                    const isSkylinerType = /skyliner/i.test(typeName);
-                    const hasSkylinerSpecial = specialSps.some((sp) => /skyliner/i.test(toText(sp)));
-
-                    if (isNaritaSkyAccessTrip && isSkylinerType && hasSkylinerSpecial) {
-                        // Narita Sky Access: keep hint-consistent type abbreviation for Skyliner.
-                        tripAbbrText = showTypeAbbr ? `[${typeAbbr}]` : '';
-                    } else {
                         const specialPrefix = `[${specialAbbrs.join('·')}]`;
                         if (specialAbbrs.length >= 2) {
                             const multiDestAbbr = toText(rawDestAbbr);
@@ -3051,7 +3047,6 @@ export function createPanel(options = {}) {
                         } else {
                             tripAbbrText = `${specialPrefix}${toText(rawDestAbbr)}`;
                         }
-                    }
                 }
 
                 const tripAbbrLen = Array.from(toText(tripAbbrText)).length;
@@ -3068,7 +3063,7 @@ export function createPanel(options = {}) {
                     const pastClass = trip?.isPast ? ' is-past' : '';
 
                     return `
-                        <div class="panel-grid-cell panel-grid-cell-trip${hasSpecialNames ? ' has-special' : ''}${pastClass}${lastClass}"${tripAttr}>
+                        <div class="panel-grid-cell panel-grid-cell-trip${useSpecialBackground ? ' has-special' : ''}${pastClass}${lastClass}"${tripAttr}>
                             <span class="panel-grid-trip${pastClass}" style="color:${escapeHtml(color)}">
                                 ${tripAbbrHtml}
                                 <span class="panel-grid-trip-minute"><span class="panel-grid-trip-minute-text">${escapeHtml(minute)}</span>${isTerminal ? '<span class="panel-grid-trip-minute-flag" aria-label="终点站">终</span>' : ''}</span>
@@ -3309,6 +3304,7 @@ export function createPanel(options = {}) {
                     typeName,
                     typeColor,
                     specialNames,
+                    hasNameMeta: Array.isArray(trip?.nm) && trip.nm.length > 0,
                     originId,
                     originName,
                     terminalId: terminalIdForFilter,
@@ -3417,6 +3413,7 @@ export function createPanel(options = {}) {
                     ...(Array.isArray(primary.specialNames) ? primary.specialNames : []),
                     ...(Array.isArray(secondary.specialNames) ? secondary.specialNames : [])
                 ].map((x) => toText(x)).filter(Boolean)));
+                primary.hasNameMeta = !!(primary.hasNameMeta || secondary.hasNameMeta);
                 primary.originIdsCount = Math.max(Number(primary.originIdsCount) || 0, Number(secondary.originIdsCount) || 0);
                 primary.terminalIdsCount = Math.max(Number(primary.terminalIdsCount) || 0, Number(secondary.terminalIdsCount) || 0);
                 primary.hasNt = !!(primary.hasNt || secondary.hasNt);
