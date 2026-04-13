@@ -27,6 +27,7 @@ import {
     renderTimetablePlainNoteRowHtml,
     renderTimetableStationRowHtml
 } from './timetable-table.js';
+import { isExcludedLineType } from './line-type-exclusions.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -3160,10 +3161,11 @@ export function createPanel(options = {}) {
                 if (tripServiceDay && tripServiceDay !== currentServiceDay) continue;
 
                 const typeId = toText(trip?.y);
+                const isTypeExcludedForSummary = isExcludedLineType(lineId, typeId);
                 const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
                 const typeColor = typeId ? resolveTrainTypeColorForTheme(trainTypeColorIndex.get(typeId)) : '';
                 const typeBaseName = resolveTypeBaseName(typeName);
-                if (typeBaseName) {
+                if (typeBaseName && !isTypeExcludedForSummary) {
                     typeCountByName.set(typeName, (Number(typeCountByName.get(typeName) || 0)) + 1);
                     if (!allTypeColorByName.has(typeName)) {
                         allTypeColorByName.set(typeName, toText(typeColor));
@@ -3172,7 +3174,7 @@ export function createPanel(options = {}) {
 
                 const tt = Array.isArray(trip?.tt) ? trip.tt : [];
                 if (!tt.length) continue;
-                if (typeBaseName) {
+                if (typeBaseName && !isTypeExcludedForSummary) {
                     if (!typeStopStationSetByName.has(typeName)) {
                         typeStopStationSetByName.set(typeName, new Set());
                     }
@@ -3185,7 +3187,7 @@ export function createPanel(options = {}) {
                     typeStopCountByName.set(typeName, stopSet.size);
                 }
                 const stop = tt.find((x) => toText(x?.s) === stationKey);
-                if (typeBaseName) {
+                if (typeBaseName && !isTypeExcludedForSummary) {
                     if (stop) {
                         stopTypeNameSet.add(typeName);
                         if (!stopTypeColorByName.has(typeName) && toText(typeColor)) {

@@ -14,6 +14,7 @@ import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from './train-typ
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
 import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from './fetch.js';
 import { previewBranchesForLine } from './analyze_branch.js';
+import { isExcludedLineType } from './line-type-exclusions.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -104,7 +105,9 @@ const isTypeInBaseSequence = (typeNameRaw) => {
     return baseKeywords.some((kw) => typeName.includes(kw));
 };
 
-const shouldDisplayRouteMapType = (typeInfo) => {
+const shouldDisplayRouteMapType = (typeInfo, lineId) => {
+    const typeId = toText(typeInfo?.typeId);
+    if (isExcludedLineType(lineId, typeId)) return false;
     const typeName = toText(typeInfo?.typeName);
     return isTypeInBaseSequence(typeName);
 };
@@ -839,6 +842,15 @@ const ensureStyleInstalled = () => {
             align-items: flex-start;
             gap: 4px;
         }
+        .route-map-through-items.is-two-rows {
+            gap: 2px;
+        }
+        .route-map-through-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: nowrap;
+        }
         .route-map-through-item {
             display: flex;
             align-items: center;
@@ -1285,6 +1297,7 @@ const setupRouteMapUi = () => {
 
     const renderDiagram = (payload) => {
         const lineStations = payload?.lineStations || {};
+        const displayLineId = toText(payload?.selectedLine?.lineId || payload?.selectedLine?.id || activeLineId);
         const stationIds = Array.isArray(lineStations?.stationIds) ? lineStations.stationIds : [];
         const stationNames = Array.isArray(lineStations?.stationNames) ? lineStations.stationNames : stationIds;
 
@@ -1302,7 +1315,7 @@ const setupRouteMapUi = () => {
             for (const t of Array.isArray(dirBlock?.types) ? dirBlock.types : []) {
                 const typeId = toText(t?.typeId) || 'Unknown';
                 const typeName = toText(t?.typeName) || typeId;
-                if (!shouldDisplayRouteMapType(t)) continue;
+                if (!shouldDisplayRouteMapType(t, displayLineId)) continue;
                 const color = toText(t?.color) || '#888';
                 const key = `${typeId}||${typeName}`;
                 if (!mergedTypeMap.has(key)) {
@@ -1614,7 +1627,7 @@ const setupRouteMapUi = () => {
             const THROUGH_BRANCH_TURN_PX = 12;
             const THROUGH_BRANCH_ELBOW_HEIGHT_PX = THROUGH_BRANCH_HEIGHT_PX + THROUGH_BRANCH_TURN_PX * 2;
             const THROUGH_BRANCH_HEAD_OFFSET_PX = 4.8;
-            const THROUGH_ROW_CENTER_Y_PX = 25;
+            
             const THROUGH_ROW_SEAM_FUDGE_PX = 0.5;
             const resolveDirectionSign = () => {
                 if (si === -1) return 1;
@@ -1700,13 +1713,24 @@ const setupRouteMapUi = () => {
                 }
 
                 const activeIdx = activeIndexByTi.get(ti);
-                const branchCenterY = THROUGH_ROW_CENTER_Y_PX
-                    + (activeIdx - (activeCount - 1) / 2) * THROUGH_BRANCH_HEIGHT_PX;
-                const elbowTopY = branchCenterY - (THROUGH_BRANCH_ELBOW_HEIGHT_PX / 2);
                 const remainingCols = Math.max(0, types.length - ti - 1);
                 const throughWidth = remainingCols * (12 + 1) + 26;
                 const z = (types.length - ti) + 1;
                 const endpointOrder = Number(endpointTypeIndexByTi.get(ti) || 0);
+
+                const branchDirection = directionSign > 0 ? 'up' : 'down';
+                const isLineBoundaryGap = si === -1 || isBottomThrough;
+                const isTypeBoundaryGap = isTypeAtOwnBoundary(t);
+
+                const THROUGH_ROW_CENTER_Y_PX = 25;
+                const branchCenterY = THROUGH_ROW_CENTER_Y_PX + (activeIdx - (activeCount - 1) / 2) * THROUGH_BRANCH_HEIGHT_PX;
+                const legacyElbowTopY = branchCenterY - (THROUGH_BRANCH_ELBOW_HEIGHT_PX / 2);
+                const branchTopYCenter = branchDirection === 'up' ? THROUGH_ROW_CENTER_Y_PX : 0;
+                const branchTopY = (isLineBoundaryGap || isTypeBoundaryGap)
+                    ? legacyElbowTopY
+                    : (branchTopYCenter + (activeIdx - stackCenter) * THROUGH_BRANCH_HEIGHT_PX);
+                
+
                 const throughRowTranslateY = endpointOrder <= 0
                     ? '0px'
                     : (() => {
@@ -1722,16 +1746,15 @@ const setupRouteMapUi = () => {
                         }
                         return `${y.toFixed(2)}px`;
                     })();
-                const branchDirection = directionSign > 0 ? 'up' : 'down';
+
+                
                 const renderedWidth = throughWidth + THROUGH_BRANCH_HEAD_OFFSET_PX;
                 const branchInner = buildRoundedBranchSvg(renderedWidth, branchDirection);
-                const isLineBoundaryGap = si === -1 || isBottomThrough;
-                const isTypeBoundaryGap = isTypeAtOwnBoundary(t);
                 const branchOffsets = (isLineBoundaryGap || isTypeBoundaryGap)
                     ? [0, THROUGH_BRANCH_HEAD_OFFSET_PX]
                     : [THROUGH_BRANCH_HEAD_OFFSET_PX];
                 const branches = branchOffsets.map((offset) => {
-                    const branchStyle = `--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;--branch-total-width:${renderedWidth.toFixed(2)}px;--branch-start-offset:${Number(offset).toFixed(1)}px;--through-branch-height:${THROUGH_BRANCH_ELBOW_HEIGHT_PX}px;--branch-top-y:${elbowTopY.toFixed(2)}px;`;
+                    const branchStyle = `--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;--branch-total-width:${renderedWidth.toFixed(2)}px;--branch-start-offset:${Number(offset).toFixed(1)}px;--through-branch-height:${THROUGH_BRANCH_ELBOW_HEIGHT_PX}px;--branch-top-y:${branchTopY.toFixed(2)}px;`;
                     return `<span class="route-map-through-branch" style="${branchStyle}">${branchInner}</span>`;
                 }).join('');
 
@@ -1745,7 +1768,7 @@ const setupRouteMapUi = () => {
                 if (!lineId || lineMap.has(lineId)) continue;
                 lineMap.set(lineId, target);
             }
-            const throughItems = Array.from(lineMap.values()).map((target) => {
+            const throughItemList = Array.from(lineMap.values()).map((target) => {
                 const company = toText(target?.refCompany);
                 const logoUrl = resolveCompanyLogoUrl(company);
                 const lineName = toText(target?.refLineName) || toText(target?.refLineId) || '';
@@ -1754,13 +1777,33 @@ const setupRouteMapUi = () => {
                     ? `<img class="route-map-through-logo" src="${escapeHtml(logoUrl)}" alt="${escapeHtml(company || lineName)}" loading="lazy" decoding="async">`
                     : '';
                 return `<span class="route-map-through-item">${logoHtml}<span class="route-map-through-line" style="color:${escapeHtml(lineColor)}">${escapeHtml(lineName)}</span></span>`;
-            }).join('');
+            });
+
+            let throughItems = '';
+            let throughItemsClass = 'route-map-through-items';
+            if (throughItemList.length > 2) {
+                const firstRowCount = Math.ceil(throughItemList.length / 2);
+                const firstRow = throughItemList.slice(0, firstRowCount).join('');
+                const secondRow = throughItemList.slice(firstRowCount).join('');
+                throughItemsClass += ' is-two-rows';
+                throughItems = `<span class="route-map-through-row">${firstRow}</span><span class="route-map-through-row">${secondRow}</span>`;
+            } else {
+                throughItems = throughItemList.join('');
+            }
 
             const labelHtml = throughItems
-                ? `<span class="route-map-through-items">${throughItems}</span>`
+                ? `<span class="${throughItemsClass}">${throughItems}</span>`
                 : '';
-            const throughLabelShiftY = directionSign > 0 ? -THROUGH_BRANCH_TURN_PX : THROUGH_BRANCH_TURN_PX;
-            rows.push(`<div class="route-map-station is-through-label" style="transform:translateY(${throughLabelShiftY}px)">${labelHtml}</div>`);
+            const throughLabelTranslateY = (() => {
+                if (si === -1) {
+                    return throughItemList.length >= 2 ? '-2px' : '-12px';
+                }
+                if (isBottomThrough) {
+                    return '-12px';
+                }
+                return '3px';
+            })();
+            rows.push(`<div class="route-map-station is-through-label" style="transform:translateY(${throughLabelTranslateY})">${labelHtml}</div>`);
         };
 
         // before first station
