@@ -1177,7 +1177,8 @@
 		"en": "Express",
 		"ko": "급행",
 		"zh-Hans": "急行",
-		"zh-Hant": "急行"
+		"zh-Hant": "急行",
+		"color": "#FC4226"
 	}
 }, {
 	"id": "MIR.CommuterRapid",
