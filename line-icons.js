@@ -12,17 +12,9 @@
  */
 
 import { getCachedJson } from './fetch.js';
-import { specialMainByBranch } from './special-condition.js';
+import { resolveMainLineIdByBranchRule } from './special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
-
-const isBranchLineId = (lineId) => typeof lineId === 'string' && lineId.endsWith('Branch');
-
-const splitCamelWords = (s) => {
-    if (!s) return [];
-    const m = String(s).match(/[A-Z][a-z0-9]*/g);
-    return Array.isArray(m) ? m : [];
-};
 
 export const resolveMainLineIdForIcon = (lineId, index = null) => {
     const id = toText(lineId);
@@ -35,26 +27,7 @@ export const resolveMainLineIdForIcon = (lineId, index = null) => {
         return index.has(c);
     };
 
-    const special = specialMainByBranch[id];
-    if (special && exists(special)) return special;
-
-    if (!isBranchLineId(id)) return id;
-
-    const noBranch = id.slice(0, -'Branch'.length);
-    const dot = noBranch.lastIndexOf('.');
-    if (dot < 0) return exists(noBranch) ? noBranch : id;
-
-    const prefix = noBranch.slice(0, dot + 1);
-    const suffix = noBranch.slice(dot + 1);
-    const words = splitCamelWords(suffix);
-    if (!words.length) return exists(noBranch) ? noBranch : id;
-
-    for (let n = words.length; n >= 1; n--) {
-        const cand = prefix + words.slice(0, n).join('');
-        if (exists(cand)) return cand;
-    }
-
-    return exists(noBranch) ? noBranch : id;
+    return resolveMainLineIdByBranchRule(id, exists) || id;
 };
 
 

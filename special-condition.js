@@ -22,6 +22,114 @@ export const isExcludedLineType = (lineIdRaw, typeIdRaw) => {
     return LINE_TYPE_EXCLUSION_KEYS.has(`${lineId}||${typeId}`);
 };
 
+const BRANCH_SUFFIX = 'Branch';
+
+export const isBranchLineId = (lineIdRaw) => {
+    const lineId = toText(lineIdRaw);
+    return !!lineId && lineId.endsWith(BRANCH_SUFFIX);
+};
+
+const splitCamelWords = (s) => {
+    if (!s) return [];
+    const m = String(s).match(/[A-Z][a-z0-9]*/g);
+    return Array.isArray(m) ? m : [];
+};
+
+const toExistsFn = (existsCandidate) => {
+    if (typeof existsCandidate === 'function') {
+        return (lineId) => !!existsCandidate(toText(lineId));
+    }
+    if (existsCandidate instanceof Map || existsCandidate instanceof Set) {
+        return (lineId) => existsCandidate.has(toText(lineId));
+    }
+    return () => true;
+};
+
+export const BRANCH_MERGE_EXCLUSIONS = [
+    'JR-East.NaritaAbikoBranch'
+];
+
+const BRANCH_MERGE_EXCLUSION_SET = new Set(BRANCH_MERGE_EXCLUSIONS.map((x) => toText(x)).filter(Boolean));
+
+export const resolveMainLineIdByBranchRule = (lineIdRaw, existsCandidate = null) => {
+    const id = toText(lineIdRaw);
+    if (!id) return '';
+
+    const exists = toExistsFn(existsCandidate);
+
+    const special = toText(specialMainByBranch[id]);
+    if (special && exists(special)) return special;
+
+    if (BRANCH_MERGE_EXCLUSION_SET.has(id)) return id;
+    if (!isBranchLineId(id)) return id;
+
+    const noBranch = id.slice(0, -BRANCH_SUFFIX.length);
+    const dot = noBranch.lastIndexOf('.');
+    if (dot < 0) return exists(noBranch) ? noBranch : id;
+
+    const prefix = noBranch.slice(0, dot + 1);
+    const suffix = noBranch.slice(dot + 1);
+    const words = splitCamelWords(suffix);
+    if (!words.length) return exists(noBranch) ? noBranch : id;
+
+    for (let n = words.length; n >= 1; n -= 1) {
+        const cand = prefix + words.slice(0, n).join('');
+        if (exists(cand)) return cand;
+    }
+
+    return exists(noBranch) ? noBranch : id;
+};
+
+export const resolveLineSelectionByBranchRules = (lineIdRaw, linesObjRaw = null) => {
+    const rawLineId = toText(lineIdRaw);
+    if (!rawLineId) {
+        return {
+            rawLineId: '',
+            mainLineId: '',
+            mergedLineIds: []
+        };
+    }
+
+    const linesObj = (linesObjRaw && typeof linesObjRaw === 'object') ? linesObjRaw : null;
+    if (!linesObj) {
+        const mainLineId = resolveMainLineIdByBranchRule(rawLineId, null) || rawLineId;
+        return {
+            rawLineId,
+            mainLineId,
+            mergedLineIds: [mainLineId]
+        };
+    }
+
+    const currentCompany = toText(linesObj?.[rawLineId]?.company || '');
+    const existsMainLine = (candRaw) => {
+        const cand = toText(candRaw);
+        if (!cand) return false;
+        const meta = linesObj?.[cand];
+        if (!meta) return false;
+        if (isBranchLineId(cand)) return false;
+        if (!currentCompany) return true;
+        return toText(meta?.company) === currentCompany;
+    };
+
+    const mainLineId = resolveMainLineIdByBranchRule(rawLineId, existsMainLine) || rawLineId;
+    const merged = [mainLineId];
+
+    for (const [lineId, meta] of Object.entries(linesObj)) {
+        const id = toText(lineId);
+        if (!id || id === mainLineId) continue;
+        if (currentCompany && toText(meta?.company) !== currentCompany) continue;
+        const resolved = resolveMainLineIdByBranchRule(id, existsMainLine);
+        if (resolved === mainLineId) merged.push(id);
+    }
+
+    const mergedLineIds = Array.from(new Set(merged.map((x) => toText(x)).filter(Boolean)));
+    return {
+        rawLineId,
+        mainLineId,
+        mergedLineIds
+    };
+};
+
 
 // 自定义合并支线：某些支线虽然命名上是“主线 + Branch”，但实际上应该归并到主线下（如武藏野线大宫支线）。这种特殊情况单独列出来，优先判断。
 export const specialMainByBranch = {
@@ -31,7 +139,6 @@ export const specialMainByBranch = {
     'Seibu.S-Yurakucho': 'Seibu.Ikebukuro',
     'Tobu.JRTobuConnection' : 'Tobu.Nikko',
     "JR-East.NaritaAirportBranch": 'JR-East.Narita',
-    "JR-East.NaritaAbikoBranch": 'JR-East.Narita',
     "Keio.KeioNew": "Keio.Keio"
 };
 

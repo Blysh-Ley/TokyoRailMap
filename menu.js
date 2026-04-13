@@ -19,8 +19,7 @@ import {
     MENU_THROUGH_LINE_IDS,
     THROUGH_SERVICE_DISPLAY
 } from './shonanshinjuku-uenotokyo.js';
-import {specialMainByBranch} from './special-condition.js';
-import { preferredOrder } from './special-condition.js';
+import { isBranchLineId, preferredOrder, resolveMainLineIdByBranchRule } from './special-condition.js';
 
 export class Menu {
     constructor({
@@ -392,8 +391,6 @@ export class Menu {
             return zhName.includes('货物') || zhName.includes('大崎支线');
         };
 
-        const isBranchLineId = (lineId) => typeof lineId === 'string' && lineId.endsWith('Branch');
-
         const RW_MENU_THROUGH_ENTRIES = Object.freeze([
             {
                 category: 'UenoTokyo',
@@ -436,13 +433,6 @@ export class Menu {
             }
         };
 
-        const splitCamelWords = (s) => {
-            // e.g. MusashinoNishiUrawa -> [Musashino, Nishi, Urawa]
-            if (!s) return [];
-            const m = String(s).match(/[A-Z][a-z0-9]*/g);
-            return Array.isArray(m) ? m : [];
-        };
-
         const toRailwaysOrderKey = (lineId) => {
             const raw = String(lineId ?? '').trim();
             if (!raw) return '';
@@ -454,31 +444,11 @@ export class Menu {
         };
 
         const findMergeTargetId = (branchLineId, existsFn) => {
-            // 自定义合并：某些支线虽然命名上不是简单的“主线 + Branch”，但实际上应该归并到主线下（如武藏野线大宫支线）。这种特殊情况单独列出来，优先判断。
-            const special = specialMainByBranch[String(branchLineId)];
-            if (special && existsFn(special)) return special;
-
-            if (!isBranchLineId(branchLineId)) return null;
-
-            const full = String(branchLineId);
-            const noBranch = full.slice(0, -'Branch'.length);
-
-            const dot = noBranch.lastIndexOf('.');
-            if (dot < 0) return existsFn(noBranch) ? noBranch : null;
-
-            const prefix = noBranch.slice(0, dot + 1);
-            const suffix = noBranch.slice(dot + 1);
-            const words = splitCamelWords(suffix);
-            if (!words.length) return existsFn(noBranch) ? noBranch : null;
-
-            // 尝试：JR-East.MusashinoNishiUrawa -> JR-East.MusashinoNishi -> JR-East.Musashino
-            for (let n = words.length; n >= 1; n--) {
-                const cand = prefix + words.slice(0, n).join('');
-                if (existsFn(cand)) return cand;
-            }
-
-            // 兜底：直接用去掉 Branch 后的完整 id
-            return existsFn(noBranch) ? noBranch : null;
+            const raw = String(branchLineId ?? '').trim();
+            if (!raw) return null;
+            const resolved = resolveMainLineIdByBranchRule(raw, existsFn);
+            if (!resolved || resolved === raw) return null;
+            return resolved;
         };
 
         const computeLineDisplayName = (lineId, meta, abb) => {
@@ -570,21 +540,20 @@ export class Menu {
 
             for (const [lineIdRaw, meta] of companyLines) {
                 const lineId = String(lineIdRaw);
-                if (!isBranchLineId(lineId) && !specialMainByBranch[lineId]) continue;
                 if (!meta || meta.company !== companyName) continue;
 
                 const target = findMergeTargetId(lineId, existsMainInCompany);
-                if (target && target !== lineId) {
-                    if (!branchesByMain.has(target)) branchesByMain.set(target, []);
-                    branchesByMain.get(target).push(lineId);
-                    mergedBranchIds.add(lineId);
+                if (!target) continue;
 
-                    // 支线 -> 主线
-                    this._mainLineIdByAnyLineId.set(String(lineId), String(target));
-                    // 主线 -> 主线（确保存在）
-                    if (!this._mainLineIdByAnyLineId.has(String(target))) {
-                        this._mainLineIdByAnyLineId.set(String(target), String(target));
-                    }
+                if (!branchesByMain.has(target)) branchesByMain.set(target, []);
+                branchesByMain.get(target).push(lineId);
+                mergedBranchIds.add(lineId);
+
+                // 支线/特例线路 -> 主线
+                this._mainLineIdByAnyLineId.set(String(lineId), String(target));
+                // 主线 -> 主线（确保存在）
+                if (!this._mainLineIdByAnyLineId.has(String(target))) {
+                    this._mainLineIdByAnyLineId.set(String(target), String(target));
                 }
             }
 

@@ -42,7 +42,7 @@ import {
     isMenuThroughLineId
 } from './shonanshinjuku-uenotokyo.js';
 import './route-map-ui.js';
-import { companyLogoMap } from './special-condition.js';
+import { companyLogoMap, resolveLineSelectionByBranchRules } from './special-condition.js';
 
 initializeFetchCache();
 
@@ -347,6 +347,7 @@ map.on('load', async () => {
     // mode: 'preview' | 'commit'
     let fitToCurrentSelection = (_triggerKey, _mode = 'preview') => {};
     let enabledLineIdsByCompany = new Map();
+    let lineSelectionLinesObj = null;
     let stationPopup = null;
     let lineHoverPopup = null;
     let stationLabels = [];
@@ -1034,6 +1035,34 @@ map.on('load', async () => {
         const id = String(lineId || '').trim();
         if (!id) return '未知线路';
         return String(lineNameById.get(id) || id);
+    };
+
+    const resolveLineSelectionForApp = (lineId) => {
+        const id = String(lineId ?? '').trim();
+        if (!id) {
+            return {
+                rawLineId: '',
+                mainLineId: '',
+                mergedLineIds: []
+            };
+        }
+
+        const byMenu = (menu && typeof menu.resolveLineSelection === 'function')
+            ? menu.resolveLineSelection(id)
+            : null;
+        if (byMenu) {
+            const mainLineId = String(byMenu?.mainLineId ?? id).trim() || id;
+            const mergedLineIds = Array.isArray(byMenu?.mergedLineIds)
+                ? byMenu.mergedLineIds.map(String).filter(Boolean)
+                : [mainLineId];
+            return {
+                rawLineId: id,
+                mainLineId,
+                mergedLineIds: mergedLineIds.length ? mergedLineIds : [mainLineId]
+            };
+        }
+
+        return resolveLineSelectionByBranchRules(id, lineSelectionLinesObj || null);
     };
 
     const getBaseKindNameForMultiSelect = (kind) => {
@@ -2156,9 +2185,7 @@ map.on('load', async () => {
                 return;
             }
 
-            const resolved = (menu && typeof menu.resolveLineSelection === 'function')
-                ? menu.resolveLineSelection(id)
-                : null;
+            const resolved = resolveLineSelectionForApp(id);
             const mainLineId = String(resolved?.mainLineId ?? id);
             const merged = Array.isArray(resolved?.mergedLineIds)
                 ? resolved.mergedLineIds.map(String).filter(Boolean)
@@ -2487,9 +2514,7 @@ map.on('load', async () => {
             if (!id) return;
             hideStationPopupForMenuInteraction();
 
-            const resolved = (menu && typeof menu.resolveLineSelection === 'function')
-                ? menu.resolveLineSelection(id)
-                : null;
+            const resolved = resolveLineSelectionForApp(id);
 
             const mainLineId = String(resolved?.mainLineId ?? id);
             const merged = Array.isArray(resolved?.mergedLineIds)
@@ -2512,9 +2537,7 @@ map.on('load', async () => {
             if (!id) return;
             hideStationPopupForMenuInteraction();
 
-            const resolved = (menu && typeof menu.resolveLineSelection === 'function')
-                ? menu.resolveLineSelection(id)
-                : null;
+            const resolved = resolveLineSelectionForApp(id);
 
             const mainLineId = String(resolved?.mainLineId ?? id);
             const merged = Array.isArray(resolved?.mergedLineIds)
@@ -2677,9 +2700,7 @@ map.on('load', async () => {
             if (lineId == null) return;
 
             const rawLineId = String(lineId);
-            const resolved = (menu && typeof menu.resolveLineSelection === 'function')
-                ? menu.resolveLineSelection(rawLineId)
-                : null;
+            const resolved = resolveLineSelectionForApp(rawLineId);
 
             const mainLineId = String(resolved?.mainLineId ?? rawLineId);
             const merged = Array.isArray(resolved?.mergedLineIds)
@@ -4881,6 +4902,7 @@ map.on('load', async () => {
 
         const companyObj = {};
         const linesObj = {};
+        lineSelectionLinesObj = linesObj;
         enabledLineIdsByCompany = new Map();
 
         // ====== 选中后自动缩放：预计算线路 bounds（支持 LineString / MultiLineString） ======
@@ -5197,9 +5219,7 @@ map.on('load', async () => {
 
                 // 菜单已将“支线 -> 主线”解析并给出 mergedLineIds（主线+支线）。
                 // 这里统一以主线作为 selectedLineId，保证底部显示主线名。
-                const resolved = (menu && typeof menu.resolveLineSelection === 'function')
-                    ? menu.resolveLineSelection(lineId)
-                    : null;
+                const resolved = resolveLineSelectionForApp(lineId);
 
                 const mainLineId = String(meta?.mainLineId ?? resolved?.mainLineId ?? lineId);
                 const merged = Array.isArray(meta?.mergedLineIds)
@@ -5665,9 +5685,7 @@ map.on('load', async () => {
                     return;
                 }
 
-                const resolved = (menu && typeof menu.resolveLineSelection === 'function')
-                    ? menu.resolveLineSelection(id)
-                    : null;
+                const resolved = resolveLineSelectionForApp(id);
                 const mainLineId = String(resolved?.mainLineId ?? id);
                 const merged = Array.isArray(resolved?.mergedLineIds)
                     ? resolved.mergedLineIds.map(String).filter(Boolean)
