@@ -12,18 +12,9 @@
  */
 
 import { getCachedJson } from './fetch.js';
+import { specialMainByBranch } from './special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
-
-const specialMainByBranch = {
-    'JR-East.KeiyoKoyaBranch': 'JR-East.Musashino',
-    'JR-East.KeiyoFutamataBranch': 'JR-East.Musashino', 
-    'Seibu.S-Fukutoshin': 'Seibu.Ikebukuro',
-    'Seibu.S-Yurakucho': 'Seibu.Ikebukuro',
-    'Tobu.JRTobuConnection' : 'Tobu.Nikko',
-    "JR-East.NaritaAirportBranch": 'JR-East.Narita',
-    "JR-East.NaritaAbikoBranch": 'JR-East.Narita'
-};
 
 const isBranchLineId = (lineId) => typeof lineId === 'string' && lineId.endsWith('Branch');
 

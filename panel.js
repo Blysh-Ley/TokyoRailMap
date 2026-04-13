@@ -27,7 +27,7 @@ import {
     renderTimetablePlainNoteRowHtml,
     renderTimetableStationRowHtml
 } from './timetable-table.js';
-import { isExcludedLineType } from './line-type-exclusions.js';
+import { isExcludedLineType } from './special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
 

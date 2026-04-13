@@ -14,7 +14,7 @@ import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from './train-typ
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
 import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from './fetch.js';
 import { previewBranchesForLine } from './analyze_branch.js';
-import { isExcludedLineType } from './line-type-exclusions.js';
+import { isExcludedLineType } from './special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
 

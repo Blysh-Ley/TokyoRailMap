@@ -19,6 +19,8 @@ import {
     MENU_THROUGH_LINE_IDS,
     THROUGH_SERVICE_DISPLAY
 } from './shonanshinjuku-uenotokyo.js';
+import {specialMainByBranch} from './special-condition.js';
+import { preferredOrder } from './special-condition.js';
 
 export class Menu {
     constructor({
@@ -371,27 +373,7 @@ export class Menu {
         );
 
         const companiesRaw = Object.keys(this.companyObj || {});
-        const preferredOrder = [
-            'JR-East',           // JR东日本
-            'TokyoMetro',        // 东京地下铁
-            'Toei',              // 都营地下铁
-            'YokohamaMunicipal', // 横滨市营地下铁
-            'Tobu',              // 东武铁道
-            'Keisei',            // 京成电铁
-            'Seibu',             // 西武铁道
-            'Odakyu',            // 小田急电铁
-            'Tokyu',             // 东急电铁
-            'Keio',              // 京王电铁
-            'Keikyu',            // 京急电铁
-            'Sotetsu',           // 相模铁道
-            'JR-Central',        // JR东海
-            'TokyoMonorail',     // 东京单轨电车
-            'MIR',               // 首都圈新都市铁道
-            'ShonanMonorail',    // 湘南单轨电车
-            'ChibaMonorail',     // 千叶都市单轨 
-            'TamaMonorail',      // 多摩都市单轨
-            'Hokuso'             // 北总铁道
-        ];
+
 
         const rank = new Map(preferredOrder.map((name, idx) => [name, idx]));
         const originalIndex = new Map(companiesRaw.map((name, idx) => [name, idx]));
@@ -409,17 +391,7 @@ export class Menu {
             const zhName = String(meta?.simplified || '').trim();
             return zhName.includes('货物') || zhName.includes('大崎支线');
         };
-        // 自定义合并支线：某些支线虽然命名上是“主线 + Branch”，但实际上应该归并到主线下（如武藏野线大宫支线）。这种特殊情况单独列出来，优先判断。
-        const specialMainByBranch = {
-            'JR-East.KeiyoKoyaBranch': 'JR-East.Musashino',
-            'JR-East.KeiyoFutamataBranch': 'JR-East.Musashino', 
-            'Seibu.S-Fukutoshin': 'Seibu.Ikebukuro',
-            'Seibu.S-Yurakucho': 'Seibu.Ikebukuro',
-            'Tobu.JRTobuConnection' : 'Tobu.Nikko',
-            "JR-East.NaritaAirportBranch": 'JR-East.Narita',
-            "JR-East.NaritaAbikoBranch": 'JR-East.Narita',
-            "Keio.KeioNew": "Keio.Keio"
-        };
+
         const isBranchLineId = (lineId) => typeof lineId === 'string' && lineId.endsWith('Branch');
 
         const RW_MENU_THROUGH_ENTRIES = Object.freeze([
