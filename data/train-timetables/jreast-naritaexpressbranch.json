@@ -811,7 +811,7 @@
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
 		"nt": [
-			"JR-East.SobuRapid.2011M.SaturdayHoliday"
+			"JR-East.NaritaExpress.2011M.SaturdayHoliday.2"
 		],
 		"tt": [
 			{
@@ -868,7 +868,7 @@
 			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
 		"nt": [
-			"JR-East.SobuRapid.2011M.Weekday"
+			"JR-East.NaritaExpress.2011M.Weekday.2"
 		],
 		"tt": [
 			{
@@ -2635,7 +2635,7 @@
 			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"pt": [
-			"JR-East.SobuRapid.2042M.SaturdayHoliday"
+			"JR-East.NaritaExpress.2042M.SaturdayHoliday.1"
 		],
 		"tt": [
 			{
@@ -2692,7 +2692,7 @@
 			"JR-East.NaritaExpressBranch.Ofuna"
 		],
 		"pt": [
-			"JR-East.SobuRapid.2042M.Weekday"
+			"JR-East.NaritaExpress.2042M.Weekday.1"
 		],
 		"tt": [
 			{
