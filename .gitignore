@@ -10,3 +10,5 @@ __pycache__
 data/**/*.bak
 /remotedata
 .github
+dist/
+node_modules/
