@@ -1342,6 +1342,20 @@ map.on('load', async () => {
         return [sid];
     };
 
+    const updateSelectedStationLabelClass = () => {
+        const selectedIds = new Set(getSelectedStationHighlightIds().map(String).filter(Boolean));
+        const hasSelected = selectedIds.size > 0;
+        const labels = Array.isArray(stationLabels) ? stationLabels : [];
+
+        for (const item of labels) {
+            const el = item?.el;
+            if (!(el instanceof HTMLElement)) continue;
+            const sid = String(item?.stationId ?? item?.props?.id ?? '').trim();
+            const isSelected = hasSelected && !!sid && selectedIds.has(sid);
+            el.classList.toggle('station-selected-current-label', isSelected);
+        }
+    };
+
     const clearSelectedStationCurrentPopup = () => {
         try {
             selectedStationCurrentPopup?.remove?.();
@@ -1983,6 +1997,7 @@ map.on('load', async () => {
             applyStationSelectionStyle();
             updateSelectedStationCurrentPopup();
             applyTransferStationLabelCollapse();
+            updateSelectedStationLabelClass();
             updateMultiSelectStationLabelChips();
             if (collisionController) collisionController.scheduleUpdate();
             // 顺序很重要：先调度碰撞，再刷新胶囊，确保本帧优先使用最新碰撞可见集。
@@ -5580,7 +5595,8 @@ map.on('load', async () => {
                     ? 'all'
                     : 'collide'
             ),
-            getPinnedStationId: () => fixedPopupStationId,
+            // 选中站点（station-selected-current-label 对应站）在站名碰撞中拥有最高优先级。
+            getPinnedStationId: () => selectedStationId || fixedPopupStationId,
             shouldHideStation: (stationLike) => {
                 if (!shouldApplyBaseLayerHiddenFilter()) return false;
                 const sid = String(stationLike?.stationId || '').trim();
