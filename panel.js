@@ -5950,7 +5950,6 @@ export function createPanel(options = {}) {
 
     const collectAllDirectionPrintPayloads = () => {
         const out = [];
-        const seen = new Set();
         const lineEls = Array.from(body.querySelectorAll('[data-line-id]'));
         for (const lineEl of lineEls) {
             const lineId = toText(lineEl.getAttribute('data-line-id'));
@@ -5961,8 +5960,7 @@ export function createPanel(options = {}) {
             for (const dirEl of dirEls) {
                 const dirKey = toText(dirEl.getAttribute('data-dir-key'));
                 const lineDirKey = makeLineDirKey(lineId, dirKey);
-                if (!lineDirKey || seen.has(lineDirKey)) continue;
-                seen.add(lineDirKey);
+                if (!lineDirKey) continue;
                 const payload = dirPrintPayloadByKey.get(lineDirKey);
                 if (payload) {
                     out.push({
@@ -5972,12 +5970,6 @@ export function createPanel(options = {}) {
                     });
                 }
             }
-        }
-
-        for (const [lineDirKey, payload] of dirPrintPayloadByKey.entries()) {
-            if (!payload || seen.has(lineDirKey)) continue;
-            seen.add(lineDirKey);
-            out.push({ ...payload });
         }
 
         return out;
@@ -6681,6 +6673,7 @@ export function createPanel(options = {}) {
         closeDirFilterPopover();
         clearPinnedPanelState({ restoreStation: false });
         hideTripDetail();
+        dirPrintPayloadByKey.clear();
         dirFilterStateByKey.clear();
         temporaryPanelLineMetaById = new Map();
         temporaryPanelSourceLineIdsByDisplayLineId = new Map();
@@ -6738,6 +6731,7 @@ export function createPanel(options = {}) {
         currentStationServingIds = servingIdsRaw.map(String).filter(Boolean);
         pendingGridDataDebugLog = true;
         expandedDirKeys = new Set();
+        dirPrintPayloadByKey.clear();
         dirFilterStateByKey.clear();
         lastAppliedHoverKey = null;
         lastMousePrimaryKey = '';
