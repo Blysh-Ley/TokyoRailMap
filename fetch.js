@@ -48,6 +48,59 @@ const toAbsoluteUrl = (input) => {
     return String(input ?? '');
 };
 
+const getElectronLocalFileApi = () => {
+    try {
+        if (typeof window === 'undefined') return null;
+        const api = window.TokyoRailElectron;
+        if (api && typeof api.readLocalFile === 'function') return api;
+    } catch {
+        // ignore
+    }
+    return null;
+};
+
+const shouldUseElectronLocalRead = (absUrl) => {
+    const u = normalizeText(absUrl).toLowerCase();
+    if (!u) return false;
+    if (u.startsWith('http://') || u.startsWith('https://')) return false;
+    if (u.startsWith('data:') || u.startsWith('blob:')) return false;
+    if (u.startsWith('ws://') || u.startsWith('wss://')) return false;
+    return true;
+};
+
+const base64ToArrayBuffer = (base64) => {
+    const raw = normalizeText(base64);
+    if (!raw) return new ArrayBuffer(0);
+
+    const bin = atob(raw);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) {
+        bytes[i] = bin.charCodeAt(i);
+    }
+    return bytes.buffer;
+};
+
+const fetchViaElectronLocalRead = async (url) => {
+    const api = getElectronLocalFileApi();
+    if (!api) return null;
+    if (!shouldUseElectronLocalRead(url)) return null;
+
+    try {
+        const result = await api.readLocalFile(url);
+        if (!result || typeof result !== 'object') return null;
+
+        return {
+            url,
+            status: Number(result.status) || 200,
+            statusText: normalizeText(result.statusText) || 'OK',
+            headers: Array.isArray(result.headers) ? result.headers : [],
+            body: base64ToArrayBuffer(result.bodyBase64)
+        };
+    } catch {
+        return null;
+    }
+};
+
 const shouldCacheRequest = (input, init = {}) => {
     const reqMethod = normalizeText(init?.method || (typeof Request !== 'undefined' && input instanceof Request ? input.method : 'GET')).toUpperCase();
     if (reqMethod && reqMethod !== 'GET') return false;
@@ -282,10 +335,7 @@ const buildResponseFromMeta = (meta) => {
     return resp;
 };
 
-const fetchAndStore = async (url, input, init) => {
-    const nativeFetch = state.nativeFetch || fetch.bind(window);
-    const resp = await nativeFetch(input, init);
-
+const storeResponseMetaFromResponse = async (url, resp) => {
     let bodyBuffer = new ArrayBuffer(0);
     try {
         bodyBuffer = await resp.arrayBuffer();
@@ -309,7 +359,33 @@ const fetchAndStore = async (url, input, init) => {
     };
 
     state.responseMetaByUrl.set(url, meta);
-    return buildResponseFromMeta(meta);
+    return meta;
+};
+
+const fetchAndStore = async (url, input, init) => {
+    const nativeFetch = state.nativeFetch || fetch.bind(window);
+    try {
+        const resp = await nativeFetch(input, init);
+
+        // file:// 下 fetch 在不同平台行为不一致，优先回退到 Electron 的本地读取。
+        if (shouldUseElectronLocalRead(url) && (!resp || !resp.ok)) {
+            const fallbackMeta = await fetchViaElectronLocalRead(url);
+            if (fallbackMeta) {
+                state.responseMetaByUrl.set(url, fallbackMeta);
+                return buildResponseFromMeta(fallbackMeta);
+            }
+        }
+
+        const meta = await storeResponseMetaFromResponse(url, resp);
+        return buildResponseFromMeta(meta);
+    } catch (nativeErr) {
+        const fallbackMeta = await fetchViaElectronLocalRead(url);
+        if (fallbackMeta) {
+            state.responseMetaByUrl.set(url, fallbackMeta);
+            return buildResponseFromMeta(fallbackMeta);
+        }
+        throw nativeErr;
+    }
 };
 
 export const cachedFetch = async (input, init = {}) => {
