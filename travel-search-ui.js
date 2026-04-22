@@ -383,6 +383,12 @@ const resolveJourneyColorForTheme = (color) => {
     return travelAdjustColorForDarkThemeIfNeeded(raw);
 };
 
+const resolveJourneyBadgeTextColor = (bgColor) => {
+    const parsed = travelParseCssColorToRgb(bgColor);
+    if (!parsed) return '#fff';
+    return travelRelativeLuminance(parsed) > 0.55 ? '#111' : '#fff';
+};
+
 const isLocalTypeName = (name) => {
     const text = normalizeText(name).toLowerCase();
     if (!text) return false;
@@ -1193,7 +1199,7 @@ export function mountTravelSearchUI() {
                     dotColor: lineColorResolved ? String(resolveJourneyColorForTheme(lineColorResolved)) : '',
                     typeText: block.typeName,
                     typeColor: block.typeColor ? String(resolveJourneyColorForTheme(block.typeColor)) : '',
-                    directionText: directionDestination ? ` 往 ${directionDestination} /` : ''
+                    directionText: directionDestination ? ` 往 ${directionDestination}` : ''
                 });
                 if (travelIsDarkThemeActive() && isLocalTypeName(block.typeName)) {
                     const noteTypeEl = note.querySelector('.journey-trip-note-type');
@@ -1370,14 +1376,20 @@ export function mountTravelSearchUI() {
             pendingSegment = null;
         };
 
-        const appendTrainRow = ({ lineText, typeText, typeColor, directionText }) => {
+        const appendTrainRow = ({ lineText, lineColor, typeText, typeColor, directionText }) => {
             const rowEl = el('div', 'station-row');
             const title = el('div', 'train-title-box');
-            title.appendChild(document.createTextNode(lineText || '线路'));
+            const lineLabel = el('span', 'train-line-label', { text: lineText || '线路' });
+            if (lineColor) lineLabel.style.color = String(lineColor);
+            title.appendChild(lineLabel);
             if (typeText) {
                 title.appendChild(document.createTextNode(' '));
                 const typeLabel = el('span', 'train-type-label', { text: typeText });
-                if (typeColor) typeLabel.style.color = String(resolveJourneyColorForTheme(typeColor));
+                if (typeColor) {
+                    const bg = String(resolveJourneyColorForTheme(typeColor));
+                    typeLabel.style.background = bg;
+                    typeLabel.style.color = resolveJourneyBadgeTextColor(bg);
+                }
                 title.appendChild(typeLabel);
             }
             if (directionText) title.appendChild(document.createTextNode(` 往${directionText}`));
@@ -1428,6 +1440,7 @@ export function mountTravelSearchUI() {
             const directionText = endStation && endStation !== startStation ? endStation : '';
             appendTrainRow({
                 lineText,
+                lineColor: rideColor,
                 typeText: normalizeText(block?.typeName || ''),
                 typeColor: normalizeText(block?.typeColor || ''),
                 directionText

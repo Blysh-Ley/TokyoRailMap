@@ -655,12 +655,26 @@
             text-overflow: ellipsis;
         }
 
+        .train-line-label {
+            font: inherit;
+            color: inherit;
+        }
+
         .train-type-label {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+            height: 18px;
+            padding: 0 6px;
             margin: 0 2px;
             font-size: 11px;
+            line-height: 18px;
             font-weight: 700;
-            color: #444;
+            border-radius: 6px;
+            color: #fff;
+            background: #767676;
+            white-space: nowrap;
         }
 
         .station-row.is-transfer .train-title-box {
@@ -864,9 +878,18 @@
 
         .journey-trip-note-type {
             flex: 0 0 auto;
-            color: #111;
-            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 18px;
+            padding: 0 6px;
+            border-radius: 6px;
+            color: #fff;
+            background: #767676;
+            font-weight: 700;
             font-size: 12px;
+            line-height: 18px;
+            white-space: nowrap;
         }
 
         .journey-trip-transfer-row {
@@ -2020,11 +2043,23 @@
         }
 
         .panel-timetable-type-marquee {
-            width: 100%;
-            display: block;
+            width: auto;
+            max-width: 100%;
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 18px;
+            padding: 0 6px;
+            border-radius: 6px;
+            background: var(--panel-type-badge-bg, #767676);
+            color: var(--panel-type-badge-fg, #fff);
             overflow: hidden;
             white-space: nowrap;
-            text-align: right;
+            text-align: center;
+            font-size: 12px;
+            line-height: 18px;
+            font-weight: 700;
             pointer-events: none;
         }
 
@@ -2032,6 +2067,7 @@
             display: inline-block;
             white-space: nowrap;
             will-change: transform;
+            color: inherit;
         }
 
         .panel-time-arrive {
@@ -2389,8 +2425,17 @@
 
         .panel-trip-detail-note-type {
             flex: 0 0 auto;
-            color: #111;
-            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 18px;
+            padding: 0 6px;
+            border-radius: 6px;
+            color: #fff;
+            background: #767676;
+            font-weight: 700;
+            line-height: 18px;
+            white-space: nowrap;
         }
 
         .panel-trip-detail-note-row.is-past,
@@ -2398,6 +2443,12 @@
         .panel-trip-detail-note-row.is-past .panel-trip-detail-note-line,
         .panel-trip-detail-note-row.is-past .panel-trip-detail-note-type {
             color: #ccc;
+        }
+
+        .panel-trip-detail-note-row.is-past .panel-trip-detail-note-type,
+        .journey-trip-note-row.is-past .journey-trip-note-type {
+            background: #c3c7cd;
+            color: #fff;
         }
 
         .panel-trip-detail-spacer {
@@ -4005,7 +4056,7 @@
         }
 
         html[data-theme='dark'] .train-type-label {
-            color: #d8dde3;
+            color: #fff;
         }
 
         html[data-theme='dark'] .station-row.is-transfer .train-title-box {

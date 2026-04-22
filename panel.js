@@ -219,6 +219,12 @@ const resolveTrainTypeColorForTheme = (color) => {
     return panelAdjustColorForDarkThemeIfNeeded(raw);
 };
 
+const resolvePanelBadgeTextColor = (bgColor) => {
+    const parsed = panelParseCssColorToRgb(bgColor);
+    if (!parsed) return '#fff';
+    return panelRelativeLuminance(parsed) > 0.55 ? '#111' : '#fff';
+};
+
 const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
 
 const isTouchLikePointer = (pt) => pt === 'touch' || pt === 'pen';
@@ -3653,9 +3659,10 @@ export function createPanel(options = {}) {
                 ? printableRowsForDir
                     .map((r) => {
                         const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.tripKey)}"` : '';
-                        const typeStyle = toText(r.typeColor)
-                            ? ` style="color:${escapeHtml(toText(r.typeColor))}"`
-                            : '';
+                        const rawTypeColor = toText(r.typeColor);
+                        const badgeBg = rawTypeColor || '#767676';
+                        const badgeFg = resolvePanelBadgeTextColor(badgeBg);
+                        const typeStyle = ` style="--panel-type-badge-bg:${escapeHtml(badgeBg)};--panel-type-badge-fg:${escapeHtml(badgeFg)}"`;
                         const destText = toText(r.terminalDisplayName || r.destName || r.terminalName);
                         return `
                             <div class="panel-timetable-row"${tripAttr}>
@@ -3666,8 +3673,8 @@ export function createPanel(options = {}) {
                                     </span>
                                 </div>
                                 <div class="panel-timetable-time">${renderTimeForPrint(r)}</div>
-                                <div class="panel-timetable-type"${typeStyle}>
-                                    <span class="panel-timetable-type-marquee" aria-label="${escapeHtml(r.typeName || '')}">
+                                <div class="panel-timetable-type">
+                                    <span class="panel-timetable-type-marquee"${typeStyle} aria-label="${escapeHtml(r.typeName || '')}">
                                         <span class="panel-timetable-type-marquee-inner">${escapeHtml(r.typeName || '')}</span>
                                     </span>
                                 </div>
@@ -3726,9 +3733,10 @@ export function createPanel(options = {}) {
                         .map((r) => {
                             const klass = r.isPast ? 'panel-timetable-row is-past' : 'panel-timetable-row';
                             const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.tripKey)}"` : '';
-                            const typeStyle = (!r.isPast && toText(r.typeColor))
-                                ? ` style="color:${escapeHtml(toText(r.typeColor))}"`
-                                : '';
+                            const rawTypeColor = toText(r.typeColor);
+                            const badgeBg = r.isPast ? '#c3c7cd' : (rawTypeColor || '#767676');
+                            const badgeFg = resolvePanelBadgeTextColor(badgeBg);
+                            const typeStyle = ` style="--panel-type-badge-bg:${escapeHtml(badgeBg)};--panel-type-badge-fg:${escapeHtml(badgeFg)}"`;
                             const destText = toText(r.terminalDisplayName || r.destName || r.terminalName);
                             return `
                                 <div class="${klass}"${tripAttr}>
@@ -3739,8 +3747,8 @@ export function createPanel(options = {}) {
                                         </span>
                                     </div>
                                     <div class="panel-timetable-time">${renderTime(r)}</div>
-                                    <div class="panel-timetable-type"${typeStyle}>
-                                        <span class="panel-timetable-type-marquee" aria-label="${escapeHtml(r.typeName || '')}">
+                                    <div class="panel-timetable-type">
+                                        <span class="panel-timetable-type-marquee"${typeStyle} aria-label="${escapeHtml(r.typeName || '')}">
                                             <span class="panel-timetable-type-marquee-inner">${escapeHtml(r.typeName || '')}</span>
                                         </span>
                                     </div>

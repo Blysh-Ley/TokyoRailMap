@@ -17,6 +17,55 @@ const createEl = (tag, className, text = '') => {
     return node;
 };
 
+const parseCssColorToRgb = (input) => {
+    const s = String(input || '').trim();
+    if (!s) return null;
+
+    const hex = s.match(/^#([0-9a-fA-F]{3,8})$/);
+    if (hex) {
+        const raw = hex[1];
+        if (raw.length === 3 || raw.length === 4) {
+            return {
+                r: parseInt(raw[0] + raw[0], 16),
+                g: parseInt(raw[1] + raw[1], 16),
+                b: parseInt(raw[2] + raw[2], 16)
+            };
+        }
+        if (raw.length === 6 || raw.length === 8) {
+            return {
+                r: parseInt(raw.slice(0, 2), 16),
+                g: parseInt(raw.slice(2, 4), 16),
+                b: parseInt(raw.slice(4, 6), 16)
+            };
+        }
+    }
+
+    const rgb = s.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*([0-9]+(?:\.[0-9]+)?))?\s*\)$/i);
+    if (!rgb) return null;
+    return {
+        r: Math.max(0, Math.min(255, Math.round(Number(rgb[1])))),
+        g: Math.max(0, Math.min(255, Math.round(Number(rgb[2])))),
+        b: Math.max(0, Math.min(255, Math.round(Number(rgb[3]))))
+    };
+};
+
+const relativeLuminance = ({ r, g, b }) => {
+    const toLinear = (v) => {
+        const x = Math.max(0, Math.min(255, Number(v) || 0)) / 255;
+        return x <= 0.03928 ? (x / 12.92) : Math.pow((x + 0.055) / 1.055, 2.4);
+    };
+    const lr = toLinear(r);
+    const lg = toLinear(g);
+    const lb = toLinear(b);
+    return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+};
+
+const getBadgeTextColor = (bgColor) => {
+    const parsed = parseCssColorToRgb(bgColor);
+    if (!parsed) return '#fff';
+    return relativeLuminance(parsed) > 0.55 ? '#111' : '#fff';
+};
+
 export const buildTimetableStationText = ({ stationCode = '', stationName = '', stationId = '' } = {}) => {
     const name = toText(stationName || stationId);
     const code = toText(stationCode);
@@ -51,7 +100,7 @@ export const renderTimetableNoteRowHtml = ({
         : '';
     const lineHtml = `<span class="${escapeHtml(safeLineClass)}"${safeLineColor ? ` style="color:${escapeHtml(safeLineColor)}"` : ''}>${escapeHtml(safeLineText)}</span>`;
     const typeHtml = (safeTypeClass && safeTypeText)
-        ? `<span class="${escapeHtml(safeTypeClass)}"${safeTypeColor ? ` style="color:${escapeHtml(safeTypeColor)}"` : ''}>${escapeHtml(safeTypeText)}</span>`
+        ? `<span class="${escapeHtml(safeTypeClass)}"${safeTypeColor ? ` style="background:${escapeHtml(safeTypeColor)};color:${escapeHtml(getBadgeTextColor(safeTypeColor))}"` : ''}>${escapeHtml(safeTypeText)}</span>`
         : '';
 
     return `<div class="${escapeHtml(safeRowClass)}">${dotHtml}${lineHtml}${typeHtml}</div>`;
@@ -148,7 +197,11 @@ export const createTimetableNoteRow = ({
 
     if (typeClass && toText(typeText)) {
         const type = createEl('span', typeClass, typeText);
-        if (typeColor) type.style.color = String(typeColor);
+        if (typeColor) {
+            const bg = String(typeColor);
+            type.style.background = bg;
+            type.style.color = getBadgeTextColor(bg);
+        }
         row.appendChild(type);
     }
 
