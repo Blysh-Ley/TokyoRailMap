@@ -1369,6 +1369,12 @@ export function mountTravelSearchUI() {
         const effectiveServiceDay = normalizeText(row?.serviceDay || displayPlan?.serviceDay || 'Weekday') || 'Weekday';
         const sectionsForDisplay = Array.isArray(displayPlan?.sections) ? displayPlan.sections : [];
         const legsForDisplay = Array.isArray(displayPlan?.legs) ? displayPlan.legs : [];
+        const sectionThroughMetaList = sectionsForDisplay.length
+            ? await Promise.all(sectionsForDisplay.map((section) => detectJourneyThroughCategoryMeta({
+                tripIds: collectSectionCandidateTripIds(section),
+                serviceDay: effectiveServiceDay
+            })))
+            : [];
         const blocks = await buildPlanDetailBlocks({
             plan: row?.plan,
             legsOverride: displayPlan?.legs,
@@ -1462,6 +1468,14 @@ export function mountTravelSearchUI() {
             rowsWrap.appendChild(rowEl);
         };
 
+        const appendSpecialLineRow = (text) => {
+            const specialText = normalizeText(text);
+            if (!specialText) return;
+            const rowEl = el('div', 'station-row is-special');
+            rowEl.appendChild(el('div', 'journey-plan-special-line', { text: specialText }));
+            rowsWrap.appendChild(rowEl);
+        };
+
         const appendTransferRow = (waitMinutes) => {
             const rowEl = el('div', 'station-row is-transfer');
             const text = Number.isFinite(waitMinutes)
@@ -1479,11 +1493,30 @@ export function mountTravelSearchUI() {
             return null;
         };
 
+        const visualItems = [];
         let currentSectionIndex = 0;
         let currentLegIndex = 0;
-        let shouldAppendStartStation = true;
+        let pendingRideGroup = null;
+
+        const flushRideGroup = () => {
+            if (!pendingRideGroup) return;
+            visualItems.push({ ...pendingRideGroup });
+            pendingRideGroup = null;
+        };
+
         for (let i = 0; i < blocks.length; i += 1) {
             const block = blocks[i] || {};
+            if (block.kind === 'transfer') {
+                flushRideGroup();
+                const nextRide = nextRideBlockAfter(i + 1);
+                visualItems.push({
+                    kind: 'transfer',
+                    waitMinutes: nextRide ? calcTransferWaitMinutes(block, nextRide) : null
+                });
+                if (sectionsForDisplay.length) currentSectionIndex += 1;
+                continue;
+            }
+
             if (block.kind !== 'ride') continue;
 
             const blockRows = Array.isArray(block?.rows) ? block.rows : [];
@@ -1496,56 +1529,90 @@ export function mountTravelSearchUI() {
             const startTime = resolveRowTime(first, 'dep');
             const endTime = resolveRowTime(last, 'arr');
 
-            if (shouldAppendStartStation) {
-                appendStationRow({ stationName: startStation, timeText: startTime });
+            const sectionMeta = sectionsForDisplay.length ? (sectionThroughMetaList[currentSectionIndex] || null) : null;
+            const canCollapseWithPrev = !!sectionMeta?.category;
+            const sectionKey = canCollapseWithPrev ? sectionMeta.category : '';
+            const lineText = normalizeText(sectionMeta?.name || block?.lineDisplayName || block?.lineName || '线路') || '线路';
+            const rideColor = normalizeText(sectionMeta?.color || block?.lineColor || '')
+                ? String(resolveJourneyColorForTheme(sectionMeta?.color || block.lineColor))
+                : '#9a9a9a';
+            const fallbackDirection = normalizeText(getStationNameById(last?.stationId || '') || endStation || startStation || '');
+            const directionTripIds = sectionsForDisplay.length
+                ? collectSectionCandidateTripIds(sectionsForDisplay[currentSectionIndex] || null)
+                : collectLegCandidateTripIds(legsForDisplay[currentLegIndex] || legsForDisplay[legsForDisplay.length - 1] || null);
+            const directionText = await resolveJourneyDirectionDestination({
+                tripIds: directionTripIds,
+                serviceDay: effectiveServiceDay,
+                fallbackStationName: fallbackDirection
+            });
+            const specialText = await detectJourneySpecialNameText({
+                tripIds: directionTripIds,
+                serviceDay: effectiveServiceDay
+            });
+
+            if (pendingRideGroup
+                && pendingRideGroup.kind === 'ride'
+                && pendingRideGroup.canCollapseWithPrev
+                && pendingRideGroup.sectionIndex === currentSectionIndex
+                && pendingRideGroup.sectionKey === sectionKey) {
+                pendingRideGroup.endStation = endStation;
+                pendingRideGroup.endTime = endTime;
+                pendingRideGroup.lastRow = last;
+                pendingRideGroup.lineColor = rideColor || pendingRideGroup.lineColor;
+                continue;
             }
 
-            const lineText = normalizeText(block?.lineDisplayName || block?.lineName || '线路') || '线路';
-            const rideColor = normalizeText(block?.lineColor || '')
-                ? String(resolveJourneyColorForTheme(block.lineColor))
-                : '#9a9a9a';
-            const fallbackDirection = endStation && endStation !== startStation
-                ? endStation
-                : normalizeText(last?.stationId || '');
-            let directionText = '';
-            if (sectionsForDisplay.length) {
-                const section = sectionsForDisplay[currentSectionIndex] || null;
-                directionText = await resolveJourneyDirectionDestination({
-                    tripIds: collectSectionCandidateTripIds(section),
-                    serviceDay: effectiveServiceDay,
-                    fallbackStationName: fallbackDirection
-                });
-            } else {
-                const leg = legsForDisplay[currentLegIndex] || legsForDisplay[legsForDisplay.length - 1] || null;
-                directionText = await resolveJourneyDirectionDestination({
-                    tripIds: collectLegCandidateTripIds(leg),
-                    serviceDay: effectiveServiceDay,
-                    fallbackStationName: fallbackDirection
-                });
-                currentLegIndex += 1;
-            }
-            appendTrainRow({
+            flushRideGroup();
+            pendingRideGroup = {
+                kind: 'ride',
+                sectionIndex: currentSectionIndex,
+                sectionKey,
+                canCollapseWithPrev,
+                startStation,
+                startTime,
+                endStation,
+                endTime,
                 lineText,
                 lineColor: rideColor,
                 typeText: normalizeText(block?.typeName || ''),
                 typeColor: normalizeText(block?.typeColor || ''),
-                directionText
+                directionText,
+                specialText,
+                firstRow: first,
+                lastRow: last
+            };
+
+            if (!sectionsForDisplay.length) currentLegIndex += 1;
+        }
+
+        flushRideGroup();
+
+        for (const item of visualItems) {
+            if (item.kind === 'transfer') {
+                appendTransferRow(item.waitMinutes);
+                pendingSegment = { kind: 'transfer', color: '#7f7f7f' };
+                continue;
+            }
+
+            const startStation = normalizeText(item.startStation || '');
+            const endStation = normalizeText(item.endStation || '');
+            const startTime = normalizeText(item.startTime || '');
+            const endTime = normalizeText(item.endTime || '');
+
+            appendStationRow({ stationName: startStation, timeText: startTime });
+
+            appendTrainRow({
+                lineText: item.lineText,
+                lineColor: item.lineColor,
+                typeText: item.typeText,
+                typeColor: item.typeColor,
+                directionText: item.directionText
             });
 
-            pendingSegment = { kind: 'ride', color: rideColor };
-            appendStationRow({ stationName: endStation, timeText: endTime });
+            appendSpecialLineRow(item.specialText);
 
-            const nextBlock = blocks[i + 1] || null;
-            const hasTransferAfter = nextBlock?.kind === 'transfer';
-            const nextRide = hasTransferAfter ? nextRideBlockAfter(i + 2) : null;
-            if (hasTransferAfter && nextRide) {
-                appendTransferRow(calcTransferWaitMinutes(block, nextRide));
-                pendingSegment = { kind: 'transfer', color: '#7f7f7f' };
-                if (sectionsForDisplay.length) currentSectionIndex += 1;
-                shouldAppendStartStation = true;
-            } else {
-                shouldAppendStartStation = false;
-            }
+            pendingSegment = { kind: 'ride', color: item.lineColor || '#9a9a9a' };
+            appendStationRow({ stationName: endStation, timeText: endTime });
         }
 
         const renderRailwayMark = () => {
@@ -1645,15 +1712,6 @@ export function mountTravelSearchUI() {
             const path = el('div', 'journey-plan-path');
             await appendJourneyPath(path, row, displayPlan);
             li.appendChild(path);
-
-            const planSpecialName = await detectJourneySpecialNameText({
-                tripIds: collectPlanCandidateTripIds(displayPlan),
-                serviceDay: row?.serviceDay || ''
-            });
-            if (planSpecialName) {
-                const specialLine = el('div', 'journey-plan-special-line', { text: planSpecialName });
-                li.appendChild(specialLine);
-            }
 
             if (i < rows.length - 1) {
                 li.appendChild(el('div', 'journey-plan-sep'));

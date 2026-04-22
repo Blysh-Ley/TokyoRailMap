@@ -628,7 +628,7 @@
         .station-title-box {
             flex: 1 1 auto;
             min-width: 0;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 700;
             color: #111;
             white-space: nowrap;
@@ -640,7 +640,7 @@
             flex: 0 0 auto;
             min-width: 42px;
             text-align: right;
-            font-size: 13px;
+            font-size: 15px;
             font-weight: 600;
             color: #3f3f3f;
         }
@@ -682,6 +682,25 @@
             font-weight: 600;
         }
 
+        .station-row.is-special {
+            min-height: 18px;
+            padding-top: 0;
+            padding-bottom: 4px;
+        }
+
+        .journey-plan-special-line {
+            width: 100%;
+            min-width: 0;
+            font-weight: 800;
+            font-size: 12px;
+            line-height: 1.2;
+            color: #111;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding-left: 2px;
+        }
+
         .journey-plan-line,
         .journey-plan-type,
         .journey-plan-arrow {
@@ -696,11 +715,6 @@
             font-size:11px;
             margin-left: 2px;
             margin-right: 2px;
-        }
-
-        .journey-plan-special-line{
-            font-weight: 800;
-            font-size:12px;
         }
 
         .journey-plan-arrow {
@@ -4061,6 +4075,10 @@
 
         html[data-theme='dark'] .station-row.is-transfer .train-title-box {
             color: #b2b7bd;
+        }
+
+        html[data-theme='dark'] .journey-plan-special-line {
+            color: #f2f2f2;
         }
 
         html[data-theme='dark'] .panel-dir-filter-toggle-all {
