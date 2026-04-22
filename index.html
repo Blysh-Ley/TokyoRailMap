@@ -591,10 +591,81 @@
         }
 
         .journey-plan-path {
+            margin-top: 2px;
             font-size: 13px;
             line-height: 1.35;
             white-space: normal;
             word-break: break-word;
+        }
+
+        .journey-plan-path-layout {
+            display: grid;
+            grid-template-columns: 24px minmax(0, 1fr);
+            column-gap: 8px;
+            align-items: start;
+        }
+
+        .journey-plan-railway-mark {
+            width: 24px;
+            display: block;
+            overflow: visible;
+            pointer-events: none;
+        }
+
+        .journey-plan-path-rows {
+            min-width: 0;
+        }
+
+        .station-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            min-height: 24px;
+            padding: 2px 0;
+        }
+
+        .station-title-box {
+            flex: 1 1 auto;
+            min-width: 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #111;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .station-time-box {
+            flex: 0 0 auto;
+            min-width: 42px;
+            text-align: right;
+            font-size: 13px;
+            font-weight: 600;
+            color: #3f3f3f;
+        }
+
+        .train-title-box {
+            width: 100%;
+            font-size: 13px;
+            font-weight: 600;
+            color: #222;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .train-type-label {
+            display: inline-block;
+            margin: 0 2px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #444;
+        }
+
+        .station-row.is-transfer .train-title-box {
+            color: #6c7074;
+            font-weight: 600;
         }
 
         .journey-plan-line,
@@ -3740,6 +3811,7 @@
         html[data-theme='dark'] .journey-input::placeholder,
         html[data-theme='dark'] .search-empty,
         html[data-theme='dark'] .journey-plan-tag,
+        html[data-theme='dark'] .station-time-box,
         html[data-theme='dark'] .journey-plan-empty,
         html[data-theme='dark'] .journey-trip-note-row,
         html[data-theme='dark'] .journey-trip-transfer-label,
@@ -3925,6 +3997,19 @@
 
         html[data-theme='dark'] .panel-map-select-icon {
             filter: invert(1);
+        }
+
+        html[data-theme='dark'] .station-title-box,
+        html[data-theme='dark'] .train-title-box {
+            color: #f2f2f2;
+        }
+
+        html[data-theme='dark'] .train-type-label {
+            color: #d8dde3;
+        }
+
+        html[data-theme='dark'] .station-row.is-transfer .train-title-box {
+            color: #b2b7bd;
         }
 
         html[data-theme='dark'] .panel-dir-filter-toggle-all {

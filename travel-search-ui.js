@@ -7,11 +7,9 @@ import {
     filterNearbyStops,
     sameSet,
     getStationNameById,
-    getLineMeta,
     isThroughLegPairByMeta,
     expandLegsForDisplay,
     buildPlanDetailBlocks,
-    buildSectionLineRunsForDisplay,
     buildTripPreviewPayloadFromDisplayPlan,
     toHHMM,
     formatDuration,
@@ -1298,181 +1296,216 @@ export function mountTravelSearchUI() {
         planResults.classList.add('is-hidden');
     };
 
-    const appendJourneyPath = async (container, displayPlan, serviceDayHint = '') => {
-        const effectiveServiceDay = normalizeText(serviceDayHint || displayPlan?.serviceDay || 'Weekday') || 'Weekday';
-        const sectionList = Array.isArray(displayPlan?.sections) ? displayPlan.sections : [];
-        if (sectionList.length) {
-            for (let i = 0; i < sectionList.length; i += 1) {
-                const section = sectionList[i] || {};
-                const lineRuns = await buildSectionLineRunsForDisplay({
-                    section,
-                    serviceDay: effectiveServiceDay
-                });
-                const sectionThroughMeta = await detectJourneyThroughCategoryMeta({
-                    tripIds: collectSectionCandidateTripIds(section),
-                    serviceDay: effectiveServiceDay
-                });
+    const appendJourneyPath = async (container, row, displayPlan) => {
+        const effectiveServiceDay = normalizeText(row?.serviceDay || displayPlan?.serviceDay || 'Weekday') || 'Weekday';
+        const blocks = await buildPlanDetailBlocks({
+            plan: row?.plan,
+            legsOverride: displayPlan?.legs,
+            sectionsOverride: displayPlan?.sections,
+            serviceDay: effectiveServiceDay,
+            originStationId: row?.originStationId
+        });
 
-                if (sectionThroughMeta?.name) {
-                    const lineSpan = el('span', 'journey-plan-line', { text: sectionThroughMeta.name });
-                    if (sectionThroughMeta?.color) lineSpan.style.color = String(resolveJourneyColorForTheme(sectionThroughMeta.color));
-                    container.appendChild(lineSpan);
-
-                    const fallbackType = normalizeText(lineRuns?.[0]?.typeName || section?.legs?.[0]?.typeName || '');
-                    const fallbackTypeColor = normalizeText(lineRuns?.[0]?.typeColor || section?.legs?.[0]?.typeColor || '');
-                    if (fallbackType) {
-                        const typeSpan = el('span', 'journey-plan-type', { text: fallbackType });
-                        if (fallbackTypeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(fallbackTypeColor));
-                        container.appendChild(typeSpan);
-                    }
-
-                    if (i < sectionList.length - 1) {
-                        const wrap = el('span', 'journey-plan-arrow');
-                        const icon = el('img', 'journey-plan-arrow-icon', { alt: '' });
-                        setJourneyIconFromCache(icon, 'arrow-right.svg');
-                        if (travelIsDarkThemeActive()) icon.style.filter = 'brightness(0) invert(1)';
-                        wrap.appendChild(icon);
-                        container.appendChild(wrap);
-                    }
-                    continue;
-                }
-
-                if (!lineRuns.length) {
-                    const lineIds = Array.isArray(section?.lineIds)
-                        ? section.lineIds.map((x) => normalizeText(x)).filter(Boolean)
-                        : [];
-                    for (const lineId of lineIds) {
-                        lineRuns.push({ lineId, typeName: '', typeColor: null });
-                    }
-                }
-
-                if (!lineRuns.length) continue;
-
-                for (let r = 0; r < lineRuns.length; r += 1) {
-                    const run = lineRuns[r];
-                    const lineMeta = await getLineMeta(run.lineId);
-                    const lineText = normalizeText(lineMeta?.name || run.lineId || '线路');
-                    const lineColor = normalizeText(lineMeta?.color || '');
-                    const lineSpan = el('span', 'journey-plan-line', { text: lineText || '线路' });
-                    if (lineColor) lineSpan.style.color = String(resolveJourneyColorForTheme(lineColor));
-                    container.appendChild(lineSpan);
-
-                    const runTypeText = normalizeText(run?.typeName || '');
-                    if (runTypeText) {
-                        const typeSpan = el('span', 'journey-plan-type', { text: runTypeText });
-                        if (run?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(run.typeColor));
-                        container.appendChild(typeSpan);
-                    }
-
-                    if (r < lineRuns.length - 1) {
-                        const sep = el('span', 'journey-plan-line-sep', { text: '·' });
-                        sep.style.color = travelIsDarkThemeActive() ? '#fff' : '#000';
-                        container.appendChild(sep);
-                    }
-                }
-
-                if (i < sectionList.length - 1) {
-                    const wrap = el('span', 'journey-plan-arrow');
-                    const icon = el('img', 'journey-plan-arrow-icon', { alt: '' });
-                    setJourneyIconFromCache(icon, 'arrow-right.svg');
-                    if (travelIsDarkThemeActive()) icon.style.filter = 'brightness(0) invert(1)';
-                    wrap.appendChild(icon);
-                    container.appendChild(wrap);
-                }
-            }
+        const rideBlocks = Array.isArray(blocks) ? blocks.filter((b) => b?.kind === 'ride') : [];
+        if (!rideBlocks.length) {
+            container.appendChild(el('div', 'journey-plan-empty', { text: '无路径详情' }));
             return;
         }
 
-        const legs = Array.isArray(displayPlan?.legs) ? displayPlan.legs : [];
-        for (let i = 0; i < legs.length; i += 1) {
-            const leg = legs[i];
-            const legThroughMeta = await detectJourneyThroughCategoryMeta({
-                tripIds: collectLegCandidateTripIds(leg),
-                serviceDay: effectiveServiceDay
+        const layout = el('div', 'journey-plan-path-layout');
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.classList.add('journey-plan-railway-mark');
+        const rowsWrap = el('div', 'journey-plan-path-rows');
+        layout.appendChild(svg);
+        layout.appendChild(rowsWrap);
+        container.appendChild(layout);
+
+        const stationMarkerRows = [];
+        const markerSegments = [];
+        let pendingSegment = null;
+
+        const resolveStationName = (rowData) => {
+            const stationId = normalizeText(rowData?.stationId || '');
+            return normalizeText(rowData?.stationName || getStationNameById(stationId) || stationId || '未知站');
+        };
+
+        const resolveRowTime = (rowData, prefer) => {
+            const dep = normalizeText(rowData?.depText || '');
+            const arr = normalizeText(rowData?.arrText || '');
+            if (prefer === 'dep') return dep || arr || '--:--';
+            return arr || dep || '--:--';
+        };
+
+        const calcTransferWaitMinutes = (currBlock, nextBlock) => {
+            const currRows = Array.isArray(currBlock?.rows) ? currBlock.rows : [];
+            const nextRows = Array.isArray(nextBlock?.rows) ? nextBlock.rows : [];
+            const currLast = currRows[currRows.length - 1] || null;
+            const nextFirst = nextRows[0] || null;
+            const arr = hhmmToOffsetMinutes(resolveRowTime(currLast, 'arr'));
+            const dep = hhmmToOffsetMinutes(resolveRowTime(nextFirst, 'dep'));
+            if (!Number.isFinite(arr) || !Number.isFinite(dep)) return null;
+            let diff = dep - arr;
+            if (diff < 0) diff += 24 * 60;
+            return Math.max(0, diff);
+        };
+
+        const appendStationRow = ({ stationName, timeText }) => {
+            const rowEl = el('div', 'station-row');
+            rowEl.appendChild(el('div', 'station-title-box', { text: stationName }));
+            rowEl.appendChild(el('div', 'station-time-box', { text: timeText }));
+            rowsWrap.appendChild(rowEl);
+
+            const markerIndex = stationMarkerRows.length;
+            stationMarkerRows.push(rowEl);
+
+            if (markerIndex > 0) {
+                const seg = pendingSegment || { kind: 'ride', color: '#9a9a9a' };
+                markerSegments.push({
+                    from: markerIndex - 1,
+                    to: markerIndex,
+                    kind: seg.kind,
+                    color: seg.color
+                });
+            }
+            pendingSegment = null;
+        };
+
+        const appendTrainRow = ({ lineText, typeText, typeColor, directionText }) => {
+            const rowEl = el('div', 'station-row');
+            const title = el('div', 'train-title-box');
+            title.appendChild(document.createTextNode(lineText || '线路'));
+            if (typeText) {
+                title.appendChild(document.createTextNode(' '));
+                const typeLabel = el('span', 'train-type-label', { text: typeText });
+                if (typeColor) typeLabel.style.color = String(resolveJourneyColorForTheme(typeColor));
+                title.appendChild(typeLabel);
+            }
+            if (directionText) title.appendChild(document.createTextNode(` 往${directionText}`));
+            rowEl.appendChild(title);
+            rowsWrap.appendChild(rowEl);
+        };
+
+        const appendTransferRow = (waitMinutes) => {
+            const rowEl = el('div', 'station-row is-transfer');
+            const text = Number.isFinite(waitMinutes)
+                ? `转车并等待 ${Math.max(0, Math.round(waitMinutes))}分`
+                : '转车并等待';
+            rowEl.appendChild(el('div', 'train-title-box', { text }));
+            rowsWrap.appendChild(rowEl);
+        };
+
+        const nextRideBlockAfter = (startIndex) => {
+            for (let i = startIndex; i < blocks.length; i += 1) {
+                const candidate = blocks[i];
+                if (candidate?.kind === 'ride') return candidate;
+            }
+            return null;
+        };
+
+        let shouldAppendStartStation = true;
+        for (let i = 0; i < blocks.length; i += 1) {
+            const block = blocks[i] || {};
+            if (block.kind !== 'ride') continue;
+
+            const blockRows = Array.isArray(block?.rows) ? block.rows : [];
+            if (!blockRows.length) continue;
+
+            const first = blockRows[0];
+            const last = blockRows[blockRows.length - 1];
+            const startStation = resolveStationName(first);
+            const endStation = resolveStationName(last);
+            const startTime = resolveRowTime(first, 'dep');
+            const endTime = resolveRowTime(last, 'arr');
+
+            if (shouldAppendStartStation) {
+                appendStationRow({ stationName: startStation, timeText: startTime });
+            }
+
+            const lineText = normalizeText(block?.lineDisplayName || block?.lineName || '线路') || '线路';
+            const rideColor = normalizeText(block?.lineColor || '')
+                ? String(resolveJourneyColorForTheme(block.lineColor))
+                : '#9a9a9a';
+            const directionText = endStation && endStation !== startStation ? endStation : '';
+            appendTrainRow({
+                lineText,
+                typeText: normalizeText(block?.typeName || ''),
+                typeColor: normalizeText(block?.typeColor || ''),
+                directionText
             });
 
-            if (legThroughMeta?.name) {
-                const lineSpan = el('span', 'journey-plan-line', { text: legThroughMeta.name });
-                if (legThroughMeta?.color) lineSpan.style.color = String(resolveJourneyColorForTheme(legThroughMeta.color));
-                container.appendChild(lineSpan);
+            pendingSegment = { kind: 'ride', color: rideColor };
+            appendStationRow({ stationName: endStation, timeText: endTime });
 
-                const typeText = normalizeText(leg?.typeName || '');
-                if (typeText) {
-                    const typeSpan = el('span', 'journey-plan-type', { text: typeText });
-                    if (leg?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(leg.typeColor));
-                    container.appendChild(typeSpan);
-                }
-
-                if (i < legs.length - 1) {
-                    const through = isThroughLegPairByMeta({ currentLeg: leg, nextLeg: legs[i + 1] });
-                    const wrap = el('span', 'journey-plan-arrow');
-                    const icon = el('img', 'journey-plan-arrow-icon', { alt: '' });
-                    const arrowIconFile = through ? 'arrows.svg' : 'arrow-right.svg';
-                    setJourneyIconFromCache(icon, arrowIconFile);
-                    if (!through && travelIsDarkThemeActive()) {
-                        icon.style.filter = 'brightness(0) invert(1)';
-                    }
-                    wrap.appendChild(icon);
-                    container.appendChild(wrap);
-                }
-                continue;
-            }
-
-            const throughLineIds = Array.isArray(leg?.throughLineIds)
-                ? leg.throughLineIds.map((x) => normalizeText(x)).filter(Boolean)
-                : [];
-            const uniqueThroughLineIds = [];
-            for (const lineId of throughLineIds) {
-                if (!lineId) continue;
-                if (!uniqueThroughLineIds.length || uniqueThroughLineIds[uniqueThroughLineIds.length - 1] !== lineId) {
-                    uniqueThroughLineIds.push(lineId);
-                }
-            }
-
-            if (uniqueThroughLineIds.length > 1) {
-                const metas = await Promise.all(uniqueThroughLineIds.map((lineId) => getLineMeta(lineId)));
-                for (let m = 0; m < metas.length; m += 1) {
-                    const meta = metas[m];
-                    const lineId = uniqueThroughLineIds[m] || '';
-                    const lineText = normalizeText(meta?.name || lineId || '线路');
-                    const lineColor = normalizeText(meta?.color || '');
-                    const lineSpan = el('span', 'journey-plan-line', { text: lineText || '线路' });
-                    if (lineColor) lineSpan.style.color = String(resolveJourneyColorForTheme(lineColor));
-                    container.appendChild(lineSpan);
-
-                    if (m < metas.length - 1) {
-                        const sep = el('span', 'journey-plan-line-sep', { text: '·' });
-                        sep.style.color = travelIsDarkThemeActive() ? '#fff' : '#000';
-                        container.appendChild(sep);
-                    }
-                }
+            const nextBlock = blocks[i + 1] || null;
+            const hasTransferAfter = nextBlock?.kind === 'transfer';
+            const nextRide = hasTransferAfter ? nextRideBlockAfter(i + 2) : null;
+            if (hasTransferAfter && nextRide) {
+                appendTransferRow(calcTransferWaitMinutes(block, nextRide));
+                pendingSegment = { kind: 'transfer', color: '#7f7f7f' };
+                shouldAppendStartStation = true;
             } else {
-                const lineMeta = await getLineMeta(leg.lineId);
-                const lineText = normalizeText(lineMeta?.name || leg.lineId || '线路');
-                const lineColor = normalizeText(lineMeta?.color || '');
-                const lineSpan = el('span', 'journey-plan-line', { text: lineText || '线路' });
-                if (lineColor) lineSpan.style.color = String(resolveJourneyColorForTheme(lineColor));
-                container.appendChild(lineSpan);
-            }
-
-            const typeText = normalizeText(leg.typeName || '普通');
-            const typeSpan = el('span', 'journey-plan-type', { text: typeText });
-            if (leg?.typeColor) typeSpan.style.color = String(resolveJourneyColorForTheme(leg.typeColor));
-            container.appendChild(typeSpan);
-
-            if (i < legs.length - 1) {
-                const through = isThroughLegPairByMeta({ currentLeg: leg, nextLeg: legs[i + 1] });
-                const wrap = el('span', 'journey-plan-arrow');
-                const icon = el('img', 'journey-plan-arrow-icon', { alt: '' });
-                const arrowIconFile = through ? 'arrows.svg' : 'arrow-right.svg';
-                setJourneyIconFromCache(icon, arrowIconFile);
-                if (!through && travelIsDarkThemeActive()) {
-                    icon.style.filter = 'brightness(0) invert(1)';
-                }
-                wrap.appendChild(icon);
-                container.appendChild(wrap);
+                shouldAppendStartStation = false;
             }
         }
+
+        const renderRailwayMark = () => {
+            if (!(rowsWrap instanceof HTMLElement)) return;
+            const markerCount = stationMarkerRows.length;
+            if (!markerCount) {
+                while (svg.firstChild) svg.removeChild(svg.firstChild);
+                return;
+            }
+
+            const wrapRect = rowsWrap.getBoundingClientRect();
+            const points = stationMarkerRows.map((rowEl) => {
+                const rect = rowEl.getBoundingClientRect();
+                return (rect.top - wrapRect.top) + rect.height / 2;
+            });
+            const height = Math.max(1, Math.ceil(rowsWrap.scrollHeight || (points[points.length - 1] + 8)));
+            const ns = 'http://www.w3.org/2000/svg';
+            const x = 12;
+
+            svg.setAttribute('viewBox', `0 0 24 ${height}`);
+            svg.setAttribute('width', '24');
+            svg.setAttribute('height', String(height));
+
+            while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+            for (const seg of markerSegments) {
+                const fromY = points[seg.from];
+                const toY = points[seg.to];
+                if (!Number.isFinite(fromY) || !Number.isFinite(toY)) continue;
+                const lineEl = document.createElementNS(ns, 'line');
+                lineEl.setAttribute('x1', String(x));
+                lineEl.setAttribute('x2', String(x));
+                lineEl.setAttribute('y1', String(fromY));
+                lineEl.setAttribute('y2', String(toY));
+                if (seg.kind === 'transfer') {
+                    lineEl.setAttribute('stroke', '#7f7f7f');
+                    lineEl.setAttribute('stroke-width', '4');
+                    lineEl.setAttribute('stroke-dasharray', '4 4');
+                } else {
+                    lineEl.setAttribute('stroke', String(seg.color || '#9a9a9a'));
+                    lineEl.setAttribute('stroke-width', '10');
+                    lineEl.setAttribute('stroke-linecap', 'round');
+                }
+                svg.appendChild(lineEl);
+            }
+
+            for (const y of points) {
+                if (!Number.isFinite(y)) continue;
+                const dot = document.createElementNS(ns, 'circle');
+                dot.setAttribute('cx', String(x));
+                dot.setAttribute('cy', String(y));
+                dot.setAttribute('r', '3');
+                dot.setAttribute('fill', '#ffffff');
+                svg.appendChild(dot);
+            }
+        };
+
+        window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(renderRailwayMark);
+        });
     };
 
     const renderPlanResults = async (rows) => {
@@ -1510,7 +1543,7 @@ export function mountTravelSearchUI() {
             li.appendChild(head);
 
             const path = el('div', 'journey-plan-path');
-            await appendJourneyPath(path, displayPlan, row?.serviceDay || '');
+            await appendJourneyPath(path, row, displayPlan);
             li.appendChild(path);
 
             const planSpecialName = await detectJourneySpecialNameText({
