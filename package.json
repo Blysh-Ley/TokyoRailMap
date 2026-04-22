@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
+    "build:all": "electron-builder --win --mac", 
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -24,18 +25,10 @@
       "icon": "icons/icon.ico",
       "target": [
         {
-          "target": "nsis",
+          "target": "portable",
           "arch": ["x64"]
         }
       ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "installerIcon": "icons/icon.ico",
-      "uninstallerIcon": "icons/icon.ico",
-      "createDesktopShortcut": true,
-      "shortcutName": "东京铁路图"
     },
     "mac": {
       "icon": "icons/icon.icns",
