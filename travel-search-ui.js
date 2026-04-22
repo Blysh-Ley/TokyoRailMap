@@ -1375,6 +1375,10 @@ export function mountTravelSearchUI() {
                 serviceDay: effectiveServiceDay
             })))
             : [];
+        const hasSpecialThroughSection = sectionThroughMetaList.some((meta) => {
+            const category = normalizeText(meta?.category || '');
+            return category === 'UenoTokyo' || category === 'ShonanShinjuku';
+        });
         const blocks = await buildPlanDetailBlocks({
             plan: row?.plan,
             legsOverride: displayPlan?.legs,
@@ -1480,6 +1484,136 @@ export function mountTravelSearchUI() {
             rowEl.appendChild(el('div', 'train-title-box', { text }));
             rowsWrap.appendChild(rowEl);
         };
+
+        const nextRideBlockAfter = (startIndex) => {
+            for (let i = startIndex; i < blocks.length; i += 1) {
+                const candidate = blocks[i];
+                if (candidate?.kind === 'ride') return candidate;
+            }
+            return null;
+        };
+
+        const renderRailwayMark = () => {
+            if (!(rowsWrap instanceof HTMLElement)) return;
+            const markerCount = stationMarkerRows.length;
+            if (!markerCount) {
+                while (svg.firstChild) svg.removeChild(svg.firstChild);
+                return;
+            }
+
+            const wrapRect = rowsWrap.getBoundingClientRect();
+            const points = stationMarkerRows.map((rowEl) => {
+                const rect = rowEl.getBoundingClientRect();
+                return (rect.top - wrapRect.top) + rect.height / 2;
+            });
+            const height = Math.max(1, Math.ceil(rowsWrap.scrollHeight || (points[points.length - 1] + 8)));
+            const ns = 'http://www.w3.org/2000/svg';
+            const x = 12;
+
+            svg.setAttribute('viewBox', `0 0 24 ${height}`);
+            svg.setAttribute('width', '24');
+            svg.setAttribute('height', String(height));
+
+            while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+            for (const seg of markerSegments) {
+                const fromY = points[seg.from];
+                const toY = points[seg.to];
+                if (!Number.isFinite(fromY) || !Number.isFinite(toY)) continue;
+                const lineEl = document.createElementNS(ns, 'line');
+                lineEl.setAttribute('x1', String(x));
+                lineEl.setAttribute('x2', String(x));
+                lineEl.setAttribute('y1', String(fromY));
+                lineEl.setAttribute('y2', String(toY));
+                if (seg.kind === 'transfer') {
+                    lineEl.setAttribute('stroke', '#7f7f7f');
+                    lineEl.setAttribute('stroke-width', '4');
+                    lineEl.setAttribute('stroke-dasharray', '4 4');
+                } else {
+                    lineEl.setAttribute('stroke', String(seg.color || '#9a9a9a'));
+                    lineEl.setAttribute('stroke-width', '10');
+                    lineEl.setAttribute('stroke-linecap', 'round');
+                }
+                svg.appendChild(lineEl);
+            }
+
+            for (const y of points) {
+                if (!Number.isFinite(y)) continue;
+                const dot = document.createElementNS(ns, 'circle');
+                dot.setAttribute('cx', String(x));
+                dot.setAttribute('cy', String(y));
+                dot.setAttribute('r', '3');
+                dot.setAttribute('fill', '#ffffff');
+                svg.appendChild(dot);
+            }
+        };
+
+        if (!hasSpecialThroughSection) {
+            const calcTransferWaitMinutesByBlocks = (currBlock, nextBlock) => {
+                const currRows = Array.isArray(currBlock?.rows) ? currBlock.rows : [];
+                const nextRows = Array.isArray(nextBlock?.rows) ? nextBlock.rows : [];
+                const currLast = currRows[currRows.length - 1] || null;
+                const nextFirst = nextRows[0] || null;
+                const arr = hhmmToOffsetMinutes(resolveRowTime(currLast, 'arr'));
+                const dep = hhmmToOffsetMinutes(resolveRowTime(nextFirst, 'dep'));
+                if (!Number.isFinite(arr) || !Number.isFinite(dep)) return null;
+                let diff = dep - arr;
+                if (diff < 0) diff += 24 * 60;
+                return Math.max(0, diff);
+            };
+
+            let shouldAppendStartStation = true;
+            for (let i = 0; i < blocks.length; i += 1) {
+                const block = blocks[i] || {};
+                if (block.kind !== 'ride') continue;
+
+                const blockRows = Array.isArray(block?.rows) ? block.rows : [];
+                if (!blockRows.length) continue;
+
+                const first = blockRows[0];
+                const last = blockRows[blockRows.length - 1];
+                const startStation = resolveStationName(first);
+                const endStation = resolveStationName(last);
+                const startTime = resolveRowTime(first, 'dep');
+                const endTime = resolveRowTime(last, 'arr');
+
+                if (shouldAppendStartStation) {
+                    appendStationRow({ stationName: startStation, timeText: startTime });
+                }
+
+                const lineText = normalizeText(block?.lineDisplayName || block?.lineName || '线路') || '线路';
+                const rideColor = normalizeText(block?.lineColor || '')
+                    ? String(resolveJourneyColorForTheme(block.lineColor))
+                    : '#9a9a9a';
+                const directionText = endStation && endStation !== startStation ? endStation : '';
+                appendTrainRow({
+                    lineText,
+                    lineColor: rideColor,
+                    typeText: normalizeText(block?.typeName || ''),
+                    typeColor: normalizeText(block?.typeColor || ''),
+                    directionText
+                });
+
+                pendingSegment = { kind: 'ride', color: rideColor };
+                appendStationRow({ stationName: endStation, timeText: endTime });
+
+                const nextBlock = blocks[i + 1] || null;
+                const hasTransferAfter = nextBlock?.kind === 'transfer';
+                const nextRide = hasTransferAfter ? nextRideBlockAfter(i + 2) : null;
+                if (hasTransferAfter && nextRide) {
+                    appendTransferRow(calcTransferWaitMinutesByBlocks(block, nextRide));
+                    pendingSegment = { kind: 'transfer', color: '#7f7f7f' };
+                    shouldAppendStartStation = true;
+                } else {
+                    shouldAppendStartStation = false;
+                }
+            }
+
+            window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(renderRailwayMark);
+            });
+            return;
+        }
 
         const visualItems = [];
         let currentSectionIndex = 0;
@@ -1610,61 +1744,6 @@ export function mountTravelSearchUI() {
             pendingSegment = { kind: 'ride', color: item.lineColor || '#9a9a9a' };
             appendStationRow({ stationName: endStation, timeText: endTime });
         }
-
-        const renderRailwayMark = () => {
-            if (!(rowsWrap instanceof HTMLElement)) return;
-            const markerCount = stationMarkerRows.length;
-            if (!markerCount) {
-                while (svg.firstChild) svg.removeChild(svg.firstChild);
-                return;
-            }
-
-            const wrapRect = rowsWrap.getBoundingClientRect();
-            const points = stationMarkerRows.map((rowEl) => {
-                const rect = rowEl.getBoundingClientRect();
-                return (rect.top - wrapRect.top) + rect.height / 2;
-            });
-            const height = Math.max(1, Math.ceil(rowsWrap.scrollHeight || (points[points.length - 1] + 8)));
-            const ns = 'http://www.w3.org/2000/svg';
-            const x = 12;
-
-            svg.setAttribute('viewBox', `0 0 24 ${height}`);
-            svg.setAttribute('width', '24');
-            svg.setAttribute('height', String(height));
-
-            while (svg.firstChild) svg.removeChild(svg.firstChild);
-
-            for (const seg of markerSegments) {
-                const fromY = points[seg.from];
-                const toY = points[seg.to];
-                if (!Number.isFinite(fromY) || !Number.isFinite(toY)) continue;
-                const lineEl = document.createElementNS(ns, 'line');
-                lineEl.setAttribute('x1', String(x));
-                lineEl.setAttribute('x2', String(x));
-                lineEl.setAttribute('y1', String(fromY));
-                lineEl.setAttribute('y2', String(toY));
-                if (seg.kind === 'transfer') {
-                    lineEl.setAttribute('stroke', '#7f7f7f');
-                    lineEl.setAttribute('stroke-width', '4');
-                    lineEl.setAttribute('stroke-dasharray', '4 4');
-                } else {
-                    lineEl.setAttribute('stroke', String(seg.color || '#9a9a9a'));
-                    lineEl.setAttribute('stroke-width', '10');
-                    lineEl.setAttribute('stroke-linecap', 'round');
-                }
-                svg.appendChild(lineEl);
-            }
-
-            for (const y of points) {
-                if (!Number.isFinite(y)) continue;
-                const dot = document.createElementNS(ns, 'circle');
-                dot.setAttribute('cx', String(x));
-                dot.setAttribute('cy', String(y));
-                dot.setAttribute('r', '3');
-                dot.setAttribute('fill', '#ffffff');
-                svg.appendChild(dot);
-            }
-        };
 
         window.requestAnimationFrame(() => {
             window.requestAnimationFrame(renderRailwayMark);
