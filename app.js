@@ -188,6 +188,24 @@ document.documentElement.setAttribute('data-theme', initialTheme);
 let mapTheme = initialTheme;
 let basemapMode = readBasemapMode();
 
+const OSM_RASTER_PAINT_LIGHT = {
+    // 亮色下让 OSM 原始瓦片更浅，减少与业务高亮图层的视觉竞争。
+    'raster-contrast': -0.3,
+    'raster-brightness-min': 0.12,
+    'raster-brightness-max': 1,
+    'raster-saturation': -0.2,
+    'raster-hue-rotate': 0
+};
+
+const OSM_RASTER_PAINT_DARK = {
+    // 深色下用“近似反色”参数模拟暗色 OSM 底图，仅作用于 OSM raster 层。
+    'raster-contrast': -0.3,
+    'raster-brightness-min': 0,
+    'raster-brightness-max': 0.48,
+    'raster-saturation': -0.2,
+    'raster-hue-rotate': 180
+};
+
 // 1) 初始化地图（底图支持 Carto / OSM / 透明）
 const map = new maplibregl.Map({
     container: 'map',
@@ -252,7 +270,7 @@ const map = new maplibregl.Map({
                 source: 'ost-source',
                 layout: { visibility: basemapMode === 'ost' ? 'visible' : 'none' },
                 minzoom: 0,
-                paint: {}
+                paint: mapTheme === 'dark' ? OSM_RASTER_PAINT_DARK : OSM_RASTER_PAINT_LIGHT
             }
         ]
     }
@@ -271,11 +289,17 @@ const applyBasemapTheme = (theme) => {
     const lightVisibility = (basemapMode === 'carto' && next === 'light') ? 'visible' : 'none';
     const darkVisibility = (basemapMode === 'carto' && next === 'dark') ? 'visible' : 'none';
     const ostVisibility = basemapMode === 'ost' ? 'visible' : 'none';
+    const ostPaint = next === 'dark' ? OSM_RASTER_PAINT_DARK : OSM_RASTER_PAINT_LIGHT;
 
     try {
         if (map.getLayer('carto-light-layer')) map.setLayoutProperty('carto-light-layer', 'visibility', lightVisibility);
         if (map.getLayer('carto-dark-layer')) map.setLayoutProperty('carto-dark-layer', 'visibility', darkVisibility);
-        if (map.getLayer('ost-layer')) map.setLayoutProperty('ost-layer', 'visibility', ostVisibility);
+        if (map.getLayer('ost-layer')) {
+            map.setLayoutProperty('ost-layer', 'visibility', ostVisibility);
+            Object.entries(ostPaint).forEach(([k, v]) => {
+                map.setPaintProperty('ost-layer', k, v);
+            });
+        }
 
         const canvas = map.getCanvas?.();
         if (canvas && canvas.style) {

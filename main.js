@@ -1,6 +1,10 @@
-const { app, BrowserWindow, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, session } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
+
+const OSM_TILE_URL_FILTERS = ['https://*.tile.openstreetmap.org/*'];
+const OSM_POLICY_REFERER = 'https://blysh-ley.github.io/TokyoRailMap/';
+const OSM_POLICY_USER_AGENT = `TokyoRailMap/${app.getVersion()} (+https://github.com/Blysh-Ley/TokyoRailMap)`;
 
 const MIME_BY_EXT = {
     '.html': 'text/html; charset=utf-8',
@@ -61,6 +65,25 @@ const getContentType = (filePath) => {
 
 const toBase64 = (data) => Buffer.from(data).toString('base64');
 
+const configureOsmRequestHeaders = () => {
+    const ses = session.defaultSession;
+    if (!ses?.webRequest?.onBeforeSendHeaders) return;
+
+    // OSM 瓦片策略要求可识别来源，file:// 场景需手动补请求头。
+    ses.webRequest.onBeforeSendHeaders({ urls: OSM_TILE_URL_FILTERS }, (details, callback) => {
+        const requestHeaders = {
+            ...(details.requestHeaders || {}),
+            Referer: OSM_POLICY_REFERER
+        };
+
+        if (!requestHeaders['User-Agent']) {
+            requestHeaders['User-Agent'] = OSM_POLICY_USER_AGENT;
+        }
+
+        callback({ requestHeaders });
+    });
+};
+
 const createWindow = () => {
     const win = new BrowserWindow({
         width: 1440,
@@ -117,6 +140,7 @@ ipcMain.handle('tokyorail:read-local-file', async (_event, rawInput) => {
 
 app.whenReady().then(() => {
     Menu.setApplicationMenu(null);
+    configureOsmRequestHeaders();
     createWindow();
 
     app.on('activate', () => {
