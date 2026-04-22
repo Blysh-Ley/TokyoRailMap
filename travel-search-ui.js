@@ -229,6 +229,50 @@ const detectJourneySpecialNameText = async ({ tripIds, serviceDay }) => {
     return Array.from(names).join(' / ');
 };
 
+const journeyDirectionByTripIdsCache = new Map();
+
+const resolveJourneyTripTerminalStationId = (tripLike) => {
+    const ds = Array.isArray(tripLike?.ds) ? tripLike.ds : (tripLike?.ds ? [tripLike.ds] : []);
+    for (const item of ds) {
+        const id = normalizeText(item);
+        if (id) return id;
+    }
+
+    const stops = Array.isArray(tripLike?.stops) ? tripLike.stops : [];
+    for (let i = stops.length - 1; i >= 0; i -= 1) {
+        const id = normalizeText(stops[i]?.id || stops[i]?.s || stops[i]?.stopId || '');
+        if (id) return id;
+    }
+
+    return '';
+};
+
+const resolveJourneyDirectionDestination = async ({ tripIds, serviceDay, fallbackStationName = '' }) => {
+    const ids = collectUniqueTripIds(tripIds);
+    const fallback = normalizeText(fallbackStationName);
+    if (!ids.length) return fallback;
+
+    const cacheKey = `${normalizeText(serviceDay) || 'Weekday'}|${ids.join(',')}`;
+    if (journeyDirectionByTripIdsCache.has(cacheKey)) {
+        return journeyDirectionByTripIdsCache.get(cacheKey) || fallback;
+    }
+
+    for (const tripId of ids) {
+        const trip = await loadJourneyTripByTripId({ tripId, serviceDay });
+        if (!trip) continue;
+
+        const terminalStationId = resolveJourneyTripTerminalStationId(trip);
+        const name = normalizeText(getStationNameById(terminalStationId) || terminalStationId || '');
+        if (name) {
+            journeyDirectionByTripIdsCache.set(cacheKey, name);
+            return name;
+        }
+    }
+
+    journeyDirectionByTripIdsCache.set(cacheKey, fallback);
+    return fallback;
+};
+
 const collectPlanCandidateTripIds = (displayPlan) => {
     const sections = Array.isArray(displayPlan?.sections) ? displayPlan.sections : [];
     if (sections.length) {
@@ -1161,9 +1205,11 @@ export function mountTravelSearchUI() {
         }
 
         const overallDestinationStationId = normalizeText(row?.destinationStationId || (displayPlan?.legs && displayPlan.legs.length ? displayPlan.legs[displayPlan.legs.length - 1]?.toStop : '') || '');
+        const legsForDisplay = Array.isArray(displayPlan?.legs) ? displayPlan.legs : [];
         const stationCodeMap = await getJourneyStationCodeMap();
         let shouldAppendDirectionForNextNote = true;
         let currentSectionIndex = 0;
+        let currentLegIndex = 0;
         let hasRenderedSectionLineNote = false;
 
         for (const block of blocks) {
@@ -1184,9 +1230,25 @@ export function mountTravelSearchUI() {
 
             const blockRows = Array.isArray(block?.rows) ? block.rows : [];
             const blockLast = blockRows.length ? blockRows[blockRows.length - 1] : null;
-            const directionDestination = shouldAppendDirectionForNextNote
-                ? normalizeText(getStationNameById(overallDestinationStationId) || blockLast?.stationName || blockLast?.stationId || '')
-                : '';
+            let directionDestination = '';
+            if (shouldAppendDirectionForNextNote) {
+                const fallbackDirection = normalizeText(getStationNameById(overallDestinationStationId) || blockLast?.stationName || blockLast?.stationId || '');
+                if (sectionsForDisplay.length) {
+                    const section = sectionsForDisplay[currentSectionIndex] || null;
+                    directionDestination = await resolveJourneyDirectionDestination({
+                        tripIds: collectSectionCandidateTripIds(section),
+                        serviceDay: row?.serviceDay,
+                        fallbackStationName: fallbackDirection
+                    });
+                } else {
+                    const leg = legsForDisplay[currentLegIndex] || legsForDisplay[legsForDisplay.length - 1] || null;
+                    directionDestination = await resolveJourneyDirectionDestination({
+                        tripIds: collectLegCandidateTripIds(leg),
+                        serviceDay: row?.serviceDay,
+                        fallbackStationName: fallbackDirection
+                    });
+                }
+            }
             if (shouldRenderLineNote) {
                 const note = createTimetableNoteRow({
                     rowClass: 'journey-trip-note-row',
@@ -1207,6 +1269,7 @@ export function mountTravelSearchUI() {
                 }
                 if (shouldAppendDirectionForNextNote) shouldAppendDirectionForNextNote = false;
                 hasRenderedSectionLineNote = true;
+                if (!sectionsForDisplay.length) currentLegIndex += 1;
                 tripPopoverBody.appendChild(note);
             }
 
@@ -1304,6 +1367,8 @@ export function mountTravelSearchUI() {
 
     const appendJourneyPath = async (container, row, displayPlan) => {
         const effectiveServiceDay = normalizeText(row?.serviceDay || displayPlan?.serviceDay || 'Weekday') || 'Weekday';
+        const sectionsForDisplay = Array.isArray(displayPlan?.sections) ? displayPlan.sections : [];
+        const legsForDisplay = Array.isArray(displayPlan?.legs) ? displayPlan.legs : [];
         const blocks = await buildPlanDetailBlocks({
             plan: row?.plan,
             legsOverride: displayPlan?.legs,
@@ -1414,6 +1479,8 @@ export function mountTravelSearchUI() {
             return null;
         };
 
+        let currentSectionIndex = 0;
+        let currentLegIndex = 0;
         let shouldAppendStartStation = true;
         for (let i = 0; i < blocks.length; i += 1) {
             const block = blocks[i] || {};
@@ -1437,7 +1504,26 @@ export function mountTravelSearchUI() {
             const rideColor = normalizeText(block?.lineColor || '')
                 ? String(resolveJourneyColorForTheme(block.lineColor))
                 : '#9a9a9a';
-            const directionText = endStation && endStation !== startStation ? endStation : '';
+            const fallbackDirection = endStation && endStation !== startStation
+                ? endStation
+                : normalizeText(last?.stationId || '');
+            let directionText = '';
+            if (sectionsForDisplay.length) {
+                const section = sectionsForDisplay[currentSectionIndex] || null;
+                directionText = await resolveJourneyDirectionDestination({
+                    tripIds: collectSectionCandidateTripIds(section),
+                    serviceDay: effectiveServiceDay,
+                    fallbackStationName: fallbackDirection
+                });
+            } else {
+                const leg = legsForDisplay[currentLegIndex] || legsForDisplay[legsForDisplay.length - 1] || null;
+                directionText = await resolveJourneyDirectionDestination({
+                    tripIds: collectLegCandidateTripIds(leg),
+                    serviceDay: effectiveServiceDay,
+                    fallbackStationName: fallbackDirection
+                });
+                currentLegIndex += 1;
+            }
             appendTrainRow({
                 lineText,
                 lineColor: rideColor,
@@ -1455,6 +1541,7 @@ export function mountTravelSearchUI() {
             if (hasTransferAfter && nextRide) {
                 appendTransferRow(calcTransferWaitMinutes(block, nextRide));
                 pendingSegment = { kind: 'transfer', color: '#7f7f7f' };
+                if (sectionsForDisplay.length) currentSectionIndex += 1;
                 shouldAppendStartStation = true;
             } else {
                 shouldAppendStartStation = false;
