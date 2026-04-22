@@ -1413,13 +1413,9 @@ export function mountTravelSearchUI() {
             return arr || dep || '--:--';
         };
 
-        const calcTransferWaitMinutes = (currBlock, nextBlock) => {
-            const currRows = Array.isArray(currBlock?.rows) ? currBlock.rows : [];
-            const nextRows = Array.isArray(nextBlock?.rows) ? nextBlock.rows : [];
-            const currLast = currRows[currRows.length - 1] || null;
-            const nextFirst = nextRows[0] || null;
-            const arr = hhmmToOffsetMinutes(resolveRowTime(currLast, 'arr'));
-            const dep = hhmmToOffsetMinutes(resolveRowTime(nextFirst, 'dep'));
+        const calcTransferWaitMinutes = (prevTimeText, nextTimeText) => {
+            const arr = hhmmToOffsetMinutes(prevTimeText);
+            const dep = hhmmToOffsetMinutes(nextTimeText);
             if (!Number.isFinite(arr) || !Number.isFinite(dep)) return null;
             let diff = dep - arr;
             if (diff < 0) diff += 24 * 60;
@@ -1485,14 +1481,6 @@ export function mountTravelSearchUI() {
             rowsWrap.appendChild(rowEl);
         };
 
-        const nextRideBlockAfter = (startIndex) => {
-            for (let i = startIndex; i < blocks.length; i += 1) {
-                const candidate = blocks[i];
-                if (candidate?.kind === 'ride') return candidate;
-            }
-            return null;
-        };
-
         const visualItems = [];
         let currentSectionIndex = 0;
         let currentLegIndex = 0;
@@ -1508,11 +1496,7 @@ export function mountTravelSearchUI() {
             const block = blocks[i] || {};
             if (block.kind === 'transfer') {
                 flushRideGroup();
-                const nextRide = nextRideBlockAfter(i + 1);
-                visualItems.push({
-                    kind: 'transfer',
-                    waitMinutes: nextRide ? calcTransferWaitMinutes(block, nextRide) : null
-                });
+                visualItems.push({ kind: 'transfer' });
                 if (sectionsForDisplay.length) currentSectionIndex += 1;
                 continue;
             }
@@ -1589,7 +1573,19 @@ export function mountTravelSearchUI() {
 
         for (const item of visualItems) {
             if (item.kind === 'transfer') {
-                appendTransferRow(item.waitMinutes);
+                const prevRide = (() => {
+                    for (let i = visualItems.indexOf(item) - 1; i >= 0; i -= 1) {
+                        if (visualItems[i]?.kind === 'ride') return visualItems[i];
+                    }
+                    return null;
+                })();
+                const nextRide = (() => {
+                    for (let i = visualItems.indexOf(item) + 1; i < visualItems.length; i += 1) {
+                        if (visualItems[i]?.kind === 'ride') return visualItems[i];
+                    }
+                    return null;
+                })();
+                appendTransferRow(calcTransferWaitMinutes(prevRide?.endTime || '', nextRide?.startTime || ''));
                 pendingSegment = { kind: 'transfer', color: '#7f7f7f' };
                 continue;
             }
