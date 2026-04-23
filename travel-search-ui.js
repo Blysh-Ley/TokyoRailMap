@@ -1563,8 +1563,14 @@ export function mountTravelSearchUI() {
             };
 
             let shouldAppendStartStation = true;
+            let currentSectionIndex = 0;
+            let currentLegIndex = 0;
             for (let i = 0; i < blocks.length; i += 1) {
                 const block = blocks[i] || {};
+                if (block.kind === 'transfer') {
+                    if (sectionsForDisplay.length) currentSectionIndex += 1;
+                    continue;
+                }
                 if (block.kind !== 'ride') continue;
 
                 const blockRows = Array.isArray(block?.rows) ? block.rows : [];
@@ -1594,6 +1600,15 @@ export function mountTravelSearchUI() {
                     directionText
                 });
 
+                const specialTripIds = sectionsForDisplay.length
+                    ? collectSectionCandidateTripIds(sectionsForDisplay[currentSectionIndex] || null)
+                    : collectLegCandidateTripIds(legsForDisplay[currentLegIndex] || legsForDisplay[legsForDisplay.length - 1] || null);
+                const specialText = await detectJourneySpecialNameText({
+                    tripIds: specialTripIds,
+                    serviceDay: effectiveServiceDay
+                });
+                appendSpecialLineRow(specialText);
+
                 pendingSegment = { kind: 'ride', color: rideColor };
                 appendStationRow({ stationName: endStation, timeText: endTime });
 
@@ -1607,6 +1622,8 @@ export function mountTravelSearchUI() {
                 } else {
                     shouldAppendStartStation = false;
                 }
+
+                if (!sectionsForDisplay.length) currentLegIndex += 1;
             }
 
             window.requestAnimationFrame(() => {

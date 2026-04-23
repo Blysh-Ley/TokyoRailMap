@@ -533,7 +533,7 @@
             box-shadow: 0 0 30px rgba(0, 0, 0, .1);
             overflow: hidden;
             opacity: 1;
-            max-height: 360px;
+            max-height: 720px;
             transition: opacity 0.2s ease, max-height 0.2s ease, margin-top 0.2s ease, border-width 0.2s ease;
         }
 
@@ -549,7 +549,7 @@
             list-style: none;
             margin: 0;
             padding: 4px 0;
-            max-height: 320px;
+            max-height: 720px;
             overflow-y: auto;
             overflow-x: hidden;
         }
@@ -653,6 +653,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            padding-left: 15px;
         }
 
         .train-line-label {
@@ -680,12 +681,14 @@
         .station-row.is-transfer .train-title-box {
             color: #6c7074;
             font-weight: 600;
+            padding-left:0px !important;
         }
 
         .station-row.is-special {
             min-height: 18px;
             padding-top: 0;
             padding-bottom: 4px;
+            padding-left:15px;
         }
 
         .journey-plan-special-line {
