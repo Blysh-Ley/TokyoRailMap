@@ -5634,9 +5634,30 @@ map.on('load', async () => {
 
         applyRealtimeStationOffsetForZoom(map.getZoom());
 
+        // 1. 记录上一次成功执行 offset 刷新时的 zoom level
+        let lastUpdateZoom = map.getZoom();
+
+        // 2. 监听 zoom 过程
+        map.on('zoom', () => {
+            const currentZoom = map.getZoom();
+            
+            // 计算当前层级与上次刷新层级之间的差值（取绝对值，兼容放大和缩小）
+            const zoomDelta = Math.abs(currentZoom - lastUpdateZoom);
+
+            // 3. 当缩放变化量累积达到或超过 0.5 时触发
+            if (zoomDelta >= 0.3) {
+                if (!tripPreviewActive) {
+                    applyRealtimeStationOffsetForZoom(currentZoom);
+                }
+                lastUpdateZoom = currentZoom; 
+            }
+        });
+
         map.on('zoomend', () => {
             if (tripPreviewActive) return;
             applyRealtimeStationOffsetForZoom(map.getZoom());
+            lastUpdateZoom = map.getZoom();
+            console.log('Zoom ended. Current zoom:', lastUpdateZoom);
         });
 
         // 再次调度一次，确保强制隐藏标记立即反映到 DOM 显示状态。
