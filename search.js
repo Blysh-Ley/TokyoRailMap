@@ -1,9 +1,3 @@
-/**
- * 搜索框 UI（仅 UI 构建；搜索逻辑稍后接入）
- *
- * 设计目标：风格尽量与左侧菜单一致；顶部左侧圆角半透明；结果面板为圆角矩形列表。
- */
-
 import { loadRailGeoDataFromDataFolder } from './data.js';
 import { createLineIconElement, getRoutesIndex, resolveMainLineIdForIcon } from './line-icons.js';
 import { resolveLineColorForTheme } from './line-icons.js';
