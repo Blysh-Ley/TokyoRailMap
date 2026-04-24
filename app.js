@@ -91,6 +91,7 @@ const BASEMAP_STORAGE_KEY = 'tokyorail.basemap.mode';
 const TIMETABLE_VIEW_STORAGE_KEY = 'tokyorail.timetable.view.mode';
 const HOVER_PREVIEW_STORAGE_KEY = 'tokyorail.hover.preview.enabled';
 const ADAPTIVE_VIEWPORT_STORAGE_KEY = 'tokyorail.adaptive.viewport.enabled';
+const STATION_OFFSET_MODE_STORAGE_KEY = 'tokyorail.station.offset.mode';
 const MULTI_SELECT_EVENT = '__TokyoRailMultiSelectModeChanged';
 const MULTI_SELECT_LAYERS_EVENT = '__TokyoRailMultiSelectLayersUpdated';
 const MULTI_SELECT_LAYERS_COMMAND_EVENT = '__TokyoRailMultiSelectLayersCommand';
@@ -151,6 +152,16 @@ const readAdaptiveViewportEnabled = () => {
         // ignore
     }
     return true;
+};
+
+const readStationOffsetMode = () => {
+    try {
+        const raw = String(window.localStorage.getItem(STATION_OFFSET_MODE_STORAGE_KEY) || 'dynamic').trim().toLowerCase();
+        if (raw === 'dynamic' || raw === 'performance') return raw;
+    } catch {
+        // ignore
+    }
+    return 'dynamic';
 };
 
 // /data/railways-order.json: [{ "jreast-yamanote": "1037" }, ...]
@@ -409,6 +420,7 @@ map.on('load', async () => {
         setEnabled: () => {},
         setDisabled: () => {}
     };
+    let stationOffsetMode = readStationOffsetMode();
     let stationCoordById = new Map();
     let stationCoordByIdBase = new Map();
     let stationServingCountById = new Map();
@@ -432,6 +444,21 @@ map.on('load', async () => {
     const applyAdaptiveViewportEnabled = (enabled) => {
         adaptiveViewportEnabled = enabled !== false;
     };
+
+    const applyStationOffsetMode = (mode, { persistStorage = true } = {}) => {
+        const next = (String(mode || '').trim().toLowerCase() === 'performance') ? 'performance' : 'dynamic';
+        stationOffsetMode = next;
+        if (persistStorage) {
+            try {
+                window.localStorage.setItem(STATION_OFFSET_MODE_STORAGE_KEY, next);
+            } catch {
+                // ignore
+            }
+        }
+        return next;
+    };
+
+    const isStationOffsetDynamicMode = () => stationOffsetMode !== 'performance';
 
     const clearTripDetailStationIndicator = () => {
         try {
@@ -3220,10 +3247,53 @@ map.on('load', async () => {
         setEnabled(readAdaptiveViewportEnabled());
     }
 
+    function mountStationOffsetToggle(hostEl) {
+        const storageKey = STATION_OFFSET_MODE_STORAGE_KEY;
+
+        const container = document.createElement('div');
+        container.className = 'settings-item settings-item-station-offset';
+
+        const text = document.createElement('span');
+        text.className = 'settings-item-title';
+        text.textContent = '站点偏移';
+
+        const seg = document.createElement('div');
+        seg.className = 'settings-item-control settings-seg';
+
+        const btnDynamic = document.createElement('button');
+        btnDynamic.type = 'button';
+        btnDynamic.textContent = '动态';
+
+        const btnPerformance = document.createElement('button');
+        btnPerformance.type = 'button';
+        btnPerformance.textContent = '性能';
+
+        seg.appendChild(btnDynamic);
+        seg.appendChild(btnPerformance);
+        container.appendChild(text);
+        container.appendChild(seg);
+
+        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
+        if (host.firstChild) host.insertBefore(container, host.firstChild);
+        else host.appendChild(container);
+
+        const setMode = (mode) => {
+            const next = applyStationOffsetMode(mode);
+            btnDynamic.classList.toggle('is-active', next === 'dynamic');
+            btnPerformance.classList.toggle('is-active', next === 'performance');
+        };
+
+        btnDynamic.addEventListener('click', () => setMode('dynamic'));
+        btnPerformance.addEventListener('click', () => setMode('performance'));
+
+        setMode(readStationOffsetMode());
+    }
+
     mountAppearanceToggle(settingsMenuContentEl);
     mountBasemapToggle(settingsMenuContentEl);
     mountTimetableViewToggle(settingsMenuContentEl);
     mountAdaptiveViewportToggle(settingsMenuContentEl);
+    mountStationOffsetToggle(settingsMenuContentEl);
     mountHoverPreviewToggle(settingsMenuContentEl);
     mountStationLabelToggle(settingsMenuContentEl);
 
@@ -5639,12 +5709,13 @@ map.on('load', async () => {
 
         // 2. 监听 zoom 过程
         map.on('zoom', () => {
+            if (!isStationOffsetDynamicMode()) return;
             const currentZoom = map.getZoom();
             
             // 计算当前层级与上次刷新层级之间的差值（取绝对值，兼容放大和缩小）
             const zoomDelta = Math.abs(currentZoom - lastUpdateZoom);
 
-            // 3. 当缩放变化量累积达到或超过 0.5 时触发
+            // 3. 当缩放变化量累积达到或超过 0.3 时触发
             if (zoomDelta >= 0.3) {
                 if (!tripPreviewActive) {
                     applyRealtimeStationOffsetForZoom(currentZoom);
