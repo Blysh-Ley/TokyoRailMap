@@ -5704,34 +5704,36 @@ map.on('load', async () => {
 
         applyRealtimeStationOffsetForZoom(map.getZoom());
 
-        // 1. 记录上一次成功执行 offset 刷新时的 zoom level
         let lastUpdateZoom = map.getZoom();
+        let previousFrameZoom = map.getZoom();
 
-        // 2. 监听 zoom 过程
         map.on('zoom', () => {
             if (!isStationOffsetDynamicMode()) return;
             if (tripPreviewActive) return;
 
             const currentZoom = map.getZoom();
             
-            // 计算当前层级与上次刷新层级之间的差值（取绝对值，兼容放大和缩小）
-            const zoomDelta = Math.abs(currentZoom - lastUpdateZoom);
+            const cumulativeDelta = Math.abs(currentZoom - lastUpdateZoom);
+            
+            // 计算与上一帧之间的【瞬间差值/速度】（用于检测是否即将停止）
+            const frameVelocity = Math.abs(currentZoom - previousFrameZoom);
+            
+            previousFrameZoom = currentZoom;
 
-            // 3. 当缩放变化量累积达到或超过 0.1 时触发
-            if (zoomDelta >= 0.1) {
+            if (cumulativeDelta >= 0.2 || (frameVelocity > 0 && frameVelocity < 0.02)) {
                 applyRealtimeStationOffsetForZoom(currentZoom);
                 lastUpdateZoom = currentZoom; 
             }
         });
 
-        
         map.on('zoomend', () => {
             if (isStationOffsetDynamicMode()) return;
             if (tripPreviewActive) return;
 
             applyRealtimeStationOffsetForZoom(map.getZoom());
             lastUpdateZoom = map.getZoom();
-            console.log('Zoom ended. Current zoom:', lastUpdateZoom);
+            previousFrameZoom = map.getZoom(); 
+            
         });
         
 
