@@ -5710,26 +5710,30 @@ map.on('load', async () => {
         // 2. 监听 zoom 过程
         map.on('zoom', () => {
             if (!isStationOffsetDynamicMode()) return;
+            if (tripPreviewActive) return;
+
             const currentZoom = map.getZoom();
             
             // 计算当前层级与上次刷新层级之间的差值（取绝对值，兼容放大和缩小）
             const zoomDelta = Math.abs(currentZoom - lastUpdateZoom);
 
-            // 3. 当缩放变化量累积达到或超过 0.3 时触发
-            if (zoomDelta >= 0.3) {
-                if (!tripPreviewActive) {
-                    applyRealtimeStationOffsetForZoom(currentZoom);
-                }
+            // 3. 当缩放变化量累积达到或超过 0.1 时触发
+            if (zoomDelta >= 0.1) {
+                applyRealtimeStationOffsetForZoom(currentZoom);
                 lastUpdateZoom = currentZoom; 
             }
         });
 
+        
         map.on('zoomend', () => {
+            if (isStationOffsetDynamicMode()) return;
             if (tripPreviewActive) return;
+
             applyRealtimeStationOffsetForZoom(map.getZoom());
             lastUpdateZoom = map.getZoom();
             console.log('Zoom ended. Current zoom:', lastUpdateZoom);
         });
+        
 
         // 再次调度一次，确保强制隐藏标记立即反映到 DOM 显示状态。
         applySelectionEffects();
