@@ -23,6 +23,8 @@ const OFFSET_PIXELS_CONFIG = Object.freeze({
     lowZoomDampingStart: 12,
     lowZoomDampingMinFactor: 0.45,
     lowZoomDampingInterpolationBase: 2,
+    geoJsonLowZoomDampingStart: 12,
+    geoJsonLowZoomDampingPerZoom: 0.85,
     zoomCutToZero: 15,
     pixelsPerUnitAtZoomBase: 4,
     stationBaseRadius: 3.5,
@@ -463,6 +465,11 @@ export const buildStationOffsetGeoJSONAtZoom = ({ baseStationsGeoJSON, stationOf
     if (!stationLocalChainsById || typeof stationLocalChainsById !== 'object') return baseStationsGeoJSON;
 
     const scaleFactor = Math.pow(2, WEB_MERCATOR_ZOOM_BASE - z);
+    const geoJsonLowZoomDampingStart = Number(OFFSET_PIXELS_CONFIG.geoJsonLowZoomDampingStart) || WEB_MERCATOR_ZOOM_BASE;
+    const geoJsonLowZoomDampingPerZoom = clamp(Number(OFFSET_PIXELS_CONFIG.geoJsonLowZoomDampingPerZoom) || 1, 0, 1);
+    const geoJsonLowZoomFactor = z < geoJsonLowZoomDampingStart
+        ? Math.pow(geoJsonLowZoomDampingPerZoom, geoJsonLowZoomDampingStart - z)
+        : 1;
     const stationOffsetCoordsById = {};
 
     for (const [stationId, info] of Object.entries(stationLocalChainsById)) {
@@ -475,7 +482,7 @@ export const buildStationOffsetGeoJSONAtZoom = ({ baseStationsGeoJSON, stationOf
         if (!offsetPxAtCurrentZoom) continue;
 
         // localLinePixelsAtZoom12 lives in zoom=12 pixel space, so convert offset magnitude back to that space.
-        const offsetPxAtZoom12 = offsetPxAtCurrentZoom * scaleFactor;
+        const offsetPxAtZoom12 = offsetPxAtCurrentZoom * scaleFactor * geoJsonLowZoomFactor;
         if (!offsetPxAtZoom12) continue;
 
         const shifted = buildOffsetPolylinePixelsWithMiter(localPixels, offsetPxAtZoom12, {
