@@ -1409,9 +1409,252 @@ export function createPanel(options = {}) {
     body.style.overflowY = 'auto';
     body.style.overflowX = 'hidden';
 
+    // 当 panel 内容出现纵向滚动时，自动在标题左侧显示“目录”子面板。
+    const catalogPanel = document.createElement('div');
+    catalogPanel.className = 'panel-catalog-subpanel';
+    catalogPanel.setAttribute('data-panel-catalog', '');
+    catalogPanel.innerHTML = `
+        <div class="panel-catalog-title">
+            <span class="panel-catalog-title-text">目录</span>
+            <button type="button" class="panel-catalog-close-btn" data-panel-catalog-close-btn="1" aria-label="关闭目录">
+                <img class="panel-catalog-close-icon" alt="" />
+            </button>
+        </div>
+        <div class="panel-catalog-body" data-panel-catalog-body="1"></div>
+    `;
+    const catalogBody = catalogPanel.querySelector('[data-panel-catalog-body="1"]');
+    const catalogCloseBtn = catalogPanel.querySelector('[data-panel-catalog-close-btn="1"]');
+    const catalogCloseIcon = catalogPanel.querySelector('.panel-catalog-close-icon');
+    let catalogRefreshRafId = null;
+    let catalogMutationObserver = null;
+    let catalogResizeObserver = null;
+    let catalogDismissedByUser = false;
+    let catalogForcedActiveLineId = '';
+    let catalogForcedActiveUntilMs = 0;
+    let catalogHoverEnteredOnce = false;
+    let catalogCompactMode = false;
+
+
+    if (catalogCloseIcon instanceof HTMLImageElement) {
+        setImageElementFromCache(catalogCloseIcon, getIconCandidates('x.svg'), {
+            cacheKey: 'icon:x.svg',
+            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('x.svg'), { cacheKey: 'icon:x.svg' })
+        }).catch(() => null);
+    }
+
+    const collectCatalogEntries = () => {
+        const out = [];
+        const companyEls = Array.from(body.querySelectorAll('.panel-company'));
+        for (const companyEl of companyEls) {
+            if (!(companyEl instanceof Element)) continue;
+            const companyName = toText(companyEl.querySelector('.panel-company-name')?.textContent)
+                || toText(companyEl.querySelector('.panel-company-header')?.getAttribute('data-company'))
+                || '未知公司';
+
+            const companyLinesEl = companyEl.querySelector('.panel-company-lines');
+            const lineEls = companyLinesEl ? Array.from(companyLinesEl.children) : [];
+            const lines = [];
+            for (const lineEl of lineEls) {
+                if (!(lineEl instanceof Element) || !lineEl.classList.contains('panel-line')) continue;
+                const lineId = toText(lineEl.getAttribute('data-line-id'));
+                const lineName = toText(lineEl.querySelector('.panel-line-name-main')?.textContent)
+                    || toText(lineEl.querySelector('.panel-line-name')?.textContent)
+                    || lineId;
+                if (!lineName) continue;
+                lines.push({ lineId, lineName });
+            }
+
+            if (lines.length) {
+                out.push({ companyName, lines });
+            }
+        }
+        return out;
+    };
+
+    const renderCatalogEntries = (entries) => {
+        if (!(catalogBody instanceof Element)) return;
+        const safeEntries = Array.isArray(entries) ? entries : [];
+        if (!safeEntries.length) {
+            catalogBody.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+        for (const company of safeEntries) {
+            const companyName = escapeHtml(toText(company?.companyName) || '未知公司');
+            const lines = Array.isArray(company?.lines) ? company.lines : [];
+            const lineHtml = lines.map((line) => {
+                const lineName = escapeHtml(toText(line?.lineName));
+                const lineId = toText(line?.lineId);
+                if (lineId) {
+                    return `<button type="button" class="panel-catalog-line" data-panel-catalog-line-id="${escapeHtml(lineId)}">${lineName}</button>`;
+                }
+                return `<div class="panel-catalog-line is-static">${lineName}</div>`;
+            }).join('');
+
+            html += `
+                <div class="panel-catalog-company">
+                    <div class="panel-catalog-company-name">${companyName}</div>
+                    <div class="panel-catalog-lines">${lineHtml}</div>
+                </div>
+            `;
+        }
+        catalogBody.innerHTML = html;
+    };
+
+    const setCatalogActiveLine = (activeLineId) => {
+        if (!(catalogBody instanceof Element)) return;
+        const activeId = toText(activeLineId);
+        const buttons = Array.from(catalogBody.querySelectorAll('.panel-catalog-line[data-panel-catalog-line-id]'));
+        for (const btn of buttons) {
+            if (!(btn instanceof Element)) continue;
+            const lineId = toText(btn.getAttribute('data-panel-catalog-line-id'));
+            btn.classList.toggle('is-active', !!activeId && lineId === activeId);
+        }
+    };
+
+    const syncCatalogActiveLine = () => {
+        if (!(catalogBody instanceof Element)) return;
+        if (!catalogPanel.classList.contains('is-visible')) return;
+
+        if (catalogForcedActiveLineId && Date.now() < catalogForcedActiveUntilMs) {
+            setCatalogActiveLine(catalogForcedActiveLineId);
+            return;
+        }
+        if (catalogForcedActiveLineId && Date.now() >= catalogForcedActiveUntilMs) {
+            catalogForcedActiveLineId = '';
+            catalogForcedActiveUntilMs = 0;
+        }
+
+        const lineEls = Array.from(body.querySelectorAll('[data-line-id]'));
+        if (!lineEls.length) {
+            setCatalogActiveLine('');
+            return;
+        }
+
+        const bodyRect = body.getBoundingClientRect();
+        const probeY = bodyRect.top + 12;
+        let activeLineId = '';
+        for (const lineEl of lineEls) {
+            if (!(lineEl instanceof Element)) continue;
+            const rect = lineEl.getBoundingClientRect();
+            if (rect.bottom >= probeY) {
+                activeLineId = toText(lineEl.getAttribute('data-line-id'));
+                break;
+            }
+        }
+        if (!activeLineId) {
+            const last = lineEls[lineEls.length - 1];
+            activeLineId = last instanceof Element ? toText(last.getAttribute('data-line-id')) : '';
+        }
+
+        setCatalogActiveLine(activeLineId);
+    };
+
+    const setCatalogCompactMode = (compact) => {
+        const next = compact === true;
+        if (catalogCompactMode === next) return;
+        catalogCompactMode = next;
+        catalogPanel.classList.toggle('is-compact', next);
+    };
+
+
+    const refreshCatalogPanel = () => {
+        const entries = collectCatalogEntries();
+        renderCatalogEntries(entries);
+
+        const hasOverflowY = (body.scrollHeight - body.clientHeight) > 1;
+        const shouldShow = isPanelVisible && hasOverflowY && entries.length > 0 && !catalogDismissedByUser;
+        catalogPanel.classList.toggle('is-visible', shouldShow);
+        if (!shouldShow) {
+            catalogHoverEnteredOnce = false;
+            setCatalogCompactMode(false);
+        }
+        if (shouldShow) syncCatalogActiveLine();
+    };
+
+    const scheduleCatalogRefresh = () => {
+        if (catalogRefreshRafId != null) return;
+        catalogRefreshRafId = requestAnimationFrame(() => {
+            catalogRefreshRafId = null;
+            refreshCatalogPanel();
+        });
+    };
+
     panel.appendChild(header);
     panel.appendChild(body);
     root.appendChild(panel);
+    root.appendChild(catalogPanel);
+
+    body.addEventListener('scroll', () => {
+        syncCatalogActiveLine();
+    }, { passive: true });
+
+    if (typeof MutationObserver !== 'undefined') {
+        catalogMutationObserver = new MutationObserver(() => {
+            scheduleCatalogRefresh();
+        });
+        catalogMutationObserver.observe(body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    if (typeof ResizeObserver !== 'undefined') {
+        catalogResizeObserver = new ResizeObserver(() => {
+            scheduleCatalogRefresh();
+        });
+        catalogResizeObserver.observe(body);
+    }
+
+    catalogPanel.addEventListener('click', (evt) => {
+        const target = evt?.target;
+        if (!(target instanceof Element)) return;
+        const btn = target.closest?.('.panel-catalog-line[data-panel-catalog-line-id]');
+        if (!(btn instanceof Element)) return;
+        const lineId = toText(btn.getAttribute('data-panel-catalog-line-id'));
+        if (!lineId) return;
+        stopEvent(evt);
+        catalogForcedActiveLineId = lineId;
+        catalogForcedActiveUntilMs = Date.now() + 2000;
+        setCatalogActiveLine(lineId);
+        scrollToLineId(lineId, { behavior: 'smooth', block: 'start' });
+    }, { passive: false });
+
+    catalogPanel.addEventListener('mouseenter', () => {
+        catalogHoverEnteredOnce = true;
+        setCatalogCompactMode(false);
+    });
+
+    catalogPanel.addEventListener('mouseleave', () => {
+        if (!catalogHoverEnteredOnce) return;
+        if (!catalogPanel.classList.contains('is-visible')) return;
+        setCatalogCompactMode(true);
+    });
+
+    const reopenCatalogPanelByTitleIntent = () => {
+        if (!catalogDismissedByUser) return;
+        catalogDismissedByUser = false;
+        catalogHoverEnteredOnce = false;
+        setCatalogCompactMode(false);
+        scheduleCatalogRefresh();
+    };
+
+    title.addEventListener('click', () => {
+        reopenCatalogPanelByTitleIntent();
+    });
+
+    if (catalogCloseBtn instanceof Element) {
+        catalogCloseBtn.addEventListener('click', (evt) => {
+            stopEvent(evt);
+            catalogDismissedByUser = true;
+            catalogForcedActiveLineId = '';
+            catalogForcedActiveUntilMs = 0;
+            catalogHoverEnteredOnce = false;
+            setCatalogCompactMode(false);
+            scheduleCatalogRefresh();
+        }, { passive: false });
+    }
 
     // 防止点击面板穿透到地图（触发“点击空白处恢复/收起搜索”等）
     // 用 bubble 阶段拦截，避免阻断面板内部的点击/触屏事件处理
@@ -6665,6 +6908,8 @@ export function createPanel(options = {}) {
         } catch {
             // ignore
         }
+
+        scheduleCatalogRefresh();
     };
 
     layout();
@@ -6674,6 +6919,7 @@ export function createPanel(options = {}) {
         layout();
         isPanelVisible = true;
         root.style.transform = 'translateX(0)';
+        scheduleCatalogRefresh();
     };
 
     const hide = () => {
@@ -6688,6 +6934,7 @@ export function createPanel(options = {}) {
         temporaryPanelAllowedTripKeysByDisplayLineId = new Map();
         isPanelVisible = false;
         root.style.transform = 'translateX(calc(100% + 24px))';
+        scheduleCatalogRefresh();
     };
 
     const setTitle = (text) => {
@@ -6730,6 +6977,8 @@ export function createPanel(options = {}) {
         const renderToken = ++stationRenderToken;
         const name = readStationName(props);
         setTitle(name);
+        catalogHoverEnteredOnce = false;
+        setCatalogCompactMode(false);
 
         currentStationId = toText(props?.id);
         currentStationNameZh = toText(props?.name_zh || props?.['name:zh'] || name);
@@ -6843,12 +7092,14 @@ export function createPanel(options = {}) {
         // 渲染 popup 同结构的内容（公司分组 + 线路）
         body.innerHTML = buildCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId, railwaysOrderIndex });
         await enhancePanelLineHeaderIcons(body);
+        scheduleCatalogRefresh();
 
         show();
 
         // 默认折叠态：填充每条线路的“未来最近 3 条”班次
         // 这里等待渲染完成，避免外部随后执行的 scrollToLineId 被后续异步渲染“拉回顶部”。
         await renderAllTimetables();
+        scheduleCatalogRefresh();
 
         void debugExtractShonanShinjukuUenoTokyoTrips({
             stationId: currentStationId,

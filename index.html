@@ -2610,6 +2610,147 @@
             padding-left: 10px;/*1.7em;*/
         }
 
+        .panel-catalog-subpanel {
+            position: absolute;
+            right: calc(100% + 2px);
+            top: 0px;
+            width: 132px;
+            max-height: calc(100% - 20px);
+            display: none;
+            flex-direction: column;
+            border: 1px solid #e3e5e7;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            backdrop-filter: blur(2px);
+            overflow: hidden;
+            z-index: 1;
+            transition: width 0.2s ease, border-radius 0.2s ease, opacity 0.2s ease;
+        }
+
+        .panel-catalog-subpanel.is-visible {
+            display: flex;
+        }
+
+        .panel-catalog-subpanel.is-compact {
+            width: 8px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .panel-catalog-subpanel.is-compact .panel-catalog-title,
+        .panel-catalog-subpanel.is-compact .panel-catalog-body {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+        }
+
+        .panel-catalog-subpanel:not(.is-compact) .panel-catalog-title,
+        .panel-catalog-subpanel:not(.is-compact) .panel-catalog-body {
+            opacity: 1;
+            transition: opacity 0.18s ease;
+        }
+
+        .panel-catalog-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #111;
+            padding: 10px 12px 8px;
+            border-bottom: 1px solid #eef0f2;
+            background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(255, 255, 255, 0.86));
+            letter-spacing: 0.5px;
+        }
+
+        .panel-catalog-title-text {
+            min-width: 0;
+        }
+
+        .panel-catalog-close-btn {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #d8dde2;
+            border-radius: 999px;
+            background: #fff;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex: 0 0 auto;
+        }
+
+        .panel-catalog-close-btn:hover {
+            background: #f2f4f6;
+        }
+
+        .panel-catalog-close-icon {
+            width: 10px;
+            height: 10px;
+            display: block;
+            pointer-events: none;
+        }
+
+        .panel-catalog-body {
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 8px 8px 10px;
+        }
+
+        .panel-catalog-company + .panel-catalog-company {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #eceff1;
+        }
+
+        .panel-catalog-company-name {
+            font-size: 12px;
+            font-weight: 700;
+            color: #333;
+            line-height: 1.3;
+        }
+
+        .panel-catalog-lines {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-top: 4px;
+        }
+
+        .panel-catalog-line {
+            border: none;
+            background: transparent;
+            text-align: left;
+            font-size: 12px;
+            line-height: 1.35;
+            color: #4c5460;
+            border-radius: 8px;
+            padding: 4px 8px;
+            margin: 0;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .panel-catalog-line.is-static {
+            cursor: default;
+        }
+
+        .panel-catalog-line:hover {
+            background: #eef5fb;
+            color: #1c2833;
+        }
+
+        .panel-catalog-line.is-active {
+            background: #3498db;
+            color: #fff;
+            font-weight: 600;
+        }
+
         /* panel：固定态下的鼠标样式（由 body.is-pinned 驱动） */
         body.is-pinned .panel-line-name,
         body.is-pinned .panel-company-name,
