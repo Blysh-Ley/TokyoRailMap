@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
-    "buildall": "electron-builder --win --mac",
+    "buildall": "electron-builder --win --mac -p always",
     "bp": "npm version patch && npm run buildall",
     "bmm": "npm version minor && npm run buildall",
     "bm": "npm version major && npm run buildall",
@@ -25,6 +25,13 @@
     "releaseInfo": {
       "releaseNotesFile": "CHANGELOG.md"
     },
+    "publish": [
+    {
+      "provider": "github",
+      "owner": "Blysh-Ley",
+      "repo": "TokyoRailMap"
+    }
+  ],
     "directories": {
       "output": "dist"
     },

@@ -88,6 +88,7 @@ if (!maplibregl) {
 }
 const APPEARANCE_STORAGE_KEY = 'tokyorail.appearance.mode';
 const BASEMAP_STORAGE_KEY = 'tokyorail.basemap.mode';
+const AUTO_UPDATE_CHECK_STORAGE_KEY = 'tokyorail.auto.update.check.enabled';
 const TIMETABLE_VIEW_STORAGE_KEY = 'tokyorail.timetable.view.mode';
 const HOVER_PREVIEW_STORAGE_KEY = 'tokyorail.hover.preview.enabled';
 const ADAPTIVE_VIEWPORT_STORAGE_KEY = 'tokyorail.adaptive.viewport.enabled';
@@ -121,6 +122,17 @@ const readBasemapMode = () => {
         // ignore
     }
     return 'carto';
+};
+
+const readAutoUpdateCheckEnabled = () => {
+    try {
+        const raw = String(window.localStorage.getItem(AUTO_UPDATE_CHECK_STORAGE_KEY) || '1').trim().toLowerCase();
+        if (raw === '0' || raw === 'false') return false;
+        if (raw === '1' || raw === 'true') return true;
+    } catch {
+        // ignore
+    }
+    return true;
 };
 const readTimetableViewMode = () => {
     try {
@@ -3065,6 +3077,102 @@ map.on('load', async () => {
         setMode(initial);
     }
 
+    function mountAutoUpdateToggle(hostEl) {
+        const electronApi = window?.TokyoRailElectron;
+        const hasElectronApi = !!(
+            electronApi
+            && typeof electronApi.setAutoUpdateCheckEnabled === 'function'
+            && typeof electronApi.checkForUpdatesNow === 'function'
+        );
+        if (!hasElectronApi) return;
+
+        const storageKey = AUTO_UPDATE_CHECK_STORAGE_KEY;
+
+        const container = document.createElement('div');
+        container.className = 'settings-item settings-item-auto-update';
+
+        const left = document.createElement('button');
+        left.type = 'button';
+        left.className = 'settings-update-check-now';
+        left.setAttribute('aria-label', '立即检查更新');
+        left.title = '立即检查更新';
+
+        const checkNowIcon = document.createElement('img');
+        checkNowIcon.className = 'settings-update-check-now-icon';
+        checkNowIcon.alt = '';
+        setImageElementFromCache(checkNowIcon, getIconCandidates('clockwise.svg'), {
+            cacheKey: 'icon:clockwise.svg',
+            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('clockwise.svg'), { cacheKey: 'icon:clockwise.svg' })
+        }).catch(() => null);
+        left.appendChild(checkNowIcon);
+
+        const text = document.createElement('span');
+        text.className = 'settings-item-title';
+        text.textContent = '自动检查更新';
+
+        const controls = document.createElement('div');
+        controls.className = 'settings-auto-update-controls';
+
+        const seg = document.createElement('div');
+        seg.className = 'settings-item-control settings-seg';
+
+        const btnOn = document.createElement('button');
+        btnOn.type = 'button';
+        btnOn.textContent = '开启';
+
+        const btnOff = document.createElement('button');
+        btnOff.type = 'button';
+        btnOff.textContent = '关闭';
+
+        seg.appendChild(btnOn);
+        seg.appendChild(btnOff);
+    controls.appendChild(left);
+    controls.appendChild(seg);
+    container.appendChild(text);
+    container.appendChild(controls);
+
+        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
+        const appearanceRow = host.querySelector('.settings-item.settings-item-appearance');
+        if (appearanceRow && appearanceRow.parentElement === host && appearanceRow.nextSibling) {
+            host.insertBefore(container, appearanceRow.nextSibling);
+        } else if (appearanceRow && appearanceRow.parentElement === host) {
+            host.appendChild(container);
+        } else if (host.firstChild) {
+            host.insertBefore(container, host.firstChild);
+        } else {
+            host.appendChild(container);
+        }
+
+        const setEnabled = (enabled) => {
+            const isEnabled = enabled !== false;
+            btnOn.classList.toggle('is-active', isEnabled);
+            btnOff.classList.toggle('is-active', !isEnabled);
+            try {
+                window.localStorage.setItem(storageKey, isEnabled ? '1' : '0');
+            } catch {
+                // ignore
+            }
+            electronApi.setAutoUpdateCheckEnabled(isEnabled).catch(() => null);
+        };
+
+        btnOn.addEventListener('click', () => setEnabled(true));
+        btnOff.addEventListener('click', () => setEnabled(false));
+
+        left.addEventListener('click', async () => {
+            if (left.disabled) return;
+            left.disabled = true;
+            try {
+                await electronApi.checkForUpdatesNow();
+            } catch {
+                // ignore
+            } finally {
+                left.disabled = false;
+            }
+        });
+
+        setEnabled(readAutoUpdateCheckEnabled());
+    }
+
     function mountTimetableViewToggle(hostEl) {
         const storageKey = TIMETABLE_VIEW_STORAGE_KEY;
 
@@ -3290,6 +3398,7 @@ map.on('load', async () => {
     }
 
     mountAppearanceToggle(settingsMenuContentEl);
+    mountAutoUpdateToggle(settingsMenuContentEl);
     mountBasemapToggle(settingsMenuContentEl);
     mountTimetableViewToggle(settingsMenuContentEl);
     mountAdaptiveViewportToggle(settingsMenuContentEl);

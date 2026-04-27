@@ -1,10 +1,22 @@
-const { app, BrowserWindow, ipcMain, Menu, session } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, session, dialog, shell } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
 const OSM_TILE_URL_FILTERS = ['https://*.tile.openstreetmap.org/*'];
 const OSM_POLICY_REFERER = 'https://blysh-ley.github.io/TokyoRailMap/';
 const OSM_POLICY_USER_AGENT = `TokyoRailMap/${app.getVersion()} (+https://github.com/Blysh-Ley/TokyoRailMap)`;
+
+autoUpdater.autoDownload = false;
+
+const MANUAL_DOWNLOAD_URL = 'https://github.com/Blysh-Ley/TokyoRailMap/releases/latest';
+const CHANGELOG_FILE = 'CHANGELOG.md';
+const DEBUG_FORCE_UPDATE_PROMPT = false;
+
+let isUpdatePromptVisible = false;
+let isAutoUpdateCheckEnabled = true;
+let pendingUpToDateDialog = false;
+let updateCheckInFlight = null;
 
 const MIME_BY_EXT = {
     '.html': 'text/html; charset=utf-8',
@@ -65,6 +77,206 @@ const getContentType = (filePath) => {
 
 const toBase64 = (data) => Buffer.from(data).toString('base64');
 
+const stripMarkdownInline = (text) => {
+    return String(text ?? '')
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/__(.*?)__/g, '$1')
+        .replace(/`([^`]+)`/g, '$1')
+        .trim();
+};
+
+const formatMarkdownAsDialogText = (markdown) => {
+    const lines = String(markdown ?? '').split(/\r?\n/);
+    const formatted = lines.map((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return '';
+
+        if (/^#{1,6}\s+/.test(trimmed)) {
+            return stripMarkdownInline(trimmed.replace(/^#{1,6}\s+/, ''));
+        }
+
+        if (/^[-*]\s+/.test(trimmed)) {
+            return `• ${stripMarkdownInline(trimmed.replace(/^[-*]\s+/, ''))}`;
+        }
+
+        return stripMarkdownInline(trimmed);
+    });
+
+    return formatted
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+};
+
+const extractLatestChangelogSection = (markdown) => {
+    const lines = String(markdown ?? '').split(/\r?\n/);
+    const headingIndexes = [];
+
+    lines.forEach((line, idx) => {
+        if (/^##\s+/.test(line.trim())) {
+            headingIndexes.push(idx);
+        }
+    });
+
+    if (!headingIndexes.length) {
+        return formatMarkdownAsDialogText(markdown);
+    }
+
+    const start = headingIndexes[0];
+    const end = headingIndexes[1] ?? lines.length;
+    const section = lines.slice(start, end).join('\n').trim();
+    return formatMarkdownAsDialogText(section);
+};
+
+const formatReleaseNotes = (releaseNotes) => {
+    if (!releaseNotes) return '';
+    if (typeof releaseNotes === 'string') return releaseNotes;
+    if (Array.isArray(releaseNotes)) {
+        return releaseNotes
+            .map((item) => {
+                if (typeof item === 'string') return item;
+                if (item && typeof item.note === 'string') return item.note;
+                return '';
+            })
+            .filter(Boolean)
+            .join('\n\n');
+    }
+    return '';
+};
+
+const loadChangelog = async () => {
+    const changelogPath = path.join(APP_ROOT, CHANGELOG_FILE);
+    try {
+        return await fs.readFile(changelogPath, 'utf8');
+    } catch {
+        return '';
+    }
+};
+
+const resolveUpdateNotes = async (info) => {
+    const fromEvent = formatReleaseNotes(info?.releaseNotes);
+    if (fromEvent.trim()) return formatMarkdownAsDialogText(fromEvent);
+
+    const fromChangelog = await loadChangelog();
+    if (fromChangelog.trim()) return extractLatestChangelogSection(fromChangelog);
+
+    return '本次更新说明暂未提供。';
+};
+
+const showUpdatePrompt = async (info) => {
+    if (isUpdatePromptVisible) return;
+    isUpdatePromptVisible = true;
+
+    try {
+        const notes = await resolveUpdateNotes(info);
+        const message = `发现新版本：${info?.version || '未知版本'}`;
+        const detail = [
+            notes,
+            '',
+            '国内网络请选择手动下载'
+        ].join('\n');
+
+        const result = await dialog.showMessageBox({
+            type: 'info',
+            title: '发现新版本',
+            message,
+            detail,
+            buttons: ['直接下载', '手动下载', '稍后'],
+            defaultId: 0,
+            cancelId: 2,
+            noLink: true
+        });
+
+        if (result.response === 0) {
+            await autoUpdater.downloadUpdate();
+            return;
+        }
+
+        if (result.response === 1) {
+            await shell.openExternal(MANUAL_DOWNLOAD_URL);
+        }
+    } finally {
+        isUpdatePromptVisible = false;
+    }
+};
+
+const showUpToDatePrompt = async () => {
+    await dialog.showMessageBox({
+        type: 'info',
+        title: '版本检查',
+        message: '已是最新版本',
+        buttons: ['确定'],
+        defaultId: 0,
+        noLink: true
+    });
+};
+
+const runUpdateCheck = ({ force = false, showUpToDateWhenNoUpdate = false } = {}) => {
+    if (!force && !isAutoUpdateCheckEnabled) {
+        return Promise.resolve({ skipped: true, reason: 'auto-update-disabled' });
+    }
+
+    if (updateCheckInFlight) {
+        if (showUpToDateWhenNoUpdate) pendingUpToDateDialog = true;
+        return updateCheckInFlight;
+    }
+
+    if (DEBUG_FORCE_UPDATE_PROMPT) {
+        return showUpdatePrompt({
+            version: `${app.getVersion()} (调试弹窗)`
+        }).catch((err) => {
+            console.error('[autoUpdater] 调试弹窗失败:', err?.message || err);
+        });
+    }
+
+    pendingUpToDateDialog = showUpToDateWhenNoUpdate === true;
+    updateCheckInFlight = autoUpdater.checkForUpdates().catch((err) => {
+        console.error('[autoUpdater] 启动更新检查失败:', err?.message || err);
+        throw err;
+    }).finally(() => {
+        updateCheckInFlight = null;
+    });
+
+    return updateCheckInFlight;
+};
+
+const setupAutoUpdate = (win) => {
+    autoUpdater.on('update-available', async (info) => {
+        pendingUpToDateDialog = false;
+        await showUpdatePrompt(info);
+    });
+
+    autoUpdater.on('update-not-available', async () => {
+        if (!pendingUpToDateDialog) return;
+        pendingUpToDateDialog = false;
+        await showUpToDatePrompt();
+    });
+
+    autoUpdater.on('error', (err) => {
+        console.error('[autoUpdater] 更新检查失败:', err?.message || err);
+    });
+
+    const scheduleCheck = () => {
+        // 放到下一轮事件循环，避免与首屏渲染争抢初始化时机。
+        setTimeout(() => {
+            runUpdateCheck({ force: false, showUpToDateWhenNoUpdate: false }).catch(() => {
+                // ignore
+            });
+        }, 3000);
+    };
+
+    if (win?.webContents) {
+        if (win.webContents.isLoading()) {
+            win.webContents.once('did-finish-load', scheduleCheck);
+        } else {
+            scheduleCheck();
+        }
+        return;
+    }
+
+    scheduleCheck();
+};
+
 const configureOsmRequestHeaders = () => {
     const ses = session.defaultSession;
     if (!ses?.webRequest?.onBeforeSendHeaders) return;
@@ -97,8 +309,10 @@ const createWindow = () => {
         }
     });
 
+    //win.webContents.openDevTools();
     win.setMenuBarVisibility(false);
     win.loadFile('index.html');
+    return win;
 };
 
 ipcMain.handle('tokyorail:read-local-file', async (_event, rawInput) => {
@@ -138,10 +352,28 @@ ipcMain.handle('tokyorail:read-local-file', async (_event, rawInput) => {
     }
 });
 
+ipcMain.handle('tokyorail:set-auto-update-check-enabled', async (_event, enabled) => {
+    isAutoUpdateCheckEnabled = enabled !== false;
+    return { enabled: isAutoUpdateCheckEnabled };
+});
+
+ipcMain.handle('tokyorail:check-for-updates-now', async () => {
+    try {
+        await runUpdateCheck({ force: true, showUpToDateWhenNoUpdate: true });
+        return { ok: true };
+    } catch (err) {
+        return {
+            ok: false,
+            error: err?.message || String(err || 'unknown error')
+        };
+    }
+});
+
 app.whenReady().then(() => {
     Menu.setApplicationMenu(null);
     configureOsmRequestHeaders();
-    createWindow();
+    const mainWindow = createWindow();
+    setupAutoUpdate(mainWindow);
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {

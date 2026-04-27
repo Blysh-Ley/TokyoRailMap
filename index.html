@@ -1422,9 +1422,10 @@
             border-color: #e3e5e7;
             border-width: 1px;
             box-shadow: 0 0 30px rgba(0, 0, 0, .1);
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
             opacity: 1;
-            max-height: 360px;
+            max-height: calc(100vh - 24px);
             transition: opacity 0.2s ease, max-height 0.2s ease, margin-top 0.2s ease, border-width 0.2s ease;
             padding: 8px 10px;
             display: flex;
@@ -3045,6 +3046,7 @@
                 gap: 8px;
                 padding: 6px 10px;
                 background: #fff;
+                max-height: calc(100vh - 20px);
                 border: 1px solid #e3e5e7;
                 border-radius: 12px;
                 user-select: none;
@@ -3777,6 +3779,50 @@
         .settings-seg button.is-active {
             background: #3498db;
             color: #fff;
+        }
+
+        .settings-update-check-now {
+            width: 26px;
+            height: 26px;
+            min-width: 26px;
+            min-height: 26px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: transparent;
+            border-radius: 999px;
+            flex: 0 0 auto;
+            cursor: pointer;
+        }
+
+        .settings-update-check-now-icon {
+            width: 14px;
+            height: 14px;
+            object-fit: contain;
+            pointer-events: none;
+        }
+
+        .settings-update-check-now:disabled {
+            opacity: 0.55;
+            cursor: default;
+        }
+
+        .settings-auto-update-controls {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            flex: 0 0 auto;
+        }
+
+        .settings-item-auto-update {
+            align-items: center;
+        }
+
+        html[data-theme='dark'] .settings-update-check-now-icon {
+            filter: brightness(0) invert(1);
         }
 
         /* 底部居中：当前高亮公司/线路提示 */
