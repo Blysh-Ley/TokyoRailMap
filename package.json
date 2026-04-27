@@ -1,12 +1,12 @@
 {
   "name": "tokyorailmap",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "东京都市圈铁路线网与班次信息可视化。",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
-    "buildall": "electron-builder --win --mac", 
+    "buildall": "electron-builder --win --mac",
     "bp": "npm version patch && npm run buildall",
     "bmm": "npm version minor && npm run buildall",
     "bm": "npm version major && npm run buildall",
@@ -21,7 +21,7 @@
   "build": {
     "appId": "com.blysh.tokyorailmap",
     "productName": "东京铁路图",
-    "asar": true, 
+    "asar": true,
     "directories": {
       "output": "dist"
     },
@@ -30,14 +30,18 @@
       "target": [
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
     "mac": {
       "icon": "icons/icon.icns",
-      "target": ["dmg"],
-      "identity": null 
+      "target": [
+        "dmg"
+      ],
+      "identity": null
     },
     "dmg": {
       "contents": [
