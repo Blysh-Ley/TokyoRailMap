@@ -7,6 +7,9 @@
     "start": "electron .",
     "build": "electron-builder",
     "buildall": "electron-builder --win --mac", 
+    "bp": "npm version patch && npm run buildall",
+    "bmm": "npm version minor && npm run buildall",
+    "bm": "npm version major && npm run buildall",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
