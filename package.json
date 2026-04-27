@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
-    "buildall": "electron-builder --win --mac -p always",
+    "buildall": "electron-builder --win --mac -p never",
     "bp": "npm version patch && npm run buildall",
     "bmm": "npm version minor && npm run buildall",
     "bm": "npm version major && npm run buildall",
@@ -21,17 +21,18 @@
   "build": {
     "appId": "com.blysh.tokyorailmap",
     "productName": "东京铁路图",
+    "artifactName": "TokyoRailMap-${version}-${os}-${arch}.${ext}",
     "asar": true,
     "releaseInfo": {
       "releaseNotesFile": "CHANGELOG.md"
     },
     "publish": [
-    {
-      "provider": "github",
-      "owner": "Blysh-Ley",
-      "repo": "TokyoRailMap"
-    }
-  ],
+      {
+        "provider": "github",
+        "owner": "Blysh-Ley",
+        "repo": "TokyoRailMap"
+      }
+    ],
     "directories": {
       "output": "dist"
     },
@@ -39,12 +40,22 @@
       "icon": "icons/icon.ico",
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
         }
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "东京铁路图",
+      "installerIcon": "icons/icon.ico",
+      "uninstallerIcon": "icons/icon.ico",
+      "uninstallDisplayName": "卸载东京铁路图"
     },
     "mac": {
       "icon": "icons/icon.icns",
