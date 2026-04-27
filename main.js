@@ -10,8 +10,18 @@ const OSM_POLICY_USER_AGENT = `TokyoRailMap/${app.getVersion()} (+https://github
 autoUpdater.autoDownload = false;
 
 const MANUAL_DOWNLOAD_URL = 'https://github.com/Blysh-Ley/TokyoRailMap/releases/latest';
+const MANUAL_DOWNLOAD_URL_BAIDU = 'https://pan.baidu.com/s/1AjvtvXRBL6aQj5XvIq7_Fg?pwd=tr54';
 const CHANGELOG_FILE = 'CHANGELOG.md';
 const DEBUG_FORCE_UPDATE_PROMPT = false;
+
+const MANUAL_DOWNLOAD_SOURCES = [
+    { id: 'baiduyun', label: '百度云(国内)', url: MANUAL_DOWNLOAD_URL_BAIDU },
+    { id: 'github', label: 'github源(国外)', url: MANUAL_DOWNLOAD_URL }
+];
+
+const DEBUG_EXTRA_MANUAL_DOWNLOAD_SOURCES = [
+    { id: 'mirror-demo', label: '演示镜像(调试)', url: 'https://example.com/download', debugOnly: true }
+];
 
 let isUpdatePromptVisible = false;
 let isAutoUpdateCheckEnabled = true;
@@ -193,7 +203,7 @@ const showUpdatePrompt = async (info) => {
         }
 
         if (result.response === 1) {
-            await shell.openExternal(MANUAL_DOWNLOAD_URL);
+            await showManualDownloadSourcePrompt();
         }
     } finally {
         isUpdatePromptVisible = false;
@@ -209,6 +219,68 @@ const showUpToDatePrompt = async () => {
         defaultId: 0,
         noLink: true
     });
+};
+
+const getManualDownloadSources = () => {
+    if (!DEBUG_FORCE_UPDATE_PROMPT) return [...MANUAL_DOWNLOAD_SOURCES];
+    return [...MANUAL_DOWNLOAD_SOURCES, ...DEBUG_EXTRA_MANUAL_DOWNLOAD_SOURCES];
+};
+
+const showMissingManualDownloadUrlPrompt = async (sourceLabel) => {
+    await dialog.showMessageBox({
+        type: 'info',
+        title: '下载源未配置',
+        message: `${sourceLabel}链接尚未填写`,
+        detail: '请在 main.js 中补充对应下载链接。',
+        buttons: ['确定'],
+        defaultId: 0,
+        noLink: true
+    });
+};
+
+const showManualDownloadSourcePrompt = async () => {
+    const sources = getManualDownloadSources();
+    if (!sources.length) return;
+
+    const result = await dialog.showMessageBox({
+        type: 'question',
+        title: '手动下载',
+        message: '请选择下载源',
+        buttons: [...sources.map((x) => x.label), '取消'],
+        defaultId: 0,
+        cancelId: sources.length,
+        noLink: true
+    });
+
+    if (result.response < 0 || result.response >= sources.length) return;
+
+    const selected = sources[result.response];
+    const url = String(selected?.url || '').trim();
+    if (!url) {
+        await showMissingManualDownloadUrlPrompt(selected?.label || '该下载源');
+        return;
+    }
+
+    await shell.openExternal(url);
+};
+
+const isGithubConnectivityError = (err) => {
+    const msg = String(err?.message || err || '').toLowerCase();
+    if (!msg) return false;
+
+    const markers = [
+        'github',
+        'api.github.com',
+        'objects.githubusercontent.com',
+        'enotfound',
+        'econnrefused',
+        'etimedout',
+        'eai_again',
+        'socket hang up',
+        'network'
+    ];
+
+    return markers.some((item) => msg.includes(item));
 };
 
 const runUpdateCheck = ({ force = false, showUpToDateWhenNoUpdate = false } = {}) => {
@@ -230,7 +302,14 @@ const runUpdateCheck = ({ force = false, showUpToDateWhenNoUpdate = false } = {}
     }
 
     pendingUpToDateDialog = showUpToDateWhenNoUpdate === true;
-    updateCheckInFlight = autoUpdater.checkForUpdates().catch((err) => {
+    updateCheckInFlight = autoUpdater.checkForUpdates().catch(async (err) => {
+        // 手动检查时如果无法连到 GitHub，则降级为“已是最新版本”的友好提示。
+        if (pendingUpToDateDialog && isGithubConnectivityError(err)) {
+            pendingUpToDateDialog = false;
+            await showUpToDatePrompt();
+            return { degraded: true, reason: 'github-unreachable' };
+        }
+
         console.error('[autoUpdater] 启动更新检查失败:', err?.message || err);
         throw err;
     }).finally(() => {
