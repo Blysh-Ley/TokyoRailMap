@@ -2633,9 +2633,21 @@
         }
 
         .panel-catalog-subpanel.is-compact {
-            width: 8px;
+            width: 10px;
             border-radius: 5px;
             cursor: pointer;
+        }
+
+        .panel-catalog-title,
+        .panel-catalog-body {
+            width: 116px; 
+            max-width: 116px;
+            flex-shrink: 0; 
+        }
+
+        .panel-catalog-company-name,
+        .panel-catalog-line {
+            white-space: nowrap; 
         }
 
         .panel-catalog-subpanel.is-compact .panel-catalog-title,
@@ -2659,7 +2671,7 @@
             font-size: 14px;
             font-weight: 700;
             color: #111;
-            padding: 10px 12px 8px;
+            padding: 10px 8px 8px;
             border-bottom: 1px solid #eef0f2;
             background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(255, 255, 255, 0.86));
             letter-spacing: 0.5px;
