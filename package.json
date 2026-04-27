@@ -22,6 +22,9 @@
     "appId": "com.blysh.tokyorailmap",
     "productName": "东京铁路图",
     "asar": true,
+    "releaseInfo": {
+      "releaseNotesFile": "CHANGELOG.md"
+    },
     "directories": {
       "output": "dist"
     },
@@ -62,5 +65,8 @@
   "devDependencies": {
     "electron": "^41.2.1",
     "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3"
   }
 }
