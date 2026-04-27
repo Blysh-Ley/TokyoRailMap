@@ -2628,6 +2628,12 @@
             transition: width 0.2s ease, border-radius 0.2s ease, opacity 0.2s ease;
         }
 
+        html[data-theme="dark"] .panel-catalog-subpanel {
+            background: rgba(28, 28, 28, 0.94);
+            border-color: #5a5d62;
+            box-shadow: 0 0 30px rgba(0, 0, 0, .35);
+        }
+
         .panel-catalog-subpanel.is-visible {
             display: flex;
         }
@@ -2672,9 +2678,14 @@
             font-weight: 700;
             color: #111;
             padding: 10px 8px 8px;
-            border-bottom: 1px solid #eef0f2;
-            background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(255, 255, 255, 0.86));
+            border-bottom: 1px solid var(--ui-border);
             letter-spacing: 0.5px;
+        }
+
+        html[data-theme="dark"] .panel-catalog-title,
+        html[data-theme="dark"] .panel-catalog-line,
+        html[data-theme="dark"] .panel-catalog-company-name {
+            color: #f2f2f2
         }
 
         .panel-catalog-title-text {
@@ -2684,20 +2695,29 @@
         .panel-catalog-close-btn {
             width: 20px;
             height: 20px;
-            border: 1px solid #d8dde2;
+            border: none;
+            background: transparent;
             border-radius: 999px;
-            background: #fff;
             padding: 0;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            flex: 0 0 auto;
+            flex: 0 0 20px;
+            opacity: 0.9;
+            margin-left: 2px;
         }
 
         .panel-catalog-close-btn:hover {
-            background: #f2f4f6;
+            background: rgba(52, 152, 219, 0.12);
+            opacity: 1;
         }
+
+        html[data-theme='dark'] .panel-catalog-close-btn {
+            filter: invert(1);
+        }
+
+
 
         .panel-catalog-close-icon {
             width: 10px;
@@ -2715,7 +2735,7 @@
         .panel-catalog-company + .panel-catalog-company {
             margin-top: 8px;
             padding-top: 8px;
-            border-top: 1px dashed #eceff1;
+            border-top: 1px dashed var(--ui-border);
         }
 
         .panel-catalog-company-name {
