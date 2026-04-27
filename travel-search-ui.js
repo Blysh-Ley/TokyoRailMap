@@ -1211,8 +1211,10 @@ export function mountTravelSearchUI() {
         let currentSectionIndex = 0;
         let currentLegIndex = 0;
         let hasRenderedSectionLineNote = false;
+        let previousRideLineKey = '';
 
-        for (const block of blocks) {
+        for (let blockIndex = 0; blockIndex < blocks.length; blockIndex += 1) {
+            const block = blocks[blockIndex] || {};
             if (block.kind === 'transfer') {
                 const transferRow = el('div', 'journey-trip-transfer-row');
                 transferRow.appendChild(el('span', 'journey-trip-transfer-label', { text: '换乘' }));
@@ -1220,18 +1222,36 @@ export function mountTravelSearchUI() {
                 shouldAppendDirectionForNextNote = true;
                 currentSectionIndex += 1;
                 hasRenderedSectionLineNote = false;
+                previousRideLineKey = '';
                 continue;
             }
 
             const sectionThroughMeta = sectionThroughMetaList[currentSectionIndex] || null;
-            const lineText = normalizeText(sectionThroughMeta?.name || block.lineDisplayName || block.lineName);
-            const lineColorResolved = normalizeText(sectionThroughMeta?.color || block.lineColor || '');
-            const shouldRenderLineNote = !hasRenderedSectionLineNote;
+            const isSpecialThroughCategory = sectionThroughMeta?.category === 'ShonanShinjuku' || sectionThroughMeta?.category === 'UenoTokyo';
+            const blockLineKey = normalizeText(block.lineDisplayName || block.lineName || '');
+            const shouldRenderBoundaryLineNote = !!(
+                !isSpecialThroughCategory
+                && hasRenderedSectionLineNote
+                && previousRideLineKey
+                && blockLineKey
+                && previousRideLineKey !== blockLineKey
+            );
+            const lineText = normalizeText(
+                shouldRenderBoundaryLineNote
+                    ? (block.lineDisplayName || block.lineName)
+                    : (sectionThroughMeta?.name || block.lineDisplayName || block.lineName)
+            );
+            const lineColorResolved = normalizeText(
+                shouldRenderBoundaryLineNote
+                    ? (block.lineColor || '')
+                    : (sectionThroughMeta?.color || block.lineColor || '')
+            );
+            const shouldRenderLineNote = !hasRenderedSectionLineNote || shouldRenderBoundaryLineNote;
 
             const blockRows = Array.isArray(block?.rows) ? block.rows : [];
             const blockLast = blockRows.length ? blockRows[blockRows.length - 1] : null;
             let directionDestination = '';
-            if (shouldAppendDirectionForNextNote) {
+            if (shouldAppendDirectionForNextNote && !shouldRenderBoundaryLineNote) {
                 const fallbackDirection = normalizeText(getStationNameById(overallDestinationStationId) || blockLast?.stationName || blockLast?.stationId || '');
                 if (sectionsForDisplay.length) {
                     const section = sectionsForDisplay[currentSectionIndex] || null;
@@ -1261,17 +1281,21 @@ export function mountTravelSearchUI() {
                     dotColor: lineColorResolved ? String(resolveJourneyColorForTheme(lineColorResolved)) : '',
                     typeText: block.typeName,
                     typeColor: block.typeColor ? String(resolveJourneyColorForTheme(block.typeColor)) : '',
-                    directionText: directionDestination ? ` 往 ${directionDestination}` : ''
+                    directionText: shouldRenderBoundaryLineNote
+                        ? ''
+                        : (directionDestination ? ` 往 ${directionDestination}` : '')
                 });
                 if (travelIsDarkThemeActive() && isLocalTypeName(block.typeName)) {
                     const noteTypeEl = note.querySelector('.journey-trip-note-type');
                     if (noteTypeEl instanceof HTMLElement) noteTypeEl.style.color = '#fff';
                 }
-                if (shouldAppendDirectionForNextNote) shouldAppendDirectionForNextNote = false;
+                if (shouldAppendDirectionForNextNote && !shouldRenderBoundaryLineNote) shouldAppendDirectionForNextNote = false;
                 hasRenderedSectionLineNote = true;
-                if (!sectionsForDisplay.length) currentLegIndex += 1;
+                if (!sectionsForDisplay.length && !shouldRenderBoundaryLineNote) currentLegIndex += 1;
                 tripPopoverBody.appendChild(note);
             }
+
+            if (blockLineKey) previousRideLineKey = blockLineKey;
 
             for (let i = 0; i < block.rows.length; i += 1) {
                 const s = block.rows[i];
