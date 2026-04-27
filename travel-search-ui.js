@@ -1540,7 +1540,9 @@ export function mountTravelSearchUI() {
 
             while (svg.firstChild) svg.removeChild(svg.firstChild);
 
-            for (const seg of markerSegments) {
+            // 越靠近起点的图层越显示在前面 (通过反转绘图顺序，使索引小的线段后绘图从而盖在上方)
+            const drawnSegments = markerSegments.slice().reverse();
+            for (const seg of drawnSegments) {
                 const fromY = points[seg.from];
                 const toY = points[seg.to];
                 if (!Number.isFinite(fromY) || !Number.isFinite(toY)) continue;
@@ -1572,50 +1574,96 @@ export function mountTravelSearchUI() {
             }
         };
 
-        if (!hasSpecialThroughSection) {
-            const calcTransferWaitMinutesByBlocks = (currBlock, nextBlock) => {
-                const currRows = Array.isArray(currBlock?.rows) ? currBlock.rows : [];
-                const nextRows = Array.isArray(nextBlock?.rows) ? nextBlock.rows : [];
-                const currLast = currRows[currRows.length - 1] || null;
-                const nextFirst = nextRows[0] || null;
-                const arr = hhmmToOffsetMinutes(resolveRowTime(currLast, 'arr'));
-                const dep = hhmmToOffsetMinutes(resolveRowTime(nextFirst, 'dep'));
-                if (!Number.isFinite(arr) || !Number.isFinite(dep)) return null;
-                let diff = dep - arr;
-                if (diff < 0) diff += 24 * 60;
-                return Math.max(0, diff);
-            };
+        if (svg instanceof SVGElement) {
+            while (svg.firstChild) svg.removeChild(svg.firstChild);
+        }
 
-            let shouldAppendStartStation = true;
-            let currentSectionIndex = 0;
-            let currentLegIndex = 0;
-            for (let i = 0; i < blocks.length; i += 1) {
-                const block = blocks[i] || {};
-                if (block.kind === 'transfer') {
-                    if (sectionsForDisplay.length) currentSectionIndex += 1;
-                    continue;
+        const calcTransferWaitMinutesByBlocks = (currBlock, nextBlock) => {
+            const currRows = Array.isArray(currBlock?.rows) ? currBlock.rows : [];
+            const nextRows = Array.isArray(nextBlock?.rows) ? nextBlock.rows : [];
+            const currLast = currRows[currRows.length - 1] || null;
+            const nextFirst = nextRows[0] || null;
+            const arr = hhmmToOffsetMinutes(resolveRowTime(currLast, 'arr'));
+            const dep = hhmmToOffsetMinutes(resolveRowTime(nextFirst, 'dep'));
+            if (!Number.isFinite(arr) || !Number.isFinite(dep)) return null;
+            let diff = dep - arr;
+            if (diff < 0) diff += 24 * 60;
+            return Math.max(0, diff);
+        };
+
+        let currentSectionIndex = 0;
+        let currentLegIndex = 0;
+        let hasRenderedSectionLineNote = false;
+        let previousRideLineKey = '';
+        let shouldAppendStartStation = true;
+        let lastRideBlock = null;
+
+        for (let i = 0; i < blocks.length; i += 1) {
+            const block = blocks[i] || {};
+            if (block.kind === 'transfer') {
+                if (lastRideBlock) {
+                    const last = lastRideBlock.rows[lastRideBlock.rows.length - 1];
+                    appendStationRow({ stationName: resolveStationName(last), timeText: resolveRowTime(last, 'arr') });
                 }
-                if (block.kind !== 'ride') continue;
+                const nextRide = nextRideBlockAfter(i + 1);
+                appendTransferRow(calcTransferWaitMinutesByBlocks(lastRideBlock, nextRide));
+                pendingSegment = { kind: 'transfer', color: '#7f7f7f' };
 
-                const blockRows = Array.isArray(block?.rows) ? block.rows : [];
-                if (!blockRows.length) continue;
+                if (sectionsForDisplay.length) currentSectionIndex += 1;
+                hasRenderedSectionLineNote = false;
+                previousRideLineKey = '';
+                shouldAppendStartStation = true;
+                lastRideBlock = null;
+                continue;
+            }
 
-                const first = blockRows[0];
-                const last = blockRows[blockRows.length - 1];
-                const startStation = resolveStationName(first);
-                const endStation = resolveStationName(last);
-                const startTime = resolveRowTime(first, 'dep');
-                const endTime = resolveRowTime(last, 'arr');
+            if (block.kind !== 'ride') continue;
 
-                if (shouldAppendStartStation) {
-                    appendStationRow({ stationName: startStation, timeText: startTime });
+            const blockRows = Array.isArray(block?.rows) ? block.rows : [];
+            if (!blockRows.length) continue;
+
+            const sectionThroughMeta = sectionThroughMetaList[currentSectionIndex] || null;
+            const isSpecialThroughCategory = sectionThroughMeta?.category === 'ShonanShinjuku' || sectionThroughMeta?.category === 'UenoTokyo';
+            const blockLineKey = normalizeText(block.lineDisplayName || block.lineName || '');
+            const shouldRenderBoundaryLineNote = !!(
+                !isSpecialThroughCategory
+                && hasRenderedSectionLineNote
+                && previousRideLineKey
+                && blockLineKey
+                && previousRideLineKey !== blockLineKey
+            );
+
+            if (shouldRenderBoundaryLineNote) {
+                if (lastRideBlock) {
+                    const last = lastRideBlock.rows[lastRideBlock.rows.length - 1];
+                    appendStationRow({ stationName: resolveStationName(last), timeText: resolveRowTime(last, 'arr') });
+                }
+                shouldAppendStartStation = true;
+            }
+
+            if (shouldAppendStartStation) {
+                if (!shouldRenderBoundaryLineNote) {
+                    const first = blockRows[0];
+                    appendStationRow({ stationName: resolveStationName(first), timeText: resolveRowTime(first, 'dep') });
                 }
 
-                const lineText = normalizeText(block?.lineDisplayName || block?.lineName || '线路') || '线路';
-                const rideColor = normalizeText(block?.lineColor || '')
-                    ? String(resolveJourneyColorForTheme(block.lineColor))
-                    : '#9a9a9a';
-                const directionText = endStation && endStation !== startStation ? endStation : '';
+                const lineText = normalizeText(
+                    shouldRenderBoundaryLineNote
+                        ? (block.lineDisplayName || block.lineName)
+                        : (sectionThroughMeta?.name || block.lineDisplayName || block.lineName)
+                ) || '线路';
+                const rideColor = normalizeText(
+                    shouldRenderBoundaryLineNote
+                        ? (block.lineColor || '')
+                        : (sectionThroughMeta?.color || block.lineColor || '')
+                ) ? String(resolveJourneyColorForTheme(shouldRenderBoundaryLineNote ? block.lineColor : (sectionThroughMeta?.color || block.lineColor))) : '#9a9a9a';
+
+                let directionText = '';
+                if (!shouldRenderBoundaryLineNote) {
+                    const last = blockRows[blockRows.length - 1];
+                    directionText = resolveStationName(last);
+                }
+
                 appendTrainRow({
                     lineText,
                     lineColor: rideColor,
@@ -1634,156 +1682,18 @@ export function mountTravelSearchUI() {
                 appendSpecialLineRow(specialText);
 
                 pendingSegment = { kind: 'ride', color: rideColor };
-                appendStationRow({ stationName: endStation, timeText: endTime });
-
-                const nextBlock = blocks[i + 1] || null;
-                const hasTransferAfter = nextBlock?.kind === 'transfer';
-                const nextRide = hasTransferAfter ? nextRideBlockAfter(i + 2) : null;
-                if (hasTransferAfter && nextRide) {
-                    appendTransferRow(calcTransferWaitMinutesByBlocks(block, nextRide));
-                    pendingSegment = { kind: 'transfer', color: '#7f7f7f' };
-                    shouldAppendStartStation = true;
-                } else {
-                    shouldAppendStartStation = false;
-                }
-
-                if (!sectionsForDisplay.length) currentLegIndex += 1;
+                shouldAppendStartStation = false;
             }
 
-            window.requestAnimationFrame(() => {
-                window.requestAnimationFrame(renderRailwayMark);
-            });
-            return;
+            if (blockLineKey) previousRideLineKey = blockLineKey;
+            hasRenderedSectionLineNote = true;
+            lastRideBlock = block;
+            if (!sectionsForDisplay.length && !shouldRenderBoundaryLineNote) currentLegIndex += 1;
         }
 
-        const visualItems = [];
-        let currentSectionIndex = 0;
-        let currentLegIndex = 0;
-        let pendingRideGroup = null;
-
-        const flushRideGroup = () => {
-            if (!pendingRideGroup) return;
-            visualItems.push({ ...pendingRideGroup });
-            pendingRideGroup = null;
-        };
-
-        for (let i = 0; i < blocks.length; i += 1) {
-            const block = blocks[i] || {};
-            if (block.kind === 'transfer') {
-                flushRideGroup();
-                visualItems.push({ kind: 'transfer' });
-                if (sectionsForDisplay.length) currentSectionIndex += 1;
-                continue;
-            }
-
-            if (block.kind !== 'ride') continue;
-
-            const blockRows = Array.isArray(block?.rows) ? block.rows : [];
-            if (!blockRows.length) continue;
-
-            const first = blockRows[0];
-            const last = blockRows[blockRows.length - 1];
-            const startStation = resolveStationName(first);
-            const endStation = resolveStationName(last);
-            const startTime = resolveRowTime(first, 'dep');
-            const endTime = resolveRowTime(last, 'arr');
-
-            const sectionMeta = sectionsForDisplay.length ? (sectionThroughMetaList[currentSectionIndex] || null) : null;
-            const canCollapseWithPrev = !!sectionMeta?.category;
-            const sectionKey = canCollapseWithPrev ? sectionMeta.category : '';
-            const lineText = normalizeText(sectionMeta?.name || block?.lineDisplayName || block?.lineName || '线路') || '线路';
-            const rideColor = normalizeText(sectionMeta?.color || block?.lineColor || '')
-                ? String(resolveJourneyColorForTheme(sectionMeta?.color || block.lineColor))
-                : '#9a9a9a';
-            const fallbackDirection = normalizeText(getStationNameById(last?.stationId || '') || endStation || startStation || '');
-            const directionTripIds = sectionsForDisplay.length
-                ? collectSectionCandidateTripIds(sectionsForDisplay[currentSectionIndex] || null)
-                : collectLegCandidateTripIds(legsForDisplay[currentLegIndex] || legsForDisplay[legsForDisplay.length - 1] || null);
-            const directionText = await resolveJourneyDirectionDestination({
-                tripIds: directionTripIds,
-                serviceDay: effectiveServiceDay,
-                fallbackStationName: fallbackDirection
-            });
-            const specialText = await detectJourneySpecialNameText({
-                tripIds: directionTripIds,
-                serviceDay: effectiveServiceDay
-            });
-
-            if (pendingRideGroup
-                && pendingRideGroup.kind === 'ride'
-                && pendingRideGroup.canCollapseWithPrev
-                && pendingRideGroup.sectionIndex === currentSectionIndex
-                && pendingRideGroup.sectionKey === sectionKey) {
-                pendingRideGroup.endStation = endStation;
-                pendingRideGroup.endTime = endTime;
-                pendingRideGroup.lastRow = last;
-                pendingRideGroup.lineColor = rideColor || pendingRideGroup.lineColor;
-                continue;
-            }
-
-            flushRideGroup();
-            pendingRideGroup = {
-                kind: 'ride',
-                sectionIndex: currentSectionIndex,
-                sectionKey,
-                canCollapseWithPrev,
-                startStation,
-                startTime,
-                endStation,
-                endTime,
-                lineText,
-                lineColor: rideColor,
-                typeText: normalizeText(block?.typeName || ''),
-                typeColor: normalizeText(block?.typeColor || ''),
-                directionText,
-                specialText,
-                firstRow: first,
-                lastRow: last
-            };
-
-            if (!sectionsForDisplay.length) currentLegIndex += 1;
-        }
-
-        flushRideGroup();
-
-        for (const item of visualItems) {
-            if (item.kind === 'transfer') {
-                const prevRide = (() => {
-                    for (let i = visualItems.indexOf(item) - 1; i >= 0; i -= 1) {
-                        if (visualItems[i]?.kind === 'ride') return visualItems[i];
-                    }
-                    return null;
-                })();
-                const nextRide = (() => {
-                    for (let i = visualItems.indexOf(item) + 1; i < visualItems.length; i += 1) {
-                        if (visualItems[i]?.kind === 'ride') return visualItems[i];
-                    }
-                    return null;
-                })();
-                appendTransferRow(calcTransferWaitMinutes(prevRide?.endTime || '', nextRide?.startTime || ''));
-                pendingSegment = { kind: 'transfer', color: '#7f7f7f' };
-                continue;
-            }
-
-            const startStation = normalizeText(item.startStation || '');
-            const endStation = normalizeText(item.endStation || '');
-            const startTime = normalizeText(item.startTime || '');
-            const endTime = normalizeText(item.endTime || '');
-
-            appendStationRow({ stationName: startStation, timeText: startTime });
-
-            appendTrainRow({
-                lineText: item.lineText,
-                lineColor: item.lineColor,
-                typeText: item.typeText,
-                typeColor: item.typeColor,
-                directionText: item.directionText
-            });
-
-            appendSpecialLineRow(item.specialText);
-
-            pendingSegment = { kind: 'ride', color: item.lineColor || '#9a9a9a' };
-            appendStationRow({ stationName: endStation, timeText: endTime });
+        if (lastRideBlock) {
+            const last = lastRideBlock.rows[lastRideBlock.rows.length - 1];
+            appendStationRow({ stationName: resolveStationName(last), timeText: resolveRowTime(last, 'arr') });
         }
 
         window.requestAnimationFrame(() => {
