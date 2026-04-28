@@ -757,6 +757,7 @@ export function mountTravelSearchUI() {
 
     const planResults = el('div', 'journey-plan-results is-hidden');
     const planList = el('ul', 'journey-plan-list');
+    const planPagination = el('div', 'journey-plan-pagination is-hidden');
     planResults.appendChild(planList);
 
     const tripPopover = el('div', 'journey-trip-popover is-hidden');
@@ -777,6 +778,7 @@ export function mountTravelSearchUI() {
     root.appendChild(bar);
     root.appendChild(results);
     root.appendChild(planResults);
+    root.appendChild(planPagination);
     document.body.appendChild(root);
 
     let activeField = 'origin';
@@ -793,6 +795,8 @@ export function mountTravelSearchUI() {
     let activePlanPreviewKey = '';
     let pinnedPlanPreviewKey = '';
     let planPreviewRequestToken = 0;
+    let currentPlanPage = 0;
+    let allPlanRows = [];
 
     try {
         window.__TokyoRailJourneyMapPickActive = false;
@@ -988,7 +992,162 @@ export function mountTravelSearchUI() {
             planPreviewHideTimer = null;
         }
         while (planList.firstChild) planList.removeChild(planList.firstChild);
+        while (planPagination.firstChild) planPagination.removeChild(planPagination.firstChild);
+        currentPlanPage = 0;
+        allPlanRows = [];
         hideTripPopover();
+    };
+
+    const generatePaginationButtonLabel = (label, index) => {
+        const normalizedLabel = normalizeText(label);
+        const labelMap = {};
+        
+        // 统计每个label类型的个数
+        for (const row of allPlanRows) {
+            const rowLabel = normalizeText(row?.label || '推荐');
+            labelMap[rowLabel] = (labelMap[rowLabel] || 0) + 1;
+        }
+        
+        // 如果某个标签只有一个，不添加数字
+        if (labelMap[normalizedLabel] === 1) {
+            return normalizedLabel;
+        }
+        
+        // 计算当前index之前有多少个相同label的项
+        let count = 0;
+        for (let i = 0; i < index; i += 1) {
+            const rowLabel = normalizeText(allPlanRows[i]?.label || '推荐');
+            if (rowLabel === normalizedLabel) {
+                count += 1;
+            }
+        }
+        
+        return `${normalizedLabel}${count + 1}`;
+    };
+
+    const showCurrentPage = async () => {
+        while (planList.firstChild) planList.removeChild(planList.firstChild);
+        
+        if (currentPlanPage < 0 || currentPlanPage >= allPlanRows.length) {
+            currentPlanPage = 0;
+        }
+        
+        const row = allPlanRows[currentPlanPage];
+        if (!row) return;
+        
+        const displayPlan = await getDisplayPlanForRow(row);
+        const li = document.createElement('li');
+        li.className = 'journey-plan-item';
+
+        const path = el('div', 'journey-plan-path');
+        await appendJourneyPath(path, row, displayPlan);
+        li.appendChild(path);
+
+        const brief = el('div', 'journey-plan-brief');
+        
+        const head = el('div', 'journey-plan-head');
+        head.appendChild(el('span', 'journey-plan-duration', { text: formatDuration(displayPlan?.durationMs) }));
+        const transferText = Number(displayPlan?.transfers) > 0
+            ? `${Number(displayPlan.transfers)}次换乘`
+            : '直达';
+        head.appendChild(el('span', 'journey-plan-transfer', { text: transferText }));
+        head.appendChild(el('span', 'journey-plan-arrive', { text: `${toHHMM(displayPlan?.arrivalMs)}到达` }));
+        brief.appendChild(head);
+
+        const tagLabels = Array.isArray(row?.tagLabels)
+            ? row.tagLabels.map((x) => normalizeText(x)).filter(Boolean)
+            : [normalizeText(row?.label)].filter(Boolean);
+        if (tagLabels.length) {
+            const tagsWrap = el('div', 'journey-plan-tags');
+            for (const tagText of tagLabels) {
+                let addText = tagText + "  ";
+                tagsWrap.appendChild(el('div', 'journey-plan-tag', { text: addText }));
+            }
+            brief.appendChild(tagsWrap);
+        }
+
+        li.appendChild(brief);
+
+        li.addEventListener('mouseenter', () => {
+            cancelHidePlanPreview();
+            const previewKey = `row-${currentPlanPage}`;
+            if (!pinnedTripPopoverKey || pinnedTripPopoverKey === previewKey) {
+                showTripPopover({ anchorEl: li, row });
+            }
+            if (pinnedPlanPreviewKey && pinnedPlanPreviewKey !== previewKey) return;
+            applyJourneyPlanPreview({ row, previewKey, pin: false, interaction: 'hover' });
+        });
+        li.addEventListener('mouseleave', () => {
+            const previewKey = `row-${currentPlanPage}`;
+            if (pinnedTripPopoverKey !== previewKey) {
+                scheduleHideTripPopover();
+            }
+            if (!pinnedPlanPreviewKey) {
+                scheduleClearJourneyPlanPreview(120);
+            }
+        });
+
+        li.addEventListener('click', async (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            cancelHidePlanPreview();
+            const previewKey = `row-${currentPlanPage}`;
+
+            if (pinnedTripPopoverKey === previewKey) {
+                pinnedTripPopoverKey = '';
+                scheduleHideTripPopover();
+            } else {
+                pinnedTripPopoverKey = previewKey;
+                showTripPopover({ anchorEl: li, row });
+            }
+
+            if (pinnedPlanPreviewKey === previewKey) {
+                pinnedPlanPreviewKey = '';
+                if (window?.__TokyoRailMultiSelectEnabled === true) {
+                    await applyJourneyPlanPreview({
+                        row,
+                        previewKey,
+                        pin: false,
+                        interaction: 'click',
+                        clearBefore: false
+                    });
+                    activePlanPreviewKey = '';
+                } else {
+                    clearJourneyPlanPreview({ force: true });
+                }
+                return;
+            }
+
+            pinnedPlanPreviewKey = previewKey;
+            applyJourneyPlanPreview({ row, previewKey, pin: true, interaction: 'click' });
+        });
+
+        planList.appendChild(li);
+    };
+
+    const updatePaginationButtons = () => {
+        while (planPagination.firstChild) planPagination.removeChild(planPagination.firstChild);
+        
+        if (allPlanRows.length <= 1) return;
+        
+        for (let i = 0; i < allPlanRows.length; i += 1) {
+            const btn = document.createElement('button');
+            btn.className = 'journey-plan-page-btn';
+            btn.type = 'button';
+            btn.textContent = generatePaginationButtonLabel(allPlanRows[i]?.label || '推荐', i);
+            
+            if (i === currentPlanPage) {
+                btn.classList.add('is-active');
+            }
+            
+            btn.addEventListener('click', async () => {
+                currentPlanPage = i;
+                await showCurrentPage();
+                updatePaginationButtons();
+            });
+            
+            planPagination.appendChild(btn);
+        }
     };
 
     const clearTripPopoverBody = () => {
@@ -1381,12 +1540,14 @@ export function mountTravelSearchUI() {
         li.appendChild(empty);
         planList.appendChild(li);
         planResults.classList.remove('is-hidden');
+        planPagination.classList.add('is-hidden');
     };
 
     const hidePlanResultsIfEmptyInputs = ({ clearMapPreview = false } = {}) => {
         if (normalizeText(originInput.value) || normalizeText(destinationInput.value)) return;
         clearPlanList({ clearMapPreview });
         planResults.classList.add('is-hidden');
+        planPagination.classList.add('is-hidden');
     };
 
     const appendJourneyPath = async (container, row, displayPlan) => {
@@ -1708,99 +1869,17 @@ export function mountTravelSearchUI() {
             return;
         }
 
-        for (let i = 0; i < rows.length; i += 1) {
-            const row = rows[i];
-            const displayPlan = await getDisplayPlanForRow(row);
-            const li = document.createElement('li');
-            li.className = 'journey-plan-item';
-
-            const tagLabels = Array.isArray(row?.tagLabels)
-                ? row.tagLabels.map((x) => normalizeText(x)).filter(Boolean)
-                : [normalizeText(row?.label)].filter(Boolean);
-            if (tagLabels.length) {
-                const tagsWrap = el('div', 'journey-plan-tags');
-                for (const tagText of tagLabels) {
-                    let addText = tagText + "  ";
-                    tagsWrap.appendChild(el('div', 'journey-plan-tag', { text: addText }));
-                }
-                li.appendChild(tagsWrap);
-            }
-
-            const head = el('div', 'journey-plan-head');
-            head.appendChild(el('span', 'journey-plan-duration', { text: formatDuration(displayPlan?.durationMs) }));
-            const transferText = Number(displayPlan?.transfers) > 0
-                ? `${Number(displayPlan.transfers)}次换乘`
-                : '直达';
-            head.appendChild(el('span', 'journey-plan-transfer', { text: transferText }));
-            head.appendChild(el('span', 'journey-plan-arrive', { text: `${toHHMM(displayPlan?.arrivalMs)}到达` }));
-            li.appendChild(head);
-
-            const path = el('div', 'journey-plan-path');
-            await appendJourneyPath(path, row, displayPlan);
-            li.appendChild(path);
-
-            if (i < rows.length - 1) {
-                li.appendChild(el('div', 'journey-plan-sep'));
-            }
-
-            li.addEventListener('mouseenter', () => {
-                cancelHidePlanPreview();
-                const previewKey = `row-${i}`;
-                if (!pinnedTripPopoverKey || pinnedTripPopoverKey === previewKey) {
-                    showTripPopover({ anchorEl: li, row });
-                }
-                if (pinnedPlanPreviewKey && pinnedPlanPreviewKey !== previewKey) return;
-                applyJourneyPlanPreview({ row, previewKey, pin: false, interaction: 'hover' });
-            });
-            li.addEventListener('mouseleave', () => {
-                const previewKey = `row-${i}`;
-                if (pinnedTripPopoverKey !== previewKey) {
-                    scheduleHideTripPopover();
-                }
-                if (!pinnedPlanPreviewKey) {
-                    scheduleClearJourneyPlanPreview(120);
-                }
-            });
-
-            li.addEventListener('click', async (evt) => {
-                evt.preventDefault?.();
-                evt.stopPropagation?.();
-                cancelHidePlanPreview();
-                const previewKey = `row-${i}`;
-
-                if (pinnedTripPopoverKey === previewKey) {
-                    pinnedTripPopoverKey = '';
-                    scheduleHideTripPopover();
-                } else {
-                    pinnedTripPopoverKey = previewKey;
-                    showTripPopover({ anchorEl: li, row });
-                }
-
-                if (pinnedPlanPreviewKey === previewKey) {
-                    pinnedPlanPreviewKey = '';
-                    if (window?.__TokyoRailMultiSelectEnabled === true) {
-                        await applyJourneyPlanPreview({
-                            row,
-                            previewKey,
-                            pin: false,
-                            interaction: 'click',
-                            clearBefore: false
-                        });
-                        activePlanPreviewKey = '';
-                    } else {
-                        clearJourneyPlanPreview({ force: true });
-                    }
-                    return;
-                }
-
-                pinnedPlanPreviewKey = previewKey;
-                applyJourneyPlanPreview({ row, previewKey, pin: true, interaction: 'click' });
-            });
-
-            planList.appendChild(li);
-        }
-
+        allPlanRows = rows;
+        currentPlanPage = 0;
+        
+        await showCurrentPage();
+        updatePaginationButtons();
         planResults.classList.remove('is-hidden');
+        if (allPlanRows.length > 1) {
+            planPagination.classList.remove('is-hidden');
+        } else {
+            planPagination.classList.add('is-hidden');
+        }
     };
 
     const readServiceDayFromPanel = () => {

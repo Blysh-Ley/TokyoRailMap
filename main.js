@@ -95,6 +95,21 @@ const stripMarkdownInline = (text) => {
         .trim();
 };
 
+const compareVersions = (v1, v2) => {
+    // 比较两个版本号，返回 -1 (v1 < v2), 0 (v1 == v2), 1 (v1 > v2)
+    const parts1 = String(v1 ?? '').split('.').map(x => parseInt(x, 10) || 0);
+    const parts2 = String(v2 ?? '').split('.').map(x => parseInt(x, 10) || 0);
+    const maxLen = Math.max(parts1.length, parts2.length);
+
+    for (let i = 0; i < maxLen; i++) {
+        const p1 = parts1[i] || 0;
+        const p2 = parts2[i] || 0;
+        if (p1 < p2) return -1;
+        if (p1 > p2) return 1;
+    }
+    return 0;
+};
+
 const formatMarkdownAsDialogText = (markdown) => {
     const lines = String(markdown ?? '').split(/\r?\n/);
     const formatted = lines.map((line) => {
@@ -118,13 +133,20 @@ const formatMarkdownAsDialogText = (markdown) => {
         .trim();
 };
 
-const extractLatestChangelogSection = (markdown) => {
+const extractLatestChangelogSection = (markdown, currentVersion = '') => {
     const lines = String(markdown ?? '').split(/\r?\n/);
     const headingIndexes = [];
+    const versionMatches = [];
 
+    // 查找所有 ## 开头的版本标题
     lines.forEach((line, idx) => {
         if (/^##\s+/.test(line.trim())) {
             headingIndexes.push(idx);
+            // 提取版本号 (支持 v1.2.3 或 1.2.3 格式)
+            const versionMatch = line.match(/##\s+v?([0-9]+\.[0-9]+\.[0-9]+)/);
+            if (versionMatch && versionMatch[1]) {
+                versionMatches.push({ idx, version: versionMatch[1] });
+            }
         }
     });
 
@@ -132,6 +154,23 @@ const extractLatestChangelogSection = (markdown) => {
         return formatMarkdownAsDialogText(markdown);
     }
 
+    // 如果有当前版本，只返回比当前版本更新的版本日志
+    if (currentVersion) {
+        const newerVersions = versionMatches.filter(
+            item => compareVersions(item.version, currentVersion) > 0
+        );
+
+        if (newerVersions.length > 0) {
+            // 返回所有更新版本的日志
+            const firstNewIdx = newerVersions[0].idx;
+            const lastVersionIdx = versionMatches[versionMatches.length - 1].idx;
+            const endIdx = headingIndexes.findIndex(idx => idx > lastVersionIdx) ?? lines.length;
+            const section = lines.slice(firstNewIdx, endIdx).join('\n').trim();
+            return formatMarkdownAsDialogText(section);
+        }
+    }
+
+    // 默认行为：返回最新版本
     const start = headingIndexes[0];
     const end = headingIndexes[1] ?? lines.length;
     const section = lines.slice(start, end).join('\n').trim();
@@ -163,12 +202,12 @@ const loadChangelog = async () => {
     }
 };
 
-const resolveUpdateNotes = async (info) => {
+const resolveUpdateNotes = async (info, currentVersion = '') => {
     const fromEvent = formatReleaseNotes(info?.releaseNotes);
     if (fromEvent.trim()) return formatMarkdownAsDialogText(fromEvent);
 
     const fromChangelog = await loadChangelog();
-    if (fromChangelog.trim()) return extractLatestChangelogSection(fromChangelog);
+    if (fromChangelog.trim()) return extractLatestChangelogSection(fromChangelog, currentVersion);
 
     return '本次更新说明暂未提供。';
 };
@@ -178,8 +217,13 @@ const showUpdatePrompt = async (info) => {
     isUpdatePromptVisible = true;
 
     try {
-        const notes = await resolveUpdateNotes(info);
-        const message = `发现新版本：${info?.version || '未知版本'}`;
+        const currentVersion = app.getVersion();
+        const newVersion = info?.version || '未知版本';
+        const notes = await resolveUpdateNotes(info, currentVersion);
+        const message = [
+            `发现新版本：${newVersion}`,
+            `当前版本：${currentVersion}`
+        ].join('\n');
         const detail = [
             notes,
             '',

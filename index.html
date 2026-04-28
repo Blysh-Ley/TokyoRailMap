@@ -14,11 +14,13 @@
             --custom-icon-font-size: 12px;
             --ui-text: #111;
             --ui-border: #e3e5e7;
+            --is-active-color: #3498db;
         }
 
         html[data-theme='dark'] {
             --ui-text: #fff;
             --ui-border: #5a5d62;
+            --is-active-color: #3498db;
         }
 
         html, body {
@@ -548,19 +550,99 @@
         .journey-plan-list {
             list-style: none;
             margin: 0;
-            padding: 4px 0;
+            padding: 0;
             max-height: 720px;
             overflow-y: auto;
             overflow-x: hidden;
+            display: flex;
+            align-items: center;
         }
 
         .journey-plan-list::-webkit-scrollbar {
             display: none;
         }
 
+        .journey-plan-pagination {
+            display: flex;
+            gap: 2px;
+            justify-content: flex-start;
+            flex-wrap: wrap;
+            padding: 4px;
+            opacity: 1;
+            transition: opacity 0.2s ease, max-height 0.2s ease, margin-top 0.2s ease, border-width 0.2s ease;
+        }
+
+        .journey-plan-pagination.is-hidden {
+            opacity: 0;
+            max-height: 0;
+            padding: 0;
+            margin: 0;
+            border-width: 0;
+            pointer-events: none;
+        }
+
+        .journey-plan-page-btn {
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            background-color: #f5f5f5;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            min-width: 60px;
+        }
+
+        html[data-theme='dark'] .journey-plan-page-btn {
+            background-color: #3a3a3a;
+
+        }
+
+        .journey-plan-page-btn:hover {
+            background-color: #e8e8e8;
+            border-color: #999;
+        }
+
+        .journey-plan-page-btn.is-active {
+            background-color: var(--is-active-color);
+            color: #fff;
+            border-color: var(--is-active-color);
+        }
+
+        .journey-plan-page-btn.is-active:hover {
+            background-color: #0052a3;
+            border-color: #004080;
+        }
+
         .journey-plan-item {
-            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
             color: #111;
+            width: 100%;
+            max-height: 500px;
+            overflow: hidden;
+        }
+
+        .journey-plan-path {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 12px 0 12px;
+            margin-top: 2px;
+            font-size: 13px;
+            line-height: 1.35;
+            white-space: normal;
+            word-break: break-word;
+        }
+
+        .journey-plan-brief {
+            position: sticky;
+            bottom: 0;
+            padding: 10px 12px;
+            padding-bottom: 8px;
+            background-color: #ffffff;
+            border-top: 1px solid #f0f0f0;
         }
 
         .journey-plan-tag {
@@ -588,14 +670,6 @@
         .journey-plan-arrive {
             text-align: right;
             white-space: nowrap;
-        }
-
-        .journey-plan-path {
-            margin-top: 2px;
-            font-size: 13px;
-            line-height: 1.35;
-            white-space: normal;
-            word-break: break-word;
         }
 
         .journey-plan-path-layout {
@@ -1123,8 +1197,8 @@
             bottom: -3px;
             border-radius: 999px;
             border: 3px solid transparent;
-            border-top-color: #3498db;
-            border-right-color: #3498db;
+            border-top-color: var(--is-active-color);
+            border-right-color: var(--is-active-color);
             animation: export-btn-spinner 0.9s linear infinite;
             pointer-events: none;
         }
@@ -1262,7 +1336,7 @@
         }
 
         .ms-ui.is-collapsed .ms-fab.is-active {
-            background: #3498db;
+            background: var(--is-active-color);
             border-radius: 18.2px;
         }
 
@@ -1380,8 +1454,8 @@
         }
 
         .ms-show-icon-btn.is-active {
-            background: #3498db;
-            border-color: #3498db;
+            background: var(--is-active-color);
+            border-color: var(--is-active-color);
         }
 
         .ms-show-icon-btn-icon {
@@ -1866,7 +1940,7 @@
             font-size: 18px;
             font-weight: 700;
             color: #fff;
-            background: #3498db;
+            background: var(--is-active-color);
             border-bottom: 1px solid rgba(255, 255, 255, 0.9);
             user-select: none;
             box-sizing: border-box;
@@ -2779,7 +2853,7 @@
         }
 
         .panel-catalog-line.is-active {
-            background: #3498db;
+            background: var(--is-active-color);
             color: #fff;
             font-weight: 600;
         }
@@ -2830,7 +2904,7 @@
         }
 
         .panel-day-seg button.is-active {
-            background: #3498db;
+            background: var(--is-active-color);
             color: #fff;
         }
 
@@ -2878,8 +2952,8 @@
             bottom: -3px;
             border-radius: 999px;
             border: 3px solid transparent;
-            border-top-color: #3498db;
-            border-right-color: #3498db;
+            border-top-color: var(--is-active-color);
+            border-right-color: var(--is-active-color);
             animation: export-btn-spinner 0.9s linear infinite;
             pointer-events: none;
         }
@@ -3103,7 +3177,7 @@
             }
 
             .settings-view-btn.is-active {
-                background: #3498db;
+                background: var(--is-active-color);
             }
 
             .settings-view-btn-icon {
@@ -3267,8 +3341,8 @@
             }
 
             .settings-time-picker-btn-confirm {
-                border-color: #3498db;
-                color: #3498db;
+                border-color: var(--is-active-color);
+                color: var(--is-active-color);
                 font-weight: 600;
             }
 
@@ -3306,13 +3380,13 @@
             }
 
             .settings-time-picker-option.is-selected {
-                background: #3498db !important;
+                background: var(--is-active-color) !important;
                 color: #fff !important;
                 font-weight: 600;
             }
 
         .search-result-item:hover {
-            background-color: #3498db;
+            background-color: var(--is-active-color);
             color: #fff;
         }
 
@@ -3455,13 +3529,13 @@
 
         /* 选中状态 */
         .RW-item:hover > .RW-content {
-            background-color: #3498db;
+            background-color: var(--is-active-color);
             color: #fff;
         }
 
         /* 点击后的选中态（不依赖 hover） */
         .RW-active {
-            background-color: #3498db;
+            background-color: var(--is-active-color);
             color: #fff;
         }
 
@@ -3777,7 +3851,7 @@
         }
 
         .settings-seg button.is-active {
-            background: #3498db;
+            background: var(--is-active-color);
             color: #fff;
         }
 
@@ -3942,7 +4016,7 @@
         }
 
         html[data-theme='dark'] .ms-ui.is-collapsed .ms-fab.is-active {
-            background: #3498db;
+            background: var(--is-active-color);
         }
 
         html[data-theme='dark'] .ms-layer-row,
@@ -3983,8 +4057,8 @@
         }
 
         html[data-theme='dark'] .ms-show-icon-btn.is-active {
-            background: #3498db;
-            border-color: #3498db;
+            background: var(--is-active-color);
+            border-color: var(--is-active-color);
         }
 
         html[data-theme='dark'] .ms-show-icon-btn.is-active .ms-show-icon-btn-icon {
@@ -4065,13 +4139,40 @@
         }
 
         html[data-theme='dark'] .search-input,
+        html[data-theme='dark'] .journey-plan-page-btn {
+            border-color: #444;
+            background-color: #2d2d2d;
+            color: #f2f2f2;
+        }
+
+
         html[data-theme='dark'] .journey-input,
-        html[data-theme='dark'] .search-fab,
-        html[data-theme='dark'] .journey-fab,
+        html[data-theme='dark'] .search-fab{
+            border-color: #444;
+            color: #f2f2f2;
+        }
+
+
+        html[data-theme='dark'] .journey-plan-page-btn:hover {
+            background-color: #3a3a3a;
+            border-color: #666;
+        }
+
+        html[data-theme='dark'] .journey-plan-page-btn.is-active {
+            background-color: var(--is-active-color);
+            color: #fff;
+            border-color: var(--is-active-color);
+        }
+
+        html[data-theme='dark'] .journey-plan-page-btn.is-active:hover {
+            background-color: #0052a3;
+            border-color: #004080;
+        }
         html[data-theme='dark'] .search-result-item,
         html[data-theme='dark'] .search-result-text,
         html[data-theme='dark'] .journey-plan-item,
         html[data-theme='dark'] .journey-plan-head,
+        html[data-theme='dark'] .journey-plan-brief,
         html[data-theme='dark'] .journey-plan-path,
         html[data-theme='dark'] .journey-trip-title,
         html[data-theme='dark'] .journey-trip-station,
@@ -4124,6 +4225,11 @@
         html[data-theme='dark'] .panel-dir-filter-col-body {
             border-color: #5a5d62;
             background-color: transparent;
+        }
+
+        html[data-theme='dark'] .journey-plan-brief {
+            background-color: #2a2a2a;
+            border-top-color: #5a5d62;
         }
 
         html[data-theme='dark'] .journey-trip-popover {
