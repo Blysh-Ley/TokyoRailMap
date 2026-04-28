@@ -1981,6 +1981,7 @@ export function mountTravelSearchUI() {
     };
 
     const maybeComputePlans = async () => {
+
         const originId = normalizeText(selectedOriginId || originInput.dataset.stationId || '');
         const destinationId = normalizeText(selectedDestinationId || destinationInput.dataset.stationId || '');
 
@@ -1993,16 +1994,16 @@ export function mountTravelSearchUI() {
             return;
         }
 
+        showPlanMessage('正在计算路线...');
+
         const serviceDay = readServiceDayFromPanel();
         const originName = getStationNameById(originId) || normalizeText(originInput.value) || originId;
         const destinationName = getStationNameById(destinationId) || normalizeText(destinationInput.value) || destinationId;
         const { departureMs } = readDepartureBase();
         const key = `${originId}||${destinationId}||${serviceDay}||${Math.floor(departureMs / 60000)}`;
-        if (key === lastPlanComputeKey) return;
-        lastPlanComputeKey = key;
 
         const token = ++planComputeToken;
-        showPlanMessage('正在计算路线...');
+        lastPlanComputeKey = key;
 
         await ensurePlannerStaticData();
 
