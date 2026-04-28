@@ -564,10 +564,9 @@
 
         .journey-plan-pagination {
             display: flex;
-            gap: 2px;
+            gap: 5px;
             justify-content: flex-start;
             flex-wrap: wrap;
-            padding: 4px;
             opacity: 1;
             transition: opacity 0.2s ease, max-height 0.2s ease, margin-top 0.2s ease, border-width 0.2s ease;
         }
@@ -582,9 +581,8 @@
         }
 
         .journey-plan-page-btn {
-            padding: 4px 8px;
-            border: 1px solid #ddd;
-            background-color: #f5f5f5;
+            border: 1px solid #eee;
+            background-color: transparent;
             border-radius: 20px;
             font-size: 13px;
             font-weight: 500;
@@ -593,11 +591,6 @@
             transition: all 0.2s ease;
             white-space: nowrap;
             min-width: 60px;
-        }
-
-        html[data-theme='dark'] .journey-plan-page-btn {
-            background-color: #3a3a3a;
-
         }
 
         .journey-plan-page-btn:hover {
@@ -646,7 +639,7 @@
         }
 
         .journey-plan-tag {
-            font-size: 11px;
+            font-size: 12px;
             color: #666;
             margin-bottom: 6px;
             font-weight: 600;
@@ -814,9 +807,9 @@
         }
 
         .journey-plan-empty {
-            padding: 6px 0;
+            padding: 12px;
             color: #666;
-            font-size: 13px;
+            font-size: 14px;
         }
 
         .journey-trip-popover {
@@ -892,7 +885,14 @@
         .journey-trip-body::-webkit-scrollbar {
             width: 6px;
         }
+        .journey-plan-path::-webkit-scrollbar {
+            width: 6px;
+        }
 
+        .journey-plan-path::-webkit-scrollbar-thumb {
+            background: #d8dde3;
+            border-radius: 999px;
+        }
         .journey-trip-body::-webkit-scrollbar-thumb {
             background: #d8dde3;
             border-radius: 999px;
@@ -4267,6 +4267,10 @@
         }
 
         html[data-theme='dark'] .journey-trip-body::-webkit-scrollbar-thumb {
+            background: #5a5d62;
+        }
+
+        html[data-theme='dark'] .journey-plan-path::-webkit-scrollbar-thumb {
             background: #5a5d62;
         }
 
