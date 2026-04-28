@@ -778,7 +778,6 @@ export function mountTravelSearchUI() {
     root.appendChild(bar);
     root.appendChild(results);
     root.appendChild(planResults);
-    root.appendChild(planPagination);
     document.body.appendChild(root);
 
     let activeField = 'origin';
@@ -1041,43 +1040,17 @@ export function mountTravelSearchUI() {
 
         const path = el('div', 'journey-plan-path');
         await appendJourneyPath(path, row, displayPlan);
-        li.appendChild(path);
 
-        const brief = el('div', 'journey-plan-brief');
-        
-        const head = el('div', 'journey-plan-head');
-        head.appendChild(el('span', 'journey-plan-duration', { text: formatDuration(displayPlan?.durationMs) }));
-        const transferText = Number(displayPlan?.transfers) > 0
-            ? `${Number(displayPlan.transfers)}次换乘`
-            : '直达';
-        head.appendChild(el('span', 'journey-plan-transfer', { text: transferText }));
-        head.appendChild(el('span', 'journey-plan-arrive', { text: `${toHHMM(displayPlan?.arrivalMs)}到达` }));
-        brief.appendChild(head);
-
-        const tagLabels = Array.isArray(row?.tagLabels)
-            ? row.tagLabels.map((x) => normalizeText(x)).filter(Boolean)
-            : [normalizeText(row?.label)].filter(Boolean);
-        if (tagLabels.length) {
-            const tagsWrap = el('div', 'journey-plan-tags');
-            for (const tagText of tagLabels) {
-                let addText = tagText + "  ";
-                tagsWrap.appendChild(el('div', 'journey-plan-tag', { text: addText }));
-            }
-            brief.appendChild(tagsWrap);
-        }
-
-        li.appendChild(brief);
-
-        li.addEventListener('mouseenter', () => {
+        path.addEventListener('mouseenter', () => {
             cancelHidePlanPreview();
             const previewKey = `row-${currentPlanPage}`;
             if (!pinnedTripPopoverKey || pinnedTripPopoverKey === previewKey) {
-                showTripPopover({ anchorEl: li, row });
+                showTripPopover({ anchorEl: path, row });
             }
             if (pinnedPlanPreviewKey && pinnedPlanPreviewKey !== previewKey) return;
             applyJourneyPlanPreview({ row, previewKey, pin: false, interaction: 'hover' });
         });
-        li.addEventListener('mouseleave', () => {
+        path.addEventListener('mouseleave', () => {
             const previewKey = `row-${currentPlanPage}`;
             if (pinnedTripPopoverKey !== previewKey) {
                 scheduleHideTripPopover();
@@ -1087,7 +1060,7 @@ export function mountTravelSearchUI() {
             }
         });
 
-        li.addEventListener('click', async (evt) => {
+        path.addEventListener('click', async (evt) => {
             evt.preventDefault?.();
             evt.stopPropagation?.();
             cancelHidePlanPreview();
@@ -1098,7 +1071,7 @@ export function mountTravelSearchUI() {
                 scheduleHideTripPopover();
             } else {
                 pinnedTripPopoverKey = previewKey;
-                showTripPopover({ anchorEl: li, row });
+                showTripPopover({ anchorEl: path, row });
             }
 
             if (pinnedPlanPreviewKey === previewKey) {
@@ -1121,6 +1094,35 @@ export function mountTravelSearchUI() {
             pinnedPlanPreviewKey = previewKey;
             applyJourneyPlanPreview({ row, previewKey, pin: true, interaction: 'click' });
         });
+
+        li.appendChild(path);
+
+        const brief = el('div', 'journey-plan-brief');
+        
+        const head = el('div', 'journey-plan-head');
+        head.appendChild(el('span', 'journey-plan-duration', { text: formatDuration(displayPlan?.durationMs) }));
+        const transferText = Number(displayPlan?.transfers) > 0
+            ? `${Number(displayPlan.transfers)}次换乘`
+            : '直达';
+        head.appendChild(el('span', 'journey-plan-transfer', { text: transferText }));
+        head.appendChild(el('span', 'journey-plan-arrive', { text: `${toHHMM(displayPlan?.arrivalMs)}到达` }));
+
+
+        const tagLabels = Array.isArray(row?.tagLabels)
+            ? row.tagLabels.map((x) => normalizeText(x)).filter(Boolean)
+            : [normalizeText(row?.label)].filter(Boolean);
+        if (tagLabels.length) {
+            const tagsWrap = el('div', 'journey-plan-tags');
+            for (const tagText of tagLabels) {
+                let addText = tagText + "  ";
+                tagsWrap.appendChild(el('div', 'journey-plan-tag', { text: addText }));
+            }
+            brief.appendChild(tagsWrap);
+        }
+        brief.appendChild(head);
+        brief.appendChild(planPagination);
+
+        li.appendChild(brief);
 
         planList.appendChild(li);
     };
