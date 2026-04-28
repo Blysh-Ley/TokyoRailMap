@@ -1105,6 +1105,34 @@ export function mountTravelSearchUI() {
             ? `${Number(displayPlan.transfers)}次换乘`
             : '直达';
         head.appendChild(el('span', 'journey-plan-transfer', { text: transferText }));
+
+        // 计算总共需要乘坐多少站（基于详细停站 blocks）
+        try {
+            const detailBlocks = await buildPlanDetailBlocks({
+                plan: row.plan,
+                legsOverride: displayPlan?.legs,
+                sectionsOverride: displayPlan?.sections,
+                serviceDay: row.serviceDay,
+                originStationId: row.originStationId
+            });
+            let seq = [];
+            for (const b of Array.isArray(detailBlocks) ? detailBlocks : []) {
+                if (b?.kind !== 'ride') continue;
+                const rows = Array.isArray(b.rows) ? b.rows : [];
+                for (const r of rows) {
+                    const sid = normalizeText(r?.stationId || '');
+                    if (!sid) continue;
+                    if (seq.length && seq[seq.length - 1] === sid) continue;
+                    seq.push(sid);
+                }
+            }
+            const stationCount =  seq.length - 1 - (displayPlan?.transfers || 0);
+            head.appendChild(el('span', 'journey-plan-stations-count', { text: `${stationCount}站` }));
+            
+        } catch (e) {
+            // ignore
+        }
+
         head.appendChild(el('span', 'journey-plan-arrive', { text: `${toHHMM(displayPlan?.arrivalMs)}到达` }));
 
 
@@ -1634,7 +1662,7 @@ export function mountTravelSearchUI() {
             pendingSegment = null;
         };
 
-        const appendTrainRow = ({ lineText, lineColor, typeText, typeColor, directionText }) => {
+        const appendTrainRow = ({ lineText, lineColor, typeText, typeColor, directionText, stationCount = null }) => {
             const rowEl = el('div', 'station-row');
             const title = el('div', 'train-title-box');
             const lineLabel = el('span', 'train-line-label', { text: lineText || '线路' });
@@ -1651,6 +1679,10 @@ export function mountTravelSearchUI() {
                 title.appendChild(typeLabel);
             }
             if (directionText) title.appendChild(document.createTextNode(` 往${directionText}`));
+            // 如果传入了 stationCount 属性，则在行内显示乘坐站数
+            if (Number.isFinite(Number(stationCount)) && Number(stationCount) > 0) {
+                title.appendChild(document.createTextNode(` 乘坐${Number(stationCount)}站`));
+            }
             rowEl.appendChild(title);
             rowsWrap.appendChild(rowEl);
         };
@@ -1678,6 +1710,30 @@ export function mountTravelSearchUI() {
                 if (candidate?.kind === 'ride') return candidate;
             }
             return null;
+        };
+
+        const collectRideBlocksUntilTransfer = (startIndex) => {
+            const out = [];
+            for (let i = Math.max(0, Number(startIndex) || 0); i < blocks.length; i += 1) {
+                const candidate = blocks[i] || {};
+                if (candidate.kind === 'transfer') break;
+                if (candidate.kind === 'ride') out.push(candidate);
+            }
+            return out;
+        };
+
+        const countStationsFromRideBlocks = (rideBlocks) => {
+            const ids = [];
+            for (const rb of Array.isArray(rideBlocks) ? rideBlocks : []) {
+                const rows = Array.isArray(rb?.rows) ? rb.rows : [];
+                for (const r of rows) {
+                    const sid = normalizeText(r?.stationId || '');
+                    if (!sid) continue;
+                    if (ids.length && ids[ids.length - 1] === sid) continue;
+                    ids.push(sid);
+                }
+            }
+            return Math.max(0, ids.length - 1);
         };
 
         const renderRailwayMark = () => {
@@ -1827,12 +1883,26 @@ export function mountTravelSearchUI() {
                     directionText = resolveStationName(last);
                 }
 
+                // 乘坐站数规则：
+                // 1) 常规：显示当前段 block 的乘坐站数
+                // 2) 直通（同一 section/同一连续 ride 组存在多个子线路）：只在起始行显示整组总站数
+                // 3) 子线路边界行（无“往xx”）：不显示乘坐站数
+                let stationCountForDisplay = null;
+                if (!shouldRenderBoundaryLineNote) {
+                    const rideGroupBlocks = collectRideBlocksUntilTransfer(i);
+                    const isThroughGroup = rideGroupBlocks.length > 1;
+                    stationCountForDisplay = isThroughGroup
+                        ? countStationsFromRideBlocks(rideGroupBlocks)
+                        : countStationsFromRideBlocks([block]);
+                }
+
                 appendTrainRow({
                     lineText,
                     lineColor: rideColor,
                     typeText: normalizeText(block?.typeName || ''),
                     typeColor: normalizeText(block?.typeColor || ''),
-                    directionText
+                    directionText,
+                    stationCount: stationCountForDisplay
                 });
 
                 const specialTripIds = sectionsForDisplay.length
