@@ -781,6 +781,7 @@ export function mountTravelSearchUI() {
     document.body.appendChild(root);
 
     let activeField = 'origin';
+    let stationResultRequestToken = 0;
     let selectedOriginId = '';
     let selectedDestinationId = '';
     let composingOrigin = false;
@@ -2205,13 +2206,21 @@ export function mountTravelSearchUI() {
     };
 
     const renderStationResults = async (items) => {
+        const token = ++stationResultRequestToken;
+        const itemsWithMetas = await Promise.all(items.map(async (item) => {
+            const lineMetas = await getLineMetaByIds(item?.lineIds);
+            return { item, lineMetas };
+        }));
+
+        if (token !== stationResultRequestToken) return;
+
         clearList();
         if (!items.length) {
             renderEmpty('暂无站点结果');
             return;
         }
 
-        for (const item of items) {
+        for (const { item, lineMetas } of itemsWithMetas) {
             const li = document.createElement('li');
             const row = el('div', 'search-result-item');
             const icon = buildStationIcon(item?.isTransfer === true);
@@ -2221,7 +2230,6 @@ export function mountTravelSearchUI() {
             nameSpan.textContent = String(item?.text ?? '');
             text.appendChild(nameSpan);
 
-            const lineMetas = await getLineMetaByIds(item?.lineIds);
             if (Array.isArray(lineMetas) && lineMetas.length) {
                 const wrap = document.createElement('span');
                 wrap.className = 'journey-station-result-lines';
@@ -2274,6 +2282,7 @@ export function mountTravelSearchUI() {
         const input = getActiveInput();
         const q = normalizeText(input.value);
         if (!q) {
+            stationResultRequestToken += 1;
             clearList();
             renderHistoryResults();
             return;
