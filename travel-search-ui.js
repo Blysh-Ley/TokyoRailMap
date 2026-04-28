@@ -292,7 +292,17 @@ const collectPlanCandidateTripIds = (displayPlan) => {
 const TRAVEL_HISTORY_KEY = 'TokyoRailSearchHistory';
 const TRAVEL_MAX_HISTORY = 20;
 
-const normalizeTravelHistoryQuery = (q) => normalizeText(q).slice(0, 120);
+const normalizeTravelHistoryItem = (item) => {
+    if (typeof item === 'string') return { text: normalizeText(item).slice(0, 120) };
+    if (!item || typeof item !== 'object') return null;
+    return {
+        id: item.id ? String(item.id) : undefined,
+        text: normalizeText(item.text).slice(0, 120),
+        type: item.type || 'station',
+        isTransfer: !!item.isTransfer,
+        lineIds: Array.isArray(item.lineIds) ? item.lineIds.map(String) : undefined
+    };
+};
 
 const loadTravelHistory = () => {
     try {
@@ -300,7 +310,7 @@ const loadTravelHistory = () => {
         if (!raw) return [];
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
-        return parsed.map(normalizeTravelHistoryQuery).filter(Boolean).slice(0, TRAVEL_MAX_HISTORY);
+        return parsed.map(normalizeTravelHistoryItem).filter(Boolean).slice(0, TRAVEL_MAX_HISTORY);
     } catch {
         return [];
     }
@@ -308,18 +318,18 @@ const loadTravelHistory = () => {
 
 const saveTravelHistory = (items) => {
     try {
-        const list = Array.isArray(items) ? items.map(normalizeTravelHistoryQuery).filter(Boolean) : [];
+        const list = Array.isArray(items) ? items.map(normalizeTravelHistoryItem).filter(Boolean) : [];
         window.localStorage?.setItem?.(TRAVEL_HISTORY_KEY, JSON.stringify(list.slice(0, TRAVEL_MAX_HISTORY)));
     } catch {
         // ignore
     }
 };
 
-const addTravelHistory = (q) => {
-    const value = normalizeTravelHistoryQuery(q);
-    if (!value) return;
+const addTravelHistory = (item) => {
+    const value = normalizeTravelHistoryItem(item);
+    if (!value || !value.text) return;
     const list = loadTravelHistory();
-    const next = [value, ...list.filter((x) => x !== value)].slice(0, TRAVEL_MAX_HISTORY);
+    const next = [value, ...list.filter((x) => (x.id && value.id ? x.id !== value.id : x.text !== value.text))].slice(0, TRAVEL_MAX_HISTORY);
     saveTravelHistory(next);
 };
 
@@ -2110,13 +2120,77 @@ export function mountTravelSearchUI() {
         results.classList.remove('is-hidden');
     };
 
-    const renderHistoryResults = () => {
-        clearList();
-        const history = loadTravelHistory();
+    const selectStation = (item) => {
+        if (!item || (!item.id && !item.text)) return;
+
+        const input = getActiveInput();
+
+        if (!item.id) {
+            input.value = String(item.text || '');
+            refresh();
+            try { input.focus?.(); } catch { /* ignore */ }
+            return;
+        }
+
+        // 同时保留用户输入的文本记录和点击的实体记录
+        addTravelHistory(input.value);
+        addTravelHistory(item);
+
+        input.value = String(item?.text ?? '');
+        input.dataset.stationId = String(item?.id ?? '');
+
+        if (activeField === 'origin') selectedOriginId = String(item?.id ?? '');
+        else selectedDestinationId = String(item?.id ?? '');
+
+        results.classList.add('is-hidden');
+        maybeComputePlans();
+    };
+
+    const createStationResultRow = (item, lineMetas) => {
+        const row = el('div', 'search-result-item');
+        const icon = item?.id ? buildStationIcon(item?.isTransfer === true) : el('span', 'search-result-icon');
+        const text = el('div', 'search-result-text journey-station-result-text');
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'journey-station-result-name';
+        nameSpan.textContent = String(item?.text ?? '');
+        text.appendChild(nameSpan);
+
+        if (Array.isArray(lineMetas) && lineMetas.length) {
+            const wrap = document.createElement('span');
+            wrap.className = 'journey-station-result-lines';
+            wrap.style.fontSize = '11px';
+            wrap.style.whiteSpace = 'normal';
+
+            lineMetas.forEach((meta, idx) => {
+                if (idx > 0) wrap.appendChild(document.createTextNode('、'));
+                const seg = document.createElement('span');
+                seg.textContent = String(meta?.name || '');
+                if (meta?.color) seg.style.color = String(resolveJourneyColorForTheme(meta.color));
+                wrap.appendChild(seg);
+            });
+
+            text.appendChild(wrap);
+        }
+
+        row.appendChild(icon);
+        row.appendChild(text);
+        return row;
+    };
+
+    const renderHistoryResults = async () => {
+        const history = loadTravelHistory().filter(item => item.type !== 'line' && item.type !== 'company');
         if (!history.length) {
+            clearList();
             results.classList.add('is-hidden');
             return;
         }
+
+        const itemsWithMetas = await Promise.all(history.map(async (item) => {
+            const lineMetas = item.lineIds ? await getLineMetaByIds(item.lineIds) : [];
+            return { item, lineMetas };
+        }));
+
+        clearList();
 
         {
             const li = document.createElement('li');
@@ -2129,17 +2203,23 @@ export function mountTravelSearchUI() {
             list.appendChild(li);
         }
 
-        for (const text of history) {
+        const isDark = travelIsDarkThemeActive();
+
+        for (const { item, lineMetas } of itemsWithMetas) {
             const li = document.createElement('li');
-            const row = el('div', 'search-result-item');
-            const icon = el('span', 'search-result-icon');
-            const label = el('div', 'search-result-text', { text });
-            label.style.flex = '1 1 auto';
-            row.appendChild(icon);
-            row.appendChild(label);
+            const row = createStationResultRow(item, lineMetas);
+            row.querySelector('.search-result-text').style.flex = '1 1 auto';
 
             const del = el('button', '', { type: 'button', 'aria-label': '删除记录' });
-            del.textContent = 'x';
+            const delIcon = el('img', '', { alt: '' });
+            delIcon.style.width = '12px';
+            delIcon.style.height = '12px';
+            delIcon.style.display = 'block';
+            if (isDark) delIcon.style.filter = 'invert(1)';
+            setImageElementFromCache(delIcon, getIconCandidates('x.svg'), {
+                cacheKey: 'icon:x.svg'
+            }).catch(() => { del.textContent = 'x'; });
+
             del.style.marginLeft = 'auto';
             del.style.background = 'transparent';
             del.style.border = 'none';
@@ -2149,11 +2229,12 @@ export function mountTravelSearchUI() {
             del.style.fontSize = '15px';
             del.style.lineHeight = '1';
             del.style.opacity = '0.7';
+            del.appendChild(delIcon);
 
             del.addEventListener('click', (evt) => {
                 evt.preventDefault?.();
                 evt.stopPropagation?.();
-                const next = loadTravelHistory().filter((x) => x !== text);
+                const next = loadTravelHistory().filter((x) => (x.id && item.id ? x.id !== item.id : x.text !== item.text));
                 saveTravelHistory(next);
                 renderHistoryResults();
             });
@@ -2163,10 +2244,7 @@ export function mountTravelSearchUI() {
             row.addEventListener('click', (evt) => {
                 evt.preventDefault?.();
                 evt.stopPropagation?.();
-                const input = getActiveInput();
-                input.value = text;
-                refresh();
-                try { input.focus?.(); } catch { /* ignore */ }
+                selectStation(item);
             });
 
             li.appendChild(row);
@@ -2202,6 +2280,10 @@ export function mountTravelSearchUI() {
             list.appendChild(li);
         }
 
+        window.requestAnimationFrame(() => {
+            refreshJourneyStationLineAlignment(list);
+        });
+
         results.classList.remove('is-hidden');
     };
 
@@ -2222,49 +2304,12 @@ export function mountTravelSearchUI() {
 
         for (const { item, lineMetas } of itemsWithMetas) {
             const li = document.createElement('li');
-            const row = el('div', 'search-result-item');
-            const icon = buildStationIcon(item?.isTransfer === true);
-            const text = el('div', 'search-result-text journey-station-result-text');
-            const nameSpan = document.createElement('span');
-            nameSpan.className = 'journey-station-result-name';
-            nameSpan.textContent = String(item?.text ?? '');
-            text.appendChild(nameSpan);
-
-            if (Array.isArray(lineMetas) && lineMetas.length) {
-                const wrap = document.createElement('span');
-                wrap.className = 'journey-station-result-lines';
-                wrap.style.fontSize = '11px';
-                wrap.style.whiteSpace = 'normal';
-
-                lineMetas.forEach((meta, idx) => {
-                    if (idx > 0) wrap.appendChild(document.createTextNode('、'));
-                    const seg = document.createElement('span');
-                    seg.textContent = String(meta?.name || '');
-                    if (meta?.color) seg.style.color = String(resolveJourneyColorForTheme(meta.color));
-                    wrap.appendChild(seg);
-                });
-
-                text.appendChild(wrap);
-            }
-
-            row.appendChild(icon);
-            row.appendChild(text);
+            const row = createStationResultRow(item, lineMetas);
 
             row.addEventListener('click', (evt) => {
                 evt.preventDefault?.();
                 evt.stopPropagation?.();
-
-                addTravelHistory(getActiveInput().value);
-
-                const input = getActiveInput();
-                input.value = String(item?.text ?? '');
-                input.dataset.stationId = String(item?.id ?? '');
-
-                if (activeField === 'origin') selectedOriginId = String(item?.id ?? '');
-                else selectedDestinationId = String(item?.id ?? '');
-
-                results.classList.add('is-hidden');
-                maybeComputePlans();
+                selectStation(item);
             });
 
             li.appendChild(row);
@@ -2284,7 +2329,7 @@ export function mountTravelSearchUI() {
         if (!q) {
             stationResultRequestToken += 1;
             clearList();
-            renderHistoryResults();
+            await renderHistoryResults();
             return;
         }
 

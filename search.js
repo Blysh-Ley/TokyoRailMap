@@ -20,7 +20,15 @@ function buildResultIcon(item) {
     if (item.type === 'company') {
         const wrap = el('span', 'search-result-icon');
         const img = el('img', 'search-result-icon--company', { alt: '' });
-        if (item.logoUrl) img.src = String(item.logoUrl);
+        
+        // 优先使用 ID 动态解析 logoUrl，避免 Blob URL 失效
+        let url = item.logoUrl;
+        if (item.id && typeof getCompanyLogoUrl === 'function') {
+            const resolved = getCompanyLogoUrl(item.id);
+            if (resolved) url = resolved;
+        }
+
+        if (url) img.src = String(url);
         wrap.appendChild(img);
         return wrap;
     }
@@ -588,10 +596,25 @@ export function mountSearchUI() {
     const HISTORY_KEY = 'TokyoRailSearchHistory';
     const MAX_HISTORY = 20;
 
-    const normalizeHistoryQuery = (q) =>
-        String(q ?? '')
-            .trim()
-            .replace(/\s+/g, ' ');
+    const normalizeHistoryItem = (item) => {
+        if (typeof item === 'string') {
+            const text = normalizeText(item);
+            return text ? { text } : null;
+        }
+        if (!item || typeof item !== 'object') return null;
+        const text = normalizeText(item.text);
+        if (!text) return null;
+        return {
+            type: item.type || 'station',
+            id: item.id ? String(item.id) : undefined,
+            text,
+            isTransfer: !!item.isTransfer,
+            lineIds: Array.isArray(item.lineIds) ? item.lineIds.map(String) : undefined,
+            color: item.color ? String(item.color) : undefined,
+            code: item.code ? String(item.code) : undefined,
+            logoUrl: item.logoUrl ? String(item.logoUrl) : undefined
+        };
+    };
 
     const loadHistory = () => {
         try {
@@ -599,7 +622,7 @@ export function mountSearchUI() {
             if (!raw) return [];
             const parsed = JSON.parse(raw);
             if (!Array.isArray(parsed)) return [];
-            return parsed.map(normalizeHistoryQuery).filter(Boolean).slice(0, MAX_HISTORY);
+            return parsed.map(normalizeHistoryItem).filter(Boolean).slice(0, MAX_HISTORY);
         } catch {
             return [];
         }
@@ -607,19 +630,22 @@ export function mountSearchUI() {
 
     const saveHistory = (items) => {
         try {
-            const list = Array.isArray(items) ? items.map(normalizeHistoryQuery).filter(Boolean) : [];
+            const list = Array.isArray(items) ? items.map(normalizeHistoryItem).filter(Boolean) : [];
             window.localStorage?.setItem?.(HISTORY_KEY, JSON.stringify(list.slice(0, MAX_HISTORY)));
         } catch {
             // ignore
         }
     };
 
-    const addHistory = (q) => {
-        const value = normalizeHistoryQuery(q);
+    const addHistory = (item) => {
+        const value = normalizeHistoryItem(item);
         if (!value) return;
 
         const list = loadHistory();
-        const next = [value, ...list.filter((x) => x !== value)].slice(0, MAX_HISTORY);
+        const next = [
+            value,
+            ...list.filter((x) => (x.id && value.id ? x.id !== value.id : x.text !== value.text))
+        ].slice(0, MAX_HISTORY);
         saveHistory(next);
     };
 
@@ -721,11 +747,14 @@ export function mountSearchUI() {
         endPreviewSession();
     };
 
-    const expand = () => {
+    const expand = async () => {
         if (!root.classList.contains('is-collapsed')) return;
         root.classList.remove('is-collapsed');
         // 展开后聚焦输入框，便于直接输入
         try { input.focus?.(); } catch {}
+
+        // 确保数据加载，以便显示历史记录中的线路信息
+        await ensureDataLoaded();
 
         // 输入为空时：展示搜索记录
         try { ui?.render?.(); } catch {}
@@ -778,6 +807,8 @@ export function mountSearchUI() {
                     return;
                 }
 
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
                 // 顶部标题行：搜索记录
                 {
                     const li = document.createElement('li');
@@ -790,17 +821,68 @@ export function mountSearchUI() {
                     this.list.appendChild(li);
                 }
 
-                for (const text of history) {
+                for (const item of history) {
                     const li = document.createElement('li');
                     const row = el('div', 'search-result-item');
-                    const icon = el('span', 'search-result-icon');
-                    const label = el('div', 'search-result-text', { text });
-                    label.style.flex = '1 1 auto';
+                    
+                    const icon = item.id ? buildResultIcon(item) : el('span', 'search-result-icon');
+                    // station：保持“换乘站圆点”风格
+                    if (item.id && item?.type === 'station') {
+                        const dot = icon?.querySelector?.('.search-result-icon--station') || icon;
+                        const isTransfer = item?.isTransfer === true;
+                        const border = isTransfer ? 4 : 0.5;
+                        const size = isTransfer ? 18 : 12;
+                        if (dot && dot.style) {
+                            dot.style.width = `${size}px`;
+                            dot.style.height = `${size}px`;
+                            dot.style.borderWidth = `${border}px`;
+                        }
+                    }
+
+                    let text;
+                    if (item?.type === 'station') {
+                        text = el('div', 'search-result-text search-result-text--station journey-station-result-text');
+                        const nameSpan = document.createElement('span');
+                        nameSpan.className = 'journey-station-result-name';
+                        nameSpan.textContent = String(item?.text ?? '');
+                        text.appendChild(nameSpan);
+
+                        const ids = Array.isArray(item?.lineIds) ? item.lineIds : [];
+                        const metas = ids.map((id) => ({ id: String(id), meta: lineMetaById.get(String(id)) }));
+
+                        if (metas.length) {
+                            const wrap = document.createElement('span');
+                            wrap.className = 'journey-station-result-lines';
+                            wrap.style.fontSize = '11px';
+                            wrap.style.whiteSpace = 'normal';
+
+                            metas.forEach((x, idx) => {
+                                if (idx > 0) wrap.appendChild(document.createTextNode('、'));
+                                const seg = document.createElement('span');
+                                seg.textContent = String(x.meta?.name || x.id);
+                                if (x.meta?.color) seg.style.color = String(resolveLineColorForTheme(x.meta.color));
+                                wrap.appendChild(seg);
+                            });
+                            text.appendChild(wrap);
+                        }
+                    } else {
+                        text = el('div', 'search-result-text', { text: item?.text ?? '' });
+                    }
+                    text.style.flex = '1 1 auto';
+
                     row.appendChild(icon);
-                    row.appendChild(label);
+                    row.appendChild(text);
 
                     const del = el('button', '', { type: 'button', 'aria-label': '删除记录' });
-                    del.textContent = 'x';
+                    const delIcon = el('img', '', { alt: '' });
+                    delIcon.style.width = '12px';
+                    delIcon.style.height = '12px';
+                    delIcon.style.display = 'block';
+                    if (isDark) delIcon.style.filter = 'invert(1)';
+                    setImageElementFromCache(delIcon, getIconCandidates('x.svg'), {
+                        cacheKey: 'icon:x.svg'
+                    }).catch(() => { del.textContent = 'x'; });
+
                     del.style.marginLeft = 'auto';
                     del.style.background = 'transparent';
                     del.style.border = 'none';
@@ -810,11 +892,12 @@ export function mountSearchUI() {
                     del.style.fontSize = '15px';
                     del.style.lineHeight = '1';
                     del.style.opacity = '0.7';
+                    del.appendChild(delIcon);
 
                     del.addEventListener('click', (evt) => {
                         evt.preventDefault?.();
                         evt.stopPropagation?.();
-                        const next = loadHistory().filter((x) => x !== text);
+                        const next = loadHistory().filter((x) => (x.id && item.id ? x.id !== item.id : x.text !== item.text));
                         saveHistory(next);
                         ui.render();
                     });
@@ -824,7 +907,21 @@ export function mountSearchUI() {
                     row.addEventListener('click', (evt) => {
                         evt.preventDefault?.();
                         evt.stopPropagation?.();
-                        input.value = text;
+                        
+                        if (item.id) {
+                            // 一键直达：如果是结构化数据，直接执行 commit
+                            const actions = getMapActions();
+                            if (actions) {
+                                if (item.type === 'company') actions.commitCompany?.(item.id);
+                                else if (item.type === 'line') actions.commitLine?.(item.id);
+                                else if (item.type === 'station') actions.commitStation?.(item.id, { maxZoom: 12 });
+                                ui.clearAndCollapse();
+                                return;
+                            }
+                        }
+                        
+                        // 降级：仅填充文本并搜索
+                        input.value = item.text;
                         refresh();
                         try { input.focus?.(); } catch {}
                     });
@@ -863,6 +960,10 @@ export function mountSearchUI() {
                     this.list.appendChild(li);
                 }
 
+                window.requestAnimationFrame(() => {
+                    refreshStationLineAlignment(this.list);
+                });
+
                 this.showResults(true);
                 return;
             }
@@ -888,6 +989,7 @@ export function mountSearchUI() {
 
                     // 仅当用户对结果发生预览/交互时才记录搜索内容
                     addHistory(input.value);
+                    addHistory(item);
 
                     const type = item?.type;
                     if (type === 'company') {
@@ -916,6 +1018,7 @@ export function mountSearchUI() {
 
                     // 提交也视为有效交互：记录搜索内容
                     addHistory(input.value);
+                    addHistory(item);
 
                     // 提交：不再回滚预览快照
                     previewSnapshot = null;
