@@ -358,6 +358,35 @@ export const filterNearbyStops = (anchorStopId, stops, maxMeters) => {
     return out;
 };
 
+export const getNearbyStationsForJourneyPick = async ({ lngLat, maxMeters = 2000 } = {}) => {
+    await ensurePlannerStaticData();
+
+    const lng = Number(lngLat?.lng ?? lngLat?.[0]);
+    const lat = Number(lngLat?.lat ?? lngLat?.[1]);
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return [];
+
+    const groupedBest = new Map();
+    for (const [stationId, coord] of plannerState.stationCoordById.entries()) {
+        const dist = distanceMeters([lng, lat], coord);
+        if (!Number.isFinite(dist) || dist > maxMeters) continue;
+
+        const parts = String(stationId || '').split('.').map((x) => String(x || '').trim()).filter(Boolean);
+        const prefix = parts.length >= 2 ? `${parts[0]}.${parts[1]}` : (parts[0] || stationId);
+        if (!prefix) continue;
+
+        // 评估步行距离与分钟数（乘以 1.5 的经验系数，再按 3.5 km/h 计算）
+        const effectiveMeters = dist * 1.5;
+        const walkMinutes = Math.max(0, Math.round(effectiveMeters / (3500 / 60)));
+        const next = { stationId, distanceMeters: dist, walkMinutes };
+        const prev = groupedBest.get(prefix);
+        if (!prev || next.distanceMeters < prev.distanceMeters || (next.distanceMeters === prev.distanceMeters && next.stationId < prev.stationId)) {
+            groupedBest.set(prefix, next);
+        }
+    }
+
+    return Array.from(groupedBest.values()).sort((a, b) => a.distanceMeters - b.distanceMeters || a.stationId.localeCompare(b.stationId));
+};
+
 const getTransferPenaltyMs = (fromStopId, toStopId) => {
     const a = normalizeText(fromStopId);
     const b = normalizeText(toStopId);
