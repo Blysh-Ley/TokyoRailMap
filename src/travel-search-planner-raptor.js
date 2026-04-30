@@ -365,7 +365,8 @@ export const getNearbyStationsForJourneyPick = async ({ lngLat, maxMeters = 2000
     const lat = Number(lngLat?.lat ?? lngLat?.[1]);
     if (!Number.isFinite(lng) || !Number.isFinite(lat)) return [];
 
-    const groupedBest = new Map();
+    // 第一步：按照线路公司前缀去重
+    const groupedByPrefix = new Map();
     for (const [stationId, coord] of plannerState.stationCoordById.entries()) {
         const dist = distanceMeters([lng, lat], coord);
         if (!Number.isFinite(dist) || dist > maxMeters) continue;
@@ -378,13 +379,33 @@ export const getNearbyStationsForJourneyPick = async ({ lngLat, maxMeters = 2000
         const effectiveMeters = dist * 1.5;
         const walkMinutes = Math.max(0, Math.round(effectiveMeters / (3500 / 60)));
         const next = { stationId, distanceMeters: dist, walkMinutes };
-        const prev = groupedBest.get(prefix);
+        const prev = groupedByPrefix.get(prefix);
         if (!prev || next.distanceMeters < prev.distanceMeters || (next.distanceMeters === prev.distanceMeters && next.stationId < prev.stationId)) {
-            groupedBest.set(prefix, next);
+            groupedByPrefix.set(prefix, next);
         }
     }
 
-    return Array.from(groupedBest.values()).sort((a, b) => a.distanceMeters - b.distanceMeters || a.stationId.localeCompare(b.stationId));
+    // 第二步：按照换乘站组进行额外去重
+    const groupedByTransferGroup = new Map();
+    for (const candidate of groupedByPrefix.values()) {
+        const transferGroup = plannerState.groupByStop?.get(candidate.stationId);
+        let groupKey;
+        
+        if (transferGroup instanceof Set && transferGroup.size > 0) {
+            // 创建换乘站组的唯一标识（所有站点ID的排序字符串）
+            groupKey = Array.from(transferGroup).sort().join('|');
+        } else {
+            // 如果不在任何换乘站组中，使用stationId作为唯一标识
+            groupKey = `single:${candidate.stationId}`;
+        }
+
+        const existing = groupedByTransferGroup.get(groupKey);
+        if (!existing || candidate.distanceMeters < existing.distanceMeters || (candidate.distanceMeters === existing.distanceMeters && candidate.stationId < existing.stationId)) {
+            groupedByTransferGroup.set(groupKey, candidate);
+        }
+    }
+
+    return Array.from(groupedByTransferGroup.values()).sort((a, b) => a.distanceMeters - b.distanceMeters || a.stationId.localeCompare(b.stationId));
 };
 
 const getTransferPenaltyMs = (fromStopId, toStopId) => {
