@@ -817,6 +817,7 @@ export function mountTravelSearchUI() {
     let activePlanPreviewKey = '';
     let pinnedPlanPreviewKey = '';
     let planPreviewRequestToken = 0;
+    let tripPopoverHoverTimer = null;
     let currentPlanPage = 0;
     let allPlanRows = [];
     let journeyPlanHighlightedPageIndex = -1;
@@ -1054,6 +1055,24 @@ export function mountTravelSearchUI() {
 
     const getActiveInput = () => (activeField === 'destination' ? destinationInput : originInput);
 
+    const cancelTripPopoverHover = () => {
+        if (!tripPopoverHoverTimer) return;
+        window.clearTimeout(tripPopoverHoverTimer);
+        tripPopoverHoverTimer = null;
+    };
+
+    const scheduleTripPopoverHover = ({ anchorEl, row }) => {
+        cancelTripPopoverHover();
+        cancelHideTripPopover();
+        tripPopoverHoverTimer = window.setTimeout(() => {
+            tripPopoverHoverTimer = null;
+            if (!anchorEl || !row) return;
+            showTripPopover({ anchorEl, row }).catch(() => {
+                // ignore
+            });
+        }, 300);
+    };
+
     const getJourneyPlanPreviewItemId = (pageIndex) => `trip:journey||preview||auto-${pageIndex}`;
 
     const resetJourneyPlanPreviewPool = () => {
@@ -1121,6 +1140,7 @@ export function mountTravelSearchUI() {
     };
 
     const clearPlanList = ({ clearMapPreview = false } = {}) => {
+        cancelTripPopoverHover();
         if (clearMapPreview) {
             try {
                 const actions = window?.TokyoRailSearchMapActions;
@@ -1187,6 +1207,15 @@ export function mountTravelSearchUI() {
 
         const path = el('div', 'journey-plan-path');
         await appendJourneyPath(path, row, displayPlan);
+
+        path.addEventListener('mouseenter', () => {
+            scheduleTripPopoverHover({ anchorEl: path, row });
+        });
+
+        path.addEventListener('mouseleave', () => {
+            cancelTripPopoverHover();
+            scheduleHideTripPopover();
+        });
 
         li.appendChild(path);
 
@@ -2862,6 +2891,7 @@ export function mountTravelSearchUI() {
     tripPopover.addEventListener('mouseenter', () => {
         cancelHideTripPopover();
         cancelHidePlanPreview();
+        cancelTripPopoverHover();
     });
     tripPopover.addEventListener('mouseleave', () => {
         if (!pinnedTripPopoverKey) {
