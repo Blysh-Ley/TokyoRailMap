@@ -1119,60 +1119,6 @@ export function mountTravelSearchUI() {
         const path = el('div', 'journey-plan-path');
         await appendJourneyPath(path, row, displayPlan);
 
-        path.addEventListener('mouseenter', () => {
-            cancelHidePlanPreview();
-            const previewKey = `row-${currentPlanPage}`;
-            if (!pinnedTripPopoverKey || pinnedTripPopoverKey === previewKey) {
-                showTripPopover({ anchorEl: path, row });
-            }
-            if (pinnedPlanPreviewKey && pinnedPlanPreviewKey !== previewKey) return;
-            applyJourneyPlanPreview({ row, previewKey, pin: false, interaction: 'hover' });
-        });
-        path.addEventListener('mouseleave', () => {
-            const previewKey = `row-${currentPlanPage}`;
-            if (pinnedTripPopoverKey !== previewKey) {
-                scheduleHideTripPopover();
-            }
-            if (!pinnedPlanPreviewKey) {
-                scheduleClearJourneyPlanPreview(120);
-            }
-        });
-
-        path.addEventListener('click', async (evt) => {
-            evt.preventDefault?.();
-            evt.stopPropagation?.();
-            cancelHidePlanPreview();
-            const previewKey = `row-${currentPlanPage}`;
-
-            if (pinnedTripPopoverKey === previewKey) {
-                pinnedTripPopoverKey = '';
-                scheduleHideTripPopover();
-            } else {
-                pinnedTripPopoverKey = previewKey;
-                showTripPopover({ anchorEl: path, row });
-            }
-
-            if (pinnedPlanPreviewKey === previewKey) {
-                pinnedPlanPreviewKey = '';
-                if (window?.__TokyoRailMultiSelectEnabled === true) {
-                    await applyJourneyPlanPreview({
-                        row,
-                        previewKey,
-                        pin: false,
-                        interaction: 'click',
-                        clearBefore: false
-                    });
-                    activePlanPreviewKey = '';
-                } else {
-                    clearJourneyPlanPreview({ force: true });
-                }
-                return;
-            }
-
-            pinnedPlanPreviewKey = previewKey;
-            applyJourneyPlanPreview({ row, previewKey, pin: true, interaction: 'click' });
-        });
-
         li.appendChild(path);
 
         const brief = el('div', 'journey-plan-brief');
@@ -1385,6 +1331,7 @@ export function mountTravelSearchUI() {
             actions.previewTripPath(
                 {
                     ...(payload || {}),
+                    previewKey,
                     __previewInteraction: interactionText,
                     fitMode
                 },
@@ -2055,6 +2002,57 @@ export function mountTravelSearchUI() {
         });
     };
 
+    const enableMultiSelectMode = () => {
+        try {
+            if (typeof window?.__TokyoRailMultiSelectInternalAPI?.setEnabledSilent === 'function') {
+                window.__TokyoRailMultiSelectInternalAPI.setEnabledSilent(true);
+            }
+            if (typeof window?.__TokyoRailMultiSelectInternalAPI?.setForbidClass === 'function') {
+                window.__TokyoRailMultiSelectInternalAPI.setForbidClass(true);
+            }
+        } catch {
+            // ignore
+        }
+    };
+
+    const disableMultiSelectMode = () => {
+        try {
+            if (typeof window?.__TokyoRailMultiSelectInternalAPI?.setEnabledSilent === 'function') {
+                window.__TokyoRailMultiSelectInternalAPI.setEnabledSilent(false);
+            }
+            if (typeof window?.__TokyoRailMultiSelectInternalAPI?.setForbidClass === 'function') {
+                window.__TokyoRailMultiSelectInternalAPI.setForbidClass(false);
+            }
+            // 清理多选的预览数据
+            if (typeof window?.TokyoRailSearchMapActions?.clearTripPathPreview === 'function') {
+                window.TokyoRailSearchMapActions.clearTripPathPreview();
+            }
+        } catch {
+            // ignore
+        }
+    };
+
+    const highlightAllPlanResults = async (rows) => {
+        if (window?.__TokyoRailMultiSelectEnabled !== true) return;
+        if (!Array.isArray(rows) || !rows.length) return;
+
+        for (let i = 0; i < rows.length; i += 1) {
+            const row = rows[i];
+            if (!row) continue;
+            try {
+                await applyJourneyPlanPreview({
+                    row,
+                    previewKey: `auto-${i}`,
+                    pin: false,
+                    interaction: 'auto',
+                    clearBefore: i === 0
+                });
+            } catch {
+                // ignore errors in individual highlighting
+            }
+        }
+    };
+
     const renderPlanResults = async (rows) => {
         clearPlanList();
         if (!rows.length) {
@@ -2072,6 +2070,14 @@ export function mountTravelSearchUI() {
             planPagination.classList.remove('is-hidden');
         } else {
             planPagination.classList.add('is-hidden');
+        }
+
+        // 后台进入多选模式，显示所有结果高亮
+        try {
+            enableMultiSelectMode();
+            await highlightAllPlanResults(rows);
+        } catch {
+            // ignore highlighting errors
         }
     };
 
@@ -2102,6 +2108,7 @@ export function mountTravelSearchUI() {
     };
 
     const maybeComputePlans = async () => {
+        
         const originId = normalizeText(selectedOriginId || originInput.dataset.stationId || '');
         const destinationId = normalizeText(selectedDestinationId || destinationInput.dataset.stationId || '');
 
@@ -2128,7 +2135,12 @@ export function mountTravelSearchUI() {
             return;
         }
 
+        // 同步执行规划前的初始化
+        clearPlanList();
+        disableMultiSelectMode();
         showPlanMessage('正在计算路线...');
+
+        await new Promise(resolve => setTimeout(resolve, 300));
 
         const serviceDay = readServiceDayFromPanel();
         const { departureMs } = readDepartureBase();
@@ -2137,8 +2149,9 @@ export function mountTravelSearchUI() {
         const token = ++planComputeToken;
         lastPlanComputeKey = key;
 
+        // 异步执行规划逻辑
         await ensurePlannerStaticData();
-
+        
         const pairBestPlans = [];
         const pairBestWrappers = []; // { plan, originStationId, destinationStationId, originWalkMin, destWalkMin }
 
@@ -2277,6 +2290,7 @@ export function mountTravelSearchUI() {
         clearPlanList({ clearMapPreview: false });
         planResults.classList.add('is-hidden');
         results.classList.add('is-hidden');
+        disableMultiSelectMode();
         try {
             window?.TokyoRailSearchMapActions?.clearJourneyPickPin?.();
         } catch {

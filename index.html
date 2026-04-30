@@ -1367,6 +1367,27 @@
             border-radius: 18.2px;
         }
 
+        .ms-ui.is-forbid { 
+            pointer-events: none !important;
+        }
+
+        .ms-fab.is-forbid {
+            pointer-events: none !important;
+            cursor: not-allowed !important;
+            background: transparent !important;
+        }
+
+        .ms-fab.is-forbid::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: inherit;
+            pointer-events: none;
+        }
+
         .ms-ui:not(.is-collapsed) .ms-fab {
             opacity: 0;
             pointer-events: none;

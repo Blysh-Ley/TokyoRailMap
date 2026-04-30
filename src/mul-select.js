@@ -399,6 +399,33 @@
             renderItems();
         });
 
+        // Internal API for travel-search-ui to set enabled state and forbid interaction
+        try {
+            window.__TokyoRailMultiSelectInternalAPI = {
+                setEnabledSilent: (value) => {
+                    enabled = value === true;
+                    window.__TokyoRailMultiSelectEnabled = enabled;
+                    try {
+                        window.__TokyoRailMultiSelectModeInternalAPI?.setEnabledSilent?.(enabled);
+                    } catch {
+                        // ignore
+                    }
+                    updateFabState();
+                },
+                setForbidClass: (isForbid) => {
+                    if (isForbid === true) {
+                        fab.classList.add('is-forbid');
+                        root.classList.add('is-forbid');
+                    } else {
+                        fab.classList.remove('is-forbid');
+                        root.classList.remove('is-forbid');
+                    }
+                }
+            };
+        } catch {
+            // ignore
+        }
+
         updateFabState();
         updateShowIconBtnState();
         dispatchShowIconsState(showIcons);

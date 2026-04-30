@@ -1132,6 +1132,22 @@ map.on('load', async () => {
         emitMultiSelectLayersUpdated();
     };
 
+    try {
+        window.__TokyoRailMultiSelectModeInternalAPI = {
+            setEnabledSilent: (enabled) => {
+                const next = enabled === true;
+                multiSelectModeEnabled = next;
+                try {
+                    window.__TokyoRailMultiSelectEnabled = next;
+                } catch {
+                    // ignore
+                }
+            }
+        };
+    } catch {
+        // ignore
+    }
+
     // 时刻表虚拟内存缓存（按线路 id 预加载 train-timetables/*.json）
     const timetableCache = getGlobalTimetableCache({ maxBytes: 50 * 1024 * 1024, logFetch: true, logDiscover: true });
 
@@ -4545,6 +4561,10 @@ map.on('load', async () => {
 
         const buildTripPreviewSelectionKey = (payload) => {
             const source = String(payload?.previewSource || payload?.__previewSource || payload?.source || '').trim() || 'default';
+            const explicitPreviewKey = String(payload?.previewKey || payload?.__previewKey || '').trim();
+            if (explicitPreviewKey) {
+                return `${source}||preview||${explicitPreviewKey}`;
+            }
 
             const segmentList = Array.isArray(payload?.segments) ? payload.segments : [];
             const lineIdFromSegments = String(segmentList.find((seg) => String(seg?.lineId || '').trim())?.lineId || '').trim();
@@ -5942,7 +5962,6 @@ map.on('load', async () => {
         });
 
         map.on('zoomend', () => {
-            console.log(map.getZoom());
             if (isStationOffsetDynamicMode()) return;
             if (tripPreviewActive) return;
 
