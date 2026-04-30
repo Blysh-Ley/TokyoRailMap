@@ -88,6 +88,16 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
     const onCircleCollisionResolved = typeof options.onCircleCollisionResolved === 'function'
         ? options.onCircleCollisionResolved
         : null;
+    const shouldThinAutoLabels = typeof options.shouldThinAutoLabels === 'function'
+        ? options.shouldThinAutoLabels
+        : null;
+    const lowZoomLabelThinMaxZoom = Number.isFinite(options.lowZoomLabelThinMaxZoom)
+        ? Number(options.lowZoomLabelThinMaxZoom)
+        : 13;
+    const lowZoomLabelKeepRatioRaw = Number.isFinite(options.lowZoomLabelKeepRatio)
+        ? Number(options.lowZoomLabelKeepRatio)
+        : 0.5;
+    const lowZoomLabelKeepRatio = Math.min(1, Math.max(0, lowZoomLabelKeepRatioRaw));
     const transferGroupByStationId = options.transferGroupByStationId instanceof Map
         ? options.transferGroupByStationId
         : null;
@@ -229,6 +239,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             });
 
         const grid = new Map();
+        const visibleAfterCollision = [];
 
         sorted.forEach((label) => {
             if (label.forceHiddenByTransferCollapse) {
@@ -285,7 +296,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
                 return;
             }
 
-            label.el.style.display = 'block';
+            visibleAfterCollision.push(label);
             for (let cx = minCx; cx <= maxCx; cx++) {
                 for (let cy = minCy; cy <= maxCy; cy++) {
                     const key = gridKey(cx, cy);
@@ -293,6 +304,66 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
                     grid.get(key).push(bbox);
                 }
             }
+        });
+
+        const shouldApplyLowZoomThin = shouldThinAutoLabels?.() === true
+            && map.getZoom() < lowZoomLabelThinMaxZoom
+            && visibleAfterCollision.length > 0;
+
+        if (!shouldApplyLowZoomThin) {
+            visibleAfterCollision.forEach((label) => {
+                label.el.style.display = 'block';
+            });
+            return;
+        }
+
+        const keepCount = Math.ceil(visibleAfterCollision.length * lowZoomLabelKeepRatio);
+        if (keepCount >= visibleAfterCollision.length) {
+            visibleAfterCollision.forEach((label) => {
+                label.el.style.display = 'block';
+            });
+            return;
+        }
+
+        // 按屏幕网格做轮询抽样：先每格取一个，再第二轮每格取一个，直到达到 keepCount。
+        // 这样比“直接保留前半”在视觉上更均匀。
+        const sampleCellPx = Math.max(gridCellPx, 120);
+        const bucketMap = new Map();
+        const bucketOrder = [];
+
+        visibleAfterCollision.forEach((label, index) => {
+            let key = `idx:${index}`;
+            if (Array.isArray(label.coordinates) && label.coordinates.length >= 2) {
+                const p = map.project(label.coordinates);
+                const cx = Math.floor(p.x / sampleCellPx);
+                const cy = Math.floor(p.y / sampleCellPx);
+                key = `${cx},${cy}`;
+            }
+
+            if (!bucketMap.has(key)) {
+                bucketMap.set(key, []);
+                bucketOrder.push(key);
+            }
+            bucketMap.get(key).push(label);
+        });
+
+        const kept = new Set();
+        let round = 0;
+        while (kept.size < keepCount) {
+            let progressed = false;
+            for (const key of bucketOrder) {
+                const bucket = bucketMap.get(key);
+                if (!bucket || round >= bucket.length) continue;
+                kept.add(bucket[round]);
+                progressed = true;
+                if (kept.size >= keepCount) break;
+            }
+            if (!progressed) break;
+            round++;
+        }
+
+        visibleAfterCollision.forEach((label) => {
+            label.el.style.display = kept.has(label) ? 'block' : 'none';
         });
     }
 

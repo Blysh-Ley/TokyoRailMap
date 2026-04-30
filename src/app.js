@@ -5872,6 +5872,27 @@ map.on('load', async () => {
                 if (dirPreviewActive) return 'all';
                 return stationLabelMode;
             },
+            shouldThinAutoLabels: () => {
+                if (stationLabelMode !== 'auto') return false;
+
+                const hasBaseHighlight = Boolean(
+                    selectedLineId ||
+                    selectedCompany ||
+                    selectedStationId ||
+                    (selectedStationLineIds && selectedStationLineIds.size) ||
+                    (isMultiSelectModeEnabled() && getBaseMultiSelectedLineIds().size)
+                );
+                const hasTripPreviewHighlight = Boolean(
+                    tripPreviewActive ||
+                    dirPreviewActive ||
+                    (tripPreviewStationIds && tripPreviewStationIds.size) ||
+                    (dirPreviewStationIds && dirPreviewStationIds.size)
+                );
+
+                return !(hasBaseHighlight || hasTripPreviewHighlight);
+            },
+            lowZoomLabelThinMaxZoom: 13,
+            lowZoomLabelKeepRatio: 0.9,
             // 高亮线路/公司时：圆点全部显示，避免缩小后站点消失
             getCircleMode: () => (
                 tripPreviewActive ||
@@ -5921,6 +5942,7 @@ map.on('load', async () => {
         });
 
         map.on('zoomend', () => {
+            console.log(map.getZoom());
             if (isStationOffsetDynamicMode()) return;
             if (tripPreviewActive) return;
 
