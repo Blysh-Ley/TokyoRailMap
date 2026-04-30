@@ -2778,6 +2778,21 @@ export function mountTravelSearchUI() {
         ensureMapPickHook();
     };
 
+    const toggleMapPickMode = (target) => {
+        const nextTarget = target === 'destination' ? 'destination' : 'origin';
+        if (mapPickTarget === nextTarget) {
+            try {
+                window?.TokyoRailSearchMapActions?.clearJourneyPickPin?.(nextTarget);
+            } catch {
+                // ignore
+            }
+            setMapPickTarget(null);
+            return;
+        }
+
+        armMapPick(nextTarget);
+    };
+
     const swapOriginDestination = () => {
         const prevOriginText = normalizeText(originInput.value);
         const prevOriginId = normalizeText(selectedOriginId || originInput.dataset.stationId || '');
@@ -2821,13 +2836,13 @@ export function mountTravelSearchUI() {
     originMapPickBtn.addEventListener('click', (evt) => {
         evt.preventDefault?.();
         evt.stopPropagation?.();
-        armMapPick('origin');
+        toggleMapPickMode('origin');
     });
 
     destinationMapPickBtn.addEventListener('click', (evt) => {
         evt.preventDefault?.();
         evt.stopPropagation?.();
-        armMapPick('destination');
+        toggleMapPickMode('destination');
     });
 
     closeBtn.addEventListener('pointerdown', (evt) => {
