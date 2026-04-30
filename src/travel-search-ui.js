@@ -819,6 +819,8 @@ export function mountTravelSearchUI() {
     let planPreviewRequestToken = 0;
     let currentPlanPage = 0;
     let allPlanRows = [];
+    let journeyPlanHighlightedPageIndex = -1;
+    const journeyPlanPreviewPool = [];
 
     try {
         window.__TokyoRailJourneyMapPickActive = false;
@@ -1052,6 +1054,72 @@ export function mountTravelSearchUI() {
 
     const getActiveInput = () => (activeField === 'destination' ? destinationInput : originInput);
 
+    const getJourneyPlanPreviewItemId = (pageIndex) => `trip:journey||preview||auto-${pageIndex}`;
+
+    const resetJourneyPlanPreviewPool = () => {
+        journeyPlanPreviewPool.length = 0;
+        journeyPlanHighlightedPageIndex = -1;
+    };
+
+    const buildJourneyPlanPreviewPool = (rows) => {
+        resetJourneyPlanPreviewPool();
+        for (let i = 0; i < (Array.isArray(rows) ? rows.length : 0); i += 1) {
+            journeyPlanPreviewPool.push({
+                pageIndex: i,
+                itemId: getJourneyPlanPreviewItemId(i),
+                buttonEl: null,
+                visible: false
+            });
+        }
+    };
+
+    const bindJourneyPlanPageButton = (pageIndex, buttonEl) => {
+        const entry = journeyPlanPreviewPool[pageIndex];
+        if (!entry) return;
+        entry.buttonEl = buttonEl;
+    };
+
+    const syncJourneyPlanVisibility = (pageIndex, { force = false } = {}) => {
+        if (window?.__TokyoRailMultiSelectEnabled !== true) return false;
+        if (!Number.isFinite(pageIndex) || pageIndex < 0 || pageIndex >= journeyPlanPreviewPool.length) return false;
+
+        const ctrl = window?.__TokyoRailMultiSelectLayerControl;
+        if (typeof ctrl?.runCommand !== 'function') return false;
+
+        const alreadyExclusive = journeyPlanPreviewPool.every((entry) => {
+            if (!entry) return false;
+            return entry.visible === (entry.pageIndex === pageIndex);
+        });
+        if (!force && journeyPlanHighlightedPageIndex === pageIndex && alreadyExclusive) return false;
+
+        for (const entry of journeyPlanPreviewPool) {
+            if (!entry) continue;
+            const shouldBeVisible = entry.pageIndex === pageIndex;
+            if (entry.visible === shouldBeVisible) continue;
+            ctrl.runCommand('toggle-visibility', entry.itemId);
+            entry.visible = shouldBeVisible;
+        }
+
+        journeyPlanHighlightedPageIndex = pageIndex;
+        return true;
+    };
+
+    const syncJourneyPlanRestoreAll = () => {
+        if (window?.__TokyoRailMultiSelectEnabled !== true) return false;
+        const ctrl = window?.__TokyoRailMultiSelectLayerControl;
+        if (typeof ctrl?.runCommand !== 'function') return false;
+
+        let changed = false;
+        for (const entry of journeyPlanPreviewPool) {
+            if (!entry || entry.visible !== false) continue;
+            ctrl.runCommand('toggle-visibility', entry.itemId);
+            entry.visible = true;
+            changed = true;
+        }
+        if (changed) journeyPlanHighlightedPageIndex = -1;
+        return changed;
+    };
+
     const clearPlanList = ({ clearMapPreview = false } = {}) => {
         if (clearMapPreview) {
             try {
@@ -1072,6 +1140,7 @@ export function mountTravelSearchUI() {
         while (planPagination.firstChild) planPagination.removeChild(planPagination.firstChild);
         currentPlanPage = 0;
         allPlanRows = [];
+        resetJourneyPlanPreviewPool();
         hideTripPopover();
     };
 
@@ -1189,15 +1258,29 @@ export function mountTravelSearchUI() {
             btn.className = 'journey-plan-page-btn';
             btn.type = 'button';
             btn.textContent = generatePaginationButtonLabel(allPlanRows[i]?.label || '推荐', i);
+            bindJourneyPlanPageButton(i, btn);
             
             if (i === currentPlanPage) {
                 btn.classList.add('is-active');
             }
             
-            btn.addEventListener('click', async () => {
+            btn.addEventListener('click', async (evt) => {
+                evt.preventDefault?.();
+                evt.stopPropagation?.();
+
+                if (i === currentPlanPage && journeyPlanHighlightedPageIndex === i) return;
+
+                // 切换到新页面
                 currentPlanPage = i;
                 await showCurrentPage();
                 updatePaginationButtons();
+
+                // 只高亮当前页，隐藏其他页
+                try {
+                    syncJourneyPlanVisibility(i, { force: true });
+                } catch {
+                    // ignore
+                }
             });
             
             planPagination.appendChild(btn);
@@ -2051,8 +2134,22 @@ export function mountTravelSearchUI() {
                 // ignore errors in individual highlighting
             }
         }
+
+        for (const entry of journeyPlanPreviewPool) {
+            if (!entry) continue;
+            entry.visible = true;
+        }
+        journeyPlanHighlightedPageIndex = -1;
     };
 
+    const highlightSinglePlanResult = async (pageIndex) => {
+        if (!Number.isFinite(pageIndex) || pageIndex < 0 || pageIndex >= allPlanRows.length) return;
+        syncJourneyPlanVisibility(pageIndex);
+    };
+    const restoreAllPlanResults = async () => {
+        if (!Array.isArray(allPlanRows) || !allPlanRows.length) return;
+        syncJourneyPlanRestoreAll();
+    };
     const renderPlanResults = async (rows) => {
         clearPlanList();
         if (!rows.length) {
@@ -2061,6 +2158,7 @@ export function mountTravelSearchUI() {
         }
 
         allPlanRows = rows;
+        buildJourneyPlanPreviewPool(rows);
         currentPlanPage = 0;
         
         await showCurrentPage();
@@ -2076,6 +2174,7 @@ export function mountTravelSearchUI() {
         try {
             enableMultiSelectMode();
             await highlightAllPlanResults(rows);
+            syncJourneyPlanVisibility(currentPlanPage, { force: true });
         } catch {
             // ignore highlighting errors
         }
