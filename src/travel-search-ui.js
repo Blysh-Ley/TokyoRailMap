@@ -901,6 +901,13 @@ export function mountTravelSearchUI() {
             selectedDestinationCandidateIds = [];
         }
 
+        try {
+            await window?.TokyoRailSearchMapActions?.clearJourneyPickPin?.(key);
+            await window?.TokyoRailSearchMapActions?.showJourneyPickPin?.({ stationId: resolvedId, type: key });
+        } catch {
+            // ignore
+        }
+
         setMapPickTarget(null);
         results.classList.add('is-hidden');
         maybeComputePlans();
@@ -923,23 +930,6 @@ export function mountTravelSearchUI() {
         const candidateMeta = (Array.isArray(nearbyStations) ? nearbyStations : []).slice(0, 3);
         const candidateIds = Array.from(new Set(candidateMeta.map((item) => normalizeText(item?.stationId || '')).filter(Boolean)));
 
-        if (!candidateIds.length) {
-            input.value = '';
-            input.dataset.stationId = '';
-            if (key === 'origin') {
-                selectedOriginId = '';
-                selectedOriginCandidateIds = [];
-            } else {
-                selectedDestinationId = '';
-                selectedDestinationCandidateIds = [];
-            }
-
-            setMapPickTarget(null);
-            results.classList.add('is-hidden');
-            showPlanMessage('2公里内没有站点');
-            return;
-        }
-
         // 始终显示经纬度文本（格式化为一位小数），但保存候选站点 meta 供稍后计算步行时间
         input.value = coordsText;
         input.dataset.stationId = '';
@@ -951,6 +941,20 @@ export function mountTravelSearchUI() {
             selectedDestinationId = '';
             selectedDestinationCandidateIds = candidateIds;
             selectedDestinationCandidateMeta = candidateMeta;
+        }
+
+        try {
+            await window?.TokyoRailSearchMapActions?.clearJourneyPickPin?.(key);
+            await window?.TokyoRailSearchMapActions?.showJourneyPickPin?.({ lngLat, type: key });
+        } catch {
+            // ignore
+        }
+
+        if (!candidateIds.length) {
+            setMapPickTarget(null);
+            results.classList.add('is-hidden');
+            showPlanMessage('2公里内没有站点');
+            return;
         }
 
         setMapPickTarget(null);
@@ -981,6 +985,13 @@ export function mountTravelSearchUI() {
         } else {
             selectedDestinationId = resolvedId || '';
             selectedDestinationCandidateIds = [];
+        }
+
+        try {
+            window?.TokyoRailSearchMapActions?.clearJourneyPickPin?.(key);
+            window?.TokyoRailSearchMapActions?.showJourneyPickPin?.({ stationId: resolvedId, type: key });
+        } catch {
+            // ignore
         }
 
         // 外部写入也应退出 map pick 状态
@@ -2266,6 +2277,11 @@ export function mountTravelSearchUI() {
         clearPlanList({ clearMapPreview: false });
         planResults.classList.add('is-hidden');
         results.classList.add('is-hidden');
+        try {
+            window?.TokyoRailSearchMapActions?.clearJourneyPickPin?.();
+        } catch {
+            // ignore
+        }
         collapse();
     };
 
@@ -2302,6 +2318,12 @@ export function mountTravelSearchUI() {
         input.value = String(item?.text ?? '');
         input.dataset.stationId = String(item?.id ?? '');
 
+        try {
+            window?.TokyoRailSearchMapActions?.showJourneyPickPin?.({ stationId: String(item?.id ?? ''), type: activeField });
+        } catch {
+            // ignore
+        }
+
         if (activeField === 'origin') {
             selectedOriginId = String(item?.id ?? '');
             selectedOriginCandidateIds = [];
@@ -2311,6 +2333,11 @@ export function mountTravelSearchUI() {
         }
 
         results.classList.add('is-hidden');
+        try {
+            window?.TokyoRailSearchMapActions?.clearJourneyPickPin?.(activeField);
+        } catch {
+            // ignore
+        }
         maybeComputePlans();
     };
 

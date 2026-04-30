@@ -436,6 +436,34 @@
             pointer-events: none;
         }
 
+        .journey-pick-pin-marker {
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .journey-pick-pin-icon {
+            width: 26px;
+            height: 26px;
+            display: block;
+            pointer-events: none;
+        }
+
+        html[data-theme="dark"] .journey-pick-pin-icon {
+            filter: invert(1);
+        }
+
+        .journey-pick-pin-origin {
+            border-radius: 50%;
+        }
+
+        .journey-pick-pin-destination {
+            border-radius: 50%;
+        }
+
         .journey-close-btn {
             width: 20px;
             height: 20px;

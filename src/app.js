@@ -415,6 +415,8 @@ map.on('load', async () => {
     let selectedStationCurrentPopup = null;
     let selectedStationCurrentPopupStationId = null;
     let tripDetailStationTriangleMarker = null;
+    let journeyPickOriginPin = null;
+    let journeyPickDestinationPin = null;
     let tripPreviewSelectionsByKey = new Map(); // key -> { payload, built, hidden?:boolean, source?:string }
     let baseMultiSelectionsByKey = new Map(); // key -> { kind, lineIds:Set<string>, hidden?:boolean }
     let dirPreviewActive = false;
@@ -479,6 +481,83 @@ map.on('load', async () => {
             // ignore
         }
         tripDetailStationTriangleMarker = null;
+    };
+
+    const clearJourneyPickPin = (type = null) => {
+        const t = String(type || '').trim().toLowerCase();
+        if (!t || t === 'origin') {
+            try {
+                journeyPickOriginPin?.remove?.();
+            } catch {
+                // ignore
+            }
+            journeyPickOriginPin = null;
+        }
+        if (!t || t === 'destination') {
+            try {
+                journeyPickDestinationPin?.remove?.();
+            } catch {
+                // ignore
+            }
+            journeyPickDestinationPin = null;
+        }
+    };
+
+    const showJourneyPickPin = async ({ lngLat, stationId, type = 'origin' } = {}) => {
+        const pinType = String(type || 'origin').trim().toLowerCase();
+        if (pinType !== 'origin' && pinType !== 'destination') return;
+
+        const sid = String(stationId || '').trim();
+        let coord = null;
+        if (Array.isArray(lngLat) && lngLat.length >= 2) {
+            const lng = Number(lngLat[0]);
+            const lat = Number(lngLat[1]);
+            if (Number.isFinite(lng) && Number.isFinite(lat)) coord = [lng, lat];
+        } else if (lngLat && typeof lngLat === 'object') {
+            const lng = Number(lngLat.lng ?? lngLat.lon ?? lngLat.longitude);
+            const lat = Number(lngLat.lat ?? lngLat.latitude);
+            if (Number.isFinite(lng) && Number.isFinite(lat)) coord = [lng, lat];
+        }
+
+        if (!coord && sid) {
+            const stationCoord = stationCoordById.get(sid);
+            if (Array.isArray(stationCoord) && stationCoord.length >= 2) {
+                const lng = Number(stationCoord[0]);
+                const lat = Number(stationCoord[1]);
+                if (Number.isFinite(lng) && Number.isFinite(lat)) coord = [lng, lat];
+            }
+        }
+
+        clearJourneyPickPin(pinType);
+        if (!coord) return;
+
+        const outer = document.createElement('div');
+        outer.className = `journey-pick-pin-marker journey-pick-pin-${pinType}`;
+        const icon = document.createElement('img');
+        icon.className = `journey-pick-pin-icon journey-pick-pin-icon-${pinType}`;
+        icon.alt = '';
+        outer.appendChild(icon);
+        try {
+            await setImageElementFromCache(icon, getIconCandidates('pin.svg'), {
+                cacheKey: 'icon:pin.svg',
+                fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('pin.svg'), { cacheKey: 'icon:pin.svg' })
+            });
+        } catch {
+            // ignore
+        }
+
+        try {
+            const marker = new maplibregl.Marker({ element: outer, anchor: 'bottom', offset: [0, 0] })
+                .setLngLat(coord)
+                .addTo(map);
+            if (pinType === 'origin') {
+                journeyPickOriginPin = marker;
+            } else {
+                journeyPickDestinationPin = marker;
+            }
+        } catch {
+            // ignore
+        }
     };
 
     const showTripDetailStationIndicatorById = (stationId) => {
@@ -2572,6 +2651,12 @@ map.on('load', async () => {
         };
         searchMapActions.clearTripPathPreview = () => {
             clearTripPathPreview({ source: 'journey' });
+        };
+        searchMapActions.showJourneyPickPin = async (payload = {}) => {
+            await showJourneyPickPin(payload || {});
+        };
+        searchMapActions.clearJourneyPickPin = (type) => {
+            clearJourneyPickPin(type);
         };
         searchMapActions.clearTripPathPreviewBySource = (source) => {
             const s = String(source || '').trim();
