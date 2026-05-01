@@ -1,6 +1,6 @@
 {
   "name": "tokyorailmap",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "东京都市圈铁路线网与班次信息可视化。",
   "main": "main.js",
   "scripts": {
