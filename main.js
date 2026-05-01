@@ -14,6 +14,7 @@ const MANUAL_DOWNLOAD_URL = 'https://github.com/Blysh-Ley/TokyoRailMap/releases/
 const MANUAL_DOWNLOAD_URL_BAIDU = 'https://pan.baidu.com/s/1AjvtvXRBL6aQj5XvIq7_Fg?pwd=tr54';
 const CHANGELOG_FILE = 'CHANGELOG.md';
 const DEBUG_FORCE_UPDATE_PROMPT = isDev && false;
+const GITHUB_LATEST_RELEASE_API = 'https://api.github.com/repos/Blysh-Ley/TokyoRailMap/releases/latest';
 
 const MANUAL_DOWNLOAD_SOURCES = [
     { id: 'baiduyun', label: '百度云(国内)', url: MANUAL_DOWNLOAD_URL_BAIDU },
@@ -218,6 +219,12 @@ const formatReleaseNotes = (releaseNotes) => {
     return '';
 };
 
+const truncateToFirstLines = (text, maxLines = 15) => {
+    const lines = String(text ?? '').split(/\r?\n/);
+    if (lines.length <= maxLines) return lines.join('\n').trim();
+    return `${lines.slice(0, maxLines).join('\n').trim()}\n...`;
+};
+
 const loadChangelog = async () => {
     const changelogPath = path.join(APP_ROOT, CHANGELOG_FILE);
     try {
@@ -227,11 +234,42 @@ const loadChangelog = async () => {
     }
 };
 
+const loadLatestReleaseInfoFromGithub = async () => {
+    try {
+        const response = await fetch(GITHUB_LATEST_RELEASE_API, {
+            headers: {
+                Accept: 'application/vnd.github+json',
+                'User-Agent': OSM_POLICY_USER_AGENT
+            }
+        });
+        if (!response.ok) return null;
+        const data = await response.json();
+        const version = String(data?.tag_name || '').replace(/^v/i, '').trim();
+        const releaseNotes = String(data?.body || '').trim();
+        if (!version && !releaseNotes) return null;
+        return {
+            version: version || '未知版本',
+            releaseNotes,
+            isDebugTest: true,
+            debugUseRealNotes: true
+        };
+    } catch (err) {
+        console.error('[debug-update] 拉取 GitHub 最新发布信息失败:', err?.message || err);
+        return null;
+    }
+};
+
 const resolveUpdateNotes = async (info, currentVersion = '') => {
     const fromEvent = formatReleaseNotes(info?.releaseNotes);
-    if (fromEvent.trim()) return formatMarkdownAsDialogText(fromEvent);
+    if (fromEvent.trim()) {
+        const filtered = extractLatestChangelogSection(fromEvent, currentVersion);
+        return truncateToFirstLines(filtered, 15);
+    }
     const fromChangelog = await loadChangelog();
-    if (fromChangelog.trim()) return extractLatestChangelogSection(fromChangelog, currentVersion);
+    if (fromChangelog.trim()) {
+        const filtered = extractLatestChangelogSection(fromChangelog, currentVersion);
+        return truncateToFirstLines(filtered, 15);
+    }
     return '本次更新说明暂未提供。';
 };
 
@@ -245,9 +283,14 @@ const showUpdatePrompt = async (info) => {
         const actualNewVersion = info?.version || '未知版本';
         const displayNewVersion = info?.isDebugTest ? `${actualNewVersion} (测试模式)` : actualNewVersion;
         
-        const notes = info?.isDebugTest 
-            ? "【测试环境】此弹窗用于测试更新流程。点击“直接下载”将真实去 GitHub 拉取当前版本的安装包以测试进度条和后续逻辑。" 
-            : await resolveUpdateNotes(info, currentVersion);
+        const resolvedNotes = await resolveUpdateNotes(info, currentVersion);
+        const notes = info?.isDebugTest
+            ? [
+                '【测试环境】当前内容来自 GitHub latest release，用于验证线上更新说明展示。',
+                '',
+                resolvedNotes
+            ].join('\n')
+            : resolvedNotes;
 
         const message = [
             `发现新版本：${displayNewVersion}`,
@@ -427,10 +470,12 @@ const runUpdateCheck = ({ force = false, showUpToDateWhenNoUpdate = false } = {}
     }
 
     if (DEBUG_FORCE_UPDATE_PROMPT) {
-        return showUpdatePrompt({ 
-            version: app.getVersion(), 
-            isDebugTest: true 
-        }).catch(err => console.error(err));
+        return loadLatestReleaseInfoFromGithub()
+            .then((debugInfo) => showUpdatePrompt(debugInfo || {
+                version: app.getVersion(),
+                isDebugTest: true
+            }))
+            .catch(err => console.error(err));
     }
 
     pendingUpToDateDialog = showUpToDateWhenNoUpdate === true;
