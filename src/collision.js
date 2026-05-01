@@ -318,52 +318,8 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
         }
 
         const keepCount = Math.ceil(visibleAfterCollision.length * lowZoomLabelKeepRatio);
-        if (keepCount >= visibleAfterCollision.length) {
-            visibleAfterCollision.forEach((label) => {
-                label.el.style.display = 'block';
-            });
-            return;
-        }
-
-        // 按屏幕网格做轮询抽样：先每格取一个，再第二轮每格取一个，直到达到 keepCount。
-        // 这样比“直接保留前半”在视觉上更均匀。
-        const sampleCellPx = Math.max(gridCellPx, 120);
-        const bucketMap = new Map();
-        const bucketOrder = [];
-
         visibleAfterCollision.forEach((label, index) => {
-            let key = `idx:${index}`;
-            if (Array.isArray(label.coordinates) && label.coordinates.length >= 2) {
-                const p = map.project(label.coordinates);
-                const cx = Math.floor(p.x / sampleCellPx);
-                const cy = Math.floor(p.y / sampleCellPx);
-                key = `${cx},${cy}`;
-            }
-
-            if (!bucketMap.has(key)) {
-                bucketMap.set(key, []);
-                bucketOrder.push(key);
-            }
-            bucketMap.get(key).push(label);
-        });
-
-        const kept = new Set();
-        let round = 0;
-        while (kept.size < keepCount) {
-            let progressed = false;
-            for (const key of bucketOrder) {
-                const bucket = bucketMap.get(key);
-                if (!bucket || round >= bucket.length) continue;
-                kept.add(bucket[round]);
-                progressed = true;
-                if (kept.size >= keepCount) break;
-            }
-            if (!progressed) break;
-            round++;
-        }
-
-        visibleAfterCollision.forEach((label) => {
-            label.el.style.display = kept.has(label) ? 'block' : 'none';
+            label.el.style.display = index < keepCount ? 'block' : 'none';
         });
     }
 
