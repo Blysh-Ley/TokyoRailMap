@@ -4063,7 +4063,7 @@ export function createPanel(options = {}) {
                             const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.tripKey)}"` : '';
                             const rawTypeColor = toText(r.typeColor);
                             const badgeBg = r.isPast ? '#c3c7cd' : (rawTypeColor || '#767676');
-                            const badgeFg = resolvePanelBadgeTextColor(badgeBg);
+                            const badgeFg = r.isPast ? '#eee' : resolvePanelBadgeTextColor(badgeBg);
                             const typeStyle = ` style="--panel-type-badge-bg:${escapeHtml(badgeBg)};--panel-type-badge-fg:${escapeHtml(badgeFg)}"`;
                             const destText = toText(r.terminalDisplayName || r.destName || r.terminalName);
                             return `
