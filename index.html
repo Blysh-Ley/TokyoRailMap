@@ -2940,7 +2940,6 @@
             background: #fff;
         }
 
-        /* 新增：面板日期显示，仅显示月/日，例如 04月08日 */
         .panel-date {
             display: inline-flex;
             align-items: center;
@@ -2956,11 +2955,12 @@
 
         .panel-date-picker-input {
             position: fixed;
+            top: 30px;
             width: 1px;
             height: 1px;
             opacity: 0;
             pointer-events: none;
-            border: 0;
+            border-radius: 0;
             padding: 0;
             margin: 0;
         }
@@ -3302,10 +3302,6 @@
                 padding-top:3px;
             }
 
-            .settings-top-timebar .settings-time-ops {
-                gap: 4px;
-            }
-
             .settings-top-timebar .settings-time-input {
                 width: 40px;
                 border: none;
@@ -3328,7 +3324,6 @@
             .settings-time-ops {
                 display: inline-flex;
                 align-items: center;
-                gap: 6px;
                 position: relative;
             }
 

@@ -1692,7 +1692,8 @@ export function createPanel(options = {}) {
     const formatPanelDateText = (date) => {
         const mm = String(date.getMonth() + 1).padStart(2, '0');
         const dd = String(date.getDate()).padStart(2, '0');
-        return `${mm}月${dd}日`;
+        const dayType = (typeof isSaturdayHoliday === 'function' && isSaturdayHoliday(date) === 'SaturdayHoliday') ? '休息日' : '工作日';
+        return `${dayType} ${mm}月${dd}日`;
     };
 
     const formatDateInputValue = (date) => {
