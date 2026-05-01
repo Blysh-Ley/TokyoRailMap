@@ -2970,7 +2970,7 @@ map.on('load', async () => {
 
         const text = document.createElement('span');
         text.className = 'settings-item-title';
-        text.textContent = '站名';
+        text.textContent = '站名显示';
 
         const seg = document.createElement('div');
         seg.className = 'settings-item-control settings-seg';
@@ -3362,7 +3362,7 @@ map.on('load', async () => {
 
         const text = document.createElement('span');
         text.className = 'settings-item-title';
-        text.textContent = '悬浮预览';
+        text.textContent = '自动预览';
 
         const seg = document.createElement('div');
         seg.className = 'settings-item-control settings-seg';
