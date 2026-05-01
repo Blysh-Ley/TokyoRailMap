@@ -2718,6 +2718,7 @@
 
 
         let collapseTimer = null;
+        let enterTimer = null;
         const expand = () => {
             if (collapseTimer) {
                 window.clearTimeout(collapseTimer);
@@ -2747,9 +2748,22 @@
                 window.clearTimeout(collapseTimer);
                 collapseTimer = null;
             }
-            expand();
+            if (enterTimer) {
+                window.clearTimeout(enterTimer);
+                enterTimer = null;
+            }
+            enterTimer = window.setTimeout(() => {
+                enterTimer = null;
+                expand();
+            }, 100);
         });
-        root.addEventListener('mouseleave', () => scheduleCollapse());
+        root.addEventListener('mouseleave', () => {
+            if (enterTimer) {
+                window.clearTimeout(enterTimer);
+                enterTimer = null;
+            }
+            scheduleCollapse();
+        });
 
         fab.addEventListener('pointerdown', (evt) => {
             evt.preventDefault?.();

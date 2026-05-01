@@ -2234,6 +2234,7 @@ map.on('load', async () => {
         document.body.appendChild(root);
 
         let collapseTimer = null;
+        let enterTimer = null;
 
         const expand = () => {
             if (collapseTimer) {
@@ -2266,13 +2267,24 @@ map.on('load', async () => {
                 window.clearTimeout(collapseTimer);
                 collapseTimer = null;
             }
-            expand();
+            if (enterTimer) {
+                window.clearTimeout(enterTimer);
+                enterTimer = null;
+            }
+            enterTimer = window.setTimeout(() => {
+                enterTimer = null;
+                expand();
+            }, 100);
         });
 
         root.addEventListener('mouseleave', (evt) => {
             const toEl = evt?.relatedTarget;
             if (toEl && toEl instanceof Element && toEl.closest('.settings-time-picker')) return;
             if (window.__TokyoRailTimePickerOpen === true) return;
+            if (enterTimer) {
+                window.clearTimeout(enterTimer);
+                enterTimer = null;
+            }
             scheduleCollapse();
         });
 
