@@ -39,6 +39,16 @@ const STATION_TOKEN_UENO = 'Ueno';
 const STATION_TOKEN_SHIBUYA = 'Shibuya';
 const STATION_TOKEN_SHINJUKU = 'Shinjuku';
 
+const isSaturdayHoliday = (day) => {
+    const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+    const isHoliday = JapaneseHolidays.isHoliday(day);
+    const month = day.getMonth() + 1;
+    const date = day.getDate();
+    const isNewYearHoliday = (month === 12 && date >= 30) || (month === 1 && date <= 3);
+    const isSH = isWeekend || isHoliday || isNewYearHoliday;
+    return isSH ? 'SaturdayHoliday' : 'Weekday';
+}
+
 const enhancePanelLineHeaderIcons = async (rootEl) => {
     if (!(rootEl instanceof Element)) return;
     const names = rootEl.querySelectorAll('.panel-line-name');
@@ -1671,6 +1681,52 @@ export function createPanel(options = {}) {
     timeOverlay.className = 'settings-top-timebar';
     timeOverlay.style.display = 'flex';
     timeOverlay.appendChild(daySeg);
+
+    // 新增：在原 panel-day-seg 位置插入日期面板（显示 MM月DD日），并保留原 panel-day-seg（已隐藏）
+    const datePanel = document.createElement('div');
+    datePanel.className = 'panel-date';
+    datePanel.setAttribute('role', 'button');
+    datePanel.setAttribute('tabindex', '0');
+    datePanel.setAttribute('aria-label', '选择日期');
+
+    const formatPanelDateText = (date) => {
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        return `${mm}月${dd}日`;
+    };
+
+    const formatDateInputValue = (date) => {
+        const y = String(date.getFullYear());
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        return `${y}-${mm}-${dd}`;
+    };
+
+    const parseDateInputValue = (value) => {
+        const s = toText(value);
+        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!m) return null;
+        const y = Number(m[1]);
+        const mo = Number(m[2]);
+        const d = Number(m[3]);
+        if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
+        if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+        const parsed = new Date(y, mo - 1, d);
+        if (parsed.getFullYear() !== y || (parsed.getMonth() + 1) !== mo || parsed.getDate() !== d) return null;
+        return parsed;
+    };
+
+    const datePickerInput = document.createElement('input');
+    datePickerInput.type = 'date';
+    datePickerInput.className = 'panel-date-picker-input';
+
+    const initialDate = new Date();
+    datePanel.textContent = formatPanelDateText(initialDate);
+    datePickerInput.value = formatDateInputValue(initialDate);
+
+    timeOverlay.appendChild(datePanel);
+    timeOverlay.appendChild(datePickerInput);
+
     timeOverlay.appendChild(timeControl);
     timeOverlay.addEventListener('pointerdown', (e) => stopPropagationOnly(e), { passive: true });
     timeOverlay.addEventListener('pointermove', (e) => stopPropagationOnly(e), { passive: true });
@@ -1681,7 +1737,6 @@ export function createPanel(options = {}) {
     timeOverlay.style.zIndex = 5000;
     document.body.appendChild(timeOverlay);
 
-    // 右侧 panel 左侧弹出的班次详情面板
     const tripDetailRoot = document.createElement('div');
     tripDetailRoot.className = 'panel-trip-detail is-hidden';
     tripDetailRoot.setAttribute('data-panel-trip-detail', '');
@@ -1776,15 +1831,16 @@ export function createPanel(options = {}) {
     let currentStationId = null;
     let currentStationNameZh = '';
     let stationRenderToken = 0;
+    let currentServiceDay = 'SaturdayHoliday';
 
-    // 时刻表日类型过滤
-    let currentServiceDay = 'Weekday'; // 'Weekday' | 'SaturdayHoliday'
+    let day = new Date();
+    currentServiceDay = isSaturdayHoliday(day);
 
-    // 可选：覆盖显示的“当前时间”（HH:MM）；为空则使用真实时间
     let currentNowOverrideHHMM = '';
     let isAutoNowClock = true;
     let autoNowClockTimerId = null;
     let isPanelVisible = false;
+    let currentPanelDate = new Date();
     const getDisplayNowMs = () => {
         const baseNowMs = Date.now();
         const hhmm = toText(currentNowOverrideHHMM);
@@ -2550,6 +2606,8 @@ export function createPanel(options = {}) {
 
     const applyDayToggleUi = () => {
         const day = currentServiceDay;
+        daySeg.classList.remove('Weekday', 'SaturdayHoliday');
+        daySeg.classList.add(day === 'Weekday' ? 'Weekday' : 'SaturdayHoliday');
         btnWeekday.classList.toggle('is-active', day === 'Weekday');
         btnHoliday.classList.toggle('is-active', day === 'SaturdayHoliday');
     };
@@ -2584,6 +2642,32 @@ export function createPanel(options = {}) {
         setServiceDay('SaturdayHoliday');
     });
     applyDayToggleUi();
+
+    const applyPanelDateSelection = (pickedDate) => {
+        if (!(pickedDate instanceof Date) || Number.isNaN(pickedDate.getTime())) return;
+        currentPanelDate = new Date(pickedDate.getTime());
+        datePanel.textContent = formatPanelDateText(currentPanelDate);
+        datePickerInput.value = formatDateInputValue(currentPanelDate);
+        setServiceDay(isSaturdayHoliday(currentPanelDate));
+    };
+
+    const openDatePicker = (evt) => {
+        stopEvent(evt);
+        datePickerInput.showPicker();
+    };
+
+    datePanel.addEventListener('click', openDatePicker, { passive: false });
+    datePanel.addEventListener('keydown', (evt) => {
+        const key = toText(evt?.key);
+        if (key !== 'Enter' && key !== ' ') return;
+        openDatePicker(evt);
+    }, { passive: false });
+
+    datePickerInput.addEventListener('change', (evt) => {
+        const picked = parseDateInputValue(evt?.target?.value);
+        if (!picked) return;
+        applyPanelDateSelection(picked);
+    });
 
     timeInput.addEventListener('input', (e) => {
         stopEvent(e);

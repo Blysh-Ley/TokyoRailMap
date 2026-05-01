@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <title>东京铁路网</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <script src="https://unpkg.com/japanese-holidays/lib/japanese-holidays.min.js"></script>
     
     <!-- 1. 引入 MapLibre GL JS 的 CSS 和 JS -->
     <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
@@ -2931,11 +2932,37 @@
         }
 
         .panel-day-seg {
-            display: inline-flex;
+            display: none !important;
+            pointer-events: none;
             border: 1px solid #e3e5e7;
             border-radius: 9999px;
             overflow: hidden;
             background: #fff;
+        }
+
+        /* 新增：面板日期显示，仅显示月/日，例如 04月08日 */
+        .panel-date {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            padding-left: 6px;
+            padding-right: 0px;
+            font-size: 15px;
+            color: var(--ui-text, #111);
+            border-radius: 12px;
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .panel-date-picker-input {
+            position: fixed;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+            border: 0;
+            padding: 0;
+            margin: 0;
         }
 
         .panel-day-seg button {
