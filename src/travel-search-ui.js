@@ -6,6 +6,7 @@ import {
     getGroupStops,
     filterNearbyStops,
     getNearbyStationsForJourneyPick,
+    shouldBlockJourneyPlanning,
     sameSet,
     getStationNameById,
     isThroughLegPairByMeta,
@@ -806,6 +807,8 @@ export function mountTravelSearchUI() {
     let selectedDestinationCandidateIds = [];
     let selectedOriginCandidateMeta = [];
     let selectedDestinationCandidateMeta = [];
+    let selectedOriginLngLat = null;
+    let selectedDestinationLngLat = null;
     let composingOrigin = false;
     let composingDestination = false;
     let mapPickTarget = null; // 'origin' | 'destination' | null
@@ -899,9 +902,11 @@ export function mountTravelSearchUI() {
         if (key === 'origin') {
             selectedOriginId = resolvedId || '';
             selectedOriginCandidateIds = [];
+            selectedOriginLngLat = null;
         } else {
             selectedDestinationId = resolvedId || '';
             selectedDestinationCandidateIds = [];
+            selectedDestinationLngLat = null;
         }
 
         try {
@@ -940,10 +945,12 @@ export function mountTravelSearchUI() {
             selectedOriginId = '';
             selectedOriginCandidateIds = candidateIds;
             selectedOriginCandidateMeta = candidateMeta;
+            selectedOriginLngLat = [Number(lngLat?.lng ?? lngLat?.[0]), Number(lngLat?.lat ?? lngLat?.[1])];
         } else {
             selectedDestinationId = '';
             selectedDestinationCandidateIds = candidateIds;
             selectedDestinationCandidateMeta = candidateMeta;
+            selectedDestinationLngLat = [Number(lngLat?.lng ?? lngLat?.[0]), Number(lngLat?.lat ?? lngLat?.[1])];
         }
 
         try {
@@ -2268,6 +2275,18 @@ export function mountTravelSearchUI() {
                 ? selectedDestinationCandidateIds.map((x) => normalizeText(x)).filter(Boolean)
                 : (destinationId ? [destinationId] : [])
         )).slice(0, 3);
+
+        const bothStationPicks = Boolean(originId && destinationId);
+        const bothCoordinatePicks = !originId && !destinationId && Array.isArray(selectedOriginCandidateIds) && selectedOriginCandidateIds.length > 0 && Array.isArray(selectedDestinationCandidateIds) && selectedDestinationCandidateIds.length > 0;
+
+        const stationPickBlocked = bothStationPicks && shouldBlockJourneyPlanning({ originStationId: originId, destinationStationId: destinationId });
+        const coordinatePickBlocked = bothCoordinatePicks && shouldBlockJourneyPlanning({ originLngLat: selectedOriginLngLat, destinationLngLat: selectedDestinationLngLat, maxDistanceMeters: 500 });
+
+        if (stationPickBlocked || coordinatePickBlocked) {
+            clearPlanList();
+            showPlanMessage('出发站和终点站不能是同一个站');
+            return;
+        }
 
         if (!originSeeds.length || !destinationSeeds.length) {
             if (!normalizeText(originInput.value) && !normalizeText(destinationInput.value)) {

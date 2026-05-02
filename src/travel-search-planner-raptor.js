@@ -228,7 +228,7 @@ export const isThroughLegPairByMeta = ({ currentLeg, nextLeg }) => {
 
 const toRadians = (deg) => (Number(deg) * Math.PI) / 180;
 
-const distanceMeters = (coordA, coordB) => {
+export const distanceMeters = (coordA, coordB) => {
     if (!Array.isArray(coordA) || !Array.isArray(coordB) || coordA.length < 2 || coordB.length < 2) return INF_TIME;
     const lng1 = Number(coordA[0]);
     const lat1 = Number(coordA[1]);
@@ -243,6 +243,20 @@ const distanceMeters = (coordA, coordB) => {
         Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
+};
+
+export const shouldBlockJourneyPlanning = ({ originStationId, destinationStationId, originLngLat = null, destinationLngLat = null, maxDistanceMeters = 500 } = {}) => {
+    const originId = normalizeText(originStationId);
+    const destinationId = normalizeText(destinationStationId);
+    if (!originId || !destinationId) return false;
+    if (originId === destinationId || isSamePhysicalStop(originId, destinationId)) return true;
+
+    const originCoords = Array.isArray(originLngLat) ? originLngLat : null;
+    const destinationCoords = Array.isArray(destinationLngLat) ? destinationLngLat : null;
+    if (!originCoords || !destinationCoords) return false;
+
+    const dist = distanceMeters(originCoords, destinationCoords);
+    return Number.isFinite(dist) && dist <= Number(maxDistanceMeters);
 };
 
 export const ensurePlannerStaticData = async () => {
@@ -2163,7 +2177,7 @@ export async function findPath(startStopId, endStopId, startTime) {
     const destinationId = normalizeText(endStopId);
     const departureMs = Number.isFinite(Number(startTime)) ? Number(startTime) : Date.now();
 
-    if (!originId || !destinationId || originId === destinationId) return null;
+    if (!originId || !destinationId || shouldBlockJourneyPlanning({ originStationId: originId, destinationStationId: destinationId })) return null;
 
     await ensurePlannerStaticData();
 
