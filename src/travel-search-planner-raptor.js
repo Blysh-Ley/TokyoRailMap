@@ -2060,10 +2060,14 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
 };
 
 
-export const collectJourneyCandidatesRaptor = async ({ sourceStops, destinationStops, serviceDay, baseDepartureMs }) => {
+export const collectJourneyCandidatesRaptor = async ({ sourceStops, destinationStops, serviceDay, baseDepartureMs, originWalkMin = null, destWalkMin = null }) => {
     await ensurePlannerStaticData();
 
-    const offsetsMin = [0, 10];
+    // 默认偏移为 [0,10]。当起点为坐标并提供了步行分钟数时，使用该分钟数作为唯一偏移
+    let offsetsMin = [0, 10];
+    if (Number.isFinite(Number(originWalkMin)) && originWalkMin > 0) {
+        offsetsMin = [Math.max(0, Math.round(Number(originWalkMin)))];
+    }
 
     const runWithMaxRounds = async (maxRounds, { excludeSurchargeTypes = false } = {}) => {
         const candidates = [];
@@ -2125,6 +2129,25 @@ export const collectJourneyCandidatesRaptor = async ({ sourceStops, destinationS
                 plan.hasSurcharge = planContainsSurcharge(plan);
             });
         }
+    }
+
+    // 如果提供了目的地步行时间，则将其加到方案的到达时间与耗时上（并记录元数据）
+    if (Number.isFinite(Number(destWalkMin)) && destWalkMin > 0) {
+        const addMs = Math.round(Number(destWalkMin)) * 60000;
+        for (const p of sortedPlans) {
+            if (Number.isFinite(p.arrivalMs)) p.arrivalMs = Number(p.arrivalMs) + addMs;
+            if (Number.isFinite(p.durationMs) && Number.isFinite(p.baseDepartureMs)) {
+                p.durationMs = Number(p.arrivalMs) - Number(p.baseDepartureMs);
+            } else if (Number.isFinite(p.durationMs)) {
+                p.durationMs = Number(p.durationMs) + addMs;
+            }
+            p.__walkDestinationMinutes = Number(destWalkMin);
+        }
+    }
+
+    // 如果提供了起点步行时间，记录元信息（搜索时已使用该偏移）
+    if (Number.isFinite(Number(originWalkMin)) && originWalkMin > 0) {
+        for (const p of sortedPlans) p.__walkOriginMinutes = Number(originWalkMin);
     }
     return sortedPlans;
 };

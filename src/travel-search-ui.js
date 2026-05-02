@@ -1473,17 +1473,32 @@ export function mountTravelSearchUI() {
         const firstDepMs = Number.isFinite(Number(firstLeg?.depMs))
             ? Number(firstLeg.depMs)
             : (Number.isFinite(Number(row.plan.firstDepMs)) ? Number(row.plan.firstDepMs) : null);
-        const arrivalMs = Number.isFinite(Number(lastLeg?.arrMs))
+        let arrivalMs = Number.isFinite(Number(lastLeg?.arrMs))
             ? Number(lastLeg.arrMs)
             : (Number.isFinite(Number(row.plan.arrivalMs)) ? Number(row.plan.arrivalMs) : null);
+
+        // 如果该行程记录上包含目的地步行分钟元数据，则将步行时间加到到达时间上（用于地图坐标终点）
+        const extraDestWalkMin = Number.isFinite(Number(row?.__walkDestinationMinutes)) ? Number(row.__walkDestinationMinutes) : 0;
+        if (extraDestWalkMin > 0 && Number.isFinite(arrivalMs)) {
+            arrivalMs = arrivalMs + Math.round(extraDestWalkMin) * 60000;
+        }
 
         const baseDepartureMs = Number.isFinite(Number(row?.baseDepartureMs))
             ? Number(row.baseDepartureMs)
             : (Number.isFinite(Number(row?.plan?.baseDepartureMs)) ? Number(row.plan.baseDepartureMs) : null);
 
-        const durationMs = (Number.isFinite(baseDepartureMs) && Number.isFinite(arrivalMs))
+        let durationMs = (Number.isFinite(baseDepartureMs) && Number.isFinite(arrivalMs))
             ? (arrivalMs - baseDepartureMs)
             : ((Number.isFinite(firstDepMs) && Number.isFinite(arrivalMs)) ? (arrivalMs - firstDepMs) : row.plan.durationMs);
+
+        // 若行程包含起点/终点步行分钟，确保 durationMs 也包含这些步行时间
+        const extraOriginWalkMin = Number.isFinite(Number(row?.__walkOriginMinutes)) ? Number(row.__walkOriginMinutes) : 0;
+        if (Number.isFinite(durationMs)) {
+            let extraMs = 0;
+            if (extraOriginWalkMin > 0) extraMs += Math.round(extraOriginWalkMin) * 60000;
+            if (extraDestWalkMin > 0) extraMs += Math.round(extraDestWalkMin) * 60000;
+            if (extraMs > 0) durationMs = Number(durationMs) + extraMs;
+        }
 
         const sections = Array.isArray(row?.plan?.sections) ? row.plan.sections : [];
         let transfers = 0;
@@ -1835,9 +1850,10 @@ export function mountTravelSearchUI() {
             img.style.verticalAlign = 'middle';
             try { setJourneyIconFromCache(img, 'walk.svg'); } catch {}
             title.appendChild(img);
+            // 根据 isDestination 来区分行内显示“起始站”还是“终点”
             const txt = isDestination
-                ? ` 步行${Math.max(0, Math.round(Number(minutes)))}分钟至终点`
-                : ` 步行${Math.max(0, Math.round(Number(minutes)))}分钟至${toText || '起始站'}站`;
+                ? ` ${Math.max(0, Math.round(Number(minutes)))}分 至终点`
+                : ` ${Math.max(0, Math.round(Number(minutes)))}分 至${toText || '起始站'}站`;
             title.appendChild(document.createTextNode(txt));
             rowEl.appendChild(title);
             return rowEl;
@@ -2225,12 +2241,14 @@ export function mountTravelSearchUI() {
         return { serviceDayStartMs, departureMs: depMs };
     };
 
-    const collectJourneyCandidates = async ({ sourceStops, destinationStops, serviceDay, baseDepartureMs }) => {
+    const collectJourneyCandidates = async ({ sourceStops, destinationStops, serviceDay, baseDepartureMs, originWalkMin = null, destWalkMin = null } = {}) => {
         const plans = await collectJourneyCandidatesRaptor({
             sourceStops,
             destinationStops,
             serviceDay,
-            baseDepartureMs
+            baseDepartureMs,
+            originWalkMin,
+            destWalkMin
         });
         return Array.isArray(plans) ? plans : [];
     };
@@ -2304,35 +2322,35 @@ export function mountTravelSearchUI() {
                 destinationStops.add(destinationStationId);
                 if (!destinationStops.size || sameSet(sourceStops, destinationStops)) continue;
 
+                // 为当前候选站对计算可能的起/终点步行分钟（来自地图候选 meta）并传入 planner
+                const oMeta = (Array.isArray(selectedOriginCandidateMeta) ? selectedOriginCandidateMeta : []).find((m) => normalizeText(m?.stationId) === normalizeText(originStationId));
+                const dMeta = (Array.isArray(selectedDestinationCandidateMeta) ? selectedDestinationCandidateMeta : []).find((m) => normalizeText(m?.stationId) === normalizeText(destinationStationId));
+                const originWalkMin = Number.isFinite(Number(oMeta?.walkMinutes)) ? Number(oMeta.walkMinutes) : null;
+                const destWalkMin = Number.isFinite(Number(dMeta?.walkMinutes)) ? Number(dMeta.walkMinutes) : null;
+
                 const plans = await collectJourneyCandidates({
                     sourceStops,
                     destinationStops,
                     serviceDay,
-                    baseDepartureMs: departureMs
+                    baseDepartureMs: departureMs,
+                    originWalkMin,
+                    destWalkMin
                 });
 
                 if (token !== planComputeToken) return;
                 if (!Array.isArray(plans) || !plans.length) continue;
 
                 if (coordinateMode) {
-                    // 坐标模式：对每对候选站只取最短的方案，并把估算的步行时间加入到 duration
+                    // 坐标模式：只取每对候选站中最短的方案（planner 已考虑起点偏移并可选把终点步行时间加到 arrival）
                     const shortestPlan = plans.slice().sort((a, b) => a.durationMs - b.durationMs || a.transfers - b.transfers || a.arrivalMs - b.arrivalMs)[0] || null;
                     if (!shortestPlan) continue;
-                    const oMeta = (Array.isArray(selectedOriginCandidateMeta) ? selectedOriginCandidateMeta : []).find((m) => normalizeText(m?.stationId) === normalizeText(originStationId));
-                    const dMeta = (Array.isArray(selectedDestinationCandidateMeta) ? selectedDestinationCandidateMeta : []).find((m) => normalizeText(m?.stationId) === normalizeText(destinationStationId));
-                    const originWalkMin = Number.isFinite(Number(oMeta?.walkMinutes)) ? Number(oMeta.walkMinutes) : 0;
-                    const destWalkMin = Number.isFinite(Number(dMeta?.walkMinutes)) ? Number(dMeta.walkMinutes) : 0;
 
-                    try {
-                        if (Number.isFinite(shortestPlan.durationMs)) shortestPlan.durationMs = Number(shortestPlan.durationMs) + (originWalkMin + destWalkMin) * 60000;
-                        if (Number.isFinite(shortestPlan.arrivalMs)) shortestPlan.arrivalMs = Number(shortestPlan.arrivalMs) + destWalkMin * 60000;
-                    } catch (e) {}
-
-                    shortestPlan.__walkOriginMinutes = originWalkMin;
-                    shortestPlan.__walkDestinationMinutes = destWalkMin;
+                    // 确保元数据存在（planner 也会尝试设置）
+                    shortestPlan.__walkOriginMinutes = Number.isFinite(Number(originWalkMin)) ? Number(originWalkMin) : (Number.isFinite(Number(shortestPlan.__walkOriginMinutes)) ? shortestPlan.__walkOriginMinutes : 0);
+                    shortestPlan.__walkDestinationMinutes = Number.isFinite(Number(destWalkMin)) ? Number(destWalkMin) : (Number.isFinite(Number(shortestPlan.__walkDestinationMinutes)) ? shortestPlan.__walkDestinationMinutes : 0);
 
                     pairBestPlans.push(shortestPlan);
-                    pairBestWrappers.push({ plan: shortestPlan, originStationId, destinationStationId, originWalkMin, destWalkMin });
+                    pairBestWrappers.push({ plan: shortestPlan, originStationId, destinationStationId, originWalkMin: shortestPlan.__walkOriginMinutes, destWalkMin: shortestPlan.__walkDestinationMinutes });
                 } else {
                     // 站点模式（两端均为明确站点）：保留该对的所有优选 bucket（多个备选）以供汇总选择
                     try {
@@ -2905,15 +2923,11 @@ export function mountTravelSearchUI() {
 
     tripPopover.addEventListener('mouseenter', () => {
         cancelHideTripPopover();
-        cancelHidePlanPreview();
         cancelTripPopoverHover();
     });
     tripPopover.addEventListener('mouseleave', () => {
         if (!pinnedTripPopoverKey) {
             scheduleHideTripPopover();
-        }
-        if (!pinnedPlanPreviewKey) {
-            scheduleClearJourneyPlanPreview(120);
         }
     });
     tripCaptureBtn.addEventListener('click', async (evt) => {
