@@ -487,11 +487,13 @@ export class Menu {
 
             const logoFile = this.companyLogoMap?.[companyName]?.img?.[0];
             const logoWidth = this.companyLogoMap?.[companyName]?.img?.[1] || 28;
+            const shouldReverseLogo = !!this.companyLogoMap?.[companyName]?.reverse;
             let rightEl;
 
             if (logoFile) {
                 const img = document.createElement('img');
                 img.className = 'RW-company-logo';
+                if (shouldReverseLogo) img.classList.add('reverse-color');
                 img.alt = companyName;
                 const candidates = getCompanyLogoCandidates(logoFile);
                 setImageElementFromCache(img, candidates, {
