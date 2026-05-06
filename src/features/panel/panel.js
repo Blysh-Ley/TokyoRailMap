@@ -906,6 +906,8 @@ export function createPanel(options = {}) {
     const isMultiSelectModeEnabled = () => getMultiSelectModeEnabled ? getMultiSelectModeEnabled() === true : false;
 
     let currentLineGroupByMainId = new Map();
+    let currentStationsIndex = null;
+    let currentLineStationMetaByLineId = new Map();
 
     const buildTransferLineStationNameMap = async ({ stationId, stationNameZh, servingLineIds, lineGroupByMainId }) => {
         const sid = toText(stationId);
@@ -966,9 +968,8 @@ export function createPanel(options = {}) {
                     ? transferNameRaw
                     : '';
 
-                // code 可独立于 suffix 存在：无异名后缀时也允许显示站点 code badge
-                if (!transferName && !transferCode) continue;
-                out.set(lineId, { name: transferName, code: transferCode });
+                // 保留 stationId，供目录滚动时同步标题使用；name/code 继续只影响副标题展示
+                out.set(lineId, { stationId: candidateId, name: transferName, code: transferCode });
             }
         } catch {
             return out;
@@ -1555,6 +1556,15 @@ export function createPanel(options = {}) {
         }
     };
 
+    const syncPanelTitleForActiveLine = (activeLineId = '') => {
+        const lineId = toText(activeLineId);
+        const meta = lineId ? currentLineStationMetaByLineId.get(lineId) : null;
+        const stationId = toText(meta?.stationId || currentStationId);
+        const stationNameZh = toText(currentStationsIndex?.idToNameZh?.get?.(stationId) || currentStationNameZh || '');
+        const stationNameEn = toText(currentStationsIndex?.idToNameEn?.get?.(stationId) || '');
+        setTitle({ main: stationNameZh, sub: stationNameEn });
+    };
+
     const syncCatalogActiveLine = () => {
         if (!(catalogBody instanceof Element)) return;
         if (!catalogPanel.classList.contains('is-visible')) return;
@@ -1575,12 +1585,12 @@ export function createPanel(options = {}) {
         }
 
         const bodyRect = body.getBoundingClientRect();
-        const probeY = bodyRect.top + 12;
+        const activeTopThreshold = bodyRect.top - 100;
         let activeLineId = '';
         for (const lineEl of lineEls) {
             if (!(lineEl instanceof Element)) continue;
             const rect = lineEl.getBoundingClientRect();
-            if (rect.bottom >= probeY) {
+            if (rect.top >= activeTopThreshold) {
                 activeLineId = toText(lineEl.getAttribute('data-line-id'));
                 break;
             }
@@ -1591,6 +1601,7 @@ export function createPanel(options = {}) {
         }
 
         setCatalogActiveLine(activeLineId);
+        syncPanelTitleForActiveLine(activeLineId);
     };
 
     const setCatalogCompactMode = (compact) => {
@@ -1660,6 +1671,7 @@ export function createPanel(options = {}) {
         catalogForcedActiveLineId = lineId;
         catalogForcedActiveUntilMs = Date.now() + 2000;
         setCatalogActiveLine(lineId);
+        syncPanelTitleForActiveLine(lineId);
         scrollToLineId(lineId, { behavior: 'smooth', block: 'start' });
     }, { passive: false });
 
@@ -7103,6 +7115,7 @@ export function createPanel(options = {}) {
         currentStationId = toText(props?.id);
         currentStationNameZh = toText(props?.name_zh || props?.['name:zh'] || name);
         const stationIndex = await getStationsIndex();
+        currentStationsIndex = stationIndex;
         const currentStationNameEn = toText(stationIndex?.idToNameEn?.get?.(currentStationId) || props?.title?.en || props?.title?.['en-US'] || '');
         setTitle({ main: name, sub: currentStationNameEn });
 
@@ -7210,6 +7223,7 @@ export function createPanel(options = {}) {
             servingLineIds: displayServingIds,
             lineGroupByMainId: currentLineGroupByMainId
         });
+        currentLineStationMetaByLineId = lineStationNameByLineId;
         if (renderToken !== stationRenderToken) return;
 
         // 渲染 popup 同结构的内容（公司分组 + 线路）
@@ -7223,6 +7237,7 @@ export function createPanel(options = {}) {
         // 这里等待渲染完成，避免外部随后执行的 scrollToLineId 被后续异步渲染“拉回顶部”。
         await renderAllTimetables();
         scheduleCatalogRefresh();
+        syncPanelTitleForActiveLine();
 
         void debugExtractShonanShinjukuUenoTokyoTrips({
             stationId: currentStationId,
