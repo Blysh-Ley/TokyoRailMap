@@ -505,6 +505,11 @@ const pickTitleZhHans = (titleObj) => {
     return toText(t['zh-Hans'] || t.zh || t.ja || t.en || '');
 };
 
+const pickTitleEn = (titleObj) => {
+    const t = titleObj || {};
+    return toText(t.en || t['en-US'] || t['en-GB'] || '');
+};
+
 let stationsIndexPromise = null;
 const getStationsIndex = async () => {
     if (stationsIndexPromise) return stationsIndexPromise;
@@ -512,6 +517,7 @@ const getStationsIndex = async () => {
         try {
             const list = await getCachedJson('./data/stations.json');
             const idToNameZh = new Map();
+            const idToNameEn = new Map();
             const idToCode = new Map();
             const stationIdByRailwayAndNameZh = new Map();
             for (const s of Array.isArray(list) ? list : []) {
@@ -519,8 +525,10 @@ const getStationsIndex = async () => {
                 if (!id) continue;
                 const railway = toText(s?.railway);
                 const name = pickTitleZhHans(s?.title) || id;
+                const nameEn = pickTitleEn(s?.title);
                 const code = toText(s?.title?.code || '');
                 idToNameZh.set(id, name);
+                if (nameEn) idToNameEn.set(id, nameEn);
                 if (code) idToCode.set(id, code);
 
                 if (railway && name) {
@@ -530,9 +538,9 @@ const getStationsIndex = async () => {
                     }
                 }
             }
-            return { idToNameZh, idToCode, stationIdByRailwayAndNameZh };
+            return { idToNameZh, idToNameEn, idToCode, stationIdByRailwayAndNameZh };
         } catch {
-            return { idToNameZh: new Map(), idToCode: new Map(), stationIdByRailwayAndNameZh: new Map() };
+            return { idToNameZh: new Map(), idToNameEn: new Map(), idToCode: new Map(), stationIdByRailwayAndNameZh: new Map() };
         }
     })();
     return stationsIndexPromise;
@@ -907,12 +915,22 @@ export function createPanel(options = {}) {
         const out = new Map();
         if (!sid || !lineIds.length) return out;
 
+        const getGroupNameCount = (stationsIndex, ids) => {
+            const list = Array.isArray(ids) ? ids : [];
+            return new Set(
+                list
+                    .map((id) => toText(stationsIndex?.idToNameZh?.get?.(id) || ''))
+                    .filter(Boolean)
+            ).size;
+        };
+
         try {
             const [groupsIndex, stationsIndex] = await Promise.all([getStationGroupsIndex(), getStationsIndex()]);
             const groupIdsRaw = groupsIndex?.get?.(sid);
             const groupIds = Array.isArray(groupIdsRaw) && groupIdsRaw.length
                 ? groupIdsRaw.map((x) => toText(x)).filter(Boolean)
                 : [sid];
+            const currentStationHasMultipleNames = getGroupNameCount(stationsIndex, groupIds) > 1;
 
             for (const lineId of lineIds) {
                 const sourceLineIds = Array.from(new Set([
@@ -937,9 +955,16 @@ export function createPanel(options = {}) {
 
                 if (!candidateId) continue;
 
+                const candidateGroupIdsRaw = groupsIndex?.get?.(candidateId);
+                const candidateGroupIds = Array.isArray(candidateGroupIdsRaw) && candidateGroupIdsRaw.length
+                    ? candidateGroupIdsRaw.map((x) => toText(x)).filter(Boolean)
+                    : [candidateId];
                 const transferNameRaw = toText(stationsIndex?.idToNameZh?.get?.(candidateId) || '');
                 const transferCode = toText(stationsIndex?.idToCode?.get?.(candidateId) || '');
-                const transferName = (clickedName && transferNameRaw === clickedName) ? '' : transferNameRaw;
+                const transferHasMultipleNames = getGroupNameCount(stationsIndex, candidateGroupIds) > 1;
+                const transferName = currentStationHasMultipleNames && transferHasMultipleNames
+                    ? transferNameRaw
+                    : '';
 
                 // code 可独立于 suffix 存在：无异名后缀时也允许显示站点 code badge
                 if (!transferName && !transferCode) continue;
@@ -988,13 +1013,34 @@ export function createPanel(options = {}) {
     const title = document.createElement('div');
     title.setAttribute('data-panel-title', '');
     title.style.flex = '1 1 auto';
-    title.style.fontSize = '30px';
-    title.style.lineHeight = '1.2';
-    title.style.fontWeight = '700';
-    title.style.color = 'var(--ui-text, #111)';
-    title.style.whiteSpace = 'nowrap';
+    title.style.display = 'flex';
+    title.style.flexDirection = 'column';
+    title.style.alignItems = 'flex-start';
+    title.style.minWidth = '0';
     title.style.overflow = 'hidden';
-    title.style.textOverflow = 'ellipsis';
+
+    const titleMain = document.createElement('div');
+    titleMain.className = 'panel-title-main';
+    titleMain.style.fontSize = '30px';
+    titleMain.style.lineHeight = '1.2';
+    titleMain.style.fontWeight = '700';
+    titleMain.style.color = 'var(--ui-text, #111)';
+    titleMain.style.whiteSpace = 'nowrap';
+    titleMain.style.overflow = 'hidden';
+    titleMain.style.textOverflow = 'ellipsis';
+
+    const titleSub = document.createElement('div');
+    titleSub.className = 'panel-title-sub';
+    titleSub.style.fontSize = '15px';
+    titleSub.style.lineHeight = '1.2';
+    titleSub.style.fontWeight = '500';
+    titleSub.style.color = 'var(--ui-text-muted, #666)';
+    titleSub.style.whiteSpace = 'nowrap';
+    titleSub.style.overflow = 'hidden';
+    titleSub.style.textOverflow = 'ellipsis';
+
+    title.appendChild(titleMain);
+    title.appendChild(titleSub);
     header.appendChild(title);
 
     // 右侧控件区：工作日/休息日 + 时间
@@ -1136,7 +1182,7 @@ export function createPanel(options = {}) {
 
     const applyStationToJourneyField = (field) => {
         const stationId = toText(currentStationId);
-        const stationName = toText(currentStationNameZh) || toText(title.textContent);
+        const stationName = toText(currentStationNameZh) || toText(titleMain.textContent);
         if (!stationId && !stationName) return;
 
         try {
@@ -4032,7 +4078,7 @@ export function createPanel(options = {}) {
                 lineId: toText(lineId),
                 dirKey: toText(dirKey),
                 dirLabel: toText(label),
-                stationName: toText(currentStationNameZh) || toText(title.textContent),
+                stationName: toText(currentStationNameZh) || toText(titleMain.textContent),
                 lineName: toText(lineMetaForPrint?.name) || toText(lineId),
                 lineColor: lineColorForPrint,
                 companyName: companyZhForPrint || companyKeyForPrint || '未知公司',
@@ -6317,7 +6363,7 @@ export function createPanel(options = {}) {
         try {
             window.dispatchEvent(new CustomEvent(TIMETABLE_PRINT_ALL_EVENT, {
                 detail: {
-                    stationName: toText(currentStationNameZh) || toText(title.textContent),
+                    stationName: toText(currentStationNameZh) || toText(titleMain.textContent),
                     serviceDay: toText(currentServiceDay),
                     timetableViewMode,
                     pages: payloads
@@ -7022,10 +7068,14 @@ export function createPanel(options = {}) {
         scheduleCatalogRefresh();
     };
 
-    const setTitle = (text) => {
-        title.textContent = toText(text);
+    const setTitle = (text, subtitle = '') => {
+        const mainText = typeof text === 'object' && text !== null ? toText(text.main || text.text || text.name || '') : toText(text);
+        const subText = typeof text === 'object' && text !== null ? toText(text.sub || text.subtitle || '') : toText(subtitle);
+        titleMain.textContent = mainText;
+        titleSub.textContent = subText;
+        titleSub.hidden = !subText;
         try {
-            adjustPanelTitleFit(title);
+            adjustPanelTitleFit(titleMain);
         } catch {
             // ignore
         }
@@ -7061,12 +7111,14 @@ export function createPanel(options = {}) {
     const showForStationProps = async (props) => {
         const renderToken = ++stationRenderToken;
         const name = readStationName(props);
-        setTitle(name);
         catalogHoverEnteredOnce = false;
         setCatalogCompactMode(false);
 
         currentStationId = toText(props?.id);
         currentStationNameZh = toText(props?.name_zh || props?.['name:zh'] || name);
+        const stationIndex = await getStationsIndex();
+        const currentStationNameEn = toText(stationIndex?.idToNameEn?.get?.(currentStationId) || props?.title?.en || props?.title?.['en-US'] || '');
+        setTitle({ main: name, sub: currentStationNameEn });
 
         // 用 serving_ids 驱动交互恢复/公司过滤
         const servingIdsRaw = normalizeArrayLike(props?.serving_ids);
