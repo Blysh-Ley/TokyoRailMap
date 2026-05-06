@@ -5,7 +5,7 @@
 import { cachedFetch } from './fetch.js';
 import {
     buildStationOffsetAlgorithmContext
-} from './offset.js';
+} from '../map/offset.js';
 
 export async function loadGeoJSON(url) {
     const response = await cachedFetch(url);

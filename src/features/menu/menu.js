@@ -13,13 +13,13 @@
  * - logoBasePath: COMPANY_LOGO_BASE_PATH
  */
 
-import { createLineIconElement, ensureLineIconForRwLineContent } from './line-icons.js';
-import { COMPANY_LOGO_BASE_PATH, getCompanyLogoCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from './fetch.js';
+import { createLineIconElement, ensureLineIconForRwLineContent } from '../../lib/line-icons.js';
+import { COMPANY_LOGO_BASE_PATH, getCompanyLogoCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
 import {
     MENU_THROUGH_LINE_IDS,
     THROUGH_SERVICE_DISPLAY
-} from './shonanshinjuku-uenotokyo.js';
-import { isBranchLineId, preferredOrder, resolveMainLineIdByBranchRule } from './special-condition.js';
+} from '../../lib/shonanshinjuku-uenotokyo.js';
+import { isBranchLineId, preferredOrder, resolveMainLineIdByBranchRule } from '../../lib/special-condition.js';
 
 export class Menu {
     constructor({

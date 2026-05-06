@@ -19,16 +19,16 @@ import {
     normalizeHHMM,
     hhmmToOffsetMinutes
 } from './travel-search-planner-raptor.js';
-import { getCachedJson, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from './fetch.js';
+import { getCachedJson, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
 import {
     buildTimetableStationText,
     createTimetableNoteRow,
     createTimetableStationRow
-} from './timetable-table.js';
+} from '../panel/timetable-table.js';
 import {
     detectThroughServiceCategoryFromTrips,
     THROUGH_SERVICE_DISPLAY
-} from './shonanshinjuku-uenotokyo.js';
+} from '../../lib/shonanshinjuku-uenotokyo.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);

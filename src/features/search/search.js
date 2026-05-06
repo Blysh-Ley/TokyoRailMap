@@ -1,7 +1,7 @@
-import { loadRailGeoDataFromDataFolder } from './data.js';
-import { createLineIconElement, getRoutesIndex, resolveMainLineIdForIcon } from './line-icons.js';
-import { resolveLineColorForTheme } from './line-icons.js';
-import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from './fetch.js';
+import { loadRailGeoDataFromDataFolder } from '../../lib/data.js';
+import { createLineIconElement, getRoutesIndex, resolveMainLineIdForIcon } from '../../lib/line-icons.js';
+import { resolveLineColorForTheme } from '../../lib/line-icons.js';
+import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);

@@ -8,7 +8,7 @@
  * - UI is implemented in route-map-ui.js.
  */
 
-import { getCachedJson } from './fetch.js';
+import { getCachedJson } from '../../lib/fetch.js';
 
 const toText = (v) => String(v ?? '').trim();
 

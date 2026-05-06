@@ -1,5 +1,5 @@
 import { getLineMetaByIds } from './search.js';
-import { getCachedJson } from './fetch.js';
+import { getCachedJson } from '../../lib/fetch.js';
 
 const SERVICE_DAY_BOUNDARY_HOUR = 3;
 const INF_TIME = Number.POSITIVE_INFINITY;

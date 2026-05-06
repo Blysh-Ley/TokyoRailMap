@@ -2,8 +2,8 @@
  * 添加线路图层。
  */
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
-import { getCachedJson, getCompanyLogoSrc } from './fetch.js';
-import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from './line-icons.js';
+import { getCachedJson, getCompanyLogoSrc } from '../lib/fetch.js';
+import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from '../lib/line-icons.js';
 import {
     ELEMENT_UI_CONSTANTS,
     isDarkThemeActive,

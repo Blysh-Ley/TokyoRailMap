@@ -3,31 +3,31 @@
  * 约束：不引入新配色/主题；panel 样式使用 panel-* 前缀与 search/popup/menu 隔离。
  */
 
-import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from './train-type-sort.js';
-import { buildTripPreviewKey, createTripPreviewScheduler } from './trip-preview.js';
-import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, resolveMainLineIdForIcon } from './line-icons.js';
+import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from '../../lib/train-type-sort.js';
+import { buildTripPreviewKey, createTripPreviewScheduler } from '../../lib/trip-preview.js';
+import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, resolveMainLineIdForIcon } from '../../lib/line-icons.js';
 import {
     getCachedJson,
     getCompanyLogoSrc,
     getIconCandidates,
     getPreferredCachedImageSrc,
     setImageElementFromCache
-} from './fetch.js';
-import { previewBranchesForLine } from './analyze_branch.js';
+} from '../../lib/fetch.js';
+import { previewBranchesForLine } from '../branch/analyze_branch.js';
 import {
     buildTemporaryThroughServicePanelPlan,
     debugExtractShonanShinjukuUenoTokyoTrips,
     detectThroughServiceCategoryFromTrips,
     TRIGGER_LINE_IDS,
     THROUGH_SERVICE_TEMP_LINE_IDS
-} from './shonanshinjuku-uenotokyo.js';
+} from '../../lib/shonanshinjuku-uenotokyo.js';
 import {
     buildTimetableStationText,
     renderTimetableNoteRowHtml,
     renderTimetablePlainNoteRowHtml,
     renderTimetableStationRowHtml
 } from './timetable-table.js';
-import { isExcludedLineType } from './special-condition.js';
+import { isExcludedLineType } from '../../lib/special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
 

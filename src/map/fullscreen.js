@@ -6,7 +6,7 @@
  * 按 Escape 退出全屏同样恢复 UI。
  */
 
-import { getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from './fetch.js';
+import { getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../lib/fetch.js';
 
 /** @type {boolean} 当前是否处于全屏浏览模式 */
 let isFullscreenMode = false;

@@ -9,21 +9,21 @@ import {
     preloadIcons,
     registerCompanyLogoMap,
     setImageElementFromCache
-} from './fetch.js';
-import { loadRailGeoDataFromDataFolder } from './data.js';
-import { buildStationOffsetGeoJSONAtZoom } from './offset.js';
-import { addLinesLayer, addStationsLayer, setupLineHoverPopup, setupStationPopup } from './layers.js';
-import { createStationMarkers } from './labels.js';
-import { setupCollisions } from './collision.js';
-import { buildTransferCapsuleGeoJSON, addTransferCapsuleLayers, buildTransferCapsuleConnectionOrder } from './transfer-capsules.js';
-import { Menu } from './menu.js';
-import { getGlobalTouchTapGuard } from './touchTapGuard.js';
-import { createPanel } from './panel.js';
-import { getGlobalTimetableCache } from './timetableCache.js';
-import { initFullscreen, isInFullscreenMode } from './fullscreen.js';
-import { extractShortestLoopSegmentByIndex, isLoopDirection } from './trip-preview.js';
-import { previewBranchesForLine } from './analyze_branch.js';
-import { createLineIconElement } from './line-icons.js';
+} from './lib/fetch.js';
+import { loadRailGeoDataFromDataFolder } from './lib/data.js';
+import { buildStationOffsetGeoJSONAtZoom } from './map/offset.js';
+import { addLinesLayer, addStationsLayer, setupLineHoverPopup, setupStationPopup } from './map/layers.js';
+import { createStationMarkers } from './map/labels.js';
+import { setupCollisions } from './map/collision.js';
+import { buildTransferCapsuleGeoJSON, addTransferCapsuleLayers, buildTransferCapsuleConnectionOrder } from './map/transfer-capsules.js';
+import { Menu } from './features/menu/menu.js';
+import { getGlobalTouchTapGuard } from './map/touchTapGuard.js';
+import { createPanel } from './features/panel/panel.js';
+import { getGlobalTimetableCache } from './lib/timetableCache.js';
+import { initFullscreen, isInFullscreenMode } from './map/fullscreen.js';
+import { extractShortestLoopSegmentByIndex, isLoopDirection } from './lib/trip-preview.js';
+import { previewBranchesForLine } from './features/branch/analyze_branch.js';
+import { createLineIconElement } from './lib/line-icons.js';
 import {
     buildBaseLineColorExpr,
     buildFocusedLinePaint,
@@ -35,15 +35,15 @@ import {
     resolveRailColorForTheme,
     tripPreviewLineLayerPaint,
     tripPreviewStopLayerPaint
-} from './element_ui.js';
+} from './map/element_ui.js';
 import {
     MENU_THROUGH_LINE_IDS,
     THROUGH_SERVICE_DISPLAY,
     getMenuThroughCategoryByLineId,
     isMenuThroughLineId
-} from './shonanshinjuku-uenotokyo.js';
-import './route-map-ui.js';
-import { companyLogoMap, resolveLineSelectionByBranchRules } from './special-condition.js';
+} from './lib/shonanshinjuku-uenotokyo.js';
+import './features/route-map/route-map-ui.js';
+import { companyLogoMap, resolveLineSelectionByBranchRules } from './lib/special-condition.js';
 
 initializeFetchCache();
 
