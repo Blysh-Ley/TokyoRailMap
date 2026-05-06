@@ -1,6 +1,7 @@
 import {
     COMPANY_LOGO_BASE_PATH,
     getCachedJson,
+    getCompanyLogoCandidates,
     getIconCandidates,
     getPreferredCachedImageSrc,
     initializeFetchCache,
@@ -1667,6 +1668,23 @@ map.on('load', async () => {
             clearSelectionBadgeIcons();
             const companyKey = String(selectedCompany);
             const companyZh = String(companyLogoMap?.[companyKey]?.zh || '').trim();
+            const logoFile = companyLogoMap?.[companyKey]?.img?.[0];
+            if (logoFile) {
+                const logoIcon = document.createElement('img');
+                logoIcon.className = 'selection-badge-company-logo';
+                logoIcon.alt = companyZh || companyKey;
+                logoIcon.decoding = 'async';
+                logoIcon.loading = 'eager';
+                logoIcon.style.height = '25px';
+                logoIcon.style.width = 'auto';
+                logoIcon.style.maxWidth = '80px';
+                logoIcon.style.display = 'block';
+                logoIcon.style.objectFit = 'contain';
+                selectionBadgeIconEl.appendChild(logoIcon);
+                setImageElementFromCache(logoIcon, getCompanyLogoCandidates(logoFile), {
+                    cacheKey: `companyLogo:${logoFile}`
+                }).catch(() => null);
+            }
             selectionBadgeTextEl.textContent = companyZh || companyKey;
             selectionBadgeTextEl.style.color = isDarkThemeActive() ? '#f2f2f2' : '#111';
             selectionBadgeEl.classList.remove('is-hidden');
