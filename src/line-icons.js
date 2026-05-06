@@ -1,16 +1,3 @@
-/**
- * Line icons (code badges) for RW menu and other UI.
- *
- * - Reads ./data/railways.json and maps route id -> { code, color }
- * - Generates icon styles:
- *   - JR/other: rounded rectangle, thin border
- *   - TokyoMetro/Toei: circle, thick border
- *   - Exceptions: Toei.Arakawa, Toei.NipporiToneri use rectangle style
- * - Light theme: white bg + black text
- * - Dark theme: black bg + white text
- * - Border color uses existing "invert-on-dark-if-too-dark" logic
- */
-
 import { getCachedJson } from './fetch.js';
 import { resolveMainLineIdByBranchRule } from './special-condition.js';
 
@@ -37,10 +24,14 @@ export const selectLineIconPreset = (routeId, code) => {
     if (!id) return 'default';
 
     if(
-        id=='Toei.Arakawa'||
         id=='Toei.NipporiToneri'
     ) {
         return 'rectangle-border';
+    }
+    else if(
+        id=='Toei.Arakawa'
+    ){
+        return 'arakawa';
     }
     else if(
         id=='JR-East.NaritaExpress'
@@ -194,9 +185,9 @@ export const resolveLineColorForTheme = (color) => {
 
 const _trainSvgCache = new Map();
 
-const getTrainSvgDataUrl = (fill, company = 'seibu', defaultColor = '#000') => {
+const getTrainSvgDataUrl = (fill, company, defaultColor = '#000') => {
     const color = toText(fill) || defaultColor;
-    const brand = toText(company).toLowerCase() || 'seibu';
+    const brand = toText(company).toLowerCase();
     const cacheKey = `train_${brand}_${color}`;
 
     if (_trainSvgCache.has(cacheKey)) return _trainSvgCache.get(cacheKey);
@@ -228,7 +219,7 @@ const getTrainSvgDataUrl = (fill, company = 'seibu', defaultColor = '#000') => {
         <path style="fill:#ff0000;fill-opacity:1;stroke:#ff0000;stroke-width:0.0986635;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1" d="m 551.06167,-72.604479 -1.37337,1.345016 1.38688,1.373972 1.34241,-1.386833 z"/>
     </g>
 </svg>`;
-    } else {
+    } else if (brand === 'seibu') {
         // seibu: 外圈用 fillColor，内部白区固定白色
         svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 110">
@@ -239,6 +230,12 @@ const getTrainSvgDataUrl = (fill, company = 'seibu', defaultColor = '#000') => {
     <path fill="#FFFFFF" d="M75,73.4c2.8,0,5.1-2.4,5.1-5.1c0-3-2.3-5.2-5.1-5.2c-2.8,0-5.1,2.2-5.1,5.2C69.9,71.1,72.2,73.4,75,73.4"/>
   </g>
 </svg>`;
+    }else if(brand === 'arakawa'){
+        svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="144" height="144" viewBox="0 0 144 144" xmlns="http://www.w3.org/2000/svg">
+    <path id="path1" fill="#d75b80" stroke="none" d="M 144 72 C 144 111.764503 111.764503 144 72 144 C 32.235497 144 0 111.764503 0 72 C 0 32.235497 32.235497 0 72 0 C 111.764503 0 144 32.235497 144 72 Z"/>
+    <path id="path2" fill="#ffffff" stroke="none" d="M 67.73333 12.800003 C 67.73333 12.800003 68.897827 15.199997 72 15.199997 C 75.102173 15.199997 76.26667 12.800003 76.26667 12.800003 C 84.474815 17.866508 93.134239 25.228203 96.4375 38.362511 C 109.950806 37.444641 119.627975 43.406815 126.983345 49.647919 C 126.983345 49.647919 125.06221 51.497581 126.020836 54.447914 C 126.979462 57.398262 129.620834 57.764587 129.620834 57.764587 C 127.338646 67.137108 123.013664 77.647575 111.541664 84.847916 C 116.590446 97.416199 113.910614 108.461449 110.247917 117.385414 C 110.247917 117.385414 107.895126 116.12867 105.385414 117.952087 C 102.875702 119.775497 103.345833 122.402084 103.345833 122.402084 C 93.726799 123.127869 82.392982 122.262573 72 113.577087 C 61.607018 122.262573 50.273193 123.127869 40.654167 122.402084 C 40.654167 122.402084 41.124302 119.775497 38.614582 117.952087 C 36.104874 116.12867 33.752087 117.385414 33.752087 117.385414 C 30.089376 108.461449 27.409557 97.416199 32.458336 84.847916 C 20.986336 77.647575 16.661354 67.137108 14.379168 57.764587 C 14.379168 57.764587 17.020544 57.398262 17.979168 54.447914 C 18.937794 51.497581 17.016672 49.647919 17.016672 49.647919 C 24.372032 43.406815 34.049206 37.444641 47.562496 38.362511 C 50.865772 25.228203 59.525185 17.866508 67.73333 12.800003"/>
+</svg>`
     }
 
     const dataUrl = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
@@ -461,6 +458,44 @@ const applyIconStyleForTheme = (el) => {
                 el.style.letterSpacing = '-0.4px';
             }
             break;
+        }
+        case 'arakawa' :{
+            el.style.color =  '#000' 
+            el.style.backgroundColor = 'transparent';
+            el.style.backgroundImage = getTrainSvgDataUrl('#000', 'arakawa');
+            el.style.backgroundRepeat = 'no-repeat';
+            el.style.backgroundPosition = 'center';
+            el.style.backgroundSize = 'contain';
+            el.style.color = '#000';
+            el.style.border = '0';
+            el.style.borderRadius = '0';
+            el.style.width = '25px';
+            el.style.height = '25px';
+            el.style.padding = '0';
+            el.style.paddingBottom = '2px';
+
+            // Reset mask fields in case this element style was previously masked.
+            el.style.maskImage = 'none';
+            el.style.maskRepeat = '';
+            el.style.maskPosition = '';
+            el.style.maskSize = '';
+            el.style.setProperty('-webkit-mask-image', 'none');
+            el.style.setProperty('-webkit-mask-repeat', '');
+            el.style.setProperty('-webkit-mask-position', '');
+            el.style.setProperty('-webkit-mask-size', '');
+            if (code.length <= 1) {
+                el.style.fontSize = '12px';
+                el.style.letterSpacing = '0px';
+            }else if (code.length === 2) {
+                el.style.fontSize = '11px';
+                el.style.letterSpacing = '-0.2px';
+            }
+            else {
+                el.style.fontSize = '8px';
+                el.style.letterSpacing = '-0.4px';
+            }   
+            break;
+
         }
         case 'hexagon': {
             el.style.backgroundColor = fillColor || (dark ? '#000' : '#fff');
