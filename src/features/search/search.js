@@ -120,6 +120,10 @@ const getCompanyLogoUrl = (companyId) => {
 let railwayTitleById = null; // Map<string, any>
 let railwayTitleLoading = null;
 
+// ===== stations.json 多语言 title（用于站点搜索） =====
+let stationTitleById = null; // Map<string, any>
+let stationTitleLoading = null;
+
 const getTitleText = (titleObj, key) => normalizeText(titleObj?.[key] || '');
 
 const getTitleZhHans = (titleObj) =>
@@ -127,6 +131,17 @@ const getTitleZhHans = (titleObj) =>
 
 const getTitleZhHant = (titleObj) =>
     normalizeText(titleObj?.['zh-Hant'] || titleObj?.['zh-hant'] || titleObj?.['zh_TW'] || titleObj?.['zh-TW'] || '');
+
+const getTitleSearchNames = (titleObj) => {
+    const names = [
+        getTitleText(titleObj, 'ja'),
+        getTitleText(titleObj, 'en'),
+        getTitleText(titleObj, 'ko'),
+        getTitleZhHans(titleObj),
+        getTitleZhHant(titleObj)
+    ];
+    return Array.from(new Set(names.filter(Boolean)));
+};
 
 async function ensureRailwayTitlesLoaded() {
     if (railwayTitleById) return railwayTitleById;
@@ -152,6 +167,32 @@ async function ensureRailwayTitlesLoaded() {
         }
     })();
     return railwayTitleLoading;
+}
+
+async function ensureStationTitlesLoaded() {
+    if (stationTitleById) return stationTitleById;
+    if (stationTitleLoading) return stationTitleLoading;
+    stationTitleLoading = (async () => {
+        try {
+            const list = await getCachedJson('./data/stations.json');
+            const arr = Array.isArray(list) ? list : [];
+            const map = new Map();
+            for (const s of arr) {
+                const id = normalizeText(s?.id);
+                if (!id) continue;
+                map.set(id, s?.title || null);
+            }
+            stationTitleById = map;
+            return stationTitleById;
+        } catch (e) {
+            console.warn('search.js: 无法加载 stations.json（站点多语言搜索将退化）', e);
+            stationTitleById = new Map();
+            return stationTitleById;
+        } finally {
+            stationTitleLoading = null;
+        }
+    })();
+    return stationTitleLoading;
 }
 
 let stationIndex = []; // { type:'station', id, text, names[], isTransfer }
@@ -287,6 +328,7 @@ async function ensureDataLoaded() {
 
         // 线路多语言 title：用于搜索 + 展示（显示 zh-Hans）
         const titles = await ensureRailwayTitlesLoaded();
+        const stationTitles = await ensureStationTitlesLoaded();
 
         const stations = Array.isArray(stationsData?.features) ? stationsData.features : [];
         const lines = Array.isArray(linesData?.features) ? linesData.features : [];
@@ -295,6 +337,8 @@ async function ensureDataLoaded() {
             .map((f) => {
                 const p = f?.properties || {};
                 const id = p.id ?? f?.id;
+                const titleObj = stationTitles?.get?.(String(id || '')) || null;
+                const titleNames = getTitleSearchNames(titleObj);
                 const nameZh = normalizeText(p.name_zh || p['name:zh'] || p.name || p.name_ja || p['name:ja']);
                 const name = normalizeText(p.name || '');
                 const nameJa = normalizeText(p.name_ja || p['name:ja'] || '');
@@ -329,7 +373,13 @@ async function ensureDataLoaded() {
                     type: 'station',
                     id: sid,
                     text: nameZh,
-                    names: [nameZh, nameAltZh, name, nameJa].map(normalizeText).filter(Boolean),
+                    names: Array.from(new Set([
+                        ...titleNames,
+                        nameZh,
+                        nameAltZh,
+                        name,
+                        nameJa
+                    ].map(normalizeText).filter(Boolean))),
                     isTransfer: isTransfer || !!clusterMeta,
                     lineIds: mergedLineIds,
                     sameCompanyClusterKey: normalizeText(clusterMeta?.clusterKey || '')
@@ -392,7 +442,7 @@ async function ensureDataLoaded() {
                 id: key,
                 text: displayName,
                 // 可搜：title 的 ja/en/ko/zh-Hans/zh-Hant + properties.name + company + id
-                names: [
+                names: Array.from(new Set([
                     titleJa,
                     titleEn,
                     titleKo,
@@ -401,7 +451,7 @@ async function ensureDataLoaded() {
                     nameRaw,
                     company,
                     key
-                ]
+                ]))
                     .map(normalizeText)
                     .filter(Boolean),
                 company,
@@ -478,6 +528,17 @@ function buildSearchResults(query, { limit = 30, allowedTypes = null } = {}) {
     const lineHits = [];
     const companyHits = [];
 
+    const dedupeHits = (hits) => {
+        const map = new Map();
+        for (const hit of hits) {
+            if (!hit?.item?.type || !hit?.item?.id) continue;
+            const key = `${hit.item.type}:${hit.item.id}`;
+            const prev = map.get(key);
+            if (!prev || hit.score > prev.score) map.set(key, hit);
+        }
+        return Array.from(map.values());
+    };
+
     if (allowCompany) {
         for (const c of companyIndex) {
             let best = -1;
@@ -535,9 +596,9 @@ function buildSearchResults(query, { limit = 30, allowedTypes = null } = {}) {
     }
 
     const byScoreThenName = (a, b) => b.score - a.score || String(a.item.text).localeCompare(String(b.item.text));
-    stationHits.sort(byScoreThenName);
-    lineHits.sort(byScoreThenName);
-    companyHits.sort(byScoreThenName);
+    stationHits.splice(0, stationHits.length, ...dedupeHits(stationHits).sort(byScoreThenName));
+    lineHits.splice(0, lineHits.length, ...dedupeHits(lineHits).sort(byScoreThenName));
+    companyHits.splice(0, companyHits.length, ...dedupeHits(companyHits).sort(byScoreThenName));
 
     const hasNonStation = lineHits.length > 0 || companyHits.length > 0;
     const nonStationReserve = hasNonStation ? Math.min(4, Math.max(1, Math.floor(limit / 3))) : 0;
@@ -558,7 +619,16 @@ function buildSearchResults(query, { limit = 30, allowedTypes = null } = {}) {
         out.push(...stationHits.slice(stationTake, stationTake + remaining).map((x) => x.item));
     }
 
-    return out.slice(0, limit);
+    const finalHits = [];
+    const seen = new Set();
+    for (const item of out.slice(0, limit)) {
+        const key = `${item?.type || ''}:${item?.id || ''}`;
+        if (!item?.type || !item?.id || seen.has(key)) continue;
+        seen.add(key);
+        finalHits.push(item);
+    }
+
+    return finalHits.slice(0, limit);
 }
 
 export async function searchRailEntities(query, { limit = 30, allowedTypes = null } = {}) {
