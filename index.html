@@ -2687,6 +2687,25 @@
             line-height: 1.05;
         }
 
+        .panel-title-main{
+            font-size: 30px;
+            line-height: 1.2;
+            font-weight: 700;
+            color: var(--ui-text);
+            white-space: pre-wrap;
+        }
+
+        .panel-title-sub{
+            font-size: 14px;
+            line-height: 1.2;
+            font-weight: 500;
+            padding-left: 2px;
+            color: var(--ui-text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .panel-company {
             margin-top: 6px;
         }
@@ -2899,6 +2918,11 @@
         .panel-catalog-line:hover {
             background: #eef5fb;
             color: #1c2833;
+        }
+
+        [data-theme="dark"] .panel-catalog-line:hover {
+            background: #2a3b4c;
+            color: #f2f2f2;
         }
 
         .panel-catalog-line.is-active {

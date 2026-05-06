@@ -1021,23 +1021,9 @@ export function createPanel(options = {}) {
 
     const titleMain = document.createElement('div');
     titleMain.className = 'panel-title-main';
-    titleMain.style.fontSize = '30px';
-    titleMain.style.lineHeight = '1.2';
-    titleMain.style.fontWeight = '700';
-    titleMain.style.color = 'var(--ui-text, #111)';
-    titleMain.style.whiteSpace = 'nowrap';
-    titleMain.style.overflow = 'hidden';
-    titleMain.style.textOverflow = 'ellipsis';
 
     const titleSub = document.createElement('div');
     titleSub.className = 'panel-title-sub';
-    titleSub.style.fontSize = '15px';
-    titleSub.style.lineHeight = '1.2';
-    titleSub.style.fontWeight = '500';
-    titleSub.style.color = 'var(--ui-text-muted, #666)';
-    titleSub.style.whiteSpace = 'nowrap';
-    titleSub.style.overflow = 'hidden';
-    titleSub.style.textOverflow = 'ellipsis';
 
     title.appendChild(titleMain);
     title.appendChild(titleSub);
@@ -7085,10 +7071,10 @@ export function createPanel(options = {}) {
         if (!el || !(el instanceof Element)) return;
         // Reset to single-line nowrap to test fitting
         el.classList.remove('is-multiline');
-        el.style.whiteSpace = 'nowrap';
+        el.style.whiteSpace = 'pre-wrap';
         // Start from configured 30px down to 20px
         const maxFs = 30;
-        const minFs = 25;
+        const minFs = 20;
         let fitted = false;
         for (let fs = maxFs; fs >= minFs; fs -= 1) {
             el.style.fontSize = `${fs}px`;
