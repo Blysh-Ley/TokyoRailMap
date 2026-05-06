@@ -1928,6 +1928,7 @@ export function createPanel(options = {}) {
 
     const restoreAutoNowClock = () => {
         isAutoNowClock = true;
+        applyPanelDateSelection(new Date());
         syncAutoNowClock({ forceRender: true });
     };
 
