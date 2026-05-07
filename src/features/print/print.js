@@ -705,7 +705,7 @@
         }
     };
 
-    const appendStationLabelBoxesSvg = ({ parts, groupId, map, candidates, visibleIds }) => {
+    const appendStationLabelBoxesSvg = ({ parts, groupId, map, candidates, visibleIds, labelScale = 1 }) => {
         const list = Array.isArray(candidates) ? candidates : [];
         if (!list.length) return;
 
@@ -714,8 +714,10 @@
             : new Set(list.map((x) => String(x?.id || '').trim()).filter(Boolean));
 
         const fontFamily = 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
-        const padX = 4;
-        const radius = 3;
+        const scale = Math.max(1, Number(labelScale) || 1);
+        const padX = 4 * scale;
+        const radius = 3 * scale;
+        const strokeWidth = 1 * scale;
 
         parts.push(`<g id="${escapeXml(groupId)}">`);
         for (const item of list) {
@@ -739,7 +741,7 @@
             const textY = boxY + boxH / 2;
 
             parts.push(
-                `<rect x="${boxX.toFixed(2)}" y="${boxY.toFixed(2)}" width="${boxW.toFixed(2)}" height="${boxH.toFixed(2)}" rx="${radius}" ry="${radius}" fill="${stationLabelBoxFill()}" stroke="${stationLabelBoxStroke()}" stroke-width="1"/>`
+                `<rect x="${boxX.toFixed(2)}" y="${boxY.toFixed(2)}" width="${boxW.toFixed(2)}" height="${boxH.toFixed(2)}" rx="${radius}" ry="${radius}" fill="${stationLabelBoxFill()}" stroke="${stationLabelBoxStroke()}" stroke-width="${strokeWidth.toFixed(2)}"/>`
             );
             parts.push(
                 `<text x="${p.x.toFixed(2)}" y="${textY.toFixed(2)}" text-anchor="middle" dominant-baseline="middle" font-family="${fontFamily}" font-size="${fontPx}" fill="${labelFill()}">${escapeXml(text)}</text>`
@@ -774,7 +776,7 @@
     };
 
     // 增加 capsules 参数
-    const buildSvgFromBuilt = async ({ map, payload, built, backgroundImageHref, transparentBackground = false, capsules }) => {
+    const buildSvgFromBuilt = async ({ map, payload, built, backgroundImageHref, transparentBackground = false, capsules, stationLabelScale = 1 }) => {
         const container = map.getContainer?.();
         const rect = container?.getBoundingClientRect?.();
         const width = Math.max(1, Math.round(rect?.width || 0));
@@ -909,7 +911,8 @@
         {
             const mode = getCurrentStationLabelMode();
             if (mode !== 'off') {
-                const fontPx = 12;
+                const scale = Math.max(1, Number(stationLabelScale) || 1);
+                const fontPx = 12 * scale;
                 const font = `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
 
                 const candidates = [];
@@ -934,9 +937,9 @@
                         coordinates: [Number(c[0]), Number(c[1])],
                         fontPx,
                         font,
-                        widthPx: textW + 8,
+                        widthPx: textW + 8 * scale,
                         heightPx: Math.ceil(fontPx * 1.2 + 2),
-                        labelDyPx: servingCount > 1 ? 6 : 3
+                        labelDyPx: (servingCount > 1 ? 6 : 3) * scale
                     });
                 }
 
@@ -948,7 +951,8 @@
                     groupId: 'trip-preview-labels',
                     map,
                     candidates,
-                    visibleIds: visible
+                    visibleIds: visible,
+                    labelScale: scale
                 });
             }
         }
@@ -1550,6 +1554,7 @@
             };
 
             const resolution = String(options?.resolution || '4k');
+            const stationLabelScale = resolution === '4k' ? 2 : 1;
 
             // 4K：优先 4K，失败回退 1080P；1080P：直接 1080P（不尝试 4K）
             let pngBlob = null;
@@ -1710,7 +1715,8 @@
                         built: builtForSvg,
                         backgroundImageHref: null,
                         transparentBackground: true,
-                        capsules
+                        capsules,
+                        stationLabelScale
                     });
                     const merged = await compositePngAndSvgToPngBlob({
                         backgroundPngBlob: pngBlob,
@@ -1726,7 +1732,14 @@
                 return;
             }
 
-            const svgText = await buildSvgFromBuilt({ map: vmap, payload, built: builtForSvg, backgroundImageHref: pngName,capsules });
+            const svgText = await buildSvgFromBuilt({
+                map: vmap,
+                payload,
+                built: builtForSvg,
+                backgroundImageHref: pngName,
+                capsules,
+                stationLabelScale
+            });
 
             const JSZipCtor = window.JSZip;
             if (!JSZipCtor) {
@@ -2155,7 +2168,7 @@
         };
     };
     // 同样增加 capsules 参数
-    const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, lowlightLineFeatures, stationFeatures, backgroundImageHref, transparentBackground = false, capsules }) => {        const container = map.getContainer?.();
+    const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, lowlightLineFeatures, stationFeatures, backgroundImageHref, transparentBackground = false, capsules, stationLabelScale = 1 }) => {        const container = map.getContainer?.();
         const rect = container?.getBoundingClientRect?.();
         const width = Math.max(1, Math.round(rect?.width || 0));
         const height = Math.max(1, Math.round(rect?.height || 0));
@@ -2260,7 +2273,8 @@
             {
                 const mode = getCurrentStationLabelMode();
                 if (mode !== 'off') {
-                    const fontPx = 12;
+                    const scale = Math.max(1, Number(stationLabelScale) || 1);
+                    const fontPx = 12 * scale;
                     const font = `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
                     const candidates = [];
 
@@ -2285,9 +2299,9 @@
                             coordinates: [Number(c[0]), Number(c[1])],
                             fontPx,
                             font,
-                            widthPx: textW + 8,
+                            widthPx: textW + 8 * scale,
                             heightPx: Math.ceil(fontPx * 1.2 + 2),
-                            labelDyPx: sc > 1 ? 6 : 3
+                            labelDyPx: (sc > 1 ? 6 : 3) * scale
                         });
                     }
 
@@ -2299,7 +2313,8 @@
                         groupId: 'base-station-labels',
                         map,
                         candidates,
-                        visibleIds: visible
+                        visibleIds: visible,
+                        labelScale: scale
                     });
                 }
             }
@@ -2392,6 +2407,7 @@
             };
 
             const resolution = String(options?.resolution || '4k');
+            const stationLabelScale = resolution === '4k' ? 2 : 1;
             let pngBlob = null;
             let outW = isLandscape ? 3840 : 2160;
             let outH = isLandscape ? 2160 : 3840;
@@ -2470,6 +2486,7 @@
                         backgroundImageHref: null,
                         transparentBackground: true,
                         capsules,
+                        stationLabelScale,
                     });
                     const merged = await compositePngAndSvgToPngBlob({
                         backgroundPngBlob: pngBlob,
@@ -2493,6 +2510,7 @@
                 backgroundImageHref: pngName,
                 transparentBackground: false,
                 capsules,
+                stationLabelScale,
             });
 
             const JSZipCtor = window.JSZip;
