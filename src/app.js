@@ -21,7 +21,7 @@ import { getGlobalTouchTapGuard } from './map/touchTapGuard.js';
 import { createPanel } from './features/panel/panel.js';
 import { getGlobalTimetableCache } from './lib/timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './map/fullscreen.js';
-import { extractShortestLoopSegmentByIndex, isLoopDirection } from './lib/trip-preview.js';
+import { buildVirtualTripPreviewPayload, extractShortestLoopSegmentByIndex, isLoopDirection } from './lib/trip-preview.js';
 import { previewBranchesForLine } from './features/branch/analyze_branch.js';
 import { createLineIconElement } from './lib/line-icons.js';
 import {
@@ -445,6 +445,11 @@ map.on('load', async () => {
     let transferCapsuleRefreshRafId = null;
     let transferCapsuleVisibleKey = '__init__';
     let syncStationOffsetForTripPreviewState = () => {};
+    let railwaysIndexByIdCachePromise = null;
+    let multiSelectBaseTripPreviewSignature = '';
+
+    const MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE = 'ms-base-trip-preview';
+    const MULTI_SELECT_BASE_TRIP_PREVIEW_KEY = 'multi-base-lines';
 
     // 右侧界面：站点/站名/搜索提交站点时弹出（在 applySelectionEffects 定义后初始化）
     let panel = null;
@@ -679,6 +684,7 @@ map.on('load', async () => {
             hidden: false
         });
         emitMultiSelectLayersUpdated();
+        syncMultiSelectBaseTripPreview().catch(() => null);
         return true;
     };
 
@@ -693,6 +699,7 @@ map.on('load', async () => {
         };
         baseMultiSelectionsByKey.set(k, next);
         emitMultiSelectLayersUpdated();
+        syncMultiSelectBaseTripPreview().catch(() => null);
         return true;
     };
 
@@ -700,13 +707,17 @@ map.on('load', async () => {
         const k = String(key || '').trim();
         if (!k) return false;
         const removed = baseMultiSelectionsByKey.delete(k);
-        if (removed) emitMultiSelectLayersUpdated();
+        if (removed) {
+            emitMultiSelectLayersUpdated();
+            syncMultiSelectBaseTripPreview().catch(() => null);
+        }
         return removed;
     };
 
     const clearBaseMultiSelections = () => {
         baseMultiSelectionsByKey = new Map();
         emitMultiSelectLayersUpdated();
+        syncMultiSelectBaseTripPreview().catch(() => null);
     };
 
     const getVisibleStationIdsForBaseMultiSelection = () => {
@@ -1232,6 +1243,98 @@ map.on('load', async () => {
         return '基础线路';
     };
 
+    const getRailwaysIndexById = async () => {
+        if (railwaysIndexByIdCachePromise) return railwaysIndexByIdCachePromise;
+
+        railwaysIndexByIdCachePromise = (async () => {
+            const list = await getCachedJson('./data/railways.json');
+            const out = new Map();
+            for (const row of Array.isArray(list) ? list : []) {
+                const id = String(row?.id || '').trim();
+                if (!id || out.has(id)) continue;
+                out.set(id, row);
+            }
+            return out;
+        })().catch(() => new Map());
+
+        return railwaysIndexByIdCachePromise;
+    };
+
+    const getMultiSelectBaseTripPreviewLineIds = () => {
+        const ids = Array.from(getBaseMultiSelectedLineIds()).map(String).filter(Boolean);
+        ids.sort((a, b) => a.localeCompare(b));
+        return ids;
+    };
+
+    const buildMultiSelectBaseTripVirtualTrips = async (lineIds) => {
+        const ids = Array.isArray(lineIds) ? lineIds.map((x) => String(x || '').trim()).filter(Boolean) : [];
+        if (!ids.length) return [];
+
+        const railwaysIndexById = await getRailwaysIndexById();
+        const out = [];
+
+        for (const lineId of ids) {
+            const meta = railwaysIndexById.get(lineId) || null;
+            const stationIds = Array.isArray(meta?.stations)
+                ? meta.stations.map((x) => String(x || '').trim()).filter(Boolean)
+                : Array.isArray(meta?.stationIds)
+                    ? meta.stationIds.map((x) => String(x || '').trim()).filter(Boolean)
+                    : [];
+            if (stationIds.length < 2) continue;
+
+            const lineName = String(meta?.title?.['zh-Hans'] || meta?.title?.['zh-Hant'] || meta?.title?.ja || meta?.title?.en || lineNameById.get(lineId) || lineId).trim() || lineId;
+            const payload = buildVirtualTripPreviewPayload({
+                lineId,
+                lineName,
+                stationIds,
+                tripKey: lineId,
+                previewSource: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE,
+                fitMode: 'none'
+            });
+            if (payload) out.push(payload);
+        }
+
+        return out;
+    };
+
+    const syncMultiSelectBaseTripPreview = async () => {
+        if (!isMultiSelectModeEnabled()) {
+            multiSelectBaseTripPreviewSignature = '';
+            clearTripPathPreview({ source: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE });
+            return;
+        }
+
+        const lineIds = getMultiSelectBaseTripPreviewLineIds();
+        const signature = lineIds.join('|');
+
+        if (!lineIds.length) {
+            if (multiSelectBaseTripPreviewSignature) {
+                multiSelectBaseTripPreviewSignature = '';
+                clearTripPathPreview({ source: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE });
+            }
+            return;
+        }
+
+        if (signature === multiSelectBaseTripPreviewSignature) return;
+        multiSelectBaseTripPreviewSignature = signature;
+
+        const virtualTrips = await buildMultiSelectBaseTripVirtualTrips(lineIds);
+        if (!virtualTrips.length) {
+            clearTripPathPreview({ source: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE });
+            return;
+        }
+
+        previewTripPath({
+            selectedLineId: 'multi-base',
+            mainLineId: lineIds[0],
+            tripKey: signature,
+            previewKey: MULTI_SELECT_BASE_TRIP_PREVIEW_KEY,
+            previewSource: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE,
+            fitMode: 'none',
+            virtualTrips
+        }, { fitMode: 'none', clearBefore: true });
+    };
+
     const getMultiSelectLineBranchSource = (lineId) => {
         const id = String(lineId || '').trim();
         if (!id) return '';
@@ -1275,6 +1378,7 @@ map.on('load', async () => {
                     branchAutoHidden: false
                 });
                 emitMultiSelectLayersUpdated();
+                syncMultiSelectBaseTripPreview().catch(() => null);
                 applySelectionEffects();
                 collisionController?.scheduleUpdate?.();
             }
@@ -1288,6 +1392,7 @@ map.on('load', async () => {
                 branchAutoHidden: true
             });
             emitMultiSelectLayersUpdated();
+            syncMultiSelectBaseTripPreview().catch(() => null);
             applySelectionEffects();
             collisionController?.scheduleUpdate?.();
         } else if (baseEntry?.branchAutoHidden === true) {
@@ -1296,6 +1401,7 @@ map.on('load', async () => {
                 branchAutoHidden: false
             });
             emitMultiSelectLayersUpdated();
+            syncMultiSelectBaseTripPreview().catch(() => null);
         }
 
         previewBranchesForLine({
@@ -1317,6 +1423,7 @@ map.on('load', async () => {
                 collisionController?.scheduleUpdate?.();
             }
         });
+                syncMultiSelectBaseTripPreview().catch(() => null);
         return true;
     };
 
@@ -1448,6 +1555,7 @@ map.on('load', async () => {
             const lineIdCandidates = [selectedLineId, mainLineId, ...builtLineIds].filter(Boolean);
             const lineId = lineIdCandidates.find((id) => lineNameById.has(id)) || lineIdCandidates[0] || '';
             const source = String(entry?.source || resolveTripPreviewPayloadSource(payload) || '').trim();
+            if (source === MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE) continue;
             const isBranchSource = source.startsWith('ms-line-branch:');
             const typeName = String(payload?.typeName || payload?.tripTypeName || '').trim() || '-';
             const originName = getStationNameForMultiSelect(built?.startStationId || payload?.originStationId || '');
@@ -1747,32 +1855,17 @@ map.on('load', async () => {
         if (!map.getLayer('lines-layer')) return;
 
         const baseColorExpr = buildBaseLineColorExpr({ isDarkThemeActive: isDarkThemeActive() });
-        const multiLineIds = getBaseMultiSelectedLineIds();
         const applyLinePaint = (paint) => {
             map.setPaintProperty('lines-layer', 'line-color', paint['line-color']);
             map.setPaintProperty('lines-layer', 'line-width', paint['line-width']);
             map.setPaintProperty('lines-layer', 'line-opacity', paint['line-opacity']);
         };
 
-        const applyMultiLineHighlight = (dimOpacity = 0.6) => {
-            const ids = Array.from(multiLineIds).map(String).filter(Boolean);
-            if (!ids.length) return false;
-            const hitExpr = ids.length === 1
-                ? ['==', ['get', 'id'], ids[0]]
-                : ['in', ['get', 'id'], ['literal', ids]];
-
-            applyLinePaint(buildFocusedLinePaint({ baseColorExpr, focusExpr: hitExpr, dimOpacity }));
-            return true;
-        };
-
         // 车次预览态：底图线路统一弱化，真正高亮由“分段预览图层”承担（避免整条线被点亮）
         if (tripPreviewActive) {
-            if (isMultiSelectModeEnabled() && applyMultiLineHighlight(0.45)) return;
             applyLinePaint(buildLowlightLinePaint({ dimOpacity: 0.45 }));
             return;
         }
-
-        if (isMultiSelectModeEnabled() && applyMultiLineHighlight(0.6)) return;
 
         if (dirPreviewActive && dirPreviewLineIds && dirPreviewLineIds.size) {
             const ids = Array.from(dirPreviewLineIds).map(String).filter(Boolean);
@@ -1903,7 +1996,7 @@ map.on('load', async () => {
             applyStationThemePaintToMapLayers();
         };
 
-        if (tripPreviewActive && !(isMultiSelectModeEnabled() && multiLineIds.size)) {
+        if (tripPreviewActive) {
             if (tripPreviewStationIds && tripPreviewStationIds.size) {
                 const ids = Array.from(tripPreviewStationIds).map(String).filter(Boolean);
                 const isSelectedExpr = ids.length === 1
