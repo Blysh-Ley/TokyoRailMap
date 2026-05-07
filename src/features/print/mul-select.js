@@ -291,7 +291,35 @@
                 sendLayerCommand('toggle-branch-preview', String(item?.id || ''));
             });
 
+            // Separate / split company button (shown next to toggle for company entries)
+            const separateBtn = document.createElement('button');
+            separateBtn.type = 'button';
+            separateBtn.className = 'ms-layer-btn ms-layer-btn-separate';
+            separateBtn.setAttribute('aria-label', '拆分公司下所有图层');
+
+            const separateIcon = document.createElement('img');
+            separateIcon.className = 'ms-layer-btn-icon';
+            separateIcon.alt = '';
+            setIconFromCache(separateIcon, 'separate.svg');
+            separateBtn.appendChild(separateIcon);
+
+            // Only show separate button for company-scoped base items
+            try {
+                const k = String(item?.key || '');
+                separateBtn.style.display = k.startsWith('company:') ? '' : 'none';
+            } catch {
+                separateBtn.style.display = 'none';
+            }
+
+            separateBtn.addEventListener('click', (evt) => {
+                evt.preventDefault?.();
+                evt.stopPropagation?.();
+                // Use the same item id format as other commands (e.g. "base:company:...")
+                sendLayerCommand('split-company', String(item?.id || ''));
+            });
+
             row.appendChild(toggleBtn);
+            row.appendChild(separateBtn);
             row.appendChild(branchBtn);
             row.appendChild(text);
             row.appendChild(removeBtn);

@@ -5371,6 +5371,55 @@ map.on('load', async () => {
                     }
                     return ok;
                 }
+
+                // Split company into individual line selections (respecting main+branch merge rules)
+                if (action === 'split-company') {
+                    try {
+                        const baseKey = String(parsed.key || '').trim();
+                        if (!baseKey) return false;
+                        const entry = baseMultiSelectionsByKey.get(baseKey);
+                        if (!entry || String(entry.kind || '') !== 'company') return false;
+
+                        // Build map of mainLineId -> Set(mergedLineIds)
+                        const mainMap = new Map();
+                        const ids = entry.lineIds instanceof Set ? Array.from(entry.lineIds) : [];
+                        for (const lidRaw of ids) {
+                            const lid = String(lidRaw || '').trim();
+                            if (!lid) continue;
+                            const resolved = resolveLineSelectionForApp(lid) || {};
+                            const mainLineId = String(resolved?.mainLineId || lid).trim() || lid;
+                            const merged = Array.isArray(resolved?.mergedLineIds) ? resolved.mergedLineIds.map(String).filter(Boolean) : [mainLineId];
+                            if (!mainMap.has(mainLineId)) mainMap.set(mainLineId, new Set());
+                            const setRef = mainMap.get(mainLineId);
+                            for (const x of merged) setRef.add(String(x));
+                        }
+
+                        // Remove the company selection
+                        baseMultiSelectionsByKey.delete(baseKey);
+
+                        // Add per-main-line selections (skip if already present)
+                        for (const [mainId, setIds] of mainMap.entries()) {
+                            const arr = Array.from(setIds).map(String).filter(Boolean);
+                            if (!arr.length) continue;
+                            const lineKey = `line:${mainId}`;
+                            if (baseMultiSelectionsByKey.has(lineKey)) continue;
+                            baseMultiSelectionsByKey.set(lineKey, {
+                                kind: 'line',
+                                lineIds: new Set(arr),
+                                displayName: getLineNameForMultiSelect(mainId) || '',
+                                hidden: false
+                            });
+                        }
+
+                        emitMultiSelectLayersUpdated();
+                        syncMultiSelectBaseTripPreview().catch(() => null);
+                        applySelectionEffects();
+                        collisionController?.scheduleUpdate?.();
+                        return true;
+                    } catch {
+                        return false;
+                    }
+                }
                 return false;
             }
 
