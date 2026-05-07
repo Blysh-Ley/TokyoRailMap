@@ -688,7 +688,8 @@ map.on('load', async () => {
         const current = baseMultiSelectionsByKey.get(k) || {};
         const next = {
             ...current,
-            hidden: !(current?.hidden === true)
+            hidden: !(current?.hidden === true),
+            branchAutoHidden: false
         };
         baseMultiSelectionsByKey.set(k, next);
         emitMultiSelectLayersUpdated();
@@ -1254,14 +1255,47 @@ map.on('load', async () => {
     };
 
     const toggleBaseLineBranchPreview = (baseKey) => {
-        const lineId = getLineIdFromBaseMultiSelectKey(baseKey);
+        const key = String(baseKey || '').trim();
+        const lineId = getLineIdFromBaseMultiSelectKey(key);
         if (!lineId) return false;
         const source = getMultiSelectLineBranchSource(lineId);
         if (!source) return false;
 
+        const baseEntry = baseMultiSelectionsByKey.get(key);
+        if (!baseEntry) return false;
+
         if (hasTripPreviewSelectionBySource(source)) {
             clearTripPathPreview({ source });
+
+            const latest = baseMultiSelectionsByKey.get(key);
+            if (latest?.hidden === true && latest?.branchAutoHidden === true) {
+                baseMultiSelectionsByKey.set(key, {
+                    ...latest,
+                    hidden: false,
+                    branchAutoHidden: false
+                });
+                emitMultiSelectLayersUpdated();
+                applySelectionEffects();
+                collisionController?.scheduleUpdate?.();
+            }
             return false;
+        }
+
+        if (baseEntry?.hidden !== true) {
+            baseMultiSelectionsByKey.set(key, {
+                ...baseEntry,
+                hidden: true,
+                branchAutoHidden: true
+            });
+            emitMultiSelectLayersUpdated();
+            applySelectionEffects();
+            collisionController?.scheduleUpdate?.();
+        } else if (baseEntry?.branchAutoHidden === true) {
+            baseMultiSelectionsByKey.set(key, {
+                ...baseEntry,
+                branchAutoHidden: false
+            });
+            emitMultiSelectLayersUpdated();
         }
 
         previewBranchesForLine({
@@ -1271,6 +1305,17 @@ map.on('load', async () => {
             previewSource: source
         }).catch(() => {
             clearTripPathPreview({ source });
+            const latest = baseMultiSelectionsByKey.get(key);
+            if (latest?.hidden === true && latest?.branchAutoHidden === true) {
+                baseMultiSelectionsByKey.set(key, {
+                    ...latest,
+                    hidden: false,
+                    branchAutoHidden: false
+                });
+                emitMultiSelectLayersUpdated();
+                applySelectionEffects();
+                collisionController?.scheduleUpdate?.();
+            }
         });
         return true;
     };
@@ -3766,8 +3811,16 @@ map.on('load', async () => {
                     })
                 });
             } else {
-                map.setPaintProperty('trip-preview-stops-layer', 'circle-opacity', 0);
-                map.setPaintProperty('trip-preview-stops-layer', 'circle-stroke-opacity', 0);
+                const stopPaint = tripPreviewStopLayerPaint({
+                    isDarkThemeActive: isDarkThemeActive(),
+                    lineColorById
+                });
+                map.setPaintProperty('trip-preview-stops-layer', 'circle-color', stopPaint['circle-color']);
+                map.setPaintProperty('trip-preview-stops-layer', 'circle-stroke-color', stopPaint['circle-stroke-color']);
+                map.setPaintProperty('trip-preview-stops-layer', 'circle-radius', stopPaint['circle-radius']);
+                map.setPaintProperty('trip-preview-stops-layer', 'circle-stroke-width', stopPaint['circle-stroke-width']);
+                map.setPaintProperty('trip-preview-stops-layer', 'circle-opacity', stopPaint['circle-opacity']);
+                map.setPaintProperty('trip-preview-stops-layer', 'circle-stroke-opacity', stopPaint['circle-stroke-opacity']);
             }
         };
 
