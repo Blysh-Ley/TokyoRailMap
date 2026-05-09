@@ -63,8 +63,9 @@ const getRailwayMetaIndex = async () => {
 const getRouteIdFromStationId = (stationId) => {
     const sid = toText(stationId);
     if (!sid) return '';
-    const idx = sid.lastIndexOf('.');
-    return idx > 0 ? sid.slice(0, idx) : '';
+    const parts = sid.split('.').map((p) => toText(p)).filter(Boolean);
+    if (parts.length >= 2) return `${parts[0]}.${parts[1]}`;
+    return parts[0] || '';
 };
 
 const enhanceRouteMapStationCodeBadges = async (containerEl, { lineId, lineColor } = {}) => {
