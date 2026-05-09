@@ -805,16 +805,16 @@ const ensureStyleInstalled = () => {
             border-top: 8px solid #fff;
         }
         .route-map-through-branch {
-            position: absolute;
-            top: 0;
+            position: relative;
             left: calc(10% + var(--branch-start-offset, 0px));
             width: var(--branch-total-width, var(--through-line-width, 14px));
             height: var(--through-branch-height, 5px);
             border-radius: 0;
-            transform: translate(0, calc(var(--branch-top-y, 15px) - var(--through-row-translate-y, 0px)));
+            align-self: start;
             pointer-events: none;
             z-index: 999;
             overflow: visible;
+            transform: translate(0, var(--branch-top-y, 15px));
         }
         .route-map-through-branch-svg {
             display: block;
@@ -1589,10 +1589,18 @@ const setupRouteMapUi = () => {
         }).concat(['<div class="route-map-headspacer"></div>']).join('');
 
         const rows = [];
+        let gridRowIndex = 1;
+
+        const gridCellStyle = (gridRow, gridColumn, extraStyle = '') => {
+            const baseStyle = `grid-row:${gridRow};grid-column:${gridColumn};`;
+            return extraStyle ? `${baseStyle}${extraStyle}` : baseStyle;
+        };
 
         const appendThroughGapRow = (si) => {
             const throughGap = throughGapMap.get(si);
             if (!throughGap) return;
+
+            const currentGridRow = gridRowIndex;
 
             const isTypePassingGap = (t, gapIndex) => {
                 const stationCount = orderedStationIds.length;
@@ -1675,6 +1683,7 @@ const setupRouteMapUi = () => {
                 : activeTypeRows.slice().reverse();
             const activeIndexByTi = new Map(activeRowsForOrder.map((row, idx) => [row.ti, idx]));
             const activeCount = activeTypeRows.length;
+            const hasMiddleThroughRow = activeTypeRows.some(({ t }) => !isTypeAtOwnBoundary(t));
             const stackCenter = (activeCount - 1) / 2;
             const endpointTypeIndexByTi = new Map();
             const endpointTis = [];
@@ -1705,9 +1714,9 @@ const setupRouteMapUi = () => {
 
                 if (!activeIndexByTi.has(ti)) {
                     if (isTypePassingGap(t, si)) {
-                        rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)}"></div>`);
+                        rows.push(`<div class="${cls}" style="${gridCellStyle(currentGridRow, ti + 1, `--tt-color:${escapeHtml(color)};`)}"></div>`);
                     } else {
-                        rows.push('<div class="route-map-through-empty"></div>');
+                        rows.push(`<div class="route-map-through-empty" style="${gridCellStyle(currentGridRow, ti + 1)}"></div>`);
                     }
                     continue;
                 }
@@ -1721,12 +1730,19 @@ const setupRouteMapUi = () => {
                 const branchDirection = directionSign > 0 ? 'up' : 'down';
                 const isLineBoundaryGap = si === -1 || isBottomThrough;
                 const isTypeBoundaryGap = isTypeAtOwnBoundary(t);
+                const isBoundaryThrough = isLineBoundaryGap || isTypeBoundaryGap;
+                const useMiddleThroughLogic = hasMiddleThroughRow || !isBoundaryThrough;
 
-                const THROUGH_ROW_CENTER_Y_PX = 25;
+                const THROUGH_ROW_CENTER_Y_PX_MIDDLE = shouldReverseBranchOrder ? 37.5 : 12.5;
+                const THROUGH_ROW_CENTER_Y_PX_EDGE = shouldReverseBranchOrder ? 25 : 15;
+                const THROUGH_ROW_CENTER_Y_PX = useMiddleThroughLogic
+                    ? THROUGH_ROW_CENTER_Y_PX_MIDDLE
+                    : THROUGH_ROW_CENTER_Y_PX_EDGE;
+
                 const branchCenterY = THROUGH_ROW_CENTER_Y_PX + (activeIdx - (activeCount - 1) / 2) * THROUGH_BRANCH_HEIGHT_PX;
                 const legacyElbowTopY = branchCenterY - (THROUGH_BRANCH_ELBOW_HEIGHT_PX / 2);
                 const branchTopYCenter = branchDirection === 'up' ? THROUGH_ROW_CENTER_Y_PX : 0;
-                const branchTopY = (isLineBoundaryGap || isTypeBoundaryGap)
+                const branchTopY = useMiddleThroughLogic
                     ? legacyElbowTopY
                     : (branchTopYCenter + (activeIdx - stackCenter) * THROUGH_BRANCH_HEIGHT_PX);
                 
@@ -1735,12 +1751,20 @@ const setupRouteMapUi = () => {
                     ? '0px'
                     : (() => {
                         const rowSign = directionSign;
-                        let signedBase;
-                        signedBase = rowSign * THROUGH_ROW_CENTER_Y_PX + (activeIdx - stackCenter) * THROUGH_BRANCH_HEIGHT_PX;
+                        const signedBase = rowSign * THROUGH_ROW_CENTER_Y_PX + (activeIdx - stackCenter) * THROUGH_BRANCH_HEIGHT_PX;
+                        if (!hasMiddleThroughRow) {
+                            const baseOffset = Number(signedBase.toFixed(2));
+                            if(!shouldReverseBranchOrder){
+                                return `${baseOffset - 20}px`;
+                            }
+                            else{
+                                return `${baseOffset + 14.5}px`;
+                            }
+                        }
                         let y = signedBase;
                         if (!shouldReverseBranchOrder) {
                             // For reversed rows, shift uniformly by -0.5px (e.g. -12.5 -> -13.0, -22.5 -> -23.0).
-                            y += THROUGH_ROW_SEAM_FUDGE_PX;
+                            y -= 25;
                         } else {
                             y -= THROUGH_ROW_SEAM_FUDGE_PX;
                         }
@@ -1750,15 +1774,16 @@ const setupRouteMapUi = () => {
                 
                 const renderedWidth = throughWidth + THROUGH_BRANCH_HEAD_OFFSET_PX;
                 const branchInner = buildRoundedBranchSvg(renderedWidth, branchDirection);
-                const branchOffsets = (isLineBoundaryGap || isTypeBoundaryGap)
+                const branchOffsets = isBoundaryThrough
                     ? [0, THROUGH_BRANCH_HEAD_OFFSET_PX]
                     : [THROUGH_BRANCH_HEAD_OFFSET_PX];
                 const branches = branchOffsets.map((offset) => {
-                    const branchStyle = `--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;--branch-total-width:${renderedWidth.toFixed(2)}px;--branch-start-offset:${Number(offset).toFixed(1)}px;--through-branch-height:${THROUGH_BRANCH_ELBOW_HEIGHT_PX}px;--branch-top-y:${branchTopY.toFixed(2)}px;`;
+                    const branchStyle = `grid-row:${currentGridRow};grid-column:${ti + 1};--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;--branch-total-width:${renderedWidth.toFixed(2)}px;--branch-start-offset:${Number(offset).toFixed(1)}px;--through-branch-height:${THROUGH_BRANCH_ELBOW_HEIGHT_PX}px;--branch-top-y:${branchTopY.toFixed(2)}px;`;
                     return `<span class="route-map-through-branch" style="${branchStyle}">${branchInner}</span>`;
                 }).join('');
 
-                rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)};--through-row-translate-y:${throughRowTranslateY};--through-z:${z}">${branches}</div>`);
+                rows.push(`<div class="${cls}" style="${gridCellStyle(currentGridRow, ti + 1, `--tt-color:${escapeHtml(color)};--through-row-translate-y:${throughRowTranslateY};--through-z:${z};`)}"></div>`);
+                rows.push(branches);
             }
 
             const allTargets = Array.from(throughGap.allTargetsByKey.values());
@@ -1796,23 +1821,23 @@ const setupRouteMapUi = () => {
                 : '';
             const throughLabelTranslateY = (() => {
                 if (si === -1) {
-                    return throughItemList.length >= 2 ? '-2px' : '-12px';
+                    return throughItemList.length >= 2 ? '-2px' : '2px';
                 }
                 if (isBottomThrough) {
-                    // 如果是最顶部的 through（紧靠第一个站点前），偏移向上
-                    if (si === 0) return '-12px';
-                    // 如果是最后一行 through（紧靠最后一个站点后），偏移向下
-                    if (si === (orderedStationIds.length - 1)) return '12px';
+                    if (si === 0) return '2px';
+                    if (si === (orderedStationIds.length - 1)) return '2px';
                 }
-                return '3px';
+                return '2px';
             })();
-            rows.push(`<div class="route-map-station is-through-label" style="transform:translateY(${throughLabelTranslateY})">${labelHtml}</div>`);
+            rows.push(`<div class="route-map-station is-through-label" style="${gridCellStyle(currentGridRow, types.length + 1, `transform:translateY(${throughLabelTranslateY})`)}">${labelHtml}</div>`);
+            gridRowIndex += 1;
         };
 
         // before first station
         appendThroughGapRow(-1);
 
         for (let si = 0; si < orderedStationIds.length; si += 1) {
+            const currentGridRow = gridRowIndex;
             const stName = toText(orderedStationNames?.[si]) || toText(orderedStationIds[si]) || '';
             for (let ti = 0; ti < types.length; ti += 1) {
                 const t = types[ti];
@@ -1839,10 +1864,12 @@ const setupRouteMapUi = () => {
                     cls += ' is-dark-adjusted';
                 }
 
-                rows.push(`<div class="${cls}" style="--tt-color:${escapeHtml(color)}"></div>`);
+                rows.push(`<div class="${cls}" style="${gridCellStyle(currentGridRow, ti + 1, `--tt-color:${escapeHtml(color)};`)}"></div>`);
             }
             const sid = toText(orderedStationIds?.[si]);
-            rows.push(`<div class="route-map-station" data-station-id="${escapeHtml(sid)}" title="${escapeHtml(stName)}">${escapeHtml(stName)}</div>`);
+            rows.push(`<div class="route-map-station" data-station-id="${escapeHtml(sid)}" title="${escapeHtml(stName)}" style="grid-row:${currentGridRow};grid-column:${types.length + 1};">${escapeHtml(stName)}</div>`);
+
+            gridRowIndex += 1;
 
             appendThroughGapRow(si);
         }
