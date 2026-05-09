@@ -1571,7 +1571,25 @@ const setupRouteMapUi = () => {
                 routeIds.push(rid);
             }
 
-            const itemHtmlsRaw = (await Promise.all(routeIds.map((rid) => buildTransferItemHtml(rid)))).filter(Boolean);
+            // build transfer item HTMLs, then group by company (first segment of route id)
+            const pendingHtmls = await Promise.all(routeIds.map(async (rid) => ({ rid: toText(rid), html: await buildTransferItemHtml(rid) })));
+            const filtered = (pendingHtmls || []).filter((x) => x && toText(x.html));
+            const companyOrder = [];
+            const groups = new Map();
+            for (const entry of filtered) {
+                const rid = toText(entry.rid);
+                const company = rid.split('.')[0] || '';
+                if (!groups.has(company)) {
+                    groups.set(company, []);
+                    companyOrder.push(company);
+                }
+                groups.get(company).push(entry.html);
+            }
+            const itemHtmlsRaw = [];
+            for (const comp of companyOrder) {
+                const arr = groups.get(comp) || [];
+                for (const h of arr) itemHtmlsRaw.push(h);
+            }
             if (!itemHtmlsRaw.length) continue;
 
             const itemHtmls = itemHtmlsRaw.slice(0, MAX_TRANSFER_ROWS * MAX_TRANSFER_ITEMS_PER_ROW);
