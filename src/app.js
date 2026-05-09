@@ -208,7 +208,9 @@ const loadRailwaysOrderIndex = (() => {
 })();
 
 let transferStationIdMapPromise = null;
+let transferStationIdMapCache = null;
 const getTransferStationIdMap = async () => {
+    if (transferStationIdMapCache instanceof Map) return transferStationIdMapCache;
     if (transferStationIdMapPromise) return transferStationIdMapPromise;
     transferStationIdMapPromise = (async () => {
         try {
@@ -237,9 +239,11 @@ const getTransferStationIdMap = async () => {
                 }
             }
 
+            transferStationIdMapCache = map;
             return map;
         } catch {
-            return new Map();
+            transferStationIdMapCache = new Map();
+            return transferStationIdMapCache;
         } finally {
             transferStationIdMapPromise = null;
         }

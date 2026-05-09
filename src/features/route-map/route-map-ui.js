@@ -40,6 +40,33 @@ const getStationCodeIndex = async () => {
     return stationCodeIndexPromise;
 };
 
+let railwayMetaIndexPromise = null;
+const getRailwayMetaIndex = async () => {
+    if (railwayMetaIndexPromise) return railwayMetaIndexPromise;
+    railwayMetaIndexPromise = (async () => {
+        try {
+            const list = await getCachedJson('./data/railways.json');
+            const map = new Map();
+            for (const row of Array.isArray(list) ? list : []) {
+                const id = toText(row?.id);
+                if (!id) continue;
+                map.set(id, row);
+            }
+            return map;
+        } catch {
+            return new Map();
+        }
+    })();
+    return railwayMetaIndexPromise;
+};
+
+const getRouteIdFromStationId = (stationId) => {
+    const sid = toText(stationId);
+    if (!sid) return '';
+    const idx = sid.lastIndexOf('.');
+    return idx > 0 ? sid.slice(0, idx) : '';
+};
+
 const enhanceRouteMapStationCodeBadges = async (containerEl, { lineId, lineColor } = {}) => {
     if (!(containerEl instanceof HTMLElement)) return;
 
@@ -435,6 +462,8 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                         overflow: visible !important;
                     }
                     html.${EXPORT_CLASS} .route-map-grid-header {
+                        display: flex !important;
+                        justify-content: flex-end !important;
                         overflow: visible !important;
                         padding-left: 18px !important;
                         padding-right: 18px !important;
@@ -668,9 +697,10 @@ const ensureStyleInstalled = () => {
             width: max-content;
         }
         .route-map-grid-header {
-            display: block;
+            display: flex;
+            justify-content: flex-end;
             flex: 0 0 auto;
-            padding: 10px 12px 3px;
+            padding: 10px 18px 3px;
             background: var(--route-map-bg);
             overflow: hidden;
         }
@@ -701,7 +731,6 @@ const ensureStyleInstalled = () => {
             display: flex;
             align-items: flex-end;
             justify-content: center;
-            padding-left: 6px;
             background: transparent;
         }
         .route-map-typehead.is-sideways-rl {
@@ -734,7 +763,7 @@ const ensureStyleInstalled = () => {
             background: transparent;
         }
         .route-map-cell {
-            height: 35px;
+            height: var(--route-row-height, 35px);
             width: 12px;
             position: relative;
             background: linear-gradient(var(--tt-color, #888), var(--tt-color, #888)) center/10px calc(100% + 2px) no-repeat;
@@ -833,6 +862,47 @@ const ensureStyleInstalled = () => {
             overflow-y: visible;
             padding-left:30px;
         }
+        .route-map-station.is-transfer-label {
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            white-space: normal;
+            overflow-x: hidden;
+            overflow-y: visible;
+            padding-left: 0;
+            padding-right: 6px;
+        }
+        .route-map-transfer-items {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+        }
+        .route-map-transfer-items.is-two-rows {
+            gap: 2px;
+        }
+        .route-map-transfer-items.is-multi-rows {
+            gap: 2px;
+        }
+        .route-map-transfer-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: nowrap;
+            justify-content: flex-end;
+        }
+        .route-map-transfer-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex: 0 0 auto;
+            justify-content: flex-end;
+        }
+        .route-map-transfer-line-name {
+            font-weight: 600;
+            text-align: right;
+        }
         .route-map-through-prefix {
             color: var(--ui-text-subtle, #666);
             flex: 0 0 auto;
@@ -840,8 +910,9 @@ const ensureStyleInstalled = () => {
         .route-map-through-items {
             display: flex;
             flex-direction: column;
-            align-items: flex-start;
+            align-items: flex-end;
             gap: 4px;
+            width: 100%;
         }
         .route-map-through-items.is-two-rows {
             gap: 2px;
@@ -851,11 +922,14 @@ const ensureStyleInstalled = () => {
             align-items: center;
             gap: 8px;
             flex-wrap: nowrap;
+            justify-content: flex-end;
+            width: 100%;
         }
         .route-map-through-item {
             display: flex;
-            align-items: center;]
+            align-items: center;
             flex: 0 0 auto;
+            justify-content: flex-end;
         }
         .route-map-through-logo {
             width: 18px;
@@ -872,6 +946,7 @@ const ensureStyleInstalled = () => {
         }
         .route-map-through-line {
             font-weight: 600;
+            text-align: right;
         }
         .route-map-divider {
             height: 1px;
@@ -1058,6 +1133,16 @@ const resolveCompanyLogoUrl = (companyKey) => {
 const resolveColorForTheme = (color, fallback = '#888') => {
     const info = resolveTrainTypeColorInfoForTheme(toText(color) || fallback);
     return info.color || fallback;
+};
+
+const formatRouteMapLineIconHtml = (iconEl) => {
+    if (!(iconEl instanceof HTMLElement)) return '';
+    iconEl.classList.add('route-map-through-line-icon');
+    iconEl.style.width = '20px';
+    iconEl.style.height = '20px';
+    iconEl.style.fontSize = '8px';
+    iconEl.style.padding = '0px 0px 1px';
+    return iconEl.outerHTML;
 };
 
 const setupRouteMapUi = () => {
@@ -1433,8 +1518,72 @@ const setupRouteMapUi = () => {
             return an.localeCompare(bn, 'zh-Hans');
         });
 
-        // grid: N type columns (left) + 1 station column (right)
-        const gridStyle = `grid-template-columns: repeat(${types.length}, 12px) minmax(120px, max-content); column-gap: 1px;`;
+        const railwayMetaIndex = await getRailwayMetaIndex();
+        const transferItemHtmlByRouteId = new Map();
+        const buildTransferItemHtml = async (routeId) => {
+            const rid = toText(routeId);
+            if (!rid) return '';
+            if (transferItemHtmlByRouteId.has(rid)) return transferItemHtmlByRouteId.get(rid);
+
+            const railwayMeta = railwayMetaIndex instanceof Map ? railwayMetaIndex.get(rid) : null;
+            const lineName =
+                toText(railwayMeta?.title?.['zh-Hans']) ||
+                toText(railwayMeta?.title?.zh) ||
+                toText(railwayMeta?.title?.ja) ||
+                rid;
+            const lineColor = resolveColorForTheme(toText(railwayMeta?.color) || '#888', '#888');
+
+            let lineIconHtml = '';
+            const iconMeta = await getResolvedRouteIconMeta(rid);
+            if (iconMeta && (iconMeta.code || iconMeta.color)) {
+                const iconEl = createLineIconElement({ routeId: iconMeta.id, code: iconMeta.code, color: iconMeta.color });
+                if (iconEl) {
+                    lineIconHtml = formatRouteMapLineIconHtml(iconEl);
+                }
+            }
+
+            const html = `<span class="route-map-transfer-item">${lineIconHtml}<span class="route-map-transfer-line-name" style="color:${escapeHtml(lineColor)}">${escapeHtml(lineName)}</span></span>`;
+            transferItemHtmlByRouteId.set(rid, html);
+            return html;
+        };
+
+        const MAX_TRANSFER_ROWS = 5;
+        const MAX_TRANSFER_ITEMS_PER_ROW = 4;
+        const transferDisplayByStationId = new Map();
+        let transferColumnCount = 0;
+        for (const sidRaw of orderedStationIds) {
+            const sid = toText(sidRaw);
+            if (!sid) continue;
+
+            const transferStationIds = await getTransferStationIdsByStationId(sid);
+            if (!(transferStationIds instanceof Set) || transferStationIds.size <= 1) continue;
+
+            const selfRouteId = getRouteIdFromStationId(sid);
+            const routeIds = [];
+            const seenRouteIds = new Set();
+            for (const transferSid of transferStationIds) {
+                const rid = getRouteIdFromStationId(transferSid);
+                if (!rid || rid === selfRouteId || seenRouteIds.has(rid)) continue;
+                seenRouteIds.add(rid);
+                routeIds.push(rid);
+            }
+
+            const itemHtmlsRaw = (await Promise.all(routeIds.map((rid) => buildTransferItemHtml(rid)))).filter(Boolean);
+            if (!itemHtmlsRaw.length) continue;
+
+            const itemHtmls = itemHtmlsRaw.slice(0, MAX_TRANSFER_ROWS * MAX_TRANSFER_ITEMS_PER_ROW);
+            const rowCount = Math.min(MAX_TRANSFER_ROWS, Math.max(1, Math.ceil(itemHtmls.length / MAX_TRANSFER_ITEMS_PER_ROW)));
+            const maxColsInRow = Math.min(MAX_TRANSFER_ITEMS_PER_ROW, itemHtmls.length);
+            transferColumnCount = Math.max(transferColumnCount, maxColsInRow);
+            transferDisplayByStationId.set(sid, { itemHtmls, rowCount });
+        }
+
+        const transferColumnsTemplate = transferColumnCount > 0
+            ? `repeat(${transferColumnCount}, max-content) `
+            : '';
+        const gridStyle = `grid-template-columns: ${transferColumnsTemplate}repeat(${types.length}, 12px) minmax(120px, max-content); column-gap: 1px;`;
+        const typeColumnOffset = transferColumnCount;
+        const stationColumnIndex = typeColumnOffset + types.length + 1;
 
         const throughGapMap = new Map(); // afterStationIndex -> { byTypeId: Map<typeId, target[]>, allTargets: target[] }
         const throughGapDirectionScore = new Map(); // afterStationIndex -> score(pt:+1, nt:-1)
@@ -1570,7 +1719,11 @@ const setupRouteMapUi = () => {
             }
         }
 
-        const headCells = types.map((t) => {
+        const transferHeadCells = transferColumnCount > 0
+            ? Array.from({ length: transferColumnCount }, () => '<div class="route-map-headspacer route-map-transfer-headspacer"></div>').join('')
+            : '';
+
+        const typeHeadCells = types.map((t) => {
             const colorInfo = resolveTrainTypeColorInfoForTheme(toText(t?.color) || '#888');
             const color = colorInfo.color || '#888';
             const name = toText(t?.typeName) || '-';
@@ -1595,7 +1748,9 @@ const setupRouteMapUi = () => {
             }
 
             return `<div class="${clsBase}" style="color:${escapeHtml(color)}">${escapeHtml(name)}</div>`;
-        }).concat(['<div class="route-map-headspacer"></div>']).join('');
+        }).join('');
+
+        const headCells = `${transferHeadCells}${typeHeadCells}<div class="route-map-headspacer"></div>`;
 
         const rows = [];
         let gridRowIndex = 1;
@@ -1723,9 +1878,9 @@ const setupRouteMapUi = () => {
 
                 if (!activeIndexByTi.has(ti)) {
                     if (isTypePassingGap(t, si)) {
-                        rows.push(`<div class="${cls}" style="${gridCellStyle(currentGridRow, ti + 1, `--tt-color:${escapeHtml(color)};`)}"></div>`);
+                        rows.push(`<div class="${cls}" style="${gridCellStyle(currentGridRow, typeColumnOffset + ti + 1, `--tt-color:${escapeHtml(color)};`)}"></div>`);
                     } else {
-                        rows.push(`<div class="route-map-through-empty" style="${gridCellStyle(currentGridRow, ti + 1)}"></div>`);
+                        rows.push(`<div class="route-map-through-empty" style="${gridCellStyle(currentGridRow, typeColumnOffset + ti + 1)}"></div>`);
                     }
                     continue;
                 }
@@ -1787,11 +1942,11 @@ const setupRouteMapUi = () => {
                     ? [0, THROUGH_BRANCH_HEAD_OFFSET_PX]
                     : [THROUGH_BRANCH_HEAD_OFFSET_PX];
                 const branches = branchOffsets.map((offset) => {
-                    const branchStyle = `grid-row:${currentGridRow};grid-column:${ti + 1};--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;--branch-total-width:${renderedWidth.toFixed(2)}px;--branch-start-offset:${Number(offset).toFixed(1)}px;--through-branch-height:${THROUGH_BRANCH_ELBOW_HEIGHT_PX}px;--branch-top-y:${branchTopY.toFixed(2)}px;`;
+                    const branchStyle = `grid-row:${currentGridRow};grid-column:${typeColumnOffset + ti + 1};--branch-color:${escapeHtml(color)};--through-line-width:${throughWidth.toFixed(2)}px;--branch-total-width:${renderedWidth.toFixed(2)}px;--branch-start-offset:${Number(offset).toFixed(1)}px;--through-branch-height:${THROUGH_BRANCH_ELBOW_HEIGHT_PX}px;--branch-top-y:${branchTopY.toFixed(2)}px;`;
                     return `<span class="route-map-through-branch" style="${branchStyle}">${branchInner}</span>`;
                 }).join('');
 
-                rows.push(`<div class="${cls}" style="${gridCellStyle(currentGridRow, ti + 1, `--tt-color:${escapeHtml(color)};--through-row-translate-y:${throughRowTranslateY};--through-z:${z};`)}"></div>`);
+                rows.push(`<div class="${cls}" style="${gridCellStyle(currentGridRow, typeColumnOffset + ti + 1, `--tt-color:${escapeHtml(color)};--through-row-translate-y:${throughRowTranslateY};--through-z:${z};`)}"></div>`);
                 rows.push(branches);
             }
 
@@ -1817,15 +1972,7 @@ const setupRouteMapUi = () => {
                     if (iconMeta && (iconMeta.code || iconMeta.color)) {
                         const iconEl = createLineIconElement({ routeId: iconMeta.id, code: iconMeta.code, color: iconMeta.color });
                         if (iconEl) {
-                            iconEl.classList.add('route-map-through-line-icon');
-                            const parser = new DOMParser();
-                            const doc = parser.parseFromString(iconEl.outerHTML, 'text/html');
-                            const el = doc.body.firstChild;
-                            el.style.width = '20px';
-                            el.style.height = '20px';
-                            el.style.fontSize = '8px';
-                            el.style.padding = '0px 0px 1px';
-                            lineIconHtml = el.outerHTML;
+                            lineIconHtml = formatRouteMapLineIconHtml(iconEl);
                         }
                     }
                 }
@@ -1858,7 +2005,7 @@ const setupRouteMapUi = () => {
                 }
                 return '2px';
             })();
-            rows.push(`<div class="route-map-station is-through-label" style="${gridCellStyle(currentGridRow, types.length + 1, `transform:translateY(${throughLabelTranslateY})`)}">${labelHtml}</div>`);
+            rows.push(`<div class="route-map-station is-through-label" style="${gridCellStyle(currentGridRow, stationColumnIndex, `transform:translateY(${throughLabelTranslateY})`)}">${labelHtml}</div>`);
             gridRowIndex += 1;
         };
 
@@ -1868,11 +2015,32 @@ const setupRouteMapUi = () => {
         for (let si = 0; si < orderedStationIds.length; si += 1) {
             const currentGridRow = gridRowIndex;
             const sid = toText(orderedStationIds?.[si]);
-            const transferStationIds = await getTransferStationIdsByStationId(sid);
-            const isTransferStation = transferStationIds instanceof Set && transferStationIds.size > 1;
+            const transferDisplay = transferDisplayByStationId.get(sid) || null;
+            const isTransferStation = !!transferDisplay;
+            const transferRowCount = Number(transferDisplay?.rowCount) || 1;
+            const rowHeightPx = transferRowCount > 1 ? 50 : 35;
             const stName = toText(orderedStationNames?.[si]) || toText(orderedStationIds[si]) || '';
+
+            if (transferColumnCount > 0) {
+                let transferLabelHtml = '';
+                if (transferDisplay && Array.isArray(transferDisplay.itemHtmls) && transferDisplay.itemHtmls.length) {
+                    const itemHtmls = transferDisplay.itemHtmls;
+                    const transferItemsClass = transferDisplay.rowCount > 2
+                        ? 'route-map-transfer-items is-multi-rows'
+                        : (transferDisplay.rowCount > 1 ? 'route-map-transfer-items is-two-rows' : 'route-map-transfer-items');
+                    const rowsHtml = [];
+                    for (let start = 0; start < itemHtmls.length && rowsHtml.length < transferDisplay.rowCount; start += MAX_TRANSFER_ITEMS_PER_ROW) {
+                        const rowHtml = itemHtmls.slice(start, start + MAX_TRANSFER_ITEMS_PER_ROW).join('');
+                        rowsHtml.push(`<span class="route-map-transfer-row">${rowHtml}</span>`);
+                    }
+                    transferLabelHtml = `<span class="${transferItemsClass}">${rowsHtml.join('')}</span>`;
+                }
+
+                rows.push(`<div class="route-map-station is-transfer-label" style="${gridCellStyle(currentGridRow, `1 / ${typeColumnOffset + 1}`, `min-height:${rowHeightPx}px;`)}">${transferLabelHtml}</div>`);
+            }
+
             if (isTransferStation) {
-                rows.push(`<div class="route-map-transfer-line" style="grid-row:${currentGridRow};grid-column:1 / ${types.length + 1};"></div>`);
+                rows.push(`<div class="route-map-transfer-line" style="grid-row:${currentGridRow};grid-column:${typeColumnOffset + 1} / ${stationColumnIndex};"></div>`);
             }
             for (let ti = 0; ti < types.length; ti += 1) {
                 const t = types[ti];
@@ -1899,9 +2067,9 @@ const setupRouteMapUi = () => {
                     cls += ' is-dark-adjusted';
                 }
 
-                rows.push(`<div class="${cls}" style="${gridCellStyle(currentGridRow, ti + 1, `--tt-color:${escapeHtml(color)};`)}"></div>`);
+                rows.push(`<div class="${cls}" style="${gridCellStyle(currentGridRow, typeColumnOffset + ti + 1, `--tt-color:${escapeHtml(color)};--route-row-height:${rowHeightPx}px;`)}"></div>`);
             }
-            rows.push(`<div class="route-map-station" data-station-id="${escapeHtml(sid)}" title="${escapeHtml(stName)}" style="grid-row:${currentGridRow};grid-column:${types.length + 1};">${escapeHtml(stName)}</div>`);
+            rows.push(`<div class="route-map-station" data-station-id="${escapeHtml(sid)}" title="${escapeHtml(stName)}" style="grid-row:${currentGridRow};grid-column:${stationColumnIndex};min-height:${rowHeightPx}px;display:flex;align-items:center;">${escapeHtml(stName)}</div>`);
 
             gridRowIndex += 1;
 
