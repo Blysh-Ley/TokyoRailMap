@@ -455,10 +455,18 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                         text-orientation: mixed !important;
                     }
                     html.${EXPORT_CLASS} .route-map-cell {
-                        background: linear-gradient(var(--tt-color, #888), var(--tt-color, #888)) center/10px 100% no-repeat !important;
+                        background: transparent !important;
                     }
-                    html.${EXPORT_CLASS} .route-map-cell.is-through-row {
-                        background: linear-gradient(var(--tt-color, #888), var(--tt-color, #888)) center/10px 100% no-repeat !important;
+                    html.${EXPORT_CLASS} .route-map-cell::before {
+                        content: "" !important;
+                        position: absolute !important;
+                        top: -1px !important;
+                        bottom: -1px !important;
+                        left: 1px !important;
+                        right: 1px !important;
+                        background-color: var(--tt-color, #888) !important;
+                        z-index: -1 !important;
+                        pointer-events: none !important;
                     }
                     html.${EXPORT_CLASS} .route-map-station.is-through-label,
                     html.${EXPORT_CLASS} .route-map-through-items,
