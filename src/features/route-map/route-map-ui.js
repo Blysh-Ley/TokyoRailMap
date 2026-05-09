@@ -16,6 +16,7 @@ import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCached
 import { previewBranchesForLine } from '../../map/analyze_branch.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
 import { getTransferStationIdsByStationId } from '../../app.js';
+import { MENU_THROUGH_LINE_IDS, THROUGH_SERVICE_DISPLAY } from '../../lib/shonanshinjuku-uenotokyo.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -66,6 +67,35 @@ const getRouteIdFromStationId = (stationId) => {
     const parts = sid.split('.').map((p) => toText(p)).filter(Boolean);
     if (parts.length >= 2) return `${parts[0]}.${parts[1]}`;
     return parts[0] || '';
+};
+
+const SU_SERVICE_INFO_BY_KEY = Object.freeze({
+    ShonanShinjuku: Object.freeze({
+        lineId: MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU,
+        lineName: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name,
+        color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color,
+        codes: ['JS'],
+        routeIds: ['JR-East.ShonanShinjuku']
+    }),
+    UenoTokyo: Object.freeze({
+        lineId: MENU_THROUGH_LINE_IDS.UENO_TOKYO,
+        lineName: THROUGH_SERVICE_DISPLAY.UenoTokyo.name,
+        color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color,
+        codes: ['JU', 'JT'],
+        routeIds: ['JR-East.Tokaido', 'JR-East.JobanRapid']
+    })
+});
+
+const isSUStations = ({ selfRouteId, routeIds } = {}) => {
+    const ids = new Set([
+        toText(selfRouteId),
+        ...Array.isArray(routeIds) ? routeIds.map((x) => toText(x)).filter(Boolean) : []
+    ]);
+
+    return {
+        ShonanShinjuku: Array.from(SU_SERVICE_INFO_BY_KEY.ShonanShinjuku.routeIds).some((rid) => ids.has(rid)),
+        UenoTokyo: Array.from(SU_SERVICE_INFO_BY_KEY.UenoTokyo.routeIds).some((rid) => ids.has(rid))
+    };
 };
 
 const enhanceRouteMapStationCodeBadges = async (containerEl, { lineId, lineColor } = {}) => {
@@ -1525,15 +1555,21 @@ const setupRouteMapUi = () => {
 
         const railwayMetaIndex = await getRailwayMetaIndex();
         const transferItemHtmlByRouteId = new Map();
+        const getTransferItemDisplayNameByRouteId = (routeId) => {
+            const rid = toText(routeId);
+            if (!rid) return '';
+
+            const railwayMeta = railwayMetaIndex instanceof Map ? railwayMetaIndex.get(rid) : null;
+            return toText(railwayMeta?.title?.['zh-Hans']).replace(/（.*?）|\(.*?\)/g, '') || rid;
+        };
+
         const buildTransferItemHtml = async (routeId) => {
             const rid = toText(routeId);
             if (!rid) return '';
             if (transferItemHtmlByRouteId.has(rid)) return transferItemHtmlByRouteId.get(rid);
 
             const railwayMeta = railwayMetaIndex instanceof Map ? railwayMetaIndex.get(rid) : null;
-            const lineName =
-                toText(railwayMeta?.title?.['zh-Hans']).replace(/（.*?）|\(.*?\)/g, "") ||
-                rid;
+            const lineName = getTransferItemDisplayNameByRouteId(rid);
             const lineColor = resolveColorForTheme(toText(railwayMeta?.color) || '#888', '#888');
 
             let lineIconHtml = '';
@@ -1548,6 +1584,27 @@ const setupRouteMapUi = () => {
             const html = `<span class="route-map-transfer-item">${lineIconHtml}<span class="route-map-transfer-line-name" style="color:${escapeHtml(lineColor)}">${escapeHtml(lineName)}</span></span>`;
             transferItemHtmlByRouteId.set(rid, html);
             return html;
+        };
+
+        const buildSUTransferItemHtml = async (serviceKey) => {
+            const info = SU_SERVICE_INFO_BY_KEY[serviceKey] || null;
+            if (!info) return '';
+
+            const iconHtmls = [];
+            for (const code of info.codes) {
+                const iconEl = createLineIconElement({ routeId: info.lineId, code, color: info.color });
+                if (!iconEl) continue;
+                iconHtmls.push(formatRouteMapLineIconHtml(iconEl));
+            }
+
+            if (!iconHtmls.length) return '';
+
+            return `<span class="route-map-transfer-item route-map-transfer-item--su">${iconHtmls.join('')}<span class="route-map-transfer-line-name" style="color:${escapeHtml(info.color)}">${escapeHtml(info.lineName)}</span></span>`;
+        };
+
+        const getSUTransferDisplayName = (serviceKey) => {
+            const info = SU_SERVICE_INFO_BY_KEY[serviceKey] || null;
+            return toText(info?.lineName);
         };
 
         const MAX_TRANSFER_ROWS = 8
@@ -1571,9 +1628,38 @@ const setupRouteMapUi = () => {
                 routeIds.push(rid);
             }
 
+            const suStations = isSUStations({ selfRouteId, routeIds });
+            const suItemHtmls = [];
+            if (suStations.ShonanShinjuku) suItemHtmls.push(await buildSUTransferItemHtml('ShonanShinjuku'));
+            if (suStations.UenoTokyo) suItemHtmls.push(await buildSUTransferItemHtml('UenoTokyo'));
+
             // build transfer item HTMLs, then group by company (first segment of route id)
-            const pendingHtmls = await Promise.all(routeIds.map(async (rid) => ({ rid: toText(rid), html: await buildTransferItemHtml(rid) })));
-            const filtered = (pendingHtmls || []).filter((x) => x && toText(x.html));
+            const pendingHtmls = await Promise.all(routeIds.map(async (rid) => ({
+                rid: toText(rid),
+                displayName: getTransferItemDisplayNameByRouteId(rid),
+                html: await buildTransferItemHtml(rid)
+            })));
+            const filtered = [];
+            const seenDisplayNames = new Set();
+
+            for (const entry of pendingHtmls || []) {
+                const html = toText(entry?.html);
+                const displayName = toText(entry?.displayName);
+                if (!html || !displayName || seenDisplayNames.has(displayName)) continue;
+                seenDisplayNames.add(displayName);
+                filtered.push({ rid: toText(entry?.rid), html });
+            }
+
+            for (const html of suItemHtmls) {
+                if (!toText(html)) continue;
+                const serviceKey = html.includes(THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name)
+                    ? 'ShonanShinjuku'
+                    : 'UenoTokyo';
+                const displayName = getSUTransferDisplayName(serviceKey);
+                if (!displayName || seenDisplayNames.has(displayName)) continue;
+                seenDisplayNames.add(displayName);
+                filtered.push({ rid: `SU:${filtered.length}`, html });
+            }
             const companyOrder = [];
             const groups = new Map();
             for (const entry of filtered) {
