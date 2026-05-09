@@ -871,7 +871,9 @@ const ensureStyleInstalled = () => {
             overflow-x: hidden;
             overflow-y: visible;
             padding-left: 0;
-            padding-right: 6px;
+            padding-right: 10px;
+            padding-top: 5px;
+            padding-bottom: 5px;
         }
         .route-map-transfer-items {
             display: flex;
@@ -895,7 +897,6 @@ const ensureStyleInstalled = () => {
         .route-map-transfer-item {
             display: flex;
             align-items: center;
-            gap: 4px;
             flex: 0 0 auto;
             justify-content: flex-end;
         }
@@ -1547,8 +1548,8 @@ const setupRouteMapUi = () => {
             return html;
         };
 
-        const MAX_TRANSFER_ROWS = 5;
-        const MAX_TRANSFER_ITEMS_PER_ROW = 4;
+        const MAX_TRANSFER_ROWS = 8
+        const MAX_TRANSFER_ITEMS_PER_ROW = 2;
         const transferDisplayByStationId = new Map();
         let transferColumnCount = 0;
         for (const sidRaw of orderedStationIds) {
