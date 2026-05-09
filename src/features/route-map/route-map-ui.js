@@ -513,6 +513,9 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                     html.${EXPORT_CLASS} .route-map-through-line-icon {
                         padding-bottom: 3.5px !important;
                     }
+                    html.${EXPORT_CLASS} .route-map-through-line-icon.route-map-through-line-icon-seibu {
+                        padding-bottom: 10.5px !important;
+                    }
                     html.${EXPORT_CLASS} .rw-station-code-badge{
                         padding-bottom: 2px !important;    
                     }
@@ -1136,6 +1139,9 @@ const formatRouteMapLineIconHtml = (iconEl) => {
     if (!(iconEl instanceof HTMLElement)) return '';
     const currentSize = parseFloat(iconEl.style.fontSize);
     iconEl.classList.add('route-map-through-line-icon');
+    if (toText(iconEl.dataset?.preset) === 'seibu') {
+        iconEl.classList.add('route-map-through-line-icon-seibu');
+    }
     iconEl.style.width = '20px';
     iconEl.style.height = '20px';
     iconEl.style.fontSize = `${currentSize-3}px`;
