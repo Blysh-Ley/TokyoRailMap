@@ -836,8 +836,7 @@ const ensureStyleInstalled = () => {
         }
         .route-map-through-item {
             display: flex;
-            align-items: center;
-            gap: 4px;
+            align-items: center;]
             flex: 0 0 auto;
         }
         .route-map-through-logo {
@@ -847,6 +846,11 @@ const ensureStyleInstalled = () => {
             border-radius: 2px;
             background: transparent;
             flex: 0 0 18px;
+        }
+        .route-map-through-line-icon {
+            margin-right: 2px;
+            transform: translateY(-1px);
+            flex: 0 0 auto;
         }
         .route-map-through-line {
             font-weight: 600;
@@ -1278,7 +1282,7 @@ const setupRouteMapUi = () => {
         };
     };
 
-    const renderDiagram = (payload) => {
+    const renderDiagram = async (payload) => {
         const lineStations = payload?.lineStations || {};
         const displayLineId = toText(payload?.selectedLine?.lineId || payload?.selectedLine?.id || activeLineId);
         const stationIds = Array.isArray(lineStations?.stationIds) ? lineStations.stationIds : [];
@@ -1579,7 +1583,7 @@ const setupRouteMapUi = () => {
             return extraStyle ? `${baseStyle}${extraStyle}` : baseStyle;
         };
 
-        const appendThroughGapRow = (si) => {
+        const appendThroughGapRow = async (si) => {
             const throughGap = throughGapMap.get(si);
             if (!throughGap) return;
 
@@ -1776,16 +1780,36 @@ const setupRouteMapUi = () => {
                 if (!lineId || lineMap.has(lineId)) continue;
                 lineMap.set(lineId, target);
             }
-            const throughItemList = Array.from(lineMap.values()).map((target) => {
+            const throughItemList = await Promise.all(Array.from(lineMap.values()).map(async (target) => {
                 const company = toText(target?.refCompany);
                 const logoUrl = resolveCompanyLogoUrl(company);
-                const lineName = toText(target?.refLineName) || toText(target?.refLineId) || '';
+                const lineId = toText(target?.refLineId);
+                const lineName = toText(target?.refLineName) || lineId || '';
                 const lineColor = resolveColorForTheme(target?.refLineColor || '#888', '#888');
                 const logoHtml = logoUrl
                     ? `<img class="route-map-through-logo" src="${escapeHtml(logoUrl)}" alt="${escapeHtml(company || lineName)}" loading="lazy" decoding="async">`
                     : '';
-                return `<span class="route-map-through-item">${logoHtml}<span class="route-map-through-line" style="color:${escapeHtml(lineColor)}">${escapeHtml(lineName)}</span></span>`;
-            });
+                let lineIconHtml = '';
+                if (lineId) {
+                    const iconMeta = await getResolvedRouteIconMeta(lineId);
+                    if (iconMeta && (iconMeta.code || iconMeta.color)) {
+                        const iconEl = createLineIconElement({ routeId: iconMeta.id, code: iconMeta.code, color: iconMeta.color });
+                        if (iconEl) {
+                            iconEl.classList.add('route-map-through-line-icon');
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(iconEl.outerHTML, 'text/html');
+                            const el = doc.body.firstChild;
+                            el.style.width = '20px';
+                            el.style.height = '20px';
+                            el.style.fontSize = '8px';
+                            el.style.padding = '0px 0px 1px';
+                            lineIconHtml = el.outerHTML;
+                        }
+                    }
+                }
+
+                return `<span class="route-map-through-item">${logoHtml}${lineIconHtml}<span class="route-map-through-line" style="color:${escapeHtml(lineColor)}">${escapeHtml(lineName)}</span></span>`;
+            }));
 
             let throughItems = '';
             let throughItemsClass = 'route-map-through-items';
@@ -1817,7 +1841,7 @@ const setupRouteMapUi = () => {
         };
 
         // before first station
-        appendThroughGapRow(-1);
+        await appendThroughGapRow(-1);
 
         for (let si = 0; si < orderedStationIds.length; si += 1) {
             const currentGridRow = gridRowIndex;
@@ -1854,7 +1878,7 @@ const setupRouteMapUi = () => {
 
             gridRowIndex += 1;
 
-            appendThroughGapRow(si);
+            await appendThroughGapRow(si);
         }
 
         const metaLine = (() => {
@@ -1915,7 +1939,7 @@ const setupRouteMapUi = () => {
         const lineColor = resolveColorForTheme(toText(payload?.selectedLine?.lineColor) || '', '');
         topTitle.style.color = lineColor || '';
 
-        const rendered = renderDiagram(payload);
+        const rendered = await renderDiagram(payload);
         gridHeader.innerHTML = rendered?.headHtml || '';
         body.innerHTML = rendered?.bodyHtml || '';
         await enhanceRouteMapStationCodeBadges(body, {
