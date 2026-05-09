@@ -13,7 +13,7 @@ import {
     getPreferredCachedImageSrc,
     setImageElementFromCache
 } from '../../lib/fetch.js';
-import { previewBranchesForLine } from '../branch/analyze_branch.js';
+import { previewBranchesForLine } from '../../map/analyze_branch.js';
 import {
     buildTemporaryThroughServicePanelPlan,
     debugExtractShonanShinjukuUenoTokyoTrips,

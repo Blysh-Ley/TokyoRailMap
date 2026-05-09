@@ -22,7 +22,7 @@ import { createPanel } from './features/panel/panel.js';
 import { getGlobalTimetableCache } from './lib/timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './map/fullscreen.js';
 import { buildVirtualTripPreviewPayload, extractShortestLoopSegmentByIndex, isLoopDirection } from './lib/trip-preview.js';
-import { previewBranchesForLine } from './features/branch/analyze_branch.js';
+import { previewBranchesForLine } from './map/analyze_branch.js';
 import { createLineIconElement } from './lib/line-icons.js';
 import {
     buildBaseLineColorExpr,
