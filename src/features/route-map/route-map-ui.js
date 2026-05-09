@@ -461,12 +461,6 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                         box-shadow: none !important;
                         overflow: visible !important;
                     }
-                    html.${EXPORT_CLASS} .route-map-grid-header {
-                        overflow: visible !important;
-                        padding-left: 18px !important;
-                        padding-right: 18px !important;
-                        padding-bottom: 5px !important;
-                    }
                     html.${EXPORT_CLASS} .route-map-grid-header .route-map-grid {
                         align-items: end !important;
                         justify-content: start !important;
@@ -712,10 +706,11 @@ const ensureStyleInstalled = () => {
         .route-map-station {
             font-size: 13px;
             text-align: left;
-            padding: 2px 0 2px 6px;
+            padding-right: 2px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            padding-left: 2px;
         }
         .route-map-typehead {
             font-size: 12px;
@@ -761,7 +756,7 @@ const ensureStyleInstalled = () => {
             background: transparent;
         }
         .route-map-cell {
-            height: var(--route-row-height, 35px);
+            height: var(--route-row-height, 45px);
             width: 12px;
             position: relative;
             background: linear-gradient(var(--tt-color, #888), var(--tt-color, #888)) center/10px calc(100% + 2px) no-repeat;
@@ -870,8 +865,6 @@ const ensureStyleInstalled = () => {
             overflow-y: visible;
             padding-left: 0;
             padding-right: 10px;
-            padding-top: 5px;
-            padding-bottom: 5px;
         }
         .route-map-transfer-items {
             display: flex;
@@ -909,7 +902,7 @@ const ensureStyleInstalled = () => {
         .route-map-through-items {
             display: flex;
             flex-direction: column;
-            align-items: flex-end;
+            align-items: flex-start;
             gap: 4px;
             width: 100%;
         }
@@ -940,7 +933,6 @@ const ensureStyleInstalled = () => {
         }
         .route-map-through-line-icon {
             margin-right: 2px;
-            transform: translateY(-1px);
             flex: 0 0 auto;
         }
         .route-map-through-line {
@@ -1526,7 +1518,7 @@ const setupRouteMapUi = () => {
 
             const railwayMeta = railwayMetaIndex instanceof Map ? railwayMetaIndex.get(rid) : null;
             const lineName =
-                toText(railwayMeta?.title?.['zh-Hans']) ||
+                toText(railwayMeta?.title?.['zh-Hans']).replace(/（.*?）|\(.*?\)/g, "") ||
                 toText(railwayMeta?.title?.zh) ||
                 toText(railwayMeta?.title?.ja) ||
                 rid;
@@ -2017,7 +2009,7 @@ const setupRouteMapUi = () => {
             const transferDisplay = transferDisplayByStationId.get(sid) || null;
             const isTransferStation = !!transferDisplay;
             const transferRowCount = Number(transferDisplay?.rowCount) || 1;
-            const rowHeightPx = transferRowCount > 1 ? 50 : 35;
+            const rowHeightPx = transferRowCount > 1 ?  (transferRowCount - 1) * 26 + 35 : 35;
             const stName = toText(orderedStationNames?.[si]) || toText(orderedStationIds[si]) || '';
 
             if (transferColumnCount > 0) {
