@@ -15,6 +15,7 @@ import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteI
 import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
 import { previewBranchesForLine } from '../../map/analyze_branch.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
+import { getTransferStationIdsByStationId } from '../../app.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -765,6 +766,23 @@ const ensureStyleInstalled = () => {
             background: #fff;
             box-sizing: border-box;
         }
+        .route-map-transfer-line {
+            height: 2px;
+            background: #000;
+            pointer-events: none;
+            align-self: center;
+            z-index: 101;
+            position: relative;
+            left: -8px;
+            width: calc(100% + 2px);
+        }
+        .route-map-cell.is-stop.is-transfer::after {
+            width: 4px;
+            height: 4px;
+            background: #000;
+            border: 2.5px solid #fff;
+            box-sizing: content-box;
+        }
         .route-map-cell.is-stop-up::after,
         .route-map-cell.is-stop-down::after {
             content: '';
@@ -897,6 +915,10 @@ const ensureStyleInstalled = () => {
         html[data-theme='dark'] .route-map-cell.is-stop-down::after {
             background: transparent;
             border-top-color: #111;
+        }
+        html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
+            background: #000;
+            border-color: #fff;
         }
     `;
     document.head.appendChild(style);
@@ -1845,7 +1867,13 @@ const setupRouteMapUi = () => {
 
         for (let si = 0; si < orderedStationIds.length; si += 1) {
             const currentGridRow = gridRowIndex;
+            const sid = toText(orderedStationIds?.[si]);
+            const transferStationIds = await getTransferStationIdsByStationId(sid);
+            const isTransferStation = transferStationIds instanceof Set && transferStationIds.size > 1;
             const stName = toText(orderedStationNames?.[si]) || toText(orderedStationIds[si]) || '';
+            if (isTransferStation) {
+                rows.push(`<div class="route-map-transfer-line" style="grid-row:${currentGridRow};grid-column:1 / ${types.length + 1};"></div>`);
+            }
             for (let ti = 0; ti < types.length; ti += 1) {
                 const t = types[ti];
                 const colorInfo = resolveTrainTypeColorInfoForTheme(toText(t?.color) || '#888');
@@ -1860,11 +1888,11 @@ const setupRouteMapUi = () => {
                 if ((hideHead && (t?._hasPair ? (!firstStop && !secondStop) : !anyStop)) || hideTail) {
                     cls += ' is-hidden-tail';
                 } else if (t?._hasPair) {
-                    if (firstStop && secondStop) cls += ' is-stop';
+                    if (firstStop && secondStop) cls += isTransferStation ? ' is-stop is-transfer' : ' is-stop';
                     else if (secondStop && !firstStop) cls += ' is-stop-up';
                     else if (firstStop && !secondStop) cls += ' is-stop-down';
                 } else if (anyStop) {
-                    cls += ' is-stop';
+                    cls += isTransferStation ? ' is-stop is-transfer' : ' is-stop';
                 }
 
                 if (colorInfo.darkAdjusted) {
@@ -1873,7 +1901,6 @@ const setupRouteMapUi = () => {
 
                 rows.push(`<div class="${cls}" style="${gridCellStyle(currentGridRow, ti + 1, `--tt-color:${escapeHtml(color)};`)}"></div>`);
             }
-            const sid = toText(orderedStationIds?.[si]);
             rows.push(`<div class="route-map-station" data-station-id="${escapeHtml(sid)}" title="${escapeHtml(stName)}" style="grid-row:${currentGridRow};grid-column:${types.length + 1};">${escapeHtml(stName)}</div>`);
 
             gridRowIndex += 1;

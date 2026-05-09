@@ -207,6 +207,57 @@ const loadRailwaysOrderIndex = (() => {
     };
 })();
 
+let transferStationIdMapPromise = null;
+const getTransferStationIdMap = async () => {
+    if (transferStationIdMapPromise) return transferStationIdMapPromise;
+    transferStationIdMapPromise = (async () => {
+        try {
+            const groups = await getCachedJson('./data/station-groups.json');
+            const map = new Map();
+
+            for (const group of Array.isArray(groups) ? groups : []) {
+                if (!Array.isArray(group)) continue;
+                const ids = [];
+                const seen = new Set();
+
+                for (const chunk of group) {
+                    if (!Array.isArray(chunk)) continue;
+                    for (const sid of chunk) {
+                        const id = String(sid ?? '').trim();
+                        if (!id || seen.has(id)) continue;
+                        seen.add(id);
+                        ids.push(id);
+                    }
+                }
+
+                if (!ids.length) continue;
+                const groupSet = new Set(ids);
+                for (const id of ids) {
+                    map.set(id, groupSet);
+                }
+            }
+
+            return map;
+        } catch {
+            return new Map();
+        } finally {
+            transferStationIdMapPromise = null;
+        }
+    })();
+    return transferStationIdMapPromise;
+};
+
+export const getTransferStationIdsByStationId = async (stationId) => {
+    const sid = String(stationId ?? '').trim();
+    if (!sid) return new Set();
+
+    const map = await getTransferStationIdMap();
+    const groupSet = map.get(sid);
+    if (!(groupSet instanceof Set) || groupSet.size <= 1) return new Set();
+
+    return new Set(Array.from(groupSet).map((x) => String(x || '').trim()).filter(Boolean));
+};
+
 const initialTheme = resolveThemeFromAppearance(readAppearanceMode());
 document.documentElement.setAttribute('data-theme', initialTheme);
 let mapTheme = initialTheme;
@@ -1614,36 +1665,7 @@ map.on('load', async () => {
     };
 
     const loadTransferStationIdMap = async () => {
-        try {
-            const groups = await getCachedJson('./data/station-groups.json');
-            const map = new Map();
-
-            for (const group of Array.isArray(groups) ? groups : []) {
-                if (!Array.isArray(group)) continue;
-                const ids = [];
-                const seen = new Set();
-
-                for (const chunk of group) {
-                    if (!Array.isArray(chunk)) continue;
-                    for (const sid of chunk) {
-                        const id = String(sid ?? '').trim();
-                        if (!id || seen.has(id)) continue;
-                        seen.add(id);
-                        ids.push(id);
-                    }
-                }
-
-                if (!ids.length) continue;
-                const groupSet = new Set(ids);
-                for (const id of ids) {
-                    map.set(id, groupSet);
-                }
-            }
-
-            return map;
-        } catch {
-            return new Map();
-        }
+        return getTransferStationIdMap();
     };
 
     const getSelectedStationHighlightIds = () => {
