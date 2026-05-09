@@ -198,7 +198,7 @@ const getTrainSvgDataUrl = (fill, company, defaultColor = '#000') => {
         if (brand === 'odakyu') {
         // 外圈使用 fillColor，内部白底固定白色
         svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 105.72 106.48">
+<svg xmlns="http://www.w3.org/2000/svg" width="105.72" height="106.48" viewBox="0 0 105.72 106.48">
   <path fill="${safeFill}" d="M108,55.24c0,36.43-20.52,53.24-52.86,53.24-32.06,0-52.86-16.81-52.86-53.24C2.28,19.86,23.08,2,55.14,2,87.48,2,108,19.48,108,55.24Z" transform="translate(-2.28 -2)"/>
   <path fill="#FFFFFF" d="M94.18,55.25c0,28.63-13.35,39.51-39.23,39.51S15.72,84.07,15.72,55.25c0-27.41,13.44-39.52,39.23-39.52C80.26,15.73,94.18,26.7,94.18,55.25Z" transform="translate(-2.28 -2)"/>
 </svg>`;
@@ -222,7 +222,7 @@ const getTrainSvgDataUrl = (fill, company, defaultColor = '#000') => {
     } else if (brand === 'seibu') {
         // seibu: 外圈用 fillColor，内部白区固定白色
         svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 110">
+<svg xmlns="http://www.w3.org/2000/svg" width="110" height="110" viewBox="0 0 110 110">
   <g>
     <path fill="${safeFill}" d="M95.8,110.2H84.6L71.3,93.5H38.7l-13.2,16.7H14.2l20-24.9c-3-0.4-6-1-9-1.6c-3.5-6.5-5.6-14.1-5.6-22.2V17.9c0-6.8,5.1-12.5,11.6-13.4h47.7c6.5,0.9,11.6,6.6,11.6,13.4v43.6c0,8-2.2,15.6-5.6,22.2c-2.9,0.6-6,1.3-9,1.8L95.8,110.2z"/>
     <path fill="#FFFFFF" d="M83.2,37.2c0,15.6-12.6,28.2-28.2,28.2c-15.6,0-28.2-12.6-28.2-28.2V19.9c0-5.6,4.6-10.2,10.2-10.2h36c5.6,0,10.2,4.6,10.2,10.2V37.2z"/>
