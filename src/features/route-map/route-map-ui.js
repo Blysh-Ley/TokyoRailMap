@@ -343,19 +343,7 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
             const orig = {
                 el,
                 html: el.innerHTML,
-                style: {
-                    writingMode: el.style.writingMode,
-                    textOrientation: el.style.textOrientation,
-                    transform: el.style.transform,
-                    transformOrigin: el.style.transformOrigin,
-                    justifyContent: el.style.justifyContent,
-                    alignItems: el.style.alignItems,
-                    paddingLeft: el.style.paddingLeft,
-                    height: el.style.height,
-                    lineHeight: el.style.lineHeight,
-                    display: el.style.display,
-                    flexDirection: el.style.flexDirection
-                }
+                cssText: el.style.cssText
             };
 
             // Force a stable layout for html2canvas (writing-mode is flaky there).
@@ -407,17 +395,7 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
             if (!(el instanceof HTMLElement)) continue;
             el.classList.remove('is-export-typehead');
             el.innerHTML = p.html;
-            el.style.writingMode = p.style.writingMode;
-            el.style.textOrientation = p.style.textOrientation;
-            el.style.transform = p.style.transform;
-            el.style.transformOrigin = p.style.transformOrigin;
-            el.style.justifyContent = p.style.justifyContent;
-            el.style.alignItems = p.style.alignItems;
-            el.style.paddingLeft = p.style.paddingLeft;
-            el.style.height = p.style.height;
-            el.style.lineHeight = p.style.lineHeight;
-            el.style.display = p.style.display;
-            el.style.flexDirection = p.style.flexDirection;
+            el.style.cssText = p.cssText;
         }
         typeheadPatches.length = 0;
 
@@ -477,12 +455,10 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                         text-orientation: mixed !important;
                     }
                     html.${EXPORT_CLASS} .route-map-cell {
-                        background: var(--tt-color, #888) !important;
-                        background-size: 12px 100% !important;
+                        background: linear-gradient(var(--tt-color, #888), var(--tt-color, #888)) center/10px 100% no-repeat !important;
                     }
                     html.${EXPORT_CLASS} .route-map-cell.is-through-row {
-                        background: var(--tt-color, #888) !important;
-                        background-size: 12px 100% !important;
+                        background: linear-gradient(var(--tt-color, #888), var(--tt-color, #888)) center/10px 100% no-repeat !important;
                     }
                     html.${EXPORT_CLASS} .route-map-station.is-through-label,
                     html.${EXPORT_CLASS} .route-map-through-items,
