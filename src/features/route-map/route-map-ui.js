@@ -63,7 +63,7 @@ const enhanceRouteMapStationCodeBadges = async (containerEl, { lineId, lineColor
         if (!badge) continue;
         badge.style.marginRight = '4px';
         badge.style.verticalAlign = 'middle';
-        badge.style.transform = 'translateY(-1px)';
+        //badge.style.transform = 'translateY(-1px)';
 
         stEl.insertBefore(badge, stEl.firstChild);
     }
@@ -483,7 +483,6 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                     }
                     html.${EXPORT_CLASS} .route-map-station .rw-station-code-badge {
                         line-height: 20px !important;
-                        transform: translateY(-2px) !important;
                     }
                     html.${EXPORT_CLASS} .route-map-through-branch {
                         left: calc(10% + var(--branch-start-offset, 0px)) !important;
