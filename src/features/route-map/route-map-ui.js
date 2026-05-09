@@ -462,8 +462,6 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                         overflow: visible !important;
                     }
                     html.${EXPORT_CLASS} .route-map-grid-header {
-                        display: flex !important;
-                        justify-content: flex-end !important;
                         overflow: visible !important;
                         padding-left: 18px !important;
                         padding-right: 18px !important;
@@ -471,6 +469,7 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                     }
                     html.${EXPORT_CLASS} .route-map-grid-header .route-map-grid {
                         align-items: end !important;
+                        justify-content: start !important;
                     }
                     html.${EXPORT_CLASS} .route-map-typehead {
                         padding-left: 0 !important;
@@ -697,10 +696,9 @@ const ensureStyleInstalled = () => {
             width: max-content;
         }
         .route-map-grid-header {
-            display: flex;
-            justify-content: flex-end;
+            display: block;
             flex: 0 0 auto;
-            padding: 10px 18px 3px;
+            padding: 10px 12px 3px;
             background: var(--route-map-bg);
             overflow: hidden;
         }
@@ -2142,6 +2140,8 @@ const setupRouteMapUi = () => {
             lineId: lid,
             lineColor: toText(payload?.selectedLine?.lineColor || '')
         });
+        await nextFrame();
+        syncRouteMapGridHeaderWidth();
         positionPanel();
     };
 
@@ -2200,6 +2200,31 @@ const setupRouteMapUi = () => {
     const getRouteMapStationTarget = (target) => {
         if (!(target instanceof Element)) return null;
         return target.closest?.('.route-map-station[data-station-id]') || null;
+    };
+
+    const syncRouteMapGridHeaderWidth = () => {
+        const headerGrid = gridHeader.querySelector('.route-map-grid');
+        const bodyGrid = body.querySelector('.route-map-grid');
+        if (!(headerGrid instanceof HTMLElement) || !(bodyGrid instanceof HTMLElement)) return;
+
+        const transferSpacers = headerGrid.querySelectorAll('.route-map-transfer-headspacer');
+        if (!transferSpacers.length) return;
+
+        const firstCell = bodyGrid.querySelector('.route-map-cell:not(.is-hidden-tail)')
+            || bodyGrid.querySelector('.route-map-station[data-station-id]')
+            || bodyGrid.querySelector('.route-map-transfer-line');
+        if (!(firstCell instanceof HTMLElement)) return;
+
+        const headerStyle = window.getComputedStyle(gridHeader);
+        const headerPaddingLeft = Number.parseFloat(headerStyle.paddingLeft || '0') || 0;
+        const headerLeft = gridHeader.getBoundingClientRect().left + headerPaddingLeft;
+        const cellLeft = firstCell.getBoundingClientRect().left;
+        const leftWidth = Math.max(0, Math.round(cellLeft - headerLeft));
+
+        transferSpacers.forEach((el, index) => {
+            if (!(el instanceof HTMLElement)) return;
+            el.style.width = index === 0 ? `${leftWidth-2}px` : '0px';
+        });
     };
 
     // Keep panel open when pointer is inside it
