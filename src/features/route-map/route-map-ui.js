@@ -510,6 +510,12 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                     html.${EXPORT_CLASS} .route-map-through-branch {
                         left: calc(10% + var(--branch-start-offset, 0px)) !important;
                     }
+                    html.${EXPORT_CLASS} .route-map-through-line-icon {
+                        padding-bottom: 3.5px !important;
+                    }
+                    html.${EXPORT_CLASS} .rw-station-code-badge{
+                        padding-bottom: 2px !important;    
+                    }
 
                 `;
                 document.head.appendChild(exportStyleEl);
@@ -1128,11 +1134,12 @@ const resolveColorForTheme = (color, fallback = '#888') => {
 
 const formatRouteMapLineIconHtml = (iconEl) => {
     if (!(iconEl instanceof HTMLElement)) return '';
+    const currentSize = parseFloat(iconEl.style.fontSize);
     iconEl.classList.add('route-map-through-line-icon');
     iconEl.style.width = '20px';
     iconEl.style.height = '20px';
-    iconEl.style.fontSize = '8px';
-    iconEl.style.padding = '0px 0px 1px';
+    iconEl.style.fontSize = `${currentSize-3}px`;
+    iconEl.style.paddingTop = '1px';
     return iconEl.outerHTML;
 };
 
@@ -1519,8 +1526,6 @@ const setupRouteMapUi = () => {
             const railwayMeta = railwayMetaIndex instanceof Map ? railwayMetaIndex.get(rid) : null;
             const lineName =
                 toText(railwayMeta?.title?.['zh-Hans']).replace(/（.*?）|\(.*?\)/g, "") ||
-                toText(railwayMeta?.title?.zh) ||
-                toText(railwayMeta?.title?.ja) ||
                 rid;
             const lineColor = resolveColorForTheme(toText(railwayMeta?.color) || '#888', '#888');
 
@@ -2202,20 +2207,14 @@ const setupRouteMapUi = () => {
         const transferSpacers = headerGrid.querySelectorAll('.route-map-transfer-headspacer');
         if (!transferSpacers.length) return;
 
-        const firstCell = bodyGrid.querySelector('.route-map-cell:not(.is-hidden-tail)')
-            || bodyGrid.querySelector('.route-map-station[data-station-id]')
-            || bodyGrid.querySelector('.route-map-transfer-line');
-        if (!(firstCell instanceof HTMLElement)) return;
+        const transferLabel = bodyGrid.querySelector('.route-map-station.is-transfer-label');
+        if (!(transferLabel instanceof HTMLElement)) return;
 
-        const headerStyle = window.getComputedStyle(gridHeader);
-        const headerPaddingLeft = Number.parseFloat(headerStyle.paddingLeft || '0') || 0;
-        const headerLeft = gridHeader.getBoundingClientRect().left + headerPaddingLeft;
-        const cellLeft = firstCell.getBoundingClientRect().left;
-        const leftWidth = Math.max(0, Math.round(cellLeft - headerLeft));
+        const leftWidth = Math.max(0, Math.round(transferLabel.getBoundingClientRect().width) - 2);
 
         transferSpacers.forEach((el, index) => {
             if (!(el instanceof HTMLElement)) return;
-            el.style.width = index === 0 ? `${leftWidth-2}px` : '0px';
+            el.style.width = index === 0 ? `${leftWidth+6.5}px` : '0px';
         });
     };
 
