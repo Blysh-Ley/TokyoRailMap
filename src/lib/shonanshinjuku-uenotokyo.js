@@ -458,3 +458,68 @@ export async function buildTemporaryThroughServicePanelPlan(options = {}) {
         temporaryAllowedTripKeysByDisplayLineId
     };
 }
+
+export function isSUStation(id){
+    const Ustations = [
+    "JR-East.Tokaido.Tokyo",
+    "JR-East.Tokaido.Shimbashi",
+    "JR-East.Tokaido.Shinagawa",
+    "JR-East.Tokaido.Kawasaki",
+    "JR-East.Tokaido.Yokohama",
+    "JR-East.Tokaido.Totsuka",
+    "JR-East.Tokaido.Ofuna",
+    "JR-East.Tokaido.Fujisawa",
+    "JR-East.Tokaido.Tsujido",
+    "JR-East.Tokaido.Chigasaki",
+    "JR-East.Tokaido.Hiratsuka",
+    "JR-East.Tokaido.Oiso",
+    "JR-East.Tokaido.Ninomiya",
+    "JR-East.Tokaido.Kozu",
+    "JR-East.Tokaido.Kamonomiya",
+    "JR-East.Tokaido.Odawara",
+    "JR-East.Tokaido.Hayakawa",
+    "JR-East.Tokaido.Nebukawa",
+    "JR-East.Tokaido.Manazuru",
+    "JR-East.Tokaido.Yugawara",
+    "JR-East.Tokaido.Atami",
+    "JR-East.JobanRapid.Shinagawa",
+    "JR-East.JobanRapid.Shimbashi",
+    "JR-East.JobanRapid.Tokyo",
+    "JR-East.JobanRapid.Ueno",
+    "JR-East.JobanRapid.Nippori",
+    "JR-East.JobanRapid.Mikawashima",
+    "JR-East.JobanRapid.MinamiSenju",
+    "JR-East.JobanRapid.KitaSenju",
+    "JR-East.JobanRapid.Matsudo",
+    "JR-East.JobanRapid.Kashiwa",
+    "JR-East.JobanRapid.Abiko",
+    "JR-East.JobanRapid.Tennodai",
+    "JR-East.JobanRapid.Toride"
+];
+    const Sstations = [
+    "JR-East.ShonanShinjuku.Ofuna",
+    "JR-East.ShonanShinjuku.Totsuka",
+    "JR-East.ShonanShinjuku.HigashiTotsuka",
+    "JR-East.ShonanShinjuku.Hodogaya",
+    "JR-East.ShonanShinjuku.Yokohama",
+    "JR-East.ShonanShinjuku.ShinKawasaki",
+    "JR-East.ShonanShinjuku.MusashiKosugi",
+    "JR-East.ShonanShinjuku.NishiOi",
+    "JR-East.ShonanShinjuku.Osaki",
+    "JR-East.ShonanShinjuku.Ebisu",
+    "JR-East.ShonanShinjuku.Shibuya",
+    "JR-East.ShonanShinjuku.Shinjuku",
+    "JR-East.ShonanShinjuku.Ikebukuro",
+    "JR-East.ShonanShinjuku.Akabane",
+    "JR-East.ShonanShinjuku.Urawa",
+    "JR-East.ShonanShinjuku.Omiya"
+];
+    const sid = toText(id);
+    if (Ustations.includes(sid)){
+        return 'u'
+    }
+    if (Sstations.includes(sid)){
+        return 's'
+    }
+    return null;
+}
