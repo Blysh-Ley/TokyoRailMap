@@ -4,6 +4,7 @@
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { getCachedJson, getCompanyLogoSrc } from '../lib/fetch.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from '../lib/line-icons.js';
+import { THROUGH_SERVICE_DISPLAY, isSUStations } from '../lib/shonanshinjuku-uenotokyo.js';
 import {
     ELEMENT_UI_CONSTANTS,
     isDarkThemeActive,
@@ -16,6 +17,24 @@ import {
 } from './element_ui.js';
 
 const toText = (v) => String(v ?? '').trim();
+const stripParenText = (v) => toText(v).replace(/（.*?）|\(.*?\)/g, '').trim();
+
+const getCleanLineTitle = (meta, fallbackId) => {
+    const title = stripParenText(meta?.title?.['zh-Hans'] || meta?.title?.['zh-Hant'] || meta?.title?.ja || meta?.title?.en || '');
+    if (title) return title;
+    const name = stripParenText(meta?.name || '');
+    return name || toText(fallbackId);
+};
+
+const getStationGroupSUFlags = (stationIds = []) => {
+    const flags = { UenoTokyo: false, ShonanShinjuku: false };
+    for (const sid of Array.isArray(stationIds) ? stationIds : []) {
+        const value = isSUStations(sid);
+        if (value?.UenoTokyo) flags.UenoTokyo = true;
+        if (value?.ShonanShinjuku) flags.ShonanShinjuku = true;
+    }
+    return flags;
+};
 
 const enhancePopupLineBadges = async ({ popup, mode }) => {
     const root = popup?.getElement?.();
@@ -803,10 +822,12 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
         const lineStationNameByLineId = new Map();
         const lineStationCodeByLineId = new Map();
+        let stationGroupSUFlags = { UenoTokyo: false, ShonanShinjuku: false };
         if (stationId) {
             try {
                 const [groupsIndex, stationsIndex] = await Promise.all([getStationGroupsIndex(), getStationsIndex()]);
-                const groupIds = groupsIndex.get(stationId) || [stationId];
+                const groupIds = Array.from(new Set([stationId, ...((groupsIndex.get(stationId) || [stationId]).map((sid) => String(sid ?? '').trim()).filter(Boolean))]));
+                stationGroupSUFlags = getStationGroupSUFlags(groupIds);
 
                 for (const lineIdRaw of servingIds) {
                     const lineId = String(lineIdRaw ?? '').trim();
@@ -844,6 +865,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
         const groups = new Map(); // company -> [{ lineId, displayName, color }]
         const seenLineIds = new Set();
+        const seenDisplayNamesByCompany = new Map();
 
         const toRailwaysOrderKey = (lineId) => {
             const raw = String(lineId ?? '').trim();
@@ -865,15 +887,30 @@ export function setupStationPopup(map, maplibregl, options = {}) {
             const company = (meta?.company ? String(meta.company) : '未知公司').trim() || '未知公司';
             const color = meta?.color || null;
             const abb = companyLogoMap?.[company]?.abb || company;
+            const rawTitle = getCleanLineTitle(meta, id);
 
-            let displayName = String(meta?.name || '').trim();
-            if (!displayName) displayName = id;
+            let displayName = rawTitle;
+            let displayColor = color;
+
+            if (stationGroupSUFlags.UenoTokyo && (id === 'JR-East.Tokaido' || id === 'JR-East.JobanRapid')) {
+                displayName = THROUGH_SERVICE_DISPLAY.UenoTokyo.name;
+                displayColor = THROUGH_SERVICE_DISPLAY.UenoTokyo.color;
+            } else if (stationGroupSUFlags.ShonanShinjuku && id === 'JR-East.ShonanShinjuku') {
+                displayName = THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name;
+                displayColor = THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color;
+            }
 
             const isSpecial = (displayName === `${abb}线` || displayName === `${abb}本线` || displayName === `${abb}新线`);
             if (!isSpecial && abb) displayName = displayName.replace(abb, '').trim();
+            displayName = stripParenText(displayName) || id;
+
+            if (!seenDisplayNamesByCompany.has(company)) seenDisplayNamesByCompany.set(company, new Set());
+            const seenDisplayNames = seenDisplayNamesByCompany.get(company);
+            if (seenDisplayNames.has(displayName)) continue;
+            seenDisplayNames.add(displayName);
 
             if (!groups.has(company)) groups.set(company, []);
-            groups.get(company).push({ lineId: id, displayName, color });
+            groups.get(company).push({ lineId: id, displayName, color: displayColor, stationCode: String(lineStationCodeByLineId.get(id) || '').trim() });
         }
 
         if (!groups.size) {
@@ -917,7 +954,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                     : '';
                 const idAttr = line.lineId ? ` data-line-id="${escapeHtml(String(line.lineId))}"` : '';
                 const lineId = String(line.lineId ?? '').trim();
-                const stationCode = String(lineStationCodeByLineId.get(lineId) || '').trim();
+                const stationCode = String(line.stationCode || lineStationCodeByLineId.get(lineId) || '').trim();
                 const stationCodeAttr = stationCode ? ` data-station-code="${escapeHtml(stationCode)}"` : '';
                 const isTransferStation = servingIds.length > 1;
                 const isCurrentLine = !!lineId && !!currentPlatformLineId && lineId === currentPlatformLineId;
