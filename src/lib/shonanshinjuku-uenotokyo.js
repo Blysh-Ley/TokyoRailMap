@@ -29,6 +29,76 @@ export const MENU_THROUGH_LINE_IDS = Object.freeze({
     SHONAN_SHINJUKU: 'TokyoRail.MenuThrough.ShonanShinjuku'
 });
 
+const SU_STATION_IDS_BY_CATEGORY = Object.freeze({
+    UenoTokyo: Object.freeze([
+        'JR-East.Tokaido.Tokyo',
+        'JR-East.Tokaido.Shimbashi',
+        'JR-East.Tokaido.Shinagawa',
+        'JR-East.Tokaido.Kawasaki',
+        'JR-East.Tokaido.Yokohama',
+        'JR-East.Tokaido.Totsuka',
+        'JR-East.Tokaido.Ofuna',
+        'JR-East.Tokaido.Fujisawa',
+        'JR-East.Tokaido.Tsujido',
+        'JR-East.Tokaido.Chigasaki',
+        'JR-East.Tokaido.Hiratsuka',
+        'JR-East.Tokaido.Oiso',
+        'JR-East.Tokaido.Ninomiya',
+        'JR-East.Tokaido.Kozu',
+        'JR-East.Tokaido.Kamonomiya',
+        'JR-East.Tokaido.Odawara',
+        'JR-East.Tokaido.Hayakawa',
+        'JR-East.Tokaido.Nebukawa',
+        'JR-East.Tokaido.Manazuru',
+        'JR-East.Tokaido.Yugawara',
+        'JR-East.Tokaido.Atami',
+        'JR-East.JobanRapid.Shinagawa',
+        'JR-East.JobanRapid.Shimbashi',
+        'JR-East.JobanRapid.Tokyo',
+        'JR-East.JobanRapid.Ueno',
+        'JR-East.JobanRapid.Nippori',
+        'JR-East.JobanRapid.Mikawashima',
+        'JR-East.JobanRapid.MinamiSenju',
+        'JR-East.JobanRapid.KitaSenju',
+        'JR-East.JobanRapid.Matsudo',
+        'JR-East.JobanRapid.Kashiwa',
+        'JR-East.JobanRapid.Abiko',
+        'JR-East.JobanRapid.Tennodai',
+        'JR-East.JobanRapid.Toride'
+    ]),
+    ShonanShinjuku: Object.freeze([
+        'JR-East.ShonanShinjuku.Ofuna',
+        'JR-East.ShonanShinjuku.Totsuka',
+        'JR-East.ShonanShinjuku.HigashiTotsuka',
+        'JR-East.ShonanShinjuku.Hodogaya',
+        'JR-East.ShonanShinjuku.Yokohama',
+        'JR-East.ShonanShinjuku.ShinKawasaki',
+        'JR-East.ShonanShinjuku.MusashiKosugi',
+        'JR-East.ShonanShinjuku.NishiOi',
+        'JR-East.ShonanShinjuku.Osaki',
+        'JR-East.ShonanShinjuku.Ebisu',
+        'JR-East.ShonanShinjuku.Shibuya',
+        'JR-East.ShonanShinjuku.Shinjuku',
+        'JR-East.ShonanShinjuku.Ikebukuro',
+        'JR-East.ShonanShinjuku.Akabane',
+        'JR-East.ShonanShinjuku.Urawa',
+        'JR-East.ShonanShinjuku.Omiya'
+    ])
+});
+
+export const isSUStations = (stationId) => {
+    const sid = toText(stationId);
+    return {
+        UenoTokyo: SU_STATION_IDS_BY_CATEGORY.UenoTokyo.includes(sid),
+        ShonanShinjuku: SU_STATION_IDS_BY_CATEGORY.ShonanShinjuku.includes(sid)
+    };
+};
+
+export const isSUStation = (stationId) => {
+    const flags = isSUStations(stationId);
+    return !!(flags.UenoTokyo || flags.ShonanShinjuku);
+};
+
 const MENU_THROUGH_CATEGORY_BY_LINE_ID = Object.freeze({
     [MENU_THROUGH_LINE_IDS.UENO_TOKYO]: 'UenoTokyo',
     [MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU]: 'ShonanShinjuku',
@@ -433,6 +503,24 @@ export async function buildTemporaryThroughServicePanelPlan(options = {}) {
         temporaryAllowedTripKeysByDisplayLineId.set(lineId, new Set(uenoBucket.allowedTripKeys));
     }
 
+    const suStationFlags = isSUStations(stationId);
+    if (suStationFlags.UenoTokyo && !uenoBucket.allowedTripKeys.size) {
+        const lineId = THROUGH_SERVICE_TEMP_LINE_IDS.UENO_TOKYO;
+        if (!displayServingIds.includes(lineId)) {
+            displayServingIds.splice(insertCursor, 0, lineId);
+            insertCursor += 1;
+        }
+        temporaryLineMetaById.set(lineId, {
+            id: lineId,
+            company: 'JR-East',
+            name: THROUGH_SERVICE_DISPLAY.UenoTokyo.name,
+            color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color,
+            code: 'JU/JT'
+        });
+        temporarySourceLineIdsByDisplayLineId.set(lineId, ['JR-East.Tokaido', 'JR-East.JobanRapid']);
+        temporaryAllowedTripKeysByDisplayLineId.set(lineId, new Set());
+    }
+
     const shonanBucket = bucketByCategory.ShonanShinjuku;
     if (shonanBucket.allowedTripKeys.size && !hasShonanServingLine) {
         const lineId = THROUGH_SERVICE_TEMP_LINE_IDS.SHONAN_SHINJUKU;
@@ -449,6 +537,22 @@ export async function buildTemporaryThroughServicePanelPlan(options = {}) {
         temporaryAllowedTripKeysByDisplayLineId.set(lineId, new Set(shonanBucket.allowedTripKeys));
     }
 
+    if (suStationFlags.ShonanShinjuku && !hasShonanServingLine && !shonanBucket.allowedTripKeys.size) {
+        const lineId = THROUGH_SERVICE_TEMP_LINE_IDS.SHONAN_SHINJUKU;
+        if (!displayServingIds.includes(lineId)) {
+            displayServingIds.splice(insertCursor, 0, lineId);
+        }
+        temporaryLineMetaById.set(lineId, {
+            id: lineId,
+            company: 'JR-East',
+            name: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name,
+            color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color,
+            code: 'JS'
+        });
+        temporarySourceLineIdsByDisplayLineId.set(lineId, ['JR-East.ShonanShinjuku']);
+        temporaryAllowedTripKeysByDisplayLineId.set(lineId, new Set());
+    }
+
     if (!temporarySourceLineIdsByDisplayLineId.size) return null;
 
     return {
@@ -457,69 +561,4 @@ export async function buildTemporaryThroughServicePanelPlan(options = {}) {
         temporarySourceLineIdsByDisplayLineId,
         temporaryAllowedTripKeysByDisplayLineId
     };
-}
-
-export function isSUStation(id){
-    const Ustations = [
-    "JR-East.Tokaido.Tokyo",
-    "JR-East.Tokaido.Shimbashi",
-    "JR-East.Tokaido.Shinagawa",
-    "JR-East.Tokaido.Kawasaki",
-    "JR-East.Tokaido.Yokohama",
-    "JR-East.Tokaido.Totsuka",
-    "JR-East.Tokaido.Ofuna",
-    "JR-East.Tokaido.Fujisawa",
-    "JR-East.Tokaido.Tsujido",
-    "JR-East.Tokaido.Chigasaki",
-    "JR-East.Tokaido.Hiratsuka",
-    "JR-East.Tokaido.Oiso",
-    "JR-East.Tokaido.Ninomiya",
-    "JR-East.Tokaido.Kozu",
-    "JR-East.Tokaido.Kamonomiya",
-    "JR-East.Tokaido.Odawara",
-    "JR-East.Tokaido.Hayakawa",
-    "JR-East.Tokaido.Nebukawa",
-    "JR-East.Tokaido.Manazuru",
-    "JR-East.Tokaido.Yugawara",
-    "JR-East.Tokaido.Atami",
-    "JR-East.JobanRapid.Shinagawa",
-    "JR-East.JobanRapid.Shimbashi",
-    "JR-East.JobanRapid.Tokyo",
-    "JR-East.JobanRapid.Ueno",
-    "JR-East.JobanRapid.Nippori",
-    "JR-East.JobanRapid.Mikawashima",
-    "JR-East.JobanRapid.MinamiSenju",
-    "JR-East.JobanRapid.KitaSenju",
-    "JR-East.JobanRapid.Matsudo",
-    "JR-East.JobanRapid.Kashiwa",
-    "JR-East.JobanRapid.Abiko",
-    "JR-East.JobanRapid.Tennodai",
-    "JR-East.JobanRapid.Toride"
-];
-    const Sstations = [
-    "JR-East.ShonanShinjuku.Ofuna",
-    "JR-East.ShonanShinjuku.Totsuka",
-    "JR-East.ShonanShinjuku.HigashiTotsuka",
-    "JR-East.ShonanShinjuku.Hodogaya",
-    "JR-East.ShonanShinjuku.Yokohama",
-    "JR-East.ShonanShinjuku.ShinKawasaki",
-    "JR-East.ShonanShinjuku.MusashiKosugi",
-    "JR-East.ShonanShinjuku.NishiOi",
-    "JR-East.ShonanShinjuku.Osaki",
-    "JR-East.ShonanShinjuku.Ebisu",
-    "JR-East.ShonanShinjuku.Shibuya",
-    "JR-East.ShonanShinjuku.Shinjuku",
-    "JR-East.ShonanShinjuku.Ikebukuro",
-    "JR-East.ShonanShinjuku.Akabane",
-    "JR-East.ShonanShinjuku.Urawa",
-    "JR-East.ShonanShinjuku.Omiya"
-];
-    const sid = toText(id);
-    if (Ustations.includes(sid)){
-        return 'u'
-    }
-    if (Sstations.includes(sid)){
-        return 's'
-    }
-    return null;
 }

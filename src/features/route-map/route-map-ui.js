@@ -1630,8 +1630,20 @@ const setupRouteMapUi = () => {
 
             const suStations = isSUStations({ selfRouteId, routeIds });
             const suItemHtmls = [];
-            if (suStations.ShonanShinjuku) suItemHtmls.push(await buildSUTransferItemHtml('ShonanShinjuku'));
-            if (suStations.UenoTokyo) suItemHtmls.push(await buildSUTransferItemHtml('UenoTokyo'));
+            if (suStations.ShonanShinjuku) {
+                suItemHtmls.push({
+                    rid: 'JR-East.ShonanShinjuku',
+                    serviceKey: 'ShonanShinjuku',
+                    html: await buildSUTransferItemHtml('ShonanShinjuku')
+                });
+            }
+            if (suStations.UenoTokyo) {
+                suItemHtmls.push({
+                    rid: 'JR-East.UenoTokyo',
+                    serviceKey: 'UenoTokyo',
+                    html: await buildSUTransferItemHtml('UenoTokyo')
+                });
+            }
 
             // build transfer item HTMLs, then group by company (first segment of route id)
             const pendingHtmls = await Promise.all(routeIds.map(async (rid) => ({
@@ -1650,15 +1662,14 @@ const setupRouteMapUi = () => {
                 filtered.push({ rid: toText(entry?.rid), html });
             }
 
-            for (const html of suItemHtmls) {
-                if (!toText(html)) continue;
-                const serviceKey = html.includes(THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name)
-                    ? 'ShonanShinjuku'
-                    : 'UenoTokyo';
+            for (const entry of suItemHtmls) {
+                const html = toText(entry?.html);
+                if (!html) continue;
+                const serviceKey = toText(entry?.serviceKey);
                 const displayName = getSUTransferDisplayName(serviceKey);
                 if (!displayName || seenDisplayNames.has(displayName)) continue;
                 seenDisplayNames.add(displayName);
-                filtered.push({ rid: `SU:${filtered.length}`, html });
+                filtered.push({ rid: toText(entry?.rid) || `JR-East.SU.${filtered.length}`, html });
             }
             const companyOrder = [];
             const groups = new Map();
