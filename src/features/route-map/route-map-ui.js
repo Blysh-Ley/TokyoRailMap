@@ -16,7 +16,7 @@ import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCached
 import { previewBranchesForLine } from '../../map/analyze_branch.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
 import { getTransferStationIdsByStationId } from '../../app.js';
-import { MENU_THROUGH_LINE_IDS, THROUGH_SERVICE_DISPLAY } from '../../lib/shonanshinjuku-uenotokyo.js';
+import { MENU_THROUGH_LINE_IDS, THROUGH_SERVICE_DISPLAY, isSUStations as isStationSUStations } from '../../lib/shonanshinjuku-uenotokyo.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -86,7 +86,7 @@ const SU_SERVICE_INFO_BY_KEY = Object.freeze({
     })
 });
 
-const isSUStations = ({ selfRouteId, routeIds } = {}) => {
+const getTransferSUFlags = ({ selfRouteId, routeIds } = {}) => {
     const ids = new Set([
         toText(selfRouteId),
         ...Array.isArray(routeIds) ? routeIds.map((x) => toText(x)).filter(Boolean) : []
@@ -1616,28 +1616,31 @@ const setupRouteMapUi = () => {
             if (!sid) continue;
 
             const transferStationIds = await getTransferStationIdsByStationId(sid);
-            if (!(transferStationIds instanceof Set) || transferStationIds.size <= 1) continue;
-
+            const transferStationIdSet = transferStationIds instanceof Set ? transferStationIds : new Set();
             const selfRouteId = getRouteIdFromStationId(sid);
             const routeIds = [];
             const seenRouteIds = new Set();
-            for (const transferSid of transferStationIds) {
+            for (const transferSid of transferStationIdSet) {
                 const rid = getRouteIdFromStationId(transferSid);
                 if (!rid || rid === selfRouteId || seenRouteIds.has(rid)) continue;
                 seenRouteIds.add(rid);
                 routeIds.push(rid);
             }
 
-            const suStations = isSUStations({ selfRouteId, routeIds });
+            const transferSUFlags = getTransferSUFlags({ selfRouteId, routeIds });
+            const stationSUFlags = isStationSUStations(sid);
+            const needsEmptyTransferDisplay = !!(stationSUFlags.ShonanShinjuku || stationSUFlags.UenoTokyo);
+            if (transferStationIdSet.size <= 1 && !needsEmptyTransferDisplay) continue;
+
             const suItemHtmls = [];
-            if (suStations.ShonanShinjuku) {
+            if (stationSUFlags.ShonanShinjuku || transferSUFlags.ShonanShinjuku) {
                 suItemHtmls.push({
                     rid: 'JR-East.ShonanShinjuku',
                     serviceKey: 'ShonanShinjuku',
                     html: await buildSUTransferItemHtml('ShonanShinjuku')
                 });
             }
-            if (suStations.UenoTokyo) {
+            if (stationSUFlags.UenoTokyo || transferSUFlags.UenoTokyo) {
                 suItemHtmls.push({
                     rid: 'JR-East.UenoTokyo',
                     serviceKey: 'UenoTokyo',
@@ -1671,6 +1674,15 @@ const setupRouteMapUi = () => {
                 seenDisplayNames.add(displayName);
                 filtered.push({ rid: toText(entry?.rid) || `JR-East.SU.${filtered.length}`, html });
             }
+
+            if (!filtered.length && !needsEmptyTransferDisplay) continue;
+
+            if (!filtered.length && needsEmptyTransferDisplay) {
+                transferDisplayByStationId.set(sid, { itemHtmls: [''], rowCount: 1 });
+                transferColumnCount = Math.max(transferColumnCount, 1);
+                continue;
+            }
+
             const companyOrder = [];
             const groups = new Map();
             for (const entry of filtered) {
@@ -1687,6 +1699,7 @@ const setupRouteMapUi = () => {
                 const arr = groups.get(comp) || [];
                 for (const h of arr) itemHtmlsRaw.push(h);
             }
+            if (!itemHtmlsRaw.length && needsEmptyTransferDisplay) itemHtmlsRaw.push('');
             if (!itemHtmlsRaw.length) continue;
 
             const itemHtmls = itemHtmlsRaw.slice(0, MAX_TRANSFER_ROWS * MAX_TRANSFER_ITEMS_PER_ROW);
