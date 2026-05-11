@@ -318,8 +318,15 @@
 		[
 			"JR-East.KeihinTohokuNegishi.Tamachi",
 			"JR-East.Yamanote.Tamachi"
+		],
+		[
+			"Toei.Asakusa.Mita"
+		],
+		[
+			"Toei.Mita.Mita"
 		]
 	],
+	
 	[
 		[
 			"JR-East.KeihinTohokuNegishi.TakanawaGateway",
@@ -2020,6 +2027,9 @@
 		],
 		[
 			"TokyoMetro.Fukutoshin.MeijiJingumae"
+		],
+		[
+			"JR-East.Yamanote.Harajuku"
 		]
 	],
 	[
@@ -2202,14 +2212,6 @@
 		],
 		[
 			"Tokyu.Oimachi.Nakanobu"
-		]
-	],
-	[
-		[
-			"Toei.Asakusa.Mita"
-		],
-		[
-			"Toei.Mita.Mita"
 		]
 	],
 	[
