@@ -6308,25 +6308,45 @@ export function createPanel(options = {}) {
         return { buttonEl: btn, lineId: String(lineId), dirKey: String(dirKey) };
     };
 
-    const requestPrintTimetable = (lineId, dirKey) => {
-        const key = makeLineDirKey(lineId, dirKey);
-        const payload = dirPrintPayloadByKey.get(key);
-        if (!payload) return;
+    const requestPrintLineTimetableImage = (lineId) => {
         const lid = toText(lineId);
         const lineEl = Array.from(body.querySelectorAll('[data-line-id]')).find((el) => toText(el.getAttribute('data-line-id')) === lid) || null;
-        const lineSuffixHtml = toText(lineEl?.querySelector?.('[data-line-suffix-row]')?.outerHTML || '');
-        const stationInfoHtml = toText(lineEl?.querySelector?.('[data-station-info]')?.outerHTML || '');
+        if (!lineEl) return;
+        
+        const lineSuffixHtml = toText(lineEl.querySelector?.('[data-line-suffix-row]')?.outerHTML || '');
+        const stationInfoHtml = toText(lineEl.querySelector?.('[data-station-info]')?.outerHTML || '');
+        const lineHeaderHtml = toText(lineEl.querySelector?.('.panel-line-header')?.outerHTML || '');
+        
+        const dirs = [];
+        const dirEls = Array.from(lineEl.querySelectorAll('[data-dir-toggle][data-dir-key]'));
+        for (const dirEl of dirEls) {
+            const dKey = toText(dirEl.getAttribute('data-dir-key'));
+            const lineDirKey = makeLineDirKey(lid, dKey);
+            const payload = dirPrintPayloadByKey.get(lineDirKey);
+            if (payload) {
+                dirs.push(payload);
+            }
+        }
+        
+        if (!dirs.length) return;
+        
         try {
-            window.dispatchEvent(new CustomEvent(TIMETABLE_PRINT_EVENT, {
+            window.dispatchEvent(new CustomEvent('__TokyoRailPrintLineTimetableImageRequested', {
                 detail: {
-                    ...payload,
+                    lineId: lid,
+                    lineHeaderHtml,
                     lineSuffixHtml,
-                    stationInfoHtml
+                    stationInfoHtml,
+                    dirs
                 }
             }));
         } catch {
             // ignore
         }
+    };
+
+    const requestPrintTimetable = (lineId, dirKey) => {
+        requestPrintLineTimetableImage(lineId);
     };
 
     const collectAllDirectionPrintPayloads = () => {

@@ -8,6 +8,7 @@
 
     const PRINT_EVENT = '__TokyoRailPrintTimetableRequested';
     const PRINT_ALL_EVENT = '__TokyoRailPrintAllTimetablesRequested';
+    const PRINT_LINE_IMAGE_EVENT = '__TokyoRailPrintLineTimetableImageRequested';
     const LOADING_CLASS = 'is-printing-timetables';
     const GRID_MIN_COLS = 10;
 
@@ -623,6 +624,202 @@
         return pageIndex;
     };
 
+    const createLineImageExportDom = (detail = {}) => {
+        const root = document.createElement('div');
+        root.className = 'timetable-print-root';
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDark) root.classList.add('is-dark');
+
+        const card = document.createElement('div');
+        card.className = 'timetable-print-card';
+
+        const dirs = Array.isArray(detail.dirs) ? detail.dirs : [];
+        const firstDir = dirs[0] || {};
+        
+        const stationName = toText(firstDir.stationName) || '未知站点';
+        const companyName = toText(firstDir.companyName) || '未知公司';
+        const companyLogoSrc = toText(firstDir.companyLogoSrc);
+        const lineName = toText(firstDir.lineName) || toText(detail.lineId) || '未知线路';
+        const lineColor = toText(firstDir.lineColor);
+        const serviceDay = toText(firstDir.serviceDay) === 'SaturdayHoliday' ? '休息日' : '工作日';
+
+        const head = document.createElement('div');
+        head.className = 'timetable-print-head';
+
+        const stationTitle = document.createElement('div');
+        stationTitle.className = 'panel-name';
+        stationTitle.textContent = stationName;
+
+        const meta = document.createElement('div');
+        meta.className = 'timetable-print-meta';
+        meta.textContent = serviceDay;
+
+        head.appendChild(stationTitle);
+        head.appendChild(meta);
+
+        const company = document.createElement('div');
+        company.className = 'panel-company';
+
+        const companyHeader = document.createElement('div');
+        companyHeader.className = 'panel-company-header';
+        if (companyLogoSrc) {
+            const logo = document.createElement('img');
+            logo.className = 'panel-company-logo';
+            logo.alt = '';
+            logo.src = companyLogoSrc;
+            companyHeader.appendChild(logo);
+        }
+        const companyNameEl = document.createElement('span');
+        companyNameEl.className = 'panel-company-name';
+        companyNameEl.textContent = companyName;
+        companyHeader.appendChild(companyNameEl);
+
+        const companyLines = document.createElement('div');
+        companyLines.className = 'panel-company-lines';
+
+        const line = document.createElement('div');
+        line.className = 'panel-line';
+        if (lineColor) line.style.color = lineColor;
+
+        const lineHeaderHtml = toText(detail.lineHeaderHtml);
+        const lineSuffixHtml = toText(detail.lineSuffixHtml);
+        const stationInfoHtml = toText(detail.stationInfoHtml);
+
+        if (lineHeaderHtml) {
+            const temp = document.createElement('div');
+            temp.innerHTML = lineHeaderHtml;
+            const el = temp.firstElementChild;
+            if (el) line.appendChild(el);
+        } else {
+            const lineHeader = document.createElement('div');
+            lineHeader.className = 'panel-line-header';
+            const lineNameWrap = document.createElement('span');
+            lineNameWrap.className = 'panel-line-name';
+            const lineNameMain = document.createElement('span');
+            lineNameMain.className = 'panel-line-name-main';
+            lineNameMain.textContent = lineName;
+            lineNameWrap.appendChild(lineNameMain);
+            lineHeader.appendChild(lineNameWrap);
+            line.appendChild(lineHeader);
+        }
+
+        if (lineSuffixHtml) {
+            const temp = document.createElement('div');
+            temp.innerHTML = lineSuffixHtml;
+            const el = temp.firstElementChild;
+            if (el) line.appendChild(el);
+        }
+
+        if (stationInfoHtml) {
+            const temp = document.createElement('div');
+            temp.innerHTML = stationInfoHtml;
+            const el = temp.firstElementChild;
+            if (el) line.appendChild(el);
+        }
+
+        for (const dirPayload of dirs) {
+            const dir = document.createElement('div');
+            dir.className = 'panel-dir';
+            
+            const dirLabel = toText(dirPayload.dirLabel) || toText(dirPayload.dirKey) || '未知方向';
+            const dirHeader = document.createElement('div');
+            dirHeader.className = 'panel-dir-header';
+            const dirTitle = document.createElement('span');
+            dirTitle.className = 'panel-dir-title';
+            const dirPrefix = document.createElement('span');
+            dirPrefix.className = 'panel-dir-prefix';
+            dirPrefix.setAttribute('aria-hidden', 'true');
+            dirPrefix.textContent = '往';
+
+            const dirMarquee = document.createElement('span');
+            dirMarquee.className = 'panel-dir-marquee';
+            dirMarquee.setAttribute('aria-label', `往 ${dirLabel} 方向`);
+            const dirMarqueeInner = document.createElement('span');
+            dirMarqueeInner.className = 'panel-dir-marquee-inner';
+            dirMarqueeInner.textContent = dirLabel;
+            dirMarquee.appendChild(dirMarqueeInner);
+
+            const dirSuffix = document.createElement('span');
+            dirSuffix.className = 'panel-dir-suffix';
+            dirSuffix.setAttribute('aria-hidden', 'true');
+            dirSuffix.textContent = '方向';
+
+            dirTitle.appendChild(dirPrefix);
+            dirTitle.appendChild(dirMarquee);
+            dirTitle.appendChild(dirSuffix);
+            dirHeader.appendChild(dirTitle);
+            dir.appendChild(dirHeader);
+
+            const content = document.createElement('div');
+            content.className = 'timetable-print-content';
+
+            const useGrid = toText(dirPayload.timetableViewMode) === 'grid';
+            const hintsHtml = useGrid ? toText(dirPayload.gridHintsHtml) : '';
+            const timetableHtml = useGrid ? toText(dirPayload.gridHtml) : toText(dirPayload.listHtml);
+
+            content.innerHTML = `
+                ${hintsHtml}
+                <div class="panel-timetable ${useGrid ? 'panel-timetable-view-grid' : 'panel-timetable-view-list'} is-expanded">
+                    ${timetableHtml || '<div class="panel-timetable-empty">当前无班次</div>'}
+                </div>
+            `;
+
+            dir.appendChild(content);
+            line.appendChild(dir);
+            
+            if (useGrid) {
+                // Fixed to 10 trips per row as requested
+                root.style.setProperty('--grid-cols', '10');
+                root.style.setProperty('--grid-font-scale', '1');
+            }
+        }
+
+        companyLines.appendChild(line);
+        company.appendChild(companyHeader);
+        company.appendChild(companyLines);
+
+        card.appendChild(head);
+        card.appendChild(company);
+        root.appendChild(card);
+
+        // Required to ensure it works correctly when converted to image
+        root.style.width = '1000px'; 
+        root.style.maxWidth = 'none';
+
+        return root;
+    };
+
+    const exportLineToImage = async (detail = {}) => {
+        injectStyles();
+        const { html2canvas } = await ensureLibs();
+
+        const root = createLineImageExportDom(detail);
+        document.body.appendChild(root);
+
+        try {
+            const canvas = await html2canvas(root, {
+                scale: Math.max(2, window.devicePixelRatio || 1),
+                useCORS: true,
+                backgroundColor: getComputedStyle(document.body).getPropertyValue('background-color') || '#ffffff',
+                logging: false
+            });
+            const dataUrl = canvas.toDataURL('image/png');
+            
+            const firstDir = detail.dirs?.[0] || {};
+            const stationName = sanitizeFilePart(firstDir.stationName || 'station');
+            const lineName = sanitizeFilePart(firstDir.lineName || detail.lineId || 'line');
+            const fileName = `timetable_${stationName}_${lineName}_${nowIsoCompact()}.png`;
+            
+            const link = document.createElement('a');
+            link.download = fileName;
+            link.href = dataUrl;
+            link.click();
+        } finally {
+            root.remove();
+        }
+    };
+
     const exportAllDirectionsToPdf = async (detail = {}) => {
         injectStyles();
         const { html2canvas, jsPDF } = await ensureLibs();
@@ -722,6 +919,31 @@
         }
     };
 
+    const onPrintLineImageRequest = async (evt) => {
+        const detail = evt?.detail || {};
+        const lineId = toText(detail.lineId);
+        const target = lineId
+            ? document.querySelector(`.panel-dir-print-btn[data-dir-print-btn][data-line-id="${CSS.escape(lineId)}"]`)
+            : document.querySelector('.panel-dir-print-btn[data-dir-print-btn]');
+
+        try {
+            if (target instanceof Element) {
+                target.classList.add(LOADING_CLASS);
+                target.setAttribute('aria-busy', 'true');
+            }
+            await exportLineToImage(detail);
+        } catch (err) {
+            console.error('[print-timetables] 导出图片失败', err);
+            alert('导出图片失败，请稍后重试。');
+        } finally {
+            if (target instanceof Element) {
+                target.classList.remove(LOADING_CLASS);
+                target.removeAttribute('aria-busy');
+            }
+        }
+    };
+
     window.addEventListener(PRINT_EVENT, onPrintRequest);
     window.addEventListener(PRINT_ALL_EVENT, onPrintAllRequest);
+    window.addEventListener(PRINT_LINE_IMAGE_EVENT, onPrintLineImageRequest);
 })();
