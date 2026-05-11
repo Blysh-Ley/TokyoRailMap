@@ -138,8 +138,7 @@ export const specialMainByBranch = {
     'Seibu.S-Fukutoshin': 'Seibu.Ikebukuro',
     'Seibu.S-Yurakucho': 'Seibu.Ikebukuro',
     'Tobu.JRTobuConnection' : 'Tobu.Nikko',
-    "JR-East.NaritaAirportBranch": 'JR-East.Narita',
-    "Keio.KeioNew": "Keio.Keio"
+    "JR-East.NaritaAirportBranch": 'JR-East.Narita'
 };
 
 // 公司信息，主要用于在车站信息面板显示公司 logo。数据来源Wikipedia。
