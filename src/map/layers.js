@@ -64,6 +64,41 @@ const enhancePopupLineBadges = async ({ popup, mode }) => {
         }
 
         if (mode === 'station') {
+            if (!lineEl.querySelector('.rw-line-icon')) {
+                const lineCodeAttr = toText(lineEl.getAttribute('data-line-code'));
+                const codeRaw = lineCodeAttr || toText(meta?.code);
+                const codes = codeRaw.includes('/') ? codeRaw.split('/') : (codeRaw.includes(',') ? codeRaw.split(',') : [codeRaw]);
+                
+                const frag = document.createDocumentFragment();
+                for (const c of codes) {
+                    const cTrimmed = c.trim();
+                    if (!cTrimmed && codes.length > 1) continue;
+                    
+                    const icon = createLineIconElement({
+                        routeId: toText(meta?.id) || lineId,
+                        code: cTrimmed,
+                        color: toText(meta?.color) || fallbackColor
+                    });
+                    if (icon) {
+                        const currentSize = parseFloat(icon.style.fontSize) || 12;
+                        icon.classList.add('route-map-through-line-icon');
+                        if (toText(icon.dataset?.preset) === 'seibu') {
+                            icon.classList.add('route-map-through-line-icon-seibu');
+                        }
+                        icon.style.width = '20px';
+                        icon.style.height = '20px';
+                        icon.style.fontSize = `${currentSize - 3}px`;
+                        icon.style.marginRight = '2px';
+                        frag.appendChild(icon);
+                    }
+                }
+                if (frag.childNodes.length > 0) {
+                    const last = frag.lastChild;
+                    if (last && last.style) last.style.marginRight = '4px';
+                    lineEl.prepend(frag);
+                }
+            }
+
             if (lineEl.querySelector('.rw-station-code-badge')) continue;
             const stationCode = toText(lineEl.getAttribute('data-station-code'));
             if (!stationCode) continue;
@@ -949,6 +984,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                         key: 'ShonanShinjuku',
                         displayName: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name,
                         color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color,
+                        code: 'JS',
                         stationCode: Array.from(stationGroupSUCodes.ShonanShinjuku).join(',')
                     });
                 }
@@ -957,6 +993,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                         key: 'UenoTokyo',
                         displayName: THROUGH_SERVICE_DISPLAY.UenoTokyo.name,
                         color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color,
+                        code: 'JU/JT',
                         stationCode: Array.from(stationGroupSUCodes.UenoTokyo).join(',')
                     });
                 }
@@ -986,6 +1023,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                 const lineId = String(line.lineId ?? '').trim();
                 let stationCode = String(line.stationCode || lineStationCodeByLineId.get(lineId) || '').trim();
                 const stationCodeAttr = stationCode ? ` data-station-code="${escapeHtml(stationCode)}"` : '';
+                const lineCodeAttr = line.code ? ` data-line-code="${escapeHtml(line.code)}"` : '';
                 const isTransferStation = servingIds.length > 1;
                 const isCurrentLine = !!lineId && !!currentPlatformLineId && lineId === currentPlatformLineId;
                 const transferStationName = String(lineStationNameByLineId.get(lineId) || '').trim();
@@ -1000,7 +1038,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                     : '';
                 const currentClass = isTransferStation && isCurrentLine ? ' is-current' : '';
 
-                linesHtml += `<div class="station-hover-line${currentClass}"${lineIdAttr}${stationCodeAttr}${style}>${escapeHtml(line.displayName)}${suffixHtml}</div>`;
+                linesHtml += `<div class="station-hover-line${currentClass}"${lineIdAttr}${stationCodeAttr}${lineCodeAttr}${style}>${escapeHtml(line.displayName)}${suffixHtml}</div>`;
             }
 
             companiesHtml += `
