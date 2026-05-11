@@ -823,11 +823,21 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         const lineStationNameByLineId = new Map();
         const lineStationCodeByLineId = new Map();
         let stationGroupSUFlags = { UenoTokyo: false, ShonanShinjuku: false };
+        let stationGroupSUCodes = { UenoTokyo: new Set(), ShonanShinjuku: new Set() };
         if (stationId) {
             try {
                 const [groupsIndex, stationsIndex] = await Promise.all([getStationGroupsIndex(), getStationsIndex()]);
                 const groupIds = Array.from(new Set([stationId, ...((groupsIndex.get(stationId) || [stationId]).map((sid) => String(sid ?? '').trim()).filter(Boolean))]));
                 stationGroupSUFlags = getStationGroupSUFlags(groupIds);
+
+                // Collect SU station codes from group
+                for (const sid of groupIds) {
+                    const c = String(stationsIndex?.idToCode?.get?.(sid) || '').trim();
+                    if (!c) continue;
+                    const flags = getStationGroupSUFlags([sid]);
+                    if (flags.UenoTokyo) stationGroupSUCodes.UenoTokyo.add(c);
+                    if (flags.ShonanShinjuku) stationGroupSUCodes.ShonanShinjuku.add(c);
+                }
 
                 for (const lineIdRaw of servingIds) {
                     const lineId = String(lineIdRaw ?? '').trim();
@@ -938,14 +948,16 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                     throughServiceLines.push({
                         key: 'ShonanShinjuku',
                         displayName: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name,
-                        color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color
+                        color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color,
+                        stationCode: Array.from(stationGroupSUCodes.ShonanShinjuku).join(',')
                     });
                 }
                 if (stationGroupSUFlags.UenoTokyo) {
                     throughServiceLines.push({
                         key: 'UenoTokyo',
                         displayName: THROUGH_SERVICE_DISPLAY.UenoTokyo.name,
-                        color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color
+                        color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color,
+                        stationCode: Array.from(stationGroupSUCodes.UenoTokyo).join(',')
                     });
                 }
             }
@@ -966,9 +978,13 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                 const style = (typeof line.color === 'string' && line.color.trim())
                     ? ` style="color:${escapeHtml(line.color.trim())}"`
                     : '';
-                const idAttr = line.lineId ? ` data-line-id="${escapeHtml(String(line.lineId))}"` : '';
+                const lineIdAttr = line.key 
+                    ? ` data-line-id="${escapeHtml(String(line.key))}"`
+                    : line.lineId 
+                        ? ` data-line-id="${escapeHtml(String(line.lineId))}"` 
+                        : '';
                 const lineId = String(line.lineId ?? '').trim();
-                const stationCode = String(line.stationCode || lineStationCodeByLineId.get(lineId) || '').trim();
+                let stationCode = String(line.stationCode || lineStationCodeByLineId.get(lineId) || '').trim();
                 const stationCodeAttr = stationCode ? ` data-station-code="${escapeHtml(stationCode)}"` : '';
                 const isTransferStation = servingIds.length > 1;
                 const isCurrentLine = !!lineId && !!currentPlatformLineId && lineId === currentPlatformLineId;
@@ -984,7 +1000,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                     : '';
                 const currentClass = isTransferStation && isCurrentLine ? ' is-current' : '';
 
-                linesHtml += `<div class="station-hover-line${currentClass}"${idAttr}${stationCodeAttr}${style}>${escapeHtml(line.displayName)}${suffixHtml}</div>`;
+                linesHtml += `<div class="station-hover-line${currentClass}"${lineIdAttr}${stationCodeAttr}${style}>${escapeHtml(line.displayName)}${suffixHtml}</div>`;
             }
 
             companiesHtml += `
