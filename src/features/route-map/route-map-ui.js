@@ -1745,9 +1745,8 @@ const setupRouteMapUi = () => {
 
         for (const dirBlock of throughDirBlocks) {
             const dirKey = toText(dirBlock?.dir) || '';
-            const dirOrientationSign = dirKey && preferredSecondaryDir && dirKey === preferredSecondaryDir
-                ? -1
-                : 1;
+            // Use the actual chronological step assigned by route-map if available, fallback to guessing.
+            const dirOrientationSign = dirBlock.step || (dirKey && preferredSecondaryDir && dirKey === preferredSecondaryDir ? -1 : 1);
             for (const row of Array.isArray(dirBlock?.throughRows) ? dirBlock.throughRows : []) {
                 const gapIndex = Number(row?.afterStationIndex);
                 if (!Number.isFinite(gapIndex)) continue;

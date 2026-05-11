@@ -665,7 +665,8 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
             });
         }
         trainTypes.sort((a, b) => a.typeName.localeCompare(b.typeName, 'zh-Hans'));
-        basePatterns.push({ dir, trainTypes });
+        const step = (dirStepCounts.get(dir)?.pos || 0) >= (dirStepCounts.get(dir)?.neg || 0) ? 1 : -1;
+        basePatterns.push({ dir, step, trainTypes });
     }
     basePatterns.sort((a, b) => a.dir.localeCompare(b.dir));
 
@@ -794,6 +795,7 @@ export async function computeLineStopDiagramData(lineId, {
 
         return {
             dir,
+            step: dirBlock.step || 1,
             types: typesOut,
             throughRows: filteredThroughRows
         };
