@@ -865,8 +865,6 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
         const groups = new Map(); // company -> [{ lineId, displayName, color }]
         const seenLineIds = new Set();
-        const seenDisplayNamesByCompany = new Map();
-
         const toRailwaysOrderKey = (lineId) => {
             const raw = String(lineId ?? '').trim();
             if (!raw) return '';
@@ -895,11 +893,6 @@ export function setupStationPopup(map, maplibregl, options = {}) {
             const isSpecial = (displayName === `${abb}线` || displayName === `${abb}本线` || displayName === `${abb}新线`);
             if (!isSpecial && abb) displayName = displayName.replace(abb, '').trim();
             displayName = stripParenText(displayName) || id;
-
-            if (!seenDisplayNamesByCompany.has(company)) seenDisplayNamesByCompany.set(company, new Set());
-            const seenDisplayNames = seenDisplayNamesByCompany.get(company);
-            if (seenDisplayNames.has(displayName)) continue;
-            seenDisplayNames.add(displayName);
 
             if (!groups.has(company)) groups.set(company, []);
             groups.get(company).push({ lineId: id, displayName, color: displayColor, stationCode: String(lineStationCodeByLineId.get(id) || '').trim() });
@@ -939,8 +932,37 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                 ? `<img class="station-hover-company-logo" src="${escapeHtml(logoSrc)}" alt="" />`
                 : '';
 
+            const throughServiceLines = [];
+            if (company === 'JR-East') {
+                if (stationGroupSUFlags.ShonanShinjuku) {
+                    throughServiceLines.push({
+                        key: 'ShonanShinjuku',
+                        displayName: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name,
+                        color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color
+                    });
+                }
+                if (stationGroupSUFlags.UenoTokyo) {
+                    throughServiceLines.push({
+                        key: 'UenoTokyo',
+                        displayName: THROUGH_SERVICE_DISPLAY.UenoTokyo.name,
+                        color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color
+                    });
+                }
+            }
+
+            // 去重放在“原线路 + 追加项”都准备好之后，判断口径仍然是最终展示名。
+            const dedupedLines = [];
+            const seenDisplayNames = new Set();
+            for (const line of [...sortedLines, ...throughServiceLines]) {
+                const candidateName = stripParenText(String(line?.displayName ?? '')).trim() || String(line?.lineId ?? '').trim();
+                if (!candidateName) continue;
+                if (seenDisplayNames.has(candidateName)) continue;
+                seenDisplayNames.add(candidateName);
+                dedupedLines.push(line);
+            }
+
             let linesHtml = '';
-            for (const line of sortedLines) {
+            for (const line of dedupedLines) {
                 const style = (typeof line.color === 'string' && line.color.trim())
                     ? ` style="color:${escapeHtml(line.color.trim())}"`
                     : '';
@@ -963,30 +985,6 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                 const currentClass = isTransferStation && isCurrentLine ? ' is-current' : '';
 
                 linesHtml += `<div class="station-hover-line${currentClass}"${idAttr}${stationCodeAttr}${style}>${escapeHtml(line.displayName)}${suffixHtml}</div>`;
-            }
-
-            const throughServiceLines = [];
-            if (company === 'JR-East') {
-                if (stationGroupSUFlags.ShonanShinjuku) {
-                    throughServiceLines.push({
-                        key: 'ShonanShinjuku',
-                        displayName: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name,
-                        color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color
-                    });
-                }
-                if (stationGroupSUFlags.UenoTokyo) {
-                    throughServiceLines.push({
-                        key: 'UenoTokyo',
-                        displayName: THROUGH_SERVICE_DISPLAY.UenoTokyo.name,
-                        color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color
-                    });
-                }
-            }
-
-            // 追加项放在 JR-East 组末尾，避免影响原始 serving_ids 的展示顺序。
-            for (const line of throughServiceLines) {
-                const style = line.color ? ` style="color:${escapeHtml(line.color)}"` : '';
-                linesHtml += `<div class="station-hover-line is-through-service" data-through-service="${escapeHtml(line.key)}"${style}>${escapeHtml(line.displayName)}</div>`;
             }
 
             companiesHtml += `
