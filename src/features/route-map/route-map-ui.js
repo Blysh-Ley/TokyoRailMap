@@ -483,6 +483,16 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                         background: #fff !important;
                         --route-map-bg: #fff !important;
                     }
+
+                    html.${EXPORT_CLASS}[data-theme='dark'] .route-map-popover,
+                    html.${EXPORT_CLASS}[data-theme='dark'] .route-map-grid-header,
+                    html.${EXPORT_CLASS}[data-theme='dark'] .route-map-section,
+                    html.${EXPORT_CLASS}[data-theme='dark'] .route-map-body {
+                        background: #000 !important;
+                        --route-map-bg: #000 !important;
+                    }
+
+
                     html.${EXPORT_CLASS} .panel-capture-btn {
                         display: none !important;
                     }
@@ -845,6 +855,15 @@ const ensureStyleInstalled = () => {
             border: 2.5px solid #fff;
             box-sizing: content-box;
         }
+
+        html[data-theme='dark'] .route-map-transfer-line {
+            background: #fff !important;
+        }
+        html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
+            background: #fff !important;
+            border: 2.5px solid #000 !important;
+        }
+
         .route-map-cell.is-stop-up::after,
         .route-map-cell.is-stop-down::after {
             content: '';
