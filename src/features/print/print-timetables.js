@@ -647,13 +647,19 @@
         const head = document.createElement('div');
         head.className = 'timetable-print-head';
 
+        head.style.display = 'flex';         
+        head.style.alignItems = 'flex-end';    
+        head.style.gap = '2px';
+
         const stationTitle = document.createElement('div');
         stationTitle.className = 'panel-name';
         stationTitle.textContent = stationName;
+        stationTitle.style.marginBottom = '0';
 
         const meta = document.createElement('div');
         meta.className = 'timetable-print-meta';
         meta.textContent = serviceDay;
+        meta.style.lineHeight = '1';
 
         head.appendChild(stationTitle);
         head.appendChild(meta);
@@ -718,60 +724,319 @@
             if (el) line.appendChild(el);
         }
 
-        for (const dirPayload of dirs) {
-            const dir = document.createElement('div');
-            dir.className = 'panel-dir';
+        const useGrid = dirs.some(d => toText(d.timetableViewMode) === 'grid');
+
+        if (useGrid && dirs.length >= 1) {
+            // Build bidirectional grid layout
+            const dirContainer = document.createElement('div');
+            dirContainer.className = 'panel-bidirectional-grid';
             
-            const dirLabel = toText(dirPayload.dirLabel) || toText(dirPayload.dirKey) || '未知方向';
-            const dirHeader = document.createElement('div');
-            dirHeader.className = 'panel-dir-header';
-            const dirTitle = document.createElement('span');
-            dirTitle.className = 'panel-dir-title';
-            const dirPrefix = document.createElement('span');
-            dirPrefix.className = 'panel-dir-prefix';
-            dirPrefix.setAttribute('aria-hidden', 'true');
-            dirPrefix.textContent = '往';
+            // Add dual headers
+            const headersRow = document.createElement('div');
+            headersRow.className = 'panel-bi-headers';
+            headersRow.style.display = 'flex';
+            headersRow.style.justifyContent = 'space-between';
+            headersRow.style.alignItems = 'center';
+            headersRow.style.marginBottom = '8px';
+            
+            const leftDir = dirs[0];
+            const rightDir = dirs.length > 1 ? dirs[1] : null;
 
-            const dirMarquee = document.createElement('span');
-            dirMarquee.className = 'panel-dir-marquee';
-            dirMarquee.setAttribute('aria-label', `往 ${dirLabel} 方向`);
-            const dirMarqueeInner = document.createElement('span');
-            dirMarqueeInner.className = 'panel-dir-marquee-inner';
-            dirMarqueeInner.textContent = dirLabel;
-            dirMarquee.appendChild(dirMarqueeInner);
-
-            const dirSuffix = document.createElement('span');
-            dirSuffix.className = 'panel-dir-suffix';
-            dirSuffix.setAttribute('aria-hidden', 'true');
-            dirSuffix.textContent = '方向';
-
-            dirTitle.appendChild(dirPrefix);
-            dirTitle.appendChild(dirMarquee);
-            dirTitle.appendChild(dirSuffix);
-            dirHeader.appendChild(dirTitle);
-            dir.appendChild(dirHeader);
-
-            const content = document.createElement('div');
-            content.className = 'timetable-print-content';
-
-            const useGrid = toText(dirPayload.timetableViewMode) === 'grid';
-            const hintsHtml = useGrid ? toText(dirPayload.gridHintsHtml) : '';
-            const timetableHtml = useGrid ? toText(dirPayload.gridHtml) : toText(dirPayload.listHtml);
-
-            content.innerHTML = `
-                ${hintsHtml}
-                <div class="panel-timetable ${useGrid ? 'panel-timetable-view-grid' : 'panel-timetable-view-list'} is-expanded">
-                    ${timetableHtml || '<div class="panel-timetable-empty">当前无班次</div>'}
-                </div>
+            // Header for Left Direction (Dir 1)
+            const leftHeader = document.createElement('div');
+            leftHeader.className = 'panel-dir-header';
+            leftHeader.style.flex = '1';
+            leftHeader.style.textAlign = 'right';
+            leftHeader.innerHTML = `
+                <span class="panel-dir-title">
+                    <span class="panel-dir-marquee"><span class="panel-dir-marquee-inner">${toText(leftDir.dirLabel) || toText(leftDir.dirKey) || '未知方向'}</span></span>
+                </span>
             `;
-
-            dir.appendChild(content);
-            line.appendChild(dir);
+            headersRow.appendChild(leftHeader);
             
-            if (useGrid) {
-                // Fixed to 10 trips per row as requested
-                root.style.setProperty('--grid-cols', '10');
-                root.style.setProperty('--grid-font-scale', '1');
+            // Middle spacer for hours axis
+            const headerSpacer = document.createElement('div');
+            headerSpacer.style.width = '60px'; // Approx width of panel-grid-hour
+            headerSpacer.style.display = 'flex';
+            headerSpacer.style.justifyContent = 'center'; // 水平居中
+            headerSpacer.style.alignItems = 'center';     // 垂直居中
+            const centerLabel = document.createElement('span');
+            centerLabel.style.color = '#000'; // 可根据你界面的整体风格调整颜色，或者加粗 fontweight: 'bold'
+            centerLabel.style.fontSize = '13px'; 
+            centerLabel.style.paddingTop = '2px'; // 微调位置
+            centerLabel.textContent = '方向';
+            headerSpacer.appendChild(centerLabel);
+
+            headersRow.appendChild(headerSpacer);
+
+            // Header for Right Direction (Dir 2)
+            const rightHeader = document.createElement('div');
+            rightHeader.className = 'panel-dir-header';
+            rightHeader.style.flex = '1';
+            rightHeader.style.textAlign = 'left';
+            if (rightDir) {
+                rightHeader.innerHTML = `
+                    <span class="panel-dir-title">
+                        <span class="panel-dir-marquee"><span class="panel-dir-marquee-inner">${toText(rightDir.dirLabel) || toText(rightDir.dirKey) || '未知方向'}</span></span>
+                    </span>
+                `;
+            }
+            headersRow.appendChild(rightHeader);
+            dirContainer.appendChild(headersRow);
+
+            // 1. 创建一个外层总容器，用于包裹所有的提示行
+            const hintsContainer = document.createElement('div');
+            hintsContainer.className = 'panel-bi-hints-container';
+            hintsContainer.style.marginBottom = '8px';
+
+            // 2. 编写一个辅助函数：将 HTML 字符串解析为节点列表
+            function parseHintsHtml(htmlString) {
+                if (!htmlString) return [];
+                const tempDiv = document.createElement('div');
+                // 注意：如果你的 toText 是必须的，保留它。如果原字符串本身就是标准 HTML，可直接赋值 htmlString
+                tempDiv.innerHTML = toText(htmlString); 
+                return Array.from(tempDiv.querySelectorAll('.panel-grid-hint-line'));
+            }
+
+            // 3. 获取左、右两侧的所有行节点
+            const leftLines = parseHintsHtml(leftDir.gridHintsHtml);
+            const rightLines = parseHintsHtml(rightDir ? rightDir.gridHintsHtml : '');
+
+            // 4. 以左侧的行数为基准，按行进行遍历和拼装
+            leftLines.forEach((leftLineEl, index) => {
+                // 获取对应的右侧行节点（可能为空）
+                const rightLineEl = rightLines[index];
+
+                // --- 提取数据 ---
+                
+                // 提取标签 (例如 "种别：" -> 去除冒号变成 "种别")
+                const labelEl = leftLineEl.querySelector('.panel-grid-hint-label');
+                const labelText = labelEl ? labelEl.textContent.replace(/[:：]/g, '').trim() : '';
+
+                // 提取左侧纯内容 (忽略 label 标签，只取 content 内部的 HTML)
+                const leftContentEl = leftLineEl.querySelector('.panel-grid-hint-content');
+                const leftContentHtml = leftContentEl ? leftContentEl.innerHTML : '';
+
+                // 提取右侧纯内容
+                let rightContentHtml = '';
+                if (rightLineEl) {
+                    const rightContentEl = rightLineEl.querySelector('.panel-grid-hint-content');
+                    rightContentHtml = rightContentEl ? rightContentEl.innerHTML : '';
+                }
+
+                // --- 构建当前行的 UI ---
+
+                const row = document.createElement('div');
+                row.className = 'panel-bi-hint-row';
+                row.style.display = 'flex';
+                row.style.flexDirection = 'row';
+                row.style.alignItems = 'center'; // 核心：保证左右多行时，中间标签始终垂直居中
+                row.style.justifyContent = 'space-between';
+                row.style.marginBottom = '4px'; // 每行之间的微小间距
+
+                // 构建左侧单元格
+                const leftCell = document.createElement('div');
+                leftCell.style.flex = '1';
+                leftCell.style.textAlign = 'right';
+                leftCell.style.fontSize = '11px';
+                leftCell.innerHTML = leftContentHtml; // 直接塞入清洗好的纯内容
+
+                // 构建中间标签单元格
+                const centerCell = document.createElement('div');
+                centerCell.style.width = '60px'; // 保持你设定的中心轴宽度
+                centerCell.style.flexShrink = '0';
+                centerCell.style.textAlign = 'center';
+                centerCell.style.color = '#888';
+                centerCell.style.fontSize = '11px';
+                centerCell.textContent = labelText; // 直接填入文字，不需要再写复杂的 innerHTML 样式
+
+                // 构建右侧单元格
+                const rightCell = document.createElement('div');
+                rightCell.style.flex = '1';
+                rightCell.style.textAlign = 'left';
+                rightCell.style.fontSize = '11px';
+                rightCell.innerHTML = rightContentHtml;
+
+                // --- 组装当前行 ---
+                row.appendChild(leftCell);
+                row.appendChild(centerCell);
+                row.appendChild(rightCell);
+
+                // 将组装好的行加入总容器
+                hintsContainer.appendChild(row);
+            });
+
+            // 5. 最后，将总容器挂载到你的面板上
+            dirContainer.appendChild(hintsContainer);
+
+            // Parse grids
+            const leftTemp = document.createElement('div');
+            leftTemp.innerHTML = toText(leftDir.gridHtml);
+            
+            const rightTemp = document.createElement('div');
+            if (rightDir) {
+                rightTemp.innerHTML = toText(rightDir.gridHtml);
+            }
+
+            const leftRows = Array.from(leftTemp.querySelectorAll('.panel-grid-row'));
+            const rightRows = Array.from(rightTemp.querySelectorAll('.panel-grid-row'));
+            
+            const hoursSet = new Set();
+            const leftByHour = new Map();
+            const rightByHour = new Map();
+            
+            leftRows.forEach(r => {
+                const h = r.getAttribute('data-grid-hour');
+                if (h) { hoursSet.add(Number(h)); leftByHour.set(Number(h), r); }
+            });
+            rightRows.forEach(r => {
+                const h = r.getAttribute('data-grid-hour');
+                if (h) { hoursSet.add(Number(h)); rightByHour.set(Number(h), r); }
+            });
+            
+            const sortedHours = Array.from(hoursSet).sort((a, b) => {
+                // Adjust hours (e.g. 0-2 for 24-26) if needed, simple sort for now
+                const valA = a < 4 ? a + 24 : a;
+                const valB = b < 4 ? b + 24 : b;
+                return valA - valB;
+            });
+
+            const gridWrapper = document.createElement('div');
+            gridWrapper.className = 'panel-timetable panel-timetable-view-grid is-expanded panel-bidirectional-grid-wrapper';
+            gridWrapper.style.width = '100%';
+            
+            // Build the central axis rows
+            const biGrid = document.createElement('div');
+            biGrid.className = 'panel-timetable-grid panel-bi-timetable-grid';
+            biGrid.style.width = '100%';
+            
+            for (const h of sortedHours) {
+                const lRow = leftByHour.get(h);
+                const rRow = rightByHour.get(h);
+                const hourText = lRow ? lRow.querySelector('.panel-grid-hour')?.textContent : rRow.querySelector('.panel-grid-hour')?.textContent;
+                
+                const classes = new Set(['panel-grid-row', 'panel-bi-grid-row']);
+                if (lRow) lRow.classList.forEach(c => classes.add(c));
+                if (rRow) rRow.classList.forEach(c => classes.add(c));
+                
+                const biRow = document.createElement('div');
+                biRow.className = Array.from(classes).join(' ');
+                biRow.style.display = 'flex';
+                biRow.style.flexDirection = 'row';
+                biRow.style.alignItems = 'stretch';
+                biRow.style.width = '100%';
+                
+                // Left trips (Dir 1) - aligned to right, 10 per row
+                const lTrips = document.createElement('div');
+                lTrips.className = 'panel-grid-trips bi-grid-trips-left';
+                lTrips.style.flex = '1';
+                lTrips.style.display = 'grid';
+                lTrips.style.gridTemplateColumns = 'repeat(10, 1fr)';
+                lTrips.style.gridAutoRows = 'max-content';
+                lTrips.style.gap = '2px';
+                lTrips.style.direction = 'rtl';
+                
+                if (lRow) {
+                    const lCells = Array.from(lRow.querySelectorAll('.panel-grid-cell'));
+                    lCells.forEach(c => {
+                        const clone = c.cloneNode(true);
+                        clone.style.direction = 'ltr';
+                        lTrips.appendChild(clone);
+                    });
+                }
+
+                // Center Hour
+                const cHour = document.createElement('div');
+                cHour.className = 'panel-grid-hour bi-grid-hour-center';
+                cHour.style.width = '60px';
+                cHour.style.flexShrink = '0';
+                cHour.style.display = 'flex';
+                cHour.style.alignItems = 'center';
+                cHour.style.justifyContent = 'center'; // Center the text in the column
+                cHour.textContent = hourText || h;
+
+                // Right trips (Dir 2) - 10 per row
+                const rTrips = document.createElement('div');
+                rTrips.className = 'panel-grid-trips bi-grid-trips-right';
+                rTrips.style.flex = '1';
+                rTrips.style.display = 'grid';
+                rTrips.style.gridTemplateColumns = 'repeat(10, 1fr)';
+                rTrips.style.gridAutoRows = 'max-content';
+                rTrips.style.gap = '2px';
+
+                if (rRow) {
+                    const rCells = Array.from(rRow.querySelectorAll('.panel-grid-cell'));
+                    rCells.forEach(c => {
+                        const clone = c.cloneNode(true);
+                        rTrips.appendChild(clone);
+                    });
+                }
+                
+                biRow.appendChild(lTrips);
+                biRow.appendChild(cHour);
+                biRow.appendChild(rTrips);
+                biGrid.appendChild(biRow);
+            }
+            
+            gridWrapper.appendChild(biGrid);
+            dirContainer.appendChild(gridWrapper);
+            line.appendChild(dirContainer);
+
+            // Settings for the entire bidirectional grid
+            root.style.setProperty('--grid-cols', '15'); // Provide enough space for both sides
+            root.style.setProperty('--grid-font-scale', '1');
+
+        } else {
+            // Fallback for list mode or unknown configuration
+            for (const dirPayload of dirs) {
+                const dir = document.createElement('div');
+                dir.className = 'panel-dir';
+                
+                const dirLabel = toText(dirPayload.dirLabel) || toText(dirPayload.dirKey) || '未知方向';
+                const dirHeader = document.createElement('div');
+                dirHeader.className = 'panel-dir-header';
+                const dirTitle = document.createElement('span');
+                dirTitle.className = 'panel-dir-title';
+                const dirPrefix = document.createElement('span');
+                dirPrefix.className = 'panel-dir-prefix';
+                dirPrefix.setAttribute('aria-hidden', 'true');
+                dirPrefix.textContent = '往';
+
+                const dirMarquee = document.createElement('span');
+                dirMarquee.className = 'panel-dir-marquee';
+                dirMarquee.setAttribute('aria-label', `往 ${dirLabel} 方向`);
+                const dirMarqueeInner = document.createElement('span');
+                dirMarqueeInner.className = 'panel-dir-marquee-inner';
+                dirMarqueeInner.textContent = dirLabel;
+                dirMarquee.appendChild(dirMarqueeInner);
+
+                const dirSuffix = document.createElement('span');
+                dirSuffix.className = 'panel-dir-suffix';
+                dirSuffix.setAttribute('aria-hidden', 'true');
+                dirSuffix.textContent = '方向';
+
+                dirTitle.appendChild(dirPrefix);
+                dirTitle.appendChild(dirMarquee);
+                dirTitle.appendChild(dirSuffix);
+                dirHeader.appendChild(dirTitle);
+                dir.appendChild(dirHeader);
+
+                const content = document.createElement('div');
+                content.className = 'timetable-print-content';
+
+                const useGrid = toText(dirPayload.timetableViewMode) === 'grid';
+                const hintsHtml = useGrid ? toText(dirPayload.gridHintsHtml) : '';
+                const timetableHtml = useGrid ? toText(dirPayload.gridHtml) : toText(dirPayload.listHtml);
+
+                content.innerHTML = `
+                    ${hintsHtml}
+                    <div class="panel-timetable ${useGrid ? 'panel-timetable-view-grid' : 'panel-timetable-view-list'} is-expanded">
+                        ${timetableHtml || '<div class="panel-timetable-empty">当前无班次</div>'}
+                    </div>
+                `;
+
+                dir.appendChild(content);
+                line.appendChild(dir);
             }
         }
 
@@ -783,9 +1048,39 @@
         card.appendChild(company);
         root.appendChild(card);
 
+        const forceExpandStyle = document.createElement('style');
+        forceExpandStyle.textContent = `
+            .timetable-print-root,
+            .timetable-print-card,
+            .panel-timetable,
+            .panel-timetable-view-grid,
+            .panel-bidirectional-grid-wrapper,
+            .panel-bi-timetable-grid {
+                max-height: none !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+            .panel-bi-grid-row .panel-grid-cell-trip {
+                flex: none !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                aspect-ratio: 1 / 1 !important;
+                box-sizing: border-box !important;
+                padding: 0 4px !important;
+            }
+        `;
+        root.appendChild(forceExpandStyle);
+
         // Required to ensure it works correctly when converted to image
-        root.style.width = '1000px'; 
+        root.style.width = '1200px'; 
         root.style.maxWidth = 'none';
+        
+        // Prevent truncation by removing it from the normal document flow
+        root.style.position = 'fixed';
+        root.style.top = '0';
+        root.style.left = '-9999px';
+        root.style.zIndex = '-9999';
 
         return root;
     };
@@ -802,7 +1097,11 @@
                 scale: Math.max(2, window.devicePixelRatio || 1),
                 useCORS: true,
                 backgroundColor: getComputedStyle(document.body).getPropertyValue('background-color') || '#ffffff',
-                logging: false
+                logging: false,
+                width: 1200,
+                height: root.scrollHeight,
+                windowWidth: 1200,
+                windowHeight: root.scrollHeight
             });
             const dataUrl = canvas.toDataURL('image/png');
             
