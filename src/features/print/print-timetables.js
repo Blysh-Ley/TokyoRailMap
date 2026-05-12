@@ -971,12 +971,7 @@
                 if (h) { hoursSet.add(Number(h)); rightByHour.set(Number(h), r); }
             });
             
-            const sortedHours = Array.from(hoursSet).sort((a, b) => {
-                // Adjust hours (e.g. 0-2 for 24-26) if needed, simple sort for now
-                const valA = a < 4 ? a + 24 : a;
-                const valB = b < 4 ? b + 24 : b;
-                return valA - valB;
-            });
+            const sortedHours = Array.from(hoursSet).sort((a, b) => a - b);
 
             const gridWrapper = document.createElement('div');
             gridWrapper.className = 'panel-timetable panel-timetable-view-grid is-expanded panel-bidirectional-grid-wrapper';
@@ -1002,13 +997,15 @@
                 biRow.style.flexDirection = 'row';
                 biRow.style.alignItems = 'stretch';
                 biRow.style.width = '100%';
+                biRow.style.boxSizing = 'border-box';
                 
                 // Left trips (Dir 1) - aligned to right, 10 per row
                 const lTrips = document.createElement('div');
                 lTrips.className = 'panel-grid-trips bi-grid-trips-left';
                 lTrips.style.flex = '1';
                 lTrips.style.display = 'grid';
-                lTrips.style.gridTemplateColumns = 'repeat(10, 1fr)';
+                lTrips.style.gridTemplateColumns = 'repeat(10, minmax(0, 1fr))';
+                lTrips.style.overflow = 'hidden';
                 lTrips.style.gridAutoRows = 'max-content';
                 lTrips.style.gap = '2px';
                 lTrips.style.direction = 'rtl';
@@ -1037,14 +1034,17 @@
                 rTrips.className = 'panel-grid-trips bi-grid-trips-right';
                 rTrips.style.flex = '1';
                 rTrips.style.display = 'grid';
-                rTrips.style.gridTemplateColumns = 'repeat(10, 1fr)';
+                rTrips.style.gridTemplateColumns = 'repeat(10,  minmax(0, 1fr))';
+                rTrips.style.overflow = 'hidden';
                 rTrips.style.gridAutoRows = 'max-content';
                 rTrips.style.gap = '2px';
+                rTrips.style.direction = 'ltr';
 
                 if (rRow) {
                     const rCells = Array.from(rRow.querySelectorAll('.panel-grid-cell'));
                     rCells.forEach(c => {
                         const clone = c.cloneNode(true);
+                        clone.style.direction = 'ltr';
                         rTrips.appendChild(clone);
                     });
                 }
