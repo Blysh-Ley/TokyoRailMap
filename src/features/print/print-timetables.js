@@ -124,10 +124,24 @@
 
             .timetable-print-card .panel-company {
                 margin-top: 6px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 4px;
+            }
+
+            .timetable-print-card .panel-company-top-row {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                width: 100%;
+                flex-wrap: wrap;
             }
 
             .timetable-print-card .panel-company-lines {
-                margin-top: 2px;
+                margin-top: 0;
+                width: 100%;
             }
 
             .timetable-print-card .panel-company-logo {
@@ -141,6 +155,8 @@
 
             .timetable-print-card .panel-line-header {
                 pointer-events: none;
+                flex: 0 0 auto;
+                white-space: nowrap;
             }
 
             .timetable-print-card .panel-line-name {
@@ -647,6 +663,8 @@
         const stationInfoHtml = toText(detail.stationInfoHtml);
         const lineHeaderHtml = toText(detail.lineHeaderHtml);
         
+
+        // 站名和服务日信息部分
         const head = document.createElement('div');
         head.className = 'timetable-print-head';
 
@@ -661,6 +679,7 @@
         stationTitle.textContent = stationName;
         stationTitle.style.marginBottom = '0';
         stationTitle.style.flex = 'none';
+        stationTitle.style.fontSize = '28px';
 
         let lineSuffix;
 
@@ -672,14 +691,11 @@
             const codeBadge = temp.querySelector('.rw-station-code-badge');
             
             if (codeBadge) {
-                // 2. 深度克隆该节点，确保不带有原有的外层干扰样式
                 lineSuffix = codeBadge.cloneNode(true);
-                
-                // 3. 强制修正样式，确保它在 Flex 布局中紧凑排列
                 lineSuffix.style.display = 'inline-flex';
-                lineSuffix.style.position = 'static'; // 防止 absolute 定位
-                lineSuffix.style.margin = '0 4px';    // 给它左右留点小间距
-                lineSuffix.style.flexShrink = '0';    // 防止被挤压
+                lineSuffix.style.position = 'static'; 
+                lineSuffix.style.margin = '0 4px';   
+                lineSuffix.style.flexShrink = '0'; 
                 lineSuffix.style.verticalAlign = 'middle';
             }
         }
@@ -692,18 +708,15 @@
             const codeBadge = temp.querySelector('.rw-station-code-badge');
             
             if (codeBadge) {
-                // 2. 深度克隆该节点，确保不带有原有的外层干扰样式
                 lineSuffix = codeBadge.cloneNode(true);
                 
-                // 3. 强制修正样式，确保它在 Flex 布局中紧凑排列
                 lineSuffix.style.display = 'inline-flex';
-                lineSuffix.style.position = 'static'; // 防止 absolute 定位
-                lineSuffix.style.margin = '0 4px';    // 给它左右留点小间距
-                lineSuffix.style.flexShrink = '0';    // 防止被挤压
+                lineSuffix.style.position = 'static';
+                lineSuffix.style.margin = '0 4px';  
+                lineSuffix.style.flexShrink = '0';   
                 lineSuffix.style.verticalAlign = 'middle';
             }
         }
-
 
         const meta = document.createElement('div');
         meta.className = 'timetable-print-meta';
@@ -716,8 +729,7 @@
         if (lineSuffix) head.appendChild(lineSuffix);
         head.appendChild(meta);
 
-
-
+        // 公司信息和线路信息部分
 
         const company = document.createElement('div');
         company.className = 'panel-company';
@@ -736,21 +748,24 @@
         companyNameEl.textContent = companyName;
         companyHeader.appendChild(companyNameEl);
 
-        const companyLines = document.createElement('div');
-        companyLines.className = 'panel-company-lines';
-
-        const line = document.createElement('div');
-        line.className = 'panel-line';
-        if (lineColor) line.style.color = lineColor;
+        const lineHeaderHost = document.createElement('div');
+        lineHeaderHost.style.display = 'flex';
+        lineHeaderHost.style.alignItems = 'center';
+        lineHeaderHost.style.justifyContent = 'center';
+        lineHeaderHost.style.flex = '0 0 auto';
 
         if (lineHeaderHtml) {
             const temp = document.createElement('div');
             temp.innerHTML = lineHeaderHtml;
             const el = temp.firstElementChild;
-            if (el) line.appendChild(el);
+            if (el) {
+                if (lineColor) el.style.color = lineColor;
+                lineHeaderHost.appendChild(el);
+            }
         } else {
             const lineHeader = document.createElement('div');
             lineHeader.className = 'panel-line-header';
+            if (lineColor) lineHeader.style.color = lineColor;
             const lineNameWrap = document.createElement('span');
             lineNameWrap.className = 'panel-line-name';
             const lineNameMain = document.createElement('span');
@@ -758,21 +773,34 @@
             lineNameMain.textContent = lineName;
             lineNameWrap.appendChild(lineNameMain);
             lineHeader.appendChild(lineNameWrap);
-            line.appendChild(lineHeader);
+            lineHeaderHost.appendChild(lineHeader);
         }
 
+        const companyTopRow = document.createElement('div');
+        companyTopRow.className = 'panel-company-top-row';
+        companyTopRow.appendChild(companyHeader);
+        companyTopRow.appendChild(lineHeaderHost);
 
+        const companyLines = document.createElement('div');
+        companyLines.className = 'panel-company-lines';
+
+        const line = document.createElement('div');
+        line.className = 'panel-line';
+        if (lineColor) line.style.color = lineColor;
+
+        // 停站种别
         if (stationInfoHtml) {
             const temp = document.createElement('div');
             temp.innerHTML = stationInfoHtml;
-            const el = temp.firstElementChild;
+            const el = temp.querySelector('.panel-station-info-types');
             if (el) line.appendChild(el);
+            el.style.display = 'flex';
+            el.style.flexWrap = 'wrap';      
+            el.style.justifyContent = 'center';
+            el.style.alignItems = 'center';  
         }
 
-
-
-        
-
+        // 时刻表
         const useGrid = dirs.some(d => toText(d.timetableViewMode) === 'grid');
 
         if (useGrid && dirs.length >= 1) {
@@ -1089,9 +1117,10 @@
             }
         }
 
-        companyLines.appendChild(line);
-        company.appendChild(companyHeader);
-        company.appendChild(companyLines);
+    company.appendChild(companyTopRow);
+
+    companyLines.appendChild(line);
+    company.appendChild(companyLines);
 
         card.appendChild(head);
         card.appendChild(company);
