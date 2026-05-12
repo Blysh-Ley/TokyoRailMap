@@ -558,7 +558,7 @@
             const stationName = sanitizeFilePart(detail.stationName || 'station');
             const lineName = sanitizeFilePart(detail.lineName || detail.lineId || 'line');
             const dirName = sanitizeFilePart(detail.dirLabel || detail.dirKey || 'dir');
-            const fileName = `timetable_${stationName}_${lineName}_${dirName}_${nowIsoCompact()}.pdf`;
+            const fileName = `时刻表_${stationName}_${lineName}_${dirName}.pdf`;
             pdf.save(fileName);
         } finally {
             root.remove();
@@ -1108,7 +1108,7 @@
             const firstDir = detail.dirs?.[0] || {};
             const stationName = sanitizeFilePart(firstDir.stationName || 'station');
             const lineName = sanitizeFilePart(firstDir.lineName || detail.lineId || 'line');
-            const fileName = `timetable_${stationName}_${lineName}_${nowIsoCompact()}.png`;
+            const fileName = `时刻表_${stationName}_${lineName}.png`;
             
             const link = document.createElement('a');
             link.download = fileName;
@@ -1168,7 +1168,147 @@
         if (!pageCount) return;
 
         const stationName = sanitizeFilePart(detail.stationName || pages[0]?.stationName || 'station');
-        const fileName = `timetable_all_${stationName}_${nowIsoCompact()}.pdf`;
+        const fileName = `总时刻表_${stationName}.pdf`;
+        pdf.save(fileName);
+    };
+
+    const exportAllLinesToPdf = async (detail = {}) => {
+        injectStyles();
+        const { html2canvas, jsPDF } = await ensureLibs();
+
+        const pages = Array.isArray(detail?.pages) ? detail.pages : [];
+        if (!pages.length) return;
+
+        let pdf = null;
+        let pageCount = 0;
+
+        const lineGroups = new Map();
+        for (const pageDetailRaw of pages) {
+            const lineKey = toText(pageDetailRaw?.lineId)
+                || toText(pageDetailRaw?.lineName)
+                || toText(detail?.lineId)
+                || toText(detail?.lineName)
+                || `line_${lineGroups.size}`;
+
+            let group = lineGroups.get(lineKey);
+            if (!group) {
+                group = {
+                    lineId: toText(pageDetailRaw?.lineId) || toText(detail?.lineId),
+                    lineHeaderHtml: pageDetailRaw?.lineHeaderHtml,
+                    lineSuffixHtml: pageDetailRaw?.lineSuffixHtml,
+                    stationInfoHtml: pageDetailRaw?.stationInfoHtml,
+                    dirs: []
+                };
+                lineGroups.set(lineKey, group);
+            }
+
+            if (Array.isArray(pageDetailRaw?.dirs) && pageDetailRaw.dirs.length) {
+                for (const dirRaw of pageDetailRaw.dirs) {
+                    const viewMode = toText(dirRaw?.timetableViewMode)
+                        || toText(pageDetailRaw?.timetableViewMode)
+                        || toText(detail?.timetableViewMode);
+                    group.dirs.push({
+                        stationName: toText(dirRaw?.stationName) || toText(pageDetailRaw?.stationName) || toText(detail?.stationName),
+                        companyName: toText(dirRaw?.companyName) || toText(pageDetailRaw?.companyName) || toText(detail?.companyName),
+                        companyLogoSrc: toText(dirRaw?.companyLogoSrc) || toText(pageDetailRaw?.companyLogoSrc) || toText(detail?.companyLogoSrc),
+                        lineName: toText(dirRaw?.lineName) || toText(pageDetailRaw?.lineName) || toText(detail?.lineName),
+                        lineColor: toText(dirRaw?.lineColor) || toText(pageDetailRaw?.lineColor) || toText(detail?.lineColor),
+                        serviceDay: toText(dirRaw?.serviceDay) || toText(pageDetailRaw?.serviceDay) || toText(detail?.serviceDay),
+                        dirLabel: toText(dirRaw?.dirLabel) || toText(pageDetailRaw?.dirLabel) || toText(detail?.dirLabel),
+                        dirKey: toText(dirRaw?.dirKey) || toText(pageDetailRaw?.dirKey) || toText(detail?.dirKey),
+                        timetableViewMode: viewMode,
+                        gridHintsHtml: dirRaw?.gridHintsHtml ?? pageDetailRaw?.gridHintsHtml,
+                        gridHtml: dirRaw?.gridHtml ?? pageDetailRaw?.gridHtml,
+                        listHtml: dirRaw?.listHtml ?? pageDetailRaw?.listHtml
+                    });
+                }
+            } else {
+                const viewMode = toText(pageDetailRaw?.timetableViewMode) || toText(detail?.timetableViewMode);
+                group.dirs.push({
+                    stationName: toText(pageDetailRaw?.stationName) || toText(detail?.stationName),
+                    companyName: toText(pageDetailRaw?.companyName) || toText(detail?.companyName),
+                    companyLogoSrc: toText(pageDetailRaw?.companyLogoSrc) || toText(detail?.companyLogoSrc),
+                    lineName: toText(pageDetailRaw?.lineName) || toText(detail?.lineName),
+                    lineColor: toText(pageDetailRaw?.lineColor) || toText(detail?.lineColor),
+                    serviceDay: toText(pageDetailRaw?.serviceDay) || toText(detail?.serviceDay),
+                    dirLabel: toText(pageDetailRaw?.dirLabel) || toText(detail?.dirLabel),
+                    dirKey: toText(pageDetailRaw?.dirKey) || toText(detail?.dirKey),
+                    timetableViewMode: viewMode,
+                    gridHintsHtml: pageDetailRaw?.gridHintsHtml,
+                    gridHtml: pageDetailRaw?.gridHtml,
+                    listHtml: pageDetailRaw?.listHtml
+                });
+            }
+        }
+
+        for (const group of lineGroups.values()) {
+            if (!group.dirs.length) continue;
+
+            const uniqueDirs = [];
+            const seenDirKeys = new Set();
+            for (const dirPayload of group.dirs) {
+                const key = `${toText(dirPayload.dirKey)}|${toText(dirPayload.dirLabel)}|${toText(dirPayload.timetableViewMode)}`;
+                if (seenDirKeys.has(key)) continue;
+                seenDirKeys.add(key);
+                uniqueDirs.push(dirPayload);
+            }
+
+            const pageDetail = {
+                lineId: group.lineId,
+                lineHeaderHtml: group.lineHeaderHtml,
+                lineSuffixHtml: group.lineSuffixHtml,
+                stationInfoHtml: group.stationInfoHtml,
+                dirs: uniqueDirs
+            };
+
+            const root = createLineImageExportDom(pageDetail);
+                
+            document.body.appendChild(root);
+
+            try {
+                const scaleFactor = Math.max(2, window.devicePixelRatio || 1);
+                
+                const canvas = await html2canvas(root, {
+                    scale: scaleFactor,
+                    useCORS: true,
+                    backgroundColor: getComputedStyle(document.body).getPropertyValue('background-color') || '#ffffff',
+                    logging: false,
+                    width: 1200,
+                    height: root.scrollHeight,
+                    windowWidth: 1200,
+                    windowHeight: root.scrollHeight
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+                
+                const pdfWidth = canvas.width / scaleFactor;
+                const pdfHeight = canvas.height / scaleFactor;
+                const orientation = pdfWidth > pdfHeight ? 'landscape' : 'portrait';
+
+                if (pageCount === 0) {
+                    // 第一页：用第一张图的尺寸初始化 PDF
+                    pdf = new jsPDF({
+                        orientation: orientation,
+                        unit: 'px',
+                        format: [pdfWidth, pdfHeight]
+                    });
+                } else {
+                    // 后续页：新建适应当前图片的页面
+                    pdf.addPage([pdfWidth, pdfHeight], orientation);
+                }
+
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+                
+                pageCount += 1;
+            } finally {
+                root.remove();
+            }
+        }
+
+        if (!pageCount || !pdf) return;
+
+        const stationName = sanitizeFilePart(detail.stationName || pages[0]?.stationName || 'station');
+        const fileName = `总时刻表_${stationName}.pdf`;
         pdf.save(fileName);
     };
 
@@ -1206,7 +1346,7 @@
                 target.classList.add(LOADING_CLASS);
                 target.setAttribute('aria-busy', 'true');
             }
-            await exportAllDirectionsToPdf(detail);
+            await exportAllLinesToPdf(detail);
         } catch (err) {
             console.error('[print-timetables] 全量导出失败', err);
             alert('导出全部方向 PDF 失败，请稍后重试。');
