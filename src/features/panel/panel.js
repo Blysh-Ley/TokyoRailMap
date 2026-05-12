@@ -6361,6 +6361,7 @@ export function createPanel(options = {}) {
             if (!lineId) continue;
             const lineSuffixHtml = toText(lineEl.querySelector?.('[data-line-suffix-row]')?.outerHTML || '');
             const stationInfoHtml = toText(lineEl.querySelector?.('[data-station-info]')?.outerHTML || '');
+            const lineHeaderHtml = toText(lineEl.querySelector?.('.panel-line-header')?.outerHTML || '');
             const dirEls = Array.from(lineEl.querySelectorAll('[data-dir-toggle][data-dir-key]'));
             const stationName = toText(lineEl?.getAttribute('data-station-name') || '');
             for (const dirEl of dirEls) {
@@ -6373,7 +6374,8 @@ export function createPanel(options = {}) {
                     out.push({
                         ...payload,
                         lineSuffixHtml,
-                        stationInfoHtml
+                        stationInfoHtml,
+                        lineHeaderHtml
                     });
                 }
             }
