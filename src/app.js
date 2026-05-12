@@ -6163,7 +6163,7 @@ map.on('load', async () => {
                 return !(hasBaseHighlight || hasTripPreviewHighlight);
             },
             lowZoomLabelThinMaxZoom: 13,
-            lowZoomLabelKeepRatio: 0.5,
+            lowZoomLabelKeepRatio: 1,
             // 高亮线路/公司时：圆点全部显示，避免缩小后站点消失
             getCircleMode: () => (
                 tripPreviewActive ||
