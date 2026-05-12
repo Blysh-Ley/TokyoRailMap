@@ -1004,7 +1004,7 @@
                 lTrips.className = 'panel-grid-trips bi-grid-trips-left';
                 lTrips.style.flex = '1';
                 lTrips.style.display = 'grid';
-                lTrips.style.gridTemplateColumns = 'repeat(10, minmax(0, 1fr))';
+                lTrips.style.gridTemplateColumns = 'repeat(20, minmax(0, 1fr))';
                 lTrips.style.overflow = 'hidden';
                 lTrips.style.gridAutoRows = 'max-content';
                 lTrips.style.gap = '2px';
@@ -1034,7 +1034,7 @@
                 rTrips.className = 'panel-grid-trips bi-grid-trips-right';
                 rTrips.style.flex = '1';
                 rTrips.style.display = 'grid';
-                rTrips.style.gridTemplateColumns = 'repeat(10,  minmax(0, 1fr))';
+                rTrips.style.gridTemplateColumns = 'repeat(20,  minmax(0, 1fr))';
                 rTrips.style.overflow = 'hidden';
                 rTrips.style.gridAutoRows = 'max-content';
                 rTrips.style.gap = '2px';
@@ -1151,7 +1151,7 @@
         root.appendChild(forceExpandStyle);
 
         // Required to ensure it works correctly when converted to image
-        root.style.width = '1200px'; 
+        root.style.width = '2400px'; 
         root.style.maxWidth = 'none';
         
         // Prevent truncation by removing it from the normal document flow
@@ -1176,9 +1176,9 @@
                 useCORS: true,
                 backgroundColor: getComputedStyle(document.body).getPropertyValue('background-color') || '#ffffff',
                 logging: false,
-                width: 1200,
+                width: 2400,
                 height: root.scrollHeight,
-                windowWidth: 1200,
+                windowWidth: 2400,
                 windowHeight: root.scrollHeight
             });
             const dataUrl = canvas.toDataURL('image/png');
@@ -1351,9 +1351,9 @@
                     useCORS: true,
                     backgroundColor: getComputedStyle(document.body).getPropertyValue('background-color') || '#ffffff',
                     logging: false,
-                    width: 1200,
+                    width: 2400,
                     height: root.scrollHeight,
-                    windowWidth: 1200,
+                    windowWidth: 2400,
                     windowHeight: root.scrollHeight
                 });
 
