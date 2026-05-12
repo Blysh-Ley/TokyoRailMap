@@ -820,13 +820,16 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
         let linesHtml = '';
         for (const line of sortedLines) {
             const style = typeof line.color === 'string' && line.color.trim() ? ` style="color:${escapeHtml(line.color.trim())}"` : '';
-            const idAttr = line.lineId ? ` data-line-id="${escapeHtml(String(line.lineId))}"` : '';
             const transferMetaRaw = line.lineId
                 ? (lineStationNameByLineId?.get?.(line.lineId) || lineStationNameByLineId?.[line.lineId] || null)
                 : null;
             const transferStationName = typeof transferMetaRaw === 'string'
                 ? toText(transferMetaRaw)
                 : toText(transferMetaRaw?.name || '');
+            const actualStationName = typeof transferMetaRaw === 'string' 
+                ? toText(transferMetaRaw)
+                : toText(transferMetaRaw?.actualName || '');
+            const idAttr = line.lineId ? ` data-line-id="${escapeHtml(String(line.lineId))}" data-station-name="${escapeHtml(actualStationName)}"` : '';
             const transferStationCode = typeof transferMetaRaw === 'string'
                 ? ''
                 : toText(transferMetaRaw?.code || '');
@@ -969,7 +972,7 @@ export function createPanel(options = {}) {
                     : '';
 
                 // 保留 stationId，供目录滚动时同步标题使用；name/code 继续只影响副标题展示
-                out.set(lineId, { stationId: candidateId, name: transferName, code: transferCode });
+                out.set(lineId, { stationId: candidateId, name: transferName, code: transferCode, actualName: transferNameRaw });
             }
         } catch {
             return out;
@@ -6312,10 +6315,10 @@ export function createPanel(options = {}) {
         const lid = toText(lineId);
         const lineEl = Array.from(body.querySelectorAll('[data-line-id]')).find((el) => toText(el.getAttribute('data-line-id')) === lid) || null;
         if (!lineEl) return;
-        
         const lineSuffixHtml = toText(lineEl.querySelector?.('[data-line-suffix-row]')?.outerHTML || '');
         const stationInfoHtml = toText(lineEl.querySelector?.('[data-station-info]')?.outerHTML || '');
         const lineHeaderHtml = toText(lineEl.querySelector?.('.panel-line-header')?.outerHTML || '');
+        const stationName = toText(lineEl?.getAttribute('data-station-name') || '');
         
         const dirs = [];
         const dirEls = Array.from(lineEl.querySelectorAll('[data-dir-toggle][data-dir-key]'));
@@ -6324,6 +6327,7 @@ export function createPanel(options = {}) {
             const lineDirKey = makeLineDirKey(lid, dKey);
             const payload = dirPrintPayloadByKey.get(lineDirKey);
             if (payload) {
+                payload.stationName = stationName;
                 dirs.push(payload);
             }
         }
@@ -6358,12 +6362,14 @@ export function createPanel(options = {}) {
             const lineSuffixHtml = toText(lineEl.querySelector?.('[data-line-suffix-row]')?.outerHTML || '');
             const stationInfoHtml = toText(lineEl.querySelector?.('[data-station-info]')?.outerHTML || '');
             const dirEls = Array.from(lineEl.querySelectorAll('[data-dir-toggle][data-dir-key]'));
+            const stationName = toText(lineEl?.getAttribute('data-station-name') || '');
             for (const dirEl of dirEls) {
                 const dirKey = toText(dirEl.getAttribute('data-dir-key'));
                 const lineDirKey = makeLineDirKey(lineId, dirKey);
                 if (!lineDirKey) continue;
                 const payload = dirPrintPayloadByKey.get(lineDirKey);
                 if (payload) {
+                    payload.stationName = stationName;
                     out.push({
                         ...payload,
                         lineSuffixHtml,

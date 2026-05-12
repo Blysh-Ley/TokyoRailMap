@@ -643,26 +643,81 @@
         const lineName = toText(firstDir.lineName) || toText(detail.lineId) || '未知线路';
         const lineColor = toText(firstDir.lineColor);
         const serviceDay = toText(firstDir.serviceDay) === 'SaturdayHoliday' ? '休息日' : '工作日';
-
+        const lineSuffixHtml = toText(detail.lineSuffixHtml);
+        const stationInfoHtml = toText(detail.stationInfoHtml);
+        const lineHeaderHtml = toText(detail.lineHeaderHtml);
+        
         const head = document.createElement('div');
         head.className = 'timetable-print-head';
 
         head.style.display = 'flex';         
-        head.style.alignItems = 'flex-end';    
+        head.style.justifyContent = 'center';
+        head.style.alignItems = 'baseline';  
         head.style.gap = '2px';
+        head.style.width = '100%';
 
         const stationTitle = document.createElement('div');
         stationTitle.className = 'panel-name';
         stationTitle.textContent = stationName;
         stationTitle.style.marginBottom = '0';
+        stationTitle.style.flex = 'none';
+
+        let lineSuffix;
+
+        if (lineSuffixHtml) {
+            const temp = document.createElement('div');
+            temp.innerHTML = lineSuffixHtml;
+            
+            // 1. 直接定位那个带代码的 badge 元素
+            const codeBadge = temp.querySelector('.rw-station-code-badge');
+            
+            if (codeBadge) {
+                // 2. 深度克隆该节点，确保不带有原有的外层干扰样式
+                lineSuffix = codeBadge.cloneNode(true);
+                
+                // 3. 强制修正样式，确保它在 Flex 布局中紧凑排列
+                lineSuffix.style.display = 'inline-flex';
+                lineSuffix.style.position = 'static'; // 防止 absolute 定位
+                lineSuffix.style.margin = '0 4px';    // 给它左右留点小间距
+                lineSuffix.style.flexShrink = '0';    // 防止被挤压
+                lineSuffix.style.verticalAlign = 'middle';
+            }
+        }
+        
+        if (!lineSuffixHtml && stationInfoHtml) {
+             const temp = document.createElement('div');
+            temp.innerHTML = stationInfoHtml;
+            
+            // 1. 直接定位那个带代码的 badge 元素
+            const codeBadge = temp.querySelector('.rw-station-code-badge');
+            
+            if (codeBadge) {
+                // 2. 深度克隆该节点，确保不带有原有的外层干扰样式
+                lineSuffix = codeBadge.cloneNode(true);
+                
+                // 3. 强制修正样式，确保它在 Flex 布局中紧凑排列
+                lineSuffix.style.display = 'inline-flex';
+                lineSuffix.style.position = 'static'; // 防止 absolute 定位
+                lineSuffix.style.margin = '0 4px';    // 给它左右留点小间距
+                lineSuffix.style.flexShrink = '0';    // 防止被挤压
+                lineSuffix.style.verticalAlign = 'middle';
+            }
+        }
+
 
         const meta = document.createElement('div');
         meta.className = 'timetable-print-meta';
         meta.textContent = serviceDay;
         meta.style.lineHeight = '1';
+        meta.style.marginLeft = '0'; 
+        meta.style.flex = 'none';
 
         head.appendChild(stationTitle);
+        if (lineSuffix) head.appendChild(lineSuffix);
         head.appendChild(meta);
+
+
+
 
         const company = document.createElement('div');
         company.className = 'panel-company';
@@ -688,10 +743,6 @@
         line.className = 'panel-line';
         if (lineColor) line.style.color = lineColor;
 
-        const lineHeaderHtml = toText(detail.lineHeaderHtml);
-        const lineSuffixHtml = toText(detail.lineSuffixHtml);
-        const stationInfoHtml = toText(detail.stationInfoHtml);
-
         if (lineHeaderHtml) {
             const temp = document.createElement('div');
             temp.innerHTML = lineHeaderHtml;
@@ -710,12 +761,6 @@
             line.appendChild(lineHeader);
         }
 
-        if (lineSuffixHtml) {
-            const temp = document.createElement('div');
-            temp.innerHTML = lineSuffixHtml;
-            const el = temp.firstElementChild;
-            if (el) line.appendChild(el);
-        }
 
         if (stationInfoHtml) {
             const temp = document.createElement('div');
@@ -723,6 +768,10 @@
             const el = temp.firstElementChild;
             if (el) line.appendChild(el);
         }
+
+
+
+        
 
         const useGrid = dirs.some(d => toText(d.timetableViewMode) === 'grid');
 
