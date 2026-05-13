@@ -825,6 +825,8 @@ import { getMacaronColor } from '../../lib/macaron.js';
 
         // 时刻表
         const useGrid = dirs.some(d => toText(d.timetableViewMode) === 'grid');
+        
+        let use20Girds = false;
 
         if (useGrid && dirs.length >= 1) {
             // Build bidirectional grid layout
@@ -904,6 +906,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
             const leftLines = parseHintsHtml(leftDir.gridHintsHtml);
             const rightLines = parseHintsHtml(rightDir ? rightDir.gridHintsHtml : '');
 
+
             // 4. 以左侧的行数为基准，按行进行遍历和拼装
             leftLines.forEach((leftLineEl, index) => {
                 // 获取对应的右侧行节点（可能为空）
@@ -934,7 +937,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 row.style.flexDirection = 'row';
                 row.style.alignItems = 'center'; // 核心：保证左右多行时，中间标签始终垂直居中
                 row.style.justifyContent = 'space-between';
-                row.style.marginBottom = '4px'; // 每行之间的微小间距
+                row.style.marginBottom = '8px'; // 每行之间的微小间距
 
                 // 构建左侧单元格
                 const leftCell = document.createElement('div');
@@ -945,7 +948,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
 
                 // 构建中间标签单元格
                 const centerCell = document.createElement('div');
-                centerCell.style.width = '60px'; // 保持你设定的中心轴宽度
+                centerCell.style.width = '80px'; // 保持你设定的中心轴宽度
                 centerCell.style.flexShrink = '0';
                 centerCell.style.textAlign = 'center';
                 centerCell.style.color = '#888';
@@ -997,6 +1000,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
             });
             
             const sortedHours = Array.from(hoursSet).sort((a, b) => a - b);
+            const halfSortedHoursCount = Math.floor(sortedHours.length / 2);
 
             const gridWrapper = document.createElement('div');
             gridWrapper.className = 'panel-timetable panel-timetable-view-grid is-expanded panel-bidirectional-grid-wrapper';
@@ -1006,8 +1010,29 @@ import { getMacaronColor } from '../../lib/macaron.js';
             const biGrid = document.createElement('div');
             biGrid.className = 'panel-timetable-grid panel-bi-timetable-grid';
             biGrid.style.width = '100%';
-            
-            
+            let lcounts = 0, rcounts = 0;
+
+
+            for (const [index, h] of sortedHours.entries()) {
+                const lRow = leftByHour.get(h);
+                const rRow = rightByHour.get(h);
+                const classes = new Set(['panel-grid-row', 'panel-bi-grid-row']);
+                if (lRow) lRow.classList.forEach(c => classes.add(c));
+                if (rRow) rRow.classList.forEach(c => classes.add(c));
+                if (lRow) {
+                    const lCells = Array.from(lRow.querySelectorAll('.panel-grid-cell'));
+                    if (lCells.length > 10) lcounts++;
+                }
+                if (rRow) {
+                    const rCells = Array.from(rRow.querySelectorAll('.panel-grid-cell'));
+                    if (rCells.length > 10) rcounts++;
+                }
+            }
+
+            if (lcounts > halfSortedHoursCount || rcounts > halfSortedHoursCount) {
+                use20Girds = true;
+            }
+
             for (const [index, h] of sortedHours.entries()) {
                 const isEven = (index + 1) % 2 === 0;
                 const bgColor = ` ${macaronColor.hex}30`;
@@ -1032,7 +1057,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 lTrips.className = 'panel-grid-trips bi-grid-trips-left';
                 lTrips.style.flex = '1';
                 lTrips.style.display = 'grid';
-                lTrips.style.gridTemplateColumns = 'repeat(20, minmax(0, 1fr))';
+                lTrips.style.gridTemplateColumns = `repeat(${use20Girds ? 20 : 15}, minmax(0, 1fr))`;
                 lTrips.style.overflow = 'hidden';
                 lTrips.style.gridAutoRows = 'max-content';
                 lTrips.style.gap = '2px';
@@ -1069,7 +1094,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 rTrips.className = 'panel-grid-trips bi-grid-trips-right';
                 rTrips.style.flex = '1';
                 rTrips.style.display = 'grid';
-                rTrips.style.gridTemplateColumns = 'repeat(20,  minmax(0, 1fr))';
+                rTrips.style.gridTemplateColumns = `repeat(${use20Girds ? 20 : 15}, minmax(0, 1fr))`;
                 rTrips.style.overflow = 'hidden';
                 rTrips.style.gridAutoRows = 'max-content';
                 rTrips.style.gap = '2px';
@@ -1143,7 +1168,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
         root.appendChild(forceExpandStyle);
 
         // Required to ensure it works correctly when converted to image
-        root.style.width = '2400px'; 
+        root.style.width = use20Girds ? '2400px' : '1800px';
         root.style.maxWidth = 'none';
         root.style.margin = '0';
         root.style.padding = '0';
@@ -1171,9 +1196,9 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 useCORS: true,
                 backgroundColor: getComputedStyle(document.body).getPropertyValue('background-color') || '#ffffff',
                 logging: false,
-                width: 2400,
+                width: root.scrollWidth,
                 height: root.scrollHeight,
-                windowWidth: 2400,
+                windowWidth: root.scrollWidth,
                 windowHeight: root.scrollHeight,
                 x: 0,
                 y: 0
