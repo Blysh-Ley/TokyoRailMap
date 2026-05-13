@@ -6473,13 +6473,6 @@ export function createPanel(options = {}) {
             pendingTouchTripTap = null;
         }
 
-        const earlyPrintTarget = getDirPrintButtonTarget(evt?.target);
-        if (earlyPrintTarget) {
-            stopEvent(evt);
-            requestPrintTimetable(earlyPrintTarget.lineId, earlyPrintTarget.dirKey);
-            return;
-        }
-
         if (evt?.target instanceof Element && body.contains(evt.target) && hasPinnedPanelState()) {
             const pinnedKey = getCurrentPinnedInteractionKey();
             const hitKey = getInteractionKeyFromTarget(evt.target);
