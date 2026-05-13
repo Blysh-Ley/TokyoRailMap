@@ -2,7 +2,7 @@
  * print-timetables.js
  * 方向班次表导出 PDF（A4）
  */
-
+import { getMacaronColor } from '../../lib/macaron.js';
 (() => {
     'use strict';
 
@@ -574,7 +574,7 @@
             const stationName = sanitizeFilePart(detail.stationName || 'station');
             const lineName = sanitizeFilePart(detail.lineName || detail.lineId || 'line');
             const dirName = sanitizeFilePart(detail.dirLabel || detail.dirKey || 'dir');
-            const fileName = `时刻表_${stationName}_${lineName}_${dirName}.pdf`;
+            const fileName = `${stationName}_${lineName}_${dirName}时刻.pdf`;
             pdf.save(fileName);
         } finally {
             root.remove();
@@ -640,6 +640,8 @@
         return pageIndex;
     };
 
+       
+
     const createLineImageExportDom = (detail = {}) => {
         const root = document.createElement('div');
         root.className = 'timetable-print-root';
@@ -658,10 +660,11 @@
         const companyLogoSrc = toText(firstDir.companyLogoSrc);
         const lineName = toText(firstDir.lineName) || toText(detail.lineId) || '未知线路';
         const lineColor = toText(firstDir.lineColor);
-        const serviceDay = toText(firstDir.serviceDay) === 'SaturdayHoliday' ? '休息日' : '工作日';
+        const serviceDay = toText(firstDir.serviceDay) === 'SaturdayHoliday' ? '周六·休息日时刻表' : '平日时刻表';
         const lineSuffixHtml = toText(detail.lineSuffixHtml);
         const stationInfoHtml = toText(detail.stationInfoHtml);
         const lineHeaderHtml = toText(detail.lineHeaderHtml);
+        const macaronColor = getMacaronColor(lineColor).macaron;
         
 
         // 站名和服务日信息部分
@@ -673,13 +676,16 @@
         head.style.alignItems = 'baseline';  
         head.style.gap = '2px';
         head.style.width = '100%';
+        head.style.paddingTop = '15px';
+        head.style.paddingBottom = '15px';
+        head.style.backgroundColor = lineColor ? `${macaronColor.hex}` : 'transparent';
 
         const stationTitle = document.createElement('div');
         stationTitle.className = 'panel-name';
         stationTitle.textContent = stationName;
         stationTitle.style.marginBottom = '0';
         stationTitle.style.flex = 'none';
-        stationTitle.style.fontSize = '28px';
+        stationTitle.style.fontSize = '40px';
 
         let lineSuffix;
 
@@ -724,6 +730,7 @@
         meta.style.lineHeight = '1';
         meta.style.marginLeft = '0'; 
         meta.style.flex = 'none';
+        meta.style.fontSize = '30px';
 
         head.appendChild(stationTitle);
         if (lineSuffix) head.appendChild(lineSuffix);
@@ -797,7 +804,23 @@
             el.style.display = 'flex';
             el.style.flexWrap = 'wrap';      
             el.style.justifyContent = 'center';
-            el.style.alignItems = 'center';  
+            el.style.alignItems = 'center'; 
+            
+            // 2. 创建分隔线元素
+            const separator = document.createElement('div');
+            separator.className = 'print-separator'; // 可以加个类名方便以后调 CSS
+            
+            // 设置分隔线样式
+            separator.style.width = '33%';
+            separator.style.marginLeft = '33%';
+            separator.style.height = '1px';
+            separator.style.backgroundColor =  '#ccc'; 
+            separator.style.marginTop = '5px'; // 设置上下间距
+            separator.style.marginBottom = '5px';
+            separator.style.flexShrink = '0'; // 防止在 flex 布局中被压缩
+
+            // 3. 将分隔线插入到 line 中，它会自动排在 el 的后面
+            line.appendChild(separator);
         }
 
         // 时刻表
@@ -824,6 +847,7 @@
             leftHeader.className = 'panel-dir-header';
             leftHeader.style.flex = '1';
             leftHeader.style.textAlign = 'right';
+            leftHeader.style.fontSize = '25px'
             leftHeader.innerHTML = `
                 <span class="panel-dir-title">
                     <span class="panel-dir-marquee"><span class="panel-dir-marquee-inner">${toText(leftDir.dirLabel) || toText(leftDir.dirKey) || '未知方向'}</span></span>
@@ -839,7 +863,7 @@
             headerSpacer.style.alignItems = 'center';     // 垂直居中
             const centerLabel = document.createElement('span');
             centerLabel.style.color = '#000'; // 可根据你界面的整体风格调整颜色，或者加粗 fontweight: 'bold'
-            centerLabel.style.fontSize = '13px'; 
+            centerLabel.style.fontSize = '20px'; 
             centerLabel.style.paddingTop = '2px'; // 微调位置
             centerLabel.textContent = '方向';
             headerSpacer.appendChild(centerLabel);
@@ -851,6 +875,7 @@
             rightHeader.className = 'panel-dir-header';
             rightHeader.style.flex = '1';
             rightHeader.style.textAlign = 'left';
+            rightHeader.style.fontSize = '25px'
             if (rightDir) {
                 rightHeader.innerHTML = `
                     <span class="panel-dir-title">
@@ -915,7 +940,7 @@
                 const leftCell = document.createElement('div');
                 leftCell.style.flex = '1';
                 leftCell.style.textAlign = 'right';
-                leftCell.style.fontSize = '11px';
+                leftCell.style.fontSize = '18px';
                 leftCell.innerHTML = leftContentHtml; // 直接塞入清洗好的纯内容
 
                 // 构建中间标签单元格
@@ -924,14 +949,14 @@
                 centerCell.style.flexShrink = '0';
                 centerCell.style.textAlign = 'center';
                 centerCell.style.color = '#888';
-                centerCell.style.fontSize = '11px';
+                centerCell.style.fontSize = '15px';
                 centerCell.textContent = labelText; // 直接填入文字，不需要再写复杂的 innerHTML 样式
 
                 // 构建右侧单元格
                 const rightCell = document.createElement('div');
                 rightCell.style.flex = '1';
                 rightCell.style.textAlign = 'left';
-                rightCell.style.fontSize = '11px';
+                rightCell.style.fontSize = '18px';
                 rightCell.innerHTML = rightContentHtml;
 
                 // --- 组装当前行 ---
@@ -982,7 +1007,10 @@
             biGrid.className = 'panel-timetable-grid panel-bi-timetable-grid';
             biGrid.style.width = '100%';
             
-            for (const h of sortedHours) {
+            
+            for (const [index, h] of sortedHours.entries()) {
+                const isEven = (index + 1) % 2 === 0;
+                const bgColor = ` ${macaronColor.hex}30`;
                 const lRow = leftByHour.get(h);
                 const rRow = rightByHour.get(h);
                 const hourText = lRow ? lRow.querySelector('.panel-grid-hour')?.textContent : rRow.querySelector('.panel-grid-hour')?.textContent;
@@ -1009,12 +1037,17 @@
                 lTrips.style.gridAutoRows = 'max-content';
                 lTrips.style.gap = '2px';
                 lTrips.style.direction = 'rtl';
+                lTrips.style.backgroundColor = isEven ? '#f6f6f6' : bgColor;
                 
                 if (lRow) {
                     const lCells = Array.from(lRow.querySelectorAll('.panel-grid-cell'));
                     lCells.forEach(c => {
                         const clone = c.cloneNode(true);
                         clone.style.direction = 'ltr';
+                        if(clone.classList.contains('has-special')) {
+                            clone.style.backgroundColor = macaronColor.complementary;
+                            clone.style.color = macaronColor.complementaryText;
+                        }
                         lTrips.appendChild(clone);
                     });
                 }
@@ -1028,6 +1061,8 @@
                 cHour.style.alignItems = 'center';
                 cHour.style.justifyContent = 'center'; // Center the text in the column
                 cHour.textContent = hourText || h;
+                cHour.style.backgroundColor = macaronColor.ink;
+                cHour.style.color = macaronColor.inkText
 
                 // Right trips (Dir 2) - 10 per row
                 const rTrips = document.createElement('div');
@@ -1039,12 +1074,16 @@
                 rTrips.style.gridAutoRows = 'max-content';
                 rTrips.style.gap = '2px';
                 rTrips.style.direction = 'ltr';
-
+                rTrips.style.backgroundColor = isEven ? '#f6f6f6' : bgColor;
                 if (rRow) {
                     const rCells = Array.from(rRow.querySelectorAll('.panel-grid-cell'));
                     rCells.forEach(c => {
                         const clone = c.cloneNode(true);
                         clone.style.direction = 'ltr';
+                        if(clone.classList.contains('has-special')) {
+                            clone.style.backgroundColor = macaronColor.complementary;
+                            clone.style.color = macaronColor.complementaryText;
+                        }
                         rTrips.appendChild(clone);
                     });
                 }
@@ -1063,60 +1102,7 @@
             root.style.setProperty('--grid-cols', '15'); // Provide enough space for both sides
             root.style.setProperty('--grid-font-scale', '1');
 
-        } else {
-            // Fallback for list mode or unknown configuration
-            for (const dirPayload of dirs) {
-                const dir = document.createElement('div');
-                dir.className = 'panel-dir';
-                
-                const dirLabel = toText(dirPayload.dirLabel) || toText(dirPayload.dirKey) || '未知方向';
-                const dirHeader = document.createElement('div');
-                dirHeader.className = 'panel-dir-header';
-                const dirTitle = document.createElement('span');
-                dirTitle.className = 'panel-dir-title';
-                const dirPrefix = document.createElement('span');
-                dirPrefix.className = 'panel-dir-prefix';
-                dirPrefix.setAttribute('aria-hidden', 'true');
-                dirPrefix.textContent = '往';
-
-                const dirMarquee = document.createElement('span');
-                dirMarquee.className = 'panel-dir-marquee';
-                dirMarquee.setAttribute('aria-label', `往 ${dirLabel} 方向`);
-                const dirMarqueeInner = document.createElement('span');
-                dirMarqueeInner.className = 'panel-dir-marquee-inner';
-                dirMarqueeInner.textContent = dirLabel;
-                dirMarquee.appendChild(dirMarqueeInner);
-
-                const dirSuffix = document.createElement('span');
-                dirSuffix.className = 'panel-dir-suffix';
-                dirSuffix.setAttribute('aria-hidden', 'true');
-                dirSuffix.textContent = '方向';
-
-                dirTitle.appendChild(dirPrefix);
-                dirTitle.appendChild(dirMarquee);
-                dirTitle.appendChild(dirSuffix);
-                dirHeader.appendChild(dirTitle);
-                dir.appendChild(dirHeader);
-
-                const content = document.createElement('div');
-                content.className = 'timetable-print-content';
-
-                const useGrid = toText(dirPayload.timetableViewMode) === 'grid';
-                const hintsHtml = useGrid ? toText(dirPayload.gridHintsHtml) : '';
-                const timetableHtml = useGrid ? toText(dirPayload.gridHtml) : toText(dirPayload.listHtml);
-
-                content.innerHTML = `
-                    ${hintsHtml}
-                    <div class="panel-timetable ${useGrid ? 'panel-timetable-view-grid' : 'panel-timetable-view-list'} is-expanded">
-                        ${timetableHtml || '<div class="panel-timetable-empty">当前无班次</div>'}
-                    </div>
-                `;
-
-                dir.appendChild(content);
-                line.appendChild(dir);
-            }
         }
-
     company.appendChild(companyTopRow);
 
     companyLines.appendChild(line);
@@ -1137,6 +1123,12 @@
                 max-height: none !important;
                 height: auto !important;
                 overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .timetable-print-root,
+            .timetable-print-card {
+                border: none !important;
             }
             .panel-bi-grid-row .panel-grid-cell-trip {
                 flex: none !important;
@@ -1145,7 +1137,7 @@
                 height: auto !important;
                 aspect-ratio: 1 / 1 !important;
                 box-sizing: border-box !important;
-                padding: 0 4px !important;
+                padding: 0 !important;
             }
         `;
         root.appendChild(forceExpandStyle);
@@ -1153,6 +1145,9 @@
         // Required to ensure it works correctly when converted to image
         root.style.width = '2400px'; 
         root.style.maxWidth = 'none';
+        root.style.margin = '0';
+        root.style.padding = '0';
+        root.style.border = 'none';
         
         // Prevent truncation by removing it from the normal document flow
         root.style.position = 'fixed';
@@ -1169,7 +1164,7 @@
 
         const root = createLineImageExportDom(detail);
         document.body.appendChild(root);
-
+        console.log('Exporting line image with detail:', detail);
         try {
             const canvas = await html2canvas(root, {
                 scale: Math.max(2, window.devicePixelRatio || 1),
@@ -1179,14 +1174,17 @@
                 width: 2400,
                 height: root.scrollHeight,
                 windowWidth: 2400,
-                windowHeight: root.scrollHeight
+                windowHeight: root.scrollHeight,
+                x: 0,
+                y: 0
             });
             const dataUrl = canvas.toDataURL('image/png');
             
             const firstDir = detail.dirs?.[0] || {};
             const stationName = sanitizeFilePart(firstDir.stationName || 'station');
             const lineName = sanitizeFilePart(firstDir.lineName || detail.lineId || 'line');
-            const fileName = `时刻表_${stationName}_${lineName}.png`;
+            const serviceDay = toText(firstDir.serviceDay) === 'SaturdayHoliday' ? '休息日' : '工作日';
+            const fileName = `${stationName}_${lineName}_${serviceDay}时刻表.png`;
             
             const link = document.createElement('a');
             link.download = fileName;
@@ -1386,7 +1384,8 @@
         if (!pageCount || !pdf) return;
 
         const stationName = sanitizeFilePart(detail.stationName || pages[0]?.stationName || 'station');
-        const fileName = `总时刻表_${stationName}.pdf`;
+        const serviceDay = toText(pages[0]?.serviceDay) === 'SaturdayHoliday' ? '休息日' : '工作日';
+        const fileName = `${stationName}_${serviceDay}总时刻表.pdf`;
         pdf.save(fileName);
     };
 
