@@ -326,6 +326,8 @@ import { getMacaronColor } from '../../lib/macaron.js';
         const companyNameEl = document.createElement('span');
         companyNameEl.className = 'panel-company-name';
         companyNameEl.textContent = companyName;
+        companyNameEl.style.setProperty('font-size', '30px', 'important');
+        companyNameEl.style.setProperty('font-weight', 'bold', 'important');
         companyHeader.appendChild(companyNameEl);
 
         const companyLines = document.createElement('div');
@@ -342,6 +344,8 @@ import { getMacaronColor } from '../../lib/macaron.js';
         const lineNameMain = document.createElement('span');
         lineNameMain.className = 'panel-line-name-main';
         lineNameMain.textContent = lineName;
+        lineNameMain.style.setProperty('font-size', '30px', 'important');
+        lineNameMain.style.setProperty('font-weight', 'bold', 'important');
         lineNameWrap.appendChild(lineNameMain);
         lineHeader.appendChild(lineNameWrap);
 
@@ -759,7 +763,6 @@ import { getMacaronColor } from '../../lib/macaron.js';
         lineHeaderHost.style.display = 'flex';
         lineHeaderHost.style.alignItems = 'center';
         lineHeaderHost.style.justifyContent = 'center';
-        lineHeaderHost.style.flex = '0 0 auto';
 
         if (lineHeaderHtml) {
             const temp = document.createElement('div');
@@ -811,11 +814,11 @@ import { getMacaronColor } from '../../lib/macaron.js';
             separator.className = 'print-separator'; // 可以加个类名方便以后调 CSS
             
             // 设置分隔线样式
-            separator.style.width = '33%';
-            separator.style.marginLeft = '33%';
+            separator.style.width = '24%';
+            separator.style.marginLeft = '38%';
             separator.style.height = '1px';
             separator.style.backgroundColor =  '#ccc'; 
-            separator.style.marginTop = '5px'; // 设置上下间距
+            separator.style.marginTop = '10px'; // 设置上下间距
             separator.style.marginBottom = '5px';
             separator.style.flexShrink = '0'; // 防止在 flex 布局中被压缩
 
@@ -1033,9 +1036,76 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 use20Girds = true;
             }
 
+            const headerRow = document.createElement('div');
+            headerRow.className = 'panel-grid-row panel-bi-grid-row header-row';
+            headerRow.style.display = 'flex';
+            headerRow.style.flexDirection = 'row';
+            headerRow.style.alignItems = 'stretch';
+            headerRow.style.width = '100%';
+            headerRow.style.height = '60px';
+            headerRow.style.boxSizing = 'border-box';
+            headerRow.style.fontWeight = 'bold'; // 标题行加粗
+
+            // 公用的标题单元格样式
+            const createTitleCell = (text) => {
+                const cell = document.createElement('div');
+                cell.className = 'panel-grid-cell';
+                cell.style.width = '100%';
+                cell.style.display = 'flex';
+                cell.style.alignItems = 'center';
+                cell.style.justifyContent = 'center';
+                cell.textContent = text;
+                return cell;
+            };
+
+            // 1. 左侧标题区 (分钟)
+            const lHeaderTrips = document.createElement('div');
+            lHeaderTrips.style.flex = '1';
+            lHeaderTrips.style.display = 'flex';
+            lHeaderTrips.style.alignItems = 'center';
+            lHeaderTrips.style.justifyContent = 'flex-start'; 
+            lHeaderTrips.style.direction = 'rtl'; // 保持和内容行一致的对齐方向
+            lHeaderTrips.style.backgroundColor = `${macaronColor.hex}30`;; 
+            lHeaderTrips.style.color = macaronColor.textColor;
+            lHeaderTrips.textContent = '分钟';
+            lHeaderTrips.style.fontSize = '20px';
+            lHeaderTrips.style.paddingRight = '10px'; 
+
+
+            // 2. 中间标题区 (小时)
+            const cHeaderHour = document.createElement('div');
+            cHeaderHour.style.width = '60px';
+            cHeaderHour.style.flexShrink = '0';
+            cHeaderHour.style.display = 'flex';
+            cHeaderHour.style.alignItems = 'center';
+            cHeaderHour.style.justifyContent = 'center';
+            cHeaderHour.textContent = '小时';
+            cHeaderHour.style.backgroundColor = macaronColor.ink;
+            cHeaderHour.style.color = macaronColor.inkText;
+            cHeaderHour.style.fontSize = '20px';
+
+            // 3. 右侧标题区 (分钟)
+            const rHeaderTrips = document.createElement('div');
+            rHeaderTrips.style.flex = '1';
+            rHeaderTrips.style.display = 'flex';
+            rHeaderTrips.style.alignItems = 'center';
+            rHeaderTrips.style.justifyContent = 'flex-start';
+            rHeaderTrips.style.direction = 'ltr';
+            rHeaderTrips.style.backgroundColor = `${macaronColor.hex}30`;;
+            rHeaderTrips.style.color = macaronColor.textColor;
+            rHeaderTrips.textContent = '分钟';
+            rHeaderTrips.style.fontSize = '20px';
+            rHeaderTrips.style.paddingLeft = '10px'; 
+
+            // 组装并添加到 biGrid
+            headerRow.appendChild(lHeaderTrips);
+            headerRow.appendChild(cHeaderHour);
+            headerRow.appendChild(rHeaderTrips);
+            biGrid.appendChild(headerRow);
+
             for (const [index, h] of sortedHours.entries()) {
                 const isEven = (index + 1) % 2 === 0;
-                const bgColor = ` ${macaronColor.hex}30`;
+                const bgColor = `${macaronColor.hex}30`;
                 const lRow = leftByHour.get(h);
                 const rRow = rightByHour.get(h);
                 const hourText = lRow ? lRow.querySelector('.panel-grid-hour')?.textContent : rRow.querySelector('.panel-grid-hour')?.textContent;
@@ -1062,7 +1132,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 lTrips.style.gridAutoRows = 'max-content';
                 lTrips.style.gap = '2px';
                 lTrips.style.direction = 'rtl';
-                lTrips.style.backgroundColor = isEven ? '#f6f6f6' : bgColor;
+                lTrips.style.backgroundColor = isEven ? bgColor : '#fff';
                 
                 if (lRow) {
                     const lCells = Array.from(lRow.querySelectorAll('.panel-grid-cell'));
@@ -1087,7 +1157,8 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 cHour.style.justifyContent = 'center'; // Center the text in the column
                 cHour.textContent = hourText || h;
                 cHour.style.backgroundColor = macaronColor.ink;
-                cHour.style.color = macaronColor.inkText
+                cHour.style.color = macaronColor.inkText;
+                cHour.style.fontSize = '22px';
 
                 // Right trips (Dir 2) - 10 per row
                 const rTrips = document.createElement('div');
@@ -1099,7 +1170,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 rTrips.style.gridAutoRows = 'max-content';
                 rTrips.style.gap = '2px';
                 rTrips.style.direction = 'ltr';
-                rTrips.style.backgroundColor = isEven ? '#f6f6f6' : bgColor;
+                rTrips.style.backgroundColor = isEven ? bgColor : '#fff';
                 if (rRow) {
                     const rCells = Array.from(rRow.querySelectorAll('.panel-grid-cell'));
                     rCells.forEach(c => {
@@ -1164,6 +1235,13 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 box-sizing: border-box !important;
                 padding: 0 !important;
             }
+
+            .panel-company,
+            .panel-company-name, 
+            .panel-line-name-main {
+                font-size: 25px !important; 
+                font-weight: 700 !important;
+            }
         `;
         root.appendChild(forceExpandStyle);
 
@@ -1189,7 +1267,6 @@ import { getMacaronColor } from '../../lib/macaron.js';
 
         const root = createLineImageExportDom(detail);
         document.body.appendChild(root);
-        console.log('Exporting line image with detail:', detail);
         try {
             const canvas = await html2canvas(root, {
                 scale: Math.max(2, window.devicePixelRatio || 1),
