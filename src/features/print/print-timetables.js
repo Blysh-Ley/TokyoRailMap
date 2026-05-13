@@ -731,10 +731,12 @@ import { getMacaronColor } from '../../lib/macaron.js';
         const meta = document.createElement('div');
         meta.className = 'timetable-print-meta';
         meta.textContent = serviceDay;
-        meta.style.lineHeight = '1';
+        meta.style.lineHeight = '1.1';
         meta.style.marginLeft = '0'; 
         meta.style.flex = 'none';
         meta.style.fontSize = '30px';
+        meta.style.fontWeight = '700';
+        meta.style.transform = 'translate(0,0)';
 
         head.appendChild(stationTitle);
         if (lineSuffix) head.appendChild(lineSuffix);
@@ -1037,7 +1039,6 @@ import { getMacaronColor } from '../../lib/macaron.js';
             }
 
             const headerRow = document.createElement('div');
-            headerRow.className = 'panel-grid-row panel-bi-grid-row header-row';
             headerRow.style.display = 'flex';
             headerRow.style.flexDirection = 'row';
             headerRow.style.alignItems = 'stretch';
@@ -1046,10 +1047,8 @@ import { getMacaronColor } from '../../lib/macaron.js';
             headerRow.style.boxSizing = 'border-box';
             headerRow.style.fontWeight = 'bold'; // 标题行加粗
 
-            // 公用的标题单元格样式
             const createTitleCell = (text) => {
                 const cell = document.createElement('div');
-                cell.className = 'panel-grid-cell';
                 cell.style.width = '100%';
                 cell.style.display = 'flex';
                 cell.style.alignItems = 'center';
@@ -1058,6 +1057,9 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 return cell;
             };
 
+            
+            const bgColorHead = `${macaronColor.hex}5f`;
+
             // 1. 左侧标题区 (分钟)
             const lHeaderTrips = document.createElement('div');
             lHeaderTrips.style.flex = '1';
@@ -1065,11 +1067,11 @@ import { getMacaronColor } from '../../lib/macaron.js';
             lHeaderTrips.style.alignItems = 'center';
             lHeaderTrips.style.justifyContent = 'flex-start'; 
             lHeaderTrips.style.direction = 'rtl'; // 保持和内容行一致的对齐方向
-            lHeaderTrips.style.backgroundColor = `${macaronColor.hex}30`;; 
+            lHeaderTrips.style.backgroundColor = bgColorHead; 
             lHeaderTrips.style.color = macaronColor.textColor;
-            lHeaderTrips.textContent = '分钟';
+            lHeaderTrips.textContent = '分';
             lHeaderTrips.style.fontSize = '20px';
-            lHeaderTrips.style.paddingRight = '10px'; 
+            lHeaderTrips.style.paddingRight = '20px'; 
 
 
             // 2. 中间标题区 (小时)
@@ -1079,7 +1081,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
             cHeaderHour.style.display = 'flex';
             cHeaderHour.style.alignItems = 'center';
             cHeaderHour.style.justifyContent = 'center';
-            cHeaderHour.textContent = '小时';
+            cHeaderHour.textContent = '时';
             cHeaderHour.style.backgroundColor = macaronColor.ink;
             cHeaderHour.style.color = macaronColor.inkText;
             cHeaderHour.style.fontSize = '20px';
@@ -1091,11 +1093,11 @@ import { getMacaronColor } from '../../lib/macaron.js';
             rHeaderTrips.style.alignItems = 'center';
             rHeaderTrips.style.justifyContent = 'flex-start';
             rHeaderTrips.style.direction = 'ltr';
-            rHeaderTrips.style.backgroundColor = `${macaronColor.hex}30`;;
+            rHeaderTrips.style.backgroundColor = bgColorHead;
             rHeaderTrips.style.color = macaronColor.textColor;
-            rHeaderTrips.textContent = '分钟';
+            rHeaderTrips.textContent = '分';
             rHeaderTrips.style.fontSize = '20px';
-            rHeaderTrips.style.paddingLeft = '10px'; 
+            rHeaderTrips.style.paddingLeft = '20px'; 
 
             // 组装并添加到 biGrid
             headerRow.appendChild(lHeaderTrips);
@@ -1105,11 +1107,11 @@ import { getMacaronColor } from '../../lib/macaron.js';
 
             for (const [index, h] of sortedHours.entries()) {
                 const isEven = (index + 1) % 2 === 0;
-                const bgColor = `${macaronColor.hex}30`;
                 const lRow = leftByHour.get(h);
                 const rRow = rightByHour.get(h);
                 const hourText = lRow ? lRow.querySelector('.panel-grid-hour')?.textContent : rRow.querySelector('.panel-grid-hour')?.textContent;
-                
+                const bgColor = `${macaronColor.hex}46`;
+
                 const classes = new Set(['panel-grid-row', 'panel-bi-grid-row']);
                 if (lRow) lRow.classList.forEach(c => classes.add(c));
                 if (rRow) rRow.classList.forEach(c => classes.add(c));
@@ -1124,21 +1126,19 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 
                 // Left trips (Dir 1) - aligned to right, 10 per row
                 const lTrips = document.createElement('div');
-                lTrips.className = 'panel-grid-trips bi-grid-trips-left';
                 lTrips.style.flex = '1';
                 lTrips.style.display = 'grid';
                 lTrips.style.gridTemplateColumns = `repeat(${use20Girds ? 20 : 15}, minmax(0, 1fr))`;
                 lTrips.style.overflow = 'hidden';
                 lTrips.style.gridAutoRows = 'max-content';
-                lTrips.style.gap = '2px';
                 lTrips.style.direction = 'rtl';
-                lTrips.style.backgroundColor = isEven ? bgColor : '#fff';
+                lTrips.style.backgroundColor = isEven ? bgColor : 'transparent';
                 
                 if (lRow) {
                     const lCells = Array.from(lRow.querySelectorAll('.panel-grid-cell'));
                     lCells.forEach(c => {
                         const clone = c.cloneNode(true);
-                        clone.style.direction = 'ltr';
+                        clone.style.direction = 'ltr'; 
                         if(clone.classList.contains('has-special')) {
                             clone.style.backgroundColor = macaronColor.complementary;
                             clone.style.color = macaronColor.complementaryText;
@@ -1149,7 +1149,6 @@ import { getMacaronColor } from '../../lib/macaron.js';
 
                 // Center Hour
                 const cHour = document.createElement('div');
-                cHour.className = 'panel-grid-hour bi-grid-hour-center';
                 cHour.style.width = '60px';
                 cHour.style.flexShrink = '0';
                 cHour.style.display = 'flex';
@@ -1162,20 +1161,18 @@ import { getMacaronColor } from '../../lib/macaron.js';
 
                 // Right trips (Dir 2) - 10 per row
                 const rTrips = document.createElement('div');
-                rTrips.className = 'panel-grid-trips bi-grid-trips-right';
                 rTrips.style.flex = '1';
                 rTrips.style.display = 'grid';
                 rTrips.style.gridTemplateColumns = `repeat(${use20Girds ? 20 : 15}, minmax(0, 1fr))`;
                 rTrips.style.overflow = 'hidden';
                 rTrips.style.gridAutoRows = 'max-content';
-                rTrips.style.gap = '2px';
                 rTrips.style.direction = 'ltr';
-                rTrips.style.backgroundColor = isEven ? bgColor : '#fff';
+                rTrips.style.backgroundColor = isEven ? bgColor : 'transparent';
                 if (rRow) {
                     const rCells = Array.from(rRow.querySelectorAll('.panel-grid-cell'));
                     rCells.forEach(c => {
                         const clone = c.cloneNode(true);
-                        clone.style.direction = 'ltr';
+                        clone.style.direction = 'ltr'; 
                         if(clone.classList.contains('has-special')) {
                             clone.style.backgroundColor = macaronColor.complementary;
                             clone.style.color = macaronColor.complementaryText;
@@ -1241,6 +1238,26 @@ import { getMacaronColor } from '../../lib/macaron.js';
             .panel-line-name-main {
                 font-size: 25px !important; 
                 font-weight: 700 !important;
+            }
+
+            .panel-grid-trips{
+                background-color: #transparent !important;
+            }
+
+            .panel-grid-trip{
+                font-size: 20px !important;
+            }
+            
+            .panel-grid-trip-minute-text{
+                font-size: 20px !important;
+            }
+
+            .panel-grid-trip-minute-flag{
+                font-size: 12px !important;
+            }
+
+            .panel-grid-trip-abbr{
+                font-size: 12px !important;
             }
         `;
         root.appendChild(forceExpandStyle);
