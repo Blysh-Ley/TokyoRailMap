@@ -749,13 +749,15 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
             const dstCompany = toText(resolvedMeta?.company);
             const sameCompany = !srcCompany || !dstCompany || srcCompany === dstCompany;
             const resolvedName = toText(resolvedMeta?.name);
-            if (sameCompany && resolvedName) {
+            const displayLooksLikeRawId = !displayName || displayName === id || displayName.includes('.');
+            if (sameCompany && resolvedName && displayLooksLikeRawId) {
                 displayName = resolvedName;
             }
         }
 
         const isSpecial = displayName === `${abb}线` || displayName === `${abb}本线` || displayName === `${abb}新线`;
-        if (!isSpecial && abb) displayName = displayName.replace(abb, '').trim();
+        const displayLooksLikeRawId = displayName === id || displayName.includes('.');
+        if (!isSpecial && abb && !displayLooksLikeRawId) displayName = displayName.replace(abb, '').trim();
 
         if (!groups.has(company)) groups.set(company, []);
         groups.get(company).push({ lineId: id, displayName, color });

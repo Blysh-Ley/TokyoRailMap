@@ -135,6 +135,7 @@ export const resolveLineSelectionByBranchRules = (lineIdRaw, linesObjRaw = null)
 export const specialMainByBranch = {
     'JR-East.KeiyoKoyaBranch': 'JR-East.Musashino',
     'JR-East.KeiyoFutamataBranch': 'JR-East.Musashino', 
+    'JR-East.MusashinoOmiyaBranch': 'JR-East.Musashino',
     'Seibu.S-Fukutoshin': 'Seibu.Ikebukuro',
     'Seibu.S-Yurakucho': 'Seibu.Ikebukuro',
     'Tobu.JRTobuConnection' : 'Tobu.Nikko',
