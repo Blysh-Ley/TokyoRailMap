@@ -586,7 +586,7 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
             restoreScrollableState(states);
         }
         const base = sanitizeFilePart(filenameBase) || 'route-map';
-        downloadBlob(blob, `${base}-${nowIsoCompact()}.png`);
+        downloadBlob(blob, `${base}.png`);
     } catch (err) {
         console.error('[route-map] export png failed', err);
     } finally {
@@ -1332,7 +1332,7 @@ const setupRouteMapUi = () => {
         stopEvent(evt);
         pinned = true;
         clearTimers();
-        const baseName = `route-map-${toText(activeLineName) || toText(activeLineId) || 'line'}`;
+        const baseName = `${toText(activeLineName)}_运行系统图`;
         await exportElementToPng(root, baseName, captureBtn);
     }, { passive: false });
 
