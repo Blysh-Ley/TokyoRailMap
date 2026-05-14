@@ -6328,6 +6328,10 @@ export function createPanel(options = {}) {
             const payload = dirPrintPayloadByKey.get(lineDirKey);
             if (payload) {
                 payload.stationName = stationName;
+                payload.lineId = lid;
+                payload.lineHeaderHtml = lineHeaderHtml;
+                payload.lineSuffixHtml = lineSuffixHtml;
+                payload.stationInfoHtml = stationInfoHtml;
                 dirs.push(payload);
             }
         }
@@ -6371,6 +6375,10 @@ export function createPanel(options = {}) {
                 const payload = dirPrintPayloadByKey.get(lineDirKey);
                 if (payload) {
                     payload.stationName = stationName;
+                    payload.lineId = lineId;
+                    payload.lineHeaderHtml = lineHeaderHtml;
+                    payload.lineSuffixHtml = lineSuffixHtml;
+                    payload.stationInfoHtml = stationInfoHtml;
                     out.push({
                         ...payload,
                         lineSuffixHtml,

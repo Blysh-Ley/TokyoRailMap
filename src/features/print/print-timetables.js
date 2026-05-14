@@ -1132,7 +1132,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 lTrips.style.overflow = 'hidden';
                 lTrips.style.gridAutoRows = 'max-content';
                 lTrips.style.direction = 'rtl';
-                lTrips.style.backgroundColor = isEven ? bgColor : 'transparent';
+                lTrips.style.backgroundColor = isEven ? bgColor : '#fff';
                 
                 if (lRow) {
                     const lCells = Array.from(lRow.querySelectorAll('.panel-grid-cell'));
@@ -1167,7 +1167,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 rTrips.style.overflow = 'hidden';
                 rTrips.style.gridAutoRows = 'max-content';
                 rTrips.style.direction = 'ltr';
-                rTrips.style.backgroundColor = isEven ? bgColor : 'transparent';
+                rTrips.style.backgroundColor = isEven ? bgColor : '#fff';
                 if (rRow) {
                     const rCells = Array.from(rRow.querySelectorAll('.panel-grid-cell'));
                     rCells.forEach(c => {
@@ -1241,7 +1241,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
             }
 
             .panel-grid-trips{
-                background-color: #transparent !important;
+                background-color: #fff !important;
             }
 
             .panel-grid-trip{
@@ -1468,9 +1468,9 @@ import { getMacaronColor } from '../../lib/macaron.js';
                     useCORS: true,
                     backgroundColor: getComputedStyle(document.body).getPropertyValue('background-color') || '#ffffff',
                     logging: false,
-                    width: 2400,
+                    width: root.scrollWidth,
                     height: root.scrollHeight,
-                    windowWidth: 2400,
+                    windowWidth: root.scrollWidth,
                     windowHeight: root.scrollHeight
                 });
 
