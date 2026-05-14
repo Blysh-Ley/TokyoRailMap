@@ -831,7 +831,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
         // 时刻表
         const useGrid = dirs.some(d => toText(d.timetableViewMode) === 'grid');
         
-        let use20Girds = false;
+        let gridNumber = 10;
 
         if (useGrid && dirs.length >= 1) {
             // Build bidirectional grid layout
@@ -1015,7 +1015,8 @@ import { getMacaronColor } from '../../lib/macaron.js';
             const biGrid = document.createElement('div');
             biGrid.className = 'panel-timetable-grid panel-bi-timetable-grid';
             biGrid.style.width = '100%';
-            let lcounts = 0, rcounts = 0;
+            let lcountsGreater10 = 0, rcountsGreater10 = 0;
+            let lcountsGreater15 = 0, rcountsGreater15 = 0;
 
 
             for (const [index, h] of sortedHours.entries()) {
@@ -1026,16 +1027,22 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 if (rRow) rRow.classList.forEach(c => classes.add(c));
                 if (lRow) {
                     const lCells = Array.from(lRow.querySelectorAll('.panel-grid-cell'));
-                    if (lCells.length > 10) lcounts++;
+                    if (lCells.length > 10) lcountsGreater10++;
+                    if (lCells.length > 15) lcountsGreater15++;
                 }
                 if (rRow) {
                     const rCells = Array.from(rRow.querySelectorAll('.panel-grid-cell'));
-                    if (rCells.length > 10) rcounts++;
+                    if (rCells.length > 10) rcountsGreater10++;
+                    if (rCells.length > 15) rcountsGreater15++;
                 }
             }
 
-            if (lcounts > halfSortedHoursCount || rcounts > halfSortedHoursCount) {
-                use20Girds = true;
+            if (lcountsGreater10 > halfSortedHoursCount || rcountsGreater10 > halfSortedHoursCount) {
+                gridNumber = 15;
+            }
+
+            if (lcountsGreater15 > halfSortedHoursCount || rcountsGreater15 > halfSortedHoursCount) {
+                gridNumber = 20;
             }
 
             const headerRow = document.createElement('div');
@@ -1128,7 +1135,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 const lTrips = document.createElement('div');
                 lTrips.style.flex = '1';
                 lTrips.style.display = 'grid';
-                lTrips.style.gridTemplateColumns = `repeat(${use20Girds ? 20 : 15}, minmax(0, 1fr))`;
+                lTrips.style.gridTemplateColumns = `repeat(${gridNumber}, minmax(0, 1fr))`;
                 lTrips.style.overflow = 'hidden';
                 lTrips.style.gridAutoRows = 'max-content';
                 lTrips.style.direction = 'rtl';
@@ -1163,7 +1170,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 const rTrips = document.createElement('div');
                 rTrips.style.flex = '1';
                 rTrips.style.display = 'grid';
-                rTrips.style.gridTemplateColumns = `repeat(${use20Girds ? 20 : 15}, minmax(0, 1fr))`;
+                rTrips.style.gridTemplateColumns = `repeat(${gridNumber}, minmax(0, 1fr))`;
                 rTrips.style.overflow = 'hidden';
                 rTrips.style.gridAutoRows = 'max-content';
                 rTrips.style.direction = 'ltr';
@@ -1263,7 +1270,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
         root.appendChild(forceExpandStyle);
 
         // Required to ensure it works correctly when converted to image
-        root.style.width = use20Girds ? '2400px' : '1800px';
+        root.style.width = `${gridNumber * 120}px`;
         root.style.maxWidth = 'none';
         root.style.margin = '0';
         root.style.padding = '0';

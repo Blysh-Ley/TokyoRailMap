@@ -3442,6 +3442,7 @@ export function createPanel(options = {}) {
                     : '<span class="panel-grid-trip-abbr" aria-hidden="true">&nbsp;</span>';
 
                     const isTerminal = !!trip?.showTerminalLabel;
+                    const isOrigin = !!trip?.showOriginLabel;
 
                     const pastClass = trip?.isPast ? ' is-past' : '';
 
@@ -3449,7 +3450,10 @@ export function createPanel(options = {}) {
                         <div class="panel-grid-cell panel-grid-cell-trip${useSpecialBackground ? ' has-special' : ''}${pastClass}${lastClass}"${tripAttr}>
                             <span class="panel-grid-trip${pastClass}" style="color:${escapeHtml(color)}">
                                 ${tripAbbrHtml}
-                                <span class="panel-grid-trip-minute"><span class="panel-grid-trip-minute-text">${escapeHtml(minute)}</span>${isTerminal ? '<span class="panel-grid-trip-minute-flag" aria-label="终点站">终</span>' : ''}</span>
+                                <span class="panel-grid-trip-minute"><span class="panel-grid-trip-minute-text">${escapeHtml(minute)}</span>${
+                                    isTerminal ? '<span class="panel-grid-trip-minute-flag is-terminal-flag" aria-label="终点站">终</span>' : 
+                                    isOrigin ? '<span class="panel-grid-trip-minute-flag is-origin-flag" aria-label="起点站">始</span>' : 
+                                    ''}</span>
                             </span>
                         </div>
                     `;
@@ -3529,13 +3533,86 @@ export function createPanel(options = {}) {
         const typeStopCountByName = new Map();
         const typeStopStationSetByName = new Map();
 
-        // Resolve pt/nt refs to get missing arrival/departure times.
-
         for (const sourceData of sourceDatas) {
+            const sourceLineId = toText(sourceData?.sourceLineId);
             const stationKey = toText(sourceData?.stationKey);
-            const list = Array.isArray(sourceData?.list) ? sourceData.list : [];
+            let list = Array.isArray(sourceData?.list) ? sourceData.list : [];
             if (!stationKey || !list.length) continue;
+            
+            // 1. 使用 Set 收集所有终到车次的下一步线路前缀
+            const nextLinePrefixes = new Set();
+            const currentLineDirction = new Set();
 
+            list.forEach(trip => {
+                const isTerminal = trip.tt.at(-1)?.s === stationKey;
+                const nt = trip.nt;
+                
+                if (isTerminal && nt) {
+                    // 统一转为数组处理，并提取前缀（例如 "JR-East.Yamanote"）
+                    const refs = Array.isArray(nt) ? nt : [nt];
+                    refs.forEach(ref => {
+                        const prefix = ref.split('.').slice(0, 2).join('.');
+                        const direction = trip.d;
+                        if (prefix) nextLinePrefixes.add(prefix);
+                        if (direction) currentLineDirction.add(direction);
+                    });
+                }
+            });
+
+            
+            // 2. 如果去向唯一，则过滤掉所有在本站终到且有去向的的 trip,并插入下一条线路的data
+            if (nextLinePrefixes.size === 1) {
+                list = list.filter(trip => {
+                    const isTerminal = trip.tt.at(-1)?.s === stationKey;
+                    return !(isTerminal && trip.nt);
+                });
+                const nextLineId = Array.from(nextLinePrefixes)[0];
+                const currentLineDirc = Array.from(currentLineDirction)[0];
+                const nextLineSourceData = await loadTimetableForLineId(nextLineId);
+                const sg = await getStationGroupsIndex();
+                nextLineSourceData.forEach(trip => {
+                    let shouldAdd = false;
+                    const originStation = trip.tt?.[0]?.s;
+                    const isOrigin = originStation && sg?.get?.(originStation)?.includes(stationKey);
+                    const pt = trip?.pt;
+                    if(isOrigin && !pt) shouldAdd = true;
+                    if (isOrigin && pt) {
+                        const ptLength = pt.length
+                        if(ptLength==1 && pt[0].split('.').slice(0, 2).join('.') === sourceLineId ){
+                            shouldAdd = true;
+                        }
+                    }
+                    const newTrip = {
+                        ...trip,
+                        id: trip.id.replace(nextLineId, sourceLineId)
+                    };
+                    // 2. 执行插入与 ID 归化
+                    if (shouldAdd) {
+                        // 使用深拷贝防止污染 window.TokyoRailTimetableCache
+                        const newTrip = JSON.parse(JSON.stringify(trip));
+
+                        // 替换 Trip ID：确保运行日过滤、缓存 Key 匹配正常
+                        if (typeof newTrip.id === 'string') {
+                            newTrip.id = newTrip.id.replace(nextLineId, sourceLineId);
+                        }
+
+                        // 替换始发站 ID (tt[0].s)：
+                        if (newTrip.tt && newTrip.tt.length > 0 && typeof newTrip.tt[0].s === 'string') {
+                            newTrip.tt[0].s = newTrip.tt[0].s.replace(nextLineId, sourceLineId);
+                        }
+
+                        if (typeof newTrip.d === 'string') {
+                            newTrip.d = currentLineDirc;
+                        }
+
+                        list.push(newTrip);
+                    }
+                    })
+            }
+
+            if(sourceLineId=== "Tokyu.DenEnToshi") console.log(list)
+
+            
             for (const trip of list) {
             // 按 timetables 的 id 最后一段区分工作日/休息日
                 const tripId = toText(trip?.id);
@@ -3544,8 +3621,10 @@ export function createPanel(options = {}) {
 
                 const typeId = toText(trip?.y);
                 const isTypeExcludedForSummary = isExcludedLineType(lineId, typeId);
-                const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
-                const typeColor = typeId ? resolveTrainTypeColorForTheme(trainTypeColorIndex.get(typeId)) : '';
+                let typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
+                let typeColor = typeId ? resolveTrainTypeColorForTheme(trainTypeColorIndex.get(typeId)) : '';
+
+
                 const typeBaseName = resolveTypeBaseName(typeName);
                 if (typeBaseName && !isTypeExcludedForSummary) {
                     typeCountByName.set(typeName, (Number(typeCountByName.get(typeName) || 0)) + 1);
@@ -3611,6 +3690,7 @@ export function createPanel(options = {}) {
             const showTerminalLabel = isTerminalStation && !hasNt;
             const allowMirrorFill = !(showOriginLabel || showTerminalLabel);
 
+
             // (2) If dep missing but has nt, take nt's first stop time as dep.
             if (!dep && !skipCrossTripFillForLoop) {
                 const ntRefId = toText(ntRefs?.[0]);
@@ -3674,6 +3754,9 @@ export function createPanel(options = {}) {
             const arrParsed = arr ? parseHHMMToServiceDayMs(arr, serviceDayStartMs) : null;
             const depParsed = dep ? parseHHMMToServiceDayMs(dep, serviceDayStartMs) : null;
 
+
+            
+           
                 rows.push({
                     destName,
                     destId,

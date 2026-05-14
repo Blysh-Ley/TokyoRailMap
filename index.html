@@ -2077,9 +2077,17 @@
             top: 0.5em;
             font-size: 0.65em;
             font-weight: 700;
-            color: red;
             line-height: 1;
         }
+
+        .is-terminal-flag{
+            color: red;
+        }
+
+        .is-origin-flag{
+            color: green;
+        }
+
 
         .panel-grid-cell-trip.is-past .panel-grid-trip-minute-flag,
         .panel-grid-trip.is-past .panel-grid-trip-minute-flag {
@@ -4455,8 +4463,12 @@
             background: rgb(53, 52, 52);
         }
 
-        html[data-theme='dark'] .panel-grid-trip-minute-flag {
+        html[data-theme='dark'] .is-terminal-flag {
             color: #ff6b6b;
+        }
+
+        html[data-theme='dark'] .is-origin-flag {
+            color: #59e37d;
         }
 
 
