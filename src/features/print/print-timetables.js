@@ -1261,6 +1261,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
 
             .panel-grid-trip-minute-flag{
                 font-size: 12px !important;
+                
             }
 
             .panel-grid-trip-abbr{
