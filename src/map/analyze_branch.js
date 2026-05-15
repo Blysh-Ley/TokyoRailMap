@@ -579,6 +579,7 @@ const matchesThroughServiceCategory = (trip, idMap, expectedCategory, cache) => 
 };
 
 export const analyzeBranchesForLine = async (lineId, options = {}) => {
+    
     const sourceLineIds = Array.isArray(options?.sourceLineIds)
         ? options.sourceLineIds.map((x) => toText(x)).filter(Boolean)
         : [];
@@ -606,6 +607,7 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
             const { allRecords, idMap } = await loadAllTimetableRecords();
             const throughCategoryCache = new Map();
             const targetTimetables = allRecords.filter((rec) => {
+                if (options?.filterSpecial && rec && rec.nm) return false;
                 const currentLineId = getTripLineId(rec);
                 if (!activeLineSet.has(currentLineId)) return false;
                 if (!matchesTripFilter(rec, tripFilterSet)) return false;
@@ -751,12 +753,15 @@ export const previewBranchesForLine = async ({
     const normalizedSourceLineIds = Array.isArray(sourceLineIds)
         ? sourceLineIds.map((x) => toText(x)).filter(Boolean)
         : [];
+
     const normalizedHighlightColor = toText(highlightColor);
     const result = await analyzeBranchesForLine(lid, {
         targetTripKeys,
         throughServiceCategory: normalizedCategory,
-        sourceLineIds: normalizedSourceLineIds
+        sourceLineIds: normalizedSourceLineIds,
+        filterSpecial: false
     });
+    
     const fullChainOriginStationIds = Array.isArray(originStationIds) && originStationIds.length
         ? originStationIds.map((x) => toText(x)).filter(Boolean)
         : (Array.isArray(result?.originStationIds) ? result.originStationIds.map((x) => toText(x)).filter(Boolean) : []);
