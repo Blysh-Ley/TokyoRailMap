@@ -35,6 +35,10 @@ const state = {
     companyLogoMap: null
 };
 
+const MAX_RESPONSE_META_ENTRIES = 512;
+const MAX_IMAGE_OBJECT_URL_ENTRIES = 256;
+const MAX_RESOLVED_IMAGE_SRC_ENTRIES = 512;
+
 let imageLoadRequestSeq = 0;
 
 const toAbsoluteUrl = (input) => {
@@ -144,6 +148,62 @@ const buildImageResolutionKey = (candidates, cacheKey = '') => {
     return absList.length ? `cand:${absList.join('|')}` : '';
 };
 
+const revokeObjectUrl = (url) => {
+    const normalized = normalizeText(url);
+    if (!normalized) return;
+
+    try {
+        URL.revokeObjectURL(normalized);
+    } catch {
+        // ignore
+    }
+};
+
+const trimMapToLimit = (map, limit, onEvict) => {
+    if (!(map instanceof Map)) return;
+
+    const maxEntries = Math.max(1, Number(limit) || 1);
+    while (map.size > maxEntries) {
+        const oldestKey = map.keys().next().value;
+        const oldestValue = map.get(oldestKey);
+        map.delete(oldestKey);
+        if (typeof onEvict === 'function') onEvict(oldestValue, oldestKey);
+    }
+};
+
+const storeImageObjectUrl = (absUrl, objectUrl) => {
+    const abs = normalizeText(absUrl);
+    const src = normalizeText(objectUrl);
+    if (!abs || !src) return;
+
+    const previous = state.imageObjectUrlByAbsUrl.get(abs);
+    if (previous && previous !== src) {
+        revokeObjectUrl(previous);
+    }
+
+    state.imageObjectUrlByAbsUrl.set(abs, src);
+    trimMapToLimit(state.imageObjectUrlByAbsUrl, MAX_IMAGE_OBJECT_URL_ENTRIES, (value, key) => {
+        revokeObjectUrl(value);
+        state.imageFailedAbsUrls.delete(key);
+    });
+};
+
+const storeResolvedImageSrc = (resolutionKey, src) => {
+    const key = normalizeText(resolutionKey);
+    if (!key) return;
+
+    state.resolvedImageSrcByKey.set(key, normalizeText(src));
+    trimMapToLimit(state.resolvedImageSrcByKey, MAX_RESOLVED_IMAGE_SRC_ENTRIES);
+};
+
+const storeResponseMeta = (url, meta) => {
+    const key = normalizeText(url);
+    if (!key || !meta) return;
+
+    state.responseMetaByUrl.set(key, meta);
+    trimMapToLimit(state.responseMetaByUrl, MAX_RESPONSE_META_ENTRIES);
+};
+
 const fetchImageObjectUrlByAbs = async (absUrl) => {
     const abs = normalizeText(absUrl);
     if (!abs) return '';
@@ -165,7 +225,7 @@ const fetchImageObjectUrlByAbs = async (absUrl) => {
             if (!(blob instanceof Blob)) throw new Error(`invalid image blob: ${abs}`);
 
             const objectUrl = URL.createObjectURL(blob);
-            state.imageObjectUrlByAbsUrl.set(abs, objectUrl);
+            storeImageObjectUrl(abs, objectUrl);
             state.imageFailedAbsUrls.delete(abs);
             return objectUrl;
         } catch {
@@ -194,11 +254,11 @@ export const resolveCachedImageSrc = async (candidates, { cacheKey = '' } = {}) 
         if (!abs) continue;
         const src = await fetchImageObjectUrlByAbs(abs);
         if (!src) continue;
-        if (resolutionKey) state.resolvedImageSrcByKey.set(resolutionKey, src);
+        if (resolutionKey) storeResolvedImageSrc(resolutionKey, src);
         return src;
     }
 
-    if (resolutionKey) state.resolvedImageSrcByKey.set(resolutionKey, '');
+    if (resolutionKey) storeResolvedImageSrc(resolutionKey, '');
     return '';
 };
 
@@ -276,6 +336,25 @@ export const registerCompanyLogoMap = (companyLogoMap, { preload = true, concurr
     }
 
     return state.companyLogoMap;
+};
+
+export const clearFetchCache = ({ preserveImages = true, preserveResponses = true } = {}) => {
+    state.responsePromiseByUrl.clear();
+    state.jsonPromiseByUrl.clear();
+    state.preloadAllPromise = null;
+
+    if (!preserveResponses) {
+        state.responseMetaByUrl.clear();
+    }
+
+    if (!preserveImages) {
+        for (const value of state.imageObjectUrlByAbsUrl.values()) {
+            revokeObjectUrl(value);
+        }
+        state.imageObjectUrlByAbsUrl.clear();
+        state.imageFailedAbsUrls.clear();
+        state.resolvedImageSrcByKey.clear();
+    }
 };
 
 export const getCompanyLogoSrc = (companyKey, companyLogoMap = state.companyLogoMap) => {
@@ -358,7 +437,7 @@ const storeResponseMetaFromResponse = async (url, resp) => {
         body: bodyBuffer
     };
 
-    state.responseMetaByUrl.set(url, meta);
+    storeResponseMeta(url, meta);
     return meta;
 };
 
@@ -371,7 +450,7 @@ const fetchAndStore = async (url, input, init) => {
         if (shouldUseElectronLocalRead(url) && (!resp || !resp.ok)) {
             const fallbackMeta = await fetchViaElectronLocalRead(url);
             if (fallbackMeta) {
-                state.responseMetaByUrl.set(url, fallbackMeta);
+                storeResponseMeta(url, fallbackMeta);
                 return buildResponseFromMeta(fallbackMeta);
             }
         }
@@ -381,7 +460,7 @@ const fetchAndStore = async (url, input, init) => {
     } catch (nativeErr) {
         const fallbackMeta = await fetchViaElectronLocalRead(url);
         if (fallbackMeta) {
-            state.responseMetaByUrl.set(url, fallbackMeta);
+            storeResponseMeta(url, fallbackMeta);
             return buildResponseFromMeta(fallbackMeta);
         }
         throw nativeErr;
@@ -519,6 +598,7 @@ export const initializeFetchCache = () => {
         window.TokyoRailFetchCache = {
             getCachedJson,
             preloadAllDataAssets,
+            clearFetchCache,
             getIconCandidates,
             getCompanyLogoCandidates,
             resolveCachedImageSrc,
