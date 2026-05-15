@@ -1296,6 +1296,9 @@ const setupRouteMapUi = () => {
         }
     };
 
+    // 在外部增加一个变量用于记录点击阶段（0: 初始/未激活, 1: 已点击第一次, 2: 已点击第二次）
+    let branchPreviewStep = 0;
+
     branchBtn.addEventListener('click', async (evt) => {
         stopEvent(evt);
         pinned = true;
@@ -1305,12 +1308,23 @@ const setupRouteMapUi = () => {
         if (!lid || branchPreviewBusy) return;
 
         const isSameActive = branchPreviewActive && branchPreviewLineId === lid;
-        if (isSameActive) {
+        
+        // 如果点击了不同的行，或者由于其他原因（如点击其他地方）导致当前线段取消了激活，重置阶段
+        if (!isSameActive) {
+            branchPreviewStep = 0;
+        }
+
+        // 第三次点击：恢复原始状态（关闭预览并重置）
+        if (branchPreviewStep === 2) {
             clearBranchPreviewBySource();
             branchPreviewLineId = '';
+            branchPreviewStep = 0; // 重置阶段
             setBranchButtonState({ active: false, busy: false });
             return;
         }
+
+        // 判断是否是第一次点击
+        const isFirstClick = (branchPreviewStep === 0);
 
         setBranchButtonState({ active: false, busy: true });
         try {
@@ -1318,13 +1332,24 @@ const setupRouteMapUi = () => {
                 lineId: lid,
                 lineName: activeLineName,
                 fitMode: 'commit',
-                filterSpecial: true,
+                filterSpecial: isFirstClick, // 第一次 true，第二次 false
             });
             const ok = result?.ok === true;
-            branchPreviewLineId = ok ? lid : '';
-            setBranchButtonState({ active: ok, busy: false });
+            
+            if (ok) {
+                branchPreviewLineId = lid;
+                // 成功后步数递增：第一次点击后变为 1，第二次点击后变为 2
+                branchPreviewStep = isFirstClick ? 1 : 2; 
+                setBranchButtonState({ active: true, busy: false });
+            } else {
+                // 请求失败时重置状态
+                branchPreviewLineId = '';
+                branchPreviewStep = 0;
+                setBranchButtonState({ active: false, busy: false });
+            }
         } catch {
             branchPreviewLineId = '';
+            branchPreviewStep = 0;
             setBranchButtonState({ active: false, busy: false });
         }
     }, { passive: false });

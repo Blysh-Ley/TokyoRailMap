@@ -600,9 +600,9 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
     })();
     const lineIdsKey = activeLineIds.slice().sort().join('|');
     const categoryKey = throughServiceCategory || '*';
-    const cacheKey = `${lineIdsKey}##${tripFilterKey}##${categoryKey}`;
+    //const cacheKey = `${lineIdsKey}##${tripFilterKey}##${categoryKey}`;
 
-    if (!branchAnalysisCacheByLine.has(cacheKey)) {
+    //if (!branchAnalysisCacheByLine.has(cacheKey)) {
         const p = (async () => {
             const { allRecords, idMap } = await loadAllTimetableRecords();
             const throughCategoryCache = new Map();
@@ -678,10 +678,11 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
             };
         })();
 
-        branchAnalysisCacheByLine.set(cacheKey, p);
-    }
+        //branchAnalysisCacheByLine.set(cacheKey, p);
+    //}
 
-    return branchAnalysisCacheByLine.get(cacheKey);
+    //return branchAnalysisCacheByLine.get(cacheKey);
+    return p;
 };
 
 export const buildBranchVirtualTrips = ({ lineId, lineName, branchList } = {}) => {
