@@ -705,7 +705,7 @@
         }
     };
 
-    const appendStationLabelBoxesSvg = ({ parts, groupId, map, candidates, visibleIds, labelScale = 1 }) => {
+    const appendStationLabelBoxesSvg = ({ parts, groupId, map, candidates, visibleIds, labelScale = 1, omitBoxRect = false }) => {
         const list = Array.isArray(candidates) ? candidates : [];
         if (!list.length) return;
 
@@ -740,9 +740,11 @@
             const boxY = y - boxH;
             const textY = boxY + boxH / 2;
 
-            parts.push(
-                `<rect x="${boxX.toFixed(2)}" y="${boxY.toFixed(2)}" width="${boxW.toFixed(2)}" height="${boxH.toFixed(2)}" rx="${radius}" ry="${radius}" fill="${stationLabelBoxFill()}" stroke="${stationLabelBoxStroke()}" stroke-width="${strokeWidth.toFixed(2)}"/>`
-            );
+            if (!omitBoxRect) {
+                parts.push(
+                    `<rect x="${boxX.toFixed(2)}" y="${boxY.toFixed(2)}" width="${boxW.toFixed(2)}" height="${boxH.toFixed(2)}" rx="${radius}" ry="${radius}" fill="${stationLabelBoxFill()}" stroke="${stationLabelBoxStroke()}" stroke-width="${strokeWidth.toFixed(2)}"/>`
+                );
+            }
             parts.push(
                 `<text x="${p.x.toFixed(2)}" y="${textY.toFixed(2)}" text-anchor="middle" dominant-baseline="middle" font-family="${fontFamily}" font-size="${fontPx}" fill="${labelFill()}">${escapeXml(text)}</text>`
             );
@@ -952,7 +954,8 @@
                     map,
                     candidates,
                     visibleIds: visible,
-                    labelScale: scale
+                    labelScale: scale,
+                    omitBoxRect: Boolean(backgroundImageHref)
                 });
             }
         }
@@ -2168,162 +2171,174 @@
         };
     };
     // 同样增加 capsules 参数
-    const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, lowlightLineFeatures, stationFeatures, backgroundImageHref, transparentBackground = false, capsules, stationLabelScale = 1 }) => {        const container = map.getContainer?.();
-        const rect = container?.getBoundingClientRect?.();
-        const width = Math.max(1, Math.round(rect?.width || 0));
-        const height = Math.max(1, Math.round(rect?.height || 0));
+const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, lowlightLineFeatures, stationFeatures, backgroundImageHref, transparentBackground = false, capsules, stationLabelScale = 1 }) => {
+    const container = map.getContainer?.();
+    const rect = container?.getBoundingClientRect?.();
+    const width = Math.max(1, Math.round(rect?.width || 0));
+    const height = Math.max(1, Math.round(rect?.height || 0));
 
-        const z = (typeof map.getZoom === 'function') ? map.getZoom() : 14;
-        const stationStyleContext = await getStationStyleContext(map);
-        const stationNameById = await getStationNameById(map);
+    const z = (typeof map.getZoom === 'function') ? map.getZoom() : 14;
+    const stationStyleContext = await getStationStyleContext(map);
+    const stationNameById = await getStationNameById(map);
 
-        const bg = isDarkTheme() ? '#000' : '#fff';
-        const title = kind ? `base highlight: ${String(kind)}` : 'base highlight';
+    const bg = isDarkTheme() ? '#000' : '#fff';
+    const title = kind ? `base highlight: ${String(kind)}` : 'base highlight';
 
-        const parts = [];
-        parts.push(`<?xml version="1.0" encoding="UTF-8"?>`);
-        parts.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" overflow="hidden">`);
-        parts.push(`<title>${escapeXml(title)}</title>`);
-        parts.push(`<defs>`);
-        parts.push(`<clipPath id="export-clip"><rect x="0" y="0" width="${width}" height="${height}"/></clipPath>`);
-        parts.push(`</defs>`);
-        parts.push(`<g clip-path="url(#export-clip)">`);
+    const parts = [];
+    parts.push(`<?xml version="1.0" encoding="UTF-8"?>`);
+    parts.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" overflow="hidden">`);
+    parts.push(`<title>${escapeXml(title)}</title>`);
+    
+    // 移除 <clipPath>，直接使用普通包裹组
+    parts.push(`<g id="export-content">`);
 
-        if (!transparentBackground) {
-            parts.push(`<rect x="0" y="0" width="${width}" height="${height}" fill="${bg}"/>`);
-            if (backgroundImageHref) {
-                const href = escapeXml(String(backgroundImageHref));
-                parts.push(`<image x="0" y="0" width="${width}" height="${height}" href="${href}" xlink:href="${href}" preserveAspectRatio="none"/>`);
-            }
+    if (!transparentBackground) {
+        parts.push(`<rect x="0" y="0" width="${width}" height="${height}" fill="${bg}"/>`);
+        if (backgroundImageHref) {
+            const href = escapeXml(String(backgroundImageHref));
+            parts.push(`<image x="0" y="0" width="${width}" height="${height}" href="${href}" xlink:href="${href}" preserveAspectRatio="none"/>`);
         }
+    }
 
-        // lowlight base lines (grey)
-        const lowlight = Array.isArray(lowlightLineFeatures) ? lowlightLineFeatures : [];
-        if (lowlight.length) {
-            const stroke = isDarkTheme() ? '#666' : '#999';
-            parts.push(`<g id="base-lines-lowlight" fill="none" stroke="${stroke}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${lineLowlightWidthForZoom(z)}" opacity="0.45">`);
-            for (const f of lowlight) {
-                const geom = f?.geometry;
-                if (!geom) continue;
-                if (geom.type === 'LineString') {
-                    const d = pathFromCoords(map, geom.coordinates);
-                    if (!d) continue;
-                    parts.push(`<path d="${d}"/>`);
-                } else if (geom.type === 'MultiLineString' && Array.isArray(geom.coordinates)) {
-                    for (const line of geom.coordinates) {
-                        const d = pathFromCoords(map, line);
-                        if (!d) continue;
-                        parts.push(`<path d="${d}"/>`);
-                    }
-                }
-            }
-            parts.push(`</g>`);
-        }
-
-        // highlighted lines (by their own colors)
-        const highlights = Array.isArray(highlightLineFeatures) ? highlightLineFeatures : [];
-        parts.push(`<g id="base-lines-highlight" fill="none" stroke-linecap="round" stroke-linejoin="round">`);
-        for (const f of highlights) {
+    // lowlight base lines (grey)
+    const lowlight = Array.isArray(lowlightLineFeatures) ? lowlightLineFeatures : [];
+    if (lowlight.length) {
+        const stroke = isDarkTheme() ? '#666' : '#999';
+        parts.push(`<g id="base-lines-lowlight" fill="none" stroke="${stroke}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${lineLowlightWidthForZoom(z)}" opacity="0.45">`);
+        for (const f of lowlight) {
             const geom = f?.geometry;
             if (!geom) continue;
-            const color = resolveLineColorForTheme(f?.properties, '#0a84ff');
-            const strokeWidth = lineBaseWidthForZoom(z);
             if (geom.type === 'LineString') {
                 const d = pathFromCoords(map, geom.coordinates);
                 if (!d) continue;
-                parts.push(`<path d="${d}" stroke="${escapeXml(color)}" stroke-width="${strokeWidth}" opacity="1"/>`);
+                parts.push(`<path d="${d}"/>`);
             } else if (geom.type === 'MultiLineString' && Array.isArray(geom.coordinates)) {
                 for (const line of geom.coordinates) {
                     const d = pathFromCoords(map, line);
                     if (!d) continue;
-                    parts.push(`<path d="${d}" stroke="${escapeXml(color)}" stroke-width="${strokeWidth}" opacity="1"/>`);
+                    parts.push(`<path d="${d}"/>`);
                 }
             }
         }
         parts.push(`</g>`);
+    }
 
-        appendTransferCapsulesSvg({ 
-            parts, map, z, 
-            capsuleLines: capsules?.lines, 
-            capsuleCentroids: capsules?.centroids 
-        });
-
-        // stations
-        const stations = Array.isArray(stationFeatures) ? stationFeatures : [];
-        if (stations.length) {
-            parts.push(`<g id="base-stations">`);
-            for (const f of stations) {
-                const g = f?.geometry;
-                if (!g || g.type !== 'Point') continue;
-                const c = g.coordinates;
-                if (!Array.isArray(c) || c.length < 2) continue;
-                const p = project(map, { lng: Number(c[0]), lat: Number(c[1]) });
-                if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
-
-                const sc = stationServingCount(f?.properties || {});
-                const r = radiusForStop(z, sc);
-                const sw = stopStrokeWidth(z, sc);
-                const fill = resolveStationFillColor({ props: f?.properties || {}, styleContext: stationStyleContext });
-                parts.push(
-                    `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${r.toFixed(2)}" fill="${escapeXml(fill)}" stroke="${stopStroke()}" stroke-width="${sw.toFixed(2)}"/>`
-                );
+    // highlighted lines (by their own colors)
+    const highlights = Array.isArray(highlightLineFeatures) ? highlightLineFeatures : [];
+    parts.push(`<g id="base-lines-highlight" fill="none" stroke-linecap="round" stroke-linejoin="round">`);
+    for (const f of highlights) {
+        const geom = f?.geometry;
+        if (!geom) continue;
+        const color = resolveLineColorForTheme(f?.properties, '#0a84ff');
+        const strokeWidth = lineBaseWidthForZoom(z);
+        if (geom.type === 'LineString') {
+            const d = pathFromCoords(map, geom.coordinates);
+            if (!d) continue;
+            parts.push(`<path d="${d}" stroke="${escapeXml(color)}" stroke-width="${strokeWidth}" opacity="1"/>`);
+        } else if (geom.type === 'MultiLineString' && Array.isArray(geom.coordinates)) {
+            for (const line of geom.coordinates) {
+                const d = pathFromCoords(map, line);
+                if (!d) continue;
+                parts.push(`<path d="${d}" stroke="${escapeXml(color)}" stroke-width="${strokeWidth}" opacity="1"/>`);
             }
-            parts.push(`</g>`);
+        }
+    }
+    parts.push(`</g>`);
 
-            {
-                const mode = getCurrentStationLabelMode();
-                if (mode !== 'off') {
-                    const scale = Math.max(1, Number(stationLabelScale) || 1);
-                    const fontPx = 12 * scale;
-                    const font = `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
-                    const candidates = [];
+    appendTransferCapsulesSvg({ 
+        parts, map, z, 
+        capsuleLines: capsules?.lines, 
+        capsuleCentroids: capsules?.centroids 
+    });
 
-                    for (const f of stations) {
-                        const props = f?.properties || {};
-                        const sid = String(props?.id || '').trim();
-                        if (!sid) continue;
-                        const g = f?.geometry;
-                        if (!g || g.type !== 'Point') continue;
-                        const c = g.coordinates;
-                        if (!Array.isArray(c) || c.length < 2) continue;
+    // stations
+    const stations = Array.isArray(stationFeatures) ? stationFeatures : [];
+    if (stations.length) {
+        parts.push(`<g id="base-stations">`);
+        for (const f of stations) {
+            const g = f?.geometry;
+            if (!g || g.type !== 'Point') continue;
+            const c = g.coordinates;
+            if (!Array.isArray(c) || c.length < 2) continue;
+            const p = project(map, { lng: Number(c[0]), lat: Number(c[1]) });
+            if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
 
-                        const name = resolveStationDisplayName({ props, stationId: sid, stationNameById });
-                        if (!name) continue;
-                        const sc = stationServingCount(props);
-                        const textW = measureTextWidthPx(name, font);
+            const sc = stationServingCount(f?.properties || {});
+            const r = radiusForStop(z, sc);
+            const sw = stopStrokeWidth(z, sc);
+            const fill = resolveStationFillColor({ props: f?.properties || {}, styleContext: stationStyleContext });
+            parts.push(
+                `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${r.toFixed(2)}" fill="${escapeXml(fill)}" stroke="${stopStroke()}" stroke-width="${sw.toFixed(2)}"/>`
+            );
+        }
+        parts.push(`</g>`);
 
-                        candidates.push({
-                            id: sid,
-                            text: name,
-                            priority: sc,
-                            coordinates: [Number(c[0]), Number(c[1])],
-                            fontPx,
-                            font,
-                            widthPx: textW + 8 * scale,
-                            heightPx: Math.ceil(fontPx * 1.2 + 2),
-                            labelDyPx: (sc > 1 ? 6 : 3) * scale
-                        });
-                    }
+        {
+            const mode = getCurrentStationLabelMode();
+            if (mode !== 'off') {
+                const scale = Math.max(1, Number(stationLabelScale) || 1);
+                const fontPx = 12 * scale;
+                
+                // measureFont 用于 Canvas 计算文本宽度，保持 Web 端的精确度
+                const measureFont = `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
+                
+                // 单独定义一个干净的中文字体名给 Illustrator 识别
+                const exportFontFamily = "微软雅黑"; 
+                
+                const candidates = [];
 
-                    const visible = mode === 'auto'
-                        ? pickVisibleLabelIdsByCollision({ map, candidates, gridCellPx: 80 })
-                        : new Set(candidates.map((c) => c.id));
-                    appendStationLabelBoxesSvg({
-                        parts,
-                        groupId: 'base-station-labels',
-                        map,
-                        candidates,
-                        visibleIds: visible,
-                        labelScale: scale
+                for (const f of stations) {
+                    const props = f?.properties || {};
+                    const sid = String(props?.id || '').trim();
+                    if (!sid) continue;
+                    const g = f?.geometry;
+                    if (!g || g.type !== 'Point') continue;
+                    const c = g.coordinates;
+                    if (!Array.isArray(c) || c.length < 2) continue;
+
+                    const name = resolveStationDisplayName({ props, stationId: sid, stationNameById });
+                    if (!name) continue;
+                    const sc = stationServingCount(props);
+                    
+                    // 使用 measureFont 测量，保证宽度与屏幕显示一致
+                    const textW = measureTextWidthPx(name, measureFont);
+
+                    candidates.push({
+                        id: sid,
+                        text: name,
+                        priority: sc,
+                        coordinates: [Number(c[0]), Number(c[1])],
+                        fontPx: fontPx,                    // 传入独立字号
+                        fontFamily: exportFontFamily,      // 传入独立字体名
+                        widthPx: textW + 8 * scale,
+                        heightPx: Math.ceil(fontPx * 1.2 + 2),
+                        labelDyPx: (sc > 1 ? 6 : 3) * scale
                     });
                 }
+
+                const visible = mode === 'auto'
+                    ? pickVisibleLabelIdsByCollision({ map, candidates, gridCellPx: 80 })
+                    : new Set(candidates.map((c) => c.id));
+                    
+                    
+                appendStationLabelBoxesSvg({
+                    parts,
+                    groupId: 'base-station-labels',
+                    map,
+                    candidates,
+                    visibleIds: visible,
+                    labelScale: scale,
+                    omitBoxRect: Boolean(backgroundImageHref)
+                });
+                
             }
         }
+    }
 
-        parts.push(`</g>`);
-        parts.push(`</svg>`);
-        return parts.join('\n');
-    };
+    parts.push(`</g>`); // 闭合 export-content
+    parts.push(`</svg>`);
+    return parts.join('\n');
+};
 
     const exportBaseHighlight = async (snapshot, options) => {
         if (exporting) return;
