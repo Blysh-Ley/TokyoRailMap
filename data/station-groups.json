@@ -331,6 +331,10 @@
 		[
 			"JR-East.KeihinTohokuNegishi.TakanawaGateway",
 			"JR-East.Yamanote.TakanawaGateway"
+		],
+		[
+			"Toei.Asakusa.Sengakuji",
+			"Keikyu.Main.Sengakuji"
 		]
 	],
 	[
@@ -2198,12 +2202,6 @@
 		],
 		[
 			"Toei.Oedo.HigashiShinjuku"
-		]
-	],
-	[
-		[
-			"Toei.Asakusa.Sengakuji",
-			"Keikyu.Main.Sengakuji"
 		]
 	],
 	[
