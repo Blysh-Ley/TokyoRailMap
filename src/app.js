@@ -3658,7 +3658,7 @@ map.on('load', async () => {
 
         const text = document.createElement('span');
         text.className = 'settings-item-title';
-        text.textContent = '站点纠正';
+        text.textContent = '站点位置纠正';
 
         const seg = document.createElement('div');
         seg.className = 'settings-item-control settings-seg';
