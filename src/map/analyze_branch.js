@@ -606,13 +606,43 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
         const p = (async () => {
             const { allRecords, idMap } = await loadAllTimetableRecords();
             const throughCategoryCache = new Map();
-            const targetTimetables = allRecords.filter((rec) => {
-                if (options?.filterSpecial && rec && rec.nm) return false;
-                const currentLineId = getTripLineId(rec);
-                if (!activeLineSet.has(currentLineId)) return false;
-                if (!matchesTripFilter(rec, tripFilterSet)) return false;
-                return matchesThroughServiceCategory(rec, idMap, throughServiceCategory, throughCategoryCache);
-            });
+
+            const baseFilteredRecords = [];
+            const targetTimetables = [];
+            const dsFrequencyMap = new Map();
+            const osFrequencyMap = new Map();
+
+            for (const rec of allRecords) {
+                if (options?.filterSpecial && rec && rec.nm) continue;
+                if (!activeLineSet.has(getTripLineId(rec))) continue;
+                if (!matchesTripFilter(rec, tripFilterSet)) continue;
+                if (!matchesThroughServiceCategory(rec, idMap, throughServiceCategory, throughCategoryCache)) continue;
+
+                baseFilteredRecords.push(rec);
+
+                const dsKey = rec.ds && Array.isArray(rec.ds) ? rec.ds.join(',') : '';
+                dsFrequencyMap.set(dsKey, (dsFrequencyMap.get(dsKey) || 0) + 1);
+
+                const osKey = rec.os && Array.isArray(rec.os) ? rec.os.join(',') : '';
+                osFrequencyMap.set(osKey, (osFrequencyMap.get(osKey) || 0) + 1);
+            }
+
+            if(options?.filterSpecial){
+                for (const rec of baseFilteredRecords) {
+                    const dsKey = rec.ds && Array.isArray(rec.ds) ? rec.ds.join(',') : '';
+                    const osKey = rec.os && Array.isArray(rec.os) ? rec.os.join(',') : '';
+                    
+                    const dsCount = dsFrequencyMap.get(dsKey) || 0;
+                    const osCount = osFrequencyMap.get(osKey) || 0;
+
+                    if (dsCount >= 10 && osCount >= 10) {
+                        targetTimetables.push(rec);
+                    }
+                }
+            }
+            else{
+                targetTimetables.push(...baseFilteredRecords);
+            }
 
             if (!targetTimetables.length) {
                 return {
@@ -633,6 +663,7 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
             const graph = buildGraph(fullRoutes);
             const branchList = extractBranchLists(graph, fullRoutes).map((seq) => dedupKeepOrder(seq));
             const endpoints = collectRouteEndpoints(fullRoutes);
+
 
             return {
                 lineId: lid,
@@ -737,6 +768,7 @@ export const previewBranchesForLine = async ({
     throughServiceCategory,
     sourceLineIds,
     highlightColor,
+    filterSpecial = false,
     originStationIds,
     terminalStationIds
 } = {}) => {
@@ -759,7 +791,7 @@ export const previewBranchesForLine = async ({
         targetTripKeys,
         throughServiceCategory: normalizedCategory,
         sourceLineIds: normalizedSourceLineIds,
-        filterSpecial: false
+        filterSpecial: filterSpecial === true
     });
     
     const fullChainOriginStationIds = Array.isArray(originStationIds) && originStationIds.length

@@ -1317,7 +1317,8 @@ const setupRouteMapUi = () => {
             const result = await previewBranchesForLine({
                 lineId: lid,
                 lineName: activeLineName,
-                fitMode: 'commit'
+                fitMode: 'commit',
+                filterSpecial: true,
             });
             const ok = result?.ok === true;
             branchPreviewLineId = ok ? lid : '';
