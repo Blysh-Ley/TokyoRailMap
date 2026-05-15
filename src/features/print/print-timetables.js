@@ -1005,7 +1005,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
             });
             
             const sortedHours = Array.from(hoursSet).sort((a, b) => a - b);
-            const halfSortedHoursCount = Math.floor(sortedHours.length / 2);
+            const halfSortedHoursCount = Math.floor(sortedHours.length / 3);
 
             const gridWrapper = document.createElement('div');
             gridWrapper.className = 'panel-timetable panel-timetable-view-grid is-expanded panel-bidirectional-grid-wrapper';
