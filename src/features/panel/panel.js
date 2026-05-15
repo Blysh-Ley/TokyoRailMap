@@ -3527,6 +3527,7 @@ export function createPanel(options = {}) {
         const now = getDisplayNowMs();
         const serviceDayStartMs = getServiceDayStartMs(new Date(now));
         const rows = [];
+        const rowsForPreview = [];
         const throughDirectionCache = new Map();
         const allTypeColorByName = new Map();
         const stopTypeColorByName = new Map();
@@ -3536,86 +3537,14 @@ export function createPanel(options = {}) {
         const typeStopStationSetByName = new Map();
         const sg = await getStationGroupsIndex();
 
-        for (const sourceData of sourceDatas) {
-            const sourceLineId = toText(sourceData?.sourceLineId);
-            const stationKey = toText(sourceData?.stationKey);
-            let list = Array.isArray(sourceData?.list) ? sourceData.list : [];
-            if (!stationKey || !list.length) continue;
-            
-            // 1. 使用 Set 收集所有终到车次的下一步线路前缀
-            const nextLinePrefixes = new Set();
-            const currentLineDirction = new Set();
-
-            list.forEach(trip => {
-                const isTerminal = trip.tt.at(-1)?.s === stationKey;
-                const nt = trip.nt;
-                
-                if (isTerminal && nt) {
-                    // 统一转为数组处理，并提取前缀（例如 "JR-East.Yamanote"）
-                    const refs = Array.isArray(nt) ? nt : [nt];
-                    refs.forEach(ref => {
-                        const prefix = ref.split('.').slice(0, 2).join('.');
-                        const direction = trip.d;
-                        if (prefix) nextLinePrefixes.add(prefix);
-                        if (direction) currentLineDirction.add(direction);
-                    });
-                }
-            });
-
-            
-            // 2. 如果去向唯一，则过滤掉所有在本站终到且有去向的的 trip,并插入下一条线路的data
-            if (nextLinePrefixes.size === 1) {
-                list = list.filter(trip => {
-                    const isTerminal = trip.tt.at(-1)?.s === stationKey;
-                    return !(isTerminal && trip.nt);
-                });
-                const nextLineId = Array.from(nextLinePrefixes)[0];
-                const currentLineDirc = Array.from(currentLineDirction)[0];
-                const nextLineSourceData = await loadTimetableForLineId(nextLineId);
-                nextLineSourceData.forEach(trip => {
-                    let shouldAdd = false;
-                    const originStation = trip.tt?.[0]?.s;
-                    const isOrigin = originStation && sg?.get?.(originStation)?.includes(stationKey);
-                    const pt = trip?.pt;
-                    if(isOrigin && !pt) shouldAdd = true;
-                    if (isOrigin && pt) {
-                        const ptLength = pt.length
-                        if(ptLength==1 && pt[0].split('.').slice(0, 2).join('.') === sourceLineId ){
-                            shouldAdd = true;
-                        }
-                    }
-                    const newTrip = {
-                        ...trip,
-                        id: trip.id.replace(nextLineId, sourceLineId)
-                    };
-                    // 2. 执行插入与 ID 归化
-                    if (shouldAdd) {
-                        // 使用深拷贝防止污染 window.TokyoRailTimetableCache
-                        const newTrip = JSON.parse(JSON.stringify(trip));
-
-                        // 替换 Trip ID：确保运行日过滤、缓存 Key 匹配正常
-                        if (typeof newTrip.id === 'string') {
-                            newTrip.id = newTrip.id.replace(nextLineId, sourceLineId);
-                        }
-
-                        // 替换始发站 ID (tt[0].s)：
-                        /*
-                        if (newTrip.tt && newTrip.tt.length > 0 && typeof newTrip.tt[0].s === 'string') {
-                            newTrip.tt[0].s = newTrip.tt[0].s.replace(nextLineId, sourceLineId);
-                        }*/
-
-                        if (typeof newTrip.d === 'string') {
-                            newTrip.d = currentLineDirc;
-                        }
-
-                        list.push(newTrip);
-                    }
-                    })
-            }
-
-            if(sourceLineId=== "Tokyu.DenEnToshi") console.log(list)
-
-            
+        const collectRowsFromTripList = async ({
+            tripList,
+            sourceLineId,
+            stationKey,
+            trackTypeSummary
+        }) => {
+            const out = [];
+            const list = Array.isArray(tripList) ? tripList : [];
             for (const trip of list) {
             // 按 timetables 的 id 最后一段区分工作日/休息日
                 const tripId = toText(trip?.id);
@@ -3629,7 +3558,7 @@ export function createPanel(options = {}) {
 
 
                 const typeBaseName = resolveTypeBaseName(typeName);
-                if (typeBaseName && !isTypeExcludedForSummary) {
+                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary) {
                     typeCountByName.set(typeName, (Number(typeCountByName.get(typeName) || 0)) + 1);
                     if (!allTypeColorByName.has(typeName)) {
                         allTypeColorByName.set(typeName, toText(typeColor));
@@ -3638,7 +3567,7 @@ export function createPanel(options = {}) {
 
                 const tt = Array.isArray(trip?.tt) ? trip.tt : [];
                 if (!tt.length) continue;
-                if (typeBaseName && !isTypeExcludedForSummary) {
+                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary) {
                     if (!typeStopStationSetByName.has(typeName)) {
                         typeStopStationSetByName.set(typeName, new Set());
                     }
@@ -3662,7 +3591,7 @@ export function createPanel(options = {}) {
                     return sg?.get?.(currentSid)?.includes?.(stationKey);
                 });
 
-                if (typeBaseName && !isTypeExcludedForSummary) {
+                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary) {
                     if (stop) {
                         stopTypeNameSet.add(typeName);
                         if (!stopTypeColorByName.has(typeName) && toText(typeColor)) {
@@ -3671,107 +3600,104 @@ export function createPanel(options = {}) {
                     }
                 }
 
-            if (allowedKeys && allowedKeys.size) {
-                const hit = buildTripFilterKeys(trip).some((k) => allowedKeys.has(k));
-                if (!hit) continue;
-            }
+                if (allowedKeys && allowedKeys.size) {
+                    const hit = buildTripFilterKeys(trip).some((k) => allowedKeys.has(k));
+                    if (!hit) continue;
+                }
                 if (!stop) continue;
 
                 let arr = toText(stop?.a);
                 let dep = toText(stop?.d);
 
-            const os = Array.isArray(trip?.os) ? trip.os : (trip?.os ? [trip.os] : []);
-            const ds = Array.isArray(trip?.ds) ? trip.ds : (trip?.ds ? [trip.ds] : []);
-            const ptRefs = Array.isArray(trip?.pt) ? trip.pt : (trip?.pt ? [trip.pt] : []);
-            const ntRefs = Array.isArray(trip?.nt) ? trip.nt : (trip?.nt ? [trip.nt] : []);
-            const hasPt = ptRefs.some((x) => !!toText(x));
-            const hasNt = ntRefs.some((x) => !!toText(x));
-            const tripDirectionCacheKey = `${toText(lineId)}||${toText(trip?.id) || toText(trip?.t)}`;
-            let derivedThroughDirection = throughDirectionCache.get(tripDirectionCacheKey);
-            if (derivedThroughDirection === undefined) {
-                derivedThroughDirection = await deriveThroughServiceDirectionFromChain(trip, lineId);
-                throughDirectionCache.set(tripDirectionCacheKey, derivedThroughDirection);
-            }
-            const dir = toText(derivedThroughDirection || trip?.d);
-            const isLoopDirection = /Loop/i.test(dir);
-            const skipCrossTripFillForLoop = isLoopDirection && (hasPt || hasNt);
-
-            const isOriginStation = os.some((x) => toText(x) === stationKey);
-            const isTerminalStation = ds.some((x) => toText(x) === stationKey);
-
-            // 真始发/真终点：没有 pt/nt 的端点站，不补全时间
-            const showOriginLabel = isOriginStation && !hasPt;
-            const showTerminalLabel = isTerminalStation && !hasNt;
-            const allowMirrorFill = !(showOriginLabel || showTerminalLabel);
-
-
-            // (2) If dep missing but has nt, take nt's first stop time as dep.
-            if (!dep && !skipCrossTripFillForLoop) {
-                const ntRefId = toText(ntRefs?.[0]);
-                if (ntRefId) dep = await getNtFirstDepartTime(ntRefId);
-            }
-
-            // (2) If arr missing but has pt, take pt's last stop time as arr.
-            if (!arr && !skipCrossTripFillForLoop) {
-                const ptRefId = toText(ptRefs?.[0]);
-                if (ptRefId) arr = await getPtLastArriveTime(ptRefId);
-            }
-
-            // (1) If only one side exists, mirror it (except true endpoints)
-            if (allowMirrorFill) {
-                if (!arr && dep) arr = dep;
-                if (!dep && arr) dep = arr;
-            }
-
-            const timeStr = dep || arr;
-            const parsed = parseHHMMToServiceDayMs(timeStr, serviceDayStartMs);
-            if (!timeStr || !parsed) continue;
-            const timeMs = parsed.ms;
-
-            const throughEndpoints = await resolveThroughServiceEndpointIds(trip);
-            const destId = toText(ds?.[0]);
-            const loopDest = (dir === 'InnerLoop' ? '内环' : (dir === 'OuterLoop' ? '外环' : ''));
-            const resolvedTerminalIds = Array.isArray(throughEndpoints?.terminalIds)
-                ? throughEndpoints.terminalIds.map((x) => toText(x)).filter(Boolean)
-                : [];
-            const primaryTerminalId = toText(resolvedTerminalIds[0]) || toText(throughEndpoints?.terminalId) || destId;
-            const secondaryTerminalId = toText(resolvedTerminalIds[1]) || '';
-            const primaryTerminalName = loopDest || (primaryTerminalId ? (stationsIndex?.idToNameZh?.get?.(primaryTerminalId) || primaryTerminalId) : '');
-            const secondaryTerminalName = loopDest || (secondaryTerminalId ? (stationsIndex?.idToNameZh?.get?.(secondaryTerminalId) || secondaryTerminalId) : '');
-            const terminalNames = loopDest
-                ? [loopDest]
-                : Array.from(new Set([primaryTerminalName, secondaryTerminalName].map((x) => toText(x)).filter(Boolean)));
-            const terminalDisplayName = buildTerminalDisplayLabel(terminalNames);
-            const destName = terminalDisplayName || primaryTerminalName;
-            const originId = toText(throughEndpoints?.originId) || toText(os?.[0]);
-            const originName = originId ? (stationsIndex?.idToNameZh?.get?.(originId) || originId) : '';
-            const terminalIdForFilter = primaryTerminalId || destId;
-            const terminalName = destName || (loopDest || (terminalIdForFilter ? (stationsIndex?.idToNameZh?.get?.(terminalIdForFilter) || terminalIdForFilter) : ''));
-
-            const destNamesForDir = (() => {
-                if (loopDest) return [loopDest];
-                if (terminalNames.length) return terminalNames;
-                const out = [];
-                for (const x of ds) {
-                    const id = toText(x);
-                    if (!id) continue;
-                    out.push(stationsIndex?.idToNameZh?.get?.(id) || id);
+                const os = Array.isArray(trip?.os) ? trip.os : (trip?.os ? [trip.os] : []);
+                const ds = Array.isArray(trip?.ds) ? trip.ds : (trip?.ds ? [trip.ds] : []);
+                const ptRefs = Array.isArray(trip?.pt) ? trip.pt : (trip?.pt ? [trip.pt] : []);
+                const ntRefs = Array.isArray(trip?.nt) ? trip.nt : (trip?.nt ? [trip.nt] : []);
+                const hasPt = ptRefs.some((x) => !!toText(x));
+                const hasNt = ntRefs.some((x) => !!toText(x));
+                const tripDirectionCacheKey = `${toText(lineId)}||${toText(trip?.id) || toText(trip?.t)}`;
+                let derivedThroughDirection = throughDirectionCache.get(tripDirectionCacheKey);
+                if (derivedThroughDirection === undefined) {
+                    derivedThroughDirection = await deriveThroughServiceDirectionFromChain(trip, lineId);
+                    throughDirectionCache.set(tripDirectionCacheKey, derivedThroughDirection);
                 }
-                return out.length ? out : (destName ? [destName] : []);
-            })();
+                const dir = toText(derivedThroughDirection || trip?.d);
+                const isLoopDirection = /Loop/i.test(dir);
+                const skipCrossTripFillForLoop = isLoopDirection && (hasPt || hasNt);
 
-            const specialNames = await collectTripSpecialNames(trip);
+                const isOriginStation = os.some((x) => toText(x) === stationKey);
+                const isTerminalStation = ds.some((x) => toText(x) === stationKey);
 
-            const tripKey = tripId || toText(trip?.t) || '';
-            const baseTripKey = toText(trip?.t) || (tripId ? tripId.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '') : '');
+                // 真始发/真终点：没有 pt/nt 的端点站，不补全时间
+                const showOriginLabel = isOriginStation && !hasPt;
+                const showTerminalLabel = isTerminalStation && !hasNt;
+                const allowMirrorFill = !(showOriginLabel || showTerminalLabel);
 
-            const arrParsed = arr ? parseHHMMToServiceDayMs(arr, serviceDayStartMs) : null;
-            const depParsed = dep ? parseHHMMToServiceDayMs(dep, serviceDayStartMs) : null;
 
+                // (2) If dep missing but has nt, take nt's first stop time as dep.
+                if (!dep && !skipCrossTripFillForLoop) {
+                    const ntRefId = toText(ntRefs?.[0]);
+                    if (ntRefId) dep = await getNtFirstDepartTime(ntRefId);
+                }
 
-            
-           
-                rows.push({
+                // (2) If arr missing but has pt, take pt's last stop time as arr.
+                if (!arr && !skipCrossTripFillForLoop) {
+                    const ptRefId = toText(ptRefs?.[0]);
+                    if (ptRefId) arr = await getPtLastArriveTime(ptRefId);
+                }
+
+                // (1) If only one side exists, mirror it (except true endpoints)
+                if (allowMirrorFill) {
+                    if (!arr && dep) arr = dep;
+                    if (!dep && arr) dep = arr;
+                }
+
+                const timeStr = dep || arr;
+                const parsed = parseHHMMToServiceDayMs(timeStr, serviceDayStartMs);
+                if (!timeStr || !parsed) continue;
+                const timeMs = parsed.ms;
+
+                const throughEndpoints = await resolveThroughServiceEndpointIds(trip);
+                const destId = toText(ds?.[0]);
+                const loopDest = (dir === 'InnerLoop' ? '内环' : (dir === 'OuterLoop' ? '外环' : ''));
+                const resolvedTerminalIds = Array.isArray(throughEndpoints?.terminalIds)
+                    ? throughEndpoints.terminalIds.map((x) => toText(x)).filter(Boolean)
+                    : [];
+                const primaryTerminalId = toText(resolvedTerminalIds[0]) || toText(throughEndpoints?.terminalId) || destId;
+                const secondaryTerminalId = toText(resolvedTerminalIds[1]) || '';
+                const primaryTerminalName = loopDest || (primaryTerminalId ? (stationsIndex?.idToNameZh?.get?.(primaryTerminalId) || primaryTerminalId) : '');
+                const secondaryTerminalName = loopDest || (secondaryTerminalId ? (stationsIndex?.idToNameZh?.get?.(secondaryTerminalId) || secondaryTerminalId) : '');
+                const terminalNames = loopDest
+                    ? [loopDest]
+                    : Array.from(new Set([primaryTerminalName, secondaryTerminalName].map((x) => toText(x)).filter(Boolean)));
+                const terminalDisplayName = buildTerminalDisplayLabel(terminalNames);
+                const destName = terminalDisplayName || primaryTerminalName;
+                const originId = toText(throughEndpoints?.originId) || toText(os?.[0]);
+                const originName = originId ? (stationsIndex?.idToNameZh?.get?.(originId) || originId) : '';
+                const terminalIdForFilter = primaryTerminalId || destId;
+                const terminalName = destName || (loopDest || (terminalIdForFilter ? (stationsIndex?.idToNameZh?.get?.(terminalIdForFilter) || terminalIdForFilter) : ''));
+
+                const destNamesForDir = (() => {
+                    if (loopDest) return [loopDest];
+                    if (terminalNames.length) return terminalNames;
+                    const outNames = [];
+                    for (const x of ds) {
+                        const id = toText(x);
+                        if (!id) continue;
+                        outNames.push(stationsIndex?.idToNameZh?.get?.(id) || id);
+                    }
+                    return outNames.length ? outNames : (destName ? [destName] : []);
+                })();
+
+                const specialNames = await collectTripSpecialNames(trip);
+
+                const tripKey = tripId || toText(trip?.t) || '';
+                const baseTripKey = toText(trip?.t) || (tripId ? tripId.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '') : '');
+
+                const arrParsed = arr ? parseHHMMToServiceDayMs(arr, serviceDayStartMs) : null;
+                const depParsed = dep ? parseHHMMToServiceDayMs(dep, serviceDayStartMs) : null;
+
+                out.push({
                     destName,
                     destId,
                     arr: arr || null,
@@ -3806,9 +3732,100 @@ export function createPanel(options = {}) {
                     baseTripKey,
                     stopCount: Array.isArray(tt) ? tt.length : null,
                     rawStopNames: (Array.isArray(tt) ? tt : []).map(x => stationsIndex?.idToNameZh?.get?.(toText(x?.s)) || toText(x?.s)),
-                    sourceLineId: toText(sourceData?.sourceLineId)
+                    sourceLineId: toText(sourceLineId)
                 });
             }
+            return out;
+        };
+
+        for (const sourceData of sourceDatas) {
+            const sourceLineId = toText(sourceData?.sourceLineId);
+            const stationKey = toText(sourceData?.stationKey);
+            const rawList = Array.isArray(sourceData?.list) ? sourceData.list : [];
+            if (!stationKey || !rawList.length) continue;
+            let displayList = rawList.slice();
+            
+            // 1. 使用 Set 收集所有终到车次的下一步线路前缀
+            const nextLinePrefixes = new Set();
+            const currentLineDirction = new Set();
+
+            
+            rawList.forEach(trip => {
+                const isTerminal = trip.tt.at(-1)?.s === stationKey;
+                const nt = trip.nt;
+                
+                if (isTerminal && nt) {
+                    // 统一转为数组处理，并提取前缀（例如 "JR-East.Yamanote"）
+                    const refs = Array.isArray(nt) ? nt : [nt];
+                    refs.forEach(ref => {
+                        const prefix = ref.split('.').slice(0, 2).join('.');
+                        const direction = trip.d;
+                        if (prefix) nextLinePrefixes.add(prefix);
+                        if (direction) currentLineDirction.add(direction);
+                    });
+                }
+            });
+
+            
+            // 2. 如果去向唯一，则过滤掉所有在本站终到且有去向的的 trip,并插入下一条线路的data
+            if (nextLinePrefixes.size === 1) {
+                displayList = displayList.filter(trip => {
+                    const isTerminal = trip.tt.at(-1)?.s === stationKey;
+                    return !(isTerminal && trip.nt);
+                });
+                const nextLineId = Array.from(nextLinePrefixes)[0];
+                const currentLineDirc = Array.from(currentLineDirction)[0];
+                const nextLineSourceData = await loadTimetableForLineId(nextLineId);
+                nextLineSourceData.forEach(trip => {
+                    let shouldAdd = false;
+                    const originStation = trip.tt?.[0]?.s;
+                    const isOrigin = originStation && sg?.get?.(originStation)?.includes(stationKey);
+                    const pt = trip?.pt;
+                    if(isOrigin && !pt) shouldAdd = true;
+                    if (isOrigin && pt) {
+                        const ptLength = pt.length
+                        if(ptLength==1 && pt[0].split('.').slice(0, 2).join('.') === sourceLineId ){
+                            shouldAdd = true;
+                        }
+                    }
+                    const newTrip = {
+                        ...trip,
+                        id: trip.id.replace(nextLineId, sourceLineId)
+                    };
+                    // 2. 执行插入与 ID 归化
+                    if (shouldAdd) {
+                        // 使用深拷贝防止污染 window.TokyoRailTimetableCache
+                        const newTrip = JSON.parse(JSON.stringify(trip));
+
+                        // 替换 Trip ID：确保运行日过滤、缓存 Key 匹配正常
+                        if (typeof newTrip.id === 'string') {
+                            newTrip.id = newTrip.id.replace(nextLineId, sourceLineId);
+                        }
+
+                        if (typeof newTrip.d === 'string') {
+                            newTrip.d = currentLineDirc;
+                        }
+
+                        displayList.push(newTrip);
+                    }
+                    })
+            }
+
+            const displayRows = await collectRowsFromTripList({
+                tripList: displayList,
+                sourceLineId,
+                stationKey,
+                trackTypeSummary: true
+            });
+            rows.push(...displayRows);
+
+            const previewRows = await collectRowsFromTripList({
+                tripList: rawList,
+                sourceLineId,
+                stationKey,
+                trackTypeSummary: false
+            });
+            rowsForPreview.push(...previewRows);
         }
 
         const stationTypeSummaryItems = buildStationTypeSummaryItems({
@@ -3909,6 +3926,7 @@ export function createPanel(options = {}) {
         }
 
         rows.sort((a, b) => a.timeMs - b.timeMs);
+        rowsForPreview.sort((a, b) => a.timeMs - b.timeMs);
 
         // 统计每条线路的所有方向 d，并聚合/计数该方向下所有对应 ds 的中文名
         const DEST_NAME_MIN_COUNT = 0; // 方向下目的地名称至少出现x次才显示
@@ -4045,8 +4063,16 @@ export function createPanel(options = {}) {
                 return originOk && terminalOk && typeOk;
             });
 
+            const rowsForDirPreview = rowsForPreview.filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
+            const filteredRowsForDirPreview = rowsForDirPreview.filter((r) => {
+                const originOk = !state.origins.size || state.origins.has(toText(r.originName));
+                const terminalOk = !state.terminals.size || state.terminals.has(toText(r.terminalDisplayName || r.terminalName || r.destName));
+                const typeOk = !state.types.size || state.types.has(toText(r.typeName));
+                return originOk && terminalOk && typeOk;
+            });
+
             const filteredTripKeys = Array.from(new Set(
-                filteredRowsForDir
+                filteredRowsForDirPreview
                     .flatMap((r) => [toText(r.tripKey), toText(r.baseTripKey)])
                     .filter(Boolean)
             ));
@@ -4055,12 +4081,12 @@ export function createPanel(options = {}) {
             const uniqueIds = (arr) => Array.from(new Set((Array.isArray(arr) ? arr : []).map((x) => toText(x)).filter(Boolean)));
             dirPreviewMetaByKey.set(lineDirKey, {
                 lineId: toText(lineId),
-                originStationIds: uniqueIds(filteredRowsForDir.flatMap((r) => {
+                originStationIds: uniqueIds(filteredRowsForDirPreview.flatMap((r) => {
                     if (r?.throughEndpoints?.originIds?.length) return r.throughEndpoints.originIds;
                     if (r?.throughEndpoints?.originId) return [r.throughEndpoints.originId];
                     return [r.originId];
                 })),
-                terminalStationIds: uniqueIds(filteredRowsForDir.flatMap((r) => {
+                terminalStationIds: uniqueIds(filteredRowsForDirPreview.flatMap((r) => {
                     if (r?.throughEndpoints?.terminalIds?.length) return r.throughEndpoints.terminalIds;
                     if (r?.throughEndpoints?.terminalId) return [r.throughEndpoints.terminalId];
                     const ids = Array.isArray(r?.terminalIds) ? r.terminalIds : [];
