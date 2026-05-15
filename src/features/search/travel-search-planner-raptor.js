@@ -5,6 +5,51 @@ const SERVICE_DAY_BOUNDARY_HOUR = 3;
 const INF_TIME = Number.POSITIVE_INFINITY;
 const MIN_TRANSFER_MS = 5 * 60 * 1000;
 
+export const getReachableStopsWithinMinutes = async ({ originStationId, minutes, departureMs = Date.now(), serviceDay = null, maxRounds = 7 } = {}) => {
+    await ensurePlannerStaticData();
+    const originId = normalizeText(originStationId);
+    const mins = Number(minutes);
+    const depMs = Number.isFinite(Number(departureMs)) ? Number(departureMs) : Date.now();
+    if (!originId || !Number.isFinite(mins) || mins < 0) return { reachableStops: [], remainingMsByStop: {} };
+
+    let sourceStops = getGroupStops(originId);
+    sourceStops.add(originId);
+    sourceStops = filterNearbyStops(originId, sourceStops, 800);
+
+    if (!sourceStops.size) return { reachableStops: [], remainingMsByStop: {} };
+
+    const day = normalizeText(serviceDay) || inferServiceDayFromDate(new Date(depMs));
+    const cutoffMs = depMs + Math.round(mins) * 60000;
+
+    const runResult = await runRaptorSearch({
+        sourceStops,
+        destinationStops: new Set(),
+        departureMs: depMs,
+        serviceDay: day,
+        maxRounds
+    });
+
+    const earliestArrival = new Map();
+    for (const roundArr of runResult.arrivals || []) {
+        if (!(roundArr instanceof Map)) continue;
+        for (const [stopId, t] of roundArr.entries()) {
+            if (!Number.isFinite(t)) continue;
+            if (t <= cutoffMs) {
+                if (!earliestArrival.has(stopId) || t < earliestArrival.get(stopId)) earliestArrival.set(stopId, t);
+            }
+        }
+    }
+
+    const reachable = Array.from(earliestArrival.keys());
+    const remainingMsByStop = {};
+    for (const [stopId, arrMs] of earliestArrival.entries()) {
+        const rem = Math.max(0, cutoffMs - arrMs);
+        remainingMsByStop[stopId] = rem;
+    }
+
+    return { reachableStops: reachable, remainingMsByStop };
+};
+
 export const normalizeText = (v) => String(v ?? '').trim();
 
 const parseTripServiceDayFromId = (tripId) => {

@@ -1,6 +1,7 @@
 import { searchRailEntities, getLineMetaByIds } from './search.js';
 import {
     collectJourneyCandidatesRaptor,
+    getReachableStopsWithinMinutes,
     pickPlanBuckets,
     ensurePlannerStaticData,
     getGroupStops,
@@ -814,6 +815,8 @@ export function mountTravelSearchUI() {
     let mapPickTarget = null; // 'origin' | 'destination' | null
     let lastPlanComputeKey = '';
     let planComputeToken = 0;
+    let destinationReachableStopsTimer = null;
+    let scheduleDestinationReachableStopsTestRef = null;
     let popoverHideTimer = null;
     let pinnedTripPopoverKey = '';
     let planPreviewHideTimer = null;
@@ -903,6 +906,9 @@ export function mountTravelSearchUI() {
             selectedOriginId = resolvedId || '';
             selectedOriginCandidateIds = [];
             selectedOriginLngLat = null;
+            if (typeof scheduleDestinationReachableStopsTestRef === 'function') {
+                scheduleDestinationReachableStopsTestRef();
+            }
         } else {
             selectedDestinationId = resolvedId || '';
             selectedDestinationCandidateIds = [];
@@ -992,6 +998,9 @@ export function mountTravelSearchUI() {
         if (key === 'origin') {
             selectedOriginId = resolvedId || '';
             selectedOriginCandidateIds = [];
+            if (typeof scheduleDestinationReachableStopsTestRef === 'function') {
+                scheduleDestinationReachableStopsTestRef();
+            }
         } else {
             selectedDestinationId = resolvedId || '';
             selectedDestinationCandidateIds = [];
@@ -2248,6 +2257,62 @@ export function mountTravelSearchUI() {
         return { serviceDayStartMs, departureMs: depMs };
     };
 
+    const scheduleDestinationReachableStopsTest = () => {
+        if (destinationReachableStopsTimer) {
+            window.clearTimeout(destinationReachableStopsTimer);
+            destinationReachableStopsTimer = null;
+        }
+
+        const raw = normalizeText(destinationInput.value);
+        if (!/^\d+$/.test(raw)) {
+            try {
+                window?.TokyoRailSearchMapActions?.clearReachableStopsOverlay?.();
+            } catch {
+                // ignore
+            }
+            return;
+        }
+
+        const originStationId = normalizeText(selectedOriginId || originInput.dataset.stationId || '');
+        if (!originStationId) {
+            try {
+                window?.TokyoRailSearchMapActions?.clearReachableStopsOverlay?.();
+            } catch {
+                // ignore
+            }
+            return;
+        }
+
+        destinationReachableStopsTimer = window.setTimeout(async () => {
+            destinationReachableStopsTimer = null;
+
+            const currentRaw = normalizeText(destinationInput.value);
+            if (!/^\d+$/.test(currentRaw)) return;
+
+            const minutes = Number(currentRaw);
+            const serviceDay = readServiceDayFromPanel();
+            const { departureMs } = readDepartureBase();
+
+            try {
+                const result = await getReachableStopsWithinMinutes({
+                    originStationId,
+                    minutes,
+                    departureMs,
+                    serviceDay
+                });
+
+                try {
+                    await window?.TokyoRailSearchMapActions?.updateReachableStopsOverlay?.(result);
+                } catch {
+                    // ignore
+                }
+            } catch (error) {
+                // ignore
+            }
+        }, 500);
+    };
+    scheduleDestinationReachableStopsTestRef = scheduleDestinationReachableStopsTest;
+
     const collectJourneyCandidates = async ({ sourceStops, destinationStops, serviceDay, baseDepartureMs, originWalkMin = null, destWalkMin = null } = {}) => {
         const plans = await collectJourneyCandidatesRaptor({
             sourceStops,
@@ -2441,6 +2506,11 @@ export function mountTravelSearchUI() {
     };
 
     const clearJourneyInputsAndCollapse = () => {
+        try {
+            window?.TokyoRailSearchMapActions?.clearReachableStopsOverlay?.();
+        } catch {
+            // ignore
+        }
         originInput.value = '';
         destinationInput.value = '';
         originInput.dataset.stationId = '';
@@ -2506,6 +2576,9 @@ export function mountTravelSearchUI() {
         if (activeField === 'origin') {
             selectedOriginId = String(item?.id ?? '');
             selectedOriginCandidateIds = [];
+            if (typeof scheduleDestinationReachableStopsTestRef === 'function') {
+                scheduleDestinationReachableStopsTestRef();
+            }
         } else {
             selectedDestinationId = String(item?.id ?? '');
             selectedDestinationCandidateIds = [];
@@ -2738,6 +2811,11 @@ export function mountTravelSearchUI() {
             if (isOrigin) {
                 selectedOriginId = '';
                 selectedOriginCandidateIds = [];
+                try {
+                    window?.TokyoRailSearchMapActions?.clearReachableStopsOverlay?.();
+                } catch {
+                    // ignore
+                }
             } else {
                 selectedDestinationId = '';
                 selectedDestinationCandidateIds = [];
@@ -2746,6 +2824,8 @@ export function mountTravelSearchUI() {
             lastPlanComputeKey = '';
 
             refresh();
+
+            if (!isOrigin) scheduleDestinationReachableStopsTest();
         });
 
         input.addEventListener('search', () => {
@@ -2857,6 +2937,9 @@ export function mountTravelSearchUI() {
             expand();
         }
 
+        if (typeof scheduleDestinationReachableStopsTestRef === 'function') {
+            scheduleDestinationReachableStopsTestRef();
+        }
         maybeComputePlans();
     };
 

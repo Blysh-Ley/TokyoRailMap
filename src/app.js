@@ -499,6 +499,7 @@ map.on('load', async () => {
     let transferCapsuleBaseConnectionOrder = null;
     let transferCapsuleRefreshRafId = null;
     let transferCapsuleVisibleKey = '__init__';
+    let reachableStopsOverlayVisibleKey = '__init__';
     let syncStationOffsetForTripPreviewState = () => {};
     let railwaysIndexByIdCachePromise = null;
     let multiSelectBaseTripPreviewSignature = '';
@@ -718,6 +719,148 @@ map.on('load', async () => {
             }
         }
         return out;
+    };
+
+    const reachableStopsCircleRadiusMeters = (remainingMs) => {
+        const maxMinutes = 20;
+        const remainingMinutes = Math.max(0, Number(remainingMs) / 60000);
+        const walkMinutes = Math.min(maxMinutes, remainingMinutes);
+        return walkMinutes * 50;
+    };
+
+    const destinationPointFromBearing = (lng, lat, distanceMeters, bearingRad) => {
+        const earthRadius = 6371000;
+        const delta = Number(distanceMeters) / earthRadius;
+        const phi1 = lat * Math.PI / 180;
+        const lambda1 = lng * Math.PI / 180;
+        const sinPhi1 = Math.sin(phi1);
+        const cosPhi1 = Math.cos(phi1);
+        const sinDelta = Math.sin(delta);
+        const cosDelta = Math.cos(delta);
+        const sinPhi2 = sinPhi1 * cosDelta + cosPhi1 * sinDelta * Math.cos(bearingRad);
+        const phi2 = Math.asin(Math.max(-1, Math.min(1, sinPhi2)));
+        const y = Math.sin(bearingRad) * sinDelta * cosPhi1;
+        const x = cosDelta - sinPhi1 * Math.sin(phi2);
+        const lambda2 = lambda1 + Math.atan2(y, x);
+        return [lambda2 * 180 / Math.PI, phi2 * 180 / Math.PI];
+    };
+
+    const buildReachableStopsOverlayGeoJSON = (payload = {}) => {
+        const reachableStops = payload?.reachableStops;
+        const remainingMsByStop = payload?.remainingMsByStop && typeof payload.remainingMsByStop === 'object'
+            ? payload.remainingMsByStop
+            : {};
+
+        const stopIds = Array.isArray(reachableStops)
+            ? reachableStops
+            : (reachableStops instanceof Set ? Array.from(reachableStops) : Object.keys(reachableStops || {}));
+
+        const features = [];
+        for (const rawStopId of stopIds) {
+            const stopId = String(rawStopId || '').trim();
+            if (!stopId) continue;
+
+            const remainingMs = Number(remainingMsByStop?.[stopId]);
+            if (!Number.isFinite(remainingMs) || remainingMs <= 0) continue;
+
+            const coord = stationCoordByIdBase.get(stopId) || stationCoordById.get(stopId);
+            if (!Array.isArray(coord) || coord.length < 2) continue;
+
+            const lng = Number(coord[0]);
+            const lat = Number(coord[1]);
+            if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+
+            const radiusMeters = reachableStopsCircleRadiusMeters(remainingMs);
+            if (!Number.isFinite(radiusMeters) || radiusMeters <= 0) continue;
+
+            const steps = 64;
+            const ring = [];
+            for (let i = 0; i <= steps; i += 1) {
+                const bearing = (i / steps) * Math.PI * 2;
+                ring.push(destinationPointFromBearing(lng, lat, radiusMeters, bearing));
+            }
+
+            features.push({
+                type: 'Feature',
+                properties: {
+                    id: stopId,
+                    remainingMs,
+                    remainingMinutes: remainingMs / 60000,
+                    radiusMeters
+                },
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: [ring]
+                }
+            });
+        }
+
+        return {
+            type: 'FeatureCollection',
+            features
+        };
+    };
+
+    const ensureReachableStopsOverlayLayers = () => {
+        if (!map) return;
+
+        const beforeLayerId = map.getLayer('lines-layer')
+            ? 'lines-layer'
+            : (map.getLayer('stations-layer') ? 'stations-layer' : undefined);
+
+        if (!map.getSource('reachable-stops-overlay-source')) {
+            map.addSource('reachable-stops-overlay-source', {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features: [] }
+            });
+        }
+
+        const fillLayerId = 'reachable-stops-overlay-fill-layer';
+        const outlineLayerId = 'reachable-stops-overlay-outline-layer';
+
+        if (!map.getLayer(fillLayerId)) {
+            map.addLayer({
+                id: fillLayerId,
+                type: 'fill',
+                source: 'reachable-stops-overlay-source',
+                paint: {
+                    'fill-color': '#ff9800',
+                    'fill-opacity': 0.22,
+                    'fill-outline-color': '#ff9800'
+                }
+            }, beforeLayerId);
+        } else if (beforeLayerId) {
+            try { map.moveLayer(fillLayerId, beforeLayerId); } catch { /* ignore */ }
+        }
+
+    };
+
+    const clearReachableStopsOverlay = () => {
+        reachableStopsOverlayVisibleKey = '__empty__';
+        try {
+            const source = map?.getSource?.('reachable-stops-overlay-source');
+            if (source?.setData) {
+                source.setData({ type: 'FeatureCollection', features: [] });
+            }
+        } catch {
+            // ignore
+        }
+    };
+
+    const refreshReachableStopsOverlay = async (payload = {}) => {
+        if (!map) return;
+        ensureReachableStopsOverlayLayers();
+
+        const data = buildReachableStopsOverlayGeoJSON(payload);
+        const nextKey = JSON.stringify((Array.isArray(data?.features) ? data.features : []).map((f) => [f?.properties?.id, Math.round(Number(f?.properties?.remainingMs) || 0)]));
+        if (nextKey === reachableStopsOverlayVisibleKey) return;
+        reachableStopsOverlayVisibleKey = nextKey;
+
+        try {
+            map.getSource('reachable-stops-overlay-source')?.setData?.(data);
+        } catch {
+            // ignore
+        }
     };
 
     const toggleBaseMultiSelection = (key, lineIds, kind = 'line', displayName = '') => {
@@ -2872,6 +3015,12 @@ map.on('load', async () => {
             const s = String(source || '').trim();
             if (!s) return;
             clearTripPathPreview({ source: s });
+        };
+        searchMapActions.updateReachableStopsOverlay = async (payload = {}) => {
+            await refreshReachableStopsOverlay(payload || {});
+        };
+        searchMapActions.clearReachableStopsOverlay = () => {
+            clearReachableStopsOverlay();
         };
 
         // 供其他模块（如 panel header 的 map-select 下拉）使用：仅清除“站点点击高亮”。
