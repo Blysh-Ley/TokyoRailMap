@@ -3534,6 +3534,7 @@ export function createPanel(options = {}) {
         const typeCountByName = new Map();
         const typeStopCountByName = new Map();
         const typeStopStationSetByName = new Map();
+        const sg = await getStationGroupsIndex();
 
         for (const sourceData of sourceDatas) {
             const sourceLineId = toText(sourceData?.sourceLineId);
@@ -3571,7 +3572,6 @@ export function createPanel(options = {}) {
                 const nextLineId = Array.from(nextLinePrefixes)[0];
                 const currentLineDirc = Array.from(currentLineDirction)[0];
                 const nextLineSourceData = await loadTimetableForLineId(nextLineId);
-                const sg = await getStationGroupsIndex();
                 nextLineSourceData.forEach(trip => {
                     let shouldAdd = false;
                     const originStation = trip.tt?.[0]?.s;
@@ -3599,9 +3599,10 @@ export function createPanel(options = {}) {
                         }
 
                         // 替换始发站 ID (tt[0].s)：
+                        /*
                         if (newTrip.tt && newTrip.tt.length > 0 && typeof newTrip.tt[0].s === 'string') {
                             newTrip.tt[0].s = newTrip.tt[0].s.replace(nextLineId, sourceLineId);
-                        }
+                        }*/
 
                         if (typeof newTrip.d === 'string') {
                             newTrip.d = currentLineDirc;
@@ -3649,7 +3650,18 @@ export function createPanel(options = {}) {
                     }
                     typeStopCountByName.set(typeName, stopSet.size);
                 }
-                const stop = tt.find((x) => toText(x?.s) === stationKey);
+                const stop = tt.find((x) => {
+                    const currentSid = toText(x?.s);
+                    if (!currentSid) return false;
+
+                    // 1. 首先判断 ID 是否完全一致（最快且最直接）
+                    if (currentSid === stationKey) return true;
+
+                    // 2. 如果不一致，再查换乘组索引
+                    // 使用 ?. 进行双重保险，确保 sg 存在且能找到分组数组
+                    return sg?.get?.(currentSid)?.includes?.(stationKey);
+                });
+
                 if (typeBaseName && !isTypeExcludedForSummary) {
                     if (stop) {
                         stopTypeNameSet.add(typeName);
