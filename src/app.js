@@ -747,21 +747,24 @@ map.on('load', async () => {
 
     const buildReachableStopsOverlayGeoJSON = (payload = {}) => {
         const reachableStops = payload?.reachableStops;
-        const remainingMsByStop = payload?.remainingMsByStop && typeof payload.remainingMsByStop === 'object'
+        
+        // 1. 判断是否为 Map，如果不是则给个空的 Map 作为 fallback
+        const remainingMsByStop = payload?.remainingMsByStop instanceof Map
             ? payload.remainingMsByStop
-            : {};
+            : new Map();
 
         const stopIds = Array.isArray(reachableStops)
             ? reachableStops
-            : (reachableStops instanceof Set ? Array.from(reachableStops) : Object.keys(reachableStops || {}));
+            : (reachableStops instanceof Set ? Array.from(reachableStops) : Object.keys(payload?.remainingMsByStop || {}));
 
         const features = [];
         for (const rawStopId of stopIds) {
             const stopId = String(rawStopId || '').trim();
             if (!stopId) continue;
 
-            const remainingMs = Number(remainingMsByStop?.[stopId]);
-            if (!Number.isFinite(remainingMs) || remainingMs <= 0) continue;
+            // 2. 从 Map 中获取该站点的剩余时间数组
+            const remainingMsArray = remainingMsByStop.get(stopId);
+            if (!Array.isArray(remainingMsArray) || remainingMsArray.length === 0) continue;
 
             const coord = stationCoordByIdBase.get(stopId) || stationCoordById.get(stopId);
             if (!Array.isArray(coord) || coord.length < 2) continue;
@@ -770,29 +773,35 @@ map.on('load', async () => {
             const lat = Number(coord[1]);
             if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
 
-            const radiusMeters = reachableStopsCircleRadiusMeters(remainingMs);
-            if (!Number.isFinite(radiusMeters) || radiusMeters <= 0) continue;
+            // 3. 遍历该站点的所有剩余时间记录，为每一条记录生成一个多边形(圆)
+            for (const remMs of remainingMsArray) {
+                const remainingMs = Number(remMs);
+                if (!Number.isFinite(remainingMs) || remainingMs <= 0) continue;
 
-            const steps = 64;
-            const ring = [];
-            for (let i = 0; i <= steps; i += 1) {
-                const bearing = (i / steps) * Math.PI * 2;
-                ring.push(destinationPointFromBearing(lng, lat, radiusMeters, bearing));
-            }
+                const radiusMeters = reachableStopsCircleRadiusMeters(remainingMs);
+                if (!Number.isFinite(radiusMeters) || radiusMeters <= 0) continue;
 
-            features.push({
-                type: 'Feature',
-                properties: {
-                    id: stopId,
-                    remainingMs,
-                    remainingMinutes: remainingMs / 60000,
-                    radiusMeters
-                },
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [ring]
+                const steps = 64;
+                const ring = [];
+                for (let i = 0; i <= steps; i += 1) {
+                    const bearing = (i / steps) * Math.PI * 2;
+                    ring.push(destinationPointFromBearing(lng, lat, radiusMeters, bearing));
                 }
-            });
+
+                features.push({
+                    type: 'Feature',
+                    properties: {
+                        id: stopId,
+                        remainingMs,
+                        remainingMinutes: remainingMs / 60000,
+                        radiusMeters
+                    },
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: [ring]
+                    }
+                });
+            }
         }
 
         return {
@@ -801,7 +810,7 @@ map.on('load', async () => {
         };
     };
 
-    const ensureReachableStopsOverlayLayers = () => {
+    const ensureReachableStopsOverlayLayers = (opacity = 0.01) => {
         if (!map) return;
 
         const beforeLayerId = map.getLayer('lines-layer')
@@ -824,15 +833,19 @@ map.on('load', async () => {
                 type: 'fill',
                 source: 'reachable-stops-overlay-source',
                 paint: {
-                    'fill-color': '#ff9800',
-                    'fill-opacity': 0.22,
-                    'fill-outline-color': '#ff9800'
+                    'fill-color': '#c58a30',
+                    'fill-opacity': opacity,
                 }
             }, beforeLayerId);
         } else if (beforeLayerId) {
-            try { map.moveLayer(fillLayerId, beforeLayerId); } catch { /* ignore */ }
-        }
-
+            try { 
+            map.setPaintProperty(fillLayerId, 'fill-opacity', opacity); 
+            if (beforeLayerId) {
+                map.moveLayer(fillLayerId, beforeLayerId); 
+            }
+        } catch { 
+            /* ignore */ 
+        } }
     };
 
     const clearReachableStopsOverlay = () => {
@@ -849,7 +862,7 @@ map.on('load', async () => {
 
     const refreshReachableStopsOverlay = async (payload = {}) => {
         if (!map) return;
-        ensureReachableStopsOverlayLayers();
+        ensureReachableStopsOverlayLayers(payload.opacity);
 
         const data = buildReachableStopsOverlayGeoJSON(payload);
         const nextKey = JSON.stringify((Array.isArray(data?.features) ? data.features : []).map((f) => [f?.properties?.id, Math.round(Number(f?.properties?.remainingMs) || 0)]));

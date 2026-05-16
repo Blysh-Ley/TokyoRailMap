@@ -2264,13 +2264,13 @@ export function mountTravelSearchUI() {
         }
 
         const raw = normalizeText(destinationInput.value);
-        if (!/^\d+$/.test(raw)) {
-            try {
-                window?.TokyoRailSearchMapActions?.clearReachableStopsOverlay?.();
-            } catch {
-                // ignore
-            }
-            return;
+        if (!/^(\d+)(?:\s*[,，]\s*f)?$/i.test(raw)) {
+                try {
+                    window?.TokyoRailSearchMapActions?.clearReachableStopsOverlay?.();
+                } catch {
+                    // ignore
+                }
+                return;
         }
 
         const originStationId = normalizeText(selectedOriginId || originInput.dataset.stationId || '');
@@ -2287,22 +2287,42 @@ export function mountTravelSearchUI() {
             destinationReachableStopsTimer = null;
 
             const currentRaw = normalizeText(destinationInput.value);
-            if (!/^\d+$/.test(currentRaw)) return;
+            
+            // 1. 修改正则：允许匹配纯数字，或者数字后面紧跟 ",f"（忽略大小写和空格）
+            const match = currentRaw.match(/^(\d+)(?:\s*[,，]\s*f)?$/i);
+            if (!match) return;
 
-            const minutes = Number(currentRaw);
+            const minutes = Number(match[1]);
+            // 检查输入中是否携带了 ",f" 参数
+            const isFastMode = /[,，]\s*f/i.test(currentRaw);
+
             const serviceDay = readServiceDayFromPanel();
             const { departureMs } = readDepartureBase();
 
             try {
-                const result = await getReachableStopsWithinMinutes({
+                // 2. 动态构建 getReachableStopsWithinMinutes 的基础参数
+                const queryOptions = {
                     originStationId,
                     minutes,
                     departureMs,
                     serviceDay
-                });
+                };
+
+                // 如果输入了 ",f"，则追加特定的控制参数
+                if (isFastMode) {
+                    queryOptions.setTo8 = false;
+                    queryOptions.offsetsMin = [0];
+                }
+
+                const result = await getReachableStopsWithinMinutes(queryOptions);
 
                 try {
-                    await window?.TokyoRailSearchMapActions?.updateReachableStopsOverlay?.(result);
+                    // 3. 如果是 fast 模式，为传入 updateReachableStopsOverlay 的结果对象注入 opacity 属性
+                    const overlayPayload = isFastMode 
+                        ? { ...result, opacity: 0.04 } 
+                        : { ...result, opacity: 0.01 };
+
+                    await window?.TokyoRailSearchMapActions?.updateReachableStopsOverlay?.(overlayPayload);
                 } catch {
                     // ignore
                 }
