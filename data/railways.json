@@ -598,7 +598,7 @@
 			"ja": "横須賀・総武快速線",
 			"en": "Sobu Rapid Line",
 			"ko": "소부 쾌속선",
-			"zh-Hans": "横须贺·总武线快速",
+			"zh-Hans": "横须贺·总武快速线",
 			"zh-Hant": "横須賀·總武快速線"
 		},
 		"stations": [
@@ -611,15 +611,7 @@
 			"JR-East.SobuRapid.Funabashi",
 			"JR-East.SobuRapid.Tsudanuma",
 			"JR-East.SobuRapid.Inage",
-			"JR-East.SobuRapid.Chiba",
-			"JR-East.SobuRapid.Tsuga",
-			"JR-East.SobuRapid.Yotsukaido",
-			"JR-East.SobuRapid.Monoi",
-			"JR-East.SobuRapid.Sakura",
-			"JR-East.SobuRapid.Shisui",
-			"JR-East.SobuRapid.Narita",
-			"JR-East.SobuRapid.NaritaAirportTerminal2and3",
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.SobuRapid.Chiba"
 		],
 		"ascending": "Outbound",
 		"descending": "Inbound",
@@ -847,7 +839,7 @@
 			"ja": "横須賀・総武快速線",
 			"en": "Yokosuka Line",
 			"ko": "요코스카 선",
-			"zh-Hans": "横须贺·总武线快速",
+			"zh-Hans": "横须贺·总武快速线",
 			"zh-Hant": "橫須賀·總武快速線"
 		},
 		"stations": [

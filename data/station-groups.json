@@ -1130,7 +1130,6 @@
 	],
 	[
 		[
-			"JR-East.SobuRapid.Tsuga",
 			"JR-East.Sobu.Tsuga"
 		],
 		[
@@ -1140,28 +1139,14 @@
 	[
 		[
 			"JR-East.NaritaExpress.Yotsukaido",
-			"JR-East.Sobu.Yotsukaido",
-			"JR-East.SobuRapid.Yotsukaido"
-		]
-	],
-	[
-		[
-			"JR-East.Sobu.Monoi",
-			"JR-East.SobuRapid.Monoi"
+			"JR-East.Sobu.Yotsukaido"
 		]
 	],
 	[
 		[
 			"JR-East.NaritaExpress.Sakura",
 			"JR-East.Sobu.Sakura",
-			"JR-East.SobuRapid.Sakura",
 			"JR-East.Narita.Sakura"
-		]
-	],
-	[
-		[
-			"JR-East.Narita.Shisui",
-			"JR-East.SobuRapid.Shisui"
 		]
 	],
 	[
@@ -1169,15 +1154,13 @@
 			"JR-East.NaritaExpress.Narita",
 			"JR-East.NaritaAbikoBranch.Narita",
 			"JR-East.Narita.Narita",
-			"JR-East.NaritaAirportBranch.Narita",
-			"JR-East.SobuRapid.Narita"
+			"JR-East.NaritaAirportBranch.Narita"
 		]
 	],
 	[
 		[
 			"JR-East.NaritaExpress.NaritaAirportTerminal2and3",
-			"JR-East.NaritaAirportBranch.NaritaAirportTerminal2and3",
-			"JR-East.SobuRapid.NaritaAirportTerminal2and3"
+			"JR-East.NaritaAirportBranch.NaritaAirportTerminal2and3"
 		],
 		[
 			"Keisei.NaritaSkyAccess.NaritaAirportTerminal2and3",
@@ -1187,8 +1170,7 @@
 	[
 		[
 			"JR-East.NaritaExpress.NaritaAirportTerminal1",
-			"JR-East.NaritaAirportBranch.NaritaAirportTerminal1",
-			"JR-East.SobuRapid.NaritaAirportTerminal1"
+			"JR-East.NaritaAirportBranch.NaritaAirportTerminal1"
 		],
 		[
 			"Keisei.NaritaSkyAccess.NaritaAirportTerminal1",

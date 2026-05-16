@@ -50369,7 +50369,7 @@
 			"color": "#007AC1"
 		},
 		{
-			"id": "JR-East.SobuRapid",
+			"id": "Base.SobuRapid",
 			"sublines": [
 				{
 					"type": "main",
@@ -53019,12 +53019,249 @@
 			"color": "#007AC1"
 		},
 		{
+			"id": "JR-East.SobuRapid",
+			"sublines": [
+				{
+					"type": "main",
+					"coords": [
+						[
+							139.7644523,
+							35.6806317
+						],
+						[
+							139.7645518,
+							35.6807585
+						],
+						[
+							139.7646988,
+							35.6809459
+						],
+						[
+							139.7655944,
+							35.6820638
+						],
+						[
+							139.7659821,
+							35.6825771
+						],
+						[
+							139.7660691,
+							35.6826424
+						],
+						[
+							139.7665453,
+							35.6828599
+						],
+						[
+							139.766787,
+							35.6829803
+						],
+						[
+							139.7669015,
+							35.6830575
+						],
+						[
+							139.7669697,
+							35.6831073
+						],
+						[
+							139.7670189,
+							35.6831544
+						],
+						[
+							139.7670694,
+							35.6832134
+						],
+						[
+							139.7671058,
+							35.6832697
+						],
+						[
+							139.7671421,
+							35.6833325
+						],
+						[
+							139.7672668,
+							35.6835609
+						],
+						[
+							139.7685261,
+							35.6867672
+						],
+						[
+							139.7685879,
+							35.6868877
+						],
+						[
+							139.7686603,
+							35.6869936
+						],
+						[
+							139.7687534,
+							35.6871006
+						],
+						[
+							139.7688762,
+							35.687203
+						],
+						[
+							139.7690405,
+							35.6873032
+						],
+						[
+							139.7692961,
+							35.6874228
+						],
+						[
+							139.7696208,
+							35.6875772
+						],
+						[
+							139.7706667,
+							35.6879427
+						],
+						[
+							139.7730478,
+							35.6886958
+						],
+						[
+							139.7771813,
+							35.6900032
+						],
+						[
+							139.7808243,
+							35.6921061
+						],
+						[
+							139.7824528,
+							35.6933502
+						],
+						[
+							139.7849611,
+							35.6952663
+						],
+						[
+							139.7856225,
+							35.6956003
+						],
+						[
+							139.7864028,
+							35.6959001
+						],
+						[
+							139.7875855,
+							35.6961582
+						],
+						[
+							139.7889423,
+							35.6963948
+						],
+						[
+							139.7902312,
+							35.6964912
+						],
+						[
+							139.7913844,
+							35.6964843
+						],
+						[
+							139.7926855,
+							35.6964263
+						],
+						[
+							139.7941219,
+							35.6962027
+						]
+					],
+					"end": {
+						"railway": "JR-East.ChuoSobuLocal",
+						"offset": 1,
+						"altitude": 0
+					},
+					"altitude": -1
+				},
+				{
+					"type": "sub",
+					"start": {
+						"railway": "JR-East.ChuoSobuLocal",
+						"offset": 1
+					},
+					"coords": [
+						[
+							139.7941219,
+							35.6962027
+						],
+						[
+							139.7949987,
+							35.6960942
+						],
+						[
+							140.1065006,
+							35.6191115
+						]
+					],
+					"end": {
+						"railway": "JR-East.ChuoSobuLocal",
+						"offset": 1
+					}
+				},
+				{
+					"type": "sub",
+					"start": {
+						"railway": "JR-East.ChuoSobuLocal",
+						"offset": 1
+					},
+					"coords": [
+						[
+							140.1065006,
+							35.6191115
+						],
+						[
+							140.1107608,
+							35.6149071
+						]
+					],
+					"end": {
+						"railway": "JR-East.ChuoSobuLocal",
+						"offset": 2
+					},
+					"interpolate": 20
+				},
+				{
+					"type": "sub",
+					"start": {
+						"railway": "JR-East.ChuoSobuLocal",
+						"offset": 2
+					},
+					"coords": [
+						[
+							140.1107608,
+							35.6149071
+						],
+						[
+							140.1118213,
+							35.6143672
+						],
+						[
+							140.1126848,
+							35.6139803
+						]
+					],
+					"end": {
+						"railway": "JR-East.ChuoSobuLocal",
+						"offset": 2
+					}
+				}
+			],
+			"color":"#007AC1"
+		},
+		{
 			"id": "JR-East.Sobu",
 			"sublines": [
 				{
 					"type": "sub",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": 1
 					},
 					"coords": [
@@ -53042,14 +53279,14 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": 1
 					}
 				},
 				{
 					"type": "main",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": 1
 					},
 					"coords": [
@@ -55152,7 +55389,7 @@
 				{
 					"type": "sub",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1
 					},
 					"coords": [
@@ -55170,14 +55407,14 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1
 					}
 				},
 				{
 					"type": "main",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1
 					},
 					"coords": [
@@ -57585,7 +57822,7 @@
 				{
 					"type": "sub",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1
 					},
 					"coords": [
@@ -57603,7 +57840,7 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1
 					},
 					"opacity": 0
@@ -57611,7 +57848,7 @@
 				{
 					"type": "sub",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1
 					},
 					"coords": [
@@ -57629,14 +57866,14 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1
 					}
 				},
 				{
 					"type": "sub",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1,
 						"altitude": 0
 					},
@@ -57651,7 +57888,7 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1
 					},
 					"altitude": -1
@@ -159841,7 +160078,7 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1,
 						"zoom": 14
 					}
@@ -159849,7 +160086,7 @@
 				{
 					"type": "main",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1,
 						"zoom": 14
 					},
@@ -160020,7 +160257,7 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1,
 						"zoom": 14
 					}
@@ -160028,7 +160265,7 @@
 				{
 					"type": "hybrid",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1,
 						"zoom": 14
 					},
@@ -160307,7 +160544,7 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1,
 						"zoom": 14
 					},
@@ -160316,7 +160553,7 @@
 				{
 					"type": "main",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1,
 						"zoom": 14
 					},
@@ -162830,7 +163067,7 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": 1,
 						"zoom": 15
 					}
@@ -162838,7 +163075,7 @@
 				{
 					"type": "hybrid",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": 1,
 						"zoom": 15
 					},
@@ -162865,7 +163102,7 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": 1,
 						"zoom": 15
 					},
@@ -162874,7 +163111,7 @@
 				{
 					"type": "main",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": 1,
 						"zoom": 15
 					},
@@ -163465,7 +163702,7 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": 2
 					},
 					"altitude": -1
@@ -163473,7 +163710,7 @@
 				{
 					"type": "sub",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": 2
 					},
 					"coords": [
@@ -163491,7 +163728,7 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": 2
 					},
 					"altitude": -1
@@ -169514,14 +169751,14 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": 1
 					}
 				},
 				{
 					"type": "sub",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": 1
 					},
 					"coords": [
@@ -169795,7 +170032,7 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": 1
 					}
 				},
@@ -190554,7 +190791,7 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1,
 						"zoom": 17
 					}
@@ -190562,7 +190799,7 @@
 				{
 					"type": "hybrid",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1,
 						"zoom": 17
 					},
@@ -190605,7 +190842,7 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1,
 						"zoom": 17
 					},
@@ -194990,14 +195227,14 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1
 					}
 				},
 				{
 					"type": "sub",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1
 					},
 					"coords": [
@@ -195031,7 +195268,7 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1
 					}
 				}
@@ -268497,7 +268734,7 @@
 						]
 					],
 					"end": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1,
 						"zoom": 15
 					}
@@ -268505,7 +268742,7 @@
 				{
 					"type": "main",
 					"start": {
-						"railway": "JR-East.SobuRapid",
+						"railway": "Base.SobuRapid",
 						"offset": -1,
 						"zoom": 15
 					},
