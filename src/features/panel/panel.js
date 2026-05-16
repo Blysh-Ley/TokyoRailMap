@@ -3625,8 +3625,8 @@ export function createPanel(options = {}) {
                 const isLoopDirection = /Loop/i.test(dir);
                 const skipCrossTripFillForLoop = isLoopDirection && (hasPt || hasNt);
 
-                const isOriginStation = os.some((x) => toText(x) === stationKey);
-                const isTerminalStation = ds.some((x) => toText(x) === stationKey);
+                const isOriginStation = sg?.get?.(trip.tt?.[0]?.s)?.includes?.(stationKey) || trip.tt?.[0]?.s === stationKey;
+                const isTerminalStation = sg?.get?.(trip.tt.at(-1)?.s)?.includes?.(stationKey) || trip.tt.at(-1)?.s === stationKey;
 
                 // 真始发/真终点：没有 pt/nt 的端点站，不补全时间
                 const showOriginLabel = isOriginStation && !hasPt;
@@ -3747,12 +3747,17 @@ export function createPanel(options = {}) {
             
             // 1. 使用 Set 收集所有终到车次的下一步线路前缀
             const nextLinePrefixes = new Set();
-            const currentLineDirction = new Set();
+            const previousLinePrefixes = new Set();
+            const currentLineDirctionForNext = new Set();
+            const currentLineDirctionForPrevious = new Set();
 
             
-            rawList.forEach(trip => {
+            for (const trip of rawList) {
+                if (/Loop/i.test(toText(trip?.d))) continue; 
                 const isTerminal = trip.tt.at(-1)?.s === stationKey;
+                const isOrigin = trip.tt?.[0]?.s === stationKey;
                 const nt = trip.nt;
+                const pt = trip.pt;
                 
                 if (isTerminal && nt) {
                     // 统一转为数组处理，并提取前缀（例如 "JR-East.Yamanote"）
@@ -3761,10 +3766,20 @@ export function createPanel(options = {}) {
                         const prefix = ref.split('.').slice(0, 2).join('.');
                         const direction = trip.d;
                         if (prefix) nextLinePrefixes.add(prefix);
-                        if (direction) currentLineDirction.add(direction);
+                        if (direction) currentLineDirctionForNext.add(direction);
                     });
                 }
-            });
+
+                if (isOrigin && pt) {
+                    const refs = Array.isArray(pt) ? pt : [pt];
+                    refs.forEach(ref => {
+                        const prefix = ref.split('.').slice(0, 2).join('.');
+                        const direction = trip.d;
+                        if (prefix) previousLinePrefixes.add(prefix);
+                        if (direction) currentLineDirctionForPrevious.add(direction);
+                    });
+                }
+            }
 
             
             // 2. 如果去向唯一，则过滤掉所有在本站终到且有去向的的 trip,并插入下一条线路的data
@@ -3774,7 +3789,7 @@ export function createPanel(options = {}) {
                     return !(isTerminal && trip.nt);
                 });
                 const nextLineId = Array.from(nextLinePrefixes)[0];
-                const currentLineDirc = Array.from(currentLineDirction)[0];
+                const currentLineDirc = Array.from(currentLineDirctionForNext)[0];
                 const nextLineSourceData = await loadTimetableForLineId(nextLineId);
                 nextLineSourceData.forEach(trip => {
                     let shouldAdd = false;
@@ -3788,10 +3803,6 @@ export function createPanel(options = {}) {
                             shouldAdd = true;
                         }
                     }
-                    const newTrip = {
-                        ...trip,
-                        id: trip.id.replace(nextLineId, sourceLineId)
-                    };
                     // 2. 执行插入与 ID 归化
                     if (shouldAdd) {
                         // 使用深拷贝防止污染 window.TokyoRailTimetableCache
@@ -3809,6 +3820,29 @@ export function createPanel(options = {}) {
                         displayList.push(newTrip);
                     }
                     })
+            }
+
+            if (previousLinePrefixes.size === 1) {
+                const previousLineId = Array.from(previousLinePrefixes)[0];
+                const currentLineDirc = Array.from(currentLineDirctionForPrevious)[0];
+                const previousLineSourceData = await loadTimetableForLineId(previousLineId);
+                previousLineSourceData.forEach(trip => {
+                    let shouldAdd = false;
+                    const destStation = trip.tt?.at(-1)?.s;
+                    const isTerminal = destStation && sg?.get?.(destStation)?.includes(stationKey);
+                    const nt = trip?.nt;
+                    if(isTerminal && !nt) shouldAdd = true;
+                    if (shouldAdd) {
+                        const newTrip = JSON.parse(JSON.stringify(trip));
+                        if (typeof newTrip.id === 'string') {
+                            newTrip.id = newTrip.id.replace(previousLineId, sourceLineId);
+                        }
+                        if (typeof newTrip.d === 'string') {
+                            newTrip.d = currentLineDirc;
+                        }
+                        displayList.push(newTrip);
+                    }
+                })
             }
 
             const displayRows = await collectRowsFromTripList({
