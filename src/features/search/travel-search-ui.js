@@ -28,7 +28,8 @@ import {
 } from '../panel/timetable-table.js';
 import {
     detectThroughServiceCategoryFromTrips,
-    THROUGH_SERVICE_DISPLAY
+    THROUGH_SERVICE_DISPLAY,
+    SU_Object
 } from '../../lib/shonanshinjuku-uenotokyo.js';
 
 function el(tag, className, attrs = {}) {
@@ -1584,7 +1585,7 @@ export function mountTravelSearchUI() {
             }
 
             const sectionThroughMeta = sectionThroughMetaList[currentSectionIndex] || null;
-            const isSpecialThroughCategory = sectionThroughMeta?.category === 'ShonanShinjuku' || sectionThroughMeta?.category === 'UenoTokyo';
+            const isSpecialThroughCategory = !!SU_Object[sectionThroughMeta?.category];
             const blockLineKey = normalizeText(block.lineDisplayName || block.lineName || '');
             const shouldRenderBoundaryLineNote = !!(
                 !isSpecialThroughCategory
@@ -1760,7 +1761,7 @@ export function mountTravelSearchUI() {
             : [];
         const hasSpecialThroughSection = sectionThroughMetaList.some((meta) => {
             const category = normalizeText(meta?.category || '');
-            return category === 'UenoTokyo' || category === 'ShonanShinjuku';
+            return !!SU_Object[category];
         });
         const blocks = await buildPlanDetailBlocks({
             plan: row?.plan,
@@ -2042,7 +2043,7 @@ export function mountTravelSearchUI() {
             if (!blockRows.length) continue;
 
             const sectionThroughMeta = sectionThroughMetaList[currentSectionIndex] || null;
-            const isSpecialThroughCategory = sectionThroughMeta?.category === 'ShonanShinjuku' || sectionThroughMeta?.category === 'UenoTokyo';
+            const isSpecialThroughCategory = !!SU_Object[sectionThroughMeta?.category];
             const blockLineKey = normalizeText(block.lineDisplayName || block.lineName || '');
             const shouldRenderBoundaryLineNote = !!(
                 !isSpecialThroughCategory

@@ -16,10 +16,12 @@ import {
 import { previewBranchesForLine } from '../../map/analyze_branch.js';
 import {
     buildTemporaryThroughServicePanelPlan,
-    debugExtractShonanShinjukuUenoTokyoTrips,
     detectThroughServiceCategoryFromTrips,
     TRIGGER_LINE_IDS,
-    THROUGH_SERVICE_TEMP_LINE_IDS
+    THROUGH_SERVICE_TEMP_LINE_IDS,
+    THROUGH_SERVICE_DISPLAY,
+    SU_Info,
+    SU_Object,
 } from '../../lib/shonanshinjuku-uenotokyo.js';
 import {
     buildTimetableStationText,
@@ -30,14 +32,6 @@ import {
 import { isExcludedLineType } from '../../lib/special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
-
-const UENO_TOKYO_TEMP_LINE_ID = THROUGH_SERVICE_TEMP_LINE_IDS.UENO_TOKYO;
-const SHONAN_SHINJUKU_TEMP_LINE_ID = THROUGH_SERVICE_TEMP_LINE_IDS.SHONAN_SHINJUKU;
-const SHONAN_SHINJUKU_MAIN_LINE_ID = 'JR-East.ShonanShinjuku';
-const STATION_TOKEN_TOKYO = 'Tokyo';
-const STATION_TOKEN_UENO = 'Ueno';
-const STATION_TOKEN_SHIBUYA = 'Shibuya';
-const STATION_TOKEN_SHINJUKU = 'Shinjuku';
 
 const isSaturdayHoliday = (day) => {
     const isWeekend = day.getDay() === 0 || day.getDay() === 6;
@@ -60,42 +54,32 @@ const enhancePanelLineHeaderIcons = async (rootEl) => {
         const lineId = toText(lineEl?.getAttribute?.('data-line-id'));
         if (!lineId) continue;
 
-        if (lineId === UENO_TOKYO_TEMP_LINE_ID) {
-            if (!nameEl.querySelector('.rw-line-icon')) {
-                const iconJu = createLineIconElement({ routeId: 'JR-East.Utsunomiya', code: 'JU', color: '#F68B1E' });
-                const iconJt = createLineIconElement({ routeId: 'JR-East.Tokaido', code: 'JT', color: '#F68B1E' });
-                if (iconJu) {
-                    iconJu.style.marginRight = '3px';
-                    iconJu.style.verticalAlign = 'middle';
-                    iconJu.style.transform = 'translateY(-2px)';
-                    nameEl.prepend(iconJu);
+        const info = SU_Info.find(item => 
+            lineId === item.tempId
+        );
+
+        // 2. 如果命中了直通线配置，且尚未渲染图标
+        if (info && !nameEl.querySelector('.rw-line-icon')) {
+            const fragment = document.createDocumentFragment();
+            // 3. 动态遍历配置中的所有 code（天然完美支持 JU / JT 双图标，甚至未来更多的图标）
+            info.codes.forEach((code, index) => {
+                const iconRouteId = info.routeIds[index];
+                const icon = createLineIconElement({
+                    routeId: iconRouteId,
+                    code: code,
+                    color: info.color
+                });
+                if (icon) {
+                    icon.style.marginRight = index === info.codes.length - 1 ? '4px' : '3px';
+                    icon.style.verticalAlign = 'middle';
+                    icon.style.transform = 'translateY(-2px)';
+                    fragment.appendChild(icon);
                 }
-                if (iconJt) {
-                    iconJt.style.marginRight = '4px';
-                    iconJt.style.verticalAlign = 'middle';
-                    iconJt.style.transform = 'translateY(-2px)';
-                    if (iconJu && iconJu.nextSibling) {
-                        nameEl.insertBefore(iconJt, iconJu.nextSibling);
-                    } else {
-                        nameEl.prepend(iconJt);
-                    }
-                }
-            }
+            });
+            nameEl.prepend(fragment);
             continue;
         }
 
-        if (lineId === SHONAN_SHINJUKU_MAIN_LINE_ID || lineId === SHONAN_SHINJUKU_TEMP_LINE_ID) {
-            if (!nameEl.querySelector('.rw-line-icon')) {
-                const iconJs = createLineIconElement({ routeId: SHONAN_SHINJUKU_MAIN_LINE_ID, code: 'JS', color: '#E31F26' });
-                if (iconJs) {
-                    iconJs.style.marginRight = '4px';
-                    iconJs.style.verticalAlign = 'middle';
-                    iconJs.style.transform = 'translateY(-2px)';
-                    nameEl.prepend(iconJs);
-                }
-            }
-            continue;
-        }
 
         const meta = await getResolvedRouteIconMeta(lineId);
         if (!meta || (!meta.code && !meta.color)) continue;
@@ -786,26 +770,27 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
             }
 
             const decorated = src.map((line, idx) => {
-                const k = toRailwaysOrderKey(line?.lineId);
-                let r = k ? orderIndex.get(k) : undefined;
+            const k = toRailwaysOrderKey(line?.lineId);
+            let r = k ? orderIndex.get(k) : undefined;
+            
+            if (!Number.isFinite(r) && maxTriggerRank > Number.NEGATIVE_INFINITY) {
+                // 动态查找该线路在 SU_Info 中的索引
+                const suIndex = SU_Info.findIndex(info => info.tempId === line?.lineId);
                 
-                // 特殊处理贯通运营生成的虚拟线路，使其排在首个触发的线路之上
-                if (!Number.isFinite(r) && maxTriggerRank > Number.NEGATIVE_INFINITY) {
-                    if (line?.lineId === THROUGH_SERVICE_TEMP_LINE_IDS.UENO_TOKYO) {
-                        r = maxTriggerRank + 0.2;
-                    } else if (line?.lineId === THROUGH_SERVICE_TEMP_LINE_IDS.SHONAN_SHINJUKU) {
-                        r = maxTriggerRank + 0.1;
-                    }
+                if (suIndex !== -1) {
+                    r = maxTriggerRank + ((SU_Info.length - suIndex) * 0.1);
                 }
-                
-                const rank = (typeof r === 'number' && Number.isFinite(r)) ? r : Number.POSITIVE_INFINITY;
-                return { line, idx, rank };
+            }
+            
+            const rank = (typeof r === 'number' && Number.isFinite(r)) ? r : Number.POSITIVE_INFINITY;
+            return { line, idx, rank };
             });
+            
             decorated.sort((a, b) => {
                 const aFinite = Number.isFinite(a.rank);
                 const bFinite = Number.isFinite(b.rank);
                 if (aFinite !== bFinite) return aFinite ? -1 : 1;
-                if (aFinite && bFinite && a.rank !== b.rank) return b.rank - a.rank;
+                if (aFinite && bFinite && a.rank !== b.rank) return b.rank - a.rank; // 降序：rank 大的在前
                 return a.idx - b.idx;
             });
             return decorated.map((x) => x.line);
@@ -2482,11 +2467,10 @@ export function createPanel(options = {}) {
         ].map((x) => toText(x)).filter(Boolean)));
         const source = 'panel-dir-branch';
 
-        const throughServiceCategory = (() => {
-            if (toText(meta.lineId) === UENO_TOKYO_TEMP_LINE_ID) return 'UenoTokyo';
-            if (toText(meta.lineId) === SHONAN_SHINJUKU_TEMP_LINE_ID || toText(meta.lineId) === SHONAN_SHINJUKU_MAIN_LINE_ID) return 'ShonanShinjuku';
-            return '';
-        })();
+        const targetId = toText(meta.lineId);
+        const throughServiceCategory = SU_Info.find(info => 
+            info.lineId === targetId 
+        )?.category || '';
 
         previewBranchesForLine({
             lineId: toText(meta.lineId),
@@ -2976,7 +2960,12 @@ export function createPanel(options = {}) {
 
     const deriveThroughServiceDirectionFromChain = async (trip, displayLineId) => {
         const lineId = toText(displayLineId);
-        if (lineId !== UENO_TOKYO_TEMP_LINE_ID && lineId !== SHONAN_SHINJUKU_TEMP_LINE_ID) return '';
+
+        const targetInfo = SU_Info.find((info) => info.lineId === lineId);
+        const directionRule = targetInfo?.directionRule;
+
+        // 如果不是特殊的直通线路，或者没有配置测向规则（如常磐线），直接退出
+        if (!directionRule) return '';
 
         const ptChain = await collectTripChainByRef(trip, 'pt');
         const ntChain = await collectTripChainByRef(trip, 'nt');
@@ -2986,32 +2975,34 @@ export function createPanel(options = {}) {
             ...(Array.isArray(ntChain) ? ntChain : [])
         ];
 
-        const stationTokens = [];
+        let southIdx = -1;
+        let northIdx = -1;
+        let currentStationIdx = 0;
+
         for (const chainTrip of orderedTrips) {
             const tt = Array.isArray(chainTrip?.tt) ? chainTrip.tt : [];
+            
             for (const stop of tt) {
                 const token = getStationToken(stop?.s);
-                if (token) stationTokens.push(token);
+                if (!token) {
+                    currentStationIdx++;
+                    continue;
+                }
+
+                if (token === directionRule.southNode && southIdx === -1) {
+                    southIdx = currentStationIdx;
+                }
+                if (token === directionRule.northNode && northIdx === -1) {
+                    northIdx = currentStationIdx;
+                }
+                if (southIdx !== -1 && northIdx !== -1) {
+                    return southIdx < northIdx ? 'Northbound' : 'Southbound';
+                }
+
+                currentStationIdx++;
             }
         }
-        if (!stationTokens.length) return '';
 
-        const getFirstIdx = (token) => stationTokens.findIndex((x) => x === token);
-
-        if (lineId === UENO_TOKYO_TEMP_LINE_ID) {
-            const tokyoIdx = getFirstIdx(STATION_TOKEN_TOKYO);
-            const uenoIdx = getFirstIdx(STATION_TOKEN_UENO);
-            if (tokyoIdx >= 0 && uenoIdx >= 0) {
-                return tokyoIdx < uenoIdx ? 'Northbound' : 'Southbound';
-            }
-            return '';
-        }
-
-        const shibuyaIdx = getFirstIdx(STATION_TOKEN_SHIBUYA);
-        const shinjukuIdx = getFirstIdx(STATION_TOKEN_SHINJUKU);
-        if (shibuyaIdx >= 0 && shinjukuIdx >= 0) {
-            return shibuyaIdx < shinjukuIdx ? 'Northbound' : 'Southbound';
-        }
         return '';
     };
 
@@ -5276,13 +5267,15 @@ export function createPanel(options = {}) {
             trip,
             ...(Array.isArray(ntChain) ? ntChain : [])
         ]);
-        const THROUGH_CATEGORY_COLOR = {
-            ShonanShinjuku: '#E31F26',
-            UenoTokyo: '#F68B1E'
-        };
-        const throughCategoryLabel = throughCategory === 'ShonanShinjuku'
-            ? '湘南新宿线'
-            : (throughCategory === 'UenoTokyo' ? '上野东京线' : '');
+
+        const THROUGH_CATEGORY_COLOR = SU_Info.reduce((acc, info) => {
+            acc[info.category] = info.color;
+            return acc;
+        }, {});
+
+        const currentSuInfo = SU_Info.find(info => info.category === throughCategory);
+        const throughCategoryLabel = currentSuInfo ? currentSuInfo.lineName : '';
+
         const throughCategoryColor = toText(THROUGH_CATEGORY_COLOR[throughCategory] || '');
         const useBranchGridLayout = branchCount >= 2 && !throughCategoryLabel;
         const branchMode = (Array.isArray(ntBranchLanes) && ntBranchLanes.length >= 2)
@@ -7348,38 +7341,20 @@ export function createPanel(options = {}) {
             )
         });
         if (renderToken !== stationRenderToken) return;
-
+        console.log(throughPlan)
         if (throughPlan) {
-            temporaryPanelLineMetaById = throughPlan.temporaryLineMetaById instanceof Map
-                ? throughPlan.temporaryLineMetaById
-                : new Map();
-            temporaryPanelSourceLineIdsByDisplayLineId = throughPlan.temporarySourceLineIdsByDisplayLineId instanceof Map
-                ? throughPlan.temporarySourceLineIdsByDisplayLineId
-                : new Map();
-            temporaryPanelAllowedTripKeysByDisplayLineId = throughPlan.temporaryAllowedTripKeysByDisplayLineId instanceof Map
-                ? throughPlan.temporaryAllowedTripKeysByDisplayLineId
-                : new Map();
+                    // 1. 初始化 Map
+                    temporaryPanelLineMetaById = throughPlan.temporaryLineMetaById instanceof Map 
+                        ? throughPlan.temporaryLineMetaById : new Map();
+                    temporaryPanelSourceLineIdsByDisplayLineId = throughPlan.temporarySourceLineIdsByDisplayLineId instanceof Map 
+                        ? throughPlan.temporarySourceLineIdsByDisplayLineId : new Map();
+                    temporaryPanelAllowedTripKeysByDisplayLineId = throughPlan.temporaryAllowedTripKeysByDisplayLineId instanceof Map 
+                        ? throughPlan.temporaryAllowedTripKeysByDisplayLineId : new Map();
 
-            const injectedLineIds = [];
-            if (temporaryPanelSourceLineIdsByDisplayLineId.has(UENO_TOKYO_TEMP_LINE_ID)) {
-                injectedLineIds.push(UENO_TOKYO_TEMP_LINE_ID);
-            }
-            if (temporaryPanelSourceLineIdsByDisplayLineId.has(SHONAN_SHINJUKU_MAIN_LINE_ID)) {
-                injectedLineIds.push(SHONAN_SHINJUKU_MAIN_LINE_ID);
-            } else if (temporaryPanelSourceLineIdsByDisplayLineId.has(SHONAN_SHINJUKU_TEMP_LINE_ID)) {
-                injectedLineIds.push(SHONAN_SHINJUKU_TEMP_LINE_ID);
-            }
-
-            if (injectedLineIds.length) {
-                const base = displayServingIds.filter((id) => !injectedLineIds.includes(toText(id)));
-                const anchor = (() => {
-                    const idx = base.findIndex((id) => TRIGGER_LINE_IDS.has(toText(id)));
-                    return idx >= 0 ? idx : base.length;
-                })();
-                base.splice(anchor, 0, ...injectedLineIds);
-                displayServingIds = base;
-            }
-        }
+                    if (Array.isArray(throughPlan.displayServingIds)) {
+                        displayServingIds = throughPlan.displayServingIds;
+                    }
+                }
 
         const mergedDisplayInfo = buildPanelLineMergeInfo({
             servingLineIds: displayServingIds,
@@ -7425,23 +7400,6 @@ export function createPanel(options = {}) {
         await renderAllTimetables();
         scheduleCatalogRefresh();
         syncPanelTitleForActiveLine();
-
-        void debugExtractShonanShinjukuUenoTokyoTrips({
-            stationId: currentStationId,
-            stationNameZh: currentStationNameZh,
-            servingLineIds: Array.isArray(currentStationServingIds) ? currentStationServingIds.slice() : [],
-            currentServiceDay,
-            loadTimetableForLineId,
-            resolveStationIdForLine,
-            loadTripByRefId,
-            parseTripServiceDayFromId,
-            isStillCurrentStation: () => (
-                renderToken === stationRenderToken &&
-                toText(currentStationId) === toText(props?.id)
-            ),
-            logger: (...args) => {
-            }
-        });
     };
 
     const scrollToLineId = (lineId, options = {}) => {

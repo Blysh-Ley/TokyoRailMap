@@ -16,7 +16,7 @@ import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCached
 import { previewBranchesForLine } from '../../map/analyze_branch.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
 import { getTransferStationIdsByStationId } from '../../app.js';
-import { MENU_THROUGH_LINE_IDS, THROUGH_SERVICE_DISPLAY, isSUStations as isStationSUStations } from '../../lib/shonanshinjuku-uenotokyo.js';
+import { MENU_THROUGH_LINE_IDS, SU_Object, THROUGH_SERVICE_DISPLAY, isSUStations as isStationSUStations } from '../../lib/shonanshinjuku-uenotokyo.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -69,35 +69,21 @@ const getRouteIdFromStationId = (stationId) => {
     return parts[0] || '';
 };
 
-const SU_SERVICE_INFO_BY_KEY = Object.freeze({
-    ShonanShinjuku: Object.freeze({
-        lineId: MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU,
-        lineName: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name,
-        color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color,
-        codes: ['JS'],
-        routeIds: ['JR-East.ShonanShinjuku']
-    }),
-    UenoTokyo: Object.freeze({
-        lineId: MENU_THROUGH_LINE_IDS.UENO_TOKYO,
-        lineName: THROUGH_SERVICE_DISPLAY.UenoTokyo.name,
-        color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color,
-        codes: ['JU', 'JT'],
-        routeIds: ['JR-East.Tokaido', 'JR-East.JobanRapid']
-    })
-});
+export const SU_SERVICE_INFO_BY_KEY = SU_Object;
 
 const getTransferSUFlags = ({ selfRouteId, routeIds } = {}) => {
     const ids = new Set([
         toText(selfRouteId),
-        ...Array.isArray(routeIds) ? routeIds.map((x) => toText(x)).filter(Boolean) : []
+        ...(Array.isArray(routeIds) ? routeIds.map((x) => toText(x)).filter(Boolean) : [])
     ]);
 
-    return {
-        ShonanShinjuku: Array.from(SU_SERVICE_INFO_BY_KEY.ShonanShinjuku.routeIds).some((rid) => ids.has(rid)),
-        UenoTokyo: Array.from(SU_SERVICE_INFO_BY_KEY.UenoTokyo.routeIds).some((rid) => ids.has(rid))
-    };
+return Object.fromEntries(
+        Object.entries(SU_Object).map(([category, info]) => [
+            category,                                
+            info.routeIds.some((rid) => ids.has(rid)) 
+        ])
+    );
 };
-
 const enhanceRouteMapStationCodeBadges = async (containerEl, { lineId, lineColor } = {}) => {
     if (!(containerEl instanceof HTMLElement)) return;
 
@@ -1674,23 +1660,19 @@ const setupRouteMapUi = () => {
 
             const transferSUFlags = getTransferSUFlags({ selfRouteId, routeIds });
             const stationSUFlags = isStationSUStations(sid);
-            const needsEmptyTransferDisplay = !!(stationSUFlags.ShonanShinjuku || stationSUFlags.UenoTokyo);
+            const needsEmptyTransferDisplay = !!(stationSUFlags.ShonanShinjuku || stationSUFlags.UenoTokyo || stationSUFlags.UenoTokyoJoban);
             if (transferStationIdSet.size <= 1 && !needsEmptyTransferDisplay) continue;
 
             const suItemHtmls = [];
-            if (stationSUFlags.ShonanShinjuku || transferSUFlags.ShonanShinjuku) {
-                suItemHtmls.push({
-                    rid: 'JR-East.ShonanShinjuku',
-                    serviceKey: 'ShonanShinjuku',
-                    html: await buildSUTransferItemHtml('ShonanShinjuku')
-                });
-            }
-            if (stationSUFlags.UenoTokyo || transferSUFlags.UenoTokyo) {
-                suItemHtmls.push({
-                    rid: 'JR-East.UenoTokyo',
-                    serviceKey: 'UenoTokyo',
-                    html: await buildSUTransferItemHtml('UenoTokyo')
-                });
+            for (const [category, info] of Object.entries(SU_Object)) {
+                
+                if (stationSUFlags[category] || transferSUFlags[category]) {
+                    suItemHtmls.push({
+                        rid: `${info.operator}.${category}`, 
+                        serviceKey: category,
+                        html: await buildSUTransferItemHtml(category)
+                    });
+                }
             }
 
             // build transfer item HTMLs, then group by company (first segment of route id)

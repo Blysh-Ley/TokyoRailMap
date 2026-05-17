@@ -1,34 +1,5 @@
 const toText = (value) => String(value ?? '').trim();
 
-export const TRIGGER_LINE_IDS = new Set([
-    'JR-East.Tokaido',
-    'JR-Central.Tokaido',
-    'JR-East.Takasaki',
-    'JR-East.Utsunomiya',
-    'JR-East.Ito',
-    'JR-East.Yokosuka',
-    'JR-East.JobanRapid',
-    'JR-East.Joban',
-    'JR-East.NaritaAbikoBranch',
-    'JR-East.Ryomo',
-    'JR-East.ShonanShinjuku'
-]);
-
-export const THROUGH_SERVICE_TEMP_LINE_IDS = Object.freeze({
-    UENO_TOKYO: 'TokyoRail.Temp.UenoTokyo',
-    SHONAN_SHINJUKU: 'TokyoRail.Temp.ShonanShinjuku'
-});
-
-export const THROUGH_SERVICE_DISPLAY = Object.freeze({
-    ShonanShinjuku: { name: '湘南新宿线', color: '#E31F26' },
-    UenoTokyo: { name: '上野东京线', color: '#F68B1E' }
-});
-
-export const MENU_THROUGH_LINE_IDS = Object.freeze({
-    UENO_TOKYO: 'TokyoRail.MenuThrough.UenoTokyo',
-    SHONAN_SHINJUKU: 'TokyoRail.MenuThrough.ShonanShinjuku'
-});
-
 const SU_STATION_IDS_BY_CATEGORY = Object.freeze({
     UenoTokyo: Object.freeze([
     "JR-East.Tokaido.Tokyo",
@@ -115,55 +86,7 @@ const SU_STATION_IDS_BY_CATEGORY = Object.freeze({
     "JR-Central.Tokaido.Atami",
     "JR-Central.Tokaido.Kannami",
     "JR-Central.Tokaido.Mishima",
-    "JR-Central.Tokaido.Numazu",
-    "JR-East.JobanRapid.Shinagawa",
-    "JR-East.JobanRapid.Shimbashi",
-    "JR-East.JobanRapid.Tokyo",
-    "JR-East.JobanRapid.Ueno",
-    "JR-East.JobanRapid.Nippori",
-    "JR-East.JobanRapid.Mikawashima",
-    "JR-East.JobanRapid.MinamiSenju",
-    "JR-East.JobanRapid.KitaSenju",
-    "JR-East.JobanRapid.Matsudo",
-    "JR-East.JobanRapid.Kashiwa",
-    "JR-East.JobanRapid.Abiko",
-    "JR-East.JobanRapid.Tennodai",
-    "JR-East.JobanRapid.Toride",
-    "JR-East.Joban.Toride",
-    "JR-East.Joban.Fujishiro",
-    "JR-East.Joban.Ryugasakishi",
-    "JR-East.Joban.Ushiku",
-    "JR-East.Joban.Hitachinoushiku",
-    "JR-East.Joban.Arakawaoki",
-    "JR-East.Joban.Tsuchiura",
-    "JR-East.Joban.Kandatsu",
-    "JR-East.Joban.Takahama",
-    "JR-East.Joban.Ishioka",
-    "JR-East.Joban.Hatori",
-    "JR-East.Joban.Iwama",
-    "JR-East.Joban.Tomobe",
-    "JR-East.Joban.Uchihara",
-    "JR-East.Joban.Akatsuka",
-    "JR-East.Joban.Mito",
-    "JR-East.Joban.Katsuta",
-    "JR-East.Joban.Sawa",
-    "JR-East.Joban.Tokai",
-    "JR-East.Joban.Omika",
-    "JR-East.Joban.HitachiTaga",
-    "JR-East.Joban.Hitachi",
-    "JR-East.Joban.Ogitsu",
-    "JR-East.Joban.Juo",
-    "JR-East.Joban.Takahagi",
-    "JR-East.NaritaAbikoBranch.Abiko",
-    "JR-East.NaritaAbikoBranch.HigashiAbiko",
-    "JR-East.NaritaAbikoBranch.Kohoku",
-    "JR-East.NaritaAbikoBranch.Araki",
-    "JR-East.NaritaAbikoBranch.Fusa",
-    "JR-East.NaritaAbikoBranch.Kioroshi",
-    "JR-East.NaritaAbikoBranch.Kobayashi",
-    "JR-East.NaritaAbikoBranch.Ajiki",
-    "JR-East.NaritaAbikoBranch.ShimosaManzaki",
-    "JR-East.NaritaAbikoBranch.Narita"
+    "JR-Central.Tokaido.Numazu"
 ]),
     ShonanShinjuku: Object.freeze([
     "JR-East.ShonanShinjuku.Omiya",
@@ -238,70 +161,218 @@ const SU_STATION_IDS_BY_CATEGORY = Object.freeze({
     "JR-East.Yokosuka.KitaKamakura",
     "JR-East.Yokosuka.Kamakura",
     "JR-East.Yokosuka.Zushi"
-])
+]),
+    UenoTokyoJoban: Object.freeze([
+    "JR-East.JobanRapid.Shinagawa",
+    "JR-East.JobanRapid.Shimbashi",
+    "JR-East.JobanRapid.Tokyo",
+    "JR-East.JobanRapid.Ueno",
+    "JR-East.JobanRapid.Nippori",
+    "JR-East.JobanRapid.Mikawashima",
+    "JR-East.JobanRapid.MinamiSenju",
+    "JR-East.JobanRapid.KitaSenju",
+    "JR-East.JobanRapid.Matsudo",
+    "JR-East.JobanRapid.Kashiwa",
+    "JR-East.JobanRapid.Abiko",
+    "JR-East.JobanRapid.Tennodai",
+    "JR-East.JobanRapid.Toride",
+    "JR-East.Joban.Toride",
+    "JR-East.Joban.Fujishiro",
+    "JR-East.Joban.Ryugasakishi",
+    "JR-East.Joban.Ushiku",
+    "JR-East.Joban.Hitachinoushiku",
+    "JR-East.Joban.Arakawaoki",
+    "JR-East.Joban.Tsuchiura",
+    "JR-East.Joban.Kandatsu",
+    "JR-East.Joban.Takahama",
+    "JR-East.Joban.Ishioka",
+    "JR-East.Joban.Hatori",
+    "JR-East.Joban.Iwama",
+    "JR-East.Joban.Tomobe",
+    "JR-East.Joban.Uchihara",
+    "JR-East.Joban.Akatsuka",
+    "JR-East.Joban.Mito",
+    "JR-East.Joban.Katsuta",
+    "JR-East.Joban.Sawa",
+    "JR-East.Joban.Tokai",
+    "JR-East.Joban.Omika",
+    "JR-East.Joban.HitachiTaga",
+    "JR-East.Joban.Hitachi",
+    "JR-East.Joban.Ogitsu",
+    "JR-East.Joban.Juo",
+    "JR-East.Joban.Takahagi",
+    "JR-East.NaritaAbikoBranch.Abiko",
+    "JR-East.NaritaAbikoBranch.HigashiAbiko",
+    "JR-East.NaritaAbikoBranch.Kohoku",
+    "JR-East.NaritaAbikoBranch.Araki",
+    "JR-East.NaritaAbikoBranch.Fusa",
+    "JR-East.NaritaAbikoBranch.Kioroshi",
+    "JR-East.NaritaAbikoBranch.Kobayashi",
+    "JR-East.NaritaAbikoBranch.Ajiki",
+    "JR-East.NaritaAbikoBranch.ShimosaManzaki",
+    "JR-East.NaritaAbikoBranch.Narita"
+    ])
 });
+
+
+export const THROUGH_SERVICE_TEMP_LINE_IDS = Object.freeze({
+    UENO_TOKYO: 'TokyoRail.Temp.UenoTokyo',
+    SHONAN_SHINJUKU: 'TokyoRail.Temp.ShonanShinjuku',
+    UENO_TOKYO_JOBAN: 'TokyoRail.Temp.UenoTokyoJoban'
+});
+
+export const THROUGH_SERVICE_DISPLAY = Object.freeze({
+    ShonanShinjuku: { name: '湘南新宿线', color: '#E31F26' },
+    UenoTokyo: { name: '上野东京线', color: '#F68B1E' },
+    UenoTokyoJoban: { name: '上野东京线（常磐快速）', color: '#00B261' }
+});
+
+export const MENU_THROUGH_LINE_IDS = Object.freeze({
+    UENO_TOKYO: 'TokyoRail.MenuThrough.UenoTokyo',
+    SHONAN_SHINJUKU: 'TokyoRail.MenuThrough.ShonanShinjuku',
+    UENO_TOKYO_JOBAN: 'TokyoRail.MenuThrough.UenoTokyoJoban'
+
+});
+
+export const SU_Info = Object.freeze([
+    {
+        operator: 'JR-East',
+        category: 'UenoTokyo',
+        lineId: MENU_THROUGH_LINE_IDS.UENO_TOKYO,
+        tempId: THROUGH_SERVICE_TEMP_LINE_IDS.UENO_TOKYO,
+        lineName: THROUGH_SERVICE_DISPLAY.UenoTokyo.name,
+        color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color,
+        codes: ['JU', 'JT'],
+        routeIds: ['JR-East.Tokaido','JR-East.Utsunomiya'],
+        directionRule: { southNode: 'Tokyo', northNode: 'Ueno' },
+        stations: SU_STATION_IDS_BY_CATEGORY.UenoTokyo,
+        triggerLineIds: [
+            'JR-East.Tokaido',
+            'JR-Central.Tokaido',
+            'JR-East.Takasaki',
+            'JR-East.Utsunomiya',
+            'JR-East.Ito',
+            'JR-East.Ryomo'
+        ],
+        excludeLineIds: [
+            'JR-East.KeihinTohokuNegishi',
+            'JR-East.Yamanote',
+            'JR-East.SaikyoKawagoe',
+            'JR-East.JobanRapid',
+            'JR-East.Joban',
+            'JR-East.NaritaAbikoBranch'
+        ],
+        triggerStations: ['Ueno', 'Tokyo']
+    },
+    {
+        operator: 'JR-East',
+        category: 'ShonanShinjuku',
+        lineId: MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU,
+        tempId: THROUGH_SERVICE_TEMP_LINE_IDS.SHONAN_SHINJUKU,
+        lineName: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name,
+        color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color,
+        codes: ['JS'],
+        routeIds: ['JR-East.ShonanShinjuku'],
+        directionRule: { southNode: 'Shibuya', northNode: 'Shinjuku' },
+        stations: SU_STATION_IDS_BY_CATEGORY.ShonanShinjuku,
+        triggerLineIds: [
+            'JR-East.Tokaido',
+            'JR-East.ShonanShinjuku',
+            'JR-East.Yokosuka',
+            'JR-East.Takasaki',
+            'JR-East.Utsunomiya',
+            'JR-East.Ryomo'
+        ],
+        excludeLineIds: [
+            'JR-East.KeihinTohokuNegishi',
+            'JR-East.Yamanote',
+            'JR-East.SaikyoKawagoe',
+            'JR-East.Ito',
+            'Izukyu.Izukyu',
+            'JR-East.NaritaExpress',
+            'JR-East.NaritaAbikoBranch'
+        ],
+        triggerStations: ['Shinjuku', 'Shibuya']
+    },
+    {
+        operator: 'JR-East',
+        category: 'UenoTokyoJoban',
+        lineId: MENU_THROUGH_LINE_IDS.UENO_TOKYO_JOBAN,
+        tempId: THROUGH_SERVICE_TEMP_LINE_IDS.UENO_TOKYO_JOBAN,
+        lineName: THROUGH_SERVICE_DISPLAY.UenoTokyoJoban.name,
+        color: THROUGH_SERVICE_DISPLAY.UenoTokyoJoban.color,
+        codes: ['JJ'],
+        routeIds: ['JR-East.JobanRapid'],
+        directionRule: { southNode: 'Tokyo', northNode: 'Ueno' },
+        stations: SU_STATION_IDS_BY_CATEGORY.UenoTokyoJoban,
+        triggerLineIds: [
+            'JR-East.JobanRapid',
+            'JR-East.Joban',
+            'JR-East.NaritaAbikoBranch',
+        ],
+        excludeLineIds: [
+            'JR-East.KeihinTohokuNegishi',
+            'JR-East.Yamanote',
+            'JR-East.SaikyoKawagoe',
+            'JR-East.Tokaido',
+            'JR-Central.Tokaido',
+            'JR-East.Takasaki',
+            'JR-East.Utsunomiya',
+            'JR-East.Ito',
+            'JR-East.Ryomo'
+        ],
+        triggerStations: ['Ueno', 'Tokyo']
+    }
+]);
+
+
+export const SU_Object = Object.freeze(
+    Object.fromEntries(
+        SU_Info.map(info => [info.category, info])
+    )
+);
+
+
+export const SU_Categories = Object.freeze(Object.keys(SU_Object));
+
+
 
 export const isSUStations = (stationId) => {
     const sid = toText(stationId);
-    return {
-        UenoTokyo: SU_STATION_IDS_BY_CATEGORY.UenoTokyo.includes(sid),
-        ShonanShinjuku: SU_STATION_IDS_BY_CATEGORY.ShonanShinjuku.includes(sid)
-    };
+    // 动态遍历分类，生成 { UenoTokyo: true/false, ShonanShinjuku: true/false ... }
+    return Object.fromEntries(
+        SU_Categories.map(category => [
+            category,
+            (SU_STATION_IDS_BY_CATEGORY[category] || []).includes(sid)
+        ])
+    );
 };
 
 export const isSUStation = (stationId) => {
     const flags = isSUStations(stationId);
-    return !!(flags.UenoTokyo || flags.ShonanShinjuku);
+    // 只要 flags 里的 value 有一个是 true，就返回 true
+    return Object.values(flags).some(Boolean);
 };
 
-const MENU_THROUGH_CATEGORY_BY_LINE_ID = Object.freeze({
-    [MENU_THROUGH_LINE_IDS.UENO_TOKYO]: 'UenoTokyo',
-    [MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU]: 'ShonanShinjuku',
-    [THROUGH_SERVICE_TEMP_LINE_IDS.UENO_TOKYO]: 'UenoTokyo',
-    [THROUGH_SERVICE_TEMP_LINE_IDS.SHONAN_SHINJUKU]: 'ShonanShinjuku'
-});
 
-export const isMenuThroughLineId = (lineId) => {
-    const id = toText(lineId);
-    return !!MENU_THROUGH_CATEGORY_BY_LINE_ID[id];
-};
+export const TRIGGER_LINE_IDS = new Set(
+    SU_Info.flatMap(info => info.triggerLineIds)
+);
+
 
 export const getMenuThroughCategoryByLineId = (lineId) => {
     const id = toText(lineId);
-    return MENU_THROUGH_CATEGORY_BY_LINE_ID[id] || '';
+    return SU_Info.find(info => 
+        id === info.lineId || 
+        id === info.tempId || 
+        (info.routeIds && info.routeIds.includes(id))
+    )?.category || '';
 };
 
-const STATION_TOKENS = Object.freeze({
-    SHINJUKU: 'Shinjuku',
-    SHIBUYA: 'Shibuya',
-    UENO: 'Ueno',
-    TOKYO: 'Tokyo'
-});
-
-const SHONAN_SHINJUKU_EXCLUDED_CHAIN_PREFIXES = Object.freeze([
-    'JR-East.Ito',
-    'Izukyu.Izukyu',
-    'JR-East.NaritaExpress',
-    'JR-East.NaritaAbikoBranch'
-]);
-
-const COMMON_THROUGH_SERVICE_EXCLUDED_CHAIN_PREFIXES = Object.freeze([
-    'JR-East.KeihinTohokuNegishi',
-    'JR-East.Yamanote',
-    'JR-East.SaikyoKawagoe'
-]);
-
-const hasExcludedCommonChainLine = (lineIds) => {
-    const ids = Array.isArray(lineIds) ? lineIds : [];
-    for (const lineId of ids) {
-        const lid = toText(lineId);
-        if (!lid) continue;
-        for (const prefix of COMMON_THROUGH_SERVICE_EXCLUDED_CHAIN_PREFIXES) {
-            if (lid === prefix || lid.startsWith(`${prefix}.`)) return true;
-        }
-    }
-    return false;
+export const isMenuThroughLineId = (lineId) => {
+    return !!getMenuThroughCategoryByLineId(lineId);
 };
+
 
 const getTripId = (trip) => {
     const id = toText(trip?.id);
@@ -345,39 +416,41 @@ const getRefs = (trip, key) => {
     return Array.from(new Set(raw.map((x) => toText(x)).filter(Boolean)));
 };
 
-const collectStopFlagsFromTrip = (trip, flags) => {
+const collectTriggerStationsFromTrip = (trip, visitedSet) => {
     const tt = Array.isArray(trip?.tt) ? trip.tt : [];
     for (const stop of tt) {
         const sid = toText(stop?.s);
         if (!sid) continue;
         const token = sid.split('.').pop();
-        if (token === STATION_TOKENS.SHINJUKU) flags.hasShinjuku = true;
-        if (token === STATION_TOKENS.SHIBUYA) flags.hasShibuya = true;
-        if (token === STATION_TOKENS.UENO) flags.hasUeno = true;
-        if (token === STATION_TOKENS.TOKYO) flags.hasTokyo = true;
+        if (token) visitedSet.add(token);
     }
 };
 
-const hasExcludedShonanChainLine = (lineIds) => {
+const hasExcludedChainLine = (lineIds, excludePrefixes) => {
     const ids = Array.isArray(lineIds) ? lineIds : [];
+    const prefixes = Array.isArray(excludePrefixes) ? excludePrefixes : [];
+    
     for (const lineId of ids) {
         const lid = toText(lineId);
         if (!lid) continue;
-        for (const prefix of SHONAN_SHINJUKU_EXCLUDED_CHAIN_PREFIXES) {
+        for (const prefix of prefixes) {
             if (lid === prefix || lid.startsWith(`${prefix}.`)) return true;
         }
     }
     return false;
 };
 
-const classifyByFlags = (flags, options = {}) => {
-    const isShonanShinjuku = !!(flags.hasShinjuku && flags.hasShibuya);
-    const isUenoTokyo = !!(flags.hasUeno && flags.hasTokyo);
-    const shonanExcluded = hasExcludedShonanChainLine(options?.chainLineIds);
-    const commonExcluded = hasExcludedCommonChainLine(options?.chainLineIds);
+const classifyTripBySUInfo = (visitedStations, chainLineIds) => {
+    for (const info of SU_Info) {
+        // 条件 1: 必须包含该分类要求的所有触发站点
+        const hasAllTriggers = info.triggerStations.every(st => visitedStations.has(st));
+        if (!hasAllTriggers) continue;
 
-    if (isShonanShinjuku && !shonanExcluded && !commonExcluded) return 'ShonanShinjuku';
-    if (isUenoTokyo && !commonExcluded) return 'UenoTokyo';
+        // 条件 2: 关联线路中绝对不能包含该分类排斥的线路
+        const isExcluded = hasExcludedChainLine(chainLineIds, info.excludeLineIds);
+        if (isExcluded) continue;
+        return info.category;
+    }
     return '';
 };
 
@@ -390,22 +463,23 @@ const hasNmServiceMarker = (trip) => {
 };
 
 export const detectThroughServiceCategoryFromTrips = (trips) => {
-    const flags = {
-        hasShinjuku: false,
-        hasShibuya: false,
-        hasUeno: false,
-        hasTokyo: false
-    };
     const list = Array.isArray(trips) ? trips : [];
+    
+    // 如果包含 nm 标记（通常代表某种特急或特殊的非直通服务），直接排除
     if (list.some((trip) => hasNmServiceMarker(trip))) return '';
 
     const chainLineIds = [];
+    const visitedStations = new Set(); // 替代了旧的 flags 对象
+
     for (const trip of list) {
-        collectStopFlagsFromTrip(trip, flags);
+        // 收集这趟车以及关联车次经过的所有站点
+        collectTriggerStationsFromTrip(trip, visitedStations);
+        
         const lineId = getTripLineId(trip);
         if (lineId) chainLineIds.push(lineId);
     }
-    return classifyByFlags(flags, { chainLineIds });
+    
+    return classifyTripBySUInfo(visitedStations, chainLineIds);
 };
 
 const isTripStoppingAtStation = (trip, stationIdSet) => {
@@ -447,137 +521,18 @@ const collectConnectedTrips = async (seedTrip, { loadTripByRefId, isStillCurrent
     return outTrips;
 };
 
-export async function debugExtractShonanShinjukuUenoTokyoTrips(options = {}) {
-    const stationId = toText(options.stationId);
-    const stationNameZh = toText(options.stationNameZh);
-    const servingLineIds = Array.isArray(options.servingLineIds)
-        ? Array.from(new Set(options.servingLineIds.map((x) => toText(x)).filter(Boolean)))
-        : [];
-
-    const loadTimetableForLineId = typeof options.loadTimetableForLineId === 'function'
-        ? options.loadTimetableForLineId
-        : null;
-    const resolveStationIdForLine = typeof options.resolveStationIdForLine === 'function'
-        ? options.resolveStationIdForLine
-        : null;
-    const loadTripByRefId = typeof options.loadTripByRefId === 'function'
-        ? options.loadTripByRefId
-        : null;
-    const parseTripServiceDayFromId = typeof options.parseTripServiceDayFromId === 'function'
-        ? options.parseTripServiceDayFromId
-        : null;
-    const currentServiceDay = toText(options.currentServiceDay);
-    const isStillCurrentStation = typeof options.isStillCurrentStation === 'function'
-        ? options.isStillCurrentStation
-        : null;
-    const logger = typeof options.logger === 'function' ? options.logger : console.log;
-
-    if (!stationId || !servingLineIds.length) return null;
-    if (!loadTimetableForLineId || !resolveStationIdForLine || !loadTripByRefId) return null;
-
-    const matchedServingLineIds = servingLineIds.filter((id) => TRIGGER_LINE_IDS.has(id));
-    if (!matchedServingLineIds.length) return null;
-
-    const report = {
-        stationId,
-        stationNameZh,
-        serviceDay: currentServiceDay,
-        matchedServingLineIds,
-        scannedLineIds: [],
-        shonanShinjuku: [],
-        uenoTokyo: []
-    };
-
-    const seenTripKeys = new Set();
-
-    for (const lineId of matchedServingLineIds) {
-        if (isStillCurrentStation && !isStillCurrentStation()) return null;
-
-        const lineStationId = toText(await resolveStationIdForLine(lineId)) || stationId;
-        const stationIdSet = new Set([stationId, lineStationId].filter(Boolean));
-        const data = await loadTimetableForLineId(lineId);
-        const list = Array.isArray(data) ? data : [];
-        report.scannedLineIds.push({ lineId, stationId: lineStationId, tripCount: list.length });
-
-        for (const trip of list) {
-            if (isStillCurrentStation && !isStillCurrentStation()) return null;
-
-            const tripIdForDay = toText(trip?.id);
-            if (currentServiceDay && parseTripServiceDayFromId && tripIdForDay) {
-                const tripDay = toText(parseTripServiceDayFromId(tripIdForDay));
-                if (tripDay && tripDay !== currentServiceDay) continue;
-            }
-
-            if (!isTripStoppingAtStation(trip, stationIdSet)) continue;
-
-            const tripId = getTripId(trip);
-            const uniqueTripKey = `${lineId}||${tripId}`;
-            if (seenTripKeys.has(uniqueTripKey)) continue;
-            seenTripKeys.add(uniqueTripKey);
-
-            const connectedTrips = await collectConnectedTrips(trip, { loadTripByRefId, isStillCurrentStation });
-            if (!connectedTrips) return null;
-
-            const category = detectThroughServiceCategoryFromTrips(connectedTrips);
-            if (!category) continue;
-
-            const flags = {
-                hasShinjuku: category === 'ShonanShinjuku',
-                hasShibuya: category === 'ShonanShinjuku',
-                hasUeno: category === 'UenoTokyo',
-                hasTokyo: category === 'UenoTokyo'
-            };
-            const item = {
-                lineId,
-                stationId: lineStationId,
-                tripId,
-                baseTripId: getBaseTripId(trip),
-                dir: toText(trip?.d),
-                flags,
-                chainTripIds: connectedTrips.map((x) => getTripId(x)).filter(Boolean)
-            };
-
-            if (category === 'ShonanShinjuku') report.shonanShinjuku.push(item);
-            else if (category === 'UenoTokyo') report.uenoTokyo.push(item);
-        }
-    }
-
-    logger('[panel-line][through-service-detect][summary]', {
-        stationId: report.stationId,
-        stationNameZh: report.stationNameZh,
-        serviceDay: report.serviceDay,
-        matchedServingLineIds: report.matchedServingLineIds,
-        scannedLineIds: report.scannedLineIds,
-        shonanShinjukuCount: report.shonanShinjuku.length,
-        uenoTokyoCount: report.uenoTokyo.length
-    });
-    logger('[panel-line][through-service-detect][detail]', report);
-
-    return report;
-}
-
 export async function buildTemporaryThroughServicePanelPlan(options = {}) {
     const stationId = toText(options.stationId);
     const servingLineIds = Array.isArray(options.servingLineIds)
         ? Array.from(new Set(options.servingLineIds.map((x) => toText(x)).filter(Boolean)))
         : [];
 
-    const loadTimetableForLineId = typeof options.loadTimetableForLineId === 'function'
-        ? options.loadTimetableForLineId
-        : null;
-    const resolveStationIdForLine = typeof options.resolveStationIdForLine === 'function'
-        ? options.resolveStationIdForLine
-        : null;
-    const loadTripByRefId = typeof options.loadTripByRefId === 'function'
-        ? options.loadTripByRefId
-        : null;
-    const parseTripServiceDayFromId = typeof options.parseTripServiceDayFromId === 'function'
-        ? options.parseTripServiceDayFromId
-        : null;
+    const loadTimetableForLineId = typeof options.loadTimetableForLineId === 'function' ? options.loadTimetableForLineId : null;
+    const resolveStationIdForLine = typeof options.resolveStationIdForLine === 'function' ? options.resolveStationIdForLine : null;
+    const loadTripByRefId = typeof options.loadTripByRefId === 'function' ? options.loadTripByRefId : null;
+    const parseTripServiceDayFromId = typeof options.parseTripServiceDayFromId === 'function' ? options.parseTripServiceDayFromId : null;
     const currentServiceDay = toText(options.currentServiceDay);
-    const isStillCurrentStation = typeof options.isStillCurrentStation === 'function'
-        ? options.isStillCurrentStation
-        : null;
+    const isStillCurrentStation = typeof options.isStillCurrentStation === 'function' ? options.isStillCurrentStation : null;
 
     if (!stationId || !servingLineIds.length) return null;
     if (!loadTimetableForLineId || !resolveStationIdForLine || !loadTripByRefId) return null;
@@ -585,16 +540,14 @@ export async function buildTemporaryThroughServicePanelPlan(options = {}) {
     const matchedServingLineIds = servingLineIds.filter((id) => TRIGGER_LINE_IDS.has(id));
     if (!matchedServingLineIds.length) return null;
 
-    const bucketByCategory = {
-        ShonanShinjuku: {
+    // 1. 动态初始化 Bucket
+    const bucketByCategory = {};
+    for (const category of SU_Categories) {
+        bucketByCategory[category] = {
             sourceLineIds: new Set(),
             allowedTripKeys: new Set()
-        },
-        UenoTokyo: {
-            sourceLineIds: new Set(),
-            allowedTripKeys: new Set()
-        }
-    };
+        };
+    }
 
     for (const lineId of matchedServingLineIds) {
         if (isStillCurrentStation && !isStillCurrentStation()) return null;
@@ -618,8 +571,9 @@ export async function buildTemporaryThroughServicePanelPlan(options = {}) {
             const connectedTrips = await collectConnectedTrips(trip, { loadTripByRefId, isStillCurrentStation });
             if (!connectedTrips) return null;
 
+            // 2. 动态分类判定
             const category = detectThroughServiceCategoryFromTrips(connectedTrips);
-            if (category !== 'ShonanShinjuku' && category !== 'UenoTokyo') continue;
+            if (!category || !bucketByCategory[category]) continue;
 
             const bucket = bucketByCategory[category];
             bucket.sourceLineIds.add(lineId);
@@ -641,71 +595,38 @@ export async function buildTemporaryThroughServicePanelPlan(options = {}) {
     })();
 
     let insertCursor = firstTriggerIndex;
-
-    const uenoBucket = bucketByCategory.UenoTokyo;
-    if (uenoBucket.allowedTripKeys.size) {
-        const lineId = THROUGH_SERVICE_TEMP_LINE_IDS.UENO_TOKYO;
-        displayServingIds.splice(insertCursor, 0, lineId);
-        insertCursor += 1;
-        temporaryLineMetaById.set(lineId, {
-            id: lineId,
-            company: 'JR-East',
-            name: THROUGH_SERVICE_DISPLAY.UenoTokyo.name,
-            color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color,
-            code: 'JU/JT'
-        });
-        temporarySourceLineIdsByDisplayLineId.set(lineId, Array.from(uenoBucket.sourceLineIds));
-        temporaryAllowedTripKeysByDisplayLineId.set(lineId, new Set(uenoBucket.allowedTripKeys));
-    }
-
     const suStationFlags = isSUStations(stationId);
-    if (suStationFlags.UenoTokyo && !uenoBucket.allowedTripKeys.size) {
-        const lineId = THROUGH_SERVICE_TEMP_LINE_IDS.UENO_TOKYO;
-        if (!displayServingIds.includes(lineId)) {
-            displayServingIds.splice(insertCursor, 0, lineId);
-            insertCursor += 1;
+
+    // 3. 动态组装面板数据
+    for (const info of SU_Info) {
+        const bucket = bucketByCategory[info.category];
+        const hasTrips = bucket.allowedTripKeys.size > 0;
+        
+        // 特殊逻辑：湘南新宿线如果已有原生线路，则跳过
+        if (info.category === 'ShonanShinjuku' && hasShonanServingLine) continue;
+
+        if (hasTrips) {
+            const lineId = info.tempId;
+            
+            if (!displayServingIds.includes(lineId)) {
+                displayServingIds.splice(insertCursor, 0, lineId);
+                insertCursor += 1; 
+            }
+
+            temporaryLineMetaById.set(lineId, {
+                id: lineId,
+                company: info.operator,
+                name: info.lineName,
+                color: info.color,
+                code: info.codes.join('/') 
+            });
+
+            if (hasTrips) {
+                // 有真实发车数据
+                temporarySourceLineIdsByDisplayLineId.set(lineId, Array.from(bucket.sourceLineIds));
+                temporaryAllowedTripKeysByDisplayLineId.set(lineId, new Set(bucket.allowedTripKeys));
+            } 
         }
-        temporaryLineMetaById.set(lineId, {
-            id: lineId,
-            company: 'JR-East',
-            name: THROUGH_SERVICE_DISPLAY.UenoTokyo.name,
-            color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color,
-            code: 'JU/JT'
-        });
-        temporarySourceLineIdsByDisplayLineId.set(lineId, ['JR-East.Tokaido', 'JR-East.JobanRapid']);
-        temporaryAllowedTripKeysByDisplayLineId.set(lineId, new Set());
-    }
-
-    const shonanBucket = bucketByCategory.ShonanShinjuku;
-    if (shonanBucket.allowedTripKeys.size && !hasShonanServingLine) {
-        const lineId = THROUGH_SERVICE_TEMP_LINE_IDS.SHONAN_SHINJUKU;
-        displayServingIds.splice(insertCursor, 0, lineId);
-        temporaryLineMetaById.set(lineId, {
-            id: lineId,
-            company: 'JR-East',
-            name: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name,
-            color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color,
-            code: 'JS'
-        });
-
-        temporarySourceLineIdsByDisplayLineId.set(lineId, Array.from(shonanBucket.sourceLineIds));
-        temporaryAllowedTripKeysByDisplayLineId.set(lineId, new Set(shonanBucket.allowedTripKeys));
-    }
-
-    if (suStationFlags.ShonanShinjuku && !hasShonanServingLine && !shonanBucket.allowedTripKeys.size) {
-        const lineId = THROUGH_SERVICE_TEMP_LINE_IDS.SHONAN_SHINJUKU;
-        if (!displayServingIds.includes(lineId)) {
-            displayServingIds.splice(insertCursor, 0, lineId);
-        }
-        temporaryLineMetaById.set(lineId, {
-            id: lineId,
-            company: 'JR-East',
-            name: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name,
-            color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color,
-            code: 'JS'
-        });
-        temporarySourceLineIdsByDisplayLineId.set(lineId, ['JR-East.ShonanShinjuku']);
-        temporaryAllowedTripKeysByDisplayLineId.set(lineId, new Set());
     }
 
     if (!temporarySourceLineIdsByDisplayLineId.size) return null;

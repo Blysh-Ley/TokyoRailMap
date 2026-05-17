@@ -40,7 +40,8 @@ import {
     MENU_THROUGH_LINE_IDS,
     THROUGH_SERVICE_DISPLAY,
     getMenuThroughCategoryByLineId,
-    isMenuThroughLineId
+    isMenuThroughLineId,
+    SU_Object
 } from './lib/shonanshinjuku-uenotokyo.js';
 import './features/route-map/route-map-ui.js';
 import { companyLogoMap, resolveLineSelectionByBranchRules } from './lib/special-condition.js';
@@ -1638,22 +1639,20 @@ map.on('load', async () => {
         return true;
     };
 
-    const MENU_THROUGH_SOURCE_BY_CATEGORY = Object.freeze({
-        UenoTokyo: Object.freeze(['JR-East.Tokaido', 'JR-East.JobanRapid']),
-        ShonanShinjuku: Object.freeze(['JR-East.ShonanShinjuku'])
-    });
-
-    const MENU_THROUGH_PREVIEW_SOURCES = Object.freeze([
-        `rw-menu-through:${MENU_THROUGH_LINE_IDS.UENO_TOKYO}`,
-        `rw-menu-through:${MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU}`
-    ]);
-
+    const MENU_THROUGH_SOURCE_BY_CATEGORY = Object.freeze(
+        Object.fromEntries(
+            Object.entries(SU_Object).map(([category, info]) => [
+                category, 
+                Object.freeze(info.routeIds)
+            ])
+        )
+    );
+    const MENU_THROUGH_PREVIEW_SOURCES = Object.freeze(
+        Object.values(SU_Object).map(info => `rw-menu-through:${info.lineId}`)
+    );
     const getMenuThroughDisplayByCategory = (category) => {
-        if (category === 'UenoTokyo') return THROUGH_SERVICE_DISPLAY.UenoTokyo;
-        if (category === 'ShonanShinjuku') return THROUGH_SERVICE_DISPLAY.ShonanShinjuku;
-        return null;
+        return THROUGH_SERVICE_DISPLAY[category] || null;
     };
-
     const getMenuThroughDisplayByLineId = (lineId) => {
         const category = getMenuThroughCategoryByLineId(lineId);
         return getMenuThroughDisplayByCategory(category);
@@ -1677,10 +1676,11 @@ map.on('load', async () => {
         if (byCategoryColor) return resolveRailColorForTheme(byCategoryColor) || byCategoryColor;
 
         const fallback = String(payload?.highlightColor || payload?.typeColor || '').trim();
-        const throughColors = new Set([
-            String(THROUGH_SERVICE_DISPLAY?.ShonanShinjuku?.color || '').trim().toLowerCase(),
-            String(THROUGH_SERVICE_DISPLAY?.UenoTokyo?.color || '').trim().toLowerCase()
-        ].filter(Boolean));
+        const throughColors = new Set(
+            Object.values(SU_Object)
+                .map(info => String(info.color || '').trim().toLowerCase())
+                .filter(Boolean)
+        );
         const fallbackNorm = fallback.toLowerCase();
         if (!fallbackNorm || !throughColors.has(fallbackNorm)) return '';
         return resolveRailColorForTheme(fallback) || fallback;
@@ -1984,13 +1984,22 @@ map.on('load', async () => {
 
             clearSelectionBadgeIcons();
             const throughCategory = getMenuThroughCategoryByLineId(sid);
-            if (throughCategory === 'UenoTokyo') {
-                appendBadgeIcon({ routeId: 'JR-East.Tokaido', code: 'JU', color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color });
-                appendBadgeIcon({ routeId: 'JR-East.Tokaido', code: 'JT', color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color });
-            } else if (throughCategory === 'ShonanShinjuku') {
-                appendBadgeIcon({ routeId: 'JR-East.ShonanShinjuku', code: 'JS', color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color });
+            const info = SU_Object[throughCategory];
+
+            if (info) {
+                for (const code of info.codes || []) {
+                    appendBadgeIcon({
+                        routeId: info.routeIds?.[0] || '', // 动态获取主控制物理路线 ID
+                        code: code,
+                        color: info.color || ''
+                    });
+                }
             } else {
-                appendBadgeIcon({ routeId: sid, code: '', color: lineColorById.get(sid) || '' });
+                appendBadgeIcon({ 
+                    routeId: sid, 
+                    code: '', 
+                    color: lineColorById.get(sid) || '' 
+                });
             }
 
             selectionBadgeTextEl.textContent = name;
@@ -4488,10 +4497,11 @@ map.on('load', async () => {
             const outStopFeatures = [];
             const coordsForBbox = [];
             const stopIds = new Set();
-            const throughServiceHighlightColors = new Set([
-                String(THROUGH_SERVICE_DISPLAY?.ShonanShinjuku?.color || '').trim().toLowerCase(),
-                String(THROUGH_SERVICE_DISPLAY?.UenoTokyo?.color || '').trim().toLowerCase()
-            ].filter(Boolean));
+            const throughServiceHighlightColors = new Set(
+                Object.values(SU_Object)
+                    .map(info => String(info.color || '').trim().toLowerCase())
+                    .filter(Boolean)
+            );
             const isThroughServiceHighlightColor = (color) => {
                 const normalized = String(color || '').trim().toLowerCase();
                 return !!normalized && throughServiceHighlightColors.has(normalized);

@@ -17,7 +17,8 @@ import { createLineIconElement, ensureLineIconForRwLineContent } from '../../lib
 import { COMPANY_LOGO_BASE_PATH, getCompanyLogoCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
 import {
     MENU_THROUGH_LINE_IDS,
-    THROUGH_SERVICE_DISPLAY
+    THROUGH_SERVICE_DISPLAY,
+    SU_Info
 } from '../../lib/shonanshinjuku-uenotokyo.js';
 import { isBranchLineId, preferredOrder, resolveMainLineIdByBranchRule } from '../../lib/special-condition.js';
 
@@ -390,24 +391,7 @@ export class Menu {
             const zhName = String(meta?.simplified || '').trim();
             return zhName.includes('货物') || zhName.includes('大崎支线');
         };
-
-        const RW_MENU_THROUGH_ENTRIES = Object.freeze([
-            {
-                category: 'UenoTokyo',
-                lineId: MENU_THROUGH_LINE_IDS.UENO_TOKYO,
-                lineName: THROUGH_SERVICE_DISPLAY.UenoTokyo.name,
-                color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color,
-                codes: ['JU', 'JT']
-            },
-            {
-                category: 'ShonanShinjuku',
-                lineId: MENU_THROUGH_LINE_IDS.SHONAN_SHINJUKU,
-                lineName: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name,
-                color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color,
-                codes: ['JS']
-            }
-        ]);
-
+        const RW_MENU_THROUGH_ENTRIES = SU_Info;
         const shouldUseRwMenuThroughEntries = (companyName) => String(companyName || '').trim() === 'JR-East';
 
         const appendCustomLineIcons = (leftBox, lineId, codes, color) => {

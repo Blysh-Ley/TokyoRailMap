@@ -4,7 +4,7 @@
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { getCachedJson, getCompanyLogoSrc } from '../lib/fetch.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from '../lib/line-icons.js';
-import { THROUGH_SERVICE_DISPLAY, isSUStations } from '../lib/shonanshinjuku-uenotokyo.js';
+import { THROUGH_SERVICE_DISPLAY, isSUStations,SU_Object } from '../lib/shonanshinjuku-uenotokyo.js';
 import {
     ELEMENT_UI_CONSTANTS,
     isDarkThemeActive,
@@ -27,12 +27,26 @@ const getCleanLineTitle = (meta, fallbackId) => {
 };
 
 const getStationGroupSUFlags = (stationIds = []) => {
-    const flags = { UenoTokyo: false, ShonanShinjuku: false };
-    for (const sid of Array.isArray(stationIds) ? stationIds : []) {
+    const categories = Object.keys(SU_Object);
+    const flags = Object.fromEntries(categories.map(c => [c, false]));
+    
+    const sids = Array.isArray(stationIds) ? stationIds : [];
+    
+    for (const sid of sids) {
+        if (categories.every(c => flags[c])) {
+            break;
+        }
+
         const value = isSUStations(sid);
-        if (value?.UenoTokyo) flags.UenoTokyo = true;
-        if (value?.ShonanShinjuku) flags.ShonanShinjuku = true;
+        if (!value) continue;
+
+        for (const c of categories) {
+            if (value[c]) {
+                flags[c] = true;
+            }
+        }
     }
+
     return flags;
 };
 
@@ -857,21 +871,34 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
         const lineStationNameByLineId = new Map();
         const lineStationCodeByLineId = new Map();
-        let stationGroupSUFlags = { UenoTokyo: false, ShonanShinjuku: false };
-        let stationGroupSUCodes = { UenoTokyo: new Set(), ShonanShinjuku: new Set() };
+        
+        // ==========================================
+        // 优化点 1：使用 SU_Object 动态初始化 Flags 和 Codes 对象
+        // 彻底杜绝硬编码 { UenoTokyo: false, ... }
+        // ==========================================
+        const suCategories = Object.keys(SU_Object);
+        let stationGroupSUFlags = Object.fromEntries(suCategories.map(c => [c, false]));
+        let stationGroupSUCodes = Object.fromEntries(suCategories.map(c => [c, new Set()]));
+
         if (stationId) {
             try {
                 const [groupsIndex, stationsIndex] = await Promise.all([getStationGroupsIndex(), getStationsIndex()]);
                 const groupIds = Array.from(new Set([stationId, ...((groupsIndex.get(stationId) || [stationId]).map((sid) => String(sid ?? '').trim()).filter(Boolean))]));
                 stationGroupSUFlags = getStationGroupSUFlags(groupIds);
 
-                // Collect SU station codes from group
+                // ==========================================
+                // 优化点 2：动态收集各直通线路的车站代码，消除重复的 if 判断
+                // ==========================================
                 for (const sid of groupIds) {
                     const c = String(stationsIndex?.idToCode?.get?.(sid) || '').trim();
                     if (!c) continue;
                     const flags = getStationGroupSUFlags([sid]);
-                    if (flags.UenoTokyo) stationGroupSUCodes.UenoTokyo.add(c);
-                    if (flags.ShonanShinjuku) stationGroupSUCodes.ShonanShinjuku.add(c);
+                    
+                    for (const category of suCategories) {
+                        if (flags[category]) {
+                            stationGroupSUCodes[category].add(c);
+                        }
+                    }
                 }
 
                 for (const lineIdRaw of servingIds) {
@@ -894,7 +921,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
 
         currentStationServingIds = servingIds.slice();
 
-    const nameHtml = `<div class="station-hover-name">${escapeHtml(name)}</div>`;
+        const nameHtml = `<div class="station-hover-name">${escapeHtml(name)}</div>`;
 
         const rootClass = interactive ? 'station-hover-popup is-interactive' : 'station-hover-popup';
 
@@ -977,24 +1004,22 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                 ? `<img class="station-hover-company-logo" src="${escapeHtml(logoSrc)}" alt="" />`
                 : '';
 
+            // ==========================================
+            // 优化点 3：利用 SU_Object 的 operator 动态判断是否注入直通运转数据
+            // 彻底摒弃了 if (company === 'JR-East') 和内部硬编码
+            // ==========================================
             const throughServiceLines = [];
-            if (company === 'JR-East') {
-                if (stationGroupSUFlags.ShonanShinjuku) {
+            for (const [category, info] of Object.entries(SU_Object)) {
+                // 仅当当前遍历的公司与配置中的 operator 匹配，且拥有该线路的 flag 时才添加
+                if (company === info.operator && stationGroupSUFlags[category]) {
                     throughServiceLines.push({
-                        key: 'ShonanShinjuku',
-                        displayName: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.name,
-                        color: THROUGH_SERVICE_DISPLAY.ShonanShinjuku.color,
-                        code: 'JS',
-                        stationCode: Array.from(stationGroupSUCodes.ShonanShinjuku).join(',')
-                    });
-                }
-                if (stationGroupSUFlags.UenoTokyo) {
-                    throughServiceLines.push({
-                        key: 'UenoTokyo',
-                        displayName: THROUGH_SERVICE_DISPLAY.UenoTokyo.name,
-                        color: THROUGH_SERVICE_DISPLAY.UenoTokyo.color,
-                        code: 'JU/JT',
-                        stationCode: Array.from(stationGroupSUCodes.UenoTokyo).join(',')
+                        key: category,
+                        // 优先读 SU_Object 里的配置，兼容老的 THROUGH_SERVICE_DISPLAY
+                        displayName: info.lineName || THROUGH_SERVICE_DISPLAY?.[category]?.name || '',
+                        color: info.color || THROUGH_SERVICE_DISPLAY?.[category]?.color || '',
+                        // 智能拼接 code：如果配置是数组 ['JU', 'JT'] 就用 / 连起来，变成 'JU/JT'
+                        code: Array.isArray(info.codes) ? info.codes.join('/') : (info.codes || ''),
+                        stationCode: Array.from(stationGroupSUCodes[category] || []).join(',')
                     });
                 }
             }
@@ -1003,7 +1028,9 @@ export function setupStationPopup(map, maplibregl, options = {}) {
             const dedupedLines = [];
             const seenDisplayNames = new Set();
             for (const line of [...sortedLines, ...throughServiceLines]) {
-                const candidateName = stripParenText(String(line?.displayName ?? '')).trim() || String(line?.lineId ?? '').trim();
+                const candidateName = line.key 
+                ? String(line.displayName).trim() 
+                : (stripParenText(String(line?.displayName ?? '')).trim() || String(line?.lineId ?? '').trim());
                 if (!candidateName) continue;
                 if (seenDisplayNames.has(candidateName)) continue;
                 seenDisplayNames.add(candidateName);
