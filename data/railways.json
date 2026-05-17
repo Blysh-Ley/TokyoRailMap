@@ -595,11 +595,11 @@
 	{
 		"id": "JR-East.SobuRapid",
 		"title": {
-			"ja": "横須賀・総武快速線",
+			"ja": "総武快速線",
 			"en": "Sobu Rapid Line",
 			"ko": "소부 쾌속선",
-			"zh-Hans": "横须贺·总武快速线",
-			"zh-Hant": "横須賀·總武快速線"
+			"zh-Hans": "总武快速线",
+			"zh-Hant": "總武快速線"
 		},
 		"stations": [
 			"JR-East.SobuRapid.Tokyo",
@@ -836,11 +836,11 @@
 	{
 		"id": "JR-East.Yokosuka",
 		"title": {
-			"ja": "横須賀・総武快速線",
+			"ja": "横須賀線",
 			"en": "Yokosuka Line",
 			"ko": "요코스카 선",
-			"zh-Hans": "横须贺·总武快速线",
-			"zh-Hant": "橫須賀·總武快速線"
+			"zh-Hans": "横须贺线",
+			"zh-Hant": "橫須賀線"
 		},
 		"stations": [
 			"JR-East.Yokosuka.Tokyo",
