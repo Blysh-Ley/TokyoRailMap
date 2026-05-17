@@ -218,20 +218,22 @@ const SU_STATION_IDS_BY_CATEGORY = Object.freeze({
 export const THROUGH_SERVICE_TEMP_LINE_IDS = Object.freeze({
     UENO_TOKYO: 'TokyoRail.Temp.UenoTokyo',
     SHONAN_SHINJUKU: 'TokyoRail.Temp.ShonanShinjuku',
-    UENO_TOKYO_JOBAN: 'TokyoRail.Temp.UenoTokyoJoban'
+    UENO_TOKYO_JOBAN: 'TokyoRail.Temp.UenoTokyoJoban',
+    YOKOSUKA_SOBU_RAPID: 'TokyoRail.Temp.YokosukaSobuRapid'
 });
 
 export const THROUGH_SERVICE_DISPLAY = Object.freeze({
     ShonanShinjuku: { name: '湘南新宿线', color: '#E31F26' },
     UenoTokyo: { name: '上野东京线', color: '#F68B1E' },
-    UenoTokyoJoban: { name: '上野东京线（常磐快速）', color: '#00B261' }
+    UenoTokyoJoban: { name: '上野东京线（常磐快速）', color: '#00B261' },
+    YokosukaSobuRapid: { name: '横须贺·总武快速线', color: '#007AC1' }
 });
 
 export const MENU_THROUGH_LINE_IDS = Object.freeze({
     UENO_TOKYO: 'TokyoRail.MenuThrough.UenoTokyo',
     SHONAN_SHINJUKU: 'TokyoRail.MenuThrough.ShonanShinjuku',
-    UENO_TOKYO_JOBAN: 'TokyoRail.MenuThrough.UenoTokyoJoban'
-
+    UENO_TOKYO_JOBAN: 'TokyoRail.MenuThrough.UenoTokyoJoban',
+    YOKOSUKA_SOBU_RAPID: 'TokyoRail.MenuThrough.YokosukaSobuRapid'
 });
 
 export const SU_Info = Object.freeze([
@@ -322,6 +324,34 @@ export const SU_Info = Object.freeze([
             'JR-East.Ryomo'
         ],
         triggerStations: ['Ueno', 'Tokyo']
+    },
+    {
+        operator: 'JR-East',
+        category: 'YokosukaSobuRapid',
+        lineId: MENU_THROUGH_LINE_IDS.YOKOSUKA_SOBU_RAPID,
+        tempId: THROUGH_SERVICE_TEMP_LINE_IDS.YOKOSUKA_SOBU_RAPID,
+        lineName: THROUGH_SERVICE_DISPLAY.YokosukaSobuRapid.name,
+        color: THROUGH_SERVICE_DISPLAY.YokosukaSobuRapid.color,
+        codes: ['JO'],
+        routeIds: ['JR-East.Yokosuka', 'JR-East.SobuRapid'],
+        directionRule: { southNode: 'Shinagawa', northNode: 'ShinNihombashi' },
+        stations: SU_STATION_IDS_BY_CATEGORY.YokosukaSobuRapid,
+        triggerLineIds: [
+            'JR-East.Yokosuka',
+            'JR-East.SobuRapid'
+        ],
+        excludeLineIds: [
+            'JR-East.KeihinTohokuNegishi',
+            'JR-East.Yamanote',
+            'JR-East.SaikyoKawagoe',
+            'JR-East.Tokaido',
+            'JR-Central.Tokaido',
+            'JR-East.Takasaki',
+            'JR-East.Utsunomiya',
+            'JR-East.Ito',
+            'JR-East.Ryomo'
+        ],
+        triggerStations: ['Shinagawa', 'ShinNihombashi']
     }
 ]);
 
