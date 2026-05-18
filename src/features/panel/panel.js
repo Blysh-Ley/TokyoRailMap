@@ -3744,7 +3744,7 @@ export function createPanel(options = {}) {
             const nextLinePrefixes = new Set();
             const previousLinePrefixes = new Set();
             const currentLineDirctionForNext = new Set();
-            const currentLineDirctionForPrevious = new Set();
+            const currentLineDirectionForPrevious = new Set();
 
             
             for (const trip of rawList) {
@@ -3771,7 +3771,7 @@ export function createPanel(options = {}) {
                         const prefix = ref.split('.').slice(0, 2).join('.');
                         const direction = trip.d;
                         if (prefix) previousLinePrefixes.add(prefix);
-                        if (direction) currentLineDirctionForPrevious.add(direction);
+                        if (direction) currentLineDirectionForPrevious.add(direction);
                     });
                 }
             }
@@ -3801,7 +3801,7 @@ export function createPanel(options = {}) {
                     // 2. 执行插入与 ID 归化
                     if (shouldAdd) {
                         // 使用深拷贝防止污染 window.TokyoRailTimetableCache
-                        const newTrip = JSON.parse(JSON.stringify(trip));
+                        const newTrip = structuredClone(trip);
 
                         // 替换 Trip ID：确保运行日过滤、缓存 Key 匹配正常
                         if (typeof newTrip.id === 'string') {
@@ -3819,7 +3819,7 @@ export function createPanel(options = {}) {
 
             if (previousLinePrefixes.size === 1) {
                 const previousLineId = Array.from(previousLinePrefixes)[0];
-                const currentLineDirc = Array.from(currentLineDirctionForPrevious)[0];
+                const currentLineDirc = Array.from(currentLineDirectionForPrevious)[0];
                 const previousLineSourceData = await loadTimetableForLineId(previousLineId);
                 previousLineSourceData.forEach(trip => {
                     let shouldAdd = false;
@@ -3828,11 +3828,14 @@ export function createPanel(options = {}) {
                     const nt = trip?.nt;
                     if(isTerminal && !nt) shouldAdd = true;
                     if (shouldAdd) {
-                        const newTrip = JSON.parse(JSON.stringify(trip));
+                        const newTrip = structuredClone(trip);
+                        newTrip.isVirtualTrip = true; // 标记为虚拟班次，供后续处理使用
                         if (typeof newTrip.id === 'string') {
+                            newTrip.originId = newTrip.id;
                             newTrip.id = newTrip.id.replace(previousLineId, sourceLineId);
                         }
                         if (typeof newTrip.d === 'string') {
+                            newTrip.originD = newTrip.d;
                             newTrip.d = currentLineDirc;
                         }
                         displayList.push(newTrip);
@@ -3847,8 +3850,6 @@ export function createPanel(options = {}) {
                 trackTypeSummary: true
             });
             rows.push(...displayRows);
-            
-            console.log('rows',rows)
 
             const previewRows = await collectRowsFromTripList({
                 tripList: rawList,
@@ -6880,10 +6881,10 @@ export function createPanel(options = {}) {
             if (hoverCandidateKey !== key) return;
             lastFiredHoverKey = key;
 
-            if (target.kind === 'dir') {
+            if (target.kind === 'dir' && !target.key.includes('Loop')) {
                 applyDirPreviewByKey(target.lineDirKey, { fitMode: 'preview' });
                 lastMousePrimaryKey = key;
-            } else if (target.kind === 'line') {
+            } else if (target.kind === 'line' || target.key.includes('Loop')) {
                 applyLineHoverSelection(target.lineId);
                 lastMousePrimaryKey = key;
             } else if (target.kind === 'company') {
