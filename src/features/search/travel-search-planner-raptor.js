@@ -8,7 +8,7 @@ const MIN_TRANSFER_MS = 5 * 60 * 1000;
 export const getReachableStopsWithinMinutes = async ({ originStationId, minutes, departureMs = Date.now(), setTo8 = true, offsetsMin = [0, 240, 540, 840], serviceDay = null, maxRounds = 7 } = {}) => {
     await ensurePlannerStaticData();
     const originId = normalizeText(originStationId);
-    const mins = Number(minutes);
+    const mins = Number(minutes+5);
     const originMs = Number.isFinite(Number(departureMs)) ? Number(departureMs) : Date.now();
     const date = new Date(originMs);
     if (setTo8) date.setHours(8, 0, 0, 0);
@@ -60,7 +60,7 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes,
                 if (t <= dynamicCutoffMs) {
                     reachableSet.add(stopId);
                     
-                    const rem = Math.max(300000, dynamicCutoffMs - t);
+                    const rem = Math.max(150000, dynamicCutoffMs - t);
                     
                     // 如果 Map 中还没有这个站点，先初始化一个空数组
                     if (!remainingMsByStopMap.has(stopId)) {
