@@ -773,7 +773,7 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
             const k = toRailwaysOrderKey(line?.lineId);
             let r = k ? orderIndex.get(k) : undefined;
             
-            if (!Number.isFinite(r) && maxTriggerRank > Number.NEGATIVE_INFINITY) {
+            if  (!Number.isFinite(r) && maxTriggerRank > Number.NEGATIVE_INFINITY) {
                 // 动态查找该线路在 THROUGH_SERVICE_CONFIGS 中的索引
                 const suIndex = THROUGH_SERVICE_CONFIGS.findIndex(info => info.tempId === line?.lineId);
                 
@@ -806,6 +806,11 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
 
         let linesHtml = '';
         for (const line of sortedLines) {
+            const isVirtualThrough = line.lineId 
+                ? THROUGH_SERVICE_CONFIGS.some(info => info.tempId === line.lineId || info.lineId === line.lineId)
+                : false;
+            const boldClass = isVirtualThrough ? ' panel-line-name-main-bold' : '';
+
             const style = typeof line.color === 'string' && line.color.trim() ? ` style="color:${escapeHtml(line.color.trim())}"` : '';
             const transferMetaRaw = line.lineId
                 ? (lineStationNameByLineId?.get?.(line.lineId) || lineStationNameByLineId?.[line.lineId] || null)
@@ -831,7 +836,7 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
             linesHtml += `
                 <div class="panel-line"${idAttr}${style}>
                     <div class="panel-line-header">
-                        <span class="panel-line-name" data-line-name="${escapeHtml(line.displayName)}"${transferCodeAttr}><span class="panel-line-name-main">${escapeHtml(line.displayName)}</span></span>
+                        <span class="panel-line-name" data-line-name="${escapeHtml(line.displayName)}"${transferCodeAttr}><span class="panel-line-name-main${boldClass}">${escapeHtml(line.displayName)}</span></span>
                     </div>
                     ${suffixHtml ? `<div class="panel-line-suffix-row" data-line-suffix-row="1">${suffixHtml}</div>` : ''}
                     <div class="panel-station-info" data-station-info="1">
@@ -2961,7 +2966,7 @@ export function createPanel(options = {}) {
     const deriveThroughServiceDirectionFromChain = async (trip, displayLineId) => {
         const lineId = toText(displayLineId);
 
-        const targetInfo = THROUGH_SERVICE_CONFIGS.find((info) => info.lineId === lineId);
+        const targetInfo = THROUGH_SERVICE_CONFIGS.find((info) => info.tempId === lineId);
         const directionRule = targetInfo?.directionRule;
 
         // 如果不是特殊的直通线路，或者没有配置测向规则（如常磐线），直接退出
@@ -2969,6 +2974,7 @@ export function createPanel(options = {}) {
 
         const ptChain = await collectTripChainByRef(trip, 'pt');
         const ntChain = await collectTripChainByRef(trip, 'nt');
+
         const orderedTrips = [
             ...(Array.isArray(ptChain) ? ptChain.slice().reverse() : []),
             trip,
@@ -3578,7 +3584,6 @@ export function createPanel(options = {}) {
                     if (currentSid === stationKey) return true;
 
                     // 2. 如果不一致，再查换乘组索引
-                    // 使用 ?. 进行双重保险，确保 sg 存在且能找到分组数组
                     return sg?.get?.(currentSid)?.includes?.(stationKey);
                 });
 
@@ -3607,6 +3612,9 @@ export function createPanel(options = {}) {
                 const hasPt = ptRefs.some((x) => !!toText(x));
                 const hasNt = ntRefs.some((x) => !!toText(x));
                 const tripDirectionCacheKey = `${toText(lineId)}||${toText(trip?.id) || toText(trip?.t)}`;
+                const isOriginStation = sg?.get?.(trip.tt?.[0]?.s)?.includes?.(stationKey) || trip.tt?.[0]?.s === stationKey;
+                const isTerminalStation = sg?.get?.(trip.tt.at(-1)?.s)?.includes?.(stationKey) || trip.tt.at(-1)?.s === stationKey;
+
                 let derivedThroughDirection = throughDirectionCache.get(tripDirectionCacheKey);
                 if (derivedThroughDirection === undefined) {
                     derivedThroughDirection = await deriveThroughServiceDirectionFromChain(trip, lineId);
@@ -3615,10 +3623,6 @@ export function createPanel(options = {}) {
                 const dir = toText(derivedThroughDirection || trip?.d);
                 const isLoopDirection = /Loop/i.test(dir);
                 const skipCrossTripFillForLoop = isLoopDirection && (hasPt || hasNt);
-
-                const isOriginStation = sg?.get?.(trip.tt?.[0]?.s)?.includes?.(stationKey) || trip.tt?.[0]?.s === stationKey;
-                const isTerminalStation = sg?.get?.(trip.tt.at(-1)?.s)?.includes?.(stationKey) || trip.tt.at(-1)?.s === stationKey;
-
                 // 真始发/真终点：没有 pt/nt 的端点站，不补全时间
                 const showOriginLabel = isOriginStation && !hasPt;
                 const showTerminalLabel = isTerminalStation && !hasNt;
@@ -3683,7 +3687,7 @@ export function createPanel(options = {}) {
                 const specialNames = await collectTripSpecialNames(trip);
 
                 const tripKey = tripId || toText(trip?.t) || '';
-                const baseTripKey = toText(trip?.t) || (tripId ? tripId.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '') : '');
+                const baseTripKey = toText(trip?.n) //|| (tripId ? tripId.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '') : '');
 
                 const arrParsed = arr ? parseHHMMToServiceDayMs(arr, serviceDayStartMs) : null;
                 const depParsed = dep ? parseHHMMToServiceDayMs(dep, serviceDayStartMs) : null;
@@ -3843,6 +3847,8 @@ export function createPanel(options = {}) {
                 trackTypeSummary: true
             });
             rows.push(...displayRows);
+            
+            console.log('rows',rows)
 
             const previewRows = await collectRowsFromTripList({
                 tripList: rawList,
@@ -3884,6 +3890,7 @@ export function createPanel(options = {}) {
             };
 
             const merged = new Map();
+            
             for (const r of rows) {
                 const base = toText(r?.baseTripKey) || toText(r?.tripKey);
                 const dkey = toText(r?.dir) || 'Unknown';

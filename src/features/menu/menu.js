@@ -606,7 +606,7 @@ export class Menu {
 
             let decoratedWithMenuThrough = decoratedFiltered;
             if (shouldUseRwMenuThroughEntries(companyName)) {
-                const insertIndex = Math.min(7, decoratedFiltered.length);
+                const insertIndex = Math.min(5, decoratedFiltered.length);
                 decoratedWithMenuThrough = decoratedFiltered.slice();
                 const virtualRows = RW_MENU_THROUGH_ENTRIES.map((entry, idx) => ({
                     lineId: entry.lineId,
@@ -640,6 +640,11 @@ export class Menu {
                 const nameSpan = document.createElement('span');
                 nameSpan.className = 'RW-line-name';
                 nameSpan.textContent = lineName;
+
+                if (isVirtualThrough) {
+                    nameSpan.style.fontWeight = 'bold'; 
+                    nameSpan.style.fontStyle = 'italic';
+                }
 
                 leftBox.appendChild(nameSpan);
                 lineContent.appendChild(leftBox);

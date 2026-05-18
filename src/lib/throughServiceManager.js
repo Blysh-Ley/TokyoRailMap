@@ -1,6 +1,6 @@
 const toText = (value) => String(value ?? '').trim();
 
-const SU_STATION_IDS_BY_CATEGORY = Object.freeze({
+const THROUGH_STATION_IDS_BY_CATEGORY = Object.freeze({
     UenoTokyo: Object.freeze([
     "JR-East.Tokaido.Tokyo",
     "JR-East.Tokaido.Shimbashi",
@@ -225,8 +225,8 @@ export const THROUGH_SERVICE_TEMP_LINE_IDS = Object.freeze({
 export const THROUGH_SERVICE_DISPLAY = Object.freeze({
     ShonanShinjuku: { name: '湘南新宿线', color: '#E31F26' },
     UenoTokyo: { name: '上野东京线', color: '#F68B1E' },
-    UenoTokyoJoban: { name: '上野东京线（常磐快速）', color: '#00B261' },
-    YokosukaSobuRapid: { name: '横须贺·总武快速线', color: '#007AC1' }
+    UenoTokyoJoban: { name: '上野东京线(常磐线)', color: '#00B261' },
+    YokosukaSobuRapid: { name: '横须贺线·总武线(快速)', color: '#007AC1' }
 });
 
 export const MENU_THROUGH_LINE_IDS = Object.freeze({
@@ -247,7 +247,7 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
         codes: ['JU', 'JT'],
         routeIds: ['JR-East.Tokaido','JR-East.Utsunomiya'],
         directionRule: { southNode: 'Tokyo', northNode: 'Ueno' },
-        stations: SU_STATION_IDS_BY_CATEGORY.UenoTokyo,
+        stations: THROUGH_STATION_IDS_BY_CATEGORY.UenoTokyo,
         triggerLineIds: [
             'JR-East.Tokaido',
             'JR-Central.Tokaido',
@@ -264,7 +264,7 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
             'JR-East.Joban',
             'JR-East.NaritaAbikoBranch'
         ],
-        triggerStations: ['Ueno', 'Tokyo']
+        triggerStations: ['Tokyo', 'Ueno']
     },
     {
         operator: 'JR-East',
@@ -276,7 +276,7 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
         codes: ['JS'],
         routeIds: ['JR-East.ShonanShinjuku'],
         directionRule: { southNode: 'Shibuya', northNode: 'Shinjuku' },
-        stations: SU_STATION_IDS_BY_CATEGORY.ShonanShinjuku,
+        stations: THROUGH_STATION_IDS_BY_CATEGORY.ShonanShinjuku,
         triggerLineIds: [
             'JR-East.Tokaido',
             'JR-East.ShonanShinjuku',
@@ -306,11 +306,16 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
         codes: ['JJ'],
         routeIds: ['JR-East.JobanRapid'],
         directionRule: { southNode: 'Tokyo', northNode: 'Ueno' },
-        stations: SU_STATION_IDS_BY_CATEGORY.UenoTokyoJoban,
+        stations: THROUGH_STATION_IDS_BY_CATEGORY.UenoTokyoJoban,
         triggerLineIds: [
             'JR-East.JobanRapid',
             'JR-East.Joban',
             'JR-East.NaritaAbikoBranch',
+            "JR-East.Uchibo",
+            "JR-East.Sotobo",
+            "JR-East.Narita",
+            "JR-East.NaritaAirportBranch",
+            "JR-East.Kashima"
         ],
         excludeLineIds: [
             'JR-East.KeihinTohokuNegishi',
@@ -323,7 +328,7 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
             'JR-East.Ito',
             'JR-East.Ryomo'
         ],
-        triggerStations: ['Ueno', 'Tokyo']
+        triggerStations: ['Tokyo', 'Ueno']
     },
     {
         operator: 'JR-East',
@@ -335,10 +340,11 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
         codes: ['JO'],
         routeIds: ['JR-East.Yokosuka', 'JR-East.SobuRapid'],
         directionRule: { southNode: 'Shinagawa', northNode: 'ShinNihombashi' },
-        stations: SU_STATION_IDS_BY_CATEGORY.YokosukaSobuRapid,
+        stations: THROUGH_STATION_IDS_BY_CATEGORY.YokosukaSobuRapid,
         triggerLineIds: [
             'JR-East.Yokosuka',
-            'JR-East.SobuRapid'
+            'JR-East.SobuRapid',
+            'JR-East.Sobu',
         ],
         excludeLineIds: [
             'JR-East.KeihinTohokuNegishi',
@@ -373,7 +379,7 @@ export const isSUStations = (stationId) => {
     return Object.fromEntries(
         THROUGH_SERVICE_CONFIGS_Categories.map(category => [
             category,
-            (SU_STATION_IDS_BY_CATEGORY[category] || []).includes(sid)
+            (THROUGH_STATION_IDS_BY_CATEGORY[category] || []).includes(sid)
         ])
     );
 };
@@ -496,7 +502,7 @@ export const detectThroughServiceCategoryFromTrips = (trips) => {
     const list = Array.isArray(trips) ? trips : [];
     
     // 如果包含 nm 标记（通常代表某种特急或特殊的非直通服务），直接排除
-    if (list.some((trip) => hasNmServiceMarker(trip))) return '';
+    //if (list.some((trip) => hasNmServiceMarker(trip))) return '';
 
     const chainLineIds = [];
     const visitedStations = new Set(); // 替代了旧的 flags 对象

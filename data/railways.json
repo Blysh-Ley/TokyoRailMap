@@ -50,11 +50,11 @@
 	{
 		"id": "JR-East.ChuoRapid",
 		"title": {
-			"ja": "中央線快速",
+			"ja": "中央線(快速)",
 			"en": "Chuo Rapid Line",
 			"ko": "주오 선 쾌속",
-			"zh-Hans": "中央线快速",
-			"zh-Hant": "中央線快速"
+			"zh-Hans": "中央线(快速)",
+			"zh-Hant": "中央線(快速)"
 		},
 		"stations": [
 			"JR-East.ChuoRapid.Tokyo",
@@ -486,11 +486,11 @@
 	{
 		"id": "JR-East.JobanRapid",
 		"title": {
-			"ja": "常磐線快速",
+			"ja": "常磐線(快速)",
 			"en": "Joban Rapid Line",
 			"ko": "조반 선 쾌속",
-			"zh-Hans": "常磐线快速",
-			"zh-Hant": "常磐線快速"
+			"zh-Hans": "常磐线(快速)",
+			"zh-Hant": "常磐線(快速)"
 		},
 		"stations": [
 			"JR-East.JobanRapid.Shinagawa",
@@ -595,11 +595,11 @@
 	{
 		"id": "JR-East.SobuRapid",
 		"title": {
-			"ja": "総武快速線",
+			"ja": "総武線(快速)",
 			"en": "Sobu Rapid Line",
 			"ko": "소부 쾌속선",
-			"zh-Hans": "总武快速线",
-			"zh-Hant": "總武快速線"
+			"zh-Hans": "总武线(快速)",
+			"zh-Hant": "總武線(快速)"
 		},
 		"stations": [
 			"JR-East.SobuRapid.Tokyo",
