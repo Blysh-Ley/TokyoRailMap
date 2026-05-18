@@ -60,7 +60,7 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes,
                 if (t <= dynamicCutoffMs) {
                     reachableSet.add(stopId);
                     
-                    const rem = Math.max(0, dynamicCutoffMs - t);
+                    const rem = Math.max(300000, dynamicCutoffMs - t);
                     
                     // 如果 Map 中还没有这个站点，先初始化一个空数组
                     if (!remainingMsByStopMap.has(stopId)) {
