@@ -124,7 +124,8 @@ const enhancePopupLineBadges = async ({ popup, mode }) => {
             badge.style.marginLeft = '6px';
             const suffixEl = lineEl.querySelector('.station-hover-line-suffix');
             if (suffixEl) {
-                badge.style.marginRight = '4px';
+                badge.style.marginRight = '0';
+                suffixEl.style.marginLeft = '0';
                 lineEl.insertBefore(badge, suffixEl);
             } else {
                 lineEl.append(badge);
