@@ -20,9 +20,9 @@ import {
     TRIGGER_LINE_IDS,
     THROUGH_SERVICE_TEMP_LINE_IDS,
     THROUGH_SERVICE_DISPLAY,
-    SU_Info,
-    SU_Object,
-} from '../../lib/shonanshinjuku-uenotokyo.js';
+    THROUGH_SERVICE_CONFIGS,
+    THROUGH_SERVICE_CONFIGS_OBJECT,
+} from '../../lib/throughServiceManager.js';
 import {
     buildTimetableStationText,
     renderTimetableNoteRowHtml,
@@ -54,7 +54,7 @@ const enhancePanelLineHeaderIcons = async (rootEl) => {
         const lineId = toText(lineEl?.getAttribute?.('data-line-id'));
         if (!lineId) continue;
 
-        const info = SU_Info.find(item => 
+        const info = THROUGH_SERVICE_CONFIGS.find(item => 
             lineId === item.tempId
         );
 
@@ -774,11 +774,11 @@ function buildCompaniesHtml(props = {}, { getLineMeta, companyLogoMap, lineStati
             let r = k ? orderIndex.get(k) : undefined;
             
             if (!Number.isFinite(r) && maxTriggerRank > Number.NEGATIVE_INFINITY) {
-                // 动态查找该线路在 SU_Info 中的索引
-                const suIndex = SU_Info.findIndex(info => info.tempId === line?.lineId);
+                // 动态查找该线路在 THROUGH_SERVICE_CONFIGS 中的索引
+                const suIndex = THROUGH_SERVICE_CONFIGS.findIndex(info => info.tempId === line?.lineId);
                 
                 if (suIndex !== -1) {
-                    r = maxTriggerRank + ((SU_Info.length - suIndex) * 0.1);
+                    r = maxTriggerRank + ((THROUGH_SERVICE_CONFIGS.length - suIndex) * 0.1);
                 }
             }
             
@@ -2468,7 +2468,7 @@ export function createPanel(options = {}) {
         const source = 'panel-dir-branch';
 
         const targetId = toText(meta.lineId);
-        const throughServiceCategory = SU_Info.find(info => 
+        const throughServiceCategory = THROUGH_SERVICE_CONFIGS.find(info => 
             info.lineId === targetId 
         )?.category || '';
 
@@ -2961,7 +2961,7 @@ export function createPanel(options = {}) {
     const deriveThroughServiceDirectionFromChain = async (trip, displayLineId) => {
         const lineId = toText(displayLineId);
 
-        const targetInfo = SU_Info.find((info) => info.lineId === lineId);
+        const targetInfo = THROUGH_SERVICE_CONFIGS.find((info) => info.lineId === lineId);
         const directionRule = targetInfo?.directionRule;
 
         // 如果不是特殊的直通线路，或者没有配置测向规则（如常磐线），直接退出
@@ -5268,12 +5268,12 @@ export function createPanel(options = {}) {
             ...(Array.isArray(ntChain) ? ntChain : [])
         ]);
 
-        const THROUGH_CATEGORY_COLOR = SU_Info.reduce((acc, info) => {
+        const THROUGH_CATEGORY_COLOR = THROUGH_SERVICE_CONFIGS.reduce((acc, info) => {
             acc[info.category] = info.color;
             return acc;
         }, {});
 
-        const currentSuInfo = SU_Info.find(info => info.category === throughCategory);
+        const currentSuInfo = THROUGH_SERVICE_CONFIGS.find(info => info.category === throughCategory);
         const throughCategoryLabel = currentSuInfo ? currentSuInfo.lineName : '';
 
         const throughCategoryColor = toText(THROUGH_CATEGORY_COLOR[throughCategory] || '');
@@ -7341,7 +7341,6 @@ export function createPanel(options = {}) {
             )
         });
         if (renderToken !== stationRenderToken) return;
-        console.log(throughPlan)
         if (throughPlan) {
                     // 1. 初始化 Map
                     temporaryPanelLineMetaById = throughPlan.temporaryLineMetaById instanceof Map 

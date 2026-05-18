@@ -18,8 +18,8 @@ import { COMPANY_LOGO_BASE_PATH, getCompanyLogoCandidates, getPreferredCachedIma
 import {
     MENU_THROUGH_LINE_IDS,
     THROUGH_SERVICE_DISPLAY,
-    SU_Info
-} from '../../lib/shonanshinjuku-uenotokyo.js';
+    THROUGH_SERVICE_CONFIGS
+} from '../../lib/throughServiceManager.js';
 import { isBranchLineId, preferredOrder, resolveMainLineIdByBranchRule } from '../../lib/special-condition.js';
 
 export class Menu {
@@ -391,7 +391,7 @@ export class Menu {
             const zhName = String(meta?.simplified || '').trim();
             return zhName.includes('货物') || zhName.includes('大崎支线');
         };
-        const RW_MENU_THROUGH_ENTRIES = SU_Info;
+        const RW_MENU_THROUGH_ENTRIES = THROUGH_SERVICE_CONFIGS;
         const shouldUseRwMenuThroughEntries = (companyName) => String(companyName || '').trim() === 'JR-East';
 
         const appendCustomLineIcons = (leftBox, lineId, codes, color) => {

@@ -41,8 +41,8 @@ import {
     THROUGH_SERVICE_DISPLAY,
     getMenuThroughCategoryByLineId,
     isMenuThroughLineId,
-    SU_Object
-} from './lib/shonanshinjuku-uenotokyo.js';
+    THROUGH_SERVICE_CONFIGS_OBJECT
+} from './lib/throughServiceManager.js';
 import './features/route-map/route-map-ui.js';
 import { companyLogoMap, resolveLineSelectionByBranchRules } from './lib/special-condition.js';
 
@@ -1641,14 +1641,14 @@ map.on('load', async () => {
 
     const MENU_THROUGH_SOURCE_BY_CATEGORY = Object.freeze(
         Object.fromEntries(
-            Object.entries(SU_Object).map(([category, info]) => [
+            Object.entries(THROUGH_SERVICE_CONFIGS_OBJECT).map(([category, info]) => [
                 category, 
                 Object.freeze(info.routeIds)
             ])
         )
     );
     const MENU_THROUGH_PREVIEW_SOURCES = Object.freeze(
-        Object.values(SU_Object).map(info => `rw-menu-through:${info.lineId}`)
+        Object.values(THROUGH_SERVICE_CONFIGS_OBJECT).map(info => `rw-menu-through:${info.lineId}`)
     );
     const getMenuThroughDisplayByCategory = (category) => {
         return THROUGH_SERVICE_DISPLAY[category] || null;
@@ -1677,7 +1677,7 @@ map.on('load', async () => {
 
         const fallback = String(payload?.highlightColor || payload?.typeColor || '').trim();
         const throughColors = new Set(
-            Object.values(SU_Object)
+            Object.values(THROUGH_SERVICE_CONFIGS_OBJECT)
                 .map(info => String(info.color || '').trim().toLowerCase())
                 .filter(Boolean)
         );
@@ -1984,7 +1984,7 @@ map.on('load', async () => {
 
             clearSelectionBadgeIcons();
             const throughCategory = getMenuThroughCategoryByLineId(sid);
-            const info = SU_Object[throughCategory];
+            const info = THROUGH_SERVICE_CONFIGS_OBJECT[throughCategory];
 
             if (info) {
                 for (const code of info.codes || []) {
@@ -4498,7 +4498,7 @@ map.on('load', async () => {
             const coordsForBbox = [];
             const stopIds = new Set();
             const throughServiceHighlightColors = new Set(
-                Object.values(SU_Object)
+                Object.values(THROUGH_SERVICE_CONFIGS_OBJECT)
                     .map(info => String(info.color || '').trim().toLowerCase())
                     .filter(Boolean)
             );

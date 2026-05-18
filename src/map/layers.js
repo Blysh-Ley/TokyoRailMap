@@ -4,7 +4,7 @@
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { getCachedJson, getCompanyLogoSrc } from '../lib/fetch.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from '../lib/line-icons.js';
-import { THROUGH_SERVICE_DISPLAY, isSUStations,SU_Object } from '../lib/shonanshinjuku-uenotokyo.js';
+import { THROUGH_SERVICE_DISPLAY, isSUStations,THROUGH_SERVICE_CONFIGS_OBJECT } from '../lib/throughServiceManager.js';
 import {
     ELEMENT_UI_CONSTANTS,
     isDarkThemeActive,
@@ -27,7 +27,7 @@ const getCleanLineTitle = (meta, fallbackId) => {
 };
 
 const getStationGroupSUFlags = (stationIds = []) => {
-    const categories = Object.keys(SU_Object);
+    const categories = Object.keys(THROUGH_SERVICE_CONFIGS_OBJECT);
     const flags = Object.fromEntries(categories.map(c => [c, false]));
     
     const sids = Array.isArray(stationIds) ? stationIds : [];
@@ -873,10 +873,10 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         const lineStationCodeByLineId = new Map();
         
         // ==========================================
-        // 优化点 1：使用 SU_Object 动态初始化 Flags 和 Codes 对象
+        // 优化点 1：使用 THROUGH_SERVICE_CONFIGS_OBJECT 动态初始化 Flags 和 Codes 对象
         // 彻底杜绝硬编码 { UenoTokyo: false, ... }
         // ==========================================
-        const suCategories = Object.keys(SU_Object);
+        const suCategories = Object.keys(THROUGH_SERVICE_CONFIGS_OBJECT);
         let stationGroupSUFlags = Object.fromEntries(suCategories.map(c => [c, false]));
         let stationGroupSUCodes = Object.fromEntries(suCategories.map(c => [c, new Set()]));
 
@@ -1005,16 +1005,16 @@ export function setupStationPopup(map, maplibregl, options = {}) {
                 : '';
 
             // ==========================================
-            // 优化点 3：利用 SU_Object 的 operator 动态判断是否注入直通运转数据
+            // 优化点 3：利用 THROUGH_SERVICE_CONFIGS_OBJECT 的 operator 动态判断是否注入直通运转数据
             // 彻底摒弃了 if (company === 'JR-East') 和内部硬编码
             // ==========================================
             const throughServiceLines = [];
-            for (const [category, info] of Object.entries(SU_Object)) {
+            for (const [category, info] of Object.entries(THROUGH_SERVICE_CONFIGS_OBJECT)) {
                 // 仅当当前遍历的公司与配置中的 operator 匹配，且拥有该线路的 flag 时才添加
                 if (company === info.operator && stationGroupSUFlags[category]) {
                     throughServiceLines.push({
                         key: category,
-                        // 优先读 SU_Object 里的配置，兼容老的 THROUGH_SERVICE_DISPLAY
+                        // 优先读 THROUGH_SERVICE_CONFIGS_OBJECT 里的配置，兼容老的 THROUGH_SERVICE_DISPLAY
                         displayName: info.lineName || THROUGH_SERVICE_DISPLAY?.[category]?.name || '',
                         color: info.color || THROUGH_SERVICE_DISPLAY?.[category]?.color || '',
                         // 智能拼接 code：如果配置是数组 ['JU', 'JT'] 就用 / 连起来，变成 'JU/JT'

@@ -16,7 +16,7 @@ import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCached
 import { previewBranchesForLine } from '../../map/analyze_branch.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
 import { getTransferStationIdsByStationId } from '../../app.js';
-import { MENU_THROUGH_LINE_IDS, SU_Object, THROUGH_SERVICE_DISPLAY, isSUStations as isStationSUStations } from '../../lib/shonanshinjuku-uenotokyo.js';
+import { MENU_THROUGH_LINE_IDS, THROUGH_SERVICE_CONFIGS_OBJECT, THROUGH_SERVICE_DISPLAY, isSUStations as isStationSUStations } from '../../lib/throughServiceManager.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -69,7 +69,7 @@ const getRouteIdFromStationId = (stationId) => {
     return parts[0] || '';
 };
 
-export const SU_SERVICE_INFO_BY_KEY = SU_Object;
+export const SU_SERVICE_INFO_BY_KEY = THROUGH_SERVICE_CONFIGS_OBJECT;
 
 const getTransferSUFlags = ({ selfRouteId, routeIds } = {}) => {
     const ids = new Set([
@@ -78,7 +78,7 @@ const getTransferSUFlags = ({ selfRouteId, routeIds } = {}) => {
     ]);
 
 return Object.fromEntries(
-        Object.entries(SU_Object).map(([category, info]) => [
+        Object.entries(THROUGH_SERVICE_CONFIGS_OBJECT).map(([category, info]) => [
             category,                                
             info.routeIds.some((rid) => ids.has(rid)) 
         ])
@@ -1664,7 +1664,7 @@ const setupRouteMapUi = () => {
             if (transferStationIdSet.size <= 1 && !needsEmptyTransferDisplay) continue;
 
             const suItemHtmls = [];
-            for (const [category, info] of Object.entries(SU_Object)) {
+            for (const [category, info] of Object.entries(THROUGH_SERVICE_CONFIGS_OBJECT)) {
                 
                 if (stationSUFlags[category] || transferSUFlags[category]) {
                     suItemHtmls.push({

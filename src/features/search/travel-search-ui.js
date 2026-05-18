@@ -29,8 +29,8 @@ import {
 import {
     detectThroughServiceCategoryFromTrips,
     THROUGH_SERVICE_DISPLAY,
-    SU_Object
-} from '../../lib/shonanshinjuku-uenotokyo.js';
+    THROUGH_SERVICE_CONFIGS_OBJECT
+} from '../../lib/throughServiceManager.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -1585,7 +1585,7 @@ export function mountTravelSearchUI() {
             }
 
             const sectionThroughMeta = sectionThroughMetaList[currentSectionIndex] || null;
-            const isSpecialThroughCategory = !!SU_Object[sectionThroughMeta?.category];
+            const isSpecialThroughCategory = !!THROUGH_SERVICE_CONFIGS_OBJECT[sectionThroughMeta?.category];
             const blockLineKey = normalizeText(block.lineDisplayName || block.lineName || '');
             const shouldRenderBoundaryLineNote = !!(
                 !isSpecialThroughCategory
@@ -1761,7 +1761,7 @@ export function mountTravelSearchUI() {
             : [];
         const hasSpecialThroughSection = sectionThroughMetaList.some((meta) => {
             const category = normalizeText(meta?.category || '');
-            return !!SU_Object[category];
+            return !!THROUGH_SERVICE_CONFIGS_OBJECT[category];
         });
         const blocks = await buildPlanDetailBlocks({
             plan: row?.plan,
@@ -2043,7 +2043,7 @@ export function mountTravelSearchUI() {
             if (!blockRows.length) continue;
 
             const sectionThroughMeta = sectionThroughMetaList[currentSectionIndex] || null;
-            const isSpecialThroughCategory = !!SU_Object[sectionThroughMeta?.category];
+            const isSpecialThroughCategory = !!THROUGH_SERVICE_CONFIGS_OBJECT[sectionThroughMeta?.category];
             const blockLineKey = normalizeText(block.lineDisplayName || block.lineName || '');
             const shouldRenderBoundaryLineNote = !!(
                 !isSpecialThroughCategory

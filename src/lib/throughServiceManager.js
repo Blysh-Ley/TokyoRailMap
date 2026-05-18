@@ -236,7 +236,7 @@ export const MENU_THROUGH_LINE_IDS = Object.freeze({
     YOKOSUKA_SOBU_RAPID: 'TokyoRail.MenuThrough.YokosukaSobuRapid'
 });
 
-export const SU_Info = Object.freeze([
+export const THROUGH_SERVICE_CONFIGS = Object.freeze([
     {
         operator: 'JR-East',
         category: 'UenoTokyo',
@@ -356,14 +356,14 @@ export const SU_Info = Object.freeze([
 ]);
 
 
-export const SU_Object = Object.freeze(
+export const THROUGH_SERVICE_CONFIGS_OBJECT = Object.freeze(
     Object.fromEntries(
-        SU_Info.map(info => [info.category, info])
+        THROUGH_SERVICE_CONFIGS.map(info => [info.category, info])
     )
 );
 
 
-export const SU_Categories = Object.freeze(Object.keys(SU_Object));
+export const THROUGH_SERVICE_CONFIGS_Categories = Object.freeze(Object.keys(THROUGH_SERVICE_CONFIGS_OBJECT));
 
 
 
@@ -371,7 +371,7 @@ export const isSUStations = (stationId) => {
     const sid = toText(stationId);
     // 动态遍历分类，生成 { UenoTokyo: true/false, ShonanShinjuku: true/false ... }
     return Object.fromEntries(
-        SU_Categories.map(category => [
+        THROUGH_SERVICE_CONFIGS_Categories.map(category => [
             category,
             (SU_STATION_IDS_BY_CATEGORY[category] || []).includes(sid)
         ])
@@ -386,13 +386,13 @@ export const isSUStation = (stationId) => {
 
 
 export const TRIGGER_LINE_IDS = new Set(
-    SU_Info.flatMap(info => info.triggerLineIds)
+    THROUGH_SERVICE_CONFIGS.flatMap(info => info.triggerLineIds)
 );
 
 
 export const getMenuThroughCategoryByLineId = (lineId) => {
     const id = toText(lineId);
-    return SU_Info.find(info => 
+    return THROUGH_SERVICE_CONFIGS.find(info => 
         id === info.lineId || 
         id === info.tempId || 
         (info.routeIds && info.routeIds.includes(id))
@@ -471,7 +471,7 @@ const hasExcludedChainLine = (lineIds, excludePrefixes) => {
 };
 
 const classifyTripBySUInfo = (visitedStations, chainLineIds) => {
-    for (const info of SU_Info) {
+    for (const info of THROUGH_SERVICE_CONFIGS) {
         // 条件 1: 必须包含该分类要求的所有触发站点
         const hasAllTriggers = info.triggerStations.every(st => visitedStations.has(st));
         if (!hasAllTriggers) continue;
@@ -572,7 +572,7 @@ export async function buildTemporaryThroughServicePanelPlan(options = {}) {
 
     // 1. 动态初始化 Bucket
     const bucketByCategory = {};
-    for (const category of SU_Categories) {
+    for (const category of THROUGH_SERVICE_CONFIGS_Categories) {
         bucketByCategory[category] = {
             sourceLineIds: new Set(),
             allowedTripKeys: new Set()
@@ -628,7 +628,7 @@ export async function buildTemporaryThroughServicePanelPlan(options = {}) {
     const suStationFlags = isSUStations(stationId);
 
     // 3. 动态组装面板数据
-    for (const info of SU_Info) {
+    for (const info of THROUGH_SERVICE_CONFIGS) {
         const bucket = bucketByCategory[info.category];
         const hasTrips = bucket.allowedTripKeys.size > 0;
         

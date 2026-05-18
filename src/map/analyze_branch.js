@@ -1,6 +1,6 @@
 import { getCachedJson } from '../lib/fetch.js';
 import { buildVirtualTripPreviewPayload } from '../lib/trip-preview.js';
-import { detectThroughServiceCategoryFromTrips } from '../lib/shonanshinjuku-uenotokyo.js';
+import { detectThroughServiceCategoryFromTrips } from '../lib/throughServiceManager.js';
 
 const toText = (v) => String(v ?? '').trim();
 
