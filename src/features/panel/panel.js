@@ -3401,10 +3401,11 @@ export function createPanel(options = {}) {
                     && !(rowHasSplitByNtMultiDest && rowNoMarkModes.some((mode) => mode === 'dual'));
                 const destAbbr = shouldHideDestAbbr ? '' : rawDestAbbr;
                 const minute = toText(trip?.minuteLabel).slice(0, 2);
-                const tripKey = toText(trip?.tripKey);
+                const tripKey = toText(trip?.realOriginId);
                 const color = resolveTrainTypeColorForTheme(trip?.typeColor) || 'var(--ui-text, #111)';
                 const tripAttr = tripKey ? ` data-trip-key="${escapeHtml(tripKey)}"` : '';
                 const lastClass = tripIndex === trips.length - 1 ? ' is-hour-last' : '';
+                
                 const showTypeAbbr = !isNoMarkTypeName(typeName);
                 const showDestAbbr = !!destAbbr;
                 const specialNames = Array.isArray(trip?.specialNames)
@@ -3439,6 +3440,7 @@ export function createPanel(options = {}) {
                 const tripAbbrHtml = tripAbbrText
                     ? `<span class="panel-grid-trip-abbr"${tripAbbrStyle}>${escapeHtml(tripAbbrText)}</span>`
                     : '<span class="panel-grid-trip-abbr" aria-hidden="true">&nbsp;</span>';
+                const realOriginId = toText(trip?.realOriginId || trip?.id);
 
                     const isTerminal = !!trip?.showTerminalLabel;
                     const isOrigin = !!trip?.showOriginLabel;
@@ -3725,6 +3727,7 @@ export function createPanel(options = {}) {
                     showTerminalLabel,
                     tripKey,
                     baseTripKey,
+                    realOriginId: toText(trip?.realOriginId || trip?.id),
                     stopCount: Array.isArray(tt) ? tt.length : null,
                     rawStopNames: (Array.isArray(tt) ? tt : []).map(x => stationsIndex?.idToNameZh?.get?.(toText(x?.s)) || toText(x?.s)),
                     sourceLineId: toText(sourceLineId)
@@ -3802,13 +3805,14 @@ export function createPanel(options = {}) {
                     if (shouldAdd) {
                         // 使用深拷贝防止污染 window.TokyoRailTimetableCache
                         const newTrip = structuredClone(trip);
-
                         // 替换 Trip ID：确保运行日过滤、缓存 Key 匹配正常
                         if (typeof newTrip.id === 'string') {
+                            newTrip.realOriginId = newTrip.id;
                             newTrip.id = newTrip.id.replace(nextLineId, sourceLineId);
                         }
 
                         if (typeof newTrip.d === 'string') {
+                            newTrip.originD = newTrip.d;
                             newTrip.d = currentLineDirc;
                         }
 
@@ -3829,9 +3833,8 @@ export function createPanel(options = {}) {
                     if(isTerminal && !nt) shouldAdd = true;
                     if (shouldAdd) {
                         const newTrip = structuredClone(trip);
-                        newTrip.isVirtualTrip = true; // 标记为虚拟班次，供后续处理使用
                         if (typeof newTrip.id === 'string') {
-                            newTrip.originId = newTrip.id;
+                            newTrip.realOriginId = newTrip.id;
                             newTrip.id = newTrip.id.replace(previousLineId, sourceLineId);
                         }
                         if (typeof newTrip.d === 'string') {
@@ -3842,6 +3845,13 @@ export function createPanel(options = {}) {
                     }
                 })
             }
+
+            displayList = displayList.map(trip => {
+                if (trip.realOriginId === undefined) {
+                    trip.realOriginId = trip.id;
+                }
+                return trip;
+            })
 
             const displayRows = await collectRowsFromTripList({
                 tripList: displayList,
@@ -4190,7 +4200,7 @@ export function createPanel(options = {}) {
             const printableListHtml = printableRowsForDir.length
                 ? printableRowsForDir
                     .map((r) => {
-                        const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.tripKey)}"` : '';
+                        const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.realOriginId)}"` : '';
                         const rawTypeColor = toText(r.typeColor);
                         const badgeBg = rawTypeColor || '#767676';
                         const badgeFg = resolvePanelBadgeTextColor(badgeBg);
@@ -4264,7 +4274,7 @@ export function createPanel(options = {}) {
                     ? visible
                         .map((r) => {
                             const klass = r.isPast ? 'panel-timetable-row is-past' : 'panel-timetable-row';
-                            const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.tripKey)}"` : '';
+                            const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.realOriginId)}"` : '';
                             const rawTypeColor = toText(r.typeColor);
                             const badgeBg = r.isPast ? '#c3c7cd' : (rawTypeColor || '#767676');
                             const badgeFg = r.isPast ? '#eee' : resolvePanelBadgeTextColor(badgeBg);
@@ -4514,7 +4524,7 @@ export function createPanel(options = {}) {
         scheduleMarqueeApply(ttEl);
     };
 
-    const buildTripStops = (trip, stationsIndex, serviceDayStartMs) => {
+    const buildTripStops = (trip, stationsIndex, serviceDayStartMs, realOriginId = '') => {
         const tt = Array.isArray(trip?.tt) ? trip.tt : [];
         const out = [];
         for (const stop of tt) {
@@ -4534,7 +4544,8 @@ export function createPanel(options = {}) {
                 dep: dep || null,
                 arrPlus: !!arrParsed?.isNextDaySegment,
                 depPlus: !!depParsed?.isNextDaySegment,
-                timeMs
+                timeMs,
+                realOriginId: toText(realOriginId || trip?.realOriginId || trip?.id)
             });
         }
         return out;
@@ -4822,7 +4833,7 @@ export function createPanel(options = {}) {
 
         const segments = [];
 
-        const mainRowsRaw = normalizeTripStops(buildTripStops(trip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
+        const mainRowsRaw = normalizeTripStops(buildTripStops(trip, stationsIndex, serviceDayStartMs, trip?.realOriginId || trip?.id), serviceDayStartMs, {
             originIds,
             terminalIds,
             originAKeys,
@@ -4860,7 +4871,7 @@ export function createPanel(options = {}) {
 
         if (!hideThroughSegmentsForLoop) {
             for (const ptTrip of (Array.isArray(ptChain) ? ptChain.slice().reverse() : [])) {
-                const rows = normalizeTripStops(buildTripStops(ptTrip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
+                const rows = normalizeTripStops(buildTripStops(ptTrip, stationsIndex, serviceDayStartMs, ptTrip?.realOriginId || ptTrip?.id), serviceDayStartMs, {
                     originIds,
                     terminalIds,
                     originAKeys,
@@ -4890,7 +4901,7 @@ export function createPanel(options = {}) {
 
         if (!hideThroughSegmentsForLoop) {
             for (const ntTrip of (Array.isArray(ntChain) ? ntChain : [])) {
-                const rows = normalizeTripStops(buildTripStops(ntTrip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
+                const rows = normalizeTripStops(buildTripStops(ntTrip, stationsIndex, serviceDayStartMs, ntTrip?.realOriginId || ntTrip?.id), serviceDayStartMs, {
                     originIds,
                     terminalIds,
                     originAKeys,
@@ -5112,6 +5123,7 @@ export function createPanel(options = {}) {
             const s = stop || {};
             const timeCol = Math.max(2, Number(timeColStart) || 2);
             const stationId = toText(s.stationId);
+            const realOriginId = toText(s.realOriginId);
             const stationText = buildTimetableStationText({
                 stationCode: toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
                 stationName: toText(s.stationName || s.stationId),
@@ -5182,9 +5194,9 @@ export function createPanel(options = {}) {
             const pastCls = s.isPast ? ' is-past' : '';
             const safeLineColor = toText(lineColor);
             return `
-                <div class="panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}" style="grid-column:${col};"${stationId ? ` data-station-id="${escapeHtml(stationId)}"` : ''}${safeLineColor ? ` data-line-color="${escapeHtml(safeLineColor)}"` : ''}>${escapeHtml(stationText)}</div>
-                <div class="panel-trip-detail-time panel-trip-detail-arrive panel-trip-detail-grid-cell${pastCls}" style="grid-column:${col + 1};">${arrivalLabel}${arrText ? `<span class="panel-time-arrive">${escapeHtml(arrText)}</span>` : ''}</div>
-                <div class="panel-trip-detail-time panel-trip-detail-depart panel-trip-detail-grid-cell${pastCls}" style="grid-column:${col + 2};">${departLabel}${depText ? `<span class="panel-time-depart">${escapeHtml(depText)}</span>` : ''}</div>
+                <div class="panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}" style="grid-column:${col};"${stationId ? ` data-station-id="${escapeHtml(stationId)}"` : ''}${realOriginId ? ` data-line-id="${escapeHtml(realOriginId)}"` : ''}${safeLineColor ? ` data-line-color="${escapeHtml(safeLineColor)}"` : ''}>${escapeHtml(stationText)}</div>
+                <div class="panel-trip-detail-time panel-trip-detail-arrive panel-trip-detail-grid-cell${pastCls}" style="grid-column:${col + 1};"${realOriginId ? ` data-line-id="${escapeHtml(realOriginId)}"` : ''}>${arrivalLabel}${arrText ? `<span class="panel-time-arrive">${escapeHtml(arrText)}</span>` : ''}</div>
+                <div class="panel-trip-detail-time panel-trip-detail-depart panel-trip-detail-grid-cell${pastCls}" style="grid-column:${col + 2};"${realOriginId ? ` data-line-id="${escapeHtml(realOriginId)}"` : ''}>${departLabel}${depText ? `<span class="panel-time-depart">${escapeHtml(depText)}</span>` : ''}</div>
             `;
         };
 
@@ -6927,7 +6939,7 @@ export function createPanel(options = {}) {
         if (rowEl && body.contains(rowEl)) {
             clearTripHighlightTimer();
             const lineEl = rowEl.closest?.('[data-line-id]');
-            const lineId = lineEl?.getAttribute?.('data-line-id');
+            const lineId = rowEl.getAttribute?.('data-line-id') || lineEl?.getAttribute?.('data-line-id');
             const tripKey = rowEl.getAttribute?.('data-trip-key');
             if (lineId && tripKey) {
                 const key = `${String(lineId)}||${String(tripKey)}`;
