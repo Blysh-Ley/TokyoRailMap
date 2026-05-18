@@ -2320,8 +2320,8 @@ export function mountTravelSearchUI() {
                 try {
                     // 3. 如果是 fast 模式，为传入 updateReachableStopsOverlay 的结果对象注入 opacity 属性
                     const overlayPayload = isFastMode 
-                        ? { ...result, opacity: 0.2 } 
-                        : { ...result, opacity: 0.05 };
+                        ? { ...result, opacity: 0.15 } 
+                        : { ...result, opacity: 0.03 };
 
                     await window?.TokyoRailSearchMapActions?.updateReachableStopsOverlay?.(overlayPayload);
                 } catch {

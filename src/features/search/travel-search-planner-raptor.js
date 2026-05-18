@@ -8,7 +8,7 @@ const MIN_TRANSFER_MS = 5 * 60 * 1000;
 export const getReachableStopsWithinMinutes = async ({ originStationId, minutes, departureMs = Date.now(), setTo8 = true, offsetsMin = [0, 240, 540, 840], serviceDay = null, maxRounds = 7 } = {}) => {
     await ensurePlannerStaticData();
     const originId = normalizeText(originStationId);
-    const mins = Number(minutes+5);
+    const mins = Number(minutes)+5;
     const originMs = Number.isFinite(Number(departureMs)) ? Number(departureMs) : Date.now();
     const date = new Date(originMs);
     if (setTo8) date.setHours(8, 0, 0, 0);
@@ -23,7 +23,7 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes,
 
     const day = normalizeText(serviceDay) || inferServiceDayFromDate(new Date(depMs));
     const durationBudgetMs = Math.round(mins) * 60000; 
-    const offsetMin = Array.isArray(offsetsMin) ? offsetsMin : [0, 240, 540, 840];
+    const offsetMin = Array.isArray(offsetsMin) ? offsetsMin : [30, 150, 360, 600, 810];
     let runResults = null;
 
     for (let i = 0; i < offsetMin.length; i++) {
@@ -50,6 +50,7 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes,
         // 动态计算当前发车班次的截止时间
         const currentDepartMs = depMs + offsetMin[i] * 60000;
         const dynamicCutoffMs = currentDepartMs + durationBudgetMs;
+        const dynamicRoundCircleRadiusMs = Math.min(Number(minutes) / 6 * 60000, 1200000); // 动态允许步行时长，不超过1/6的时间或不超过20分钟
 
         for (const roundArr of runResult.arrivals || []) {
             if (!(roundArr instanceof Map)) continue;
@@ -60,7 +61,7 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes,
                 if (t <= dynamicCutoffMs) {
                     reachableSet.add(stopId);
                     
-                    const rem = Math.max(150000, dynamicCutoffMs - t);
+                    const rem = Math.max(dynamicRoundCircleRadiusMs, dynamicCutoffMs - t); // 剩余时间至少等于动态圆圈半径，确保在截止时间附近的站点也能被合理评估为可达
                     
                     // 如果 Map 中还没有这个站点，先初始化一个空数组
                     if (!remainingMsByStopMap.has(stopId)) {
