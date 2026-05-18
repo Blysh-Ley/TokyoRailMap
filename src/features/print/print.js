@@ -422,7 +422,7 @@
     const sanitizeFilePart = (s) => String(s || '')
         .replace(/\s+/g, '_')
         .replace(/[^A-Za-z0-9_.\-]/g, '_')
-        .slice(0, 120);
+        .slice(0, 20);
 
     // SVG 导出为手工几何绘制，无法可靠复刻 GPU line-offset 表达式；
     // 因此导出时默认回退：站点/站名/换乘胶囊使用原始未偏移坐标。
