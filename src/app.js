@@ -746,10 +746,71 @@ map.on('load', async () => {
         return [lambda2 * 180 / Math.PI, phi2 * 180 / Math.PI];
     };
 
+    // 生成动态分位数的颜色插值表达式
+    const generateDynamicColorExpression = (countsArray) => {
+        // 1. 去重并排序 (获取所有实际存在的总班次数量)
+        const uniqueCounts = [...new Set(countsArray)].sort((a, b) => a - b);
+        
+        // 边界兜底：如果没有有效数据
+        if (uniqueCounts.length === 0) return '#FFFFA0'; // 淡黄兜底
+        if (uniqueCounts.length === 1) return '#FFFFA0';
+
+        // 2. 设定最大档位数 (20档)，如果数据种类少于20，则自动降级档位数
+        const maxSteps = 20;
+        const steps = Math.min(maxSteps, uniqueCounts.length);
+        
+        // 3. 生成对应档数的渐变色 (从 淡黄 rgb(255,255,150) 到 纯红 rgb(255,0,0) 的线性平滑过渡)
+        const colors = [];
+        for (let i = 0; i < steps; i++) {
+            const ratio = i / (steps - 1);
+            // R 通道保持 255
+            // G 通道从 255 平滑衰减到 0
+            // B 通道从 150 平滑衰减到 0
+            const g = Math.round(255 * (1 - ratio)); 
+            const b = Math.round(150 * (1 - ratio));
+            colors.push(`rgb(255, ${g}, ${b})`);
+        }
+
+        const expression = ['interpolate', ['linear'], ['get', 'totalCount']];
+        let lastVal = -1;
+
+        // 4. 按百分位抽取锚点，并保证 Mapbox 渲染要求的"严格单调递增"
+        for (let i = 0; i < steps; i++) {
+            let currentVal;
+            
+            if (uniqueCounts.length === steps) {
+                // 数量本来就少，直接挨个取
+                currentVal = uniqueCounts[i];
+            } else {
+                // 数量很大，按照百分位 (5%, 10%...100%) 插值抽取
+                const percentileIndex = (i / (steps - 1)) * (uniqueCounts.length - 1);
+                const lower = Math.floor(percentileIndex);
+                const upper = Math.ceil(percentileIndex);
+                const weight = percentileIndex - lower;
+                // 计算当前百分位的值
+                currentVal = uniqueCounts[lower] * (1 - weight) + uniqueCounts[upper] * weight;
+            }
+
+            // 精度截断，防止 JS 浮点数导致奇怪的小数
+            currentVal = Math.round(currentVal * 100) / 100;
+
+            // 【关键】必须大于上一个值，剔除重复分位，防止引擎报错
+            if (currentVal > lastVal) {
+                expression.push(currentVal, colors[i]);
+                lastVal = currentVal;
+            }
+        }
+
+        // 如果过滤后剩下的有效档位过少，直接返回单一颜色兜底
+        if (expression.length <= 5) {
+            return colors[colors.length - 1] || '#FF0000';
+        }
+
+        return expression;
+    };
+
     const buildReachableStopsOverlayGeoJSON = (payload = {}) => {
         const reachableStops = payload?.reachableStops;
-        
-        // 1. 判断是否为 Map，如果不是则给个空的 Map 作为 fallback
         const remainingMsByStop = payload?.remainingMsByStop instanceof Map
             ? payload.remainingMsByStop
             : new Map();
@@ -759,13 +820,14 @@ map.on('load', async () => {
             : (reachableStops instanceof Set ? Array.from(reachableStops) : Object.keys(payload?.remainingMsByStop || {}));
 
         const features = [];
+        const allTotalCounts = []; // 【新增】用于收集所有的班次总数
+
         for (const rawStopId of stopIds) {
             const stopId = String(rawStopId || '').trim();
             if (!stopId) continue;
 
-            // 2. 从 Map 中获取该站点的剩余时间数组
-            const remainingMsArray = remainingMsByStop.get(stopId);
-            if (!Array.isArray(remainingMsArray) || remainingMsArray.length === 0) continue;
+            const shiftsArray = remainingMsByStop.get(stopId);
+            if (!Array.isArray(shiftsArray) || shiftsArray.length === 0) continue;
 
             const coord = stationCoordById.get(stopId) || stationCoordByIdBase.get(stopId);
             if (!Array.isArray(coord) || coord.length < 2) continue;
@@ -774,10 +836,16 @@ map.on('load', async () => {
             const lat = Number(coord[1]);
             if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
 
-            // 3. 将同一站点的各个班次均作为一个独立特征抛出。
-            for (const remMs of remainingMsArray) {
-                const remainingMs = Number(remMs);
-                if (!Number.isFinite(remainingMs) || remainingMs <= 0) continue;
+            // 1. 汇总该站点总班次，并推入统计数组
+            const totalCount = shiftsArray.reduce((sum, shift) => sum + (Number(shift.count) || 0), 0);
+            if (totalCount > 0) {
+                allTotalCounts.push(totalCount);
+            }
+
+            // 2. 生成具体特征
+            for (const shift of shiftsArray) {
+                const remainingMs = Number(shift.remainMs);
+                if (!Number.isFinite(remainingMs) || remainingMs < 0) continue;
 
                 const radiusMeters = reachableStopsCircleRadiusMeters(remainingMs);
                 
@@ -788,7 +856,7 @@ map.on('load', async () => {
                         remainingMs,
                         remainingMinutes: remainingMs / 60000,
                         radiusMeters,                  
-                        dataVolume: 1                 
+                        totalCount  // 必须保留，图层通过此属性读取颜色
                     },
                     geometry: {
                         type: 'Point',
@@ -798,13 +866,16 @@ map.on('load', async () => {
             }
         }
 
+        // 数据的汇总数组，生成独属于当下的动态颜色表达式
+        const dynamicColorExpression = generateDynamicColorExpression(allTotalCounts);
+
         return {
-            type: 'FeatureCollection',
-            features
+            geojson: { type: 'FeatureCollection', features },
+            dynamicColorExpression // 【新增】连同 GeoJSON 一起返回给图层函数
         };
     };
 
-    const ensureReachableStopsOverlayLayers = (opacity = 0.01) => {
+    const ensureReachableStopsOverlayLayers = (dynamicColorExpression, baseOpacity = 0.12) => {
         if (!map) return;
 
         const beforeLayerId = map.getLayer('lines-layer')
@@ -818,80 +889,35 @@ map.on('load', async () => {
             });
         }
 
-        const heatmapLayerId = 'reachable-stops-overlay-heatmap-layer';
+        // 采用圆图层替代热力图层
+        const circleLayerId = 'reachable-stops-overlay-circle-layer';
 
-        if (!map.getLayer(heatmapLayerId)) {
-            // Remove old fill layer if it existed before refactor
-            if (map.getLayer('reachable-stops-overlay-fill-layer')) {
-                map.removeLayer('reachable-stops-overlay-fill-layer');
+        if (!map.getLayer(circleLayerId)) {
+
+        map.addLayer({
+            id: circleLayerId,
+            type: 'circle',
+            source: 'reachable-stops-overlay-source',
+            paint: {
+                'circle-radius': [
+                    'interpolate',
+                    ['exponential', 2],
+                    ['zoom'],
+                    0, ['/', ['get', 'radiusMeters'], 127113 * 2],
+                    20, ['*', ['get', 'radiusMeters'], 1048576 * 2 / 127113]
+                ],
+                // 直接使用传进来的动态生成表达式
+                'circle-color': dynamicColorExpression,
+                'circle-opacity': baseOpacity,
+                'circle-blur': 1,
+                'circle-pitch-alignment': 'map'
             }
-
-            function generateFullySmoothHeatmap(totalSteps = 20) {
-                const expression = ['interpolate', ['linear'], ['heatmap-density']];
-                const colors = [];
-
-                // 0. 绝对边缘（密度为0）时完全透明，防止地图上出现硬边界框
-                colors.push(0, 'rgba(255, 230, 0, 0)');
-
-                // 从 1/totalSteps 开始全面进行数学插值
-                for (let i = 1; i <= totalSteps; i++) {
-                    const density = i / totalSteps; // 当前步长的密度值 (0.05, 0.1, 0.15 ... 1.0)
-                    
-                    // 核心曲线控制：
-                    // 改变这里的指数（例如 1.5），可以自由调节黄到红的拐点。
-                    // 1.5 能让低密度保持更久的明黄色，并在 0.7-1.0 之间陡然加深红色的对比。
-                    const t = Math.pow(density, 0.5); 
-
-                    // 绿色分量（G）从 230（明黄）平滑衰减到 0（纯红）
-                    const g = Math.round(230 * (1 - t));
-                    
-                    // 透明度（Alpha）从 0.2 平滑过渡到 1.0，让高密度区更有实体感
-                    const alpha = (0.2 + density * 0.8).toFixed(3);
-
-                    // 写入数组，保持三位小数防止 JavaScript 浮点数精度碎裂
-                    colors.push(Number(density.toFixed(3)), `rgba(255, ${g}, 0, ${alpha})`);
-                }
-
-                return expression.concat(colors);
-            }
-
-            map.addLayer({
-                id: heatmapLayerId,
-                type: 'heatmap',
-                source: 'reachable-stops-overlay-source',
-                paint: {
-                    // 当数据量极高时，该点的向外辐射热能也最强
-                    'heatmap-weight': [
-                        '*',
-                        ['interpolate', ['linear'], ['get', 'remainingMinutes'], 0, 1, 20, 1],
-                        ['get', 'dataVolume']
-                    ],
-                    'heatmap-intensity': [
-                        'interpolate',
-                        ['linear'],
-                        ['zoom'],
-                        0, 0.5,
-                        15, 1
-                    ],
-                    // 根据密度严格区分深浅
-                    'heatmap-color': generateFullySmoothHeatmap(20), // 生成更平滑的颜色过渡，步长越大越平滑
-                    
-                    // 让热力图半径反映真实的物理半径（按照经度35.6度左右的墨卡托投影比例，随 zoom 指数级放大）
-                    // 在 MapLibre 中 zoom 插值必须作为根表达式（Top-level expression）
-                    'heatmap-radius': [
-                        'interpolate',
-                        ['exponential', 2],
-                        ['zoom'],
-                        0, ['*', ['get', 'radiusMeters'], 1*2 / 127113],
-                        20, ['*', ['get', 'radiusMeters'], 1048576*2 / 127113]
-                    ],
-                    'heatmap-opacity': opacity
-                }
-            }, beforeLayerId);
+        }, beforeLayerId);
         } else if (beforeLayerId) {
             try { 
-                map.setPaintProperty(heatmapLayerId, 'heatmap-opacity', opacity); 
-                map.moveLayer(heatmapLayerId, beforeLayerId); 
+               map.setPaintProperty(circleLayerId, 'circle-color', dynamicColorExpression);
+                map.setPaintProperty(circleLayerId, 'circle-opacity', baseOpacity);
+                if (beforeLayerId) map.moveLayer(circleLayerId, beforeLayerId);
             } catch { 
                 /* ignore */ 
             }
@@ -923,10 +949,11 @@ map.on('load', async () => {
         }
         
         if (!payload) return;
-        ensureReachableStopsOverlayLayers(payload.opacity);
 
         const data = buildReachableStopsOverlayGeoJSON(payload);
-        const nextKey = JSON.stringify((Array.isArray(data?.features) ? data.features : []).map((f) => [
+        ensureReachableStopsOverlayLayers(data.dynamicColorExpression, payload.opacity);
+
+        const nextKey = JSON.stringify((Array.isArray(data?.geojson?.features) ? data.geojson.features : []).map((f) => [
             f?.properties?.id, 
             Math.round(Number(f?.properties?.remainingMs) || 0),
             (f?.geometry?.coordinates?.[0] || 0).toFixed(6),
@@ -936,7 +963,7 @@ map.on('load', async () => {
         reachableStopsOverlayVisibleKey = nextKey;
 
         try {
-            map.getSource('reachable-stops-overlay-source')?.setData?.(data);
+            map.getSource('reachable-stops-overlay-source')?.setData?.(data.geojson);
         } catch {
             // ignore
         }

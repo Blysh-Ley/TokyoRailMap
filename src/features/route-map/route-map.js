@@ -198,6 +198,33 @@ const loadTimetableForLineId = async (lineId) => {
     }
 };
 
+export const collectRefChainTrips = async (startTrip, key) => {
+    const out = [];
+    const seenRefs = new Set();
+    const seenTrips = new Set();
+    let cursor = startTrip;
+
+    for (let i = 0; i < 24; i += 1) {
+        const refs = normalizeArrayLike(cursor?.[key]);
+        const refId = toText(refs?.[0]);
+        if (!refId) break;
+        if (seenRefs.has(refId)) break;
+        seenRefs.add(refId);
+
+        const refTrip = await loadTripByRefId(refId);
+        if (!refTrip) break;
+
+        const sid = toText(refTrip?.id) || toText(refTrip?.t);
+        if (sid && seenTrips.has(sid)) break;
+        out.push(refTrip);
+        if (sid) seenTrips.add(sid);
+
+        cursor = refTrip;
+    }
+
+    return out;
+};
+
 const createTripResolver = () => {
     const refTripCache = new Map(); // refId -> trip|null
 

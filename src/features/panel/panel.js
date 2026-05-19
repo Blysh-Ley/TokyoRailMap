@@ -35,7 +35,9 @@ const toText = (v) => String(v ?? '').trim();
 
 const isSaturdayHoliday = (day) => {
     const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-    const isHoliday = JapaneseHolidays.isHoliday(day);
+    const isHoliday = (typeof JapaneseHolidays !== 'undefined' && typeof JapaneseHolidays.isHoliday === 'function')
+        ? JapaneseHolidays.isHoliday(day)
+        : false;
     const month = day.getMonth() + 1;
     const date = day.getDate();
     const isNewYearHoliday = (month === 12 && date >= 30) || (month === 1 && date <= 3);
@@ -1879,7 +1881,7 @@ export function createPanel(options = {}) {
     let currentNowOverrideHHMM = '';
     let isAutoNowClock = true;
     let autoNowClockTimerId = null;
-    let isPanelVisible = false;
+    var isPanelVisible = false;
     let currentPanelDate = new Date();
     const getDisplayNowMs = () => {
         const baseNowMs = Date.now();
