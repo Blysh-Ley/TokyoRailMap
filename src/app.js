@@ -767,39 +767,34 @@ map.on('load', async () => {
             const remainingMsArray = remainingMsByStop.get(stopId);
             if (!Array.isArray(remainingMsArray) || remainingMsArray.length === 0) continue;
 
-            const coord = stationCoordByIdBase.get(stopId) || stationCoordById.get(stopId);
+            const coord = stationCoordById.get(stopId) || stationCoordByIdBase.get(stopId);
             if (!Array.isArray(coord) || coord.length < 2) continue;
 
             const lng = Number(coord[0]);
             const lat = Number(coord[1]);
             if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
 
-            // 3. 遍历该站点的所有剩余时间记录，为每一条记录生成一个多边形(圆)
+            // 3. 将同一站点的各个班次均作为一个独立特征抛出。
+            //    由于不同班次的时间不同，它们会生成各自大小的半径圈。
+            //    多层重叠时，共同叠加覆盖的核心区域密度骤增从而呈现深红，外圈则会由于次数递减逐渐变得透明清淡。
             for (const remMs of remainingMsArray) {
                 const remainingMs = Number(remMs);
                 if (!Number.isFinite(remainingMs) || remainingMs <= 0) continue;
 
                 const radiusMeters = reachableStopsCircleRadiusMeters(remainingMs);
-                if (!Number.isFinite(radiusMeters) || radiusMeters <= 0) continue;
-
-                const steps = 64;
-                const ring = [];
-                for (let i = 0; i <= steps; i += 1) {
-                    const bearing = (i / steps) * Math.PI * 2;
-                    ring.push(destinationPointFromBearing(lng, lat, radiusMeters, bearing));
-                }
-
+                
                 features.push({
                     type: 'Feature',
                     properties: {
                         id: stopId,
                         remainingMs,
                         remainingMinutes: remainingMs / 60000,
-                        radiusMeters
+                        radiusMeters,                   // 各自保留不同班次算出的物理覆盖半径
+                        dataVolume: 1                   // 个体点容量为 1，依靠地图引擎多记录重叠自然累积密度
                     },
                     geometry: {
-                        type: 'Polygon',
-                        coordinates: [ring]
+                        type: 'Point',
+                        coordinates: [lng, lat]
                     }
                 });
             }
@@ -825,32 +820,71 @@ map.on('load', async () => {
             });
         }
 
-        const fillLayerId = 'reachable-stops-overlay-fill-layer';
-        const outlineLayerId = 'reachable-stops-overlay-outline-layer';
+        const heatmapLayerId = 'reachable-stops-overlay-heatmap-layer';
 
-        if (!map.getLayer(fillLayerId)) {
+        if (!map.getLayer(heatmapLayerId)) {
+            // Remove old fill layer if it existed before refactor
+            if (map.getLayer('reachable-stops-overlay-fill-layer')) {
+                map.removeLayer('reachable-stops-overlay-fill-layer');
+            }
+
             map.addLayer({
-                id: fillLayerId,
-                type: 'fill',
+                id: heatmapLayerId,
+                type: 'heatmap',
                 source: 'reachable-stops-overlay-source',
                 paint: {
-                    'fill-color': '#c58a30',
-                    'fill-opacity': opacity,
+                    // 完全按照数据量 (remArr 的长度) 赋予密度叠加权重，结合剩余时间的占比进行动态放大
+                    // 当数据量极高时，该点的向外辐射热能也最强
+                    'heatmap-weight': [
+                        '*',
+                        ['interpolate', ['linear'], ['get', 'remainingMinutes'], 0, 0.2, 20, 1.5],
+                        ['get', 'dataVolume']
+                    ],
+                    'heatmap-intensity': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        0, 0.5,
+                        15, 3
+                    ],
+                    // 根据密度严格区分深浅
+                    'heatmap-color': [
+                        'interpolate',
+                        ['linear'],
+                        ['heatmap-density'],
+                        0, 'rgba(255, 102, 0, 0)',
+                        0.2, 'rgba(255, 180, 0, 0.6)',
+                        0.5, 'rgba(255, 120, 0, 0.8)',
+                        0.8, 'rgba(255, 50, 0, 0.9)',
+                        1, 'rgba(255, 0, 0, 1)'
+                    ],
+                    // 让热力图半径反映真实的物理半径（按照经度35.6度左右的墨卡托投影比例，随 zoom 指数级放大）
+                    // 在 MapLibre 中 zoom 插值必须作为根表达式（Top-level expression）
+                    'heatmap-radius': [
+                        'interpolate',
+                        ['exponential', 2],
+                        ['zoom'],
+                        0, ['*', ['get', 'radiusMeters'], 1*2 / 127113],
+                        20, ['*', ['get', 'radiusMeters'], 1048576*2 / 127113]
+                    ],
+                    'heatmap-opacity': opacity
                 }
             }, beforeLayerId);
         } else if (beforeLayerId) {
             try { 
-            map.setPaintProperty(fillLayerId, 'fill-opacity', opacity); 
-            if (beforeLayerId) {
-                map.moveLayer(fillLayerId, beforeLayerId); 
+                map.setPaintProperty(heatmapLayerId, 'heatmap-opacity', opacity); 
+                map.moveLayer(heatmapLayerId, beforeLayerId); 
+            } catch { 
+                /* ignore */ 
             }
-        } catch { 
-            /* ignore */ 
-        } }
+        }
     };
+
+    let lastReachableStopsPayload = null;
 
     const clearReachableStopsOverlay = () => {
         reachableStopsOverlayVisibleKey = '__empty__';
+        lastReachableStopsPayload = null;
         try {
             const source = map?.getSource?.('reachable-stops-overlay-source');
             if (source?.setData) {
@@ -861,12 +895,25 @@ map.on('load', async () => {
         }
     };
 
-    const refreshReachableStopsOverlay = async (payload = {}) => {
+    const refreshReachableStopsOverlay = async (payload = null) => {
         if (!map) return;
+        
+        if (payload) {
+            lastReachableStopsPayload = payload;
+        } else {
+            payload = lastReachableStopsPayload;
+        }
+        
+        if (!payload) return;
         ensureReachableStopsOverlayLayers(payload.opacity);
 
         const data = buildReachableStopsOverlayGeoJSON(payload);
-        const nextKey = JSON.stringify((Array.isArray(data?.features) ? data.features : []).map((f) => [f?.properties?.id, Math.round(Number(f?.properties?.remainingMs) || 0)]));
+        const nextKey = JSON.stringify((Array.isArray(data?.features) ? data.features : []).map((f) => [
+            f?.properties?.id, 
+            Math.round(Number(f?.properties?.remainingMs) || 0),
+            (f?.geometry?.coordinates?.[0] || 0).toFixed(6),
+            (f?.geometry?.coordinates?.[1] || 0).toFixed(6)
+        ]));
         if (nextKey === reachableStopsOverlayVisibleKey) return;
         reachableStopsOverlayVisibleKey = nextKey;
 
@@ -6195,6 +6242,15 @@ map.on('load', async () => {
                 const lat = Number(c[1]);
                 if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
                 stationCoordById.set(sid, [lng, lat]);
+            }
+            
+            // 地图缩放引发坐标变动时，实时触发热力图及源数据的刷新
+            try {
+                if (typeof refreshReachableStopsOverlay === 'function') {
+                    refreshReachableStopsOverlay();
+                }
+            } catch (e) {
+                // ignore
             }
         };
 

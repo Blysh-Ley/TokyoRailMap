@@ -52,6 +52,8 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes,
         const dynamicCutoffMs = currentDepartMs + durationBudgetMs;
         const dynamicRoundCircleRadiusMs = Math.min(Number(minutes) / 6 * 60000, 1200000); // 动态允许步行时长，不超过1/6的时间或不超过20分钟
 
+        const bestRemByStopThisRun = new Map();
+
         for (const roundArr of runResult.arrivals || []) {
             if (!(roundArr instanceof Map)) continue;
             for (const [stopId, t] of roundArr.entries()) {
@@ -59,19 +61,23 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes,
                 
                 // 只要符合当前轮次的截止时间，就视为可达
                 if (t <= dynamicCutoffMs) {
-                    reachableSet.add(stopId);
+                    const rem = Math.max(dynamicRoundCircleRadiusMs, dynamicCutoffMs - t); // 剩余时间至少等于动态圆圈半径
                     
-                    const rem = Math.max(dynamicRoundCircleRadiusMs, dynamicCutoffMs - t); // 剩余时间至少等于动态圆圈半径，确保在截止时间附近的站点也能被合理评估为可达
-                    
-                    // 如果 Map 中还没有这个站点，先初始化一个空数组
-                    if (!remainingMsByStopMap.has(stopId)) {
-                        remainingMsByStopMap.set(stopId, []);
+                    const ex = bestRemByStopThisRun.get(stopId) || 0;
+                    if (rem > ex) {
+                        bestRemByStopThisRun.set(stopId, rem);
                     }
-                    
-                    // 将本次算出的剩余时间 push 进数组，保留所有数据
-                    remainingMsByStopMap.get(stopId).push(rem);
                 }
             }
+        }
+
+        // 本次出发班次中，每个站点只保留其最佳的可达结果
+        for (const [stopId, maxRem] of bestRemByStopThisRun.entries()) {
+            reachableSet.add(stopId);
+            if (!remainingMsByStopMap.has(stopId)) {
+                remainingMsByStopMap.set(stopId, []);
+            }
+            remainingMsByStopMap.get(stopId).push(maxRem);
         }
     }
 
