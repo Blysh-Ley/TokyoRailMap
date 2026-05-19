@@ -775,8 +775,6 @@ map.on('load', async () => {
             if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
 
             // 3. 将同一站点的各个班次均作为一个独立特征抛出。
-            //    由于不同班次的时间不同，它们会生成各自大小的半径圈。
-            //    多层重叠时，共同叠加覆盖的核心区域密度骤增从而呈现深红，外圈则会由于次数递减逐渐变得透明清淡。
             for (const remMs of remainingMsArray) {
                 const remainingMs = Number(remMs);
                 if (!Number.isFinite(remainingMs) || remainingMs <= 0) continue;
@@ -828,16 +826,44 @@ map.on('load', async () => {
                 map.removeLayer('reachable-stops-overlay-fill-layer');
             }
 
+            function generateFullySmoothHeatmap(totalSteps = 20) {
+                const expression = ['interpolate', ['linear'], ['heatmap-density']];
+                const colors = [];
+
+                // 0. 绝对边缘（密度为0）时完全透明，防止地图上出现硬边界框
+                colors.push(0, 'rgba(255, 230, 0, 0)');
+
+                // 从 1/totalSteps 开始全面进行数学插值
+                for (let i = 1; i <= totalSteps; i++) {
+                    const density = i / totalSteps; // 当前步长的密度值 (0.05, 0.1, 0.15 ... 1.0)
+                    
+                    // 核心曲线控制：
+                    // 改变这里的指数（例如 1.5），可以自由调节黄到红的拐点。
+                    // 1.5 能让低密度保持更久的明黄色，并在 0.7-1.0 之间陡然加深红色的对比。
+                    const t = Math.pow(density, 0.5); 
+
+                    // 绿色分量（G）从 230（明黄）平滑衰减到 0（纯红）
+                    const g = Math.round(230 * (1 - t));
+                    
+                    // 透明度（Alpha）从 0.2 平滑过渡到 1.0，让高密度区更有实体感
+                    const alpha = (0.2 + density * 0.8).toFixed(3);
+
+                    // 写入数组，保持三位小数防止 JavaScript 浮点数精度碎裂
+                    colors.push(Number(density.toFixed(3)), `rgba(255, ${g}, 0, ${alpha})`);
+                }
+
+                return expression.concat(colors);
+            }
+
             map.addLayer({
                 id: heatmapLayerId,
                 type: 'heatmap',
                 source: 'reachable-stops-overlay-source',
                 paint: {
-                    // 完全按照数据量 (remArr 的长度) 赋予密度叠加权重，结合剩余时间的占比进行动态放大
                     // 当数据量极高时，该点的向外辐射热能也最强
                     'heatmap-weight': [
                         '*',
-                        ['interpolate', ['linear'], ['get', 'remainingMinutes'], 0, 0.2, 20, 1.5],
+                        ['interpolate', ['linear'], ['get', 'remainingMinutes'], 0, 1, 20, 1],
                         ['get', 'dataVolume']
                     ],
                     'heatmap-intensity': [
@@ -845,19 +871,11 @@ map.on('load', async () => {
                         ['linear'],
                         ['zoom'],
                         0, 0.5,
-                        15, 3
+                        15, 1
                     ],
                     // 根据密度严格区分深浅
-                    'heatmap-color': [
-                        'interpolate',
-                        ['linear'],
-                        ['heatmap-density'],
-                        0, 'rgba(255, 102, 0, 0)',
-                        0.2, 'rgba(255, 180, 0, 0.6)',
-                        0.5, 'rgba(255, 120, 0, 0.8)',
-                        0.8, 'rgba(255, 50, 0, 0.9)',
-                        1, 'rgba(255, 0, 0, 1)'
-                    ],
+                    'heatmap-color': generateFullySmoothHeatmap(20), // 生成更平滑的颜色过渡，步长越大越平滑
+                    
                     // 让热力图半径反映真实的物理半径（按照经度35.6度左右的墨卡托投影比例，随 zoom 指数级放大）
                     // 在 MapLibre 中 zoom 插值必须作为根表达式（Top-level expression）
                     'heatmap-radius': [
