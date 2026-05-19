@@ -3,88 +3,12 @@ import { getCachedJson } from '../../lib/fetch.js';
 
 const SERVICE_DAY_BOUNDARY_HOUR = 3;
 const INF_TIME = Number.POSITIVE_INFINITY;
-const MIN_TRANSFER_MS = 5 * 60 * 1000;
+const MIN_TRANSFER_MS = 3 * 60 * 1000;
 
-export const getReachableStopsWithinMinutes = async ({ originStationId, minutes, departureMs = Date.now(), setTo8 = true, offsetsMin = [0, 240, 540, 840], serviceDay = null, maxRounds = 7 } = {}) => {
-    await ensurePlannerStaticData();
-    const originId = normalizeText(originStationId);
-    const mins = Number(minutes)+5;
-    const originMs = Number.isFinite(Number(departureMs)) ? Number(departureMs) : Date.now();
-    const date = new Date(originMs);
-    if (setTo8) date.setHours(8, 0, 0, 0);
-    const depMs = date.getTime();
-    if (!originId || !Number.isFinite(mins) || mins < 0) return { reachableStops: [], remainingMsByStop: new Map() };
+import { getReachableStopsWithinMinutes as getReachableStopsWithinMinutesDijkstra } from './travel-search-planner-dijkstra.js';
 
-    let sourceStops = getGroupStops(originId);
-    sourceStops.add(originId);
-    sourceStops = filterNearbyStops(originId, sourceStops, 800);
-
-    if (!sourceStops.size) return { reachableStops: [], remainingMsByStop: new Map() };
-
-    const day = normalizeText(serviceDay) || inferServiceDayFromDate(new Date(depMs));
-    const durationBudgetMs = Math.round(mins) * 60000; 
-    const offsetMin = Array.isArray(offsetsMin) ? offsetsMin : [30, 150, 360, 600, 810];
-    let runResults = null;
-
-    for (let i = 0; i < offsetMin.length; i++) {
-        const departMs = depMs + offsetMin[i] * 60000;
-        const runResult = await runRaptorSearch({
-            sourceStops,
-            destinationStops: new Set(),
-            departureMs: departMs,
-            serviceDay: day,
-            maxRounds
-        });
-        if (!runResults) runResults = [];
-        runResults.push(runResult);
-    }
-
-    const reachableSet = new Set();
-    // 将普通对象改为 Map
-    const remainingMsByStopMap = new Map();
-
-    const resultsArray = runResults || [];
-    for (let i = 0; i < resultsArray.length; i++) {
-        const runResult = resultsArray[i];
-        
-        // 动态计算当前发车班次的截止时间
-        const currentDepartMs = depMs + offsetMin[i] * 60000;
-        const dynamicCutoffMs = currentDepartMs + durationBudgetMs;
-        const dynamicRoundCircleRadiusMs = Math.min(Number(minutes) / 6 * 60000, 1200000); // 动态允许步行时长，不超过1/6的时间或不超过20分钟
-
-        const bestRemByStopThisRun = new Map();
-
-        for (const roundArr of runResult.arrivals || []) {
-            if (!(roundArr instanceof Map)) continue;
-            for (const [stopId, t] of roundArr.entries()) {
-                if (!Number.isFinite(t)) continue;
-                
-                // 只要符合当前轮次的截止时间，就视为可达
-                if (t <= dynamicCutoffMs) {
-                    const rem = Math.max(dynamicRoundCircleRadiusMs, dynamicCutoffMs - t); // 剩余时间至少等于动态圆圈半径
-                    
-                    const ex = bestRemByStopThisRun.get(stopId) || 0;
-                    if (rem > ex) {
-                        bestRemByStopThisRun.set(stopId, rem);
-                    }
-                }
-            }
-        }
-
-        // 本次出发班次中，每个站点只保留其最佳的可达结果
-        for (const [stopId, maxRem] of bestRemByStopThisRun.entries()) {
-            reachableSet.add(stopId);
-            if (!remainingMsByStopMap.has(stopId)) {
-                remainingMsByStopMap.set(stopId, []);
-            }
-            remainingMsByStopMap.get(stopId).push(maxRem);
-        }
-    }
-
-    return { 
-        reachableStops: Array.from(reachableSet), 
-        remainingMsByStop: remainingMsByStopMap 
-    };
+export const getReachableStopsWithinMinutes = async (options) => {
+    return getReachableStopsWithinMinutesDijkstra(options);
 };
 
 export const normalizeText = (v) => String(v ?? '').trim();
@@ -156,7 +80,7 @@ export const formatDuration = (durationMs) => {
     return `${h}小时${m}分钟`;
 };
 
-const plannerState = {
+export const plannerState = {
     staticReady: false,
     staticLoadingPromise: null,
     groupByStop: new Map(),
@@ -171,7 +95,7 @@ const plannerState = {
     mergedThroughByRootIdByDay: new Map()
 };
 
-const getDayTripMap = (serviceDay) => {
+export const getDayTripMap = (serviceDay) => {
     const day = normalizeText(serviceDay) || 'Weekday';
     if (!plannerState.tripByIdByDay.has(day)) plannerState.tripByIdByDay.set(day, new Map());
     return plannerState.tripByIdByDay.get(day);
@@ -504,7 +428,7 @@ export const getNearbyStationsForJourneyPick = async ({ lngLat, maxMeters = 2000
     return Array.from(groupedByTransferGroup.values()).sort((a, b) => a.distanceMeters - b.distanceMeters || a.stationId.localeCompare(b.stationId));
 };
 
-const getTransferPenaltyMs = (fromStopId, toStopId) => {
+export const getTransferPenaltyMs = (fromStopId, toStopId) => {
     const a = normalizeText(fromStopId);
     const b = normalizeText(toStopId);
     if (!a || !b || a === b) return 0;
@@ -594,7 +518,7 @@ const planContainsSurcharge = (plan) => {
     return false;
 };
 
-const loadTripsForLineAndDay = async ({ lineId, serviceDay, excludeSurchargeTypes = false }) => {
+export const loadTripsForLineAndDay = async ({ lineId, serviceDay, excludeSurchargeTypes = false }) => {
     const line = normalizeText(lineId);
     const day = normalizeText(serviceDay) || 'Weekday';
     if (!line) return [];
@@ -674,7 +598,7 @@ const loadTripsForLineAndDay = async ({ lineId, serviceDay, excludeSurchargeType
     return parsedTrips;
 };
 
-const getParsedTripByTripId = async ({ tripId, serviceDay }) => {
+export const getParsedTripByTripId = async ({ tripId, serviceDay }) => {
     const key = normalizeText(tripId);
     const day = normalizeText(serviceDay) || 'Weekday';
     if (!key) return null;

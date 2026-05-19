@@ -787,8 +787,8 @@ map.on('load', async () => {
                         id: stopId,
                         remainingMs,
                         remainingMinutes: remainingMs / 60000,
-                        radiusMeters,                   // 各自保留不同班次算出的物理覆盖半径
-                        dataVolume: 1                   // 个体点容量为 1，依靠地图引擎多记录重叠自然累积密度
+                        radiusMeters,                  
+                        dataVolume: 1                 
                     },
                     geometry: {
                         type: 'Point',
