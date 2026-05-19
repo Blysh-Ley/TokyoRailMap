@@ -438,8 +438,8 @@ export const getTransferPenaltyMs = (fromStopId, toStopId) => {
     const dist = distanceMeters(coordA, coordB);
     if (!Number.isFinite(dist) || dist <= 1) return 3 * 60 * 1000;
 
-    const extra = Math.ceil(dist / 100) * 2;
-    return (3 + extra) * 60 * 1000;
+    const extra = Math.ceil(dist / 100) * 1.5;
+    return extra * 60 * 1000;
 };
 
 export const sameSet = (a, b) => {
