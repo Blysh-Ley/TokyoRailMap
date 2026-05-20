@@ -408,9 +408,9 @@ map.addControl(
     'bottom-left'
 );
 
-// 2) 底图加载完成后再加载业务数据与图层
-map.on('load', async () => {
-    //console.log('底图加载完毕，准备加载 GeoJSON...');
+// 2) 初始化业务数据与图层（不强依赖底图瓦片成功加载）
+const initMapApp = async () => {
+    //console.log('地图初始化完成，准备加载 GeoJSON...');
 
     const applyCustomAttribution = () => {
         try {
@@ -746,14 +746,55 @@ map.on('load', async () => {
         return [lambda2 * 180 / Math.PI, phi2 * 180 / Math.PI];
     };
 
+    // 🎨 生成动态分位数的颜色插值表达式（基于感知均匀色卡）
+    const generateDynamicColorExpressionPalette = (countsArray) => {
+        // 1. 获取并排序所有实际存在的班次频次
+        const uniqueCounts = [...new Set(countsArray)].sort((a, b) => a - b);
+        
+        // 选用最优色卡：Magma (深暗紫 -> 洋红 -> 亮橙 -> 核心白黄)
+        const PALETTE = ['#f3faec', '#ccebc6', '#8bd2bf', '#41a5cb', '#2182b9', '#084081'];
+
+        // 边界兜底：数据为空或极少的情况
+        if (uniqueCounts.length === 0) return PALETTE[0]; 
+        if (uniqueCounts.length === 1) return PALETTE[PALETTE.length - 1]; 
+
+        const expression = ['interpolate', ['linear'], ['get', 'shiftCount']];
+        let lastVal = -1;
+        
+        // 2. 将数据切分为与色卡长度匹配的等分点 (如 6 个点)
+        const steps = PALETTE.length;
+        
+        for (let i = 0; i < steps; i++) {
+            // 精确计算当前颜色应该映射到哪个分位数 (0%, 20%, 40%, 60%, 80%, 100%)
+            const percentileIndex = (i / (steps - 1)) * (uniqueCounts.length - 1);
+            const lower = Math.floor(percentileIndex);
+            const upper = Math.ceil(percentileIndex);
+            const weight = percentileIndex - lower;
+            
+            // 提取对应分位的班次数值
+            let currentVal = uniqueCounts[lower] * (1 - weight) + uniqueCounts[upper] * weight;
+            currentVal = Math.round(currentVal * 100) / 100;
+
+            // 【关键】防止数据过于集中导致插值锚点重复（Mapbox 严格要求递增）
+            if (currentVal <= lastVal) {
+                currentVal = lastVal + 0.1; 
+            }
+
+            expression.push(currentVal, PALETTE[i]);
+            lastVal = currentVal;
+        }
+
+        return expression;
+    };
+
     // 生成动态分位数的颜色插值表达式
     const generateDynamicColorExpression = (countsArray) => {
         // 1. 去重并排序 (获取所有实际存在的总班次数量)
         const uniqueCounts = [...new Set(countsArray)].sort((a, b) => a - b);
         
         // 边界兜底：如果没有有效数据
-        if (uniqueCounts.length === 0) return '#FFFFA0'; // 淡黄兜底
-        if (uniqueCounts.length === 1) return '#FFFFA0';
+        if (uniqueCounts.length === 0) return '#f5f5e4'; // 淡黄兜底
+        if (uniqueCounts.length === 1) return '#f5f5e4';
 
         // 2. 设定最大档位数 (20档)，如果数据种类少于20，则自动降级档位数
         const maxSteps = 20;
@@ -771,9 +812,9 @@ map.on('load', async () => {
             colors.push(`rgb(255, ${g}, ${b})`);
         }
 
-        const expression = ['interpolate', ['linear'], ['get', 'totalCount']];
+        const expression = ['interpolate', ['linear'], ['get', 'shiftCount']];
         let lastVal = -1;
-
+        const debugBuckets = [];
         // 4. 按百分位抽取锚点，并保证 Mapbox 渲染要求的"严格单调递增"
         for (let i = 0; i < steps; i++) {
             let currentVal;
@@ -798,9 +839,25 @@ map.on('load', async () => {
             if (currentVal > lastVal) {
                 expression.push(currentVal, colors[i]);
                 lastVal = currentVal;
+
+                debugBuckets.push({
+                    '档位': debugBuckets.length + 1,
+                    '班次数量 (shiftCount)': currentVal,
+                    '对应颜色 (RGB)': colors[i]
+                });
+                
+                lastVal = currentVal;
             }
         }
-
+/*
+        // ✨✨✨ 新增：在控制台华丽地打印结果 ✨✨✨
+        console.log(`\n========== 🎨 动态颜色分档结果 ==========`);
+        console.log(`总计扫描了 ${countsArray.length} 个班次数据，包含 ${uniqueCounts.length} 种不同的频次。`);
+        console.log(`由于去重和算法，最终生成了 ${debugBuckets.length} 个渲染档位：`);
+        
+        // 使用 console.table 可以在浏览器控制台渲染出一个非常漂亮的表格
+        console.table(debugBuckets);
+*/
         // 如果过滤后剩下的有效档位过少，直接返回单一颜色兜底
         if (expression.length <= 5) {
             return colors[colors.length - 1] || '#FF0000';
@@ -820,7 +877,7 @@ map.on('load', async () => {
             : (reachableStops instanceof Set ? Array.from(reachableStops) : Object.keys(payload?.remainingMsByStop || {}));
 
         const features = [];
-        const allTotalCounts = []; // 【新增】用于收集所有的班次总数
+        const allShiftCounts = []; 
 
         for (const rawStopId of stopIds) {
             const stopId = String(rawStopId || '').trim();
@@ -836,16 +893,15 @@ map.on('load', async () => {
             const lat = Number(coord[1]);
             if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
 
-            // 1. 汇总该站点总班次，并推入统计数组
-            const totalCount = shiftsArray.reduce((sum, shift) => sum + (Number(shift.count) || 0), 0);
-            if (totalCount > 0) {
-                allTotalCounts.push(totalCount);
-            }
-
-            // 2. 生成具体特征
             for (const shift of shiftsArray) {
                 const remainingMs = Number(shift.remainMs);
+                const shiftCount = Number(shift.count) || 0; // 单独提取这一个时间圈的班次数
+                
                 if (!Number.isFinite(remainingMs) || remainingMs < 0) continue;
+
+                if (shiftCount > 0) {
+                    allShiftCounts.push(shiftCount); // 收集起来用于计算分位数
+                }
 
                 const radiusMeters = reachableStopsCircleRadiusMeters(remainingMs);
                 
@@ -854,9 +910,8 @@ map.on('load', async () => {
                     properties: {
                         id: stopId,
                         remainingMs,
-                        remainingMinutes: remainingMs / 60000,
                         radiusMeters,                  
-                        totalCount  // 必须保留，图层通过此属性读取颜色
+                        shiftCount
                     },
                     geometry: {
                         type: 'Point',
@@ -865,9 +920,9 @@ map.on('load', async () => {
                 });
             }
         }
-
+        features.sort((a, b) => b.properties.radiusMeters - a.properties.radiusMeters);
         // 数据的汇总数组，生成独属于当下的动态颜色表达式
-        const dynamicColorExpression = generateDynamicColorExpression(allTotalCounts);
+        const dynamicColorExpression = generateDynamicColorExpression(allShiftCounts);
 
         return {
             geojson: { type: 'FeatureCollection', features },
@@ -909,7 +964,7 @@ map.on('load', async () => {
                 // 直接使用传进来的动态生成表达式
                 'circle-color': dynamicColorExpression,
                 'circle-opacity': baseOpacity,
-                'circle-blur': 1,
+                'circle-blur': 0.5,
                 'circle-pitch-alignment': 'map'
             }
         }, beforeLayerId);
@@ -6746,4 +6801,28 @@ map.on('load', async () => {
     } catch (e) {
         console.error('站点加载失败', e);
     }
-});
+};
+
+let mapInitStarted = false;
+let mapInitQueued = false;
+const startMapInit = (reason) => {
+    if (mapInitStarted) return;
+    if (map?.loaded?.() || map?.isStyleLoaded?.()) {
+        mapInitStarted = true;
+        initMapApp().catch((e) => {
+            console.error('地图初始化失败', e);
+        });
+        return;
+    }
+
+    if (mapInitQueued) return;
+    mapInitQueued = true;
+    map.once('styledata', () => {
+        mapInitQueued = false;
+        startMapInit(reason || 'styledata');
+    });
+};
+
+map.on('load', () => startMapInit('load'));
+map.on('error', () => startMapInit('error'));
+setTimeout(() => startMapInit('timeout'), 3000);

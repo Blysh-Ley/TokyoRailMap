@@ -328,11 +328,22 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes 
         const groupKey = [...group].sort().join('|');
         const combinedMsMap = mergedGroups.get(groupKey);
 
-        finalMap.set(stopId, Array.from(combinedMsMap.entries()).map(([remainMs, chainSet]) => ({
-            remainMs,
-            count: chainSet.size,
-            tripId: Array.from(chainSet)[0] // 需求约定：保留第一个作为特征 id 即可
-        })));
+        const sortedEntries = Array.from(combinedMsMap.entries()).sort((a, b) => b[0] - a[0]);
+        
+        let cumulativeCount = 0;
+        const processedCircles = sortedEntries.map(([remainMs, chainSet]) => {
+            // 2. 核心：小圆继承大圆的班次数！
+            // 因为能让你走 20 分钟的班次，绝对足够让你走 5 分钟
+            cumulativeCount += chainSet.size; 
+            
+            return {
+                remainMs,
+                count: cumulativeCount,
+                tripId: Array.from(chainSet)[0]
+            };
+        });
+
+        finalMap.set(stopId, processedCircles);
     }
 
     /*
