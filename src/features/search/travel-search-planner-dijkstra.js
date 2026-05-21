@@ -280,32 +280,17 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes 
     // ============================================================================
     // 阶段 3: 同组并集合并、分钟归一化与强制截断输出
     // ============================================================================
-    const sg = await getStationGroupsIndex();
+   const sg = await getStationGroupsIndex();
     
-    // 临时合并表: stopId -> Map<remainMs, Set<chainId>>
-    const remainingMsByStopInternal = new Map();
-    
-    for (const [stopId, chainMap] of stopStates.entries()) {
-        const msMap = new Map();
-        for (const [chainId, state] of chainMap.entries()) {
-            
-            // 需求：将同分钟的零碎时间算作同一分钟（抹零计算）
-            let remainMs = Math.floor(state.remainMin) * 60000;
-            
-            // 调试用强制截断
-            if (CLAMP_CONFIG.ENABLE_CLAMP) {
-                remainMs = Math.min(CLAMP_CONFIG.MAX_RADIUS_MS, Math.max(CLAMP_CONFIG.MIN_RADIUS_MS, remainMs));
-            }
-            
-            if (!msMap.has(remainMs)) msMap.set(remainMs, new Set());
-            msMap.get(remainMs).add(chainId); // 利用 Set 实现自动按班次去重
-        }
-        if (msMap.size > 0) remainingMsByStopInternal.set(stopId, msMap);
-    }
+    // 1. 定义自适应参数
+    const BUCKET_COUNT = 15;
+    const bucketSizeMin = Math.max(1, durationBudgetMin / BUCKET_COUNT); 
+    const bucketSizeMs = bucketSizeMin * 60000;
 
-    // 聚合物理同站组的最终输出
+    // 2. 分桶：将原始时间映射到档位，并进行同站组班次合并
     const mergedGroups = new Map();
-    for (const [stopId, msMap] of remainingMsByStopInternal.entries()) {
+
+    for (const [stopId, chainMap] of stopStates.entries()) {
         const group = sg.get(stopId) || [stopId];
         const groupKey = [...group].sort().join('|');
 
@@ -314,38 +299,47 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes 
         }
         const combinedMsMap = mergedGroups.get(groupKey);
 
-        for (const [remainMs, chainSet] of msMap.entries()) {
-            if (!combinedMsMap.has(remainMs)) combinedMsMap.set(remainMs, new Set());
-            const targetSet = combinedMsMap.get(remainMs);
-            // 这里取并集，同一站组不同入口进来的同一班车会自动由于 Set 机制不再增加 count
-            for (const cid of chainSet) targetSet.add(cid); 
+        for (const [chainId, state] of chainMap.entries()) {
+            const rawRemainMs = state.remainMin * 60000;
+            
+            // 计算档位基准线 (向下取整)
+            const bucketedMs = Math.floor(rawRemainMs / bucketSizeMs) * bucketSizeMs;
+            
+            if (!combinedMsMap.has(bucketedMs)) combinedMsMap.set(bucketedMs, new Set());
+            combinedMsMap.get(bucketedMs).add(chainId);
         }
     }
 
+    // 3. 计算累加计数并生成最终输出
     const finalMap = new Map();
-    for (const stopId of remainingMsByStopInternal.keys()) {
-        const group = sg.get(stopId) || [stopId];
-        const groupKey = [...group].sort().join('|');
-        const combinedMsMap = mergedGroups.get(groupKey);
-
+    
+    for (const [groupKey, combinedMsMap] of mergedGroups.entries()) {
+        // 按剩余时间从大到小排序 (保证大圈的班次可以累加到小圈)
         const sortedEntries = Array.from(combinedMsMap.entries()).sort((a, b) => b[0] - a[0]);
         
         let cumulativeCount = 0;
         const processedCircles = sortedEntries.map(([remainMs, chainSet]) => {
-            // 2. 核心：小圆继承大圆的班次数！
-            // 因为能让你走 20 分钟的班次，绝对足够让你走 5 分钟
-            cumulativeCount += chainSet.size; 
+            // 核心逻辑：累加当前档位班次到计数器
+            cumulativeCount += chainSet.size;
             
             return {
-                remainMs,
-                count: cumulativeCount,
+                remainMs, // 这里是真实的自适应分档时间
+                count: cumulativeCount, // 实现了“小圈包含大圈所有班次”的密度叠加
                 tripId: Array.from(chainSet)[0]
             };
         });
 
-        finalMap.set(stopId, processedCircles);
+        // 映射回对应的所有 stopId
+        const stopIds = groupKey.split('|');
+        for (const sid of stopIds) {
+            finalMap.set(sid, processedCircles);
+        }
     }
 
+    return {
+        reachableStops: Array.from(finalMap.keys()),
+        remainingMsByStop: finalMap,
+    };
     /*
         // ============================================================================
     // ✨✨✨ 插入调试代码：专门打印羽田机场的全链条溯源 ✨✨✨
@@ -381,8 +375,4 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes 
     }
 
     */
-    return {
-        reachableStops: Array.from(finalMap.keys()),
-        remainingMsByStop: finalMap,
-    };
 };

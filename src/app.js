@@ -724,7 +724,8 @@ const initMapApp = async () => {
 
     const reachableStopsCircleRadiusMeters = (remainingMs) => {
         const maxMinutes = 20;
-        const remainingMinutes = Math.max(0, Number(remainingMs) / 60000);
+        const minMinutes = 5;
+        const remainingMinutes = Math.max(minMinutes, Number(remainingMs) / 60000);
         const walkMinutes = Math.min(maxMinutes, remainingMinutes);
         return walkMinutes * 50;
     };
@@ -796,8 +797,8 @@ const initMapApp = async () => {
         if (uniqueCounts.length === 0) return '#f5f5e4'; // 淡黄兜底
         if (uniqueCounts.length === 1) return '#f5f5e4';
 
-        // 2. 设定最大档位数 (20档)，如果数据种类少于20，则自动降级档位数
-        const maxSteps = 20;
+        // 2. 设定最大档位数 (10档)，如果数据种类少于10，则自动降级档位数
+        const maxSteps = 10;
         const steps = Math.min(maxSteps, uniqueCounts.length);
         
         // 3. 生成对应档数的渐变色 (从 淡黄 rgb(255,255,150) 到 纯红 rgb(255,0,0) 的线性平滑过渡)
@@ -920,7 +921,14 @@ const initMapApp = async () => {
                 });
             }
         }
-        features.sort((a, b) => b.properties.radiusMeters - a.properties.radiusMeters);
+        features.sort((a, b) => {
+            // 1. 主要条件：按班次数升序排序。保证低班次(黄色)先渲染在底层，高班次(红色/橙色)后渲染在顶层
+            if (a.properties.shiftCount !== b.properties.shiftCount) {
+                return a.properties.shiftCount - b.properties.shiftCount;
+            }
+            // 2. 次要条件：如果班次数相同(颜色相同)，按半径降序排序。保证大圈在底层，小圈在顶层
+            return b.properties.radiusMeters - a.properties.radiusMeters;
+        });
         // 数据的汇总数组，生成独属于当下的动态颜色表达式
         const dynamicColorExpression = generateDynamicColorExpression(allShiftCounts);
 
@@ -944,7 +952,7 @@ const initMapApp = async () => {
             });
         }
 
-        // 采用圆图层替代热力图层
+        // 采用圆图层替代热力图层 HeatMap
         const circleLayerId = 'reachable-stops-overlay-circle-layer';
 
         if (!map.getLayer(circleLayerId)) {
@@ -964,7 +972,7 @@ const initMapApp = async () => {
                 // 直接使用传进来的动态生成表达式
                 'circle-color': dynamicColorExpression,
                 'circle-opacity': baseOpacity,
-                'circle-blur': 0.5,
+                'circle-blur': 0.7,
                 'circle-pitch-alignment': 'map'
             }
         }, beforeLayerId);
