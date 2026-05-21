@@ -770,7 +770,14 @@ const initMapApp = async () => {
         const uniqueCounts = [...new Set(countsArray)].sort((a, b) => a - b);
         
         // 选用最优色卡：Magma (深暗紫 -> 洋红 -> 亮橙 -> 核心白黄)
-        const PALETTE = ['#f3faec', '#ccebc6', '#8bd2bf', '#41a5cb', '#2182b9', '#084081'];
+        const PALETTE =[
+            '#BAE1FF', // 婴儿蓝 (极低)
+            '#B5EAD7', // 薄荷绿
+            '#FFFFBA', // 奶油黄
+            '#FFDFBA', // 蜜桃橙
+            '#FFB7B2', // 玫瑰粉
+            '#E0BBE4'  // 香芋紫 (极高)
+        ];;
 
         // 边界兜底：数据为空或极少的情况
         if (uniqueCounts.length === 0) return PALETTE[0]; 
@@ -811,8 +818,8 @@ const initMapApp = async () => {
         const uniqueCounts = [...new Set(countsArray)].sort((a, b) => a - b);
         
         // 边界兜底：如果没有有效数据
-        if (uniqueCounts.length === 0) return '#f5f5e4'; // 淡黄兜底
-        if (uniqueCounts.length === 1) return '#f5f5e4';
+        if (uniqueCounts.length === 0) return '#f0f8ff'; // 淡黄兜底
+        if (uniqueCounts.length === 1) return '#f0f8ff';
 
         // 2. 设定最大档位数 (10档)，如果数据种类少于10，则自动降级档位数
         const maxSteps = 10;
@@ -822,12 +829,10 @@ const initMapApp = async () => {
         const colors = [];
         for (let i = 0; i < steps; i++) {
             const ratio = i / (steps - 1);
-            // R 通道保持 255
-            // G 通道从 255 平滑衰减到 0
-            // B 通道从 150 平滑衰减到 0
-            const g = Math.round(255 * (1 - ratio)); 
-            const b = Math.round(150 * (1 - ratio));
-            colors.push(`rgb(255, ${g}, ${b})`);
+            const h = Math.round(220 * (1 - ratio));
+            const s = 100;
+            const l = Math.round(65 - 15 * ratio);
+            colors.push(`hsl(${h}, ${s}%, ${l}%)`);
         }
 
         const expression = ['interpolate', ['linear'], ['get', 'shiftCount']];
@@ -1006,6 +1011,47 @@ const initMapApp = async () => {
 
     let lastReachableStopsPayload = null;
 
+    const fitToReachableStopsBounds = (geojson, options = {}) => {
+        if (!map) return;
+        const features = Array.isArray(geojson?.features) ? geojson.features : [];
+        if (!features.length) return;
+
+        let minLng = Number.POSITIVE_INFINITY;
+        let minLat = Number.POSITIVE_INFINITY;
+        let maxLng = Number.NEGATIVE_INFINITY;
+        let maxLat = Number.NEGATIVE_INFINITY;
+
+        for (const f of features) {
+            const c = f?.geometry?.coordinates;
+            if (!Array.isArray(c) || c.length < 2) continue;
+            const lng = Number(c[0]);
+            const lat = Number(c[1]);
+            if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+            if (lng < minLng) minLng = lng;
+            if (lng > maxLng) maxLng = lng;
+            if (lat < minLat) minLat = lat;
+            if (lat > maxLat) maxLat = lat;
+        }
+
+        if (![minLng, minLat, maxLng, maxLat].every(Number.isFinite)) return;
+
+        // If all points are the same, expand to a small bbox to avoid over-zoom.
+        if (minLng === maxLng && minLat === maxLat) {
+            const dLng = 0.006;
+            const dLat = 0.004;
+            minLng -= dLng;
+            maxLng += dLng;
+            minLat -= dLat;
+            maxLat += dLat;
+        }
+
+        try {
+            map.fitBounds([[minLng, minLat], [maxLng, maxLat]]);
+        } catch {
+            // ignore
+        }
+    };
+
     const clearReachableStopsOverlay = () => {
         reachableStopsOverlayVisibleKey = '__empty__';
         lastReachableStopsPayload = null;
@@ -1019,7 +1065,7 @@ const initMapApp = async () => {
         }
     };
 
-    const refreshReachableStopsOverlay = async (payload = null) => {
+    const refreshReachableStopsOverlay = async (payload = null, options = {}) => {
         if (!map) return;
         
         if (payload) {
@@ -1046,6 +1092,10 @@ const initMapApp = async () => {
             map.getSource('reachable-stops-overlay-source')?.setData?.(data.geojson);
         } catch {
             // ignore
+        }
+
+        if (options?.fitBounds !== false && payload?.fitBounds !== false) {
+            fitToReachableStopsBounds(data.geojson);
         }
     };
 
@@ -3211,7 +3261,7 @@ const initMapApp = async () => {
             clearTripPathPreview({ source: s });
         };
         searchMapActions.updateReachableStopsOverlay = async (payload = {}) => {
-            await refreshReachableStopsOverlay(payload || {});
+            await refreshReachableStopsOverlay(payload || {}, { fitBounds: true });
         };
         searchMapActions.clearReachableStopsOverlay = () => {
             clearReachableStopsOverlay();
@@ -6372,7 +6422,7 @@ const initMapApp = async () => {
             // 地图缩放引发坐标变动时，实时触发热力图及源数据的刷新
             try {
                 if (typeof refreshReachableStopsOverlay === 'function') {
-                    refreshReachableStopsOverlay();
+                    refreshReachableStopsOverlay(undefined, { fitBounds: false });
                 }
             } catch (e) {
                 // ignore
