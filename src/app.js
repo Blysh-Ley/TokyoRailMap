@@ -293,66 +293,8 @@ const map = new maplibregl.Map({
     zoom: 11,
     style: {
         version: 8,
-        sources: {
-            'carto-light-source': {
-                type: 'raster',
-                tiles: [
-                    'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-                    'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-                    'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-                    'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
-                ],
-                tileSize: 256,
-                attribution: '&copy; <a href="https://carto.com/">Carto</a>'
-            },
-            'carto-dark-source': {
-                type: 'raster',
-                tiles: [
-                    'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                    'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                    'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                    'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-                ],
-                tileSize: 256,
-                attribution: '&copy; <a href="https://carto.com/">Carto</a>'
-            },
-            'ost-source': {
-                type: 'raster',
-                tiles: [
-                    'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
-                ],
-                tileSize: 256,
-                attribution: '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>'
-            }
-        },
-        layers: [
-            {
-                id: 'carto-light-layer',
-                type: 'raster',
-                source: 'carto-light-source',
-                layout: { visibility: (basemapMode === 'carto' && mapTheme === 'light') ? 'visible' : 'none' },
-                minzoom: 0,
-                paint: {}
-            },
-            {
-                id: 'carto-dark-layer',
-                type: 'raster',
-                source: 'carto-dark-source',
-                layout: { visibility: (basemapMode === 'carto' && mapTheme === 'dark') ? 'visible' : 'none' },
-                minzoom: 0,
-                paint: {}
-            },
-            {
-                id: 'ost-layer',
-                type: 'raster',
-                source: 'ost-source',
-                layout: { visibility: basemapMode === 'ost' ? 'visible' : 'none' },
-                minzoom: 0,
-                paint: mapTheme === 'dark' ? OSM_RASTER_PAINT_DARK : OSM_RASTER_PAINT_LIGHT
-            }
-        ]
+        sources: {},
+        layers: []
     }
 });
 
@@ -402,6 +344,82 @@ const setBasemapMode = (mode) => {
     applyBasemapTheme(mapTheme);
 };
 
+const ensureBasemapLayers = () => {
+    const items = [
+        {
+            id: 'carto-light-layer',
+            sourceId: 'carto-light-source',
+            source: {
+                type: 'raster',
+                tiles: [
+                    'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+                    'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+                    'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+                    'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+                ],
+                tileSize: 256,
+                attribution: '&copy; <a href="https://carto.com/">Carto</a>'
+            },
+            layout: { visibility: (basemapMode === 'carto' && mapTheme === 'light') ? 'visible' : 'none' }
+        },
+        {
+            id: 'carto-dark-layer',
+            sourceId: 'carto-dark-source',
+            source: {
+                type: 'raster',
+                tiles: [
+                    'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+                ],
+                tileSize: 256,
+                attribution: '&copy; <a href="https://carto.com/">Carto</a>'
+            },
+            layout: { visibility: (basemapMode === 'carto' && mapTheme === 'dark') ? 'visible' : 'none' }
+        },
+        {
+            id: 'ost-layer',
+            sourceId: 'ost-source',
+            source: {
+                type: 'raster',
+                tiles: [
+                    'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                ],
+                tileSize: 256,
+                attribution: '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>'
+            },
+            layout: { visibility: basemapMode === 'ost' ? 'visible' : 'none' },
+            paint: mapTheme === 'dark' ? OSM_RASTER_PAINT_DARK : OSM_RASTER_PAINT_LIGHT
+        }
+    ];
+
+    for (const item of items) {
+        if (!map.getSource(item.sourceId)) {
+            map.addSource(item.sourceId, item.source);
+        }
+    }
+
+    const beforeLayerId = map.getLayer('lines-layer')
+        ? 'lines-layer'
+        : (map.getLayer('stations-layer') ? 'stations-layer' : undefined);
+
+    for (const item of items) {
+        if (!map.getLayer(item.id)) {
+            map.addLayer({
+                id: item.id,
+                type: 'raster',
+                source: item.sourceId,
+                layout: item.layout,
+                minzoom: 0,
+                paint: item.paint || {}
+            }, beforeLayerId);
+        }
+    }
+};
+
 // 左下角比例尺
 map.addControl(
     new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }),
@@ -431,7 +449,6 @@ const initMapApp = async () => {
 
     applyCustomAttribution();
     map.on('styledata', applyCustomAttribution);
-    applyBasemapTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
 
     const railwaysOrderIndex = await loadRailwaysOrderIndex();
 
@@ -6806,6 +6823,9 @@ const initMapApp = async () => {
                 });
             });
         }
+
+        ensureBasemapLayers();
+        applyBasemapTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
     } catch (e) {
         console.error('站点加载失败', e);
     }
