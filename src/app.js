@@ -927,14 +927,15 @@ const initMapApp = async () => {
                 }
 
                 const radiusMeters = reachableStopsCircleRadiusMeters(remainingMs);
-                
+                const sortKey = (shiftCount * 100000) - radiusMeters;
                 features.push({
                     type: 'Feature',
                     properties: {
                         id: stopId,
                         remainingMs,
                         radiusMeters,                  
-                        shiftCount
+                        shiftCount,
+                        sortKey
                     },
                     geometry: {
                         type: 'Point',
@@ -983,6 +984,9 @@ const initMapApp = async () => {
             id: circleLayerId,
             type: 'circle',
             source: 'reachable-stops-overlay-source',
+            layout: {
+                'circle-sort-key': ['get', 'sortKey']
+            },
             paint: {
                 'circle-radius': [
                     'interpolate',
