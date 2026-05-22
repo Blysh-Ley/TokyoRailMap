@@ -518,6 +518,8 @@ const initMapApp = async () => {
     let transferCapsuleRefreshRafId = null;
     let transferCapsuleVisibleKey = '__init__';
     let reachableStopsOverlayVisibleKey = '__init__';
+    let reachableStopsLabelIds = null;
+    let reachableStopsExtremeLabelIds = null;
     let syncStationOffsetForTripPreviewState = () => {};
     let railwaysIndexByIdCachePromise = null;
     let multiSelectBaseTripPreviewSignature = '';
@@ -747,6 +749,68 @@ const initMapApp = async () => {
         return walkMinutes * 50;
     };
 
+    const getReachableStopsLabelIdSet = (geojson) => {
+        const features = Array.isArray(geojson?.features) ? geojson.features : [];
+        if (!features.length) return null;
+        const out = new Set();
+        for (const f of features) {
+            const sid = String(f?.properties?.id ?? f?.id ?? '').trim();
+            if (sid) out.add(sid);
+        }
+        return out.size ? out : null;
+    };
+
+    const getReachableStopsExtremeLabelIdSet = (geojson) => {
+        const features = Array.isArray(geojson?.features) ? geojson.features : [];
+        if (!features.length) return null;
+
+        let east = null;
+        let west = null;
+        let north = null;
+        let south = null;
+
+        const pick = (current, candidate, cmp) => {
+            if (!current) return candidate;
+            const res = cmp(candidate, current);
+            if (res > 0) return candidate;
+            if (res < 0) return current;
+            const aId = String(candidate?.id || '').trim();
+            const bId = String(current?.id || '').trim();
+            return aId && bId && aId < bId ? candidate : current;
+        };
+
+        for (const f of features) {
+            const c = f?.geometry?.coordinates;
+            if (!Array.isArray(c) || c.length < 2) continue;
+            const lng = Number(c[0]);
+            const lat = Number(c[1]);
+            if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+            const sid = String(f?.properties?.id ?? f?.id ?? '').trim();
+            if (!sid) continue;
+            const item = { id: sid, lng, lat };
+            east = pick(east, item, (a, b) => a.lng - b.lng);
+            west = pick(west, item, (a, b) => b.lng - a.lng);
+            north = pick(north, item, (a, b) => a.lat - b.lat);
+            south = pick(south, item, (a, b) => b.lat - a.lat);
+        }
+
+        const out = new Set();
+        for (const it of [east, west, north, south]) {
+            if (it?.id) out.add(String(it.id));
+        }
+        return out.size ? out : null;
+    };
+
+    const applyReachableStopsLabelPriorityBoost = (extremeIds) => {
+        if (!Array.isArray(stationLabels) || !stationLabels.length) return;
+        const set = extremeIds instanceof Set ? extremeIds : null;
+        for (const item of stationLabels) {
+            const sid = String(item?.stationId || item?.props?.id || '').trim();
+            const boost = !!(sid && set && set.has(sid));
+            item.collisionPriorityBoost = boost ? 1 : 0;
+        }
+    };
+
     const destinationPointFromBearing = (lng, lat, distanceMeters, bearingRad) => {
         const earthRadius = 6371000;
         const delta = Number(distanceMeters) / earthRadius;
@@ -872,19 +936,76 @@ const initMapApp = async () => {
                 lastVal = currentVal;
             }
         }
-/*
+        /*
         // ✨✨✨ 新增：在控制台华丽地打印结果 ✨✨✨
         console.log(`\n========== 🎨 动态颜色分档结果 ==========`);
         console.log(`总计扫描了 ${countsArray.length} 个班次数据，包含 ${uniqueCounts.length} 种不同的频次。`);
-        console.log(`由于去重和算法，最终生成了 ${debugBuckets.length} 个渲染档位：`);
-        
-        // 使用 console.table 可以在浏览器控制台渲染出一个非常漂亮的表格
-        console.table(debugBuckets);
-*/
+        console.log(`由于去重和算法，最终生成了 ${debugBuckets.length} 个渲染档位：\n\n`);
+
+        // 1. 打印表头
+        console.log(
+            `%c 档位 %c | %c 班次数量 (shiftCount) %c | %c 颜色预览 %c | %c 对应颜色 (RGB) `,
+            'font-weight: bold;', '',
+            'font-weight: bold;', '',
+            'font-weight: bold;', '',
+            'font-weight: bold;'
+        );
+        console.log('---------------------------------------------------------------------');
+
+        // 2. 遍历打印每一行，并使用 CSS 渲染颜色块
+        debugBuckets.forEach(bucket => {
+            // 提取你的数据，请确保这里的 key 与你对象中的 key 一致
+            const level = String(bucket.档位 || bucket.level || '').padEnd(4, ' '); 
+            const count = String(bucket['班次数量 (shiftCount)'] || bucket.shiftCount || '').padEnd(21, ' ');
+            const colorStr = bucket['对应颜色 (RGB)'] || bucket.color || '';
+
+            console.log(
+                `%c ${level} %c | %c ${count} %c | %c        %c | %c ${colorStr} `,
+                '', '', // 档位
+                '', '', // 班次数量
+                `background: ${colorStr}; border-radius: 2px; border: 1px solid #666;`, '', // 🎨 这里的背景色就是你的 HSL 值
+                `color: ${colorStr}; font-weight: bold;` // 让后面的文本也带上这个颜色
+            );
+        });
+        console.log('\n');
+        */
+
+
         // 如果过滤后剩下的有效档位过少，直接返回单一颜色兜底
         if (expression.length <= 5) {
             return colors[colors.length - 1] || '#FF0000';
         }
+
+        return expression;
+    };
+
+    const generateAbsoluteColorExpressionAbsolute = (countsArray) => {
+    // 1. 定义你的绝对频次锚点 (依据你之前的 18h / 3min 逻辑)
+        // 即使地图上某些频次缺失，interpolate 依然能线性插值出正确的颜色
+        const fixedSteps = [0, 18, 36, 54, 72, 108, 180, 360];
+        
+        // 2. 准备颜色数组 (保留你原来的 HSL 生成逻辑)
+        const steps = fixedSteps.length;
+        const colors = [];
+        for (let i = 0; i < steps; i++) {
+            const ratio = i / (steps - 1);
+            const h = Math.round(50 * (1 - ratio));
+            const s = 100;
+            const l = Math.round(80 - 30 * ratio);
+            colors.push(`hsl(${h}, ${s}%, ${l}%)`);
+        }
+
+        // 3. 构建 Mapbox 表达式
+        const expression = ['interpolate', ['linear'], ['get', 'shiftCount']];
+        
+        // 4. 将固定的频次锚点和颜色一一对应压入表达式
+        for (let i = 0; i < steps; i++) {
+            expression.push(fixedSteps[i], colors[i]);
+        }
+
+        // 调试打印：让你看到目前的班次落在哪个档位
+        const validCounts = countsArray.filter(c => c > 0);
+        const max = Math.max(...validCounts, 0);
 
         return expression;
     };
@@ -953,7 +1074,7 @@ const initMapApp = async () => {
             return b.properties.radiusMeters - a.properties.radiusMeters;
         });
         // 数据的汇总数组，生成独属于当下的动态颜色表达式
-        const dynamicColorExpression = generateDynamicColorExpression(allShiftCounts);
+        const dynamicColorExpression = generateAbsoluteColorExpressionAbsolute(allShiftCounts);
 
         return {
             geojson: { type: 'FeatureCollection', features },
@@ -997,8 +1118,8 @@ const initMapApp = async () => {
                 ],
                 // 直接使用传进来的动态生成表达式
                 'circle-color': dynamicColorExpression,
-                'circle-opacity': baseOpacity,
-                'circle-blur': 0.7,
+                'circle-opacity':baseOpacity,
+                'circle-blur': 1,
                 'circle-pitch-alignment': 'map'
             }
         }, beforeLayerId);
@@ -1059,6 +1180,7 @@ const initMapApp = async () => {
     const clearReachableStopsOverlay = () => {
         reachableStopsOverlayVisibleKey = '__empty__';
         lastReachableStopsPayload = null;
+        reachableStopsLabelIds = null;
         try {
             const source = map?.getSource?.('reachable-stops-overlay-source');
             if (source?.setData) {
@@ -1067,6 +1189,7 @@ const initMapApp = async () => {
         } catch {
             // ignore
         }
+        collisionController?.scheduleUpdate?.();
     };
 
     const refreshReachableStopsOverlay = async (payload = null, options = {}) => {
@@ -1097,6 +1220,11 @@ const initMapApp = async () => {
         } catch {
             // ignore
         }
+
+        reachableStopsLabelIds = getReachableStopsLabelIdSet(data.geojson);
+        reachableStopsExtremeLabelIds = getReachableStopsExtremeLabelIdSet(data.geojson);
+        applyReachableStopsLabelPriorityBoost(reachableStopsExtremeLabelIds);
+        collisionController?.scheduleUpdate?.();
 
         if (options?.fitBounds !== false && payload?.fitBounds !== false) {
             fitToReachableStopsBounds(data.geojson);
@@ -6526,24 +6654,36 @@ const initMapApp = async () => {
             // 线路联动：只影响站名（圆点仍按碰撞显示）
             getEnabledLineIds: getEnabledLineIdsForLabels,
             getVisibleStationIds: () => {
-                if (tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size) {
-                    if (isMultiSelectModeEnabled()) {
-                        const baseIds = getVisibleStationIdsForBaseMultiSelection();
-                        if (baseIds.size) {
-                            const merged = new Set(baseIds);
-                            for (const sid of tripPreviewStationIds) merged.add(String(sid || '').trim());
-                            return merged;
+                const baseVisible = (() => {
+                    if (tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size) {
+                        if (isMultiSelectModeEnabled()) {
+                            const baseIds = getVisibleStationIdsForBaseMultiSelection();
+                            if (baseIds.size) {
+                                const merged = new Set(baseIds);
+                                for (const sid of tripPreviewStationIds) merged.add(String(sid || '').trim());
+                                return merged;
+                            }
                         }
+                        return tripPreviewStationIds;
                     }
-                    return tripPreviewStationIds;
+                    if (dirPreviewActive && dirPreviewStationIds && dirPreviewStationIds.size) {
+                        return dirPreviewStationIds;
+                    }
+                    if (!selectedLineId && !selectedCompany && selectedStationId) {
+                        return getVisibleStationIdsForSelectedStationSelection();
+                    }
+                    return null;
+                })();
+
+                if (!(reachableStopsLabelIds instanceof Set)) return baseVisible;
+                if (!(baseVisible instanceof Set)) return reachableStopsLabelIds;
+
+                const intersect = new Set();
+                for (const rawId of baseVisible) {
+                    const sid = String(rawId || '').trim();
+                    if (sid && reachableStopsLabelIds.has(sid)) intersect.add(sid);
                 }
-                if (dirPreviewActive && dirPreviewStationIds && dirPreviewStationIds.size) {
-                    return dirPreviewStationIds;
-                }
-                if (!selectedLineId && !selectedCompany && selectedStationId) {
-                    return getVisibleStationIdsForSelectedStationSelection();
-                }
-                return null;
+                return intersect;
             },
             // 右上角三段开关：off/auto(碰撞)/all(无视碰撞)
             getLabelMode: () => {

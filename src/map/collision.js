@@ -235,6 +235,9 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
                 const bPinned = pinnedId != null && String(b.stationId) === String(pinnedId);
                 if (aPinned && !bPinned) return -1;
                 if (!aPinned && bPinned) return 1;
+                const aBoost = Number(a.collisionPriorityBoost) || 0;
+                const bBoost = Number(b.collisionPriorityBoost) || 0;
+                if (aBoost !== bBoost) return bBoost - aBoost;
                 return (b.priority - a.priority) || String(a.el.textContent).localeCompare(String(b.el.textContent));
             });
 

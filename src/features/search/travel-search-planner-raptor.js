@@ -3,7 +3,6 @@ import { getCachedJson } from '../../lib/fetch.js';
 
 const SERVICE_DAY_BOUNDARY_HOUR = 3;
 const INF_TIME = Number.POSITIVE_INFINITY;
-const MIN_TRANSFER_MS = 3 * 60 * 1000;
 
 import { getReachableStopsWithinMinutes as getReachableStopsWithinMinutesDijkstra } from './travel-search-planner-dijkstra.js';
 
@@ -428,19 +427,76 @@ export const getNearbyStationsForJourneyPick = async ({ lngLat, maxMeters = 2000
     return Array.from(groupedByTransferGroup.values()).sort((a, b) => a.distanceMeters - b.distanceMeters || a.stationId.localeCompare(b.stationId));
 };
 
+const parseStopId = (id) => {
+    const parts = id.split('.');
+    if (parts.length >= 3) {
+        return { company: parts[0], line: parts[1], station: parts[2] };
+    }
+    return null;
+};
+
 export const getTransferPenaltyMs = (fromStopId, toStopId) => {
+
+    const DEMON_STATION_GATE_PENALTY = {
+    "Tokyo": 8.0,    
+    "Shinjuku": 6.0, 
+    "Shibuya": 6.0,    
+    "Ikebukuro": 5.0, 
+    "Yokohama": 5.0    
+    };
+
     const a = normalizeText(fromStopId);
     const b = normalizeText(toStopId);
+
     if (!a || !b || a === b) return 0;
 
-    const coordA = plannerState.stationCoordById.get(a);
-    const coordB = plannerState.stationCoordById.get(b);
-    const dist = distanceMeters(coordA, coordB);
-    if (!Number.isFinite(dist) || dist <= 1) return 3 * 60 * 1000;
+    const coordA = plannerState.stationCoordById?.get(a);
+    const coordB = plannerState.stationCoordById?.get(b);
 
-    const extra = Math.ceil(dist / 100) * 1.5;
-    return extra * 60 * 1000;
+    if (!coordA || !coordB) return 3 * 60 * 1000;
+
+    const dist = distanceMeters(coordA, coordB);
+    if (!Number.isFinite(dist)) return 3 * 60 * 1000;
+
+    const infoA = parseStopId(a);
+    const infoB = parseStopId(b);
+    const isSameCompany = infoA && infoB && infoA.company === infoB.company;
+
+    if (!infoA || !infoB) {
+        return (2.0 + (dist / 100) * 1.5) * 60 * 1000;
+    }
+
+    const demonPenaltyA = DEMON_STATION_GATE_PENALTY[infoA.station];
+    const demonPenaltyB = DEMON_STATION_GATE_PENALTY[infoB.station];
+
+    const demonGatePenalty = Math.max(demonPenaltyA || 0, demonPenaltyB || 0);
+    const isDemonStation = demonGatePenalty > 0;
+
+    let transferMinutes = 0;
+    //同台
+    if (isSameCompany) {
+        if (dist <= 8) {
+            transferMinutes = 2.0; 
+        } else if (dist <= 35) {
+            transferMinutes = 2.0 + (dist / 100) * 1.0; 
+        } else if (dist <= 150) {
+            transferMinutes = 2.0 + (dist / 100) * 1.2;
+        } else {
+            transferMinutes = 3.0 + (dist / 100) * 1.5; 
+        }
+    } else {
+        const gatePenalty = isDemonStation ? demonGatePenalty : 3.0;
+        
+        if (dist <= 25) {
+            transferMinutes = gatePenalty + 2.0; 
+        } else {
+            transferMinutes = gatePenalty + 2.0 + (dist / 100) * 1.8;
+        }
+    }
+    console.log(`Transfer from ${a} to ${b}: distance=${dist.toFixed(1)}m, isSameCompany=${isSameCompany}, isDemonStation=${isDemonStation}, transferMinutes=${transferMinutes.toFixed(2)}`);
+    return transferMinutes * 60 * 1000;
 };
+
 
 export const sameSet = (a, b) => {
     if (!(a instanceof Set) || !(b instanceof Set)) return false;
@@ -815,7 +871,7 @@ const scanRoundRaptor = async ({ prevArr, markedStops, serviceDay, serviceDaySta
     const roundParent = new Map();
     const improvedStops = new Set();
 
-    const minBoardSlackMs = roundIndex > 1 ? MIN_TRANSFER_MS : 0;
+    const minBoardSlackMs = 0
     const routeIds = lineSetFromMarkedStops(markedStops);
     if (!routeIds.size) return { roundArr, roundParent, improvedStops };
 
@@ -882,7 +938,7 @@ const applyRealTransfersForNextRound = ({ roundArr, roundParent, improvedStops }
         if (!Number.isFinite(fromTime) || !(group instanceof Set)) continue;
 
         for (const toStop of group) {
-            const penalty = Math.max(MIN_TRANSFER_MS, getTransferPenaltyMs(fromStop, toStop));
+            const penalty =  getTransferPenaltyMs(fromStop, toStop);
             const cand = fromTime + penalty;
             const old = roundArr.get(toStop);
             if (Number.isFinite(old) && old <= cand) continue;
@@ -1116,7 +1172,7 @@ const optimizeSharedCorridorTransfers = async ({ plan, serviceDay }) => {
         if (!originalStopA || !originalStopB) continue;
 
         // 获取原定换乘点的步行惩罚（作为基准线）
-        let currentPenalty = Math.max(MIN_TRANSFER_MS, getTransferPenaltyMs(originalStopA.stopId, originalStopB.stopId));
+        let currentPenalty = getTransferPenaltyMs(originalStopA.stopId, originalStopB.stopId);
         let bestTransfer = null;
         
         // B 车最多只能滑动到乘客的最终下车点
@@ -1131,7 +1187,7 @@ const optimizeSharedCorridorTransfers = async ({ plan, serviceDay }) => {
             if (!isSamePhysicalStop(nextStopA.stopId, nextStopB.stopId)) break;
 
             // 计算如果滑动到这下一站，需要步行的换乘惩罚
-            const nextPenalty = Math.max(MIN_TRANSFER_MS, getTransferPenaltyMs(nextStopA.stopId, nextStopB.stopId));
+            const nextPenalty = getTransferPenaltyMs(nextStopA.stopId, nextStopB.stopId);
             
             // 终止条件 B: 防劣化机制！如果下一站换乘走得更远（比如小站变大站迷宫），立刻放弃滑动
             if (nextPenalty > currentPenalty) break; 

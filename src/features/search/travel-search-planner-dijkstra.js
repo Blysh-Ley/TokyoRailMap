@@ -1,7 +1,6 @@
 import { ensurePlannerStaticData, plannerState, getGroupStops, filterNearbyStops, normalizeText, getTransferPenaltyMs, loadTripsForLineAndDay } from './travel-search-planner-raptor.js';
 import { collectRefChainTrips } from '../route-map/route-map.js';
 
-const MIN_TRANSFER_MS = 5 * 60 * 1000;
 
 class MaxHeap {
     constructor() { this.data = []; }
@@ -162,15 +161,13 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes 
     // 阶段 2: 核心 CSA 线性扫描 O(N)
     // ============================================================================
     
-    // 状态记录表: stopId -> Map<chainId, { arrMin, remainMin }>
-    // 这里落实规则三：不随时间丢失此前较差抵达时刻的其他班次记录
+// 状态记录表: stopId -> Map<chainId, state>
     const stopStates = new Map();
     const getStates = (stopId) => {
         if (!stopStates.has(stopId)) stopStates.set(stopId, new Map());
         return stopStates.get(stopId);
     };
 
-    // 工具函数：缓存步行换乘矩阵结果，极大降低内循环消耗 (落实规则五)
     const transferCache = new Map();
     const getTransfersToMemo = (targetId) => {
         if (transferCache.has(targetId)) return transferCache.get(targetId);
@@ -180,99 +177,140 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes 
         
         const results = [];
         for (const u of walkStops) {
-            let penaltyMs;
-            if (u === targetId) {
-                // 如果是同一个站台/站点，赋予基础同站换乘时间 (比如3分钟)
-                penaltyMs = MIN_TRANSFER_MS; 
-            } else {
-                // 如果是跨站台/跨站步行，取 步行计算时间 和 保底时间 的最大值
-                const walkMs = getTransferPenaltyMs(u, targetId) ;
-                penaltyMs = Math.max(MIN_TRANSFER_MS, walkMs);
-            }
+            let penaltyMs =  getTransferPenaltyMs(u, targetId);
             results.push({ stopId: u, penaltyMin: penaltyMs / 60000 });
         }
         transferCache.set(targetId, results);
         return results;
     };
 
+    // 获取某个站点对应的组的唯一 Key，用于防折返判断
+    const sg = await getStationGroupsIndex(); // 确保你在这里能拿到分组数据
+    const getGroupKey = (sid) => {
+        const group = sg.get(sid) || [sid];
+        return [...group].sort().join('|');
+    };
+
+    // 【配置：乘客理性约束参数】
+    const MAX_WAIT_MINUTES = 30; // 换乘最多愿意等多久？超过则认为是无效班次/幽灵
+    const MAX_TRANSFER_COUNT = 3; // 一趟旅程最多接受几次换乘？
+
     for (const conn of connections) {
         const { chainId, fromStopId, toStopId, depMin, arrMin } = conn;
         const rideTimeMin = arrMin - depMin;
-        let bestPath = [];
         
         let bestTransferRemain = -1;
+        let bestPath = [];
+        let nextTransferCount = 0;
+        let nextVisitedGroups = new Set();
 
-        // 规则一：起点上车零等待 (仅扣减本身乘车时间)
+        const toGroupKey = getGroupKey(toStopId);
+        const fromGroupKey = getGroupKey(fromStopId);
+
+        // 规则一：起点上车
         if (sourceStops.has(fromStopId)) {
             let walkToSourceMin = 0;
-            
-            // 如果当前上车的站不是用户选择的【绝对起点】，并且开启了严格校验
             if (CLAMP_CONFIG.ENABLE_ORIGIN_WALK_PENALTY && fromStopId !== originId) {
-                // 获取从绝对起点走到这个邻近起点的耗时
-                const walkMs = Math.max(MIN_TRANSFER_MS,  getTransferPenaltyMs(originId, fromStopId));
+                const walkMs =  getTransferPenaltyMs(originId, fromStopId);
                 walkToSourceMin = walkMs / 60000;
             }
 
-            // 核心扣减逻辑：总预算 - 走过去的步时 - 乘车时间
             const remainIfStartHere = durationBudgetMin - walkToSourceMin - rideTimeMin;
             
-            // 确保就算在起点附近，如果走过去就已经超时了，也不能算作有效上车
             if (remainIfStartHere > bestTransferRemain && (durationBudgetMin - walkToSourceMin >= 0)) {
                 bestTransferRemain = remainIfStartHere;
+                nextTransferCount = 0; // 起点上车，换乘数为 0
+                nextVisitedGroups = new Set([getGroupKey(originId), fromGroupKey, toGroupKey]); 
                 bestPath = [{ 
-                action: 'START', 
-                stop: fromStopId, 
-                walkPenalty: walkToSourceMin,
-                budgetLeft: durationBudgetMin - walkToSourceMin
-            }];
+                    action: 'START', 
+                    stop: fromStopId, 
+                    walkPenalty: walkToSourceMin,
+                    budgetLeft: durationBudgetMin - walkToSourceMin
+                }];
             }
         }
 
-        // 规则二 & 五：通过步行矩阵回溯上车站的可能到达态
+        // 规则二 & 五：换乘回溯
         const transfers = getTransfersToMemo(fromStopId);
         
         for (const { stopId: walkFrom, penaltyMin } of transfers) {
             const prevStates = getStates(walkFrom);
             
             for (const [prevChainId, state] of prevStates.entries()) {
-                // 重点逻辑：如果是同直通班次 (nt链) 的延续，换乘惩罚强制归零
                 const isSameChain = (prevChainId === chainId) && (walkFrom === fromStopId);
                 const actualPenalty = isSameChain ? 0 : penaltyMin;
                 
-                // 时空合法性校验
+                // 1. 时空合法性校验
                 if (state.arrMin + actualPenalty <= depMin) {
-                    // 新剩余时间 = 历史到达时的剩余时间 - (此次到站绝对时间 - 历史到站绝对时间)
-                    // 后半段括号完美囊括了：换乘步时 + 等车发呆时间 + 本次乘坐时间
+                    const waitMin = depMin - (state.arrMin + actualPenalty);
+                    
+                    // ==========================================
+                    // 核心拦截器：剔除幽灵与折返现象
+                    // ==========================================
+                    if (!isSameChain) {
+                        // 拦截 1: 换乘等待时间过长 (消除 "发呆后往回坐" 的幽灵)
+                        if (waitMin > MAX_WAIT_MINUTES) continue;
+
+                        // 拦截 2: 换乘次数超标 (消除无限绕路的可能)
+                        if ((state.transferCount || 0) >= MAX_TRANSFER_COUNT) continue;
+
+                        // 拦截 3: 拓扑防折返校验 (消除绕圈圈的路线)
+                        // 如果将要到达的站点组，在之前的历史里已经去过了，直接阻断
+                        if (state.visitedGroups && state.visitedGroups.has(toGroupKey)) {
+                            // 允许一种例外：当前上车点就在这个目标组里（站内移动不算折返）
+                            if (toGroupKey !== fromGroupKey) {
+                                continue; 
+                            }
+                        }
+                    } else {
+                        // 即使是同一班车(一直坐着)，中途停靠时间也不该离谱
+                        if (waitMin > 30) continue; 
+                    }
+                    // ==========================================
+
                     const newRemain = state.remainMin - (conn.arrMin - state.arrMin);
+                    
                     if (newRemain > bestTransferRemain) {
                         bestTransferRemain = newRemain;
+                        // 更新换乘次数
+                        nextTransferCount = isSameChain ? (state.transferCount || 0) : (state.transferCount || 0) + 1;
+                        
+                        // 继承并更新已访问的拓扑节点
+                        nextVisitedGroups = new Set(state.visitedGroups || []);
+                        nextVisitedGroups.add(toGroupKey);
+
                         bestPath = [
-                        ...(state.path || []), // 继承上一站的完整路径
-                        { 
-                            action: isSameChain ? 'STAY' : 'WALK_TRANSFER', 
-                            from: walkFrom, 
-                            to: fromStopId, 
-                            penaltyMin: actualPenalty,
-                            waitMin: depMin - (state.arrMin + actualPenalty) // 等车发呆时间
-                        }
-                    ];
+                            ...(state.path || []),
+                            { 
+                                action: isSameChain ? 'STAY' : 'WALK_TRANSFER', 
+                                from: walkFrom, 
+                                to: fromStopId, 
+                                penaltyMin: actualPenalty,
+                                waitMin: waitMin 
+                            }
+                        ];
                     }
                 }
             }
         }
 
-        // 规则四：基于班次 (chainId) 的去重与更新
+        // 规则四：基于班次的去重与更新
         if (bestTransferRemain >= 0) {
             const toStates = getStates(toStopId);
             const existing = toStates.get(chainId);
+            
+            // 只有当剩余时间更有优势时，才写入（或者如果没写过）
             if (!existing || bestTransferRemain > existing.remainMin) {
                 toStates.set(chainId, { 
                     arrMin: conn.arrMin, 
                     remainMin: bestTransferRemain,
+                    transferCount: nextTransferCount,     // 记录换乘次数
+                    visitedGroups: nextVisitedGroups,     // 记录已访问过的站点组
                     path: [
                         ...bestPath,
                         { action: 'RIDE', chainId, from: fromStopId, to: toStopId, depMin, arrMin }
-                    ] });
+                    ] 
+                });
             }
         }
     }
@@ -280,7 +318,6 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes 
     // ============================================================================
     // 阶段 3: 同组并集合并、分钟归一化与强制截断输出
     // ============================================================================
-   const sg = await getStationGroupsIndex();
     
     // 1. 定义自适应参数
     const BUCKET_COUNT = 15;
@@ -314,22 +351,65 @@ export const getReachableStopsWithinMinutes = async ({ originStationId, minutes 
     const finalMap = new Map();
     
     for (const [groupKey, combinedMsMap] of mergedGroups.entries()) {
-        // 按剩余时间从大到小排序 (保证大圈的班次可以累加到小圈)
         const sortedEntries = Array.from(combinedMsMap.entries()).sort((a, b) => b[0] - a[0]);
         
         let cumulativeCount = 0;
-        const processedCircles = sortedEntries.map(([remainMs, chainSet]) => {
-            // 核心逻辑：累加当前档位班次到计数器
-            cumulativeCount += chainSet.size;
-            
-            return {
-                remainMs, // 这里是真实的自适应分档时间
-                count: cumulativeCount, // 实现了“小圈包含大圈所有班次”的密度叠加
-                tripId: Array.from(chainSet)[0]
-            };
-        });
+        const seenChainsInGroup = new Set();
+        const processedCircles = [];
 
-        // 映射回对应的所有 stopId
+        // --- DEBUG 触发器：统计一下这个站组总共有多少个疑似去重前的班次 ---
+        let totalRawChains = 0;
+        for (const [_, chainSet] of sortedEntries) totalRawChains += chainSet.size;
+        
+        // 阈值设定：如果一个站台单向超过 80 个班次（假设是异常偏高的阈值），开启审查
+        // 你可以根据你的实际数据规模调低或调高这个值，比如改成 50
+        const isSuspicious = totalRawChains > 80; 
+
+        /*
+        if (isSuspicious) {
+            console.log(`\n🚨 [异常高频站组审查] GroupKey: ${groupKey}`);
+            console.log(`包含物理站台数: ${groupKey.split('|').length} 个, 原始记录班次总和: ${totalRawChains} 个`);
+        }*/
+
+        for (const [remainMs, chainSet] of sortedEntries) {
+            let newlyAddedCount = 0;
+            const addedChainIdsThisBucket = [];
+            
+            for (const chainId of chainSet) {
+                if (!seenChainsInGroup.has(chainId)) {
+                    seenChainsInGroup.add(chainId);
+                    newlyAddedCount++;
+                    if (isSuspicious) addedChainIdsThisBucket.push(chainId);
+                }
+            }
+            /*
+            if (isSuspicious) {
+                const minLabel = (remainMs / 60000).toFixed(1);
+                console.log(`  ⏳ 剩余时间档位: ${minLabel} 分钟`);
+                console.log(`     - 当前档位原始班次数: ${chainSet.size}`);
+                console.log(`     - 跨档位去重后【实际新增】: ${newlyAddedCount}`);
+                
+                // 打印出具体是哪些 chainId 被加进去了，抽查前 5 个
+                if (newlyAddedCount > 0) {
+                    console.log(`     - 新增 ChainID 示例:`, addedChainIdsThisBucket.slice(0, 5));
+                }
+            }*/
+
+            if (newlyAddedCount > 0) {
+                cumulativeCount += newlyAddedCount;
+                processedCircles.push({
+                    remainMs,
+                    count: cumulativeCount,
+                    tripId: Array.from(chainSet)[0]
+                });
+            }
+        }
+/*
+        if (isSuspicious) {
+            console.log(`  🎯 该站组最终累计班次数 (count): ${cumulativeCount}`);
+            console.log(`====================================================\n`);
+        }
+*/
         const stopIds = groupKey.split('|');
         for (const sid of stopIds) {
             finalMap.set(sid, processedCircles);
