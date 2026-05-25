@@ -984,7 +984,7 @@ const initMapApp = async () => {
         // 即使地图上某些频次缺失，interpolate 依然能线性插值出正确的颜色
         const fixedSteps = [0, 18, 36, 54, 72, 108, 180, 360];
         
-        // 2. 准备颜色数组 (保留你原来的 HSL 生成逻辑)
+        // 2. 准备颜色数组
         const steps = fixedSteps.length;
         const colors = [];
         for (let i = 0; i < steps; i++) {
@@ -7043,8 +7043,68 @@ const startMapInit = (reason) => {
         mapInitQueued = false;
         startMapInit(reason || 'styledata');
     });
+   
 };
 
 map.on('load', () => startMapInit('load'));
 map.on('error', () => startMapInit('error'));
 setTimeout(() => startMapInit('timeout'), 3000);
+
+
+const STORAGE_KEY = "zoomlevel-bookmark";
+
+ window.getZoomInfo = () => {
+    if (!map) return;
+    const zoom = map.getZoom();
+    const center = map.getCenter();
+    const pitch = map.getPitch();
+    const bearing = map.getBearing();
+    console.log(`当前地图状态 - Zoom: ${zoom.toFixed(2)}, Center: [${center.lng.toFixed(4)}, ${center.lat.toFixed(4)}], Pitch: ${pitch.toFixed(1)}, Bearing: ${bearing.toFixed(1)}`);
+    }
+
+window.saveZoom = (remark=false) => {
+    if (!map) return;
+    const zoom = map.getZoom();
+    const center = map.getCenter();
+    const pitch = map.getPitch();
+    const bearing = map.getBearing();
+    let records = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    if (remark === false) {
+        remark = `u${records.length + 1}`;
+    }
+    const state = { zoom, center, pitch, bearing, remark };
+    records.push(state);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    console.log("地图状态已保存");
+    };
+
+    window.showZoomRecords = () => {
+        const records = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        records.forEach((rec, index) => {
+            rec.zoom = rec.zoom.toFixed(2);
+            rec.centerLat = rec.center.lat.toFixed(3);
+            rec.centerLon = rec.center.lng.toFixed(3);
+            delete rec.center;
+        })
+        console.table(records);
+    };
+
+    window.clearZoomRecords = () => {
+        localStorage.removeItem(STORAGE_KEY);
+        console.log("地图缩放记录已清除");
+    };
+
+    window.setZoom = (remark) => {
+        const records = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        const record = records.find(r => r.remark === remark);
+        if (record) {
+            map.flyTo({
+                zoom: record.zoom,
+                center: record.center,
+                pitch: record.pitch,
+                bearing: record.bearing,
+                essential: true
+            });
+            console.log(`已飞行到标记为 "${remark}" 的地图状态`);
+        }
+    }

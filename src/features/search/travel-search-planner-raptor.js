@@ -493,7 +493,7 @@ export const getTransferPenaltyMs = (fromStopId, toStopId) => {
             transferMinutes = gatePenalty + 2.0 + (dist / 100) * 1.8;
         }
     }
-    console.log(`Transfer from ${a} to ${b}: distance=${dist.toFixed(1)}m, isSameCompany=${isSameCompany}, isDemonStation=${isDemonStation}, transferMinutes=${transferMinutes.toFixed(2)}`);
+    //console.log(`Transfer from ${a} to ${b}: distance=${dist.toFixed(1)}m, isSameCompany=${isSameCompany}, isDemonStation=${isDemonStation}, transferMinutes=${transferMinutes.toFixed(2)}`);
     return transferMinutes * 60 * 1000;
 };
 
