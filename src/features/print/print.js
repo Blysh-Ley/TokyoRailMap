@@ -327,6 +327,177 @@
     const bboxesIntersect = (a, b) => !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
     const gridKey = (cx, cy) => `${cx},${cy}`;
 
+    let transferStationIdMapPromise = null;
+    let transferStationIdMapCache = null;
+
+    const getTransferStationIdMapForExport = async () => {
+        if (transferStationIdMapCache instanceof Map) return transferStationIdMapCache;
+        if (transferStationIdMapPromise) return transferStationIdMapPromise;
+
+        transferStationIdMapPromise = (async () => {
+            try {
+                const groups = await getCachedJsonSafe('./data/station-groups.json');
+                const map = new Map();
+
+                for (const group of Array.isArray(groups) ? groups : []) {
+                    if (!Array.isArray(group)) continue;
+                    const ids = [];
+                    const seen = new Set();
+
+                    for (const chunk of group) {
+                        if (!Array.isArray(chunk)) continue;
+                        for (const sid of chunk) {
+                            const id = String(sid ?? '').trim();
+                            if (!id || seen.has(id)) continue;
+                            seen.add(id);
+                            ids.push(id);
+                        }
+                    }
+
+                    if (!ids.length) continue;
+                    const groupSet = new Set(ids);
+                    for (const id of ids) {
+                        map.set(id, groupSet);
+                    }
+                }
+
+                transferStationIdMapCache = map;
+                return map;
+            } catch {
+                transferStationIdMapCache = new Map();
+                return transferStationIdMapCache;
+            } finally {
+                transferStationIdMapPromise = null;
+            }
+        })();
+
+        return transferStationIdMapPromise;
+    };
+
+    const applyTransferStationLabelCollapseForExport = ({ candidates, transferStationIdMap, visibleIds }) => {
+        const list = Array.isArray(candidates) ? candidates : [];
+        if (!list.length) return list;
+
+        const map = transferStationIdMap instanceof Map ? transferStationIdMap : new Map();
+        const visibleSet = visibleIds instanceof Set
+            ? visibleIds
+            : new Set(list.map((x) => String(x?.id || '').trim()).filter(Boolean));
+
+        const labelById = new Map();
+        for (const item of list) {
+            const sid = String(item?.id || '').trim();
+            if (!sid) continue;
+            labelById.set(sid, item);
+        }
+
+        const getBaseName = (item) => String(item?.text || item?.id || '').trim();
+
+        const pickNorthernmost = (items) => {
+            let best = null;
+            let bestLat = Number.NEGATIVE_INFINITY;
+            for (const it of items) {
+                if (!it) continue;
+                const lat = Number(it?.coordinates?.[1]);
+                if (!Number.isFinite(lat)) continue;
+                const sid = String(it?.id || '').trim();
+                const bestSid = String(best?.id || '').trim();
+                if (lat > bestLat || (lat === bestLat && sid < bestSid)) {
+                    bestLat = lat;
+                    best = it;
+                }
+            }
+            return best;
+        };
+
+        const repIdsByGroupKey = new Map();
+
+        for (const item of list) {
+            const sid = String(item?.id || '').trim();
+            if (!sid) continue;
+
+            const groupSet = map.get(sid);
+            if (!(groupSet instanceof Set) || groupSet.size <= 1) continue;
+
+            const groupIds = Array.from(groupSet)
+                .map((x) => String(x || '').trim())
+                .filter(Boolean);
+            if (!groupIds.length) continue;
+
+            const groupKey = groupIds.slice().sort().join('|');
+            if (repIdsByGroupKey.has(groupKey)) continue;
+
+            const candidateIds = visibleSet
+                ? groupIds.filter((id) => visibleSet.has(id))
+                : groupIds.slice();
+            if (!candidateIds.length) continue;
+
+            const candidatesInGroup = candidateIds.map((id) => labelById.get(id)).filter(Boolean);
+            if (!candidatesInGroup.length) continue;
+
+            const nameBuckets = new Map();
+            for (const cand of candidatesInGroup) {
+                const nm = getBaseName(cand) || String(cand?.id || '').trim();
+                if (!nameBuckets.has(nm)) nameBuckets.set(nm, []);
+                nameBuckets.get(nm).push(cand);
+            }
+
+            const reps = [];
+            if (nameBuckets.size <= 1) {
+                const rep = pickNorthernmost(candidatesInGroup);
+                if (rep) reps.push(rep);
+            } else {
+                for (const bucket of nameBuckets.values()) {
+                    const rep = pickNorthernmost(bucket);
+                    if (rep) reps.push(rep);
+                }
+            }
+
+            reps.sort((a, b) => {
+                const latA = Number(a?.coordinates?.[1]);
+                const latB = Number(b?.coordinates?.[1]);
+                if (latA !== latB) return latB - latA;
+                return String(a?.id || '').localeCompare(String(b?.id || ''));
+            });
+
+            const repIdSet = new Set();
+            for (const rep of reps) {
+                const repId = String(rep?.id || '').trim();
+                if (!repId) continue;
+                repIdSet.add(repId);
+            }
+
+            repIdsByGroupKey.set(groupKey, repIdSet);
+        }
+
+        const out = [];
+        for (const item of list) {
+            const sid = String(item?.id || '').trim();
+            if (!sid) continue;
+
+            const groupSet = map.get(sid);
+            if (!(groupSet instanceof Set) || groupSet.size <= 1) {
+                out.push(item);
+                continue;
+            }
+
+            const groupIds = Array.from(groupSet)
+                .map((x) => String(x || '').trim())
+                .filter(Boolean);
+            if (groupIds.length <= 1) {
+                out.push(item);
+                continue;
+            }
+
+            const groupKey = groupIds.slice().sort().join('|');
+            const repIds = repIdsByGroupKey.get(groupKey);
+            const visibleByScope = !visibleSet || visibleSet.has(sid);
+            const isRepresentative = visibleByScope && repIds instanceof Set && repIds.has(sid);
+            if (isRepresentative) out.push(item);
+        }
+
+        return out;
+    };
+
     const pickVisibleLabelIdsByCollision = ({ map, candidates, gridCellPx = 80 }) => {
         const list = Array.isArray(candidates) ? candidates : [];
         if (!list.length) return new Set();
@@ -945,14 +1116,22 @@
                     });
                 }
 
+                const transferStationIdMap = await getTransferStationIdMapForExport();
+                const visibleIds = new Set(candidates.map((c) => String(c?.id || '').trim()).filter(Boolean));
+                const collapsedCandidates = applyTransferStationLabelCollapseForExport({
+                    candidates,
+                    transferStationIdMap,
+                    visibleIds
+                });
+
                 const visible = mode === 'auto'
-                    ? pickVisibleLabelIdsByCollision({ map, candidates, gridCellPx: 80 })
-                    : new Set(candidates.map((c) => c.id));
+                    ? pickVisibleLabelIdsByCollision({ map, candidates: collapsedCandidates, gridCellPx: 80 })
+                    : new Set(collapsedCandidates.map((c) => c.id));
                 appendStationLabelBoxesSvg({
                     parts,
                     groupId: 'trip-preview-labels',
                     map,
-                    candidates,
+                    candidates: collapsedCandidates,
                     visibleIds: visible,
                     labelScale: scale,
                     omitBoxRect: Boolean(backgroundImageHref)
@@ -2316,16 +2495,24 @@ const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, low
                     });
                 }
 
+                const transferStationIdMap = await getTransferStationIdMapForExport();
+                const visibleIds = new Set(candidates.map((c) => String(c?.id || '').trim()).filter(Boolean));
+                const collapsedCandidates = applyTransferStationLabelCollapseForExport({
+                    candidates,
+                    transferStationIdMap,
+                    visibleIds
+                });
+
                 const visible = mode === 'auto'
-                    ? pickVisibleLabelIdsByCollision({ map, candidates, gridCellPx: 80 })
-                    : new Set(candidates.map((c) => c.id));
+                    ? pickVisibleLabelIdsByCollision({ map, candidates: collapsedCandidates, gridCellPx: 80 })
+                    : new Set(collapsedCandidates.map((c) => c.id));
                     
                     
                 appendStationLabelBoxesSvg({
                     parts,
                     groupId: 'base-station-labels',
                     map,
-                    candidates,
+                    candidates: collapsedCandidates,
                     visibleIds: visible,
                     labelScale: scale,
                     omitBoxRect: Boolean(backgroundImageHref)
