@@ -91,7 +91,7 @@
     /** @type {Promise<{ map: any, container: HTMLDivElement }> | null} */
     let virtualMapPromise = null;
 
-    const buildRasterStyle = (dark) => {
+    const buildRasterStyle = (dark, maxRasterZoom = null) => {
         const tiles = dark ? [
             'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
             'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
@@ -104,13 +104,19 @@
             'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
         ];
 
+        const source = {
+            type: 'raster',
+            tiles,
+            tileSize: 256
+        };
+        const cap = Number(maxRasterZoom);
+        if (Number.isFinite(cap)) source.maxzoom = cap;
+
         return {
             version: 8,
             sources: {
                 'export-raster': {
-                    type: 'raster',
-                    tiles,
-                    tileSize: 256
+                    ...source
                 }
             },
             layers: [
@@ -1300,6 +1306,33 @@
         return w / h;
     };
 
+    const approxBboxSpanKm = (bbox) => {
+        const b = normalizeBbox(bbox);
+        if (!b) return null;
+        const dLng = Math.abs(b.maxLng - b.minLng);
+        const dLat = Math.abs(b.maxLat - b.minLat);
+        const meanLatRad = (((b.minLat + b.maxLat) / 2) * Math.PI) / 180;
+        const wKm = dLng * 111.32 * Math.max(0.01, Math.cos(meanLatRad));
+        const hKm = dLat * 110.54;
+        const maxKm = Math.max(wKm, hKm);
+        return { wKm, hKm, maxKm };
+    };
+
+
+    const pickMaxExportZoom = (geoBbox, baseZoom) => {
+        const span = approxBboxSpanKm(geoBbox);
+        if (!span || !Number.isFinite(span.maxKm)) return null;
+        const km = span.maxKm;
+        const z = Number(baseZoom);
+
+        if (!(km > 25 && Number.isFinite(z) && z > 12)) return z;
+
+        if (km <= 50) return 12;
+        if (km >= 100) return 8;
+        
+        return 12 - ((km - 50) / (100 - 50)) * (12 - 8);
+    };
+
     const chooseAspectRatio = (w, h) => {
         const ww = Math.max(1, Number(w));
         const hh = Math.max(1, Number(h));
@@ -1479,8 +1512,8 @@
         }
     };
 
-    const ensureStyleMatchesTheme = async (map) => {
-        const style = buildRasterStyle(isDarkTheme());
+    const ensureStyleMatchesTheme = async (map, maxRasterZoom = null) => {
+        const style = buildRasterStyle(isDarkTheme(), maxRasterZoom);
         if (typeof map.setStyle !== 'function') return;
         map.setStyle(style);
         await waitForEventOnce(map, 'load', 5000);
@@ -1662,6 +1695,7 @@
             const baseBearing = (typeof baseMap.getBearing === 'function') ? baseMap.getBearing() : 0;
             const basePitch = (typeof baseMap.getPitch === 'function') ? baseMap.getPitch() : 0;
             const { map: vmap, container: vcontainer } = await ensureVirtualMap();
+            const maxExportZoom = pickMaxExportZoom(geoBbox, baseZoom);
 
             const baseName = [
                 'trip',
@@ -1679,7 +1713,7 @@
             const isLandscape = targetRatio >= 1;
 
             const tryExportPng = async ({ baseW, baseH, paddingPx }) => {
-                await ensureStyleMatchesTheme(vmap);
+                await ensureStyleMatchesTheme(vmap, maxExportZoom);
 
                 if (zoomMode === 'auto') {
                     // 自动：使用 fitBounds 自适应缩放，输出尺寸严格等于 baseW/baseH
@@ -2550,6 +2584,8 @@ const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, low
             const basePitch = (typeof baseMap.getPitch === 'function') ? baseMap.getPitch() : 0;
             const { map: vmap, container: vcontainer } = await ensureVirtualMap();
 
+            const maxExportZoom = pickMaxExportZoom(geoBbox, baseZoom);
+
             const baseName = ['highlight', sanitizeFilePart(label), nowIsoCompact()].join('_');
             const pngName = `${baseName}.png`;
             const svgName = `${baseName}.svg`;
@@ -2560,7 +2596,7 @@ const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, low
             const isLandscape = targetRatio >= 1;
 
             const tryExportPng = async ({ baseW, baseH, paddingPx }) => {
-                await ensureStyleMatchesTheme(vmap);
+                await ensureStyleMatchesTheme(vmap, maxExportZoom);
                 if (zoomMode === 'auto') {
                     const w = Math.max(1, Math.round(Number(baseW) || 1));
                     const h = Math.max(1, Math.round(Number(baseH) || 1));
