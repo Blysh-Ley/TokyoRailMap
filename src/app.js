@@ -1907,6 +1907,8 @@ const initMapApp = async () => {
         return `ms-line-branch:${id}`;
     };
 
+    const multiSelectBranchPreviewStepByLineId = new Map();
+
     const getLineIdFromBaseMultiSelectKey = (key) => {
         const k = String(key || '').trim();
         if (!k.startsWith('line:')) return '';
@@ -1933,8 +1935,11 @@ const initMapApp = async () => {
         const baseEntry = baseMultiSelectionsByKey.get(key);
         if (!baseEntry) return false;
 
-        if (hasTripPreviewSelectionBySource(source)) {
+        const currentStep = Number(multiSelectBranchPreviewStepByLineId.get(lineId) || 0);
+
+        if (currentStep >= 2 && hasTripPreviewSelectionBySource(source)) {
             clearTripPathPreview({ source });
+            multiSelectBranchPreviewStepByLineId.delete(lineId);
 
             const latest = baseMultiSelectionsByKey.get(key);
             if (latest?.hidden === true && latest?.branchAutoHidden === true) {
@@ -1951,32 +1956,44 @@ const initMapApp = async () => {
             return false;
         }
 
-        if (baseEntry?.hidden !== true) {
-            baseMultiSelectionsByKey.set(key, {
-                ...baseEntry,
-                hidden: true,
-                branchAutoHidden: true
-            });
-            emitMultiSelectLayersUpdated();
-            syncMultiSelectBaseTripPreview().catch(() => null);
-            applySelectionEffects();
-            collisionController?.scheduleUpdate?.();
-        } else if (baseEntry?.branchAutoHidden === true) {
-            baseMultiSelectionsByKey.set(key, {
-                ...baseEntry,
-                branchAutoHidden: false
-            });
-            emitMultiSelectLayersUpdated();
-            syncMultiSelectBaseTripPreview().catch(() => null);
+        const isFirstClick = currentStep <= 0 || !hasTripPreviewSelectionBySource(source);
+        if (isFirstClick) {
+            if (baseEntry?.hidden !== true) {
+                baseMultiSelectionsByKey.set(key, {
+                    ...baseEntry,
+                    hidden: true,
+                    branchAutoHidden: true
+                });
+                emitMultiSelectLayersUpdated();
+                syncMultiSelectBaseTripPreview().catch(() => null);
+                applySelectionEffects();
+                collisionController?.scheduleUpdate?.();
+            } else if (baseEntry?.branchAutoHidden === true) {
+                baseMultiSelectionsByKey.set(key, {
+                    ...baseEntry,
+                    branchAutoHidden: false
+                });
+                emitMultiSelectLayersUpdated();
+                syncMultiSelectBaseTripPreview().catch(() => null);
+            }
         }
 
         previewBranchesForLine({
             lineId,
             lineName: getLineNameForMultiSelect(lineId),
             fitMode: 'none',
-            previewSource: source
+            previewSource: source,
+            filterSpecial: isFirstClick
+        }).then((result) => {
+            if (result?.ok === true) {
+                const nextStep = isFirstClick ? 1 : 2;
+                multiSelectBranchPreviewStepByLineId.set(lineId, nextStep);
+            } else {
+                multiSelectBranchPreviewStepByLineId.delete(lineId);
+            }
         }).catch(() => {
             clearTripPathPreview({ source });
+            multiSelectBranchPreviewStepByLineId.delete(lineId);
             const latest = baseMultiSelectionsByKey.get(key);
             if (latest?.hidden === true && latest?.branchAutoHidden === true) {
                 baseMultiSelectionsByKey.set(key, {
@@ -1989,7 +2006,8 @@ const initMapApp = async () => {
                 collisionController?.scheduleUpdate?.();
             }
         });
-                syncMultiSelectBaseTripPreview().catch(() => null);
+
+        syncMultiSelectBaseTripPreview().catch(() => null);
         return true;
     };
 
@@ -5916,6 +5934,7 @@ const initMapApp = async () => {
                     const source = getMultiSelectLineBranchSource(lineId);
                     const ok = removeBaseMultiSelection(parsed.key);
                     if (ok) {
+                        if (lineId) multiSelectBranchPreviewStepByLineId.delete(lineId);
                         if (source) clearTripPathPreview({ source });
                         if (!getBaseMultiSelectedLineIds().size && !tripPreviewActive) setStationLabelMode('auto');
                         applySelectionEffects();
