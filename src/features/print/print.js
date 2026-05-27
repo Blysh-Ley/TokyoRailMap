@@ -1327,10 +1327,8 @@
 
         if (!(km > 25 && Number.isFinite(z) && z > 12)) return z;
 
-        if (km <= 50) return 12;
-        if (km >= 100) return 8;
-        
-        return 12 - ((km - 50) / (100 - 50)) * (12 - 8);
+        const targetZoom = Math.log2(204800 / km);
+        return Math.max(6, Math.min(14, targetZoom));
     };
 
     const chooseAspectRatio = (w, h) => {
@@ -1471,6 +1469,166 @@
 
         setTimeout(onDone, Math.max(0, Number(timeoutMs) || 0));
     });
+
+    const waitNextAnimationFrame = () => new Promise((resolve) => {
+        try {
+            requestAnimationFrame(() => resolve());
+        } catch {
+            setTimeout(() => resolve(), 0);
+        }
+    });
+
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+
+    const isMapLibreReadyForExport = (map, sourceId) => {
+        if (!map) return false;
+
+        try {
+            if (typeof map.isStyleLoaded === 'function' && !map.isStyleLoaded()) return false;
+        } catch {
+            return false;
+        }
+
+        try {
+            if (typeof map.loaded === 'function' && !map.loaded()) return false;
+        } catch {
+            // ignore
+        }
+
+        if (sourceId) {
+            try {
+                if (typeof map.getSource === 'function' && !map.getSource(sourceId)) return false;
+            } catch {
+                return false;
+            }
+            try {
+                if (typeof map.isSourceLoaded === 'function' && !map.isSourceLoaded(sourceId)) return false;
+            } catch {
+                return false;
+            }
+        }
+
+        try {
+            if (typeof map.areTilesLoaded === 'function' && !map.areTilesLoaded()) return false;
+        } catch {
+            return false;
+        }
+
+        return true;
+    };
+
+    const waitForMapLibreBasemapTilesReadyForExport = async (map, {
+        sourceId = 'export-raster',
+        timeoutMs = 60000,
+        settleFrames = 2,
+        pollMs = 120
+    } = {}) => {
+        const startAt = Date.now();
+
+        // 尽量触发一帧渲染，避免“状态已 ready 但尚未真正绘制到 canvas”。
+        try { map.triggerRepaint?.(); } catch {}
+
+        while (true) {
+            if (isMapLibreReadyForExport(map, sourceId)) {
+                for (let i = 0; i < Math.max(1, Number(settleFrames) || 1); i += 1) {
+                    await waitNextAnimationFrame();
+                }
+                // 再次确认一次，避免临界时刻 flip 回未完成。
+                if (isMapLibreReadyForExport(map, sourceId)) return;
+            }
+
+            const elapsed = Date.now() - startAt;
+            if (elapsed > Math.max(0, Number(timeoutMs) || 0)) {
+                const err = new Error('Basemap tiles did not finish loading in time');
+                err.code = 'EXPORT_TILE_TIMEOUT';
+                throw err;
+            }
+
+            // 用短轮询 + 事件加速：idle 触发更快，但绝不以 timeout 作为“已完成”。
+            await Promise.race([
+                waitForEventOnce(map, 'idle', Math.min(1000, Math.max(0, timeoutMs - elapsed))),
+                delay(pollMs)
+            ]);
+        }
+    };
+
+    const waitForMapLibreBasemapTilesReadyForExportWithZoomFallback = async (map, {
+        sourceId = 'export-raster',
+        initialMaxRasterZoom = null,
+        checkEveryMs = 10000,
+        maxFallbackAttempts = 3,
+        settleFrames = 2,
+        pollMs = 160,
+        onFallback = null
+    } = {}) => {
+        // attempt 0: keep current tile level
+        // attempt 1..N: cap raster source maxzoom to (currentTileLevel - attempt)
+        const baseTileLevel = (() => {
+            try {
+                const z = Number(map?.getZoom?.());
+                if (!Number.isFinite(z)) return 0;
+                return Math.max(0, Math.floor(z));
+            } catch {
+                return 0;
+            }
+        })();
+
+        const cappedBaseTileLevel = (() => {
+            const cap = Number(initialMaxRasterZoom);
+            if (!Number.isFinite(cap)) return baseTileLevel;
+            return Math.max(0, Math.min(baseTileLevel, Math.floor(cap)));
+        })();
+
+        for (let attempt = 0; attempt <= Math.max(0, Number(maxFallbackAttempts) || 0); attempt += 1) {
+            try {
+                await waitForMapLibreBasemapTilesReadyForExport(map, {
+                    sourceId,
+                    timeoutMs: Math.max(0, Number(checkEveryMs) || 0),
+                    settleFrames,
+                    pollMs
+                });
+                return;
+            } catch (err) {
+                const code = err && typeof err === 'object' ? String(err.code || '') : '';
+                const isTimeout = code === 'EXPORT_TILE_TIMEOUT';
+                if (!isTimeout) throw err;
+                if (attempt >= Math.max(0, Number(maxFallbackAttempts) || 0)) throw err;
+
+                const nextMaxZoom = Math.max(0, cappedBaseTileLevel - (attempt + 1));
+
+                try {
+                    if (typeof onFallback === 'function') {
+                        onFallback({ attempt: attempt + 1, nextMaxZoom, baseTileLevel: cappedBaseTileLevel });
+                    }
+                } catch {
+                    // ignore
+                }
+
+                await ensureStyleMatchesTheme(map, nextMaxZoom);
+
+                // 给 style 切换一点点时间进入渲染循环
+                try { map.triggerRepaint?.(); } catch {}
+                await waitNextAnimationFrame();
+            }
+        }
+    };
+
+    const reportExportError = (err) => {
+        try {
+            console.warn('导出失败', err);
+        } catch {
+            // ignore
+        }
+
+        const code = err && typeof err === 'object' ? String(err.code || '') : '';
+        if (code === 'EXPORT_TILE_TIMEOUT') {
+            try {
+                window.alert('导出失败：底图瓦片加载超时。\n\n请检查网络后重试，或稍等片刻再导出。');
+            } catch {
+                // ignore
+            }
+        }
+    };
 
     const canvasToPngBlob = (canvas) => new Promise((resolve, reject) => {
         try {
@@ -1758,7 +1916,12 @@
                 }
 
                 await waitForEventOnce(vmap, 'moveend', 2000);
-                await waitForEventOnce(vmap, 'idle', 8000);
+                await waitForMapLibreBasemapTilesReadyForExportWithZoomFallback(vmap, {
+                    sourceId: 'export-raster',
+                    initialMaxRasterZoom: maxExportZoom,
+                    checkEveryMs: 10000,
+                    maxFallbackAttempts: 3,
+                });
 
                 const canvas = vmap.getCanvas?.();
                 if (!canvas) throw new Error('canvas not available');
@@ -1970,8 +2133,8 @@
             zip.file(svgName, svgText);
             const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
             downloadBlob({ blob: zipBlob, filename: zipName });
-        } catch {
-            // ignore
+        } catch (err) {
+            reportExportError(err);
         } finally {
             exporting = false;
         }
@@ -2634,7 +2797,12 @@ const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, low
                 }
 
                 await waitForEventOnce(vmap, 'moveend', 2000);
-                await waitForEventOnce(vmap, 'idle', 8000);
+                await waitForMapLibreBasemapTilesReadyForExportWithZoomFallback(vmap, {
+                    sourceId: 'export-raster',
+                    initialMaxRasterZoom: maxExportZoom,
+                    checkEveryMs: 10000,
+                    maxFallbackAttempts: 3,
+                });
 
                 const canvas = vmap.getCanvas?.();
                 if (!canvas) throw new Error('canvas not available');
@@ -2763,8 +2931,8 @@ const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, low
             zip.file(svgName, svgText);
             const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
             downloadBlob({ blob: zipBlob, filename: zipName });
-        } catch {
-            // ignore
+        } catch (err) {
+            reportExportError(err);
         } finally {
             exporting = false;
         }
