@@ -1,0 +1,165 @@
+import { selectionSelectStationLines } from '../../store/actions.js';
+
+const toText = (value) => String(value ?? '').trim();
+
+export const createSearchSelectionController = ({
+    store,
+    searchFeature,
+    hoverFeature,
+    resolveLineSelection,
+    getSelectionState,
+    isMultiSelectModeEnabled,
+    getBaseMultiSelectedLineIds,
+    toggleBaseMultiSelection,
+    setStationLabelMode,
+    setIsolateStationsToSelectedLine,
+    applySelectionEffects,
+    fitToCurrentSelection,
+    hideStationPopupForMenuInteraction,
+    showRouteMapFloatingPanelForLine,
+    markActiveLine,
+    markActiveCompany,
+    findStationLabelItemById,
+    selectPlatformLinesForStation,
+    fitToPointAsBounds,
+    openPanelForStationWithAutoScroll,
+    getServingLineIdsFromStationProps,
+    preloadTimetablesByLineIds,
+    closeStationPopup,
+    setFixedPopupStationLabelBelow
+} = {}) => {
+    if (!store || typeof store.dispatch !== 'function') {
+        throw new Error('searchSelectionController requires a store');
+    }
+    if (!searchFeature) {
+        throw new Error('searchSelectionController requires searchFeature');
+    }
+
+    const resolveLine = (lineId) => (
+        typeof resolveLineSelection === 'function' ? resolveLineSelection(lineId) : null
+    );
+
+    const setIsolate = (enabled) => {
+        if (typeof setIsolateStationsToSelectedLine === 'function') {
+            setIsolateStationsToSelectedLine(enabled === true);
+        }
+    };
+
+    const openStationForStationId = (stationId, meta = {}) => {
+        const item = typeof findStationLabelItemById === 'function'
+            ? findStationLabelItemById(stationId)
+            : null;
+        if (!item) return null;
+
+        const props = item.props || {};
+        const coords = item.coordinates;
+
+        selectPlatformLinesForStation?.(props);
+        fitToPointAsBounds?.(coords, { maxZoom: meta?.maxZoom });
+        return { props, coords };
+    };
+
+    return {
+        clearStationSelection() {
+            const state = typeof getSelectionState === 'function' ? getSelectionState() : {};
+            store.dispatch(selectionSelectStationLines({
+                selectedCompany: state.selectedCompany,
+                selectedLineId: state.selectedLineId,
+                selectedStationLineIds: null,
+                selectedStationId: null,
+                selectedServiceMode: state.selectedServiceMode
+            }));
+        },
+
+        previewLine(lineId) {
+            const id = toText(lineId);
+            if (!id) return;
+            hideStationPopupForMenuInteraction?.({ preserveHoverPreview: true });
+            if (hoverFeature?.beginPreview?.() !== true) return;
+
+            const payload = searchFeature.previewLine(id);
+            if (!payload?.selectedLineId) return;
+            setIsolate(false);
+            setStationLabelMode?.('auto');
+            fitToCurrentSelection?.(`line:${payload.selectedLineId}`, 'preview');
+        },
+
+        commitLine(lineId) {
+            const id = toText(lineId);
+            if (!id) return;
+            hideStationPopupForMenuInteraction?.();
+            hoverFeature?.commitPreview?.();
+
+            const resolved = resolveLine(id);
+            const mainLineId = toText(resolved?.mainLineId) || id;
+            const merged = Array.isArray(resolved?.mergedLineIds)
+                ? resolved.mergedLineIds.map(String).filter(Boolean)
+                : [mainLineId];
+
+            if (isMultiSelectModeEnabled?.()) {
+                toggleBaseMultiSelection?.(`line:${mainLineId}`, merged, 'line');
+                if (getBaseMultiSelectedLineIds?.().size) setStationLabelMode?.('all');
+                else setStationLabelMode?.('auto');
+                applySelectionEffects?.();
+                showRouteMapFloatingPanelForLine?.(id);
+                return;
+            }
+
+            const payload = searchFeature.commitLine(id);
+            const nextLineId = payload?.selectedLineId || mainLineId;
+            setIsolate(false);
+            setStationLabelMode?.('all');
+            markActiveLine?.(nextLineId);
+            fitToCurrentSelection?.(`line:${nextLineId}`, 'commit');
+            showRouteMapFloatingPanelForLine?.(id);
+        },
+
+        previewCompany(companyName) {
+            const name = toText(companyName);
+            if (!name) return;
+            hideStationPopupForMenuInteraction?.({ preserveHoverPreview: true });
+            if (hoverFeature?.beginPreview?.() !== true) return;
+            const payload = searchFeature.previewCompany(name);
+            if (!payload?.selectedCompany) return;
+            setIsolate(false);
+            setStationLabelMode?.('auto');
+            fitToCurrentSelection?.(`company:${name}`, 'preview');
+        },
+
+        commitCompany(companyName) {
+            const name = toText(companyName);
+            if (!name) return;
+            hideStationPopupForMenuInteraction?.();
+            hoverFeature?.commitPreview?.();
+            const payload = searchFeature.commitCompany(name);
+            if (!payload?.selectedCompany) return;
+            setIsolate(false);
+            setStationLabelMode?.('auto');
+            markActiveCompany?.(name);
+            fitToCurrentSelection?.(`company:${name}`, 'commit');
+        },
+
+        previewStation(stationId, meta) {
+            if (hoverFeature?.beginPreview?.() !== true) return;
+            openStationForStationId(stationId, meta || {});
+        },
+
+        commitStation(stationId, meta) {
+            hoverFeature?.commitPreview?.();
+            const opened = openStationForStationId(stationId, meta || {});
+            openPanelForStationWithAutoScroll?.(opened?.props || {});
+
+            try {
+                const ids = getServingLineIdsFromStationProps?.(opened?.props || {});
+                preloadTimetablesByLineIds?.(ids);
+            } catch {
+                // ignore
+            }
+        },
+
+        closeStationPopup({ committed } = {}) {
+            closeStationPopup?.({ committed: committed !== false });
+            setFixedPopupStationLabelBelow?.(null);
+        }
+    };
+};

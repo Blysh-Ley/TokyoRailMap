@@ -47,7 +47,7 @@ import './features/route-map/route-map-ui.js';
 import { companyLogoMap, resolveLineSelectionByBranchRules } from './lib/special-condition.js';
 import { createBasemapController, createMapEngine } from './services/mapEngine.js';
 import { createStore } from './store/appStore.js';
-import { hoverSetEnabled, selectionSelectStationLines } from './store/actions.js';
+import { hoverSetEnabled } from './store/actions.js';
 import { createHighlightFeature } from './features/highlight/highlightFeature.js';
 import { createHighlightRenderer } from './features/highlight/highlightRenderer.js';
 import { createTripPreviewRenderer } from './features/highlight/tripPreviewRenderer.js';
@@ -55,6 +55,7 @@ import { createHoverFeature } from './features/hover/hoverFeature.js';
 import { createReachableStopsOverlayRenderer } from './features/search/reachableStopsOverlayRenderer.js';
 import { createSearchMapBridge } from './features/search/searchMapBridge.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
+import { createSearchSelectionController } from './features/search/searchSelectionController.js';
 
 initializeFetchCache();
 
@@ -3262,135 +3263,52 @@ const initMapApp = async () => {
         }
     };
 
-    const selectionBridgeApi = {
-        clearStationSelection: () => {
-            appStore.dispatch(selectionSelectStationLines({
-                selectedCompany,
-                selectedLineId,
-                selectedStationLineIds: null,
-                selectedStationId: null,
-                selectedServiceMode
-            }));
+    const searchSelectionController = createSearchSelectionController({
+        store: appStore,
+        searchFeature,
+        hoverFeature,
+        resolveLineSelection: resolveLineSelectionForApp,
+        getSelectionState: () => ({
+            selectedCompany,
+            selectedLineId,
+            selectedServiceMode
+        }),
+        isMultiSelectModeEnabled,
+        getBaseMultiSelectedLineIds,
+        toggleBaseMultiSelection,
+        setStationLabelMode,
+        setIsolateStationsToSelectedLine: (enabled) => {
+            isolateStationsToSelectedLine = enabled === true;
         },
-        previewLine: (lineId) => {
-            const id = String(lineId ?? '').trim();
-            if (!id) return;
-            hideStationPopupForMenuInteraction({ preserveHoverPreview: true });
-            if (!hoverFeature?.beginPreview()) return;
-
-            const payload = searchFeature.previewLine(id);
-            if (!payload?.selectedLineId) return;
-            isolateStationsToSelectedLine = false;
-            setStationLabelMode('auto');
-            fitToCurrentSelection(`line:${payload.selectedLineId}`, 'preview');
+        applySelectionEffects,
+        fitToCurrentSelection,
+        hideStationPopupForMenuInteraction,
+        showRouteMapFloatingPanelForLine,
+        markActiveLine: (lineId) => {
+            if (!menu || typeof menu.markActive !== 'function') return;
+            const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(lineId)}"]`);
+            if (el) menu.markActive(el);
         },
-        commitLine: (lineId) => {
-            const id = String(lineId ?? '').trim();
-            if (!id) return;
-            hideStationPopupForMenuInteraction();
-            hoverFeature?.commitPreview();
-
-            const resolved = resolveLineSelectionForApp(id);
-
-            const mainLineId = String(resolved?.mainLineId ?? id);
-            const merged = Array.isArray(resolved?.mergedLineIds)
-                ? resolved.mergedLineIds.map(String).filter(Boolean)
-                : [mainLineId];
-
-            if (isMultiSelectModeEnabled()) {
-                toggleBaseMultiSelection(`line:${mainLineId}`, merged, 'line');
-                if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
-                else setStationLabelMode('auto');
-                applySelectionEffects();
-                showRouteMapFloatingPanelForLine(id);
-                return;
-            }
-
-            const payload = searchFeature.commitLine(id);
-            const nextLineId = payload?.selectedLineId || mainLineId;
-            isolateStationsToSelectedLine = false;
-            setStationLabelMode('all');
-
-            if (menu && typeof menu.markActive === 'function') {
-                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(nextLineId)}"]`);
-                if (el) menu.markActive(el);
-            }
-
-            fitToCurrentSelection(`line:${nextLineId}`, 'commit');
-
-            showRouteMapFloatingPanelForLine(id);
-        },
-        previewCompany: (companyName) => {
-            const name = String(companyName ?? '').trim();
-            if (!name) return;
-            hideStationPopupForMenuInteraction({ preserveHoverPreview: true });
-            if (!hoverFeature?.beginPreview()) return;
-            const payload = searchFeature.previewCompany(name);
-            if (!payload?.selectedCompany) return;
-            isolateStationsToSelectedLine = false;
-            setStationLabelMode('auto');
-            fitToCurrentSelection(`company:${name}`, 'preview');
-        },
-        commitCompany: (companyName) => {
-            const name = String(companyName ?? '').trim();
-            if (!name) return;
-            hideStationPopupForMenuInteraction();
-            hoverFeature?.commitPreview();
-            const payload = searchFeature.commitCompany(name);
-            if (!payload?.selectedCompany) return;
-            isolateStationsToSelectedLine = false;
-            setStationLabelMode('auto');
-
-            if (menu && typeof menu.markActive === 'function') {
-                const companyEls = menu.wrapper?.querySelectorAll?.('.RW-company-content') || [];
-                for (const el of companyEls) {
-                    const n = el?.querySelector?.('.RW-company-name')?.textContent?.trim();
-                    if (n === name) {
-                        menu.markActive(el);
-                        break;
-                    }
+        markActiveCompany: (companyName) => {
+            if (!menu || typeof menu.markActive !== 'function') return;
+            const companyEls = menu.wrapper?.querySelectorAll?.('.RW-company-content') || [];
+            for (const el of companyEls) {
+                const n = el?.querySelector?.('.RW-company-name')?.textContent?.trim();
+                if (n === companyName) {
+                    menu.markActive(el);
+                    break;
                 }
             }
-
-            fitToCurrentSelection(`company:${name}`, 'commit');
-        }
-    };
-
-    const openStationForStationId = (stationId, meta = {}) => {
-        const item = findStationLabelItemById(stationId);
-        if (!item) return null;
-
-        const props = item.props || {};
-        const coords = item.coordinates;
-
-        selectPlatformLinesForStation(props);
-        fitToPointAsBounds(coords, { maxZoom: meta?.maxZoom });
-        return { props, coords };
-    };
-
-    const stationBridgeApi = {
-        previewStation: (stationId, meta) => {
-            if (!hoverFeature?.beginPreview()) return;
-            openStationForStationId(stationId, meta || {});
         },
-        commitStation: (stationId, meta) => {
-            hoverFeature?.commitPreview();
-            const opened = openStationForStationId(stationId, meta || {});
-            openPanelForStationWithAutoScroll(opened?.props || {});
-
-            // 预加载该站点关联线路的时刻表
-            try {
-                const ids = getServingLineIdsFromStationProps(opened?.props || {});
-                timetableCache?.preloadRecursiveByLineIds?.(ids);
-            } catch {
-                // ignore
-            }
-        },
-        closeStationPopup: ({ committed } = {}) => {
-            stationPopup?.closePopup?.({ committed: committed !== false });
-            setFixedPopupStationLabelBelow(null);
-        }
-    };
+        findStationLabelItemById,
+        selectPlatformLinesForStation,
+        fitToPointAsBounds,
+        openPanelForStationWithAutoScroll,
+        getServingLineIdsFromStationProps,
+        preloadTimetablesByLineIds: (ids) => timetableCache?.preloadRecursiveByLineIds?.(ids),
+        closeStationPopup: (options) => stationPopup?.closePopup?.(options),
+        setFixedPopupStationLabelBelow
+    });
 
     if (searchMapActions) {
         Object.assign(searchMapActions, createSearchMapBridge({
@@ -3398,8 +3316,8 @@ const initMapApp = async () => {
             journeyPickApi: journeyPickBridgeApi,
             reachableStopsApi: reachableStopsBridgeApi,
             routePreviewApi: routePreviewBridgeApi,
-            selectionApi: selectionBridgeApi,
-            stationApi: stationBridgeApi,
+            selectionApi: searchSelectionController,
+            stationApi: searchSelectionController,
             stateApi: {
                 snapshotSelectionState,
                 restoreSelectionState
