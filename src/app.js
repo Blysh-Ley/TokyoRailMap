@@ -57,7 +57,6 @@ import {
     writeAdaptiveViewportEnabled,
     writeAppearanceMode,
     writeAutoUpdateCheckEnabled,
-    writeHoverPreviewEnabled,
     writeStationOffsetMode,
     writeTimetableViewMode
 } from './services/appSettings.js';
@@ -78,7 +77,7 @@ import { createSearchMapBridge } from './features/search/searchMapBridge.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
 import { createSearchSelectionController } from './features/search/searchSelectionController.js';
 import { createSegmentedSettingRow } from './features/settings/settingRows.js';
-import { mountBasemapToggle } from './features/settings/settingsControls.js';
+import { mountBasemapToggle, mountHoverPreviewToggle } from './features/settings/settingsControls.js';
 import { createSettingsMenu } from './features/settings/settingsMenu.js';
 import {
     buildTripPreviewSelectionKey as buildRoutePreviewSelectionKey,
@@ -3544,43 +3543,6 @@ const initMapApp = async () => {
         setMode(readTimetableViewMode());
     }
 
-    function mountHoverPreviewToggle(hostEl) {
-        const row = createSegmentedSettingRow({
-            hostEl,
-            className: 'settings-item-hover-preview',
-            title: '自动预览',
-            options: [
-                { value: 'on', label: '开启' },
-                { value: 'off', label: '关闭' }
-            ]
-        });
-        const btnOn = row.buttons.get('on');
-        const btnOff = row.buttons.get('off');
-
-        const setEnabled = (enabled, { persistStorage = true } = {}) => {
-            const on = enabled !== false;
-            row.setActive(on ? 'on' : 'off');
-            applyHoverPreviewEnabled(on);
-            if (persistStorage) {
-                writeHoverPreviewEnabled(on);
-            }
-        };
-
-        const setDisabled = (disabled) => {
-            row.setDisabled(disabled === true);
-        };
-
-        btnOn.addEventListener('click', () => setEnabled(true));
-        btnOff.addEventListener('click', () => setEnabled(false));
-
-        setEnabled(readHoverPreviewEnabled());
-
-        hoverPreviewToggleController = {
-            setEnabled,
-            setDisabled
-        };
-    }
-
     function mountAdaptiveViewportToggle(hostEl) {
         const row = createSegmentedSettingRow({
             hostEl,
@@ -3642,7 +3604,10 @@ const initMapApp = async () => {
     mountTimetableViewToggle(settingsMenuContentEl);
     mountAdaptiveViewportToggle(settingsMenuContentEl);
     mountStationOffsetToggle(settingsMenuContentEl);
-    mountHoverPreviewToggle(settingsMenuContentEl);
+    hoverPreviewToggleController = mountHoverPreviewToggle({
+        hostEl: settingsMenuContentEl,
+        onEnabledChanged: applyHoverPreviewEnabled
+    });
     mountStationLabelToggle(settingsMenuContentEl);
 
     {

@@ -1,4 +1,9 @@
-import { readBasemapMode, writeBasemapMode } from '../../services/appSettings.js';
+import {
+    readBasemapMode,
+    readHoverPreviewEnabled,
+    writeBasemapMode,
+    writeHoverPreviewEnabled
+} from '../../services/appSettings.js';
 import { createSegmentedSettingRow } from './settingRows.js';
 
 export const mountBasemapToggle = ({ hostEl, onModeChanged } = {}) => {
@@ -30,5 +35,42 @@ export const mountBasemapToggle = ({ hostEl, onModeChanged } = {}) => {
 
     return {
         setMode
+    };
+};
+
+export const mountHoverPreviewToggle = ({ hostEl, onEnabledChanged } = {}) => {
+    const row = createSegmentedSettingRow({
+        hostEl,
+        className: 'settings-item-hover-preview',
+        title: '自动预览',
+        options: [
+            { value: 'on', label: '开启' },
+            { value: 'off', label: '关闭' }
+        ]
+    });
+    const btnOn = row.buttons.get('on');
+    const btnOff = row.buttons.get('off');
+
+    const setEnabled = (enabled, { persistStorage = true } = {}) => {
+        const next = enabled !== false;
+        row.setActive(next ? 'on' : 'off');
+        onEnabledChanged?.(next);
+        if (persistStorage) {
+            writeHoverPreviewEnabled(next);
+        }
+    };
+
+    const setDisabled = (disabled) => {
+        row.setDisabled(disabled === true);
+    };
+
+    btnOn.addEventListener('click', () => setEnabled(true));
+    btnOff.addEventListener('click', () => setEnabled(false));
+
+    setEnabled(readHoverPreviewEnabled());
+
+    return {
+        setEnabled,
+        setDisabled
     };
 };
