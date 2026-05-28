@@ -45,7 +45,7 @@ import {
 } from './lib/throughServiceManager.js';
 import './features/route-map/route-map-ui.js';
 import { companyLogoMap, resolveLineSelectionByBranchRules } from './lib/special-condition.js';
-import { createMapEngine } from './services/mapEngine.js';
+import { createBasemapController, createMapEngine } from './services/mapEngine.js';
 import { createStore } from './store/appStore.js';
 import { hoverSetEnabled, selectionSelectStationLines } from './store/actions.js';
 import { createHighlightFeature } from './features/highlight/highlightFeature.js';
@@ -304,6 +304,22 @@ const mapEngine = createMapEngine({
     }
 });
 const map = mapEngine.getMap();
+const basemapController = createBasemapController({
+    mapEngine,
+    initialTheme: mapTheme,
+    initialMode: basemapMode,
+    lightRasterPaint: OSM_RASTER_PAINT_LIGHT,
+    darkRasterPaint: OSM_RASTER_PAINT_DARK,
+    onThemeChanged: () => {
+        try {
+            if (typeof window !== 'undefined' && window && typeof window.dispatchEvent === 'function') {
+                window.dispatchEvent(new Event('__TokyoRailThemeChanged'));
+            }
+        } catch {
+            // ignore
+        }
+    }
+});
 
 // 暴露给 print.js：用于导出 trip-preview 的 SVG（避免 print.js import app.js 导致重复初始化）
 try {
@@ -315,123 +331,20 @@ try {
 const applyBasemapTheme = (theme) => {
     const next = theme === 'dark' ? 'dark' : 'light';
     mapTheme = next;
-    const lightVisibility = (basemapMode === 'carto' && next === 'light') ? 'visible' : 'none';
-    const darkVisibility = (basemapMode === 'carto' && next === 'dark') ? 'visible' : 'none';
-    const ostVisibility = basemapMode === 'ost' ? 'visible' : 'none';
-    const ostPaint = next === 'dark' ? OSM_RASTER_PAINT_DARK : OSM_RASTER_PAINT_LIGHT;
-
-    try {
-        if (map.getLayer('carto-light-layer')) map.setLayoutProperty('carto-light-layer', 'visibility', lightVisibility);
-        if (map.getLayer('carto-dark-layer')) map.setLayoutProperty('carto-dark-layer', 'visibility', darkVisibility);
-        if (map.getLayer('ost-layer')) {
-            map.setLayoutProperty('ost-layer', 'visibility', ostVisibility);
-            Object.entries(ostPaint).forEach(([k, v]) => {
-                map.setPaintProperty('ost-layer', k, v);
-            });
-        }
-
-        const canvas = map.getCanvas?.();
-        if (canvas && canvas.style) {
-            canvas.style.background = basemapMode === 'transparent' ? 'transparent' : '';
-        }
-        try {
-            if (typeof window !== 'undefined' && window && typeof window.dispatchEvent === 'function') {
-                window.dispatchEvent(new Event('__TokyoRailThemeChanged'));
-            }
-        } catch {
-            // ignore
-        }
-    } catch {
-        // ignore
-    }
+    basemapController.applyTheme(next);
 };
 
 const setBasemapMode = (mode) => {
     basemapMode = (mode === 'carto' || mode === 'ost' || mode === 'transparent') ? mode : 'carto';
-    applyBasemapTheme(mapTheme);
+    basemapController.setMode(basemapMode);
 };
 
 const ensureBasemapLayers = () => {
-    const items = [
-        {
-            id: 'carto-light-layer',
-            sourceId: 'carto-light-source',
-            source: {
-                type: 'raster',
-                tiles: [
-                    'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-                    'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-                    'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-                    'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
-                ],
-                tileSize: 256,
-                attribution: '&copy; <a href="https://carto.com/">Carto</a>'
-            },
-            layout: { visibility: (basemapMode === 'carto' && mapTheme === 'light') ? 'visible' : 'none' }
-        },
-        {
-            id: 'carto-dark-layer',
-            sourceId: 'carto-dark-source',
-            source: {
-                type: 'raster',
-                tiles: [
-                    'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                    'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                    'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                    'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-                ],
-                tileSize: 256,
-                attribution: '&copy; <a href="https://carto.com/">Carto</a>'
-            },
-            layout: { visibility: (basemapMode === 'carto' && mapTheme === 'dark') ? 'visible' : 'none' }
-        },
-        {
-            id: 'ost-layer',
-            sourceId: 'ost-source',
-            source: {
-                type: 'raster',
-                tiles: [
-                    'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
-                ],
-                tileSize: 256,
-                attribution: '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>'
-            },
-            layout: { visibility: basemapMode === 'ost' ? 'visible' : 'none' },
-            paint: mapTheme === 'dark' ? OSM_RASTER_PAINT_DARK : OSM_RASTER_PAINT_LIGHT
-        }
-    ];
-
-    for (const item of items) {
-        if (!map.getSource(item.sourceId)) {
-            map.addSource(item.sourceId, item.source);
-        }
-    }
-
-    const beforeLayerId = map.getLayer('lines-layer')
-        ? 'lines-layer'
-        : (map.getLayer('stations-layer') ? 'stations-layer' : undefined);
-
-    for (const item of items) {
-        if (!map.getLayer(item.id)) {
-            map.addLayer({
-                id: item.id,
-                type: 'raster',
-                source: item.sourceId,
-                layout: item.layout,
-                minzoom: 0,
-                paint: item.paint || {}
-            }, beforeLayerId);
-        }
-    }
+    basemapController.ensureLayers();
 };
 
 // 左下角比例尺
-map.addControl(
-    new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }),
-    'bottom-left'
-);
+mapEngine.addMetricScaleControl({ maxWidth: 100, position: 'bottom-left' });
 
 // 2) 初始化业务数据与图层（不强依赖底图瓦片成功加载）
 const initMapApp = async () => {
@@ -1187,7 +1100,7 @@ const initMapApp = async () => {
         }
 
         try {
-            map.fitBounds([[minLng, minLat], [maxLng, maxLat]]);
+            mapEngine.fitBounds([[minLng, minLat], [maxLng, maxLat]]);
         } catch {
             // ignore
         }
@@ -3383,7 +3296,7 @@ const initMapApp = async () => {
         };
         if (Number.isFinite(maxZoom)) opts.maxZoom = maxZoom;
         try {
-            map.fitBounds(bounds, opts);
+            mapEngine.fitBounds(bounds, opts);
         } catch {
             // ignore
         }
@@ -3595,7 +3508,7 @@ const initMapApp = async () => {
             if (map.getLayer('stations-layer')) layers.push('stations-layer');
 
             // 若没有可查询的图层，视为“空白”
-            const hits = layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [];
+            const hits = layers.length ? mapEngine.queryRenderedFeatures(e.point, { layers }) : [];
             if (hits.length) return;
 
             // 点击空白处：隐藏右侧 panel
@@ -3621,7 +3534,7 @@ const initMapApp = async () => {
             // 若点击点同时命中站点（站点覆盖在线路上），则视为“点击站点”，不高亮线路
             // 需求：点击站点（或站点与线路一起被点到）时，不应触发线路选中
             if (map.getLayer('stations-layer')) {
-                const stationHits = map.queryRenderedFeatures(e.point, { layers: ['stations-layer'] }) || [];
+                const stationHits = mapEngine.queryRenderedFeatures(e.point, { layers: ['stations-layer'] }) || [];
                 if (stationHits.length) return;
             }
 
@@ -4851,7 +4764,7 @@ const initMapApp = async () => {
             }
 
             try {
-                map.fitBounds(bounds, {
+                mapEngine.fitBounds(bounds, {
                     padding: { top: base, bottom: base, left: leftReserve, right: rightReserve },
                     duration: 280,
                     easing: (t) => t,
@@ -6190,7 +6103,7 @@ const initMapApp = async () => {
                     essential: true
                 };
                 if (Number.isFinite(next.options?.maxZoom)) fitOptions.maxZoom = next.options.maxZoom;
-                map.fitBounds(bounds, fitOptions);
+                mapEngine.fitBounds(bounds, fitOptions);
             });
         }
 
@@ -7131,7 +7044,7 @@ window.saveZoom = (remark=false) => {
         const records = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
         const record = records.find(r => r.remark === remark);
         if (record) {
-            map.flyTo({
+            mapEngine.flyTo({
                 zoom: record.zoom,
                 center: record.center,
                 pitch: record.pitch,

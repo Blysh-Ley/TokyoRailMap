@@ -12,6 +12,12 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
 
     return {
         getMap: () => map,
+        addMetricScaleControl: ({ maxWidth = 100, position = 'bottom-left' } = {}) => {
+            map.addControl(
+                new maplibregl.ScaleControl({ maxWidth, unit: 'metric' }),
+                position
+            );
+        },
         on: (...args) => map.on(...args),
         once: (...args) => map.once(...args),
         addControl: (...args) => map.addControl(...args),
@@ -24,6 +30,140 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
         addLayer: (...args) => map.addLayer(...args),
         getLayer: (...args) => map.getLayer(...args),
         getSource: (...args) => map.getSource(...args),
+        getCanvas: (...args) => map.getCanvas(...args),
         queryRenderedFeatures: (...args) => map.queryRenderedFeatures(...args)
+    };
+};
+
+export const createBasemapController = ({
+    mapEngine,
+    initialTheme = 'light',
+    initialMode = 'carto',
+    lightRasterPaint = {},
+    darkRasterPaint = {},
+    onThemeChanged
+} = {}) => {
+    if (!mapEngine) {
+        throw new Error('basemapController requires mapEngine');
+    }
+
+    let theme = initialTheme === 'dark' ? 'dark' : 'light';
+    let mode = ['carto', 'ost', 'transparent'].includes(initialMode) ? initialMode : 'carto';
+
+    const getOstPaint = () => (theme === 'dark' ? darkRasterPaint : lightRasterPaint);
+
+    const getBasemapItems = () => [
+        {
+            id: 'carto-light-layer',
+            sourceId: 'carto-light-source',
+            source: {
+                type: 'raster',
+                tiles: [
+                    'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+                    'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+                    'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+                    'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+                ],
+                tileSize: 256,
+                attribution: '&copy; <a href="https://carto.com/">Carto</a>'
+            },
+            layout: { visibility: (mode === 'carto' && theme === 'light') ? 'visible' : 'none' }
+        },
+        {
+            id: 'carto-dark-layer',
+            sourceId: 'carto-dark-source',
+            source: {
+                type: 'raster',
+                tiles: [
+                    'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+                ],
+                tileSize: 256,
+                attribution: '&copy; <a href="https://carto.com/">Carto</a>'
+            },
+            layout: { visibility: (mode === 'carto' && theme === 'dark') ? 'visible' : 'none' }
+        },
+        {
+            id: 'ost-layer',
+            sourceId: 'ost-source',
+            source: {
+                type: 'raster',
+                tiles: [
+                    'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                ],
+                tileSize: 256,
+                attribution: '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap contributors</a>'
+            },
+            layout: { visibility: mode === 'ost' ? 'visible' : 'none' },
+            paint: getOstPaint()
+        }
+    ];
+
+    const applyTheme = (nextTheme) => {
+        theme = nextTheme === 'dark' ? 'dark' : 'light';
+        const lightVisibility = (mode === 'carto' && theme === 'light') ? 'visible' : 'none';
+        const darkVisibility = (mode === 'carto' && theme === 'dark') ? 'visible' : 'none';
+        const ostVisibility = mode === 'ost' ? 'visible' : 'none';
+
+        try {
+            if (mapEngine.getLayer('carto-light-layer')) mapEngine.setLayoutProperty('carto-light-layer', 'visibility', lightVisibility);
+            if (mapEngine.getLayer('carto-dark-layer')) mapEngine.setLayoutProperty('carto-dark-layer', 'visibility', darkVisibility);
+            if (mapEngine.getLayer('ost-layer')) {
+                mapEngine.setLayoutProperty('ost-layer', 'visibility', ostVisibility);
+                Object.entries(getOstPaint()).forEach(([key, value]) => {
+                    mapEngine.setPaintProperty('ost-layer', key, value);
+                });
+            }
+
+            const canvas = mapEngine.getCanvas?.();
+            if (canvas?.style) canvas.style.background = mode === 'transparent' ? 'transparent' : '';
+            if (typeof onThemeChanged === 'function') onThemeChanged({ theme, mode });
+        } catch {
+            // ignore
+        }
+    };
+
+    const setMode = (nextMode) => {
+        mode = ['carto', 'ost', 'transparent'].includes(nextMode) ? nextMode : 'carto';
+        applyTheme(theme);
+    };
+
+    const ensureLayers = () => {
+        const items = getBasemapItems();
+
+        for (const item of items) {
+            if (!mapEngine.getSource(item.sourceId)) {
+                mapEngine.addSource(item.sourceId, item.source);
+            }
+        }
+
+        const beforeLayerId = mapEngine.getLayer('lines-layer')
+            ? 'lines-layer'
+            : (mapEngine.getLayer('stations-layer') ? 'stations-layer' : undefined);
+
+        for (const item of items) {
+            if (!mapEngine.getLayer(item.id)) {
+                mapEngine.addLayer({
+                    id: item.id,
+                    type: 'raster',
+                    source: item.sourceId,
+                    layout: item.layout,
+                    minzoom: 0,
+                    paint: item.paint || {}
+                }, beforeLayerId);
+            }
+        }
+    };
+
+    return {
+        applyTheme,
+        ensureLayers,
+        setMode,
+        getMode: () => mode,
+        getTheme: () => theme
     };
 };
