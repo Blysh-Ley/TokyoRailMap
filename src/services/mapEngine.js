@@ -26,6 +26,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
         setPaintProperty: (...args) => map.setPaintProperty(...args),
         setLayoutProperty: (...args) => map.setLayoutProperty(...args),
         setFilter: (...args) => map.setFilter(...args),
+        moveLayer: (...args) => map.moveLayer(...args),
         addSource: (...args) => map.addSource(...args),
         addLayer: (...args) => map.addLayer(...args),
         getLayer: (...args) => map.getLayer(...args),

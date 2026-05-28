@@ -49,6 +49,9 @@ import { createBasemapController, createMapEngine } from './services/mapEngine.j
 import { createStore } from './store/appStore.js';
 import { hoverSetEnabled, selectionSelectStationLines } from './store/actions.js';
 import { createHighlightFeature } from './features/highlight/highlightFeature.js';
+import { createHighlightRenderer } from './features/highlight/highlightRenderer.js';
+import { createTripPreviewRenderer } from './features/highlight/tripPreviewRenderer.js';
+import { createReachableStopsOverlayRenderer } from './features/search/reachableStopsOverlayRenderer.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
 
 initializeFetchCache();
@@ -304,6 +307,8 @@ const mapEngine = createMapEngine({
     }
 });
 const map = mapEngine.getMap();
+const highlightRenderer = createHighlightRenderer({ mapEngine });
+const reachableStopsOverlayRenderer = createReachableStopsOverlayRenderer({ mapEngine });
 const basemapController = createBasemapController({
     mapEngine,
     initialTheme: mapTheme,
@@ -1012,112 +1017,23 @@ const initMapApp = async () => {
     };
 
     const ensureReachableStopsOverlayLayers = (dynamicColorExpression, baseOpacity = 0.12) => {
-        if (!map) return;
-
-        const beforeLayerId = map.getLayer('lines-layer')
-            ? 'lines-layer'
-            : (map.getLayer('stations-layer') ? 'stations-layer' : undefined);
-
-        if (!map.getSource('reachable-stops-overlay-source')) {
-            map.addSource('reachable-stops-overlay-source', {
-                type: 'geojson',
-                data: { type: 'FeatureCollection', features: [] }
-            });
-        }
-
+        reachableStopsOverlayRenderer.ensureLayers(dynamicColorExpression, baseOpacity);
         // 采用圆图层替代热力图层 HeatMap
-        const circleLayerId = 'reachable-stops-overlay-circle-layer';
 
-        if (!map.getLayer(circleLayerId)) {
-
-        map.addLayer({
-            id: circleLayerId,
-            type: 'circle',
-            source: 'reachable-stops-overlay-source',
-            layout: {
-                'circle-sort-key': ['get', 'sortKey']
-            },
-            paint: {
-                'circle-radius': [
-                    'interpolate',
-                    ['exponential', 2],
-                    ['zoom'],
-                    0, ['/', ['get', 'radiusMeters'], 127113 * 2],
-                    20, ['*', ['get', 'radiusMeters'], 1048576 * 2 / 127113]
-                ],
                 // 直接使用传进来的动态生成表达式
-                'circle-color': dynamicColorExpression,
-                'circle-opacity':baseOpacity,
-                'circle-blur': 1,
-                'circle-pitch-alignment': 'map'
-            }
-        }, beforeLayerId);
-        } else if (beforeLayerId) {
-            try { 
-               map.setPaintProperty(circleLayerId, 'circle-color', dynamicColorExpression);
-                map.setPaintProperty(circleLayerId, 'circle-opacity', baseOpacity);
-                if (beforeLayerId) map.moveLayer(circleLayerId, beforeLayerId);
-            } catch { 
-                /* ignore */ 
-            }
-        }
     };
 
     let lastReachableStopsPayload = null;
 
     const fitToReachableStopsBounds = (geojson, options = {}) => {
-        if (!map) return;
-        const features = Array.isArray(geojson?.features) ? geojson.features : [];
-        if (!features.length) return;
-
-        let minLng = Number.POSITIVE_INFINITY;
-        let minLat = Number.POSITIVE_INFINITY;
-        let maxLng = Number.NEGATIVE_INFINITY;
-        let maxLat = Number.NEGATIVE_INFINITY;
-
-        for (const f of features) {
-            const c = f?.geometry?.coordinates;
-            if (!Array.isArray(c) || c.length < 2) continue;
-            const lng = Number(c[0]);
-            const lat = Number(c[1]);
-            if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
-            if (lng < minLng) minLng = lng;
-            if (lng > maxLng) maxLng = lng;
-            if (lat < minLat) minLat = lat;
-            if (lat > maxLat) maxLat = lat;
-        }
-
-        if (![minLng, minLat, maxLng, maxLat].every(Number.isFinite)) return;
-
-        // If all points are the same, expand to a small bbox to avoid over-zoom.
-        if (minLng === maxLng && minLat === maxLat) {
-            const dLng = 0.006;
-            const dLat = 0.004;
-            minLng -= dLng;
-            maxLng += dLng;
-            minLat -= dLat;
-            maxLat += dLat;
-        }
-
-        try {
-            mapEngine.fitBounds([[minLng, minLat], [maxLng, maxLat]]);
-        } catch {
-            // ignore
-        }
+        reachableStopsOverlayRenderer.fitToBounds(geojson, options);
     };
 
     const clearReachableStopsOverlay = () => {
         reachableStopsOverlayVisibleKey = '__empty__';
         lastReachableStopsPayload = null;
         reachableStopsLabelIds = null;
-        try {
-            const source = map?.getSource?.('reachable-stops-overlay-source');
-            if (source?.setData) {
-                source.setData({ type: 'FeatureCollection', features: [] });
-            }
-        } catch {
-            // ignore
-        }
+        reachableStopsOverlayRenderer.clear();
         collisionController?.scheduleUpdate?.();
     };
 
@@ -1144,11 +1060,7 @@ const initMapApp = async () => {
         if (nextKey === reachableStopsOverlayVisibleKey) return;
         reachableStopsOverlayVisibleKey = nextKey;
 
-        try {
-            map.getSource('reachable-stops-overlay-source')?.setData?.(data.geojson);
-        } catch {
-            // ignore
-        }
+        reachableStopsOverlayRenderer.setData(data.geojson);
 
         reachableStopsLabelIds = getReachableStopsLabelIdSet(data.geojson);
         reachableStopsExtremeLabelIds = getReachableStopsExtremeLabelIdSet(data.geojson);
@@ -1682,6 +1594,14 @@ const initMapApp = async () => {
     const lineColorById = new Map();
     const lineColorByName = new Map();
     const lineCompanyById = new Map();
+    const tripPreviewRenderer = createTripPreviewRenderer({
+        mapEngine,
+        getLinePaint: () => tripPreviewLineLayerPaint(),
+        getStopPaint: () => tripPreviewStopLayerPaint({
+            isDarkThemeActive: isDarkThemeActive(),
+            lineColorById
+        })
+    });
 
     const getStationNameForMultiSelect = (stationId) => {
         const sid = String(stationId || '').trim();
@@ -2344,13 +2264,11 @@ const initMapApp = async () => {
     registerCompanyLogoMap(companyLogoMap, { preload: true, concurrency: 8 });
 
     function applyLineSelectionStyle() {
-        if (!map.getLayer('lines-layer')) return;
+        if (!highlightRenderer.hasLayer('lines-layer')) return;
 
         const baseColorExpr = buildBaseLineColorExpr({ isDarkThemeActive: isDarkThemeActive() });
         const applyLinePaint = (paint) => {
-            map.setPaintProperty('lines-layer', 'line-color', paint['line-color']);
-            map.setPaintProperty('lines-layer', 'line-width', paint['line-width']);
-            map.setPaintProperty('lines-layer', 'line-opacity', paint['line-opacity']);
+            highlightRenderer.applyLinePaint(paint);
         };
 
         // 车次预览态：底图线路统一弱化，真正高亮由“分段预览图层”承担（避免整条线被点亮）
@@ -2408,7 +2326,7 @@ const initMapApp = async () => {
     }
 
     const applyBaseLayerVisibilityFilters = () => {
-        if (!map.getLayer('lines-layer')) return;
+        if (!highlightRenderer.hasLayer('lines-layer')) return;
 
         const baseFilterExpr = ['!=', ['get', 'hidden_by_opacity_zero'], 1];
         const hideSeibuBranches = shouldApplyBaseLayerHiddenFilter();
@@ -2418,11 +2336,7 @@ const initMapApp = async () => {
             ? ['all', baseFilterExpr, ...hiddenLineIds.map((id) => ['!=', ['get', 'id'], id])]
             : baseFilterExpr;
 
-        try {
-            map.setFilter('lines-layer', lineFilterExpr);
-        } catch {
-            // ignore
-        }
+        highlightRenderer.applyLineFilter(lineFilterExpr);
     };
 
     function applyStationThemePaintToMapLayers() {
@@ -2431,26 +2345,24 @@ const initMapApp = async () => {
         const overrideStationIds = tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size
             ? Array.from(tripPreviewStationIds)
             : [];
-        try {
-            if (map.getLayer('stations-layer')) {
-                map.setPaintProperty('stations-layer', 'circle-color', buildStationCircleColorPaintExpr({
+        highlightRenderer.applyStationThemePaint({
+            stationsPaint: {
+                'circle-color': buildStationCircleColorPaintExpr({
                     isDarkThemeActive: dark,
                     lineColorById,
                     overrideColor,
                     overrideStationIds
-                }));
-                map.setPaintProperty('stations-layer', 'circle-stroke-color', stationCircleStrokeColorPaint({ isDarkThemeActive: dark }));
-            }
-            if (map.getLayer('trip-preview-stops-layer')) {
-                map.setPaintProperty('trip-preview-stops-layer', 'circle-color', buildStationCircleColorPaintExpr({
+                }),
+                'circle-stroke-color': stationCircleStrokeColorPaint({ isDarkThemeActive: dark })
+            },
+            tripPreviewStopsPaint: {
+                'circle-color': buildStationCircleColorPaintExpr({
                     isDarkThemeActive: dark,
                     lineColorById
-                }));
-                map.setPaintProperty('trip-preview-stops-layer', 'circle-stroke-color', stationCircleStrokeColorPaint({ isDarkThemeActive: dark }));
+                }),
+                'circle-stroke-color': stationCircleStrokeColorPaint({ isDarkThemeActive: dark })
             }
-        } catch {
-            // ignore
-        }
+        });
     }
 
     function buildStationAnyLineMatchExpr(lineIds) {
@@ -2469,13 +2381,10 @@ const initMapApp = async () => {
     }
 
     function applyStationSelectionStyle() {
-        if (!map.getLayer('stations-layer')) return;
+        if (!highlightRenderer.hasLayer('stations-layer')) return;
         const multiLineIds = getBaseMultiSelectedLineIds();
         const applyStationPaint = (paint) => {
-            map.setPaintProperty('stations-layer', 'circle-radius', paint['circle-radius']);
-            map.setPaintProperty('stations-layer', 'circle-stroke-width', paint['circle-stroke-width']);
-            map.setPaintProperty('stations-layer', 'circle-opacity', paint['circle-opacity']);
-            map.setPaintProperty('stations-layer', 'circle-stroke-opacity', paint['circle-stroke-opacity']);
+            highlightRenderer.applyStationSelectionPaint(paint);
         };
 
         const applyBaseStationPaint = () => {
@@ -4345,82 +4254,11 @@ const initMapApp = async () => {
         }
 
         const ensureTripPreviewLayers = () => {
-            const tripLineBeforeLayerId = map.getLayer('transfer-capsule-outline-layer')
-                ? 'transfer-capsule-outline-layer'
-                : (map.getLayer('stations-layer') ? 'stations-layer' : undefined);
-
-            if (!map.getSource('trip-preview-source')) {
-                map.addSource('trip-preview-source', {
-                    type: 'geojson',
-                    data: { type: 'FeatureCollection', features: [] }
-                });
-            }
-
-            if (!map.getLayer('trip-preview-line-layer')) {
-                map.addLayer({
-                    id: 'trip-preview-line-layer',
-                    type: 'line',
-                    source: 'trip-preview-source',
-                    filter: ['!=', ['get', 'role'], 'connector'],
-                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: tripPreviewLineLayerPaint()
-                }, tripLineBeforeLayerId);
-            } else if (tripLineBeforeLayerId) {
-                try { map.moveLayer('trip-preview-line-layer', tripLineBeforeLayerId); } catch { /* ignore */ }
-            }
-
-            if (!map.getLayer('trip-preview-connector-layer')) {
-                map.addLayer({
-                    id: 'trip-preview-connector-layer',
-                    type: 'line',
-                    source: 'trip-preview-source',
-                    filter: ['==', ['get', 'role'], 'connector'],
-                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: tripPreviewLineLayerPaint()
-                }, tripLineBeforeLayerId);
-            } else if (tripLineBeforeLayerId) {
-                try { map.moveLayer('trip-preview-connector-layer', tripLineBeforeLayerId); } catch { /* ignore */ }
-            }
-
-            if (!map.getSource('trip-preview-stops-source')) {
-                map.addSource('trip-preview-stops-source', {
-                    type: 'geojson',
-                    data: { type: 'FeatureCollection', features: [] }
-                });
-            }
-
-            if (!map.getLayer('trip-preview-stops-layer')) {
-                map.addLayer({
-                    id: 'trip-preview-stops-layer',
-                    type: 'circle',
-                    source: 'trip-preview-stops-source',
-                    paint: tripPreviewStopLayerPaint({
-                        isDarkThemeActive: isDarkThemeActive(),
-                        lineColorById
-                    })
-                });
-            } else {
-                const stopPaint = tripPreviewStopLayerPaint({
-                    isDarkThemeActive: isDarkThemeActive(),
-                    lineColorById
-                });
-                map.setPaintProperty('trip-preview-stops-layer', 'circle-color', stopPaint['circle-color']);
-                map.setPaintProperty('trip-preview-stops-layer', 'circle-stroke-color', stopPaint['circle-stroke-color']);
-                map.setPaintProperty('trip-preview-stops-layer', 'circle-radius', stopPaint['circle-radius']);
-                map.setPaintProperty('trip-preview-stops-layer', 'circle-stroke-width', stopPaint['circle-stroke-width']);
-                map.setPaintProperty('trip-preview-stops-layer', 'circle-opacity', stopPaint['circle-opacity']);
-                map.setPaintProperty('trip-preview-stops-layer', 'circle-stroke-opacity', stopPaint['circle-stroke-opacity']);
-            }
+            tripPreviewRenderer.ensureLayers();
         };
 
         const resetTripPreviewLayers = () => {
-            const emptyFc = { type: 'FeatureCollection', features: [] };
-            try {
-                map.getSource('trip-preview-source')?.setData?.(emptyFc);
-                map.getSource('trip-preview-stops-source')?.setData?.(emptyFc);
-            } catch {
-                // ignore
-            }
+            tripPreviewRenderer.reset();
         };
 
         const distMeters = (a, b) => {
@@ -5459,8 +5297,7 @@ const initMapApp = async () => {
 
             ensureTripPreviewLayers();
             try {
-                map.getSource('trip-preview-source')?.setData?.(aggregate.lineFc);
-                map.getSource('trip-preview-stops-source')?.setData?.(aggregate.stopFc);
+                tripPreviewRenderer.setData({ lineFc: aggregate.lineFc, stopFc: aggregate.stopFc });
             } catch {
                 // ignore
             }
@@ -5721,8 +5558,7 @@ const initMapApp = async () => {
                 syncStationOffsetForTripPreviewState();
 
                 try {
-                    map.getSource('trip-preview-source')?.setData?.(aggregate.lineFc);
-                    map.getSource('trip-preview-stops-source')?.setData?.(aggregate.stopFc);
+                    tripPreviewRenderer.setData({ lineFc: aggregate.lineFc, stopFc: aggregate.stopFc });
                 } catch {
                     // ignore
                 }
@@ -5783,8 +5619,7 @@ const initMapApp = async () => {
             syncStationOffsetForTripPreviewState();
 
             try {
-                map.getSource('trip-preview-source')?.setData?.(built.lineFc);
-                map.getSource('trip-preview-stops-source')?.setData?.(built.stopFc);
+                tripPreviewRenderer.setData({ lineFc: built.lineFc, stopFc: built.stopFc });
             } catch {
                 // ignore
             }
