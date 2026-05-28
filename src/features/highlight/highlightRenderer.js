@@ -1,7 +1,6 @@
 const DEFAULT_LAYERS = Object.freeze({
     lines: 'lines-layer',
-    stations: 'stations-layer',
-    tripPreviewStops: 'trip-preview-stops-layer'
+    stations: 'stations-layer'
 });
 
 export const createHighlightRenderer = ({ mapEngine, layers = DEFAULT_LAYERS } = {}) => {
@@ -47,9 +46,8 @@ export const createHighlightRenderer = ({ mapEngine, layers = DEFAULT_LAYERS } =
         'circle-stroke-opacity': paint['circle-stroke-opacity']
     });
 
-    const applyStationThemePaint = ({ stationsPaint = {}, tripPreviewStopsPaint = {} } = {}) => {
+    const applyStationThemePaint = ({ stationsPaint = {} } = {}) => {
         setPaintProperties(layerIds.stations, stationsPaint);
-        setPaintProperties(layerIds.tripPreviewStops, tripPreviewStopsPaint);
     };
 
     return {

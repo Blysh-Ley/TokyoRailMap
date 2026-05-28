@@ -26,9 +26,9 @@ export const createTripPreviewRenderer = ({
             : (mapEngine.getLayer('stations-layer') ? 'stations-layer' : undefined)
     );
 
-    const applyStopPaint = () => {
+    const applyStopPaint = (paintOverride = null) => {
         if (!mapEngine.getLayer(STOPS_LAYER_ID)) return;
-        const stopPaint = getStopPaint();
+        const stopPaint = paintOverride || getStopPaint();
         try {
             Object.entries(stopPaint || {}).forEach(([property, value]) => {
                 mapEngine.setPaintProperty(STOPS_LAYER_ID, property, value);

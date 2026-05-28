@@ -187,7 +187,7 @@ const readStationOffsetMode = () => {
 };
 
 // /data/railways-order.json: [{ "jreast-yamanote": "1037" }, ...]
-// 我们只需要其“数组顺序”，用于 UI 中同公司线路排序。
+
 const loadRailwaysOrderIndex = (() => {
     let promise = null;
     return async () => {
@@ -277,7 +277,7 @@ let mapTheme = initialTheme;
 let basemapMode = readBasemapMode();
 
 const OSM_RASTER_PAINT_LIGHT = {
-    // 亮色下让 OSM 原始瓦片更浅，减少与业务高亮图层的视觉竞争。
+
     'raster-contrast': -0.3,
     'raster-brightness-min': 0.12,
     'raster-brightness-max': 1,
@@ -286,7 +286,7 @@ const OSM_RASTER_PAINT_LIGHT = {
 };
 
 const OSM_RASTER_PAINT_DARK = {
-    // 深色下用“近似反色”参数模拟暗色 OSM 底图，仅作用于 OSM raster 层。
+
     'raster-contrast': -0.3,
     'raster-brightness-min': 0,
     'raster-brightness-max': 0.48,
@@ -294,7 +294,7 @@ const OSM_RASTER_PAINT_DARK = {
     'raster-hue-rotate': 180
 };
 
-// 1) 初始化地图（底图支持 Carto / OSM / 透明）
+
 const mapEngine = createMapEngine({
     maplibregl,
     container: 'map',
@@ -326,7 +326,7 @@ const basemapController = createBasemapController({
     }
 });
 
-// 暴露给 print.js：用于导出 trip-preview 的 SVG（避免 print.js import app.js 导致重复初始化）
+
 try {
     window.__TokyoRailMap = map;
 } catch {
@@ -384,11 +384,11 @@ const initMapApp = async () => {
     let menu = null;
     let selectedCompany = null;
     let selectedLineId = null;
-    let selectedStationLineIds = null; // Set<string>：点击站点/站名后高亮其线路
+    let selectedStationLineIds = null;
     let selectedStationId = null; // 点击站点高亮时，仅高亮该站点
     let selectedServiceMode = 'all';
     let isolateStationsToSelectedLine = false; // 仅用于“popup 提交线路”：隐藏非该线路站点
-    let stationLabelMode = 'auto'; // 'off' | 'auto' | 'all'（仅用户在设置中手动修改）
+    let stationLabelMode = 'auto';
     let setStationLabelMode = (_mode) => false;
     // mode: 'preview' | 'commit'
     let fitToCurrentSelection = (_triggerKey, _mode = 'preview') => {};
@@ -416,8 +416,8 @@ const initMapApp = async () => {
     let tripDetailStationTriangleMarker = null;
     let journeyPickOriginPin = null;
     let journeyPickDestinationPin = null;
-    let tripPreviewSelectionsByKey = new Map(); // key -> { payload, built, hidden?:boolean, source?:string }
-    let baseMultiSelectionsByKey = new Map(); // key -> { kind, lineIds:Set<string>, hidden?:boolean }
+    let tripPreviewSelectionsByKey = new Map();
+    let baseMultiSelectionsByKey = new Map();
     let dirPreviewActive = false;
     let dirPreviewLineIds = null; // Set<string> | null
     let dirPreviewStationIds = null; // Set<string> | null
@@ -452,7 +452,7 @@ const initMapApp = async () => {
     const MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE = 'ms-base-trip-preview';
     const MULTI_SELECT_BASE_TRIP_PREVIEW_KEY = 'multi-base-lines';
 
-    // 右侧界面：站点/站名/搜索提交站点时弹出（在 applySelectionEffects 定义后初始化）
+
     let panel = null;
     const appStore = createStore({
         selectedCompany,
@@ -762,29 +762,29 @@ const initMapApp = async () => {
         return [lambda2 * 180 / Math.PI, phi2 * 180 / Math.PI];
     };
 
-    // 🎨 生成动态分位数的颜色插值表达式（基于感知均匀色卡）
+
     const generateDynamicColorExpressionPalette = (countsArray) => {
         // 1. 获取并排序所有实际存在的班次频次
         const uniqueCounts = [...new Set(countsArray)].sort((a, b) => a - b);
         
-        // 选用最优色卡：Magma (深暗紫 -> 洋红 -> 亮橙 -> 核心白黄)
+
         const PALETTE =[
-            '#BAE1FF', // 婴儿蓝 (极低)
-            '#B5EAD7', // 薄荷绿
-            '#FFFFBA', // 奶油黄
-            '#FFDFBA', // 蜜桃橙
-            '#FFB7B2', // 玫瑰粉
-            '#E0BBE4'  // 香芋紫 (极高)
+            '#BAE1FF',
+            '#B5EAD7',
+            '#FFFFBA',
+            '#FFDFBA',
+            '#FFB7B2',
+            '#E0BBE4'
         ];;
 
-        // 边界兜底：数据为空或极少的情况
+
         if (uniqueCounts.length === 0) return PALETTE[0]; 
         if (uniqueCounts.length === 1) return PALETTE[PALETTE.length - 1]; 
 
         const expression = ['interpolate', ['linear'], ['get', 'shiftCount']];
         let lastVal = -1;
         
-        // 2. 将数据切分为与色卡长度匹配的等分点 (如 6 个点)
+
         const steps = PALETTE.length;
         
         for (let i = 0; i < steps; i++) {
@@ -794,11 +794,11 @@ const initMapApp = async () => {
             const upper = Math.ceil(percentileIndex);
             const weight = percentileIndex - lower;
             
-            // 提取对应分位的班次数值
+
             let currentVal = uniqueCounts[lower] * (1 - weight) + uniqueCounts[upper] * weight;
             currentVal = Math.round(currentVal * 100) / 100;
 
-            // 【关键】防止数据过于集中导致插值锚点重复（Mapbox 严格要求递增）
+
             if (currentVal <= lastVal) {
                 currentVal = lastVal + 0.1; 
             }
@@ -812,18 +812,18 @@ const initMapApp = async () => {
 
     // 生成动态分位数的颜色插值表达式
     const generateDynamicColorExpression = (countsArray) => {
-        // 1. 去重并排序 (获取所有实际存在的总班次数量)
+
         const uniqueCounts = [...new Set(countsArray)].sort((a, b) => a - b);
         
-        // 边界兜底：如果没有有效数据
+
         if (uniqueCounts.length === 0) return '#f0f8ff'; // 淡黄兜底
         if (uniqueCounts.length === 1) return '#f0f8ff';
 
-        // 2. 设定最大档位数 (10档)，如果数据种类少于10，则自动降级档位数
+
         const maxSteps = 10;
         const steps = Math.min(maxSteps, uniqueCounts.length);
         
-        // 3. 生成对应档数的渐变色 (从 淡黄 rgb(255,255,150) 到 纯红 rgb(255,0,0) 的线性平滑过渡)
+
         const colors = [];
         for (let i = 0; i < steps; i++) {
             const ratio = i / (steps - 1);
@@ -836,7 +836,7 @@ const initMapApp = async () => {
         const expression = ['interpolate', ['linear'], ['get', 'shiftCount']];
         let lastVal = -1;
         const debugBuckets = [];
-        // 4. 按百分位抽取锚点，并保证 Mapbox 渲染要求的"严格单调递增"
+
         for (let i = 0; i < steps; i++) {
             let currentVal;
             
@@ -844,19 +844,19 @@ const initMapApp = async () => {
                 // 数量本来就少，直接挨个取
                 currentVal = uniqueCounts[i];
             } else {
-                // 数量很大，按照百分位 (5%, 10%...100%) 插值抽取
+
                 const percentileIndex = (i / (steps - 1)) * (uniqueCounts.length - 1);
                 const lower = Math.floor(percentileIndex);
                 const upper = Math.ceil(percentileIndex);
                 const weight = percentileIndex - lower;
-                // 计算当前百分位的值
+
                 currentVal = uniqueCounts[lower] * (1 - weight) + uniqueCounts[upper] * weight;
             }
 
-            // 精度截断，防止 JS 浮点数导致奇怪的小数
+
             currentVal = Math.round(currentVal * 100) / 100;
 
-            // 【关键】必须大于上一个值，剔除重复分位，防止引擎报错
+
             if (currentVal > lastVal) {
                 expression.push(currentVal, colors[i]);
                 lastVal = currentVal;
@@ -870,41 +870,6 @@ const initMapApp = async () => {
                 lastVal = currentVal;
             }
         }
-        /*
-        // ✨✨✨ 新增：在控制台华丽地打印结果 ✨✨✨
-        console.log(`\n========== 🎨 动态颜色分档结果 ==========`);
-        console.log(`总计扫描了 ${countsArray.length} 个班次数据，包含 ${uniqueCounts.length} 种不同的频次。`);
-        console.log(`由于去重和算法，最终生成了 ${debugBuckets.length} 个渲染档位：\n\n`);
-
-        // 1. 打印表头
-        console.log(
-            `%c 档位 %c | %c 班次数量 (shiftCount) %c | %c 颜色预览 %c | %c 对应颜色 (RGB) `,
-            'font-weight: bold;', '',
-            'font-weight: bold;', '',
-            'font-weight: bold;', '',
-            'font-weight: bold;'
-        );
-        console.log('---------------------------------------------------------------------');
-
-        // 2. 遍历打印每一行，并使用 CSS 渲染颜色块
-        debugBuckets.forEach(bucket => {
-            // 提取你的数据，请确保这里的 key 与你对象中的 key 一致
-            const level = String(bucket.档位 || bucket.level || '').padEnd(4, ' '); 
-            const count = String(bucket['班次数量 (shiftCount)'] || bucket.shiftCount || '').padEnd(21, ' ');
-            const colorStr = bucket['对应颜色 (RGB)'] || bucket.color || '';
-
-            console.log(
-                `%c ${level} %c | %c ${count} %c | %c        %c | %c ${colorStr} `,
-                '', '', // 档位
-                '', '', // 班次数量
-                `background: ${colorStr}; border-radius: 2px; border: 1px solid #666;`, '', // 🎨 这里的背景色就是你的 HSL 值
-                `color: ${colorStr}; font-weight: bold;` // 让后面的文本也带上这个颜色
-            );
-        });
-        console.log('\n');
-        */
-
-
         // 如果过滤后剩下的有效档位过少，直接返回单一颜色兜底
         if (expression.length <= 5) {
             return colors[colors.length - 1] || '#FF0000';
@@ -915,7 +880,7 @@ const initMapApp = async () => {
 
     const generateAbsoluteColorExpressionAbsolute = (countsArray) => {
     // 1. 定义你的绝对频次锚点 (依据你之前的 18h / 3min 逻辑)
-        // 即使地图上某些频次缺失，interpolate 依然能线性插值出正确的颜色
+
         const fixedSteps = [0, 18, 36, 54, 72, 108, 180, 360];
         
         // 2. 准备颜色数组
@@ -929,10 +894,10 @@ const initMapApp = async () => {
             colors.push(`hsl(${h}, ${s}%, ${l}%)`);
         }
 
-        // 3. 构建 Mapbox 表达式
+
         const expression = ['interpolate', ['linear'], ['get', 'shiftCount']];
         
-        // 4. 将固定的频次锚点和颜色一一对应压入表达式
+
         for (let i = 0; i < steps; i++) {
             expression.push(fixedSteps[i], colors[i]);
         }
@@ -978,7 +943,7 @@ const initMapApp = async () => {
                 if (!Number.isFinite(remainingMs) || remainingMs < 0) continue;
 
                 if (shiftCount > 0) {
-                    allShiftCounts.push(shiftCount); // 收集起来用于计算分位数
+                    allShiftCounts.push(shiftCount);
                 }
 
                 const radiusMeters = reachableStopsCircleRadiusMeters(remainingMs);
@@ -1012,15 +977,13 @@ const initMapApp = async () => {
 
         return {
             geojson: { type: 'FeatureCollection', features },
-            dynamicColorExpression // 【新增】连同 GeoJSON 一起返回给图层函数
+            dynamicColorExpression
         };
     };
 
     const ensureReachableStopsOverlayLayers = (dynamicColorExpression, baseOpacity = 0.12) => {
         reachableStopsOverlayRenderer.ensureLayers(dynamicColorExpression, baseOpacity);
-        // 采用圆图层替代热力图层 HeatMap
 
-                // 直接使用传进来的动态生成表达式
     };
 
     let lastReachableStopsPayload = null;
@@ -1513,7 +1476,7 @@ const initMapApp = async () => {
     const applyMultiSelectTripPreviewLayerState = (enabled) => {
         const active = enabled === true;
         try {
-            // 进入/退出多选模式都重置直通图层状态
+
             clearTripPathPreview();
             clearDirHeaderPreview();
         } catch {
@@ -1568,7 +1531,7 @@ const initMapApp = async () => {
         // ignore
     }
 
-    // 时刻表虚拟内存缓存（按线路 id 预加载 train-timetables/*.json）
+
     const timetableCache = getGlobalTimetableCache({ maxBytes: 50 * 1024 * 1024, logFetch: true, logDiscover: true });
 
     const cssEscape = (value) => {
@@ -1577,7 +1540,7 @@ const initMapApp = async () => {
         return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     };
 
-    // 底部居中提示条：显示当前高亮的公司/线路
+
     const selectionBadgeEl = document.createElement('div');
     selectionBadgeEl.className = 'selection-badge is-hidden';
     const selectionBadgeIconEl = document.createElement('span');
@@ -1926,7 +1889,7 @@ const initMapApp = async () => {
         const previewSource = `rw-menu-through:${menuLineId}`;
         const fitMode = source === 'hover' ? 'preview' : 'commit';
 
-        // 让虚拟线走统一选中态，避免切到其它线路时残留高亮状态。
+
         selectedCompany = null;
         selectedStationLineIds = null;
         selectedLineId = menuLineId;
@@ -2033,7 +1996,7 @@ const initMapApp = async () => {
         const s = value.trim();
         if (!s) return [];
 
-        // 兼容：某些数据源会把数组写成 JSON 字符串（例如 "[\"A\",\"B\"]"）
+
         if (s.startsWith('[') && s.endsWith(']')) {
             try {
                 const parsed = JSON.parse(s);
@@ -2149,7 +2112,7 @@ const initMapApp = async () => {
             .map((x) => String(x).trim())
             .filter(Boolean);
 
-        // 去重且保持顺序
+
         const seen = new Set();
         const out = [];
         for (const id of ids) {
@@ -2271,7 +2234,7 @@ const initMapApp = async () => {
             highlightRenderer.applyLinePaint(paint);
         };
 
-        // 车次预览态：底图线路统一弱化，真正高亮由“分段预览图层”承担（避免整条线被点亮）
+
         if (tripPreviewActive) {
             applyLinePaint(buildLowlightLinePaint({ dimOpacity: 0.45 }));
             return;
@@ -2287,7 +2250,7 @@ const initMapApp = async () => {
         }
 
         // 线路优先：选中线路时，忽略公司选中
-        // 但如果菜单把支线合并到主线（selectedStationLineIds 里包含多条），则按集合高亮。
+
         if (selectedLineId) {
             const mergedIds = (selectedStationLineIds && selectedStationLineIds.size > 1)
                 ? Array.from(selectedStationLineIds).map(String).filter(Boolean)
@@ -2301,7 +2264,7 @@ const initMapApp = async () => {
             return;
         }
 
-        // 站点选中：高亮该站点的所有线路（不执行 fitBounds）
+
         if (selectedStationLineIds && selectedStationLineIds.size) {
             const ids = Array.from(selectedStationLineIds).map(String).filter(Boolean);
             const hitExpr = ids.length === 1
@@ -2354,20 +2317,20 @@ const initMapApp = async () => {
                     overrideStationIds
                 }),
                 'circle-stroke-color': stationCircleStrokeColorPaint({ isDarkThemeActive: dark })
-            },
-            tripPreviewStopsPaint: {
-                'circle-color': buildStationCircleColorPaintExpr({
-                    isDarkThemeActive: dark,
-                    lineColorById
-                }),
-                'circle-stroke-color': stationCircleStrokeColorPaint({ isDarkThemeActive: dark })
             }
+        });
+        tripPreviewRenderer.applyStopPaint({
+            'circle-color': buildStationCircleColorPaintExpr({
+                isDarkThemeActive: dark,
+                lineColorById
+            }),
+            'circle-stroke-color': stationCircleStrokeColorPaint({ isDarkThemeActive: dark })
         });
     }
 
     function buildStationAnyLineMatchExpr(lineIds) {
         // 判断站点是否服务于给定线路集合：
-        // 优先用 platform_line_id（平台所属线路 id）来判断，避免换乘站的“另一条线路站台”被误判为命中
+
         const platformIdsExpr = ['coalesce', ['get', 'platform_line_id'], ['get', 'serving_ids'], ['literal', []]];
         const ids = Array.isArray(lineIds) ? lineIds.filter(Boolean) : [];
         if (!ids.length) return ['boolean', false];
@@ -2420,9 +2383,9 @@ const initMapApp = async () => {
         }
 
 
-        // 换乘站判断仍用 serving_ids（全服务线路集合）
+
         const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
-        // 高亮匹配用 platform_line_id（平台所属线路）
+
         const platformIdsExpr = ['coalesce', ['get', 'platform_line_id'], servingIdsExpr];
 
         if (isMultiSelectModeEnabled() && multiLineIds.size) {
@@ -2476,8 +2439,8 @@ const initMapApp = async () => {
             const ids = getBaseMultiSelectedLineIds();
             if (ids.size) return ids;
         }
-        // 需求：选择线路不变、其他线路变灰变细；且“其他线路站点不显示站点名”
-        // 这里返回“当前选中线路集合”，只用于站名筛选（圆点不筛选）。
+
+
         if (selectedLineId) {
             if (selectedStationLineIds && selectedStationLineIds.size > 1) return selectedStationLineIds;
             return new Set([selectedLineId]);
@@ -2692,8 +2655,8 @@ const initMapApp = async () => {
         isolateStationsToSelectedLine = false;
         setStationLabelMode('auto');
 
-        // 关键：重置高亮后，等下一次碰撞结果产出再刷新胶囊，
-        // 避免首次点击空白时使用旧碰撞可见集导致胶囊延后一拍出现。
+
+
         pendingTransferCapsuleRefreshAfterCollision = true;
         transferCapsuleVisibleKey = '__init__';
 
@@ -2715,7 +2678,7 @@ const initMapApp = async () => {
             updateSelectedStationLabelClass();
             updateMultiSelectStationLabelChips();
             if (collisionController) collisionController.scheduleUpdate();
-            // 顺序很重要：先调度碰撞，再刷新胶囊，确保本帧优先使用最新碰撞可见集。
+
             scheduleTransferCapsuleRefresh();
             updateSelectionBadge();
             try {
@@ -2888,7 +2851,7 @@ const initMapApp = async () => {
 
     const settingsMenuContentEl = mountSettingsMenu();
 
-    // 初始化右侧 panel，并复用 popup 的数据结构与交互语义（hover=预览，click=提交）
+
     panel = createPanel({
         hoverDelayMs: 50,
         settingsContentEl: settingsMenuContentEl,
@@ -2963,7 +2926,7 @@ const initMapApp = async () => {
                 return;
             }
 
-            // panel click：提交高亮（不执行 fitBounds）
+
             selectedLineId = mainLineId;
             selectedCompany = null;
             selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
@@ -3031,7 +2994,7 @@ const initMapApp = async () => {
 
         if (!Array.isArray(stationLabels) || !stationLabels.length) return;
 
-        // 先恢复所有站名为默认“上移”位置
+
         for (const label of stationLabels) {
             label.labelPosition = null;
             label.labelBelowPadPx = null;
@@ -3050,7 +3013,7 @@ const initMapApp = async () => {
             return;
         }
 
-        // 站点正下方：下移自身高度(100%)后再留一点间距
+
         const pad = pinned.priority > 1 ? 6 : 4;
         pinned.labelPosition = 'below';
         pinned.labelBelowPadPx = pad;
@@ -3067,8 +3030,8 @@ const initMapApp = async () => {
         const mode = stationPopup.getOpenMode();
         if (!mode) return;
 
-        // 菜单 hover/commit 任一交互发生时：站点 popup 应立即隐藏
-        // 同时清理 popup 的预览快照，避免 popup 关闭时回滚干扰菜单预览。
+
+
         popupPreviewSnapshot = null;
         popupPreviewWasApplied = false;
         stationPopup.closePopup?.({ committed: true });
@@ -3098,8 +3061,8 @@ const initMapApp = async () => {
         applySelectionEffects();
     };
 
-    // 暴露给 search.js：复用“菜单同款”的预览/提交高亮 + fitBounds
-    // 注意：search.js 不能 import app.js（会重复初始化地图），因此用 window 作为桥接。
+
+
     const searchMapActions = (() => {
         try {
             if (!window.TokyoRailSearchMapActions) window.TokyoRailSearchMapActions = {};
@@ -3189,7 +3152,7 @@ const initMapApp = async () => {
         const lat = Number(coordinates[1]);
         if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
 
-        // 点用一个很小的 bbox 来 fitBounds，实现“居中”语义
+
         const dLng = 0.006;
         const dLat = 0.004;
         const bounds = [
@@ -3232,7 +3195,7 @@ const initMapApp = async () => {
         searchMapActions.snapshotSelectionState = snapshotSelectionState;
         searchMapActions.restoreSelectionState = restoreSelectionState;
 
-        // 供 journey-search 等模块复用 trip preview 高亮（线路/站点/站名）
+
         searchMapActions.previewTripPath = (payload, options = {}) => {
             const interaction = String(payload?.__previewInteraction || payload?.previewInteraction || '').trim() || '';
             const inferredFitMode = interaction === 'click'
@@ -3272,8 +3235,8 @@ const initMapApp = async () => {
             clearReachableStopsOverlay();
         };
 
-        // 供其他模块（如 panel header 的 map-select 下拉）使用：仅清除“站点点击高亮”。
-        // 不做全量 reset，避免影响多选/公司/线路模式的外部状态。
+
+
         searchMapActions.clearStationSelection = () => {
             appStore.dispatch(selectionSelectStationLines({
                 selectedCompany,
@@ -3366,7 +3329,7 @@ const initMapApp = async () => {
             fitToCurrentSelection(`company:${name}`, 'commit');
         };
 
-        // station 的 popup 依赖 stationsData 加载完成后初始化的 stationPopup；这里先挂函数，内部做空值保护
+
         const openStationForStationId = (stationId, meta = {}) => {
             const item = findStationLabelItemById(stationId);
             if (!item) return null;
@@ -3397,7 +3360,7 @@ const initMapApp = async () => {
             }
         };
 
-        // 方便搜索预览结束时收起 popup（如果需要）
+
         searchMapActions.closeStationPopup = ({ committed } = {}) => {
             stationPopup?.closePopup?.({ committed: committed !== false });
             setFixedPopupStationLabelBelow(null);
@@ -3405,18 +3368,18 @@ const initMapApp = async () => {
     }
 
     function bindClickBlankToRestore() {
-        // 点击地图空白处：恢复所有线路显示（并同步恢复站点/站名联动）
+
         map.on('click', (e) => {
             if (!touchTapGuard.allowTap(e?.originalEvent)) return;
 
-            // 全屏模式下，空白点击由 fullscreen.js 处理退出，不重置高亮
+
             if (isInFullscreenMode()) return;
 
             const layers = [];
             if (map.getLayer('lines-layer')) layers.push('lines-layer');
             if (map.getLayer('stations-layer')) layers.push('stations-layer');
 
-            // 若没有可查询的图层，视为“空白”
+
             const hits = layers.length ? mapEngine.queryRenderedFeatures(e.point, { layers }) : [];
             if (hits.length) return;
 
@@ -3426,7 +3389,7 @@ const initMapApp = async () => {
                 clearTripPathPreview();
             }
 
-            // 已经是“全显示”状态就不做任何事（避免多余刷新）
+
             if (!selectedCompany && !selectedLineId && !(selectedStationLineIds && selectedStationLineIds.size)) return;
 
             clearSelectionsAndRestore();
@@ -3436,11 +3399,11 @@ const initMapApp = async () => {
     function bindClickLineToSelect() {
         if (!map.getLayer('lines-layer')) return;
 
-        // 点击线路：高亮该线路及其站点（复用现有逻辑）
+
         map.on('click', 'lines-layer', (e) => {
             if (!touchTapGuard.allowTap(e?.originalEvent)) return;
 
-            // 若点击点同时命中站点（站点覆盖在线路上），则视为“点击站点”，不高亮线路
+
             // 需求：点击站点（或站点与线路一起被点到）时，不应触发线路选中
             if (map.getLayer('stations-layer')) {
                 const stationHits = mapEngine.queryRenderedFeatures(e.point, { layers: ['stations-layer'] }) || [];
@@ -3467,7 +3430,7 @@ const initMapApp = async () => {
                 return;
             }
 
-            // 点击线路：永远选中；取消选择仅通过“点击空白处”
+
             selectedLineId = mainLineId;
             selectedCompany = null;
             selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
@@ -3500,7 +3463,7 @@ const initMapApp = async () => {
     function bindClickStationToHighlightServingLines() {
         if (!map.getLayer('stations-layer')) return;
 
-        // 点击站点圆点：高亮其线路（不执行 fitBounds）
+
         map.on('click', 'stations-layer', async (e) => {
             if (!touchTapGuard.allowTap(e?.originalEvent)) return;
             if (isJourneyMapPickActive()) return;
@@ -3572,7 +3535,7 @@ const initMapApp = async () => {
             return true;
         };
 
-        // 程序内的自动联动不再改动站名显示模式；仅允许用户在设置面板手动切换。
+
         setStationLabelMode = (mode, options = {}) => {
             if (options?.fromUser !== true) return false;
             return setMode(mode);
@@ -3594,7 +3557,7 @@ const initMapApp = async () => {
             }
         });
 
-        // 尊重当前模式，不在挂载时强制改回 auto。
+
         setActive();
     }
 
@@ -4117,7 +4080,7 @@ const initMapApp = async () => {
         try {
             const items = Array.isArray(diagnostics?.largeGaps) ? diagnostics.largeGaps : [];
             if (items.length) {
-                // 同一条线路可能有多个 segment 触发；按 id 取 max
+
                 const byId = new Map();
                 for (const it of items) {
                     const id = String(it?.id || '').trim();
@@ -4139,8 +4102,8 @@ const initMapApp = async () => {
         }
         */
         const linesData = (linesGeoJSONByZoom && linesGeoJSONByZoom[18]) || linesGeoJSON;
-        // 按 data/railways-order.json 的顺序对 linesData.features 排序：
-        // - 将 order 文件的 key 处理为匹配的 id 格式：把 '-' 替换为 '.'，如果首段以 'jr' 开头则插入 '-' 使之成为 'jr-...'（不区分大小写）
+
+
         // - 未出现在 order 文件中的线路排到末尾（保持稳定性）
         try {
             const orderList = await getCachedJson('./data/railways-order.json');
@@ -4177,7 +4140,7 @@ const initMapApp = async () => {
                     const bi = normOrderMap.has(bid) ? normOrderMap.get(bid) : Number.MAX_SAFE_INTEGER;
                     if (ai === bi) return 0;
                     // 我们希望 order 文件中靠前的线路最终出现在 GeoJSON features 的后面（绘制时覆盖在上面），
-                    // 因此把未命中的（MAX）排在前面，命中的按索引倒序排列（索引小的放后面）。
+
                     if (ai === Number.MAX_SAFE_INTEGER) return -1;
                     if (bi === Number.MAX_SAFE_INTEGER) return 1;
                     return bi - ai;
@@ -4199,16 +4162,16 @@ const initMapApp = async () => {
         }
         addLinesLayer(map, linesData);
 
-        // 需求：无视缩放比例，不做 zoom 级别切换
 
-        // 构造 RWMenuCore 所需数据：companyObj / linesObj
+
+
         const allLineFeatures = Array.isArray(linesData?.features)
             ? linesData.features.filter((f) => f?.properties?.type === 'line')
             : [];
         const lineFeatures = allLineFeatures.filter((f) => Number(f?.properties?.hidden_by_opacity_zero) !== 1);
         const lineChainsById = new Map();
 
-        // 站点坐标索引：用于车次路径高亮（只高亮停靠站）
+
         stationCoordById = new Map();
         stationCoordByIdBase = new Map();
         stationServingCountById = new Map();
@@ -4297,7 +4260,7 @@ const initMapApp = async () => {
             }
         };
 
-        // 直通计算优先使用“完整线路链路”（含 opacity:0 子段，按原 subline 顺序拼接）
+
         if (lineRoutingCoordsById && typeof lineRoutingCoordsById === 'object') {
             for (const [rawId, coords] of Object.entries(lineRoutingCoordsById)) {
                 const lineId = String(rawId || '').trim();
@@ -4311,7 +4274,7 @@ const initMapApp = async () => {
         for (const f of allLineFeatures) {
             const lineId = f?.properties?.id ?? f?.id;
             if (!lineId) continue;
-            // 已有完整链路时，不再用拆分 feature 覆盖，避免与“手动去掉 opacity:0”结果不一致
+
             if (lineChainsById.has(String(lineId))) continue;
             appendChainsFromGeometry(String(lineId), f?.geometry);
         }
@@ -5786,7 +5749,7 @@ const initMapApp = async () => {
         lineSelectionLinesObj = linesObj;
         enabledLineIdsByCompany = new Map();
 
-        // ====== 选中后自动缩放：预计算线路 bounds（支持 LineString / MultiLineString） ======
+
         const lineBoundsById = new Map();
         let lastFitKey = null;
         let fitRafId = null;
@@ -5797,17 +5760,17 @@ const initMapApp = async () => {
             const base = 60;
             const extraLeft = 200;
 
-            // 默认：四周等距 padding
+
             const fallback = { top: base, right: base, bottom: base, left: base };
 
-            // 提交选择：强制按全屏 fit（不扣除菜单宽度）
+
             if (paddingMode === 'full') return fallback;
 
             let leftPad = base;
             if (menu?.wrapper) {
-                // 需求：预览（hover）时也应扣除左侧菜单占用宽度。
-                // 注意：菜单可能处于“收起但仍在左侧”的状态，此时 rect.right 可能接近 0；
-                // 为保持一致，使用 max(rect.right, rect.width) 来估算需要预留的宽度。
+
+
+
                 const rect = menu.wrapper.getBoundingClientRect?.();
                 if (rect && Number.isFinite(rect.width)) {
                     const reserve = Math.max(0, Number.isFinite(rect.right) ? rect.right : 0, rect.width);
@@ -6028,7 +5991,7 @@ const initMapApp = async () => {
             scheduleFit(`commit:${triggerKey}`, b, { maxZoom: undefined, paddingMode: 'full' });
         };
 
-        // 对外统一入口：既支持 mode 参数，也兼容 triggerKey 前缀（commit:/preview:）
+
         fitToCurrentSelection = (triggerKey, mode = 'preview') => {
             const key = String(triggerKey ?? '');
             const explicitCommit = key.startsWith('commit:');
@@ -6074,7 +6037,7 @@ const initMapApp = async () => {
                     selectedCompany = companyName;
                     setStationLabelMode('auto');
                 } else {
-                    // click 提交预览时不做反向 toggle
+
                     selectedCompany = commitPreview ? companyName : (selectedCompany === companyName ? null : companyName);
                 }
                 selectedLineId = null;
@@ -6098,8 +6061,8 @@ const initMapApp = async () => {
 
                 clearMenuThroughPreview();
 
-                // 菜单已将“支线 -> 主线”解析并给出 mergedLineIds（主线+支线）。
-                // 这里统一以主线作为 selectedLineId，保证底部显示主线名。
+
+
                 const resolved = resolveLineSelectionForApp(lineId);
 
                 const mainLineId = String(meta?.mainLineId ?? resolved?.mainLineId ?? lineId);
@@ -6128,12 +6091,12 @@ const initMapApp = async () => {
                 if (selectedLineId) selectedCompany = null;
                 selectedServiceMode = 'all';
 
-                // 菜单 Branch 合并：点击/提交时同时高亮其归并的支线
+
                 if (source !== 'hover') {
                     selectedStationLineIds = selectedLineId && merged.length > 1 ? new Set(merged) : null;
                 }
 
-                // 需求：高亮线路时自动切换为站名全显（仅对 click/commit 生效，避免 hover 预览频繁切换）
+
                 if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
                 applySelectionEffects();
                 if (selectedLineId) {
@@ -6162,7 +6125,7 @@ const initMapApp = async () => {
                 }
 
                 selectedStationLineIds = null;
-                // 预留：目前地图高亮/站名过滤仍以 lineId 为主
+
                 if (source === 'hover') {
                     selectedLineId = lineId;
                     selectedServiceMode = mode;
@@ -6175,7 +6138,7 @@ const initMapApp = async () => {
                 }
                 if (selectedLineId) selectedCompany = null;
 
-                // 需求：高亮线路时自动切换为站名全显（仅对 click/commit 生效）
+
                 if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
                 applySelectionEffects();
                 if (selectedLineId) {
@@ -6195,11 +6158,11 @@ const initMapApp = async () => {
             getHoverPreviewEnabled: () => isHoverPreviewEnabled()
         });
 
-        // 菜单展开时：用“扣除菜单宽度后的可视区域”重新 fit 当前选中对象
+
         const refitForMenuOpen = () => {
             if (!isHoverPreviewEnabled()) return;
             if (!selectedCompany && !selectedLineId) return;
-            // 用 preview 语义，避免改变“提交态”的选择逻辑
+
             fitToCurrentSelection('menu-open', 'preview');
         };
 
@@ -6213,7 +6176,7 @@ const initMapApp = async () => {
                 const pt = evt?.pointerType;
                 if (pt !== 'touch' && pt !== 'pen') return;
 
-                // 仅在“从收起状态唤起”的那次触摸后 refit
+
                 const leftBefore = parseFloat(getComputedStyle(menu.wrapper).left || '0');
                 if (Number.isFinite(leftBefore) && leftBefore < 0) {
                     setTimeout(() => refitForMenuOpen(), 0);
@@ -6240,10 +6203,10 @@ const initMapApp = async () => {
             : await loadRailGeoDataFromDataFolder();
         const stationsData = generatedStationsData || loadedGeoData?.stationsGeoJSON;
         const stationOffsetAlgorithmContext = generatedStationOffsetAlgorithmContext || loadedGeoData?.stationOffsetAlgorithmContext;
-        // 按 data/railways-order.json 排序 stationsData.features 的绘制顺序：
-        // - 从站点 id 用 "." 分割取前两项作为线路 id（如 JR-East.Yamanote.Osaki -> JR-East.Yamanote）
-        // - 规范化 order key：小写后把 '-' 替换为 '.'，若首段以 'jr' 开头且长度>2，则改为 'jr-xxx'（例如 jreast-yamanote -> jr-east.yamanote）
-        // - 使用 fetch.js 的 getCachedJson 读取，不重复加载
+
+
+
+
         try {
             const orderList = await getCachedJson('./data/railways-order.json');
             if (Array.isArray(orderList) && Array.isArray(stationsData?.features)) {
@@ -6286,7 +6249,7 @@ const initMapApp = async () => {
                     if (ai === bi) return 0;
                     if (ai === MAX) return -1;
                     if (bi === MAX) return 1;
-                    return bi - ai; // order 索引小的放后面（覆盖在上）
+                    return bi - ai;
                 });
             }
         } catch {
@@ -6297,7 +6260,7 @@ const initMapApp = async () => {
 
         let currentStationOffsetStateKey = null;
 
-        // 换乘站 MST“变形胶囊”：固定启用，无额外开关。
+
         try {
             transferCapsuleStationsData = stationsData;
             transferCapsuleStationGroups = await getCachedJson('./data/station-groups.json');
@@ -6308,10 +6271,10 @@ const initMapApp = async () => {
             console.warn('换乘站 MST 胶囊渲染初始化失败', e);
         }
 
-        // 站点圆点点击：高亮该站点所有线路（不执行 fitBounds）
+
         bindClickStationToHighlightServingLines();
 
-        // 确保 stations-layer 创建后立即应用一次“选中线路的站点样式策略”
+
         applySelectionEffects();
 
         const markers = createStationMarkers(map, maplibregl, stationsData);
@@ -6415,8 +6378,8 @@ const initMapApp = async () => {
             applyRealtimeStationOffsetForZoom(map.getZoom());
         };
 
-        // 关键：站名 marker 创建后立刻执行一次“换乘组仅保留最北站名”收缩，
-        // 否则首次进入页面会看到全部站名，直到下一次交互触发 applySelectionEffects 才更新。
+
+
         applyTransferStationLabelCollapse();
         updateMultiSelectStationLabelChips();
 
@@ -6503,7 +6466,7 @@ const initMapApp = async () => {
                     ? 'all'
                     : 'collide'
             ),
-            // 选中站点（station-selected-current-label 对应站）在站名碰撞中拥有最高优先级。
+
             getPinnedStationId: () => selectedStationId || fixedPopupStationId,
             shouldHideStation: (stationLike) => {
                 if (!shouldApplyBaseLayerHiddenFilter()) return false;
@@ -6529,7 +6492,7 @@ const initMapApp = async () => {
             
             const cumulativeDelta = Math.abs(currentZoom - lastUpdateZoom);
             
-            // 计算与上一帧之间的【瞬间差值/速度】（用于检测是否即将停止）
+
             const frameVelocity = Math.abs(currentZoom - previousFrameZoom);
             
             previousFrameZoom = currentZoom;
@@ -6551,11 +6514,11 @@ const initMapApp = async () => {
         });
         
 
-        // 再次调度一次，确保强制隐藏标记立即反映到 DOM 显示状态。
+
         applySelectionEffects();
 
         stationPopup = setupStationPopup(map, maplibregl, {
-            // 悬浮弹框：用 serving_ids 匹配线路元信息
+
             getLineMeta: (lineId) => {
                 const id = String(lineId);
                 return {
@@ -6579,7 +6542,7 @@ const initMapApp = async () => {
                     if (!canRunHoverPreviewAtCurrentZoom()) return;
                     if (!popupPreviewSnapshot) popupPreviewSnapshot = snapshotSelectionState();
                     popupPreviewWasApplied = true;
-                    // 需求调整：hover 公司时，不再显示“公司所有线路”，而是显示“通过该站点且属于该公司的线路”
+
                     const stationLineIds = Array.isArray(meta?.stationLineIds) ? meta.stationLineIds.map(String).filter(Boolean) : [];
                     const subset = stationLineIds.filter((id) => String(lineCompanyById.get(String(id)) || '') === name);
 
@@ -6595,7 +6558,7 @@ const initMapApp = async () => {
                 }
 
                 if (source === 'popup-click') {
-                    // 修复：点击 popup 公司时，只高亮“通过该站点且属于该公司”的线路集合
+
                     popupPreviewSnapshot = null;
                     popupPreviewWasApplied = false;
 
@@ -6615,7 +6578,7 @@ const initMapApp = async () => {
                     return;
                 }
 
-                // 其它来源（例如菜单 click）：保持原逻辑，高亮该公司所有线路
+
                 popupPreviewSnapshot = null;
                 popupPreviewWasApplied = false;
                 selectedCompany = name;
@@ -6658,7 +6621,7 @@ const initMapApp = async () => {
                     return;
                 }
 
-                // popup click：提交高亮（同“点击线路”效果），但不执行 fitBounds
+
                 popupPreviewSnapshot = null;
                 popupPreviewWasApplied = false;
                 selectedLineId = mainLineId;
@@ -6669,7 +6632,7 @@ const initMapApp = async () => {
                 setStationLabelMode('all');
                 isolateStationsToSelectedLine = meta?.isolateStations === true;
 
-                // 同步菜单高亮（若菜单存在）
+
                 if (menu && typeof menu.markActive === 'function') {
                     const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(selectedLineId)}"]`);
                     if (el) menu.markActive(el);
@@ -6678,7 +6641,7 @@ const initMapApp = async () => {
                 applySelectionEffects();
             },
             onRestoreStationLines: (lineIds) => {
-                // popup 内 hover 预览离开：恢复为“该站点所有线路”
+
                 selectedLineId = null;
                 selectedCompany = null;
                 isolateStationsToSelectedLine = false;
@@ -6707,7 +6670,7 @@ const initMapApp = async () => {
             }
         });
 
-        // search.js bridge：stations/popup 已可用
+
         try {
             if (window.TokyoRailSearchMapActions) {
                 window.TokyoRailSearchMapActions.isReady = true;
@@ -6716,7 +6679,7 @@ const initMapApp = async () => {
             // ignore
         }
 
-        // 站名标签：鼠标点击/触屏点击打开右侧 panel（popup 不再固定）
+
         {
             const isTouchLike = (pt) => pt === 'touch' || pt === 'pen';
             const readPointerType = (evt) => {
@@ -6753,7 +6716,7 @@ const initMapApp = async () => {
                 const el = item?.el;
                 if (!el) return;
 
-                // 用于 popup 自动隐藏的“是否在站点上方”判断
+
                 el.addEventListener('mouseenter', () => {
                     stationPopup.setExternalStationHover?.(true);
                     lineHoverPopup?.setExternalStationHover?.(true);
@@ -6763,7 +6726,7 @@ const initMapApp = async () => {
                     lineHoverPopup?.setExternalStationHover?.(false);
                 });
 
-                // 触屏/笔：按下时只阻止穿透；抬起时满足“短按+小位移”才触发
+
                 el.addEventListener(
                     'pointerdown',
                     (evt) => {
@@ -6872,7 +6835,7 @@ window.saveZoom = (remark=false) => {
 
     window.clearZoomRecords = () => {
         localStorage.removeItem(STORAGE_KEY);
-        console.log("地图缩放记录已清除");
+        console.log('地图缩放记录已清除');
     };
 
     window.setZoom = (remark) => {
