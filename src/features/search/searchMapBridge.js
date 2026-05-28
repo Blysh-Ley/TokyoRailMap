@@ -22,6 +22,7 @@ export const createSearchMapBridge = ({
 
     showJourneyPickPin: (payload = {}) => journeyPickApi.showJourneyPickPin?.(payload),
     clearJourneyPickPin: (type) => journeyPickApi.clearJourneyPickPin?.(type),
+    onMapPickClick: (listener) => journeyPickApi.onMapPickClick?.(listener),
 
     updateReachableStopsOverlay: (payload = {}) => reachableStopsApi.updateReachableStopsOverlay?.(payload),
     clearReachableStopsOverlay: () => reachableStopsApi.clearReachableStopsOverlay?.(),

@@ -848,14 +848,6 @@ export function mountTravelSearchUI() {
         }
     };
 
-    const getMapInstance = () => {
-        try {
-            return window.__TokyoRailMap || null;
-        } catch {
-            return null;
-        }
-    };
-
     const setMapPickTarget = (target) => {
         mapPickTarget = target === 'origin' || target === 'destination' ? target : null;
         originMapPickBtn.classList.toggle('is-active', mapPickTarget === 'origin');
@@ -1057,12 +1049,12 @@ export function mountTravelSearchUI() {
     let mapPickHookBound = false;
     const ensureMapPickHook = () => {
         if (mapPickHookBound) return;
-        const map = getMapInstance();
-        if (!map || typeof map.on !== 'function') return;
-        map.on('click', (e) => {
+        const actions = window?.TokyoRailSearchMapActions;
+        if (typeof actions?.onMapPickClick !== 'function') return;
+        const bound = actions.onMapPickClick((e) => {
             handleMapStationPick(e);
         });
-        mapPickHookBound = true;
+        mapPickHookBound = bound !== false;
     };
 
     const mapPickBindTimer = window.setInterval(() => {

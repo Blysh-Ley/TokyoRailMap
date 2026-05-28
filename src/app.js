@@ -3246,6 +3246,11 @@ const initMapApp = async () => {
         },
         clearJourneyPickPin: (type) => {
             clearJourneyPickPin(type);
+        },
+        onMapPickClick: (listener) => {
+            if (typeof listener !== 'function') return false;
+            mapEngine.on('click', listener);
+            return true;
         }
     };
 
