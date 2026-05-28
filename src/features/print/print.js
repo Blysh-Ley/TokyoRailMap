@@ -7,7 +7,7 @@
  * - 站名（由 stations.json 映射，按停靠站集合绘制）
  *
  * 与 app.js 的联动方式：
- * - app.js 暴露 window.__TokyoRailMap
+ * - app.js 暴露 window.TokyoRailMapRuntime.getBaseMap()（旧版 window.__TokyoRailMap 仅作兜底）
  * - app.js 在 previewTripPath(payload) 计算 built 后派发事件 __TokyoRailTripPreviewUpdated
  *
  * 本文件只负责：缓存最近一次 trip-preview 的 built 数据，并在点击“截图（导出 SVG）”按钮时导出 SVG 并下载。
@@ -85,6 +85,14 @@
     const BASE_HL_EVENT = '__TokyoRailBaseHighlightUpdated';
     const BASE_HL_CLEAR_EVENT = '__TokyoRailBaseHighlightCleared';
     const EXPORT_UI_STORAGE_KEY = 'tokyorail.export.ui';
+
+    const getRuntimeBaseMap = () => {
+        try {
+            return window?.TokyoRailMapRuntime?.getBaseMap?.() || window.__TokyoRailMap || null;
+        } catch {
+            return null;
+        }
+    };
 
     // ---- virtual backend map (offscreen) ----
 
@@ -614,7 +622,7 @@
 
             // 优先复用主地图 stations-source：与 app.js 的站名来源保持一致。
             try {
-                const baseMap = window.__TokyoRailMap || mapForSource;
+                const baseMap = getRuntimeBaseMap() || mapForSource;
                 const stationsFc = baseMap ? await getGeoJsonSourceData(baseMap, 'stations-source') : null;
                 for (const f of Array.isArray(stationsFc?.features) ? stationsFc.features : []) {
                     const props = f?.properties || {};
@@ -716,7 +724,7 @@
     const getStationStyleContext = async (map) => {
         if (stationStyleContextPromise) return stationStyleContextPromise;
         stationStyleContextPromise = (async () => {
-            const baseMap = window.__TokyoRailMap || map;
+            const baseMap = getRuntimeBaseMap() || map;
             const lineColorById = new Map();
             const stationPrimaryLineIdByStationId = new Map();
 
@@ -1808,7 +1816,7 @@
 
     const exportSnapshot = async (snapshot, options, extra = {}) => {
         if (exporting) return;
-        const baseMap = window.__TokyoRailMap;
+        const baseMap = getRuntimeBaseMap();
         if (!baseMap) return;
 
         const normalized = normalizeTripSnapshot(snapshot);
@@ -1975,7 +1983,7 @@
             let capsules = null;
             try {
                 const bounds = vmap.getBounds?.();
-                const baseMap = window.__TokyoRailMap;
+                const baseMap = getRuntimeBaseMap();
                 if (bounds && baseMap) {
                     const viewBbox = {
                         minLng: bounds.getWest(),
@@ -2174,7 +2182,7 @@
 
     const isTripPreviewActiveNow = () => {
         try {
-            const map = window.__TokyoRailMap;
+            const map = getRuntimeBaseMap();
             if (!map) return false;
 
             const fromSourceData = (() => {
@@ -2726,7 +2734,7 @@ const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, low
 
     const exportBaseHighlight = async (snapshot, options) => {
         if (exporting) return;
-        const baseMap = window.__TokyoRailMap;
+        const baseMap = getRuntimeBaseMap();
         if (!baseMap) return;
         const kind = snapshot?.kind || 'unknown';
         const label = String(snapshot?.label || kind || 'highlight');
@@ -2942,7 +2950,7 @@ const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, low
         const tripActive = isTripPreviewActiveNow();
         const baseActive = !!(lastBaseHighlight && lastBaseHighlightAt && lastBaseHighlight.lineIds instanceof Set && lastBaseHighlight.lineIds.size);
         const multiSelect = isMultiSelectModeEnabledNow();
-        const baseMap = window.__TokyoRailMap;
+        const baseMap = getRuntimeBaseMap();
 
         const ensureSnapshotFromMapSources = async () => {
             if (!baseMap) return null;

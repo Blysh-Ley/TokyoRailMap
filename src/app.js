@@ -342,6 +342,11 @@ const basemapController = createBasemapController({
 
 try {
     window.__TokyoRailMap = map;
+    window.TokyoRailMapRuntime = {
+        ...(window.TokyoRailMapRuntime || {}),
+        getBaseMap: () => map,
+        getMapEngine: () => mapEngine
+    };
 } catch {
     // ignore
 }
