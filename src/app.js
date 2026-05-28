@@ -52,6 +52,9 @@ import { createHighlightFeature } from './features/highlight/highlightFeature.js
 import { createHighlightRenderer } from './features/highlight/highlightRenderer.js';
 import { createTripPreviewRenderer } from './features/highlight/tripPreviewRenderer.js';
 import { createHoverFeature } from './features/hover/hoverFeature.js';
+import { createLayerFeature } from './features/layer/layerFeature.js';
+import { createStationCoordinateAdapter } from './features/layer/stationCoordinateAdapter.js';
+import { createRouteFeature } from './features/route/routeFeature.js';
 import { createReachableStopsOverlayRenderer } from './features/search/reachableStopsOverlayRenderer.js';
 import { createSearchMapBridge } from './features/search/searchMapBridge.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
@@ -443,8 +446,8 @@ const initMapApp = async () => {
     let transferCapsuleStationsData = null;
     let transferCapsuleStationGroups = null;
     let transferCapsuleBaseConnectionOrder = null;
-    let transferCapsuleRefreshRafId = null;
     let transferCapsuleVisibleKey = '__init__';
+    let layerFeature = null;
     let reachableStopsOverlayVisibleKey = '__init__';
     let reachableStopsLabelIds = null;
     let reachableStopsExtremeLabelIds = null;
@@ -1007,7 +1010,7 @@ const initMapApp = async () => {
         lastReachableStopsPayload = null;
         reachableStopsLabelIds = null;
         reachableStopsOverlayRenderer.clear();
-        collisionController?.scheduleUpdate?.();
+        scheduleLayerCollisionUpdate();
     };
 
     const refreshReachableStopsOverlay = async (payload = null, options = {}) => {
@@ -1038,7 +1041,7 @@ const initMapApp = async () => {
         reachableStopsLabelIds = getReachableStopsLabelIdSet(data.geojson);
         reachableStopsExtremeLabelIds = getReachableStopsExtremeLabelIdSet(data.geojson);
         applyReachableStopsLabelPriorityBoost(reachableStopsExtremeLabelIds);
-        collisionController?.scheduleUpdate?.();
+        scheduleLayerCollisionUpdate();
 
         if (options?.fitBounds !== false && payload?.fitBounds !== false) {
             fitToReachableStopsBounds(data.geojson);
@@ -1428,41 +1431,23 @@ const initMapApp = async () => {
     };
 
     const refreshTransferCapsulesNow = () => {
-        if (!map || !transferCapsuleStationsData || !Array.isArray(transferCapsuleStationGroups)) return;
-
-        const useFixedConnections = shouldUseFixedTransferCapsuleConnections();
-        const fixedVisibleStationIds = useFixedConnections ? getFixedVisibleStationIdsForTransferCapsules() : null;
-        const visibleStationIds = useFixedConnections ? fixedVisibleStationIds : getVisibleStationIdsForTransferCapsules();
-        const nextKey = toTransferCapsuleVisibleKey(visibleStationIds, {
-            useFixedConnections,
-            baseHiddenFilterActive: fixedVisibleStationIds instanceof Set
-        });
-        if (nextKey === transferCapsuleVisibleKey) return;
-        transferCapsuleVisibleKey = nextKey;
-
-        const transferCapsuleData = buildTransferCapsuleGeoJSON(transferCapsuleStationsData, transferCapsuleStationGroups, {
-            visibleStationIds,
-            fixedConnectionsByGroupId: useFixedConnections ? transferCapsuleBaseConnectionOrder : null,
-            singleStationFallbackCircle: true,
-            resolveLineColor: (lineId) => {
-                const id = String(lineId || '').trim();
-                if (!id) return '';
-                return resolveRailColorForTheme(lineColorById.get(id) || '') || '';
-            }
-        });
-
-        addTransferCapsuleLayers(map, transferCapsuleData, {
-            beforeLayerId: 'stations-layer',
-            minZoom: 8
-        });
+        layerFeature?.refreshTransferCapsulesNow?.();
     };
 
     const scheduleTransferCapsuleRefresh = () => {
-        if (transferCapsuleRefreshRafId != null) return;
-        transferCapsuleRefreshRafId = requestAnimationFrame(() => {
-            transferCapsuleRefreshRafId = null;
-            refreshTransferCapsulesNow();
-        });
+        if (layerFeature?.scheduleTransferCapsuleRefresh) {
+            layerFeature.scheduleTransferCapsuleRefresh();
+            return;
+        }
+        requestAnimationFrame(() => refreshTransferCapsulesNow());
+    };
+
+    const scheduleLayerCollisionUpdate = () => {
+        if (layerFeature?.scheduleCollisionUpdate) {
+            layerFeature.scheduleCollisionUpdate();
+            return;
+        }
+        collisionController?.scheduleUpdate?.();
     };
 
     const applyMultiSelectBaseLayerState = (enabled) => {
@@ -1574,6 +1559,29 @@ const initMapApp = async () => {
             isDarkThemeActive: isDarkThemeActive(),
             lineColorById
         })
+    });
+    const routeFeature = createRouteFeature({
+        tripPreviewRenderer,
+        emitTripPreviewUpdated: ({ payload, built } = {}) => {
+            try {
+                window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {
+                    detail: {
+                        ts: Date.now(),
+                        payload,
+                        built
+                    }
+                }));
+            } catch {
+                // ignore
+            }
+        },
+        emitTripPreviewCleared: () => {
+            try {
+                window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewCleared', { detail: { ts: Date.now() } }));
+            } catch {
+                // ignore
+            }
+        }
     });
 
     const getStationNameForMultiSelect = (stationId) => {
@@ -1773,7 +1781,7 @@ const initMapApp = async () => {
                 emitMultiSelectLayersUpdated();
                 syncMultiSelectBaseTripPreview().catch(() => null);
                 applySelectionEffects();
-                collisionController?.scheduleUpdate?.();
+                scheduleLayerCollisionUpdate();
             }
             return false;
         }
@@ -1789,7 +1797,7 @@ const initMapApp = async () => {
                 emitMultiSelectLayersUpdated();
                 syncMultiSelectBaseTripPreview().catch(() => null);
                 applySelectionEffects();
-                collisionController?.scheduleUpdate?.();
+                scheduleLayerCollisionUpdate();
             } else if (baseEntry?.branchAutoHidden === true) {
                 baseMultiSelectionsByKey.set(key, {
                     ...baseEntry,
@@ -1825,7 +1833,7 @@ const initMapApp = async () => {
                 });
                 emitMultiSelectLayersUpdated();
                 applySelectionEffects();
-                collisionController?.scheduleUpdate?.();
+                scheduleLayerCollisionUpdate();
             }
         });
 
@@ -2687,7 +2695,7 @@ const initMapApp = async () => {
             applyTransferStationLabelCollapse();
             updateSelectedStationLabelClass();
             updateMultiSelectStationLabelChips();
-            if (collisionController) collisionController.scheduleUpdate();
+            scheduleLayerCollisionUpdate();
 
             scheduleTransferCapsuleRefresh();
             updateSelectionBadge();
@@ -3016,13 +3024,13 @@ const initMapApp = async () => {
         }
 
         if (!fixedPopupStationId) {
-            if (collisionController) collisionController.scheduleUpdate();
+            scheduleLayerCollisionUpdate();
             return;
         }
 
         const pinned = stationLabels.find((x) => x && String(x.stationId) === fixedPopupStationId);
         if (!pinned) {
-            if (collisionController) collisionController.scheduleUpdate();
+            scheduleLayerCollisionUpdate();
             return;
         }
 
@@ -3032,7 +3040,7 @@ const initMapApp = async () => {
         pinned.labelBelowPadPx = pad;
         pinned.el.style.translate = `0 calc(100% + ${pad}px)`;
 
-        if (collisionController) collisionController.scheduleUpdate();
+        scheduleLayerCollisionUpdate();
     };
 
     const hideStationPopupForMenuInteraction = ({ preserveHoverPreview = false } = {}) => {
@@ -3501,17 +3509,17 @@ const initMapApp = async () => {
 
         btnOff.addEventListener('click', () => {
             if (setStationLabelMode('off', { fromUser: true })) {
-                if (collisionController) collisionController.scheduleUpdate();
+                scheduleLayerCollisionUpdate();
             }
         });
         btnAuto.addEventListener('click', () => {
             if (setStationLabelMode('auto', { fromUser: true })) {
-                if (collisionController) collisionController.scheduleUpdate();
+                scheduleLayerCollisionUpdate();
             }
         });
         btnAll.addEventListener('click', () => {
             if (setStationLabelMode('all', { fromUser: true })) {
-                if (collisionController) collisionController.scheduleUpdate();
+                scheduleLayerCollisionUpdate();
             }
         });
 
@@ -4175,11 +4183,11 @@ const initMapApp = async () => {
         }
 
         const ensureTripPreviewLayers = () => {
-            tripPreviewRenderer.ensureLayers();
+            routeFeature.ensureTripPreviewLayers();
         };
 
         const resetTripPreviewLayers = () => {
-            tripPreviewRenderer.reset();
+            routeFeature.resetTripPreviewLayers();
         };
 
         const distMeters = (a, b) => {
@@ -5218,7 +5226,7 @@ const initMapApp = async () => {
 
             ensureTripPreviewLayers();
             try {
-                tripPreviewRenderer.setData({ lineFc: aggregate.lineFc, stopFc: aggregate.stopFc });
+                routeFeature.setTripPreviewData({ lineFc: aggregate.lineFc, stopFc: aggregate.stopFc });
             } catch {
                 // ignore
             }
@@ -5234,12 +5242,8 @@ const initMapApp = async () => {
             if (!hasVisible) {
                 setStationLabelMode(getBaseMultiSelectedLineIds().size ? 'all' : 'auto');
                 applySelectionEffects();
-                collisionController?.scheduleUpdate?.();
-                try {
-                    window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewCleared', { detail: { ts: Date.now() } }));
-                } catch {
-                    // ignore
-                }
+                scheduleLayerCollisionUpdate();
+                routeFeature.notifyTripPreviewCleared();
                 emitMultiSelectLayersUpdated();
                 return;
             }
@@ -5251,21 +5255,11 @@ const initMapApp = async () => {
                     tripKey: Array.from(tripPreviewSelectionsByKey.keys()).join(' + ')
                 };
 
-            try {
-                window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {
-                    detail: {
-                        ts: Date.now(),
-                        payload: payloadForExport,
-                        built: aggregate
-                    }
-                }));
-            } catch {
-                // ignore
-            }
+            routeFeature.notifyTripPreviewUpdated({ payload: payloadForExport, built: aggregate });
 
             setStationLabelMode('all');
             applySelectionEffects();
-            collisionController?.scheduleUpdate?.();
+            scheduleLayerCollisionUpdate();
             if (fitMode !== 'none' && aggregate.bbox) {
                 previewFitWithSidePanels(aggregate.bbox);
             }
@@ -5279,7 +5273,7 @@ const initMapApp = async () => {
             dirPreviewStationIds = null;
             clearDirEndpointPopups();
             applySelectionEffects();
-            collisionController?.scheduleUpdate?.();
+            scheduleLayerCollisionUpdate();
         };
 
         previewDirHeader = (payload) => {
@@ -5343,7 +5337,7 @@ const initMapApp = async () => {
             }
 
             applySelectionEffects();
-            collisionController?.scheduleUpdate?.();
+            scheduleLayerCollisionUpdate();
 
             if (fitMode !== 'none') {
                 const fitBbox = bboxFromStationIds(Array.from(stationIds));
@@ -5384,13 +5378,9 @@ const initMapApp = async () => {
             syncStationOffsetForTripPreviewState();
             setStationLabelMode('auto');
             applySelectionEffects();
-            collisionController?.scheduleUpdate?.();
+            scheduleLayerCollisionUpdate();
 
-            try {
-                window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewCleared', { detail: { ts: Date.now() } }));
-            } catch {
-                // ignore
-            }
+            routeFeature.notifyTripPreviewCleared();
             emitMultiSelectLayersUpdated();
         };
 
@@ -5475,32 +5465,22 @@ const initMapApp = async () => {
                 } else {
                     tripPreviewStationIds = aggregate.stopIds;
                 }
-                tripPreviewLineIds = aggregate.lineIds;
-                syncStationOffsetForTripPreviewState();
+            tripPreviewLineIds = aggregate.lineIds;
+            syncStationOffsetForTripPreviewState();
 
-                try {
-                    tripPreviewRenderer.setData({ lineFc: aggregate.lineFc, stopFc: aggregate.stopFc });
-                } catch {
-                    // ignore
-                }
+            try {
+                    routeFeature.setTripPreviewData({ lineFc: aggregate.lineFc, stopFc: aggregate.stopFc });
+            } catch {
+                // ignore
+            }
 
-                clearTripEndpointPopups();
+            clearTripEndpointPopups();
 
-                try {
-                    window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {
-                        detail: {
-                            ts: Date.now(),
-                            payload,
-                            built: aggregate
-                        }
-                    }));
-                } catch {
-                    // ignore
-                }
+                routeFeature.notifyTripPreviewUpdated({ payload, built: aggregate });
 
                 setStationLabelMode('all');
                 applySelectionEffects();
-                collisionController?.scheduleUpdate?.();
+                scheduleLayerCollisionUpdate();
                 if (fitMode !== 'none') {
                     previewFitWithSidePanels(aggregate.bbox);
                 }
@@ -5540,28 +5520,18 @@ const initMapApp = async () => {
             syncStationOffsetForTripPreviewState();
 
             try {
-                tripPreviewRenderer.setData({ lineFc: built.lineFc, stopFc: built.stopFc });
+                routeFeature.setTripPreviewData({ lineFc: built.lineFc, stopFc: built.stopFc });
             } catch {
                 // ignore
             }
 
             updateTripEndpointPopups(built.startStationId, built.endStationId);
 
-            try {
-                window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {
-                    detail: {
-                        ts: Date.now(),
-                        payload,
-                        built
-                    }
-                }));
-            } catch {
-                // ignore
-            }
+            routeFeature.notifyTripPreviewUpdated({ payload, built });
 
             setStationLabelMode('all');
             applySelectionEffects();
-            collisionController?.scheduleUpdate?.();
+            scheduleLayerCollisionUpdate();
             if (fitMode !== 'none') {
                 previewFitWithSidePanels(built.bbox);
             }
@@ -5605,7 +5575,7 @@ const initMapApp = async () => {
                     const ok = toggleBaseMultiSelectionVisibility(parsed.key);
                     if (ok) {
                         applySelectionEffects();
-                        collisionController?.scheduleUpdate?.();
+                        scheduleLayerCollisionUpdate();
                     }
                     return ok;
                 }
@@ -5621,7 +5591,7 @@ const initMapApp = async () => {
                         if (source) clearTripPathPreview({ source });
                         if (!getBaseMultiSelectedLineIds().size && !tripPreviewActive) setStationLabelMode('auto');
                         applySelectionEffects();
-                        collisionController?.scheduleUpdate?.();
+                        scheduleLayerCollisionUpdate();
                     }
                     return ok;
                 }
@@ -5668,7 +5638,7 @@ const initMapApp = async () => {
                         emitMultiSelectLayersUpdated();
                         syncMultiSelectBaseTripPreview().catch(() => null);
                         applySelectionEffects();
-                        collisionController?.scheduleUpdate?.();
+                        scheduleLayerCollisionUpdate();
                         return true;
                     } catch {
                         return false;
@@ -6216,9 +6186,6 @@ const initMapApp = async () => {
 
         addStationsLayer(map, stationsData);
 
-        let currentStationOffsetStateKey = null;
-
-
         try {
             transferCapsuleStationsData = stationsData;
             transferCapsuleStationGroups = await getCachedJson('./data/station-groups.json');
@@ -6263,77 +6230,148 @@ const initMapApp = async () => {
             }
         };
 
-        const applyStationGeoJSON = (geojson, keyHint = '') => {
-            const nextGeoJSON = geojson && typeof geojson === 'object' ? geojson : null;
-            if (!nextGeoJSON) return;
+        const stationCoordinateAdapter = createStationCoordinateAdapter({ stationLabels, stationCircles });
 
-            try {
-                map.getSource('stations-source')?.setData?.(nextGeoJSON);
-            } catch {
-                // ignore
+        layerFeature = createLayerFeature({
+            baseStationsGeoJSON: stationsData,
+            stationOffsetAlgorithmContext,
+            buildStationOffsetGeoJSONAtZoom,
+            getZoom: () => map.getZoom(),
+            setStationsGeoJSON: (nextGeoJSON) => {
+                try {
+                    mapEngine.getSource('stations-source')?.setData?.(nextGeoJSON);
+                } catch {
+                    // ignore
+                }
+            },
+            updateStationLabelCoordinates: stationCoordinateAdapter.updateLabels,
+            updateStationCircleCoordinates: stationCoordinateAdapter.updateCircles,
+            rebuildStationCoordMap,
+            setTransferCapsuleStationsData: (nextGeoJSON) => {
+                transferCapsuleStationsData = nextGeoJSON;
+            },
+            invalidateTransferCapsules: (keyHint) => {
+                transferCapsuleVisibleKey = String(keyHint || '__station-geojson__');
+            },
+            getTransferCapsuleStationsData: () => transferCapsuleStationsData,
+            getTransferCapsuleStationGroups: () => transferCapsuleStationGroups,
+            getTransferCapsuleBaseConnectionOrder: () => transferCapsuleBaseConnectionOrder,
+            getTransferCapsuleVisibleKey: () => transferCapsuleVisibleKey,
+            setTransferCapsuleVisibleKey: (nextKey) => {
+                transferCapsuleVisibleKey = String(nextKey || '__init__');
+            },
+            shouldUseFixedTransferCapsuleConnections,
+            getFixedVisibleStationIdsForTransferCapsules,
+            getVisibleStationIdsForTransferCapsules,
+            toTransferCapsuleVisibleKey,
+            buildTransferCapsuleGeoJSON,
+            renderTransferCapsules: (transferCapsuleData) => {
+                addTransferCapsuleLayers(map, transferCapsuleData, {
+                    beforeLayerId: 'stations-layer',
+                    minZoom: 8
+                });
+            },
+            resolveTransferCapsuleLineColor: (lineId) => {
+                const id = String(lineId || '').trim();
+                if (!id) return '';
+                return resolveRailColorForTheme(lineColorById.get(id) || '') || '';
+            },
+            createCollisionController: (labels, circles, options) => setupCollisions(map, labels, circles, options),
+            scheduleCollisionUpdate: () => collisionController?.scheduleUpdate?.(),
+            collisionConfig: {
+                transferGroupByStationId: transferStationIdsByStationId,
+                onCircleCollisionResolved: ({ visibleStationIds }) => {
+                    collisionVisibleStationIds = visibleStationIds instanceof Set ? new Set(visibleStationIds) : null;
+                    if (pendingTransferCapsuleRefreshAfterCollision) {
+                        pendingTransferCapsuleRefreshAfterCollision = false;
+                        transferCapsuleVisibleKey = '__init__';
+                        scheduleTransferCapsuleRefresh();
+                    }
+                },
+                getEnabledLineIds: getEnabledLineIdsForLabels,
+                getVisibleStationIds: () => {
+                    const baseVisible = (() => {
+                        if (tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size) {
+                            if (isMultiSelectModeEnabled()) {
+                                const baseIds = getVisibleStationIdsForBaseMultiSelection();
+                                if (baseIds.size) {
+                                    const merged = new Set(baseIds);
+                                    for (const sid of tripPreviewStationIds) merged.add(String(sid || '').trim());
+                                    return merged;
+                                }
+                            }
+                            return tripPreviewStationIds;
+                        }
+                        if (dirPreviewActive && dirPreviewStationIds && dirPreviewStationIds.size) {
+                            return dirPreviewStationIds;
+                        }
+                        if (!selectedLineId && !selectedCompany && selectedStationId) {
+                            return getVisibleStationIdsForSelectedStationSelection();
+                        }
+                        return null;
+                    })();
+
+                    if (!(reachableStopsLabelIds instanceof Set)) return baseVisible;
+                    if (!(baseVisible instanceof Set)) return reachableStopsLabelIds;
+
+                    const intersect = new Set();
+                    for (const rawId of baseVisible) {
+                        const sid = String(rawId || '').trim();
+                        if (sid && reachableStopsLabelIds.has(sid)) intersect.add(sid);
+                    }
+                    return intersect;
+                },
+                getLabelMode: () => {
+                    if (dirPreviewActive) return 'all';
+                    return stationLabelMode;
+                },
+                shouldThinAutoLabels: () => {
+                    if (stationLabelMode !== 'auto') return false;
+
+                    const hasBaseHighlight = Boolean(
+                        selectedLineId ||
+                        selectedCompany ||
+                        selectedStationId ||
+                        (selectedStationLineIds && selectedStationLineIds.size) ||
+                        (isMultiSelectModeEnabled() && getBaseMultiSelectedLineIds().size)
+                    );
+                    const hasTripPreviewHighlight = Boolean(
+                        tripPreviewActive ||
+                        dirPreviewActive ||
+                        (tripPreviewStationIds && tripPreviewStationIds.size) ||
+                        (dirPreviewStationIds && dirPreviewStationIds.size)
+                    );
+
+                    return !(hasBaseHighlight || hasTripPreviewHighlight);
+                },
+                getCircleMode: () => (
+                    tripPreviewActive ||
+                    dirPreviewActive ||
+                    (isMultiSelectModeEnabled() && getBaseMultiSelectedLineIds().size) ||
+                    selectedLineId ||
+                    selectedCompany ||
+                    (selectedStationLineIds && selectedStationLineIds.size)
+                        ? 'all'
+                        : 'collide'
+                ),
+
+                getPinnedStationId: () => selectedStationId || fixedPopupStationId,
+                shouldHideStation: (stationLike) => {
+                    if (!shouldApplyBaseLayerHiddenFilter()) return false;
+                    const sid = String(stationLike?.stationId || '').trim();
+                    if (!sid) return false;
+                    return isBaseLayerHiddenStationId(sid);
+                },
+                lineFilterTarget: 'labels'
             }
-
-            const coordById = new Map();
-            const fs = Array.isArray(nextGeoJSON?.features) ? nextGeoJSON.features : [];
-            for (const f of fs) {
-                const sid = String(f?.properties?.id ?? f?.id ?? '').trim();
-                const c = f?.geometry?.coordinates;
-                if (!sid || !Array.isArray(c) || c.length < 2) continue;
-                const lng = Number(c[0]);
-                const lat = Number(c[1]);
-                if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
-                coordById.set(sid, [lng, lat]);
-            }
-
-            for (const item of stationLabels) {
-                const sid = String(item?.stationId ?? item?.props?.id ?? '').trim();
-                const c = sid ? coordById.get(sid) : null;
-                if (!c) continue;
-                item.coordinates = c;
-                try { item.marker?.setLngLat?.(c); } catch { /* ignore */ }
-            }
-
-            for (const item of stationCircles) {
-                const sid = String(item?.stationId ?? '').trim();
-                const c = sid ? coordById.get(sid) : null;
-                if (!c) continue;
-                item.coordinates = c;
-            }
-
-            rebuildStationCoordMap(nextGeoJSON);
-            transferCapsuleStationsData = nextGeoJSON;
-            transferCapsuleVisibleKey = String(keyHint || '__station-geojson__');
-            scheduleTransferCapsuleRefresh();
-            collisionController?.scheduleUpdate?.();
-        };
+        });
 
         const applyRealtimeStationOffsetForZoom = (zoom) => {
-            const z = Number(zoom);
-            if (!Number.isFinite(z)) return;
-
-            const stateKey = `offset-zoom:${z.toFixed(3)}`;
-            if (stateKey === currentStationOffsetStateKey) return;
-
-            const nextGeoJSON = buildStationOffsetGeoJSONAtZoom({
-                baseStationsGeoJSON: stationsData,
-                stationOffsetAlgorithmContext,
-                zoom: z
-            });
-
-            applyStationGeoJSON(nextGeoJSON, stateKey);
-            currentStationOffsetStateKey = stateKey;
+            layerFeature?.applyRealtimeStationOffsetForZoom?.(zoom);
         };
 
         syncStationOffsetForTripPreviewState = () => {
-            if (tripPreviewActive) {
-                const tripPreviewBaseKey = '__trip-preview-base__';
-                if (currentStationOffsetStateKey === tripPreviewBaseKey) return;
-                applyStationGeoJSON(stationsData, tripPreviewBaseKey);
-                currentStationOffsetStateKey = tripPreviewBaseKey;
-                return;
-            }
-
-            applyRealtimeStationOffsetForZoom(map.getZoom());
+            layerFeature?.syncStationOffsetForTripPreviewState?.({ tripPreviewActive });
         };
 
 
@@ -6341,101 +6379,9 @@ const initMapApp = async () => {
         applyTransferStationLabelCollapse();
         updateMultiSelectStationLabelChips();
 
-        // 站名碰撞：标签上移偏移在 labels.js 内按站点类型设置
-        collisionController = setupCollisions(map, stationLabels, stationCircles, {
-            gridCellPx: 80,
-            transferGroupByStationId: transferStationIdsByStationId,
-            onCircleCollisionResolved: ({ visibleStationIds }) => {
-                collisionVisibleStationIds = visibleStationIds instanceof Set ? new Set(visibleStationIds) : null;
-                if (pendingTransferCapsuleRefreshAfterCollision) {
-                    pendingTransferCapsuleRefreshAfterCollision = false;
-                    transferCapsuleVisibleKey = '__init__';
-                    scheduleTransferCapsuleRefresh();
-                }
-            },
-            // 线路联动：只影响站名（圆点仍按碰撞显示）
-            getEnabledLineIds: getEnabledLineIdsForLabels,
-            getVisibleStationIds: () => {
-                const baseVisible = (() => {
-                    if (tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size) {
-                        if (isMultiSelectModeEnabled()) {
-                            const baseIds = getVisibleStationIdsForBaseMultiSelection();
-                            if (baseIds.size) {
-                                const merged = new Set(baseIds);
-                                for (const sid of tripPreviewStationIds) merged.add(String(sid || '').trim());
-                                return merged;
-                            }
-                        }
-                        return tripPreviewStationIds;
-                    }
-                    if (dirPreviewActive && dirPreviewStationIds && dirPreviewStationIds.size) {
-                        return dirPreviewStationIds;
-                    }
-                    if (!selectedLineId && !selectedCompany && selectedStationId) {
-                        return getVisibleStationIdsForSelectedStationSelection();
-                    }
-                    return null;
-                })();
+        collisionController = layerFeature.setupCollisionController({ stationLabels, stationCircles });
 
-                if (!(reachableStopsLabelIds instanceof Set)) return baseVisible;
-                if (!(baseVisible instanceof Set)) return reachableStopsLabelIds;
-
-                const intersect = new Set();
-                for (const rawId of baseVisible) {
-                    const sid = String(rawId || '').trim();
-                    if (sid && reachableStopsLabelIds.has(sid)) intersect.add(sid);
-                }
-                return intersect;
-            },
-            // 右上角三段开关：off/auto(碰撞)/all(无视碰撞)
-            getLabelMode: () => {
-                if (dirPreviewActive) return 'all';
-                return stationLabelMode;
-            },
-            shouldThinAutoLabels: () => {
-                if (stationLabelMode !== 'auto') return false;
-
-                const hasBaseHighlight = Boolean(
-                    selectedLineId ||
-                    selectedCompany ||
-                    selectedStationId ||
-                    (selectedStationLineIds && selectedStationLineIds.size) ||
-                    (isMultiSelectModeEnabled() && getBaseMultiSelectedLineIds().size)
-                );
-                const hasTripPreviewHighlight = Boolean(
-                    tripPreviewActive ||
-                    dirPreviewActive ||
-                    (tripPreviewStationIds && tripPreviewStationIds.size) ||
-                    (dirPreviewStationIds && dirPreviewStationIds.size)
-                );
-
-                return !(hasBaseHighlight || hasTripPreviewHighlight);
-            },
-            lowZoomLabelThinMaxZoom: 13,
-            lowZoomLabelKeepRatio: 1,
-            // 高亮线路/公司时：圆点全部显示，避免缩小后站点消失
-            getCircleMode: () => (
-                tripPreviewActive ||
-                dirPreviewActive ||
-                (isMultiSelectModeEnabled() && getBaseMultiSelectedLineIds().size) ||
-                selectedLineId ||
-                selectedCompany ||
-                (selectedStationLineIds && selectedStationLineIds.size)
-                    ? 'all'
-                    : 'collide'
-            ),
-
-            getPinnedStationId: () => selectedStationId || fixedPopupStationId,
-            shouldHideStation: (stationLike) => {
-                if (!shouldApplyBaseLayerHiddenFilter()) return false;
-                const sid = String(stationLike?.stationId || '').trim();
-                if (!sid) return false;
-                return isBaseLayerHiddenStationId(sid);
-            },
-            lineFilterTarget: 'labels'
-        });
-
-        collisionController.scheduleUpdate();
+        scheduleLayerCollisionUpdate();
 
         applyRealtimeStationOffsetForZoom(map.getZoom());
 
