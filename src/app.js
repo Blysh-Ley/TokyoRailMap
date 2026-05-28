@@ -51,6 +51,7 @@ import { hoverSetEnabled, selectionSelectStationLines } from './store/actions.js
 import { createHighlightFeature } from './features/highlight/highlightFeature.js';
 import { createHighlightRenderer } from './features/highlight/highlightRenderer.js';
 import { createTripPreviewRenderer } from './features/highlight/tripPreviewRenderer.js';
+import { createHoverFeature } from './features/hover/hoverFeature.js';
 import { createReachableStopsOverlayRenderer } from './features/search/reachableStopsOverlayRenderer.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
 
@@ -454,6 +455,7 @@ const initMapApp = async () => {
 
 
     let panel = null;
+    let hoverFeature = null;
     const appStore = createStore({
         selectedCompany,
         selectedLineId,
@@ -463,9 +465,15 @@ const initMapApp = async () => {
         hoverPreviewEnabled
     });
 
-    const isHoverPreviewEnabled = () => hoverPreviewEnabled !== false;
+    const isHoverPreviewEnabled = () => (
+        hoverFeature ? hoverFeature.isEnabled() : hoverPreviewEnabled !== false
+    );
     const isAdaptiveViewportEnabled = () => adaptiveViewportEnabled !== false;
     const applyHoverPreviewEnabled = (enabled) => {
+        if (hoverFeature) {
+            hoverFeature.setEnabled(enabled);
+            return;
+        }
         hoverPreviewEnabled = enabled !== false;
         appStore.dispatch(hoverSetEnabled(hoverPreviewEnabled));
         panel?.setHoverPreviewEnabled?.(hoverPreviewEnabled);
@@ -3022,18 +3030,12 @@ const initMapApp = async () => {
         if (collisionController) collisionController.scheduleUpdate();
     };
 
-    let popupPreviewSnapshot = null;
-    let popupPreviewWasApplied = false;
-
     const hideStationPopupForMenuInteraction = () => {
         if (!stationPopup || typeof stationPopup.getOpenMode !== 'function') return;
         const mode = stationPopup.getOpenMode();
         if (!mode) return;
 
-
-
-        popupPreviewSnapshot = null;
-        popupPreviewWasApplied = false;
+        hoverFeature?.resetPreview();
         stationPopup.closePopup?.({ committed: true });
     };
 
@@ -3060,6 +3062,19 @@ const initMapApp = async () => {
         isolateStationsToSelectedLine = snapshot.isolateStationsToSelectedLine === true;
         applySelectionEffects();
     };
+
+    hoverFeature = createHoverFeature({
+        store: appStore,
+        initialEnabled: hoverPreviewEnabled,
+        canRunHoverPreviewAtCurrentZoom: () => canRunHoverPreviewAtCurrentZoom(),
+        snapshotSelectionState,
+        restoreSelectionState,
+        applyHoverEnabled: (enabled) => {
+            hoverPreviewEnabled = enabled !== false;
+            panel?.setHoverPreviewEnabled?.(hoverPreviewEnabled);
+            stationPopup?.setHoverPreviewEnabled?.(hoverPreviewEnabled);
+        }
+    });
 
 
 
@@ -6539,9 +6554,7 @@ const initMapApp = async () => {
                 if (!name) return;
 
                 if (source === 'popup-hover') {
-                    if (!canRunHoverPreviewAtCurrentZoom()) return;
-                    if (!popupPreviewSnapshot) popupPreviewSnapshot = snapshotSelectionState();
-                    popupPreviewWasApplied = true;
+                    if (!hoverFeature?.beginPreview()) return;
 
                     const stationLineIds = Array.isArray(meta?.stationLineIds) ? meta.stationLineIds.map(String).filter(Boolean) : [];
                     const subset = stationLineIds.filter((id) => String(lineCompanyById.get(String(id)) || '') === name);
@@ -6558,9 +6571,7 @@ const initMapApp = async () => {
                 }
 
                 if (source === 'popup-click') {
-
-                    popupPreviewSnapshot = null;
-                    popupPreviewWasApplied = false;
+                    hoverFeature?.commitPreview();
 
                     const stationLineIds = Array.isArray(meta?.stationLineIds)
                         ? meta.stationLineIds.map(String).filter(Boolean)
@@ -6578,9 +6589,7 @@ const initMapApp = async () => {
                     return;
                 }
 
-
-                popupPreviewSnapshot = null;
-                popupPreviewWasApplied = false;
+                hoverFeature?.commitPreview();
                 selectedCompany = name;
                 selectedLineId = null;
                 selectedStationLineIds = null;
@@ -6607,9 +6616,7 @@ const initMapApp = async () => {
                     : [mainLineId];
 
                 if (source === 'popup-hover') {
-                    if (!canRunHoverPreviewAtCurrentZoom()) return;
-                    if (!popupPreviewSnapshot) popupPreviewSnapshot = snapshotSelectionState();
-                    popupPreviewWasApplied = true;
+                    if (!hoverFeature?.beginPreview()) return;
                     selectedLineId = mainLineId;
                     selectedCompany = null;
                     selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
@@ -6621,9 +6628,7 @@ const initMapApp = async () => {
                     return;
                 }
 
-
-                popupPreviewSnapshot = null;
-                popupPreviewWasApplied = false;
+                hoverFeature?.commitPreview();
                 selectedLineId = mainLineId;
                 selectedCompany = null;
                 selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
@@ -6656,16 +6661,11 @@ const initMapApp = async () => {
             },
             onFixedPopupBlankClick: () => {
                 // 固定 popup：点击空白处直接恢复“全显示”，且不触发预览快照回滚
-                popupPreviewSnapshot = null;
-                popupPreviewWasApplied = false;
+                hoverFeature?.commitPreview();
                 clearSelectionsAndRestore();
             },
             onPopupClose: ({ committed }) => {
-                if (!committed && popupPreviewSnapshot && popupPreviewWasApplied) {
-                    restoreSelectionState(popupPreviewSnapshot);
-                }
-                popupPreviewSnapshot = null;
-                popupPreviewWasApplied = false;
+                hoverFeature?.closePreview({ committed });
                 setFixedPopupStationLabelBelow(null);
             }
         });
