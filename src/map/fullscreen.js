@@ -8,6 +8,18 @@
 
 import { getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../lib/fetch.js';
 
+const resolveMapAdapter = (mapOrEngine) => ({
+    hasLayer: (layerId) => (
+        typeof mapOrEngine?.hasLayer === 'function'
+            ? mapOrEngine.hasLayer(layerId)
+            : Boolean(layerId && mapOrEngine?.getLayer?.(layerId))
+    ),
+    off: (...args) => mapOrEngine?.off?.(...args),
+    on: (...args) => mapOrEngine?.on?.(...args),
+    queryRenderedFeatures: (...args) => mapOrEngine?.queryRenderedFeatures?.(...args),
+    resize: (...args) => mapOrEngine?.resize?.(...args)
+});
+
 /** @type {boolean} 当前是否处于全屏浏览模式 */
 let isFullscreenMode = false;
 
@@ -24,7 +36,8 @@ export function isInFullscreenMode() {
  * @param {maplibregl.Map} map
  * @param {{ allowTap: (evt: Event) => boolean }} touchTapGuard
  */
-export function initFullscreen(map, touchTapGuard) {
+export function initFullscreen(mapOrEngine, touchTapGuard) {
+    const mapAdapter = resolveMapAdapter(mapOrEngine);
     const isPhoneBrowser = () => {
         const isCoarsePointer = typeof window.matchMedia === 'function'
             ? window.matchMedia('(pointer: coarse)').matches
@@ -152,7 +165,7 @@ export function initFullscreen(map, touchTapGuard) {
         }
         
         // 触发地图 resize 以适应窗口变化
-        setTimeout(() => map.resize(), 100);
+        setTimeout(() => mapAdapter.resize(), 100);
     }
 
     // ---- 空白点击退出 ----
@@ -161,7 +174,7 @@ export function initFullscreen(map, touchTapGuard) {
     function registerBlankClickExit() {
         // 移除旧的（防止重复注册）
         if (blankClickHandler) {
-            map.off('click', blankClickHandler);
+            mapAdapter.off('click', blankClickHandler);
         }
 
         blankClickHandler = (e) => {
@@ -169,21 +182,21 @@ export function initFullscreen(map, touchTapGuard) {
             if (!touchTapGuard.allowTap(e?.originalEvent)) return;
 
             const layers = [];
-            if (map.getLayer('lines-layer')) layers.push('lines-layer');
-            if (map.getLayer('stations-layer')) layers.push('stations-layer');
+            if (mapAdapter.hasLayer('lines-layer')) layers.push('lines-layer');
+            if (mapAdapter.hasLayer('stations-layer')) layers.push('stations-layer');
 
-            const hits = layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [];
+            const hits = layers.length ? mapAdapter.queryRenderedFeatures(e.point, { layers }) : [];
             //if (hits.length) return; // 点击到了线路或站点，不退出
 
             // 空白点击 → 退出全屏（不重置高亮）
             exitFullscreenMode();
 
             // 移除自身
-            map.off('click', blankClickHandler);
+            mapAdapter.off('click', blankClickHandler);
             blankClickHandler = null;
         };
 
-        map.on('click', blankClickHandler);
+        mapAdapter.on('click', blankClickHandler);
     }
 
     // ---- 监听浏览器 fullscreenchange（Escape 键退出等） ----

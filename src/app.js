@@ -5431,7 +5431,7 @@ const initMapApp = async () => {
         bindClickBlankToRestore();
 
         // 全屏浏览按钮
-        initFullscreen(map, touchTapGuard);
+        initFullscreen(mapEngine, touchTapGuard);
 
         applySelectionEffects();
     } catch (e) {

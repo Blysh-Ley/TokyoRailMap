@@ -24,6 +24,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
         addControl: (...args) => map.addControl(...args),
         fitBounds: (...args) => map.fitBounds(...args),
         flyTo: (...args) => map.flyTo(...args),
+        resize: (...args) => map.resize(...args),
         getBearing: (...args) => map.getBearing(...args),
         getBounds: (...args) => map.getBounds(...args),
         getCenter: (...args) => map.getCenter(...args),
