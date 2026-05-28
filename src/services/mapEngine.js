@@ -19,10 +19,16 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
             );
         },
         on: (...args) => map.on(...args),
+        off: (...args) => map.off(...args),
         once: (...args) => map.once(...args),
         addControl: (...args) => map.addControl(...args),
         fitBounds: (...args) => map.fitBounds(...args),
         flyTo: (...args) => map.flyTo(...args),
+        getBearing: (...args) => map.getBearing(...args),
+        getBounds: (...args) => map.getBounds(...args),
+        getCenter: (...args) => map.getCenter(...args),
+        getPitch: (...args) => map.getPitch(...args),
+        getZoom: (...args) => map.getZoom(...args),
         setPaintProperty: (...args) => map.setPaintProperty(...args),
         setLayoutProperty: (...args) => map.setLayoutProperty(...args),
         setFilter: (...args) => map.setFilter(...args),
@@ -32,7 +38,21 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
         getLayer: (...args) => map.getLayer(...args),
         getSource: (...args) => map.getSource(...args),
         getCanvas: (...args) => map.getCanvas(...args),
-        queryRenderedFeatures: (...args) => map.queryRenderedFeatures(...args)
+        hasLayer: (layerId) => Boolean(layerId && map.getLayer(layerId)),
+        queryRenderedFeatures: (...args) => map.queryRenderedFeatures(...args),
+        setCursor: (cursor = '') => {
+            const canvas = map.getCanvas?.();
+            if (canvas?.style) canvas.style.cursor = cursor;
+        },
+        setSourceData: (sourceId, data) => {
+            const source = map.getSource(sourceId);
+            source?.setData?.(data);
+            return source;
+        },
+        createMarker: (options = {}) => new maplibregl.Marker(options),
+        addMarker: (marker) => marker?.addTo?.(map),
+        createPopup: (options = {}) => new maplibregl.Popup(options),
+        addPopup: (popup) => popup?.addTo?.(map)
     };
 };
 

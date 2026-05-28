@@ -65,6 +65,7 @@ import {
     buildTripPreviewSelectionKey as buildRoutePreviewSelectionKey,
     resolveTripPreviewPayloadSource as resolveRoutePreviewPayloadSource
 } from './domain/routePreviewSelection.js';
+import { createSelectionBadge } from './ui/selectionBadge.js';
 
 initializeFetchCache();
 
@@ -581,9 +582,9 @@ const initMapApp = async () => {
         }
 
         try {
-            const marker = new maplibregl.Marker({ element: outer, anchor: 'bottom', offset: [0, 0] })
-                .setLngLat(coord)
-                .addTo(map);
+            const marker = mapEngine.createMarker({ element: outer, anchor: 'bottom', offset: [0, 0] })
+                .setLngLat(coord);
+            mapEngine.addMarker(marker);
             if (pinType === 'origin') {
                 journeyPickOriginPin = marker;
             } else {
@@ -609,9 +610,9 @@ const initMapApp = async () => {
         outer.appendChild(inner);
 
         try {
-            tripDetailStationTriangleMarker = new maplibregl.Marker({ element: outer, anchor: 'top', offset: [0, 6] })
-                .setLngLat(coord)
-                .addTo(map);
+            tripDetailStationTriangleMarker = mapEngine.createMarker({ element: outer, anchor: 'top', offset: [0, 6] })
+                .setLngLat(coord);
+            mapEngine.addMarker(tripDetailStationTriangleMarker);
         } catch {
             tripDetailStationTriangleMarker = null;
         }
@@ -1541,17 +1542,7 @@ const initMapApp = async () => {
     };
 
 
-    const selectionBadgeEl = document.createElement('div');
-    selectionBadgeEl.className = 'selection-badge is-hidden';
-    const selectionBadgeIconEl = document.createElement('span');
-    selectionBadgeIconEl.className = 'selection-badge-icon';
-    selectionBadgeIconEl.style.gap = '4px';
-    selectionBadgeIconEl.style.marginRight = '6px';
-    const selectionBadgeTextEl = document.createElement('span');
-    selectionBadgeTextEl.className = 'selection-badge-text';
-    selectionBadgeEl.appendChild(selectionBadgeIconEl);
-    selectionBadgeEl.appendChild(selectionBadgeTextEl);
-    document.body.appendChild(selectionBadgeEl);
+    const selectionBadge = createSelectionBadge({ host: document.body });
 
     const lineNameById = new Map();
     const lineColorById = new Map();
@@ -2085,7 +2076,7 @@ const initMapApp = async () => {
         el.textContent = '当前站';
 
         try {
-            selectedStationCurrentPopup = new maplibregl.Popup({
+            selectedStationCurrentPopup = mapEngine.createPopup({
                 closeButton: false,
                 closeOnClick: false,
                 closeOnMove: false,
@@ -2094,8 +2085,8 @@ const initMapApp = async () => {
                 className: 'station-selected-current-popup'
             })
                 .setLngLat(coord)
-                .setDOMContent(el)
-                .addTo(map);
+                .setDOMContent(el);
+            mapEngine.addPopup(selectedStationCurrentPopup);
             selectedStationCurrentPopupStationId = sid;
         } catch {
             selectedStationCurrentPopup = null;
@@ -2166,15 +2157,11 @@ const initMapApp = async () => {
     };
 
     function updateSelectionBadge() {
-        const clearSelectionBadgeIcons = () => {
-            selectionBadgeIconEl.innerHTML = '';
-        };
-
-        const appendBadgeIcon = ({ routeId, code, color }) => {
+        const createBadgeIcon = ({ routeId, code, color }) => {
             const icon = createLineIconElement({ routeId, code, color });
-            if (!icon) return;
+            if (!icon) return null;
             icon.style.marginRight = '0';
-            selectionBadgeIconEl.appendChild(icon);
+            return icon;
         };
 
         if (selectedLineId) {
@@ -2182,38 +2169,38 @@ const initMapApp = async () => {
             const throughDisplay = getMenuThroughDisplayByLineId(sid);
             const name = throughDisplay?.name || lineNameById.get(sid) || sid;
             const color = resolveRailColorForTheme(throughDisplay?.color || lineColorById.get(sid) || '#111') || '#111';
+            const icons = [];
 
-            clearSelectionBadgeIcons();
             const throughCategory = getMenuThroughCategoryByLineId(sid);
             const info = THROUGH_SERVICE_CONFIGS_OBJECT[throughCategory];
 
             if (info) {
                 for (const code of info.codes || []) {
-                    appendBadgeIcon({
+                    const icon = createBadgeIcon({
                         routeId: info.routeIds?.[0] || '', // 动态获取主控制物理路线 ID
                         code: code,
                         color: info.color || ''
                     });
+                    if (icon) icons.push(icon);
                 }
             } else {
-                appendBadgeIcon({ 
+                const icon = createBadgeIcon({
                     routeId: sid, 
                     code: '', 
                     color: lineColorById.get(sid) || '' 
                 });
+                if (icon) icons.push(icon);
             }
 
-            selectionBadgeTextEl.textContent = name;
-            selectionBadgeTextEl.style.color = color;
-            selectionBadgeEl.classList.remove('is-hidden');
+            selectionBadge.showLine({ text: name, color, icons });
             return;
         }
 
         if (selectedCompany) {
-            clearSelectionBadgeIcons();
             const companyKey = String(selectedCompany);
             const companyZh = String(companyLogoMap?.[companyKey]?.zh || '').trim();
             const logoFile = companyLogoMap?.[companyKey]?.img?.[0];
+            const icons = [];
             if (logoFile) {
                 const logoIcon = document.createElement('img');
                 logoIcon.className = 'selection-badge-company-logo';
@@ -2225,19 +2212,20 @@ const initMapApp = async () => {
                 logoIcon.style.maxWidth = '80px';
                 logoIcon.style.display = 'block';
                 logoIcon.style.objectFit = 'contain';
-                selectionBadgeIconEl.appendChild(logoIcon);
+                icons.push(logoIcon);
                 setImageElementFromCache(logoIcon, getCompanyLogoCandidates(logoFile), {
                     cacheKey: `companyLogo:${logoFile}`
                 }).catch(() => null);
             }
-            selectionBadgeTextEl.textContent = companyZh || companyKey;
-            selectionBadgeTextEl.style.color = isDarkThemeActive() ? '#f2f2f2' : '#111';
-            selectionBadgeEl.classList.remove('is-hidden');
+            selectionBadge.showCompany({
+                text: companyZh || companyKey,
+                color: isDarkThemeActive() ? '#f2f2f2' : '#111',
+                icons
+            });
             return;
         }
 
-        clearSelectionBadgeIcons();
-        selectionBadgeEl.classList.add('is-hidden');
+        selectionBadge.clear();
     }
 
 
@@ -3334,15 +3322,15 @@ const initMapApp = async () => {
 
     function bindClickBlankToRestore() {
 
-        map.on('click', (e) => {
+        mapEngine.on('click', (e) => {
             if (!touchTapGuard.allowTap(e?.originalEvent)) return;
 
 
             if (isInFullscreenMode()) return;
 
             const layers = [];
-            if (map.getLayer('lines-layer')) layers.push('lines-layer');
-            if (map.getLayer('stations-layer')) layers.push('stations-layer');
+            if (mapEngine.hasLayer('lines-layer')) layers.push('lines-layer');
+            if (mapEngine.hasLayer('stations-layer')) layers.push('stations-layer');
 
 
             const hits = layers.length ? mapEngine.queryRenderedFeatures(e.point, { layers }) : [];
@@ -3362,15 +3350,15 @@ const initMapApp = async () => {
     }
 
     function bindClickLineToSelect() {
-        if (!map.getLayer('lines-layer')) return;
+        if (!mapEngine.hasLayer('lines-layer')) return;
 
 
-        map.on('click', 'lines-layer', (e) => {
+        mapEngine.on('click', 'lines-layer', (e) => {
             if (!touchTapGuard.allowTap(e?.originalEvent)) return;
 
 
             // 需求：点击站点（或站点与线路一起被点到）时，不应触发线路选中
-            if (map.getLayer('stations-layer')) {
+            if (mapEngine.hasLayer('stations-layer')) {
                 const stationHits = mapEngine.queryRenderedFeatures(e.point, { layers: ['stations-layer'] }) || [];
                 if (stationHits.length) return;
             }
@@ -3417,19 +3405,19 @@ const initMapApp = async () => {
         });
 
         // 鼠标样式提示可点击（可选但很轻量）
-        map.on('mouseenter', 'lines-layer', () => {
-            map.getCanvas().style.cursor = 'pointer';
+        mapEngine.on('mouseenter', 'lines-layer', () => {
+            mapEngine.setCursor('pointer');
         });
-        map.on('mouseleave', 'lines-layer', () => {
-            map.getCanvas().style.cursor = '';
+        mapEngine.on('mouseleave', 'lines-layer', () => {
+            mapEngine.setCursor('');
         });
     }
 
     function bindClickStationToHighlightServingLines() {
-        if (!map.getLayer('stations-layer')) return;
+        if (!mapEngine.hasLayer('stations-layer')) return;
 
 
-        map.on('click', 'stations-layer', async (e) => {
+        mapEngine.on('click', 'stations-layer', async (e) => {
             if (!touchTapGuard.allowTap(e?.originalEvent)) return;
             if (isJourneyMapPickActive()) return;
 
@@ -4617,7 +4605,7 @@ const initMapApp = async () => {
             if (role === 'terminal') el.classList.add('trip-endpoint-terminal');
             el.textContent = String(text || '');
 
-            return new maplibregl.Popup({
+            const popup = mapEngine.createPopup({
                 closeButton: false,
                 closeOnClick: false,
                 closeOnMove: false,
@@ -4626,8 +4614,9 @@ const initMapApp = async () => {
                 className: 'trip-endpoint-popup'
             })
                 .setLngLat(coord)
-                .setDOMContent(el)
-                .addTo(map);
+                .setDOMContent(el);
+            mapEngine.addPopup(popup);
+            return popup;
         };
 
         const updateTripEndpointPopups = (startStationId, endStationId) => {
@@ -4689,7 +4678,7 @@ const initMapApp = async () => {
             if (role === 'terminal') el.classList.add('trip-endpoint-terminal');
             el.textContent = String(text || '');
 
-            return new maplibregl.Popup({
+            const popup = mapEngine.createPopup({
                 closeButton: false,
                 closeOnClick: false,
                 closeOnMove: false,
@@ -4698,8 +4687,9 @@ const initMapApp = async () => {
                 className: 'trip-endpoint-popup'
             })
                 .setLngLat(coord)
-                .setDOMContent(el)
-                .addTo(map);
+                .setDOMContent(el);
+            mapEngine.addPopup(popup);
+            return popup;
         };
 
         const toCoordKey = (coord) => {
