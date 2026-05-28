@@ -45,6 +45,23 @@ import {
 } from './lib/throughServiceManager.js';
 import './features/route-map/route-map-ui.js';
 import { companyLogoMap, resolveLineSelectionByBranchRules } from './lib/special-condition.js';
+import {
+    readAdaptiveViewportEnabled,
+    readAppearanceMode,
+    readAutoUpdateCheckEnabled,
+    readBasemapMode,
+    readHoverPreviewEnabled,
+    readStationOffsetMode,
+    readTimetableViewMode,
+    resolveThemeFromAppearance,
+    writeAdaptiveViewportEnabled,
+    writeAppearanceMode,
+    writeAutoUpdateCheckEnabled,
+    writeBasemapMode,
+    writeHoverPreviewEnabled,
+    writeStationOffsetMode,
+    writeTimetableViewMode
+} from './services/appSettings.js';
 import { createBasemapController, createMapEngine } from './services/mapEngine.js';
 import { createStore } from './store/appStore.js';
 import { hoverSetEnabled } from './store/actions.js';
@@ -109,95 +126,12 @@ const maplibregl = window.maplibregl;
 if (!maplibregl) {
     throw new Error('MapLibre GL JS 未加载：请检查 maplibre-gl.js 引入是否成功');
 }
-const APPEARANCE_STORAGE_KEY = 'tokyorail.appearance.mode';
-const BASEMAP_STORAGE_KEY = 'tokyorail.basemap.mode';
-const AUTO_UPDATE_CHECK_STORAGE_KEY = 'tokyorail.auto.update.check.enabled';
-const TIMETABLE_VIEW_STORAGE_KEY = 'tokyorail.timetable.view.mode';
-const HOVER_PREVIEW_STORAGE_KEY = 'tokyorail.hover.preview.enabled';
-const ADAPTIVE_VIEWPORT_STORAGE_KEY = 'tokyorail.adaptive.viewport.enabled';
-const STATION_OFFSET_MODE_STORAGE_KEY = 'tokyorail.station.offset.mode';
 const MULTI_SELECT_EVENT = '__TokyoRailMultiSelectModeChanged';
 const MULTI_SELECT_LAYERS_EVENT = '__TokyoRailMultiSelectLayersUpdated';
 const MULTI_SELECT_LAYERS_COMMAND_EVENT = '__TokyoRailMultiSelectLayersCommand';
 const MULTI_SELECT_SHOW_ICONS_EVENT = '__TokyoRailMultiSelectShowIconsChanged';
 const HOVER_PREVIEW_MIN_ZOOM = 10;
 let pendingTransferCapsuleRefreshAfterCollision;
-const getSystemTheme = () => (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-const readAppearanceMode = () => {
-    try {
-        const raw = String(window.localStorage.getItem(APPEARANCE_STORAGE_KEY) || 'system').trim();
-        if (raw === 'light' || raw === 'dark' || raw === 'system') return raw;
-    } catch {
-        // ignore
-    }
-    return 'system';
-};
-const resolveThemeFromAppearance = (mode) => {
-    if (mode === 'dark') return 'dark';
-    if (mode === 'light') return 'light';
-    return getSystemTheme();
-};
-const readBasemapMode = () => {
-    try {
-        const raw = String(window.localStorage.getItem(BASEMAP_STORAGE_KEY) || 'carto').trim().toLowerCase();
-        if (raw === 'carto' || raw === 'ost' || raw === 'transparent') return raw;
-    } catch {
-        // ignore
-    }
-    return 'carto';
-};
-
-const readAutoUpdateCheckEnabled = () => {
-    try {
-        const raw = String(window.localStorage.getItem(AUTO_UPDATE_CHECK_STORAGE_KEY) || '1').trim().toLowerCase();
-        if (raw === '0' || raw === 'false') return false;
-        if (raw === '1' || raw === 'true') return true;
-    } catch {
-        // ignore
-    }
-    return true;
-};
-const readTimetableViewMode = () => {
-    try {
-        const raw = String(window.localStorage.getItem(TIMETABLE_VIEW_STORAGE_KEY) || 'list').trim();
-        if (raw === 'list' || raw === 'grid') return raw;
-    } catch {
-        // ignore
-    }
-    return 'list';
-};
-
-const readHoverPreviewEnabled = () => {
-    try {
-        const raw = String(window.localStorage.getItem(HOVER_PREVIEW_STORAGE_KEY) || '1').trim();
-        if (raw === '0' || raw === 'false') return false;
-        if (raw === '1' || raw === 'true') return true;
-    } catch {
-        // ignore
-    }
-    return true;
-};
-
-const readAdaptiveViewportEnabled = () => {
-    try {
-        const raw = String(window.localStorage.getItem(ADAPTIVE_VIEWPORT_STORAGE_KEY) || '1').trim();
-        if (raw === '0' || raw === 'false') return false;
-        if (raw === '1' || raw === 'true') return true;
-    } catch {
-        // ignore
-    }
-    return true;
-};
-
-const readStationOffsetMode = () => {
-    try {
-        const raw = String(window.localStorage.getItem(STATION_OFFSET_MODE_STORAGE_KEY) || 'dynamic').trim().toLowerCase();
-        if (raw === 'dynamic' || raw === 'performance') return raw;
-    } catch {
-        // ignore
-    }
-    return 'dynamic';
-};
 
 // /data/railways-order.json: [{ "jreast-yamanote": "1037" }, ...]
 
@@ -503,11 +437,7 @@ const initMapApp = async () => {
         const next = (String(mode || '').trim().toLowerCase() === 'performance') ? 'performance' : 'dynamic';
         stationOffsetMode = next;
         if (persistStorage) {
-            try {
-                window.localStorage.setItem(STATION_OFFSET_MODE_STORAGE_KEY, next);
-            } catch {
-                // ignore
-            }
+            writeStationOffsetMode(next);
         }
         return next;
     };
@@ -3525,7 +3455,6 @@ const initMapApp = async () => {
     }
 
     function mountAppearanceToggle(hostEl) {
-        const storageKey = APPEARANCE_STORAGE_KEY;
         const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
         const container = document.createElement('div');
@@ -3561,27 +3490,16 @@ const initMapApp = async () => {
         if (host.firstChild) host.insertBefore(container, host.firstChild);
         else host.appendChild(container);
 
-        const resolveTheme = (mode) => {
-            if (mode === 'dark') return 'dark';
-            if (mode === 'light') return 'light';
-            return media?.matches ? 'dark' : 'light';
-        };
-
         const setThemeMode = (mode) => {
-            const m = (mode === 'light' || mode === 'dark' || mode === 'system') ? mode : 'system';
+            const m = writeAppearanceMode(mode);
             btnLight.classList.toggle('is-active', m === 'light');
             btnDark.classList.toggle('is-active', m === 'dark');
             btnSystem.classList.toggle('is-active', m === 'system');
-            const resolved = resolveTheme(m);
+            const resolved = resolveThemeFromAppearance(m);
             document.documentElement.setAttribute('data-theme', resolved);
             applyBasemapTheme(resolved);
             applyStationThemePaintToMapLayers();
             applySelectionEffects();
-            try {
-                window.localStorage.setItem(storageKey, m);
-            } catch {
-                // ignore
-            }
         };
 
         btnLight.addEventListener('click', () => setThemeMode('light'));
@@ -3589,13 +3507,7 @@ const initMapApp = async () => {
         btnSystem.addEventListener('click', () => setThemeMode('system'));
 
         const onSystemThemeChange = () => {
-            let currentMode = 'system';
-            try {
-                const saved = String(window.localStorage.getItem(storageKey) || 'system').trim();
-                if (saved === 'light' || saved === 'dark' || saved === 'system') currentMode = saved;
-            } catch {
-                // ignore
-            }
+            const currentMode = readAppearanceMode();
             if (currentMode === 'system') setThemeMode('system');
         };
 
@@ -3605,19 +3517,10 @@ const initMapApp = async () => {
             media.addListener(onSystemThemeChange);
         }
 
-        let initial = 'system';
-        try {
-            const saved = String(window.localStorage.getItem(storageKey) || 'system').trim();
-            if (saved === 'light' || saved === 'dark' || saved === 'system') initial = saved;
-        } catch {
-            // ignore
-        }
-        setThemeMode(initial);
+        setThemeMode(readAppearanceMode());
     }
 
     function mountBasemapToggle(hostEl) {
-        const storageKey = BASEMAP_STORAGE_KEY;
-
         const container = document.createElement('div');
         container.className = 'settings-item settings-item-basemap';
 
@@ -3651,30 +3554,18 @@ const initMapApp = async () => {
         else host.appendChild(container);
 
         const setMode = (mode) => {
-            const m = (mode === 'carto' || mode === 'ost' || mode === 'transparent') ? mode : 'carto';
+            const m = writeBasemapMode(mode);
             btnCarto.classList.toggle('is-active', m === 'carto');
             btnOst.classList.toggle('is-active', m === 'ost');
             btnTransparent.classList.toggle('is-active', m === 'transparent');
             setBasemapMode(m);
-            try {
-                window.localStorage.setItem(storageKey, m);
-            } catch {
-                // ignore
-            }
         };
 
         btnCarto.addEventListener('click', () => setMode('carto'));
         btnOst.addEventListener('click', () => setMode('ost'));
         btnTransparent.addEventListener('click', () => setMode('transparent'));
 
-        let initial = 'carto';
-        try {
-            const saved = String(window.localStorage.getItem(storageKey) || 'carto').trim().toLowerCase();
-            if (saved === 'carto' || saved === 'ost' || saved === 'transparent') initial = saved;
-        } catch {
-            // ignore
-        }
-        setMode(initial);
+        setMode(readBasemapMode());
     }
 
     function mountAutoUpdateToggle(hostEl) {
@@ -3685,8 +3576,6 @@ const initMapApp = async () => {
             && typeof electronApi.checkForUpdatesNow === 'function'
         );
         if (!hasElectronApi) return;
-
-        const storageKey = AUTO_UPDATE_CHECK_STORAGE_KEY;
 
         const container = document.createElement('div');
         container.className = 'settings-item settings-item-auto-update';
@@ -3747,11 +3636,7 @@ const initMapApp = async () => {
             const isEnabled = enabled !== false;
             btnOn.classList.toggle('is-active', isEnabled);
             btnOff.classList.toggle('is-active', !isEnabled);
-            try {
-                window.localStorage.setItem(storageKey, isEnabled ? '1' : '0');
-            } catch {
-                // ignore
-            }
+            writeAutoUpdateCheckEnabled(isEnabled);
             electronApi.setAutoUpdateCheckEnabled(isEnabled).catch(() => null);
         };
 
@@ -3774,8 +3659,6 @@ const initMapApp = async () => {
     }
 
     function mountTimetableViewToggle(hostEl) {
-        const storageKey = TIMETABLE_VIEW_STORAGE_KEY;
-
         const container = document.createElement('div');
         container.className = 'settings-item settings-item-timetable-view';
 
@@ -3824,15 +3707,10 @@ const initMapApp = async () => {
         else host.appendChild(container);
 
         const setMode = (mode) => {
-            const m = mode === 'grid' ? 'grid' : 'list';
+            const m = writeTimetableViewMode(mode);
             btnList.classList.toggle('is-active', m === 'list');
             btnGrid.classList.toggle('is-active', m === 'grid');
             panel?.setTimetableViewMode?.(m);
-            try {
-                window.localStorage.setItem(storageKey, m);
-            } catch {
-                // ignore
-            }
         };
 
         btnList.addEventListener('click', () => setMode('list'));
@@ -3842,8 +3720,6 @@ const initMapApp = async () => {
     }
 
     function mountHoverPreviewToggle(hostEl) {
-        const storageKey = HOVER_PREVIEW_STORAGE_KEY;
-
         const container = document.createElement('div');
         container.className = 'settings-item settings-item-hover-preview';
 
@@ -3877,11 +3753,7 @@ const initMapApp = async () => {
             btnOff.classList.toggle('is-active', !on);
             applyHoverPreviewEnabled(on);
             if (persistStorage) {
-                try {
-                    window.localStorage.setItem(storageKey, on ? '1' : '0');
-                } catch {
-                    // ignore
-                }
+                writeHoverPreviewEnabled(on);
             }
         };
 
@@ -3906,8 +3778,6 @@ const initMapApp = async () => {
     }
 
     function mountAdaptiveViewportToggle(hostEl) {
-        const storageKey = ADAPTIVE_VIEWPORT_STORAGE_KEY;
-
         const container = document.createElement('div');
         container.className = 'settings-item settings-item-adaptive-viewport';
 
@@ -3941,11 +3811,7 @@ const initMapApp = async () => {
             btnOff.classList.toggle('is-active', !on);
             applyAdaptiveViewportEnabled(on);
             if (persistStorage) {
-                try {
-                    window.localStorage.setItem(storageKey, on ? '1' : '0');
-                } catch {
-                    // ignore
-                }
+                writeAdaptiveViewportEnabled(on);
             }
         };
 
@@ -3956,8 +3822,6 @@ const initMapApp = async () => {
     }
 
     function mountStationOffsetToggle(hostEl) {
-        const storageKey = STATION_OFFSET_MODE_STORAGE_KEY;
-
         const container = document.createElement('div');
         container.className = 'settings-item settings-item-station-offset';
 
