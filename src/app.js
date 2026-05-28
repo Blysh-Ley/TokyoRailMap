@@ -78,6 +78,8 @@ import { createReachableStopsOverlayRenderer } from './features/search/reachable
 import { createSearchMapBridge } from './features/search/searchMapBridge.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
 import { createSearchSelectionController } from './features/search/searchSelectionController.js';
+import { createSegmentedSettingRow } from './features/settings/settingRows.js';
+import { createSettingsMenu } from './features/settings/settingsMenu.js';
 import {
     buildTripPreviewSelectionKey as buildRoutePreviewSelectionKey,
     resolveTripPreviewPayloadSource as resolveRoutePreviewPayloadSource
@@ -2678,118 +2680,11 @@ const initMapApp = async () => {
         }
     });
 
-    function mountSettingsMenu() {
-        const existing = document.querySelector('.settings-ui');
-        if (existing) {
-            return existing.querySelector('.settings-content') || existing;
-        }
-
-        const root = document.createElement('div');
-        root.className = 'settings-ui is-collapsed';
-
-        const fab = document.createElement('button');
-        fab.type = 'button';
-        fab.className = 'settings-fab';
-        fab.setAttribute('aria-label', '设置');
-
-        const fabIcon = document.createElement('img');
-        fabIcon.className = 'settings-fab-icon';
-        fabIcon.alt = '';
-        setImageElementFromCache(fabIcon, getIconCandidates('settings.svg'), {
-            cacheKey: 'icon:settings.svg',
-            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('settings.svg'), { cacheKey: 'icon:settings.svg' })
-        }).catch(() => null);
-        fab.appendChild(fabIcon);
-
-        const content = document.createElement('div');
-        content.className = 'settings-content is-hidden';
-
-        root.appendChild(fab);
-        root.appendChild(content);
-        document.body.appendChild(root);
-
-        let collapseTimer = null;
-        let enterTimer = null;
-
-        const expand = () => {
-            if (collapseTimer) {
-                window.clearTimeout(collapseTimer);
-                collapseTimer = null;
-            }
-            root.classList.remove('is-collapsed');
-            content.classList.remove('is-hidden');
-        };
-
-        const collapse = () => {
-            if (collapseTimer) {
-                window.clearTimeout(collapseTimer);
-                collapseTimer = null;
-            }
-            root.classList.add('is-collapsed');
-            content.classList.add('is-hidden');
-        };
-
-        const scheduleCollapse = () => {
-            if (collapseTimer) window.clearTimeout(collapseTimer);
-            collapseTimer = window.setTimeout(() => {
-                collapseTimer = null;
-                collapse();
-            }, 120);
-        };
-
-        root.addEventListener('mouseenter', () => {
-            if (collapseTimer) {
-                window.clearTimeout(collapseTimer);
-                collapseTimer = null;
-            }
-            if (enterTimer) {
-                window.clearTimeout(enterTimer);
-                enterTimer = null;
-            }
-            enterTimer = window.setTimeout(() => {
-                enterTimer = null;
-                expand();
-            }, 100);
-        });
-
-        root.addEventListener('mouseleave', (evt) => {
-            const toEl = evt?.relatedTarget;
-            if (toEl && toEl instanceof Element && toEl.closest('.settings-time-picker')) return;
-            if (window.__TokyoRailTimePickerOpen === true) return;
-            if (enterTimer) {
-                window.clearTimeout(enterTimer);
-                enterTimer = null;
-            }
-            scheduleCollapse();
-        });
-
-        fab.addEventListener('pointerdown', (evt) => {
-            evt.preventDefault?.();
-            evt.stopPropagation?.();
-            if (root.classList.contains('is-collapsed')) expand();
-            else collapse();
-        });
-
-        fab.addEventListener('click', (evt) => {
-            evt.preventDefault?.();
-            evt.stopPropagation?.();
-            if (root.classList.contains('is-collapsed')) expand();
-            else collapse();
-        });
-
-        document.addEventListener('pointerdown', (evt) => {
-            if (root.classList.contains('is-collapsed')) return;
-            const t = evt?.target;
-            if (t && root.contains(t)) return;
-            if (t && t instanceof Element && t.closest('.settings-time-picker')) return;
-            if (window.__TokyoRailTimePickerOpen === true) return;
-            collapse();
-        }, true);
-
-        return content;
-    }
-
-    const settingsMenuContentEl = mountSettingsMenu();
+    const settingsMenuContentEl = createSettingsMenu({
+        getIconCandidates,
+        getPreferredCachedImageSrc,
+        setImageElementFromCache
+    });
 
 
     panel = createPanel({
@@ -3456,45 +3351,23 @@ const initMapApp = async () => {
 
     function mountAppearanceToggle(hostEl) {
         const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-
-        const container = document.createElement('div');
-        container.className = 'settings-item settings-item-appearance';
-
-        const text = document.createElement('span');
-        text.className = 'settings-item-title';
-        text.textContent = '外观';
-
-        const seg = document.createElement('div');
-        seg.className = 'settings-item-control settings-seg';
-
-        const btnLight = document.createElement('button');
-        btnLight.type = 'button';
-        btnLight.textContent = '浅色';
-
-        const btnDark = document.createElement('button');
-        btnDark.type = 'button';
-        btnDark.textContent = '深色';
-
-        const btnSystem = document.createElement('button');
-        btnSystem.type = 'button';
-        btnSystem.textContent = '跟随系统';
-
-        seg.appendChild(btnLight);
-        seg.appendChild(btnDark);
-        seg.appendChild(btnSystem);
-
-        container.appendChild(text);
-        container.appendChild(seg);
-
-        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
-        if (host.firstChild) host.insertBefore(container, host.firstChild);
-        else host.appendChild(container);
+        const row = createSegmentedSettingRow({
+            hostEl,
+            className: 'settings-item-appearance',
+            title: '外观',
+            options: [
+                { value: 'light', label: '浅色' },
+                { value: 'dark', label: '深色' },
+                { value: 'system', label: '跟随系统' }
+            ]
+        });
+        const btnLight = row.buttons.get('light');
+        const btnDark = row.buttons.get('dark');
+        const btnSystem = row.buttons.get('system');
 
         const setThemeMode = (mode) => {
             const m = writeAppearanceMode(mode);
-            btnLight.classList.toggle('is-active', m === 'light');
-            btnDark.classList.toggle('is-active', m === 'dark');
-            btnSystem.classList.toggle('is-active', m === 'system');
+            row.setActive(m);
             const resolved = resolveThemeFromAppearance(m);
             document.documentElement.setAttribute('data-theme', resolved);
             applyBasemapTheme(resolved);
@@ -3521,43 +3394,23 @@ const initMapApp = async () => {
     }
 
     function mountBasemapToggle(hostEl) {
-        const container = document.createElement('div');
-        container.className = 'settings-item settings-item-basemap';
-
-        const text = document.createElement('span');
-        text.className = 'settings-item-title';
-        text.textContent = '地图底图';
-
-        const seg = document.createElement('div');
-        seg.className = 'settings-item-control settings-seg';
-
-        const btnCarto = document.createElement('button');
-        btnCarto.type = 'button';
-        btnCarto.textContent = 'Carto';
-
-        const btnOst = document.createElement('button');
-        btnOst.type = 'button';
-        btnOst.textContent = 'OST';
-
-        const btnTransparent = document.createElement('button');
-        btnTransparent.type = 'button';
-        btnTransparent.textContent = '透明';
-
-        seg.appendChild(btnCarto);
-        seg.appendChild(btnOst);
-        seg.appendChild(btnTransparent);
-        container.appendChild(text);
-        container.appendChild(seg);
-
-        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
-        if (host.firstChild) host.insertBefore(container, host.firstChild);
-        else host.appendChild(container);
+        const row = createSegmentedSettingRow({
+            hostEl,
+            className: 'settings-item-basemap',
+            title: '地图底图',
+            options: [
+                { value: 'carto', label: 'Carto' },
+                { value: 'ost', label: 'OST' },
+                { value: 'transparent', label: '透明' }
+            ]
+        });
+        const btnCarto = row.buttons.get('carto');
+        const btnOst = row.buttons.get('ost');
+        const btnTransparent = row.buttons.get('transparent');
 
         const setMode = (mode) => {
             const m = writeBasemapMode(mode);
-            btnCarto.classList.toggle('is-active', m === 'carto');
-            btnOst.classList.toggle('is-active', m === 'ost');
-            btnTransparent.classList.toggle('is-active', m === 'transparent');
+            row.setActive(m);
             setBasemapMode(m);
         };
 
@@ -3720,37 +3573,21 @@ const initMapApp = async () => {
     }
 
     function mountHoverPreviewToggle(hostEl) {
-        const container = document.createElement('div');
-        container.className = 'settings-item settings-item-hover-preview';
-
-        const text = document.createElement('span');
-        text.className = 'settings-item-title';
-        text.textContent = '自动预览';
-
-        const seg = document.createElement('div');
-        seg.className = 'settings-item-control settings-seg';
-
-        const btnOn = document.createElement('button');
-        btnOn.type = 'button';
-        btnOn.textContent = '开启';
-
-        const btnOff = document.createElement('button');
-        btnOff.type = 'button';
-        btnOff.textContent = '关闭';
-
-        seg.appendChild(btnOn);
-        seg.appendChild(btnOff);
-        container.appendChild(text);
-        container.appendChild(seg);
-
-        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
-        if (host.firstChild) host.insertBefore(container, host.firstChild);
-        else host.appendChild(container);
+        const row = createSegmentedSettingRow({
+            hostEl,
+            className: 'settings-item-hover-preview',
+            title: '自动预览',
+            options: [
+                { value: 'on', label: '开启' },
+                { value: 'off', label: '关闭' }
+            ]
+        });
+        const btnOn = row.buttons.get('on');
+        const btnOff = row.buttons.get('off');
 
         const setEnabled = (enabled, { persistStorage = true } = {}) => {
             const on = enabled !== false;
-            btnOn.classList.toggle('is-active', on);
-            btnOff.classList.toggle('is-active', !on);
+            row.setActive(on ? 'on' : 'off');
             applyHoverPreviewEnabled(on);
             if (persistStorage) {
                 writeHoverPreviewEnabled(on);
@@ -3758,12 +3595,7 @@ const initMapApp = async () => {
         };
 
         const setDisabled = (disabled) => {
-            const on = disabled === true;
-            container.classList.toggle('is-disabled', on);
-            btnOn.disabled = on;
-            btnOff.disabled = on;
-            btnOn.setAttribute('aria-disabled', on ? 'true' : 'false');
-            btnOff.setAttribute('aria-disabled', on ? 'true' : 'false');
+            row.setDisabled(disabled === true);
         };
 
         btnOn.addEventListener('click', () => setEnabled(true));
@@ -3778,37 +3610,21 @@ const initMapApp = async () => {
     }
 
     function mountAdaptiveViewportToggle(hostEl) {
-        const container = document.createElement('div');
-        container.className = 'settings-item settings-item-adaptive-viewport';
-
-        const text = document.createElement('span');
-        text.className = 'settings-item-title';
-        text.textContent = '自适应视野';
-
-        const seg = document.createElement('div');
-        seg.className = 'settings-item-control settings-seg';
-
-        const btnOn = document.createElement('button');
-        btnOn.type = 'button';
-        btnOn.textContent = '开启';
-
-        const btnOff = document.createElement('button');
-        btnOff.type = 'button';
-        btnOff.textContent = '关闭';
-
-        seg.appendChild(btnOn);
-        seg.appendChild(btnOff);
-        container.appendChild(text);
-        container.appendChild(seg);
-
-        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
-        if (host.firstChild) host.insertBefore(container, host.firstChild);
-        else host.appendChild(container);
+        const row = createSegmentedSettingRow({
+            hostEl,
+            className: 'settings-item-adaptive-viewport',
+            title: '自适应视野',
+            options: [
+                { value: 'on', label: '开启' },
+                { value: 'off', label: '关闭' }
+            ]
+        });
+        const btnOn = row.buttons.get('on');
+        const btnOff = row.buttons.get('off');
 
         const setEnabled = (enabled, { persistStorage = true } = {}) => {
             const on = enabled !== false;
-            btnOn.classList.toggle('is-active', on);
-            btnOff.classList.toggle('is-active', !on);
+            row.setActive(on ? 'on' : 'off');
             applyAdaptiveViewportEnabled(on);
             if (persistStorage) {
                 writeAdaptiveViewportEnabled(on);
@@ -3822,37 +3638,21 @@ const initMapApp = async () => {
     }
 
     function mountStationOffsetToggle(hostEl) {
-        const container = document.createElement('div');
-        container.className = 'settings-item settings-item-station-offset';
-
-        const text = document.createElement('span');
-        text.className = 'settings-item-title';
-        text.textContent = '站点位置纠正';
-
-        const seg = document.createElement('div');
-        seg.className = 'settings-item-control settings-seg';
-
-        const btnDynamic = document.createElement('button');
-        btnDynamic.type = 'button';
-        btnDynamic.textContent = '动态';
-
-        const btnPerformance = document.createElement('button');
-        btnPerformance.type = 'button';
-        btnPerformance.textContent = '性能';
-
-        seg.appendChild(btnDynamic);
-        seg.appendChild(btnPerformance);
-        container.appendChild(text);
-        container.appendChild(seg);
-
-        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
-        if (host.firstChild) host.insertBefore(container, host.firstChild);
-        else host.appendChild(container);
+        const row = createSegmentedSettingRow({
+            hostEl,
+            className: 'settings-item-station-offset',
+            title: '站点位置纠正',
+            options: [
+                { value: 'dynamic', label: '动态' },
+                { value: 'performance', label: '性能' }
+            ]
+        });
+        const btnDynamic = row.buttons.get('dynamic');
+        const btnPerformance = row.buttons.get('performance');
 
         const setMode = (mode) => {
             const next = applyStationOffsetMode(mode);
-            btnDynamic.classList.toggle('is-active', next === 'dynamic');
-            btnPerformance.classList.toggle('is-active', next === 'performance');
+            row.setActive(next);
         };
 
         btnDynamic.addEventListener('click', () => setMode('dynamic'));
