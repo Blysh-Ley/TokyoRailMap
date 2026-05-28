@@ -2879,9 +2879,10 @@ const initMapApp = async () => {
         onSelectCompany: (companyName, meta) => {
             const source = meta?.source;
             if (isMultiSelectModeEnabled() && String(source || '').startsWith('panel-')) return;
-            if (source === 'panel-hover' && !isHoverPreviewEnabled()) return;
+            if (source === 'panel-hover' && !hoverFeature?.beginPreview()) return;
             const name = String(companyName ?? '').trim();
             if (!name) return;
+            if (source !== 'panel-hover') hoverFeature?.commitPreview();
 
             const stationLineIds = Array.isArray(meta?.stationLineIds) ? meta.stationLineIds.map(String).filter(Boolean) : [];
             const subset = stationLineIds.filter((id) => String(lineCompanyById.get(String(id)) || '') === name);
@@ -2904,9 +2905,10 @@ const initMapApp = async () => {
         onSelectLine: (lineId, meta) => {
             const source = meta?.source;
             if (isMultiSelectModeEnabled() && String(source || '').startsWith('panel-')) return;
-            if (source === 'panel-hover' && !isHoverPreviewEnabled()) return;
+            if (source === 'panel-hover' && !hoverFeature?.beginPreview()) return;
             const id = String(lineId ?? '').trim();
             if (!id) return;
+            if (source !== 'panel-hover') hoverFeature?.commitPreview();
 
             if (isMenuThroughLineId(id)) {
                 previewMenuThroughLine({ lineId: id, source: source === 'panel-hover' ? 'hover' : 'click' });
@@ -2954,6 +2956,7 @@ const initMapApp = async () => {
             }
         },
         onRestoreStationLines: (lineIds, meta) => {
+            hoverFeature?.closePreview({ committed: false });
             selectedLineId = null;
             selectedCompany = null;
             isolateStationsToSelectedLine = false;
@@ -3030,12 +3033,12 @@ const initMapApp = async () => {
         if (collisionController) collisionController.scheduleUpdate();
     };
 
-    const hideStationPopupForMenuInteraction = () => {
+    const hideStationPopupForMenuInteraction = ({ preserveHoverPreview = false } = {}) => {
         if (!stationPopup || typeof stationPopup.getOpenMode !== 'function') return;
         const mode = stationPopup.getOpenMode();
         if (!mode) return;
 
-        hoverFeature?.resetPreview();
+        if (!preserveHoverPreview) hoverFeature?.resetPreview();
         stationPopup.closePopup?.({ committed: true });
     };
 
@@ -3209,6 +3212,9 @@ const initMapApp = async () => {
         searchMapActions.isReady = false;
         searchMapActions.snapshotSelectionState = snapshotSelectionState;
         searchMapActions.restoreSelectionState = restoreSelectionState;
+        searchMapActions.beginHoverPreview = () => hoverFeature?.beginPreview() === true;
+        searchMapActions.endHoverPreview = () => hoverFeature?.closePreview({ committed: false });
+        searchMapActions.commitHoverPreview = () => hoverFeature?.commitPreview();
 
 
         searchMapActions.previewTripPath = (payload, options = {}) => {
@@ -3265,7 +3271,8 @@ const initMapApp = async () => {
         searchMapActions.previewLine = (lineId) => {
             const id = String(lineId ?? '').trim();
             if (!id) return;
-            hideStationPopupForMenuInteraction();
+            hideStationPopupForMenuInteraction({ preserveHoverPreview: true });
+            if (!hoverFeature?.beginPreview()) return;
 
             const payload = searchFeature.previewLine(id);
             if (!payload?.selectedLineId) return;
@@ -3278,6 +3285,7 @@ const initMapApp = async () => {
             const id = String(lineId ?? '').trim();
             if (!id) return;
             hideStationPopupForMenuInteraction();
+            hoverFeature?.commitPreview();
 
             const resolved = resolveLineSelectionForApp(id);
 
@@ -3313,7 +3321,8 @@ const initMapApp = async () => {
         searchMapActions.previewCompany = (companyName) => {
             const name = String(companyName ?? '').trim();
             if (!name) return;
-            hideStationPopupForMenuInteraction();
+            hideStationPopupForMenuInteraction({ preserveHoverPreview: true });
+            if (!hoverFeature?.beginPreview()) return;
             const payload = searchFeature.previewCompany(name);
             if (!payload?.selectedCompany) return;
             isolateStationsToSelectedLine = false;
@@ -3325,6 +3334,7 @@ const initMapApp = async () => {
             const name = String(companyName ?? '').trim();
             if (!name) return;
             hideStationPopupForMenuInteraction();
+            hoverFeature?.commitPreview();
             const payload = searchFeature.commitCompany(name);
             if (!payload?.selectedCompany) return;
             isolateStationsToSelectedLine = false;
@@ -3359,10 +3369,12 @@ const initMapApp = async () => {
         };
 
         searchMapActions.previewStation = (stationId, meta) => {
+            if (!hoverFeature?.beginPreview()) return;
             openStationForStationId(stationId, meta || {});
         };
 
         searchMapActions.commitStation = (stationId, meta) => {
+            hoverFeature?.commitPreview();
             const opened = openStationForStationId(stationId, meta || {});
             openPanelForStationWithAutoScroll(opened?.props || {});
 

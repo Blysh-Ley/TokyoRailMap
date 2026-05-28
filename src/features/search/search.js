@@ -778,6 +778,13 @@ export function mountSearchUI() {
     const startPreviewSessionIfNeeded = () => {
         const actions = getMapActions();
         if (!actions) return null;
+        if (typeof actions.beginHoverPreview === 'function') {
+            try {
+                return actions.beginHoverPreview() === false ? null : actions;
+            } catch {
+                return null;
+            }
+        }
         if (!previewSnapshot && typeof actions.snapshotSelectionState === 'function') {
             try {
                 previewSnapshot = actions.snapshotSelectionState();
@@ -790,7 +797,13 @@ export function mountSearchUI() {
 
     const endPreviewSession = () => {
         const actions = getMapActions();
-        if (actions && previewSnapshot && typeof actions.restoreSelectionState === 'function') {
+        if (actions && typeof actions.endHoverPreview === 'function') {
+            try {
+                actions.endHoverPreview();
+            } catch {
+                // ignore
+            }
+        } else if (actions && previewSnapshot && typeof actions.restoreSelectionState === 'function') {
             try {
                 actions.restoreSelectionState(previewSnapshot);
             } catch {
@@ -1091,6 +1104,11 @@ export function mountSearchUI() {
                     addHistory(item);
 
                     // 提交：不再回滚预览快照
+                    try {
+                        actions.commitHoverPreview?.();
+                    } catch {
+                        // ignore
+                    }
                     previewSnapshot = null;
                     previewAppliedKey = null;
                     touchTapArmedKey = null;
