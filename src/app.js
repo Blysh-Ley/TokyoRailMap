@@ -53,6 +53,7 @@ import { createHighlightRenderer } from './features/highlight/highlightRenderer.
 import { createTripPreviewRenderer } from './features/highlight/tripPreviewRenderer.js';
 import { createHoverFeature } from './features/hover/hoverFeature.js';
 import { createReachableStopsOverlayRenderer } from './features/search/reachableStopsOverlayRenderer.js';
+import { createSearchMapBridge } from './features/search/searchMapBridge.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
 
 initializeFetchCache();
@@ -3208,16 +3209,14 @@ const initMapApp = async () => {
         resolveLineSelection: resolveLineSelectionForApp
     });
 
-    if (searchMapActions) {
-        searchMapActions.isReady = false;
-        searchMapActions.snapshotSelectionState = snapshotSelectionState;
-        searchMapActions.restoreSelectionState = restoreSelectionState;
-        searchMapActions.beginHoverPreview = () => hoverFeature?.beginPreview() === true;
-        searchMapActions.endHoverPreview = () => hoverFeature?.closePreview({ committed: false });
-        searchMapActions.commitHoverPreview = () => hoverFeature?.commitPreview();
+    const hoverBridgeApi = {
+        beginHoverPreview: () => hoverFeature?.beginPreview() === true,
+        endHoverPreview: () => hoverFeature?.closePreview({ committed: false }),
+        commitHoverPreview: () => hoverFeature?.commitPreview()
+    };
 
-
-        searchMapActions.previewTripPath = (payload, options = {}) => {
+    const routePreviewBridgeApi = {
+        previewTripPath: (payload, options = {}) => {
             const interaction = String(payload?.__previewInteraction || payload?.previewInteraction || '').trim() || '';
             const inferredFitMode = interaction === 'click'
                 ? 'commit'
@@ -3234,31 +3233,37 @@ const initMapApp = async () => {
                 }
             }
             previewTripPath(nextPayload);
-        };
-        searchMapActions.clearTripPathPreview = () => {
+        },
+        clearTripPathPreview: () => {
             clearTripPathPreview({ source: 'journey' });
-        };
-        searchMapActions.showJourneyPickPin = async (payload = {}) => {
-            await showJourneyPickPin(payload || {});
-        };
-        searchMapActions.clearJourneyPickPin = (type) => {
-            clearJourneyPickPin(type);
-        };
-        searchMapActions.clearTripPathPreviewBySource = (source) => {
+        },
+        clearTripPathPreviewBySource: (source) => {
             const s = String(source || '').trim();
             if (!s) return;
             clearTripPathPreview({ source: s });
-        };
-        searchMapActions.updateReachableStopsOverlay = async (payload = {}) => {
+        }
+    };
+
+    const journeyPickBridgeApi = {
+        showJourneyPickPin: async (payload = {}) => {
+            await showJourneyPickPin(payload || {});
+        },
+        clearJourneyPickPin: (type) => {
+            clearJourneyPickPin(type);
+        }
+    };
+
+    const reachableStopsBridgeApi = {
+        updateReachableStopsOverlay: async (payload = {}) => {
             await refreshReachableStopsOverlay(payload || {}, { fitBounds: true });
-        };
-        searchMapActions.clearReachableStopsOverlay = () => {
+        },
+        clearReachableStopsOverlay: () => {
             clearReachableStopsOverlay();
-        };
+        }
+    };
 
-
-
-        searchMapActions.clearStationSelection = () => {
+    const selectionBridgeApi = {
+        clearStationSelection: () => {
             appStore.dispatch(selectionSelectStationLines({
                 selectedCompany,
                 selectedLineId,
@@ -3266,9 +3271,8 @@ const initMapApp = async () => {
                 selectedStationId: null,
                 selectedServiceMode
             }));
-        };
-
-        searchMapActions.previewLine = (lineId) => {
+        },
+        previewLine: (lineId) => {
             const id = String(lineId ?? '').trim();
             if (!id) return;
             hideStationPopupForMenuInteraction({ preserveHoverPreview: true });
@@ -3279,9 +3283,8 @@ const initMapApp = async () => {
             isolateStationsToSelectedLine = false;
             setStationLabelMode('auto');
             fitToCurrentSelection(`line:${payload.selectedLineId}`, 'preview');
-        };
-
-        searchMapActions.commitLine = (lineId) => {
+        },
+        commitLine: (lineId) => {
             const id = String(lineId ?? '').trim();
             if (!id) return;
             hideStationPopupForMenuInteraction();
@@ -3316,9 +3319,8 @@ const initMapApp = async () => {
             fitToCurrentSelection(`line:${nextLineId}`, 'commit');
 
             showRouteMapFloatingPanelForLine(id);
-        };
-
-        searchMapActions.previewCompany = (companyName) => {
+        },
+        previewCompany: (companyName) => {
             const name = String(companyName ?? '').trim();
             if (!name) return;
             hideStationPopupForMenuInteraction({ preserveHoverPreview: true });
@@ -3328,9 +3330,8 @@ const initMapApp = async () => {
             isolateStationsToSelectedLine = false;
             setStationLabelMode('auto');
             fitToCurrentSelection(`company:${name}`, 'preview');
-        };
-
-        searchMapActions.commitCompany = (companyName) => {
+        },
+        commitCompany: (companyName) => {
             const name = String(companyName ?? '').trim();
             if (!name) return;
             hideStationPopupForMenuInteraction();
@@ -3352,28 +3353,27 @@ const initMapApp = async () => {
             }
 
             fitToCurrentSelection(`company:${name}`, 'commit');
-        };
+        }
+    };
 
+    const openStationForStationId = (stationId, meta = {}) => {
+        const item = findStationLabelItemById(stationId);
+        if (!item) return null;
 
-        const openStationForStationId = (stationId, meta = {}) => {
-            const item = findStationLabelItemById(stationId);
-            if (!item) return null;
+        const props = item.props || {};
+        const coords = item.coordinates;
 
-            const props = item.props || {};
-            const coords = item.coordinates;
-            const pt = meta?.pointerType ? String(meta.pointerType) : 'mouse';
+        selectPlatformLinesForStation(props);
+        fitToPointAsBounds(coords, { maxZoom: meta?.maxZoom });
+        return { props, coords };
+    };
 
-            selectPlatformLinesForStation(props);
-            fitToPointAsBounds(coords, { maxZoom: meta?.maxZoom });
-            return { props, coords };
-        };
-
-        searchMapActions.previewStation = (stationId, meta) => {
+    const stationBridgeApi = {
+        previewStation: (stationId, meta) => {
             if (!hoverFeature?.beginPreview()) return;
             openStationForStationId(stationId, meta || {});
-        };
-
-        searchMapActions.commitStation = (stationId, meta) => {
+        },
+        commitStation: (stationId, meta) => {
             hoverFeature?.commitPreview();
             const opened = openStationForStationId(stationId, meta || {});
             openPanelForStationWithAutoScroll(opened?.props || {});
@@ -3385,13 +3385,26 @@ const initMapApp = async () => {
             } catch {
                 // ignore
             }
-        };
-
-
-        searchMapActions.closeStationPopup = ({ committed } = {}) => {
+        },
+        closeStationPopup: ({ committed } = {}) => {
             stationPopup?.closePopup?.({ committed: committed !== false });
             setFixedPopupStationLabelBelow(null);
-        };
+        }
+    };
+
+    if (searchMapActions) {
+        Object.assign(searchMapActions, createSearchMapBridge({
+            hoverApi: hoverBridgeApi,
+            journeyPickApi: journeyPickBridgeApi,
+            reachableStopsApi: reachableStopsBridgeApi,
+            routePreviewApi: routePreviewBridgeApi,
+            selectionApi: selectionBridgeApi,
+            stationApi: stationBridgeApi,
+            stateApi: {
+                snapshotSelectionState,
+                restoreSelectionState
+            }
+        }));
     }
 
     function bindClickBlankToRestore() {
