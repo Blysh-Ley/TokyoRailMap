@@ -45,6 +45,11 @@ import {
 } from './lib/throughServiceManager.js';
 import './features/route-map/route-map-ui.js';
 import { companyLogoMap, resolveLineSelectionByBranchRules } from './lib/special-condition.js';
+import { createMapEngine } from './services/mapEngine.js';
+import { createStore } from './store/appStore.js';
+import { hoverSetEnabled, selectionSelectStationLines } from './store/actions.js';
+import { createHighlightFeature } from './features/highlight/highlightFeature.js';
+import { createSearchFeature } from './features/search/searchFeature.js';
 
 initializeFetchCache();
 
@@ -287,7 +292,8 @@ const OSM_RASTER_PAINT_DARK = {
 };
 
 // 1) 初始化地图（底图支持 Carto / OSM / 透明）
-const map = new maplibregl.Map({
+const mapEngine = createMapEngine({
+    maplibregl,
     container: 'map',
     center: [139.767, 35.681],
     zoom: 11,
@@ -297,6 +303,7 @@ const map = new maplibregl.Map({
         layers: []
     }
 });
+const map = mapEngine.getMap();
 
 // 暴露给 print.js：用于导出 trip-preview 的 SVG（避免 print.js import app.js 导致重复初始化）
 try {
@@ -529,11 +536,20 @@ const initMapApp = async () => {
 
     // 右侧界面：站点/站名/搜索提交站点时弹出（在 applySelectionEffects 定义后初始化）
     let panel = null;
+    const appStore = createStore({
+        selectedCompany,
+        selectedLineId,
+        selectedStationLineIds,
+        selectedStationId,
+        selectedServiceMode,
+        hoverPreviewEnabled
+    });
 
     const isHoverPreviewEnabled = () => hoverPreviewEnabled !== false;
     const isAdaptiveViewportEnabled = () => adaptiveViewportEnabled !== false;
     const applyHoverPreviewEnabled = (enabled) => {
         hoverPreviewEnabled = enabled !== false;
+        appStore.dispatch(hoverSetEnabled(hoverPreviewEnabled));
         panel?.setHoverPreviewEnabled?.(hoverPreviewEnabled);
         stationPopup?.setHoverPreviewEnabled?.(hoverPreviewEnabled);
     };
@@ -2922,6 +2938,21 @@ const initMapApp = async () => {
         });
     };
 
+    createHighlightFeature({
+        store: appStore,
+        applyLegacySelection: (state) => {
+            selectedCompany = state.selectedCompany || null;
+            selectedLineId = state.selectedLineId || null;
+            selectedStationLineIds = state.selectedStationLineIds instanceof Set
+                ? state.selectedStationLineIds
+                : null;
+            selectedStationId = state.selectedStationId || null;
+            selectedServiceMode = state.selectedServiceMode || 'all';
+            hoverPreviewEnabled = state.hoverPreviewEnabled !== false;
+            applySelectionEffects();
+        }
+    });
+
     function mountSettingsMenu() {
         const existing = document.querySelector('.settings-ui');
         if (existing) {
@@ -3322,14 +3353,11 @@ const initMapApp = async () => {
         const ids = getPlatformLineIdsFromStationProps(props);
         if (!ids.length) return;
 
-        selectedStationLineIds = new Set(ids);
-        selectedStationId = String(props?.id ?? '').trim() || null;
-        selectedCompany = null;
-        selectedLineId = null;
-        selectedServiceMode = 'all';
+        searchFeature?.selectStationLines?.({
+            stationId: String(props?.id ?? '').trim() || null,
+            lineIds: ids
+        });
         isolateStationsToSelectedLine = false;
-
-        applySelectionEffects();
     };
 
     const fitToPointAsBounds = (coordinates, { maxZoom } = {}) => {
@@ -3371,6 +3399,11 @@ const initMapApp = async () => {
             null
         );
     };
+
+    const searchFeature = createSearchFeature({
+        store: appStore,
+        resolveLineSelection: resolveLineSelectionForApp
+    });
 
     if (searchMapActions) {
         searchMapActions.isReady = false;
@@ -3420,9 +3453,13 @@ const initMapApp = async () => {
         // 供其他模块（如 panel header 的 map-select 下拉）使用：仅清除“站点点击高亮”。
         // 不做全量 reset，避免影响多选/公司/线路模式的外部状态。
         searchMapActions.clearStationSelection = () => {
-            selectedStationId = null;
-            selectedStationLineIds = null;
-            applySelectionEffects();
+            appStore.dispatch(selectionSelectStationLines({
+                selectedCompany,
+                selectedLineId,
+                selectedStationLineIds: null,
+                selectedStationId: null,
+                selectedServiceMode
+            }));
         };
 
         searchMapActions.previewLine = (lineId) => {
@@ -3430,22 +3467,11 @@ const initMapApp = async () => {
             if (!id) return;
             hideStationPopupForMenuInteraction();
 
-            const resolved = resolveLineSelectionForApp(id);
-
-            const mainLineId = String(resolved?.mainLineId ?? id);
-            const merged = Array.isArray(resolved?.mergedLineIds)
-                ? resolved.mergedLineIds.map(String).filter(Boolean)
-                : [mainLineId];
-
-            selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
-            selectedStationId = null;
-            selectedLineId = mainLineId;
-            selectedCompany = null;
-            selectedServiceMode = 'all';
+            const payload = searchFeature.previewLine(id);
+            if (!payload?.selectedLineId) return;
             isolateStationsToSelectedLine = false;
             setStationLabelMode('auto');
-            applySelectionEffects();
-            fitToCurrentSelection(`line:${selectedLineId}`, 'preview');
+            fitToCurrentSelection(`line:${payload.selectedLineId}`, 'preview');
         };
 
         searchMapActions.commitLine = (lineId) => {
@@ -3469,21 +3495,17 @@ const initMapApp = async () => {
                 return;
             }
 
-            selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
-            selectedStationId = null;
-            selectedLineId = mainLineId;
-            selectedCompany = null;
-            selectedServiceMode = 'all';
+            const payload = searchFeature.commitLine(id);
+            const nextLineId = payload?.selectedLineId || mainLineId;
             isolateStationsToSelectedLine = false;
             setStationLabelMode('all');
 
             if (menu && typeof menu.markActive === 'function') {
-                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(selectedLineId)}"]`);
+                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(nextLineId)}"]`);
                 if (el) menu.markActive(el);
             }
 
-            applySelectionEffects();
-            fitToCurrentSelection(`line:${selectedLineId}`, 'commit');
+            fitToCurrentSelection(`line:${nextLineId}`, 'commit');
 
             showRouteMapFloatingPanelForLine(id);
         };
@@ -3492,14 +3514,10 @@ const initMapApp = async () => {
             const name = String(companyName ?? '').trim();
             if (!name) return;
             hideStationPopupForMenuInteraction();
-            selectedStationLineIds = null;
-            selectedStationId = null;
-            selectedCompany = name;
-            selectedLineId = null;
-            selectedServiceMode = 'all';
+            const payload = searchFeature.previewCompany(name);
+            if (!payload?.selectedCompany) return;
             isolateStationsToSelectedLine = false;
             setStationLabelMode('auto');
-            applySelectionEffects();
             fitToCurrentSelection(`company:${name}`, 'preview');
         };
 
@@ -3507,11 +3525,8 @@ const initMapApp = async () => {
             const name = String(companyName ?? '').trim();
             if (!name) return;
             hideStationPopupForMenuInteraction();
-            selectedStationLineIds = null;
-            selectedStationId = null;
-            selectedCompany = name;
-            selectedLineId = null;
-            selectedServiceMode = 'all';
+            const payload = searchFeature.commitCompany(name);
+            if (!payload?.selectedCompany) return;
             isolateStationsToSelectedLine = false;
             setStationLabelMode('auto');
 
@@ -3526,7 +3541,6 @@ const initMapApp = async () => {
                 }
             }
 
-            applySelectionEffects();
             fitToCurrentSelection(`company:${name}`, 'commit');
         };
 
