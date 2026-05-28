@@ -2,7 +2,25 @@
  * 创建站名 DOM Marker（文字标签）。
  * 同时返回用于“圆点碰撞检测”的站点列表（按站点 id 过滤 circle layer）。
  */
-export function createStationMarkers(map, maplibregl, stationsData) {
+const resolveMarkerAdapter = (mapOrEngine, maplibregl) => {
+    if (mapOrEngine && typeof mapOrEngine.createMarker === 'function') {
+        return {
+            createMarker: (options) => mapOrEngine.createMarker(options),
+            addMarker: (marker) => mapOrEngine.addMarker(marker)
+        };
+    }
+
+    return {
+        createMarker: (options) => new maplibregl.Marker(options),
+        addMarker: (marker) => marker?.addTo?.(mapOrEngine)
+    };
+};
+
+export function createStationMarkers(mapOrEngine, maplibreglOrStationsData, stationsDataMaybe) {
+    const usingMapEngine = mapOrEngine && typeof mapOrEngine.createMarker === 'function';
+    const maplibregl = usingMapEngine ? null : maplibreglOrStationsData;
+    const stationsData = usingMapEngine ? maplibreglOrStationsData : stationsDataMaybe;
+    const markerAdapter = resolveMarkerAdapter(mapOrEngine, maplibregl);
     const stationLabels = [];
     const stationCircles = [];
 
@@ -40,9 +58,9 @@ export function createStationMarkers(map, maplibregl, stationsData) {
         const labelDyPx = priority > 1 ? 6 : 3;
         el.style.translate = `0 -${labelDyPx}px`;
 
-        const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
-            .setLngLat(coordinates)
-            .addTo(map);
+        const marker = markerAdapter.createMarker({ element: el, anchor: 'bottom' })
+            .setLngLat(coordinates);
+        markerAdapter.addMarker(marker);
 
         stationLabels.push({
             marker,

@@ -4113,7 +4113,7 @@ const initMapApp = async () => {
         } catch {
             // ignore
         }
-        addLinesLayer(map, linesData);
+        addLinesLayer(mapEngine, linesData);
 
 
 
@@ -5393,7 +5393,7 @@ const initMapApp = async () => {
         menu.setWrapperStyle();
         window.addEventListener('resize', () => menu.setWrapperStyle());
 
-        lineHoverPopup = setupLineHoverPopup(map, maplibregl, {
+        lineHoverPopup = setupLineHoverPopup(mapEngine, {
             hoverMinZoom: HOVER_PREVIEW_MIN_ZOOM,
             companyLogoMap,
             getHoverPreviewEnabled: () => isHoverPreviewEnabled()
@@ -5497,7 +5497,7 @@ const initMapApp = async () => {
             // ignore
         }
 
-        addStationsLayer(map, stationsData);
+        addStationsLayer(mapEngine, stationsData);
 
         try {
             transferCapsuleStationsData = stationsData;
@@ -5515,7 +5515,7 @@ const initMapApp = async () => {
 
         applySelectionEffects();
 
-        const markers = createStationMarkers(map, maplibregl, stationsData);
+        const markers = createStationMarkers(mapEngine, stationsData);
         stationLabels = markers.stationLabels;
         const stationCircles = markers.stationCircles;
 
@@ -5734,7 +5734,7 @@ const initMapApp = async () => {
 
         applySelectionEffects();
 
-        stationPopup = setupStationPopup(map, maplibregl, {
+        stationPopup = setupStationPopup(mapEngine, {
 
             getLineMeta: (lineId) => {
                 const id = String(lineId);

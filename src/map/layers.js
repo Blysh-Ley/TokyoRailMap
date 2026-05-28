@@ -16,6 +16,47 @@ import {
     stationCircleStrokeColorPaint
 } from './element_ui.js';
 
+const isMapEngineLike = (value) => Boolean(
+    value
+    && typeof value.on === 'function'
+    && typeof value.createPopup === 'function'
+);
+
+const resolveMapAdapter = (mapOrEngine, maplibregl) => {
+    if (isMapEngineLike(mapOrEngine)) {
+        return {
+            addPopup: (popup) => mapOrEngine.addPopup(popup),
+            addLayer: (...args) => mapOrEngine.addLayer(...args),
+            addSource: (...args) => mapOrEngine.addSource(...args),
+            createPopup: (options) => mapOrEngine.createPopup(options),
+            getCanvas: () => mapOrEngine.getCanvas?.(),
+            getSource: (sourceId) => mapOrEngine.getSource?.(sourceId),
+            getZoom: () => mapOrEngine.getZoom?.(),
+            hasLayer: (layerId) => mapOrEngine.hasLayer?.(layerId) === true,
+            on: (...args) => mapOrEngine.on(...args),
+            queryRenderedFeatures: (...args) => mapOrEngine.queryRenderedFeatures(...args),
+            setCursor: (cursor = '') => mapOrEngine.setCursor?.(cursor)
+        };
+    }
+
+    return {
+        addPopup: (popup) => popup?.addTo?.(mapOrEngine),
+        addLayer: (...args) => mapOrEngine?.addLayer?.(...args),
+        addSource: (...args) => mapOrEngine?.addSource?.(...args),
+        createPopup: (options) => new maplibregl.Popup(options),
+        getCanvas: () => mapOrEngine?.getCanvas?.(),
+        getSource: (sourceId) => mapOrEngine?.getSource?.(sourceId),
+        getZoom: () => mapOrEngine?.getZoom?.(),
+        hasLayer: (layerId) => Boolean(layerId && mapOrEngine?.getLayer?.(layerId)),
+        on: (...args) => mapOrEngine?.on?.(...args),
+        queryRenderedFeatures: (...args) => mapOrEngine?.queryRenderedFeatures?.(...args),
+        setCursor: (cursor = '') => {
+            const canvas = mapOrEngine?.getCanvas?.();
+            if (canvas?.style) canvas.style.cursor = cursor;
+        }
+    };
+};
+
 const toText = (v) => String(v ?? '').trim();
 const stripParenText = (v) => toText(v).replace(/（.*?）|\(.*?\)/g, '').trim();
 
@@ -134,8 +175,11 @@ const enhancePopupLineBadges = async ({ popup, mode }) => {
     }
 };
 
-export function addLinesLayer(map, linesData) {
-    map.addSource('lines-source', { type: 'geojson', data: linesData });
+export function addLinesLayer(mapOrEngine, linesData) {
+    const mapAdapter = resolveMapAdapter(mapOrEngine);
+    if (!mapAdapter.getSource('lines-source')) {
+        mapAdapter.addSource('lines-source', { type: 'geojson', data: linesData });
+    }
     const baseColorExpr = buildBaseLineColorExpr({ isDarkThemeActive: isDarkThemeActive() });
     const paint = buildFocusedLinePaint({ baseColorExpr });
     const lowZoomOffsetPxPerUnit = 4;
@@ -165,26 +209,32 @@ export function addLinesLayer(map, linesData) {
         0
     ];
 
-    map.addLayer({
-        id: 'lines-layer',
-        type: 'line',
-        source: 'lines-source',
-        filter: ['!=', ['get', 'hidden_by_opacity_zero'], 1],
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint
-    });
+    if (!mapAdapter.hasLayer('lines-layer')) {
+        mapAdapter.addLayer({
+            id: 'lines-layer',
+            type: 'line',
+            source: 'lines-source',
+            filter: ['!=', ['get', 'hidden_by_opacity_zero'], 1],
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint
+        });
+    }
 }
 
 /**
  * 给线路添加 hover 弹窗（仅显示当前线路，不显示站名）。
  */
-export function setupLineHoverPopup(map, maplibregl, options = {}) {
+export function setupLineHoverPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe = {}) {
+    const usingMapEngine = isMapEngineLike(mapOrEngine);
+    const maplibregl = usingMapEngine ? null : maplibreglOrOptions;
+    const options = usingMapEngine ? (maplibreglOrOptions || {}) : optionsMaybe;
+    const mapAdapter = resolveMapAdapter(mapOrEngine, maplibregl);
     const hoverMinZoom = Number.isFinite(options.hoverMinZoom) ? options.hoverMinZoom : 9;
     const stationProximityPx = Number.isFinite(options.stationProximityPx) ? Math.max(0, Number(options.stationProximityPx)) : 10;
     const companyLogoMap = options.companyLogoMap || {};
     const getHoverPreviewEnabled = typeof options.getHoverPreviewEnabled === 'function' ? options.getHoverPreviewEnabled : null;
 
-    const popup = new maplibregl.Popup({
+    const popup = mapAdapter.createPopup({
         closeButton: false,
         closeOnClick: false
     });
@@ -245,7 +295,7 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
 
     const hasStationNearPoint = (point) => {
         try {
-            if (!point || !map.getLayer?.('stations-layer')) return false;
+            if (!point || !mapAdapter.hasLayer('stations-layer')) return false;
             const x = Number(point.x);
             const y = Number(point.y);
             if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
@@ -254,7 +304,7 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
                 [x - r, y - r],
                 [x + r, y + r]
             ];
-            const hits = map.queryRenderedFeatures(bbox, { layers: ['stations-layer'] }) || [];
+            const hits = mapAdapter.queryRenderedFeatures(bbox, { layers: ['stations-layer'] }) || [];
             return hits.length > 0;
         } catch {
             return false;
@@ -266,12 +316,12 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
         return hasStationNearPoint(evt?.point);
     };
 
-    map.on('mouseenter', 'lines-layer', (e) => {
+    mapAdapter.on('mouseenter', 'lines-layer', (e) => {
         if (!isEnabled()) return;
-        const z = typeof map.getZoom === 'function' ? map.getZoom() : null;
+        const z = mapAdapter.getZoom();
         if (typeof z === 'number' && z < hoverMinZoom) return;
         if (shouldSuppressLineHover(e)) {
-            map.getCanvas().style.cursor = '';
+            mapAdapter.setCursor('');
             if (popupShown) hidePopup();
             return;
         }
@@ -281,27 +331,28 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
         const lineId = String(props?.id ?? f?.id ?? '').trim();
         if (!lineId) return;
 
-        map.getCanvas().style.cursor = 'pointer';
+        mapAdapter.setCursor('pointer');
         const html = buildPopupHtml(props);
-        popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
+        popup.setLngLat(e.lngLat).setHTML(html);
+        mapAdapter.addPopup(popup);
         void enhancePopupLineBadges({ popup, mode: 'line' });
         popupShown = true;
         lastHoverLineId = lineId;
     });
 
-    map.on('mousemove', 'lines-layer', (e) => {
+    mapAdapter.on('mousemove', 'lines-layer', (e) => {
         if (!isEnabled()) {
             if (popupShown) hidePopup();
             return;
         }
 
         if (shouldSuppressLineHover(e)) {
-            map.getCanvas().style.cursor = '';
+            mapAdapter.setCursor('');
             if (popupShown) hidePopup();
             return;
         }
 
-        const z = typeof map.getZoom === 'function' ? map.getZoom() : null;
+        const z = mapAdapter.getZoom();
         if (typeof z === 'number' && z < hoverMinZoom) {
             if (popupShown) hidePopup();
             return;
@@ -323,20 +374,20 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
 
         popup.setLngLat(e.lngLat);
         if (!popupShown) {
-            popup.addTo(map);
+            mapAdapter.addPopup(popup);
             void enhancePopupLineBadges({ popup, mode: 'line' });
             popupShown = true;
         }
     });
 
-    map.on('mouseleave', 'lines-layer', () => {
-        map.getCanvas().style.cursor = '';
+    mapAdapter.on('mouseleave', 'lines-layer', () => {
+        mapAdapter.setCursor('');
         hidePopup();
     });
 
-    map.on('zoom', () => {
+    mapAdapter.on('zoom', () => {
         if (!popupShown) return;
-        const z = typeof map.getZoom === 'function' ? map.getZoom() : null;
+        const z = mapAdapter.getZoom();
         if (typeof z === 'number' && z < hoverMinZoom) hidePopup();
     });
 
@@ -354,31 +405,40 @@ export function setupLineHoverPopup(map, maplibregl, options = {}) {
  * - 换乘站：随缩放变化，最大半径 4
  * - 非换乘站：更小的白点（描边为 0）
  */
-export function addStationsLayer(map, stationsData) {
-    map.addSource('stations-source', { type: 'geojson', data: stationsData });
+export function addStationsLayer(mapOrEngine, stationsData) {
+    const mapAdapter = resolveMapAdapter(mapOrEngine);
+    if (!mapAdapter.getSource('stations-source')) {
+        mapAdapter.addSource('stations-source', { type: 'geojson', data: stationsData });
+    }
     const dark = isDarkThemeActive();
 
-    map.addLayer({
-        id: 'stations-layer',
-        type: 'circle',
-        source: 'stations-source',
-        filter: ['!=', ['get', 'hidden_by_opacity_zero'], 1],
-        paint: {
-            'circle-radius': baseStationCircleRadiusExpr(),
-            'circle-color': buildStationCircleColorPaintExpr({
-                isDarkThemeActive: dark,
-                lineColorById: new Map()
-            }),
-            'circle-stroke-width': baseStationCircleStrokeWidthExpr(),
-            'circle-stroke-color': stationCircleStrokeColorPaint({ isDarkThemeActive: dark })
-        }
-    });
+    if (!mapAdapter.hasLayer('stations-layer')) {
+        mapAdapter.addLayer({
+            id: 'stations-layer',
+            type: 'circle',
+            source: 'stations-source',
+            filter: ['!=', ['get', 'hidden_by_opacity_zero'], 1],
+            paint: {
+                'circle-radius': baseStationCircleRadiusExpr(),
+                'circle-color': buildStationCircleColorPaintExpr({
+                    isDarkThemeActive: dark,
+                    lineColorById: new Map()
+                }),
+                'circle-stroke-width': baseStationCircleStrokeWidthExpr(),
+                'circle-stroke-color': stationCircleStrokeColorPaint({ isDarkThemeActive: dark })
+            }
+        });
+    }
 }
 
 /**
  * 给站点圆点添加 hover 弹窗。
  */
-export function setupStationPopup(map, maplibregl, options = {}) {
+export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe = {}) {
+    const usingMapEngine = isMapEngineLike(mapOrEngine);
+    const maplibregl = usingMapEngine ? null : maplibreglOrOptions;
+    const options = usingMapEngine ? (maplibreglOrOptions || {}) : optionsMaybe;
+    const mapAdapter = resolveMapAdapter(mapOrEngine, maplibregl);
     const touchTapGuard = getGlobalTouchTapGuard({ maxDurationMs: 500, maxMovePx: 12 });
 
     const getLineMeta = typeof options.getLineMeta === 'function' ? options.getLineMeta : (() => null);
@@ -451,7 +511,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         return stationGroupsIndexPromise;
     };
 
-    const popup = new maplibregl.Popup({
+    const popup = mapAdapter.createPopup({
         closeButton: false,
         closeOnClick: false
     });
@@ -469,7 +529,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         return 'mouse';
     };
 
-    const canvas = map.getCanvas?.();
+    const canvas = mapAdapter.getCanvas?.();
     if (canvas && canvas.addEventListener) {
         canvas.addEventListener(
             'pointerdown',
@@ -1080,7 +1140,7 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         return `<div class="${rootClass}">${nameHtml}${companiesHtml}</div>`;
     };
 
-    map.on('mouseenter', 'stations-layer', async (e) => {
+    mapAdapter.on('mouseenter', 'stations-layer', async (e) => {
         if (!isHoverPreviewEnabled()) return;
         // 触屏会产生合成 mouseenter：这里直接忽略，改用 click 来显示 popup
         if (nowMs() < suppressMouseEventsUntilMs || isTouchLikePointer(lastPointerType)) return;
@@ -1089,13 +1149,13 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         if (popupOpenMode === 'fixed') return;
 
         // 缩放过小：禁用“鼠标 hover 站点弹窗”
-        const z = typeof map.getZoom === 'function' ? map.getZoom() : null;
+        const z = mapAdapter.getZoom();
         if (typeof z === 'number' && z < hoverMinZoom) {
-            map.getCanvas().style.cursor = '';
+            mapAdapter.setCursor('');
             return;
         }
 
-        map.getCanvas().style.cursor = 'pointer';
+        mapAdapter.setCursor('pointer');
         isOverStation = true;
         clearHideTimer();
         committedInPopup = false;
@@ -1106,15 +1166,16 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         const coordinates = e.features[0].geometry.coordinates.slice();
         const props = e.features[0].properties || {};
         const html = await buildPopupHtml(props, { interactive: false });
-        popup.setLngLat(coordinates).setHTML(html).addTo(map);
+        popup.setLngLat(coordinates).setHTML(html);
+        mapAdapter.addPopup(popup);
         void enhancePopupLineBadges({ popup, mode: 'station' });
         bindPopupHover();
     });
 
-    map.on('mouseleave', 'stations-layer', () => {
+    mapAdapter.on('mouseleave', 'stations-layer', () => {
         if (!isHoverPreviewEnabled()) return;
         if (nowMs() < suppressMouseEventsUntilMs || isTouchLikePointer(lastPointerType)) return;
-        map.getCanvas().style.cursor = '';
+        mapAdapter.setCursor('');
         isOverStation = false;
         if (popupOpenMode === 'hover') tryHidePopup();
     });
@@ -1141,7 +1202,8 @@ export function setupStationPopup(map, maplibregl, options = {}) {
         lastFiredHoverKey = null;
 
         const html = await buildPopupHtml(props, { interactive: true });
-        popup.setLngLat(coordinates).setHTML(html).addTo(map);
+        popup.setLngLat(coordinates).setHTML(html);
+        mapAdapter.addPopup(popup);
         void enhancePopupLineBadges({ popup, mode: 'station' });
         bindPopupHover();
     };
