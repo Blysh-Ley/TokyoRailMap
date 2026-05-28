@@ -386,7 +386,7 @@ const initMapApp = async () => {
     };
 
     applyCustomAttribution();
-    map.on('styledata', applyCustomAttribution);
+    mapEngine.on('styledata', applyCustomAttribution);
 
     const railwaysOrderIndex = await loadRailwaysOrderIndex();
 
@@ -5221,7 +5221,7 @@ const initMapApp = async () => {
         };
 
         const canRunHoverPreviewAtCurrentZoom = () => {
-            const z = typeof map.getZoom === 'function' ? map.getZoom() : null;
+            const z = typeof mapEngine.getZoom === 'function' ? mapEngine.getZoom() : null;
             return !(typeof z === 'number' && z < HOVER_PREVIEW_MIN_ZOOM);
         };
 
@@ -5549,7 +5549,7 @@ const initMapApp = async () => {
             baseStationsGeoJSON: stationsData,
             stationOffsetAlgorithmContext,
             buildStationOffsetGeoJSONAtZoom,
-            getZoom: () => map.getZoom(),
+            getZoom: () => mapEngine.getZoom(),
             setStationsGeoJSON: (nextGeoJSON) => {
                 try {
                     mapEngine.getSource('stations-source')?.setData?.(nextGeoJSON);
@@ -5696,16 +5696,16 @@ const initMapApp = async () => {
 
         scheduleLayerCollisionUpdate();
 
-        applyRealtimeStationOffsetForZoom(map.getZoom());
+        applyRealtimeStationOffsetForZoom(mapEngine.getZoom());
 
-        let lastUpdateZoom = map.getZoom();
-        let previousFrameZoom = map.getZoom();
+        let lastUpdateZoom = mapEngine.getZoom();
+        let previousFrameZoom = mapEngine.getZoom();
 
-        map.on('zoom', () => {
+        mapEngine.on('zoom', () => {
             if (!isStationOffsetDynamicMode()) return;
             if (tripPreviewActive) return;
 
-            const currentZoom = map.getZoom();
+            const currentZoom = mapEngine.getZoom();
             
             const cumulativeDelta = Math.abs(currentZoom - lastUpdateZoom);
             
@@ -5720,13 +5720,13 @@ const initMapApp = async () => {
             }
         });
 
-        map.on('zoomend', () => {
+        mapEngine.on('zoomend', () => {
             if (isStationOffsetDynamicMode()) return;
             if (tripPreviewActive) return;
 
-            applyRealtimeStationOffsetForZoom(map.getZoom());
-            lastUpdateZoom = map.getZoom();
-            previousFrameZoom = map.getZoom(); 
+            applyRealtimeStationOffsetForZoom(mapEngine.getZoom());
+            lastUpdateZoom = mapEngine.getZoom();
+            previousFrameZoom = mapEngine.getZoom(); 
             
         });
         
@@ -5985,15 +5985,15 @@ const startMapInit = (reason) => {
 
     if (mapInitQueued) return;
     mapInitQueued = true;
-    map.once('styledata', () => {
+    mapEngine.once('styledata', () => {
         mapInitQueued = false;
         startMapInit(reason || 'styledata');
     });
    
 };
 
-map.on('load', () => startMapInit('load'));
-map.on('error', () => startMapInit('error'));
+mapEngine.on('load', () => startMapInit('load'));
+mapEngine.on('error', () => startMapInit('error'));
 setTimeout(() => startMapInit('timeout'), 3000);
 
 
@@ -6001,19 +6001,19 @@ const STORAGE_KEY = "zoomlevel-bookmark";
 
  window.getZoomInfo = () => {
     if (!map) return;
-    const zoom = map.getZoom();
-    const center = map.getCenter();
-    const pitch = map.getPitch();
-    const bearing = map.getBearing();
+    const zoom = mapEngine.getZoom();
+    const center = mapEngine.getCenter();
+    const pitch = mapEngine.getPitch();
+    const bearing = mapEngine.getBearing();
     console.log(`当前地图状态 - Zoom: ${zoom.toFixed(2)}, Center: [${center.lng.toFixed(4)}, ${center.lat.toFixed(4)}], Pitch: ${pitch.toFixed(1)}, Bearing: ${bearing.toFixed(1)}`);
     }
 
 window.saveZoom = (remark=false) => {
     if (!map) return;
-    const zoom = map.getZoom();
-    const center = map.getCenter();
-    const pitch = map.getPitch();
-    const bearing = map.getBearing();
+    const zoom = mapEngine.getZoom();
+    const center = mapEngine.getCenter();
+    const pitch = mapEngine.getPitch();
+    const bearing = mapEngine.getBearing();
     let records = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
     if (remark === false) {
         remark = `u${records.length + 1}`;
