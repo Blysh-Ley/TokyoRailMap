@@ -1,4 +1,4 @@
-import {
+﻿import {
     COMPANY_LOGO_BASE_PATH,
     getCachedJson,
     getCompanyLogoCandidates,
@@ -55,10 +55,16 @@ import { createHoverFeature } from './features/hover/hoverFeature.js';
 import { createLayerFeature } from './features/layer/layerFeature.js';
 import { createStationCoordinateAdapter } from './features/layer/stationCoordinateAdapter.js';
 import { createRouteFeature } from './features/route/routeFeature.js';
+import { createRoutePreviewController } from './features/route/routePreviewController.js';
+import { createTripPreviewBuilder } from './features/route/tripPreviewBuilder.js';
 import { createReachableStopsOverlayRenderer } from './features/search/reachableStopsOverlayRenderer.js';
 import { createSearchMapBridge } from './features/search/searchMapBridge.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
 import { createSearchSelectionController } from './features/search/searchSelectionController.js';
+import {
+    buildTripPreviewSelectionKey as buildRoutePreviewSelectionKey,
+    resolveTripPreviewPayloadSource as resolveRoutePreviewPayloadSource
+} from './domain/routePreviewSelection.js';
 
 initializeFetchCache();
 
@@ -422,7 +428,6 @@ const initMapApp = async () => {
     let tripDetailStationTriangleMarker = null;
     let journeyPickOriginPin = null;
     let journeyPickDestinationPin = null;
-    let tripPreviewSelectionsByKey = new Map();
     let baseMultiSelectionsByKey = new Map();
     let dirPreviewActive = false;
     let dirPreviewLineIds = null; // Set<string> | null
@@ -1746,13 +1751,7 @@ const initMapApp = async () => {
     };
 
     const hasTripPreviewSelectionBySource = (source) => {
-        const target = String(source || '').trim();
-        if (!target) return false;
-        for (const entry of tripPreviewSelectionsByKey.values()) {
-            const current = String(entry?.source || resolveTripPreviewPayloadSource(entry?.payload) || '').trim();
-            if (current === target && entry?.hidden !== true) return true;
-        }
-        return false;
+        return routeFeature.hasVisibleTripPreviewSelectionBySource(source, resolveTripPreviewPayloadSource);
     };
 
     const toggleBaseLineBranchPreview = (baseKey) => {
@@ -1957,7 +1956,7 @@ const initMapApp = async () => {
             });
         }
 
-        for (const [key, entry] of tripPreviewSelectionsByKey.entries()) {
+        for (const [key, entry] of routeFeature.getTripPreviewSelectionEntries()) {
             const payload = entry?.payload || {};
             const built = entry?.built || {};
             const builtLineIds = built?.lineIds instanceof Set
@@ -2483,7 +2482,7 @@ const initMapApp = async () => {
             ? Array.from(getBaseMultiSelectedLineIds()).map(String).filter(Boolean)
             : [];
         const visibleTripSelections = inMultiSelectMode
-            ? Array.from(tripPreviewSelectionsByKey.values()).filter((entry) => entry?.hidden !== true)
+            ? routeFeature.getTripPreviewSelectionValues().filter((entry) => entry?.hidden !== true)
             : [];
         const showMultiSelectIcons = window.__TokyoRailMultiSelectShowIcons !== false;
 
@@ -4182,14 +4181,6 @@ const initMapApp = async () => {
             // ignore
         }
 
-        const ensureTripPreviewLayers = () => {
-            routeFeature.ensureTripPreviewLayers();
-        };
-
-        const resetTripPreviewLayers = () => {
-            routeFeature.resetTripPreviewLayers();
-        };
-
         const distMeters = (a, b) => {
             if (!Array.isArray(a) || !Array.isArray(b) || a.length < 2 || b.length < 2) return Number.POSITIVE_INFINITY;
             const lng1 = Number(a[0]);
@@ -4558,219 +4549,28 @@ const initMapApp = async () => {
             return bbox;
         };
 
-        const buildTripPreviewFeatures = (payload) => {
-            const outLineFeatures = [];
-            const outStopFeatures = [];
-            const coordsForBbox = [];
-            const stopIds = new Set();
-            const throughServiceHighlightColors = new Set(
-                Object.values(THROUGH_SERVICE_CONFIGS_OBJECT)
-                    .map(info => String(info.color || '').trim().toLowerCase())
-                    .filter(Boolean)
-            );
-            const isThroughServiceHighlightColor = (color) => {
-                const normalized = String(color || '').trim().toLowerCase();
-                return !!normalized && throughServiceHighlightColors.has(normalized);
-            };
-
-            const debugLoop = (() => {
+        const { buildTripPreviewFeatures } = createTripPreviewBuilder({
+            stationCoordByIdBase,
+            stationCoordById,
+            stationServingCountById,
+            lineColorById,
+            throughServiceConfigsObject: THROUGH_SERVICE_CONFIGS_OBJECT,
+            resolveRailColorForTheme,
+            isLineTerminalStation,
+            isSamePhysicalStation,
+            isLoopDirection,
+            extractLineSegment,
+            nearestBridgeBetweenLines,
+            distMeters,
+            extendBBox,
+            isDebugLoopEnabled: () => {
                 try {
                     return globalThis?.__TokyoRailDebugLoopSlice === true;
                 } catch {
                     return false;
                 }
-            })();
-
-            const allSegments = Array.isArray(payload?.segments) ? payload.segments : [];
-            const ntSeg = allSegments.find((s) => String(s?.kind) === 'nt') || null;
-            const ntFirstStationId = (() => {
-                const ids = Array.isArray(ntSeg?.stationIds) ? ntSeg.stationIds : [];
-                return ids.length ? String(ids[0] || '').trim() : '';
-            })();
-
-            const forceIncludeNt = payload?.forceIncludeNt === true || payload?.__forceIncludeNt === true;
-            let allowNt = true;
-            if (!forceIncludeNt) {
-                allowNt = !payload?.hasNt || isLineTerminalStation(payload?.mainLineId, payload?.mainTerminalStationId);
-                if (!allowNt && payload?.hasNt) {
-                    allowNt = isSamePhysicalStation(payload?.mainTerminalStationId, ntFirstStationId);
-                }
-
-                // 非端点直通也允许：只要主段末站与 nt 首站在局部几何上可连通（避免同班次在不同入口显示不一致）
-                if (!allowNt && payload?.hasNt && ntSeg) {
-                    const mainTerminalId = String(payload?.mainTerminalStationId || '').trim();
-                    const mainTerminalCoord = stationCoordByIdBase.get(mainTerminalId) || stationCoordById.get(mainTerminalId);
-                    const ntFirstCoord = stationCoordByIdBase.get(ntFirstStationId) || stationCoordById.get(ntFirstStationId);
-                    const ntLineId = String(ntSeg?.lineId || '').trim();
-
-                    if (mainTerminalCoord && ntFirstCoord && ntLineId) {
-                        const directDist = distMeters(mainTerminalCoord, ntFirstCoord);
-                        if (directDist <= 8000) {
-                            allowNt = true;
-                        } else {
-                            const bridge = nearestBridgeBetweenLines(
-                                payload?.mainLineId,
-                                ntLineId,
-                                mainTerminalCoord,
-                                ntFirstCoord
-                            );
-                            allowNt = !!bridge && Number.isFinite(bridge.dist) && bridge.dist <= 3000;
-                        }
-                    }
-                }
             }
-
-            const segments = allowNt ? allSegments : allSegments.filter((s) => String(s?.kind) !== 'nt');
-            const payloadTypeColor = String(payload?.typeColor || '').trim();
-            const resolveSegColor = (seg, fallbackLineId) => {
-                const segTypeColorRaw = String(seg?.typeColor || payloadTypeColor).trim();
-                if (isThroughServiceHighlightColor(segTypeColorRaw)) {
-                    return resolveRailColorForTheme(segTypeColorRaw) || segTypeColorRaw;
-                }
-                return resolveRailColorForTheme(lineColorById.get(String(fallbackLineId || '')) || '') || '';
-            };
-
-            const pushLineFeature = (coords, lineId, role = 'line', colorOverride = '') => {
-                if (!Array.isArray(coords) || coords.length < 2) return;
-                for (const c of coords) {
-                    if (Array.isArray(c) && c.length >= 2) coordsForBbox.push(c);
-                }
-                const rawColor = String(colorOverride || '').trim()
-                    || resolveRailColorForTheme(lineColorById.get(String(lineId || '')) || '#0a84ff')
-                    || '#0a84ff';
-                outLineFeatures.push({
-                    type: 'Feature',
-                    properties: {
-                        role,
-                        lineId: String(lineId || ''),
-                        color: rawColor
-                    },
-                    geometry: { type: 'LineString', coordinates: coords }
-                });
-            };
-
-            for (let i = 0; i < segments.length; i += 1) {
-                const seg = segments[i] || {};
-                const lineId = String(seg.lineId || '').trim();
-                const segColor = resolveSegColor(seg, lineId);
-                const isLoopDirectionSeg = isLoopDirection(seg?.d);
-                const stationIds = Array.isArray(seg.stationIds) ? seg.stationIds.map((x) => String(x).trim()).filter(Boolean) : [];
-
-                if (debugLoop && (seg?.d || isLoopDirectionSeg)) {
-                    try {
-                        // eslint-disable-next-line no-console
-                        console.debug('[trip-preview seg]', {
-                            lineId,
-                            d: seg?.d,
-                            preferLoopShortest: isLoopDirectionSeg,
-                            stationCount: stationIds.length,
-                            first: stationIds[0] || null,
-                            last: stationIds[stationIds.length - 1] || null
-                        });
-                    } catch {
-                        // ignore
-                    }
-                }
-
-                for (const sid of stationIds) stopIds.add(sid);
-
-                for (let j = 0; j < stationIds.length - 1; j += 1) {
-                    const fromId = stationIds[j];
-                    const toId = stationIds[j + 1];
-                    const from = stationCoordByIdBase.get(fromId) || stationCoordById.get(fromId);
-                    const to = stationCoordByIdBase.get(toId) || stationCoordById.get(toId);
-                    if (!from || !to) continue;
-
-                    const clipped = extractLineSegment(lineId, from, to, {
-                        preferLoopShortest: isLoopDirectionSeg,
-                        direction: seg?.d
-                    });
-                    if (clipped && clipped.length >= 2) pushLineFeature(clipped, lineId, 'line', segColor);
-                    else pushLineFeature([from, to], lineId, 'connector', segColor);
-                }
-
-                if (i > 0) {
-                    const prev = segments[i - 1] || {};
-                    const prevIds = Array.isArray(prev.stationIds) ? prev.stationIds : [];
-                    const prevLast = String(prevIds.length ? prevIds[prevIds.length - 1] : '').trim();
-                    const currFirst = String(stationIds.length ? stationIds[0] : '').trim();
-                    if (prevLast && currFirst && !isSamePhysicalStation(prevLast, currFirst)) {
-                        const a = stationCoordByIdBase.get(prevLast) || stationCoordById.get(prevLast);
-                        const b = stationCoordByIdBase.get(currFirst) || stationCoordById.get(currFirst);
-                        if (a && b) {
-                            const bridge = nearestBridgeBetweenLines(prev.lineId, lineId, a, b);
-                            const canUseBridge = bridge && Number.isFinite(bridge.dist) && bridge.dist <= 3000;
-                            if (canUseBridge) {
-                                const segA = extractLineSegment(prev.lineId, a, bridge.a);
-                                const segB = extractLineSegment(lineId, bridge.b, b);
-                                const prevSegColor = resolveSegColor(prev, String(prev?.lineId || '').trim()) || segColor;
-                                if (segA && segA.length >= 2) pushLineFeature(segA, prev.lineId, 'line', prevSegColor);
-                                if (bridge.dist > 25) pushLineFeature([bridge.a, bridge.b], lineId || prev.lineId, 'connector', segColor || prevSegColor);
-                                if (segB && segB.length >= 2) pushLineFeature(segB, lineId, 'line', segColor);
-
-                                if ((!segA || segA.length < 2) && (!segB || segB.length < 2)) {
-                                    const fallbackDist = distMeters(a, b);
-                                    if (Number.isFinite(fallbackDist) && fallbackDist <= 3000) {
-                                        pushLineFeature([a, b], lineId || prev.lineId, 'connector', segColor);
-                                    }
-                                }
-                            } else {
-                                // Prevent long-range false connectors across unrelated branch segments.
-                                const directDist = distMeters(a, b);
-                                if (Number.isFinite(directDist) && directDist <= 3000) {
-                                    pushLineFeature([a, b], lineId || prev.lineId, 'connector', segColor);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            for (const sid of stopIds) {
-                const c = stationCoordByIdBase.get(sid) || stationCoordById.get(sid);
-                if (!c) continue;
-                outStopFeatures.push({
-                    type: 'Feature',
-                    properties: {
-                        id: sid,
-                        serving_count: Number(stationServingCountById.get(sid) || 1)
-                    },
-                    geometry: { type: 'Point', coordinates: c }
-                });
-            }
-
-            let bbox = null;
-            for (const c of coordsForBbox) {
-                const lng = Number(c?.[0]);
-                const lat = Number(c?.[1]);
-                bbox = extendBBox(bbox, lng, lat);
-            }
-
-            const firstSeg = segments.find((s) => Array.isArray(s?.stationIds) && s.stationIds.length) || null;
-            const lastSeg = (() => {
-                for (let i = segments.length - 1; i >= 0; i -= 1) {
-                    const s = segments[i];
-                    if (Array.isArray(s?.stationIds) && s.stationIds.length) return s;
-                }
-                return null;
-            })();
-
-            const startStationId = firstSeg ? String(firstSeg.stationIds[0] || '').trim() : '';
-            const endStationId = lastSeg
-                ? String(lastSeg.stationIds[lastSeg.stationIds.length - 1] || '').trim()
-                : '';
-
-            return {
-                lineFc: { type: 'FeatureCollection', features: outLineFeatures },
-                stopFc: { type: 'FeatureCollection', features: outStopFeatures },
-                lineIds: new Set(segments.map((s) => String(s?.lineId || '').trim()).filter(Boolean)),
-                stopIds,
-                startStationId,
-                endStationId,
-                bbox
-            };
-        };
-
+        });
         const clearTripEndpointPopups = () => {
             try {
                 tripPreviewOriginPopup?.remove?.();
@@ -4855,77 +4655,6 @@ const initMapApp = async () => {
             tripPreviewTerminalPopups = tripPreviewTerminalPopup ? [tripPreviewTerminalPopup] : [];
         };
 
-        const updateTripEndpointPopupsFromPayloadList = (payloadList, rootPayload = null) => {
-            clearTripEndpointPopups();
-
-            const list = Array.isArray(payloadList) ? payloadList : [];
-            if (!list.length) return;
-
-            const originIds = new Set();
-            const terminalIds = new Set();
-
-            const explicitOriginIds = Array.isArray(rootPayload?.originStationIds)
-                ? rootPayload.originStationIds.map((x) => String(x || '').trim()).filter(Boolean)
-                : [];
-            const explicitTerminalIds = Array.isArray(rootPayload?.terminalStationIds)
-                ? rootPayload.terminalStationIds.map((x) => String(x || '').trim()).filter(Boolean)
-                : [];
-
-            if (explicitOriginIds.length || explicitTerminalIds.length) {
-                for (const sid of explicitOriginIds) originIds.add(sid);
-                for (const sid of explicitTerminalIds) terminalIds.add(sid);
-            }
-
-            if (!originIds.size && !terminalIds.size) {
-                for (const payload of list) {
-                    const segments = Array.isArray(payload?.segments) ? payload.segments : [];
-                    if (!segments.length) continue;
-
-                    const firstSeg = segments.find((s) => Array.isArray(s?.stationIds) && s.stationIds.length) || null;
-                    const lastSeg = (() => {
-                        for (let i = segments.length - 1; i >= 0; i -= 1) {
-                            const seg = segments[i];
-                            if (Array.isArray(seg?.stationIds) && seg.stationIds.length) return seg;
-                        }
-                        return null;
-                    })();
-
-                    const startId = String(firstSeg?.stationIds?.[0] || '').trim();
-                    const endIds = Array.isArray(lastSeg?.stationIds) ? lastSeg.stationIds : [];
-                    const endId = String(endIds.length ? endIds[endIds.length - 1] : '').trim();
-
-                    if (startId) originIds.add(startId);
-                    if (endId) terminalIds.add(endId);
-                }
-            }
-
-            const sharedIds = new Set();
-            for (const sid of originIds) {
-                if (terminalIds.has(sid)) sharedIds.add(sid);
-            }
-
-            tripPreviewOriginPopups = Array.from(originIds)
-                .map((sid) => createTripEndpointPopup({
-                    stationId: sid,
-                    text: '始发站',
-                    color: '#1A9B2D',
-                    yOffset: sharedIds.has(sid) ? 30 : 8
-                }))
-                .filter(Boolean);
-
-            tripPreviewTerminalPopups = Array.from(terminalIds)
-                .map((sid) => createTripEndpointPopup({
-                    stationId: sid,
-                    text: '终点站',
-                    color: '#D32F2F',
-                    yOffset: 8
-                }))
-                .filter(Boolean);
-
-            tripPreviewOriginPopup = tripPreviewOriginPopups[0] || null;
-            tripPreviewTerminalPopup = tripPreviewTerminalPopups[0] || null;
-        };
-
         const clearDirEndpointPopups = () => {
             for (const popup of dirPreviewOriginPopups) {
                 try { popup?.remove?.(); } catch { /* ignore */ }
@@ -5000,125 +4729,16 @@ const initMapApp = async () => {
         };
 
         const buildTripPreviewSelectionKey = (payload) => {
-            const source = String(payload?.previewSource || payload?.__previewSource || payload?.source || '').trim() || 'default';
-            const explicitPreviewKey = String(payload?.previewKey || payload?.__previewKey || '').trim();
-            if (explicitPreviewKey) {
-                return `${source}||preview||${explicitPreviewKey}`;
-            }
-
-            const segmentList = Array.isArray(payload?.segments) ? payload.segments : [];
-            const lineIdFromSegments = String(segmentList.find((seg) => String(seg?.lineId || '').trim())?.lineId || '').trim();
-            const lineId = String(payload?.selectedLineId || payload?.mainLineId || lineIdFromSegments || '').trim();
-
-            let tripKey = String(payload?.tripKey || '').trim();
-            if (!tripKey) {
-                const fromSegments = segmentList
-                    .map((seg) => {
-                        const lid = String(seg?.lineId || '').trim();
-                        const ids = Array.isArray(seg?.stationIds)
-                            ? seg.stationIds.map((x) => String(x || '').trim()).filter(Boolean)
-                            : [];
-                        if (!lid || ids.length < 2) return '';
-                        return `${lid}:${ids.join('>')}`;
-                    })
-                    .filter(Boolean)
-                    .join('||');
-
-                const virtualTrips = Array.isArray(payload?.virtualTrips) ? payload.virtualTrips : [];
-                const fromVirtualTrips = !fromSegments && virtualTrips.length
-                    ? virtualTrips
-                        .map((vt) => {
-                            const segs = Array.isArray(vt?.segments) ? vt.segments : [];
-                            return segs
-                                .map((seg) => {
-                                    const lid = String(seg?.lineId || '').trim();
-                                    const ids = Array.isArray(seg?.stationIds)
-                                        ? seg.stationIds.map((x) => String(x || '').trim()).filter(Boolean)
-                                        : [];
-                                    if (!lid || ids.length < 2) return '';
-                                    return `${lid}:${ids.join('>')}`;
-                                })
-                                .filter(Boolean)
-                                .join('||');
-                        })
-                        .filter(Boolean)
-                        .join('~~~')
-                    : '';
-
-                tripKey = fromSegments || fromVirtualTrips;
-            }
-
-            if (!tripKey) return '';
-            return `${source}||${lineId || 'unknown-line'}||${tripKey}`;
+            return buildRoutePreviewSelectionKey(payload);
         };
 
         const resolveTripPreviewPayloadSource = (payload) => {
-            return String(payload?.previewSource || payload?.__previewSource || payload?.source || '').trim() || '';
+            return resolveRoutePreviewPayloadSource(payload);
         };
 
         const buildMultiTripPreviewAggregate = () => {
-            const lineFeatureByKey = new Map();
-            const stopFeatureByStationId = new Map();
-            const lineIds = new Set();
-            const stopIds = new Set();
-            let bbox = null;
-
-            for (const entry of tripPreviewSelectionsByKey.values()) {
-                if (entry?.hidden === true) continue;
-                const built = entry?.built;
-                const lineFeatures = Array.isArray(built?.lineFc?.features) ? built.lineFc.features : [];
-                const stopFeatures = Array.isArray(built?.stopFc?.features) ? built.stopFc.features : [];
-
-                for (const lf of lineFeatures) {
-                    const key = buildLineFeatureDedupKey(lf);
-                    if (!key || lineFeatureByKey.has(key)) continue;
-                    lineFeatureByKey.set(key, lf);
-                }
-
-                for (const sf of stopFeatures) {
-                    const sid = String(sf?.properties?.id || '').trim();
-                    if (!sid) continue;
-                    if (!stopFeatureByStationId.has(sid)) stopFeatureByStationId.set(sid, sf);
-                }
-
-                const ids = built?.lineIds instanceof Set ? built.lineIds : null;
-                if (ids) {
-                    for (const id of ids) {
-                        const s = String(id || '').trim();
-                        if (s) lineIds.add(s);
-                    }
-                }
-
-                const sids = built?.stopIds instanceof Set ? built.stopIds : null;
-                if (sids) {
-                    for (const sid of sids) {
-                        const s = String(sid || '').trim();
-                        if (s) stopIds.add(s);
-                    }
-                }
-
-                const b = built?.bbox;
-                if (b && Number.isFinite(b.minLng) && Number.isFinite(b.maxLng) && Number.isFinite(b.minLat) && Number.isFinite(b.maxLat)) {
-                    bbox = bbox
-                        ? {
-                            minLng: Math.min(bbox.minLng, b.minLng),
-                            minLat: Math.min(bbox.minLat, b.minLat),
-                            maxLng: Math.max(bbox.maxLng, b.maxLng),
-                            maxLat: Math.max(bbox.maxLat, b.maxLat)
-                        }
-                        : { ...b };
-                }
-            }
-
-            return {
-                lineFc: { type: 'FeatureCollection', features: Array.from(lineFeatureByKey.values()) },
-                stopFc: { type: 'FeatureCollection', features: Array.from(stopFeatureByStationId.values()) },
-                lineIds,
-                stopIds,
-                bbox
-            };
+            return routeFeature.buildMultiTripPreviewAggregate({ buildLineFeatureDedupKey });
         };
-
         const buildTripPreviewAggregateFromPayloadList = (payloadList) => {
             const list = Array.isArray(payloadList) ? payloadList : [];
             const lineFeatureByKey = new Map();
@@ -5189,375 +4809,78 @@ const initMapApp = async () => {
             };
         };
 
-        const buildEndpointStationIdSetFromPayloadList = (payloadList) => {
-            const out = new Set();
-            const list = Array.isArray(payloadList) ? payloadList : [];
+        const routePreviewController = createRoutePreviewController({
+            routeFeature,
+            isMultiSelectModeEnabled,
+            resolveTripPreviewPayloadSource,
+            buildTripPreviewSelectionKey,
+            buildTripPreviewAggregate: buildMultiTripPreviewAggregate,
+            buildTripPreviewAggregateFromPayloadList,
+            buildTripPreviewFeatures,
+            resolveTripPreviewStationOverrideColor,
+            getBaseMultiSelectedLineIds,
+            applyTripPreviewState: ({
+                active,
+                source,
+                stationOverrideColor,
+                stationIds,
+                lineIds
+            } = {}) => {
+                tripPreviewActive = !!active;
+                if (source !== undefined) tripPreviewActiveSource = String(source || '');
+                tripPreviewStationOverrideColor = String(stationOverrideColor || '');
+                tripPreviewStationIds = stationIds || null;
+                tripPreviewLineIds = lineIds || null;
+            },
+            applyTripPreviewInactiveState: () => {
+                tripPreviewActive = false;
+                tripPreviewActiveSource = '';
+                tripPreviewStationIds = null;
+                tripPreviewLineIds = null;
+                tripPreviewStationOverrideColor = '';
+            },
+            getTripPreviewActiveSource: () => tripPreviewActiveSource,
+            clearTripEndpointPopups,
+            updateTripEndpointPopups,
+            syncStationOffsetForTripPreviewState,
+            setStationLabelMode,
+            applySelectionEffects,
+            scheduleLayerCollisionUpdate,
+            previewFitWithSidePanels,
+            emitMultiSelectLayersUpdated,
+            isDirPreviewActive: () => dirPreviewActive,
+            applyDirPreviewState: ({
+                active,
+                lineIds,
+                stationIds
+            } = {}) => {
+                dirPreviewActive = !!active;
+                dirPreviewLineIds = lineIds || null;
+                dirPreviewStationIds = stationIds || null;
+            },
+            applyDirPreviewInactiveState: () => {
+                dirPreviewActive = false;
+                dirPreviewLineIds = null;
+                dirPreviewStationIds = null;
+            },
+            clearDirEndpointPopups,
+            createDirEndpointPopup,
+            addDirOriginPopup: (popup) => {
+                dirPreviewOriginPopups.push(popup);
+            },
+            addDirTerminalPopup: (popup) => {
+                dirPreviewTerminalPopups.push(popup);
+            },
+            bboxFromStationIds
+        });
 
-            for (const payload of list) {
-                const segments = Array.isArray(payload?.segments)
-                    ? payload.segments
-                    : [];
-                if (!segments.length) continue;
-
-                const firstSeg = segments.find((s) => Array.isArray(s?.stationIds) && s.stationIds.length) || null;
-                const lastSeg = (() => {
-                    for (let i = segments.length - 1; i >= 0; i -= 1) {
-                        const seg = segments[i];
-                        if (Array.isArray(seg?.stationIds) && seg.stationIds.length) return seg;
-                    }
-                    return null;
-                })();
-
-                const startId = String(firstSeg?.stationIds?.[0] || '').trim();
-                const endIds = Array.isArray(lastSeg?.stationIds) ? lastSeg.stationIds : [];
-                const endId = String(endIds.length ? endIds[endIds.length - 1] : '').trim();
-
-                if (startId) out.add(startId);
-                if (endId) out.add(endId);
-            }
-
-            return out;
-        };
-
-        const rebuildTripPreviewFromMultiSelections = (fitMode = 'none') => {
-            const aggregate = buildMultiTripPreviewAggregate();
-            const hasVisible = aggregate.lineIds instanceof Set && aggregate.lineIds.size > 0;
-            const hasAnySelection = tripPreviewSelectionsByKey.size > 0;
-
-            ensureTripPreviewLayers();
-            try {
-                routeFeature.setTripPreviewData({ lineFc: aggregate.lineFc, stopFc: aggregate.stopFc });
-            } catch {
-                // ignore
-            }
-
-            clearTripEndpointPopups();
-
-            tripPreviewActive = hasVisible;
-            tripPreviewStationIds = hasVisible ? aggregate.stopIds : null;
-            tripPreviewLineIds = hasVisible ? aggregate.lineIds : null;
-            tripPreviewStationOverrideColor = '';
-            syncStationOffsetForTripPreviewState();
-
-            if (!hasVisible) {
-                setStationLabelMode(getBaseMultiSelectedLineIds().size ? 'all' : 'auto');
-                applySelectionEffects();
-                scheduleLayerCollisionUpdate();
-                routeFeature.notifyTripPreviewCleared();
-                emitMultiSelectLayersUpdated();
-                return;
-            }
-
-            const payloadForExport = hasAnySelection && tripPreviewSelectionsByKey.size === 1
-                ? Array.from(tripPreviewSelectionsByKey.values())[0]?.payload
-                : {
-                    selectedLineId: 'multi',
-                    tripKey: Array.from(tripPreviewSelectionsByKey.keys()).join(' + ')
-                };
-
-            routeFeature.notifyTripPreviewUpdated({ payload: payloadForExport, built: aggregate });
-
-            setStationLabelMode('all');
-            applySelectionEffects();
-            scheduleLayerCollisionUpdate();
-            if (fitMode !== 'none' && aggregate.bbox) {
-                previewFitWithSidePanels(aggregate.bbox);
-            }
-            emitMultiSelectLayersUpdated();
-        };
-
-        clearDirHeaderPreview = () => {
-            if (!dirPreviewActive) return;
-            dirPreviewActive = false;
-            dirPreviewLineIds = null;
-            dirPreviewStationIds = null;
-            clearDirEndpointPopups();
-            applySelectionEffects();
-            scheduleLayerCollisionUpdate();
-        };
-
-        previewDirHeader = (payload) => {
-            const lineId = String(payload?.lineId || '').trim();
-            const fitMode = String(payload?.fitMode || 'preview').trim() || 'preview';
-            if (!lineId) {
-                clearDirHeaderPreview();
-                return;
-            }
-
-            const originIds = Array.isArray(payload?.originStationIds)
-                ? payload.originStationIds.map((x) => String(x).trim()).filter(Boolean)
-                : [];
-            const terminalIds = Array.isArray(payload?.terminalStationIds)
-                ? payload.terminalStationIds.map((x) => String(x).trim()).filter(Boolean)
-                : [];
-            const currentIds = Array.isArray(payload?.currentStationIds)
-                ? payload.currentStationIds.map((x) => String(x).trim()).filter(Boolean)
-                : [];
-
-            const stationIds = new Set([...originIds, ...terminalIds, ...currentIds]);
-            dirPreviewActive = true;
-            dirPreviewLineIds = new Set([lineId]);
-            if (payload && Array.isArray(payload.sourceLineIds) && payload.sourceLineIds.length) {
-                payload.sourceLineIds.forEach(id => dirPreviewLineIds.add(String(id)));
-            }
-            dirPreviewStationIds = stationIds;
-
-            clearDirEndpointPopups();
-            const roleMap = new Map();
-            for (const sid of originIds) {
-                if (!roleMap.has(sid)) roleMap.set(sid, new Set());
-                roleMap.get(sid).add('origin');
-            }
-            for (const sid of terminalIds) {
-                if (!roleMap.has(sid)) roleMap.set(sid, new Set());
-                roleMap.get(sid).add('terminal');
-            }
-
-            for (const [sid, roles] of roleMap.entries()) {
-                const hasOrigin = roles.has('origin');
-                const hasTerminal = roles.has('terminal');
-                if (hasOrigin) {
-                    const popup = createDirEndpointPopup({
-                        stationId: sid,
-                        text: '始发站',
-                        color: '#1A9B2D',
-                        yOffset: 10
-                    });
-                    if (popup) dirPreviewOriginPopups.push(popup);
-                }
-                if (hasTerminal) {
-                    const popup = createDirEndpointPopup({
-                        stationId: sid,
-                        text: '终点站',
-                        color: '#D32F2F',
-                        yOffset: hasOrigin ? 30 : 10
-                    });
-                    if (popup) dirPreviewTerminalPopups.push(popup);
-                }
-            }
-
-            applySelectionEffects();
-            scheduleLayerCollisionUpdate();
-
-            if (fitMode !== 'none') {
-                const fitBbox = bboxFromStationIds(Array.from(stationIds));
-                previewFitWithSidePanels(fitBbox);
-            }
-        };
-
-        clearTripPathPreview = (options = {}) => {
-            const targetSource = String(options?.source || '').trim();
-
-            if (targetSource && isMultiSelectModeEnabled()) {
-                let removed = false;
-                for (const [key, entry] of tripPreviewSelectionsByKey.entries()) {
-                    const source = String(entry?.source || resolveTripPreviewPayloadSource(entry?.payload) || '').trim();
-                    if (source !== targetSource) continue;
-                    tripPreviewSelectionsByKey.delete(key);
-                    removed = true;
-                }
-                if (removed) {
-                    rebuildTripPreviewFromMultiSelections('none');
-                }
-                return;
-            }
-
-            if (targetSource && !isMultiSelectModeEnabled()) {
-                const currentSource = String(tripPreviewActiveSource || '').trim();
-                if (currentSource && currentSource !== targetSource) return;
-            }
-
-            tripPreviewActive = false;
-            tripPreviewActiveSource = '';
-            tripPreviewStationIds = null;
-            tripPreviewLineIds = null;
-            tripPreviewStationOverrideColor = '';
-            tripPreviewSelectionsByKey = new Map();
-            resetTripPreviewLayers();
-            clearTripEndpointPopups();
-            syncStationOffsetForTripPreviewState();
-            setStationLabelMode('auto');
-            applySelectionEffects();
-            scheduleLayerCollisionUpdate();
-
-            routeFeature.notifyTripPreviewCleared();
-            emitMultiSelectLayersUpdated();
-        };
-
-        previewTripPath = (payload) => {
-            if (!payload || !Array.isArray(payload?.segments) || !payload.segments.length) {
-                const virtualTrips = Array.isArray(payload?.virtualTrips)
-                    ? payload.virtualTrips.filter((x) => x && Array.isArray(x?.segments) && x.segments.length)
-                    : [];
-                if (!virtualTrips.length) {
-                    clearTripPathPreview();
-                    return;
-                }
-            }
-
-            const fitMode = String(payload?.fitMode || 'preview').trim() || 'preview';
-            const payloadSource = resolveTripPreviewPayloadSource(payload);
-            const previewInteraction = String(payload?.__previewInteraction || payload?.previewInteraction || '').trim() || '';
-            const virtualTrips = Array.isArray(payload?.virtualTrips)
-                ? payload.virtualTrips.filter((x) => x && Array.isArray(x?.segments) && x.segments.length)
-                : [];
-
-            if (virtualTrips.length) {
-                if (isMultiSelectModeEnabled()) {
-                    if (previewInteraction === 'hover') {
-                        return;
-                    }
-
-                    const selectionKey = buildTripPreviewSelectionKey(payload);
-                    if (!selectionKey) return;
-
-                    const aggregate = buildTripPreviewAggregateFromPayloadList(virtualTrips);
-                    const hasVisible = aggregate.lineIds instanceof Set && aggregate.lineIds.size > 0;
-                    if (!hasVisible) {
-                        tripPreviewSelectionsByKey.delete(selectionKey);
-                        rebuildTripPreviewFromMultiSelections('none');
-                        return;
-                    }
-
-                    tripPreviewSelectionsByKey.set(selectionKey, {
-                        payload: { ...(payload || {}) },
-                        built: {
-                            lineFc: aggregate.lineFc,
-                            stopFc: aggregate.stopFc,
-                            lineIds: aggregate.lineIds,
-                            stopIds: aggregate.stopIds,
-                            startStationId: aggregate.startStationId,
-                            endStationId: aggregate.endStationId,
-                            bbox: aggregate.bbox
-                        },
-                        source: payloadSource,
-                        hidden: false
-                    });
-
-                    rebuildTripPreviewFromMultiSelections(fitMode);
-                    return;
-                }
-
-                ensureTripPreviewLayers();
-                const aggregate = buildTripPreviewAggregateFromPayloadList(virtualTrips);
-                const hasVisible = aggregate.lineIds instanceof Set && aggregate.lineIds.size > 0;
-
-                if (!hasVisible) {
-                    clearTripPathPreview({ source: payloadSource || '' });
-                    return;
-                }
-
-                tripPreviewActive = true;
-                tripPreviewActiveSource = payloadSource;
-                tripPreviewStationOverrideColor = resolveTripPreviewStationOverrideColor(payload, payloadSource);
-                if (payloadSource === 'panel-dir-branch') {
-                    const explicitHighlightIds = new Set(
-                        (Array.isArray(payload?.highlightStationIds) ? payload.highlightStationIds : [])
-                            .map((x) => String(x || '').trim())
-                            .filter(Boolean)
-                    );
-                    if (explicitHighlightIds.size) {
-                        tripPreviewStationIds = explicitHighlightIds;
-                    } else {
-                        const endpointIds = buildEndpointStationIdSetFromPayloadList(virtualTrips);
-                        tripPreviewStationIds = endpointIds.size ? endpointIds : aggregate.stopIds;
-                    }
-                } else {
-                    tripPreviewStationIds = aggregate.stopIds;
-                }
-            tripPreviewLineIds = aggregate.lineIds;
-            syncStationOffsetForTripPreviewState();
-
-            try {
-                    routeFeature.setTripPreviewData({ lineFc: aggregate.lineFc, stopFc: aggregate.stopFc });
-            } catch {
-                // ignore
-            }
-
-            clearTripEndpointPopups();
-
-                routeFeature.notifyTripPreviewUpdated({ payload, built: aggregate });
-
-                setStationLabelMode('all');
-                applySelectionEffects();
-                scheduleLayerCollisionUpdate();
-                if (fitMode !== 'none') {
-                    previewFitWithSidePanels(aggregate.bbox);
-                }
-                return;
-            }
-
-            if (isMultiSelectModeEnabled()) {
-                if (previewInteraction === 'hover') {
-                    return;
-                }
-                const selectionKey = buildTripPreviewSelectionKey(payload);
-                if (!selectionKey) return;
-
-                if (tripPreviewSelectionsByKey.has(selectionKey)) {
-                    tripPreviewSelectionsByKey.delete(selectionKey);
-                } else {
-                    const builtSingle = buildTripPreviewFeatures(payload);
-                    tripPreviewSelectionsByKey.set(selectionKey, {
-                        payload: { ...(payload || {}) },
-                        built: builtSingle,
-                        source: payloadSource,
-                        hidden: false
-                    });
-                }
-
-                rebuildTripPreviewFromMultiSelections(fitMode);
-                return;
-            }
-
-            ensureTripPreviewLayers();
-            const built = buildTripPreviewFeatures(payload);
-            tripPreviewActive = true;
-            tripPreviewActiveSource = payloadSource;
-            tripPreviewStationOverrideColor = resolveTripPreviewStationOverrideColor(payload, payloadSource);
-            tripPreviewStationIds = built.stopIds;
-            tripPreviewLineIds = built.lineIds;
-            syncStationOffsetForTripPreviewState();
-
-            try {
-                routeFeature.setTripPreviewData({ lineFc: built.lineFc, stopFc: built.stopFc });
-            } catch {
-                // ignore
-            }
-
-            updateTripEndpointPopups(built.startStationId, built.endStationId);
-
-            routeFeature.notifyTripPreviewUpdated({ payload, built });
-
-            setStationLabelMode('all');
-            applySelectionEffects();
-            scheduleLayerCollisionUpdate();
-            if (fitMode !== 'none') {
-                previewFitWithSidePanels(built.bbox);
-            }
-        };
-
-        const toggleTripPreviewSelectionVisibility = (key) => {
-            const k = String(key || '').trim();
-            if (!k || !tripPreviewSelectionsByKey.has(k)) return false;
-            const current = tripPreviewSelectionsByKey.get(k) || {};
-            tripPreviewSelectionsByKey.set(k, {
-                ...current,
-                hidden: !(current?.hidden === true)
-            });
-            rebuildTripPreviewFromMultiSelections('none');
-            return true;
-        };
-
-        const removeTripPreviewSelection = (key) => {
-            const k = String(key || '').trim();
-            if (!k) return false;
-            const removed = tripPreviewSelectionsByKey.delete(k);
-            if (!removed) return false;
-            rebuildTripPreviewFromMultiSelections('none');
-            return true;
-        };
-
+        const rebuildTripPreviewFromMultiSelections = routePreviewController.rebuildTripPreviewFromMultiSelections;
+        clearTripPathPreview = routePreviewController.clearTripPathPreview;
+        previewTripPath = routePreviewController.previewTripPath;
+        clearDirHeaderPreview = routePreviewController.clearDirHeaderPreview;
+        previewDirHeader = routePreviewController.previewDirHeader;
+        const toggleTripPreviewSelectionVisibility = routePreviewController.toggleTripPreviewSelectionVisibility;
+        const removeTripPreviewSelection = routePreviewController.removeTripPreviewSelection;
         const parseMultiSelectItemScope = (id) => {
             const raw = String(id || '').trim();
             if (!raw) return null;
