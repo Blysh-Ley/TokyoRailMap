@@ -1,5 +1,34 @@
 const toText = (v) => String(v ?? '').trim();
 
+const isMapEngineLike = (value) => Boolean(
+    value
+    && typeof value.addLayer === 'function'
+    && typeof value.addSource === 'function'
+    && typeof value.getLayer === 'function'
+);
+
+const resolveMapAdapter = (mapOrEngine) => ({
+    addLayer: (...args) => mapOrEngine?.addLayer?.(...args),
+    addSource: (...args) => mapOrEngine?.addSource?.(...args),
+    getLayer: (layerId) => mapOrEngine?.getLayer?.(layerId),
+    getSource: (sourceId) => mapOrEngine?.getSource?.(sourceId),
+    hasLayer: (layerId) => (
+        isMapEngineLike(mapOrEngine) && typeof mapOrEngine.hasLayer === 'function'
+            ? mapOrEngine.hasLayer(layerId)
+            : Boolean(layerId && mapOrEngine?.getLayer?.(layerId))
+    ),
+    setFilter: (...args) => mapOrEngine?.setFilter?.(...args),
+    setPaintProperty: (...args) => mapOrEngine?.setPaintProperty?.(...args),
+    setSourceData: (sourceId, data) => {
+        if (typeof mapOrEngine?.setSourceData === 'function') {
+            return mapOrEngine.setSourceData(sourceId, data);
+        }
+        const source = mapOrEngine?.getSource?.(sourceId);
+        source?.setData?.(data);
+        return source;
+    }
+});
+
 const buildZoomBasedExponentialSizeExpr = (sizeAtZoom12, sizeAtZoom16, options = {}) => {
     const zBase = Number.isFinite(options.zoomBase) ? Number(options.zoomBase) : 12;
     const zMax = Number.isFinite(options.zoomMax) ? Number(options.zoomMax) : 16;
@@ -358,7 +387,8 @@ export function buildTransferCapsuleGeoJSON(stationsData, stationGroups, options
     };
 }
 
-export function addTransferCapsuleLayers(map, data, options = {}) {
+export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
+    const mapAdapter = resolveMapAdapter(mapOrEngine);
     const ids = {
         lineSourceId: options.lineSourceId || 'transfer-capsule-lines-source',
         centroidSourceId: options.centroidSourceId || 'transfer-capsule-centroids-source',
@@ -420,28 +450,28 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
         22, 10
     ];
 
-    // If the requested before layer does not exist yet, avoid passing it to map.addLayer to
+    // If the requested before layer does not exist yet, avoid passing it to addLayer to
     // prevent MapLibre from throwing. We'll add layers at the top-level in that case.
-    const insertBefore = map.getLayer(beforeLayerId) ? beforeLayerId : undefined;
+    const insertBefore = mapAdapter.hasLayer(beforeLayerId) ? beforeLayerId : undefined;
 
-    if (!map.getSource(ids.lineSourceId)) {
-        map.addSource(ids.lineSourceId, {
+    if (!mapAdapter.getSource(ids.lineSourceId)) {
+        mapAdapter.addSource(ids.lineSourceId, {
             type: 'geojson',
             data: data?.lines || { type: 'FeatureCollection', features: [] },
             tolerance: 0,
             buffer: 0
         });
     } else {
-        map.getSource(ids.lineSourceId).setData(data?.lines || { type: 'FeatureCollection', features: [] });
+        mapAdapter.setSourceData(ids.lineSourceId, data?.lines || { type: 'FeatureCollection', features: [] });
     }
 
-    if (!map.getSource(ids.centroidSourceId)) {
-        map.addSource(ids.centroidSourceId, {
+    if (!mapAdapter.getSource(ids.centroidSourceId)) {
+        mapAdapter.addSource(ids.centroidSourceId, {
             type: 'geojson',
             data: data?.centroids || { type: 'FeatureCollection', features: [] }
         });
     } else {
-        map.getSource(ids.centroidSourceId).setData(data?.centroids || { type: 'FeatureCollection', features: [] });
+        mapAdapter.setSourceData(ids.centroidSourceId, data?.centroids || { type: 'FeatureCollection', features: [] });
     }
 
     const getThemeCapsuleColors = () => {
@@ -459,21 +489,21 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
 
     const applyCapsulePaintColors = () => {
         const cols = getThemeCapsuleColors();
-        if (map.getLayer(ids.slaveOutlineLayerId)) {
-            try { map.setPaintProperty(ids.slaveOutlineLayerId, 'line-color', cols.outline); } catch {}
-            try { map.setPaintProperty(ids.slaveOutlineLayerId, 'line-opacity', 1); } catch {}
+        if (mapAdapter.hasLayer(ids.slaveOutlineLayerId)) {
+            try { mapAdapter.setPaintProperty(ids.slaveOutlineLayerId, 'line-color', cols.outline); } catch {}
+            try { mapAdapter.setPaintProperty(ids.slaveOutlineLayerId, 'line-opacity', 1); } catch {}
         }
-        if (map.getLayer(ids.slaveInnerLayerId)) {
-            try { map.setPaintProperty(ids.slaveInnerLayerId, 'line-color', cols.inner); } catch {}
-            try { map.setPaintProperty(ids.slaveInnerLayerId, 'line-opacity', 1); } catch {}
+        if (mapAdapter.hasLayer(ids.slaveInnerLayerId)) {
+            try { mapAdapter.setPaintProperty(ids.slaveInnerLayerId, 'line-color', cols.inner); } catch {}
+            try { mapAdapter.setPaintProperty(ids.slaveInnerLayerId, 'line-opacity', 1); } catch {}
         }
-        if (map.getLayer(ids.fallbackCircleOutlineLayerId)) {
-            try { map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-color', cols.outline); } catch {}
-            try { map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-opacity', 1); } catch {}
+        if (mapAdapter.hasLayer(ids.fallbackCircleOutlineLayerId)) {
+            try { mapAdapter.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-color', cols.outline); } catch {}
+            try { mapAdapter.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-opacity', 1); } catch {}
         }
-        if (map.getLayer(ids.fallbackCircleInnerLayerId)) {
-            try { map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-color', cols.inner); } catch {}
-            try { map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-opacity', 1); } catch {}
+        if (mapAdapter.hasLayer(ids.fallbackCircleInnerLayerId)) {
+            try { mapAdapter.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-color', cols.inner); } catch {}
+            try { mapAdapter.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-opacity', 1); } catch {}
         }
     };
 
@@ -489,7 +519,7 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
         // ignore
     }
 
-    if (!map.getLayer(ids.slaveOutlineLayerId)) {
+    if (!mapAdapter.hasLayer(ids.slaveOutlineLayerId)) {
         const layerDef = {
             id: ids.slaveOutlineLayerId,
             type: 'line',
@@ -506,15 +536,15 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
                 'line-width': buildZoomBasedExponentialSizeExpr(12, 24)
             }
         };
-        if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
+        if (insertBefore) mapAdapter.addLayer(layerDef, insertBefore); else mapAdapter.addLayer(layerDef);
     } else {
-        map.setPaintProperty(ids.slaveOutlineLayerId, 'line-color', getThemeCapsuleColors().outline);
-        map.setPaintProperty(ids.slaveOutlineLayerId, 'line-opacity', 1);
-        map.setPaintProperty(ids.slaveOutlineLayerId, 'line-width', buildZoomBasedExponentialSizeExpr(12, 24));
-        map.setFilter(ids.slaveOutlineLayerId, ['!=', ['get', 'fallbackCircle'], 1]);
+        mapAdapter.setPaintProperty(ids.slaveOutlineLayerId, 'line-color', getThemeCapsuleColors().outline);
+        mapAdapter.setPaintProperty(ids.slaveOutlineLayerId, 'line-opacity', 1);
+        mapAdapter.setPaintProperty(ids.slaveOutlineLayerId, 'line-width', buildZoomBasedExponentialSizeExpr(12, 24));
+        mapAdapter.setFilter(ids.slaveOutlineLayerId, ['!=', ['get', 'fallbackCircle'], 1]);
     }
 
-    if (!map.getLayer(ids.slaveInnerLayerId)) {
+    if (!mapAdapter.hasLayer(ids.slaveInnerLayerId)) {
         const layerDef = {
             id: ids.slaveInnerLayerId,
             type: 'line',
@@ -531,15 +561,15 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
                 'line-width': buildZoomBasedExponentialSizeExpr(8, 14)
             }
         };
-        if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
+        if (insertBefore) mapAdapter.addLayer(layerDef, insertBefore); else mapAdapter.addLayer(layerDef);
     } else {
-        map.setPaintProperty(ids.slaveInnerLayerId, 'line-color', getThemeCapsuleColors().inner);
-        map.setPaintProperty(ids.slaveInnerLayerId, 'line-opacity', 1);
-        map.setPaintProperty(ids.slaveInnerLayerId, 'line-width', buildZoomBasedExponentialSizeExpr(8, 14));
-        map.setFilter(ids.slaveInnerLayerId, ['!=', ['get', 'fallbackCircle'], 1]);
+        mapAdapter.setPaintProperty(ids.slaveInnerLayerId, 'line-color', getThemeCapsuleColors().inner);
+        mapAdapter.setPaintProperty(ids.slaveInnerLayerId, 'line-opacity', 1);
+        mapAdapter.setPaintProperty(ids.slaveInnerLayerId, 'line-width', buildZoomBasedExponentialSizeExpr(8, 14));
+        mapAdapter.setFilter(ids.slaveInnerLayerId, ['!=', ['get', 'fallbackCircle'], 1]);
     }
 
-    if (!map.getLayer(ids.fallbackCircleOutlineLayerId)) {
+    if (!mapAdapter.hasLayer(ids.fallbackCircleOutlineLayerId)) {
         const layerDef = {
             id: ids.fallbackCircleOutlineLayerId,
             type: 'circle',
@@ -552,15 +582,15 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
                 'circle-radius': buildZoomBasedExponentialSizeExpr(6.8, 11.5)
             }
         };
-        if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
+        if (insertBefore) mapAdapter.addLayer(layerDef, insertBefore); else mapAdapter.addLayer(layerDef);
     } else {
-        map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-color', getThemeCapsuleColors().outline);
-        map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-opacity', 1);
-        map.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-radius', buildZoomBasedExponentialSizeExpr(6.8, 11.5));
-        map.setFilter(ids.fallbackCircleOutlineLayerId, ['==', ['get', 'fallbackCircle'], 1]);
+        mapAdapter.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-color', getThemeCapsuleColors().outline);
+        mapAdapter.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-opacity', 1);
+        mapAdapter.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-radius', buildZoomBasedExponentialSizeExpr(6.8, 11.5));
+        mapAdapter.setFilter(ids.fallbackCircleOutlineLayerId, ['==', ['get', 'fallbackCircle'], 1]);
     }
 
-    if (!map.getLayer(ids.fallbackCircleInnerLayerId)) {
+    if (!mapAdapter.hasLayer(ids.fallbackCircleInnerLayerId)) {
         const layerDef = {
             id: ids.fallbackCircleInnerLayerId,
             type: 'circle',
@@ -573,16 +603,16 @@ export function addTransferCapsuleLayers(map, data, options = {}) {
                 'circle-radius': buildZoomBasedExponentialSizeExpr(5.0, 8.6)
             }
         };
-        if (insertBefore) map.addLayer(layerDef, insertBefore); else map.addLayer(layerDef);
+        if (insertBefore) mapAdapter.addLayer(layerDef, insertBefore); else mapAdapter.addLayer(layerDef);
     } else {
-        map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-color', getThemeCapsuleColors().inner);
-        map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-opacity', 1);
-        map.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-radius', buildZoomBasedExponentialSizeExpr(5.0, 8.6));
-        map.setFilter(ids.fallbackCircleInnerLayerId, ['==', ['get', 'fallbackCircle'], 1]);
+        mapAdapter.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-color', getThemeCapsuleColors().inner);
+        mapAdapter.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-opacity', 1);
+        mapAdapter.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-radius', buildZoomBasedExponentialSizeExpr(5.0, 8.6));
+        mapAdapter.setFilter(ids.fallbackCircleInnerLayerId, ['==', ['get', 'fallbackCircle'], 1]);
     }
 
-    if (!map.getLayer(ids.masterLayerId)) {
-        map.addLayer({
+    if (!mapAdapter.hasLayer(ids.masterLayerId)) {
+        mapAdapter.addLayer({
             id: ids.masterLayerId,
             type: 'circle',
             source: ids.centroidSourceId,

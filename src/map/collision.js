@@ -21,8 +21,20 @@ function measureLabelSize(label) {
     label.height = Math.max(1, label.el.offsetHeight);
 }
 
-function getLabelBBox(map, label) {
-    const p = map.project(label.coordinates);
+const resolveMapAdapter = (mapOrEngine) => ({
+    getZoom: () => mapOrEngine?.getZoom?.(),
+    hasLayer: (layerId) => (
+        typeof mapOrEngine?.hasLayer === 'function'
+            ? mapOrEngine.hasLayer(layerId)
+            : Boolean(layerId && mapOrEngine?.getLayer?.(layerId))
+    ),
+    on: (...args) => mapOrEngine?.on?.(...args),
+    project: (...args) => mapOrEngine?.project?.(...args),
+    setFilter: (...args) => mapOrEngine?.setFilter?.(...args)
+});
+
+function getLabelBBox(mapAdapter, label) {
+    const p = mapAdapter.project(label.coordinates);
     const w = label.width;
     const h = label.height;
     const left = p.x - w / 2;
@@ -74,7 +86,8 @@ function circleStrokeWidthPxForStation(priority) {
  * - 文字：直接通过 DOM 的 display 控制显示/隐藏
  * - 圆点：通过 setFilter 过滤 stations-layer 中可见的站点 id
  */
-export function setupCollisions(map, stationLabels, stationCircles, options = {}) {
+export function setupCollisions(mapOrEngine, stationLabels, stationCircles, options = {}) {
+    const mapAdapter = resolveMapAdapter(mapOrEngine);
     const gridCellPx = options.gridCellPx ?? 80;
     const getEnabledLineIds = options.getEnabledLineIds;
     const getLabelsVisible = options.getLabelsVisible;
@@ -124,10 +137,10 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             : ['all', ['==', ['get', 'fallbackCircle'], 1], ['==', ['get', 'groupId'], '']];
 
         try {
-            if (map.getLayer('transfer-capsule-outline-layer')) map.setFilter('transfer-capsule-outline-layer', lineFilter);
-            if (map.getLayer('transfer-capsule-inner-layer')) map.setFilter('transfer-capsule-inner-layer', lineFilter);
-            if (map.getLayer('transfer-capsule-fallback-circle-outline-layer')) map.setFilter('transfer-capsule-fallback-circle-outline-layer', fallbackFilter);
-            if (map.getLayer('transfer-capsule-fallback-circle-inner-layer')) map.setFilter('transfer-capsule-fallback-circle-inner-layer', fallbackFilter);
+            if (mapAdapter.hasLayer('transfer-capsule-outline-layer')) mapAdapter.setFilter('transfer-capsule-outline-layer', lineFilter);
+            if (mapAdapter.hasLayer('transfer-capsule-inner-layer')) mapAdapter.setFilter('transfer-capsule-inner-layer', lineFilter);
+            if (mapAdapter.hasLayer('transfer-capsule-fallback-circle-outline-layer')) mapAdapter.setFilter('transfer-capsule-fallback-circle-outline-layer', fallbackFilter);
+            if (mapAdapter.hasLayer('transfer-capsule-fallback-circle-inner-layer')) mapAdapter.setFilter('transfer-capsule-fallback-circle-inner-layer', fallbackFilter);
         } catch {
             // ignore
         }
@@ -273,7 +286,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
                 return;
             }
 
-            const bbox = getLabelBBox(map, label);
+            const bbox = getLabelBBox(mapAdapter, label);
             const minCx = Math.floor(bbox.left / gridCellPx);
             const maxCx = Math.floor(bbox.right / gridCellPx);
             const minCy = Math.floor(bbox.top / gridCellPx);
@@ -310,7 +323,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
         });
 
         const shouldApplyLowZoomThin = shouldThinAutoLabels?.() === true
-            && map.getZoom() < lowZoomLabelThinMaxZoom
+            && mapAdapter.getZoom() < lowZoomLabelThinMaxZoom
             && visibleAfterCollision.length > 0;
 
         if (!shouldApplyLowZoomThin) {
@@ -328,7 +341,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
 
     function updateStationCircleVisibility() {
         if (!stationCircles.length) return;
-        if (!map.getLayer('stations-layer')) return;
+        if (!mapAdapter.hasLayer('stations-layer')) return;
 
         const hiddenExpr = ['!=', ['get', 'hidden_by_opacity_zero'], 1];
 
@@ -358,7 +371,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             }
 
             if (!visibleIds.length) {
-                map.setFilter('stations-layer', ['all', hiddenExpr, ['==', ['get', 'id'], '']]);
+                mapAdapter.setFilter('stations-layer', ['all', hiddenExpr, ['==', ['get', 'id'], '']]);
                 applyTransferCapsuleGroupFilter([]);
                 try {
                     onCircleCollisionResolved?.({
@@ -371,7 +384,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
                 return;
             }
 
-            map.setFilter('stations-layer', ['all', hiddenExpr, ['in', ['get', 'id'], ['literal', visibleIds]]]);
+            mapAdapter.setFilter('stations-layer', ['all', hiddenExpr, ['in', ['get', 'id'], ['literal', visibleIds]]]);
             applyTransferCapsuleGroupFilter(Array.from(visibleCapsuleGroupKeys));
             try {
                 onCircleCollisionResolved?.({
@@ -419,7 +432,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
         const sorted = Array.from(entityByKey.values())
             .sort((a, b) => (b.transferCount - a.transferCount) || (b.priority - a.priority) || String(a.key).localeCompare(String(b.key)));
 
-        const zoom = map.getZoom();
+        const zoom = mapAdapter.getZoom();
         const grid = new Map();
         const visibleIds = new Set();
         const visibleCapsuleGroupKeys = new Set();
@@ -435,7 +448,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
                 let minY = Number.POSITIVE_INFINITY;
                 let maxY = Number.NEGATIVE_INFINITY;
                 for (const c of entity.points) {
-                    const p = map.project(c);
+                    const p = mapAdapter.project(c);
                     minX = Math.min(minX, p.x);
                     maxX = Math.max(maxX, p.x);
                     minY = Math.min(minY, p.y);
@@ -453,7 +466,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
                 const radius = circleRadiusPxForStation(zoom, entity.priority);
                 const strokePadding = circleStrokeWidthPxForStation(entity.priority);
                 const r = radius + strokePadding;
-                const p = map.project(entity.points[0]);
+                const p = mapAdapter.project(entity.points[0]);
                 bbox = {
                     left: p.x - r,
                     right: p.x + r,
@@ -501,7 +514,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
         });
 
         if (!visibleIds.size) {
-            map.setFilter('stations-layer', ['all', hiddenExpr, ['==', ['get', 'id'], '']]);
+            mapAdapter.setFilter('stations-layer', ['all', hiddenExpr, ['==', ['get', 'id'], '']]);
             applyTransferCapsuleGroupFilter([]);
             try {
                 onCircleCollisionResolved?.({
@@ -514,7 +527,7 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
             return;
         }
 
-        map.setFilter('stations-layer', ['all', hiddenExpr, ['in', ['get', 'id'], ['literal', Array.from(visibleIds)]]]);
+        mapAdapter.setFilter('stations-layer', ['all', hiddenExpr, ['in', ['get', 'id'], ['literal', Array.from(visibleIds)]]]);
         applyTransferCapsuleGroupFilter(Array.from(visibleCapsuleGroupKeys));
         try {
             onCircleCollisionResolved?.({
@@ -536,9 +549,9 @@ export function setupCollisions(map, stationLabels, stationCircles, options = {}
     }
 
     scheduleUpdate();
-    map.on('move', scheduleUpdate);
-    map.on('zoom', scheduleUpdate);
-    map.on('resize', scheduleUpdate);
+    mapAdapter.on('move', scheduleUpdate);
+    mapAdapter.on('zoom', scheduleUpdate);
+    mapAdapter.on('resize', scheduleUpdate);
 
     return { scheduleUpdate };
 }

@@ -5579,7 +5579,7 @@ const initMapApp = async () => {
             toTransferCapsuleVisibleKey,
             buildTransferCapsuleGeoJSON,
             renderTransferCapsules: (transferCapsuleData) => {
-                addTransferCapsuleLayers(map, transferCapsuleData, {
+                addTransferCapsuleLayers(mapEngine, transferCapsuleData, {
                     beforeLayerId: 'stations-layer',
                     minZoom: 8
                 });
@@ -5589,7 +5589,7 @@ const initMapApp = async () => {
                 if (!id) return '';
                 return resolveRailColorForTheme(lineColorById.get(id) || '') || '';
             },
-            createCollisionController: (labels, circles, options) => setupCollisions(map, labels, circles, options),
+            createCollisionController: (labels, circles, options) => setupCollisions(mapEngine, labels, circles, options),
             scheduleCollisionUpdate: () => collisionController?.scheduleUpdate?.(),
             collisionConfig: {
                 transferGroupByStationId: transferStationIdsByStationId,
