@@ -57,7 +57,6 @@ import {
     writeAdaptiveViewportEnabled,
     writeAppearanceMode,
     writeAutoUpdateCheckEnabled,
-    writeBasemapMode,
     writeHoverPreviewEnabled,
     writeStationOffsetMode,
     writeTimetableViewMode
@@ -79,6 +78,7 @@ import { createSearchMapBridge } from './features/search/searchMapBridge.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
 import { createSearchSelectionController } from './features/search/searchSelectionController.js';
 import { createSegmentedSettingRow } from './features/settings/settingRows.js';
+import { mountBasemapToggle } from './features/settings/settingsControls.js';
 import { createSettingsMenu } from './features/settings/settingsMenu.js';
 import {
     buildTripPreviewSelectionKey as buildRoutePreviewSelectionKey,
@@ -3393,34 +3393,6 @@ const initMapApp = async () => {
         setThemeMode(readAppearanceMode());
     }
 
-    function mountBasemapToggle(hostEl) {
-        const row = createSegmentedSettingRow({
-            hostEl,
-            className: 'settings-item-basemap',
-            title: '地图底图',
-            options: [
-                { value: 'carto', label: 'Carto' },
-                { value: 'ost', label: 'OST' },
-                { value: 'transparent', label: '透明' }
-            ]
-        });
-        const btnCarto = row.buttons.get('carto');
-        const btnOst = row.buttons.get('ost');
-        const btnTransparent = row.buttons.get('transparent');
-
-        const setMode = (mode) => {
-            const m = writeBasemapMode(mode);
-            row.setActive(m);
-            setBasemapMode(m);
-        };
-
-        btnCarto.addEventListener('click', () => setMode('carto'));
-        btnOst.addEventListener('click', () => setMode('ost'));
-        btnTransparent.addEventListener('click', () => setMode('transparent'));
-
-        setMode(readBasemapMode());
-    }
-
     function mountAutoUpdateToggle(hostEl) {
         const electronApi = window?.TokyoRailElectron;
         const hasElectronApi = !!(
@@ -3663,7 +3635,10 @@ const initMapApp = async () => {
 
     mountAppearanceToggle(settingsMenuContentEl);
     mountAutoUpdateToggle(settingsMenuContentEl);
-    mountBasemapToggle(settingsMenuContentEl);
+    mountBasemapToggle({
+        hostEl: settingsMenuContentEl,
+        onModeChanged: setBasemapMode
+    });
     mountTimetableViewToggle(settingsMenuContentEl);
     mountAdaptiveViewportToggle(settingsMenuContentEl);
     mountStationOffsetToggle(settingsMenuContentEl);
