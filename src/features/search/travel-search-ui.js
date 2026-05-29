@@ -1305,25 +1305,6 @@ export function mountTravelSearchUI() {
             segments,
             toHHMM
         });
-
-        /*
-        const firstSeg = segments[0];
-        const lastSeg = segments[segments.length - 1];
-        const firstLeg = legs[0] || null;
-
-        return {
-            tripKey: normalizeText(firstLeg?.tripKey || `${toHHMM(displayPlan?.firstDepMs)}-${toHHMM(displayPlan?.arrivalMs)}`),
-            selectedLineId: normalizeText(firstSeg?.lineId),
-            mainLineId: normalizeText(firstSeg?.lineId),
-            originStationId: normalizeText(row?.originStationId || firstSeg?.stationIds?.[0]),
-            mainTerminalStationId: normalizeText(firstSeg?.stationIds?.[firstSeg.stationIds.length - 1]),
-            terminalStationId: normalizeText(lastSeg?.stationIds?.[lastSeg.stationIds.length - 1]),
-            typeName: normalizeText(firstLeg?.typeName || '普通'),
-            hasNt: false,
-            fitMode: 'preview',
-            segments
-        };
-        */
     };
 
     const getDisplayPlanForRow = async (row) => {
@@ -1345,62 +1326,6 @@ export function mountTravelSearchUI() {
             sections: sectionListForDisplay
         });
         return row.__displayPlan;
-
-        /*
-        const firstLeg = expandedLegs[0] || null;
-        const lastLeg = expandedLegs[expandedLegs.length - 1] || null;
-
-        const firstDepMs = Number.isFinite(Number(firstLeg?.depMs))
-            ? Number(firstLeg.depMs)
-            : (Number.isFinite(Number(row.plan.firstDepMs)) ? Number(row.plan.firstDepMs) : null);
-        let arrivalMs = Number.isFinite(Number(lastLeg?.arrMs))
-            ? Number(lastLeg.arrMs)
-            : (Number.isFinite(Number(row.plan.arrivalMs)) ? Number(row.plan.arrivalMs) : null);
-
-        // 如果该行程记录上包含目的地步行分钟元数据，则将步行时间加到到达时间上（用于地图坐标终点）
-        const extraDestWalkMin = Number.isFinite(Number(row?.__walkDestinationMinutes)) ? Number(row.__walkDestinationMinutes) : 0;
-        if (extraDestWalkMin > 0 && Number.isFinite(arrivalMs)) {
-            arrivalMs = arrivalMs + Math.round(extraDestWalkMin) * 60000;
-        }
-
-        const baseDepartureMs = Number.isFinite(Number(row?.baseDepartureMs))
-            ? Number(row.baseDepartureMs)
-            : (Number.isFinite(Number(row?.plan?.baseDepartureMs)) ? Number(row.plan.baseDepartureMs) : null);
-
-        let durationMs = (Number.isFinite(baseDepartureMs) && Number.isFinite(arrivalMs))
-            ? (arrivalMs - baseDepartureMs)
-            : ((Number.isFinite(firstDepMs) && Number.isFinite(arrivalMs)) ? (arrivalMs - firstDepMs) : row.plan.durationMs);
-
-        // 若行程包含起点/终点步行分钟，确保 durationMs 也包含这些步行时间
-        const extraOriginWalkMin = Number.isFinite(Number(row?.__walkOriginMinutes)) ? Number(row.__walkOriginMinutes) : 0;
-        if (Number.isFinite(durationMs)) {
-            let extraMs = 0;
-            if (extraOriginWalkMin > 0) extraMs += Math.round(extraOriginWalkMin) * 60000;
-            if (extraDestWalkMin > 0) extraMs += Math.round(extraDestWalkMin) * 60000;
-            if (extraMs > 0) durationMs = Number(durationMs) + extraMs;
-        }
-
-        const sections = Array.isArray(row?.plan?.sections) ? row.plan.sections : [];
-        let transfers = 0;
-        if (sections.length) {
-            transfers = Math.max(0, sections.length - 1);
-        } else {
-            for (let i = 0; i < expandedLegs.length - 1; i += 1) {
-                if (!isThroughLegPairByMeta({ currentLeg: expandedLegs[i], nextLeg: expandedLegs[i + 1] })) transfers += 1;
-            }
-        }
-
-        row.__displayPlan = {
-            ...row.plan,
-            legs: expandedLegs,
-            sections,
-            firstDepMs: Number.isFinite(firstDepMs) ? firstDepMs : row.plan.firstDepMs,
-            arrivalMs: Number.isFinite(arrivalMs) ? arrivalMs : row.plan.arrivalMs,
-            durationMs,
-            transfers
-        };
-        return row.__displayPlan;
-        */
     };
 
     journeyPlanPreviewController = createJourneyPlanPreviewController({

@@ -1907,25 +1907,6 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
         segments,
         toHHMM
     });
-    /*
-    const firstSeg = segments[0];
-    const lastSeg = segments[segments.length - 1];
-    const firstLeg = legs[0] || null;
-
-    return {
-        tripKey: normalizeText(firstLeg?.tripKey || `${toHHMM(displayPlan?.firstDepMs)}-${toHHMM(displayPlan?.arrivalMs)}`),
-        selectedLineId: normalizeText(firstSeg?.lineId),
-        mainLineId: normalizeText(firstSeg?.lineId),
-        originStationId: normalizeText(row?.originStationId || firstSeg?.stationIds?.[0]),
-        mainTerminalStationId: normalizeText(firstSeg?.stationIds?.[firstSeg.stationIds.length - 1]),
-        terminalStationId: normalizeText(lastSeg?.stationIds?.[lastSeg.stationIds.length - 1]),
-        typeName: normalizeText(firstLeg?.typeName || '普通'),
-        typeColor: normalizeText(firstSeg?.typeColor || firstLeg?.typeColor || '') || null,
-        hasNt: false,
-        fitMode: 'preview',
-        segments: segments 
-    };
-    */
 };
 
 
