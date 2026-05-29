@@ -63,11 +63,7 @@ import { createHighlightRenderer } from './features/highlight/highlightRenderer.
 import { createTripPreviewRenderer } from './features/highlight/tripPreviewRenderer.js';
 import { createHoverFeature } from './features/hover/hoverFeature.js';
 import { createLayerFeature } from './features/layer/layerFeature.js';
-import {
-    bindBlankMapClickRestore,
-    bindLineClickSelect,
-    bindStationClickHighlightServingLines
-} from './features/map-interactions/mapInteractionController.js';
+import { bindMapInteractions } from './features/map-interactions/mapInteractionController.js';
 import { createStationCoordinateAdapter } from './features/layer/stationCoordinateAdapter.js';
 import { createRouteFeature } from './features/route/routeFeature.js';
 import { createRoutePreviewController } from './features/route/routePreviewController.js';
@@ -1575,6 +1571,11 @@ const initMapApp = async () => {
         return resolveLineSelectionByBranchRules(id, lineSelectionLinesObj || null);
     };
 
+    const searchFeature = createSearchFeature({
+        store: appStore,
+        resolveLineSelection: resolveLineSelectionForApp
+    });
+
     const getBaseKindNameForMultiSelect = (kind) => {
         const k = String(kind || '').trim();
         if (k === 'company') return '公司筛选';
@@ -2716,14 +2717,13 @@ const initMapApp = async () => {
             const subset = stationLineIds.filter((id) => String(lineCompanyById.get(String(id)) || '') === name);
             const nextIds = (subset.length ? subset : stationLineIds).map(String).filter(Boolean);
 
-            selectedCompany = null;
-            selectedLineId = null;
-            selectedStationLineIds = nextIds.length ? new Set(nextIds) : null;
-            selectedStationId = null;
-            selectedServiceMode = 'all';
             isolateStationsToSelectedLine = false;
             setStationLabelMode('auto');
-            applySelectionEffects();
+            if (nextIds.length) {
+                searchFeature.selectStationLines({ lineIds: nextIds });
+            } else {
+                appStore.dispatch(selectionClear({ source: 'panel.selectCompany' }));
+            }
 
             const fitMode = source === 'panel-hover' ? 'preview' : 'commit';
             if (meta?.skipFit !== true) {
@@ -2745,19 +2745,11 @@ const initMapApp = async () => {
 
             const resolved = resolveLineSelectionForApp(id);
             const mainLineId = String(resolved?.mainLineId ?? id);
-            const merged = Array.isArray(resolved?.mergedLineIds)
-                ? resolved.mergedLineIds.map(String).filter(Boolean)
-                : [mainLineId];
 
             if (source === 'panel-hover') {
-                selectedLineId = mainLineId;
-                selectedCompany = null;
-                selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
-                selectedStationId = null;
-                selectedServiceMode = 'all';
+                searchFeature.previewLine(id);
                 isolateStationsToSelectedLine = false;
                 setStationLabelMode('auto');
-                applySelectionEffects();
                 if (meta?.skipFit !== true) {
                     fitToCurrentSelection(`line:${mainLineId}`, 'preview');
                 }
@@ -2765,38 +2757,34 @@ const initMapApp = async () => {
             }
 
 
-            selectedLineId = mainLineId;
-            selectedCompany = null;
-            selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
-            selectedStationId = null;
-            selectedServiceMode = 'all';
+            const payload = searchFeature.commitLine(id);
+            const nextLineId = String(payload?.selectedLineId || mainLineId);
             setStationLabelMode('all');
             isolateStationsToSelectedLine = meta?.isolateStations === true;
 
             if (menu && typeof menu.markActive === 'function') {
-                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(selectedLineId)}"]`);
+                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(nextLineId)}"]`);
                 if (el) menu.markActive(el);
             }
 
-            applySelectionEffects();
             if (meta?.skipFit !== true) {
-                fitToCurrentSelection(`line:${mainLineId}`, 'commit');
+                fitToCurrentSelection(`line:${nextLineId}`, 'commit');
             }
         },
         onRestoreStationLines: (lineIds, meta) => {
             hoverFeature?.closePreview({ committed: false });
-            selectedLineId = null;
-            selectedCompany = null;
             isolateStationsToSelectedLine = false;
-            selectedServiceMode = 'all';
 
             if (Array.isArray(lineIds) && lineIds.length) {
-                selectedStationLineIds = new Set(lineIds.map(String).filter(Boolean));
+                searchFeature.selectStationLines({
+                    stationId: meta?.stationId ? String(meta.stationId).trim() : selectedStationId,
+                    lineIds
+                });
+            } else {
+                appStore.dispatch(selectionClear({ source: 'panel.restoreStationLines' }));
             }
-            selectedStationId = meta?.stationId ? String(meta.stationId).trim() : selectedStationId;
 
             setStationLabelMode('auto');
-            applySelectionEffects();
         },
         onTripPreview: (payload) => {
             previewTripPath(payload);
@@ -3036,11 +3024,6 @@ const initMapApp = async () => {
         );
     };
 
-    const searchFeature = createSearchFeature({
-        store: appStore,
-        resolveLineSelection: resolveLineSelectionForApp
-    });
-
     const hoverBridgeApi = {
         beginHoverPreview: () => hoverFeature?.beginPreview() === true,
         endHoverPreview: () => hoverFeature?.closePreview({ committed: false }),
@@ -3146,6 +3129,16 @@ const initMapApp = async () => {
         setFixedPopupStationLabelBelow
     });
 
+    const markActiveMenuLine = (lineId) => {
+        if (!menu || typeof menu.markActive !== 'function') return;
+        const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(lineId)}"]`);
+        if (el) menu.markActive(el);
+    };
+
+    const preloadTimetablesForLineIds = (ids) => {
+        timetableCache?.preloadRecursiveByLineIds?.(ids);
+    };
+
     if (searchMapActions) {
         Object.assign(searchMapActions, createSearchMapBridge({
             hoverApi: hoverBridgeApi,
@@ -3162,58 +3155,55 @@ const initMapApp = async () => {
         }));
     }
 
-    function bindClickBlankToRestore() {
-        bindBlankMapClickRestore({
-            mapEngine,
-            store: appStore,
-            touchTapGuard,
-            isInFullscreenMode,
-            isMultiSelectModeEnabled,
-            hasActiveSelection: () => !!(
-                selectedCompany ||
-                selectedLineId ||
-                (selectedStationLineIds && selectedStationLineIds.size)
-            ),
-            hidePanel: () => panel?.hide?.(),
-            clearTripPathPreview,
-            clearSelectionsAndRestore
-        });
-    }
-
-    function bindClickLineToSelect() {
-        bindLineClickSelect({
-            mapEngine,
-            touchTapGuard,
-            resolveLineSelection: resolveLineSelectionForApp,
-            isMultiSelectModeEnabled,
-            toggleBaseMultiSelection,
-            getBaseMultiSelectedLineIds,
-            setStationLabelMode,
-            applySelectionEffects,
-            commitLine: (lineId) => searchFeature.commitLine(lineId),
-            markActiveLine: (lineId) => {
-                if (!menu || typeof menu.markActive !== 'function') return;
-                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(lineId)}"]`);
-                if (el) menu.markActive(el);
+    const bindLineAndBlankMapInteractions = () => {
+        bindMapInteractions({
+            blankClick: {
+                mapEngine,
+                store: appStore,
+                touchTapGuard,
+                isInFullscreenMode,
+                isMultiSelectModeEnabled,
+                hasActiveSelection: () => !!(
+                    selectedCompany ||
+                    selectedLineId ||
+                    (selectedStationLineIds && selectedStationLineIds.size)
+                ),
+                hidePanel: () => panel?.hide?.(),
+                clearTripPathPreview,
+                clearSelectionsAndRestore
             },
-            fitToCurrentSelection,
-            showRouteMapFloatingPanelForLine
+            lineClick: {
+                mapEngine,
+                touchTapGuard,
+                resolveLineSelection: resolveLineSelectionForApp,
+                isMultiSelectModeEnabled,
+                toggleBaseMultiSelection,
+                getBaseMultiSelectedLineIds,
+                setStationLabelMode,
+                applySelectionEffects,
+                commitLine: (lineId) => searchFeature.commitLine(lineId),
+                markActiveLine: markActiveMenuLine,
+                fitToCurrentSelection,
+                showRouteMapFloatingPanelForLine
+            }
         });
-    }
+    };
 
-    function bindClickStationToHighlightServingLines() {
-        bindStationClickHighlightServingLines({
-            mapEngine,
-            touchTapGuard,
-            isJourneyMapPickActive,
-            isMultiSelectModeEnabled,
-            getSelectedStationId: () => selectedStationId,
-            selectServingLinesForStation,
-            openPanelForStationWithAutoScroll,
-            getServingLineIdsFromStationProps,
-            preloadTimetablesByLineIds: (ids) => timetableCache?.preloadRecursiveByLineIds?.(ids)
+    const bindStationMapInteractions = () => {
+        bindMapInteractions({
+            stationClick: {
+                mapEngine,
+                touchTapGuard,
+                isJourneyMapPickActive,
+                isMultiSelectModeEnabled,
+                getSelectedStationId: () => selectedStationId,
+                selectServingLinesForStation,
+                openPanelForStationWithAutoScroll,
+                getServingLineIdsFromStationProps,
+                preloadTimetablesByLineIds: preloadTimetablesForLineIds
+            }
         });
-    }
+    };
 
     mountAppearanceToggle({
         hostEl: settingsMenuContentEl,
@@ -4698,9 +4688,7 @@ const initMapApp = async () => {
             { passive: true }
         );
 
-        bindClickLineToSelect();
-
-        bindClickBlankToRestore();
+        bindLineAndBlankMapInteractions();
 
         // 全屏浏览按钮
         initFullscreen(mapEngine, touchTapGuard);
@@ -4782,7 +4770,7 @@ const initMapApp = async () => {
         }
 
 
-        bindClickStationToHighlightServingLines();
+        bindStationMapInteractions();
 
 
         applySelectionEffects();
@@ -5032,15 +5020,15 @@ const initMapApp = async () => {
 
                     const stationLineIds = Array.isArray(meta?.stationLineIds) ? meta.stationLineIds.map(String).filter(Boolean) : [];
                     const subset = stationLineIds.filter((id) => String(lineCompanyById.get(String(id)) || '') === name);
+                    const nextIds = (subset.length ? subset : stationLineIds).map(String).filter(Boolean);
 
-                    selectedCompany = null;
-                    selectedLineId = null;
-                    selectedStationLineIds = new Set((subset.length ? subset : stationLineIds).map(String).filter(Boolean));
-                    selectedStationId = null;
-                    selectedServiceMode = 'all';
                     isolateStationsToSelectedLine = false;
                     setStationLabelMode('auto');
-                    applySelectionEffects();
+                    if (nextIds.length) {
+                        searchFeature.selectStationLines({ lineIds: nextIds });
+                    } else {
+                        appStore.dispatch(selectionClear({ source: 'popup.selectCompany.hover' }));
+                    }
                     return;
                 }
 
@@ -5051,26 +5039,21 @@ const initMapApp = async () => {
                         ? meta.stationLineIds.map(String).filter(Boolean)
                         : [];
                     const subset = stationLineIds.filter((id) => String(lineCompanyById.get(String(id)) || '') === name);
+                    const nextIds = (subset.length ? subset : stationLineIds).map(String).filter(Boolean);
 
-                    selectedCompany = null;
-                    selectedLineId = null;
-                    selectedStationLineIds = new Set((subset.length ? subset : stationLineIds).map(String).filter(Boolean));
-                    selectedStationId = null;
-                    selectedServiceMode = 'all';
                     isolateStationsToSelectedLine = false;
                     setStationLabelMode('auto');
-                    applySelectionEffects();
+                    if (nextIds.length) {
+                        searchFeature.selectStationLines({ lineIds: nextIds });
+                    } else {
+                        appStore.dispatch(selectionClear({ source: 'popup.selectCompany.click' }));
+                    }
                     return;
                 }
 
                 hoverFeature?.commitPreview();
-                selectedCompany = name;
-                selectedLineId = null;
-                selectedStationLineIds = null;
-                selectedStationId = null;
-                selectedServiceMode = 'all';
                 isolateStationsToSelectedLine = false;
-                applySelectionEffects();
+                searchFeature.commitCompany(name);
             },
             onSelectLine: (lineId, meta) => {
                 const source = meta?.source;
@@ -5085,53 +5068,39 @@ const initMapApp = async () => {
 
                 const resolved = resolveLineSelectionForApp(id);
                 const mainLineId = String(resolved?.mainLineId ?? id);
-                const merged = Array.isArray(resolved?.mergedLineIds)
-                    ? resolved.mergedLineIds.map(String).filter(Boolean)
-                    : [mainLineId];
 
                 if (source === 'popup-hover') {
                     if (!hoverFeature?.beginPreview()) return;
-                    selectedLineId = mainLineId;
-                    selectedCompany = null;
-                    selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
-                    selectedStationId = null;
-                    selectedServiceMode = 'all';
+                    searchFeature.previewLine(id);
                     isolateStationsToSelectedLine = false;
                     setStationLabelMode('auto');
-                    applySelectionEffects();
                     return;
                 }
 
                 hoverFeature?.commitPreview();
-                selectedLineId = mainLineId;
-                selectedCompany = null;
-                selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
-                selectedStationId = null;
-                selectedServiceMode = 'all';
+                const payload = searchFeature.commitLine(id);
+                const nextLineId = String(payload?.selectedLineId || mainLineId);
                 setStationLabelMode('all');
                 isolateStationsToSelectedLine = meta?.isolateStations === true;
 
 
                 if (menu && typeof menu.markActive === 'function') {
-                    const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(selectedLineId)}"]`);
+                    const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(nextLineId)}"]`);
                     if (el) menu.markActive(el);
                 }
-
-                applySelectionEffects();
             },
             onRestoreStationLines: (lineIds) => {
 
-                selectedLineId = null;
-                selectedCompany = null;
                 isolateStationsToSelectedLine = false;
-                selectedServiceMode = 'all';
 
                 if (Array.isArray(lineIds) && lineIds.length) {
-                    selectedStationLineIds = new Set(lineIds.map(String).filter(Boolean));
+                    searchFeature.selectStationLines({
+                        stationId: fixedPopupStationId ? String(fixedPopupStationId).trim() : selectedStationId,
+                        lineIds
+                    });
+                } else {
+                    appStore.dispatch(selectionClear({ source: 'popup.restoreStationLines' }));
                 }
-                selectedStationId = fixedPopupStationId ? String(fixedPopupStationId).trim() : selectedStationId;
-
-                applySelectionEffects();
             },
             onFixedPopupBlankClick: () => {
                 // 固定 popup：点击空白处直接恢复“全显示”，且不触发预览快照回滚

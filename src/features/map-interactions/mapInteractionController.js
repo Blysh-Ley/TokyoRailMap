@@ -146,3 +146,13 @@ export const bindStationClickHighlightServingLines = ({
         }
     });
 };
+
+export const bindMapInteractions = ({
+    blankClick = null,
+    lineClick = null,
+    stationClick = null
+} = {}) => {
+    if (blankClick) bindBlankMapClickRestore(blankClick);
+    if (lineClick) bindLineClickSelect(lineClick);
+    if (stationClick) bindStationClickHighlightServingLines(stationClick);
+};
