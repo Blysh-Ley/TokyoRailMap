@@ -14,10 +14,7 @@ export const createHighlightRenderer = ({ mapEngine, layers = DEFAULT_LAYERS } =
     const setPaintProperties = (layerId, paint = {}) => {
         if (!hasLayer(layerId)) return false;
         try {
-            Object.entries(paint || {}).forEach(([property, value]) => {
-                mapEngine.setPaintProperty(layerId, property, value);
-            });
-            return true;
+            return mapEngine.applyPaintProperties?.(layerId, paint) === true;
         } catch {
             return false;
         }

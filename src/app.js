@@ -57,7 +57,7 @@ import {
 } from './services/appSettings.js';
 import { createBasemapController, createMapEngine } from './services/mapEngine.js';
 import { createStore } from './store/appStore.js';
-import { hoverSetEnabled } from './store/actions.js';
+import { hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested } from './store/actions.js';
 import { createHighlightFeature } from './features/highlight/highlightFeature.js';
 import { createHighlightRenderer } from './features/highlight/highlightRenderer.js';
 import { createTripPreviewRenderer } from './features/highlight/tripPreviewRenderer.js';
@@ -416,7 +416,8 @@ const initMapApp = async () => {
         selectedStationLineIds,
         selectedStationId,
         selectedServiceMode,
-        hoverPreviewEnabled
+        hoverPreviewEnabled,
+        multiSelectEnabled: multiSelectModeEnabled
     });
 
     const isHoverPreviewEnabled = () => (
@@ -1452,6 +1453,7 @@ const initMapApp = async () => {
 
         applyMultiSelectBaseLayerState(next);
         applyMultiSelectTripPreviewLayerState(next);
+        appStore.dispatch(multiSelectSetEnabled(next));
         emitMultiSelectLayersUpdated();
     };
 
@@ -1465,6 +1467,7 @@ const initMapApp = async () => {
                 } catch {
                     // ignore
                 }
+                appStore.dispatch(multiSelectSetEnabled(next));
             }
         };
     } catch {
@@ -2952,6 +2955,11 @@ const initMapApp = async () => {
 
     const openPanelForStationWithAutoScroll = async (props, options = {}) => {
         const p = props || {};
+        appStore.dispatch(panelOpenRequested({
+            source: 'app.openPanelForStationWithAutoScroll',
+            stationId: String(p?.id ?? '').trim() || null,
+            autoScroll: options?.autoScroll !== false
+        }));
         const prevScrollTop = panel?.getScrollTop?.() || 0;
         await panel?.showForStationProps?.(p);
         const shouldAutoScroll = options?.autoScroll !== false;
@@ -3150,6 +3158,7 @@ const initMapApp = async () => {
             routePreviewApi: routePreviewBridgeApi,
             selectionApi: searchSelectionController,
             stationApi: searchSelectionController,
+            store: appStore,
             stateApi: {
                 snapshotSelectionState,
                 restoreSelectionState

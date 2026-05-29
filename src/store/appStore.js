@@ -6,6 +6,20 @@ const defaultState = normalizeSelectionState({
     hoverPreviewEnabled: true
 });
 
+const normalizeAppState = (state = {}) => ({
+    ...normalizeSelectionState(state),
+    multiSelectEnabled: state.multiSelectEnabled === true,
+    lastInteraction: state.lastInteraction || null
+});
+
+const recordInteraction = (state, action = {}) => normalizeAppState({
+    ...state,
+    lastInteraction: {
+        type: action.type || '',
+        payload: action.payload || null
+    }
+});
+
 const reduceSelection = (state, payload = {}) => normalizeSelectionState({
     ...state,
     selectedCompany: payload.selectedCompany ?? null,
@@ -22,17 +36,21 @@ const reducer = (state, action = {}) => {
         case ACTION_TYPES.SELECTION_PREVIEW_COMPANY:
         case ACTION_TYPES.SELECTION_COMMIT_COMPANY:
         case ACTION_TYPES.SELECTION_SELECT_STATION_LINES:
-            return reduceSelection(state, action.payload);
+            return normalizeAppState({
+                ...reduceSelection(state, action.payload),
+                multiSelectEnabled: state.multiSelectEnabled,
+                lastInteraction: state.lastInteraction
+            });
 
         case ACTION_TYPES.SELECTION_CLEAR:
             if (action.payload?.stationOnly === true) {
-                return normalizeSelectionState({
+                return normalizeAppState({
                     ...state,
                     selectedStationLineIds: null,
                     selectedStationId: null
                 });
             }
-            return normalizeSelectionState({
+            return normalizeAppState({
                 ...state,
                 selectedCompany: null,
                 selectedLineId: null,
@@ -42,10 +60,24 @@ const reducer = (state, action = {}) => {
             });
 
         case ACTION_TYPES.HOVER_SET_ENABLED:
-            return normalizeSelectionState({
+            return normalizeAppState({
                 ...state,
                 hoverPreviewEnabled: action.payload?.enabled !== false
             });
+
+        case ACTION_TYPES.MULTI_SELECT_SET_ENABLED:
+            return recordInteraction({
+                ...state,
+                multiSelectEnabled: action.payload?.enabled === true
+            }, action);
+
+        case ACTION_TYPES.MAP_CLICK:
+        case ACTION_TYPES.PANEL_OPEN_REQUESTED:
+        case ACTION_TYPES.TRIP_PREVIEW_REQUESTED:
+        case ACTION_TYPES.TRIP_PREVIEW_CLEARED:
+        case ACTION_TYPES.REACHABLE_STOPS_UPDATE_REQUESTED:
+        case ACTION_TYPES.REACHABLE_STOPS_CLEARED:
+            return recordInteraction(state, action);
 
         default:
             return state;
@@ -53,7 +85,7 @@ const reducer = (state, action = {}) => {
 };
 
 export const createStore = (initialState = {}) => {
-    let state = normalizeSelectionState({ ...defaultState, ...initialState });
+    let state = normalizeAppState({ ...defaultState, ...initialState });
     const listeners = new Set();
 
     return {

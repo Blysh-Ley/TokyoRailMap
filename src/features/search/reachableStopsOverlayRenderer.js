@@ -16,15 +16,10 @@ export const createReachableStopsOverlayRenderer = ({ mapEngine } = {}) => {
     const ensureLayers = (dynamicColorExpression, baseOpacity = 0.12) => {
         const beforeLayerId = getBeforeLayerId();
 
-        if (!mapEngine.getSource(SOURCE_ID)) {
-            mapEngine.addSource(SOURCE_ID, {
-                type: 'geojson',
-                data: EMPTY_FEATURE_COLLECTION
-            });
-        }
+        mapEngine.ensureGeoJsonSource?.(SOURCE_ID, EMPTY_FEATURE_COLLECTION);
 
         if (!mapEngine.getLayer(CIRCLE_LAYER_ID)) {
-            mapEngine.addLayer({
+            mapEngine.ensureLayer?.({
                 id: CIRCLE_LAYER_ID,
                 type: 'circle',
                 source: SOURCE_ID,
@@ -49,8 +44,10 @@ export const createReachableStopsOverlayRenderer = ({ mapEngine } = {}) => {
         }
 
         try {
-            mapEngine.setPaintProperty(CIRCLE_LAYER_ID, 'circle-color', dynamicColorExpression);
-            mapEngine.setPaintProperty(CIRCLE_LAYER_ID, 'circle-opacity', baseOpacity);
+            mapEngine.applyPaintProperties?.(CIRCLE_LAYER_ID, {
+                'circle-color': dynamicColorExpression,
+                'circle-opacity': baseOpacity
+            });
             if (beforeLayerId) mapEngine.moveLayer(CIRCLE_LAYER_ID, beforeLayerId);
         } catch {
             // ignore
@@ -59,7 +56,7 @@ export const createReachableStopsOverlayRenderer = ({ mapEngine } = {}) => {
 
     const setData = (geojson) => {
         try {
-            mapEngine.getSource(SOURCE_ID)?.setData?.(geojson || EMPTY_FEATURE_COLLECTION);
+            mapEngine.updateGeoJsonSource?.(SOURCE_ID, geojson || EMPTY_FEATURE_COLLECTION);
         } catch {
             // ignore
         }

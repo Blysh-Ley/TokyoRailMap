@@ -30,9 +30,7 @@ export const createTripPreviewRenderer = ({
         if (!mapEngine.getLayer(STOPS_LAYER_ID)) return;
         const stopPaint = paintOverride || getStopPaint();
         try {
-            Object.entries(stopPaint || {}).forEach(([property, value]) => {
-                mapEngine.setPaintProperty(STOPS_LAYER_ID, property, value);
-            });
+            mapEngine.applyPaintProperties?.(STOPS_LAYER_ID, stopPaint);
         } catch {
             // ignore
         }
@@ -41,15 +39,10 @@ export const createTripPreviewRenderer = ({
     const ensureLayers = () => {
         const beforeLayerId = getBeforeLayerId();
 
-        if (!mapEngine.getSource(LINE_SOURCE_ID)) {
-            mapEngine.addSource(LINE_SOURCE_ID, {
-                type: 'geojson',
-                data: EMPTY_FEATURE_COLLECTION
-            });
-        }
+        mapEngine.ensureGeoJsonSource?.(LINE_SOURCE_ID, EMPTY_FEATURE_COLLECTION);
 
         if (!mapEngine.getLayer(LINE_LAYER_ID)) {
-            mapEngine.addLayer({
+            mapEngine.ensureLayer?.({
                 id: LINE_LAYER_ID,
                 type: 'line',
                 source: LINE_SOURCE_ID,
@@ -66,7 +59,7 @@ export const createTripPreviewRenderer = ({
         }
 
         if (!mapEngine.getLayer(CONNECTOR_LAYER_ID)) {
-            mapEngine.addLayer({
+            mapEngine.ensureLayer?.({
                 id: CONNECTOR_LAYER_ID,
                 type: 'line',
                 source: LINE_SOURCE_ID,
@@ -82,15 +75,10 @@ export const createTripPreviewRenderer = ({
             }
         }
 
-        if (!mapEngine.getSource(STOPS_SOURCE_ID)) {
-            mapEngine.addSource(STOPS_SOURCE_ID, {
-                type: 'geojson',
-                data: EMPTY_FEATURE_COLLECTION
-            });
-        }
+        mapEngine.ensureGeoJsonSource?.(STOPS_SOURCE_ID, EMPTY_FEATURE_COLLECTION);
 
         if (!mapEngine.getLayer(STOPS_LAYER_ID)) {
-            mapEngine.addLayer({
+            mapEngine.ensureLayer?.({
                 id: STOPS_LAYER_ID,
                 type: 'circle',
                 source: STOPS_SOURCE_ID,
@@ -104,8 +92,8 @@ export const createTripPreviewRenderer = ({
 
     const reset = () => {
         try {
-            mapEngine.getSource(LINE_SOURCE_ID)?.setData?.(EMPTY_FEATURE_COLLECTION);
-            mapEngine.getSource(STOPS_SOURCE_ID)?.setData?.(EMPTY_FEATURE_COLLECTION);
+            mapEngine.updateGeoJsonSource?.(LINE_SOURCE_ID, EMPTY_FEATURE_COLLECTION);
+            mapEngine.updateGeoJsonSource?.(STOPS_SOURCE_ID, EMPTY_FEATURE_COLLECTION);
         } catch {
             // ignore
         }
@@ -113,8 +101,8 @@ export const createTripPreviewRenderer = ({
 
     const setData = ({ lineFc, stopFc } = {}) => {
         try {
-            mapEngine.getSource(LINE_SOURCE_ID)?.setData?.(lineFc || EMPTY_FEATURE_COLLECTION);
-            mapEngine.getSource(STOPS_SOURCE_ID)?.setData?.(stopFc || EMPTY_FEATURE_COLLECTION);
+            mapEngine.updateGeoJsonSource?.(LINE_SOURCE_ID, lineFc || EMPTY_FEATURE_COLLECTION);
+            mapEngine.updateGeoJsonSource?.(STOPS_SOURCE_ID, stopFc || EMPTY_FEATURE_COLLECTION);
         } catch {
             // ignore
         }

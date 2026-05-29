@@ -10,6 +10,45 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
         style
     });
 
+    const ensureGeoJsonSource = (sourceId, data) => {
+        if (!sourceId) return null;
+        const existing = map.getSource(sourceId);
+        if (existing) return existing;
+
+        map.addSource(sourceId, {
+            type: 'geojson',
+            data: data || { type: 'FeatureCollection', features: [] }
+        });
+        return map.getSource(sourceId);
+    };
+
+    const ensureLayer = (layerDef, beforeLayerId) => {
+        const layerId = layerDef?.id;
+        if (!layerId) return null;
+        const existing = map.getLayer(layerId);
+        if (!existing) {
+            if (beforeLayerId) map.addLayer(layerDef, beforeLayerId);
+            else map.addLayer(layerDef);
+            return map.getLayer(layerId);
+        }
+        if (beforeLayerId) {
+            try {
+                map.moveLayer(layerId, beforeLayerId);
+            } catch {
+                // keep existing layer order if MapLibre rejects the move
+            }
+        }
+        return existing;
+    };
+
+    const applyPaintProperties = (layerId, paint = {}) => {
+        if (!layerId || !map.getLayer(layerId)) return false;
+        Object.entries(paint || {}).forEach(([property, value]) => {
+            map.setPaintProperty(layerId, property, value);
+        });
+        return true;
+    };
+
     return {
         getMap: () => map,
         addMetricScaleControl: ({ maxWidth = 100, position = 'bottom-left' } = {}) => {
@@ -42,13 +81,42 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
         getCanvas: (...args) => map.getCanvas(...args),
         hasLayer: (layerId) => Boolean(layerId && map.getLayer(layerId)),
         queryRenderedFeatures: (...args) => map.queryRenderedFeatures(...args),
+        applyPaintProperties,
+        ensureGeoJsonSource,
+        ensureLayer,
+        onMapClick: (listener) => {
+            if (typeof listener !== 'function') return () => {};
+            map.on('click', listener);
+            return () => map.off('click', listener);
+        },
+        onLayerHover: (layerId, { onEnter, onMove, onLeave } = {}) => {
+            if (!layerId) return () => {};
+            if (typeof onEnter === 'function') map.on('mouseenter', layerId, onEnter);
+            if (typeof onMove === 'function') map.on('mousemove', layerId, onMove);
+            if (typeof onLeave === 'function') map.on('mouseleave', layerId, onLeave);
+            return () => {
+                if (typeof onEnter === 'function') map.off('mouseenter', layerId, onEnter);
+                if (typeof onMove === 'function') map.off('mousemove', layerId, onMove);
+                if (typeof onLeave === 'function') map.off('mouseleave', layerId, onLeave);
+            };
+        },
         setCursor: (cursor = '') => {
             const canvas = map.getCanvas?.();
             if (canvas?.style) canvas.style.cursor = cursor;
         },
+        setLayerVisibility: (layerId, visible = true) => {
+            if (!layerId || !map.getLayer(layerId)) return false;
+            map.setLayoutProperty(layerId, 'visibility', visible === false ? 'none' : 'visible');
+            return true;
+        },
         setSourceData: (sourceId, data) => {
             const source = map.getSource(sourceId);
             source?.setData?.(data);
+            return source;
+        },
+        updateGeoJsonSource: (sourceId, data) => {
+            const source = ensureGeoJsonSource(sourceId, data);
+            source?.setData?.(data || { type: 'FeatureCollection', features: [] });
             return source;
         },
         createMarker: (options = {}) => new maplibregl.Marker(options),
