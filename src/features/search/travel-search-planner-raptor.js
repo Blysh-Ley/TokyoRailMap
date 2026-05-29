@@ -20,6 +20,19 @@ import {
     normalizeText,
     parseTripServiceDayFromId
 } from '../../domain/routePlanning/text.js';
+import {
+    DEFAULT_TRANSFER_PENALTY_MS,
+    calculateTransferPenaltyMs,
+    parseStopId
+} from '../../domain/routePlanning/transfer.js';
+import {
+    dedupePlans,
+    isSurchargeTypeId,
+    markPlansWithSurcharge,
+    pickPlanBuckets,
+    planContainsSurcharge as planContainsSurchargeByType,
+    sortPlansByArrivalThenDuration
+} from '../../domain/routePlanning/candidates.js';
 
 const INF_TIME = Number.POSITIVE_INFINITY;
 
@@ -36,6 +49,7 @@ export {
     hhmmToOffsetMinutes,
     normalizeHHMM,
     normalizeText,
+    pickPlanBuckets,
     toHHMM
 };
 
@@ -353,24 +367,7 @@ export const getNearbyStationsForJourneyPick = async ({ lngLat, maxMeters = 2000
     return Array.from(groupedByTransferGroup.values()).sort((a, b) => a.distanceMeters - b.distanceMeters || a.stationId.localeCompare(b.stationId));
 };
 
-const parseStopId = (id) => {
-    const parts = id.split('.');
-    if (parts.length >= 3) {
-        return { company: parts[0], line: parts[1], station: parts[2] };
-    }
-    return null;
-};
-
 export const getTransferPenaltyMs = (fromStopId, toStopId) => {
-
-    const DEMON_STATION_GATE_PENALTY = {
-    "Tokyo": 8.0,    
-    "Shinjuku": 6.0, 
-    "Shibuya": 6.0,    
-    "Ikebukuro": 5.0, 
-    "Yokohama": 5.0    
-    };
-
     const a = normalizeText(fromStopId);
     const b = normalizeText(toStopId);
 
@@ -379,48 +376,14 @@ export const getTransferPenaltyMs = (fromStopId, toStopId) => {
     const coordA = plannerState.stationCoordById?.get(a);
     const coordB = plannerState.stationCoordById?.get(b);
 
-    if (!coordA || !coordB) return 3 * 60 * 1000;
+    if (!coordA || !coordB) return DEFAULT_TRANSFER_PENALTY_MS;
 
     const dist = distanceMeters(coordA, coordB);
-    if (!Number.isFinite(dist)) return 3 * 60 * 1000;
-
-    const infoA = parseStopId(a);
-    const infoB = parseStopId(b);
-    const isSameCompany = infoA && infoB && infoA.company === infoB.company;
-
-    if (!infoA || !infoB) {
-        return (2.0 + (dist / 100) * 1.5) * 60 * 1000;
-    }
-
-    const demonPenaltyA = DEMON_STATION_GATE_PENALTY[infoA.station];
-    const demonPenaltyB = DEMON_STATION_GATE_PENALTY[infoB.station];
-
-    const demonGatePenalty = Math.max(demonPenaltyA || 0, demonPenaltyB || 0);
-    const isDemonStation = demonGatePenalty > 0;
-
-    let transferMinutes = 0;
-    //同台
-    if (isSameCompany) {
-        if (dist <= 8) {
-            transferMinutes = 2.0; 
-        } else if (dist <= 35) {
-            transferMinutes = 2.0 + (dist / 100) * 1.0; 
-        } else if (dist <= 150) {
-            transferMinutes = 2.0 + (dist / 100) * 1.2;
-        } else {
-            transferMinutes = 3.0 + (dist / 100) * 1.5; 
-        }
-    } else {
-        const gatePenalty = isDemonStation ? demonGatePenalty : 3.0;
-        
-        if (dist <= 25) {
-            transferMinutes = gatePenalty + 2.0; 
-        } else {
-            transferMinutes = gatePenalty + 2.0 + (dist / 100) * 1.8;
-        }
-    }
-    //console.log(`Transfer from ${a} to ${b}: distance=${dist.toFixed(1)}m, isSameCompany=${isSameCompany}, isDemonStation=${isDemonStation}, transferMinutes=${transferMinutes.toFixed(2)}`);
-    return transferMinutes * 60 * 1000;
+    return calculateTransferPenaltyMs({
+        distanceMeters: dist,
+        fromStopInfo: parseStopId(a),
+        toStopInfo: parseStopId(b)
+    });
 };
 
 
@@ -481,24 +444,16 @@ const isTypeIdSurcharge = (typeId) => {
     if (!id) return false;
 
     const meta = plannerState.typeMetaById.get(id) || null;
-    const explicit = meta?.surcharge;
-    if (explicit === true) return true;
-
-    const lower = id.toLowerCase();
-    if (lower.includes('liner')) return true;
-    if (lower.includes('limited') && explicit !== false) return true;
-
-    return false;
+    return isSurchargeTypeId({
+        typeId: id,
+        explicitSurcharge: meta?.surcharge
+    });
 };
 
-const planContainsSurcharge = (plan) => {
-    const legs = Array.isArray(plan?.legs) ? plan.legs : [];
-    for (const leg of legs) {
-        if (leg?.hasNm) return true;
-        if (isTypeIdSurcharge(leg?.typeId)) return true;
-    }
-    return false;
-};
+const planContainsSurcharge = (plan) => planContainsSurchargeByType({
+    plan,
+    isTypeIdSurcharge
+});
 
 export const loadTripsForLineAndDay = async ({ lineId, serviceDay, excludeSurchargeTypes = false }) => {
     const line = normalizeText(lineId);
@@ -1217,70 +1172,6 @@ const optimizeSharedCorridorTransfers = async ({ plan, serviceDay }) => {
         legs: optimizedLegs,
         sections
     };
-};
-
-const dedupePlans = (plans) => {
-    const seen = new Set();
-    const out = [];
-    for (const p of plans) {
-        const sig = [
-            p.legs.map((x) => `${x.lineId}:${x.typeId}`).join('->'),
-            String(Math.round((p.firstDepMs || 0) / 60000)),
-            String(Math.round((p.arrivalMs || 0) / 60000))
-        ].join('||');
-        if (seen.has(sig)) continue;
-        seen.add(sig);
-        out.push(p);
-    }
-    return out;
-};
-
-export const pickPlanBuckets = (plans) => {
-    if (!plans.length) return [];
-    const planSignature = (p) => [
-        (Array.isArray(p?.legs) ? p.legs : []).map((x) => `${x?.lineId || ''}:${x?.typeId || ''}`).join('->'),
-        String(Math.round((p?.firstDepMs || 0) / 60000)),
-        String(Math.round((p?.arrivalMs || 0) / 60000))
-    ].join('||');
-
-    const shortest = plans.slice().sort((a, b) => a.durationMs - b.durationMs || a.transfers - b.transfers || a.arrivalMs - b.arrivalMs)[0];
-    const fewestTransfers = plans.slice().sort((a, b) => a.transfers - b.transfers || a.durationMs - b.durationMs || a.arrivalMs - b.arrivalMs)[0];
-    const earliestDeparture = plans.slice().sort((a, b) => a.firstDepMs - b.firstDepMs || a.arrivalMs - b.arrivalMs)[0];
-
-    const picked = [];
-    const pickedSignatures = new Set();
-    const addUnique = (plan, label) => {
-        if (!plan) return;
-        const sig = planSignature(plan);
-        if (pickedSignatures.has(sig)) return;
-        pickedSignatures.add(sig);
-        picked.push({ label, plan });
-    };
-    addUnique(shortest, '最短用时');
-    addUnique(fewestTransfers, '最少换乘');
-    addUnique(earliestDeparture, '最早出发');
-
-    const backup = plans
-        .slice()
-        .sort((a, b) => a.arrivalMs - b.arrivalMs || a.durationMs - b.durationMs)
-        .filter((p) => !pickedSignatures.has(planSignature(p)))
-        .slice(0, 3)
-        .map((plan, idx) => ({ label: `备用方案${idx + 1}`, plan }));
-
-    const directSimple = shortest && shortest.transfers === 0 && plans.length <= 2;
-    if (directSimple) {
-        const directPicked = [];
-        addUnique(shortest, '最短用时');
-        addUnique(earliestDeparture, '最早出发');
-        for (const x of picked) {
-            if (x.label === '最短用时' || x.label === '最早出发') {
-                if (!directPicked.some((r) => r.plan === x.plan)) directPicked.push(x);
-            }
-        }
-        return directPicked;
-    }
-
-    return [...picked, ...backup];
 };
 
 const findTripInParsed = async ({ lineId, serviceDay, tripId }) => {
@@ -2114,9 +2005,10 @@ export const collectJourneyCandidatesRaptor = async ({ sourceStops, destinationS
     let candidates = await runWithMaxRounds(7);
     if (!candidates.length) candidates = await runWithMaxRounds(10);
 
-    let sortedPlans = dedupePlans(candidates).sort((a, b) => a.arrivalMs - b.arrivalMs || a.durationMs - b.durationMs);
-    sortedPlans.forEach((plan) => {
-        plan.hasSurcharge = planContainsSurcharge(plan);
+    let sortedPlans = sortPlansByArrivalThenDuration(dedupePlans(candidates));
+    markPlansWithSurcharge({
+        plans: sortedPlans,
+        hasSurcharge: planContainsSurcharge
     });
     const allPlansContainSurcharge = sortedPlans.length > 0 && sortedPlans.every((plan) => planContainsSurcharge(plan));
 
@@ -2125,9 +2017,10 @@ export const collectJourneyCandidatesRaptor = async ({ sourceStops, destinationS
         if (!nonSurchargeCandidates.length) nonSurchargeCandidates = await runWithMaxRounds(10, { excludeSurchargeTypes: true });
         if (nonSurchargeCandidates.length) {
             const merged = dedupePlans(sortedPlans.concat(nonSurchargeCandidates));
-            sortedPlans = merged.sort((a, b) => a.arrivalMs - b.arrivalMs || a.durationMs - b.durationMs);
-            sortedPlans.forEach((plan) => {
-                plan.hasSurcharge = planContainsSurcharge(plan);
+            sortedPlans = sortPlansByArrivalThenDuration(merged);
+            markPlansWithSurcharge({
+                plans: sortedPlans,
+                hasSurcharge: planContainsSurcharge
             });
         }
     }
