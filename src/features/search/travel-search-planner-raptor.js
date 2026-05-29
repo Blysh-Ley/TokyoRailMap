@@ -33,6 +33,11 @@ import {
     planContainsSurcharge as planContainsSurchargeByType,
     sortPlansByArrivalThenDuration
 } from '../../domain/routePlanning/candidates.js';
+import {
+    buildRailPreviewSegment,
+    buildTripPreviewPayloadFromSegments,
+    rowsToCompactStationIds
+} from '../../domain/routePlanning/displayRows.js';
 
 const INF_TIME = Number.POSITIVE_INFINITY;
 
@@ -1824,19 +1829,13 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
             const throughSegs = await buildSectionThroughSegments({ section, serviceDay: row?.serviceDay });
             if (throughSegs.length) {
                 for (const seg of throughSegs) {
-                    const stationIds = Array.isArray(seg?.rows)
-                        ? seg.rows.map((r) => normalizeText(r?.stationId)).filter(Boolean)
-                        : [];
-                    if (stationIds.length < 2) continue;
-                    const lineId = normalizeText(seg?.lineId || '');
-                    if (!lineId) continue;
-                    segments.push({
-                        kind: 'main',
-                        lineId,
-                        stationIds,
-                        d: normalizeText(seg?.d) || null,
-                        typeColor: normalizeText(seg?.typeColor || section?.legs?.[0]?.typeColor || '') || null
+                    const segment = buildRailPreviewSegment({
+                        lineId: seg?.lineId,
+                        stationIds: rowsToCompactStationIds(seg?.rows),
+                        direction: seg?.d,
+                        typeColor: seg?.typeColor || section?.legs?.[0]?.typeColor || ''
                     });
+                    if (segment) segments.push(segment);
                 }
                 continue;
             }
@@ -1852,25 +1851,16 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
                 } else {
                     stationIds = [normalizeText(leg?.fromStop), normalizeText(leg?.toStop)].filter(Boolean);
                 }
-                const compactIds = [];
-                for (const sid of stationIds) {
-                    if (!sid) continue;
-                    if (compactIds.length && compactIds[compactIds.length - 1] === sid) continue;
-                    compactIds.push(sid);
-                }
-                if (compactIds.length < 2) continue;
-
                 const lineIds = Array.isArray(section?.lineIds) ? section.lineIds.map((x) => normalizeText(x)).filter(Boolean) : [];
                 const segmentLineId = normalizeText(lineIds[0] || leg?.lineId || '');
-                if (!segmentLineId) continue;
 
-                segments.push({
-                    kind: 'main',
+                const segment = buildRailPreviewSegment({
                     lineId: segmentLineId,
-                    stationIds: compactIds,
-                    d: normalizeText(trip?.d) || null,
-                    typeColor: normalizeText(leg?.typeColor || trip?.typeColor || '') || null
+                    stationIds,
+                    direction: trip?.d,
+                    typeColor: leg?.typeColor || trip?.typeColor || ''
                 });
+                if (segment) segments.push(segment);
             }
         }
     } else {
@@ -1881,23 +1871,13 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
             const throughSegments = await buildThroughDisplaySegments({ leg, serviceDay: row?.serviceDay });
             if (throughSegments.length) {
                 for (const seg of throughSegments) {
-                    const stationIds = Array.isArray(seg?.rows)
-                        ? seg.rows.map((x) => normalizeText(x?.stationId)).filter(Boolean)
-                        : [];
-                    const compactIds = [];
-                    for (const sid of stationIds) {
-                        if (!sid) continue;
-                        if (compactIds.length && compactIds[compactIds.length - 1] === sid) continue;
-                        compactIds.push(sid);
-                    }
-                    if (compactIds.length < 2) continue;
-                    segments.push({
-                        kind: 'main',
+                    const segment = buildRailPreviewSegment({
                         lineId: normalizeText(seg?.lineId || lineId),
-                        stationIds: compactIds,
-                        d: normalizeText(seg?.d) || null,
-                        typeColor: normalizeText(seg?.typeColor || leg?.typeColor || '') || null
+                        stationIds: rowsToCompactStationIds(seg?.rows),
+                        direction: seg?.d,
+                        typeColor: seg?.typeColor || leg?.typeColor || ''
                     });
+                    if (segment) segments.push(segment);
                 }
                 continue;
             }
@@ -1911,27 +1891,23 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
                 stationIds = [normalizeText(leg?.fromStop), normalizeText(leg?.toStop)].filter(Boolean);
             }
 
-            const compactIds = [];
-            for (const sid of stationIds) {
-                if (!sid) continue;
-                if (compactIds.length && compactIds[compactIds.length - 1] === sid) continue;
-                compactIds.push(sid);
-            }
-            if (compactIds.length < 2) continue;
-
-            segments.push({
-                kind: 'main',
+            const segment = buildRailPreviewSegment({
                 lineId,
-                stationIds: compactIds,
-                d: normalizeText(trip?.d) || null,
-                typeColor: normalizeText(leg?.typeColor || trip?.typeColor || '') || null
+                stationIds,
+                direction: trip?.d,
+                typeColor: leg?.typeColor || trip?.typeColor || ''
             });
+            if (segment) segments.push(segment);
         }
     }
 
-    if (!segments.length) return null;
-
-
+    return buildTripPreviewPayloadFromSegments({
+        row,
+        displayPlan,
+        segments,
+        toHHMM
+    });
+    /*
     const firstSeg = segments[0];
     const lastSeg = segments[segments.length - 1];
     const firstLeg = legs[0] || null;
@@ -1949,6 +1925,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
         fitMode: 'preview',
         segments: segments 
     };
+    */
 };
 
 

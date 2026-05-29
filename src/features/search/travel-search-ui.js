@@ -60,6 +60,11 @@ import {
 } from './journeyPlanRenderer.js';
 import { createReachableStopsController } from './reachableStopsController.js';
 import { travelSearchMapActions } from './travelSearchMapActions.js';
+import {
+    buildDisplayPlanFromExpandedLegs,
+    buildRailPreviewSegment,
+    buildTripPreviewPayloadFromSegments
+} from '../../domain/routePlanning/displayRows.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -1286,25 +1291,22 @@ export function mountTravelSearchUI() {
                 stationIds = [normalizeText(leg?.fromStop), normalizeText(leg?.toStop)].filter(Boolean);
             }
 
-            const compactIds = [];
-            for (const sid of stationIds) {
-                if (!sid) continue;
-                if (compactIds.length && compactIds[compactIds.length - 1] === sid) continue;
-                compactIds.push(sid);
-            }
-            if (compactIds.length < 2) continue;
-
-            const seg = {
-                kind: 'main',
+            const seg = buildRailPreviewSegment({
                 lineId,
-                stationIds: compactIds
-            };
-            if (segDir) seg.d = segDir;
-            segments.push(seg);
+                stationIds,
+                direction: segDir
+            });
+            if (seg) segments.push(seg);
         }
 
-        if (!segments.length) return null;
+        return buildTripPreviewPayloadFromSegments({
+            row,
+            displayPlan,
+            segments,
+            toHHMM
+        });
 
+        /*
         const firstSeg = segments[0];
         const lastSeg = segments[segments.length - 1];
         const firstLeg = legs[0] || null;
@@ -1321,6 +1323,7 @@ export function mountTravelSearchUI() {
             fitMode: 'preview',
             segments
         };
+        */
     };
 
     const getDisplayPlanForRow = async (row) => {
@@ -1333,6 +1336,17 @@ export function mountTravelSearchUI() {
             originStationId: row?.originStationId
         });
 
+        const sectionListForDisplay = Array.isArray(row?.plan?.sections) ? row.plan.sections : [];
+        row.__displayPlan = buildDisplayPlanFromExpandedLegs({
+            expandedLegs,
+            isThroughLegPairByMeta,
+            plan: row.plan,
+            row,
+            sections: sectionListForDisplay
+        });
+        return row.__displayPlan;
+
+        /*
         const firstLeg = expandedLegs[0] || null;
         const lastLeg = expandedLegs[expandedLegs.length - 1] || null;
 
@@ -1386,6 +1400,7 @@ export function mountTravelSearchUI() {
             transfers
         };
         return row.__displayPlan;
+        */
     };
 
     journeyPlanPreviewController = createJourneyPlanPreviewController({
