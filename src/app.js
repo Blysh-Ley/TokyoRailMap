@@ -3049,10 +3049,14 @@ const initMapApp = async () => {
     };
 
     const hoverBridgeApi = {
-        beginHoverPreview: () => hoverFeature?.beginPreview() === true,
-        endHoverPreview: () => hoverFeature?.closePreview({ committed: false }),
-        commitHoverPreview: () => hoverFeature?.commitPreview()
+        beginPreview: () => hoverFeature?.beginPreview() === true,
+        endPreview: () => hoverFeature?.closePreview({ committed: false }),
+        commitPreview: () => hoverFeature?.commitPreview(),
+        getPreviewStatus: () => hoverFeature?.getPreviewStatus?.() || null
     };
+    hoverBridgeApi.beginHoverPreview = hoverBridgeApi.beginPreview;
+    hoverBridgeApi.endHoverPreview = hoverBridgeApi.endPreview;
+    hoverBridgeApi.commitHoverPreview = hoverBridgeApi.commitPreview;
 
     const routePreviewBridgeApi = {
         previewTripPath: (payload, options = {}) => {

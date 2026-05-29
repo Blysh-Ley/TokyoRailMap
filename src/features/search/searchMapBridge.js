@@ -28,15 +28,40 @@ export const createSearchMapBridge = ({
         }));
     };
 
+    const beginPreview = () => {
+        if (typeof hoverApi.beginPreview === 'function') return hoverApi.beginPreview() === true;
+        return hoverApi.beginHoverPreview?.() === true;
+    };
+
+    const endPreview = () => {
+        if (typeof hoverApi.endPreview === 'function') return hoverApi.endPreview();
+        return hoverApi.endHoverPreview?.();
+    };
+
+    const commitPreview = () => {
+        if (typeof hoverApi.commitPreview === 'function') return hoverApi.commitPreview();
+        return hoverApi.commitHoverPreview?.();
+    };
+
+    const getPreviewStatus = () => {
+        if (typeof hoverApi.getPreviewStatus === 'function') return hoverApi.getPreviewStatus();
+        return null;
+    };
+
     return {
         isReady: false,
 
         snapshotSelectionState: () => stateApi.snapshotSelectionState?.(),
         restoreSelectionState: (snapshot) => stateApi.restoreSelectionState?.(snapshot),
 
-        beginHoverPreview: () => hoverApi.beginHoverPreview?.() === true,
-        endHoverPreview: () => hoverApi.endHoverPreview?.(),
-        commitHoverPreview: () => hoverApi.commitHoverPreview?.(),
+        beginPreview,
+        endPreview,
+        commitPreview,
+        getPreviewStatus,
+
+        beginHoverPreview: beginPreview,
+        endHoverPreview: endPreview,
+        commitHoverPreview: commitPreview,
 
         previewTripPath: (payload, options = {}) => {
             dispatch(tripPreviewRequested({ source: 'searchMapBridge', payload, options }));
