@@ -57,12 +57,17 @@ import {
 } from './services/appSettings.js';
 import { createBasemapController, createMapEngine } from './services/mapEngine.js';
 import { createStore } from './store/appStore.js';
-import { hoverSetEnabled, mapClick, multiSelectSetEnabled, panelOpenRequested, selectionClear } from './store/actions.js';
+import { hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested, selectionClear } from './store/actions.js';
 import { createHighlightFeature } from './features/highlight/highlightFeature.js';
 import { createHighlightRenderer } from './features/highlight/highlightRenderer.js';
 import { createTripPreviewRenderer } from './features/highlight/tripPreviewRenderer.js';
 import { createHoverFeature } from './features/hover/hoverFeature.js';
 import { createLayerFeature } from './features/layer/layerFeature.js';
+import {
+    bindBlankMapClickRestore,
+    bindLineClickSelect,
+    bindStationClickHighlightServingLines
+} from './features/map-interactions/mapInteractionController.js';
 import { createStationCoordinateAdapter } from './features/layer/stationCoordinateAdapter.js';
 import { createRouteFeature } from './features/route/routeFeature.js';
 import { createRoutePreviewController } from './features/route/routePreviewController.js';
@@ -3158,124 +3163,55 @@ const initMapApp = async () => {
     }
 
     function bindClickBlankToRestore() {
-
-        mapEngine.on('click', (e) => {
-            if (!touchTapGuard.allowTap(e?.originalEvent)) return;
-
-
-            if (isInFullscreenMode()) return;
-
-            const layers = [];
-            if (mapEngine.hasLayer('lines-layer')) layers.push('lines-layer');
-            if (mapEngine.hasLayer('stations-layer')) layers.push('stations-layer');
-
-
-            const hits = layers.length ? mapEngine.queryRenderedFeatures(e.point, { layers }) : [];
-            appStore.dispatch(mapClick({
-                source: 'app.bindClickBlankToRestore',
-                target: hits.length ? 'feature' : 'blank',
-                point: e?.point ? { x: e.point.x, y: e.point.y } : null,
-                lngLat: e?.lngLat ? { lng: e.lngLat.lng, lat: e.lngLat.lat } : null
-            }));
-            if (hits.length) return;
-
-            // 点击空白处：隐藏右侧 panel
-            panel?.hide?.();
-            if (!isMultiSelectModeEnabled()) {
-                clearTripPathPreview();
-            }
-
-
-            if (!selectedCompany && !selectedLineId && !(selectedStationLineIds && selectedStationLineIds.size)) return;
-
-            clearSelectionsAndRestore();
+        bindBlankMapClickRestore({
+            mapEngine,
+            store: appStore,
+            touchTapGuard,
+            isInFullscreenMode,
+            isMultiSelectModeEnabled,
+            hasActiveSelection: () => !!(
+                selectedCompany ||
+                selectedLineId ||
+                (selectedStationLineIds && selectedStationLineIds.size)
+            ),
+            hidePanel: () => panel?.hide?.(),
+            clearTripPathPreview,
+            clearSelectionsAndRestore
         });
     }
 
     function bindClickLineToSelect() {
-        if (!mapEngine.hasLayer('lines-layer')) return;
-
-
-        mapEngine.on('click', 'lines-layer', (e) => {
-            if (!touchTapGuard.allowTap(e?.originalEvent)) return;
-
-
-            // 需求：点击站点（或站点与线路一起被点到）时，不应触发线路选中
-            if (mapEngine.hasLayer('stations-layer')) {
-                const stationHits = mapEngine.queryRenderedFeatures(e.point, { layers: ['stations-layer'] }) || [];
-                if (stationHits.length) return;
-            }
-
-            const f = e?.features?.[0];
-            const lineId = f?.properties?.id ?? f?.id;
-            if (lineId == null) return;
-
-            const rawLineId = String(lineId);
-            const resolved = resolveLineSelectionForApp(rawLineId);
-            const mainLineId = String(resolved?.mainLineId ?? rawLineId);
-            const merged = Array.isArray(resolved?.mergedLineIds)
-                ? resolved.mergedLineIds.map(String).filter(Boolean)
-                : [mainLineId];
-
-            if (isMultiSelectModeEnabled()) {
-                toggleBaseMultiSelection(`line:${mainLineId}`, merged, 'line');
-                if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
-                else setStationLabelMode('auto');
-                applySelectionEffects();
-                return;
-            }
-
-
-            const payload = searchFeature.commitLine(rawLineId);
-            const nextLineId = String(payload?.selectedLineId || mainLineId);
-            setStationLabelMode('all');
-
-            // 同步菜单高亮（如果菜单已挂载且能找到对应项）
-            if (menu && typeof menu.markActive === 'function') {
-                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(nextLineId)}"]`);
+        bindLineClickSelect({
+            mapEngine,
+            touchTapGuard,
+            resolveLineSelection: resolveLineSelectionForApp,
+            isMultiSelectModeEnabled,
+            toggleBaseMultiSelection,
+            getBaseMultiSelectedLineIds,
+            setStationLabelMode,
+            applySelectionEffects,
+            commitLine: (lineId) => searchFeature.commitLine(lineId),
+            markActiveLine: (lineId) => {
+                if (!menu || typeof menu.markActive !== 'function') return;
+                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(lineId)}"]`);
                 if (el) menu.markActive(el);
-            }
-
-            // 点击高亮：不限制放大倍率
-            fitToCurrentSelection(`line:${nextLineId}`, 'commit');
-
-            showRouteMapFloatingPanelForLine(rawLineId);
-        });
-
-        // 鼠标样式提示可点击（可选但很轻量）
-        mapEngine.on('mouseenter', 'lines-layer', () => {
-            mapEngine.setCursor('pointer');
-        });
-        mapEngine.on('mouseleave', 'lines-layer', () => {
-            mapEngine.setCursor('');
+            },
+            fitToCurrentSelection,
+            showRouteMapFloatingPanelForLine
         });
     }
 
     function bindClickStationToHighlightServingLines() {
-        if (!mapEngine.hasLayer('stations-layer')) return;
-
-
-        mapEngine.on('click', 'stations-layer', async (e) => {
-            if (!touchTapGuard.allowTap(e?.originalEvent)) return;
-            if (isJourneyMapPickActive()) return;
-
-            const f = e?.features?.[0];
-            const props = f?.properties || {};
-            const hadStationSelection = !!String(selectedStationId || '').trim();
-            if (!isMultiSelectModeEnabled()) {
-                selectServingLinesForStation(props);
-            }
-
-            // 打开右侧界面 A
-            await openPanelForStationWithAutoScroll(props, { autoScroll: hadStationSelection });
-
-            // 预加载该站点关联线路的时刻表
-            try {
-                const ids = getServingLineIdsFromStationProps(props);
-                timetableCache?.preloadRecursiveByLineIds?.(ids);
-            } catch {
-                // ignore
-            }
+        bindStationClickHighlightServingLines({
+            mapEngine,
+            touchTapGuard,
+            isJourneyMapPickActive,
+            isMultiSelectModeEnabled,
+            getSelectedStationId: () => selectedStationId,
+            selectServingLinesForStation,
+            openPanelForStationWithAutoScroll,
+            getServingLineIdsFromStationProps,
+            preloadTimetablesByLineIds: (ids) => timetableCache?.preloadRecursiveByLineIds?.(ids)
         });
     }
 
