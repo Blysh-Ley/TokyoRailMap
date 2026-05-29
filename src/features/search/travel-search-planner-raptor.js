@@ -11,6 +11,15 @@ import {
     distanceMeters,
     isWithinDistanceMeters
 } from '../../domain/routePlanning/geo.js';
+import {
+    extractLineIdFromTripId,
+    getTripBaseKey,
+    getTripCanonicalId,
+    getTripFileNameByLineId,
+    normalizeRefArray,
+    normalizeText,
+    parseTripServiceDayFromId
+} from '../../domain/routePlanning/text.js';
 
 const INF_TIME = Number.POSITIVE_INFINITY;
 
@@ -20,39 +29,14 @@ export const getReachableStopsWithinMinutes = async (options) => {
     return getReachableStopsWithinMinutesDijkstra(options);
 };
 
-export const normalizeText = (v) => String(v ?? '').trim();
-
 export {
     distanceMeters,
     formatDuration,
     getServiceDayStartMs,
     hhmmToOffsetMinutes,
     normalizeHHMM,
+    normalizeText,
     toHHMM
-};
-
-const parseTripServiceDayFromId = (tripId) => {
-    const id = normalizeText(tripId);
-    if (!id) return '';
-    const m = id.match(/\.(Weekday|SaturdayHoliday)(?:\.[0-9]+)?$/);
-    if (m?.[1]) return m[1];
-    if (id.includes('.Weekday')) return 'Weekday';
-    if (id.includes('.SaturdayHoliday')) return 'SaturdayHoliday';
-    return '';
-};
-
-const getTripBaseKey = (tripLike) => {
-    const t = normalizeText(tripLike?.t || '');
-    if (t) return t;
-    const id = normalizeText(tripLike?.id || tripLike?.tripId || '');
-    if (!id) return '';
-    return id.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '');
-};
-
-const normalizeRefArray = (value) => {
-    if (Array.isArray(value)) return value.map((x) => normalizeText(x)).filter(Boolean);
-    const s = normalizeText(value);
-    return s ? [s] : [];
 };
 
 export const plannerState = {
@@ -80,13 +64,6 @@ const getDayMergedThroughRootMap = (serviceDay) => {
     const day = normalizeText(serviceDay) || 'Weekday';
     if (!plannerState.mergedThroughRootByTripIdByDay.has(day)) plannerState.mergedThroughRootByTripIdByDay.set(day, new Map());
     return plannerState.mergedThroughRootByTripIdByDay.get(day);
-};
-
-const getTripCanonicalId = (trip) => normalizeText(trip?.rawTripId || trip?.tripId || '');
-
-const getTripFileNameByLineId = (lineId) => {
-    const id = normalizeText(lineId);
-    return id ? `${id}.json` : '';
 };
 
 const buildThroughChainFromTrip = async ({ seedTrip, serviceDay, serviceDayStartMs }) => {
@@ -164,13 +141,6 @@ const buildThroughChainFromTrip = async ({ seedTrip, serviceDay, serviceDayStart
     }
 
     return { throughRootTripId, chainTrips, chainTripsList };
-};
-
-const extractLineIdFromTripId = (tripId) => {
-    const id = normalizeText(tripId);
-    if (!id) return '';
-    const m = id.match(/^(.*)\.[^.]+\.(Weekday|SaturdayHoliday)(?:\.[0-9]+)?$/);
-    return normalizeText(m?.[1] || '');
 };
 
 const isSamePhysicalStop = (aStopId, bStopId) => {
