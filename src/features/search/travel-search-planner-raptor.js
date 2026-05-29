@@ -7,6 +7,10 @@ import {
     normalizeHHMM,
     toHHMM
 } from '../../domain/routePlanning/time.js';
+import {
+    distanceMeters,
+    isWithinDistanceMeters
+} from '../../domain/routePlanning/geo.js';
 
 const INF_TIME = Number.POSITIVE_INFINITY;
 
@@ -19,6 +23,7 @@ export const getReachableStopsWithinMinutes = async (options) => {
 export const normalizeText = (v) => String(v ?? '').trim();
 
 export {
+    distanceMeters,
     formatDuration,
     getServiceDayStartMs,
     hhmmToOffsetMinutes,
@@ -202,37 +207,17 @@ export const isThroughLegPairByMeta = ({ currentLeg, nextLeg }) => {
     return (linkedByRef || linkedByBaseTrip);
 };
 
-const toRadians = (deg) => (Number(deg) * Math.PI) / 180;
-
-export const distanceMeters = (coordA, coordB) => {
-    if (!Array.isArray(coordA) || !Array.isArray(coordB) || coordA.length < 2 || coordB.length < 2) return INF_TIME;
-    const lng1 = Number(coordA[0]);
-    const lat1 = Number(coordA[1]);
-    const lng2 = Number(coordB[0]);
-    const lat2 = Number(coordB[1]);
-    if (![lng1, lat1, lng2, lat2].every(Number.isFinite)) return INF_TIME;
-    const R = 6371000;
-    const dLat = toRadians(lat2 - lat1);
-    const dLng = toRadians(lng2 - lng1);
-    const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-};
-
 export const shouldBlockJourneyPlanning = ({ originStationId, destinationStationId, originLngLat = null, destinationLngLat = null, maxDistanceMeters = 500 } = {}) => {
     const originId = normalizeText(originStationId);
     const destinationId = normalizeText(destinationStationId);
     if (!originId || !destinationId) return false;
     if (originId === destinationId || isSamePhysicalStop(originId, destinationId)) return true;
 
-    const originCoords = Array.isArray(originLngLat) ? originLngLat : null;
-    const destinationCoords = Array.isArray(destinationLngLat) ? destinationLngLat : null;
-    if (!originCoords || !destinationCoords) return false;
-
-    const dist = distanceMeters(originCoords, destinationCoords);
-    return Number.isFinite(dist) && dist <= Number(maxDistanceMeters);
+    return isWithinDistanceMeters({
+        coordA: originLngLat,
+        coordB: destinationLngLat,
+        maxDistanceMeters
+    });
 };
 
 export const ensurePlannerStaticData = async () => {
