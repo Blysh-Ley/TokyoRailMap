@@ -36,28 +36,27 @@ const reducer = (state, action = {}) => {
         case ACTION_TYPES.SELECTION_PREVIEW_COMPANY:
         case ACTION_TYPES.SELECTION_COMMIT_COMPANY:
         case ACTION_TYPES.SELECTION_SELECT_STATION_LINES:
-            return normalizeAppState({
+            return recordInteraction({
                 ...reduceSelection(state, action.payload),
-                multiSelectEnabled: state.multiSelectEnabled,
-                lastInteraction: state.lastInteraction
-            });
+                multiSelectEnabled: state.multiSelectEnabled
+            }, action);
 
         case ACTION_TYPES.SELECTION_CLEAR:
             if (action.payload?.stationOnly === true) {
-                return normalizeAppState({
+                return recordInteraction({
                     ...state,
                     selectedStationLineIds: null,
                     selectedStationId: null
-                });
+                }, action);
             }
-            return normalizeAppState({
+            return recordInteraction({
                 ...state,
                 selectedCompany: null,
                 selectedLineId: null,
                 selectedStationLineIds: null,
                 selectedStationId: null,
                 selectedServiceMode: 'all'
-            });
+            }, action);
 
         case ACTION_TYPES.HOVER_SET_ENABLED:
             return normalizeAppState({

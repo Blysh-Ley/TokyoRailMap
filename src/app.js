@@ -57,7 +57,7 @@ import {
 } from './services/appSettings.js';
 import { createBasemapController, createMapEngine } from './services/mapEngine.js';
 import { createStore } from './store/appStore.js';
-import { hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested } from './store/actions.js';
+import { hoverSetEnabled, mapClick, multiSelectSetEnabled, panelOpenRequested, selectionClear } from './store/actions.js';
 import { createHighlightFeature } from './features/highlight/highlightFeature.js';
 import { createHighlightRenderer } from './features/highlight/highlightRenderer.js';
 import { createTripPreviewRenderer } from './features/highlight/tripPreviewRenderer.js';
@@ -2077,15 +2077,12 @@ const initMapApp = async () => {
         const ids = getServingLineIdsFromStationProps(props);
         if (!ids.length) return;
 
-        selectedStationLineIds = new Set(ids);
-        selectedStationId = String(props?.id ?? '').trim() || null;
-        selectedCompany = null;
-        selectedLineId = null;
-        selectedServiceMode = 'all';
         isolateStationsToSelectedLine = false;
         setStationLabelMode('all');
-
-        applySelectionEffects();
+        searchFeature?.selectStationLines?.({
+            stationId: String(props?.id ?? '').trim() || null,
+            lineIds: ids
+        });
     };
 
     const isJourneyMapPickActive = () => {
@@ -2594,11 +2591,7 @@ const initMapApp = async () => {
     }
 
     function clearSelectionsAndRestore() {
-        selectedCompany = null;
-        selectedLineId = null;
-        selectedStationLineIds = null;
-        selectedStationId = null;
-        selectedServiceMode = 'all';
+        appStore.dispatch(selectionClear({ source: 'app.clearSelectionsAndRestore' }));
         isolateStationsToSelectedLine = false;
         setStationLabelMode('auto');
 
@@ -2608,8 +2601,6 @@ const initMapApp = async () => {
         transferCapsuleVisibleKey = '__init__';
 
         if (menu && typeof menu.clearActive === 'function') menu.clearActive();
-
-        applySelectionEffects();
     }
 
     let applySelectionEffectsRafId = null;
@@ -3180,6 +3171,12 @@ const initMapApp = async () => {
 
 
             const hits = layers.length ? mapEngine.queryRenderedFeatures(e.point, { layers }) : [];
+            appStore.dispatch(mapClick({
+                source: 'app.bindClickBlankToRestore',
+                target: hits.length ? 'feature' : 'blank',
+                point: e?.point ? { x: e.point.x, y: e.point.y } : null,
+                lngLat: e?.lngLat ? { lng: e.lngLat.lng, lat: e.lngLat.lat } : null
+            }));
             if (hits.length) return;
 
             // 点击空白处：隐藏右侧 panel
@@ -3215,7 +3212,6 @@ const initMapApp = async () => {
 
             const rawLineId = String(lineId);
             const resolved = resolveLineSelectionForApp(rawLineId);
-
             const mainLineId = String(resolved?.mainLineId ?? rawLineId);
             const merged = Array.isArray(resolved?.mergedLineIds)
                 ? resolved.mergedLineIds.map(String).filter(Boolean)
@@ -3230,22 +3226,18 @@ const initMapApp = async () => {
             }
 
 
-            selectedLineId = mainLineId;
-            selectedCompany = null;
-            selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
-            selectedStationId = null;
-            selectedServiceMode = 'all';
+            const payload = searchFeature.commitLine(rawLineId);
+            const nextLineId = String(payload?.selectedLineId || mainLineId);
             setStationLabelMode('all');
 
             // 同步菜单高亮（如果菜单已挂载且能找到对应项）
             if (menu && typeof menu.markActive === 'function') {
-                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(selectedLineId)}"]`);
+                const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(nextLineId)}"]`);
                 if (el) menu.markActive(el);
             }
 
-            applySelectionEffects();
             // 点击高亮：不限制放大倍率
-            fitToCurrentSelection(`line:${selectedLineId}`, 'commit');
+            fitToCurrentSelection(`line:${nextLineId}`, 'commit');
 
             showRouteMapFloatingPanelForLine(rawLineId);
         });
