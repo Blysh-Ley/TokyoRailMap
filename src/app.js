@@ -54,7 +54,6 @@ import {
     readStationOffsetMode,
     readTimetableViewMode,
     resolveThemeFromAppearance,
-    writeAdaptiveViewportEnabled,
     writeAppearanceMode,
     writeAutoUpdateCheckEnabled,
     writeStationOffsetMode,
@@ -77,7 +76,11 @@ import { createSearchMapBridge } from './features/search/searchMapBridge.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
 import { createSearchSelectionController } from './features/search/searchSelectionController.js';
 import { createSegmentedSettingRow } from './features/settings/settingRows.js';
-import { mountBasemapToggle, mountHoverPreviewToggle } from './features/settings/settingsControls.js';
+import {
+    mountAdaptiveViewportToggle,
+    mountBasemapToggle,
+    mountHoverPreviewToggle
+} from './features/settings/settingsControls.js';
 import { createSettingsMenu } from './features/settings/settingsMenu.js';
 import {
     buildTripPreviewSelectionKey as buildRoutePreviewSelectionKey,
@@ -3543,34 +3546,6 @@ const initMapApp = async () => {
         setMode(readTimetableViewMode());
     }
 
-    function mountAdaptiveViewportToggle(hostEl) {
-        const row = createSegmentedSettingRow({
-            hostEl,
-            className: 'settings-item-adaptive-viewport',
-            title: '自适应视野',
-            options: [
-                { value: 'on', label: '开启' },
-                { value: 'off', label: '关闭' }
-            ]
-        });
-        const btnOn = row.buttons.get('on');
-        const btnOff = row.buttons.get('off');
-
-        const setEnabled = (enabled, { persistStorage = true } = {}) => {
-            const on = enabled !== false;
-            row.setActive(on ? 'on' : 'off');
-            applyAdaptiveViewportEnabled(on);
-            if (persistStorage) {
-                writeAdaptiveViewportEnabled(on);
-            }
-        };
-
-        btnOn.addEventListener('click', () => setEnabled(true));
-        btnOff.addEventListener('click', () => setEnabled(false));
-
-        setEnabled(readAdaptiveViewportEnabled());
-    }
-
     function mountStationOffsetToggle(hostEl) {
         const row = createSegmentedSettingRow({
             hostEl,
@@ -3602,7 +3577,10 @@ const initMapApp = async () => {
         onModeChanged: setBasemapMode
     });
     mountTimetableViewToggle(settingsMenuContentEl);
-    mountAdaptiveViewportToggle(settingsMenuContentEl);
+    mountAdaptiveViewportToggle({
+        hostEl: settingsMenuContentEl,
+        onEnabledChanged: applyAdaptiveViewportEnabled
+    });
     mountStationOffsetToggle(settingsMenuContentEl);
     hoverPreviewToggleController = mountHoverPreviewToggle({
         hostEl: settingsMenuContentEl,

@@ -1,6 +1,8 @@
 import {
+    readAdaptiveViewportEnabled,
     readBasemapMode,
     readHoverPreviewEnabled,
+    writeAdaptiveViewportEnabled,
     writeBasemapMode,
     writeHoverPreviewEnabled
 } from '../../services/appSettings.js';
@@ -72,5 +74,37 @@ export const mountHoverPreviewToggle = ({ hostEl, onEnabledChanged } = {}) => {
     return {
         setEnabled,
         setDisabled
+    };
+};
+
+export const mountAdaptiveViewportToggle = ({ hostEl, onEnabledChanged } = {}) => {
+    const row = createSegmentedSettingRow({
+        hostEl,
+        className: 'settings-item-adaptive-viewport',
+        title: '自适应视野',
+        options: [
+            { value: 'on', label: '开启' },
+            { value: 'off', label: '关闭' }
+        ]
+    });
+    const btnOn = row.buttons.get('on');
+    const btnOff = row.buttons.get('off');
+
+    const setEnabled = (enabled, { persistStorage = true } = {}) => {
+        const next = enabled !== false;
+        row.setActive(next ? 'on' : 'off');
+        onEnabledChanged?.(next);
+        if (persistStorage) {
+            writeAdaptiveViewportEnabled(next);
+        }
+    };
+
+    btnOn.addEventListener('click', () => setEnabled(true));
+    btnOff.addEventListener('click', () => setEnabled(false));
+
+    setEnabled(readAdaptiveViewportEnabled());
+
+    return {
+        setEnabled
     };
 };
