@@ -53,6 +53,20 @@ export const createLayerFeature = ({
         scheduleCollisionUpdate?.();
     };
 
+    const resetTransferCapsuleVisibleKey = (keyHint = '__init__') => {
+        setTransferCapsuleVisibleKey?.(String(keyHint || '__init__'));
+    };
+
+    const invalidateAndScheduleTransferCapsules = (keyHint = '__init__') => {
+        resetTransferCapsuleVisibleKey(keyHint);
+        scheduleTransferCapsuleRefresh();
+    };
+
+    const scheduleSelectionLayerRefresh = () => {
+        scheduleCollision();
+        scheduleTransferCapsuleRefresh();
+    };
+
     const refreshTransferCapsulesNow = () => {
         const stationsData = getTransferCapsuleStationsData?.();
         const stationGroups = getTransferCapsuleStationGroups?.();
@@ -151,9 +165,12 @@ export const createLayerFeature = ({
         applyRealtimeStationOffsetForZoom,
         applyStationGeoJSON,
         destroy,
+        invalidateAndScheduleTransferCapsules,
         invalidateTransferCapsules,
         refreshTransferCapsulesNow,
+        resetTransferCapsuleVisibleKey,
         scheduleCollisionUpdate: scheduleCollision,
+        scheduleSelectionLayerRefresh,
         setupCollisionController,
         scheduleTransferCapsuleRefresh,
         syncStationOffsetForTripPreviewState

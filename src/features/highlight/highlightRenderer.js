@@ -29,8 +29,7 @@ export const createHighlightRenderer = ({ mapEngine, layers = DEFAULT_LAYERS } =
     const applyLineFilter = (filterExpr) => {
         if (!hasLayer(layerIds.lines)) return false;
         try {
-            mapEngine.setFilter(layerIds.lines, filterExpr);
-            return true;
+            return mapEngine.setLayerFilter?.(layerIds.lines, filterExpr) === true;
         } catch {
             return false;
         }

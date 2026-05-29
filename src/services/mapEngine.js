@@ -49,6 +49,12 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
         return true;
     };
 
+    const setLayerFilter = (layerId, filterExpr) => {
+        if (!layerId || !map.getLayer(layerId)) return false;
+        map.setFilter(layerId, filterExpr);
+        return true;
+    };
+
     return {
         getMap: () => map,
         addMetricScaleControl: ({ maxWidth = 100, position = 'bottom-left' } = {}) => {
@@ -109,6 +115,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
             map.setLayoutProperty(layerId, 'visibility', visible === false ? 'none' : 'visible');
             return true;
         },
+        setLayerFilter,
         setSourceData: (sourceId, data) => {
             const source = map.getSource(sourceId);
             source?.setData?.(data);

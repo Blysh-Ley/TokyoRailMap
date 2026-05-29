@@ -1389,12 +1389,38 @@ const initMapApp = async () => {
         requestAnimationFrame(() => refreshTransferCapsulesNow());
     };
 
+    const invalidateAndScheduleTransferCapsules = (keyHint = '__init__') => {
+        if (layerFeature?.invalidateAndScheduleTransferCapsules) {
+            layerFeature.invalidateAndScheduleTransferCapsules(keyHint);
+            return;
+        }
+        transferCapsuleVisibleKey = String(keyHint || '__init__');
+        scheduleTransferCapsuleRefresh();
+    };
+
+    const resetTransferCapsuleVisibleKey = (keyHint = '__init__') => {
+        if (layerFeature?.resetTransferCapsuleVisibleKey) {
+            layerFeature.resetTransferCapsuleVisibleKey(keyHint);
+            return;
+        }
+        transferCapsuleVisibleKey = String(keyHint || '__init__');
+    };
+
     const scheduleLayerCollisionUpdate = () => {
         if (layerFeature?.scheduleCollisionUpdate) {
             layerFeature.scheduleCollisionUpdate();
             return;
         }
         collisionController?.scheduleUpdate?.();
+    };
+
+    const scheduleSelectionLayerRefresh = () => {
+        if (layerFeature?.scheduleSelectionLayerRefresh) {
+            layerFeature.scheduleSelectionLayerRefresh();
+            return;
+        }
+        scheduleLayerCollisionUpdate();
+        scheduleTransferCapsuleRefresh();
     };
 
     const applyMultiSelectBaseLayerState = (enabled) => {
@@ -2604,7 +2630,7 @@ const initMapApp = async () => {
 
 
         pendingTransferCapsuleRefreshAfterCollision = true;
-        transferCapsuleVisibleKey = '__init__';
+        resetTransferCapsuleVisibleKey('__init__');
 
         if (menu && typeof menu.clearActive === 'function') menu.clearActive();
     }
@@ -2621,9 +2647,7 @@ const initMapApp = async () => {
             applyTransferStationLabelCollapse();
             updateSelectedStationLabelClass();
             updateMultiSelectStationLabelChips();
-            scheduleLayerCollisionUpdate();
-
-            scheduleTransferCapsuleRefresh();
+            scheduleSelectionLayerRefresh();
             updateSelectionBadge();
             try {
                 const lineIds = (() => {
@@ -4763,8 +4787,7 @@ const initMapApp = async () => {
             transferCapsuleStationsData = stationsData;
             transferCapsuleStationGroups = await getCachedJson('./data/station-groups.json');
             transferCapsuleBaseConnectionOrder = buildTransferCapsuleConnectionOrder(stationsData, transferCapsuleStationGroups);
-            transferCapsuleVisibleKey = '__init__';
-            scheduleTransferCapsuleRefresh();
+            invalidateAndScheduleTransferCapsules('__init__');
         } catch (e) {
             console.warn('换乘站 MST 胶囊渲染初始化失败', e);
         }
@@ -4812,7 +4835,7 @@ const initMapApp = async () => {
             getZoom: () => mapEngine.getZoom(),
             setStationsGeoJSON: (nextGeoJSON) => {
                 try {
-                    mapEngine.getSource('stations-source')?.setData?.(nextGeoJSON);
+                    mapEngine.setSourceData('stations-source', nextGeoJSON);
                 } catch {
                     // ignore
                 }
@@ -4857,8 +4880,7 @@ const initMapApp = async () => {
                     collisionVisibleStationIds = visibleStationIds instanceof Set ? new Set(visibleStationIds) : null;
                     if (pendingTransferCapsuleRefreshAfterCollision) {
                         pendingTransferCapsuleRefreshAfterCollision = false;
-                        transferCapsuleVisibleKey = '__init__';
-                        scheduleTransferCapsuleRefresh();
+                        invalidateAndScheduleTransferCapsules('__init__');
                     }
                 },
                 getEnabledLineIds: getEnabledLineIdsForLabels,
