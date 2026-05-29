@@ -34,6 +34,15 @@ import {
 import { createJourneyPickController } from './journeyPickController.js';
 import { createJourneyPlanPreviewController } from './journeyPlanPreviewController.js';
 import {
+    appendJourneyPairPlans,
+    createJourneyComputeKey,
+    createJourneyPairPlanRequest,
+    createPickedJourneyResultRows,
+    getMissingJourneySeedState,
+    normalizeJourneyComputeInput,
+    prepareOriginStopSet
+} from './journeyComputeOrchestrator.js';
+import {
     countJourneyPlanRideStations,
     createJourneyPlanBrief,
     createJourneyPaginationLabeler,
@@ -2074,23 +2083,23 @@ export function mountTravelSearchUI() {
     };
 
     const maybeComputePlans = async () => {
-        
-        const originId = normalizeText(selectedOriginId || originInput.dataset.stationId || '');
-        const destinationId = normalizeText(selectedDestinationId || destinationInput.dataset.stationId || '');
-
-        const originSeeds = Array.from(new Set(
-            Array.isArray(selectedOriginCandidateIds) && selectedOriginCandidateIds.length
-                ? selectedOriginCandidateIds.map((x) => normalizeText(x)).filter(Boolean)
-                : (originId ? [originId] : [])
-        )).slice(0, 3);
-        const destinationSeeds = Array.from(new Set(
-            Array.isArray(selectedDestinationCandidateIds) && selectedDestinationCandidateIds.length
-                ? selectedDestinationCandidateIds.map((x) => normalizeText(x)).filter(Boolean)
-                : (destinationId ? [destinationId] : [])
-        )).slice(0, 3);
-
-        const bothStationPicks = Boolean(originId && destinationId);
-        const bothCoordinatePicks = !originId && !destinationId && Array.isArray(selectedOriginCandidateIds) && selectedOriginCandidateIds.length > 0 && Array.isArray(selectedDestinationCandidateIds) && selectedDestinationCandidateIds.length > 0;
+        const {
+            bothCoordinatePicks,
+            bothStationPicks,
+            coordinateMode,
+            destinationId,
+            destinationSeeds,
+            originId,
+            originSeeds
+        } = normalizeJourneyComputeInput({
+            destinationCandidateIds: selectedDestinationCandidateIds,
+            destinationId: selectedDestinationId,
+            destinationInputStationId: destinationInput.dataset.stationId,
+            normalizeText,
+            originCandidateIds: selectedOriginCandidateIds,
+            originId: selectedOriginId,
+            originInputStationId: originInput.dataset.stationId
+        });
 
         const stationPickBlocked = bothStationPicks && shouldBlockJourneyPlanning({ originStationId: originId, destinationStationId: destinationId });
         const coordinatePickBlocked = bothCoordinatePicks && shouldBlockJourneyPlanning({ originLngLat: selectedOriginLngLat, destinationLngLat: selectedDestinationLngLat, maxDistanceMeters: 500 });
@@ -2101,14 +2110,21 @@ export function mountTravelSearchUI() {
             return;
         }
 
-        if (!originSeeds.length || !destinationSeeds.length) {
-            if (!normalizeText(originInput.value) && !normalizeText(destinationInput.value)) {
+        const missingSeedState = getMissingJourneySeedState({
+            destinationInputText: destinationInput.value,
+            destinationSeeds,
+            normalizeText,
+            originInputText: originInput.value,
+            originSeeds
+        });
+        if (missingSeedState) {
+            if (missingSeedState.action === 'hide-if-empty') {
                 hidePlanResultsIfEmptyInputs();
                 return;
             }
 
-            if (normalizeText(originInput.value) && normalizeText(destinationInput.value)) {
-                showPlanMessage('2公里内未找到可用站点');
+            if (missingSeedState.action === 'show-message') {
+                showPlanMessage(missingSeedState.message);
             }
             return;
         }
@@ -2122,7 +2138,12 @@ export function mountTravelSearchUI() {
 
         const serviceDay = readServiceDayFromPanel();
         const { departureMs } = readDepartureBase();
-        const key = `${originSeeds.join('|')}||${destinationSeeds.join('|')}||${serviceDay}||${Math.floor(departureMs / 60000)}`;
+        const key = createJourneyComputeKey({
+            departureMs,
+            destinationSeeds,
+            originSeeds,
+            serviceDay
+        });
 
         const token = ++planComputeToken;
         lastPlanComputeKey = key;
@@ -2133,68 +2154,57 @@ export function mountTravelSearchUI() {
         const pairBestPlans = [];
         const pairBestWrappers = []; // { plan, originStationId, destinationStationId, originWalkMin, destWalkMin }
 
-        // 判断是否有任一端是通过地图坐标选取（即没有明确 stationId，但存在候选站点）
-        const isOriginCoordinatePick = !originId && Array.isArray(selectedOriginCandidateIds) && selectedOriginCandidateIds.length > 0;
-        const isDestinationCoordinatePick = !destinationId && Array.isArray(selectedDestinationCandidateIds) && selectedDestinationCandidateIds.length > 0;
-        const coordinateMode = isOriginCoordinatePick || isDestinationCoordinatePick;
-
         for (const originStationId of originSeeds) {
             if (token !== planComputeToken) return;
 
-            let sourceStops = getGroupStops(originStationId);
-            sourceStops.add(originStationId);
-            sourceStops = filterNearbyStops(originStationId, sourceStops, 800);
-            if (!sourceStops.size) continue;
+            const sourceStops = prepareOriginStopSet({
+                filterNearbyStops,
+                getGroupStops,
+                originStationId,
+                radiusMeters: 800
+            });
+            if (!sourceStops) continue;
 
             for (const destinationStationId of destinationSeeds) {
                 if (token !== planComputeToken) return;
-                if (originStationId === destinationStationId) continue;
 
-                const destinationStops = getGroupStops(destinationStationId);
-                destinationStops.add(destinationStationId);
-                if (!destinationStops.size || sameSet(sourceStops, destinationStops)) continue;
-
-                // 为当前候选站对计算可能的起/终点步行分钟（来自地图候选 meta）并传入 planner
-                const oMeta = (Array.isArray(selectedOriginCandidateMeta) ? selectedOriginCandidateMeta : []).find((m) => normalizeText(m?.stationId) === normalizeText(originStationId));
-                const dMeta = (Array.isArray(selectedDestinationCandidateMeta) ? selectedDestinationCandidateMeta : []).find((m) => normalizeText(m?.stationId) === normalizeText(destinationStationId));
-                const originWalkMin = Number.isFinite(Number(oMeta?.walkMinutes)) ? Number(oMeta.walkMinutes) : null;
-                const destWalkMin = Number.isFinite(Number(dMeta?.walkMinutes)) ? Number(dMeta.walkMinutes) : null;
+                const pairRequest = createJourneyPairPlanRequest({
+                    baseDepartureMs: departureMs,
+                    destinationCandidateMeta: selectedDestinationCandidateMeta,
+                    destinationStationId,
+                    getGroupStops,
+                    normalizeText,
+                    originCandidateMeta: selectedOriginCandidateMeta,
+                    originStationId,
+                    sameSet,
+                    serviceDay,
+                    sourceStops
+                });
+                if (!pairRequest) continue;
 
                 const plans = await collectJourneyCandidates({
-                    sourceStops,
-                    destinationStops,
-                    serviceDay,
-                    baseDepartureMs: departureMs,
-                    originWalkMin,
-                    destWalkMin
+                    sourceStops: pairRequest.sourceStops,
+                    destinationStops: pairRequest.destinationStops,
+                    serviceDay: pairRequest.serviceDay,
+                    baseDepartureMs: pairRequest.baseDepartureMs,
+                    originWalkMin: pairRequest.originWalkMin,
+                    destWalkMin: pairRequest.destWalkMin
                 });
 
                 if (token !== planComputeToken) return;
                 if (!Array.isArray(plans) || !plans.length) continue;
 
-                if (coordinateMode) {
-                    // 坐标模式：只取每对候选站中最短的方案（planner 已考虑起点偏移并可选把终点步行时间加到 arrival）
-                    const shortestPlan = plans.slice().sort((a, b) => a.durationMs - b.durationMs || a.transfers - b.transfers || a.arrivalMs - b.arrivalMs)[0] || null;
-                    if (!shortestPlan) continue;
-
-                    // 确保元数据存在（planner 也会尝试设置）
-                    shortestPlan.__walkOriginMinutes = Number.isFinite(Number(originWalkMin)) ? Number(originWalkMin) : (Number.isFinite(Number(shortestPlan.__walkOriginMinutes)) ? shortestPlan.__walkOriginMinutes : 0);
-                    shortestPlan.__walkDestinationMinutes = Number.isFinite(Number(destWalkMin)) ? Number(destWalkMin) : (Number.isFinite(Number(shortestPlan.__walkDestinationMinutes)) ? shortestPlan.__walkDestinationMinutes : 0);
-
-                    pairBestPlans.push(shortestPlan);
-                    pairBestWrappers.push({ plan: shortestPlan, originStationId, destinationStationId, originWalkMin: shortestPlan.__walkOriginMinutes, destWalkMin: shortestPlan.__walkDestinationMinutes });
-                } else {
-                    // 站点模式（两端均为明确站点）：保留该对的所有优选 bucket（多个备选）以供汇总选择
-                    try {
-                        const buckets = pickPlanBuckets(plans) || [];
-                        for (const b of buckets) {
-                            if (b && b.plan) pairBestPlans.push(b.plan);
-                        }
-                    } catch (e) {
-                        // 兜底，直接推入所有计划
-                        for (const p of plans) pairBestPlans.push(p);
-                    }
-                }
+                appendJourneyPairPlans({
+                    coordinateMode,
+                    destWalkMin: pairRequest.destWalkMin,
+                    destinationStationId: pairRequest.destinationStationId,
+                    originStationId: pairRequest.originStationId,
+                    originWalkMin: pairRequest.originWalkMin,
+                    pairBestPlans,
+                    pairBestWrappers,
+                    pickPlanBuckets,
+                    plans
+                });
             }
         }
 
@@ -2204,28 +2214,20 @@ export function mountTravelSearchUI() {
             return;
         }
 
-        const bestPlansOrdered = pickPlanBuckets(pairBestPlans);
-        const picked = bestPlansOrdered.slice(0, 3).map((x, idx) => {
-            const plan = x?.plan || null;
-            const tagLabels = [normalizeText(x?.label || `方案${idx + 1}`) || `方案${idx + 1}`];
-            if (plan?.hasSurcharge) tagLabels.push('额外费用！');
-
-            const wrapper = pairBestWrappers.find((w) => w.plan === plan) || {};
-            const originStationResolved = wrapper.originStationId || originId || (originSeeds[0] || '');
-            const destinationStationResolved = wrapper.destinationStationId || destinationId || (destinationSeeds[0] || '');
-
-            return {
-                ...x,
-                tagLabels,
-                serviceDay,
-                baseDepartureMs: departureMs,
-                originStationId: originStationResolved,
-                destinationStationId: destinationStationResolved,
-                originName: normalizeText(originInput.value) || originSeeds.map(getStationNameById).find(Boolean) || originInput.value,
-                destinationName: normalizeText(destinationInput.value) || destinationSeeds.map(getStationNameById).find(Boolean) || destinationInput.value,
-                __walkOriginMinutes: Number.isFinite(Number(wrapper.originWalkMin)) ? Number(wrapper.originWalkMin) : (Number.isFinite(Number(plan?.__walkOriginMinutes)) ? Number(plan.__walkOriginMinutes) : 0),
-                __walkDestinationMinutes: Number.isFinite(Number(wrapper.destWalkMin)) ? Number(wrapper.destWalkMin) : (Number.isFinite(Number(plan?.__walkDestinationMinutes)) ? Number(plan.__walkDestinationMinutes) : 0)
-            };
+        const picked = createPickedJourneyResultRows({
+            departureMs,
+            destinationId,
+            destinationInputText: destinationInput.value,
+            destinationSeeds,
+            getStationNameById,
+            normalizeText,
+            originId,
+            originInputText: originInput.value,
+            originSeeds,
+            pairBestWrappers,
+            pairBestPlans,
+            pickPlanBuckets,
+            serviceDay
         });
         await renderPlanResults(picked);
     };
