@@ -44,6 +44,14 @@ export const createHoverFeature = ({
             : true
     );
 
+    const getPreviewStatus = () => ({
+        canPreviewAtZoom: canPreviewAtZoom() === true,
+        enabled: enabled !== false,
+        hasActivePreview: !!previewSnapshot || previewWasApplied === true,
+        hasSnapshot: !!previewSnapshot,
+        wasApplied: previewWasApplied === true
+    });
+
     const beginPreview = () => {
         if (!enabled || !canPreviewAtZoom()) return false;
         const hadSnapshot = !!previewSnapshot;
@@ -109,6 +117,9 @@ export const createHoverFeature = ({
         closePreview,
         commitPreview,
         destroy: unsubscribe,
+        getPreviewStatus,
+        hasActivePreview: () => getPreviewStatus().hasActivePreview,
+        hasPreviewSnapshot: () => getPreviewStatus().hasSnapshot,
         isEnabled: () => enabled !== false,
         resetPreview,
         restorePreview,
