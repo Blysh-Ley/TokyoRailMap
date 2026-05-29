@@ -64,6 +64,12 @@ const reducer = (state, action = {}) => {
                 hoverPreviewEnabled: action.payload?.enabled !== false
             });
 
+        case ACTION_TYPES.HOVER_PREVIEW_BEGIN:
+        case ACTION_TYPES.HOVER_PREVIEW_COMMIT:
+        case ACTION_TYPES.HOVER_PREVIEW_RESTORE:
+        case ACTION_TYPES.HOVER_PREVIEW_CLOSE:
+            return recordInteraction(state, action);
+
         case ACTION_TYPES.MULTI_SELECT_SET_ENABLED:
             return recordInteraction({
                 ...state,

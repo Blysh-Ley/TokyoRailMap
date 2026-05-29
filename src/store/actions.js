@@ -6,6 +6,10 @@ export const ACTION_TYPES = Object.freeze({
     SELECTION_SELECT_STATION_LINES: 'selection/selectStationLines',
     SELECTION_CLEAR: 'selection/clear',
     HOVER_SET_ENABLED: 'hover/setEnabled',
+    HOVER_PREVIEW_BEGIN: 'hover/previewBegin',
+    HOVER_PREVIEW_COMMIT: 'hover/previewCommit',
+    HOVER_PREVIEW_RESTORE: 'hover/previewRestore',
+    HOVER_PREVIEW_CLOSE: 'hover/previewClose',
     MAP_CLICK: 'map/click',
     PANEL_OPEN_REQUESTED: 'panel/openRequested',
     TRIP_PREVIEW_REQUESTED: 'tripPreview/requested',
@@ -48,6 +52,26 @@ export const selectionClear = (payload = {}) => ({
 export const hoverSetEnabled = (enabled) => ({
     type: ACTION_TYPES.HOVER_SET_ENABLED,
     payload: { enabled: enabled !== false }
+});
+
+export const hoverPreviewBegin = (payload = {}) => ({
+    type: ACTION_TYPES.HOVER_PREVIEW_BEGIN,
+    payload
+});
+
+export const hoverPreviewCommit = (payload = {}) => ({
+    type: ACTION_TYPES.HOVER_PREVIEW_COMMIT,
+    payload
+});
+
+export const hoverPreviewRestore = (payload = {}) => ({
+    type: ACTION_TYPES.HOVER_PREVIEW_RESTORE,
+    payload
+});
+
+export const hoverPreviewClose = (payload = {}) => ({
+    type: ACTION_TYPES.HOVER_PREVIEW_CLOSE,
+    payload
 });
 
 export const mapClick = (payload = {}) => ({
