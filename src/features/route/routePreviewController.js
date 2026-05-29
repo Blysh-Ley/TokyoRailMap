@@ -18,7 +18,7 @@ export const createRoutePreviewController = ({
     syncStationOffsetForTripPreviewState,
     setStationLabelMode,
     applySelectionEffects,
-    scheduleLayerCollisionUpdate,
+    scheduleCollisionLayerRefresh,
     previewFitWithSidePanels,
     emitMultiSelectLayersUpdated,
     isDirPreviewActive,
@@ -45,7 +45,7 @@ export const createRoutePreviewController = ({
             syncStationOffset: syncStationOffsetForTripPreviewState,
             setStationLabelMode,
             applySelectionEffects,
-            scheduleLayerCollisionUpdate,
+            scheduleCollisionLayerRefresh,
             previewFitWithSidePanels,
             emitMultiSelectLayersUpdated
         });
@@ -63,7 +63,7 @@ export const createRoutePreviewController = ({
             syncStationOffset: syncStationOffsetForTripPreviewState,
             setStationLabelMode,
             applySelectionEffects,
-            scheduleLayerCollisionUpdate,
+            scheduleCollisionLayerRefresh,
             emitMultiSelectLayersUpdated
         });
     };
@@ -101,7 +101,7 @@ export const createRoutePreviewController = ({
             updateEndpointPopups: updateTripEndpointPopups,
             setStationLabelMode,
             applySelectionEffects,
-            scheduleLayerCollisionUpdate,
+            scheduleCollisionLayerRefresh,
             previewFitWithSidePanels
         });
     };
@@ -112,7 +112,7 @@ export const createRoutePreviewController = ({
             applyInactiveState: applyDirPreviewInactiveState,
             clearEndpointPopups: clearDirEndpointPopups,
             applySelectionEffects,
-            scheduleLayerCollisionUpdate
+            scheduleCollisionLayerRefresh
         });
     };
 
@@ -128,7 +128,7 @@ export const createRoutePreviewController = ({
             bboxFromStationIds,
             previewFitWithSidePanels,
             applySelectionEffects,
-            scheduleLayerCollisionUpdate
+            scheduleCollisionLayerRefresh
         });
     };
 

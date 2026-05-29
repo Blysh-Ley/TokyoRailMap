@@ -3,12 +3,12 @@ export const createLayerFeature = ({
     stationOffsetAlgorithmContext,
     buildStationOffsetGeoJSONAtZoom,
     getZoom,
-    setStationsGeoJSON,
+    updateStationsSourceData,
     updateStationLabelCoordinates,
     updateStationCircleCoordinates,
     rebuildStationCoordMap,
-    setTransferCapsuleStationsData,
-    invalidateTransferCapsules,
+    syncTransferCapsuleStationsData,
+    invalidateTransferCapsuleData,
     getTransferCapsuleStationsData,
     getTransferCapsuleStationGroups,
     getTransferCapsuleBaseConnectionOrder,
@@ -51,6 +51,10 @@ export const createLayerFeature = ({
 
     const scheduleCollision = () => {
         scheduleCollisionUpdate?.();
+    };
+
+    const scheduleCollisionLayerRefresh = () => {
+        scheduleCollision();
     };
 
     const resetTransferCapsuleVisibleKey = (keyHint = '__init__') => {
@@ -110,23 +114,23 @@ export const createLayerFeature = ({
         });
     };
 
-    const applyStationGeoJSON = (geojson, keyHint = '') => {
+    const applyStationLayerGeoJSON = (geojson, keyHint = '') => {
         const nextGeoJSON = geojson && typeof geojson === 'object' ? geojson : null;
         if (!nextGeoJSON) return false;
 
-        setStationsGeoJSON?.(nextGeoJSON);
+        updateStationsSourceData?.(nextGeoJSON);
         updateStationLabelCoordinates?.(nextGeoJSON);
         updateStationCircleCoordinates?.(nextGeoJSON);
         rebuildStationCoordMap?.(nextGeoJSON);
 
-        setTransferCapsuleStationsData?.(nextGeoJSON);
-        invalidateTransferCapsules?.(String(keyHint || '__station-geojson__'));
+        syncTransferCapsuleStationsData?.(nextGeoJSON);
+        invalidateTransferCapsuleData?.(String(keyHint || '__station-geojson__'));
         scheduleTransferCapsuleRefresh();
         scheduleCollision();
         return true;
     };
 
-    const applyRealtimeStationOffsetForZoom = (zoom) => {
+    const syncStationOffsetForZoom = (zoom) => {
         const z = Number(zoom);
         if (!Number.isFinite(z)) return false;
 
@@ -139,7 +143,7 @@ export const createLayerFeature = ({
             zoom: z
         });
 
-        if (!applyStationGeoJSON(nextGeoJSON, stateKey)) return false;
+        if (!applyStationLayerGeoJSON(nextGeoJSON, stateKey)) return false;
         currentStationOffsetStateKey = stateKey;
         return true;
     };
@@ -148,12 +152,12 @@ export const createLayerFeature = ({
         if (tripPreviewActive) {
             const tripPreviewBaseKey = '__trip-preview-base__';
             if (currentStationOffsetStateKey === tripPreviewBaseKey) return false;
-            if (!applyStationGeoJSON(baseStationsGeoJSON, tripPreviewBaseKey)) return false;
+            if (!applyStationLayerGeoJSON(baseStationsGeoJSON, tripPreviewBaseKey)) return false;
             currentStationOffsetStateKey = tripPreviewBaseKey;
             return true;
         }
 
-        return applyRealtimeStationOffsetForZoom(getZoom?.());
+        return syncStationOffsetForZoom(getZoom?.());
     };
 
     const destroy = () => {
@@ -162,17 +166,16 @@ export const createLayerFeature = ({
     };
 
     return {
-        applyRealtimeStationOffsetForZoom,
-        applyStationGeoJSON,
+        applyStationLayerGeoJSON,
         destroy,
         invalidateAndScheduleTransferCapsules,
-        invalidateTransferCapsules,
         refreshTransferCapsulesNow,
         resetTransferCapsuleVisibleKey,
-        scheduleCollisionUpdate: scheduleCollision,
+        scheduleCollisionLayerRefresh,
         scheduleSelectionLayerRefresh,
         setupCollisionController,
         scheduleTransferCapsuleRefresh,
+        syncStationOffsetForZoom,
         syncStationOffsetForTripPreviewState
     };
 };

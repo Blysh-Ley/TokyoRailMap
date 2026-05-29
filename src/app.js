@@ -957,7 +957,7 @@ const initMapApp = async () => {
         lastReachableStopsPayload = null;
         reachableStopsLabelIds = null;
         reachableStopsOverlayRenderer.clear();
-        scheduleLayerCollisionUpdate();
+        scheduleCollisionLayerRefresh();
     };
 
     const refreshReachableStopsOverlay = async (payload = null, options = {}) => {
@@ -988,7 +988,7 @@ const initMapApp = async () => {
         reachableStopsLabelIds = getReachableStopsLabelIdSet(data.geojson);
         reachableStopsExtremeLabelIds = getReachableStopsExtremeLabelIdSet(data.geojson);
         applyReachableStopsLabelPriorityBoost(reachableStopsExtremeLabelIds);
-        scheduleLayerCollisionUpdate();
+        scheduleCollisionLayerRefresh();
 
         if (options?.fitBounds !== false && payload?.fitBounds !== false) {
             fitToReachableStopsBounds(data.geojson);
@@ -1406,9 +1406,9 @@ const initMapApp = async () => {
         transferCapsuleVisibleKey = String(keyHint || '__init__');
     };
 
-    const scheduleLayerCollisionUpdate = () => {
-        if (layerFeature?.scheduleCollisionUpdate) {
-            layerFeature.scheduleCollisionUpdate();
+    const scheduleCollisionLayerRefresh = () => {
+        if (layerFeature?.scheduleCollisionLayerRefresh) {
+            layerFeature.scheduleCollisionLayerRefresh();
             return;
         }
         collisionController?.scheduleUpdate?.();
@@ -1419,7 +1419,7 @@ const initMapApp = async () => {
             layerFeature.scheduleSelectionLayerRefresh();
             return;
         }
-        scheduleLayerCollisionUpdate();
+        scheduleCollisionLayerRefresh();
         scheduleTransferCapsuleRefresh();
     };
 
@@ -1745,7 +1745,7 @@ const initMapApp = async () => {
                 emitMultiSelectLayersUpdated();
                 syncMultiSelectBaseTripPreview().catch(() => null);
                 applySelectionEffects();
-                scheduleLayerCollisionUpdate();
+                scheduleCollisionLayerRefresh();
             }
             return false;
         }
@@ -1761,7 +1761,7 @@ const initMapApp = async () => {
                 emitMultiSelectLayersUpdated();
                 syncMultiSelectBaseTripPreview().catch(() => null);
                 applySelectionEffects();
-                scheduleLayerCollisionUpdate();
+                scheduleCollisionLayerRefresh();
             } else if (baseEntry?.branchAutoHidden === true) {
                 baseMultiSelectionsByKey.set(key, {
                     ...baseEntry,
@@ -1797,7 +1797,7 @@ const initMapApp = async () => {
                 });
                 emitMultiSelectLayersUpdated();
                 applySelectionEffects();
-                scheduleLayerCollisionUpdate();
+                scheduleCollisionLayerRefresh();
             }
         });
 
@@ -2854,13 +2854,13 @@ const initMapApp = async () => {
         }
 
         if (!fixedPopupStationId) {
-            scheduleLayerCollisionUpdate();
+            scheduleCollisionLayerRefresh();
             return;
         }
 
         const pinned = stationLabels.find((x) => x && String(x.stationId) === fixedPopupStationId);
         if (!pinned) {
-            scheduleLayerCollisionUpdate();
+            scheduleCollisionLayerRefresh();
             return;
         }
 
@@ -2870,7 +2870,7 @@ const initMapApp = async () => {
         pinned.labelBelowPadPx = pad;
         pinned.el.style.translate = `0 calc(100% + ${pad}px)`;
 
-        scheduleLayerCollisionUpdate();
+        scheduleCollisionLayerRefresh();
     };
 
     const hideStationPopupForMenuInteraction = ({ preserveHoverPreview = false } = {}) => {
@@ -3276,7 +3276,7 @@ const initMapApp = async () => {
                 stationLabelMode = mode;
             },
             onUserModeChanged: () => {
-                scheduleLayerCollisionUpdate();
+                scheduleCollisionLayerRefresh();
             }
         });
         setStationLabelMode = (mode, options = {}) => stationLabelController.setMode(mode, options);
@@ -4121,7 +4121,7 @@ const initMapApp = async () => {
             syncStationOffsetForTripPreviewState,
             setStationLabelMode,
             applySelectionEffects,
-            scheduleLayerCollisionUpdate,
+            scheduleCollisionLayerRefresh,
             previewFitWithSidePanels,
             emitMultiSelectLayersUpdated,
             isDirPreviewActive: () => dirPreviewActive,
@@ -4174,7 +4174,7 @@ const initMapApp = async () => {
                     const ok = toggleBaseMultiSelectionVisibility(parsed.key);
                     if (ok) {
                         applySelectionEffects();
-                        scheduleLayerCollisionUpdate();
+                        scheduleCollisionLayerRefresh();
                     }
                     return ok;
                 }
@@ -4190,7 +4190,7 @@ const initMapApp = async () => {
                         if (source) clearTripPathPreview({ source });
                         if (!getBaseMultiSelectedLineIds().size && !tripPreviewActive) setStationLabelMode('auto');
                         applySelectionEffects();
-                        scheduleLayerCollisionUpdate();
+                        scheduleCollisionLayerRefresh();
                     }
                     return ok;
                 }
@@ -4237,7 +4237,7 @@ const initMapApp = async () => {
                         emitMultiSelectLayersUpdated();
                         syncMultiSelectBaseTripPreview().catch(() => null);
                         applySelectionEffects();
-                        scheduleLayerCollisionUpdate();
+                        scheduleCollisionLayerRefresh();
                         return true;
                     } catch {
                         return false;
@@ -4833,7 +4833,7 @@ const initMapApp = async () => {
             stationOffsetAlgorithmContext,
             buildStationOffsetGeoJSONAtZoom,
             getZoom: () => mapEngine.getZoom(),
-            setStationsGeoJSON: (nextGeoJSON) => {
+            updateStationsSourceData: (nextGeoJSON) => {
                 try {
                     mapEngine.setSourceData('stations-source', nextGeoJSON);
                 } catch {
@@ -4843,10 +4843,10 @@ const initMapApp = async () => {
             updateStationLabelCoordinates: stationCoordinateAdapter.updateLabels,
             updateStationCircleCoordinates: stationCoordinateAdapter.updateCircles,
             rebuildStationCoordMap,
-            setTransferCapsuleStationsData: (nextGeoJSON) => {
+            syncTransferCapsuleStationsData: (nextGeoJSON) => {
                 transferCapsuleStationsData = nextGeoJSON;
             },
-            invalidateTransferCapsules: (keyHint) => {
+            invalidateTransferCapsuleData: (keyHint) => {
                 transferCapsuleVisibleKey = String(keyHint || '__station-geojson__');
             },
             getTransferCapsuleStationsData: () => transferCapsuleStationsData,
@@ -4961,8 +4961,8 @@ const initMapApp = async () => {
             }
         });
 
-        const applyRealtimeStationOffsetForZoom = (zoom) => {
-            layerFeature?.applyRealtimeStationOffsetForZoom?.(zoom);
+        const syncStationOffsetForZoom = (zoom) => {
+            layerFeature?.syncStationOffsetForZoom?.(zoom);
         };
 
         syncStationOffsetForTripPreviewState = () => {
@@ -4976,9 +4976,9 @@ const initMapApp = async () => {
 
         collisionController = layerFeature.setupCollisionController({ stationLabels, stationCircles });
 
-        scheduleLayerCollisionUpdate();
+        scheduleCollisionLayerRefresh();
 
-        applyRealtimeStationOffsetForZoom(mapEngine.getZoom());
+        syncStationOffsetForZoom(mapEngine.getZoom());
 
         let lastUpdateZoom = mapEngine.getZoom();
         let previousFrameZoom = mapEngine.getZoom();
@@ -4997,7 +4997,7 @@ const initMapApp = async () => {
             previousFrameZoom = currentZoom;
 
             if (cumulativeDelta >= 0.2 || (frameVelocity > 0 && frameVelocity < 0.02)) {
-                applyRealtimeStationOffsetForZoom(currentZoom);
+                syncStationOffsetForZoom(currentZoom);
                 lastUpdateZoom = currentZoom; 
             }
         });
@@ -5006,7 +5006,7 @@ const initMapApp = async () => {
             if (isStationOffsetDynamicMode()) return;
             if (tripPreviewActive) return;
 
-            applyRealtimeStationOffsetForZoom(mapEngine.getZoom());
+            syncStationOffsetForZoom(mapEngine.getZoom());
             lastUpdateZoom = mapEngine.getZoom();
             previousFrameZoom = mapEngine.getZoom(); 
             

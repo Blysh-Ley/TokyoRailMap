@@ -190,7 +190,7 @@ export const createRouteFeature = ({
             syncStationOffset,
             setStationLabelMode,
             applySelectionEffects,
-            scheduleLayerCollisionUpdate,
+            scheduleCollisionLayerRefresh,
             previewFitWithSidePanels,
             emitMultiSelectLayersUpdated
         } = {}) {
@@ -217,7 +217,7 @@ export const createRouteFeature = ({
             if (!hasVisible) {
                 setStationLabelMode?.(hasBaseMultiSelection ? 'all' : 'auto');
                 applySelectionEffects?.();
-                scheduleLayerCollisionUpdate?.();
+                scheduleCollisionLayerRefresh?.();
                 emitTripPreviewCleared?.();
                 emitMultiSelectLayersUpdated?.();
                 return { hasVisible, hasAnySelection };
@@ -233,7 +233,7 @@ export const createRouteFeature = ({
             emitTripPreviewUpdated?.({ payload: payloadForExport, built });
             setStationLabelMode?.('all');
             applySelectionEffects?.();
-            scheduleLayerCollisionUpdate?.();
+            scheduleCollisionLayerRefresh?.();
             if (fitMode !== 'none' && built.bbox) {
                 previewFitWithSidePanels?.(built.bbox);
             }
@@ -251,7 +251,7 @@ export const createRouteFeature = ({
             syncStationOffset,
             setStationLabelMode,
             applySelectionEffects,
-            scheduleLayerCollisionUpdate,
+            scheduleCollisionLayerRefresh,
             emitMultiSelectLayersUpdated
         } = {}) {
             const targetSource = normalizeKey(options?.source);
@@ -279,7 +279,7 @@ export const createRouteFeature = ({
             syncStationOffset?.();
             setStationLabelMode?.('auto');
             applySelectionEffects?.();
-            scheduleLayerCollisionUpdate?.();
+            scheduleCollisionLayerRefresh?.();
             emitTripPreviewCleared?.();
             emitMultiSelectLayersUpdated?.();
         },
@@ -300,7 +300,7 @@ export const createRouteFeature = ({
             updateEndpointPopups,
             setStationLabelMode,
             applySelectionEffects,
-            scheduleLayerCollisionUpdate,
+            scheduleCollisionLayerRefresh,
             previewFitWithSidePanels
         } = {}) {
             const hasSegments = Array.isArray(payload?.segments) && payload.segments.length;
@@ -382,7 +382,7 @@ export const createRouteFeature = ({
                 emitTripPreviewUpdated?.({ payload, built: aggregate });
                 setStationLabelMode?.('all');
                 applySelectionEffects?.();
-                scheduleLayerCollisionUpdate?.();
+                scheduleCollisionLayerRefresh?.();
                 if (fitMode !== 'none') {
                     previewFitWithSidePanels?.(aggregate.bbox);
                 }
@@ -432,7 +432,7 @@ export const createRouteFeature = ({
             emitTripPreviewUpdated?.({ payload, built });
             setStationLabelMode?.('all');
             applySelectionEffects?.();
-            scheduleLayerCollisionUpdate?.();
+            scheduleCollisionLayerRefresh?.();
             if (fitMode !== 'none') {
                 previewFitWithSidePanels?.(built?.bbox);
             }
@@ -442,13 +442,13 @@ export const createRouteFeature = ({
             applyInactiveState,
             clearEndpointPopups,
             applySelectionEffects,
-            scheduleLayerCollisionUpdate
+            scheduleCollisionLayerRefresh
         } = {}) {
             if (!isActive?.()) return;
             applyInactiveState?.();
             clearEndpointPopups?.();
             applySelectionEffects?.();
-            scheduleLayerCollisionUpdate?.();
+            scheduleCollisionLayerRefresh?.();
         },
         previewDirHeader({
             payload,
@@ -461,7 +461,7 @@ export const createRouteFeature = ({
             bboxFromStationIds,
             previewFitWithSidePanels,
             applySelectionEffects,
-            scheduleLayerCollisionUpdate
+            scheduleCollisionLayerRefresh
         } = {}) {
             const normalized = normalizeDirPreviewPayload(payload);
             if (!normalized.lineId) {
@@ -512,7 +512,7 @@ export const createRouteFeature = ({
             }
 
             applySelectionEffects?.();
-            scheduleLayerCollisionUpdate?.();
+            scheduleCollisionLayerRefresh?.();
 
             if (normalized.fitMode !== 'none') {
                 const fitBbox = bboxFromStationIds?.(Array.from(normalized.stationIds));
