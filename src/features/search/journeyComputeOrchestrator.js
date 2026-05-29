@@ -172,6 +172,22 @@ export const createJourneyPairPlanRequest = ({
     };
 };
 
+export const collectJourneyCandidatePlans = async ({
+    collectPlans,
+    request
+} = {}) => {
+    if (typeof collectPlans !== 'function' || !request) return [];
+    const plans = await collectPlans({
+        sourceStops: request.sourceStops,
+        destinationStops: request.destinationStops,
+        serviceDay: request.serviceDay,
+        baseDepartureMs: request.baseDepartureMs,
+        originWalkMin: request.originWalkMin,
+        destWalkMin: request.destWalkMin
+    });
+    return Array.isArray(plans) ? plans : [];
+};
+
 export const pickShortestJourneyPlan = (plans) => (
     Array.isArray(plans)
         ? plans.slice().sort((a, b) => a.durationMs - b.durationMs || a.transfers - b.transfers || a.arrivalMs - b.arrivalMs)[0] || null

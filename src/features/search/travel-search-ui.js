@@ -35,6 +35,7 @@ import { createJourneyPickController } from './journeyPickController.js';
 import { createJourneyPlanPreviewController } from './journeyPlanPreviewController.js';
 import {
     appendJourneyPairPlans,
+    collectJourneyCandidatePlans,
     createJourneyComputeKey,
     createJourneyPairPlanRequest,
     createPickedJourneyResultRows,
@@ -2070,18 +2071,6 @@ export function mountTravelSearchUI() {
     });
     scheduleDestinationReachableStopsTestRef = () => reachableStopsController?.schedule?.();
 
-    const collectJourneyCandidates = async ({ sourceStops, destinationStops, serviceDay, baseDepartureMs, originWalkMin = null, destWalkMin = null } = {}) => {
-        const plans = await collectJourneyCandidatesRaptor({
-            sourceStops,
-            destinationStops,
-            serviceDay,
-            baseDepartureMs,
-            originWalkMin,
-            destWalkMin
-        });
-        return Array.isArray(plans) ? plans : [];
-    };
-
     const maybeComputePlans = async () => {
         const {
             bothCoordinatePicks,
@@ -2182,13 +2171,9 @@ export function mountTravelSearchUI() {
                 });
                 if (!pairRequest) continue;
 
-                const plans = await collectJourneyCandidates({
-                    sourceStops: pairRequest.sourceStops,
-                    destinationStops: pairRequest.destinationStops,
-                    serviceDay: pairRequest.serviceDay,
-                    baseDepartureMs: pairRequest.baseDepartureMs,
-                    originWalkMin: pairRequest.originWalkMin,
-                    destWalkMin: pairRequest.destWalkMin
+                const plans = await collectJourneyCandidatePlans({
+                    collectPlans: collectJourneyCandidatesRaptor,
+                    request: pairRequest
                 });
 
                 if (token !== planComputeToken) return;
