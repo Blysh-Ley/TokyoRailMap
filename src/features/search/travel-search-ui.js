@@ -31,6 +31,25 @@ import {
     THROUGH_SERVICE_DISPLAY,
     THROUGH_SERVICE_CONFIGS_OBJECT
 } from '../../lib/throughServiceManager.js';
+import { createJourneyPickController } from './journeyPickController.js';
+import { createJourneyPlanPreviewController } from './journeyPlanPreviewController.js';
+import {
+    countJourneyPlanRideStations,
+    createJourneyPlanBrief,
+    createJourneyPaginationLabeler,
+    createJourneyPlanMessageItem,
+    createJourneyPlanPageButton,
+    createJourneySpecialLinePathRow,
+    createJourneyStationPathRow,
+    createJourneyTrainPathRow,
+    createJourneyTripEmptyRow,
+    createJourneyTripStationRow,
+    createJourneyTripTransferRow,
+    createJourneyTransferPathRow,
+    createJourneyWalkPathRow
+} from './journeyPlanRenderer.js';
+import { createReachableStopsController } from './reachableStopsController.js';
+import { travelSearchMapActions } from './travelSearchMapActions.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -814,21 +833,26 @@ export function mountTravelSearchUI() {
     let composingOrigin = false;
     let composingDestination = false;
     let mapPickTarget = null; // 'origin' | 'destination' | null
+    const journeyPickController = createJourneyPickController({
+        formatCoordinates: formatJourneyMapCoordinates,
+        getNearbyStationsForJourneyPick,
+        mapActions: travelSearchMapActions,
+        normalizeText
+    });
     let lastPlanComputeKey = '';
     let planComputeToken = 0;
-    let destinationReachableStopsTimer = null;
+    let reachableStopsController = null;
     let scheduleDestinationReachableStopsTestRef = null;
     let popoverHideTimer = null;
     let pinnedTripPopoverKey = '';
-    let planPreviewHideTimer = null;
-    let activePlanPreviewKey = '';
-    let pinnedPlanPreviewKey = '';
-    let planPreviewRequestToken = 0;
     let tripPopoverHoverTimer = null;
     let currentPlanPage = 0;
     let allPlanRows = [];
-    let journeyPlanHighlightedPageIndex = -1;
-    const journeyPlanPreviewPool = [];
+    let journeyPlanPreviewController = null;
+    const getPaginationButtonLabel = createJourneyPaginationLabeler({
+        getRows: () => allPlanRows,
+        normalizeText
+    });
 
     try {
         window.__TokyoRailJourneyMapPickActive = false;
@@ -909,8 +933,7 @@ export function mountTravelSearchUI() {
         }
 
         try {
-            await window?.TokyoRailSearchMapActions?.clearJourneyPickPin?.(key);
-            await window?.TokyoRailSearchMapActions?.showJourneyPickPin?.({ stationId: resolvedId, type: key });
+            await journeyPickController.showStationPin({ stationId: resolvedId, type: key });
         } catch {
             // ignore
         }
@@ -924,18 +947,9 @@ export function mountTravelSearchUI() {
         suppressStationSelectionOnce(900);
         const key = target === 'destination' ? 'destination' : 'origin';
         const input = key === 'destination' ? destinationInput : originInput;
-        const coordsText = formatJourneyMapCoordinates(lngLat);
-        if (!coordsText) return;
-
-        let nearbyStations = [];
-        try {
-            nearbyStations = await getNearbyStationsForJourneyPick({ lngLat, maxMeters: 2000 });
-        } catch {
-            nearbyStations = [];
-        }
-
-        const candidateMeta = (Array.isArray(nearbyStations) ? nearbyStations : []).slice(0, 3);
-        const candidateIds = Array.from(new Set(candidateMeta.map((item) => normalizeText(item?.stationId || '')).filter(Boolean)));
+        const resolvedPick = await journeyPickController.resolveCoordinatePick({ lngLat });
+        if (!resolvedPick) return;
+        const { candidateIds, candidateMeta, coordsText, lngLat: normalizedLngLat } = resolvedPick;
 
         // 始终显示经纬度文本（格式化为一位小数），但保存候选站点 meta 供稍后计算步行时间
         input.value = coordsText;
@@ -944,17 +958,16 @@ export function mountTravelSearchUI() {
             selectedOriginId = '';
             selectedOriginCandidateIds = candidateIds;
             selectedOriginCandidateMeta = candidateMeta;
-            selectedOriginLngLat = [Number(lngLat?.lng ?? lngLat?.[0]), Number(lngLat?.lat ?? lngLat?.[1])];
+            selectedOriginLngLat = normalizedLngLat;
         } else {
             selectedDestinationId = '';
             selectedDestinationCandidateIds = candidateIds;
             selectedDestinationCandidateMeta = candidateMeta;
-            selectedDestinationLngLat = [Number(lngLat?.lng ?? lngLat?.[0]), Number(lngLat?.lat ?? lngLat?.[1])];
+            selectedDestinationLngLat = normalizedLngLat;
         }
 
         try {
-            await window?.TokyoRailSearchMapActions?.clearJourneyPickPin?.(key);
-            await window?.TokyoRailSearchMapActions?.showJourneyPickPin?.({ lngLat, type: key });
+            await journeyPickController.showCoordinatePin({ lngLat, type: key });
         } catch {
             // ignore
         }
@@ -1000,8 +1013,7 @@ export function mountTravelSearchUI() {
         }
 
         try {
-            window?.TokyoRailSearchMapActions?.clearJourneyPickPin?.(key);
-            window?.TokyoRailSearchMapActions?.showJourneyPickPin?.({ stationId: resolvedId, type: key });
+            journeyPickController.showStationPin({ stationId: resolvedId, type: key });
         } catch {
             // ignore
         }
@@ -1049,9 +1061,7 @@ export function mountTravelSearchUI() {
     let mapPickHookBound = false;
     const ensureMapPickHook = () => {
         if (mapPickHookBound) return;
-        const actions = window?.TokyoRailSearchMapActions;
-        if (typeof actions?.onMapPickClick !== 'function') return;
-        const bound = actions.onMapPickClick((e) => {
+        const bound = journeyPickController.onMapPickClick((e) => {
             handleMapStationPick(e);
         });
         mapPickHookBound = bound !== false;
@@ -1082,122 +1092,37 @@ export function mountTravelSearchUI() {
         }, 300);
     };
 
-    const getJourneyPlanPreviewItemId = (pageIndex) => `trip:journey||preview||auto-${pageIndex}`;
-
-    const resetJourneyPlanPreviewPool = () => {
-        journeyPlanPreviewPool.length = 0;
-        journeyPlanHighlightedPageIndex = -1;
-    };
-
     const buildJourneyPlanPreviewPool = (rows) => {
-        resetJourneyPlanPreviewPool();
-        for (let i = 0; i < (Array.isArray(rows) ? rows.length : 0); i += 1) {
-            journeyPlanPreviewPool.push({
-                pageIndex: i,
-                itemId: getJourneyPlanPreviewItemId(i),
-                buttonEl: null,
-                visible: false
-            });
-        }
+        journeyPlanPreviewController?.buildPool?.(rows);
     };
 
     const bindJourneyPlanPageButton = (pageIndex, buttonEl) => {
-        const entry = journeyPlanPreviewPool[pageIndex];
-        if (!entry) return;
-        entry.buttonEl = buttonEl;
+        journeyPlanPreviewController?.bindPageButton?.(pageIndex, buttonEl);
     };
 
     const syncJourneyPlanVisibility = (pageIndex, { force = false } = {}) => {
-        if (window?.__TokyoRailMultiSelectEnabled !== true) return false;
-        if (!Number.isFinite(pageIndex) || pageIndex < 0 || pageIndex >= journeyPlanPreviewPool.length) return false;
-
-        const ctrl = window?.__TokyoRailMultiSelectLayerControl;
-        if (typeof ctrl?.runCommand !== 'function') return false;
-
-        const alreadyExclusive = journeyPlanPreviewPool.every((entry) => {
-            if (!entry) return false;
-            return entry.visible === (entry.pageIndex === pageIndex);
-        });
-        if (!force && journeyPlanHighlightedPageIndex === pageIndex && alreadyExclusive) return false;
-
-        for (const entry of journeyPlanPreviewPool) {
-            if (!entry) continue;
-            const shouldBeVisible = entry.pageIndex === pageIndex;
-            if (entry.visible === shouldBeVisible) continue;
-            ctrl.runCommand('toggle-visibility', entry.itemId);
-            entry.visible = shouldBeVisible;
-        }
-
-        journeyPlanHighlightedPageIndex = pageIndex;
-        return true;
-    };
-
-    const syncJourneyPlanRestoreAll = () => {
-        if (window?.__TokyoRailMultiSelectEnabled !== true) return false;
-        const ctrl = window?.__TokyoRailMultiSelectLayerControl;
-        if (typeof ctrl?.runCommand !== 'function') return false;
-
-        let changed = false;
-        for (const entry of journeyPlanPreviewPool) {
-            if (!entry || entry.visible !== false) continue;
-            ctrl.runCommand('toggle-visibility', entry.itemId);
-            entry.visible = true;
-            changed = true;
-        }
-        if (changed) journeyPlanHighlightedPageIndex = -1;
-        return changed;
+        return journeyPlanPreviewController?.syncVisibility?.(pageIndex, { force }) === true;
     };
 
     const clearPlanList = ({ clearMapPreview = false } = {}) => {
         cancelTripPopoverHover();
         if (clearMapPreview) {
             try {
-                const actions = window?.TokyoRailSearchMapActions;
-                actions?.clearTripPathPreview?.();
+                travelSearchMapActions.clearTripPathPreview();
             } catch {
                 // ignore
             }
         }
-        activePlanPreviewKey = '';
-        pinnedPlanPreviewKey = '';
-        planPreviewRequestToken += 1;
-        if (planPreviewHideTimer) {
-            window.clearTimeout(planPreviewHideTimer);
-            planPreviewHideTimer = null;
-        }
+        journeyPlanPreviewController?.resetAfterPlanListClear?.();
         while (planList.firstChild) planList.removeChild(planList.firstChild);
         while (planPagination.firstChild) planPagination.removeChild(planPagination.firstChild);
         currentPlanPage = 0;
         allPlanRows = [];
-        resetJourneyPlanPreviewPool();
         hideTripPopover();
     };
 
     const generatePaginationButtonLabel = (label, index) => {
-        const normalizedLabel = normalizeText(label);
-        const labelMap = {};
-        
-        // 统计每个label类型的个数
-        for (const row of allPlanRows) {
-            const rowLabel = normalizeText(row?.label || '推荐');
-            labelMap[rowLabel] = (labelMap[rowLabel] || 0) + 1;
-        }
-        
-        // 如果某个标签只有一个，不添加数字
-        if (labelMap[normalizedLabel] === 1) {
-            return normalizedLabel;
-        }
-        
-        // 计算当前index之前有多少个相同label的项
-        let count = 0;
-        for (let i = 0; i < index; i += 1) {
-            const rowLabel = normalizeText(allPlanRows[i]?.label || '推荐');
-            if (rowLabel === normalizedLabel) {
-                count += 1;
-            }
-        }
-        
-        return `${normalizedLabel}${count + 1}`;
+        return getPaginationButtonLabel(label, index);
     };
 
     const showCurrentPage = async () => {
@@ -1228,16 +1153,7 @@ export function mountTravelSearchUI() {
 
         li.appendChild(path);
 
-        const brief = el('div', 'journey-plan-brief');
-        
-        const head = el('div', 'journey-plan-head');
-        head.appendChild(el('span', 'journey-plan-duration', { text: formatDuration(displayPlan?.durationMs) }));
-        const transferText = Number(displayPlan?.transfers) > 0
-            ? `${Number(displayPlan.transfers)}次换乘`
-            : '直达';
-        head.appendChild(el('span', 'journey-plan-transfer', { text: transferText }));
-
-        // 计算总共需要乘坐多少站（基于详细停站 blocks）
+        let stationCount = null;
         try {
             const detailBlocks = await buildPlanDetailBlocks({
                 plan: row.plan,
@@ -1246,40 +1162,25 @@ export function mountTravelSearchUI() {
                 serviceDay: row.serviceDay,
                 originStationId: row.originStationId
             });
-            let seq = [];
-            for (const b of Array.isArray(detailBlocks) ? detailBlocks : []) {
-                if (b?.kind !== 'ride') continue;
-                const rows = Array.isArray(b.rows) ? b.rows : [];
-                for (const r of rows) {
-                    const sid = normalizeText(r?.stationId || '');
-                    if (!sid) continue;
-                    if (seq.length && seq[seq.length - 1] === sid) continue;
-                    seq.push(sid);
-                }
-            }
-            const stationCount =  seq.length - 1 - (displayPlan?.transfers || 0);
-            head.appendChild(el('span', 'journey-plan-stations-count', { text: `${stationCount}站` }));
-            
+            stationCount = countJourneyPlanRideStations({
+                detailBlocks,
+                normalizeText,
+                transfers: displayPlan?.transfers
+            });
         } catch (e) {
             // ignore
         }
 
-        head.appendChild(el('span', 'journey-plan-arrive', { text: `${toHHMM(displayPlan?.arrivalMs)}到达` }));
-
-
-        const tagLabels = Array.isArray(row?.tagLabels)
-            ? row.tagLabels.map((x) => normalizeText(x)).filter(Boolean)
-            : [normalizeText(row?.label)].filter(Boolean);
-        if (tagLabels.length) {
-            const tagsWrap = el('div', 'journey-plan-tags');
-            for (const tagText of tagLabels) {
-                let addText = tagText + "  ";
-                tagsWrap.appendChild(el('div', 'journey-plan-tag', { text: addText }));
-            }
-            brief.appendChild(tagsWrap);
-        }
-        brief.appendChild(head);
-        brief.appendChild(planPagination);
+        const brief = createJourneyPlanBrief({
+            createElement: el,
+            displayPlan,
+            formatArrival: toHHMM,
+            formatDuration,
+            normalizeText,
+            paginationEl: planPagination,
+            row,
+            stationCount
+        });
 
         li.appendChild(brief);
 
@@ -1292,34 +1193,27 @@ export function mountTravelSearchUI() {
         if (allPlanRows.length <= 1) return;
         
         for (let i = 0; i < allPlanRows.length; i += 1) {
-            const btn = document.createElement('button');
-            btn.className = 'journey-plan-page-btn';
-            btn.type = 'button';
-            btn.textContent = generatePaginationButtonLabel(allPlanRows[i]?.label || '推荐', i);
-            bindJourneyPlanPageButton(i, btn);
-            
-            if (i === currentPlanPage) {
-                btn.classList.add('is-active');
-            }
-            
-            btn.addEventListener('click', async (evt) => {
-                evt.preventDefault?.();
-                evt.stopPropagation?.();
+            const btn = createJourneyPlanPageButton({
+                active: i === currentPlanPage,
+                createLabel: (index) => generatePaginationButtonLabel(allPlanRows[index]?.label || '推荐', index),
+                index: i,
+                onClick: async (index) => {
+                    if (index === currentPlanPage && journeyPlanPreviewController?.isHighlightedPage?.(index)) return;
 
-                if (i === currentPlanPage && journeyPlanHighlightedPageIndex === i) return;
+                    // 切换到新页面
+                    currentPlanPage = index;
+                    await showCurrentPage();
+                    updatePaginationButtons();
 
-                // 切换到新页面
-                currentPlanPage = i;
-                await showCurrentPage();
-                updatePaginationButtons();
-
-                // 只高亮当前页，隐藏其他页
-                try {
-                    syncJourneyPlanVisibility(i, { force: true });
-                } catch {
-                    // ignore
+                    // 只高亮当前页，隐藏其他页
+                    try {
+                        syncJourneyPlanVisibility(index, { force: true });
+                    } catch {
+                        // ignore
+                    }
                 }
             });
+            bindJourneyPlanPageButton(i, btn);
             
             planPagination.appendChild(btn);
         }
@@ -1350,31 +1244,15 @@ export function mountTravelSearchUI() {
     };
 
     const cancelHidePlanPreview = () => {
-        if (!planPreviewHideTimer) return;
-        window.clearTimeout(planPreviewHideTimer);
-        planPreviewHideTimer = null;
+        journeyPlanPreviewController?.cancelHidePreview?.();
     };
 
     const clearJourneyPlanPreview = ({ force = false, clearMapPreview = true } = {}) => {
-        if (!force && pinnedPlanPreviewKey) return;
-        cancelHidePlanPreview();
-        if (!activePlanPreviewKey && !force) return;
-        if (clearMapPreview) {
-            try {
-                window?.TokyoRailSearchMapActions?.clearTripPathPreview?.();
-            } catch {
-                // ignore
-            }
-        }
-        activePlanPreviewKey = '';
+        journeyPlanPreviewController?.clearPreview?.({ force, clearMapPreview });
     };
 
     const scheduleClearJourneyPlanPreview = (delayMs = 120) => {
-        cancelHidePlanPreview();
-        planPreviewHideTimer = window.setTimeout(() => {
-            planPreviewHideTimer = null;
-            clearJourneyPlanPreview({ force: false });
-        }, Math.max(0, Number(delayMs) || 0));
+        journeyPlanPreviewController?.scheduleClearPreview?.(delayMs);
     };
 
     const buildTripPreviewPayloadFromDisplayPlanLegacy = async ({ row, displayPlan }) => {
@@ -1433,37 +1311,6 @@ export function mountTravelSearchUI() {
             fitMode: 'preview',
             segments
         };
-    };
-
-    const applyJourneyPlanPreview = async ({ row, previewKey, pin = false, interaction = 'hover', clearBefore = true } = {}) => {
-        const actions = window?.TokyoRailSearchMapActions;
-        if (!actions || typeof actions.previewTripPath !== 'function') return;
-
-        const interactionText = String(interaction || '').trim() || 'hover';
-        const fitMode = interactionText === 'click' ? 'commit' : 'preview';
-
-        const token = ++planPreviewRequestToken;
-        const displayPlan = await getDisplayPlanForRow(row);
-        const payload = await buildTripPreviewPayloadFromDisplayPlan({ row, displayPlan });
-        if (token !== planPreviewRequestToken) return;
-        if (!payload) return;
-
-        try {
-            actions.previewTripPath(
-                {
-                    ...(payload || {}),
-                    previewKey,
-                    __previewInteraction: interactionText,
-                    fitMode
-                },
-                { clearBefore: clearBefore === true, fitMode }
-            );
-        } catch {
-            return;
-        }
-
-        activePlanPreviewKey = normalizeText(previewKey);
-        if (pin) pinnedPlanPreviewKey = activePlanPreviewKey;
     };
 
     const getDisplayPlanForRow = async (row) => {
@@ -1531,6 +1378,13 @@ export function mountTravelSearchUI() {
         return row.__displayPlan;
     };
 
+    journeyPlanPreviewController = createJourneyPlanPreviewController({
+        buildTripPreviewPayloadFromDisplayPlan,
+        getDisplayPlanForRow,
+        mapActions: travelSearchMapActions,
+        normalizeText
+    });
+
     const renderTripDetailBody = async ({ row }) => {
         clearTripPopoverBody();
         const displayPlan = await getDisplayPlanForRow(row);
@@ -1550,7 +1404,7 @@ export function mountTravelSearchUI() {
             originStationId: row.originStationId
         });
         if (!blocks.length) {
-            tripPopoverBody.appendChild(el('div', 'journey-trip-empty', { text: '无详细停站信息' }));
+            tripPopoverBody.appendChild(createJourneyTripEmptyRow({ createElement: el }));
             return;
         }
 
@@ -1566,9 +1420,7 @@ export function mountTravelSearchUI() {
         for (let blockIndex = 0; blockIndex < blocks.length; blockIndex += 1) {
             const block = blocks[blockIndex] || {};
             if (block.kind === 'transfer') {
-                const transferRow = el('div', 'journey-trip-transfer-row');
-                transferRow.appendChild(el('span', 'journey-trip-transfer-label', { text: '换乘' }));
-                tripPopoverBody.appendChild(transferRow);
+                tripPopoverBody.appendChild(createJourneyTripTransferRow({ createElement: el }));
                 shouldAppendDirectionForNextNote = true;
                 currentSectionIndex += 1;
                 hasRenderedSectionLineNote = false;
@@ -1661,22 +1513,16 @@ export function mountTravelSearchUI() {
                 const depText = overallDestinationStationId && stationId && overallDestinationStationId === stationId
                     ? ''
                     : (normalizeText(s.depText || '') || (isLast ? '-' : ''));
-                const rowEl = createTimetableStationRow({
-                    rowClass: s?.isPast ? 'journey-trip-row is-past' : 'journey-trip-row',
-                    stationClass: 'journey-trip-station',
-                    arriveCellClass: 'journey-trip-time journey-trip-arrive',
-                    departCellClass: 'journey-trip-time journey-trip-depart',
-                    arriveTextClass: 'journey-trip-time-arrive',
-                    departTextClass: 'journey-trip-time-depart',
-                    destinationTextClass: 'journey-trip-time-arrive journey-trip-time-destination',
+                const rowEl = createJourneyTripStationRow({
+                    createStationRow: createTimetableStationRow,
+                    departureText: depText,
+                    isPast: !!s?.isPast,
+                    showDestination: !!(overallDestinationStationId && stationId && overallDestinationStationId === stationId),
                     stationId,
                     stationText,
-                    arrivalText: arriveText,
-                    departureText: depText,
-                    showDestination: !!(overallDestinationStationId && stationId && overallDestinationStationId === stationId),
-                    destinationText: '目的地'
+                    arrivalText: arriveText
                 });
-                tripPopoverBody.appendChild(rowEl);
+                if (rowEl) tripPopoverBody.appendChild(rowEl);
             }
         }
     };
@@ -1725,11 +1571,7 @@ export function mountTravelSearchUI() {
 
     const showPlanMessage = (message) => {
         clearPlanList();
-        const li = document.createElement('li');
-        li.className = 'journey-plan-item';
-        const empty = el('div', 'journey-plan-empty', { text: message });
-        li.appendChild(empty);
-        planList.appendChild(li);
+        planList.appendChild(createJourneyPlanMessageItem({ createElement: el, message }));
         planResults.classList.remove('is-hidden');
         planPagination.classList.add('is-hidden');
     };
@@ -1803,9 +1645,11 @@ export function mountTravelSearchUI() {
         };
 
         const appendStationRow = ({ stationName, timeText }) => {
-            const rowEl = el('div', 'station-row');
-            rowEl.appendChild(el('div', 'station-title-box', { text: stationName }));
-            rowEl.appendChild(el('div', 'station-time-box', { text: timeText }));
+            const rowEl = createJourneyStationPathRow({
+                createElement: el,
+                stationName,
+                timeText
+            });
             rowsWrap.appendChild(rowEl);
 
             const markerIndex = stationMarkerRows.length;
@@ -1824,64 +1668,45 @@ export function mountTravelSearchUI() {
         };
 
         const appendTrainRow = ({ lineText, lineColor, typeText, typeColor, directionText, stationCount = null }) => {
-            const rowEl = el('div', 'station-row');
-            const title = el('div', 'train-title-box');
-            const lineLabel = el('span', 'train-line-label', { text: lineText || '线路' });
-            if (lineColor) lineLabel.style.color = String(lineColor);
-            title.appendChild(lineLabel);
-            if (typeText) {
-                title.appendChild(document.createTextNode(' '));
-                const typeLabel = el('span', 'train-type-label', { text: typeText });
-                if (typeColor) {
-                    const bg = String(resolveJourneyColorForTheme(typeColor));
-                    typeLabel.style.background = bg;
-                    typeLabel.style.color = resolveJourneyBadgeTextColor(bg);
-                }
-                title.appendChild(typeLabel);
-            }
-            if (directionText) title.appendChild(document.createTextNode(` 往${directionText}`));
-            // 如果传入了 stationCount 属性，则在行内显示乘坐站数
-            if (Number.isFinite(Number(stationCount)) && Number(stationCount) > 0) {
-                title.appendChild(document.createTextNode(` 乘坐${Number(stationCount)}站`));
-            }
-            rowEl.appendChild(title);
+            const rowEl = createJourneyTrainPathRow({
+                createElement: el,
+                directionText,
+                lineColor,
+                lineText,
+                resolveBadgeTextColor: resolveJourneyBadgeTextColor,
+                resolveColor: resolveJourneyColorForTheme,
+                stationCount,
+                typeColor,
+                typeText
+            });
             rowsWrap.appendChild(rowEl);
         };
 
         const createWalkRow = ({ minutes, toText, isDestination = false }) => {
-            if (!Number.isFinite(Number(minutes)) || Number(minutes) <= 0) return null;
-            const rowEl = el('div', 'station-row is-walk');
-            const title = el('div', 'train-title-box');
-            const img = el('img', 'journey-walk-icon', { alt: '' });
-            img.style.width = '14px';
-            img.style.height = '14px';
-            img.style.display = 'inline-block';
-            img.style.verticalAlign = 'middle';
-            try { setJourneyIconFromCache(img, 'walk.svg'); } catch {}
-            title.appendChild(img);
-            // 根据 isDestination 来区分行内显示“起始站”还是“终点”
-            const txt = isDestination
-                ? ` ${Math.max(0, Math.round(Number(minutes)))}分 至终点`
-                : ` ${Math.max(0, Math.round(Number(minutes)))}分 至${toText || '起始站'}站`;
-            title.appendChild(document.createTextNode(txt));
-            rowEl.appendChild(title);
-            return rowEl;
+            return createJourneyWalkPathRow({
+                createElement: el,
+                isDestination,
+                minutes,
+                setIcon: setJourneyIconFromCache,
+                toText
+            });
         };
 
         const appendSpecialLineRow = (text) => {
-            const specialText = normalizeText(text);
-            if (!specialText) return;
-            const rowEl = el('div', 'station-row is-special');
-            rowEl.appendChild(el('div', 'journey-plan-special-line', { text: specialText }));
+            const rowEl = createJourneySpecialLinePathRow({
+                createElement: el,
+                normalizeText,
+                text
+            });
+            if (!rowEl) return;
             rowsWrap.appendChild(rowEl);
         };
 
         const appendTransferRow = (waitMinutes) => {
-            const rowEl = el('div', 'station-row is-transfer');
-            const text = Number.isFinite(waitMinutes)
-                ? `转车并等待 ${Math.max(0, Math.round(waitMinutes))}分`
-                : '转车并等待';
-            rowEl.appendChild(el('div', 'train-title-box', { text }));
+            const rowEl = createJourneyTransferPathRow({
+                createElement: el,
+                waitMinutes
+            });
             rowsWrap.appendChild(rowEl);
         };
 
@@ -2161,48 +1986,23 @@ export function mountTravelSearchUI() {
                 window.__TokyoRailMultiSelectInternalAPI.setForbidClass(false);
             }
             // 清理多选的预览数据
-            if (typeof window?.TokyoRailSearchMapActions?.clearTripPathPreview === 'function') {
-                window.TokyoRailSearchMapActions.clearTripPathPreview();
-            }
+            journeyPlanPreviewController?.clearPreview?.({ force: true });
         } catch {
             // ignore
         }
     };
 
     const highlightAllPlanResults = async (rows) => {
-        if (window?.__TokyoRailMultiSelectEnabled !== true) return;
-        if (!Array.isArray(rows) || !rows.length) return;
-
-        for (let i = 0; i < rows.length; i += 1) {
-            const row = rows[i];
-            if (!row) continue;
-            try {
-                await applyJourneyPlanPreview({
-                    row,
-                    previewKey: `auto-${i}`,
-                    pin: false,
-                    interaction: 'auto',
-                    clearBefore: i === 0
-                });
-            } catch {
-                // ignore errors in individual highlighting
-            }
-        }
-
-        for (const entry of journeyPlanPreviewPool) {
-            if (!entry) continue;
-            entry.visible = true;
-        }
-        journeyPlanHighlightedPageIndex = -1;
+        await journeyPlanPreviewController?.highlightAll?.(rows);
     };
 
     const highlightSinglePlanResult = async (pageIndex) => {
         if (!Number.isFinite(pageIndex) || pageIndex < 0 || pageIndex >= allPlanRows.length) return;
-        syncJourneyPlanVisibility(pageIndex);
+        journeyPlanPreviewController?.syncVisibility?.(pageIndex);
     };
     const restoreAllPlanResults = async () => {
         if (!Array.isArray(allPlanRows) || !allPlanRows.length) return;
-        syncJourneyPlanRestoreAll();
+        journeyPlanPreviewController?.restoreAll?.();
     };
     const renderPlanResults = async (rows) => {
         clearPlanList();
@@ -2250,78 +2050,16 @@ export function mountTravelSearchUI() {
         return { serviceDayStartMs, departureMs: depMs };
     };
 
-    const scheduleDestinationReachableStopsTest = () => {
-        if (destinationReachableStopsTimer) {
-            window.clearTimeout(destinationReachableStopsTimer);
-            destinationReachableStopsTimer = null;
-        }
-
-        const raw = normalizeText(destinationInput.value);
-        if (!/^(\d+)(?:\s*[,，]\s*f)?$/i.test(raw)) {
-                try {
-                    window?.TokyoRailSearchMapActions?.clearReachableStopsOverlay?.();
-                } catch {
-                    // ignore
-                }
-                return;
-        }
-
-        const originStationId = normalizeText(selectedOriginId || originInput.dataset.stationId || '');
-        if (!originStationId) {
-            try {
-                window?.TokyoRailSearchMapActions?.clearReachableStopsOverlay?.();
-            } catch {
-                // ignore
-            }
-            return;
-        }
-
-        destinationReachableStopsTimer = window.setTimeout(async () => {
-            destinationReachableStopsTimer = null;
-
-            const currentRaw = normalizeText(destinationInput.value);
-            
-            // 1. 修改正则：允许匹配纯数字，或者数字后面紧跟 ",f"（忽略大小写和空格）
-            const match = currentRaw.match(/^(\d+)(?:\s*[,，]\s*f)?$/i);
-            if (!match) return;
-
-            const minutes = Number(match[1]);
-            // 检查输入中是否携带了 ",f" 参数
-            const isFastMode = /[,，]\s*f/i.test(currentRaw);
-
-            const serviceDay = readServiceDayFromPanel();
-            const { departureMs } = readDepartureBase();
-
-            try {
-                // 2. 动态构建 getReachableStopsWithinMinutes 的基础参数
-                const queryOptions = {
-                    originStationId,
-                    minutes,
-                    departureMs,
-                    serviceDay
-                };
-
-                // 如果输入了 ",f"，则追加特定的控制参数
-                if (isFastMode) {
-                    queryOptions.setTo8 = false;
-                    queryOptions.offsetsMin = [0];
-                }
-
-                const result = await getReachableStopsWithinMinutes(queryOptions);
-
-                try {
-                    const overlayPayload = { ...result, opacity: 0.6 } 
-
-                    await window?.TokyoRailSearchMapActions?.updateReachableStopsOverlay?.(overlayPayload);
-                } catch {
-                    // ignore
-                }
-            } catch (error) {
-                // ignore
-            }
-        }, 500);
-    };
-    scheduleDestinationReachableStopsTestRef = scheduleDestinationReachableStopsTest;
+    reachableStopsController = createReachableStopsController({
+        getDepartureBase: readDepartureBase,
+        getDestinationRaw: () => destinationInput.value,
+        getOriginStationId: () => selectedOriginId || originInput.dataset.stationId || '',
+        getReachableStopsWithinMinutes,
+        getServiceDay: readServiceDayFromPanel,
+        mapActions: travelSearchMapActions,
+        normalizeText
+    });
+    scheduleDestinationReachableStopsTestRef = () => reachableStopsController?.schedule?.();
 
     const collectJourneyCandidates = async ({ sourceStops, destinationStops, serviceDay, baseDepartureMs, originWalkMin = null, destWalkMin = null } = {}) => {
         const plans = await collectJourneyCandidatesRaptor({
@@ -2511,13 +2249,12 @@ export function mountTravelSearchUI() {
         results.classList.add('is-hidden');
         hideTripPopover();
         clearJourneyPlanPreview({ force: true, clearMapPreview: false });
-        pinnedPlanPreviewKey = '';
         if (!mapPickTarget) hidePlanResultsIfEmptyInputs({ clearMapPreview: false });
     };
 
     const clearJourneyInputsAndCollapse = () => {
         try {
-            window?.TokyoRailSearchMapActions?.clearReachableStopsOverlay?.();
+            reachableStopsController?.clear?.();
         } catch {
             // ignore
         }
@@ -2537,7 +2274,7 @@ export function mountTravelSearchUI() {
         results.classList.add('is-hidden');
         disableMultiSelectMode();
         try {
-            window?.TokyoRailSearchMapActions?.clearJourneyPickPin?.();
+            journeyPickController.clearPin();
         } catch {
             // ignore
         }
@@ -2578,7 +2315,7 @@ export function mountTravelSearchUI() {
         input.dataset.stationId = String(item?.id ?? '');
 
         try {
-            window?.TokyoRailSearchMapActions?.showJourneyPickPin?.({ stationId: String(item?.id ?? ''), type: activeField });
+            journeyPickController.showStationPin({ stationId: String(item?.id ?? ''), type: activeField });
         } catch {
             // ignore
         }
@@ -2596,7 +2333,7 @@ export function mountTravelSearchUI() {
 
         results.classList.add('is-hidden');
         try {
-            window?.TokyoRailSearchMapActions?.clearJourneyPickPin?.(activeField);
+            journeyPickController.clearPin(activeField);
         } catch {
             // ignore
         }
@@ -2822,7 +2559,7 @@ export function mountTravelSearchUI() {
                 selectedOriginId = '';
                 selectedOriginCandidateIds = [];
                 try {
-                    window?.TokyoRailSearchMapActions?.clearReachableStopsOverlay?.();
+                    reachableStopsController?.clear?.();
                 } catch {
                     // ignore
                 }
@@ -2835,7 +2572,7 @@ export function mountTravelSearchUI() {
 
             refresh();
 
-            if (!isOrigin) scheduleDestinationReachableStopsTest();
+            if (!isOrigin) scheduleDestinationReachableStopsTestRef?.();
         });
 
         input.addEventListener('search', () => {
@@ -2909,7 +2646,7 @@ export function mountTravelSearchUI() {
         const nextTarget = target === 'destination' ? 'destination' : 'origin';
         if (mapPickTarget === nextTarget) {
             try {
-                window?.TokyoRailSearchMapActions?.clearJourneyPickPin?.(nextTarget);
+                journeyPickController.clearPin(nextTarget);
             } catch {
                 // ignore
             }
