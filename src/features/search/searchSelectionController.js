@@ -5,6 +5,7 @@ const toText = (value) => String(value ?? '').trim();
 export const createSearchSelectionController = ({
     store,
     searchFeature,
+    hoverApi,
     hoverFeature,
     resolveLineSelection,
     getSelectionState,
@@ -45,6 +46,25 @@ export const createSearchSelectionController = ({
         }
     };
 
+    const hoverLifecycle = {
+        beginPreview() {
+            if (typeof hoverApi?.beginPreview === 'function') return hoverApi.beginPreview() === true;
+            return hoverFeature?.beginPreview?.() === true;
+        },
+        commitPreview() {
+            if (typeof hoverApi?.commitPreview === 'function') return hoverApi.commitPreview();
+            return hoverFeature?.commitPreview?.();
+        },
+        endPreview() {
+            if (typeof hoverApi?.endPreview === 'function') return hoverApi.endPreview();
+            return hoverFeature?.closePreview?.({ committed: false });
+        },
+        getPreviewStatus() {
+            if (typeof hoverApi?.getPreviewStatus === 'function') return hoverApi.getPreviewStatus();
+            return hoverFeature?.getPreviewStatus?.() || null;
+        }
+    };
+
     const openStationForStationId = (stationId, meta = {}) => {
         const item = typeof findStationLabelItemById === 'function'
             ? findStationLabelItemById(stationId)
@@ -75,7 +95,7 @@ export const createSearchSelectionController = ({
             const id = toText(lineId);
             if (!id) return;
             hideStationPopupForMenuInteraction?.({ preserveHoverPreview: true });
-            if (hoverFeature?.beginPreview?.() !== true) return;
+            if (hoverLifecycle.beginPreview() !== true) return;
 
             const payload = searchFeature.previewLine(id);
             if (!payload?.selectedLineId) return;
@@ -88,7 +108,7 @@ export const createSearchSelectionController = ({
             const id = toText(lineId);
             if (!id) return;
             hideStationPopupForMenuInteraction?.();
-            hoverFeature?.commitPreview?.();
+            hoverLifecycle.commitPreview();
 
             const resolved = resolveLine(id);
             const mainLineId = toText(resolved?.mainLineId) || id;
@@ -118,7 +138,7 @@ export const createSearchSelectionController = ({
             const name = toText(companyName);
             if (!name) return;
             hideStationPopupForMenuInteraction?.({ preserveHoverPreview: true });
-            if (hoverFeature?.beginPreview?.() !== true) return;
+            if (hoverLifecycle.beginPreview() !== true) return;
             const payload = searchFeature.previewCompany(name);
             if (!payload?.selectedCompany) return;
             setIsolate(false);
@@ -130,7 +150,7 @@ export const createSearchSelectionController = ({
             const name = toText(companyName);
             if (!name) return;
             hideStationPopupForMenuInteraction?.();
-            hoverFeature?.commitPreview?.();
+            hoverLifecycle.commitPreview();
             const payload = searchFeature.commitCompany(name);
             if (!payload?.selectedCompany) return;
             setIsolate(false);
@@ -140,12 +160,12 @@ export const createSearchSelectionController = ({
         },
 
         previewStation(stationId, meta) {
-            if (hoverFeature?.beginPreview?.() !== true) return;
+            if (hoverLifecycle.beginPreview() !== true) return;
             openStationForStationId(stationId, meta || {});
         },
 
         commitStation(stationId, meta) {
-            hoverFeature?.commitPreview?.();
+            hoverLifecycle.commitPreview();
             const opened = openStationForStationId(stationId, meta || {});
             openPanelForStationWithAutoScroll?.(opened?.props || {});
 

@@ -3113,6 +3113,7 @@ const initMapApp = async () => {
     const searchSelectionController = createSearchSelectionController({
         store: appStore,
         searchFeature,
+        hoverApi: hoverBridgeApi,
         hoverFeature,
         resolveLineSelection: resolveLineSelectionForApp,
         getSelectionState: () => ({
