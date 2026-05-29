@@ -48,16 +48,12 @@ import { companyLogoMap, resolveLineSelectionByBranchRules } from './lib/special
 import {
     readAdaptiveViewportEnabled,
     readAppearanceMode,
-    readAutoUpdateCheckEnabled,
     readBasemapMode,
     readHoverPreviewEnabled,
     readStationOffsetMode,
     readTimetableViewMode,
     resolveThemeFromAppearance,
-    writeAppearanceMode,
-    writeAutoUpdateCheckEnabled,
-    writeStationOffsetMode,
-    writeTimetableViewMode
+    writeStationOffsetMode
 } from './services/appSettings.js';
 import { createBasemapController, createMapEngine } from './services/mapEngine.js';
 import { createStore } from './store/appStore.js';
@@ -75,11 +71,15 @@ import { createReachableStopsOverlayRenderer } from './features/search/reachable
 import { createSearchMapBridge } from './features/search/searchMapBridge.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
 import { createSearchSelectionController } from './features/search/searchSelectionController.js';
-import { createSegmentedSettingRow } from './features/settings/settingRows.js';
 import {
     mountAdaptiveViewportToggle,
+    mountAppearanceToggle,
+    mountAutoUpdateToggle,
     mountBasemapToggle,
-    mountHoverPreviewToggle
+    mountHoverPreviewToggle,
+    mountStationLabelToggle,
+    mountStationOffsetToggle,
+    mountTimetableViewToggle
 } from './features/settings/settingsControls.js';
 import { createSettingsMenu } from './features/settings/settingsMenu.js';
 import {
@@ -3278,315 +3278,58 @@ const initMapApp = async () => {
         });
     }
 
-    function mountStationLabelToggle(hostEl) {
-        const container = document.createElement('div');
-        container.className = 'settings-item settings-item-station-label';
-
-        const text = document.createElement('span');
-        text.className = 'settings-item-title';
-        text.textContent = '站名显示';
-
-        const seg = document.createElement('div');
-        seg.className = 'settings-item-control settings-seg';
-
-        const btnOff = document.createElement('button');
-        btnOff.type = 'button';
-        btnOff.textContent = '隐藏';
-
-        const btnAuto = document.createElement('button');
-        btnAuto.type = 'button';
-        btnAuto.textContent = '自动';
-
-        const btnAll = document.createElement('button');
-        btnAll.type = 'button';
-        btnAll.textContent = '全显';
-
-        seg.appendChild(btnOff);
-        seg.appendChild(btnAuto);
-        seg.appendChild(btnAll);
-
-        container.appendChild(text);
-        container.appendChild(seg);
-        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
-        if (host.firstChild) host.insertBefore(container, host.firstChild);
-        else host.appendChild(container);
-
-        const setActive = () => {
-            btnOff.classList.toggle('is-active', stationLabelMode === 'off');
-            btnAuto.classList.toggle('is-active', stationLabelMode === 'auto');
-            btnAll.classList.toggle('is-active', stationLabelMode === 'all');
-        };
-
-        const setMode = (mode) => {
-            const next = mode === 'off' || mode === 'all' ? mode : 'auto';
-            if (stationLabelMode === next) return false;
-            stationLabelMode = next;
-            setActive();
-            return true;
-        };
-
-
-        setStationLabelMode = (mode, options = {}) => {
-            if (options?.fromUser !== true) return false;
-            return setMode(mode);
-        };
-
-        btnOff.addEventListener('click', () => {
-            if (setStationLabelMode('off', { fromUser: true })) {
-                scheduleLayerCollisionUpdate();
-            }
-        });
-        btnAuto.addEventListener('click', () => {
-            if (setStationLabelMode('auto', { fromUser: true })) {
-                scheduleLayerCollisionUpdate();
-            }
-        });
-        btnAll.addEventListener('click', () => {
-            if (setStationLabelMode('all', { fromUser: true })) {
-                scheduleLayerCollisionUpdate();
-            }
-        });
-
-
-        setActive();
-    }
-
-    function mountAppearanceToggle(hostEl) {
-        const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-        const row = createSegmentedSettingRow({
-            hostEl,
-            className: 'settings-item-appearance',
-            title: '外观',
-            options: [
-                { value: 'light', label: '浅色' },
-                { value: 'dark', label: '深色' },
-                { value: 'system', label: '跟随系统' }
-            ]
-        });
-        const btnLight = row.buttons.get('light');
-        const btnDark = row.buttons.get('dark');
-        const btnSystem = row.buttons.get('system');
-
-        const setThemeMode = (mode) => {
-            const m = writeAppearanceMode(mode);
-            row.setActive(m);
-            const resolved = resolveThemeFromAppearance(m);
-            document.documentElement.setAttribute('data-theme', resolved);
-            applyBasemapTheme(resolved);
+    mountAppearanceToggle({
+        hostEl: settingsMenuContentEl,
+        onThemeChanged: ({ theme }) => {
+            document.documentElement.setAttribute('data-theme', theme);
+            applyBasemapTheme(theme);
             applyStationThemePaintToMapLayers();
             applySelectionEffects();
-        };
-
-        btnLight.addEventListener('click', () => setThemeMode('light'));
-        btnDark.addEventListener('click', () => setThemeMode('dark'));
-        btnSystem.addEventListener('click', () => setThemeMode('system'));
-
-        const onSystemThemeChange = () => {
-            const currentMode = readAppearanceMode();
-            if (currentMode === 'system') setThemeMode('system');
-        };
-
-        if (media && typeof media.addEventListener === 'function') {
-            media.addEventListener('change', onSystemThemeChange);
-        } else if (media && typeof media.addListener === 'function') {
-            media.addListener(onSystemThemeChange);
         }
-
-        setThemeMode(readAppearanceMode());
-    }
-
-    function mountAutoUpdateToggle(hostEl) {
-        const electronApi = window?.TokyoRailElectron;
-        const hasElectronApi = !!(
-            electronApi
-            && typeof electronApi.setAutoUpdateCheckEnabled === 'function'
-            && typeof electronApi.checkForUpdatesNow === 'function'
-        );
-        if (!hasElectronApi) return;
-
-        const container = document.createElement('div');
-        container.className = 'settings-item settings-item-auto-update';
-
-        const left = document.createElement('button');
-        left.type = 'button';
-        left.className = 'settings-update-check-now';
-        left.setAttribute('aria-label', '立即检查更新');
-        left.title = '立即检查更新';
-
-        const checkNowIcon = document.createElement('img');
-        checkNowIcon.className = 'settings-update-check-now-icon';
-        checkNowIcon.alt = '';
-        setImageElementFromCache(checkNowIcon, getIconCandidates('clockwise.svg'), {
-            cacheKey: 'icon:clockwise.svg',
-            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('clockwise.svg'), { cacheKey: 'icon:clockwise.svg' })
-        }).catch(() => null);
-        left.appendChild(checkNowIcon);
-
-        const text = document.createElement('span');
-        text.className = 'settings-item-title';
-        text.textContent = '自动检查更新';
-
-        const controls = document.createElement('div');
-        controls.className = 'settings-auto-update-controls';
-
-        const seg = document.createElement('div');
-        seg.className = 'settings-item-control settings-seg';
-
-        const btnOn = document.createElement('button');
-        btnOn.type = 'button';
-        btnOn.textContent = '开启';
-
-        const btnOff = document.createElement('button');
-        btnOff.type = 'button';
-        btnOff.textContent = '关闭';
-
-        seg.appendChild(btnOn);
-        seg.appendChild(btnOff);
-    controls.appendChild(left);
-    controls.appendChild(seg);
-    container.appendChild(text);
-    container.appendChild(controls);
-
-        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
-        const appearanceRow = host.querySelector('.settings-item.settings-item-appearance');
-        if (appearanceRow && appearanceRow.parentElement === host && appearanceRow.nextSibling) {
-            host.insertBefore(container, appearanceRow.nextSibling);
-        } else if (appearanceRow && appearanceRow.parentElement === host) {
-            host.appendChild(container);
-        } else if (host.firstChild) {
-            host.insertBefore(container, host.firstChild);
-        } else {
-            host.appendChild(container);
-        }
-
-        const setEnabled = (enabled) => {
-            const isEnabled = enabled !== false;
-            btnOn.classList.toggle('is-active', isEnabled);
-            btnOff.classList.toggle('is-active', !isEnabled);
-            writeAutoUpdateCheckEnabled(isEnabled);
-            electronApi.setAutoUpdateCheckEnabled(isEnabled).catch(() => null);
-        };
-
-        btnOn.addEventListener('click', () => setEnabled(true));
-        btnOff.addEventListener('click', () => setEnabled(false));
-
-        left.addEventListener('click', async () => {
-            if (left.disabled) return;
-            left.disabled = true;
-            try {
-                await electronApi.checkForUpdatesNow();
-            } catch {
-                // ignore
-            } finally {
-                left.disabled = false;
-            }
-        });
-
-        setEnabled(readAutoUpdateCheckEnabled());
-    }
-
-    function mountTimetableViewToggle(hostEl) {
-        const container = document.createElement('div');
-        container.className = 'settings-item settings-item-timetable-view';
-
-        const text = document.createElement('span');
-        text.className = 'settings-item-title';
-        text.textContent = '班次视图';
-
-        const seg = document.createElement('div');
-        seg.className = 'settings-item-control settings-view-seg';
-
-        const btnList = document.createElement('button');
-        btnList.type = 'button';
-        btnList.className = 'settings-view-btn settings-view-btn-list';
-        btnList.setAttribute('aria-label', '列表视图');
-
-        const listIcon = document.createElement('img');
-        listIcon.className = 'settings-view-btn-icon';
-        listIcon.alt = '';
-        setImageElementFromCache(listIcon, getIconCandidates('list.svg'), {
-            cacheKey: 'icon:list.svg',
-            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('list.svg'), { cacheKey: 'icon:list.svg' })
-        }).catch(() => null);
-        btnList.appendChild(listIcon);
-
-        const btnGrid = document.createElement('button');
-        btnGrid.type = 'button';
-        btnGrid.className = 'settings-view-btn settings-view-btn-grid';
-        btnGrid.setAttribute('aria-label', '网格视图');
-
-        const gridIcon = document.createElement('img');
-        gridIcon.className = 'settings-view-btn-icon';
-        gridIcon.alt = '';
-        setImageElementFromCache(gridIcon, getIconCandidates('grid.svg'), {
-            cacheKey: 'icon:grid.svg',
-            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('grid.svg'), { cacheKey: 'icon:grid.svg' })
-        }).catch(() => null);
-        btnGrid.appendChild(gridIcon);
-
-        seg.appendChild(btnList);
-        seg.appendChild(btnGrid);
-        container.appendChild(text);
-        container.appendChild(seg);
-
-        const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
-        if (host.firstChild) host.insertBefore(container, host.firstChild);
-        else host.appendChild(container);
-
-        const setMode = (mode) => {
-            const m = writeTimetableViewMode(mode);
-            btnList.classList.toggle('is-active', m === 'list');
-            btnGrid.classList.toggle('is-active', m === 'grid');
-            panel?.setTimetableViewMode?.(m);
-        };
-
-        btnList.addEventListener('click', () => setMode('list'));
-        btnGrid.addEventListener('click', () => setMode('grid'));
-
-        setMode(readTimetableViewMode());
-    }
-
-    function mountStationOffsetToggle(hostEl) {
-        const row = createSegmentedSettingRow({
-            hostEl,
-            className: 'settings-item-station-offset',
-            title: '站点位置纠正',
-            options: [
-                { value: 'dynamic', label: '动态' },
-                { value: 'performance', label: '性能' }
-            ]
-        });
-        const btnDynamic = row.buttons.get('dynamic');
-        const btnPerformance = row.buttons.get('performance');
-
-        const setMode = (mode) => {
-            const next = applyStationOffsetMode(mode);
-            row.setActive(next);
-        };
-
-        btnDynamic.addEventListener('click', () => setMode('dynamic'));
-        btnPerformance.addEventListener('click', () => setMode('performance'));
-
-        setMode(readStationOffsetMode());
-    }
-
-    mountAppearanceToggle(settingsMenuContentEl);
-    mountAutoUpdateToggle(settingsMenuContentEl);
+    });
+    mountAutoUpdateToggle({
+        hostEl: settingsMenuContentEl,
+        electronApi: window?.TokyoRailElectron,
+        getIconCandidates,
+        getPreferredCachedImageSrc,
+        setImageElementFromCache
+    });
     mountBasemapToggle({
         hostEl: settingsMenuContentEl,
         onModeChanged: setBasemapMode
     });
-    mountTimetableViewToggle(settingsMenuContentEl);
+    mountTimetableViewToggle({
+        hostEl: settingsMenuContentEl,
+        getIconCandidates,
+        getPreferredCachedImageSrc,
+        onModeChanged: (mode) => panel?.setTimetableViewMode?.(mode),
+        setImageElementFromCache
+    });
     mountAdaptiveViewportToggle({
         hostEl: settingsMenuContentEl,
         onEnabledChanged: applyAdaptiveViewportEnabled
     });
-    mountStationOffsetToggle(settingsMenuContentEl);
+    mountStationOffsetToggle({
+        hostEl: settingsMenuContentEl,
+        onModeChanged: applyStationOffsetMode
+    });
     hoverPreviewToggleController = mountHoverPreviewToggle({
         hostEl: settingsMenuContentEl,
         onEnabledChanged: applyHoverPreviewEnabled
     });
-    mountStationLabelToggle(settingsMenuContentEl);
+    {
+        const stationLabelController = mountStationLabelToggle({
+            hostEl: settingsMenuContentEl,
+            initialMode: stationLabelMode,
+            onModeChanged: (mode) => {
+                stationLabelMode = mode;
+            },
+            onUserModeChanged: () => {
+                scheduleLayerCollisionUpdate();
+            }
+        });
+        setStationLabelMode = (mode, options = {}) => stationLabelController.setMode(mode, options);
+    }
 
     {
         const initialMultiSelect = multiSelectModeEnabled;

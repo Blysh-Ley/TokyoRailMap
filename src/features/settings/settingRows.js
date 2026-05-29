@@ -1,4 +1,4 @@
-const appendRow = (hostEl, container) => {
+export const appendSettingRow = (hostEl, container) => {
     const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
     if (host.firstChild) host.insertBefore(container, host.firstChild);
     else host.appendChild(container);
@@ -38,7 +38,7 @@ export const createSegmentedSettingRow = ({
 
     container.appendChild(text);
     container.appendChild(seg);
-    appendRow(hostEl, container);
+    appendSettingRow(hostEl, container);
 
     const setActive = (value) => {
         const current = String(value ?? '');

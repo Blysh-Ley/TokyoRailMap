@@ -1,3 +1,5 @@
+import { loadSettingsIcon } from './settingsIconLoader.js';
+
 export const createSettingsMenu = ({
     getIconCandidates,
     getPreferredCachedImageSrc,
@@ -19,16 +21,13 @@ export const createSettingsMenu = ({
     const fabIcon = document.createElement('img');
     fabIcon.className = 'settings-fab-icon';
     fabIcon.alt = '';
-    if (
-        typeof setImageElementFromCache === 'function' &&
-        typeof getIconCandidates === 'function' &&
-        typeof getPreferredCachedImageSrc === 'function'
-    ) {
-        setImageElementFromCache(fabIcon, getIconCandidates('settings.svg'), {
-            cacheKey: 'icon:settings.svg',
-            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('settings.svg'), { cacheKey: 'icon:settings.svg' })
-        }).catch(() => null);
-    }
+    loadSettingsIcon({
+        img: fabIcon,
+        iconName: 'settings.svg',
+        getIconCandidates,
+        getPreferredCachedImageSrc,
+        setImageElementFromCache
+    });
     fab.appendChild(fabIcon);
 
     const content = document.createElement('div');
