@@ -1469,6 +1469,9 @@ export function createPanel(options = {}) {
     let catalogRefreshRafId = null;
     let catalogMutationObserver = null;
     let catalogResizeObserver = null;
+    let marqueeMutationObserver = null;
+    let marqueeResizeObserver = null;
+    let marqueeObserverRefreshRafId = null;
     let catalogDismissedByUser = false;
     let catalogForcedActiveLineId = '';
     let catalogForcedActiveUntilMs = 0;
@@ -5862,6 +5865,59 @@ export function createPanel(options = {}) {
         }
     };
 
+    const schedulePanelMarqueeObserverRefresh = () => {
+        try {
+            if (typeof window === 'undefined') return;
+            const raf = window.requestAnimationFrame;
+            if (typeof raf !== 'function') {
+                scheduleMarqueeApply(body);
+                return;
+            }
+            if (marqueeObserverRefreshRafId) return;
+            marqueeObserverRefreshRafId = raf(() => {
+                marqueeObserverRefreshRafId = 0;
+                scheduleMarqueeApply(body);
+            });
+        } catch {
+            // ignore
+        }
+    };
+
+    const hasMarqueeMutation = (mutations) => {
+        for (const mutation of Array.from(mutations || [])) {
+            for (const node of Array.from(mutation?.addedNodes || [])) {
+                if (!(node instanceof Element)) continue;
+                if (node.matches?.('.panel-dir-marquee, .panel-timetable-dest-marquee, .panel-timetable-type-marquee')) return true;
+                if (node.querySelector?.('.panel-dir-marquee, .panel-timetable-dest-marquee, .panel-timetable-type-marquee')) return true;
+            }
+        }
+        return false;
+    };
+
+    const setupPanelMarqueeAutoRefresh = () => {
+        try {
+            if (typeof MutationObserver !== 'undefined' && !marqueeMutationObserver) {
+                marqueeMutationObserver = new MutationObserver((mutations) => {
+                    if (hasMarqueeMutation(mutations)) schedulePanelMarqueeObserverRefresh();
+                });
+                marqueeMutationObserver.observe(body, {
+                    childList: true,
+                    subtree: true
+                });
+            }
+            if (typeof ResizeObserver !== 'undefined' && !marqueeResizeObserver) {
+                marqueeResizeObserver = new ResizeObserver(() => {
+                    schedulePanelMarqueeObserverRefresh();
+                });
+                marqueeResizeObserver.observe(body);
+            }
+        } catch {
+            // ignore
+        }
+    };
+
+    setupPanelMarqueeAutoRefresh();
+
     const renderAllTimetables = async () => {
         closeDirFilterPopover();
         const token = ++timetableRenderToken;
@@ -5884,6 +5940,7 @@ export function createPanel(options = {}) {
             */
             pendingGridDataDebugLog = false;
         }
+        scheduleMarqueeApply(body);
     };
 
     const dirFilterPopover = document.createElement('div');
@@ -7314,6 +7371,7 @@ export function createPanel(options = {}) {
         // 默认折叠态：填充每条线路的“未来最近 3 条”班次
         // 这里等待渲染完成，避免外部随后执行的 scrollToLineId 被后续异步渲染“拉回顶部”。
         await renderAllTimetables();
+        scheduleMarqueeApply(body);
         scheduleCatalogRefresh();
         syncPanelTitleForActiveLine();
     };
