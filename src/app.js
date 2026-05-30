@@ -91,6 +91,7 @@ import {
 } from './domain/routePreviewSelection.js';
 import { createSelectionBadge } from './ui/selectionBadge.js';
 import { createRouteEndpointPopupRuntime } from './ui/routeEndpointPopups.js';
+import { createRoutePreviewViewportController } from './ui/routePreviewViewport.js';
 
 initializeFetchCache();
 
@@ -2662,6 +2663,28 @@ const initMapApp = async () => {
         getPreferredCachedImageSrc,
         setImageElementFromCache
     });
+    const dedupeSettingsControls = (hostEl) => {
+        const host = hostEl && hostEl.children ? hostEl : null;
+        if (!host) return;
+        const seen = new Set();
+        for (const child of Array.from(host.children)) {
+            if (!child?.classList?.contains('settings-item')) continue;
+            const key = Array.from(child.classList)
+                .filter((name) => name !== 'settings-item' && name !== 'is-disabled')
+                .sort()
+                .join('|') || child.className;
+            if (!key || !seen.has(key)) {
+                if (key) seen.add(key);
+                continue;
+            }
+            child.remove?.();
+        }
+    };
+    dedupeSettingsControls(settingsMenuContentEl);
+    const shouldMountSettingsControls = !(
+        settingsMenuContentEl?.dataset?.tokyoRailSettingsControlsMounted === 'true'
+        || settingsMenuContentEl?.querySelector?.(':scope > .settings-item')
+    );
 
     const panelHoverPreviewLifecycle = createPanelHoverPreviewLifecycle({
         getHoverFeature: () => hoverFeature
@@ -3198,57 +3221,62 @@ const initMapApp = async () => {
         });
     };
 
-    mountAppearanceToggle({
-        hostEl: settingsMenuContentEl,
-        onThemeChanged: ({ theme }) => {
-            document.documentElement.setAttribute('data-theme', theme);
-            applyBasemapTheme(theme);
-            applyStationThemePaintToMapLayers();
-            applySelectionEffects();
+    if (shouldMountSettingsControls) {
+        if (settingsMenuContentEl?.dataset) {
+            settingsMenuContentEl.dataset.tokyoRailSettingsControlsMounted = 'true';
         }
-    });
-    mountAutoUpdateToggle({
-        hostEl: settingsMenuContentEl,
-        electronApi: window?.TokyoRailElectron,
-        getIconCandidates,
-        getPreferredCachedImageSrc,
-        setImageElementFromCache
-    });
-    mountBasemapToggle({
-        hostEl: settingsMenuContentEl,
-        onModeChanged: setBasemapMode
-    });
-    mountTimetableViewToggle({
-        hostEl: settingsMenuContentEl,
-        getIconCandidates,
-        getPreferredCachedImageSrc,
-        onModeChanged: (mode) => panel?.setTimetableViewMode?.(mode),
-        setImageElementFromCache
-    });
-    mountAdaptiveViewportToggle({
-        hostEl: settingsMenuContentEl,
-        onEnabledChanged: applyAdaptiveViewportEnabled
-    });
-    mountStationOffsetToggle({
-        hostEl: settingsMenuContentEl,
-        onModeChanged: applyStationOffsetMode
-    });
-    hoverPreviewToggleController = mountHoverPreviewToggle({
-        hostEl: settingsMenuContentEl,
-        onEnabledChanged: applyHoverPreviewEnabled
-    });
-    {
-        const stationLabelController = mountStationLabelToggle({
+        mountAppearanceToggle({
             hostEl: settingsMenuContentEl,
-            initialMode: stationLabelMode,
-            onModeChanged: (mode) => {
-                stationLabelMode = mode;
-            },
-            onUserModeChanged: () => {
-                scheduleCollisionLayerRefresh();
+            onThemeChanged: ({ theme }) => {
+                document.documentElement.setAttribute('data-theme', theme);
+                applyBasemapTheme(theme);
+                applyStationThemePaintToMapLayers();
+                applySelectionEffects();
             }
         });
-        setStationLabelMode = (mode, options = {}) => stationLabelController.setMode(mode, options);
+        mountAutoUpdateToggle({
+            hostEl: settingsMenuContentEl,
+            electronApi: window?.TokyoRailElectron,
+            getIconCandidates,
+            getPreferredCachedImageSrc,
+            setImageElementFromCache
+        });
+        mountBasemapToggle({
+            hostEl: settingsMenuContentEl,
+            onModeChanged: setBasemapMode
+        });
+        mountTimetableViewToggle({
+            hostEl: settingsMenuContentEl,
+            getIconCandidates,
+            getPreferredCachedImageSrc,
+            onModeChanged: (mode) => panel?.setTimetableViewMode?.(mode),
+            setImageElementFromCache
+        });
+        mountAdaptiveViewportToggle({
+            hostEl: settingsMenuContentEl,
+            onEnabledChanged: applyAdaptiveViewportEnabled
+        });
+        mountStationOffsetToggle({
+            hostEl: settingsMenuContentEl,
+            onModeChanged: applyStationOffsetMode
+        });
+        hoverPreviewToggleController = mountHoverPreviewToggle({
+            hostEl: settingsMenuContentEl,
+            onEnabledChanged: applyHoverPreviewEnabled
+        });
+        {
+            const stationLabelController = mountStationLabelToggle({
+                hostEl: settingsMenuContentEl,
+                initialMode: stationLabelMode,
+                onModeChanged: (mode) => {
+                    stationLabelMode = mode;
+                },
+                onUserModeChanged: () => {
+                    scheduleCollisionLayerRefresh();
+                }
+            });
+            setStationLabelMode = (mode, options = {}) => stationLabelController.setMode(mode, options);
+        }
     }
 
     {
@@ -3723,74 +3751,18 @@ const initMapApp = async () => {
             return distMeters(ca, cb) <= 350;
         };
 
-        const previewFitWithSidePanels = (bbox) => {
-            if (!isAdaptiveViewportEnabled()) return;
-            if (!bbox) return;
-            const bounds = [
-                [bbox.minLng, bbox.minLat],
-                [bbox.maxLng, bbox.maxLat]
-            ];
-
-            const base = 50;
-            let rightReserve = base;
-            let leftReserve = base;
-
-            try {
-                const menuRect = menu?.wrapper?.getBoundingClientRect?.();
-                if (menuRect && Number.isFinite(menuRect.width)) {
-                    leftReserve = Math.max(leftReserve, Math.ceil(Math.max(menuRect.right || 0, menuRect.width) + base));
-                }
-            } catch {
-                // ignore
-            }
-
-            try {
-                const panelRect = panel?.el?.getBoundingClientRect?.();
-                if (panelRect && Number.isFinite(panelRect.width)) {
-                    rightReserve = Math.max(rightReserve, Math.ceil(panelRect.width + base));
-                }
-            } catch {
-                // ignore
-            }
-
-            try {
-                const tripEl = document.querySelector('[data-panel-trip-detail]');
-                const hidden = tripEl?.classList?.contains('is-hidden');
-                const rect = tripEl?.getBoundingClientRect?.();
-                if (!hidden && rect && Number.isFinite(rect.width) && rect.width > 0) {
-                    rightReserve = Math.max(rightReserve, Math.ceil(rightReserve + rect.width));
-                }
-            } catch {
-                // ignore
-            }
-
-            try {
-                mapEngine.fitBounds(bounds, {
-                    padding: { top: base, bottom: base, left: leftReserve, right: rightReserve },
-                    duration: 280,
-                    easing: (t) => t,
-                    essential: true
-                });
-            } catch {
-                // ignore
-            }
-        };
-
-        const bboxFromStationIds = (stationIds) => {
-            const list = Array.isArray(stationIds) ? stationIds : [];
-            let bbox = null;
-            for (const stationId of list) {
-                const sid = String(stationId || '').trim();
-                if (!sid) continue;
-                const coord = stationCoordByIdBase.get(sid) || stationCoordById.get(sid);
-                if (!Array.isArray(coord) || coord.length < 2) continue;
-                const lng = Number(coord[0]);
-                const lat = Number(coord[1]);
-                if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
-                bbox = extendBBox(bbox, lng, lat);
-            }
-            return bbox;
-        };
+        const routePreviewViewport = createRoutePreviewViewportController({
+            mapEngine,
+            isAdaptiveViewportEnabled,
+            getMenuElement: () => menu?.wrapper || null,
+            getPanelElement: () => panel?.el || null,
+            getTripDetailElement: () => document.querySelector('[data-panel-trip-detail]'),
+            getSelectedLineId: () => selectedLineId,
+            getSelectedStationLineIds: () => selectedStationLineIds,
+            getSelectedCompany: () => selectedCompany,
+            getEnabledLineIdsByCompany: () => enabledLineIdsByCompany,
+            getStationCoord: (stationId) => stationCoordByIdBase.get(stationId) || stationCoordById.get(stationId)
+        });
 
         const { buildTripPreviewFeatures } = createTripPreviewBuilder({
             stationCoordByIdBase,
@@ -3965,7 +3937,7 @@ const initMapApp = async () => {
             setStationLabelMode,
             applySelectionEffects,
             scheduleCollisionLayerRefresh,
-            previewFitWithSidePanels,
+            previewFitWithSidePanels: routePreviewViewport.previewFitWithSidePanels,
             emitMultiSelectLayersUpdated,
             isDirPreviewActive: () => dirPreviewActive,
             applyDirPreviewState: ({
@@ -3986,7 +3958,7 @@ const initMapApp = async () => {
             createDirEndpointPopup: routeEndpointPopups.createDirEndpointPopup,
             addDirOriginPopup: routeEndpointPopups.addDirOriginPopup,
             addDirTerminalPopup: routeEndpointPopups.addDirTerminalPopup,
-            bboxFromStationIds
+            bboxFromStationIds: routePreviewViewport.bboxFromStationIds
         });
 
         const rebuildTripPreviewFromMultiSelections = routePreviewController.rebuildTripPreviewFromMultiSelections;
@@ -4115,59 +4087,6 @@ const initMapApp = async () => {
         lineSelectionLinesObj = linesObj;
         enabledLineIdsByCompany = new Map();
 
-
-        const lineBoundsById = new Map();
-        let lastFitKey = null;
-        let fitRafId = null;
-        let pendingFit = null;
-        let lastFitPaddingSig = null;
-
-        const getFitPadding = (paddingMode = 'auto') => {
-            const base = 60;
-            const extraLeft = 200;
-
-
-            const fallback = { top: base, right: base, bottom: base, left: base };
-
-
-            if (paddingMode === 'full') return fallback;
-
-            let leftPad = base;
-            if (menu?.wrapper) {
-
-
-
-                const rect = menu.wrapper.getBoundingClientRect?.();
-                if (rect && Number.isFinite(rect.width)) {
-                    const reserve = Math.max(0, Number.isFinite(rect.right) ? rect.right : 0, rect.width);
-                    leftPad = Math.max(base, Math.ceil(reserve + base + extraLeft));
-                }
-            }
-
-            let rightPad = base;
-            try {
-                const panelRect = panel?.el?.getBoundingClientRect?.();
-                if (panelRect && Number.isFinite(panelRect.width) && panelRect.width > 0) {
-                    rightPad = Math.max(rightPad, Math.ceil(panelRect.width + base));
-                }
-            } catch {
-                // ignore
-            }
-
-            try {
-                const tripEl = document.querySelector('[data-panel-trip-detail]');
-                const hidden = tripEl?.classList?.contains('is-hidden');
-                const rect = tripEl?.getBoundingClientRect?.();
-                if (!hidden && rect && Number.isFinite(rect.width) && rect.width > 0) {
-                    rightPad = Math.max(rightPad, Math.ceil(rightPad + rect.width));
-                }
-            } catch {
-                // ignore
-            }
-
-            return { top: base, right: rightPad, bottom: base, left: leftPad };
-        };
-
         function isFiniteNum(n) {
             return Number.isFinite(n);
         }
@@ -4180,95 +4099,6 @@ const initMapApp = async () => {
             if (lng > b.maxLng) b.maxLng = lng;
             if (lat > b.maxLat) b.maxLat = lat;
             return b;
-        }
-
-        function bboxFromGeometry(geom) {
-            if (!geom) return null;
-            const type = geom.type;
-            const coords = geom.coordinates;
-            let b = null;
-
-            if (type === 'LineString' && Array.isArray(coords)) {
-                for (const pt of coords) {
-                    if (!Array.isArray(pt) || pt.length < 2) continue;
-                    const lng = Number(pt[0]);
-                    const lat = Number(pt[1]);
-                    b = extendBBox(b, lng, lat);
-                }
-                return b;
-            }
-
-            if (type === 'MultiLineString' && Array.isArray(coords)) {
-                for (const line of coords) {
-                    if (!Array.isArray(line)) continue;
-                    for (const pt of line) {
-                        if (!Array.isArray(pt) || pt.length < 2) continue;
-                        const lng = Number(pt[0]);
-                        const lat = Number(pt[1]);
-                        b = extendBBox(b, lng, lat);
-                    }
-                }
-                return b;
-            }
-
-            return null;
-        }
-
-        function unionBBox(a, b) {
-            if (!a) return b;
-            if (!b) return a;
-            if (![a.minLng, a.minLat, a.maxLng, a.maxLat].every(isFiniteNum)) return b;
-            if (![b.minLng, b.minLat, b.maxLng, b.maxLat].every(isFiniteNum)) return a;
-            return {
-                minLng: Math.min(a.minLng, b.minLng),
-                minLat: Math.min(a.minLat, b.minLat),
-                maxLng: Math.max(a.maxLng, b.maxLng),
-                maxLat: Math.max(a.maxLat, b.maxLat)
-            };
-        }
-
-        function bboxToFitBounds(b) {
-            if (!b) return null;
-            if (![b.minLng, b.minLat, b.maxLng, b.maxLat].every(Number.isFinite)) return null;
-            // MapLibre: [[west,south],[east,north]]
-            return [
-                [b.minLng, b.minLat],
-                [b.maxLng, b.maxLat]
-            ];
-        }
-
-        function scheduleFit(key, bbox, options = {}) {
-            if (!isAdaptiveViewportEnabled()) return;
-            if (!bbox) return;
-            const padding = getFitPadding(options?.paddingMode);
-            const paddingSig = `l${padding.left}|r${padding.right}|t${padding.top}|b${padding.bottom}`;
-            if (key && key === lastFitKey && paddingSig === lastFitPaddingSig) return;
-
-            pendingFit = { key, bbox, options, padding, paddingSig };
-            if (fitRafId != null) return;
-
-            fitRafId = requestAnimationFrame(() => {
-                fitRafId = null;
-                const next = pendingFit;
-                pendingFit = null;
-                if (!next) return;
-
-                const bounds = bboxToFitBounds(next.bbox);
-                if (!bounds) return;
-                const flat = [bounds[0]?.[0], bounds[0]?.[1], bounds[1]?.[0], bounds[1]?.[1]];
-                if (!flat.every(isFiniteNum)) return;
-
-                lastFitKey = next.key ?? null;
-                lastFitPaddingSig = next.paddingSig ?? null;
-                const fitOptions = {
-                    padding: next.padding || 60,
-                    duration: 300,
-                    easing: (t) => t,
-                    essential: true
-                };
-                if (Number.isFinite(next.options?.maxZoom)) fitOptions.maxZoom = next.options.maxZoom;
-                mapEngine.fitBounds(bounds, fitOptions);
-            });
         }
 
         for (const f of lineFeatures) {
@@ -4302,71 +4132,19 @@ const initMapApp = async () => {
             };
 
             // 预计算该线路 geometry bounds
-            const bbox = bboxFromGeometry(f.geometry);
-            if (bbox) {
-                const key = String(lineId);
-                const prev = lineBoundsById.get(key) ?? null;
-                lineBoundsById.set(key, unionBBox(prev, bbox));
-            }
+            routePreviewViewport.addLineBounds(lineId, f.geometry);
         }
 
         emitMultiSelectLayersUpdated();
-
-        function getBBoxForSelected() {
-            if (selectedLineId) {
-                if (selectedStationLineIds && selectedStationLineIds.size > 1) {
-                    let b = null;
-                    for (const id of selectedStationLineIds) {
-                        b = unionBBox(b, lineBoundsById.get(String(id)) ?? null);
-                    }
-                    return b ?? null;
-                }
-
-                const b = lineBoundsById.get(String(selectedLineId));
-                return b ?? null;
-            }
-
-            if (selectedCompany) {
-                const ids = enabledLineIdsByCompany.get(selectedCompany);
-                if (!ids || ids.size === 0) return null;
-                let b = null;
-                for (const id of ids) {
-                    b = unionBBox(b, lineBoundsById.get(String(id)) ?? null);
-                }
-                return b;
-            }
-
-            return null;
-        }
-
-        const fitToCurrentSelectionPreview = (triggerKey) => {
-            const b = getBBoxForSelected();
-            if (!b) return;
-            scheduleFit(`preview:${triggerKey}`, b, { maxZoom: 11 });
-        };
 
         const canRunHoverPreviewAtCurrentZoom = () => {
             const z = typeof mapEngine.getZoom === 'function' ? mapEngine.getZoom() : null;
             return !(typeof z === 'number' && z < HOVER_PREVIEW_MIN_ZOOM);
         };
 
-        const fitToCurrentSelectionCommit = (triggerKey) => {
-            const b = getBBoxForSelected();
-            if (!b) return;
-            // 点击高亮：不限制放大倍率，按 bounds 实际大小 fit
-            scheduleFit(`commit:${triggerKey}`, b, { maxZoom: undefined, paddingMode: 'full' });
-        };
-
-
-        fitToCurrentSelection = (triggerKey, mode = 'preview') => {
-            const key = String(triggerKey ?? '');
-            const explicitCommit = key.startsWith('commit:');
-            const explicitPreview = key.startsWith('preview:');
-            const cleanKey = key.replace(/^(commit:|preview:)/, '');
-            const useCommit = explicitCommit || (!explicitPreview && mode === 'commit');
-            if (useCommit) fitToCurrentSelectionCommit(cleanKey);
-            else fitToCurrentSelectionPreview(cleanKey);
-        };
+        const fitToCurrentSelectionPreview = routePreviewViewport.fitToCurrentSelectionPreview;
+        const fitToCurrentSelectionCommit = routePreviewViewport.fitToCurrentSelectionCommit;
+        fitToCurrentSelection = routePreviewViewport.fitToCurrentSelection;
 
         // 旧的 #controls 容器不再作为侧边栏使用，清空避免视觉干扰
         const controlsEl = document.getElementById('controls');
