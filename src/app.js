@@ -145,7 +145,6 @@ const MULTI_SELECT_LAYERS_EVENT = '__TokyoRailMultiSelectLayersUpdated';
 const MULTI_SELECT_LAYERS_COMMAND_EVENT = '__TokyoRailMultiSelectLayersCommand';
 const MULTI_SELECT_SHOW_ICONS_EVENT = '__TokyoRailMultiSelectShowIconsChanged';
 const HOVER_PREVIEW_MIN_ZOOM = 10;
-let pendingTransferCapsuleRefreshAfterCollision;
 
 // /data/railways-order.json: [{ "jreast-yamanote": "1037" }, ...]
 
@@ -1441,6 +1440,14 @@ const initMapApp = async () => {
         transferCapsuleVisibleKey = String(keyHint || '__init__');
     };
 
+    const requestTransferCapsuleRefreshAfterCollision = (keyHint = '__init__') => {
+        if (layerFeature?.requestTransferCapsuleRefreshAfterCollision) {
+            layerFeature.requestTransferCapsuleRefreshAfterCollision(keyHint);
+            return;
+        }
+        resetTransferCapsuleVisibleKey(keyHint);
+    };
+
     const scheduleCollisionLayerRefresh = () => {
         if (layerFeature?.scheduleCollisionLayerRefresh) {
             layerFeature.scheduleCollisionLayerRefresh();
@@ -2392,8 +2399,7 @@ const initMapApp = async () => {
 
 
 
-        pendingTransferCapsuleRefreshAfterCollision = true;
-        resetTransferCapsuleVisibleKey('__init__');
+        requestTransferCapsuleRefreshAfterCollision('__init__');
 
         if (menu && typeof menu.clearActive === 'function') menu.clearActive();
     }
@@ -4090,10 +4096,6 @@ const initMapApp = async () => {
                 transferGroupByStationId: transferStationIdsByStationId,
                 onCircleCollisionResolved: ({ visibleStationIds }) => {
                     collisionVisibleStationIds = visibleStationIds instanceof Set ? new Set(visibleStationIds) : null;
-                    if (pendingTransferCapsuleRefreshAfterCollision) {
-                        pendingTransferCapsuleRefreshAfterCollision = false;
-                        invalidateAndScheduleTransferCapsules('__init__');
-                    }
                 },
                 getEnabledLineIds: getEnabledLineIdsForLabels,
                 getVisibleStationIds: () => {

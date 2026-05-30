@@ -28,6 +28,7 @@ export const createLayerFeature = ({
     cancelFrame = globalThis.cancelAnimationFrame
 } = {}) => {
     let currentStationOffsetStateKey = null;
+    let pendingTransferCapsuleRefreshAfterCollision = false;
     let transferCapsuleRefreshFrameId = null;
 
     const runInFrame = (callback) => {
@@ -64,6 +65,11 @@ export const createLayerFeature = ({
     const invalidateAndScheduleTransferCapsules = (keyHint = '__init__') => {
         resetTransferCapsuleVisibleKey(keyHint);
         scheduleTransferCapsuleRefresh();
+    };
+
+    const requestTransferCapsuleRefreshAfterCollision = (keyHint = '__init__') => {
+        pendingTransferCapsuleRefreshAfterCollision = true;
+        resetTransferCapsuleVisibleKey(keyHint);
     };
 
     const scheduleSelectionLayerRefresh = () => {
@@ -105,12 +111,19 @@ export const createLayerFeature = ({
 
     const setupCollisionController = ({ stationLabels, stationCircles } = {}) => {
         if (typeof createCollisionController !== 'function') return null;
+        const onCircleCollisionResolved = collisionConfig.onCircleCollisionResolved;
         return createCollisionController(stationLabels, stationCircles, {
             gridCellPx: 80,
             lowZoomLabelThinMaxZoom: 13,
             lowZoomLabelKeepRatio: 1,
             lineFilterTarget: 'labels',
-            ...collisionConfig
+            ...collisionConfig,
+            onCircleCollisionResolved: (payload) => {
+                onCircleCollisionResolved?.(payload);
+                if (!pendingTransferCapsuleRefreshAfterCollision) return;
+                pendingTransferCapsuleRefreshAfterCollision = false;
+                invalidateAndScheduleTransferCapsules('__init__');
+            }
         });
     };
 
@@ -170,6 +183,7 @@ export const createLayerFeature = ({
         destroy,
         invalidateAndScheduleTransferCapsules,
         refreshTransferCapsulesNow,
+        requestTransferCapsuleRefreshAfterCollision,
         resetTransferCapsuleVisibleKey,
         scheduleCollisionLayerRefresh,
         scheduleSelectionLayerRefresh,
