@@ -4,6 +4,7 @@ export const createJourneyPlanPreviewController = ({
     getDisplayPlanForRow,
     getMultiSelectEnabled = () => globalThis?.__TokyoRailMultiSelectEnabled === true,
     getMultiSelectLayerControl = () => globalThis?.__TokyoRailMultiSelectLayerControl || null,
+    multiSelectApi = {},
     mapActions,
     normalizeText,
     setTimeoutFn = globalThis.setTimeout
@@ -19,6 +20,24 @@ export const createJourneyPlanPreviewController = ({
     let previewRequestToken = 0;
 
     const getItemId = (pageIndex) => `trip:journey||preview||auto-${pageIndex}`;
+
+    const isMultiSelectEnabled = () => {
+        if (typeof multiSelectApi?.isEnabled === 'function') {
+            const enabled = multiSelectApi.isEnabled();
+            if (typeof enabled === 'boolean') return enabled;
+        }
+        return getMultiSelectEnabled?.() === true;
+    };
+
+    const runMultiSelectLayerCommand = (action, itemId) => {
+        if (typeof multiSelectApi?.runLayerCommand === 'function') {
+            const result = multiSelectApi.runLayerCommand(action, itemId);
+            if (typeof result === 'boolean') return result;
+        }
+        const ctrl = getMultiSelectLayerControl?.();
+        if (typeof ctrl?.runCommand !== 'function') return false;
+        return ctrl.runCommand(action, itemId) === true;
+    };
 
     const cancelHidePreview = () => {
         if (!previewHideTimer) return;
@@ -49,11 +68,8 @@ export const createJourneyPlanPreviewController = ({
     };
 
     const syncVisibility = (pageIndex, { force = false } = {}) => {
-        if (getMultiSelectEnabled?.() !== true) return false;
+        if (!isMultiSelectEnabled()) return false;
         if (!Number.isFinite(pageIndex) || pageIndex < 0 || pageIndex >= previewPool.length) return false;
-
-        const ctrl = getMultiSelectLayerControl?.();
-        if (typeof ctrl?.runCommand !== 'function') return false;
 
         const alreadyExclusive = previewPool.every((entry) => {
             if (!entry) return false;
@@ -65,7 +81,7 @@ export const createJourneyPlanPreviewController = ({
             if (!entry) continue;
             const shouldBeVisible = entry.pageIndex === pageIndex;
             if (entry.visible === shouldBeVisible) continue;
-            ctrl.runCommand('toggle-visibility', entry.itemId);
+            runMultiSelectLayerCommand('toggle-visibility', entry.itemId);
             entry.visible = shouldBeVisible;
         }
 
@@ -74,14 +90,12 @@ export const createJourneyPlanPreviewController = ({
     };
 
     const restoreAll = () => {
-        if (getMultiSelectEnabled?.() !== true) return false;
-        const ctrl = getMultiSelectLayerControl?.();
-        if (typeof ctrl?.runCommand !== 'function') return false;
+        if (!isMultiSelectEnabled()) return false;
 
         let changed = false;
         for (const entry of previewPool) {
             if (!entry || entry.visible !== false) continue;
-            ctrl.runCommand('toggle-visibility', entry.itemId);
+            runMultiSelectLayerCommand('toggle-visibility', entry.itemId);
             entry.visible = true;
             changed = true;
         }
@@ -140,7 +154,7 @@ export const createJourneyPlanPreviewController = ({
     };
 
     const highlightAll = async (rows) => {
-        if (getMultiSelectEnabled?.() !== true) return;
+        if (!isMultiSelectEnabled()) return;
         if (!Array.isArray(rows) || !rows.length) return;
 
         for (let i = 0; i < rows.length; i += 1) {

@@ -60,6 +60,7 @@ import { createStore } from './store/appStore.js';
 import { hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested, selectionClear } from './store/actions.js';
 import { createHighlightFeature } from './features/highlight/highlightFeature.js';
 import { createHighlightRenderer } from './features/highlight/highlightRenderer.js';
+import { buildMultiSelectLayerItemsFromInputs } from './features/highlight/multiSelectLayerItems.js';
 import { createTripPreviewRenderer } from './features/highlight/tripPreviewRenderer.js';
 import { createHoverFeature } from './features/hover/hoverFeature.js';
 import { createPanelHoverPreviewLifecycle } from './features/hover/panelHoverPreviewAdapter.js';
@@ -1897,65 +1898,19 @@ const initMapApp = async () => {
     };
 
     const buildMultiSelectLayerItems = () => {
-        const items = [];
-
-        for (const [key, entry] of baseMultiSelectionsByKey.entries()) {
-            const ids = entry?.lineIds instanceof Set ? Array.from(entry.lineIds).map(String).filter(Boolean) : [];
-            const firstLineId = ids[0] || '';
-            const kind = String(entry?.kind || '').trim();
-            const fallbackCompanyName = key.startsWith('company:') ? key.slice('company:'.length) : '';
-            const baseDisplayName = String(entry?.displayName || '').trim();
-            const branchSource = getMultiSelectLineBranchSource(firstLineId);
-            items.push({
-                id: `base:${key}`,
-                scope: 'base',
-                key,
-                visible: entry?.hidden !== true,
-                lineName: kind === 'company'
-                    ? (baseDisplayName || fallbackCompanyName || getLineNameForMultiSelect(firstLineId))
-                    : getLineNameForMultiSelect(firstLineId),
-                originName: '-',
-                terminalName: '-',
-                typeName: getBaseKindNameForMultiSelect(entry?.kind),
-                branchToggleSupported: kind === 'line' && !!firstLineId,
-                branchVisible: kind === 'line' && !!branchSource ? hasTripPreviewSelectionBySource(branchSource) : false
-            });
-        }
-
-        for (const [key, entry] of routeFeature.getTripPreviewSelectionEntries()) {
-            const payload = entry?.payload || {};
-            const built = entry?.built || {};
-            const builtLineIds = built?.lineIds instanceof Set
-                ? Array.from(built.lineIds).map((x) => String(x || '').trim()).filter(Boolean)
-                : [];
-            const selectedLineId = String(payload?.selectedLineId || '').trim();
-            const mainLineId = String(payload?.mainLineId || '').trim();
-            const lineIdCandidates = [selectedLineId, mainLineId, ...builtLineIds].filter(Boolean);
-            const lineId = lineIdCandidates.find((id) => lineNameById.has(id)) || lineIdCandidates[0] || '';
-            const source = String(entry?.source || resolveTripPreviewPayloadSource(payload) || '').trim();
-            if (source === MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE) continue;
-            const isBranchSource = source.startsWith('ms-line-branch:');
-            const typeName = String(payload?.typeName || payload?.tripTypeName || '').trim() || '-';
-            const originName = getStationNameForMultiSelect(built?.startStationId || payload?.originStationId || '');
-            const terminalName = getStationNameForMultiSelect(built?.endStationId || payload?.terminalStationId || '');
-            const baseLineName = String(payload?.selectedLineName || payload?.lineName || payload?.mainLineName || '').trim()
-                || getLineNameForMultiSelect(lineId);
-            const displayLineName = isBranchSource ? `${baseLineName}（直通线路）` : baseLineName;
-
-            items.push({
-                id: `trip:${key}`,
-                scope: 'trip',
-                key,
-                visible: entry?.hidden !== true,
-                lineName: displayLineName,
-                originName,
-                terminalName,
-                typeName,
-                displayText: isBranchSource ? displayLineName : ''
-            });
-        }
-
-        return items;
+        return buildMultiSelectLayerItemsFromInputs({
+            baseSelectionsByKey,
+            excludeTripPreviewSource: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE,
+            formatBranchLineName: (lineName) => `${lineName}（直通线路）`,
+            getBaseKindName: getBaseKindNameForMultiSelect,
+            getBranchSource: getMultiSelectLineBranchSource,
+            getLineName: getLineNameForMultiSelect,
+            getStationName: getStationNameForMultiSelect,
+            hasLineName: (lineId) => lineNameById.has(lineId),
+            hasTripPreviewSelectionBySource,
+            resolveTripPreviewPayloadSource,
+            tripPreviewSelectionEntries: routeFeature.getTripPreviewSelectionEntries()
+        });
     };
 
     const emitMultiSelectLayersUpdated = () => {
@@ -3176,6 +3131,16 @@ const initMapApp = async () => {
         Object.assign(searchMapActions, createSearchMapBridge({
             hoverApi: hoverBridgeApi,
             journeyPickApi: journeyPickBridgeApi,
+            multiSelectApi: {
+                isEnabled: () => isMultiSelectModeEnabled(),
+                runLayerCommand: (action, itemId) => {
+                    try {
+                        return window.__TokyoRailMultiSelectLayerControl?.runCommand?.(action, itemId) === true;
+                    } catch {
+                        return false;
+                    }
+                }
+            },
             reachableStopsApi: reachableStopsBridgeApi,
             routePreviewApi: routePreviewBridgeApi,
             selectionApi: searchSelectionController,

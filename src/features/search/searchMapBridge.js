@@ -7,6 +7,7 @@ import {
 export const createSearchMapBridge = ({
     hoverApi = {},
     journeyPickApi = {},
+    multiSelectApi = {},
     reachableStopsApi = {},
     routePreviewApi = {},
     selectionApi = {},
@@ -70,6 +71,17 @@ export const createSearchMapBridge = ({
         clearTripPathPreviewBySource: (source) => {
             return routePreviewApi.clearTripPathPreviewBySource?.(source);
         },
+
+        isMultiSelectModeEnabled: () => (
+            typeof multiSelectApi.isEnabled === 'function'
+                ? multiSelectApi.isEnabled() === true
+                : undefined
+        ),
+        runMultiSelectLayerCommand: (action, itemId) => (
+            typeof multiSelectApi.runLayerCommand === 'function'
+                ? multiSelectApi.runLayerCommand(action, itemId) === true
+                : undefined
+        ),
 
         showJourneyPickPin: (payload = {}) => journeyPickApi.showJourneyPickPin?.(payload),
         clearJourneyPickPin: (type) => journeyPickApi.clearJourneyPickPin?.(type),

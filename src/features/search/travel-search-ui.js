@@ -1332,6 +1332,10 @@ export function mountTravelSearchUI() {
         buildTripPreviewPayloadFromDisplayPlan,
         getDisplayPlanForRow,
         mapActions: travelSearchMapActions,
+        multiSelectApi: {
+            isEnabled: () => travelSearchMapActions.isMultiSelectModeEnabled(),
+            runLayerCommand: (action, itemId) => travelSearchMapActions.runMultiSelectLayerCommand(action, itemId)
+        },
         normalizeText
     });
 
