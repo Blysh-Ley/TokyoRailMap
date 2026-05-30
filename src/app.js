@@ -320,7 +320,7 @@ const ensureBasemapLayers = () => {
 function syncBasemapStyle() {
     const ready = ensureBasemapLayers();
     if (!ready) return false;
-    basemapController.setMode(basemapMode);
+    basemapController.setMode(basemapMode, mapTheme);
     return true;
 }
 

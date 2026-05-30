@@ -168,9 +168,35 @@ export const createBasemapController = ({
     let theme = initialTheme === 'dark' ? 'dark' : 'light';
     let mode = ['carto', 'ost', 'transparent'].includes(initialMode) ? initialMode : 'carto';
     const backgroundLayerId = 'tokyo-basemap-background-layer';
+    const rasterLayerIds = Object.freeze(['carto-light-layer', 'carto-dark-layer', 'ost-layer']);
 
     const getOstPaint = () => (theme === 'dark' ? darkRasterPaint : lightRasterPaint);
     const getBackgroundColor = () => (theme === 'dark' ? '#101216' : '#ffffff');
+    const getOverlayAnchorLayerId = () => (
+        mapEngine.getLayer('lines-layer')
+            ? 'lines-layer'
+            : (mapEngine.getLayer('stations-layer') ? 'stations-layer' : undefined)
+    );
+    const getFirstRasterLayerId = () => rasterLayerIds.find((layerId) => mapEngine.getLayer(layerId)) || null;
+
+    const normalizeBasemapLayerOrder = () => {
+        const overlayAnchorLayerId = getOverlayAnchorLayerId();
+        try {
+            for (const layerId of rasterLayerIds) {
+                if (overlayAnchorLayerId && mapEngine.getLayer(layerId)) {
+                    mapEngine.moveLayer(layerId, overlayAnchorLayerId);
+                }
+            }
+
+            const firstRasterLayerId = getFirstRasterLayerId();
+            if (mapEngine.getLayer(backgroundLayerId)) {
+                if (firstRasterLayerId) mapEngine.moveLayer(backgroundLayerId, firstRasterLayerId);
+                else if (overlayAnchorLayerId) mapEngine.moveLayer(backgroundLayerId, overlayAnchorLayerId);
+            }
+        } catch {
+            // keep current order if MapLibre rejects a move during style changes
+        }
+    };
 
     const getBasemapItems = () => [
         {
@@ -242,6 +268,7 @@ export const createBasemapController = ({
                 mapEngine.setPaintProperty(backgroundLayerId, 'background-color', getBackgroundColor());
                 mapEngine.setPaintProperty(backgroundLayerId, 'background-opacity', 1);
             }
+            normalizeBasemapLayerOrder();
 
             const canvas = mapEngine.getCanvas?.();
             if (canvas?.style) canvas.style.background = getBackgroundColor();
@@ -251,9 +278,9 @@ export const createBasemapController = ({
         }
     };
 
-    const setMode = (nextMode) => {
+    const setMode = (nextMode, nextTheme = theme) => {
         mode = ['carto', 'ost', 'transparent'].includes(nextMode) ? nextMode : 'carto';
-        applyTheme(theme);
+        applyTheme(nextTheme);
     };
 
     const ensureLayers = () => {
@@ -265,9 +292,7 @@ export const createBasemapController = ({
             }
         }
 
-        const beforeLayerId = mapEngine.getLayer('lines-layer')
-            ? 'lines-layer'
-            : (mapEngine.getLayer('stations-layer') ? 'stations-layer' : undefined);
+        const beforeLayerId = getOverlayAnchorLayerId();
 
         if (!mapEngine.getLayer(backgroundLayerId)) {
             mapEngine.addLayer({
@@ -282,9 +307,8 @@ export const createBasemapController = ({
             try {
                 mapEngine.setPaintProperty(backgroundLayerId, 'background-color', getBackgroundColor());
                 mapEngine.setPaintProperty(backgroundLayerId, 'background-opacity', 1);
-                if (beforeLayerId) mapEngine.moveLayer(backgroundLayerId, beforeLayerId);
             } catch {
-                // keep existing background layer if MapLibre rejects the move
+                // keep existing background paint if MapLibre rejects the update
             }
         }
 
@@ -300,6 +324,8 @@ export const createBasemapController = ({
                 }, beforeLayerId);
             }
         }
+
+        normalizeBasemapLayerOrder();
     };
 
     return {
