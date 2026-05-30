@@ -100,6 +100,7 @@ import { createJourneyPickPinElement } from './ui/journeyPickPinAdapter.js';
 import { createRouteEndpointPopupRuntime } from './ui/routeEndpointPopups.js';
 import { createRoutePreviewViewportController } from './ui/routePreviewViewport.js';
 import { registerDebugZoomTools } from './app/debugZoomTools.js';
+import { bindMapStartup } from './app/mapStartup.js';
 import { registerTokyoRailMapRuntime } from './app/runtimeFacade.js';
 
 initializeFetchCache();
@@ -3920,30 +3921,14 @@ const initMapApp = async () => {
     }
 };
 
-let mapInitStarted = false;
-let mapInitQueued = false;
-const startMapInit = (reason) => {
-    if (mapInitStarted) return;
-    if (map?.loaded?.() || map?.isStyleLoaded?.()) {
-        mapInitStarted = true;
-        initMapApp().catch((e) => {
-            console.error('地图初始化失败', e);
-        });
-        return;
+bindMapStartup({
+    map,
+    mapEngine,
+    start: () => initMapApp(),
+    onError: (e) => {
+        console.error('Map initialization failed', e);
     }
-
-    if (mapInitQueued) return;
-    mapInitQueued = true;
-    mapEngine.once('styledata', () => {
-        mapInitQueued = false;
-        startMapInit(reason || 'styledata');
-    });
-   
-};
-
-mapEngine.on('load', () => startMapInit('load'));
-mapEngine.on('error', () => startMapInit('error'));
-setTimeout(() => startMapInit('timeout'), 3000);
+});
 
 
 registerDebugZoomTools({ map, mapEngine });
