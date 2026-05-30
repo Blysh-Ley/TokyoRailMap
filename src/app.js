@@ -99,6 +99,8 @@ import { createStationLabelChipsAdapter } from './ui/layer/stationLabelChipsAdap
 import { createJourneyPickPinElement } from './ui/journeyPickPinAdapter.js';
 import { createRouteEndpointPopupRuntime } from './ui/routeEndpointPopups.js';
 import { createRoutePreviewViewportController } from './ui/routePreviewViewport.js';
+import { registerDebugZoomTools } from './app/debugZoomTools.js';
+import { registerTokyoRailMapRuntime } from './app/runtimeFacade.js';
 
 initializeFetchCache();
 
@@ -289,16 +291,7 @@ const basemapController = createBasemapController({
 });
 
 
-try {
-    window.__TokyoRailMap = map;
-    window.TokyoRailMapRuntime = {
-        ...(window.TokyoRailMapRuntime || {}),
-        getBaseMap: () => map,
-        getMapEngine: () => mapEngine
-    };
-} catch {
-    // ignore
-}
+registerTokyoRailMapRuntime({ map, mapEngine });
 
 const applyBasemapTheme = (theme) => {
     const next = theme === 'dark' ? 'dark' : 'light';
@@ -3953,60 +3946,4 @@ mapEngine.on('error', () => startMapInit('error'));
 setTimeout(() => startMapInit('timeout'), 3000);
 
 
-const STORAGE_KEY = "zoomlevel-bookmark";
-
- window.getZoomInfo = () => {
-    if (!map) return;
-    const zoom = mapEngine.getZoom();
-    const center = mapEngine.getCenter();
-    const pitch = mapEngine.getPitch();
-    const bearing = mapEngine.getBearing();
-    console.log(`当前地图状态 - Zoom: ${zoom.toFixed(2)}, Center: [${center.lng.toFixed(4)}, ${center.lat.toFixed(4)}], Pitch: ${pitch.toFixed(1)}, Bearing: ${bearing.toFixed(1)}`);
-    }
-
-window.saveZoom = (remark=false) => {
-    if (!map) return;
-    const zoom = mapEngine.getZoom();
-    const center = mapEngine.getCenter();
-    const pitch = mapEngine.getPitch();
-    const bearing = mapEngine.getBearing();
-    let records = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    if (remark === false) {
-        remark = `u${records.length + 1}`;
-    }
-    const state = { zoom, center, pitch, bearing, remark };
-    records.push(state);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-    console.log("地图状态已保存");
-    };
-
-    window.showZoomRecords = () => {
-        const records = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-        records.forEach((rec, index) => {
-            rec.zoom = rec.zoom.toFixed(2);
-            rec.centerLat = rec.center.lat.toFixed(3);
-            rec.centerLon = rec.center.lng.toFixed(3);
-            delete rec.center;
-        })
-        console.table(records);
-    };
-
-    window.clearZoomRecords = () => {
-        localStorage.removeItem(STORAGE_KEY);
-        console.log('地图缩放记录已清除');
-    };
-
-    window.setZoom = (remark) => {
-        const records = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-        const record = records.find(r => r.remark === remark);
-        if (record) {
-            mapEngine.flyTo({
-                zoom: record.zoom,
-                center: record.center,
-                pitch: record.pitch,
-                bearing: record.bearing,
-                essential: true
-            });
-            console.log(`已飞行到标记为 "${remark}" 的地图状态`);
-        }
-    }
+registerDebugZoomTools({ map, mapEngine });
