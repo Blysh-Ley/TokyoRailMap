@@ -3079,7 +3079,7 @@ const initMapApp = async () => {
                     clearTripPathPreview({ source: 'journey' });
                 }
             }
-            previewTripPath(nextPayload);
+            previewTripPath(nextPayload, options);
         },
         clearTripPathPreview: () => {
             clearTripPathPreview({ source: 'journey' });
@@ -4096,6 +4096,7 @@ const initMapApp = async () => {
 
         const routePreviewController = createRoutePreviewController({
             routeFeature,
+            store: appStore,
             isMultiSelectModeEnabled,
             resolveTripPreviewPayloadSource,
             buildTripPreviewSelectionKey,

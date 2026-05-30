@@ -1,9 +1,7 @@
 import {
     mapClick,
     reachableStopsCleared,
-    reachableStopsUpdateRequested,
-    tripPreviewCleared,
-    tripPreviewRequested
+    reachableStopsUpdateRequested
 } from '../../store/actions.js';
 
 export const createSearchMapBridge = ({
@@ -64,15 +62,12 @@ export const createSearchMapBridge = ({
         commitHoverPreview: commitPreview,
 
         previewTripPath: (payload, options = {}) => {
-            dispatch(tripPreviewRequested({ source: 'searchMapBridge', payload, options }));
             return routePreviewApi.previewTripPath?.(payload, options);
         },
         clearTripPathPreview: () => {
-            dispatch(tripPreviewCleared({ source: 'searchMapBridge' }));
             return routePreviewApi.clearTripPathPreview?.();
         },
         clearTripPathPreviewBySource: (source) => {
-            dispatch(tripPreviewCleared({ source: 'searchMapBridge', previewSource: source || null }));
             return routePreviewApi.clearTripPathPreviewBySource?.(source);
         },
 

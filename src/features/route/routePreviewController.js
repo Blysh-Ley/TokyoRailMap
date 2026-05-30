@@ -1,7 +1,12 @@
 import { buildEndpointStationIdSetFromPayloadList } from '../../domain/routePreviewSelection.js';
+import {
+    tripPreviewCleared,
+    tripPreviewRequested
+} from '../../store/actions.js';
 
 export const createRoutePreviewController = ({
     routeFeature,
+    store,
     isMultiSelectModeEnabled,
     resolveTripPreviewPayloadSource,
     buildTripPreviewSelectionKey,
@@ -34,6 +39,49 @@ export const createRoutePreviewController = ({
         throw new Error('routePreviewController requires routeFeature');
     }
 
+    const toText = (value) => String(value ?? '').trim();
+
+    const dispatchTrace = (action) => {
+        if (typeof store?.dispatch === 'function') store.dispatch(action);
+    };
+
+    const resolvePreviewSource = (payload = {}, options = {}) => {
+        return toText(options?.previewSource)
+            || toText(options?.source)
+            || toText(payload?.__previewSource)
+            || toText(payload?.previewSource)
+            || toText(resolveTripPreviewPayloadSource?.(payload));
+    };
+
+    const resolveFitMode = (payload = {}, options = {}) => {
+        return toText(options?.fitMode) || toText(payload?.fitMode) || 'preview';
+    };
+
+    const resolvePreviewInteraction = (payload = {}, options = {}) => {
+        const explicit = toText(options?.interaction)
+            || toText(payload?.__previewInteraction)
+            || toText(payload?.previewInteraction);
+        if (explicit) return explicit;
+
+        const fitMode = resolveFitMode(payload, options);
+        if (fitMode === 'commit') return 'click';
+        if (fitMode === 'preview') return 'hover';
+        if (fitMode === 'none') return 'auto';
+        return '';
+    };
+
+    const buildTripPreviewTracePayload = (payload = {}, options = {}) => ({
+        source: 'routePreviewController',
+        previewSource: resolvePreviewSource(payload, options) || null,
+        interaction: resolvePreviewInteraction(payload, options) || null,
+        fitMode: resolveFitMode(payload, options),
+        clearBefore: options?.clearBefore === true,
+        previewKey: toText(payload?.previewKey) || null,
+        tripKey: toText(payload?.tripKey) || null,
+        selectedLineId: toText(payload?.selectedLineId) || null,
+        mainLineId: toText(payload?.mainLineId) || null
+    });
+
     const rebuildTripPreviewFromMultiSelections = (fitMode = 'none') => {
         const aggregate = buildTripPreviewAggregate?.();
         routeFeature.rebuildMultiTripPreview({
@@ -52,6 +100,12 @@ export const createRoutePreviewController = ({
     };
 
     const clearTripPathPreview = (options = {}) => {
+        dispatchTrace(tripPreviewCleared({
+            source: 'routePreviewController',
+            previewSource: resolvePreviewSource({}, options) || null,
+            interaction: toText(options?.interaction) || null,
+            fitMode: toText(options?.fitMode) || null
+        }));
         routeFeature.clearTripPathPreview({
             options,
             isMultiSelectModeEnabled,
@@ -68,7 +122,8 @@ export const createRoutePreviewController = ({
         });
     };
 
-    const previewTripPath = (payload) => {
+    const previewTripPath = (payload, options = {}) => {
+        dispatchTrace(tripPreviewRequested(buildTripPreviewTracePayload(payload, options)));
         routeFeature.previewTripPath({
             payload,
             isMultiSelectModeEnabled,
