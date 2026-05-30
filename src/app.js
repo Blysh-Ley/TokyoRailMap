@@ -377,7 +377,6 @@ const initMapApp = async () => {
     // 触屏防误触：仅短按且几乎不移动才视为 tap
     const touchTapGuard = getGlobalTouchTapGuard({ maxDurationMs: 500, maxMovePx: 12 });
 
-    let collisionController = null;
     let menu = null;
     let selectedCompany = null;
     let selectedLineId = null;
@@ -425,7 +424,6 @@ const initMapApp = async () => {
         setDisabled: () => {}
     };
     let stationOffsetMode = readStationOffsetMode();
-    let stationOffsetRuntimeController = null;
     let stationCoordById = new Map();
     let stationCoordByIdBase = new Map();
     let stationServingCountById = new Map();
@@ -477,7 +475,7 @@ const initMapApp = async () => {
 
     const applyStationOffsetMode = (mode, { persistStorage = true } = {}) => {
         const next = (String(mode || '').trim().toLowerCase() === 'performance') ? 'performance' : 'dynamic';
-        stationOffsetMode = stationOffsetRuntimeController?.setMode?.(next) || next;
+        stationOffsetMode = layerFeature?.setStationOffsetMode?.(next) || next;
         if (persistStorage) {
             writeStationOffsetMode(stationOffsetMode);
         }
@@ -1451,9 +1449,7 @@ const initMapApp = async () => {
     const scheduleCollisionLayerRefresh = () => {
         if (layerFeature?.scheduleCollisionLayerRefresh) {
             layerFeature.scheduleCollisionLayerRefresh();
-            return;
         }
-        collisionController?.scheduleUpdate?.();
     };
 
     const scheduleSelectionLayerRefresh = () => {
@@ -4091,7 +4087,12 @@ const initMapApp = async () => {
                 return resolveRailColorForTheme(lineColorById.get(id) || '') || '';
             },
             createCollisionController: (labels, circles, options) => setupCollisions(mapEngine, labels, circles, options),
-            scheduleCollisionUpdate: () => collisionController?.scheduleUpdate?.(),
+            createStationOffsetRuntimeController: (options) => createStationOffsetRuntimeController({
+                ...options,
+                mapEngine
+            }),
+            getTripPreviewActive: () => tripPreviewActive,
+            initialStationOffsetMode: stationOffsetMode,
             collisionConfig: {
                 transferGroupByStationId: transferStationIdsByStationId,
                 onCircleCollisionResolved: ({ visibleStationIds }) => {
@@ -4188,19 +4189,11 @@ const initMapApp = async () => {
         applyTransferStationLabelCollapse();
         updateMultiSelectStationLabelChips();
 
-        collisionController = layerFeature.setupCollisionController({ stationLabels, stationCircles });
+        layerFeature.setupCollisionController({ stationLabels, stationCircles });
 
         scheduleCollisionLayerRefresh();
 
-        stationOffsetRuntimeController?.destroy?.();
-        stationOffsetRuntimeController = createStationOffsetRuntimeController({
-            getTripPreviewActive: () => tripPreviewActive,
-            getZoom: () => mapEngine.getZoom(),
-            initialMode: stationOffsetMode,
-            mapEngine,
-            syncStationOffsetForZoom
-        });
-        stationOffsetRuntimeController.syncAtCurrentZoom();
+        layerFeature.bindStationOffsetRuntime({ initialMode: stationOffsetMode });
         
 
 

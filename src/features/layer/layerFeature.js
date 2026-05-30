@@ -22,13 +22,17 @@ export const createLayerFeature = ({
     renderTransferCapsules,
     resolveTransferCapsuleLineColor,
     createCollisionController,
+    createStationOffsetRuntimeController,
     collisionConfig = {},
-    scheduleCollisionUpdate,
+    getTripPreviewActive,
+    initialStationOffsetMode = 'dynamic',
     requestFrame = globalThis.requestAnimationFrame,
     cancelFrame = globalThis.cancelAnimationFrame
 } = {}) => {
+    let collisionController = null;
     let currentStationOffsetStateKey = null;
     let pendingTransferCapsuleRefreshAfterCollision = false;
+    let stationOffsetRuntimeController = null;
     let transferCapsuleRefreshFrameId = null;
 
     const runInFrame = (callback) => {
@@ -51,7 +55,7 @@ export const createLayerFeature = ({
     };
 
     const scheduleCollision = () => {
-        scheduleCollisionUpdate?.();
+        collisionController?.scheduleUpdate?.();
     };
 
     const scheduleCollisionLayerRefresh = () => {
@@ -112,7 +116,7 @@ export const createLayerFeature = ({
     const setupCollisionController = ({ stationLabels, stationCircles } = {}) => {
         if (typeof createCollisionController !== 'function') return null;
         const onCircleCollisionResolved = collisionConfig.onCircleCollisionResolved;
-        return createCollisionController(stationLabels, stationCircles, {
+        collisionController = createCollisionController(stationLabels, stationCircles, {
             gridCellPx: 80,
             lowZoomLabelThinMaxZoom: 13,
             lowZoomLabelKeepRatio: 1,
@@ -125,6 +129,7 @@ export const createLayerFeature = ({
                 invalidateAndScheduleTransferCapsules('__init__');
             }
         });
+        return collisionController;
     };
 
     const applyStationLayerGeoJSON = (geojson, keyHint = '') => {
@@ -173,13 +178,36 @@ export const createLayerFeature = ({
         return syncStationOffsetForZoom(getZoom?.());
     };
 
+    const bindStationOffsetRuntime = ({ initialMode = initialStationOffsetMode } = {}) => {
+        if (typeof createStationOffsetRuntimeController !== 'function') return null;
+        stationOffsetRuntimeController?.destroy?.();
+        stationOffsetRuntimeController = createStationOffsetRuntimeController({
+            getTripPreviewActive,
+            getZoom,
+            initialMode,
+            syncStationOffsetForZoom
+        });
+        stationOffsetRuntimeController.syncAtCurrentZoom?.();
+        return stationOffsetRuntimeController;
+    };
+
+    const setStationOffsetMode = (mode, options = {}) => {
+        if (stationOffsetRuntimeController?.setMode) {
+            return stationOffsetRuntimeController.setMode(mode, options);
+        }
+        return String(mode || '').trim().toLowerCase() === 'performance' ? 'performance' : 'dynamic';
+    };
+
     const destroy = () => {
         clearFrame(transferCapsuleRefreshFrameId);
         transferCapsuleRefreshFrameId = null;
+        stationOffsetRuntimeController?.destroy?.();
+        stationOffsetRuntimeController = null;
     };
 
     return {
         applyStationLayerGeoJSON,
+        bindStationOffsetRuntime,
         destroy,
         invalidateAndScheduleTransferCapsules,
         refreshTransferCapsulesNow,
@@ -188,6 +216,7 @@ export const createLayerFeature = ({
         scheduleCollisionLayerRefresh,
         scheduleSelectionLayerRefresh,
         setupCollisionController,
+        setStationOffsetMode,
         scheduleTransferCapsuleRefresh,
         syncStationOffsetForZoom,
         syncStationOffsetForTripPreviewState

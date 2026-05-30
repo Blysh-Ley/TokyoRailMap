@@ -48,4 +48,47 @@ const stationGroups = [{ id: 'G1', stationIds: ['S1'] }];
     assert.equal(rendered.length, 1);
 }
 
+{
+    const scheduled = [];
+    const runtimeCalls = [];
+    const feature = createLayerFeature({
+        createCollisionController: (labels, circles, options) => ({
+            options,
+            scheduleUpdate: () => scheduled.push('collision')
+        }),
+        createStationOffsetRuntimeController: (options) => {
+            runtimeCalls.push(['create', options.initialMode]);
+            return {
+                destroy: () => runtimeCalls.push(['destroy']),
+                setMode: (mode) => {
+                    runtimeCalls.push(['set-mode', mode]);
+                    return mode;
+                },
+                syncAtCurrentZoom: () => runtimeCalls.push(['sync'])
+            };
+        },
+        getTripPreviewActive: () => false,
+        getZoom: () => 13,
+        initialStationOffsetMode: 'dynamic',
+        syncTransferCapsuleStationsData: () => {}
+    });
+
+    feature.setupCollisionController({ stationLabels: [], stationCircles: [] });
+    feature.scheduleCollisionLayerRefresh();
+    assert.deepEqual(scheduled, ['collision']);
+
+    feature.bindStationOffsetRuntime({ initialMode: 'performance' });
+    assert.deepEqual(runtimeCalls, [
+        ['create', 'performance'],
+        ['sync']
+    ]);
+
+    assert.equal(feature.setStationOffsetMode('dynamic'), 'dynamic');
+    assert.deepEqual(runtimeCalls, [
+        ['create', 'performance'],
+        ['sync'],
+        ['set-mode', 'dynamic']
+    ]);
+}
+
 console.log('layer feature transfer capsule scheduling smoke ok');
