@@ -90,6 +90,7 @@ import {
     resolveTripPreviewPayloadSource as resolveRoutePreviewPayloadSource
 } from './domain/routePreviewSelection.js';
 import { createSelectionBadge } from './ui/selectionBadge.js';
+import { createRouteEndpointPopupRuntime } from './ui/routeEndpointPopups.js';
 
 initializeFetchCache();
 
@@ -365,10 +366,6 @@ const initMapApp = async () => {
     let tripPreviewStationOverrideColor = '';
     let tripPreviewActive = false;
     let tripPreviewActiveSource = '';
-    let tripPreviewOriginPopup = null;
-    let tripPreviewTerminalPopup = null;
-    let tripPreviewOriginPopups = [];
-    let tripPreviewTerminalPopups = [];
     let tripCurrentStationPopup = null;
     let selectedStationCurrentPopup = null;
     let selectedStationCurrentPopupStationId = null;
@@ -379,8 +376,6 @@ const initMapApp = async () => {
     let dirPreviewActive = false;
     let dirPreviewLineIds = null; // Set<string> | null
     let dirPreviewStationIds = null; // Set<string> | null
-    let dirPreviewOriginPopups = [];
-    let dirPreviewTerminalPopups = [];
     let previewDirHeader = (_payload) => {};
     let clearDirHeaderPreview = () => {};
     let hoverPreviewEnabled = readHoverPreviewEnabled();
@@ -3819,138 +3814,11 @@ const initMapApp = async () => {
                 }
             }
         });
-        const clearTripEndpointPopups = () => {
-            try {
-                tripPreviewOriginPopup?.remove?.();
-            } catch {
-                // ignore
-            }
-            try {
-                tripPreviewTerminalPopup?.remove?.();
-            } catch {
-                // ignore
-            }
-            for (const popup of tripPreviewOriginPopups) {
-                try { popup?.remove?.(); } catch { /* ignore */ }
-            }
-            for (const popup of tripPreviewTerminalPopups) {
-                try { popup?.remove?.(); } catch { /* ignore */ }
-            }
-            tripPreviewOriginPopup = null;
-            tripPreviewTerminalPopup = null;
-            tripPreviewOriginPopups = [];
-            tripPreviewTerminalPopups = [];
-        };
-
-        const createTripEndpointPopup = ({ stationId, text, color, yOffset = 8 }) => {
-            const sid = String(stationId || '').trim();
-            if (!sid) return null;
-            const coord = stationCoordByIdBase.get(sid) || stationCoordById.get(sid);
-            if (!Array.isArray(coord) || coord.length < 2) return null;
-
-            const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark';
-            const role = String(text || '').includes('始发') ? 'origin' : (String(text || '').includes('终点') ? 'terminal' : 'normal');
-            const resolvedColor = role === 'origin'
-                ? (isDarkTheme ? '#59e37d' : (color || '#1A9B2D'))
-                : role === 'terminal'
-                    ? (isDarkTheme ? '#ff6b6b' : (color || '#D32F2F'))
-                    : String(color || '#111');
-
-            const el = document.createElement('div');
-            el.style.fontSize = '12px';
-            el.style.fontWeight = '700';
-            el.style.lineHeight = '1.2';
-            el.style.color = resolvedColor;
-            if (role === 'origin') el.classList.add('trip-endpoint-origin');
-            if (role === 'terminal') el.classList.add('trip-endpoint-terminal');
-            el.textContent = String(text || '');
-
-            const popup = mapEngine.createPopup({
-                closeButton: false,
-                closeOnClick: false,
-                closeOnMove: false,
-                anchor: 'top',
-                offset: [0, yOffset],
-                className: 'trip-endpoint-popup'
-            })
-                .setLngLat(coord)
-                .setDOMContent(el);
-            mapEngine.addPopup(popup);
-            return popup;
-        };
-
-        const updateTripEndpointPopups = (startStationId, endStationId) => {
-            clearTripEndpointPopups();
-
-            const startId = String(startStationId || '').trim();
-            const endId = String(endStationId || '').trim();
-            if (!startId && !endId) return;
-
-            tripPreviewOriginPopup = createTripEndpointPopup({
-                stationId: startId,
-                text: '始发站',
-                color: '#1A9B2D',
-                yOffset: 8
-            });
-
-            tripPreviewTerminalPopup = createTripEndpointPopup({
-                stationId: endId,
-                text: '终点站',
-                color: '#D32F2F',
-                yOffset: startId && endId && startId === endId ? 30 : 8
-            });
-
-            tripPreviewOriginPopups = tripPreviewOriginPopup ? [tripPreviewOriginPopup] : [];
-            tripPreviewTerminalPopups = tripPreviewTerminalPopup ? [tripPreviewTerminalPopup] : [];
-        };
-
-        const clearDirEndpointPopups = () => {
-            for (const popup of dirPreviewOriginPopups) {
-                try { popup?.remove?.(); } catch { /* ignore */ }
-            }
-            for (const popup of dirPreviewTerminalPopups) {
-                try { popup?.remove?.(); } catch { /* ignore */ }
-            }
-            dirPreviewOriginPopups = [];
-            dirPreviewTerminalPopups = [];
-        };
-
-        const createDirEndpointPopup = ({ stationId, text, color, yOffset = 10 }) => {
-            const sid = String(stationId || '').trim();
-            if (!sid) return null;
-            const coord = stationCoordByIdBase.get(sid) || stationCoordById.get(sid);
-            if (!Array.isArray(coord) || coord.length < 2) return null;
-
-            const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark';
-            const role = String(text || '').includes('始发') ? 'origin' : (String(text || '').includes('终点') ? 'terminal' : 'normal');
-            const resolvedColor = role === 'origin'
-                ? (isDarkTheme ? '#59e37d' : (color || '#1A9B2D'))
-                : role === 'terminal'
-                    ? (isDarkTheme ? '#ff6b6b' : (color || '#D32F2F'))
-                    : String(color || '#111');
-
-            const el = document.createElement('div');
-            el.style.fontSize = '12px';
-            el.style.fontWeight = '700';
-            el.style.lineHeight = '1.2';
-            el.style.color = resolvedColor;
-            if (role === 'origin') el.classList.add('trip-endpoint-origin');
-            if (role === 'terminal') el.classList.add('trip-endpoint-terminal');
-            el.textContent = String(text || '');
-
-            const popup = mapEngine.createPopup({
-                closeButton: false,
-                closeOnClick: false,
-                closeOnMove: false,
-                anchor: 'top',
-                offset: [0, yOffset],
-                className: 'trip-endpoint-popup'
-            })
-                .setLngLat(coord)
-                .setDOMContent(el);
-            mapEngine.addPopup(popup);
-            return popup;
-        };
+        const routeEndpointPopups = createRouteEndpointPopupRuntime({
+            mapEngine,
+            getStationCoord: (stationId) => stationCoordByIdBase.get(stationId) || stationCoordById.get(stationId),
+            getIsDarkTheme: () => document.documentElement.getAttribute('data-theme') === 'dark'
+        });
 
         const toCoordKey = (coord) => {
             if (!Array.isArray(coord) || coord.length < 2) return '';
@@ -4091,8 +3959,8 @@ const initMapApp = async () => {
                 tripPreviewStationOverrideColor = '';
             },
             getTripPreviewActiveSource: () => tripPreviewActiveSource,
-            clearTripEndpointPopups,
-            updateTripEndpointPopups,
+            clearTripEndpointPopups: routeEndpointPopups.clearTripEndpointPopups,
+            updateTripEndpointPopups: routeEndpointPopups.updateTripEndpointPopups,
             syncStationOffsetForTripPreviewState,
             setStationLabelMode,
             applySelectionEffects,
@@ -4114,14 +3982,10 @@ const initMapApp = async () => {
                 dirPreviewLineIds = null;
                 dirPreviewStationIds = null;
             },
-            clearDirEndpointPopups,
-            createDirEndpointPopup,
-            addDirOriginPopup: (popup) => {
-                dirPreviewOriginPopups.push(popup);
-            },
-            addDirTerminalPopup: (popup) => {
-                dirPreviewTerminalPopups.push(popup);
-            },
+            clearDirEndpointPopups: routeEndpointPopups.clearDirEndpointPopups,
+            createDirEndpointPopup: routeEndpointPopups.createDirEndpointPopup,
+            addDirOriginPopup: routeEndpointPopups.addDirOriginPopup,
+            addDirTerminalPopup: routeEndpointPopups.addDirTerminalPopup,
             bboxFromStationIds
         });
 
