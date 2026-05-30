@@ -86,6 +86,8 @@ import {
 } from './features/settings/settingsControls.js';
 import { createSettingsMenu } from './features/settings/settingsMenu.js';
 import {
+    buildTripPreviewAggregateFromPayloadList as buildRouteTripPreviewAggregateFromPayloadList,
+    buildTripPreviewLineFeatureDedupKey,
     buildTripPreviewSelectionKey as buildRoutePreviewSelectionKey,
     resolveTripPreviewPayloadSource as resolveRoutePreviewPayloadSource
 } from './domain/routePreviewSelection.js';
@@ -297,17 +299,49 @@ try {
 const applyBasemapTheme = (theme) => {
     const next = theme === 'dark' ? 'dark' : 'light';
     mapTheme = next;
-    basemapController.applyTheme(next);
+    syncBasemapStyle();
 };
 
 const setBasemapMode = (mode) => {
     basemapMode = (mode === 'carto' || mode === 'ost' || mode === 'transparent') ? mode : 'carto';
-    basemapController.setMode(basemapMode);
+    syncBasemapStyle();
 };
 
 const ensureBasemapLayers = () => {
-    basemapController.ensureLayers();
+    try {
+        if (!(map?.loaded?.() || map?.isStyleLoaded?.())) return false;
+        basemapController.ensureLayers();
+        return true;
+    } catch {
+        return false;
+    }
 };
+
+function syncBasemapStyle() {
+    const ready = ensureBasemapLayers();
+    if (!ready) return false;
+    basemapController.setMode(basemapMode);
+    return true;
+}
+
+const applyAppTheme = (theme) => {
+    const next = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    applyBasemapTheme(next);
+    return next;
+};
+
+const systemThemeMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+const syncSystemAppearanceTheme = () => {
+    if (readAppearanceMode() !== 'system') return;
+    applyAppTheme(resolveThemeFromAppearance('system'));
+};
+
+if (systemThemeMedia && typeof systemThemeMedia.addEventListener === 'function') {
+    systemThemeMedia.addEventListener('change', syncSystemAppearanceTheme);
+} else if (systemThemeMedia && typeof systemThemeMedia.addListener === 'function') {
+    systemThemeMedia.addListener(syncSystemAppearanceTheme);
+}
 
 // 左下角比例尺
 mapEngine.addMetricScaleControl({ maxWidth: 100, position: 'bottom-left' });
@@ -1714,7 +1748,7 @@ const initMapApp = async () => {
     };
 
     const hasTripPreviewSelectionBySource = (source) => {
-        return routeFeature.hasVisibleTripPreviewSelectionBySource(source, resolveTripPreviewPayloadSource);
+        return routeFeature.hasVisibleTripPreviewSelectionBySource(source, resolveRoutePreviewPayloadSource);
     };
 
     const toggleBaseLineBranchPreview = (baseKey) => {
@@ -1904,7 +1938,7 @@ const initMapApp = async () => {
             getStationName: getStationNameForMultiSelect,
             hasLineName: (lineId) => lineNameById.has(lineId),
             hasTripPreviewSelectionBySource,
-            resolveTripPreviewPayloadSource,
+            resolveTripPreviewPayloadSource: resolveRoutePreviewPayloadSource,
             tripPreviewSelectionEntries: routeFeature.getTripPreviewSelectionEntries()
         });
     };
@@ -3792,119 +3826,25 @@ const initMapApp = async () => {
             getIsDarkTheme: () => document.documentElement.getAttribute('data-theme') === 'dark'
         });
 
-        const toCoordKey = (coord) => {
-            if (!Array.isArray(coord) || coord.length < 2) return '';
-            const lng = Number(coord[0]);
-            const lat = Number(coord[1]);
-            if (!Number.isFinite(lng) || !Number.isFinite(lat)) return '';
-            return `${lng.toFixed(6)},${lat.toFixed(6)}`;
-        };
-
-        const buildLineCoordsCanonicalKey = (coords) => {
-            const arr = Array.isArray(coords) ? coords.map((c) => toCoordKey(c)).filter(Boolean) : [];
-            if (arr.length < 2) return '';
-            const fwd = arr.join('>');
-            const rev = arr.slice().reverse().join('>');
-            return fwd <= rev ? fwd : rev;
-        };
-
-        const buildLineFeatureDedupKey = (feature) => {
-            const role = String(feature?.properties?.role || 'line');
-            const lineId = String(feature?.properties?.lineId || '');
-            const geom = feature?.geometry;
-            if (!geom || geom.type !== 'LineString') return '';
-            const pathKey = buildLineCoordsCanonicalKey(geom.coordinates);
-            if (!pathKey) return '';
-            return `${role}||${lineId}||${pathKey}`;
-        };
-
-        const buildTripPreviewSelectionKey = (payload) => {
-            return buildRoutePreviewSelectionKey(payload);
-        };
-
-        const resolveTripPreviewPayloadSource = (payload) => {
-            return resolveRoutePreviewPayloadSource(payload);
-        };
-
         const buildMultiTripPreviewAggregate = () => {
-            return routeFeature.buildMultiTripPreviewAggregate({ buildLineFeatureDedupKey });
+            return routeFeature.buildMultiTripPreviewAggregate({
+                buildLineFeatureDedupKey: buildTripPreviewLineFeatureDedupKey
+            });
         };
         const buildTripPreviewAggregateFromPayloadList = (payloadList) => {
-            const list = Array.isArray(payloadList) ? payloadList : [];
-            const lineFeatureByKey = new Map();
-            const stopFeatureByStationId = new Map();
-            const lineIds = new Set();
-            const stopIds = new Set();
-            let bbox = null;
-            let startStationId = '';
-            let endStationId = '';
-
-            for (const payload of list) {
-                const built = buildTripPreviewFeatures(payload);
-                const lineFeatures = Array.isArray(built?.lineFc?.features) ? built.lineFc.features : [];
-                const stopFeatures = Array.isArray(built?.stopFc?.features) ? built.stopFc.features : [];
-
-                if (!startStationId) startStationId = String(built?.startStationId || '').trim();
-                if (String(built?.endStationId || '').trim()) endStationId = String(built?.endStationId || '').trim();
-
-                for (const lf of lineFeatures) {
-                    const key = buildLineFeatureDedupKey(lf);
-                    if (!key || lineFeatureByKey.has(key)) continue;
-                    lineFeatureByKey.set(key, lf);
-                }
-
-                for (const sf of stopFeatures) {
-                    const sid = String(sf?.properties?.id || '').trim();
-                    if (!sid) continue;
-                    if (!stopFeatureByStationId.has(sid)) stopFeatureByStationId.set(sid, sf);
-                }
-
-                const ids = built?.lineIds instanceof Set ? built.lineIds : null;
-                if (ids) {
-                    for (const id of ids) {
-                        const s = String(id || '').trim();
-                        if (s) lineIds.add(s);
-                    }
-                }
-
-                const sids = built?.stopIds instanceof Set ? built.stopIds : null;
-                if (sids) {
-                    for (const sid of sids) {
-                        const s = String(sid || '').trim();
-                        if (s) stopIds.add(s);
-                    }
-                }
-
-                const b = built?.bbox;
-                if (b && Number.isFinite(b.minLng) && Number.isFinite(b.maxLng) && Number.isFinite(b.minLat) && Number.isFinite(b.maxLat)) {
-                    bbox = bbox
-                        ? {
-                            minLng: Math.min(bbox.minLng, b.minLng),
-                            minLat: Math.min(bbox.minLat, b.minLat),
-                            maxLng: Math.max(bbox.maxLng, b.maxLng),
-                            maxLat: Math.max(bbox.maxLat, b.maxLat)
-                        }
-                        : { ...b };
-                }
-            }
-
-            return {
-                lineFc: { type: 'FeatureCollection', features: Array.from(lineFeatureByKey.values()) },
-                stopFc: { type: 'FeatureCollection', features: Array.from(stopFeatureByStationId.values()) },
-                lineIds,
-                stopIds,
-                startStationId,
-                endStationId,
-                bbox
-            };
+            return buildRouteTripPreviewAggregateFromPayloadList({
+                payloadList,
+                buildTripPreviewFeatures,
+                buildLineFeatureDedupKey: buildTripPreviewLineFeatureDedupKey
+            });
         };
 
         const routePreviewController = createRoutePreviewController({
             routeFeature,
             store: appStore,
             isMultiSelectModeEnabled,
-            resolveTripPreviewPayloadSource,
-            buildTripPreviewSelectionKey,
+            resolveTripPreviewPayloadSource: resolveRoutePreviewPayloadSource,
+            buildTripPreviewSelectionKey: buildRoutePreviewSelectionKey,
             buildTripPreviewAggregate: buildMultiTripPreviewAggregate,
             buildTripPreviewAggregateFromPayloadList,
             buildTripPreviewFeatures,

@@ -3,12 +3,32 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
         throw new Error('MapLibre GL JS is not available');
     }
 
+    const containerEl = typeof container === 'string' && typeof document !== 'undefined'
+        ? document.getElementById(container)
+        : container;
+    const canCleanContainer = Boolean(containerEl && typeof containerEl.removeChild === 'function');
+
+    if (canCleanContainer) {
+        try {
+            containerEl.__tokyoRailMapLibreInstance?.remove?.();
+        } catch {
+            // ignore stale MapLibre cleanup errors
+        }
+        while (containerEl.firstChild) {
+            containerEl.removeChild(containerEl.firstChild);
+        }
+    }
+
     const map = new maplibregl.Map({
-        container,
+        container: containerEl || container,
         center,
         zoom,
         style
     });
+
+    if (canCleanContainer) {
+        containerEl.__tokyoRailMapLibreInstance = map;
+    }
 
     const ensureGeoJsonSource = (sourceId, data) => {
         if (!sourceId) return null;
@@ -147,8 +167,10 @@ export const createBasemapController = ({
 
     let theme = initialTheme === 'dark' ? 'dark' : 'light';
     let mode = ['carto', 'ost', 'transparent'].includes(initialMode) ? initialMode : 'carto';
+    const backgroundLayerId = 'tokyo-basemap-background-layer';
 
     const getOstPaint = () => (theme === 'dark' ? darkRasterPaint : lightRasterPaint);
+    const getBackgroundColor = () => (theme === 'dark' ? '#101216' : '#ffffff');
 
     const getBasemapItems = () => [
         {
@@ -216,9 +238,13 @@ export const createBasemapController = ({
                     mapEngine.setPaintProperty('ost-layer', key, value);
                 });
             }
+            if (mapEngine.getLayer(backgroundLayerId)) {
+                mapEngine.setPaintProperty(backgroundLayerId, 'background-color', getBackgroundColor());
+                mapEngine.setPaintProperty(backgroundLayerId, 'background-opacity', 1);
+            }
 
             const canvas = mapEngine.getCanvas?.();
-            if (canvas?.style) canvas.style.background = mode === 'transparent' ? 'transparent' : '';
+            if (canvas?.style) canvas.style.background = getBackgroundColor();
             if (typeof onThemeChanged === 'function') onThemeChanged({ theme, mode });
         } catch {
             // ignore
@@ -242,6 +268,25 @@ export const createBasemapController = ({
         const beforeLayerId = mapEngine.getLayer('lines-layer')
             ? 'lines-layer'
             : (mapEngine.getLayer('stations-layer') ? 'stations-layer' : undefined);
+
+        if (!mapEngine.getLayer(backgroundLayerId)) {
+            mapEngine.addLayer({
+                id: backgroundLayerId,
+                type: 'background',
+                paint: {
+                    'background-color': getBackgroundColor(),
+                    'background-opacity': 1
+                }
+            }, beforeLayerId);
+        } else {
+            try {
+                mapEngine.setPaintProperty(backgroundLayerId, 'background-color', getBackgroundColor());
+                mapEngine.setPaintProperty(backgroundLayerId, 'background-opacity', 1);
+                if (beforeLayerId) mapEngine.moveLayer(backgroundLayerId, beforeLayerId);
+            } catch {
+                // keep existing background layer if MapLibre rejects the move
+            }
+        }
 
         for (const item of items) {
             if (!mapEngine.getLayer(item.id)) {

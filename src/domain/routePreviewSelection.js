@@ -86,6 +86,112 @@ export const buildEndpointStationIdSetFromPayloadList = (payloadList) => {
     return out;
 };
 
+export const toCoordKey = (coord) => {
+    if (!Array.isArray(coord) || coord.length < 2) return '';
+    const lng = Number(coord[0]);
+    const lat = Number(coord[1]);
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return '';
+    return `${lng.toFixed(6)},${lat.toFixed(6)}`;
+};
+
+export const buildLineCoordsCanonicalKey = (coords) => {
+    const arr = Array.isArray(coords) ? coords.map((coord) => toCoordKey(coord)).filter(Boolean) : [];
+    if (arr.length < 2) return '';
+    const fwd = arr.join('>');
+    const rev = arr.slice().reverse().join('>');
+    return fwd <= rev ? fwd : rev;
+};
+
+export const buildTripPreviewLineFeatureDedupKey = (feature) => {
+    const role = toText(feature?.properties?.role || 'line');
+    const lineId = toText(feature?.properties?.lineId);
+    const geom = feature?.geometry;
+    if (!geom || geom.type !== 'LineString') return '';
+    const pathKey = buildLineCoordsCanonicalKey(geom.coordinates);
+    if (!pathKey) return '';
+    return `${role}||${lineId}||${pathKey}`;
+};
+
+export const mergeTripPreviewBBox = (current, next) => {
+    const a = current;
+    const b = next;
+    const isValid = (bbox) => bbox
+        && [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat].every(Number.isFinite);
+    if (!isValid(a)) return isValid(b) ? { ...b } : null;
+    if (!isValid(b)) return { ...a };
+    return {
+        minLng: Math.min(a.minLng, b.minLng),
+        minLat: Math.min(a.minLat, b.minLat),
+        maxLng: Math.max(a.maxLng, b.maxLng),
+        maxLat: Math.max(a.maxLat, b.maxLat)
+    };
+};
+
+export const buildTripPreviewAggregateFromPayloadList = ({
+    payloadList,
+    buildTripPreviewFeatures,
+    buildLineFeatureDedupKey = buildTripPreviewLineFeatureDedupKey
+} = {}) => {
+    const list = Array.isArray(payloadList) ? payloadList : [];
+    const lineFeatureByKey = new Map();
+    const stopFeatureByStationId = new Map();
+    const lineIds = new Set();
+    const stopIds = new Set();
+    let bbox = null;
+    let startStationId = '';
+    let endStationId = '';
+
+    for (const payload of list) {
+        const built = buildTripPreviewFeatures?.(payload);
+        const lineFeatures = Array.isArray(built?.lineFc?.features) ? built.lineFc.features : [];
+        const stopFeatures = Array.isArray(built?.stopFc?.features) ? built.stopFc.features : [];
+
+        if (!startStationId) startStationId = toText(built?.startStationId);
+        const nextEndStationId = toText(built?.endStationId);
+        if (nextEndStationId) endStationId = nextEndStationId;
+
+        for (const feature of lineFeatures) {
+            const key = buildLineFeatureDedupKey?.(feature) || '';
+            if (!key || lineFeatureByKey.has(key)) continue;
+            lineFeatureByKey.set(key, feature);
+        }
+
+        for (const feature of stopFeatures) {
+            const stationId = toText(feature?.properties?.id);
+            if (!stationId || stopFeatureByStationId.has(stationId)) continue;
+            stopFeatureByStationId.set(stationId, feature);
+        }
+
+        const builtLineIds = built?.lineIds instanceof Set ? built.lineIds : null;
+        if (builtLineIds) {
+            for (const id of builtLineIds) {
+                const value = toText(id);
+                if (value) lineIds.add(value);
+            }
+        }
+
+        const builtStopIds = built?.stopIds instanceof Set ? built.stopIds : null;
+        if (builtStopIds) {
+            for (const id of builtStopIds) {
+                const value = toText(id);
+                if (value) stopIds.add(value);
+            }
+        }
+
+        bbox = mergeTripPreviewBBox(bbox, built?.bbox);
+    }
+
+    return {
+        lineFc: { type: 'FeatureCollection', features: Array.from(lineFeatureByKey.values()) },
+        stopFc: { type: 'FeatureCollection', features: Array.from(stopFeatureByStationId.values()) },
+        lineIds,
+        stopIds,
+        startStationId,
+        endStationId,
+        bbox
+    };
+};
+
 export const normalizeDirPreviewPayload = (payload) => {
     const lineId = toText(payload?.lineId);
     const fitMode = toText(payload?.fitMode) || 'preview';
