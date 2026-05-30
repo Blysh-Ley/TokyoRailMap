@@ -5916,6 +5916,64 @@ export function createPanel(options = {}) {
         }
     };
 
+    const installPanelMarqueeDebug = () => {
+        try {
+            if (typeof window === 'undefined') return;
+            window.__TokyoRailPanelMarqueeDebug = () => {
+                const rows = Array.from(body.querySelectorAll('.panel-dir-marquee')).map((marqueeEl, index) => {
+                    const innerEl = marqueeEl.querySelector('.panel-dir-marquee-inner');
+                    const viewportWidth = Math.max(
+                        Number(marqueeEl.clientWidth) || 0,
+                        Number(marqueeEl.getBoundingClientRect?.()?.width) || 0
+                    );
+                    const contentWidth = Math.max(
+                        Number(innerEl?.scrollWidth) || 0,
+                        Number(innerEl?.offsetWidth) || 0,
+                        Number(innerEl?.getBoundingClientRect?.()?.width) || 0
+                    );
+                    return {
+                        index,
+                        text: innerEl?.textContent?.trim() || '',
+                        viewportWidth,
+                        contentWidth,
+                        distancePx: Math.max(0, contentWidth - viewportWidth),
+                        hasAnimate: typeof innerEl?.animate === 'function',
+                        animationObj: !!marqueeEl.__panelMarqueeAnim,
+                        animationState: marqueeEl.__panelMarqueeAnim?.playState,
+                        activeAnimations: innerEl?.getAnimations?.().map((anim) => anim.playState) || []
+                    };
+                });
+                const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+                const started = applyDirHeaderMarquees(body, MAX_PANEL_MARQUEE_ANIMS);
+                const after = Array.from(body.querySelectorAll('.panel-dir-marquee')).map((marqueeEl, index) => {
+                    const innerEl = marqueeEl.querySelector('.panel-dir-marquee-inner');
+                    return {
+                        index,
+                        animationObj: !!marqueeEl.__panelMarqueeAnim,
+                        animationState: marqueeEl.__panelMarqueeAnim?.playState,
+                        activeAnimations: innerEl?.getAnimations?.().map((anim) => anim.playState) || []
+                    };
+                });
+                const result = {
+                    version: 'TOK-62-panel-marquee-debug-2026-05-30-1',
+                    bodyConnected: body.isConnected,
+                    dirMarqueeCount: rows.length,
+                    reducedMotion,
+                    started,
+                    before: rows,
+                    after
+                };
+                console.log('[TokyoRailPanelMarqueeDebug]', result);
+                console.table(rows);
+                console.table(after);
+                return result;
+            };
+        } catch {
+            // ignore
+        }
+    };
+
+    installPanelMarqueeDebug();
     setupPanelMarqueeAutoRefresh();
 
     const renderAllTimetables = async () => {
