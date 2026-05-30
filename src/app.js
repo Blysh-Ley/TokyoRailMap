@@ -68,6 +68,7 @@ import { createPanelHoverPreviewLifecycle } from './features/hover/panelHoverPre
 import { createLayerFeature } from './features/layer/layerFeature.js';
 import { bindMapInteractions } from './features/map-interactions/mapInteractionController.js';
 import { createStationCoordinateAdapter } from './features/layer/stationCoordinateAdapter.js';
+import { createStationOffsetRuntimeController } from './features/layer/stationOffsetRuntimeController.js';
 import { createRouteFeature } from './features/route/routeFeature.js';
 import { createRoutePreviewBridgeApi } from './features/route/routePreviewBridgeApi.js';
 import { createRoutePreviewRuntimeController } from './features/route/routePreviewRuntimeController.js';
@@ -423,6 +424,7 @@ const initMapApp = async () => {
         setDisabled: () => {}
     };
     let stationOffsetMode = readStationOffsetMode();
+    let stationOffsetRuntimeController = null;
     let stationCoordById = new Map();
     let stationCoordByIdBase = new Map();
     let stationServingCountById = new Map();
@@ -474,14 +476,12 @@ const initMapApp = async () => {
 
     const applyStationOffsetMode = (mode, { persistStorage = true } = {}) => {
         const next = (String(mode || '').trim().toLowerCase() === 'performance') ? 'performance' : 'dynamic';
-        stationOffsetMode = next;
+        stationOffsetMode = stationOffsetRuntimeController?.setMode?.(next) || next;
         if (persistStorage) {
-            writeStationOffsetMode(next);
+            writeStationOffsetMode(stationOffsetMode);
         }
-        return next;
+        return stationOffsetMode;
     };
-
-    const isStationOffsetDynamicMode = () => stationOffsetMode !== 'performance';
 
     const clearTripDetailStationIndicator = () => {
         try {
@@ -4358,39 +4358,15 @@ const initMapApp = async () => {
 
         scheduleCollisionLayerRefresh();
 
-        syncStationOffsetForZoom(mapEngine.getZoom());
-
-        let lastUpdateZoom = mapEngine.getZoom();
-        let previousFrameZoom = mapEngine.getZoom();
-
-        mapEngine.on('zoom', () => {
-            if (!isStationOffsetDynamicMode()) return;
-            if (tripPreviewActive) return;
-
-            const currentZoom = mapEngine.getZoom();
-            
-            const cumulativeDelta = Math.abs(currentZoom - lastUpdateZoom);
-            
-
-            const frameVelocity = Math.abs(currentZoom - previousFrameZoom);
-            
-            previousFrameZoom = currentZoom;
-
-            if (cumulativeDelta >= 0.2 || (frameVelocity > 0 && frameVelocity < 0.02)) {
-                syncStationOffsetForZoom(currentZoom);
-                lastUpdateZoom = currentZoom; 
-            }
+        stationOffsetRuntimeController?.destroy?.();
+        stationOffsetRuntimeController = createStationOffsetRuntimeController({
+            getTripPreviewActive: () => tripPreviewActive,
+            getZoom: () => mapEngine.getZoom(),
+            initialMode: stationOffsetMode,
+            mapEngine,
+            syncStationOffsetForZoom
         });
-
-        mapEngine.on('zoomend', () => {
-            if (isStationOffsetDynamicMode()) return;
-            if (tripPreviewActive) return;
-
-            syncStationOffsetForZoom(mapEngine.getZoom());
-            lastUpdateZoom = mapEngine.getZoom();
-            previousFrameZoom = mapEngine.getZoom(); 
-            
-        });
+        stationOffsetRuntimeController.syncAtCurrentZoom();
         
 
 
