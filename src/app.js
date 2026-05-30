@@ -94,6 +94,7 @@ import {
 } from './domain/routePreviewSelection.js';
 import { createSelectionBadge } from './ui/selectionBadge.js';
 import { buildSelectionBadgeViewModel, createSelectionBadgeAdapter } from './ui/selectionBadgeAdapter.js';
+import { createStationLabelChipsAdapter } from './ui/layer/stationLabelChipsAdapter.js';
 import { createRouteEndpointPopupRuntime } from './ui/routeEndpointPopups.js';
 import { createRoutePreviewViewportController } from './ui/routePreviewViewport.js';
 
@@ -394,6 +395,7 @@ const initMapApp = async () => {
     let stationPopup = null;
     let lineHoverPopup = null;
     let stationLabels = [];
+    let stationLabelChipsAdapter = null;
     let fixedPopupStationId = null;
     let transferStationIdsByStationId = new Map();
     let previewTripPath = (_payload) => {};
@@ -2371,192 +2373,16 @@ const initMapApp = async () => {
     }
 
     function updateMultiSelectStationLabelChips() {
-        if (!Array.isArray(stationLabels) || !stationLabels.length) return;
-
         const inMultiSelectMode = isMultiSelectModeEnabled();
-        const activeLineIds = inMultiSelectMode
-            ? Array.from(getBaseMultiSelectedLineIds()).map(String).filter(Boolean)
-            : [];
-        const visibleTripSelections = inMultiSelectMode
-            ? routeFeature.getTripPreviewSelectionValues().filter((entry) => entry?.hidden !== true)
-            : [];
-        const showMultiSelectIcons = window.__TokyoRailMultiSelectShowIcons !== false;
-
-        const resolveBaseLabelText = (item) => {
-            const cached = String(item?._multiSelectBaseLabelText || '').trim();
-            if (cached) return cached;
-            const fromProps = String(item?.props?.name_zh || item?.props?.name || item?.stationId || '').trim();
-            const fromDom = String(item?.el?.textContent || '').trim();
-            const text = fromProps || fromDom;
-            item._multiSelectBaseLabelText = text;
-            return text;
-        };
-
-        const restoreLabel = (item) => {
-            const el = item?.el;
-            if (!el) return;
-            const text = resolveBaseLabelText(item);
-            el.textContent = text;
-        };
-
-        if (!inMultiSelectMode || (!activeLineIds.length && !visibleTripSelections.length)) {
-            for (const item of stationLabels) {
-                restoreLabel(item);
-            }
-            return;
-        }
-
-        const servingLineIdsByStationId = new Map();
-        for (const item of stationLabels) {
-            const sid = String(item?.stationId || item?.props?.id || '').trim();
-            if (!sid) continue;
-            if (!servingLineIdsByStationId.has(sid)) servingLineIdsByStationId.set(sid, new Set());
-            const targetSet = servingLineIdsByStationId.get(sid);
-            const ids = Array.isArray(item?.servingLineIds) ? item.servingLineIds : [];
-            for (const lineId of ids) {
-                const id = String(lineId || '').trim();
-                if (id) targetSet.add(id);
-            }
-        }
-        for (const item of stationLabels) {
-            const el = item?.el;
-            if (!el) continue;
-
-            const sid = String(item?.stationId || item?.props?.id || '').trim();
-            const transferGroup = sid ? transferStationIdsByStationId.get(sid) : null;
-            const groupedStationIds = (transferGroup && transferGroup.size)
-                ? Array.from(transferGroup).map((x) => String(x || '').trim()).filter(Boolean)
-                : (sid ? [sid] : []);
-
-            const stationLineIdSet = new Set();
-            for (const gid of groupedStationIds) {
-                const lineSet = servingLineIdsByStationId.get(gid);
-                if (!lineSet || !lineSet.size) continue;
-                for (const lineId of lineSet) stationLineIdSet.add(String(lineId));
-            }
-            const groupedStationIdSet = new Set(groupedStationIds);
-
-            if (!stationLineIdSet.size) {
-                const fallbackIds = Array.isArray(item?.servingLineIds) ? item.servingLineIds : [];
-                for (const lineId of fallbackIds) {
-                    const id = String(lineId || '').trim();
-                    if (id) stationLineIdSet.add(id);
-                }
-            }
-
-            const renderByLineId = new Map();
-            const renderOrder = [];
-            const ensureRenderLine = (lineId) => {
-                const id = String(lineId || '').trim();
-                if (!id) return null;
-                if (!renderByLineId.has(id)) {
-                    renderByLineId.set(id, {
-                        lineId: id,
-                        chipColor: resolveRailColorForTheme(lineColorById.get(id) || null) || '#999999',
-                        typeColors: []
-                    });
-                    renderOrder.push(id);
-                }
-                return renderByLineId.get(id);
-            };
-
-            for (const id of activeLineIds) {
-                if (!stationLineIdSet.has(id)) continue;
-                ensureRenderLine(id);
-            }
-
-            const stationMatchesGroup = (candidateStationId) => {
-                const sid = String(candidateStationId || '').trim();
-                if (!sid) return false;
-                if (groupedStationIdSet.has(sid)) return true;
-                const transferGroup = transferStationIdsByStationId.get(sid);
-                if (!(transferGroup && transferGroup.size)) return false;
-                for (const gid of transferGroup) {
-                    if (groupedStationIdSet.has(String(gid || '').trim())) return true;
-                }
-                return false;
-            };
-
-            for (const entry of visibleTripSelections) {
-                const payload = entry?.payload || {};
-                const segs = Array.isArray(payload?.segments)
-                    ? payload.segments
-                    : [];
-                const virtualTripSegs = Array.isArray(payload?.virtualTrips)
-                    ? payload.virtualTrips
-                        .flatMap((v) => Array.isArray(v?.segments) ? v.segments : [])
-                    : [];
-                const allSegs = [...segs, ...virtualTripSegs];
-                const payloadTypeColor = String(payload?.typeColor || '').trim();
-                for (const seg of allSegs) {
-                    const segLineId = String(seg?.lineId || '').trim();
-                    if (!segLineId) continue;
-                    const segStationIds = Array.isArray(seg?.stationIds) ? seg.stationIds : [];
-                    const hitCurrentStation = segStationIds.some((sid) => stationMatchesGroup(sid));
-                    if (!hitCurrentStation) continue;
-
-                    const model = ensureRenderLine(segLineId);
-                    if (!model) continue;
-
-                    const typeColor = String(seg?.typeColor || payloadTypeColor).trim();
-                    if (typeColor) {
-                        model.typeColors.push(typeColor);
-                    }
-                }
-            }
-
-            if (!renderOrder.length) {
-                restoreLabel(item);
-                continue;
-            }
-
-            if (!showMultiSelectIcons) {
-                restoreLabel(item);
-                continue;
-            }
-
-            const labelText = resolveBaseLabelText(item);
-
-            let nameEl = el.querySelector('.station-label-name');
-            if (!nameEl) {
-                el.textContent = '';
-                nameEl = document.createElement('div');
-                nameEl.className = 'station-label-name';
-                el.appendChild(nameEl);
-            }
-            nameEl.textContent = labelText;
-
-            let chipsRowEl = el.querySelector('.station-label-multi-row');
-            if (!chipsRowEl) {
-                chipsRowEl = document.createElement('div');
-                chipsRowEl.className = 'station-label-multi-row';
-                el.appendChild(chipsRowEl);
-            }
-            chipsRowEl.innerHTML = '';
-
-            for (const lineId of renderOrder) {
-                const lineModel = renderByLineId.get(lineId);
-                if (!lineModel) continue;
-
-                const cluster = document.createElement('span');
-                cluster.className = 'station-label-multi-cluster';
-
-                const chip = document.createElement('span');
-                chip.className = 'station-label-multi-chip';
-                chip.style.backgroundColor = String(lineModel.chipColor || '#999999');
-                cluster.appendChild(chip);
-
-                for (const typeColor of lineModel.typeColors) {
-                    const typeDot = document.createElement('span');
-                    typeDot.className = 'station-label-multi-type-dot';
-                    const resolvedTypeColor = resolveRailColorForTheme(typeColor) || String(typeColor || '');
-                    typeDot.style.backgroundColor = String(resolvedTypeColor);
-                    cluster.appendChild(typeDot);
-                }
-
-                chipsRowEl.appendChild(cluster);
-            }
-        }
+        stationLabelChipsAdapter?.render?.({
+            activeLineIds: inMultiSelectMode
+                ? Array.from(getBaseMultiSelectedLineIds()).map(String).filter(Boolean)
+                : [],
+            showIcons: window.__TokyoRailMultiSelectShowIcons !== false,
+            visibleTripSelections: inMultiSelectMode
+                ? routeFeature.getTripPreviewSelectionValues().filter((entry) => entry?.hidden !== true)
+                : []
+        });
     }
 
     function clearSelectionsAndRestore() {
@@ -4181,6 +4007,12 @@ const initMapApp = async () => {
         const markers = createStationMarkers(mapEngine, stationsData);
         stationLabels = markers.stationLabels;
         const stationCircles = markers.stationCircles;
+        stationLabelChipsAdapter = createStationLabelChipsAdapter({
+            getLineColor: (lineId) => lineColorById.get(lineId),
+            getTransferStationIds: (stationId) => transferStationIdsByStationId.get(String(stationId || '').trim()),
+            resolveRailColor: resolveRailColorForTheme,
+            stationLabels
+        });
 
         const rebuildStationCoordMap = (geojson) => {
             stationCoordById = new Map();
