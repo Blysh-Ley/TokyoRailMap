@@ -30,6 +30,7 @@ import {
     renderTimetableStationRowHtml
 } from './timetable-table.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
+import { applyTextMarquees, scheduleTextMarqueeApply } from '../../ui/textMarquee.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -5742,32 +5743,24 @@ export function createPanel(options = {}) {
     };
 
     const MAX_PANEL_MARQUEE_ANIMS = 30;
+    const PANEL_MARQUEE_ANIMATION_KEY = '__panelMarqueeAnim';
+    const PANEL_MARQUEE_RAF_KEY = '__panelMarqueeRafId';
 
     const scheduleMarqueeApply = (rootEl) => {
         try {
             if (!rootEl || !(rootEl instanceof Element)) return;
             if (typeof window === 'undefined') return;
-            const raf = window.requestAnimationFrame;
-            if (typeof raf !== 'function') return;
 
-            if (rootEl.__panelMarqueeRafId) {
-                try {
-                    window.cancelAnimationFrame?.(rootEl.__panelMarqueeRafId);
-                } catch {
-                    // ignore
-                }
-                rootEl.__panelMarqueeRafId = 0;
-            }
-
-            // One/two RAFs help ensure scrollWidth is correct for flex layouts.
-            rootEl.__panelMarqueeRafId = raf(() => {
-                rootEl.__panelMarqueeRafId = raf(() => {
-                    rootEl.__panelMarqueeRafId = 0;
+            scheduleTextMarqueeApply(rootEl, {
+                apply: () => {
                     const used = applyDirHeaderMarquees(rootEl, MAX_PANEL_MARQUEE_ANIMS);
                     const remain = Math.max(0, MAX_PANEL_MARQUEE_ANIMS - used);
                     applyTimetableDestMarquees(rootEl, remain);
                     hookTimetableScrollMarquee(rootEl);
-                });
+                },
+                cancelFrame: window.cancelAnimationFrame?.bind(window),
+                rafKey: PANEL_MARQUEE_RAF_KEY,
+                requestFrame: window.requestAnimationFrame?.bind(window)
             });
         } catch {
             // ignore
@@ -5776,68 +5769,22 @@ export function createPanel(options = {}) {
 
     const applyDirHeaderMarquees = (rootEl, maxAnims = Number.POSITIVE_INFINITY) => {
         try {
-            if (!rootEl || !(rootEl instanceof Element)) return;
-            if (typeof window === 'undefined') return;
-            if (!('animate' in Element.prototype)) return;
+            if (!rootEl || !(rootEl instanceof Element)) return 0;
+            if (typeof window === 'undefined') return 0;
+            if (!('animate' in Element.prototype)) return 0;
 
             const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
             if (reduceMotion) return 0;
 
-            const marquees = Array.from(rootEl.querySelectorAll('.panel-dir-marquee'));
-            let started = 0;
-            for (const marqueeEl of marquees) {
-                if (started >= maxAnims) break;
-                const innerEl = marqueeEl.querySelector('.panel-dir-marquee-inner');
-                if (!innerEl) continue;
-
-                // cancel previous animation on this element (if any)
-                try {
-                    marqueeEl.__panelMarqueeAnim?.cancel?.();
-                } catch {
-                    // ignore
-                }
-
-                // reset
-                innerEl.style.transform = '';
-                marqueeEl.__panelMarqueeAnim = null;
-
-                const viewportW = marqueeEl.clientWidth || 0;
-                const contentW = innerEl.scrollWidth || 0;
-                if (!viewportW || contentW <= viewportW + 1) continue;
-
-                const distancePx = Math.max(0, contentW - viewportW);
-                if (!distancePx) continue;
-
-                const holdMs = 2000;
-                const speedPxPerSec = 35; // readable pace
-                const travelMs = Math.max(1500, Math.round((distancePx / speedPxPerSec) * 1000));
-                const totalMs = holdMs + travelMs + holdMs + holdMs;
-
-                const startHoldOffset = holdMs / totalMs;
-                const endMoveOffset = (holdMs + travelMs) / totalMs;
-                const endHoldOffset = (holdMs + travelMs + holdMs) / totalMs;
-                const resetOffset = Math.min(0.999, endHoldOffset + 0.001);
-
-                const anim = innerEl.animate(
-                    [
-                        { transform: 'translateX(0px)', offset: 0 },
-                        { transform: 'translateX(0px)', offset: startHoldOffset },
-                        { transform: `translateX(${-distancePx}px)`, offset: endMoveOffset },
-                        { transform: `translateX(${-distancePx}px)`, offset: endHoldOffset },
-                        { transform: 'translateX(0px)', offset: resetOffset },
-                        { transform: 'translateX(0px)', offset: 1 }
-                    ],
-                    {
-                        duration: totalMs,
-                        iterations: Infinity,
-                        easing: 'linear'
-                    }
-                );
-
-                marqueeEl.__panelMarqueeAnim = anim;
-                started += 1;
-            }
-            return started;
+            return applyTextMarquees(rootEl, {
+                animationKey: PANEL_MARQUEE_ANIMATION_KEY,
+                holdMs: 2000,
+                innerSelector: '.panel-dir-marquee-inner',
+                maxAnimations: maxAnims,
+                minTravelMs: 1500,
+                selector: '.panel-dir-marquee',
+                speedPxPerSec: 35
+            });
         } catch {
             // ignore
             return 0;
@@ -5853,83 +5800,30 @@ export function createPanel(options = {}) {
             const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
             if (reduceMotion) return;
 
-            const marquees = Array.from(rootEl.querySelectorAll('.panel-timetable-dest-marquee, .panel-timetable-type-marquee'));
-            const candidates = [];
-
-            for (const marqueeEl of marquees) {
-                const innerEl = marqueeEl.querySelector('.panel-timetable-dest-marquee-inner, .panel-timetable-type-marquee-inner');
-                if (!innerEl) continue;
-
-                // cancel previous animation on this element (if any)
-                try {
-                    marqueeEl.__panelMarqueeAnim?.cancel?.();
-                } catch {
-                    // ignore
-                }
-
-                // reset
-                innerEl.style.transform = '';
-                marqueeEl.__panelMarqueeAnim = null;
-
-                const viewportW = marqueeEl.clientWidth || 0;
-                const contentW = innerEl.scrollWidth || 0;
-                if (!viewportW || contentW <= viewportW + 1) continue;
-
-                // Prefer visible rows (within the nearest timetable scroller) to get marquee first.
-                const rowEl = marqueeEl.closest?.('.panel-timetable-row');
-                const containerEl = marqueeEl.closest?.('.panel-timetable');
-                let score = 1e9;
-                if (rowEl && containerEl) {
-                    const rr = rowEl.getBoundingClientRect?.();
-                    const cr = containerEl.getBoundingClientRect?.();
-                    if (rr && cr) {
-                        const visible = rr.bottom > cr.top && rr.top < cr.bottom;
-                        if (visible) score = 0;
-                        else score = Math.min(Math.abs(rr.top - cr.bottom), Math.abs(rr.bottom - cr.top));
+            applyTextMarquees(rootEl, {
+                animationKey: PANEL_MARQUEE_ANIMATION_KEY,
+                getScore: ({ marqueeEl }) => {
+                    const rowEl = marqueeEl.closest?.('.panel-timetable-row');
+                    const containerEl = marqueeEl.closest?.('.panel-timetable');
+                    let score = 1e9;
+                    if (rowEl && containerEl) {
+                        const rr = rowEl.getBoundingClientRect?.();
+                        const cr = containerEl.getBoundingClientRect?.();
+                        if (rr && cr) {
+                            const visible = rr.bottom > cr.top && rr.top < cr.bottom;
+                            if (visible) score = 0;
+                            else score = Math.min(Math.abs(rr.top - cr.bottom), Math.abs(rr.bottom - cr.top));
+                        }
                     }
-                }
-
-                candidates.push({ marqueeEl, innerEl, viewportW, contentW, score });
-            }
-
-            candidates.sort((a, b) => a.score - b.score);
-
-            let started = 0;
-            for (const c of candidates) {
-                if (started >= maxAnims) break;
-                started += 1;
-
-                const distancePx = Math.max(0, c.contentW - c.viewportW);
-                if (!distancePx) continue;
-
-                const holdMs = 2000;
-                const speedPxPerSec = 30;
-                const travelMs = Math.max(1200, Math.round((distancePx / speedPxPerSec) * 1000));
-                const totalMs = holdMs + travelMs + holdMs + holdMs;
-
-                const startHoldOffset = holdMs / totalMs;
-                const endMoveOffset = (holdMs + travelMs) / totalMs;
-                const endHoldOffset = (holdMs + travelMs + holdMs) / totalMs;
-                const resetOffset = Math.min(0.999, endHoldOffset + 0.001);
-
-                const anim = c.innerEl.animate(
-                    [
-                        { transform: 'translateX(0px)', offset: 0 },
-                        { transform: 'translateX(0px)', offset: startHoldOffset },
-                        { transform: `translateX(${-distancePx}px)`, offset: endMoveOffset },
-                        { transform: `translateX(${-distancePx}px)`, offset: endHoldOffset },
-                        { transform: 'translateX(0px)', offset: resetOffset },
-                        { transform: 'translateX(0px)', offset: 1 }
-                    ],
-                    {
-                        duration: totalMs,
-                        iterations: Infinity,
-                        easing: 'linear'
-                    }
-                );
-
-                c.marqueeEl.__panelMarqueeAnim = anim;
-            }
+                    return score;
+                },
+                holdMs: 2000,
+                innerSelector: '.panel-timetable-dest-marquee-inner, .panel-timetable-type-marquee-inner',
+                maxAnimations: maxAnims,
+                minTravelMs: 1200,
+                selector: '.panel-timetable-dest-marquee, .panel-timetable-type-marquee',
+                speedPxPerSec: 30
+            });
         } catch {
             // ignore
         }
