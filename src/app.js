@@ -74,6 +74,7 @@ import { createReachableStopsOverlayRenderer } from './features/search/reachable
 import { createSearchMapBridge } from './features/search/searchMapBridge.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
 import { createSearchSelectionController } from './features/search/searchSelectionController.js';
+import { createSelectionEffectsController } from './features/selection/selectionEffectsController.js';
 import {
     mountAdaptiveViewportToggle,
     mountAppearanceToggle,
@@ -2618,61 +2619,37 @@ const initMapApp = async () => {
         if (menu && typeof menu.clearActive === 'function') menu.clearActive();
     }
 
-    let applySelectionEffectsRafId = null;
-    const applySelectionEffects = () => {
-        if (applySelectionEffectsRafId != null) cancelAnimationFrame(applySelectionEffectsRafId);
-        applySelectionEffectsRafId = requestAnimationFrame(() => {
-            applySelectionEffectsRafId = null;
-            applyBaseLayerVisibilityFilters();
-            applyLineSelectionStyle();
-            applyStationSelectionStyle();
-            updateSelectedStationCurrentPopup();
-            applyTransferStationLabelCollapse();
-            updateSelectedStationLabelClass();
-            updateMultiSelectStationLabelChips();
-            scheduleSelectionLayerRefresh();
-            updateSelectionBadge();
-            try {
-                const lineIds = (() => {
-                    if (isMultiSelectModeEnabled()) {
-                        const ids = Array.from(getBaseMultiSelectedLineIds()).map(String).filter(Boolean);
-                        if (ids.length) return ids;
-                    }
-                    if (selectedLineId) {
-                        if (selectedStationLineIds && selectedStationLineIds.size > 1) return Array.from(selectedStationLineIds).map(String).filter(Boolean);
-                        return [String(selectedLineId)];
-                    }
-                    if (selectedStationLineIds && selectedStationLineIds.size) {
-                        return Array.from(selectedStationLineIds).map(String).filter(Boolean);
-                    }
-                    if (selectedCompany && enabledLineIdsByCompany && enabledLineIdsByCompany.has(selectedCompany)) {
-                        return Array.from(enabledLineIdsByCompany.get(selectedCompany) || []).map(String).filter(Boolean);
-                    }
-                    return [];
-                })();
-
-                if (!lineIds.length) {
-                    window.dispatchEvent(new CustomEvent('__TokyoRailBaseHighlightCleared'));
-                    return;
-                }
-
-                const kind = isMultiSelectModeEnabled() && getBaseMultiSelectedLineIds().size
-                    ? 'multi-base'
-                    : (selectedLineId ? 'line' : (selectedCompany ? 'company' : (selectedStationLineIds && selectedStationLineIds.size ? 'station' : 'unknown')));
-                window.dispatchEvent(new CustomEvent('__TokyoRailBaseHighlightUpdated', {
-                    detail: {
-                        kind,
-                        lineIds,
-                        selectedLineId: selectedLineId ? String(selectedLineId) : null,
-                        selectedCompany: selectedCompany ? String(selectedCompany) : null,
-                        selectedStationId: selectedStationId ? String(selectedStationId) : null,
-                    }
-                }));
-            } catch {
-                // ignore
-            }
-        });
-    };
+    const selectionEffectsController = createSelectionEffectsController({
+        cancelFrame: (frameId) => cancelAnimationFrame(frameId),
+        effects: {
+            applyBaseLayerVisibilityFilters,
+            applyLineSelectionStyle,
+            applyStationSelectionStyle,
+            updateSelectedStationCurrentPopup,
+            applyTransferStationLabelCollapse,
+            updateSelectedStationLabelClass,
+            updateMultiSelectStationLabelChips,
+            scheduleSelectionLayerRefresh,
+            updateSelectionBadge
+        },
+        emitBaseHighlightCleared: () => {
+            window.dispatchEvent(new CustomEvent('__TokyoRailBaseHighlightCleared'));
+        },
+        emitBaseHighlightUpdated: (detail) => {
+            window.dispatchEvent(new CustomEvent('__TokyoRailBaseHighlightUpdated', { detail }));
+        },
+        getBaseMultiSelectedLineIds,
+        getEnabledLineIdsByCompany: () => enabledLineIdsByCompany,
+        getSelectionSnapshot: () => ({
+            selectedCompany,
+            selectedLineId,
+            selectedStationLineIds,
+            selectedStationId
+        }),
+        isMultiSelectModeEnabled,
+        requestFrame: (callback) => requestAnimationFrame(callback)
+    });
+    const applySelectionEffects = () => selectionEffectsController.apply();
 
     createHighlightFeature({
         store: appStore,

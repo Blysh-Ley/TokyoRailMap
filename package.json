@@ -10,7 +10,7 @@
     "bp": "npm version patch && npm run buildall",
     "bmm": "npm version minor && npm run buildall",
     "bm": "npm version major && npm run buildall",
-    "test": "node tests/routePlanningDomain.smoke.mjs && node tests/hoverHighlightBoundary.smoke.mjs && node tests/routePreviewSelection.smoke.mjs"
+    "test": "node tests/routePlanningDomain.smoke.mjs && node tests/hoverHighlightBoundary.smoke.mjs && node tests/routePreviewSelection.smoke.mjs && node tests/selectionEffectsController.smoke.mjs"
   },
   "repository": {
     "type": "git",
