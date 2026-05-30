@@ -5757,10 +5757,12 @@ export function createPanel(options = {}) {
                     const remain = Math.max(0, MAX_PANEL_MARQUEE_ANIMS - used);
                     applyTimetableDestMarquees(rootEl, remain);
                     hookTimetableScrollMarquee(rootEl);
+                    return used;
                 },
                 cancelFrame: window.cancelAnimationFrame?.bind(window),
                 rafKey: PANEL_MARQUEE_RAF_KEY,
-                requestFrame: window.requestAnimationFrame?.bind(window)
+                requestFrame: window.requestAnimationFrame?.bind(window),
+                retryDelaysMs: [120, 360, 900]
             });
         } catch {
             // ignore
@@ -5771,7 +5773,6 @@ export function createPanel(options = {}) {
         try {
             if (!rootEl || !(rootEl instanceof Element)) return 0;
             if (typeof window === 'undefined') return 0;
-            if (!('animate' in Element.prototype)) return 0;
 
             const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
             if (reduceMotion) return 0;
@@ -5793,14 +5794,13 @@ export function createPanel(options = {}) {
 
     const applyTimetableDestMarquees = (rootEl, maxAnims = MAX_PANEL_MARQUEE_ANIMS) => {
         try {
-            if (!rootEl || !(rootEl instanceof Element)) return;
-            if (typeof window === 'undefined') return;
-            if (!('animate' in Element.prototype)) return;
+            if (!rootEl || !(rootEl instanceof Element)) return 0;
+            if (typeof window === 'undefined') return 0;
 
             const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-            if (reduceMotion) return;
+            if (reduceMotion) return 0;
 
-            applyTextMarquees(rootEl, {
+            return applyTextMarquees(rootEl, {
                 animationKey: PANEL_MARQUEE_ANIMATION_KEY,
                 getScore: ({ marqueeEl }) => {
                     const rowEl = marqueeEl.closest?.('.panel-timetable-row');
@@ -5826,6 +5826,7 @@ export function createPanel(options = {}) {
             });
         } catch {
             // ignore
+            return 0;
         }
     };
 

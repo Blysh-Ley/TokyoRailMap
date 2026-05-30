@@ -1,6 +1,7 @@
 const DEFAULT_ANIMATION_KEY = '__textMarqueeAnim';
 const DEFAULT_RAF_KEY = '__textMarqueeRafId';
 const DEFAULT_HOLD_MS = 2000;
+const DEFAULT_END_HOLD_MS = 2000;
 const DEFAULT_MIN_TRAVEL_MS = 1200;
 const DEFAULT_SPEED_PX_PER_SEC = 30;
 
@@ -30,29 +31,27 @@ export const measureTextMarquee = (marqueeEl, innerEl) => {
 
 export const buildTextMarqueeAnimation = ({
     distancePx,
+    endHoldMs = DEFAULT_END_HOLD_MS,
     holdMs = DEFAULT_HOLD_MS,
     minTravelMs = DEFAULT_MIN_TRAVEL_MS,
     speedPxPerSec = DEFAULT_SPEED_PX_PER_SEC
 } = {}) => {
     const distance = Math.max(0, Number(distancePx) || 0);
     const hold = Math.max(0, Number(holdMs) || 0);
+    const endHold = Math.max(0, Number(endHoldMs) || 0);
     const speed = Math.max(1, Number(speedPxPerSec) || DEFAULT_SPEED_PX_PER_SEC);
     const minTravel = Math.max(0, Number(minTravelMs) || 0);
     const travelMs = Math.max(minTravel, Math.round((distance / speed) * 1000));
-    const totalMs = Math.max(1, hold + travelMs + hold + hold);
+    const totalMs = Math.max(1, hold + travelMs + endHold);
     const startHoldOffset = hold / totalMs;
     const endMoveOffset = (hold + travelMs) / totalMs;
-    const endHoldOffset = (hold + travelMs + hold) / totalMs;
-    const resetOffset = Math.min(0.999, endHoldOffset + 0.001);
 
     return {
         keyframes: [
             { transform: 'translateX(0px)', offset: 0 },
             { transform: 'translateX(0px)', offset: startHoldOffset },
             { transform: `translateX(${-distance}px)`, offset: endMoveOffset },
-            { transform: `translateX(${-distance}px)`, offset: endHoldOffset },
-            { transform: 'translateX(0px)', offset: resetOffset },
-            { transform: 'translateX(0px)', offset: 1 }
+            { transform: `translateX(${-distance}px)`, offset: 1 }
         ],
         options: {
             duration: totalMs,
@@ -77,6 +76,7 @@ export const cancelTextMarquee = (marqueeEl, {
 
 export const startTextMarquee = ({
     animationKey = DEFAULT_ANIMATION_KEY,
+    endHoldMs = DEFAULT_END_HOLD_MS,
     holdMs = DEFAULT_HOLD_MS,
     innerEl,
     marqueeEl,
@@ -92,6 +92,7 @@ export const startTextMarquee = ({
 
     const { keyframes, options } = buildTextMarqueeAnimation({
         distancePx,
+        endHoldMs,
         holdMs,
         minTravelMs,
         speedPxPerSec
@@ -103,6 +104,7 @@ export const startTextMarquee = ({
 
 export const applyTextMarquees = (rootEl, {
     animationKey = DEFAULT_ANIMATION_KEY,
+    endHoldMs = DEFAULT_END_HOLD_MS,
     getScore,
     holdMs = DEFAULT_HOLD_MS,
     innerSelector,
@@ -140,6 +142,7 @@ export const applyTextMarquees = (rootEl, {
         if (started >= maxAnimations) break;
         const ok = startTextMarquee({
             animationKey,
+            endHoldMs,
             holdMs,
             innerEl: candidate.innerEl,
             marqueeEl: candidate.marqueeEl,
@@ -154,15 +157,13 @@ export const applyTextMarquees = (rootEl, {
 export const scheduleTextMarqueeApply = (rootEl, {
     apply,
     cancelFrame,
+    clearTimer = globalThis.clearTimeout,
     rafKey = DEFAULT_RAF_KEY,
-    requestFrame
+    requestFrame,
+    retryDelaysMs = [],
+    setTimer = globalThis.setTimeout
 } = {}) => {
     if (!rootEl || typeof apply !== 'function') return false;
-    if (typeof requestFrame !== 'function') {
-        apply(rootEl);
-        return true;
-    }
-
     const cancel = typeof cancelFrame === 'function' ? cancelFrame : null;
     if (rootEl[rafKey]) {
         try {
@@ -173,10 +174,48 @@ export const scheduleTextMarqueeApply = (rootEl, {
         rootEl[rafKey] = 0;
     }
 
+    const timerKey = `${rafKey}Timers`;
+    const timers = Array.isArray(rootEl[timerKey]) ? rootEl[timerKey] : [];
+    while (timers.length) {
+        const timerId = timers.pop();
+        try {
+            if (typeof clearTimer === 'function') clearTimer(timerId);
+        } catch {
+            // ignore
+        }
+    }
+    rootEl[timerKey] = timers;
+
+    const delays = Array.isArray(retryDelaysMs)
+        ? retryDelaysMs.map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0)
+        : [];
+    let retryIndex = 0;
+
+    const runApply = () => {
+        const started = Number(apply(rootEl)) || 0;
+        if (started > 0 || retryIndex >= delays.length) return started;
+        if (typeof setTimer !== 'function') return started;
+
+        const delay = delays[retryIndex];
+        retryIndex += 1;
+        const timerId = setTimer(() => {
+            const index = timers.indexOf(timerId);
+            if (index >= 0) timers.splice(index, 1);
+            runApply();
+        }, delay);
+        timers.push(timerId);
+        return started;
+    };
+
+    if (typeof requestFrame !== 'function') {
+        runApply();
+        return true;
+    }
+
     rootEl[rafKey] = requestFrame(() => {
         rootEl[rafKey] = requestFrame(() => {
             rootEl[rafKey] = 0;
-            apply(rootEl);
+            runApply();
         });
     });
     return true;

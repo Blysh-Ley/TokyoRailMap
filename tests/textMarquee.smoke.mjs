@@ -33,11 +33,18 @@ const createElement = ({
 {
     const animation = buildTextMarqueeAnimation({
         distancePx: 70,
+        endHoldMs: 2000,
         holdMs: 2000,
         minTravelMs: 1200,
         speedPxPerSec: 35
     });
-    assert.equal(animation.keyframes[2].transform, 'translateX(-70px)');
+    assert.deepEqual(animation.keyframes.map((frame) => frame.transform), [
+        'translateX(0px)',
+        'translateX(0px)',
+        'translateX(-70px)',
+        'translateX(-70px)'
+    ]);
+    assert.equal(animation.keyframes.at(-1).offset, 1);
     assert.equal(animation.options.iterations, Infinity);
     assert.equal(animation.options.easing, 'linear');
 }
@@ -120,6 +127,39 @@ const createElement = ({
     assert.equal(applied.length, 0);
     frames.shift()();
     assert.deepEqual(applied, ['apply']);
+}
+
+{
+    const frames = [];
+    const timers = [];
+    const applied = [];
+    const rootEl = {};
+    const requestFrame = (callback) => {
+        frames.push(callback);
+        return frames.length;
+    };
+    const setTimer = (callback, delay) => {
+        timers.push({ callback, delay });
+        return timers.length;
+    };
+
+    scheduleTextMarqueeApply(rootEl, {
+        apply: () => {
+            applied.push('apply');
+            return applied.length >= 2 ? 1 : 0;
+        },
+        requestFrame,
+        retryDelaysMs: [120, 360],
+        setTimer
+    });
+    frames.shift()();
+    frames.shift()();
+    assert.deepEqual(applied, ['apply']);
+    assert.equal(timers.length, 1);
+    assert.equal(timers[0].delay, 120);
+    timers.shift().callback();
+    assert.deepEqual(applied, ['apply', 'apply']);
+    assert.equal(timers.length, 0);
 }
 
 console.log('text marquee smoke ok');
