@@ -2180,26 +2180,6 @@
         lastBaseHighlightAt = 0;
     });
 
-    const syncBaseHighlightFromRuntime = () => {
-        try {
-            const snapshot = window?.TokyoRailBaseHighlightRuntime?.getSnapshot?.();
-            const ids = Array.isArray(snapshot?.lineIds) ? snapshot.lineIds.map(String).filter(Boolean) : [];
-            if (!ids.length) {
-                lastBaseHighlight = null;
-                lastBaseHighlightAt = 0;
-                return;
-            }
-            const kind = String(snapshot?.kind || '').trim() || 'unknown';
-            const selectedLineId = snapshot?.selectedLineId ? String(snapshot.selectedLineId) : '';
-            const selectedCompany = snapshot?.selectedCompany ? String(snapshot.selectedCompany) : '';
-            const label = selectedLineId || selectedCompany || kind;
-            lastBaseHighlight = { kind, lineIds: new Set(ids), label };
-            lastBaseHighlightAt = Date.now();
-        } catch {
-            // ignore
-        }
-    };
-
     const isTripPreviewActiveNow = () => {
         try {
             const map = getRuntimeBaseMap();
@@ -2967,7 +2947,6 @@ const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, low
     };
 
     const exportCurrentSelection = async (options) => {
-        syncBaseHighlightFromRuntime();
         const tripActive = isTripPreviewActiveNow();
         const baseActive = !!(lastBaseHighlight && lastBaseHighlightAt && lastBaseHighlight.lineIds instanceof Set && lastBaseHighlight.lineIds.size);
         const multiSelect = isMultiSelectModeEnabledNow();

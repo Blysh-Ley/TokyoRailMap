@@ -17,14 +17,13 @@ globalThis.CustomEvent = TestCustomEvent;
 
 try {
     const events = [];
-    const target = {
-        dispatchEvent: (event) => {
-            events.push(event);
-            return true;
-        }
-    };
     const bridge = createBaseHighlightEventBridge({
-        target
+        target: {
+            dispatchEvent: (event) => {
+                events.push(event);
+                return true;
+            }
+        }
     });
 
     const detail = {
@@ -36,11 +35,7 @@ try {
     };
 
     assert.equal(bridge.update(detail), true);
-    assert.deepEqual(bridge.getSnapshot(), detail);
-    assert.deepEqual(target.TokyoRailBaseHighlightRuntime.getSnapshot(), detail);
     assert.equal(bridge.clear(), true);
-    assert.equal(bridge.getSnapshot(), null);
-    assert.equal(target.TokyoRailBaseHighlightRuntime.getSnapshot(), null);
 
     assert.equal(events[0].type, BASE_HIGHLIGHT_UPDATED_EVENT);
     assert.deepEqual(events[0].detail, detail);
@@ -48,31 +43,6 @@ try {
     assert.equal(events[1].detail, undefined);
 
     assert.equal(createBaseHighlightEventBridge({ target: null }).update(detail), false);
-
-    const fallbackEvents = [];
-    const fallbackBridge = createBaseHighlightEventBridge({
-        target: {
-            document: {
-                createEvent: () => ({
-                    initCustomEvent(type, bubbles, cancelable, eventDetail) {
-                        this.type = type;
-                        this.bubbles = bubbles;
-                        this.cancelable = cancelable;
-                        this.detail = eventDetail;
-                    }
-                })
-            },
-            dispatchEvent: (event) => {
-                fallbackEvents.push(event);
-                return true;
-            }
-        }
-    });
-
-    delete globalThis.CustomEvent;
-    assert.equal(fallbackBridge.update(detail), true);
-    assert.equal(fallbackEvents[0].type, BASE_HIGHLIGHT_UPDATED_EVENT);
-    assert.deepEqual(fallbackEvents[0].detail, detail);
 } finally {
     if (PreviousCustomEvent === undefined) {
         delete globalThis.CustomEvent;
