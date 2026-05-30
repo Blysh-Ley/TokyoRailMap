@@ -68,6 +68,7 @@ import { createLayerFeature } from './features/layer/layerFeature.js';
 import { bindMapInteractions } from './features/map-interactions/mapInteractionController.js';
 import { createStationCoordinateAdapter } from './features/layer/stationCoordinateAdapter.js';
 import { createRouteFeature } from './features/route/routeFeature.js';
+import { createRoutePreviewBridgeApi } from './features/route/routePreviewBridgeApi.js';
 import { createRoutePreviewRuntimeController } from './features/route/routePreviewRuntimeController.js';
 import { createReachableStopsOverlayRenderer } from './features/search/reachableStopsOverlayRenderer.js';
 import { createSearchMapBridge } from './features/search/searchMapBridge.js';
@@ -3065,34 +3066,11 @@ const initMapApp = async () => {
     hoverBridgeApi.endHoverPreview = hoverBridgeApi.endPreview;
     hoverBridgeApi.commitHoverPreview = hoverBridgeApi.commitPreview;
 
-    const routePreviewBridgeApi = {
-        previewTripPath: (payload, options = {}) => {
-            const interaction = String(payload?.__previewInteraction || payload?.previewInteraction || '').trim() || '';
-            const inferredFitMode = interaction === 'click'
-                ? 'commit'
-                : (interaction === 'hover' ? 'preview' : 'none');
-            const fitMode = String(options?.fitMode || payload?.fitMode || inferredFitMode).trim() || 'none';
-            const nextPayload = {
-                ...(payload || {}),
-                __previewSource: 'journey',
-                fitMode
-            };
-            if (options?.clearBefore === true) {
-                if (!isMultiSelectModeEnabled()) {
-                    clearTripPathPreview({ source: 'journey' });
-                }
-            }
-            previewTripPath(nextPayload, options);
-        },
-        clearTripPathPreview: () => {
-            clearTripPathPreview({ source: 'journey' });
-        },
-        clearTripPathPreviewBySource: (source) => {
-            const s = String(source || '').trim();
-            if (!s) return;
-            clearTripPathPreview({ source: s });
-        }
-    };
+    const routePreviewBridgeApi = createRoutePreviewBridgeApi({
+        previewTripPath: (payload, options) => previewTripPath(payload, options),
+        clearTripPathPreview: (options) => clearTripPathPreview(options),
+        isMultiSelectModeEnabled
+    });
 
     const journeyPickBridgeApi = {
         showJourneyPickPin: async (payload = {}) => {
@@ -3873,7 +3851,6 @@ const initMapApp = async () => {
             }
         });
 
-        const rebuildTripPreviewFromMultiSelections = routePreviewController.rebuildTripPreviewFromMultiSelections;
         clearTripPathPreview = routePreviewController.clearTripPathPreview;
         previewTripPath = routePreviewController.previewTripPath;
         clearDirHeaderPreview = routePreviewController.clearDirHeaderPreview;
