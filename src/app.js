@@ -89,6 +89,13 @@ import { createRoutePreviewViewportController } from './ui/routePreviewViewport.
 import { createBasemapThemeRuntime } from './app/basemapThemeRuntime.js';
 import { registerDebugZoomTools } from './app/debugZoomTools.js';
 import { bindMapStartup } from './app/mapStartup.js';
+import {
+    bindMultiSelectLayerCommandRuntime,
+    bindMultiSelectModeEvents,
+    createMultiSelectLayersUpdatedEmitter,
+    registerMultiSelectModeInternalApi,
+    setMultiSelectGlobalEnabled
+} from './app/multiSelectEventsRuntime.js';
 import { registerTokyoRailMapRuntime } from './app/runtimeFacade.js';
 import { mountAppSettingsControls } from './app/settingsControlsRuntime.js';
 
@@ -134,10 +141,6 @@ const maplibregl = window.maplibregl;
 if (!maplibregl) {
     throw new Error('MapLibre GL JS 未加载：请检查 maplibre-gl.js 引入是否成功');
 }
-const MULTI_SELECT_EVENT = '__TokyoRailMultiSelectModeChanged';
-const MULTI_SELECT_LAYERS_EVENT = '__TokyoRailMultiSelectLayersUpdated';
-const MULTI_SELECT_LAYERS_COMMAND_EVENT = '__TokyoRailMultiSelectLayersCommand';
-const MULTI_SELECT_SHOW_ICONS_EVENT = '__TokyoRailMultiSelectShowIconsChanged';
 const HOVER_PREVIEW_MIN_ZOOM = 10;
 
 // /data/railways-order.json: [{ "jreast-yamanote": "1037" }, ...]
@@ -968,11 +971,7 @@ const initMapApp = async () => {
         if (multiSelectModeEnabled === next) return;
         multiSelectModeEnabled = next;
 
-        try {
-            window.__TokyoRailMultiSelectEnabled = next;
-        } catch {
-            // ignore
-        }
+        setMultiSelectGlobalEnabled(window, next);
 
         if (next) {
             hoverPreviewEnabledBeforeMultiSelect = isHoverPreviewEnabled();
@@ -989,22 +988,15 @@ const initMapApp = async () => {
         emitMultiSelectLayersUpdated();
     };
 
-    try {
-        window.__TokyoRailMultiSelectModeInternalAPI = {
-            setEnabledSilent: (enabled) => {
-                const next = enabled === true;
-                multiSelectModeEnabled = next;
-                try {
-                    window.__TokyoRailMultiSelectEnabled = next;
-                } catch {
-                    // ignore
-                }
-                appStore.dispatch(multiSelectSetEnabled(next));
-            }
-        };
-    } catch {
-        // ignore
-    }
+    registerMultiSelectModeInternalApi({
+        target: window,
+        setEnabledSilent: (enabled) => {
+            const next = enabled === true;
+            multiSelectModeEnabled = next;
+            setMultiSelectGlobalEnabled(window, next);
+            appStore.dispatch(multiSelectSetEnabled(next));
+        }
+    });
 
 
     const timetableCache = getGlobalTimetableCache({ maxBytes: 50 * 1024 * 1024, logFetch: true, logDiscover: true });
@@ -1423,19 +1415,11 @@ const initMapApp = async () => {
         });
     };
 
-    const emitMultiSelectLayersUpdated = () => {
-        try {
-            window.dispatchEvent(new CustomEvent(MULTI_SELECT_LAYERS_EVENT, {
-                detail: {
-                    ts: Date.now(),
-                    enabled: isMultiSelectModeEnabled(),
-                    items: buildMultiSelectLayerItems()
-                }
-            }));
-        } catch {
-            // ignore
-        }
-    };
+    const emitMultiSelectLayersUpdated = createMultiSelectLayersUpdatedEmitter({
+        target: window,
+        getEnabled: isMultiSelectModeEnabled,
+        getItems: buildMultiSelectLayerItems
+    });
 
     const normalizeArrayLike = (value) => {
         if (Array.isArray(value)) return value;
@@ -2406,20 +2390,15 @@ const initMapApp = async () => {
         setStationLabelMode = settingsControlsRuntime.setStationLabelMode;
     }
 
-    {
-        const initialMultiSelect = multiSelectModeEnabled;
-        multiSelectModeEnabled = false;
-        applyMultiSelectModeState(initialMultiSelect);
-
-        window.addEventListener(MULTI_SELECT_EVENT, (evt) => {
-            const enabled = evt?.detail?.enabled === true;
-            applyMultiSelectModeState(enabled);
-        });
-
-        window.addEventListener(MULTI_SELECT_SHOW_ICONS_EVENT, () => {
-            applySelectionEffects();
-        });
-    }
+    bindMultiSelectModeEvents({
+        target: window,
+        getInitialEnabled: () => multiSelectModeEnabled,
+        resetEnabledState: (enabled) => {
+            multiSelectModeEnabled = enabled === true;
+        },
+        applyEnabled: applyMultiSelectModeState,
+        onShowIconsChanged: applySelectionEffects
+    });
 
     let generatedLinesData = null;
     let generatedStationsData = null;
@@ -3074,20 +3053,10 @@ const initMapApp = async () => {
             return false;
         };
 
-        try {
-            window.__TokyoRailMultiSelectLayerControl = {
-                runCommand: (action, itemId) => runMultiSelectLayersCommand(action, itemId),
-                requestSync: () => emitMultiSelectLayersUpdated()
-            };
-        } catch {
-            // ignore
-        }
-
-        window.addEventListener(MULTI_SELECT_LAYERS_COMMAND_EVENT, (evt) => {
-            const action = String(evt?.detail?.action || '').trim();
-            const itemId = String(evt?.detail?.id || '').trim();
-            if (!action || !itemId) return;
-            runMultiSelectLayersCommand(action, itemId);
+        bindMultiSelectLayerCommandRuntime({
+            target: window,
+            emitLayersUpdated: emitMultiSelectLayersUpdated,
+            runCommand: runMultiSelectLayersCommand
         });
 
         const companyObj = {};
