@@ -1,4 +1,4 @@
-﻿import {
+import {
     COMPANY_LOGO_BASE_PATH,
     getCachedJson,
     getCompanyLogoCandidates,
@@ -73,6 +73,7 @@ import { createRouteFeature } from './features/route/routeFeature.js';
 import { createRoutePreviewBridgeApi } from './features/route/routePreviewBridgeApi.js';
 import { createRoutePreviewRuntimeController } from './features/route/routePreviewRuntimeController.js';
 import { createReachableStopsOverlayRenderer } from './features/search/reachableStopsOverlayRenderer.js';
+import { createTravelSearchMapRuntime } from './features/search/reachableStopsRuntime.js';
 import { createSearchMapBridge } from './features/search/searchMapBridge.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
 import { createSearchSelectionController } from './features/search/searchSelectionController.js';
@@ -95,6 +96,7 @@ import {
 import { createSelectionBadge } from './ui/selectionBadge.js';
 import { buildSelectionBadgeViewModel, createSelectionBadgeAdapter } from './ui/selectionBadgeAdapter.js';
 import { createStationLabelChipsAdapter } from './ui/layer/stationLabelChipsAdapter.js';
+import { createJourneyPickPinElement } from './ui/journeyPickPinAdapter.js';
 import { createRouteEndpointPopupRuntime } from './ui/routeEndpointPopups.js';
 import { createRoutePreviewViewportController } from './ui/routePreviewViewport.js';
 
@@ -407,8 +409,6 @@ const initMapApp = async () => {
     let selectedStationCurrentPopup = null;
     let selectedStationCurrentPopupStationId = null;
     let tripDetailStationTriangleMarker = null;
-    let journeyPickOriginPin = null;
-    let journeyPickDestinationPin = null;
     let baseMultiSelectionsByKey = new Map();
     let dirPreviewActive = false;
     let dirPreviewLineIds = null; // Set<string> | null
@@ -432,9 +432,7 @@ const initMapApp = async () => {
     let transferCapsuleBaseConnectionOrder = null;
     let transferCapsuleVisibleKey = '__init__';
     let layerFeature = null;
-    let reachableStopsOverlayVisibleKey = '__init__';
-    let reachableStopsLabelIds = null;
-    let reachableStopsExtremeLabelIds = null;
+    let travelSearchMapRuntime = null;
     let syncStationOffsetForTripPreviewState = () => {};
     let railwaysIndexByIdCachePromise = null;
     let multiSelectBaseTripPreviewSignature = '';
@@ -489,83 +487,6 @@ const initMapApp = async () => {
             // ignore
         }
         tripDetailStationTriangleMarker = null;
-    };
-
-    const clearJourneyPickPin = (type = null) => {
-        const t = String(type || '').trim().toLowerCase();
-        if (!t || t === 'origin') {
-            try {
-                journeyPickOriginPin?.remove?.();
-            } catch {
-                // ignore
-            }
-            journeyPickOriginPin = null;
-        }
-        if (!t || t === 'destination') {
-            try {
-                journeyPickDestinationPin?.remove?.();
-            } catch {
-                // ignore
-            }
-            journeyPickDestinationPin = null;
-        }
-    };
-
-    const showJourneyPickPin = async ({ lngLat, stationId, type = 'origin' } = {}) => {
-        const pinType = String(type || 'origin').trim().toLowerCase();
-        if (pinType !== 'origin' && pinType !== 'destination') return;
-
-        const sid = String(stationId || '').trim();
-        let coord = null;
-        if (Array.isArray(lngLat) && lngLat.length >= 2) {
-            const lng = Number(lngLat[0]);
-            const lat = Number(lngLat[1]);
-            if (Number.isFinite(lng) && Number.isFinite(lat)) coord = [lng, lat];
-        } else if (lngLat && typeof lngLat === 'object') {
-            const lng = Number(lngLat.lng ?? lngLat.lon ?? lngLat.longitude);
-            const lat = Number(lngLat.lat ?? lngLat.latitude);
-            if (Number.isFinite(lng) && Number.isFinite(lat)) coord = [lng, lat];
-        }
-
-        if (!coord && sid) {
-            const stationCoord = stationCoordById.get(sid);
-            if (Array.isArray(stationCoord) && stationCoord.length >= 2) {
-                const lng = Number(stationCoord[0]);
-                const lat = Number(stationCoord[1]);
-                if (Number.isFinite(lng) && Number.isFinite(lat)) coord = [lng, lat];
-            }
-        }
-
-        clearJourneyPickPin(pinType);
-        if (!coord) return;
-
-        const outer = document.createElement('div');
-        outer.className = `journey-pick-pin-marker journey-pick-pin-${pinType}`;
-        const icon = document.createElement('img');
-        icon.className = `journey-pick-pin-icon journey-pick-pin-icon-${pinType}`;
-        icon.alt = '';
-        outer.appendChild(icon);
-        try {
-            await setImageElementFromCache(icon, getIconCandidates('pin.svg'), {
-                cacheKey: 'icon:pin.svg',
-                fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('pin.svg'), { cacheKey: 'icon:pin.svg' })
-            });
-        } catch {
-            // ignore
-        }
-
-        try {
-            const marker = mapEngine.createMarker({ element: outer, anchor: 'bottom', offset: [0, 0] })
-                .setLngLat(coord);
-            mapEngine.addMarker(marker);
-            if (pinType === 'origin') {
-                journeyPickOriginPin = marker;
-            } else {
-                journeyPickDestinationPin = marker;
-            }
-        } catch {
-            // ignore
-        }
     };
 
     const showTripDetailStationIndicatorById = (stationId) => {
@@ -665,366 +586,6 @@ const initMapApp = async () => {
             }
         }
         return out;
-    };
-
-    const reachableStopsCircleRadiusMeters = (remainingMs) => {
-        const maxMinutes = 20;
-        const minMinutes = 5;
-        const remainingMinutes = Math.max(minMinutes, Number(remainingMs) / 60000);
-        const walkMinutes = Math.min(maxMinutes, remainingMinutes);
-        return walkMinutes * 50;
-    };
-
-    const getReachableStopsLabelIdSet = (geojson) => {
-        const features = Array.isArray(geojson?.features) ? geojson.features : [];
-        if (!features.length) return null;
-        const out = new Set();
-        for (const f of features) {
-            const sid = String(f?.properties?.id ?? f?.id ?? '').trim();
-            if (sid) out.add(sid);
-        }
-        return out.size ? out : null;
-    };
-
-    const getReachableStopsExtremeLabelIdSet = (geojson) => {
-        const features = Array.isArray(geojson?.features) ? geojson.features : [];
-        if (!features.length) return null;
-
-        let east = null;
-        let west = null;
-        let north = null;
-        let south = null;
-
-        const pick = (current, candidate, cmp) => {
-            if (!current) return candidate;
-            const res = cmp(candidate, current);
-            if (res > 0) return candidate;
-            if (res < 0) return current;
-            const aId = String(candidate?.id || '').trim();
-            const bId = String(current?.id || '').trim();
-            return aId && bId && aId < bId ? candidate : current;
-        };
-
-        for (const f of features) {
-            const c = f?.geometry?.coordinates;
-            if (!Array.isArray(c) || c.length < 2) continue;
-            const lng = Number(c[0]);
-            const lat = Number(c[1]);
-            if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
-            const sid = String(f?.properties?.id ?? f?.id ?? '').trim();
-            if (!sid) continue;
-            const item = { id: sid, lng, lat };
-            east = pick(east, item, (a, b) => a.lng - b.lng);
-            west = pick(west, item, (a, b) => b.lng - a.lng);
-            north = pick(north, item, (a, b) => a.lat - b.lat);
-            south = pick(south, item, (a, b) => b.lat - a.lat);
-        }
-
-        const out = new Set();
-        for (const it of [east, west, north, south]) {
-            if (it?.id) out.add(String(it.id));
-        }
-        return out.size ? out : null;
-    };
-
-    const applyReachableStopsLabelPriorityBoost = (extremeIds) => {
-        if (!Array.isArray(stationLabels) || !stationLabels.length) return;
-        const set = extremeIds instanceof Set ? extremeIds : null;
-        for (const item of stationLabels) {
-            const sid = String(item?.stationId || item?.props?.id || '').trim();
-            const boost = !!(sid && set && set.has(sid));
-            item.collisionPriorityBoost = boost ? 1 : 0;
-        }
-    };
-
-    const destinationPointFromBearing = (lng, lat, distanceMeters, bearingRad) => {
-        const earthRadius = 6371000;
-        const delta = Number(distanceMeters) / earthRadius;
-        const phi1 = lat * Math.PI / 180;
-        const lambda1 = lng * Math.PI / 180;
-        const sinPhi1 = Math.sin(phi1);
-        const cosPhi1 = Math.cos(phi1);
-        const sinDelta = Math.sin(delta);
-        const cosDelta = Math.cos(delta);
-        const sinPhi2 = sinPhi1 * cosDelta + cosPhi1 * sinDelta * Math.cos(bearingRad);
-        const phi2 = Math.asin(Math.max(-1, Math.min(1, sinPhi2)));
-        const y = Math.sin(bearingRad) * sinDelta * cosPhi1;
-        const x = cosDelta - sinPhi1 * Math.sin(phi2);
-        const lambda2 = lambda1 + Math.atan2(y, x);
-        return [lambda2 * 180 / Math.PI, phi2 * 180 / Math.PI];
-    };
-
-
-    const generateDynamicColorExpressionPalette = (countsArray) => {
-        // 1. 获取并排序所有实际存在的班次频次
-        const uniqueCounts = [...new Set(countsArray)].sort((a, b) => a - b);
-        
-
-        const PALETTE =[
-            '#BAE1FF',
-            '#B5EAD7',
-            '#FFFFBA',
-            '#FFDFBA',
-            '#FFB7B2',
-            '#E0BBE4'
-        ];;
-
-
-        if (uniqueCounts.length === 0) return PALETTE[0]; 
-        if (uniqueCounts.length === 1) return PALETTE[PALETTE.length - 1]; 
-
-        const expression = ['interpolate', ['linear'], ['get', 'shiftCount']];
-        let lastVal = -1;
-        
-
-        const steps = PALETTE.length;
-        
-        for (let i = 0; i < steps; i++) {
-            // 精确计算当前颜色应该映射到哪个分位数 (0%, 20%, 40%, 60%, 80%, 100%)
-            const percentileIndex = (i / (steps - 1)) * (uniqueCounts.length - 1);
-            const lower = Math.floor(percentileIndex);
-            const upper = Math.ceil(percentileIndex);
-            const weight = percentileIndex - lower;
-            
-
-            let currentVal = uniqueCounts[lower] * (1 - weight) + uniqueCounts[upper] * weight;
-            currentVal = Math.round(currentVal * 100) / 100;
-
-
-            if (currentVal <= lastVal) {
-                currentVal = lastVal + 0.1; 
-            }
-
-            expression.push(currentVal, PALETTE[i]);
-            lastVal = currentVal;
-        }
-
-        return expression;
-    };
-
-    // 生成动态分位数的颜色插值表达式
-    const generateDynamicColorExpression = (countsArray) => {
-
-        const uniqueCounts = [...new Set(countsArray)].sort((a, b) => a - b);
-        
-
-        if (uniqueCounts.length === 0) return '#f0f8ff'; // 淡黄兜底
-        if (uniqueCounts.length === 1) return '#f0f8ff';
-
-
-        const maxSteps = 10;
-        const steps = Math.min(maxSteps, uniqueCounts.length);
-        
-
-        const colors = [];
-        for (let i = 0; i < steps; i++) {
-            const ratio = i / (steps - 1);
-            const h = Math.round(220 * (1 - ratio));
-            const s = 100;
-            const l = Math.round(65 - 15 * ratio);
-            colors.push(`hsl(${h}, ${s}%, ${l}%)`);
-        }
-
-        const expression = ['interpolate', ['linear'], ['get', 'shiftCount']];
-        let lastVal = -1;
-        const debugBuckets = [];
-
-        for (let i = 0; i < steps; i++) {
-            let currentVal;
-            
-            if (uniqueCounts.length === steps) {
-                // 数量本来就少，直接挨个取
-                currentVal = uniqueCounts[i];
-            } else {
-
-                const percentileIndex = (i / (steps - 1)) * (uniqueCounts.length - 1);
-                const lower = Math.floor(percentileIndex);
-                const upper = Math.ceil(percentileIndex);
-                const weight = percentileIndex - lower;
-
-                currentVal = uniqueCounts[lower] * (1 - weight) + uniqueCounts[upper] * weight;
-            }
-
-
-            currentVal = Math.round(currentVal * 100) / 100;
-
-
-            if (currentVal > lastVal) {
-                expression.push(currentVal, colors[i]);
-                lastVal = currentVal;
-
-                debugBuckets.push({
-                    '档位': debugBuckets.length + 1,
-                    '班次数量 (shiftCount)': currentVal,
-                    '对应颜色 (RGB)': colors[i]
-                });
-                
-                lastVal = currentVal;
-            }
-        }
-        // 如果过滤后剩下的有效档位过少，直接返回单一颜色兜底
-        if (expression.length <= 5) {
-            return colors[colors.length - 1] || '#FF0000';
-        }
-
-        return expression;
-    };
-
-    const generateAbsoluteColorExpressionAbsolute = (countsArray) => {
-    // 1. 定义你的绝对频次锚点 (依据你之前的 18h / 3min 逻辑)
-
-        const fixedSteps = [0, 18, 36, 54, 72, 108, 180, 360];
-        
-        // 2. 准备颜色数组
-        const steps = fixedSteps.length;
-        const colors = [];
-        for (let i = 0; i < steps; i++) {
-            const ratio = i / (steps - 1);
-            const h = Math.round(50 * (1 - ratio));
-            const s = 100;
-            const l = Math.round(80 - 30 * ratio);
-            colors.push(`hsl(${h}, ${s}%, ${l}%)`);
-        }
-
-
-        const expression = ['interpolate', ['linear'], ['get', 'shiftCount']];
-        
-
-        for (let i = 0; i < steps; i++) {
-            expression.push(fixedSteps[i], colors[i]);
-        }
-
-        // 调试打印：让你看到目前的班次落在哪个档位
-        const validCounts = countsArray.filter(c => c > 0);
-        const max = Math.max(...validCounts, 0);
-
-        return expression;
-    };
-
-    const buildReachableStopsOverlayGeoJSON = (payload = {}) => {
-        const reachableStops = payload?.reachableStops;
-        const remainingMsByStop = payload?.remainingMsByStop instanceof Map
-            ? payload.remainingMsByStop
-            : new Map();
-
-        const stopIds = Array.isArray(reachableStops)
-            ? reachableStops
-            : (reachableStops instanceof Set ? Array.from(reachableStops) : Object.keys(payload?.remainingMsByStop || {}));
-
-        const features = [];
-        const allShiftCounts = []; 
-
-        for (const rawStopId of stopIds) {
-            const stopId = String(rawStopId || '').trim();
-            if (!stopId) continue;
-
-            const shiftsArray = remainingMsByStop.get(stopId);
-            if (!Array.isArray(shiftsArray) || shiftsArray.length === 0) continue;
-
-            const coord = stationCoordById.get(stopId) || stationCoordByIdBase.get(stopId);
-            if (!Array.isArray(coord) || coord.length < 2) continue;
-
-            const lng = Number(coord[0]);
-            const lat = Number(coord[1]);
-            if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
-
-            for (const shift of shiftsArray) {
-                const remainingMs = Number(shift.remainMs);
-                const shiftCount = Number(shift.count) || 0; // 单独提取这一个时间圈的班次数
-                
-                if (!Number.isFinite(remainingMs) || remainingMs < 0) continue;
-
-                if (shiftCount > 0) {
-                    allShiftCounts.push(shiftCount);
-                }
-
-                const radiusMeters = reachableStopsCircleRadiusMeters(remainingMs);
-                const sortKey = (shiftCount * 100000) - radiusMeters;
-                features.push({
-                    type: 'Feature',
-                    properties: {
-                        id: stopId,
-                        remainingMs,
-                        radiusMeters,                  
-                        shiftCount,
-                        sortKey
-                    },
-                    geometry: {
-                        type: 'Point',
-                        coordinates: [lng, lat]
-                    }
-                });
-            }
-        }
-        features.sort((a, b) => {
-            // 1. 主要条件：按班次数升序排序。保证低班次(黄色)先渲染在底层，高班次(红色/橙色)后渲染在顶层
-            if (a.properties.shiftCount !== b.properties.shiftCount) {
-                return a.properties.shiftCount - b.properties.shiftCount;
-            }
-            // 2. 次要条件：如果班次数相同(颜色相同)，按半径降序排序。保证大圈在底层，小圈在顶层
-            return b.properties.radiusMeters - a.properties.radiusMeters;
-        });
-        // 数据的汇总数组，生成独属于当下的动态颜色表达式
-        const dynamicColorExpression = generateAbsoluteColorExpressionAbsolute(allShiftCounts);
-
-        return {
-            geojson: { type: 'FeatureCollection', features },
-            dynamicColorExpression
-        };
-    };
-
-    const ensureReachableStopsOverlayLayers = (dynamicColorExpression, baseOpacity = 0.12) => {
-        reachableStopsOverlayRenderer.ensureLayers(dynamicColorExpression, baseOpacity);
-
-    };
-
-    let lastReachableStopsPayload = null;
-
-    const fitToReachableStopsBounds = (geojson, options = {}) => {
-        reachableStopsOverlayRenderer.fitToBounds(geojson, options);
-    };
-
-    const clearReachableStopsOverlay = () => {
-        reachableStopsOverlayVisibleKey = '__empty__';
-        lastReachableStopsPayload = null;
-        reachableStopsLabelIds = null;
-        reachableStopsOverlayRenderer.clear();
-        scheduleCollisionLayerRefresh();
-    };
-
-    const refreshReachableStopsOverlay = async (payload = null, options = {}) => {
-        if (!map) return;
-        
-        if (payload) {
-            lastReachableStopsPayload = payload;
-        } else {
-            payload = lastReachableStopsPayload;
-        }
-        
-        if (!payload) return;
-
-        const data = buildReachableStopsOverlayGeoJSON(payload);
-        ensureReachableStopsOverlayLayers(data.dynamicColorExpression, payload.opacity);
-
-        const nextKey = JSON.stringify((Array.isArray(data?.geojson?.features) ? data.geojson.features : []).map((f) => [
-            f?.properties?.id, 
-            Math.round(Number(f?.properties?.remainingMs) || 0),
-            (f?.geometry?.coordinates?.[0] || 0).toFixed(6),
-            (f?.geometry?.coordinates?.[1] || 0).toFixed(6)
-        ]));
-        if (nextKey === reachableStopsOverlayVisibleKey) return;
-        reachableStopsOverlayVisibleKey = nextKey;
-
-        reachableStopsOverlayRenderer.setData(data.geojson);
-
-        reachableStopsLabelIds = getReachableStopsLabelIdSet(data.geojson);
-        reachableStopsExtremeLabelIds = getReachableStopsExtremeLabelIdSet(data.geojson);
-        applyReachableStopsLabelPriorityBoost(reachableStopsExtremeLabelIds);
-        scheduleCollisionLayerRefresh();
-
-        if (options?.fitBounds !== false && payload?.fitBounds !== false) {
-            fitToReachableStopsBounds(data.geojson);
-        }
     };
 
     const toggleBaseMultiSelection = (key, lineIds, kind = 'line', displayName = '') => {
@@ -1460,6 +1021,15 @@ const initMapApp = async () => {
         scheduleCollisionLayerRefresh();
         scheduleTransferCapsuleRefresh();
     };
+
+    travelSearchMapRuntime = createTravelSearchMapRuntime({
+        mapEngine,
+        overlayRenderer: reachableStopsOverlayRenderer,
+        getStationCoord: (stationId) => stationCoordById.get(stationId) || stationCoordByIdBase.get(stationId),
+        getStationLabels: () => stationLabels,
+        createJourneyPickPinElement,
+        scheduleCollisionLayerRefresh
+    });
 
     const applyMultiSelectBaseLayerState = (enabled) => {
         const active = enabled === true;
@@ -2776,10 +2346,10 @@ const initMapApp = async () => {
 
     const journeyPickBridgeApi = {
         showJourneyPickPin: async (payload = {}) => {
-            await showJourneyPickPin(payload || {});
+            await travelSearchMapRuntime?.showJourneyPickPin?.(payload || {});
         },
         clearJourneyPickPin: (type) => {
-            clearJourneyPickPin(type);
+            travelSearchMapRuntime?.clearJourneyPickPin?.(type);
         },
         onMapPickClick: (listener) => {
             if (typeof listener !== 'function') return false;
@@ -2790,10 +2360,10 @@ const initMapApp = async () => {
 
     const reachableStopsBridgeApi = {
         updateReachableStopsOverlay: async (payload = {}) => {
-            await refreshReachableStopsOverlay(payload || {}, { fitBounds: true });
+            await travelSearchMapRuntime?.updateReachableStopsOverlay?.(payload || {});
         },
         clearReachableStopsOverlay: () => {
-            clearReachableStopsOverlay();
+            travelSearchMapRuntime?.clearReachableStopsOverlay?.();
         }
     };
 
@@ -4032,9 +3602,7 @@ const initMapApp = async () => {
             
             // 地图缩放引发坐标变动时，实时触发热力图及源数据的刷新
             try {
-                if (typeof refreshReachableStopsOverlay === 'function') {
-                    refreshReachableStopsOverlay(undefined, { fitBounds: false });
-                }
+                travelSearchMapRuntime?.refreshReachableStopsOverlay?.(undefined, { fitBounds: false });
             } catch (e) {
                 // ignore
             }
@@ -4121,6 +3689,7 @@ const initMapApp = async () => {
                         return null;
                     })();
 
+                    const reachableStopsLabelIds = travelSearchMapRuntime?.getReachableStopsLabelIds?.() || null;
                     if (!(reachableStopsLabelIds instanceof Set)) return baseVisible;
                     if (!(baseVisible instanceof Set)) return reachableStopsLabelIds;
 
