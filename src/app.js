@@ -90,6 +90,7 @@ import {
     resolveTripPreviewPayloadSource as resolveRoutePreviewPayloadSource
 } from './domain/routePreviewSelection.js';
 import { createSelectionBadge } from './ui/selectionBadge.js';
+import { buildSelectionBadgeViewModel, createSelectionBadgeAdapter } from './ui/selectionBadgeAdapter.js';
 import { createRouteEndpointPopupRuntime } from './ui/routeEndpointPopups.js';
 import { createRoutePreviewViewportController } from './ui/routePreviewViewport.js';
 
@@ -1542,6 +1543,12 @@ const initMapApp = async () => {
 
 
     const selectionBadge = createSelectionBadge({ host: document.body });
+    const selectionBadgeAdapter = createSelectionBadgeAdapter({
+        badge: selectionBadge,
+        createLineIconElement,
+        getCompanyLogoCandidates,
+        setImageElementFromCache
+    });
 
     const lineNameById = new Map();
     const lineColorById = new Map();
@@ -2112,75 +2119,18 @@ const initMapApp = async () => {
     };
 
     function updateSelectionBadge() {
-        const createBadgeIcon = ({ routeId, code, color }) => {
-            const icon = createLineIconElement({ routeId, code, color });
-            if (!icon) return null;
-            icon.style.marginRight = '0';
-            return icon;
-        };
-
-        if (selectedLineId) {
-            const sid = String(selectedLineId);
-            const throughDisplay = getMenuThroughDisplayByLineId(sid);
-            const name = throughDisplay?.name || lineNameById.get(sid) || sid;
-            const color = resolveRailColorForTheme(throughDisplay?.color || lineColorById.get(sid) || '#111') || '#111';
-            const icons = [];
-
-            const throughCategory = getMenuThroughCategoryByLineId(sid);
-            const info = THROUGH_SERVICE_CONFIGS_OBJECT[throughCategory];
-
-            if (info) {
-                for (const code of info.codes || []) {
-                    const icon = createBadgeIcon({
-                        routeId: info.routeIds?.[0] || '', // 动态获取主控制物理路线 ID
-                        code: code,
-                        color: info.color || ''
-                    });
-                    if (icon) icons.push(icon);
-                }
-            } else {
-                const icon = createBadgeIcon({
-                    routeId: sid, 
-                    code: '', 
-                    color: lineColorById.get(sid) || '' 
-                });
-                if (icon) icons.push(icon);
-            }
-
-            selectionBadge.showLine({ text: name, color, icons });
-            return;
-        }
-
-        if (selectedCompany) {
-            const companyKey = String(selectedCompany);
-            const companyZh = String(companyLogoMap?.[companyKey]?.zh || '').trim();
-            const logoFile = companyLogoMap?.[companyKey]?.img?.[0];
-            const icons = [];
-            if (logoFile) {
-                const logoIcon = document.createElement('img');
-                logoIcon.className = 'selection-badge-company-logo';
-                logoIcon.alt = companyZh || companyKey;
-                logoIcon.decoding = 'async';
-                logoIcon.loading = 'eager';
-                logoIcon.style.height = '25px';
-                logoIcon.style.width = 'auto';
-                logoIcon.style.maxWidth = '80px';
-                logoIcon.style.display = 'block';
-                logoIcon.style.objectFit = 'contain';
-                icons.push(logoIcon);
-                setImageElementFromCache(logoIcon, getCompanyLogoCandidates(logoFile), {
-                    cacheKey: `companyLogo:${logoFile}`
-                }).catch(() => null);
-            }
-            selectionBadge.showCompany({
-                text: companyZh || companyKey,
-                color: isDarkThemeActive() ? '#f2f2f2' : '#111',
-                icons
-            });
-            return;
-        }
-
-        selectionBadge.clear();
+        selectionBadgeAdapter.render(buildSelectionBadgeViewModel({
+            companyLogoMap,
+            getLineColor: (lineId) => lineColorById.get(lineId),
+            getLineName: (lineId) => lineNameById.get(lineId),
+            getThroughCategory: getMenuThroughCategoryByLineId,
+            getThroughDisplay: getMenuThroughDisplayByLineId,
+            isDarkThemeActive,
+            resolveRailColor: resolveRailColorForTheme,
+            selectedCompany,
+            selectedLineId,
+            throughServiceConfigs: THROUGH_SERVICE_CONFIGS_OBJECT
+        }));
     }
 
 
