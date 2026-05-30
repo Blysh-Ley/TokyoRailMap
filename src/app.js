@@ -47,15 +47,12 @@ import './features/route-map/route-map-ui.js';
 import { companyLogoMap, resolveLineSelectionByBranchRules } from './lib/special-condition.js';
 import {
     readAdaptiveViewportEnabled,
-    readAppearanceMode,
-    readBasemapMode,
     readHoverPreviewEnabled,
     readStationOffsetMode,
     readTimetableViewMode,
-    resolveThemeFromAppearance,
     writeStationOffsetMode
 } from './services/appSettings.js';
-import { createBasemapController, createMapEngine } from './services/mapEngine.js';
+import { createMapEngine } from './services/mapEngine.js';
 import { createStore } from './store/appStore.js';
 import { hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested, selectionClear } from './store/actions.js';
 import { createBaseHighlightEventBridge } from './features/highlight/baseHighlightEventBridge.js';
@@ -99,6 +96,7 @@ import { createStationLabelChipsAdapter } from './ui/layer/stationLabelChipsAdap
 import { createJourneyPickPinElement } from './ui/journeyPickPinAdapter.js';
 import { createRouteEndpointPopupRuntime } from './ui/routeEndpointPopups.js';
 import { createRoutePreviewViewportController } from './ui/routePreviewViewport.js';
+import { createBasemapThemeRuntime } from './app/basemapThemeRuntime.js';
 import { registerDebugZoomTools } from './app/debugZoomTools.js';
 import { bindMapStartup } from './app/mapStartup.js';
 import { registerTokyoRailMapRuntime } from './app/runtimeFacade.js';
@@ -236,30 +234,6 @@ export const getTransferStationIdsByStationId = async (stationId) => {
     return new Set(Array.from(groupSet).map((x) => String(x || '').trim()).filter(Boolean));
 };
 
-const initialTheme = resolveThemeFromAppearance(readAppearanceMode());
-document.documentElement.setAttribute('data-theme', initialTheme);
-let mapTheme = initialTheme;
-let basemapMode = readBasemapMode();
-
-const OSM_RASTER_PAINT_LIGHT = {
-
-    'raster-contrast': -0.3,
-    'raster-brightness-min': 0.12,
-    'raster-brightness-max': 1,
-    'raster-saturation': -0.2,
-    'raster-hue-rotate': 0
-};
-
-const OSM_RASTER_PAINT_DARK = {
-
-    'raster-contrast': -0.3,
-    'raster-brightness-min': 0,
-    'raster-brightness-max': 0.48,
-    'raster-saturation': -0.2,
-    'raster-hue-rotate': 180
-};
-
-
 const mapEngine = createMapEngine({
     maplibregl,
     container: 'map',
@@ -274,72 +248,10 @@ const mapEngine = createMapEngine({
 const map = mapEngine.getMap();
 const highlightRenderer = createHighlightRenderer({ mapEngine });
 const reachableStopsOverlayRenderer = createReachableStopsOverlayRenderer({ mapEngine });
-const basemapController = createBasemapController({
-    mapEngine,
-    initialTheme: mapTheme,
-    initialMode: basemapMode,
-    lightRasterPaint: OSM_RASTER_PAINT_LIGHT,
-    darkRasterPaint: OSM_RASTER_PAINT_DARK,
-    onThemeChanged: () => {
-        try {
-            if (typeof window !== 'undefined' && window && typeof window.dispatchEvent === 'function') {
-                window.dispatchEvent(new Event('__TokyoRailThemeChanged'));
-            }
-        } catch {
-            // ignore
-        }
-    }
-});
+const basemapThemeRuntime = createBasemapThemeRuntime({ map, mapEngine });
 
 
 registerTokyoRailMapRuntime({ map, mapEngine });
-
-const applyBasemapTheme = (theme) => {
-    const next = theme === 'dark' ? 'dark' : 'light';
-    mapTheme = next;
-    syncBasemapStyle();
-};
-
-const setBasemapMode = (mode) => {
-    basemapMode = (mode === 'carto' || mode === 'ost' || mode === 'transparent') ? mode : 'carto';
-    syncBasemapStyle();
-};
-
-const ensureBasemapLayers = () => {
-    try {
-        if (!(map?.loaded?.() || map?.isStyleLoaded?.())) return false;
-        basemapController.ensureLayers();
-        return true;
-    } catch {
-        return false;
-    }
-};
-
-function syncBasemapStyle() {
-    const ready = ensureBasemapLayers();
-    if (!ready) return false;
-    basemapController.setMode(basemapMode, mapTheme);
-    return true;
-}
-
-const applyAppTheme = (theme) => {
-    const next = theme === 'dark' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', next);
-    applyBasemapTheme(next);
-    return next;
-};
-
-const systemThemeMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-const syncSystemAppearanceTheme = () => {
-    if (readAppearanceMode() !== 'system') return;
-    applyAppTheme(resolveThemeFromAppearance('system'));
-};
-
-if (systemThemeMedia && typeof systemThemeMedia.addEventListener === 'function') {
-    systemThemeMedia.addEventListener('change', syncSystemAppearanceTheme);
-} else if (systemThemeMedia && typeof systemThemeMedia.addListener === 'function') {
-    systemThemeMedia.addListener(syncSystemAppearanceTheme);
-}
 
 // 左下角比例尺
 mapEngine.addMetricScaleControl({ maxWidth: 100, position: 'bottom-left' });
@@ -2502,8 +2414,7 @@ const initMapApp = async () => {
         mountAppearanceToggle({
             hostEl: settingsMenuContentEl,
             onThemeChanged: ({ theme }) => {
-                document.documentElement.setAttribute('data-theme', theme);
-                applyBasemapTheme(theme);
+                basemapThemeRuntime.applyAppTheme(theme);
                 applyStationThemePaintToMapLayers();
                 applySelectionEffects();
             }
@@ -2517,7 +2428,7 @@ const initMapApp = async () => {
         });
         mountBasemapToggle({
             hostEl: settingsMenuContentEl,
-            onModeChanged: setBasemapMode
+            onModeChanged: basemapThemeRuntime.setBasemapMode
         });
         mountTimetableViewToggle({
             hostEl: settingsMenuContentEl,
@@ -3914,8 +3825,8 @@ const initMapApp = async () => {
             });
         }
 
-        ensureBasemapLayers();
-        applyBasemapTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+        basemapThemeRuntime.ensureBasemapLayers();
+        basemapThemeRuntime.applyBasemapTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
     } catch (e) {
         console.error('站点加载失败', e);
     }
