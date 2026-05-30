@@ -62,6 +62,7 @@ import { createHighlightFeature } from './features/highlight/highlightFeature.js
 import { createHighlightRenderer } from './features/highlight/highlightRenderer.js';
 import { createTripPreviewRenderer } from './features/highlight/tripPreviewRenderer.js';
 import { createHoverFeature } from './features/hover/hoverFeature.js';
+import { createPanelHoverPreviewLifecycle } from './features/hover/panelHoverPreviewAdapter.js';
 import { createLayerFeature } from './features/layer/layerFeature.js';
 import { bindMapInteractions } from './features/map-interactions/mapInteractionController.js';
 import { createStationCoordinateAdapter } from './features/layer/stationCoordinateAdapter.js';
@@ -2712,6 +2713,9 @@ const initMapApp = async () => {
         setImageElementFromCache
     });
 
+    const panelHoverPreviewLifecycle = createPanelHoverPreviewLifecycle({
+        getHoverFeature: () => hoverFeature
+    });
 
     panel = createPanel({
         hoverDelayMs: 50,
@@ -2732,10 +2736,10 @@ const initMapApp = async () => {
         onSelectCompany: (companyName, meta) => {
             const source = meta?.source;
             if (isMultiSelectModeEnabled() && String(source || '').startsWith('panel-')) return;
-            if (source === 'panel-hover' && !hoverFeature?.beginPreview()) return;
+            if (!panelHoverPreviewLifecycle.beginIfNeeded(source)) return;
             const name = String(companyName ?? '').trim();
             if (!name) return;
-            if (source !== 'panel-hover') hoverFeature?.commitPreview();
+            panelHoverPreviewLifecycle.commitIfNeeded(source);
 
             const stationLineIds = Array.isArray(meta?.stationLineIds) ? meta.stationLineIds.map(String).filter(Boolean) : [];
             const subset = stationLineIds.filter((id) => String(lineCompanyById.get(String(id)) || '') === name);
@@ -2749,7 +2753,7 @@ const initMapApp = async () => {
                 appStore.dispatch(selectionClear({ source: 'panel.selectCompany' }));
             }
 
-            const fitMode = source === 'panel-hover' ? 'preview' : 'commit';
+            const fitMode = panelHoverPreviewLifecycle.getFitMode(source);
             if (meta?.skipFit !== true) {
                 fitToCurrentSelection(`company:${name}`, fitMode);
             }
@@ -2757,20 +2761,20 @@ const initMapApp = async () => {
         onSelectLine: (lineId, meta) => {
             const source = meta?.source;
             if (isMultiSelectModeEnabled() && String(source || '').startsWith('panel-')) return;
-            if (source === 'panel-hover' && !hoverFeature?.beginPreview()) return;
+            if (!panelHoverPreviewLifecycle.beginIfNeeded(source)) return;
             const id = String(lineId ?? '').trim();
             if (!id) return;
-            if (source !== 'panel-hover') hoverFeature?.commitPreview();
+            panelHoverPreviewLifecycle.commitIfNeeded(source);
 
             if (isMenuThroughLineId(id)) {
-                previewMenuThroughLine({ lineId: id, source: source === 'panel-hover' ? 'hover' : 'click' });
+                previewMenuThroughLine({ lineId: id, source: panelHoverPreviewLifecycle.isPanelHover(source) ? 'hover' : 'click' });
                 return;
             }
 
             const resolved = resolveLineSelectionForApp(id);
             const mainLineId = String(resolved?.mainLineId ?? id);
 
-            if (source === 'panel-hover') {
+            if (panelHoverPreviewLifecycle.isPanelHover(source)) {
                 searchFeature.previewLine(id);
                 isolateStationsToSelectedLine = false;
                 setStationLabelMode('auto');
@@ -2796,7 +2800,7 @@ const initMapApp = async () => {
             }
         },
         onRestoreStationLines: (lineIds, meta) => {
-            hoverFeature?.closePreview({ committed: false });
+            panelHoverPreviewLifecycle.close();
             isolateStationsToSelectedLine = false;
 
             if (Array.isArray(lineIds) && lineIds.length) {
