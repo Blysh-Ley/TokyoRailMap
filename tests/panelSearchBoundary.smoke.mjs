@@ -1,25 +1,4 @@
-import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-const ROOT = process.cwd();
-
-const read = (relativePath) => readFileSync(join(ROOT, relativePath), 'utf8');
-
-const assertNoPattern = ({ files, pattern, message }) => {
-    const hits = [];
-    for (const file of files) {
-        const text = read(file);
-        const lines = text.split(/\r?\n/);
-        lines.forEach((line, index) => {
-            if (pattern.test(line)) {
-                hits.push(`${file}:${index + 1}: ${line.trim()}`);
-            }
-        });
-    }
-
-    assert.equal(hits.length, 0, `${message}\n${hits.join('\n')}`);
-};
+import { assertNoPattern } from './helpers/architectureBoundaryScanner.mjs';
 
 const searchUiFiles = [
     'src/features/search/search.js',
