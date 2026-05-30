@@ -76,16 +76,6 @@ import { createSearchFeature } from './features/search/searchFeature.js';
 import { createSearchSelectionController } from './features/search/searchSelectionController.js';
 import { createSelectionEffectsController } from './features/selection/selectionEffectsController.js';
 import { createPanelSearchSelectionCallbacks } from './features/selection/panelSearchSelectionCallbacks.js';
-import {
-    mountAdaptiveViewportToggle,
-    mountAppearanceToggle,
-    mountAutoUpdateToggle,
-    mountBasemapToggle,
-    mountHoverPreviewToggle,
-    mountStationLabelToggle,
-    mountStationOffsetToggle,
-    mountTimetableViewToggle
-} from './features/settings/settingsControls.js';
 import { createSettingsMenu } from './features/settings/settingsMenu.js';
 import {
     resolveTripPreviewPayloadSource as resolveRoutePreviewPayloadSource
@@ -100,6 +90,7 @@ import { createBasemapThemeRuntime } from './app/basemapThemeRuntime.js';
 import { registerDebugZoomTools } from './app/debugZoomTools.js';
 import { bindMapStartup } from './app/mapStartup.js';
 import { registerTokyoRailMapRuntime } from './app/runtimeFacade.js';
+import { mountAppSettingsControls } from './app/settingsControlsRuntime.js';
 
 initializeFetchCache();
 
@@ -1924,28 +1915,6 @@ const initMapApp = async () => {
         getPreferredCachedImageSrc,
         setImageElementFromCache
     });
-    const dedupeSettingsControls = (hostEl) => {
-        const host = hostEl && hostEl.children ? hostEl : null;
-        if (!host) return;
-        const seen = new Set();
-        for (const child of Array.from(host.children)) {
-            if (!child?.classList?.contains('settings-item')) continue;
-            const key = Array.from(child.classList)
-                .filter((name) => name !== 'settings-item' && name !== 'is-disabled')
-                .sort()
-                .join('|') || child.className;
-            if (!key || !seen.has(key)) {
-                if (key) seen.add(key);
-                continue;
-            }
-            child.remove?.();
-        }
-    };
-    dedupeSettingsControls(settingsMenuContentEl);
-    const shouldMountSettingsControls = !(
-        settingsMenuContentEl?.dataset?.tokyoRailSettingsControlsMounted === 'true'
-        || settingsMenuContentEl?.querySelector?.(':scope > .settings-item')
-    );
 
     const panelHoverPreviewLifecycle = createPanelHoverPreviewLifecycle({
         getHoverFeature: () => hoverFeature
@@ -2407,61 +2376,34 @@ const initMapApp = async () => {
         });
     };
 
-    if (shouldMountSettingsControls) {
-        if (settingsMenuContentEl?.dataset) {
-            settingsMenuContentEl.dataset.tokyoRailSettingsControlsMounted = 'true';
-        }
-        mountAppearanceToggle({
-            hostEl: settingsMenuContentEl,
-            onThemeChanged: ({ theme }) => {
-                basemapThemeRuntime.applyAppTheme(theme);
-                applyStationThemePaintToMapLayers();
-                applySelectionEffects();
-            }
-        });
-        mountAutoUpdateToggle({
-            hostEl: settingsMenuContentEl,
-            electronApi: window?.TokyoRailElectron,
-            getIconCandidates,
-            getPreferredCachedImageSrc,
-            setImageElementFromCache
-        });
-        mountBasemapToggle({
-            hostEl: settingsMenuContentEl,
-            onModeChanged: basemapThemeRuntime.setBasemapMode
-        });
-        mountTimetableViewToggle({
-            hostEl: settingsMenuContentEl,
-            getIconCandidates,
-            getPreferredCachedImageSrc,
-            onModeChanged: (mode) => panel?.setTimetableViewMode?.(mode),
-            setImageElementFromCache
-        });
-        mountAdaptiveViewportToggle({
-            hostEl: settingsMenuContentEl,
-            onEnabledChanged: applyAdaptiveViewportEnabled
-        });
-        mountStationOffsetToggle({
-            hostEl: settingsMenuContentEl,
-            onModeChanged: applyStationOffsetMode
-        });
-        hoverPreviewToggleController = mountHoverPreviewToggle({
-            hostEl: settingsMenuContentEl,
-            onEnabledChanged: applyHoverPreviewEnabled
-        });
-        {
-            const stationLabelController = mountStationLabelToggle({
-                hostEl: settingsMenuContentEl,
-                initialMode: stationLabelMode,
-                onModeChanged: (mode) => {
-                    stationLabelMode = mode;
-                },
-                onUserModeChanged: () => {
-                    scheduleCollisionLayerRefresh();
-                }
-            });
-            setStationLabelMode = (mode, options = {}) => stationLabelController.setMode(mode, options);
-        }
+    const settingsControlsRuntime = mountAppSettingsControls({
+        hostEl: settingsMenuContentEl,
+        basemapThemeRuntime,
+        electronApi: window?.TokyoRailElectron,
+        getIconCandidates,
+        getPreferredCachedImageSrc,
+        onAdaptiveViewportEnabledChanged: applyAdaptiveViewportEnabled,
+        onHoverPreviewEnabledChanged: applyHoverPreviewEnabled,
+        onStationLabelModeChanged: (mode) => {
+            stationLabelMode = mode;
+        },
+        onStationLabelUserModeChanged: () => {
+            scheduleCollisionLayerRefresh();
+        },
+        onStationOffsetModeChanged: applyStationOffsetMode,
+        onThemeChanged: () => {
+            applyStationThemePaintToMapLayers();
+            applySelectionEffects();
+        },
+        onTimetableViewModeChanged: (mode) => panel?.setTimetableViewMode?.(mode),
+        setImageElementFromCache,
+        stationLabelMode
+    });
+    if (settingsControlsRuntime.hoverPreviewToggleController) {
+        hoverPreviewToggleController = settingsControlsRuntime.hoverPreviewToggleController;
+    }
+    if (settingsControlsRuntime.setStationLabelMode) {
+        setStationLabelMode = settingsControlsRuntime.setStationLabelMode;
     }
 
     {
