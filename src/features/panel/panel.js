@@ -29,6 +29,7 @@ import {
     renderTimetablePlainNoteRowHtml,
     renderTimetableStationRowHtml
 } from './timetable-table.js';
+import { createPanelSelectionStateController } from './panelSelectionStateController.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
@@ -901,6 +902,7 @@ export function createPanel(options = {}) {
     let hoverPreviewEnabled = getHoverPreviewEnabled ? getHoverPreviewEnabled() !== false : true;
     const isHoverPreviewEnabled = () => hoverPreviewEnabled !== false;
     const isMultiSelectModeEnabled = () => getMultiSelectModeEnabled ? getMultiSelectModeEnabled() === true : false;
+    const panelSelectionState = createPanelSelectionStateController({ toText });
 
     let currentLineGroupByMainId = new Map();
     let currentStationsIndex = null;
@@ -2404,9 +2406,7 @@ export function createPanel(options = {}) {
     const dirPrintPayloadByKey = new Map(); // lineId||dir -> export payload for print-timetables.js
     const dirPreviewMetaByKey = new Map(); // lineId||dir -> { lineId, originStationIds:string[], terminalStationIds:string[] }
     let activeDirPreviewKey = '';
-    let pinnedDirPreviewKey = '';
     let dirBranchPreviewSeq = 0;
-    let pinnedPanelSelection = null; // { kind:'line'|'company'|'dir'|'trip', key:string }
     const makeLineDirKey = (lineId, dirKey) => `${toText(lineId)}||${toText(dirKey) || 'Unknown'}`;
     const dirKeyOf = (lineId, dir) => `${toText(lineId)}||${toText(dir) || 'Unknown'}`;
     const isLoopLine = (lineId) => {
@@ -2525,11 +2525,11 @@ export function createPanel(options = {}) {
     };
 
     const pinDirPreviewByKey = (lineDirKey) => {
-        pinnedDirPreviewKey = toText(lineDirKey) || '';
+        panelSelectionState.setPinnedDirPreviewKey(lineDirKey);
     };
 
     const unpinDirPreview = () => {
-        pinnedDirPreviewKey = '';
+        panelSelectionState.clearPinnedDirPreviewKey();
     };
 
     const clearPinnedDirPreview = () => {
@@ -2538,24 +2538,16 @@ export function createPanel(options = {}) {
     };
 
     const setPinnedPanelSelection = (kind, key) => {
-        const k = toText(kind);
-        const v = toText(key);
-        if (!k || !v) {
-            pinnedPanelSelection = null;
+        const nextSelection = panelSelectionState.setPinnedPanelSelection(kind, key);
+        if (!nextSelection) {
             body.classList.remove('is-pinned');
             return;
         }
-        pinnedPanelSelection = { kind: k, key: v };
         body.classList.add('is-pinned');
     };
 
     const getCurrentPinnedInteractionKey = () => {
-        if (tripLocked && toText(lockedTripKey)) return `trip:${toText(lockedTripKey)}`;
-        if (pinnedPanelSelection?.kind && pinnedPanelSelection?.key) {
-            return `${toText(pinnedPanelSelection.kind)}:${toText(pinnedPanelSelection.key)}`;
-        }
-        if (toText(pinnedDirPreviewKey)) return `dir:${toText(pinnedDirPreviewKey)}`;
-        return '';
+        return panelSelectionState.getCurrentPinnedInteractionKey({ tripLocked, lockedTripKey });
     };
 
     const hasPinnedPanelState = () => !!getCurrentPinnedInteractionKey();
@@ -2563,16 +2555,13 @@ export function createPanel(options = {}) {
     const isDirFilterPinned = () => {
         // 仅“方向筛选按钮点击后”的固定态允许被时刻表 hover 打断。
         // 其他固定态（公司/线路/车次锁定）仍然禁止 hover 变更。
-        const k = toText(pinnedPanelSelection?.kind);
-        const key = toText(pinnedPanelSelection?.key);
-        const pinnedDir = toText(pinnedDirPreviewKey);
-        return k === 'dir' && !!pinnedDir && key === pinnedDir;
+        return panelSelectionState.isDirFilterPinned();
     };
 
     // 从 timetable row/grid-cell 向上查找所属 lineId + dirKey，判断是否与 pinnedDirPreviewKey 同方向
     const isTripRowInPinnedDir = (rowEl) => {
         if (!(rowEl instanceof Element)) return false;
-        const pinnedDir = toText(pinnedDirPreviewKey);
+        const pinnedDir = toText(panelSelectionState.getPinnedDirPreviewKey());
         if (!pinnedDir) return false;
 
         const dirBody = rowEl.closest?.('[data-dir-body][data-dir-key]');
@@ -2630,13 +2619,13 @@ export function createPanel(options = {}) {
 
     const clearPinnedPanelState = ({ restoreStation = true } = {}) => {
         const hadPinned = hasPinnedPanelState();
-        pinnedPanelSelection = null;
+        panelSelectionState.clearPinnedPanelSelection();
         body.classList.remove('is-pinned');
         if (tripLocked || tripDetailPinned) {
             hideTripDetail();
             lastTripDetailKey = null;
         }
-        if (pinnedDirPreviewKey) {
+        if (panelSelectionState.getPinnedDirPreviewKey()) {
             clearPinnedDirPreview();
         }
         if (restoreStation) {
@@ -6847,7 +6836,7 @@ export function createPanel(options = {}) {
             clearHoverTimer();
             hoverCandidateKey = null;
             lastFiredHoverKey = null;
-            if (!pinnedDirPreviewKey) clearDirPreview();
+            if (!panelSelectionState.getPinnedDirPreviewKey()) clearDirPreview();
             return;
         }
         if (hasPinnedPanelState()) {
@@ -6863,7 +6852,7 @@ export function createPanel(options = {}) {
             clearHoverTimer();
             hoverCandidateKey = null;
             lastFiredHoverKey = null;
-            if (!pinnedDirPreviewKey) clearDirPreview();
+            if (!panelSelectionState.getPinnedDirPreviewKey()) clearDirPreview();
             return;
         }
 
@@ -6874,7 +6863,7 @@ export function createPanel(options = {}) {
             hoverCandidateKey = null;
             lastFiredHoverKey = null;
             lastMousePrimaryKey = '';
-            if (!(evt?.relatedTarget && dirFilterPopover.contains(evt.relatedTarget)) && !pinnedDirPreviewKey) {
+            if (!(evt?.relatedTarget && dirFilterPopover.contains(evt.relatedTarget)) && !panelSelectionState.getPinnedDirPreviewKey()) {
                 clearDirPreview();
             }
             return;
@@ -7044,7 +7033,7 @@ export function createPanel(options = {}) {
         restoreStationLinesIfNeeded();
         if (tripLocked) return;
         if (toEl && tripDetailRoot.contains(toEl)) return;
-        if (!(toEl && dirFilterPopover.contains(toEl)) && !pinnedDirPreviewKey) {
+        if (!(toEl && dirFilterPopover.contains(toEl)) && !panelSelectionState.getPinnedDirPreviewKey()) {
             clearDirPreview();
         }
         if (!tripDetailPinned) scheduleTripDetailHide();
@@ -7111,7 +7100,7 @@ export function createPanel(options = {}) {
         if (toEl && (rowEl.contains(toEl) || tripDetailRoot.contains(toEl))) return;
         // dir-filter 固定态下 row mouseout：恢复方向高亮并隐藏 trip detail
         if (isDirFilterPinned()) {
-            applyDirPreviewByKey(pinnedDirPreviewKey, { force: true });
+            applyDirPreviewByKey(panelSelectionState.getPinnedDirPreviewKey(), { force: true });
         }
         scheduleTripDetailHide();
     });
@@ -7125,7 +7114,7 @@ export function createPanel(options = {}) {
         routeMapPopoverHoverActive = false;
         if (hasPinnedPanelState()) return;
         restoreStationLinesIfNeeded();
-        if (!pinnedDirPreviewKey) {
+        if (!panelSelectionState.getPinnedDirPreviewKey()) {
             clearDirPreview();
         }
     });
@@ -7182,7 +7171,7 @@ export function createPanel(options = {}) {
             )
         ) return;
 
-        if (pinnedDirPreviewKey) {
+        if (panelSelectionState.getPinnedDirPreviewKey()) {
             const insidePanel = !!(target && root.contains(target));
             const insideFilterPopover = !!(target && dirFilterPopover.contains(target));
             if (!insidePanel && !insideFilterPopover) {
