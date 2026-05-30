@@ -29,6 +29,10 @@ import {
     renderTimetablePlainNoteRowHtml,
     renderTimetableStationRowHtml
 } from './timetable-table.js';
+import {
+    renderPanelPrintableTimetableListHtml,
+    renderPanelTimetableListHtml
+} from './panelTimetableRenderer.js';
 import { createPanelSelectionStateController } from './panelSelectionStateController.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
 
@@ -4188,35 +4192,11 @@ export function createPanel(options = {}) {
             const visible = expanded ? filteredRowsForDir : future.slice(0, 3);
 
             const printableRowsForDir = filteredRowsForDir.map((r) => ({ ...(r || {}), isPast: false }));
-            const printableListHtml = printableRowsForDir.length
-                ? printableRowsForDir
-                    .map((r) => {
-                        const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.realOriginId)}"` : '';
-                        const rawTypeColor = toText(r.typeColor);
-                        const badgeBg = rawTypeColor || '#767676';
-                        const badgeFg = resolvePanelBadgeTextColor(badgeBg);
-                        const typeStyle = ` style="--panel-type-badge-bg:${escapeHtml(badgeBg)};--panel-type-badge-fg:${escapeHtml(badgeFg)}"`;
-                        const destText = toText(r.terminalDisplayName || r.destName || r.terminalName);
-                        return `
-                            <div class="panel-timetable-row"${tripAttr}>
-                                <div class="panel-timetable-dest">
-                                    <span class="panel-timetable-dest-prefix" aria-hidden="true">to</span>
-                                    <span class="panel-timetable-dest-marquee" aria-label="to ${escapeHtml(destText)}">
-                                        <span class="panel-timetable-dest-marquee-inner">${escapeHtml(destText)}</span>
-                                    </span>
-                                </div>
-                                <div class="panel-timetable-time">${renderTimeForPrint(r)}</div>
-                                <div class="panel-timetable-type">
-                                    <span class="panel-timetable-type-marquee"${typeStyle} aria-label="${escapeHtml(r.typeName || '')}">
-                                        <span class="panel-timetable-type-marquee-inner">${escapeHtml(r.typeName || '')}</span>
-                                    </span>
-                                </div>
-                            </div>
-                        `;
-                    })
-                    .join('')
-                : '<div class="panel-timetable-empty">当前无班次</div>';
-
+            const printableListHtml = renderPanelPrintableTimetableListHtml({
+                rows: printableRowsForDir,
+                renderTime: renderTimeForPrint,
+                resolveBadgeTextColor: resolvePanelBadgeTextColor
+            });
             const printableGridHtml = buildGridTableHtmlForDirection({
                 rowsForDir: printableRowsForDir,
                 typeHints,
@@ -4261,35 +4241,11 @@ export function createPanel(options = {}) {
                     nowMs: now,
                     serviceDayStartMs
                 })
-                : (visible.length
-                    ? visible
-                        .map((r) => {
-                            const klass = r.isPast ? 'panel-timetable-row is-past' : 'panel-timetable-row';
-                            const tripAttr = r.tripKey ? ` data-trip-key="${escapeHtml(r.realOriginId)}"` : '';
-                            const rawTypeColor = toText(r.typeColor);
-                            const badgeBg = r.isPast ? '#c3c7cd' : (rawTypeColor || '#767676');
-                            const badgeFg = r.isPast ? '#eee' : resolvePanelBadgeTextColor(badgeBg);
-                            const typeStyle = ` style="--panel-type-badge-bg:${escapeHtml(badgeBg)};--panel-type-badge-fg:${escapeHtml(badgeFg)}"`;
-                            const destText = toText(r.terminalDisplayName || r.destName || r.terminalName);
-                            return `
-                                <div class="${klass}"${tripAttr}>
-                                    <div class="panel-timetable-dest">
-                                        <span class="panel-timetable-dest-prefix" aria-hidden="true">to</span>
-                                        <span class="panel-timetable-dest-marquee" aria-label="to ${escapeHtml(destText)}">
-                                            <span class="panel-timetable-dest-marquee-inner">${escapeHtml(destText)}</span>
-                                        </span>
-                                    </div>
-                                    <div class="panel-timetable-time">${renderTime(r)}</div>
-                                    <div class="panel-timetable-type">
-                                        <span class="panel-timetable-type-marquee"${typeStyle} aria-label="${escapeHtml(r.typeName || '')}">
-                                            <span class="panel-timetable-type-marquee-inner">${escapeHtml(r.typeName || '')}</span>
-                                        </span>
-                                    </div>
-                                </div>
-                            `;
-                        })
-                        .join('')
-                    : '<div class="panel-timetable-empty">当前无班次</div>');
+                : renderPanelTimetableListHtml({
+                    rows: visible,
+                    renderTime,
+                    resolveBadgeTextColor: resolvePanelBadgeTextColor
+                });
 
             html += `
                 <div class="panel-dir">
