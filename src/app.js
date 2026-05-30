@@ -58,6 +58,7 @@ import {
 import { createBasemapController, createMapEngine } from './services/mapEngine.js';
 import { createStore } from './store/appStore.js';
 import { hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested, selectionClear } from './store/actions.js';
+import { createBaseHighlightEventBridge } from './features/highlight/baseHighlightEventBridge.js';
 import { createHighlightFeature } from './features/highlight/highlightFeature.js';
 import { createHighlightRenderer } from './features/highlight/highlightRenderer.js';
 import { buildMultiSelectLayerItemsFromInputs } from './features/highlight/multiSelectLayerItems.js';
@@ -1549,6 +1550,7 @@ const initMapApp = async () => {
         getCompanyLogoCandidates,
         setImageElementFromCache
     });
+    const baseHighlightEventBridge = createBaseHighlightEventBridge({ target: window });
 
     const lineNameById = new Map();
     const lineColorById = new Map();
@@ -2582,12 +2584,8 @@ const initMapApp = async () => {
             scheduleSelectionLayerRefresh,
             updateSelectionBadge
         },
-        emitBaseHighlightCleared: () => {
-            window.dispatchEvent(new CustomEvent('__TokyoRailBaseHighlightCleared'));
-        },
-        emitBaseHighlightUpdated: (detail) => {
-            window.dispatchEvent(new CustomEvent('__TokyoRailBaseHighlightUpdated', { detail }));
-        },
+        emitBaseHighlightCleared: baseHighlightEventBridge.clear,
+        emitBaseHighlightUpdated: baseHighlightEventBridge.update,
         getBaseMultiSelectedLineIds,
         getEnabledLineIdsByCompany: () => enabledLineIdsByCompany,
         getSelectionSnapshot: () => ({
