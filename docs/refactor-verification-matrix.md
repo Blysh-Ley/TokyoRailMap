@@ -4,7 +4,7 @@ Use this matrix for small TokyoRailMap refactor slices. Keep the checks close to
 
 ## Always
 
-- `node --check <touched-js-files>`
+- `npm run check:touched`
 - `npm test`
 - `git diff --check`
 
