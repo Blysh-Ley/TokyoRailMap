@@ -30,7 +30,6 @@ import {
     renderTimetableStationRowHtml
 } from './timetable-table.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
-import { applyTextMarquees, scheduleTextMarqueeApply } from '../../ui/textMarquee.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -1469,9 +1468,6 @@ export function createPanel(options = {}) {
     let catalogRefreshRafId = null;
     let catalogMutationObserver = null;
     let catalogResizeObserver = null;
-    let marqueeMutationObserver = null;
-    let marqueeResizeObserver = null;
-    let marqueeObserverRefreshRafId = null;
     let catalogDismissedByUser = false;
     let catalogForcedActiveLineId = '';
     let catalogForcedActiveUntilMs = 0;
@@ -5746,26 +5742,32 @@ export function createPanel(options = {}) {
     };
 
     const MAX_PANEL_MARQUEE_ANIMS = 30;
-    const PANEL_MARQUEE_ANIMATION_KEY = '__panelMarqueeAnim';
-    const PANEL_MARQUEE_RAF_KEY = '__panelMarqueeRafId';
 
     const scheduleMarqueeApply = (rootEl) => {
         try {
             if (!rootEl || !(rootEl instanceof Element)) return;
             if (typeof window === 'undefined') return;
+            const raf = window.requestAnimationFrame;
+            if (typeof raf !== 'function') return;
 
-            scheduleTextMarqueeApply(rootEl, {
-                apply: () => {
+            if (rootEl.__panelMarqueeRafId) {
+                try {
+                    window.cancelAnimationFrame?.(rootEl.__panelMarqueeRafId);
+                } catch {
+                    // ignore
+                }
+                rootEl.__panelMarqueeRafId = 0;
+            }
+
+            // One/two RAFs help ensure scrollWidth is correct for flex layouts.
+            rootEl.__panelMarqueeRafId = raf(() => {
+                rootEl.__panelMarqueeRafId = raf(() => {
+                    rootEl.__panelMarqueeRafId = 0;
                     const used = applyDirHeaderMarquees(rootEl, MAX_PANEL_MARQUEE_ANIMS);
                     const remain = Math.max(0, MAX_PANEL_MARQUEE_ANIMS - used);
                     applyTimetableDestMarquees(rootEl, remain);
                     hookTimetableScrollMarquee(rootEl);
-                    return used;
-                },
-                cancelFrame: window.cancelAnimationFrame?.bind(window),
-                rafKey: PANEL_MARQUEE_RAF_KEY,
-                requestFrame: window.requestAnimationFrame?.bind(window),
-                retryDelaysMs: [120, 360, 900]
+                });
             });
         } catch {
             // ignore
@@ -5774,21 +5776,68 @@ export function createPanel(options = {}) {
 
     const applyDirHeaderMarquees = (rootEl, maxAnims = Number.POSITIVE_INFINITY) => {
         try {
-            if (!rootEl || !(rootEl instanceof Element)) return 0;
-            if (typeof window === 'undefined') return 0;
+            if (!rootEl || !(rootEl instanceof Element)) return;
+            if (typeof window === 'undefined') return;
+            if (!('animate' in Element.prototype)) return;
 
             const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
             if (reduceMotion) return 0;
 
-            return applyTextMarquees(rootEl, {
-                animationKey: PANEL_MARQUEE_ANIMATION_KEY,
-                holdMs: 2000,
-                innerSelector: '.panel-dir-marquee-inner',
-                maxAnimations: maxAnims,
-                minTravelMs: 1500,
-                selector: '.panel-dir-marquee',
-                speedPxPerSec: 35
-            });
+            const marquees = Array.from(rootEl.querySelectorAll('.panel-dir-marquee'));
+            let started = 0;
+            for (const marqueeEl of marquees) {
+                if (started >= maxAnims) break;
+                const innerEl = marqueeEl.querySelector('.panel-dir-marquee-inner');
+                if (!innerEl) continue;
+
+                // cancel previous animation on this element (if any)
+                try {
+                    marqueeEl.__panelMarqueeAnim?.cancel?.();
+                } catch {
+                    // ignore
+                }
+
+                // reset
+                innerEl.style.transform = '';
+                marqueeEl.__panelMarqueeAnim = null;
+
+                const viewportW = marqueeEl.clientWidth || 0;
+                const contentW = innerEl.scrollWidth || 0;
+                if (!viewportW || contentW <= viewportW + 1) continue;
+
+                const distancePx = Math.max(0, contentW - viewportW);
+                if (!distancePx) continue;
+
+                const holdMs = 2000;
+                const speedPxPerSec = 35; // readable pace
+                const travelMs = Math.max(1500, Math.round((distancePx / speedPxPerSec) * 1000));
+                const totalMs = holdMs + travelMs + holdMs + holdMs;
+
+                const startHoldOffset = holdMs / totalMs;
+                const endMoveOffset = (holdMs + travelMs) / totalMs;
+                const endHoldOffset = (holdMs + travelMs + holdMs) / totalMs;
+                const resetOffset = Math.min(0.999, endHoldOffset + 0.001);
+
+                const anim = innerEl.animate(
+                    [
+                        { transform: 'translateX(0px)', offset: 0 },
+                        { transform: 'translateX(0px)', offset: startHoldOffset },
+                        { transform: `translateX(${-distancePx}px)`, offset: endMoveOffset },
+                        { transform: `translateX(${-distancePx}px)`, offset: endHoldOffset },
+                        { transform: 'translateX(0px)', offset: resetOffset },
+                        { transform: 'translateX(0px)', offset: 1 }
+                    ],
+                    {
+                        duration: totalMs,
+                        iterations: Infinity,
+                        easing: 'linear'
+                    }
+                );
+
+                marqueeEl.__panelMarqueeAnim = anim;
+                started += 1;
+            }
+            return started;
         } catch {
             // ignore
             return 0;
@@ -5797,39 +5846,92 @@ export function createPanel(options = {}) {
 
     const applyTimetableDestMarquees = (rootEl, maxAnims = MAX_PANEL_MARQUEE_ANIMS) => {
         try {
-            if (!rootEl || !(rootEl instanceof Element)) return 0;
-            if (typeof window === 'undefined') return 0;
+            if (!rootEl || !(rootEl instanceof Element)) return;
+            if (typeof window === 'undefined') return;
+            if (!('animate' in Element.prototype)) return;
 
             const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-            if (reduceMotion) return 0;
+            if (reduceMotion) return;
 
-            return applyTextMarquees(rootEl, {
-                animationKey: PANEL_MARQUEE_ANIMATION_KEY,
-                getScore: ({ marqueeEl }) => {
-                    const rowEl = marqueeEl.closest?.('.panel-timetable-row');
-                    const containerEl = marqueeEl.closest?.('.panel-timetable');
-                    let score = 1e9;
-                    if (rowEl && containerEl) {
-                        const rr = rowEl.getBoundingClientRect?.();
-                        const cr = containerEl.getBoundingClientRect?.();
-                        if (rr && cr) {
-                            const visible = rr.bottom > cr.top && rr.top < cr.bottom;
-                            if (visible) score = 0;
-                            else score = Math.min(Math.abs(rr.top - cr.bottom), Math.abs(rr.bottom - cr.top));
-                        }
+            const marquees = Array.from(rootEl.querySelectorAll('.panel-timetable-dest-marquee, .panel-timetable-type-marquee'));
+            const candidates = [];
+
+            for (const marqueeEl of marquees) {
+                const innerEl = marqueeEl.querySelector('.panel-timetable-dest-marquee-inner, .panel-timetable-type-marquee-inner');
+                if (!innerEl) continue;
+
+                // cancel previous animation on this element (if any)
+                try {
+                    marqueeEl.__panelMarqueeAnim?.cancel?.();
+                } catch {
+                    // ignore
+                }
+
+                // reset
+                innerEl.style.transform = '';
+                marqueeEl.__panelMarqueeAnim = null;
+
+                const viewportW = marqueeEl.clientWidth || 0;
+                const contentW = innerEl.scrollWidth || 0;
+                if (!viewportW || contentW <= viewportW + 1) continue;
+
+                // Prefer visible rows (within the nearest timetable scroller) to get marquee first.
+                const rowEl = marqueeEl.closest?.('.panel-timetable-row');
+                const containerEl = marqueeEl.closest?.('.panel-timetable');
+                let score = 1e9;
+                if (rowEl && containerEl) {
+                    const rr = rowEl.getBoundingClientRect?.();
+                    const cr = containerEl.getBoundingClientRect?.();
+                    if (rr && cr) {
+                        const visible = rr.bottom > cr.top && rr.top < cr.bottom;
+                        if (visible) score = 0;
+                        else score = Math.min(Math.abs(rr.top - cr.bottom), Math.abs(rr.bottom - cr.top));
                     }
-                    return score;
-                },
-                holdMs: 2000,
-                innerSelector: '.panel-timetable-dest-marquee-inner, .panel-timetable-type-marquee-inner',
-                maxAnimations: maxAnims,
-                minTravelMs: 1200,
-                selector: '.panel-timetable-dest-marquee, .panel-timetable-type-marquee',
-                speedPxPerSec: 30
-            });
+                }
+
+                candidates.push({ marqueeEl, innerEl, viewportW, contentW, score });
+            }
+
+            candidates.sort((a, b) => a.score - b.score);
+
+            let started = 0;
+            for (const c of candidates) {
+                if (started >= maxAnims) break;
+                started += 1;
+
+                const distancePx = Math.max(0, c.contentW - c.viewportW);
+                if (!distancePx) continue;
+
+                const holdMs = 2000;
+                const speedPxPerSec = 30;
+                const travelMs = Math.max(1200, Math.round((distancePx / speedPxPerSec) * 1000));
+                const totalMs = holdMs + travelMs + holdMs + holdMs;
+
+                const startHoldOffset = holdMs / totalMs;
+                const endMoveOffset = (holdMs + travelMs) / totalMs;
+                const endHoldOffset = (holdMs + travelMs + holdMs) / totalMs;
+                const resetOffset = Math.min(0.999, endHoldOffset + 0.001);
+
+                const anim = c.innerEl.animate(
+                    [
+                        { transform: 'translateX(0px)', offset: 0 },
+                        { transform: 'translateX(0px)', offset: startHoldOffset },
+                        { transform: `translateX(${-distancePx}px)`, offset: endMoveOffset },
+                        { transform: `translateX(${-distancePx}px)`, offset: endHoldOffset },
+                        { transform: 'translateX(0px)', offset: resetOffset },
+                        { transform: 'translateX(0px)', offset: 1 }
+                    ],
+                    {
+                        duration: totalMs,
+                        iterations: Infinity,
+                        easing: 'linear'
+                    }
+                );
+
+                c.marqueeEl.__panelMarqueeAnim = anim;
+            }
         } catch {
             // ignore
-            return 0;
         }
     };
 
@@ -5865,117 +5967,6 @@ export function createPanel(options = {}) {
         }
     };
 
-    const schedulePanelMarqueeObserverRefresh = () => {
-        try {
-            if (typeof window === 'undefined') return;
-            const raf = window.requestAnimationFrame;
-            if (typeof raf !== 'function') {
-                scheduleMarqueeApply(body);
-                return;
-            }
-            if (marqueeObserverRefreshRafId) return;
-            marqueeObserverRefreshRafId = raf(() => {
-                marqueeObserverRefreshRafId = 0;
-                scheduleMarqueeApply(body);
-            });
-        } catch {
-            // ignore
-        }
-    };
-
-    const hasMarqueeMutation = (mutations) => {
-        for (const mutation of Array.from(mutations || [])) {
-            for (const node of Array.from(mutation?.addedNodes || [])) {
-                if (!(node instanceof Element)) continue;
-                if (node.matches?.('.panel-dir-marquee, .panel-timetable-dest-marquee, .panel-timetable-type-marquee')) return true;
-                if (node.querySelector?.('.panel-dir-marquee, .panel-timetable-dest-marquee, .panel-timetable-type-marquee')) return true;
-            }
-        }
-        return false;
-    };
-
-    const setupPanelMarqueeAutoRefresh = () => {
-        try {
-            if (typeof MutationObserver !== 'undefined' && !marqueeMutationObserver) {
-                marqueeMutationObserver = new MutationObserver((mutations) => {
-                    if (hasMarqueeMutation(mutations)) schedulePanelMarqueeObserverRefresh();
-                });
-                marqueeMutationObserver.observe(body, {
-                    childList: true,
-                    subtree: true
-                });
-            }
-            if (typeof ResizeObserver !== 'undefined' && !marqueeResizeObserver) {
-                marqueeResizeObserver = new ResizeObserver(() => {
-                    schedulePanelMarqueeObserverRefresh();
-                });
-                marqueeResizeObserver.observe(body);
-            }
-        } catch {
-            // ignore
-        }
-    };
-
-    const installPanelMarqueeDebug = () => {
-        try {
-            if (typeof window === 'undefined') return;
-            window.__TokyoRailPanelMarqueeDebug = () => {
-                const rows = Array.from(body.querySelectorAll('.panel-dir-marquee')).map((marqueeEl, index) => {
-                    const innerEl = marqueeEl.querySelector('.panel-dir-marquee-inner');
-                    const viewportWidth = Math.max(
-                        Number(marqueeEl.clientWidth) || 0,
-                        Number(marqueeEl.getBoundingClientRect?.()?.width) || 0
-                    );
-                    const contentWidth = Math.max(
-                        Number(innerEl?.scrollWidth) || 0,
-                        Number(innerEl?.offsetWidth) || 0,
-                        Number(innerEl?.getBoundingClientRect?.()?.width) || 0
-                    );
-                    return {
-                        index,
-                        text: innerEl?.textContent?.trim() || '',
-                        viewportWidth,
-                        contentWidth,
-                        distancePx: Math.max(0, contentWidth - viewportWidth),
-                        hasAnimate: typeof innerEl?.animate === 'function',
-                        animationObj: !!marqueeEl.__panelMarqueeAnim,
-                        animationState: marqueeEl.__panelMarqueeAnim?.playState,
-                        activeAnimations: innerEl?.getAnimations?.().map((anim) => anim.playState) || []
-                    };
-                });
-                const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
-                const started = applyDirHeaderMarquees(body, MAX_PANEL_MARQUEE_ANIMS);
-                const after = Array.from(body.querySelectorAll('.panel-dir-marquee')).map((marqueeEl, index) => {
-                    const innerEl = marqueeEl.querySelector('.panel-dir-marquee-inner');
-                    return {
-                        index,
-                        animationObj: !!marqueeEl.__panelMarqueeAnim,
-                        animationState: marqueeEl.__panelMarqueeAnim?.playState,
-                        activeAnimations: innerEl?.getAnimations?.().map((anim) => anim.playState) || []
-                    };
-                });
-                const result = {
-                    version: 'TOK-62-panel-marquee-debug-2026-05-30-1',
-                    bodyConnected: body.isConnected,
-                    dirMarqueeCount: rows.length,
-                    reducedMotion,
-                    started,
-                    before: rows,
-                    after
-                };
-                console.log('[TokyoRailPanelMarqueeDebug]', result);
-                console.table(rows);
-                console.table(after);
-                return result;
-            };
-        } catch {
-            // ignore
-        }
-    };
-
-    installPanelMarqueeDebug();
-    setupPanelMarqueeAutoRefresh();
-
     const renderAllTimetables = async () => {
         closeDirFilterPopover();
         const token = ++timetableRenderToken;
@@ -5998,7 +5989,6 @@ export function createPanel(options = {}) {
             */
             pendingGridDataDebugLog = false;
         }
-        scheduleMarqueeApply(body);
     };
 
     const dirFilterPopover = document.createElement('div');
@@ -7429,7 +7419,6 @@ export function createPanel(options = {}) {
         // 默认折叠态：填充每条线路的“未来最近 3 条”班次
         // 这里等待渲染完成，避免外部随后执行的 scrollToLineId 被后续异步渲染“拉回顶部”。
         await renderAllTimetables();
-        scheduleMarqueeApply(body);
         scheduleCatalogRefresh();
         syncPanelTitleForActiveLine();
     };
