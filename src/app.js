@@ -68,8 +68,7 @@ import { createLayerFeature } from './features/layer/layerFeature.js';
 import { bindMapInteractions } from './features/map-interactions/mapInteractionController.js';
 import { createStationCoordinateAdapter } from './features/layer/stationCoordinateAdapter.js';
 import { createRouteFeature } from './features/route/routeFeature.js';
-import { createRoutePreviewController } from './features/route/routePreviewController.js';
-import { createTripPreviewBuilder } from './features/route/tripPreviewBuilder.js';
+import { createRoutePreviewRuntimeController } from './features/route/routePreviewRuntimeController.js';
 import { createReachableStopsOverlayRenderer } from './features/search/reachableStopsOverlayRenderer.js';
 import { createSearchMapBridge } from './features/search/searchMapBridge.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
@@ -86,9 +85,6 @@ import {
 } from './features/settings/settingsControls.js';
 import { createSettingsMenu } from './features/settings/settingsMenu.js';
 import {
-    buildTripPreviewAggregateFromPayloadList as buildRouteTripPreviewAggregateFromPayloadList,
-    buildTripPreviewLineFeatureDedupKey,
-    buildTripPreviewSelectionKey as buildRoutePreviewSelectionKey,
     resolveTripPreviewPayloadSource as resolveRoutePreviewPayloadSource
 } from './domain/routePreviewSelection.js';
 import { createSelectionBadge } from './ui/selectionBadge.js';
@@ -3798,56 +3794,38 @@ const initMapApp = async () => {
             getStationCoord: (stationId) => stationCoordByIdBase.get(stationId) || stationCoordById.get(stationId)
         });
 
-        const { buildTripPreviewFeatures } = createTripPreviewBuilder({
-            stationCoordByIdBase,
-            stationCoordById,
-            stationServingCountById,
-            lineColorById,
-            throughServiceConfigsObject: THROUGH_SERVICE_CONFIGS_OBJECT,
-            resolveRailColorForTheme,
-            isLineTerminalStation,
-            isSamePhysicalStation,
-            isLoopDirection,
-            extractLineSegment,
-            nearestBridgeBetweenLines,
-            distMeters,
-            extendBBox,
-            isDebugLoopEnabled: () => {
-                try {
-                    return globalThis?.__TokyoRailDebugLoopSlice === true;
-                } catch {
-                    return false;
-                }
-            }
-        });
         const routeEndpointPopups = createRouteEndpointPopupRuntime({
             mapEngine,
             getStationCoord: (stationId) => stationCoordByIdBase.get(stationId) || stationCoordById.get(stationId),
             getIsDarkTheme: () => document.documentElement.getAttribute('data-theme') === 'dark'
         });
 
-        const buildMultiTripPreviewAggregate = () => {
-            return routeFeature.buildMultiTripPreviewAggregate({
-                buildLineFeatureDedupKey: buildTripPreviewLineFeatureDedupKey
-            });
-        };
-        const buildTripPreviewAggregateFromPayloadList = (payloadList) => {
-            return buildRouteTripPreviewAggregateFromPayloadList({
-                payloadList,
-                buildTripPreviewFeatures,
-                buildLineFeatureDedupKey: buildTripPreviewLineFeatureDedupKey
-            });
-        };
-
-        const routePreviewController = createRoutePreviewController({
+        const routePreviewController = createRoutePreviewRuntimeController({
+            tripPreviewBuilderOptions: {
+                stationCoordByIdBase,
+                stationCoordById,
+                stationServingCountById,
+                lineColorById,
+                throughServiceConfigsObject: THROUGH_SERVICE_CONFIGS_OBJECT,
+                resolveRailColorForTheme,
+                isLineTerminalStation,
+                isSamePhysicalStation,
+                isLoopDirection,
+                extractLineSegment,
+                nearestBridgeBetweenLines,
+                distMeters,
+                extendBBox,
+                isDebugLoopEnabled: () => {
+                    try {
+                        return globalThis?.__TokyoRailDebugLoopSlice === true;
+                    } catch {
+                        return false;
+                    }
+                }
+            },
             routeFeature,
             store: appStore,
             isMultiSelectModeEnabled,
-            resolveTripPreviewPayloadSource: resolveRoutePreviewPayloadSource,
-            buildTripPreviewSelectionKey: buildRoutePreviewSelectionKey,
-            buildTripPreviewAggregate: buildMultiTripPreviewAggregate,
-            buildTripPreviewAggregateFromPayloadList,
-            buildTripPreviewFeatures,
             resolveTripPreviewStationOverrideColor,
             getBaseMultiSelectedLineIds,
             applyTripPreviewState: ({
@@ -3871,13 +3849,12 @@ const initMapApp = async () => {
                 tripPreviewStationOverrideColor = '';
             },
             getTripPreviewActiveSource: () => tripPreviewActiveSource,
-            clearTripEndpointPopups: routeEndpointPopups.clearTripEndpointPopups,
-            updateTripEndpointPopups: routeEndpointPopups.updateTripEndpointPopups,
+            endpointPopups: routeEndpointPopups,
             syncStationOffsetForTripPreviewState,
             setStationLabelMode,
             applySelectionEffects,
             scheduleCollisionLayerRefresh,
-            previewFitWithSidePanels: routePreviewViewport.previewFitWithSidePanels,
+            viewportController: routePreviewViewport,
             emitMultiSelectLayersUpdated,
             isDirPreviewActive: () => dirPreviewActive,
             applyDirPreviewState: ({
@@ -3893,12 +3870,7 @@ const initMapApp = async () => {
                 dirPreviewActive = false;
                 dirPreviewLineIds = null;
                 dirPreviewStationIds = null;
-            },
-            clearDirEndpointPopups: routeEndpointPopups.clearDirEndpointPopups,
-            createDirEndpointPopup: routeEndpointPopups.createDirEndpointPopup,
-            addDirOriginPopup: routeEndpointPopups.addDirOriginPopup,
-            addDirTerminalPopup: routeEndpointPopups.addDirTerminalPopup,
-            bboxFromStationIds: routePreviewViewport.bboxFromStationIds
+            }
         });
 
         const rebuildTripPreviewFromMultiSelections = routePreviewController.rebuildTripPreviewFromMultiSelections;
