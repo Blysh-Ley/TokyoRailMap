@@ -66,6 +66,7 @@ import {
     buildTripPreviewPayloadFromSegments
 } from '../../domain/routePlanning/displayRows.js';
 import { exportJourneyPopoverToPng } from './journeyCaptureExport.js';
+import { journeyRuntimeAdapter } from './journeyRuntimeAdapter.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -547,7 +548,7 @@ const refreshJourneyStationLineAlignment = (rootEl) => {
 
 export function mountTravelSearchUI() {
     if (document.querySelector('.journey-ui')) {
-        return window.TokyoRailJourneyUI;
+        return journeyRuntimeAdapter.getJourneyUI();
     }
 
     const root = el('div', 'journey-ui is-collapsed');
@@ -676,33 +677,17 @@ export function mountTravelSearchUI() {
         normalizeText
     });
 
-    try {
-        window.__TokyoRailJourneyMapPickActive = false;
-        window.__TokyoRailSuppressStationSelectionUntil = 0;
-    } catch {
-        // ignore
-    }
+    journeyRuntimeAdapter.resetMapPickRuntimeFlags();
 
     const suppressStationSelectionOnce = (ms = 700) => {
-        try {
-            const now = Date.now();
-            const until = now + Math.max(0, Number(ms) || 0);
-            const prev = Number(window.__TokyoRailSuppressStationSelectionUntil) || 0;
-            window.__TokyoRailSuppressStationSelectionUntil = Math.max(prev, until);
-        } catch {
-            // ignore
-        }
+        journeyRuntimeAdapter.suppressStationSelectionOnce(ms);
     };
 
     const setMapPickTarget = (target) => {
         mapPickTarget = target === 'origin' || target === 'destination' ? target : null;
         originMapPickBtn.classList.toggle('is-active', mapPickTarget === 'origin');
         destinationMapPickBtn.classList.toggle('is-active', mapPickTarget === 'destination');
-        try {
-            window.__TokyoRailJourneyMapPickActive = !!mapPickTarget;
-        } catch {
-            // ignore
-        }
+        journeyRuntimeAdapter.setMapPickActive(!!mapPickTarget);
     };
 
     const resolveStationByName = async (name) => {
@@ -1726,26 +1711,12 @@ export function mountTravelSearchUI() {
     };
 
     const enableMultiSelectMode = () => {
-        try {
-            if (typeof window?.__TokyoRailMultiSelectInternalAPI?.setEnabledSilent === 'function') {
-                window.__TokyoRailMultiSelectInternalAPI.setEnabledSilent(true);
-            }
-            if (typeof window?.__TokyoRailMultiSelectInternalAPI?.setForbidClass === 'function') {
-                window.__TokyoRailMultiSelectInternalAPI.setForbidClass(true);
-            }
-        } catch {
-            // ignore
-        }
+        journeyRuntimeAdapter.setMultiSelectInternalMode(true);
     };
 
     const disableMultiSelectMode = () => {
         try {
-            if (typeof window?.__TokyoRailMultiSelectInternalAPI?.setEnabledSilent === 'function') {
-                window.__TokyoRailMultiSelectInternalAPI.setEnabledSilent(false);
-            }
-            if (typeof window?.__TokyoRailMultiSelectInternalAPI?.setForbidClass === 'function') {
-                window.__TokyoRailMultiSelectInternalAPI.setForbidClass(false);
-            }
+            journeyRuntimeAdapter.setMultiSelectInternalMode(false);
             // 清理多选的预览数据
             journeyPlanPreviewController?.clearPreview?.({ force: true });
         } catch {
@@ -2547,7 +2518,7 @@ export function mountTravelSearchUI() {
         }
     };
 
-    window.TokyoRailJourneyUI = ui;
+    journeyRuntimeAdapter.publishJourneyUI(ui);
     return ui;
 }
 
