@@ -34,6 +34,18 @@ import {
     renderPanelTimetableListHtml
 } from './panelTimetableRenderer.js';
 import { createPanelSelectionStateController } from './panelSelectionStateController.js';
+import {
+    DIR_FILTER_FIELDS,
+    buildDirFilterFacetEntries,
+    createEmptyDirFilterState,
+    filterRowsByDirFilterState,
+    hasDirFilterRowValue,
+    isAllSelectedDirFilterState,
+    setDirFilterAllSelected,
+    syncDirFilterStateWithRows,
+    toDirFilterRow,
+    toggleDirFilterFieldValue
+} from './panelDirFilterModel.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
@@ -4081,33 +4093,19 @@ export function createPanel(options = {}) {
             const rowsForDir = rows.filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
             const { typeHints, terminalHints, specialHints } = buildDirectionGridHints(rowsForDir);
             const filterRowsForDir = rowsForDir
-                .map((r) => ({
-                    origin: toText(r.originName),
-                    terminal: toText(r.terminalDisplayName || r.terminalName || r.destName),
-                    type: toText(r.typeName)
-                }))
-                .filter((r) => r.origin || r.terminal || r.type);
+                .map((r) => toDirFilterRow(r, { toText }))
+                .filter(hasDirFilterRowValue);
             dirFilterRowsByKey.set(lineDirKey, filterRowsForDir);
 
-            const state = dirFilterStateByKey.get(lineDirKey) || { origins: new Set(), terminals: new Set(), types: new Set() };
+            const state = dirFilterStateByKey.get(lineDirKey) || createEmptyDirFilterState();
             if (!dirFilterStateByKey.has(lineDirKey)) {
                 dirFilterStateByKey.set(lineDirKey, state);
             }
 
-            const filteredRowsForDir = rowsForDir.filter((r) => {
-                const originOk = !state.origins.size || state.origins.has(toText(r.originName));
-                const terminalOk = !state.terminals.size || state.terminals.has(toText(r.terminalDisplayName || r.terminalName || r.destName));
-                const typeOk = !state.types.size || state.types.has(toText(r.typeName));
-                return originOk && terminalOk && typeOk;
-            });
+            const filteredRowsForDir = filterRowsByDirFilterState(rowsForDir, state);
 
             const rowsForDirPreview = rowsForPreview.filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
-            const filteredRowsForDirPreview = rowsForDirPreview.filter((r) => {
-                const originOk = !state.origins.size || state.origins.has(toText(r.originName));
-                const terminalOk = !state.terminals.size || state.terminals.has(toText(r.terminalDisplayName || r.terminalName || r.destName));
-                const typeOk = !state.types.size || state.types.has(toText(r.typeName));
-                return originOk && terminalOk && typeOk;
-            });
+            const filteredRowsForDirPreview = filterRowsByDirFilterState(rowsForDirPreview, state);
 
             const filteredTripKeys = Array.from(new Set(
                 filteredRowsForDirPreview
@@ -5993,99 +5991,6 @@ export function createPanel(options = {}) {
         dirFilterPopover.style.top = `${Math.round(Math.max(8, top))}px`;
     };
 
-    const FILTER_FIELD_TO_ROW_KEY = {
-        origins: 'origin',
-        terminals: 'terminal',
-        types: 'type'
-    };
-
-    const createEmptyDirFilterState = () => ({ origins: new Set(), terminals: new Set(), types: new Set() });
-
-    const collectDirFilterOptionSets = (rows) => {
-        const list = Array.isArray(rows) ? rows : [];
-        const out = createEmptyDirFilterState();
-        for (const row of list) {
-            const origin = toText(row?.origin);
-            const terminal = toText(row?.terminal);
-            const type = toText(row?.type);
-            if (origin) out.origins.add(origin);
-            if (terminal) out.terminals.add(terminal);
-            if (type) out.types.add(type);
-        }
-        return out;
-    };
-
-    const createAllSelectedDirFilterState = (rows) => collectDirFilterOptionSets(rows);
-
-    const syncDirFilterStateWithRows = (state, rows) => {
-        const source = state || createEmptyDirFilterState();
-        const allValues = collectDirFilterOptionSets(rows);
-        const next = createEmptyDirFilterState();
-        for (const key of ['origins', 'terminals', 'types']) {
-            const selected = source[key] instanceof Set ? source[key] : new Set();
-            for (const value of selected) {
-                if (allValues[key].has(value)) next[key].add(value);
-            }
-        }
-        return next;
-    };
-
-    const isAllSelectedDirFilterState = (state, rows) => {
-        const allValues = collectDirFilterOptionSets(rows);
-        const current = state || createEmptyDirFilterState();
-        for (const key of ['origins', 'terminals', 'types']) {
-            const selected = current[key] instanceof Set ? current[key] : new Set();
-            if (selected.size !== allValues[key].size) return false;
-            for (const value of allValues[key]) {
-                if (!selected.has(value)) return false;
-            }
-        }
-        return true;
-    };
-
-    const getFilterRowsForState = ({ rows, state, ignoreField = '' }) => {
-        const list = Array.isArray(rows) ? rows : [];
-        return list.filter((row) => {
-            const origin = toText(row?.origin);
-            const terminal = toText(row?.terminal);
-            const type = toText(row?.type);
-            // Empty Set = no constraint on that dimension (standard faceted filter: empty ≡ all)
-            const originOk = ignoreField === 'origins' || !(state?.origins instanceof Set) || !state.origins.size || state.origins.has(origin);
-            const terminalOk = ignoreField === 'terminals' || !(state?.terminals instanceof Set) || !state.terminals.size || state.terminals.has(terminal);
-            const typeOk = ignoreField === 'types' || !(state?.types instanceof Set) || !state.types.size || state.types.has(type);
-            return originOk && terminalOk && typeOk;
-        });
-    };
-
-    const buildFilterFacetEntries = ({ rows, field, state }) => {
-        const rowKey = FILTER_FIELD_TO_ROW_KEY[field];
-        if (!rowKey) return [];
-
-        const scopedRows = getFilterRowsForState({ rows, state, ignoreField: field });
-        const sourceRows = scopedRows.length ? scopedRows : (Array.isArray(rows) ? rows : []);
-        const counts = new Map();
-        for (const row of sourceRows) {
-            const value = toText(row?.[rowKey]);
-            if (!value) continue;
-            counts.set(value, (counts.get(value) || 0) + 1);
-        }
-
-        const selected = state?.[field] instanceof Set ? state[field] : new Set();
-        for (const value of selected) {
-            const v = toText(value);
-            if (!v || counts.has(v)) continue;
-            counts.set(v, 0);
-        }
-
-        return Array.from(counts.entries())
-            .map(([value, count]) => ({ value, count: Number(count) || 0 }))
-            .sort((a, b) => {
-                const dc = b.count - a.count;
-                if (dc) return dc;
-                return String(a.value).localeCompare(String(b.value));
-            });
-    };
-
     const buildDirFilterColumnHtml = ({ title, field, entries, selected }) => {
         const items = Array.isArray(entries) ? entries : [];
         const rowsHtml = items.length
@@ -6117,9 +6022,8 @@ export function createPanel(options = {}) {
     const updateDirFilterPopoverInPlace = ({ rows, state }) => {
         const bodyEl = dirFilterPopover.querySelector('[data-dir-filter-popover-body]');
         if (!bodyEl) return;
-        const fields = ['origins', 'terminals', 'types'];
-        for (const field of fields) {
-            const entries = buildFilterFacetEntries({ rows, field, state });
+        for (const field of DIR_FILTER_FIELDS) {
+            const entries = buildDirFilterFacetEntries({ rows, field, state });
             const countMap = new Map();
             for (const e of entries) countMap.set(e.value, e.count);
 
@@ -6167,9 +6071,9 @@ export function createPanel(options = {}) {
 
         const bodyEl = dirFilterPopover.querySelector('[data-dir-filter-popover-body]');
         if (!bodyEl) return;
-        const originEntries = buildFilterFacetEntries({ rows, field: 'origins', state });
-        const terminalEntries = buildFilterFacetEntries({ rows, field: 'terminals', state });
-        const typeEntries = buildFilterFacetEntries({ rows, field: 'types', state });
+        const originEntries = buildDirFilterFacetEntries({ rows, field: 'origins', state });
+        const terminalEntries = buildDirFilterFacetEntries({ rows, field: 'terminals', state });
+        const typeEntries = buildDirFilterFacetEntries({ rows, field: 'types', state });
         bodyEl.innerHTML = [
             buildDirFilterColumnHtml({ title: '始发站', field: 'origins', entries: originEntries, selected: state.origins }),
             buildDirFilterColumnHtml({ title: '终点站', field: 'terminals', entries: terminalEntries, selected: state.terminals }),
@@ -6220,9 +6124,7 @@ export function createPanel(options = {}) {
         if (target.hasAttribute('data-dir-filter-toggle-all')) {
             // Checked → select all values (= standard "all selected" state)
             // Unchecked → clear all (= empty sets = no constraint = show all)
-            const newState = target.checked
-                ? createAllSelectedDirFilterState(rows)
-                : createEmptyDirFilterState();
+            const newState = setDirFilterAllSelected(rows, target.checked);
             dirFilterStateByKey.set(activeDirFilterKey, newState);
             state = newState;
 
@@ -6243,12 +6145,8 @@ export function createPanel(options = {}) {
         const value = toText(target.value);
         if (!value) return;
 
-        const bucket = state[field];
-        if (target.checked) {
-            bucket.add(value);
-        } else {
-            bucket.delete(value);
-        }
+        state = toggleDirFilterFieldValue(state, { field, value, checked: target.checked });
+        dirFilterStateByKey.set(activeDirFilterKey, state);
 
         // Re-render timetable and update popover counts in-place
         await rerenderLineById(lineId);

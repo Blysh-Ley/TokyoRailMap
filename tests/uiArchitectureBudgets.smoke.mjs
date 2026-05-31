@@ -15,7 +15,7 @@ const uiDomResponsibilityPattern = /\bdocument\.|\bwindow\.|addEventListener\s*\
 const uiDebtBudgets = [
     {
         file: 'src/features/panel/panel.js',
-        maxLines: 7471,
+        maxLines: 7375,
         windowBridge: 4,
         browserStorage: 0,
         globalEvents: 10,
