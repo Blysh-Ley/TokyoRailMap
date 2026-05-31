@@ -35,17 +35,12 @@ import {
 } from './panelTimetableRenderer.js';
 import { createPanelSelectionStateController } from './panelSelectionStateController.js';
 import {
-    DIR_FILTER_FIELDS,
-    buildDirFilterFacetEntries,
     createEmptyDirFilterState,
     filterRowsByDirFilterState,
     hasDirFilterRowValue,
-    isAllSelectedDirFilterState,
-    setDirFilterAllSelected,
-    syncDirFilterStateWithRows,
-    toDirFilterRow,
-    toggleDirFilterFieldValue
+    toDirFilterRow
 } from './panelDirFilterModel.js';
+import { createPanelDirFilterPopoverController } from './panelDirFilterPopoverController.js';
 import {
     createPanelTimePickerController,
     normalizeTimePickerHHMM
@@ -5415,28 +5410,6 @@ export function createPanel(options = {}) {
         }
     };
 
-    const dirFilterPopover = document.createElement('div');
-    dirFilterPopover.className = 'panel-dir-filter-popover is-hidden';
-    dirFilterPopover.innerHTML = `
-        <div class="panel-dir-filter-popover-head">
-            <span class="panel-dir-filter-popover-title">筛选</span>
-            <span class="panel-dir-filter-popover-head-actions">
-                <label class="panel-dir-filter-toggle-all" data-dir-filter-toggle-all-wrap="1">
-                    <input type="checkbox" data-dir-filter-toggle-all="1" checked />
-                    <span>全选</span>
-                </label>
-                <button type="button" class="panel-dir-filter-popover-clear" data-dir-filter-clear="1" aria-label="清除筛选">清除筛选</button>
-                <button type="button" class="panel-dir-filter-popover-close" data-dir-filter-close="1" aria-label="关闭">x</button>
-            </span>
-        </div>
-        <div class="panel-dir-filter-popover-body" data-dir-filter-popover-body="1"></div>
-    `;
-    dirFilterPopover.addEventListener('pointerdown', (e) => stopPropagationOnly(e), { passive: true });
-    dirFilterPopover.addEventListener('click', (e) => stopPropagationOnly(e), { passive: true });
-    document.body.appendChild(dirFilterPopover);
-
-    let activeDirFilterKey = '';
-
     const rerenderLineById = async (lineId) => {
         const lineEl = body.querySelector(`[data-line-id="${escapeHtml(String(lineId))}"]`);
         if (!lineEl) return;
@@ -5444,259 +5417,24 @@ export function createPanel(options = {}) {
         await renderTimetableForLineEl(lineEl, currentStationId, token);
     };
 
-    const closeDirFilterPopover = ({ clearPreview = false } = {}) => {
-        activeDirFilterKey = '';
-        dirFilterPopover.classList.add('is-hidden');
-        if (clearPreview) clearPinnedDirPreview();
-    };
-
-    const positionDirFilterPopover = (anchorEl) => {
-        if (!anchorEl || !(anchorEl instanceof Element)) return;
-        const rect = anchorEl.getBoundingClientRect();
-        const popRect = dirFilterPopover.getBoundingClientRect();
-        const popW = Math.max(360, Math.ceil(popRect.width || 360));
-        const popH = Math.max(180, Math.ceil(popRect.height || 260));
-        const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
-        const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
-        const gap = 8;
-
-        let left = rect.right - popW;
-        left = Math.max(8, Math.min(left, Math.max(8, viewportW - popW - 8)));
-
-        const canShowAbove = rect.top - gap - popH >= 8;
-        const top = canShowAbove
-            ? rect.top - gap - popH
-            : Math.min(viewportH - popH - 8, rect.bottom + gap);
-
-        dirFilterPopover.style.left = `${Math.round(left)}px`;
-        dirFilterPopover.style.top = `${Math.round(Math.max(8, top))}px`;
-    };
-
-    const buildDirFilterColumnHtml = ({ title, field, entries, selected }) => {
-        const items = Array.isArray(entries) ? entries : [];
-        const rowsHtml = items.length
-            ? items.map(({ value, count }) => {
-                const checked = selected?.has?.(value) ? ' checked' : '';
-                return `
-                    <label class="panel-dir-filter-option">
-                        <input type="checkbox" data-dir-filter-field="${escapeHtml(field)}" value="${escapeHtml(value)}"${checked} />
-                        <span class="panel-dir-filter-option-name">${escapeHtml(value)}</span>
-                        <span class="panel-dir-filter-option-count">（${escapeHtml(String(count))}）</span>
-                    </label>
-                `;
-            }).join('')
-            : '<div class="panel-dir-filter-empty">无可选项</div>';
-
-        return `
-            <div class="panel-dir-filter-col">
-                <div class="panel-dir-filter-col-title">${escapeHtml(title)}</div>
-                <div class="panel-dir-filter-col-body">${rowsHtml}</div>
-            </div>
-        `;
-    };
-
-    /**
-     * Standard faceted-filter in-place update.
-     * After any checkbox change, recompute cross-column counts and sync UI.
-     * Empty Set means "no constraint" (show all) — the standard model.
-     */
-    const updateDirFilterPopoverInPlace = ({ rows, state }) => {
-        const bodyEl = dirFilterPopover.querySelector('[data-dir-filter-popover-body]');
-        if (!bodyEl) return;
-        for (const field of DIR_FILTER_FIELDS) {
-            const entries = buildDirFilterFacetEntries({ rows, field, state });
-            const countMap = new Map();
-            for (const e of entries) countMap.set(e.value, e.count);
-
-            const checkboxes = bodyEl.querySelectorAll(`input[data-dir-filter-field="${field}"]`);
-            for (const cb of checkboxes) {
-                if (!(cb instanceof HTMLInputElement)) continue;
-                const value = toText(cb.value);
-                if (!value) continue;
-                // Update count
-                const label = cb.closest('.panel-dir-filter-option');
-                if (label) {
-                    const countSpan = label.querySelector('.panel-dir-filter-option-count');
-                    if (countSpan) {
-                        const newCount = countMap.get(value) ?? 0;
-                        countSpan.textContent = `（${newCount}）`;
-                    }
-                }
-                // Sync checked state: empty set → nothing checked visually
-                const selected = state?.[field];
-                cb.checked = !!(selected instanceof Set && selected.size && selected.has(value));
-            }
-        }
-        // Toggle-all: checked only when every value in every column is selected
-        const toggleAllInput = dirFilterPopover.querySelector('[data-dir-filter-toggle-all="1"]');
-        if (toggleAllInput instanceof HTMLInputElement) {
-            toggleAllInput.checked = isAllSelectedDirFilterState(state, rows);
-        }
-    };
-
-    const openDirFilterPopover = ({ lineId, dirKey, anchorEl }) => {
-        // Block filter popover for loop lines (Yamanote / Oedo)
-        if (isLoopLine(lineId)) return;
-
-        const lineDirKey = makeLineDirKey(lineId, dirKey);
-        const rows = dirFilterRowsByKey.get(lineDirKey) || [];
-        let state;
-        if (!dirFilterStateByKey.has(lineDirKey)) {
-            // Initial open: empty state means "no constraint" = show all
-            state = createEmptyDirFilterState();
-            dirFilterStateByKey.set(lineDirKey, state);
-        } else {
-            state = syncDirFilterStateWithRows(dirFilterStateByKey.get(lineDirKey), rows);
-            dirFilterStateByKey.set(lineDirKey, state);
-        }
-
-        const bodyEl = dirFilterPopover.querySelector('[data-dir-filter-popover-body]');
-        if (!bodyEl) return;
-        const originEntries = buildDirFilterFacetEntries({ rows, field: 'origins', state });
-        const terminalEntries = buildDirFilterFacetEntries({ rows, field: 'terminals', state });
-        const typeEntries = buildDirFilterFacetEntries({ rows, field: 'types', state });
-        bodyEl.innerHTML = [
-            buildDirFilterColumnHtml({ title: '始发站', field: 'origins', entries: originEntries, selected: state.origins }),
-            buildDirFilterColumnHtml({ title: '终点站', field: 'terminals', entries: terminalEntries, selected: state.terminals }),
-            buildDirFilterColumnHtml({ title: '种别', field: 'types', entries: typeEntries, selected: state.types })
-        ].join('');
-
-        const toggleAllInput = dirFilterPopover.querySelector('[data-dir-filter-toggle-all="1"]');
-        if (toggleAllInput instanceof HTMLInputElement) {
-            toggleAllInput.checked = isAllSelectedDirFilterState(state, rows);
-        }
-
-        activeDirFilterKey = lineDirKey;
-        dirFilterPopover.classList.remove('is-hidden');
-        positionDirFilterPopover(anchorEl);
-        applyDirPreviewByKey(lineDirKey, { force: true });
-    };
-
-    const toggleDirFilterPopoverFromButton = (btnEl) => {
-        if (!btnEl || !(btnEl instanceof Element)) return;
-        const lineId = toText(btnEl.getAttribute('data-line-id'));
-        const dirKey = toText(btnEl.getAttribute('data-dir-key'));
-        if (!lineId || !dirKey) return;
-        const lineDirKey = makeLineDirKey(lineId, dirKey);
-
-        if (!dirFilterPopover.classList.contains('is-hidden') && activeDirFilterKey === lineDirKey) {
-            closeDirFilterPopover();
-            return;
-        }
-
-        openDirFilterPopover({ lineId, dirKey, anchorEl: btnEl });
-    };
-
-    dirFilterPopover.addEventListener('change', async (evt) => {
-        const target = evt?.target;
-        if (!(target instanceof HTMLInputElement)) return;
-        if (target.type !== 'checkbox') return;
-        if (!activeDirFilterKey) return;
-        const [lineId, dirKey] = activeDirFilterKey.split('||');
-
-        // Guard: loop lines should never reach here (filter btn hidden), but bail out just in case
-        if (isLoopLine(lineId)) return;
-
-        const rows = dirFilterRowsByKey.get(activeDirFilterKey) || [];
-        let state = dirFilterStateByKey.get(activeDirFilterKey) || createEmptyDirFilterState();
-        if (!dirFilterStateByKey.has(activeDirFilterKey)) dirFilterStateByKey.set(activeDirFilterKey, state);
-
-        // --- Toggle-all checkbox ---
-        if (target.hasAttribute('data-dir-filter-toggle-all')) {
-            // Checked → select all values (= standard "all selected" state)
-            // Unchecked → clear all (= empty sets = no constraint = show all)
-            const newState = setDirFilterAllSelected(rows, target.checked);
-            dirFilterStateByKey.set(activeDirFilterKey, newState);
-            state = newState;
-
-            // Re-render timetable and update popover counts
-            await rerenderLineById(lineId);
-            const updatedRows = dirFilterRowsByKey.get(activeDirFilterKey) || rows;
-            updateDirFilterPopoverInPlace({ rows: updatedRows, state });
-            // Update map highlighting to reflect filter change
-            applyDirPreviewByKey(activeDirFilterKey, { force: true });
-            const newAnchorEl = body.querySelector(`.panel-dir-filter-btn[data-line-id="${escapeHtml(String(lineId))}"][data-dir-key="${escapeHtml(String(dirKey))}"]`);
-            if (newAnchorEl) positionDirFilterPopover(newAnchorEl);
-            return;
-        }
-
-        // --- Individual option checkbox ---
-        const field = toText(target.getAttribute('data-dir-filter-field'));
-        if (field !== 'origins' && field !== 'terminals' && field !== 'types') return;
-        const value = toText(target.value);
-        if (!value) return;
-
-        state = toggleDirFilterFieldValue(state, { field, value, checked: target.checked });
-        dirFilterStateByKey.set(activeDirFilterKey, state);
-
-        // Re-render timetable and update popover counts in-place
-        await rerenderLineById(lineId);
-        const updatedRows = dirFilterRowsByKey.get(activeDirFilterKey) || rows;
-        updateDirFilterPopoverInPlace({ rows: updatedRows, state });
-        // Update map highlighting to reflect filter change
-        applyDirPreviewByKey(activeDirFilterKey, { force: true });
-        const newAnchorEl = body.querySelector(`.panel-dir-filter-btn[data-line-id="${escapeHtml(String(lineId))}"][data-dir-key="${escapeHtml(String(dirKey))}"]`);
-        if (newAnchorEl) positionDirFilterPopover(newAnchorEl);
+    const dirFilterPopoverController = createPanelDirFilterPopoverController({
+        body,
+        toText,
+        escapeHtml,
+        stopEvent,
+        stopPropagationOnly,
+        isLoopLine,
+        makeLineDirKey,
+        getRows: (lineDirKey) => dirFilterRowsByKey.get(lineDirKey) || [],
+        getState: (lineDirKey) => dirFilterStateByKey.get(lineDirKey) || null,
+        setState: (lineDirKey, state) => dirFilterStateByKey.set(lineDirKey, state),
+        rerenderLineById,
+        applyDirPreviewByKey,
+        clearPinnedDirPreview
     });
 
-    dirFilterPopover.addEventListener('mouseenter', () => {
-        if (!activeDirFilterKey) return;
-        applyDirPreviewByKey(activeDirFilterKey, { force: true });
-    });
-
-    dirFilterPopover.addEventListener('pointerdown', (evt) => {
-        const t = evt?.target;
-        if (!(t instanceof Element)) return;
-        if (!activeDirFilterKey) return;
-        applyDirPreviewByKey(activeDirFilterKey, { force: true });
-    }, { passive: true });
-
-    dirFilterPopover.addEventListener('click', async (evt) => {
-        const clearBtn = evt?.target?.closest?.('[data-dir-filter-clear]');
-        if (clearBtn) {
-            stopEvent(evt);
-            if (!activeDirFilterKey) return;
-            const rows = dirFilterRowsByKey.get(activeDirFilterKey) || [];
-            const state = createEmptyDirFilterState();
-            dirFilterStateByKey.set(activeDirFilterKey, state);
-
-            const [lineId, dirKey] = activeDirFilterKey.split('||');
-            await rerenderLineById(lineId);
-            const anchorEl = body.querySelector(`.panel-dir-filter-btn[data-line-id="${escapeHtml(String(lineId))}"][data-dir-key="${escapeHtml(String(dirKey))}"]`);
-            if (anchorEl) openDirFilterPopover({ lineId, dirKey, anchorEl });
-            else closeDirFilterPopover();
-            return;
-        }
-
-        const closeBtn = evt?.target?.closest?.('[data-dir-filter-close]');
-        if (!closeBtn) return;
-        stopEvent(evt);
-        closeDirFilterPopover();
-    }, { passive: false });
-
-    document.addEventListener('pointerdown', (evt) => {
-        if (dirFilterPopover.classList.contains('is-hidden')) return;
-        const t = evt?.target;
-        if (t instanceof Element) {
-            if (t.closest('.maplibregl-canvas-container, .maplibregl-canvas, .maplibregl-ctrl, #map')) return;
-        }
-        if (t && dirFilterPopover.contains(t)) return;
-        if (t && t instanceof Element && t.closest('.panel-dir-filter-btn')) return;
-        closeDirFilterPopover();
-    }, true);
-
-    document.addEventListener('keydown', (evt) => {
-        if (evt?.key !== 'Escape') return;
-        if (dirFilterPopover.classList.contains('is-hidden')) return;
-        closeDirFilterPopover();
-    });
-
-    window.addEventListener('resize', () => {
-        if (dirFilterPopover.classList.contains('is-hidden') || !activeDirFilterKey) return;
-        const [lineId, dirKey] = activeDirFilterKey.split('||');
-        const anchorEl = body.querySelector(`.panel-dir-filter-btn[data-line-id="${escapeHtml(String(lineId))}"][data-dir-key="${escapeHtml(String(dirKey))}"]`);
-        if (anchorEl) positionDirFilterPopover(anchorEl);
-    });
+    const closeDirFilterPopover = (options = {}) => dirFilterPopoverController.close(options);
+    const toggleDirFilterPopoverFromButton = (btnEl) => dirFilterPopoverController.toggleFromButton(btnEl);
 
     startAutoNowClock();
     applyTimetableViewMode(getTimetableViewMode ? getTimetableViewMode() : 'list', { rerender: false });
@@ -6117,7 +5855,7 @@ export function createPanel(options = {}) {
             hoverCandidateKey = null;
             lastFiredHoverKey = null;
             lastMousePrimaryKey = '';
-            if (!(evt?.relatedTarget && dirFilterPopover.contains(evt.relatedTarget)) && !panelSelectionState.getPinnedDirPreviewKey()) {
+            if (!(evt?.relatedTarget && dirFilterPopoverController.contains(evt.relatedTarget)) && !panelSelectionState.getPinnedDirPreviewKey()) {
                 clearDirPreview();
             }
             return;
@@ -6287,7 +6025,7 @@ export function createPanel(options = {}) {
         restoreStationLinesIfNeeded();
         if (tripLocked) return;
         if (toEl && tripDetailRoot.contains(toEl)) return;
-        if (!(toEl && dirFilterPopover.contains(toEl)) && !panelSelectionState.getPinnedDirPreviewKey()) {
+        if (!(toEl && dirFilterPopoverController.contains(toEl)) && !panelSelectionState.getPinnedDirPreviewKey()) {
             clearDirPreview();
         }
         if (!tripDetailPinned) scheduleTripDetailHide();
@@ -6427,7 +6165,7 @@ export function createPanel(options = {}) {
 
         if (panelSelectionState.getPinnedDirPreviewKey()) {
             const insidePanel = !!(target && root.contains(target));
-            const insideFilterPopover = !!(target && dirFilterPopover.contains(target));
+            const insideFilterPopover = !!(target && dirFilterPopoverController.contains(target));
             if (!insidePanel && !insideFilterPopover) {
                 clearPinnedDirPreview();
             }
@@ -6435,7 +6173,7 @@ export function createPanel(options = {}) {
 
         if (hasPinnedPanelState()) {
             const insidePanel = !!(target && root.contains(target));
-            const insideFilterPopover = !!(target && dirFilterPopover.contains(target));
+            const insideFilterPopover = !!(target && dirFilterPopoverController.contains(target));
             if (!insidePanel && !insideFilterPopover) {
                 clearPinnedPanelState({ restoreStation: true });
                 return;
