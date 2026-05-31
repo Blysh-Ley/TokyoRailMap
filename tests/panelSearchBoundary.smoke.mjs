@@ -9,6 +9,9 @@ const searchUiFiles = [
 const panelFiles = [
     'src/features/panel/panel.js',
     'src/features/panel/panelDirFilterModel.js',
+    'src/features/panel/panelMapSelectController.js',
+    'src/features/panel/panelMarqueeController.js',
+    'src/features/panel/panelPrintRequestController.js',
     'src/features/panel/panelTimePickerController.js',
     'src/features/panel/timetable-table.js'
 ];

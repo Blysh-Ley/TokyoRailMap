@@ -50,6 +50,9 @@ import {
     createPanelTimePickerController,
     normalizeTimePickerHHMM
 } from './panelTimePickerController.js';
+import { createPanelMapSelectController } from './panelMapSelectController.js';
+import { createPanelMarqueeController } from './panelMarqueeController.js';
+import { createPanelPrintRequestController } from './panelPrintRequestController.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
@@ -1088,104 +1091,6 @@ export function createPanel(options = {}) {
     dayPrintBtn.appendChild(dayPrintIcon);
 
     // 站点快速加入行程：作为起点/终点（map-select dropdown）
-    const mapSelectUi = document.createElement('div');
-    mapSelectUi.className = 'panel-map-select-ui';
-
-    const mapSelectBtn = document.createElement('button');
-    mapSelectBtn.type = 'button';
-    mapSelectBtn.className = 'panel-map-select-btn';
-    mapSelectBtn.setAttribute('data-panel-map-select-btn', '1');
-    mapSelectBtn.setAttribute('aria-label', '将本站加入行程（起点/终点）');
-
-    const mapSelectIcon = document.createElement('img');
-    mapSelectIcon.className = 'panel-map-select-icon';
-    mapSelectIcon.alt = '';
-    setImageElementFromCache(mapSelectIcon, getIconCandidates('map-select.svg'), {
-        cacheKey: 'icon:map-select.svg',
-        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('map-select.svg'), { cacheKey: 'icon:map-select.svg' })
-    }).catch(() => null);
-    mapSelectBtn.appendChild(mapSelectIcon);
-
-    const mapSelectMenu = document.createElement('div');
-    mapSelectMenu.className = 'panel-map-select-menu';
-    mapSelectMenu.setAttribute('role', 'menu');
-    mapSelectMenu.setAttribute('aria-label', '将本站作为起点或终点');
-
-    const mapSelectItemOrigin = document.createElement('button');
-    mapSelectItemOrigin.type = 'button';
-    mapSelectItemOrigin.className = 'panel-map-select-item';
-    mapSelectItemOrigin.textContent = '作为起点';
-    mapSelectItemOrigin.setAttribute('role', 'menuitem');
-
-    const mapSelectItemDestination = document.createElement('button');
-    mapSelectItemDestination.type = 'button';
-    mapSelectItemDestination.className = 'panel-map-select-item';
-    mapSelectItemDestination.textContent = '作为终点';
-    mapSelectItemDestination.setAttribute('role', 'menuitem');
-
-    mapSelectMenu.appendChild(mapSelectItemOrigin);
-    mapSelectMenu.appendChild(mapSelectItemDestination);
-    mapSelectUi.appendChild(mapSelectBtn);
-    mapSelectUi.appendChild(mapSelectMenu);
-
-    const openMapSelectMenu = () => {
-        mapSelectUi.classList.add('is-open');
-        mapSelectBtn.setAttribute('aria-expanded', 'true');
-    };
-    const closeMapSelectMenu = () => {
-        mapSelectUi.classList.remove('is-open');
-        mapSelectBtn.setAttribute('aria-expanded', 'false');
-    };
-    const toggleMapSelectMenu = () => {
-        if (mapSelectUi.classList.contains('is-open')) closeMapSelectMenu();
-        else openMapSelectMenu();
-    };
-
-    // 由于 menu 是 absolute 且在按钮盒子之外，直接用 wrapper 的 mouseleave 会过于严格。
-    // 这里改为：按钮/菜单分别监听 enter/leave，并在 leave 时延迟收起，给鼠标移动留缓冲。
-    let mapSelectHoverCloseTimer = null;
-    const cancelMapSelectHoverClose = () => {
-        if (mapSelectHoverCloseTimer != null) {
-            clearTimeout(mapSelectHoverCloseTimer);
-            mapSelectHoverCloseTimer = null;
-        }
-    };
-    const scheduleMapSelectHoverClose = (ms = 200) => {
-        cancelMapSelectHoverClose();
-        mapSelectHoverCloseTimer = setTimeout(() => {
-            mapSelectHoverCloseTimer = null;
-            closeMapSelectMenu();
-        }, Math.max(0, Number(ms) || 0));
-    };
-
-    mapSelectBtn.addEventListener('mouseenter', () => {
-        cancelMapSelectHoverClose();
-        openMapSelectMenu();
-    });
-    mapSelectBtn.addEventListener('mouseleave', () => {
-        scheduleMapSelectHoverClose(220);
-    });
-
-    mapSelectMenu.addEventListener('mouseenter', () => {
-        cancelMapSelectHoverClose();
-        openMapSelectMenu();
-    });
-    mapSelectMenu.addEventListener('mouseleave', () => {
-        scheduleMapSelectHoverClose(220);
-    });
-
-    let mapSelectLastPointerDownAt = 0;
-    mapSelectBtn.addEventListener('pointerdown', (evt) => {
-        stopEvent(evt);
-        mapSelectLastPointerDownAt = Date.now();
-        toggleMapSelectMenu();
-    }, { passive: false });
-    mapSelectBtn.addEventListener('click', (evt) => {
-        stopEvent(evt);
-        if (Date.now() - mapSelectLastPointerDownAt < 700) return;
-        toggleMapSelectMenu();
-    }, { passive: false });
-
     const applyStationToJourneyField = (field) => {
         const stationId = toText(currentStationId);
         const stationName = toText(currentStationNameZh) || toText(titleMain.textContent);
@@ -1207,23 +1112,20 @@ export function createPanel(options = {}) {
         }
     };
 
-    mapSelectItemOrigin.addEventListener('click', (evt) => {
-        stopEvent(evt);
-        closeMapSelectMenu();
-        applyStationToJourneyField('origin');
-    }, { passive: false });
-    mapSelectItemDestination.addEventListener('click', (evt) => {
-        stopEvent(evt);
-        closeMapSelectMenu();
-        applyStationToJourneyField('destination');
-    }, { passive: false });
-
-    document.addEventListener('pointerdown', (evt) => {
-        if (!mapSelectUi.classList.contains('is-open')) return;
-        const t = evt?.target;
-        if (t && mapSelectUi.contains(t)) return;
-        closeMapSelectMenu();
-    }, true);
+    const mapSelectController = createPanelMapSelectController({
+        stopEvent,
+        loadIcon: (iconEl) => setImageElementFromCache(iconEl, getIconCandidates('map-select.svg'), {
+            cacheKey: 'icon:map-select.svg',
+            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('map-select.svg'), { cacheKey: 'icon:map-select.svg' })
+        }).catch(() => null),
+        onSelectField: applyStationToJourneyField,
+        labels: {
+            button: '将本站加入行程（起点/终点）',
+            menu: '将本站作为起点或终点',
+            origin: '作为起点',
+            destination: '作为终点'
+        }
+    });
 
     // 打印按钮 + map-select 按钮同行（位于 daySeg 下方）
     const dayActionRow = document.createElement('div');
@@ -1231,7 +1133,7 @@ export function createPanel(options = {}) {
     dayActionRow.style.display = 'inline-flex';
     dayActionRow.style.alignItems = 'center';
     dayActionRow.style.gap = '8px';
-    dayActionRow.appendChild(mapSelectUi);
+    dayActionRow.appendChild(mapSelectController.el);
     dayActionRow.appendChild(dayPrintBtn);
 
     dayToggle.appendChild(dayActionRow);
@@ -5486,231 +5388,8 @@ export function createPanel(options = {}) {
         }
     };
 
-    const MAX_PANEL_MARQUEE_ANIMS = 30;
-
-    const scheduleMarqueeApply = (rootEl) => {
-        try {
-            if (!rootEl || !(rootEl instanceof Element)) return;
-            if (typeof window === 'undefined') return;
-            const raf = window.requestAnimationFrame;
-            if (typeof raf !== 'function') return;
-
-            if (rootEl.__panelMarqueeRafId) {
-                try {
-                    window.cancelAnimationFrame?.(rootEl.__panelMarqueeRafId);
-                } catch {
-                    // ignore
-                }
-                rootEl.__panelMarqueeRafId = 0;
-            }
-
-            // One/two RAFs help ensure scrollWidth is correct for flex layouts.
-            rootEl.__panelMarqueeRafId = raf(() => {
-                rootEl.__panelMarqueeRafId = raf(() => {
-                    rootEl.__panelMarqueeRafId = 0;
-                    const used = applyDirHeaderMarquees(rootEl, MAX_PANEL_MARQUEE_ANIMS);
-                    const remain = Math.max(0, MAX_PANEL_MARQUEE_ANIMS - used);
-                    applyTimetableDestMarquees(rootEl, remain);
-                    hookTimetableScrollMarquee(rootEl);
-                });
-            });
-        } catch {
-            // ignore
-        }
-    };
-
-    const applyDirHeaderMarquees = (rootEl, maxAnims = Number.POSITIVE_INFINITY) => {
-        try {
-            if (!rootEl || !(rootEl instanceof Element)) return;
-            if (typeof window === 'undefined') return;
-            if (!('animate' in Element.prototype)) return;
-
-            const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-            if (reduceMotion) return 0;
-
-            const marquees = Array.from(rootEl.querySelectorAll('.panel-dir-marquee'));
-            let started = 0;
-            for (const marqueeEl of marquees) {
-                if (started >= maxAnims) break;
-                const innerEl = marqueeEl.querySelector('.panel-dir-marquee-inner');
-                if (!innerEl) continue;
-
-                // cancel previous animation on this element (if any)
-                try {
-                    marqueeEl.__panelMarqueeAnim?.cancel?.();
-                } catch {
-                    // ignore
-                }
-
-                // reset
-                innerEl.style.transform = '';
-                marqueeEl.__panelMarqueeAnim = null;
-
-                const viewportW = marqueeEl.clientWidth || 0;
-                const contentW = innerEl.scrollWidth || 0;
-                if (!viewportW || contentW <= viewportW + 1) continue;
-
-                const distancePx = Math.max(0, contentW - viewportW);
-                if (!distancePx) continue;
-
-                const holdMs = 2000;
-                const speedPxPerSec = 35; // readable pace
-                const travelMs = Math.max(1500, Math.round((distancePx / speedPxPerSec) * 1000));
-                const totalMs = holdMs + travelMs + holdMs + holdMs;
-
-                const startHoldOffset = holdMs / totalMs;
-                const endMoveOffset = (holdMs + travelMs) / totalMs;
-                const endHoldOffset = (holdMs + travelMs + holdMs) / totalMs;
-                const resetOffset = Math.min(0.999, endHoldOffset + 0.001);
-
-                const anim = innerEl.animate(
-                    [
-                        { transform: 'translateX(0px)', offset: 0 },
-                        { transform: 'translateX(0px)', offset: startHoldOffset },
-                        { transform: `translateX(${-distancePx}px)`, offset: endMoveOffset },
-                        { transform: `translateX(${-distancePx}px)`, offset: endHoldOffset },
-                        { transform: 'translateX(0px)', offset: resetOffset },
-                        { transform: 'translateX(0px)', offset: 1 }
-                    ],
-                    {
-                        duration: totalMs,
-                        iterations: Infinity,
-                        easing: 'linear'
-                    }
-                );
-
-                marqueeEl.__panelMarqueeAnim = anim;
-                started += 1;
-            }
-            return started;
-        } catch {
-            // ignore
-            return 0;
-        }
-    };
-
-    const applyTimetableDestMarquees = (rootEl, maxAnims = MAX_PANEL_MARQUEE_ANIMS) => {
-        try {
-            if (!rootEl || !(rootEl instanceof Element)) return;
-            if (typeof window === 'undefined') return;
-            if (!('animate' in Element.prototype)) return;
-
-            const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-            if (reduceMotion) return;
-
-            const marquees = Array.from(rootEl.querySelectorAll('.panel-timetable-dest-marquee, .panel-timetable-type-marquee'));
-            const candidates = [];
-
-            for (const marqueeEl of marquees) {
-                const innerEl = marqueeEl.querySelector('.panel-timetable-dest-marquee-inner, .panel-timetable-type-marquee-inner');
-                if (!innerEl) continue;
-
-                // cancel previous animation on this element (if any)
-                try {
-                    marqueeEl.__panelMarqueeAnim?.cancel?.();
-                } catch {
-                    // ignore
-                }
-
-                // reset
-                innerEl.style.transform = '';
-                marqueeEl.__panelMarqueeAnim = null;
-
-                const viewportW = marqueeEl.clientWidth || 0;
-                const contentW = innerEl.scrollWidth || 0;
-                if (!viewportW || contentW <= viewportW + 1) continue;
-
-                // Prefer visible rows (within the nearest timetable scroller) to get marquee first.
-                const rowEl = marqueeEl.closest?.('.panel-timetable-row');
-                const containerEl = marqueeEl.closest?.('.panel-timetable');
-                let score = 1e9;
-                if (rowEl && containerEl) {
-                    const rr = rowEl.getBoundingClientRect?.();
-                    const cr = containerEl.getBoundingClientRect?.();
-                    if (rr && cr) {
-                        const visible = rr.bottom > cr.top && rr.top < cr.bottom;
-                        if (visible) score = 0;
-                        else score = Math.min(Math.abs(rr.top - cr.bottom), Math.abs(rr.bottom - cr.top));
-                    }
-                }
-
-                candidates.push({ marqueeEl, innerEl, viewportW, contentW, score });
-            }
-
-            candidates.sort((a, b) => a.score - b.score);
-
-            let started = 0;
-            for (const c of candidates) {
-                if (started >= maxAnims) break;
-                started += 1;
-
-                const distancePx = Math.max(0, c.contentW - c.viewportW);
-                if (!distancePx) continue;
-
-                const holdMs = 2000;
-                const speedPxPerSec = 30;
-                const travelMs = Math.max(1200, Math.round((distancePx / speedPxPerSec) * 1000));
-                const totalMs = holdMs + travelMs + holdMs + holdMs;
-
-                const startHoldOffset = holdMs / totalMs;
-                const endMoveOffset = (holdMs + travelMs) / totalMs;
-                const endHoldOffset = (holdMs + travelMs + holdMs) / totalMs;
-                const resetOffset = Math.min(0.999, endHoldOffset + 0.001);
-
-                const anim = c.innerEl.animate(
-                    [
-                        { transform: 'translateX(0px)', offset: 0 },
-                        { transform: 'translateX(0px)', offset: startHoldOffset },
-                        { transform: `translateX(${-distancePx}px)`, offset: endMoveOffset },
-                        { transform: `translateX(${-distancePx}px)`, offset: endHoldOffset },
-                        { transform: 'translateX(0px)', offset: resetOffset },
-                        { transform: 'translateX(0px)', offset: 1 }
-                    ],
-                    {
-                        duration: totalMs,
-                        iterations: Infinity,
-                        easing: 'linear'
-                    }
-                );
-
-                c.marqueeEl.__panelMarqueeAnim = anim;
-            }
-        } catch {
-            // ignore
-        }
-    };
-
-    const hookTimetableScrollMarquee = (rootEl) => {
-        try {
-            if (!rootEl || !(rootEl instanceof Element)) return;
-            if (typeof window === 'undefined') return;
-            const raf = window.requestAnimationFrame;
-            if (typeof raf !== 'function') return;
-
-            const bodies = Array.from(rootEl.querySelectorAll('.panel-timetable.is-expanded'));
-            for (const bodyEl of bodies) {
-                if (bodyEl.__panelDestMarqueeHooked) continue;
-                bodyEl.__panelDestMarqueeHooked = true;
-
-                let pending = false;
-                bodyEl.addEventListener(
-                    'scroll',
-                    () => {
-                        if (pending) return;
-                        pending = true;
-                        raf(() => {
-                            pending = false;
-                            const remain = Math.max(0, MAX_PANEL_MARQUEE_ANIMS - applyDirHeaderMarquees(bodyEl, MAX_PANEL_MARQUEE_ANIMS));
-                            applyTimetableDestMarquees(bodyEl, remain);
-                        });
-                    },
-                    { passive: true }
-                );
-            }
-        } catch {
-            // ignore
-        }
-    };
+    const panelMarqueeController = createPanelMarqueeController({ maxAnimations: 30 });
+    const scheduleMarqueeApply = panelMarqueeController.schedule;
 
     const renderAllTimetables = async () => {
         closeDirFilterPopover();
@@ -6128,107 +5807,26 @@ export function createPanel(options = {}) {
         return { buttonEl: btn, lineId: String(lineId), dirKey: String(dirKey) };
     };
 
-    const requestPrintLineTimetableImage = (lineId) => {
-        const lid = toText(lineId);
-        const lineEl = Array.from(body.querySelectorAll('[data-line-id]')).find((el) => toText(el.getAttribute('data-line-id')) === lid) || null;
-        if (!lineEl) return;
-        const lineSuffixHtml = toText(lineEl.querySelector?.('[data-line-suffix-row]')?.outerHTML || '');
-        const stationInfoHtml = toText(lineEl.querySelector?.('[data-station-info]')?.outerHTML || '');
-        const lineHeaderHtml = toText(lineEl.querySelector?.('.panel-line-header')?.outerHTML || '');
-        const stationName = toText(lineEl?.getAttribute('data-station-name') || '');
-        
-        const dirs = [];
-        const dirEls = Array.from(lineEl.querySelectorAll('[data-dir-toggle][data-dir-key]'));
-        for (const dirEl of dirEls) {
-            const dKey = toText(dirEl.getAttribute('data-dir-key'));
-            const lineDirKey = makeLineDirKey(lid, dKey);
-            const payload = dirPrintPayloadByKey.get(lineDirKey);
-            if (payload) {
-                payload.stationName = stationName;
-                payload.lineId = lid;
-                payload.lineHeaderHtml = lineHeaderHtml;
-                payload.lineSuffixHtml = lineSuffixHtml;
-                payload.stationInfoHtml = stationInfoHtml;
-                dirs.push(payload);
-            }
-        }
-        
-        if (!dirs.length) return;
-        
-        try {
-            window.dispatchEvent(new CustomEvent('__TokyoRailPrintLineTimetableImageRequested', {
-                detail: {
-                    lineId: lid,
-                    lineHeaderHtml,
-                    lineSuffixHtml,
-                    stationInfoHtml,
-                    dirs
-                }
-            }));
-        } catch {
-            // ignore
-        }
-    };
+    const panelPrintRequests = createPanelPrintRequestController({
+        body,
+        dirPrintPayloadByKey,
+        makeLineDirKey,
+        printAllEventName: TIMETABLE_PRINT_ALL_EVENT,
+        toText,
+        getStationName: () => toText(currentStationNameZh) || toText(titleMain.textContent),
+        getServiceDay: () => currentServiceDay,
+        getTimetableViewMode: () => timetableViewMode,
+        dispatchEvent: (event) => window.dispatchEvent(event),
+        createCustomEvent: (name, init) => new CustomEvent(name, init)
+    });
 
     const requestPrintTimetable = (lineId, dirKey) => {
-        requestPrintLineTimetableImage(lineId);
-    };
-
-    const collectAllDirectionPrintPayloads = () => {
-        const out = [];
-        const lineEls = Array.from(body.querySelectorAll('[data-line-id]'));
-        for (const lineEl of lineEls) {
-            const lineId = toText(lineEl.getAttribute('data-line-id'));
-            if (!lineId) continue;
-            const lineSuffixHtml = toText(lineEl.querySelector?.('[data-line-suffix-row]')?.outerHTML || '');
-            const stationInfoHtml = toText(lineEl.querySelector?.('[data-station-info]')?.outerHTML || '');
-            const lineHeaderHtml = toText(lineEl.querySelector?.('.panel-line-header')?.outerHTML || '');
-            const dirEls = Array.from(lineEl.querySelectorAll('[data-dir-toggle][data-dir-key]'));
-            const stationName = toText(lineEl?.getAttribute('data-station-name') || '');
-            for (const dirEl of dirEls) {
-                const dirKey = toText(dirEl.getAttribute('data-dir-key'));
-                const lineDirKey = makeLineDirKey(lineId, dirKey);
-                if (!lineDirKey) continue;
-                const payload = dirPrintPayloadByKey.get(lineDirKey);
-                if (payload) {
-                    payload.stationName = stationName;
-                    payload.lineId = lineId;
-                    payload.lineHeaderHtml = lineHeaderHtml;
-                    payload.lineSuffixHtml = lineSuffixHtml;
-                    payload.stationInfoHtml = stationInfoHtml;
-                    out.push({
-                        ...payload,
-                        lineSuffixHtml,
-                        stationInfoHtml,
-                        lineHeaderHtml
-                    });
-                }
-            }
-        }
-
-        return out;
-    };
-
-    const requestPrintAllTimetables = () => {
-        const payloads = collectAllDirectionPrintPayloads();
-        if (!payloads.length) return;
-        try {
-            window.dispatchEvent(new CustomEvent(TIMETABLE_PRINT_ALL_EVENT, {
-                detail: {
-                    stationName: toText(currentStationNameZh) || toText(titleMain.textContent),
-                    serviceDay: toText(currentServiceDay),
-                    timetableViewMode,
-                    pages: payloads
-                }
-            }));
-        } catch {
-            // ignore
-        }
+        panelPrintRequests.requestDirectionTimetable(lineId, dirKey);
     };
 
     dayPrintBtn.addEventListener('click', (evt) => {
         stopEvent(evt);
-        requestPrintAllTimetables();
+        panelPrintRequests.requestAllTimetables();
     }, { passive: false });
 
     const resolveMousePrimaryTarget = (target) => {
