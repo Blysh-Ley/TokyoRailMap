@@ -50,6 +50,10 @@ import { createPanelMarqueeController } from './panelMarqueeController.js';
 import { createPanelPrintRequestController } from './panelPrintRequestController.js';
 import { createPanelContentHost } from './panelContentHost.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
+import {
+    createPanelTouchInteractionController,
+    isTouchLikePointer
+} from './panelTouchInteractionController.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
@@ -243,16 +247,6 @@ const resolvePanelBadgeTextColor = (bgColor) => {
 };
 
 const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
-
-const isTouchLikePointer = (pt) => pt === 'touch' || pt === 'pen';
-
-const readPointerType = (evt) => {
-    const pt = evt?.pointerType;
-    if (pt) return String(pt);
-    const t = evt?.type;
-    if (t && String(t).startsWith('touch')) return 'touch';
-    return 'mouse';
-};
 
 function readStationName(props) {
     const p = props || {};
@@ -1000,6 +994,7 @@ export function createPanel(options = {}) {
     const panelShell = createDesktopPanelShell({ rightPx, widthPx });
     const root = panelShell.root;
     const panelContentHost = createPanelContentHost();
+    const touchInteraction = createPanelTouchInteractionController({ now: nowMs });
 
     // 从右侧滑入/滑出
 
@@ -1569,12 +1564,12 @@ export function createPanel(options = {}) {
     }, { passive: true });
     tripDetailRoot.addEventListener('wheel', (e) => stopPropagationOnly(e), { passive: true });
     tripDetailRoot.addEventListener('mouseenter', () => {
-        if (isTouchLikePointer(lastPointerType)) return;
+        if (touchInteraction.isLastPointerTouchLike()) return;
         tripDetailPinned = true;
         clearTripDetailHideTimer();
     });
     tripDetailRoot.addEventListener('mouseleave', () => {
-        if (isTouchLikePointer(lastPointerType)) return;
+        if (touchInteraction.isLastPointerTouchLike()) return;
         if (tripLocked) {
             tripDetailPinned = true;
             clearTripDetailHideTimer();
@@ -1585,20 +1580,11 @@ export function createPanel(options = {}) {
     });
 
     // ===== 交互状态（对齐 popup 的逻辑） =====
-    let lastPointerType = 'mouse';
-    let suppressMouseEventsUntilMs = 0;
-
     let hoverTimerId = null;
     let hoverCandidateKey = null;
     let lastFiredHoverKey = null;
     let lastMousePrimaryKey = '';
-    let suppressMouseClickUntilMs = 0;
-    let suppressMouseHoverUntilMs = 0;
     let routeMapPopoverHoverActive = false;
-    let pendingTouchTripTap = null;
-
-    const touchTripTapMaxMovePx = 12;
-    const touchTripTapMaxMoveSq = touchTripTapMaxMovePx * touchTripTapMaxMovePx;
 
     let lastAppliedHoverKey = null;
     let restoreTimerId = null;
@@ -5585,10 +5571,8 @@ export function createPanel(options = {}) {
     };
 
     const armCancelInteractionSuppression = () => {
-        const until = nowMs() + 260;
-        suppressMouseClickUntilMs = until;
+        touchInteraction.armCancelInteractionSuppression();
         // 取消固定后 1s 内不响应 hover，避免鼠标仍在面板上立即重新触发预览
-        suppressMouseHoverUntilMs = nowMs() + 1000;
     };
 
     const expandDirectionTimetable = (lineId, dirKey) => {
@@ -5614,12 +5598,8 @@ export function createPanel(options = {}) {
     };
 
     const onBodyPointerDown = (evt) => {
-        const pt = readPointerType(evt);
-        lastPointerType = pt;
-        if (isTouchLikePointer(pt)) {
-            suppressMouseEventsUntilMs = nowMs() + 800;
-            pendingTouchTripTap = null;
-        }
+        const pointerState = touchInteraction.beginPointer(evt);
+        const pt = pointerState.pointerType;
 
         if (evt?.target instanceof Element && body.contains(evt.target) && hasPinnedPanelState()) {
             const pinnedKey = getCurrentPinnedInteractionKey();
@@ -5651,7 +5631,7 @@ export function createPanel(options = {}) {
             }
         }
 
-        if (!isTouchLikePointer(pt)) return;
+        if (!pointerState.isTouchLike) return;
 
         const filterTarget = getDirFilterButtonTarget(evt?.target);
         if (filterTarget) {
@@ -5672,14 +5652,10 @@ export function createPanel(options = {}) {
             const tripKey = rowEl.getAttribute?.('data-trip-key');
             if (lineId && tripKey) {
                 stopPropagationOnly(evt);
-                pendingTouchTripTap = {
-                    pointerId: evt?.pointerId,
-                    startX: evt?.clientX ?? 0,
-                    startY: evt?.clientY ?? 0,
+                touchInteraction.startTripTap(evt, {
                     lineId: String(lineId),
-                    tripKey: String(tripKey),
-                    moved: false
-                };
+                    tripKey: String(tripKey)
+                });
                 return;
             }
         }
@@ -5739,47 +5715,17 @@ export function createPanel(options = {}) {
     };
 
     const onBodyPointerMoveTouchTap = (evt) => {
-        if (!pendingTouchTripTap) return;
-        const pt = readPointerType(evt);
-        if (!isTouchLikePointer(pt)) return;
-
-        const pendingPointerId = pendingTouchTripTap.pointerId;
-        const evtPointerId = evt?.pointerId;
-        if (pendingPointerId != null && evtPointerId != null && pendingPointerId !== evtPointerId) return;
-
-        const dx = (evt?.clientX ?? pendingTouchTripTap.startX) - pendingTouchTripTap.startX;
-        const dy = (evt?.clientY ?? pendingTouchTripTap.startY) - pendingTouchTripTap.startY;
-        const d2 = dx * dx + dy * dy;
-        if (d2 > touchTripTapMaxMoveSq) {
-            pendingTouchTripTap.moved = true;
-        }
+        touchInteraction.moveTripTap(evt);
     };
 
     const onBodyPointerCancelTouchTap = () => {
-        pendingTouchTripTap = null;
+        touchInteraction.cancelTripTap();
     };
 
     const onBodyPointerUpTouchTap = (evt) => {
-        const pending = pendingTouchTripTap;
-        if (!pending) return;
-
-        const pt = readPointerType(evt);
-        lastPointerType = pt;
-        if (!isTouchLikePointer(pt)) {
-            pendingTouchTripTap = null;
-            return;
-        }
-
-        const pendingPointerId = pending.pointerId;
-        const evtPointerId = evt?.pointerId;
-        if (pendingPointerId != null && evtPointerId != null && pendingPointerId !== evtPointerId) return;
-
-        pendingTouchTripTap = null;
-
-        const dx = (evt?.clientX ?? pending.startX) - pending.startX;
-        const dy = (evt?.clientY ?? pending.startY) - pending.startY;
-        const moved = pending.moved || (dx * dx + dy * dy) > touchTripTapMaxMoveSq;
-        if (moved) return;
+        const completed = touchInteraction.finishTripTap(evt);
+        if (!completed.handled || completed.moved) return;
+        const pending = completed.tap;
 
         stopPropagationOnly(evt);
 
@@ -5795,8 +5741,8 @@ export function createPanel(options = {}) {
         renderTripDetail({
             lineId: pending.lineId,
             tripKey: pending.tripKey,
-            clientX: evt?.clientX || pending.startX,
-            clientY: evt?.clientY || pending.startY,
+            clientX: completed.clientX,
+            clientY: completed.clientY,
             pinned: true,
             fitMode: 'commit'
         });
@@ -5804,7 +5750,7 @@ export function createPanel(options = {}) {
     };
 
     const onBodyMove = (evt) => {
-        if (nowMs() < suppressMouseHoverUntilMs) {
+        if (touchInteraction.shouldSuppressMouseHover()) {
             clearHoverTimer();
             hoverCandidateKey = null;
             lastFiredHoverKey = null;
@@ -5825,7 +5771,7 @@ export function createPanel(options = {}) {
             return;
         }
         if (tripLocked) return;
-        if (isTouchLikePointer(lastPointerType)) return;
+        if (touchInteraction.isLastPointerTouchLike()) return;
         if (!isHoverPreviewEnabled()) {
             scheduleRestoreStationLines();
             clearHoverTimer();
@@ -5878,7 +5824,7 @@ export function createPanel(options = {}) {
 
     const onBodyClick = (evt) => {
         // 触屏：由 pointerdown 接管两段式逻辑
-        if (isTouchLikePointer(lastPointerType) || nowMs() < suppressMouseEventsUntilMs) {
+        if (touchInteraction.isLastPointerTouchLike() || touchInteraction.shouldSuppressMouseEvents()) {
             stopEvent(evt);
             return;
         }
@@ -5890,7 +5836,7 @@ export function createPanel(options = {}) {
             return;
         }
 
-        if (nowMs() < suppressMouseClickUntilMs) {
+        if (touchInteraction.shouldSuppressMouseClick()) {
             stopEvent(evt);
             return;
         }
@@ -6028,7 +5974,7 @@ export function createPanel(options = {}) {
 
     body.addEventListener('mouseover', (evt) => {
         if (!isHoverPreviewEnabled()) return;
-        if (isTouchLikePointer(lastPointerType)) return;
+        if (touchInteraction.isLastPointerTouchLike()) return;
         const rowEl = findTripTarget(evt?.target);
         if (!rowEl || !body.contains(rowEl)) return;
         // 有固定态时：仅当 dir-filter 固定 且 row 属于同一方向 才允许 hover 打断
@@ -6104,7 +6050,7 @@ export function createPanel(options = {}) {
     };
 
     tripDetailBody.addEventListener('mouseover', (evt) => {
-        if (isTouchLikePointer(lastPointerType)) return;
+        if (touchInteraction.isLastPointerTouchLike()) return;
         const stationEl = getTripDetailStationTarget(evt?.target);
         if (!stationEl) return;
         const sid = toText(stationEl.getAttribute('data-station-id'));
@@ -6113,7 +6059,7 @@ export function createPanel(options = {}) {
     });
 
     tripDetailBody.addEventListener('mouseout', (evt) => {
-        if (isTouchLikePointer(lastPointerType)) return;
+        if (touchInteraction.isLastPointerTouchLike()) return;
         const fromEl = getTripDetailStationTarget(evt?.target);
         if (!fromEl) return;
         const toEl = evt?.relatedTarget;
@@ -6127,8 +6073,7 @@ export function createPanel(options = {}) {
     });
 
     tripDetailBody.addEventListener('pointerdown', (evt) => {
-        const pt = readPointerType(evt);
-        lastPointerType = pt;
+        const pt = touchInteraction.markPointer(evt);
         if (!isTouchLikePointer(pt)) return;
         const stationEl = getTripDetailStationTarget(evt?.target);
         if (!stationEl) return;
