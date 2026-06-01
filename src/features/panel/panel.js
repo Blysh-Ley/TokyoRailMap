@@ -49,6 +49,7 @@ import { createPanelMapSelectController } from './panelMapSelectController.js';
 import { createPanelMarqueeController } from './panelMarqueeController.js';
 import { createPanelPrintRequestController } from './panelPrintRequestController.js';
 import { createPanelIntentController } from './panelIntentController.js';
+import { createPanelCrossFeatureBridgeController } from './panelCrossFeatureBridgeController.js';
 import { createPanelContentHost } from './panelContentHost.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
 import {
@@ -999,6 +1000,7 @@ export function createPanel(options = {}) {
     const panelIntents = createPanelIntentController({
         captureElement: exportElementToPng
     });
+    const crossFeatureBridge = createPanelCrossFeatureBridgeController();
 
     // 从右侧滑入/滑出
 
@@ -1078,20 +1080,10 @@ export function createPanel(options = {}) {
         const stationName = toText(currentStationNameZh) || toText(titleMain.textContent);
         if (!stationId && !stationName) return;
 
-        try {
-            const ui = window.TokyoRailJourneyUI;
-            if (field === 'destination') ui?.setDestinationStation?.(stationId, stationName, { expand: true, recompute: true });
-            else ui?.setOriginStation?.(stationId, stationName, { expand: true, recompute: true });
-        } catch {
-            // ignore
-        }
+        crossFeatureBridge.setJourneyStation({ field, stationId, stationName });
 
         // 取消当前站点高亮（不影响行程 map pick 的抑制逻辑）
-        try {
-            window.TokyoRailSearchMapActions?.clearStationSelection?.();
-        } catch {
-            // ignore
-        }
+        crossFeatureBridge.clearStationSelection();
     };
 
     const mapSelectController = createPanelMapSelectController({
@@ -1152,11 +1144,7 @@ export function createPanel(options = {}) {
     timeOps.appendChild(btnAutoNow);
 
     const setTimePickerOpenState = (open) => {
-        try {
-            window.__TokyoRailTimePickerOpen = !!open;
-        } catch {
-            // ignore
-        }
+        crossFeatureBridge.setTimePickerOpenState(open);
     };
 
     const timePickerController = createPanelTimePickerController({
@@ -2220,14 +2208,7 @@ export function createPanel(options = {}) {
             if (requestSeq !== dirBranchPreviewSeq) return;
         }).catch(() => {
             if (requestSeq !== dirBranchPreviewSeq) return;
-            try {
-                const actions = window?.TokyoRailSearchMapActions;
-                if (typeof actions?.clearTripPathPreviewBySource === 'function') {
-                    actions.clearTripPathPreviewBySource(source);
-                }
-            } catch {
-                // ignore
-            }
+            crossFeatureBridge.clearTripPathPreviewBySource(source);
         });
     };
 
@@ -2240,14 +2221,7 @@ export function createPanel(options = {}) {
         } catch {
             // ignore
         }
-        try {
-            const actions = window?.TokyoRailSearchMapActions;
-            if (typeof actions?.clearTripPathPreviewBySource === 'function') {
-                actions.clearTripPathPreviewBySource('panel-dir-branch');
-            }
-        } catch {
-            // ignore
-        }
+        crossFeatureBridge.clearTripPathPreviewBySource('panel-dir-branch');
     };
 
     const pinDirPreviewByKey = (lineDirKey) => {
@@ -2370,14 +2344,7 @@ export function createPanel(options = {}) {
     };
 
     const notifyJourneyRecompute = () => {
-        try {
-            const ui = window?.TokyoRailJourneyUI;
-            if (ui && typeof ui.recompute === 'function') {
-                ui.recompute();
-            }
-        } catch {
-            // ignore
-        }
+        crossFeatureBridge.recomputeJourney();
     };
 
     const setServiceDay = (day) => {
@@ -2455,17 +2422,7 @@ export function createPanel(options = {}) {
     const loadTimetableForLineId = async (lineId) => {
         const id = toText(lineId);
         if (!id) return null;
-        try {
-            // Use the global timetable cache instance created in app.js
-            const cache = window?.TokyoRailTimetableCache;
-            if (!cache) return null;
-            const existing = cache.get(id);
-            if (existing) return existing;
-            await cache.preloadByLineIds([id]);
-            return cache.get(id);
-        } catch {
-            return null;
-        }
+        return crossFeatureBridge.loadTimetableForLineId(id);
     };
 
     const refTripCache = new Map(); // refId -> trip|null
@@ -3490,7 +3447,7 @@ export function createPanel(options = {}) {
                     }
                     // 2. 执行插入与 ID 归化
                     if (shouldAdd) {
-                        // 使用深拷贝防止污染 window.TokyoRailTimetableCache
+                        // 使用深拷贝防止污染共享时刻表缓存
                         const newTrip = structuredClone(trip);
                         // 替换 Trip ID：确保运行日过滤、缓存 Key 匹配正常
                         if (typeof newTrip.id === 'string') {
