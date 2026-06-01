@@ -105,7 +105,7 @@ export const createPanelMarqueeController = ({
 
     const applyDirHeaderMarquees = (rootEl, maxAnims = Number.POSITIVE_INFINITY) => {
         try {
-            if (!isElement(rootEl) || isReducedMotion()) return 0;
+            if (!isElement(rootEl)) return 0;
 
             const marquees = Array.from(rootEl.querySelectorAll('.panel-dir-marquee'));
             let started = 0;

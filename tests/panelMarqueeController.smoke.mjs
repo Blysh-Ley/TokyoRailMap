@@ -105,6 +105,25 @@ const makeDirMarqueeRoot = ({
     return { inner, marquee, root };
 };
 
+const makeTimetableMarqueeRoot = ({
+    clientWidth = 0,
+    scrollWidth = 0,
+    animate
+} = {}) => {
+    const inner = new FakeElement({
+        className: 'panel-timetable-dest-marquee-inner',
+        scrollWidth
+    });
+    if (animate) inner.animate = animate;
+    const marquee = new FakeElement({
+        className: 'panel-timetable-dest-marquee',
+        clientWidth,
+        children: [inner]
+    });
+    const root = new FakeElement({ children: [marquee] });
+    return { inner, marquee, root };
+};
+
 {
     const { duration, keyframes } = getPanelMarqueeKeyframes({
         distancePx: 70,
@@ -199,7 +218,24 @@ const makeDirMarqueeRoot = ({
     });
 
     const controller = createPanelMarqueeController({ win });
-    assert.equal(controller.applyDirHeaderMarquees(root), 0);
+    assert.equal(controller.applyDirHeaderMarquees(root), 1);
+    assert.equal(animateCalls, 1);
+}
+
+{
+    let animateCalls = 0;
+    const win = createFakeWindow({ reducedMotion: true });
+    const { root } = makeTimetableMarqueeRoot({
+        clientWidth: 100,
+        scrollWidth: 200,
+        animate: () => {
+            animateCalls += 1;
+            return { cancel: () => {} };
+        }
+    });
+
+    const controller = createPanelMarqueeController({ win });
+    assert.equal(controller.applyTimetableDestMarquees(root), 0);
     assert.equal(animateCalls, 0);
 }
 
