@@ -16,7 +16,8 @@ const requiredTestEntries = [
     'tests/panelShellContentBoundary.smoke.mjs',
     'tests/panelCrossFeatureBridgeController.smoke.mjs',
     'tests/panelTripDetailViewModel.smoke.mjs',
-    'tests/panelRoutePreviewController.smoke.mjs'
+    'tests/panelRoutePreviewController.smoke.mjs',
+    'tests/panelTimetableViewModel.smoke.mjs'
 ];
 
 for (const entry of requiredTestEntries) {

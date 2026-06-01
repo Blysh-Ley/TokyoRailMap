@@ -56,6 +56,13 @@ import {
     markRowsPastByStation,
     mergeTripDetailSegmentsAtBoundaries
 } from './panelTripDetailViewModel.js';
+import {
+    buildTimetablePrintPayload,
+    deriveDirectionStats,
+    mergeDuplicateTimetableRows,
+    normalizeTimetableAllowedTripKeys,
+    normalizeTimetableSourceLineIds
+} from './panelTimetableViewModel.js';
 import { createPanelContentHost } from './panelContentHost.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
 import {
@@ -3097,9 +3104,7 @@ export function createPanel(options = {}) {
 
     const buildTimetableRowsHtml = async ({ lineId, stationId, sourceLineIds, allowedTripKeySet }) => {
         const fallbackStationKey = toText(stationId);
-        const allowedKeys = allowedTripKeySet instanceof Set
-            ? allowedTripKeySet
-            : (Array.isArray(allowedTripKeySet) ? new Set(allowedTripKeySet.map((x) => toText(x)).filter(Boolean)) : null);
+        const allowedKeys = normalizeTimetableAllowedTripKeys(allowedTripKeySet, { toText });
 
         const [stationsIndex, trainTypesIndex, trainTypeColorIndex] = await Promise.all([
             getStationsIndex(),
@@ -3107,11 +3112,7 @@ export function createPanel(options = {}) {
             getTrainTypeColorIndex()
         ]);
 
-        const mergedSourceLineIds = Array.from(new Set(
-            (Array.isArray(sourceLineIds) ? sourceLineIds : [lineId])
-                .map((x) => toText(x))
-                .filter(Boolean)
-        ));
+        const mergedSourceLineIds = normalizeTimetableSourceLineIds({ lineId, sourceLineIds, toText });
         if (!mergedSourceLineIds.length) {
             return {
                 html: '',
@@ -3506,105 +3507,22 @@ export function createPanel(options = {}) {
         // 去重：同一物理班次在同一站点可能被拆成多个记录（如 *.Weekday.1 / *.Weekday.2），
         // 且种别 y 可能不同，导致 UI 同一时刻出现“多条不同种别”。
         // 这里按 (baseTripKey + dir + timeMs) 合并，优先保留“有 dep 的记录”（更符合站点时刻表的上车语义）。
-        {
-            const pickScore = (r) => {
-                let score = 0;
-                if (toText(r?.dep)) score += 10;
-                if (toText(r?.typeName)) score += 5;
-                if (toText(r?.typeColor)) score += 2;
-                if (toText(r?.terminalName) || toText(r?.destName)) score += 1;
-                return score;
-            };
-
-            const merged = new Map();
-            
-            for (const r of rows) {
-                const base = toText(r?.baseTripKey) || toText(r?.tripKey);
-                const dkey = toText(r?.dir) || 'Unknown';
-                const tms = Number(r?.timeMs);
-                if (!base || !Number.isFinite(tms)) {
-                    merged.set(Symbol('row'), r);
-                    continue;
-                }
-                const key = `${base}||${dkey}||${tms}`;
-                const prev = merged.get(key);
-                if (!prev) {
-                    merged.set(key, r);
-                    continue;
-                }
-
-                const a = prev;
-                const b = r;
-                const keepB = pickScore(b) > pickScore(a);
-                const primary = keepB ? b : a;
-                const secondary = keepB ? a : b;
-
-                // merge times
-                if (!toText(primary.arr) && toText(secondary.arr)) {
-                    primary.arr = secondary.arr;
-                    primary.arrPlus = !!secondary.arrPlus;
-                }
-                if (!toText(primary.dep) && toText(secondary.dep)) {
-                    primary.dep = secondary.dep;
-                    primary.depPlus = !!secondary.depPlus;
-                }
-
-                // merge labels / metadata
-                primary.showOriginLabel = !!(primary.showOriginLabel || secondary.showOriginLabel);
-                primary.showTerminalLabel = !!(primary.showTerminalLabel || secondary.showTerminalLabel);
-
-                if (!toText(primary.typeName) && toText(secondary.typeName)) primary.typeName = secondary.typeName;
-                if (!toText(primary.typeColor) && toText(secondary.typeColor)) primary.typeColor = secondary.typeColor;
-                if (!toText(primary.originId) && toText(secondary.originId)) primary.originId = secondary.originId;
-                if (!toText(primary.originName) && toText(secondary.originName)) primary.originName = secondary.originName;
-                if (!toText(primary.terminalId) && toText(secondary.terminalId)) primary.terminalId = secondary.terminalId;
-                if (!toText(primary.terminalName) && toText(secondary.terminalName)) primary.terminalName = secondary.terminalName;
-                if (!toText(primary.terminalDisplayName) && toText(secondary.terminalDisplayName)) primary.terminalDisplayName = secondary.terminalDisplayName;
-                if (!Array.isArray(primary.terminalNames) || !primary.terminalNames.length) {
-                    primary.terminalNames = Array.isArray(secondary.terminalNames) ? secondary.terminalNames.slice() : [];
-                }
-                if (!Array.isArray(primary.terminalIds) || !primary.terminalIds.length) {
-                    primary.terminalIds = Array.isArray(secondary.terminalIds) ? secondary.terminalIds.slice() : [];
-                }
-                primary.specialNames = Array.from(new Set([
-                    ...(Array.isArray(primary.specialNames) ? primary.specialNames : []),
-                    ...(Array.isArray(secondary.specialNames) ? secondary.specialNames : [])
-                ].map((x) => toText(x)).filter(Boolean)));
-                primary.hasNameMeta = !!(primary.hasNameMeta || secondary.hasNameMeta);
-                primary.originIdsCount = Math.max(Number(primary.originIdsCount) || 0, Number(secondary.originIdsCount) || 0);
-                primary.terminalIdsCount = Math.max(Number(primary.terminalIdsCount) || 0, Number(secondary.terminalIdsCount) || 0);
-                primary.hasNt = !!(primary.hasNt || secondary.hasNt);
-                primary.resolvedTerminalIdsCount = Math.max(Number(primary.resolvedTerminalIdsCount) || 0, Number(secondary.resolvedTerminalIdsCount) || 0);
-
-                merged.set(key, primary);
-            }
-
-            // keep insertion order stable (Map preserves)
-            rows.length = 0;
-            for (const v of merged.values()) rows.push(v);
-        }
+        rows.splice(0, rows.length, ...mergeDuplicateTimetableRows(rows, { toText }));
 
         rows.sort((a, b) => a.timeMs - b.timeMs);
         rowsForPreview.sort((a, b) => a.timeMs - b.timeMs);
 
         // 统计每条线路的所有方向 d，并聚合/计数该方向下所有对应 ds 的中文名
         const DEST_NAME_MIN_COUNT = 0; // 方向下目的地名称至少出现x次才显示
-        const dirToDestNames = new Map(); // dir -> Set<string>
-        const dirToDestCounts = new Map(); // dir -> Map<string, number>
-        for (const r of rows) {
-            const k = toText(r.dir) || 'Unknown';
-            if (!dirToDestNames.has(k)) dirToDestNames.set(k, new Set());
-            if (!dirToDestCounts.has(k)) dirToDestCounts.set(k, new Map());
-            const set = dirToDestNames.get(k);
-            const counts = dirToDestCounts.get(k);
-            const names = Array.isArray(r.destNamesForDir) ? r.destNamesForDir : [];
-            for (const n of names) {
-                const s = toText(n);
-                if (!s) continue;
-                set.add(s);
-                counts.set(s, (counts.get(s) || 0) + 1);
-            }
-        }
+        const {
+            anyDestAboveThreshold,
+            dirOrder,
+            dirToDestCounts
+        } = deriveDirectionStats({
+            destNameMinCount: DEST_NAME_MIN_COUNT,
+            rows,
+            toText
+        });
 
         const renderTime = (r) => {
             const a = toText(r.arr);
@@ -3631,55 +3549,6 @@ export function createPanel(options = {}) {
         const renderTimeForPrint = (r) => renderTime({ ...(r || {}), isPast: false });
 
         // 分组显示：默认显示所有方向；方向内默认展示 3 条未来班次
-        // Build direction order: collect unique dirs
-        const dirOrder = [];
-        const dirSeen = new Set();
-        for (const r of rows) {
-            const k = toText(r.dir) || 'Unknown';
-            if (dirSeen.has(k)) continue;
-            dirSeen.add(k);
-            dirOrder.push(k);
-        }
-
-        // Determine if any destination across all directions meets the threshold
-        let anyDestAboveThreshold = false;
-        for (const [dkey, counts] of dirToDestCounts) {
-            for (const [, c] of counts) {
-                if (Number(c) >= DEST_NAME_MIN_COUNT) {
-                    anyDestAboveThreshold = true;
-                    break;
-                }
-            }
-            if (anyDestAboveThreshold) break;
-        }
-
-        // Compute ranking metrics per direction: max dest count (primary), total trips (secondary)
-        const dirMetrics = new Map();
-        for (const dirKey of dirOrder) {
-            const counts = dirToDestCounts.get(dirKey) || new Map();
-            let maxCount = 0;
-            let sumCount = 0;
-            for (const [, c] of counts) {
-                const n = Number(c) || 0;
-                sumCount += n;
-                if (n > maxCount) maxCount = n;
-            }
-            // Fallback: if counts map is empty, use rowsForDir length as estimate
-            const rowsForDirLen = rows.filter((r) => (toText(r.dir) || 'Unknown') === dirKey).length;
-            if (!sumCount) sumCount = rowsForDirLen;
-            if (!maxCount) maxCount = rowsForDirLen ? Math.max(1, Math.floor(rowsForDirLen / 2)) : 0;
-            dirMetrics.set(dirKey, { maxCount, sumCount });
-        }
-
-        // Sort directions by maxCount desc, then sumCount desc, then dirKey
-        dirOrder.sort((a, b) => {
-            const ma = dirMetrics.get(a) || { maxCount: 0, sumCount: 0 };
-            const mb = dirMetrics.get(b) || { maxCount: 0, sumCount: 0 };
-            if (mb.maxCount !== ma.maxCount) return mb.maxCount - ma.maxCount;
-            if (mb.sumCount !== ma.sumCount) return mb.sumCount - ma.sumCount;
-            return String(a).localeCompare(String(b));
-        });
-
         let html = '';
         const directionDebug = [];
         for (const dirKey of dirOrder) {
@@ -3814,29 +3683,22 @@ export function createPanel(options = {}) {
                 serviceDayStartMs
             });
 
-            const lineMetaForPrint = getLineMeta?.(lineId) || {};
-            const companyKeyForPrint = toText(lineMetaForPrint?.company);
-            const companyZhForPrint = toText(companyLogoMap?.[companyKeyForPrint]?.zh);
-            const companyTypeForPrint = toText(companyLogoMap?.[companyKeyForPrint]?.type);
-            const companyLogoSrcForPrint = toText(getCompanyLogoSrc(companyKeyForPrint, companyLogoMap));
-            const lineColorForPrint = toText(lineMetaForPrint?.color);
-            dirPrintPayloadByKey.set(lineDirKey, {
-                lineId: toText(lineId),
-                dirKey: toText(dirKey),
-                dirLabel: toText(label),
-                stationName: toText(currentStationNameZh) || toText(titleMain.textContent),
-                lineName: toText(lineMetaForPrint?.name) || toText(lineId),
-                lineColor: lineColorForPrint,
-                companyName: companyZhForPrint || companyKeyForPrint || '未知公司',
-                companyType: companyTypeForPrint || '',
-                companyLogoSrc: companyLogoSrcForPrint,
-                timetableViewMode,
-                serviceDay: toText(currentServiceDay),
-                generatedAt: Date.now(),
-                listHtml: printableListHtml,
+            dirPrintPayloadByKey.set(lineDirKey, buildTimetablePrintPayload({
+                companyLogoMap,
+                currentStationName: currentStationNameZh,
+                getCompanyLogoSrc,
+                gridHintsHtml,
                 gridHtml: printableGridHtml,
-                gridHintsHtml
-            });
+                lineId,
+                lineMeta: getLineMeta?.(lineId) || {},
+                listHtml: printableListHtml,
+                dirKey,
+                dirLabel: label,
+                serviceDay: currentServiceDay,
+                timetableViewMode,
+                titleText: titleMain.textContent,
+                toText
+            }));
 
             const timetableHtml = timetableViewMode === 'grid'
                 ? buildGridTableHtmlForDirection({

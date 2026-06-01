@@ -20,6 +20,7 @@ const panelFiles = [
     'src/features/panel/panelShellDesktop.js',
     'src/features/panel/panelTimePickerController.js',
     'src/features/panel/panelTripDetailViewModel.js',
+    'src/features/panel/panelTimetableViewModel.js',
     'src/features/panel/panelTouchInteractionController.js',
     'src/features/panel/timetable-table.js'
 ];
