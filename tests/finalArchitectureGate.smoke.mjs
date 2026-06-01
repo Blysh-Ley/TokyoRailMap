@@ -19,7 +19,8 @@ const requiredTestEntries = [
     'tests/panelRoutePreviewController.smoke.mjs',
     'tests/panelTimetableViewModel.smoke.mjs',
     'tests/panelCompanyCatalogRenderer.smoke.mjs',
-    'tests/panelEventDelegationCoordinator.smoke.mjs'
+    'tests/panelEventDelegationCoordinator.smoke.mjs',
+    'tests/panelContentApi.smoke.mjs'
 ];
 
 for (const entry of requiredTestEntries) {

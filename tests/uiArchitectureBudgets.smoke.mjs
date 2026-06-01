@@ -21,7 +21,17 @@ const uiDebtBudgets = [
         globalEvents: 3,
         planningImports: 0,
         rawMapLibre: 0,
-        domResponsibility: 194
+        domResponsibility: 175
+    },
+    {
+        file: 'src/features/panel/panelContentApi.js',
+        maxLines: 55,
+        windowBridge: 0,
+        browserStorage: 0,
+        globalEvents: 0,
+        planningImports: 0,
+        rawMapLibre: 0,
+        domResponsibility: 2
     },
     {
         file: 'src/features/panel/panelCompanyCatalogRenderer.js',

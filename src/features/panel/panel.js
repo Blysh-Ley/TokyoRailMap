@@ -77,12 +77,12 @@ import {
     resolvePanelLineTarget,
     resolveTripDetailStationTarget
 } from './panelEventDelegationCoordinator.js';
-import { createPanelContentHost } from './panelContentHost.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
 import {
     createPanelTouchInteractionController,
     isTouchLikePointer
 } from './panelTouchInteractionController.js';
+import { composePanelShellWithContent, createPanelContentApi } from './panelContentApi.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
@@ -852,8 +852,9 @@ export function createPanel(options = {}) {
     };
 
     const panelShell = createDesktopPanelShell({ rightPx, widthPx });
-    const root = panelShell.root;
-    const panelContentHost = createPanelContentHost();
+    const panelContentApi = createPanelContentApi();
+    const panelComposition = composePanelShellWithContent({ contentApi: panelContentApi, shell: panelShell });
+    const root = panelComposition.root;
     const touchInteraction = createPanelTouchInteractionController({ now: nowMs });
     const panelIntents = createPanelIntentController({
         captureElement: exportElementToPng
@@ -867,7 +868,7 @@ export function createPanel(options = {}) {
     // 从右侧滑入/滑出
 
     // 面板主体：视觉同 search-results，但 class 使用 panel-* 隔离
-    const panel = panelContentHost.panel;
+    const panel = panelComposition.panel;
 
     // 标题栏
     const header = document.createElement('div');
@@ -1160,10 +1161,10 @@ export function createPanel(options = {}) {
         });
     };
 
-    panel.appendChild(header);
-    panel.appendChild(body);
-    panelContentHost.mount(root);
-    root.appendChild(catalogPanel);
+    panelContentApi.appendContent(header);
+    panelContentApi.appendContent(body);
+    panelComposition.mountContent();
+    panelComposition.mountShellOverlay(catalogPanel);
 
     body.addEventListener('scroll', () => {
         syncCatalogActiveLine();
