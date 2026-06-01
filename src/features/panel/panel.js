@@ -48,6 +48,7 @@ import {
 import { createPanelMapSelectController } from './panelMapSelectController.js';
 import { createPanelMarqueeController } from './panelMarqueeController.js';
 import { createPanelPrintRequestController } from './panelPrintRequestController.js';
+import { createDesktopPanelShell } from './panelShellDesktop.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
@@ -995,17 +996,10 @@ export function createPanel(options = {}) {
         return out;
     };
 
-    const root = document.createElement('div');
-    root.setAttribute('data-panel-root', '');
-    root.style.position = 'fixed';
-    root.style.right = `${rightPx}px`;
-    root.style.zIndex = 4000;
-    root.style.width = `${widthPx}px`;
-    root.style.maxWidth = 'calc(100vw - 20px)';
+    const panelShell = createDesktopPanelShell({ rightPx, widthPx });
+    const root = panelShell.root;
 
     // 从右侧滑入/滑出
-    root.style.transform = 'translateX(calc(100% + 24px))';
-    root.style.transition = 'transform 0.2s ease';
 
     // 面板主体：视觉同 search-results，但 class 使用 panel-* 隔离
     const panel = document.createElement('div');
@@ -6200,12 +6194,7 @@ export function createPanel(options = {}) {
 
     // 布局：高度与 menu 一致（80% 屏高），top 为 10% 屏高
     const layout = () => {
-        const h = window.innerHeight;
-        const top = Math.round(h * 0.1);
-        const height = Math.round(h * 0.8);
-
-        root.style.top = `${top}px`;
-        root.style.height = `${height}px`;
+        panelShell.layout();
 
         // 时间控件浮层：置于右上功能区同一行，位于 ms-fab 左侧
         timeOverlay.style.top = '10px';
@@ -6230,7 +6219,7 @@ export function createPanel(options = {}) {
     const show = () => {
         layout();
         isPanelVisible = true;
-        root.style.transform = 'translateX(0)';
+        panelShell.show();
         scheduleCatalogRefresh();
     };
 
@@ -6245,7 +6234,7 @@ export function createPanel(options = {}) {
         temporaryPanelSourceLineIdsByDisplayLineId = new Map();
         temporaryPanelAllowedTripKeysByDisplayLineId = new Map();
         isPanelVisible = false;
-        root.style.transform = 'translateX(calc(100% + 24px))';
+        panelShell.hide();
         scheduleCatalogRefresh();
     };
 
