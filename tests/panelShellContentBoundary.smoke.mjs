@@ -1,6 +1,7 @@
 import { assertNoPattern } from './helpers/architectureBoundaryScanner.mjs';
 
 const shellContentFiles = [
+    'src/features/panel/panelContentApi.js',
     'src/features/panel/panelShellDesktop.js',
     'src/features/panel/panelContentHost.js'
 ];

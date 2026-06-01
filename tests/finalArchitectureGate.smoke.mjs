@@ -20,7 +20,8 @@ const requiredTestEntries = [
     'tests/panelTimetableViewModel.smoke.mjs',
     'tests/panelCompanyCatalogRenderer.smoke.mjs',
     'tests/panelEventDelegationCoordinator.smoke.mjs',
-    'tests/panelContentApi.smoke.mjs'
+    'tests/panelContentApi.smoke.mjs',
+    'tests/panelFinalDecouplingGate.smoke.mjs'
 ];
 
 for (const entry of requiredTestEntries) {
@@ -32,6 +33,9 @@ for (const entry of requiredTestEntries) {
 
 const budgetedUiFiles = [
     'src/features/panel/panel.js',
+    'src/features/panel/panelContentApi.js',
+    'src/features/panel/panelCompanyCatalogRenderer.js',
+    'src/features/panel/panelEventDelegationCoordinator.js',
     'src/features/panel/panelShellDesktop.js',
     'src/features/panel/panelContentHost.js',
     'src/features/search/search.js',
