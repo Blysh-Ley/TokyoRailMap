@@ -50,6 +50,12 @@ import { createPanelMarqueeController } from './panelMarqueeController.js';
 import { createPanelPrintRequestController } from './panelPrintRequestController.js';
 import { createPanelIntentController } from './panelIntentController.js';
 import { createPanelCrossFeatureBridgeController } from './panelCrossFeatureBridgeController.js';
+import {
+    applyTripDetailPastState,
+    buildTripDetailEndpointContext,
+    markRowsPastByStation,
+    mergeTripDetailSegmentsAtBoundaries
+} from './panelTripDetailViewModel.js';
 import { createPanelContentHost } from './panelContentHost.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
 import {
@@ -4388,26 +4394,22 @@ export function createPanel(options = {}) {
         ]);
         if (token !== tripDetailToken) return;
 
-        const ptRefs = Array.isArray(trip?.pt) ? trip.pt : (trip?.pt ? [trip.pt] : []);
-        const ntRefs = Array.isArray(trip?.nt) ? trip.nt : (trip?.nt ? [trip.nt] : []);
-        const ptRefIds = ptRefs.map((x) => toText(x)).filter(Boolean);
-        const ntRefIds = ntRefs.map((x) => toText(x)).filter(Boolean);
-        const hasPt = ptRefs.some((x) => !!toText(x));
-        const hasNt = ntRefs.some((x) => !!toText(x));
-        const dirRaw = toText(trip?.d);
-        const isLoopDirection = /Loop/i.test(dirRaw);
-        const hideThroughSegmentsForLoop = isLoopDirection && (hasPt || hasNt);
-        const os = Array.isArray(trip?.os) ? trip.os : (trip?.os ? [trip.os] : []);
-        const ds = Array.isArray(trip?.ds) ? trip.ds : (trip?.ds ? [trip.ds] : []);
-        const originIds = new Set(os.map((x) => toText(x)).filter(Boolean));
-        const terminalIds = new Set(ds.map((x) => toText(x)).filter(Boolean));
+        const {
+            hasNt,
+            hideThroughSegmentsForLoop,
+            ntRefIds,
+            ntRefs,
+            originAKeys,
+            originIds,
+            ptRefIds,
+            ptRefs,
+            showOriginLabel,
+            showTerminalLabel,
+            terminalAKeys,
+            terminalIds
+        } = buildTripDetailEndpointContext({ trip, getStationAKey, toText });
         // Trip detail 展示包含直通( pt/nt )链路：始发/终点标记应始终显示在全链路端点，
         // 且需兼容“同名换乘站不同线路 stationId”场景（用 AKey 兜底匹配）。
-        const originAKeys = new Set(Array.from(originIds).map((id) => getStationAKey(id)).filter(Boolean));
-        const terminalAKeys = new Set(Array.from(terminalIds).map((id) => getStationAKey(id)).filter(Boolean));
-        const showOriginLabel = !!originIds.size;
-        const showTerminalLabel = !!terminalIds.size;
-
         const ptChain = await collectRefChainTrips(trip, 'pt', token);
         if (token !== tripDetailToken) return;
         const ntChain = await collectRefChainTrips(trip, 'nt', token);
@@ -4502,84 +4504,24 @@ export function createPanel(options = {}) {
             }
         }
 
-        for (let i = 1; i < segments.length; i += 1) {
-            const prevSeg = segments[i - 1] || null;
-            const currSeg = segments[i] || null;
-            const prevRows = prevSeg?.rows || [];
-            const currRows = currSeg?.rows || [];
-            if (!prevRows.length || !currRows.length) continue;
-
-            const prevLast = prevRows[prevRows.length - 1];
-            const currFirst = currRows[0];
-            const prevSid = toText(prevLast?.stationId);
-            const currSid = toText(currFirst?.stationId);
-            const sameById = prevSid && prevSid === currSid;
-            const prevA = getStationAKey(prevSid);
-            const currA = getStationAKey(currSid);
-            const sameByA = prevA && currA && prevA === currA;
-            const sameStation = sameById || sameByA;
-            if (!sameStation) continue;
-
-            if (prevSeg?.kind === 'pt') {
-                const merged = {
-                    ...currFirst,
-                    stationName: toText(currFirst?.stationName) || toText(prevLast?.stationName),
-                    arr: toText(prevLast?.arr) || toText(currFirst?.arr) || null,
-                    arrPlus: toText(prevLast?.arr) ? !!prevLast?.arrPlus : !!currFirst?.arrPlus,
-                    dep: toText(currFirst?.dep) || toText(prevLast?.dep) || null,
-                    depPlus: toText(currFirst?.dep) ? !!currFirst?.depPlus : !!prevLast?.depPlus
-                };
-                currRows[0] = merged;
-                prevRows.pop();
-                continue;
-            }
-
-            currRows.shift();
-            const merged = {
-                ...prevLast,
-                stationName: toText(prevLast?.stationName) || toText(currFirst?.stationName),
-                arr: toText(prevLast?.arr) || toText(currFirst?.arr) || null,
-                arrPlus: toText(prevLast?.arr) ? !!prevLast?.arrPlus : !!currFirst?.arrPlus,
-                dep: toText(currFirst?.dep) || toText(prevLast?.dep) || null,
-                depPlus: toText(currFirst?.dep) ? !!currFirst?.depPlus : !!prevLast?.depPlus
-            };
-            prevRows[prevRows.length - 1] = merged;
-        }
-
-        const normalizedStops = segments.flatMap((x) => x.rows || []);
+        const mergedSegments = mergeTripDetailSegmentsAtBoundaries({
+            getStationAKey,
+            segments,
+            toText
+        });
 
         const stationIdForLine = await resolveStationIdForLine(tripLineId);
         if (token !== tripDetailToken) return;
-        const currentIdx = normalizedStops.findIndex((s) => toText(s.stationId) === toText(stationIdForLine) && !!s.isMain);
-        const stopsWithPast = normalizedStops.map((s, idx) => ({
-            ...s,
-            isPast: currentIdx >= 0 ? idx < currentIdx : false
-        }));
-
-        const markRowsPastByCurrentStation = (rowsInput, fallbackPast = false) => {
-            const rows = Array.isArray(rowsInput) ? rowsInput : [];
-            const sid = toText(stationIdForLine);
-            const idx = sid
-                ? rows.findIndex((s) => toText(s?.stationId) === sid)
-                : -1;
-            if (idx >= 0) {
-                return rows.map((s, rowIndex) => ({
-                    ...s,
-                    isPast: rowIndex < idx
-                }));
-            }
-            return rows.map((s) => ({
-                ...s,
-                isPast: !!fallbackPast
-            }));
-        };
-
-        let cursor = 0;
-        const segmentsWithPast = segments.map((seg) => {
-            const len = (seg.rows || []).length;
-            const rows = stopsWithPast.slice(cursor, cursor + len);
-            cursor += len;
-            return { ...seg, rows };
+        const { segmentsWithPast } = applyTripDetailPastState({
+            currentStationId: stationIdForLine,
+            segments: mergedSegments,
+            toText
+        });
+        const markRowsPastByCurrentStation = (rowsInput, fallbackPast = false) => markRowsPastByStation({
+            currentStationId: stationIdForLine,
+            fallbackPast,
+            rows: rowsInput,
+            toText
         });
 
         const titleThroughEndpoints = await resolveThroughServiceEndpointIds(trip);

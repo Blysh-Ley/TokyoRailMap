@@ -14,7 +14,8 @@ const requiredTestEntries = [
     'tests/finalArchitectureGate.smoke.mjs',
     'tests/panelSearchBoundary.smoke.mjs',
     'tests/panelShellContentBoundary.smoke.mjs',
-    'tests/panelCrossFeatureBridgeController.smoke.mjs'
+    'tests/panelCrossFeatureBridgeController.smoke.mjs',
+    'tests/panelTripDetailViewModel.smoke.mjs'
 ];
 
 for (const entry of requiredTestEntries) {
