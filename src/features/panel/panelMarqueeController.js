@@ -32,9 +32,35 @@ export const createPanelMarqueeController = ({
         const ElementCtor = getElementCtor();
         return !!(ElementCtor && value instanceof ElementCtor);
     };
-    const supportsAnimation = () => {
-        const ElementCtor = getElementCtor();
-        return !!(ElementCtor?.prototype && 'animate' in ElementCtor.prototype);
+    const canAnimate = (innerEl) => typeof innerEl?.animate === 'function';
+    const getRectWidth = (el) => {
+        try {
+            const rect = el?.getBoundingClientRect?.();
+            const width = Number(rect?.width);
+            return Number.isFinite(width) && width > 0 ? width : 0;
+        } catch {
+            return 0;
+        }
+    };
+    const getWidth = (...values) => {
+        for (const value of values) {
+            const width = Number(value);
+            if (Number.isFinite(width) && width > 0) return width;
+        }
+        return 0;
+    };
+    const measureMarquee = (marqueeEl, innerEl) => {
+        const viewportW = getWidth(
+            marqueeEl?.clientWidth,
+            marqueeEl?.offsetWidth,
+            getRectWidth(marqueeEl)
+        );
+        const contentW = getWidth(
+            innerEl?.scrollWidth,
+            innerEl?.offsetWidth,
+            getRectWidth(innerEl)
+        );
+        return { viewportW, contentW };
     };
     const isReducedMotion = () => !!win?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
 
@@ -57,6 +83,7 @@ export const createPanelMarqueeController = ({
         innerEl.style.transform = '';
         marqueeEl.__panelMarqueeAnim = null;
 
+        if (!canAnimate(innerEl)) return false;
         if (!viewportW || contentW <= viewportW + 1) return false;
         const distancePx = Math.max(0, contentW - viewportW);
         if (!distancePx) return false;
@@ -78,18 +105,19 @@ export const createPanelMarqueeController = ({
 
     const applyDirHeaderMarquees = (rootEl, maxAnims = Number.POSITIVE_INFINITY) => {
         try {
-            if (!isElement(rootEl) || !supportsAnimation() || isReducedMotion()) return 0;
+            if (!isElement(rootEl) || isReducedMotion()) return 0;
 
             const marquees = Array.from(rootEl.querySelectorAll('.panel-dir-marquee'));
             let started = 0;
             for (const marqueeEl of marquees) {
                 if (started >= maxAnims) break;
                 const innerEl = marqueeEl.querySelector('.panel-dir-marquee-inner');
+                const measurement = measureMarquee(marqueeEl, innerEl);
                 const didStart = applyMarqueeAnimation({
                     marqueeEl,
                     innerEl,
-                    viewportW: marqueeEl.clientWidth || 0,
-                    contentW: innerEl?.scrollWidth || 0,
+                    viewportW: measurement.viewportW,
+                    contentW: measurement.contentW,
                     holdMs: 2000,
                     speedPxPerSec: 35,
                     minTravelMs: 1500
@@ -104,7 +132,7 @@ export const createPanelMarqueeController = ({
 
     const applyTimetableDestMarquees = (rootEl, maxAnims = maxAnimations) => {
         try {
-            if (!isElement(rootEl) || !supportsAnimation() || isReducedMotion()) return 0;
+            if (!isElement(rootEl) || isReducedMotion()) return 0;
 
             const marquees = Array.from(rootEl.querySelectorAll('.panel-timetable-dest-marquee, .panel-timetable-type-marquee'));
             const candidates = [];
@@ -120,8 +148,8 @@ export const createPanelMarqueeController = ({
                 innerEl.style.transform = '';
                 marqueeEl.__panelMarqueeAnim = null;
 
-                const viewportW = marqueeEl.clientWidth || 0;
-                const contentW = innerEl.scrollWidth || 0;
+                if (!canAnimate(innerEl)) continue;
+                const { viewportW, contentW } = measureMarquee(marqueeEl, innerEl);
                 if (!viewportW || contentW <= viewportW + 1) continue;
 
                 const rowEl = marqueeEl.closest?.('.panel-timetable-row');
