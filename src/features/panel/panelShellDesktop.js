@@ -12,6 +12,7 @@ export const createDesktopPanelShell = ({
     }
 
     const root = documentRef.createElement('div');
+    let visible = false;
     root.setAttribute('data-panel-root', '');
     root.style.position = 'fixed';
     root.style.right = `${rightPx}px`;
@@ -30,13 +31,67 @@ export const createDesktopPanelShell = ({
         return { top, height };
     };
 
+    const contains = (target) => Boolean(target && root.contains?.(target));
+
+    const matchesAnySelector = (target, selectors = []) => {
+        if (!target?.closest) return false;
+        return selectors.some((selector) => {
+            try {
+                return Boolean(selector && target.closest(selector));
+            } catch {
+                return false;
+            }
+        });
+    };
+
+    const isWithinAnyElement = (target, elements = []) => (
+        elements.some((element) => Boolean(element && target && element.contains?.(target)))
+    );
+
+    const matchesAnyPredicate = (target, predicates = []) => (
+        predicates.some((predicate) => {
+            try {
+                return typeof predicate === 'function' && predicate(target) === true;
+            } catch {
+                return false;
+            }
+        })
+    );
+
+    const getClickRegion = (target, {
+        ignoredElements = [],
+        ignoredSelectors = [],
+        ignoredPredicates = [],
+        insideElements = [],
+        insidePredicates = []
+    } = {}) => {
+        const ignored = isWithinAnyElement(target, ignoredElements) ||
+            matchesAnySelector(target, ignoredSelectors) ||
+            matchesAnyPredicate(target, ignoredPredicates);
+        const insidePanel = contains(target);
+        const insideExtra = isWithinAnyElement(target, insideElements) ||
+            matchesAnyPredicate(target, insidePredicates);
+
+        return {
+            ignored,
+            insideExtra,
+            insidePanel,
+            insidePanelOrExtra: insidePanel || insideExtra
+        };
+    };
+
     return {
         root,
+        contains,
+        getClickRegion,
+        isVisible: () => visible,
         layout,
         show() {
+            visible = true;
             root.style.transform = 'translateX(0)';
         },
         hide() {
+            visible = false;
             root.style.transform = DEFAULT_HIDDEN_TRANSFORM;
         }
     };

@@ -1355,7 +1355,7 @@ export function createPanel(options = {}) {
         renderCatalogEntries(entries);
 
         const hasOverflowY = (body.scrollHeight - body.clientHeight) > 1;
-        const shouldShow = isPanelVisible && hasOverflowY && entries.length > 0 && !catalogDismissedByUser;
+        const shouldShow = panelShell.isVisible() && hasOverflowY && entries.length > 0 && !catalogDismissedByUser;
         catalogPanel.classList.toggle('is-visible', shouldShow);
         if (!shouldShow) {
             catalogHoverEnteredOnce = false;
@@ -1622,7 +1622,6 @@ export function createPanel(options = {}) {
     let currentNowOverrideHHMM = '';
     let isAutoNowClock = true;
     let autoNowClockTimerId = null;
-    var isPanelVisible = false;
     let currentPanelDate = new Date();
     const getDisplayNowMs = () => {
         const baseNowMs = Date.now();
@@ -1650,7 +1649,7 @@ export function createPanel(options = {}) {
         currentNowOverrideHHMM = hhmm;
 
         if ((changed || forceRender) && toText(currentStationId)) {
-            if (forceRender || !isPanelVisible) {
+            if (forceRender || !panelShell.isVisible()) {
                 renderAllTimetables();
             }
         }
@@ -6146,29 +6145,23 @@ export function createPanel(options = {}) {
 
     document.addEventListener('click', (evt) => {
         const target = evt?.target;
+        const clickRegion = panelShell.getClickRegion(target, {
+            ignoredElements: [settingsContentEl, timeOverlay],
+            ignoredSelectors: ['.settings-content', '.settings-ui'],
+            insidePredicates: [(node) => dirFilterPopoverController.contains(node)]
+        });
 
         // 点击设置区域不应触发“取消固定”或关闭详情
-        if (
-            target instanceof Element && (
-                (settingsContentEl && settingsContentEl.contains(target)) ||
-                timeOverlay.contains(target) ||
-                target.closest('.settings-content') ||
-                target.closest('.settings-ui')
-            )
-        ) return;
+        if (target instanceof Element && clickRegion.ignored) return;
 
         if (panelSelectionState.getPinnedDirPreviewKey()) {
-            const insidePanel = !!(target && root.contains(target));
-            const insideFilterPopover = !!(target && dirFilterPopoverController.contains(target));
-            if (!insidePanel && !insideFilterPopover) {
+            if (!clickRegion.insidePanelOrExtra) {
                 clearPinnedDirPreview();
             }
         }
 
         if (hasPinnedPanelState()) {
-            const insidePanel = !!(target && root.contains(target));
-            const insideFilterPopover = !!(target && dirFilterPopoverController.contains(target));
-            if (!insidePanel && !insideFilterPopover) {
+            if (!clickRegion.insidePanelOrExtra) {
                 clearPinnedPanelState({ restoreStation: true });
                 return;
             }
@@ -6176,7 +6169,7 @@ export function createPanel(options = {}) {
 
         if (!tripDetailPinned && !tripLocked) return;
         if (target && tripDetailRoot.contains(target)) return;
-        if (target && root.contains(target)) {
+        if (clickRegion.insidePanel) {
             const rowEl = findTripTarget(target);
             const lineEl = rowEl?.closest?.('[data-line-id]');
             const lineId = lineEl?.getAttribute?.('data-line-id');
@@ -6218,7 +6211,6 @@ export function createPanel(options = {}) {
 
     const show = () => {
         layout();
-        isPanelVisible = true;
         panelShell.show();
         scheduleCatalogRefresh();
     };
@@ -6233,7 +6225,6 @@ export function createPanel(options = {}) {
         temporaryPanelLineMetaById = new Map();
         temporaryPanelSourceLineIdsByDisplayLineId = new Map();
         temporaryPanelAllowedTripKeysByDisplayLineId = new Map();
-        isPanelVisible = false;
         panelShell.hide();
         scheduleCatalogRefresh();
     };
