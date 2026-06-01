@@ -13,6 +13,7 @@ const panelFiles = [
     'src/features/panel/panelDirFilterPopoverController.js',
     'src/features/panel/panelMapSelectController.js',
     'src/features/panel/panelMarqueeController.js',
+    'src/features/panel/panelIntentController.js',
     'src/features/panel/panelPrintRequestController.js',
     'src/features/panel/panelShellDesktop.js',
     'src/features/panel/panelTimePickerController.js',

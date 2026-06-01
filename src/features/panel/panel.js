@@ -48,6 +48,7 @@ import {
 import { createPanelMapSelectController } from './panelMapSelectController.js';
 import { createPanelMarqueeController } from './panelMarqueeController.js';
 import { createPanelPrintRequestController } from './panelPrintRequestController.js';
+import { createPanelIntentController } from './panelIntentController.js';
 import { createPanelContentHost } from './panelContentHost.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
 import {
@@ -995,6 +996,9 @@ export function createPanel(options = {}) {
     const root = panelShell.root;
     const panelContentHost = createPanelContentHost();
     const touchInteraction = createPanelTouchInteractionController({ now: nowMs });
+    const panelIntents = createPanelIntentController({
+        captureElement: exportElementToPng
+    });
 
     // 从右侧滑入/滑出
 
@@ -1540,7 +1544,11 @@ export function createPanel(options = {}) {
         tripDetailPinned = true;
         clearTripDetailHideTimer();
         const baseName = `trip-detail-${toText(currentStationNameZh) || 'line'}`;
-        await exportElementToPng(tripDetailRoot, baseName, tripDetailCaptureBtn);
+        await panelIntents.captureTripDetail({
+            root: tripDetailRoot,
+            filenameBase: baseName,
+            buttonEl: tripDetailCaptureBtn
+        });
     }, { passive: false });
     tripDetailHeader.appendChild(tripDetailCaptureBtn);
 
@@ -5532,12 +5540,12 @@ export function createPanel(options = {}) {
     });
 
     const requestPrintTimetable = (lineId, dirKey) => {
-        panelPrintRequests.requestDirectionTimetable(lineId, dirKey);
+        panelIntents.requestDirectionPrint(panelPrintRequests, lineId, dirKey);
     };
 
     dayPrintBtn.addEventListener('click', (evt) => {
         stopEvent(evt);
-        panelPrintRequests.requestAllTimetables();
+        panelIntents.requestAllPrint(panelPrintRequests);
     }, { passive: false });
 
     const resolveMousePrimaryTarget = (target) => {
@@ -6030,17 +6038,18 @@ export function createPanel(options = {}) {
         scheduleTripDetailHide();
     });
 
-    window.addEventListener('__TokyoRailRouteMapPopoverHoverEnter', () => {
-        routeMapPopoverHoverActive = true;
-        clearRestoreTimer();
-    });
-
-    window.addEventListener('__TokyoRailRouteMapPopoverHoverLeave', () => {
-        routeMapPopoverHoverActive = false;
-        if (hasPinnedPanelState()) return;
-        restoreStationLinesIfNeeded();
-        if (!panelSelectionState.getPinnedDirPreviewKey()) {
-            clearDirPreview();
+    panelIntents.bindRouteMapPopoverHover(window, {
+        onEnter: () => {
+            routeMapPopoverHoverActive = true;
+            clearRestoreTimer();
+        },
+        onLeave: () => {
+            routeMapPopoverHoverActive = false;
+            if (hasPinnedPanelState()) return;
+            restoreStationLinesIfNeeded();
+            if (!panelSelectionState.getPinnedDirPreviewKey()) {
+                clearDirPreview();
+            }
         }
     });
 
