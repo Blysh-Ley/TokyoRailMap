@@ -21,7 +21,8 @@ import { getGlobalTouchTapGuard } from './map/touchTapGuard.js';
 import { createPanel } from './features/panel/panel.js';
 import { getGlobalTimetableCache } from './lib/timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './map/fullscreen.js';
-import { buildVirtualTripPreviewPayload, extractShortestLoopSegmentByIndex, isLoopDirection } from './lib/trip-preview.js';
+import { extractShortestLoopSegmentByIndex, isLoopDirection } from './lib/trip-preview.js';
+import { buildLineHighlightVirtualTripPayloads } from './domain/lineHighlightVirtualTripBuilder.js';
 import { previewBranchesForLine } from './map/analyze_branch.js';
 import { createLineIconElement } from './lib/line-icons.js';
 import {
@@ -1137,34 +1138,14 @@ const initMapApp = async () => {
     };
 
     const buildMultiSelectBaseTripVirtualTrips = async (lineIds) => {
-        const ids = Array.isArray(lineIds) ? lineIds.map((x) => String(x || '').trim()).filter(Boolean) : [];
-        if (!ids.length) return [];
-
         const railwaysIndexById = await getRailwaysIndexById();
-        const out = [];
-
-        for (const lineId of ids) {
-            const meta = railwaysIndexById.get(lineId) || null;
-            const stationIds = Array.isArray(meta?.stations)
-                ? meta.stations.map((x) => String(x || '').trim()).filter(Boolean)
-                : Array.isArray(meta?.stationIds)
-                    ? meta.stationIds.map((x) => String(x || '').trim()).filter(Boolean)
-                    : [];
-            if (stationIds.length < 2) continue;
-
-            const lineName = String(meta?.title?.['zh-Hans'] || meta?.title?.['zh-Hant'] || meta?.title?.ja || meta?.title?.en || lineNameById.get(lineId) || lineId).trim() || lineId;
-            const payload = buildVirtualTripPreviewPayload({
-                lineId,
-                lineName,
-                stationIds,
-                tripKey: lineId,
-                previewSource: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE,
-                fitMode: 'none'
-            });
-            if (payload) out.push(payload);
-        }
-
-        return out;
+        return buildLineHighlightVirtualTripPayloads({
+            lineIds,
+            railwaysIndexById,
+            getLineName: (lineId) => lineNameById.get(lineId) || lineId,
+            previewSource: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE,
+            fitMode: 'none'
+        });
     };
 
     const syncMultiSelectBaseTripPreview = async () => {
