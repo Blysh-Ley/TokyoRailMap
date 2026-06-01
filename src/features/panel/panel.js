@@ -48,6 +48,7 @@ import {
 import { createPanelMapSelectController } from './panelMapSelectController.js';
 import { createPanelMarqueeController } from './panelMarqueeController.js';
 import { createPanelPrintRequestController } from './panelPrintRequestController.js';
+import { createPanelContentHost } from './panelContentHost.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
 import { isExcludedLineType } from '../../lib/special-condition.js';
 
@@ -998,19 +999,12 @@ export function createPanel(options = {}) {
 
     const panelShell = createDesktopPanelShell({ rightPx, widthPx });
     const root = panelShell.root;
+    const panelContentHost = createPanelContentHost();
 
     // 从右侧滑入/滑出
 
     // 面板主体：视觉同 search-results，但 class 使用 panel-* 隔离
-    const panel = document.createElement('div');
-    panel.className = 'panel-container';
-    panel.style.marginTop = '0';
-    panel.style.maxHeight = 'none';
-    panel.style.height = '100%';
-    panel.style.opacity = '1';
-    panel.style.overflow = 'hidden';
-    panel.style.display = 'flex';
-    panel.style.flexDirection = 'column';
+    const panel = panelContentHost.panel;
 
     // 标题栏
     const header = document.createElement('div');
@@ -1374,7 +1368,7 @@ export function createPanel(options = {}) {
 
     panel.appendChild(header);
     panel.appendChild(body);
-    root.appendChild(panel);
+    panelContentHost.mount(root);
     root.appendChild(catalogPanel);
 
     body.addEventListener('scroll', () => {
