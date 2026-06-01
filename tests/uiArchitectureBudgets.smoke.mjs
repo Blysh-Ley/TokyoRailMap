@@ -24,6 +24,26 @@ const uiDebtBudgets = [
         domResponsibility: 311
     },
     {
+        file: 'src/features/panel/panelShellDesktop.js',
+        maxLines: 100,
+        windowBridge: 0,
+        browserStorage: 0,
+        globalEvents: 0,
+        planningImports: 0,
+        rawMapLibre: 0,
+        domResponsibility: 1
+    },
+    {
+        file: 'src/features/panel/panelContentHost.js',
+        maxLines: 30,
+        windowBridge: 0,
+        browserStorage: 0,
+        globalEvents: 0,
+        planningImports: 0,
+        rawMapLibre: 0,
+        domResponsibility: 2
+    },
+    {
         file: 'src/features/search/search.js',
         maxLines: 1392,
         windowBridge: 7,
