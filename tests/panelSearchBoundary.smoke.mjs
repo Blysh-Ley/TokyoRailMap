@@ -8,6 +8,7 @@ const searchUiFiles = [
 
 const panelFiles = [
     'src/features/panel/panel.js',
+    'src/features/panel/panelCompanyCatalogRenderer.js',
     'src/features/panel/panelContentHost.js',
     'src/features/panel/panelCrossFeatureBridgeController.js',
     'src/features/panel/panelDirFilterModel.js',
