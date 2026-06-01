@@ -13,7 +13,6 @@ import {
     getPreferredCachedImageSrc,
     setImageElementFromCache
 } from '../../lib/fetch.js';
-import { previewBranchesForLine } from '../../map/analyze_branch.js';
 import {
     buildTemporaryThroughServicePanelPlan,
     detectThroughServiceCategoryFromTrips,
@@ -50,6 +49,7 @@ import { createPanelMarqueeController } from './panelMarqueeController.js';
 import { createPanelPrintRequestController } from './panelPrintRequestController.js';
 import { createPanelIntentController } from './panelIntentController.js';
 import { createPanelCrossFeatureBridgeController } from './panelCrossFeatureBridgeController.js';
+import { createPanelRoutePreviewController } from './panelRoutePreviewController.js';
 import {
     applyTripDetailPastState,
     buildTripDetailEndpointContext,
@@ -1007,6 +1007,10 @@ export function createPanel(options = {}) {
         captureElement: exportElementToPng
     });
     const crossFeatureBridge = createPanelCrossFeatureBridgeController();
+    const panelRoutePreview = createPanelRoutePreviewController({
+        clearTripPathPreviewBySource: (source) => crossFeatureBridge.clearTripPathPreviewBySource(source),
+        toText
+    });
 
     // 从右侧滑入/滑出
 
@@ -2125,8 +2129,6 @@ export function createPanel(options = {}) {
     const dirFilteredTripKeysByKey = new Map(); // lineId||dir -> Array<tripKey|baseTripKey>
     const dirPrintPayloadByKey = new Map(); // lineId||dir -> export payload for print-timetables.js
     const dirPreviewMetaByKey = new Map(); // lineId||dir -> { lineId, originStationIds:string[], terminalStationIds:string[] }
-    let activeDirPreviewKey = '';
-    let dirBranchPreviewSeq = 0;
     const makeLineDirKey = (lineId, dirKey) => `${toText(lineId)}||${toText(dirKey) || 'Unknown'}`;
     const dirKeyOf = (lineId, dir) => `${toText(lineId)}||${toText(dir) || 'Unknown'}`;
     const isLoopLine = (lineId) => {
@@ -2145,10 +2147,8 @@ export function createPanel(options = {}) {
         if (isMultiSelectModeEnabled()) return;
         const key = toText(lineDirKey);
         if (!key) return;
-        if (!force && activeDirPreviewKey === key) return;
         const meta = dirPreviewMetaByKey.get(key);
         if (!meta) return;
-        activeDirPreviewKey = key;
 
         const currentStationIds = (() => {
             const out = [];
@@ -2170,64 +2170,30 @@ export function createPanel(options = {}) {
             return [];
         })();
 
-        try {
-            onDirPreviewEnter?.({
-                lineId: toText(meta.lineId),
-                sourceLineIds: Array.isArray(sourceLineIds) ? sourceLineIds.slice() : [],
-                originStationIds: Array.isArray(meta.originStationIds) ? meta.originStationIds.slice() : [],
-                terminalStationIds: Array.isArray(meta.terminalStationIds) ? meta.terminalStationIds.slice() : [],
-                currentStationIds: currentStationIds.slice(),
-                fitMode: toText(fitMode)
-            });
-        } catch {
-            // ignore
-        }
-
-        const requestSeq = ++dirBranchPreviewSeq;
         const tripKeys = Array.isArray(dirFilteredTripKeysByKey.get(key))
             ? dirFilteredTripKeysByKey.get(key)
             : [];
-        const highlightStationIds = Array.from(new Set([
-            ...(Array.isArray(meta.originStationIds) ? meta.originStationIds : []),
-            ...(Array.isArray(meta.terminalStationIds) ? meta.terminalStationIds : []),
-            ...currentStationIds
-        ].map((x) => toText(x)).filter(Boolean)));
-        const source = 'panel-dir-branch';
 
         const targetId = toText(meta.lineId);
         const throughServiceCategory = THROUGH_SERVICE_CONFIGS.find(info => 
             info.lineId === targetId 
         )?.category || '';
 
-        previewBranchesForLine({
-            lineId: toText(meta.lineId),
-            lineName: '',
-            fitMode: toText(fitMode),
-            targetTripKeys: tripKeys,
-            highlightStationIds,
-            previewSource: source,
+        panelRoutePreview.applyDirectionPreview({
+            currentStationIds,
+            fitMode,
+            force,
+            key,
+            meta,
+            onEnter: onDirPreviewEnter,
             sourceLineIds,
-            throughServiceCategory,
-            originStationIds: Array.isArray(meta.originStationIds) ? meta.originStationIds.slice() : [],
-            terminalStationIds: Array.isArray(meta.terminalStationIds) ? meta.terminalStationIds.slice() : []
-        }).then(() => {
-            if (requestSeq !== dirBranchPreviewSeq) return;
-        }).catch(() => {
-            if (requestSeq !== dirBranchPreviewSeq) return;
-            crossFeatureBridge.clearTripPathPreviewBySource(source);
+            targetTripKeys: tripKeys,
+            throughServiceCategory
         });
     };
 
     const clearDirPreview = () => {
-        if (!activeDirPreviewKey) return;
-        activeDirPreviewKey = '';
-        dirBranchPreviewSeq += 1;
-        try {
-            onDirPreviewLeave?.();
-        } catch {
-            // ignore
-        }
-        crossFeatureBridge.clearTripPathPreviewBySource('panel-dir-branch');
+        panelRoutePreview.clearDirectionPreview({ onLeave: onDirPreviewLeave });
     };
 
     const pinDirPreviewByKey = (lineDirKey) => {
