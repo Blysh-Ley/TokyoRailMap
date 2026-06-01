@@ -67,6 +67,16 @@ import {
     collectPanelCatalogEntries,
     renderPanelCatalogEntriesHtml
 } from './panelCompanyCatalogRenderer.js';
+import {
+    createPanelEventDelegationCoordinator,
+    resolvePanelCompanyTarget,
+    resolvePanelDirFilterButtonTarget,
+    resolvePanelDirPrintButtonTarget,
+    resolvePanelDirTitleTarget,
+    resolvePanelDirTriangleTarget,
+    resolvePanelLineTarget,
+    resolveTripDetailStationTarget
+} from './panelEventDelegationCoordinator.js';
 import { createPanelContentHost } from './panelContentHost.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
 import {
@@ -4972,65 +4982,27 @@ export function createPanel(options = {}) {
     };
 
     const getCompanyTarget = (target) => {
-        if (!(target instanceof Element)) return null;
-        const hit = target.closest?.('.panel-company-logo, .panel-company-name');
-        if (!hit || !body.contains(hit)) return null;
-        const companyEl = hit.closest?.('.panel-company-header[data-company]');
-        const company = companyEl?.getAttribute?.('data-company');
-        return company ? String(company) : null;
+        return resolvePanelCompanyTarget(target, { body, toText });
     };
 
     const getLineTarget = (target) => {
-        if (!(target instanceof Element)) return null;
-        const hit = target.closest?.('.panel-line-name');
-        if (!hit || !body.contains(hit)) return null;
-        const lineEl = hit.closest?.('[data-line-id]');
-        const lineId = lineEl?.getAttribute?.('data-line-id');
-        return lineId ? String(lineId) : null;
+        return resolvePanelLineTarget(target, { body, toText });
     };
 
     const getDirTitleTarget = (target) => {
-        if (!(target instanceof Element)) return null;
-        const titleEl = target.closest?.('.panel-dir-title');
-        if (!titleEl || !body.contains(titleEl)) return null;
-        const dirEl = titleEl.closest?.('[data-dir-toggle]');
-        const lineEl = titleEl.closest?.('[data-line-id]');
-        const lineId = lineEl?.getAttribute?.('data-line-id');
-        const dirKey = dirEl?.getAttribute?.('data-dir-key');
-        if (!lineId || !dirKey) return null;
-        return { lineId: String(lineId), dirKey: String(dirKey) };
+        return resolvePanelDirTitleTarget(target, { body, toText });
     };
 
     const getDirTriangleTarget = (target) => {
-        if (!(target instanceof Element)) return null;
-        const triEl = target.closest?.('.panel-dir-triangle');
-        if (!triEl || !body.contains(triEl)) return null;
-        const dirEl = triEl.closest?.('[data-dir-toggle]');
-        const lineEl = triEl.closest?.('[data-line-id]');
-        const lineId = lineEl?.getAttribute?.('data-line-id');
-        const dirKey = dirEl?.getAttribute?.('data-dir-key');
-        if (!lineId || !dirKey) return null;
-        return { lineId: String(lineId), dirKey: String(dirKey) };
+        return resolvePanelDirTriangleTarget(target, { body, toText });
     };
 
     const getDirFilterButtonTarget = (target) => {
-        if (!(target instanceof Element)) return null;
-        const btn = target.closest?.('.panel-dir-filter-btn[data-dir-filter-btn]');
-        if (!btn || !body.contains(btn)) return null;
-        const lineId = btn.getAttribute('data-line-id');
-        const dirKey = btn.getAttribute('data-dir-key');
-        if (!lineId || !dirKey) return null;
-        return { buttonEl: btn, lineId: String(lineId), dirKey: String(dirKey) };
+        return resolvePanelDirFilterButtonTarget(target, { body, toText });
     };
 
     const getDirPrintButtonTarget = (target) => {
-        if (!(target instanceof Element)) return null;
-        const btn = target.closest?.('.panel-dir-print-btn[data-dir-print-btn]');
-        if (!btn || !body.contains(btn)) return null;
-        const lineId = btn.getAttribute('data-line-id');
-        const dirKey = btn.getAttribute('data-dir-key');
-        if (!lineId || !dirKey) return null;
-        return { buttonEl: btn, lineId: String(lineId), dirKey: String(dirKey) };
+        return resolvePanelDirPrintButtonTarget(target, { body, toText });
     };
 
     const panelPrintRequests = createPanelPrintRequestController({
@@ -5479,15 +5451,7 @@ export function createPanel(options = {}) {
         if (!tripDetailPinned) scheduleTripDetailHide();
     };
 
-    body.addEventListener('pointerdown', onBodyPointerDown, { passive: false });
-    body.addEventListener('pointermove', onBodyPointerMoveTouchTap, { passive: true });
-    body.addEventListener('pointerup', onBodyPointerUpTouchTap, { passive: true });
-    body.addEventListener('pointercancel', onBodyPointerCancelTouchTap, { passive: true });
-    body.addEventListener('mousemove', onBodyMove);
-    body.addEventListener('mouseleave', onBodyLeave);
-    body.addEventListener('click', onBodyClick, { passive: false });
-
-    body.addEventListener('mouseover', (evt) => {
+    const onBodyTripMouseOver = (evt) => {
         if (!isHoverPreviewEnabled()) return;
         if (touchInteraction.isLastPointerTouchLike()) return;
         const rowEl = findTripTarget(evt?.target);
@@ -5524,9 +5488,9 @@ export function createPanel(options = {}) {
             fitMode: 'preview'
         });
         lastTripDetailKey = key;
-    });
+    };
 
-    body.addEventListener('mouseout', (evt) => {
+    const onBodyTripMouseOut = (evt) => {
         if (!isHoverPreviewEnabled()) return;
         clearTripHighlightTimer();
         if (tripLocked) return;
@@ -5543,7 +5507,7 @@ export function createPanel(options = {}) {
             applyDirPreviewByKey(panelSelectionState.getPinnedDirPreviewKey(), { force: true });
         }
         scheduleTripDetailHide();
-    });
+    };
 
     panelIntents.bindRouteMapPopoverHover(window, {
         onEnter: () => {
@@ -5560,21 +5524,18 @@ export function createPanel(options = {}) {
         }
     });
 
-    const getTripDetailStationTarget = (target) => {
-        if (!(target instanceof Element)) return null;
-        return target.closest?.('.panel-trip-detail-station[data-station-id]') || null;
-    };
+    const getTripDetailStationTarget = (target) => resolveTripDetailStationTarget(target, { rootEl: tripDetailBody });
 
-    tripDetailBody.addEventListener('mouseover', (evt) => {
+    const onTripDetailMouseOver = (evt) => {
         if (touchInteraction.isLastPointerTouchLike()) return;
         const stationEl = getTripDetailStationTarget(evt?.target);
         if (!stationEl) return;
         const sid = toText(stationEl.getAttribute('data-station-id'));
         if (!sid) return;
         showTripDetailStationIndicator(sid);
-    });
+    };
 
-    tripDetailBody.addEventListener('mouseout', (evt) => {
+    const onTripDetailMouseOut = (evt) => {
         if (touchInteraction.isLastPointerTouchLike()) return;
         const fromEl = getTripDetailStationTarget(evt?.target);
         if (!fromEl) return;
@@ -5582,13 +5543,13 @@ export function createPanel(options = {}) {
         const toStation = getTripDetailStationTarget(toEl);
         if (toStation) return;
         clearTripDetailStationIndicator();
-    });
+    };
 
-    tripDetailBody.addEventListener('mouseleave', () => {
+    const onTripDetailMouseLeave = () => {
         clearTripDetailStationIndicator();
-    });
+    };
 
-    tripDetailBody.addEventListener('pointerdown', (evt) => {
+    const onTripDetailPointerDown = (evt) => {
         const pt = touchInteraction.markPointer(evt);
         if (!isTouchLikePointer(pt)) return;
         const stationEl = getTripDetailStationTarget(evt?.target);
@@ -5596,7 +5557,29 @@ export function createPanel(options = {}) {
         const sid = toText(stationEl.getAttribute('data-station-id'));
         if (!sid) return;
         showTripDetailStationIndicator(sid);
-    }, { passive: true });
+    };
+
+    const panelEventDelegation = createPanelEventDelegationCoordinator({
+        body,
+        bodyHandlers: {
+            click: onBodyClick,
+            mouseleave: onBodyLeave,
+            mousemove: onBodyMove,
+            mouseout: onBodyTripMouseOut,
+            mouseover: onBodyTripMouseOver,
+            pointercancel: onBodyPointerCancelTouchTap,
+            pointerdown: onBodyPointerDown,
+            pointermove: onBodyPointerMoveTouchTap,
+            pointerup: onBodyPointerUpTouchTap
+        },
+        tripDetailBody,
+        tripDetailHandlers: {
+            mouseleave: onTripDetailMouseLeave,
+            mouseout: onTripDetailMouseOut,
+            mouseover: onTripDetailMouseOver,
+            pointerdown: onTripDetailPointerDown
+        }
+    });
 
     document.addEventListener('click', (evt) => {
         const target = evt?.target;
@@ -5936,6 +5919,7 @@ export function createPanel(options = {}) {
         scrollToLineId,
         getScrollTop,
         setScrollTop,
-        layout
+        layout,
+        destroy: () => panelEventDelegation.destroy()
     };
 }

@@ -15,7 +15,7 @@ const uiDomResponsibilityPattern = /\bdocument\.|\bwindow\.|addEventListener\s*\
 const uiDebtBudgets = [
     {
         file: 'src/features/panel/panel.js',
-        maxLines: 5947,
+        maxLines: 5930,
         windowBridge: 0,
         browserStorage: 0,
         globalEvents: 3,
@@ -26,6 +26,16 @@ const uiDebtBudgets = [
     {
         file: 'src/features/panel/panelCompanyCatalogRenderer.js',
         maxLines: 270,
+        windowBridge: 0,
+        browserStorage: 0,
+        globalEvents: 0,
+        planningImports: 0,
+        rawMapLibre: 0,
+        domResponsibility: 1
+    },
+    {
+        file: 'src/features/panel/panelEventDelegationCoordinator.js',
+        maxLines: 140,
         windowBridge: 0,
         browserStorage: 0,
         globalEvents: 0,

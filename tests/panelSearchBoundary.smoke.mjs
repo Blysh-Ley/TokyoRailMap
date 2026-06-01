@@ -13,6 +13,7 @@ const panelFiles = [
     'src/features/panel/panelCrossFeatureBridgeController.js',
     'src/features/panel/panelDirFilterModel.js',
     'src/features/panel/panelDirFilterPopoverController.js',
+    'src/features/panel/panelEventDelegationCoordinator.js',
     'src/features/panel/panelMapSelectController.js',
     'src/features/panel/panelMarqueeController.js',
     'src/features/panel/panelIntentController.js',
