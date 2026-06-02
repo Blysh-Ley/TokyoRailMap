@@ -532,7 +532,7 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                         vertical-align: middle !important;
                     }
                     html.${EXPORT_CLASS} .route-map-station .rw-station-code-badge {
-                        line-height: 20px !important;
+                        line-height: 1 !important;
                     }
                     html.${EXPORT_CLASS} .route-map-through-branch {
                         left: calc(10% + var(--branch-start-offset, 0px)) !important;
@@ -544,7 +544,7 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                         padding-bottom: 10.5px !important;
                     }
                     html.${EXPORT_CLASS} .rw-station-code-badge{
-                        padding-bottom: 2px !important;    
+                        padding-bottom: 0 !important;
                     }
 
                 `;

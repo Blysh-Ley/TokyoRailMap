@@ -3,6 +3,13 @@ import { resolveMainLineIdByBranchRule } from './special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
 
+const splitStationCodeForBadge = (code) => {
+    const c = toText(code);
+    const match = c.match(/^([A-Za-z]+)(.+)$/);
+    if (!match) return { prefix: c, suffix: '' };
+    return { prefix: match[1], suffix: match[2] };
+};
+
 export const resolveMainLineIdForIcon = (lineId, index = null) => {
     const id = toText(lineId);
     if (!id) return '';
@@ -666,33 +673,55 @@ const applyStationCodeBadgeStyleForTheme = (el) => {
     if (!code) return;
 
     const routeColor = toText(el.dataset.lineColor);
-    const dark = isDarkThemeActive();
     const borderColor = resolveBorderColorForTheme(routeColor) || routeColor || 'transparent';
+    const prefixEl = el.querySelector('.rw-station-code-badge-prefix');
+    const suffixEl = el.querySelector('.rw-station-code-badge-suffix');
 
     el.style.display = 'inline-flex';
     el.style.alignItems = 'center';
     el.style.justifyContent = 'center';
     el.style.boxSizing = 'border-box';
     el.style.userSelect = 'none';
-    el.style.backgroundColor = dark ? '#000' : '#fff';
-    el.style.color = dark ? '#fff' : '#000';
+    el.style.overflow = 'hidden';
+    el.style.backgroundColor = '#fff';
+    el.style.color = '#000';
     el.style.border = `2px solid ${borderColor}`;
-    el.style.borderRadius = '10px';
+    el.style.borderRadius = '3.5px';
     el.style.height = '20px';
     el.style.minWidth = '20px';
-    el.style.padding = '0 5px';
+    el.style.padding = '0 0.2em 0 0';
     el.style.lineHeight = '1';
     el.style.fontWeight = '700';
+
+    if (prefixEl instanceof HTMLElement) {
+        prefixEl.style.display = 'inline-flex';
+        prefixEl.style.alignItems = 'center';
+        prefixEl.style.alignSelf = 'stretch';
+        prefixEl.style.boxSizing = 'border-box';
+        prefixEl.style.paddingLeft = '2px';
+        prefixEl.style.paddingRight = '2px';
+        prefixEl.style.marginRight = '0.2em';
+        prefixEl.style.backgroundColor = borderColor;
+        prefixEl.style.color = '#fff';
+        prefixEl.style.lineHeight = '1';
+    }
+
+    if (suffixEl instanceof HTMLElement) {
+        suffixEl.style.display = 'inline-flex';
+        suffixEl.style.alignItems = 'center';
+        suffixEl.style.color = '#000';
+        suffixEl.style.lineHeight = '1';
+    }
 
     if (code.length <= 2) {
         el.style.fontSize = '11px';
         el.style.letterSpacing = '0px';
     } else if (code.length <= 4) {
         el.style.fontSize = '10px';
-        el.style.letterSpacing = '-0.1px';
+        el.style.letterSpacing = '0px';
     } else {
         el.style.fontSize = '9px';
-        el.style.letterSpacing = '-0.2px';
+        el.style.letterSpacing = '0px';
     }
 };
 
@@ -702,9 +731,21 @@ export const createStationCodeBadgeElement = ({ code, color }) => {
 
     const el = document.createElement('span');
     el.className = 'rw-station-code-badge';
-    el.textContent = c;
     el.dataset.code = c;
     el.dataset.lineColor = toText(color);
+
+    const { prefix, suffix } = splitStationCodeForBadge(c);
+    const prefixEl = document.createElement('span');
+    prefixEl.className = 'rw-station-code-badge-prefix';
+    prefixEl.textContent = prefix;
+    el.appendChild(prefixEl);
+
+    if (suffix) {
+        const suffixEl = document.createElement('span');
+        suffixEl.className = 'rw-station-code-badge-suffix';
+        suffixEl.textContent = suffix;
+        el.appendChild(suffixEl);
+    }
 
     applyStationCodeBadgeStyleForTheme(el);
     ensureThemeObserver();
