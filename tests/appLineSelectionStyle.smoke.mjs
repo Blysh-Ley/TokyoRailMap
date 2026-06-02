@@ -29,8 +29,10 @@ const body = extractFunctionBody(source, 'applyLineSelectionStyle');
 assert.match(body, /tripPreviewActive/);
 assert.match(body, /dirPreviewActive/);
 assert.match(body, /selectedCompany/);
-assert.doesNotMatch(body, /\bselectedLineId\b/);
-assert.doesNotMatch(body, /\bselectedStationLineIds\b/);
+assert.match(body, /!selectedLineId && selectedStationLineIds && selectedStationLineIds\.size/);
+assert.match(body, /Array\.from\(selectedStationLineIds\)\.map\(String\)\.filter\(Boolean\)/);
+assert.match(body, /focusExpr: hitExpr/);
+assert.doesNotMatch(body, /\['==', \['get', 'id'\], selectedLineId\]/);
 
 assert.match(source, /SELECTION_LINE_TRIP_PREVIEW_SOURCE = 'selection-line-trip-preview'/);
 assert.match(source, /previewSource: SELECTION_LINE_TRIP_PREVIEW_SOURCE/);

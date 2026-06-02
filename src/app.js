@@ -1679,6 +1679,15 @@ const initMapApp = async () => {
             return;
         }
 
+        if (!selectedLineId && selectedStationLineIds && selectedStationLineIds.size) {
+            const ids = Array.from(selectedStationLineIds).map(String).filter(Boolean);
+            const hitExpr = ids.length === 1
+                ? ['==', ['get', 'id'], ids[0]]
+                : ['in', ['get', 'id'], ['literal', ids]];
+            applyLinePaint(buildFocusedLinePaint({ baseColorExpr, focusExpr: hitExpr, dimOpacity: 0.6 }));
+            return;
+        }
+
         if (!selectedCompany) {
             applyLinePaint(buildFocusedLinePaint({ baseColorExpr }));
             return;
