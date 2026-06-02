@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { buildLineHighlightVirtualTripPayloads } from '../src/domain/lineHighlightVirtualTripBuilder.js';
+import {
+    buildLineHighlightVirtualTripPayloads,
+    resolveSelectionLineHighlightIds
+} from '../src/domain/lineHighlightVirtualTripBuilder.js';
 
 const railwaysIndexById = new Map([
     ['L1', {
@@ -60,6 +63,22 @@ const railwaysIndexById = new Map([
 {
     assert.deepEqual(buildLineHighlightVirtualTripPayloads(), []);
     assert.deepEqual(buildLineHighlightVirtualTripPayloads({ lineIds: [' '] }), []);
+}
+
+{
+    assert.deepEqual(resolveSelectionLineHighlightIds({
+        selectedLineId: 'MAIN',
+        selectedStationLineIds: new Set(['MAIN', 'BRANCH'])
+    }), ['MAIN', 'BRANCH']);
+
+    assert.deepEqual(resolveSelectionLineHighlightIds({
+        selectedLineId: 'MAIN',
+        selectedStationLineIds: new Set(['BRANCH'])
+    }), ['MAIN']);
+
+    assert.deepEqual(resolveSelectionLineHighlightIds({
+        selectedStationLineIds: new Set(['BRANCH'])
+    }), []);
 }
 
 console.log('line highlight virtual trip builder smoke ok');

@@ -71,3 +71,16 @@ export const buildLineHighlightVirtualTripPayloads = ({
 
     return out;
 };
+
+export const resolveSelectionLineHighlightIds = ({
+    selectedLineId,
+    selectedStationLineIds
+} = {}) => {
+    const lineId = toText(selectedLineId);
+    if (!lineId) return [];
+
+    const mergedIds = normalizeLineIds(selectedStationLineIds);
+    if (mergedIds.length > 1) return mergedIds;
+
+    return [lineId];
+};

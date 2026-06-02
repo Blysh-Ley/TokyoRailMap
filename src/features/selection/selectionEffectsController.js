@@ -65,6 +65,7 @@ export const createSelectionEffectsController = ({
     const applyEffectsNow = () => {
         effects.applyBaseLayerVisibilityFilters?.();
         effects.applyLineSelectionStyle?.();
+        effects.syncSelectionLineTripPreview?.();
         effects.applyStationSelectionStyle?.();
         effects.updateSelectedStationCurrentPopup?.();
         effects.applyTransferStationLabelCollapse?.();

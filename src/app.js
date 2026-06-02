@@ -22,7 +22,10 @@ import { createPanel } from './features/panel/panel.js';
 import { getGlobalTimetableCache } from './lib/timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './map/fullscreen.js';
 import { extractShortestLoopSegmentByIndex, isLoopDirection } from './lib/trip-preview.js';
-import { buildLineHighlightVirtualTripPayloads } from './domain/lineHighlightVirtualTripBuilder.js';
+import {
+    buildLineHighlightVirtualTripPayloads,
+    resolveSelectionLineHighlightIds
+} from './domain/lineHighlightVirtualTripBuilder.js';
 import { previewBranchesForLine } from './map/analyze_branch.js';
 import { createLineIconElement } from './lib/line-icons.js';
 import {
@@ -337,9 +340,13 @@ const initMapApp = async () => {
     let syncStationOffsetForTripPreviewState = () => {};
     let railwaysIndexByIdCachePromise = null;
     let multiSelectBaseTripPreviewSignature = '';
+    let selectionLineTripPreviewSignature = '';
+    let selectionLineTripPreviewRequestId = 0;
 
     const MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE = 'ms-base-trip-preview';
     const MULTI_SELECT_BASE_TRIP_PREVIEW_KEY = 'multi-base-lines';
+    const SELECTION_LINE_TRIP_PREVIEW_SOURCE = 'selection-line-trip-preview';
+    const SELECTION_LINE_TRIP_PREVIEW_KEY = 'selection-line';
 
 
     let panel = null;
@@ -1148,6 +1155,78 @@ const initMapApp = async () => {
         });
     };
 
+    const getSelectionLineTripPreviewLineIds = () => resolveSelectionLineHighlightIds({
+        selectedLineId,
+        selectedStationLineIds
+    });
+
+    const buildSelectionLineTripVirtualTrips = async (lineIds) => {
+        const railwaysIndexById = await getRailwaysIndexById();
+        return buildLineHighlightVirtualTripPayloads({
+            lineIds,
+            railwaysIndexById,
+            getLineName: (lineId) => lineNameById.get(lineId) || lineId,
+            previewSource: SELECTION_LINE_TRIP_PREVIEW_SOURCE,
+            fitMode: 'none'
+        });
+    };
+
+    const syncSelectionLineTripPreview = async () => {
+        const activeSource = String(tripPreviewActiveSource || '').trim();
+
+        if (isMultiSelectModeEnabled()) {
+            const shouldClear = selectionLineTripPreviewSignature
+                || activeSource === SELECTION_LINE_TRIP_PREVIEW_SOURCE;
+            selectionLineTripPreviewSignature = '';
+            selectionLineTripPreviewRequestId += 1;
+            if (shouldClear) clearTripPathPreview({ source: SELECTION_LINE_TRIP_PREVIEW_SOURCE });
+            return;
+        }
+
+        if (activeSource && activeSource !== SELECTION_LINE_TRIP_PREVIEW_SOURCE) {
+            selectionLineTripPreviewRequestId += 1;
+            return;
+        }
+
+        const lineIds = getSelectionLineTripPreviewLineIds();
+        const signature = lineIds.join('|');
+
+        if (!lineIds.length) {
+            const shouldClear = selectionLineTripPreviewSignature
+                || activeSource === SELECTION_LINE_TRIP_PREVIEW_SOURCE;
+            selectionLineTripPreviewSignature = '';
+            selectionLineTripPreviewRequestId += 1;
+            if (shouldClear) clearTripPathPreview({ source: SELECTION_LINE_TRIP_PREVIEW_SOURCE });
+            return;
+        }
+
+        if (
+            signature === selectionLineTripPreviewSignature
+            && activeSource === SELECTION_LINE_TRIP_PREVIEW_SOURCE
+        ) return;
+        selectionLineTripPreviewSignature = signature;
+        const requestId = selectionLineTripPreviewRequestId + 1;
+        selectionLineTripPreviewRequestId = requestId;
+
+        const virtualTrips = await buildSelectionLineTripVirtualTrips(lineIds);
+        if (requestId !== selectionLineTripPreviewRequestId) return;
+        if (!virtualTrips.length) {
+            selectionLineTripPreviewSignature = '';
+            clearTripPathPreview({ source: SELECTION_LINE_TRIP_PREVIEW_SOURCE });
+            return;
+        }
+
+        previewTripPath({
+            selectedLineId: lineIds[0],
+            mainLineId: lineIds[0],
+            tripKey: signature,
+            previewKey: SELECTION_LINE_TRIP_PREVIEW_KEY,
+            previewSource: SELECTION_LINE_TRIP_PREVIEW_SOURCE,
+            fitMode: 'none',
+            virtualTrips
+        }, { fitMode: 'none', clearBefore: true });
+    };
+
     const syncMultiSelectBaseTripPreview = async () => {
         if (!isMultiSelectModeEnabled()) {
             multiSelectBaseTripPreviewSignature = '';
@@ -1837,6 +1916,9 @@ const initMapApp = async () => {
         effects: {
             applyBaseLayerVisibilityFilters,
             applyLineSelectionStyle,
+            syncSelectionLineTripPreview: () => {
+                syncSelectionLineTripPreview().catch(() => null);
+            },
             applyStationSelectionStyle,
             updateSelectedStationCurrentPopup,
             applyTransferStationLabelCollapse,

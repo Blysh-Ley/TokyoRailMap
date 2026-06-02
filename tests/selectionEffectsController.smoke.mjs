@@ -14,6 +14,7 @@ const runController = ({
         effects: {
             applyBaseLayerVisibilityFilters: () => effects.push('base-filter'),
             applyLineSelectionStyle: () => effects.push('line-style'),
+            syncSelectionLineTripPreview: () => effects.push('selection-line-preview'),
             applyStationSelectionStyle: () => effects.push('station-style'),
             updateSelectionBadge: () => effects.push('badge')
         },
@@ -41,7 +42,7 @@ const runController = ({
         }
     });
 
-    assert.deepEqual(effects, ['base-filter', 'line-style', 'station-style', 'badge']);
+    assert.deepEqual(effects, ['base-filter', 'line-style', 'selection-line-preview', 'station-style', 'badge']);
     assert.deepEqual(events, [{
         type: 'updated',
         detail: {
