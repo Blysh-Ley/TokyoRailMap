@@ -52,4 +52,10 @@ assert.equal(prefix.style.color, '#fff');
 assert.equal(suffix.textContent, '11');
 assert.equal(suffix.style.color, '#000');
 
+const lightBadge = createStationCodeBadgeElement({ code: 'KS09', color: '#ffee55' });
+const lightPrefix = lightBadge.querySelector('.rw-station-code-badge-prefix');
+
+assert.equal(lightPrefix.style.backgroundColor, '#ffee55');
+assert.equal(lightPrefix.style.color, '#000');
+
 console.log('station code badge element smoke ok');

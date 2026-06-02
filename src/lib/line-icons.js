@@ -168,6 +168,12 @@ const relativeLuminance = ({ r, g, b }) => {
     return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
 };
 
+const getReadableTextColorForBackground = (color) => {
+    const parsed = parseCssColorToRgb(color);
+    if (!parsed) return '#fff';
+    return relativeLuminance(parsed) > 0.55 ? '#000' : '#fff';
+};
+
 const DARK_INVERT_TRIGGER_LUMINANCE = (() => {
     // Align with existing UI logic: use Keisei blue as reference threshold.
     const ref = parseCssColorToRgb('#005AAA');
@@ -684,6 +690,7 @@ const applyStationCodeBadgeStyleForTheme = (el) => {
 
     const routeColor = toText(el.dataset.lineColor);
     const borderColor = resolveBorderColorForTheme(routeColor) || routeColor || 'transparent';
+    const prefixTextColor = getReadableTextColorForBackground(borderColor);
     const prefixEl = el.querySelector('.rw-station-code-badge-prefix');
     const suffixEl = el.querySelector('.rw-station-code-badge-suffix');
 
@@ -712,7 +719,7 @@ const applyStationCodeBadgeStyleForTheme = (el) => {
         prefixEl.style.paddingRight = '2px';
         prefixEl.style.marginRight = '0.2em';
         prefixEl.style.backgroundColor = borderColor;
-        prefixEl.style.color = '#fff';
+        prefixEl.style.color = prefixTextColor;
         prefixEl.style.lineHeight = '1';
     }
 
