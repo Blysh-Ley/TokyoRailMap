@@ -19,7 +19,6 @@ export const createStationOffsetRuntimeController = ({
 
     let mode = normalizeMode(initialMode);
     let lastUpdateZoom = Number(getZoom());
-    let previousFrameZoom = Number(getZoom());
     const unbinders = [];
 
     const getCurrentZoom = () => {
@@ -31,7 +30,6 @@ export const createStationOffsetRuntimeController = ({
         const zoom = getCurrentZoom();
         const synced = syncStationOffsetForZoom(zoom);
         lastUpdateZoom = zoom;
-        previousFrameZoom = zoom;
         return synced;
     };
 
@@ -42,18 +40,14 @@ export const createStationOffsetRuntimeController = ({
 
         const currentZoom = getCurrentZoom();
         const cumulativeDelta = Math.abs(currentZoom - lastUpdateZoom);
-        const frameVelocity = Math.abs(currentZoom - previousFrameZoom);
 
-        previousFrameZoom = currentZoom;
-
-        if (cumulativeDelta >= 0.2 || (frameVelocity > 0 && frameVelocity < 0.02)) {
+        if (cumulativeDelta >= 0.2) {
             syncStationOffsetForZoom(currentZoom);
             lastUpdateZoom = currentZoom;
         }
     };
 
     const handleZoomEnd = () => {
-        if (isDynamicMode()) return;
         syncAtCurrentZoom();
     };
 

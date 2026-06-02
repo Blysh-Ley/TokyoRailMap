@@ -48,6 +48,29 @@ const createMapEngineStub = () => {
 }
 
 {
+    let zoom = 10;
+    const synced = [];
+    const mapEngine = createMapEngineStub();
+    const controller = createStationOffsetRuntimeController({
+        getZoom: () => zoom,
+        initialMode: 'dynamic',
+        mapEngine,
+        syncStationOffsetForZoom: (nextZoom) => synced.push(Number(nextZoom.toFixed(3)))
+    });
+
+    controller.syncAtCurrentZoom();
+    for (const nextZoom of [10.005, 10.01, 10.015, 10.02, 10.025, 10.03, 10.035, 10.04]) {
+        zoom = nextZoom;
+        mapEngine.emit('zoom');
+    }
+
+    assert.deepEqual(synced, [10]);
+
+    mapEngine.emit('zoomend');
+    assert.deepEqual(synced, [10, 10.04]);
+}
+
+{
     let zoom = 11;
     const synced = [];
     const mapEngine = createMapEngineStub();
