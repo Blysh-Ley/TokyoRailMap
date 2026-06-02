@@ -698,6 +698,12 @@ export const buildBranchVirtualTrips = ({ lineId, lineName, branchList } = {}) =
         const payload = buildVirtualTripPreviewPayload({
             lineId: lid,
             lineName: lname,
+            segments: [{
+                lineId: lid,
+                geometryLineId: lid,
+                offsetLineId: lid,
+                stationIds
+            }],
             stationIds,
             tripKey: `branch-${i + 1}`,
             previewSource: 'route-map-branch',
@@ -735,6 +741,8 @@ const buildBranchSegmentsByRailway = (stationIds, stationRailwayByStationId, fal
             if (currentIds.length >= 2) {
                 segments.push({
                     lineId: currentLine,
+                    geometryLineId: currentLine,
+                    offsetLineId: currentLine,
                     stationIds: dedupKeepOrder(currentIds)
                 });
             }
@@ -750,8 +758,11 @@ const buildBranchSegmentsByRailway = (stationIds, stationRailwayByStationId, fal
     }
 
     if (currentIds.length >= 2) {
+        const lineId = currentLine || toText(fallbackLineId);
         segments.push({
-            lineId: currentLine || toText(fallbackLineId),
+            lineId,
+            geometryLineId: lineId,
+            offsetLineId: lineId,
             stationIds: dedupKeepOrder(currentIds)
         });
     }

@@ -8,6 +8,8 @@ const stationCoordByIdBase = new Map([
     ['D', [139.3, 35.0]]
 ]);
 
+const extractedLineIds = [];
+
 const { buildTripPreviewFeatures } = createTripPreviewBuilder({
     stationCoordByIdBase,
     stationCoordById: new Map(),
@@ -21,6 +23,7 @@ const { buildTripPreviewFeatures } = createTripPreviewBuilder({
     isSamePhysicalStation: () => false,
     isLoopDirection: () => false,
     extractLineSegment: (lineId, from, to) => {
+        extractedLineIds.push(lineId);
         if (lineId === 'L1') return null;
         return [from, to];
     },
@@ -66,5 +69,28 @@ const l2Line = lineFeatures.find((feature) => (
     && feature.properties.lineId === 'L2'
 ));
 assert.equal(l2Line.properties.line_offset_units, -1);
+assert.equal(l2Line.properties.geometry_line_id, 'L2');
+assert.equal(l2Line.properties.line_offset_id, 'L2');
+
+extractedLineIds.length = 0;
+const virtualBuilt = buildTripPreviewFeatures({
+    mainLineId: 'virtual-main',
+    segments: [
+        {
+            lineId: 'virtual-main',
+            geometryLineId: 'L2',
+            offsetLineId: 'L2',
+            stationIds: ['A', 'B']
+        }
+    ]
+});
+const virtualLine = virtualBuilt.lineFc.features.find((feature) => (
+    feature.properties.role === 'line'
+    && feature.properties.lineId === 'virtual-main'
+));
+assert.equal(virtualLine.properties.geometry_line_id, 'L2');
+assert.equal(virtualLine.properties.line_offset_id, 'L2');
+assert.equal(virtualLine.properties.line_offset_units, -1);
+assert.deepEqual(extractedLineIds, ['L2']);
 
 console.log('trip preview builder offset smoke ok');

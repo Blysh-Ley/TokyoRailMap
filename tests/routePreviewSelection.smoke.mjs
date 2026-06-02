@@ -77,8 +77,13 @@ const testSelectionKey = () => {
 
 const testSegmentNormalization = () => {
     assert.deepEqual(
-        normalizeTripPreviewSegment({ lineId: ' L1 ', stationIds: [' S1 ', '', null, 'S2'] }),
-        { lineId: 'L1', stationIds: ['S1', 'S2'] }
+        normalizeTripPreviewSegment({
+            lineId: ' Display ',
+            geometryLineId: ' L1 ',
+            offsetLineId: ' L2 ',
+            stationIds: [' S1 ', '', null, 'S2']
+        }),
+        { lineId: 'Display', geometryLineId: 'L1', offsetLineId: 'L2', stationIds: ['S1', 'S2'] }
     );
 
     assert.deepEqual(normalizeTripPreviewSegments(null), []);

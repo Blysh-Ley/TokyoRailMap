@@ -32,6 +32,7 @@ import {
     renderPanelTimetableListHtml
 } from './panelTimetableRenderer.js';
 import { createPanelSelectionStateController } from './panelSelectionStateController.js';
+import { withTripPreviewLineIdentity } from './panelTripPreviewLineIdentity.js';
 import {
     createEmptyDirFilterState,
     filterRowsByDirFilterState,
@@ -4672,7 +4673,9 @@ export function createPanel(options = {}) {
         }
 
         try {
-            const payloadSegments = segmentsWithPast.map((seg) => ({
+            const addPreviewLineIdentity = (seg) => withTripPreviewLineIdentity(seg, { toText });
+
+            const payloadSegments = segmentsWithPast.map((seg) => addPreviewLineIdentity({
                 kind: seg.kind,
                 lineId: toText(seg.lineId),
                 d: toText(seg?.d || trip?.d),
@@ -4718,12 +4721,14 @@ export function createPanel(options = {}) {
                         out.push({
                             kind: toText(seg?.kind || kindFilter),
                             lineId: toText(seg?.lineId),
+                            geometryLineId: toText(seg?.geometryLineId || seg?.geometry_line_id),
+                            offsetLineId: toText(seg?.offsetLineId || seg?.line_offset_id),
                             d: toText(seg?.d),
                             stationIds,
                             typeColor: toText(seg?.typeColor || payload?.typeColor)
                         });
                     }
-                    return out;
+                    return out.map(addPreviewLineIdentity);
                 };
 
                 const previewPtContextSegments = buildPreviewSegmentsFromSegmentsWithPast('pt');
@@ -4744,59 +4749,63 @@ export function createPanel(options = {}) {
                     const chainSegments = [];
                     if (branchMode === 'merge') {
                         if (lanePreviewSegments.length) {
-                            chainSegments.push(...lanePreviewSegments.map((seg) => ({
+                            chainSegments.push(...lanePreviewSegments.map((seg) => addPreviewLineIdentity({
                                 kind: 'pt',
                                 lineId: toText(seg?.lineId || laneLineId),
+                                geometryLineId: toText(seg?.geometryLineId || seg?.geometry_line_id),
+                                offsetLineId: toText(seg?.offsetLineId || seg?.line_offset_id),
                                 d: toText(seg?.d || laneDir),
                                 stationIds: Array.isArray(seg?.stationIds) ? seg.stationIds.map((x) => toText(x)).filter(Boolean) : [],
                                 typeColor: toText(seg?.typeColor || lane?.typeColor || payload?.typeColor)
                             })));
                         } else if (laneStationIds.length >= 2) {
-                            chainSegments.push({
+                            chainSegments.push(addPreviewLineIdentity({
                                 kind: 'pt',
                                 lineId: laneLineId,
                                 d: laneDir,
                                 stationIds: laneStationIds,
                                 typeColor: toText(lane?.typeColor || payload?.typeColor)
-                            });
+                            }));
                         }
                         if (mainSegStationIds.length >= 2) {
-                            chainSegments.push({
+                            chainSegments.push(addPreviewLineIdentity({
                                 kind: 'main',
                                 lineId: mainSegLineId,
                                 d: mainSegDir,
                                 stationIds: mainSegStationIds,
                                 typeColor: toText(payload?.typeColor)
-                            });
+                            }));
                         }
                         chainSegments.push(...previewNtContextSegments);
                     } else {
                         chainSegments.push(...previewPtContextSegments);
                         if (mainSegStationIds.length >= 2) {
-                            chainSegments.push({
+                            chainSegments.push(addPreviewLineIdentity({
                                 kind: 'main',
                                 lineId: mainSegLineId,
                                 d: mainSegDir,
                                 stationIds: mainSegStationIds,
                                 typeColor: toText(payload?.typeColor)
-                            });
+                            }));
                         }
                         if (lanePreviewSegments.length) {
-                            chainSegments.push(...lanePreviewSegments.map((seg) => ({
+                            chainSegments.push(...lanePreviewSegments.map((seg) => addPreviewLineIdentity({
                                 kind: 'nt',
                                 lineId: toText(seg?.lineId || laneLineId),
+                                geometryLineId: toText(seg?.geometryLineId || seg?.geometry_line_id),
+                                offsetLineId: toText(seg?.offsetLineId || seg?.line_offset_id),
                                 d: toText(seg?.d || laneDir),
                                 stationIds: Array.isArray(seg?.stationIds) ? seg.stationIds.map((x) => toText(x)).filter(Boolean) : [],
                                 typeColor: toText(seg?.typeColor || lane?.typeColor || payload?.typeColor)
                             })));
                         } else if (laneStationIds.length >= 2) {
-                            chainSegments.push({
+                            chainSegments.push(addPreviewLineIdentity({
                                 kind: 'nt',
                                 lineId: laneLineId,
                                 d: laneDir,
                                 stationIds: laneStationIds,
                                 typeColor: toText(lane?.typeColor || payload?.typeColor)
-                            });
+                            }));
                         }
                     }
 

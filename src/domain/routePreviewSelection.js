@@ -6,10 +6,17 @@ export const resolveTripPreviewPayloadSource = (payload) => {
 
 export const normalizeTripPreviewSegment = (segment) => {
     const lineId = toText(segment?.lineId);
+    const geometryLineId = toText(segment?.geometryLineId || segment?.geometry_line_id);
+    const offsetLineId = toText(segment?.offsetLineId || segment?.line_offset_id);
     const stationIds = Array.isArray(segment?.stationIds)
         ? segment.stationIds.map(toText).filter(Boolean)
         : [];
-    return { lineId, stationIds };
+    return {
+        lineId,
+        ...(geometryLineId ? { geometryLineId } : {}),
+        ...(offsetLineId ? { offsetLineId } : {}),
+        stationIds
+    };
 };
 
 export const normalizeTripPreviewSegments = (segments) => {

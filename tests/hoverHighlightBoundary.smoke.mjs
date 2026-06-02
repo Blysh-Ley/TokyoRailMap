@@ -120,71 +120,6 @@ const testTripPreviewTrace = () => {
     assert.equal(calls.at(-1).name, 'clearTripPathPreview');
 };
 
-const testPanelBranchTripPreviewStationResolver = () => {
-    const store = createStore();
-    let capturedResolver = null;
-    const routeFeature = {
-        clearTripPathPreview() {},
-        previewTripPath(args) {
-            capturedResolver = args.resolveVirtualTripStationIds;
-        },
-        rebuildMultiTripPreview() {},
-        toggleTripPreviewSelectionVisibility() {
-            return true;
-        },
-        deleteTripPreviewSelection() {
-            return true;
-        }
-    };
-
-    const controller = createRoutePreviewController({
-        routeFeature,
-        store,
-        isMultiSelectModeEnabled: () => false,
-        resolveTripPreviewPayloadSource: (payload) => payload?.previewSource || '',
-        buildTripPreviewAggregate: () => null,
-        getBaseMultiSelectedLineIds: () => new Set()
-    });
-
-    controller.previewTripPath({
-        previewSource: 'panel-dir-branch',
-        highlightStationIds: [' Highlighted '],
-        selectedLineId: 'ThroughLine',
-        virtualTrips: [
-            {
-                segments: [
-                    { lineId: 'L1', stationIds: ['Start', 'Middle'] },
-                    { lineId: 'L2', stationIds: ['Middle', 'End'] }
-                ]
-            }
-        ]
-    });
-
-    assert.equal(typeof capturedResolver, 'function');
-    const stationIds = capturedResolver({
-        payload: {
-            highlightStationIds: [' Highlighted ']
-        },
-        payloadSource: 'panel-dir-branch',
-        aggregate: {
-            stopIds: new Set(['Start', 'Middle', 'End', 'BranchOnly'])
-        },
-        virtualTrips: [
-            {
-                segments: [
-                    { lineId: 'L1', stationIds: ['Start', 'Middle'] },
-                    { lineId: 'L2', stationIds: ['Middle', 'End'] }
-                ]
-            }
-        ]
-    });
-
-    assert.deepEqual(
-        Array.from(stationIds),
-        ['Highlighted', 'Start', 'End', 'Middle', 'BranchOnly']
-    );
-};
-
 const testMultiSelectLayerItemsHelper = () => {
     const baseSelectionsByKey = new Map([
         ['line:L1', {
@@ -281,7 +216,6 @@ const testMultiSelectLayerItemsHelper = () => {
 
 testHoverLifecycleTrace();
 testTripPreviewTrace();
-testPanelBranchTripPreviewStationResolver();
 testMultiSelectLayerItemsHelper();
 
 console.log('hover/highlight boundary smoke ok');

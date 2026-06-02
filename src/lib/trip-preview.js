@@ -253,6 +253,10 @@ export const buildVirtualTripPreviewPayload = ({
                     lineId: line,
                     stationIds: ids
                 };
+                const geometryLineId = toText(seg?.geometryLineId || seg?.geometry_line_id);
+                const offsetLineId = toText(seg?.offsetLineId || seg?.line_offset_id);
+                if (geometryLineId) out.geometryLineId = geometryLineId;
+                if (offsetLineId) out.offsetLineId = offsetLineId;
                 const direction = toText(seg?.d || seg?.direction);
                 if (direction) out.d = direction;
                 return out;

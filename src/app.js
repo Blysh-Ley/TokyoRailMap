@@ -3029,7 +3029,12 @@ const initMapApp = async () => {
                 isLoopDirection,
                 extractLineSegment,
                 nearestBridgeBetweenLines,
-                getLineOffsetUnits: (lineId) => lineOffsetUnitsById.get(String(lineId || '').trim()) || 0,
+                getLineOffsetUnits: (lineId) => {
+                    const id = String(lineId || '').trim();
+                    if (!id || !lineOffsetUnitsById.has(id)) return 0;
+                    const units = Number(lineOffsetUnitsById.get(id));
+                    return Number.isFinite(units) ? units : 0;
+                },
                 distMeters,
                 extendBBox,
                 isDebugLoopEnabled: () => {
