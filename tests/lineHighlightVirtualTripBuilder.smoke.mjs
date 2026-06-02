@@ -40,8 +40,13 @@ const railwaysIndexById = new Map([
     assert.deepEqual(payloads[0].segments, [{
         kind: 'main',
         lineId: 'L1',
+        r: 'L1',
+        geometryLineId: 'L1',
+        offsetLineId: 'L1',
         stationIds: ['S1', 'S2', 'S3']
     }]);
+    assert.deepEqual(payloads[0].chainLineIds, ['L1']);
+    assert.equal(payloads[0].virtualTimetable[0].r, 'L1');
 
     assert.equal(payloads[1].selectedLineId, 'L2');
     assert.equal(payloads[1].selectedLineName, 'Line 2');
@@ -59,9 +64,13 @@ const railwaysIndexById = new Map([
     assert.deepEqual(payloads[0].segments, [{
         kind: 'main',
         lineId: 'LOOP',
+        r: 'LOOP',
+        geometryLineId: 'LOOP',
+        offsetLineId: 'LOOP',
         stationIds: ['A', 'B', 'C', 'A'],
         d: 'loop'
     }]);
+    assert.deepEqual(payloads[0].chainLineIds, ['LOOP']);
 }
 
 {

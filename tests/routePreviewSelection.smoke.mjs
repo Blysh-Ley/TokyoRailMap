@@ -65,7 +65,7 @@ const testSelectionKey = () => {
         buildTripPreviewSelectionKey({
             source: 'virtual',
             virtualTrips: [
-                { segments: [{ lineId: 'L4', stationIds: ['S1', 'S2'] }] },
+                { segments: [{ lineId: 'virtual-L4', r: 'L4', stationIds: ['S1', 'S2'] }] },
                 { segments: [{ lineId: 'L5', stationIds: ['S2', 'S3'] }] }
             ]
         }),
@@ -79,28 +79,29 @@ const testSegmentNormalization = () => {
     assert.deepEqual(
         normalizeTripPreviewSegment({
             lineId: ' Display ',
+            r: ' L0 ',
             geometryLineId: ' L1 ',
             offsetLineId: ' L2 ',
             stationIds: [' S1 ', '', null, 'S2']
         }),
-        { lineId: 'Display', geometryLineId: 'L1', offsetLineId: 'L2', stationIds: ['S1', 'S2'] }
+        { lineId: 'Display', r: 'L0', geometryLineId: 'L1', offsetLineId: 'L2', stationIds: ['S1', 'S2'] }
     );
 
     assert.deepEqual(normalizeTripPreviewSegments(null), []);
     assert.deepEqual(
         normalizeTripPreviewVirtualTrips({
             virtualTrips: [
-                { id: 'A', segments: [{ lineId: ' L2 ', stationIds: ['S1', ' S2 '] }] }
+                { id: 'A', segments: [{ lineId: ' Display ', r: ' L2 ', stationIds: ['S1', ' S2 '] }] }
             ]
         }),
-        [{ id: 'A', segments: [{ lineId: 'L2', stationIds: ['S1', 'S2'] }] }]
+        [{ id: 'A', segments: [{ lineId: 'Display', r: 'L2', stationIds: ['S1', 'S2'] }] }]
     );
 
     assert.equal(
         buildTripPreviewSegmentsKey([
             { lineId: 'L1', stationIds: ['S1'] },
             { lineId: '', stationIds: ['S1', 'S2'] },
-            { lineId: 'L2', stationIds: ['S2', 'S3'] }
+            { lineId: 'virtual-L2', r: 'L2', stationIds: ['S2', 'S3'] }
         ]),
         'L2:S2>S3'
     );

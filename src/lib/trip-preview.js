@@ -229,6 +229,30 @@ export const extractShortestLoopSegmentByIndex = (chain, fromCoord, toCoord, opt
 
 export const buildTripPreviewKey = (lineId, tripKey) => `${toText(lineId)}||${toText(tripKey)}`;
 
+export const buildVirtualTimetableChain = (segments, tripKey) => {
+    const list = Array.isArray(segments) ? segments : [];
+    const key = toText(tripKey) || 'virtual-trip';
+    return list.map((seg, index) => {
+        const id = `${key}::chain-${index + 1}`;
+        const prevId = index > 0 ? `${key}::chain-${index}` : '';
+        const nextId = index < list.length - 1 ? `${key}::chain-${index + 2}` : '';
+        const r = toText(seg?.r || seg?.lineId);
+        const d = toText(seg?.d || seg?.direction);
+        const stationIds = Array.isArray(seg?.stationIds)
+            ? seg.stationIds.map((x) => toText(x)).filter(Boolean)
+            : [];
+        return {
+            id,
+            t: id,
+            ...(r ? { r } : {}),
+            ...(d ? { d } : {}),
+            pt: prevId ? [prevId] : [],
+            nt: nextId ? [nextId] : [],
+            tt: stationIds.map((s) => ({ s }))
+        };
+    });
+};
+
 export const buildVirtualTripPreviewPayload = ({
     lineId,
     lineName,
@@ -243,18 +267,20 @@ export const buildVirtualTripPreviewPayload = ({
     const segList = Array.isArray(segments)
         ? segments
             .map((seg) => {
-                const line = toText(seg?.lineId);
+                const r = toText(seg?.r || seg?.routeLineId || seg?.railwayId || seg?.lineId);
+                const line = toText(seg?.lineId || r);
                 const ids = Array.isArray(seg?.stationIds)
                     ? seg.stationIds.map((x) => toText(x)).filter(Boolean)
                     : [];
                 if (!line || ids.length < 2) return null;
                 const out = {
-                    kind: 'main',
+                    kind: toText(seg?.kind) || 'main',
                     lineId: line,
+                    r: r || line,
                     stationIds: ids
                 };
-                const geometryLineId = toText(seg?.geometryLineId || seg?.geometry_line_id);
-                const offsetLineId = toText(seg?.offsetLineId || seg?.line_offset_id);
+                const geometryLineId = toText(seg?.geometryLineId || seg?.geometry_line_id || r || line);
+                const offsetLineId = toText(seg?.offsetLineId || seg?.line_offset_id || r || geometryLineId);
                 if (geometryLineId) out.geometryLineId = geometryLineId;
                 if (offsetLineId) out.offsetLineId = offsetLineId;
                 const direction = toText(seg?.d || seg?.direction);
@@ -269,26 +295,38 @@ export const buildVirtualTripPreviewPayload = ({
     const firstSeg = segList[0] || null;
     const lastSeg = segList.length ? segList[segList.length - 1] : null;
     const fallbackLineId = toText(firstSeg?.lineId || lid);
+    const fallbackRouteLineId = toText(firstSeg?.r || fallbackLineId);
     const fallbackStops = firstSeg?.stationIds || stops;
 
     if (!key) return null;
     if (!segList.length && (!lid || stops.length < 2)) return null;
 
+    const normalizedSegments = segList.length
+        ? segList
+        : [{
+            kind: 'main',
+            lineId: lid,
+            r: lid,
+            geometryLineId: lid,
+            offsetLineId: lid,
+            stationIds: stops
+        }];
+    const chainLineIds = normalizedSegments
+        .map((seg) => toText(seg?.r || seg?.lineId))
+        .filter(Boolean);
+
     return {
         selectedLineId: lid || fallbackLineId,
         selectedLineName: toText(lineName) || lid || fallbackLineId,
-        mainLineId: fallbackLineId,
+        mainLineId: fallbackRouteLineId || fallbackLineId,
+        r: fallbackRouteLineId || fallbackLineId,
         mainTerminalStationId: toText(lastSeg?.stationIds?.[lastSeg.stationIds.length - 1]) || fallbackStops[fallbackStops.length - 1] || '',
         tripKey: key,
         previewSource: toText(previewSource) || 'virtual',
         fitMode: toText(fitMode) || 'none',
-        segments: segList.length
-            ? segList
-            : [{
-                kind: 'main',
-                lineId: lid,
-                stationIds: stops
-            }]
+        chainLineIds,
+        virtualTimetable: buildVirtualTimetableChain(normalizedSegments, key),
+        segments: normalizedSegments
     };
 };
 

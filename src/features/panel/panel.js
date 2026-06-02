@@ -4,7 +4,7 @@
  */
 
 import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from '../../lib/train-type-sort.js';
-import { buildTripPreviewKey, createTripPreviewScheduler } from '../../lib/trip-preview.js';
+import { buildTripPreviewKey, buildVirtualTimetableChain, createTripPreviewScheduler } from '../../lib/trip-preview.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, resolveMainLineIdForIcon } from '../../lib/line-icons.js';
 import {
     getCachedJson,
@@ -4086,6 +4086,7 @@ export function createPanel(options = {}) {
                 segments.push({
                     kind: 'pt',
                     lineId: getTripLineId(ptTrip),
+                    r: getTripLineId(ptTrip),
                     d: toText(ptTrip?.d),
                     rows,
                     typeName: getTripTypeName(ptTrip, trainTypesIndex),
@@ -4097,6 +4098,7 @@ export function createPanel(options = {}) {
         segments.push({
             kind: 'main',
             lineId: getTripLineId(trip),
+            r: getTripLineId(trip),
             d: toText(trip?.d),
             rows: mainRowsRaw,
             typeName: getTripTypeName(trip, trainTypesIndex),
@@ -4116,6 +4118,7 @@ export function createPanel(options = {}) {
                 segments.push({
                     kind: 'nt',
                     lineId: getTripLineId(ntTrip),
+                    r: getTripLineId(ntTrip),
                     d: toText(ntTrip?.d),
                     rows,
                     typeName: getTripTypeName(ntTrip, trainTypesIndex),
@@ -4374,6 +4377,7 @@ export function createPanel(options = {}) {
                         lanePreviewSegments.push({
                             kind,
                             lineId: toText(getTripLineId(laneTrip)),
+                            r: toText(getTripLineId(laneTrip)),
                             d: toText(laneTrip?.d),
                             stationIds: laneStationIds,
                             typeColor: toText(getTripTypeColor(laneTrip, trainTypeColorIndex))
@@ -4678,10 +4682,14 @@ export function createPanel(options = {}) {
             const payloadSegments = segmentsWithPast.map((seg) => addPreviewLineIdentity({
                 kind: seg.kind,
                 lineId: toText(seg.lineId),
+                r: toText(seg.r || seg.lineId),
                 d: toText(seg?.d || trip?.d),
                 stationIds: (seg.rows || []).map((r) => toText(r.stationId)).filter(Boolean),
                 typeColor: throughCategoryColor || toText(seg.typeColor)
             }));
+            const payloadChainLineIds = payloadSegments
+                .map((seg) => toText(seg?.r || seg?.lineId))
+                .filter(Boolean);
             const mainSeg = segmentsWithPast.find((s) => s.kind === 'main') || null;
             const mainRows = Array.isArray(mainSeg?.rows) ? mainSeg.rows : [];
             const mainOriginStationId = mainRows.length ? toText(mainRows[0]?.stationId) : '';
@@ -4697,6 +4705,9 @@ export function createPanel(options = {}) {
                 typeName: toText(typeName),
                 typeColor: throughCategoryColor || toText(typeColor),
                 hasNt,
+                r: toText(getTripLineId(trip) || lineId),
+                chainLineIds: payloadChainLineIds,
+                virtualTimetable: buildVirtualTimetableChain(payloadSegments, toText(tripKey)),
                 segments: payloadSegments,
                 previewSource: 'panel-trip',
                 fitMode: toText(fitMode)
@@ -4721,6 +4732,7 @@ export function createPanel(options = {}) {
                         out.push({
                             kind: toText(seg?.kind || kindFilter),
                             lineId: toText(seg?.lineId),
+                            r: toText(seg?.r || seg?.lineId),
                             geometryLineId: toText(seg?.geometryLineId || seg?.geometry_line_id),
                             offsetLineId: toText(seg?.offsetLineId || seg?.line_offset_id),
                             d: toText(seg?.d),
@@ -4752,6 +4764,7 @@ export function createPanel(options = {}) {
                             chainSegments.push(...lanePreviewSegments.map((seg) => addPreviewLineIdentity({
                                 kind: 'pt',
                                 lineId: toText(seg?.lineId || laneLineId),
+                                r: toText(seg?.r || seg?.lineId || laneLineId),
                                 geometryLineId: toText(seg?.geometryLineId || seg?.geometry_line_id),
                                 offsetLineId: toText(seg?.offsetLineId || seg?.line_offset_id),
                                 d: toText(seg?.d || laneDir),
@@ -4762,6 +4775,7 @@ export function createPanel(options = {}) {
                             chainSegments.push(addPreviewLineIdentity({
                                 kind: 'pt',
                                 lineId: laneLineId,
+                                r: laneLineId,
                                 d: laneDir,
                                 stationIds: laneStationIds,
                                 typeColor: toText(lane?.typeColor || payload?.typeColor)
@@ -4771,6 +4785,7 @@ export function createPanel(options = {}) {
                             chainSegments.push(addPreviewLineIdentity({
                                 kind: 'main',
                                 lineId: mainSegLineId,
+                                r: toText(mainSegForPreview?.r || mainSegLineId),
                                 d: mainSegDir,
                                 stationIds: mainSegStationIds,
                                 typeColor: toText(payload?.typeColor)
@@ -4783,6 +4798,7 @@ export function createPanel(options = {}) {
                             chainSegments.push(addPreviewLineIdentity({
                                 kind: 'main',
                                 lineId: mainSegLineId,
+                                r: toText(mainSegForPreview?.r || mainSegLineId),
                                 d: mainSegDir,
                                 stationIds: mainSegStationIds,
                                 typeColor: toText(payload?.typeColor)
@@ -4792,6 +4808,7 @@ export function createPanel(options = {}) {
                             chainSegments.push(...lanePreviewSegments.map((seg) => addPreviewLineIdentity({
                                 kind: 'nt',
                                 lineId: toText(seg?.lineId || laneLineId),
+                                r: toText(seg?.r || seg?.lineId || laneLineId),
                                 geometryLineId: toText(seg?.geometryLineId || seg?.geometry_line_id),
                                 offsetLineId: toText(seg?.offsetLineId || seg?.line_offset_id),
                                 d: toText(seg?.d || laneDir),
@@ -4802,6 +4819,7 @@ export function createPanel(options = {}) {
                             chainSegments.push(addPreviewLineIdentity({
                                 kind: 'nt',
                                 lineId: laneLineId,
+                                r: laneLineId,
                                 d: laneDir,
                                 stationIds: laneStationIds,
                                 typeColor: toText(lane?.typeColor || payload?.typeColor)
@@ -4819,11 +4837,18 @@ export function createPanel(options = {}) {
 
                     const firstIds = normalizedChainSegments[0]?.stationIds || [];
                     const lastIds = normalizedChainSegments[normalizedChainSegments.length - 1]?.stationIds || [];
+                    const normalizedChainLineIds = normalizedChainSegments
+                        .map((seg) => toText(seg?.r || seg?.lineId))
+                        .filter(Boolean);
+                    const virtualTripKey = `${toText(tripKey)}::branch-${i + 1}`;
                     virtualTrips.push({
-                        tripKey: `${toText(tripKey)}::branch-${i + 1}`,
+                        tripKey: virtualTripKey,
                         selectedLineId: payload.selectedLineId,
                         selectedLineName: payload.selectedLineName,
                         mainLineId: payload.mainLineId,
+                        r: normalizedChainLineIds[0] || payload.r || payload.mainLineId,
+                        chainLineIds: normalizedChainLineIds,
+                        virtualTimetable: buildVirtualTimetableChain(normalizedChainSegments, virtualTripKey),
                         originStationId: toText(firstIds[0]),
                         mainTerminalStationId: toText(lastIds[lastIds.length - 1]),
                         terminalStationId: toText(lastIds[lastIds.length - 1]),

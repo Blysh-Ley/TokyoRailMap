@@ -29,67 +29,44 @@ export const createTripPreviewBuilder = ({
         return Number.isFinite(n) ? n : 0;
     };
 
-    const inferLineIdFromStationId = (stationId) => {
-        const sid = String(stationId || '').trim();
-        if (!sid) return '';
-        const parts = sid.split('.').map((x) => x.trim()).filter(Boolean);
-        return parts.length >= 2 ? `${parts[0]}.${parts[1]}` : '';
-    };
+    const resolveSegmentRouteLineId = (seg, fallbackLineId = '') => String(
+        seg?.r
+        || seg?.routeLineId
+        || seg?.railwayId
+        || seg?.geometryLineId
+        || seg?.geometry_line_id
+        || seg?.offsetLineId
+        || seg?.line_offset_id
+        || seg?.lineId
+        || fallbackLineId
+        || ''
+    ).trim();
 
-    const inferLineIdFromStationIds = (stationIds) => {
-        const ids = Array.isArray(stationIds) ? stationIds : [];
-        const counts = new Map();
-        for (const sid of ids) {
-            const lineId = inferLineIdFromStationId(sid);
-            if (!lineId) continue;
-            counts.set(lineId, (counts.get(lineId) || 0) + 1);
-        }
-        if (!counts.size) return '';
-        return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0][0] || '';
-    };
+    const resolveSegmentGeometryLineId = (seg, fallbackLineId = '') => String(
+        seg?.r
+        || seg?.routeLineId
+        || seg?.railwayId
+        || seg?.geometryLineId
+        || seg?.geometry_line_id
+        || seg?.offsetLineId
+        || seg?.line_offset_id
+        || seg?.lineId
+        || fallbackLineId
+        || ''
+    ).trim();
 
-    const isVirtualLineId = (lineId) => {
-        const id = String(lineId || '').trim();
-        return !id
-            || id.startsWith('__')
-            || id.startsWith('TokyoRail.')
-            || id.includes('MenuThrough')
-            || id.includes('ThroughService');
-    };
-
-    const resolveSegmentGeometryLineId = (seg, fallbackLineId = '', stationIds = []) => {
-        const explicitGeometry = String(seg?.geometryLineId || seg?.geometry_line_id || '').trim();
-        if (explicitGeometry && !isVirtualLineId(explicitGeometry)) return explicitGeometry;
-
-        const explicitOffset = String(seg?.offsetLineId || seg?.line_offset_id || '').trim();
-        if (explicitOffset && !isVirtualLineId(explicitOffset)) return explicitOffset;
-
-        const ownLineId = String(seg?.lineId || '').trim();
-        if (ownLineId && !isVirtualLineId(ownLineId)) return ownLineId;
-
-        const fallback = String(fallbackLineId || '').trim();
-        if (fallback && !isVirtualLineId(fallback)) return fallback;
-
-        const inferred = inferLineIdFromStationIds(stationIds);
-        if (inferred) return inferred;
-
-        return String(
-            explicitGeometry
-            || explicitOffset
-            || ownLineId
-            || fallback
-            || ''
-        ).trim();
-    };
-
-    const resolveSegmentOffsetLineId = (seg, geometryLineId = '', stationIds = []) => {
-        const explicitOffset = String(seg?.offsetLineId || seg?.line_offset_id || '').trim();
-        if (explicitOffset && !isVirtualLineId(explicitOffset)) return explicitOffset;
-        const explicitGeometry = String(seg?.geometryLineId || seg?.geometry_line_id || '').trim();
-        if (explicitGeometry && !isVirtualLineId(explicitGeometry)) return explicitGeometry;
-        if (geometryLineId && !isVirtualLineId(geometryLineId)) return geometryLineId;
-        return inferLineIdFromStationIds(stationIds) || geometryLineId || explicitOffset || explicitGeometry || '';
-    };
+    const resolveSegmentOffsetLineId = (seg, geometryLineId = '') => String(
+        seg?.r
+        || seg?.routeLineId
+        || seg?.railwayId
+        || seg?.offsetLineId
+        || seg?.line_offset_id
+        || geometryLineId
+        || seg?.geometryLineId
+        || seg?.geometry_line_id
+        || seg?.lineId
+        || ''
+    ).trim();
 
     const throughServiceHighlightColors = new Set(
         Object.values(throughServiceConfigsObject || {})
@@ -128,7 +105,7 @@ export const createTripPreviewBuilder = ({
                 const mainTerminalId = String(payload?.mainTerminalStationId || '').trim();
                 const mainTerminalCoord = getStationCoord(mainTerminalId);
                 const ntFirstCoord = getStationCoord(ntFirstStationId);
-                const ntLineId = resolveSegmentGeometryLineId(ntSeg, '', Array.isArray(ntSeg?.stationIds) ? ntSeg.stationIds : []);
+                const ntLineId = resolveSegmentGeometryLineId(ntSeg, '');
 
                 if (mainTerminalCoord && ntFirstCoord && ntLineId) {
                     const directDist = distMeters?.(mainTerminalCoord, ntFirstCoord);
@@ -136,7 +113,7 @@ export const createTripPreviewBuilder = ({
                         allowNt = true;
                     } else {
                         const mainSeg = allSegments.find((s) => String(s?.kind) === 'main') || {};
-                        const mainLineId = resolveSegmentGeometryLineId(mainSeg, payload?.mainLineId, Array.isArray(mainSeg?.stationIds) ? mainSeg.stationIds : []);
+                        const mainLineId = resolveSegmentGeometryLineId(mainSeg, payload?.mainLineId);
                         const bridge = nearestBridgeBetweenLines?.(
                             mainLineId,
                             ntLineId,
@@ -164,8 +141,9 @@ export const createTripPreviewBuilder = ({
             for (const c of coords) {
                 if (Array.isArray(c) && c.length >= 2) coordsForBbox.push(c);
             }
-            const geometryLineId = String(options?.geometryLineId || lineId || '').trim();
-            const offsetLineId = String(options?.offsetLineId || geometryLineId || '').trim();
+            const routeLineId = String(options?.routeLineId || options?.r || options?.geometryLineId || lineId || '').trim();
+            const geometryLineId = String(options?.geometryLineId || routeLineId || lineId || '').trim();
+            const offsetLineId = String(options?.offsetLineId || routeLineId || geometryLineId || '').trim();
             const rawColor = String(colorOverride || '').trim()
                 || resolveRailColorForTheme?.(getLineColor(lineId) || getLineColor(geometryLineId) || '#0a84ff')
                 || '#0a84ff';
@@ -178,6 +156,7 @@ export const createTripPreviewBuilder = ({
                 properties: {
                     role,
                     lineId: String(lineId || ''),
+                    r: routeLineId,
                     geometry_line_id: geometryLineId,
                     line_offset_id: offsetLineId,
                     color: rawColor,
@@ -193,8 +172,9 @@ export const createTripPreviewBuilder = ({
             const segmentStationIds = Array.isArray(seg.stationIds)
                 ? seg.stationIds.map((x) => String(x).trim()).filter(Boolean)
                 : [];
-            const geometryLineId = resolveSegmentGeometryLineId(seg, lineId, segmentStationIds);
-            const offsetLineId = resolveSegmentOffsetLineId(seg, geometryLineId, segmentStationIds);
+            const routeLineId = resolveSegmentRouteLineId(seg, lineId);
+            const geometryLineId = resolveSegmentGeometryLineId(seg, routeLineId || lineId);
+            const offsetLineId = resolveSegmentOffsetLineId(seg, geometryLineId);
             const segColor = resolveSegColor(seg, geometryLineId || lineId);
             const isLoopDirectionSeg = !!isLoopDirection?.(seg?.d);
             const stationIds = segmentStationIds;
@@ -222,9 +202,8 @@ export const createTripPreviewBuilder = ({
                 const from = getStationCoord(fromId);
                 const to = getStationCoord(toId);
                 if (!from || !to) continue;
-                const pairStationIds = [fromId, toId];
-                const pairGeometryLineId = resolveSegmentGeometryLineId(seg, geometryLineId || lineId, pairStationIds);
-                const pairOffsetLineId = resolveSegmentOffsetLineId(seg, pairGeometryLineId, pairStationIds);
+                const pairGeometryLineId = geometryLineId || lineId;
+                const pairOffsetLineId = offsetLineId || pairGeometryLineId;
 
                 const clipped = extractLineSegment?.(pairGeometryLineId || geometryLineId || lineId, from, to, {
                     preferLoopShortest: isLoopDirectionSeg,
@@ -232,12 +211,14 @@ export const createTripPreviewBuilder = ({
                 });
                 if (clipped && clipped.length >= 2) {
                     pushLineFeature(clipped, lineId, 'line', segColor, {
+                        routeLineId,
                         geometryLineId: pairGeometryLineId || geometryLineId || lineId,
                         offsetLineId: pairOffsetLineId || offsetLineId
                     });
                 }
                 else {
                     pushLineFeature([from, to], lineId, 'connector', segColor, {
+                        routeLineId,
                         geometryLineId: pairGeometryLineId || geometryLineId || lineId,
                         offsetLineId: pairOffsetLineId || offsetLineId,
                         lineOffsetUnits: resolveLineOffsetUnits(pairOffsetLineId || offsetLineId)
@@ -254,9 +235,9 @@ export const createTripPreviewBuilder = ({
                     const a = getStationCoord(prevLast);
                     const b = getStationCoord(currFirst);
                     if (a && b) {
-                        const prevStationIds = Array.isArray(prev?.stationIds) ? prev.stationIds : [];
-                        const prevGeometryLineId = resolveSegmentGeometryLineId(prev, prev?.lineId, prevStationIds);
-                        const prevOffsetLineId = resolveSegmentOffsetLineId(prev, prevGeometryLineId, prevStationIds);
+                        const prevRouteLineId = resolveSegmentRouteLineId(prev, prev?.lineId);
+                        const prevGeometryLineId = resolveSegmentGeometryLineId(prev, prevRouteLineId || prev?.lineId);
+                        const prevOffsetLineId = resolveSegmentOffsetLineId(prev, prevGeometryLineId);
                         const prevDisplayLineId = String(prev?.lineId || prevGeometryLineId || '').trim();
                         const bridge = nearestBridgeBetweenLines?.(prevGeometryLineId, geometryLineId || lineId, a, b);
                         const canUseBridge = bridge && Number.isFinite(bridge.dist) && bridge.dist <= 3000;
@@ -266,18 +247,21 @@ export const createTripPreviewBuilder = ({
                             const prevSegColor = resolveSegColor(prev, prevGeometryLineId || prevDisplayLineId) || segColor;
                             if (segA && segA.length >= 2) {
                                 pushLineFeature(segA, prevDisplayLineId, 'line', prevSegColor, {
+                                    routeLineId: prevRouteLineId,
                                     geometryLineId: prevGeometryLineId || prevDisplayLineId,
                                     offsetLineId: prevOffsetLineId
                                 });
                             }
                             if (bridge.dist > 25) {
                                 pushLineFeature([bridge.a, bridge.b], lineId || prevDisplayLineId, 'connector', segColor || prevSegColor, {
+                                    routeLineId: routeLineId || prevRouteLineId,
                                     geometryLineId: geometryLineId || lineId || prevGeometryLineId || prevDisplayLineId,
                                     offsetLineId: offsetLineId || prevOffsetLineId
                                 });
                             }
                             if (segB && segB.length >= 2) {
                                 pushLineFeature(segB, lineId, 'line', segColor, {
+                                    routeLineId,
                                     geometryLineId: geometryLineId || lineId,
                                     offsetLineId
                                 });
@@ -287,6 +271,7 @@ export const createTripPreviewBuilder = ({
                                 const fallbackDist = distMeters?.(a, b);
                                 if (Number.isFinite(fallbackDist) && fallbackDist <= 3000) {
                                     pushLineFeature([a, b], lineId || prevDisplayLineId, 'connector', segColor, {
+                                        routeLineId: routeLineId || prevRouteLineId,
                                         geometryLineId: geometryLineId || lineId || prevGeometryLineId || prevDisplayLineId,
                                         offsetLineId: offsetLineId || prevOffsetLineId
                                     });
@@ -296,6 +281,7 @@ export const createTripPreviewBuilder = ({
                             const directDist = distMeters?.(a, b);
                             if (Number.isFinite(directDist) && directDist <= 3000) {
                                 pushLineFeature([a, b], lineId || prevDisplayLineId, 'connector', segColor, {
+                                    routeLineId: routeLineId || prevRouteLineId,
                                     geometryLineId: geometryLineId || lineId || prevGeometryLineId || prevDisplayLineId,
                                     offsetLineId: offsetLineId || prevOffsetLineId
                                 });
@@ -343,7 +329,7 @@ export const createTripPreviewBuilder = ({
         return {
             lineFc: { type: 'FeatureCollection', features: outLineFeatures },
             stopFc: { type: 'FeatureCollection', features: outStopFeatures },
-            lineIds: new Set(segments.map((s) => String(s?.lineId || '').trim()).filter(Boolean)),
+            lineIds: new Set(segments.map((s) => resolveSegmentRouteLineId(s, s?.lineId)).filter(Boolean)),
             stopIds,
             startStationId,
             endStationId,

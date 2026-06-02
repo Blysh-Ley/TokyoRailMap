@@ -125,7 +125,7 @@ export const createStationLabelChipsAdapter = ({
                 const allSegs = [...segs, ...virtualTripSegs];
                 const payloadTypeColor = toText(payload?.typeColor);
                 for (const seg of allSegs) {
-                    const segLineId = toText(seg?.lineId);
+                    const segLineId = toText(seg?.r || seg?.routeLineId || seg?.lineId);
                     if (!segLineId) continue;
                     const segStationIds = Array.isArray(seg?.stationIds) ? seg.stationIds : [];
                     const hitCurrentStation = segStationIds.some((stationId) => stationMatchesGroup(stationId));

@@ -78,8 +78,7 @@ const virtualBuilt = buildTripPreviewFeatures({
     segments: [
         {
             lineId: 'virtual-main',
-            geometryLineId: 'L2',
-            offsetLineId: 'L2',
+            r: 'L2',
             stationIds: ['A', 'B']
         }
     ]
@@ -88,6 +87,7 @@ const virtualLine = virtualBuilt.lineFc.features.find((feature) => (
     feature.properties.role === 'line'
     && feature.properties.lineId === 'virtual-main'
 ));
+assert.equal(virtualLine.properties.r, 'L2');
 assert.equal(virtualLine.properties.geometry_line_id, 'L2');
 assert.equal(virtualLine.properties.line_offset_id, 'L2');
 assert.equal(virtualLine.properties.line_offset_units, -1);

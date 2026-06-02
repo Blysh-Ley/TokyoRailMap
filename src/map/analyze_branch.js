@@ -6,7 +6,6 @@ const toText = (v) => String(v ?? '').trim();
 
 const branchAnalysisCacheByLine = new Map();
 let allTimetableRecordsPromise = null;
-let stationRailwayIndexPromise = null;
 
 const toFileStem = (lineId) => {
     const raw = toText(lineId);
@@ -129,31 +128,15 @@ const getTripLineId = (trip) => {
 
 const getTripId = (trip) => toText(trip?.id) || toText(trip?.t);
 
-const inferLineIdFromStationId = (stationId) => {
-    const sid = toText(stationId);
-    if (!sid) return '';
-    const parts = sid.split('.').map((x) => x.trim()).filter(Boolean);
-    if (parts.length < 2) return '';
-    return `${parts[0]}.${parts[1]}`;
+const getRouteStationIds = (route) => {
+    const source = Array.isArray(route)
+        ? route
+        : (Array.isArray(route?.stationIds) ? route.stationIds : []);
+    return source.map((x) => toText(x)).filter(Boolean);
 };
 
-const getStationRailwayIndex = async () => {
-    if (stationRailwayIndexPromise) return stationRailwayIndexPromise;
-
-    stationRailwayIndexPromise = (async () => {
-        const stations = await getCachedJson('./data/stations.json');
-        const map = new Map();
-        for (const row of Array.isArray(stations) ? stations : []) {
-            const stationId = toText(row?.id);
-            if (!stationId) continue;
-            const railway = toText(row?.railway) || inferLineIdFromStationId(stationId);
-            if (!railway) continue;
-            map.set(stationId, railway);
-        }
-        return map;
-    })();
-
-    return stationRailwayIndexPromise;
+const getRouteSegments = (route) => {
+    return Array.isArray(route?.segments) ? route.segments : [];
 };
 
 const resolveLinkedIds = (idMap, ids) => {
@@ -237,10 +220,23 @@ const buildThroughServiceTtLists = (targetTimetables, idMap) => {
         const idPaths = buildThroughServiceIdPaths(rid, idMap);
         for (const idPath of idPaths) {
             const stationSequences = [];
+            const segments = [];
             for (const oid of idPath) {
-                const tt = Array.isArray(idMap.get(oid)?.tt) ? idMap.get(oid).tt : [];
+                const rec = idMap.get(oid);
+                const tt = Array.isArray(rec?.tt) ? rec.tt : [];
                 const seq = tt.map((row) => toText(row?.s)).filter(Boolean);
                 if (seq.length) stationSequences.push(seq);
+                const lineIdForTrip = getTripLineId(rec);
+                if (lineIdForTrip && seq.length >= 2) {
+                    segments.push({
+                        kind: 'main',
+                        lineId: lineIdForTrip,
+                        r: lineIdForTrip,
+                        d: toText(rec?.d),
+                        tripId: getTripId(rec),
+                        stationIds: dedupKeepOrder(seq)
+                    });
+                }
             }
 
             const merged = mergeStationSequences(stationSequences);
@@ -249,7 +245,10 @@ const buildThroughServiceTtLists = (targetTimetables, idMap) => {
             const key = canonicalKey(merged);
             if (seenRoutes.has(key)) continue;
             seenRoutes.add(key);
-            out.push(merged);
+            out.push({
+                stationIds: merged,
+                segments
+            });
         }
     }
 
@@ -259,42 +258,46 @@ const buildThroughServiceTtLists = (targetTimetables, idMap) => {
 const selectFullRoutes = (ttLists) => {
     const unique = [];
     const seen = new Set();
-    for (const seq of Array.isArray(ttLists) ? ttLists : []) {
+    for (const route of Array.isArray(ttLists) ? ttLists : []) {
+        const seq = getRouteStationIds(route);
         const key = canonicalKey(seq);
         if (!key || seen.has(key)) continue;
         seen.add(key);
-        unique.push(seq);
+        unique.push(Array.isArray(route) ? seq : { ...route, stationIds: seq });
     }
 
     const fullRoutes = [];
     for (let i = 0; i < unique.length; i += 1) {
-        const seq = unique[i];
+        const route = unique[i];
+        const seq = getRouteStationIds(route);
         let absorbed = false;
         for (let j = 0; j < unique.length; j += 1) {
             if (i === j) continue;
-            const other = unique[j];
+            const other = getRouteStationIds(unique[j]);
             if (other.length <= seq.length) continue;
             if (isSubsequenceAnyDirection(seq, other)) {
                 absorbed = true;
                 break;
             }
         }
-        if (!absorbed) fullRoutes.push(seq);
+        if (!absorbed) fullRoutes.push(route);
     }
 
     const byEndpoint = new Map();
-    for (const seq of fullRoutes) {
+    for (const route of fullRoutes) {
+        const seq = getRouteStationIds(route);
         if (!Array.isArray(seq) || seq.length < 2) continue;
         const key = canonicalEndpointKey(seq);
         const best = byEndpoint.get(key);
-        if (!best || seq.length > best.length) {
-            byEndpoint.set(key, seq);
+        const bestSeq = getRouteStationIds(best);
+        if (!best || seq.length > bestSeq.length) {
+            byEndpoint.set(key, route);
             continue;
         }
-        if (seq.length === best.length) {
+        if (seq.length === bestSeq.length) {
             const a = canonicalKey(seq);
-            const b = canonicalKey(best);
-            if (a < b) byEndpoint.set(key, seq);
+            const b = canonicalKey(bestSeq);
+            if (a < b) byEndpoint.set(key, route);
         }
     }
 
@@ -307,7 +310,7 @@ const collectRouteEndpoints = (routes) => {
     const seenPair = new Set();
 
     for (const route of Array.isArray(routes) ? routes : []) {
-        const seq = Array.isArray(route) ? route.map((x) => toText(x)).filter(Boolean) : [];
+        const seq = getRouteStationIds(route);
         if (seq.length < 2) continue;
         const originId = seq[0];
         const terminalId = seq[seq.length - 1];
@@ -327,7 +330,7 @@ const collectRouteEndpoints = (routes) => {
 const buildGraph = (routes) => {
     const detailedPairs = new Set();
     for (const route of Array.isArray(routes) ? routes : []) {
-        const list = Array.isArray(route) ? route : [];
+        const list = getRouteStationIds(route);
         for (let i = 0; i < list.length; i += 1) {
             for (let j = i + 2; j < list.length; j += 1) {
                 const a = toText(list[i]);
@@ -344,8 +347,8 @@ const buildGraph = (routes) => {
         graph.get(a).add(b);
     };
 
-    for (const stops of Array.isArray(routes) ? routes : []) {
-        const list = Array.isArray(stops) ? stops : [];
+    for (const route of Array.isArray(routes) ? routes : []) {
+        const list = getRouteStationIds(route);
         for (let i = 0; i < list.length - 1; i += 1) {
             const a = toText(list[i]);
             const b = toText(list[i + 1]);
@@ -395,7 +398,7 @@ const orientSegmentForOutput = (segment, routes) => {
     let reverseScore = 0;
 
     for (const route of Array.isArray(routes) ? routes : []) {
-        const list = Array.isArray(route) ? route : [];
+        const list = getRouteStationIds(route);
         if (list.length < seg.length) continue;
         for (let i = 0; i <= list.length - seg.length; i += 1) {
             const chunk = list.slice(i, i + seg.length);
@@ -654,6 +657,7 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
                     targetCount: 0,
                     throughServiceCount: 0,
                     fullRouteCount: 0,
+                    fullRouteChains: [],
                     branchList: []
                 };
             }
@@ -674,6 +678,7 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
                 targetCount: targetTimetables.length,
                 throughServiceCount: ttLists.length,
                 fullRouteCount: fullRoutes.length,
+                fullRouteChains: fullRoutes,
                 branchList: branchList.filter((x) => Array.isArray(x) && x.length >= 2)
             };
         })();
@@ -700,6 +705,7 @@ export const buildBranchVirtualTrips = ({ lineId, lineName, branchList } = {}) =
             lineName: lname,
             segments: [{
                 lineId: lid,
+                r: lid,
                 geometryLineId: lid,
                 offsetLineId: lid,
                 stationIds
@@ -715,59 +721,118 @@ export const buildBranchVirtualTrips = ({ lineId, lineName, branchList } = {}) =
     return out;
 };
 
-const buildBranchSegmentsByRailway = (stationIds, stationRailwayByStationId, fallbackLineId) => {
+const findContiguousIndex = (source, part) => {
+    const list = Array.isArray(source) ? source : [];
+    const target = Array.isArray(part) ? part : [];
+    if (!target.length || target.length > list.length) return -1;
+    for (let i = 0; i <= list.length - target.length; i += 1) {
+        let ok = true;
+        for (let j = 0; j < target.length; j += 1) {
+            if (toText(list[i + j]) !== toText(target[j])) {
+                ok = false;
+                break;
+            }
+        }
+        if (ok) return i;
+    }
+    return -1;
+};
+
+const reverseRouteSegment = (segment) => ({
+    ...(segment || {}),
+    stationIds: getRouteStationIds(segment).slice().reverse()
+});
+
+const orientRouteChainForBranch = (route, stationIds) => {
+    const ids = getRouteStationIds(route);
+    const target = Array.isArray(stationIds) ? stationIds : [];
+    if (ids.length < target.length || target.length < 2) return null;
+
+    if (findContiguousIndex(ids, target) >= 0) {
+        return {
+            stationIds: ids,
+            segments: getRouteSegments(route)
+        };
+    }
+
+    const reversedIds = ids.slice().reverse();
+    if (findContiguousIndex(reversedIds, target) >= 0) {
+        return {
+            stationIds: reversedIds,
+            segments: getRouteSegments(route).slice().reverse().map(reverseRouteSegment)
+        };
+    }
+
+    return null;
+};
+
+const findSegmentForPair = (segments, a, b) => {
+    const from = toText(a);
+    const to = toText(b);
+    if (!from || !to) return null;
+    for (const seg of Array.isArray(segments) ? segments : []) {
+        const ids = getRouteStationIds(seg);
+        for (let i = 0; i < ids.length - 1; i += 1) {
+            if (ids[i] === from && ids[i + 1] === to) return seg;
+        }
+    }
+    return null;
+};
+
+const appendBranchPairSegment = (segments, lineId, d, a, b) => {
+    const rid = toText(lineId);
+    const from = toText(a);
+    const to = toText(b);
+    if (!rid || !from || !to) return;
+
+    const direction = toText(d);
+    const last = segments.length ? segments[segments.length - 1] : null;
+    if (
+        last
+        && toText(last.r || last.lineId) === rid
+        && toText(last.d) === direction
+        && last.stationIds?.[last.stationIds.length - 1] === from
+    ) {
+        last.stationIds.push(to);
+        last.stationIds = dedupKeepOrder(last.stationIds);
+        return;
+    }
+
+    segments.push({
+        kind: 'main',
+        lineId: rid,
+        r: rid,
+        geometryLineId: rid,
+        offsetLineId: rid,
+        ...(direction ? { d: direction } : {}),
+        stationIds: [from, to]
+    });
+};
+
+const buildBranchSegmentsFromRouteChains = (stationIds, routeChains, fallbackLineId) => {
     const list = Array.isArray(stationIds)
         ? stationIds.map((x) => toText(x)).filter(Boolean)
         : [];
     if (list.length < 2) return [];
 
-    const lineOfStation = (sid) => {
-        const mapped = toText(stationRailwayByStationId?.get?.(sid));
-        if (mapped) return mapped;
-        const inferred = inferLineIdFromStationId(sid);
-        return inferred || toText(fallbackLineId);
-    };
+    const chain = (Array.isArray(routeChains) ? routeChains : [])
+        .map((route) => orientRouteChainForBranch(route, list))
+        .find((route) => route && Array.isArray(route?.segments) && route.segments.length)
+        || null;
 
     const segments = [];
+    const chainSegments = Array.isArray(chain?.segments) ? chain.segments : [];
+    const fallback = toText(fallbackLineId);
 
-    let currentLine = lineOfStation(list[0]);
-    let currentIds = [list[0]];
-
-    for (let i = 1; i < list.length; i += 1) {
-        const sid = list[i];
-        const sidLine = lineOfStation(sid);
-
-        if (sidLine && currentLine && sidLine !== currentLine) {
-            if (currentIds.length >= 2) {
-                segments.push({
-                    lineId: currentLine,
-                    geometryLineId: currentLine,
-                    offsetLineId: currentLine,
-                    stationIds: dedupKeepOrder(currentIds)
-                });
-            }
-
-            const bridgeStart = currentIds[currentIds.length - 1];
-            currentLine = sidLine;
-            currentIds = [bridgeStart, sid];
-            continue;
-        }
-
-        if (!currentLine) currentLine = sidLine || toText(fallbackLineId);
-        currentIds.push(sid);
+    for (let i = 0; i < list.length - 1; i += 1) {
+        const a = list[i];
+        const b = list[i + 1];
+        const sourceSegment = findSegmentForPair(chainSegments, a, b);
+        const rid = toText(sourceSegment?.r || sourceSegment?.lineId || fallback);
+        appendBranchPairSegment(segments, rid, sourceSegment?.d, a, b);
     }
 
-    if (currentIds.length >= 2) {
-        const lineId = currentLine || toText(fallbackLineId);
-        segments.push({
-            lineId,
-            geometryLineId: lineId,
-            offsetLineId: lineId,
-            stationIds: dedupKeepOrder(currentIds)
-        });
-    }
-
-    return segments.filter((seg) => toText(seg?.lineId) && Array.isArray(seg?.stationIds) && seg.stationIds.length >= 2);
+    return segments.filter((seg) => toText(seg?.r || seg?.lineId) && Array.isArray(seg?.stationIds) && seg.stationIds.length >= 2);
 };
 
 export const previewBranchesForLine = async ({
@@ -812,14 +877,14 @@ export const previewBranchesForLine = async ({
     const fullChainTerminalStationIds = Array.isArray(terminalStationIds) && terminalStationIds.length
         ? terminalStationIds.map((x) => toText(x)).filter(Boolean)
         : (Array.isArray(result?.terminalStationIds) ? result.terminalStationIds.map((x) => toText(x)).filter(Boolean) : []);
-    const stationRailwayByStationId = await getStationRailwayIndex();
     const rawBranchList = Array.isArray(result?.branchList) ? result.branchList : [];
+    const routeChains = Array.isArray(result?.fullRouteChains) ? result.fullRouteChains : [];
     const virtualTrips = [];
 
     for (let i = 0; i < rawBranchList.length; i += 1) {
         const stationIds = dedupKeepOrder(rawBranchList[i]);
         if (stationIds.length < 2) continue;
-        const segments = buildBranchSegmentsByRailway(stationIds, stationRailwayByStationId, lid);
+        const segments = buildBranchSegmentsFromRouteChains(stationIds, routeChains, lid);
         if (!segments.length) continue;
 
         const payload = buildVirtualTripPreviewPayload({

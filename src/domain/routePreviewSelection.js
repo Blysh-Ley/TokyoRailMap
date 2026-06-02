@@ -6,6 +6,7 @@ export const resolveTripPreviewPayloadSource = (payload) => {
 
 export const normalizeTripPreviewSegment = (segment) => {
     const lineId = toText(segment?.lineId);
+    const r = toText(segment?.r || segment?.routeLineId || segment?.railwayId);
     const geometryLineId = toText(segment?.geometryLineId || segment?.geometry_line_id);
     const offsetLineId = toText(segment?.offsetLineId || segment?.line_offset_id);
     const stationIds = Array.isArray(segment?.stationIds)
@@ -13,6 +14,7 @@ export const normalizeTripPreviewSegment = (segment) => {
         : [];
     return {
         lineId,
+        ...(r ? { r } : {}),
         ...(geometryLineId ? { geometryLineId } : {}),
         ...(offsetLineId ? { offsetLineId } : {}),
         stationIds
@@ -35,9 +37,10 @@ export const normalizeTripPreviewVirtualTrips = (payload) => {
 
 export const buildTripPreviewSegmentsKey = (segments) => {
     return normalizeTripPreviewSegments(segments)
-        .map(({ lineId, stationIds }) => {
-            if (!lineId || stationIds.length < 2) return '';
-            return `${lineId}:${stationIds.join('>')}`;
+        .map(({ lineId, r, geometryLineId, offsetLineId, stationIds }) => {
+            const lineKey = r || geometryLineId || offsetLineId || lineId;
+            if (!lineKey || stationIds.length < 2) return '';
+            return `${lineKey}:${stationIds.join('>')}`;
         })
         .filter(Boolean)
         .join('||');
