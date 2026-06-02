@@ -869,12 +869,13 @@ const initMapApp = async () => {
 
     const toTransferCapsuleVisibleKey = (visibleIds, options = {}) => {
         const mode = options?.useFixedConnections ? 'fixed' : 'auto';
+        const scope = options?.viewportOnly ? 'viewport' : 'final';
         if (options?.useFixedConnections && options?.baseHiddenFilterActive) {
-            return `${mode}:__base-hidden-filter__`;
+            return `${mode}:${scope}:__base-hidden-filter__`;
         }
-        if (!(visibleIds instanceof Set)) return `${mode}:*`;
-        if (!visibleIds.size) return `${mode}:__empty__`;
-        return `${mode}:${Array.from(visibleIds).map(String).filter(Boolean).sort().join('|')}`;
+        if (!(visibleIds instanceof Set)) return `${mode}:${scope}:*`;
+        if (!visibleIds.size) return `${mode}:${scope}:__empty__`;
+        return `${mode}:${scope}:${Array.from(visibleIds).map(String).filter(Boolean).sort().join('|')}`;
     };
 
     const shouldUseFixedTransferCapsuleConnections = () => {
@@ -3567,6 +3568,39 @@ const initMapApp = async () => {
         };
 
         const stationCoordinateAdapter = createStationCoordinateAdapter({ stationLabels, stationCircles });
+        const getViewportStationIdsForTransferCapsules = (stationsGeoJSON) => {
+            let bounds = null;
+            try {
+                bounds = mapEngine.getBounds?.();
+            } catch {
+                bounds = null;
+            }
+
+            const west = Number(bounds?.getWest?.() ?? bounds?._sw?.lng);
+            const east = Number(bounds?.getEast?.() ?? bounds?._ne?.lng);
+            const south = Number(bounds?.getSouth?.() ?? bounds?._sw?.lat);
+            const north = Number(bounds?.getNorth?.() ?? bounds?._ne?.lat);
+            if (![west, east, south, north].every(Number.isFinite)) return null;
+
+            const features = Array.isArray(stationsGeoJSON?.features) ? stationsGeoJSON.features : [];
+            const out = new Set();
+            for (const feature of features) {
+                if (feature?.geometry?.type !== 'Point') continue;
+                const c = feature?.geometry?.coordinates;
+                if (!Array.isArray(c) || c.length < 2) continue;
+                const lng = Number(c[0]);
+                const lat = Number(c[1]);
+                if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+                if (lat < south || lat > north) continue;
+                const inLngRange = west <= east
+                    ? lng >= west && lng <= east
+                    : (lng >= west || lng <= east);
+                if (!inLngRange) continue;
+                const sid = String(feature?.properties?.id ?? feature?.id ?? '').trim();
+                if (sid) out.add(sid);
+            }
+            return out;
+        };
 
         layerFeature = createLayerFeature({
             baseStationsGeoJSON: stationsData,
@@ -3596,6 +3630,7 @@ const initMapApp = async () => {
             setTransferCapsuleVisibleKey: (nextKey) => {
                 transferCapsuleVisibleKey = String(nextKey || '__init__');
             },
+            getViewportStationIdsForTransferCapsules,
             shouldUseFixedTransferCapsuleConnections,
             getFixedVisibleStationIdsForTransferCapsules,
             getVisibleStationIdsForTransferCapsules,

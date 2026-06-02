@@ -100,9 +100,21 @@ const stationGroups = [{ id: 'G1', stationIds: ['S1'] }];
     const transferSyncs = [];
     const invalidations = [];
     const collisionSchedules = [];
+    const capsuleBuilds = [];
+    const capsuleRenders = [];
+    let capsuleVisibleKey = '__init__';
 
     const feature = createLayerFeature({
         baseStationsGeoJSON: stationData,
+        buildTransferCapsuleGeoJSON: (data, groups, options = {}) => {
+            capsuleBuilds.push({
+                stationCount: data?.features?.length || 0,
+                visibleIds: options.visibleStationIds instanceof Set
+                    ? Array.from(options.visibleStationIds).sort()
+                    : null
+            });
+            return { lines: { type: 'FeatureCollection', features: [] }, centroids: { type: 'FeatureCollection', features: [] } };
+        },
         buildStationOffsetGeoJSONAtZoom: ({ zoom }) => {
             const z = Number(zoom);
             built.push(Number(z.toFixed(3)));
@@ -118,13 +130,23 @@ const stationGroups = [{ id: 'G1', stationIds: ['S1'] }];
         createCollisionController: () => ({
             scheduleUpdate: () => collisionSchedules.push('collision')
         }),
+        getTransferCapsuleVisibleKey: () => capsuleVisibleKey,
         getTransferCapsuleStationsData: () => stationData,
         getTransferCapsuleStationGroups: () => [],
         getZoom: () => 12.123,
+        getViewportStationIdsForTransferCapsules: () => new Set(['S1']),
         invalidateTransferCapsuleData: (key) => invalidations.push(key),
+        renderTransferCapsules: (data) => capsuleRenders.push(data),
         rebuildStationCoordMap: (data) => rebuilds.push(data),
         requestFrame: immediateFrame,
+        setTransferCapsuleVisibleKey: (key) => {
+            capsuleVisibleKey = key;
+        },
         syncTransferCapsuleStationsData: (data) => transferSyncs.push(data),
+        toTransferCapsuleVisibleKey: (ids, options = {}) => {
+            const scope = options.viewportOnly ? 'viewport' : 'final';
+            return `${scope}:${ids instanceof Set ? Array.from(ids).sort().join('|') : '*'}`;
+        },
         updateStationCircleCoordinates: (data) => circleUpdates.push(data),
         updateStationLabelCoordinates: (data) => labelUpdates.push(data),
         updateStationsSourceData: (data) => sourceUpdates.push(data)
@@ -138,7 +160,9 @@ const stationGroups = [{ id: 'G1', stationIds: ['S1'] }];
     assert.equal(labelUpdates.length, 1);
     assert.equal(circleUpdates.length, 1);
     assert.equal(rebuilds.length, 0);
-    assert.equal(transferSyncs.length, 0);
+    assert.equal(transferSyncs.length, 1);
+    assert.deepEqual(capsuleBuilds, [{ stationCount: 1, visibleIds: ['S1'] }]);
+    assert.equal(capsuleRenders.length, 1);
     assert.equal(invalidations.length, 0);
     assert.equal(collisionSchedules.length, 0);
 
@@ -148,8 +172,13 @@ const stationGroups = [{ id: 'G1', stationIds: ['S1'] }];
     assert.equal(labelUpdates.length, 1);
     assert.equal(circleUpdates.length, 1);
     assert.equal(rebuilds.length, 1);
-    assert.equal(transferSyncs.length, 1);
+    assert.equal(transferSyncs.length, 2);
     assert.deepEqual(invalidations, ['offset-zoom:12.123']);
+    assert.deepEqual(capsuleBuilds, [
+        { stationCount: 1, visibleIds: ['S1'] },
+        { stationCount: 1, visibleIds: null }
+    ]);
+    assert.equal(capsuleRenders.length, 2);
     assert.deepEqual(collisionSchedules, ['collision']);
 
     assert.equal(feature.syncStationOffsetForZoom(12.123, { phase: 'final', reason: 'zoomend' }), false);

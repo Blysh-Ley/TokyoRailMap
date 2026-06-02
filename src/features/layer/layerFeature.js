@@ -14,6 +14,7 @@ export const createLayerFeature = ({
     getTransferCapsuleBaseConnectionOrder,
     getTransferCapsuleVisibleKey,
     setTransferCapsuleVisibleKey,
+    getViewportStationIdsForTransferCapsules,
     shouldUseFixedTransferCapsuleConnections,
     getFixedVisibleStationIdsForTransferCapsules,
     getVisibleStationIdsForTransferCapsules,
@@ -83,19 +84,36 @@ export const createLayerFeature = ({
         scheduleTransferCapsuleRefresh();
     };
 
-    const refreshTransferCapsulesNow = () => {
+    const refreshTransferCapsulesNow = (options = {}) => {
         const stationsData = getTransferCapsuleStationsData?.();
         const stationGroups = getTransferCapsuleStationGroups?.();
         if (!stationsData || !Array.isArray(stationGroups)) return false;
 
         const useFixedConnections = shouldUseFixedTransferCapsuleConnections?.() === true;
+        const viewportOnly = options?.viewportOnly === true;
+        const viewportVisibleStationIds = viewportOnly ? getViewportStationIdsForTransferCapsules?.(stationsData) : null;
         const fixedVisibleStationIds = useFixedConnections
             ? getFixedVisibleStationIdsForTransferCapsules?.()
             : null;
-        const visibleStationIds = useFixedConnections
+        let visibleStationIds = useFixedConnections
             ? fixedVisibleStationIds
             : getVisibleStationIdsForTransferCapsules?.();
+
+        if (viewportVisibleStationIds instanceof Set) {
+            if (visibleStationIds instanceof Set) {
+                const intersect = new Set();
+                for (const id of visibleStationIds) {
+                    const sid = String(id || '').trim();
+                    if (sid && viewportVisibleStationIds.has(sid)) intersect.add(sid);
+                }
+                visibleStationIds = intersect;
+            } else {
+                visibleStationIds = viewportVisibleStationIds;
+            }
+        }
+
         const nextKey = toTransferCapsuleVisibleKey?.(visibleStationIds, {
+            viewportOnly,
             useFixedConnections,
             baseHiddenFilterActive: fixedVisibleStationIds instanceof Set
         });
@@ -146,7 +164,11 @@ export const createLayerFeature = ({
             updateStationCircleCoordinates?.(nextGeoJSON);
         }
 
-        if (phase === 'visual') return true;
+        if (phase === 'visual') {
+            syncTransferCapsuleStationsData?.(nextGeoJSON);
+            refreshTransferCapsulesNow({ viewportOnly: true });
+            return true;
+        }
 
         rebuildStationCoordMap?.(nextGeoJSON);
         syncTransferCapsuleStationsData?.(nextGeoJSON);
