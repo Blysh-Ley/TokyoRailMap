@@ -82,8 +82,6 @@
 
     const EXPORT_EVENT = '__TokyoRailTripPreviewUpdated';
     const CLEAR_EVENT = '__TokyoRailTripPreviewCleared';
-    const BASE_HL_EVENT = '__TokyoRailBaseHighlightUpdated';
-    const BASE_HL_CLEAR_EVENT = '__TokyoRailBaseHighlightCleared';
     const EXPORT_UI_STORAGE_KEY = 'tokyorail.export.ui';
 
     const getRuntimeBaseMap = () => {
@@ -1715,10 +1713,6 @@
     let lastSnapshot = null;
     let lastSnapshotAt = 0;
 
-    /** @type {{ kind: string, lineIds: Set<string>, label: string } | null} */
-    let lastBaseHighlight = null;
-    let lastBaseHighlightAt = 0;
-
     const normalizeFeatureCollection = (fc) => ({
         type: 'FeatureCollection',
         features: Array.isArray(fc?.features) ? fc.features : []
@@ -1814,7 +1808,7 @@
         return hydrated;
     };
 
-    const exportSnapshot = async (snapshot, options, extra = {}) => {
+    const exportSnapshot = async (snapshot, options) => {
         if (exporting) return;
         const baseMap = getRuntimeBaseMap();
         if (!baseMap) return;
@@ -1831,32 +1825,10 @@
         let geoBbox = normalizeBbox(geoBboxRaw);
         if (!geoBbox) return;
 
-        const baseHighlightLineIds = extra?.baseHighlight?.lineIds instanceof Set
-            ? extra.baseHighlight.lineIds
-            : null;
-
         const format = options?.format === 'png' ? 'png' : 'svg+png';
         const zoomMode = options?.zoomMode === 'auto' ? 'auto' : 'current';
         exporting = true;
         try {
-            let baseHighlightLineFeatures = [];
-            if (baseHighlightLineIds && baseHighlightLineIds.size) {
-                try {
-                    baseHighlightLineFeatures = await pickLineFeaturesByIds({ baseMap, lineIds: baseHighlightLineIds });
-                    const baseBbox = normalizeBbox(calcBboxFromLineFeatures(baseHighlightLineFeatures));
-                    if (baseBbox) {
-                        geoBbox = {
-                            minLng: Math.min(geoBbox.minLng, baseBbox.minLng),
-                            minLat: Math.min(geoBbox.minLat, baseBbox.minLat),
-                            maxLng: Math.max(geoBbox.maxLng, baseBbox.maxLng),
-                            maxLat: Math.max(geoBbox.maxLat, baseBbox.maxLat),
-                        };
-                    }
-                } catch {
-                    baseHighlightLineFeatures = [];
-                }
-            }
-
             const baseZoom = (typeof baseMap.getZoom === 'function') ? baseMap.getZoom() : 11;
             const baseBearing = (typeof baseMap.getBearing === 'function') ? baseMap.getBearing() : 0;
             const basePitch = (typeof baseMap.getPitch === 'function') ? baseMap.getPitch() : 0;
@@ -2002,71 +1974,6 @@
                     let mergedStopFeatures = Array.isArray(built?.stopFc?.features) ? built.stopFc.features.slice() : [];
                     const mergedLineIds = built?.lineIds instanceof Set ? new Set(built.lineIds) : new Set();
 
-                    if (baseHighlightLineIds && baseHighlightLineIds.size) {
-                        const extraBaseLines = baseHighlightLineFeatures.length
-                            ? baseHighlightLineFeatures
-                            : await pickLineFeaturesByIds({ baseMap, lineIds: baseHighlightLineIds });
-
-                        const baseLineOut = [];
-                        for (const f of extraBaseLines) {
-                            const props = f?.properties || {};
-                            const id = String(props.id || '').trim();
-                            const color = resolveLineColorForTheme(props, '#0a84ff');
-                            if (!id) continue;
-                            baseLineOut.push({
-                                type: 'Feature',
-                                properties: {
-                                    role: 'base-highlight',
-                                    lineId: id,
-                                    color
-                                },
-                                geometry: f?.geometry || null
-                            });
-                            mergedLineIds.add(id);
-                        }
-
-                        if (baseLineOut.length) {
-                            mergedLineFeatures = mergedLineFeatures.concat(baseLineOut);
-                        }
-
-                        try {
-                            const baseStations = await pickStationsInBboxForLineIds({
-                                baseMap,
-                                bbox: viewBbox,
-                                lineIds: baseHighlightLineIds
-                            });
-                            if (Array.isArray(baseStations) && baseStations.length) {
-                                const seenStopIds = new Set(
-                                    mergedStopFeatures
-                                        .map((sf) => String(sf?.properties?.id || '').trim())
-                                        .filter(Boolean)
-                                );
-                                for (const sf of baseStations) {
-                                    const props = sf?.properties || {};
-                                    const sid = String(props.id || '').trim();
-                                    const g = sf?.geometry;
-                                    const c = g?.coordinates;
-                                    if (!sid || !g || g.type !== 'Point' || !Array.isArray(c) || c.length < 2) continue;
-                                    if (seenStopIds.has(sid)) continue;
-                                    seenStopIds.add(sid);
-                                    mergedStopFeatures.push({
-                                        type: 'Feature',
-                                        properties: {
-                                            id: sid,
-                                            serving_count: Number(stationServingCount(props) || 1)
-                                        },
-                                        geometry: {
-                                            type: 'Point',
-                                            coordinates: [Number(c[0]), Number(c[1])]
-                                        }
-                                    });
-                                }
-                            }
-                        } catch {
-                            // ignore
-                        }
-                    }
-
                     if (EXPORT_NO_OFFSET_OVERLAY) {
                         mergedStopFeatures = await remapStopFeatureCoordsToRawStations(mergedStopFeatures);
                     }
@@ -2161,23 +2068,6 @@
     window.addEventListener(CLEAR_EVENT, () => {
         lastSnapshot = null;
         lastSnapshotAt = 0;
-    });
-
-    window.addEventListener(BASE_HL_EVENT, (evt) => {
-        const kind = String(evt?.detail?.kind || '').trim() || 'unknown';
-        const lineIdsRaw = evt?.detail?.lineIds;
-        const ids = Array.isArray(lineIdsRaw) ? lineIdsRaw.map(String).filter(Boolean) : [];
-        if (!ids.length) return;
-        const selectedLineId = evt?.detail?.selectedLineId ? String(evt.detail.selectedLineId) : '';
-        const selectedCompany = evt?.detail?.selectedCompany ? String(evt.detail.selectedCompany) : '';
-        const label = selectedLineId || selectedCompany || kind;
-        lastBaseHighlight = { kind, lineIds: new Set(ids), label };
-        lastBaseHighlightAt = Date.now();
-    });
-
-    window.addEventListener(BASE_HL_CLEAR_EVENT, () => {
-        lastBaseHighlight = null;
-        lastBaseHighlightAt = 0;
     });
 
     const isTripPreviewActiveNow = () => {
@@ -2948,8 +2838,6 @@ const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, low
 
     const exportCurrentSelection = async (options) => {
         const tripActive = isTripPreviewActiveNow();
-        const baseActive = !!(lastBaseHighlight && lastBaseHighlightAt && lastBaseHighlight.lineIds instanceof Set && lastBaseHighlight.lineIds.size);
-        const multiSelect = isMultiSelectModeEnabledNow();
         const baseMap = getRuntimeBaseMap();
 
         const ensureSnapshotFromMapSources = async () => {
@@ -2968,26 +2856,13 @@ const buildSvgFromBaseHighlight = async ({ map, kind, highlightLineFeatures, low
             return normalized;
         };
 
-        // 逻辑1：单独导出基础图层
-        if (!tripActive && baseActive) {
-            await exportBaseHighlight(lastBaseHighlight, options);
-            return true;
-        }
-
-        // 逻辑2/3：直通活跃时，默认单独导出直通；仅在“多选模式 + 基础也活跃”时合并导出
         if (tripActive) {
             if (!lastSnapshot || !lastSnapshotAt) {
                 const hydrated = await ensureSnapshotFromMapSources();
                 if (!hydrated) return false;
             }
 
-            // 逻辑3：同时导出直通和基础图层
-            if (multiSelect && baseActive) {
-                await exportSnapshot(lastSnapshot, options, { baseHighlight: lastBaseHighlight });
-            } else {
-                // 逻辑2：单独导出直通图层（原逻辑）
-                await exportSnapshot(lastSnapshot, options);
-            }
+            await exportSnapshot(lastSnapshot, options);
             return true;
         }
 
