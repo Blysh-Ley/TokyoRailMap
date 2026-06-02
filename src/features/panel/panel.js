@@ -21,12 +21,7 @@ import {
     THROUGH_SERVICE_CONFIGS,
     THROUGH_SERVICE_CONFIGS_OBJECT,
 } from '../../lib/throughServiceManager.js';
-import {
-    buildTimetableStationText,
-    renderTimetableNoteRowHtml,
-    renderTimetablePlainNoteRowHtml,
-    renderTimetableStationRowHtml
-} from './timetable-table.js';
+import { buildTimetableStationText, renderTimetableNoteRowHtml, renderTimetablePlainNoteRowHtml } from './timetable-table.js';
 import {
     renderPanelPrintableTimetableListHtml,
     renderPanelTimetableListHtml
@@ -50,6 +45,7 @@ import { createPanelPrintRequestController } from './panelPrintRequestController
 import { createPanelIntentController } from './panelIntentController.js';
 import { createPanelCrossFeatureBridgeController } from './panelCrossFeatureBridgeController.js';
 import { createPanelRoutePreviewController } from './panelRoutePreviewController.js';
+import { renderPanelTripDetailStationCellHtml, renderPanelTripDetailStopRowHtml } from './panelTripDetailStationRenderer.js';
 import {
     applyTripDetailPastState,
     buildTripDetailEndpointContext,
@@ -489,14 +485,17 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                 exportStyleEl = document.createElement('style');
                 exportStyleEl.setAttribute('data-panel-trip-detail-export-style', '1');
                 exportStyleEl.textContent = `
-                    html.${EXPORT_CLASS} .panel-trip-detail {
-                        border-radius: 0 !important;
-                        border: none !important;
-                        box-shadow: none !important;
-                    }
-                    html.${EXPORT_CLASS} .panel-trip-detail .panel-trip-detail-capture-btn {
-                        display: none !important;
-                    }
+                    html.${EXPORT_CLASS} .panel-trip-detail { border-radius: 0 !important; border: none !important; box-shadow: none !important; width: max-content !important; max-width: none !important; }
+                    html.${EXPORT_CLASS} .panel-trip-detail-body { max-height: none !important; overflow: visible !important; }
+                    html.${EXPORT_CLASS} .panel-trip-detail-table, html.${EXPORT_CLASS} .panel-trip-detail-row, html.${EXPORT_CLASS} .panel-trip-detail-head,
+                    html.${EXPORT_CLASS} .panel-trip-detail-grid-break-row { width: max-content !important; max-width: none !important; }
+                    html.${EXPORT_CLASS} .panel-trip-detail-station,
+                    html.${EXPORT_CLASS} .panel-trip-detail-station-marquee,
+                    html.${EXPORT_CLASS} .panel-trip-detail-station-name { flex: 0 0 auto !important; max-width: none !important; overflow: visible !important; }
+                    html.${EXPORT_CLASS} .panel-trip-detail-station-name { transform: none !important; }
+                    html.${EXPORT_CLASS} .panel-trip-detail-table.is-branch-grid,
+                    html.${EXPORT_CLASS} .panel-trip-detail-grid-break-row { grid-template-columns: max-content repeat(var(--panel-trip-detail-branch-count, 2), max-content max-content) !important; }
+                    html.${EXPORT_CLASS} .panel-trip-detail .panel-trip-detail-capture-btn { display: none !important; }
                 `;
                 document.head.appendChild(exportStyleEl);
             }
@@ -4188,21 +4187,17 @@ export function createPanel(options = {}) {
             const terminalCls = `panel-time-label panel-time-label-terminal${s.isPast ? ' is-past' : ''}`;
             const arrivalLabel = s.showOriginLabel ? `<span class=\"${originCls}\">始发站</span> ` : '';
             const departLabel = s.showTerminalLabel ? `<span class=\"${terminalCls}\">终点站</span> ` : '';
-            const stationText = buildTimetableStationText({
-                stationCode: toText(stationsIndex?.idToCode?.get?.(toText(s.stationId)) || ''),
-                stationName: toText(s.stationName || s.stationId),
-                stationId: toText(s.stationId)
-            });
-
-            return renderTimetableStationRowHtml({
+            const stationId = toText(s.stationId);
+            return renderPanelTripDetailStopRowHtml({
                 rowClass: rowCls,
                 stationClass: 'panel-trip-detail-station',
                 arriveCellClass: 'panel-trip-detail-time panel-trip-detail-arrive',
                 departCellClass: 'panel-trip-detail-time panel-trip-detail-depart',
                 arriveTextClass: 'panel-time-arrive',
                 departTextClass: 'panel-time-depart',
-                stationId: toText(s.stationId),
-                stationText,
+                stationId,
+                stationCode: toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
+                stationName: toText(s.stationName || stationId),
                 lineColor: toText(s.lineColor || ''),
                 arrivalLabelHtml: arrivalLabel,
                 departLabelHtml: departLabel,
@@ -4271,11 +4266,6 @@ export function createPanel(options = {}) {
             const timeCol = Math.max(2, Number(timeColStart) || 2);
             const stationId = toText(s.stationId);
             const realOriginId = toText(s.realOriginId);
-            const stationText = buildTimetableStationText({
-                stationCode: toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
-                stationName: toText(s.stationName || s.stationId),
-                stationId
-            });
             const arrText = s.arr ? formatTimeWithPlus(s.arr, s.arrPlus) : '';
             const depText = s.dep ? formatTimeWithPlus(s.dep, s.depPlus) : '';
             const originCls = `panel-time-label panel-time-label-origin${s.isPast ? ' is-past' : ''}`;
@@ -4286,7 +4276,7 @@ export function createPanel(options = {}) {
             const safeLineColor = toText(lineColor);
             const markerCol = Number(rowMarkerCol) || 0;
             const markerText = toText(rowMarkerText);
-            const stationHtml = `<div class="panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}" style="grid-column:1;"${stationId ? ` data-station-id="${escapeHtml(stationId)}"` : ''}${safeLineColor ? ` data-line-color="${escapeHtml(safeLineColor)}"` : ''}>${escapeHtml(stationText)}</div>`;
+            const stationHtml = renderPanelTripDetailStationCellHtml({ className: `panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}`, style: 'grid-column:1;', dataStationId: stationId, lineColor: safeLineColor, stationCode: toText(stationsIndex?.idToCode?.get?.(stationId) || ''), stationName: toText(s.stationName || stationId), stationId });
             const arriveHtml = `<div class="panel-trip-detail-time panel-trip-detail-arrive panel-trip-detail-grid-cell${pastCls}" style="grid-column:${timeCol};">${arrivalLabel}${arrText ? `<span class="panel-time-arrive">${escapeHtml(arrText)}</span>` : ''}</div>`;
             const departHtml = `<div class="panel-trip-detail-time panel-trip-detail-depart panel-trip-detail-grid-cell${pastCls}" style="grid-column:${timeCol + 1};">${departLabel}${depText ? `<span class="panel-time-depart">${escapeHtml(depText)}</span>` : ''}</div>`;
             const cells = [
@@ -4321,30 +4311,6 @@ export function createPanel(options = {}) {
             if (byRef >= 0) return byRef;
 
             return 0;
-        };
-
-        const renderGridStopCellsAt = ({ stop, colStart, lineColor }) => {
-            const s = stop || {};
-            const col = Number(colStart) || 1;
-            const stationId = toText(s.stationId);
-            const stationText = buildTimetableStationText({
-                stationCode: toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
-                stationName: toText(s.stationName || s.stationId),
-                stationId
-            });
-            const arrText = s.arr ? formatTimeWithPlus(s.arr, s.arrPlus) : '';
-            const depText = s.dep ? formatTimeWithPlus(s.dep, s.depPlus) : '';
-            const originCls = `panel-time-label panel-time-label-origin${s.isPast ? ' is-past' : ''}`;
-            const terminalCls = `panel-time-label panel-time-label-terminal${s.isPast ? ' is-past' : ''}`;
-            const arrivalLabel = s.showOriginLabel ? `<span class="${originCls}">始发站</span> ` : '';
-            const departLabel = s.showTerminalLabel ? `<span class="${terminalCls}">终点站</span> ` : '';
-            const pastCls = s.isPast ? ' is-past' : '';
-            const safeLineColor = toText(lineColor);
-            return `
-                <div class="panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}" style="grid-column:${col};"${stationId ? ` data-station-id="${escapeHtml(stationId)}"` : ''}${realOriginId ? ` data-line-id="${escapeHtml(realOriginId)}"` : ''}${safeLineColor ? ` data-line-color="${escapeHtml(safeLineColor)}"` : ''}>${escapeHtml(stationText)}</div>
-                <div class="panel-trip-detail-time panel-trip-detail-arrive panel-trip-detail-grid-cell${pastCls}" style="grid-column:${col + 1};"${realOriginId ? ` data-line-id="${escapeHtml(realOriginId)}"` : ''}>${arrivalLabel}${arrText ? `<span class="panel-time-arrive">${escapeHtml(arrText)}</span>` : ''}</div>
-                <div class="panel-trip-detail-time panel-trip-detail-depart panel-trip-detail-grid-cell${pastCls}" style="grid-column:${col + 2};"${realOriginId ? ` data-line-id="${escapeHtml(realOriginId)}"` : ''}>${departLabel}${depText ? `<span class="panel-time-depart">${escapeHtml(depText)}</span>` : ''}</div>
-            `;
         };
 
         const buildBranchLanesFromRefs = async (refIds, kind) => {
@@ -4653,7 +4619,8 @@ export function createPanel(options = {}) {
                     (branchMode === 'split' ? '站解编' : '站并结')
                     : (branchMode === 'split' ? '解编站' : '并结站');
 
-                return `${startRow}<div class="panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}" style="grid-column:1;">${escapeHtml(breakStationText)}</div>${markerLeft}${markerCenter}${markerRight}${endRow}`;
+                const breakStationHtml = renderPanelTripDetailStationCellHtml({ className: `panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}`, style: 'grid-column:1;', lineColor: toText(primaryLane?.descriptor?.color || mainDescriptor?.color || typeColor || ''), stationCode: breakStationId ? toText(stationsIndex?.idToCode?.get?.(breakStationId) || '') : '', stationName: breakStationText.replace(/^\S+\s+/, ''), stationId: breakStationId });
+                return `${startRow}${breakStationHtml}${markerLeft}${markerCenter}${markerRight}${endRow}`;
             };
 
             if (branchMode === 'merge') {
@@ -4898,6 +4865,7 @@ export function createPanel(options = {}) {
         const y = Math.max(pad, Math.min((clientY || 0) - 20, window.innerHeight - panelH - pad));
         tripDetailRoot.style.left = `${x}px`;
         tripDetailRoot.style.top = `${y}px`;
+        scheduleMarqueeApply(tripDetailRoot);
     };
 
     const hideTripDetail = () => {

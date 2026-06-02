@@ -2416,7 +2416,7 @@
 
         .panel-trip-detail {
             min-width: 260px;
-            max-width: calc(100vw - 40px);
+            max-width: min(300px, calc(100vw - 40px));
             max-height: 60vh;
             background: rgba(255, 255, 255, 0.96);
             border: 1px solid #e3e5e7;
@@ -2539,9 +2539,29 @@
         .panel-trip-detail-station {
             flex: 1 1 auto;
             min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 4px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        .panel-trip-detail-station-badge {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .panel-trip-detail-station-marquee {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .panel-trip-detail-station-name {
+            display: inline-block;
+            white-space: nowrap;
+            will-change: transform;
         }
 
         .panel-trip-detail-time {
