@@ -1,3 +1,5 @@
+import { createStationCodeBadgeElement } from '../../lib/line-icons.js';
+
 export const createJourneyPlanMessageItem = ({ createElement, message } = {}) => {
     const li = document.createElement('li');
     li.className = 'journey-plan-item';
@@ -225,32 +227,45 @@ export const createJourneyTripTransferRow = ({
 };
 
 export const createJourneyTripStationRow = ({
-    createStationRow,
     departureText,
     isPast = false,
+    lineColor = '',
     showDestination = false,
+    stationCode = '',
     stationId,
-    stationText,
+    stationName = '',
     arrivalText
 } = {}) => {
-    if (typeof createStationRow !== 'function') return null;
-    return createStationRow({
-        rowClass: isPast ? 'journey-trip-row is-past' : 'journey-trip-row',
-        stationClass: 'journey-trip-station',
-        arriveCellClass: 'journey-trip-time journey-trip-arrive',
-        departCellClass: 'journey-trip-time journey-trip-depart',
-        arriveTextClass: 'journey-trip-time-arrive',
-        departTextClass: 'journey-trip-time-depart',
-        destinationTextClass: 'journey-trip-time-arrive journey-trip-time-destination',
-        stationId,
-        stationText,
-        arrivalText,
-        departureText,
-        showDestination,
-        destinationText: '目的地'
-    });
-};
+    const create = resolveCreateElement();
+    const row = create('div', isPast ? 'journey-trip-row is-past' : 'journey-trip-row');
+    const station = create('div', 'journey-trip-station');
+    const safeStationId = String(stationId ?? '').trim();
+    if (safeStationId) station.setAttribute('data-station-id', safeStationId);
 
+    const code = String(stationCode ?? '').trim();
+    if (code) {
+        const badgeWrap = create('span', 'journey-trip-station-badge');
+        const badge = createStationCodeBadgeElement({ code, color: lineColor });
+        if (badge) badgeWrap.appendChild(badge);
+        station.appendChild(badgeWrap);
+    }
+
+    station.appendChild(create('span', 'journey-trip-station-name', { text: String(stationName || stationId || '') }));
+    row.appendChild(station);
+
+    const arrive = create('div', 'journey-trip-time journey-trip-arrive');
+    if (arrivalText) arrive.appendChild(create('span', 'journey-trip-time-arrive', { text: arrivalText }));
+    row.appendChild(arrive);
+
+    const depart = create('div', 'journey-trip-time journey-trip-depart');
+    if (showDestination) {
+        depart.appendChild(create('span', 'journey-trip-time-arrive journey-trip-time-destination', { text: '目的地' }));
+    } else if (departureText) {
+        depart.appendChild(create('span', 'journey-trip-time-depart', { text: departureText }));
+    }
+    row.appendChild(depart);
+    return row;
+};
 export const createJourneyPlanPageButton = ({
     active = false,
     createLabel,

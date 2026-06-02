@@ -21,11 +21,7 @@ import {
     hhmmToOffsetMinutes
 } from './travel-search-planner-raptor.js';
 import { getCachedJson, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
-import {
-    buildTimetableStationText,
-    createTimetableNoteRow,
-    createTimetableStationRow
-} from '../panel/timetable-table.js';
+import { createTimetableNoteRow } from '../panel/timetable-table.js';
 import {
     detectThroughServiceCategoryFromTrips,
     THROUGH_SERVICE_DISPLAY,
@@ -1251,21 +1247,17 @@ export function mountTravelSearchUI() {
                 const isLast = i === block.rows.length - 1;
                 const stationId = normalizeText(s.stationId || '');
                 const arriveText = normalizeText(s.arrText || '') || (isFirst ? normalizeText(s.depText || '') : '');
-                const stationText = buildTimetableStationText({
-                    stationCode: normalizeText(stationCodeMap.get(stationId) || ''),
-                    stationName: normalizeText(s.stationName || s.stationId),
-                    stationId
-                });
                 const depText = overallDestinationStationId && stationId && overallDestinationStationId === stationId
                     ? ''
                     : (normalizeText(s.depText || '') || (isLast ? '-' : ''));
                 const rowEl = createJourneyTripStationRow({
-                    createStationRow: createTimetableStationRow,
                     departureText: depText,
                     isPast: !!s?.isPast,
+                    lineColor: lineColorResolved ? String(resolveJourneyColorForTheme(lineColorResolved)) : '',
                     showDestination: !!(overallDestinationStationId && stationId && overallDestinationStationId === stationId),
+                    stationCode: normalizeText(stationCodeMap.get(stationId) || ''),
                     stationId,
-                    stationText,
+                    stationName: normalizeText(s.stationName || s.stationId),
                     arrivalText: arriveText
                 });
                 if (rowEl) tripPopoverBody.appendChild(rowEl);

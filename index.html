@@ -940,13 +940,31 @@
             font-size: 13px;
         }
 
+        .journey-trip-row {
+            padding-bottom: 3px;
+        }
+
         .journey-trip-station {
             min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 4px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
             color: #111;
             font-weight: 600;
+        }
+
+        .journey-trip-station-badge {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .journey-trip-station-name {
+            min-width: 0;
+            white-space: nowrap;
         }
 
         .journey-trip-time {
@@ -2523,6 +2541,7 @@
             font-size: 12px;
             height: 18px;
             white-space: nowrap;
+            padding-bottom: 3px;
         }
 
         .panel-trip-detail-head {
