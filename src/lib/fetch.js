@@ -112,6 +112,11 @@ const shouldCacheRequest = (input, init = {}) => {
     return true;
 };
 
+const shouldBypassResponseCache = (absUrl) => {
+    const u = normalizeText(absUrl).toLowerCase();
+    return u.includes('/data/train-timetables/');
+};
+
 const normalizeImageCandidates = (candidates) => {
     if (Array.isArray(candidates)) {
         return Array.from(new Set(candidates.map((x) => normalizeText(x)).filter(Boolean)));
@@ -467,6 +472,24 @@ const fetchAndStore = async (url, input, init) => {
     }
 };
 
+const fetchWithoutResponseCache = async (url, input, init) => {
+    const nativeFetch = state.nativeFetch || fetch.bind(window);
+    try {
+        const resp = await nativeFetch(input, init);
+
+        if (shouldUseElectronLocalRead(url) && (!resp || !resp.ok)) {
+            const fallbackMeta = await fetchViaElectronLocalRead(url);
+            if (fallbackMeta) return buildResponseFromMeta(fallbackMeta);
+        }
+
+        return resp;
+    } catch (nativeErr) {
+        const fallbackMeta = await fetchViaElectronLocalRead(url);
+        if (fallbackMeta) return buildResponseFromMeta(fallbackMeta);
+        throw nativeErr;
+    }
+};
+
 export const cachedFetch = async (input, init = {}) => {
     if (!shouldCacheRequest(input, init)) {
         const nativeFetch = state.nativeFetch || fetch.bind(window);
@@ -477,6 +500,10 @@ export const cachedFetch = async (input, init = {}) => {
     if (!url) {
         const nativeFetch = state.nativeFetch || fetch.bind(window);
         return nativeFetch(input, init);
+    }
+
+    if (shouldBypassResponseCache(url)) {
+        return fetchWithoutResponseCache(url, input, init);
     }
 
     const existingMeta = state.responseMetaByUrl.get(url);
@@ -501,6 +528,11 @@ export const cachedFetch = async (input, init = {}) => {
 export const getCachedJson = async (url) => {
     const abs = toAbsoluteUrl(url);
     if (!abs) return null;
+    if (shouldBypassResponseCache(abs)) {
+        const resp = await cachedFetch(abs);
+        if (!resp.ok) return null;
+        return resp.json();
+    }
 
     if (!state.jsonPromiseByUrl.has(abs)) {
         const p = cachedFetch(abs)
@@ -546,7 +578,7 @@ const runWithConcurrency = async (tasks, concurrency = 8) => {
     await Promise.all(workers);
 };
 
-export const preloadAllDataAssets = async ({ includeTimetables = true, timetableConcurrency = 8 } = {}) => {
+export const preloadAllDataAssets = async ({ includeTimetables = false, timetableConcurrency = 8 } = {}) => {
     if (state.preloadAllPromise) return state.preloadAllPromise;
 
     state.preloadAllPromise = (async () => {

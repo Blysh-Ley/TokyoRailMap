@@ -133,7 +133,7 @@ try {
 }
 
 try {
-    preloadAllDataAssets({ includeTimetables: true, timetableConcurrency: 10 }).catch((err) => {
+    preloadAllDataAssets({ includeTimetables: false }).catch((err) => {
         console.warn('预加载数据失败（将回退按需加载）', err);
     });
 } catch (err) {

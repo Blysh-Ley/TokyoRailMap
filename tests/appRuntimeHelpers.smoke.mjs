@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { registerDebugZoomTools } from '../src/app/debugZoomTools.js';
 import { registerTokyoRailMapRuntime } from '../src/app/runtimeFacade.js';
@@ -38,6 +39,19 @@ const createStorage = () => {
         type: 'FeatureCollection',
         features: []
     });
+}
+
+{
+    const appSource = readFileSync('src/app.js', 'utf8');
+    const fetchSource = readFileSync('src/lib/fetch.js', 'utf8');
+
+    assert.match(appSource, /preloadAllDataAssets\(\{\s*includeTimetables:\s*false\s*\}\)/);
+    assert.doesNotMatch(appSource, /preloadAllDataAssets\(\{\s*includeTimetables:\s*true/);
+    assert.match(fetchSource, /preloadAllDataAssets = async \(\{\s*includeTimetables = false/);
+    assert.match(fetchSource, /shouldBypassResponseCache[\s\S]*\/data\/train-timetables\//);
+    assert.match(fetchSource, /fetchWithoutResponseCache/);
+    assert.match(fetchSource, /if \(shouldBypassResponseCache\(url\)\)/);
+    assert.match(fetchSource, /if \(shouldBypassResponseCache\(abs\)\)/);
 }
 
 {
