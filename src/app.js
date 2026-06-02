@@ -1461,6 +1461,7 @@ const initMapApp = async () => {
 
     const buildMultiSelectLayerItems = () => {
         return buildMultiSelectLayerItemsFromInputs({
+            baseTripPreviewSource: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE,
             baseSelectionsByKey,
             excludeTripPreviewSource: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE,
             formatBranchLineName: (lineName) => `${lineName}（直通线路）`,

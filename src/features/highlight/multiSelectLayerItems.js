@@ -7,6 +7,7 @@ const toLineIds = (value) => {
 };
 
 export const buildMultiSelectLayerItemsFromInputs = ({
+    baseTripPreviewSource = '',
     baseSelectionsByKey,
     excludeTripPreviewSource = '',
     formatBranchLineName = (lineName) => lineName,
@@ -21,10 +22,68 @@ export const buildMultiSelectLayerItemsFromInputs = ({
 } = {}) => {
     const items = [];
     const baseEntries = baseSelectionsByKey instanceof Map ? baseSelectionsByKey.entries() : [];
+    const tripEntries = Array.isArray(tripPreviewSelectionEntries) ? tripPreviewSelectionEntries : [];
+    const basePreviewSource = toText(baseTripPreviewSource);
+    const baseSelectionByFirstLineId = new Map();
+    const baseLineKeysRenderedFromTripPreview = new Set();
+
+    if (baseSelectionsByKey instanceof Map) {
+        for (const [rawKey, entry] of baseSelectionsByKey.entries()) {
+            const key = toText(rawKey);
+            if (!key || toText(entry?.kind) !== 'line') continue;
+            const firstLineId = toLineIds(entry?.lineIds)[0] || '';
+            if (!firstLineId) continue;
+            baseSelectionByFirstLineId.set(firstLineId, { key, entry });
+        }
+    }
+
+    if (basePreviewSource) {
+        for (const [_rawKey, entry] of tripEntries) {
+            const payload = entry?.payload || {};
+            const source = toText(entry?.source) || toText(resolveTripPreviewPayloadSource?.(payload));
+            if (source !== basePreviewSource) continue;
+
+            const virtualTrips = Array.isArray(payload?.virtualTrips) ? payload.virtualTrips : [];
+            for (const trip of virtualTrips) {
+                const tripPayload = trip || {};
+                const selectedLineId = toText(tripPayload?.selectedLineId);
+                const mainLineId = toText(tripPayload?.mainLineId);
+                const segmentLineIds = Array.isArray(tripPayload?.segments)
+                    ? tripPayload.segments.map((seg) => toText(seg?.lineId)).filter(Boolean)
+                    : [];
+                const lineIdCandidates = [selectedLineId, mainLineId, ...segmentLineIds].filter(Boolean);
+                const lineId = lineIdCandidates.find((id) => baseSelectionByFirstLineId.has(id))
+                    || lineIdCandidates[0]
+                    || '';
+                const baseRef = baseSelectionByFirstLineId.get(lineId);
+                if (!baseRef) continue;
+
+                const branchSource = getBranchSource(lineId);
+                baseLineKeysRenderedFromTripPreview.add(baseRef.key);
+                items.push({
+                    id: `base:${baseRef.key}`,
+                    scope: 'base',
+                    key: baseRef.key,
+                    visible: baseRef.entry?.hidden !== true && entry?.hidden !== true,
+                    lineName: toText(tripPayload?.selectedLineName || tripPayload?.lineName || tripPayload?.mainLineName)
+                        || getLineName(lineId),
+                    originName: '-',
+                    terminalName: '-',
+                    typeName: getBaseKindName(baseRef.entry?.kind),
+                    branchToggleSupported: !!lineId,
+                    branchVisible: branchSource
+                        ? hasTripPreviewSelectionBySource(branchSource)
+                        : false,
+                    source: basePreviewSource
+                });
+            }
+        }
+    }
 
     for (const [rawKey, entry] of baseEntries) {
         const key = toText(rawKey);
         if (!key) continue;
+        if (baseLineKeysRenderedFromTripPreview.has(key)) continue;
 
         const ids = toLineIds(entry?.lineIds);
         const firstLineId = ids[0] || '';
@@ -51,7 +110,6 @@ export const buildMultiSelectLayerItemsFromInputs = ({
         });
     }
 
-    const tripEntries = Array.isArray(tripPreviewSelectionEntries) ? tripPreviewSelectionEntries : [];
     const excludedSource = toText(excludeTripPreviewSource);
 
     for (const [rawKey, entry] of tripEntries) {

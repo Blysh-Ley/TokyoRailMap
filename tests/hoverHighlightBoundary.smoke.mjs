@@ -151,10 +151,19 @@ const testMultiSelectLayerItemsHelper = () => {
         }],
         ['base-preview', {
             built: {
-                lineIds: new Set(['L9'])
+                lineIds: new Set(['L1'])
             },
             payload: {
-                selectedLineId: 'L9'
+                selectedLineId: 'multi-base',
+                virtualTrips: [{
+                    selectedLineId: 'L1',
+                    selectedLineName: 'Trip Line One',
+                    mainLineId: 'L1',
+                    segments: [{
+                        lineId: 'L1',
+                        stationIds: ['S1', 'S2']
+                    }]
+                }]
             },
             source: 'ms-base-trip-preview'
         }],
@@ -172,6 +181,7 @@ const testMultiSelectLayerItemsHelper = () => {
     ];
 
     const items = buildMultiSelectLayerItemsFromInputs({
+        baseTripPreviewSource: 'ms-base-trip-preview',
         baseSelectionsByKey,
         excludeTripPreviewSource: 'ms-base-trip-preview',
         formatBranchLineName: (lineName) => `${lineName} branch`,
@@ -191,12 +201,13 @@ const testMultiSelectLayerItemsHelper = () => {
         scope: 'base',
         key: 'line:L1',
         visible: true,
-        lineName: 'Line L1',
+        lineName: 'Trip Line One',
         originName: '-',
         terminalName: '-',
         typeName: 'Line',
         branchToggleSupported: true,
-        branchVisible: true
+        branchVisible: true,
+        source: 'ms-base-trip-preview'
     });
     assert.equal(items[1].lineName, 'Company One');
     assert.equal(items.some((item) => item.key === 'base-preview'), false);
