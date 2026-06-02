@@ -835,6 +835,79 @@ const buildBranchSegmentsFromRouteChains = (stationIds, routeChains, fallbackLin
     return segments.filter((seg) => toText(seg?.r || seg?.lineId) && Array.isArray(seg?.stationIds) && seg.stationIds.length >= 2);
 };
 
+const appendUnique = (target, item, key, seen) => {
+    if (!item || !key) return false;
+    const set = seen instanceof Set ? seen : new Set();
+    if (set.has(key)) return false;
+    set.add(key);
+    target.push(item);
+    return true;
+};
+
+const buildBranchPreviewPayload = ({
+    highlightColor,
+    lineId,
+    lineName,
+    previewSource,
+    routeChains,
+    stationIds,
+    tripKey
+} = {}) => {
+    const lid = toText(lineId);
+    const ids = dedupKeepOrder(stationIds);
+    if (!lid || ids.length < 2) return null;
+
+    const segments = buildBranchSegmentsFromRouteChains(ids, routeChains, lid);
+    if (!segments.length) return null;
+
+    const payload = buildVirtualTripPreviewPayload({
+        lineId: lid,
+        lineName: toText(lineName) || lid,
+        segments,
+        stationIds: ids,
+        tripKey,
+        previewSource: toText(previewSource) || 'route-map-branch',
+        fitMode: 'none'
+    });
+    if (!payload) return null;
+
+    const color = toText(highlightColor);
+    if (color) {
+        payload.typeColor = color;
+        if (Array.isArray(payload.segments)) {
+            payload.segments = payload.segments.map((seg) => ({ ...seg, typeColor: color }));
+        }
+    }
+    return payload;
+};
+
+const buildBranchPayloadKey = (payload) => {
+    const segs = Array.isArray(payload?.segments) ? payload.segments : [];
+    if (segs.length) {
+        return segs.map((seg) => {
+            const rid = toText(seg?.r || seg?.lineId);
+            const ids = getRouteStationIds(seg).join('>');
+            return `${rid}:${ids}`;
+        }).join('||');
+    }
+    const ids = Array.isArray(payload?.stationIds) ? payload.stationIds.map((x) => toText(x)).filter(Boolean) : [];
+    return ids.length ? ids.join('>') : '';
+};
+
+const mergeEndpointIds = (...groups) => {
+    const out = [];
+    const seen = new Set();
+    for (const group of groups) {
+        for (const raw of Array.isArray(group) ? group : []) {
+            const id = toText(raw);
+            if (!id || seen.has(id)) continue;
+            seen.add(id);
+            out.push(id);
+        }
+    }
+    return out;
+};
+
 export const previewBranchesForLine = async ({
     lineId,
     lineName,
@@ -871,40 +944,62 @@ export const previewBranchesForLine = async ({
         filterSpecial: filterSpecial === true
     });
     
-    const fullChainOriginStationIds = Array.isArray(originStationIds) && originStationIds.length
+    let fullChainOriginStationIds = Array.isArray(originStationIds) && originStationIds.length
         ? originStationIds.map((x) => toText(x)).filter(Boolean)
         : (Array.isArray(result?.originStationIds) ? result.originStationIds.map((x) => toText(x)).filter(Boolean) : []);
-    const fullChainTerminalStationIds = Array.isArray(terminalStationIds) && terminalStationIds.length
+    let fullChainTerminalStationIds = Array.isArray(terminalStationIds) && terminalStationIds.length
         ? terminalStationIds.map((x) => toText(x)).filter(Boolean)
         : (Array.isArray(result?.terminalStationIds) ? result.terminalStationIds.map((x) => toText(x)).filter(Boolean) : []);
     const rawBranchList = Array.isArray(result?.branchList) ? result.branchList : [];
     const routeChains = Array.isArray(result?.fullRouteChains) ? result.fullRouteChains : [];
     const virtualTrips = [];
+    const virtualTripKeys = new Set();
 
     for (let i = 0; i < rawBranchList.length; i += 1) {
         const stationIds = dedupKeepOrder(rawBranchList[i]);
         if (stationIds.length < 2) continue;
-        const segments = buildBranchSegmentsFromRouteChains(stationIds, routeChains, lid);
-        if (!segments.length) continue;
-
-        const payload = buildVirtualTripPreviewPayload({
+        const payload = buildBranchPreviewPayload({
             lineId: lid,
             lineName: toText(lineName) || lid,
-            segments,
+            highlightColor: normalizedHighlightColor,
+            previewSource: source,
+            routeChains,
             stationIds,
             tripKey: `branch-${i + 1}`,
-            previewSource: source,
-            fitMode: 'none'
         });
-        if (payload) {
-            if (normalizedHighlightColor) {
-                payload.typeColor = normalizedHighlightColor;
-                if (Array.isArray(payload.segments)) {
-                    payload.segments = payload.segments.map((seg) => ({ ...seg, typeColor: normalizedHighlightColor }));
-                }
-            }
-            virtualTrips.push(payload);
+        appendUnique(virtualTrips, payload, buildBranchPayloadKey(payload), virtualTripKeys);
+    }
+
+    if (filterSpecial !== true) {
+        const baseResult = await analyzeBranchesForLine(lid, {
+            targetTripKeys,
+            sourceLineIds: normalizedSourceLineIds,
+            filterSpecial: true
+        });
+        const baseRouteChains = Array.isArray(baseResult?.fullRouteChains) ? baseResult.fullRouteChains : [];
+        const baseBranchList = Array.isArray(baseResult?.branchList) ? baseResult.branchList : [];
+        for (let i = 0; i < baseBranchList.length; i += 1) {
+            const stationIds = dedupKeepOrder(baseBranchList[i]);
+            if (stationIds.length < 2) continue;
+            const payload = buildBranchPreviewPayload({
+                lineId: lid,
+                lineName: toText(lineName) || lid,
+                highlightColor: normalizedHighlightColor,
+                previewSource: source,
+                routeChains: baseRouteChains,
+                stationIds,
+                tripKey: `base-branch-${i + 1}`
+            });
+            appendUnique(virtualTrips, payload, buildBranchPayloadKey(payload), virtualTripKeys);
         }
+        fullChainOriginStationIds = mergeEndpointIds(
+            fullChainOriginStationIds,
+            baseResult?.originStationIds
+        );
+        fullChainTerminalStationIds = mergeEndpointIds(
+            fullChainTerminalStationIds,
+            baseResult?.terminalStationIds
+        );
     }
 
     if (!virtualTrips.length) {
