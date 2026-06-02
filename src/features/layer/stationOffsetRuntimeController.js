@@ -5,7 +5,6 @@ const normalizeMode = (mode) => (
 );
 
 export const createStationOffsetRuntimeController = ({
-    getTripPreviewActive = () => false,
     getZoom = () => 0,
     initialMode = 'dynamic',
     mapEngine,
@@ -37,11 +36,9 @@ export const createStationOffsetRuntimeController = ({
     };
 
     const isDynamicMode = () => mode !== 'performance';
-    const shouldSkipZoomSync = () => getTripPreviewActive() === true;
 
     const handleZoom = () => {
         if (!isDynamicMode()) return;
-        if (shouldSkipZoomSync()) return;
 
         const currentZoom = getCurrentZoom();
         const cumulativeDelta = Math.abs(currentZoom - lastUpdateZoom);
@@ -57,7 +54,6 @@ export const createStationOffsetRuntimeController = ({
 
     const handleZoomEnd = () => {
         if (isDynamicMode()) return;
-        if (shouldSkipZoomSync()) return;
         syncAtCurrentZoom();
     };
 
@@ -70,7 +66,7 @@ export const createStationOffsetRuntimeController = ({
 
     const setMode = (nextMode, { sync = true } = {}) => {
         mode = normalizeMode(nextMode);
-        if (sync && !shouldSkipZoomSync()) syncAtCurrentZoom();
+        if (sync) syncAtCurrentZoom();
         return mode;
     };
 

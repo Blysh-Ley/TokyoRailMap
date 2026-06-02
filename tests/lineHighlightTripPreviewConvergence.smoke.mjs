@@ -46,7 +46,10 @@ const extractObjectMethodBody = (source, name) => {
 };
 
 const appSource = readSource('src/app.js');
+const elementUiSource = readSource('src/map/element_ui.js');
+const layersSource = readSource('src/map/layers.js');
 const printSource = readSource('src/features/print/print.js');
+const tripPreviewBuilderSource = readSource('src/features/route/tripPreviewBuilder.js');
 
 const selectionSyncBody = extractConstFunctionBody(appSource, 'syncSelectionLineTripPreview');
 assert.match(selectionSyncBody, /SELECTION_LINE_TRIP_PREVIEW_SOURCE/);
@@ -92,6 +95,16 @@ assert.match(multiSelectSyncBody, /previewSource: MULTI_SELECT_BASE_TRIP_PREVIEW
 assert.match(multiSelectSyncBody, /virtualTrips/);
 assert.doesNotMatch(multiSelectSyncBody, /SELECTION_COMPANY_TRIP_PREVIEW_SOURCE/);
 assert.doesNotMatch(appSource, /focusExpr: \['==', \['get', 'company'\], selectedCompany\]/);
+
+const lineOffsetPaintBody = extractConstFunctionBody(elementUiSource, 'buildLineOffsetPaintExpr');
+assert.match(lineOffsetPaintBody, /line_offset_units/);
+assert.match(elementUiSource, /tripPreviewLineLayerPaint[\s\S]*'line-offset': buildLineOffsetPaintExpr\(\)/);
+assert.match(layersSource, /buildLineOffsetPaintExpr/);
+assert.match(layersSource, /paint\['line-offset'\] = buildLineOffsetPaintExpr\(\)/);
+assert.match(tripPreviewBuilderSource, /getLineOffsetUnits = \(\) => 0/);
+assert.match(tripPreviewBuilderSource, /line_offset_units: lineOffsetUnits/);
+assert.match(appSource, /lineOffsetUnitsById/);
+assert.match(appSource, /getLineOffsetUnits: \(lineId\) => lineOffsetUnitsById\.get/);
 
 const exportCurrentSelectionBody = extractConstFunctionBody(printSource, 'exportCurrentSelection');
 assert.match(exportCurrentSelectionBody, /isTripPreviewActiveNow\(\)/);

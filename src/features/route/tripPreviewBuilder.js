@@ -12,6 +12,7 @@ export const createTripPreviewBuilder = ({
     nearestBridgeBetweenLines,
     distMeters,
     extendBBox,
+    getLineOffsetUnits = () => 0,
     isDebugLoopEnabled
 } = {}) => {
     const getStationCoord = (stationId) => {
@@ -21,6 +22,11 @@ export const createTripPreviewBuilder = ({
 
     const getLineColor = (lineId) => {
         return lineColorById?.get(String(lineId || '')) || '';
+    };
+
+    const resolveLineOffsetUnits = (lineId) => {
+        const n = Number(getLineOffsetUnits?.(String(lineId || '').trim()));
+        return Number.isFinite(n) ? n : 0;
     };
 
     const throughServiceHighlightColors = new Set(
@@ -89,7 +95,7 @@ export const createTripPreviewBuilder = ({
             return resolveRailColorForTheme?.(getLineColor(fallbackLineId) || '') || '';
         };
 
-        const pushLineFeature = (coords, lineId, role = 'line', colorOverride = '') => {
+        const pushLineFeature = (coords, lineId, role = 'line', colorOverride = '', options = {}) => {
             if (!Array.isArray(coords) || coords.length < 2) return;
             for (const c of coords) {
                 if (Array.isArray(c) && c.length >= 2) coordsForBbox.push(c);
@@ -97,12 +103,17 @@ export const createTripPreviewBuilder = ({
             const rawColor = String(colorOverride || '').trim()
                 || resolveRailColorForTheme?.(getLineColor(lineId) || '#0a84ff')
                 || '#0a84ff';
+            const explicitOffsetUnits = Number(options?.lineOffsetUnits);
+            const lineOffsetUnits = Number.isFinite(explicitOffsetUnits)
+                ? explicitOffsetUnits
+                : (role === 'line' ? resolveLineOffsetUnits(lineId) : 0);
             outLineFeatures.push({
                 type: 'Feature',
                 properties: {
                     role,
                     lineId: String(lineId || ''),
-                    color: rawColor
+                    color: rawColor,
+                    line_offset_units: lineOffsetUnits
                 },
                 geometry: { type: 'LineString', coordinates: coords }
             });
@@ -146,7 +157,11 @@ export const createTripPreviewBuilder = ({
                     direction: seg?.d
                 });
                 if (clipped && clipped.length >= 2) pushLineFeature(clipped, lineId, 'line', segColor);
-                else pushLineFeature([from, to], lineId, 'connector', segColor);
+                else {
+                    pushLineFeature([from, to], lineId, 'connector', segColor, {
+                        lineOffsetUnits: resolveLineOffsetUnits(lineId)
+                    });
+                }
             }
 
             if (i > 0) {

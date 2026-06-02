@@ -1033,6 +1033,7 @@ const initMapApp = async () => {
     const lineColorById = new Map();
     const lineColorByName = new Map();
     const lineCompanyById = new Map();
+    const lineOffsetUnitsById = new Map();
     const tripPreviewRenderer = createTripPreviewRenderer({
         mapEngine,
         getLinePaint: () => tripPreviewLineLayerPaint(),
@@ -3021,6 +3022,7 @@ const initMapApp = async () => {
                 isLoopDirection,
                 extractLineSegment,
                 nearestBridgeBetweenLines,
+                getLineOffsetUnits: (lineId) => lineOffsetUnitsById.get(String(lineId || '').trim()) || 0,
                 distMeters,
                 extendBBox,
                 isDebugLoopEnabled: () => {
@@ -3217,6 +3219,7 @@ const initMapApp = async () => {
             const company = f?.properties?.company ?? '未知公司';
             const name = f?.properties?.name ?? String(lineId);
             const color = f?.properties?.color;
+            const lineOffsetUnits = Number(f?.properties?.line_offset_units);
 
             if (typeof color === 'string' && color.trim() && f?.properties && typeof f.properties === 'object') {
                 f.properties._dark_color = resolveRailColorForTheme(color.trim(), { isDarkThemeActive: true });
@@ -3227,6 +3230,7 @@ const initMapApp = async () => {
             lineNameById.set(String(lineId), String(name));
             if (typeof color === 'string' && color.trim()) lineColorById.set(String(lineId), color.trim());
             if (typeof color === 'string' && color.trim()) lineColorByName.set(String(name), color.trim());
+            lineOffsetUnitsById.set(String(lineId), Number.isFinite(lineOffsetUnits) ? lineOffsetUnits : 0);
 
             companyObj[company] = true;
 
@@ -3607,7 +3611,6 @@ const initMapApp = async () => {
                 ...options,
                 mapEngine
             }),
-            getTripPreviewActive: () => tripPreviewActive,
             initialStationOffsetMode: stationOffsetMode,
             collisionConfig: {
                 transferGroupByStationId: transferStationIdsByStationId,

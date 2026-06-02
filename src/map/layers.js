@@ -6,10 +6,10 @@ import { getCachedJson, getCompanyLogoSrc } from '../lib/fetch.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from '../lib/line-icons.js';
 import { THROUGH_SERVICE_DISPLAY, isSUStations,THROUGH_SERVICE_CONFIGS_OBJECT } from '../lib/throughServiceManager.js';
 import {
-    ELEMENT_UI_CONSTANTS,
     isDarkThemeActive,
     buildBaseLineColorExpr,
     buildFocusedLinePaint,
+    buildLineOffsetPaintExpr,
     baseStationCircleRadiusExpr,
     baseStationCircleStrokeWidthExpr,
     buildStationCircleColorPaintExpr,
@@ -182,32 +182,7 @@ export function addLinesLayer(mapOrEngine, linesData) {
     }
     const baseColorExpr = buildBaseLineColorExpr({ isDarkThemeActive: isDarkThemeActive() });
     const paint = buildFocusedLinePaint({ baseColorExpr });
-    const lowZoomOffsetPxPerUnit = 4;
-    const zBase = ELEMENT_UI_CONSTANTS.stationZoomBase;
-    const zMax = ELEMENT_UI_CONSTANTS.stationZoomMax;
-    const interpBase = ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase;
-    const widthScaleAtMaxZoom = ELEMENT_UI_CONSTANTS.stationBaseRadiusAtMaxZoom / ELEMENT_UI_CONSTANTS.stationBaseRadius;
-    const offsetPxPerUnitAtMaxZoom = lowZoomOffsetPxPerUnit * widthScaleAtMaxZoom;
-    const growthPerZoom = Math.pow(offsetPxPerUnitAtMaxZoom / lowZoomOffsetPxPerUnit, 1 / (zMax - zBase));
-    const offsetPxPerUnitAtZoom0 = lowZoomOffsetPxPerUnit * Math.pow(growthPerZoom, -zBase);
-    const zoom14Progress = Math.max(0, Math.min(1, (14 - zBase) / (zMax - zBase)));
-    const zoom14T = (Math.pow(interpBase, zoom14Progress) - 1) / (interpBase - 1);
-    const offsetPxPerUnitAtZoom14 = lowZoomOffsetPxPerUnit + (offsetPxPerUnitAtMaxZoom - lowZoomOffsetPxPerUnit) * zoom14T;
-    paint['line-offset'] = [
-        'interpolate',
-        ['exponential', interpBase],
-        ['zoom'],
-        0,
-        ['*', ['coalesce', ['get', 'line_offset_units'], 0], offsetPxPerUnitAtZoom0],
-        zBase,
-        ['*', ['coalesce', ['get', 'line_offset_units'], 0], lowZoomOffsetPxPerUnit],
-        14,
-        ['*', ['coalesce', ['get', 'line_offset_units'], 0], offsetPxPerUnitAtZoom14],
-        14.01,
-        0,
-        22,
-        0
-    ];
+    paint['line-offset'] = buildLineOffsetPaintExpr();
 
     if (!mapAdapter.hasLayer('lines-layer')) {
         mapAdapter.addLayer({

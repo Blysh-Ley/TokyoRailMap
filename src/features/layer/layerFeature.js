@@ -24,7 +24,6 @@ export const createLayerFeature = ({
     createCollisionController,
     createStationOffsetRuntimeController,
     collisionConfig = {},
-    getTripPreviewActive,
     initialStationOffsetMode = 'dynamic',
     requestFrame = globalThis.requestAnimationFrame,
     cancelFrame = globalThis.cancelAnimationFrame
@@ -166,15 +165,7 @@ export const createLayerFeature = ({
         return true;
     };
 
-    const syncStationOffsetForTripPreviewState = ({ tripPreviewActive = false } = {}) => {
-        if (tripPreviewActive) {
-            const tripPreviewBaseKey = '__trip-preview-base__';
-            if (currentStationOffsetStateKey === tripPreviewBaseKey) return false;
-            if (!applyStationLayerGeoJSON(baseStationsGeoJSON, tripPreviewBaseKey)) return false;
-            currentStationOffsetStateKey = tripPreviewBaseKey;
-            return true;
-        }
-
+    const syncStationOffsetForTripPreviewState = () => {
         return syncStationOffsetForZoom(getZoom?.());
     };
 
@@ -182,7 +173,6 @@ export const createLayerFeature = ({
         if (typeof createStationOffsetRuntimeController !== 'function') return null;
         stationOffsetRuntimeController?.destroy?.();
         stationOffsetRuntimeController = createStationOffsetRuntimeController({
-            getTripPreviewActive,
             getZoom,
             initialMode,
             syncStationOffsetForZoom

@@ -58,6 +58,36 @@ const lowlightLineWidthExpr = () => buildZoomBasedExponentialSizeExpr(
     lineLowlightWidthAtMaxZoom
 );
 
+export const buildLineOffsetPaintExpr = () => {
+    const lowZoomOffsetPxPerUnit = 4;
+    const zBase = ELEMENT_UI_CONSTANTS.stationZoomBase;
+    const zMax = ELEMENT_UI_CONSTANTS.stationZoomMax;
+    const interpBase = ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase;
+    const widthScaleAtMaxZoom = ELEMENT_UI_CONSTANTS.stationBaseRadiusAtMaxZoom / ELEMENT_UI_CONSTANTS.stationBaseRadius;
+    const offsetPxPerUnitAtMaxZoom = lowZoomOffsetPxPerUnit * widthScaleAtMaxZoom;
+    const growthPerZoom = Math.pow(offsetPxPerUnitAtMaxZoom / lowZoomOffsetPxPerUnit, 1 / (zMax - zBase));
+    const offsetPxPerUnitAtZoom0 = lowZoomOffsetPxPerUnit * Math.pow(growthPerZoom, -zBase);
+    const zoom14Progress = Math.max(0, Math.min(1, (14 - zBase) / (zMax - zBase)));
+    const zoom14T = (Math.pow(interpBase, zoom14Progress) - 1) / (interpBase - 1);
+    const offsetPxPerUnitAtZoom14 = lowZoomOffsetPxPerUnit + (offsetPxPerUnitAtMaxZoom - lowZoomOffsetPxPerUnit) * zoom14T;
+
+    return [
+        'interpolate',
+        ['exponential', interpBase],
+        ['zoom'],
+        0,
+        ['*', ['coalesce', ['get', 'line_offset_units'], 0], offsetPxPerUnitAtZoom0],
+        zBase,
+        ['*', ['coalesce', ['get', 'line_offset_units'], 0], lowZoomOffsetPxPerUnit],
+        14,
+        ['*', ['coalesce', ['get', 'line_offset_units'], 0], offsetPxPerUnitAtZoom14],
+        14.01,
+        0,
+        22,
+        0
+    ];
+};
+
 export const isDarkThemeActive = () => document.documentElement.getAttribute('data-theme') === 'dark';
 
 const parseCssColorToRgb = (input) => {
@@ -348,7 +378,8 @@ export const buildStationSelectionPaint = (options = {}) => {
 export const tripPreviewLineLayerPaint = () => ({
     'line-color': ['coalesce', ['get', 'color'], ELEMENT_UI_CONSTANTS.tripPreviewFallbackColor],
     'line-width': baseLineWidthExpr(),
-    'line-opacity': 1
+    'line-opacity': 1,
+    'line-offset': buildLineOffsetPaintExpr()
 });
 
 export const tripPreviewStopLayerPaint = (options = {}) => ({

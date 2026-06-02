@@ -49,11 +49,9 @@ const createMapEngineStub = () => {
 
 {
     let zoom = 11;
-    let tripPreviewActive = false;
     const synced = [];
     const mapEngine = createMapEngineStub();
     const controller = createStationOffsetRuntimeController({
-        getTripPreviewActive: () => tripPreviewActive,
         getZoom: () => zoom,
         initialMode: 'performance',
         mapEngine,
@@ -67,10 +65,9 @@ const createMapEngineStub = () => {
     mapEngine.emit('zoomend');
     assert.deepEqual(synced, [11.4]);
 
-    tripPreviewActive = true;
     zoom = 12;
     mapEngine.emit('zoomend');
-    assert.deepEqual(synced, [11.4]);
+    assert.deepEqual(synced, [11.4, 12]);
 
     assert.equal(controller.setMode('dynamic', { sync: false }), 'dynamic');
     assert.equal(controller.isDynamicMode(), true);
