@@ -1,0 +1,446 @@
+.route-map-popover {
+    min-width: 100px;
+    max-width: calc(100vw - 40px);
+    max-height: 60vh;
+    background: rgba(255, 255, 255, 0.96);
+    --route-map-bg: rgba(255, 255, 255, 0.96);
+    --route-map-head-divider: var(--ui-border);
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+    box-shadow: 0 0 30px rgba(0, 0, 0, .12);
+    overflow: hidden;
+    opacity: 1;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    transform: translateX(0);
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+}
+.route-map-popover.is-hidden {
+    opacity: 0;
+    transform: translateX(8px);
+    pointer-events: none;
+}
+.route-map-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--ui-border);
+    gap: 6px;
+}
+.route-map-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--ui-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.route-map-actions {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.panel-capture-btn {
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+.panel-capture-btn:hover {
+    background: var(--ui-surface-hover);
+}
+.route-map-branch-btn.is-active {
+    background: var(--ui-accent-soft);
+}
+.route-map-branch-btn.is-busy {
+    opacity: 0.7;
+}
+.panel-capture-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+.panel-capture-icon {
+    width: 12px;
+    height: 12px;
+    display: block;
+    pointer-events: none;
+}
+.route-map-body {
+    max-height: calc(60vh - 36px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    flex: 1 1 auto;
+}
+.route-map-body::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+}
+.route-map {
+    min-width: 100px;
+    max-height: 72vh;
+    overflow: hidden;
+}
+.route-map .route-map-body {
+    overflow: auto;
+    max-height: calc(72vh - 44px);
+}
+.route-map.is-panel-placement .route-map-body {
+    height: 100%;
+    max-height: none;
+    box-sizing: border-box;
+}
+.route-map-meta {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--ui-border);
+    font-size: 12px;
+    line-height: 1.4;
+    display:none;
+}
+.route-map-section {
+    padding-left:18px;
+    padding-right:18px;
+    padding-bottom: 12px;
+    box-sizing: border-box;
+    background: var(--route-map-bg);
+}
+.route-map.is-panel-placement .route-map-section {
+    min-height: 100%;
+}
+.route-map-section-title {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 8px;
+    display:none;
+}
+.route-map-empty {
+    font-size: 12px;
+    padding: 8px 0;
+}
+.route-map-grid {
+    display: grid;
+    align-items: center;
+    gap: 0;
+    justify-content: start;
+    width: max-content;
+}
+.route-map-grid-header {
+    display: block;
+    flex: 0 0 auto;
+    padding: 10px 12px 3px;
+    background: var(--route-map-bg);
+    overflow: hidden;
+}
+.route-map-grid-header .route-map-grid {
+    display: grid;
+    align-items: end;
+    gap: 0;
+    justify-content: start;
+    width: max-content;
+}
+.route-map-station {
+    font-size: 13px;
+    text-align: left;
+    padding-right: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: 2px;
+}
+.route-map-typehead {
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    letter-spacing: 1px;
+    line-height: 1;
+    width: 12px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: transparent;
+}
+.route-map-typehead.is-sideways-rl {
+    writing-mode: sideways-rl;
+    text-orientation: mixed;
+}
+.route-map-typehead.is-mixed-writing {
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 1px;
+}
+.route-map-typehead-chunk {
+    display: inline-block;
+    line-height: 1;
+    white-space: pre;
+}
+.route-map-typehead-chunk.is-en {
+    writing-mode: sideways-rl;
+    text-orientation: mixed;
+}
+.route-map-typehead-chunk.is-other {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+}
+.route-map-headspacer {
+    min-height: 30px;
+    background: transparent;
+}
+.route-map-cell {
+    height: var(--route-row-height, 45px);
+    width: 12px;
+    position: relative;
+    background: linear-gradient(var(--tt-color, #888), var(--tt-color, #888)) center/10px calc(100% + 2px) no-repeat;
+    z-index:100;
+}
+.route-map-cell.is-through-row {
+    height: 50px;
+    background-size: 10px 100%;
+    overflow: visible;
+    transform: translateY(var(--through-row-translate-y, 0px));
+    z-index: var(--through-z, 0);
+}
+.route-map-through-empty {
+    width: 12px;
+    height: 18px;
+}
+.route-map-cell.is-hidden-tail {
+    visibility: hidden;
+}
+.route-map-cell.is-stop::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    transform: translate(-50%, -50%);
+    background: #fff;
+    box-sizing: border-box;
+}
+.route-map-transfer-line {
+    height: 2px;
+    background: #000;
+    pointer-events: none;
+    align-self: center;
+    z-index: 101;
+    position: relative;
+    left: -8px;
+    width: calc(100% + 2px);
+}
+.route-map-cell.is-stop.is-transfer::after {
+    width: 4px;
+    height: 4px;
+    background: #000;
+    border: 2.5px solid #fff;
+    box-sizing: content-box;
+}
+
+html[data-theme='dark'] .route-map-transfer-line {
+    background: #fff !important;
+}
+html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
+    background: #fff !important;
+    border: 2.5px solid #000 !important;
+}
+
+.route-map-cell.is-stop-up::after,
+.route-map-cell.is-stop-down::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 0;
+    height: 0;
+    background: transparent;
+    box-sizing: border-box;
+}
+.route-map-cell.is-stop-up::after {
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 8px solid #fff;
+}
+.route-map-cell.is-stop-down::after {
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 8px solid #fff;
+}
+.route-map-through-branch {
+    position: relative;
+    left: calc(10% + var(--branch-start-offset, 0px));
+    width: var(--branch-total-width, var(--through-line-width, 14px));
+    height: var(--through-branch-height, 5px);
+    border-radius: 0;
+    align-self: start;
+    pointer-events: none;
+    z-index: 999;
+    overflow: visible;
+    transform: translate(0, var(--branch-top-y, 15px));
+}
+.route-map-through-branch-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+.route-map-station.is-through-label {
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    min-height: 18px;
+    white-space: normal;
+    overflow-x: hidden;
+    overflow-y: visible;
+    padding-left:30px;
+}
+.route-map-station.is-transfer-label {
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    white-space: normal;
+    overflow-x: hidden;
+    overflow-y: visible;
+    padding-left: 0;
+    padding-right: 10px;
+}
+.route-map-transfer-items {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+.route-map-transfer-items.is-two-rows {
+    gap: 2px;
+}
+.route-map-transfer-items.is-multi-rows {
+    gap: 2px;
+}
+.route-map-transfer-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+}
+.route-map-transfer-item {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    justify-content: flex-end;
+}
+.route-map-transfer-line-name {
+    font-weight: 600;
+    text-align: right;
+}
+.route-map-through-prefix {
+    color: var(--ui-text-subtle, #666);
+    flex: 0 0 auto;
+}
+.route-map-through-items {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    width: 100%;
+}
+.route-map-through-items.is-two-rows {
+    gap: 2px;
+}
+.route-map-through-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    width: 100%;
+}
+.route-map-through-item {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    justify-content: flex-end;
+}
+.route-map-through-logo {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    border-radius: 2px;
+    background: transparent;
+    flex: 0 0 18px;
+}
+.route-map-through-line-icon {
+    margin-right: 2px;
+    flex: 0 0 auto;
+}
+.route-map-through-line {
+    font-weight: 600;
+    text-align: right;
+}
+.route-map-divider {
+    height: 1px;
+    background: var(--ui-border);
+    margin: 0;
+}
+html[data-theme='dark'] .route-map-popover {
+    background: rgba(24, 27, 33, 0.94);
+    --route-map-bg: rgba(24, 27, 33, 0.94);
+    --route-map-head-divider: var(--ui-border);
+    border-color: var(--ui-border);
+    box-shadow: 0 0 30px rgba(0, 0, 0, .35);
+}
+html[data-theme='dark'] .route-map-header {
+    border-bottom-color: var(--ui-border);
+}
+html[data-theme='dark'] .route-map-title,
+html[data-theme='dark'] .route-map-station {
+    color: #f2f2f2;
+}
+html[data-theme='dark'] .panel-capture-btn:hover {
+    background: #2d323a;
+}
+html[data-theme='dark'] .panel-capture-icon {
+    filter: invert(1) brightness(1.1);
+}
+html[data-theme='dark'] .route-map-through-prefix {
+    color: #b9bec8;
+}
+    
+html[data-theme='dark'] .route-map-cell.is-stop::after,
+html[data-theme='dark'] .route-map-cell.is-stop-up::after,
+html[data-theme='dark'] .route-map-cell.is-stop-down::after {
+    background: #111;
+}
+
+html[data-theme='dark'] .route-map-cell.is-stop-up::after {
+    background: transparent;
+    border-bottom-color: #111;
+}
+html[data-theme='dark'] .route-map-cell.is-stop-down::after {
+    background: transparent;
+    border-top-color: #111;
+}
+html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
+    background: #000;
+    border-color: #fff;
+}
