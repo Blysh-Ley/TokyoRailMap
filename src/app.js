@@ -1679,33 +1679,6 @@ const initMapApp = async () => {
             return;
         }
 
-        // 线路优先：选中线路时，忽略公司选中
-
-        if (selectedLineId) {
-            const mergedIds = (selectedStationLineIds && selectedStationLineIds.size > 1)
-                ? Array.from(selectedStationLineIds).map(String).filter(Boolean)
-                : null;
-            const hitExpr = mergedIds
-                ? ['in', ['get', 'id'], ['literal', mergedIds]]
-                : ['==', ['get', 'id'], selectedLineId];
-
-            applyLinePaint(buildFocusedLinePaint({ baseColorExpr, focusExpr: hitExpr, dimOpacity: 0.6 }));
-
-            return;
-        }
-
-
-        if (selectedStationLineIds && selectedStationLineIds.size) {
-            const ids = Array.from(selectedStationLineIds).map(String).filter(Boolean);
-            const hitExpr = ids.length === 1
-                ? ['==', ['get', 'id'], ids[0]]
-                : ['in', ['get', 'id'], ['literal', ids]];
-
-            applyLinePaint(buildFocusedLinePaint({ baseColorExpr, focusExpr: hitExpr, dimOpacity: 0.6 }));
-
-            return;
-        }
-
         if (!selectedCompany) {
             applyLinePaint(buildFocusedLinePaint({ baseColorExpr }));
             return;
