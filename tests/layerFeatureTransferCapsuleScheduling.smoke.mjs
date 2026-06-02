@@ -91,4 +91,75 @@ const stationGroups = [{ id: 'G1', stationIds: ['S1'] }];
     ]);
 }
 
+{
+    const built = [];
+    const sourceUpdates = [];
+    const labelUpdates = [];
+    const circleUpdates = [];
+    const rebuilds = [];
+    const transferSyncs = [];
+    const invalidations = [];
+    const collisionSchedules = [];
+
+    const feature = createLayerFeature({
+        baseStationsGeoJSON: stationData,
+        buildStationOffsetGeoJSONAtZoom: ({ zoom }) => {
+            const z = Number(zoom);
+            built.push(Number(z.toFixed(3)));
+            return {
+                type: 'FeatureCollection',
+                features: [{
+                    type: 'Feature',
+                    properties: { id: 'S1' },
+                    geometry: { type: 'Point', coordinates: [z, z] }
+                }]
+            };
+        },
+        createCollisionController: () => ({
+            scheduleUpdate: () => collisionSchedules.push('collision')
+        }),
+        getTransferCapsuleStationsData: () => stationData,
+        getTransferCapsuleStationGroups: () => [],
+        getZoom: () => 12.123,
+        invalidateTransferCapsuleData: (key) => invalidations.push(key),
+        rebuildStationCoordMap: (data) => rebuilds.push(data),
+        requestFrame: immediateFrame,
+        syncTransferCapsuleStationsData: (data) => transferSyncs.push(data),
+        updateStationCircleCoordinates: (data) => circleUpdates.push(data),
+        updateStationLabelCoordinates: (data) => labelUpdates.push(data),
+        updateStationsSourceData: (data) => sourceUpdates.push(data)
+    });
+
+    feature.setupCollisionController({ stationLabels: [], stationCircles: [] });
+
+    assert.equal(feature.syncStationOffsetForZoom(12.123, { phase: 'visual', reason: 'zoom' }), true);
+    assert.deepEqual(built, [12.123]);
+    assert.equal(sourceUpdates.length, 1);
+    assert.equal(labelUpdates.length, 1);
+    assert.equal(circleUpdates.length, 1);
+    assert.equal(rebuilds.length, 0);
+    assert.equal(transferSyncs.length, 0);
+    assert.equal(invalidations.length, 0);
+    assert.equal(collisionSchedules.length, 0);
+
+    assert.equal(feature.syncStationOffsetForZoom(12.123, { phase: 'final', reason: 'settling' }), true);
+    assert.deepEqual(built, [12.123]);
+    assert.equal(sourceUpdates.length, 1);
+    assert.equal(labelUpdates.length, 1);
+    assert.equal(circleUpdates.length, 1);
+    assert.equal(rebuilds.length, 1);
+    assert.equal(transferSyncs.length, 1);
+    assert.deepEqual(invalidations, ['offset-zoom:12.123']);
+    assert.deepEqual(collisionSchedules, ['collision']);
+
+    assert.equal(feature.syncStationOffsetForZoom(12.123, { phase: 'final', reason: 'zoomend' }), false);
+    assert.equal(sourceUpdates.length, 1);
+    assert.equal(rebuilds.length, 1);
+
+    assert.equal(feature.syncStationOffsetForZoom(12.5, { phase: 'final', reason: 'zoomend' }), true);
+    assert.deepEqual(built, [12.123, 12.5]);
+    assert.equal(sourceUpdates.length, 2);
+    assert.equal(rebuilds.length, 2);
+}
+
 console.log('layer feature transfer capsule scheduling smoke ok');

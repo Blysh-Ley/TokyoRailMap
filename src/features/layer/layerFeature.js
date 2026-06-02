@@ -29,7 +29,10 @@ export const createLayerFeature = ({
     cancelFrame = globalThis.cancelAnimationFrame
 } = {}) => {
     let collisionController = null;
-    let currentStationOffsetStateKey = null;
+    let currentStationOffsetVisualKey = null;
+    let currentStationOffsetFinalKey = null;
+    let currentStationOffsetGeoJSONKey = null;
+    let currentStationOffsetGeoJSON = null;
     let pendingTransferCapsuleRefreshAfterCollision = false;
     let stationOffsetRuntimeController = null;
     let transferCapsuleRefreshFrameId = null;
@@ -131,15 +134,21 @@ export const createLayerFeature = ({
         return collisionController;
     };
 
-    const applyStationLayerGeoJSON = (geojson, keyHint = '') => {
+    const applyStationLayerGeoJSON = (geojson, keyHint = '', options = {}) => {
         const nextGeoJSON = geojson && typeof geojson === 'object' ? geojson : null;
         if (!nextGeoJSON) return false;
+        const phase = options?.phase === 'visual' ? 'visual' : 'final';
+        const updateVisible = options?.updateVisible !== false;
 
-        updateStationsSourceData?.(nextGeoJSON);
-        updateStationLabelCoordinates?.(nextGeoJSON);
-        updateStationCircleCoordinates?.(nextGeoJSON);
+        if (updateVisible) {
+            updateStationsSourceData?.(nextGeoJSON);
+            updateStationLabelCoordinates?.(nextGeoJSON);
+            updateStationCircleCoordinates?.(nextGeoJSON);
+        }
+
+        if (phase === 'visual') return true;
+
         rebuildStationCoordMap?.(nextGeoJSON);
-
         syncTransferCapsuleStationsData?.(nextGeoJSON);
         invalidateTransferCapsuleData?.(String(keyHint || '__station-geojson__'));
         scheduleTransferCapsuleRefresh();
@@ -147,26 +156,35 @@ export const createLayerFeature = ({
         return true;
     };
 
-    const syncStationOffsetForZoom = (zoom) => {
+    const syncStationOffsetForZoom = (zoom, options = {}) => {
         const z = Number(zoom);
         if (!Number.isFinite(z)) return false;
 
         const stateKey = `offset-zoom:${z.toFixed(3)}`;
-        if (stateKey === currentStationOffsetStateKey) return false;
+        const phase = options?.phase === 'visual' ? 'visual' : 'final';
+        if (phase === 'visual' && stateKey === currentStationOffsetVisualKey) return false;
+        if (phase === 'final' && stateKey === currentStationOffsetFinalKey) return false;
 
-        const nextGeoJSON = buildStationOffsetGeoJSONAtZoom?.({
-            baseStationsGeoJSON,
-            stationOffsetAlgorithmContext,
-            zoom: z
-        });
+        const nextGeoJSON = currentStationOffsetGeoJSONKey === stateKey
+            ? currentStationOffsetGeoJSON
+            : buildStationOffsetGeoJSONAtZoom?.({
+                baseStationsGeoJSON,
+                stationOffsetAlgorithmContext,
+                zoom: z
+            });
+        if (!nextGeoJSON) return false;
 
-        if (!applyStationLayerGeoJSON(nextGeoJSON, stateKey)) return false;
-        currentStationOffsetStateKey = stateKey;
+        const updateVisible = phase === 'visual' || stateKey !== currentStationOffsetVisualKey;
+        if (!applyStationLayerGeoJSON(nextGeoJSON, stateKey, { phase, updateVisible })) return false;
+        currentStationOffsetGeoJSON = nextGeoJSON;
+        currentStationOffsetGeoJSONKey = stateKey;
+        if (updateVisible) currentStationOffsetVisualKey = stateKey;
+        if (phase === 'final') currentStationOffsetFinalKey = stateKey;
         return true;
     };
 
     const syncStationOffsetForTripPreviewState = () => {
-        return syncStationOffsetForZoom(getZoom?.());
+        return syncStationOffsetForZoom(getZoom?.(), { phase: 'final', reason: 'trip-preview' });
     };
 
     const bindStationOffsetRuntime = ({ initialMode = initialStationOffsetMode } = {}) => {
