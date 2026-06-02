@@ -4,10 +4,10 @@
     <meta charset="utf-8" />
     <title>东京铁路网</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-    <script src="https://unpkg.com/japanese-holidays/lib/japanese-holidays.min.js"></script>
+    <script defer src="https://unpkg.com/japanese-holidays/lib/japanese-holidays.min.js"></script>
     
     <!-- 1. 引入 MapLibre GL JS 的 CSS 和 JS -->
-    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <script defer src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
     
     <link rel="stylesheet" href="./src/styles/tokens.css">
@@ -18,6 +18,30 @@
 
 <div id="map"></div>
 <div id="controls"></div>
+<div id="startup-timebar" class="settings-top-timebar" data-startup-lcp="1">
+    <div id="startup-panel-date" class="panel-date" role="button" tabindex="0" aria-label="&#36873;&#25321;&#26085;&#26399;"></div>
+</div>
+<script>
+    (function () {
+        var dateEl = document.getElementById('startup-panel-date');
+        if (!dateEl) return;
+        var d = new Date();
+        var mm = String(d.getMonth() + 1).padStart(2, '0');
+        var dd = String(d.getDate()).padStart(2, '0');
+        var day = d.getDay();
+        var month = d.getMonth() + 1;
+        var date = d.getDate();
+        var isHoliday = false;
+        try {
+            isHoliday = !!(window.JapaneseHolidays && JapaneseHolidays.isHoliday(d));
+        } catch (err) {
+            isHoliday = false;
+        }
+        var isNewYearHoliday = (month === 12 && date >= 30) || (month === 1 && date <= 3);
+        var dayType = (day === 0 || day === 6 || isHoliday || isNewYearHoliday) ? '\u4F11\u606F\u65E5' : '\u5DE5\u4F5C\u65E5';
+        dateEl.textContent = dayType + ' ' + mm + '\u6708' + dd + '\u65E5';
+    }());
+</script>
 
 <!-- 打包导出（SVG + PNG 背景） -->
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>

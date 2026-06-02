@@ -1244,13 +1244,24 @@ export function createPanel(options = {}) {
     document.body.appendChild(root);
 
     // 地图右上：站名开关下方的时间控件浮层（z-index 高于 panel）
-    const timeOverlay = document.createElement('div');
+    const startupTimeOverlay = typeof document.getElementById === 'function'
+        ? document.getElementById('startup-timebar')
+        : null;
+    const timeOverlay = startupTimeOverlay && typeof startupTimeOverlay.appendChild === 'function'
+        ? startupTimeOverlay
+        : document.createElement('div');
     timeOverlay.className = 'settings-top-timebar';
+    timeOverlay.removeAttribute?.('data-startup-lcp');
     timeOverlay.style.display = 'flex';
     timeOverlay.appendChild(daySeg);
 
     // 新增：在原 panel-day-seg 位置插入日期面板（显示 MM月DD日），并保留原 panel-day-seg（已隐藏）
-    const datePanel = document.createElement('div');
+    const startupDatePanel = typeof document.getElementById === 'function'
+        ? document.getElementById('startup-panel-date')
+        : null;
+    const datePanel = startupDatePanel && typeof startupDatePanel.setAttribute === 'function'
+        ? startupDatePanel
+        : document.createElement('div');
     datePanel.className = 'panel-date';
     datePanel.setAttribute('role', 'button');
     datePanel.setAttribute('tabindex', '0');
@@ -1289,7 +1300,10 @@ export function createPanel(options = {}) {
     datePickerInput.className = 'panel-date-picker-input';
 
     const initialDate = new Date();
-    datePanel.textContent = formatPanelDateText(initialDate);
+    const initialDateText = formatPanelDateText(initialDate);
+    if (datePanel.textContent !== initialDateText) {
+        datePanel.textContent = initialDateText;
+    }
     datePickerInput.value = formatDateInputValue(initialDate);
 
     timeOverlay.appendChild(datePanel);
@@ -1303,7 +1317,9 @@ export function createPanel(options = {}) {
     timeOverlay.addEventListener('click', (e) => stopEvent(e), { passive: false });
     timeOverlay.style.position = 'fixed';
     timeOverlay.style.zIndex = 5000;
-    document.body.appendChild(timeOverlay);
+    if (!timeOverlay.parentNode) {
+        document.body.appendChild(timeOverlay);
+    }
 
     const tripDetailRoot = document.createElement('div');
     tripDetailRoot.className = 'panel-trip-detail is-hidden';
