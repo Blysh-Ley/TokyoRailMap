@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import { registerDebugZoomTools } from '../src/app/debugZoomTools.js';
 import { registerTokyoRailMapRuntime } from '../src/app/runtimeFacade.js';
+import { getLineOffsetPixelsPerUnitAtZoom } from '../src/map/element_ui.js';
 
 const createStorage = () => {
     const data = new Map();
@@ -16,11 +17,27 @@ const createStorage = () => {
     const target = {};
     const map = { id: 'map' };
     const mapEngine = { id: 'engine' };
+    const buildOffsetPolylinePixelsWithMiter = () => [];
+    const getStationOffsetGeoJSONAtZoom = () => ({ type: 'FeatureCollection', features: [] });
 
-    assert.equal(registerTokyoRailMapRuntime({ map, mapEngine, target }), true);
+    assert.equal(registerTokyoRailMapRuntime({
+        map,
+        mapEngine,
+        buildOffsetPolylinePixelsWithMiter,
+        getLineOffsetPixelsPerUnitAtZoom,
+        getStationOffsetGeoJSONAtZoom,
+        target
+    }), true);
     assert.equal(target.__TokyoRailMap, map);
     assert.equal(target.TokyoRailMapRuntime.getBaseMap(), map);
     assert.equal(target.TokyoRailMapRuntime.getMapEngine(), mapEngine);
+    assert.equal(target.TokyoRailMapRuntime.buildOffsetPolylinePixelsWithMiter, buildOffsetPolylinePixelsWithMiter);
+    assert.equal(target.TokyoRailMapRuntime.getLineOffsetPixelsPerUnitAtZoom(12), 4);
+    assert.equal(target.TokyoRailMapRuntime.getLineOffsetPixelsPerUnitAtZoom(14.01), 0);
+    assert.deepEqual(target.TokyoRailMapRuntime.getStationOffsetGeoJSONAtZoom(12), {
+        type: 'FeatureCollection',
+        features: []
+    });
 }
 
 {

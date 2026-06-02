@@ -98,6 +98,7 @@ assert.doesNotMatch(appSource, /focusExpr: \['==', \['get', 'company'\], selecte
 
 const lineOffsetPaintBody = extractConstFunctionBody(elementUiSource, 'buildLineOffsetPaintExpr');
 assert.match(lineOffsetPaintBody, /line_offset_units/);
+assert.match(elementUiSource, /getLineOffsetPixelsPerUnitAtZoom/);
 assert.match(elementUiSource, /tripPreviewLineLayerPaint[\s\S]*'line-offset': buildLineOffsetPaintExpr\(\)/);
 assert.match(layersSource, /buildLineOffsetPaintExpr/);
 assert.match(layersSource, /paint\['line-offset'\] = buildLineOffsetPaintExpr\(\)/);
@@ -105,6 +106,8 @@ assert.match(tripPreviewBuilderSource, /getLineOffsetUnits = \(\) => 0/);
 assert.match(tripPreviewBuilderSource, /line_offset_units: lineOffsetUnits/);
 assert.match(appSource, /lineOffsetUnitsById/);
 assert.match(appSource, /getLineOffsetUnits: \(lineId\) => lineOffsetUnitsById\.get/);
+assert.match(appSource, /buildOffsetPolylinePixelsWithMiter/);
+assert.match(appSource, /getStationOffsetGeoJSONAtZoom: \(zoom\) => buildStationOffsetGeoJSONAtZoom/);
 
 const exportCurrentSelectionBody = extractConstFunctionBody(printSource, 'exportCurrentSelection');
 assert.match(exportCurrentSelectionBody, /isTripPreviewActiveNow\(\)/);
@@ -112,6 +115,14 @@ assert.match(exportCurrentSelectionBody, /getGeoJsonSourceData\(baseMap, 'trip-p
 assert.match(exportCurrentSelectionBody, /getGeoJsonSourceData\(baseMap, 'trip-preview-stops-source'\)/);
 assert.match(exportCurrentSelectionBody, /exportSnapshot\(lastSnapshot, options\)/);
 assert.match(exportCurrentSelectionBody, /return false/);
+assert.match(printSource, /getLineOffsetPixelsForFeature[\s\S]*line_offset_units/);
+assert.match(printSource, /pathFromLineFeatureCoords\(map, f, geom\.coordinates\)/);
+assert.match(printSource, /getExportStationOffsetGeoJSONForMap\(vmap\)/);
+assert.match(printSource, /remapStopFeatureCoordsToExportStations/);
+assert.match(printSource, /exportStationsGeoJSON/);
+assert.doesNotMatch(printSource, /EXPORT_NO_OFFSET_OVERLAY/);
+assert.doesNotMatch(printSource, /remapStopFeatureCoordsToRawStations/);
+assert.doesNotMatch(printSource, /buildNoOffsetCapsulesGeoJSON/);
 
 assert.doesNotMatch(printSource, /\bexportBaseHighlight\b/);
 assert.doesNotMatch(printSource, /\bbuildSvgFromBaseHighlight\b/);

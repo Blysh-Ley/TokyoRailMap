@@ -607,10 +607,7 @@
         .replace(/[^A-Za-z0-9_.\-]/g, '_')
         .slice(0, 20);
 
-    // SVG 导出为手工几何绘制，无法可靠复刻 GPU line-offset 表达式；
-    // 因此导出时默认回退：站点/站名/换乘胶囊使用原始未偏移坐标。
-    const EXPORT_NO_OFFSET_OVERLAY = true;
-
+    // SVG export draws overlay geometry manually, so offsets are applied before paths are written.
     // ---- station id -> name index ----
     let stationsIndexPromise = null;
     const getStationNameById = async (mapForSource = null) => {
@@ -809,18 +806,57 @@
         inner: expSizeAtZoom(z, 5.0, 8.6)
     });
 
-    const remapStopFeatureCoordsToRawStations = async (stopFeatures) => {
+    const getRuntimeApi = () => {
+        try {
+            return window?.TokyoRailMapRuntime || null;
+        } catch {
+            return null;
+        }
+    };
+
+    const buildStationCoordByIdFromFeatureCollection = (fc) => {
+        const out = new Map();
+        const features = Array.isArray(fc?.features) ? fc.features : [];
+        for (const f of features) {
+            if (f?.geometry?.type !== 'Point') continue;
+            const sid = String(f?.properties?.id || f?.id || '').trim();
+            const c = f?.geometry?.coordinates;
+            if (!sid || !Array.isArray(c) || c.length < 2) continue;
+            const lng = Number(c[0]);
+            const lat = Number(c[1]);
+            if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+            out.set(sid, [lng, lat]);
+        }
+        return out;
+    };
+
+    const getExportStationOffsetGeoJSONForMap = async (map) => {
+        const runtime = getRuntimeApi();
+        const getOffsetGeoJSON = runtime?.getStationOffsetGeoJSONAtZoom;
+        if (typeof getOffsetGeoJSON !== 'function') return null;
+        const z = Number(map?.getZoom?.());
+        if (!Number.isFinite(z)) return null;
+
+        try {
+            const fc = await getOffsetGeoJSON(z);
+            return Array.isArray(fc?.features) ? fc : null;
+        } catch {
+            return null;
+        }
+    };
+
+    const remapStopFeatureCoordsToExportStations = async (stopFeatures, exportStationsGeoJSON) => {
         const fs = Array.isArray(stopFeatures) ? stopFeatures : [];
         if (!fs.length) return fs;
-        const rawById = await getRawStationsCoordById();
-        if (!(rawById instanceof Map) || !rawById.size) return fs;
+        const exportCoordById = buildStationCoordByIdFromFeatureCollection(exportStationsGeoJSON);
+        if (!(exportCoordById instanceof Map) || !exportCoordById.size) return fs;
 
         return fs.map((f) => {
             const sid = String(f?.properties?.id || f?.id || '').trim();
-            const raw = sid ? rawById.get(sid) : null;
-            if (!raw || raw.length < 2) return f;
-            const lng = Number(raw[0]);
-            const lat = Number(raw[1]);
+            const coord = sid ? exportCoordById.get(sid) : null;
+            if (!coord || coord.length < 2) return f;
+            const lng = Number(coord[0]);
+            const lat = Number(coord[1]);
             if (!Number.isFinite(lng) || !Number.isFinite(lat)) return f;
             return {
                 ...f,
@@ -836,6 +872,58 @@
     const project = (map, lngLat) => {
         const p = map.project(lngLat);
         return { x: Number(p.x), y: Number(p.y) };
+    };
+
+    const pathFromPixelPoints = (pixelPoints) => {
+        const pts = Array.isArray(pixelPoints) ? pixelPoints : [];
+        if (pts.length < 2) return '';
+
+        let d = '';
+        for (const pt of pts) {
+            const x = Number(pt?.x);
+            const y = Number(pt?.y);
+            if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+            d += (d ? ' L ' : 'M ') + `${x.toFixed(2)} ${y.toFixed(2)}`;
+        }
+        return d;
+    };
+
+    const getLineOffsetPixelsPerUnitForExport = (map) => {
+        const runtime = getRuntimeApi();
+        const getPixels = runtime?.getLineOffsetPixelsPerUnitAtZoom;
+        if (typeof getPixels !== 'function') return 0;
+        try {
+            const z = Number(map?.getZoom?.());
+            const px = getPixels(z);
+            return Number.isFinite(Number(px)) ? Number(px) : 0;
+        } catch {
+            return 0;
+        }
+    };
+
+    const buildOffsetPolylinePixelsForExport = (pixelPoints, offsetPx) => {
+        const pts = Array.isArray(pixelPoints) ? pixelPoints : [];
+        const signedOffset = Number(offsetPx) || 0;
+        if (pts.length < 2 || !signedOffset) return pts;
+
+        const runtime = getRuntimeApi();
+        const buildOffset = runtime?.buildOffsetPolylinePixelsWithMiter;
+        if (typeof buildOffset !== 'function') return pts;
+
+        try {
+            const shifted = buildOffset(pts, signedOffset, { miterLimitRatio: 2 });
+            return Array.isArray(shifted) && shifted.length >= 2 ? shifted : pts;
+        } catch {
+            return pts;
+        }
+    };
+
+    const getLineOffsetPixelsForFeature = (map, feature) => {
+        const units = Number(feature?.properties?.line_offset_units);
+        if (!Number.isFinite(units) || !units) return 0;
+        const pxPerUnit = getLineOffsetPixelsPerUnitForExport(map);
+        if (!Number.isFinite(pxPerUnit) || !pxPerUnit) return 0;
+        return units * pxPerUnit;
     };
 
     const appendTransferCapsulesSvg = ({ parts, map, z, capsuleLines, capsuleCentroids }) => {
@@ -935,18 +1023,26 @@
         parts.push(`</g>`);
     };
 
-    const pathFromCoords = (map, coords) => {
+    const pathFromCoords = (map, coords, options = {}) => {
         const pts = (Array.isArray(coords) ? coords : []).filter((c) => Array.isArray(c) && c.length >= 2);
         if (pts.length < 2) return '';
 
-        let d = '';
+        const pixelPoints = [];
         for (let i = 0; i < pts.length; i += 1) {
             const ll = pts[i];
             const xy = project(map, { lng: Number(ll[0]), lat: Number(ll[1]) });
             if (!Number.isFinite(xy.x) || !Number.isFinite(xy.y)) continue;
-            d += (d ? ' L ' : 'M ') + `${xy.x.toFixed(2)} ${xy.y.toFixed(2)}`;
+            pixelPoints.push(xy);
         }
-        return d;
+        const offsetPx = Number(options?.offsetPx) || 0;
+        const shifted = buildOffsetPolylinePixelsForExport(pixelPoints, offsetPx);
+        return pathFromPixelPoints(shifted);
+    };
+
+    const pathFromLineFeatureCoords = (map, feature, coords) => {
+        return pathFromCoords(map, coords, {
+            offsetPx: getLineOffsetPixelsForFeature(map, feature)
+        });
     };
 
     const downloadBlob = ({ blob, filename }) => {
@@ -1012,12 +1108,12 @@
                 const geom = f?.geometry;
                 if (!geom) continue;
                 if (geom.type === 'LineString') {
-                    const d = pathFromCoords(map, geom.coordinates);
+                    const d = pathFromLineFeatureCoords(map, f, geom.coordinates);
                     if (!d) continue;
                     parts.push(`<path d="${d}"/>`);
                 } else if (geom.type === 'MultiLineString' && Array.isArray(geom.coordinates)) {
                     for (const line of geom.coordinates) {
-                        const d = pathFromCoords(map, line);
+                        const d = pathFromLineFeatureCoords(map, f, line);
                         if (!d) continue;
                         parts.push(`<path d="${d}"/>`);
                     }
@@ -1048,12 +1144,12 @@
                 : lineBaseWidthForZoom(z);
 
             if (geom.type === 'LineString') {
-                const d = pathFromCoords(map, geom.coordinates);
+                const d = pathFromLineFeatureCoords(map, f, geom.coordinates);
                 if (!d) continue;
                 parts.push(`<path d="${d}" stroke="${escapeXml(color)}" stroke-width="${strokeWidth}" opacity="${opacity}"/>`);
             } else if (geom.type === 'MultiLineString' && Array.isArray(geom.coordinates)) {
                 for (const line of geom.coordinates) {
-                    const d = pathFromCoords(map, line);
+                    const d = pathFromLineFeatureCoords(map, f, line);
                     if (!d) continue;
                     parts.push(`<path d="${d}" stroke="${escapeXml(color)}" stroke-width="${strokeWidth}" opacity="${opacity}"/>`);
                 }
@@ -1970,12 +2066,13 @@
                         excludeLineIds: built?.lineIds,
                     });
 
+                    const exportStationsGeoJSON = await getExportStationOffsetGeoJSONForMap(vmap);
                     let mergedLineFeatures = Array.isArray(built?.lineFc?.features) ? built.lineFc.features.slice() : [];
                     let mergedStopFeatures = Array.isArray(built?.stopFc?.features) ? built.stopFc.features.slice() : [];
                     const mergedLineIds = built?.lineIds instanceof Set ? new Set(built.lineIds) : new Set();
 
-                    if (EXPORT_NO_OFFSET_OVERLAY) {
-                        mergedStopFeatures = await remapStopFeatureCoordsToRawStations(mergedStopFeatures);
+                    if (exportStationsGeoJSON) {
+                        mergedStopFeatures = await remapStopFeatureCoordsToExportStations(mergedStopFeatures, exportStationsGeoJSON);
                     }
 
                     const visibleStationIdsForCapsules = new Set(
@@ -1985,7 +2082,7 @@
                     );
 
                     capsules = await pickCapsulesInBbox(baseMap, viewBbox, {
-                        noOffset: EXPORT_NO_OFFSET_OVERLAY,
+                        exportStationsGeoJSON,
                         visibleStationIds: visibleStationIdsForCapsules
                     });
 
@@ -2181,8 +2278,11 @@
         return edges;
     };
 
-    const buildNoOffsetCapsulesGeoJSON = async (visibleStationIds) => {
-        const stationsById = await getRawStationsCoordById();
+    const buildExportCapsulesGeoJSON = async (visibleStationIds, exportStationsGeoJSON) => {
+        let stationsById = buildStationCoordByIdFromFeatureCollection(exportStationsGeoJSON);
+        if (!(stationsById instanceof Map) || !stationsById.size) {
+            stationsById = await getRawStationsCoordById();
+        }
         const groups = await getCachedJsonSafe('./data/station-groups.json');
         if (!(stationsById instanceof Map) || !stationsById.size || !Array.isArray(groups)) {
             return { lines: [], centroids: [] };
@@ -2262,20 +2362,21 @@
     };
 
     const pickCapsulesInBbox = async (baseMap, bbox, options = {}) => {
-        const noOffset = options?.noOffset === true;
         const visibleStationIds = options?.visibleStationIds instanceof Set ? options.visibleStationIds : null;
+        const exportStationsGeoJSON = options?.exportStationsGeoJSON || null;
+        const useExportStationCoords = Array.isArray(exportStationsGeoJSON?.features);
 
-        const sourceCapsules = noOffset
-            ? await buildNoOffsetCapsulesGeoJSON(visibleStationIds)
+        const sourceCapsules = useExportStationCoords
+            ? await buildExportCapsulesGeoJSON(visibleStationIds, exportStationsGeoJSON)
             : {
                 lines: await getGeoJsonSourceData(baseMap, 'transfer-capsule-lines-source'),
                 centroids: await getGeoJsonSourceData(baseMap, 'transfer-capsule-centroids-source')
             };
 
-        const linesFc = noOffset
+        const linesFc = useExportStationCoords
             ? { type: 'FeatureCollection', features: Array.isArray(sourceCapsules?.lines) ? sourceCapsules.lines : [] }
             : sourceCapsules.lines;
-        const centsFc = noOffset
+        const centsFc = useExportStationCoords
             ? { type: 'FeatureCollection', features: Array.isArray(sourceCapsules?.centroids) ? sourceCapsules.centroids : [] }
             : sourceCapsules.centroids;
 

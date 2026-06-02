@@ -58,7 +58,14 @@ const lowlightLineWidthExpr = () => buildZoomBasedExponentialSizeExpr(
     lineLowlightWidthAtMaxZoom
 );
 
-export const buildLineOffsetPaintExpr = () => {
+const getExponentialInterpolationT = (progress, base) => {
+    const p = Math.max(0, Math.min(1, Number(progress) || 0));
+    const b = Number(base);
+    if (!Number.isFinite(b) || b <= 0 || b === 1) return p;
+    return (Math.pow(b, p) - 1) / (b - 1);
+};
+
+const buildLineOffsetPixelStops = () => {
     const lowZoomOffsetPxPerUnit = 4;
     const zBase = ELEMENT_UI_CONSTANTS.stationZoomBase;
     const zMax = ELEMENT_UI_CONSTANTS.stationZoomMax;
@@ -67,9 +74,55 @@ export const buildLineOffsetPaintExpr = () => {
     const offsetPxPerUnitAtMaxZoom = lowZoomOffsetPxPerUnit * widthScaleAtMaxZoom;
     const growthPerZoom = Math.pow(offsetPxPerUnitAtMaxZoom / lowZoomOffsetPxPerUnit, 1 / (zMax - zBase));
     const offsetPxPerUnitAtZoom0 = lowZoomOffsetPxPerUnit * Math.pow(growthPerZoom, -zBase);
-    const zoom14Progress = Math.max(0, Math.min(1, (14 - zBase) / (zMax - zBase)));
-    const zoom14T = (Math.pow(interpBase, zoom14Progress) - 1) / (interpBase - 1);
+    const zoom14T = getExponentialInterpolationT((14 - zBase) / (zMax - zBase), interpBase);
     const offsetPxPerUnitAtZoom14 = lowZoomOffsetPxPerUnit + (offsetPxPerUnitAtMaxZoom - lowZoomOffsetPxPerUnit) * zoom14T;
+
+    return {
+        interpBase,
+        lowZoomOffsetPxPerUnit,
+        offsetPxPerUnitAtZoom0,
+        offsetPxPerUnitAtZoom14,
+        zBase
+    };
+};
+
+export const getLineOffsetPixelsPerUnitAtZoom = (zoom) => {
+    const z = Number(zoom);
+    if (!Number.isFinite(z)) return 0;
+
+    const {
+        interpBase,
+        lowZoomOffsetPxPerUnit,
+        offsetPxPerUnitAtZoom0,
+        offsetPxPerUnitAtZoom14,
+        zBase
+    } = buildLineOffsetPixelStops();
+
+    if (z <= 0) return offsetPxPerUnitAtZoom0;
+    if (z <= zBase) {
+        const t = getExponentialInterpolationT(z / zBase, interpBase);
+        return offsetPxPerUnitAtZoom0 + (lowZoomOffsetPxPerUnit - offsetPxPerUnitAtZoom0) * t;
+    }
+    if (z <= 14) {
+        const t = getExponentialInterpolationT((z - zBase) / (14 - zBase), interpBase);
+        return lowZoomOffsetPxPerUnit + (offsetPxPerUnitAtZoom14 - lowZoomOffsetPxPerUnit) * t;
+    }
+    if (z >= 14.01) return 0;
+    if (z <= 14.01) {
+        const t = getExponentialInterpolationT((z - 14) / 0.01, interpBase);
+        return offsetPxPerUnitAtZoom14 * (1 - t);
+    }
+    return 0;
+};
+
+export const buildLineOffsetPaintExpr = () => {
+    const {
+        interpBase,
+        lowZoomOffsetPxPerUnit,
+        offsetPxPerUnitAtZoom0,
+        offsetPxPerUnitAtZoom14,
+        zBase
+    } = buildLineOffsetPixelStops();
 
     return [
         'interpolate',

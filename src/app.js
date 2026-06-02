@@ -11,7 +11,7 @@ import {
     setImageElementFromCache
 } from './lib/fetch.js';
 import { loadRailGeoDataFromDataFolder } from './lib/data.js';
-import { buildStationOffsetGeoJSONAtZoom } from './map/offset.js';
+import { buildOffsetPolylinePixelsWithMiter, buildStationOffsetGeoJSONAtZoom } from './map/offset.js';
 import { addLinesLayer, addStationsLayer, setupLineHoverPopup, setupStationPopup } from './map/layers.js';
 import { createStationMarkers } from './map/labels.js';
 import { setupCollisions } from './map/collision.js';
@@ -35,6 +35,7 @@ import {
     buildStationCircleColorPaintExpr,
     stationCircleStrokeColorPaint,
     buildStationSelectionPaint,
+    getLineOffsetPixelsPerUnitAtZoom,
     isDarkThemeActive,
     resolveRailColorForTheme,
     tripPreviewLineLayerPaint,
@@ -249,7 +250,12 @@ const reachableStopsOverlayRenderer = createReachableStopsOverlayRenderer({ mapE
 const basemapThemeRuntime = createBasemapThemeRuntime({ map, mapEngine });
 
 
-registerTokyoRailMapRuntime({ map, mapEngine });
+registerTokyoRailMapRuntime({
+    map,
+    mapEngine,
+    buildOffsetPolylinePixelsWithMiter,
+    getLineOffsetPixelsPerUnitAtZoom
+});
 
 // 左下角比例尺
 mapEngine.addMetricScaleControl({ maxWidth: 100, position: 'bottom-left' });
@@ -3712,6 +3718,18 @@ const initMapApp = async () => {
         layerFeature.setupCollisionController({ stationLabels, stationCircles });
 
         scheduleCollisionLayerRefresh();
+
+        registerTokyoRailMapRuntime({
+            map,
+            mapEngine,
+            buildOffsetPolylinePixelsWithMiter,
+            getLineOffsetPixelsPerUnitAtZoom,
+            getStationOffsetGeoJSONAtZoom: (zoom) => buildStationOffsetGeoJSONAtZoom({
+                baseStationsGeoJSON: stationsData,
+                stationOffsetAlgorithmContext,
+                zoom
+            })
+        });
 
         layerFeature.bindStationOffsetRuntime({ initialMode: stationOffsetMode });
         
