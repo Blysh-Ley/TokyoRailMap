@@ -307,6 +307,7 @@ const initMapApp = async () => {
     let stationLabels = [];
     let stationLabelChipsAdapter = null;
     let fixedPopupStationId = null;
+    const journeyPickPinnedStationIds = new Map();
     let transferStationIdsByStationId = new Map();
     let previewTripPath = (_payload) => {};
     let clearTripPathPreview = () => {};
@@ -947,6 +948,14 @@ const initMapApp = async () => {
         getStationCoord: (stationId) => stationCoordById.get(stationId) || stationCoordByIdBase.get(stationId),
         getStationLabels: () => stationLabels,
         createJourneyPickPinElement,
+        onJourneyPickPinStationIdsChange: (idsByType = {}) => {
+            journeyPickPinnedStationIds.clear();
+            for (const type of ['origin', 'destination']) {
+                const sid = String(idsByType?.[type] ?? '').trim();
+                if (sid) journeyPickPinnedStationIds.set(type, sid);
+            }
+            applyStationLabelPositionOverrides();
+        },
         scheduleCollisionLayerRefresh
     });
 
@@ -2119,11 +2128,29 @@ const initMapApp = async () => {
         }
     });
 
-    const setFixedPopupStationLabelBelow = (stationId) => {
-        fixedPopupStationId = stationId != null ? String(stationId) : null;
+    const getStationLabelBelowIds = () => {
+        const ids = [];
+        const fixedId = String(fixedPopupStationId ?? '').trim();
+        if (fixedId) ids.push(fixedId);
+        for (const sid of journeyPickPinnedStationIds.values()) {
+            const id = String(sid ?? '').trim();
+            if (id && !ids.includes(id)) ids.push(id);
+        }
+        return ids;
+    };
 
+    const getCollisionPinnedStationIds = () => {
+        const ids = [];
+        const selectedId = String(selectedStationId ?? '').trim();
+        if (selectedId) ids.push(selectedId);
+        for (const id of getStationLabelBelowIds()) {
+            if (id && !ids.includes(id)) ids.push(id);
+        }
+        return ids.length ? ids : null;
+    };
+
+    const applyStationLabelPositionOverrides = () => {
         if (!Array.isArray(stationLabels) || !stationLabels.length) return;
-
 
         for (const label of stationLabels) {
             label.labelPosition = null;
@@ -2132,24 +2159,23 @@ const initMapApp = async () => {
             label.el.style.translate = `0 -${dy}px`;
         }
 
-        if (!fixedPopupStationId) {
-            scheduleCollisionLayerRefresh();
-            return;
+        const belowIds = getStationLabelBelowIds();
+        for (const stationId of belowIds) {
+            const pinned = stationLabels.find((x) => x && String(x.stationId) === stationId);
+            if (!pinned) continue;
+
+            const pad = pinned.priority > 1 ? 6 : 4;
+            pinned.labelPosition = 'below';
+            pinned.labelBelowPadPx = pad;
+            pinned.el.style.translate = `0 calc(100% + ${pad}px)`;
         }
-
-        const pinned = stationLabels.find((x) => x && String(x.stationId) === fixedPopupStationId);
-        if (!pinned) {
-            scheduleCollisionLayerRefresh();
-            return;
-        }
-
-
-        const pad = pinned.priority > 1 ? 6 : 4;
-        pinned.labelPosition = 'below';
-        pinned.labelBelowPadPx = pad;
-        pinned.el.style.translate = `0 calc(100% + ${pad}px)`;
 
         scheduleCollisionLayerRefresh();
+    };
+
+    const setFixedPopupStationLabelBelow = (stationId) => {
+        fixedPopupStationId = stationId != null ? String(stationId) : null;
+        applyStationLabelPositionOverrides();
     };
 
     const hideStationPopupForMenuInteraction = ({ preserveHoverPreview = false } = {}) => {
@@ -3576,6 +3602,7 @@ const initMapApp = async () => {
             // 地图缩放引发坐标变动时，实时触发热力图及源数据的刷新
             try {
                 travelSearchMapRuntime?.refreshReachableStopsOverlay?.(undefined, { fitBounds: false });
+                travelSearchMapRuntime?.syncJourneyPickPinsToStations?.();
             } catch (e) {
                 // ignore
             }
@@ -3740,7 +3767,7 @@ const initMapApp = async () => {
                         : 'collide'
                 ),
 
-                getPinnedStationId: () => selectedStationId || fixedPopupStationId,
+                getPinnedStationId: getCollisionPinnedStationIds,
                 shouldHideStation: (stationLike) => {
                     if (!shouldApplyBaseLayerHiddenFilter()) return false;
                     const sid = String(stationLike?.stationId || '').trim();

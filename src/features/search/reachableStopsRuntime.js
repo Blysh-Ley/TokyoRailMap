@@ -165,6 +165,7 @@ export const createTravelSearchMapRuntime = ({
     getStationCoord = () => null,
     getStationLabels = () => [],
     createJourneyPickPinElement,
+    onJourneyPickPinStationIdsChange = () => {},
     scheduleCollisionLayerRefresh = () => {}
 } = {}) => {
     let reachableStopsOverlayVisibleKey = INIT_KEY;
@@ -173,6 +174,21 @@ export const createTravelSearchMapRuntime = ({
     let lastReachableStopsPayload = null;
     let journeyPickOriginPin = null;
     let journeyPickDestinationPin = null;
+    const journeyPickStationIdsByType = {
+        origin: '',
+        destination: ''
+    };
+
+    const notifyJourneyPickPinStationIdsChange = () => {
+        try {
+            onJourneyPickPinStationIdsChange({
+                origin: journeyPickStationIdsByType.origin || '',
+                destination: journeyPickStationIdsByType.destination || ''
+            });
+        } catch {
+            // ignore
+        }
+    };
 
     const applyReachableStopsLabelPriorityBoost = (extremeIds) => {
         const stationLabels = getStationLabels?.();
@@ -190,11 +206,14 @@ export const createTravelSearchMapRuntime = ({
         if (!pinType || pinType === 'origin') {
             try { journeyPickOriginPin?.remove?.(); } catch { /* ignore */ }
             journeyPickOriginPin = null;
+            journeyPickStationIdsByType.origin = '';
         }
         if (!pinType || pinType === 'destination') {
             try { journeyPickDestinationPin?.remove?.(); } catch { /* ignore */ }
             journeyPickDestinationPin = null;
+            journeyPickStationIdsByType.destination = '';
         }
+        notifyJourneyPickPinStationIdsChange();
     };
 
     const resolvePinCoordinate = ({ lngLat, stationId } = {}) => {
@@ -219,6 +238,7 @@ export const createTravelSearchMapRuntime = ({
     const showJourneyPickPin = async ({ lngLat, stationId, type = 'origin' } = {}) => {
         const pinType = toText(type).toLowerCase();
         if (pinType !== 'origin' && pinType !== 'destination') return;
+        const sid = toText(stationId);
         const coord = resolvePinCoordinate({ lngLat, stationId });
 
         clearJourneyPickPin(pinType);
@@ -232,8 +252,28 @@ export const createTravelSearchMapRuntime = ({
             mapEngine.addMarker(marker);
             if (pinType === 'origin') journeyPickOriginPin = marker;
             else journeyPickDestinationPin = marker;
+            journeyPickStationIdsByType[pinType] = sid;
+            notifyJourneyPickPinStationIdsChange();
         } catch {
             // ignore
+        }
+    };
+
+    const syncJourneyPickPinsToStations = () => {
+        const pairs = [
+            { pinType: 'origin', marker: journeyPickOriginPin },
+            { pinType: 'destination', marker: journeyPickDestinationPin }
+        ];
+        for (const { pinType, marker } of pairs) {
+            const sid = journeyPickStationIdsByType[pinType];
+            if (!marker || !sid) continue;
+            const coord = resolvePinCoordinate({ stationId: sid });
+            if (!coord) continue;
+            try {
+                marker.setLngLat?.(coord);
+            } catch {
+                // ignore
+            }
         }
     };
 
@@ -281,6 +321,7 @@ export const createTravelSearchMapRuntime = ({
         getReachableStopsLabelIds: () => reachableStopsLabelIds,
         refreshReachableStopsOverlay,
         showJourneyPickPin,
+        syncJourneyPickPinsToStations,
         updateReachableStopsOverlay: (payload = {}, options = {}) => (
             refreshReachableStopsOverlay(payload || {}, { fitBounds: true, ...options })
         )

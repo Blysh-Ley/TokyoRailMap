@@ -75,6 +75,8 @@ import {
 {
     const removed = [];
     const markers = [];
+    const pinStationChanges = [];
+    const stationCoords = new Map([['S1', [139.75, 35.65]]]);
     const mapEngine = {
         createMarker: ({ element, anchor, offset }) => ({
             element,
@@ -93,15 +95,22 @@ import {
     };
     const runtime = createTravelSearchMapRuntime({
         mapEngine,
-        getStationCoord: (stationId) => ({ S1: [139.75, 35.65] })[stationId],
-        createJourneyPickPinElement: async ({ type }) => ({ type })
+        getStationCoord: (stationId) => stationCoords.get(stationId),
+        createJourneyPickPinElement: async ({ type }) => ({ type }),
+        onJourneyPickPinStationIdsChange: (ids) => pinStationChanges.push(ids)
     });
 
     await runtime.showJourneyPickPin({ stationId: 'S1', type: 'origin' });
     assert.deepEqual(markers[0].lngLat, [139.75, 35.65]);
     assert.equal(markers[0].element.type, 'origin');
+    assert.deepEqual(pinStationChanges.at(-1), { origin: 'S1', destination: '' });
+
+    stationCoords.set('S1', [139.8, 35.7]);
+    runtime.syncJourneyPickPinsToStations();
+    assert.deepEqual(markers[0].lngLat, [139.8, 35.7]);
 
     await runtime.showJourneyPickPin({ lngLat: { lng: 140, lat: 36 }, type: 'origin' });
     assert.equal(removed.length, 1);
     assert.deepEqual(markers[1].lngLat, [140, 36]);
+    assert.deepEqual(pinStationChanges.at(-1), { origin: '', destination: '' });
 }

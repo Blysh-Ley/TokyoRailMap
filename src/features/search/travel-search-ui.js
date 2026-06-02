@@ -2033,11 +2033,6 @@ export function mountTravelSearchUI() {
         }
 
         results.classList.add('is-hidden');
-        try {
-            journeyPickController.clearPin(activeField);
-        } catch {
-            // ignore
-        }
         maybeComputePlans();
     };
 

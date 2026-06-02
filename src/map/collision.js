@@ -81,6 +81,17 @@ function circleStrokeWidthPxForStation(priority) {
     return 2;
 }
 
+function normalizePinnedStationIds(value) {
+    if (value == null) return null;
+    const values = value instanceof Set
+        ? Array.from(value)
+        : (Array.isArray(value) ? value : [value]);
+    const ids = values
+        .map((item) => String(item ?? '').trim())
+        .filter(Boolean);
+    return ids.length ? new Set(ids) : null;
+}
+
 /**
  * 绑定事件并执行碰撞计算。
  * - 文字：直接通过 DOM 的 display 控制显示/隐藏
@@ -182,7 +193,9 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
     function updateStationLabelVisibility() {
         if (!stationLabels.length) return;
 
-        const pinnedId = typeof getPinnedStationId === 'function' ? getPinnedStationId() : null;
+        const pinnedIds = normalizePinnedStationIds(
+            typeof getPinnedStationId === 'function' ? getPinnedStationId() : null
+        );
 
         const mode =
             (typeof getLabelMode === 'function' ? getLabelMode() : null) ??
@@ -244,8 +257,8 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
         const sorted = stationLabels
             .slice()
             .sort((a, b) => {
-                const aPinned = pinnedId != null && String(a.stationId) === String(pinnedId);
-                const bPinned = pinnedId != null && String(b.stationId) === String(pinnedId);
+                const aPinned = pinnedIds instanceof Set && pinnedIds.has(String(a.stationId));
+                const bPinned = pinnedIds instanceof Set && pinnedIds.has(String(b.stationId));
                 if (aPinned && !bPinned) return -1;
                 if (!aPinned && bPinned) return 1;
                 const aBoost = Number(a.collisionPriorityBoost) || 0;
