@@ -285,6 +285,15 @@ export const createPickedJourneyRows = ({
     const normalize = typeof normalizeText === 'function' ? normalizeText : fallbackNormalizeText;
     const wrappers = Array.isArray(pairBestWrappers) ? pairBestWrappers : [];
     const getStationName = typeof getStationNameById === 'function' ? getStationNameById : () => '';
+    const resolvePlanEndpointIds = (plan) => {
+        const legs = Array.isArray(plan?.legs) ? plan.legs : [];
+        const firstLeg = legs.find((leg) => normalize(leg?.fromStop));
+        const lastLeg = legs.slice().reverse().find((leg) => normalize(leg?.toStop));
+        return {
+            originStationId: normalize(firstLeg?.fromStop || ''),
+            destinationStationId: normalize(lastLeg?.toStop || '')
+        };
+    };
 
     return (Array.isArray(bestPlanBuckets) ? bestPlanBuckets : []).slice(0, 3).map((bucket, idx) => {
         const plan = bucket?.plan || null;
@@ -292,8 +301,9 @@ export const createPickedJourneyRows = ({
         if (plan?.hasSurcharge) tagLabels.push('额外费用！');
 
         const wrapper = wrappers.find((item) => item.plan === plan) || {};
-        const originStationResolved = wrapper.originStationId || originId || (originSeeds?.[0] || '');
-        const destinationStationResolved = wrapper.destinationStationId || destinationId || (destinationSeeds?.[0] || '');
+        const planEndpointIds = resolvePlanEndpointIds(plan);
+        const originStationResolved = planEndpointIds.originStationId || wrapper.originStationId || originId || (originSeeds?.[0] || '');
+        const destinationStationResolved = planEndpointIds.destinationStationId || wrapper.destinationStationId || destinationId || (destinationSeeds?.[0] || '');
 
         return {
             ...bucket,

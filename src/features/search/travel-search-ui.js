@@ -928,6 +928,17 @@ export function mountTravelSearchUI() {
         return getPaginationButtonLabel(label, index);
     };
 
+    const syncJourneyPickPinsForPlanRow = async (row) => {
+        const originStationId = normalizeText(row?.originStationId || '');
+        const destinationStationId = normalizeText(row?.destinationStationId || '');
+        try {
+            if (originStationId) await journeyPickController.showStationPin({ stationId: originStationId, type: 'origin' });
+            if (destinationStationId) await journeyPickController.showStationPin({ stationId: destinationStationId, type: 'destination' });
+        } catch {
+            // ignore
+        }
+    };
+
     const showCurrentPage = async () => {
         while (planList.firstChild) planList.removeChild(planList.firstChild);
         
@@ -988,6 +999,7 @@ export function mountTravelSearchUI() {
         li.appendChild(brief);
 
         planList.appendChild(li);
+        await syncJourneyPickPinsForPlanRow(row);
     };
 
     const updatePaginationButtons = () => {

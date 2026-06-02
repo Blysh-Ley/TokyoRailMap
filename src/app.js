@@ -681,6 +681,16 @@ const initMapApp = async () => {
         return parts.length ? parts[parts.length - 1] : sid;
     };
 
+    const setStationLabelTranslate = (item, fallbackTranslate) => {
+        if (!item?.el) return;
+        if (item.labelPosition === 'below') {
+            const pad = Number.isFinite(item.labelBelowPadPx) ? item.labelBelowPadPx : 0;
+            item.el.style.translate = `0 calc(100% + ${pad}px)`;
+            return;
+        }
+        item.el.style.translate = fallbackTranslate;
+    };
+
     const applyTransferStationLabelCollapse = () => {
         if (!Array.isArray(stationLabels) || !stationLabels.length) return;
 
@@ -821,7 +831,7 @@ const initMapApp = async () => {
                 item.priority = 0;
                 item.forceHiddenByTransferCollapse = true;
                 item._multiSelectBaseLabelText = baseName;
-                if (item?.el) item.el.style.translate = baseTranslate;
+                setStationLabelTranslate(item, baseTranslate);
                 if (!isMultiSelectModeEnabled() && item?.el) item.el.textContent = baseName;
                 continue;
             }
@@ -832,7 +842,7 @@ const initMapApp = async () => {
                 item.priority = basePriority;
                 item.forceHiddenByTransferCollapse = false;
                 item._multiSelectBaseLabelText = baseName;
-                if (item?.el) item.el.style.translate = baseTranslate;
+                setStationLabelTranslate(item, baseTranslate);
                 if (!isMultiSelectModeEnabled() && item?.el) item.el.textContent = baseName;
                 continue;
             }
@@ -846,7 +856,7 @@ const initMapApp = async () => {
                 item.priority = basePriority;
                 item.forceHiddenByTransferCollapse = false;
                 item._multiSelectBaseLabelText = baseName;
-                if (item?.el) item.el.style.translate = baseTranslate;
+                setStationLabelTranslate(item, baseTranslate);
                 if (!isMultiSelectModeEnabled() && item?.el) item.el.textContent = baseName;
                 continue;
             }
@@ -854,16 +864,15 @@ const initMapApp = async () => {
             const groupKey = groupIds.slice().sort().join('|');
             const repIds = repIdsByGroupKey.get(groupKey);
             const visibleByScope = !visibleSet || visibleSet.has(sid);
-            const isRepresentative = visibleByScope && repIds instanceof Set && repIds.has(sid);
+            const isPinnedBelow = item.labelPosition === 'below';
+            const isRepresentative = isPinnedBelow || (visibleByScope && repIds instanceof Set && repIds.has(sid));
 
             item.priority = isRepresentative ? basePriority : 0;
             item.forceHiddenByTransferCollapse = !isRepresentative;
             item._multiSelectBaseLabelText = baseName;
-            if (item?.el) {
-                item.el.style.translate = isRepresentative
-                    ? (offsetByStationId.get(sid) || baseTranslate)
-                    : baseTranslate;
-            }
+            setStationLabelTranslate(item, isRepresentative
+                ? (offsetByStationId.get(sid) || baseTranslate)
+                : baseTranslate);
             if (!isMultiSelectModeEnabled() && item?.el) item.el.textContent = baseName;
         }
     };
@@ -2170,6 +2179,7 @@ const initMapApp = async () => {
             pinned.el.style.translate = `0 calc(100% + ${pad}px)`;
         }
 
+        applyTransferStationLabelCollapse();
         scheduleCollisionLayerRefresh();
     };
 

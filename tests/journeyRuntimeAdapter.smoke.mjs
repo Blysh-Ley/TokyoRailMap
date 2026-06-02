@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createJourneyRuntimeAdapter } from '../src/features/search/journeyRuntimeAdapter.js';
+import { createPickedJourneyResultRows } from '../src/features/search/journeyComputeOrchestrator.js';
 
 {
     const runtime = {};
@@ -52,4 +53,35 @@ import { createJourneyRuntimeAdapter } from '../src/features/search/journeyRunti
 {
     const text = readFileSync(join(process.cwd(), 'src/features/search/travel-search-ui.js'), 'utf8');
     assert.doesNotMatch(text, /__TokyoRailJourneyMapPickActive|__TokyoRailSuppressStationSelectionUntil|__TokyoRailMultiSelectInternalAPI/);
+}
+
+{
+    const plan = {
+        legs: [
+            { fromStop: 'Actual.Line2.A', toStop: 'Mid' },
+            { fromStop: 'Mid', toStop: 'Actual.Line3.Z' }
+        ]
+    };
+    const rows = createPickedJourneyResultRows({
+        departureMs: 0,
+        destinationId: 'Picked.Line1.Z',
+        destinationInputText: 'Z',
+        destinationSeeds: ['Picked.Line1.Z'],
+        getStationNameById: (id) => id,
+        normalizeText: (value) => String(value ?? '').trim(),
+        originId: 'Picked.Line1.A',
+        originInputText: 'A',
+        originSeeds: ['Picked.Line1.A'],
+        pairBestPlans: [plan],
+        pairBestWrappers: [{
+            plan,
+            originStationId: 'Picked.Line1.A',
+            destinationStationId: 'Picked.Line1.Z'
+        }],
+        pickPlanBuckets: (plans) => [{ plan: plans[0], label: 'recommended' }],
+        serviceDay: 'Weekday'
+    });
+
+    assert.equal(rows[0].originStationId, 'Actual.Line2.A');
+    assert.equal(rows[0].destinationStationId, 'Actual.Line3.Z');
 }
