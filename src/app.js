@@ -342,11 +342,15 @@ const initMapApp = async () => {
     let multiSelectBaseTripPreviewSignature = '';
     let selectionLineTripPreviewSignature = '';
     let selectionLineTripPreviewRequestId = 0;
+    let selectionCompanyTripPreviewSignature = '';
+    let selectionCompanyTripPreviewRequestId = 0;
 
     const MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE = 'ms-base-trip-preview';
     const MULTI_SELECT_BASE_TRIP_PREVIEW_KEY = 'multi-base-lines';
     const SELECTION_LINE_TRIP_PREVIEW_SOURCE = 'selection-line-trip-preview';
     const SELECTION_LINE_TRIP_PREVIEW_KEY = 'selection-line';
+    const SELECTION_COMPANY_TRIP_PREVIEW_SOURCE = 'selection-company-trip-preview';
+    const SELECTION_COMPANY_TRIP_PREVIEW_KEY = 'selection-company';
 
 
     let panel = null;
@@ -1171,6 +1175,25 @@ const initMapApp = async () => {
         });
     };
 
+    const getSelectionCompanyTripPreviewLineIds = () => {
+        const company = String(selectedCompany || '').trim();
+        if (!company || !enabledLineIdsByCompany || !enabledLineIdsByCompany.has(company)) return [];
+        const ids = Array.from(enabledLineIdsByCompany.get(company) || []).map(String).filter(Boolean);
+        ids.sort((a, b) => a.localeCompare(b));
+        return ids;
+    };
+
+    const buildSelectionCompanyTripVirtualTrips = async (lineIds) => {
+        const railwaysIndexById = await getRailwaysIndexById();
+        return buildLineHighlightVirtualTripPayloads({
+            lineIds,
+            railwaysIndexById,
+            getLineName: (lineId) => lineNameById.get(lineId) || lineId,
+            previewSource: SELECTION_COMPANY_TRIP_PREVIEW_SOURCE,
+            fitMode: 'none'
+        });
+    };
+
     const syncSelectionLineTripPreview = async () => {
         const activeSource = String(tripPreviewActiveSource || '').trim();
 
@@ -1222,6 +1245,75 @@ const initMapApp = async () => {
             tripKey: signature,
             previewKey: SELECTION_LINE_TRIP_PREVIEW_KEY,
             previewSource: SELECTION_LINE_TRIP_PREVIEW_SOURCE,
+            fitMode: 'none',
+            virtualTrips
+        }, { fitMode: 'none', clearBefore: true });
+    };
+
+    const syncSelectionCompanyTripPreview = async () => {
+        const activeSource = String(tripPreviewActiveSource || '').trim();
+
+        if (isMultiSelectModeEnabled()) {
+            const shouldClear = selectionCompanyTripPreviewSignature
+                || activeSource === SELECTION_COMPANY_TRIP_PREVIEW_SOURCE;
+            selectionCompanyTripPreviewSignature = '';
+            selectionCompanyTripPreviewRequestId += 1;
+            if (shouldClear) clearTripPathPreview({ source: SELECTION_COMPANY_TRIP_PREVIEW_SOURCE });
+            return;
+        }
+
+        if (selectedLineId || (selectedStationLineIds && selectedStationLineIds.size)) {
+            const shouldClear = selectionCompanyTripPreviewSignature
+                || activeSource === SELECTION_COMPANY_TRIP_PREVIEW_SOURCE;
+            selectionCompanyTripPreviewSignature = '';
+            selectionCompanyTripPreviewRequestId += 1;
+            if (shouldClear) clearTripPathPreview({ source: SELECTION_COMPANY_TRIP_PREVIEW_SOURCE });
+            return;
+        }
+
+        if (activeSource && activeSource !== SELECTION_COMPANY_TRIP_PREVIEW_SOURCE) {
+            selectionCompanyTripPreviewRequestId += 1;
+            return;
+        }
+
+        const company = String(selectedCompany || '').trim();
+        const lineIds = getSelectionCompanyTripPreviewLineIds();
+        const signature = company && lineIds.length ? `${company}|${lineIds.join('|')}` : '';
+
+        if (!signature) {
+            const shouldClear = selectionCompanyTripPreviewSignature
+                || activeSource === SELECTION_COMPANY_TRIP_PREVIEW_SOURCE;
+            selectionCompanyTripPreviewSignature = '';
+            selectionCompanyTripPreviewRequestId += 1;
+            if (shouldClear) clearTripPathPreview({ source: SELECTION_COMPANY_TRIP_PREVIEW_SOURCE });
+            return;
+        }
+
+        if (
+            signature === selectionCompanyTripPreviewSignature
+            && activeSource === SELECTION_COMPANY_TRIP_PREVIEW_SOURCE
+        ) {
+            return;
+        }
+
+        selectionCompanyTripPreviewSignature = signature;
+        const requestId = selectionCompanyTripPreviewRequestId + 1;
+        selectionCompanyTripPreviewRequestId = requestId;
+
+        const virtualTrips = await buildSelectionCompanyTripVirtualTrips(lineIds);
+        if (requestId !== selectionCompanyTripPreviewRequestId) return;
+        if (!virtualTrips.length) {
+            selectionCompanyTripPreviewSignature = '';
+            clearTripPathPreview({ source: SELECTION_COMPANY_TRIP_PREVIEW_SOURCE });
+            return;
+        }
+
+        previewTripPath({
+            selectedLineId: lineIds[0],
+            mainLineId: lineIds[0],
+            tripKey: signature,
+            previewKey: SELECTION_COMPANY_TRIP_PREVIEW_KEY,
+            previewSource: SELECTION_COMPANY_TRIP_PREVIEW_SOURCE,
             fitMode: 'none',
             virtualTrips
         }, { fitMode: 'none', clearBefore: true });
@@ -1688,16 +1780,7 @@ const initMapApp = async () => {
             return;
         }
 
-        if (!selectedCompany) {
-            applyLinePaint(buildFocusedLinePaint({ baseColorExpr }));
-            return;
-        }
-
-        applyLinePaint(buildFocusedLinePaint({
-            baseColorExpr,
-            focusExpr: ['==', ['get', 'company'], selectedCompany],
-            dimOpacity: 0.6
-        }));
+        applyLinePaint(buildFocusedLinePaint({ baseColorExpr }));
     }
 
     const applyBaseLayerVisibilityFilters = () => {
@@ -1901,6 +1984,9 @@ const initMapApp = async () => {
             applyLineSelectionStyle,
             syncSelectionLineTripPreview: () => {
                 syncSelectionLineTripPreview().catch(() => null);
+            },
+            syncSelectionCompanyTripPreview: () => {
+                syncSelectionCompanyTripPreview().catch(() => null);
             },
             applyStationSelectionStyle,
             updateSelectedStationCurrentPopup,

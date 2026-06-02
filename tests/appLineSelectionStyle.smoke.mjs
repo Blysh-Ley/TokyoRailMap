@@ -28,13 +28,15 @@ const body = extractFunctionBody(source, 'applyLineSelectionStyle');
 
 assert.match(body, /tripPreviewActive/);
 assert.match(body, /dirPreviewActive/);
-assert.match(body, /selectedCompany/);
 assert.match(body, /!selectedLineId && selectedStationLineIds && selectedStationLineIds\.size/);
 assert.match(body, /Array\.from\(selectedStationLineIds\)\.map\(String\)\.filter\(Boolean\)/);
 assert.match(body, /focusExpr: hitExpr/);
 assert.doesNotMatch(body, /\['==', \['get', 'id'\], selectedLineId\]/);
+assert.doesNotMatch(body, /\['==', \['get', 'company'\], selectedCompany\]/);
 
 assert.match(source, /SELECTION_LINE_TRIP_PREVIEW_SOURCE = 'selection-line-trip-preview'/);
 assert.match(source, /previewSource: SELECTION_LINE_TRIP_PREVIEW_SOURCE/);
+assert.match(source, /SELECTION_COMPANY_TRIP_PREVIEW_SOURCE = 'selection-company-trip-preview'/);
+assert.match(source, /previewSource: SELECTION_COMPANY_TRIP_PREVIEW_SOURCE/);
 
 console.log('app line selection style smoke ok');
