@@ -80,6 +80,8 @@ const cssSource = readFileSync('index.html', 'utf8');
 assert.match(panelSource, /scheduleMarqueeApply\(tripDetailRoot\)/);
 assert.match(panelSource, /html\.\$\{EXPORT_CLASS\} \.panel-trip-detail \{/);
 assert.match(panelSource, /width: max-content !important;/);
+assert.doesNotMatch(panelSource, /html\.\$\{EXPORT_CLASS\} \.panel-trip-detail-row[^{}]*width: max-content !important;/);
+assert.doesNotMatch(panelSource, /flex: 0 0 auto !important/);
 assert.match(cssSource, /max-width: min\(300px, calc\(100vw - 40px\)\);/);
 
 console.log('panel trip detail station badge marquee smoke ok');

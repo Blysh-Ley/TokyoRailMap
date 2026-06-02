@@ -487,14 +487,10 @@ const exportElementToPng = async (element, filenameBase, buttonEl) => {
                 exportStyleEl.textContent = `
                     html.${EXPORT_CLASS} .panel-trip-detail { border-radius: 0 !important; border: none !important; box-shadow: none !important; width: max-content !important; max-width: none !important; }
                     html.${EXPORT_CLASS} .panel-trip-detail-body { max-height: none !important; overflow: visible !important; }
-                    html.${EXPORT_CLASS} .panel-trip-detail-table, html.${EXPORT_CLASS} .panel-trip-detail-row, html.${EXPORT_CLASS} .panel-trip-detail-head,
-                    html.${EXPORT_CLASS} .panel-trip-detail-grid-break-row { width: max-content !important; max-width: none !important; }
+                    html.${EXPORT_CLASS} .panel-trip-detail-table { width: max-content !important; max-width: none !important; }
                     html.${EXPORT_CLASS} .panel-trip-detail-station,
-                    html.${EXPORT_CLASS} .panel-trip-detail-station-marquee,
-                    html.${EXPORT_CLASS} .panel-trip-detail-station-name { flex: 0 0 auto !important; max-width: none !important; overflow: visible !important; }
+                    html.${EXPORT_CLASS} .panel-trip-detail-station-marquee { max-width: none !important; overflow: visible !important; }
                     html.${EXPORT_CLASS} .panel-trip-detail-station-name { transform: none !important; }
-                    html.${EXPORT_CLASS} .panel-trip-detail-table.is-branch-grid,
-                    html.${EXPORT_CLASS} .panel-trip-detail-grid-break-row { grid-template-columns: max-content repeat(var(--panel-trip-detail-branch-count, 2), max-content max-content) !important; }
                     html.${EXPORT_CLASS} .panel-trip-detail .panel-trip-detail-capture-btn { display: none !important; }
                 `;
                 document.head.appendChild(exportStyleEl);
