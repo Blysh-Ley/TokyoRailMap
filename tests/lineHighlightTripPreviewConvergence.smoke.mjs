@@ -108,6 +108,7 @@ assert.match(layersSource, /paint\['line-offset'\] = buildLineOffsetPaintExpr\(\
 assert.match(tripPreviewBuilderSource, /getLineOffsetUnits = \(\) => 0/);
 assert.match(tripPreviewBuilderSource, /line_offset_units: lineOffsetUnits/);
 assert.match(tripPreviewBuilderSource, /r: routeLineId/);
+assert.match(tripPreviewBuilderSource, /preserveLineDirection: true/);
 assert.match(tripPreviewBuilderSource, /geometry_line_id: geometryLineId/);
 assert.match(tripPreviewBuilderSource, /line_offset_id: offsetLineId/);
 assert.doesNotMatch(tripPreviewBuilderSource, /inferLineIdFromStation/);

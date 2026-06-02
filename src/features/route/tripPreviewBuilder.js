@@ -207,7 +207,8 @@ export const createTripPreviewBuilder = ({
 
                 const clipped = extractLineSegment?.(pairGeometryLineId || geometryLineId || lineId, from, to, {
                     preferLoopShortest: isLoopDirectionSeg,
-                    direction: seg?.d
+                    direction: seg?.d,
+                    preserveLineDirection: true
                 });
                 if (clipped && clipped.length >= 2) {
                     pushLineFeature(clipped, lineId, 'line', segColor, {
@@ -242,8 +243,12 @@ export const createTripPreviewBuilder = ({
                         const bridge = nearestBridgeBetweenLines?.(prevGeometryLineId, geometryLineId || lineId, a, b);
                         const canUseBridge = bridge && Number.isFinite(bridge.dist) && bridge.dist <= 3000;
                         if (canUseBridge) {
-                            const segA = extractLineSegment?.(prevGeometryLineId, a, bridge.a);
-                            const segB = extractLineSegment?.(geometryLineId || lineId, bridge.b, b);
+                            const segA = extractLineSegment?.(prevGeometryLineId, a, bridge.a, {
+                                preserveLineDirection: true
+                            });
+                            const segB = extractLineSegment?.(geometryLineId || lineId, bridge.b, b, {
+                                preserveLineDirection: true
+                            });
                             const prevSegColor = resolveSegColor(prev, prevGeometryLineId || prevDisplayLineId) || segColor;
                             if (segA && segA.length >= 2) {
                                 pushLineFeature(segA, prevDisplayLineId, 'line', prevSegColor, {

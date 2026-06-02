@@ -9,6 +9,7 @@ const stationCoordByIdBase = new Map([
 ]);
 
 const extractedLineIds = [];
+const extractedOptions = [];
 
 const { buildTripPreviewFeatures } = createTripPreviewBuilder({
     stationCoordByIdBase,
@@ -22,8 +23,9 @@ const { buildTripPreviewFeatures } = createTripPreviewBuilder({
     isLineTerminalStation: () => true,
     isSamePhysicalStation: () => false,
     isLoopDirection: () => false,
-    extractLineSegment: (lineId, from, to) => {
+    extractLineSegment: (lineId, from, to, options = {}) => {
         extractedLineIds.push(lineId);
+        extractedOptions.push(options);
         if (lineId === 'L1') return null;
         return [from, to];
     },
@@ -73,6 +75,7 @@ assert.equal(l2Line.properties.geometry_line_id, 'L2');
 assert.equal(l2Line.properties.line_offset_id, 'L2');
 
 extractedLineIds.length = 0;
+extractedOptions.length = 0;
 const virtualBuilt = buildTripPreviewFeatures({
     mainLineId: 'virtual-main',
     segments: [
@@ -92,5 +95,6 @@ assert.equal(virtualLine.properties.geometry_line_id, 'L2');
 assert.equal(virtualLine.properties.line_offset_id, 'L2');
 assert.equal(virtualLine.properties.line_offset_units, -1);
 assert.deepEqual(extractedLineIds, ['L2']);
+assert.equal(extractedOptions[0]?.preserveLineDirection, true);
 
 console.log('trip preview builder offset smoke ok');

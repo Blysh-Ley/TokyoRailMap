@@ -2827,12 +2827,19 @@ const initMapApp = async () => {
             return best;
         };
 
-        const buildProjectedSubchain = (chain, fromProj, toProj) => {
+        const buildProjectedSubchain = (chain, fromProj, toProj, options = {}) => {
             if (!Array.isArray(chain) || chain.length < 2 || !fromProj?.point || !toProj?.point) return null;
 
             const i = Number(fromProj.segIndex);
             const j = Number(toProj.segIndex);
             if (!Number.isFinite(i) || !Number.isFinite(j) || i < 0 || j < 0) return null;
+
+            if (
+                options?.preserveLineDirection === true
+                && (i > j || (i === j && Number(fromProj.t) > Number(toProj.t)))
+            ) {
+                return buildProjectedSubchain(chain, toProj, fromProj, { preserveLineDirection: false });
+            }
 
             const out = [fromProj.point];
             if (i === j) {
@@ -2891,7 +2898,9 @@ const initMapApp = async () => {
 
                 const score = a.dist + b.dist;
                 if (!best || score < best.score) {
-                    const seg = buildProjectedSubchain(chain, a, b);
+                    const seg = buildProjectedSubchain(chain, a, b, {
+                        preserveLineDirection: options?.preserveLineDirection === true
+                    });
                     best = { score, seg, endDist: Math.max(a.dist, b.dist) };
                 }
             }
