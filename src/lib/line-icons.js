@@ -3,6 +3,16 @@ import { resolveMainLineIdByBranchRule } from './special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
 
+export const removeCompanyAbbFromLineName = (lineName, abb, { lineId = '', normalize = toText } = {}) => {
+    const name = normalize(lineName);
+    const companyAbb = normalize(abb);
+    if (!name) return normalize(lineId);
+    if (!companyAbb) return name;
+    if (name === normalize(lineId) || name.includes('.')) return name;
+    if (['线', '本线', '新线', '\u7dda', '\u672c\u7dda', '\u65b0\u7dda'].some((suffix) => name === `${companyAbb}${suffix}`)) return name;
+    return normalize(name.replace(companyAbb, '')) || name;
+};
+
 const splitStationCodeForBadge = (code) => {
     const c = toText(code);
     const match = c.match(/^([A-Za-z]+)(.+)$/);

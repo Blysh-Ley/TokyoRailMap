@@ -4,6 +4,7 @@ import {
     collectPanelCatalogEntries,
     renderPanelCatalogEntriesHtml
 } from '../src/features/panel/panelCompanyCatalogRenderer.js';
+import { removeCompanyAbbFromLineName } from '../src/lib/line-icons.js';
 
 const lineMetaById = new Map([
     ['JR.Yamanote', { color: '#80c241', company: 'JR', name: 'JR Yamanote' }],
@@ -38,6 +39,24 @@ assert.ok(
     companiesHtml.indexOf('data-line-id="JR.Yamanote"') < companiesHtml.indexOf('data-line-id="JR.Chuo"'),
     'railways order should keep higher rank first'
 );
+assert.equal(removeCompanyAbbFromLineName('京成押上线', '京成'), '押上线');
+assert.equal(removeCompanyAbbFromLineName('京成本线', '京成'), '京成本线');
+assert.equal(removeCompanyAbbFromLineName('Keisei.Main', '京成', { lineId: 'Keisei.Main' }), 'Keisei.Main');
+
+const keiseiHtml = buildPanelCompaniesHtml({
+    display_serving_ids: ['Keisei.Oshiage', 'Keisei.Main']
+}, {
+    companyLogoMap: {
+        Keisei: { abb: '京成', zh: '京成电铁' }
+    },
+    getLineMeta: (lineId) => ({
+        color: '#005aaa',
+        company: 'Keisei',
+        name: lineId === 'Keisei.Main' ? '京成本线' : '京成押上线'
+    })
+});
+assert.match(keiseiHtml, /class="panel-line-name-main">押上线<\/span>/);
+assert.match(keiseiHtml, /class="panel-line-name-main">京成本线<\/span>/);
 
 const catalogHtml = renderPanelCatalogEntriesHtml([
     {

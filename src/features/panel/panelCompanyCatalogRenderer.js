@@ -1,4 +1,4 @@
-import { resolveMainLineIdForIcon } from '../../lib/line-icons.js';
+import { removeCompanyAbbFromLineName, resolveMainLineIdForIcon } from '../../lib/line-icons.js';
 import { getCompanyLogoSrc } from '../../lib/fetch.js';
 import {
     THROUGH_SERVICE_CONFIGS,
@@ -128,9 +128,7 @@ export const buildPanelCompaniesHtml = (props = {}, {
             }
         }
 
-        const isSpecial = displayName === `${abb}\u7dda` || displayName === `${abb}\u672c\u7dda` || displayName === `${abb}\u65b0\u7dda`;
-        const displayLooksLikeRawId = displayName === id || displayName.includes('.');
-        if (!isSpecial && abb && !displayLooksLikeRawId) displayName = displayName.replace(abb, '').trim();
+        displayName = removeCompanyAbbFromLineName(displayName, abb, { lineId: id, normalize: toText });
 
         if (!groups.has(company)) groups.set(company, []);
         groups.get(company).push({ lineId: id, displayName, color });
