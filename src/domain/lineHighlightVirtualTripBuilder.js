@@ -33,6 +33,11 @@ const getStationIdsFromMeta = (meta) => {
     return source.map(toText).filter(Boolean);
 };
 
+const isClosedStationSequence = (stationIds) => {
+    if (!Array.isArray(stationIds) || stationIds.length < 3) return false;
+    return toText(stationIds[0]) === toText(stationIds[stationIds.length - 1]);
+};
+
 const getLineTitle = (meta, lineId, getLineName) => {
     const fromTitle = toText(meta?.title?.['zh-Hans'])
         || toText(meta?.title?.['zh-Hant'])
@@ -58,10 +63,13 @@ export const buildLineHighlightVirtualTripPayloads = ({
         const stationIds = getStationIdsFromMeta(meta);
         if (stationIds.length < 2) continue;
 
+        const isLoopLine = isClosedStationSequence(stationIds);
         const payload = buildPayload({
             lineId,
             lineName: getLineTitle(meta, lineId, getLineName),
-            stationIds,
+            ...(isLoopLine
+                ? { segments: [{ lineId, stationIds, d: 'loop' }] }
+                : { stationIds }),
             tripKey: lineId,
             previewSource,
             fitMode

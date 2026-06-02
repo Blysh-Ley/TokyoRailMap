@@ -16,6 +16,10 @@ const railwaysIndexById = new Map([
     ['SHORT', {
         title: { en: 'Too Short' },
         stations: ['ONLY']
+    }],
+    ['LOOP', {
+        title: { en: 'Loop Line' },
+        stations: ['A', 'B', 'C', 'A']
     }]
 ]);
 
@@ -42,6 +46,22 @@ const railwaysIndexById = new Map([
     assert.equal(payloads[1].selectedLineId, 'L2');
     assert.equal(payloads[1].selectedLineName, 'Line 2');
     assert.deepEqual(payloads[1].segments[0].stationIds, ['A', 'B']);
+}
+
+{
+    const payloads = buildLineHighlightVirtualTripPayloads({
+        lineIds: ['LOOP'],
+        railwaysIndexById
+    });
+
+    assert.equal(payloads.length, 1);
+    assert.equal(payloads[0].mainTerminalStationId, 'A');
+    assert.deepEqual(payloads[0].segments, [{
+        kind: 'main',
+        lineId: 'LOOP',
+        stationIds: ['A', 'B', 'C', 'A'],
+        d: 'loop'
+    }]);
 }
 
 {

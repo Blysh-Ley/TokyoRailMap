@@ -248,11 +248,14 @@ export const buildVirtualTripPreviewPayload = ({
                     ? seg.stationIds.map((x) => toText(x)).filter(Boolean)
                     : [];
                 if (!line || ids.length < 2) return null;
-                return {
+                const out = {
                     kind: 'main',
                     lineId: line,
                     stationIds: ids
                 };
+                const direction = toText(seg?.d || seg?.direction);
+                if (direction) out.d = direction;
+                return out;
             })
             .filter(Boolean)
         : [];
