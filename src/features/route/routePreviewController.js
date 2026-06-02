@@ -146,9 +146,14 @@ export const createRoutePreviewController = ({
                         .map((x) => String(x || '').trim())
                         .filter(Boolean)
                 );
-                if (explicitHighlightIds.size) return explicitHighlightIds;
+                const branchStationIds = new Set(explicitHighlightIds);
                 const endpointIds = buildEndpointStationIdSetFromPayloadList(virtualTrips);
-                return endpointIds.size ? endpointIds : aggregate?.stopIds || null;
+                endpointIds.forEach((id) => branchStationIds.add(id));
+                (aggregate?.stopIds || []).forEach((id) => {
+                    const stationId = String(id || '').trim();
+                    if (stationId) branchStationIds.add(stationId);
+                });
+                return branchStationIds.size ? branchStationIds : null;
             },
             applyActiveState: applyTripPreviewState,
             syncStationOffset: syncStationOffsetForTripPreviewState,
