@@ -459,12 +459,82 @@ const extractBranchLists = (graph, routes) => {
     return Array.from(dedup.values());
 };
 
+const getRecordStationIds = (rec) => {
+    const tt = Array.isArray(rec?.tt) ? rec.tt : [];
+    return tt.map((row) => toText(row?.s)).filter(Boolean);
+};
+
+const collectAdjacentPairKeys = (stationIds) => {
+    const list = Array.isArray(stationIds) ? stationIds : [];
+    const out = new Set();
+    for (let i = 0; i < list.length - 1; i += 1) {
+        const a = toText(list[i]);
+        const b = toText(list[i + 1]);
+        if (!a || !b || a === b) continue;
+        out.add(edgeKey(a, b));
+    }
+    return out;
+};
+
+const addCurrentLineCoverageRecords = ({
+    targetTimetables,
+    baseFilteredRecords,
+    activeLineIds,
+    lineStationIdsById
+} = {}) => {
+    if (!Array.isArray(targetTimetables) || !Array.isArray(baseFilteredRecords)) return;
+    if (!(lineStationIdsById instanceof Map)) return;
+
+    const selectedTripIds = new Set(targetTimetables.map((rec) => getTripId(rec)).filter(Boolean));
+    const coveredPairKeys = new Set();
+    for (const rec of targetTimetables) {
+        for (const key of collectAdjacentPairKeys(getRecordStationIds(rec))) coveredPairKeys.add(key);
+    }
+
+    const requiredPairKeys = [];
+    const seenRequired = new Set();
+    for (const lineId of Array.isArray(activeLineIds) ? activeLineIds : []) {
+        const stationIds = lineStationIdsById.get(toText(lineId)) || [];
+        for (const key of collectAdjacentPairKeys(stationIds)) {
+            if (seenRequired.has(key)) continue;
+            seenRequired.add(key);
+            requiredPairKeys.push(key);
+        }
+    }
+
+    for (const requiredPairKey of requiredPairKeys) {
+        if (coveredPairKeys.has(requiredPairKey)) continue;
+
+        const coverageRecord = baseFilteredRecords.find((rec) => {
+            const tripId = getTripId(rec);
+            if (tripId && selectedTripIds.has(tripId)) return false;
+            return collectAdjacentPairKeys(getRecordStationIds(rec)).has(requiredPairKey);
+        });
+        if (!coverageRecord) continue;
+
+        targetTimetables.push(coverageRecord);
+        const tripId = getTripId(coverageRecord);
+        if (tripId) selectedTripIds.add(tripId);
+        for (const key of collectAdjacentPairKeys(getRecordStationIds(coverageRecord))) {
+            coveredPairKeys.add(key);
+        }
+    }
+};
+
 const loadAllTimetableRecords = async () => {
     if (allTimetableRecordsPromise) return allTimetableRecordsPromise;
 
     allTimetableRecordsPromise = (async () => {
         const railways = await getCachedJson('./data/railways.json');
-        const railwayIds = Array.from(new Set((Array.isArray(railways) ? railways : []).map((r) => toText(r?.id)).filter(Boolean)));
+        const lineStationIdsById = new Map();
+        for (const railway of Array.isArray(railways) ? railways : []) {
+            const id = toText(railway?.id);
+            if (!id) continue;
+            lineStationIdsById.set(id, Array.isArray(railway?.stations)
+                ? railway.stations.map((x) => toText(x)).filter(Boolean)
+                : []);
+        }
+        const railwayIds = Array.from(lineStationIdsById.keys());
 
         const lineDataById = new Map();
         const tasks = railwayIds.map((lineId) => async () => {
@@ -492,7 +562,8 @@ const loadAllTimetableRecords = async () => {
 
         return {
             allRecords,
-            idMap
+            idMap,
+            lineStationIdsById
         };
     })();
 
@@ -607,7 +678,7 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
 
     //if (!branchAnalysisCacheByLine.has(cacheKey)) {
         const p = (async () => {
-            const { allRecords, idMap } = await loadAllTimetableRecords();
+            const { allRecords, idMap, lineStationIdsById } = await loadAllTimetableRecords();
             const throughCategoryCache = new Map();
 
             const baseFilteredRecords = [];
@@ -642,6 +713,12 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
                         targetTimetables.push(rec);
                     }
                 }
+                addCurrentLineCoverageRecords({
+                    targetTimetables,
+                    baseFilteredRecords,
+                    activeLineIds,
+                    lineStationIdsById
+                });
             }
             else{
                 targetTimetables.push(...baseFilteredRecords);
