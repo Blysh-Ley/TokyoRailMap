@@ -144,6 +144,9 @@ assert.match(exportCurrentSelectionBody, /exportSnapshot\(lastSnapshot, options\
 assert.match(exportCurrentSelectionBody, /return false/);
 assert.match(printSource, /getLineOffsetPixelsForFeature[\s\S]*line_offset_units/);
 assert.match(printSource, /pathFromLineFeatureCoords\(map, f, geom\.coordinates\)/);
+assert.match(printSource, /pickLineNameLabelsInBbox/);
+assert.match(printSource, /getGeoJsonSourceData\(baseMap, 'line-name-labels-source'\)/);
+assert.match(printSource, /appendLineNameLabelsSvg/);
 assert.match(printSource, /getExportStationOffsetGeoJSONForMap\(vmap\)/);
 assert.match(printSource, /remapStopFeatureCoordsToExportStations/);
 assert.match(printSource, /exportStationsGeoJSON/);

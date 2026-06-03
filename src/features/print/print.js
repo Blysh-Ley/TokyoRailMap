@@ -1077,6 +1077,83 @@
         parts.push(`</g>`);
     };
 
+    const isLineNameLabelsVisibleForExport = (baseMap) => {
+        try {
+            if (!baseMap?.getLayer?.('line-name-labels-layer')) return false;
+            const visibility = baseMap.getLayoutProperty?.('line-name-labels-layer', 'visibility');
+            return visibility !== 'none';
+        } catch {
+            return true;
+        }
+    };
+
+    const pickLineNameLabelsInBbox = async ({ baseMap, bbox }) => {
+        if (!baseMap || !bbox || !isLineNameLabelsVisibleForExport(baseMap)) return [];
+        const fc = await getGeoJsonSourceData(baseMap, 'line-name-labels-source');
+        const features = Array.isArray(fc?.features) ? fc.features : [];
+        if (!features.length) return [];
+
+        const out = [];
+        for (const f of features) {
+            const props = f?.properties || {};
+            const name = toText(props.name);
+            if (!name) continue;
+            const geom = f?.geometry;
+            if (!geom) continue;
+            if (geom.type === 'LineString') {
+                if (featureBboxIntersects(geom.coordinates, bbox)) out.push(f);
+            } else if (geom.type === 'MultiLineString' && Array.isArray(geom.coordinates)) {
+                if (geom.coordinates.some((line) => featureBboxIntersects(line, bbox))) out.push(f);
+            }
+        }
+        return out;
+    };
+
+    const appendLineNameLabelsSvg = ({ parts, map, features, labelScale = 1 }) => {
+        const list = Array.isArray(features) ? features : [];
+        if (!list.length) return;
+
+        const scale = Math.max(1, Number(labelScale) || 1);
+        const fontPx = 10 * scale;
+        const fontFamily = "'Open Sans', 'Arial Unicode MS', sans-serif";
+
+        parts.push(`<g id="line-name-labels-export" font-family="${fontFamily}" font-size="${fontPx}" font-weight="700" text-anchor="middle" dominant-baseline="middle">`);
+        for (const f of list) {
+            const props = f?.properties || {};
+            const text = toText(props.name);
+            if (!text) continue;
+
+            const geom = f?.geometry;
+            const coords = geom?.type === 'LineString' ? geom.coordinates : null;
+            const points = (Array.isArray(coords) ? coords : [])
+                .filter((coord) => Array.isArray(coord) && coord.length >= 2);
+            if (points.length < 2) continue;
+
+            const first = project(map, { lng: Number(points[0][0]), lat: Number(points[0][1]) });
+            const lastCoord = points[points.length - 1];
+            const last = project(map, { lng: Number(lastCoord[0]), lat: Number(lastCoord[1]) });
+            if (!Number.isFinite(first.x) || !Number.isFinite(first.y) || !Number.isFinite(last.x) || !Number.isFinite(last.y)) continue;
+
+            let angle = Math.atan2(last.y - first.y, last.x - first.x) * 180 / Math.PI;
+            if (angle > 90 || angle < -90) angle += 180;
+
+            const cx = (first.x + last.x) / 2;
+            const cy = (first.y + last.y) / 2;
+            const rad = angle * Math.PI / 180;
+            const offset = Array.isArray(props.text_offset) ? Number(props.text_offset[1]) : 0;
+            const offsetPx = Number.isFinite(offset) ? offset * fontPx : 0;
+            const x = cx + (-Math.sin(rad) * offsetPx);
+            const y = cy + (Math.cos(rad) * offsetPx);
+            const color = escapeXml(resolveRailColorForTheme(props.color || '#2f6fdf') || '#2f6fdf');
+            const letterSpacing = `${(0.15 * fontPx).toFixed(2)}`;
+
+            parts.push(
+                `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" transform="rotate(${angle.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)})" fill="${color}" letter-spacing="${letterSpacing}">${escapeXml(text)}</text>`
+            );
+        }
+        parts.push(`</g>`);
+    };
+
     const pathFromCoords = (map, coords, options = {}) => {
         const pts = (Array.isArray(coords) ? coords : []).filter((c) => Array.isArray(c) && c.length >= 2);
         if (pts.length < 2) return '';
@@ -1219,6 +1296,30 @@
             capsuleLines: capsules?.lines,
             capsuleCentroids: capsules?.centroids
         });
+
+        try {
+            const bounds = map.getBounds?.();
+            const baseMap = getRuntimeBaseMap() || map;
+            if (bounds && baseMap) {
+                const lineNameLabelFeatures = await pickLineNameLabelsInBbox({
+                    baseMap,
+                    bbox: {
+                        minLng: bounds.getWest(),
+                        minLat: bounds.getSouth(),
+                        maxLng: bounds.getEast(),
+                        maxLat: bounds.getNorth()
+                    }
+                });
+                appendLineNameLabelsSvg({
+                    parts,
+                    map,
+                    features: lineNameLabelFeatures,
+                    labelScale: stationLabelScale
+                });
+            }
+        } catch {
+            // keep export working even if optional line-name labels cannot be read
+        }
 
         // stops
         parts.push(`<g id="trip-preview-stops">`);
