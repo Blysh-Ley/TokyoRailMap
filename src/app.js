@@ -525,6 +525,7 @@ const initMapApp = async () => {
         if (baseMultiSelectionsByKey.has(k)) {
             baseMultiSelectionsByKey.delete(k);
             emitMultiSelectLayersUpdated();
+            syncMultiSelectBaseTripPreview().catch(() => null);
             return false;
         }
         baseMultiSelectionsByKey.set(k, {
@@ -1590,7 +1591,7 @@ const initMapApp = async () => {
     const buildMultiSelectLayerItems = () => {
         return buildMultiSelectLayerItemsFromInputs({
             baseTripPreviewSource: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE,
-            baseSelectionsByKey,
+            baseSelectionsByKey: baseMultiSelectionsByKey,
             excludeTripPreviewSource: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE,
             formatBranchLineName: (lineName) => `${lineName}（直通线路）`,
             getBaseKindName: getBaseKindNameForMultiSelect,

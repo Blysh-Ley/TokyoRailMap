@@ -97,6 +97,16 @@ assert.match(multiSelectSyncBody, /selectedLineId: 'multi-base'/);
 assert.match(multiSelectSyncBody, /previewSource: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE/);
 assert.match(multiSelectSyncBody, /virtualTrips/);
 assert.doesNotMatch(multiSelectSyncBody, /SELECTION_COMPANY_TRIP_PREVIEW_SOURCE/);
+
+const multiSelectLayerItemsBody = extractConstFunctionBody(appSource, 'buildMultiSelectLayerItems');
+assert.match(multiSelectLayerItemsBody, /baseSelectionsByKey:\s*baseMultiSelectionsByKey/);
+assert.match(multiSelectLayerItemsBody, /tripPreviewSelectionEntries:\s*routeFeature\.getTripPreviewSelectionEntries\(\)/);
+
+const toggleBaseMultiSelectionBody = extractConstFunctionBody(appSource, 'toggleBaseMultiSelection');
+assert.match(
+    toggleBaseMultiSelectionBody,
+    /baseMultiSelectionsByKey\.delete\(k\);[\s\S]*emitMultiSelectLayersUpdated\(\);[\s\S]*syncMultiSelectBaseTripPreview\(\)\.catch\(\(\) => null\);[\s\S]*return false;/
+);
 assert.doesNotMatch(appSource, /focusExpr: \['==', \['get', 'company'\], selectedCompany\]/);
 
 const lineOffsetPaintBody = extractConstFunctionBody(elementUiSource, 'buildLineOffsetPaintExpr');
