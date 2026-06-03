@@ -75,6 +75,119 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
         return true;
     };
 
+    const lineHighlightLabelMarkers = new Map();
+
+    const toLabelText = (value) => String(value ?? '').trim();
+
+    const createLineHighlightLabelElement = (item = {}) => {
+        if (typeof document === 'undefined') return null;
+        const color = toLabelText(item.color) || '#2f6fdf';
+        const iconText = toLabelText(item.iconText);
+        const lineName = toLabelText(item.lineName) || toLabelText(item.lineId);
+        if (!lineName) return null;
+
+        const el = document.createElement('div');
+        el.className = 'map-line-highlight-label';
+        el.style.setProperty('--line-highlight-label-color', color);
+
+        const icon = document.createElement('span');
+        icon.className = iconText
+            ? 'map-line-highlight-label-icon'
+            : 'map-line-highlight-label-icon map-line-highlight-label-icon-dot';
+        icon.textContent = iconText;
+
+        const name = document.createElement('span');
+        name.className = 'map-line-highlight-label-name';
+        name.textContent = lineName;
+
+        el.append(icon, name);
+        return el;
+    };
+
+    const getLineHighlightLabelSignature = (item = {}) => [
+        toLabelText(item.lineId),
+        toLabelText(item.lineName),
+        toLabelText(item.iconText),
+        toLabelText(item.color)
+    ].join('|');
+
+    const normalizeLineHighlightLabelItem = (item = {}) => {
+        const lineId = toLabelText(item.lineId);
+        const coordinate = Array.isArray(item.coordinate) ? item.coordinate : null;
+        const lng = Number(coordinate?.[0]);
+        const lat = Number(coordinate?.[1]);
+        if (!lineId || !Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+        return {
+            lineId,
+            coordinate: [lng, lat],
+            lineName: toLabelText(item.lineName) || lineId,
+            iconText: toLabelText(item.iconText),
+            color: toLabelText(item.color)
+        };
+    };
+
+    const clearLineHighlightLabels = () => {
+        for (const entry of lineHighlightLabelMarkers.values()) {
+            try {
+                entry?.marker?.remove?.();
+            } catch {
+                // ignore stale marker cleanup errors
+            }
+        }
+        lineHighlightLabelMarkers.clear();
+    };
+
+    const renderLineHighlightLabels = (items = []) => {
+        if (!Array.isArray(items) || !items.length) {
+            clearLineHighlightLabels();
+            return 0;
+        }
+
+        const normalizedItems = items
+            .map(normalizeLineHighlightLabelItem)
+            .filter(Boolean);
+        const nextIds = new Set(normalizedItems.map((item) => item.lineId));
+
+        for (const [lineId, entry] of lineHighlightLabelMarkers.entries()) {
+            if (nextIds.has(lineId)) continue;
+            try {
+                entry?.marker?.remove?.();
+            } catch {
+                // ignore stale marker cleanup errors
+            }
+            lineHighlightLabelMarkers.delete(lineId);
+        }
+
+        for (const item of normalizedItems) {
+            const signature = getLineHighlightLabelSignature(item);
+            const existing = lineHighlightLabelMarkers.get(item.lineId);
+            if (existing && existing.signature === signature) {
+                existing.marker?.setLngLat?.(item.coordinate);
+                continue;
+            }
+
+            if (existing) {
+                try {
+                    existing.marker?.remove?.();
+                } catch {
+                    // ignore stale marker cleanup errors
+                }
+            }
+
+            const element = createLineHighlightLabelElement(item);
+            if (!element) continue;
+            const marker = new maplibregl.Marker({
+                element,
+                anchor: 'center',
+                offset: [0, -18]
+            }).setLngLat(item.coordinate);
+            marker.addTo(map);
+            lineHighlightLabelMarkers.set(item.lineId, { marker, signature });
+        }
+
+        return lineHighlightLabelMarkers.size;
+    };
+
     return {
         getMap: () => map,
         addMetricScaleControl: ({ maxWidth = 100, position = 'bottom-left' } = {}) => {
@@ -141,6 +254,8 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
             source?.setData?.(data);
             return source;
         },
+        clearLineHighlightLabels,
+        renderLineHighlightLabels,
         updateGeoJsonSource: (sourceId, data) => {
             const source = ensureGeoJsonSource(sourceId, data);
             source?.setData?.(data || { type: 'FeatureCollection', features: [] });

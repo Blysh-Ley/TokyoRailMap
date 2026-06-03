@@ -26,8 +26,9 @@ import {
     buildLineHighlightVirtualTripPayloads,
     resolveSelectionLineHighlightIds
 } from './domain/lineHighlightVirtualTripBuilder.js';
+import { buildLineHighlightLabelItems } from './domain/lineHighlightLabels.js';
 import { previewBranchesForLine } from './map/analyze_branch.js';
-import { createLineIconElement } from './lib/line-icons.js';
+import { createLineIconElement, getResolvedRouteIconMeta } from './lib/line-icons.js';
 import {
     buildBaseLineColorExpr,
     buildFocusedLinePaint,
@@ -1059,6 +1060,8 @@ const initMapApp = async () => {
     const lineColorByName = new Map();
     const lineCompanyById = new Map();
     const lineOffsetUnitsById = new Map();
+    const lineFeatureById = new Map();
+    let lineHighlightLabelRequestId = 0;
     const tripPreviewRenderer = createTripPreviewRenderer({
         mapEngine,
         getLinePaint: () => tripPreviewLineLayerPaint(),
@@ -1978,6 +1981,55 @@ const initMapApp = async () => {
         return null;
     }
 
+    const clearLineHighlightIdentityLabels = () => {
+        lineHighlightLabelRequestId += 1;
+        highlightRenderer.clearLineIdentityLabels();
+    };
+
+    const syncLineHighlightIdentityLabels = () => {
+        const lineIds = getEnabledLineIdsForLabels();
+        if (!(lineIds instanceof Set) || !lineIds.size) {
+            clearLineHighlightIdentityLabels();
+            return;
+        }
+
+        const requestId = lineHighlightLabelRequestId + 1;
+        lineHighlightLabelRequestId = requestId;
+        const baseItems = buildLineHighlightLabelItems({
+            lineIds,
+            lineFeatureById,
+            getLineColor: (lineId) => resolveRailColorForTheme(lineColorById.get(lineId) || '') || '',
+            getLineName: (lineId) => lineNameById.get(lineId) || lineId
+        });
+
+        if (!baseItems.length) {
+            highlightRenderer.clearLineIdentityLabels();
+            return;
+        }
+
+        highlightRenderer.applyLineIdentityLabels(baseItems);
+
+        Promise.all(baseItems.map(async (item) => {
+            try {
+                const meta = await getResolvedRouteIconMeta(item.lineId, { color: item.color });
+                return {
+                    ...item,
+                    iconText: String(meta?.code || item.iconText || '').trim(),
+                    color: String(meta?.color || item.color || '').trim()
+                };
+            } catch {
+                return item;
+            }
+        })).then((items) => {
+            if (requestId !== lineHighlightLabelRequestId) return;
+            highlightRenderer.applyLineIdentityLabels(items);
+        }).catch(() => {
+            if (requestId === lineHighlightLabelRequestId) {
+                highlightRenderer.applyLineIdentityLabels(baseItems);
+            }
+        });
+    };
+
     function updateMultiSelectStationLabelChips() {
         const inMultiSelectMode = isMultiSelectModeEnabled();
         stationLabelChipsAdapter?.render?.({
@@ -2019,6 +2071,7 @@ const initMapApp = async () => {
             applyTransferStationLabelCollapse,
             updateSelectedStationLabelClass,
             updateMultiSelectStationLabelChips,
+            syncLineHighlightIdentityLabels,
             scheduleSelectionLayerRefresh,
             updateSelectionBadge
         },
@@ -3272,6 +3325,7 @@ const initMapApp = async () => {
         for (const f of lineFeatures) {
             const lineId = f?.properties?.id ?? f?.id;
             if (!lineId) continue;
+            lineFeatureById.set(String(lineId), f);
 
             const company = f?.properties?.company ?? '未知公司';
             const name = f?.properties?.name ?? String(lineId);

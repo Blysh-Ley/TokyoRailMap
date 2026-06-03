@@ -46,11 +46,29 @@ export const createHighlightRenderer = ({ mapEngine, layers = DEFAULT_LAYERS } =
         setPaintProperties(layerIds.stations, stationsPaint);
     };
 
+    const applyLineIdentityLabels = (items = []) => {
+        try {
+            return mapEngine.renderLineHighlightLabels?.(items) ?? 0;
+        } catch {
+            return 0;
+        }
+    };
+
+    const clearLineIdentityLabels = () => {
+        try {
+            mapEngine.clearLineHighlightLabels?.();
+        } catch {
+            // ignore stale map label cleanup errors
+        }
+    };
+
     return {
         hasLayer,
         applyLinePaint,
         applyLineFilter,
         applyStationSelectionPaint,
-        applyStationThemePaint
+        applyStationThemePaint,
+        applyLineIdentityLabels,
+        clearLineIdentityLabels
     };
 };

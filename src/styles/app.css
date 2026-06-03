@@ -4712,6 +4712,59 @@ html[data-theme='dark'] .station-label {
     border-color: rgba(210, 216, 226, 0.35);
 }
 
+.map-line-highlight-label {
+    --line-highlight-label-color: #2f6fdf;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 220px;
+    padding: 4px 8px 4px 5px;
+    border: 1px solid color-mix(in srgb, var(--line-highlight-label-color) 70%, #ffffff);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #16181d;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.map-line-highlight-label-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--line-highlight-label-color);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.map-line-highlight-label-icon-dot {
+    min-width: 12px;
+    width: 12px;
+    height: 12px;
+    padding: 0;
+}
+
+.map-line-highlight-label-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+html[data-theme='dark'] .map-line-highlight-label {
+    border-color: color-mix(in srgb, var(--line-highlight-label-color) 78%, #101216);
+    background: rgba(24, 26, 31, 0.94);
+    color: #f2f2f2;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.38);
+}
+
 html[data-theme='dark'] .maplibregl-popup-content {
     background: rgba(24, 26, 31, 0.8);
     box-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
