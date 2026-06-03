@@ -73,8 +73,8 @@ assert.deepEqual(labels.features[0], {
         type: 'line-name-label'
     },
     geometry: {
-        type: 'Point',
-        coordinates: [1, 0]
+        type: 'LineString',
+        coordinates: [[0, 0], [1, 0], [2, 0]]
     }
 });
 
@@ -95,8 +95,11 @@ assert.equal(sources.get('line-name-labels-source').data, labels);
 const labelLayer = layers.get('line-name-labels-layer');
 assert.equal(labelLayer.beforeLayerId, 'lines-layer');
 assert.equal(labelLayer.layer.type, 'symbol');
+assert.equal(labelLayer.layer.layout['symbol-placement'], 'line-center');
 assert.deepEqual(labelLayer.layer.layout['text-field'], ['get', 'name']);
 assert.deepEqual(labelLayer.layer.layout['text-font'], ['Open Sans Regular', 'Arial Unicode MS Regular']);
+assert.deepEqual(labelLayer.layer.layout['text-offset'], [0, 1.25]);
+assert.equal(labelLayer.layer.layout['text-keep-upright'], true);
 assert.deepEqual(labelLayer.layer.paint['text-color'], ['coalesce', ['get', 'color'], '#2f6fdf']);
 assert.equal(Object.hasOwn(labelLayer.layer.paint, 'text-halo-color'), false);
 assert.equal(Object.hasOwn(labelLayer.layer.paint, 'background-color'), false);

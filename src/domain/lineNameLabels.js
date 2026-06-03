@@ -1,7 +1,10 @@
-import { pickLineHighlightLabelCoordinate } from './lineHighlightLabels.js';
-
 const toText = (value) => String(value ?? '').trim();
 const LINE_NAME_LABEL_BLOCKED_TOKENS = Object.freeze(['货物', '貨物', '支线', '支線']);
+
+const isLineGeometry = (geometry) => (
+    (geometry?.type === 'LineString' && Array.isArray(geometry.coordinates) && geometry.coordinates.length >= 2)
+    || (geometry?.type === 'MultiLineString' && Array.isArray(geometry.coordinates) && geometry.coordinates.length > 0)
+);
 
 const isVisibleLineFeature = (feature) => {
     const props = feature?.properties || {};
@@ -10,7 +13,7 @@ const isVisibleLineFeature = (feature) => {
         lineId
         && !lineId.startsWith('Base.')
         && Number(props.hidden_by_opacity_zero) !== 1
-        && feature?.geometry?.type
+        && isLineGeometry(feature?.geometry)
     );
 };
 
@@ -31,9 +34,8 @@ export const buildLineNameLabelGeoJSON = (lineFeatures = []) => {
         const lineId = toText(props.id || feature.id);
         if (!lineId || seen.has(lineId)) continue;
 
-        const coordinate = pickLineHighlightLabelCoordinate(feature.geometry);
         const name = toText(props.name) || lineId;
-        if (!coordinate || !shouldShowLineNameLabel(name)) continue;
+        if (!shouldShowLineNameLabel(name)) continue;
 
         seen.add(lineId);
         features.push({
@@ -45,10 +47,7 @@ export const buildLineNameLabelGeoJSON = (lineFeatures = []) => {
                 color: toText(props.color),
                 type: 'line-name-label'
             },
-            geometry: {
-                type: 'Point',
-                coordinates: coordinate
-            }
+            geometry: feature.geometry
         });
     }
 
