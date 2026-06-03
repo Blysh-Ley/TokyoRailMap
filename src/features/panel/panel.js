@@ -2247,18 +2247,9 @@ export function createPanel(options = {}) {
     };
 
     const extractTripSpecialNames = (tripLike) => {
-        const normalizeCompact = (value) => toText(value).toLowerCase().replace(/\s+/g, '');
-        const typeId = toText(tripLike?.y);
-        const typeToken = normalizeCompact(typeId.split('.')[1] || '');
         const list = Array.isArray(tripLike?.nm) ? tripLike.nm : [];
         const out = [];
         for (const item of list) {
-            const enName = toText(item?.en);
-            const enCompact = normalizeCompact(enName);
-            const isNaritaExpressName = enCompact.includes('naritaexpress');
-            const isSpecial = !isNaritaExpressName && (!enCompact || !typeToken || !enCompact.includes(typeToken));
-            if (!isSpecial) continue;
-
             const name = toText(item?.['zh-Hans'] || item?.['zh-Hnas'] || item?.ja || item?.en);
             if (name) out.push(name);
         }
