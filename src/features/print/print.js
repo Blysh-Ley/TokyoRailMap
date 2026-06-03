@@ -83,6 +83,12 @@
     const EXPORT_EVENT = '__TokyoRailTripPreviewUpdated';
     const CLEAR_EVENT = '__TokyoRailTripPreviewCleared';
     const EXPORT_UI_STORAGE_KEY = 'tokyorail.export.ui';
+    const EXPORT_ASPECT_RATIOS = {
+        '16:9': { w: 16, h: 9 },
+        '4:3': { w: 4, h: 3 },
+        '1:1': { w: 1, h: 1 }
+    };
+    const EXPORT_ORIENTATIONS = new Set(['landscape', 'portrait']);
 
     const getRuntimeBaseMap = () => {
         try {
@@ -1397,17 +1403,6 @@
         };
     };
 
-    const approxBboxAspect = (bbox) => {
-        const b = normalizeBbox(bbox);
-        if (!b) return 1;
-        const dLng = Math.abs(b.maxLng - b.minLng);
-        const dLat = Math.abs(b.maxLat - b.minLat);
-        const meanLatRad = (((b.minLat + b.maxLat) / 2) * Math.PI) / 180;
-        const w = dLng * Math.max(0.01, Math.cos(meanLatRad));
-        const h = Math.max(1e-9, dLat);
-        return w / h;
-    };
-
     const approxBboxSpanKm = (bbox) => {
         const b = normalizeBbox(bbox);
         if (!b) return null;
@@ -1443,6 +1438,36 @@
         const d1 = Math.abs(Math.log(a / r1));
         const d2 = Math.abs(Math.log(a / r2));
         return d1 <= d2 ? r1 : r2;
+    };
+
+    const normalizeExportAspectRatio = (value) => {
+        const key = String(value ?? '').trim();
+        return EXPORT_ASPECT_RATIOS[key] ? key : '16:9';
+    };
+
+    const normalizeExportOrientation = (value) => {
+        const key = String(value ?? '').trim();
+        return EXPORT_ORIENTATIONS.has(key) ? key : 'landscape';
+    };
+
+    const getExportAspectDimensions = (aspectRatioRaw, orientationRaw) => {
+        const aspectRatio = normalizeExportAspectRatio(aspectRatioRaw);
+        const orientation = normalizeExportOrientation(orientationRaw);
+        const ratio = EXPORT_ASPECT_RATIOS[aspectRatio] || EXPORT_ASPECT_RATIOS['16:9'];
+        if (orientation === 'portrait' && ratio.w !== ratio.h) {
+            return { w: ratio.h, h: ratio.w };
+        }
+        return { w: ratio.w, h: ratio.h };
+    };
+
+    const getExportBaseSize = ({ aspectRatio, orientation, resolution }) => {
+        const longSide = String(resolution || '4k') === '1080p' ? 1920 : 3840;
+        const dims = getExportAspectDimensions(aspectRatio, orientation);
+        const maxDim = Math.max(1, dims.w, dims.h);
+        return clampCanvasSize({
+            w: (longSide * dims.w) / maxDim,
+            h: (longSide * dims.h) / maxDim
+        });
     };
 
     const clampCanvasSize = ({ w, h }) => {
@@ -1788,7 +1813,9 @@
             const format = obj.format === 'png' ? 'png' : 'svg+png';
             const res = obj.resolution === '1080p' ? '1080p' : '4k';
             const zoomMode = obj.zoomMode === 'auto' ? 'auto' : 'current';
-            return { format, resolution: res, zoomMode };
+            const aspectRatio = normalizeExportAspectRatio(obj.aspectRatio);
+            const orientation = normalizeExportOrientation(obj.orientation);
+            return { aspectRatio, format, orientation, resolution: res, zoomMode };
         } catch {
             return null;
         }
@@ -1941,11 +1968,7 @@
             const svgName = `${baseName}.svg`;
             const zipName = `${baseName}.zip`;
 
-            // 选择导出方向（16:9 或 9:16）
-            const a = approxBboxAspect(geoBbox);
-            const targetRatio = chooseAspectRatio(a, 1);
-            const isLandscape = targetRatio >= 1;
-
+            // 导出尺寸由设置里的比例和横竖屏决定。
             const tryExportPng = async ({ baseW, baseH, paddingPx }) => {
                 await ensureStyleMatchesTheme(vmap, maxExportZoom);
 
@@ -2009,16 +2032,20 @@
             };
 
             const resolution = String(options?.resolution || '4k');
+            const aspectRatio = normalizeExportAspectRatio(options?.aspectRatio);
+            const orientation = normalizeExportOrientation(options?.orientation);
             const stationLabelScale = resolution === '4k' ? 2 : 1;
 
             // 4K：优先 4K，失败回退 1080P；1080P：直接 1080P（不尝试 4K）
             let pngBlob = null;
-            let outW = isLandscape ? 3840 : 2160;
-            let outH = isLandscape ? 2160 : 3840;
+            const size4k = getExportBaseSize({ aspectRatio, orientation, resolution: '4k' });
+            const size1080p = getExportBaseSize({ aspectRatio, orientation, resolution: '1080p' });
+            let outW = size4k.w;
+            let outH = size4k.h;
             if (resolution === '1080p') {
                 const r = await tryExportPng({
-                    baseW: isLandscape ? 1920 : 1080,
-                    baseH: isLandscape ? 1080 : 1920,
+                    baseW: size1080p.w,
+                    baseH: size1080p.h,
                     paddingPx: 60,
                 });
                 pngBlob = r.blob;
@@ -2027,8 +2054,8 @@
             } else {
                 try {
                     const r = await tryExportPng({
-                        baseW: isLandscape ? 3840 : 2160,
-                        baseH: isLandscape ? 2160 : 3840,
+                        baseW: size4k.w,
+                        baseH: size4k.h,
                         paddingPx: 120,
                     });
                     pngBlob = r.blob;
@@ -2036,8 +2063,8 @@
                     outH = r.h;
                 } catch {
                     const r = await tryExportPng({
-                        baseW: isLandscape ? 1920 : 1080,
-                        baseH: isLandscape ? 1080 : 1920,
+                        baseW: size1080p.w,
+                        baseH: size1080p.h,
                         paddingPx: 60,
                     });
                     pngBlob = r.blob;
@@ -2462,8 +2489,16 @@
 
         const content = el('div', 'settings-content export-content is-hidden');
 
-        const prefs = readExportPrefs() || { format: 'svg+png', resolution: '4k', zoomMode: 'current' };
+        const prefs = readExportPrefs() || {
+            aspectRatio: '16:9',
+            format: 'svg+png',
+            orientation: 'landscape',
+            resolution: '4k',
+            zoomMode: 'current'
+        };
+        let aspectRatio = normalizeExportAspectRatio(prefs.aspectRatio);
         let format = prefs.format;
+        let orientation = normalizeExportOrientation(prefs.orientation);
         let resolution = prefs.resolution;
         let zoomMode = prefs.zoomMode;
 
@@ -2484,7 +2519,7 @@
                     setValue(o.value);
                     seg.querySelectorAll('button').forEach((x) => x.classList.remove('is-active'));
                     b.classList.add('is-active');
-                    writeExportPrefs({ format, resolution, zoomMode });
+                    writeExportPrefs({ aspectRatio, format, orientation, resolution, zoomMode });
                     try { refreshResolutionDisabled?.(); } catch {}
                 });
                 seg.appendChild(b);
@@ -2537,6 +2572,37 @@
             rowZoom.appendChild(ctrl);
         }
 
+        const rowAspectRatio = el('div', 'settings-item');
+        rowAspectRatio.appendChild(el('div', 'settings-item-title', '导出比例'));
+        {
+            const ctrl = el('div', 'settings-item-control');
+            ctrl.appendChild(mkSeg(
+                [
+                    { label: '16:9', value: '16:9' },
+                    { label: '4:3', value: '4:3' },
+                    { label: '1:1', value: '1:1' },
+                ],
+                () => aspectRatio,
+                (v) => { aspectRatio = normalizeExportAspectRatio(v); }
+            ));
+            rowAspectRatio.appendChild(ctrl);
+        }
+
+        const rowOrientation = el('div', 'settings-item');
+        rowOrientation.appendChild(el('div', 'settings-item-title', '横竖屏'));
+        {
+            const ctrl = el('div', 'settings-item-control');
+            ctrl.appendChild(mkSeg(
+                [
+                    { label: '横屏', value: 'landscape' },
+                    { label: '竖屏', value: 'portrait' },
+                ],
+                () => orientation,
+                (v) => { orientation = normalizeExportOrientation(v); }
+            ));
+            rowOrientation.appendChild(ctrl);
+        }
+
         refreshResolutionDisabled = () => {
             const disabled = (format === 'svg+png') && (zoomMode === 'current');
             rowRes.classList.toggle('is-disabled', disabled);
@@ -2572,7 +2638,7 @@
 
             setLoading(true);
             try {
-                await exportCurrentSelection({ resolution, format, zoomMode });
+                await exportCurrentSelection({ aspectRatio, format, orientation, resolution, zoomMode });
             } finally {
                 setLoading(false);
             }
@@ -2583,6 +2649,8 @@
         content.appendChild(rowFormat);
         content.appendChild(rowZoom);
         content.appendChild(rowRes);
+        content.appendChild(rowAspectRatio);
+        content.appendChild(rowOrientation);
         content.appendChild(rowExport);
 
         root.appendChild(fab);
