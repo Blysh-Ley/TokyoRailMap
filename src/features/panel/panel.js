@@ -51,6 +51,7 @@ import {
     buildTripDetailEndpointContext,
     getTripDetailStationAKey,
     markRowsPastByStation,
+    matchesTripDetailEndpointStop,
     mergeTripDetailSegmentsAtBoundaries
 } from './panelTripDetailViewModel.js';
 import {
@@ -81,7 +82,11 @@ import {
     isTouchLikePointer
 } from './panelTouchInteractionController.js';
 import { composePanelShellWithContent, createPanelContentApi } from './panelContentApi.js';
-import { isExcludedLineType } from '../../lib/special-condition.js';
+import {
+    getSpecialTripDetailStationAKey,
+    isExcludedLineType,
+    shouldUseExactTripDetailEndpointIds
+} from '../../lib/special-condition.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -3762,7 +3767,7 @@ export function createPanel(options = {}) {
         return out;
     };
 
-    const normalizeTripStops = (stops, serviceDayStartMs, { originIds, terminalIds, originAKeys, terminalAKeys, showOriginLabel, showTerminalLabel }) => {
+    const normalizeTripStops = (stops, serviceDayStartMs, { allowEndpointAKeyFallback = true, originIds, terminalIds, originAKeys, terminalAKeys, showOriginLabel, showTerminalLabel }) => {
         const out = [];
         for (const s of Array.isArray(stops) ? stops : []) {
             let arr = toText(s?.arr) || '';
@@ -3770,14 +3775,22 @@ export function createPanel(options = {}) {
 
             const stationId = toText(s?.stationId);
             const stationAKey = getStationAKey(stationId);
-            const isOriginStop = !!showOriginLabel && (
-                !!originIds?.has?.(stationId) ||
-                (!!stationAKey && !!originAKeys?.has?.(stationAKey))
-            );
-            const isTerminalStop = !!showTerminalLabel && (
-                !!terminalIds?.has?.(stationId) ||
-                (!!stationAKey && !!terminalAKeys?.has?.(stationAKey))
-            );
+            const isOriginStop = !!showOriginLabel && matchesTripDetailEndpointStop({
+                allowAKeyFallback: allowEndpointAKeyFallback,
+                endpointAKeys: originAKeys,
+                endpointIds: originIds,
+                stationAKey,
+                stationId,
+                toText
+            });
+            const isTerminalStop = !!showTerminalLabel && matchesTripDetailEndpointStop({
+                allowAKeyFallback: allowEndpointAKeyFallback,
+                endpointAKeys: terminalAKeys,
+                endpointIds: terminalIds,
+                stationAKey,
+                stationId,
+                toText
+            });
             const allowMirrorFill = !(isOriginStop || isTerminalStop);
 
             if (allowMirrorFill) {
@@ -3830,6 +3843,10 @@ export function createPanel(options = {}) {
 
     const getStationAKey = (stationId) => {
         return getTripDetailStationAKey(stationId, toText);
+    };
+
+    const getStationAKeyForLine = (lineId, stationId) => {
+        return getSpecialTripDetailStationAKey(lineId, stationId) || getStationAKey(stationId);
     };
 
     const getTripLineId = (trip) => {
@@ -4000,6 +4017,8 @@ export function createPanel(options = {}) {
         }
 
         const tripLineId = getTripLineId(trip) || toText(lineId);
+        const getTripStationAKey = (stationId) => getStationAKeyForLine(tripLineId, stationId);
+        const allowEndpointAKeyFallback = !shouldUseExactTripDetailEndpointIds(tripLineId);
 
         await showTripCurrentStationHint({ lineId: tripLineId, token });
         if (token !== tripDetailToken) return;
@@ -4015,6 +4034,7 @@ export function createPanel(options = {}) {
         if (token !== tripDetailToken) return;
 
         const {
+            allowEndpointAKeyFallback: endpointAKeyFallback,
             hasNt,
             hideThroughSegmentsForLoop,
             ntRefIds,
@@ -4027,7 +4047,12 @@ export function createPanel(options = {}) {
             showTerminalLabel,
             terminalAKeys,
             terminalIds
-        } = buildTripDetailEndpointContext({ trip, getStationAKey, toText });
+        } = buildTripDetailEndpointContext({
+            allowEndpointAKeyFallback,
+            trip,
+            getStationAKey: getTripStationAKey,
+            toText
+        });
         // Trip detail 展示包含直通( pt/nt )链路：始发/终点标记应始终显示在全链路端点，
         // 且需兼容“同名换乘站不同线路 stationId”场景（用 AKey 兜底匹配）。
         const ptChain = await collectRefChainTrips(trip, 'pt', token);
@@ -4038,6 +4063,7 @@ export function createPanel(options = {}) {
         const segments = [];
 
         const mainRowsRaw = normalizeTripStops(buildTripStops(trip, stationsIndex, serviceDayStartMs, trip?.realOriginId || trip?.id), serviceDayStartMs, {
+            allowEndpointAKeyFallback: endpointAKeyFallback,
             originIds,
             terminalIds,
             originAKeys,
@@ -4076,6 +4102,7 @@ export function createPanel(options = {}) {
         if (!hideThroughSegmentsForLoop) {
             for (const ptTrip of (Array.isArray(ptChain) ? ptChain.slice().reverse() : [])) {
                 const rows = normalizeTripStops(buildTripStops(ptTrip, stationsIndex, serviceDayStartMs, ptTrip?.realOriginId || ptTrip?.id), serviceDayStartMs, {
+                    allowEndpointAKeyFallback: endpointAKeyFallback,
                     originIds,
                     terminalIds,
                     originAKeys,
@@ -4108,6 +4135,7 @@ export function createPanel(options = {}) {
         if (!hideThroughSegmentsForLoop) {
             for (const ntTrip of (Array.isArray(ntChain) ? ntChain : [])) {
                 const rows = normalizeTripStops(buildTripStops(ntTrip, stationsIndex, serviceDayStartMs, ntTrip?.realOriginId || ntTrip?.id), serviceDayStartMs, {
+                    allowEndpointAKeyFallback: endpointAKeyFallback,
                     originIds,
                     terminalIds,
                     originAKeys,
@@ -4128,7 +4156,7 @@ export function createPanel(options = {}) {
         }
 
         const mergedSegments = mergeTripDetailSegmentsAtBoundaries({
-            getStationAKey,
+            getStationAKey: getTripStationAKey,
             segments,
             toText
         });
@@ -4327,6 +4355,7 @@ export function createPanel(options = {}) {
                 const lanePreviewSegments = [];
                 for (const laneTrip of chain) {
                     const rows = normalizeTripStops(buildTripStops(laneTrip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
+                        allowEndpointAKeyFallback: endpointAKeyFallback,
                         originIds,
                         terminalIds,
                         originAKeys,

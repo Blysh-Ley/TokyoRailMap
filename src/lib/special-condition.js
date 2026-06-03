@@ -22,6 +22,41 @@ export const isExcludedLineType = (lineIdRaw, typeIdRaw) => {
     return LINE_TYPE_EXCLUSION_KEYS.has(`${lineId}||${typeId}`);
 };
 
+export const SPECIAL_TRIP_DETAIL_LINE_RULES = {
+    'Yamaman.Yukarigaoka': {
+        mode: 'one-way-split-loop',
+        duplicateStationSuffixPattern: /^\d+$/
+    }
+};
+
+export const getSpecialTripDetailLineRule = (lineIdRaw) => {
+    const lineId = toText(lineIdRaw);
+    return lineId ? (SPECIAL_TRIP_DETAIL_LINE_RULES[lineId] || null) : null;
+};
+
+export const isOneWaySplitLoopTripDetailLine = (lineIdRaw) => {
+    return getSpecialTripDetailLineRule(lineIdRaw)?.mode === 'one-way-split-loop';
+};
+
+export const getSpecialTripDetailStationAKey = (lineIdRaw, stationIdRaw) => {
+    const lineId = toText(lineIdRaw);
+    const stationId = toText(stationIdRaw);
+    const rule = getSpecialTripDetailLineRule(lineId);
+    if (!lineId || !stationId || !rule) return '';
+    if (!stationId.startsWith(`${lineId}.`)) return '';
+
+    const parts = stationId.split('.').map((x) => x.trim()).filter(Boolean);
+    const suffixPattern = rule.duplicateStationSuffixPattern;
+    while (parts.length > 1 && suffixPattern instanceof RegExp && suffixPattern.test(parts[parts.length - 1])) {
+        parts.pop();
+    }
+    return parts.length ? parts[parts.length - 1] : '';
+};
+
+export const shouldUseExactTripDetailEndpointIds = (lineIdRaw) => {
+    return isOneWaySplitLoopTripDetailLine(lineIdRaw);
+};
+
 const BRANCH_SUFFIX = 'Branch';
 
 export const isBranchLineId = (lineIdRaw) => {

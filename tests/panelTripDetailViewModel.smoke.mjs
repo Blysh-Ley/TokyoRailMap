@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 
 import {
+    getSpecialTripDetailStationAKey,
+    isOneWaySplitLoopTripDetailLine,
+    shouldUseExactTripDetailEndpointIds
+} from '../src/lib/special-condition.js';
+import {
     applyTripDetailPastState,
     buildTripDetailEndpointContext,
     buildTripDetailTitleViewModel,
     getTripDetailStationAKey,
     markRowsPastByStation,
+    matchesTripDetailEndpointStop,
     mergeTripDetailSegmentsAtBoundaries
 } from '../src/features/panel/panelTripDetailViewModel.js';
 
@@ -32,25 +38,38 @@ assert.equal(endpoint.terminalAKeys.has('T'), true);
 assert.equal(endpoint.showOriginLabel, true);
 assert.equal(endpoint.showTerminalLabel, true);
 
-assert.equal(
-    getTripDetailStationAKey('Yamaman.Yukarigaoka.Yukarigaoka.1'),
-    'Yukarigaoka'
-);
-assert.equal(
-    getTripDetailStationAKey('Yamaman.Yukarigaoka.Koen.1'),
-    'Koen'
-);
+assert.equal(getTripDetailStationAKey('Yamaman.Yukarigaoka.Yukarigaoka.1'), '1');
+assert.equal(isOneWaySplitLoopTripDetailLine('Yamaman.Yukarigaoka'), true);
+assert.equal(shouldUseExactTripDetailEndpointIds('Yamaman.Yukarigaoka'), true);
+assert.equal(getSpecialTripDetailStationAKey('Yamaman.Yukarigaoka', 'Yamaman.Yukarigaoka.Yukarigaoka.1'), 'Yukarigaoka');
+assert.equal(getSpecialTripDetailStationAKey('Yamaman.Yukarigaoka', 'Yamaman.Yukarigaoka.Koen.1'), 'Koen');
 
 const numericSuffixEndpoint = buildTripDetailEndpointContext({
+    allowEndpointAKeyFallback: false,
     trip: {
         ds: ['Yamaman.Yukarigaoka.Yukarigaoka.1'],
         os: ['Yamaman.Yukarigaoka.Yukarigaoka']
     },
-    getStationAKey: getTripDetailStationAKey
+    getStationAKey: (id) => getSpecialTripDetailStationAKey('Yamaman.Yukarigaoka', id) || getTripDetailStationAKey(id)
 });
 assert.equal(numericSuffixEndpoint.terminalAKeys.has('Yukarigaoka'), true);
 assert.equal(numericSuffixEndpoint.terminalAKeys.has('1'), false);
 assert.equal(numericSuffixEndpoint.terminalAKeys.has('Koen'), false);
+assert.equal(numericSuffixEndpoint.allowEndpointAKeyFallback, false);
+assert.equal(matchesTripDetailEndpointStop({
+    allowAKeyFallback: numericSuffixEndpoint.allowEndpointAKeyFallback,
+    endpointAKeys: numericSuffixEndpoint.originAKeys,
+    endpointIds: numericSuffixEndpoint.originIds,
+    stationAKey: getSpecialTripDetailStationAKey('Yamaman.Yukarigaoka', 'Yamaman.Yukarigaoka.Yukarigaoka.1'),
+    stationId: 'Yamaman.Yukarigaoka.Yukarigaoka.1'
+}), false);
+assert.equal(matchesTripDetailEndpointStop({
+    allowAKeyFallback: numericSuffixEndpoint.allowEndpointAKeyFallback,
+    endpointAKeys: numericSuffixEndpoint.terminalAKeys,
+    endpointIds: numericSuffixEndpoint.terminalIds,
+    stationAKey: getSpecialTripDetailStationAKey('Yamaman.Yukarigaoka', 'Yamaman.Yukarigaoka.Yukarigaoka.1'),
+    stationId: 'Yamaman.Yukarigaoka.Yukarigaoka.1'
+}), true);
 
 const merged = mergeTripDetailSegmentsAtBoundaries({
     getStationAKey: (id) => ({ S1A: 'S1', S1B: 'S1' }[id] || id),

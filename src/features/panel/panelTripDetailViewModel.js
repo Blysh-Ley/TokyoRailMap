@@ -6,10 +6,21 @@ export const getTripDetailStationAKey = (stationId, toText = defaultToText) => {
     const s = toText(stationId);
     if (!s) return '';
     const parts = s.split('.').map((x) => x.trim()).filter(Boolean);
-    while (parts.length > 1 && /^\d+$/.test(parts[parts.length - 1])) {
-        parts.pop();
-    }
     return parts.length ? parts[parts.length - 1] : '';
+};
+
+export const matchesTripDetailEndpointStop = ({
+    allowAKeyFallback = true,
+    endpointAKeys,
+    endpointIds,
+    stationAKey,
+    stationId,
+    toText = defaultToText
+} = {}) => {
+    const sid = toText(stationId);
+    if (sid && endpointIds?.has?.(sid)) return true;
+    const aKey = toText(stationAKey);
+    return !!allowAKeyFallback && !!aKey && !!endpointAKeys?.has?.(aKey);
 };
 
 export const getTripDetailRefs = (trip, toText = defaultToText) => {
@@ -24,6 +35,7 @@ export const getTripDetailRefs = (trip, toText = defaultToText) => {
 };
 
 export const buildTripDetailEndpointContext = ({
+    allowEndpointAKeyFallback = true,
     trip,
     getStationAKey = (id) => id,
     toText = defaultToText
@@ -40,6 +52,7 @@ export const buildTripDetailEndpointContext = ({
     const terminalAKeys = new Set(Array.from(terminalIds).map((id) => getStationAKey(id)).filter(Boolean));
 
     return {
+        allowEndpointAKeyFallback: allowEndpointAKeyFallback !== false,
         dirRaw,
         hasNt,
         hasPt,
