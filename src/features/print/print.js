@@ -1087,8 +1087,11 @@
         }
     };
 
-    const pickLineNameLabelsInBbox = async ({ baseMap, bbox }) => {
+    const pickLineNameLabelsInBbox = async ({ baseMap, bbox, lineIds }) => {
         if (!baseMap || !bbox || !isLineNameLabelsVisibleForExport(baseMap)) return [];
+        const allowedLineIds = lineIds instanceof Set ? lineIds : null;
+        if (allowedLineIds && !allowedLineIds.size) return [];
+
         const fc = await getGeoJsonSourceData(baseMap, 'line-name-labels-source');
         const features = Array.isArray(fc?.features) ? fc.features : [];
         if (!features.length) return [];
@@ -1096,6 +1099,8 @@
         const out = [];
         for (const f of features) {
             const props = f?.properties || {};
+            const lineId = toText(props.id);
+            if (allowedLineIds && !allowedLineIds.has(lineId)) continue;
             const name = toText(props.name);
             if (!name) continue;
             const geom = f?.geometry;
@@ -1303,6 +1308,7 @@
             if (bounds && baseMap) {
                 const lineNameLabelFeatures = await pickLineNameLabelsInBbox({
                     baseMap,
+                    lineIds: built?.lineIds,
                     bbox: {
                         minLng: bounds.getWest(),
                         minLat: bounds.getSouth(),
