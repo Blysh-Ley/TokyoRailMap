@@ -4,6 +4,7 @@ export const AUTO_UPDATE_CHECK_STORAGE_KEY = 'tokyorail.auto.update.check.enable
 export const TIMETABLE_VIEW_STORAGE_KEY = 'tokyorail.timetable.view.mode';
 export const HOVER_PREVIEW_STORAGE_KEY = 'tokyorail.hover.preview.enabled';
 export const ADAPTIVE_VIEWPORT_STORAGE_KEY = 'tokyorail.adaptive.viewport.enabled';
+export const LINE_NAME_LABELS_STORAGE_KEY = 'tokyorail.line.name.labels.enabled';
 export const STATION_OFFSET_MODE_STORAGE_KEY = 'tokyorail.station.offset.mode';
 
 const getLocalStorageValue = (key, fallback) => {
@@ -106,6 +107,19 @@ export const readAdaptiveViewportEnabled = () => {
 export const writeAdaptiveViewportEnabled = (enabled) => {
     const next = enabled !== false;
     setLocalStorageValue(ADAPTIVE_VIEWPORT_STORAGE_KEY, next ? '1' : '0');
+    return next;
+};
+
+export const readLineNameLabelsEnabled = () => {
+    const raw = String(getLocalStorageValue(LINE_NAME_LABELS_STORAGE_KEY, '1')).trim().toLowerCase();
+    if (raw === '0' || raw === 'false') return false;
+    if (raw === '1' || raw === 'true') return true;
+    return true;
+};
+
+export const writeLineNameLabelsEnabled = (enabled) => {
+    const next = enabled !== false;
+    setLocalStorageValue(LINE_NAME_LABELS_STORAGE_KEY, next ? '1' : '0');
     return next;
 };
 

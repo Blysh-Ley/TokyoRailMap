@@ -1,6 +1,6 @@
 const toText = (value) => String(value ?? '').trim();
 const LINE_NAME_LABEL_BLOCKED_TOKENS = Object.freeze(['货物', '貨物', '支线', '支線']);
-const LINE_NAME_LABEL_NORMAL_OFFSET_EM = 1.25;
+const LINE_NAME_LABEL_NORMAL_OFFSET_EM = 0.9;
 const LINE_NAME_LABEL_LINE_OFFSET_EM_PER_UNIT = 1 / 3;
 
 const isLineGeometry = (geometry) => (
@@ -29,10 +29,21 @@ const roundOffset = (value) => Math.round(value * 10000) / 10000;
 
 const buildLineNameTextOffset = (lineOffsetUnits) => {
     const units = Number(lineOffsetUnits);
-    if (!Number.isFinite(units) || units === 0) return [0, LINE_NAME_LABEL_NORMAL_OFFSET_EM];
 
-    const side = units < 0 ? -1 : 1;
-    return [0, roundOffset((units * LINE_NAME_LABEL_LINE_OFFSET_EM_PER_UNIT) + (side * LINE_NAME_LABEL_NORMAL_OFFSET_EM))];
+    if (!Number.isFinite(units)) {
+        return [0, LINE_NAME_LABEL_NORMAL_OFFSET_EM];
+    }
+
+    if (units === 0) {
+        return [0, LINE_NAME_LABEL_NORMAL_OFFSET_EM];
+    }
+
+    const direction = Math.sign(units);
+    const distance =
+        Math.abs(units) * LINE_NAME_LABEL_LINE_OFFSET_EM_PER_UNIT
+        + LINE_NAME_LABEL_NORMAL_OFFSET_EM;
+
+    return [0, roundOffset(direction * distance)];
 };
 
 export const buildLineNameLabelGeoJSON = (lineFeatures = []) => {

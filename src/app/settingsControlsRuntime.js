@@ -4,6 +4,7 @@ import {
     mountAutoUpdateToggle,
     mountBasemapToggle,
     mountHoverPreviewToggle,
+    mountLineNameLabelsToggle,
     mountStationLabelToggle,
     mountStationOffsetToggle,
     mountTimetableViewToggle
@@ -15,6 +16,7 @@ const DEFAULT_CONTROLS = Object.freeze({
     mountAutoUpdateToggle,
     mountBasemapToggle,
     mountHoverPreviewToggle,
+    mountLineNameLabelsToggle,
     mountStationLabelToggle,
     mountStationOffsetToggle,
     mountTimetableViewToggle
@@ -53,6 +55,7 @@ export const mountAppSettingsControls = ({
     setImageElementFromCache,
     onAdaptiveViewportEnabledChanged,
     onHoverPreviewEnabledChanged,
+    onLineNameLabelsEnabledChanged,
     onStationLabelModeChanged,
     onStationLabelUserModeChanged,
     onStationOffsetModeChanged,
@@ -112,6 +115,11 @@ export const mountAppSettingsControls = ({
     controls.mountStationOffsetToggle({
         hostEl,
         onModeChanged: onStationOffsetModeChanged
+    });
+
+    controls.mountLineNameLabelsToggle({
+        hostEl,
+        onEnabledChanged: onLineNameLabelsEnabledChanged
     });
 
     const hoverPreviewToggleController = controls.mountHoverPreviewToggle({

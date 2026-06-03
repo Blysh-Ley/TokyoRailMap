@@ -1,8 +1,10 @@
 import {
     readAdaptiveViewportEnabled,
     readHoverPreviewEnabled,
+    readLineNameLabelsEnabled,
     writeAdaptiveViewportEnabled,
-    writeHoverPreviewEnabled
+    writeHoverPreviewEnabled,
+    writeLineNameLabelsEnabled
 } from '../../services/appSettings.js';
 import { createSegmentedSettingRow } from './settingRows.js';
 
@@ -48,7 +50,7 @@ export const mountHoverPreviewToggle = ({ hostEl, onEnabledChanged } = {}) => (
     mountBooleanToggle({
         hostEl,
         className: 'settings-item-hover-preview',
-        title: '自动预览',
+        title: '鼠标悬浮预览',
         readEnabled: readHoverPreviewEnabled,
         writeEnabled: writeHoverPreviewEnabled,
         onEnabledChanged
@@ -69,3 +71,14 @@ export const mountAdaptiveViewportToggle = ({ hostEl, onEnabledChanged } = {}) =
         setEnabled: controller.setEnabled
     };
 };
+
+export const mountLineNameLabelsToggle = ({ hostEl, onEnabledChanged } = {}) => (
+    mountBooleanToggle({
+        hostEl,
+        className: 'settings-item-line-name-labels',
+        title: '显示线路名',
+        readEnabled: readLineNameLabelsEnabled,
+        writeEnabled: writeLineNameLabelsEnabled,
+        onEnabledChanged
+    })
+);

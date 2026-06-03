@@ -54,6 +54,7 @@ import { companyLogoMap, resolveLineSelectionByBranchRules } from './lib/special
 import {
     readAdaptiveViewportEnabled,
     readHoverPreviewEnabled,
+    readLineNameLabelsEnabled,
     readStationOffsetMode,
     readTimetableViewMode,
     writeStationOffsetMode
@@ -330,6 +331,7 @@ const initMapApp = async () => {
     let clearDirHeaderPreview = () => {};
     let hoverPreviewEnabled = readHoverPreviewEnabled();
     let adaptiveViewportEnabled = readAdaptiveViewportEnabled();
+    let lineNameLabelsEnabled = readLineNameLabelsEnabled();
     let multiSelectModeEnabled = window.__TokyoRailMultiSelectEnabled === true;
     let hoverPreviewEnabledBeforeMultiSelect = hoverPreviewEnabled;
     let hoverPreviewToggleController = {
@@ -390,6 +392,10 @@ const initMapApp = async () => {
     };
     const applyAdaptiveViewportEnabled = (enabled) => {
         adaptiveViewportEnabled = enabled !== false;
+    };
+    const applyLineNameLabelsEnabled = (enabled) => {
+        lineNameLabelsEnabled = enabled !== false;
+        mapEngine.setLayerVisibility?.('line-name-labels-layer', lineNameLabelsEnabled);
     };
 
     const applyStationOffsetMode = (mode, { persistStorage = true } = {}) => {
@@ -2649,6 +2655,7 @@ const initMapApp = async () => {
         getPreferredCachedImageSrc,
         onAdaptiveViewportEnabledChanged: applyAdaptiveViewportEnabled,
         onHoverPreviewEnabledChanged: applyHoverPreviewEnabled,
+        onLineNameLabelsEnabledChanged: applyLineNameLabelsEnabled,
         onStationLabelModeChanged: (mode) => {
             stationLabelMode = mode;
         },
@@ -3679,6 +3686,7 @@ const initMapApp = async () => {
 
         addStationsLayer(mapEngine, stationsData);
         addLineNameLabelsLayer(mapEngine, generatedLineNameLabelsData || loadedGeoData?.lineNameLabelsGeoJSON);
+        applyLineNameLabelsEnabled(lineNameLabelsEnabled);
 
         try {
             transferCapsuleStationsData = stationsData;

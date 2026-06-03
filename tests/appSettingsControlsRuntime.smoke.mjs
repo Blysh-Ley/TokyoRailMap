@@ -42,6 +42,7 @@ const createControls = (calls) => ({
     mountTimetableViewToggle: (args) => calls.push(['timetable', args]),
     mountAdaptiveViewportToggle: (args) => calls.push(['adaptive', args]),
     mountStationOffsetToggle: (args) => calls.push(['stationOffset', args]),
+    mountLineNameLabelsToggle: (args) => calls.push(['lineNameLabels', args]),
     mountHoverPreviewToggle: (args) => {
         calls.push(['hoverPreview', args]);
         return { id: 'hover-controller' };
@@ -87,6 +88,7 @@ const createControls = (calls) => ({
         getPreferredCachedImageSrc: () => 'icon.svg',
         onAdaptiveViewportEnabledChanged: (enabled) => effects.push(['adaptive', enabled]),
         onHoverPreviewEnabledChanged: (enabled) => effects.push(['hover', enabled]),
+        onLineNameLabelsEnabledChanged: (enabled) => effects.push(['lineNameLabels', enabled]),
         onStationLabelModeChanged: (mode) => effects.push(['stationLabelMode', mode]),
         onStationLabelUserModeChanged: (mode) => effects.push(['stationLabelUserMode', mode]),
         onStationOffsetModeChanged: (mode) => effects.push(['stationOffset', mode]),
@@ -105,6 +107,7 @@ const createControls = (calls) => ({
         'timetable',
         'adaptive',
         'stationOffset',
+        'lineNameLabels',
         'hoverPreview',
         'stationLabel'
     ]);
@@ -116,6 +119,7 @@ const createControls = (calls) => ({
     getArgs('timetable').onModeChanged('diagram');
     getArgs('adaptive').onEnabledChanged(false);
     getArgs('stationOffset').onModeChanged('performance');
+    getArgs('lineNameLabels').onEnabledChanged(false);
     getArgs('hoverPreview').onEnabledChanged(true);
     getArgs('stationLabel').onModeChanged('all');
     getArgs('stationLabel').onUserModeChanged('all');
@@ -128,6 +132,7 @@ const createControls = (calls) => ({
         ['timetable', 'diagram'],
         ['adaptive', false],
         ['stationOffset', 'performance'],
+        ['lineNameLabels', false],
         ['hover', true],
         ['stationLabelMode', 'all'],
         ['stationLabelUserMode', 'all']

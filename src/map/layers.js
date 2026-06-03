@@ -213,19 +213,19 @@ export function addLineNameLabelsLayer(mapOrEngine, labelsData) {
             source: 'line-name-labels-source',
             layout: {
                 'symbol-placement': 'line',
-                'symbol-spacing': ['interpolate', ['linear'], ['zoom'], 8, 450, 12, 900, 16, 1600],
+                'symbol-spacing': ['interpolate', ['linear'], ['zoom'], 8, 300, 12, 600, 16, 1600],
                 'symbol-avoid-edges': false,
                 'text-field': ['get', 'name'],
                 'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
-                'text-size': ['interpolate', ['linear'], ['zoom'], 8, 9, 10, 10, 12, 12, 14, 15, 16, 17],
+                'text-size':10,
                 'text-letter-spacing': 0.15,
                 'text-offset': ['get', 'text_offset'],
-                'text-max-angle': 30,
+                'text-max-angle': 40,
                 'text-keep-upright': true,
                 'text-rotation-alignment': 'map',
                 'text-allow-overlap': false,
                 'text-ignore-placement': false,
-                'text-padding': 6
+                'text-padding': 2
             },
             paint: {
                 'text-color': ['coalesce', ['get', 'color'], '#2f6fdf'],
