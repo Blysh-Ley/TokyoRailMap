@@ -197,8 +197,6 @@ const buildLineNameTextOffset = (lineOffsetUnits) => {
 };
 
 const getLabelCountForLength = (lengthMeters) => {
-    if (lengthMeters >= 55000) return 3;
-    if (lengthMeters >= 22000) return 2;
     return 1;
 };
 

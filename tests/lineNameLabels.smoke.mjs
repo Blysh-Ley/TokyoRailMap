@@ -102,9 +102,9 @@ const longLabels = buildLineNameLabelGeoJSON([
         }
     }
 ]);
-assert.equal(longLabels.features.length, 3);
-assert.deepEqual(longLabels.features.map((feature) => feature.properties.label_index), [1, 2, 3]);
-assert.deepEqual(new Set(longLabels.features.map((feature) => feature.properties.label_count)), new Set([3]));
+assert.equal(longLabels.features.length, 1);
+assert.deepEqual(longLabels.features.map((feature) => feature.properties.label_index), [1]);
+assert.deepEqual(new Set(longLabels.features.map((feature) => feature.properties.label_count)), new Set([1]));
 assert.ok(longLabels.features.every((feature) => feature.geometry.type === 'LineString'));
 
 const sources = new Map();
