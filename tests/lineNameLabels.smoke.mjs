@@ -100,11 +100,12 @@ assert.equal(labelLayer.beforeLayerId, 'lines-layer');
 assert.equal(labelLayer.layer.type, 'symbol');
 assert.equal(labelLayer.layer.layout['symbol-placement'], 'line-center');
 assert.deepEqual(labelLayer.layer.layout['text-field'], ['get', 'name']);
-assert.deepEqual(labelLayer.layer.layout['text-font'], ['Open Sans Bold', 'Arial Unicode MS Bold']);
+assert.deepEqual(labelLayer.layer.layout['text-font'], ['Open Sans Regular', 'Arial Unicode MS Regular']);
 assert.deepEqual(labelLayer.layer.layout['text-offset'], ['get', 'text_offset']);
 assert.equal(labelLayer.layer.layout['text-keep-upright'], true);
 assert.deepEqual(labelLayer.layer.paint['text-color'], ['coalesce', ['get', 'color'], '#2f6fdf']);
-assert.equal(Object.hasOwn(labelLayer.layer.paint, 'text-halo-color'), false);
+assert.deepEqual(labelLayer.layer.paint['text-halo-color'], ['coalesce', ['get', 'color'], '#2f6fdf']);
+assert.equal(labelLayer.layer.paint['text-halo-width'], 0.35);
 assert.equal(Object.hasOwn(labelLayer.layer.paint, 'background-color'), false);
 
 console.log('line name labels smoke ok');

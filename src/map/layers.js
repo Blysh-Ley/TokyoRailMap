@@ -214,7 +214,7 @@ export function addLineNameLabelsLayer(mapOrEngine, labelsData) {
             layout: {
                 'symbol-placement': 'line-center',
                 'text-field': ['get', 'name'],
-                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
                 'text-size': ['interpolate', ['linear'], ['zoom'], 8, 10, 11, 12, 14, 15],
                 'text-offset': ['get', 'text_offset'],
                 'text-keep-upright': true,
@@ -225,6 +225,8 @@ export function addLineNameLabelsLayer(mapOrEngine, labelsData) {
             },
             paint: {
                 'text-color': ['coalesce', ['get', 'color'], '#2f6fdf'],
+                'text-halo-color': ['coalesce', ['get', 'color'], '#2f6fdf'],
+                'text-halo-width': 0.35,
                 'text-opacity': ['interpolate', ['linear'], ['zoom'], 7.5, 0, 8.5, 1]
             }
         }, beforeLayerId);
