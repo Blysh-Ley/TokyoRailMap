@@ -196,6 +196,42 @@ export function addLinesLayer(mapOrEngine, linesData) {
     }
 }
 
+export function addLineNameLabelsLayer(mapOrEngine, labelsData) {
+    if (typeof mapOrEngine?.renderLineNameLabels === 'function') {
+        mapOrEngine.renderLineNameLabels(labelsData || { type: 'FeatureCollection', features: [] });
+        return;
+    }
+
+    const mapAdapter = resolveMapAdapter(mapOrEngine);
+    if (!mapAdapter.getSource('line-name-labels-source')) {
+        mapAdapter.addSource('line-name-labels-source', {
+            type: 'geojson',
+            data: labelsData || { type: 'FeatureCollection', features: [] }
+        });
+    }
+
+    if (!mapAdapter.hasLayer('line-name-labels-layer')) {
+        const beforeLayerId = mapAdapter.hasLayer('stations-layer') ? 'stations-layer' : undefined;
+        mapAdapter.addLayer({
+            id: 'line-name-labels-layer',
+            type: 'symbol',
+            source: 'line-name-labels-source',
+            layout: {
+                'text-field': ['get', 'name'],
+                'text-size': ['interpolate', ['linear'], ['zoom'], 8, 10, 11, 12, 14, 14],
+                'text-anchor': 'center',
+                'text-allow-overlap': false,
+                'text-ignore-placement': false,
+                'text-padding': 6
+            },
+            paint: {
+                'text-color': ['coalesce', ['get', 'color'], '#2f6fdf'],
+                'text-opacity': ['interpolate', ['linear'], ['zoom'], 7.5, 0, 8.5, 1]
+            }
+        }, beforeLayerId);
+    }
+}
+
 /**
  * 给线路添加 hover 弹窗（仅显示当前线路，不显示站名）。
  */

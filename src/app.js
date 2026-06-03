@@ -12,7 +12,7 @@ import {
 } from './lib/fetch.js';
 import { loadRailGeoDataFromDataFolder } from './lib/data.js';
 import { buildOffsetPolylinePixelsWithMiter, buildStationOffsetGeoJSONAtZoom } from './map/offset.js';
-import { addLinesLayer, addStationsLayer, setupLineHoverPopup, setupStationPopup } from './map/layers.js';
+import { addLineNameLabelsLayer, addLinesLayer, addStationsLayer, setupLineHoverPopup, setupStationPopup } from './map/layers.js';
 import { createStationMarkers } from './map/labels.js';
 import { setupCollisions } from './map/collision.js';
 import { buildTransferCapsuleGeoJSON, addTransferCapsuleLayers, buildTransferCapsuleConnectionOrder } from './map/transfer-capsules.js';
@@ -2630,6 +2630,7 @@ const initMapApp = async () => {
     });
 
     let generatedLinesData = null;
+    let generatedLineNameLabelsData = null;
     let generatedStationsData = null;
     let generatedStationOffsetAlgorithmContext = null;
 
@@ -2637,12 +2638,14 @@ const initMapApp = async () => {
         const {
             linesGeoJSON,
             linesGeoJSONByZoom,
+            lineNameLabelsGeoJSON,
             lineRoutingCoordsById,
             stationsGeoJSON,
             stationOffsetAlgorithmContext,
             diagnostics
         } = await loadRailGeoDataFromDataFolder();
         generatedLinesData = linesGeoJSON;
+        generatedLineNameLabelsData = lineNameLabelsGeoJSON;
         generatedStationsData = stationsGeoJSON;
         generatedStationOffsetAlgorithmContext = stationOffsetAlgorithmContext;
         transferStationIdsByStationId = await loadTransferStationIdMap();
@@ -3623,6 +3626,7 @@ const initMapApp = async () => {
         }
 
         addStationsLayer(mapEngine, stationsData);
+        addLineNameLabelsLayer(mapEngine, generatedLineNameLabelsData || loadedGeoData?.lineNameLabelsGeoJSON);
 
         try {
             transferCapsuleStationsData = stationsData;

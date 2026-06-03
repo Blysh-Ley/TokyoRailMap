@@ -6,6 +6,7 @@ import { cachedFetch } from './fetch.js';
 import {
     buildStationOffsetAlgorithmContext
 } from '../map/offset.js';
+import { buildLineNameLabelGeoJSON } from '../domain/lineNameLabels.js';
 
 export async function loadGeoJSON(url) {
     const response = await cachedFetch(url);
@@ -1245,6 +1246,7 @@ export async function loadRailGeoDataFromDataFolder() {
             // 固定使用 zoom=18 的最精细几何
             linesGeoJSON: linesGeoJSONByZoom[18] || { type: 'FeatureCollection', features: [] },
             linesGeoJSONByZoom,
+            lineNameLabelsGeoJSON: buildLineNameLabelGeoJSON(linesGeoJSONByZoom[18]?.features || []),
             lineRoutingCoordsById: Object.fromEntries(Array.from(routingCoordsByRailwayId.entries())),
             stationsGeoJSON: { type: 'FeatureCollection', features: stationsFeatures },
             stationOffsetAlgorithmContext,
