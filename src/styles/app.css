@@ -2585,8 +2585,8 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 11px;
-    height: 16px;
+    font-size: 12px;
+    height: 20px;
     color: var(--ui-text-muted);
     padding-left: 2px;
     white-space: nowrap;
