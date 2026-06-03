@@ -15,7 +15,7 @@ const labels = buildLineNameLabelGeoJSON([
         },
         geometry: {
             type: 'LineString',
-            coordinates: [[0, 0], [1, 0], [2, 0]]
+            coordinates: [[0, 0], [0.01, 0], [0.02, 0]]
         }
     },
     {
@@ -76,13 +76,36 @@ assert.deepEqual(lineNameLabel, {
         color: '#80c241',
         line_offset_units: 2,
         text_offset: lineNameLabel.properties.text_offset,
+        label_index: 1,
+        label_count: 1,
         type: 'line-name-label'
     },
     geometry: {
         type: 'LineString',
-        coordinates: [[0, 0], [1, 0], [2, 0]]
+        coordinates: [[0, 0], [0.01, 0], [0.02, 0]]
     }
 });
+
+const longLabels = buildLineNameLabelGeoJSON([
+    {
+        type: 'Feature',
+        id: 'L4.18',
+        properties: {
+            id: 'L4',
+            name: 'Long Urban Line',
+            color: '#123456',
+            hidden_by_opacity_zero: 0
+        },
+        geometry: {
+            type: 'LineString',
+            coordinates: [[0, 1], [0.35, 1], [0.7, 1]]
+        }
+    }
+]);
+assert.equal(longLabels.features.length, 3);
+assert.deepEqual(longLabels.features.map((feature) => feature.properties.label_index), [1, 2, 3]);
+assert.deepEqual(new Set(longLabels.features.map((feature) => feature.properties.label_count)), new Set([3]));
+assert.ok(longLabels.features.every((feature) => feature.geometry.type === 'LineString'));
 
 const sources = new Map();
 const layers = new Map([['lines-layer', { id: 'lines-layer' }]]);
@@ -101,16 +124,17 @@ assert.equal(sources.get('line-name-labels-source').data, labels);
 const labelLayer = layers.get('line-name-labels-layer');
 assert.equal(labelLayer.beforeLayerId, 'lines-layer');
 assert.equal(labelLayer.layer.type, 'symbol');
-assert.equal(labelLayer.layer.layout['symbol-placement'], 'line');
-assert.deepEqual(labelLayer.layer.layout['symbol-spacing'], ['interpolate', ['linear'], ['zoom'], 8, 450, 12, 900, 16, 1600]);
+assert.equal(labelLayer.layer.layout['symbol-placement'], 'line-center');
+assert.deepEqual(labelLayer.layer.layout['symbol-spacing'], ['interpolate', ['linear'], ['zoom'], 8, 300, 12, 800, 16, 1600]);
 assert.equal(labelLayer.layer.layout['symbol-avoid-edges'], false);
 assert.deepEqual(labelLayer.layer.layout['text-field'], ['get', 'name']);
 assert.deepEqual(labelLayer.layer.layout['text-font'], ['Open Sans Regular', 'Arial Unicode MS Regular']);
-assert.deepEqual(labelLayer.layer.layout['text-size'], ['interpolate', ['linear'], ['zoom'], 8, 9, 10, 10, 12, 12, 14, 15, 16, 17]);
+assert.equal(labelLayer.layer.layout['text-size'], 10);
 assert.equal(labelLayer.layer.layout['text-letter-spacing'], 0.15);
 assert.deepEqual(labelLayer.layer.layout['text-offset'], ['get', 'text_offset']);
-assert.equal(labelLayer.layer.layout['text-max-angle'], 30);
+assert.equal(labelLayer.layer.layout['text-max-angle'], 40);
 assert.equal(labelLayer.layer.layout['text-keep-upright'], true);
+assert.equal(labelLayer.layer.layout['text-padding'], 2);
 assert.deepEqual(labelLayer.layer.paint['text-color'], ['coalesce', ['get', 'color'], '#2f6fdf']);
 assert.deepEqual(labelLayer.layer.paint['text-halo-color'], ['coalesce', ['get', 'color'], '#2f6fdf']);
 assert.equal(labelLayer.layer.paint['text-halo-width'], 0.35);
