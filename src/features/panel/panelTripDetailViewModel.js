@@ -23,6 +23,29 @@ export const matchesTripDetailEndpointStop = ({
     return !!allowAKeyFallback && !!aKey && !!endpointAKeys?.has?.(aKey);
 };
 
+const findTripDetailCurrentStationIndex = ({
+    currentStationId,
+    getStationAKey = null,
+    isEligible = () => true,
+    rows,
+    toText = defaultToText
+} = {}) => {
+    const list = Array.isArray(rows) ? rows : [];
+    const sid = toText(currentStationId);
+    if (!sid) return -1;
+
+    const exactIdx = list.findIndex((row) => {
+        return isEligible(row) && toText(row?.stationId) === sid;
+    });
+    if (exactIdx >= 0 || typeof getStationAKey !== 'function') return exactIdx;
+
+    const currentAKey = toText(getStationAKey(sid));
+    if (!currentAKey) return -1;
+    return list.findIndex((row) => {
+        return isEligible(row) && toText(getStationAKey(row?.stationId)) === currentAKey;
+    });
+};
+
 export const getTripDetailRefs = (trip, toText = defaultToText) => {
     const ptRefs = toArray(trip?.pt);
     const ntRefs = toArray(trip?.nt);
@@ -141,12 +164,17 @@ export const mergeTripDetailSegmentsAtBoundaries = ({
 export const markRowsPastByStation = ({
     currentStationId,
     fallbackPast = false,
+    getStationAKey = null,
     rows,
     toText = defaultToText
 } = {}) => {
     const list = Array.isArray(rows) ? rows : [];
-    const sid = toText(currentStationId);
-    const idx = sid ? list.findIndex((s) => toText(s?.stationId) === sid) : -1;
+    const idx = findTripDetailCurrentStationIndex({
+        currentStationId,
+        getStationAKey,
+        rows: list,
+        toText
+    });
     if (idx >= 0) {
         return list.map((s, rowIndex) => ({
             ...s,
@@ -161,13 +189,19 @@ export const markRowsPastByStation = ({
 
 export const applyTripDetailPastState = ({
     currentStationId,
+    getStationAKey = null,
     segments,
     toText = defaultToText
 } = {}) => {
     const list = Array.isArray(segments) ? segments : [];
     const normalizedStops = list.flatMap((segment) => segment?.rows || []);
-    const sid = toText(currentStationId);
-    const currentIdx = normalizedStops.findIndex((s) => toText(s?.stationId) === sid && !!s?.isMain);
+    const currentIdx = findTripDetailCurrentStationIndex({
+        currentStationId,
+        getStationAKey,
+        isEligible: (row) => !!row?.isMain,
+        rows: normalizedStops,
+        toText
+    });
     const stopsWithPast = normalizedStops.map((s, idx) => ({
         ...s,
         isPast: currentIdx >= 0 ? idx < currentIdx : false

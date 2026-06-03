@@ -44,13 +44,17 @@ assert.equal(shouldUseExactTripDetailEndpointIds('Yamaman.Yukarigaoka'), true);
 assert.equal(getSpecialTripDetailStationAKey('Yamaman.Yukarigaoka', 'Yamaman.Yukarigaoka.Yukarigaoka.1'), 'Yukarigaoka');
 assert.equal(getSpecialTripDetailStationAKey('Yamaman.Yukarigaoka', 'Yamaman.Yukarigaoka.Koen.1'), 'Koen');
 
+const getYamamanStationAKey = (id) => {
+    return getSpecialTripDetailStationAKey('Yamaman.Yukarigaoka', id) || getTripDetailStationAKey(id);
+};
+
 const numericSuffixEndpoint = buildTripDetailEndpointContext({
     allowEndpointAKeyFallback: false,
     trip: {
         ds: ['Yamaman.Yukarigaoka.Yukarigaoka.1'],
         os: ['Yamaman.Yukarigaoka.Yukarigaoka']
     },
-    getStationAKey: (id) => getSpecialTripDetailStationAKey('Yamaman.Yukarigaoka', id) || getTripDetailStationAKey(id)
+    getStationAKey: getYamamanStationAKey
 });
 assert.equal(numericSuffixEndpoint.terminalAKeys.has('Yukarigaoka'), true);
 assert.equal(numericSuffixEndpoint.terminalAKeys.has('1'), false);
@@ -118,6 +122,48 @@ assert.deepEqual(markRowsPastByStation({
     fallbackPast: true,
     rows: [{ stationId: 'X' }]
 }).map((row) => row.isPast), [true]);
+
+const yamamanSplitPast = applyTripDetailPastState({
+    currentStationId: 'Yamaman.Yukarigaoka.Koen.1',
+    getStationAKey: getYamamanStationAKey,
+    segments: [
+        {
+            kind: 'main',
+            rows: [
+                { stationId: 'Yamaman.Yukarigaoka.Yukarigaoka', isMain: true },
+                { stationId: 'Yamaman.Yukarigaoka.ChikuCenter', isMain: true },
+                { stationId: 'Yamaman.Yukarigaoka.Koen', isMain: true }
+            ]
+        }
+    ]
+});
+assert.deepEqual(yamamanSplitPast.stopsWithPast.map((row) => row.isPast), [true, true, false]);
+
+const yamamanExactPast = applyTripDetailPastState({
+    currentStationId: 'Yamaman.Yukarigaoka.Koen.1',
+    getStationAKey: getYamamanStationAKey,
+    segments: [
+        {
+            kind: 'main',
+            rows: [
+                { stationId: 'Yamaman.Yukarigaoka.Koen', isMain: true },
+                { stationId: 'Yamaman.Yukarigaoka.Joshidai', isMain: true },
+                { stationId: 'Yamaman.Yukarigaoka.Koen.1', isMain: true }
+            ]
+        }
+    ]
+});
+assert.equal(yamamanExactPast.currentIdx, 2);
+assert.deepEqual(yamamanExactPast.stopsWithPast.map((row) => row.isPast), [true, true, false]);
+
+assert.deepEqual(markRowsPastByStation({
+    currentStationId: 'Yamaman.Yukarigaoka.ChikuCenter.1',
+    getStationAKey: getYamamanStationAKey,
+    rows: [
+        { stationId: 'Yamaman.Yukarigaoka.Koen' },
+        { stationId: 'Yamaman.Yukarigaoka.ChikuCenter' }
+    ]
+}).map((row) => row.isPast), [true, false]);
 
 const title = buildTripDetailTitleViewModel({
     buildTerminalDisplayLabel: (names) => names.join(' / '),

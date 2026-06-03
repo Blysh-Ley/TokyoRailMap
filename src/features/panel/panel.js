@@ -4165,12 +4165,14 @@ export function createPanel(options = {}) {
         if (token !== tripDetailToken) return;
         const { segmentsWithPast } = applyTripDetailPastState({
             currentStationId: stationIdForLine,
+            getStationAKey: getTripStationAKey,
             segments: mergedSegments,
             toText
         });
         const markRowsPastByCurrentStation = (rowsInput, fallbackPast = false) => markRowsPastByStation({
             currentStationId: stationIdForLine,
             fallbackPast,
+            getStationAKey: getTripStationAKey,
             rows: rowsInput,
             toText
         });
