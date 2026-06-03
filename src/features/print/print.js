@@ -141,11 +141,56 @@
         };
     };
 
+    const waitForMapLibre = ({
+        pollMs = 50,
+        timeoutMs = 15000
+    } = {}) => new Promise((resolve, reject) => {
+        const read = () => {
+            const api = window.maplibregl;
+            return api?.Map ? api : null;
+        };
+
+        const ready = read();
+        if (ready) {
+            resolve(ready);
+            return;
+        }
+
+        let done = false;
+        let timer = null;
+        let deadlineTimer = null;
+
+        const cleanup = () => {
+            if (timer) window.clearInterval(timer);
+            if (deadlineTimer) window.clearTimeout(deadlineTimer);
+            try { window.removeEventListener('load', tick); } catch {}
+        };
+
+        const finish = (value, err = null) => {
+            if (done) return;
+            done = true;
+            cleanup();
+            if (err) reject(err);
+            else resolve(value);
+        };
+
+        const tick = () => {
+            const api = read();
+            if (api) finish(api);
+        };
+
+        timer = window.setInterval(tick, Math.max(16, Number(pollMs) || 50));
+        deadlineTimer = window.setTimeout(() => {
+            finish(null, new Error('MapLibre not available'));
+        }, Math.max(0, Number(timeoutMs) || 0));
+        window.addEventListener('load', tick);
+        tick();
+    });
+
     const ensureVirtualMap = () => {
         if (virtualMapPromise) return virtualMapPromise;
         virtualMapPromise = (async () => {
-            const maplibregl = window.maplibregl;
-            if (!maplibregl?.Map) throw new Error('MapLibre not available');
+            const maplibregl = await waitForMapLibre();
 
             const container = document.createElement('div');
             container.setAttribute('data-virtual-export-map', '1');
@@ -179,6 +224,9 @@
 
             return { map, container };
         })();
+        virtualMapPromise.catch(() => {
+            virtualMapPromise = null;
+        });
         return virtualMapPromise;
     };
 
