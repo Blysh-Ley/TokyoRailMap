@@ -28,11 +28,22 @@ const body = extractFunctionBody(source, 'applyLineSelectionStyle');
 
 assert.match(body, /tripPreviewActive/);
 assert.match(body, /dirPreviewActive/);
+assert.match(body, /applyLineNameLabelSelectionFilter\(\)/);
 assert.match(body, /!selectedLineId && selectedStationLineIds && selectedStationLineIds\.size/);
 assert.match(body, /Array\.from\(selectedStationLineIds\)\.map\(String\)\.filter\(Boolean\)/);
 assert.match(body, /focusExpr: hitExpr/);
 assert.doesNotMatch(body, /\['==', \['get', 'id'\], selectedLineId\]/);
 assert.doesNotMatch(body, /\['==', \['get', 'company'\], selectedCompany\]/);
+
+assert.match(source, /function getLineNameLabelLineIdsForCurrentHighlight\(\)/);
+assert.match(source, /highlightRenderer\.applyLineNameLabelFilter/);
+assert.match(source, /dirPreviewActive\) return dirPreviewLineIds/);
+
+const labelIdsBody = extractFunctionBody(source, 'getLineNameLabelLineIdsForCurrentHighlight');
+assert.ok(
+    labelIdsBody.indexOf('if (selectedLineId)') < labelIdsBody.indexOf('if (tripPreviewActive)'),
+    'line name labels should prefer selected line ids before trip preview fallback'
+);
 
 assert.match(source, /SELECTION_LINE_TRIP_PREVIEW_SOURCE = 'selection-line-trip-preview'/);
 assert.match(source, /previewSource: SELECTION_LINE_TRIP_PREVIEW_SOURCE/);

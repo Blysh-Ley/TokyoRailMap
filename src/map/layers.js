@@ -197,11 +197,6 @@ export function addLinesLayer(mapOrEngine, linesData) {
 }
 
 export function addLineNameLabelsLayer(mapOrEngine, labelsData) {
-    if (typeof mapOrEngine?.renderLineNameLabels === 'function') {
-        mapOrEngine.renderLineNameLabels(labelsData || { type: 'FeatureCollection', features: [] });
-        return;
-    }
-
     const mapAdapter = resolveMapAdapter(mapOrEngine);
     if (!mapAdapter.getSource('line-name-labels-source')) {
         mapAdapter.addSource('line-name-labels-source', {
@@ -211,14 +206,15 @@ export function addLineNameLabelsLayer(mapOrEngine, labelsData) {
     }
 
     if (!mapAdapter.hasLayer('line-name-labels-layer')) {
-        const beforeLayerId = mapAdapter.hasLayer('stations-layer') ? 'stations-layer' : undefined;
+        const beforeLayerId = mapAdapter.hasLayer('lines-layer') ? 'lines-layer' : undefined;
         mapAdapter.addLayer({
             id: 'line-name-labels-layer',
             type: 'symbol',
             source: 'line-name-labels-source',
             layout: {
                 'text-field': ['get', 'name'],
-                'text-size': ['interpolate', ['linear'], ['zoom'], 8, 10, 11, 12, 14, 14],
+                'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+                'text-size': ['interpolate', ['linear'], ['zoom'], 8, 10, 11, 12, 14, 15],
                 'text-anchor': 'center',
                 'text-allow-overlap': false,
                 'text-ignore-placement': false,

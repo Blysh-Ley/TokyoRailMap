@@ -1,4 +1,4 @@
-export const createMapEngine = ({ maplibregl, container, center, zoom, style } = {}) => {
+export const createMapEngine = ({ maplibregl, container, center, zoom, style, localIdeographFontFamily = 'sans-serif' } = {}) => {
     if (!maplibregl?.Map) {
         throw new Error('MapLibre GL JS is not available');
     }
@@ -23,7 +23,8 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
         container: containerEl || container,
         center,
         zoom,
-        style
+        style,
+        localIdeographFontFamily
     });
 
     if (canCleanContainer) {
@@ -76,7 +77,6 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
     };
 
     const lineHighlightLabelMarkers = new Map();
-    const lineNameLabelMarkers = new Map();
 
     const toLabelText = (value) => String(value ?? '').trim();
 
@@ -189,97 +189,6 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
         return lineHighlightLabelMarkers.size;
     };
 
-    const normalizeLineNameLabelFeature = (feature = {}) => {
-        const props = feature?.properties || {};
-        const lineId = toLabelText(props.id || feature.id);
-        const coordinates = feature?.geometry?.type === 'Point' && Array.isArray(feature.geometry.coordinates)
-            ? feature.geometry.coordinates
-            : null;
-        const lng = Number(coordinates?.[0]);
-        const lat = Number(coordinates?.[1]);
-        const lineName = toLabelText(props.name) || lineId;
-        if (!lineId || !lineName || !Number.isFinite(lng) || !Number.isFinite(lat)) return null;
-        return {
-            lineId,
-            coordinate: [lng, lat],
-            lineName,
-            color: toLabelText(props.color) || '#2f6fdf'
-        };
-    };
-
-    const createLineNameLabelElement = (item = {}) => {
-        if (typeof document === 'undefined') return null;
-        const el = document.createElement('div');
-        el.className = 'map-line-name-label';
-        el.textContent = toLabelText(item.lineName);
-        el.style.setProperty('--line-name-label-color', toLabelText(item.color) || '#2f6fdf');
-        return el;
-    };
-
-    const clearLineNameLabels = () => {
-        for (const entry of lineNameLabelMarkers.values()) {
-            try {
-                entry?.marker?.remove?.();
-            } catch {
-                // ignore stale marker cleanup errors
-            }
-        }
-        lineNameLabelMarkers.clear();
-    };
-
-    const renderLineNameLabels = (geojson = {}) => {
-        const features = Array.isArray(geojson?.features) ? geojson.features : [];
-        if (!features.length) {
-            clearLineNameLabels();
-            return 0;
-        }
-
-        const items = features.map(normalizeLineNameLabelFeature).filter(Boolean);
-        const nextIds = new Set(items.map((item) => item.lineId));
-
-        for (const [lineId, entry] of lineNameLabelMarkers.entries()) {
-            if (nextIds.has(lineId)) continue;
-            try {
-                entry?.marker?.remove?.();
-            } catch {
-                // ignore stale marker cleanup errors
-            }
-            lineNameLabelMarkers.delete(lineId);
-        }
-
-        for (const item of items) {
-            const signature = [
-                item.lineId,
-                item.lineName,
-                item.color
-            ].join('|');
-            const existing = lineNameLabelMarkers.get(item.lineId);
-            if (existing && existing.signature === signature) {
-                existing.marker?.setLngLat?.(item.coordinate);
-                continue;
-            }
-
-            if (existing) {
-                try {
-                    existing.marker?.remove?.();
-                } catch {
-                    // ignore stale marker cleanup errors
-                }
-            }
-
-            const element = createLineNameLabelElement(item);
-            if (!element) continue;
-            const marker = new maplibregl.Marker({
-                element,
-                anchor: 'center'
-            }).setLngLat(item.coordinate);
-            marker.addTo(map);
-            lineNameLabelMarkers.set(item.lineId, { marker, signature });
-        }
-
-        return lineNameLabelMarkers.size;
-    };
-
     return {
         getMap: () => map,
         addMetricScaleControl: ({ maxWidth = 100, position = 'bottom-left' } = {}) => {
@@ -347,9 +256,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style } =
             return source;
         },
         clearLineHighlightLabels,
-        clearLineNameLabels,
         renderLineHighlightLabels,
-        renderLineNameLabels,
         updateGeoJsonSource: (sourceId, data) => {
             const source = ensureGeoJsonSource(sourceId, data);
             source?.setData?.(data || { type: 'FeatureCollection', features: [] });

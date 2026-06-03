@@ -1,5 +1,6 @@
 const DEFAULT_LAYERS = Object.freeze({
     lines: 'lines-layer',
+    lineNameLabels: 'line-name-labels-layer',
     stations: 'stations-layer'
 });
 
@@ -30,6 +31,15 @@ export const createHighlightRenderer = ({ mapEngine, layers = DEFAULT_LAYERS } =
         if (!hasLayer(layerIds.lines)) return false;
         try {
             return mapEngine.setLayerFilter?.(layerIds.lines, filterExpr) === true;
+        } catch {
+            return false;
+        }
+    };
+
+    const applyLineNameLabelFilter = (filterExpr) => {
+        if (!hasLayer(layerIds.lineNameLabels)) return false;
+        try {
+            return mapEngine.setLayerFilter?.(layerIds.lineNameLabels, filterExpr) === true;
         } catch {
             return false;
         }
@@ -66,6 +76,7 @@ export const createHighlightRenderer = ({ mapEngine, layers = DEFAULT_LAYERS } =
         hasLayer,
         applyLinePaint,
         applyLineFilter,
+        applyLineNameLabelFilter,
         applyStationSelectionPaint,
         applyStationThemePaint,
         applyLineIdentityLabels,

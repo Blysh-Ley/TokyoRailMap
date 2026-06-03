@@ -241,6 +241,7 @@ const mapEngine = createMapEngine({
     zoom: 11,
     style: {
         version: 8,
+        glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
         sources: {},
         layers: []
     }
@@ -1777,8 +1778,59 @@ const initMapApp = async () => {
 
     registerCompanyLogoMap(companyLogoMap, { preload: true, concurrency: 8 });
 
+    const buildLineNameLabelFilter = (lineIds) => {
+        const clauses = [['!=', ['get', 'id'], '']];
+        const hideSeibuBranches = shouldApplyBaseLayerHiddenFilter();
+        const hiddenLineIds = Array.from(BASE_LAYER_HIDDEN_LINE_IDS);
+
+        if (hideSeibuBranches && hiddenLineIds.length) {
+            clauses.push(...hiddenLineIds.map((id) => ['!=', ['get', 'id'], id]));
+        }
+
+        if (lineIds instanceof Set || Array.isArray(lineIds)) {
+            const ids = Array.from(lineIds).map(String).filter(Boolean);
+            clauses.push(ids.length
+                ? ['in', ['get', 'id'], ['literal', ids]]
+                : ['==', ['get', 'id'], '']);
+        }
+
+        return clauses.length === 1 ? clauses[0] : ['all', ...clauses];
+    };
+
+    function getLineNameLabelLineIdsForCurrentHighlight() {
+        if (isMultiSelectModeEnabled()) {
+            const ids = getBaseMultiSelectedLineIds();
+            if (ids.size) return ids;
+        }
+
+        if (selectedLineId) {
+            if (selectedStationLineIds && selectedStationLineIds.size > 1) return selectedStationLineIds;
+            return new Set([selectedLineId]);
+        }
+
+        if (selectedStationLineIds && selectedStationLineIds.size) {
+            return selectedStationLineIds;
+        }
+
+        if (selectedCompany && enabledLineIdsByCompany.has(selectedCompany)) {
+            return enabledLineIdsByCompany.get(selectedCompany);
+        }
+
+        if (dirPreviewActive) return dirPreviewLineIds && dirPreviewLineIds.size ? dirPreviewLineIds : new Set();
+        if (tripPreviewActive) return new Set();
+
+        return null;
+    }
+
+    function applyLineNameLabelSelectionFilter() {
+        highlightRenderer.applyLineNameLabelFilter(
+            buildLineNameLabelFilter(getLineNameLabelLineIdsForCurrentHighlight())
+        );
+    }
+
     function applyLineSelectionStyle() {
         if (!highlightRenderer.hasLayer('lines-layer')) return;
+        applyLineNameLabelSelectionFilter();
 
         const baseColorExpr = buildBaseLineColorExpr({ isDarkThemeActive: isDarkThemeActive() });
         const applyLinePaint = (paint) => {
