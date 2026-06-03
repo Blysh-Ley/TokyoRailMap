@@ -49,6 +49,7 @@ import { renderPanelTripDetailStationCellHtml, renderPanelTripDetailStopRowHtml 
 import {
     applyTripDetailPastState,
     buildTripDetailEndpointContext,
+    getTripDetailStationAKey,
     markRowsPastByStation,
     mergeTripDetailSegmentsAtBoundaries
 } from './panelTripDetailViewModel.js';
@@ -3828,10 +3829,7 @@ export function createPanel(options = {}) {
     };
 
     const getStationAKey = (stationId) => {
-        const s = toText(stationId);
-        if (!s) return '';
-        const parts = s.split('.').map((x) => x.trim()).filter(Boolean);
-        return parts.length ? parts[parts.length - 1] : '';
+        return getTripDetailStationAKey(stationId, toText);
     };
 
     const getTripLineId = (trip) => {

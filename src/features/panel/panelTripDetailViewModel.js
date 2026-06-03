@@ -2,6 +2,16 @@ const defaultToText = (value) => String(value ?? '').trim();
 
 const toArray = (value) => (Array.isArray(value) ? value : (value ? [value] : []));
 
+export const getTripDetailStationAKey = (stationId, toText = defaultToText) => {
+    const s = toText(stationId);
+    if (!s) return '';
+    const parts = s.split('.').map((x) => x.trim()).filter(Boolean);
+    while (parts.length > 1 && /^\d+$/.test(parts[parts.length - 1])) {
+        parts.pop();
+    }
+    return parts.length ? parts[parts.length - 1] : '';
+};
+
 export const getTripDetailRefs = (trip, toText = defaultToText) => {
     const ptRefs = toArray(trip?.pt);
     const ntRefs = toArray(trip?.nt);

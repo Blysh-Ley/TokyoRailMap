@@ -4,6 +4,7 @@ import {
     applyTripDetailPastState,
     buildTripDetailEndpointContext,
     buildTripDetailTitleViewModel,
+    getTripDetailStationAKey,
     markRowsPastByStation,
     mergeTripDetailSegmentsAtBoundaries
 } from '../src/features/panel/panelTripDetailViewModel.js';
@@ -30,6 +31,26 @@ assert.equal(endpoint.originAKeys.has('O'), true);
 assert.equal(endpoint.terminalAKeys.has('T'), true);
 assert.equal(endpoint.showOriginLabel, true);
 assert.equal(endpoint.showTerminalLabel, true);
+
+assert.equal(
+    getTripDetailStationAKey('Yamaman.Yukarigaoka.Yukarigaoka.1'),
+    'Yukarigaoka'
+);
+assert.equal(
+    getTripDetailStationAKey('Yamaman.Yukarigaoka.Koen.1'),
+    'Koen'
+);
+
+const numericSuffixEndpoint = buildTripDetailEndpointContext({
+    trip: {
+        ds: ['Yamaman.Yukarigaoka.Yukarigaoka.1'],
+        os: ['Yamaman.Yukarigaoka.Yukarigaoka']
+    },
+    getStationAKey: getTripDetailStationAKey
+});
+assert.equal(numericSuffixEndpoint.terminalAKeys.has('Yukarigaoka'), true);
+assert.equal(numericSuffixEndpoint.terminalAKeys.has('1'), false);
+assert.equal(numericSuffixEndpoint.terminalAKeys.has('Koen'), false);
 
 const merged = mergeTripDetailSegmentsAtBoundaries({
     getStationAKey: (id) => ({ S1A: 'S1', S1B: 'S1' }[id] || id),
