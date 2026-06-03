@@ -10,6 +10,7 @@ const labels = buildLineNameLabelGeoJSON([
             id: 'L1',
             name: 'Yamanote Line',
             color: '#80c241',
+            line_offset_units: 2,
             hidden_by_opacity_zero: 0
         },
         geometry: {
@@ -70,6 +71,8 @@ assert.deepEqual(labels.features[0], {
         id: 'L1',
         name: 'Yamanote Line',
         color: '#80c241',
+        line_offset_units: 2,
+        text_offset: [0, 1.9167],
         type: 'line-name-label'
     },
     geometry: {
@@ -97,8 +100,8 @@ assert.equal(labelLayer.beforeLayerId, 'lines-layer');
 assert.equal(labelLayer.layer.type, 'symbol');
 assert.equal(labelLayer.layer.layout['symbol-placement'], 'line-center');
 assert.deepEqual(labelLayer.layer.layout['text-field'], ['get', 'name']);
-assert.deepEqual(labelLayer.layer.layout['text-font'], ['Open Sans Regular', 'Arial Unicode MS Regular']);
-assert.deepEqual(labelLayer.layer.layout['text-offset'], [0, 1.25]);
+assert.deepEqual(labelLayer.layer.layout['text-font'], ['Open Sans Bold', 'Arial Unicode MS Bold']);
+assert.deepEqual(labelLayer.layer.layout['text-offset'], ['get', 'text_offset']);
 assert.equal(labelLayer.layer.layout['text-keep-upright'], true);
 assert.deepEqual(labelLayer.layer.paint['text-color'], ['coalesce', ['get', 'color'], '#2f6fdf']);
 assert.equal(Object.hasOwn(labelLayer.layer.paint, 'text-halo-color'), false);

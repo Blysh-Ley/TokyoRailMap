@@ -214,9 +214,9 @@ export function addLineNameLabelsLayer(mapOrEngine, labelsData) {
             layout: {
                 'symbol-placement': 'line-center',
                 'text-field': ['get', 'name'],
-                'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
                 'text-size': ['interpolate', ['linear'], ['zoom'], 8, 10, 11, 12, 14, 15],
-                'text-offset': [0, 1.25],
+                'text-offset': ['get', 'text_offset'],
                 'text-keep-upright': true,
                 'text-rotation-alignment': 'map',
                 'text-allow-overlap': false,
