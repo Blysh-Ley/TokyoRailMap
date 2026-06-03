@@ -67,24 +67,22 @@ assert.equal(labels.features.length, 1);
 const [lineNameLabel] = labels.features;
 assert.equal(lineNameLabel.properties.text_offset[0], 0);
 assert.ok(lineNameLabel.properties.text_offset[1] > 1.25);
-assert.deepEqual(lineNameLabel, {
-    type: 'Feature',
-    id: 'L1.name-label',
-    properties: {
-        id: 'L1',
-        name: 'Yamanote Line',
-        color: '#80c241',
-        line_offset_units: 2,
-        text_offset: lineNameLabel.properties.text_offset,
-        label_index: 1,
-        label_count: 1,
-        type: 'line-name-label'
-    },
-    geometry: {
-        type: 'LineString',
-        coordinates: [[0, 0], [0.01, 0], [0.02, 0]]
-    }
+assert.equal(lineNameLabel.type, 'Feature');
+assert.equal(lineNameLabel.id, 'L1.name-label');
+assert.deepEqual(lineNameLabel.properties, {
+    id: 'L1',
+    name: 'Yamanote Line',
+    color: '#80c241',
+    line_offset_units: 2,
+    text_offset: lineNameLabel.properties.text_offset,
+    label_index: 1,
+    label_count: 1,
+    type: 'line-name-label'
 });
+assert.equal(lineNameLabel.geometry.type, 'LineString');
+assert.equal(lineNameLabel.geometry.coordinates.length, 2);
+assert.ok(lineNameLabel.geometry.coordinates.every((coord) => coord.every(Number.isFinite)));
+assert.notDeepEqual(lineNameLabel.geometry.coordinates, [[0, 0], [0.01, 0], [0.02, 0]]);
 
 const longLabels = buildLineNameLabelGeoJSON([
     {
@@ -106,6 +104,7 @@ assert.equal(longLabels.features.length, 1);
 assert.deepEqual(longLabels.features.map((feature) => feature.properties.label_index), [1]);
 assert.deepEqual(new Set(longLabels.features.map((feature) => feature.properties.label_count)), new Set([1]));
 assert.ok(longLabels.features.every((feature) => feature.geometry.type === 'LineString'));
+assert.ok(longLabels.features.every((feature) => feature.geometry.coordinates.length === 2));
 
 const sources = new Map();
 const layers = new Map([['lines-layer', { id: 'lines-layer' }]]);
@@ -121,6 +120,7 @@ const engine = {
 addLineNameLabelsLayer(engine, labels);
 
 assert.equal(sources.get('line-name-labels-source').data, labels);
+assert.equal(sources.get('line-name-labels-source').maxzoom, 8);
 const labelLayer = layers.get('line-name-labels-layer');
 assert.equal(labelLayer.beforeLayerId, 'lines-layer');
 assert.equal(labelLayer.layer.type, 'symbol');

@@ -6,6 +6,8 @@ const DEGREE_TO_RADIAN = Math.PI / 180;
 const EARTH_RADIUS_METERS = 6371000;
 const LABEL_SEGMENT_MIN_METERS = 6000;
 const LABEL_SEGMENT_MAX_METERS = 18000;
+const LABEL_ANCHOR_SEGMENT_MIN_METERS = 4200;
+const LABEL_ANCHOR_SEGMENT_MAX_METERS = 9000;
 
 const isLineGeometry = (geometry) => (
     (geometry?.type === 'LineString' && Array.isArray(geometry.coordinates) && geometry.coordinates.length >= 2)
@@ -94,6 +96,34 @@ const pointAtDistance = (chain, distanceMeters) => {
         walked += segmentLength;
     }
     return chain[chain.length - 1];
+};
+
+const destinationCoordinate = (coordinate, bearing, distanceMeters) => {
+    if (!isFiniteCoordinate(coordinate) || !Number.isFinite(bearing) || !Number.isFinite(distanceMeters)) {
+        return null;
+    }
+
+    const angularDistance = distanceMeters / EARTH_RADIUS_METERS;
+    const bearingRadians = bearing * DEGREE_TO_RADIAN;
+    const lng1 = Number(coordinate[0]) * DEGREE_TO_RADIAN;
+    const lat1 = Number(coordinate[1]) * DEGREE_TO_RADIAN;
+
+    const sinLat1 = Math.sin(lat1);
+    const cosLat1 = Math.cos(lat1);
+    const sinAngular = Math.sin(angularDistance);
+    const cosAngular = Math.cos(angularDistance);
+    const lat2 = Math.asin(
+        sinLat1 * cosAngular + cosLat1 * sinAngular * Math.cos(bearingRadians)
+    );
+    const lng2 = lng1 + Math.atan2(
+        Math.sin(bearingRadians) * sinAngular * cosLat1,
+        cosAngular - sinLat1 * Math.sin(lat2)
+    );
+
+    return [
+        ((((lng2 / DEGREE_TO_RADIAN) + 540) % 360) - 180),
+        lat2 / DEGREE_TO_RADIAN
+    ];
 };
 
 const sliceChainByDistance = (chain, startMeters, endMeters) => {
@@ -250,6 +280,33 @@ const buildLabelSegments = (geometry) => {
     return segments;
 };
 
+const getAnchorSegmentLengthMeters = (name) => {
+    const textLength = Array.from(toText(name)).length;
+    return clamp(
+        textLength * 900 + 2800,
+        LABEL_ANCHOR_SEGMENT_MIN_METERS,
+        LABEL_ANCHOR_SEGMENT_MAX_METERS
+    );
+};
+
+const buildLineNameAnchorSegment = (segment, name) => {
+    const length = chainLengthMeters(segment);
+    if (!Array.isArray(segment) || segment.length < 2 || length <= 0) return null;
+
+    const centerDistance = length / 2;
+    const center = pointAtDistance(segment, centerDistance);
+    const tangentWindow = Math.max(200, Math.min(1200, length / 4));
+    const from = pointAtDistance(segment, Math.max(0, centerDistance - tangentWindow));
+    const to = pointAtDistance(segment, Math.min(length, centerDistance + tangentWindow));
+    const bearing = bearingDegrees(from, to);
+    if (!isFiniteCoordinate(center) || !Number.isFinite(bearing)) return null;
+
+    const halfLength = getAnchorSegmentLengthMeters(name) / 2;
+    const start = destinationCoordinate(center, (bearing + 180) % 360, halfLength);
+    const end = destinationCoordinate(center, bearing, halfLength);
+    return isFiniteCoordinate(start) && isFiniteCoordinate(end) ? [start, end] : null;
+};
+
 export const buildLineNameLabelGeoJSON = (lineFeatures = []) => {
     const features = [];
     const seen = new Set();
@@ -270,24 +327,28 @@ export const buildLineNameLabelGeoJSON = (lineFeatures = []) => {
 
         seen.add(lineId);
         const labelCount = labelSegments.length;
-        labelSegments.forEach((segment, index) => features.push({
-            type: 'Feature',
-            id: labelCount === 1 ? `${lineId}.name-label` : `${lineId}.name-label.${index + 1}`,
-            properties: {
-                id: lineId,
-                name,
-                color: toText(props.color),
-                line_offset_units: lineOffsetUnits,
-                text_offset: buildLineNameTextOffset(lineOffsetUnits),
-                label_index: index + 1,
-                label_count: labelCount,
-                type: 'line-name-label'
-            },
-            geometry: {
-                type: 'LineString',
-                coordinates: segment
-            }
-        }));
+        labelSegments.forEach((segment, index) => {
+            const anchorSegment = buildLineNameAnchorSegment(segment, name);
+            if (!anchorSegment) return;
+            features.push({
+                type: 'Feature',
+                id: labelCount === 1 ? `${lineId}.name-label` : `${lineId}.name-label.${index + 1}`,
+                properties: {
+                    id: lineId,
+                    name,
+                    color: toText(props.color),
+                    line_offset_units: lineOffsetUnits,
+                    text_offset: buildLineNameTextOffset(lineOffsetUnits),
+                    label_index: index + 1,
+                    label_count: labelCount,
+                    type: 'line-name-label'
+                },
+                geometry: {
+                    type: 'LineString',
+                    coordinates: anchorSegment
+                }
+            });
+        });
     }
 
     return { type: 'FeatureCollection', features };

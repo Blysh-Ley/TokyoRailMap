@@ -201,6 +201,7 @@ export function addLineNameLabelsLayer(mapOrEngine, labelsData) {
     if (!mapAdapter.getSource('line-name-labels-source')) {
         mapAdapter.addSource('line-name-labels-source', {
             type: 'geojson',
+            maxzoom: 8,
             data: labelsData || { type: 'FeatureCollection', features: [] }
         });
     }
