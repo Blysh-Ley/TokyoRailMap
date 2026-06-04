@@ -1475,6 +1475,34 @@ import { getMacaronColor } from '../../lib/macaron.js';
         return root;
     };
 
+    const alignServiceDayPairHeaderHeights = (root) => {
+        if (!(root instanceof HTMLElement)) return;
+        const dayRoots = Array.from(root.children)
+            .filter((el) => el instanceof HTMLElement && el.classList.contains('timetable-print-root'));
+        if (dayRoots.length < 2) return;
+
+        for (const selector of ['.panel-bi-headers', '.panel-bi-hints-container']) {
+            const targets = dayRoots
+                .map((dayRoot) => dayRoot.querySelector(selector))
+                .filter((el) => el instanceof HTMLElement);
+            if (targets.length < 2) continue;
+
+            for (const target of targets) {
+                target.style.height = 'auto';
+                target.style.minHeight = '0';
+            }
+
+            const maxHeight = Math.max(...targets.map((target) => Math.ceil(target.getBoundingClientRect().height || target.scrollHeight || 0)));
+            if (!Number.isFinite(maxHeight) || maxHeight <= 0) continue;
+
+            for (const target of targets) {
+                target.style.height = `${maxHeight}px`;
+                target.style.minHeight = `${maxHeight}px`;
+                target.style.boxSizing = 'border-box';
+            }
+        }
+    };
+
     const exportLineToImage = async (detail = {}) => {
         injectStyles();
         const { html2canvas } = await ensureLibs();
@@ -1486,6 +1514,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
             ? createServiceDayPairLineImageExportDom(detail)
             : createLineImageExportDom(detail);
         document.body.appendChild(root);
+        if (shouldExportServiceDayPair) alignServiceDayPairHeaderHeights(root);
         try {
             const canvas = await html2canvas(root, {
                 scale: Math.max(2, window.devicePixelRatio || 1),
@@ -1672,6 +1701,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 : createLineImageExportDom(pageDetail);
                 
             document.body.appendChild(root);
+            if (shouldExportServiceDayPair) alignServiceDayPairHeaderHeights(root);
 
             try {
                 const scaleFactor = Math.max(2, window.devicePixelRatio || 1);
