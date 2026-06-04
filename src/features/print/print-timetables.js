@@ -2,6 +2,7 @@
  * print-timetables.js
  * 方向班次表导出 PDF（A4）
  */
+import { getCachedJson, getCompanyLogoSrc } from '../../lib/fetch.js';
 import { getMacaronColor } from '../../lib/macaron.js';
 (() => {
     'use strict';
@@ -9,6 +10,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
     const PRINT_EVENT = '__TokyoRailPrintTimetableRequested';
     const PRINT_ALL_EVENT = '__TokyoRailPrintAllTimetablesRequested';
     const PRINT_LINE_IMAGE_EVENT = '__TokyoRailPrintLineTimetableImageRequested';
+    const ROUTE_MAP_LINE_TIMETABLES_PRINT_EVENT = '__TokyoRailRouteMapLineTimetablesPrintRequested';
     const LOADING_CLASS = 'is-printing-timetables';
     const GRID_MIN_COLS = 10;
 
@@ -46,6 +48,394 @@ import { getMacaronColor } from '../../lib/macaron.js';
         .replace(/\s+/g, '_')
         .replace(/[^A-Za-z0-9_.\-\u4e00-\u9fa5]/g, '_')
         .slice(0, 120);
+
+    const escapeHtml = (s) => String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const pickTitleZhHans = (title) => {
+        if (typeof title === 'string') return toText(title);
+        if (!title || typeof title !== 'object') return '';
+        return toText(title['zh-Hans'])
+            || toText(title.zh)
+            || toText(title.ja)
+            || toText(title.en)
+            || toText(Object.values(title).find((v) => toText(v)));
+    };
+
+    const normalizeArrayLike = (value) => {
+        if (Array.isArray(value)) return value;
+        return value == null ? [] : [value];
+    };
+
+    const toTimetableFileStem = (lineId) => {
+        const raw = toText(lineId);
+        if (!raw) return '';
+        const normalized = raw
+            .replace(/^JR[.-]East\b/i, 'JREast')
+            .replace(/^JR[.-]Central\b/i, 'JRCentral')
+            .replace(/^JR-East\b/i, 'JREast')
+            .replace(/^JR-Central\b/i, 'JRCentral')
+            .replace(/^Seibu.S-Yurakucho\b/i, 'Seibu.SYurakucho')
+            .replace(/^Seibu.S-Fukutoshin\b/i, 'Seibu.SFukutoshin');
+        return normalized.replace(/\./g, '-').toLowerCase();
+    };
+
+    const getTripServiceDay = (trip) => {
+        const id = toText(trip?.id);
+        const parts = id.split('.').map((x) => toText(x)).filter(Boolean);
+        const last = parts[parts.length - 1] || '';
+        if (last === 'Weekday' || last === 'SaturdayHoliday') return last;
+        return toText(trip?.serviceDay);
+    };
+
+    const formatRoutePrintHourLabel = (hourIndex) => {
+        const hour = Number(hourIndex);
+        if (!Number.isFinite(hour)) return '';
+        return String(((hour % 24) + 24) % 24).padStart(2, '0');
+    };
+
+    const parseRoutePrintTime = (value) => {
+        const match = /^(\d{1,2}):(\d{2})$/.exec(toText(value));
+        if (!match) return null;
+        const hour = Number(match[1]);
+        const minute = Number(match[2]);
+        if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+        if (minute < 0 || minute > 59) return null;
+        return {
+            hour,
+            minute,
+            serviceHourIndex: hour < 3 ? hour + 24 : hour,
+            minuteLabel: String(minute).padStart(2, '0')
+        };
+    };
+
+    const routePrintDataCache = {
+        railways: null,
+        stations: null,
+        trainTypes: null
+    };
+
+    const loadRoutePrintRailwaysIndex = async () => {
+        if (routePrintDataCache.railways) return routePrintDataCache.railways;
+        routePrintDataCache.railways = (async () => {
+            const list = await getCachedJson('./data/railways.json');
+            const map = new Map();
+            for (const item of Array.isArray(list) ? list : []) {
+                const id = toText(item?.id);
+                if (!id) continue;
+                map.set(id, {
+                    id,
+                    name: pickTitleZhHans(item?.title) || id,
+                    color: toText(item?.color) || '#888888',
+                    company: toText(item?.company),
+                    stationIds: normalizeArrayLike(item?.stations).map((x) => toText(x)).filter(Boolean)
+                });
+            }
+            return map;
+        })();
+        return routePrintDataCache.railways;
+    };
+
+    const loadRoutePrintStationsIndex = async () => {
+        if (routePrintDataCache.stations) return routePrintDataCache.stations;
+        routePrintDataCache.stations = (async () => {
+            const list = await getCachedJson('./data/stations.json');
+            const map = new Map();
+            for (const item of Array.isArray(list) ? list : []) {
+                const id = toText(item?.id);
+                if (!id) continue;
+                map.set(id, {
+                    id,
+                    name: pickTitleZhHans(item?.title) || id,
+                    code: toText(item?.title?.code)
+                });
+            }
+            return map;
+        })();
+        return routePrintDataCache.stations;
+    };
+
+    const loadRoutePrintTrainTypesIndex = async () => {
+        if (routePrintDataCache.trainTypes) return routePrintDataCache.trainTypes;
+        routePrintDataCache.trainTypes = (async () => {
+            const list = await getCachedJson('./data/train-types.json');
+            const map = new Map();
+            for (const item of Array.isArray(list) ? list : []) {
+                const id = toText(item?.id);
+                if (!id) continue;
+                const title = item?.title || {};
+                map.set(id, {
+                    id,
+                    name: pickTitleZhHans(title) || id,
+                    color: toText(title?.color) || toText(item?.color) || '#111111'
+                });
+            }
+            return map;
+        })();
+        return routePrintDataCache.trainTypes;
+    };
+
+    const loadRoutePrintTimetableForLineId = async (lineId) => {
+        const id = toText(lineId);
+        if (!id) return [];
+        const cache = window?.TokyoRailTimetableCache;
+        if (cache && typeof cache.get === 'function') {
+            try {
+                const existing = cache.get(id);
+                if (Array.isArray(existing)) return existing;
+                if (typeof cache.preloadByLineIds === 'function') {
+                    await cache.preloadByLineIds([id]);
+                    const loaded = cache.get(id);
+                    if (Array.isArray(loaded)) return loaded;
+                }
+            } catch {
+                // fall through to direct fetch
+            }
+        }
+        const stem = toTimetableFileStem(id);
+        if (!stem) return [];
+        const data = await getCachedJson(`./data/train-timetables/${stem}.json`);
+        return Array.isArray(data) ? data : [];
+    };
+
+    const getRoutePrintStationName = (stationsIndex, stationId) => (
+        toText(stationsIndex?.get?.(toText(stationId))?.name) || toText(stationId)
+    );
+
+    const getRoutePrintTripTerminalIds = (trip) => {
+        const ds = normalizeArrayLike(trip?.ds).map((x) => toText(x)).filter(Boolean);
+        if (ds.length) return ds;
+        const tt = Array.isArray(trip?.tt) ? trip.tt : [];
+        const lastStop = tt[tt.length - 1];
+        const fallback = toText(lastStop?.s);
+        return fallback ? [fallback] : [];
+    };
+
+    const getRoutePrintDirectionLabel = (dirKey, rows, stationsIndex) => {
+        const key = toText(dirKey);
+        if (key === 'InnerLoop') return '\u5185\u73af';
+        if (key === 'OuterLoop') return '\u5916\u73af';
+
+        const counts = new Map();
+        for (const row of Array.isArray(rows) ? rows : []) {
+            const name = toText(row?.terminalName);
+            if (!name) continue;
+            counts.set(name, (counts.get(name) || 0) + 1);
+        }
+
+        const names = Array.from(counts.entries())
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .slice(0, 3)
+            .map(([name]) => name);
+        if (names.length) return names.join('\u3001');
+
+        const terminalId = toText(rows?.[0]?.terminalId);
+        return terminalId ? getRoutePrintStationName(stationsIndex, terminalId) : (key || '\u672a\u77e5\u65b9\u5411');
+    };
+
+    const buildRoutePrintHintsHtml = (rows) => {
+        const typeItems = [];
+        const terminalItems = [];
+        const seenTypes = new Set();
+        const seenTerminals = new Set();
+
+        for (const row of Array.isArray(rows) ? rows : []) {
+            const typeName = toText(row?.typeName);
+            if (typeName && !seenTypes.has(typeName)) {
+                seenTypes.add(typeName);
+                typeItems.push(`<span class="panel-grid-hint-item" style="color:${escapeHtml(row?.typeColor || '#111')}">${escapeHtml(typeName)}</span>`);
+            }
+            const terminalName = toText(row?.terminalName);
+            if (terminalName && !seenTerminals.has(terminalName)) {
+                seenTerminals.add(terminalName);
+                terminalItems.push(`<span class="panel-grid-hint-item">${escapeHtml(terminalName)}</span>`);
+            }
+        }
+
+        return `
+            <div class="panel-grid-hints">
+                <div class="panel-grid-hint-line">
+                    <span class="panel-grid-hint-label">\u79cd\u522b\uff1a</span>
+                    <span class="panel-grid-hint-content">${typeItems.join('<span class="panel-grid-hint-sep"> / </span>') || '<span class="panel-grid-hint-item" style="color:#888">\u65e0</span>'}</span>
+                </div>
+                <div class="panel-grid-hint-line">
+                    <span class="panel-grid-hint-label">\u7ec8\u70b9\u7ad9\uff1a</span>
+                    <span class="panel-grid-hint-content">${terminalItems.join('<span class="panel-grid-hint-sep"> / </span>') || '<span class="panel-grid-hint-item" style="color:#888">\u65e0</span>'}</span>
+                </div>
+            </div>
+        `;
+    };
+
+    const buildRoutePrintGridHtml = (rows) => {
+        const sorted = (Array.isArray(rows) ? rows : [])
+            .slice()
+            .sort((a, b) => (Number(a?.serviceHourIndex) || 0) - (Number(b?.serviceHourIndex) || 0)
+                || (Number(a?.minute) || 0) - (Number(b?.minute) || 0)
+                || toText(a?.tripKey).localeCompare(toText(b?.tripKey)));
+        if (!sorted.length) return '<div class="panel-timetable-empty">\u5f53\u524d\u65e0\u73ed\u6b21</div>';
+
+        const byHour = new Map();
+        for (const row of sorted) {
+            const hour = Number(row?.serviceHourIndex);
+            if (!Number.isFinite(hour)) continue;
+            if (!byHour.has(hour)) byHour.set(hour, []);
+            byHour.get(hour).push(row);
+        }
+
+        const hours = Array.from(byHour.keys()).sort((a, b) => a - b);
+        const rowsHtml = hours.map((hour, hourIndex) => {
+            const trips = byHour.get(hour) || [];
+            const cellsHtml = trips.map((trip, tripIndex) => {
+                const lastClass = tripIndex === trips.length - 1 ? ' is-hour-last' : '';
+                const typeLabel = toText(trip?.typeName);
+                const terminalName = toText(trip?.terminalName);
+                const typeAbbr = typeLabel && typeLabel.length > 4 ? typeLabel.slice(0, 2) : typeLabel;
+                const destAbbr = terminalName ? terminalName.slice(0, 1) : '';
+                const abbrText = `${typeAbbr ? `[${typeAbbr}]` : ''}${destAbbr}`;
+                const abbrHtml = abbrText
+                    ? `<span class="panel-grid-trip-abbr">${escapeHtml(abbrText)}</span>`
+                    : '<span class="panel-grid-trip-abbr" aria-hidden="true">&nbsp;</span>';
+                const tripKey = toText(trip?.tripKey);
+                const tripAttr = tripKey ? ` data-trip-key="${escapeHtml(tripKey)}"` : '';
+                const color = toText(trip?.typeColor) || 'var(--ui-text, #111)';
+                const flag = trip?.isOrigin
+                    ? '<span class="panel-grid-trip-minute-flag is-origin-flag" aria-label="\u8d77\u70b9\u7ad9">\u59cb</span>'
+                    : (trip?.isTerminal
+                        ? '<span class="panel-grid-trip-minute-flag is-terminal-flag" aria-label="\u7ec8\u70b9\u7ad9">\u7ec8</span>'
+                        : '');
+                return `
+                    <div class="panel-grid-cell panel-grid-cell-trip${lastClass}"${tripAttr}>
+                        <span class="panel-grid-trip" style="color:${escapeHtml(color)}">
+                            ${abbrHtml}
+                            <span class="panel-grid-trip-minute"><span class="panel-grid-trip-minute-text">${escapeHtml(trip?.minuteLabel)}</span>${flag}</span>
+                        </span>
+                    </div>
+                `;
+            }).join('') || '<div class="panel-grid-cell is-empty is-hour-last"></div>';
+
+            return `
+                <div class="panel-grid-row ${hourIndex % 2 === 0 ? 'is-alt-a' : 'is-alt-b'}" data-grid-hour="${escapeHtml(String(hour))}">
+                    <div class="panel-grid-hour">${escapeHtml(formatRoutePrintHourLabel(hour))}</div>
+                    <div class="panel-grid-trips">
+                        ${cellsHtml}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `<div class="panel-timetable-grid">${rowsHtml}</div>`;
+    };
+
+    const collectRoutePrintRowsForStation = ({ trips, stationId, serviceDay, trainTypesIndex, stationsIndex }) => {
+        const sid = toText(stationId);
+        const day = toText(serviceDay);
+        const rowsByDir = new Map();
+
+        for (const trip of Array.isArray(trips) ? trips : []) {
+            if (getTripServiceDay(trip) !== day) continue;
+            const tt = Array.isArray(trip?.tt) ? trip.tt : [];
+            const stopIndex = tt.findIndex((stop) => toText(stop?.s) === sid);
+            if (stopIndex < 0) continue;
+            const stop = tt[stopIndex];
+            const parsed = parseRoutePrintTime(toText(stop?.d) || toText(stop?.a));
+            if (!parsed) continue;
+
+            const dirKey = toText(trip?.d) || 'Unknown';
+            const typeMeta = trainTypesIndex.get(toText(trip?.y)) || {};
+            const terminalId = getRoutePrintTripTerminalIds(trip)[0] || '';
+            const row = {
+                dirKey,
+                tripKey: toText(trip?.id) || toText(trip?.t),
+                typeName: toText(typeMeta?.name) || toText(trip?.y),
+                typeColor: toText(typeMeta?.color) || '#111111',
+                terminalId,
+                terminalName: terminalId ? getRoutePrintStationName(stationsIndex, terminalId) : '',
+                minute: parsed.minute,
+                minuteLabel: parsed.minuteLabel,
+                serviceHourIndex: parsed.serviceHourIndex,
+                isOrigin: stopIndex === 0,
+                isTerminal: stopIndex === tt.length - 1
+            };
+
+            if (!rowsByDir.has(dirKey)) rowsByDir.set(dirKey, []);
+            rowsByDir.get(dirKey).push(row);
+        }
+
+        return rowsByDir;
+    };
+
+    const buildRouteMapLineStationPrintPages = async ({ lineId, lineName }) => {
+        const id = toText(lineId);
+        if (!id) return [];
+
+        const [railwaysIndex, stationsIndex, trainTypesIndex, trips] = await Promise.all([
+            loadRoutePrintRailwaysIndex(),
+            loadRoutePrintStationsIndex(),
+            loadRoutePrintTrainTypesIndex(),
+            loadRoutePrintTimetableForLineId(id)
+        ]);
+
+        const lineMeta = railwaysIndex.get(id) || {};
+        const stationIds = Array.isArray(lineMeta.stationIds) ? lineMeta.stationIds : [];
+        if (!stationIds.length || !Array.isArray(trips) || !trips.length) return [];
+
+        const companyMap = window?.TokyoRailCompanyLogoMap || {};
+        const companyKey = toText(lineMeta.company);
+        const companyInfo = companyMap?.[companyKey] || {};
+        const companyName = toText(companyInfo?.zh) || companyKey || '\u672a\u77e5\u516c\u53f8';
+        const companyLogoSrc = toText(getCompanyLogoSrc(companyKey, companyMap));
+        const resolvedLineName = toText(lineMeta.name) || toText(lineName) || id;
+        const lineColor = toText(lineMeta.color) || '#888888';
+
+        return stationIds.map((stationId) => {
+            const stationName = getRoutePrintStationName(stationsIndex, stationId);
+            const rowsByServiceDay = new Map(PRINT_SERVICE_DAY_ORDER.map((serviceDay) => [
+                serviceDay,
+                collectRoutePrintRowsForStation({ trips, stationId, serviceDay, trainTypesIndex, stationsIndex })
+            ]));
+            const dirKeys = Array.from(new Set(
+                PRINT_SERVICE_DAY_ORDER.flatMap((serviceDay) => Array.from(rowsByServiceDay.get(serviceDay)?.keys?.() || []))
+            ));
+
+            const dirs = dirKeys.map((dirKey) => {
+                const variants = PRINT_SERVICE_DAY_ORDER.map((serviceDay) => {
+                    const rows = rowsByServiceDay.get(serviceDay)?.get(dirKey) || [];
+                    if (!rows.length) return null;
+                    const dirLabel = getRoutePrintDirectionLabel(dirKey, rows, stationsIndex);
+                    return {
+                        stationName,
+                        companyName,
+                        companyLogoSrc,
+                        lineName: resolvedLineName,
+                        lineColor,
+                        serviceDay,
+                        dirKey,
+                        dirLabel,
+                        timetableViewMode: 'grid',
+                        gridHintsHtml: buildRoutePrintHintsHtml(rows),
+                        gridHtml: buildRoutePrintGridHtml(rows)
+                    };
+                }).filter(Boolean);
+
+                if (!variants.length) return null;
+                const base = variants[0];
+                return {
+                    ...base,
+                    serviceDayVariants: variants
+                };
+            }).filter(Boolean);
+
+            return {
+                stationName,
+                lineId: id,
+                dirs
+            };
+        }).filter((page) => Array.isArray(page?.dirs) && page.dirs.length);
+    };
 
     const loadScript = (src) => new Promise((resolve, reject) => {
         const existing = document.querySelector(`script[data-print-lib="${src}"]`);
@@ -1756,6 +2146,68 @@ import { getMacaronColor } from '../../lib/macaron.js';
         pdf.save(fileName);
     };
 
+    const exportRouteMapLineStationsToPdf = async (detail = {}) => {
+        injectStyles();
+        const { html2canvas, jsPDF } = await ensureLibs();
+
+        const pages = await buildRouteMapLineStationPrintPages(detail);
+        if (!pages.length) return;
+
+        let pdf = null;
+        let pageCount = 0;
+
+        for (const pageDetail of pages) {
+            const shouldExportServiceDayPair = pageDetail.dirs.some((dir) => (
+                Array.isArray(dir?.serviceDayVariants) && dir.serviceDayVariants.length >= 2
+            ));
+            const root = shouldExportServiceDayPair
+                ? createServiceDayPairLineImageExportDom(pageDetail)
+                : createLineImageExportDom(pageDetail);
+
+            document.body.appendChild(root);
+            if (shouldExportServiceDayPair) alignServiceDayPairHeaderHeights(root);
+
+            try {
+                const scaleFactor = Math.max(2, window.devicePixelRatio || 1);
+                const canvas = await html2canvas(root, {
+                    scale: scaleFactor,
+                    useCORS: true,
+                    backgroundColor: getComputedStyle(document.body).getPropertyValue('background-color') || '#ffffff',
+                    logging: false,
+                    width: root.scrollWidth,
+                    height: root.scrollHeight,
+                    windowWidth: root.scrollWidth,
+                    windowHeight: root.scrollHeight
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+                const pdfWidth = canvas.width / scaleFactor;
+                const pdfHeight = canvas.height / scaleFactor;
+                const orientation = pdfWidth > pdfHeight ? 'landscape' : 'portrait';
+
+                if (pageCount === 0) {
+                    pdf = new jsPDF({
+                        orientation,
+                        unit: 'px',
+                        format: [pdfWidth, pdfHeight]
+                    });
+                } else {
+                    pdf.addPage([pdfWidth, pdfHeight], orientation);
+                }
+
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+                pageCount += 1;
+            } finally {
+                root.remove();
+            }
+        }
+
+        if (!pageCount || !pdf) return;
+
+        const lineName = sanitizeFilePart(detail.lineName || detail.lineId || pages[0]?.lineId || 'line');
+        pdf.save(`${lineName}_\u5168\u7ad9_\u5e73\u65e5_\u5468\u516d\u8282\u5047\u65e5\u65f6\u523b\u8868.pdf`);
+    };
+
     const onPrintRequest = async (evt) => {
         const detail = evt?.detail || {};
         const lineId = toText(detail.lineId);
@@ -1829,7 +2281,31 @@ import { getMacaronColor } from '../../lib/macaron.js';
         }
     };
 
+    const onRouteMapLineTimetablesPrintRequest = async (evt) => {
+        const detail = evt?.detail || {};
+        const target = document.querySelector('.route-map-print-btn');
+
+        try {
+            if (target instanceof Element) {
+                target.classList.add(LOADING_CLASS);
+                target.setAttribute('aria-busy', 'true');
+                if ('disabled' in target) target.disabled = true;
+            }
+            await exportRouteMapLineStationsToPdf(detail);
+        } catch (err) {
+            console.error('[print-timetables] route map line export failed', err);
+            alert('\u5bfc\u51fa\u7ebf\u8def\u5168\u7ad9\u65f6\u523b\u8868 PDF \u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002');
+        } finally {
+            if (target instanceof Element) {
+                target.classList.remove(LOADING_CLASS);
+                target.removeAttribute('aria-busy');
+                if ('disabled' in target) target.disabled = false;
+            }
+        }
+    };
+
     window.addEventListener(PRINT_EVENT, onPrintRequest);
     window.addEventListener(PRINT_ALL_EVENT, onPrintAllRequest);
     window.addEventListener(PRINT_LINE_IMAGE_EVENT, onPrintLineImageRequest);
+    window.addEventListener(ROUTE_MAP_LINE_TIMETABLES_PRINT_EVENT, onRouteMapLineTimetablesPrintRequest);
 })();

@@ -19,6 +19,7 @@ import { getTransferStationIdsByStationId } from '../../app.js';
 import { MENU_THROUGH_LINE_IDS, THROUGH_SERVICE_CONFIGS_OBJECT, THROUGH_SERVICE_DISPLAY, isSUStations as isStationSUStations } from '../../lib/throughServiceManager.js';
 
 const toText = (v) => String(v ?? '').trim();
+const ROUTE_MAP_LINE_TIMETABLES_PRINT_EVENT = '__TokyoRailRouteMapLineTimetablesPrintRequested';
 
 let stationCodeIndexPromise = null;
 const getStationCodeIndex = async () => {
@@ -782,6 +783,21 @@ const setupRouteMapUi = () => {
     branchBtn.appendChild(branchIcon);
     topActions.appendChild(branchBtn);
 
+    const printBtn = document.createElement('button');
+    printBtn.type = 'button';
+    printBtn.className = 'panel-capture-btn route-map-print-btn';
+    printBtn.setAttribute('aria-label', '\u6253\u5370\u7ebf\u8def\u7ad9\u70b9\u65f6\u523b\u8868');
+    printBtn.title = '\u6253\u5370\u7ebf\u8def\u7ad9\u70b9\u65f6\u523b\u8868';
+    const printIcon = document.createElement('img');
+    printIcon.className = 'panel-capture-icon route-map-print-icon';
+    printIcon.alt = '';
+    setImageElementFromCache(printIcon, getIconCandidates('print.svg'), {
+        cacheKey: 'icon:print.svg',
+        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('print.svg'), { cacheKey: 'icon:print.svg' })
+    }).catch(() => null);
+    printBtn.appendChild(printIcon);
+    topActions.appendChild(printBtn);
+
     const captureBtn = document.createElement('button');
     captureBtn.type = 'button';
     captureBtn.className = 'panel-capture-btn route-map-capture-btn';
@@ -902,6 +918,20 @@ const setupRouteMapUi = () => {
         clearTimers();
         const baseName = `${toText(activeLineName)}_运行系统图`;
         await exportElementToPng(root, baseName, captureBtn);
+    }, { passive: false });
+
+    printBtn.addEventListener('click', (evt) => {
+        stopEvent(evt);
+        pinned = true;
+        clearTimers();
+        const lid = toText(activeLineId);
+        if (!lid) return;
+        window.dispatchEvent(new CustomEvent(ROUTE_MAP_LINE_TIMETABLES_PRINT_EVENT, {
+            detail: {
+                lineId: lid,
+                lineName: toText(activeLineName) || lid
+            }
+        }));
     }, { passive: false });
 
     const cache = new Map(); // key: lineId||serviceDay -> payload
