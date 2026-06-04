@@ -2406,8 +2406,8 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 
 .panel-trip-detail {
-    min-width: 260px;
-    max-width: min(300px, calc(100vw - 40px));
+    min-width: 240px;
+    max-width: min(280px, calc(100vw - 40px));
     max-height: 60vh;
     background: rgba(255, 255, 255, 0.96);
     border: 1px solid var(--ui-border);
@@ -2493,7 +2493,7 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 
 .panel-trip-detail-body {
-    padding: 4px 8px 6px;
+    padding: 6px 10px 8px;
     max-height: calc(60vh - 36px);
     overflow-y: auto;
     overflow-x: hidden;
@@ -2503,18 +2503,18 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 .panel-trip-detail-table {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
 }
 
 .panel-trip-detail-head,
 .panel-trip-detail-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-size: 12px;
-    height: 17px;
+    height: 18px;
     white-space: nowrap;
-    padding-bottom: 2px;
+    padding-bottom: 3px;
 }
 
 .panel-trip-detail-head {
@@ -2571,21 +2571,22 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 
 .panel-trip-detail-time {
-    flex: 0 0 auto;
-    min-width: 62px;
+    flex: 0 0 70px;
+    width: 70px;
+    min-width: 70px;
     text-align: left;
 }
 
 .panel-trip-detail-moment {
     display: inline-flex;
     align-items: baseline;
-    gap: 2px;
+    gap: 0;
 }
 
 .panel-trip-detail-time-main {
-    flex: 0 0 34px;
+    flex: 0 0 5ch;
     display: inline-block;
-    width: 34px;
+    width: 5ch;
     font-variant-numeric: tabular-nums;
 }
 
@@ -2674,15 +2675,15 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 
 .panel-trip-detail-spacer {
-    height: 12px;
+    height: 18px;
     flex: 0 0 auto;
 }
 
 .panel-trip-detail-table.is-branch-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.5fr) repeat(var(--panel-trip-detail-branch-count, 2), minmax(0, 0.58fr) minmax(0, 0.58fr));
-    column-gap: 4px;
-    row-gap: 2px;
+    grid-template-columns: minmax(0, 1.5fr) repeat(var(--panel-trip-detail-branch-count, 2), minmax(0, 0.9fr) minmax(0, 0.9fr));
+    column-gap: 6px;
+    row-gap: 3px;
     align-items: center;
     position: relative;
 }
@@ -2691,7 +2692,7 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     font-weight: 600;
     color: var(--ui-text-muted);
     font-size: 12px;
-    height: 17px;
+    height: 18px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2699,7 +2700,7 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 
 .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell {
     font-size: 12px;
-    height: 17px;
+    height: 18px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2739,8 +2740,8 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 
 .panel-trip-detail-grid-break-row {
     display: grid;
-    grid-template-columns: minmax(0, 1.5fr) repeat(var(--panel-trip-detail-branch-count, 2), minmax(0, 0.58fr) minmax(0, 0.58fr));
-    column-gap: 4px;
+    grid-template-columns: minmax(0, 1.5fr) repeat(var(--panel-trip-detail-branch-count, 2), minmax(0, 0.9fr) minmax(0, 0.9fr));
+    column-gap: 6px;
     min-height: 16px;
     align-items: center;
 }
