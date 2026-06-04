@@ -27,6 +27,7 @@ import {
     resolveSelectionLineHighlightIds
 } from './domain/lineHighlightVirtualTripBuilder.js';
 import { buildLineHighlightLabelItems } from './domain/lineHighlightLabels.js';
+import { buildLineNameLabelGeoJSON } from './domain/lineNameLabels.js';
 import { previewBranchesForLine } from './map/analyze_branch.js';
 import { createLineIconElement, getResolvedRouteIconMeta } from './lib/line-icons.js';
 import {
@@ -316,6 +317,7 @@ const initMapApp = async () => {
     let clearTripPathPreview = () => {};
     let tripPreviewStationIds = null; // Set<string> | null
     let tripPreviewLineIds = null; // Set<string> | null
+    let tripPreviewLineNameLabelsData = null;
     let tripPreviewStationOverrideColor = '';
     let tripPreviewActive = false;
     let tripPreviewActiveSource = '';
@@ -350,6 +352,11 @@ const initMapApp = async () => {
     let travelSearchMapRuntime = null;
     let syncStationOffsetForTripPreviewState = () => {};
     let railwaysIndexByIdCachePromise = null;
+    let generatedLinesData = null;
+    let generatedLineNameLabelsData = null;
+    let currentLineNameLabelsData = null;
+    let generatedStationsData = null;
+    let generatedStationOffsetAlgorithmContext = null;
     let multiSelectBaseTripPreviewSignature = '';
     let selectionLineTripPreviewSignature = '';
     let selectionLineTripPreviewRequestId = 0;
@@ -1081,6 +1088,8 @@ const initMapApp = async () => {
     const routeFeature = createRouteFeature({
         tripPreviewRenderer,
         emitTripPreviewUpdated: ({ payload, built } = {}) => {
+            tripPreviewLineNameLabelsData = buildTripPreviewLineNameLabelsData({ built });
+            syncLineNameLabelDataForCurrentState();
             try {
                 window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {
                     detail: {
@@ -1094,6 +1103,8 @@ const initMapApp = async () => {
             }
         },
         emitTripPreviewCleared: () => {
+            tripPreviewLineNameLabelsData = null;
+            syncLineNameLabelDataForCurrentState();
             try {
                 window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewCleared', { detail: { ts: Date.now() } }));
             } catch {
@@ -1751,6 +1762,117 @@ const initMapApp = async () => {
 
     registerCompanyLogoMap(companyLogoMap, { preload: true, concurrency: 8 });
 
+    const EMPTY_LINE_NAME_LABELS_DATA = { type: 'FeatureCollection', features: [] };
+
+    const getLineNameLabelLineIdCandidates = (feature) => {
+        const props = feature?.properties || {};
+        const raw = [
+            props.r,
+            props.lineId,
+            props.geometry_line_id,
+            props.line_offset_id,
+            props.id,
+            feature?.id
+        ];
+        const seen = new Set();
+        const out = [];
+        for (const value of raw) {
+            const id = String(value || '').trim();
+            if (!id || seen.has(id)) continue;
+            seen.add(id);
+            out.push(id);
+        }
+        return out;
+    };
+
+    const getLineNameLabelSourceLineId = (feature) => {
+        return getLineNameLabelLineIdCandidates(feature)[0] || '';
+    };
+
+    const getFirstLineMetaValue = (mapRef, ids) => {
+        for (const id of Array.isArray(ids) ? ids : []) {
+            const value = String(mapRef?.get?.(id) || '').trim();
+            if (value) return value;
+        }
+        return '';
+    };
+
+    const getLineNameLabelChains = (geometry) => {
+        if (geometry?.type === 'LineString' && Array.isArray(geometry.coordinates) && geometry.coordinates.length >= 2) {
+            return [geometry.coordinates];
+        }
+        if (geometry?.type === 'MultiLineString' && Array.isArray(geometry.coordinates)) {
+            return geometry.coordinates.filter((chain) => Array.isArray(chain) && chain.length >= 2);
+        }
+        return [];
+    };
+
+    const buildTripPreviewLineNameLabelsData = ({ built } = {}) => {
+        const sourceFeatures = Array.isArray(built?.lineFc?.features) ? built.lineFc.features : [];
+        if (!sourceFeatures.length) return EMPTY_LINE_NAME_LABELS_DATA;
+
+        const groups = new Map();
+
+        for (const feature of sourceFeatures) {
+            const props = feature?.properties || {};
+            if (String(props.role || 'line') !== 'line') continue;
+
+            const lineIdCandidates = getLineNameLabelLineIdCandidates(feature);
+            const labelId = getLineNameLabelSourceLineId(feature);
+            if (!labelId) continue;
+
+            const name = String(getFirstLineMetaValue(lineNameById, lineIdCandidates) || props.name || labelId).trim();
+            if (!name) continue;
+
+            const chains = getLineNameLabelChains(feature.geometry);
+            if (!chains.length) continue;
+
+            if (!groups.has(labelId)) {
+                groups.set(labelId, {
+                    id: labelId,
+                    name,
+                    color: String(getFirstLineMetaValue(lineColorById, lineIdCandidates) || props.color || '').trim(),
+                    lineOffsetUnits: Number(props.line_offset_units) || 0,
+                    chains: []
+                });
+            }
+
+            const group = groups.get(labelId);
+            group.chains.push(...chains);
+        }
+
+        if (!groups.size) return EMPTY_LINE_NAME_LABELS_DATA;
+
+        return buildLineNameLabelGeoJSON(Array.from(groups.values()).map((group) => ({
+            type: 'Feature',
+            id: group.id,
+            properties: {
+                id: group.id,
+                name: group.name,
+                color: group.color,
+                line_offset_units: group.lineOffsetUnits,
+                hidden_by_opacity_zero: 0
+            },
+            geometry: {
+                type: 'MultiLineString',
+                coordinates: group.chains
+            }
+        })));
+    };
+
+    const syncLineNameLabelDataForCurrentState = () => {
+        const nextData = tripPreviewActive
+            ? (tripPreviewLineNameLabelsData || EMPTY_LINE_NAME_LABELS_DATA)
+            : (generatedLineNameLabelsData || EMPTY_LINE_NAME_LABELS_DATA);
+        if (currentLineNameLabelsData === nextData) return;
+        currentLineNameLabelsData = nextData;
+        try {
+            mapEngine.setSourceData?.('line-name-labels-source', nextData);
+        } catch {
+            // ignore stale style/source timing while MapLibre reloads layers
+        }
+    };
+
     const buildLineNameLabelFilter = (lineIds) => {
         const clauses = [['!=', ['get', 'id'], '']];
         const hideSeibuBranches = shouldApplyBaseLayerHiddenFilter();
@@ -1771,6 +1893,8 @@ const initMapApp = async () => {
     };
 
     function getLineNameLabelLineIdsForCurrentHighlight() {
+        if (tripPreviewActive) return null;
+
         if (isMultiSelectModeEnabled()) {
             const ids = getBaseMultiSelectedLineIds();
             if (ids.size) return ids;
@@ -1790,12 +1914,12 @@ const initMapApp = async () => {
         }
 
         if (dirPreviewActive) return dirPreviewLineIds && dirPreviewLineIds.size ? dirPreviewLineIds : new Set();
-        if (tripPreviewActive) return new Set();
 
         return null;
     }
 
     function applyLineNameLabelSelectionFilter() {
+        syncLineNameLabelDataForCurrentState();
         highlightRenderer.applyLineNameLabelFilter(
             buildLineNameLabelFilter(getLineNameLabelLineIdsForCurrentHighlight())
         );
@@ -2654,11 +2778,6 @@ const initMapApp = async () => {
         applyEnabled: applyMultiSelectModeState,
         onShowIconsChanged: applySelectionEffects
     });
-
-    let generatedLinesData = null;
-    let generatedLineNameLabelsData = null;
-    let generatedStationsData = null;
-    let generatedStationOffsetAlgorithmContext = null;
 
     try {
         const {
@@ -3652,7 +3771,9 @@ const initMapApp = async () => {
         }
 
         addStationsLayer(mapEngine, stationsData);
-        addLineNameLabelsLayer(mapEngine, generatedLineNameLabelsData || loadedGeoData?.lineNameLabelsGeoJSON);
+        const lineNameLabelsData = generatedLineNameLabelsData || loadedGeoData?.lineNameLabelsGeoJSON || EMPTY_LINE_NAME_LABELS_DATA;
+        generatedLineNameLabelsData = lineNameLabelsData;
+        addLineNameLabelsLayer(mapEngine, lineNameLabelsData);
         applyLineNameLabelsEnabled(lineNameLabelsEnabled);
 
         try {

@@ -38,11 +38,18 @@ assert.doesNotMatch(body, /\['==', \['get', 'company'\], selectedCompany\]/);
 assert.match(source, /function getLineNameLabelLineIdsForCurrentHighlight\(\)/);
 assert.match(source, /highlightRenderer\.applyLineNameLabelFilter/);
 assert.match(source, /dirPreviewActive\) return dirPreviewLineIds/);
+assert.match(source, /buildTripPreviewLineNameLabelsData/);
+assert.match(source, /mapEngine\.setSourceData\?\.\('line-name-labels-source', nextData\)/);
+assert.match(source, /tripPreviewLineNameLabelsData = buildTripPreviewLineNameLabelsData\(\{ built \}\)/);
+assert.match(source, /const lineIdCandidates = getLineNameLabelLineIdCandidates\(feature\)/);
+assert.match(source, /const labelId = getLineNameLabelSourceLineId\(feature\)/);
+assert.match(source, /color: String\(getFirstLineMetaValue\(lineColorById, lineIdCandidates\) \|\| props\.color \|\| ''\)\.trim\(\)/);
+assert.doesNotMatch(source, /shouldUseTripPreviewDisplayNameForLabels/);
 
 const labelIdsBody = extractFunctionBody(source, 'getLineNameLabelLineIdsForCurrentHighlight');
 assert.ok(
-    labelIdsBody.indexOf('if (selectedLineId)') < labelIdsBody.indexOf('if (tripPreviewActive)'),
-    'line name labels should prefer selected line ids before trip preview fallback'
+    labelIdsBody.indexOf('if (tripPreviewActive)') < labelIdsBody.indexOf('if (selectedLineId)'),
+    'line name labels should use trip-preview source data before selected line filters'
 );
 
 assert.match(source, /SELECTION_LINE_TRIP_PREVIEW_SOURCE = 'selection-line-trip-preview'/);
