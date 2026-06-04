@@ -1615,7 +1615,10 @@ import { getMacaronColor } from '../../lib/macaron.js';
                         timetableViewMode: viewMode,
                         gridHintsHtml: dirRaw?.gridHintsHtml ?? pageDetailRaw?.gridHintsHtml,
                         gridHtml: dirRaw?.gridHtml ?? pageDetailRaw?.gridHtml,
-                        listHtml: dirRaw?.listHtml ?? pageDetailRaw?.listHtml
+                        listHtml: dirRaw?.listHtml ?? pageDetailRaw?.listHtml,
+                        serviceDayVariants: Array.isArray(dirRaw?.serviceDayVariants)
+                            ? dirRaw.serviceDayVariants
+                            : (Array.isArray(pageDetailRaw?.serviceDayVariants) ? pageDetailRaw.serviceDayVariants : [])
                     });
                 }
             } else {
@@ -1632,7 +1635,8 @@ import { getMacaronColor } from '../../lib/macaron.js';
                     timetableViewMode: viewMode,
                     gridHintsHtml: pageDetailRaw?.gridHintsHtml,
                     gridHtml: pageDetailRaw?.gridHtml,
-                    listHtml: pageDetailRaw?.listHtml
+                    listHtml: pageDetailRaw?.listHtml,
+                    serviceDayVariants: Array.isArray(pageDetailRaw?.serviceDayVariants) ? pageDetailRaw.serviceDayVariants : []
                 });
             }
         }
@@ -1657,7 +1661,12 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 dirs: uniqueDirs
             };
 
-            const root = createLineImageExportDom(pageDetail);
+            const shouldExportServiceDayPair = uniqueDirs.some((dir) => (
+                Array.isArray(dir?.serviceDayVariants) && dir.serviceDayVariants.length >= 2
+            ));
+            const root = shouldExportServiceDayPair
+                ? createServiceDayPairLineImageExportDom(pageDetail)
+                : createLineImageExportDom(pageDetail);
                 
             document.body.appendChild(root);
 
@@ -1704,7 +1713,12 @@ import { getMacaronColor } from '../../lib/macaron.js';
         if (!pageCount || !pdf) return;
 
         const stationName = sanitizeFilePart(detail.stationName || pages[0]?.stationName || 'station');
-        const serviceDay = toText(pages[0]?.serviceDay) === 'SaturdayHoliday' ? '休息日' : '工作日';
+        const hasServiceDayPair = pages.some((page) => (
+            Array.isArray(page?.serviceDayVariants) && page.serviceDayVariants.length >= 2
+        ));
+        const serviceDay = hasServiceDayPair
+            ? '平日_周六节假日'
+            : (toText(pages[0]?.serviceDay) === 'SaturdayHoliday' ? '休息日' : '工作日');
         const fileName = `${stationName}_${serviceDay}总时刻表.pdf`;
         pdf.save(fileName);
     };
