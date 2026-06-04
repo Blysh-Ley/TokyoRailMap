@@ -3118,7 +3118,8 @@ const initMapApp = async () => {
                 if (preferLoopShortest) {
                     const loopSeg = extractShortestLoopSegmentByIndex(chain, fromCoord, toCoord, {
                         maxSnapMeters: 250,
-                        direction: options?.direction
+                        direction: options?.direction,
+                        preserveLineDirection: options?.preserveLineDirection === true
                     });
                     if (Array.isArray(loopSeg) && loopSeg.length >= 2) {
                         const score = measurePolylineMeters(loopSeg);

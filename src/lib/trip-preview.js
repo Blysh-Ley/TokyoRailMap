@@ -194,7 +194,17 @@ export const extractShortestLoopSegmentByIndex = (chain, fromCoord, toCoord, opt
     })();
 
     const bestTrip = pick?.bestTrip || null;
-    const best = pick?.coords || null;
+    const best = (() => {
+        const coords = pick?.coords || null;
+        if (
+            options?.preserveLineDirection === true
+            && pick?.orientation === 'reversed'
+            && Array.isArray(coords)
+        ) {
+            return coords.slice().reverse();
+        }
+        return coords;
+    })();
 
     const debugEnabled = (() => {
         try {
