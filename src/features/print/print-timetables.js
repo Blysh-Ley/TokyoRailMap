@@ -697,6 +697,8 @@ import { getMacaronColor } from '../../lib/macaron.js';
         const useComplementaryServiceDayColor = toText(detail.serviceDayColorMode) === 'complementary';
         const serviceDayAccentColor = useComplementaryServiceDayColor ? macaronColor.complementary : macaronColor.hex;
         const serviceDayAccentTextColor = useComplementaryServiceDayColor ? macaronColor.complementaryText : macaronColor.textColor;
+        const serviceDayHourColor = useComplementaryServiceDayColor ? serviceDayAccentColor : macaronColor.ink;
+        const serviceDayHourTextColor = useComplementaryServiceDayColor ? serviceDayAccentTextColor : macaronColor.inkText;
         
 
         // 站名和服务日信息部分
@@ -859,7 +861,14 @@ import { getMacaronColor } from '../../lib/macaron.js';
         // 时刻表
         const useGrid = dirs.some(d => toText(d.timetableViewMode) === 'grid');
         
-        let gridNumber = 10;
+        const detailGridNumber = Number(detail.globalGridNumber);
+        const hasGlobalGridNumber = Number.isFinite(detailGridNumber) && detailGridNumber > 0;
+        let gridNumber = hasGlobalGridNumber ? detailGridNumber : 10;
+        const globalGridRowsByHour = detail.globalGridRowsByHour || {};
+        const globalGridHourLabels = detail.globalGridHourLabels || {};
+        const globalGridHours = Array.isArray(detail.globalGridHours)
+            ? detail.globalGridHours.map((h) => Number(h)).filter(Number.isFinite)
+            : [];
 
         if (useGrid && dirs.length >= 1) {
             // Build bidirectional grid layout
@@ -1032,7 +1041,9 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 if (h) { hoursSet.add(Number(h)); rightByHour.set(Number(h), r); }
             });
             
-            const sortedHours = Array.from(hoursSet).sort((a, b) => a - b);
+            const sortedHours = globalGridHours.length
+                ? globalGridHours.slice().sort((a, b) => a - b)
+                : Array.from(hoursSet).sort((a, b) => a - b);
             const halfSortedHoursCount = Math.floor(sortedHours.length / 3);
 
             const gridWrapper = document.createElement('div');
@@ -1047,30 +1058,32 @@ import { getMacaronColor } from '../../lib/macaron.js';
             let lcountsGreater15 = 0, rcountsGreater15 = 0;
 
 
-            for (const [index, h] of sortedHours.entries()) {
-                const lRow = leftByHour.get(h);
-                const rRow = rightByHour.get(h);
-                const classes = new Set(['panel-grid-row', 'panel-bi-grid-row']);
-                if (lRow) lRow.classList.forEach(c => classes.add(c));
-                if (rRow) rRow.classList.forEach(c => classes.add(c));
-                if (lRow) {
-                    const lCells = Array.from(lRow.querySelectorAll('.panel-grid-cell'));
-                    if (lCells.length > 10) lcountsGreater10++;
-                    if (lCells.length > 15) lcountsGreater15++;
+            if (!hasGlobalGridNumber) {
+                for (const h of sortedHours) {
+                    const lRow = leftByHour.get(h);
+                    const rRow = rightByHour.get(h);
+                    const classes = new Set(['panel-grid-row', 'panel-bi-grid-row']);
+                    if (lRow) lRow.classList.forEach(c => classes.add(c));
+                    if (rRow) rRow.classList.forEach(c => classes.add(c));
+                    if (lRow) {
+                        const lCells = Array.from(lRow.querySelectorAll('.panel-grid-cell'));
+                        if (lCells.length > 10) lcountsGreater10++;
+                        if (lCells.length > 15) lcountsGreater15++;
+                    }
+                    if (rRow) {
+                        const rCells = Array.from(rRow.querySelectorAll('.panel-grid-cell'));
+                        if (rCells.length > 10) rcountsGreater10++;
+                        if (rCells.length > 15) rcountsGreater15++;
+                    }
                 }
-                if (rRow) {
-                    const rCells = Array.from(rRow.querySelectorAll('.panel-grid-cell'));
-                    if (rCells.length > 10) rcountsGreater10++;
-                    if (rCells.length > 15) rcountsGreater15++;
+
+                if (lcountsGreater10 > halfSortedHoursCount || rcountsGreater10 > halfSortedHoursCount) {
+                    gridNumber = 15;
                 }
-            }
 
-            if (lcountsGreater10 > halfSortedHoursCount || rcountsGreater10 > halfSortedHoursCount) {
-                gridNumber = 15;
-            }
-
-            if (lcountsGreater15 > halfSortedHoursCount || rcountsGreater15 > halfSortedHoursCount) {
-                gridNumber = 20;
+                if (lcountsGreater15 > halfSortedHoursCount || rcountsGreater15 > halfSortedHoursCount) {
+                    gridNumber = 20;
+                }
             }
 
             const headerRow = document.createElement('div');
@@ -1119,8 +1132,8 @@ import { getMacaronColor } from '../../lib/macaron.js';
             cHeaderHour.style.alignItems = 'center';
             cHeaderHour.style.justifyContent = 'center';
             cHeaderHour.textContent = '时';
-            cHeaderHour.style.backgroundColor = macaronColor.ink;
-            cHeaderHour.style.color = macaronColor.inkText;
+            cHeaderHour.style.backgroundColor = serviceDayHourColor;
+            cHeaderHour.style.color = serviceDayHourTextColor;
             cHeaderHour.style.fontSize = '20px';
 
             // 3. 右侧标题区 (分钟)
@@ -1146,9 +1159,26 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 const isEven = (index + 1) % 2 === 0;
                 const lRow = leftByHour.get(h);
                 const rRow = rightByHour.get(h);
-                const hourText = lRow ? lRow.querySelector('.panel-grid-hour')?.textContent : rRow.querySelector('.panel-grid-hour')?.textContent;
+                const hourText = lRow
+                    ? lRow.querySelector('.panel-grid-hour')?.textContent
+                    : (rRow ? rRow.querySelector('.panel-grid-hour')?.textContent : globalGridHourLabels[String(h)]);
                 const bgColor = `${serviceDayAccentColor}46`;
                 const rightBgColor = shouldRenderServiceDayPair ? `${macaronColor.complementary}52` : bgColor;
+                const lCells = lRow ? Array.from(lRow.querySelectorAll('.panel-grid-cell')) : [];
+                const rCells = rRow ? Array.from(rRow.querySelectorAll('.panel-grid-cell')) : [];
+                const configuredRowSlots = Number(globalGridRowsByHour[String(h)] ?? globalGridRowsByHour[h]);
+                const rowSlots = Number.isFinite(configuredRowSlots) && configuredRowSlots > 0
+                    ? configuredRowSlots
+                    : Math.max(1, Math.ceil(Math.max(lCells.length, rCells.length, 1) / gridNumber));
+                const targetCellCount = rowSlots * gridNumber;
+                const appendEmptyCells = (host, count) => {
+                    for (let i = 0; i < count; i += 1) {
+                        const emptyCell = document.createElement('div');
+                        emptyCell.className = 'panel-grid-cell panel-grid-cell-trip is-empty';
+                        emptyCell.style.visibility = 'hidden';
+                        host.appendChild(emptyCell);
+                    }
+                };
 
                 const classes = new Set(['panel-grid-row', 'panel-bi-grid-row']);
                 if (lRow) lRow.classList.forEach(c => classes.add(c));
@@ -1172,8 +1202,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 lTrips.style.direction = 'rtl';
                 lTrips.style.backgroundColor = isEven ? bgColor : '#fff';
                 
-                if (lRow) {
-                    const lCells = Array.from(lRow.querySelectorAll('.panel-grid-cell'));
+                if (lCells.length) {
                     lCells.forEach(c => {
                         const clone = c.cloneNode(true);
                         clone.style.direction = 'ltr'; 
@@ -1184,6 +1213,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                         lTrips.appendChild(clone);
                     });
                 }
+                appendEmptyCells(lTrips, Math.max(0, targetCellCount - lCells.length));
 
                 // Center Hour
                 const cHour = document.createElement('div');
@@ -1193,8 +1223,8 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 cHour.style.alignItems = 'center';
                 cHour.style.justifyContent = 'center'; // Center the text in the column
                 cHour.textContent = hourText || h;
-                cHour.style.backgroundColor = macaronColor.ink;
-                cHour.style.color = macaronColor.inkText;
+                cHour.style.backgroundColor = serviceDayHourColor;
+                cHour.style.color = serviceDayHourTextColor;
                 cHour.style.fontSize = '22px';
 
                 // Right trips (Dir 2) - 10 per row
@@ -1206,8 +1236,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 rTrips.style.gridAutoRows = 'max-content';
                 rTrips.style.direction = 'ltr';
                 rTrips.style.backgroundColor = isEven ? rightBgColor : '#fff';
-                if (rRow) {
-                    const rCells = Array.from(rRow.querySelectorAll('.panel-grid-cell'));
+                if (rCells.length) {
                     rCells.forEach(c => {
                         const clone = c.cloneNode(true);
                         clone.style.direction = 'ltr'; 
@@ -1218,6 +1247,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                         rTrips.appendChild(clone);
                     });
                 }
+                appendEmptyCells(rTrips, Math.max(0, targetCellCount - rCells.length));
                 
                 biRow.appendChild(lTrips);
                 biRow.appendChild(cHour);
@@ -1330,10 +1360,60 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 lineSuffixHtml: dir?.lineSuffixHtml,
                 stationInfoHtml: dir?.stationInfoHtml,
                 stationName: toText(variant?.stationName) || toText(dir?.stationName),
-                serviceDayLabel: serviceDay === 'SaturdayHoliday' ? '节假日时刻表' : '平日时刻表'
+                serviceDayLabel: serviceDay === 'SaturdayHoliday' ? '周六、节假日时刻表' : '平日时刻表'
             };
         })
         .filter(Boolean);
+
+    const collectGridRowsForDirs = (dirs) => {
+        const out = [];
+        for (const dir of (Array.isArray(dirs) ? dirs : [])) {
+            const temp = document.createElement('div');
+            temp.innerHTML = toText(dir?.gridHtml);
+            for (const row of Array.from(temp.querySelectorAll('.panel-grid-row'))) {
+                const hour = Number(row.getAttribute('data-grid-hour'));
+                if (!Number.isFinite(hour)) continue;
+                out.push({
+                    hour,
+                    cellCount: row.querySelectorAll('.panel-grid-cell').length,
+                    label: toText(row.querySelector('.panel-grid-hour')?.textContent)
+                });
+            }
+        }
+        return out;
+    };
+
+    const resolveServiceDayPairGridLayout = (dayGroups) => {
+        const hoursSet = new Set();
+        let maxCellCount = 0;
+        const hourLabels = {};
+        const maxCellCountByHour = new Map();
+
+        for (const group of (Array.isArray(dayGroups) ? dayGroups : [])) {
+            for (const item of collectGridRowsForDirs(group?.dirs)) {
+                hoursSet.add(item.hour);
+                if (item.label && !hourLabels[String(item.hour)]) hourLabels[String(item.hour)] = item.label;
+                maxCellCount = Math.max(maxCellCount, item.cellCount);
+                maxCellCountByHour.set(
+                    item.hour,
+                    Math.max(Number(maxCellCountByHour.get(item.hour)) || 0, item.cellCount)
+                );
+            }
+        }
+
+        const gridNumber = maxCellCount > 15 ? 20 : (maxCellCount > 10 ? 15 : 10);
+        const rowsByHour = {};
+        for (const hour of hoursSet) {
+            rowsByHour[String(hour)] = Math.max(1, Math.ceil((Number(maxCellCountByHour.get(hour)) || 1) / gridNumber));
+        }
+
+        return {
+            gridNumber,
+            hourLabels,
+            hours: Array.from(hoursSet).sort((a, b) => a - b),
+            rowsByHour
+        };
+    };
 
     const createServiceDayPairLineImageExportDom = (detail = {}) => {
         const root = document.createElement('div');
@@ -1356,14 +1436,25 @@ import { getMacaronColor } from '../../lib/macaron.js';
         root.style.zIndex = '-9999';
 
         const dirs = Array.isArray(detail.dirs) ? detail.dirs : [];
-        PRINT_SERVICE_DAY_ORDER.forEach((serviceDay, index) => {
-            const dayDirs = buildServiceDayLineDirs(dirs, serviceDay);
-            if (!dayDirs.length) return;
+        const dayGroups = PRINT_SERVICE_DAY_ORDER
+            .map((serviceDay) => ({
+                serviceDay,
+                dirs: buildServiceDayLineDirs(dirs, serviceDay)
+            }))
+            .filter((group) => group.dirs.length);
+        const gridLayout = resolveServiceDayPairGridLayout(dayGroups);
+
+        dayGroups.forEach((group, index) => {
+            const { serviceDay, dirs: dayDirs } = group;
 
             const dayRoot = createLineImageExportDom({
                 ...detail,
                 dirs: dayDirs,
                 disableServiceDayPair: true,
+                globalGridHours: gridLayout.hours,
+                globalGridHourLabels: gridLayout.hourLabels,
+                globalGridNumber: gridLayout.gridNumber,
+                globalGridRowsByHour: gridLayout.rowsByHour,
                 serviceDayColorMode: serviceDay === 'SaturdayHoliday' ? 'complementary' : 'base'
             });
             dayRoot.style.position = 'static';
