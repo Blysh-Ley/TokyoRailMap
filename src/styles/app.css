@@ -2228,11 +2228,9 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 
 .panel-time-arrive {
-    color: red;
+    color: #000;
     display: inline-block;
-    min-width: 38px;
     text-align: left;
-    margin-right: 5px;
 }
 
 .panel-time-depart {
@@ -2493,7 +2491,7 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 
 .panel-trip-detail-body {
-    padding: 6px 10px 8px;
+    padding: 6px;
     max-height: calc(60vh - 36px);
     overflow-y: auto;
     overflow-x: hidden;
@@ -2511,7 +2509,7 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 12px;
+    font-size: 14px;
     height: 18px;
     white-space: nowrap;
     padding-bottom: 3px;
@@ -2616,8 +2614,8 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 11px;
-    height: 16px;
+    font-size: 12px;
+    height: 20px;
     color: var(--ui-text-muted);
     padding-left: 2px;
     white-space: nowrap;
