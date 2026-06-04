@@ -100,6 +100,8 @@ assert.doesNotMatch(multiSelectSyncBody, /SELECTION_COMPANY_TRIP_PREVIEW_SOURCE/
 
 const multiSelectLayerItemsBody = extractConstFunctionBody(appSource, 'buildMultiSelectLayerItems');
 assert.match(multiSelectLayerItemsBody, /baseSelectionsByKey:\s*baseMultiSelectionsByKey/);
+assert.match(multiSelectLayerItemsBody, /formatBaseBranchLineName:\s*\(lineName, step\) =>/);
+assert.match(multiSelectLayerItemsBody, /getBranchPreviewStep:\s*\(lineId\) =>/);
 assert.match(multiSelectLayerItemsBody, /tripPreviewSelectionEntries:\s*routeFeature\.getTripPreviewSelectionEntries\(\)/);
 
 const toggleBaseMultiSelectionBody = extractConstFunctionBody(appSource, 'toggleBaseMultiSelection');
@@ -107,6 +109,11 @@ assert.match(
     toggleBaseMultiSelectionBody,
     /baseMultiSelectionsByKey\.delete\(k\);[\s\S]*emitMultiSelectLayersUpdated\(\);[\s\S]*syncMultiSelectBaseTripPreview\(\)\.catch\(\(\) => null\);[\s\S]*return false;/
 );
+const toggleBaseLineBranchPreviewBody = extractConstFunctionBody(appSource, 'toggleBaseLineBranchPreview');
+assert.match(toggleBaseLineBranchPreviewBody, /multiSelectBranchPreviewStepByLineId\.set\(lineId, nextStep\)/);
+assert.match(toggleBaseLineBranchPreviewBody, /filterSpecial: isFirstClick/);
+assert.doesNotMatch(toggleBaseLineBranchPreviewBody, /branchAutoHidden/);
+assert.doesNotMatch(toggleBaseLineBranchPreviewBody, /hidden:\s*true/);
 assert.doesNotMatch(appSource, /focusExpr: \['==', \['get', 'company'\], selectedCompany\]/);
 
 const lineOffsetPaintBody = extractConstFunctionBody(elementUiSource, 'buildLineOffsetPaintExpr');

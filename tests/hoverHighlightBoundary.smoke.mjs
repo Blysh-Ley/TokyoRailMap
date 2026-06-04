@@ -180,13 +180,15 @@ const testMultiSelectLayerItemsHelper = () => {
         }]
     ];
 
-    const items = buildMultiSelectLayerItemsFromInputs({
+    const buildItems = (branchStep) => buildMultiSelectLayerItemsFromInputs({
         baseTripPreviewSource: 'ms-base-trip-preview',
         baseSelectionsByKey,
         excludeTripPreviewSource: 'ms-base-trip-preview',
+        formatBaseBranchLineName: (lineName, step) => `${lineName} ${step >= 2 ? 'all-through' : 'normal-through'}`,
         formatBranchLineName: (lineName) => `${lineName} branch`,
         getBaseKindName: (kind) => (kind === 'company' ? 'Company' : 'Line'),
         getBranchSource: (lineId) => (lineId ? `ms-line-branch:${lineId}` : ''),
+        getBranchPreviewStep: (lineId) => (lineId === 'L1' ? branchStep : 0),
         getLineName: (lineId) => `Line ${lineId}`,
         getStationName: (stationId) => `Station ${stationId}`,
         hasLineName: (lineId) => lineId === 'L3' || lineId === 'L4',
@@ -195,23 +197,27 @@ const testMultiSelectLayerItemsHelper = () => {
         tripPreviewSelectionEntries
     });
 
-    assert.equal(items.length, 4);
+    const items = buildItems(1);
+
+    assert.equal(items.length, 3);
     assert.deepEqual(items[0], {
         id: 'base:line:L1',
         scope: 'base',
         key: 'line:L1',
         visible: true,
-        lineName: 'Trip Line One',
+        lineName: 'Trip Line One normal-through',
         originName: '-',
         terminalName: '-',
         typeName: 'Line',
         branchToggleSupported: true,
         branchVisible: true,
+        branchPreviewStep: 1,
         source: 'ms-base-trip-preview'
     });
     assert.equal(items[1].lineName, 'Company One');
     assert.equal(items.some((item) => item.key === 'base-preview'), false);
-    assert.equal(items.find((item) => item.key === 'branch-1').lineName, 'Line Four branch');
+    assert.equal(items.some((item) => item.key === 'branch-1'), false);
+    assert.equal(buildItems(2)[0].lineName, 'Trip Line One all-through');
 };
 
 testHoverLifecycleTrace();

@@ -10,9 +10,11 @@ export const buildMultiSelectLayerItemsFromInputs = ({
     baseTripPreviewSource = '',
     baseSelectionsByKey,
     excludeTripPreviewSource = '',
+    formatBaseBranchLineName = (lineName) => lineName,
     formatBranchLineName = (lineName) => lineName,
     getBaseKindName = () => '',
     getBranchSource = () => '',
+    getBranchPreviewStep = () => 0,
     getLineName = (lineId) => lineId,
     getStationName = (stationId) => stationId,
     hasLineName = () => false,
@@ -59,21 +61,26 @@ export const buildMultiSelectLayerItemsFromInputs = ({
                 if (!baseRef) continue;
 
                 const branchSource = getBranchSource(lineId);
+                const branchStep = Number(getBranchPreviewStep(lineId, branchSource) || 0);
+                const baseLineName = toText(tripPayload?.selectedLineName || tripPayload?.lineName || tripPayload?.mainLineName)
+                    || getLineName(lineId);
                 baseLineKeysRenderedFromTripPreview.add(baseRef.key);
                 items.push({
                     id: `base:${baseRef.key}`,
                     scope: 'base',
                     key: baseRef.key,
                     visible: baseRef.entry?.hidden !== true && entry?.hidden !== true,
-                    lineName: toText(tripPayload?.selectedLineName || tripPayload?.lineName || tripPayload?.mainLineName)
-                        || getLineName(lineId),
+                    lineName: branchStep > 0
+                        ? formatBaseBranchLineName(baseLineName, branchStep)
+                        : baseLineName,
                     originName: '-',
                     terminalName: '-',
                     typeName: getBaseKindName(baseRef.entry?.kind),
                     branchToggleSupported: !!lineId,
-                    branchVisible: branchSource
+                    branchVisible: branchStep > 0 || (branchSource
                         ? hasTripPreviewSelectionBySource(branchSource)
-                        : false,
+                        : false),
+                    branchPreviewStep: branchStep,
                     source: basePreviewSource
                 });
             }
@@ -91,22 +98,29 @@ export const buildMultiSelectLayerItemsFromInputs = ({
         const fallbackCompanyName = key.startsWith('company:') ? key.slice('company:'.length) : '';
         const baseDisplayName = toText(entry?.displayName);
         const branchSource = getBranchSource(firstLineId);
+        const branchStep = kind === 'line'
+            ? Number(getBranchPreviewStep(firstLineId, branchSource) || 0)
+            : 0;
+        const baseLineName = kind === 'company'
+            ? (baseDisplayName || fallbackCompanyName || getLineName(firstLineId))
+            : getLineName(firstLineId);
 
         items.push({
             id: `base:${key}`,
             scope: 'base',
             key,
             visible: entry?.hidden !== true,
-            lineName: kind === 'company'
-                ? (baseDisplayName || fallbackCompanyName || getLineName(firstLineId))
-                : getLineName(firstLineId),
+            lineName: branchStep > 0
+                ? formatBaseBranchLineName(baseLineName, branchStep)
+                : baseLineName,
             originName: '-',
             terminalName: '-',
             typeName: getBaseKindName(entry?.kind),
             branchToggleSupported: kind === 'line' && !!firstLineId,
-            branchVisible: kind === 'line' && !!branchSource
+            branchVisible: branchStep > 0 || (kind === 'line' && !!branchSource
                 ? hasTripPreviewSelectionBySource(branchSource)
-                : false
+                : false),
+            branchPreviewStep: branchStep
         });
     }
 
@@ -127,6 +141,7 @@ export const buildMultiSelectLayerItemsFromInputs = ({
         if (source && source === excludedSource) continue;
 
         const isBranchSource = source.startsWith('ms-line-branch:');
+        if (isBranchSource) continue;
         const typeName = toText(payload?.typeName || payload?.tripTypeName) || '-';
         const originName = getStationName(built?.startStationId || payload?.originStationId || '');
         const terminalName = getStationName(built?.endStationId || payload?.terminalStationId || '');

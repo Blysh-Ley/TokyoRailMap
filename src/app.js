@@ -1424,46 +1424,19 @@ const initMapApp = async () => {
 
         const currentStep = Number(multiSelectBranchPreviewStepByLineId.get(lineId) || 0);
 
-        if (currentStep >= 2 && hasTripPreviewSelectionBySource(source)) {
-            clearTripPathPreview({ source });
-            multiSelectBranchPreviewStepByLineId.delete(lineId);
-
-            const latest = baseMultiSelectionsByKey.get(key);
-            if (latest?.hidden === true && latest?.branchAutoHidden === true) {
-                baseMultiSelectionsByKey.set(key, {
-                    ...latest,
-                    hidden: false,
-                    branchAutoHidden: false
-                });
-                emitMultiSelectLayersUpdated();
-                syncMultiSelectBaseTripPreview().catch(() => null);
-                applySelectionEffects();
-                scheduleCollisionLayerRefresh();
+        if (currentStep >= 2) {
+            if (hasTripPreviewSelectionBySource(source)) {
+                clearTripPathPreview({ source });
             }
+            multiSelectBranchPreviewStepByLineId.delete(lineId);
+            emitMultiSelectLayersUpdated();
             return false;
         }
 
         const isFirstClick = currentStep <= 0 || !hasTripPreviewSelectionBySource(source);
-        if (isFirstClick) {
-            if (baseEntry?.hidden !== true) {
-                baseMultiSelectionsByKey.set(key, {
-                    ...baseEntry,
-                    hidden: true,
-                    branchAutoHidden: true
-                });
-                emitMultiSelectLayersUpdated();
-                syncMultiSelectBaseTripPreview().catch(() => null);
-                applySelectionEffects();
-                scheduleCollisionLayerRefresh();
-            } else if (baseEntry?.branchAutoHidden === true) {
-                baseMultiSelectionsByKey.set(key, {
-                    ...baseEntry,
-                    branchAutoHidden: false
-                });
-                emitMultiSelectLayersUpdated();
-                syncMultiSelectBaseTripPreview().catch(() => null);
-            }
-        }
+        const nextStep = isFirstClick ? 1 : 2;
+        multiSelectBranchPreviewStepByLineId.set(lineId, nextStep);
+        emitMultiSelectLayersUpdated();
 
         previewBranchesForLine({
             lineId,
@@ -1472,29 +1445,16 @@ const initMapApp = async () => {
             previewSource: source,
             filterSpecial: isFirstClick
         }).then((result) => {
-            if (result?.ok === true) {
-                const nextStep = isFirstClick ? 1 : 2;
-                multiSelectBranchPreviewStepByLineId.set(lineId, nextStep);
-            } else {
+            if (result?.ok !== true) {
                 multiSelectBranchPreviewStepByLineId.delete(lineId);
+                emitMultiSelectLayersUpdated();
             }
         }).catch(() => {
             clearTripPathPreview({ source });
             multiSelectBranchPreviewStepByLineId.delete(lineId);
-            const latest = baseMultiSelectionsByKey.get(key);
-            if (latest?.hidden === true && latest?.branchAutoHidden === true) {
-                baseMultiSelectionsByKey.set(key, {
-                    ...latest,
-                    hidden: false,
-                    branchAutoHidden: false
-                });
-                emitMultiSelectLayersUpdated();
-                applySelectionEffects();
-                scheduleCollisionLayerRefresh();
-            }
+            emitMultiSelectLayersUpdated();
         });
 
-        syncMultiSelectBaseTripPreview().catch(() => null);
         return true;
     };
 
@@ -1593,9 +1553,15 @@ const initMapApp = async () => {
             baseTripPreviewSource: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE,
             baseSelectionsByKey: baseMultiSelectionsByKey,
             excludeTripPreviewSource: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE,
+            formatBaseBranchLineName: (lineName, step) => `${lineName}${step >= 2 ? '（所有直通）' : '（平常直通）'}`,
             formatBranchLineName: (lineName) => `${lineName}（直通线路）`,
             getBaseKindName: getBaseKindNameForMultiSelect,
             getBranchSource: getMultiSelectLineBranchSource,
+            getBranchPreviewStep: (lineId) => {
+                const id = String(lineId || '').trim();
+                if (!id) return 0;
+                return Number(multiSelectBranchPreviewStepByLineId.get(id) || 0);
+            },
             getLineName: getLineNameForMultiSelect,
             getStationName: getStationNameForMultiSelect,
             hasLineName: (lineId) => lineNameById.has(lineId),
