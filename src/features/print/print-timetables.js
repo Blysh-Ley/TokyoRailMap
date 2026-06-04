@@ -697,8 +697,11 @@ import { getMacaronColor } from '../../lib/macaron.js';
         const useComplementaryServiceDayColor = toText(detail.serviceDayColorMode) === 'complementary';
         const serviceDayAccentColor = useComplementaryServiceDayColor ? macaronColor.complementary : macaronColor.hex;
         const serviceDayAccentTextColor = useComplementaryServiceDayColor ? macaronColor.complementaryText : macaronColor.textColor;
-        const serviceDayHourColor = useComplementaryServiceDayColor ? serviceDayAccentColor : macaronColor.ink;
-        const serviceDayHourTextColor = useComplementaryServiceDayColor ? serviceDayAccentTextColor : macaronColor.inkText;
+        const serviceDayPalette = useComplementaryServiceDayColor ? getMacaronColor(serviceDayAccentColor).macaron : macaronColor;
+        const serviceDayHourColor = serviceDayPalette.ink;
+        const serviceDayHourTextColor = serviceDayPalette.inkText;
+        const specialTripColor = useComplementaryServiceDayColor ? serviceDayPalette.complementary : macaronColor.complementary;
+        const specialTripTextColor = useComplementaryServiceDayColor ? serviceDayPalette.complementaryText : macaronColor.complementaryText;
         
 
         // 站名和服务日信息部分
@@ -1207,8 +1210,8 @@ import { getMacaronColor } from '../../lib/macaron.js';
                         const clone = c.cloneNode(true);
                         clone.style.direction = 'ltr'; 
                         if(clone.classList.contains('has-special')) {
-                            clone.style.backgroundColor = macaronColor.complementary;
-                            clone.style.color = macaronColor.complementaryText;
+                            clone.style.backgroundColor = specialTripColor;
+                            clone.style.color = specialTripTextColor;
                         }
                         lTrips.appendChild(clone);
                     });
@@ -1241,8 +1244,8 @@ import { getMacaronColor } from '../../lib/macaron.js';
                         const clone = c.cloneNode(true);
                         clone.style.direction = 'ltr'; 
                         if(clone.classList.contains('has-special')) {
-                            clone.style.backgroundColor = macaronColor.complementary;
-                            clone.style.color = macaronColor.complementaryText;
+                            clone.style.backgroundColor = specialTripColor;
+                            clone.style.color = specialTripTextColor;
                         }
                         rTrips.appendChild(clone);
                     });
