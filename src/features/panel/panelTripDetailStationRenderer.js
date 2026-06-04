@@ -72,6 +72,8 @@ export const renderPanelTripDetailStopRowHtml = ({
     stationClass = '',
     arriveCellClass = '',
     departCellClass = '',
+    timeCellClass = '',
+    timeHtml = '',
     arriveTextClass = '',
     departTextClass = '',
     stationId = '',
@@ -89,6 +91,13 @@ export const renderPanelTripDetailStopRowHtml = ({
     const departHtml = toText(departureText) && toText(departTextClass)
         ? `<span class="${escapeHtml(departTextClass)}">${escapeHtml(departureText)}</span>`
         : '';
+    const hasSingleTimeCell = !!toText(timeCellClass);
+    const timeCellHtml = hasSingleTimeCell
+        ? `<div class="${escapeHtml(timeCellClass)}">${timeHtml}</div>`
+        : `
+            <div class="${escapeHtml(arriveCellClass)}">${arrivalLabelHtml || ''}${arriveHtml}</div>
+            <div class="${escapeHtml(departCellClass)}">${departLabelHtml || ''}${departHtml}</div>
+        `;
 
     return `
         <div class="${escapeHtml(rowClass)}">
@@ -100,8 +109,7 @@ export const renderPanelTripDetailStopRowHtml = ({
                 stationName,
                 stationId
             })}
-            <div class="${escapeHtml(arriveCellClass)}">${arrivalLabelHtml || ''}${arriveHtml}</div>
-            <div class="${escapeHtml(departCellClass)}">${departLabelHtml || ''}${departHtml}</div>
+            ${timeCellHtml}
         </div>
     `;
 };

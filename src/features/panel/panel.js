@@ -532,6 +532,53 @@ const formatTimeWithPlus = (hhmm, isNextDaySegment) => {
     return isNextDaySegment ? `${s}` : s;
 };
 
+const parseTripDetailTimeMinutes = (hhmm) => {
+    const match = toText(hhmm).match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return null;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+    return hours * 60 + minutes;
+};
+
+const getTripDetailStopDwellMinutes = (stop = {}) => {
+    const arrMinutes = parseTripDetailTimeMinutes(stop.arr);
+    const depMinutes = parseTripDetailTimeMinutes(stop.dep);
+    if (!Number.isFinite(arrMinutes) || !Number.isFinite(depMinutes)) return 0;
+
+    const arrTotal = arrMinutes + (stop.arrPlus ? 1440 : 0);
+    let depTotal = depMinutes + (stop.depPlus ? 1440 : 0);
+    if (depTotal < arrTotal) depTotal += 1440;
+
+    const dwellMinutes = depTotal - arrTotal;
+    return Number.isFinite(dwellMinutes) ? Math.max(0, dwellMinutes) : 0;
+};
+
+const renderTripDetailMomentHtml = (stop = {}) => {
+    const timeText = stop.arr
+        ? formatTimeWithPlus(stop.arr, stop.arrPlus)
+        : (stop.dep ? formatTimeWithPlus(stop.dep, stop.depPlus) : '');
+    if (!timeText) return '';
+
+    const extras = [];
+    if (stop.showOriginLabel) {
+        extras.push({ className: 'panel-trip-detail-time-extra is-origin', text: '始发' });
+    }
+    if (stop.showTerminalLabel) {
+        extras.push({ className: 'panel-trip-detail-time-extra is-terminal', text: '终到' });
+    }
+
+    const dwellMinutes = getTripDetailStopDwellMinutes(stop);
+    if (dwellMinutes > 2) {
+        extras.push({ className: 'panel-trip-detail-time-extra is-dwell', text: `+${dwellMinutes}'` });
+    }
+
+    return [
+        `<span class="panel-trip-detail-time-main panel-time-arrive">${escapeHtml(timeText)}</span>`,
+        ...extras.map((item) => `<span class="${item.className}">${escapeHtml(item.text)}</span>`)
+    ].join('');
+};
+
 const pickTitleZhHans = (titleObj) => {
     const t = titleObj || {};
     return toText(t['zh-Hans'] || t.zh || t.ja || t.en || '');
@@ -4212,28 +4259,16 @@ export function createPanel(options = {}) {
 
         const renderStopRow = (s) => {
             const rowCls = s.isPast ? 'panel-trip-detail-row is-past' : 'panel-trip-detail-row';
-            const arrText = s.arr ? formatTimeWithPlus(s.arr, s.arrPlus) : '';
-            const depText = s.dep ? formatTimeWithPlus(s.dep, s.depPlus) : '';
-            const originCls = `panel-time-label panel-time-label-origin${s.isPast ? ' is-past' : ''}`;
-            const terminalCls = `panel-time-label panel-time-label-terminal${s.isPast ? ' is-past' : ''}`;
-            const arrivalLabel = s.showOriginLabel ? `<span class=\"${originCls}\">始发站</span> ` : '';
-            const departLabel = s.showTerminalLabel ? `<span class=\"${terminalCls}\">终点站</span> ` : '';
             const stationId = toText(s.stationId);
             return renderPanelTripDetailStopRowHtml({
                 rowClass: rowCls,
                 stationClass: 'panel-trip-detail-station',
-                arriveCellClass: 'panel-trip-detail-time panel-trip-detail-arrive',
-                departCellClass: 'panel-trip-detail-time panel-trip-detail-depart',
-                arriveTextClass: 'panel-time-arrive',
-                departTextClass: 'panel-time-depart',
+                timeCellClass: 'panel-trip-detail-time panel-trip-detail-moment',
+                timeHtml: renderTripDetailMomentHtml(s),
                 stationId,
                 stationCode: toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
                 stationName: toText(s.stationName || stationId),
-                lineColor: toText(s.lineColor || ''),
-                arrivalLabelHtml: arrivalLabel,
-                departLabelHtml: departLabel,
-                arrivalText: arrText,
-                departureText: depText
+                lineColor: toText(s.lineColor || '')
             });
         };
 
@@ -4296,24 +4331,15 @@ export function createPanel(options = {}) {
             const s = stop || {};
             const timeCol = Math.max(2, Number(timeColStart) || 2);
             const stationId = toText(s.stationId);
-            const realOriginId = toText(s.realOriginId);
-            const arrText = s.arr ? formatTimeWithPlus(s.arr, s.arrPlus) : '';
-            const depText = s.dep ? formatTimeWithPlus(s.dep, s.depPlus) : '';
-            const originCls = `panel-time-label panel-time-label-origin${s.isPast ? ' is-past' : ''}`;
-            const terminalCls = `panel-time-label panel-time-label-terminal${s.isPast ? ' is-past' : ''}`;
-            const arrivalLabel = s.showOriginLabel ? `<span class="${originCls}">始发站</span> ` : '';
-            const departLabel = s.showTerminalLabel ? `<span class="${terminalCls}">终点站</span> ` : '';
             const pastCls = s.isPast ? ' is-past' : '';
             const safeLineColor = toText(lineColor);
             const markerCol = Number(rowMarkerCol) || 0;
             const markerText = toText(rowMarkerText);
             const stationHtml = renderPanelTripDetailStationCellHtml({ className: `panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}`, style: 'grid-column:1;', dataStationId: stationId, lineColor: safeLineColor, stationCode: toText(stationsIndex?.idToCode?.get?.(stationId) || ''), stationName: toText(s.stationName || stationId), stationId });
-            const arriveHtml = `<div class="panel-trip-detail-time panel-trip-detail-arrive panel-trip-detail-grid-cell${pastCls}" style="grid-column:${timeCol};">${arrivalLabel}${arrText ? `<span class="panel-time-arrive">${escapeHtml(arrText)}</span>` : ''}</div>`;
-            const departHtml = `<div class="panel-trip-detail-time panel-trip-detail-depart panel-trip-detail-grid-cell${pastCls}" style="grid-column:${timeCol + 1};">${departLabel}${depText ? `<span class="panel-time-depart">${escapeHtml(depText)}</span>` : ''}</div>`;
+            const timeHtml = `<div class="panel-trip-detail-time panel-trip-detail-moment panel-trip-detail-grid-cell${pastCls}" style="grid-column:${timeCol} / span 2;">${renderTripDetailMomentHtml(s)}</div>`;
             const cells = [
                 { col: 1, html: stationHtml },
-                { col: timeCol, html: arriveHtml },
-                { col: timeCol + 1, html: departHtml }
+                { col: timeCol, html: timeHtml }
             ];
             if (markerCol > 0 && markerText) {
                 const markerHtml = `<div class="panel-trip-detail-grid-break-marker panel-trip-detail-grid-flow-marker${pastCls}" style="grid-column:${markerCol};">${escapeHtml(markerText)}</div>`;
@@ -4524,8 +4550,7 @@ export function createPanel(options = {}) {
             headerHtml = `
                 <div class="panel-trip-detail-head">
                     <div class="panel-trip-detail-station">车站</div>
-                    <div class="panel-trip-detail-time panel-trip-detail-arrive">到站时间</div>
-                    <div class="panel-trip-detail-time panel-trip-detail-depart">发车时间</div>
+                    <div class="panel-trip-detail-time panel-trip-detail-moment">时刻</div>
                 </div>
             `;
         } else {
@@ -4540,8 +4565,7 @@ export function createPanel(options = {}) {
             for (let i = 0; i < branchCount; i += 1) {
                 const colStart = 2 + 2 * i;
                 branchHeadHtml += `
-                    <div class="panel-trip-detail-head-cell panel-trip-detail-time panel-trip-detail-arrive" style="grid-column:${colStart};">到站时间</div>
-                    <div class="panel-trip-detail-head-cell panel-trip-detail-time panel-trip-detail-depart" style="grid-column:${colStart + 1};">发车时间</div>
+                    <div class="panel-trip-detail-head-cell panel-trip-detail-time panel-trip-detail-moment" style="grid-column:${colStart} / span 2;">时刻</div>
                 `;
             }
             headerHtml = `
