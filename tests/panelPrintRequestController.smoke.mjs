@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 
-import { collectLinePrintPayloads } from '../src/features/panel/panelPrintRequestController.js';
+import {
+    collectLinePrintPayloads,
+    createPanelPrintRequestController
+} from '../src/features/panel/panelPrintRequestController.js';
 
 const fakeLineEl = {
     getAttribute(name) {
@@ -42,5 +45,30 @@ assert.equal(result.dirs.length, 2);
 assert.equal(result.dirs[0].stationName, 'Tokyo');
 assert.equal(result.dirs[0].lineHeaderHtml, '<div class="panel-line-header">header</div>');
 assert.equal(result.dirs[1].lineSuffixHtml, '<div data-line-suffix-row>suffix</div>');
+
+const dispatched = [];
+const controller = createPanelPrintRequestController({
+    body: {
+        querySelectorAll(selector) {
+            return selector === '[data-line-id]' ? [{
+                ...fakeLineEl,
+                getAttribute(name) {
+                    if (name === 'data-line-id') return 'L1';
+                    return fakeLineEl.getAttribute(name);
+                }
+            }] : [];
+        }
+    },
+    dirPrintPayloadByKey: payloads,
+    makeLineDirKey: (lineId, dirKey) => `${lineId}||${dirKey}`,
+    dispatchEvent: (event) => dispatched.push(event),
+    createCustomEvent: (name, init) => ({ name, detail: init.detail })
+});
+
+assert.equal(controller.requestDirectionTimetable('L1', 'Inbound'), true);
+assert.equal(dispatched[0].name, '__TokyoRailPrintLineTimetableImageRequested');
+assert.equal(dispatched[0].detail.dirs.length, 2);
+assert.equal(dispatched[0].detail.dirs[0].dirKey, 'Outbound');
+assert.equal(dispatched[0].detail.dirs[1].dirKey, 'Inbound');
 
 console.log('panel print request controller smoke ok');

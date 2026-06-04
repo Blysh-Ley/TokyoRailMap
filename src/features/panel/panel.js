@@ -303,6 +303,7 @@ const escapeHtml = (s) =>
         .replace(/'/g, '&#39;');
 
 const SERVICE_DAY_BOUNDARY_HOUR = 3;
+const PRINT_SERVICE_DAYS = ['Weekday', 'SaturdayHoliday'];
 
 const getServiceDayStartMs = (now = new Date()) => {
     const d = new Date(now.getTime());
@@ -2991,6 +2992,7 @@ export function createPanel(options = {}) {
         const serviceDayStartMs = getServiceDayStartMs(new Date(now));
         const rows = [];
         const rowsForPreview = [];
+        const printRowsByServiceDay = new Map(PRINT_SERVICE_DAYS.map((day) => [day, []]));
         const throughDirectionCache = new Map();
         const allTypeColorByName = new Map();
         const stopTypeColorByName = new Map();
@@ -3004,15 +3006,17 @@ export function createPanel(options = {}) {
             tripList,
             sourceLineId,
             stationKey,
+            serviceDay = currentServiceDay,
             trackTypeSummary
         }) => {
             const out = [];
             const list = Array.isArray(tripList) ? tripList : [];
+            const targetServiceDay = toText(serviceDay) || currentServiceDay;
             for (const trip of list) {
             // 按 timetables 的 id 最后一段区分工作日/休息日
                 const tripId = toText(trip?.id);
                 const tripServiceDay = parseTripServiceDayFromId(tripId);
-                if (tripServiceDay && tripServiceDay !== currentServiceDay) continue;
+                if (tripServiceDay && tripServiceDay !== targetServiceDay) continue;
 
                 const typeId = toText(trip?.y);
                 const isTypeExcludedForSummary = isExcludedLineType(lineId, typeId);
@@ -3321,14 +3325,29 @@ export function createPanel(options = {}) {
                 tripList: displayList,
                 sourceLineId,
                 stationKey,
+                serviceDay: currentServiceDay,
                 trackTypeSummary: true
             });
             rows.push(...displayRows);
+            printRowsByServiceDay.get(currentServiceDay)?.push(...displayRows);
+
+            for (const serviceDay of PRINT_SERVICE_DAYS) {
+                if (serviceDay === currentServiceDay) continue;
+                const printRows = await collectRowsFromTripList({
+                    tripList: displayList,
+                    sourceLineId,
+                    stationKey,
+                    serviceDay,
+                    trackTypeSummary: false
+                });
+                printRowsByServiceDay.get(serviceDay)?.push(...printRows);
+            }
 
             const previewRows = await collectRowsFromTripList({
                 tripList: rawList,
                 sourceLineId,
                 stationKey,
+                serviceDay: currentServiceDay,
                 trackTypeSummary: false
             });
             rowsForPreview.push(...previewRows);
@@ -3358,6 +3377,14 @@ export function createPanel(options = {}) {
 
         rows.sort((a, b) => a.timeMs - b.timeMs);
         rowsForPreview.sort((a, b) => a.timeMs - b.timeMs);
+        for (const serviceDay of PRINT_SERVICE_DAYS) {
+            const dayRows = printRowsByServiceDay.get(serviceDay) || [];
+            printRowsByServiceDay.set(
+                serviceDay,
+                mergeDuplicateTimetableRows(dayRows, { toText })
+                    .sort((a, b) => a.timeMs - b.timeMs)
+            );
+        }
 
         // 统计每条线路的所有方向 d，并聚合/计数该方向下所有对应 ds 的中文名
         const DEST_NAME_MIN_COUNT = 0; // 方向下目的地名称至少出现x次才显示
@@ -3530,7 +3557,56 @@ export function createPanel(options = {}) {
                 serviceDayStartMs
             });
 
-            dirPrintPayloadByKey.set(lineDirKey, buildTimetablePrintPayload({
+            const buildPrintPayloadForServiceDay = (serviceDay) => {
+                const serviceRowsForDir = (printRowsByServiceDay.get(serviceDay) || [])
+                    .filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
+                const {
+                    typeHints: serviceTypeHints,
+                    terminalHints: serviceTerminalHints,
+                    specialHints: serviceSpecialHints
+                } = buildDirectionGridHints(serviceRowsForDir);
+                const serviceRowsPrintable = serviceRowsForDir.map((r) => ({ ...(r || {}), isPast: false }));
+                const serviceGridHintsHtml = timetableViewMode === 'grid'
+                    ? buildGridHintsHtml({
+                        typeHints: serviceTypeHints,
+                        terminalHints: serviceTerminalHints,
+                        specialHints: serviceSpecialHints
+                    })
+                    : '';
+                const serviceListHtml = renderPanelPrintableTimetableListHtml({
+                    rows: serviceRowsPrintable,
+                    renderTime: renderTimeForPrint,
+                    resolveBadgeTextColor: resolvePanelBadgeTextColor
+                });
+                const serviceGridHtml = buildGridTableHtmlForDirection({
+                    rowsForDir: serviceRowsPrintable,
+                    typeHints: serviceTypeHints,
+                    terminalHints: serviceTerminalHints,
+                    specialHints: serviceSpecialHints,
+                    expanded: true,
+                    nowMs: now,
+                    serviceDayStartMs
+                });
+
+                return buildTimetablePrintPayload({
+                    companyLogoMap,
+                    currentStationName: currentStationNameZh,
+                    getCompanyLogoSrc,
+                    gridHintsHtml: serviceGridHintsHtml,
+                    gridHtml: serviceGridHtml,
+                    lineId,
+                    lineMeta: getLineMeta?.(lineId) || {},
+                    listHtml: serviceListHtml,
+                    dirKey,
+                    dirLabel: label,
+                    serviceDay,
+                    timetableViewMode,
+                    titleText: titleMain.textContent,
+                    toText
+                });
+            };
+
+            const currentPrintPayload = buildTimetablePrintPayload({
                 companyLogoMap,
                 currentStationName: currentStationNameZh,
                 getCompanyLogoSrc,
@@ -3545,7 +3621,11 @@ export function createPanel(options = {}) {
                 timetableViewMode,
                 titleText: titleMain.textContent,
                 toText
-            }));
+            });
+            dirPrintPayloadByKey.set(lineDirKey, {
+                ...currentPrintPayload,
+                serviceDayVariants: PRINT_SERVICE_DAYS.map((serviceDay) => buildPrintPayloadForServiceDay(serviceDay))
+            });
 
             const timetableHtml = timetableViewMode === 'grid'
                 ? buildGridTableHtmlForDirection({

@@ -19,6 +19,14 @@ import { getMacaronColor } from '../../lib/macaron.js';
     let styleInjected = false;
 
     const toText = (v) => String(v ?? '').trim();
+    const PRINT_SERVICE_DAY_ORDER = ['Weekday', 'SaturdayHoliday'];
+    const PRINT_SERVICE_DAY_LABELS = {
+        Weekday: '\u5e73\u65e5',
+        SaturdayHoliday: '\u5468\u516d\u30fb\u8282\u5047\u65e5'
+    };
+    const getPrintServiceDayLabel = (serviceDay) => (
+        PRINT_SERVICE_DAY_LABELS[toText(serviceDay)] || toText(serviceDay) || '\u672a\u77e5'
+    );
 
     const nowIsoCompact = () => {
         const d = new Date();
@@ -656,19 +664,39 @@ import { getMacaronColor } from '../../lib/macaron.js';
         const card = document.createElement('div');
         card.className = 'timetable-print-card';
 
-        const dirs = Array.isArray(detail.dirs) ? detail.dirs : [];
-        const firstDir = dirs[0] || {};
+        let dirs = Array.isArray(detail.dirs) ? detail.dirs : [];
+        const triggerDir = dirs[0] || {};
+        const serviceDayVariants = Array.isArray(triggerDir?.serviceDayVariants) ? triggerDir.serviceDayVariants : [];
+        const shouldRenderServiceDayPair = !detail.disableServiceDayPair && dirs.length === 1 && serviceDayVariants.length >= 2;
+        if (shouldRenderServiceDayPair) {
+            dirs = PRINT_SERVICE_DAY_ORDER
+                .map((serviceDay) => serviceDayVariants.find((item) => toText(item?.serviceDay) === serviceDay))
+                .filter(Boolean)
+                .map((item) => ({
+                    ...triggerDir,
+                    ...item,
+                    dirLabel: getPrintServiceDayLabel(item?.serviceDay),
+                    sourceDirLabel: toText(triggerDir?.dirLabel) || toText(triggerDir?.dirKey)
+                }));
+        }
+        const firstDir = dirs[0] || triggerDir || {};
         
         const stationName = toText(firstDir.stationName) || '未知站点';
         const companyName = toText(firstDir.companyName) || '未知公司';
         const companyLogoSrc = toText(firstDir.companyLogoSrc);
         const lineName = toText(firstDir.lineName) || toText(detail.lineId) || '未知线路';
         const lineColor = toText(firstDir.lineColor);
-        const serviceDay = toText(firstDir.serviceDay) === 'SaturdayHoliday' ? '周六·休息日时刻表' : '平日时刻表';
+        const baseDirLabel = toText(firstDir.sourceDirLabel) || toText(triggerDir?.dirLabel) || toText(firstDir.dirLabel) || toText(firstDir.dirKey);
+        const serviceDay = toText(firstDir.serviceDayLabel) || (shouldRenderServiceDayPair
+            ? `${baseDirLabel ? `${baseDirLabel}\u65b9\u5411 / ` : ''}\u5e73\u65e5\u30fb\u5468\u516d\u30fb\u8282\u5047\u65e5\u6642\u523b\u8868`
+            : (toText(firstDir.serviceDay) === 'SaturdayHoliday' ? '周六·休息日时刻表' : '平日时刻表'));
         const lineSuffixHtml = toText(detail.lineSuffixHtml);
         const stationInfoHtml = toText(detail.stationInfoHtml);
         const lineHeaderHtml = toText(detail.lineHeaderHtml);
         const macaronColor = getMacaronColor(lineColor).macaron;
+        const useComplementaryServiceDayColor = toText(detail.serviceDayColorMode) === 'complementary';
+        const serviceDayAccentColor = useComplementaryServiceDayColor ? macaronColor.complementary : macaronColor.hex;
+        const serviceDayAccentTextColor = useComplementaryServiceDayColor ? macaronColor.complementaryText : macaronColor.textColor;
         
 
         // 站名和服务日信息部分
@@ -682,7 +710,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
         head.style.width = '100%';
         head.style.paddingTop = '15px';
         head.style.paddingBottom = '15px';
-        head.style.backgroundColor = lineColor ? `${macaronColor.hex}` : 'transparent';
+        head.style.backgroundColor = lineColor ? serviceDayAccentColor : 'transparent';
 
         const stationTitle = document.createElement('div');
         stationTitle.className = 'panel-name';
@@ -1065,7 +1093,9 @@ import { getMacaronColor } from '../../lib/macaron.js';
             };
 
             
-            const bgColorHead = `${macaronColor.hex}5f`;
+            const bgColorHead = `${serviceDayAccentColor}5f`;
+            const rightBgColorHead = shouldRenderServiceDayPair ? `${macaronColor.complementary}73` : bgColorHead;
+            const rightPaneTextColor = shouldRenderServiceDayPair ? macaronColor.complementaryText : serviceDayAccentTextColor;
 
             // 1. 左侧标题区 (分钟)
             const lHeaderTrips = document.createElement('div');
@@ -1075,7 +1105,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
             lHeaderTrips.style.justifyContent = 'flex-start'; 
             lHeaderTrips.style.direction = 'rtl'; // 保持和内容行一致的对齐方向
             lHeaderTrips.style.backgroundColor = bgColorHead; 
-            lHeaderTrips.style.color = macaronColor.textColor;
+            lHeaderTrips.style.color = serviceDayAccentTextColor;
             lHeaderTrips.textContent = '分';
             lHeaderTrips.style.fontSize = '20px';
             lHeaderTrips.style.paddingRight = '20px'; 
@@ -1100,8 +1130,8 @@ import { getMacaronColor } from '../../lib/macaron.js';
             rHeaderTrips.style.alignItems = 'center';
             rHeaderTrips.style.justifyContent = 'flex-start';
             rHeaderTrips.style.direction = 'ltr';
-            rHeaderTrips.style.backgroundColor = bgColorHead;
-            rHeaderTrips.style.color = macaronColor.textColor;
+            rHeaderTrips.style.backgroundColor = rightBgColorHead;
+            rHeaderTrips.style.color = rightPaneTextColor;
             rHeaderTrips.textContent = '分';
             rHeaderTrips.style.fontSize = '20px';
             rHeaderTrips.style.paddingLeft = '20px'; 
@@ -1117,7 +1147,8 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 const lRow = leftByHour.get(h);
                 const rRow = rightByHour.get(h);
                 const hourText = lRow ? lRow.querySelector('.panel-grid-hour')?.textContent : rRow.querySelector('.panel-grid-hour')?.textContent;
-                const bgColor = `${macaronColor.hex}46`;
+                const bgColor = `${serviceDayAccentColor}46`;
+                const rightBgColor = shouldRenderServiceDayPair ? `${macaronColor.complementary}52` : bgColor;
 
                 const classes = new Set(['panel-grid-row', 'panel-bi-grid-row']);
                 if (lRow) lRow.classList.forEach(c => classes.add(c));
@@ -1174,7 +1205,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
                 rTrips.style.overflow = 'hidden';
                 rTrips.style.gridAutoRows = 'max-content';
                 rTrips.style.direction = 'ltr';
-                rTrips.style.backgroundColor = isEven ? bgColor : '#fff';
+                rTrips.style.backgroundColor = isEven ? rightBgColor : '#fff';
                 if (rRow) {
                     const rCells = Array.from(rRow.querySelectorAll('.panel-grid-cell'));
                     rCells.forEach(c => {
@@ -1286,11 +1317,80 @@ import { getMacaronColor } from '../../lib/macaron.js';
         return root;
     };
 
+    const buildServiceDayLineDirs = (dirs, serviceDay) => (Array.isArray(dirs) ? dirs : [])
+        .map((dir) => {
+            const variants = Array.isArray(dir?.serviceDayVariants) ? dir.serviceDayVariants : [];
+            const variant = variants.find((item) => toText(item?.serviceDay) === serviceDay)
+                || (toText(dir?.serviceDay) === serviceDay ? dir : null);
+            if (!variant) return null;
+            return {
+                ...dir,
+                ...variant,
+                lineHeaderHtml: dir?.lineHeaderHtml,
+                lineSuffixHtml: dir?.lineSuffixHtml,
+                stationInfoHtml: dir?.stationInfoHtml,
+                stationName: toText(variant?.stationName) || toText(dir?.stationName),
+                serviceDayLabel: serviceDay === 'SaturdayHoliday' ? '节假日时刻表' : '平日时刻表'
+            };
+        })
+        .filter(Boolean);
+
+    const createServiceDayPairLineImageExportDom = (detail = {}) => {
+        const root = document.createElement('div');
+        root.className = 'timetable-print-root';
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDark) root.classList.add('is-dark');
+
+        root.style.display = 'flex';
+        root.style.alignItems = 'flex-start';
+        root.style.gap = '0';
+        root.style.width = 'max-content';
+        root.style.maxWidth = 'none';
+        root.style.margin = '0';
+        root.style.padding = '0';
+        root.style.border = 'none';
+        root.style.position = 'fixed';
+        root.style.top = '0';
+        root.style.left = '-9999px';
+        root.style.zIndex = '-9999';
+
+        const dirs = Array.isArray(detail.dirs) ? detail.dirs : [];
+        PRINT_SERVICE_DAY_ORDER.forEach((serviceDay, index) => {
+            const dayDirs = buildServiceDayLineDirs(dirs, serviceDay);
+            if (!dayDirs.length) return;
+
+            const dayRoot = createLineImageExportDom({
+                ...detail,
+                dirs: dayDirs,
+                disableServiceDayPair: true,
+                serviceDayColorMode: serviceDay === 'SaturdayHoliday' ? 'complementary' : 'base'
+            });
+            dayRoot.style.position = 'static';
+            dayRoot.style.top = 'auto';
+            dayRoot.style.left = 'auto';
+            dayRoot.style.zIndex = 'auto';
+            dayRoot.style.margin = '0';
+            dayRoot.style.flex = '0 0 auto';
+            if (index > 0) {
+                dayRoot.style.borderLeft = '6px solid rgba(0, 0, 0, 0.18)';
+            }
+            root.appendChild(dayRoot);
+        });
+
+        return root;
+    };
+
     const exportLineToImage = async (detail = {}) => {
         injectStyles();
         const { html2canvas } = await ensureLibs();
 
-        const root = createLineImageExportDom(detail);
+        const dirs = Array.isArray(detail.dirs) ? detail.dirs : [];
+        const shouldExportServiceDayPair = !detail.disableServiceDayPair
+            && dirs.some((dir) => Array.isArray(dir?.serviceDayVariants) && dir.serviceDayVariants.length >= 2);
+        const root = shouldExportServiceDayPair
+            ? createServiceDayPairLineImageExportDom(detail)
+            : createLineImageExportDom(detail);
         document.body.appendChild(root);
         try {
             const canvas = await html2canvas(root, {
@@ -1310,7 +1410,9 @@ import { getMacaronColor } from '../../lib/macaron.js';
             const firstDir = detail.dirs?.[0] || {};
             const stationName = sanitizeFilePart(firstDir.stationName || 'station');
             const lineName = sanitizeFilePart(firstDir.lineName || detail.lineId || 'line');
-            const serviceDay = toText(firstDir.serviceDay) === 'SaturdayHoliday' ? '休息日' : '工作日';
+            const serviceDay = shouldExportServiceDayPair
+                ? '平日_节假日'
+                : (toText(firstDir.serviceDay) === 'SaturdayHoliday' ? '休息日' : '工作日');
             const fileName = `${stationName}_${lineName}_${serviceDay}时刻表.png`;
             
             const link = document.createElement('a');
@@ -1565,7 +1667,10 @@ import { getMacaronColor } from '../../lib/macaron.js';
     const onPrintLineImageRequest = async (evt) => {
         const detail = evt?.detail || {};
         const lineId = toText(detail.lineId);
-        const target = lineId
+        const triggerDirKey = toText(detail.triggerDirKey) || toText(detail.dirs?.[0]?.dirKey);
+        const target = lineId && triggerDirKey
+            ? document.querySelector(`.panel-dir-print-btn[data-dir-print-btn][data-line-id="${CSS.escape(lineId)}"][data-dir-key="${CSS.escape(triggerDirKey)}"]`)
+            : lineId
             ? document.querySelector(`.panel-dir-print-btn[data-dir-print-btn][data-line-id="${CSS.escape(lineId)}"]`)
             : document.querySelector('.panel-dir-print-btn[data-dir-print-btn]');
 
