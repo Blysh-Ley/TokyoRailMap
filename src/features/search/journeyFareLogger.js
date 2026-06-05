@@ -78,6 +78,7 @@ export const logJourneyFareEstimates = async ({
                 fareType: 'ic_card_fare'
             });
             const result = { row, displayPlan, estimate, fareDataStatus: fareData?.status || 'missing' };
+            row.fareEstimate = estimate;
             results.push(result);
 
             callLogger(targetLogger, 'groupCollapsed', createPlanTitle(row, index, estimate));

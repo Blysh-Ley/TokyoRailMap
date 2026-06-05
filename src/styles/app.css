@@ -24,6 +24,15 @@ body::-webkit-scrollbar {
     white-space: pre;
 }
 
+.journey-plan-fare{
+    margin-left:auto;
+    text-align:right;
+    white-space: nowrap;
+    font-size: 15px;
+    line-height: 1.2;
+    font-weight: 600;
+}
+
 .journey-trip-note-direction{
     font-size: 12px;
     font-weight: 500;

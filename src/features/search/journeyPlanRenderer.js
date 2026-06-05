@@ -71,10 +71,17 @@ export const createJourneyPlanBrief = ({
     const tagLabels = Array.isArray(row?.tagLabels)
         ? row.tagLabels.map((x) => normalize(x)).filter(Boolean)
         : [normalize(row?.label)].filter(Boolean);
-    if (tagLabels.length) {
+    const fareAmount = row?.fareEstimate?.totalAmount;
+    const fareText = typeof fareAmount === 'number' && Number.isFinite(fareAmount)
+        ? `JPY ${fareAmount}`
+        : '';
+    if (tagLabels.length || fareText) {
         const tagsWrap = create('div', 'journey-plan-tags');
         for (const tagText of tagLabels) {
             tagsWrap.appendChild(create('div', 'journey-plan-tag', { text: `${tagText}  ` }));
+        }
+        if (fareText) {
+            tagsWrap.appendChild(create('div', 'journey-plan-fare', { text: fareText }));
         }
         brief.appendChild(tagsWrap);
     }

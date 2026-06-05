@@ -59,6 +59,8 @@ const results = await logJourneyFareEstimates({
 assert.equal(results.length, 1);
 assert.equal(results[0].estimate.totalAmount, 388);
 assert.equal(results[0].estimate.confidence, 'complete');
+assert.equal(row.fareEstimate.totalAmount, 388);
+delete row.fareEstimate;
 assert.equal(JSON.stringify(row), originalRowSnapshot);
 assert.equal(calls.some((call) => call[0] === 'groupCollapsed' && String(call[1]).includes('journey fare estimates')), true);
 assert.equal(calls.some((call) => call[0] === 'groupCollapsed' && String(call[1]).includes('JPY 388')), true);

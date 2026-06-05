@@ -1941,7 +1941,7 @@ export function mountTravelSearchUI() {
             pickPlanBuckets,
             serviceDay
         });
-        logJourneyFareEstimates({
+        await logJourneyFareEstimates({
             rows: picked,
             getDisplayPlanForRow
         }).catch(() => null);
