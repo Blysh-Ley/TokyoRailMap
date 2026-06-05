@@ -28,6 +28,7 @@ import {
     THROUGH_SERVICE_CONFIGS_OBJECT
 } from '../../lib/throughServiceManager.js';
 import { createJourneyPickController } from './journeyPickController.js';
+import { logJourneyFareEstimates } from './journeyFareLogger.js';
 import { createJourneyPlanPreviewController } from './journeyPlanPreviewController.js';
 import {
     appendJourneyPairPlans,
@@ -1940,6 +1941,10 @@ export function mountTravelSearchUI() {
             pickPlanBuckets,
             serviceDay
         });
+        logJourneyFareEstimates({
+            rows: picked,
+            getDisplayPlanForRow
+        }).catch(() => null);
         await renderPlanResults(picked);
     };
 
