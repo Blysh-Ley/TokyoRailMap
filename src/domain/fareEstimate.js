@@ -47,6 +47,22 @@ const getFareStationBaseName = (fareStationId) => {
     return normalizeText(parts.length > 1 ? parts.slice(1).join('.') : id);
 };
 
+const compressFareWaypointsByOperator = (waypoints) => {
+    const points = compactTextList(waypoints);
+    if (points.length <= 2) return points;
+
+    const out = [points[0]];
+    for (let i = 1; i < points.length - 1; i += 1) {
+        const previousOperator = getFareOperatorId(points[i - 1]);
+        const currentOperator = getFareOperatorId(points[i]);
+        const nextOperator = getFareOperatorId(points[i + 1]);
+        if (currentOperator && currentOperator === previousOperator && currentOperator === nextOperator) continue;
+        out.push(points[i]);
+    }
+    out.push(points[points.length - 1]);
+    return compactTextList(out);
+};
+
 const collectFareStationWaypoints = ({ fromStop, legs, toStop } = {}) => {
     const legList = Array.isArray(legs) ? legs : [];
     const stops = [];
@@ -435,7 +451,7 @@ export const estimateFareForJourneyPlan = ({
             continue;
         }
 
-        const constrainedWaypoints = compactTextList(section.fareStationWaypoints);
+        const constrainedWaypoints = compressFareWaypointsByOperator(section.fareStationWaypoints);
         const pathResult = constrainedWaypoints.length > 2
             ? findFareGraphPathThroughWaypoints({
                 allowedOperatorIds: section.allowedOperatorIds,
