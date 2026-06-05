@@ -6,10 +6,14 @@ import { estimateFareForJourneyPlan } from '../src/domain/fareEstimate.js';
 const fareGraph = JSON.parse(
     readFileSync(new URL('../data/fare-map-tokyo/fare_graph.json', import.meta.url), 'utf8')
 );
+const stationGraph = JSON.parse(
+    readFileSync(new URL('../data/fare-map-tokyo/station_graph.json', import.meta.url), 'utf8')
+);
 
 {
     const estimate = estimateFareForJourneyPlan({
         fareGraph,
+        stationGraph,
         displayPlan: {
             sections: [
                 {
@@ -34,6 +38,32 @@ const fareGraph = JSON.parse(
 {
     const estimate = estimateFareForJourneyPlan({
         fareGraph,
+        stationGraph,
+        displayPlan: {
+            sections: [
+                {
+                    fromStop: 'Tokyu.Oimachi.Todoroki',
+                    toStop: 'Tokyu.Toyoko.MusashiKosugi',
+                    lineIds: ['Tokyu.Oimachi', 'Tokyu.Toyoko', 'Minatomirai.Minatomirai']
+                },
+                {
+                    fromStop: 'JR-East.Yokosuka.MusashiKosugi',
+                    toStop: 'JR-East.SobuRapid.Kinshicho',
+                    lineIds: ['JR-East.SobuRapid', 'JR-East.Yokosuka']
+                }
+            ]
+        }
+    });
+
+    assert.equal(estimate.confidence, 'complete');
+    assert.equal(estimate.totalAmount, 620);
+    assert.deepEqual(estimate.segments.map((segment) => segment.amount), [180, 440]);
+}
+
+{
+    const estimate = estimateFareForJourneyPlan({
+        fareGraph,
+        stationGraph,
         displayPlan: {
             sections: [
                 {
@@ -64,17 +94,25 @@ const fareGraph = JSON.parse(
 
     assert.equal(estimate.confidence, 'complete');
     assert.equal(estimate.totalAmount, 479);
-    assert.equal(estimate.segments[0].amount, 479);
+    assert.deepEqual(estimate.segments.map((segment) => segment.amount), [227, 252]);
     assert.deepEqual(
         estimate.segments[0].farePath,
-        ['Tokyu.Todoroki', 'Tokyu.Shibuya', 'TokyoMetro.Shibuya', 'TokyoMetro.Kinshicho']
+        ['Tokyu.Todoroki', 'Tokyu.Shibuya']
     );
-    assert.deepEqual(estimate.segments[0].fareDetails.map((detail) => detail.amount), [227, 0, 252]);
+    assert.deepEqual(
+        estimate.segments.map((segment) => [segment.fromFareStationId, segment.toFareStationId]),
+        [
+            ['Tokyu.Todoroki', 'Tokyu.Shibuya'],
+            ['TokyoMetro.Shibuya', 'TokyoMetro.Kinshicho']
+        ]
+    );
+    assert.deepEqual(estimate.adjustments, []);
 }
 
 {
     const estimate = estimateFareForJourneyPlan({
         fareGraph,
+        stationGraph,
         displayPlan: {
             sections: [
                 {
@@ -93,19 +131,48 @@ const fareGraph = JSON.parse(
 
     assert.equal(estimate.confidence, 'complete');
     assert.equal(estimate.totalAmount, 479);
-    assert.deepEqual(estimate.segments.map((segment) => segment.amount), [140, 479]);
-    assert.deepEqual(estimate.adjustments, [
-        {
-            type: 'same-operator-through-fare-normalization',
-            amount: -140,
-            currency: 'JPY',
-            operatorId: 'Tokyu',
-            fromFareStationId: 'Tokyu.Todoroki',
-            viaFareStationId: 'Tokyu.FutakoTamagawa',
-            toFareStationId: 'Tokyu.Shibuya',
-            segmentIndexes: [0, 1]
+    assert.deepEqual(estimate.segments.map((segment) => segment.amount), [227, 252]);
+    assert.deepEqual(
+        estimate.segments.map((segment) => [segment.fromFareStationId, segment.toFareStationId]),
+        [
+            ['Tokyu.Todoroki', 'Tokyu.Shibuya'],
+            ['TokyoMetro.Shibuya', 'TokyoMetro.Kinshicho']
+        ]
+    );
+    assert.deepEqual(estimate.adjustments, []);
+}
+
+{
+    const estimate = estimateFareForJourneyPlan({
+        fareGraph,
+        stationGraph,
+        displayPlan: {
+            sections: [
+                {
+                    fromStop: 'TokyoMetro.Hanzomon.Kinshicho',
+                    toStop: 'Tokyu.DenEnToshi.FutakoTamagawa',
+                    lineIds: ['TokyoMetro.Hanzomon', 'Tokyu.DenEnToshi', 'Tobu.TobuSkytreeBranch']
+                },
+                {
+                    fromStop: 'Tokyu.Oimachi.FutakoTamagawa',
+                    toStop: 'Tokyu.Oimachi.Todoroki',
+                    lineIds: ['Tokyu.Oimachi', 'Tokyu.DenEnToshi']
+                }
+            ]
         }
-    ]);
+    });
+
+    assert.equal(estimate.confidence, 'complete');
+    assert.equal(estimate.totalAmount, 479);
+    assert.deepEqual(estimate.segments.map((segment) => segment.amount), [252, 227]);
+    assert.deepEqual(
+        estimate.segments.map((segment) => [segment.fromFareStationId, segment.toFareStationId]),
+        [
+            ['TokyoMetro.Kinshicho', 'TokyoMetro.Shibuya'],
+            ['Tokyu.Shibuya', 'Tokyu.Todoroki']
+        ]
+    );
+    assert.deepEqual(estimate.adjustments, []);
 }
 
 console.log('fare estimate Todoroki Kinshicho smoke ok');

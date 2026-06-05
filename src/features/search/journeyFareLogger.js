@@ -75,7 +75,8 @@ export const logJourneyFareEstimates = async ({
             const estimate = estimateFareForJourneyPlan({
                 displayPlan,
                 fareGraph: fareData?.fareGraph || null,
-                fareType: 'ic_card_fare'
+                fareType: 'ic_card_fare',
+                stationGraph: fareData?.stationGraph || null
             });
             const result = { row, displayPlan, estimate, fareDataStatus: fareData?.status || 'missing' };
             row.fareEstimate = estimate;

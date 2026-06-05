@@ -212,6 +212,85 @@ const isFareEdgeCompatibleWithOperators = (edge, allowSet) => {
     return edgePath.every((stationId) => isFareStationOperatorAllowed(stationId, allowSet));
 };
 
+const createLineAllowSet = (lineIds) => {
+    const ids = uniqueTextList(lineIds).map((lineId) => lineId.toLowerCase());
+    return ids.length ? new Set(ids) : null;
+};
+
+const isStationGraphEdgeAllowedByLines = (edge, lineAllowSet) => {
+    if (!lineAllowSet || !edge || typeof edge !== 'object') return false;
+    const ids = Array.isArray(edge.line_id) ? edge.line_id : [];
+    return ids.some((lineId) => lineAllowSet.has(normalizeText(lineId).toLowerCase()));
+};
+
+const reconstructStationGraphPath = (previous, start, goal) => {
+    const path = [];
+    const startId = normalizeText(start);
+    let node = normalizeText(goal);
+    let safety = 0;
+    while (node && safety < 4096) {
+        safety += 1;
+        path.push(node);
+        if (node === startId) break;
+        node = previous.get(node) || '';
+    }
+    path.reverse();
+    return path[0] === startId ? path : [];
+};
+
+const findLineConstrainedFareStationPath = ({
+    allowedOperatorIds,
+    fareGraph,
+    fareType = 'ic_card_fare',
+    fromFareStationId,
+    lineIds,
+    stationGraph,
+    toFareStationId
+} = {}) => {
+    const graph = stationGraph && typeof stationGraph === 'object' ? stationGraph : null;
+    const start = normalizeText(fromFareStationId);
+    const goal = normalizeText(toFareStationId);
+    const lineAllowSet = createLineAllowSet(lineIds);
+    if (!graph || !lineAllowSet || !start || !goal || !graph[start]) return [];
+
+    const allowSet = createOperatorAllowSet(allowedOperatorIds);
+    if (!isFareStationOperatorAllowed(start, allowSet) || !isFareStationOperatorAllowed(goal, allowSet)) return [];
+    if (start === goal) return [start];
+
+    const queue = [start];
+    const previous = new Map([[start, '']]);
+    for (let cursor = 0; cursor < queue.length; cursor += 1) {
+        const current = queue[cursor];
+        if (current === goal) break;
+
+        const railNeighbors = graph[current] && typeof graph[current] === 'object' ? graph[current] : {};
+        for (const [neighborRaw, edge] of Object.entries(railNeighbors)) {
+            const neighbor = normalizeText(neighborRaw);
+            if (!neighbor || previous.has(neighbor)) continue;
+            if (!isFareStationOperatorAllowed(neighbor, allowSet)) continue;
+            if (!isStationGraphEdgeAllowedByLines(edge, lineAllowSet)) continue;
+            previous.set(neighbor, current);
+            queue.push(neighbor);
+        }
+
+        const transferNeighbors = fareGraph?.[current] && typeof fareGraph[current] === 'object'
+            ? fareGraph[current]
+            : {};
+        for (const [neighborRaw, edge] of Object.entries(transferNeighbors)) {
+            const neighbor = normalizeText(neighborRaw);
+            if (!neighbor || previous.has(neighbor)) continue;
+            if (!isFareStationOperatorAllowed(neighbor, allowSet)) continue;
+            if (getFareOperatorId(current) === getFareOperatorId(neighbor)) continue;
+            const amount = readFareAmount(edge, fareType);
+            if (amount !== 0) continue;
+            previous.set(neighbor, current);
+            queue.push(neighbor);
+        }
+    }
+
+    return previous.has(goal) ? reconstructStationGraphPath(previous, start, goal) : [];
+};
+
 class MinHeap {
     constructor(compare) {
         this.heap = [];
@@ -368,6 +447,179 @@ const findFareGraphPathThroughWaypoints = ({
     return { amount, path, details };
 };
 
+const sumFareDetails = (details) => {
+    let total = 0;
+    for (const detail of Array.isArray(details) ? details : []) {
+        const amount = Number(detail?.amount);
+        if (Number.isFinite(amount)) total += amount;
+    }
+    return total;
+};
+
+const sumFareSegmentAmounts = (segments) => {
+    let total = 0;
+    for (const segment of Array.isArray(segments) ? segments : []) {
+        const amount = Number(segment?.amount);
+        if (Number.isFinite(amount)) total += amount;
+    }
+    return total;
+};
+
+const buildFarePathFromDetails = (details) => {
+    const path = [];
+    for (const detail of Array.isArray(details) ? details : []) {
+        const from = normalizeText(detail?.from);
+        const to = normalizeText(detail?.to);
+        if (!from || !to) continue;
+        if (!path.length) path.push(from);
+        path.push(to);
+    }
+    return compactTextList(path);
+};
+
+const createFareRun = (segment, detail, operatorId) => ({
+    operatorId,
+    fromStop: normalizeText(segment?.fromStop || detail?.from),
+    toStop: normalizeText(detail?.to),
+    fromFareStationId: normalizeText(detail?.from),
+    toFareStationId: normalizeText(detail?.to),
+    lineIds: Array.isArray(segment?.lineIds) ? segment.lineIds.slice() : [],
+    sourceTypes: uniqueTextList([segment?.sourceType]),
+    sourceIndexes: Array.isArray(segment?.sourceIndexes) ? segment.sourceIndexes.slice() : [],
+    details: [{
+        from: normalizeText(detail?.from),
+        to: normalizeText(detail?.to),
+        amount: Number(detail?.amount)
+    }]
+});
+
+const addFareRunSource = (run, segment) => {
+    if (!run) return;
+    run.lineIds = uniqueTextList([
+        ...(run.lineIds || []),
+        ...(Array.isArray(segment?.lineIds) ? segment.lineIds : [])
+    ]);
+    run.sourceTypes = uniqueTextList([...(run.sourceTypes || []), segment?.sourceType]);
+    run.sourceIndexes = uniqueTextList([
+        ...(run.sourceIndexes || []),
+        ...(Array.isArray(segment?.sourceIndexes) ? segment.sourceIndexes : [])
+    ]);
+};
+
+const buildFareUnitFromRun = (run, { fareGraph, fareType } = {}) => {
+    if (!run) return null;
+    const consolidated = findFareGraphPath({
+        allowedOperatorIds: [run.operatorId],
+        fareGraph,
+        fareType,
+        fromFareStationId: run.fromFareStationId,
+        toFareStationId: run.toFareStationId
+    });
+    const hasConsolidatedAmount = Number.isFinite(Number(consolidated?.amount));
+    const details = hasConsolidatedAmount && Array.isArray(consolidated.details)
+        ? consolidated.details
+        : run.details;
+    const amount = hasConsolidatedAmount ? Number(consolidated.amount) : sumFareDetails(run.details);
+    const farePath = Array.isArray(consolidated?.path) && consolidated.path.length
+        ? consolidated.path
+        : buildFarePathFromDetails(details);
+
+    return {
+        fromStop: run.fromStop,
+        toStop: run.toStop,
+        fromFareStationId: run.fromFareStationId,
+        toFareStationId: run.toFareStationId,
+        lineIds: uniqueTextList(run.lineIds),
+        fareStationWaypoints: buildFarePathFromDetails(run.details),
+        allowedOperatorIds: [run.operatorId],
+        sourceType: run.sourceTypes?.length === 1 ? run.sourceTypes[0] : 'fare-unit',
+        sourceIndexes: uniqueTextList(run.sourceIndexes),
+        amount,
+        matched: true,
+        matchType: run.details.length === 1 && amount === Number(run.details[0]?.amount)
+            ? 'direct-edge'
+            : 'fare-operator-unit',
+        farePath,
+        fareDetails: details
+    };
+};
+
+const createCrossOperatorFareUnit = (segment, detail) => {
+    const from = normalizeText(detail?.from);
+    const to = normalizeText(detail?.to);
+    const amount = Number(detail?.amount);
+    return {
+        fromStop: from,
+        toStop: to,
+        fromFareStationId: from,
+        toFareStationId: to,
+        lineIds: Array.isArray(segment?.lineIds) ? segment.lineIds.slice() : [],
+        fareStationWaypoints: [from, to],
+        allowedOperatorIds: uniqueTextList([getFareOperatorId(from), getFareOperatorId(to)]),
+        sourceType: segment?.sourceType,
+        sourceIndexes: Array.isArray(segment?.sourceIndexes) ? segment.sourceIndexes.slice() : [],
+        amount,
+        matched: true,
+        matchType: 'fare-cross-operator-edge',
+        farePath: [from, to],
+        fareDetails: [{ from, to, amount }]
+    };
+};
+
+const buildFareUnitSegments = (segments, options = {}) => {
+    const units = [];
+    let currentRun = null;
+
+    const flushRun = () => {
+        if (!currentRun) return;
+        const unit = buildFareUnitFromRun(currentRun, options);
+        if (unit) units.push(unit);
+        currentRun = null;
+    };
+
+    for (const segment of Array.isArray(segments) ? segments : []) {
+        const details = Array.isArray(segment?.fareDetails) ? segment.fareDetails : [];
+        if (!details.length) {
+            flushRun();
+            units.push({ ...segment });
+            continue;
+        }
+
+        for (const detail of details) {
+            const from = normalizeText(detail?.from);
+            const to = normalizeText(detail?.to);
+            const amount = Number(detail?.amount);
+            if (!from || !to || !Number.isFinite(amount)) continue;
+
+            const fromOperatorId = getFareOperatorId(from);
+            const toOperatorId = getFareOperatorId(to);
+            if (fromOperatorId && fromOperatorId === toOperatorId) {
+                if (
+                    currentRun &&
+                    currentRun.operatorId === fromOperatorId &&
+                    currentRun.toFareStationId === from
+                ) {
+                    currentRun.toStop = to;
+                    currentRun.toFareStationId = to;
+                    currentRun.details.push({ from, to, amount });
+                    addFareRunSource(currentRun, segment);
+                } else {
+                    flushRun();
+                    currentRun = createFareRun(segment, { from, to, amount }, fromOperatorId);
+                }
+                continue;
+            }
+
+            flushRun();
+            if (amount === 0) continue;
+            units.push(createCrossOperatorFareUnit(segment, { from, to, amount }));
+        }
+    }
+
+    flushRun();
+    return units.length ? units : segments;
+};
+
 const shouldApplyMetroToeiTransferDiscount = (previous, current) => {
     if (!previous?.matched || !current?.matched) return false;
     if (!Number.isFinite(Number(previous.amount)) || !Number.isFinite(Number(current.amount))) return false;
@@ -380,73 +632,12 @@ const shouldApplyMetroToeiTransferDiscount = (previous, current) => {
     return getFareStationBaseName(previous.toFareStationId) === getFareStationBaseName(current.fromFareStationId);
 };
 
-const findSameOperatorExitDetail = (segment) => {
-    const details = Array.isArray(segment?.fareDetails) ? segment.fareDetails : [];
-    const operatorId = getFareOperatorId(segment?.fromFareStationId);
-    if (!operatorId) return null;
-
-    let exitDetail = null;
-    for (const detail of details) {
-        const fromOperatorId = getFareOperatorId(detail?.from);
-        const toOperatorId = getFareOperatorId(detail?.to);
-        if (fromOperatorId !== operatorId) break;
-        if (toOperatorId !== operatorId) break;
-        exitDetail = detail;
-    }
-    return exitDetail;
-};
-
-const buildSameOperatorThroughFareAdjustment = (previous, current, { fareGraph, fareType } = {}) => {
-    if (!previous?.matched || !current?.matched) return null;
-    const operatorId = getFareOperatorId(previous.fromFareStationId);
-    if (!operatorId) return null;
-    if (getFareOperatorId(previous.toFareStationId) !== operatorId) return null;
-    if (getFareOperatorId(current.fromFareStationId) !== operatorId) return null;
-    if (previous.toFareStationId !== current.fromFareStationId) return null;
-
-    const exitDetail = findSameOperatorExitDetail(current);
-    if (!exitDetail?.to || exitDetail.to === current.fromFareStationId) return null;
-
-    const previousAmount = Number(previous.amount);
-    const continuedAmount = Number(exitDetail.amount);
-    if (!Number.isFinite(previousAmount) || !Number.isFinite(continuedAmount)) return null;
-
-    const combined = findFareGraphPath({
-        allowedOperatorIds: [operatorId],
-        fareGraph,
-        fareType,
-        fromFareStationId: previous.fromFareStationId,
-        toFareStationId: exitDetail.to
-    });
-    if (!combined || !Number.isFinite(Number(combined.amount))) return null;
-
-    const amount = Number(combined.amount) - previousAmount - continuedAmount;
-    if (!Number.isFinite(amount) || amount === 0) return null;
-
-    return {
-        type: 'same-operator-through-fare-normalization',
-        amount,
-        currency: 'JPY',
-        operatorId,
-        fromFareStationId: previous.fromFareStationId,
-        viaFareStationId: current.fromFareStationId,
-        toFareStationId: exitDetail.to
-    };
-};
-
-const buildFareAdjustments = (segments, options = {}) => {
+const buildFareAdjustments = (segments) => {
     const adjustments = [];
     const list = Array.isArray(segments) ? segments : [];
     for (let i = 1; i < list.length; i += 1) {
         const previous = list[i - 1];
         const current = list[i];
-        const sameOperatorAdjustment = buildSameOperatorThroughFareAdjustment(previous, current, options);
-        if (sameOperatorAdjustment) {
-            adjustments.push({
-                ...sameOperatorAdjustment,
-                segmentIndexes: [i - 1, i]
-            });
-        }
         if (!shouldApplyMetroToeiTransferDiscount(previous, current)) continue;
         adjustments.push({
             type: 'metro-toei-transfer-discount',
@@ -463,11 +654,12 @@ const buildFareAdjustments = (segments, options = {}) => {
 export const estimateFareForJourneyPlan = ({
     displayPlan,
     fareGraph,
-    fareType = 'ic_card_fare'
+    fareType = 'ic_card_fare',
+    stationGraph
 } = {}) => {
     const fareChain = buildFareChainFromDisplayPlan(displayPlan);
     const hasFareGraph = fareGraph && typeof fareGraph === 'object';
-    const segments = [];
+    const pricedSegments = [];
     const missingSegments = [];
     let totalAmount = 0;
 
@@ -486,19 +678,19 @@ export const estimateFareForJourneyPlan = ({
 
         if (section.missingMapping || !section.fromFareStationId || !section.toFareStationId) {
             const missing = { ...base, reason: 'missing-station-mapping' };
-            segments.push({ ...base, amount: null, matched: false, reason: missing.reason });
+            pricedSegments.push({ ...base, amount: null, matched: false, reason: missing.reason });
             missingSegments.push(missing);
             continue;
         }
 
         if (section.fromFareStationId === section.toFareStationId) {
-            segments.push({ ...base, amount: 0, matched: true, reason: 'same-fare-station' });
+            pricedSegments.push({ ...base, amount: 0, matched: true, reason: 'same-fare-station', fareDetails: [] });
             continue;
         }
 
         if (!hasFareGraph) {
             const missing = { ...base, reason: 'missing-fare-graph' };
-            segments.push({ ...base, amount: null, matched: false, reason: missing.reason });
+            pricedSegments.push({ ...base, amount: null, matched: false, reason: missing.reason });
             missingSegments.push(missing);
             continue;
         }
@@ -508,11 +700,34 @@ export const estimateFareForJourneyPlan = ({
         const amount = readFareAmount(edge, fareType);
         if (amount != null && isFareEdgeCompatibleWithOperators(edge, allowSet)) {
             totalAmount += amount;
-            segments.push({ ...base, amount, matched: true, reversed, matchType: 'direct-edge' });
+            pricedSegments.push({
+                ...base,
+                amount,
+                matched: true,
+                reversed,
+                matchType: 'direct-edge',
+                farePath: [section.fromFareStationId, section.toFareStationId],
+                fareDetails: [{
+                    from: section.fromFareStationId,
+                    to: section.toFareStationId,
+                    amount
+                }]
+            });
             continue;
         }
 
-        const constrainedWaypoints = compressFareWaypointsByOperator(section.fareStationWaypoints);
+        const lineConstrainedWaypoints = findLineConstrainedFareStationPath({
+            allowedOperatorIds: section.allowedOperatorIds,
+            fareGraph,
+            fareType,
+            fromFareStationId: section.fromFareStationId,
+            lineIds: section.lineIds,
+            stationGraph,
+            toFareStationId: section.toFareStationId
+        });
+        const constrainedWaypoints = compressFareWaypointsByOperator(
+            lineConstrainedWaypoints.length > 1 ? lineConstrainedWaypoints : section.fareStationWaypoints
+        );
         const pathResult = constrainedWaypoints.length > 2
             ? findFareGraphPathThroughWaypoints({
                 allowedOperatorIds: section.allowedOperatorIds,
@@ -529,13 +744,13 @@ export const estimateFareForJourneyPlan = ({
             });
         if (!pathResult) {
             const missing = { ...base, reason: edge ? 'missing-fare-amount' : 'missing-fare-path' };
-            segments.push({ ...base, amount: null, matched: false, reason: missing.reason });
+            pricedSegments.push({ ...base, amount: null, matched: false, reason: missing.reason });
             missingSegments.push(missing);
             continue;
         }
 
         totalAmount += pathResult.amount;
-        segments.push({
+        pricedSegments.push({
             ...base,
             amount: pathResult.amount,
             matched: true,
@@ -550,7 +765,12 @@ export const estimateFareForJourneyPlan = ({
     else if (!hasFareGraph) confidence = 'missing-data';
     else if (missingSegments.length) confidence = 'partial';
 
-    const adjustments = confidence === 'complete' ? buildFareAdjustments(segments, { fareGraph, fareType }) : [];
+    const segments = confidence === 'complete' && hasFareGraph
+        ? buildFareUnitSegments(pricedSegments, { fareGraph, fareType })
+        : pricedSegments;
+    totalAmount = confidence === 'complete' ? sumFareSegmentAmounts(segments) : totalAmount;
+
+    const adjustments = confidence === 'complete' ? buildFareAdjustments(segments) : [];
     for (const adjustment of adjustments) totalAmount += adjustment.amount;
 
     return {

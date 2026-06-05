@@ -74,7 +74,7 @@ assert.equal(
     const estimate = estimateFareForJourneyPlan({ displayPlan, fareGraph });
     assert.equal(estimate.confidence, 'complete');
     assert.equal(estimate.totalAmount, 388);
-    assert.equal(estimate.segments.length, 3);
+    assert.deepEqual(estimate.segments.map((segment) => segment.amount), [210, 178]);
     assert.deepEqual(estimate.missingSegments, []);
 }
 
@@ -125,8 +125,14 @@ assert.equal(
 
     assert.equal(estimate.confidence, 'complete');
     assert.equal(estimate.totalAmount, 502);
-    assert.equal(estimate.segments[0].matchType, 'fare-graph-path');
-    assert.deepEqual(estimate.segments[0].fareDetails.map((x) => x.amount), [324, 0, 178]);
+    assert.deepEqual(estimate.segments.map((segment) => segment.amount), [324, 178]);
+    assert.deepEqual(
+        estimate.segments.map((segment) => [segment.fromFareStationId, segment.toFareStationId]),
+        [
+            ['TokyoMetro.Wakoshi', 'TokyoMetro.Shibuya'],
+            ['Tokyu.Shibuya', 'Tokyu.Jiyugaoka']
+        ]
+    );
 }
 
 {
@@ -228,8 +234,11 @@ assert.equal(
     assert.equal(estimate.confidence, 'complete');
     assert.equal(estimate.totalAmount, 493);
     assert.deepEqual(
-        estimate.segments[0].farePath,
-        ['Keio.Chofu', 'Keio.Shinjuku', 'Toei.Shinjuku', 'Toei.Jimbocho']
+        estimate.segments.map((segment) => [segment.fromFareStationId, segment.toFareStationId, segment.amount]),
+        [
+            ['Keio.Chofu', 'Keio.Shinjuku', 273],
+            ['Toei.Shinjuku', 'Toei.Jimbocho', 220]
+        ]
     );
 }
 
@@ -278,8 +287,11 @@ assert.equal(
     assert.equal(estimate.confidence, 'complete');
     assert.equal(estimate.totalAmount, 473);
     assert.deepEqual(
-        estimate.segments[0].farePath,
-        ['TokyoMetro.Wakoshi', 'TokyoMetro.Shibuya', 'Tokyu.Shibuya', 'Tokyu.Jiyugaoka']
+        estimate.segments.map((segment) => [segment.fromFareStationId, segment.toFareStationId, segment.amount]),
+        [
+            ['TokyoMetro.Wakoshi', 'TokyoMetro.Shibuya', 293],
+            ['Tokyu.Shibuya', 'Tokyu.Jiyugaoka', 180]
+        ]
     );
 }
 
