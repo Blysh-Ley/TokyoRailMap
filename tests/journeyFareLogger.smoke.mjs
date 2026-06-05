@@ -61,7 +61,34 @@ assert.equal(results[0].estimate.totalAmount, 388);
 assert.equal(results[0].estimate.confidence, 'complete');
 assert.equal(JSON.stringify(row), originalRowSnapshot);
 assert.equal(calls.some((call) => call[0] === 'groupCollapsed' && String(call[1]).includes('journey fare estimates')), true);
+assert.equal(calls.some((call) => call[0] === 'groupCollapsed' && String(call[1]).includes('JPY 388')), true);
 assert.equal(calls.some((call) => call[0] === 'log' && call[1] === 'segments'), true);
 assert.equal(calls.some((call) => call[0] === 'warn'), false);
+
+calls.length = 0;
+
+const missingResults = await logJourneyFareEstimates({
+    rows: [row],
+    logger,
+    getDisplayPlanForRow: async () => ({
+        legs: [
+            {
+                fromStop: 'JR-East.Yamanote.Shinjuku',
+                toStop: 'TokyoMetro.Marunouchi.Ginza',
+                lineId: 'TokyoMetro.Marunouchi'
+            }
+        ]
+    }),
+    loadFareGraphResult: async () => ({
+        status: 'missing',
+        url: './data/fare-map-tokyo/fare_graph.json',
+        fareGraph: null
+    })
+});
+
+assert.equal(missingResults[0].estimate.totalAmount, null);
+assert.equal(missingResults[0].estimate.confidence, 'missing-data');
+assert.equal(calls.some((call) => call[0] === 'groupCollapsed' && String(call[1]).includes('missing-data')), true);
+assert.equal(calls.some((call) => call[0] === 'groupCollapsed' && String(call[1]).includes('JPY 0')), false);
 
 console.log('journey fare logger smoke ok');

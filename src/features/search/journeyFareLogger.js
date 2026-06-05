@@ -17,9 +17,11 @@ const callLogger = (logger, method, ...args) => {
 };
 
 const createPlanTitle = (row, index, estimate) => {
-    const label = normalizeText(row?.label || row?.tagLabels?.[0] || `方案${index + 1}`) || `方案${index + 1}`;
-    const amountText = Number.isFinite(Number(estimate?.totalAmount))
-        ? `¥${Number(estimate.totalAmount)}`
+    const fallbackLabel = `plan ${index + 1}`;
+    const label = normalizeText(row?.label || row?.tagLabels?.[0] || fallbackLabel) || fallbackLabel;
+    const amount = estimate?.totalAmount;
+    const amountText = typeof amount === 'number' && Number.isFinite(amount)
+        ? `JPY ${amount}`
         : estimate?.confidence || 'unknown';
     return `[TokyoRailMap] fare ${index + 1}: ${label} ${amountText}`;
 };
