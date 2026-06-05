@@ -12,6 +12,17 @@ const uniqueTextList = (values) => {
     return out;
 };
 
+const compactTextList = (values) => {
+    const out = [];
+    for (const value of Array.isArray(values) ? values : []) {
+        const text = normalizeText(value);
+        if (!text) continue;
+        if (out[out.length - 1] === text) continue;
+        out.push(text);
+    }
+    return out;
+};
+
 export const mapStopIdToFareStationId = (stopId) => {
     const id = normalizeText(stopId);
     if (!id) return '';
@@ -28,6 +39,30 @@ export const getFareOperatorId = (fareStationId) => {
     return normalizeText(id.split('.')[0] || '');
 };
 
+const getLineOperatorId = (lineId) => getFareOperatorId(lineId);
+
+const getFareStationBaseName = (fareStationId) => {
+    const id = normalizeText(fareStationId);
+    const parts = id.split('.');
+    return normalizeText(parts.length > 1 ? parts.slice(1).join('.') : id);
+};
+
+const collectFareStationWaypoints = ({ fromStop, legs, toStop } = {}) => {
+    const legList = Array.isArray(legs) ? legs : [];
+    const stops = [];
+
+    if (legList.length) {
+        for (const leg of legList) {
+            stops.push(leg?.fromStop);
+            stops.push(leg?.toStop);
+        }
+    } else {
+        stops.push(fromStop, toStop);
+    }
+
+    return compactTextList(stops.map((stopId) => mapStopIdToFareStationId(stopId)));
+};
+
 const createRawFareSection = (source, index, sourceType) => {
     const fromStop = normalizeText(source?.fromStop || source?.legs?.[0]?.fromStop || '');
     const toStop = normalizeText(source?.toStop || source?.legs?.[source.legs.length - 1]?.toStop || '');
@@ -40,6 +75,11 @@ const createRawFareSection = (source, index, sourceType) => {
     ]);
     const fromFareStationId = mapStopIdToFareStationId(fromStop);
     const toFareStationId = mapStopIdToFareStationId(toStop);
+    const fareStationWaypoints = collectFareStationWaypoints({
+        fromStop,
+        legs: source?.legs,
+        toStop
+    });
 
     return {
         index,
@@ -50,6 +90,13 @@ const createRawFareSection = (source, index, sourceType) => {
         toFareStationId,
         fromOperatorId: getFareOperatorId(fromFareStationId),
         toOperatorId: getFareOperatorId(toFareStationId),
+        fareStationWaypoints,
+        allowedOperatorIds: uniqueTextList([
+            ...lineIds.map((lineId) => getLineOperatorId(lineId)),
+            getFareOperatorId(fromFareStationId),
+            getFareOperatorId(toFareStationId),
+            ...fareStationWaypoints.map((stationId) => getFareOperatorId(stationId))
+        ]),
         lineIds
     };
 };
@@ -89,6 +136,14 @@ export const buildFareChainFromDisplayPlan = (displayPlan) => {
             previous.toStop = section.toStop;
             previous.toFareStationId = section.toFareStationId;
             previous.toOperatorId = section.toOperatorId;
+            previous.fareStationWaypoints = compactTextList([
+                ...(previous.fareStationWaypoints || []),
+                ...(section.fareStationWaypoints || [])
+            ]);
+            previous.allowedOperatorIds = uniqueTextList([
+                ...(previous.allowedOperatorIds || []),
+                ...(section.allowedOperatorIds || [])
+            ]);
             previous.lineIds = uniqueTextList([...(previous.lineIds || []), ...(section.lineIds || [])]);
             previous.sourceIndexes = uniqueTextList([...(previous.sourceIndexes || []), String(section.index)]);
             continue;
@@ -124,6 +179,21 @@ const readFareAmount = (edge, fareType) => {
     if (Number.isFinite(amount)) return amount;
     const fallback = Number(edge?.ic_card_fare);
     return Number.isFinite(fallback) ? fallback : null;
+};
+
+const createOperatorAllowSet = (operatorIds) => {
+    const ids = uniqueTextList(operatorIds);
+    return ids.length ? new Set(ids) : null;
+};
+
+const isFareStationOperatorAllowed = (fareStationId, allowSet) => (
+    !allowSet || allowSet.has(getFareOperatorId(fareStationId))
+);
+
+const isFareEdgeCompatibleWithOperators = (edge, allowSet) => {
+    if (!allowSet || !edge || typeof edge !== 'object') return true;
+    const edgePath = Array.isArray(edge.path) ? edge.path : [];
+    return edgePath.every((stationId) => isFareStationOperatorAllowed(stationId, allowSet));
 };
 
 class MinHeap {
@@ -189,6 +259,7 @@ const reconstructFarePath = (previous, start, goal) => {
 };
 
 export const findFareGraphPath = ({
+    allowedOperatorIds,
     fareGraph,
     fareType = 'ic_card_fare',
     fromFareStationId,
@@ -198,6 +269,8 @@ export const findFareGraphPath = ({
     const start = normalizeText(fromFareStationId);
     const goal = normalizeText(toFareStationId);
     if (!graph || !start || !goal || !graph[start]) return null;
+    const allowSet = createOperatorAllowSet(allowedOperatorIds);
+    if (!isFareStationOperatorAllowed(start, allowSet) || !isFareStationOperatorAllowed(goal, allowSet)) return null;
     if (start === goal) return { amount: 0, path: [start], details: [] };
 
     const distances = new Map([[start, 0]]);
@@ -217,6 +290,8 @@ export const findFareGraphPath = ({
         for (const [neighborRaw, edge] of Object.entries(neighbors)) {
             const neighbor = normalizeText(neighborRaw);
             if (!neighbor) continue;
+            if (!isFareStationOperatorAllowed(neighbor, allowSet)) continue;
+            if (!isFareEdgeCompatibleWithOperators(edge, allowSet)) continue;
             const amount = readFareAmount(edge, fareType);
             if (amount == null) continue;
             const nextCost = current.cost + amount;
@@ -246,6 +321,68 @@ export const findFareGraphPath = ({
     return { amount, path, details };
 };
 
+const findFareGraphPathThroughWaypoints = ({
+    allowedOperatorIds,
+    fareGraph,
+    fareType,
+    waypoints
+} = {}) => {
+    const points = compactTextList(waypoints);
+    if (points.length < 2) return null;
+
+    const details = [];
+    const path = [];
+    let amount = 0;
+
+    for (let i = 0; i < points.length - 1; i += 1) {
+        const part = findFareGraphPath({
+            allowedOperatorIds,
+            fareGraph,
+            fareType,
+            fromFareStationId: points[i],
+            toFareStationId: points[i + 1]
+        });
+        if (!part) return null;
+        amount += part.amount;
+        details.push(...part.details);
+        if (!path.length) path.push(...part.path);
+        else path.push(...part.path.slice(1));
+    }
+
+    return { amount, path, details };
+};
+
+const shouldApplyMetroToeiTransferDiscount = (previous, current) => {
+    if (!previous?.matched || !current?.matched) return false;
+    if (!Number.isFinite(Number(previous.amount)) || !Number.isFinite(Number(current.amount))) return false;
+
+    const previousOperator = getFareOperatorId(previous.toFareStationId);
+    const currentOperator = getFareOperatorId(current.fromFareStationId);
+    const operators = [previousOperator, currentOperator].sort().join('|');
+    if (operators !== 'Toei|TokyoMetro') return false;
+
+    return getFareStationBaseName(previous.toFareStationId) === getFareStationBaseName(current.fromFareStationId);
+};
+
+const buildFareAdjustments = (segments) => {
+    const adjustments = [];
+    const list = Array.isArray(segments) ? segments : [];
+    for (let i = 1; i < list.length; i += 1) {
+        const previous = list[i - 1];
+        const current = list[i];
+        if (!shouldApplyMetroToeiTransferDiscount(previous, current)) continue;
+        adjustments.push({
+            type: 'metro-toei-transfer-discount',
+            amount: -70,
+            currency: 'JPY',
+            fromFareStationId: previous.toFareStationId,
+            toFareStationId: current.fromFareStationId,
+            segmentIndexes: [i - 1, i]
+        });
+    }
+    return adjustments;
+};
+
 export const estimateFareForJourneyPlan = ({
     displayPlan,
     fareGraph,
@@ -264,6 +401,8 @@ export const estimateFareForJourneyPlan = ({
             fromFareStationId: section.fromFareStationId,
             toFareStationId: section.toFareStationId,
             lineIds: Array.isArray(section.lineIds) ? section.lineIds.slice() : [],
+            fareStationWaypoints: Array.isArray(section.fareStationWaypoints) ? section.fareStationWaypoints.slice() : [],
+            allowedOperatorIds: Array.isArray(section.allowedOperatorIds) ? section.allowedOperatorIds.slice() : [],
             sourceType: section.sourceType,
             sourceIndexes: Array.isArray(section.sourceIndexes) ? section.sourceIndexes.slice() : []
         };
@@ -288,19 +427,29 @@ export const estimateFareForJourneyPlan = ({
         }
 
         const { edge, reversed } = getFareEdge(fareGraph, section.fromFareStationId, section.toFareStationId);
+        const allowSet = createOperatorAllowSet(section.allowedOperatorIds);
         const amount = readFareAmount(edge, fareType);
-        if (amount != null) {
+        if (amount != null && isFareEdgeCompatibleWithOperators(edge, allowSet)) {
             totalAmount += amount;
             segments.push({ ...base, amount, matched: true, reversed, matchType: 'direct-edge' });
             continue;
         }
 
-        const pathResult = findFareGraphPath({
-            fareGraph,
-            fareType,
-            fromFareStationId: section.fromFareStationId,
-            toFareStationId: section.toFareStationId
-        });
+        const constrainedWaypoints = compactTextList(section.fareStationWaypoints);
+        const pathResult = constrainedWaypoints.length > 2
+            ? findFareGraphPathThroughWaypoints({
+                allowedOperatorIds: section.allowedOperatorIds,
+                fareGraph,
+                fareType,
+                waypoints: constrainedWaypoints
+            })
+            : findFareGraphPath({
+                allowedOperatorIds: section.allowedOperatorIds,
+                fareGraph,
+                fareType,
+                fromFareStationId: section.fromFareStationId,
+                toFareStationId: section.toFareStationId
+            });
         if (!pathResult) {
             const missing = { ...base, reason: edge ? 'missing-fare-amount' : 'missing-fare-path' };
             segments.push({ ...base, amount: null, matched: false, reason: missing.reason });
@@ -324,12 +473,16 @@ export const estimateFareForJourneyPlan = ({
     else if (!hasFareGraph) confidence = 'missing-data';
     else if (missingSegments.length) confidence = 'partial';
 
+    const adjustments = confidence === 'complete' ? buildFareAdjustments(segments) : [];
+    for (const adjustment of adjustments) totalAmount += adjustment.amount;
+
     return {
         currency: 'JPY',
         fareType: normalizeText(fareType) || 'ic_card_fare',
         totalAmount: confidence === 'no-chain' || confidence === 'missing-data' ? null : totalAmount,
         confidence,
         segments,
-        missingSegments
+        missingSegments,
+        adjustments
     };
 };
