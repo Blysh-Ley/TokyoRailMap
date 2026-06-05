@@ -41,7 +41,10 @@ import {
 } from './panelTimePickerController.js';
 import { createPanelMapSelectController } from './panelMapSelectController.js';
 import { createPanelMarqueeController } from './panelMarqueeController.js';
-import { createPanelPrintRequestController } from './panelPrintRequestController.js';
+import {
+    collectLinePrintPayloads,
+    createPanelPrintRequestController
+} from './panelPrintRequestController.js';
 import { createPanelIntentController } from './panelIntentController.js';
 import { createPanelCrossFeatureBridgeController } from './panelCrossFeatureBridgeController.js';
 import { createPanelRoutePreviewController } from './panelRoutePreviewController.js';
@@ -2950,9 +2953,20 @@ export function createPanel(options = {}) {
         return target.closest?.('.panel-timetable-row[data-trip-key], .panel-grid-cell[data-trip-key]') || null;
     };
 
-    const buildTimetableRowsHtml = async ({ lineId, stationId, sourceLineIds, allowedTripKeySet }) => {
+    const buildTimetableRowsHtml = async ({
+        lineId,
+        stationId,
+        sourceLineIds,
+        allowedTripKeySet,
+        printStationName,
+        printTitleText,
+        timetableViewModeOverride
+    }) => {
         const fallbackStationKey = toText(stationId);
         const allowedKeys = normalizeTimetableAllowedTripKeys(allowedTripKeySet, { toText });
+        const effectiveTimetableViewMode = toText(timetableViewModeOverride) || timetableViewMode;
+        const effectivePrintStationName = toText(printStationName) || toText(currentStationNameZh);
+        const effectivePrintTitleText = toText(printTitleText) || toText(titleMain.textContent);
 
         const [stationsIndex, trainTypesIndex, trainTypeColorIndex] = await Promise.all([
             getStationsIndex(),
@@ -3534,8 +3548,8 @@ export function createPanel(options = {}) {
                 specialHints
             });
 
-            const timetableViewClass = timetableViewMode === 'grid' ? 'panel-timetable-view-grid' : 'panel-timetable-view-list';
-            const gridHintsHtml = timetableViewMode === 'grid'
+            const timetableViewClass = effectiveTimetableViewMode === 'grid' ? 'panel-timetable-view-grid' : 'panel-timetable-view-list';
+            const gridHintsHtml = effectiveTimetableViewMode === 'grid'
                 ? buildGridHintsHtml({ typeHints, terminalHints, specialHints })
                 : '';
             const future = filteredRowsForDir.filter((r) => !r.isPast);
@@ -3566,7 +3580,7 @@ export function createPanel(options = {}) {
                     specialHints: serviceSpecialHints
                 } = buildDirectionGridHints(serviceRowsForDir);
                 const serviceRowsPrintable = serviceRowsForDir.map((r) => ({ ...(r || {}), isPast: false }));
-                const serviceGridHintsHtml = timetableViewMode === 'grid'
+                const serviceGridHintsHtml = effectiveTimetableViewMode === 'grid'
                     ? buildGridHintsHtml({
                         typeHints: serviceTypeHints,
                         terminalHints: serviceTerminalHints,
@@ -3590,7 +3604,7 @@ export function createPanel(options = {}) {
 
                 return buildTimetablePrintPayload({
                     companyLogoMap,
-                    currentStationName: currentStationNameZh,
+                    currentStationName: effectivePrintStationName,
                     getCompanyLogoSrc,
                     gridHintsHtml: serviceGridHintsHtml,
                     gridHtml: serviceGridHtml,
@@ -3600,15 +3614,15 @@ export function createPanel(options = {}) {
                     dirKey,
                     dirLabel: label,
                     serviceDay,
-                    timetableViewMode,
-                    titleText: titleMain.textContent,
+                    timetableViewMode: effectiveTimetableViewMode,
+                    titleText: effectivePrintTitleText,
                     toText
                 });
             };
 
             const currentPrintPayload = buildTimetablePrintPayload({
                 companyLogoMap,
-                currentStationName: currentStationNameZh,
+                currentStationName: effectivePrintStationName,
                 getCompanyLogoSrc,
                 gridHintsHtml,
                 gridHtml: printableGridHtml,
@@ -3618,8 +3632,8 @@ export function createPanel(options = {}) {
                 dirKey,
                 dirLabel: label,
                 serviceDay: currentServiceDay,
-                timetableViewMode,
-                titleText: titleMain.textContent,
+                timetableViewMode: effectiveTimetableViewMode,
+                titleText: effectivePrintTitleText,
                 toText
             });
             dirPrintPayloadByKey.set(lineDirKey, {
@@ -3627,7 +3641,7 @@ export function createPanel(options = {}) {
                 serviceDayVariants: PRINT_SERVICE_DAYS.map((serviceDay) => buildPrintPayloadForServiceDay(serviceDay))
             });
 
-            const timetableHtml = timetableViewMode === 'grid'
+            const timetableHtml = effectiveTimetableViewMode === 'grid'
                 ? buildGridTableHtmlForDirection({
                     rowsForDir: filteredRowsForDir,
                     typeHints,
@@ -3658,7 +3672,7 @@ export function createPanel(options = {}) {
                             ${isLoopLine(lineId) ? '' : `<button type="button" class="panel-dir-filter-btn" data-dir-filter-btn="1" data-line-id="${escapeHtml(lineId)}" data-dir-key="${escapeHtml(dirKey)}" aria-label="筛选">
                                 <img class="panel-dir-filter-icon" alt="" src="${escapeHtml(getPreferredCachedImageSrc(getIconCandidates('filter.svg'), { cacheKey: 'icon:filter.svg' }))}" />
                             </button>`}
-                            ${timetableViewMode === 'grid' ? `<button type="button" class="panel-dir-print-btn" data-dir-print-btn="1" data-line-id="${escapeHtml(lineId)}" data-dir-key="${escapeHtml(dirKey)}" aria-label="打印时刻表">
+                            ${effectiveTimetableViewMode === 'grid' ? `<button type="button" class="panel-dir-print-btn" data-dir-print-btn="1" data-line-id="${escapeHtml(lineId)}" data-dir-key="${escapeHtml(dirKey)}" aria-label="打印时刻表">
                                 <img class="panel-dir-print-icon" alt="" src="${escapeHtml(getPreferredCachedImageSrc(getIconCandidates('print.svg'), { cacheKey: 'icon:print.svg' }))}" />
                             </button>` : ''}
                         </span>
@@ -3739,6 +3753,116 @@ export function createPanel(options = {}) {
 
         typesEl.innerHTML = html;
     };
+
+    const snapshotPrintPayloadState = () => ({
+        dirFilteredTripKeysByKey: new Map(dirFilteredTripKeysByKey),
+        dirFilterRowsByKey: new Map(dirFilterRowsByKey),
+        dirFilterStateByKey: new Map(dirFilterStateByKey),
+        dirPreviewMetaByKey: new Map(dirPreviewMetaByKey),
+        dirPrintPayloadByKey: new Map(dirPrintPayloadByKey),
+        gridDataDebugByLineId: new Map(gridDataDebugByLineId)
+    });
+
+    const restorePrintPayloadState = (snapshot) => {
+        const restoreMap = (target, source) => {
+            target.clear();
+            for (const [key, value] of source instanceof Map ? source.entries() : []) {
+                target.set(key, value);
+            }
+        };
+        restoreMap(dirFilteredTripKeysByKey, snapshot?.dirFilteredTripKeysByKey);
+        restoreMap(dirFilterRowsByKey, snapshot?.dirFilterRowsByKey);
+        restoreMap(dirFilterStateByKey, snapshot?.dirFilterStateByKey);
+        restoreMap(dirPreviewMetaByKey, snapshot?.dirPreviewMetaByKey);
+        restoreMap(dirPrintPayloadByKey, snapshot?.dirPrintPayloadByKey);
+        restoreMap(gridDataDebugByLineId, snapshot?.gridDataDebugByLineId);
+    };
+
+    const buildLineStationPrintPayload = async ({
+        lineId,
+        stationId,
+        timetableViewMode: requestedTimetableViewMode = 'grid'
+    } = {}) => {
+        const lid = toText(lineId);
+        const sid = toText(stationId);
+        if (!lid || !sid || typeof document === 'undefined' || !document?.createElement) return null;
+
+        const stationsIndex = await getStationsIndex();
+        const stationName = toText(stationsIndex?.idToNameZh?.get?.(sid)) || sid;
+        const lineStationNameByLineId = await buildTransferLineStationNameMap({
+            stationId: sid,
+            stationNameZh: stationName,
+            servingLineIds: [lid],
+            lineGroupByMainId: new Map([[lid, [lid]]])
+        });
+        if (!lineStationNameByLineId.has(lid)) {
+            lineStationNameByLineId.set(lid, {
+                stationId: sid,
+                name: '',
+                code: toText(stationsIndex?.idToCode?.get?.(sid)),
+                actualName: stationName
+            });
+        }
+        const snapshot = snapshotPrintPayloadState();
+        const tempHost = document.createElement('div');
+
+        try {
+            tempHost.innerHTML = buildPanelCompaniesHtml({
+                id: sid,
+                name_zh: stationName,
+                display_serving_ids: [lid],
+                serving_ids: [lid]
+            }, {
+                companyLogoMap,
+                getLineMeta,
+                lineStationNameByLineId,
+                railwaysOrderIndex,
+                toText
+            });
+
+            await enhancePanelLineHeaderIcons(tempHost);
+
+            const lineEl = Array.from(tempHost.querySelectorAll?.('[data-line-id]') || [])
+                .find((el) => toText(el.getAttribute?.('data-line-id')) === lid) || null;
+            if (!(lineEl instanceof Element)) return null;
+            if (!toText(lineEl.getAttribute('data-station-name'))) {
+                lineEl.setAttribute('data-station-name', stationName);
+            }
+
+            const rendered = await buildTimetableRowsHtml({
+                lineId: lid,
+                stationId: sid,
+                sourceLineIds: [lid],
+                allowedTripKeySet: null,
+                printStationName: stationName,
+                printTitleText: stationName,
+                timetableViewModeOverride: toText(requestedTimetableViewMode) || 'grid'
+            });
+            const timetableRoot = lineEl.querySelector('[data-timetable-root]');
+            if (timetableRoot instanceof Element) {
+                timetableRoot.innerHTML = toText(rendered?.html);
+            }
+            applyLineStationInfo(lineEl, rendered?.stationInfo || null);
+
+            return collectLinePrintPayloads({
+                lineEl,
+                lineId: lid,
+                dirPrintPayloadByKey,
+                makeLineDirKey,
+                toText
+            });
+        } finally {
+            restorePrintPayloadState(snapshot);
+        }
+    };
+
+    try {
+        window.TokyoRailPanelTimetablePrintPayloadBuilder = {
+            buildLineStationPrintPayload
+        };
+    } catch {
+        // ignore
+    }
 
     const renderTimetableForLineEl = async (lineEl, stationId, token) => {
         if (!lineEl || !(lineEl instanceof Element)) return;

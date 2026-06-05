@@ -2,9 +2,8 @@
  * print-timetables.js
  * 方向班次表导出 PDF（A4）
  */
-import { getCachedJson, getCompanyLogoSrc } from '../../lib/fetch.js';
+import { getCachedJson } from '../../lib/fetch.js';
 import { getMacaronColor } from '../../lib/macaron.js';
-import { companyLogoMap as fallbackCompanyLogoMap } from '../../lib/special-condition.js';
 (() => {
     'use strict';
 
@@ -50,74 +49,13 @@ import { companyLogoMap as fallbackCompanyLogoMap } from '../../lib/special-cond
         .replace(/[^A-Za-z0-9_.\-\u4e00-\u9fa5]/g, '_')
         .slice(0, 120);
 
-    const escapeHtml = (s) => String(s ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-
-    const pickTitleZhHans = (title) => {
-        if (typeof title === 'string') return toText(title);
-        if (!title || typeof title !== 'object') return '';
-        return toText(title['zh-Hans'])
-            || toText(title.zh)
-            || toText(title.ja)
-            || toText(title.en)
-            || toText(Object.values(title).find((v) => toText(v)));
-    };
-
     const normalizeArrayLike = (value) => {
         if (Array.isArray(value)) return value;
         return value == null ? [] : [value];
     };
 
-    const toTimetableFileStem = (lineId) => {
-        const raw = toText(lineId);
-        if (!raw) return '';
-        const normalized = raw
-            .replace(/^JR[.-]East\b/i, 'JREast')
-            .replace(/^JR[.-]Central\b/i, 'JRCentral')
-            .replace(/^JR-East\b/i, 'JREast')
-            .replace(/^JR-Central\b/i, 'JRCentral')
-            .replace(/^Seibu.S-Yurakucho\b/i, 'Seibu.SYurakucho')
-            .replace(/^Seibu.S-Fukutoshin\b/i, 'Seibu.SFukutoshin');
-        return normalized.replace(/\./g, '-').toLowerCase();
-    };
-
-    const getTripServiceDay = (trip) => {
-        const id = toText(trip?.id);
-        const parts = id.split('.').map((x) => toText(x)).filter(Boolean);
-        const last = parts[parts.length - 1] || '';
-        if (last === 'Weekday' || last === 'SaturdayHoliday') return last;
-        return toText(trip?.serviceDay);
-    };
-
-    const formatRoutePrintHourLabel = (hourIndex) => {
-        const hour = Number(hourIndex);
-        if (!Number.isFinite(hour)) return '';
-        return String(((hour % 24) + 24) % 24).padStart(2, '0');
-    };
-
-    const parseRoutePrintTime = (value) => {
-        const match = /^(\d{1,2}):(\d{2})$/.exec(toText(value));
-        if (!match) return null;
-        const hour = Number(match[1]);
-        const minute = Number(match[2]);
-        if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
-        if (minute < 0 || minute > 59) return null;
-        return {
-            hour,
-            minute,
-            serviceHourIndex: hour < 3 ? hour + 24 : hour,
-            minuteLabel: String(minute).padStart(2, '0')
-        };
-    };
-
     const routePrintDataCache = {
-        railways: null,
-        stations: null,
-        trainTypes: null
+        railways: null
     };
 
     const loadRoutePrintRailwaysIndex = async () => {
@@ -130,9 +68,6 @@ import { companyLogoMap as fallbackCompanyLogoMap } from '../../lib/special-cond
                 if (!id) continue;
                 map.set(id, {
                     id,
-                    name: pickTitleZhHans(item?.title) || id,
-                    color: toText(item?.color) || '#888888',
-                    company: toText(item?.company),
                     stationIds: normalizeArrayLike(item?.stations).map((x) => toText(x)).filter(Boolean)
                 });
             }
@@ -141,373 +76,35 @@ import { companyLogoMap as fallbackCompanyLogoMap } from '../../lib/special-cond
         return routePrintDataCache.railways;
     };
 
-    const loadRoutePrintStationsIndex = async () => {
-        if (routePrintDataCache.stations) return routePrintDataCache.stations;
-        routePrintDataCache.stations = (async () => {
-            const list = await getCachedJson('./data/stations.json');
-            const map = new Map();
-            for (const item of Array.isArray(list) ? list : []) {
-                const id = toText(item?.id);
-                if (!id) continue;
-                map.set(id, {
-                    id,
-                    name: pickTitleZhHans(item?.title) || id,
-                    code: toText(item?.title?.code)
-                });
-            }
-            return map;
-        })();
-        return routePrintDataCache.stations;
-    };
-
-    const loadRoutePrintTrainTypesIndex = async () => {
-        if (routePrintDataCache.trainTypes) return routePrintDataCache.trainTypes;
-        routePrintDataCache.trainTypes = (async () => {
-            const list = await getCachedJson('./data/train-types.json');
-            const map = new Map();
-            for (const item of Array.isArray(list) ? list : []) {
-                const id = toText(item?.id);
-                if (!id) continue;
-                const title = item?.title || {};
-                map.set(id, {
-                    id,
-                    name: pickTitleZhHans(title) || id,
-                    color: toText(title?.color) || toText(item?.color) || '#111111'
-                });
-            }
-            return map;
-        })();
-        return routePrintDataCache.trainTypes;
-    };
-
-    const loadRoutePrintTimetableForLineId = async (lineId) => {
-        const id = toText(lineId);
-        if (!id) return [];
-        const cache = window?.TokyoRailTimetableCache;
-        if (cache && typeof cache.get === 'function') {
-            try {
-                const existing = cache.get(id);
-                if (Array.isArray(existing)) return existing;
-                if (typeof cache.preloadByLineIds === 'function') {
-                    await cache.preloadByLineIds([id]);
-                    const loaded = cache.get(id);
-                    if (Array.isArray(loaded)) return loaded;
-                }
-            } catch {
-                // fall through to direct fetch
-            }
-        }
-        const stem = toTimetableFileStem(id);
-        if (!stem) return [];
-        const data = await getCachedJson(`./data/train-timetables/${stem}.json`);
-        return Array.isArray(data) ? data : [];
-    };
-
-    const getRoutePrintStationName = (stationsIndex, stationId) => (
-        toText(stationsIndex?.get?.(toText(stationId))?.name) || toText(stationId)
-    );
-
-    const getRoutePrintTripTerminalIds = (trip) => {
-        const ds = normalizeArrayLike(trip?.ds).map((x) => toText(x)).filter(Boolean);
-        if (ds.length) return ds;
-        const tt = Array.isArray(trip?.tt) ? trip.tt : [];
-        const lastStop = tt[tt.length - 1];
-        const fallback = toText(lastStop?.s);
-        return fallback ? [fallback] : [];
-    };
-
-    const getRoutePrintDirectionLabel = (dirKey, rows, stationsIndex) => {
-        const key = toText(dirKey);
-        if (key === 'InnerLoop') return '\u5185\u73af';
-        if (key === 'OuterLoop') return '\u5916\u73af';
-
-        const counts = new Map();
-        for (const row of Array.isArray(rows) ? rows : []) {
-            const name = toText(row?.terminalName);
-            if (!name) continue;
-            counts.set(name, (counts.get(name) || 0) + 1);
-        }
-
-        const names = Array.from(counts.entries())
-            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-            .slice(0, 3)
-            .map(([name]) => name);
-        if (names.length) return names.join('\u3001');
-
-        const terminalId = toText(rows?.[0]?.terminalId);
-        return terminalId ? getRoutePrintStationName(stationsIndex, terminalId) : (key || '\u672a\u77e5\u65b9\u5411');
-    };
-
-    const getRoutePrintCompanyKey = (lineMeta, lineId) => {
-        const fromMeta = toText(lineMeta?.company);
-        if (fromMeta) return fromMeta;
-        const id = toText(lineId);
-        const parts = id.split('.').map((x) => toText(x)).filter(Boolean);
-        return parts[0] || '';
-    };
-
-    const isRoutePrintNoMarkTypeName = (typeName) => {
-        const name = toText(typeName);
-        return name === '\u666e\u901a'
-            || name === '\u5404\u505c'
-            || name === '\u5404\u7ad9\u505c\u8f66'
-            || /^local$/i.test(name);
-    };
-
-    const formatRoutePrintStationTypeBadgeLabel = (typeNameRaw) => {
-        const name = toText(typeNameRaw);
-        if (!name) return '';
-        if (/\s/.test(name)) return name;
-        const chars = Array.from(name);
-        if (chars.length !== 2) return name;
-        return `${chars[0]}      ${chars[1]}`;
-    };
-
-    const shouldUseSmallRoutePrintStationTypeBadgeFont = (typeNameRaw) => {
-        const plain = toText(typeNameRaw).replace(/\s+/g, '');
-        if (!plain) return false;
-        return Array.from(plain).length > 4;
-    };
-
-    const collectRoutePrintLineTypeItems = (trips, trainTypesIndex) => {
-        const typeByName = new Map();
-        for (const trip of Array.isArray(trips) ? trips : []) {
-            if (!PRINT_SERVICE_DAY_ORDER.includes(getTripServiceDay(trip))) continue;
-            const typeMeta = trainTypesIndex.get(toText(trip?.y)) || {};
-            const name = toText(typeMeta?.name) || toText(trip?.y);
-            if (!name || typeByName.has(name)) continue;
-            typeByName.set(name, toText(typeMeta?.color) || '#555');
-        }
-        return Array.from(typeByName.entries()).map(([name, color]) => ({ name, color }));
-    };
-
-    const buildRoutePrintStationInfoHtml = (rowsByServiceDay, lineTypeItems) => {
-        const stopTypeNames = new Set();
-        for (const rowsByDir of rowsByServiceDay instanceof Map ? rowsByServiceDay.values() : []) {
-            for (const rows of rowsByDir instanceof Map ? rowsByDir.values() : []) {
-                for (const row of Array.isArray(rows) ? rows : []) {
-                    const name = toText(row?.typeName);
-                    if (name) stopTypeNames.add(name);
-                }
-            }
-        }
-        const items = (Array.isArray(lineTypeItems) ? lineTypeItems : []).map((item) => {
-            const name = toText(item?.name);
-            if (!name) return '';
-            const isStop = stopTypeNames.has(name);
-            const bgColor = isStop ? (toText(item?.color) || '#555') : '#ddd';
-            const smallFontStyle = shouldUseSmallRoutePrintStationTypeBadgeFont(name) ? ';font-size:10px' : '';
-            const label = formatRoutePrintStationTypeBadgeLabel(name);
-            return `<span class="panel-station-info-type ${isStop ? 'is-stop' : 'is-pass'}" style="background-color:${escapeHtml(bgColor)}${smallFontStyle}">${escapeHtml(label)}</span>`;
-        }).filter(Boolean);
-        return items.length ? `<div class="panel-station-info-types">${items.join('')}</div>` : '';
-    };
-
-    const buildRoutePrintHintsHtml = (rows) => {
-        const typeItems = [];
-        const terminalItems = [];
-        const seenTypes = new Set();
-        const seenTerminals = new Set();
-
-        for (const row of Array.isArray(rows) ? rows : []) {
-            const typeName = toText(row?.typeName);
-            if (typeName && !seenTypes.has(typeName)) {
-                seenTypes.add(typeName);
-                const color = isRoutePrintNoMarkTypeName(typeName)
-                    ? '#888'
-                    : (toText(row?.typeColor) || '#888');
-                typeItems.push(`<span class="panel-grid-hint-item panel-grid-hint-item-type" style="color:${escapeHtml(color)}">${escapeHtml(typeName)}</span>`);
-            }
-            const terminalName = toText(row?.terminalName);
-            if (terminalName && !seenTerminals.has(terminalName)) {
-                seenTerminals.add(terminalName);
-                terminalItems.push(`<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888">${escapeHtml(terminalName)}</span>`);
-            }
-        }
-
-        return `
-            <div class="panel-grid-hints">
-                <div class="panel-grid-hint-line">
-                    <span class="panel-grid-hint-label">\u79cd\u522b\uff1a</span>
-                    <span class="panel-grid-hint-content">${typeItems.join('<span class="panel-grid-hint-sep"> / </span>') || '<span class="panel-grid-hint-item" style="color:#888">\u65e0</span>'}</span>
-                </div>
-                <div class="panel-grid-hint-line">
-                    <span class="panel-grid-hint-label">\u7ec8\u70b9\u7ad9\uff1a</span>
-                    <span class="panel-grid-hint-content">${terminalItems.join('<span class="panel-grid-hint-sep"> / </span>') || '<span class="panel-grid-hint-item" style="color:#888">\u65e0</span>'}</span>
-                </div>
-            </div>
-        `;
-    };
-
-    const buildRoutePrintGridHtml = (rows) => {
-        const sorted = (Array.isArray(rows) ? rows : [])
-            .slice()
-            .sort((a, b) => (Number(a?.serviceHourIndex) || 0) - (Number(b?.serviceHourIndex) || 0)
-                || (Number(a?.minute) || 0) - (Number(b?.minute) || 0)
-                || toText(a?.tripKey).localeCompare(toText(b?.tripKey)));
-        if (!sorted.length) return '<div class="panel-timetable-empty">\u5f53\u524d\u65e0\u73ed\u6b21</div>';
-
-        const byHour = new Map();
-        for (const row of sorted) {
-            const hour = Number(row?.serviceHourIndex);
-            if (!Number.isFinite(hour)) continue;
-            if (!byHour.has(hour)) byHour.set(hour, []);
-            byHour.get(hour).push(row);
-        }
-
-        const hours = Array.from(byHour.keys()).sort((a, b) => a - b);
-        const rowsHtml = hours.map((hour, hourIndex) => {
-            const trips = byHour.get(hour) || [];
-            const cellsHtml = trips.map((trip, tripIndex) => {
-                const lastClass = tripIndex === trips.length - 1 ? ' is-hour-last' : '';
-                const typeLabel = toText(trip?.typeName);
-                const terminalName = toText(trip?.terminalName);
-                const typeAbbr = typeLabel && typeLabel.length > 4 ? typeLabel.slice(0, 2) : typeLabel;
-                const destAbbr = terminalName ? terminalName.slice(0, 1) : '';
-                const abbrText = `${typeAbbr ? `[${typeAbbr}]` : ''}${destAbbr}`;
-                const abbrHtml = abbrText
-                    ? `<span class="panel-grid-trip-abbr">${escapeHtml(abbrText)}</span>`
-                    : '<span class="panel-grid-trip-abbr" aria-hidden="true">&nbsp;</span>';
-                const tripKey = toText(trip?.tripKey);
-                const tripAttr = tripKey ? ` data-trip-key="${escapeHtml(tripKey)}"` : '';
-                const color = toText(trip?.typeColor) || 'var(--ui-text, #111)';
-                const flag = trip?.isOrigin
-                    ? '<span class="panel-grid-trip-minute-flag is-origin-flag" aria-label="\u8d77\u70b9\u7ad9">\u59cb</span>'
-                    : (trip?.isTerminal
-                        ? '<span class="panel-grid-trip-minute-flag is-terminal-flag" aria-label="\u7ec8\u70b9\u7ad9">\u7ec8</span>'
-                        : '');
-                return `
-                    <div class="panel-grid-cell panel-grid-cell-trip${lastClass}"${tripAttr}>
-                        <span class="panel-grid-trip" style="color:${escapeHtml(color)}">
-                            ${abbrHtml}
-                            <span class="panel-grid-trip-minute"><span class="panel-grid-trip-minute-text">${escapeHtml(trip?.minuteLabel)}</span>${flag}</span>
-                        </span>
-                    </div>
-                `;
-            }).join('') || '<div class="panel-grid-cell is-empty is-hour-last"></div>';
-
-            return `
-                <div class="panel-grid-row ${hourIndex % 2 === 0 ? 'is-alt-a' : 'is-alt-b'}" data-grid-hour="${escapeHtml(String(hour))}">
-                    <div class="panel-grid-hour">${escapeHtml(formatRoutePrintHourLabel(hour))}</div>
-                    <div class="panel-grid-trips">
-                        ${cellsHtml}
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        return `<div class="panel-timetable-grid">${rowsHtml}</div>`;
-    };
-
-    const collectRoutePrintRowsForStation = ({ trips, stationId, serviceDay, trainTypesIndex, stationsIndex }) => {
-        const sid = toText(stationId);
-        const day = toText(serviceDay);
-        const rowsByDir = new Map();
-
-        for (const trip of Array.isArray(trips) ? trips : []) {
-            if (getTripServiceDay(trip) !== day) continue;
-            const tt = Array.isArray(trip?.tt) ? trip.tt : [];
-            const stopIndex = tt.findIndex((stop) => toText(stop?.s) === sid);
-            if (stopIndex < 0) continue;
-            const stop = tt[stopIndex];
-            const parsed = parseRoutePrintTime(toText(stop?.d) || toText(stop?.a));
-            if (!parsed) continue;
-
-            const dirKey = toText(trip?.d) || 'Unknown';
-            const typeMeta = trainTypesIndex.get(toText(trip?.y)) || {};
-            const terminalId = getRoutePrintTripTerminalIds(trip)[0] || '';
-            const row = {
-                dirKey,
-                tripKey: toText(trip?.id) || toText(trip?.t),
-                typeName: toText(typeMeta?.name) || toText(trip?.y),
-                typeColor: toText(typeMeta?.color) || '#111111',
-                terminalId,
-                terminalName: terminalId ? getRoutePrintStationName(stationsIndex, terminalId) : '',
-                minute: parsed.minute,
-                minuteLabel: parsed.minuteLabel,
-                serviceHourIndex: parsed.serviceHourIndex,
-                isOrigin: stopIndex === 0,
-                isTerminal: stopIndex === tt.length - 1
-            };
-
-            if (!rowsByDir.has(dirKey)) rowsByDir.set(dirKey, []);
-            rowsByDir.get(dirKey).push(row);
-        }
-
-        return rowsByDir;
-    };
-
     const buildRouteMapLineStationPrintPages = async ({ lineId, lineName }) => {
         const id = toText(lineId);
         if (!id) return [];
 
-        const [railwaysIndex, stationsIndex, trainTypesIndex, trips] = await Promise.all([
-            loadRoutePrintRailwaysIndex(),
-            loadRoutePrintStationsIndex(),
-            loadRoutePrintTrainTypesIndex(),
-            loadRoutePrintTimetableForLineId(id)
-        ]);
-
+        const railwaysIndex = await loadRoutePrintRailwaysIndex();
         const lineMeta = railwaysIndex.get(id) || {};
         const stationIds = Array.isArray(lineMeta.stationIds) ? lineMeta.stationIds : [];
-        if (!stationIds.length || !Array.isArray(trips) || !trips.length) return [];
+        if (!stationIds.length) return [];
 
-        const windowCompanyMap = window?.TokyoRailCompanyLogoMap || {};
-        const companyMap = Object.keys(windowCompanyMap).length ? windowCompanyMap : fallbackCompanyLogoMap;
-        const companyKey = getRoutePrintCompanyKey(lineMeta, id);
-        const companyInfo = companyMap?.[companyKey] || {};
-        const companyName = toText(companyInfo?.zh) || companyKey || '\u672a\u77e5\u516c\u53f8';
-        const companyLogoSrc = toText(getCompanyLogoSrc(companyKey, companyMap));
-        const resolvedLineName = toText(lineMeta.name) || toText(lineName) || id;
-        const lineColor = toText(lineMeta.color) || '#888888';
-        const lineTypeItems = collectRoutePrintLineTypeItems(trips, trainTypesIndex);
+        const builder = window?.TokyoRailPanelTimetablePrintPayloadBuilder;
+        if (typeof builder?.buildLineStationPrintPayload !== 'function') {
+            throw new Error('panel timetable print payload builder is unavailable');
+        }
 
-        return stationIds.map((stationId) => {
-            const stationName = getRoutePrintStationName(stationsIndex, stationId);
-            const rowsByServiceDay = new Map(PRINT_SERVICE_DAY_ORDER.map((serviceDay) => [
-                serviceDay,
-                collectRoutePrintRowsForStation({ trips, stationId, serviceDay, trainTypesIndex, stationsIndex })
-            ]));
-            const dirKeys = Array.from(new Set(
-                PRINT_SERVICE_DAY_ORDER.flatMap((serviceDay) => Array.from(rowsByServiceDay.get(serviceDay)?.keys?.() || []))
-            ));
-            const stationInfoHtml = buildRoutePrintStationInfoHtml(rowsByServiceDay, lineTypeItems);
-
-            const dirs = dirKeys.map((dirKey) => {
-                const variants = PRINT_SERVICE_DAY_ORDER.map((serviceDay) => {
-                    const rows = rowsByServiceDay.get(serviceDay)?.get(dirKey) || [];
-                    if (!rows.length) return null;
-                    const dirLabel = getRoutePrintDirectionLabel(dirKey, rows, stationsIndex);
-                    return {
-                        stationName,
-                        companyName,
-                        companyLogoSrc,
-                        lineName: resolvedLineName,
-                        lineColor,
-                        serviceDay,
-                        dirKey,
-                        dirLabel,
-                        timetableViewMode: 'grid',
-                        gridHintsHtml: buildRoutePrintHintsHtml(rows),
-                        gridHtml: buildRoutePrintGridHtml(rows)
-                    };
-                }).filter(Boolean);
-
-                if (!variants.length) return null;
-                const base = variants[0];
-                return {
-                    ...base,
-                    serviceDayVariants: variants
-                };
-            }).filter(Boolean);
-
-            return {
-                stationName,
+        const pages = [];
+        for (const stationId of stationIds) {
+            const page = await builder.buildLineStationPrintPayload({
                 lineId: id,
-                stationInfoHtml,
-                dirs
-            };
-        }).filter((page) => Array.isArray(page?.dirs) && page.dirs.length);
+                stationId,
+                timetableViewMode: 'grid'
+            });
+            if (!page?.dirs?.length) continue;
+            pages.push({
+                ...page,
+                lineId: id,
+                lineName: toText(lineName) || id
+            });
+        }
+        return pages;
     };
 
     const loadScript = (src) => new Promise((resolve, reject) => {
