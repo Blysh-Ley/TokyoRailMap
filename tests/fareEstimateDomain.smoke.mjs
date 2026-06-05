@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
     buildFareChainFromDisplayPlan,
     estimateFareForJourneyPlan,
+    findFareGraphPath,
     mapStopIdToFareStationId
 } from '../src/domain/fareEstimate.js';
 
@@ -78,6 +79,57 @@ assert.equal(
 }
 
 {
+    const pathResult = findFareGraphPath({
+        fromFareStationId: 'TokyoMetro.Wakoshi',
+        toFareStationId: 'Tokyu.Jiyugaoka',
+        fareGraph: {
+            'TokyoMetro.Wakoshi': {
+                'TokyoMetro.Shibuya': { ic_card_fare: 324 }
+            },
+            'TokyoMetro.Shibuya': {
+                'Tokyu.Shibuya': { ic_card_fare: 0 }
+            },
+            'Tokyu.Shibuya': {
+                'Tokyu.Jiyugaoka': { ic_card_fare: 178 }
+            }
+        }
+    });
+    assert.equal(pathResult.amount, 502);
+    assert.deepEqual(pathResult.path, ['TokyoMetro.Wakoshi', 'TokyoMetro.Shibuya', 'Tokyu.Shibuya', 'Tokyu.Jiyugaoka']);
+}
+
+{
+    const displayPlan = {
+        legs: [
+            {
+                fromStop: 'TokyoMetro.Fukutoshin.Wakoshi',
+                toStop: 'Tokyu.Toyoko.Jiyugaoka',
+                lineId: 'TokyoMetro.Fukutoshin'
+            }
+        ]
+    };
+    const estimate = estimateFareForJourneyPlan({
+        displayPlan,
+        fareGraph: {
+            'TokyoMetro.Wakoshi': {
+                'TokyoMetro.Shibuya': { ic_card_fare: 324 }
+            },
+            'TokyoMetro.Shibuya': {
+                'Tokyu.Shibuya': { ic_card_fare: 0 }
+            },
+            'Tokyu.Shibuya': {
+                'Tokyu.Jiyugaoka': { ic_card_fare: 178 }
+            }
+        }
+    });
+
+    assert.equal(estimate.confidence, 'complete');
+    assert.equal(estimate.totalAmount, 502);
+    assert.equal(estimate.segments[0].matchType, 'fare-graph-path');
+    assert.deepEqual(estimate.segments[0].fareDetails.map((x) => x.amount), [324, 0, 178]);
+}
+
+{
     const displayPlan = {
         legs: [
             {
@@ -97,7 +149,7 @@ assert.equal(
     assert.equal(estimate.confidence, 'partial');
     assert.equal(estimate.totalAmount, 0);
     assert.equal(estimate.missingSegments.length, 1);
-    assert.equal(estimate.missingSegments[0].reason, 'missing-fare-edge');
+    assert.equal(estimate.missingSegments[0].reason, 'missing-fare-path');
 }
 
 {

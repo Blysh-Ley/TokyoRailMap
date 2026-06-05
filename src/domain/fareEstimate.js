@@ -126,6 +126,126 @@ const readFareAmount = (edge, fareType) => {
     return Number.isFinite(fallback) ? fallback : null;
 };
 
+class MinHeap {
+    constructor(compare) {
+        this.heap = [];
+        this.compare = typeof compare === 'function' ? compare : ((a, b) => a - b);
+    }
+
+    get size() {
+        return this.heap.length;
+    }
+
+    push(value) {
+        this.heap.push(value);
+        let index = this.heap.length - 1;
+        while (index > 0) {
+            const parent = (index - 1) >> 1;
+            if (this.compare(this.heap[index], this.heap[parent]) >= 0) break;
+            const tmp = this.heap[index];
+            this.heap[index] = this.heap[parent];
+            this.heap[parent] = tmp;
+            index = parent;
+        }
+    }
+
+    pop() {
+        if (!this.heap.length) return null;
+        const top = this.heap[0];
+        const last = this.heap.pop();
+        if (this.heap.length && last != null) {
+            this.heap[0] = last;
+            let index = 0;
+            while (true) {
+                const left = index * 2 + 1;
+                const right = left + 1;
+                let smallest = index;
+                if (left < this.heap.length && this.compare(this.heap[left], this.heap[smallest]) < 0) smallest = left;
+                if (right < this.heap.length && this.compare(this.heap[right], this.heap[smallest]) < 0) smallest = right;
+                if (smallest === index) break;
+                const tmp = this.heap[index];
+                this.heap[index] = this.heap[smallest];
+                this.heap[smallest] = tmp;
+                index = smallest;
+            }
+        }
+        return top;
+    }
+}
+
+const reconstructFarePath = (previous, start, goal) => {
+    const path = [];
+    let node = normalizeText(goal);
+    const startId = normalizeText(start);
+    let safety = 0;
+    while (node && safety < 4096) {
+        safety += 1;
+        path.push(node);
+        if (node === startId) break;
+        node = previous.get(node) || '';
+    }
+    path.reverse();
+    return path[0] === startId ? path : [];
+};
+
+export const findFareGraphPath = ({
+    fareGraph,
+    fareType = 'ic_card_fare',
+    fromFareStationId,
+    toFareStationId
+} = {}) => {
+    const graph = fareGraph && typeof fareGraph === 'object' ? fareGraph : null;
+    const start = normalizeText(fromFareStationId);
+    const goal = normalizeText(toFareStationId);
+    if (!graph || !start || !goal || !graph[start]) return null;
+    if (start === goal) return { amount: 0, path: [start], details: [] };
+
+    const distances = new Map([[start, 0]]);
+    const previous = new Map();
+    const queue = new MinHeap((a, b) => a.cost - b.cost);
+    queue.push({ node: start, cost: 0 });
+
+    while (queue.size) {
+        const current = queue.pop();
+        if (!current) break;
+        if (current.cost > (distances.get(current.node) ?? Infinity)) continue;
+        if (current.node === goal) break;
+
+        const neighbors = graph[current.node] && typeof graph[current.node] === 'object'
+            ? graph[current.node]
+            : {};
+        for (const [neighborRaw, edge] of Object.entries(neighbors)) {
+            const neighbor = normalizeText(neighborRaw);
+            if (!neighbor) continue;
+            const amount = readFareAmount(edge, fareType);
+            if (amount == null) continue;
+            const nextCost = current.cost + amount;
+            if (nextCost >= (distances.get(neighbor) ?? Infinity)) continue;
+            distances.set(neighbor, nextCost);
+            previous.set(neighbor, current.node);
+            queue.push({ node: neighbor, cost: nextCost });
+        }
+    }
+
+    const amount = distances.get(goal);
+    if (!Number.isFinite(amount)) return null;
+
+    const path = reconstructFarePath(previous, start, goal);
+    const details = [];
+    for (let i = 0; i < path.length - 1; i += 1) {
+        const from = path[i];
+        const to = path[i + 1];
+        const edge = graph?.[from]?.[to] || null;
+        details.push({
+            from,
+            to,
+            amount: readFareAmount(edge, fareType)
+        });
+    }
+
+    return { amount, path, details };
+};
+
 export const estimateFareForJourneyPlan = ({
     displayPlan,
     fareGraph,
@@ -169,15 +289,34 @@ export const estimateFareForJourneyPlan = ({
 
         const { edge, reversed } = getFareEdge(fareGraph, section.fromFareStationId, section.toFareStationId);
         const amount = readFareAmount(edge, fareType);
-        if (amount == null) {
-            const missing = { ...base, reason: edge ? 'missing-fare-amount' : 'missing-fare-edge' };
+        if (amount != null) {
+            totalAmount += amount;
+            segments.push({ ...base, amount, matched: true, reversed, matchType: 'direct-edge' });
+            continue;
+        }
+
+        const pathResult = findFareGraphPath({
+            fareGraph,
+            fareType,
+            fromFareStationId: section.fromFareStationId,
+            toFareStationId: section.toFareStationId
+        });
+        if (!pathResult) {
+            const missing = { ...base, reason: edge ? 'missing-fare-amount' : 'missing-fare-path' };
             segments.push({ ...base, amount: null, matched: false, reason: missing.reason });
             missingSegments.push(missing);
             continue;
         }
 
-        totalAmount += amount;
-        segments.push({ ...base, amount, matched: true, reversed });
+        totalAmount += pathResult.amount;
+        segments.push({
+            ...base,
+            amount: pathResult.amount,
+            matched: true,
+            matchType: 'fare-graph-path',
+            farePath: pathResult.path,
+            fareDetails: pathResult.details
+        });
     }
 
     let confidence = 'complete';
