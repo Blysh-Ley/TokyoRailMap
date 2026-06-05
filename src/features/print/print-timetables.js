@@ -4,6 +4,7 @@
  */
 import { getCachedJson, getCompanyLogoSrc } from '../../lib/fetch.js';
 import { getMacaronColor } from '../../lib/macaron.js';
+import { companyLogoMap as fallbackCompanyLogoMap } from '../../lib/special-condition.js';
 (() => {
     'use strict';
 
@@ -237,6 +238,71 @@ import { getMacaronColor } from '../../lib/macaron.js';
         return terminalId ? getRoutePrintStationName(stationsIndex, terminalId) : (key || '\u672a\u77e5\u65b9\u5411');
     };
 
+    const getRoutePrintCompanyKey = (lineMeta, lineId) => {
+        const fromMeta = toText(lineMeta?.company);
+        if (fromMeta) return fromMeta;
+        const id = toText(lineId);
+        const parts = id.split('.').map((x) => toText(x)).filter(Boolean);
+        return parts[0] || '';
+    };
+
+    const isRoutePrintNoMarkTypeName = (typeName) => {
+        const name = toText(typeName);
+        return name === '\u666e\u901a'
+            || name === '\u5404\u505c'
+            || name === '\u5404\u7ad9\u505c\u8f66'
+            || /^local$/i.test(name);
+    };
+
+    const formatRoutePrintStationTypeBadgeLabel = (typeNameRaw) => {
+        const name = toText(typeNameRaw);
+        if (!name) return '';
+        if (/\s/.test(name)) return name;
+        const chars = Array.from(name);
+        if (chars.length !== 2) return name;
+        return `${chars[0]}      ${chars[1]}`;
+    };
+
+    const shouldUseSmallRoutePrintStationTypeBadgeFont = (typeNameRaw) => {
+        const plain = toText(typeNameRaw).replace(/\s+/g, '');
+        if (!plain) return false;
+        return Array.from(plain).length > 4;
+    };
+
+    const collectRoutePrintLineTypeItems = (trips, trainTypesIndex) => {
+        const typeByName = new Map();
+        for (const trip of Array.isArray(trips) ? trips : []) {
+            if (!PRINT_SERVICE_DAY_ORDER.includes(getTripServiceDay(trip))) continue;
+            const typeMeta = trainTypesIndex.get(toText(trip?.y)) || {};
+            const name = toText(typeMeta?.name) || toText(trip?.y);
+            if (!name || typeByName.has(name)) continue;
+            typeByName.set(name, toText(typeMeta?.color) || '#555');
+        }
+        return Array.from(typeByName.entries()).map(([name, color]) => ({ name, color }));
+    };
+
+    const buildRoutePrintStationInfoHtml = (rowsByServiceDay, lineTypeItems) => {
+        const stopTypeNames = new Set();
+        for (const rowsByDir of rowsByServiceDay instanceof Map ? rowsByServiceDay.values() : []) {
+            for (const rows of rowsByDir instanceof Map ? rowsByDir.values() : []) {
+                for (const row of Array.isArray(rows) ? rows : []) {
+                    const name = toText(row?.typeName);
+                    if (name) stopTypeNames.add(name);
+                }
+            }
+        }
+        const items = (Array.isArray(lineTypeItems) ? lineTypeItems : []).map((item) => {
+            const name = toText(item?.name);
+            if (!name) return '';
+            const isStop = stopTypeNames.has(name);
+            const bgColor = isStop ? (toText(item?.color) || '#555') : '#ddd';
+            const smallFontStyle = shouldUseSmallRoutePrintStationTypeBadgeFont(name) ? ';font-size:10px' : '';
+            const label = formatRoutePrintStationTypeBadgeLabel(name);
+            return `<span class="panel-station-info-type ${isStop ? 'is-stop' : 'is-pass'}" style="background-color:${escapeHtml(bgColor)}${smallFontStyle}">${escapeHtml(label)}</span>`;
+        }).filter(Boolean);
+        return items.length ? `<div class="panel-station-info-types">${items.join('')}</div>` : '';
+    };
+
     const buildRoutePrintHintsHtml = (rows) => {
         const typeItems = [];
         const terminalItems = [];
@@ -247,12 +313,15 @@ import { getMacaronColor } from '../../lib/macaron.js';
             const typeName = toText(row?.typeName);
             if (typeName && !seenTypes.has(typeName)) {
                 seenTypes.add(typeName);
-                typeItems.push(`<span class="panel-grid-hint-item" style="color:${escapeHtml(row?.typeColor || '#111')}">${escapeHtml(typeName)}</span>`);
+                const color = isRoutePrintNoMarkTypeName(typeName)
+                    ? '#888'
+                    : (toText(row?.typeColor) || '#888');
+                typeItems.push(`<span class="panel-grid-hint-item panel-grid-hint-item-type" style="color:${escapeHtml(color)}">${escapeHtml(typeName)}</span>`);
             }
             const terminalName = toText(row?.terminalName);
             if (terminalName && !seenTerminals.has(terminalName)) {
                 seenTerminals.add(terminalName);
-                terminalItems.push(`<span class="panel-grid-hint-item">${escapeHtml(terminalName)}</span>`);
+                terminalItems.push(`<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888">${escapeHtml(terminalName)}</span>`);
             }
         }
 
@@ -383,13 +452,15 @@ import { getMacaronColor } from '../../lib/macaron.js';
         const stationIds = Array.isArray(lineMeta.stationIds) ? lineMeta.stationIds : [];
         if (!stationIds.length || !Array.isArray(trips) || !trips.length) return [];
 
-        const companyMap = window?.TokyoRailCompanyLogoMap || {};
-        const companyKey = toText(lineMeta.company);
+        const windowCompanyMap = window?.TokyoRailCompanyLogoMap || {};
+        const companyMap = Object.keys(windowCompanyMap).length ? windowCompanyMap : fallbackCompanyLogoMap;
+        const companyKey = getRoutePrintCompanyKey(lineMeta, id);
         const companyInfo = companyMap?.[companyKey] || {};
         const companyName = toText(companyInfo?.zh) || companyKey || '\u672a\u77e5\u516c\u53f8';
         const companyLogoSrc = toText(getCompanyLogoSrc(companyKey, companyMap));
         const resolvedLineName = toText(lineMeta.name) || toText(lineName) || id;
         const lineColor = toText(lineMeta.color) || '#888888';
+        const lineTypeItems = collectRoutePrintLineTypeItems(trips, trainTypesIndex);
 
         return stationIds.map((stationId) => {
             const stationName = getRoutePrintStationName(stationsIndex, stationId);
@@ -400,6 +471,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
             const dirKeys = Array.from(new Set(
                 PRINT_SERVICE_DAY_ORDER.flatMap((serviceDay) => Array.from(rowsByServiceDay.get(serviceDay)?.keys?.() || []))
             ));
+            const stationInfoHtml = buildRoutePrintStationInfoHtml(rowsByServiceDay, lineTypeItems);
 
             const dirs = dirKeys.map((dirKey) => {
                 const variants = PRINT_SERVICE_DAY_ORDER.map((serviceDay) => {
@@ -432,6 +504,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
             return {
                 stationName,
                 lineId: id,
+                stationInfoHtml,
                 dirs
             };
         }).filter((page) => Array.isArray(page?.dirs) && page.dirs.length);
