@@ -10,7 +10,7 @@
  */
 
 import { computeLineStopDiagramData } from './route-map.js';
-import { captureRouteMapImage } from './route-map-actions.js';
+import { captureRouteMapImage, requestRouteMapLineTimetablesPrint } from './route-map-actions.js';
 import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from '../../lib/train-type-sort.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from '../../lib/line-icons.js';
 import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
@@ -20,7 +20,6 @@ import { getTransferStationIdsByStationId } from '../../app.js';
 import { MENU_THROUGH_LINE_IDS, THROUGH_SERVICE_CONFIGS_OBJECT, THROUGH_SERVICE_DISPLAY, isSUStations as isStationSUStations } from '../../lib/throughServiceManager.js';
 
 const toText = (v) => String(v ?? '').trim();
-const ROUTE_MAP_LINE_TIMETABLES_PRINT_EVENT = '__TokyoRailRouteMapLineTimetablesPrintRequested';
 
 let stationCodeIndexPromise = null;
 const getStationCodeIndex = async () => {
@@ -388,26 +387,16 @@ const setupRouteMapUi = () => {
     branchBtn.appendChild(branchIcon);
     topActions.appendChild(branchBtn);
 
-    const printBtn = document.createElement('button');
-    printBtn.type = 'button';
-    printBtn.className = 'panel-capture-btn route-map-print-btn';
-    printBtn.setAttribute('aria-label', '\u6253\u5370\u7ebf\u8def\u7ad9\u70b9\u65f6\u523b\u8868');
-    printBtn.title = '\u6253\u5370\u7ebf\u8def\u7ad9\u70b9\u65f6\u523b\u8868';
-    const printIcon = document.createElement('img');
-    printIcon.className = 'panel-capture-icon route-map-print-icon';
-    printIcon.alt = '';
-    setImageElementFromCache(printIcon, getIconCandidates('print.svg'), {
-        cacheKey: 'icon:print.svg',
-        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('print.svg'), { cacheKey: 'icon:print.svg' })
-    }).catch(() => null);
-    printBtn.appendChild(printIcon);
-    topActions.appendChild(printBtn);
+    const exportMenuRoot = document.createElement('div');
+    exportMenuRoot.className = 'route-map-export-menu-ui';
 
     const captureBtn = document.createElement('button');
     captureBtn.type = 'button';
-    captureBtn.className = 'panel-capture-btn route-map-capture-btn';
-    captureBtn.setAttribute('aria-label', '截图');
-    captureBtn.title = '截图';
+    captureBtn.className = 'panel-capture-btn route-map-export-btn route-map-print-btn';
+    captureBtn.setAttribute('aria-label', '\u5bfc\u51fa');
+    captureBtn.setAttribute('aria-haspopup', 'menu');
+    captureBtn.setAttribute('aria-expanded', 'false');
+    captureBtn.title = '\u5bfc\u51fa';
     const captureIcon = document.createElement('img');
     captureIcon.className = 'panel-capture-icon route-map-capture-icon';
     captureIcon.alt = '';
@@ -416,7 +405,29 @@ const setupRouteMapUi = () => {
         fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('camera.svg'), { cacheKey: 'icon:camera.svg' })
     }).catch(() => null);
     captureBtn.appendChild(captureIcon);
-    topActions.appendChild(captureBtn);
+
+    const exportMenu = document.createElement('div');
+    exportMenu.className = 'route-map-export-menu';
+    exportMenu.setAttribute('role', 'menu');
+    exportMenu.setAttribute('aria-label', '\u5bfc\u51fa\u9009\u9879');
+
+    const timetableExportItem = document.createElement('button');
+    timetableExportItem.type = 'button';
+    timetableExportItem.className = 'route-map-export-menu-item';
+    timetableExportItem.textContent = '\u5bfc\u51fa\u5168\u7ebf\u65f6\u523b\u8868';
+    timetableExportItem.setAttribute('role', 'menuitem');
+
+    const mapExportItem = document.createElement('button');
+    mapExportItem.type = 'button';
+    mapExportItem.className = 'route-map-export-menu-item';
+    mapExportItem.textContent = '\u5bfc\u51fa\u7ebf\u8def\u56fe';
+    mapExportItem.setAttribute('role', 'menuitem');
+
+    exportMenu.appendChild(timetableExportItem);
+    exportMenu.appendChild(mapExportItem);
+    exportMenuRoot.appendChild(captureBtn);
+    exportMenuRoot.appendChild(exportMenu);
+    topActions.appendChild(exportMenuRoot);
     topHeader.appendChild(topActions);
 
     const gridHeader = document.createElement('div');
@@ -456,6 +467,35 @@ const setupRouteMapUi = () => {
         const actions = window?.TokyoRailSearchMapActions;
         if (typeof actions?.clearTripPathPreviewBySource === 'function') {
             actions.clearTripPathPreviewBySource('route-map-branch');
+        }
+    };
+
+    let exportMenuHoverTimer = 0;
+    const clearExportMenuHoverTimer = () => {
+        if (!exportMenuHoverTimer) return;
+        clearTimeout(exportMenuHoverTimer);
+        exportMenuHoverTimer = 0;
+    };
+    const setExportMenuOpen = (open) => {
+        exportMenuRoot.classList.toggle('is-open', open === true);
+        captureBtn.setAttribute('aria-expanded', open === true ? 'true' : 'false');
+    };
+    const toggleExportMenu = () => {
+        setExportMenuOpen(!exportMenuRoot.classList.contains('is-open'));
+    };
+    const scheduleExportMenuClose = (delayMs = 220) => {
+        clearExportMenuHoverTimer();
+        exportMenuHoverTimer = setTimeout(() => {
+            exportMenuHoverTimer = 0;
+            setExportMenuOpen(false);
+        }, Math.max(0, Number(delayMs) || 0));
+    };
+    const setCaptureButtonBusy = (busy) => {
+        captureBtn.classList.toggle('is-route-map-exporting', busy === true);
+        if (busy === true) {
+            captureBtn.setAttribute('aria-busy', 'true');
+        } else {
+            captureBtn.removeAttribute('aria-busy');
         }
     };
 
@@ -517,27 +557,65 @@ const setupRouteMapUi = () => {
         }
     }, { passive: false });
 
-    captureBtn.addEventListener('click', async (evt) => {
+    exportMenuRoot.addEventListener('mouseenter', () => {
+        clearExportMenuHoverTimer();
+        setExportMenuOpen(true);
+    });
+
+    exportMenuRoot.addEventListener('mouseleave', () => {
+        scheduleExportMenuClose(220);
+    });
+
+    let lastExportPointerDownAt = 0;
+    captureBtn.addEventListener('pointerdown', (evt) => {
         stopEvent(evt);
+        lastExportPointerDownAt = Date.now();
         pinned = true;
         clearTimers();
-        const baseName = `${toText(activeLineName)}_运行系统图`;
-        await captureRouteMapImage({ element: root, filenameBase: baseName, buttonEl: captureBtn });
+        clearExportMenuHoverTimer();
+        toggleExportMenu();
     }, { passive: false });
 
-    printBtn.addEventListener('click', (evt) => {
+    captureBtn.addEventListener('click', (evt) => {
+        stopEvent(evt);
+        if (Date.now() - lastExportPointerDownAt < 700) return;
+        pinned = true;
+        clearTimers();
+        clearExportMenuHoverTimer();
+        toggleExportMenu();
+    }, { passive: false });
+
+    timetableExportItem.addEventListener('click', (evt) => {
         stopEvent(evt);
         pinned = true;
         clearTimers();
-        const lid = toText(activeLineId);
-        if (!lid) return;
-        window.dispatchEvent(new CustomEvent(ROUTE_MAP_LINE_TIMETABLES_PRINT_EVENT, {
-            detail: {
-                lineId: lid,
-                lineName: toText(activeLineName) || lid
-            }
-        }));
+        setExportMenuOpen(false);
+        requestRouteMapLineTimetablesPrint({
+            lineId: toText(activeLineId),
+            lineName: toText(activeLineName) || toText(activeLineId)
+        });
     }, { passive: false });
+
+    mapExportItem.addEventListener('click', async (evt) => {
+        stopEvent(evt);
+        pinned = true;
+        clearTimers();
+        setExportMenuOpen(false);
+        const baseName = `${toText(activeLineName)}_运行系统图`;
+        setCaptureButtonBusy(true);
+        try {
+            await captureRouteMapImage({ element: root, filenameBase: baseName, buttonEl: captureBtn });
+        } finally {
+            setCaptureButtonBusy(false);
+        }
+    }, { passive: false });
+
+    document.addEventListener('pointerdown', (evt) => {
+        if (!exportMenuRoot.classList.contains('is-open')) return;
+        const target = evt?.target;
+        if (target && exportMenuRoot.contains(target)) return;
+        setExportMenuOpen(false);
+    }, true);
 
     const cache = new Map(); // key: lineId||serviceDay -> payload
 
