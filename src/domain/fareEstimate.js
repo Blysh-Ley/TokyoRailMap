@@ -380,12 +380,73 @@ const shouldApplyMetroToeiTransferDiscount = (previous, current) => {
     return getFareStationBaseName(previous.toFareStationId) === getFareStationBaseName(current.fromFareStationId);
 };
 
-const buildFareAdjustments = (segments) => {
+const findSameOperatorExitDetail = (segment) => {
+    const details = Array.isArray(segment?.fareDetails) ? segment.fareDetails : [];
+    const operatorId = getFareOperatorId(segment?.fromFareStationId);
+    if (!operatorId) return null;
+
+    let exitDetail = null;
+    for (const detail of details) {
+        const fromOperatorId = getFareOperatorId(detail?.from);
+        const toOperatorId = getFareOperatorId(detail?.to);
+        if (fromOperatorId !== operatorId) break;
+        if (toOperatorId !== operatorId) break;
+        exitDetail = detail;
+    }
+    return exitDetail;
+};
+
+const buildSameOperatorThroughFareAdjustment = (previous, current, { fareGraph, fareType } = {}) => {
+    if (!previous?.matched || !current?.matched) return null;
+    const operatorId = getFareOperatorId(previous.fromFareStationId);
+    if (!operatorId) return null;
+    if (getFareOperatorId(previous.toFareStationId) !== operatorId) return null;
+    if (getFareOperatorId(current.fromFareStationId) !== operatorId) return null;
+    if (previous.toFareStationId !== current.fromFareStationId) return null;
+
+    const exitDetail = findSameOperatorExitDetail(current);
+    if (!exitDetail?.to || exitDetail.to === current.fromFareStationId) return null;
+
+    const previousAmount = Number(previous.amount);
+    const continuedAmount = Number(exitDetail.amount);
+    if (!Number.isFinite(previousAmount) || !Number.isFinite(continuedAmount)) return null;
+
+    const combined = findFareGraphPath({
+        allowedOperatorIds: [operatorId],
+        fareGraph,
+        fareType,
+        fromFareStationId: previous.fromFareStationId,
+        toFareStationId: exitDetail.to
+    });
+    if (!combined || !Number.isFinite(Number(combined.amount))) return null;
+
+    const amount = Number(combined.amount) - previousAmount - continuedAmount;
+    if (!Number.isFinite(amount) || amount === 0) return null;
+
+    return {
+        type: 'same-operator-through-fare-normalization',
+        amount,
+        currency: 'JPY',
+        operatorId,
+        fromFareStationId: previous.fromFareStationId,
+        viaFareStationId: current.fromFareStationId,
+        toFareStationId: exitDetail.to
+    };
+};
+
+const buildFareAdjustments = (segments, options = {}) => {
     const adjustments = [];
     const list = Array.isArray(segments) ? segments : [];
     for (let i = 1; i < list.length; i += 1) {
         const previous = list[i - 1];
         const current = list[i];
+        const sameOperatorAdjustment = buildSameOperatorThroughFareAdjustment(previous, current, options);
+        if (sameOperatorAdjustment) {
+            adjustments.push({
+                ...sameOperatorAdjustment,
+                segmentIndexes: [i - 1, i]
+            });
+        }
         if (!shouldApplyMetroToeiTransferDiscount(previous, current)) continue;
         adjustments.push({
             type: 'metro-toei-transfer-discount',
@@ -489,7 +550,7 @@ export const estimateFareForJourneyPlan = ({
     else if (!hasFareGraph) confidence = 'missing-data';
     else if (missingSegments.length) confidence = 'partial';
 
-    const adjustments = confidence === 'complete' ? buildFareAdjustments(segments) : [];
+    const adjustments = confidence === 'complete' ? buildFareAdjustments(segments, { fareGraph, fareType }) : [];
     for (const adjustment of adjustments) totalAmount += adjustment.amount;
 
     return {
