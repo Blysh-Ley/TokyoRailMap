@@ -3778,17 +3778,18 @@ export function createPanel(options = {}) {
         restoreMap(gridDataDebugByLineId, snapshot?.gridDataDebugByLineId);
     };
 
-    const buildLineStationPrintPayload = async ({
+    const buildLineStationPrintPayloadWithContext = async ({
         lineId,
         stationId,
-        timetableViewMode: requestedTimetableViewMode = 'grid'
+        requestedTimetableViewMode = 'grid',
+        stationsIndex
     } = {}) => {
         const lid = toText(lineId);
         const sid = toText(stationId);
         if (!lid || !sid || typeof document === 'undefined' || !document?.createElement) return null;
 
-        const stationsIndex = await getStationsIndex();
-        const stationName = toText(stationsIndex?.idToNameZh?.get?.(sid)) || sid;
+        const resolvedStationsIndex = stationsIndex || await getStationsIndex();
+        const stationName = toText(resolvedStationsIndex?.idToNameZh?.get?.(sid)) || sid;
         const lineStationNameByLineId = await buildTransferLineStationNameMap({
             stationId: sid,
             stationNameZh: stationName,
@@ -3799,66 +3800,108 @@ export function createPanel(options = {}) {
             lineStationNameByLineId.set(lid, {
                 stationId: sid,
                 name: '',
-                code: toText(stationsIndex?.idToCode?.get?.(sid)),
+                code: toText(resolvedStationsIndex?.idToCode?.get?.(sid)),
                 actualName: stationName
             });
         }
-        const snapshot = snapshotPrintPayloadState();
         const tempHost = document.createElement('div');
 
+        tempHost.innerHTML = buildPanelCompaniesHtml({
+            id: sid,
+            name_zh: stationName,
+            display_serving_ids: [lid],
+            serving_ids: [lid]
+        }, {
+            companyLogoMap,
+            getLineMeta,
+            lineStationNameByLineId,
+            railwaysOrderIndex,
+            toText
+        });
+
+        await enhancePanelLineHeaderIcons(tempHost);
+
+        const lineEl = Array.from(tempHost.querySelectorAll?.('[data-line-id]') || [])
+            .find((el) => toText(el.getAttribute?.('data-line-id')) === lid) || null;
+        if (!(lineEl instanceof Element)) return null;
+        if (!toText(lineEl.getAttribute('data-station-name'))) {
+            lineEl.setAttribute('data-station-name', stationName);
+        }
+
+        const rendered = await buildTimetableRowsHtml({
+            lineId: lid,
+            stationId: sid,
+            sourceLineIds: [lid],
+            allowedTripKeySet: null,
+            printStationName: stationName,
+            printTitleText: stationName,
+            timetableViewModeOverride: toText(requestedTimetableViewMode) || 'grid'
+        });
+        const timetableRoot = lineEl.querySelector('[data-timetable-root]');
+        if (timetableRoot instanceof Element) {
+            timetableRoot.innerHTML = toText(rendered?.html);
+        }
+        applyLineStationInfo(lineEl, rendered?.stationInfo || null);
+
+        return collectLinePrintPayloads({
+            lineEl,
+            lineId: lid,
+            dirPrintPayloadByKey,
+            makeLineDirKey,
+            toText
+        });
+    };
+
+    const buildLineStationPrintPayload = async ({
+        lineId,
+        stationId,
+        timetableViewMode: requestedTimetableViewMode = 'grid'
+    } = {}) => {
+        const snapshot = snapshotPrintPayloadState();
         try {
-            tempHost.innerHTML = buildPanelCompaniesHtml({
-                id: sid,
-                name_zh: stationName,
-                display_serving_ids: [lid],
-                serving_ids: [lid]
-            }, {
-                companyLogoMap,
-                getLineMeta,
-                lineStationNameByLineId,
-                railwaysOrderIndex,
-                toText
-            });
-
-            await enhancePanelLineHeaderIcons(tempHost);
-
-            const lineEl = Array.from(tempHost.querySelectorAll?.('[data-line-id]') || [])
-                .find((el) => toText(el.getAttribute?.('data-line-id')) === lid) || null;
-            if (!(lineEl instanceof Element)) return null;
-            if (!toText(lineEl.getAttribute('data-station-name'))) {
-                lineEl.setAttribute('data-station-name', stationName);
-            }
-
-            const rendered = await buildTimetableRowsHtml({
-                lineId: lid,
-                stationId: sid,
-                sourceLineIds: [lid],
-                allowedTripKeySet: null,
-                printStationName: stationName,
-                printTitleText: stationName,
-                timetableViewModeOverride: toText(requestedTimetableViewMode) || 'grid'
-            });
-            const timetableRoot = lineEl.querySelector('[data-timetable-root]');
-            if (timetableRoot instanceof Element) {
-                timetableRoot.innerHTML = toText(rendered?.html);
-            }
-            applyLineStationInfo(lineEl, rendered?.stationInfo || null);
-
-            return collectLinePrintPayloads({
-                lineEl,
-                lineId: lid,
-                dirPrintPayloadByKey,
-                makeLineDirKey,
-                toText
+            return await buildLineStationPrintPayloadWithContext({
+                lineId,
+                stationId,
+                requestedTimetableViewMode
             });
         } finally {
             restorePrintPayloadState(snapshot);
         }
     };
 
+    const createLineStationPrintPayloadSession = async ({
+        lineId,
+        timetableViewMode: requestedTimetableViewMode = 'grid'
+    } = {}) => {
+        const lid = toText(lineId);
+        if (!lid) return null;
+
+        const snapshot = snapshotPrintPayloadState();
+        const stationsIndex = await getStationsIndex();
+        let closed = false;
+
+        return {
+            async build(stationId) {
+                if (closed) return null;
+                return buildLineStationPrintPayloadWithContext({
+                    lineId: lid,
+                    stationId,
+                    requestedTimetableViewMode,
+                    stationsIndex
+                });
+            },
+            close() {
+                if (closed) return;
+                closed = true;
+                restorePrintPayloadState(snapshot);
+            }
+        };
+    };
+
     try {
         window.TokyoRailPanelTimetablePrintPayloadBuilder = {
-            buildLineStationPrintPayload
+            buildLineStationPrintPayload,
+            createLineStationPrintPayloadSession
         };
     } catch {
         // ignore

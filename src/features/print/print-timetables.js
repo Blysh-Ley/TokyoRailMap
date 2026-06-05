@@ -76,35 +76,14 @@ import { getMacaronColor } from '../../lib/macaron.js';
         return routePrintDataCache.railways;
     };
 
-    const buildRouteMapLineStationPrintPages = async ({ lineId, lineName }) => {
+    const resolveRouteMapLineStationIds = async (lineId) => {
         const id = toText(lineId);
         if (!id) return [];
 
         const railwaysIndex = await loadRoutePrintRailwaysIndex();
         const lineMeta = railwaysIndex.get(id) || {};
         const stationIds = Array.isArray(lineMeta.stationIds) ? lineMeta.stationIds : [];
-        if (!stationIds.length) return [];
-
-        const builder = window?.TokyoRailPanelTimetablePrintPayloadBuilder;
-        if (typeof builder?.buildLineStationPrintPayload !== 'function') {
-            throw new Error('panel timetable print payload builder is unavailable');
-        }
-
-        const pages = [];
-        for (const stationId of stationIds) {
-            const page = await builder.buildLineStationPrintPayload({
-                lineId: id,
-                stationId,
-                timetableViewMode: 'grid'
-            });
-            if (!page?.dirs?.length) continue;
-            pages.push({
-                ...page,
-                lineId: id,
-                lineName: toText(lineName) || id
-            });
-        }
-        return pages;
+        return stationIds.slice();
     };
 
     const loadScript = (src) => new Promise((resolve, reject) => {
@@ -1820,62 +1799,96 @@ import { getMacaronColor } from '../../lib/macaron.js';
         injectStyles();
         const { html2canvas, jsPDF } = await ensureLibs();
 
-        const pages = await buildRouteMapLineStationPrintPages(detail);
-        if (!pages.length) return;
+        const lineId = toText(detail.lineId);
+        const stationIds = await resolveRouteMapLineStationIds(lineId);
+        if (!stationIds.length) return;
+
+        const builder = window?.TokyoRailPanelTimetablePrintPayloadBuilder;
+        if (typeof builder?.buildLineStationPrintPayload !== 'function') {
+            throw new Error('panel timetable print payload builder is unavailable');
+        }
+
+        const session = typeof builder?.createLineStationPrintPayloadSession === 'function'
+            ? await builder.createLineStationPrintPayloadSession({
+                lineId,
+                timetableViewMode: 'grid'
+            })
+            : null;
 
         let pdf = null;
         let pageCount = 0;
+        const lineNameForFile = sanitizeFilePart(detail.lineName || detail.lineId || 'line');
+        const backgroundColor = getComputedStyle(document.body).getPropertyValue('background-color') || '#ffffff';
 
-        for (const pageDetail of pages) {
-            const shouldExportServiceDayPair = pageDetail.dirs.some((dir) => (
-                Array.isArray(dir?.serviceDayVariants) && dir.serviceDayVariants.length >= 2
-            ));
-            const root = shouldExportServiceDayPair
-                ? createServiceDayPairLineImageExportDom(pageDetail)
-                : createLineImageExportDom(pageDetail);
-
-            document.body.appendChild(root);
-            if (shouldExportServiceDayPair) alignServiceDayPairHeaderHeights(root);
-
-            try {
-                const scaleFactor = Math.max(2, window.devicePixelRatio || 1);
-                const canvas = await html2canvas(root, {
-                    scale: scaleFactor,
-                    useCORS: true,
-                    backgroundColor: getComputedStyle(document.body).getPropertyValue('background-color') || '#ffffff',
-                    logging: false,
-                    width: root.scrollWidth,
-                    height: root.scrollHeight,
-                    windowWidth: root.scrollWidth,
-                    windowHeight: root.scrollHeight
-                });
-
-                const imgData = canvas.toDataURL('image/png');
-                const pdfWidth = canvas.width / scaleFactor;
-                const pdfHeight = canvas.height / scaleFactor;
-                const orientation = pdfWidth > pdfHeight ? 'landscape' : 'portrait';
-
-                if (pageCount === 0) {
-                    pdf = new jsPDF({
-                        orientation,
-                        unit: 'px',
-                        format: [pdfWidth, pdfHeight]
+        try {
+            for (const stationId of stationIds) {
+                const pageDetailRaw = session
+                    ? await session.build(stationId)
+                    : await builder.buildLineStationPrintPayload({
+                        lineId,
+                        stationId,
+                        timetableViewMode: 'grid'
                     });
-                } else {
-                    pdf.addPage([pdfWidth, pdfHeight], orientation);
-                }
+                if (!pageDetailRaw?.dirs?.length) continue;
 
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-                pageCount += 1;
-            } finally {
-                root.remove();
+                const pageDetail = {
+                    ...pageDetailRaw,
+                    lineId,
+                    lineName: toText(detail.lineName) || lineId
+                };
+                const shouldExportServiceDayPair = pageDetail.dirs.some((dir) => (
+                    Array.isArray(dir?.serviceDayVariants) && dir.serviceDayVariants.length >= 2
+                ));
+                const root = shouldExportServiceDayPair
+                    ? createServiceDayPairLineImageExportDom(pageDetail)
+                    : createLineImageExportDom(pageDetail);
+
+                document.body.appendChild(root);
+                if (shouldExportServiceDayPair) alignServiceDayPairHeaderHeights(root);
+
+                try {
+                    const scaleFactor = Math.max(2, window.devicePixelRatio || 1);
+                    const canvas = await html2canvas(root, {
+                        scale: scaleFactor,
+                        useCORS: true,
+                        backgroundColor,
+                        logging: false,
+                        width: root.scrollWidth,
+                        height: root.scrollHeight,
+                        windowWidth: root.scrollWidth,
+                        windowHeight: root.scrollHeight
+                    });
+
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdfWidth = canvas.width / scaleFactor;
+                    const pdfHeight = canvas.height / scaleFactor;
+                    const orientation = pdfWidth > pdfHeight ? 'landscape' : 'portrait';
+
+                    if (pageCount === 0) {
+                        pdf = new jsPDF({
+                            orientation,
+                            unit: 'px',
+                            format: [pdfWidth, pdfHeight]
+                        });
+                    } else {
+                        pdf.addPage([pdfWidth, pdfHeight], orientation);
+                    }
+
+                    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+                    canvas.width = 1;
+                    canvas.height = 1;
+                    pageCount += 1;
+                } finally {
+                    root.remove();
+                }
             }
+        } finally {
+            session?.close?.();
         }
 
         if (!pageCount || !pdf) return;
 
-        const lineName = sanitizeFilePart(detail.lineName || detail.lineId || pages[0]?.lineId || 'line');
-        pdf.save(`${lineName}_\u5168\u7ad9_\u5e73\u65e5_\u5468\u516d\u8282\u5047\u65e5\u65f6\u523b\u8868.pdf`);
+        pdf.save(`${lineNameForFile}_\u5168\u7ad9_\u5e73\u65e5_\u5468\u516d\u8282\u5047\u65e5\u65f6\u523b\u8868.pdf`);
     };
 
     const onPrintRequest = async (evt) => {
