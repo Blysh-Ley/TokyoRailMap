@@ -3113,14 +3113,14 @@ export function createPanel(options = {}) {
                 const allowMirrorFill = !(showOriginLabel || showTerminalLabel);
 
 
-                // (2) If dep missing but has nt, take nt's first stop time as dep.
-                if (!dep && !skipCrossTripFillForLoop) {
+                // (2) Segment boundary: only terminal stops borrow nt's first departure.
+                if (!dep && isTerminalStation && !skipCrossTripFillForLoop) {
                     const ntRefId = toText(ntRefs?.[0]);
                     if (ntRefId) dep = await getNtFirstDepartTime(ntRefId);
                 }
 
-                // (2) If arr missing but has pt, take pt's last stop time as arr.
-                if (!arr && !skipCrossTripFillForLoop) {
+                // (2) Segment boundary: only origin stops borrow pt's last arrival.
+                if (!arr && isOriginStation && !skipCrossTripFillForLoop) {
                     const ptRefId = toText(ptRefs?.[0]);
                     if (ptRefId) arr = await getPtLastArriveTime(ptRefId);
                 }
