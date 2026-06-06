@@ -30,6 +30,13 @@ const renderPanelTimetableRowHtml = ({
     const typeStyle = ` style="--panel-type-badge-bg:${escapeHtml(badgeBg)};--panel-type-badge-fg:${escapeHtml(badgeFg)}"`;
     const destText = toText(item.terminalDisplayName || item.destName || item.terminalName);
     const typeName = toText(item.typeName);
+    const parseMinutes = (time) => { const m = toText(time).match(/^(\d{1,2}):(\d{2})$/); return m ? Number(m[1]) * 60 + Number(m[2]) : NaN; };
+    const arrTotal = parseMinutes(item.arr) + (item.arrPlus ? 1440 : 0);
+    let depTotal = parseMinutes(item.dep) + (item.depPlus ? 1440 : 0);
+    if (Number.isFinite(arrTotal) && Number.isFinite(depTotal) && depTotal < arrTotal) depTotal += 1440;
+    const dwellMinutes = Number.isFinite(arrTotal) && Number.isFinite(depTotal) ? Math.max(0, depTotal - arrTotal) : 0;
+    const extraHtml = `${item.showOriginLabel ? '<span class="panel-timetable-time-extra is-origin">始发</span>' : ''}${item.showTerminalLabel ? '<span class="panel-timetable-time-extra is-terminal">终到</span>' : ''}${dwellMinutes > 2 ? `<span class="panel-timetable-time-extra is-dwell">+${dwellMinutes}'</span>` : ''}`;
+    const timeClass = `panel-timetable-time${item.arr ? ' has-arrive' : ''}`;
 
     return `
         <div class="${rowClass}"${tripAttr}>
@@ -39,7 +46,7 @@ const renderPanelTimetableRowHtml = ({
                     <span class="panel-timetable-dest-marquee-inner">${escapeHtml(destText)}</span>
                 </span>
             </div>
-            <div class="panel-timetable-time">${renderTime(item)}</div>
+            <div class="${timeClass}">${renderTime(item)}${extraHtml}</div>
             <div class="panel-timetable-type">
                 <span class="panel-timetable-type-marquee"${typeStyle} aria-label="${escapeHtml(typeName)}">
                     <span class="panel-timetable-type-marquee-inner">${escapeHtml(typeName)}</span>

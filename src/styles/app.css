@@ -2196,9 +2196,20 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 
 .panel-timetable-time {
-    flex: 0 0 auto;
+    flex: 0 0 78px;
+    width: 78px;
     text-align: left;
+    display: inline-grid;
+    grid-template-columns: 5ch auto;
+    align-items: baseline;
+    column-gap: 2px;
 }
+
+.panel-timetable-time.has-arrive .panel-time-depart, .panel-timetable-time .panel-time-label { display: none; }
+.panel-timetable-time:not(.has-arrive) .panel-time-depart { color: #000; min-width: 0; }
+.panel-timetable-time-extra { font-size: 10px; line-height: 1; font-weight: 600; color: var(--ui-text-muted); }
+.panel-timetable-time-extra.is-origin { color: green; }
+.panel-timetable-time-extra.is-terminal { color: red; }
 
 .panel-time-label {
     min-width:38px;
@@ -2266,7 +2277,8 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 
 .panel-timetable-row.is-past .panel-time-arrive,
-.panel-timetable-row.is-past .panel-time-depart {
+.panel-timetable-row.is-past .panel-time-depart,
+.panel-timetable-row.is-past .panel-timetable-time-extra {
     color: var(--ui-text-disabled);
 }
 
