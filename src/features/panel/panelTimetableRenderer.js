@@ -14,9 +14,61 @@ const EMPTY_TIMETABLE_HTML = '<div class="panel-timetable-empty">当前无班次
 
 const defaultBadgeTextColor = () => '#fff';
 
+const formatTimeWithPlus = (hhmm, isNextDaySegment) => {
+    const s = toText(hhmm);
+    if (!s) return '';
+    return isNextDaySegment ? `${s}` : s;
+};
+
+const parseTimetableTimeMinutes = (hhmm) => {
+    const match = toText(hhmm).match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return null;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+    return hours * 60 + minutes;
+};
+
+const getPanelTimetableDwellMinutes = (row = {}) => {
+    const arrMinutes = parseTimetableTimeMinutes(row.arr);
+    const depMinutes = parseTimetableTimeMinutes(row.dep);
+    if (!Number.isFinite(arrMinutes) || !Number.isFinite(depMinutes)) return 0;
+
+    const arrTotal = arrMinutes + (row.arrPlus ? 1440 : 0);
+    let depTotal = depMinutes + (row.depPlus ? 1440 : 0);
+    if (depTotal < arrTotal) depTotal += 1440;
+
+    const dwellMinutes = depTotal - arrTotal;
+    return Number.isFinite(dwellMinutes) ? Math.max(0, dwellMinutes) : 0;
+};
+
+const renderPanelTimetableMomentHtml = (row = {}) => {
+    const timeText = row.arr
+        ? formatTimeWithPlus(row.arr, row.arrPlus)
+        : (row.dep ? formatTimeWithPlus(row.dep, row.depPlus) : '');
+    if (!timeText) return '';
+
+    const extras = [];
+    if (row.showOriginLabel) {
+        extras.push({ className: 'panel-timetable-time-extra is-origin', text: '始发' });
+    }
+    if (row.showTerminalLabel) {
+        extras.push({ className: 'panel-timetable-time-extra is-terminal', text: '终到' });
+    }
+
+    const dwellMinutes = getPanelTimetableDwellMinutes(row);
+    if (dwellMinutes > 2) {
+        extras.push({ className: 'panel-timetable-time-extra is-dwell', text: `+${dwellMinutes}'` });
+    }
+
+    return [
+        `<span class="panel-timetable-time-main panel-time-arrive">${escapeHtml(timeText)}</span>`,
+        ...extras.map((item) => `<span class="${item.className}">${escapeHtml(item.text)}</span>`)
+    ].join('');
+};
+
 const renderPanelTimetableRowHtml = ({
     row,
-    renderTime,
     resolveBadgeTextColor,
     forceFutureStyle = false
 } = {}) => {
@@ -39,7 +91,7 @@ const renderPanelTimetableRowHtml = ({
                     <span class="panel-timetable-dest-marquee-inner">${escapeHtml(destText)}</span>
                 </span>
             </div>
-            <div class="panel-timetable-time">${renderTime(item)}</div>
+            <div class="panel-timetable-time">${renderPanelTimetableMomentHtml(item)}</div>
             <div class="panel-timetable-type">
                 <span class="panel-timetable-type-marquee"${typeStyle} aria-label="${escapeHtml(typeName)}">
                     <span class="panel-timetable-type-marquee-inner">${escapeHtml(typeName)}</span>
@@ -51,12 +103,10 @@ const renderPanelTimetableRowHtml = ({
 
 export const renderPanelTimetableListHtml = ({
     rows = [],
-    renderTime,
     resolveBadgeTextColor = defaultBadgeTextColor
 } = {}) => {
     const items = Array.isArray(rows) ? rows : [];
     if (!items.length) return EMPTY_TIMETABLE_HTML;
-    const renderTimeSafe = typeof renderTime === 'function' ? renderTime : () => '';
     const resolveBadgeTextColorSafe = typeof resolveBadgeTextColor === 'function'
         ? resolveBadgeTextColor
         : defaultBadgeTextColor;
@@ -64,7 +114,6 @@ export const renderPanelTimetableListHtml = ({
     return items
         .map((row) => renderPanelTimetableRowHtml({
             row,
-            renderTime: renderTimeSafe,
             resolveBadgeTextColor: resolveBadgeTextColorSafe
         }))
         .join('');
@@ -72,12 +121,10 @@ export const renderPanelTimetableListHtml = ({
 
 export const renderPanelPrintableTimetableListHtml = ({
     rows = [],
-    renderTime,
     resolveBadgeTextColor = defaultBadgeTextColor
 } = {}) => {
     const items = Array.isArray(rows) ? rows : [];
     if (!items.length) return EMPTY_TIMETABLE_HTML;
-    const renderTimeSafe = typeof renderTime === 'function' ? renderTime : () => '';
     const resolveBadgeTextColorSafe = typeof resolveBadgeTextColor === 'function'
         ? resolveBadgeTextColor
         : defaultBadgeTextColor;
@@ -85,7 +132,6 @@ export const renderPanelPrintableTimetableListHtml = ({
     return items
         .map((row) => renderPanelTimetableRowHtml({
             row: { ...(row || {}), isPast: false },
-            renderTime: renderTimeSafe,
             resolveBadgeTextColor: resolveBadgeTextColorSafe,
             forceFutureStyle: true
         }))

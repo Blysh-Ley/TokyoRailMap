@@ -2198,6 +2198,32 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 .panel-timetable-time {
     flex: 0 0 auto;
     text-align: left;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0;
+}
+
+.panel-timetable-time-main {
+    flex: 0 0 5ch;
+    display: inline-block;
+    width: 5ch;
+    font-variant-numeric: tabular-nums;
+}
+
+.panel-timetable-time-extra {
+    flex: 0 0 auto;
+    font-size: 10px;
+    line-height: 1;
+    font-weight: 600;
+    color: var(--ui-text-muted);
+}
+
+.panel-timetable-time-extra.is-origin {
+    color: green;
+}
+
+.panel-timetable-time-extra.is-terminal {
+    color: red;
 }
 
 .panel-time-label {
@@ -2266,7 +2292,8 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 
 .panel-timetable-row.is-past .panel-time-arrive,
-.panel-timetable-row.is-past .panel-time-depart {
+.panel-timetable-row.is-past .panel-time-depart,
+.panel-timetable-row.is-past .panel-timetable-time-extra {
     color: var(--ui-text-disabled);
 }
 

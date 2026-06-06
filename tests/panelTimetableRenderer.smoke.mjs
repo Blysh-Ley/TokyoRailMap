@@ -5,7 +5,7 @@ import {
     renderPanelTimetableListHtml
 } from '../src/features/panel/panelTimetableRenderer.js';
 
-const renderTime = (row) => `<b>${row.dep || ''}</b>`;
+const renderTime = () => '<b>legacy renderer should not be used</b>';
 const resolveBadgeTextColor = (bgColor) => (bgColor === '#ffffff' ? '#111' : '#fff');
 
 {
@@ -27,6 +27,7 @@ const resolveBadgeTextColor = (bgColor) => (bgColor === '#ffffff' ? '#111' : '#f
             terminalDisplayName: 'A&B <Terminal>',
             typeName: 'Rapid "Blue"',
             typeColor: '#ffffff',
+            arr: '10:18',
             dep: '10:20',
             isPast: false
         }],
@@ -39,8 +40,91 @@ const resolveBadgeTextColor = (bgColor) => (bgColor === '#ffffff' ? '#111' : '#f
     assert.match(html, /Rapid &quot;Blue&quot;/);
     assert.match(html, /--panel-type-badge-bg:#ffffff/);
     assert.match(html, /--panel-type-badge-fg:#111/);
-    assert.match(html, /<b>10:20<\/b>/);
+    assert.match(html, /panel-timetable-time-main panel-time-arrive">10:18<\/span>/);
+    assert.doesNotMatch(html, /10:20/);
+    assert.doesNotMatch(html, /legacy renderer/);
     assert.doesNotMatch(html, /is-past/);
+}
+
+{
+    const html = renderPanelTimetableListHtml({
+        rows: [{
+            tripKey: 'trip-origin',
+            realOriginId: 'origin-row',
+            terminalName: 'Origin Terminal',
+            typeName: 'Local',
+            typeColor: '#009944',
+            dep: '06:05',
+            showOriginLabel: true,
+            isPast: false
+        }],
+        renderTime,
+        resolveBadgeTextColor
+    });
+
+    assert.match(html, /panel-timetable-time-main panel-time-arrive">06:05<\/span>/);
+    assert.match(html, /panel-timetable-time-extra is-origin">始发<\/span>/);
+}
+
+{
+    const html = renderPanelTimetableListHtml({
+        rows: [{
+            tripKey: 'trip-terminal',
+            realOriginId: 'terminal-row',
+            terminalName: 'Terminal',
+            typeName: 'Local',
+            typeColor: '#009944',
+            arr: '23:58',
+            showTerminalLabel: true,
+            isPast: false
+        }],
+        renderTime,
+        resolveBadgeTextColor
+    });
+
+    assert.match(html, /panel-timetable-time-main panel-time-arrive">23:58<\/span>/);
+    assert.match(html, /panel-timetable-time-extra is-terminal">终到<\/span>/);
+}
+
+{
+    const html = renderPanelTimetableListHtml({
+        rows: [{
+            tripKey: 'trip-dwell',
+            realOriginId: 'dwell-row',
+            terminalName: 'Dwell Terminal',
+            typeName: 'Local',
+            typeColor: '#009944',
+            arr: '10:00',
+            dep: '10:04',
+            isPast: false
+        }],
+        renderTime,
+        resolveBadgeTextColor
+    });
+
+    assert.match(html, /panel-timetable-time-main panel-time-arrive">10:00<\/span>/);
+    assert.match(html, /panel-timetable-time-extra is-dwell">\+4&#39;<\/span>/);
+    assert.doesNotMatch(html, /10:04/);
+}
+
+{
+    const html = renderPanelTimetableListHtml({
+        rows: [{
+            tripKey: 'trip-short-dwell',
+            realOriginId: 'short-dwell-row',
+            terminalName: 'Short Dwell Terminal',
+            typeName: 'Local',
+            typeColor: '#009944',
+            arr: '10:00',
+            dep: '10:02',
+            isPast: false
+        }],
+        renderTime,
+        resolveBadgeTextColor
+    });
+
+    assert.doesNotMatch(html, /is-dwell/);
+    assert.doesNotMatch(html, /\+2'/);
 }
 
 {
