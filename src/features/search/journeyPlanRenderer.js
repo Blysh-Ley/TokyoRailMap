@@ -108,14 +108,21 @@ const resolveCreateElement = (createElement) => (
 
 export const createJourneyStationPathRow = ({
     createElement,
+    rowClass = 'station-row',
     stationName,
     timeText
 } = {}) => {
     const create = resolveCreateElement(createElement);
-    const rowEl = create('div', 'station-row');
+    const rowEl = create('div', rowClass || 'station-row');
     rowEl.appendChild(create('div', 'station-title-box', { text: stationName }));
     rowEl.appendChild(create('div', 'station-time-box', { text: timeText }));
     return rowEl;
+};
+
+const isInformativeJourneyTypeText = (typeText) => {
+    const text = String(typeText ?? '').trim();
+    if (!text) return false;
+    return !['直通', 'through'].includes(text.toLowerCase());
 };
 
 export const createJourneyTrainPathRow = ({
@@ -136,7 +143,7 @@ export const createJourneyTrainPathRow = ({
     if (lineColor) lineLabel.style.color = String(lineColor);
     title.appendChild(lineLabel);
 
-    if (typeText) {
+    if (isInformativeJourneyTypeText(typeText)) {
         title.appendChild(document.createTextNode(' '));
         const typeLabel = create('span', 'train-type-label', { text: typeText });
         if (typeColor) {
@@ -153,7 +160,7 @@ export const createJourneyTrainPathRow = ({
 
     if (directionText) title.appendChild(document.createTextNode(` 往${directionText}`));
     if (Number.isFinite(Number(stationCount)) && Number(stationCount) > 0) {
-        title.appendChild(document.createTextNode(` 乘坐${Number(stationCount)}站`));
+        title.appendChild(document.createTextNode(` ${Number(stationCount)}站`));
     }
 
     rowEl.appendChild(title);

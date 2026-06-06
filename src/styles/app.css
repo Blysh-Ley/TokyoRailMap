@@ -727,6 +727,22 @@ html[data-theme="dark"] .journey-pick-pin-icon {
     color: #3f3f3f;
 }
 
+.station-row.is-through-boundary {
+    min-height: 20px;
+    padding: 0 0 1px;
+    justify-content: flex-start;
+}
+
+.station-row.is-through-boundary .station-title-box {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ui-text-muted);
+}
+
+.station-row.is-through-boundary .station-time-box {
+    display: none;
+}
+
 .train-title-box {
     width: 100%;
     font-size: 13px;

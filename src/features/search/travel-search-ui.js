@@ -1395,9 +1395,10 @@ export function mountTravelSearchUI() {
             return Math.max(0, diff);
         };
 
-        const appendStationRow = ({ stationName, timeText }) => {
+        const appendStationRow = ({ isThroughBoundary = false, stationName, timeText }) => {
             const rowEl = createJourneyStationPathRow({
                 createElement: el,
+                rowClass: isThroughBoundary ? 'station-row is-through-boundary' : 'station-row',
                 stationName,
                 timeText
             });
@@ -1539,14 +1540,49 @@ export function mountTravelSearchUI() {
                 svg.appendChild(lineEl);
             }
 
-            for (const y of points) {
+            for (let markerIndex = 0; markerIndex < points.length; markerIndex += 1) {
+                const y = points[markerIndex];
                 if (!Number.isFinite(y)) continue;
+                const rowEl = stationMarkerRows[markerIndex];
+                if (rowEl?.classList?.contains?.('is-through-boundary')) continue;
                 const dot = document.createElementNS(ns, 'circle');
                 dot.setAttribute('cx', String(x));
                 dot.setAttribute('cy', String(y));
                 dot.setAttribute('r', '3');
                 dot.setAttribute('fill', '#ffffff');
                 svg.appendChild(dot);
+            }
+
+            for (let markerIndex = 0; markerIndex < points.length; markerIndex += 1) {
+                const y = points[markerIndex];
+                const rowEl = stationMarkerRows[markerIndex];
+                if (!Number.isFinite(y) || !rowEl?.classList?.contains?.('is-through-boundary')) continue;
+                const nextSeg = markerSegments.find((seg) => seg.from === markerIndex) || null;
+                const nextY = nextSeg && Number.isFinite(points[nextSeg.to]) ? points[nextSeg.to] : y + 12;
+                if (nextSeg && nextSeg.kind !== 'transfer') {
+                    const lowerCover = document.createElementNS(ns, 'polygon');
+                    const railLeft = x - 5;
+                    const railRight = x + 5;
+                    const coverBottom = Math.min(nextY, y + 14);
+                    lowerCover.setAttribute('points', [
+                        `${railLeft},${y + 6}`,
+                        `${railRight},${y - 6}`,
+                        `${railRight},${coverBottom}`,
+                        `${railLeft},${coverBottom}`
+                    ].join(' '));
+                    lowerCover.setAttribute('fill', String(nextSeg?.color || '#9a9a9a'));
+                    svg.appendChild(lowerCover);
+                }
+
+                const slashBase = document.createElementNS(ns, 'line');
+                slashBase.setAttribute('x1', String(x - 6));
+                slashBase.setAttribute('x2', String(x + 6));
+                slashBase.setAttribute('y1', String(y + 7));
+                slashBase.setAttribute('y2', String(y - 7));
+                slashBase.setAttribute('stroke', '#ffffff');
+                slashBase.setAttribute('stroke-width', '3');
+                slashBase.setAttribute('stroke-linecap', 'round');
+                svg.appendChild(slashBase);
             }
         };
 
@@ -1624,7 +1660,11 @@ export function mountTravelSearchUI() {
             if (shouldRenderBoundaryLineNote) {
                 if (lastRideBlock) {
                     const last = lastRideBlock.rows[lastRideBlock.rows.length - 1];
-                    appendStationRow({ stationName: resolveStationName(last), timeText: resolveRowTime(last, 'arr') });
+                    appendStationRow({
+                        isThroughBoundary: true,
+                        stationName: `${resolveStationName(last)}（无需换乘）`,
+                        timeText: ''
+                    });
                 }
                 shouldAppendStartStation = true;
             }
