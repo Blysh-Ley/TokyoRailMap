@@ -1955,7 +1955,7 @@ html[data-theme="dark"] .ms-show-icon-btn {
 }
 
 .panel-timetable.is-collapsed {
-    max-height: 66px;
+    max-height: 88px;
     overflow: hidden;
 }
 
@@ -2178,15 +2178,16 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     color: #555 ;
 }
 .panel-timetable-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 102px 38px minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    column-gap: 2px;
     font-size: 14px;
-    padding-top: 1px;
-    padding-bottom: 1px;
+    padding-top: 2px;
+    padding-bottom: 2px;
     white-space: nowrap;
-    height: 22px;
+    min-height: 28px;
+    height: auto;
     box-sizing: border-box;
     cursor: pointer;
 }
@@ -2211,8 +2212,7 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 
 .panel-timetable-dest {
-    flex: 1 1 auto;
-    min-width: 70px;
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -2240,13 +2240,28 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 
 .panel-timetable-time {
-    flex: 0 0 78px;
-    width: 78px;
+    width: 102px;
     text-align: left;
     display: inline-grid;
-    grid-template-columns: 5ch auto;
+    grid-template-columns: max-content max-content;
     align-items: baseline;
-    column-gap: 2px;
+    column-gap: 1px;
+}
+
+.panel-timetable-row.is-next-up .panel-timetable-time {
+    font-size: 22px;
+    line-height: 1;
+    font-weight: 800;
+    color: var(--ui-text);
+}
+
+.panel-timetable-row.is-next-up {
+    min-height: 32px;
+}
+
+.panel-timetable-row.is-next-up .panel-time-arrive,
+.panel-timetable-row.is-next-up .panel-time-depart {
+    font-weight: 800;
 }
 
 .panel-timetable-time.has-arrive .panel-time-depart, .panel-timetable-time .panel-time-label { display: none; }
@@ -2273,16 +2288,13 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 
 .panel-timetable-type {
-    flex: 0 0 auto;
-    text-align: right;
-    width: 60px;
+    width: 38px;
     overflow: hidden;
 }
 
 .panel-timetable-type-marquee {
     width: auto;
     max-width: 100%;
-    margin-left: auto;
     display: inline-flex;
     align-items: center;
     justify-content: center;

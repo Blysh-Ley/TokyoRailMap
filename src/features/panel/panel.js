@@ -3588,8 +3588,17 @@ export function createPanel(options = {}) {
             const gridHintsHtml = effectiveTimetableViewMode === 'grid'
                 ? buildGridHintsHtml({ typeHints, terminalHints, specialHints })
                 : '';
-            const future = filteredRowsForDir.filter((r) => !r.isPast);
-            const visible = expanded ? filteredRowsForDir : future.slice(0, 3);
+            const rowsForListView = filteredRowsForDir.map((row) => {
+                const displayTime = toText(row?.arr) || toText(row?.dep);
+                const parsedDisplayTime = displayTime ? parseHHMMToServiceDayMs(displayTime, serviceDayStartMs) : null;
+                if (!parsedDisplayTime) return row;
+                return {
+                    ...(row || {}),
+                    isPast: parsedDisplayTime.ms < now
+                };
+            });
+            const future = rowsForListView.filter((r) => !r.isPast);
+            const visible = expanded ? rowsForListView : future.slice(0, 3);
 
             const printableRowsForDir = filteredRowsForDir.map((r) => ({ ...(r || {}), isPast: false }));
             const printableListHtml = renderPanelPrintableTimetableListHtml({

@@ -18,11 +18,16 @@ const renderPanelTimetableRowHtml = ({
     row,
     renderTime,
     resolveBadgeTextColor,
-    forceFutureStyle = false
+    forceFutureStyle = false,
+    isNextUp = false
 } = {}) => {
     const item = row || {};
     const isPast = forceFutureStyle ? false : item.isPast === true;
-    const rowClass = isPast ? 'panel-timetable-row is-past' : 'panel-timetable-row';
+    const rowClass = [
+        'panel-timetable-row',
+        isPast ? 'is-past' : '',
+        !isPast && isNextUp ? 'is-next-up' : ''
+    ].filter(Boolean).join(' ');
     const tripAttr = item.tripKey ? ` data-trip-key="${escapeHtml(item.realOriginId)}"` : '';
     const rawTypeColor = toText(item.typeColor);
     const badgeBg = isPast ? '#c3c7cd' : (rawTypeColor || '#767676');
@@ -40,16 +45,16 @@ const renderPanelTimetableRowHtml = ({
 
     return `
         <div class="${rowClass}"${tripAttr}>
-            <div class="panel-timetable-dest">
-                <span class="panel-timetable-dest-prefix" aria-hidden="true">to</span>
-                <span class="panel-timetable-dest-marquee" aria-label="to ${escapeHtml(destText)}">
-                    <span class="panel-timetable-dest-marquee-inner">${escapeHtml(destText)}</span>
-                </span>
-            </div>
             <div class="${timeClass}">${renderTime(item)}${extraHtml}</div>
             <div class="panel-timetable-type">
                 <span class="panel-timetable-type-marquee"${typeStyle} aria-label="${escapeHtml(typeName)}">
                     <span class="panel-timetable-type-marquee-inner">${escapeHtml(typeName)}</span>
+                </span>
+            </div>
+            <div class="panel-timetable-dest">
+                <span class="panel-timetable-dest-prefix" aria-hidden="true">to</span>
+                <span class="panel-timetable-dest-marquee" aria-label="to ${escapeHtml(destText)}">
+                    <span class="panel-timetable-dest-marquee-inner">${escapeHtml(destText)}</span>
                 </span>
             </div>
         </div>
@@ -67,12 +72,14 @@ export const renderPanelTimetableListHtml = ({
     const resolveBadgeTextColorSafe = typeof resolveBadgeTextColor === 'function'
         ? resolveBadgeTextColor
         : defaultBadgeTextColor;
+    const nextUpIndex = items.findIndex((row) => row?.isPast !== true);
 
     return items
-        .map((row) => renderPanelTimetableRowHtml({
+        .map((row, index) => renderPanelTimetableRowHtml({
             row,
             renderTime: renderTimeSafe,
-            resolveBadgeTextColor: resolveBadgeTextColorSafe
+            resolveBadgeTextColor: resolveBadgeTextColorSafe,
+            isNextUp: index === nextUpIndex
         }))
         .join('');
 };

@@ -40,6 +40,14 @@ const resolveBadgeTextColor = (bgColor) => (bgColor === '#ffffff' ? '#111' : '#f
     assert.match(html, /--panel-type-badge-bg:#ffffff/);
     assert.match(html, /--panel-type-badge-fg:#111/);
     assert.match(html, /<b>10:20<\/b>/);
+    const timeIndex = html.indexOf('panel-timetable-time');
+    const typeIndex = html.indexOf('panel-timetable-type');
+    const destIndex = html.indexOf('panel-timetable-dest');
+    assert.ok(
+        timeIndex < typeIndex && typeIndex < destIndex,
+        'list view should render time, type, then terminal station'
+    );
+    assert.match(html, /panel-timetable-row is-next-up/);
     assert.doesNotMatch(html, /is-past/);
 }
 
@@ -61,6 +69,38 @@ const resolveBadgeTextColor = (bgColor) => (bgColor === '#ffffff' ? '#111' : '#f
     assert.match(html, /panel-timetable-row is-past/);
     assert.match(html, /--panel-type-badge-bg:#c3c7cd/);
     assert.match(html, /--panel-type-badge-fg:#eee/);
+}
+
+{
+    const html = renderPanelTimetableListHtml({
+        rows: [{
+            tripKey: 'trip-past',
+            realOriginId: 'origin-past',
+            terminalName: 'Past',
+            typeName: 'Local',
+            dep: '09:00',
+            isPast: true
+        }, {
+            tripKey: 'trip-next',
+            realOriginId: 'origin-next',
+            terminalName: 'Next',
+            typeName: 'Rapid',
+            dep: '10:00',
+            isPast: false
+        }, {
+            tripKey: 'trip-later',
+            realOriginId: 'origin-later',
+            terminalName: 'Later',
+            typeName: 'Rapid',
+            dep: '10:10',
+            isPast: false
+        }],
+        renderTime,
+        resolveBadgeTextColor
+    });
+
+    assert.equal((html.match(/is-next-up/g) || []).length, 1);
+    assert.match(html, /panel-timetable-row is-next-up" data-trip-key="origin-next"/);
 }
 
 {
