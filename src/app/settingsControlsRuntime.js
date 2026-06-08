@@ -99,14 +99,6 @@ export const mountAppSettingsControls = ({
         onModeChanged: basemapThemeRuntime?.setBasemapMode
     });
 
-    controls.mountTimetableViewToggle({
-        hostEl,
-        getIconCandidates,
-        getPreferredCachedImageSrc,
-        onModeChanged: onTimetableViewModeChanged,
-        setImageElementFromCache
-    });
-
     controls.mountAdaptiveViewportToggle({
         hostEl,
         onEnabledChanged: onAdaptiveViewportEnabledChanged

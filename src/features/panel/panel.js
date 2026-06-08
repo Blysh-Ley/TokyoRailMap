@@ -824,6 +824,7 @@ export function createPanel(options = {}) {
     const onDirPreviewLeave = typeof options.onDirPreviewLeave === 'function' ? options.onDirPreviewLeave : null;
     const settingsContentEl = options.settingsContentEl && options.settingsContentEl.appendChild ? options.settingsContentEl : null;
     const getTimetableViewMode = typeof options.getTimetableViewMode === 'function' ? options.getTimetableViewMode : null;
+    const onTimetableViewModeChanged = typeof options.onTimetableViewModeChanged === 'function' ? options.onTimetableViewModeChanged : null;
     const getHoverPreviewEnabled = typeof options.getHoverPreviewEnabled === 'function' ? options.getHoverPreviewEnabled : null;
     const getMultiSelectModeEnabled = typeof options.getMultiSelectModeEnabled === 'function' ? options.getMultiSelectModeEnabled : null;
     let hoverPreviewEnabled = getHoverPreviewEnabled ? getHoverPreviewEnabled() !== false : true;
@@ -1077,6 +1078,28 @@ export function createPanel(options = {}) {
     controls.appendChild(dayToggle);
     header.appendChild(controls);
 
+    const viewToggle = document.createElement('div');
+    viewToggle.className = 'panel-view-toggle';
+    viewToggle.setAttribute('role', 'tablist');
+    viewToggle.setAttribute('aria-label', '班次视图');
+
+    const btnViewList = document.createElement('button');
+    btnViewList.type = 'button';
+    btnViewList.className = 'panel-view-toggle-btn';
+    btnViewList.textContent = '列表';
+    btnViewList.setAttribute('data-panel-view-mode', 'list');
+    btnViewList.setAttribute('role', 'tab');
+
+    const btnViewGrid = document.createElement('button');
+    btnViewGrid.type = 'button';
+    btnViewGrid.className = 'panel-view-toggle-btn';
+    btnViewGrid.textContent = '一览';
+    btnViewGrid.setAttribute('data-panel-view-mode', 'grid');
+    btnViewGrid.setAttribute('role', 'tab');
+
+    viewToggle.appendChild(btnViewList);
+    viewToggle.appendChild(btnViewGrid);
+
     // 内容区：承载 popup 同结构的公司/线路列表
     const body = document.createElement('div');
     body.setAttribute('data-panel-body', '');
@@ -1215,6 +1238,7 @@ export function createPanel(options = {}) {
     };
 
     panelContentApi.appendContent(header);
+    panelContentApi.appendContent(viewToggle);
     panelContentApi.appendContent(body);
     panelComposition.mountContent();
     panelComposition.mountShellOverlay(catalogPanel);
@@ -1894,11 +1918,23 @@ export function createPanel(options = {}) {
     const applyTimetableViewMode = (mode, { rerender = true } = {}) => {
         const next = normalizeTimetableViewMode(mode);
         timetableViewMode = next;
+        btnViewList.classList.toggle('is-active', next === 'list');
+        btnViewGrid.classList.toggle('is-active', next === 'grid');
+        btnViewList.setAttribute('aria-selected', next === 'list' ? 'true' : 'false');
+        btnViewGrid.setAttribute('aria-selected', next === 'grid' ? 'true' : 'false');
+        btnViewList.tabIndex = next === 'list' ? 0 : -1;
+        btnViewGrid.tabIndex = next === 'grid' ? 0 : -1;
         body.setAttribute('data-timetable-view', next);
         body.classList.toggle('is-timetable-view-list', next === 'list');
         body.classList.toggle('is-timetable-view-grid', next === 'grid');
         dayPrintBtn.classList.toggle('is-hidden', next !== 'grid');
         if (rerender && toText(currentStationId)) renderAllTimetables();
+    };
+
+    const setTimetableViewModeFromPanel = (mode) => {
+        const next = normalizeTimetableViewMode(mode);
+        onTimetableViewModeChanged?.(next);
+        applyTimetableViewMode(next, { rerender: true });
     };
 
     const clearTripDetailHideTimer = () => {
@@ -5331,6 +5367,13 @@ export function createPanel(options = {}) {
     dayPrintBtn.addEventListener('click', (evt) => {
         stopEvent(evt);
         panelIntents.requestAllPrint(panelPrintRequests);
+    }, { passive: false });
+
+    viewToggle.addEventListener('click', (evt) => {
+        stopEvent(evt);
+        const btn = evt?.target?.closest?.('[data-panel-view-mode]');
+        if (!btn || !viewToggle.contains(btn)) return;
+        setTimetableViewModeFromPanel(btn.getAttribute('data-panel-view-mode'));
     }, { passive: false });
 
     const resolveMousePrimaryTarget = (target) => {

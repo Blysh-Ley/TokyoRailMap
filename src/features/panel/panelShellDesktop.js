@@ -24,8 +24,8 @@ export const createDesktopPanelShell = ({
 
     const layout = () => {
         const heightSource = Number(win?.innerHeight) || 0;
-        const top = Math.round(heightSource * 0.1);
-        const height = Math.round(heightSource * 0.8);
+        const top = Math.round(heightSource * 0.05);
+        const height = Math.round(heightSource * 0.9);
         root.style.top = `${top}px`;
         root.style.height = `${height}px`;
         return { top, height };

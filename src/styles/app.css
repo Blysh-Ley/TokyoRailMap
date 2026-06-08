@@ -1787,6 +1787,50 @@ html[data-theme="dark"] .ms-show-icon-btn {
     user-select: none;
 }
 
+.panel-view-toggle {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-bottom: 1px solid var(--ui-border);
+    background: rgba(255, 255, 255, 0.82);
+}
+
+.panel-view-toggle-btn {
+    position: relative;
+    height: 38px;
+    border: none;
+    background: transparent;
+    color: var(--ui-text-muted);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0;
+    cursor: pointer;
+}
+
+.panel-view-toggle-btn::after {
+    content: '';
+    position: absolute;
+    left: 22%;
+    right: 22%;
+    bottom: 0;
+    height: 3px;
+    border-radius: 999px 999px 0 0;
+    background: transparent;
+}
+
+.panel-view-toggle-btn:hover {
+    color: var(--ui-text);
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.panel-view-toggle-btn.is-active {
+    color: var(--is-active-color);
+}
+
+.panel-view-toggle-btn.is-active::after {
+    background: var(--is-active-color);
+}
+
 .panel-timetable-root {
     margin-top: 2px;
 }
@@ -4338,6 +4382,7 @@ html[data-theme='dark'] .panel-day-seg,
 html[data-theme='dark'] .panel-day-print-btn,
 html[data-theme='dark'] .panel-map-select-btn,
 html[data-theme='dark'] .panel-map-select-menu,
+html[data-theme='dark'] .panel-view-toggle,
 html[data-theme='dark'] .settings-seg,
 html[data-theme='dark'] .settings-view-seg {
     background: rgba(28, 28, 28, 0.94);
@@ -4702,6 +4747,10 @@ html[data-theme='dark'] .settings-view-btn-icon {
 }
 
 html[data-theme='dark'] .settings-view-btn:hover {
+    background: #2d323a;
+}
+
+html[data-theme='dark'] .panel-view-toggle-btn:hover {
     background: #2d323a;
 }
 

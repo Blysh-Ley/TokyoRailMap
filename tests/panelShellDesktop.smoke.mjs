@@ -55,9 +55,9 @@ assert.equal(shell.root.style.width, '320px');
 assert.equal(shell.root.style.transform, 'translateX(calc(100% + 24px))');
 assert.equal(shell.isVisible(), false);
 
-assert.deepEqual(shell.layout(), { top: 100, height: 800 });
-assert.equal(shell.root.style.top, '100px');
-assert.equal(shell.root.style.height, '800px');
+assert.deepEqual(shell.layout(), { top: 50, height: 900 });
+assert.equal(shell.root.style.top, '50px');
+assert.equal(shell.root.style.height, '900px');
 
 shell.show();
 assert.equal(shell.isVisible(), true);

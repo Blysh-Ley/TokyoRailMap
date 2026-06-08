@@ -104,7 +104,6 @@ const createControls = (calls) => ({
         'appearance',
         'autoUpdate',
         'basemap',
-        'timetable',
         'adaptive',
         'stationOffset',
         'lineNameLabels',
@@ -116,7 +115,6 @@ const createControls = (calls) => ({
     const getArgs = (name) => calls.find(([callName]) => callName === name)?.[1];
     getArgs('appearance').onThemeChanged({ theme: 'dark' });
     getArgs('basemap').onModeChanged('ost');
-    getArgs('timetable').onModeChanged('diagram');
     getArgs('adaptive').onEnabledChanged(false);
     getArgs('stationOffset').onModeChanged('performance');
     getArgs('lineNameLabels').onEnabledChanged(false);
@@ -129,7 +127,6 @@ const createControls = (calls) => ({
         ['applyAppTheme', 'dark'],
         ['themeChanged', 'dark'],
         ['setBasemapMode', 'ost'],
-        ['timetable', 'diagram'],
         ['adaptive', false],
         ['stationOffset', 'performance'],
         ['lineNameLabels', false],

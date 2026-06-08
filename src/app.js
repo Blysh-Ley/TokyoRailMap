@@ -58,6 +58,7 @@ import {
     readLineNameLabelsEnabled,
     readStationOffsetMode,
     readTimetableViewMode,
+    writeTimetableViewMode,
     writeStationOffsetMode
 } from './services/appSettings.js';
 import { createMapEngine } from './services/mapEngine.js';
@@ -2298,6 +2299,7 @@ const initMapApp = async () => {
         getHoverPreviewEnabled: () => isHoverPreviewEnabled(),
         getMultiSelectModeEnabled: () => isMultiSelectModeEnabled(),
         getTimetableViewMode: () => readTimetableViewMode(),
+        onTimetableViewModeChanged: (mode) => writeTimetableViewMode(mode),
         getLineMeta: (lineId) => {
             const id = String(lineId);
             return {
@@ -2758,7 +2760,6 @@ const initMapApp = async () => {
             applyStationThemePaintToMapLayers();
             applySelectionEffects();
         },
-        onTimetableViewModeChanged: (mode) => panel?.setTimetableViewMode?.(mode),
         setImageElementFromCache,
         stationLabelMode
     });
