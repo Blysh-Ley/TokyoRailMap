@@ -5,6 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "live": "live-server . --host=127.0.0.1 --port=5500 --entry-file=index.html --no-browser",
     "build": "electron-builder",
     "buildall": "electron-builder --win --mac -p never",
     "bp": "npm version patch && npm run buildall",
@@ -83,7 +84,8 @@
   },
   "devDependencies": {
     "electron": "^41.2.1",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "live-server": "^1.2.2"
   },
   "dependencies": {
     "electron-updater": "^6.8.3"
