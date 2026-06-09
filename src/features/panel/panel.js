@@ -75,6 +75,11 @@ import { createPanelScrollRuntime } from './panelScrollRuntime.js';
 import { hydrateRenderedTimetable } from './panelTimetablePostRenderHydrator.js';
 import { buildPanelTripPreviewScheduleArgs } from './panelTripDetailPreviewPayloadBuilder.js';
 import {
+    panelIsDarkThemeActive,
+    resolvePanelBadgeTextColor,
+    resolveTrainTypeColorForTheme
+} from './panelThemeHelpers.js';
+import {
     createPanelEventDelegationCoordinator,
     resolvePanelCompanyTarget,
     resolvePanelDirFilterButtonTarget,
@@ -110,95 +115,6 @@ const isSaturdayHoliday = (day) => {
     const isSH = isWeekend || isHoliday || isNewYearHoliday;
     return isSH ? 'SaturdayHoliday' : 'Weekday';
 }
-
-const panelIsDarkThemeActive = () => {
-    try {
-        return document.documentElement.getAttribute('data-theme') === 'dark';
-    } catch {
-        return false;
-    }
-};
-
-const panelParseCssColorToRgb = (input) => {
-    const s = String(input || '').trim();
-    if (!s) return null;
-
-    const hex = s.match(/^#([0-9a-fA-F]{3,8})$/);
-    if (hex) {
-        const raw = hex[1];
-        if (raw.length === 3 || raw.length === 4) {
-            const r = parseInt(raw[0] + raw[0], 16);
-            const g = parseInt(raw[1] + raw[1], 16);
-            const b = parseInt(raw[2] + raw[2], 16);
-            return { r, g, b };
-        }
-        if (raw.length === 6 || raw.length === 8) {
-            const r = parseInt(raw.slice(0, 2), 16);
-            const g = parseInt(raw.slice(2, 4), 16);
-            const b = parseInt(raw.slice(4, 6), 16);
-            return { r, g, b };
-        }
-    }
-
-    const rgb = s.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*([0-9]+(?:\.[0-9]+)?))?\s*\)$/i);
-    if (rgb) {
-        const r = Math.max(0, Math.min(255, Math.round(Number(rgb[1]))));
-        const g = Math.max(0, Math.min(255, Math.round(Number(rgb[2]))));
-        const b = Math.max(0, Math.min(255, Math.round(Number(rgb[3]))));
-        return { r, g, b };
-    }
-
-    return null;
-};
-
-const panelRgbToHex = ({ r, g, b }) => {
-    const to2 = (v) => Math.max(0, Math.min(255, Math.round(Number(v) || 0))).toString(16).padStart(2, '0');
-    return `#${to2(r)}${to2(g)}${to2(b)}`;
-};
-
-const panelRelativeLuminance = ({ r, g, b }) => {
-    const toLinear = (v) => {
-        const x = Math.max(0, Math.min(255, Number(v) || 0)) / 255;
-        return x <= 0.03928 ? (x / 12.92) : Math.pow((x + 0.055) / 1.055, 2.4);
-    };
-    const lr = toLinear(r);
-    const lg = toLinear(g);
-    const lb = toLinear(b);
-    return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
-};
-
-const PANEL_DARK_INVERT_TRIGGER_LUMINANCE = (() => {
-    const ref = panelParseCssColorToRgb('#005AAA');
-    return ref ? panelRelativeLuminance(ref) : 0.102;
-})();
-
-const panelAdjustColorForDarkThemeIfNeeded = (color) => {
-    const parsed = panelParseCssColorToRgb(color);
-    if (!parsed) return toText(color);
-
-    const lum = panelRelativeLuminance(parsed);
-    if (!(lum < PANEL_DARK_INVERT_TRIGGER_LUMINANCE)) return toText(color);
-
-    const inverted = {
-        r: 255 - parsed.r,
-        g: 255 - parsed.g,
-        b: 255 - parsed.b
-    };
-    return panelRgbToHex(inverted);
-};
-
-const resolveTrainTypeColorForTheme = (color) => {
-    const raw = toText(color);
-    if (!raw) return raw;
-    if (!panelIsDarkThemeActive()) return raw;
-    return panelAdjustColorForDarkThemeIfNeeded(raw);
-};
-
-const resolvePanelBadgeTextColor = (bgColor) => {
-    const parsed = panelParseCssColorToRgb(bgColor);
-    if (!parsed) return '#fff';
-    return panelRelativeLuminance(parsed) > 0.55 ? '#111' : '#fff';
-};
 
 const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
 
