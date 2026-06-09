@@ -121,6 +121,7 @@ import {
 } from './panelTripDetailGridHelpers.js';
 import { renderPanelTripDetailGridLaneBlock } from './panelTripDetailGridLaneBlockRenderer.js';
 import { renderPanelTripDetailBranchBreakRow } from './panelTripDetailBranchBreakRowRenderer.js';
+import { buildPanelTripDetailBranchLaneFromChain } from './panelTripDetailBranchLaneBuilder.js';
 import {
     getPanelTripDetailSegmentFirstRow,
     getPanelTripDetailSegmentLastRow,
@@ -3904,51 +3905,34 @@ export function createPanel(options = {}) {
                 if (token !== tripDetailToken) return null;
                 const chain = Array.isArray(chainTrips) ? chainTrips : [];
                 if (!chain.length) continue;
-
-                let laneRows = [];
-                const lanePreviewSegments = [];
-                for (const laneTrip of chain) {
-                    const rows = normalizeTripStops(buildTripStops(laneTrip, stationsIndex, serviceDayStartMs), serviceDayStartMs, {
-                        allowEndpointAKeyFallback: endpointAKeyFallback,
-                        originIds,
-                        terminalIds,
-                        originAKeys,
-                        terminalAKeys,
-                        showOriginLabel,
-                        showTerminalLabel
-                    }).map((s) => ({
-                        ...s,
-                        seg: kind,
-                        isMain: false
-                    }));
-
-                    const laneStationIds = rows.map((r) => toText(r?.stationId)).filter(Boolean);
-                    if (laneStationIds.length >= 2) {
-                        lanePreviewSegments.push({
-                            kind,
-                            lineId: toText(getTripLineId(laneTrip)),
-                            r: toText(getTripLineId(laneTrip)),
-                            d: toText(laneTrip?.d),
-                            stationIds: laneStationIds,
-                            typeColor: toText(getTripTypeColor(laneTrip, trainTypeColorIndex))
-                        });
-                    }
-
-                    laneRows = mergeStops(laneRows, rows);
-                }
-
-                const firstTrip = chain[0] || null;
-                out.push({
+                const lane = buildPanelTripDetailBranchLaneFromChain({
+                    chainTrips: chain,
                     kind,
-                    lineId: getTripLineId(firstTrip),
                     sourceRefId: ids[i],
-                    d: toText(firstTrip?.d),
-                    descriptor: buildLineDescriptor(getTripLineId(firstTrip)) || buildRefLineDescriptor(ids[i]),
-                    typeName: getTripTypeName(firstTrip, trainTypesIndex),
-                    typeColor: getTripTypeColor(firstTrip, trainTypeColorIndex),
-                    rows: laneRows,
-                    previewSegments: lanePreviewSegments
+                    buildRowsForTrip: (laneTrip) => normalizeTripStops(
+                        buildTripStops(laneTrip, stationsIndex, serviceDayStartMs),
+                        serviceDayStartMs,
+                        {
+                            allowEndpointAKeyFallback: endpointAKeyFallback,
+                            originIds,
+                            terminalIds,
+                            originAKeys,
+                            terminalAKeys,
+                            showOriginLabel,
+                            showTerminalLabel
+                        }
+                    ),
+                    mergeStops,
+                    getTripLineId,
+                    buildLineDescriptor,
+                    buildRefLineDescriptor,
+                    getTripTypeName,
+                    getTripTypeColor,
+                    trainTypesIndex,
+                    trainTypeColorIndex,
+                    toText
                 });
+                if (lane) out.push(lane);
             }
             return out;
         };
