@@ -115,6 +115,7 @@ import {
     dispatchPanelDirFilterIntent,
     dispatchPanelPrimarySelectionIntent
 } from './panelIntentDispatcher.js';
+import { buildPanelTripDetailTitleHtml } from './panelTripDetailTitleRenderer.js';
 import { buildPanelStationRenderInputs } from './panelStationRenderInputs.js';
 import { createPanelPinnedTripDetailState } from './panelPinnedTripDetailState.js';
 import {
@@ -3838,37 +3839,21 @@ export function createPanel(options = {}) {
             toText
         });
 
-        const titleThroughEndpoints = await resolveThroughServiceEndpointIds(trip);
+        tripDetailTitle.innerHTML = await buildPanelTripDetailTitleHtml({
+            trip,
+            stationsIndex,
+            trainTypesIndex,
+            trainTypeColorIndex,
+            resolveThroughServiceEndpointIds,
+            getStationIds,
+            buildTerminalDisplayLabel,
+            getTripDestName,
+            resolveTrainTypeColorForTheme,
+            collectTripSpecialNames,
+            escapeHtml,
+            toText
+        });
         if (token !== tripDetailToken) return;
-        const titleResolvedTerminalIds = Array.isArray(titleThroughEndpoints?.terminalIds)
-            ? titleThroughEndpoints.terminalIds.map((x) => toText(x)).filter(Boolean)
-            : [];
-        const fallbackTitleTerminalIds = getStationIds(trip?.ds);
-        const titleTerminalIds = titleResolvedTerminalIds.length ? titleResolvedTerminalIds : fallbackTitleTerminalIds;
-        const titleTerminalNames = Array.from(new Set(
-            titleTerminalIds.map((id) => toText(stationsIndex?.idToNameZh?.get?.(id) || id)).filter(Boolean)
-        ));
-        const destName = buildTerminalDisplayLabel(titleTerminalNames) || getTripDestName(trip, stationsIndex) || '未知方向';
-        const typeId = toText(trip?.y);
-        const typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
-        const typeColor = typeId ? resolveTrainTypeColorForTheme(trainTypeColorIndex.get(typeId)) : '';
-        const titlePrefix = `往 ${destName}`.trim();
-        const safeTypeName = toText(typeName);
-        const safeTypeColor = toText(typeColor);
-        const titleSpecialNames = await collectTripSpecialNames(trip);
-        if (token !== tripDetailToken) return;
-        const titleSpecialText = Array.from(new Set((Array.isArray(titleSpecialNames) ? titleSpecialNames : []).map((x) => toText(x)).filter(Boolean))).join(' / ');
-        const titleMainHtml = (() => {
-            if (safeTypeName) {
-                const typeStyle = safeTypeColor ? ` style="color:${escapeHtml(safeTypeColor)}"` : '';
-                return `${escapeHtml(titlePrefix)} <span class="panel-trip-detail-title-type"${typeStyle}>${escapeHtml(safeTypeName)}</span>`;
-            }
-            return escapeHtml(titlePrefix);
-        })();
-        const titleSpecialHtml = titleSpecialText
-            ? `<div class="panel-trip-detail-title-special">${escapeHtml(titleSpecialText)}</div>`
-            : '';
-        tripDetailTitle.innerHTML = `<div class="panel-trip-detail-title-main">${titleMainHtml}</div>${titleSpecialHtml}`;
         const currentLineDesc = buildLineDescriptor(getTripLineId(trip) || lineId);
 
         const renderStopRow = (s) => {
