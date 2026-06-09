@@ -79,6 +79,7 @@ import {
     resolvePanelLineTarget,
     resolveTripDetailStationTarget
 } from './panelEventDelegationCoordinator.js';
+import { createPanelCatalogController } from './panelCatalogController.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
 import {
     createPanelTouchInteractionController,
@@ -1109,210 +1110,57 @@ export function createPanel(options = {}) {
     body.style.paddingRight = '10px';
     body.style.overflowY = 'auto';
     body.style.overflowX = 'hidden';
+    /*
 
     // 当 panel 内容出现纵向滚动时，自动在标题左侧显示“目录”子面板。
-    const catalogPanel = document.createElement('div');
-    catalogPanel.className = 'panel-catalog-subpanel';
-    catalogPanel.setAttribute('data-panel-catalog', '');
-    catalogPanel.innerHTML = `
-        <div class="panel-catalog-title">
             <span class="panel-catalog-title-text">目录</span>
             <button type="button" class="panel-catalog-close-btn" data-panel-catalog-close-btn="1" aria-label="关闭目录">
                 <img class="panel-catalog-close-icon" alt="" />
             </button>
         </div>
         <div class="panel-catalog-body" data-panel-catalog-body="1"></div>
-    `;
-    const catalogBody = catalogPanel.querySelector('[data-panel-catalog-body="1"]');
-    const catalogCloseBtn = catalogPanel.querySelector('[data-panel-catalog-close-btn="1"]');
-    const catalogCloseIcon = catalogPanel.querySelector('.panel-catalog-close-icon');
-    let catalogRefreshRafId = null;
-    let catalogMutationObserver = null;
-    let catalogResizeObserver = null;
-    let catalogDismissedByUser = false;
-    let catalogForcedActiveLineId = '';
-    let catalogForcedActiveUntilMs = 0;
-    let catalogHoverEnteredOnce = false;
-    let catalogCompactMode = false;
-
-
-    if (catalogCloseIcon instanceof HTMLImageElement) {
-        setImageElementFromCache(catalogCloseIcon, getIconCandidates('x.svg'), {
-            cacheKey: 'icon:x.svg',
-            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('x.svg'), { cacheKey: 'icon:x.svg' })
-        }).catch(() => null);
-    }
-
-    const collectCatalogEntries = () => collectPanelCatalogEntries(body, { toText });
-    const renderCatalogEntries = (entries) => {
-        if (!(catalogBody instanceof Element)) return;
-        catalogBody.innerHTML = renderPanelCatalogEntriesHtml(entries, { toText });
-    };
-    const setCatalogActiveLine = (activeLineId) => {
-        if (!(catalogBody instanceof Element)) return;
-        const activeId = toText(activeLineId);
-        const buttons = Array.from(catalogBody.querySelectorAll('.panel-catalog-line[data-panel-catalog-line-id]'));
-        for (const btn of buttons) {
-            if (!(btn instanceof Element)) continue;
-            const lineId = toText(btn.getAttribute('data-panel-catalog-line-id'));
-            btn.classList.toggle('is-active', !!activeId && lineId === activeId);
-        }
-    };
+    */
+    let panelCatalogController = null;
 
     const syncPanelTitleForActiveLine = (activeLineId = '') => {
-        const lineId = toText(activeLineId);
-        const meta = lineId ? currentLineStationMetaByLineId.get(lineId) : null;
-        const stationId = toText(meta?.stationId || currentStationId);
-        const stationNameZh = toText(currentStationsIndex?.idToNameZh?.get?.(stationId) || currentStationNameZh || '');
-        const stationNameEn = toText(currentStationsIndex?.idToNameEn?.get?.(stationId) || '');
-        setTitle({ main: stationNameZh, sub: stationNameEn });
-    };
-
-    const syncCatalogActiveLine = () => {
-        if (!(catalogBody instanceof Element)) return;
-        if (!catalogPanel.classList.contains('is-visible')) return;
-
-        if (catalogForcedActiveLineId && Date.now() < catalogForcedActiveUntilMs) {
-            setCatalogActiveLine(catalogForcedActiveLineId);
-            return;
-        }
-        if (catalogForcedActiveLineId && Date.now() >= catalogForcedActiveUntilMs) {
-            catalogForcedActiveLineId = '';
-            catalogForcedActiveUntilMs = 0;
-        }
-
-        const lineEls = Array.from(body.querySelectorAll('[data-line-id]'));
-        if (!lineEls.length) {
-            setCatalogActiveLine('');
-            return;
-        }
-
-        const bodyRect = body.getBoundingClientRect();
-        const activeTopThreshold = bodyRect.top - 100;
-        let activeLineId = '';
-        for (const lineEl of lineEls) {
-            if (!(lineEl instanceof Element)) continue;
-            const rect = lineEl.getBoundingClientRect();
-            if (rect.top >= activeTopThreshold) {
-                activeLineId = toText(lineEl.getAttribute('data-line-id'));
-                break;
-            }
-        }
-        if (!activeLineId) {
-            const last = lineEls[lineEls.length - 1];
-            activeLineId = last instanceof Element ? toText(last.getAttribute('data-line-id')) : '';
-        }
-
-        setCatalogActiveLine(activeLineId);
-        syncPanelTitleForActiveLine(activeLineId);
-    };
-
-    const setCatalogCompactMode = (compact) => {
-        const next = compact === true;
-        if (catalogCompactMode === next) return;
-        catalogCompactMode = next;
-        catalogPanel.classList.toggle('is-compact', next);
-    };
-
-
-    const refreshCatalogPanel = () => {
-        const entries = collectCatalogEntries();
-        renderCatalogEntries(entries);
-
-        const hasOverflowY = (body.scrollHeight - body.clientHeight) > 1;
-        const shouldShow = panelShell.isVisible() && hasOverflowY && entries.length > 0 && !catalogDismissedByUser;
-        catalogPanel.classList.toggle('is-visible', shouldShow);
-        if (!shouldShow) {
-            catalogHoverEnteredOnce = false;
-            setCatalogCompactMode(false);
-        }
-        if (shouldShow) syncCatalogActiveLine();
+        panelCatalogController?.syncTitleForActiveLine(activeLineId);
     };
 
     const scheduleCatalogRefresh = () => {
-        if (catalogRefreshRafId != null) return;
-        catalogRefreshRafId = requestAnimationFrame(() => {
-            catalogRefreshRafId = null;
-            refreshCatalogPanel();
-        });
+        panelCatalogController?.scheduleRefresh();
     };
 
     panelContentApi.appendContent(header);
     panelContentApi.appendContent(viewToggle);
     panelContentApi.appendContent(body);
     panelComposition.mountContent();
-    panelComposition.mountShellOverlay(catalogPanel);
-
-    body.addEventListener('scroll', () => {
-        syncCatalogActiveLine();
-    }, { passive: true });
-
-    if (typeof MutationObserver !== 'undefined') {
-        catalogMutationObserver = new MutationObserver(() => {
-            scheduleCatalogRefresh();
-        });
-        catalogMutationObserver.observe(body, {
-            childList: true,
-            subtree: true
-        });
-    }
-
-    if (typeof ResizeObserver !== 'undefined') {
-        catalogResizeObserver = new ResizeObserver(() => {
-            scheduleCatalogRefresh();
-        });
-        catalogResizeObserver.observe(body);
-    }
-
-    catalogPanel.addEventListener('click', (evt) => {
-        const target = evt?.target;
-        if (!(target instanceof Element)) return;
-        const btn = target.closest?.('.panel-catalog-line[data-panel-catalog-line-id]');
-        if (!(btn instanceof Element)) return;
-        const lineId = toText(btn.getAttribute('data-panel-catalog-line-id'));
-        if (!lineId) return;
-        stopEvent(evt);
-        catalogForcedActiveLineId = lineId;
-        catalogForcedActiveUntilMs = Date.now() + 2000;
-        setCatalogActiveLine(lineId);
-        syncPanelTitleForActiveLine(lineId);
-        scrollToLineId(lineId, { behavior: 'smooth', block: 'start' });
-    }, { passive: false });
-
-    catalogPanel.addEventListener('mouseenter', () => {
-        catalogHoverEnteredOnce = true;
-        setCatalogCompactMode(false);
+    panelCatalogController = createPanelCatalogController({
+        body,
+        documentRef: document,
+        mountShellOverlay: (node) => panelComposition.mountShellOverlay(node),
+        panelShell,
+        titleElement: title,
+        collectEntries: () => collectPanelCatalogEntries(body, { toText }),
+        renderEntries: (catalogBody, entries) => {
+            if (!(catalogBody instanceof Element)) return;
+            catalogBody.innerHTML = renderPanelCatalogEntriesHtml(entries, { toText });
+        },
+        hydrateCloseIcon: (catalogCloseIcon) => {
+            if (!(catalogCloseIcon instanceof HTMLImageElement)) return;
+            setImageElementFromCache(catalogCloseIcon, getIconCandidates('x.svg'), {
+                cacheKey: 'icon:x.svg',
+                fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('x.svg'), { cacheKey: 'icon:x.svg' })
+            }).catch(() => null);
+        },
+        getCurrentLineStationMetaByLineId: () => currentLineStationMetaByLineId,
+        getCurrentStationId: () => currentStationId,
+        getCurrentStationNameZh: () => currentStationNameZh,
+        getCurrentStationsIndex: () => currentStationsIndex,
+        setTitle: (...args) => setTitle(...args),
+        scrollToLineId: (...args) => scrollToLineId(...args),
+        stopEvent,
+        toText
     });
-
-    catalogPanel.addEventListener('mouseleave', () => {
-        if (!catalogHoverEnteredOnce) return;
-        if (!catalogPanel.classList.contains('is-visible')) return;
-        setCatalogCompactMode(true);
-    });
-
-    const reopenCatalogPanelByTitleIntent = () => {
-        if (!catalogDismissedByUser) return;
-        catalogDismissedByUser = false;
-        catalogHoverEnteredOnce = false;
-        setCatalogCompactMode(false);
-        scheduleCatalogRefresh();
-    };
-
-    title.addEventListener('click', () => {
-        reopenCatalogPanelByTitleIntent();
-    });
-
-    if (catalogCloseBtn instanceof Element) {
-        catalogCloseBtn.addEventListener('click', (evt) => {
-            stopEvent(evt);
-            catalogDismissedByUser = true;
-            catalogForcedActiveLineId = '';
-            catalogForcedActiveUntilMs = 0;
-            catalogHoverEnteredOnce = false;
-            setCatalogCompactMode(false);
-            scheduleCatalogRefresh();
-        }, { passive: false });
-    }
 
     // 防止点击面板穿透到地图（触发“点击空白处恢复/收起搜索”等）
     // 用 bubble 阶段拦截，避免阻断面板内部的点击/触屏事件处理
@@ -6068,8 +5916,7 @@ export function createPanel(options = {}) {
     const showForStationProps = async (props) => {
         const renderToken = ++stationRenderToken;
         const name = readStationName(props);
-        catalogHoverEnteredOnce = false;
-        setCatalogCompactMode(false);
+        panelCatalogController?.resetTransientUiState();
 
         currentStationId = toText(props?.id);
         currentStationNameZh = toText(props?.name_zh || props?.['name:zh'] || name);
@@ -6278,6 +6125,9 @@ export function createPanel(options = {}) {
         getScrollTop,
         setScrollTop,
         layout,
-        destroy: () => panelEventDelegation.destroy()
+        destroy: () => {
+            panelCatalogController?.destroy();
+            panelEventDelegation.destroy();
+        }
     };
 }
