@@ -124,6 +124,10 @@ import { renderPanelTripDetailBranchBreakRow } from './panelTripDetailBranchBrea
 import { renderPanelTripDetailBranchGridRows } from './panelTripDetailBranchGridRenderer.js';
 import { collectPanelTripDetailBranchLanesFromRefs } from './panelTripDetailBranchLaneCollector.js';
 import {
+    collectPanelTripDetailRefChainTripsFromRef,
+    resolvePanelTripDetailFirstMultiRefsAlongChain
+} from './panelTripDetailRefChainCollector.js';
+import {
     derivePanelTripDetailBranchRuntime,
     resolvePanelTripDetailBranchRefIds
 } from './panelTripDetailBranchRuntime.js';
@@ -3575,67 +3579,6 @@ export function createPanel(options = {}) {
         return buildLineDescriptor(lineId);
     };
 
-    const collectRefChainTripsFromRef = async (startRefId, token, key = 'nt') => {
-        const out = [];
-        const seenRefs = new Set();
-        const seenTrips = new Set();
-        let refId = toText(startRefId);
-        const stepKey = key === 'pt' ? 'pt' : 'nt';
-
-        for (let i = 0; i < 24; i += 1) {
-            if (!refId) break;
-            if (seenRefs.has(refId)) break;
-            seenRefs.add(refId);
-
-            const refTrip = await loadTripByRefId(refId);
-            if (token !== tripDetailToken) return null;
-            if (!refTrip) break;
-
-            const sid = toText(refTrip?.id) || toText(refTrip?.t);
-            if (sid && seenTrips.has(sid)) break;
-
-            out.push(refTrip);
-            if (sid) seenTrips.add(sid);
-
-            const refs = Array.isArray(refTrip?.[stepKey]) ? refTrip[stepKey] : (refTrip?.[stepKey] ? [refTrip[stepKey]] : []);
-            refId = toText(refs?.[0]);
-        }
-
-        return out;
-    };
-
-    const resolveFirstMultiRefsAlongChain = async (startRefId, token, key = 'nt') => {
-        const stepKey = key === 'pt' ? 'pt' : 'nt';
-        const seenRefs = new Set();
-        const seenTrips = new Set();
-        let refId = toText(startRefId);
-
-        for (let i = 0; i < 24; i += 1) {
-            if (!refId) break;
-            if (seenRefs.has(refId)) break;
-            seenRefs.add(refId);
-
-            const refTrip = await loadTripByRefId(refId);
-            if (token !== tripDetailToken) return null;
-            if (!refTrip) break;
-
-            const sid = toText(refTrip?.id) || toText(refTrip?.t);
-            if (sid && seenTrips.has(sid)) break;
-            if (sid) seenTrips.add(sid);
-
-            const refs = (Array.isArray(refTrip?.[stepKey]) ? refTrip[stepKey] : (refTrip?.[stepKey] ? [refTrip[stepKey]] : []))
-                .map((x) => toText(x))
-                .filter(Boolean);
-            if (refs.length >= 2) {
-                return refs;
-            }
-
-            refId = refs[0] || '';
-        }
-
-        return [];
-    };
-
     const collectRefChainTrips = async (startTrip, key, token) => {
         const out = [];
         const seenRefs = new Set();
@@ -3910,7 +3853,13 @@ export function createPanel(options = {}) {
             refIds: ntRefIds,
             token,
             key: 'nt',
-            resolveFirstMultiRefsAlongChain,
+            resolveFirstMultiRefsAlongChain: (startRefId, _token, key) => resolvePanelTripDetailFirstMultiRefsAlongChain({
+                startRefId,
+                key,
+                loadTripByRefId,
+                isTokenCurrent: () => token === tripDetailToken,
+                toText
+            }),
             isTokenCurrent: () => token === tripDetailToken,
             toText
         });
@@ -3920,7 +3869,13 @@ export function createPanel(options = {}) {
             refIds: ptRefIds,
             token,
             key: 'pt',
-            resolveFirstMultiRefsAlongChain,
+            resolveFirstMultiRefsAlongChain: (startRefId, _token, key) => resolvePanelTripDetailFirstMultiRefsAlongChain({
+                startRefId,
+                key,
+                loadTripByRefId,
+                isTokenCurrent: () => token === tripDetailToken,
+                toText
+            }),
             isTokenCurrent: () => token === tripDetailToken,
             toText
         });
@@ -3942,7 +3897,13 @@ export function createPanel(options = {}) {
         const collectBranchLanes = (refIds, kind) => collectPanelTripDetailBranchLanesFromRefs({
             refIds,
             kind,
-            collectRefChainTripsFromRef: (refId, branchKind) => collectRefChainTripsFromRef(refId, token, branchKind),
+            collectRefChainTripsFromRef: (refId, branchKind) => collectPanelTripDetailRefChainTripsFromRef({
+                startRefId: refId,
+                key: branchKind,
+                loadTripByRefId,
+                isTokenCurrent: () => token === tripDetailToken,
+                toText
+            }),
             isTokenCurrent: () => token === tripDetailToken,
             buildRowsForTrip: buildBranchLaneRowsForTrip,
             mergeStops,
