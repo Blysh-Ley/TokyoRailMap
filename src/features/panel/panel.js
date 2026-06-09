@@ -121,6 +121,7 @@ import {
     renderPanelTripDetailGridNoteCell,
     renderPanelTripDetailGridStopCellsSharedStation
 } from './panelTripDetailGridHelpers.js';
+import { renderPanelTripDetailBranchBreakRow } from './panelTripDetailBranchBreakRowRenderer.js';
 import {
     getPanelTripDetailSegmentFirstRow,
     getPanelTripDetailSegmentLastRow,
@@ -4203,47 +4204,23 @@ export function createPanel(options = {}) {
                     ? (laneRowsForBreak[0] || null)
                     : (laneRowsForBreak[laneRowsForBreak.length - 1] || null);
                 const breakIsPast = !!breakStop?.isPast;
-                const pastCls = breakIsPast ? ' is-past' : '';
-
-                const startRow = `<div class="panel-trip-detail-grid-break-row${pastCls}" style="grid-column:1 / span ${totalCols}; --panel-trip-detail-cols:${totalCols};">`;
-                const endRow = '</div>';
-                const markerLeft = renderPanelTripDetailGridMarkerCell({
-                    text: branchMode === 'split' ? '┣' : '┣',
-                    col: primaryTimeColStart,
-                    isPast: breakIsPast,
-                    escapeHtml,
-                    toText
-                });
-                const markerCenter = renderPanelTripDetailGridMarkerCell({
-                    text: branchMode === 'split' ? '解编' : '并结',
-                    col: primaryTimeColStart + 1,
-                    isPast: breakIsPast,
-                    escapeHtml,
-                    toText
-                });
-                const markerRight = firstBranchMarkerCol
-                    ? renderPanelTripDetailGridMarkerCell({
-                        text: branchMode === 'split' ? '┓' : '┛',
-                        col: firstBranchMarkerCol,
-                        isPast: breakIsPast,
-                        escapeHtml,
-                        toText
-                    })
-                    : '';
-
                 const breakStationId = toText(breakStop?.stationId || '');
-                const breakStationText = breakStationId
-                    ? buildTimetableStationText({
-                        stationCode: toText(stationsIndex?.idToCode?.get?.(breakStationId) || ''),
-                        stationName: toText(breakStop?.stationName || breakStationId),
-                        stationId: breakStationId
-                    }) 
-                    +
-                    (branchMode === 'split' ? '站解编' : '站并结')
-                    : (branchMode === 'split' ? '解编站' : '并结站');
-
-                const breakStationHtml = renderPanelTripDetailStationCellHtml({ className: `panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}`, style: 'grid-column:1;', lineColor: toText(primaryLane?.descriptor?.color || mainDescriptor?.color || typeColor || ''), stationCode: breakStationId ? toText(stationsIndex?.idToCode?.get?.(breakStationId) || '') : '', stationName: breakStationText.replace(/^\S+\s+/, ''), stationId: breakStationId });
-                return `${startRow}${breakStationHtml}${markerLeft}${markerCenter}${markerRight}${endRow}`;
+                return renderPanelTripDetailBranchBreakRow({
+                    branchMode,
+                    breakStop,
+                    breakIsPast,
+                    totalCols,
+                    primaryTimeColStart,
+                    firstBranchMarkerCol,
+                    lineColor: toText(primaryLane?.descriptor?.color || mainDescriptor?.color || typeColor || ''),
+                    stationCode: breakStationId ? toText(stationsIndex?.idToCode?.get?.(breakStationId) || '') : '',
+                    stationName: toText(breakStop?.stationName || breakStationId),
+                    buildTimetableStationText,
+                    renderPanelTripDetailGridMarkerCell,
+                    renderPanelTripDetailStationCellHtml,
+                    escapeHtml,
+                    toText
+                });
             };
 
             if (branchMode === 'merge') {
