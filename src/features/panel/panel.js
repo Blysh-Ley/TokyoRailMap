@@ -105,6 +105,10 @@ import {
     createEmptyPanelThroughServiceState,
     resolvePanelThroughServiceSetup
 } from './panelThroughServiceSetup.js';
+import {
+    preparePanelStationRenderBootstrap,
+    resetPanelStationRenderTransientState
+} from './panelStationRenderBootstrap.js';
 import { createPanelCatalogController } from './panelCatalogController.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
 import {
@@ -5228,34 +5232,41 @@ export function createPanel(options = {}) {
         setTitle({ main: name, sub: currentStationNameEn });
 
         // 用 serving_ids 驱动交互恢复/公司过滤
-        const servingIdsRaw = normalizeArrayLike(props?.serving_ids);
-        currentStationServingIds = servingIdsRaw.map(String).filter(Boolean);
-        pendingGridDataDebugLog = true;
-        expandedDirKeys = new Set();
-        dirPrintPayloadByKey.clear();
-        dirFilterStateByKey.clear();
-        lastAppliedHoverKey = null;
-        lastMousePrimaryKey = '';
-        clearHoverTimer();
-        clearRestoreTimer();
-        clearTripHighlightTimer();
-        hideTripDetail();
-        closeDirFilterPopover();
-        clearPinnedPanelState({ restoreStation: false });
-        lastTripDetailKey = null;
+        ({
+            pendingGridDataDebugLog,
+            expandedDirKeys,
+            lastAppliedHoverKey,
+            lastMousePrimaryKey,
+            lastTripDetailKey
+        } = resetPanelStationRenderTransientState({
+            dirPrintPayloadByKey,
+            dirFilterStateByKey,
+            clearHoverTimer,
+            clearRestoreTimer,
+            clearTripHighlightTimer,
+            hideTripDetail,
+            closeDirFilterPopover,
+            clearPinnedPanelState
+        }));
 
-        const mergeInfo = buildPanelLineMergeInfo({
-            servingLineIds: currentStationServingIds,
-            getLineMeta
+        const stationRenderBootstrap = preparePanelStationRenderBootstrap({
+            props,
+            normalizeArrayLike,
+            buildPanelLineMergeInfo,
+            getLineMeta,
+            createEmptyPanelThroughServiceState,
+            toText
         });
+        currentStationServingIds = stationRenderBootstrap.currentStationServingIds;
+        const mergeInfo = stationRenderBootstrap.mergeInfo;
 
         ({
             temporaryLineMetaById: temporaryPanelLineMetaById,
             temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
             temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId
-        } = createEmptyPanelThroughServiceState());
+        } = stationRenderBootstrap.throughServiceState);
 
-        let displayServingIds = Array.isArray(mergeInfo?.displayLineIds) ? mergeInfo.displayLineIds : currentStationServingIds;
+        let displayServingIds = stationRenderBootstrap.displayServingIds;
 
         const throughPlan = await buildTemporaryThroughServicePanelPlan({
             stationId: currentStationId,
