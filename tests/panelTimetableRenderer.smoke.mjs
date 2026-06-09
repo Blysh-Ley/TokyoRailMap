@@ -54,6 +54,21 @@ const resolveBadgeTextColor = (bgColor) => (bgColor === '#ffffff' ? '#111' : '#f
 {
     const html = renderPanelTimetableListHtml({
         rows: [{
+            tripKey: 'fallback-list-trip',
+            terminalDisplayName: 'Fallback Terminal',
+            typeName: 'Local',
+            dep: '10:25'
+        }],
+        renderTime,
+        resolveBadgeTextColor
+    });
+
+    assert.match(html, /data-trip-key="fallback-list-trip"/);
+}
+
+{
+    const html = renderPanelTimetableListHtml({
+        rows: [{
             tripKey: 'trip-2',
             realOriginId: 'origin-2',
             terminalName: 'Past Terminal',

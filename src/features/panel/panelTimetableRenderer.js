@@ -1,3 +1,5 @@
+import { resolvePanelTimetableTripKey } from './panelTimetableTripKey.js';
+
 const toText = (value) => String(value ?? '').trim();
 
 const escapeHtml = (input) => {
@@ -43,7 +45,8 @@ const renderPanelTimetableRowHtml = ({
         isPast ? 'is-past' : '',
         !isPast && isNextUp ? 'is-next-up' : ''
     ].filter(Boolean).join(' ');
-    const tripAttr = item.tripKey ? ` data-trip-key="${escapeHtml(item.realOriginId)}"` : '';
+    const tripKey = resolvePanelTimetableTripKey(item, { toText });
+    const tripAttr = tripKey ? ` data-trip-key="${escapeHtml(tripKey)}"` : '';
     const rawTypeColor = toText(item.typeColor);
     const badgeBg = isPast ? '#c3c7cd' : (rawTypeColor || '#767676');
     const badgeFg = isPast ? '#eee' : resolveBadgeTextColor(badgeBg);

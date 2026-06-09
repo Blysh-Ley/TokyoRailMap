@@ -3,6 +3,7 @@ import {
     formatPanelServiceHourLabel,
     toPanelServiceHourIndex
 } from './panelTimetableHourWindow.js';
+import { resolvePanelTimetableTripKey } from './panelTimetableTripKey.js';
 
 const defaultToText = (value) => String(value ?? '').trim();
 
@@ -91,7 +92,7 @@ export const buildPanelTimetableGridHtmlForDirection = ({
                     && !(rowHasSplitByNtMultiDest && rowNoMarkModes.some((mode) => mode === 'dual'));
                 const destAbbr = shouldHideDestAbbr ? '' : rawDestAbbr;
                 const minute = toText(trip?.minuteLabel).slice(0, 2);
-                const tripKey = toText(trip?.realOriginId);
+                const tripKey = resolvePanelTimetableTripKey(trip, { toText });
                 const color = resolveTrainTypeColorForTheme(trip?.typeColor) || 'var(--ui-text, #111)';
                 const tripAttr = tripKey ? ` data-trip-key="${escapeHtml(tripKey)}"` : '';
                 const lastClass = tripIndex === trips.length - 1 ? ' is-hour-last' : '';

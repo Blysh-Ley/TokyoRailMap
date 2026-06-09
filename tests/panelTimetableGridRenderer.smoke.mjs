@@ -35,6 +35,22 @@ const html = buildPanelTimetableGridHtmlForDirection({
     toText: (value) => String(value ?? '').trim()
 });
 
+const fallbackKeyHtml = buildPanelTimetableGridHtmlForDirection({
+    rowsForDir: [
+        {
+            timeMs: 7200000,
+            serviceHourIndex: 2,
+            minuteLabel: '16',
+            tripKey: 'fallback-trip',
+            typeName: 'Local',
+            terminalDisplayName: 'Tokyo'
+        }
+    ],
+    expanded: false,
+    nowMs: 7200000,
+    serviceDayStartMs: 0
+});
+
 assert.match(html, /panel-timetable-grid/);
 assert.match(html, /data-grid-current-hour="1"/);
 assert.match(html, /data-trip-key="trip-1"/);
@@ -42,6 +58,7 @@ assert.match(html, /\[S·B\]T/);
 assert.match(html, /aria-label="始发站"/);
 assert.match(html, />始</);
 assert.match(html, />05</);
+assert.match(fallbackKeyHtml, /data-trip-key="fallback-trip"/);
 
 assert.equal(
     buildPanelTimetableGridHtmlForDirection({ rowsForDir: [] }),
