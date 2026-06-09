@@ -100,6 +100,11 @@ import {
     buildPanelLineMergeInfo,
     normalizeArrayLike
 } from './panelServingLineMerge.js';
+import {
+    applyTemporarySourceLineOverrides,
+    createEmptyPanelThroughServiceState,
+    resolvePanelThroughServiceSetup
+} from './panelThroughServiceSetup.js';
 import { createPanelCatalogController } from './panelCatalogController.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
 import {
@@ -5161,9 +5166,11 @@ export function createPanel(options = {}) {
         hideTripDetail();
         dirPrintPayloadByKey.clear();
         dirFilterStateByKey.clear();
-        temporaryPanelLineMetaById = new Map();
-        temporaryPanelSourceLineIdsByDisplayLineId = new Map();
-        temporaryPanelAllowedTripKeysByDisplayLineId = new Map();
+        ({
+            temporaryLineMetaById: temporaryPanelLineMetaById,
+            temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
+            temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId
+        } = createEmptyPanelThroughServiceState());
         panelShell.hide();
         scheduleCatalogRefresh();
     };
@@ -5242,9 +5249,11 @@ export function createPanel(options = {}) {
             getLineMeta
         });
 
-        temporaryPanelLineMetaById = new Map();
-        temporaryPanelSourceLineIdsByDisplayLineId = new Map();
-        temporaryPanelAllowedTripKeysByDisplayLineId = new Map();
+        ({
+            temporaryLineMetaById: temporaryPanelLineMetaById,
+            temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
+            temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId
+        } = createEmptyPanelThroughServiceState());
 
         let displayServingIds = Array.isArray(mergeInfo?.displayLineIds) ? mergeInfo.displayLineIds : currentStationServingIds;
 
@@ -5262,7 +5271,16 @@ export function createPanel(options = {}) {
             )
         });
         if (renderToken !== stationRenderToken) return;
-        if (throughPlan) {
+        ({
+            temporaryLineMetaById: temporaryPanelLineMetaById,
+            temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
+            temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId,
+            displayServingIds
+        } = resolvePanelThroughServiceSetup({
+            throughPlan,
+            displayServingIds
+        }));
+        /* if (throughPlan) {
                     // 1. 初始化 Map
                     temporaryPanelLineMetaById = throughPlan.temporaryLineMetaById instanceof Map 
                         ? throughPlan.temporaryLineMetaById : new Map();
@@ -5274,7 +5292,7 @@ export function createPanel(options = {}) {
                     if (Array.isArray(throughPlan.displayServingIds)) {
                         displayServingIds = throughPlan.displayServingIds;
                     }
-                }
+                } */
 
         const mergedDisplayInfo = buildPanelLineMergeInfo({
             servingLineIds: displayServingIds,
@@ -5283,7 +5301,14 @@ export function createPanel(options = {}) {
         displayServingIds = Array.isArray(mergedDisplayInfo?.displayLineIds)
             ? mergedDisplayInfo.displayLineIds
             : displayServingIds;
-        currentLineGroupByMainId = mergedDisplayInfo?.lineGroupByMainId instanceof Map
+        currentLineGroupByMainId = applyTemporarySourceLineOverrides({
+            lineGroupByMainId: mergedDisplayInfo?.lineGroupByMainId instanceof Map
+                ? mergedDisplayInfo.lineGroupByMainId
+                : new Map(),
+            temporarySourceLineIdsByDisplayLineId,
+            normalize: toText
+        });
+        /* currentLineGroupByMainId = mergedDisplayInfo?.lineGroupByMainId instanceof Map
             ? mergedDisplayInfo.lineGroupByMainId
             : new Map();
 
@@ -5297,7 +5322,7 @@ export function createPanel(options = {}) {
                 if (!src.length) continue;
                 currentLineGroupByMainId.set(did, src);
             }
-        }
+        } */
 
         const lineStationNameByLineId = await buildTransferLineStationNameMap({
             stationId: currentStationId,
