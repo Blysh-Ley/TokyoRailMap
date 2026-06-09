@@ -110,6 +110,11 @@ import {
     resetPanelStationRenderTransientState
 } from './panelStationRenderBootstrap.js';
 import { createPanelHoverRestoreRuntime } from './panelHoverRestoreRuntime.js';
+import {
+    dispatchPanelDirectionToggleIntent,
+    dispatchPanelDirFilterIntent,
+    dispatchPanelPrimarySelectionIntent
+} from './panelIntentDispatcher.js';
 import { buildPanelStationRenderInputs } from './panelStationRenderInputs.js';
 import { createPanelPinnedTripDetailState } from './panelPinnedTripDetailState.js';
 import {
@@ -4587,11 +4592,15 @@ export function createPanel(options = {}) {
         const filterTarget = getDirFilterButtonTarget(evt?.target);
         if (filterTarget) {
             stopEvent(evt);
-            const lineDirKey = makeLineDirKey(filterTarget.lineId, filterTarget.dirKey);
-            applyDirPreviewByKey(lineDirKey, { fitMode: 'commit' });
-            pinDirPreviewByKey(lineDirKey);
-            setPinnedPanelSelection('dir', lineDirKey);
-            toggleDirFilterPopoverFromButton(filterTarget.buttonEl);
+            dispatchPanelDirFilterIntent({
+                filterTarget,
+                fitMode: 'commit',
+                makeLineDirKey,
+                applyDirPreviewByKey,
+                pinDirPreviewByKey,
+                setPinnedPanelSelection,
+                toggleDirFilterPopoverFromButton
+            });
             return;
         }
 
@@ -4614,46 +4623,42 @@ export function createPanel(options = {}) {
         const dirTriangle = getDirTriangleTarget(evt?.target);
         if (dirTriangle) {
             stopEvent(evt);
-            toggleDirectionTimetable(dirTriangle.lineId, dirTriangle.dirKey);
+            dispatchPanelDirectionToggleIntent({
+                dirTarget: dirTriangle,
+                toggleDirectionTimetable
+            });
             return;
         }
 
         const dirTitle = getDirTitleTarget(evt?.target);
         if (dirTitle) {
             stopEvent(evt);
-            toggleDirectionTimetable(dirTitle.lineId, dirTitle.dirKey);
+            dispatchPanelDirectionToggleIntent({
+                dirTarget: dirTitle,
+                toggleDirectionTimetable
+            });
             return;
         }
 
-        const lineId = getLineTarget(evt?.target);
-        if (lineId) {
+        const touchPrimaryTarget = resolveMousePrimaryTarget(evt?.target);
+        if (touchPrimaryTarget && (touchPrimaryTarget.kind === 'line' || touchPrimaryTarget.kind === 'company')) {
             stopEvent(evt);
-            clearHoverTimer();
-            hoverCandidateKey = null;
-            lastFiredHoverKey = null;
-            lastAppliedHoverKey = null;
-            clearPinnedDirPreview();
-            setPinnedPanelSelection('line', String(lineId));
-            if (onSelectLine) onSelectLine(String(lineId), { source: 'panel-touch', isolateStations: true });
-            return;
-        }
-
-        const companyName = getCompanyTarget(evt?.target);
-        if (companyName) {
-            stopEvent(evt);
-            clearHoverTimer();
-            hoverCandidateKey = null;
-            lastFiredHoverKey = null;
-            lastAppliedHoverKey = null;
-            clearPinnedDirPreview();
-            setPinnedPanelSelection('company', String(companyName));
-            if (onSelectCompany) {
-                onSelectCompany(String(companyName), {
-                    source: 'panel-touch',
-                    stationLineIds: Array.isArray(currentStationServingIds) ? currentStationServingIds.slice() : []
-                });
-            }
-            return;
+            const touchPrimaryResult = dispatchPanelPrimarySelectionIntent({
+                primaryTarget: touchPrimaryTarget,
+                mode: 'touch',
+                clearHoverTimer,
+                resetHoverState: () => {
+                    hoverCandidateKey = null;
+                    lastFiredHoverKey = null;
+                    lastAppliedHoverKey = null;
+                },
+                clearPinnedDirPreview,
+                setPinnedPanelSelection,
+                onSelectLine,
+                onSelectCompany,
+                currentStationServingIds
+            });
+            if (touchPrimaryResult.handled) return;
         }
 
         if (!evt?.target || !(evt.target instanceof Element) || !body.contains(evt.target)) {
@@ -4843,25 +4848,35 @@ export function createPanel(options = {}) {
         const filterTarget = getDirFilterButtonTarget(evt?.target);
         if (filterTarget) {
             stopEvent(evt);
-            const lineDirKey = makeLineDirKey(filterTarget.lineId, filterTarget.dirKey);
-            applyDirPreviewByKey(lineDirKey, { fitMode: 'preview' });
-            pinDirPreviewByKey(lineDirKey);
-            setPinnedPanelSelection('dir', lineDirKey);
-            toggleDirFilterPopoverFromButton(filterTarget.buttonEl);
+            dispatchPanelDirFilterIntent({
+                filterTarget,
+                fitMode: 'preview',
+                makeLineDirKey,
+                applyDirPreviewByKey,
+                pinDirPreviewByKey,
+                setPinnedPanelSelection,
+                toggleDirFilterPopoverFromButton
+            });
             return;
         }
 
         const dirTriangle = getDirTriangleTarget(evt?.target);
         if (dirTriangle) {
             stopEvent(evt);
-            toggleDirectionTimetable(dirTriangle.lineId, dirTriangle.dirKey);
+            dispatchPanelDirectionToggleIntent({
+                dirTarget: dirTriangle,
+                toggleDirectionTimetable
+            });
             return;
         }
 
         const dirTitle = getDirTitleTarget(evt?.target);
         if (dirTitle) {
             stopEvent(evt);
-            toggleDirectionTimetable(dirTitle.lineId, dirTitle.dirKey);
+            dispatchPanelDirectionToggleIntent({
+                dirTarget: dirTitle,
+                toggleDirectionTimetable
+            });
             return;
         }
 
@@ -4869,28 +4884,21 @@ export function createPanel(options = {}) {
         if (!primaryTarget || (primaryTarget.kind !== 'line' && primaryTarget.kind !== 'company')) return;
 
         stopEvent(evt);
-        clearHoverTimer();
-        hoverCandidateKey = null;
-        lastFiredHoverKey = null;
-
-        clearPinnedDirPreview();
-
-        if (primaryTarget.kind === 'line') {
-            if (lastMousePrimaryKey !== primaryTarget.key) {
-                applyLineHoverSelection(primaryTarget.lineId);
-                lastMousePrimaryKey = primaryTarget.key;
-            }
-            setPinnedPanelSelection('line', String(primaryTarget.lineId));
-            return;
-        }
-
-        if (primaryTarget.kind === 'company') {
-            if (lastMousePrimaryKey !== primaryTarget.key) {
-                applyCompanyHoverSelection(primaryTarget.companyName);
-                lastMousePrimaryKey = primaryTarget.key;
-            }
-            setPinnedPanelSelection('company', String(primaryTarget.companyName));
-        }
+        const primaryResult = dispatchPanelPrimarySelectionIntent({
+            primaryTarget,
+            mode: 'mouse',
+            lastMousePrimaryKey,
+            clearHoverTimer,
+            resetHoverState: () => {
+                hoverCandidateKey = null;
+                lastFiredHoverKey = null;
+            },
+            clearPinnedDirPreview,
+            setPinnedPanelSelection,
+            applyLineHoverSelection,
+            applyCompanyHoverSelection
+        });
+        lastMousePrimaryKey = primaryResult.lastMousePrimaryKey;
     };
 
     const onBodyLeave = (evt) => {
