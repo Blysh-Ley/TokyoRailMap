@@ -126,6 +126,7 @@ import {
     derivePanelTripDetailBranchRuntime,
     resolvePanelTripDetailBranchRefIds
 } from './panelTripDetailBranchRuntime.js';
+import { preparePanelTripDetailBranchMainFlow } from './panelTripDetailBranchMainFlow.js';
 import { buildPanelTripDetailSegmentBlocks } from './panelTripDetailSegmentBlockBuilder.js';
 import { renderPanelTripDetailLinearRows } from './panelTripDetailLinearRowsRenderer.js';
 import { buildPanelTripDetailLayoutShell } from './panelTripDetailLayoutShell.js';
@@ -4040,17 +4041,21 @@ export function createPanel(options = {}) {
             });
 
         } else {
-            const mainSegWithPast = segmentsWithPast.find((s) => s.kind === 'main') || null;
-            const mainRows = Array.isArray(mainSegWithPast?.rows) ? mainSegWithPast.rows : [];
-            const mainDescriptor = currentLineDesc || buildLineDescriptor(getTripLineId(trip) || lineId);
-            const mainPast = mainRows.length ? !!mainRows[0]?.isPast : false;
-            const primaryLaneIndex = pickPrimaryLaneIndex(activeBranchLanes, getTripLineId(trip) || lineId);
-            const orderedLanes = [
-                activeBranchLanes[primaryLaneIndex],
-                ...activeBranchLanes.filter((_, idx) => idx !== primaryLaneIndex)
-            ].filter(Boolean);
-            const primaryLane = orderedLanes[0] || null;
-            const secondaryLanes = orderedLanes.slice(1);
+            const {
+                mainDescriptor,
+                mainRows,
+                primaryLane,
+                secondaryLanes
+            } = preparePanelTripDetailBranchMainFlow({
+                activeBranchLanes,
+                buildLineDescriptor,
+                currentLineDesc,
+                fallbackLineId: lineId,
+                pickPrimaryLaneIndex,
+                segmentsWithPast,
+                toText,
+                tripLineId: getTripLineId(trip)
+            });
 
             const renderMainBlock = () => {
                 const mainLineColor = toText(mainDescriptor?.color || typeColor || '');
