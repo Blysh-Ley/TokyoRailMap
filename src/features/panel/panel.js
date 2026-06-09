@@ -73,6 +73,7 @@ import { enhancePanelLineHeaderIcons } from './panelLineHeaderEnhancer.js';
 import { exportElementToPng } from './panelExportCapture.js';
 import { installPanelTimetablePrintPayloadBuilder } from './panelPrintPayloadBridge.js';
 import { createPanelScrollRuntime } from './panelScrollRuntime.js';
+import { hydrateRenderedTimetable } from './panelTimetablePostRenderHydrator.js';
 import {
     createPanelEventDelegationCoordinator,
     resolvePanelCompanyTarget,
@@ -3569,27 +3570,14 @@ export function createPanel(options = {}) {
         ttEl.innerHTML = toText(rendered?.html) || '';
         applyLineStationInfo(lineEl, rendered?.stationInfo || null);
 
-        try {
-            const icons = Array.from(ttEl.querySelectorAll('.panel-dir-filter-icon'));
-            for (const icon of icons) {
-                if (!(icon instanceof HTMLImageElement)) continue;
-                setImageElementFromCache(icon, getIconCandidates('filter.svg'), {
-                    cacheKey: 'icon:filter.svg',
-                    fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('filter.svg'), { cacheKey: 'icon:filter.svg' })
-                }).catch(() => null);
-            }
-
-            const printIcons = Array.from(ttEl.querySelectorAll('.panel-dir-print-icon'));
-            for (const icon of printIcons) {
-                if (!(icon instanceof HTMLImageElement)) continue;
-                setImageElementFromCache(icon, getIconCandidates('print.svg'), {
-                    cacheKey: 'icon:print.svg',
-                    fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('print.svg'), { cacheKey: 'icon:print.svg' })
-                }).catch(() => null);
-            }
-        } catch {
-            // ignore
-        }
+        hydrateRenderedTimetable(ttEl, {
+            ElementRef: Element,
+            HTMLImageElementRef: HTMLImageElement,
+            getIconCandidates,
+            getPreferredCachedImageSrc,
+            setImageElementFromCache
+        });
+        /*
 
         // 方向展开态：默认把各方向可视区域滚到“最后一条已过班次”处（1 past + 9 future 的视觉效果）
         try {
@@ -3657,6 +3645,7 @@ export function createPanel(options = {}) {
         }
 
         // 超长方向标题/班次终点站：自动滚动（等待布局稳定 + 已完成默认定位滚动后再测量）
+        */
         scheduleMarqueeApply(ttEl);
     };
 
