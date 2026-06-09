@@ -71,6 +71,7 @@ import {
 } from './panelCompanyCatalogRenderer.js';
 import { enhancePanelLineHeaderIcons } from './panelLineHeaderEnhancer.js';
 import { exportElementToPng } from './panelExportCapture.js';
+import { installPanelTimetablePrintPayloadBuilder } from './panelPrintPayloadBridge.js';
 import {
     createPanelEventDelegationCoordinator,
     resolvePanelCompanyTarget,
@@ -3523,14 +3524,10 @@ export function createPanel(options = {}) {
         };
     };
 
-    try {
-        window.TokyoRailPanelTimetablePrintPayloadBuilder = {
-            buildLineStationPrintPayload,
-            createLineStationPrintPayloadSession
-        };
-    } catch {
-        // ignore
-    }
+    installPanelTimetablePrintPayloadBuilder({
+        buildLineStationPrintPayload,
+        createLineStationPrintPayloadSession
+    });
 
     const renderTimetableForLineEl = async (lineEl, stationId, token) => {
         if (!lineEl || !(lineEl instanceof Element)) return;
