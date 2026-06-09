@@ -63,6 +63,11 @@ import {
     normalizeTimetableSourceLineIds
 } from './panelTimetableViewModel.js';
 import {
+    choosePanelHourWindow,
+    formatPanelServiceHourLabel,
+    toPanelServiceHourIndex
+} from './panelTimetableHourWindow.js';
+import {
     buildPanelCompaniesHtml,
     collectPanelCatalogEntries,
     renderPanelCatalogEntriesHtml
@@ -1822,48 +1827,6 @@ export function createPanel(options = {}) {
         toText
     });
 
-    const toServiceHourIndex = (timeMs, serviceDayStartMs) => {
-        const ms = Number(timeMs);
-        const base = Number(serviceDayStartMs);
-        if (!Number.isFinite(ms) || !Number.isFinite(base)) return null;
-        return Math.floor((ms - base) / 3600000);
-    };
-
-    const formatServiceHourLabel = (serviceHourIndex) => {
-        const idx = Number(serviceHourIndex);
-        if (!Number.isFinite(idx)) return '';
-        const hour = (SERVICE_DAY_BOUNDARY_HOUR + idx) % 24;
-        return String((hour + 24) % 24).padStart(2, '0');
-    };
-
-    const chooseHourWindow = ({ minHour, maxHour, currentHour, expanded }) => {
-        if (!Number.isFinite(minHour) || !Number.isFinite(maxHour)) return [];
-        if (maxHour < minHour) return [];
-
-        if (!expanded) {
-            let start = Number.isFinite(currentHour) ? currentHour : minHour;
-            if (start < minHour) start = minHour;
-            if (start > maxHour) start = maxHour;
-            const out = [];
-            for (let hour = start; hour <= maxHour; hour += 1) out.push(hour);
-            return out;
-        }
-
-        const size = 10;
-        let start = currentHour - 1;
-        if (!Number.isFinite(start)) start = minHour;
-
-        if (start < minHour) start = minHour;
-        if (start > maxHour) start = Math.max(minHour, maxHour - size + 1);
-
-        let end = Math.min(maxHour, start + size - 1);
-        if ((end - start + 1) < size) start = Math.max(minHour, end - size + 1);
-
-        const out = [];
-        for (let hour = start; hour <= end; hour += 1) out.push(hour);
-        return out;
-    };
-
     const buildGridHintsHtml = ({ typeHints, terminalHints, specialHints }) => {
         const typeLegendItems = (Array.isArray(typeHints) ? typeHints : [])
             .map((item) => {
@@ -1998,14 +1961,14 @@ export function createPanel(options = {}) {
             return '<div class="panel-timetable-empty">当前无班次</div>';
         }
 
-        const currentHour = toServiceHourIndex(nowMs, serviceDayStartMs);
+        const currentHour = toPanelServiceHourIndex(nowMs, serviceDayStartMs);
         const currentHourForFocus = Number.isFinite(currentHour)
             ? Math.max(minHour, Math.min(maxHour, currentHour))
             : minHour;
         const focusStartHour = currentHourForFocus;
         const hourWindow = expanded
             ? Array.from({ length: maxHour - minHour + 1 }, (_, i) => minHour + i)
-            : chooseHourWindow({ minHour, maxHour, currentHour, expanded: false });
+            : choosePanelHourWindow({ minHour, maxHour, currentHour, expanded: false });
         if (!hourWindow.length) return '<div class="panel-timetable-empty">当前无班次</div>';
 
         const typeAbbrByName = new Map((Array.isArray(typeHints) ? typeHints : []).map((x) => [toText(x?.full), toText(x?.abbr)]));
@@ -2107,7 +2070,7 @@ export function createPanel(options = {}) {
 
             return `
                 <div class="panel-grid-row ${bgClass}"${focusAttr}${currentAttr} data-grid-hour="${escapeHtml(String(hour))}">
-                    <div class="panel-grid-hour">${escapeHtml(formatServiceHourLabel(hour))}</div>
+                    <div class="panel-grid-hour">${escapeHtml(formatPanelServiceHourLabel(hour, { serviceDayBoundaryHour: SERVICE_DAY_BOUNDARY_HOUR }))}</div>
                     <div class="panel-grid-trips">
                         ${cellsHtml}
                     </div>
@@ -2358,7 +2321,7 @@ export function createPanel(options = {}) {
                     arrPlus: !!arrParsed?.isNextDaySegment,
                     depPlus: !!depParsed?.isNextDaySegment,
                     timeMs,
-                    serviceHourIndex: toServiceHourIndex(timeMs, serviceDayStartMs),
+                    serviceHourIndex: toPanelServiceHourIndex(timeMs, serviceDayStartMs),
                     minuteLabel: toText(timeStr).slice(3, 5),
                     isPast: timeMs < now,
                     typeName,
