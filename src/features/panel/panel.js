@@ -111,6 +111,7 @@ import {
 } from './panelStationRenderBootstrap.js';
 import { createPanelHoverRestoreRuntime } from './panelHoverRestoreRuntime.js';
 import { buildPanelStationRenderInputs } from './panelStationRenderInputs.js';
+import { createPanelPinnedTripDetailState } from './panelPinnedTripDetailState.js';
 import { createPanelCatalogController } from './panelCatalogController.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
 import {
@@ -1348,29 +1349,9 @@ export function createPanel(options = {}) {
         tripPreviewScheduler.schedule({ previewKey, payload, immediate });
     };
 
-    const scheduleTripDetailHide = (delayMs = 220) => {
-        clearTripDetailHideTimer();
-        tripDetailHideTimer = setTimeout(() => {
-            tripDetailHideTimer = null;
-            if (!tripDetailPinned) {
-                hideTripDetail();
-                lastTripDetailKey = null;
-            }
-        }, delayMs);
-    };
-
-    const lockTripPreview = (tripKey) => {
-        tripLocked = true;
-        lockedTripKey = toText(tripKey) || null;
-        tripDetailPinned = true;
-        clearTripDetailHideTimer();
-    };
-
-    const unlockTripPreview = () => {
-        tripLocked = false;
-        lockedTripKey = null;
-        tripDetailPinned = false;
-    };
+    let scheduleTripDetailHide = () => {};
+    let lockTripPreview = () => {};
+    let unlockTripPreview = () => {};
 
     // expanded state per (lineId, direction)
     let expandedDirKeys = new Set();
@@ -1468,11 +1449,8 @@ export function createPanel(options = {}) {
         body.classList.add('is-pinned');
     };
 
-    const getCurrentPinnedInteractionKey = () => {
-        return panelSelectionState.getCurrentPinnedInteractionKey({ tripLocked, lockedTripKey });
-    };
-
-    const hasPinnedPanelState = () => !!getCurrentPinnedInteractionKey();
+    let getCurrentPinnedInteractionKey = () => '';
+    let hasPinnedPanelState = () => false;
 
     const isDirFilterPinned = () => {
         // 仅“方向筛选按钮点击后”的固定态允许被时刻表 hover 打断。
@@ -1539,23 +1517,46 @@ export function createPanel(options = {}) {
         }
     };
 
-    const clearPinnedPanelState = ({ restoreStation = true } = {}) => {
-        const hadPinned = hasPinnedPanelState();
-        panelSelectionState.clearPinnedPanelSelection();
-        body.classList.remove('is-pinned');
-        if (tripLocked || tripDetailPinned) {
-            hideTripDetail();
-            lastTripDetailKey = null;
+    const panelPinnedTripDetailState = createPanelPinnedTripDetailState({
+        toText,
+        clearTripDetailHideTimer,
+        scheduleTripDetailHideTimer: (callback, delayMs) => {
+            tripDetailHideTimer = setTimeout(() => {
+                tripDetailHideTimer = null;
+                callback?.();
+            }, delayMs);
+        },
+        hideTripDetail,
+        panelSelectionState,
+        body,
+        clearPinnedDirPreview,
+        restoreStationDefaultSelection,
+        getTripLocked: () => tripLocked,
+        setTripLocked: (value) => {
+            tripLocked = value;
+        },
+        getLockedTripKey: () => lockedTripKey,
+        setLockedTripKey: (value) => {
+            lockedTripKey = value;
+        },
+        getTripDetailPinned: () => tripDetailPinned,
+        setTripDetailPinned: (value) => {
+            tripDetailPinned = value;
+        },
+        setLastTripDetailKey: (value) => {
+            lastTripDetailKey = value;
+        },
+        setLastAppliedHoverKey: (value) => {
+            lastAppliedHoverKey = value;
         }
-        if (panelSelectionState.getPinnedDirPreviewKey()) {
-            clearPinnedDirPreview();
-        }
-        if (restoreStation) {
-            lastAppliedHoverKey = null;
-            restoreStationDefaultSelection();
-        }
-        return hadPinned;
-    };
+    });
+    scheduleTripDetailHide = (delayMs = 220) => panelPinnedTripDetailState.scheduleTripDetailHide(delayMs);
+    lockTripPreview = (tripKey) => panelPinnedTripDetailState.lockTripPreview(tripKey);
+    unlockTripPreview = () => panelPinnedTripDetailState.unlockTripPreview();
+    getCurrentPinnedInteractionKey = () => panelPinnedTripDetailState.getCurrentPinnedInteractionKey();
+    hasPinnedPanelState = () => panelPinnedTripDetailState.hasPinnedPanelState();
+    const clearPinnedPanelState = ({ restoreStation = true } = {}) =>
+        panelPinnedTripDetailState.clearPinnedPanelState({ restoreStation });
 
     const applyDayToggleUi = () => {
         const day = currentServiceDay;
