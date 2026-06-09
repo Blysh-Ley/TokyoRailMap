@@ -117,6 +117,11 @@ import {
 } from './panelIntentDispatcher.js';
 import { buildPanelTripDetailTitleHtml } from './panelTripDetailTitleRenderer.js';
 import {
+    renderPanelTripDetailGridMarkerCell,
+    renderPanelTripDetailGridNoteCell,
+    renderPanelTripDetailGridStopCellsSharedStation
+} from './panelTripDetailGridHelpers.js';
+import {
     getPanelTripDetailSegmentFirstRow,
     getPanelTripDetailSegmentLastRow,
     isPanelTripDetailBoundaryPast,
@@ -3878,55 +3883,6 @@ export function createPanel(options = {}) {
             });
         };
 
-        const renderGridNoteCell = ({ descriptor, typeName, typeColor, isPast, colStart, colSpan = 3 }) => {
-            if (!descriptor?.text) return '';
-            const past = !!isPast;
-            const lineColor = past ? '#ccc' : toText(descriptor?.color);
-            const dotColor = past ? '#ccc' : toText(descriptor?.color);
-            const safeTypeName2 = toText(typeName);
-            const safeTypeColor2 = past ? '' : toText(typeColor);
-            const noteCls = `panel-trip-detail-note-row panel-trip-detail-grid-note${past ? ' is-past' : ''}`;
-            const col = Number(colStart) || 1;
-            const span = Math.max(1, Number(colSpan) || 3);
-            return `
-                <div class="${noteCls}" style="grid-column:${col} / span ${span};">
-                    <span class="panel-trip-detail-note-dot"${dotColor ? ` style="background:${escapeHtml(dotColor)}"` : ''}></span>
-                    <span class="panel-trip-detail-note-line"${lineColor ? ` style="color:${escapeHtml(lineColor)}"` : ''}>${escapeHtml(toText(descriptor?.text))}</span>
-                    ${safeTypeName2 ? `<span class="panel-trip-detail-note-type"${safeTypeColor2 ? ` style="color:${escapeHtml(safeTypeColor2)}"` : ''}>${escapeHtml(safeTypeName2)}</span>` : ''}
-                </div>
-            `;
-        };
-
-        const renderGridStopCellsSharedStation = ({ stop, timeColStart, lineColor, rowMarkerCol = 0, rowMarkerText = '' }) => {
-            const s = stop || {};
-            const timeCol = Math.max(2, Number(timeColStart) || 2);
-            const stationId = toText(s.stationId);
-            const pastCls = s.isPast ? ' is-past' : '';
-            const safeLineColor = toText(lineColor);
-            const markerCol = Number(rowMarkerCol) || 0;
-            const markerText = toText(rowMarkerText);
-            const stationHtml = renderPanelTripDetailStationCellHtml({ className: `panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}`, style: 'grid-column:1;', dataStationId: stationId, lineColor: safeLineColor, stationCode: toText(stationsIndex?.idToCode?.get?.(stationId) || ''), stationName: toText(s.stationName || stationId), stationId });
-            const timeHtml = `<div class="panel-trip-detail-time panel-trip-detail-moment panel-trip-detail-grid-cell${pastCls}" style="grid-column:${timeCol} / span 2;">${renderTripDetailMomentHtml(s)}</div>`;
-            const cells = [
-                { col: 1, html: stationHtml },
-                { col: timeCol, html: timeHtml }
-            ];
-            if (markerCol > 0 && markerText) {
-                const markerHtml = `<div class="panel-trip-detail-grid-break-marker panel-trip-detail-grid-flow-marker${pastCls}" style="grid-column:${markerCol};">${escapeHtml(markerText)}</div>`;
-                cells.push({ col: markerCol, html: markerHtml });
-            }
-            cells.sort((a, b) => a.col - b.col);
-            return cells.map((x) => x.html).join('');
-        };
-
-        const renderGridMarkerCell = ({ text, col, isPast = false, className = '' }) => {
-            const safeText = toText(text);
-            if (!safeText) return '';
-            const markerCol = Math.max(1, Number(col) || 1);
-            const cls = `panel-trip-detail-grid-break-marker${isPast ? ' is-past' : ''}${className ? ` ${className}` : ''}`;
-            return `<div class="${cls}" style="grid-column:${markerCol};">${escapeHtml(safeText)}</div>`;
-        };
-
         const pickPrimaryLaneIndex = (lanes, mainLineId) => {
             const list = Array.isArray(lanes) ? lanes : [];
             if (!list.length) return 0;
@@ -4172,18 +4128,30 @@ export function createPanel(options = {}) {
 
             const renderMainBlock = () => {
                 let html = '';
-                html += renderGridNoteCell({
+                html += renderPanelTripDetailGridNoteCell({
                     descriptor: mainDescriptor,
                     typeName,
                     typeColor,
                     isPast: mainPast,
                     colStart: 1,
-                    colSpan: totalCols
+                    colSpan: totalCols,
+                    escapeHtml,
+                    toText
                 });
 
                 const mainLineColor = toText(mainDescriptor?.color || typeColor || '');
                 for (const s of mainRows) {
-                    html += renderGridStopCellsSharedStation({ stop: { ...s, lineColor: mainLineColor }, timeColStart: primaryTimeColStart, lineColor: mainLineColor });
+                    html += renderPanelTripDetailGridStopCellsSharedStation({
+                        stop: { ...s, lineColor: mainLineColor },
+                        timeColStart: primaryTimeColStart,
+                        lineColor: mainLineColor,
+                        stationCode: toText(stationsIndex?.idToCode?.get?.(toText(s?.stationId)) || ''),
+                        stationName: toText(s?.stationName || toText(s?.stationId)),
+                        renderPanelTripDetailStationCellHtml,
+                        renderTripDetailMomentHtml,
+                        escapeHtml,
+                        toText
+                    });
                 }
                 return html;
             };
@@ -4194,23 +4162,31 @@ export function createPanel(options = {}) {
                 const laneBaseRows = Array.isArray(lane?.rows) ? lane.rows : [];
                 const laneRows = markRowsPastByCurrentStation(laneBaseRows, fallbackPast);
                 const lanePast = laneRows.length ? !!laneRows[0]?.isPast : false;
-                html += renderGridNoteCell({
+                html += renderPanelTripDetailGridNoteCell({
                     descriptor: lane.descriptor,
                     typeName: lane.typeName,
                     typeColor: lane.typeColor,
                     isPast: lanePast,
                     colStart: 1,
-                    colSpan: totalCols
+                    colSpan: totalCols,
+                    escapeHtml,
+                    toText
                 });
 
                 const laneLineColor = toText(lane?.descriptor?.color || lane?.typeColor || '');
                 for (const stop of laneRows) {
-                    html += renderGridStopCellsSharedStation({
+                    html += renderPanelTripDetailGridStopCellsSharedStation({
                         stop: { ...stop, lineColor: laneLineColor },
                         timeColStart,
                         lineColor: laneLineColor,
                         rowMarkerCol: flowMarkerCol,
-                        rowMarkerText: flowMarkerCol > 0 ? '||' : ''
+                        rowMarkerText: flowMarkerCol > 0 ? '||' : '',
+                        stationCode: toText(stationsIndex?.idToCode?.get?.(toText(stop?.stationId)) || ''),
+                        stationName: toText(stop?.stationName || toText(stop?.stationId)),
+                        renderPanelTripDetailStationCellHtml,
+                        renderTripDetailMomentHtml,
+                        escapeHtml,
+                        toText
                     });
                 }
                 return html;
@@ -4231,21 +4207,27 @@ export function createPanel(options = {}) {
 
                 const startRow = `<div class="panel-trip-detail-grid-break-row${pastCls}" style="grid-column:1 / span ${totalCols}; --panel-trip-detail-cols:${totalCols};">`;
                 const endRow = '</div>';
-                const markerLeft = renderGridMarkerCell({
+                const markerLeft = renderPanelTripDetailGridMarkerCell({
                     text: branchMode === 'split' ? '┣' : '┣',
                     col: primaryTimeColStart,
-                    isPast: breakIsPast
+                    isPast: breakIsPast,
+                    escapeHtml,
+                    toText
                 });
-                const markerCenter = renderGridMarkerCell({
+                const markerCenter = renderPanelTripDetailGridMarkerCell({
                     text: branchMode === 'split' ? '解编' : '并结',
                     col: primaryTimeColStart + 1,
-                    isPast: breakIsPast
+                    isPast: breakIsPast,
+                    escapeHtml,
+                    toText
                 });
                 const markerRight = firstBranchMarkerCol
-                    ? renderGridMarkerCell({
+                    ? renderPanelTripDetailGridMarkerCell({
                         text: branchMode === 'split' ? '┓' : '┛',
                         col: firstBranchMarkerCol,
-                        isPast: breakIsPast
+                        isPast: breakIsPast,
+                        escapeHtml,
+                        toText
                     })
                     : '';
 
