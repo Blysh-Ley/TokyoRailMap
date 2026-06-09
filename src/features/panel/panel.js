@@ -118,9 +118,8 @@ import {
 import { buildPanelTripDetailTitleHtml } from './panelTripDetailTitleRenderer.js';
 import {
     renderPanelTripDetailGridMarkerCell,
-    renderPanelTripDetailGridNoteCell,
-    renderPanelTripDetailGridStopCellsSharedStation
 } from './panelTripDetailGridHelpers.js';
+import { renderPanelTripDetailGridLaneBlock } from './panelTripDetailGridLaneBlockRenderer.js';
 import { renderPanelTripDetailBranchBreakRow } from './panelTripDetailBranchBreakRowRenderer.js';
 import {
     getPanelTripDetailSegmentFirstRow,
@@ -4128,69 +4127,44 @@ export function createPanel(options = {}) {
             const secondaryLanes = orderedLanes.slice(1);
 
             const renderMainBlock = () => {
-                let html = '';
-                html += renderPanelTripDetailGridNoteCell({
+                const mainLineColor = toText(mainDescriptor?.color || typeColor || '');
+                return renderPanelTripDetailGridLaneBlock({
                     descriptor: mainDescriptor,
                     typeName,
                     typeColor,
-                    isPast: mainPast,
-                    colStart: 1,
-                    colSpan: totalCols,
+                    rows: mainRows,
+                    timeColStart: primaryTimeColStart,
+                    totalCols,
+                    lineColor: mainLineColor,
+                    resolveStationCode: (stationId) => toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
+                    renderPanelTripDetailStationCellHtml,
+                    renderTripDetailMomentHtml,
                     escapeHtml,
                     toText
                 });
-
-                const mainLineColor = toText(mainDescriptor?.color || typeColor || '');
-                for (const s of mainRows) {
-                    html += renderPanelTripDetailGridStopCellsSharedStation({
-                        stop: { ...s, lineColor: mainLineColor },
-                        timeColStart: primaryTimeColStart,
-                        lineColor: mainLineColor,
-                        stationCode: toText(stationsIndex?.idToCode?.get?.(toText(s?.stationId)) || ''),
-                        stationName: toText(s?.stationName || toText(s?.stationId)),
-                        renderPanelTripDetailStationCellHtml,
-                        renderTripDetailMomentHtml,
-                        escapeHtml,
-                        toText
-                    });
-                }
-                return html;
             };
 
             const renderLaneBlockAt = (lane, timeColStart, flowMarkerCol = 0, fallbackPast = false) => {
-                let html = '';
-                if (!lane) return html;
+                if (!lane) return '';
                 const laneBaseRows = Array.isArray(lane?.rows) ? lane.rows : [];
                 const laneRows = markRowsPastByCurrentStation(laneBaseRows, fallbackPast);
-                const lanePast = laneRows.length ? !!laneRows[0]?.isPast : false;
-                html += renderPanelTripDetailGridNoteCell({
+                const laneLineColor = toText(lane?.descriptor?.color || lane?.typeColor || '');
+                return renderPanelTripDetailGridLaneBlock({
                     descriptor: lane.descriptor,
                     typeName: lane.typeName,
                     typeColor: lane.typeColor,
-                    isPast: lanePast,
-                    colStart: 1,
-                    colSpan: totalCols,
+                    rows: laneRows,
+                    timeColStart,
+                    totalCols,
+                    lineColor: laneLineColor,
+                    flowMarkerCol,
+                    rowMarkerText: flowMarkerCol > 0 ? '||' : '',
+                    resolveStationCode: (stationId) => toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
+                    renderPanelTripDetailStationCellHtml,
+                    renderTripDetailMomentHtml,
                     escapeHtml,
                     toText
                 });
-
-                const laneLineColor = toText(lane?.descriptor?.color || lane?.typeColor || '');
-                for (const stop of laneRows) {
-                    html += renderPanelTripDetailGridStopCellsSharedStation({
-                        stop: { ...stop, lineColor: laneLineColor },
-                        timeColStart,
-                        lineColor: laneLineColor,
-                        rowMarkerCol: flowMarkerCol,
-                        rowMarkerText: flowMarkerCol > 0 ? '||' : '',
-                        stationCode: toText(stationsIndex?.idToCode?.get?.(toText(stop?.stationId)) || ''),
-                        stationName: toText(stop?.stationName || toText(stop?.stationId)),
-                        renderPanelTripDetailStationCellHtml,
-                        renderTripDetailMomentHtml,
-                        escapeHtml,
-                        toText
-                    });
-                }
-                return html;
             };
 
             const renderBreakRow = () => {
