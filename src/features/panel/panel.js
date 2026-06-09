@@ -1808,74 +1808,7 @@ export function createPanel(options = {}) {
         return null;
     }
 
-    const getStationToken = (stationId) => {
-        const sid = toText(stationId);
-        if (!sid) return '';
-        const parts = sid.split('.').map((x) => x.trim()).filter(Boolean);
-        return parts.length ? parts[parts.length - 1] : '';
-    };
-
-    const deriveThroughServiceDirectionFromChain = async (trip, displayLineId) => {
-        const lineId = toText(displayLineId);
-
-        const targetInfo = THROUGH_SERVICE_CONFIGS.find((info) => info.tempId === lineId);
-        const directionRule = targetInfo?.directionRule;
-
         // 如果不是特殊的直通线路，或者没有配置测向规则（如常磐线），直接退出
-        if (!directionRule) return '';
-
-        const ptChain = await collectPanelTripDetailTripChainByTrip({
-            startTrip: trip,
-            key: 'pt',
-            loadTripByRefId,
-            isTokenCurrent: () => true,
-            toText
-        });
-        const ntChain = await collectPanelTripDetailTripChainByTrip({
-            startTrip: trip,
-            key: 'nt',
-            loadTripByRefId,
-            isTokenCurrent: () => true,
-            toText
-        });
-
-        const orderedTrips = [
-            ...(Array.isArray(ptChain) ? ptChain.slice().reverse() : []),
-            trip,
-            ...(Array.isArray(ntChain) ? ntChain : [])
-        ];
-
-        let southIdx = -1;
-        let northIdx = -1;
-        let currentStationIdx = 0;
-
-        for (const chainTrip of orderedTrips) {
-            const tt = Array.isArray(chainTrip?.tt) ? chainTrip.tt : [];
-            
-            for (const stop of tt) {
-                const token = getStationToken(stop?.s);
-                if (!token) {
-                    currentStationIdx++;
-                    continue;
-                }
-
-                if (token === directionRule.southNode && southIdx === -1) {
-                    southIdx = currentStationIdx;
-                }
-                if (token === directionRule.northNode && northIdx === -1) {
-                    northIdx = currentStationIdx;
-                }
-                if (southIdx !== -1 && northIdx !== -1) {
-                    return southIdx < northIdx ? 'Northbound' : 'Southbound';
-                }
-
-                currentStationIdx++;
-            }
-        }
-
-        return '';
-    };
-
     const resolveThroughServiceEndpointIds = async (trip) => {
         const visited = new Set();
 
