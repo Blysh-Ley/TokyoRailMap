@@ -14,6 +14,21 @@ const EMPTY_TIMETABLE_HTML = '<div class="panel-timetable-empty">当前无班次
 
 const defaultBadgeTextColor = () => '#fff';
 
+const formatTypeBadgeLabel = (typeNameRaw) => {
+    const name = toText(typeNameRaw);
+    if (!name) return '';
+    if (/\s/.test(name)) return name;
+    const chars = Array.from(name);
+    if (chars.length !== 2) return name;
+    return `${chars[0]}      ${chars[1]}`;
+};
+
+const shouldUseSmallTypeBadgeFont = (typeNameRaw) => {
+    const plain = toText(typeNameRaw).replace(/\s+/g, '');
+    if (!plain) return false;
+    return Array.from(plain).length > 4;
+};
+
 const renderPanelTimetableRowHtml = ({
     row,
     renderTime,
@@ -35,6 +50,8 @@ const renderPanelTimetableRowHtml = ({
     const typeStyle = ` style="--panel-type-badge-bg:${escapeHtml(badgeBg)};--panel-type-badge-fg:${escapeHtml(badgeFg)}"`;
     const destText = toText(item.terminalDisplayName || item.destName || item.terminalName);
     const typeName = toText(item.typeName);
+    const typeLabel = formatTypeBadgeLabel(typeName);
+    const typeSmallClass = shouldUseSmallTypeBadgeFont(typeName) ? ' is-small-text' : '';
     const parseMinutes = (time) => { const m = toText(time).match(/^(\d{1,2}):(\d{2})$/); return m ? Number(m[1]) * 60 + Number(m[2]) : NaN; };
     const arrTotal = parseMinutes(item.arr) + (item.arrPlus ? 1440 : 0);
     let depTotal = parseMinutes(item.dep) + (item.depPlus ? 1440 : 0);
@@ -47,8 +64,8 @@ const renderPanelTimetableRowHtml = ({
         <div class="${rowClass}"${tripAttr}>
             <div class="${timeClass}">${renderTime(item)}${extraHtml}</div>
             <div class="panel-timetable-type">
-                <span class="panel-timetable-type-marquee"${typeStyle} aria-label="${escapeHtml(typeName)}">
-                    <span class="panel-timetable-type-marquee-inner">${escapeHtml(typeName)}</span>
+                <span class="panel-timetable-type-marquee${typeSmallClass}"${typeStyle} aria-label="${escapeHtml(typeName)}" title="${escapeHtml(typeName)}">
+                    <span class="panel-timetable-type-marquee-inner">${escapeHtml(typeLabel)}</span>
                 </span>
             </div>
             <div class="panel-timetable-dest">

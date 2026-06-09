@@ -104,6 +104,26 @@ const resolveBadgeTextColor = (bgColor) => (bgColor === '#ffffff' ? '#111' : '#f
 }
 
 {
+    const html = renderPanelTimetableListHtml({
+        rows: [{
+            tripKey: 'trip-type-long',
+            realOriginId: 'origin-type-long',
+            terminalName: 'Terminal',
+            typeName: 'Access Express',
+            dep: '12:00',
+            isPast: false
+        }],
+        renderTime,
+        resolveBadgeTextColor
+    });
+
+    assert.match(html, /aria-label="Access Express"/);
+    assert.match(html, /title="Access Express"/);
+    assert.match(html, /panel-timetable-type-marquee is-small-text/);
+    assert.match(html, /panel-timetable-type-marquee-inner">Access Express<\/span>/);
+}
+
+{
     const html = renderPanelPrintableTimetableListHtml({
         rows: [{
             tripKey: 'trip-3',

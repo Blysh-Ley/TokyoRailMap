@@ -2179,7 +2179,7 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 .panel-timetable-row {
     display: grid;
-    grid-template-columns: 102px 38px minmax(0, 1fr);
+    grid-template-columns: 102px 42px minmax(0, 1fr);
     align-items: center;
     column-gap: 2px;
     font-size: 14px;
@@ -2288,7 +2288,7 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 
 .panel-timetable-type {
-    width: 38px;
+    width: 42px;
     overflow: hidden;
 }
 
@@ -2310,6 +2310,10 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     line-height: 18px;
     font-weight: 700;
     pointer-events: none;
+}
+
+.panel-timetable-type-marquee.is-small-text {
+    font-size: 10px;
 }
 
 .panel-timetable-type-marquee-inner {
