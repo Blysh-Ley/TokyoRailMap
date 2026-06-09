@@ -126,6 +126,7 @@ import {
     derivePanelTripDetailBranchRuntime,
     resolvePanelTripDetailBranchRefIds
 } from './panelTripDetailBranchRuntime.js';
+import { buildPanelTripDetailSegmentBlocks } from './panelTripDetailSegmentBlockBuilder.js';
 import {
     getPanelTripDetailSegmentFirstRow,
     getPanelTripDetailSegmentLastRow,
@@ -4004,48 +4005,15 @@ export function createPanel(options = {}) {
                     toText
                 });
             }
-            const segmentBlocks = [];
-            if (throughCategoryLabel) {
-                const mainSegForType = segmentsWithPast.find((seg) => seg?.kind === 'main') || segmentsWithPast[0] || null;
-                const mergedColor = throughCategoryColor
-                    || toText(currentLineDesc?.color)
-                    || toText(mainSegForType?.typeColor)
-                    || toText(buildLineDescriptor(mainSegForType?.lineId)?.color);
-                segmentBlocks.push({
-                    lineId: '__through-category__',
-                    descriptor: {
-                        lineId: '__through-category__',
-                        text: throughCategoryLabel,
-                        color: mergedColor || null
-                    },
-                    typeName: toText(mainSegForType?.typeName),
-                    typeColor: toText(mainSegForType?.typeColor),
-                    segments: segmentsWithPast.slice()
-                });
-            } else {
-                for (const seg of segmentsWithPast) {
-                    const lastBlock = segmentBlocks.length ? segmentBlocks[segmentBlocks.length - 1] : null;
-                    const sameLine = !!lastBlock && isSameLineName(lastBlock.lineId, seg.lineId);
-                    if (!sameLine) {
-                        segmentBlocks.push({
-                            lineId: seg.lineId,
-                            descriptor: buildLineDescriptor(seg.lineId) || (seg.kind === 'main' ? currentLineDesc : null),
-                            typeName: toText(seg.typeName),
-                            typeColor: toText(seg.typeColor),
-                            segments: [seg]
-                        });
-                        continue;
-                    }
-
-                    lastBlock.segments.push(seg);
-                    if (!toText(lastBlock.typeName) && toText(seg.typeName)) {
-                        lastBlock.typeName = toText(seg.typeName);
-                    }
-                    if (!toText(lastBlock.typeColor) && toText(seg.typeColor)) {
-                        lastBlock.typeColor = toText(seg.typeColor);
-                    }
-                }
-            }
+            const segmentBlocks = buildPanelTripDetailSegmentBlocks({
+                segmentsWithPast,
+                throughCategoryLabel,
+                throughCategoryColor,
+                currentLineDesc,
+                buildLineDescriptor,
+                isSameLineName,
+                toText
+            });
 
             for (let i = 0; i < segmentBlocks.length; i += 1) {
                 const block = segmentBlocks[i];
