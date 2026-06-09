@@ -122,7 +122,7 @@ import {
 import { renderPanelTripDetailGridLaneBlock } from './panelTripDetailGridLaneBlockRenderer.js';
 import { renderPanelTripDetailBranchBreakRow } from './panelTripDetailBranchBreakRowRenderer.js';
 import { renderPanelTripDetailBranchGridRows } from './panelTripDetailBranchGridRenderer.js';
-import { buildPanelTripDetailBranchLaneFromChain } from './panelTripDetailBranchLaneBuilder.js';
+import { collectPanelTripDetailBranchLanesFromRefs } from './panelTripDetailBranchLaneCollector.js';
 import {
     derivePanelTripDetailBranchRuntime,
     resolvePanelTripDetailBranchRefIds
@@ -3906,46 +3906,6 @@ export function createPanel(options = {}) {
             return 0;
         };
 
-        const buildBranchLanesFromRefs = async (refIds, kind) => {
-            const ids = Array.isArray(refIds) ? refIds.map((x) => toText(x)).filter(Boolean) : [];
-            const out = [];
-            for (let i = 0; i < ids.length; i += 1) {
-                const chainTrips = await collectRefChainTripsFromRef(ids[i], token, kind);
-                if (token !== tripDetailToken) return null;
-                const chain = Array.isArray(chainTrips) ? chainTrips : [];
-                if (!chain.length) continue;
-                const lane = buildPanelTripDetailBranchLaneFromChain({
-                    chainTrips: chain,
-                    kind,
-                    sourceRefId: ids[i],
-                    buildRowsForTrip: (laneTrip) => normalizeTripStops(
-                        buildTripStops(laneTrip, stationsIndex, serviceDayStartMs),
-                        serviceDayStartMs,
-                        {
-                            allowEndpointAKeyFallback: endpointAKeyFallback,
-                            originIds,
-                            terminalIds,
-                            originAKeys,
-                            terminalAKeys,
-                            showOriginLabel,
-                            showTerminalLabel
-                        }
-                    ),
-                    mergeStops,
-                    getTripLineId,
-                    buildLineDescriptor,
-                    buildRefLineDescriptor,
-                    getTripTypeName,
-                    getTripTypeColor,
-                    trainTypesIndex,
-                    trainTypeColorIndex,
-                    toText
-                });
-                if (lane) out.push(lane);
-            }
-            return out;
-        };
-
         const effectiveNtRefIds = await resolvePanelTripDetailBranchRefIds({
             refIds: ntRefIds,
             token,
@@ -3966,9 +3926,39 @@ export function createPanel(options = {}) {
         });
         if (token !== tripDetailToken) return;
 
-        const ntBranchLanes = await buildBranchLanesFromRefs(effectiveNtRefIds, 'nt');
+        const buildBranchLaneRowsForTrip = (laneTrip) => normalizeTripStops(
+            buildTripStops(laneTrip, stationsIndex, serviceDayStartMs),
+            serviceDayStartMs,
+            {
+                allowEndpointAKeyFallback: endpointAKeyFallback,
+                originIds,
+                terminalIds,
+                originAKeys,
+                terminalAKeys,
+                showOriginLabel,
+                showTerminalLabel
+            }
+        );
+        const collectBranchLanes = (refIds, kind) => collectPanelTripDetailBranchLanesFromRefs({
+            refIds,
+            kind,
+            collectRefChainTripsFromRef: (refId, branchKind) => collectRefChainTripsFromRef(refId, token, branchKind),
+            isTokenCurrent: () => token === tripDetailToken,
+            buildRowsForTrip: buildBranchLaneRowsForTrip,
+            mergeStops,
+            getTripLineId,
+            buildLineDescriptor,
+            buildRefLineDescriptor,
+            getTripTypeName,
+            getTripTypeColor,
+            trainTypesIndex,
+            trainTypeColorIndex,
+            toText
+        });
+
+        const ntBranchLanes = await collectBranchLanes(effectiveNtRefIds, 'nt');
         if (token !== tripDetailToken) return;
-        const ptBranchLanes = await buildBranchLanesFromRefs(effectivePtRefIds, 'pt');
+        const ptBranchLanes = await collectBranchLanes(effectivePtRefIds, 'pt');
         if (token !== tripDetailToken) return;
 
         const {
