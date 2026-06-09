@@ -109,6 +109,7 @@ import {
     preparePanelStationRenderBootstrap,
     resetPanelStationRenderTransientState
 } from './panelStationRenderBootstrap.js';
+import { buildPanelStationRenderInputs } from './panelStationRenderInputs.js';
 import { createPanelCatalogController } from './panelCatalogController.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
 import {
@@ -5305,42 +5306,19 @@ export function createPanel(options = {}) {
                     }
                 } */
 
-        const mergedDisplayInfo = buildPanelLineMergeInfo({
-            servingLineIds: displayServingIds,
-            getLineMeta
-        });
-        displayServingIds = Array.isArray(mergedDisplayInfo?.displayLineIds)
-            ? mergedDisplayInfo.displayLineIds
-            : displayServingIds;
-        currentLineGroupByMainId = applyTemporarySourceLineOverrides({
-            lineGroupByMainId: mergedDisplayInfo?.lineGroupByMainId instanceof Map
-                ? mergedDisplayInfo.lineGroupByMainId
-                : new Map(),
-            temporarySourceLineIdsByDisplayLineId,
-            normalize: toText
-        });
-        /* currentLineGroupByMainId = mergedDisplayInfo?.lineGroupByMainId instanceof Map
-            ? mergedDisplayInfo.lineGroupByMainId
-            : new Map();
-
-        if (temporaryPanelSourceLineIdsByDisplayLineId.size) {
-            for (const [displayLineId, srcLineIds] of temporaryPanelSourceLineIdsByDisplayLineId.entries()) {
-                const did = toText(displayLineId);
-                if (!did) continue;
-                const src = Array.isArray(srcLineIds)
-                    ? Array.from(new Set(srcLineIds.map((x) => toText(x)).filter(Boolean)))
-                    : [];
-                if (!src.length) continue;
-                currentLineGroupByMainId.set(did, src);
-            }
-        } */
-
-        const lineStationNameByLineId = await buildTransferLineStationNameMap({
+        const stationRenderInputs = await buildPanelStationRenderInputs({
             stationId: currentStationId,
             stationNameZh: currentStationNameZh,
-            servingLineIds: displayServingIds,
-            lineGroupByMainId: currentLineGroupByMainId
+            displayServingIds,
+            getLineMeta,
+            temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
+            buildPanelLineMergeInfo,
+            applyTemporarySourceLineOverrides,
+            buildTransferLineStationNameMap
         });
+        displayServingIds = stationRenderInputs.displayServingIds;
+        currentLineGroupByMainId = stationRenderInputs.lineGroupByMainId;
+        const lineStationNameByLineId = stationRenderInputs.lineStationNameByLineId;
         currentLineStationMetaByLineId = lineStationNameByLineId;
         if (renderToken !== stationRenderToken) return;
 
