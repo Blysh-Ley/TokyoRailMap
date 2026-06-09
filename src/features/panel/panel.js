@@ -75,6 +75,14 @@ import { createPanelScrollRuntime } from './panelScrollRuntime.js';
 import { hydrateRenderedTimetable } from './panelTimetablePostRenderHydrator.js';
 import { buildPanelTripPreviewScheduleArgs } from './panelTripDetailPreviewPayloadBuilder.js';
 import {
+    buildTransferLineStationNameMap,
+    getStationGroupsIndex,
+    getStationsIndex,
+    getTrainTypeColorIndex,
+    getTrainTypesIndex,
+    readStationName
+} from './panelStationMetadata.js';
+import {
     panelIsDarkThemeActive,
     resolvePanelBadgeTextColor,
     resolveTrainTypeColorForTheme
@@ -117,11 +125,6 @@ const isSaturdayHoliday = (day) => {
 }
 
 const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
-
-function readStationName(props) {
-    const p = props || {};
-    return toText(p.name_zh || p['name:zh'] || p.name || p.name_ja || p['name:ja'] || '');
-}
 
 function stopEvent(evt) {
     evt?.preventDefault?.();
@@ -235,150 +238,6 @@ const renderTripDetailMomentHtml = (stop = {}) => {
     ].join('');
 };
 
-const pickTitleZhHans = (titleObj) => {
-    const t = titleObj || {};
-    return toText(t['zh-Hans'] || t.zh || t.ja || t.en || '');
-};
-
-const pickTitleEn = (titleObj) => {
-    const t = titleObj || {};
-    return toText(t.en || t['en-US'] || t['en-GB'] || '');
-};
-
-let stationsIndexPromise = null;
-const getStationsIndex = async () => {
-    if (stationsIndexPromise) return stationsIndexPromise;
-    stationsIndexPromise = (async () => {
-        try {
-            const list = await getCachedJson('./data/stations.json');
-            const idToNameZh = new Map();
-            const idToNameEn = new Map();
-            const idToCode = new Map();
-            const stationIdByRailwayAndNameZh = new Map();
-            for (const s of Array.isArray(list) ? list : []) {
-                const id = toText(s?.id);
-                if (!id) continue;
-                const railway = toText(s?.railway);
-                const name = pickTitleZhHans(s?.title) || id;
-                const nameEn = pickTitleEn(s?.title);
-                const code = toText(s?.title?.code || '');
-                idToNameZh.set(id, name);
-                if (nameEn) idToNameEn.set(id, nameEn);
-                if (code) idToCode.set(id, code);
-
-                if (railway && name) {
-                    const k = `${railway}||${name}`;
-                    if (!stationIdByRailwayAndNameZh.has(k)) {
-                        stationIdByRailwayAndNameZh.set(k, id);
-                    }
-                }
-            }
-            return { idToNameZh, idToNameEn, idToCode, stationIdByRailwayAndNameZh };
-        } catch {
-            return { idToNameZh: new Map(), idToNameEn: new Map(), idToCode: new Map(), stationIdByRailwayAndNameZh: new Map() };
-        }
-    })();
-    return stationsIndexPromise;
-};
-
-let stationGroupsIndexPromise = null;
-const getStationGroupsIndex = async () => {
-    if (stationGroupsIndexPromise) return stationGroupsIndexPromise;
-    stationGroupsIndexPromise = (async () => {
-        try {
-            const groups = await getCachedJson('./data/station-groups.json');
-            const map = new Map(); // stationId -> string[] (all ids in same group)
-
-            for (const g of Array.isArray(groups) ? groups : []) {
-                if (!Array.isArray(g)) continue;
-                const ids = [];
-                for (const chunk of g) {
-                    if (!Array.isArray(chunk)) continue;
-                    for (const sid of chunk) {
-                        const id = toText(sid);
-                        if (id) ids.push(id);
-                    }
-                }
-                if (!ids.length) continue;
-
-                // de-dup while preserving order
-                const seen = new Set();
-                const unique = [];
-                for (const id of ids) {
-                    if (seen.has(id)) continue;
-                    seen.add(id);
-                    unique.push(id);
-                }
-
-                for (const id of unique) {
-                    const existing = map.get(id);
-                    if (!existing) {
-                        map.set(id, unique);
-                        continue;
-                    }
-                    // merge (just in case a station appears in multiple groups)
-                    const mergedSeen = new Set(existing);
-                    const merged = existing.slice();
-                    for (const x of unique) {
-                        if (mergedSeen.has(x)) continue;
-                        mergedSeen.add(x);
-                        merged.push(x);
-                    }
-                    map.set(id, merged);
-                }
-            }
-
-            return map;
-        } catch {
-            return new Map();
-        }
-    })();
-    return stationGroupsIndexPromise;
-};
-
-let trainTypesIndexPromise = null;
-const getTrainTypesIndex = async () => {
-    if (trainTypesIndexPromise) return trainTypesIndexPromise;
-    trainTypesIndexPromise = (async () => {
-        try {
-            const list = await getCachedJson('./data/train-types.json');
-            const map = new Map();
-            for (const t of Array.isArray(list) ? list : []) {
-                const id = toText(t?.id);
-                if (!id) continue;
-                const name = pickTitleZhHans(t?.title) || id;
-                map.set(id, name);
-            }
-            return map;
-        } catch {
-            return new Map();
-        }
-    })();
-    return trainTypesIndexPromise;
-};
-
-let trainTypeColorIndexPromise = null;
-const getTrainTypeColorIndex = async () => {
-    if (trainTypeColorIndexPromise) return trainTypeColorIndexPromise;
-    trainTypeColorIndexPromise = (async () => {
-        try {
-            const list = await getCachedJson('./data/train-types.json');
-            const map = new Map();
-            for (const t of Array.isArray(list) ? list : []) {
-                const id = toText(t?.id);
-                if (!id) continue;
-                const color = toText(t?.title?.color);
-                if (!color) continue;
-                map.set(id, color);
-            }
-            return map;
-        } catch {
-            return new Map();
-        }
-    })();
-    return trainTypeColorIndexPromise;
-};
-
 const normalizeArrayLike = (value) => {
     if (Array.isArray(value)) return value;
     if (typeof value !== 'string') return value ? [value] : [];
@@ -488,7 +347,7 @@ export function createPanel(options = {}) {
     let currentStationsIndex = null;
     let currentLineStationMetaByLineId = new Map();
 
-    const buildTransferLineStationNameMap = async ({ stationId, stationNameZh, servingLineIds, lineGroupByMainId }) => {
+    const buildTransferLineStationNameMapLegacy = async ({ stationId, stationNameZh, servingLineIds, lineGroupByMainId }) => {
         const sid = toText(stationId);
         const clickedName = toText(stationNameZh);
         const lineIds = Array.isArray(servingLineIds) ? servingLineIds.map((x) => toText(x)).filter(Boolean) : [];
