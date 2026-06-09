@@ -109,6 +109,7 @@ import {
     preparePanelStationRenderBootstrap,
     resetPanelStationRenderTransientState
 } from './panelStationRenderBootstrap.js';
+import { createPanelHoverRestoreRuntime } from './panelHoverRestoreRuntime.js';
 import { buildPanelStationRenderInputs } from './panelStationRenderInputs.js';
 import { createPanelCatalogController } from './panelCatalogController.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
@@ -825,14 +826,12 @@ export function createPanel(options = {}) {
     });
 
     // ===== 交互状态（对齐 popup 的逻辑） =====
-    let hoverTimerId = null;
     let hoverCandidateKey = null;
     let lastFiredHoverKey = null;
     let lastMousePrimaryKey = '';
     let routeMapPopoverHoverActive = false;
 
     let lastAppliedHoverKey = null;
-    let restoreTimerId = null;
     const restoreDelayMs = Math.max(hoverDelayMs, 60);
 
     let currentStationServingIds = [];
@@ -4441,49 +4440,23 @@ export function createPanel(options = {}) {
     startAutoNowClock();
     applyTimetableViewMode(getTimetableViewMode ? getTimetableViewMode() : 'list', { rerender: false });
 
-    const clearHoverTimer = () => {
-        if (hoverTimerId != null) {
-            clearTimeout(hoverTimerId);
-            hoverTimerId = null;
-        }
-    };
-
-    const clearRestoreTimer = () => {
-        if (restoreTimerId != null) {
-            clearTimeout(restoreTimerId);
-            restoreTimerId = null;
-        }
-    };
-
-    const restoreStationLinesIfNeeded = () => {
-        if (!lastAppliedHoverKey) return;
-        if (!onRestoreStationLines) {
-            lastAppliedHoverKey = null;
-            return;
-        }
-        try {
-            onRestoreStationLines(
-                Array.isArray(currentStationServingIds) ? currentStationServingIds.slice() : [],
-                { stationId: toText(currentStationId) || null }
-            );
-        } catch {
-            // ignore
-        }
-        lastAppliedHoverKey = null;
-    };
-
-    const scheduleRestoreStationLines = () => {
-        if (!lastAppliedHoverKey) return;
-        if (!onRestoreStationLines) {
-            lastAppliedHoverKey = null;
-            return;
-        }
-        clearRestoreTimer();
-        restoreTimerId = setTimeout(() => {
-            restoreTimerId = null;
-            restoreStationLinesIfNeeded();
-        }, restoreDelayMs);
-    };
+    const panelHoverRestoreRuntime = createPanelHoverRestoreRuntime({
+        setTimeoutFn: setTimeout,
+        clearTimeoutFn: clearTimeout,
+        restoreDelayMs,
+        getLastAppliedHoverKey: () => lastAppliedHoverKey,
+        setLastAppliedHoverKey: (value) => {
+            lastAppliedHoverKey = value;
+        },
+        onRestoreStationLines,
+        getCurrentStationServingIds: () => currentStationServingIds,
+        getCurrentStationId: () => currentStationId,
+        toText
+    });
+    const clearHoverTimer = () => panelHoverRestoreRuntime.clearHoverTimer();
+    const clearRestoreTimer = () => panelHoverRestoreRuntime.clearRestoreTimer();
+    const restoreStationLinesIfNeeded = () => panelHoverRestoreRuntime.restoreStationLinesIfNeeded();
+    const scheduleRestoreStationLines = () => panelHoverRestoreRuntime.scheduleRestoreStationLines();
 
     const getCompanyTarget = (target) => {
         return resolvePanelCompanyTarget(target, { body, toText });
@@ -4802,8 +4775,7 @@ export function createPanel(options = {}) {
 
         if (key === lastFiredHoverKey) return;
 
-        hoverTimerId = setTimeout(() => {
-            hoverTimerId = null;
+        panelHoverRestoreRuntime.scheduleHoverTimer(() => {
             if (hoverCandidateKey !== key) return;
             lastFiredHoverKey = key;
 
