@@ -116,6 +116,13 @@ import {
     dispatchPanelPrimarySelectionIntent
 } from './panelIntentDispatcher.js';
 import { buildPanelTripDetailTitleHtml } from './panelTripDetailTitleRenderer.js';
+import {
+    getPanelTripDetailSegmentFirstRow,
+    getPanelTripDetailSegmentLastRow,
+    isPanelTripDetailBoundaryPast,
+    renderPanelTripDetailLoopMarkerRow,
+    renderPanelTripDetailNoteRow
+} from './panelTripDetailSegmentHelpers.js';
 import { buildPanelStationRenderInputs } from './panelStationRenderInputs.js';
 import { createPanelPinnedTripDetailState } from './panelPinnedTripDetailState.js';
 import {
@@ -3871,42 +3878,6 @@ export function createPanel(options = {}) {
             });
         };
 
-        const renderNoteRow = (descriptor, typeName, typeColor, isPast) => {
-            if (!descriptor?.text) return '';
-            const past = !!isPast;
-            const rowCls = past ? 'panel-trip-detail-note-row is-past' : 'panel-trip-detail-note-row';
-            return renderTimetableNoteRowHtml({
-                rowClass: rowCls,
-                dotClass: 'panel-trip-detail-note-dot',
-                lineClass: 'panel-trip-detail-note-line',
-                typeClass: 'panel-trip-detail-note-type',
-                lineText: descriptor.text,
-                lineColor: past ? '#ccc' : toText(descriptor.color),
-                dotColor: past ? '#ccc' : toText(descriptor.color),
-                typeText: toText(typeName),
-                typeColor: past ? '' : toText(typeColor)
-            });
-        };
-
-        const getSegmentFirstRow = (segment) => (Array.isArray(segment?.rows) && segment.rows.length ? segment.rows[0] : null);
-        const getSegmentLastRow = (segment) => (Array.isArray(segment?.rows) && segment.rows.length ? segment.rows[segment.rows.length - 1] : null);
-        const isBoundaryPast = (leftRow, rightRow) => {
-            if (leftRow && rightRow) return !!(leftRow.isPast && rightRow.isPast);
-            if (leftRow) return !!leftRow.isPast;
-            if (rightRow) return !!rightRow.isPast;
-            return false;
-        };
-
-        const renderLoopMarkerRow = (text) => {
-            const label = toText(text);
-            if (!label) return '';
-            return renderTimetablePlainNoteRowHtml({
-                rowClass: 'panel-trip-detail-note-row',
-                lineClass: 'panel-trip-detail-note-line',
-                text: label
-            });
-        };
-
         const renderGridNoteCell = ({ descriptor, typeName, typeColor, isPast, colStart, colSpan = 3 }) => {
             if (!descriptor?.text) return '';
             const past = !!isPast;
@@ -4081,7 +4052,11 @@ export function createPanel(options = {}) {
 
         if (!useBranchGridLayout) {
             if (hideThroughSegmentsForLoop) {
-                rowsHtml += renderLoopMarkerRow('↑环线');
+                rowsHtml += renderPanelTripDetailLoopMarkerRow({
+                    text: '↑环线',
+                    renderTimetablePlainNoteRowHtml,
+                    toText
+                });
             }
             const segmentBlocks = [];
             if (throughCategoryLabel) {
@@ -4133,17 +4108,28 @@ export function createPanel(options = {}) {
                 const firstSeg = block.segments[0] || null;
                 const prevLastSeg = prevBlock?.segments?.[prevBlock.segments.length - 1] || null;
 
-                const prevLastRow = getSegmentLastRow(prevLastSeg);
-                const firstRow = getSegmentFirstRow(firstSeg);
+                const prevLastRow = getPanelTripDetailSegmentLastRow(prevLastSeg);
+                const firstRow = getPanelTripDetailSegmentFirstRow(firstSeg);
 
-                rowsHtml += renderNoteRow(block.descriptor, block.typeName, block.typeColor, isBoundaryPast(prevLastRow, firstRow));
+                rowsHtml += renderPanelTripDetailNoteRow({
+                    descriptor: block.descriptor,
+                    typeName: block.typeName,
+                    typeColor: block.typeColor,
+                    isPast: isPanelTripDetailBoundaryPast(prevLastRow, firstRow),
+                    renderTimetableNoteRowHtml,
+                    toText
+                });
                 for (const seg of block.segments) {
                     const segLineColor = toText(block?.descriptor?.color || seg?.typeColor || '');
                     rowsHtml += (seg.rows || []).map((r) => renderStopRow({ ...r, lineColor: segLineColor })).join('');
                 }
             }
             if (hideThroughSegmentsForLoop) {
-                rowsHtml += renderLoopMarkerRow('↓环线');
+                rowsHtml += renderPanelTripDetailLoopMarkerRow({
+                    text: '↓环线',
+                    renderTimetablePlainNoteRowHtml,
+                    toText
+                });
             }
 
             headerHtml = `
