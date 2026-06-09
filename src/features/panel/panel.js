@@ -133,6 +133,7 @@ import {
     getPanelTripDetailStationIds,
     resolvePanelTripDetailThroughServiceEndpointIds
 } from './panelTripDetailThroughServiceEndpointResolver.js';
+import { findPanelTripByKey } from './panelTripLookupResolver.js';
 import {
     derivePanelTripDetailBranchRuntime,
     resolvePanelTripDetailBranchRefIds
@@ -1801,42 +1802,16 @@ export function createPanel(options = {}) {
         toText
     });
 
-    const findTripByKey = async (lineId, tripKey) => {
-        const key = toText(tripKey);
-        if (!key) return null;
-
-        const candidateLineIds = Array.from(new Set([
-            toText(getRefLineId(key)),
-            toText(lineId),
-            ...((Array.isArray(currentLineGroupByMainId?.get?.(toText(lineId)))
-                ? currentLineGroupByMainId.get(toText(lineId))
-                : [])
-                .map((x) => toText(x))
-                .filter(Boolean))
-        ].filter(Boolean)));
-        if (!candidateLineIds.length) return null;
-
-        let fallback = null;
-        for (const candLineId of candidateLineIds) {
-            const data = await loadTimetableForLineId(candLineId);
-            const list = Array.isArray(data) ? data : [];
-            if (!list.length) continue;
-
-            const candidates = list.filter((t) => {
-                const id = toText(t?.id);
-                const tkey = toText(t?.t);
-                if (id === key || tkey === key) return true;
-                return id ? id.startsWith(`${key}.`) : false;
-            });
-            if (!candidates.length) continue;
-
-            const withDay = candidates.find((t) => parseTripServiceDayFromId(t?.id) === currentServiceDay);
-            if (withDay) return withDay;
-            if (!fallback) fallback = candidates[0] || null;
-        }
-
-        return fallback;
-    };
+    const findTripByKey = (lineId, tripKey) => findPanelTripByKey({
+        lineId,
+        tripKey,
+        currentLineGroupByMainId,
+        currentServiceDay,
+        getRefLineId,
+        loadTimetableForLineId,
+        parseTripServiceDayFromId,
+        toText
+    });
 
     const resolveStationIdForLine = async (lineId) => {
         const rid = toText(lineId);
