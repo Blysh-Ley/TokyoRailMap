@@ -112,6 +112,11 @@ import {
 import { createPanelHoverRestoreRuntime } from './panelHoverRestoreRuntime.js';
 import { buildPanelStationRenderInputs } from './panelStationRenderInputs.js';
 import { createPanelPinnedTripDetailState } from './panelPinnedTripDetailState.js';
+import {
+    findPanelTripTarget,
+    resolvePanelInteractionKeyFromTarget,
+    resolvePanelMousePrimaryTarget
+} from './panelIntentTargetParser.js';
 import { createPanelCatalogController } from './panelCatalogController.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
 import {
@@ -1475,35 +1480,18 @@ export function createPanel(options = {}) {
         return makeLineDirKey(lineId, dirKey) === pinnedDir;
     };
 
-    const getInteractionKeyFromTarget = (target) => {
-        const rowEl = findTripTarget(target);
-        if (rowEl && body.contains(rowEl)) {
-            const lineEl = rowEl.closest?.('[data-line-id]');
-            const lineId = lineEl?.getAttribute?.('data-line-id');
-            const tripKey = rowEl.getAttribute?.('data-trip-key');
-            if (lineId && tripKey) return `trip:${String(lineId)}||${String(tripKey)}`;
-        }
-
-        const dirFilter = getDirFilterButtonTarget(target);
-        if (dirFilter) return `dir:${makeLineDirKey(dirFilter.lineId, dirFilter.dirKey)}`;
-
-        const dirPrint = getDirPrintButtonTarget(target);
-        if (dirPrint) return `dir:${makeLineDirKey(dirPrint.lineId, dirPrint.dirKey)}`;
-
-        const dirTitle = getDirTitleTarget(target);
-        if (dirTitle) return `dir:${makeLineDirKey(dirTitle.lineId, dirTitle.dirKey)}`;
-
-        const dirTriangle = getDirTriangleTarget(target);
-        if (dirTriangle) return `dir:${makeLineDirKey(dirTriangle.lineId, dirTriangle.dirKey)}`;
-
-        const lineId = getLineTarget(target);
-        if (lineId) return `line:${String(lineId)}`;
-
-        const company = getCompanyTarget(target);
-        if (company) return `company:${String(company)}`;
-
-        return '';
-    };
+    const getInteractionKeyFromTarget = (target) => resolvePanelInteractionKeyFromTarget(target, {
+        body,
+        findTripTarget,
+        getDirFilterButtonTarget,
+        getDirPrintButtonTarget,
+        getDirTitleTarget,
+        getDirTriangleTarget,
+        getLineTarget,
+        getCompanyTarget,
+        makeLineDirKey,
+        toText
+    });
 
     const restoreStationDefaultSelection = () => {
         if (!onRestoreStationLines) return;
@@ -1526,7 +1514,7 @@ export function createPanel(options = {}) {
                 callback?.();
             }, delayMs);
         },
-        hideTripDetail,
+        hideTripDetail: () => hideTripDetail(),
         panelSelectionState,
         body,
         clearPinnedDirPreview,
@@ -2332,10 +2320,7 @@ export function createPanel(options = {}) {
         return `<div class="panel-timetable-grid">${rowHtml}</div>`;
     };
 
-    const findTripTarget = (target) => {
-        if (!(target instanceof Element)) return null;
-        return target.closest?.('.panel-timetable-row[data-trip-key], .panel-grid-cell[data-trip-key]') || null;
-    };
+    const findTripTarget = (target) => findPanelTripTarget(target);
 
     const buildTimetableRowsHtml = async ({
         lineId,
@@ -4512,18 +4497,12 @@ export function createPanel(options = {}) {
         setTimetableViewModeFromPanel(btn.getAttribute('data-panel-view-mode'));
     }, { passive: false });
 
-    const resolveMousePrimaryTarget = (target) => {
-        const dirTitle = getDirTitleTarget(target);
-        if (dirTitle) {
-            const key = makeLineDirKey(dirTitle.lineId, dirTitle.dirKey);
-            return { kind: 'dir', key: `dir:${key}`, lineId: dirTitle.lineId, dirKey: dirTitle.dirKey, lineDirKey: key };
-        }
-        const lineId = getLineTarget(target);
-        if (lineId) return { kind: 'line', key: `line:${String(lineId)}`, lineId: String(lineId) };
-        const companyName = getCompanyTarget(target);
-        if (companyName) return { kind: 'company', key: `company:${String(companyName)}`, companyName: String(companyName) };
-        return null;
-    };
+    const resolveMousePrimaryTarget = (target) => resolvePanelMousePrimaryTarget(target, {
+        getDirTitleTarget,
+        getLineTarget,
+        getCompanyTarget,
+        makeLineDirKey
+    });
 
     const applyLineHoverSelection = (lineId) => {
         const id = toText(lineId);
