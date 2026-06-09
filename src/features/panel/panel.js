@@ -130,6 +130,10 @@ import {
 import { collectPanelTripDetailTripChainByTrip } from './panelTripDetailTripChainWalker.js';
 import { derivePanelTripDetailThroughServiceDirection } from './panelTripDetailThroughServiceDirectionResolver.js';
 import {
+    getPanelTripDetailStationIds,
+    resolvePanelTripDetailThroughServiceEndpointIds
+} from './panelTripDetailThroughServiceEndpointResolver.js';
+import {
     derivePanelTripDetailBranchRuntime,
     resolvePanelTripDetailBranchRefIds
 } from './panelTripDetailBranchRuntime.js';
@@ -1788,123 +1792,14 @@ export function createPanel(options = {}) {
         return toText(last?.a) || toText(last?.d) || null;
     };
 
-    const getFirstStationId = (value) => {
-        const list = Array.isArray(value) ? value : (value ? [value] : []);
-        for (const x of list) {
-            const v = toText(x);
-            if (v) return v;
-        }
-        return '';
-    };
-
-    const getStationIds = (value) => {
-        const list = Array.isArray(value) ? value : (value ? [value] : []);
-        return Array.from(new Set(list.map((x) => toText(x)).filter(Boolean)));
-    };
-
-    const getTripId = (trip) => {
-        const id = toText(trip?.id);
-        if (id) return id;
-        return null;
-    }
-
         // 如果不是特殊的直通线路，或者没有配置测向规则（如常磐线），直接退出
-    const resolveThroughServiceEndpointIds = async (trip) => {
-        const visited = new Set();
+    const getStationIds = (value) => getPanelTripDetailStationIds(value, { toText });
 
-        let originId = getFirstStationId(trip?.os);
-        let cur = trip;
-        while (cur) {
-            const curId = getTripId(cur);
-            if (curId) {
-                if (visited.has(curId)) break;
-                visited.add(curId);
-            }
-
-            const refs = Array.isArray(cur?.pt) ? cur.pt : (cur?.pt ? [cur.pt] : []);
-            const refId = toText(refs?.[0]);
-            if (!refId) break;
-            const prevTrip = await loadTripByRefId(refId);
-            if (!prevTrip) break;
-
-            const prevOrigin = getFirstStationId(prevTrip?.os);
-            if (prevOrigin) originId = prevOrigin;
-            cur = prevTrip;
-        }
-
-        const followTerminalByNextRef = async ({ startRefId, fallbackTerminalId }) => {
-            const seen = new Set();
-            let terminalId = toText(fallbackTerminalId);
-            let refId = toText(startRefId);
-
-            while (refId) {
-                if (seen.has(refId)) break;
-                seen.add(refId);
-
-                const nextTrip = await loadTripByRefId(refId);
-                if (!nextTrip) break;
-
-                const nextDs = getStationIds(nextTrip?.ds);
-                if (nextDs.length) {
-                    if (!terminalId || !nextDs.includes(terminalId)) {
-                        terminalId = nextDs[0];
-                    }
-                }
-
-                const nextRefs = Array.isArray(nextTrip?.nt) ? nextTrip.nt : (nextTrip?.nt ? [nextTrip.nt] : []);
-                refId = toText(nextRefs?.[0]);
-            }
-
-            return terminalId;
-        };
-
-        visited.clear();
-        const dsList = getStationIds(trip?.ds);
-        const ntRefs = (Array.isArray(trip?.nt) ? trip.nt : (trip?.nt ? [trip.nt] : []))
-            .map((x) => toText(x))
-            .filter(Boolean);
-
-        let terminalIds = [];
-
-        if (dsList.length >= 2) {
-            const resolved = [];
-            for (let i = 0; i < dsList.length; i += 1) {
-                const fallbackTerminalId = dsList[i];
-                const startRefId = ntRefs[i] || '';
-                const traced = await followTerminalByNextRef({
-                    startRefId,
-                    fallbackTerminalId
-                });
-                if (traced) resolved.push(traced);
-                else if (fallbackTerminalId) resolved.push(fallbackTerminalId);
-            }
-            terminalIds = Array.from(new Set(resolved.filter(Boolean)));
-        } else {
-            let terminalId = getFirstStationId(dsList);
-            cur = trip;
-            while (cur) {
-                const curId = getTripId(cur);
-                if (curId) {
-                    if (visited.has(curId)) break;
-                    visited.add(curId);
-                }
-
-                const refs = Array.isArray(cur?.nt) ? cur.nt : (cur?.nt ? [cur.nt] : []);
-                const refId = toText(refs?.[0]);
-                if (!refId) break;
-                const nextTrip = await loadTripByRefId(refId);
-                if (!nextTrip) break;
-
-                const nextTerminal = getFirstStationId(nextTrip?.ds);
-                if (nextTerminal) terminalId = nextTerminal;
-                cur = nextTrip;
-            }
-            terminalIds = terminalId ? [terminalId] : [];
-        }
-
-        const terminalId = terminalIds[0] || '';
-        return { originId, terminalId, terminalIds };
-    };
+    const resolveThroughServiceEndpointIds = (trip) => resolvePanelTripDetailThroughServiceEndpointIds({
+        trip,
+        loadTripByRefId,
+        toText
+    });
 
     const findTripByKey = async (lineId, tripKey) => {
         const key = toText(tripKey);
