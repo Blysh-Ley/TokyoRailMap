@@ -3315,6 +3315,8 @@ export function createPanel(options = {}) {
         });
         if (token !== tripDetailToken) return;
         const currentLineDesc = buildLineDescriptor(getTripLineId(trip) || lineId);
+        const typeName = getTripTypeName(trip, trainTypesIndex);
+        const typeColor = getTripTypeColor(trip, trainTypeColorIndex);
 
         const renderStopRow = (s) => {
             const rowCls = s.isPast ? 'panel-trip-detail-row is-past' : 'panel-trip-detail-row';
