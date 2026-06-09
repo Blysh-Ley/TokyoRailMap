@@ -81,6 +81,7 @@ import {
     getTrainTypesIndex,
     readStationName
 } from './panelStationMetadata.js';
+import { resolvePanelStationIdForLine } from './panelStationIdResolver.js';
 import {
     panelIsDarkThemeActive,
     resolvePanelBadgeTextColor,
@@ -1793,7 +1794,6 @@ export function createPanel(options = {}) {
         return toText(last?.a) || toText(last?.d) || null;
     };
 
-        // 如果不是特殊的直通线路，或者没有配置测向规则（如常磐线），直接退出
     const getStationIds = (value) => getPanelTripDetailStationIds(value, { toText });
 
     const resolveThroughServiceEndpointIds = (trip) => resolvePanelTripDetailThroughServiceEndpointIds({
@@ -1813,37 +1813,14 @@ export function createPanel(options = {}) {
         toText
     });
 
-    const resolveStationIdForLine = async (lineId) => {
-        const rid = toText(lineId);
-        if (!rid) return null;
-
-        // 如果当前站点 id 本身就是该线路的站点 id，则直接用
-        const sid = toText(currentStationId);
-        if (sid && (sid === rid || sid.startsWith(`${rid}.`))) return sid;
-
-        // 优先：用 station-groups.json 反查换乘组内“该线路对应的 station id”
-        try {
-            const groupsIndex = await getStationGroupsIndex();
-            const groupIds = sid ? groupsIndex.get(sid) : null;
-            if (Array.isArray(groupIds) && groupIds.length) {
-                for (const candidate of groupIds) {
-                    const c = toText(candidate);
-                    if (!c) continue;
-                    if (c === rid || c.startsWith(`${rid}.`)) return c;
-                }
-            }
-        } catch {
-            // ignore
-        }
-
-        // 换乘站：用 (railwayId + stationName.zh-Hans) 反查该线路对应的 station id
-        const name = toText(currentStationNameZh);
-        if (!name) return sid || null;
-
-        const idx = await getStationsIndex();
-        const hit = idx?.stationIdByRailwayAndNameZh?.get?.(`${rid}||${name}`);
-        return hit || sid || null;
-    };
+    const resolveStationIdForLine = (lineId) => resolvePanelStationIdForLine({
+        lineId,
+        currentStationId,
+        currentStationNameZh,
+        getStationGroupsIndex,
+        getStationsIndex,
+        toText
+    });
 
     const toServiceHourIndex = (timeMs, serviceDayStartMs) => {
         const ms = Number(timeMs);
