@@ -128,6 +128,7 @@ import {
 } from './panelTripDetailBranchRuntime.js';
 import { buildPanelTripDetailSegmentBlocks } from './panelTripDetailSegmentBlockBuilder.js';
 import { renderPanelTripDetailLinearRows } from './panelTripDetailLinearRowsRenderer.js';
+import { buildPanelTripDetailLayoutShell } from './panelTripDetailLayoutShell.js';
 import {
     getPanelTripDetailSegmentFirstRow,
     getPanelTripDetailSegmentLastRow,
@@ -3993,10 +3994,18 @@ export function createPanel(options = {}) {
         const throughCategoryColor = toText(THROUGH_CATEGORY_COLOR[throughCategory] || '');
         const useBranchGridLayout = branchCount >= 2 && !throughCategoryLabel;
         let rowsHtml = '';
-        let tripDetailTableClass = 'panel-trip-detail-table';
-        let tripDetailTableInlineStyle = '';
-        let headerHtml = '';
-        let spacerHtml = '<div class="panel-trip-detail-spacer"></div>';
+        const {
+            tripDetailTableClass,
+            tripDetailTableInlineStyle,
+            headerHtml,
+            spacerHtml,
+            totalCols,
+            primaryTimeColStart,
+            firstBranchMarkerCol
+        } = buildPanelTripDetailLayoutShell({
+            useBranchGridLayout,
+            branchCount
+        });
 
         if (!useBranchGridLayout) {
             const segmentBlocks = buildPanelTripDetailSegmentBlocks({
@@ -4030,32 +4039,7 @@ export function createPanel(options = {}) {
                 renderStopRow
             });
 
-            headerHtml = `
-                <div class="panel-trip-detail-head">
-                    <div class="panel-trip-detail-station">车站</div>
-                    <div class="panel-trip-detail-time panel-trip-detail-moment">时刻</div>
-                </div>
-            `;
         } else {
-            const totalCols = 2 * branchCount + 1;
-            const primaryTimeColStart = 2;
-            const firstBranchMarkerCol = branchCount >= 2 ? 4 : 0;
-            tripDetailTableClass = 'panel-trip-detail-table is-branch-grid';
-            tripDetailTableInlineStyle = ` style="--panel-trip-detail-cols:${totalCols};--panel-trip-detail-branch-count:${branchCount};"`;
-            spacerHtml = `<div class="panel-trip-detail-spacer panel-trip-detail-grid-spacer" style="grid-column:1 / span ${totalCols};"></div>`;
-
-            let branchHeadHtml = '';
-            for (let i = 0; i < branchCount; i += 1) {
-                const colStart = 2 + 2 * i;
-                branchHeadHtml += `
-                    <div class="panel-trip-detail-head-cell panel-trip-detail-time panel-trip-detail-moment" style="grid-column:${colStart} / span 2;">时刻</div>
-                `;
-            }
-            headerHtml = `
-                <div class="panel-trip-detail-head-cell panel-trip-detail-station" style="grid-column:1;">车站</div>
-                ${branchHeadHtml}
-            `;
-
             const mainSegWithPast = segmentsWithPast.find((s) => s.kind === 'main') || null;
             const mainRows = Array.isArray(mainSegWithPast?.rows) ? mainSegWithPast.rows : [];
             const mainDescriptor = currentLineDesc || buildLineDescriptor(getTripLineId(trip) || lineId);
