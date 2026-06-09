@@ -5,7 +5,6 @@
 
 import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from '../../lib/train-type-sort.js';
 import { createTripPreviewScheduler } from '../../lib/trip-preview.js';
-import { resolveMainLineIdForIcon } from '../../lib/line-icons.js';
 import {
     getCachedJson,
     getCompanyLogoSrc,
@@ -97,6 +96,10 @@ import {
     resolvePanelLineTarget,
     resolveTripDetailStationTarget
 } from './panelEventDelegationCoordinator.js';
+import {
+    buildPanelLineMergeInfo,
+    normalizeArrayLike
+} from './panelServingLineMerge.js';
 import { createPanelCatalogController } from './panelCatalogController.js';
 import { createDesktopPanelShell } from './panelShellDesktop.js';
 import {
@@ -238,34 +241,7 @@ const renderTripDetailMomentHtml = (stop = {}) => {
     ].join('');
 };
 
-const normalizeArrayLike = (value) => {
-    if (Array.isArray(value)) return value;
-    if (typeof value !== 'string') return value ? [value] : [];
-
-    const s = value.trim();
-    if (s.startsWith('[') && s.endsWith(']')) {
-        try {
-            const parsed = JSON.parse(s);
-            return Array.isArray(parsed) ? parsed : [value];
-        } catch {
-            return [value];
-        }
-    }
-    return s ? [s] : [];
-};
-
-const buildPanelLineMergeInfo = ({ servingLineIds, getLineMeta } = {}) => {
-    const ids = Array.from(new Set(
-        (Array.isArray(servingLineIds) ? servingLineIds : [])
-            .map((x) => toText(x))
-            .filter(Boolean)
-    ));
-    const safeGetLineMeta = typeof getLineMeta === 'function' ? getLineMeta : (() => null);
-    const idIndex = new Map(ids.map((id) => [id, true]));
-
-    const lineGroupByMainId = new Map();
-    const displayLineIds = [];
-
+/*
     for (const id of ids) {
         // 先拿“理论主线”，再按 serving 内是否存在该主线来决定是否并线。
         const resolved = toText(resolveMainLineIdForIcon(id)) || id;
@@ -299,6 +275,7 @@ const buildPanelLineMergeInfo = ({ servingLineIds, getLineMeta } = {}) => {
 
     return { displayLineIds, lineGroupByMainId };
 };
+*/
 
 export function createPanel(options = {}) {
     const TIMETABLE_PRINT_EVENT = '__TokyoRailPrintTimetableRequested';
