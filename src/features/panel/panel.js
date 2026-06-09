@@ -123,6 +123,10 @@ import { renderPanelTripDetailGridLaneBlock } from './panelTripDetailGridLaneBlo
 import { renderPanelTripDetailBranchBreakRow } from './panelTripDetailBranchBreakRowRenderer.js';
 import { buildPanelTripDetailBranchLaneFromChain } from './panelTripDetailBranchLaneBuilder.js';
 import {
+    derivePanelTripDetailBranchRuntime,
+    resolvePanelTripDetailBranchRefIds
+} from './panelTripDetailBranchRuntime.js';
+import {
     getPanelTripDetailSegmentFirstRow,
     getPanelTripDetailSegmentLastRow,
     isPanelTripDetailBoundaryPast,
@@ -3937,33 +3941,39 @@ export function createPanel(options = {}) {
             return out;
         };
 
-        let effectiveNtRefIds = ntRefIds.slice();
-        if (effectiveNtRefIds.length === 1) {
-            const found = await resolveFirstMultiRefsAlongChain(effectiveNtRefIds[0], token, 'nt');
-            if (token !== tripDetailToken) return;
-            if (Array.isArray(found) && found.length >= 2) {
-                effectiveNtRefIds = found;
-            }
-        }
+        const effectiveNtRefIds = await resolvePanelTripDetailBranchRefIds({
+            refIds: ntRefIds,
+            token,
+            key: 'nt',
+            resolveFirstMultiRefsAlongChain,
+            isTokenCurrent: () => token === tripDetailToken,
+            toText
+        });
+        if (token !== tripDetailToken) return;
 
-        let effectivePtRefIds = ptRefIds.slice();
-        if (effectivePtRefIds.length === 1) {
-            const found = await resolveFirstMultiRefsAlongChain(effectivePtRefIds[0], token, 'pt');
-            if (token !== tripDetailToken) return;
-            if (Array.isArray(found) && found.length >= 2) {
-                effectivePtRefIds = found;
-            }
-        }
+        const effectivePtRefIds = await resolvePanelTripDetailBranchRefIds({
+            refIds: ptRefIds,
+            token,
+            key: 'pt',
+            resolveFirstMultiRefsAlongChain,
+            isTokenCurrent: () => token === tripDetailToken,
+            toText
+        });
+        if (token !== tripDetailToken) return;
 
         const ntBranchLanes = await buildBranchLanesFromRefs(effectiveNtRefIds, 'nt');
         if (token !== tripDetailToken) return;
         const ptBranchLanes = await buildBranchLanesFromRefs(effectivePtRefIds, 'pt');
         if (token !== tripDetailToken) return;
 
-        const activeBranchLanes = (Array.isArray(ntBranchLanes) && ntBranchLanes.length >= 2)
-            ? ntBranchLanes
-            : ((Array.isArray(ptBranchLanes) && ptBranchLanes.length >= 2) ? ptBranchLanes : []);
-        const branchCount = activeBranchLanes.length;
+        const {
+            activeBranchLanes,
+            branchCount,
+            branchMode
+        } = derivePanelTripDetailBranchRuntime({
+            ntBranchLanes,
+            ptBranchLanes
+        });
         const throughCategory = detectThroughServiceCategoryFromTrips([
             ...(Array.isArray(ptChain) ? ptChain : []),
             trip,
@@ -3980,10 +3990,6 @@ export function createPanel(options = {}) {
 
         const throughCategoryColor = toText(THROUGH_CATEGORY_COLOR[throughCategory] || '');
         const useBranchGridLayout = branchCount >= 2 && !throughCategoryLabel;
-        const branchMode = (Array.isArray(ntBranchLanes) && ntBranchLanes.length >= 2)
-            ? 'split'
-            : ((Array.isArray(ptBranchLanes) && ptBranchLanes.length >= 2) ? 'merge' : '');
-
         let rowsHtml = '';
         let tripDetailTableClass = 'panel-trip-detail-table';
         let tripDetailTableInlineStyle = '';
