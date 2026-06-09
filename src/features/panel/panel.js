@@ -5,7 +5,7 @@
 
 import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from '../../lib/train-type-sort.js';
 import { buildTripPreviewKey, buildVirtualTimetableChain, createTripPreviewScheduler } from '../../lib/trip-preview.js';
-import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, resolveMainLineIdForIcon } from '../../lib/line-icons.js';
+import { resolveMainLineIdForIcon } from '../../lib/line-icons.js';
 import {
     getCachedJson,
     getCompanyLogoSrc,
@@ -69,6 +69,7 @@ import {
     collectPanelCatalogEntries,
     renderPanelCatalogEntriesHtml
 } from './panelCompanyCatalogRenderer.js';
+import { enhancePanelLineHeaderIcons } from './panelLineHeaderEnhancer.js';
 import { exportElementToPng } from './panelExportCapture.js';
 import {
     createPanelEventDelegationCoordinator,
@@ -106,93 +107,6 @@ const isSaturdayHoliday = (day) => {
     const isSH = isWeekend || isHoliday || isNewYearHoliday;
     return isSH ? 'SaturdayHoliday' : 'Weekday';
 }
-
-const enhancePanelLineHeaderIcons = async (rootEl) => {
-    if (!(rootEl instanceof Element)) return;
-    const names = rootEl.querySelectorAll('.panel-line-name');
-
-    for (const nameEl of names) {
-        if (!(nameEl instanceof HTMLElement)) continue;
-
-        const lineEl = nameEl.closest('.panel-line');
-        const lineId = toText(lineEl?.getAttribute?.('data-line-id'));
-        if (!lineId) continue;
-
-        const info = THROUGH_SERVICE_CONFIGS.find(item => 
-            lineId === item.tempId
-        );
-
-        // 2. 如果命中了直通线配置，且尚未渲染图标
-        if (info && !nameEl.querySelector('.rw-line-icon')) {
-            const fragment = document.createDocumentFragment();
-            // 3. 动态遍历配置中的所有 code（天然完美支持 JU / JT 双图标，甚至未来更多的图标）
-            info.codes.forEach((code, index) => {
-                const iconRouteId = info.routeIds[index];
-                const icon = createLineIconElement({
-                    routeId: iconRouteId,
-                    code: code,
-                    color: info.color
-                });
-                if (icon) {
-                    icon.style.marginRight = index === info.codes.length - 1 ? '4px' : '3px';
-                    icon.style.verticalAlign = 'middle';
-                    icon.style.transform = 'translateY(-2px)';
-                    fragment.appendChild(icon);
-                }
-            });
-            nameEl.prepend(fragment);
-            continue;
-        }
-
-
-        const meta = await getResolvedRouteIconMeta(lineId);
-        if (!meta || (!meta.code && !meta.color)) continue;
-
-        const exceptCode = ['NEX'];
-
-        if (!nameEl.querySelector('.rw-line-icon')) {
-            const icon = createLineIconElement({ routeId: meta.id, code: meta.code, color: meta.color });
-            if (icon) {
-                icon.style.marginRight = '4px';
-                icon.style.verticalAlign = 'middle';
-                icon.style.transform = 'translateY(-2px)' //exceptCode.includes(meta.code) ? 'translateY(3px)' : 'translateY(-2px)';
-                nameEl.prepend(icon);
-            }
-        }
-
-        const stationInfoLeftEl = lineEl?.querySelector?.('.panel-station-info-left') || null;
-        const suffixRowEl = lineEl?.querySelector?.('[data-line-suffix-row]') || null;
-
-        const suffixInNameEl = nameEl.querySelector('.panel-line-name-suffix');
-        if (suffixInNameEl) {
-            if (suffixRowEl) suffixRowEl.appendChild(suffixInNameEl);
-            else if (stationInfoLeftEl) stationInfoLeftEl.appendChild(suffixInNameEl);
-        }
-
-        const stationCode = toText(nameEl.getAttribute('data-transfer-station-code'));
-        if (!stationCode) continue;
-
-        const stationInfoHostEl = suffixRowEl || stationInfoLeftEl || nameEl;
-        if (stationInfoHostEl.querySelector('.rw-station-code-badge')) continue;
-
-        const stationBadge = createStationCodeBadgeElement({ code: stationCode, color: meta.color });
-        if (!stationBadge) continue;
-        stationBadge.style.marginLeft = '0';
-        stationBadge.style.marginRight = '0';
-        stationBadge.style.verticalAlign = 'middle';
-        stationBadge.style.transform = 'none';
-
-        const suffixEl = stationInfoHostEl.querySelector('.panel-line-name-suffix');
-        if (suffixEl) stationInfoHostEl.insertBefore(stationBadge, suffixEl);
-        else {
-            const mainEl = nameEl.querySelector('.panel-line-name-main');
-            if (stationInfoHostEl !== nameEl) stationInfoHostEl.prepend(stationBadge);
-            else if (mainEl && mainEl.nextSibling) nameEl.insertBefore(stationBadge, mainEl.nextSibling);
-            else nameEl.appendChild(stationBadge);
-        }
-    }
-};
-
 
 const panelIsDarkThemeActive = () => {
     try {
