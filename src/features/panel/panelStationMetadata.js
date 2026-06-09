@@ -12,7 +12,16 @@ export const readStationName = (props, {
 
 export const pickTitleZhHans = (titleObj, {
     toText = defaultToText
-} = {}) => toText(titleObj?.zhHans || titleObj?.zhHant || titleObj?.zh || titleObj?.ja || titleObj?.en || '');
+} = {}) => toText(
+    titleObj?.zhHans ||
+    titleObj?.['zh-Hans'] ||
+    titleObj?.zhHant ||
+    titleObj?.['zh-Hant'] ||
+    titleObj?.zh ||
+    titleObj?.ja ||
+    titleObj?.en ||
+    ''
+);
 
 export const pickTitleEn = (titleObj, {
     toText = defaultToText
@@ -51,7 +60,7 @@ export const getStationsIndex = async ({
                 idToNameZh.set(id, name);
                 if (nameEn) idToNameEn.set(id, nameEn);
                 if (code) idToCode.set(id, code);
-                const railway = toText(station?.r);
+                const railway = toText(station?.railway || station?.r);
                 if (railway && name) {
                     stationIdByRailwayAndNameZh.set(`${railway}||${name}`, id);
                 }
@@ -79,7 +88,10 @@ export const getStationGroupsIndex = async ({
             const list = await loadJson('./data/station-groups.json');
             const map = new Map();
             for (const group of Array.isArray(list) ? list : []) {
-                const ids = Array.isArray(group?.ids) ? group.ids.map((value) => toText(value)).filter(Boolean) : [];
+                const rawIds = Array.isArray(group?.ids)
+                    ? group.ids
+                    : (Array.isArray(group) ? group.flat(Infinity) : []);
+                const ids = rawIds.map((value) => toText(value)).filter(Boolean);
                 if (!ids.length) continue;
                 for (const id of ids) {
                     const existing = map.get(id) || [];
