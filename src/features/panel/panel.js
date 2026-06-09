@@ -127,6 +127,7 @@ import {
     collectPanelTripDetailRefChainTripsFromRef,
     resolvePanelTripDetailFirstMultiRefsAlongChain
 } from './panelTripDetailRefChainCollector.js';
+import { collectPanelTripDetailTripChainByTrip } from './panelTripDetailTripChainWalker.js';
 import {
     derivePanelTripDetailBranchRuntime,
     resolvePanelTripDetailBranchRefIds
@@ -1813,34 +1814,6 @@ export function createPanel(options = {}) {
         return parts.length ? parts[parts.length - 1] : '';
     };
 
-    const collectTripChainByRef = async (startTrip, key) => {
-        const out = [];
-        const seenRefs = new Set();
-        const seenTrips = new Set();
-        let cursor = startTrip;
-
-        for (let i = 0; i < 24; i += 1) {
-            const refs = Array.isArray(cursor?.[key]) ? cursor[key] : (cursor?.[key] ? [cursor[key]] : []);
-            const refId = toText(refs?.[0]);
-            if (!refId) break;
-            if (seenRefs.has(refId)) break;
-            seenRefs.add(refId);
-
-            const refTrip = await loadTripByRefId(refId);
-            if (!refTrip) break;
-
-            const sid = toText(refTrip?.id) || toText(refTrip?.t);
-            if (sid && seenTrips.has(sid)) break;
-
-            out.push(refTrip);
-            if (sid) seenTrips.add(sid);
-
-            cursor = refTrip;
-        }
-
-        return out;
-    };
-
     const deriveThroughServiceDirectionFromChain = async (trip, displayLineId) => {
         const lineId = toText(displayLineId);
 
@@ -1850,8 +1823,20 @@ export function createPanel(options = {}) {
         // 如果不是特殊的直通线路，或者没有配置测向规则（如常磐线），直接退出
         if (!directionRule) return '';
 
-        const ptChain = await collectTripChainByRef(trip, 'pt');
-        const ntChain = await collectTripChainByRef(trip, 'nt');
+        const ptChain = await collectPanelTripDetailTripChainByTrip({
+            startTrip: trip,
+            key: 'pt',
+            loadTripByRefId,
+            isTokenCurrent: () => true,
+            toText
+        });
+        const ntChain = await collectPanelTripDetailTripChainByTrip({
+            startTrip: trip,
+            key: 'nt',
+            loadTripByRefId,
+            isTokenCurrent: () => true,
+            toText
+        });
 
         const orderedTrips = [
             ...(Array.isArray(ptChain) ? ptChain.slice().reverse() : []),
@@ -3579,36 +3564,6 @@ export function createPanel(options = {}) {
         return buildLineDescriptor(lineId);
     };
 
-    const collectRefChainTrips = async (startTrip, key, token) => {
-        const out = [];
-        const seenRefs = new Set();
-        const seenTrips = new Set();
-        let cursor = startTrip;
-
-        for (let i = 0; i < 24; i += 1) {
-            const refs = Array.isArray(cursor?.[key]) ? cursor[key] : (cursor?.[key] ? [cursor[key]] : []);
-            const refId = toText(refs?.[0]);
-            if (!refId) break;
-            if (seenRefs.has(refId)) break;
-            seenRefs.add(refId);
-
-            const refTrip = await loadTripByRefId(refId);
-            if (token !== tripDetailToken) return null;
-            if (!refTrip) break;
-
-            const sid = toText(refTrip?.id) || toText(refTrip?.t);
-            if (sid && seenTrips.has(sid)) break;
-
-            out.push(refTrip);
-
-            if (sid) seenTrips.add(sid);
-
-            cursor = refTrip;
-        }
-
-        return out;
-    };
-
     const getTripDestName = (trip, stationsIndex) => {
         const dir = toText(trip?.d);
         if (dir === 'InnerLoop') return '内环';
@@ -3682,9 +3637,21 @@ export function createPanel(options = {}) {
         });
         // Trip detail 展示包含直通( pt/nt )链路：始发/终点标记应始终显示在全链路端点，
         // 且需兼容“同名换乘站不同线路 stationId”场景（用 AKey 兜底匹配）。
-        const ptChain = await collectRefChainTrips(trip, 'pt', token);
+        const ptChain = await collectPanelTripDetailTripChainByTrip({
+            startTrip: trip,
+            key: 'pt',
+            loadTripByRefId,
+            isTokenCurrent: () => token === tripDetailToken,
+            toText
+        });
         if (token !== tripDetailToken) return;
-        const ntChain = await collectRefChainTrips(trip, 'nt', token);
+        const ntChain = await collectPanelTripDetailTripChainByTrip({
+            startTrip: trip,
+            key: 'nt',
+            loadTripByRefId,
+            isTokenCurrent: () => token === tripDetailToken,
+            toText
+        });
         if (token !== tripDetailToken) return;
 
         const segments = [];
