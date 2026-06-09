@@ -127,6 +127,7 @@ import {
     resolvePanelTripDetailBranchRefIds
 } from './panelTripDetailBranchRuntime.js';
 import { buildPanelTripDetailSegmentBlocks } from './panelTripDetailSegmentBlockBuilder.js';
+import { renderPanelTripDetailLinearRows } from './panelTripDetailLinearRowsRenderer.js';
 import {
     getPanelTripDetailSegmentFirstRow,
     getPanelTripDetailSegmentLastRow,
@@ -3998,13 +3999,6 @@ export function createPanel(options = {}) {
         let spacerHtml = '<div class="panel-trip-detail-spacer"></div>';
 
         if (!useBranchGridLayout) {
-            if (hideThroughSegmentsForLoop) {
-                rowsHtml += renderPanelTripDetailLoopMarkerRow({
-                    text: '↑环线',
-                    renderTimetablePlainNoteRowHtml,
-                    toText
-                });
-            }
             const segmentBlocks = buildPanelTripDetailSegmentBlocks({
                 segmentsWithPast,
                 throughCategoryLabel,
@@ -4014,37 +4008,27 @@ export function createPanel(options = {}) {
                 isSameLineName,
                 toText
             });
-
-            for (let i = 0; i < segmentBlocks.length; i += 1) {
-                const block = segmentBlocks[i];
-                const prevBlock = i > 0 ? segmentBlocks[i - 1] : null;
-
-                const firstSeg = block.segments[0] || null;
-                const prevLastSeg = prevBlock?.segments?.[prevBlock.segments.length - 1] || null;
-
-                const prevLastRow = getPanelTripDetailSegmentLastRow(prevLastSeg);
-                const firstRow = getPanelTripDetailSegmentFirstRow(firstSeg);
-
-                rowsHtml += renderPanelTripDetailNoteRow({
-                    descriptor: block.descriptor,
-                    typeName: block.typeName,
-                    typeColor: block.typeColor,
-                    isPast: isPanelTripDetailBoundaryPast(prevLastRow, firstRow),
-                    renderTimetableNoteRowHtml,
-                    toText
-                });
-                for (const seg of block.segments) {
-                    const segLineColor = toText(block?.descriptor?.color || seg?.typeColor || '');
-                    rowsHtml += (seg.rows || []).map((r) => renderStopRow({ ...r, lineColor: segLineColor })).join('');
-                }
-            }
-            if (hideThroughSegmentsForLoop) {
-                rowsHtml += renderPanelTripDetailLoopMarkerRow({
-                    text: '↓环线',
+            rowsHtml += renderPanelTripDetailLinearRows({
+                segmentBlocks,
+                hideThroughSegmentsForLoop,
+                renderPanelTripDetailLoopMarkerRow: ({ text }) => renderPanelTripDetailLoopMarkerRow({
+                    text,
                     renderTimetablePlainNoteRowHtml,
                     toText
-                });
-            }
+                }),
+                getPanelTripDetailSegmentFirstRow,
+                getPanelTripDetailSegmentLastRow,
+                isPanelTripDetailBoundaryPast,
+                renderPanelTripDetailNoteRow: ({ descriptor, typeName, typeColor, isPast }) => renderPanelTripDetailNoteRow({
+                    descriptor,
+                    typeName,
+                    typeColor,
+                    isPast,
+                    renderTimetableNoteRowHtml,
+                    toText
+                }),
+                renderStopRow
+            });
 
             headerHtml = `
                 <div class="panel-trip-detail-head">
