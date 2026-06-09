@@ -128,6 +128,7 @@ import {
     resolvePanelTripDetailFirstMultiRefsAlongChain
 } from './panelTripDetailRefChainCollector.js';
 import { collectPanelTripDetailTripChainByTrip } from './panelTripDetailTripChainWalker.js';
+import { derivePanelTripDetailThroughServiceDirection } from './panelTripDetailThroughServiceDirectionResolver.js';
 import {
     derivePanelTripDetailBranchRuntime,
     resolvePanelTripDetailBranchRefIds
@@ -2487,7 +2488,14 @@ export function createPanel(options = {}) {
 
                 let derivedThroughDirection = throughDirectionCache.get(tripDirectionCacheKey);
                 if (derivedThroughDirection === undefined) {
-                    derivedThroughDirection = await deriveThroughServiceDirectionFromChain(trip, lineId);
+                    derivedThroughDirection = await derivePanelTripDetailThroughServiceDirection({
+                        trip,
+                        displayLineId: lineId,
+                        throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
+                        loadTripByRefId,
+                        isTokenCurrent: () => true,
+                        toText
+                    });
                     throughDirectionCache.set(tripDirectionCacheKey, derivedThroughDirection);
                 }
                 const dir = toText(derivedThroughDirection || trip?.d);
