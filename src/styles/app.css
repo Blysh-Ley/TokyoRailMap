@@ -2293,22 +2293,23 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 }
 
 .panel-timetable-type-marquee {
-    width: auto;
+    min-height: 18px;
+    width: 42px;
     max-width: 100%;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 18px;
     padding: 0 6px;
     border-radius: 6px;
     background: var(--panel-type-badge-bg, #767676);
     color: var(--panel-type-badge-fg, #fff);
     overflow: hidden;
-    white-space: nowrap;
+    white-space: pre;
+    text-overflow: ellipsis;
     text-align: center;
     font-size: 12px;
     line-height: 18px;
-    font-weight: 700;
+    font-weight: 600;
     pointer-events: none;
 }
 
