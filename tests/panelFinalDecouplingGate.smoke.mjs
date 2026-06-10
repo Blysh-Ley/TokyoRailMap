@@ -49,7 +49,7 @@ assertNoPattern({
 
 const panelSource = readSourceFile('src/features/panel/panel.js');
 const contentApiSource = readSourceFile('src/features/panel/panelCatalogShell.js');
-const shellSource = readSourceFile('src/features/panel/panelCatalogShell.js');
+const shellSource = readSourceFile('src/ui/panelShellView.js');
 const contentHostSource = readSourceFile('src/features/panel/panelCatalogShell.js');
 const packageJson = JSON.parse(readSourceFile('package.json'));
 const testScript = String(packageJson?.scripts?.test || '');
@@ -73,13 +73,21 @@ assert.ok(
     'desktop createPanel must compose through the reusable content API'
 );
 assert.equal(
-    panelSource.includes("from './panelCatalogShell.js'"),
+    /createPanelContentHost/.test(panelSource),
     false,
     'desktop createPanel must not bypass the reusable content API by importing panelContentHost directly'
 );
 assert.ok(
-    shellSource.includes('getClickRegion') && shellSource.includes('layout') && shellSource.includes('show()') && shellSource.includes('hide()'),
-    'desktop shell must remain a shell lifecycle/placement boundary'
+    panelSource.includes("from '../../ui/panelShellView.js'") && panelSource.includes('createPanelShell'),
+    'desktop createPanel must obtain shell presentation from the ui panel shell view'
+);
+assert.ok(
+    shellSource.includes('getClickRegion') &&
+        shellSource.includes('layout') &&
+        shellSource.includes('show()') &&
+        shellSource.includes('hide()') &&
+        shellSource.includes('createMobilePanelShell'),
+    'panel shell view must remain the desktop/mobile lifecycle and placement boundary'
 );
 assert.ok(
     contentHostSource.includes("panel.className = 'panel-container'") && contentHostSource.includes('mount(host)'),

@@ -21,6 +21,7 @@ import {
     THROUGH_SERVICE_CONFIGS_OBJECT,
 } from '../../lib/throughServiceManager.js';
 import { createPanelMainView } from '../../ui/panelMainView.js';
+import { createPanelShell } from '../../ui/panelShellView.js';
 import { buildTimetableStationText, renderTimetableNoteRowHtml, renderTimetablePlainNoteRowHtml } from './panelTimetableCore.js';
 import {
     renderPanelPrintableTimetableListHtml,
@@ -162,7 +163,6 @@ import {
     resolvePanelMousePrimaryTarget
 } from './panelInteractionCore.js';
 import { createPanelCatalogController } from './panelCatalogShell.js';
-import { createDesktopPanelShell } from './panelCatalogShell.js';
 import {
     createPanelTouchInteractionController,
     isTouchLikePointer
@@ -344,6 +344,7 @@ export function createPanel(options = {}) {
     const widthPx = Number.isFinite(options.widthPx) ? options.widthPx : 320;
     const rightPx = Number.isFinite(options.rightPx) ? options.rightPx : 20;
     const zIndex = Number.isFinite(options.zIndex) ? options.zIndex : 9999;
+    const panelPresentation = options.panelPresentation === 'mobile' ? 'mobile' : 'desktop';
 
     const hoverDelayMs = Number.isFinite(options.hoverDelayMs) ? options.hoverDelayMs : 50;
     const primaryHoverDelayMs = 500;
@@ -385,7 +386,7 @@ export function createPanel(options = {}) {
     let currentStationsIndex = null;
     let currentLineStationMetaByLineId = new Map();
 
-    const panelShell = createDesktopPanelShell({ rightPx, widthPx });
+    const panelShell = createPanelShell({ presentation: panelPresentation, rightPx, widthPx });
     const panelContentApi = createPanelContentApi();
     const panelComposition = composePanelShellWithContent({ contentApi: panelContentApi, shell: panelShell });
     const touchInteraction = createPanelTouchInteractionController({ now: nowMs });
