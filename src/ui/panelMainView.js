@@ -1,3 +1,5 @@
+import { createPanelTripDetailView } from './panelTripDetailView.js';
+
 export const createPanelMainView = ({
     panelComposition,
     panelContentApi,
@@ -315,6 +317,13 @@ export const createPanelMainView = ({
     tripDetailRoot.appendChild(tripDetailBody);
     document.body.appendChild(tripDetailRoot);
 
+    const tripDetailView = createPanelTripDetailView({
+        root: tripDetailRoot,
+        panelRoot: root,
+        title: tripDetailTitle,
+        body: tripDetailBody
+    });
+
     const layout = ({ presentation } = {}) => {
         const shellLayout = panelComposition.shell?.layout?.() || {};
         const activePresentation = presentation || shellLayout.presentation || root.getAttribute?.('data-panel-presentation') || 'desktop';
@@ -374,6 +383,7 @@ export const createPanelMainView = ({
         tripDetailHeader,
         tripDetailRoot,
         tripDetailTitle,
+        tripDetailView,
         layout,
         viewToggle
     };

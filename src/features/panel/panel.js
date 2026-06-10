@@ -454,7 +454,7 @@ export function createPanel(options = {}) {
         tripDetailBody,
         tripDetailCaptureBtn,
         tripDetailRoot,
-        tripDetailTitle,
+        tripDetailView,
         viewToggle
     } = panelMainView;
 
@@ -2787,7 +2787,7 @@ export function createPanel(options = {}) {
         const trip = await findTripByKey(lineId, tripKey);
         if (token !== tripDetailToken) return;
         if (!trip) {
-            tripDetailRoot.classList.add('is-hidden');
+            tripDetailView.hide();
             return;
         }
 
@@ -2964,7 +2964,7 @@ export function createPanel(options = {}) {
             toText
         });
 
-        tripDetailTitle.innerHTML = await buildPanelTripDetailTitleHtml({
+        const tripDetailTitleHtml = await buildPanelTripDetailTitleHtml({
             trip,
             stationsIndex,
             trainTypesIndex,
@@ -3218,7 +3218,7 @@ export function createPanel(options = {}) {
             // ignore
         }
 
-        tripDetailBody.innerHTML = `
+        const tripDetailBodyHtml = `
             <div class="${tripDetailTableClass}"${tripDetailTableInlineStyle}>
                 ${headerHtml}
                 ${rowsHtml}
@@ -3226,17 +3226,12 @@ export function createPanel(options = {}) {
             </div>
         `;
 
-        tripDetailRoot.classList.remove('is-hidden');
-
-        const panelW = tripDetailRoot.offsetWidth || 280;
-        const panelH = tripDetailRoot.offsetHeight || 240;
-        const pad = 12;
-        const panelRect = root.getBoundingClientRect?.();
-        const panelLeft = panelRect?.left ?? (window.innerWidth - panelW - pad);
-        const x = Math.max(pad, Math.min(panelLeft - panelW - pad + 10, window.innerWidth - panelW - pad + 10));
-        const y = Math.max(pad, Math.min((clientY || 0) - 20, window.innerHeight - panelH - pad));
-        tripDetailRoot.style.left = `${x}px`;
-        tripDetailRoot.style.top = `${y}px`;
+        tripDetailView.render({
+            titleHtml: tripDetailTitleHtml,
+            bodyHtml: tripDetailBodyHtml,
+            clientY,
+            presentation: panelPresentation
+        });
         scheduleMarqueeApply(tripDetailRoot);
     };
 
@@ -3248,7 +3243,7 @@ export function createPanel(options = {}) {
         clearTripDetailHideTimer();
         hideTripCurrentStationHint();
         clearTripDetailStationIndicator();
-        tripDetailRoot.classList.add('is-hidden');
+        tripDetailView.hide();
         try {
             onTripClear?.();
         } catch {
