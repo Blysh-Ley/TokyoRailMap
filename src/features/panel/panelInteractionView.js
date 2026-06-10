@@ -714,7 +714,17 @@ export const createPanelMarqueeController = ({
                         else score = Math.min(Math.abs(rowRect.top - containerRect.bottom), Math.abs(rowRect.bottom - containerRect.top));
                     }
                 }
-                candidates.push({ marqueeEl, innerEl, viewportW, contentW, score });
+                const isDestMarquee = marqueeEl.classList?.contains?.('panel-timetable-dest-marquee');
+                candidates.push({
+                    marqueeEl,
+                    innerEl,
+                    viewportW,
+                    contentW,
+                    score,
+                    holdMs: 2000,
+                    speedPxPerSec: isDestMarquee ? 35 : 30,
+                    minTravelMs: isDestMarquee ? 1500 : 1200
+                });
             }
 
             candidates.sort((a, b) => a.score - b.score);
@@ -723,10 +733,7 @@ export const createPanelMarqueeController = ({
             for (const candidate of candidates) {
                 if (started >= maxAnims) break;
                 const didStart = applyMarqueeAnimation({
-                    ...candidate,
-                    holdMs: 2000,
-                    speedPxPerSec: 30,
-                    minTravelMs: 1200
+                    ...candidate
                 });
                 if (didStart) started += 1;
             }

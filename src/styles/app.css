@@ -2230,7 +2230,6 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 .panel-timetable-dest-marquee {
     flex: 1 1 auto;
     min-width: 0;
-    display: block;
     overflow: hidden;
     pointer-events: none;
 }
