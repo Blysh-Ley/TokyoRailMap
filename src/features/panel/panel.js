@@ -20,6 +20,7 @@ import {
     THROUGH_SERVICE_CONFIGS,
     THROUGH_SERVICE_CONFIGS_OBJECT,
 } from '../../lib/throughServiceManager.js';
+import { createPanelMainView } from '../../ui/panelMainView.js';
 import { buildTimetableStationText, renderTimetableNoteRowHtml, renderTimetablePlainNoteRowHtml } from './panelTimetableCore.js';
 import {
     renderPanelPrintableTimetableListHtml,
@@ -387,7 +388,6 @@ export function createPanel(options = {}) {
     const panelShell = createDesktopPanelShell({ rightPx, widthPx });
     const panelContentApi = createPanelContentApi();
     const panelComposition = composePanelShellWithContent({ contentApi: panelContentApi, shell: panelShell });
-    const root = panelComposition.root;
     const touchInteraction = createPanelTouchInteractionController({ now: nowMs });
     const panelIntents = createPanelIntentController({
         captureElement: exportElementToPng
@@ -401,213 +401,80 @@ export function createPanel(options = {}) {
     // 从右侧滑入/滑出
 
     // 面板主体：视觉同 search-results，但 class 使用 panel-* 隔离
-    const panel = panelComposition.panel;
-
-    // 标题栏
-    const header = document.createElement('div');
-    header.setAttribute('data-panel-header', '');
-    header.style.display = 'flex';
-    header.style.alignItems = 'center';
-    header.style.justifyContent = 'flex-start';
-    header.style.gap = '8px';
-    header.style.padding = '10px 12px';
-    header.style.borderBottom = '1px solid var(--ui-border, #e3e5e7)';
-
-    const title = document.createElement('div');
-    title.setAttribute('data-panel-title', '');
-    title.style.flex = '1 1 auto';
-    title.style.display = 'flex';
-    title.style.flexDirection = 'column';
-    title.style.alignItems = 'flex-start';
-    title.style.minWidth = '0';
-    title.style.overflow = 'hidden';
-
-    const titleMain = document.createElement('div');
-    titleMain.className = 'panel-title-main';
-
-    const titleSub = document.createElement('div');
-    titleSub.className = 'panel-title-sub';
-
-    title.appendChild(titleMain);
-    title.appendChild(titleSub);
-    header.appendChild(title);
-
-    // 右侧控件区：工作日/休息日 + 时间
-    const controls = document.createElement('div');
-    controls.className = 'panel-controls';
-
-    // 工作日/休息日切换（两段式圆角滑块）
-    const dayToggle = document.createElement('div');
-    dayToggle.className = 'panel-day-toggle';
-
-    const daySeg = document.createElement('div');
-    daySeg.className = 'panel-day-seg';
-
-    const btnWeekday = document.createElement('button');
-    btnWeekday.type = 'button';
-    btnWeekday.textContent = '工作日';
-    btnWeekday.setAttribute('data-day', 'Weekday');
-
-    const btnHoliday = document.createElement('button');
-    btnHoliday.type = 'button';
-    btnHoliday.textContent = '休息日';
-    btnHoliday.setAttribute('data-day', 'SaturdayHoliday');
-
-    daySeg.appendChild(btnWeekday);
-    daySeg.appendChild(btnHoliday);
-
-    const dayPrintBtn = document.createElement('button');
-    dayPrintBtn.type = 'button';
-    dayPrintBtn.className = 'panel-day-print-btn is-hidden';
-    dayPrintBtn.setAttribute('data-day-print-btn', '1');
-    dayPrintBtn.setAttribute('aria-label', '打印本站全部方向时刻表');
-    const dayPrintIcon = document.createElement('img');
-    dayPrintIcon.className = 'panel-day-print-icon';
-    dayPrintIcon.alt = '';
-    setImageElementFromCache(dayPrintIcon, getIconCandidates('print.svg'), {
-        cacheKey: 'icon:print.svg',
-        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('print.svg'), { cacheKey: 'icon:print.svg' })
-    }).catch(() => null);
-    dayPrintBtn.appendChild(dayPrintIcon);
-
-    // 站点快速加入行程：作为起点/终点（map-select dropdown）
-    const applyStationToJourneyField = (field) => {
-        const stationId = toText(currentStationId);
-        const stationName = toText(currentStationNameZh) || toText(titleMain.textContent);
-        if (!stationId && !stationName) return;
-
-        crossFeatureBridge.setJourneyStation({ field, stationId, stationName });
-
-        // 取消当前站点高亮（不影响行程 map pick 的抑制逻辑）
-        crossFeatureBridge.clearStationSelection();
-    };
-
-    const mapSelectController = createPanelMapSelectController({
-        stopEvent,
-        loadIcon: (iconEl) => setImageElementFromCache(iconEl, getIconCandidates('map-select.svg'), {
-            cacheKey: 'icon:map-select.svg',
-            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('map-select.svg'), { cacheKey: 'icon:map-select.svg' })
-        }).catch(() => null),
-        onSelectField: applyStationToJourneyField,
-        labels: {
-            button: '将本站加入行程（起点/终点）',
-            menu: '将本站作为起点或终点',
-            origin: '作为起点',
-            destination: '作为终点'
-        }
-    });
-
-    // 打印按钮 + map-select 按钮同行（位于 daySeg 下方）
-    const dayActionRow = document.createElement('div');
-    dayActionRow.className = 'panel-day-action-row';
-    dayActionRow.style.display = 'inline-flex';
-    dayActionRow.style.alignItems = 'center';
-    dayActionRow.style.gap = '8px';
-    dayActionRow.appendChild(mapSelectController.el);
-    dayActionRow.appendChild(dayPrintBtn);
-
-    dayToggle.appendChild(dayActionRow);
-
-    // 时间控件：覆盖 panel 中的“当前时间”（用于判断已过/未来与默认定位）
-    const timeControl = document.createElement('div');
-    timeControl.className = 'settings-item-control settings-time-control';
-
-    const timeInput = document.createElement('input');
-    timeInput.className = 'settings-time-input';
-    timeInput.type = 'text';
-    timeInput.inputMode = 'numeric';
-    timeInput.placeholder = 'HH:MM';
-    timeInput.maxLength = 5;
-    timeInput.value = '';
-
-    const btnAutoNow = document.createElement('button');
-    btnAutoNow.type = 'button';
-    btnAutoNow.className = 'settings-time-reset';
-    btnAutoNow.title = '恢复自动时间';
-    btnAutoNow.setAttribute('aria-label', '恢复自动时间');
-    const autoNowIcon = document.createElement('img');
-    autoNowIcon.className = 'settings-time-reset-icon';
-    autoNowIcon.alt = '';
-    setImageElementFromCache(autoNowIcon, getIconCandidates('clockwise.svg'), {
-        cacheKey: 'icon:clockwise.svg',
-        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('clockwise.svg'), { cacheKey: 'icon:clockwise.svg' })
-    }).catch(() => null);
-    btnAutoNow.appendChild(autoNowIcon);
-
-    const timeOps = document.createElement('div');
-    timeOps.className = 'settings-time-ops';
-    timeOps.appendChild(timeInput);
-    timeOps.appendChild(btnAutoNow);
-
-    const setTimePickerOpenState = (open) => {
-        crossFeatureBridge.setTimePickerOpenState(open);
-    };
-
-    const timePickerController = createPanelTimePickerController({
-        timeInput,
-        timeOps,
-        zIndex,
+    const panelMainView = createPanelMainView({
+        panelComposition,
+        panelContentApi,
+        createPanelMapSelectController,
+        createPanelTimePickerController,
+        getIconCandidates,
+        getPreferredCachedImageSrc,
+        setImageElementFromCache,
+        isSaturdayHoliday,
         stopEvent,
         stopPropagationOnly,
-        setOpenState: setTimePickerOpenState
+        setTimePickerOpenState: (open) => {
+            crossFeatureBridge.setTimePickerOpenState(open);
+        },
+        getJourneyStationContext: ({ titleMain }) => ({
+            stationId: currentStationId,
+            stationName: toText(currentStationNameZh) || toText(titleMain.textContent)
+        }),
+        onJourneyStationSelect: ({ field, stationId, stationName }) => {
+            crossFeatureBridge.setJourneyStation({ field, stationId, stationName });
+            crossFeatureBridge.clearStationSelection();
+        },
+        toText,
+        zIndex
     });
+    const {
+        body,
+        btnAutoNow,
+        btnHoliday,
+        btnViewGrid,
+        btnViewList,
+        btnWeekday,
+        datePanel,
+        datePickerInput,
+        dayPrintBtn,
+        daySeg,
+        formatDateInputValue,
+        formatPanelDateText,
+        header,
+        mapSelectController,
+        panel,
+        parseDateInputValue,
+        root,
+        timeInput,
+        timeOverlay,
+        timePickerController,
+        title,
+        titleMain,
+        titleSub,
+        tripDetailBody,
+        tripDetailCaptureBtn,
+        tripDetailRoot,
+        tripDetailTitle,
+        viewToggle
+    } = panelMainView;
 
-    timeControl.appendChild(timeOps);
+    tripDetailCaptureBtn.addEventListener('click', async (evt) => {
+        stopEvent(evt);
+        tripDetailPinned = true;
+        clearTripDetailHideTimer();
+        const baseName = `trip-detail-${toText(currentStationNameZh) || 'line'}`;
+        await panelIntents.captureTripDetail({
+            root: tripDetailRoot,
+            filenameBase: baseName,
+            buttonEl: tripDetailCaptureBtn
+        });
+    }, { passive: false });
 
-    controls.appendChild(dayToggle);
-    header.appendChild(controls);
-
-    const viewToggle = document.createElement('div');
-    viewToggle.className = 'panel-view-toggle';
-    viewToggle.setAttribute('role', 'tablist');
-    viewToggle.setAttribute('aria-label', '班次视图');
-
-    const btnViewList = document.createElement('button');
-    btnViewList.type = 'button';
-    btnViewList.className = 'panel-view-toggle-btn';
-    btnViewList.textContent = '列表';
-    btnViewList.setAttribute('data-panel-view-mode', 'list');
-    btnViewList.setAttribute('role', 'tab');
-
-    const btnViewGrid = document.createElement('button');
-    btnViewGrid.type = 'button';
-    btnViewGrid.className = 'panel-view-toggle-btn';
-    btnViewGrid.textContent = '一览';
-    btnViewGrid.setAttribute('data-panel-view-mode', 'grid');
-    btnViewGrid.setAttribute('role', 'tab');
-
-    viewToggle.appendChild(btnViewList);
-    viewToggle.appendChild(btnViewGrid);
-
-    // 内容区：承载 popup 同结构的公司/线路列表
-    const body = document.createElement('div');
-    body.setAttribute('data-panel-body', '');
-    body.className = 'panel-list';
-    body.style.flex = '1 1 auto';
-    body.style.paddingLeft = '10px';
-    body.style.paddingRight = '10px';
-    body.style.overflowY = 'auto';
-    body.style.overflowX = 'hidden';
-    /*
-
-    // 当 panel 内容出现纵向滚动时，自动在标题左侧显示“目录”子面板。
-            <span class="panel-catalog-title-text">目录</span>
-            <button type="button" class="panel-catalog-close-btn" data-panel-catalog-close-btn="1" aria-label="关闭目录">
-                <img class="panel-catalog-close-icon" alt="" />
-            </button>
-        </div>
-        <div class="panel-catalog-body" data-panel-catalog-body="1"></div>
-    */
     let panelCatalogController = null;
 
     const scheduleCatalogRefresh = () => {
         panelCatalogController?.scheduleRefresh();
     };
 
-    panelContentApi.appendContent(header);
-    panelContentApi.appendContent(viewToggle);
-    panelContentApi.appendContent(body);
-    panelComposition.mountContent();
     const panelScrollRuntime = createPanelScrollRuntime({
         body,
         toText,
@@ -642,140 +509,6 @@ export function createPanel(options = {}) {
         stopEvent,
         toText
     });
-
-    // 防止点击面板穿透到地图（触发“点击空白处恢复/收起搜索”等）
-    // 用 bubble 阶段拦截，避免阻断面板内部的点击/触屏事件处理
-    root.addEventListener('pointerdown', (e) => stopPropagationOnly(e), { passive: true });
-    root.addEventListener('pointermove', (e) => stopPropagationOnly(e), { passive: true });
-    root.addEventListener('touchmove', (e) => stopPropagationOnly(e), { passive: true });
-    root.addEventListener('wheel', (e) => stopPropagationOnly(e), { passive: true });
-    root.addEventListener('click', (e) => stopEvent(e), { passive: false });
-
-    document.body.appendChild(root);
-
-    // 地图右上：站名开关下方的时间控件浮层（z-index 高于 panel）
-    const startupTimeOverlay = typeof document.getElementById === 'function'
-        ? document.getElementById('startup-timebar')
-        : null;
-    const timeOverlay = startupTimeOverlay && typeof startupTimeOverlay.appendChild === 'function'
-        ? startupTimeOverlay
-        : document.createElement('div');
-    timeOverlay.className = 'settings-top-timebar';
-    timeOverlay.removeAttribute?.('data-startup-lcp');
-    timeOverlay.style.display = 'flex';
-    timeOverlay.appendChild(daySeg);
-
-    // 新增：在原 panel-day-seg 位置插入日期面板（显示 MM月DD日），并保留原 panel-day-seg（已隐藏）
-    const startupDatePanel = typeof document.getElementById === 'function'
-        ? document.getElementById('startup-panel-date')
-        : null;
-    const datePanel = startupDatePanel && typeof startupDatePanel.setAttribute === 'function'
-        ? startupDatePanel
-        : document.createElement('div');
-    datePanel.className = 'panel-date';
-    datePanel.setAttribute('role', 'button');
-    datePanel.setAttribute('tabindex', '0');
-    datePanel.setAttribute('aria-label', '选择日期');
-
-    const formatPanelDateText = (date) => {
-        const mm = String(date.getMonth() + 1).padStart(2, '0');
-        const dd = String(date.getDate()).padStart(2, '0');
-        const dayType = (typeof isSaturdayHoliday === 'function' && isSaturdayHoliday(date) === 'SaturdayHoliday') ? '休息日' : '工作日';
-        return `${dayType} ${mm}月${dd}日`;
-    };
-
-    const formatDateInputValue = (date) => {
-        const y = String(date.getFullYear());
-        const mm = String(date.getMonth() + 1).padStart(2, '0');
-        const dd = String(date.getDate()).padStart(2, '0');
-        return `${y}-${mm}-${dd}`;
-    };
-
-    const parseDateInputValue = (value) => {
-        const s = toText(value);
-        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (!m) return null;
-        const y = Number(m[1]);
-        const mo = Number(m[2]);
-        const d = Number(m[3]);
-        if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
-        if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
-        const parsed = new Date(y, mo - 1, d);
-        if (parsed.getFullYear() !== y || (parsed.getMonth() + 1) !== mo || parsed.getDate() !== d) return null;
-        return parsed;
-    };
-
-    const datePickerInput = document.createElement('input');
-    datePickerInput.type = 'date';
-    datePickerInput.className = 'panel-date-picker-input';
-
-    const initialDate = new Date();
-    const initialDateText = formatPanelDateText(initialDate);
-    if (datePanel.textContent !== initialDateText) {
-        datePanel.textContent = initialDateText;
-    }
-    datePickerInput.value = formatDateInputValue(initialDate);
-
-    timeOverlay.appendChild(datePanel);
-    timeOverlay.appendChild(datePickerInput);
-
-    timeOverlay.appendChild(timeControl);
-    timeOverlay.addEventListener('pointerdown', (e) => stopPropagationOnly(e), { passive: true });
-    timeOverlay.addEventListener('pointermove', (e) => stopPropagationOnly(e), { passive: true });
-    timeOverlay.addEventListener('touchmove', (e) => stopPropagationOnly(e), { passive: true });
-    timeOverlay.addEventListener('wheel', (e) => stopPropagationOnly(e), { passive: true });
-    timeOverlay.addEventListener('click', (e) => stopEvent(e), { passive: false });
-    timeOverlay.style.position = 'fixed';
-    timeOverlay.style.zIndex = 5000;
-    if (!timeOverlay.parentNode) {
-        document.body.appendChild(timeOverlay);
-    }
-
-    const tripDetailRoot = document.createElement('div');
-    tripDetailRoot.className = 'panel-trip-detail is-hidden';
-    tripDetailRoot.setAttribute('data-panel-trip-detail', '');
-    tripDetailRoot.style.position = 'fixed';
-    tripDetailRoot.style.zIndex = String(zIndex + 1);
-
-    const tripDetailHeader = document.createElement('div');
-    tripDetailHeader.className = 'panel-trip-detail-header';
-
-    const tripDetailTitle = document.createElement('div');
-    tripDetailTitle.className = 'panel-trip-detail-title';
-    tripDetailHeader.appendChild(tripDetailTitle);
-
-    const tripDetailCaptureBtn = document.createElement('button');
-    tripDetailCaptureBtn.type = 'button';
-    tripDetailCaptureBtn.className = 'panel-capture-btn panel-trip-detail-capture-btn';
-    tripDetailCaptureBtn.setAttribute('aria-label', '截图');
-    tripDetailCaptureBtn.title = '截图';
-    const tripDetailCaptureIcon = document.createElement('img');
-    tripDetailCaptureIcon.className = 'panel-capture-icon panel-trip-detail-capture-icon';
-    tripDetailCaptureIcon.alt = '';
-    setImageElementFromCache(tripDetailCaptureIcon, getIconCandidates('camera.svg'), {
-        cacheKey: 'icon:camera.svg',
-        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('camera.svg'), { cacheKey: 'icon:camera.svg' })
-    }).catch(() => null);
-    tripDetailCaptureBtn.appendChild(tripDetailCaptureIcon);
-    tripDetailCaptureBtn.addEventListener('click', async (evt) => {
-        stopEvent(evt);
-        tripDetailPinned = true;
-        clearTripDetailHideTimer();
-        const baseName = `trip-detail-${toText(currentStationNameZh) || 'line'}`;
-        await panelIntents.captureTripDetail({
-            root: tripDetailRoot,
-            filenameBase: baseName,
-            buttonEl: tripDetailCaptureBtn
-        });
-    }, { passive: false });
-    tripDetailHeader.appendChild(tripDetailCaptureBtn);
-
-    const tripDetailBody = document.createElement('div');
-    tripDetailBody.className = 'panel-trip-detail-body';
-
-    tripDetailRoot.appendChild(tripDetailHeader);
-    tripDetailRoot.appendChild(tripDetailBody);
-    document.body.appendChild(tripDetailRoot);
 
     tripDetailRoot.addEventListener('pointerdown', (e) => {
         tripDetailPinned = true;
