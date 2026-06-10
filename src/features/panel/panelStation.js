@@ -165,7 +165,7 @@ export const getStationsIndex = async ({
                 if (!id) continue;
                 const name = pickTitleZhHans(station?.title, { toText }) || id;
                 const nameEn = pickTitleEn(station?.title, { toText });
-                const code = toText(station?.code);
+                const code = toText(station?.code || station?.title?.code);
                 idToNameZh.set(id, name);
                 if (nameEn) idToNameEn.set(id, nameEn);
                 if (code) idToCode.set(id, code);
@@ -523,4 +523,3 @@ export const applyTemporarySourceLineOverrides = ({
 
     return nextLineGroupByMainId;
 };
-
