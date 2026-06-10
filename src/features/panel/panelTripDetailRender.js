@@ -1,7 +1,3 @@
-import { createStationCodeBadgeElement } from '../../lib/line-icons.js';
-
-
-
 // panelTripDetailViewModel.js
 const defaultToText_panelTripDetailViewModel = (value) => String(value ?? '').trim();
 
@@ -321,12 +317,31 @@ const renderStationCodeBadgeHtml_panelTripDetailStationRenderer = ({ stationCode
     const code = toText_panelTripDetailStationRenderer(stationCode);
     if (!code) return '';
 
-    try {
-        const badge = createStationCodeBadgeElement({ code, color: toText_panelTripDetailStationRenderer(lineColor) });
-        return badge?.outerHTML || '';
-    } catch {
-        return '';
-    }
+    const match = code.match(/^([A-Za-z]+)(.*)$/);
+    const prefix = match ? match[1] : code;
+    const suffix = match ? match[2] : '';
+    const color = toText_panelTripDetailStationRenderer(lineColor);
+    const borderColor = /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(color) ? color : 'transparent';
+    const textColor = /^#([0-9a-f]{6})$/i.test(borderColor)
+        ? (() => {
+            const hex = borderColor.slice(1);
+            const r = parseInt(hex.slice(0, 2), 16);
+            const g = parseInt(hex.slice(2, 4), 16);
+            const b = parseInt(hex.slice(4, 6), 16);
+            return ((r * 299 + g * 587 + b * 114) / 1000) > 150 ? '#000' : '#fff';
+        })()
+        : '#fff';
+    const fontSize = code.length <= 2 ? '11px' : (code.length <= 4 ? '10px' : '9px');
+    const safeCode = escapeHtml_panelTripDetailStationRenderer(code);
+    const safeColor = escapeHtml_panelTripDetailStationRenderer(color);
+    const safeBorderColor = escapeHtml_panelTripDetailStationRenderer(borderColor);
+
+    return `
+        <span class="rw-station-code-badge" data-code="${safeCode}" data-line-color="${safeColor}" style="display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;user-select:none;overflow:hidden;background-color:#fff;color:#000;border:2px solid ${safeBorderColor};border-radius:3.5px;height:20px;min-width:20px;padding:0 0.2em 0 0;line-height:1;font-weight:700;font-size:${fontSize};letter-spacing:0px;">
+            <span class="rw-station-code-badge-prefix" style="display:inline-flex;align-items:center;align-self:stretch;box-sizing:border-box;padding-left:2px;padding-right:2px;margin-right:0.2em;background-color:${safeBorderColor};color:${textColor};line-height:1;">${escapeHtml_panelTripDetailStationRenderer(prefix)}</span>
+            ${suffix ? `<span class="rw-station-code-badge-suffix" style="display:inline-flex;align-items:center;color:#000;line-height:1;">${escapeHtml_panelTripDetailStationRenderer(suffix)}</span>` : ''}
+        </span>
+    `;
 };
 
 export const renderPanelTripDetailStationContentHtml = ({
@@ -989,4 +1004,3 @@ export const renderPanelTripDetailBranchGridRows = ({
 
     return rowsHtml;
 };
-
