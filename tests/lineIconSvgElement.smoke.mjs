@@ -73,4 +73,13 @@ assert.equal(seibuText.getAttribute('transform'), 'translate(0 -35)');
 assert.equal(smallIcon.style.width, '20px');
 assert.equal(smallIcon.style.height, '20px');
 
+const ntIcon = createLineIconElement({ routeId: 'Toei.NipporiToneri', code: 'NT', color: '#d53a77' });
+const ntSvg = ntIcon.querySelector('svg');
+const ntFrame = ntSvg.children.find((child) => child.tagName === 'G');
+assert.equal(ntIcon.dataset.preset, 'nippori-toneri');
+assert.ok(ntFrame);
+assert.equal(ntFrame.children.filter((child) => child.tagName === 'PATH').length, 3);
+assert.equal(ntFrame.children.filter((child) => child.tagName === 'RECT').length, 1);
+assert.equal(ntSvg.children.some((child) => child.tagName === 'TEXT' && child.textContent === 'NT'), true);
+
 console.log('line icon svg element smoke ok');

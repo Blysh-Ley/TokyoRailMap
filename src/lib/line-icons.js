@@ -44,7 +44,7 @@ export const selectLineIconPreset = (routeId, code) => {
     if(
         id=='Toei.NipporiToneri'
     ) {
-        return 'rectangle-border';
+        return 'nippori-toneri';
     }
     else if(
         id=='Toei.Arakawa'

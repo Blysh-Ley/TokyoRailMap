@@ -23,6 +23,42 @@ const clearChildren = (node) => {
     while (node.firstChild) node.removeChild(node.firstChild);
 };
 
+const createNipporiToneriFrame = (documentRef) => {
+    const group = createSvgNode(documentRef, 'g', {
+        transform: 'scale(0.588) translate(-0.124 -0.34)'
+    });
+
+    [
+        {
+            fill: '#D53A77',
+            d: `M170.203,150.575c0,10.914-8.929,19.844-19.843,19.844H19.966c-10.913,0-19.842-8.93-19.842-19.844V20.182
+                C0.124,9.269,9.053,0.34,19.966,0.34H150.36c10.914,0,19.843,8.929,19.843,19.842V150.575z`
+        },
+        {
+            fill: '#FCFCFC',
+            d: `M12.926,147.616c0,5.502,4.5,10.002,10,10.002h124.472c5.501,0,10.001-4.5,10.001-10.002V23.143
+                c0-5.5-4.5-10-10.001-10H22.927c-5.5,0-10,4.5-10,10V147.616z`
+        },
+        {
+            fill: '#69B444',
+            d: `M150.054,141.767c0,4.678-3.827,8.504-8.504,8.504H28.776c-4.677,0-8.504-3.826-8.504-8.504V28.993
+                c0-4.677,3.827-8.504,8.504-8.504H141.55c4.677,0,8.504,3.827,8.504,8.504V141.767z`
+        }
+    ].forEach((attrs) => {
+        group.appendChild(createSvgNode(documentRef, 'path', attrs));
+    });
+
+    group.appendChild(createSvgNode(documentRef, 'rect', {
+        x: 27.924,
+        y: 28.141,
+        fill: '#FCFCFC',
+        width: 114.479,
+        height: 114.479
+    }));
+
+    return group;
+};
+
 const createShape = ({
     documentRef,
     preset,
@@ -31,6 +67,8 @@ const createShape = ({
     backgroundColor
 }) => {
     switch (preset) {
+        case 'nippori-toneri':
+            return createNipporiToneriFrame(documentRef);
         case 'circle':
             return createSvgNode(documentRef, 'circle', {
                 cx: 50,
@@ -104,6 +142,14 @@ const getTextModel = ({ code, preset, dark, fillColor }) => {
             y: 52,
             textLength: length <= 1 ? 38 : (length === 2 ? 58 : 72),
             transform: 'translate(0 -3)'
+        };
+    }
+
+    if (preset === 'nippori-toneri') {
+        return {
+            color: '#000',
+            fontSize: length <= 1 ? 48 : (length === 2 ? 40 : 29),
+            y: 52
         };
     }
 
