@@ -315,6 +315,34 @@ export const createPanelMainView = ({
     tripDetailRoot.appendChild(tripDetailBody);
     document.body.appendChild(tripDetailRoot);
 
+    const layout = ({ presentation } = {}) => {
+        const shellLayout = panelComposition.shell?.layout?.() || {};
+        const activePresentation = presentation || shellLayout.presentation || root.getAttribute?.('data-panel-presentation') || 'desktop';
+
+        if (activePresentation === 'mobile') {
+            timeOverlay.style.top = 'auto';
+            timeOverlay.style.right = '10px';
+            timeOverlay.style.bottom = 'calc(env(safe-area-inset-bottom, 0px) + 10px)';
+            timeOverlay.style.left = '10px';
+        } else {
+            timeOverlay.style.top = '10px';
+            timeOverlay.style.right = '194px';
+            timeOverlay.style.bottom = '';
+            timeOverlay.style.left = '';
+        }
+
+        try {
+            const br = window.getComputedStyle(panel).borderRadius;
+            if (br) {
+                panel.style.borderRadius = br;
+            }
+        } catch {
+            // ignore
+        }
+
+        return shellLayout;
+    };
+
     return {
         body,
         btnAutoNow,
@@ -346,6 +374,7 @@ export const createPanelMainView = ({
         tripDetailHeader,
         tripDetailRoot,
         tripDetailTitle,
+        layout,
         viewToggle
     };
 };

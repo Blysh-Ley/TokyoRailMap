@@ -3975,24 +3975,8 @@ export function createPanel(options = {}) {
         lastTripDetailKey = null;
     });
 
-    // 布局：高度与 menu 一致（80% 屏高），top 为 10% 屏高
     const layout = () => {
-        panelShell.layout();
-
-        // 时间控件浮层：置于右上功能区同一行，位于 ms-fab 左侧
-        timeOverlay.style.top = '10px';
-        timeOverlay.style.right = '194px';
-
-        // 保持可配置：允许通过 CSS 调整圆角
-        try {
-            const br = window.getComputedStyle(panel).borderRadius;
-            if (br) {
-                panel.style.borderRadius = br;
-            }
-        } catch {
-            // ignore
-        }
-
+        panelMainView.layout({ presentation: panelPresentation });
         scheduleCatalogRefresh();
     };
 
