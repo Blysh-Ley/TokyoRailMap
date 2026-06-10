@@ -135,14 +135,12 @@ const enhancePopupLineBadges = async ({ popup, mode }) => {
                         color: toText(meta?.color) || fallbackColor
                     });
                     if (icon) {
-                        const currentSize = parseFloat(icon.style.fontSize) || 12;
                         icon.classList.add('route-map-through-line-icon');
                         if (toText(icon.dataset?.preset) === 'seibu') {
                             icon.classList.add('route-map-through-line-icon-seibu');
                         }
                         icon.style.width = '20px';
                         icon.style.height = '20px';
-                        icon.style.fontSize = `${currentSize - 3}px`;
                         icon.style.marginRight = '2px';
                         frag.appendChild(icon);
                     }

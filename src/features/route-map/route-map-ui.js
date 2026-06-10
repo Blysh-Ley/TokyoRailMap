@@ -109,7 +109,6 @@ const enhanceRouteMapStationCodeBadges = async (containerEl, { lineId, lineColor
         if (!badge) continue;
         badge.style.marginRight = '4px';
         badge.style.verticalAlign = 'middle';
-        //badge.style.transform = 'translateY(-1px)';
 
         stEl.insertBefore(badge, stEl.firstChild);
     }
@@ -127,14 +126,11 @@ const renderRouteMapTitleWithIcon = async (titleEl, lineId, lineName) => {
     textSpan.className = 'route-map-title-text';
     textSpan.textContent = safeName;
 
-    const exceptCode = ['NEX']
-
     const meta = await getResolvedRouteIconMeta(safeId);
     if (meta && (meta.code || meta.color) ) {
         const icon = createLineIconElement({ routeId: meta.id, code: meta.code, color: meta.color });
         if (icon) {
             icon.style.marginRight = '4px';
-            icon.style.transform = exceptCode.includes(meta.code) ? 'translateY(5px)' : 'translateY(-3px)';
             titleEl.appendChild(icon);
         }
     }
@@ -334,14 +330,12 @@ const resolveColorForTheme = (color, fallback = '#888') => {
 
 const formatRouteMapLineIconHtml = (iconEl) => {
     if (!(iconEl instanceof HTMLElement)) return '';
-    const currentSize = parseFloat(iconEl.style.fontSize);
     iconEl.classList.add('route-map-through-line-icon');
     if (toText(iconEl.dataset?.preset) === 'seibu') {
         iconEl.classList.add('route-map-through-line-icon-seibu');
     }
     iconEl.style.width = '20px';
     iconEl.style.height = '20px';
-    iconEl.style.fontSize = `${currentSize-3}px`;
     iconEl.style.paddingTop = '1px';
     return iconEl.outerHTML;
 };

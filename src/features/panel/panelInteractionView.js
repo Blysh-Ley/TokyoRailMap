@@ -442,7 +442,6 @@ const applyLineIconStyle_panelLineHeaderEnhancer = (icon, { marginRight = '4px' 
     if (!icon?.style) return;
     icon.style.marginRight = marginRight;
     icon.style.verticalAlign = 'middle';
-    icon.style.transform = 'translateY(-2px)';
 };
 
 const applyStationBadgeStyle_panelLineHeaderEnhancer = (badge) => {

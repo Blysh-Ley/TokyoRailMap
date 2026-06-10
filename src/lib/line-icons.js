@@ -1,5 +1,6 @@
 import { getCachedJson } from './fetch.js';
 import { resolveMainLineIdByBranchRule } from './special-condition.js';
+import { renderLineIconSvg } from '../ui/lineIconSvgView.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -208,7 +209,7 @@ export const resolveLineColorForTheme = (color) => {
 
 const _trainSvgCache = new Map();
 
-const getTrainSvgDataUrl = (fill, company, defaultColor = '#000') => {
+const getTrainSvgDataHref = (fill, company, defaultColor = '#000') => {
     const color = toText(fill) || defaultColor;
     const brand = toText(company).toLowerCase();
     const cacheKey = `train_${brand}_${color}`;
@@ -261,11 +262,10 @@ const getTrainSvgDataUrl = (fill, company, defaultColor = '#000') => {
 </svg>`
     }
 
-    const dataUrl = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+    const dataUrl = `data:image/svg+xml,${encodeURIComponent(svg)}`;
     _trainSvgCache.set(cacheKey, dataUrl);
     return dataUrl;
 };
-
 
 let _routesIndexPromise = null;
 let _routesIndex = null;
@@ -360,326 +360,24 @@ const applyIconStyleForTheme = (el) => {
 
     const borderColor = resolveBorderColorForTheme(routeColor) || routeColor;
     const fillColor = resolveLineColorForTheme(routeColor) || routeColor;
+    const darkBackground = dark ? 'rgba(28, 28, 28, 0.94)' : '#fff';
+    const trainIconHref = preset === 'arakawa'
+        ? getTrainSvgDataHref('#000', 'arakawa')
+        : (preset === 'seibu'
+            ? getTrainSvgDataHref(fillColor || '#000', 'seibu')
+            : (preset === 'odakyu'
+                ? getTrainSvgDataHref(fillColor || '#000', 'odakyu')
+                : (preset === 'nex' ? getTrainSvgDataHref('', 'nex') : '')));
 
-    const darkBackground = dark ?  'rgba(28, 28, 28, 0.94)' : '#fff';
-    el.style.display = 'inline-flex';
-    el.style.alignItems = 'center';
-    el.style.justifyContent = 'center';
-    el.style.boxSizing = 'border-box';
-    el.style.flex = '0 0 auto';
-    el.style.userSelect = 'none';
-
-    if (!code) {
-        el.textContent = '1';
-        el.style.backgroundColor = darkBackground;
-        el.style.color = 'transparent';
-
-        el.style.border = `3.5px solid ${borderColor || 'transparent'}`;
-        el.style.borderRadius = '4px';
-        el.style.height = '25px';
-        el.style.width = '25px';
-        el.style.padding = '0';
-        el.style.paddingBottom = '2px';
-        el.style.fontSize = '12px';
-        el.style.letterSpacing = '0';
-
-        
-        return;
-    }
-
-    // 每个 preset 一组完整样式
-    switch (preset) {
-        case 'rectangle': {
-             {
-            // D) rounded-rect ring, transparent background
-            el.style.backgroundColor = fillColor || (dark ? '#000' : '#fff');
-            el.style.color = dark ? '#000' : '#fff';
-
-            el.style.border = '0';
-            el.style.borderRadius = '4px';
-            el.style.height = '25px';
-            el.style.width = '25px';
-            el.style.padding = '0 6px';
-            el.style.paddingBottom = '2px';
-
-            el.style.fontWeight = 'bold';
-            if (code.length <= 1) {
-                el.style.fontSize = '14px';
-                el.style.letterSpacing = '0px';
-            } else if (code.length === 2) {
-                el.style.fontSize = '13px';
-                el.style.letterSpacing = '-0.2px';
-            } else {
-                el.style.fontSize = '10px';
-                el.style.letterSpacing = '-0.4px';
-            }
-            break;
-        }
-        }
-        case 'circle': {
-            // C) solid circle with route color background
-            el.style.backgroundColor = fillColor || (dark ? '#000' : '#fff');
-            el.style.color = dark ? '#000' : '#fff';
-
-            el.style.border = '0';
-            el.style.borderRadius = '9999px';
-            el.style.width = '25px';
-            el.style.height = '25px';
-            el.style.padding = '0';
-            el.style.paddingBottom = '1px';
-
-            el.style.fontWeight = 'bold';
-            el.style.fontSize =  '15px';
-            el.style.letterSpacing = '0px';
-            break;
-        }
-        case 'circle-border': {
-            // B) circle thick ring, transparent background
-            el.style.backgroundColor = darkBackground;
-            el.style.color = dark ? '#fff' : '#000';
-
-            el.style.border = `5px solid ${borderColor || 'transparent'}`;
-            el.style.borderRadius = '9999px';
-            el.style.width = '25px';
-            el.style.height = '25px';
-            el.style.padding = '0';
-            el.style.paddingBottom = '1px';
-
-            el.style.fontWeight = '800';
-            if (code.length <= 1) {
-                el.style.fontSize = '12px';
-                el.style.letterSpacing = '0px';
-            } else if (code.length === 2) {
-                el.style.fontSize = '11px';
-                el.style.letterSpacing = '-0.2px';
-            } else {
-                el.style.fontSize = '8px';
-                el.style.letterSpacing = '-0.4px';
-            }
-            break;
-        }
-        case 'circle-thin-border': {
-            el.style.backgroundColor =  darkBackground;
-            el.style.color = dark ? '#fff' : '#000';
-
-            el.style.border = `3px solid ${borderColor || 'transparent'}`;
-            el.style.borderRadius = '9999px';
-            el.style.width = '25px';
-            el.style.height = '25px';
-            el.style.padding = '0';
-            el.style.paddingBottom = '2px';
-
-            el.style.fontWeight = '800';
-            if (code.length <= 1) {
-                el.style.fontSize = '12px';
-                el.style.letterSpacing = '0px';
-            } else if (code.length === 2) {
-                el.style.fontSize = '11px';
-                el.style.letterSpacing = '-0.2px';
-            } else {
-                el.style.fontSize = '8px';
-                el.style.letterSpacing = '-0.4px';
-            }
-            break;
-        }
-        case 'arakawa' :{
-            el.style.color =  '#000' 
-            el.style.backgroundColor = 'transparent';
-            el.style.backgroundImage = getTrainSvgDataUrl('#000', 'arakawa');
-            el.style.backgroundRepeat = 'no-repeat';
-            el.style.backgroundPosition = 'center';
-            el.style.backgroundSize = 'contain';
-            el.style.color = '#000';
-            el.style.border = '0';
-            el.style.borderRadius = '0';
-            el.style.width = '25px';
-            el.style.height = '25px';
-            el.style.padding = '0';
-            el.style.paddingBottom = '2px';
-
-            // Reset mask fields in case this element style was previously masked.
-            el.style.maskImage = 'none';
-            el.style.maskRepeat = '';
-            el.style.maskPosition = '';
-            el.style.maskSize = '';
-            el.style.setProperty('-webkit-mask-image', 'none');
-            el.style.setProperty('-webkit-mask-repeat', '');
-            el.style.setProperty('-webkit-mask-position', '');
-            el.style.setProperty('-webkit-mask-size', '');
-            if (code.length <= 1) {
-                el.style.fontSize = '12px';
-                el.style.letterSpacing = '0px';
-            }else if (code.length === 2) {
-                el.style.fontSize = '11px';
-                el.style.letterSpacing = '-0.2px';
-            }
-            else {
-                el.style.fontSize = '8px';
-                el.style.letterSpacing = '-0.4px';
-            }   
-            break;
-
-        }
-        case 'hexagon': {
-            el.style.backgroundColor = fillColor || (dark ? '#000' : '#fff');
-            el.style.color = dark ? '#000' : '#fff';
-            el.style.border = '0';
-            el.style.width = '25px';
-            el.style.height = '25px';
-            el.style.padding = '0';
-            el.style.paddingBottom = '1px';
-            el.style.clipPath = 'polygon(25% 6.7%, 75% 6.7%, 100% 50%, 75% 93.3%, 25% 93.3%, 0% 50%)';
-            el.style.fontWeight = 'bold';
-            if (code.length <= 1) {
-                el.style.fontSize = '12px';
-                el.style.letterSpacing = '0px';
-            } else if (code.length === 2) {
-                el.style.fontSize = '11px';
-                el.style.letterSpacing = '-0.2px';
-            }
-            else {
-                el.style.fontSize = '8px';
-                el.style.letterSpacing = '-0.4px';
-            }   
-            break;
-        }
-        case 'seibu': {
-            const seibuColor = fillColor || (dark ? '#000' : '#fff');
-
-            el.style.backgroundColor = 'transparent';
-            el.style.backgroundImage = getTrainSvgDataUrl(seibuColor, 'seibu');
-            el.style.backgroundRepeat = 'no-repeat';
-            el.style.backgroundPosition = 'center';
-            el.style.backgroundSize = 'contain';
-            el.style.color = '#000';
-            el.style.border = '0';
-            el.style.borderRadius = '0';
-            el.style.width = '25px';
-            el.style.height = '25px';
-            el.style.padding = '0';
-            el.style.paddingBottom = '10px';
-
-            // Reset mask fields in case this element style was previously masked.
-            el.style.maskImage = 'none';
-            el.style.maskRepeat = '';
-            el.style.maskPosition = '';
-            el.style.maskSize = '';
-            el.style.setProperty('-webkit-mask-image', 'none');
-            el.style.setProperty('-webkit-mask-repeat', '');
-            el.style.setProperty('-webkit-mask-position', '');
-            el.style.setProperty('-webkit-mask-size', '');
-
-            // 文字叠在 SVG 之上
-            el.style.fontWeight = '800';
-            if (code.length <= 1) {
-                el.style.fontSize = '10px';
-                el.style.letterSpacing = '0px';
-            } else if (code.length === 2) {
-                el.style.fontSize = '9px';
-                el.style.letterSpacing = '-0.2px';
-            } else {
-                el.style.fontSize = '7px';
-                el.style.letterSpacing = '-0.4px';
-            }
-
-            break;
-        }
-        case 'odakyu': {
-            const odakyuColor = fillColor || (dark ? '#000' : '#fff');
-
-            el.style.backgroundColor = 'transparent';
-            el.style.backgroundImage = getTrainSvgDataUrl(odakyuColor, 'odakyu');
-            el.style.backgroundRepeat = 'no-repeat';
-            el.style.backgroundPosition = 'center';
-            el.style.backgroundSize = 'contain';
-            el.style.color =fillColor || (dark ? '#000' : '#fff');
-            el.style.border = '0';
-            el.style.borderRadius = '0';
-            el.style.width = '25px';
-            el.style.height = '25px';
-            el.style.padding = '0';
-            el.style.paddingBottom = '-2px';
-
-            // Reset mask fields in case this element style was previously masked.
-            el.style.maskImage = 'none';
-            el.style.maskRepeat = '';
-            el.style.maskPosition = '';
-            el.style.maskSize = '';
-            el.style.setProperty('-webkit-mask-image', 'none');
-            el.style.setProperty('-webkit-mask-repeat', '');
-            el.style.setProperty('-webkit-mask-position', '');
-            el.style.setProperty('-webkit-mask-size', '');
-
-            // 文字叠在 SVG 之上
-            el.style.fontWeight = '800';
-            if (code.length <= 1) {
-                el.style.fontSize = '10px';
-                el.style.letterSpacing = '0px';
-            } else if (code.length === 2) {
-                el.style.fontSize = '9px';
-                el.style.letterSpacing = '-0.2px';
-            } else {
-                el.style.fontSize = '7px';
-                el.style.letterSpacing = '-0.4px';
-            }
-
-            break;
-        }
-        case 'nex': {
-            el.style.backgroundColor = 'transparent';
-            el.style.backgroundImage = getTrainSvgDataUrl('', 'nex');
-            el.style.backgroundRepeat = 'no-repeat';
-            el.style.backgroundPosition = 'center';
-            el.style.backgroundSize = 'contain';
-            el.style.color = '#fff';
-            el.style.border = '0';
-            el.style.borderRadius = '4px';
-            el.style.width = '25px';
-            el.style.height = '25px';
-            el.style.padding = '0';
-
-            // Reset mask fields in case this element style was previously masked.
-            el.style.maskImage = 'none';
-            el.style.maskRepeat = '';
-            el.style.maskPosition = '';
-            el.style.maskSize = '';
-            el.style.setProperty('-webkit-mask-image', 'none');
-            el.style.setProperty('-webkit-mask-repeat', '');
-            el.style.setProperty('-webkit-mask-position', '');
-            el.style.setProperty('-webkit-mask-size', '');
-
-            // NEX 图标仅显示徽标，不叠加线路代码文字。
-            el.textContent = '';
-
-            break;
-        }
-        case 'rectangle-border':
-        default: {
-            // A) rounded-rect ring, transparent background
-            el.style.backgroundColor = darkBackground;
-            el.style.color = dark ? '#fff' : '#000';
-
-            el.style.border = `3.5px solid ${borderColor || 'transparent'}`;
-            el.style.borderRadius = '4px';
-            el.style.height = '25px';
-            el.style.width = '25px';
-            el.style.padding = '0 6px';
-            el.style.paddingBottom = '2px';
-
-            el.style.fontWeight = '800';
-            if (code.length <= 1) {
-                el.style.fontSize = '12px';
-                el.style.letterSpacing = '0px';
-            } else if (code.length === 2) {
-                el.style.fontSize = '11px';
-                el.style.letterSpacing = '-0.2px';
-            } else {
-                el.style.fontSize = '8px';
-                el.style.letterSpacing = '-0.4px';
-            }
-            break;
-        }
-    }
+    renderLineIconSvg(el, {
+        code,
+        preset,
+        borderColor: borderColor || 'transparent',
+        fillColor: fillColor || (dark ? '#000' : '#fff'),
+        backgroundColor: darkBackground,
+        dark,
+        trainIconHref
+    });
 };
 
 const applyStationCodeBadgeStyleForTheme = (el) => {
@@ -800,7 +498,6 @@ export const createLineIconElement = ({ routeId, code, color }) => {
 
     const el = document.createElement('span');
     el.className = 'rw-line-icon';
-    el.textContent = c;
 
     el.dataset.routeId = resolvedId;
     el.dataset.sourceRouteId = id;
