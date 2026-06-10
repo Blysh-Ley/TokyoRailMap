@@ -93,7 +93,9 @@ import {
     resolveTrainTypeColorForTheme
 } from './panelCatalogShell.js';
 import {
+    createPanelDismissController,
     createPanelEventDelegationCoordinator,
+    createPanelInteractionPolicy,
     resolvePanelCompanyTarget,
     resolvePanelDirFilterButtonTarget,
     resolvePanelDirPrintButtonTarget,
@@ -390,6 +392,10 @@ export function createPanel(options = {}) {
     const panelContentApi = createPanelContentApi();
     const panelComposition = composePanelShellWithContent({ contentApi: panelContentApi, shell: panelShell });
     const touchInteraction = createPanelTouchInteractionController({ now: nowMs });
+    const panelInteractionPolicy = createPanelInteractionPolicy({
+        getPresentation: () => panelPresentation,
+        touchInteraction
+    });
     const panelIntents = createPanelIntentController({
         captureElement: exportElementToPng
     });
@@ -524,12 +530,12 @@ export function createPanel(options = {}) {
     }, { passive: true });
     tripDetailRoot.addEventListener('wheel', (e) => stopPropagationOnly(e), { passive: true });
     tripDetailRoot.addEventListener('mouseenter', () => {
-        if (touchInteraction.isLastPointerTouchLike()) return;
+        if (panelInteractionPolicy.shouldSkipDesktopHover()) return;
         tripDetailPinned = true;
         clearTripDetailHideTimer();
     });
     tripDetailRoot.addEventListener('mouseleave', () => {
-        if (touchInteraction.isLastPointerTouchLike()) return;
+        if (panelInteractionPolicy.shouldSkipDesktopHover()) return;
         if (tripLocked) {
             tripDetailPinned = true;
             clearTripDetailHideTimer();
@@ -3403,7 +3409,7 @@ export function createPanel(options = {}) {
     };
 
     const armCancelInteractionSuppression = () => {
-        touchInteraction.armCancelInteractionSuppression();
+        panelInteractionPolicy.armCancelInteractionSuppression();
         // 取消固定后 1s 内不响应 hover，避免鼠标仍在面板上立即重新触发预览
     };
 
@@ -3430,7 +3436,7 @@ export function createPanel(options = {}) {
     };
 
     const onBodyPointerDown = (evt) => {
-        const pointerState = touchInteraction.beginPointer(evt);
+        const pointerState = panelInteractionPolicy.beginPointer(evt);
         const pt = pointerState.pointerType;
 
         if (evt?.target instanceof Element && body.contains(evt.target) && hasPinnedPanelState()) {
@@ -3488,7 +3494,7 @@ export function createPanel(options = {}) {
             const tripKey = rowEl.getAttribute?.('data-trip-key');
             if (lineId && tripKey) {
                 stopPropagationOnly(evt);
-                touchInteraction.startTripTap(evt, {
+                panelInteractionPolicy.startTripTap(evt, {
                     lineId: String(lineId),
                     tripKey: String(tripKey)
                 });
@@ -3547,15 +3553,15 @@ export function createPanel(options = {}) {
     };
 
     const onBodyPointerMoveTouchTap = (evt) => {
-        touchInteraction.moveTripTap(evt);
+        panelInteractionPolicy.moveTripTap(evt);
     };
 
     const onBodyPointerCancelTouchTap = () => {
-        touchInteraction.cancelTripTap();
+        panelInteractionPolicy.cancelTripTap();
     };
 
     const onBodyPointerUpTouchTap = (evt) => {
-        const completed = touchInteraction.finishTripTap(evt);
+        const completed = panelInteractionPolicy.finishTripTap(evt);
         if (!completed.handled || completed.moved) return;
         const pending = completed.tap;
 
@@ -3582,7 +3588,7 @@ export function createPanel(options = {}) {
     };
 
     const onBodyMove = (evt) => {
-        if (touchInteraction.shouldSuppressMouseHover()) {
+        if (panelInteractionPolicy.shouldSuppressMouseHover()) {
             clearHoverTimer();
             hoverCandidateKey = null;
             lastFiredHoverKey = null;
@@ -3603,7 +3609,7 @@ export function createPanel(options = {}) {
             return;
         }
         if (tripLocked) return;
-        if (touchInteraction.isLastPointerTouchLike()) return;
+        if (panelInteractionPolicy.shouldSkipDesktopHover()) return;
         if (!isHoverPreviewEnabled()) {
             scheduleRestoreStationLines();
             clearHoverTimer();
@@ -3655,7 +3661,7 @@ export function createPanel(options = {}) {
 
     const onBodyClick = (evt) => {
         // 触屏：由 pointerdown 接管两段式逻辑
-        if (touchInteraction.isLastPointerTouchLike() || touchInteraction.shouldSuppressMouseEvents()) {
+        if (panelInteractionPolicy.isLastPointerTouchLike() || panelInteractionPolicy.shouldSuppressMouseEvents()) {
             stopEvent(evt);
             return;
         }
@@ -3667,7 +3673,7 @@ export function createPanel(options = {}) {
             return;
         }
 
-        if (touchInteraction.shouldSuppressMouseClick()) {
+        if (panelInteractionPolicy.shouldSuppressMouseClick()) {
             stopEvent(evt);
             return;
         }
@@ -3800,7 +3806,7 @@ export function createPanel(options = {}) {
 
     const onBodyTripMouseOver = (evt) => {
         if (!isHoverPreviewEnabled()) return;
-        if (touchInteraction.isLastPointerTouchLike()) return;
+        if (panelInteractionPolicy.shouldSkipDesktopHover()) return;
         const rowEl = findTripTarget(evt?.target);
         if (!rowEl || !body.contains(rowEl)) return;
         // 有固定态时：仅当 dir-filter 固定 且 row 属于同一方向 才允许 hover 打断
@@ -3874,7 +3880,7 @@ export function createPanel(options = {}) {
     const getTripDetailStationTarget = (target) => resolveTripDetailStationTarget(target, { rootEl: tripDetailBody });
 
     const onTripDetailMouseOver = (evt) => {
-        if (touchInteraction.isLastPointerTouchLike()) return;
+        if (panelInteractionPolicy.shouldSkipDesktopHover()) return;
         const stationEl = getTripDetailStationTarget(evt?.target);
         if (!stationEl) return;
         const sid = toText(stationEl.getAttribute('data-station-id'));
@@ -3883,7 +3889,7 @@ export function createPanel(options = {}) {
     };
 
     const onTripDetailMouseOut = (evt) => {
-        if (touchInteraction.isLastPointerTouchLike()) return;
+        if (panelInteractionPolicy.shouldSkipDesktopHover()) return;
         const fromEl = getTripDetailStationTarget(evt?.target);
         if (!fromEl) return;
         const toEl = evt?.relatedTarget;
@@ -3897,7 +3903,7 @@ export function createPanel(options = {}) {
     };
 
     const onTripDetailPointerDown = (evt) => {
-        const pt = touchInteraction.markPointer(evt);
+        const pt = panelInteractionPolicy.markPointer(evt);
         if (!isTouchLikePointer(pt)) return;
         const stationEl = getTripDetailStationTarget(evt?.target);
         if (!stationEl) return;
@@ -3928,47 +3934,27 @@ export function createPanel(options = {}) {
         }
     });
 
-    document.addEventListener('click', (evt) => {
-        const target = evt?.target;
-        const clickRegion = panelShell.getClickRegion(target, {
-            ignoredElements: [settingsContentEl, timeOverlay],
-            ignoredSelectors: ['.settings-content', '.settings-ui'],
-            insidePredicates: [(node) => dirFilterPopoverController.contains(node)]
-        });
-
-        // 点击设置区域不应触发“取消固定”或关闭详情
-        if (target instanceof Element && clickRegion.ignored) return;
-
-        if (panelSelectionState.getPinnedDirPreviewKey()) {
-            if (!clickRegion.insidePanelOrExtra) {
-                clearPinnedDirPreview();
-            }
-        }
-
-        if (hasPinnedPanelState()) {
-            if (!clickRegion.insidePanelOrExtra) {
-                clearPinnedPanelState({ restoreStation: true });
-                return;
-            }
-        }
-
-        if (!tripDetailPinned && !tripLocked) return;
-        if (target && tripDetailRoot.contains(target)) return;
-        if (clickRegion.insidePanel) {
-            const rowEl = findTripTarget(target);
-            const lineEl = rowEl?.closest?.('[data-line-id]');
-            const lineId = lineEl?.getAttribute?.('data-line-id');
-            const tripKey = rowEl?.getAttribute?.('data-trip-key');
-            const key = lineId && tripKey ? `${String(lineId)}||${String(tripKey)}` : null;
-            if (tripLocked && key && key === lockedTripKey) return;
-            // panel 内除“已锁定同一车次”外，其他位置都取消固定
-            hideTripDetail();
-            lastTripDetailKey = null;
-            return;
-        }
-        hideTripDetail();
-        lastTripDetailKey = null;
+    const panelDismissController = createPanelDismissController({
+        clearPinnedDirPreview,
+        clearPinnedPanelState,
+        findTripTarget,
+        getLockedTripKey: () => lockedTripKey,
+        getTripDetailPinned: () => tripDetailPinned,
+        getTripLocked: () => tripLocked,
+        hasPinnedPanelState,
+        hideTripDetail,
+        ignoredElements: [settingsContentEl, timeOverlay],
+        ignoredSelectors: ['.settings-content', '.settings-ui'],
+        insidePredicates: [(node) => dirFilterPopoverController.contains(node)],
+        panelSelectionState,
+        panelShell,
+        setLastTripDetailKey: (value) => {
+            lastTripDetailKey = value;
+        },
+        tripDetailRoot
     });
+
+    document.addEventListener('click', panelDismissController.handleDocumentClick);
 
     const layout = () => {
         panelMainView.layout({ presentation: panelPresentation });

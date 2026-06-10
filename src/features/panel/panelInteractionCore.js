@@ -232,6 +232,94 @@ export const createPanelEventDelegationCoordinator = ({
     };
 };
 
+export const createPanelDismissController = ({
+    clearPinnedDirPreview = () => {},
+    clearPinnedPanelState = () => {},
+    findTripTarget = () => null,
+    getLockedTripKey = () => null,
+    getTripDetailPinned = () => false,
+    getTripLocked = () => false,
+    hasPinnedPanelState = () => false,
+    hideTripDetail = () => {},
+    ignoredElements = [],
+    ignoredSelectors = [],
+    insidePredicates = [],
+    panelSelectionState,
+    panelShell,
+    setLastTripDetailKey = () => {},
+    tripDetailRoot
+} = {}) => {
+    const handleDocumentClick = (evt) => {
+        const target = evt?.target;
+        const clickRegion = panelShell?.getClickRegion?.(target, {
+            ignoredElements,
+            ignoredSelectors,
+            insidePredicates
+        }) || {};
+
+        const targetIsElement = typeof Element !== 'undefined' && target instanceof Element;
+        if (targetIsElement && clickRegion.ignored) return;
+
+        if (panelSelectionState?.getPinnedDirPreviewKey?.()) {
+            if (!clickRegion.insidePanelOrExtra) {
+                clearPinnedDirPreview();
+            }
+        }
+
+        if (hasPinnedPanelState()) {
+            if (!clickRegion.insidePanelOrExtra) {
+                clearPinnedPanelState({ restoreStation: true });
+                return;
+            }
+        }
+
+        if (!getTripDetailPinned() && !getTripLocked()) return;
+        if (target && tripDetailRoot?.contains?.(target)) return;
+        if (clickRegion.insidePanel) {
+            const rowEl = findTripTarget(target);
+            const lineEl = rowEl?.closest?.('[data-line-id]');
+            const lineId = lineEl?.getAttribute?.('data-line-id');
+            const tripKey = rowEl?.getAttribute?.('data-trip-key');
+            const key = lineId && tripKey ? `${String(lineId)}||${String(tripKey)}` : null;
+            if (getTripLocked() && key && key === getLockedTripKey()) return;
+            hideTripDetail();
+            setLastTripDetailKey(null);
+            return;
+        }
+        hideTripDetail();
+        setLastTripDetailKey(null);
+    };
+
+    return {
+        handleDocumentClick
+    };
+};
+
+export const createPanelInteractionPolicy = ({
+    getPresentation = () => 'desktop',
+    touchInteraction
+} = {}) => {
+    const isMobilePresentation = () => getPresentation?.() === 'mobile';
+    const isLastPointerTouchLike = () => touchInteraction?.isLastPointerTouchLike?.() === true;
+    const shouldSkipDesktopHover = () => isMobilePresentation() || isLastPointerTouchLike();
+
+    return {
+        armCancelInteractionSuppression: () => touchInteraction?.armCancelInteractionSuppression?.(),
+        beginPointer: (evt) => touchInteraction?.beginPointer?.(evt) || {},
+        cancelTripTap: () => touchInteraction?.cancelTripTap?.(),
+        finishTripTap: (evt) => touchInteraction?.finishTripTap?.(evt) || {},
+        isLastPointerTouchLike,
+        isMobilePresentation,
+        markPointer: (evt) => touchInteraction?.markPointer?.(evt),
+        moveTripTap: (evt) => touchInteraction?.moveTripTap?.(evt),
+        shouldSkipDesktopHover,
+        shouldSuppressMouseClick: () => touchInteraction?.shouldSuppressMouseClick?.() === true,
+        shouldSuppressMouseEvents: () => touchInteraction?.shouldSuppressMouseEvents?.() === true,
+        shouldSuppressMouseHover: () => touchInteraction?.shouldSuppressMouseHover?.() === true,
+        startTripTap: (evt, payload) => touchInteraction?.startTripTap?.(evt, payload)
+    };
+};
+
 // panelHoverRestoreRuntime.js
 const defaultToText_panelHoverRestoreRuntime = (value) => String(value ?? '').trim();
 
@@ -1052,4 +1140,3 @@ export const createPanelTouchInteractionController = ({
         startTripTap
     };
 };
-
