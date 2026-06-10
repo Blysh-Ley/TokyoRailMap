@@ -18,9 +18,9 @@ const planningOrMapEnginePattern = /from\s+['"].*(routePlanning|travel-search-pl
 const shellBusinessImportPattern = /from\s+['"].*(\.\.\/\.\.\/(?:domain|lib|map|services|store)\/|\.\.\/(?:search|route-map|hover|highlight|layer|print)\/)['"]|require\([^)]*(\.\.\/\.\.\/(?:domain|lib|map|services|store)\/|\.\.\/(?:search|route-map|hover|highlight|layer|print)\/)/;
 const shellGlobalBridgePattern = /\bwindow\.(?:TokyoRail|__TokyoRail)|\bCustomEvent\b|\bwindow\.dispatchEvent\b|\bwindow\.addEventListener\b/;
 const shellContentFiles = [
-    'src/features/panel/panelContentApi.js',
-    'src/features/panel/panelContentHost.js',
-    'src/features/panel/panelShellDesktop.js'
+    'src/features/panel/panelCatalogShell.js',
+    'src/features/panel/panelCatalogShell.js',
+    'src/features/panel/panelCatalogShell.js'
 ];
 
 assertNoPattern({
@@ -48,9 +48,9 @@ assertNoPattern({
 });
 
 const panelSource = readSourceFile('src/features/panel/panel.js');
-const contentApiSource = readSourceFile('src/features/panel/panelContentApi.js');
-const shellSource = readSourceFile('src/features/panel/panelShellDesktop.js');
-const contentHostSource = readSourceFile('src/features/panel/panelContentHost.js');
+const contentApiSource = readSourceFile('src/features/panel/panelCatalogShell.js');
+const shellSource = readSourceFile('src/features/panel/panelCatalogShell.js');
+const contentHostSource = readSourceFile('src/features/panel/panelCatalogShell.js');
 const packageJson = JSON.parse(readSourceFile('package.json'));
 const testScript = String(packageJson?.scripts?.test || '');
 const budgetSource = readSourceFile('tests/uiArchitectureBudgets.smoke.mjs');
@@ -73,7 +73,7 @@ assert.ok(
     'desktop createPanel must compose through the reusable content API'
 );
 assert.equal(
-    panelSource.includes("from './panelContentHost.js'"),
+    panelSource.includes("from './panelCatalogShell.js'"),
     false,
     'desktop createPanel must not bypass the reusable content API by importing panelContentHost directly'
 );

@@ -8,24 +8,24 @@ const searchUiFiles = [
 
 const panelFiles = [
     'src/features/panel/panel.js',
-    'src/features/panel/panelCompanyCatalogRenderer.js',
-    'src/features/panel/panelContentApi.js',
-    'src/features/panel/panelContentHost.js',
-    'src/features/panel/panelCrossFeatureBridgeController.js',
-    'src/features/panel/panelDirFilterModel.js',
-    'src/features/panel/panelDirFilterPopoverController.js',
-    'src/features/panel/panelEventDelegationCoordinator.js',
-    'src/features/panel/panelMapSelectController.js',
-    'src/features/panel/panelMarqueeController.js',
-    'src/features/panel/panelIntentController.js',
-    'src/features/panel/panelPrintRequestController.js',
-    'src/features/panel/panelRoutePreviewController.js',
-    'src/features/panel/panelShellDesktop.js',
-    'src/features/panel/panelTimePickerController.js',
-    'src/features/panel/panelTripDetailViewModel.js',
-    'src/features/panel/panelTimetableViewModel.js',
-    'src/features/panel/panelTouchInteractionController.js',
-    'src/features/panel/timetable-table.js'
+    'src/features/panel/panelCatalogShell.js',
+    'src/features/panel/panelCatalogShell.js',
+    'src/features/panel/panelCatalogShell.js',
+    'src/features/panel/panelInteractionCore.js',
+    'src/features/panel/panelInteractionView.js',
+    'src/features/panel/panelInteractionView.js',
+    'src/features/panel/panelInteractionCore.js',
+    'src/features/panel/panelInteractionCore.js',
+    'src/features/panel/panelInteractionView.js',
+    'src/features/panel/panelInteractionCore.js',
+    'src/features/panel/panelExport.js',
+    'src/features/panel/panelInteractionCore.js',
+    'src/features/panel/panelCatalogShell.js',
+    'src/features/panel/panelTimetableUi.js',
+    'src/features/panel/panelTripDetailRender.js',
+    'src/features/panel/panelTimetableCore.js',
+    'src/features/panel/panelInteractionCore.js',
+    'src/features/panel/panelTimetableCore.js'
 ];
 
 assertNoPattern({

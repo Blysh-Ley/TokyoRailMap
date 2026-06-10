@@ -21,7 +21,7 @@ import {
     hhmmToOffsetMinutes
 } from './travel-search-planner-raptor.js';
 import { getCachedJson, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
-import { createTimetableNoteRow } from '../panel/timetable-table.js';
+import { createTimetableNoteRow } from '../panel/panelTimetableCore.js';
 import {
     detectThroughServiceCategoryFromTrips,
     THROUGH_SERVICE_DISPLAY,

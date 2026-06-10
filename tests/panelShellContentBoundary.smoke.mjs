@@ -1,9 +1,9 @@
 import { assertNoPattern } from './helpers/architectureBoundaryScanner.mjs';
 
 const shellContentFiles = [
-    'src/features/panel/panelContentApi.js',
-    'src/features/panel/panelShellDesktop.js',
-    'src/features/panel/panelContentHost.js'
+    'src/features/panel/panelCatalogShell.js',
+    'src/features/panel/panelCatalogShell.js',
+    'src/features/panel/panelCatalogShell.js'
 ];
 
 const rawMapLibrePattern = /\bnew\s+maplibregl\b|\bmaplibregl\.(?!popup\b)|\.(setPaintProperty|setFilter|addLayer|addSource|removeLayer|removeSource|queryRenderedFeatures)\s*\(/;

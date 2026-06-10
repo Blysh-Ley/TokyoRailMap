@@ -20,34 +20,34 @@ import {
     THROUGH_SERVICE_CONFIGS,
     THROUGH_SERVICE_CONFIGS_OBJECT,
 } from '../../lib/throughServiceManager.js';
-import { buildTimetableStationText, renderTimetableNoteRowHtml, renderTimetablePlainNoteRowHtml } from './timetable-table.js';
+import { buildTimetableStationText, renderTimetableNoteRowHtml, renderTimetablePlainNoteRowHtml } from './panelTimetableCore.js';
 import {
     renderPanelPrintableTimetableListHtml,
     renderPanelTimetableListHtml
-} from './panelTimetableRenderer.js';
-import { buildPanelTimetableGridHintsHtml } from './panelTimetableGridHintsRenderer.js';
-import { createPanelSelectionStateController } from './panelSelectionStateController.js';
+} from './panelTimetableCore.js';
+import { buildPanelTimetableGridHintsHtml } from './panelTimetableUi.js';
+import { createPanelSelectionStateController } from './panelInteractionCore.js';
 import {
     createEmptyDirFilterState,
     filterRowsByDirFilterState,
     hasDirFilterRowValue,
     toDirFilterRow
-} from './panelDirFilterModel.js';
-import { createPanelDirFilterPopoverController } from './panelDirFilterPopoverController.js';
+} from './panelInteractionView.js';
+import { createPanelDirFilterPopoverController } from './panelInteractionView.js';
 import {
     createPanelTimePickerController,
     normalizeTimePickerHHMM
-} from './panelTimePickerController.js';
-import { createPanelMapSelectController } from './panelMapSelectController.js';
-import { createPanelMarqueeController } from './panelMarqueeController.js';
+} from './panelTimetableUi.js';
+import { createPanelMapSelectController } from './panelInteractionCore.js';
+import { createPanelMarqueeController } from './panelInteractionView.js';
 import {
     collectLinePrintPayloads,
     createPanelPrintRequestController
-} from './panelPrintRequestController.js';
-import { createPanelIntentController } from './panelIntentController.js';
-import { createPanelCrossFeatureBridgeController } from './panelCrossFeatureBridgeController.js';
-import { createPanelRoutePreviewController } from './panelRoutePreviewController.js';
-import { renderPanelTripDetailStationCellHtml, renderPanelTripDetailStopRowHtml } from './panelTripDetailStationRenderer.js';
+} from './panelExport.js';
+import { createPanelIntentController } from './panelInteractionCore.js';
+import { createPanelCrossFeatureBridgeController } from './panelInteractionCore.js';
+import { createPanelRoutePreviewController } from './panelInteractionCore.js';
+import { renderPanelTripDetailStationCellHtml, renderPanelTripDetailStopRowHtml } from './panelTripDetailRender.js';
 import {
     applyTripDetailPastState,
     buildTripDetailEndpointContext,
@@ -55,27 +55,27 @@ import {
     markRowsPastByStation,
     matchesTripDetailEndpointStop,
     mergeTripDetailSegmentsAtBoundaries
-} from './panelTripDetailViewModel.js';
+} from './panelTripDetailRender.js';
 import {
     buildTimetablePrintPayload,
     deriveDirectionStats,
     mergeDuplicateTimetableRows,
     normalizeTimetableAllowedTripKeys,
     normalizeTimetableSourceLineIds
-} from './panelTimetableViewModel.js';
-import { toPanelServiceHourIndex } from './panelTimetableHourWindow.js';
-import { buildPanelTimetableGridHtmlForDirection } from './panelTimetableGridRenderer.js';
+} from './panelTimetableCore.js';
+import { toPanelServiceHourIndex } from './panelTimetableCore.js';
+import { buildPanelTimetableGridHtmlForDirection } from './panelTimetableUi.js';
 import {
     buildPanelCompaniesHtml,
     collectPanelCatalogEntries,
     renderPanelCatalogEntriesHtml
-} from './panelCompanyCatalogRenderer.js';
-import { enhancePanelLineHeaderIcons } from './panelLineHeaderEnhancer.js';
-import { exportElementToPng } from './panelExportCapture.js';
-import { installPanelTimetablePrintPayloadBuilder } from './panelPrintPayloadBridge.js';
-import { createPanelScrollRuntime } from './panelScrollRuntime.js';
-import { hydrateRenderedTimetable } from './panelTimetablePostRenderHydrator.js';
-import { buildPanelTripPreviewScheduleArgs } from './panelTripDetailPreviewPayloadBuilder.js';
+} from './panelCatalogShell.js';
+import { enhancePanelLineHeaderIcons } from './panelInteractionView.js';
+import { exportElementToPng } from './panelExport.js';
+import { installPanelTimetablePrintPayloadBuilder } from './panelExport.js';
+import { createPanelScrollRuntime } from './panelInteractionView.js';
+import { hydrateRenderedTimetable } from './panelTimetableUi.js';
+import { buildPanelTripPreviewScheduleArgs } from './panelTripDetailRuntime.js';
 import {
     buildTransferLineStationNameMap,
     getStationGroupsIndex,
@@ -83,13 +83,13 @@ import {
     getTrainTypeColorIndex,
     getTrainTypesIndex,
     readStationName
-} from './panelStationMetadata.js';
-import { resolvePanelStationIdForLine } from './panelStationIdResolver.js';
+} from './panelStation.js';
+import { resolvePanelStationIdForLine } from './panelStation.js';
 import {
     panelIsDarkThemeActive,
     resolvePanelBadgeTextColor,
     resolveTrainTypeColorForTheme
-} from './panelThemeHelpers.js';
+} from './panelCatalogShell.js';
 import {
     createPanelEventDelegationCoordinator,
     resolvePanelCompanyTarget,
@@ -99,74 +99,74 @@ import {
     resolvePanelDirTriangleTarget,
     resolvePanelLineTarget,
     resolveTripDetailStationTarget
-} from './panelEventDelegationCoordinator.js';
+} from './panelInteractionCore.js';
 import {
     buildPanelLineMergeInfo,
     normalizeArrayLike
-} from './panelServingLineMerge.js';
+} from './panelStation.js';
 import {
     applyTemporarySourceLineOverrides,
     createEmptyPanelThroughServiceState,
     resolvePanelThroughServiceSetup
-} from './panelThroughServiceSetup.js';
+} from './panelStation.js';
 import {
     preparePanelStationRenderBootstrap,
     resetPanelStationRenderTransientState
-} from './panelStationRenderBootstrap.js';
-import { createPanelHoverRestoreRuntime } from './panelHoverRestoreRuntime.js';
+} from './panelStation.js';
+import { createPanelHoverRestoreRuntime } from './panelInteractionCore.js';
 import {
     dispatchPanelDirectionToggleIntent,
     dispatchPanelDirFilterIntent,
     dispatchPanelPrimarySelectionIntent
-} from './panelIntentDispatcher.js';
-import { buildPanelTripDetailTitleHtml } from './panelTripDetailTitleRenderer.js';
+} from './panelInteractionCore.js';
+import { buildPanelTripDetailTitleHtml } from './panelTripDetailRender.js';
 import {
     renderPanelTripDetailGridMarkerCell,
-} from './panelTripDetailGridHelpers.js';
-import { renderPanelTripDetailGridLaneBlock } from './panelTripDetailGridLaneBlockRenderer.js';
-import { renderPanelTripDetailBranchBreakRow } from './panelTripDetailBranchBreakRowRenderer.js';
-import { renderPanelTripDetailBranchGridRows } from './panelTripDetailBranchGridRenderer.js';
-import { collectPanelTripDetailBranchLanesFromRefs } from './panelTripDetailBranchLaneCollector.js';
+} from './panelTripDetailRender.js';
+import { renderPanelTripDetailGridLaneBlock } from './panelTripDetailRender.js';
+import { renderPanelTripDetailBranchBreakRow } from './panelTripDetailRender.js';
+import { renderPanelTripDetailBranchGridRows } from './panelTripDetailRender.js';
+import { collectPanelTripDetailBranchLanesFromRefs } from './panelTripDetailRuntime.js';
 import {
     collectPanelTripDetailRefChainTripsFromRef,
     resolvePanelTripDetailFirstMultiRefsAlongChain
-} from './panelTripDetailRefChainCollector.js';
-import { collectPanelTripDetailTripChainByTrip } from './panelTripDetailTripChainWalker.js';
-import { derivePanelTripDetailThroughServiceDirection } from './panelTripDetailThroughServiceDirectionResolver.js';
+} from './panelTripDetailRuntime.js';
+import { collectPanelTripDetailTripChainByTrip } from './panelTripDetailRuntime.js';
+import { derivePanelTripDetailThroughServiceDirection } from './panelTripDetailRuntime.js';
 import {
     getPanelTripDetailStationIds,
     resolvePanelTripDetailThroughServiceEndpointIds
-} from './panelTripDetailThroughServiceEndpointResolver.js';
-import { findPanelTripByKey } from './panelTripLookupResolver.js';
+} from './panelTripDetailRuntime.js';
+import { findPanelTripByKey } from './panelTripDetailRuntime.js';
 import {
     derivePanelTripDetailBranchRuntime,
     resolvePanelTripDetailBranchRefIds
-} from './panelTripDetailBranchRuntime.js';
-import { preparePanelTripDetailBranchMainFlow } from './panelTripDetailBranchMainFlow.js';
-import { buildPanelTripDetailSegmentBlocks } from './panelTripDetailSegmentBlockBuilder.js';
-import { renderPanelTripDetailLinearRows } from './panelTripDetailLinearRowsRenderer.js';
-import { buildPanelTripDetailLayoutShell } from './panelTripDetailLayoutShell.js';
+} from './panelTripDetailRuntime.js';
+import { preparePanelTripDetailBranchMainFlow } from './panelTripDetailRuntime.js';
+import { buildPanelTripDetailSegmentBlocks } from './panelTripDetailRender.js';
+import { renderPanelTripDetailLinearRows } from './panelTripDetailRender.js';
+import { buildPanelTripDetailLayoutShell } from './panelTripDetailRender.js';
 import {
     getPanelTripDetailSegmentFirstRow,
     getPanelTripDetailSegmentLastRow,
     isPanelTripDetailBoundaryPast,
     renderPanelTripDetailLoopMarkerRow,
     renderPanelTripDetailNoteRow
-} from './panelTripDetailSegmentHelpers.js';
-import { buildPanelStationRenderInputs } from './panelStationRenderInputs.js';
-import { createPanelPinnedTripDetailState } from './panelPinnedTripDetailState.js';
+} from './panelTripDetailRender.js';
+import { buildPanelStationRenderInputs } from './panelStation.js';
+import { createPanelPinnedTripDetailState } from './panelInteractionCore.js';
 import {
     findPanelTripTarget,
     resolvePanelInteractionKeyFromTarget,
     resolvePanelMousePrimaryTarget
-} from './panelIntentTargetParser.js';
-import { createPanelCatalogController } from './panelCatalogController.js';
-import { createDesktopPanelShell } from './panelShellDesktop.js';
+} from './panelInteractionCore.js';
+import { createPanelCatalogController } from './panelCatalogShell.js';
+import { createDesktopPanelShell } from './panelCatalogShell.js';
 import {
     createPanelTouchInteractionController,
     isTouchLikePointer
-} from './panelTouchInteractionController.js';
-import { composePanelShellWithContent, createPanelContentApi } from './panelContentApi.js';
+} from './panelInteractionCore.js';
+import { composePanelShellWithContent, createPanelContentApi } from './panelCatalogShell.js';
 import {
     getSpecialTripDetailStationAKey,
     isExcludedLineType,
@@ -383,75 +383,6 @@ export function createPanel(options = {}) {
     let currentLineGroupByMainId = new Map();
     let currentStationsIndex = null;
     let currentLineStationMetaByLineId = new Map();
-
-    const buildTransferLineStationNameMapLegacy = async ({ stationId, stationNameZh, servingLineIds, lineGroupByMainId }) => {
-        const sid = toText(stationId);
-        const clickedName = toText(stationNameZh);
-        const lineIds = Array.isArray(servingLineIds) ? servingLineIds.map((x) => toText(x)).filter(Boolean) : [];
-        const grouped = lineGroupByMainId instanceof Map ? lineGroupByMainId : new Map();
-        const out = new Map();
-        if (!sid || !lineIds.length) return out;
-
-        const getGroupNameCount = (stationsIndex, ids) => {
-            const list = Array.isArray(ids) ? ids : [];
-            return new Set(
-                list
-                    .map((id) => toText(stationsIndex?.idToNameZh?.get?.(id) || ''))
-                    .filter(Boolean)
-            ).size;
-        };
-
-        try {
-            const [groupsIndex, stationsIndex] = await Promise.all([getStationGroupsIndex(), getStationsIndex()]);
-            const groupIdsRaw = groupsIndex?.get?.(sid);
-            const groupIds = Array.isArray(groupIdsRaw) && groupIdsRaw.length
-                ? groupIdsRaw.map((x) => toText(x)).filter(Boolean)
-                : [sid];
-            const currentStationHasMultipleNames = getGroupNameCount(stationsIndex, groupIds) > 1;
-
-            for (const lineId of lineIds) {
-                const sourceLineIds = Array.from(new Set([
-                    lineId,
-                    ...(Array.isArray(grouped.get(lineId)) ? grouped.get(lineId) : [])
-                ].map((x) => toText(x)).filter(Boolean)));
-
-                let candidateId = '';
-                for (const srcLineId of sourceLineIds) {
-                    candidateId = toText(groupIds.find((gid) => gid === srcLineId || gid.startsWith(`${srcLineId}.`)) || '');
-                    if (candidateId) break;
-                }
-
-                // 兜底：若组内没找到，用“线路 + 当前站名”反查 station id（用于同名非换乘后缀场景）
-                if (!candidateId && clickedName) {
-                    for (const srcLineId of sourceLineIds) {
-                        const k = `${srcLineId}||${clickedName}`;
-                        candidateId = toText(stationsIndex?.stationIdByRailwayAndNameZh?.get?.(k) || '');
-                        if (candidateId) break;
-                    }
-                }
-
-                if (!candidateId) continue;
-
-                const candidateGroupIdsRaw = groupsIndex?.get?.(candidateId);
-                const candidateGroupIds = Array.isArray(candidateGroupIdsRaw) && candidateGroupIdsRaw.length
-                    ? candidateGroupIdsRaw.map((x) => toText(x)).filter(Boolean)
-                    : [candidateId];
-                const transferNameRaw = toText(stationsIndex?.idToNameZh?.get?.(candidateId) || '');
-                const transferCode = toText(stationsIndex?.idToCode?.get?.(candidateId) || '');
-                const transferHasMultipleNames = getGroupNameCount(stationsIndex, candidateGroupIds) > 1;
-                const transferName = currentStationHasMultipleNames && transferHasMultipleNames
-                    ? transferNameRaw
-                    : '';
-
-                // 保留 stationId，供目录滚动时同步标题使用；name/code 继续只影响副标题展示
-                out.set(lineId, { stationId: candidateId, name: transferName, code: transferCode, actualName: transferNameRaw });
-            }
-        } catch {
-            return out;
-        }
-
-        return out;
-    };
 
     const panelShell = createDesktopPanelShell({ rightPx, widthPx });
     const panelContentApi = createPanelContentApi();

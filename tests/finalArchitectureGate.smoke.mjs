@@ -33,11 +33,11 @@ for (const entry of requiredTestEntries) {
 
 const budgetedUiFiles = [
     'src/features/panel/panel.js',
-    'src/features/panel/panelContentApi.js',
-    'src/features/panel/panelCompanyCatalogRenderer.js',
-    'src/features/panel/panelEventDelegationCoordinator.js',
-    'src/features/panel/panelShellDesktop.js',
-    'src/features/panel/panelContentHost.js',
+    'src/features/panel/panelCatalogShell.js',
+    'src/features/panel/panelCatalogShell.js',
+    'src/features/panel/panelInteractionCore.js',
+    'src/features/panel/panelCatalogShell.js',
+    'src/features/panel/panelCatalogShell.js',
     'src/features/search/search.js',
     'src/features/search/travel-search-ui.js',
     'src/features/route-map/route-map-ui.js',

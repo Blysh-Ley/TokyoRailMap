@@ -24,7 +24,7 @@ const uiDebtBudgets = [
         domResponsibility: 175
     },
     {
-        file: 'src/features/panel/panelContentApi.js',
+        file: 'src/features/panel/panelCatalogShell.js',
         maxLines: 55,
         windowBridge: 0,
         browserStorage: 0,
@@ -34,7 +34,7 @@ const uiDebtBudgets = [
         domResponsibility: 2
     },
     {
-        file: 'src/features/panel/panelCompanyCatalogRenderer.js',
+        file: 'src/features/panel/panelCatalogShell.js',
         maxLines: 270,
         windowBridge: 0,
         browserStorage: 0,
@@ -44,7 +44,7 @@ const uiDebtBudgets = [
         domResponsibility: 1
     },
     {
-        file: 'src/features/panel/panelEventDelegationCoordinator.js',
+        file: 'src/features/panel/panelInteractionCore.js',
         maxLines: 140,
         windowBridge: 0,
         browserStorage: 0,
@@ -54,7 +54,7 @@ const uiDebtBudgets = [
         domResponsibility: 1
     },
     {
-        file: 'src/features/panel/panelShellDesktop.js',
+        file: 'src/features/panel/panelCatalogShell.js',
         maxLines: 100,
         windowBridge: 0,
         browserStorage: 0,
@@ -64,7 +64,7 @@ const uiDebtBudgets = [
         domResponsibility: 1
     },
     {
-        file: 'src/features/panel/panelContentHost.js',
+        file: 'src/features/panel/panelCatalogShell.js',
         maxLines: 30,
         windowBridge: 0,
         browserStorage: 0,
