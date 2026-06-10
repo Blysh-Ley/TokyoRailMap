@@ -682,11 +682,15 @@ export const createPanelMarqueeController = ({
 
     const applyTimetableDestMarquees = (rootEl, maxAnims = maxAnimations) => {
         try {
-            if (!isElement(rootEl) || isReducedMotion()) return 0;
+            if (!isElement(rootEl)) return 0;
 
+            const reducedMotion = isReducedMotion();
             const marquees = Array.from(rootEl.querySelectorAll('.panel-timetable-dest-marquee, .panel-timetable-type-marquee'));
             const candidates = [];
             for (const marqueeEl of marquees) {
+                const isDestMarquee = marqueeEl.classList?.contains?.('panel-timetable-dest-marquee');
+                if (!isDestMarquee && reducedMotion) continue;
+
                 const innerEl = marqueeEl.querySelector('.panel-timetable-dest-marquee-inner, .panel-timetable-type-marquee-inner');
                 if (!innerEl) continue;
 
@@ -714,7 +718,6 @@ export const createPanelMarqueeController = ({
                         else score = Math.min(Math.abs(rowRect.top - containerRect.bottom), Math.abs(rowRect.bottom - containerRect.top));
                     }
                 }
-                const isDestMarquee = marqueeEl.classList?.contains?.('panel-timetable-dest-marquee');
                 candidates.push({
                     marqueeEl,
                     innerEl,
