@@ -122,6 +122,113 @@ export const buildTripPreviewLineFeatureDedupKey = (feature) => {
     return `${role}||${lineId}||${pathKey}`;
 };
 
+export const buildTripPreviewLineFeatureCollisionKey = (feature) => {
+    const role = toText(feature?.properties?.role || 'line');
+    const geom = feature?.geometry;
+    if (!geom || geom.type !== 'LineString') return '';
+    const pathKey = buildLineCoordsCanonicalKey(geom.coordinates);
+    if (!pathKey) return '';
+    return `${role}||${pathKey}`;
+};
+
+const buildLineFeatureItemContextKey = (item) => {
+    return toText(item?.source);
+};
+
+const cloneLineFeatureWithOffset = (feature, lineOffsetUnits, laneIndex, laneCount) => ({
+    ...(feature || {}),
+    properties: {
+        ...(feature?.properties || {}),
+        line_offset_units: lineOffsetUnits,
+        line_offset_collision_lane: laneIndex,
+        line_offset_collision_count: laneCount
+    }
+});
+
+export const applyTripPreviewCollisionLaneOffsets = (features, options = {}) => {
+    const list = Array.isArray(features) ? features : [];
+    if (list.length < 2) return list.slice();
+
+    const minSeparationUnits = Number.isFinite(options?.minSeparationUnits)
+        ? Math.max(0, Number(options.minSeparationUnits))
+        : 1.5;
+    if (!minSeparationUnits) return list.slice();
+
+    const groups = new Map();
+    for (let index = 0; index < list.length; index += 1) {
+        const feature = list[index];
+        const key = buildTripPreviewLineFeatureCollisionKey(feature);
+        if (!key) continue;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push({ feature, index });
+    }
+
+    const out = list.slice();
+    for (const group of groups.values()) {
+        if (!Array.isArray(group) || group.length < 2) continue;
+
+        const baseOffsets = group.map(({ feature }) => {
+            const n = Number(feature?.properties?.line_offset_units);
+            return Number.isFinite(n) ? n : 0;
+        });
+        const center = baseOffsets.reduce((sum, n) => sum + n, 0) / baseOffsets.length;
+        const middle = (group.length - 1) / 2;
+
+        for (let i = 0; i < group.length; i += 1) {
+            const laneOffset = center + ((i - middle) * minSeparationUnits);
+            out[group[i].index] = cloneLineFeatureWithOffset(
+                group[i].feature,
+                laneOffset,
+                i,
+                group.length
+            );
+        }
+    }
+
+    return out;
+};
+
+export const aggregateTripPreviewLineFeatureItems = ({
+    items,
+    buildLineFeatureDedupKey = buildTripPreviewLineFeatureDedupKey
+} = {}) => {
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) return [];
+
+    const sourceSetByCollisionKey = new Map();
+    for (const item of list) {
+        const feature = item?.feature;
+        const collisionKey = buildTripPreviewLineFeatureCollisionKey(feature);
+        const baseKey = buildLineFeatureDedupKey?.(feature) || '';
+        if (!collisionKey || !baseKey) continue;
+        const contextKey = buildLineFeatureItemContextKey(item);
+        if (!contextKey) continue;
+        if (!sourceSetByCollisionKey.has(collisionKey)) sourceSetByCollisionKey.set(collisionKey, new Set());
+        sourceSetByCollisionKey.get(collisionKey).add(contextKey);
+    }
+
+    const lineFeatureByKey = new Map();
+    for (const item of list) {
+        const feature = item?.feature;
+        const baseKey = buildLineFeatureDedupKey?.(feature) || '';
+        if (!baseKey) continue;
+
+        const collisionKey = buildTripPreviewLineFeatureCollisionKey(feature);
+        const hasCrossSourceCollision = collisionKey
+            && (sourceSetByCollisionKey.get(collisionKey)?.size || 0) > 1;
+        const contextKey = buildLineFeatureItemContextKey(item);
+        const key = collisionKey
+            ? (hasCrossSourceCollision && contextKey
+                ? `${collisionKey}||ctx:${contextKey}`
+                : collisionKey)
+            : baseKey;
+        if (!key || lineFeatureByKey.has(key)) continue;
+        lineFeatureByKey.set(key, feature);
+    }
+
+    return applyTripPreviewCollisionLaneOffsets(Array.from(lineFeatureByKey.values()));
+};
+
 export const mergeTripPreviewBBox = (current, next) => {
     const a = current;
     const b = next;
@@ -143,7 +250,7 @@ export const buildTripPreviewAggregateFromPayloadList = ({
     buildLineFeatureDedupKey = buildTripPreviewLineFeatureDedupKey
 } = {}) => {
     const list = Array.isArray(payloadList) ? payloadList : [];
-    const lineFeatureByKey = new Map();
+    const lineFeatureItems = [];
     const stopFeatureByStationId = new Map();
     const lineIds = new Set();
     const stopIds = new Set();
@@ -161,9 +268,10 @@ export const buildTripPreviewAggregateFromPayloadList = ({
         if (nextEndStationId) endStationId = nextEndStationId;
 
         for (const feature of lineFeatures) {
-            const key = buildLineFeatureDedupKey?.(feature) || '';
-            if (!key || lineFeatureByKey.has(key)) continue;
-            lineFeatureByKey.set(key, feature);
+            lineFeatureItems.push({
+                feature,
+                source: resolveTripPreviewPayloadSource(payload)
+            });
         }
 
         for (const feature of stopFeatures) {
@@ -192,7 +300,13 @@ export const buildTripPreviewAggregateFromPayloadList = ({
     }
 
     return {
-        lineFc: { type: 'FeatureCollection', features: Array.from(lineFeatureByKey.values()) },
+        lineFc: {
+            type: 'FeatureCollection',
+            features: aggregateTripPreviewLineFeatureItems({
+                items: lineFeatureItems,
+                buildLineFeatureDedupKey
+            })
+        },
         stopFc: { type: 'FeatureCollection', features: Array.from(stopFeatureByStationId.values()) },
         lineIds,
         stopIds,

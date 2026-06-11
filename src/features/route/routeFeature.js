@@ -1,4 +1,7 @@
-import { normalizeDirPreviewPayload } from '../../domain/routePreviewSelection.js';
+import {
+    aggregateTripPreviewLineFeatureItems,
+    normalizeDirPreviewPayload
+} from '../../domain/routePreviewSelection.js';
 
 export const createRouteFeature = ({
     tripPreviewRenderer,
@@ -118,7 +121,7 @@ export const createRouteFeature = ({
             return true;
         },
         buildMultiTripPreviewAggregate({ buildLineFeatureDedupKey } = {}) {
-            const lineFeatureByKey = new Map();
+            const lineFeatureItems = [];
             const stopFeatureByStationId = new Map();
             const lineIds = new Set();
             const stopIds = new Set();
@@ -131,11 +134,10 @@ export const createRouteFeature = ({
                 const stopFeatures = Array.isArray(built?.stopFc?.features) ? built.stopFc.features : [];
 
                 for (const lf of lineFeatures) {
-                    const key = typeof buildLineFeatureDedupKey === 'function'
-                        ? buildLineFeatureDedupKey(lf)
-                        : '';
-                    if (!key || lineFeatureByKey.has(key)) continue;
-                    lineFeatureByKey.set(key, lf);
+                    lineFeatureItems.push({
+                        feature: lf,
+                        source: entry?.source
+                    });
                 }
 
                 for (const sf of stopFeatures) {
@@ -174,7 +176,13 @@ export const createRouteFeature = ({
             }
 
             return {
-                lineFc: { type: 'FeatureCollection', features: Array.from(lineFeatureByKey.values()) },
+                lineFc: {
+                    type: 'FeatureCollection',
+                    features: aggregateTripPreviewLineFeatureItems({
+                        items: lineFeatureItems,
+                        buildLineFeatureDedupKey
+                    })
+                },
                 stopFc: { type: 'FeatureCollection', features: Array.from(stopFeatureByStationId.values()) },
                 lineIds,
                 stopIds,

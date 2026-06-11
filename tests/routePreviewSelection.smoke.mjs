@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 
 import {
+    aggregateTripPreviewLineFeatureItems,
     buildEndpointStationIdSetFromPayloadList,
     buildLineCoordsCanonicalKey,
     buildTripPreviewAggregateFromPayloadList,
+    buildTripPreviewLineFeatureCollisionKey,
     buildTripPreviewLineFeatureDedupKey,
     buildTripPreviewSegmentsKey,
     buildTripPreviewSelectionKey,
@@ -17,9 +19,9 @@ import {
     toCoordKey
 } from '../src/domain/routePreviewSelection.js';
 
-const lineFeature = (lineId, coords, role = 'line') => ({
+const lineFeature = (lineId, coords, role = 'line', properties = {}) => ({
     type: 'Feature',
-    properties: { lineId, role },
+    properties: { lineId, role, ...properties },
     geometry: { type: 'LineString', coordinates: coords }
 });
 
@@ -130,6 +132,60 @@ const testLineFeatureDedupKey = () => {
         buildTripPreviewLineFeatureDedupKey(lineFeature('L1', [[2, 2], [1, 1]]))
     );
     assert.equal(buildTripPreviewLineFeatureDedupKey({ geometry: { type: 'Point' } }), '');
+};
+
+const testCollisionLaneAggregation = () => {
+    const coords = [[139, 35], [140, 36]];
+    assert.equal(
+        buildTripPreviewLineFeatureCollisionKey(lineFeature('Shared', coords)),
+        buildTripPreviewLineFeatureCollisionKey(lineFeature('Shared', coords.slice().reverse()))
+    );
+
+    const sameSource = aggregateTripPreviewLineFeatureItems({
+        items: [
+            { feature: lineFeature('Shared', coords), source: 'same' },
+            { feature: lineFeature('Shared', coords.slice().reverse()), source: 'same' }
+        ]
+    });
+    assert.equal(sameSource.length, 1);
+
+    const sameSourceDifferentLines = aggregateTripPreviewLineFeatureItems({
+        items: [
+            { feature: lineFeature('Utsunomiya', coords), source: 'rw-menu-through:ueno' },
+            { feature: lineFeature('Takasaki', coords.slice().reverse()), source: 'rw-menu-through:ueno' }
+        ]
+    });
+    assert.equal(sameSourceDifferentLines.length, 1);
+    assert.equal(sameSourceDifferentLines[0].properties.line_offset_collision_count, undefined);
+
+    const splitSources = aggregateTripPreviewLineFeatureItems({
+        items: [
+            {
+                feature: lineFeature('Shared', coords, 'line', {
+                    color: '#f68b1e',
+                    line_offset_units: 0
+                }),
+                source: 'rw-menu-through:ueno'
+            },
+            {
+                feature: lineFeature('Shared', coords.slice().reverse(), 'line', {
+                    color: '#e31f26',
+                    line_offset_units: 0
+                }),
+                source: 'rw-menu-through:shonan'
+            }
+        ]
+    });
+
+    assert.equal(splitSources.length, 2);
+    assert.deepEqual(
+        splitSources.map((feature) => feature.properties.line_offset_units),
+        [-0.75, 0.75]
+    );
+    assert.deepEqual(
+        splitSources.map((feature) => feature.properties.line_offset_collision_count),
+        [2, 2]
+    );
 };
 
 const testAggregate = () => {
@@ -253,6 +309,7 @@ const testEndpointAndDirPreviewHelpers = () => {
 testSegmentNormalization();
 testSelectionKey();
 testLineFeatureDedupKey();
+testCollisionLaneAggregation();
 testAggregate();
 testEndpointAndDirPreviewHelpers();
 
