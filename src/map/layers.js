@@ -3,7 +3,7 @@
  */
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { getCachedJson, getCompanyLogoSrc } from '../lib/fetch.js';
-import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from '../lib/line-icons.js';
+import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, normalizeStationCodeBadgeCodes } from '../lib/line-icons.js';
 import { THROUGH_SERVICE_DISPLAY, isSUStations,THROUGH_SERVICE_CONFIGS_OBJECT } from '../lib/throughServiceManager.js';
 import {
     isDarkThemeActive,
@@ -155,19 +155,27 @@ const enhancePopupLineBadges = async ({ popup, mode }) => {
             if (lineEl.querySelector('.rw-station-code-badge')) continue;
             const stationCode = toText(lineEl.getAttribute('data-station-code'));
             if (!stationCode) continue;
-            const badge = createStationCodeBadgeElement({
-                code: stationCode,
-                color: toText(meta?.color) || fallbackColor
-            });
-            if (!badge) continue;
-            badge.style.marginLeft = '6px';
+            const stationCodes = normalizeStationCodeBadgeCodes(stationCode);
+            if (!stationCodes.length) continue;
+
+            const stationBadgeFrag = document.createDocumentFragment();
+            for (let index = 0; index < stationCodes.length; index += 1) {
+                const badge = createStationCodeBadgeElement({
+                    code: stationCodes[index],
+                    color: toText(meta?.color) || fallbackColor
+                });
+                if (!badge) continue;
+                badge.style.marginLeft = index === 0 ? '6px' : '4px';
+                badge.style.marginRight = '0';
+                stationBadgeFrag.appendChild(badge);
+            }
+            if (!stationBadgeFrag.childNodes.length) continue;
             const suffixEl = lineEl.querySelector('.station-hover-line-suffix');
             if (suffixEl) {
-                badge.style.marginRight = '0';
                 suffixEl.style.marginLeft = '0';
-                lineEl.insertBefore(badge, suffixEl);
+                lineEl.insertBefore(stationBadgeFrag, suffixEl);
             } else {
-                lineEl.append(badge);
+                lineEl.append(stationBadgeFrag);
             }
         }
     }

@@ -34,7 +34,7 @@ globalThis.document = {
     querySelectorAll: () => []
 };
 
-const { createStationCodeBadgeElement } = await import('../src/lib/line-icons.js');
+const { createStationCodeBadgeElement, normalizeStationCodeBadgeCodes } = await import('../src/lib/line-icons.js');
 
 const badge = createStationCodeBadgeElement({ code: 'SI11', color: '#ff6600' });
 const prefix = badge.querySelector('.rw-station-code-badge-prefix');
@@ -57,5 +57,9 @@ const lightPrefix = lightBadge.querySelector('.rw-station-code-badge-prefix');
 
 assert.equal(lightPrefix.style.backgroundColor, '#ffee55');
 assert.equal(lightPrefix.style.color, '#000');
+
+assert.deepEqual(normalizeStationCodeBadgeCodes('JT01,JU01'), ['JT01', 'JU01']);
+assert.deepEqual(normalizeStationCodeBadgeCodes('JU01 / JT01 / JU01'), ['JU01', 'JT01']);
+assert.deepEqual(normalizeStationCodeBadgeCodes(''), []);
 
 console.log('station code badge element smoke ok');

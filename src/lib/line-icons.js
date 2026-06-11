@@ -21,6 +21,24 @@ const splitStationCodeForBadge = (code) => {
     return { prefix: match[1], suffix: match[2] };
 };
 
+export const normalizeStationCodeBadgeCodes = (code) => {
+    const c = toText(code);
+    if (!c) return [];
+
+    const seen = new Set();
+    const values = c
+        .split(/[,/]/)
+        .map(toText)
+        .filter(Boolean)
+        .filter((value) => {
+            if (seen.has(value)) return false;
+            seen.add(value);
+            return true;
+        });
+
+    return values.length ? values : [c];
+};
+
 export const resolveMainLineIdForIcon = (lineId, index = null) => {
     const id = toText(lineId);
     if (!id) return '';
