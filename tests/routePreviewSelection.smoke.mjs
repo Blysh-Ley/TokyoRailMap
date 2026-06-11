@@ -180,7 +180,7 @@ const testCollisionLaneAggregation = () => {
     assert.equal(splitSources.length, 2);
     assert.deepEqual(
         splitSources.map((feature) => feature.properties.line_offset_units),
-        [-0.75, 0.75]
+        [0, 1]
     );
     assert.deepEqual(
         splitSources.map((feature) => feature.properties.line_offset_collision_count),

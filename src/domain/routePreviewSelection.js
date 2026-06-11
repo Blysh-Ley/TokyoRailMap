@@ -145,13 +145,31 @@ const cloneLineFeatureWithOffset = (feature, lineOffsetUnits, laneIndex, laneCou
     }
 });
 
+const buildCompactCollisionLaneOffsets = (count, separationUnits) => {
+    const n = Math.max(0, Math.trunc(Number(count) || 0));
+    if (!n) return [];
+
+    const step = Number(separationUnits) || 0;
+    const out = [];
+    for (let i = 0; i < n; i += 1) {
+        if (i === 0) {
+            out.push(0);
+            continue;
+        }
+        const magnitude = Math.ceil(i / 2) * step;
+        const direction = i % 2 === 1 ? 1 : -1;
+        out.push(magnitude * direction);
+    }
+    return out;
+};
+
 export const applyTripPreviewCollisionLaneOffsets = (features, options = {}) => {
     const list = Array.isArray(features) ? features : [];
     if (list.length < 2) return list.slice();
 
     const minSeparationUnits = Number.isFinite(options?.minSeparationUnits)
         ? Math.max(0, Number(options.minSeparationUnits))
-        : 1.5;
+        : 1;
     if (!minSeparationUnits) return list.slice();
 
     const groups = new Map();
@@ -167,18 +185,12 @@ export const applyTripPreviewCollisionLaneOffsets = (features, options = {}) => 
     for (const group of groups.values()) {
         if (!Array.isArray(group) || group.length < 2) continue;
 
-        const baseOffsets = group.map(({ feature }) => {
-            const n = Number(feature?.properties?.line_offset_units);
-            return Number.isFinite(n) ? n : 0;
-        });
-        const center = baseOffsets.reduce((sum, n) => sum + n, 0) / baseOffsets.length;
-        const middle = (group.length - 1) / 2;
+        const laneOffsets = buildCompactCollisionLaneOffsets(group.length, minSeparationUnits);
 
         for (let i = 0; i < group.length; i += 1) {
-            const laneOffset = center + ((i - middle) * minSeparationUnits);
             out[group[i].index] = cloneLineFeatureWithOffset(
                 group[i].feature,
-                laneOffset,
+                laneOffsets[i] || 0,
                 i,
                 group.length
             );
