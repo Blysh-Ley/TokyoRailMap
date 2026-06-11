@@ -1050,6 +1050,7 @@ export const previewBranchesForLine = async ({
     if (filterSpecial !== true) {
         const baseResult = await analyzeBranchesForLine(lid, {
             targetTripKeys,
+            throughServiceCategory: normalizedCategory,
             sourceLineIds: normalizedSourceLineIds,
             filterSpecial: true
         });

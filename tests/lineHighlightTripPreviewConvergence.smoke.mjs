@@ -142,6 +142,10 @@ assert.match(analyzeBranchSource, /fullRouteChains/);
 assert.match(analyzeBranchSource, /buildBranchSegmentsFromRouteChains/);
 assert.match(analyzeBranchSource, /filterSpecial !== true/);
 assert.match(analyzeBranchSource, /base-branch-/);
+assert.match(
+    analyzeBranchSource,
+    /const baseResult = await analyzeBranchesForLine\(lid,\s*\{\s*targetTripKeys,\s*throughServiceCategory:\s*normalizedCategory,\s*sourceLineIds:\s*normalizedSourceLineIds,\s*filterSpecial:\s*true\s*\}\);/
+);
 assert.match(analyzeBranchSource, /mergeEndpointIds/);
 assert.match(analyzeBranchSource, /addCurrentLineCoverageRecords/);
 assert.match(analyzeBranchSource, /lineStationIdsById/);
