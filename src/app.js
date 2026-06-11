@@ -254,6 +254,11 @@ const highlightRenderer = createHighlightRenderer({ mapEngine });
 const reachableStopsOverlayRenderer = createReachableStopsOverlayRenderer({ mapEngine });
 const basemapThemeRuntime = createBasemapThemeRuntime({ map, mapEngine });
 
+const canRunHoverPreviewAtCurrentZoom = () => {
+    const z = typeof mapEngine.getZoom === 'function' ? mapEngine.getZoom() : null;
+    return !(typeof z === 'number' && z < HOVER_PREVIEW_MIN_ZOOM);
+};
+
 
 registerTokyoRailMapRuntime({
     map,
@@ -3510,11 +3515,6 @@ const initMapApp = async () => {
         }
 
         emitMultiSelectLayersUpdated();
-
-        const canRunHoverPreviewAtCurrentZoom = () => {
-            const z = typeof mapEngine.getZoom === 'function' ? mapEngine.getZoom() : null;
-            return !(typeof z === 'number' && z < HOVER_PREVIEW_MIN_ZOOM);
-        };
 
         const fitToCurrentSelectionPreview = routePreviewViewport.fitToCurrentSelectionPreview;
         const fitToCurrentSelectionCommit = routePreviewViewport.fitToCurrentSelectionCommit;
