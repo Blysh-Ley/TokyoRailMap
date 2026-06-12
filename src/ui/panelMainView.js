@@ -329,10 +329,10 @@ export const createPanelMainView = ({
         const activePresentation = presentation || shellLayout.presentation || root.getAttribute?.('data-panel-presentation') || 'desktop';
 
         if (activePresentation === 'mobile') {
-            timeOverlay.style.top = 'auto';
+            timeOverlay.style.top = 'calc(env(safe-area-inset-top, 0px) + 10px)';
             timeOverlay.style.right = '10px';
-            timeOverlay.style.bottom = 'calc(env(safe-area-inset-bottom, 0px) + 10px)';
-            timeOverlay.style.left = '10px';
+            timeOverlay.style.bottom = '';
+            timeOverlay.style.left = 'auto';
         } else {
             timeOverlay.style.top = '10px';
             timeOverlay.style.right = '194px';

@@ -13,6 +13,104 @@ html, body {
     overflow: hidden;
 }
 
+.maplibregl-ctrl-attrib-inner .map-attribution {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px 6px;
+    color: rgba(35, 42, 52, 0.72);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.maplibregl-ctrl-attrib-inner .map-attribution-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+}
+
+.maplibregl-ctrl-attrib-inner .map-attribution-label {
+    color: rgba(35, 42, 52, 0.52);
+}
+
+.maplibregl-ctrl-attrib-inner .map-attribution-separator {
+    color: rgba(35, 42, 52, 0.32);
+    font-size: 10px;
+}
+
+.maplibregl-ctrl-attrib-inner .map-attribution-link-separator {
+    color: rgba(35, 42, 52, 0.36);
+}
+
+.maplibregl-ctrl-attrib-inner .map-attribution a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.maplibregl-ctrl-attrib-inner .map-attribution a:hover {
+    color: rgba(20, 30, 42, 0.92);
+    text-decoration: underline;
+}
+
+html[data-theme='dark'] .maplibregl-ctrl-attrib-inner .map-attribution {
+    color: rgba(232, 236, 242, 0.72);
+}
+
+html[data-theme='dark'] .maplibregl-ctrl-attrib-inner .map-attribution-label {
+    color: rgba(232, 236, 242, 0.48);
+}
+
+html[data-theme='dark'] .maplibregl-ctrl-attrib-inner .map-attribution-separator,
+html[data-theme='dark'] .maplibregl-ctrl-attrib-inner .map-attribution-link-separator {
+    color: rgba(232, 236, 242, 0.34);
+}
+
+html[data-theme='dark'] .maplibregl-ctrl-attrib-inner .map-attribution a:hover {
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.maplibregl-ctrl-attrib[data-map-attribution-mobile='1'][data-map-attribution-expanded='0'] .maplibregl-ctrl-attrib-inner {
+    display: none;
+}
+
+.maplibregl-ctrl-attrib[data-map-attribution-mobile='1'] {
+    max-width: calc(100vw - 16px);
+}
+
+html[data-mobile-ui='1'] .search-ui,
+html[data-mobile-ui='1'] .journey-ui,
+html[data-mobile-ui='1'] .settings-ui,
+html[data-mobile-ui='1'] .export-ui,
+html[data-mobile-ui='1'] .ms-ui,
+html[data-mobile-ui='1'] .fullscreen-fab,
+html[data-mobile-ui='1'] .RW-wrapper,
+body[data-mobile-ui='1'] .search-ui,
+body[data-mobile-ui='1'] .journey-ui,
+body[data-mobile-ui='1'] .settings-ui,
+body[data-mobile-ui='1'] .export-ui,
+body[data-mobile-ui='1'] .ms-ui,
+body[data-mobile-ui='1'] .fullscreen-fab,
+body[data-mobile-ui='1'] .RW-wrapper {
+    display: none !important;
+}
+
+html[data-mobile-ui='1'] .settings-top-timebar,
+body[data-mobile-ui='1'] .settings-top-timebar {
+    top: calc(env(safe-area-inset-top, 0px) + 10px) !important;
+    right: 10px !important;
+    bottom: auto !important;
+    left: auto !important;
+    justify-content: flex-end;
+    max-width: calc(100vw - 20px);
+}
+
+html[data-mobile-ui='1'] .settings-top-timebar .settings-time-control,
+body[data-mobile-ui='1'] .settings-top-timebar .settings-time-control {
+    margin-left: auto;
+    justify-content: flex-end;
+}
+
 /* 隐藏滚动条 */
 body::-webkit-scrollbar {
     display: none;

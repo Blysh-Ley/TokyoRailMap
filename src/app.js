@@ -22,6 +22,8 @@ import { addLineNameLabelsLayer, addLinesLayer, addStationsLayer, setupLineHover
 import { createStationMarkers } from './map/labels.js';
 import { setupCollisions } from './map/collision.js';
 import { buildTransferCapsuleGeoJSON, addTransferCapsuleLayers, buildTransferCapsuleConnectionOrder } from './map/transfer-capsules.js';
+import { installMapAttributionView } from './ui/mapAttributionView.js';
+import { createMobileUiModeController } from './ui/mobileUiMode.js';
 import { Menu } from './features/menu/menu.js';
 import { getGlobalTouchTapGuard } from './map/touchTapGuard.js';
 import { createPanel } from './features/panel/panel.js';
@@ -278,29 +280,19 @@ registerTokyoRailMapRuntime({
 // 左下角比例尺
 mapEngine.addMetricScaleControl({ maxWidth: 100, position: 'bottom-left' });
 
+let mapAttributionView = null;
+const mobileUiMode = createMobileUiModeController({
+    onChange: () => {
+        mapAttributionView?.apply?.();
+    }
+});
+const isMobileUiMode = () => mobileUiMode.isMobile();
+
 // 2) 初始化业务数据与图层（不强依赖底图瓦片成功加载）
 const initMapApp = async () => {
     //console.log('地图初始化完成，准备加载 GeoJSON...');
 
-    const applyCustomAttribution = () => {
-        try {
-            const inner = document.querySelector('.maplibregl-ctrl-attrib-inner');
-            if (!inner) return;
-
-            inner.innerHTML = [
-                '<a href="https://maplibre.org/" target="_blank" rel="noopener noreferrer">© MapLibre</a>',
-                '&copy; <a href="https://carto.com/">Carto</a>',
-                '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>',
-                
-                '<a href="https://github.com/nagix/mini-tokyo-3d" target="_blank" rel="noopener noreferrer">Data based on mini-tokyo-3d</a>'
-            ].join(' | ');
-        } catch {
-            // ignore
-        }
-    };
-
-    applyCustomAttribution();
-    mapEngine.on('styledata', applyCustomAttribution);
+    mapAttributionView = installMapAttributionView({ mapEngine, isCompact: isMobileUiMode });
 
     const railwaysOrderIndex = await loadRailwaysOrderIndex();
 
@@ -2530,6 +2522,7 @@ const initMapApp = async () => {
     });
 
     panel = createPanel({
+        panelPresentation: isMobileUiMode() ? 'mobile' : 'desktop',
         hoverDelayMs: 50,
         settingsContentEl: settingsMenuContentEl,
         companyLogoMap,
@@ -3757,184 +3750,186 @@ const initMapApp = async () => {
         const controlsEl = document.getElementById('controls');
         if (controlsEl) controlsEl.innerHTML = '';
 
-        menu = new Menu({
-            companyObj,
-            linesObj,
-            companyLogoMap,
-            railwaysOrderIndex,
-            logoBasePath: COMPANY_LOGO_BASE_PATH,
-            hoverDelayMs: 500,
-            onCancelSelection: clearSelectionsAndRestore,
-            onCompanyClick: (companyName, meta) => {
-                const source = meta?.source ?? 'click';
-                if (source === 'hover' && !isHoverPreviewEnabled()) return;
-                hideStationPopupForMenuInteraction();
-                const commitPreview = meta?.commitPreview === true;
-                clearMenuThroughPreview();
+        if (!isMobileUiMode()) {
+            menu = new Menu({
+                companyObj,
+                linesObj,
+                companyLogoMap,
+                railwaysOrderIndex,
+                logoBasePath: COMPANY_LOGO_BASE_PATH,
+                hoverDelayMs: 500,
+                onCancelSelection: clearSelectionsAndRestore,
+                onCompanyClick: (companyName, meta) => {
+                    const source = meta?.source ?? 'click';
+                    if (source === 'hover' && !isHoverPreviewEnabled()) return;
+                    hideStationPopupForMenuInteraction();
+                    const commitPreview = meta?.commitPreview === true;
+                    clearMenuThroughPreview();
 
-                if (isMultiSelectModeEnabled() && source !== 'hover') {
-                    const name = String(companyName ?? '').trim();
-                    if (!name) return;
-                    const ids = Array.from(enabledLineIdsByCompany.get(name) ?? []).map(String).filter(Boolean);
-                    if (!ids.length) return;
-                    const companyDisplayName = String(companyLogoMap?.[name]?.zh || name).trim() || name;
-                    toggleBaseMultiSelection(`company:${name}`, ids, 'company', companyDisplayName);
+                    if (isMultiSelectModeEnabled() && source !== 'hover') {
+                        const name = String(companyName ?? '').trim();
+                        if (!name) return;
+                        const ids = Array.from(enabledLineIdsByCompany.get(name) ?? []).map(String).filter(Boolean);
+                        if (!ids.length) return;
+                        const companyDisplayName = String(companyLogoMap?.[name]?.zh || name).trim() || name;
+                        toggleBaseMultiSelection(`company:${name}`, ids, 'company', companyDisplayName);
+                        applySelectionEffects();
+                        return;
+                    }
+
+                    selectedStationLineIds = null;
+                    if (source === 'hover') {
+                        selectedCompany = companyName;
+                        setStationLabelMode('auto');
+                    } else {
+
+                        selectedCompany = commitPreview ? companyName : (selectedCompany === companyName ? null : companyName);
+                    }
+                    selectedLineId = null;
+                    selectedServiceMode = 'all';
                     applySelectionEffects();
-                    return;
-                }
+                    if (selectedCompany) {
+                        if (source === 'hover') fitToCurrentSelectionPreview(`company:${selectedCompany}`);
+                        else fitToCurrentSelectionCommit(`company:${selectedCompany}`);
+                    }
+                },
+                onLineClick: (lineId, meta) => {
+                    const source = meta?.source ?? 'click';
+                    if (source === 'hover' && !isHoverPreviewEnabled()) return;
+                    hideStationPopupForMenuInteraction();
+                    const commitPreview = meta?.commitPreview === true;
 
-                selectedStationLineIds = null;
-                if (source === 'hover') {
-                    selectedCompany = companyName;
-                    setStationLabelMode('auto');
-                } else {
+                    if (isMenuThroughLineId(lineId)) {
+                        previewMenuThroughLine({ lineId, source: source === 'hover' ? 'hover' : 'click' });
+                        return;
+                    }
 
-                    selectedCompany = commitPreview ? companyName : (selectedCompany === companyName ? null : companyName);
-                }
-                selectedLineId = null;
-                selectedServiceMode = 'all';
-                applySelectionEffects();
-                if (selectedCompany) {
-                    if (source === 'hover') fitToCurrentSelectionPreview(`company:${selectedCompany}`);
-                    else fitToCurrentSelectionCommit(`company:${selectedCompany}`);
-                }
-            },
-            onLineClick: (lineId, meta) => {
-                const source = meta?.source ?? 'click';
-                if (source === 'hover' && !isHoverPreviewEnabled()) return;
-                hideStationPopupForMenuInteraction();
-                const commitPreview = meta?.commitPreview === true;
-
-                if (isMenuThroughLineId(lineId)) {
-                    previewMenuThroughLine({ lineId, source: source === 'hover' ? 'hover' : 'click' });
-                    return;
-                }
-
-                clearMenuThroughPreview();
+                    clearMenuThroughPreview();
 
 
 
-                const resolved = resolveLineSelectionForApp(lineId);
+                    const resolved = resolveLineSelectionForApp(lineId);
 
-                const mainLineId = String(meta?.mainLineId ?? resolved?.mainLineId ?? lineId);
-                const merged = Array.isArray(meta?.mergedLineIds)
-                    ? meta.mergedLineIds.map(String).filter(Boolean)
-                    : (Array.isArray(resolved?.mergedLineIds) ? resolved.mergedLineIds.map(String).filter(Boolean) : [mainLineId]);
+                    const mainLineId = String(meta?.mainLineId ?? resolved?.mainLineId ?? lineId);
+                    const merged = Array.isArray(meta?.mergedLineIds)
+                        ? meta.mergedLineIds.map(String).filter(Boolean)
+                        : (Array.isArray(resolved?.mergedLineIds) ? resolved.mergedLineIds.map(String).filter(Boolean) : [mainLineId]);
 
-                if (isMultiSelectModeEnabled() && source !== 'hover') {
-                    toggleBaseMultiSelection(`line:${mainLineId}`, merged, 'line');
-                    if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
-                    else setStationLabelMode('auto');
+                    if (isMultiSelectModeEnabled() && source !== 'hover') {
+                        toggleBaseMultiSelection(`line:${mainLineId}`, merged, 'line');
+                        if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
+                        else setStationLabelMode('auto');
+                        applySelectionEffects();
+                        return;
+                    }
+
+                    // 线路点击：优先级高于公司点击
+                    if (source === 'hover') {
+                        selectedLineId = mainLineId;
+                        selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+                        setStationLabelMode('auto');
+                    } else {
+                        selectedLineId = commitPreview
+                            ? mainLineId
+                            : (selectedLineId === mainLineId ? null : mainLineId);
+                    }
+                    if (selectedLineId) selectedCompany = null;
+                    selectedServiceMode = 'all';
+
+
+                    if (source !== 'hover') {
+                        selectedStationLineIds = selectedLineId && merged.length > 1 ? new Set(merged) : null;
+                    }
+
+
+                    if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
                     applySelectionEffects();
-                    return;
-                }
+                    if (selectedLineId) {
+                        if (source === 'hover') fitToCurrentSelectionPreview(`line:${selectedLineId}`);
+                        else {
+                            fitToCurrentSelectionCommit(`line:${selectedLineId}`);
+                            showRouteMapFloatingPanelForLine(lineId);
+                        }
+                    }
+                },
+                onModeClick: ({ lineId, mode }, meta) => {
+                    const source = meta?.source ?? 'click';
+                    if (source === 'hover' && !isHoverPreviewEnabled()) return;
+                    hideStationPopupForMenuInteraction();
+                    const commitPreview = meta?.commitPreview === true;
+                    clearMenuThroughPreview();
 
-                // 线路点击：优先级高于公司点击
-                if (source === 'hover') {
-                    selectedLineId = mainLineId;
-                    selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
-                    setStationLabelMode('auto');
-                } else {
-                    selectedLineId = commitPreview
-                        ? mainLineId
-                        : (selectedLineId === mainLineId ? null : mainLineId);
-                }
-                if (selectedLineId) selectedCompany = null;
-                selectedServiceMode = 'all';
+                    if (isMultiSelectModeEnabled() && source !== 'hover') {
+                        const id = String(lineId ?? '').trim();
+                        if (!id) return;
+                        toggleBaseMultiSelection(`mode:${id}:${String(mode || 'all').trim() || 'all'}`, [id], 'mode');
+                        if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
+                        else setStationLabelMode('auto');
+                        applySelectionEffects();
+                        return;
+                    }
+
+                    selectedStationLineIds = null;
+
+                    if (source === 'hover') {
+                        selectedLineId = lineId;
+                        selectedServiceMode = mode;
+                        setStationLabelMode('auto');
+                    } else {
+                        selectedLineId = commitPreview
+                            ? lineId
+                            : (selectedLineId === lineId && selectedServiceMode === mode ? null : lineId);
+                        selectedServiceMode = mode;
+                    }
+                    if (selectedLineId) selectedCompany = null;
 
 
-                if (source !== 'hover') {
-                    selectedStationLineIds = selectedLineId && merged.length > 1 ? new Set(merged) : null;
-                }
-
-
-                if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
-                applySelectionEffects();
-                if (selectedLineId) {
-                    if (source === 'hover') fitToCurrentSelectionPreview(`line:${selectedLineId}`);
-                    else {
-                        fitToCurrentSelectionCommit(`line:${selectedLineId}`);
-                        showRouteMapFloatingPanelForLine(lineId);
+                    if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
+                    applySelectionEffects();
+                    if (selectedLineId) {
+                        if (source === 'hover') fitToCurrentSelectionPreview(`mode:${selectedLineId}:${selectedServiceMode}`);
+                        else fitToCurrentSelectionCommit(`mode:${selectedLineId}:${selectedServiceMode}`);
                     }
                 }
-            },
-            onModeClick: ({ lineId, mode }, meta) => {
-                const source = meta?.source ?? 'click';
-                if (source === 'hover' && !isHoverPreviewEnabled()) return;
-                hideStationPopupForMenuInteraction();
-                const commitPreview = meta?.commitPreview === true;
-                clearMenuThroughPreview();
+            });
 
-                if (isMultiSelectModeEnabled() && source !== 'hover') {
-                    const id = String(lineId ?? '').trim();
-                    if (!id) return;
-                    toggleBaseMultiSelection(`mode:${id}:${String(mode || 'all').trim() || 'all'}`, [id], 'mode');
-                    if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
-                    else setStationLabelMode('auto');
-                    applySelectionEffects();
-                    return;
-                }
+            menu.mount(document.body);
+            menu.setWrapperStyle();
+            window.addEventListener('resize', () => menu.setWrapperStyle());
 
-                selectedStationLineIds = null;
-
-                if (source === 'hover') {
-                    selectedLineId = lineId;
-                    selectedServiceMode = mode;
-                    setStationLabelMode('auto');
-                } else {
-                    selectedLineId = commitPreview
-                        ? lineId
-                        : (selectedLineId === lineId && selectedServiceMode === mode ? null : lineId);
-                    selectedServiceMode = mode;
-                }
-                if (selectedLineId) selectedCompany = null;
+            lineHoverPopup = setupLineHoverPopup(mapEngine, {
+                hoverMinZoom: HOVER_PREVIEW_MIN_ZOOM,
+                companyLogoMap,
+                getHoverPreviewEnabled: () => isHoverPreviewEnabled()
+            });
 
 
-                if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
-                applySelectionEffects();
-                if (selectedLineId) {
-                    if (source === 'hover') fitToCurrentSelectionPreview(`mode:${selectedLineId}:${selectedServiceMode}`);
-                    else fitToCurrentSelectionCommit(`mode:${selectedLineId}:${selectedServiceMode}`);
-                }
-            }
-        });
+            const refitForMenuOpen = () => {
+                if (!isHoverPreviewEnabled()) return;
+                if (!selectedCompany && !selectedLineId) return;
 
-        menu.mount(document.body);
-        menu.setWrapperStyle();
-        window.addEventListener('resize', () => menu.setWrapperStyle());
+                fitToCurrentSelection('menu-open', 'preview');
+            };
 
-        lineHoverPopup = setupLineHoverPopup(mapEngine, {
-            hoverMinZoom: HOVER_PREVIEW_MIN_ZOOM,
-            companyLogoMap,
-            getHoverPreviewEnabled: () => isHoverPreviewEnabled()
-        });
+            menu.wrapper?.addEventListener('mouseenter', () => {
+                refitForMenuOpen();
+            });
+
+            menu.wrapper?.addEventListener(
+                'pointerdown',
+                (evt) => {
+                    const pt = evt?.pointerType;
+                    if (pt !== 'touch' && pt !== 'pen') return;
 
 
-        const refitForMenuOpen = () => {
-            if (!isHoverPreviewEnabled()) return;
-            if (!selectedCompany && !selectedLineId) return;
-
-            fitToCurrentSelection('menu-open', 'preview');
-        };
-
-        menu.wrapper?.addEventListener('mouseenter', () => {
-            refitForMenuOpen();
-        });
-
-        menu.wrapper?.addEventListener(
-            'pointerdown',
-            (evt) => {
-                const pt = evt?.pointerType;
-                if (pt !== 'touch' && pt !== 'pen') return;
-
-
-                const leftBefore = parseFloat(getComputedStyle(menu.wrapper).left || '0');
-                if (Number.isFinite(leftBefore) && leftBefore < 0) {
-                    setTimeout(() => refitForMenuOpen(), 0);
-                }
-            },
-            { passive: true }
-        );
+                    const leftBefore = parseFloat(getComputedStyle(menu.wrapper).left || '0');
+                    if (Number.isFinite(leftBefore) && leftBefore < 0) {
+                        setTimeout(() => refitForMenuOpen(), 0);
+                    }
+                },
+                { passive: true }
+            );
+        }
 
         bindLineAndBlankMapInteractions();
 
