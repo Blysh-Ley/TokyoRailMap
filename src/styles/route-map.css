@@ -581,13 +581,16 @@ html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
 }
 
 @media print {
-    .route-map-transfer-hover-panel {
+    .route-map-transfer-items-main {
         display: none !important;
+    }
+    .route-map-transfer-hover-panel {
+        display: inline-flex !important;
     }
     .route-map-transfer-hover-portal {
         display: none !important;
     }
-    .route-map-transfer-items-main .route-map-transfer-line-name {
+    .route-map-transfer-hover-panel .route-map-transfer-line-name {
         display: inline !important;
     }
 }

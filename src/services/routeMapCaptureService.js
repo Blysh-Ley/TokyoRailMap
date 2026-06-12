@@ -364,13 +364,16 @@ export const captureRouteMapElementAsPng = async ({ element, filenameBase, butto
                         line-height: 1.2 !important;
                         vertical-align: middle !important;
                     }
-                    html.${EXPORT_CLASS} .route-map-transfer-hover-panel {
+                    html.${EXPORT_CLASS} .route-map-transfer-items-main {
                         display: none !important;
+                    }
+                    html.${EXPORT_CLASS} .route-map-transfer-hover-panel {
+                        display: inline-flex !important;
                     }
                     html.${EXPORT_CLASS} .route-map-transfer-hover-portal {
                         display: none !important;
                     }
-                    html.${EXPORT_CLASS} .route-map-transfer-items-main .route-map-transfer-line-name {
+                    html.${EXPORT_CLASS} .route-map-transfer-hover-panel .route-map-transfer-line-name {
                         display: inline !important;
                     }
                     html.${EXPORT_CLASS} .route-map-station .rw-station-code-badge {
