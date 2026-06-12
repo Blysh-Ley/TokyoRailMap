@@ -267,7 +267,7 @@ export const renderLineIconSvg = (root, {
         appendCenteredText({
             svg,
             documentRef,
-            code: safeCode || '1',
+            code: safeCode,
             preset: safePreset,
             dark,
             fillColor

@@ -82,4 +82,10 @@ assert.equal(ntFrame.children.filter((child) => child.tagName === 'PATH').length
 assert.equal(ntFrame.children.filter((child) => child.tagName === 'RECT').length, 1);
 assert.equal(ntSvg.children.some((child) => child.tagName === 'TEXT' && child.textContent === 'NT'), true);
 
+const noCodeIcon = createLineIconElement({ routeId: 'JR-East.Joban', code: '', color: '#0C7FC7' });
+const noCodeSvg = noCodeIcon.querySelector('svg');
+assert.ok(noCodeSvg);
+assert.equal(noCodeIcon.dataset.code, '');
+assert.equal(noCodeSvg.children.some((child) => child.tagName === 'TEXT'), false);
+
 console.log('line icon svg element smoke ok');
