@@ -145,6 +145,18 @@ const cloneLineFeatureWithOffset = (feature, lineOffsetUnits, laneIndex, laneCou
     }
 });
 
+const cloneLineFeatureWithSource = (feature, source) => {
+    const value = toText(source);
+    if (!value) return feature;
+    return {
+        ...(feature || {}),
+        properties: {
+            ...(feature?.properties || {}),
+            line_offset_collision_source: value
+        }
+    };
+};
+
 const buildCompactCollisionLaneOffsets = (count, separationUnits) => {
     const n = Math.max(0, Math.trunc(Number(count) || 0));
     if (!n) return [];
@@ -235,7 +247,7 @@ export const aggregateTripPreviewLineFeatureItems = ({
                 : collisionKey)
             : baseKey;
         if (!key || lineFeatureByKey.has(key)) continue;
-        lineFeatureByKey.set(key, feature);
+        lineFeatureByKey.set(key, cloneLineFeatureWithSource(feature, contextKey));
     }
 
     return applyTripPreviewCollisionLaneOffsets(Array.from(lineFeatureByKey.values()));

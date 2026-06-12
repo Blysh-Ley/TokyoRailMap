@@ -235,6 +235,7 @@ export function buildTransferCapsuleGeoJSON(stationsData, stationGroups, options
 
     const lineFeatures = [];
     const centroidFeatures = [];
+    const dotFeatures = [];
     const useSingleStationFallbackCircle = options?.singleStationFallbackCircle !== false;
     const fixedConnectionsByGroupId = options?.fixedConnectionsByGroupId && typeof options.fixedConnectionsByGroupId === 'object'
         ? options.fixedConnectionsByGroupId
@@ -263,7 +264,7 @@ export function buildTransferCapsuleGeoJSON(stationsData, stationGroups, options
             const p = f?.properties || {};
             const stationId = toText(p?.id || f?.id);
             const primaryLineId = getPrimaryLineIdFromStationProps(p);
-            const dotColor = toText(resolveLineColor(primaryLineId) || '') || '#666';
+            const dotColor = toText(p?.color || resolveLineColor(primaryLineId) || '') || '#666';
             return {
                 stationId,
                 coordinates: [Number(f.geometry.coordinates[0]), Number(f.geometry.coordinates[1])],
@@ -274,6 +275,21 @@ export function buildTransferCapsuleGeoJSON(stationsData, stationGroups, options
         }).filter((x) => Number.isFinite(x.coordinates[0]) && Number.isFinite(x.coordinates[1]));
 
         if (!points.length) continue;
+
+        for (const point of points) {
+            dotFeatures.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: point.coordinates.slice() },
+                properties: {
+                    groupId,
+                    name,
+                    stationId: point.stationId,
+                    lineId: point.primaryLineId || '',
+                    dotColor: point.dotColor || '#666',
+                    transferCapsuleDot: 1
+                }
+            });
+        }
 
         // 1. 检查当前 group 内的所有点是否在同一个物理坐标上
         let isSameLocation = true;
@@ -383,6 +399,10 @@ export function buildTransferCapsuleGeoJSON(stationsData, stationGroups, options
         centroids: {
             type: 'FeatureCollection',
             features: centroidFeatures
+        },
+        dots: {
+            type: 'FeatureCollection',
+            features: dotFeatures
         }
     };
 }
@@ -392,8 +412,10 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
     const ids = {
         lineSourceId: options.lineSourceId || 'transfer-capsule-lines-source',
         centroidSourceId: options.centroidSourceId || 'transfer-capsule-centroids-source',
+        dotSourceId: options.dotSourceId || 'transfer-capsule-dots-source',
         slaveOutlineLayerId: options.slaveOutlineLayerId || 'transfer-capsule-outline-layer',
         slaveInnerLayerId: options.slaveInnerLayerId || 'transfer-capsule-inner-layer',
+        dotLayerId: options.dotLayerId || 'transfer-capsule-dot-layer',
         fallbackCircleOutlineLayerId: options.fallbackCircleOutlineLayerId || 'transfer-capsule-fallback-circle-outline-layer',
         fallbackCircleInnerLayerId: options.fallbackCircleInnerLayerId || 'transfer-capsule-fallback-circle-inner-layer',
         masterLayerId: options.masterLayerId || 'transfer-capsule-master-layer'
@@ -472,6 +494,15 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
         });
     } else {
         mapAdapter.setSourceData(ids.centroidSourceId, data?.centroids || { type: 'FeatureCollection', features: [] });
+    }
+
+    if (!mapAdapter.getSource(ids.dotSourceId)) {
+        mapAdapter.addSource(ids.dotSourceId, {
+            type: 'geojson',
+            data: data?.dots || { type: 'FeatureCollection', features: [] }
+        });
+    } else {
+        mapAdapter.setSourceData(ids.dotSourceId, data?.dots || { type: 'FeatureCollection', features: [] });
     }
 
     const getThemeCapsuleColors = () => {
@@ -567,6 +598,27 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
         mapAdapter.setPaintProperty(ids.slaveInnerLayerId, 'line-opacity', 1);
         mapAdapter.setPaintProperty(ids.slaveInnerLayerId, 'line-width', buildZoomBasedExponentialSizeExpr(8, 14));
         mapAdapter.setFilter(ids.slaveInnerLayerId, ['!=', ['get', 'fallbackCircle'], 1]);
+    }
+
+    if (!mapAdapter.hasLayer(ids.dotLayerId)) {
+        const layerDef = {
+            id: ids.dotLayerId,
+            type: 'circle',
+            source: ids.dotSourceId,
+            minzoom: minZoom,
+            paint: {
+                'circle-color': ['coalesce', ['get', 'dotColor'], '#666'],
+                'circle-opacity': 1,
+                'circle-radius': buildZoomBasedExponentialSizeExpr(3.5, 6.2),
+                'circle-stroke-width': 0
+            }
+        };
+        if (insertBefore) mapAdapter.addLayer(layerDef, insertBefore); else mapAdapter.addLayer(layerDef);
+    } else {
+        mapAdapter.setPaintProperty(ids.dotLayerId, 'circle-color', ['coalesce', ['get', 'dotColor'], '#666']);
+        mapAdapter.setPaintProperty(ids.dotLayerId, 'circle-opacity', 1);
+        mapAdapter.setPaintProperty(ids.dotLayerId, 'circle-radius', buildZoomBasedExponentialSizeExpr(3.5, 6.2));
+        mapAdapter.setPaintProperty(ids.dotLayerId, 'circle-stroke-width', 0);
     }
 
     if (!mapAdapter.hasLayer(ids.fallbackCircleOutlineLayerId)) {

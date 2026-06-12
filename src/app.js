@@ -11,7 +11,13 @@ import {
     setImageElementFromCache
 } from './lib/fetch.js';
 import { loadRailGeoDataFromDataFolder } from './lib/data.js';
-import { buildOffsetPolylinePixelsWithMiter, buildStationOffsetGeoJSONAtZoom } from './map/offset.js';
+import {
+    buildOffsetPolylinePixelsWithMiter,
+    buildStationOffsetGeoJSONAtZoom,
+    nearestProjectionOnPolylinePixels,
+    projectLngLatToPixelAtZoom12,
+    unprojectPixelToLngLatAtZoom12
+} from './map/offset.js';
 import { addLineNameLabelsLayer, addLinesLayer, addStationsLayer, setupLineHoverPopup, setupStationPopup } from './map/layers.js';
 import { createStationMarkers } from './map/labels.js';
 import { setupCollisions } from './map/collision.js';
@@ -87,8 +93,10 @@ import { createSelectionEffectsController } from './features/selection/selection
 import { createPanelSearchSelectionCallbacks } from './features/selection/panelSearchSelectionCallbacks.js';
 import { createSettingsMenu } from './features/settings/settingsMenu.js';
 import {
+    buildTripPreviewLineFeatureDedupKey,
     resolveTripPreviewPayloadSource as resolveRoutePreviewPayloadSource
 } from './domain/routePreviewSelection.js';
+import { buildPreviewVirtualStationInjection, getLineIdFromStationId } from './domain/previewVirtualStations.js';
 import { createSelectionBadge } from './ui/selectionBadge.js';
 import { buildSelectionBadgeViewModel, createSelectionBadgeAdapter } from './ui/selectionBadgeAdapter.js';
 import { createStationLabelChipsAdapter } from './ui/layer/stationLabelChipsAdapter.js';
@@ -696,6 +704,125 @@ const initMapApp = async () => {
         return null;
     };
 
+    const getLineFeatureIdCandidates = (feature) => {
+        const props = feature?.properties || {};
+        return [
+            props.lineId,
+            props.r,
+            props.geometry_line_id,
+            props.line_offset_id,
+            props.id,
+            feature?.id
+        ].map((value) => String(value || '').trim()).filter(Boolean);
+    };
+
+    const getCurrentTripPreviewAggregateLineFeatures = () => {
+        if (!routeFeature || typeof routeFeature.buildMultiTripPreviewAggregate !== 'function') return [];
+        const aggregate = routeFeature.buildMultiTripPreviewAggregate({
+            buildLineFeatureDedupKey: buildTripPreviewLineFeatureDedupKey
+        });
+        return Array.isArray(aggregate?.lineFc?.features) ? aggregate.lineFc.features : [];
+    };
+
+    const projectStationToPreviewLineFeature = ({ baseCoord, feature } = {}) => {
+        const coords = Array.isArray(feature?.geometry?.coordinates) ? feature.geometry.coordinates : [];
+        if (!Array.isArray(baseCoord) || baseCoord.length < 2 || coords.length < 2) return null;
+
+        const sourcePixels = coords.map(projectLngLatToPixelAtZoom12).filter(Boolean);
+        const basePx = projectLngLatToPixelAtZoom12(baseCoord);
+        if (!basePx || sourcePixels.length < 2) return null;
+
+        const units = Number(feature?.properties?.line_offset_units);
+        const offsetPxAtZoom = Number.isFinite(units)
+            ? units * getLineOffsetPixelsPerUnitAtZoom(mapEngine.getZoom())
+            : 0;
+        const zoom = Number(mapEngine.getZoom());
+        const scaleToZoom12 = Math.pow(2, 12 - (Number.isFinite(zoom) ? zoom : 12));
+        const offsetPxAtZoom12 = offsetPxAtZoom * scaleToZoom12;
+        const targetPixels = offsetPxAtZoom12
+            ? buildOffsetPolylinePixelsWithMiter(sourcePixels, offsetPxAtZoom12)
+            : sourcePixels;
+        if (!Array.isArray(targetPixels) || targetPixels.length < 2) return null;
+
+        const hit = nearestProjectionOnPolylinePixels(targetPixels, basePx);
+        const lngLat = hit?.point ? unprojectPixelToLngLatAtZoom12(hit.point) : null;
+        return Array.isArray(lngLat) && lngLat.length >= 2 ? lngLat : null;
+    };
+
+    const createPreviewVirtualStationCoordinateResolver = () => {
+        const lineFeatures = getCurrentTripPreviewAggregateLineFeatures();
+        return ({ baseCoord, source, lineId, realStationId } = {}) => {
+            const src = String(source || '').trim();
+            const lid = String(lineId || getLineIdFromStationId(realStationId) || '').trim();
+            const realLineId = String(getLineIdFromStationId(realStationId) || '').trim();
+            const sourceMatches = [];
+            const lineMatches = [];
+
+            for (const feature of lineFeatures) {
+                const props = feature?.properties || {};
+                const featureSource = String(props.line_offset_collision_source || '').trim();
+                const candidates = getLineFeatureIdCandidates(feature);
+                if (src && featureSource === src) sourceMatches.push(feature);
+                if ((lid && candidates.includes(lid)) || (realLineId && candidates.includes(realLineId))) {
+                    lineMatches.push(feature);
+                }
+            }
+
+            const candidates = sourceMatches.length ? sourceMatches : lineMatches;
+            let best = null;
+            let bestDist = Number.POSITIVE_INFINITY;
+            const basePx = projectLngLatToPixelAtZoom12(baseCoord);
+            for (const feature of candidates) {
+                const coord = projectStationToPreviewLineFeature({ baseCoord, feature });
+                const px = projectLngLatToPixelAtZoom12(coord);
+                if (!coord || !basePx || !px) continue;
+                const dx = px.x - basePx.x;
+                const dy = px.y - basePx.y;
+                const dist = dx * dx + dy * dy;
+                if (dist < bestDist) {
+                    best = coord;
+                    bestDist = dist;
+                }
+            }
+            return best || baseCoord;
+        };
+    };
+
+    const buildPreviewVirtualStationInjectionForCapsules = ({ stationsGeoJSON, stationGroups, visibleStationIds } = {}) => {
+        if (!tripPreviewActive || !isMultiSelectModeEnabled()) return null;
+        const entries = routeFeature?.getTripPreviewSelectionEntries?.();
+        if (!Array.isArray(entries) || !entries.length) return null;
+        return buildPreviewVirtualStationInjection({
+            stationsData: stationsGeoJSON,
+            stationGroups,
+            visibleStationIds,
+            tripPreviewSelectionEntries: entries,
+            throughServiceConfigsObject: THROUGH_SERVICE_CONFIGS_OBJECT,
+            baseSelectedLineIds: getBaseMultiSelectedLineIds(),
+            getLineColor: (lineId, participant) => {
+                const throughColor = String(THROUGH_SERVICE_CONFIGS_OBJECT?.[participant?.throughCategory]?.color || '').trim();
+                if (throughColor) return resolveRailColorForTheme(throughColor) || throughColor;
+                const id = String(lineId || '').trim();
+                return resolveRailColorForTheme(lineColorById.get(id) || '') || '';
+            },
+            resolveStationCoordinate: createPreviewVirtualStationCoordinateResolver()
+        });
+    };
+
+    const getVisibleStationIdsForTripPreviewStationLayer = () => {
+        if (!(tripPreviewStationIds instanceof Set) || !tripPreviewStationIds.size) return null;
+        const visibleIds = new Set(Array.from(tripPreviewStationIds).map((x) => String(x || '').trim()).filter(Boolean));
+        const injection = buildPreviewVirtualStationInjectionForCapsules({
+            stationsGeoJSON: transferCapsuleStationsData || stationsData,
+            stationGroups: transferCapsuleStationGroups,
+            visibleStationIds: visibleIds
+        });
+        if (injection?.replacedRealStationIds instanceof Set) {
+            for (const id of injection.replacedRealStationIds) visibleIds.delete(id);
+        }
+        return visibleIds;
+    };
+
     const getStationIdTailToken = (stationId) => {
         const sid = String(stationId || '').trim();
         if (!sid) return '';
@@ -902,12 +1029,24 @@ const initMapApp = async () => {
     const toTransferCapsuleVisibleKey = (visibleIds, options = {}) => {
         const mode = options?.useFixedConnections ? 'fixed' : 'auto';
         const scope = options?.viewportOnly ? 'viewport' : 'final';
+        const previewScopeKey = (() => {
+            if (!tripPreviewActive || !isMultiSelectModeEnabled()) return '';
+            const previewKeys = Array.isArray(routeFeature?.getTripPreviewSelectionEntries?.())
+                ? routeFeature.getTripPreviewSelectionEntries()
+                    .map(([key, entry]) => `${String(key || '').trim()}:${entry?.hidden === true ? '0' : '1'}`)
+                    .filter(Boolean)
+                    .sort()
+                : [];
+            const baseKeys = Array.from(getBaseMultiSelectedLineIds()).sort();
+            return `preview:${previewKeys.join(',')};base:${baseKeys.join(',')}`;
+        })();
+        const prefix = previewScopeKey ? `${mode}:${scope}:${previewScopeKey}:` : `${mode}:${scope}:`;
         if (options?.useFixedConnections && options?.baseHiddenFilterActive) {
-            return `${mode}:${scope}:__base-hidden-filter__`;
+            return `${prefix}__base-hidden-filter__`;
         }
-        if (!(visibleIds instanceof Set)) return `${mode}:${scope}:*`;
-        if (!visibleIds.size) return `${mode}:${scope}:__empty__`;
-        return `${mode}:${scope}:${Array.from(visibleIds).map(String).filter(Boolean).sort().join('|')}`;
+        if (!(visibleIds instanceof Set)) return `${prefix}*`;
+        if (!visibleIds.size) return `${prefix}__empty__`;
+        return `${prefix}${Array.from(visibleIds).map(String).filter(Boolean).sort().join('|')}`;
     };
 
     const shouldUseFixedTransferCapsuleConnections = () => {
@@ -1984,8 +2123,11 @@ const initMapApp = async () => {
     function applyStationThemePaintToMapLayers() {
         const dark = isDarkThemeActive();
         const overrideColor = String(tripPreviewStationOverrideColor || '').trim();
-        const overrideStationIds = tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size
-            ? Array.from(tripPreviewStationIds)
+        const tripPreviewStationLayerIds = tripPreviewActive
+            ? getVisibleStationIdsForTripPreviewStationLayer()
+            : null;
+        const overrideStationIds = tripPreviewStationLayerIds instanceof Set && tripPreviewStationLayerIds.size
+            ? Array.from(tripPreviewStationLayerIds)
             : [];
         highlightRenderer.applyStationThemePaint({
             stationsPaint: {
@@ -2040,11 +2182,14 @@ const initMapApp = async () => {
         };
 
         if (tripPreviewActive) {
-            if (tripPreviewStationIds && tripPreviewStationIds.size) {
-                const ids = Array.from(tripPreviewStationIds).map(String).filter(Boolean);
-                const isSelectedExpr = ids.length === 1
-                    ? ['==', ['get', 'id'], ids[0]]
-                    : ['in', ['get', 'id'], ['literal', ids]];
+            const stationLayerIds = getVisibleStationIdsForTripPreviewStationLayer();
+            if (stationLayerIds instanceof Set) {
+                const ids = Array.from(stationLayerIds).map(String).filter(Boolean);
+                const isSelectedExpr = ids.length
+                    ? (ids.length === 1
+                        ? ['==', ['get', 'id'], ids[0]]
+                        : ['in', ['get', 'id'], ['literal', ids]])
+                    : ['==', ['get', 'id'], ''];
                 applyFocusedStationPaint(isSelectedExpr, { hideOthers: true });
                 return;
             }
@@ -3894,7 +4039,21 @@ const initMapApp = async () => {
             getFixedVisibleStationIdsForTransferCapsules,
             getVisibleStationIdsForTransferCapsules,
             toTransferCapsuleVisibleKey,
-            buildTransferCapsuleGeoJSON,
+            buildTransferCapsuleGeoJSON: (stationsGeoJSON, stationGroups, options = {}) => {
+                const injection = buildPreviewVirtualStationInjectionForCapsules({
+                    stationsGeoJSON,
+                    stationGroups,
+                    visibleStationIds: options.visibleStationIds
+                });
+                return buildTransferCapsuleGeoJSON(
+                    injection?.stationsData || stationsGeoJSON,
+                    injection?.stationGroups || stationGroups,
+                    {
+                        ...options,
+                        visibleStationIds: injection?.visibleStationIds || options.visibleStationIds
+                    }
+                );
+            },
             renderTransferCapsules: (transferCapsuleData) => {
                 addTransferCapsuleLayers(mapEngine, transferCapsuleData, {
                     beforeLayerId: 'stations-layer',

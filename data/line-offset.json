@@ -1,6 +1,7 @@
 {
     "JR-East.ChuoSobuLocal":-1,
     "JR-East.JobanRapid":-1,
+    "JR-East.Joban":-1,
     "Keisei.NaritaSkyAccess":-1,
     "JR-East.KeihinTohokuNegishi":1,
     "JR-East.NaritaExpress":-1,
@@ -14,6 +15,7 @@
     "JR-East.ShonanShinjuku":1,
     "JR-East.SaikyoKawagoe":-1,
     "JR-East.KeiyoFutamataBranch":1,
+    "JR-East.Tokaido":1,
     "Toei.Mita":-1,
     "Tobu.Kameido":1,
     "JR-Central.Gotemba":1,

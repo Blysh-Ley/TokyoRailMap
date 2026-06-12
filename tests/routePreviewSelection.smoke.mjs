@@ -186,6 +186,10 @@ const testCollisionLaneAggregation = () => {
         splitSources.map((feature) => feature.properties.line_offset_collision_count),
         [2, 2]
     );
+    assert.deepEqual(
+        splitSources.map((feature) => feature.properties.line_offset_collision_source),
+        ['rw-menu-through:ueno', 'rw-menu-through:shonan']
+    );
 };
 
 const testAggregate = () => {
