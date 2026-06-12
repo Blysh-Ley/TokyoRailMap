@@ -36,6 +36,18 @@ export const createTripPreviewRenderer = ({
         }
     };
 
+    const applyLinePaint = (paintOverride = null) => {
+        const linePaint = paintOverride || getLinePaint();
+        for (const layerId of [LINE_LAYER_ID, CONNECTOR_LAYER_ID]) {
+            if (!mapEngine.getLayer(layerId)) continue;
+            try {
+                mapEngine.applyPaintProperties?.(layerId, linePaint);
+            } catch {
+                // ignore
+            }
+        }
+    };
+
     const ensureLayers = () => {
         const beforeLayerId = getBeforeLayerId();
 
@@ -56,6 +68,9 @@ export const createTripPreviewRenderer = ({
             } catch {
                 // ignore
             }
+            applyLinePaint();
+        } else {
+            applyLinePaint();
         }
 
         if (!mapEngine.getLayer(CONNECTOR_LAYER_ID)) {
@@ -73,6 +88,9 @@ export const createTripPreviewRenderer = ({
             } catch {
                 // ignore
             }
+            applyLinePaint();
+        } else {
+            applyLinePaint();
         }
 
         mapEngine.ensureGeoJsonSource?.(STOPS_SOURCE_ID, EMPTY_FEATURE_COLLECTION);
@@ -109,6 +127,7 @@ export const createTripPreviewRenderer = ({
     };
 
     return {
+        applyLinePaint,
         applyStopPaint,
         ensureLayers,
         reset,

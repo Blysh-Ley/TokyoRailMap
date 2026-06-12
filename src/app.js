@@ -1224,7 +1224,9 @@ const initMapApp = async () => {
     let lineHighlightLabelRequestId = 0;
     const tripPreviewRenderer = createTripPreviewRenderer({
         mapEngine,
-        getLinePaint: () => tripPreviewLineLayerPaint(),
+        getLinePaint: () => tripPreviewLineLayerPaint({
+            highlightStyle: shouldUseHighlightStyle()
+        }),
         getStopPaint: () => tripPreviewStopLayerPaint({
             isDarkThemeActive: isDarkThemeActive(),
             lineColorById
@@ -2101,6 +2103,21 @@ const initMapApp = async () => {
         return null;
     }
 
+    function shouldUseHighlightStyle() {
+        return Boolean(
+            tripPreviewActive ||
+            dirPreviewActive ||
+            selectedLineId ||
+            selectedCompany ||
+            selectedStationId ||
+            (selectedStationLineIds && selectedStationLineIds.size) ||
+            (isMultiSelectModeEnabled() && (
+                getBaseMultiSelectedLineIds().size ||
+                routeFeature?.getTripPreviewSelectionSize?.()
+            ))
+        );
+    }
+
     function applyLineNameLabelSelectionFilter() {
         syncLineNameLabelDataForCurrentState();
         highlightRenderer.applyLineNameLabelFilter(
@@ -2119,7 +2136,10 @@ const initMapApp = async () => {
 
 
         if (tripPreviewActive) {
-            applyLinePaint(buildLowlightLinePaint({ dimOpacity: 0.45 }));
+            applyLinePaint(buildLowlightLinePaint({
+                dimOpacity: 0.45,
+                highlightStyle: shouldUseHighlightStyle()
+            }));
             return;
         }
 
@@ -2128,7 +2148,12 @@ const initMapApp = async () => {
             const hitExpr = ids.length === 1
                 ? ['==', ['get', 'id'], ids[0]]
                 : ['in', ['get', 'id'], ['literal', ids]];
-            applyLinePaint(buildFocusedLinePaint({ baseColorExpr, focusExpr: hitExpr, dimOpacity: 0.6 }));
+            applyLinePaint(buildFocusedLinePaint({
+                baseColorExpr,
+                focusExpr: hitExpr,
+                dimOpacity: 0.6,
+                highlightStyle: shouldUseHighlightStyle()
+            }));
             return;
         }
 
@@ -2137,11 +2162,19 @@ const initMapApp = async () => {
             const hitExpr = ids.length === 1
                 ? ['==', ['get', 'id'], ids[0]]
                 : ['in', ['get', 'id'], ['literal', ids]];
-            applyLinePaint(buildFocusedLinePaint({ baseColorExpr, focusExpr: hitExpr, dimOpacity: 0.6 }));
+            applyLinePaint(buildFocusedLinePaint({
+                baseColorExpr,
+                focusExpr: hitExpr,
+                dimOpacity: 0.6,
+                highlightStyle: shouldUseHighlightStyle()
+            }));
             return;
         }
 
-        applyLinePaint(buildFocusedLinePaint({ baseColorExpr }));
+        applyLinePaint(buildFocusedLinePaint({
+            baseColorExpr,
+            highlightStyle: shouldUseHighlightStyle()
+        }));
     }
 
     const applyBaseLayerVisibilityFilters = () => {
@@ -2221,12 +2254,18 @@ const initMapApp = async () => {
         };
 
         const applyBaseStationPaint = () => {
-            applyStationPaint(buildStationSelectionPaint());
+            applyStationPaint(buildStationSelectionPaint({
+                highlightStyle: shouldUseHighlightStyle()
+            }));
             applyStationThemePaintToMapLayers();
         };
 
         const applyFocusedStationPaint = (isSelectedExpr, { hideOthers = true } = {}) => {
-            applyStationPaint(buildStationSelectionPaint({ isSelectedExpr, hideOthers }));
+            applyStationPaint(buildStationSelectionPaint({
+                isSelectedExpr,
+                hideOthers,
+                highlightStyle: shouldUseHighlightStyle()
+            }));
             applyStationThemePaintToMapLayers();
         };
 
@@ -4106,7 +4145,8 @@ const initMapApp = async () => {
             renderTransferCapsules: (transferCapsuleData) => {
                 addTransferCapsuleLayers(mapEngine, transferCapsuleData, {
                     beforeLayerId: 'stations-layer',
-                    minZoom: 8
+                    minZoom: 8,
+                    highlightStyle: shouldUseHighlightStyle()
                 });
             },
             resolveTransferCapsuleLineColor: (lineId) => {

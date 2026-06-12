@@ -1,11 +1,13 @@
+import { HIGHLIGHT_STYLE_CONFIG } from './highlight_style_config.js';
+
 const toText = (v) => String(v ?? '').trim();
 
 export const ELEMENT_UI_CONSTANTS = Object.freeze({
     lineBaseWidth: 4,
     lineLowlightWidth: 1.2,
     lineLowlightColor: '#999',
-    lineBaseWidthAtMaxZoom: 6,       
-    lineLowlightWidthAtMaxZoom: 1.8, 
+    lineBaseWidthAtMaxZoom: 6,
+    lineLowlightWidthAtMaxZoom: 1.8,
 
     stationBaseRadius: 3.5,
     stationSingleStrokeWidth: 2,
@@ -18,10 +20,15 @@ export const ELEMENT_UI_CONSTANTS = Object.freeze({
     tripPreviewFallbackColor: '#0a84ff'
 });
 
-const buildZoomBasedExponentialSizeExpr = (sizeAtBaseZoom, sizeAtMaxZoom) => {
+const buildZoomBasedExponentialSizeExpr = (sizeAtBaseZoom, sizeAtMaxZoom, options = {}) => {
     const zBase = ELEMENT_UI_CONSTANTS.stationZoomBase;
     const zMax = ELEMENT_UI_CONSTANTS.stationZoomMax;
-    const interpBase = ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase;
+    const interpBase = Number.isFinite(options.interpolationBase)
+        ? Math.max(0.01, Number(options.interpolationBase))
+        : ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase;
+    const minScaleAtZoom0 = Number.isFinite(options.minScaleAtZoom0)
+        ? Math.max(0, Number(options.minScaleAtZoom0))
+        : 1;
 
     const baseSize = Number(sizeAtBaseZoom);
     const maxSize = Number(sizeAtMaxZoom);
@@ -32,7 +39,7 @@ const buildZoomBasedExponentialSizeExpr = (sizeAtBaseZoom, sizeAtMaxZoom) => {
     }
 
     const growthPerZoom = Math.pow(maxSize / baseSize, 1 / zoomDelta);
-    const sizeAtZoom0 = baseSize * Math.pow(growthPerZoom, -zBase);
+    const sizeAtZoom0 = baseSize * Math.pow(growthPerZoom, -zBase) * minScaleAtZoom0;
 
     return [
         'interpolate',
@@ -44,9 +51,8 @@ const buildZoomBasedExponentialSizeExpr = (sizeAtBaseZoom, sizeAtMaxZoom) => {
     ];
 };
 
-const lineWidthScaleAtMaxZoom = ELEMENT_UI_CONSTANTS.stationBaseRadiusAtMaxZoom / ELEMENT_UI_CONSTANTS.stationBaseRadius;
-const lineBaseWidthAtMaxZoom = ELEMENT_UI_CONSTANTS.lineBaseWidth * lineWidthScaleAtMaxZoom;
-const lineLowlightWidthAtMaxZoom = ELEMENT_UI_CONSTANTS.lineLowlightWidth * lineWidthScaleAtMaxZoom;
+const lineBaseWidthAtMaxZoom = ELEMENT_UI_CONSTANTS.lineBaseWidthAtMaxZoom;
+const lineLowlightWidthAtMaxZoom = ELEMENT_UI_CONSTANTS.lineLowlightWidthAtMaxZoom;
 
 const baseLineWidthExpr = () => buildZoomBasedExponentialSizeExpr(
     ELEMENT_UI_CONSTANTS.lineBaseWidth,
@@ -56,6 +62,23 @@ const baseLineWidthExpr = () => buildZoomBasedExponentialSizeExpr(
 const lowlightLineWidthExpr = () => buildZoomBasedExponentialSizeExpr(
     ELEMENT_UI_CONSTANTS.lineLowlightWidth,
     lineLowlightWidthAtMaxZoom
+);
+
+const highlightSizeOptions = () => ({
+    minScaleAtZoom0: HIGHLIGHT_STYLE_CONFIG.lineAndStation.minScaleAtZoom0,
+    interpolationBase: HIGHLIGHT_STYLE_CONFIG.lineAndStation.zoomScaleInterpolationBase
+});
+
+const highlightBaseLineWidthExpr = () => buildZoomBasedExponentialSizeExpr(
+    HIGHLIGHT_STYLE_CONFIG.line.widthAtBaseZoom,
+    HIGHLIGHT_STYLE_CONFIG.line.widthAtMaxZoom,
+    highlightSizeOptions()
+);
+
+const highlightLowlightLineWidthExpr = () => buildZoomBasedExponentialSizeExpr(
+    HIGHLIGHT_STYLE_CONFIG.line.lowlightWidthAtBaseZoom,
+    HIGHLIGHT_STYLE_CONFIG.line.lowlightWidthAtMaxZoom,
+    highlightSizeOptions()
 );
 
 const getExponentialInterpolationT = (progress, base) => {
@@ -229,19 +252,20 @@ export const buildBaseLineColorExpr = (options = {}) => {
 // 重写：动态计算线宽的插值表达式（支持传入 focusExpr 解决 MapLibre 嵌套限制）
 export const buildDynamicLineWidthExpr = (options = {}) => {
     const { isLowlight = false, focusExpr = null } = options;
+    const highlightStyle = options.highlightStyle === true;
 
     const z0 = 0;
-    const zShrinkStart = 6;
+    const zShrinkStart = highlightStyle ? HIGHLIGHT_STYLE_CONFIG.line.shrinkStartZoom : 6;
     const z1 = ELEMENT_UI_CONSTANTS.stationZoomBase; // 12
     const z2 = ELEMENT_UI_CONSTANTS.stationZoomMax;  // 16
 
-    const wBaseMin = 0.8;
-    const wBaseMid = ELEMENT_UI_CONSTANTS.lineBaseWidth;
-    const wBaseMax = ELEMENT_UI_CONSTANTS.lineBaseWidthAtMaxZoom;
+    const wBaseMin = highlightStyle ? HIGHLIGHT_STYLE_CONFIG.line.minWidthAtLowZoom : 0.8;
+    const wBaseMid = highlightStyle ? HIGHLIGHT_STYLE_CONFIG.line.widthAtBaseZoom : ELEMENT_UI_CONSTANTS.lineBaseWidth;
+    const wBaseMax = highlightStyle ? HIGHLIGHT_STYLE_CONFIG.line.widthAtMaxZoom : ELEMENT_UI_CONSTANTS.lineBaseWidthAtMaxZoom;
 
-    const wLowMin = 0.3;
-    const wLowMid = ELEMENT_UI_CONSTANTS.lineLowlightWidth;
-    const wLowMax = ELEMENT_UI_CONSTANTS.lineLowlightWidthAtMaxZoom;
+    const wLowMin = highlightStyle ? HIGHLIGHT_STYLE_CONFIG.line.lowlightMinWidthAtLowZoom : 0.3;
+    const wLowMid = highlightStyle ? HIGHLIGHT_STYLE_CONFIG.line.lowlightWidthAtBaseZoom : ELEMENT_UI_CONSTANTS.lineLowlightWidth;
+    const wLowMax = highlightStyle ? HIGHLIGHT_STYLE_CONFIG.line.lowlightWidthAtMaxZoom : ELEMENT_UI_CONSTANTS.lineLowlightWidthAtMaxZoom;
 
     // 1. 如果有 focus 表达式，必须把 case 写在 interpolate 内部的每一个 zoom 节点上
     if (focusExpr) {
@@ -276,11 +300,12 @@ export const buildFocusedLinePaint = (options = {}) => {
     const baseColorExpr = options.baseColorExpr || buildBaseLineColorExpr(options);
     const focusExpr = options.focusExpr || null;
     const dimOpacity = Number.isFinite(options.dimOpacity) ? options.dimOpacity : 0.6;
+    const highlightStyle = options.highlightStyle === true;
 
     if (!focusExpr) {
         return {
             'line-color': baseColorExpr,
-            'line-width': baseLineWidthExpr(),
+            'line-width': highlightStyle ? highlightBaseLineWidthExpr() : baseLineWidthExpr(),
             'line-opacity': 1
         };
     }
@@ -293,20 +318,23 @@ export const buildFocusedLinePaint = (options = {}) => {
 
     return {
         'line-color': ['case', focusExpr, baseColorExpr, ELEMENT_UI_CONSTANTS.lineLowlightColor],
-        'line-width': ['interpolate', ['exponential', ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase], ['zoom'],
-            z0, ['case', focusExpr, baseWidthAtZ0, lowlightWidthAtZ0],
-            z1, ['case', focusExpr, ELEMENT_UI_CONSTANTS.lineBaseWidth, ELEMENT_UI_CONSTANTS.lineLowlightWidth],
-            z2, ['case', focusExpr, lineBaseWidthAtMaxZoom, lineLowlightWidthAtMaxZoom]
-        ],
+        'line-width': highlightStyle
+            ? ['case', focusExpr, highlightBaseLineWidthExpr(), highlightLowlightLineWidthExpr()]
+            : ['interpolate', ['exponential', ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase], ['zoom'],
+                z0, ['case', focusExpr, baseWidthAtZ0, lowlightWidthAtZ0],
+                z1, ['case', focusExpr, ELEMENT_UI_CONSTANTS.lineBaseWidth, ELEMENT_UI_CONSTANTS.lineLowlightWidth],
+                z2, ['case', focusExpr, lineBaseWidthAtMaxZoom, lineLowlightWidthAtMaxZoom]
+            ],
         'line-opacity': ['case', focusExpr, 1, dimOpacity]
     };
 };
 
 export const buildLowlightLinePaint = (options = {}) => {
     const dimOpacity = Number.isFinite(options.dimOpacity) ? options.dimOpacity : 0.45;
+    const highlightStyle = options.highlightStyle === true;
     return {
         'line-color': ELEMENT_UI_CONSTANTS.lineLowlightColor,
-        'line-width': lowlightLineWidthExpr(),
+        'line-width': highlightStyle ? highlightLowlightLineWidthExpr() : lowlightLineWidthExpr(),
         'line-opacity': dimOpacity
     };
 };
@@ -319,6 +347,12 @@ export const baseStationCircleRadiusExpr = () => {
     return buildZoomBasedExponentialSizeExpr(r1, r2);
 };
 
+const highlightStationCircleRadiusExpr = () => buildZoomBasedExponentialSizeExpr(
+    ELEMENT_UI_CONSTANTS.stationBaseRadius,
+    ELEMENT_UI_CONSTANTS.stationBaseRadiusAtMaxZoom,
+    highlightSizeOptions()
+);
+
 export const baseStationCircleStrokeWidthExpr = () => {
     const z0 = 0;
     const z1 = ELEMENT_UI_CONSTANTS.stationZoomBase;
@@ -330,6 +364,22 @@ export const baseStationCircleStrokeWidthExpr = () => {
     // Produce a single top-level interpolate where each zoom stop contains a case deciding
     // whether the station is a single-served station (has single stroke) or a transfer (use
     // transfer stroke width). This avoids nesting a zoom-expression inside a case.
+    const isSingleExpr = ['==', ['length', servingIdsExpr], 1];
+    return ['interpolate', ['exponential', ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase], ['zoom'],
+        z0, ['case', isSingleExpr, w0, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth],
+        z1, ['case', isSingleExpr, w1, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth],
+        z2, ['case', isSingleExpr, w2, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth]
+    ];
+};
+
+const highlightStationCircleStrokeWidthExpr = () => {
+    const z0 = 0;
+    const z1 = ELEMENT_UI_CONSTANTS.stationZoomBase;
+    const z2 = ELEMENT_UI_CONSTANTS.stationZoomMax;
+    const w1 = ELEMENT_UI_CONSTANTS.stationSingleStrokeWidth;
+    const w2 = ELEMENT_UI_CONSTANTS.stationSingleStrokeWidthAtMaxZoom;
+    const w0 = buildZoomBasedExponentialSizeExpr(w1, w2, highlightSizeOptions())[4];
+    const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
     const isSingleExpr = ['==', ['length', servingIdsExpr], 1];
     return ['interpolate', ['exponential', ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase], ['zoom'],
         z0, ['case', isSingleExpr, w0, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth],
@@ -406,11 +456,12 @@ export const buildStationCircleColorPaintExpr = (options = {}) => {
 export const buildStationSelectionPaint = (options = {}) => {
     const isSelectedExpr = options.isSelectedExpr || null;
     const hideOthers = options.hideOthers === true;
+    const highlightStyle = options.highlightStyle === true;
 
     if (!isSelectedExpr) {
         return {
-            'circle-radius': baseStationCircleRadiusExpr(),
-            'circle-stroke-width': baseStationCircleStrokeWidthExpr(),
+            'circle-radius': highlightStyle ? highlightStationCircleRadiusExpr() : baseStationCircleRadiusExpr(),
+            'circle-stroke-width': highlightStyle ? highlightStationCircleStrokeWidthExpr() : baseStationCircleStrokeWidthExpr(),
             'circle-opacity': 1,
             'circle-stroke-opacity': 1
         };
@@ -431,23 +482,37 @@ export const buildStationSelectionPaint = (options = {}) => {
     const strokeAtZ1 = ['case', isSingleExpr, w1, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
     const strokeAtZ2 = ['case', isSingleExpr, w2, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
 
-    const strokeWidthExpr = ['interpolate', ['exponential', ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase], ['zoom'],
-        z0, ['case', isSelectedExpr, strokeAtZ0, 0],
-        z1, ['case', isSelectedExpr, strokeAtZ1, 0],
-        z2, ['case', isSelectedExpr, strokeAtZ2, 0]
+    const highlightStrokeAtZ0 = ['case',
+        isSingleExpr,
+        buildZoomBasedExponentialSizeExpr(w1, w2, highlightSizeOptions())[4],
+        ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth
     ];
+    const highlightStrokeAtZ1 = ['case', isSingleExpr, w1, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
+    const highlightStrokeAtZ2 = ['case', isSingleExpr, w2, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
+
+    const strokeWidthExpr = highlightStyle
+        ? ['interpolate', ['exponential', ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase], ['zoom'],
+            z0, ['case', isSelectedExpr, highlightStrokeAtZ0, 0],
+            z1, ['case', isSelectedExpr, highlightStrokeAtZ1, 0],
+            z2, ['case', isSelectedExpr, highlightStrokeAtZ2, 0]
+        ]
+        : ['interpolate', ['exponential', ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase], ['zoom'],
+            z0, ['case', isSelectedExpr, strokeAtZ0, 0],
+            z1, ['case', isSelectedExpr, strokeAtZ1, 0],
+            z2, ['case', isSelectedExpr, strokeAtZ2, 0]
+        ];
 
     return {
-        'circle-radius': baseStationCircleRadiusExpr(),
+        'circle-radius': highlightStyle ? highlightStationCircleRadiusExpr() : baseStationCircleRadiusExpr(),
         'circle-stroke-width': strokeWidthExpr,
         'circle-opacity': hideOthers ? ['case', isSelectedExpr, 1, 0] : 1,
         'circle-stroke-opacity': hideOthers ? ['case', isSelectedExpr, 1, 0] : 1
     };
 };
 
-export const tripPreviewLineLayerPaint = () => ({
+export const tripPreviewLineLayerPaint = (options = {}) => ({
     'line-color': ['coalesce', ['get', 'color'], ELEMENT_UI_CONSTANTS.tripPreviewFallbackColor],
-    'line-width': baseLineWidthExpr(),
+    'line-width': options.highlightStyle === true ? highlightBaseLineWidthExpr() : baseLineWidthExpr(),
     'line-opacity': 1,
     'line-offset': buildLineOffsetPaintExpr()
 });
