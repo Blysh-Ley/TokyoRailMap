@@ -376,6 +376,23 @@ export const buildStationCircleColorPaintExpr = (options = {}) => {
     const overrideIds = Array.isArray(options.overrideStationIds)
         ? options.overrideStationIds.map((x) => toText(x)).filter(Boolean)
         : [];
+    const overrideColorByStationId = options.overrideColorByStationId instanceof Map
+        ? options.overrideColorByStationId
+        : null;
+
+    if (overrideColorByStationId && overrideColorByStationId.size) {
+        const matchExpr = ['match', ['get', 'id']];
+        let hasAny = false;
+        for (const [stationId, rawColor] of overrideColorByStationId.entries()) {
+            const id = toText(stationId);
+            const color = toText(rawColor);
+            if (!id || !color) continue;
+            matchExpr.push(id, color);
+            hasAny = true;
+        }
+        matchExpr.push(baseExpr);
+        if (hasAny) return matchExpr;
+    }
 
     if (!(overrideColor && overrideIds.length)) return baseExpr;
 

@@ -1661,6 +1661,44 @@ const initMapApp = async () => {
         return resolveRailColorForTheme(fallback) || fallback;
     };
 
+    const collectTripPreviewPayloadStationIds = (payload) => {
+        const out = new Set();
+        const payloads = Array.isArray(payload?.virtualTrips) && payload.virtualTrips.length
+            ? payload.virtualTrips
+            : [payload];
+        for (const item of payloads) {
+            const segments = Array.isArray(item?.segments) ? item.segments : [];
+            for (const segment of segments) {
+                const ids = Array.isArray(segment?.stationIds) ? segment.stationIds : [];
+                for (const rawId of ids) {
+                    const id = String(rawId || '').trim();
+                    if (id) out.add(id);
+                }
+            }
+        }
+        return out;
+    };
+
+    const getTripPreviewStationColorOverrides = () => {
+        if (!tripPreviewActive) return null;
+        const entries = routeFeature?.getTripPreviewSelectionEntries?.();
+        if (!Array.isArray(entries) || !entries.length) return null;
+
+        const out = new Map();
+        for (const rawEntry of entries) {
+            const entry = Array.isArray(rawEntry) ? rawEntry[1] : rawEntry;
+            if (!entry || entry.hidden === true) continue;
+            const payload = entry.payload || {};
+            const color = resolveTripPreviewStationOverrideColor(payload, entry.source);
+            if (!color) continue;
+            for (const stationId of collectTripPreviewPayloadStationIds(payload)) {
+                if (!stationId || out.has(stationId)) continue;
+                out.set(stationId, color);
+            }
+        }
+        return out.size ? out : null;
+    };
+
     const clearMenuThroughPreview = () => {
         for (const source of MENU_THROUGH_PREVIEW_SOURCES) {
             clearTripPathPreview({ source });
@@ -2129,13 +2167,24 @@ const initMapApp = async () => {
         const overrideStationIds = tripPreviewStationLayerIds instanceof Set && tripPreviewStationLayerIds.size
             ? Array.from(tripPreviewStationLayerIds)
             : [];
+        const rawOverrideColorByStationId = getTripPreviewStationColorOverrides();
+        const overrideColorByStationId = (() => {
+            if (!(rawOverrideColorByStationId instanceof Map) || !rawOverrideColorByStationId.size) return null;
+            if (!(tripPreviewStationLayerIds instanceof Set)) return rawOverrideColorByStationId;
+            const scoped = new Map();
+            for (const [stationId, color] of rawOverrideColorByStationId.entries()) {
+                if (tripPreviewStationLayerIds.has(stationId)) scoped.set(stationId, color);
+            }
+            return scoped.size ? scoped : null;
+        })();
         highlightRenderer.applyStationThemePaint({
             stationsPaint: {
                 'circle-color': buildStationCircleColorPaintExpr({
                     isDarkThemeActive: dark,
                     lineColorById,
                     overrideColor,
-                    overrideStationIds
+                    overrideStationIds,
+                    overrideColorByStationId
                 }),
                 'circle-stroke-color': stationCircleStrokeColorPaint({ isDarkThemeActive: dark })
             }
