@@ -375,13 +375,69 @@ export const renderPanelTripDetailStationCellHtml = ({
     })}</div>`;
 };
 
+const MAX_PANEL_TRIP_DETAIL_TRANSFER_ITEMS_PER_ROW = 5;
+
+export const renderPanelTripDetailTransferRowsHtml = (itemHtmls = [], {
+    maxItemsPerRow = MAX_PANEL_TRIP_DETAIL_TRANSFER_ITEMS_PER_ROW
+} = {}) => {
+    const list = Array.isArray(itemHtmls) ? itemHtmls.map((value) => String(value || '').trim()).filter(Boolean) : [];
+    const perRow = Math.max(1, Number(maxItemsPerRow) || MAX_PANEL_TRIP_DETAIL_TRANSFER_ITEMS_PER_ROW);
+    const rows = [];
+    for (let start = 0; start < list.length; start += perRow) {
+        rows.push(`<span class="panel-trip-detail-transfer-row">${list.slice(start, start + perRow).join('')}</span>`);
+    }
+    return rows.join('');
+};
+
+export const renderPanelTripDetailTransferCellHtml = ({
+    className = 'panel-trip-detail-transfer',
+    style = '',
+    itemHtmls = [],
+    popoverItemHtmls = null,
+    rowCount = 1,
+    popoverRowCount = 1,
+    label = ''
+} = {}) => {
+    const items = Array.isArray(itemHtmls) ? itemHtmls.map((value) => String(value || '').trim()).filter(Boolean) : [];
+    const popoverItems = Array.isArray(popoverItemHtmls)
+        ? popoverItemHtmls.map((value) => String(value || '').trim()).filter(Boolean)
+        : items;
+    const safeClass = toText_panelTripDetailStationRenderer(className);
+    const safeStyle = toText_panelTripDetailStationRenderer(style);
+    const attrs = [
+        `class="${escapeHtml_panelTripDetailStationRenderer(safeClass)}"`,
+        safeStyle ? `style="${escapeHtml_panelTripDetailStationRenderer(safeStyle)}"` : ''
+    ].filter(Boolean).join(' ');
+    if (!items.length && !popoverItems.length) return `<div ${attrs}></div>`;
+
+    const mainRowsHtml = renderPanelTripDetailTransferRowsHtml(items);
+    const popoverRowsHtml = renderPanelTripDetailTransferRowsHtml(popoverItems);
+    const safeRowCount = Math.max(1, Number(rowCount) || 1);
+    const safePopoverRowCount = Math.max(1, Number(popoverRowCount) || safeRowCount);
+    const mainClass = safeRowCount > 1 ? 'panel-trip-detail-transfer-items is-multi-rows' : 'panel-trip-detail-transfer-items';
+    const popoverClass = safePopoverRowCount > 1 ? 'panel-trip-detail-transfer-items is-multi-rows' : 'panel-trip-detail-transfer-items';
+    const ariaLabel = escapeHtml_panelTripDetailStationRenderer(toText_panelTripDetailStationRenderer(label) || `换乘线路：${popoverItems.length}条`);
+    return `
+        <div ${attrs}>
+            <span class="panel-trip-detail-transfer-shell" tabindex="0" aria-label="${ariaLabel}">
+                <span class="${mainClass} panel-trip-detail-transfer-items-main">${mainRowsHtml}</span>
+                <span class="panel-trip-detail-transfer-hover-panel" role="tooltip">
+                    <span class="${popoverClass} panel-trip-detail-transfer-items-popover">${popoverRowsHtml}</span>
+                </span>
+            </span>
+        </div>
+    `;
+};
+
 export const renderPanelTripDetailStopRowHtml = ({
     rowClass = '',
+    rowStyle = '',
     stationClass = '',
     arriveCellClass = '',
     departCellClass = '',
     timeCellClass = '',
     timeHtml = '',
+    transferDisplay = null,
     arriveTextClass = '',
     departTextClass = '',
     stationId = '',
@@ -408,7 +464,8 @@ export const renderPanelTripDetailStopRowHtml = ({
         `;
 
     return `
-        <div class="${escapeHtml_panelTripDetailStationRenderer(rowClass)}">
+        <div class="${escapeHtml_panelTripDetailStationRenderer(rowClass)}"${toText_panelTripDetailStationRenderer(rowStyle) ? ` style="${escapeHtml_panelTripDetailStationRenderer(rowStyle)}"` : ''}>
+            ${timeCellHtml}
             ${renderPanelTripDetailStationCellHtml({
                 className: stationClass,
                 dataStationId: stationId,
@@ -417,7 +474,7 @@ export const renderPanelTripDetailStopRowHtml = ({
                 stationName,
                 stationId
             })}
-            ${timeCellHtml}
+            ${renderPanelTripDetailTransferCellHtml(transferDisplay || {})}
         </div>
     `;
 };
@@ -611,23 +668,28 @@ export const buildPanelTripDetailLayoutShell = ({
             spacerHtml: DEFAULT_SPACER_HTML_panelTripDetailLayoutShell,
             headerHtml: `
                 <div class="panel-trip-detail-head">
-                    <div class="panel-trip-detail-station">${STATION_LABEL_panelTripDetailLayoutShell}</div>
                     <div class="panel-trip-detail-time panel-trip-detail-moment">${TIME_LABEL_panelTripDetailLayoutShell}</div>
+                    <div class="panel-trip-detail-station">${STATION_LABEL_panelTripDetailLayoutShell}</div>
+                    <div class="panel-trip-detail-transfer">${'\u6362\u4e58'}</div>
                 </div>
             `,
             totalCols: 0,
             primaryTimeColStart: 0,
-            firstBranchMarkerCol: 0
+            firstBranchMarkerCol: 0,
+            transferColStart: 0,
+            stationColStart: 0
         };
     }
 
     const safeBranchCount = Math.max(0, Number(branchCount) || 0);
-    const totalCols = 2 * safeBranchCount + 1;
-    const primaryTimeColStart = 2;
-    const firstBranchMarkerCol = safeBranchCount >= 2 ? 4 : 0;
+    const totalCols = 2 * safeBranchCount + 2;
+    const primaryTimeColStart = 1;
+    const firstBranchMarkerCol = safeBranchCount >= 2 ? 3 : 0;
+    const stationColStart = Math.max(1, totalCols - 1);
+    const transferColStart = totalCols;
     let branchHeadHtml = '';
     for (let i = 0; i < safeBranchCount; i += 1) {
-        const colStart = 2 + 2 * i;
+        const colStart = 1 + 2 * i;
         branchHeadHtml += `
             <div class="panel-trip-detail-head-cell panel-trip-detail-time panel-trip-detail-moment" style="grid-column:${colStart} / span 2;">${TIME_LABEL_panelTripDetailLayoutShell}</div>
         `;
@@ -638,12 +700,15 @@ export const buildPanelTripDetailLayoutShell = ({
         tripDetailTableInlineStyle: ` style="--panel-trip-detail-cols:${totalCols};--panel-trip-detail-branch-count:${safeBranchCount};"`,
         spacerHtml: `<div class="panel-trip-detail-spacer panel-trip-detail-grid-spacer" style="grid-column:1 / span ${totalCols};"></div>`,
         headerHtml: `
-            <div class="panel-trip-detail-head-cell panel-trip-detail-station" style="grid-column:1;">${STATION_LABEL_panelTripDetailLayoutShell}</div>
             ${branchHeadHtml}
+            <div class="panel-trip-detail-head-cell panel-trip-detail-station" style="grid-column:${stationColStart};">${STATION_LABEL_panelTripDetailLayoutShell}</div>
+            <div class="panel-trip-detail-head-cell panel-trip-detail-transfer" style="grid-column:${transferColStart};">${'\u6362\u4e58'}</div>
         `,
         totalCols,
         primaryTimeColStart,
-        firstBranchMarkerCol
+        firstBranchMarkerCol,
+        transferColStart,
+        stationColStart
     };
 };
 
@@ -681,6 +746,9 @@ export const renderPanelTripDetailGridNoteCell = ({
 export const renderPanelTripDetailGridStopCellsSharedStation = ({
     stop,
     timeColStart,
+    stationColStart = 1,
+    transferColStart = 0,
+    transferDisplay = null,
     lineColor,
     rowMarkerCol = 0,
     rowMarkerText = '',
@@ -692,15 +760,17 @@ export const renderPanelTripDetailGridStopCellsSharedStation = ({
     toText = defaultToText_panelTripDetailGridHelpers
 } = {}) => {
     const s = stop || {};
-    const timeCol = Math.max(2, Number(timeColStart) || 2);
+    const timeCol = Math.max(1, Number(timeColStart) || 1);
+    const stationCol = Math.max(1, Number(stationColStart) || 1);
     const stationId = toText(s.stationId);
     const pastCls = s.isPast ? ' is-past' : '';
     const safeLineColor = toText(lineColor);
     const markerCol = Number(rowMarkerCol) || 0;
     const markerText = toText(rowMarkerText);
+    const transferCol = Math.max(0, Number(transferColStart) || 0);
     const stationHtml = renderPanelTripDetailStationCellHtml({
         className: `panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}`,
-        style: 'grid-column:1;',
+        style: `grid-column:${stationCol};`,
         dataStationId: stationId,
         lineColor: safeLineColor,
         stationCode: toText(stationCode),
@@ -709,9 +779,19 @@ export const renderPanelTripDetailGridStopCellsSharedStation = ({
     });
     const timeHtml = `<div class="panel-trip-detail-time panel-trip-detail-moment panel-trip-detail-grid-cell${pastCls}" style="grid-column:${timeCol} / span 2;">${renderTripDetailMomentHtml(s)}</div>`;
     const cells = [
-        { col: 1, html: stationHtml },
+        { col: stationCol, html: stationHtml },
         { col: timeCol, html: timeHtml }
     ];
+    if (transferCol > 0) {
+        cells.push({
+            col: transferCol,
+            html: renderPanelTripDetailTransferCellHtml({
+                className: `panel-trip-detail-transfer panel-trip-detail-grid-cell${pastCls}`,
+                style: `grid-column:${transferCol};`,
+                ...(transferDisplay || {})
+            })
+        });
+    }
     if (markerCol > 0 && markerText) {
         const markerHtml = `<div class="panel-trip-detail-grid-break-marker panel-trip-detail-grid-flow-marker${pastCls}" style="grid-column:${markerCol};">${escapeHtml(markerText)}</div>`;
         cells.push({ col: markerCol, html: markerHtml });
@@ -744,6 +824,8 @@ export const renderPanelTripDetailGridLaneBlock = ({
     typeColor,
     rows,
     timeColStart,
+    stationColStart = 1,
+    transferColStart = 0,
     totalCols,
     lineColor = '',
     flowMarkerCol = 0,
@@ -773,6 +855,9 @@ export const renderPanelTripDetailGridLaneBlock = ({
         html += renderPanelTripDetailGridStopCellsSharedStation({
             stop: { ...(row || {}), lineColor: safeLineColor },
             timeColStart,
+            stationColStart,
+            transferColStart,
+            transferDisplay: row?.transferDisplay || null,
             lineColor: safeLineColor,
             rowMarkerCol: flowMarkerCol,
             rowMarkerText,
@@ -809,6 +894,7 @@ export const renderPanelTripDetailBranchBreakRow = ({
     breakIsPast = false,
     totalCols,
     primaryTimeColStart,
+    stationColStart = 1,
     firstBranchMarkerCol = 0,
     lineColor = '',
     stationCode = '',
@@ -860,7 +946,7 @@ export const renderPanelTripDetailBranchBreakRow = ({
 
     const breakStationHtml = renderPanelTripDetailStationCellHtml({
         className: `panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}`,
-        style: 'grid-column:1;',
+        style: `grid-column:${Math.max(1, Number(stationColStart) || 1)};`,
         lineColor: toText(lineColor),
         stationCode: breakStationId ? safeStationCode : '',
         stationName: breakStationText.replace(/^\S+\s+/, ''),
@@ -883,6 +969,8 @@ export const renderPanelTripDetailBranchGridRows = ({
     markRowsPastByCurrentStation = (rows) => rows,
     primaryLane = null,
     primaryTimeColStart = 0,
+    stationColStart = 1,
+    transferColStart = 0,
     renderPanelTripDetailBranchBreakRow,
     renderPanelTripDetailGridLaneBlock,
     renderPanelTripDetailGridMarkerCell,
@@ -903,6 +991,8 @@ export const renderPanelTripDetailBranchGridRows = ({
             typeColor,
             rows: mainRows,
             timeColStart: primaryTimeColStart,
+            stationColStart,
+            transferColStart,
             totalCols,
             lineColor: mainLineColor,
             resolveStationCode,
@@ -924,6 +1014,8 @@ export const renderPanelTripDetailBranchGridRows = ({
             typeColor: lane.typeColor,
             rows: laneRows,
             timeColStart,
+            stationColStart,
+            transferColStart,
             totalCols,
             lineColor: laneLineColor,
             flowMarkerCol,
@@ -954,6 +1046,7 @@ export const renderPanelTripDetailBranchGridRows = ({
             breakIsPast,
             totalCols,
             primaryTimeColStart,
+            stationColStart,
             firstBranchMarkerCol,
             lineColor: toText(primaryLane?.descriptor?.color || mainDescriptor?.color || typeColor || ''),
             stationCode: breakStationId ? toText(resolveStationCode(breakStationId) || '') : '',
@@ -971,7 +1064,7 @@ export const renderPanelTripDetailBranchGridRows = ({
         const mergeFallbackPast = !!mainRows[0]?.isPast;
         rowsHtml += renderLaneBlockAt(primaryLane, primaryTimeColStart, 0, mergeFallbackPast);
         for (let i = 0; i < secondaryLanes.length; i += 1) {
-            rowsHtml += renderLaneBlockAt(secondaryLanes[i], 4 + i * 2, primaryTimeColStart, mergeFallbackPast);
+            rowsHtml += renderLaneBlockAt(secondaryLanes[i], (firstBranchMarkerCol || primaryTimeColStart + 2) + i * 2, primaryTimeColStart, mergeFallbackPast);
         }
         rowsHtml += renderBreakRow();
         rowsHtml += renderMainBlock();
@@ -984,9 +1077,8 @@ export const renderPanelTripDetailBranchGridRows = ({
     rowsHtml += renderLaneBlockAt(primaryLane, primaryTimeColStart, firstBranchMarkerCol, splitFallbackPast);
 
     for (let i = 0; i < secondaryLanes.length; i += 1) {
-        rowsHtml += renderLaneBlockAt(secondaryLanes[i], 4 + i * 2, 0, splitFallbackPast);
+        rowsHtml += renderLaneBlockAt(secondaryLanes[i], (firstBranchMarkerCol || primaryTimeColStart + 2) + i * 2, 0, splitFallbackPast);
     }
 
     return rowsHtml;
 };
-

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
     buildDynamicLineWidthExpr,
     buildFocusedLinePaint,
+    buildLowlightLinePaint,
     buildStationCircleColorPaintExpr,
     buildStationSelectionPaint,
     ELEMENT_UI_CONSTANTS,
@@ -29,10 +30,14 @@ const focusedLinePaint = buildFocusedLinePaint({
     highlightStyle: true
 });
 assert.equal(Array.isArray(focusedLinePaint['line-width']), true);
-assert.equal(focusedLinePaint['line-width'][0], 'case');
-assert.equal(focusedLinePaint['line-width'][2][4] > 0, true);
-assert.equal(focusedLinePaint['line-width'][2][6], HIGHLIGHT_STYLE_CONFIG.line.widthAtBaseZoom);
-assert.equal(focusedLinePaint['line-width'][2][8], HIGHLIGHT_STYLE_CONFIG.line.widthAtMaxZoom);
+assert.equal(focusedLinePaint['line-width'][0], 'interpolate');
+assert.deepEqual(focusedLinePaint['line-width'][4].slice(0, 2), ['case', ['==', ['get', 'id'], 'L1']]);
+assert.equal(focusedLinePaint['line-width'][4][2], HIGHLIGHT_STYLE_CONFIG.line.minWidthAtLowZoom);
+assert.equal(focusedLinePaint['line-width'][4][3], HIGHLIGHT_STYLE_CONFIG.line.lowlightMinWidthAtLowZoom);
+assert.equal(focusedLinePaint['line-width'][8][2], HIGHLIGHT_STYLE_CONFIG.line.widthAtBaseZoom);
+assert.equal(focusedLinePaint['line-width'][8][3], HIGHLIGHT_STYLE_CONFIG.line.lowlightWidthAtBaseZoom);
+assert.equal(focusedLinePaint['line-width'][10][2], HIGHLIGHT_STYLE_CONFIG.line.widthAtMaxZoom);
+assert.equal(focusedLinePaint['line-width'][10][3], HIGHLIGHT_STYLE_CONFIG.line.lowlightWidthAtMaxZoom);
 
 const normalFocusedLinePaint = buildFocusedLinePaint({
     focusExpr: ['==', ['get', 'id'], 'L1']
@@ -42,10 +47,16 @@ assert.equal(normalFocusedLinePaint['line-width'][8][2], ELEMENT_UI_CONSTANTS.li
 
 const previewLinePaint = tripPreviewLineLayerPaint({ highlightStyle: true });
 const normalPreviewLinePaint = tripPreviewLineLayerPaint();
-assert.equal(previewLinePaint['line-width'][6], HIGHLIGHT_STYLE_CONFIG.line.widthAtBaseZoom);
-assert.equal(previewLinePaint['line-width'][8], HIGHLIGHT_STYLE_CONFIG.line.widthAtMaxZoom);
+assert.equal(previewLinePaint['line-width'][4], HIGHLIGHT_STYLE_CONFIG.line.minWidthAtLowZoom);
+assert.equal(previewLinePaint['line-width'][8], HIGHLIGHT_STYLE_CONFIG.line.widthAtBaseZoom);
+assert.equal(previewLinePaint['line-width'][10], HIGHLIGHT_STYLE_CONFIG.line.widthAtMaxZoom);
 assert.equal(normalPreviewLinePaint['line-width'][6], ELEMENT_UI_CONSTANTS.lineBaseWidth);
 assert.equal(normalPreviewLinePaint['line-width'][8], ELEMENT_UI_CONSTANTS.lineBaseWidthAtMaxZoom);
+
+const highlightedLowlightLinePaint = buildLowlightLinePaint({ highlightStyle: true });
+assert.equal(highlightedLowlightLinePaint['line-width'][4], HIGHLIGHT_STYLE_CONFIG.line.lowlightMinWidthAtLowZoom);
+assert.equal(highlightedLowlightLinePaint['line-width'][8], HIGHLIGHT_STYLE_CONFIG.line.lowlightWidthAtBaseZoom);
+assert.equal(highlightedLowlightLinePaint['line-width'][10], HIGHLIGHT_STYLE_CONFIG.line.lowlightWidthAtMaxZoom);
 
 const normalDynamicLineWidth = buildDynamicLineWidthExpr();
 const highlightedDynamicLineWidth = buildDynamicLineWidthExpr({ highlightStyle: true });

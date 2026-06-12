@@ -2505,7 +2505,7 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 
 .panel-trip-detail {
     min-width: 240px;
-    max-width: min(280px, calc(100vw - 40px));
+    max-width: min(440px, calc(100vw - 40px));
     max-height: 60vh;
     background: rgba(255, 255, 255, 0.96);
     border: 1px solid var(--ui-border);
@@ -2601,7 +2601,7 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 .panel-trip-detail-table {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
 }
 
 .panel-trip-detail-head,
@@ -2610,9 +2610,9 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     align-items: center;
     gap: 8px;
     font-size: 14px;
-    height: 18px;
+    height: 20px;
     white-space: nowrap;
-    padding-bottom: 3px;
+    padding-bottom: 4px;
 }
 
 .panel-trip-detail-head {
@@ -2673,6 +2673,89 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     width: 70px;
     min-width: 70px;
     text-align: left;
+}
+
+.panel-trip-detail-transfer {
+    position: relative;
+    flex: 0 0 104px;
+    width: 104px;
+    min-width: 104px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    overflow: visible;
+}
+
+.panel-trip-detail-transfer-shell {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    outline: none;
+}
+
+.panel-trip-detail-transfer-shell:focus-visible {
+    outline: 2px solid var(--ui-focus, #0a84ff);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+.panel-trip-detail-transfer-items {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+
+.panel-trip-detail-transfer-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 0;
+}
+
+.panel-trip-detail-transfer-item {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+}
+
+.panel-trip-detail-transfer-items-main .panel-trip-detail-transfer-line-name {
+    display: none;
+}
+
+.panel-trip-detail-transfer-hover-panel {
+    display: none;
+}
+
+.panel-trip-detail-transfer-hover-portal {
+    position: fixed;
+    z-index: 10020;
+    display: block;
+    min-width: max-content;
+    max-width: 280px;
+    padding: 7px 9px;
+    border: 1px solid var(--ui-border, rgba(0, 0, 0, 0.12));
+    border-radius: 8px;
+    background: var(--ui-card, rgba(255, 255, 255, 0.96));
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+    pointer-events: none;
+}
+
+.panel-trip-detail-transfer-hover-portal.is-hidden {
+    display: none;
+}
+
+.panel-trip-detail-transfer-hover-portal .panel-trip-detail-transfer-row {
+    gap: 8px;
+}
+
+.panel-trip-detail-transfer-hover-portal .panel-trip-detail-transfer-line-name {
+    display: inline;
+    font-weight: 600;
+}
+
+.panel-trip-detail-transfer-line-icon {
+    flex: 0 0 auto;
 }
 
 .panel-trip-detail-moment {
@@ -2779,7 +2862,7 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 
 .panel-trip-detail-table.is-branch-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.5fr) repeat(var(--panel-trip-detail-branch-count, 2), minmax(0, 0.9fr) minmax(0, 0.9fr));
+    grid-template-columns: repeat(var(--panel-trip-detail-branch-count, 2), minmax(0, 0.9fr) minmax(0, 0.9fr)) minmax(0, 1.5fr) minmax(0, 104px);
     column-gap: 6px;
     row-gap: 3px;
     align-items: center;
@@ -2803,6 +2886,12 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     overflow: hidden;
     text-overflow: ellipsis;
     min-width: 0;
+}
+
+.panel-trip-detail-table.is-branch-grid .panel-trip-detail-transfer.panel-trip-detail-grid-cell {
+    height: auto;
+    min-height: 18px;
+    overflow: visible;
 }
 
 .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell.is-past,
@@ -2838,7 +2927,7 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
 
 .panel-trip-detail-grid-break-row {
     display: grid;
-    grid-template-columns: minmax(0, 1.5fr) repeat(var(--panel-trip-detail-branch-count, 2), minmax(0, 0.9fr) minmax(0, 0.9fr));
+    grid-template-columns: repeat(var(--panel-trip-detail-branch-count, 2), minmax(0, 0.9fr) minmax(0, 0.9fr)) minmax(0, 1.5fr) minmax(0, 104px);
     column-gap: 6px;
     min-height: 16px;
     align-items: center;
@@ -4581,6 +4670,12 @@ html[data-theme='dark'] .panel-trip-detail {
 
 html[data-theme='dark'] .panel-trip-detail-body {
     background: rgba(24, 27, 33, 0.82);
+}
+
+html[data-theme='dark'] .panel-trip-detail-transfer-hover-portal {
+    border-color: rgba(255, 255, 255, 0.14);
+    background: rgba(24, 27, 33, 0.96);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
 }
 
 html[data-theme='dark'] .panel-trip-detail-head {

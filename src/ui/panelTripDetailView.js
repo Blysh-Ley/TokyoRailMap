@@ -1,3 +1,5 @@
+import { createPanelTripDetailTransferHoverPortal } from './panelTripDetailTransferHoverPortal.js';
+
 const DEFAULT_DESKTOP_WIDTH = 280;
 const DEFAULT_DESKTOP_HEIGHT = 240;
 const DEFAULT_DESKTOP_PADDING = 12;
@@ -64,6 +66,11 @@ export const createPanelTripDetailView = ({
             ? 'mobile'
             : (panelRoot?.getAttribute?.('data-panel-presentation') === 'mobile' ? 'mobile' : 'desktop')
     );
+    const transferHoverPortal = createPanelTripDetailTransferHoverPortal({
+        body,
+        root,
+        win
+    });
 
     const place = ({ clientY = 0, presentation } = {}) => {
         const activePresentation = resolvePresentation(presentation);
@@ -82,6 +89,7 @@ export const createPanelTripDetailView = ({
     };
 
     const hide = () => {
+        transferHoverPortal.hide();
         root.classList.add('is-hidden');
         clearPlacement(root);
     };
@@ -90,6 +98,7 @@ export const createPanelTripDetailView = ({
         titleHtml = '',
         bodyHtml = ''
     } = {}) => {
+        transferHoverPortal.hide();
         title.innerHTML = titleHtml;
         body.innerHTML = bodyHtml;
     };
@@ -106,6 +115,7 @@ export const createPanelTripDetailView = ({
 
     return {
         body,
+        destroy: transferHoverPortal.destroy,
         hide,
         place,
         render,

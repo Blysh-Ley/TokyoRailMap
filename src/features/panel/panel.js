@@ -157,6 +157,7 @@ import {
     renderPanelTripDetailLoopMarkerRow,
     renderPanelTripDetailNoteRow
 } from './panelTripDetailRender.js';
+import { buildTripDetailTransferDisplayByStationId } from './panelTripDetailTransfers.js';
 import { buildPanelStationRenderInputs } from './panelStation.js';
 import { createPanelPinnedTripDetailState } from './panelInteractionCore.js';
 import {
@@ -2749,7 +2750,6 @@ export function createPanel(options = {}) {
             color: color || null
         };
     };
-
     const isSameLineName = (lineIdA, lineIdB) => {
         const a = buildLineDescriptor(lineIdA);
         const b = buildLineDescriptor(lineIdB);
@@ -2962,6 +2962,28 @@ export function createPanel(options = {}) {
             segments: mergedSegments,
             toText
         });
+        const tripDetailStationIds = Array.from(new Set(
+            segmentsWithPast
+                .flatMap((segment) => Array.isArray(segment?.rows) ? segment.rows : [])
+                .map((row) => toText(row?.stationId))
+                .filter(Boolean)
+        ));
+        const tripDetailTransferDisplayByStationId = await buildTripDetailTransferDisplayByStationId({
+            stationIds: tripDetailStationIds,
+            currentLineId: tripLineId,
+            escapeHtml,
+            getLineMeta,
+            getStationGroupsIndex,
+            toText
+        });
+        if (token !== tripDetailToken) return;
+        const segmentsWithTransferDisplay = segmentsWithPast.map((segment) => ({
+            ...segment,
+            rows: (Array.isArray(segment?.rows) ? segment.rows : []).map((row) => ({
+                ...row,
+                transferDisplay: tripDetailTransferDisplayByStationId.get(toText(row?.stationId)) || null
+            }))
+        }));
         const markRowsPastByCurrentStation = (rowsInput, fallbackPast = false) => markRowsPastByStation({
             currentStationId: stationIdForLine,
             fallbackPast,
@@ -2992,11 +3014,15 @@ export function createPanel(options = {}) {
         const renderStopRow = (s) => {
             const rowCls = s.isPast ? 'panel-trip-detail-row is-past' : 'panel-trip-detail-row';
             const stationId = toText(s.stationId);
+            const transferDisplay = s?.transferDisplay || null;
+            const transferRowCount = Math.max(1, Number(transferDisplay?.rowCount) || 1);
             return renderPanelTripDetailStopRowHtml({
                 rowClass: rowCls,
+                rowStyle: transferRowCount > 1 ? `min-height:${20 + (transferRowCount - 1) * 24}px;` : '',
                 stationClass: 'panel-trip-detail-station',
                 timeCellClass: 'panel-trip-detail-time panel-trip-detail-moment',
                 timeHtml: renderTripDetailMomentHtml(s),
+                transferDisplay,
                 stationId,
                 stationCode: toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
                 stationName: toText(s.stationName || stationId),
@@ -3122,7 +3148,9 @@ export function createPanel(options = {}) {
             spacerHtml,
             totalCols,
             primaryTimeColStart,
-            firstBranchMarkerCol
+            firstBranchMarkerCol,
+            transferColStart,
+            stationColStart
         } = buildPanelTripDetailLayoutShell({
             useBranchGridLayout,
             branchCount
@@ -3130,7 +3158,7 @@ export function createPanel(options = {}) {
 
         if (!useBranchGridLayout) {
             const segmentBlocks = buildPanelTripDetailSegmentBlocks({
-                segmentsWithPast,
+                segmentsWithPast: segmentsWithTransferDisplay,
                 throughCategoryLabel,
                 throughCategoryColor,
                 currentLineDesc,
@@ -3172,7 +3200,7 @@ export function createPanel(options = {}) {
                 currentLineDesc,
                 fallbackLineId: lineId,
                 pickPrimaryLaneIndex,
-                segmentsWithPast,
+                segmentsWithPast: segmentsWithTransferDisplay,
                 toText,
                 tripLineId: getTripLineId(trip)
             });
@@ -3186,6 +3214,8 @@ export function createPanel(options = {}) {
                 markRowsPastByCurrentStation,
                 primaryLane,
                 primaryTimeColStart,
+                stationColStart,
+                transferColStart,
                 renderPanelTripDetailBranchBreakRow,
                 renderPanelTripDetailGridLaneBlock,
                 renderPanelTripDetailGridMarkerCell,
@@ -3250,6 +3280,17 @@ export function createPanel(options = {}) {
         hideTripCurrentStationHint();
         clearTripDetailStationIndicator();
         tripDetailView.hide();
+        try {
+            onTripClear?.();
+        } catch {
+            // ignore
+        }
+    };
+
+    const clearUnpinnedTripPreview = () => {
+        if (tripLocked || tripDetailPinned) return;
+        clearTripHighlightTimer();
+        tripPreviewScheduler.clearApplied();
         try {
             onTripClear?.();
         } catch {
@@ -3801,7 +3842,10 @@ export function createPanel(options = {}) {
         if (!(toEl && dirFilterPopoverController.contains(toEl)) && !panelSelectionState.getPinnedDirPreviewKey()) {
             clearDirPreview();
         }
-        if (!tripDetailPinned) scheduleTripDetailHide();
+        if (!tripDetailPinned) {
+            clearUnpinnedTripPreview();
+            scheduleTripDetailHide();
+        }
     };
 
     const onBodyTripMouseOver = (evt) => {
@@ -3858,6 +3902,8 @@ export function createPanel(options = {}) {
         // dir-filter 固定态下 row mouseout：恢复方向高亮并隐藏 trip detail
         if (isDirFilterPinned()) {
             applyDirPreviewByKey(panelSelectionState.getPinnedDirPreviewKey(), { force: true });
+        } else {
+            clearUnpinnedTripPreview();
         }
         scheduleTripDetailHide();
     };

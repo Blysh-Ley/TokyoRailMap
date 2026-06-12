@@ -69,18 +69,6 @@ const highlightSizeOptions = () => ({
     interpolationBase: HIGHLIGHT_STYLE_CONFIG.lineAndStation.zoomScaleInterpolationBase
 });
 
-const highlightBaseLineWidthExpr = () => buildZoomBasedExponentialSizeExpr(
-    HIGHLIGHT_STYLE_CONFIG.line.widthAtBaseZoom,
-    HIGHLIGHT_STYLE_CONFIG.line.widthAtMaxZoom,
-    highlightSizeOptions()
-);
-
-const highlightLowlightLineWidthExpr = () => buildZoomBasedExponentialSizeExpr(
-    HIGHLIGHT_STYLE_CONFIG.line.lowlightWidthAtBaseZoom,
-    HIGHLIGHT_STYLE_CONFIG.line.lowlightWidthAtMaxZoom,
-    highlightSizeOptions()
-);
-
 const getExponentialInterpolationT = (progress, base) => {
     const p = Math.max(0, Math.min(1, Number(progress) || 0));
     const b = Number(base);
@@ -305,7 +293,7 @@ export const buildFocusedLinePaint = (options = {}) => {
     if (!focusExpr) {
         return {
             'line-color': baseColorExpr,
-            'line-width': highlightStyle ? highlightBaseLineWidthExpr() : baseLineWidthExpr(),
+            'line-width': highlightStyle ? buildDynamicLineWidthExpr({ highlightStyle: true }) : baseLineWidthExpr(),
             'line-opacity': 1
         };
     }
@@ -319,7 +307,7 @@ export const buildFocusedLinePaint = (options = {}) => {
     return {
         'line-color': ['case', focusExpr, baseColorExpr, ELEMENT_UI_CONSTANTS.lineLowlightColor],
         'line-width': highlightStyle
-            ? ['case', focusExpr, highlightBaseLineWidthExpr(), highlightLowlightLineWidthExpr()]
+            ? buildDynamicLineWidthExpr({ focusExpr, highlightStyle: true })
             : ['interpolate', ['exponential', ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase], ['zoom'],
                 z0, ['case', focusExpr, baseWidthAtZ0, lowlightWidthAtZ0],
                 z1, ['case', focusExpr, ELEMENT_UI_CONSTANTS.lineBaseWidth, ELEMENT_UI_CONSTANTS.lineLowlightWidth],
@@ -334,7 +322,7 @@ export const buildLowlightLinePaint = (options = {}) => {
     const highlightStyle = options.highlightStyle === true;
     return {
         'line-color': ELEMENT_UI_CONSTANTS.lineLowlightColor,
-        'line-width': highlightStyle ? highlightLowlightLineWidthExpr() : lowlightLineWidthExpr(),
+        'line-width': highlightStyle ? buildDynamicLineWidthExpr({ isLowlight: true, highlightStyle: true }) : lowlightLineWidthExpr(),
         'line-opacity': dimOpacity
     };
 };
@@ -512,7 +500,7 @@ export const buildStationSelectionPaint = (options = {}) => {
 
 export const tripPreviewLineLayerPaint = (options = {}) => ({
     'line-color': ['coalesce', ['get', 'color'], ELEMENT_UI_CONSTANTS.tripPreviewFallbackColor],
-    'line-width': options.highlightStyle === true ? highlightBaseLineWidthExpr() : baseLineWidthExpr(),
+    'line-width': options.highlightStyle === true ? buildDynamicLineWidthExpr({ highlightStyle: true }) : baseLineWidthExpr(),
     'line-opacity': 1,
     'line-offset': buildLineOffsetPaintExpr()
 });
