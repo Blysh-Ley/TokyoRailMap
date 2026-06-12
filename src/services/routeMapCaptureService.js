@@ -319,7 +319,7 @@ export const captureRouteMapElementAsPng = async ({ element, filenameBase, butto
                         border-radius: 0 !important;
                         border: none !important;
                         box-shadow: none !important;
-                        overflow: visible !important;
+                        overflow: hidden !important;
                     }
                     html.${EXPORT_CLASS} .route-map-grid-header .route-map-grid {
                         align-items: end !important;
@@ -363,6 +363,15 @@ export const captureRouteMapElementAsPng = async ({ element, filenameBase, butto
                         display: inline-block !important;
                         line-height: 1.2 !important;
                         vertical-align: middle !important;
+                    }
+                    html.${EXPORT_CLASS} .route-map-transfer-hover-panel {
+                        display: none !important;
+                    }
+                    html.${EXPORT_CLASS} .route-map-transfer-hover-portal {
+                        display: none !important;
+                    }
+                    html.${EXPORT_CLASS} .route-map-transfer-items-main .route-map-transfer-line-name {
+                        display: inline !important;
                     }
                     html.${EXPORT_CLASS} .route-map-station .rw-station-code-badge {
                         line-height: 1 !important;

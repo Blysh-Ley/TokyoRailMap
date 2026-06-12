@@ -15,7 +15,7 @@ import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from '../../lib/t
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from '../../lib/line-icons.js';
 import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
 import { previewBranchesForLine } from '../../map/analyze_branch.js';
-import { isExcludedLineType } from '../../lib/special-condition.js';
+import { isExcludedLineType, preferredOrder } from '../../lib/special-condition.js';
 import { getTransferStationIdsByStationId } from '../../app.js';
 import { MENU_THROUGH_LINE_IDS, THROUGH_SERVICE_CONFIGS_OBJECT, THROUGH_SERVICE_DISPLAY, isSUStations as isStationSUStations } from '../../lib/throughServiceManager.js';
 
@@ -430,9 +430,14 @@ const setupRouteMapUi = () => {
     const body = document.createElement('div');
     body.className = 'route-map-body';
 
+    const transferHoverPortal = document.createElement('div');
+    transferHoverPortal.className = 'route-map-transfer-hover-portal is-hidden';
+    transferHoverPortal.setAttribute('role', 'tooltip');
+
     root.appendChild(topHeader);
     root.appendChild(gridHeader);
     root.appendChild(body);
+    root.appendChild(transferHoverPortal);
     document.body.appendChild(root);
 
     let pinned = false;
@@ -611,6 +616,94 @@ const setupRouteMapUi = () => {
         setExportMenuOpen(false);
     }, true);
 
+    let activeTransferHoverShell = null;
+    const hideTransferHoverPortal = () => {
+        activeTransferHoverShell = null;
+        transferHoverPortal.classList.add('is-hidden');
+        transferHoverPortal.innerHTML = '';
+        transferHoverPortal.style.left = '';
+        transferHoverPortal.style.top = '';
+        transferHoverPortal.style.visibility = '';
+    };
+
+    const positionTransferHoverPortal = (shell) => {
+        if (!(shell instanceof HTMLElement) || transferHoverPortal.classList.contains('is-hidden')) return;
+
+        const rootRect = root.getBoundingClientRect();
+        const shellRect = shell.getBoundingClientRect();
+        const portalRect = transferHoverPortal.getBoundingClientRect();
+        const pad = 6;
+        const gap = 8;
+
+        let viewportLeft = shellRect.left - portalRect.width - gap;
+        if (!Number.isFinite(viewportLeft)) viewportLeft = pad;
+        viewportLeft = Math.max(pad, viewportLeft);
+
+        let viewportTop = shellRect.top + shellRect.height / 2 - portalRect.height / 2;
+        if (!Number.isFinite(viewportTop)) viewportTop = pad;
+        viewportTop = Math.max(pad, Math.min(viewportTop, Math.max(pad, window.innerHeight - portalRect.height - pad)));
+
+        transferHoverPortal.style.left = `${viewportLeft - rootRect.left}px`;
+        transferHoverPortal.style.top = `${viewportTop - rootRect.top}px`;
+    };
+
+    const showTransferHoverPortal = (shell) => {
+        if (!(shell instanceof HTMLElement)) return;
+        const template = shell.querySelector('.route-map-transfer-hover-panel');
+        const html = toText(template?.innerHTML);
+        if (!html) {
+            hideTransferHoverPortal();
+            return;
+        }
+
+        activeTransferHoverShell = shell;
+        transferHoverPortal.innerHTML = html;
+        transferHoverPortal.classList.remove('is-hidden');
+        transferHoverPortal.style.visibility = 'hidden';
+        positionTransferHoverPortal(shell);
+        transferHoverPortal.style.visibility = '';
+    };
+
+    body.addEventListener('pointerover', (evt) => {
+        const shell = evt?.target?.closest?.('.route-map-transfer-items-shell');
+        if (!(shell instanceof HTMLElement) || !body.contains(shell)) return;
+        if (shell === activeTransferHoverShell) {
+            positionTransferHoverPortal(shell);
+            return;
+        }
+        showTransferHoverPortal(shell);
+    });
+
+    body.addEventListener('pointerout', (evt) => {
+        const shell = evt?.target?.closest?.('.route-map-transfer-items-shell');
+        if (!(shell instanceof HTMLElement) || shell !== activeTransferHoverShell) return;
+        const related = evt.relatedTarget;
+        if (related instanceof Node && shell.contains(related)) return;
+        hideTransferHoverPortal();
+    });
+
+    body.addEventListener('focusin', (evt) => {
+        const shell = evt?.target?.closest?.('.route-map-transfer-items-shell');
+        if (!(shell instanceof HTMLElement) || !body.contains(shell)) return;
+        showTransferHoverPortal(shell);
+    });
+
+    body.addEventListener('focusout', (evt) => {
+        const shell = evt?.target?.closest?.('.route-map-transfer-items-shell');
+        if (!(shell instanceof HTMLElement) || shell !== activeTransferHoverShell) return;
+        const related = evt.relatedTarget;
+        if (related instanceof Node && shell.contains(related)) return;
+        hideTransferHoverPortal();
+    });
+
+    body.addEventListener('scroll', () => {
+        if (activeTransferHoverShell) positionTransferHoverPortal(activeTransferHoverShell);
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+        if (activeTransferHoverShell) positionTransferHoverPortal(activeTransferHoverShell);
+    }, { passive: true });
+
     const cache = new Map(); // key: lineId||serviceDay -> payload
 
     const clearTimers = () => {
@@ -631,6 +724,7 @@ const setupRouteMapUi = () => {
             if (pinned) return;
             if (hoverInsidePanel) return;
             root.classList.add('is-hidden');
+            hideTransferHoverPortal();
             activeLineId = '';
             activeLineName = '';
         }, delayMs);
@@ -848,7 +942,7 @@ const setupRouteMapUi = () => {
         });
 
         const railwayMetaIndex = await getRailwayMetaIndex();
-        const transferItemHtmlByRouteId = new Map();
+        const transferItemEntryByRouteId = new Map();
         const getTransferItemDisplayNameByRouteId = (routeId) => {
             const rid = toText(routeId);
             if (!rid) return '';
@@ -857,17 +951,17 @@ const setupRouteMapUi = () => {
             return toText(railwayMeta?.title?.['zh-Hans']).replace(/（.*?）|\(.*?\)/g, '') || rid;
         };
 
-        const buildTransferItemHtml = async (routeId) => {
+        const buildTransferItemEntry = async (routeId) => {
             const rid = toText(routeId);
-            if (!rid) return '';
-            if (transferItemHtmlByRouteId.has(rid)) return transferItemHtmlByRouteId.get(rid);
+            if (!rid) return null;
+            if (transferItemEntryByRouteId.has(rid)) return transferItemEntryByRouteId.get(rid);
 
             const railwayMeta = railwayMetaIndex instanceof Map ? railwayMetaIndex.get(rid) : null;
             const lineName = getTransferItemDisplayNameByRouteId(rid);
             const lineColor = resolveColorForTheme(toText(railwayMeta?.color) || '#888', '#888');
+            const iconMeta = await getResolvedRouteIconMeta(rid);
 
             let lineIconHtml = '';
-            const iconMeta = await getResolvedRouteIconMeta(rid);
             if (iconMeta && (iconMeta.code || iconMeta.color)) {
                 const iconEl = createLineIconElement({ routeId: iconMeta.id, code: iconMeta.code, color: iconMeta.color });
                 if (iconEl) {
@@ -876,16 +970,24 @@ const setupRouteMapUi = () => {
             }
 
             const html = `<span class="route-map-transfer-item">${lineIconHtml}<span class="route-map-transfer-line-name" style="color:${escapeHtml(lineColor)}">${escapeHtml(lineName)}</span></span>`;
-            transferItemHtmlByRouteId.set(rid, html);
-            return html;
+            const entry = {
+                rid,
+                company: rid.split('.')[0] || '',
+                displayName: lineName,
+                html,
+                iconCodes: [toText(iconMeta?.code)].filter(Boolean),
+                iconColor: toText(iconMeta?.color) || lineColor
+            };
+            transferItemEntryByRouteId.set(rid, entry);
+            return entry;
         };
 
-        const buildSUTransferItemHtml = async (serviceKey) => {
-            const info = SU_SERVICE_INFO_BY_KEY[serviceKey] || null;
-            if (!info) return '';
+        const buildSUTransferItemHtml = (info, codes) => {
+            const iconCodes = Array.isArray(codes) ? codes.map((code) => toText(code)).filter(Boolean) : [];
+            if (!info || !iconCodes.length) return '';
 
             const iconHtmls = [];
-            for (const code of info.codes) {
+            for (const code of iconCodes) {
                 const iconEl = createLineIconElement({ routeId: info.lineId, code, color: info.color });
                 if (!iconEl) continue;
                 iconHtmls.push(formatRouteMapLineIconHtml(iconEl));
@@ -896,13 +998,126 @@ const setupRouteMapUi = () => {
             return `<span class="route-map-transfer-item route-map-transfer-item--su">${iconHtmls.join('')}<span class="route-map-transfer-line-name" style="color:${escapeHtml(info.color)}">${escapeHtml(info.lineName)}</span></span>`;
         };
 
+        const buildSUTransferItemEntry = async (serviceKey) => {
+            const info = SU_SERVICE_INFO_BY_KEY[serviceKey] || null;
+            if (!info) return null;
+
+            const iconCodes = Array.isArray(info.codes) ? info.codes.map((code) => toText(code)).filter(Boolean) : [];
+            const html = buildSUTransferItemHtml(info, iconCodes);
+            if (!html) return null;
+
+            const rid = `${toText(info.operator) || toText(info.lineId).split('.')[0] || 'JR-East'}.${serviceKey}`;
+            return {
+                rid,
+                company: toText(info.operator) || rid.split('.')[0] || '',
+                serviceKey,
+                displayName: toText(info.lineName),
+                html,
+                iconCodes,
+                iconColor: toText(info.color),
+                buildCompactHtml: (codes) => buildSUTransferItemHtml(info, codes)
+            };
+        };
+
         const getSUTransferDisplayName = (serviceKey) => {
             const info = SU_SERVICE_INFO_BY_KEY[serviceKey] || null;
             return toText(info?.lineName);
         };
 
         const MAX_TRANSFER_ROWS = 8
-        const MAX_TRANSFER_ITEMS_PER_ROW = 2;
+        const MAX_TRANSFER_ITEMS_PER_ROW = 5;
+        const preferredCompanyOrderIndex = new Map(
+            preferredOrder.map((company, index) => [toText(company), index])
+        );
+        const sortCompaniesForTransferDisplay = (companyOrder) => {
+            const originalIndex = new Map(
+                companyOrder.map((company, index) => [toText(company), index])
+            );
+            return companyOrder.slice().sort((a, b) => {
+                const ac = toText(a);
+                const bc = toText(b);
+                const ai = preferredCompanyOrderIndex.has(ac)
+                    ? preferredCompanyOrderIndex.get(ac)
+                    : Number.POSITIVE_INFINITY;
+                const bi = preferredCompanyOrderIndex.has(bc)
+                    ? preferredCompanyOrderIndex.get(bc)
+                    : Number.POSITIVE_INFINITY;
+                if (ai !== bi) return ai - bi;
+                const ao = originalIndex.has(ac) ? originalIndex.get(ac) : Number.POSITIVE_INFINITY;
+                const bo = originalIndex.has(bc) ? originalIndex.get(bc) : Number.POSITIVE_INFINITY;
+                if (ao !== bo) return ao - bo;
+                return ac.localeCompare(bc, 'zh-Hans');
+            });
+        };
+        const buildTransferRowsHtml = (itemHtmls, rowCount) => {
+            const rowsHtml = [];
+            for (let start = 0; start < itemHtmls.length && rowsHtml.length < rowCount; start += MAX_TRANSFER_ITEMS_PER_ROW) {
+                const rowHtml = itemHtmls.slice(start, start + MAX_TRANSFER_ITEMS_PER_ROW).join('');
+                rowsHtml.push(`<span class="route-map-transfer-row">${rowHtml}</span>`);
+            }
+            return rowsHtml.join('');
+        };
+        const getTransferEntryIconDedupTargets = (entry) => {
+            const company = toText(entry?.company);
+            const codes = Array.isArray(entry?.iconCodes) ? entry.iconCodes.map((code) => toText(code)).filter(Boolean) : [];
+            if (!company) return [];
+            if (codes.length) {
+                return codes.map((code) => ({
+                    key: `code||${company}||${code}`,
+                    code
+                }));
+            }
+
+            const iconColor = toText(entry?.iconColor).toLowerCase();
+            if (!iconColor) return [];
+            return [{
+                key: `color||${company}||${iconColor}`,
+                code: ''
+            }];
+        };
+        const buildCompactTransferItemHtmls = (entries) => {
+            const seenIconKeys = new Set();
+            const compactHtmls = [];
+
+            for (const entry of Array.isArray(entries) ? entries : []) {
+                const html = toText(entry?.html);
+                if (!html) continue;
+
+                const targets = getTransferEntryIconDedupTargets(entry);
+                if (!targets.length) {
+                    compactHtmls.push(html);
+                    continue;
+                }
+
+                const freshCodes = [];
+                const iconCodes = Array.isArray(entry?.iconCodes) ? entry.iconCodes.map((code) => toText(code)).filter(Boolean) : [];
+                let hasFreshIcon = false;
+                for (const target of targets) {
+                    const key = toText(target?.key);
+                    if (!key) continue;
+                    if (seenIconKeys.has(key)) continue;
+                    seenIconKeys.add(key);
+                    hasFreshIcon = true;
+                    const code = toText(target?.code);
+                    if (code) freshCodes.push(code);
+                }
+
+                if (!hasFreshIcon) continue;
+                if (!iconCodes.length) {
+                    compactHtmls.push(html);
+                    continue;
+                }
+                if (freshCodes.length === targets.length || typeof entry?.buildCompactHtml !== 'function') {
+                    compactHtmls.push(html);
+                    continue;
+                }
+
+                const compactHtml = toText(entry.buildCompactHtml(freshCodes));
+                if (compactHtml) compactHtmls.push(compactHtml);
+            }
+
+            return compactHtmls;
+        };
         const transferDisplayByStationId = new Map();
         let transferColumnCount = 0;
         for (const sidRaw of orderedStationIds) {
@@ -930,20 +1145,13 @@ const setupRouteMapUi = () => {
             for (const [category, info] of Object.entries(THROUGH_SERVICE_CONFIGS_OBJECT)) {
                 
                 if (stationSUFlags[category] || transferSUFlags[category]) {
-                    suItemHtmls.push({
-                        rid: `${info.operator}.${category}`, 
-                        serviceKey: category,
-                        html: await buildSUTransferItemHtml(category)
-                    });
+                    const entry = await buildSUTransferItemEntry(category);
+                    if (entry) suItemHtmls.push(entry);
                 }
             }
 
             // build transfer item HTMLs, then group by company (first segment of route id)
-            const pendingHtmls = await Promise.all(routeIds.map(async (rid) => ({
-                rid: toText(rid),
-                displayName: getTransferItemDisplayNameByRouteId(rid),
-                html: await buildTransferItemHtml(rid)
-            })));
+            const pendingHtmls = await Promise.all(routeIds.map((rid) => buildTransferItemEntry(rid)));
             const filtered = [];
             const seenDisplayNames = new Set();
 
@@ -952,7 +1160,7 @@ const setupRouteMapUi = () => {
                 const displayName = toText(entry?.displayName);
                 if (!html || !displayName || seenDisplayNames.has(displayName)) continue;
                 seenDisplayNames.add(displayName);
-                filtered.push({ rid: toText(entry?.rid), html });
+                filtered.push(entry);
             }
 
             for (const entry of suItemHtmls) {
@@ -962,13 +1170,13 @@ const setupRouteMapUi = () => {
                 const displayName = getSUTransferDisplayName(serviceKey);
                 if (!displayName || seenDisplayNames.has(displayName)) continue;
                 seenDisplayNames.add(displayName);
-                filtered.push({ rid: toText(entry?.rid) || `JR-East.SU.${filtered.length}`, html });
+                filtered.push(entry);
             }
 
             if (!filtered.length && !needsEmptyTransferDisplay) continue;
 
             if (!filtered.length && needsEmptyTransferDisplay) {
-                transferDisplayByStationId.set(sid, { itemHtmls: [''], rowCount: 1 });
+                transferDisplayByStationId.set(sid, { itemHtmls: [''], popoverItemHtmls: [''], rowCount: 1, popoverRowCount: 1 });
                 transferColumnCount = Math.max(transferColumnCount, 1);
                 continue;
             }
@@ -976,27 +1184,31 @@ const setupRouteMapUi = () => {
             const companyOrder = [];
             const groups = new Map();
             for (const entry of filtered) {
-                const rid = toText(entry.rid);
-                const company = rid.split('.')[0] || '';
+                const company = toText(entry?.company) || toText(entry?.rid).split('.')[0] || '';
                 if (!groups.has(company)) {
                     groups.set(company, []);
                     companyOrder.push(company);
                 }
-                groups.get(company).push(entry.html);
+                groups.get(company).push(entry);
             }
-            const itemHtmlsRaw = [];
-            for (const comp of companyOrder) {
+            const sortedEntries = [];
+            for (const comp of sortCompaniesForTransferDisplay(companyOrder)) {
                 const arr = groups.get(comp) || [];
-                for (const h of arr) itemHtmlsRaw.push(h);
+                for (const entry of arr) sortedEntries.push(entry);
             }
+            const popoverItemHtmlsRaw = sortedEntries.map((entry) => toText(entry?.html)).filter(Boolean);
+            const itemHtmlsRaw = buildCompactTransferItemHtmls(sortedEntries);
             if (!itemHtmlsRaw.length && needsEmptyTransferDisplay) itemHtmlsRaw.push('');
+            if (!popoverItemHtmlsRaw.length && needsEmptyTransferDisplay) popoverItemHtmlsRaw.push('');
             if (!itemHtmlsRaw.length) continue;
 
             const itemHtmls = itemHtmlsRaw.slice(0, MAX_TRANSFER_ROWS * MAX_TRANSFER_ITEMS_PER_ROW);
+            const popoverItemHtmls = popoverItemHtmlsRaw.slice(0, MAX_TRANSFER_ROWS * MAX_TRANSFER_ITEMS_PER_ROW);
             const rowCount = Math.min(MAX_TRANSFER_ROWS, Math.max(1, Math.ceil(itemHtmls.length / MAX_TRANSFER_ITEMS_PER_ROW)));
+            const popoverRowCount = Math.min(MAX_TRANSFER_ROWS, Math.max(1, Math.ceil(popoverItemHtmls.length / MAX_TRANSFER_ITEMS_PER_ROW)));
             const maxColsInRow = Math.min(MAX_TRANSFER_ITEMS_PER_ROW, itemHtmls.length);
             transferColumnCount = Math.max(transferColumnCount, maxColsInRow);
-            transferDisplayByStationId.set(sid, { itemHtmls, rowCount });
+            transferDisplayByStationId.set(sid, { itemHtmls, popoverItemHtmls, rowCount, popoverRowCount });
         }
 
         const transferColumnsTemplate = transferColumnCount > 0
@@ -1445,15 +1657,19 @@ const setupRouteMapUi = () => {
                 let transferLabelHtml = '';
                 if (transferDisplay && Array.isArray(transferDisplay.itemHtmls) && transferDisplay.itemHtmls.length) {
                     const itemHtmls = transferDisplay.itemHtmls;
+                    const popoverItemHtmls = Array.isArray(transferDisplay.popoverItemHtmls) && transferDisplay.popoverItemHtmls.length
+                        ? transferDisplay.popoverItemHtmls
+                        : itemHtmls;
                     const transferItemsClass = transferDisplay.rowCount > 2
                         ? 'route-map-transfer-items is-multi-rows'
                         : (transferDisplay.rowCount > 1 ? 'route-map-transfer-items is-two-rows' : 'route-map-transfer-items');
-                    const rowsHtml = [];
-                    for (let start = 0; start < itemHtmls.length && rowsHtml.length < transferDisplay.rowCount; start += MAX_TRANSFER_ITEMS_PER_ROW) {
-                        const rowHtml = itemHtmls.slice(start, start + MAX_TRANSFER_ITEMS_PER_ROW).join('');
-                        rowsHtml.push(`<span class="route-map-transfer-row">${rowHtml}</span>`);
-                    }
-                    transferLabelHtml = `<span class="${transferItemsClass}">${rowsHtml.join('')}</span>`;
+                    const popoverItemsClass = transferDisplay.popoverRowCount > 2
+                        ? 'route-map-transfer-items is-multi-rows'
+                        : (transferDisplay.popoverRowCount > 1 ? 'route-map-transfer-items is-two-rows' : 'route-map-transfer-items');
+                    const rowsHtml = buildTransferRowsHtml(itemHtmls, transferDisplay.rowCount);
+                    const popoverRowsHtml = buildTransferRowsHtml(popoverItemHtmls, transferDisplay.popoverRowCount || transferDisplay.rowCount);
+                    const transferLinesLabel = `换乘线路：${popoverItemHtmls.length}条`;
+                    transferLabelHtml = `<span class="route-map-transfer-items-shell" tabindex="0" aria-label="${escapeHtml(transferLinesLabel)}"><span class="${transferItemsClass} route-map-transfer-items-main">${rowsHtml}</span><span class="route-map-transfer-hover-panel" role="tooltip"><span class="${popoverItemsClass} route-map-transfer-items-popover">${popoverRowsHtml}</span></span></span>`;
                 }
 
                 rows.push(`<div class="route-map-station is-transfer-label" style="${gridCellStyle(currentGridRow, `1 / ${typeColumnOffset + 1}`, `min-height:${rowHeightPx}px;`)}">${transferLabelHtml}</div>`);
@@ -1531,6 +1747,7 @@ const setupRouteMapUi = () => {
         topTitle.style.color = '';
         lastAnchorRect = anchorRect || null;
         lastPlacement = toText(placement) === 'panel' ? 'panel' : 'anchor';
+        hideTransferHoverPortal();
 
         gridHeader.innerHTML = '';
         body.innerHTML = '<div class="route-map-meta">加载中…</div>';
@@ -1555,6 +1772,7 @@ const setupRouteMapUi = () => {
         topTitle.style.color = lineColor || '';
 
         const rendered = await renderDiagram(payload);
+        hideTransferHoverPortal();
         gridHeader.innerHTML = rendered?.headHtml || '';
         body.innerHTML = rendered?.bodyHtml || '';
         await enhanceRouteMapStationCodeBadges(body, {

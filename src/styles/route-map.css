@@ -8,7 +8,7 @@
     border: 1px solid var(--ui-border);
     border-radius: 12px;
     box-shadow: 0 0 30px rgba(0, 0, 0, .12);
-    overflow: hidden;
+    overflow: visible;
     opacity: 1;
     transition: opacity 0.15s ease, transform 0.15s ease;
     transform: translateX(0);
@@ -166,7 +166,7 @@
 .route-map {
     min-width: 100px;
     max-height: 72vh;
-    overflow: hidden;
+    overflow: visible;
 }
 .route-map .route-map-body {
     overflow: auto;
@@ -392,7 +392,7 @@ html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
     align-items: center;
     justify-content: flex-end;
     white-space: normal;
-    overflow-x: hidden;
+    overflow-x: visible;
     overflow-y: visible;
     padding-left: 0;
     padding-right: 10px;
@@ -403,6 +403,21 @@ html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
     align-items: flex-end;
     gap: 4px;
 }
+.route-map-transfer-items-shell {
+    position: relative;
+    display: inline-flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    outline: none;
+}
+.route-map-transfer-items-shell:focus-visible {
+    outline: 2px solid var(--ui-focus, #0a84ff);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+.route-map-transfer-items-main .route-map-transfer-line-name {
+    display: none;
+}
 .route-map-transfer-items.is-two-rows {
     gap: 2px;
 }
@@ -412,7 +427,6 @@ html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
 .route-map-transfer-row {
     display: flex;
     align-items: center;
-    gap: 8px;
     flex-wrap: nowrap;
     justify-content: flex-end;
 }
@@ -425,6 +439,31 @@ html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
 .route-map-transfer-line-name {
     font-weight: 600;
     text-align: right;
+}
+.route-map-transfer-hover-panel {
+    display: none;
+}
+.route-map-transfer-hover-portal {
+    position: absolute;
+    z-index: 1000;
+    display: block;
+    min-width: max-content;
+    max-width: 280px;
+    padding: 7px 9px;
+    border: 1px solid var(--ui-border, rgba(0, 0, 0, 0.12));
+    border-radius: 8px;
+    background: var(--ui-card, rgba(255, 255, 255, 0.96));
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+    pointer-events: none;
+}
+.route-map-transfer-hover-portal.is-hidden {
+    display: none;
+}
+.route-map-transfer-hover-portal .route-map-transfer-line-name {
+    display: inline;
+}
+.route-map-transfer-hover-portal .route-map-transfer-row {
+    gap: 8px;
 }
 .route-map-through-prefix {
     color: var(--ui-text-subtle, #666);
@@ -482,6 +521,11 @@ html[data-theme='dark'] .route-map-popover {
     border-color: var(--ui-border);
     box-shadow: 0 0 30px rgba(0, 0, 0, .35);
 }
+html[data-theme='dark'] .route-map-transfer-hover-portal {
+    border-color: rgba(255, 255, 255, 0.14);
+    background: rgba(24, 27, 33, 0.96);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+}
 html[data-theme='dark'] .route-map-header {
     border-bottom-color: var(--ui-border);
 }
@@ -534,4 +578,16 @@ html[data-theme='dark'] .route-map-cell.is-stop-down::after {
 html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
     background: #000;
     border-color: #fff;
+}
+
+@media print {
+    .route-map-transfer-hover-panel {
+        display: none !important;
+    }
+    .route-map-transfer-hover-portal {
+        display: none !important;
+    }
+    .route-map-transfer-items-main .route-map-transfer-line-name {
+        display: inline !important;
+    }
 }
