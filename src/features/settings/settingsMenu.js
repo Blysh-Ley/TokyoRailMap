@@ -40,6 +40,15 @@ export const createSettingsMenu = ({
     let collapseTimer = null;
     let enterTimer = null;
 
+    const isMobileSettingsActive = () => {
+        const rootEl = document.documentElement;
+        const bodyEl = document.body;
+        return (
+            (rootEl?.dataset?.mobileUi === '1' || bodyEl?.dataset?.mobileUi === '1')
+            && (rootEl?.dataset?.mobileNavActive === 'settings' || bodyEl?.dataset?.mobileNavActive === 'settings')
+        );
+    };
+
     const expand = () => {
         if (collapseTimer) {
             window.clearTimeout(collapseTimer);
@@ -50,6 +59,7 @@ export const createSettingsMenu = ({
     };
 
     const collapse = () => {
+        if (isMobileSettingsActive()) return;
         if (collapseTimer) {
             window.clearTimeout(collapseTimer);
             collapseTimer = null;
@@ -59,6 +69,7 @@ export const createSettingsMenu = ({
     };
 
     const scheduleCollapse = () => {
+        if (isMobileSettingsActive()) return;
         if (collapseTimer) window.clearTimeout(collapseTimer);
         collapseTimer = window.setTimeout(() => {
             collapseTimer = null;
@@ -95,6 +106,10 @@ export const createSettingsMenu = ({
     fab.addEventListener('pointerdown', (evt) => {
         evt.preventDefault?.();
         evt.stopPropagation?.();
+        if (isMobileSettingsActive()) {
+            expand();
+            return;
+        }
         if (root.classList.contains('is-collapsed')) expand();
         else collapse();
     });
@@ -102,6 +117,10 @@ export const createSettingsMenu = ({
     fab.addEventListener('click', (evt) => {
         evt.preventDefault?.();
         evt.stopPropagation?.();
+        if (isMobileSettingsActive()) {
+            expand();
+            return;
+        }
         if (root.classList.contains('is-collapsed')) expand();
         else collapse();
     });

@@ -15,6 +15,11 @@
     --ui-surface-hover: #f3f7ff;
     --ui-border: #e3e5e7;
     --ui-border-strong: #d6d9dd;
+    --ui-frosted-background: rgba(255, 255, 255, 0.85);
+    --ui-frosted-border: var(--ui-border);
+    --ui-frosted-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    --ui-frosted-blur: blur(4px);
+    --ui-frosted-item-background: rgba(255, 255, 255, 0.42);
 
     --ui-accent: #3498db;
     --ui-accent-soft: #e7f4ff;
@@ -47,6 +52,11 @@ html[data-theme='dark'] {
     --ui-surface-hover: #283547;
     --ui-border: #5a5d62;
     --ui-border-strong: #70747a;
+    --ui-frosted-background: rgba(28, 28, 28, 0.82);
+    --ui-frosted-border: var(--ui-border);
+    --ui-frosted-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+    --ui-frosted-blur: blur(4px);
+    --ui-frosted-item-background: rgba(28, 28, 28, 0.42);
 
     --ui-accent: #3498db;
     --ui-accent-soft: #25384a;

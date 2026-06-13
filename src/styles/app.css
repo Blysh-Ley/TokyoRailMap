@@ -153,6 +153,14 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mod
     bottom: calc(env(safe-area-inset-bottom, 0px) + 152px);
     margin-top: 0;
     max-height: min(34vh, 320px);
+    background: transparent;
+    border-width: 0;
+    box-shadow: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='station'] .search-results-list,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='station'] .search-results-list {
+    max-height: min(32vh, 300px);
 }
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-mobile-results .search-results,
@@ -167,11 +175,6 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-foc
     margin-bottom: 0;
     border-width: 0;
     pointer-events: none;
-}
-
-html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='station'] .search-results-list,
-body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='station'] .search-results-list {
-    max-height: min(32vh, 300px);
 }
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-ui,
@@ -237,11 +240,12 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .mobile-search-mode-sw
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 4px;
     padding: 3px;
-    border: 1px solid rgba(33, 43, 54, 0.12);
+    border: 1px solid var(--ui-frosted-border);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.88);
-    box-shadow: 0 6px 18px rgba(22, 29, 37, 0.16);
-    backdrop-filter: blur(10px);
+    background: var(--ui-frosted-background);
+    box-shadow: var(--ui-frosted-shadow);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    backdrop-filter: var(--ui-frosted-blur);
     box-sizing: border-box;
 }
 
@@ -271,9 +275,9 @@ body[data-mobile-ui='1'] .mobile-search-mode-btn.is-active {
 
 html[data-theme='dark'][data-mobile-ui='1'] .mobile-search-mode-switch,
 html[data-theme='dark'] body[data-mobile-ui='1'] .mobile-search-mode-switch {
-    border-color: var(--ui-border);
-    background: rgba(28, 28, 28, 0.88);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.42);
+    border-color: var(--ui-frosted-border);
+    background: var(--ui-frosted-background);
+    box-shadow: var(--ui-frosted-shadow);
 }
 
 html[data-theme='dark'][data-mobile-ui='1'] .mobile-search-mode-btn,
@@ -302,13 +306,50 @@ body[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-ui {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 70px);
     width: auto;
     max-width: none;
+    max-height: min(66vh, 540px);
     z-index: 9001;
     display: block !important;
+    border-radius: 16px;
+    transition: none;
+    user-select: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-ui::before,
+body[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-ui::before,
+html[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-fab,
+body[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-fab {
+    display: none;
 }
 
 html[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-content,
 body[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-content {
+    display: flex;
+    opacity: 1;
+    margin-top: 0;
+    border-width: 1px;
     max-height: min(62vh, 520px);
+    pointer-events: auto;
+    transform: none;
+    transition: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-content.is-hidden,
+body[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-content.is-hidden {
+    opacity: 1;
+    max-height: min(62vh, 520px);
+    border-width: 1px;
+    pointer-events: auto;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-item,
+body[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-item {
+    min-height: 42px;
+    padding: 8px 10px;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-item-hover-preview,
+body[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-item-hover-preview {
+    display: none;
 }
 
 .mobile-bottom-nav {
@@ -327,11 +368,12 @@ body[data-mobile-ui='1'] .mobile-bottom-nav {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 3px;
     padding: 4px;
-    border: 1px solid rgba(33, 43, 54, 0.14);
+    border: 1px solid var(--ui-frosted-border);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.88);
-    box-shadow: 0 8px 24px rgba(22, 29, 37, 0.22);
-    backdrop-filter: blur(10px);
+    background: var(--ui-frosted-background);
+    box-shadow: var(--ui-frosted-shadow);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    backdrop-filter: var(--ui-frosted-blur);
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
 }
@@ -361,9 +403,9 @@ body[data-mobile-ui='1'] .mobile-bottom-nav-btn.is-active {
 
 html[data-theme='dark'][data-mobile-ui='1'] .mobile-bottom-nav,
 html[data-theme='dark'] body[data-mobile-ui='1'] .mobile-bottom-nav {
-    border-color: var(--ui-border);
-    background: rgba(28, 28, 28, 0.88);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.46);
+    border-color: var(--ui-frosted-border);
+    background: var(--ui-frosted-background);
+    box-shadow: var(--ui-frosted-shadow);
 }
 
 html[data-theme='dark'][data-mobile-ui='1'] .mobile-bottom-nav-btn,
@@ -519,10 +561,11 @@ html[data-theme='dark'] .journey-trip-note-direction{
     height: 36.4px;
     width: 100%;
     border-radius: 18.2px;
-    background: rgba(255, 255, 255, 0.75);
-    border: 1px solid var(--ui-border);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(4px);
+    background: var(--ui-frosted-background);
+    border: 1px solid var(--ui-frosted-border);
+    box-shadow: var(--ui-frosted-shadow);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    backdrop-filter: var(--ui-frosted-blur);
     transition: border-radius 0.2s ease;
     pointer-events: none;
 }
@@ -626,11 +669,13 @@ html[data-theme='dark'] .journey-trip-note-direction{
     grid-column: 1;
     margin-top: 8px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.92);
+    background: transparent;
     border-style: solid;
-    border-color: var(--ui-border);
-    border-width: 1px;
-    box-shadow: 0 0 30px rgba(0, 0, 0, .1);
+    border-color: transparent;
+    border-width: 0;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     overflow: hidden;
     opacity: 1;
     max-height: 360px;
@@ -652,6 +697,13 @@ html[data-theme='dark'] .journey-trip-note-direction{
     max-height: 320px;
     overflow-y: auto;
     overflow-x: hidden;
+    border: 1px solid var(--ui-frosted-border);
+    border-radius: 12px;
+    background: var(--ui-frosted-background);
+    box-shadow: var(--ui-frosted-shadow);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    backdrop-filter: var(--ui-frosted-blur);
+    box-sizing: border-box;
 }
 
 .search-results-list::-webkit-scrollbar {
@@ -684,10 +736,11 @@ html[data-theme='dark'] .journey-trip-note-direction{
     height: 36.4px;
     width: 100%;
     border-radius: 18.2px;
-    background: rgba(255, 255, 255, 0.75);
-    border: 1px solid var(--ui-border);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(4px);
+    background: var(--ui-frosted-background);
+    border: 1px solid var(--ui-frosted-border);
+    box-shadow: var(--ui-frosted-shadow);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    backdrop-filter: var(--ui-frosted-blur);
     transition: border-radius 0.2s ease;
     pointer-events: none;
 }
@@ -915,11 +968,13 @@ html[data-theme="dark"] .journey-pick-pin-icon {
     grid-column: 1;
     margin-top: 8px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.92);
+    background: transparent;
     border-style: solid;
-    border-color: var(--ui-border);
-    border-width: 1px;
-    box-shadow: 0 0 30px rgba(0, 0, 0, .1);
+    border-color: transparent;
+    border-width: 0;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     overflow: hidden;
     opacity: 1;
     max-height: 360px;
@@ -945,9 +1000,11 @@ html[data-theme="dark"] .journey-pick-pin-icon {
 .journey-plan-results {
     margin-top: 8px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.92);
-    border: 1px solid var(--ui-border);
-    box-shadow: 0 0 30px rgba(0, 0, 0, .1);
+    background: transparent;
+    border: 0 solid transparent;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     overflow: hidden;
     opacity: 1;
     max-height: 720px;
@@ -1031,6 +1088,13 @@ html[data-theme="dark"] .journey-pick-pin-icon {
     width: 100%;
     max-height: 500px;
     overflow: hidden;
+    border: 1px solid var(--ui-frosted-border);
+    border-radius: 12px;
+    background: var(--ui-frosted-background);
+    box-shadow: var(--ui-frosted-shadow);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    backdrop-filter: var(--ui-frosted-blur);
+    box-sizing: border-box;
 }
 
 .journey-plan-path {
@@ -1960,11 +2024,13 @@ html[data-theme="dark"] .ms-show-icon-btn {
 .settings-content {
     margin-top: 0;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.92);
+    background: var(--ui-frosted-background);
     border-style: solid;
-    border-color: var(--ui-border);
+    border-color: var(--ui-frosted-border);
     border-width: 1px;
-    box-shadow: 0 0 30px rgba(0, 0, 0, .1);
+    box-shadow: var(--ui-frosted-shadow);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    backdrop-filter: var(--ui-frosted-blur);
     overflow-x: hidden;
     overflow-y: auto;
     opacity: 1;
@@ -3887,10 +3953,12 @@ body.is-pinned .panel-grid-cell-trip {
         justify-content: space-between;
         gap: 8px;
         padding: 6px 10px;
-        background: #fff;
+        background: var(--ui-frosted-item-background);
         max-height: calc(100vh - 20px);
-        border: 1px solid var(--ui-border);
+        border: 1px solid var(--ui-frosted-border);
         border-radius: 12px;
+        -webkit-backdrop-filter: var(--ui-frosted-blur);
+        backdrop-filter: var(--ui-frosted-blur);
         user-select: none;
         width: 100%;
         box-sizing: border-box;
@@ -4872,19 +4940,14 @@ html[data-theme='dark'] .export-fab-icon {
     filter: invert(1);
 }
 
-html[data-theme='dark'] .search-ui::before,
-html[data-theme='dark'] .journey-ui::before,
 html[data-theme='dark'] .settings-ui::before,
-html[data-theme='dark'] .search-results,
 html[data-theme='dark'] .journey-results,
 html[data-theme='dark'] .journey-plan-results,
-html[data-theme='dark'] .settings-content,
 html[data-theme='dark'] .panel-container,
 html[data-theme='dark'] .panel-dir-filter-popover,
 html[data-theme='dark'] .panel-trip-detail,
 html[data-theme='dark'] .RW-list,
 html[data-theme='dark'] .RW-content,
-html[data-theme='dark'] .settings-item,
 html[data-theme='dark'] .settings-time-input,
 html[data-theme='dark'] .settings-time-picker,
 html[data-theme='dark'] .panel-day-seg,

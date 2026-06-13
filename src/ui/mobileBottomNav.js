@@ -90,6 +90,15 @@ const collapseLegacyFloatingUi = (doc, itemId) => {
     }
 };
 
+const openMobileSettingsPanel = (doc) => {
+    const settingsRoot = doc?.querySelector?.('.settings-ui');
+    if (!settingsRoot) return false;
+    settingsRoot.classList.remove('is-collapsed');
+    settingsRoot.classList.add('is-mobile-settings-panel');
+    settingsRoot.querySelector?.('.settings-content')?.classList?.remove?.('is-hidden');
+    return true;
+};
+
 const openLegacyFloatingUi = (doc, win, itemId, getSearchMode = () => 'station') => {
     if (itemId === 'search') {
         const mode = setMobileSearchModeDataset(doc, getSearchMode());
@@ -101,6 +110,8 @@ const openLegacyFloatingUi = (doc, win, itemId, getSearchMode = () => 'station')
             doc?.querySelector?.('.journey-ui')?.classList?.add?.('is-collapsed');
         }
     }
+
+    if (itemId === 'settings' && openMobileSettingsPanel(doc)) return;
 
     const selector = itemId === 'search'
         ? '.search-fab'
