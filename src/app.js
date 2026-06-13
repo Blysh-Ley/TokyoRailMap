@@ -2770,7 +2770,7 @@ const initMapApp = async () => {
                 detail: {
                     lineId: id,
                     lineName,
-                    placement: 'panel'
+                    placement: isMobileUiMode() ? 'mobile-panel' : 'panel'
                 }
             }));
         } catch {

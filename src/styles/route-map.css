@@ -177,6 +177,75 @@
     max-height: none;
     box-sizing: border-box;
 }
+.route-map.is-mobile-panel-placement {
+    min-width: 0;
+    max-width: none;
+    background: var(--ui-frosted-background);
+    --route-map-bg: var(--ui-frosted-background);
+    border-color: var(--ui-border);
+    border-width: 1px 0 0 0;
+    border-radius: 18px 18px 0 0;
+    box-shadow: var(--ui-frosted-shadow);
+    backdrop-filter: var(--ui-frosted-blur);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    overflow: hidden;
+    transform: translateY(0);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    will-change: transform;
+    touch-action: pan-y;
+}
+.route-map.is-mobile-panel-placement.is-hidden {
+    transform: translateY(calc(100% + 24px));
+}
+.route-map.is-mobile-panel-placement[data-route-map-mobile-state='half'] {
+    transform: translateY(50%);
+}
+.route-map.is-mobile-panel-placement[data-route-map-mobile-state='expanded'] {
+    transform: translateY(0);
+}
+.route-map-mobile-drag-bar {
+    display: none;
+}
+.route-map.is-mobile-panel-placement .route-map-mobile-drag-bar {
+    position: relative;
+    display: block;
+    flex: 0 0 18px;
+    cursor: grab;
+    touch-action: none;
+}
+.route-map.is-mobile-panel-placement[data-route-map-mobile-dragging='1'] .route-map-mobile-drag-bar {
+    cursor: grabbing;
+}
+.route-map.is-mobile-panel-placement .route-map-mobile-drag-bar::before {
+    content: '';
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    width: 44px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--ui-border-strong);
+    transform: translateX(-50%);
+}
+.route-map.is-mobile-panel-placement .route-map-header {
+    flex: 0 0 auto;
+    padding-top: 6px;
+}
+.route-map.is-mobile-panel-placement .route-map-grid-header {
+    flex: 0 0 auto;
+    background: transparent;
+}
+.route-map.is-mobile-panel-placement .route-map-section {
+    background: transparent;
+}
+.route-map.is-mobile-panel-placement .route-map-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    height: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
 .route-map-meta {
     padding: 10px 12px;
     border-bottom: 1px solid var(--ui-border);
@@ -520,6 +589,12 @@ html[data-theme='dark'] .route-map-popover {
     --route-map-head-divider: var(--ui-border);
     border-color: var(--ui-border);
     box-shadow: 0 0 30px rgba(0, 0, 0, .35);
+}
+html[data-theme='dark'] .route-map-popover.is-mobile-panel-placement {
+    background: var(--ui-frosted-background);
+    --route-map-bg: var(--ui-frosted-background);
+    border-color: var(--ui-border);
+    box-shadow: var(--ui-frosted-shadow);
 }
 html[data-theme='dark'] .route-map-transfer-hover-portal {
     border-color: rgba(255, 255, 255, 0.14);

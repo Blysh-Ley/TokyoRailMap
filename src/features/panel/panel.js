@@ -3566,20 +3566,37 @@ export function createPanel(options = {}) {
         renderTimetableForLineEl(lineEl, currentStationId, token);
     };
 
+    const showMobileLineRouteMapPanel = (lineId) => {
+        if (!isMobilePanelPresentation()) return false;
+        const lid = toText(lineId);
+        if (!lid) return false;
+        const lineEl = body.querySelector?.(`.panel-line[data-line-id="${escapeHtml(String(lid))}"]`);
+        const lineName = toText(lineEl?.querySelector?.('.panel-line-name')?.getAttribute?.('data-line-name'))
+            || toText(lineEl?.querySelector?.('.panel-line-name-main')?.textContent)
+            || lid;
+
+        try {
+            window.dispatchEvent(new CustomEvent('__TokyoRailShowRouteMapPanel', {
+                detail: {
+                    lineId: lid,
+                    lineName,
+                    placement: 'mobile-panel'
+                }
+            }));
+        } catch {
+            // ignore
+        }
+        collapseMobilePanelForMapContext();
+        scheduleCatalogRefresh();
+        return true;
+    };
+
     const openMobileLineTimetable = (lineId) => {
         if (!isMobilePanelPresentation()) return;
         const lid = toText(lineId);
         if (!lid) return;
 
-        mobilePanelStack.openLineTimetable({
-            ...getMobilePanelStationContext(),
-            lineId: lid
-        });
-        syncMobilePanelStackUi();
-        expandMobileLineTimetableDirections(lid);
-        panelScrollRuntime.scrollToLineId(lid, { behavior: 'smooth', block: 'start' });
-        collapseMobilePanelForMapContext();
-        scheduleCatalogRefresh();
+        showMobileLineRouteMapPanel(lid);
     };
 
     const openMobileTripDetail = ({ lineId, tripKey } = {}) => {

@@ -356,6 +356,11 @@ const setupRouteMapUi = () => {
     root.style.position = 'fixed';
     root.style.zIndex = '5000';
 
+    const mobileDragBar = document.createElement('div');
+    mobileDragBar.className = 'route-map-mobile-drag-bar';
+    mobileDragBar.setAttribute('data-route-map-mobile-drag-bar', '');
+    mobileDragBar.setAttribute('aria-hidden', 'true');
+
     const topHeader = document.createElement('div');
     topHeader.className = 'route-map-header';
 
@@ -434,6 +439,7 @@ const setupRouteMapUi = () => {
     transferHoverPortal.className = 'route-map-transfer-hover-portal is-hidden';
     transferHoverPortal.setAttribute('role', 'tooltip');
 
+    root.appendChild(mobileDragBar);
     root.appendChild(topHeader);
     root.appendChild(gridHeader);
     root.appendChild(body);
@@ -452,6 +458,103 @@ const setupRouteMapUi = () => {
     let branchPreviewLineId = '';
     let branchPreviewActive = false;
     let branchPreviewBusy = false;
+    let mobileSheetState = 'half';
+    let mobileDragState = null;
+
+    const isMobileRouteMapPresentation = () => {
+        if (document?.documentElement?.dataset?.mobileUi === '1') return true;
+        if (document?.body?.dataset?.mobileUi === '1') return true;
+        try {
+            return window.matchMedia?.('(max-width: 760px)')?.matches === true;
+        } catch {
+            return false;
+        }
+    };
+
+    const isMobilePanelPlacementActive = () => (
+        lastPlacement === 'mobile-panel' || (lastPlacement === 'panel' && isMobileRouteMapPresentation())
+    );
+
+    const getMobileSheetOffset = (state = mobileSheetState) => {
+        if (state === 'expanded') return 0;
+        if (state === 'hidden') return Math.max(0, Math.round(root.getBoundingClientRect?.().height || window.innerHeight || 0));
+        return Math.max(0, Math.round((root.getBoundingClientRect?.().height || window.innerHeight || 0) * 0.5));
+    };
+
+    const applyMobileSheetState = (state = mobileSheetState, { transition = true } = {}) => {
+        mobileSheetState = state === 'expanded' ? 'expanded' : (state === 'hidden' ? 'hidden' : 'half');
+        root.style.transition = transition ? '' : 'none';
+        if (!isMobilePanelPlacementActive()) {
+            root.removeAttribute('data-route-map-mobile-state');
+            return;
+        }
+        root.setAttribute('data-route-map-mobile-state', mobileSheetState);
+        if (mobileSheetState === 'expanded') {
+            root.style.transform = 'translateY(0)';
+        } else if (mobileSheetState === 'hidden') {
+            root.style.transform = 'translateY(calc(100% + 24px))';
+        } else {
+            root.style.transform = 'translateY(50%)';
+        }
+    };
+
+    const beginMobileSheetDrag = (event) => {
+        if (!isMobilePanelPlacementActive()) return false;
+        if (event?.button != null && event.button !== 0) return false;
+        mobileDragState = {
+            pointerId: event?.pointerId,
+            startY: Number(event?.clientY) || 0,
+            startOffset: getMobileSheetOffset(),
+            rootHeight: Math.max(1, Math.round(root.getBoundingClientRect?.().height || window.innerHeight || 1))
+        };
+        root.setAttribute('data-route-map-mobile-dragging', '1');
+        root.style.transition = 'none';
+        try {
+            mobileDragBar.setPointerCapture?.(event.pointerId);
+        } catch {
+            // ignore pointer-capture gaps
+        }
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        return true;
+    };
+
+    const updateMobileSheetDrag = (event) => {
+        if (!mobileDragState) return;
+        if (mobileDragState.pointerId != null && event?.pointerId !== mobileDragState.pointerId) return;
+        const deltaY = (Number(event?.clientY) || 0) - mobileDragState.startY;
+        const maxOffset = Math.max(0, Math.round(mobileDragState.rootHeight * 0.5));
+        const nextOffset = Math.max(0, Math.min(maxOffset, mobileDragState.startOffset + deltaY));
+        root.style.transform = `translateY(${nextOffset}px)`;
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+    };
+
+    const endMobileSheetDrag = (event, { cancelled = false } = {}) => {
+        if (!mobileDragState) return;
+        if (mobileDragState.pointerId != null && event?.pointerId !== mobileDragState.pointerId) return;
+        const currentY = cancelled ? mobileDragState.startY : (Number(event?.clientY) || 0);
+        const deltaY = currentY - mobileDragState.startY;
+        const startState = mobileSheetState;
+        mobileDragState = null;
+        root.removeAttribute('data-route-map-mobile-dragging');
+        root.style.transition = '';
+        try {
+            mobileDragBar.releasePointerCapture?.(event.pointerId);
+        } catch {
+            // ignore pointer-capture gaps
+        }
+
+        if (deltaY < -40) {
+            applyMobileSheetState('expanded');
+        } else if (deltaY > 40) {
+            applyMobileSheetState('half');
+        } else {
+            applyMobileSheetState(startState);
+        }
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+    };
 
     const setBranchButtonState = ({ active = false, busy = false } = {}) => {
         branchPreviewActive = active === true;
@@ -724,6 +827,7 @@ const setupRouteMapUi = () => {
             if (pinned) return;
             if (hoverInsidePanel) return;
             root.classList.add('is-hidden');
+            applyMobileSheetState('hidden');
             hideTransferHoverPortal();
             activeLineId = '';
             activeLineName = '';
@@ -754,10 +858,27 @@ const setupRouteMapUi = () => {
     };
 
     const positionPanel = () => {
+        const mobilePanelPlacement = isMobilePanelPlacementActive();
+        if (mobilePanelPlacement) {
+            root.classList.add('is-panel-placement');
+            root.classList.add('is-mobile-panel-placement');
+            root.style.left = '0';
+            root.style.right = '0';
+            root.style.top = 'auto';
+            root.style.bottom = '0';
+            root.style.width = '100%';
+            root.style.minWidth = '0';
+            root.style.height = 'min(88vh, calc(100vh - env(safe-area-inset-top, 0px) - 12px))';
+            root.style.maxHeight = 'min(88vh, calc(100vh - env(safe-area-inset-top, 0px) - 12px))';
+            applyMobileSheetState(mobileSheetState);
+            return;
+        }
+
         if (lastPlacement === 'panel') {
             const rect = getPanelLikePlacementRect();
             if (rect) {
                 root.classList.add('is-panel-placement');
+                root.classList.remove('is-mobile-panel-placement');
                 const pad = 8;
                 const maxW = Math.max(180, window.innerWidth - pad * 2);
                 const maxH = Math.max(180, window.innerHeight - rect.top - pad);
@@ -774,10 +895,15 @@ const setupRouteMapUi = () => {
         }
 
         root.classList.remove('is-panel-placement');
+        root.classList.remove('is-mobile-panel-placement');
+        root.removeAttribute('data-route-map-mobile-state');
         root.style.right = '';
+        root.style.bottom = '';
         root.style.width = '';
+        root.style.minWidth = '';
         root.style.height = '';
         root.style.maxHeight = '';
+        root.style.transform = '';
         const panelW = root.offsetWidth || 420;
         const panelH = root.offsetHeight || 260;
         const pad = 12;
@@ -1746,7 +1872,13 @@ const setupRouteMapUi = () => {
         await renderRouteMapTitleWithIcon(topTitle, lid, activeLineName);
         topTitle.style.color = '';
         lastAnchorRect = anchorRect || null;
-        lastPlacement = toText(placement) === 'panel' ? 'panel' : 'anchor';
+        const normalizedPlacement = toText(placement);
+        lastPlacement = normalizedPlacement === 'mobile-panel'
+            ? 'mobile-panel'
+            : (normalizedPlacement === 'panel' ? 'panel' : 'anchor');
+        if (isMobilePanelPlacementActive()) {
+            mobileSheetState = 'half';
+        }
         hideTransferHoverPortal();
 
         gridHeader.innerHTML = '';
@@ -1913,6 +2045,15 @@ const setupRouteMapUi = () => {
         showRouteMapStationIndicator(sid);
     }, { passive: true });
 
+    mobileDragBar.addEventListener('pointerdown', beginMobileSheetDrag, { passive: false });
+    mobileDragBar.addEventListener('pointermove', updateMobileSheetDrag, { passive: false });
+    document.addEventListener('pointermove', updateMobileSheetDrag, { capture: true, passive: false });
+    mobileDragBar.addEventListener('pointerup', endMobileSheetDrag, { passive: false });
+    document.addEventListener('pointerup', endMobileSheetDrag, { capture: true, passive: false });
+    mobileDragBar.addEventListener('pointercancel', (event) => endMobileSheetDrag(event, { cancelled: true }), { passive: false });
+    document.addEventListener('pointercancel', (event) => endMobileSheetDrag(event, { cancelled: true }), { capture: true, passive: false });
+    mobileDragBar.addEventListener('lostpointercapture', (event) => endMobileSheetDrag(event, { cancelled: true }), { passive: false });
+
     // Hover: show
     document.addEventListener('pointermove', (evt) => {
         lastPointer = { x: Number(evt?.clientX) || 0, y: Number(evt?.clientY) || 0 };
@@ -1958,7 +2099,12 @@ const setupRouteMapUi = () => {
 
         pinned = true;
         clearTimers();
-        showForLine({ lineId, lineName, anchorRect });
+        showForLine({
+            lineId,
+            lineName,
+            anchorRect,
+            placement: isMobileRouteMapPresentation() ? 'mobile-panel' : 'anchor'
+        });
     }, true);
 
     window.addEventListener('__TokyoRailShowRouteMapPanel', (evt) => {
@@ -1966,7 +2112,10 @@ const setupRouteMapUi = () => {
         const lineId = toText(d?.lineId);
         if (!lineId) return;
         const lineName = toText(d?.lineName) || lineId;
-        const placement = toText(d?.placement) === 'panel' ? 'panel' : 'anchor';
+        const rawPlacement = toText(d?.placement);
+        const placement = rawPlacement === 'mobile-panel'
+            ? 'mobile-panel'
+            : (rawPlacement === 'panel' ? 'panel' : 'anchor');
 
         pinned = true;
         clearTimers();
