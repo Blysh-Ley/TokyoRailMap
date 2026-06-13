@@ -1945,6 +1945,11 @@ const initMapApp = async () => {
     };
 
     function updateSelectionBadge() {
+        if (isMobileUiMode() && selectedLineId) {
+            selectionBadgeAdapter.render({ kind: 'empty' });
+            return;
+        }
+
         selectionBadgeAdapter.render(buildSelectionBadgeViewModel({
             companyLogoMap,
             getLineColor: (lineId) => lineColorById.get(lineId),
