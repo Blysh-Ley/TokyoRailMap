@@ -59,6 +59,7 @@ assert.match(cssSource, /data-mobile-search-focus='journey'[\s\S]*\.search-resul
 assert.match(cssSource, /data-mobile-nav-active='settings'[\s\S]*\.settings-ui/);
 assert.match(cssSource, /data-mobile-nav-active='settings'[\s\S]*\.settings-fab\s*\{[\s\S]*display:\s*none/);
 assert.match(cssSource, /data-mobile-nav-active='settings'[\s\S]*\.settings-content\.is-hidden\s*\{[\s\S]*opacity:\s*1/);
+assert.match(cssSource, /data-mobile-nav-active='settings'[\s\S]*\.settings-item-hover-preview\s*\{[\s\S]*display:\s*none/);
 assert.match(cssSource, /@media print[\s\S]*\.mobile-bottom-nav/);
 
 const moduleSource = readFileSync(join(process.cwd(), 'src/ui/mobileBottomNav.js'), 'utf8');

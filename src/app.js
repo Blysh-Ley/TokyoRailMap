@@ -4383,6 +4383,8 @@ const initMapApp = async () => {
                 evt?.preventDefault?.();
                 evt?.stopPropagation?.();
             };
+            const labelLongPressMs = 200;
+            const labelLongPressMoveTolerancePx = 12;
 
             const fireStationLabelTap = (item, pt) => {
                 if (isJourneyMapPickActive()) return;
@@ -4406,6 +4408,72 @@ const initMapApp = async () => {
                 const el = item?.el;
                 if (!el) return;
 
+                let labelLongPressTimer = null;
+                let labelLongPressPointerId = null;
+                let labelLongPressStartPoint = null;
+                let labelLongPressFired = false;
+                let labelLongPressShown = false;
+
+                const clearLabelLongPressTimer = () => {
+                    if (labelLongPressTimer != null) {
+                        clearTimeout(labelLongPressTimer);
+                        labelLongPressTimer = null;
+                    }
+                };
+
+                const resetLabelLongPress = () => {
+                    clearLabelLongPressTimer();
+                    labelLongPressPointerId = null;
+                    labelLongPressStartPoint = null;
+                    labelLongPressFired = false;
+                    labelLongPressShown = false;
+                };
+
+                const pointFromLabelEvent = (evt) => {
+                    const x = Number(evt?.clientX);
+                    const y = Number(evt?.clientY);
+                    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+                    return { x, y };
+                };
+
+                const startLabelLongPress = (evt, pt) => {
+                    resetLabelLongPress();
+                    labelLongPressPointerId = evt?.pointerId ?? null;
+                    labelLongPressStartPoint = pointFromLabelEvent(evt);
+                    labelLongPressTimer = window.setTimeout(() => {
+                        labelLongPressTimer = null;
+                        if (isJourneyMapPickActive()) return;
+                        if (item?.forceHiddenByTransferCollapse) return;
+                        labelLongPressFired = true;
+                        void stationPopup?.showTouchHoverPopupAt?.(item.coordinates, item.props || {}, {
+                            pointerType: pt,
+                            isStillActive: () => labelLongPressFired === true
+                        }).then((shown) => {
+                            labelLongPressShown = shown === true;
+                        });
+                    }, labelLongPressMs);
+                };
+
+                const cancelLabelLongPressOnMove = (evt) => {
+                    if (labelLongPressPointerId != null && evt?.pointerId !== labelLongPressPointerId) return;
+                    if (!labelLongPressStartPoint) return;
+                    const point = pointFromLabelEvent(evt);
+                    if (!point) return;
+                    const dx = point.x - labelLongPressStartPoint.x;
+                    const dy = point.y - labelLongPressStartPoint.y;
+                    if ((dx * dx + dy * dy) > (labelLongPressMoveTolerancePx * labelLongPressMoveTolerancePx)) {
+                        stationPopup?.hideTouchHoverPopup?.({ pointerId: evt?.pointerId });
+                        resetLabelLongPress();
+                    }
+                };
+
+                const finishLabelLongPress = (evt) => {
+                    const wasLongPress = labelLongPressFired === true || labelLongPressShown === true;
+                    clearLabelLongPressTimer();
+                    stationPopup?.hideTouchHoverPopup?.({ pointerId: evt?.pointerId });
+                    resetLabelLongPress();
+                    return wasLongPress;
+                };
 
                 el.addEventListener('mouseenter', () => {
                     stationPopup.setExternalStationHover?.(true);
@@ -4423,8 +4491,19 @@ const initMapApp = async () => {
                         const pt = readPointerType(evt);
                         if (!isTouchLike(pt)) return;
                         stop(evt);
+                        startLabelLongPress(evt, pt);
                     },
                     { passive: false }
+                );
+
+                el.addEventListener(
+                    'pointermove',
+                    (evt) => {
+                        const pt = readPointerType(evt);
+                        if (!isTouchLike(pt)) return;
+                        cancelLabelLongPressOnMove(evt);
+                    },
+                    { passive: true }
                 );
 
                 el.addEventListener(
@@ -4433,10 +4512,22 @@ const initMapApp = async () => {
                         const pt = readPointerType(evt);
                         if (!isTouchLike(pt)) return;
                         stop(evt);
+                        if (finishLabelLongPress(evt)) return;
                         if (!touchTapGuard.allowTap(evt)) return;
                         fireStationLabelTap(item, pt);
                     },
                     { passive: false }
+                );
+
+                el.addEventListener(
+                    'pointercancel',
+                    (evt) => {
+                        const pt = readPointerType(evt);
+                        if (!isTouchLike(pt)) return;
+                        stationPopup?.hideTouchHoverPopup?.({ pointerId: evt?.pointerId });
+                        resetLabelLongPress();
+                    },
+                    { passive: true }
                 );
 
                 // 鼠标：click 弹出 popup

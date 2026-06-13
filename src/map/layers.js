@@ -469,6 +469,8 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
     const railwaysOrderIndex = options.railwaysOrderIndex instanceof Map ? options.railwaysOrderIndex : null;
     const hoverDelayMs = Number.isFinite(options.hoverDelayMs) ? options.hoverDelayMs : 500;
     const hoverMinZoom = Number.isFinite(options.hoverMinZoom) ? options.hoverMinZoom : 9;
+    const touchHoverLongPressMs = Number.isFinite(options.touchHoverLongPressMs) ? options.touchHoverLongPressMs : 510;
+    const touchHoverMoveTolerancePx = Number.isFinite(options.touchHoverMoveTolerancePx) ? options.touchHoverMoveTolerancePx : 12;
     const onSelectCompany = typeof options.onSelectCompany === 'function' ? options.onSelectCompany : null;
     const onSelectLine = typeof options.onSelectLine === 'function' ? options.onSelectLine : null;
     const onPopupClose = typeof options.onPopupClose === 'function' ? options.onPopupClose : null;
@@ -560,7 +562,53 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
                 lastPointerType = readPointerType(evt);
                 if (isTouchLikePointer(lastPointerType)) {
                     suppressMouseEventsUntilMs = nowMs() + 800;
+                    const point = pointFromPointerEvent(evt);
+                    const feature = queryStationFeatureAtPoint(point);
+                    const started = startTouchHoverFromFeature({
+                        pointerId: evt?.pointerId,
+                        pointerType: lastPointerType,
+                        point,
+                        feature
+                    });
+                    if (!started) resetTouchHoverState();
                 }
+            },
+            { passive: true }
+        );
+        canvas.addEventListener(
+            'pointermove',
+            (evt) => {
+                const pt = readPointerType(evt);
+                if (!isTouchLikePointer(pt)) return;
+                if (touchHoverPointerId != null && evt?.pointerId !== touchHoverPointerId) return;
+                if (!touchHoverStartPoint) return;
+                const point = pointFromPointerEvent(evt);
+                if (!point) return;
+                const dx = point.x - touchHoverStartPoint.x;
+                const dy = point.y - touchHoverStartPoint.y;
+                if ((dx * dx + dy * dy) > (touchHoverMoveTolerancePx * touchHoverMoveTolerancePx)) {
+                    hideTouchHoverPopup({ pointerId: evt?.pointerId });
+                }
+            },
+            { passive: true }
+        );
+        canvas.addEventListener(
+            'pointerup',
+            (evt) => {
+                const pt = readPointerType(evt);
+                if (!isTouchLikePointer(pt)) return;
+                suppressMouseEventsUntilMs = nowMs() + 800;
+                hideTouchHoverPopup({ pointerId: evt?.pointerId });
+            },
+            { passive: true }
+        );
+        canvas.addEventListener(
+            'pointercancel',
+            (evt) => {
+                const pt = readPointerType(evt);
+                if (!isTouchLikePointer(pt)) return;
+                suppressMouseEventsUntilMs = nowMs() + 800;
+                hideTouchHoverPopup({ pointerId: evt?.pointerId });
             },
             { passive: true }
         );
@@ -600,6 +648,11 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
     let hoverTimerId = null;
     let hoverCandidateKey = null;
     let lastFiredHoverKey = null;
+    let touchHoverTimerId = null;
+    let touchHoverPointerId = null;
+    let touchHoverStartPoint = null;
+    let touchHoverShown = false;
+    let touchHoverToken = 0;
 
     const clearHoverTimer = () => {
         if (hoverTimerId != null) {
@@ -613,6 +666,21 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
             clearTimeout(hideTimerId);
             hideTimerId = null;
         }
+    };
+
+    const clearTouchHoverTimer = () => {
+        if (touchHoverTimerId != null) {
+            clearTimeout(touchHoverTimerId);
+            touchHoverTimerId = null;
+        }
+    };
+
+    const resetTouchHoverState = () => {
+        clearTouchHoverTimer();
+        touchHoverPointerId = null;
+        touchHoverStartPoint = null;
+        touchHoverShown = false;
+        touchHoverToken += 1;
     };
 
     const unbindPopupEl = () => {
@@ -662,6 +730,7 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         clearHideTimer();
         clearHoverTimer();
         clearRestoreTimer();
+        clearTouchHoverTimer();
         hoverCandidateKey = null;
         lastFiredHoverKey = null;
         tapArmedKey = null;
@@ -680,6 +749,89 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         }
 
         unbindPopupEl();
+    };
+
+    const showTouchHoverPopupAt = async (coordinates, props = {}, meta = {}) => {
+        if (!isHoverPreviewEnabled()) return false;
+        if (!coordinates) return false;
+        const isStillActive = typeof meta?.isStillActive === 'function' ? meta.isStillActive : null;
+        if (isStillActive && !isStillActive()) return false;
+
+        const pt = meta?.pointerType || 'touch';
+        lastPointerType = String(pt);
+        if (isTouchLikePointer(lastPointerType)) {
+            suppressMouseEventsUntilMs = nowMs() + 800;
+        }
+
+        popupOpenMode = 'hover';
+        committedInPopup = false;
+        isOverStation = true;
+        clearHideTimer();
+        clearHoverTimer();
+        clearRestoreTimer();
+        hoverCandidateKey = null;
+        lastFiredHoverKey = null;
+
+        const html = await buildPopupHtml(props, { interactive: false });
+        if (isStillActive && !isStillActive()) return false;
+        popup.setLngLat(coordinates).setHTML(html);
+        mapAdapter.addPopup(popup);
+        void enhancePopupLineBadges({ popup, mode: 'station' });
+        bindPopupHover();
+        return true;
+    };
+
+    const hideTouchHoverPopup = ({ pointerId } = {}) => {
+        if (pointerId != null && touchHoverPointerId != null && pointerId !== touchHoverPointerId) return false;
+        const wasShown = touchHoverShown === true || popupOpenMode === 'hover';
+        resetTouchHoverState();
+        isOverStation = false;
+        if (popupOpenMode === 'hover') {
+            removePopupNow({ committed: false });
+        }
+        return wasShown;
+    };
+
+    const pointFromPointerEvent = (evt) => {
+        const rect = canvas?.getBoundingClientRect?.();
+        if (!rect) return null;
+        const x = Number(evt?.clientX) - Number(rect.left);
+        const y = Number(evt?.clientY) - Number(rect.top);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+        return { x, y };
+    };
+
+    const queryStationFeatureAtPoint = (point) => {
+        if (!point) return null;
+        try {
+            const hits = mapAdapter.queryRenderedFeatures(point, { layers: ['stations-layer'] }) || [];
+            return hits?.[0] || null;
+        } catch {
+            return null;
+        }
+    };
+
+    const startTouchHoverFromFeature = ({ pointerId, pointerType = 'touch', point, feature }) => {
+        if (!isTouchLikePointer(pointerType)) return false;
+        if (!feature?.geometry?.coordinates) return false;
+        resetTouchHoverState();
+        touchHoverPointerId = pointerId ?? null;
+        touchHoverStartPoint = point || null;
+        const token = touchHoverToken;
+        const coordinates = feature.geometry.coordinates.slice();
+        const props = feature.properties || {};
+        touchHoverTimerId = setTimeout(() => {
+            touchHoverTimerId = null;
+            if (token !== touchHoverToken) return;
+            void showTouchHoverPopupAt(coordinates, props, {
+                pointerType,
+                isStillActive: () => token === touchHoverToken
+            }).then((shown) => {
+                if (token !== touchHoverToken) return;
+                touchHoverShown = shown === true;
+            });
+        }, touchHoverLongPressMs);
+        return true;
     };
 
     const tryHidePopup = () => {
@@ -1243,12 +1395,15 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
 
     return {
         showPopupAt,
+        showTouchHoverPopupAt,
+        hideTouchHoverPopup,
         setExternalStationHover,
         setHoverPreviewEnabled: (enabled) => {
             hoverPreviewEnabled = enabled !== false;
             if (hoverPreviewEnabled) return;
             clearHoverTimer();
             clearRestoreTimer();
+            resetTouchHoverState();
             hoverCandidateKey = null;
             lastFiredHoverKey = null;
             if (popupOpenMode === 'hover') {
