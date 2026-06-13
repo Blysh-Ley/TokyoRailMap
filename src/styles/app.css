@@ -2139,6 +2139,19 @@ html[data-theme="dark"] .ms-show-icon-btn {
     -webkit-overflow-scrolling: touch;
 }
 
+[data-panel-root][data-panel-presentation='mobile'][data-panel-mobile-stack-screen='lineTimetable'] .panel-company.is-mobile-stack-dimmed-company,
+[data-panel-root][data-panel-presentation='mobile'][data-panel-mobile-stack-screen='lineTimetable'] .panel-line.is-mobile-stack-dimmed-line {
+    display: none;
+}
+
+[data-panel-root][data-panel-presentation='mobile'][data-panel-mobile-stack-screen='lineTimetable'] .panel-company.is-mobile-stack-active-company {
+    margin-top: 0;
+}
+
+[data-panel-root][data-panel-presentation='mobile'][data-panel-mobile-stack-screen='lineTimetable'] .panel-line.is-mobile-stack-active-line {
+    padding-top: 4px;
+}
+
 .settings-top-timebar.is-panel-drawer-collapsed {
     opacity: 0;
     pointer-events: none;

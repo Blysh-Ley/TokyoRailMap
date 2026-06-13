@@ -123,6 +123,10 @@ import {
     dispatchPanelDirFilterIntent,
     dispatchPanelPrimarySelectionIntent
 } from './panelInteractionCore.js';
+import {
+    createPanelMobileStackController,
+    PANEL_MOBILE_STACK_SCREENS
+} from './panelMobileStackController.js';
 import { buildPanelTripDetailTitleHtml } from './panelTripDetailRender.js';
 import {
     renderPanelTripDetailGridMarkerCell,
@@ -405,6 +409,8 @@ export function createPanel(options = {}) {
         clearTripPathPreviewBySource: (source) => crossFeatureBridge.clearTripPathPreviewBySource(source),
         toText
     });
+    const mobilePanelStack = createPanelMobileStackController();
+    const isMobilePanelPresentation = () => panelPresentation === 'mobile';
 
     // 从右侧滑入/滑出
 
@@ -559,6 +565,48 @@ export function createPanel(options = {}) {
     let currentStationServingIds = [];
     let currentStationId = null;
     let currentStationNameZh = '';
+
+    const getMobilePanelStationContext = () => ({
+        stationId: toText(currentStationId),
+        stationName: toText(currentStationNameZh) || toText(titleMain.textContent)
+    });
+
+    const syncMobilePanelStackUi = () => {
+        const state = mobilePanelStack.getState();
+        const screen = toText(state?.screen) || PANEL_MOBILE_STACK_SCREENS.STATION_OVERVIEW;
+        root.setAttribute('data-panel-mobile-stack-screen', screen);
+        root.setAttribute('data-panel-mobile-stack-open', state?.isOpen ? '1' : '0');
+        body.setAttribute('data-panel-mobile-stack-screen', screen);
+        body.setAttribute('data-panel-mobile-stack-open', state?.isOpen ? '1' : '0');
+        body.setAttribute('data-panel-mobile-active-line-id', toText(state?.lineId));
+
+        const activeLineId = toText(state?.lineId);
+        const shouldMarkLines = isMobilePanelPresentation()
+            && state?.isOpen
+            && screen !== PANEL_MOBILE_STACK_SCREENS.STATION_OVERVIEW
+            && activeLineId;
+        const lineEls = Array.from(body.querySelectorAll?.('.panel-line[data-line-id]') || []);
+        for (const lineEl of lineEls) {
+            const lineId = toText(lineEl.getAttribute?.('data-line-id'));
+            const isActive = shouldMarkLines && lineId === activeLineId;
+            lineEl.classList.toggle('is-mobile-stack-active-line', Boolean(isActive));
+            lineEl.classList.toggle('is-mobile-stack-dimmed-line', Boolean(shouldMarkLines && !isActive));
+        }
+
+        const companyEls = Array.from(body.querySelectorAll?.('.panel-company') || []);
+        for (const companyEl of companyEls) {
+            const hasActiveLine = shouldMarkLines
+                && Boolean(companyEl.querySelector?.('.panel-line.is-mobile-stack-active-line'));
+            companyEl.classList.toggle('is-mobile-stack-active-company', Boolean(hasActiveLine));
+            companyEl.classList.toggle('is-mobile-stack-dimmed-company', Boolean(shouldMarkLines && !hasActiveLine));
+        }
+    };
+
+    const openMobileStationOverview = () => {
+        if (!isMobilePanelPresentation()) return;
+        mobilePanelStack.openStationOverview(getMobilePanelStationContext());
+        syncMobilePanelStackUi();
+    };
     let stationRenderToken = 0;
     let currentServiceDay = 'SaturdayHoliday';
 
@@ -3477,6 +3525,42 @@ export function createPanel(options = {}) {
         renderTimetableForLineEl(lineEl, currentStationId, token);
     };
 
+    const expandMobileLineTimetableDirections = (lineId) => {
+        const lid = toText(lineId);
+        if (!lid) return;
+        const lineEl = body.querySelector?.(`.panel-line[data-line-id="${escapeHtml(String(lid))}"]`);
+        if (!lineEl) return;
+
+        let changed = false;
+        const directionHeaders = Array.from(lineEl.querySelectorAll?.('.panel-dir-header[data-dir-key]') || []);
+        for (const headerEl of directionHeaders) {
+            const dirKey = toText(headerEl.getAttribute?.('data-dir-key'));
+            if (!dirKey || isDirExpanded(lid, dirKey)) continue;
+            setDirExpanded(lid, dirKey, true);
+            changed = true;
+        }
+
+        if (!changed) return;
+        const token = ++timetableRenderToken;
+        renderTimetableForLineEl(lineEl, currentStationId, token);
+    };
+
+    const openMobileLineTimetable = (lineId) => {
+        if (!isMobilePanelPresentation()) return;
+        const lid = toText(lineId);
+        if (!lid) return;
+
+        mobilePanelStack.openLineTimetable({
+            ...getMobilePanelStationContext(),
+            lineId: lid
+        });
+        syncMobilePanelStackUi();
+        expandMobileLineTimetableDirections(lid);
+        panelScrollRuntime.scrollToLineId(lid, { behavior: 'smooth', block: 'start' });
+        panelShell.collapse?.();
+        scheduleCatalogRefresh();
+    };
+
     const onBodyPointerDown = (evt) => {
         const pointerState = panelInteractionPolicy.beginPointer(evt);
         const pt = pointerState.pointerType;
@@ -3582,7 +3666,12 @@ export function createPanel(options = {}) {
                 onSelectCompany,
                 currentStationServingIds
             });
-            if (touchPrimaryResult.handled) return;
+            if (touchPrimaryResult.handled) {
+                if (touchPrimaryTarget.kind === 'line') {
+                    openMobileLineTimetable(touchPrimaryTarget.lineId);
+                }
+                return;
+            }
         }
 
         if (!evt?.target || !(evt.target instanceof Element) || !body.contains(evt.target)) {
@@ -4022,6 +4111,8 @@ export function createPanel(options = {}) {
         closeDirFilterPopover();
         clearPinnedPanelState({ restoreStation: false });
         hideTripDetail();
+        mobilePanelStack.close();
+        syncMobilePanelStackUi();
         dirPrintPayloadByKey.clear();
         dirFilterStateByKey.clear();
         ({
@@ -4178,6 +4269,7 @@ export function createPanel(options = {}) {
         // 渲染 popup 同结构的内容（公司分组 + 线路）
         body.innerHTML = buildPanelCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId, railwaysOrderIndex, toText });
         await enhancePanelLineHeaderIcons(body);
+        openMobileStationOverview();
         scheduleCatalogRefresh();
 
         show();
