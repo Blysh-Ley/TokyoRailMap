@@ -67,6 +67,7 @@ export function initFullscreen(mapOrEngine, touchTapGuard) {
     // ---- 需要隐藏/恢复的 UI 选择器 ----
     const UI_SELECTORS = [
         '.settings-top-timebar',
+        '.mobile-bottom-nav',
         '.settings-ui',
         '.export-ui',
         '.ms-ui',

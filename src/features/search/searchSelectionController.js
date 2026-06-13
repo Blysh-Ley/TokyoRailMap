@@ -167,7 +167,7 @@ export const createSearchSelectionController = ({
         commitStation(stationId, meta) {
             hoverLifecycle.commitPreview();
             const opened = openStationForStationId(stationId, meta || {});
-            openPanelForStationWithAutoScroll?.(opened?.props || {});
+            openPanelForStationWithAutoScroll?.(opened?.props || {}, { collapseMobileSearch: true });
 
             try {
                 const ids = getServingLineIdsFromStationProps?.(opened?.props || {});

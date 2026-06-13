@@ -23,6 +23,7 @@ import { createStationMarkers } from './map/labels.js';
 import { setupCollisions } from './map/collision.js';
 import { buildTransferCapsuleGeoJSON, addTransferCapsuleLayers, buildTransferCapsuleConnectionOrder } from './map/transfer-capsules.js';
 import { installMapAttributionView } from './ui/mapAttributionView.js';
+import { installMobileBottomNav } from './ui/mobileBottomNav.js';
 import { createMobileUiModeController } from './ui/mobileUiMode.js';
 import { Menu } from './features/menu/menu.js';
 import { getGlobalTouchTapGuard } from './map/touchTapGuard.js';
@@ -287,6 +288,7 @@ const mobileUiMode = createMobileUiModeController({
     }
 });
 const isMobileUiMode = () => mobileUiMode.isMobile();
+const mobileBottomNavController = installMobileBottomNav();
 
 // 2) 初始化业务数据与图层（不强依赖底图瓦片成功加载）
 const initMapApp = async () => {
@@ -2720,6 +2722,9 @@ const initMapApp = async () => {
         }));
         const prevScrollTop = panel?.getScrollTop?.() || 0;
         await panel?.showForStationProps?.(p);
+        if (options?.collapseMobileSearch === true && isMobileUiMode()) {
+            mobileBottomNavController?.setActive?.('map', { emit: false });
+        }
         const shouldAutoScroll = options?.autoScroll !== false;
         if (!shouldAutoScroll) {
             panel?.setScrollTop?.(0, { behavior: 'auto' });

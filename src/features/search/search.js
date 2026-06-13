@@ -762,6 +762,15 @@ export function mountSearchUI() {
         return 'mouse';
     };
 
+    const setMobileSearchFocus = () => {
+        try {
+            document.documentElement.dataset.mobileSearchFocus = 'station';
+            document.body.dataset.mobileSearchFocus = 'station';
+        } catch {
+            // ignore
+        }
+    };
+
     const isTouchLike = (pt) => pt === 'touch' || pt === 'pen';
 
     let previewSnapshot = null;
@@ -877,6 +886,8 @@ export function mountSearchUI() {
             while (this.list.firstChild) this.list.removeChild(this.list.firstChild);
 
             const q = String(this.query || '').trim();
+            root.classList.toggle('is-mobile-history', !q && !root.classList.contains('is-collapsed'));
+            root.classList.toggle('is-mobile-results', !!q);
             if (!q) {
                 // 展开且输入为空：显示搜索记录（不显示“暂无结果”）
                 if (root.classList.contains('is-collapsed')) {
@@ -1294,6 +1305,10 @@ export function mountSearchUI() {
             return;
         }
 
+        // 移动端搜索入口会把历史记录固定在搜索框上方；
+        // 输入后先切换成结果态，避免异步数据加载期间历史继续占位。
+        ui.setResults([]);
+
         // 确保数据加载
         await ensureDataLoaded();
 
@@ -1318,12 +1333,19 @@ export function mountSearchUI() {
     });
     input.addEventListener('input', () => {
         if (isComposing) return;
+        setMobileSearchFocus();
         // 输入时实时刷新
         refresh();
     });
 
     // 有些浏览器在回车/点清除按钮时触发 search 事件而不是 input
     input.addEventListener('search', () => {
+        setMobileSearchFocus();
+        refresh();
+    });
+
+    input.addEventListener('focus', () => {
+        setMobileSearchFocus();
         refresh();
     });
 

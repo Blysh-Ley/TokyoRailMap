@@ -2288,6 +2288,12 @@ export function mountTravelSearchUI() {
         const isOrigin = key === 'origin';
 
         input.addEventListener('focus', () => {
+            try {
+                document.documentElement.dataset.mobileSearchFocus = 'journey';
+                document.body.dataset.mobileSearchFocus = 'journey';
+            } catch {
+                // ignore
+            }
             activeField = key;
             expand();
             refresh();
