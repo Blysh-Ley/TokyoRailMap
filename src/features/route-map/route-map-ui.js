@@ -364,6 +364,21 @@ const setupRouteMapUi = () => {
     const topHeader = document.createElement('div');
     topHeader.className = 'route-map-header';
 
+    const backBtn = document.createElement('button');
+    backBtn.type = 'button';
+    backBtn.className = 'panel-capture-btn route-map-back-btn';
+    backBtn.setAttribute('aria-label', '返回线路列表');
+    backBtn.title = '返回';
+    const backIcon = document.createElement('img');
+    backIcon.className = 'panel-capture-icon route-map-back-icon';
+    backIcon.alt = '';
+    setImageElementFromCache(backIcon, getIconCandidates('arrow-right.svg'), {
+        cacheKey: 'icon:arrow-right.svg',
+        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('arrow-right.svg'), { cacheKey: 'icon:arrow-right.svg' })
+    }).catch(() => null);
+    backBtn.appendChild(backIcon);
+    topHeader.appendChild(backBtn);
+
     const topTitle = document.createElement('div');
     topTitle.className = 'route-map-title';
     topHeader.appendChild(topTitle);
@@ -460,6 +475,7 @@ const setupRouteMapUi = () => {
     let branchPreviewBusy = false;
     let mobileSheetState = 'half';
     let mobileDragState = null;
+    let returnTarget = '';
 
     const isMobileRouteMapPresentation = () => {
         if (document?.documentElement?.dataset?.mobileUi === '1') return true;
@@ -474,6 +490,19 @@ const setupRouteMapUi = () => {
     const isMobilePanelPlacementActive = () => (
         lastPlacement === 'mobile-panel' || (lastPlacement === 'panel' && isMobileRouteMapPresentation())
     );
+
+    const shouldDeferPanelLineClickToMobilePanel = (target) => (
+        isMobileRouteMapPresentation()
+        && target instanceof Element
+        && Boolean(target.closest?.('[data-panel-root] .panel-line-name'))
+    );
+
+    const syncReturnTargetUi = () => {
+        const showBack = isMobilePanelPlacementActive() && returnTarget === 'panel';
+        root.setAttribute('data-route-map-return-target', returnTarget);
+        backBtn.hidden = !showBack;
+        backBtn.setAttribute('aria-hidden', showBack ? 'false' : 'true');
+    };
 
     const getMobileSheetOffset = (state = mobileSheetState) => {
         if (state === 'expanded') return 0;
@@ -831,6 +860,8 @@ const setupRouteMapUi = () => {
             hideTransferHoverPortal();
             activeLineId = '';
             activeLineName = '';
+            returnTarget = '';
+            syncReturnTargetUi();
         }, delayMs);
     };
 
@@ -862,6 +893,7 @@ const setupRouteMapUi = () => {
         if (mobilePanelPlacement) {
             root.classList.add('is-panel-placement');
             root.classList.add('is-mobile-panel-placement');
+            syncReturnTargetUi();
             root.style.left = '0';
             root.style.right = '0';
             root.style.top = 'auto';
@@ -897,6 +929,7 @@ const setupRouteMapUi = () => {
         root.classList.remove('is-panel-placement');
         root.classList.remove('is-mobile-panel-placement');
         root.removeAttribute('data-route-map-mobile-state');
+        syncReturnTargetUi();
         root.style.right = '';
         root.style.bottom = '';
         root.style.width = '';
@@ -1856,7 +1889,7 @@ const setupRouteMapUi = () => {
         };
     };
 
-    const showForLine = async ({ lineId, lineName, anchorRect, placement = 'anchor' }) => {
+    const showForLine = async ({ lineId, lineName, anchorRect, placement = 'anchor', returnTarget: nextReturnTarget = '' }) => {
         const lid = toText(lineId);
         if (!lid) return;
         if (!window?.TokyoRailTimetableCache) return;
@@ -1876,9 +1909,11 @@ const setupRouteMapUi = () => {
         lastPlacement = normalizedPlacement === 'mobile-panel'
             ? 'mobile-panel'
             : (normalizedPlacement === 'panel' ? 'panel' : 'anchor');
+        returnTarget = toText(nextReturnTarget);
         if (isMobilePanelPlacementActive()) {
             mobileSheetState = 'half';
         }
+        syncReturnTargetUi();
         hideTransferHoverPortal();
 
         gridHeader.innerHTML = '';
@@ -2045,6 +2080,26 @@ const setupRouteMapUi = () => {
         showRouteMapStationIndicator(sid);
     }, { passive: true });
 
+    backBtn.addEventListener('click', (evt) => {
+        stopEvent(evt);
+        pinned = false;
+        root.classList.add('is-hidden');
+        applyMobileSheetState('hidden');
+        hideTransferHoverPortal();
+        activeLineId = '';
+        activeLineName = '';
+        const target = returnTarget;
+        returnTarget = '';
+        syncReturnTargetUi();
+        try {
+            window.dispatchEvent(new CustomEvent('__TokyoRailRouteMapReturnPanel', {
+                detail: { returnTarget: target }
+            }));
+        } catch {
+            // ignore
+        }
+    }, { passive: false });
+
     mobileDragBar.addEventListener('pointerdown', beginMobileSheetDrag, { passive: false });
     mobileDragBar.addEventListener('pointermove', updateMobileSheetDrag, { passive: false });
     document.addEventListener('pointermove', updateMobileSheetDrag, { capture: true, passive: false });
@@ -2084,6 +2139,7 @@ const setupRouteMapUi = () => {
 
     // Click: pin/unpin
     document.addEventListener('click', (evt) => {
+        if (shouldDeferPanelLineClickToMobilePanel(evt?.target)) return;
         const info = readLineIdAndNameFromTarget(evt?.target);
         if (!info) return;
         const { lineId, lineName, anchorRect } = info;
@@ -2103,7 +2159,8 @@ const setupRouteMapUi = () => {
             lineId,
             lineName,
             anchorRect,
-            placement: isMobileRouteMapPresentation() ? 'mobile-panel' : 'anchor'
+            placement: isMobileRouteMapPresentation() ? 'mobile-panel' : 'anchor',
+            returnTarget: isMobileRouteMapPresentation() && evt?.target?.closest?.('[data-panel-root]') ? 'panel' : ''
         });
     }, true);
 
@@ -2116,10 +2173,11 @@ const setupRouteMapUi = () => {
         const placement = rawPlacement === 'mobile-panel'
             ? 'mobile-panel'
             : (rawPlacement === 'panel' ? 'panel' : 'anchor');
+        const nextReturnTarget = toText(d?.returnTarget);
 
         pinned = true;
         clearTimers();
-        showForLine({ lineId, lineName, anchorRect: null, placement });
+        showForLine({ lineId, lineName, anchorRect: null, placement, returnTarget: nextReturnTarget });
     });
 
     // Click outside: unpin & hide

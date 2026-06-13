@@ -83,6 +83,15 @@
     display: block;
     pointer-events: none;
 }
+.route-map-header .route-map-back-btn {
+    display: none;
+}
+.route-map.is-mobile-panel-placement[data-route-map-return-target='panel'] .route-map-back-btn {
+    display: inline-flex;
+}
+.route-map-back-icon {
+    transform: rotate(180deg);
+}
 .route-map-export-menu {
     position: absolute;
     top: calc(100% + 6px);

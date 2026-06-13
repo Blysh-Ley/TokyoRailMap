@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 const root = process.cwd();
 const panelSource = readFileSync(join(root, 'src/features/panel/panel.js'), 'utf8');
+const panelRouteMapBridgeSource = readFileSync(join(root, 'src/features/panel/panelRouteMapBridge.js'), 'utf8');
 const routeMapSource = readFileSync(join(root, 'src/features/route-map/route-map-ui.js'), 'utf8');
 const routeMapCssSource = readFileSync(join(root, 'src/styles/route-map.css'), 'utf8');
 const appSource = readFileSync(join(root, 'src/app.js'), 'utf8');
@@ -34,20 +35,62 @@ assert.match(
 
 assert.match(
     panelSource,
-    /__TokyoRailShowRouteMapPanel[\s\S]*placement:\s*'mobile-panel'/,
-    'panel line tap must request the mobile route-map bottom sheet'
+    /createPanelRouteMapBridge/,
+    'panel route-map event bridge must be isolated from the panel UI feature'
 );
 
 assert.match(
     panelSource,
-    /collapseMobilePanelForMapContext\(\)/,
-    'mobile line panel must half-collapse the station panel for map context'
+    /panelRouteMapBridge\.requestLineRouteMapPanel\(\{[\s\S]*placement:\s*'mobile-panel'/,
+    'panel line tap must request the mobile route-map bottom sheet through the bridge'
 );
 
 assert.match(
     panelSource,
-    /panelShell\.collapseHalf\(\)/,
-    'mobile map context collapse must use the half-height drawer state before falling back'
+    /panelRouteMapBridge\.requestLineRouteMapPanel\(\{[\s\S]*returnTarget:\s*'panel'/,
+    'panel line tap must tell the route-map sheet it can return to the panel menu'
+);
+
+assert.match(
+    panelSource,
+    /panelRouteMapBridge\.onReturn\(\(\) => \{[\s\S]*panelShell\.expand\?\.\(\)/,
+    'panel must restore the mobile menu when the route-map return bar is tapped'
+);
+
+assert.match(
+    panelSource,
+    /panelRouteMapBridge\.onReturn\(\(\) => \{[\s\S]*clearPinnedPanelState\(\{\s*restoreStation:\s*true\s*\}\)/,
+    'route-map return must restore the station line highlight instead of leaving a single line pinned'
+);
+
+assert.match(
+    panelRouteMapBridgeSource,
+    /ROUTE_MAP_SHOW_EVENT\s*=\s*'__TokyoRailShowRouteMapPanel'/,
+    'panel route-map bridge must own the route-map show event name'
+);
+
+assert.match(
+    panelRouteMapBridgeSource,
+    /ROUTE_MAP_RETURN_EVENT\s*=\s*'__TokyoRailRouteMapReturnPanel'/,
+    'panel route-map bridge must own the route-map return event name'
+);
+
+assert.match(
+    panelRouteMapBridgeSource,
+    /requestLineRouteMapPanel[\s\S]*placement\s*=\s*'mobile-panel'[\s\S]*returnTarget\s*=\s*'panel'/,
+    'panel route-map bridge must preserve mobile panel defaults'
+);
+
+assert.match(
+    panelSource,
+    /hideMobilePanelForRouteMapContext\(\)/,
+    'mobile line route-map panel must fully hide the station panel behind the frosted sheet'
+);
+
+assert.match(
+    panelSource,
+    /const hideMobilePanelForRouteMapContext[\s\S]*panelShell\.hide\?\.\(\)/,
+    'mobile route-map context must hide only the panel shell without running the full panel reset path'
 );
 
 assert.doesNotMatch(
@@ -70,8 +113,38 @@ assert.match(
 
 assert.match(
     routeMapSource,
+    /shouldDeferPanelLineClickToMobilePanel/,
+    'route-map generic click handler must defer mobile panel line taps to the panel-owned route-map entry point'
+);
+
+assert.match(
+    routeMapSource,
+    /if\s*\(shouldDeferPanelLineClickToMobilePanel\(evt\?\.target\)\)\s*return;[\s\S]*const info = readLineIdAndNameFromTarget/,
+    'mobile panel line taps must not hit the route-map pin toggle branch before the panel dispatches'
+);
+
+assert.match(
+    routeMapSource,
     /route-map-mobile-drag-bar/,
     'mobile route-map line panel must expose a top drag bar'
+);
+
+assert.match(
+    routeMapSource,
+    /route-map-back-btn/,
+    'mobile route-map line panel must expose a return button'
+);
+
+assert.match(
+    routeMapSource,
+    /data-route-map-return-target/,
+    'mobile route-map line panel must track whether it can return to the panel'
+);
+
+assert.match(
+    routeMapSource,
+    /__TokyoRailRouteMapReturnPanel/,
+    'route-map return button must notify the panel instead of manipulating panel DOM directly'
 );
 
 assert.match(
@@ -111,9 +184,21 @@ assert.match(
 );
 
 assert.match(
+    routeMapCssSource,
+    /\.route-map\.is-mobile-panel-placement\[data-route-map-return-target='panel'\] \.route-map-back-btn[\s\S]*display:\s*inline-flex/,
+    'mobile route-map return button must only appear for panel-origin route-map sheets'
+);
+
+assert.match(
     appSource,
     /placement:\s*isMobileUiMode\(\)\s*\?\s*'mobile-panel'\s*:\s*'panel'/,
     'map line click must request the same mobile bottom sheet placement'
+);
+
+assert.doesNotMatch(
+    appSource,
+    /returnTarget:\s*'panel'/,
+    'map line click must not show the panel return bar'
 );
 
 console.log('panel mobile line route-map smoke ok');

@@ -15,12 +15,195 @@
 
 import { createLineIconElement, ensureLineIconForRwLineContent } from '../../lib/line-icons.js';
 import { COMPANY_LOGO_BASE_PATH, getCompanyLogoCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
-import {
-    MENU_THROUGH_LINE_IDS,
-    THROUGH_SERVICE_DISPLAY,
-    THROUGH_SERVICE_CONFIGS
-} from '../../lib/throughServiceManager.js';
+import { THROUGH_SERVICE_CONFIGS } from '../../lib/throughServiceManager.js';
 import { isBranchLineId, preferredOrder, resolveMainLineIdByBranchRule } from '../../lib/special-condition.js';
+
+const shouldHideInMenuByZhFreight = (meta) => {
+    const zhName = String(meta?.simplified || '').trim();
+    return zhName.includes('货物') || zhName.includes('大崎支线');
+};
+
+const shouldUseRwMenuThroughEntries = (companyName) => String(companyName || '').trim() === 'JR-East';
+
+const toRailwaysOrderKey = (lineId) => {
+    const raw = String(lineId ?? '').trim();
+    if (!raw) return '';
+    const parts = raw.split('.');
+    const company = String(parts[0] ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const name = String(parts.slice(1).join('') ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!company || !name) return '';
+    return `${company}-${name}`;
+};
+
+const findMergeTargetId = (branchLineId, existsFn) => {
+    const raw = String(branchLineId ?? '').trim();
+    if (!raw) return null;
+    const resolved = resolveMainLineIdByBranchRule(raw, existsFn);
+    if (!resolved || resolved === raw) return null;
+    return resolved;
+};
+
+const computeLineDisplayName = (lineId, meta) => meta?.simplified || String(lineId);
+
+export const buildMenuModel = ({
+    companyObj = {},
+    linesObj = {},
+    companyLogoMap = {},
+    railwaysOrderIndex = null
+} = {}) => {
+    const companiesRaw = Object.keys(companyObj || {});
+    const rank = new Map(preferredOrder.map((name, idx) => [name, idx]));
+    const originalIndex = new Map(companiesRaw.map((name, idx) => [name, idx]));
+    const orderIndex = railwaysOrderIndex instanceof Map ? railwaysOrderIndex : null;
+    const lines = Object.entries(linesObj || {});
+    const mainLineIdByAnyLineId = new Map();
+    const mergedLineIdsByMenuLineId = new Map();
+    const lineDisplayNameById = new Map();
+
+    const companies = companiesRaw.slice().sort((a, b) => {
+        const ra = rank.has(a) ? rank.get(a) : Number.POSITIVE_INFINITY;
+        const rb = rank.has(b) ? rank.get(b) : Number.POSITIVE_INFINITY;
+        if (ra !== rb) return ra - rb;
+        return (originalIndex.get(a) ?? 0) - (originalIndex.get(b) ?? 0);
+    }).map((companyName) => {
+        const companyMeta = companyLogoMap?.[companyName] || {};
+        const companyLines = lines.filter(([, meta]) => meta && meta.company === companyName);
+        const companyLineMetaById = new Map(companyLines.map(([id, meta]) => [String(id), meta]));
+        const companyLineIds = new Set(companyLines.map(([id]) => String(id)));
+
+        const existsMainInCompany = (cand) => {
+            const id = String(cand);
+            if (!companyLineIds.has(id)) return false;
+            if (isBranchLineId(id)) return false;
+            const meta = companyLineMetaById.get(id);
+            if (!(meta && meta.company === companyName)) return false;
+            if (shouldHideInMenuByZhFreight(meta)) return false;
+            return true;
+        };
+
+        const branchesByMain = new Map();
+        const mergedBranchIds = new Set();
+        const exceptionSet = new Set();
+
+        for (const [lineIdRaw] of companyLines) {
+            const id = String(lineIdRaw);
+            if (!mainLineIdByAnyLineId.has(id)) mainLineIdByAnyLineId.set(id, id);
+        }
+
+        for (const [lineIdRaw, meta] of companyLines) {
+            const lineId = String(lineIdRaw);
+            if (!meta || meta.company !== companyName) continue;
+            const target = findMergeTargetId(lineId, existsMainInCompany);
+            if (!target) continue;
+            if (!branchesByMain.has(target)) branchesByMain.set(target, []);
+            branchesByMain.get(target).push(lineId);
+            mergedBranchIds.add(lineId);
+            mainLineIdByAnyLineId.set(lineId, String(target));
+            if (!mainLineIdByAnyLineId.has(String(target))) {
+                mainLineIdByAnyLineId.set(String(target), String(target));
+            }
+        }
+
+        const preferredLineOrderRaw = companyMeta?.order;
+        const preferredLineOrder = Array.isArray(preferredLineOrderRaw)
+            ? preferredLineOrderRaw.map((x) => String(x)).filter(Boolean)
+            : null;
+
+        const decorated = companyLines.map(([lineId, meta], idx) => {
+            if (mergedBranchIds.has(String(lineId))) return null;
+            if (shouldHideInMenuByZhFreight(meta)) return null;
+            if (exceptionSet.has(String(lineId))) return null;
+
+            const lineName = computeLineDisplayName(lineId, meta);
+            let orderRank = Number.POSITIVE_INFINITY;
+            if (orderIndex && orderIndex.size) {
+                const k = toRailwaysOrderKey(lineId);
+                const r = k ? orderIndex.get(k) : undefined;
+                if (typeof r === 'number' && Number.isFinite(r)) orderRank = r;
+            } else if (preferredLineOrder && preferredLineOrder.length) {
+                for (let i = 0; i < preferredLineOrder.length; i++) {
+                    const token = preferredLineOrder[i];
+                    if (token && lineName.includes(token)) {
+                        orderRank = i;
+                        break;
+                    }
+                }
+            }
+            return { lineId: String(lineId), meta, idx, lineName, orderRank };
+        }).filter(Boolean);
+
+        let visibleLines = decorated;
+        if (shouldUseRwMenuThroughEntries(companyName)) {
+            visibleLines = visibleLines.filter((item) => String(item?.lineId || '') !== 'JR-East.ShonanShinjuku');
+        }
+
+        if ((orderIndex && orderIndex.size) || (preferredLineOrder && preferredLineOrder.length)) {
+            visibleLines.sort((a, b) => {
+                if (orderIndex && orderIndex.size) {
+                    const aFinite = Number.isFinite(a.orderRank);
+                    const bFinite = Number.isFinite(b.orderRank);
+                    if (aFinite !== bFinite) return aFinite ? -1 : 1;
+                    if (aFinite && bFinite && a.orderRank !== b.orderRank) return b.orderRank - a.orderRank;
+                    return a.idx - b.idx;
+                }
+                if (a.orderRank !== b.orderRank) return a.orderRank - b.orderRank;
+                return a.idx - b.idx;
+            });
+        }
+
+        if (shouldUseRwMenuThroughEntries(companyName)) {
+            const insertIndex = Math.min(5, visibleLines.length);
+            const virtualRows = THROUGH_SERVICE_CONFIGS.map((entry, idx) => ({
+                lineId: String(entry.lineId),
+                meta: {
+                    company: companyName,
+                    modes: ['all']
+                },
+                lineName: entry.lineName,
+                idx: Number.MAX_SAFE_INTEGER - (THROUGH_SERVICE_CONFIGS.length - idx),
+                orderRank: Number.POSITIVE_INFINITY,
+                isVirtualThrough: true,
+                virtualCodes: entry.codes,
+                virtualColor: entry.color
+            }));
+            visibleLines = visibleLines.slice();
+            visibleLines.splice(insertIndex, 0, ...virtualRows);
+        }
+
+        const menuLines = visibleLines.map((line) => {
+            const lineId = String(line.lineId);
+            const mergedLineIds = [lineId].concat(branchesByMain.get(lineId) || []);
+            mergedLineIdsByMenuLineId.set(lineId, mergedLineIds);
+            if (!mainLineIdByAnyLineId.has(lineId)) mainLineIdByAnyLineId.set(lineId, lineId);
+            lineDisplayNameById.set(lineId, String(line.lineName));
+            return {
+                lineId,
+                lineName: String(line.lineName),
+                isVirtualThrough: line.isVirtualThrough === true,
+                virtualCodes: line.virtualCodes || [],
+                virtualColor: String(line.virtualColor || ''),
+                mergedLineIds
+            };
+        });
+
+        return {
+            companyName: String(companyName),
+            displayName: String(companyMeta?.zh || companyName),
+            type: companyMeta?.type || '',
+            logoFile: companyMeta?.img?.[0] || '',
+            logoWidth: companyMeta?.img?.[1] || 28,
+            shouldReverseLogo: !!companyMeta?.reverse,
+            lines: menuLines
+        };
+    });
+
+    return {
+        companies,
+        lineDisplayNameById,
+        mainLineIdByAnyLineId,
+        mergedLineIdsByMenuLineId
+    };
+};
 
 export class Menu {
     constructor({
@@ -372,27 +555,15 @@ export class Menu {
             ])
         );
 
-        const companiesRaw = Object.keys(this.companyObj || {});
-
-
-        const rank = new Map(preferredOrder.map((name, idx) => [name, idx]));
-        const originalIndex = new Map(companiesRaw.map((name, idx) => [name, idx]));
-
-        // 稳定排序：优先名单按指定顺序，其余公司保持原顺序
-        const companies = companiesRaw.slice().sort((a, b) => {
-            const ra = rank.has(a) ? rank.get(a) : Number.POSITIVE_INFINITY;
-            const rb = rank.has(b) ? rank.get(b) : Number.POSITIVE_INFINITY;
-            if (ra !== rb) return ra - rb;
-            return (originalIndex.get(a) ?? 0) - (originalIndex.get(b) ?? 0);
+        const model = buildMenuModel({
+            companyObj: this.companyObj,
+            linesObj: this.linesObj,
+            companyLogoMap: this.companyLogoMap,
+            railwaysOrderIndex: this.railwaysOrderIndex
         });
-        const lines = Object.entries(this.linesObj || {});
-
-        const shouldHideInMenuByZhFreight = (meta) => {
-            const zhName = String(meta?.simplified || '').trim();
-            return zhName.includes('货物') || zhName.includes('大崎支线');
-        };
-        const RW_MENU_THROUGH_ENTRIES = THROUGH_SERVICE_CONFIGS;
-        const shouldUseRwMenuThroughEntries = (companyName) => String(companyName || '').trim() === 'JR-East';
+        this._mergedLineIdsByMenuLineId = new Map(model.mergedLineIdsByMenuLineId);
+        this._mainLineIdByAnyLineId = new Map(model.mainLineIdByAnyLineId);
+        this._lineDisplayNameById = new Map(model.lineDisplayNameById);
 
         const appendCustomLineIcons = (leftBox, lineId, codes, color) => {
             if (!(leftBox instanceof HTMLElement)) return;
@@ -417,35 +588,8 @@ export class Menu {
             }
         };
 
-        const toRailwaysOrderKey = (lineId) => {
-            const raw = String(lineId ?? '').trim();
-            if (!raw) return '';
-            const parts = raw.split('.');
-            const company = String(parts[0] ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
-            const name = String(parts.slice(1).join('') ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
-            if (!company || !name) return '';
-            return `${company}-${name}`;
-        };
-
-        const findMergeTargetId = (branchLineId, existsFn) => {
-            const raw = String(branchLineId ?? '').trim();
-            if (!raw) return null;
-            const resolved = resolveMainLineIdByBranchRule(raw, existsFn);
-            if (!resolved || resolved === raw) return null;
-            return resolved;
-        };
-
-        const computeLineDisplayName = (lineId, meta, abb) => {
-            let lineName = meta?.simplified || String(lineId);
-            /*
-            if (lineName !== abb + '线' && lineName !== abb + '本线' && lineName !== abb + '新线') {
-                lineName = lineName.replace(abb, '').trim();
-            }
-                */
-            return lineName;
-        };
-
-        companies.forEach((companyName) => {
+        model.companies.forEach((company) => {
+            const companyName = company.companyName;
             const [companyContent, lineListEl] = this.addSubMenu(this.wrapperList, 'company', 'line');
             companyContent.classList.add('RW-company-content');
             // 内部 id 固定用英文 key；显示可用中文。
@@ -457,27 +601,24 @@ export class Menu {
 
             const nameSpan = document.createElement('span');
             nameSpan.className = 'RW-company-name';
-            nameSpan.textContent = this.companyLogoMap?.[companyName]?.zh || companyName;
+            nameSpan.textContent = company.displayName;
             leftBox.appendChild(nameSpan);
 
-            const type = this.companyLogoMap?.[companyName]?.type || null;
-            if (type) {
+            if (company.type) {
                 const typeSpan = document.createElement('span');
                 typeSpan.className = 'RW-company-type';
-                typeSpan.textContent = type;
+                typeSpan.textContent = company.type;
                 leftBox.appendChild(typeSpan);
             }
-            const abb = this.companyLogoMap?.[companyName]?.abb || companyName;
 
-            const logoFile = this.companyLogoMap?.[companyName]?.img?.[0];
-            const logoWidth = this.companyLogoMap?.[companyName]?.img?.[1] || 28;
-            const shouldReverseLogo = !!this.companyLogoMap?.[companyName]?.reverse;
+            const logoFile = company.logoFile;
+            const logoWidth = company.logoWidth || 28;
             let rightEl;
 
             if (logoFile) {
                 const img = document.createElement('img');
                 img.className = 'RW-company-logo';
-                if (shouldReverseLogo) img.classList.add('reverse-color');
+                if (company.shouldReverseLogo) img.classList.add('reverse-color');
                 img.alt = companyName;
                 const candidates = getCompanyLogoCandidates(logoFile);
                 setImageElementFromCache(img, candidates, {
@@ -495,136 +636,7 @@ export class Menu {
             companyContent.appendChild(leftBox);
             companyContent.appendChild(rightEl);
 
-            // 线路层（按公司过滤）
-            const companyLines = lines.filter(([, meta]) => meta && meta.company === companyName);
-
-            // ---- Branch 支线归并（只影响菜单显示/回调，不改变数据源/Popup 等）----
-            const companyLineMetaById = new Map(companyLines.map(([id, meta]) => [String(id), meta]));
-            const companyLineIds = new Set(companyLines.map(([id]) => String(id)));
-
-            const existsMainInCompany = (cand) => {
-                const id = String(cand);
-                if (!companyLineIds.has(id)) return false;
-                if (isBranchLineId(id)) return false;
-                const meta = companyLineMetaById.get(id);
-                if (!(meta && meta.company === companyName)) return false;
-                // 若主线本身会被菜单隐藏（货物线），则不要把支线归并过去，避免支线也一起“消失”。
-                if (shouldHideInMenuByZhFreight(meta)) return false;
-                return true;
-            };
-
-            const branchesByMain = new Map(); // mainId -> [branchIds]
-            const mergedBranchIds = new Set();
-            const exceptionSet = new Set();
-
-
-            // 先填默认映射：主线/支线都默认映射到自己（后面支线会覆盖为主线）
-            for (const [lineIdRaw] of companyLines) {
-                const id = String(lineIdRaw);
-                if (!this._mainLineIdByAnyLineId.has(id)) this._mainLineIdByAnyLineId.set(id, id);
-            }
-
-            for (const [lineIdRaw, meta] of companyLines) {
-                const lineId = String(lineIdRaw);
-                if (!meta || meta.company !== companyName) continue;
-
-                const target = findMergeTargetId(lineId, existsMainInCompany);
-                if (!target) continue;
-
-                if (!branchesByMain.has(target)) branchesByMain.set(target, []);
-                branchesByMain.get(target).push(lineId);
-                mergedBranchIds.add(lineId);
-
-                // 支线/特例线路 -> 主线
-                this._mainLineIdByAnyLineId.set(String(lineId), String(target));
-                // 主线 -> 主线（确保存在）
-                if (!this._mainLineIdByAnyLineId.has(String(target))) {
-                    this._mainLineIdByAnyLineId.set(String(target), String(target));
-                }
-            }
-
-            const preferredLineOrderRaw = this.companyLogoMap?.[companyName]?.order;
-            const preferredLineOrder = Array.isArray(preferredLineOrderRaw)
-                ? preferredLineOrderRaw.map((x) => String(x)).filter(Boolean)
-                : null;
-
-            const orderIndex = this.railwaysOrderIndex;
-
-            const decorated = companyLines.map(([lineId, meta], idx) => {
-                // 若该支线已归并到主线，则不在菜单中显示
-                if (mergedBranchIds.has(String(lineId))) return null;
-
-                // 仅菜单隐藏：中文名包含“货物”的线路不在菜单中显示
-                if (shouldHideInMenuByZhFreight(meta)) return null;
-
-                if (exceptionSet.has(String(lineId))) return null;
-                
-                const lineName = computeLineDisplayName(lineId, meta, abb);
-
-                let orderRank = Number.POSITIVE_INFINITY;
-                if (orderIndex && orderIndex.size) {
-                    const k = toRailwaysOrderKey(lineId);
-                    const r = k ? orderIndex.get(k) : undefined;
-                    if (typeof r === 'number' && Number.isFinite(r)) orderRank = r;
-                } else if (preferredLineOrder && preferredLineOrder.length) {
-                    for (let i = 0; i < preferredLineOrder.length; i++) {
-                        const token = preferredLineOrder[i];
-                        if (token && lineName.includes(token)) {
-                            orderRank = i;
-                            break;
-                        }
-                    }
-                }
-
-                return { lineId, meta, idx, lineName, orderRank };
-            });
-
-            let decoratedFiltered = decorated.filter(Boolean);
-
-            if (shouldUseRwMenuThroughEntries(companyName)) {
-                decoratedFiltered = decoratedFiltered.filter((item) => String(item?.lineId || '') !== 'JR-East.ShonanShinjuku');
-            }
-
-            // 稳定排序：
-            // 1) 若传入 railways-order 索引，则按 data/railways-order.json 的数组顺序（同公司内）
-            //    （loadRailwaysOrderIndex 当前是反向建索引，因此这里按 rank 倒序）
-            // 2) 否则沿用公司自定义优先名单（若存在）
-            if ((orderIndex && orderIndex.size) || (preferredLineOrder && preferredLineOrder.length)) {
-                decoratedFiltered.sort((a, b) => {
-                    if (orderIndex && orderIndex.size) {
-                        const aFinite = Number.isFinite(a.orderRank);
-                        const bFinite = Number.isFinite(b.orderRank);
-                        if (aFinite !== bFinite) return aFinite ? -1 : 1;
-                        if (aFinite && bFinite && a.orderRank !== b.orderRank) return b.orderRank - a.orderRank;
-                        return a.idx - b.idx;
-                    }
-
-                    if (a.orderRank !== b.orderRank) return a.orderRank - b.orderRank;
-                    return a.idx - b.idx;
-                });
-            }
-
-            let decoratedWithMenuThrough = decoratedFiltered;
-            if (shouldUseRwMenuThroughEntries(companyName)) {
-                const insertIndex = Math.min(5, decoratedFiltered.length);
-                decoratedWithMenuThrough = decoratedFiltered.slice();
-                const virtualRows = RW_MENU_THROUGH_ENTRIES.map((entry, idx) => ({
-                    lineId: entry.lineId,
-                    meta: {
-                        company: companyName,
-                        modes: ['all']
-                    },
-                    lineName: entry.lineName,
-                    idx: Number.MAX_SAFE_INTEGER - (RW_MENU_THROUGH_ENTRIES.length - idx),
-                    orderRank: Number.POSITIVE_INFINITY,
-                    isVirtualThrough: true,
-                    virtualCodes: entry.codes,
-                    virtualColor: entry.color
-                }));
-                decoratedWithMenuThrough.splice(insertIndex, 0, ...virtualRows);
-            }
-
-            decoratedWithMenuThrough.forEach(({ lineId, meta, lineName, isVirtualThrough, virtualCodes, virtualColor }) => {
+            company.lines.forEach(({ lineId, lineName, isVirtualThrough, virtualCodes, virtualColor }) => {
                 // 线路项 + 运行模式子菜单
                 const lineContent = this.addSubMenu(lineListEl, 'line');
 
@@ -659,11 +671,7 @@ export class Menu {
                 }
 
                 // 缓存主线显示名与菜单元素
-                this._lineDisplayNameById.set(String(lineId), String(lineName));
                 this._lineContentElByLineId.set(String(lineId), lineContent);
-
-                const mergedLineIds = [String(lineId)].concat(branchesByMain.get(String(lineId)) || []);
-                this._mergedLineIdsByMenuLineId.set(String(lineId), mergedLineIds);
 
                 /*
                 const [lineContent,] = this.addSubMenu(lineListEl, 'line','linedirc');

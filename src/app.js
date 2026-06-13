@@ -25,7 +25,8 @@ import { buildTransferCapsuleGeoJSON, addTransferCapsuleLayers, buildTransferCap
 import { installMapAttributionView } from './ui/mapAttributionView.js';
 import { installMobileBottomNav, MOBILE_BOTTOM_NAV_EVENT } from './ui/mobileBottomNav.js';
 import { createMobileUiModeController } from './ui/mobileUiMode.js';
-import { Menu } from './features/menu/menu.js';
+import { Menu, buildMenuModel } from './features/menu/menu.js';
+import { createMobileMenu } from './features/menu/mobileMenu.js';
 import { getGlobalTouchTapGuard } from './map/touchTapGuard.js';
 import { createPanel } from './features/panel/panel.js';
 import { getGlobalTimetableCache } from './lib/timetableCache.js';
@@ -303,6 +304,8 @@ const initMapApp = async () => {
     const touchTapGuard = getGlobalTouchTapGuard({ maxDurationMs: 500, maxMovePx: 12 });
 
     let menu = null;
+    let mobileMenu = null;
+    let menuModel = null;
     let selectedCompany = null;
     let selectedLineId = null;
     let selectedStationLineIds = null;
@@ -396,6 +399,8 @@ const initMapApp = async () => {
     window.addEventListener(MOBILE_BOTTOM_NAV_EVENT, (event) => {
         const item = String(event?.detail?.item || '').trim();
         dismissPanelForMobileNavItem(item);
+        if (item === 'menu') mobileMenu?.open?.();
+        else mobileMenu?.close?.();
     });
     document.addEventListener('click', (event) => {
         const button = event?.target?.closest?.('.mobile-bottom-nav-btn');
@@ -1317,6 +1322,18 @@ const initMapApp = async () => {
                 rawLineId: id,
                 mainLineId,
                 mergedLineIds: mergedLineIds.length ? mergedLineIds : [mainLineId]
+            };
+        }
+
+        if (menuModel?.mainLineIdByAnyLineId instanceof Map) {
+            const mainLineId = String(menuModel.mainLineIdByAnyLineId.get(id) || id).trim() || id;
+            const mergedLineIds = menuModel.mergedLineIdsByMenuLineId instanceof Map
+                ? (menuModel.mergedLineIdsByMenuLineId.get(mainLineId) || [mainLineId])
+                : [mainLineId];
+            return {
+                rawLineId: id,
+                mainLineId,
+                mergedLineIds: Array.isArray(mergedLineIds) ? mergedLineIds.map(String).filter(Boolean) : [mainLineId]
             };
         }
 
@@ -3781,6 +3798,141 @@ const initMapApp = async () => {
         const controlsEl = document.getElementById('controls');
         if (controlsEl) controlsEl.innerHTML = '';
 
+        menuModel = buildMenuModel({
+            companyObj,
+            linesObj,
+            companyLogoMap,
+            railwaysOrderIndex
+        });
+
+        const menuActionHandlers = {
+            onCancelSelection: clearSelectionsAndRestore,
+            onCompanyClick: (companyName, meta) => {
+                const source = meta?.source ?? 'click';
+                if (source === 'hover' && !isHoverPreviewEnabled()) return;
+                hideStationPopupForMenuInteraction();
+                const commitPreview = meta?.commitPreview === true;
+                clearMenuThroughPreview();
+
+                if (isMultiSelectModeEnabled() && source !== 'hover') {
+                    const name = String(companyName ?? '').trim();
+                    if (!name) return;
+                    const ids = Array.from(enabledLineIdsByCompany.get(name) ?? []).map(String).filter(Boolean);
+                    if (!ids.length) return;
+                    const companyDisplayName = String(companyLogoMap?.[name]?.zh || name).trim() || name;
+                    toggleBaseMultiSelection(`company:${name}`, ids, 'company', companyDisplayName);
+                    applySelectionEffects();
+                    return;
+                }
+
+                selectedStationLineIds = null;
+                if (source === 'hover') {
+                    selectedCompany = companyName;
+                    setStationLabelMode('auto');
+                } else {
+                    selectedCompany = commitPreview ? companyName : (selectedCompany === companyName ? null : companyName);
+                }
+                selectedLineId = null;
+                selectedServiceMode = 'all';
+                applySelectionEffects();
+                if (selectedCompany) {
+                    if (source === 'hover') fitToCurrentSelectionPreview(`company:${selectedCompany}`);
+                    else fitToCurrentSelectionCommit(`company:${selectedCompany}`);
+                }
+            },
+            onLineClick: (lineId, meta) => {
+                const source = meta?.source ?? 'click';
+                if (source === 'hover' && !isHoverPreviewEnabled()) return;
+                hideStationPopupForMenuInteraction();
+                const commitPreview = meta?.commitPreview === true;
+
+                if (isMenuThroughLineId(lineId)) {
+                    previewMenuThroughLine({ lineId, source: source === 'hover' ? 'hover' : 'click' });
+                    return;
+                }
+
+                clearMenuThroughPreview();
+
+                const resolved = resolveLineSelectionForApp(lineId);
+                const mainLineId = String(meta?.mainLineId ?? resolved?.mainLineId ?? lineId);
+                const merged = Array.isArray(meta?.mergedLineIds)
+                    ? meta.mergedLineIds.map(String).filter(Boolean)
+                    : (Array.isArray(resolved?.mergedLineIds) ? resolved.mergedLineIds.map(String).filter(Boolean) : [mainLineId]);
+
+                if (isMultiSelectModeEnabled() && source !== 'hover') {
+                    toggleBaseMultiSelection(`line:${mainLineId}`, merged, 'line');
+                    if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
+                    else setStationLabelMode('auto');
+                    applySelectionEffects();
+                    return;
+                }
+
+                if (source === 'hover') {
+                    selectedLineId = mainLineId;
+                    selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
+                    setStationLabelMode('auto');
+                } else {
+                    selectedLineId = commitPreview
+                        ? mainLineId
+                        : (selectedLineId === mainLineId ? null : mainLineId);
+                }
+                if (selectedLineId) selectedCompany = null;
+                selectedServiceMode = 'all';
+
+                if (source !== 'hover') {
+                    selectedStationLineIds = selectedLineId && merged.length > 1 ? new Set(merged) : null;
+                }
+
+                if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
+                applySelectionEffects();
+                if (selectedLineId) {
+                    if (source === 'hover') fitToCurrentSelectionPreview(`line:${selectedLineId}`);
+                    else {
+                        fitToCurrentSelectionCommit(`line:${selectedLineId}`);
+                        showRouteMapFloatingPanelForLine(lineId);
+                    }
+                }
+            },
+            onModeClick: ({ lineId, mode }, meta) => {
+                const source = meta?.source ?? 'click';
+                if (source === 'hover' && !isHoverPreviewEnabled()) return;
+                hideStationPopupForMenuInteraction();
+                const commitPreview = meta?.commitPreview === true;
+                clearMenuThroughPreview();
+
+                if (isMultiSelectModeEnabled() && source !== 'hover') {
+                    const id = String(lineId ?? '').trim();
+                    if (!id) return;
+                    toggleBaseMultiSelection(`mode:${id}:${String(mode || 'all').trim() || 'all'}`, [id], 'mode');
+                    if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
+                    else setStationLabelMode('auto');
+                    applySelectionEffects();
+                    return;
+                }
+
+                selectedStationLineIds = null;
+
+                if (source === 'hover') {
+                    selectedLineId = lineId;
+                    selectedServiceMode = mode;
+                    setStationLabelMode('auto');
+                } else {
+                    selectedLineId = commitPreview
+                        ? lineId
+                        : (selectedLineId === lineId && selectedServiceMode === mode ? null : lineId);
+                    selectedServiceMode = mode;
+                }
+                if (selectedLineId) selectedCompany = null;
+
+                if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
+                applySelectionEffects();
+                if (selectedLineId) {
+                    if (source === 'hover') fitToCurrentSelectionPreview(`mode:${selectedLineId}:${selectedServiceMode}`);
+                    else fitToCurrentSelectionCommit(`mode:${selectedLineId}:${selectedServiceMode}`);
+                }
+            }
+        };
+
         if (!isMobileUiMode()) {
             menu = new Menu({
                 companyObj,
@@ -3789,139 +3941,7 @@ const initMapApp = async () => {
                 railwaysOrderIndex,
                 logoBasePath: COMPANY_LOGO_BASE_PATH,
                 hoverDelayMs: 500,
-                onCancelSelection: clearSelectionsAndRestore,
-                onCompanyClick: (companyName, meta) => {
-                    const source = meta?.source ?? 'click';
-                    if (source === 'hover' && !isHoverPreviewEnabled()) return;
-                    hideStationPopupForMenuInteraction();
-                    const commitPreview = meta?.commitPreview === true;
-                    clearMenuThroughPreview();
-
-                    if (isMultiSelectModeEnabled() && source !== 'hover') {
-                        const name = String(companyName ?? '').trim();
-                        if (!name) return;
-                        const ids = Array.from(enabledLineIdsByCompany.get(name) ?? []).map(String).filter(Boolean);
-                        if (!ids.length) return;
-                        const companyDisplayName = String(companyLogoMap?.[name]?.zh || name).trim() || name;
-                        toggleBaseMultiSelection(`company:${name}`, ids, 'company', companyDisplayName);
-                        applySelectionEffects();
-                        return;
-                    }
-
-                    selectedStationLineIds = null;
-                    if (source === 'hover') {
-                        selectedCompany = companyName;
-                        setStationLabelMode('auto');
-                    } else {
-
-                        selectedCompany = commitPreview ? companyName : (selectedCompany === companyName ? null : companyName);
-                    }
-                    selectedLineId = null;
-                    selectedServiceMode = 'all';
-                    applySelectionEffects();
-                    if (selectedCompany) {
-                        if (source === 'hover') fitToCurrentSelectionPreview(`company:${selectedCompany}`);
-                        else fitToCurrentSelectionCommit(`company:${selectedCompany}`);
-                    }
-                },
-                onLineClick: (lineId, meta) => {
-                    const source = meta?.source ?? 'click';
-                    if (source === 'hover' && !isHoverPreviewEnabled()) return;
-                    hideStationPopupForMenuInteraction();
-                    const commitPreview = meta?.commitPreview === true;
-
-                    if (isMenuThroughLineId(lineId)) {
-                        previewMenuThroughLine({ lineId, source: source === 'hover' ? 'hover' : 'click' });
-                        return;
-                    }
-
-                    clearMenuThroughPreview();
-
-
-
-                    const resolved = resolveLineSelectionForApp(lineId);
-
-                    const mainLineId = String(meta?.mainLineId ?? resolved?.mainLineId ?? lineId);
-                    const merged = Array.isArray(meta?.mergedLineIds)
-                        ? meta.mergedLineIds.map(String).filter(Boolean)
-                        : (Array.isArray(resolved?.mergedLineIds) ? resolved.mergedLineIds.map(String).filter(Boolean) : [mainLineId]);
-
-                    if (isMultiSelectModeEnabled() && source !== 'hover') {
-                        toggleBaseMultiSelection(`line:${mainLineId}`, merged, 'line');
-                        if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
-                        else setStationLabelMode('auto');
-                        applySelectionEffects();
-                        return;
-                    }
-
-                    // 线路点击：优先级高于公司点击
-                    if (source === 'hover') {
-                        selectedLineId = mainLineId;
-                        selectedStationLineIds = merged.length > 1 ? new Set(merged) : null;
-                        setStationLabelMode('auto');
-                    } else {
-                        selectedLineId = commitPreview
-                            ? mainLineId
-                            : (selectedLineId === mainLineId ? null : mainLineId);
-                    }
-                    if (selectedLineId) selectedCompany = null;
-                    selectedServiceMode = 'all';
-
-
-                    if (source !== 'hover') {
-                        selectedStationLineIds = selectedLineId && merged.length > 1 ? new Set(merged) : null;
-                    }
-
-
-                    if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
-                    applySelectionEffects();
-                    if (selectedLineId) {
-                        if (source === 'hover') fitToCurrentSelectionPreview(`line:${selectedLineId}`);
-                        else {
-                            fitToCurrentSelectionCommit(`line:${selectedLineId}`);
-                            showRouteMapFloatingPanelForLine(lineId);
-                        }
-                    }
-                },
-                onModeClick: ({ lineId, mode }, meta) => {
-                    const source = meta?.source ?? 'click';
-                    if (source === 'hover' && !isHoverPreviewEnabled()) return;
-                    hideStationPopupForMenuInteraction();
-                    const commitPreview = meta?.commitPreview === true;
-                    clearMenuThroughPreview();
-
-                    if (isMultiSelectModeEnabled() && source !== 'hover') {
-                        const id = String(lineId ?? '').trim();
-                        if (!id) return;
-                        toggleBaseMultiSelection(`mode:${id}:${String(mode || 'all').trim() || 'all'}`, [id], 'mode');
-                        if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
-                        else setStationLabelMode('auto');
-                        applySelectionEffects();
-                        return;
-                    }
-
-                    selectedStationLineIds = null;
-
-                    if (source === 'hover') {
-                        selectedLineId = lineId;
-                        selectedServiceMode = mode;
-                        setStationLabelMode('auto');
-                    } else {
-                        selectedLineId = commitPreview
-                            ? lineId
-                            : (selectedLineId === lineId && selectedServiceMode === mode ? null : lineId);
-                        selectedServiceMode = mode;
-                    }
-                    if (selectedLineId) selectedCompany = null;
-
-
-                    if (source !== 'hover' && selectedLineId) setStationLabelMode('all');
-                    applySelectionEffects();
-                    if (selectedLineId) {
-                        if (source === 'hover') fitToCurrentSelectionPreview(`mode:${selectedLineId}:${selectedServiceMode}`);
-                        else fitToCurrentSelectionCommit(`mode:${selectedLineId}:${selectedServiceMode}`);
-                    }
-                }
+                ...menuActionHandlers
             });
 
             menu.mount(document.body);
@@ -3960,6 +3980,22 @@ const initMapApp = async () => {
                 },
                 { passive: true }
             );
+        } else {
+            mobileMenu = createMobileMenu({
+                model: menuModel,
+                onCompanyClick: (companyName, meta) => {
+                    menuActionHandlers.onCompanyClick(companyName, meta);
+                    mobileBottomNavController?.setActive?.('map', { emit: false });
+                },
+                onLineClick: (lineId, meta) => {
+                    menuActionHandlers.onLineClick(lineId, meta);
+                    mobileBottomNavController?.setActive?.('map', { emit: false });
+                }
+            });
+            mobileMenu?.mount?.(document.body);
+            if (mobileBottomNavController?.getActive?.() === 'menu') {
+                mobileMenu?.open?.();
+            }
         }
 
         bindLineAndBlankMapInteractions();

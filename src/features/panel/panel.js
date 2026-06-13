@@ -22,6 +22,7 @@ import {
 } from '../../lib/throughServiceManager.js';
 import { createPanelMainView } from '../../ui/panelMainView.js';
 import { createPanelShell } from '../../ui/panelShellView.js';
+import { createPanelRouteMapBridge } from './panelRouteMapBridge.js';
 import { buildTimetableStationText, renderTimetableNoteRowHtml, renderTimetablePlainNoteRowHtml } from './panelTimetableCore.js';
 import {
     renderPanelPrintableTimetableListHtml,
@@ -472,6 +473,7 @@ export function createPanel(options = {}) {
         tripDetailView,
         viewToggle
     } = panelMainView;
+    const panelRouteMapBridge = createPanelRouteMapBridge();
 
     tripDetailCaptureBtn.addEventListener('click', async (evt) => {
         stopEvent(evt);
@@ -560,6 +562,13 @@ export function createPanel(options = {}) {
         scheduleTripDetailHide();
     });
 
+    panelRouteMapBridge.onReturn(() => {
+        if (!isMobilePanelPresentation()) return;
+        clearPinnedPanelState({ restoreStation: true });
+        panelShell.expand?.();
+        scheduleCatalogRefresh();
+    });
+
     // ===== 交互状态（对齐 popup 的逻辑） =====
     let hoverCandidateKey = null;
     let lastFiredHoverKey = null;
@@ -621,6 +630,12 @@ export function createPanel(options = {}) {
             return panelShell.collapseHalf();
         }
         return panelShell.collapse?.() === true;
+    };
+
+    const hideMobilePanelForRouteMapContext = () => {
+        if (!isMobilePanelPresentation()) return false;
+        panelShell.hide?.();
+        return true;
     };
     let stationRenderToken = 0;
     let currentServiceDay = 'SaturdayHoliday';
@@ -3575,18 +3590,13 @@ export function createPanel(options = {}) {
             || toText(lineEl?.querySelector?.('.panel-line-name-main')?.textContent)
             || lid;
 
-        try {
-            window.dispatchEvent(new CustomEvent('__TokyoRailShowRouteMapPanel', {
-                detail: {
-                    lineId: lid,
-                    lineName,
-                    placement: 'mobile-panel'
-                }
-            }));
-        } catch {
-            // ignore
-        }
-        collapseMobilePanelForMapContext();
+        panelRouteMapBridge.requestLineRouteMapPanel({
+            lineId: lid,
+            lineName,
+            placement: 'mobile-panel',
+            returnTarget: 'panel'
+        });
+        hideMobilePanelForRouteMapContext();
         scheduleCatalogRefresh();
         return true;
     };

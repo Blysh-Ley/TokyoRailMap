@@ -16,6 +16,18 @@ assert.match(
 
 assert.match(
     mainViewSource,
+    /header\.appendChild\(tripDetailBackBtn\)[\s\S]*header\.appendChild\(title\)/,
+    'mobile trip detail back button must live in data-panel-header before the station title'
+);
+
+assert.doesNotMatch(
+    mainViewSource,
+    /tripDetailHeader\.appendChild\(tripDetailBackBtn\)/,
+    'mobile trip detail back button must not stay inside the trip-detail content header'
+);
+
+assert.match(
+    mainViewSource,
     /mobileHost:\s*panel/,
     'trip detail view must receive the panel container as mobile host'
 );
@@ -70,8 +82,14 @@ assert.match(
 
 assert.match(
     cssSource,
-    /data-panel-trip-detail-presentation='mobile'[\s\S]*\.panel-trip-detail-back-btn[\s\S]*display:\s*inline-flex/,
-    'mobile trip detail must show the back button'
+    /data-panel-mobile-stack-screen='tripDetail'[\s\S]*\[data-panel-header\] \.panel-trip-detail-back-btn[\s\S]*display:\s*inline-flex/,
+    'mobile trip detail must show the back button in the panel header'
+);
+
+assert.match(
+    cssSource,
+    /\.panel-trip-detail-back-btn\s*\{[\s\S]*width:\s*28px[\s\S]*border-radius:\s*9999px[\s\S]*background:\s*var\(--ui-surface\)/,
+    'mobile trip detail back button must match the route-map return button shape using shared tokens'
 );
 
 console.log('panel mobile trip detail stack smoke ok');
