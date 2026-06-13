@@ -2152,6 +2152,11 @@ html[data-theme="dark"] .ms-show-icon-btn {
     padding-top: 4px;
 }
 
+[data-panel-root][data-panel-presentation='mobile'][data-panel-mobile-stack-screen='tripDetail'] [data-panel-body],
+[data-panel-root][data-panel-presentation='mobile'][data-panel-mobile-stack-screen='tripDetail'] .panel-view-toggle {
+    display: none;
+}
+
 .settings-top-timebar.is-panel-drawer-collapsed {
     opacity: 0;
     pointer-events: none;
@@ -3118,6 +3123,14 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     background: var(--ui-surface-hover);
 }
 
+.panel-trip-detail-back-btn {
+    display: none;
+}
+
+.panel-trip-detail-back-icon {
+    transform: rotate(180deg);
+}
+
 .panel-capture-btn:disabled {
     opacity: 0.6;
     cursor: default;
@@ -3136,6 +3149,33 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
+}
+
+[data-panel-root][data-panel-presentation='mobile'] .panel-trip-detail[data-panel-trip-detail-presentation='mobile'] {
+    min-width: 0;
+    max-width: none;
+    max-height: none;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+}
+
+[data-panel-root][data-panel-presentation='mobile'] .panel-trip-detail[data-panel-trip-detail-presentation='mobile'].is-hidden {
+    display: none;
+}
+
+[data-panel-root][data-panel-presentation='mobile'] .panel-trip-detail[data-panel-trip-detail-presentation='mobile'] .panel-trip-detail-back-btn {
+    display: inline-flex;
+}
+
+[data-panel-root][data-panel-presentation='mobile'] .panel-trip-detail[data-panel-trip-detail-presentation='mobile'] .panel-trip-detail-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
 }
 
 .panel-trip-detail-table {

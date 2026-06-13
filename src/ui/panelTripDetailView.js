@@ -14,12 +14,20 @@ const clearPlacement = (root) => {
     root.style.maxHeight = '';
 };
 
+const moveToHost = (root, host) => {
+    if (!root || !host?.appendChild || root.parentNode === host) return;
+    host.appendChild(root);
+};
+
 const placeDesktopTripDetail = ({
     root,
+    desktopHost,
     panelRoot,
     win = globalThis.window,
     clientY = 0
 } = {}) => {
+    moveToHost(root, desktopHost);
+    root.style.position = 'fixed';
     root.style.right = '';
     root.style.bottom = '';
     root.style.width = '';
@@ -40,17 +48,24 @@ const placeDesktopTripDetail = ({
     root.style.top = `${y}px`;
 };
 
-const placeMobileTripDetail = ({ root } = {}) => {
-    root.style.left = '0';
-    root.style.right = '0';
-    root.style.top = 'auto';
-    root.style.bottom = '0';
-    root.style.width = '100%';
+const placeMobileTripDetail = ({
+    root,
+    mobileHost
+} = {}) => {
+    moveToHost(root, mobileHost);
+    root.style.position = 'relative';
+    root.style.left = '';
+    root.style.right = '';
+    root.style.top = '';
+    root.style.bottom = '';
+    root.style.width = 'auto';
     root.style.maxWidth = 'none';
-    root.style.maxHeight = 'min(72vh, calc(100vh - env(safe-area-inset-top, 0px) - 24px))';
+    root.style.maxHeight = 'none';
 };
 
 export const createPanelTripDetailView = ({
+    desktopHost = globalThis.document?.body,
+    mobileHost = null,
     root,
     panelRoot,
     title,
@@ -76,10 +91,10 @@ export const createPanelTripDetailView = ({
         const activePresentation = resolvePresentation(presentation);
         root.setAttribute('data-panel-trip-detail-presentation', activePresentation);
         if (activePresentation === 'mobile') {
-            placeMobileTripDetail({ root });
+            placeMobileTripDetail({ root, mobileHost });
             return { presentation: activePresentation };
         }
-        placeDesktopTripDetail({ root, panelRoot, win, clientY });
+        placeDesktopTripDetail({ root, desktopHost, panelRoot, win, clientY });
         return { presentation: activePresentation };
     };
 

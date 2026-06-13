@@ -54,6 +54,20 @@ assert.equal(shell.isCollapsed(), false);
 assert.equal(shell.getMobileState(), 'expanded');
 assert.equal(shell.root.style.transform, 'translateY(0)');
 
+assert.equal(shell.collapseHalf(), true);
+assert.equal(shell.isHalfCollapsed(), true);
+assert.equal(shell.getMobileState(), 'half');
+assert.equal(shell.root.style.transform, 'translateY(440px)');
+
+assert.equal(shell.beginMobileDrag(), true);
+assert.equal(shell.updateMobileDrag(0), true);
+assert.equal(shell.endMobileDrag(0), 'half');
+assert.equal(shell.getMobileState(), 'half');
+
+shell.expand();
+assert.equal(shell.isHalfCollapsed(), false);
+assert.equal(shell.getMobileState(), 'expanded');
+
 assert.equal(shell.beginMobileDrag(), true);
 assert.equal(shell.updateMobileDrag(120), true);
 assert.equal(shell.endMobileDrag(120), 'collapsed');
@@ -91,6 +105,7 @@ assert.match(panelViewSource, /body\.style\.minHeight\s*=\s*'0'/);
 assert.match(panelViewSource, /body\.style\.touchAction\s*=\s*'pan-y'/);
 
 assert.match(panelSource, /createPanelMainView\(\{[\s\S]*panelShell,/);
+assert.match(panelSource, /collapseHalf/);
 assert.match(cssSource, /\[data-panel-root\]\[data-panel-presentation='mobile'\] \[data-panel-header\]::before/);
 assert.match(cssSource, /background:\s*var\(--ui-border-strong\)/);
 assert.match(cssSource, /\.settings-top-timebar\.is-panel-drawer-collapsed/);

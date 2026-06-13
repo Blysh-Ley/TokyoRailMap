@@ -38,8 +38,14 @@ assert.match(
 
 assert.match(
     panelSource,
-    /panelShell\.collapse\?\.\(\)/,
+    /collapseMobilePanelForMapContext\(\)/,
     'mobile line screen must half-collapse the panel for map context'
+);
+
+assert.match(
+    panelSource,
+    /panelShell\.collapseHalf\(\)/,
+    'mobile map context collapse must use the half-height drawer state before falling back'
 );
 
 assert.match(

@@ -465,6 +465,7 @@ export function createPanel(options = {}) {
         title,
         titleMain,
         titleSub,
+        tripDetailBackBtn,
         tripDetailBody,
         tripDetailCaptureBtn,
         tripDetailRoot,
@@ -482,6 +483,12 @@ export function createPanel(options = {}) {
             filenameBase: baseName,
             buttonEl: tripDetailCaptureBtn
         });
+    }, { passive: false });
+
+    tripDetailBackBtn?.addEventListener?.('click', (evt) => {
+        stopEvent(evt);
+        hideTripDetail();
+        lastTripDetailKey = null;
     }, { passive: false });
 
     let panelCatalogController = null;
@@ -606,6 +613,14 @@ export function createPanel(options = {}) {
         if (!isMobilePanelPresentation()) return;
         mobilePanelStack.openStationOverview(getMobilePanelStationContext());
         syncMobilePanelStackUi();
+    };
+
+    const collapseMobilePanelForMapContext = () => {
+        if (!isMobilePanelPresentation()) return false;
+        if (typeof panelShell.collapseHalf === 'function') {
+            return panelShell.collapseHalf();
+        }
+        return panelShell.collapse?.() === true;
     };
     let stationRenderToken = 0;
     let currentServiceDay = 'SaturdayHoliday';
@@ -3311,6 +3326,9 @@ export function createPanel(options = {}) {
             </div>
         `;
 
+        if (pinned) {
+            openMobileTripDetail({ lineId: tripLineId || lineId, tripKey });
+        }
         tripDetailView.render({
             titleHtml: tripDetailTitleHtml,
             bodyHtml: tripDetailBodyHtml,
@@ -3320,7 +3338,7 @@ export function createPanel(options = {}) {
         scheduleMarqueeApply(tripDetailRoot);
     };
 
-    const hideTripDetail = () => {
+    const hideTripDetail = ({ restoreMobileLine = true } = {}) => {
         clearTripHighlightTimer();
         tripPreviewScheduler.clearApplied();
         unlockTripPreview();
@@ -3333,6 +3351,9 @@ export function createPanel(options = {}) {
             onTripClear?.();
         } catch {
             // ignore
+        }
+        if (restoreMobileLine) {
+            restoreMobileLineAfterTripDetail();
         }
     };
 
@@ -3557,7 +3578,43 @@ export function createPanel(options = {}) {
         syncMobilePanelStackUi();
         expandMobileLineTimetableDirections(lid);
         panelScrollRuntime.scrollToLineId(lid, { behavior: 'smooth', block: 'start' });
-        panelShell.collapse?.();
+        collapseMobilePanelForMapContext();
+        scheduleCatalogRefresh();
+    };
+
+    const openMobileTripDetail = ({ lineId, tripKey } = {}) => {
+        if (!isMobilePanelPresentation()) return;
+        const lid = toText(lineId);
+        const key = toText(tripKey);
+        if (!lid || !key) return;
+
+        mobilePanelStack.openTripDetail({
+            ...getMobilePanelStationContext(),
+            lineId: lid,
+            tripKey: key
+        });
+        syncMobilePanelStackUi();
+        collapseMobilePanelForMapContext();
+    };
+
+    const restoreMobileLineAfterTripDetail = () => {
+        if (!isMobilePanelPresentation()) return;
+        const state = mobilePanelStack.getState();
+        if (state?.screen !== PANEL_MOBILE_STACK_SCREENS.TRIP_DETAIL) return;
+
+        const lineId = toText(state?.lineId);
+        mobilePanelStack.back();
+        syncMobilePanelStackUi();
+        if (!lineId) return;
+
+        setPinnedPanelSelection('line', lineId);
+        try {
+            onSelectLine?.(lineId, { source: 'panel-touch', isolateStations: true });
+        } catch {
+            // ignore
+        }
+        panelScrollRuntime.scrollToLineId(lineId, { behavior: 'auto', block: 'start' });
+        collapseMobilePanelForMapContext();
         scheduleCatalogRefresh();
     };
 
@@ -4110,7 +4167,7 @@ export function createPanel(options = {}) {
         timePickerController.close();
         closeDirFilterPopover();
         clearPinnedPanelState({ restoreStation: false });
-        hideTripDetail();
+        hideTripDetail({ restoreMobileLine: false });
         mobilePanelStack.close();
         syncMobilePanelStackUi();
         dirPrintPayloadByKey.clear();
@@ -4189,7 +4246,7 @@ export function createPanel(options = {}) {
             clearHoverTimer,
             clearRestoreTimer,
             clearTripHighlightTimer,
-            hideTripDetail,
+            hideTripDetail: () => hideTripDetail({ restoreMobileLine: false }),
             closeDirFilterPopover,
             clearPinnedPanelState
         }));

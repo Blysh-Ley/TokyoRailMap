@@ -385,6 +385,21 @@ export const createPanelMainView = ({
     const tripDetailHeader = document.createElement('div');
     tripDetailHeader.className = 'panel-trip-detail-header';
 
+    const tripDetailBackBtn = document.createElement('button');
+    tripDetailBackBtn.type = 'button';
+    tripDetailBackBtn.className = 'panel-capture-btn panel-trip-detail-back-btn';
+    tripDetailBackBtn.setAttribute('aria-label', '返回线路班次');
+    tripDetailBackBtn.title = '返回';
+    const tripDetailBackIcon = document.createElement('img');
+    tripDetailBackIcon.className = 'panel-capture-icon panel-trip-detail-back-icon';
+    tripDetailBackIcon.alt = '';
+    setImageElementFromCache(tripDetailBackIcon, getIconCandidates('arrow-right.svg'), {
+        cacheKey: 'icon:arrow-right.svg',
+        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('arrow-right.svg'), { cacheKey: 'icon:arrow-right.svg' })
+    }).catch(() => null);
+    tripDetailBackBtn.appendChild(tripDetailBackIcon);
+    tripDetailHeader.appendChild(tripDetailBackBtn);
+
     const tripDetailTitle = document.createElement('div');
     tripDetailTitle.className = 'panel-trip-detail-title';
     tripDetailHeader.appendChild(tripDetailTitle);
@@ -413,6 +428,7 @@ export const createPanelMainView = ({
 
     const tripDetailView = createPanelTripDetailView({
         root: tripDetailRoot,
+        mobileHost: panel,
         panelRoot: root,
         title: tripDetailTitle,
         body: tripDetailBody
@@ -473,6 +489,8 @@ export const createPanelMainView = ({
         titleMain,
         titleSub,
         tripDetailBody,
+        tripDetailBackBtn,
+        tripDetailBackIcon,
         tripDetailCaptureBtn,
         tripDetailCaptureIcon,
         tripDetailHeader,

@@ -114,10 +114,12 @@ export const createMobilePanelShell = ({
     const root = documentRef.createElement('div');
     let visible = false;
     let collapsed = false;
+    let halfCollapsed = false;
     let lastLayoutHeight = 0;
     let dragStartOffset = 0;
     let dragCurrentOffset = 0;
     let dragStartedCollapsed = false;
+    let dragStartedHalf = false;
     const peekPx = Number.isFinite(collapsedPeekPx) ? Math.max(48, Number(collapsedPeekPx)) : DEFAULT_MOBILE_COLLAPSED_PEEK_PX;
     root.setAttribute('data-panel-root', '');
     root.setAttribute('data-panel-presentation', 'mobile');
@@ -135,6 +137,7 @@ export const createMobilePanelShell = ({
     root.style.setProperty('--panel-mobile-peek-height', `${peekPx}px`);
 
     const getCollapsedOffset = () => Math.max(0, lastLayoutHeight - peekPx);
+    const getHalfOffset = () => Math.max(0, Math.round(lastLayoutHeight * 0.5));
     const clampOffset = (value) => Math.max(0, Math.min(getCollapsedOffset(), Number(value) || 0));
     const setTransitionEnabled = (enabled) => {
         root.style.transition = enabled ? 'transform 0.22s ease' : 'none';
@@ -150,6 +153,11 @@ export const createMobilePanelShell = ({
 
         if (state === 'collapsed') {
             root.style.transform = `translateY(${getCollapsedOffset()}px)`;
+            return;
+        }
+
+        if (state === 'half') {
+            root.style.transform = `translateY(${getHalfOffset()}px)`;
             return;
         }
 
@@ -169,6 +177,8 @@ export const createMobilePanelShell = ({
             applyState('hidden', { transition: false });
         } else if (collapsed) {
             applyState('collapsed', { transition: false });
+        } else if (halfCollapsed) {
+            applyState('half', { transition: false });
         } else {
             applyState('expanded', { transition: false });
         }
@@ -181,12 +191,22 @@ export const createMobilePanelShell = ({
         if (!visible) return false;
         visible = true;
         collapsed = true;
+        halfCollapsed = false;
         applyState('collapsed');
+        return true;
+    };
+    const collapseHalf = () => {
+        if (!visible) return false;
+        visible = true;
+        collapsed = false;
+        halfCollapsed = true;
+        applyState('half');
         return true;
     };
     const expand = () => {
         visible = true;
         collapsed = false;
+        halfCollapsed = false;
         applyState('expanded');
         return true;
     };
@@ -195,11 +215,13 @@ export const createMobilePanelShell = ({
         root,
         contains,
         collapse,
+        collapseHalf,
         expand,
         beginMobileDrag() {
             if (!visible) return false;
             dragStartedCollapsed = collapsed === true;
-            dragStartOffset = collapsed ? getCollapsedOffset() : 0;
+            dragStartedHalf = halfCollapsed === true;
+            dragStartOffset = collapsed ? getCollapsedOffset() : (halfCollapsed ? getHalfOffset() : 0);
             dragCurrentOffset = dragStartOffset;
             root.setAttribute('data-panel-mobile-dragging', '1');
             setTransitionEnabled(false);
@@ -218,14 +240,21 @@ export const createMobilePanelShell = ({
 
             const dragDelta = Number(deltaY) || 0;
             const shouldExpand = dragStartedCollapsed && dragDelta < -MOBILE_DRAG_THRESHOLD_PX;
-            const shouldCollapse = !dragStartedCollapsed && (
+            const shouldCollapse = !dragStartedCollapsed && !dragStartedHalf && (
                 dragDelta > MOBILE_DRAG_THRESHOLD_PX ||
                 dragCurrentOffset > getCollapsedOffset() * 0.4
             );
+            const shouldExpandFromHalf = dragStartedHalf && dragDelta < -MOBILE_DRAG_THRESHOLD_PX;
+            const shouldCollapseFromHalf = dragStartedHalf && dragDelta > MOBILE_DRAG_THRESHOLD_PX;
 
-            if (shouldExpand) {
+            if (shouldExpand || shouldExpandFromHalf) {
                 expand();
                 return 'expanded';
+            }
+
+            if (shouldCollapseFromHalf) {
+                collapse();
+                return 'collapsed';
             }
 
             if (shouldCollapse) {
@@ -238,12 +267,18 @@ export const createMobilePanelShell = ({
                 return 'collapsed';
             }
 
+            if (dragStartedHalf) {
+                collapseHalf();
+                return 'half';
+            }
+
             expand();
             return 'expanded';
         },
         getClickRegion: createPanelShellClickRegion(contains),
-        getMobileState: () => (visible ? (collapsed ? 'collapsed' : 'expanded') : 'hidden'),
+        getMobileState: () => (visible ? (collapsed ? 'collapsed' : (halfCollapsed ? 'half' : 'expanded')) : 'hidden'),
         isCollapsed: () => visible && collapsed,
+        isHalfCollapsed: () => visible && halfCollapsed,
         isVisible: () => visible,
         layout,
         show() {
@@ -252,6 +287,7 @@ export const createMobilePanelShell = ({
         hide() {
             visible = false;
             collapsed = false;
+            halfCollapsed = false;
             applyState('hidden');
         }
     };
