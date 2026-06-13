@@ -11,6 +11,18 @@ import {
 } from '../src/map/element_ui.js';
 import { HIGHLIGHT_STYLE_CONFIG } from '../src/map/highlight_style_config.js';
 
+const getZoomStopValue = (expr, zoom) => {
+    for (let i = 3; i < expr.length; i += 2) {
+        if (expr[i] === zoom) return expr[i + 1];
+    }
+    return undefined;
+};
+
+const getSelectedSingleStationStrokeValue = (expr, zoom) => {
+    const selectedCase = getZoomStopValue(expr, zoom);
+    return selectedCase?.[2]?.[2];
+};
+
 const expr = buildStationCircleColorPaintExpr({
     isDarkThemeActive: false,
     lineColorById: new Map([
@@ -74,8 +86,14 @@ const stationPaint = buildStationSelectionPaint({
 const normalStationPaint = buildStationSelectionPaint({
     isSelectedExpr: ['==', ['get', 'id'], 'S1']
 });
-assert.equal(stationPaint['circle-radius'][4], normalStationPaint['circle-radius'][4] * HIGHLIGHT_STYLE_CONFIG.lineAndStation.minScaleAtZoom0);
-assert.equal(stationPaint['circle-radius'][6], normalStationPaint['circle-radius'][6]);
-assert.equal(stationPaint['circle-radius'][8], normalStationPaint['circle-radius'][8]);
+assert.equal(getZoomStopValue(stationPaint['circle-radius'], 0), getZoomStopValue(highlightedDynamicLineWidth, 0) * HIGHLIGHT_STYLE_CONFIG.lineBasedSizes.stationRadiusScale);
+assert.equal(getZoomStopValue(stationPaint['circle-radius'], HIGHLIGHT_STYLE_CONFIG.line.shrinkStartZoom), getZoomStopValue(highlightedDynamicLineWidth, HIGHLIGHT_STYLE_CONFIG.line.shrinkStartZoom) * HIGHLIGHT_STYLE_CONFIG.lineBasedSizes.stationRadiusScale);
+assert.equal(getZoomStopValue(stationPaint['circle-radius'], ELEMENT_UI_CONSTANTS.stationZoomBase), getZoomStopValue(highlightedDynamicLineWidth, ELEMENT_UI_CONSTANTS.stationZoomBase) * HIGHLIGHT_STYLE_CONFIG.lineBasedSizes.stationRadiusScale);
+assert.equal(getZoomStopValue(stationPaint['circle-radius'], ELEMENT_UI_CONSTANTS.stationZoomMax), getZoomStopValue(highlightedDynamicLineWidth, ELEMENT_UI_CONSTANTS.stationZoomMax) * HIGHLIGHT_STYLE_CONFIG.lineBasedSizes.stationRadiusScale);
+assert.equal(
+    getSelectedSingleStationStrokeValue(stationPaint['circle-stroke-width'], ELEMENT_UI_CONSTANTS.stationZoomBase),
+    getZoomStopValue(highlightedDynamicLineWidth, ELEMENT_UI_CONSTANTS.stationZoomBase) * HIGHLIGHT_STYLE_CONFIG.lineBasedSizes.stationStrokeWidthScale
+);
+assert.equal(getZoomStopValue(normalStationPaint['circle-radius'], ELEMENT_UI_CONSTANTS.stationZoomBase), ELEMENT_UI_CONSTANTS.stationBaseRadius);
 
 console.log('station circle color paint smoke ok');

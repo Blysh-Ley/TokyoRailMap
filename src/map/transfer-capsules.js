@@ -1,18 +1,22 @@
-import { ELEMENT_UI_CONSTANTS } from './element_ui.js';
+import { ELEMENT_UI_CONSTANTS, buildHighlightLineWidthScaledExpr } from './element_ui.js';
 import { HIGHLIGHT_STYLE_CONFIG } from './highlight_style_config.js';
 
 const toText = (v) => String(v ?? '').trim();
 const TRANSFER_CAPSULE_SIZE = Object.freeze({
-    outlineLineWidth: HIGHLIGHT_STYLE_CONFIG.transferCapsule.outlineLineWidth,
-    innerLineWidth: HIGHLIGHT_STYLE_CONFIG.transferCapsule.innerLineWidth,
+    outlineLineWidth: [12, 24],
+    innerLineWidth: [8, 14],
     dotRadius: [
         ELEMENT_UI_CONSTANTS.stationBaseRadius,
         ELEMENT_UI_CONSTANTS.stationBaseRadiusAtMaxZoom
     ],
-    fallbackOutlineRadius: HIGHLIGHT_STYLE_CONFIG.transferCapsule.fallbackOutlineRadius,
-    fallbackInnerRadius: HIGHLIGHT_STYLE_CONFIG.transferCapsule.fallbackInnerRadius
+    fallbackOutlineRadius: [6.8, 11.5],
+    fallbackInnerRadius: [5.0, 8.6]
 });
-const HIGHLIGHT_TRANSFER_CAPSULE_SIZE = HIGHLIGHT_STYLE_CONFIG.transferCapsule.highlighted;
+
+const getLineBasedSizeScale = (key, fallback) => {
+    const value = Number(HIGHLIGHT_STYLE_CONFIG.lineBasedSizes?.[key]);
+    return Number.isFinite(value) ? value : fallback;
+};
 
 const isMapEngineLike = (value) => Boolean(
     value
@@ -441,68 +445,21 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
     const beforeLayerId = options.beforeLayerId || 'stations-layer';
     const minZoom = Number.isFinite(options.minZoom) ? Number(options.minZoom) : 8;
     const highlightStyle = options.highlightStyle === true;
-    const highlightSizeOptions = highlightStyle
-        ? {
-            minScaleAtZoom0: HIGHLIGHT_STYLE_CONFIG.transferCapsule.minScaleAtZoom0,
-            interpolationBase: HIGHLIGHT_STYLE_CONFIG.transferCapsule.zoomScaleInterpolationBase
-        }
-        : {};
-    const stationDotSizeOptions = highlightStyle
-        ? {
-            minScaleAtZoom0: HIGHLIGHT_STYLE_CONFIG.lineAndStation.minScaleAtZoom0,
-            interpolationBase: HIGHLIGHT_STYLE_CONFIG.lineAndStation.zoomScaleInterpolationBase
-        }
-        : {};
-    const transferSize = highlightStyle ? HIGHLIGHT_TRANSFER_CAPSULE_SIZE : TRANSFER_CAPSULE_SIZE;
-    const fallbackSize = TRANSFER_CAPSULE_SIZE;
-
-    // 1. 胶囊外边框线宽 (12 * 2 ≈ 24)
-    const capsuleOutlineLineWidthExpr = [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        0, 7,
-        6, 7,
-        14, 12,
-        16, 24, 
-        22, 24  
-    ];
-
-    // 2. 胶囊内部白线线宽 (8 * 2 ≈ 16)
-    const capsuleInnerLineWidthExpr = [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        0, 4.8,
-        6, 4.8,
-        14, 8,
-        16, 16, 
-        22, 16
-    ];
-
-    // 3. 换乘单站的回退外圆半径 (6.8 * 2 ≈ 13.6)
-    const capsuleFallbackOutlineRadiusExpr = [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        0, 4.2,
-        6, 4.2,
-        14, 6.8,
-        16, 13.6, 
-        22, 13.6
-    ];
-
-    // 4. 换乘单站的回退内圆半径 (5.0 * 2 ≈ 10)
-    const capsuleFallbackInnerRadiusExpr = [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        0, 3.1,
-        6, 3.1,
-        14, 5.0,
-        16, 10,
-        22, 10
-    ];
+    const capsuleOutlineLineWidthExpr = highlightStyle
+        ? buildHighlightLineWidthScaledExpr(getLineBasedSizeScale('capsuleOutlineLineWidthScale', 1.8))
+        : buildZoomBasedExponentialSizeExpr(...TRANSFER_CAPSULE_SIZE.outlineLineWidth);
+    const capsuleInnerLineWidthExpr = highlightStyle
+        ? buildHighlightLineWidthScaledExpr(getLineBasedSizeScale('capsuleInnerLineWidthScale', 1.25))
+        : buildZoomBasedExponentialSizeExpr(...TRANSFER_CAPSULE_SIZE.innerLineWidth);
+    const capsuleDotRadiusExpr = highlightStyle
+        ? buildHighlightLineWidthScaledExpr(getLineBasedSizeScale('capsuleDotRadiusScale', 0.5))
+        : buildZoomBasedExponentialSizeExpr(...TRANSFER_CAPSULE_SIZE.dotRadius);
+    const capsuleFallbackOutlineRadiusExpr = highlightStyle
+        ? buildHighlightLineWidthScaledExpr(getLineBasedSizeScale('capsuleFallbackOutlineRadiusScale', 0.75))
+        : buildZoomBasedExponentialSizeExpr(...TRANSFER_CAPSULE_SIZE.fallbackOutlineRadius);
+    const capsuleFallbackInnerRadiusExpr = highlightStyle
+        ? buildHighlightLineWidthScaledExpr(getLineBasedSizeScale('capsuleFallbackInnerRadiusScale', 0.55))
+        : buildZoomBasedExponentialSizeExpr(...TRANSFER_CAPSULE_SIZE.fallbackInnerRadius);
 
     // If the requested before layer does not exist yet, avoid passing it to addLayer to
     // prevent MapLibre from throwing. We'll add layers at the top-level in that case.
@@ -596,14 +553,14 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
             paint: {
                 'line-color': getThemeCapsuleColors().outline,
                 'line-opacity': 1,
-                'line-width': buildZoomBasedExponentialSizeExpr(...transferSize.outlineLineWidth, highlightSizeOptions)
+                'line-width': capsuleOutlineLineWidthExpr
             }
         };
         if (insertBefore) mapAdapter.addLayer(layerDef, insertBefore); else mapAdapter.addLayer(layerDef);
     } else {
         mapAdapter.setPaintProperty(ids.slaveOutlineLayerId, 'line-color', getThemeCapsuleColors().outline);
         mapAdapter.setPaintProperty(ids.slaveOutlineLayerId, 'line-opacity', 1);
-        mapAdapter.setPaintProperty(ids.slaveOutlineLayerId, 'line-width', buildZoomBasedExponentialSizeExpr(...transferSize.outlineLineWidth, highlightSizeOptions));
+        mapAdapter.setPaintProperty(ids.slaveOutlineLayerId, 'line-width', capsuleOutlineLineWidthExpr);
         mapAdapter.setFilter(ids.slaveOutlineLayerId, ['!=', ['get', 'fallbackCircle'], 1]);
     }
 
@@ -621,14 +578,14 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
             paint: {
                 'line-color': getThemeCapsuleColors().inner,
                 'line-opacity': 1,
-                'line-width': buildZoomBasedExponentialSizeExpr(...transferSize.innerLineWidth, highlightSizeOptions)
+                'line-width': capsuleInnerLineWidthExpr
             }
         };
         if (insertBefore) mapAdapter.addLayer(layerDef, insertBefore); else mapAdapter.addLayer(layerDef);
     } else {
         mapAdapter.setPaintProperty(ids.slaveInnerLayerId, 'line-color', getThemeCapsuleColors().inner);
         mapAdapter.setPaintProperty(ids.slaveInnerLayerId, 'line-opacity', 1);
-        mapAdapter.setPaintProperty(ids.slaveInnerLayerId, 'line-width', buildZoomBasedExponentialSizeExpr(...transferSize.innerLineWidth, highlightSizeOptions));
+        mapAdapter.setPaintProperty(ids.slaveInnerLayerId, 'line-width', capsuleInnerLineWidthExpr);
         mapAdapter.setFilter(ids.slaveInnerLayerId, ['!=', ['get', 'fallbackCircle'], 1]);
     }
 
@@ -641,7 +598,7 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
             paint: {
                 'circle-color': ['coalesce', ['get', 'dotColor'], '#666'],
                 'circle-opacity': 1,
-                'circle-radius': buildZoomBasedExponentialSizeExpr(...TRANSFER_CAPSULE_SIZE.dotRadius, stationDotSizeOptions),
+                'circle-radius': capsuleDotRadiusExpr,
                 'circle-stroke-width': 0
             }
         };
@@ -649,7 +606,7 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
     } else {
         mapAdapter.setPaintProperty(ids.dotLayerId, 'circle-color', ['coalesce', ['get', 'dotColor'], '#666']);
         mapAdapter.setPaintProperty(ids.dotLayerId, 'circle-opacity', 1);
-        mapAdapter.setPaintProperty(ids.dotLayerId, 'circle-radius', buildZoomBasedExponentialSizeExpr(...TRANSFER_CAPSULE_SIZE.dotRadius, stationDotSizeOptions));
+        mapAdapter.setPaintProperty(ids.dotLayerId, 'circle-radius', capsuleDotRadiusExpr);
         mapAdapter.setPaintProperty(ids.dotLayerId, 'circle-stroke-width', 0);
     }
 
@@ -663,14 +620,14 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
             paint: {
                 'circle-color': getThemeCapsuleColors().outline,
                 'circle-opacity': 1,
-                'circle-radius': buildZoomBasedExponentialSizeExpr(...fallbackSize.fallbackOutlineRadius, highlightSizeOptions)
+                'circle-radius': capsuleFallbackOutlineRadiusExpr
             }
         };
         if (insertBefore) mapAdapter.addLayer(layerDef, insertBefore); else mapAdapter.addLayer(layerDef);
     } else {
         mapAdapter.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-color', getThemeCapsuleColors().outline);
         mapAdapter.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-opacity', 1);
-        mapAdapter.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-radius', buildZoomBasedExponentialSizeExpr(...fallbackSize.fallbackOutlineRadius, highlightSizeOptions));
+        mapAdapter.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-radius', capsuleFallbackOutlineRadiusExpr);
         mapAdapter.setFilter(ids.fallbackCircleOutlineLayerId, ['==', ['get', 'fallbackCircle'], 1]);
     }
 
@@ -684,14 +641,14 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
             paint: {
                 'circle-color': getThemeCapsuleColors().inner,
                 'circle-opacity': 1,
-                'circle-radius': buildZoomBasedExponentialSizeExpr(...fallbackSize.fallbackInnerRadius, highlightSizeOptions)
+                'circle-radius': capsuleFallbackInnerRadiusExpr
             }
         };
         if (insertBefore) mapAdapter.addLayer(layerDef, insertBefore); else mapAdapter.addLayer(layerDef);
     } else {
         mapAdapter.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-color', getThemeCapsuleColors().inner);
         mapAdapter.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-opacity', 1);
-        mapAdapter.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-radius', buildZoomBasedExponentialSizeExpr(...fallbackSize.fallbackInnerRadius, highlightSizeOptions));
+        mapAdapter.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-radius', capsuleFallbackInnerRadiusExpr);
         mapAdapter.setFilter(ids.fallbackCircleInnerLayerId, ['==', ['get', 'fallbackCircle'], 1]);
     }
 

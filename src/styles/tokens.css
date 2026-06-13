@@ -25,6 +25,11 @@
     --ui-past-text: #c3c7cd;
 
     --is-active-color: var(--ui-accent);
+
+    --panel-timetable-time-text: var(--ui-text-strong);
+    --panel-timetable-time-depart: green;
+    --panel-timetable-time-origin: green;
+    --panel-timetable-time-terminal: red;
 }
 
 html[data-theme='dark'] {
@@ -49,4 +54,9 @@ html[data-theme='dark'] {
     --ui-success: #59e37d;
     --ui-past-bg: #777d86;
     --ui-past-text: #777d86;
+
+    --panel-timetable-time-text: var(--ui-text);
+    --panel-timetable-time-depart: var(--ui-success);
+    --panel-timetable-time-origin: var(--ui-success);
+    --panel-timetable-time-terminal: var(--ui-danger);
 }

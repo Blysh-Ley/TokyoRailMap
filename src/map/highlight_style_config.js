@@ -25,39 +25,26 @@ export const HIGHLIGHT_STYLE_CONFIG = Object.freeze({
         shrinkStartZoom: 6
     }),
 
-    lineAndStation: Object.freeze({
-        // 高亮线路和普通站点在 zoom 0 的最小倍率；越大，缩远时线和站点越不容易变细/变小。
-        minScaleAtZoom0: 6,
+    lineBasedSizes: Object.freeze({
+        // 高亮站点半径；直径会等于高亮线路宽度。
+        stationRadiusScale: 0.6,
 
-        // 高亮线路和普通站点的缩放曲线指数；建议在 1.2 到 3 之间小步调整。
-        zoomScaleInterpolationBase: 1.2
-    }),
+        // 高亮单线站白色描边宽度。
+        stationStrokeWidthScale: 0.4,
 
-    transferCapsule: Object.freeze({
-        // 高亮换乘胶囊外壳在 zoom 0 的最小倍率；只影响胶囊外壳和 fallback 圆胶囊，不影响胶囊里的彩色站点点。
-        minScaleAtZoom0: 6,
+        // 高亮换乘胶囊内的彩色点半径。
+        capsuleDotRadiusScale: 0.5,
 
-        // 高亮换乘胶囊外壳的缩放曲线指数；数值越大，缩放曲线变化越明显。
-        zoomScaleInterpolationBase: 6,
+        // 高亮换乘胶囊外壳线宽。
+        capsuleOutlineLineWidthScale: 2.2,
 
-        // 普通有换乘胶囊外框线宽，[zoom 12 宽度, zoom 16 宽度]。
-        outlineLineWidth: [12, 24],
+        // 高亮换乘胶囊内部白线宽度。
+        capsuleInnerLineWidthScale: 1.6,
 
-        // 普通有换乘胶囊内部白色通道线宽，[zoom 12 宽度, zoom 16 宽度]。
-        innerLineWidth: [8, 14],
+        // 高亮无换乘 fallback 圆胶囊外圆半径。
+        capsuleFallbackOutlineRadiusScale: 1.2,
 
-        // 无换乘 fallback 圆胶囊外圈半径，[zoom 12 半径, zoom 16 半径]。
-        fallbackOutlineRadius: [6.8, 11.5],
-
-        // 无换乘 fallback 圆胶囊内圈半径，[zoom 12 半径, zoom 16 半径]。
-        fallbackInnerRadius: [5.0, 8.6],
-
-        highlighted: Object.freeze({
-            // 高亮有换乘胶囊外框线宽，[zoom 12 宽度, zoom 16 宽度]。
-            outlineLineWidth: [14, 24],
-
-            // 高亮有换乘胶囊内部白色通道线宽，[zoom 12 宽度, zoom 16 宽度]。
-            innerLineWidth: [10, 17.2]
-        })
+        // 高亮无换乘 fallback 圆胶囊内圆半径。
+        capsuleFallbackInnerRadiusScale: 1
     })
 });

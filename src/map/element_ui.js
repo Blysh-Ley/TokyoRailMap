@@ -64,11 +64,6 @@ const lowlightLineWidthExpr = () => buildZoomBasedExponentialSizeExpr(
     lineLowlightWidthAtMaxZoom
 );
 
-const highlightSizeOptions = () => ({
-    minScaleAtZoom0: HIGHLIGHT_STYLE_CONFIG.lineAndStation.minScaleAtZoom0,
-    interpolationBase: HIGHLIGHT_STYLE_CONFIG.lineAndStation.zoomScaleInterpolationBase
-});
-
 const getExponentialInterpolationT = (progress, base) => {
     const p = Math.max(0, Math.min(1, Number(progress) || 0));
     const b = Number(base);
@@ -284,6 +279,21 @@ export const buildDynamicLineWidthExpr = (options = {}) => {
     ];
 };
 
+export const buildHighlightLineWidthScaledExpr = (scale = 1) => {
+    const factor = Number.isFinite(scale) ? Number(scale) : 1;
+    const expr = buildDynamicLineWidthExpr({ highlightStyle: true });
+    const scaled = expr.slice(0, 3);
+    for (let i = 3; i < expr.length; i += 2) {
+        scaled.push(expr[i], Number(expr[i + 1]) * factor);
+    }
+    return scaled;
+};
+
+const getLineBasedSizeScale = (key, fallback) => {
+    const value = Number(HIGHLIGHT_STYLE_CONFIG.lineBasedSizes?.[key]);
+    return Number.isFinite(value) ? value : fallback;
+};
+
 export const buildFocusedLinePaint = (options = {}) => {
     const baseColorExpr = options.baseColorExpr || buildBaseLineColorExpr(options);
     const focusExpr = options.focusExpr || null;
@@ -335,10 +345,8 @@ export const baseStationCircleRadiusExpr = () => {
     return buildZoomBasedExponentialSizeExpr(r1, r2);
 };
 
-const highlightStationCircleRadiusExpr = () => buildZoomBasedExponentialSizeExpr(
-    ELEMENT_UI_CONSTANTS.stationBaseRadius,
-    ELEMENT_UI_CONSTANTS.stationBaseRadiusAtMaxZoom,
-    highlightSizeOptions()
+const highlightStationCircleRadiusExpr = () => buildHighlightLineWidthScaledExpr(
+    getLineBasedSizeScale('stationRadiusScale', 0.5)
 );
 
 export const baseStationCircleStrokeWidthExpr = () => {
@@ -361,19 +369,16 @@ export const baseStationCircleStrokeWidthExpr = () => {
 };
 
 const highlightStationCircleStrokeWidthExpr = () => {
-    const z0 = 0;
-    const z1 = ELEMENT_UI_CONSTANTS.stationZoomBase;
-    const z2 = ELEMENT_UI_CONSTANTS.stationZoomMax;
-    const w1 = ELEMENT_UI_CONSTANTS.stationSingleStrokeWidth;
-    const w2 = ELEMENT_UI_CONSTANTS.stationSingleStrokeWidthAtMaxZoom;
-    const w0 = buildZoomBasedExponentialSizeExpr(w1, w2, highlightSizeOptions())[4];
+    const strokeWidthExpr = buildHighlightLineWidthScaledExpr(
+        getLineBasedSizeScale('stationStrokeWidthScale', 0.25)
+    );
     const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
     const isSingleExpr = ['==', ['length', servingIdsExpr], 1];
-    return ['interpolate', ['exponential', ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase], ['zoom'],
-        z0, ['case', isSingleExpr, w0, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth],
-        z1, ['case', isSingleExpr, w1, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth],
-        z2, ['case', isSingleExpr, w2, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth]
-    ];
+    const expr = strokeWidthExpr.slice(0, 3);
+    for (let i = 3; i < strokeWidthExpr.length; i += 2) {
+        expr.push(strokeWidthExpr[i], ['case', isSingleExpr, strokeWidthExpr[i + 1], ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth]);
+    }
+    return expr;
 };
 
 export const buildPrimaryLineColorExpr = (options = {}) => {
@@ -470,20 +475,22 @@ export const buildStationSelectionPaint = (options = {}) => {
     const strokeAtZ1 = ['case', isSingleExpr, w1, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
     const strokeAtZ2 = ['case', isSingleExpr, w2, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
 
-    const highlightStrokeAtZ0 = ['case',
-        isSingleExpr,
-        buildZoomBasedExponentialSizeExpr(w1, w2, highlightSizeOptions())[4],
-        ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth
-    ];
-    const highlightStrokeAtZ1 = ['case', isSingleExpr, w1, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
-    const highlightStrokeAtZ2 = ['case', isSingleExpr, w2, ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth];
+    const highlightStationStrokeWidthExpr = () => {
+        const highlightedStrokeWidth = buildHighlightLineWidthScaledExpr(
+            getLineBasedSizeScale('stationStrokeWidthScale', 0.25)
+        );
+        const expr = highlightedStrokeWidth.slice(0, 3);
+        for (let i = 3; i < highlightedStrokeWidth.length; i += 2) {
+            expr.push(
+                highlightedStrokeWidth[i],
+                ['case', isSelectedExpr, ['case', isSingleExpr, highlightedStrokeWidth[i + 1], ELEMENT_UI_CONSTANTS.stationTransferStrokeWidth], 0]
+            );
+        }
+        return expr;
+    };
 
     const strokeWidthExpr = highlightStyle
-        ? ['interpolate', ['exponential', ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase], ['zoom'],
-            z0, ['case', isSelectedExpr, highlightStrokeAtZ0, 0],
-            z1, ['case', isSelectedExpr, highlightStrokeAtZ1, 0],
-            z2, ['case', isSelectedExpr, highlightStrokeAtZ2, 0]
-        ]
+        ? highlightStationStrokeWidthExpr()
         : ['interpolate', ['exponential', ELEMENT_UI_CONSTANTS.zoomScaleInterpolationBase], ['zoom'],
             z0, ['case', isSelectedExpr, strokeAtZ0, 0],
             z1, ['case', isSelectedExpr, strokeAtZ1, 0],
