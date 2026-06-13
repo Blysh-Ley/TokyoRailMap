@@ -4383,7 +4383,7 @@ const initMapApp = async () => {
                 evt?.preventDefault?.();
                 evt?.stopPropagation?.();
             };
-            const labelLongPressMs = 200;
+            const labelLongPressMs = 510;
             const labelLongPressMoveTolerancePx = 12;
 
             const fireStationLabelTap = (item, pt) => {

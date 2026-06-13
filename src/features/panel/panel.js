@@ -412,6 +412,7 @@ export function createPanel(options = {}) {
     const panelMainView = createPanelMainView({
         panelComposition,
         panelContentApi,
+        panelShell,
         createPanelMapSelectController,
         createPanelTimePickerController,
         getIconCandidates,

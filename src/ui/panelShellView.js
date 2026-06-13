@@ -1,5 +1,7 @@
 const DEFAULT_DESKTOP_HIDDEN_TRANSFORM = 'translateX(calc(100% + 24px))';
 const DEFAULT_MOBILE_HIDDEN_TRANSFORM = 'translateY(calc(100% + 24px))';
+const DEFAULT_MOBILE_COLLAPSED_PEEK_PX = 86;
+const MOBILE_DRAG_THRESHOLD_PX = 48;
 
 const isWithinAnyElement = (target, elements = []) => (
     elements.some((element) => Boolean(element && target && element.contains?.(target)))
@@ -102,7 +104,8 @@ export const createDesktopPanelShell = ({
 export const createMobilePanelShell = ({
     documentRef = globalThis.document,
     win = globalThis.window,
-    zIndex = 4000
+    zIndex = 4000,
+    collapsedPeekPx = DEFAULT_MOBILE_COLLAPSED_PEEK_PX
 } = {}) => {
     if (!documentRef?.createElement) {
         throw new Error('createMobilePanelShell requires documentRef');
@@ -110,8 +113,15 @@ export const createMobilePanelShell = ({
 
     const root = documentRef.createElement('div');
     let visible = false;
+    let collapsed = false;
+    let lastLayoutHeight = 0;
+    let dragStartOffset = 0;
+    let dragCurrentOffset = 0;
+    let dragStartedCollapsed = false;
+    const peekPx = Number.isFinite(collapsedPeekPx) ? Math.max(48, Number(collapsedPeekPx)) : DEFAULT_MOBILE_COLLAPSED_PEEK_PX;
     root.setAttribute('data-panel-root', '');
     root.setAttribute('data-panel-presentation', 'mobile');
+    root.setAttribute('data-panel-mobile-state', 'hidden');
     root.style.position = 'fixed';
     root.style.left = '0';
     root.style.right = '0';
@@ -121,32 +131,128 @@ export const createMobilePanelShell = ({
     root.style.maxWidth = 'none';
     root.style.transform = DEFAULT_MOBILE_HIDDEN_TRANSFORM;
     root.style.transition = 'transform 0.22s ease';
+    root.style.overflow = 'hidden';
+    root.style.setProperty('--panel-mobile-peek-height', `${peekPx}px`);
+
+    const getCollapsedOffset = () => Math.max(0, lastLayoutHeight - peekPx);
+    const clampOffset = (value) => Math.max(0, Math.min(getCollapsedOffset(), Number(value) || 0));
+    const setTransitionEnabled = (enabled) => {
+        root.style.transition = enabled ? 'transform 0.22s ease' : 'none';
+    };
+    const applyState = (state, { transition = true } = {}) => {
+        setTransitionEnabled(transition);
+        root.setAttribute('data-panel-mobile-state', state);
+
+        if (state === 'hidden') {
+            root.style.transform = DEFAULT_MOBILE_HIDDEN_TRANSFORM;
+            return;
+        }
+
+        if (state === 'collapsed') {
+            root.style.transform = `translateY(${getCollapsedOffset()}px)`;
+            return;
+        }
+
+        root.style.transform = 'translateY(0)';
+    };
 
     const layout = () => {
         const heightSource = Number(win?.innerHeight) || 0;
         const height = Math.round(heightSource * 0.88);
+        lastLayoutHeight = height;
         root.style.top = 'auto';
         root.style.height = `${height}px`;
         root.style.maxHeight = 'calc(100vh - env(safe-area-inset-top, 0px) - 12px)';
         root.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
+
+        if (!visible) {
+            applyState('hidden', { transition: false });
+        } else if (collapsed) {
+            applyState('collapsed', { transition: false });
+        } else {
+            applyState('expanded', { transition: false });
+        }
+
         return { top: null, height, presentation: 'mobile' };
     };
 
     const contains = (target) => Boolean(target && root.contains?.(target));
+    const collapse = () => {
+        if (!visible) return false;
+        visible = true;
+        collapsed = true;
+        applyState('collapsed');
+        return true;
+    };
+    const expand = () => {
+        visible = true;
+        collapsed = false;
+        applyState('expanded');
+        return true;
+    };
 
     return {
         root,
         contains,
+        collapse,
+        expand,
+        beginMobileDrag() {
+            if (!visible) return false;
+            dragStartedCollapsed = collapsed === true;
+            dragStartOffset = collapsed ? getCollapsedOffset() : 0;
+            dragCurrentOffset = dragStartOffset;
+            root.setAttribute('data-panel-mobile-dragging', '1');
+            setTransitionEnabled(false);
+            return true;
+        },
+        updateMobileDrag(deltaY = 0) {
+            if (!visible) return false;
+            dragCurrentOffset = clampOffset(dragStartOffset + deltaY);
+            root.style.transform = `translateY(${dragCurrentOffset}px)`;
+            return true;
+        },
+        endMobileDrag(deltaY = 0) {
+            if (!visible) return 'hidden';
+            root.removeAttribute('data-panel-mobile-dragging');
+            setTransitionEnabled(true);
+
+            const dragDelta = Number(deltaY) || 0;
+            const shouldExpand = dragStartedCollapsed && dragDelta < -MOBILE_DRAG_THRESHOLD_PX;
+            const shouldCollapse = !dragStartedCollapsed && (
+                dragDelta > MOBILE_DRAG_THRESHOLD_PX ||
+                dragCurrentOffset > getCollapsedOffset() * 0.4
+            );
+
+            if (shouldExpand) {
+                expand();
+                return 'expanded';
+            }
+
+            if (shouldCollapse) {
+                collapse();
+                return 'collapsed';
+            }
+
+            if (dragStartedCollapsed) {
+                collapse();
+                return 'collapsed';
+            }
+
+            expand();
+            return 'expanded';
+        },
         getClickRegion: createPanelShellClickRegion(contains),
+        getMobileState: () => (visible ? (collapsed ? 'collapsed' : 'expanded') : 'hidden'),
+        isCollapsed: () => visible && collapsed,
         isVisible: () => visible,
         layout,
         show() {
-            visible = true;
-            root.style.transform = 'translateY(0)';
+            expand();
         },
         hide() {
             visible = false;
-            root.style.transform = DEFAULT_MOBILE_HIDDEN_TRANSFORM;
+            collapsed = false;
+            applyState('hidden');
         }
     };
 };

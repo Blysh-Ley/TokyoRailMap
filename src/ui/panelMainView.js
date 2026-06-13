@@ -1,8 +1,15 @@
 import { createPanelTripDetailView } from './panelTripDetailView.js';
 
+const isInteractivePanelHeaderTarget = (target, header) => {
+    if (!target?.closest || !header?.contains?.(target)) return false;
+    const interactive = target.closest('button, input, select, textarea, a, [role="button"], [tabindex]');
+    return Boolean(interactive && header.contains(interactive));
+};
+
 export const createPanelMainView = ({
     panelComposition,
     panelContentApi,
+    panelShell,
     createPanelMapSelectController,
     createPanelTimePickerController,
     getIconCandidates,
@@ -28,6 +35,8 @@ export const createPanelMainView = ({
     header.style.gap = '8px';
     header.style.padding = '10px 12px';
     header.style.borderBottom = '1px solid var(--ui-border, #e3e5e7)';
+    header.style.flex = '0 0 auto';
+    header.style.touchAction = 'none';
 
     const title = document.createElement('div');
     title.setAttribute('data-panel-title', '');
@@ -167,6 +176,7 @@ export const createPanelMainView = ({
     viewToggle.className = 'panel-view-toggle';
     viewToggle.setAttribute('role', 'tablist');
     viewToggle.setAttribute('aria-label', '班次视图');
+    viewToggle.style.flex = '0 0 auto';
 
     const btnViewList = document.createElement('button');
     btnViewList.type = 'button';
@@ -189,10 +199,19 @@ export const createPanelMainView = ({
     body.setAttribute('data-panel-body', '');
     body.className = 'panel-list';
     body.style.flex = '1 1 auto';
+    body.style.minHeight = '0';
     body.style.paddingLeft = '10px';
     body.style.paddingRight = '10px';
     body.style.overflowY = 'auto';
     body.style.overflowX = 'hidden';
+    body.style.touchAction = 'pan-y';
+
+    if (panel?.style) {
+        panel.style.minHeight = '0';
+    }
+    if (root?.style) {
+        root.style.minHeight = '0';
+    }
 
     panelContentApi.appendContent(header);
     panelContentApi.appendContent(viewToggle);
@@ -282,6 +301,81 @@ export const createPanelMainView = ({
         document.body.appendChild(timeOverlay);
     }
 
+    const syncMobileDrawerState = () => {
+        const state = typeof panelShell?.getMobileState === 'function'
+            ? panelShell.getMobileState()
+            : '';
+        const collapsed = state === 'collapsed';
+        root.classList.toggle('is-panel-drawer-collapsed', collapsed);
+        timeOverlay.classList.toggle('is-panel-drawer-collapsed', collapsed);
+    };
+
+    {
+        let dragState = null;
+        const isMobilePresentation = () => root.getAttribute?.('data-panel-presentation') === 'mobile';
+        const canDragMobilePanel = () => isMobilePresentation() &&
+            typeof panelShell?.beginMobileDrag === 'function' &&
+            typeof panelShell?.updateMobileDrag === 'function' &&
+            typeof panelShell?.endMobileDrag === 'function';
+
+        header.addEventListener('pointerdown', (event) => {
+            if (!canDragMobilePanel()) return;
+            if (event?.button != null && event.button !== 0) return;
+            if (isInteractivePanelHeaderTarget(event?.target, header)) return;
+            if (panelShell.beginMobileDrag() !== true) return;
+
+            dragState = {
+                pointerId: event?.pointerId,
+                startY: Number(event?.clientY) || 0
+            };
+            try {
+                header.setPointerCapture?.(event.pointerId);
+            } catch {
+                // ignore pointer-capture gaps in older webviews
+            }
+            event.preventDefault?.();
+            event.stopPropagation?.();
+        }, { passive: false });
+
+        const updateDrag = (event) => {
+            if (!dragState) return;
+            if (dragState.pointerId != null && event?.pointerId !== dragState.pointerId) return;
+            const deltaY = (Number(event?.clientY) || 0) - dragState.startY;
+            panelShell.updateMobileDrag(deltaY);
+            event.preventDefault?.();
+            event.stopPropagation?.();
+        };
+
+        header.addEventListener('pointermove', updateDrag, { passive: false });
+        root.addEventListener('pointermove', updateDrag, { passive: false });
+        document.addEventListener('pointermove', updateDrag, { capture: true, passive: false });
+
+        const finishDrag = (event, { cancelled = false } = {}) => {
+            if (!dragState) return;
+            if (dragState.pointerId != null && event?.pointerId !== dragState.pointerId) return;
+            const currentY = cancelled ? dragState.startY : (Number(event?.clientY) || 0);
+            const deltaY = currentY - dragState.startY;
+            panelShell.endMobileDrag(deltaY);
+            syncMobileDrawerState();
+            try {
+                header.releasePointerCapture?.(event.pointerId);
+            } catch {
+                // ignore pointer-capture gaps in older webviews
+            }
+            dragState = null;
+            event.preventDefault?.();
+            event.stopPropagation?.();
+        };
+
+        header.addEventListener('pointerup', finishDrag, { passive: false });
+        root.addEventListener('pointerup', finishDrag, { passive: false });
+        document.addEventListener('pointerup', finishDrag, { capture: true, passive: false });
+        header.addEventListener('pointercancel', (event) => finishDrag(event, { cancelled: true }), { passive: false });
+        root.addEventListener('pointercancel', (event) => finishDrag(event, { cancelled: true }), { passive: false });
+        document.addEventListener('pointercancel', (event) => finishDrag(event, { cancelled: true }), { capture: true, passive: false });
+        header.addEventListener('lostpointercapture', (event) => finishDrag(event, { cancelled: true }), { passive: false });
+    }
+
     const tripDetailRoot = document.createElement('div');
     tripDetailRoot.className = 'panel-trip-detail is-hidden';
     tripDetailRoot.setAttribute('data-panel-trip-detail', '');
@@ -349,6 +443,7 @@ export const createPanelMainView = ({
             // ignore
         }
 
+        syncMobileDrawerState();
         return shellLayout;
     };
 
