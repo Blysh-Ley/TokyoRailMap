@@ -21,7 +21,8 @@ assert.ok(packageJson.dependencies['@capacitor/app']);
 assert.ok(packageJson.devDependencies['@capacitor/cli']);
 
 assert.match(packageJson.scripts['cap:sync:android'], /npm run cap:web && npx cap sync android/);
-assert.match(packageJson.scripts['android:build'], /gradlew assembleDebug/);
+assert.match(packageJson.scripts['android:doctor'], /node scripts\/check-android-env\.mjs/);
+assert.match(packageJson.scripts['android:build'], /npm run android:doctor && npm run cap:sync:android && cd android && \.\/gradlew assembleDebug/);
 assert.match(packageJson.scripts['test:android'], /androidBackRuntime\.smoke\.mjs/);
 
 assert.match(indexHtml, /\.\/vendor\/maplibre-gl\/maplibre-gl\.js/);
