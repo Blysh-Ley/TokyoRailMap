@@ -43,6 +43,7 @@ for (const path of [
     'scripts/check-android-env.mjs',
     'scripts/run-android-gradle.mjs',
     'scripts/run-android-sdkmanager.mjs',
+    'docs/android-build.md',
     'android/app/src/main/java/com/blysh/tokyorailmap/MainActivity.java'
 ]) {
     assert.equal(existsSync(path), true, `${path} must exist`);
