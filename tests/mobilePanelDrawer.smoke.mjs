@@ -126,6 +126,11 @@ assert.match(panelViewSource, /body\.style\.touchAction\s*=\s*'pan-y'/);
 assert.match(panelSource, /createPanelMainView\(\{[\s\S]*panelShell,/);
 assert.match(panelSource, /collapseHalf/);
 assert.match(cssSource, /\[data-panel-root\]\[data-panel-presentation='mobile'\] \[data-panel-header\]::before/);
+assert.match(
+    cssSource,
+    /\[data-panel-root\]\[data-panel-presentation='mobile'\] \[data-panel-body\][\s\S]*padding-bottom:\s*var\(--mobile-bottom-nav-clearance\)[\s\S]*scroll-padding-bottom:\s*var\(--mobile-bottom-nav-clearance\)/,
+    'mobile panel body must reserve bottom space for the bottom navigation'
+);
 assert.match(cssSource, /background:\s*var\(--ui-border-strong\)/);
 assert.match(cssSource, /\.settings-top-timebar\.is-panel-drawer-collapsed/);
 

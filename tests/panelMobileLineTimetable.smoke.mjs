@@ -198,6 +198,12 @@ assert.match(
 
 assert.match(
     routeMapCssSource,
+    /\.route-map\.is-mobile-panel-placement \.route-map-body[\s\S]*padding-bottom:\s*var\(--mobile-bottom-nav-clearance,[\s\S]*scroll-padding-bottom:\s*var\(--mobile-bottom-nav-clearance,/,
+    'mobile route-map body must reserve bottom space for the bottom navigation'
+);
+
+assert.match(
+    routeMapCssSource,
     /\.route-map\.is-mobile-panel-placement \.route-map-mobile-drag-bar::before[\s\S]*var\(--ui-border-strong\)/,
     'mobile route-map drag bar must use shared token colors'
 );

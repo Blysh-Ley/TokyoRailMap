@@ -365,6 +365,11 @@ body[data-mobile-ui='1'] .mobile-menu-sheet {
     pointer-events: none;
 }
 
+html[data-mobile-ui='1'],
+body[data-mobile-ui='1'] {
+    --mobile-bottom-nav-clearance: calc(env(safe-area-inset-bottom, 0px) + 76px);
+}
+
 html[data-mobile-ui='1'] .mobile-menu-sheet:not(.is-hidden),
 body[data-mobile-ui='1'] .mobile-menu-sheet:not(.is-hidden) {
     pointer-events: auto;
@@ -504,7 +509,8 @@ body[data-mobile-ui='1'] .mobile-menu-content {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
-    padding: 8px 10px 12px;
+    padding: 8px 10px var(--mobile-bottom-nav-clearance);
+    scroll-padding-bottom: var(--mobile-bottom-nav-clearance);
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
 }
@@ -2397,6 +2403,8 @@ html[data-theme="dark"] .ms-show-icon-btn {
     overflow-x: hidden;
     overscroll-behavior: contain;
     touch-action: pan-y;
+    padding-bottom: var(--mobile-bottom-nav-clearance);
+    scroll-padding-bottom: var(--mobile-bottom-nav-clearance);
     -webkit-overflow-scrolling: touch;
 }
 
@@ -3456,6 +3464,8 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     flex: 1 1 auto;
     min-height: 0;
     max-height: none;
+    padding-bottom: calc(6px + var(--mobile-bottom-nav-clearance));
+    scroll-padding-bottom: var(--mobile-bottom-nav-clearance);
 }
 
 .panel-trip-detail-table {

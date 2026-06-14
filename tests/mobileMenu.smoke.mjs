@@ -277,6 +277,18 @@ assert.match(
 
 assert.match(
     cssSource,
+    /--mobile-bottom-nav-clearance:\s*calc\(env\(safe-area-inset-bottom,\s*0px\) \+ 76px\)/,
+    'mobile UI must expose a shared bottom-nav clearance variable'
+);
+
+assert.match(
+    cssSource,
+    /\.mobile-menu-content[\s\S]*padding:\s*8px 10px var\(--mobile-bottom-nav-clearance\)[\s\S]*scroll-padding-bottom:\s*var\(--mobile-bottom-nav-clearance\)/,
+    'mobile menu content must reserve bottom space for the bottom navigation'
+);
+
+assert.match(
+    cssSource,
     /\.mobile-menu-row[\s\S]*background:\s*var\(--ui-frosted-item-background\)/,
     'mobile menu rows must use shared frosted item tokens'
 );

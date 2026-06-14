@@ -255,6 +255,8 @@
     min-height: 0;
     max-height: none;
     height: auto;
+    padding-bottom: var(--mobile-bottom-nav-clearance, calc(env(safe-area-inset-bottom, 0px) + 76px));
+    scroll-padding-bottom: var(--mobile-bottom-nav-clearance, calc(env(safe-area-inset-bottom, 0px) + 76px));
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
 }

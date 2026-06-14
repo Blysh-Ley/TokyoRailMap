@@ -98,4 +98,10 @@ assert.match(
     'mobile trip detail back button must match the route-map return button shape using shared tokens'
 );
 
+assert.match(
+    cssSource,
+    /\.panel-trip-detail\[data-panel-trip-detail-presentation='mobile'\] \.panel-trip-detail-body[\s\S]*padding-bottom:\s*calc\(6px \+ var\(--mobile-bottom-nav-clearance\)\)[\s\S]*scroll-padding-bottom:\s*var\(--mobile-bottom-nav-clearance\)/,
+    'mobile trip detail body must reserve bottom space for the bottom navigation'
+);
+
 console.log('panel mobile trip detail stack smoke ok');
