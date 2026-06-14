@@ -134,6 +134,12 @@ assert.match(
 
 assert.match(
     mobileMenuSource,
+    /createCompanyLogoSlot[\s\S]*mobile-menu-company-logo-slot[\s\S]*button\.appendChild\(createCompanyLogoSlot/,
+    'mobile menu company rows must reserve a fixed logo slot before the text column'
+);
+
+assert.match(
+    mobileMenuSource,
     /onLineClick\?\.\(lineId,[\s\S]*mergedLineIds/,
     'mobile line rows must pass the shared menu line selection payload'
 );
@@ -208,6 +214,12 @@ assert.match(
     cssSource,
     /\.mobile-menu-company-logo[\s\S]*height:\s*28px[\s\S]*object-fit:\s*contain/,
     'mobile menu company logos must have stable mobile row sizing'
+);
+
+assert.match(
+    cssSource,
+    /\.mobile-menu-company-logo-slot[\s\S]*flex:\s*0 0 80px;[\s\S]*width:\s*80px;/,
+    'mobile menu company logo slot must occupy a fixed 80px column'
 );
 
 assert.match(

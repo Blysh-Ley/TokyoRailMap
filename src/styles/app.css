@@ -551,11 +551,22 @@ body[data-mobile-ui='1'] .mobile-menu-row-text {
     gap: 2px;
 }
 
+html[data-mobile-ui='1'] .mobile-menu-company-logo-slot,
+body[data-mobile-ui='1'] .mobile-menu-company-logo-slot {
+    flex: 0 0 80px;
+    width: 80px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    overflow: hidden;
+}
+
 html[data-mobile-ui='1'] .mobile-menu-company-logo,
 body[data-mobile-ui='1'] .mobile-menu-company-logo {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
     height: 28px;
-    max-width: 72px;
+    max-width: 80px;
     object-fit: contain;
     display: block;
 }

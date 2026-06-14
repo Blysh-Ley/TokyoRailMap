@@ -45,6 +45,13 @@ const createCompanyLogo = (doc, company) => {
     return img;
 };
 
+const createCompanyLogoSlot = (doc, company) => {
+    const slot = createEl(doc, 'span', 'mobile-menu-company-logo-slot', { 'aria-hidden': 'true' });
+    const logo = createCompanyLogo(doc, company);
+    if (logo) slot.appendChild(logo);
+    return slot;
+};
+
 export const createMobileMenu = ({
     doc = globalThis.document,
     win = globalThis.window,
@@ -140,14 +147,13 @@ export const createMobileMenu = ({
                 type: 'button',
                 'data-company-id': company.companyName
             });
-            const logo = createCompanyLogo(doc, company);
             const text = createEl(doc, 'span', 'mobile-menu-row-text');
             const main = createEl(doc, 'span', 'mobile-menu-row-main', { text: company.displayName || company.companyName });
             text.appendChild(main);
             if (company.type) {
                 text.appendChild(createEl(doc, 'span', 'mobile-menu-row-sub', { text: company.type }));
             }
-            if (logo) button.appendChild(logo);
+            button.appendChild(createCompanyLogoSlot(doc, company));
             button.appendChild(text);
             button.appendChild(createEl(doc, 'span', 'mobile-menu-row-chevron', { text: '›', 'aria-hidden': 'true' }));
             item.appendChild(button);
