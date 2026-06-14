@@ -1249,6 +1249,8 @@ export async function loadRailGeoDataFromDataFolder() {
             lineNameLabelsGeoJSON: buildLineNameLabelGeoJSON(linesGeoJSONByZoom[18]?.features || []),
             lineRoutingCoordsById: Object.fromEntries(Array.from(routingCoordsByRailwayId.entries())),
             stationsGeoJSON: { type: 'FeatureCollection', features: stationsFeatures },
+            rawRailways: railwayList,
+            rawStations: stationList,
             stationOffsetAlgorithmContext,
             diagnostics: {
                 // 可能包含重复 id；打印时建议按 id 做 max 聚合

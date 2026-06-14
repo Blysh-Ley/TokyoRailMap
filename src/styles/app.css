@@ -581,11 +581,28 @@ body[data-mobile-ui='1'] .mobile-menu-row-main {
     white-space: nowrap;
 }
 
-html[data-mobile-ui='1'] .mobile-menu-row-sub,
-body[data-mobile-ui='1'] .mobile-menu-row-sub {
+html[data-mobile-ui='1'] .mobile-menu-line-terminal,
+body[data-mobile-ui='1'] .mobile-menu-line-terminal {
+    flex: 0 1 112px;
+    max-width: 112px;
+    min-width: 56px;
+    display: block;
+    overflow: hidden;
     color: var(--ui-text-muted);
-    font-size: 12px;
+    font-size: 11px;
+    font-weight: 600;
     line-height: 1.2;
+    text-align: right;
+    opacity: 0.72;
+    pointer-events: none;
+}
+
+html[data-mobile-ui='1'] .mobile-menu-line-terminal-inner,
+body[data-mobile-ui='1'] .mobile-menu-line-terminal-inner {
+    display: inline-block;
+    max-width: none;
+    white-space: nowrap;
+    will-change: transform;
 }
 
 html[data-mobile-ui='1'] .mobile-menu-row-chevron,

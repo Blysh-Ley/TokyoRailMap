@@ -10,6 +10,7 @@ const lineIconsSource = readFileSync(join(root, 'src/lib/line-icons.js'), 'utf8'
 const menuSource = readFileSync(join(root, 'src/features/menu/menu.js'), 'utf8');
 const mobileMenuSource = readFileSync(join(root, 'src/features/menu/mobileMenu.js'), 'utf8');
 const mobileSheetSnapSource = readFileSync(join(root, 'src/ui/mobileSheetSnap.js'), 'utf8');
+const overflowMarqueeSource = readFileSync(join(root, 'src/ui/overflowMarquee.js'), 'utf8');
 const cssSource = readFileSync(join(root, 'src/styles/app.css'), 'utf8');
 
 const model = buildMenuModel({
@@ -21,12 +22,36 @@ const model = buildMenuModel({
         'JR-East.Yamanote': { company: 'JR-East', simplified: '山手線', modes: ['all'] },
         'JR-East.ShonanShinjuku': { company: 'JR-East', simplified: '湘南新宿ライン', modes: ['all'] },
         'JR-East.Freight': { company: 'JR-East', simplified: '货物线', modes: ['all'] },
-        'Toei.Oedo': { company: 'Toei', simplified: '大江戸線', modes: ['all'] }
+        'Toei.Oedo': { company: 'Toei', simplified: '大江戸線', modes: ['all'] },
+        'Toei.OedoBranch': { company: 'Toei', simplified: '大江戸線支线', modes: ['all'] }
     },
     companyLogoMap: {
         'JR-East': { zh: 'JR东日本', type: 'JR', img: ['jreast.png', 30] },
         Toei: { zh: '都营地下铁', type: 'Subway', img: ['duyinmetro.svg', 30] }
-    }
+    },
+    railwaysList: [
+        {
+            id: 'JR-East.Yamanote',
+            stations: ['JR-East.Yamanote.Osaki', 'JR-East.Yamanote.Shinagawa', 'JR-East.Yamanote.Osaki']
+        },
+        {
+            id: 'Toei.Oedo',
+            stations: ['Toei.Oedo.Tochomae', 'Toei.Oedo.Hikarigaoka']
+        },
+        {
+            id: 'Toei.OedoBranch',
+            stations: ['Toei.OedoBranch.BranchA', 'Toei.OedoBranch.BranchB']
+        }
+    ],
+    stationsList: [
+        { id: 'JR-East.Yamanote.Osaki', title: { 'zh-Hans': '大崎' } },
+        { id: 'JR-East.Yamanote.Shinagawa', title: { 'zh-Hans': '品川' } },
+        { id: 'Toei.Oedo.Tochomae', title: { 'zh-Hans': '都厅前' } },
+        { id: 'Toei.Oedo.Hikariagaoka', title: { 'zh-Hans': '光丘' } },
+        { id: 'Toei.Oedo.Hikarigaoka', title: { 'zh-Hans': '光丘' } },
+        { id: 'Toei.OedoBranch.BranchA', title: { 'zh-Hans': '支线A' } },
+        { id: 'Toei.OedoBranch.BranchB', title: { 'zh-Hans': '支线B' } }
+    ]
 });
 
 const jrEast = model.companies.find((company) => company.companyName === 'JR-East');
@@ -52,7 +77,17 @@ assert.equal(
     'menu model must hide freight-style rows before UI rendering'
 );
 assert.equal(model.mainLineIdByAnyLineId.get('Toei.Oedo'), 'Toei.Oedo');
-assert.deepEqual(model.mergedLineIdsByMenuLineId.get('Toei.Oedo'), ['Toei.Oedo']);
+assert.deepEqual(model.mergedLineIdsByMenuLineId.get('Toei.Oedo'), ['Toei.Oedo', 'Toei.OedoBranch']);
+assert.equal(
+    jrEast.lines.find((line) => line.lineId === 'JR-East.Yamanote')?.terminalText,
+    '环线',
+    'loop lines should show a quiet loop terminal label'
+);
+assert.equal(
+    model.companies.find((company) => company.companyName === 'Toei')?.lines.find((line) => line.lineId === 'Toei.Oedo')?.terminalText,
+    '都厅前 - 光丘',
+    'merged branch menu rows must show the main line terminal text only'
+);
 
 assert.match(
     menuSource,
@@ -110,6 +145,12 @@ assert.match(
 
 assert.match(
     appSource,
+    /buildMenuModel\(\{[\s\S]*railwaysList:\s*generatedRawRailways,[\s\S]*stationsList:\s*generatedRawStations/,
+    'app menu model must receive raw railway and station lists for mobile terminal labels'
+);
+
+assert.match(
+    appSource,
     /MOBILE_BOTTOM_NAV_EVENT[\s\S]*if \(item === 'menu'\) mobileMenu\?\.open\?\.\(\)/,
     'bottom nav Menu tab must open the mobile menu sheet'
 );
@@ -138,6 +179,12 @@ assert.match(
     'mobile menu company rows must reserve a fixed logo slot before the text column'
 );
 
+assert.doesNotMatch(
+    mobileMenuSource,
+    /mobile-menu-row-sub|条线路|company\.type/,
+    'mobile menu rows must not render secondary metadata under the row title'
+);
+
 assert.match(
     mobileMenuSource,
     /onLineClick\?\.\(lineId,[\s\S]*mergedLineIds/,
@@ -148,6 +195,30 @@ assert.match(
     mobileMenuSource,
     /line\.isVirtualThrough[\s\S]*prependLineIconElements\(button/,
     'mobile virtual through rows must call the shared fixed-code line icon helper'
+);
+
+assert.match(
+    mobileMenuSource,
+    /createLineTerminal[\s\S]*mobile-menu-line-terminal[\s\S]*mobile-menu-line-terminal-inner/,
+    'mobile line rows must render a subtle right-side terminal text region'
+);
+
+assert.match(
+    mobileMenuSource,
+    /scheduleOverflowTextMarquees\(content,[\s\S]*mobile-menu-line-terminal[\s\S]*respectReducedMotion:\s*false/,
+    'mobile line terminal overflow must call the shared marquee scheduler as functional text reveal'
+);
+
+assert.match(
+    overflowMarqueeSource,
+    /clientWidth[\s\S]*offsetWidth[\s\S]*getRectWidth/,
+    'overflow marquee must keep defensive width measurement fallbacks'
+);
+
+assert.match(
+    overflowMarqueeSource,
+    /typeof innerEl\.animate !== 'function'/,
+    'overflow marquee must check the actual inner element animation support'
 );
 
 assert.match(
@@ -220,6 +291,18 @@ assert.match(
     cssSource,
     /\.mobile-menu-company-logo-slot[\s\S]*flex:\s*0 0 80px;[\s\S]*width:\s*80px;/,
     'mobile menu company logo slot must occupy a fixed 80px column'
+);
+
+assert.match(
+    cssSource,
+    /\.mobile-menu-line-terminal[\s\S]*max-width:\s*112px;[\s\S]*color:\s*var\(--ui-text-muted\)/,
+    'mobile line terminal text must be constrained and visually secondary'
+);
+
+assert.match(
+    cssSource,
+    /\.mobile-menu-line-terminal-inner[\s\S]*white-space:\s*nowrap;[\s\S]*will-change:\s*transform/,
+    'mobile line terminal text must be ready for marquee animation'
 );
 
 assert.match(

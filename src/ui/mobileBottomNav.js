@@ -34,7 +34,7 @@ const ICONS = Object.freeze({
 
 export const MOBILE_BOTTOM_NAV_ITEMS = Object.freeze([
     { id: 'map', label: '地图', icon: 'map' },
-    { id: 'menu', label: 'Menu', icon: 'menu' },
+    { id: 'menu', label: '线路', icon: 'menu' },
     { id: 'search', label: '搜索', icon: 'search' },
     { id: 'settings', label: '设置', icon: 'settings' }
 ]);

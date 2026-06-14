@@ -368,6 +368,8 @@ const initMapApp = async () => {
     let generatedLineNameLabelsData = null;
     let currentLineNameLabelsData = null;
     let generatedStationsData = null;
+    let generatedRawRailways = null;
+    let generatedRawStations = null;
     let generatedStationOffsetAlgorithmContext = null;
     let multiSelectBaseTripPreviewSignature = '';
     let selectionLineTripPreviewSignature = '';
@@ -3066,12 +3068,16 @@ const initMapApp = async () => {
             lineNameLabelsGeoJSON,
             lineRoutingCoordsById,
             stationsGeoJSON,
+            rawRailways,
+            rawStations,
             stationOffsetAlgorithmContext,
             diagnostics
         } = await loadRailGeoDataFromDataFolder();
         generatedLinesData = linesGeoJSON;
         generatedLineNameLabelsData = lineNameLabelsGeoJSON;
         generatedStationsData = stationsGeoJSON;
+        generatedRawRailways = rawRailways;
+        generatedRawStations = rawStations;
         generatedStationOffsetAlgorithmContext = stationOffsetAlgorithmContext;
         transferStationIdsByStationId = await loadTransferStationIdMap();
 
@@ -3802,7 +3808,9 @@ const initMapApp = async () => {
             companyObj,
             linesObj,
             companyLogoMap,
-            railwaysOrderIndex
+            railwaysOrderIndex,
+            railwaysList: generatedRawRailways,
+            stationsList: generatedRawStations
         });
 
         const menuActionHandlers = {

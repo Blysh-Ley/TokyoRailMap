@@ -45,17 +45,69 @@ const findMergeTargetId = (branchLineId, existsFn) => {
 
 const computeLineDisplayName = (lineId, meta) => meta?.simplified || String(lineId);
 
+const pickTitleText = (titleObj, fallback = '') => {
+    const t = titleObj || {};
+    return (
+        String(t['zh-Hans'] || '').trim() ||
+        String(t.zh || '').trim() ||
+        String(t['zh-CN'] || '').trim() ||
+        String(t['zh-cn'] || '').trim() ||
+        String(t['zh-Hant'] || '').trim() ||
+        String(t.ja || '').trim() ||
+        String(t.en || '').trim() ||
+        String(fallback || '').trim()
+    );
+};
+
+const buildRailwayById = (railwaysList = []) => {
+    const map = new Map();
+    for (const row of Array.isArray(railwaysList) ? railwaysList : []) {
+        const id = String(row?.id || '').trim();
+        if (id && !map.has(id)) map.set(id, row);
+    }
+    return map;
+};
+
+const buildStationNameById = (stationsList = []) => {
+    const map = new Map();
+    for (const row of Array.isArray(stationsList) ? stationsList : []) {
+        const id = String(row?.id || '').trim();
+        if (!id || map.has(id)) continue;
+        map.set(id, pickTitleText(row?.title, id.split('.').pop() || id));
+    }
+    return map;
+};
+
+const getLineTerminalText = (lineId, railwayById, stationNameById) => {
+    const id = String(lineId || '').trim();
+    if (!id) return '';
+    const stationIds = railwayById instanceof Map ? railwayById.get(id)?.stations : null;
+    if (!Array.isArray(stationIds) || stationIds.length < 2) return '';
+    const firstId = String(stationIds[0] || '').trim();
+    const lastId = String(stationIds[stationIds.length - 1] || '').trim();
+    if (!firstId || !lastId) return '';
+    if (firstId === lastId) return '环线';
+    const firstName = String(stationNameById?.get?.(firstId) || firstId.split('.').pop() || firstId).trim();
+    const lastName = String(stationNameById?.get?.(lastId) || lastId.split('.').pop() || lastId).trim();
+    if (!firstName || !lastName) return '';
+    return `${firstName} - ${lastName}`;
+};
+
 export const buildMenuModel = ({
     companyObj = {},
     linesObj = {},
     companyLogoMap = {},
-    railwaysOrderIndex = null
+    railwaysOrderIndex = null,
+    railwaysList = [],
+    stationsList = []
 } = {}) => {
     const companiesRaw = Object.keys(companyObj || {});
     const rank = new Map(preferredOrder.map((name, idx) => [name, idx]));
     const originalIndex = new Map(companiesRaw.map((name, idx) => [name, idx]));
     const orderIndex = railwaysOrderIndex instanceof Map ? railwaysOrderIndex : null;
     const lines = Object.entries(linesObj || {});
+    const railwayById = buildRailwayById(railwaysList);
+    const stationNameById = buildStationNameById(stationsList);
     const mainLineIdByAnyLineId = new Map();
     const mergedLineIdsByMenuLineId = new Map();
     const lineDisplayNameById = new Map();
@@ -179,6 +231,7 @@ export const buildMenuModel = ({
             return {
                 lineId,
                 lineName: String(line.lineName),
+                terminalText: getLineTerminalText(lineId, railwayById, stationNameById),
                 isVirtualThrough: line.isVirtualThrough === true,
                 virtualCodes: line.virtualCodes || [],
                 virtualColor: String(line.virtualColor || ''),

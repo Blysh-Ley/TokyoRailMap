@@ -6,6 +6,7 @@ import {
     getMobileSheetOffsetForState,
     getNearestMobileSheetStateByOffset
 } from '../../ui/mobileSheetSnap.js';
+import { scheduleOverflowTextMarquees } from '../../ui/overflowMarquee.js';
 
 const toText = (value) => String(value ?? '').trim();
 
@@ -52,6 +53,17 @@ const createCompanyLogoSlot = (doc, company) => {
     return slot;
 };
 
+const createLineTerminal = (doc, terminalText) => {
+    const text = toText(terminalText);
+    if (!text) return null;
+    const root = createEl(doc, 'span', 'mobile-menu-line-terminal', {
+        'aria-label': text,
+        title: text
+    });
+    root.appendChild(createEl(doc, 'span', 'mobile-menu-line-terminal-inner', { text }));
+    return root;
+};
+
 export const createMobileMenu = ({
     doc = globalThis.document,
     win = globalThis.window,
@@ -90,7 +102,7 @@ export const createMobileMenu = ({
         'aria-label': '返回公司列表'
     });
     backBtn.textContent = '‹';
-    const title = createEl(doc, 'div', 'mobile-menu-title', { text: 'Menu' });
+    const title = createEl(doc, 'div', 'mobile-menu-title', { text: '运营公司' });
     const closeBtn = createEl(doc, 'button', 'mobile-menu-close-btn', {
         type: 'button',
         'aria-label': '关闭菜单'
@@ -109,6 +121,20 @@ export const createMobileMenu = ({
 
     const getPanelHeight = () => Math.max(1, Math.round(sheet.getBoundingClientRect?.().height || win?.innerHeight || 1));
     const getSnapOptions = () => ({ height: getPanelHeight(), peekPx: DEFAULT_MOBILE_SHEET_PEEK_PX });
+    const scheduleLineTerminalMarquees = () => {
+        if (screen !== 'lines') return false;
+        return scheduleOverflowTextMarquees(content, {
+            marqueeSelector: '.mobile-menu-line-terminal',
+            innerSelector: '.mobile-menu-line-terminal-inner',
+            scrollContainer: content,
+            maxAnimations: 6,
+            respectReducedMotion: false,
+            win,
+            holdMs: 1800,
+            speedPxPerSec: 24,
+            minTravelMs: 1200
+        });
+    };
 
     const applyDrawerState = (state = drawerState, { transition = true } = {}) => {
         drawerState = state === 'hidden'
@@ -135,7 +161,7 @@ export const createMobileMenu = ({
         backBtn.setAttribute('aria-hidden', screen === 'lines' ? 'false' : 'true');
         title.textContent = screen === 'lines'
             ? (findCompany(currentModel, activeCompanyName)?.displayName || activeCompanyName || '线路')
-            : 'Menu';
+            : '运营公司';
     };
 
     const renderCompanies = () => {
@@ -150,9 +176,6 @@ export const createMobileMenu = ({
             const text = createEl(doc, 'span', 'mobile-menu-row-text');
             const main = createEl(doc, 'span', 'mobile-menu-row-main', { text: company.displayName || company.companyName });
             text.appendChild(main);
-            if (company.type) {
-                text.appendChild(createEl(doc, 'span', 'mobile-menu-row-sub', { text: company.type }));
-            }
             button.appendChild(createCompanyLogoSlot(doc, company));
             button.appendChild(text);
             button.appendChild(createEl(doc, 'span', 'mobile-menu-row-chevron', { text: '›', 'aria-hidden': 'true' }));
@@ -188,10 +211,9 @@ export const createMobileMenu = ({
             });
             const text = createEl(doc, 'span', 'mobile-menu-row-text');
             text.appendChild(createEl(doc, 'span', 'mobile-menu-row-main', { text: line.lineName || line.lineId }));
-            if (line.mergedLineIds?.length > 1) {
-                text.appendChild(createEl(doc, 'span', 'mobile-menu-row-sub', { text: `${line.mergedLineIds.length} 条线路` }));
-            }
             button.appendChild(text);
+            const terminal = createLineTerminal(doc, line.terminalText);
+            if (terminal) button.appendChild(terminal);
             try {
                 if (line.isVirtualThrough) {
                     prependLineIconElements(button, {
@@ -210,6 +232,7 @@ export const createMobileMenu = ({
         }
         content.appendChild(list);
         setScreen('lines', company.companyName);
+        scheduleLineTerminalMarquees();
     };
 
     const close = () => {
@@ -355,6 +378,19 @@ export const createMobileMenu = ({
     dragBar.addEventListener('pointercancel', (event) => endDrag(event, { cancelled: true }), { passive: false });
     doc.addEventListener?.('pointercancel', (event) => endDrag(event, { cancelled: true }), { capture: true, passive: false });
     dragBar.addEventListener('lostpointercapture', (event) => endDrag(event, { cancelled: true }), { passive: false });
+
+    let terminalMarqueeScrollPending = false;
+    content.addEventListener('scroll', () => {
+        if (screen !== 'lines' || terminalMarqueeScrollPending) return;
+        terminalMarqueeScrollPending = true;
+        const raf = win?.requestAnimationFrame;
+        const run = () => {
+            terminalMarqueeScrollPending = false;
+            scheduleLineTerminalMarquees();
+        };
+        if (typeof raf === 'function') raf(run);
+        else run();
+    }, { passive: true });
 
     doc.addEventListener?.('keydown', (event) => {
         if (root.classList.contains('is-hidden')) return;

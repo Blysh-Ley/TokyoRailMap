@@ -14,7 +14,7 @@ assert.deepEqual(
 );
 assert.deepEqual(
     MOBILE_BOTTOM_NAV_ITEMS.map((item) => item.label),
-    ['地图', 'Menu', '搜索', '设置']
+    ['地图', '线路', '搜索', '设置']
 );
 
 const appSource = readFileSync(join(process.cwd(), 'src/app.js'), 'utf8');
