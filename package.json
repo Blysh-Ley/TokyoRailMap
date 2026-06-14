@@ -16,6 +16,8 @@
     "cap:sync:android": "npm run cap:web && npx cap sync android",
     "android:open": "npm run cap:sync:android && npx cap open android",
     "android:doctor": "node scripts/check-android-env.mjs",
+    "android:sdk:licenses": "node scripts/run-android-sdkmanager.mjs --licenses",
+    "android:sdk:install": "node scripts/run-android-sdkmanager.mjs \"platforms;android-36\" \"build-tools;36.0.0\" \"platform-tools\"",
     "android:build": "npm run android:doctor && npm run cap:sync:android && node scripts/run-android-gradle.mjs assembleDebug",
     "test:android": "node tests/androidPackaging.smoke.mjs && node tests/androidBackRuntime.smoke.mjs && node tests/panelMobileTripDetailStack.smoke.mjs && node tests/mobilePanelDrawer.smoke.mjs && node tests/panelMobileStackController.smoke.mjs && node tests/architectureBoundaryScanner.smoke.mjs",
     "check:touched": "node tests/helpers/checkTouchedJs.mjs",

@@ -22,6 +22,8 @@ assert.ok(packageJson.devDependencies['@capacitor/cli']);
 
 assert.match(packageJson.scripts['cap:sync:android'], /npm run cap:web && npx cap sync android/);
 assert.match(packageJson.scripts['android:doctor'], /node scripts\/check-android-env\.mjs/);
+assert.match(packageJson.scripts['android:sdk:licenses'], /node scripts\/run-android-sdkmanager\.mjs --licenses/);
+assert.match(packageJson.scripts['android:sdk:install'], /node scripts\/run-android-sdkmanager\.mjs "platforms;android-36" "build-tools;36\.0\.0" "platform-tools"/);
 assert.match(packageJson.scripts['android:build'], /npm run android:doctor && npm run cap:sync:android && node scripts\/run-android-gradle\.mjs assembleDebug/);
 assert.match(packageJson.scripts['test:android'], /androidBackRuntime\.smoke\.mjs/);
 
@@ -40,6 +42,7 @@ for (const path of [
     'scripts/android-env.mjs',
     'scripts/check-android-env.mjs',
     'scripts/run-android-gradle.mjs',
+    'scripts/run-android-sdkmanager.mjs',
     'android/app/src/main/java/com/blysh/tokyorailmap/MainActivity.java'
 ]) {
     assert.equal(existsSync(path), true, `${path} must exist`);

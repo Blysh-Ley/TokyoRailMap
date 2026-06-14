@@ -17,7 +17,7 @@ for (const [label, result] of checks) {
 if (!ok) {
     console.error('[android:doctor] Install missing SDK components before running npm run android:build.');
     if (resolved.sdk?.sdkmanager) {
-        console.error(`[android:doctor] Suggested command: JAVA_HOME="${resolved.java?.javaHome || '$JAVA_HOME'}" "${resolved.sdk.sdkmanager}" "platforms;android-36" "build-tools;36.0.0" "platform-tools"`);
+        console.error('[android:doctor] Suggested commands: npm run android:sdk:licenses && npm run android:sdk:install');
     }
     process.exit(1);
 }
