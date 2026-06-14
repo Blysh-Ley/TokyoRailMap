@@ -18,6 +18,12 @@ import { previewBranchesForLine } from '../../map/analyze_branch.js';
 import { isExcludedLineType, preferredOrder } from '../../lib/special-condition.js';
 import { getTransferStationIdsByStationId } from '../../app.js';
 import { MENU_THROUGH_LINE_IDS, THROUGH_SERVICE_CONFIGS_OBJECT, THROUGH_SERVICE_DISPLAY, isSUStations as isStationSUStations } from '../../lib/throughServiceManager.js';
+import {
+    DEFAULT_MOBILE_SHEET_PEEK_PX,
+    clampMobileSheetOffset,
+    getMobileSheetOffsetForState,
+    getNearestMobileSheetStateByOffset
+} from '../../ui/mobileSheetSnap.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -355,6 +361,7 @@ const setupRouteMapUi = () => {
     root.setAttribute('data-route-map', '');
     root.style.position = 'fixed';
     root.style.zIndex = '5000';
+    root.style.setProperty('--mobile-sheet-peek-height', `${DEFAULT_MOBILE_SHEET_PEEK_PX}px`);
 
     const mobileDragBar = document.createElement('div');
     mobileDragBar.className = 'route-map-mobile-drag-bar';
@@ -504,14 +511,17 @@ const setupRouteMapUi = () => {
         backBtn.setAttribute('aria-hidden', showBack ? 'false' : 'true');
     };
 
+    const getMobileSheetHeight = () => Math.max(1, Math.round(root.getBoundingClientRect?.().height || window.innerHeight || 1));
+    const getMobileSheetSnapOptions = () => ({ height: getMobileSheetHeight(), peekPx: DEFAULT_MOBILE_SHEET_PEEK_PX });
     const getMobileSheetOffset = (state = mobileSheetState) => {
-        if (state === 'expanded') return 0;
-        if (state === 'hidden') return Math.max(0, Math.round(root.getBoundingClientRect?.().height || window.innerHeight || 0));
-        return Math.max(0, Math.round((root.getBoundingClientRect?.().height || window.innerHeight || 0) * 0.5));
+        if (state === 'hidden') return getMobileSheetHeight();
+        return getMobileSheetOffsetForState(state, getMobileSheetSnapOptions());
     };
 
     const applyMobileSheetState = (state = mobileSheetState, { transition = true } = {}) => {
-        mobileSheetState = state === 'expanded' ? 'expanded' : (state === 'hidden' ? 'hidden' : 'half');
+        mobileSheetState = state === 'expanded'
+            ? 'expanded'
+            : (state === 'collapsed' ? 'collapsed' : (state === 'hidden' ? 'hidden' : 'half'));
         root.style.transition = transition ? '' : 'none';
         if (!isMobilePanelPlacementActive()) {
             root.removeAttribute('data-route-map-mobile-state');
@@ -522,8 +532,10 @@ const setupRouteMapUi = () => {
             root.style.transform = 'translateY(0)';
         } else if (mobileSheetState === 'hidden') {
             root.style.transform = 'translateY(calc(100% + 24px))';
+        } else if (mobileSheetState === 'collapsed') {
+            root.style.transform = `translateY(${getMobileSheetOffset('collapsed')}px)`;
         } else {
-            root.style.transform = 'translateY(50%)';
+            root.style.transform = `translateY(${getMobileSheetOffset('half')}px)`;
         }
     };
 
@@ -552,9 +564,12 @@ const setupRouteMapUi = () => {
         if (!mobileDragState) return;
         if (mobileDragState.pointerId != null && event?.pointerId !== mobileDragState.pointerId) return;
         const deltaY = (Number(event?.clientY) || 0) - mobileDragState.startY;
-        const maxOffset = Math.max(0, Math.round(mobileDragState.rootHeight * 0.5));
-        const nextOffset = Math.max(0, Math.min(maxOffset, mobileDragState.startOffset + deltaY));
+        const nextOffset = clampMobileSheetOffset(mobileDragState.startOffset + deltaY, {
+            height: mobileDragState.rootHeight,
+            peekPx: DEFAULT_MOBILE_SHEET_PEEK_PX
+        });
         root.style.transform = `translateY(${nextOffset}px)`;
+        mobileDragState.currentOffset = nextOffset;
         event?.preventDefault?.();
         event?.stopPropagation?.();
     };
@@ -565,6 +580,18 @@ const setupRouteMapUi = () => {
         const currentY = cancelled ? mobileDragState.startY : (Number(event?.clientY) || 0);
         const deltaY = currentY - mobileDragState.startY;
         const startState = mobileSheetState;
+        const currentOffset = cancelled
+            ? mobileDragState.startOffset
+            : (mobileDragState.currentOffset ?? clampMobileSheetOffset(mobileDragState.startOffset + deltaY, {
+                height: mobileDragState.rootHeight,
+                peekPx: DEFAULT_MOBILE_SHEET_PEEK_PX
+            }));
+        const targetState = cancelled
+            ? startState
+            : getNearestMobileSheetStateByOffset(currentOffset, {
+                height: mobileDragState.rootHeight,
+                peekPx: DEFAULT_MOBILE_SHEET_PEEK_PX
+            });
         mobileDragState = null;
         root.removeAttribute('data-route-map-mobile-dragging');
         root.style.transition = '';
@@ -574,13 +601,7 @@ const setupRouteMapUi = () => {
             // ignore pointer-capture gaps
         }
 
-        if (deltaY < -40) {
-            applyMobileSheetState('expanded');
-        } else if (deltaY > 40) {
-            applyMobileSheetState('half');
-        } else {
-            applyMobileSheetState(startState);
-        }
+        applyMobileSheetState(targetState);
         event?.preventDefault?.();
         event?.stopPropagation?.();
     };

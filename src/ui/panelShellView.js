@@ -1,7 +1,13 @@
+import {
+    DEFAULT_MOBILE_SHEET_PEEK_PX,
+    clampMobileSheetOffset,
+    getMobileSheetOffsetForState,
+    getNearestMobileSheetStateByOffset
+} from './mobileSheetSnap.js';
+
 const DEFAULT_DESKTOP_HIDDEN_TRANSFORM = 'translateX(calc(100% + 24px))';
 const DEFAULT_MOBILE_HIDDEN_TRANSFORM = 'translateY(calc(100% + 24px))';
-const DEFAULT_MOBILE_COLLAPSED_PEEK_PX = 86;
-const MOBILE_DRAG_THRESHOLD_PX = 48;
+const DEFAULT_MOBILE_COLLAPSED_PEEK_PX = DEFAULT_MOBILE_SHEET_PEEK_PX;
 
 const isWithinAnyElement = (target, elements = []) => (
     elements.some((element) => Boolean(element && target && element.contains?.(target)))
@@ -118,8 +124,6 @@ export const createMobilePanelShell = ({
     let lastLayoutHeight = 0;
     let dragStartOffset = 0;
     let dragCurrentOffset = 0;
-    let dragStartedCollapsed = false;
-    let dragStartedHalf = false;
     const peekPx = Number.isFinite(collapsedPeekPx) ? Math.max(48, Number(collapsedPeekPx)) : DEFAULT_MOBILE_COLLAPSED_PEEK_PX;
     root.setAttribute('data-panel-root', '');
     root.setAttribute('data-panel-presentation', 'mobile');
@@ -136,9 +140,10 @@ export const createMobilePanelShell = ({
     root.style.overflow = 'hidden';
     root.style.setProperty('--panel-mobile-peek-height', `${peekPx}px`);
 
-    const getCollapsedOffset = () => Math.max(0, lastLayoutHeight - peekPx);
-    const getHalfOffset = () => Math.max(0, Math.round(lastLayoutHeight * 0.5));
-    const clampOffset = (value) => Math.max(0, Math.min(getCollapsedOffset(), Number(value) || 0));
+    const getSnapOptions = () => ({ height: lastLayoutHeight || Number(win?.innerHeight) || 1, peekPx });
+    const getCollapsedOffset = () => getMobileSheetOffsetForState('collapsed', getSnapOptions());
+    const getHalfOffset = () => getMobileSheetOffsetForState('half', getSnapOptions());
+    const clampOffset = (value) => clampMobileSheetOffset(value, getSnapOptions());
     const setTransitionEnabled = (enabled) => {
         root.style.transition = enabled ? 'transform 0.22s ease' : 'none';
     };
@@ -219,8 +224,6 @@ export const createMobilePanelShell = ({
         expand,
         beginMobileDrag() {
             if (!visible) return false;
-            dragStartedCollapsed = collapsed === true;
-            dragStartedHalf = halfCollapsed === true;
             dragStartOffset = collapsed ? getCollapsedOffset() : (halfCollapsed ? getHalfOffset() : 0);
             dragCurrentOffset = dragStartOffset;
             root.setAttribute('data-panel-mobile-dragging', '1');
@@ -238,42 +241,19 @@ export const createMobilePanelShell = ({
             root.removeAttribute('data-panel-mobile-dragging');
             setTransitionEnabled(true);
 
-            const dragDelta = Number(deltaY) || 0;
-            const shouldExpand = dragStartedCollapsed && dragDelta < -MOBILE_DRAG_THRESHOLD_PX;
-            const shouldCollapse = !dragStartedCollapsed && !dragStartedHalf && (
-                dragDelta > MOBILE_DRAG_THRESHOLD_PX ||
-                dragCurrentOffset > getCollapsedOffset() * 0.4
-            );
-            const shouldExpandFromHalf = dragStartedHalf && dragDelta < -MOBILE_DRAG_THRESHOLD_PX;
-            const shouldCollapseFromHalf = dragStartedHalf && dragDelta > MOBILE_DRAG_THRESHOLD_PX;
-
-            if (shouldExpand || shouldExpandFromHalf) {
+            const targetState = getNearestMobileSheetStateByOffset(dragCurrentOffset, getSnapOptions());
+            if (targetState === 'expanded') {
                 expand();
                 return 'expanded';
             }
 
-            if (shouldCollapseFromHalf) {
-                collapse();
-                return 'collapsed';
-            }
-
-            if (shouldCollapse) {
-                collapse();
-                return 'collapsed';
-            }
-
-            if (dragStartedCollapsed) {
-                collapse();
-                return 'collapsed';
-            }
-
-            if (dragStartedHalf) {
+            if (targetState === 'half') {
                 collapseHalf();
                 return 'half';
             }
 
-            expand();
-            return 'expanded';
+            collapse();
+            return 'collapsed';
         },
         getClickRegion: createPanelShellClickRegion(contains),
         getMobileState: () => (visible ? (collapsed ? 'collapsed' : (halfCollapsed ? 'half' : 'expanded')) : 'hidden'),

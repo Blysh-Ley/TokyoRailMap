@@ -209,6 +209,9 @@
 .route-map.is-mobile-panel-placement[data-route-map-mobile-state='half'] {
     transform: translateY(50%);
 }
+.route-map.is-mobile-panel-placement[data-route-map-mobile-state='collapsed'] {
+    transform: translateY(calc(100% - var(--mobile-sheet-peek-height, 86px)));
+}
 .route-map.is-mobile-panel-placement[data-route-map-mobile-state='expanded'] {
     transform: translateY(0);
 }

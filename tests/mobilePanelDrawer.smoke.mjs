@@ -70,7 +70,20 @@ assert.equal(shell.getMobileState(), 'expanded');
 
 assert.equal(shell.beginMobileDrag(), true);
 assert.equal(shell.updateMobileDrag(120), true);
-assert.equal(shell.endMobileDrag(120), 'collapsed');
+assert.equal(shell.endMobileDrag(120), 'expanded');
+assert.equal(shell.getMobileState(), 'expanded');
+
+assert.equal(shell.beginMobileDrag(), true);
+assert.equal(shell.updateMobileDrag(450), true);
+assert.equal(shell.endMobileDrag(450), 'half');
+assert.equal(shell.isHalfCollapsed(), true);
+assert.equal(shell.getMobileState(), 'half');
+assert.equal(shell.root.style.transform, 'translateY(440px)');
+
+shell.expand();
+assert.equal(shell.beginMobileDrag(), true);
+assert.equal(shell.updateMobileDrag(780), true);
+assert.equal(shell.endMobileDrag(780), 'collapsed');
 assert.equal(shell.isVisible(), true);
 assert.equal(shell.isCollapsed(), true);
 assert.equal(shell.getMobileState(), 'collapsed');
@@ -78,9 +91,15 @@ assert.equal(shell.root.style.transform, 'translateY(794px)');
 
 assert.equal(shell.beginMobileDrag(), true);
 assert.equal(shell.updateMobileDrag(-120), true);
-assert.equal(shell.endMobileDrag(-120), 'expanded');
+assert.equal(shell.endMobileDrag(-120), 'collapsed');
+assert.equal(shell.getMobileState(), 'collapsed');
+
+assert.equal(shell.beginMobileDrag(), true);
+assert.equal(shell.updateMobileDrag(-360), true);
+assert.equal(shell.endMobileDrag(-360), 'half');
 assert.equal(shell.isCollapsed(), false);
-assert.equal(shell.root.style.transform, 'translateY(0)');
+assert.equal(shell.isHalfCollapsed(), true);
+assert.equal(shell.root.style.transform, 'translateY(440px)');
 
 shell.hide();
 assert.equal(shell.isVisible(), false);

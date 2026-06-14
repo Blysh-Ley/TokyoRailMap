@@ -9,6 +9,7 @@ const appSource = readFileSync(join(root, 'src/app.js'), 'utf8');
 const lineIconsSource = readFileSync(join(root, 'src/lib/line-icons.js'), 'utf8');
 const menuSource = readFileSync(join(root, 'src/features/menu/menu.js'), 'utf8');
 const mobileMenuSource = readFileSync(join(root, 'src/features/menu/mobileMenu.js'), 'utf8');
+const mobileSheetSnapSource = readFileSync(join(root, 'src/ui/mobileSheetSnap.js'), 'utf8');
 const cssSource = readFileSync(join(root, 'src/styles/app.css'), 'utf8');
 
 const model = buildMenuModel({
@@ -156,6 +157,18 @@ assert.match(
 );
 
 assert.match(
+    mobileSheetSnapSource,
+    /getNearestMobileSheetStateByOffset/,
+    'mobile drawer snap points must be centralized for shared sheet behavior'
+);
+
+assert.match(
+    mobileMenuSource,
+    /getNearestMobileSheetStateByOffset/,
+    'mobile menu dragging must snap to the shared expanded half collapsed states'
+);
+
+assert.match(
     mobileMenuSource,
     /doc\.addEventListener\?\.\('pointermove',\s*updateDrag/,
     'mobile menu dragging must continue when the pointer leaves the bar'
@@ -181,6 +194,12 @@ assert.match(
 
 assert.match(
     cssSource,
+    /\.mobile-menu-panel[\s\S]*bottom:\s*0;[\s\S]*height:\s*min\(88vh,\s*calc\(100vh - env\(safe-area-inset-top,\s*0px\) - 12px\)\)/,
+    'mobile menu panel must use the panel-style bottom-attached drawer layout'
+);
+
+assert.match(
+    cssSource,
     /\.mobile-menu-row[\s\S]*background:\s*var\(--ui-frosted-item-background\)/,
     'mobile menu rows must use shared frosted item tokens'
 );
@@ -195,6 +214,18 @@ assert.match(
     cssSource,
     /\.mobile-menu-drag-bar[\s\S]*touch-action:\s*none/,
     'mobile menu drag bar must opt out of scroll gestures while dragging'
+);
+
+assert.match(
+    cssSource,
+    /\.mobile-menu-sheet\[data-mobile-menu-state='half'\][\s\S]*translateY\(50%\)/,
+    'mobile menu must expose a half-collapsed drawer state'
+);
+
+assert.match(
+    cssSource,
+    /\.mobile-menu-sheet\[data-mobile-menu-state='collapsed'\][\s\S]*var\(--mobile-sheet-peek-height,\s*86px\)/,
+    'mobile menu must expose a collapsed drawer state that leaves a small top strip'
 );
 
 assert.match(

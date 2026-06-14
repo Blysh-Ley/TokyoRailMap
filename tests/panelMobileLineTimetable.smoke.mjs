@@ -8,6 +8,7 @@ const panelRouteMapBridgeSource = readFileSync(join(root, 'src/features/panel/pa
 const routeMapSource = readFileSync(join(root, 'src/features/route-map/route-map-ui.js'), 'utf8');
 const routeMapCssSource = readFileSync(join(root, 'src/styles/route-map.css'), 'utf8');
 const appSource = readFileSync(join(root, 'src/app.js'), 'utf8');
+const mobileSheetSnapSource = readFileSync(join(root, 'src/ui/mobileSheetSnap.js'), 'utf8');
 
 assert.match(
     panelSource,
@@ -154,6 +155,18 @@ assert.match(
 );
 
 assert.match(
+    mobileSheetSnapSource,
+    /getNearestMobileSheetStateByOffset/,
+    'mobile drawer snap points must be centralized for route-map and panel sheets'
+);
+
+assert.match(
+    routeMapSource,
+    /getNearestMobileSheetStateByOffset/,
+    'mobile route-map line panel drag must snap to shared expanded half collapsed states'
+);
+
+assert.match(
     routeMapSource,
     /document\.addEventListener\('pointermove', updateMobileSheetDrag/,
     'mobile route-map line panel drag must keep working when the pointer leaves the bar'
@@ -175,6 +188,12 @@ assert.match(
     routeMapCssSource,
     /\.route-map\.is-mobile-panel-placement\[data-route-map-mobile-state='half'\][\s\S]*translateY\(50%\)/,
     'mobile route-map line panel must default to a half-collapsed drawer state'
+);
+
+assert.match(
+    routeMapCssSource,
+    /\.route-map\.is-mobile-panel-placement\[data-route-map-mobile-state='collapsed'\][\s\S]*var\(--mobile-sheet-peek-height,\s*86px\)/,
+    'mobile route-map line panel must expose a collapsed drawer state that leaves a small top strip'
 );
 
 assert.match(
