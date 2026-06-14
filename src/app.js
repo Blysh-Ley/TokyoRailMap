@@ -108,6 +108,7 @@ import { createJourneyPickPinElement } from './ui/journeyPickPinAdapter.js';
 import { createRouteEndpointPopupRuntime } from './ui/routeEndpointPopups.js';
 import { createRoutePreviewViewportController } from './ui/routePreviewViewport.js';
 import { createBasemapThemeRuntime } from './app/basemapThemeRuntime.js';
+import { installAndroidBackRuntime } from './app/androidBackRuntime.js';
 import { registerDebugZoomTools } from './app/debugZoomTools.js';
 import { bindMapStartup } from './app/mapStartup.js';
 import {
@@ -2617,6 +2618,9 @@ const initMapApp = async () => {
         onDirPreviewLeave: () => {
             clearDirHeaderPreview();
         }
+    });
+    installAndroidBackRuntime({
+        handleBackIntent: () => panel?.handlePanelBackIntent?.() === true
     });
 
     const getStationLabelBelowIds = () => {

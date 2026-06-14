@@ -4208,6 +4208,29 @@ export function createPanel(options = {}) {
         scheduleCatalogRefresh();
     };
 
+    const handlePanelBackIntent = () => {
+        if (!isMobilePanelPresentation()) return false;
+
+        const state = mobilePanelStack.getState();
+        if (state?.screen === PANEL_MOBILE_STACK_SCREENS.TRIP_DETAIL) {
+            hideTripDetail();
+            lastTripDetailKey = null;
+            return true;
+        }
+
+        if (panelShell.isHalfCollapsed?.() || panelShell.isCollapsed?.()) {
+            panelShell.expand?.();
+            return true;
+        }
+
+        if (panelShell.isVisible?.()) {
+            hide();
+            return true;
+        }
+
+        return false;
+    };
+
     const setTitle = (text, subtitle = '') => {
         const mainText = typeof text === 'object' && text !== null ? toText(text.main || text.text || text.name || '') : toText(text);
         const subText = typeof text === 'object' && text !== null ? toText(text.sub || text.subtitle || '') : toText(subtitle);
@@ -4393,6 +4416,7 @@ export function createPanel(options = {}) {
         hide,
         setTitle,
         setHoverPreviewEnabled,
+        handlePanelBackIntent,
         setTimetableViewMode: (mode) => applyTimetableViewMode(mode, { rerender: true }),
         showForStationProps,
         scrollToLineId: (...args) => panelScrollRuntime.scrollToLineId(...args),

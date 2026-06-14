@@ -58,6 +58,12 @@ assert.match(
 
 assert.match(
     panelSource,
+    /handlePanelBackIntent[\s\S]*PANEL_MOBILE_STACK_SCREENS\.TRIP_DETAIL[\s\S]*hideTripDetail\(\)/,
+    'Android/system back intent must return from mobile trip detail through the same panel path'
+);
+
+assert.match(
+    panelSource,
     /tripDetailBackBtn\?\..*hideTripDetail\(\)/s,
     'mobile trip detail back button must hide the trip detail'
 );
