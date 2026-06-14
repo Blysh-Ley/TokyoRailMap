@@ -533,10 +533,20 @@ body[data-mobile-ui='1'] .mobile-menu-row:hover {
 
 html[data-mobile-ui='1'] .mobile-menu-row-text,
 body[data-mobile-ui='1'] .mobile-menu-row-text {
+    flex: 1 1 auto;
     min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 2px;
+}
+
+html[data-mobile-ui='1'] .mobile-menu-company-logo,
+body[data-mobile-ui='1'] .mobile-menu-company-logo {
+    flex: 0 0 auto;
+    height: 28px;
+    max-width: 72px;
+    object-fit: contain;
+    display: block;
 }
 
 html[data-mobile-ui='1'] .mobile-menu-row-main,

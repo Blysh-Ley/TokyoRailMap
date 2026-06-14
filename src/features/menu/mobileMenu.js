@@ -1,4 +1,5 @@
 import { ensureLineIconForRwLineContent } from '../../lib/line-icons.js';
+import { getCompanyLogoCandidates, setImageElementFromCache } from '../../lib/fetch.js';
 
 const toText = (value) => String(value ?? '').trim();
 
@@ -18,6 +19,25 @@ const findCompany = (model, companyName) => (
         .find((company) => toText(company?.companyName) === toText(companyName))
     || null
 );
+
+const createCompanyLogo = (doc, company) => {
+    const logoFile = toText(company?.logoFile);
+    if (!logoFile) return null;
+    const img = createEl(doc, 'img', 'mobile-menu-company-logo', {
+        alt: company?.displayName || company?.companyName || ''
+    });
+    if (company?.shouldReverseLogo) img.classList.add('reverse-color');
+    img.decoding = 'async';
+    img.loading = 'eager';
+    const logoWidth = Number(company?.logoWidth);
+    if (Number.isFinite(logoWidth) && logoWidth > 0) {
+        img.style.width = `${Math.max(20, Math.min(72, Math.round(logoWidth)))}px`;
+    }
+    setImageElementFromCache(img, getCompanyLogoCandidates(logoFile), {
+        cacheKey: `mobileMenuCompanyLogo:${logoFile}`
+    }).catch(() => null);
+    return img;
+};
 
 export const createMobileMenu = ({
     doc = globalThis.document,
@@ -106,12 +126,14 @@ export const createMobileMenu = ({
                 type: 'button',
                 'data-company-id': company.companyName
             });
+            const logo = createCompanyLogo(doc, company);
             const text = createEl(doc, 'span', 'mobile-menu-row-text');
             const main = createEl(doc, 'span', 'mobile-menu-row-main', { text: company.displayName || company.companyName });
             text.appendChild(main);
             if (company.type) {
                 text.appendChild(createEl(doc, 'span', 'mobile-menu-row-sub', { text: company.type }));
             }
+            if (logo) button.appendChild(logo);
             button.appendChild(text);
             button.appendChild(createEl(doc, 'span', 'mobile-menu-row-chevron', { text: '›', 'aria-hidden': 'true' }));
             item.appendChild(button);

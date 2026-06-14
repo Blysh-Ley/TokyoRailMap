@@ -22,14 +22,15 @@ const model = buildMenuModel({
         'Toei.Oedo': { company: 'Toei', simplified: '大江戸線', modes: ['all'] }
     },
     companyLogoMap: {
-        'JR-East': { zh: 'JR东日本', type: 'JR' },
-        Toei: { zh: '都营地下铁', type: 'Subway' }
+        'JR-East': { zh: 'JR东日本', type: 'JR', img: ['jreast.png', 30] },
+        Toei: { zh: '都营地下铁', type: 'Subway', img: ['duyinmetro.svg', 30] }
     }
 });
 
 const jrEast = model.companies.find((company) => company.companyName === 'JR-East');
 assert.ok(jrEast, 'menu model must include JR-East company');
 assert.equal(jrEast.displayName, 'JR东日本');
+assert.equal(jrEast.logoFile, 'jreast.png');
 assert.ok(
     jrEast.lines.some((line) => String(line.lineId).startsWith('TokyoRail.MenuThrough.')),
     'JR-East mobile menu model must include virtual through-service menu rows'
@@ -109,6 +110,12 @@ assert.match(
 
 assert.match(
     mobileMenuSource,
+    /createCompanyLogo[\s\S]*mobile-menu-company-logo[\s\S]*setImageElementFromCache/,
+    'mobile menu company rows must render company logos through the shared image cache'
+);
+
+assert.match(
+    mobileMenuSource,
     /onLineClick\?\.\(lineId,[\s\S]*mergedLineIds/,
     'mobile line rows must pass the shared menu line selection payload'
 );
@@ -153,6 +160,12 @@ assert.match(
     cssSource,
     /\.mobile-menu-row[\s\S]*background:\s*var\(--ui-frosted-item-background\)/,
     'mobile menu rows must use shared frosted item tokens'
+);
+
+assert.match(
+    cssSource,
+    /\.mobile-menu-company-logo[\s\S]*height:\s*28px[\s\S]*object-fit:\s*contain/,
+    'mobile menu company logos must have stable mobile row sizing'
 );
 
 assert.match(
