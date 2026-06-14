@@ -22,7 +22,7 @@ assert.ok(packageJson.devDependencies['@capacitor/cli']);
 
 assert.match(packageJson.scripts['cap:sync:android'], /npm run cap:web && npx cap sync android/);
 assert.match(packageJson.scripts['android:doctor'], /node scripts\/check-android-env\.mjs/);
-assert.match(packageJson.scripts['android:build'], /npm run android:doctor && npm run cap:sync:android && cd android && \.\/gradlew assembleDebug/);
+assert.match(packageJson.scripts['android:build'], /npm run android:doctor && npm run cap:sync:android && node scripts\/run-android-gradle\.mjs assembleDebug/);
 assert.match(packageJson.scripts['test:android'], /androidBackRuntime\.smoke\.mjs/);
 
 assert.match(indexHtml, /\.\/vendor\/maplibre-gl\/maplibre-gl\.js/);
@@ -37,6 +37,9 @@ for (const path of [
     'vendor/maplibre-gl/maplibre-gl.css',
     'vendor/japanese-holidays/japanese-holidays.min.js',
     'vendor/jszip/jszip.min.js',
+    'scripts/android-env.mjs',
+    'scripts/check-android-env.mjs',
+    'scripts/run-android-gradle.mjs',
     'android/app/src/main/java/com/blysh/tokyorailmap/MainActivity.java'
 ]) {
     assert.equal(existsSync(path), true, `${path} must exist`);
