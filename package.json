@@ -11,6 +11,11 @@
     "bp": "npm version patch && npm run buildall",
     "bmm": "npm version minor && npm run buildall",
     "bm": "npm version major && npm run buildall",
+    "web:vendor": "node scripts/sync-web-vendor.mjs",
+    "cap:web": "npm run web:vendor && node scripts/sync-capacitor-web.mjs",
+    "cap:sync:android": "npm run cap:web && npx cap sync android",
+    "android:open": "npm run cap:sync:android && npx cap open android",
+    "android:build": "npm run cap:sync:android && cd android && ./gradlew assembleDebug",
     "check:touched": "node tests/helpers/checkTouchedJs.mjs",
     "test": "node tests/routePlanningDomain.smoke.mjs && node tests/hoverHighlightBoundary.smoke.mjs && node tests/routePreviewSelection.smoke.mjs && node tests/lineHighlightVirtualTripBuilder.smoke.mjs && node tests/tripPreviewBuilderOffset.smoke.mjs && node tests/tripPreviewLoopOffsetOrientation.smoke.mjs && node tests/appLineSelectionStyle.smoke.mjs && node tests/lineHighlightTripPreviewConvergence.smoke.mjs && node tests/yurakuchoFukutoshinCorridorGeometry.smoke.mjs && node tests/selectionEffectsController.smoke.mjs && node tests/selectionStoreFlow.smoke.mjs && node tests/selectionBadgeAdapter.smoke.mjs && node tests/baseHighlightEventBridge.smoke.mjs && node tests/appRuntimeHelpers.smoke.mjs && node tests/appMapStartup.smoke.mjs && node tests/appBasemapThemeRuntime.smoke.mjs && node tests/appSettingsControlsRuntime.smoke.mjs && node tests/appMultiSelectEventsRuntime.smoke.mjs && node tests/architectureBoundaryScanner.smoke.mjs && node tests/uiArchitectureBudgets.smoke.mjs && node tests/refactorE2EChecklist.smoke.mjs && node tests/finalArchitectureGate.smoke.mjs && node tests/panelFinalDecouplingGate.smoke.mjs && node tests/panelSearchBoundary.smoke.mjs && node tests/panelShellContentBoundary.smoke.mjs && node tests/panelSearchSelectionCallbacks.smoke.mjs && node tests/stationOffsetRuntimeController.smoke.mjs && node tests/stationLabelChipsAdapter.smoke.mjs && node tests/layerFeatureTransferCapsuleScheduling.smoke.mjs && node tests/layerRuntimeBoundary.smoke.mjs && node tests/journeyCaptureExport.smoke.mjs && node tests/journeyRuntimeAdapter.smoke.mjs && node tests/reachableStopsRuntime.smoke.mjs"
   },
@@ -83,11 +88,18 @@
     }
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.0",
     "electron": "^41.2.1",
     "electron-builder": "^24.13.3",
     "live-server": "^1.2.2"
   },
   "dependencies": {
-    "electron-updater": "^6.8.3"
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/core": "^8.4.0",
+    "electron-updater": "^6.8.3",
+    "japanese-holidays": "^1.0.10",
+    "jszip": "^3.10.1",
+    "maplibre-gl": "3.6.2"
   }
 }

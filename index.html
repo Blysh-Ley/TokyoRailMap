@@ -3,12 +3,12 @@
 <head>
     <meta charset="utf-8" />
     <title>东京铁路网</title>
-    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-    <script defer src="https://unpkg.com/japanese-holidays/lib/japanese-holidays.min.js"></script>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+    <script defer src="./vendor/japanese-holidays/japanese-holidays.min.js"></script>
     
     <!-- 1. 引入 MapLibre GL JS 的 CSS 和 JS -->
-    <script defer src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
-    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <script defer src="./vendor/maplibre-gl/maplibre-gl.js"></script>
+    <link href="./vendor/maplibre-gl/maplibre-gl.css" rel="stylesheet" />
     
     <link rel="stylesheet" href="./src/styles/tokens.css">
     <link rel="stylesheet" href="./src/styles/app.css">
@@ -44,7 +44,7 @@
 </script>
 
 <!-- 打包导出（SVG + PNG 背景） -->
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="./vendor/jszip/jszip.min.js"></script>
 
 <!-- 导出：生成 PNG 背景 + SVG 覆盖，并打包下载 -->
 <script src="./src/features/print/print.js?v=tok33-hotfix-1"></script>

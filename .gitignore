@@ -12,3 +12,6 @@ data/**/*.bak
 .github
 dist/
 node_modules/
+.npm-cache/
+/www/
+/android/app/src/main/assets/public/

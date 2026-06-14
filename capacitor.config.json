@@ -1,0 +1,8 @@
+{
+  "appId": "com.blysh.tokyorailmap",
+  "appName": "TokyoRailMap",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
