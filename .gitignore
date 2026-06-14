@@ -34,6 +34,28 @@ node_modules/
 .npm-cache/
 /www/
 
+# Native/mobile/desktop app packaging sources
+/android/
+/ios/
+/capacitor.config.*
+/main.js
+/src/preload.js
+/electron-builder.*
+/electron.vite.config.*
+
+# App packaging icons generated from the website icon
+/icons/icon.png
+/icons/icon.ico
+/icons/icon.icns
+
+# Native/mobile/desktop packaging scripts
+/scripts/android-env.mjs
+/scripts/check-android-env.mjs
+/scripts/generate-icons.mjs
+/scripts/run-android-gradle.mjs
+/scripts/run-android-sdkmanager.mjs
+/scripts/sync-capacitor-web.mjs
+
 # Capacitor generated web assets
 /android/app/src/main/assets/public/
 
