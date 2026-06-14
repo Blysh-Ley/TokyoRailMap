@@ -13,7 +13,7 @@
  * - logoBasePath: COMPANY_LOGO_BASE_PATH
  */
 
-import { createLineIconElement, ensureLineIconForRwLineContent } from '../../lib/line-icons.js';
+import { ensureLineIconForRwLineContent, prependLineIconElements } from '../../lib/line-icons.js';
 import { COMPANY_LOGO_BASE_PATH, getCompanyLogoCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
 import { THROUGH_SERVICE_CONFIGS } from '../../lib/throughServiceManager.js';
 import { isBranchLineId, preferredOrder, resolveMainLineIdByBranchRule } from '../../lib/special-condition.js';
@@ -565,29 +565,6 @@ export class Menu {
         this._mainLineIdByAnyLineId = new Map(model.mainLineIdByAnyLineId);
         this._lineDisplayNameById = new Map(model.lineDisplayNameById);
 
-        const appendCustomLineIcons = (leftBox, lineId, codes, color) => {
-            if (!(leftBox instanceof HTMLElement)) return;
-            const iconCodes = Array.isArray(codes) ? codes.map((x) => String(x || '').trim()).filter(Boolean) : [];
-            if (!iconCodes.length) return;
-
-            const iconNodes = [];
-            for (const code of iconCodes) {
-                const icon = createLineIconElement({
-                    routeId: `${String(lineId || '').trim()}.${code}`,
-                    code,
-                    color: String(color || '').trim()
-                });
-                if (!icon) continue;
-                icon.style.marginRight = '4px';
-                iconNodes.push(icon);
-            }
-
-            // 与普通线路一致：图标在名称前显示，避免产生“名称与图标错位”的观感。
-            for (let i = iconNodes.length - 1; i >= 0; i -= 1) {
-                leftBox.prepend(iconNodes[i]);
-            }
-        };
-
         model.companies.forEach((company) => {
             const companyName = company.companyName;
             const [companyContent, lineListEl] = this.addSubMenu(this.wrapperList, 'company', 'line');
@@ -665,7 +642,7 @@ export class Menu {
 
                 // 常规线路走数据驱动 icon；RW 菜单虚拟线走固定 code icon。
                 if (isVirtualThrough) {
-                    appendCustomLineIcons(leftBox, lineId, virtualCodes, virtualColor);
+                    prependLineIconElements(leftBox, { routeId: lineId, codes: virtualCodes, color: virtualColor });
                 } else {
                     ensureLineIconForRwLineContent(lineContent, String(lineId));
                 }

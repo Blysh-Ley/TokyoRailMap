@@ -1,4 +1,4 @@
-import { ensureLineIconForRwLineContent } from '../../lib/line-icons.js';
+import { ensureLineIconForRwLineContent, prependLineIconElements } from '../../lib/line-icons.js';
 import { getCompanyLogoCandidates, setImageElementFromCache } from '../../lib/fetch.js';
 
 const toText = (value) => String(value ?? '').trim();
@@ -173,7 +173,15 @@ export const createMobileMenu = ({
             }
             button.appendChild(text);
             try {
-                ensureLineIconForRwLineContent(button, String(line.lineId));
+                if (line.isVirtualThrough) {
+                    prependLineIconElements(button, {
+                        routeId: String(line.lineId),
+                        codes: line.virtualCodes,
+                        color: line.virtualColor
+                    });
+                } else {
+                    ensureLineIconForRwLineContent(button, String(line.lineId));
+                }
             } catch {
                 // Icons are enhancement only; the menu remains usable without them.
             }

@@ -529,6 +529,33 @@ export const createLineIconElement = ({ routeId, code, color }) => {
     return el;
 };
 
+export const prependLineIconElements = (targetEl, {
+    routeId,
+    codes = [],
+    color = ''
+} = {}) => {
+    if (!(targetEl instanceof HTMLElement)) return [];
+    if (targetEl.querySelector('.rw-line-icon')) return [];
+
+    const iconNodes = [];
+    for (const code of Array.isArray(codes) ? codes : []) {
+        const cleanCode = toText(code);
+        if (!cleanCode) continue;
+        const baseRouteId = toText(routeId);
+        const iconRouteId = baseRouteId ? `${baseRouteId}.${cleanCode}` : cleanCode;
+        const icon = createLineIconElement({ routeId: iconRouteId, code: cleanCode, color });
+        if (!icon) continue;
+        icon.style.marginRight = '4px';
+        iconNodes.push(icon);
+    }
+
+    for (let i = iconNodes.length - 1; i >= 0; i -= 1) {
+        targetEl.prepend(iconNodes[i]);
+    }
+
+    return iconNodes;
+};
+
 export const ensureLineIconForRwLineContent = async (rwLineContentEl, routeId) => {
     if (!(rwLineContentEl instanceof HTMLElement)) return;
 

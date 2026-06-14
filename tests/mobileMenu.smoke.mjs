@@ -6,6 +6,7 @@ import { buildMenuModel } from '../src/features/menu/menu.js';
 
 const root = process.cwd();
 const appSource = readFileSync(join(root, 'src/app.js'), 'utf8');
+const lineIconsSource = readFileSync(join(root, 'src/lib/line-icons.js'), 'utf8');
 const menuSource = readFileSync(join(root, 'src/features/menu/menu.js'), 'utf8');
 const mobileMenuSource = readFileSync(join(root, 'src/features/menu/mobileMenu.js'), 'utf8');
 const cssSource = readFileSync(join(root, 'src/styles/app.css'), 'utf8');
@@ -35,6 +36,10 @@ assert.ok(
     jrEast.lines.some((line) => String(line.lineId).startsWith('TokyoRail.MenuThrough.')),
     'JR-East mobile menu model must include virtual through-service menu rows'
 );
+assert.ok(
+    jrEast.lines.some((line) => line.isVirtualThrough && Array.isArray(line.virtualCodes) && line.virtualCodes.length > 1),
+    'JR-East through-service rows must carry fixed icon codes for menu rendering'
+);
 assert.equal(
     jrEast.lines.some((line) => line.lineId === 'JR-East.ShonanShinjuku'),
     false,
@@ -58,6 +63,18 @@ assert.match(
     menuSource,
     /const model = buildMenuModel\(/,
     'desktop Menu build must render from the shared menu model'
+);
+
+assert.match(
+    lineIconsSource,
+    /export const prependLineIconElements/,
+    'fixed-code line icon generation must be shared between desktop and mobile menus'
+);
+
+assert.match(
+    menuSource,
+    /isVirtualThrough[\s\S]*prependLineIconElements\(leftBox/,
+    'desktop virtual through rows must use the shared fixed-code line icon helper'
 );
 
 assert.match(
@@ -118,6 +135,12 @@ assert.match(
     mobileMenuSource,
     /onLineClick\?\.\(lineId,[\s\S]*mergedLineIds/,
     'mobile line rows must pass the shared menu line selection payload'
+);
+
+assert.match(
+    mobileMenuSource,
+    /line\.isVirtualThrough[\s\S]*prependLineIconElements\(button/,
+    'mobile virtual through rows must call the shared fixed-code line icon helper'
 );
 
 assert.match(
