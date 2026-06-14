@@ -32,6 +32,8 @@ export const createMobileMenu = ({
     let currentModel = model || { companies: [] };
     let screen = 'companies';
     let activeCompanyName = '';
+    let drawerState = 'hidden';
+    let dragState = null;
 
     const root = createEl(doc, 'div', 'mobile-menu-sheet is-hidden', {
         'data-mobile-menu': '1',
@@ -70,6 +72,19 @@ export const createMobileMenu = ({
     sheet.appendChild(content);
     root.appendChild(backdrop);
     root.appendChild(sheet);
+
+    const getPanelHeight = () => Math.max(1, Math.round(sheet.getBoundingClientRect?.().height || win?.innerHeight || 1));
+
+    const applyDrawerState = (state = drawerState, { transition = true } = {}) => {
+        drawerState = state === 'hidden' ? 'hidden' : 'expanded';
+        root.setAttribute('data-mobile-menu-state', drawerState);
+        sheet.style.transition = transition ? '' : 'none';
+        if (drawerState === 'hidden') {
+            sheet.style.transform = 'translateY(calc(100% + 24px))';
+        } else {
+            sheet.style.transform = 'translateY(0)';
+        }
+    };
 
     const setScreen = (nextScreen, companyName = '') => {
         screen = nextScreen === 'lines' ? 'lines' : 'companies';
@@ -148,6 +163,7 @@ export const createMobileMenu = ({
     };
 
     const close = () => {
+        applyDrawerState('hidden');
         root.classList.add('is-hidden');
         onClose?.();
     };
@@ -155,6 +171,57 @@ export const createMobileMenu = ({
     const open = () => {
         renderCompanies();
         root.classList.remove('is-hidden');
+        applyDrawerState('expanded');
+    };
+
+    const beginDrag = (event) => {
+        if (root.classList.contains('is-hidden')) return false;
+        if (event?.button != null && event.button !== 0) return false;
+        dragState = {
+            pointerId: event?.pointerId,
+            startY: Number(event?.clientY) || 0,
+            panelHeight: getPanelHeight()
+        };
+        root.setAttribute('data-mobile-menu-dragging', '1');
+        sheet.style.transition = 'none';
+        try {
+            dragBar.setPointerCapture?.(event.pointerId);
+        } catch {
+            // Pointer capture is best-effort across embedded browsers.
+        }
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        return true;
+    };
+
+    const updateDrag = (event) => {
+        if (!dragState) return;
+        if (dragState.pointerId != null && event?.pointerId !== dragState.pointerId) return;
+        const deltaY = (Number(event?.clientY) || 0) - dragState.startY;
+        const offset = Math.max(0, Math.min(dragState.panelHeight, deltaY));
+        sheet.style.transform = `translateY(${offset}px)`;
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+    };
+
+    const endDrag = (event, { cancelled = false } = {}) => {
+        if (!dragState) return;
+        if (dragState.pointerId != null && event?.pointerId !== dragState.pointerId) return;
+        const currentY = cancelled ? dragState.startY : (Number(event?.clientY) || 0);
+        const deltaY = currentY - dragState.startY;
+        const shouldClose = deltaY > Math.max(72, dragState.panelHeight * 0.28);
+        dragState = null;
+        root.removeAttribute('data-mobile-menu-dragging');
+        sheet.style.transition = '';
+        try {
+            dragBar.releasePointerCapture?.(event.pointerId);
+        } catch {
+            // ignore pointer-capture gaps
+        }
+        if (shouldClose) close();
+        else applyDrawerState('expanded');
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
     };
 
     root.addEventListener('click', (event) => {
@@ -211,6 +278,15 @@ export const createMobileMenu = ({
         event.stopPropagation?.();
         close();
     });
+
+    dragBar.addEventListener('pointerdown', beginDrag, { passive: false });
+    dragBar.addEventListener('pointermove', updateDrag, { passive: false });
+    doc.addEventListener?.('pointermove', updateDrag, { capture: true, passive: false });
+    dragBar.addEventListener('pointerup', endDrag, { passive: false });
+    doc.addEventListener?.('pointerup', endDrag, { capture: true, passive: false });
+    dragBar.addEventListener('pointercancel', (event) => endDrag(event, { cancelled: true }), { passive: false });
+    doc.addEventListener?.('pointercancel', (event) => endDrag(event, { cancelled: true }), { capture: true, passive: false });
+    dragBar.addEventListener('lostpointercapture', (event) => endDrag(event, { cancelled: true }), { passive: false });
 
     doc.addEventListener?.('keydown', (event) => {
         if (root.classList.contains('is-hidden')) return;

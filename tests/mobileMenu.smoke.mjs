@@ -120,6 +120,30 @@ assert.match(
 );
 
 assert.match(
+    mobileMenuSource,
+    /dragBar\.addEventListener\('pointerdown',\s*beginDrag/,
+    'mobile menu drag bar must start drawer dragging on pointerdown'
+);
+
+assert.match(
+    mobileMenuSource,
+    /doc\.addEventListener\?\.\('pointermove',\s*updateDrag/,
+    'mobile menu dragging must continue when the pointer leaves the bar'
+);
+
+assert.match(
+    mobileMenuSource,
+    /dragBar\.addEventListener\('lostpointercapture'[\s\S]*endDrag/,
+    'mobile menu dragging must clean up lost pointer capture'
+);
+
+assert.match(
+    mobileMenuSource,
+    /data-mobile-menu-dragging/,
+    'mobile menu must expose dragging state for styling'
+);
+
+assert.match(
     cssSource,
     /\.mobile-menu-panel[\s\S]*background:\s*var\(--ui-frosted-background\)[\s\S]*backdrop-filter:\s*var\(--ui-frosted-blur\)/,
     'mobile menu panel must use shared frosted tokens'
@@ -129,6 +153,12 @@ assert.match(
     cssSource,
     /\.mobile-menu-row[\s\S]*background:\s*var\(--ui-frosted-item-background\)/,
     'mobile menu rows must use shared frosted item tokens'
+);
+
+assert.match(
+    cssSource,
+    /\.mobile-menu-drag-bar[\s\S]*touch-action:\s*none/,
+    'mobile menu drag bar must opt out of scroll gestures while dragging'
 );
 
 assert.match(

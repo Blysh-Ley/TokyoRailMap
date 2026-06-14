@@ -398,6 +398,7 @@ body[data-mobile-ui='1'] .mobile-menu-panel {
     overflow: hidden;
     transform: translateY(0);
     transition: transform 0.22s ease, opacity 0.18s ease;
+    will-change: transform;
 }
 
 html[data-mobile-ui='1'] .mobile-menu-sheet.is-hidden .mobile-menu-panel,
@@ -410,6 +411,13 @@ html[data-mobile-ui='1'] .mobile-menu-drag-bar,
 body[data-mobile-ui='1'] .mobile-menu-drag-bar {
     position: relative;
     flex: 0 0 18px;
+    cursor: grab;
+    touch-action: none;
+}
+
+html[data-mobile-ui='1'] .mobile-menu-sheet[data-mobile-menu-dragging='1'] .mobile-menu-drag-bar,
+body[data-mobile-ui='1'] .mobile-menu-sheet[data-mobile-menu-dragging='1'] .mobile-menu-drag-bar {
+    cursor: grabbing;
 }
 
 html[data-mobile-ui='1'] .mobile-menu-drag-bar::before,
