@@ -1962,7 +1962,7 @@ const initMapApp = async () => {
     };
 
     function updateSelectionBadge() {
-        if (isMobileUiMode() && selectedLineId) {
+        if (isMobileUiMode() && (selectedLineId || selectedCompany)) {
             selectionBadgeAdapter.render({ kind: 'empty' });
             return;
         }
