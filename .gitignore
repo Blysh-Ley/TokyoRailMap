@@ -1,12 +1,31 @@
 /legacy
 /tools
+
+# OS/editor metadata
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
 .venv
 .vscode
 __pycache__
 /images/.DS_Store
 /icons/.DS_Store
 /data/.DS_Store
+
+# Local environment and logs
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dependency caches and build output
 data/**/*.bak
 /remotedata
 .github
@@ -14,4 +33,29 @@ dist/
 node_modules/
 .npm-cache/
 /www/
+
+# Capacitor generated web assets
 /android/app/src/main/assets/public/
+
+# Android local/build artifacts
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/app/release/
+/android/local.properties
+/android/*.iml
+/android/app/*.iml
+*.apk
+*.aab
+*.ap_
+*.jks
+*.keystore
+
+# iOS local/build artifacts
+/ios/App/build/
+/ios/App/Pods/
+/ios/App/DerivedData/
+/ios/App/App.xcworkspace/xcuserdata/
+/ios/App/App.xcodeproj/xcuserdata/
+/ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcuserstate
