@@ -642,6 +642,11 @@ export function createPanel(options = {}) {
         return panelShell.collapse?.() === true;
     };
 
+    const expandMobilePanelAfterTripDetailReturn = () => {
+        if (!isMobilePanelPresentation()) return false;
+        return panelShell.expand?.() === true;
+    };
+
     const hideMobilePanelForRouteMapContext = () => {
         if (!isMobilePanelPresentation()) return false;
         panelShell.hide?.();
@@ -3712,7 +3717,7 @@ export function createPanel(options = {}) {
         mobilePanelStack.openStationOverview(getMobilePanelStationContext());
         syncMobilePanelStackUi();
         restoreStationDefaultSelection();
-        collapseMobilePanelForMapContext();
+        expandMobilePanelAfterTripDetailReturn();
         scheduleCatalogRefresh();
     };
 
