@@ -2624,8 +2624,25 @@ const initMapApp = async () => {
         },
         onAndroidBackPanelHidden: clearSelectionsAndRestore
     });
+    const handleRouteMapBackIntent = (payload = {}) => {
+        const detail = {
+            ...payload,
+            handled: false
+        };
+        try {
+            window.dispatchEvent(new CustomEvent('__TokyoRailRouteMapBackIntent', { detail }));
+        } catch {
+            return false;
+        }
+        if (detail.handled !== true) return false;
+        clearSelectionsAndRestore();
+        return true;
+    };
     installAndroidBackRuntime({
-        handleBackIntent: (payload) => panel?.handlePanelBackIntent?.(payload) === true
+        handleBackIntent: (payload) => (
+            handleRouteMapBackIntent(payload)
+            || panel?.handlePanelBackIntent?.(payload) === true
+        )
     });
 
     const getStationLabelBelowIds = () => {

@@ -30,6 +30,8 @@ import {
 } from '../../ui/stationJump.js';
 
 const toText = (v) => String(v ?? '').trim();
+const ROUTE_MAP_BACK_INTENT_EVENT = '__TokyoRailRouteMapBackIntent';
+const ROUTE_MAP_RETURN_PANEL_EVENT = '__TokyoRailRouteMapReturnPanel';
 
 let stationCodeIndexPromise = null;
 const getStationCodeIndex = async () => {
@@ -2044,6 +2046,41 @@ const setupRouteMapUi = () => {
         syncReturnTargetUi();
     };
 
+    const resetRouteMapStateForBack = () => {
+        window?.TokyoRailSearchMapActions?.clearTripPathPreviewBySource?.('route-map-branch');
+        branchPreviewLineId = '';
+        branchPreviewActive = false;
+        branchPreviewBusy = false;
+        clearRouteMapStationIndicator();
+        notifyRouteMapPopoverHoverLeave();
+    };
+
+    const hideRouteMapForBackIntent = () => {
+        if (root.classList.contains('is-hidden')) return false;
+
+        const target = returnTarget;
+        pinned = false;
+        root.classList.add('is-hidden');
+        applyMobileSheetState('hidden');
+        hideTransferHoverPortal();
+        activeLineId = '';
+        activeLineName = '';
+        returnTarget = '';
+        syncReturnTargetUi();
+        resetRouteMapStateForBack();
+
+        if (target === 'panel') {
+            try {
+                window.dispatchEvent(new CustomEvent(ROUTE_MAP_RETURN_PANEL_EVENT, {
+                    detail: { returnTarget: target, source: 'android-back' }
+                }));
+            } catch {
+                // ignore
+            }
+        }
+        return true;
+    };
+
     const dispatchRouteMapStationJump = (target, event) => {
         const intent = resolveStationJumpIntent(target, {
             adjustTime: false,
@@ -2163,13 +2200,20 @@ const setupRouteMapUi = () => {
         returnTarget = '';
         syncReturnTargetUi();
         try {
-            window.dispatchEvent(new CustomEvent('__TokyoRailRouteMapReturnPanel', {
+            window.dispatchEvent(new CustomEvent(ROUTE_MAP_RETURN_PANEL_EVENT, {
                 detail: { returnTarget: target }
             }));
         } catch {
             // ignore
         }
     }, { passive: false });
+
+    window.addEventListener(ROUTE_MAP_BACK_INTENT_EVENT, (evt) => {
+        if (!hideRouteMapForBackIntent()) return;
+        if (evt?.detail && typeof evt.detail === 'object') {
+            evt.detail.handled = true;
+        }
+    });
 
     mobileDragBar.addEventListener('pointerdown', beginMobileSheetDrag, { passive: false });
     mobileDragBar.addEventListener('pointermove', updateMobileSheetDrag, { passive: false });
