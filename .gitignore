@@ -1,5 +1,7 @@
 /legacy
 /tools
+/scripts/
+/tests/
 
 # OS/editor metadata
 .DS_Store
@@ -47,14 +49,6 @@ node_modules/
 /icons/icon.png
 /icons/icon.ico
 /icons/icon.icns
-
-# Native/mobile/desktop packaging scripts
-/scripts/android-env.mjs
-/scripts/check-android-env.mjs
-/scripts/generate-icons.mjs
-/scripts/run-android-gradle.mjs
-/scripts/run-android-sdkmanager.mjs
-/scripts/sync-capacitor-web.mjs
 
 # Capacitor generated web assets
 /android/app/src/main/assets/public/
