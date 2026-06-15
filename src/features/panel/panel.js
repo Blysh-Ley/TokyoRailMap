@@ -3863,10 +3863,11 @@ export function createPanel(options = {}) {
 
         const dirTitle = getDirTitleTarget(evt?.target);
         if (dirTitle) {
-            stopEvent(evt);
-            dispatchPanelDirectionToggleIntent({
-                dirTarget: dirTitle,
-                toggleDirectionTimetable
+            stopPropagationOnly(evt);
+            panelInteractionPolicy.startTripTap(evt, {
+                kind: 'dir-title-toggle',
+                lineId: dirTitle.lineId,
+                dirKey: dirTitle.dirKey
             });
             return;
         }
@@ -3920,6 +3921,17 @@ export function createPanel(options = {}) {
         const pending = completed.tap;
 
         stopPropagationOnly(evt);
+
+        if (toText(pending?.kind) === 'dir-title-toggle') {
+            dispatchPanelDirectionToggleIntent({
+                dirTarget: {
+                    lineId: pending.lineId,
+                    dirKey: pending.dirKey
+                },
+                toggleDirectionTimetable
+            });
+            return;
+        }
 
         openTripDetailFromPayload({
             lineId: pending.lineId,
