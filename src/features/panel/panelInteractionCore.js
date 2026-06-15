@@ -212,6 +212,8 @@ export const createPanelEventDelegationCoordinator = ({
         bind_panelEventDelegationCoordinator(body, 'click', bodyHandlers.click, { passive: false }),
         bind_panelEventDelegationCoordinator(body, 'mouseover', bodyHandlers.mouseover),
         bind_panelEventDelegationCoordinator(body, 'mouseout', bodyHandlers.mouseout),
+        bind_panelEventDelegationCoordinator(tripDetailBody, 'click', tripDetailHandlers.click, { passive: false }),
+        bind_panelEventDelegationCoordinator(tripDetailBody, 'keydown', tripDetailHandlers.keydown, { passive: false }),
         bind_panelEventDelegationCoordinator(tripDetailBody, 'mouseover', tripDetailHandlers.mouseover),
         bind_panelEventDelegationCoordinator(tripDetailBody, 'mouseout', tripDetailHandlers.mouseout),
         bind_panelEventDelegationCoordinator(tripDetailBody, 'mouseleave', tripDetailHandlers.mouseleave),

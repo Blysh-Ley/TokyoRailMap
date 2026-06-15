@@ -1,4 +1,8 @@
 import { createStationCodeBadgeElement } from '../../lib/line-icons.js';
+import {
+    appendPanelStationJumpClass,
+    normalizePanelStationJumpTime
+} from './panelStationJump.js';
 
 
 
@@ -353,16 +357,27 @@ export const renderPanelTripDetailStationCellHtml = ({
     className = 'panel-trip-detail-station',
     style = '',
     dataStationId = '',
+    arrivalTime = '',
+    stationJumpEnabled = true,
     lineId = '',
     lineColor = '',
     stationCode = '',
     stationName = '',
     stationId = ''
 } = {}) => {
+    const safeStationId = toText_panelTripDetailStationRenderer(dataStationId || stationId);
+    const safeArrivalTime = normalizePanelStationJumpTime(arrivalTime, { toText: toText_panelTripDetailStationRenderer });
+    const safeClassName = stationJumpEnabled && safeStationId
+        ? appendPanelStationJumpClass(className)
+        : toText_panelTripDetailStationRenderer(className);
     const attrs = [
-        `class="${escapeHtml_panelTripDetailStationRenderer(toText_panelTripDetailStationRenderer(className))}"`,
+        `class="${escapeHtml_panelTripDetailStationRenderer(safeClassName)}"`,
         toText_panelTripDetailStationRenderer(style) ? `style="${escapeHtml_panelTripDetailStationRenderer(style)}"` : '',
-        toText_panelTripDetailStationRenderer(dataStationId) ? `data-station-id="${escapeHtml_panelTripDetailStationRenderer(dataStationId)}"` : '',
+        safeStationId ? `data-station-id="${escapeHtml_panelTripDetailStationRenderer(safeStationId)}"` : '',
+        stationJumpEnabled && safeStationId ? 'data-panel-station-jump="1"' : '',
+        stationJumpEnabled && safeStationId ? 'role="button"' : '',
+        stationJumpEnabled && safeStationId ? 'tabindex="0"' : '',
+        safeArrivalTime ? `data-panel-station-arrival-time="${escapeHtml_panelTripDetailStationRenderer(safeArrivalTime)}"` : '',
         toText_panelTripDetailStationRenderer(lineId) ? `data-line-id="${escapeHtml_panelTripDetailStationRenderer(lineId)}"` : '',
         toText_panelTripDetailStationRenderer(lineColor) ? `data-line-color="${escapeHtml_panelTripDetailStationRenderer(lineColor)}"` : ''
     ].filter(Boolean).join(' ');
@@ -444,6 +459,7 @@ export const renderPanelTripDetailStopRowHtml = ({
     stationCode = '',
     stationName = '',
     lineColor = '',
+    arrivalTime = '',
     arrivalLabelHtml = '',
     departLabelHtml = '',
     arrivalText = '',
@@ -469,6 +485,7 @@ export const renderPanelTripDetailStopRowHtml = ({
             ${renderPanelTripDetailStationCellHtml({
                 className: stationClass,
                 dataStationId: stationId,
+                arrivalTime: arrivalTime || arrivalText,
                 lineColor,
                 stationCode,
                 stationName,
@@ -772,6 +789,7 @@ export const renderPanelTripDetailGridStopCellsSharedStation = ({
         className: `panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}`,
         style: `grid-column:${stationCol};`,
         dataStationId: stationId,
+        arrivalTime: toText(s.arr || s.dep || ''),
         lineColor: safeLineColor,
         stationCode: toText(stationCode),
         stationName: toText(stationName || s.stationName || stationId),

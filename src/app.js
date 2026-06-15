@@ -2472,6 +2472,7 @@ const initMapApp = async () => {
     }
 
     function clearSelectionsAndRestore() {
+        panel?.resetTemporaryTimeOverride?.();
         appStore.dispatch(selectionClear({ source: 'app.clearSelectionsAndRestore' }));
         isolateStationsToSelectedLine = false;
         setStationLabelMode('auto');
@@ -2610,6 +2611,9 @@ const initMapApp = async () => {
         },
         onTripDetailStationIndicatorClear: () => {
             clearTripDetailStationIndicator();
+        },
+        onTripDetailStationJump: (payload) => {
+            jumpToPanelStationFromTripDetail(payload).catch(() => null);
         },
         onDirPreviewEnter: (payload) => {
             if (isMultiSelectModeEnabled()) return;
@@ -2763,6 +2767,19 @@ const initMapApp = async () => {
         return servingIds.length ? String(servingIds[0]) : '';
     };
 
+    const findStationPropsById = (stationId) => {
+        const id = String(stationId ?? '').trim();
+        if (!id) return null;
+        const features = Array.isArray(generatedStationsData?.features)
+            ? generatedStationsData.features
+            : [];
+        for (const feature of features) {
+            const props = feature?.properties || {};
+            if (String(props?.id ?? '').trim() === id) return props;
+        }
+        return null;
+    };
+
     const openPanelForStationWithAutoScroll = async (props, options = {}) => {
         const p = props || {};
         appStore.dispatch(panelOpenRequested({
@@ -2783,6 +2800,37 @@ const initMapApp = async () => {
         panel?.setScrollTop?.(prevScrollTop, { behavior: 'auto' });
         const lineId = getPreferredPanelScrollLineIdFromStationProps(p);
         if (lineId) panel?.scrollToLineId?.(lineId, { behavior: 'smooth', block: 'start' });
+    };
+
+    const jumpToPanelStationFromTripDetail = async ({
+        adjustTime = true,
+        arrivalTime = '',
+        stationId = ''
+    } = {}) => {
+        const props = findStationPropsById(stationId);
+        if (!props) return false;
+
+        if (adjustTime !== false && arrivalTime) {
+            panel?.setTimeOverride?.(arrivalTime, {
+                notify: true,
+                rerender: false,
+                temporary: true
+            });
+        }
+
+        if (!isMultiSelectModeEnabled()) {
+            selectServingLinesForStation(props);
+        }
+
+        await openPanelForStationWithAutoScroll(props, { autoScroll: false });
+
+        try {
+            const ids = getServingLineIdsFromStationProps(props);
+            timetableCache?.preloadRecursiveByLineIds?.(ids);
+        } catch {
+            // ignore
+        }
+        return true;
     };
 
     const showRouteMapFloatingPanelForLine = (lineId) => {

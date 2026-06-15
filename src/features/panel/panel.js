@@ -128,6 +128,7 @@ import {
     createPanelMobileStackController,
     PANEL_MOBILE_STACK_SCREENS
 } from './panelMobileStackController.js';
+import { resolvePanelStationJumpIntent } from './panelStationJump.js';
 import { buildPanelTripDetailTitleHtml } from './panelTripDetailRender.js';
 import {
     renderPanelTripDetailGridMarkerCell,
@@ -378,6 +379,7 @@ export function createPanel(options = {}) {
     const onTripCurrentStationHide = typeof options.onTripCurrentStationHide === 'function' ? options.onTripCurrentStationHide : null;
     const onTripDetailStationIndicator = typeof options.onTripDetailStationIndicator === 'function' ? options.onTripDetailStationIndicator : null;
     const onTripDetailStationIndicatorClear = typeof options.onTripDetailStationIndicatorClear === 'function' ? options.onTripDetailStationIndicatorClear : null;
+    const onTripDetailStationJump = typeof options.onTripDetailStationJump === 'function' ? options.onTripDetailStationJump : null;
     const onDirPreviewEnter = typeof options.onDirPreviewEnter === 'function' ? options.onDirPreviewEnter : null;
     const onDirPreviewLeave = typeof options.onDirPreviewLeave === 'function' ? options.onDirPreviewLeave : null;
     const onAndroidBackPanelHidden = typeof options.onAndroidBackPanelHidden === 'function' ? options.onAndroidBackPanelHidden : null;
@@ -645,6 +647,7 @@ export function createPanel(options = {}) {
     currentServiceDay = isSaturdayHoliday(day);
 
     let currentNowOverrideHHMM = '';
+    let hasTemporaryTimeOverride = false;
     let isAutoNowClock = true;
     let autoNowClockTimerId = null;
     let currentPanelDate = new Date();
@@ -689,6 +692,7 @@ export function createPanel(options = {}) {
     };
 
     const restoreAutoNowClock = () => {
+        hasTemporaryTimeOverride = false;
         isAutoNowClock = true;
         applyPanelDateSelection(new Date());
         syncAutoNowClock({ forceRender: true });
@@ -1410,6 +1414,7 @@ export function createPanel(options = {}) {
         }
 
         isAutoNowClock = false;
+        hasTemporaryTimeOverride = false;
         currentNowOverrideHHMM = v;
         renderAllTimetables();
         notifyJourneyRecompute();
@@ -1418,6 +1423,34 @@ export function createPanel(options = {}) {
         const normalized = normalizeTimePickerHHMM(timeInput.value, { toText });
         if (normalized) timeInput.value = normalized;
     });
+
+    const setTimeOverride = (value, {
+        notify = true,
+        rerender = true,
+        temporary = false
+    } = {}) => {
+        const normalized = normalizeTimePickerHHMM(value, { toText });
+        if (!normalized) return false;
+
+        isAutoNowClock = false;
+        hasTemporaryTimeOverride = temporary === true;
+        currentNowOverrideHHMM = normalized;
+        timeInput.value = normalized;
+        timePickerController.close();
+        if (rerender && toText(currentStationId)) renderAllTimetables();
+        if (notify) notifyJourneyRecompute();
+        return true;
+    };
+
+    const resetTemporaryTimeOverride = ({
+        notify = true
+    } = {}) => {
+        if (!hasTemporaryTimeOverride) return false;
+        restoreAutoNowClock();
+        if (notify) notifyJourneyRecompute();
+        return true;
+    };
+
     btnAutoNow.addEventListener('click', (e) => {
         stopEvent(e);
         timePickerController.close();
@@ -3104,6 +3137,7 @@ export function createPanel(options = {}) {
                 timeHtml: renderTripDetailMomentHtml(s),
                 transferDisplay,
                 stationId,
+                arrivalTime: toText(s.arr || s.dep || ''),
                 stationCode: toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
                 stationName: toText(s.stationName || stationId),
                 lineColor: toText(s.lineColor || '')
@@ -4133,6 +4167,38 @@ export function createPanel(options = {}) {
         showTripDetailStationIndicator(sid);
     };
 
+    const jumpToTripDetailStation = (target, {
+        adjustTime = true
+    } = {}) => {
+        const intent = resolvePanelStationJumpIntent(target, {
+            adjustTime,
+            rootEl: tripDetailBody,
+            toText
+        });
+        if (!intent) return false;
+
+        hideTripDetail({ restoreMobileLine: false });
+        lastTripDetailKey = null;
+        try {
+            onTripDetailStationJump?.(intent);
+        } catch {
+            // ignore
+        }
+        return true;
+    };
+
+    const onTripDetailStationClick = (evt) => {
+        if (!jumpToTripDetailStation(evt?.target, { adjustTime: true })) return;
+        stopEvent(evt);
+    };
+
+    const onTripDetailStationKeyDown = (evt) => {
+        const key = toText(evt?.key);
+        if (key !== 'Enter' && key !== ' ') return;
+        if (!jumpToTripDetailStation(evt?.target, { adjustTime: true })) return;
+        stopEvent(evt);
+    };
+
     const panelEventDelegation = createPanelEventDelegationCoordinator({
         body,
         bodyHandlers: {
@@ -4148,6 +4214,8 @@ export function createPanel(options = {}) {
         },
         tripDetailBody,
         tripDetailHandlers: {
+            click: onTripDetailStationClick,
+            keydown: onTripDetailStationKeyDown,
             mouseleave: onTripDetailMouseLeave,
             mouseout: onTripDetailMouseOut,
             mouseover: onTripDetailMouseOver,
@@ -4426,6 +4494,8 @@ export function createPanel(options = {}) {
         hide,
         setTitle,
         setHoverPreviewEnabled,
+        setTimeOverride,
+        resetTemporaryTimeOverride,
         handlePanelBackIntent,
         setTimetableViewMode: (mode) => applyTimetableViewMode(mode, { rerender: true }),
         showForStationProps,
