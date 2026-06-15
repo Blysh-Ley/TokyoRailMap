@@ -3669,7 +3669,6 @@ export function createPanel(options = {}) {
         syncMobilePanelStackUi();
         if (!lineId) return;
 
-        setPinnedPanelSelection('line', lineId);
         try {
             onSelectLine?.(lineId, { source: 'panel-touch', isolateStations: true });
         } catch {
@@ -3684,7 +3683,7 @@ export function createPanel(options = {}) {
         const pointerState = panelInteractionPolicy.beginPointer(evt);
         const pt = pointerState.pointerType;
 
-        if (evt?.target instanceof Element && body.contains(evt.target) && hasPinnedPanelState()) {
+        if (!isMobilePanelPresentation() && evt?.target instanceof Element && body.contains(evt.target) && hasPinnedPanelState()) {
             const pinnedKey = getCurrentPinnedInteractionKey();
             const hitKey = getInteractionKeyFromTarget(evt.target);
             stopEvent(evt);
@@ -3694,7 +3693,7 @@ export function createPanel(options = {}) {
             return;
         }
 
-        if (tripLocked) {
+        if (!isMobilePanelPresentation() && tripLocked) {
             const t = evt?.target;
             const rowEl = findTripTarget(t);
             const lineEl = rowEl?.closest?.('[data-line-id]');
@@ -3780,7 +3779,7 @@ export function createPanel(options = {}) {
                     lastAppliedHoverKey = null;
                 },
                 clearPinnedDirPreview,
-                setPinnedPanelSelection,
+                setPinnedPanelSelection: isMobilePanelPresentation() ? () => null : setPinnedPanelSelection,
                 onSelectLine,
                 onSelectCompany,
                 currentStationServingIds
@@ -3818,14 +3817,16 @@ export function createPanel(options = {}) {
         stopPropagationOnly(evt);
 
         const key = `${pending.lineId}||${pending.tripKey}`;
-        if (tripLocked && key !== lockedTripKey) {
+        if (!isMobilePanelPresentation() && tripLocked && key !== lockedTripKey) {
             hideTripDetail();
             lastTripDetailKey = null;
             return;
         }
 
-        lockTripPreview(key);
-        setPinnedPanelSelection('trip', key);
+        if (!isMobilePanelPresentation()) {
+            lockTripPreview(key);
+            setPinnedPanelSelection('trip', key);
+        }
         renderTripDetail({
             lineId: pending.lineId,
             tripKey: pending.tripKey,
