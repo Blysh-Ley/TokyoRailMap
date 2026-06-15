@@ -37,11 +37,15 @@ export const createPanelTripDetailTransferHoverPortal = ({
     const position = (shell) => {
         if (!isElement(shell, win) || portal.classList.contains('is-hidden')) return;
 
-        const shellRect = shell.getBoundingClientRect();
-        const portalRect = portal.getBoundingClientRect();
         const pad = 6;
         const gap = 8;
-        const viewportWidth = Number(win?.innerWidth) || portalRect.width + pad * 2;
+        const rawViewportWidth = Number(win?.innerWidth) || 0;
+        const maxPortalWidth = rawViewportWidth > pad * 2 ? rawViewportWidth - pad * 2 : 280;
+        portal.style.maxWidth = `${maxPortalWidth}px`;
+
+        const shellRect = shell.getBoundingClientRect();
+        const portalRect = portal.getBoundingClientRect();
+        const viewportWidth = rawViewportWidth || portalRect.width + pad * 2;
         const viewportHeight = Number(win?.innerHeight) || portalRect.height + pad * 2;
 
         let left = shellRect.left - portalRect.width - gap;

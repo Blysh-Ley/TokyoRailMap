@@ -2617,10 +2617,11 @@ const initMapApp = async () => {
         },
         onDirPreviewLeave: () => {
             clearDirHeaderPreview();
-        }
+        },
+        onAndroidBackPanelHidden: clearSelectionsAndRestore
     });
     installAndroidBackRuntime({
-        handleBackIntent: () => panel?.handlePanelBackIntent?.() === true
+        handleBackIntent: (payload) => panel?.handlePanelBackIntent?.(payload) === true
     });
 
     const getStationLabelBelowIds = () => {

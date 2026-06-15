@@ -380,6 +380,7 @@ export function createPanel(options = {}) {
     const onTripDetailStationIndicatorClear = typeof options.onTripDetailStationIndicatorClear === 'function' ? options.onTripDetailStationIndicatorClear : null;
     const onDirPreviewEnter = typeof options.onDirPreviewEnter === 'function' ? options.onDirPreviewEnter : null;
     const onDirPreviewLeave = typeof options.onDirPreviewLeave === 'function' ? options.onDirPreviewLeave : null;
+    const onAndroidBackPanelHidden = typeof options.onAndroidBackPanelHidden === 'function' ? options.onAndroidBackPanelHidden : null;
     const settingsContentEl = options.settingsContentEl && options.settingsContentEl.appendChild ? options.settingsContentEl : null;
     const getTimetableViewMode = typeof options.getTimetableViewMode === 'function' ? options.getTimetableViewMode : null;
     const onTimetableViewModeChanged = typeof options.onTimetableViewModeChanged === 'function' ? options.onTimetableViewModeChanged : null;
@@ -4208,8 +4209,9 @@ export function createPanel(options = {}) {
         scheduleCatalogRefresh();
     };
 
-    const handlePanelBackIntent = () => {
+    const handlePanelBackIntent = ({ source = '' } = {}) => {
         if (!isMobilePanelPresentation()) return false;
+        const isAndroidBack = source === 'android-back';
 
         const state = mobilePanelStack.getState();
         if (state?.screen === PANEL_MOBILE_STACK_SCREENS.TRIP_DETAIL) {
@@ -4219,12 +4221,20 @@ export function createPanel(options = {}) {
         }
 
         if (panelShell.isHalfCollapsed?.() || panelShell.isCollapsed?.()) {
+            if (isAndroidBack) {
+                hide();
+                onAndroidBackPanelHidden?.();
+                return true;
+            }
             panelShell.expand?.();
             return true;
         }
 
         if (panelShell.isVisible?.()) {
             hide();
+            if (isAndroidBack) {
+                onAndroidBackPanelHidden?.();
+            }
             return true;
         }
 
