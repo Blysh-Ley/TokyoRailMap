@@ -64,6 +64,7 @@ import {
 } from '../../domain/routePlanning/displayRows.js';
 import { exportJourneyPopoverToPng } from './journeyCaptureExport.js';
 import { journeyRuntimeAdapter } from './journeyRuntimeAdapter.js';
+import { isDarkThemeActive } from '../../map/element_ui.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -1549,7 +1550,7 @@ export function mountTravelSearchUI() {
                 dot.setAttribute('cx', String(x));
                 dot.setAttribute('cy', String(y));
                 dot.setAttribute('r', '3');
-                dot.setAttribute('fill', '#ffffff');
+                dot.setAttribute('fill', 'var(--ui-text-inverse)');
                 svg.appendChild(dot);
             }
 
@@ -1579,7 +1580,7 @@ export function mountTravelSearchUI() {
                 slashBase.setAttribute('x2', String(x + 6));
                 slashBase.setAttribute('y1', String(y + 7));
                 slashBase.setAttribute('y2', String(y - 7));
-                slashBase.setAttribute('stroke', '#ffffff');
+                slashBase.setAttribute('stroke', 'var(--ui-frosted-background)');
                 slashBase.setAttribute('stroke-width', '3');
                 slashBase.setAttribute('stroke-linecap', 'round');
                 svg.appendChild(slashBase);
