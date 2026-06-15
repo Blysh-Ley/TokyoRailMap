@@ -8,9 +8,10 @@
     "live": "live-server . --host=127.0.0.1 --port=5500 --entry-file=index.html --no-browser",
     "build": "electron-builder",
     "buildall": "electron-builder --win --mac -p never",
-    "bp": "npm version patch && npm run buildall",
-    "bmm": "npm version minor && npm run buildall",
-    "bm": "npm version major && npm run buildall",
+    "bp": "npm version patch && npm run buildall && npm run release:github",
+    "bmm": "npm version minor && npm run buildall && npm run release:github",
+    "bm": "npm version major && npm run buildall && npm run release:github",
+    "release:github": "node scripts/create-github-release.mjs",
     "icons:generate": "node scripts/generate-icons.mjs",
     "web:vendor": "node scripts/sync-web-vendor.mjs",
     "cap:web": "npm run icons:generate && npm run web:vendor && node scripts/sync-capacitor-web.mjs",
@@ -48,6 +49,21 @@
     "directories": {
       "output": "dist"
     },
+    "files": [
+      "index.html",
+      "main.js",
+      "package.json",
+      "CHANGELOG.md",
+      "LICENSE",
+      "README.md",
+      "src/**",
+      "data/**",
+      "vendor/**",
+      "icons/**",
+      "companyLogos/**",
+      "images/**",
+      "!**/.DS_Store"
+    ],
     "win": {
       "icon": "icons/icon.ico",
       "target": [
@@ -94,17 +110,17 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.0",
-    "electron": "^41.2.1",
-    "electron-builder": "^24.13.3",
-    "live-server": "^1.2.2"
-  },
-  "dependencies": {
     "@capacitor/android": "^8.4.0",
     "@capacitor/app": "^8.1.0",
     "@capacitor/core": "^8.4.0",
-    "electron-updater": "^6.8.3",
+    "electron": "^41.2.1",
+    "electron-builder": "^24.13.3",
     "japanese-holidays": "^1.0.10",
     "jszip": "^3.10.1",
+    "live-server": "^1.2.2",
     "maplibre-gl": "3.6.2"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3"
   }
 }
