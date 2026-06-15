@@ -25,6 +25,7 @@ import {
     resolveMobileSheetDragTarget,
     updateMobileSheetDragSession
 } from '../../ui/mobileSheetSnap.js';
+import { createMobileSheetPullDownController } from '../../ui/mobileSheetPullDown.js';
 import {
     appendStationJumpClass,
     resolveStationJumpIntent
@@ -2218,6 +2219,14 @@ const setupRouteMapUi = () => {
     mobileDragBar.addEventListener('pointercancel', (event) => endMobileSheetDrag(event, { cancelled: true }), { passive: false });
     document.addEventListener('pointercancel', (event) => endMobileSheetDrag(event, { cancelled: true }), { capture: true, passive: false });
     mobileDragBar.addEventListener('lostpointercapture', (event) => endMobileSheetDrag(event, { cancelled: true }), { passive: false });
+    createMobileSheetPullDownController({
+        scrollEl: body,
+        doc: document,
+        isEnabled: isMobilePanelPlacementActive,
+        beginSheetDrag: beginMobileSheetDrag,
+        updateSheetDrag: updateMobileSheetDrag,
+        endSheetDrag: endMobileSheetDrag
+    });
 
     // Hover: show
     document.addEventListener('pointermove', (evt) => {

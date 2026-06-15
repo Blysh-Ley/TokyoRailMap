@@ -1,4 +1,5 @@
 import { createPanelTripDetailView } from './panelTripDetailView.js';
+import { createMobileSheetPullDownController } from './mobileSheetPullDown.js';
 
 const isInteractivePanelHeaderTarget = (target, header) => {
     if (!target?.closest || !header?.contains?.(target)) return false;
@@ -325,22 +326,36 @@ export const createPanelMainView = ({
         timeOverlay.classList.toggle('is-panel-drawer-collapsed', collapsed);
     };
 
+    const isMobilePresentation = () => root.getAttribute?.('data-panel-presentation') === 'mobile';
+    const canDragMobilePanel = () => isMobilePresentation() &&
+        typeof panelShell?.beginMobileDrag === 'function' &&
+        typeof panelShell?.updateMobileDrag === 'function' &&
+        typeof panelShell?.endMobileDrag === 'function';
+    const beginPanelSheetDragFromEvent = (event) => canDragMobilePanel() && panelShell.beginMobileDrag({
+        startY: Number(event?.clientY) || 0,
+        nowMs: Number(event?.timeStamp) || undefined
+    }) === true;
+    const updatePanelSheetDragFromEvent = (event, fallbackY = 0) => panelShell.updateMobileDrag({
+        clientY: Number(event?.clientY) || fallbackY,
+        nowMs: Number(event?.timeStamp) || undefined
+    });
+    const endPanelSheetDragFromEvent = (event, { cancelled = false, fallbackY = 0 } = {}) => {
+        panelShell.endMobileDrag({
+            clientY: cancelled ? fallbackY : (Number(event?.clientY) || fallbackY),
+            nowMs: Number(event?.timeStamp) || undefined,
+            cancelled
+        });
+        syncMobileDrawerState();
+    };
+
     {
         let dragState = null;
-        const isMobilePresentation = () => root.getAttribute?.('data-panel-presentation') === 'mobile';
-        const canDragMobilePanel = () => isMobilePresentation() &&
-            typeof panelShell?.beginMobileDrag === 'function' &&
-            typeof panelShell?.updateMobileDrag === 'function' &&
-            typeof panelShell?.endMobileDrag === 'function';
 
         header.addEventListener('pointerdown', (event) => {
             if (!canDragMobilePanel()) return;
             if (event?.button != null && event.button !== 0) return;
             if (isInteractivePanelHeaderTarget(event?.target, header)) return;
-            if (panelShell.beginMobileDrag({
-                startY: Number(event?.clientY) || 0,
-                nowMs: Number(event?.timeStamp) || undefined
-            }) !== true) return;
+            if (!beginPanelSheetDragFromEvent(event)) return;
 
             dragState = {
                 pointerId: event?.pointerId,
@@ -358,10 +373,7 @@ export const createPanelMainView = ({
         const updateDrag = (event) => {
             if (!dragState) return;
             if (dragState.pointerId != null && event?.pointerId !== dragState.pointerId) return;
-            panelShell.updateMobileDrag({
-                clientY: Number(event?.clientY) || dragState.startY,
-                nowMs: Number(event?.timeStamp) || undefined
-            });
+            updatePanelSheetDragFromEvent(event, dragState.startY);
             event.preventDefault?.();
             event.stopPropagation?.();
         };
@@ -373,13 +385,7 @@ export const createPanelMainView = ({
         const finishDrag = (event, { cancelled = false } = {}) => {
             if (!dragState) return;
             if (dragState.pointerId != null && event?.pointerId !== dragState.pointerId) return;
-            const currentY = cancelled ? dragState.startY : (Number(event?.clientY) || 0);
-            panelShell.endMobileDrag({
-                clientY: currentY,
-                nowMs: Number(event?.timeStamp) || undefined,
-                cancelled
-            });
-            syncMobileDrawerState();
+            endPanelSheetDragFromEvent(event, { cancelled, fallbackY: dragState.startY });
             try {
                 header.releasePointerCapture?.(event.pointerId);
             } catch {
@@ -398,6 +404,15 @@ export const createPanelMainView = ({
         document.addEventListener('pointercancel', (event) => finishDrag(event, { cancelled: true }), { capture: true, passive: false });
         header.addEventListener('lostpointercapture', (event) => finishDrag(event, { cancelled: true }), { passive: false });
     }
+
+    createMobileSheetPullDownController({
+        scrollEl: body,
+        doc: document,
+        isEnabled: canDragMobilePanel,
+        beginSheetDrag: beginPanelSheetDragFromEvent,
+        updateSheetDrag: (event) => updatePanelSheetDragFromEvent(event),
+        endSheetDrag: (event, options) => endPanelSheetDragFromEvent(event, options)
+    });
 
     const tripDetailRoot = document.createElement('div');
     tripDetailRoot.className = 'panel-trip-detail is-hidden';
@@ -429,6 +444,15 @@ export const createPanelMainView = ({
 
     const tripDetailBody = document.createElement('div');
     tripDetailBody.className = 'panel-trip-detail-body';
+
+    createMobileSheetPullDownController({
+        scrollEl: tripDetailBody,
+        doc: document,
+        isEnabled: canDragMobilePanel,
+        beginSheetDrag: beginPanelSheetDragFromEvent,
+        updateSheetDrag: (event) => updatePanelSheetDragFromEvent(event),
+        endSheetDrag: (event, options) => endPanelSheetDragFromEvent(event, options)
+    });
 
     tripDetailRoot.appendChild(tripDetailHeader);
     tripDetailRoot.appendChild(tripDetailBody);

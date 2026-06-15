@@ -7,6 +7,7 @@ import {
     resolveMobileSheetDragTarget,
     updateMobileSheetDragSession
 } from '../../ui/mobileSheetSnap.js';
+import { createMobileSheetPullDownController } from '../../ui/mobileSheetPullDown.js';
 import { scheduleOverflowTextMarquees } from '../../ui/overflowMarquee.js';
 
 const toText = (value) => String(value ?? '').trim();
@@ -372,6 +373,14 @@ export const createMobileMenu = ({
     dragBar.addEventListener('pointercancel', (event) => endDrag(event, { cancelled: true }), { passive: false });
     doc.addEventListener?.('pointercancel', (event) => endDrag(event, { cancelled: true }), { capture: true, passive: false });
     dragBar.addEventListener('lostpointercapture', (event) => endDrag(event, { cancelled: true }), { passive: false });
+    createMobileSheetPullDownController({
+        scrollEl: content,
+        doc,
+        isEnabled: () => !root.classList.contains('is-hidden'),
+        beginSheetDrag: beginDrag,
+        updateSheetDrag: updateDrag,
+        endSheetDrag: endDrag
+    });
 
     let terminalMarqueeScrollPending = false;
     content.addEventListener('scroll', () => {
