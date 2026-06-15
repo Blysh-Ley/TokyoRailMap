@@ -24,6 +24,10 @@ import {
     getMobileSheetOffsetForState,
     getNearestMobileSheetStateByOffset
 } from '../../ui/mobileSheetSnap.js';
+import {
+    appendStationJumpClass,
+    resolveStationJumpIntent
+} from '../../ui/stationJump.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -1885,7 +1889,7 @@ const setupRouteMapUi = () => {
 
                 rows.push(`<div class="${cls}" style="${gridCellStyle(currentGridRow, typeColumnOffset + ti + 1, `--tt-color:${escapeHtml(color)};--route-row-height:${rowHeightPx}px;`)}"></div>`);
             }
-            rows.push(`<div class="route-map-station" data-station-id="${escapeHtml(sid)}" title="${escapeHtml(stName)}" style="grid-row:${currentGridRow};grid-column:${stationColumnIndex};min-height:${rowHeightPx}px;display:flex;align-items:center;">${escapeHtml(stName)}</div>`);
+            rows.push(`<div class="${escapeHtml(appendStationJumpClass('route-map-station'))}" data-station-id="${escapeHtml(sid)}" data-panel-station-jump="1" role="button" tabindex="0" title="${escapeHtml(stName)}" style="grid-row:${currentGridRow};grid-column:${stationColumnIndex};min-height:${rowHeightPx}px;display:flex;align-items:center;">${escapeHtml(stName)}</div>`);
 
             gridRowIndex += 1;
 
@@ -2029,6 +2033,42 @@ const setupRouteMapUi = () => {
         return target.closest?.('.route-map-station[data-station-id]') || null;
     };
 
+    const hideRouteMapForStationJump = () => {
+        pinned = false;
+        root.classList.add('is-hidden');
+        applyMobileSheetState('hidden');
+        hideTransferHoverPortal();
+        activeLineId = '';
+        activeLineName = '';
+        returnTarget = '';
+        syncReturnTargetUi();
+    };
+
+    const dispatchRouteMapStationJump = (target, event) => {
+        const intent = resolveStationJumpIntent(target, {
+            adjustTime: false,
+            rootEl: body,
+            toText
+        });
+        if (!intent) return false;
+
+        clearRouteMapStationIndicator();
+        hideRouteMapForStationJump();
+        try {
+            window.dispatchEvent(new CustomEvent('__TokyoRailPanelStationJump', {
+                detail: {
+                    adjustTime: false,
+                    source: 'route-map',
+                    stationId: intent.stationId
+                }
+            }));
+        } catch {
+            // ignore
+        }
+        stopEvent(event);
+        return true;
+    };
+
     const syncRouteMapGridHeaderWidth = () => {
         const headerGrid = gridHeader.querySelector('.route-map-grid');
         const bodyGrid = body.querySelector('.route-map-grid');
@@ -2092,6 +2132,16 @@ const setupRouteMapUi = () => {
     body.addEventListener('mouseleave', () => {
         clearRouteMapStationIndicator();
     });
+
+    body.addEventListener('click', (evt) => {
+        dispatchRouteMapStationJump(evt?.target, evt);
+    }, { passive: false });
+
+    body.addEventListener('keydown', (evt) => {
+        const key = toText(evt?.key);
+        if (key !== 'Enter' && key !== ' ') return;
+        dispatchRouteMapStationJump(evt?.target, evt);
+    }, { passive: false });
 
     body.addEventListener('pointerdown', (evt) => {
         const stationEl = getRouteMapStationTarget(evt?.target);

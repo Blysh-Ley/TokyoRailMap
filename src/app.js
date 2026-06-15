@@ -2613,7 +2613,7 @@ const initMapApp = async () => {
             clearTripDetailStationIndicator();
         },
         onTripDetailStationJump: (payload) => {
-            jumpToPanelStationFromTripDetail(payload).catch(() => null);
+            jumpToPanelStation(payload).catch(() => null);
         },
         onDirPreviewEnter: (payload) => {
             if (isMultiSelectModeEnabled()) return;
@@ -2802,7 +2802,7 @@ const initMapApp = async () => {
         if (lineId) panel?.scrollToLineId?.(lineId, { behavior: 'smooth', block: 'start' });
     };
 
-    const jumpToPanelStationFromTripDetail = async ({
+    const jumpToPanelStation = async ({
         adjustTime = true,
         arrivalTime = '',
         stationId = ''
@@ -2832,6 +2832,10 @@ const initMapApp = async () => {
         }
         return true;
     };
+
+    window.addEventListener('__TokyoRailPanelStationJump', (event) => {
+        jumpToPanelStation(event?.detail || {}).catch(() => null);
+    });
 
     const showRouteMapFloatingPanelForLine = (lineId) => {
         const id = String(lineId || '').trim();
