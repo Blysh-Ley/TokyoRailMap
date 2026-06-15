@@ -539,15 +539,22 @@ export function createPanel(options = {}) {
 
     tripDetailRoot.addEventListener('pointerdown', (e) => {
         tripDetailPinned = true;
+        setTripDetailInteractive(true);
         clearTripDetailHideTimer();
         stopPropagationOnly(e);
     }, { passive: true });
     tripDetailRoot.addEventListener('click', (e) => {
         // 仅阻止冒泡：避免点详情面板触发“空白处点击=恢复选择”等全局逻辑
         tripDetailPinned = true;
+        setTripDetailInteractive(true);
         clearTripDetailHideTimer();
         stopPropagationOnly(e);
     }, { passive: true });
+    tripDetailRoot.addEventListener('focusin', () => {
+        tripDetailPinned = true;
+        setTripDetailInteractive(true);
+        clearTripDetailHideTimer();
+    });
     tripDetailRoot.addEventListener('wheel', (e) => stopPropagationOnly(e), { passive: true });
     tripDetailRoot.addEventListener('mouseenter', () => {
         if (panelInteractionPolicy.shouldSkipDesktopHover()) return;
@@ -710,6 +717,8 @@ export function createPanel(options = {}) {
 
     let tripDetailToken = 0;
     let tripDetailPinned = false;
+    let tripDetailStationJumpEnabled = false;
+    let suppressTripDetailStationJumpUntilMs = 0;
     let tripDetailHideTimer = null;
     let timetableViewMode = 'list';
     let pendingGridDataDebugLog = false;
@@ -2897,16 +2906,50 @@ export function createPanel(options = {}) {
         return resolveTrainTypeColorForTheme(trainTypeColorIndex?.get?.(typeId));
     };
 
+    const setTripDetailInteractive = (enabled) => {
+        tripDetailStationJumpEnabled = enabled === true;
+        tripDetailRoot.toggleAttribute('data-panel-station-jump-enabled', tripDetailStationJumpEnabled);
+    };
+
+    const suppressInitialTripDetailStationJump = (durationMs = 500) => {
+        suppressTripDetailStationJumpUntilMs = Math.max(
+            suppressTripDetailStationJumpUntilMs,
+            nowMs() + durationMs
+        );
+    };
+
+    const shouldSuppressTripDetailStationJump = () => (
+        isMobilePanelPresentation()
+        && nowMs() < suppressTripDetailStationJumpUntilMs
+    );
+
     const renderTripDetail = async ({ lineId, tripKey, clientX, clientY, pinned, fitMode }) => {
         const token = ++tripDetailToken;
         tripDetailPinned = !!pinned;
+        setTripDetailInteractive(!!pinned || isMobilePanelPresentation());
         clearTripDetailHideTimer();
         clearTripDetailStationIndicator();
+
+        const openedMobileTripDetailEarly = !!pinned && isMobilePanelPresentation();
+        if (openedMobileTripDetailEarly) {
+            suppressInitialTripDetailStationJump();
+            openMobileTripDetail({ lineId, tripKey });
+            tripDetailView.render({
+                titleHtml: '<div class="panel-trip-detail-title-main">加载中</div>',
+                bodyHtml: '<div class="panel-timetable-empty">正在加载班次详情</div>',
+                clientY,
+                presentation: panelPresentation
+            });
+        }
 
         const trip = await findTripByKey(lineId, tripKey);
         if (token !== tripDetailToken) return;
         if (!trip) {
-            tripDetailView.hide();
+            if (openedMobileTripDetailEarly) {
+                hideTripDetail();
+            } else {
+                tripDetailView.hide();
+            }
             return;
         }
 
@@ -3376,7 +3419,7 @@ export function createPanel(options = {}) {
             </div>
         `;
 
-        if (pinned) {
+        if (pinned && !openedMobileTripDetailEarly) {
             openMobileTripDetail({ lineId: tripLineId || lineId, tripKey });
         }
         tripDetailView.render({
@@ -3393,6 +3436,8 @@ export function createPanel(options = {}) {
         tripPreviewScheduler.clearApplied();
         unlockTripPreview();
         tripDetailToken += 1;
+        setTripDetailInteractive(false);
+        suppressTripDetailStationJumpUntilMs = 0;
         clearTripDetailHideTimer();
         hideTripCurrentStationHint();
         clearTripDetailStationIndicator();
@@ -3664,33 +3709,88 @@ export function createPanel(options = {}) {
         const state = mobilePanelStack.getState();
         if (state?.screen !== PANEL_MOBILE_STACK_SCREENS.TRIP_DETAIL) return;
 
-        const lineId = toText(state?.lineId);
-        mobilePanelStack.back();
+        mobilePanelStack.openStationOverview(getMobilePanelStationContext());
         syncMobilePanelStackUi();
-        if (!lineId) return;
-
-        try {
-            onSelectLine?.(lineId, { source: 'panel-touch', isolateStations: true });
-        } catch {
-            // ignore
-        }
-        panelScrollRuntime.scrollToLineId(lineId, { behavior: 'auto', block: 'start' });
+        restoreStationDefaultSelection();
         collapseMobilePanelForMapContext();
         scheduleCatalogRefresh();
+    };
+
+    const resolveTripRowPayload = (rowEl) => {
+        if (!rowEl || !body.contains(rowEl)) return null;
+        const lineEl = rowEl.closest?.('[data-line-id]');
+        const lineId = rowEl.getAttribute?.('data-line-id') || lineEl?.getAttribute?.('data-line-id');
+        const tripKey = rowEl.getAttribute?.('data-trip-key');
+        if (!lineId || !tripKey) return null;
+        return {
+            key: `${String(lineId)}||${String(tripKey)}`,
+            lineId: String(lineId),
+            tripKey: String(tripKey)
+        };
+    };
+
+    const openTripDetailFromPayload = ({
+        clientX = 0,
+        clientY = 0,
+        fitMode = 'commit',
+        key = '',
+        lineId = '',
+        tripKey = ''
+    } = {}) => {
+        if (!lineId || !tripKey || !key) return false;
+
+        if (!isMobilePanelPresentation() && tripLocked && key !== lockedTripKey) {
+            hideTripDetail({ restoreMobileLine: false });
+        }
+
+        if (!isMobilePanelPresentation()) {
+            lockTripPreview(key);
+            setPinnedPanelSelection('trip', key);
+        }
+
+        renderTripDetail({
+            lineId,
+            tripKey,
+            clientX,
+            clientY,
+            pinned: true,
+            fitMode
+        });
+        lastTripDetailKey = key;
+        return true;
+    };
+
+    const openTripDetailFromRowClick = (rowEl, evt, {
+        fitMode = 'commit'
+    } = {}) => {
+        const payload = resolveTripRowPayload(rowEl);
+        if (!payload) return false;
+        return openTripDetailFromPayload({
+            ...payload,
+            clientX: evt?.clientX || 0,
+            clientY: evt?.clientY || 0,
+            fitMode
+        });
     };
 
     const onBodyPointerDown = (evt) => {
         const pointerState = panelInteractionPolicy.beginPointer(evt);
         const pt = pointerState.pointerType;
+        const pointerTripRowEl = findTripTarget(evt?.target);
+        const pointerHitsTripRow = pointerTripRowEl && body.contains(pointerTripRowEl);
 
         if (!isMobilePanelPresentation() && evt?.target instanceof Element && body.contains(evt.target) && hasPinnedPanelState()) {
-            const pinnedKey = getCurrentPinnedInteractionKey();
-            const hitKey = getInteractionKeyFromTarget(evt.target);
-            stopEvent(evt);
-            if (pinnedKey && hitKey && pinnedKey === hitKey) return;
-            clearPinnedPanelState({ restoreStation: true });
-            armCancelInteractionSuppression();
-            return;
+            if (pointerHitsTripRow) {
+                // Let timetable taps/clicks replace an existing pinned preview instead of only clearing it.
+            } else {
+                const pinnedKey = getCurrentPinnedInteractionKey();
+                const hitKey = getInteractionKeyFromTarget(evt.target);
+                stopEvent(evt);
+                if (pinnedKey && hitKey && pinnedKey === hitKey) return;
+                clearPinnedPanelState({ restoreStation: true });
+                armCancelInteractionSuppression();
+                return;
+            }
         }
 
         if (!isMobilePanelPresentation() && tripLocked) {
@@ -3816,26 +3916,14 @@ export function createPanel(options = {}) {
 
         stopPropagationOnly(evt);
 
-        const key = `${pending.lineId}||${pending.tripKey}`;
-        if (!isMobilePanelPresentation() && tripLocked && key !== lockedTripKey) {
-            hideTripDetail();
-            lastTripDetailKey = null;
-            return;
-        }
-
-        if (!isMobilePanelPresentation()) {
-            lockTripPreview(key);
-            setPinnedPanelSelection('trip', key);
-        }
-        renderTripDetail({
+        openTripDetailFromPayload({
             lineId: pending.lineId,
             tripKey: pending.tripKey,
+            key: `${pending.lineId}||${pending.tripKey}`,
             clientX: completed.clientX,
             clientY: completed.clientY,
-            pinned: true,
             fitMode: 'commit'
         });
-        lastTripDetailKey = key;
     };
 
     const onBodyMove = (evt) => {
@@ -3929,6 +4017,15 @@ export function createPanel(options = {}) {
             return;
         }
 
+        const rowEl = findTripTarget(evt?.target);
+        if (rowEl && body.contains(rowEl)) {
+            clearTripHighlightTimer();
+            stopEvent(evt);
+            const fitMode = tripPreviewScheduler.isAppliedKey(resolveTripRowPayload(rowEl)?.key || '') ? 'none' : 'commit';
+            openTripDetailFromRowClick(rowEl, evt, { fitMode });
+            return;
+        }
+
         if (evt?.target instanceof Element && body.contains(evt.target) && hasPinnedPanelState()) {
             const pinnedKey = getCurrentPinnedInteractionKey();
             const hitKey = getInteractionKeyFromTarget(evt.target);
@@ -3937,37 +4034,6 @@ export function createPanel(options = {}) {
             clearPinnedPanelState({ restoreStation: true });
             armCancelInteractionSuppression();
             return;
-        }
-
-        const rowEl = findTripTarget(evt?.target);
-        if (rowEl && body.contains(rowEl)) {
-            clearTripHighlightTimer();
-            const lineEl = rowEl.closest?.('[data-line-id]');
-            const lineId = rowEl.getAttribute?.('data-line-id') || lineEl?.getAttribute?.('data-line-id');
-            const tripKey = rowEl.getAttribute?.('data-trip-key');
-            if (lineId && tripKey) {
-                const key = `${String(lineId)}||${String(tripKey)}`;
-                stopEvent(evt);
-                if (tripLocked && key !== lockedTripKey) {
-                    hideTripDetail();
-                    lastTripDetailKey = null;
-                    return;
-                }
-
-                lockTripPreview(key);
-                setPinnedPanelSelection('trip', key);
-                const fitMode = tripPreviewScheduler.isAppliedKey(key) ? 'none' : 'commit';
-                renderTripDetail({
-                    lineId: String(lineId),
-                    tripKey: String(tripKey),
-                    clientX: evt?.clientX || 0,
-                    clientY: evt?.clientY || 0,
-                    pinned: true,
-                    fitMode
-                });
-                lastTripDetailKey = key;
-                return;
-            }
         }
 
         if (tripLocked) {
@@ -4171,6 +4237,7 @@ export function createPanel(options = {}) {
     const jumpToTripDetailStation = (target, {
         adjustTime = true
     } = {}) => {
+        if (!tripDetailStationJumpEnabled) return false;
         const intent = resolvePanelStationJumpIntent(target, {
             adjustTime,
             rootEl: tripDetailBody,
@@ -4189,6 +4256,10 @@ export function createPanel(options = {}) {
     };
 
     const onTripDetailStationClick = (evt) => {
+        if (shouldSuppressTripDetailStationJump()) {
+            stopEvent(evt);
+            return;
+        }
         if (!jumpToTripDetailStation(evt?.target, { adjustTime: true })) return;
         stopEvent(evt);
     };
