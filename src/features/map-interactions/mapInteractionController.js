@@ -1,5 +1,11 @@
 import { mapClick } from '../../store/actions.js';
 
+const STATION_INTERACTION_LAYER_IDS = ['stations-layer', 'station-labels-layer'];
+
+const getExistingStationInteractionLayers = (mapEngine) => (
+    STATION_INTERACTION_LAYER_IDS.filter((layerId) => mapEngine.hasLayer?.(layerId))
+);
+
 export const bindBlankMapClickRestore = ({
     mapEngine,
     store,
@@ -21,7 +27,7 @@ export const bindBlankMapClickRestore = ({
 
         const layers = [];
         if (mapEngine.hasLayer?.('lines-layer')) layers.push('lines-layer');
-        if (mapEngine.hasLayer?.('stations-layer')) layers.push('stations-layer');
+        layers.push(...getExistingStationInteractionLayers(mapEngine));
 
         const hits = layers.length
             ? (mapEngine.queryRenderedFeatures?.(event.point, { layers }) || [])
@@ -68,8 +74,9 @@ export const bindLineClickSelect = ({
     mapEngine.on('click', 'lines-layer', (event) => {
         if (touchTapGuard?.allowTap?.(event?.originalEvent) === false) return;
 
-        if (mapEngine.hasLayer?.('stations-layer')) {
-            const stationHits = mapEngine.queryRenderedFeatures?.(event.point, { layers: ['stations-layer'] }) || [];
+        const stationLayers = getExistingStationInteractionLayers(mapEngine);
+        if (stationLayers.length) {
+            const stationHits = mapEngine.queryRenderedFeatures?.(event.point, { layers: stationLayers }) || [];
             if (stationHits.length) return;
         }
 
@@ -122,11 +129,14 @@ export const bindStationClickHighlightServingLines = ({
     if (!mapEngine || typeof mapEngine.on !== 'function') {
         throw new Error('bindStationClickHighlightServingLines requires mapEngine');
     }
-    if (!mapEngine.hasLayer?.('stations-layer')) return;
+    const stationLayers = getExistingStationInteractionLayers(mapEngine);
+    if (!stationLayers.length) return;
 
-    mapEngine.on('click', 'stations-layer', async (event) => {
+    const handleStationClick = async (event) => {
         if (touchTapGuard?.allowTap?.(event?.originalEvent) === false) return;
         if (isJourneyMapPickActive?.() === true) return;
+        if (event?.originalEvent?.__tokyoRailStationClickHandled === true) return;
+        if (event?.originalEvent) event.originalEvent.__tokyoRailStationClickHandled = true;
 
         const feature = event?.features?.[0];
         const props = feature?.properties || {};
@@ -144,6 +154,10 @@ export const bindStationClickHighlightServingLines = ({
         } catch {
             // ignore
         }
+    };
+
+    stationLayers.forEach((layerId) => {
+        mapEngine.on('click', layerId, handleStationClick);
     });
 };
 

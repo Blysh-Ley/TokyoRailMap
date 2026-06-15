@@ -4,7 +4,11 @@ const normalizeMode = (mode) => (
         : 'dynamic'
 );
 
-const DEFAULT_VISUAL_ZOOM_DELTA = 0.18;
+const DEFAULT_VISUAL_ZOOM_DELTA = 0.08;
+const DEFAULT_SETTLING_VISUAL_ZOOM_DELTA = 0.02;
+const DEFAULT_FINAL_ZOOM_DELTA = 0.16;
+const DEFAULT_SETTLING_FINAL_ZOOM_DELTA = 0.025;
+const DEFAULT_SETTLING_VELOCITY = 0.025;
 const DEFAULT_SETTLING_DELAY_MS = 80;
 const DEFAULT_IDLE_DELAY_MS = 140;
 
@@ -24,10 +28,14 @@ export const createStationOffsetRuntimeController = ({
     idleDelayMs = DEFAULT_IDLE_DELAY_MS,
     initialMode = 'dynamic',
     mapEngine,
+    finalZoomDelta = DEFAULT_FINAL_ZOOM_DELTA,
+    settlingFinalZoomDelta = DEFAULT_SETTLING_FINAL_ZOOM_DELTA,
+    settlingVelocity = DEFAULT_SETTLING_VELOCITY,
     settlingDelayMs = DEFAULT_SETTLING_DELAY_MS,
     setTimeoutFn = globalThis.setTimeout,
     syncStationOffsetForZoom,
-    visualZoomDelta = DEFAULT_VISUAL_ZOOM_DELTA
+    visualZoomDelta = DEFAULT_VISUAL_ZOOM_DELTA,
+    settlingVisualZoomDelta = DEFAULT_SETTLING_VISUAL_ZOOM_DELTA
 } = {}) => {
     if (!mapEngine || typeof mapEngine.on !== 'function') {
         throw new Error('stationOffsetRuntimeController requires mapEngine.on');
@@ -39,10 +47,15 @@ export const createStationOffsetRuntimeController = ({
     let mode = normalizeMode(initialMode);
     let lastVisualZoom = Number(getZoom());
     let lastFrameZoom = Number(getZoom());
+    let lastFinalZoom = Number(getZoom());
     let lastFinalZoomKey = '';
     let settleTimerId = null;
     const unbinders = [];
     const visualDelta = normalizeDelay(visualZoomDelta, DEFAULT_VISUAL_ZOOM_DELTA);
+    const settlingVisualDelta = normalizeDelay(settlingVisualZoomDelta, DEFAULT_SETTLING_VISUAL_ZOOM_DELTA);
+    const activeFinalDelta = normalizeDelay(finalZoomDelta, DEFAULT_FINAL_ZOOM_DELTA);
+    const nearIdleFinalDelta = normalizeDelay(settlingFinalZoomDelta, DEFAULT_SETTLING_FINAL_ZOOM_DELTA);
+    const nearIdleVelocity = normalizeDelay(settlingVelocity, DEFAULT_SETTLING_VELOCITY);
     const settlingDelay = normalizeDelay(settlingDelayMs, DEFAULT_SETTLING_DELAY_MS);
     const idleDelay = normalizeDelay(idleDelayMs, DEFAULT_IDLE_DELAY_MS);
 
@@ -64,6 +77,7 @@ export const createStationOffsetRuntimeController = ({
         const synced = syncStationOffsetForZoom(zoom, { phase: 'final', reason });
         lastVisualZoom = zoom;
         lastFrameZoom = zoom;
+        lastFinalZoom = zoom;
         if (key) lastFinalZoomKey = key;
         return synced;
     };
@@ -79,32 +93,29 @@ export const createStationOffsetRuntimeController = ({
 
     const isDynamicMode = () => mode !== 'performance';
 
-    const scheduleSettlingSync = (delayMs, reason = 'settling') => {
-        clearSettlingTimer();
-        if (typeof setTimeoutFn !== 'function') return;
-        settleTimerId = setTimeoutFn(() => {
-            settleTimerId = null;
-            syncFinalAtCurrentZoom(reason);
-        }, delayMs);
-    };
-
     const handleZoom = () => {
         if (!isDynamicMode()) return;
 
         const currentZoom = getCurrentZoom();
-        const cumulativeDelta = Math.abs(currentZoom - lastVisualZoom);
         const frameVelocity = Math.abs(currentZoom - lastFrameZoom);
+        const settlingCandidate = frameVelocity > 0 && frameVelocity < nearIdleVelocity;
+        const visualDeltaForFrame = settlingCandidate ? settlingVisualDelta : visualDelta;
+        const finalDeltaForFrame = settlingCandidate ? nearIdleFinalDelta : activeFinalDelta;
+        const cumulativeVisualDelta = Math.abs(currentZoom - lastVisualZoom);
+        const cumulativeFinalDelta = Math.abs(currentZoom - lastFinalZoom);
         lastFrameZoom = currentZoom;
 
-        if (cumulativeDelta >= visualDelta) {
-            syncVisualAtCurrentZoom('zoom');
+        if (cumulativeVisualDelta >= visualDeltaForFrame) {
+            syncVisualAtCurrentZoom(settlingCandidate ? 'zoom-settling' : 'zoom');
         }
 
-        const settlingCandidate = frameVelocity > 0 && frameVelocity < 0.02;
-        scheduleSettlingSync(settlingCandidate ? settlingDelay : idleDelay, 'settling');
+        if (cumulativeFinalDelta >= finalDeltaForFrame) {
+            syncFinalAtCurrentZoom(settlingCandidate ? 'zoom-settling' : 'zoom');
+        }
     };
 
     const handleZoomEnd = () => {
+        if (isDynamicMode()) return;
         clearSettlingTimer();
         syncFinalAtCurrentZoom('zoomend');
     };

@@ -16,10 +16,52 @@ const resolveMarkerAdapter = (mapOrEngine, maplibregl) => {
     };
 };
 
-export function createStationMarkers(mapOrEngine, maplibreglOrStationsData, stationsDataMaybe) {
+export function buildStationLabelGeoJSON(stationsData) {
+    const features = [];
+    const stationFeatures = Array.isArray(stationsData?.features) ? stationsData.features : [];
+
+    stationFeatures.forEach((feature) => {
+        if (!feature || feature.geometry?.type !== 'Point') return;
+        const coordinates = feature.geometry.coordinates;
+        if (!Array.isArray(coordinates) || coordinates.length < 2) return;
+
+        const props = feature.properties || {};
+        const stationId = props.id || feature.id;
+        const name = props.name_zh || props.name;
+        if (!stationId || !name) return;
+
+        const servingIds = Array.isArray(props.serving_ids) ? props.serving_ids.map(String) : [];
+        const priority = servingIds.length;
+
+        features.push({
+            type: 'Feature',
+            id: stationId,
+            properties: {
+                ...props,
+                id: stationId,
+                name,
+                priority,
+                hidden_by_opacity_zero: Number(props.hidden_by_opacity_zero) === 1 || props.hidden_by_opacity_zero === true ? 1 : 0
+            },
+            geometry: {
+                type: 'Point',
+                coordinates: coordinates.slice()
+            }
+        });
+    });
+
+    return {
+        type: 'FeatureCollection',
+        features
+    };
+}
+
+export function createStationMarkers(mapOrEngine, maplibreglOrStationsData, stationsDataMaybe, optionsMaybe = {}) {
     const usingMapEngine = mapOrEngine && typeof mapOrEngine.createMarker === 'function';
     const maplibregl = usingMapEngine ? null : maplibreglOrStationsData;
     const stationsData = usingMapEngine ? maplibreglOrStationsData : stationsDataMaybe;
+    const options = usingMapEngine ? (stationsDataMaybe || {}) : optionsMaybe;
+    const attachMarkers = options.attachMarkers !== false;
     const markerAdapter = resolveMarkerAdapter(mapOrEngine, maplibregl);
     const stationLabels = [];
     const stationCircles = [];
@@ -58,12 +100,8 @@ export function createStationMarkers(mapOrEngine, maplibreglOrStationsData, stat
         const labelDyPx = priority > 1 ? 6 : 3;
         el.style.translate = `0 -${labelDyPx}px`;
 
-        const marker = markerAdapter.createMarker({ element: el, anchor: 'bottom' })
-            .setLngLat(coordinates);
-        markerAdapter.addMarker(marker);
-
-        stationLabels.push({
-            marker,
+        const label = {
+            marker: null,
             el,
             stationId,
             coordinates,
@@ -73,8 +111,28 @@ export function createStationMarkers(mapOrEngine, maplibreglOrStationsData, stat
             hiddenByOpacityZero,
             labelDyPx,
             width: null,
-            height: null
-        });
+            height: null,
+            ensureMarker: () => {
+                if (label.marker) return label.marker;
+                const marker = markerAdapter.createMarker({ element: el, anchor: 'bottom' })
+                    .setLngLat(label.coordinates);
+                markerAdapter.addMarker(marker);
+                label.marker = marker;
+                return marker;
+            },
+            removeMarker: () => {
+                if (!label.marker) return;
+                try {
+                    label.marker.remove?.();
+                } catch {
+                    // ignore stale marker cleanup errors
+                }
+                label.marker = null;
+            }
+        };
+
+        if (attachMarkers) label.ensureMarker();
+        stationLabels.push(label);
 
         if (stationId) {
             stationCircles.push({

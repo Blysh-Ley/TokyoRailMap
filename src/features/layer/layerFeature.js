@@ -4,6 +4,7 @@ export const createLayerFeature = ({
     buildStationOffsetGeoJSONAtZoom,
     getZoom,
     updateStationsSourceData,
+    updateStationLabelsSourceData,
     updateStationLabelCoordinates,
     updateStationCircleCoordinates,
     rebuildStationCoordMap,
@@ -160,13 +161,14 @@ export const createLayerFeature = ({
 
         if (updateVisible) {
             updateStationsSourceData?.(nextGeoJSON);
+            updateStationLabelsSourceData?.(nextGeoJSON);
             updateStationLabelCoordinates?.(nextGeoJSON);
             updateStationCircleCoordinates?.(nextGeoJSON);
         }
 
         if (phase === 'visual') {
             syncTransferCapsuleStationsData?.(nextGeoJSON);
-            refreshTransferCapsulesNow({ viewportOnly: true });
+            refreshTransferCapsulesNow();
             return true;
         }
 

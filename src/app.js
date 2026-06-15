@@ -18,8 +18,19 @@ import {
     projectLngLatToPixelAtZoom12,
     unprojectPixelToLngLatAtZoom12
 } from './map/offset.js';
-import { addLineNameLabelsLayer, addLinesLayer, addStationsLayer, setupLineHoverPopup, setupStationPopup } from './map/layers.js';
-import { createStationMarkers } from './map/labels.js';
+import {
+    STATION_LABELS_SOURCE_ID,
+    STATION_LABEL_BACKGROUND_DARK_IMAGE_ID,
+    STATION_LABEL_BACKGROUND_LIGHT_IMAGE_ID,
+    addLineNameLabelsLayer,
+    addLinesLayer,
+    addStationLabelsLayer,
+    addStationsLayer,
+    buildStationLabelsLayerPaint,
+    setupLineHoverPopup,
+    setupStationPopup
+} from './map/layers.js';
+import { buildStationLabelGeoJSON, createStationMarkers } from './map/labels.js';
 import { setupCollisions } from './map/collision.js';
 import { buildTransferCapsuleGeoJSON, addTransferCapsuleLayers, buildTransferCapsuleConnectionOrder } from './map/transfer-capsules.js';
 import { installMapAttributionView } from './ui/mapAttributionView.js';
@@ -2262,6 +2273,12 @@ const initMapApp = async () => {
                 'circle-stroke-color': stationCircleStrokeColorPaint({ isDarkThemeActive: dark })
             }
         });
+        mapEngine.applyPaintProperties?.('station-labels-layer', buildStationLabelsLayerPaint({ isDark: dark }));
+        mapEngine.setLayoutProperty?.(
+            'station-labels-layer',
+            'icon-image',
+            dark ? STATION_LABEL_BACKGROUND_DARK_IMAGE_ID : STATION_LABEL_BACKGROUND_LIGHT_IMAGE_ID
+        );
         tripPreviewRenderer.applyStopPaint({
             'circle-color': buildStationCircleColorPaintExpr({
                 isDarkThemeActive: dark,
@@ -4150,6 +4167,7 @@ const initMapApp = async () => {
         }
 
         addStationsLayer(mapEngine, stationsData);
+        addStationLabelsLayer(mapEngine, buildStationLabelGeoJSON(stationsData));
         const lineNameLabelsData = generatedLineNameLabelsData || loadedGeoData?.lineNameLabelsGeoJSON || EMPTY_LINE_NAME_LABELS_DATA;
         generatedLineNameLabelsData = lineNameLabelsData;
         addLineNameLabelsLayer(mapEngine, lineNameLabelsData);
@@ -4170,7 +4188,7 @@ const initMapApp = async () => {
 
         applySelectionEffects();
 
-        const markers = createStationMarkers(mapEngine, stationsData);
+        const markers = createStationMarkers(mapEngine, stationsData, { attachMarkers: false });
         stationLabels = markers.stationLabels;
         const stationCircles = markers.stationCircles;
         stationLabelChipsAdapter = createStationLabelChipsAdapter({
@@ -4246,6 +4264,13 @@ const initMapApp = async () => {
             updateStationsSourceData: (nextGeoJSON) => {
                 try {
                     mapEngine.setSourceData('stations-source', nextGeoJSON);
+                } catch {
+                    // ignore
+                }
+            },
+            updateStationLabelsSourceData: (nextGeoJSON) => {
+                try {
+                    mapEngine.setSourceData(STATION_LABELS_SOURCE_ID, buildStationLabelGeoJSON(nextGeoJSON));
                 } catch {
                     // ignore
                 }

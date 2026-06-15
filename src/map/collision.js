@@ -17,8 +17,46 @@ function gridKey(cx, cy) {
 
 function measureLabelSize(label) {
     if (label.width != null && label.height != null) return;
-    label.width = Math.max(1, label.el.offsetWidth);
-    label.height = Math.max(1, label.el.offsetHeight);
+    const text = String(label?.el?.textContent || '');
+    const fallbackWidth = Math.max(1, Math.ceil(text.length * 12 + 10));
+    const fallbackHeight = 18;
+
+    if (typeof document === 'undefined' || !label?.el) {
+        label.width = fallbackWidth;
+        label.height = fallbackHeight;
+        return;
+    }
+
+    let host = document.getElementById('__tokyo-rail-station-label-measure-host');
+    if (!host) {
+        host = document.createElement('div');
+        host.id = '__tokyo-rail-station-label-measure-host';
+        host.style.position = 'absolute';
+        host.style.left = '-100000px';
+        host.style.top = '0';
+        host.style.visibility = 'hidden';
+        host.style.pointerEvents = 'none';
+        host.style.contain = 'layout style';
+        document.body?.appendChild?.(host);
+    }
+
+    const el = label.el;
+    const parent = el.parentNode;
+    const nextSibling = el.nextSibling;
+    if (!parent) host.appendChild(el);
+
+    label.width = Math.max(1, el.offsetWidth || fallbackWidth);
+    label.height = Math.max(1, el.offsetHeight || fallbackHeight);
+
+    if (!parent) {
+        try {
+            host.removeChild(el);
+        } catch {
+            // ignore stale measurement cleanup errors
+        }
+    } else if (parent !== host && el.parentNode !== parent) {
+        parent.insertBefore(el, nextSibling);
+    }
 }
 
 const resolveMapAdapter = (mapOrEngine) => ({
@@ -30,7 +68,13 @@ const resolveMapAdapter = (mapOrEngine) => ({
     ),
     on: (...args) => mapOrEngine?.on?.(...args),
     project: (...args) => mapOrEngine?.project?.(...args),
-    setFilter: (...args) => mapOrEngine?.setFilter?.(...args)
+    setFilter: (...args) => mapOrEngine?.setFilter?.(...args),
+    setLayerVisibility: (layerId, visible) => {
+        if (typeof mapOrEngine?.setLayerVisibility === 'function') {
+            return mapOrEngine.setLayerVisibility(layerId, visible);
+        }
+        return mapOrEngine?.setLayoutProperty?.(layerId, 'visibility', visible === false ? 'none' : 'visible');
+    }
 });
 
 function getLabelBBox(mapAdapter, label) {
@@ -125,12 +169,85 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
     const transferGroupByStationId = options.transferGroupByStationId instanceof Map
         ? options.transferGroupByStationId
         : null;
+    const stationLabelsLayerId = options.stationLabelsLayerId || 'station-labels-layer';
     // 线路联动作用范围：
     // - 'labels'：只影响站名显示（不影响圆点）
     // - 'labels_and_circles'：同时影响站名与圆点（默认）
     const lineFilterTarget = options.lineFilterTarget ?? 'labels_and_circles';
 
     let rafId = null;
+    let domStationLabelsAttached = stationLabels.some((label) => label?.marker);
+    let symbolStationLabelsVisible = false;
+    let lastSymbolStationLabelFilterKey = '';
+
+    const setStationSymbolLabelsVisible = (visible) => {
+        if (!stationLabelsLayerId || !mapAdapter.hasLayer(stationLabelsLayerId)) return false;
+        if (symbolStationLabelsVisible === visible) return true;
+        try {
+            mapAdapter.setLayerVisibility(stationLabelsLayerId, visible);
+            symbolStationLabelsVisible = visible;
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
+    const attachDomStationLabels = () => {
+        if (domStationLabelsAttached) return;
+        stationLabels.forEach((label) => {
+            try {
+                label?.ensureMarker?.();
+            } catch {
+                // ignore stale marker restore errors
+            }
+        });
+        domStationLabelsAttached = true;
+    };
+
+    const detachDomStationLabels = () => {
+        if (!domStationLabelsAttached) return;
+        stationLabels.forEach((label) => {
+            try {
+                label.el.style.display = 'none';
+                label?.removeMarker?.();
+            } catch {
+                // ignore stale marker cleanup errors
+            }
+        });
+        domStationLabelsAttached = false;
+    };
+
+    const buildStationSymbolLabelFilter = (visibleIds = []) => {
+        const ids = Array.isArray(visibleIds) ? visibleIds.filter(Boolean) : [];
+        const base = [
+            ['!=', ['get', 'hidden_by_opacity_zero'], 1],
+            ['>', ['coalesce', ['get', 'priority'], 0], 0]
+        ];
+
+        if (ids.length) base.push(['in', ['get', 'id'], ['literal', ids]]);
+        else base.push(['==', ['get', 'id'], '']);
+
+        return ['all', ...base];
+    };
+
+    const syncStationSymbolLabelFilter = (visibleIds = []) => {
+        if (!stationLabelsLayerId || !mapAdapter.hasLayer(stationLabelsLayerId)) return false;
+        const ids = Array.from(new Set((Array.isArray(visibleIds) ? visibleIds : [])
+            .map((id) => String(id || '').trim())
+            .filter(Boolean)))
+            .sort();
+
+        const key = ids.join('|');
+        if (key === lastSymbolStationLabelFilterKey) return true;
+
+        try {
+            mapAdapter.setFilter(stationLabelsLayerId, buildStationSymbolLabelFilter(ids));
+            lastSymbolStationLabelFilterKey = key;
+            return true;
+        } catch {
+            return false;
+        }
+    };
 
     const toTransferGroupKey = (groupSet) => {
         if (!(groupSet instanceof Set) || !groupSet.size) return '';
@@ -202,6 +319,7 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
             (typeof getLabelsVisible === 'function' ? (getLabelsVisible() ? 'auto' : 'off') : 'auto');
 
         if (mode === 'off') {
+            setStationSymbolLabelsVisible(false);
             stationLabels.forEach((label) => {
                 label.el.style.display = 'none';
             });
@@ -213,6 +331,19 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
                 ? (typeof getEnabledLineIds === 'function' ? getEnabledLineIds() : null)
                 : null;
         const explicitIdsSet = typeof getVisibleStationIds === 'function' ? getVisibleStationIds() : null;
+
+        const useSymbolAutoLabels =
+            mode === 'auto'
+            && mapAdapter.hasLayer(stationLabelsLayerId)
+            && !(pinnedIds instanceof Set)
+            && !(enabledLineIdsSet instanceof Set)
+            && !(explicitIdsSet instanceof Set);
+
+        if (useSymbolAutoLabels) detachDomStationLabels();
+        else {
+            setStationSymbolLabelsVisible(false);
+            attachDomStationLabels();
+        }
 
         if (mode === 'all') {
             stationLabels.forEach((label) => {
@@ -338,6 +469,15 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
         const shouldApplyLowZoomThin = shouldThinAutoLabels?.() === true
             && mapAdapter.getZoom() < lowZoomLabelThinMaxZoom
             && visibleAfterCollision.length > 0;
+
+        if (useSymbolAutoLabels) {
+            const visibleLabels = shouldApplyLowZoomThin
+                ? visibleAfterCollision.slice(0, Math.ceil(visibleAfterCollision.length * lowZoomLabelKeepRatio))
+                : visibleAfterCollision;
+            syncStationSymbolLabelFilter(visibleLabels.map((label) => label.stationId));
+            setStationSymbolLabelsVisible(true);
+            return;
+        }
 
         if (!shouldApplyLowZoomThin) {
             visibleAfterCollision.forEach((label) => {

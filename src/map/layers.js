@@ -28,8 +28,10 @@ const resolveMapAdapter = (mapOrEngine, maplibregl) => {
             addPopup: (popup) => mapOrEngine.addPopup(popup),
             addLayer: (...args) => mapOrEngine.addLayer(...args),
             addSource: (...args) => mapOrEngine.addSource(...args),
+            addImage: (...args) => mapOrEngine.addImage?.(...args),
             createPopup: (options) => mapOrEngine.createPopup(options),
             getCanvas: () => mapOrEngine.getCanvas?.(),
+            hasImage: (imageId) => mapOrEngine.hasImage?.(imageId) === true,
             getSource: (sourceId) => mapOrEngine.getSource?.(sourceId),
             getZoom: () => mapOrEngine.getZoom?.(),
             hasLayer: (layerId) => mapOrEngine.hasLayer?.(layerId) === true,
@@ -43,8 +45,10 @@ const resolveMapAdapter = (mapOrEngine, maplibregl) => {
         addPopup: (popup) => popup?.addTo?.(mapOrEngine),
         addLayer: (...args) => mapOrEngine?.addLayer?.(...args),
         addSource: (...args) => mapOrEngine?.addSource?.(...args),
+        addImage: (...args) => mapOrEngine?.addImage?.(...args),
         createPopup: (options) => new maplibregl.Popup(options),
         getCanvas: () => mapOrEngine?.getCanvas?.(),
+        hasImage: (imageId) => mapOrEngine?.hasImage?.(imageId) === true,
         getSource: (sourceId) => mapOrEngine?.getSource?.(sourceId),
         getZoom: () => mapOrEngine?.getZoom?.(),
         hasLayer: (layerId) => Boolean(layerId && mapOrEngine?.getLayer?.(layerId)),
@@ -240,6 +244,133 @@ export function addLineNameLabelsLayer(mapOrEngine, labelsData) {
                 'text-halo-width': 0.35,
                 'text-opacity': ['interpolate', ['linear'], ['zoom'], 7.5, 0, 8.5, 1]
             }
+        }, beforeLayerId);
+    }
+}
+
+export const STATION_LABELS_SOURCE_ID = 'station-labels-source';
+export const STATION_LABELS_LAYER_ID = 'station-labels-layer';
+export const STATION_LABEL_BACKGROUND_LIGHT_IMAGE_ID = 'station-label-bg-light';
+export const STATION_LABEL_BACKGROUND_DARK_IMAGE_ID = 'station-label-bg-dark';
+
+export const buildStationLabelsLayerPaint = ({
+    isDark = (typeof document !== 'undefined' && isDarkThemeActive())
+} = {}) => ({
+    'text-color': isDark ? '#f2f2f2' : '#222',
+    'text-halo-color': isDark ? 'rgba(24, 26, 31, 0.55)' : 'rgba(255, 255, 255, 0.55)',
+    'text-halo-width': 0.3,
+    'text-halo-blur': 0
+});
+
+const drawRoundRect = (ctx, x, y, width, height, radius) => {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+};
+
+const createStationLabelBackgroundImage = ({ isDark = false } = {}) => {
+    if (typeof document === 'undefined') return null;
+    const pixelRatio = 2;
+    const width = 44;
+    const height = 24;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext?.('2d');
+    if (!ctx) return null;
+
+    ctx.clearRect(0, 0, width, height);
+    drawRoundRect(ctx, 1.5, 1.5, width - 3, height - 3, 6);
+    ctx.fillStyle = isDark ? 'rgba(24, 26, 31, 0.75)' : 'rgba(255, 255, 255, 0.7)';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = isDark ? 'rgba(210, 216, 226, 0.35)' : 'rgba(0, 0, 0, 0.2)';
+    ctx.stroke();
+
+    return {
+        image: ctx.getImageData(0, 0, width, height),
+        options: {
+            pixelRatio,
+            stretchX: [[10, width - 10]],
+            stretchY: [[8, height - 8]],
+            content: [7, 3, width - 7, height - 3]
+        }
+    };
+};
+
+const ensureStationLabelBackgroundImages = (mapAdapter) => {
+    if (!mapAdapter?.addImage || !mapAdapter?.hasImage) return;
+    const items = [
+        [STATION_LABEL_BACKGROUND_LIGHT_IMAGE_ID, createStationLabelBackgroundImage({ isDark: false })],
+        [STATION_LABEL_BACKGROUND_DARK_IMAGE_ID, createStationLabelBackgroundImage({ isDark: true })]
+    ];
+
+    for (const [imageId, item] of items) {
+        if (!item || mapAdapter.hasImage(imageId)) continue;
+        try {
+            mapAdapter.addImage(imageId, item.image, item.options);
+        } catch {
+            // keep text labels usable even if the background image cannot be registered
+        }
+    }
+};
+
+export function addStationLabelsLayer(mapOrEngine, stationLabelData) {
+    const mapAdapter = resolveMapAdapter(mapOrEngine);
+    ensureStationLabelBackgroundImages(mapAdapter);
+
+    if (!mapAdapter.getSource(STATION_LABELS_SOURCE_ID)) {
+        mapAdapter.addSource(STATION_LABELS_SOURCE_ID, {
+            type: 'geojson',
+            data: stationLabelData || { type: 'FeatureCollection', features: [] }
+        });
+    }
+
+    if (!mapAdapter.hasLayer(STATION_LABELS_LAYER_ID)) {
+        const beforeLayerId = mapAdapter.hasLayer('line-name-labels-layer')
+            ? 'line-name-labels-layer'
+            : undefined;
+        mapAdapter.addLayer({
+            id: STATION_LABELS_LAYER_ID,
+            type: 'symbol',
+            source: STATION_LABELS_SOURCE_ID,
+            filter: ['all', ['!=', ['get', 'hidden_by_opacity_zero'], 1], ['>', ['coalesce', ['get', 'priority'], 0], 0]],
+            layout: {
+                'symbol-placement': 'point',
+                'symbol-avoid-edges': false,
+                'symbol-sort-key': ['-', 0, ['coalesce', ['get', 'priority'], 0]],
+                'icon-image': (typeof document !== 'undefined' && document.documentElement && isDarkThemeActive())
+                    ? STATION_LABEL_BACKGROUND_DARK_IMAGE_ID
+                    : STATION_LABEL_BACKGROUND_LIGHT_IMAGE_ID,
+                'icon-text-fit': 'both',
+                'icon-text-fit-padding': [0, 2, 0, 2],
+                'icon-allow-overlap': false,
+                'icon-ignore-placement': false,
+                'text-field': ['get', 'name'],
+                'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+                'text-size': 12,
+                'text-line-height': 1.2,
+                'text-anchor': 'bottom',
+                'text-offset': [
+                    'case',
+                    ['>', ['coalesce', ['get', 'priority'], 0], 1],
+                    ['literal', [0, -0.5]],
+                    ['literal', [0, -0.3]]
+                ],
+                'text-allow-overlap': false,
+                'text-ignore-placement': false,
+                'text-padding': 2
+            },
+            paint: buildStationLabelsLayerPaint()
         }, beforeLayerId);
     }
 }
@@ -804,7 +935,10 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
     const queryStationFeatureAtPoint = (point) => {
         if (!point) return null;
         try {
-            const hits = mapAdapter.queryRenderedFeatures(point, { layers: ['stations-layer'] }) || [];
+            const layers = ['stations-layer', STATION_LABELS_LAYER_ID].filter((layerId) => mapAdapter.hasLayer(layerId));
+            const hits = layers.length
+                ? (mapAdapter.queryRenderedFeatures(point, { layers }) || [])
+                : [];
             return hits?.[0] || null;
         } catch {
             return null;
@@ -1315,7 +1449,7 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         return `<div class="${rootClass}">${nameHtml}${companiesHtml}</div>`;
     };
 
-    mapAdapter.on('mouseenter', 'stations-layer', async (e) => {
+    const handleStationMouseEnter = async (e) => {
         if (!isHoverPreviewEnabled()) return;
         // 触屏会产生合成 mouseenter：这里直接忽略，改用 click 来显示 popup
         if (nowMs() < suppressMouseEventsUntilMs || isTouchLikePointer(lastPointerType)) return;
@@ -1345,15 +1479,22 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         mapAdapter.addPopup(popup);
         void enhancePopupLineBadges({ popup, mode: 'station' });
         bindPopupHover();
-    });
+    };
 
-    mapAdapter.on('mouseleave', 'stations-layer', () => {
+    const handleStationMouseLeave = () => {
         if (!isHoverPreviewEnabled()) return;
         if (nowMs() < suppressMouseEventsUntilMs || isTouchLikePointer(lastPointerType)) return;
         mapAdapter.setCursor('');
         isOverStation = false;
         if (popupOpenMode === 'hover') tryHidePopup();
-    });
+    };
+
+    ['stations-layer', STATION_LABELS_LAYER_ID]
+        .filter((layerId) => mapAdapter.hasLayer(layerId))
+        .forEach((layerId) => {
+            mapAdapter.on('mouseenter', layerId, handleStationMouseEnter);
+            mapAdapter.on('mouseleave', layerId, handleStationMouseLeave);
+        });
 
     // 点击站点/空白处不再打开/固定 popup：交互迁移到右侧 panel。
 
