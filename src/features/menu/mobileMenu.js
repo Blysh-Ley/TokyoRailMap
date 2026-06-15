@@ -2,9 +2,10 @@ import { ensureLineIconForRwLineContent, prependLineIconElements } from '../../l
 import { getCompanyLogoCandidates, setImageElementFromCache } from '../../lib/fetch.js';
 import {
     DEFAULT_MOBILE_SHEET_PEEK_PX,
-    clampMobileSheetOffset,
+    createMobileSheetDragSession,
     getMobileSheetOffsetForState,
-    getNearestMobileSheetStateByOffset
+    resolveMobileSheetDragTarget,
+    updateMobileSheetDragSession
 } from '../../ui/mobileSheetSnap.js';
 import { scheduleOverflowTextMarquees } from '../../ui/overflowMarquee.js';
 
@@ -252,12 +253,16 @@ export const createMobileMenu = ({
         if (event?.button != null && event.button !== 0) return false;
         dragState = {
             pointerId: event?.pointerId,
-            startY: Number(event?.clientY) || 0,
-            startState: drawerState,
-            startOffset: drawerState === 'hidden'
-                ? getPanelHeight()
-                : getMobileSheetOffsetForState(drawerState, getSnapOptions()),
-            panelHeight: getPanelHeight()
+            session: createMobileSheetDragSession({
+                startY: Number(event?.clientY) || 0,
+                startState: drawerState,
+                startOffset: drawerState === 'hidden'
+                    ? getPanelHeight()
+                    : getMobileSheetOffsetForState(drawerState, getSnapOptions()),
+                height: getPanelHeight(),
+                peekPx: DEFAULT_MOBILE_SHEET_PEEK_PX,
+                nowMs: Number(event?.timeStamp) || undefined
+            })
         };
         root.setAttribute('data-mobile-menu-dragging', '1');
         sheet.style.transition = 'none';
@@ -274,13 +279,11 @@ export const createMobileMenu = ({
     const updateDrag = (event) => {
         if (!dragState) return;
         if (dragState.pointerId != null && event?.pointerId !== dragState.pointerId) return;
-        const deltaY = (Number(event?.clientY) || 0) - dragState.startY;
-        const offset = clampMobileSheetOffset(dragState.startOffset + deltaY, {
-            height: dragState.panelHeight,
-            peekPx: DEFAULT_MOBILE_SHEET_PEEK_PX
+        updateMobileSheetDragSession(dragState.session, {
+            clientY: Number(event?.clientY) || dragState.session.currentY,
+            nowMs: Number(event?.timeStamp) || undefined
         });
-        sheet.style.transform = `translateY(${offset}px)`;
-        dragState.currentOffset = offset;
+        sheet.style.transform = `translateY(${dragState.session.currentOffset}px)`;
         event?.preventDefault?.();
         event?.stopPropagation?.();
     };
@@ -288,20 +291,11 @@ export const createMobileMenu = ({
     const endDrag = (event, { cancelled = false } = {}) => {
         if (!dragState) return;
         if (dragState.pointerId != null && event?.pointerId !== dragState.pointerId) return;
-        const currentY = cancelled ? dragState.startY : (Number(event?.clientY) || 0);
-        const deltaY = currentY - dragState.startY;
-        const currentOffset = cancelled
-            ? dragState.startOffset
-            : (dragState.currentOffset ?? clampMobileSheetOffset(dragState.startOffset + deltaY, {
-                height: dragState.panelHeight,
-                peekPx: DEFAULT_MOBILE_SHEET_PEEK_PX
-            }));
-        const targetState = cancelled
-            ? dragState.startState
-            : getNearestMobileSheetStateByOffset(currentOffset, {
-                height: dragState.panelHeight,
-                peekPx: DEFAULT_MOBILE_SHEET_PEEK_PX
-            });
+        const targetState = resolveMobileSheetDragTarget(dragState.session, {
+            clientY: cancelled ? dragState.session.startY : (Number(event?.clientY) || dragState.session.currentY),
+            nowMs: Number(event?.timeStamp) || undefined,
+            cancelled
+        });
         dragState = null;
         root.removeAttribute('data-mobile-menu-dragging');
         sheet.style.transition = '';

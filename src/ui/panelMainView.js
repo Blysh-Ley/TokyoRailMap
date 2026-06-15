@@ -337,7 +337,10 @@ export const createPanelMainView = ({
             if (!canDragMobilePanel()) return;
             if (event?.button != null && event.button !== 0) return;
             if (isInteractivePanelHeaderTarget(event?.target, header)) return;
-            if (panelShell.beginMobileDrag() !== true) return;
+            if (panelShell.beginMobileDrag({
+                startY: Number(event?.clientY) || 0,
+                nowMs: Number(event?.timeStamp) || undefined
+            }) !== true) return;
 
             dragState = {
                 pointerId: event?.pointerId,
@@ -355,8 +358,10 @@ export const createPanelMainView = ({
         const updateDrag = (event) => {
             if (!dragState) return;
             if (dragState.pointerId != null && event?.pointerId !== dragState.pointerId) return;
-            const deltaY = (Number(event?.clientY) || 0) - dragState.startY;
-            panelShell.updateMobileDrag(deltaY);
+            panelShell.updateMobileDrag({
+                clientY: Number(event?.clientY) || dragState.startY,
+                nowMs: Number(event?.timeStamp) || undefined
+            });
             event.preventDefault?.();
             event.stopPropagation?.();
         };
@@ -369,8 +374,11 @@ export const createPanelMainView = ({
             if (!dragState) return;
             if (dragState.pointerId != null && event?.pointerId !== dragState.pointerId) return;
             const currentY = cancelled ? dragState.startY : (Number(event?.clientY) || 0);
-            const deltaY = currentY - dragState.startY;
-            panelShell.endMobileDrag(deltaY);
+            panelShell.endMobileDrag({
+                clientY: currentY,
+                nowMs: Number(event?.timeStamp) || undefined,
+                cancelled
+            });
             syncMobileDrawerState();
             try {
                 header.releasePointerCapture?.(event.pointerId);

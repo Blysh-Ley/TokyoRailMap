@@ -20,9 +20,10 @@ import { getTransferStationIdsByStationId } from '../../app.js';
 import { MENU_THROUGH_LINE_IDS, THROUGH_SERVICE_CONFIGS_OBJECT, THROUGH_SERVICE_DISPLAY, isSUStations as isStationSUStations } from '../../lib/throughServiceManager.js';
 import {
     DEFAULT_MOBILE_SHEET_PEEK_PX,
-    clampMobileSheetOffset,
+    createMobileSheetDragSession,
     getMobileSheetOffsetForState,
-    getNearestMobileSheetStateByOffset
+    resolveMobileSheetDragTarget,
+    updateMobileSheetDragSession
 } from '../../ui/mobileSheetSnap.js';
 import {
     appendStationJumpClass,
@@ -548,11 +549,17 @@ const setupRouteMapUi = () => {
     const beginMobileSheetDrag = (event) => {
         if (!isMobilePanelPlacementActive()) return false;
         if (event?.button != null && event.button !== 0) return false;
+        const rootHeight = Math.max(1, Math.round(root.getBoundingClientRect?.().height || window.innerHeight || 1));
         mobileDragState = {
             pointerId: event?.pointerId,
-            startY: Number(event?.clientY) || 0,
-            startOffset: getMobileSheetOffset(),
-            rootHeight: Math.max(1, Math.round(root.getBoundingClientRect?.().height || window.innerHeight || 1))
+            session: createMobileSheetDragSession({
+                startY: Number(event?.clientY) || 0,
+                startOffset: getMobileSheetOffset(),
+                startState: mobileSheetState,
+                height: rootHeight,
+                peekPx: DEFAULT_MOBILE_SHEET_PEEK_PX,
+                nowMs: Number(event?.timeStamp) || undefined
+            })
         };
         root.setAttribute('data-route-map-mobile-dragging', '1');
         root.style.transition = 'none';
@@ -569,13 +576,11 @@ const setupRouteMapUi = () => {
     const updateMobileSheetDrag = (event) => {
         if (!mobileDragState) return;
         if (mobileDragState.pointerId != null && event?.pointerId !== mobileDragState.pointerId) return;
-        const deltaY = (Number(event?.clientY) || 0) - mobileDragState.startY;
-        const nextOffset = clampMobileSheetOffset(mobileDragState.startOffset + deltaY, {
-            height: mobileDragState.rootHeight,
-            peekPx: DEFAULT_MOBILE_SHEET_PEEK_PX
+        updateMobileSheetDragSession(mobileDragState.session, {
+            clientY: Number(event?.clientY) || mobileDragState.session.currentY,
+            nowMs: Number(event?.timeStamp) || undefined
         });
-        root.style.transform = `translateY(${nextOffset}px)`;
-        mobileDragState.currentOffset = nextOffset;
+        root.style.transform = `translateY(${mobileDragState.session.currentOffset}px)`;
         event?.preventDefault?.();
         event?.stopPropagation?.();
     };
@@ -583,21 +588,11 @@ const setupRouteMapUi = () => {
     const endMobileSheetDrag = (event, { cancelled = false } = {}) => {
         if (!mobileDragState) return;
         if (mobileDragState.pointerId != null && event?.pointerId !== mobileDragState.pointerId) return;
-        const currentY = cancelled ? mobileDragState.startY : (Number(event?.clientY) || 0);
-        const deltaY = currentY - mobileDragState.startY;
-        const startState = mobileSheetState;
-        const currentOffset = cancelled
-            ? mobileDragState.startOffset
-            : (mobileDragState.currentOffset ?? clampMobileSheetOffset(mobileDragState.startOffset + deltaY, {
-                height: mobileDragState.rootHeight,
-                peekPx: DEFAULT_MOBILE_SHEET_PEEK_PX
-            }));
-        const targetState = cancelled
-            ? startState
-            : getNearestMobileSheetStateByOffset(currentOffset, {
-                height: mobileDragState.rootHeight,
-                peekPx: DEFAULT_MOBILE_SHEET_PEEK_PX
-            });
+        const targetState = resolveMobileSheetDragTarget(mobileDragState.session, {
+            clientY: cancelled ? mobileDragState.session.startY : (Number(event?.clientY) || mobileDragState.session.currentY),
+            nowMs: Number(event?.timeStamp) || undefined,
+            cancelled
+        });
         mobileDragState = null;
         root.removeAttribute('data-route-map-mobile-dragging');
         root.style.transition = '';

@@ -1,8 +1,9 @@
 import {
     DEFAULT_MOBILE_SHEET_PEEK_PX,
-    clampMobileSheetOffset,
+    createMobileSheetDragSession,
     getMobileSheetOffsetForState,
-    getNearestMobileSheetStateByOffset
+    resolveMobileSheetDragTarget,
+    updateMobileSheetDragSession
 } from './mobileSheetSnap.js';
 
 const DEFAULT_DESKTOP_HIDDEN_TRANSFORM = 'translateX(calc(100% + 24px))';
@@ -122,8 +123,8 @@ export const createMobilePanelShell = ({
     let collapsed = false;
     let halfCollapsed = false;
     let lastLayoutHeight = 0;
-    let dragStartOffset = 0;
-    let dragCurrentOffset = 0;
+    let dragSession = null;
+    let dragUsesLegacyDelta = false;
     const peekPx = Number.isFinite(collapsedPeekPx) ? Math.max(48, Number(collapsedPeekPx)) : DEFAULT_MOBILE_COLLAPSED_PEEK_PX;
     root.setAttribute('data-panel-root', '');
     root.setAttribute('data-panel-presentation', 'mobile');
@@ -143,7 +144,13 @@ export const createMobilePanelShell = ({
     const getSnapOptions = () => ({ height: lastLayoutHeight || Number(win?.innerHeight) || 1, peekPx });
     const getCollapsedOffset = () => getMobileSheetOffsetForState('collapsed', getSnapOptions());
     const getHalfOffset = () => getMobileSheetOffsetForState('half', getSnapOptions());
-    const clampOffset = (value) => clampMobileSheetOffset(value, getSnapOptions());
+    const getCurrentState = () => (visible ? (collapsed ? 'collapsed' : (halfCollapsed ? 'half' : 'expanded')) : 'hidden');
+    const getCurrentOffset = () => {
+        if (!visible) return getCollapsedOffset();
+        if (collapsed) return getCollapsedOffset();
+        if (halfCollapsed) return getHalfOffset();
+        return 0;
+    };
     const setTransitionEnabled = (enabled) => {
         root.style.transition = enabled ? 'transform 0.22s ease' : 'none';
     };
@@ -222,26 +229,48 @@ export const createMobilePanelShell = ({
         collapse,
         collapseHalf,
         expand,
-        beginMobileDrag() {
+        beginMobileDrag(options = {}) {
             if (!visible) return false;
-            dragStartOffset = collapsed ? getCollapsedOffset() : (halfCollapsed ? getHalfOffset() : 0);
-            dragCurrentOffset = dragStartOffset;
+            const startY = typeof options === 'number' ? 0 : Number(options?.startY) || 0;
+            dragUsesLegacyDelta = typeof options === 'number' || Object.keys(options || {}).length === 0;
+            dragSession = createMobileSheetDragSession({
+                startY,
+                startOffset: getCurrentOffset(),
+                startState: getCurrentState(),
+                ...getSnapOptions(),
+                nowMs: dragUsesLegacyDelta ? 0 : (typeof options === 'object' ? options?.nowMs : undefined)
+            });
             root.setAttribute('data-panel-mobile-dragging', '1');
             setTransitionEnabled(false);
             return true;
         },
-        updateMobileDrag(deltaY = 0) {
-            if (!visible) return false;
-            dragCurrentOffset = clampOffset(dragStartOffset + deltaY);
-            root.style.transform = `translateY(${dragCurrentOffset}px)`;
+        updateMobileDrag(input = 0) {
+            if (!visible || !dragSession) return false;
+            const clientY = typeof input === 'number'
+                ? dragSession.startY + input
+                : Number(input?.clientY) || dragSession.currentY;
+            updateMobileSheetDragSession(dragSession, {
+                clientY,
+                nowMs: dragUsesLegacyDelta ? 1000 : (typeof input === 'object' ? input?.nowMs : undefined)
+            });
+            root.style.transform = `translateY(${dragSession.currentOffset}px)`;
             return true;
         },
-        endMobileDrag(deltaY = 0) {
+        endMobileDrag(input = 0) {
             if (!visible) return 'hidden';
             root.removeAttribute('data-panel-mobile-dragging');
             setTransitionEnabled(true);
 
-            const targetState = getNearestMobileSheetStateByOffset(dragCurrentOffset, getSnapOptions());
+            const clientY = typeof input === 'number'
+                ? (dragSession?.startY || 0) + input
+                : Number(input?.clientY) || dragSession?.currentY || 0;
+            const targetState = resolveMobileSheetDragTarget(dragSession, {
+                clientY,
+                nowMs: dragUsesLegacyDelta ? 1000 : (typeof input === 'object' ? input?.nowMs : undefined),
+                cancelled: typeof input === 'object' && input?.cancelled === true
+            });
+            dragSession = null;
+            dragUsesLegacyDelta = false;
             if (targetState === 'expanded') {
                 expand();
                 return 'expanded';
@@ -256,7 +285,7 @@ export const createMobilePanelShell = ({
             return 'collapsed';
         },
         getClickRegion: createPanelShellClickRegion(contains),
-        getMobileState: () => (visible ? (collapsed ? 'collapsed' : (halfCollapsed ? 'half' : 'expanded')) : 'hidden'),
+        getMobileState: getCurrentState,
         isCollapsed: () => visible && collapsed,
         isHalfCollapsed: () => visible && halfCollapsed,
         isVisible: () => visible,
