@@ -4504,6 +4504,7 @@ const initMapApp = async () => {
             hoverDelayMs: 50,
             hoverMinZoom: HOVER_PREVIEW_MIN_ZOOM,
             getHoverPreviewEnabled: () => isHoverPreviewEnabled(),
+            getStationLabelHoverEnabled: () => stationLabelMode !== 'auto',
             onSelectCompany: popupSelectionCallbacks.onSelectCompany,
             onSelectLine: popupSelectionCallbacks.onSelectLine,
             onRestoreStationLines: popupSelectionCallbacks.onRestoreStationLines,

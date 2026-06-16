@@ -608,8 +608,17 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
     const onRestoreStationLines = typeof options.onRestoreStationLines === 'function' ? options.onRestoreStationLines : null;
     const onFixedPopupBlankClick = typeof options.onFixedPopupBlankClick === 'function' ? options.onFixedPopupBlankClick : null;
     const getHoverPreviewEnabled = typeof options.getHoverPreviewEnabled === 'function' ? options.getHoverPreviewEnabled : null;
+    const getStationLabelHoverEnabled = typeof options.getStationLabelHoverEnabled === 'function'
+        ? options.getStationLabelHoverEnabled
+        : (() => true);
     let hoverPreviewEnabled = getHoverPreviewEnabled ? getHoverPreviewEnabled() !== false : true;
     const isHoverPreviewEnabled = () => hoverPreviewEnabled !== false;
+    const isStationLabelFeature = (feature) => feature?.layer?.id === STATION_LABELS_LAYER_ID;
+    const canShowPopupForFeature = (feature) => {
+        if (!feature) return false;
+        if (isStationLabelFeature(feature)) return getStationLabelHoverEnabled() !== false;
+        return true;
+    };
 
     let stationsIndexPromise = null;
     const getStationsIndex = async () => {
@@ -939,7 +948,7 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
             const hits = layers.length
                 ? (mapAdapter.queryRenderedFeatures(point, { layers }) || [])
                 : [];
-            return hits?.[0] || null;
+            return hits.find((feature) => canShowPopupForFeature(feature)) || null;
         } catch {
             return null;
         }
@@ -1457,6 +1466,12 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         // 固定弹框存在时，不响应 hover
         if (popupOpenMode === 'fixed') return;
 
+        const feature = e?.features?.[0] || null;
+        if (!canShowPopupForFeature(feature)) {
+            mapAdapter.setCursor('');
+            return;
+        }
+
         // 缩放过小：禁用“鼠标 hover 站点弹窗”
         const z = mapAdapter.getZoom();
         if (typeof z === 'number' && z < hoverMinZoom) {
@@ -1472,8 +1487,8 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         clearHoverTimer();
         hoverCandidateKey = null;
         lastFiredHoverKey = null;
-        const coordinates = e.features[0].geometry.coordinates.slice();
-        const props = e.features[0].properties || {};
+        const coordinates = feature.geometry.coordinates.slice();
+        const props = feature.properties || {};
         const html = await buildPopupHtml(props, { interactive: false });
         popup.setLngLat(coordinates).setHTML(html);
         mapAdapter.addPopup(popup);
