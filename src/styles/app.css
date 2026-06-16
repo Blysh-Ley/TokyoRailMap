@@ -606,6 +606,7 @@ body[data-mobile-ui='1'] {
     --mobile-search-mode-switch-bottom: calc(env(safe-area-inset-bottom, 0px) + 114px);
     --mobile-search-mode-switch-height: 30px;
     --mobile-search-mode-switch-gap: 8px;
+    --mobile-foldable-pane-width: 100vw;
     --mobile-journey-sheet-bottom: calc(
         var(--mobile-search-mode-switch-bottom)
         + var(--mobile-search-mode-switch-height)
@@ -957,6 +958,72 @@ html[data-mobile-ui='1'] .maplibregl-ctrl-bottom-right,
 body[data-mobile-ui='1'] .maplibregl-ctrl-bottom-left,
 body[data-mobile-ui='1'] .maplibregl-ctrl-bottom-right {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 70px);
+}
+
+@media (min-width: 700px) {
+    html[data-mobile-ui='1'],
+    body[data-mobile-ui='1'] {
+        --mobile-foldable-pane-width: 50vw;
+    }
+
+    html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='station'] .search-ui,
+    body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='station'] .search-ui,
+    html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-ui,
+    body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-ui,
+    html[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-ui,
+    body[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-ui,
+    html[data-mobile-ui='1'][data-mobile-nav-active='search'] .mobile-search-mode-switch,
+    body[data-mobile-ui='1'][data-mobile-nav-active='search'] .mobile-search-mode-switch,
+    html[data-mobile-ui='1'] .mobile-bottom-nav,
+    body[data-mobile-ui='1'] .mobile-bottom-nav {
+        left: 0;
+        right: auto;
+        width: var(--mobile-foldable-pane-width);
+        max-width: var(--mobile-foldable-pane-width);
+    }
+
+    html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='station'] .search-results,
+    body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='station'] .search-results,
+    html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-results,
+    body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-results,
+    html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-results,
+    body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-results {
+        left: 0;
+        right: auto;
+        width: var(--mobile-foldable-pane-width);
+        max-width: var(--mobile-foldable-pane-width);
+    }
+
+    html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='station'] .search-bar,
+    body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='station'] .search-bar,
+    html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='station'] .search-results-list,
+    body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='station'] .search-results-list {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    html[data-mobile-ui='1'] .mobile-menu-panel,
+    body[data-mobile-ui='1'] .mobile-menu-panel,
+    html[data-mobile-ui='1'] [data-panel-root][data-panel-presentation='mobile'],
+    body[data-mobile-ui='1'] [data-panel-root][data-panel-presentation='mobile'] {
+        left: 0 !important;
+        right: auto !important;
+        width: var(--mobile-foldable-pane-width) !important;
+        max-width: var(--mobile-foldable-pane-width) !important;
+    }
+
+    html[data-mobile-ui='1'] .maplibregl-ctrl-bottom-left,
+    body[data-mobile-ui='1'] .maplibregl-ctrl-bottom-left {
+        left: auto;
+        right: 12px;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+    }
+
+    html[data-mobile-ui='1'] .maplibregl-ctrl-bottom-left .maplibregl-ctrl,
+    body[data-mobile-ui='1'] .maplibregl-ctrl-bottom-left .maplibregl-ctrl {
+        float: right;
+    }
 }
 
 @media print {

@@ -9,6 +9,7 @@ import {
 const DEFAULT_DESKTOP_HIDDEN_TRANSFORM = 'translateX(calc(100% + 24px))';
 const DEFAULT_MOBILE_HIDDEN_TRANSFORM = 'translateY(calc(100% + 24px))';
 const DEFAULT_MOBILE_COLLAPSED_PEEK_PX = DEFAULT_MOBILE_SHEET_PEEK_PX;
+const MOBILE_FOLDABLE_MIN_WIDTH_PX = 700;
 
 const isWithinAnyElement = (target, elements = []) => (
     elements.some((element) => Boolean(element && target && element.contains?.(target)))
@@ -141,6 +142,19 @@ export const createMobilePanelShell = ({
     root.style.overflow = 'hidden';
     root.style.setProperty('--panel-mobile-peek-height', `${peekPx}px`);
 
+    const isFoldableWidth = () => {
+        const width = Number(win?.innerWidth);
+        return Number.isFinite(width) && width >= MOBILE_FOLDABLE_MIN_WIDTH_PX;
+    };
+    const syncFoldableWidth = () => {
+        const half = isFoldableWidth();
+        root.style.left = '0';
+        root.style.right = half ? 'auto' : '0';
+        root.style.width = half ? '50vw' : '100%';
+        root.style.maxWidth = half ? '50vw' : 'none';
+    };
+    syncFoldableWidth();
+
     const getSnapOptions = () => ({ height: lastLayoutHeight || Number(win?.innerHeight) || 1, peekPx });
     const getCollapsedOffset = () => getMobileSheetOffsetForState('collapsed', getSnapOptions());
     const getHalfOffset = () => getMobileSheetOffsetForState('half', getSnapOptions());
@@ -180,6 +194,7 @@ export const createMobilePanelShell = ({
         const heightSource = Number(win?.innerHeight) || 0;
         const height = Math.round(heightSource * 0.88);
         lastLayoutHeight = height;
+        syncFoldableWidth();
         root.style.top = 'auto';
         root.style.height = `${height}px`;
         root.style.maxHeight = 'calc(100vh - env(safe-area-inset-top, 0px) - 12px)';
