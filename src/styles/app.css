@@ -938,8 +938,8 @@ body[data-mobile-ui='1'] .mobile-menu-row-chevron {
 html[data-mobile-ui='1'] .mobile-bottom-nav,
 body[data-mobile-ui='1'] .mobile-bottom-nav {
     position: fixed;
-    left: 16px;
-    right: 16px;
+    left: 50px;
+    right: 50px;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
     z-index: 9000;
     height: 52px;
@@ -1028,7 +1028,7 @@ body[data-mobile-ui='1'] .maplibregl-ctrl-bottom-right {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 70px);
 }
 
-@media (min-width: 700px) {
+@media (min-width: 600px) {
     html[data-mobile-ui='1'],
     body[data-mobile-ui='1'] {
         --mobile-foldable-pane-width: 50vw;
