@@ -73,10 +73,26 @@ export const createSearchSelectionController = ({
 
         const props = item.props || {};
         const coords = item.coordinates;
+        const requestedLineIds = Array.isArray(meta?.lineIds)
+            ? meta.lineIds.map((lineId) => toText(lineId)).filter(Boolean)
+            : [];
+        const fallbackLineIds = typeof getServingLineIdsFromStationProps === 'function'
+            ? getServingLineIdsFromStationProps(props)
+            : [];
+        const lineIds = requestedLineIds.length ? requestedLineIds : fallbackLineIds;
 
-        selectPlatformLinesForStation?.(props);
+        if (lineIds.length) {
+            searchFeature.selectStationLines({
+                stationId: toText(stationId) || toText(props?.id) || null,
+                lineIds
+            });
+            setIsolate(false);
+            setStationLabelMode?.('all');
+        } else {
+            selectPlatformLinesForStation?.(props);
+        }
         fitToPointAsBounds?.(coords, { maxZoom: meta?.maxZoom });
-        return { props, coords };
+        return { props, coords, lineIds };
     };
 
     return {

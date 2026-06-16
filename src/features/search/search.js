@@ -1109,7 +1109,10 @@ export function mountSearchUI() {
                             if (actions) {
                                 if (item.type === 'company') actions.commitCompany?.(item.id);
                                 else if (item.type === 'line') actions.commitLine?.(item.id);
-                                else if (item.type === 'station') actions.commitStation?.(item.id, { maxZoom: 12 });
+                                else if (item.type === 'station') actions.commitStation?.(item.id, {
+                                    maxZoom: 12,
+                                    lineIds: Array.isArray(item.lineIds) ? item.lineIds.slice() : []
+                                });
                                 ui.clearAndCollapse();
                                 return;
                             }
@@ -1202,7 +1205,11 @@ export function mountSearchUI() {
                     if (type === 'station') {
                         // station popup 依赖 isReady（stations/popup 初始化完成）
                         if (actions.isReady !== true) return;
-                        actions.previewStation?.(item.id, { pointerType: meta.pointerType, maxZoom: 12 });
+                        actions.previewStation?.(item.id, {
+                            pointerType: meta.pointerType,
+                            maxZoom: 12,
+                            lineIds: Array.isArray(item.lineIds) ? item.lineIds.slice() : []
+                        });
                         previewAppliedKey = itemKey;
                     }
                 };
@@ -1240,7 +1247,11 @@ export function mountSearchUI() {
 
                     if (type === 'station') {
                         if (actions.isReady !== true) return;
-                        actions.commitStation?.(item.id, { pointerType: meta.pointerType, maxZoom: 12 });
+                        actions.commitStation?.(item.id, {
+                            pointerType: meta.pointerType,
+                            maxZoom: 12,
+                            lineIds: Array.isArray(item.lineIds) ? item.lineIds.slice() : []
+                        });
 
                         // 提交站点：接下来 ui.clear()/render()/collapse 不应关闭固定 popup
                         suppressEndPreviewCount = Math.max(suppressEndPreviewCount, 2);
