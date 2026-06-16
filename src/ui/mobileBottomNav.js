@@ -78,6 +78,22 @@ const setMobileSearchModeDataset = (doc, value) => {
     return mode;
 };
 
+const isMobileUiActive = (doc) => {
+    const rootDataset = doc?.documentElement?.dataset || {};
+    const bodyDataset = doc?.body?.dataset || {};
+    return rootDataset.mobileUi === '1' || bodyDataset.mobileUi === '1';
+};
+
+const isMobileNavItemActive = (doc, nav, itemId) => {
+    const id = String(itemId || '').trim();
+    if (!id) return false;
+    const rootDataset = doc?.documentElement?.dataset || {};
+    const bodyDataset = doc?.body?.dataset || {};
+    return nav?.dataset?.activeItem === id
+        || rootDataset.mobileNavActive === id
+        || bodyDataset.mobileNavActive === id;
+};
+
 const isJourneyUiActiveForMobile = (doc) => {
     const journeyRoot = doc?.querySelector?.('.journey-ui');
     if (!journeyRoot) return false;
@@ -106,6 +122,15 @@ const requestJourneyClear = (doc, win, reason) => {
     }
 };
 
+const closeMobileSettingsPanel = (doc) => {
+    const settingsRoot = doc?.querySelector?.('.settings-ui');
+    if (!settingsRoot) return false;
+    settingsRoot.classList?.add?.('is-collapsed');
+    settingsRoot.classList?.remove?.('is-mobile-settings-panel');
+    settingsRoot.querySelector?.('.settings-content')?.classList?.add?.('is-hidden');
+    return true;
+};
+
 const collapseLegacyFloatingUi = (doc, win, itemId) => {
     if (itemId !== 'search') {
         requestJourneyClear(doc, win, 'nav-switch');
@@ -115,9 +140,7 @@ const collapseLegacyFloatingUi = (doc, win, itemId) => {
         setMobileSearchModeDataset(doc, 'station');
     }
     if (itemId !== 'settings') {
-        const settingsRoot = doc?.querySelector?.('.settings-ui');
-        settingsRoot?.classList?.add?.('is-collapsed');
-        settingsRoot?.querySelector?.('.settings-content')?.classList?.add?.('is-hidden');
+        closeMobileSettingsPanel(doc);
     }
 };
 
@@ -128,6 +151,15 @@ const openMobileSettingsPanel = (doc) => {
     settingsRoot.classList.add('is-mobile-settings-panel');
     settingsRoot.querySelector?.('.settings-content')?.classList?.remove?.('is-hidden');
     return true;
+};
+
+const isMobileSettingsPanelOpen = (doc, nav) => {
+    if (!isMobileUiActive(doc)) return false;
+    if (isMobileNavItemActive(doc, nav, 'settings')) return true;
+    const settingsRoot = doc?.querySelector?.('.settings-ui');
+    if (!settingsRoot) return false;
+    return settingsRoot.classList?.contains?.('is-mobile-settings-panel') === true
+        && settingsRoot.classList?.contains?.('is-collapsed') !== true;
 };
 
 const openLegacyFloatingUi = (doc, win, itemId, getSearchMode = () => 'station') => {
@@ -271,6 +303,12 @@ export const installMobileBottomNav = ({
         if (emit) emitSelect(id);
     };
 
+    const handleBackIntent = () => {
+        if (!isMobileSettingsPanelOpen(doc, nav)) return false;
+        setActive('map', { emit: false });
+        return true;
+    };
+
     nav.addEventListener('click', (event) => {
         const button = event.target?.closest?.('.mobile-bottom-nav-btn');
         const itemId = button?.dataset?.mobileBottomNavItem;
@@ -297,6 +335,7 @@ export const installMobileBottomNav = ({
         searchModeRoot: searchModeSwitch.root,
         setActive,
         setSearchMode,
+        handleBackIntent,
         getActive: () => nav.dataset.activeItem || 'map'
     };
     nav.__tokyoRailMobileBottomNavController = controller;

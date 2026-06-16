@@ -2691,10 +2691,15 @@ const initMapApp = async () => {
         }
         return false;
     };
+    const handleMobileNavBackIntent = (payload = {}) => (
+        payload?.source === 'android-back'
+        && mobileBottomNavController?.handleBackIntent?.(payload) === true
+    );
     installAndroidBackRuntime({
         handleBackIntent: (payload) => (
             handleRouteMapBackIntent(payload)
             || handleJourneyBackIntent(payload)
+            || handleMobileNavBackIntent(payload)
             || panel?.handlePanelBackIntent?.(payload) === true
         )
     });
