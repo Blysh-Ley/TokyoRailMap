@@ -176,7 +176,9 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
     const lineFilterTarget = options.lineFilterTarget ?? 'labels_and_circles';
 
     let rafId = null;
+    let pendingInteractionOnly = false;
     let domStationLabelsAttached = stationLabels.some((label) => label?.marker);
+    let domStationLabelsHiddenForOffMode = false;
     let symbolStationLabelsVisible = false;
     let lastSymbolStationLabelFilterKey = '';
 
@@ -307,7 +309,7 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
         }
     }
 
-    function updateStationLabelVisibility() {
+    function updateStationLabelVisibility(options = {}) {
         if (!stationLabels.length) return;
 
         const pinnedIds = normalizePinnedStationIds(
@@ -320,11 +322,14 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
 
         if (mode === 'off') {
             setStationSymbolLabelsVisible(false);
+            if (options.interaction === true || domStationLabelsHiddenForOffMode) return;
             stationLabels.forEach((label) => {
                 label.el.style.display = 'none';
             });
+            domStationLabelsHiddenForOffMode = true;
             return;
         }
+        domStationLabelsHiddenForOffMode = false;
 
         const enabledLineIdsSet =
             lineFilterTarget === 'labels' || lineFilterTarget === 'labels_and_circles'
@@ -343,6 +348,11 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
         else {
             setStationSymbolLabelsVisible(false);
             attachDomStationLabels();
+        }
+
+        if (useSymbolAutoLabels && options.interaction === true) {
+            setStationSymbolLabelsVisible(true);
+            return;
         }
 
         if (mode === 'all') {
@@ -692,18 +702,27 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
         }
     }
 
-    function scheduleUpdate() {
-        if (rafId != null) return;
+    function scheduleUpdate(options = {}) {
+        const interactionOnly = options?.interaction === true;
+        if (rafId != null) {
+            if (!interactionOnly) pendingInteractionOnly = false;
+            return;
+        }
+        pendingInteractionOnly = interactionOnly;
         rafId = requestAnimationFrame(() => {
+            const runInteractionOnly = pendingInteractionOnly;
             rafId = null;
+            pendingInteractionOnly = false;
             // updateStationCircleVisibility();
-            updateStationLabelVisibility();
+            updateStationLabelVisibility({ interaction: runInteractionOnly });
         });
     }
 
     scheduleUpdate();
-    mapAdapter.on('move', scheduleUpdate);
-    mapAdapter.on('zoom', scheduleUpdate);
+    mapAdapter.on('move', () => scheduleUpdate({ interaction: true }));
+    mapAdapter.on('zoom', () => scheduleUpdate({ interaction: true }));
+    mapAdapter.on('moveend', scheduleUpdate);
+    mapAdapter.on('zoomend', scheduleUpdate);
     mapAdapter.on('resize', scheduleUpdate);
 
     return { scheduleUpdate };

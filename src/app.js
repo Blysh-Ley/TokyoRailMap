@@ -4328,6 +4328,7 @@ const initMapApp = async () => {
                 ...options,
                 mapEngine
             }),
+            getStationLabelMode: () => stationLabelMode,
             initialStationOffsetMode: stationOffsetMode,
             collisionConfig: {
                 transferGroupByStationId: transferStationIdsByStationId,

@@ -26,6 +26,7 @@ export const createLayerFeature = ({
     createCollisionController,
     createStationOffsetRuntimeController,
     collisionConfig = {},
+    getStationLabelMode,
     initialStationOffsetMode = 'dynamic',
     requestFrame = globalThis.requestAnimationFrame,
     cancelFrame = globalThis.cancelAnimationFrame
@@ -36,6 +37,7 @@ export const createLayerFeature = ({
     let currentStationOffsetGeoJSONKey = null;
     let currentStationOffsetGeoJSON = null;
     let pendingTransferCapsuleRefreshAfterCollision = false;
+    let pendingStationLabelGeoJSON = null;
     let stationOffsetRuntimeController = null;
     let transferCapsuleRefreshFrameId = null;
 
@@ -58,11 +60,17 @@ export const createLayerFeature = ({
         });
     };
 
-    const scheduleCollision = () => {
-        collisionController?.scheduleUpdate?.();
+    const scheduleCollision = (options = {}) => {
+        collisionController?.scheduleUpdate?.(options);
     };
 
+    const isStationLabelHiddenMode = () => String(getStationLabelMode?.() || '').trim().toLowerCase() === 'off';
+
     const scheduleCollisionLayerRefresh = () => {
+        if (!isStationLabelHiddenMode() && pendingStationLabelGeoJSON) {
+            flushStationLabelGeoJSON();
+            return;
+        }
         scheduleCollision();
     };
 
@@ -153,17 +161,36 @@ export const createLayerFeature = ({
         return collisionController;
     };
 
+    const updateStationLabelLayerGeoJSON = (geojson) => {
+        const nextGeoJSON = geojson && typeof geojson === 'object' ? geojson : null;
+        if (!nextGeoJSON) return false;
+        pendingStationLabelGeoJSON = null;
+        updateStationLabelsSourceData?.(nextGeoJSON);
+        updateStationLabelCoordinates?.(nextGeoJSON);
+        return true;
+    };
+
+    const flushStationLabelGeoJSON = () => {
+        if (isStationLabelHiddenMode()) return false;
+        const nextGeoJSON = pendingStationLabelGeoJSON || currentStationOffsetGeoJSON;
+        if (!updateStationLabelLayerGeoJSON(nextGeoJSON)) return false;
+        scheduleCollision();
+        return true;
+    };
+
     const applyStationLayerGeoJSON = (geojson, keyHint = '', options = {}) => {
         const nextGeoJSON = geojson && typeof geojson === 'object' ? geojson : null;
         if (!nextGeoJSON) return false;
         const phase = options?.phase === 'visual' ? 'visual' : 'final';
         const updateVisible = options?.updateVisible !== false;
+        const deferStationLabels = options?.deferStationLabels === true;
+        let stationLabelsUpdated = false;
 
         if (updateVisible) {
             updateStationsSourceData?.(nextGeoJSON);
-            updateStationLabelsSourceData?.(nextGeoJSON);
-            updateStationLabelCoordinates?.(nextGeoJSON);
             updateStationCircleCoordinates?.(nextGeoJSON);
+            if (deferStationLabels) pendingStationLabelGeoJSON = nextGeoJSON;
+            else stationLabelsUpdated = updateStationLabelLayerGeoJSON(nextGeoJSON);
         }
 
         if (phase === 'visual') {
@@ -176,7 +203,9 @@ export const createLayerFeature = ({
         syncTransferCapsuleStationsData?.(nextGeoJSON);
         invalidateTransferCapsuleData?.(String(keyHint || '__station-geojson__'));
         scheduleTransferCapsuleRefresh();
-        scheduleCollision();
+        if (deferStationLabels) pendingStationLabelGeoJSON = nextGeoJSON;
+        else if (!stationLabelsUpdated) updateStationLabelLayerGeoJSON(nextGeoJSON);
+        scheduleCollision(deferStationLabels ? { interaction: true } : {});
         return true;
     };
 
@@ -199,7 +228,9 @@ export const createLayerFeature = ({
         if (!nextGeoJSON) return false;
 
         const updateVisible = phase === 'visual' || stateKey !== currentStationOffsetVisualKey;
-        if (!applyStationLayerGeoJSON(nextGeoJSON, stateKey, { phase, updateVisible })) return false;
+        const reason = String(options?.reason || '').trim();
+        const deferStationLabels = phase === 'visual' || reason === 'zoom' || reason === 'zoom-settling';
+        if (!applyStationLayerGeoJSON(nextGeoJSON, stateKey, { phase, updateVisible, deferStationLabels })) return false;
         currentStationOffsetGeoJSON = nextGeoJSON;
         currentStationOffsetGeoJSONKey = stateKey;
         if (updateVisible) currentStationOffsetVisualKey = stateKey;
@@ -217,6 +248,7 @@ export const createLayerFeature = ({
         stationOffsetRuntimeController = createStationOffsetRuntimeController({
             getZoom,
             initialMode,
+            onDynamicZoomEnd: flushStationLabelGeoJSON,
             syncStationOffsetForZoom
         });
         stationOffsetRuntimeController.syncAtCurrentZoom?.();
@@ -233,6 +265,7 @@ export const createLayerFeature = ({
     const destroy = () => {
         clearFrame(transferCapsuleRefreshFrameId);
         transferCapsuleRefreshFrameId = null;
+        pendingStationLabelGeoJSON = null;
         stationOffsetRuntimeController?.destroy?.();
         stationOffsetRuntimeController = null;
     };
