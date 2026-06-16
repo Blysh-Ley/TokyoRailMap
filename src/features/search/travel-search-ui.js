@@ -66,6 +66,7 @@ import { exportJourneyPopoverToPng } from './journeyCaptureExport.js';
 import { journeyRuntimeAdapter } from './journeyRuntimeAdapter.js';
 import { isDarkThemeActive } from '../../map/element_ui.js';
 import { JOURNEY_CLEAR_REQUEST_EVENT } from '../../store/events.js';
+import { createMobileJourneyPlanSheet } from '../../ui/mobileJourneyPlanSheet.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -676,6 +677,107 @@ export function mountTravelSearchUI() {
         normalizeText
     });
 
+    const isMobileJourneyPresentation = () => {
+        const rootDataset = document.documentElement?.dataset || {};
+        const bodyDataset = document.body?.dataset || {};
+        return (rootDataset.mobileUi === '1' || bodyDataset.mobileUi === '1')
+            && (rootDataset.mobileNavActive === 'search' || bodyDataset.mobileNavActive === 'search')
+            && (rootDataset.mobileSearchMode === 'journey' || bodyDataset.mobileSearchMode === 'journey');
+    };
+
+    const setMobileJourneyPlanResultsActive = (active) => {
+        const enabled = active === true && isMobileJourneyPresentation();
+        root.classList.toggle('is-mobile-plan-results', enabled);
+        const rootDataset = document.documentElement?.dataset;
+        const bodyDataset = document.body?.dataset;
+        if (enabled) {
+            if (rootDataset) rootDataset.mobileJourneyPlanResults = '1';
+            if (bodyDataset) bodyDataset.mobileJourneyPlanResults = '1';
+        } else {
+            if (rootDataset) delete rootDataset.mobileJourneyPlanResults;
+            if (bodyDataset) delete bodyDataset.mobileJourneyPlanResults;
+        }
+        return enabled;
+    };
+
+    const isMobileJourneyPlanResultsActive = () => (
+        isMobileJourneyPresentation()
+        && (
+            root.classList.contains('is-mobile-plan-results')
+            || document.documentElement?.dataset?.mobileJourneyPlanResults === '1'
+            || document.body?.dataset?.mobileJourneyPlanResults === '1'
+        )
+    );
+
+    const getJourneyPlanEndpointText = (kind, row = null) => {
+        const input = kind === 'destination' ? destinationInput : originInput;
+        const rowId = kind === 'destination'
+            ? normalizeText(row?.destinationStationId || '')
+            : normalizeText(row?.originStationId || '');
+        const rowName = kind === 'destination'
+            ? normalizeText(row?.destinationName || '')
+            : normalizeText(row?.originName || '');
+        return normalizeText(input?.value || '')
+            || rowName
+            || getStationNameById(rowId)
+            || rowId
+            || (kind === 'destination' ? '终点' : '起点');
+    };
+
+    const buildJourneyPlanSheetTitleText = (row = null) => (
+        `${getJourneyPlanEndpointText('origin', row)} → ${getJourneyPlanEndpointText('destination', row)}`
+    );
+
+    const journeyPlanSheet = createMobileJourneyPlanSheet({
+        rootEl: planResults,
+        win: window,
+        isEnabled: isMobileJourneyPresentation,
+        isVisible: () => !planResults.classList.contains('is-hidden')
+    });
+
+    const appendPlanSheetHandle = (containerEl, { row = null } = {}) => {
+        if (!(containerEl instanceof HTMLElement)) return null;
+        const handle = el('div', 'journey-plan-sheet-handle', {
+            'data-journey-plan-sheet-handle': '1'
+        });
+        const backBtn = el('button', 'journey-plan-sheet-back-btn', {
+            type: 'button',
+            'aria-label': '返回路线搜索'
+        });
+        const backIcon = el('img', 'journey-plan-sheet-back-icon', { alt: '' });
+        setJourneyIconFromCache(backIcon, 'arrow-right.svg');
+        backBtn.appendChild(backIcon);
+
+        const title = el('div', 'journey-plan-sheet-title', {
+            text: buildJourneyPlanSheetTitleText(row)
+        });
+
+        backBtn.addEventListener('pointerdown', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+        });
+        backBtn.addEventListener('click', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            exitMobileJourneyPlanResults();
+        });
+
+        handle.appendChild(backBtn);
+        handle.appendChild(title);
+        containerEl.insertBefore(handle, containerEl.firstChild);
+        journeyPlanSheet.bindHandle(handle);
+        return handle;
+    };
+
+    const wrapPlanMessageItemDrawer = (itemEl) => {
+        if (!(itemEl instanceof HTMLElement)) return itemEl;
+        const drawer = el('div', 'journey-plan-drawer');
+        appendPlanSheetHandle(drawer);
+        while (itemEl.firstChild) drawer.appendChild(itemEl.firstChild);
+        itemEl.appendChild(drawer);
+        return itemEl;
+    };
+
     journeyRuntimeAdapter.resetMapPickRuntimeFlags();
 
     const suppressStationSelectionOnce = (ms = 700) => {
@@ -955,6 +1057,8 @@ export function mountTravelSearchUI() {
         const displayPlan = await getDisplayPlanForRow(row);
         const li = document.createElement('li');
         li.className = 'journey-plan-item';
+        const drawer = el('div', 'journey-plan-drawer');
+        appendPlanSheetHandle(drawer, { row });
 
         const path = el('div', 'journey-plan-path');
         await appendJourneyPath(path, row, displayPlan);
@@ -968,7 +1072,8 @@ export function mountTravelSearchUI() {
             scheduleHideTripPopover();
         });
 
-        li.appendChild(path);
+        drawer.appendChild(path);
+        li.appendChild(drawer);
 
         let stationCount = null;
         try {
@@ -1322,10 +1427,13 @@ export function mountTravelSearchUI() {
         positionTripPopover(anchorEl);
     };
 
-    const showPlanMessage = (message) => {
+    const showPlanMessage = (message, { mobilePlanResults = false } = {}) => {
         clearPlanList();
-        planList.appendChild(createJourneyPlanMessageItem({ createElement: el, message }));
+        const item = createJourneyPlanMessageItem({ createElement: el, message });
+        planList.appendChild(wrapPlanMessageItemDrawer(item));
         planResults.classList.remove('is-hidden');
+        setMobileJourneyPlanResultsActive(mobilePlanResults);
+        journeyPlanSheet.show({ nextState: 'expanded' });
         planPagination.classList.add('is-hidden');
     };
 
@@ -1333,6 +1441,8 @@ export function mountTravelSearchUI() {
         if (normalizeText(originInput.value) || normalizeText(destinationInput.value)) return;
         clearPlanList({ clearMapPreview });
         planResults.classList.add('is-hidden');
+        setMobileJourneyPlanResultsActive(false);
+        journeyPlanSheet.hide();
         planPagination.classList.add('is-hidden');
     };
 
@@ -1786,7 +1896,7 @@ export function mountTravelSearchUI() {
     const renderPlanResults = async (rows) => {
         clearPlanList();
         if (!rows.length) {
-            showPlanMessage('无可用路线');
+            showPlanMessage('无可用路线', { mobilePlanResults: true });
             return;
         }
 
@@ -1797,6 +1907,8 @@ export function mountTravelSearchUI() {
         await showCurrentPage();
         updatePaginationButtons();
         planResults.classList.remove('is-hidden');
+        setMobileJourneyPlanResultsActive(true);
+        journeyPlanSheet.show({ nextState: 'expanded' });
         if (allPlanRows.length > 1) {
             planPagination.classList.remove('is-hidden');
         } else {
@@ -1890,7 +2002,7 @@ export function mountTravelSearchUI() {
         // 同步执行规划前的初始化
         clearPlanList();
         disableMultiSelectMode();
-        showPlanMessage('正在计算路线...');
+        showPlanMessage('正在计算路线...', { mobilePlanResults: true });
 
         await new Promise(resolve => setTimeout(resolve, 300));
 
@@ -1964,7 +2076,7 @@ export function mountTravelSearchUI() {
 
         if (token !== planComputeToken) return;
         if (!pairBestPlans.length) {
-            showPlanMessage('无可用路线');
+            showPlanMessage('无可用路线', { mobilePlanResults: true });
             return;
         }
 
@@ -2031,6 +2143,8 @@ export function mountTravelSearchUI() {
         hideTripPopover();
         clearPlanList({ clearMapPreview: false });
         planResults.classList.add('is-hidden');
+        setMobileJourneyPlanResultsActive(false);
+        journeyPlanSheet.hide();
         results.classList.add('is-hidden');
         disableMultiSelectMode();
         try {
@@ -2234,6 +2348,59 @@ export function mountTravelSearchUI() {
         });
 
         results.classList.remove('is-hidden');
+    };
+
+    const exitMobileJourneyPlanResults = () => {
+        const shouldHandle = isMobileJourneyPlanResultsActive() || (
+            isMobileJourneyPresentation() && !planResults.classList.contains('is-hidden')
+        );
+        if (!shouldHandle) return false;
+
+        planComputeToken += 1;
+        lastPlanComputeKey = '';
+        activeField = 'origin';
+
+        try {
+            reachableStopsController?.clear?.();
+        } catch {
+            // ignore
+        }
+
+        originInput.value = '';
+        destinationInput.value = '';
+        originInput.dataset.stationId = '';
+        destinationInput.dataset.stationId = '';
+        selectedOriginId = '';
+        selectedDestinationId = '';
+        selectedOriginCandidateIds = [];
+        selectedDestinationCandidateIds = [];
+        selectedOriginCandidateMeta = [];
+        selectedDestinationCandidateMeta = [];
+        selectedOriginLngLat = null;
+        selectedDestinationLngLat = null;
+        setMapPickTarget(null);
+        hideTripPopover();
+        clearPlanList({ clearMapPreview: true });
+        planResults.classList.add('is-hidden');
+        planPagination.classList.add('is-hidden');
+        setMobileJourneyPlanResultsActive(false);
+        journeyPlanSheet.hide();
+        disableMultiSelectMode();
+        try {
+            journeyPickController.clearPin();
+        } catch {
+            // ignore
+        }
+
+        root.classList.remove('is-collapsed');
+        try {
+            document.documentElement.dataset.mobileSearchFocus = 'journey';
+            document.body.dataset.mobileSearchFocus = 'journey';
+        } catch {
+            // ignore
+        }
+        renderHistoryResults().catch(() => null);
+        return true;
     };
 
     const renderStationResults = async (items) => {
@@ -2565,6 +2732,7 @@ export function mountTravelSearchUI() {
             return maybeComputePlans();
         },
         clearAndCollapse: () => clearJourneyInputsAndCollapse(),
+        handleMobileBackIntent: () => exitMobileJourneyPlanResults(),
         getSelection() {
             return {
                 originStationId: selectedOriginId,

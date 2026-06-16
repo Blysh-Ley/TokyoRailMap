@@ -1,9 +1,16 @@
 import { createStationCodeBadgeElement } from '../../lib/line-icons.js';
 
 export const createJourneyPlanMessageItem = ({ createElement, message } = {}) => {
-    const li = document.createElement('li');
-    li.className = 'journey-plan-item';
-    li.appendChild(createElement?.('div', 'journey-plan-empty', { text: message }));
+    const li = typeof createElement === 'function'
+        ? createElement('li', 'journey-plan-item is-message')
+        : document.createElement('li');
+    if (!li.className) li.className = 'journey-plan-item is-message';
+    const empty = typeof createElement === 'function'
+        ? createElement('div', 'journey-plan-empty', { text: message })
+        : document.createElement('div');
+    if (!empty.className) empty.className = 'journey-plan-empty';
+    if (!empty.textContent) empty.textContent = String(message ?? '');
+    li.appendChild(empty);
     return li;
 };
 

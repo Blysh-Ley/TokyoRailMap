@@ -771,6 +771,14 @@ export function mountSearchUI() {
         }
     };
 
+    const isMobileStationSearchPresentation = () => {
+        const rootDataset = document.documentElement?.dataset || {};
+        const bodyDataset = document.body?.dataset || {};
+        return (rootDataset.mobileUi === '1' || bodyDataset.mobileUi === '1')
+            && (rootDataset.mobileNavActive === 'search' || bodyDataset.mobileNavActive === 'search')
+            && (rootDataset.mobileSearchMode === 'station' || bodyDataset.mobileSearchMode === 'station');
+    };
+
     const isTouchLike = (pt) => pt === 'touch' || pt === 'pen';
 
     let previewSnapshot = null;
@@ -1356,6 +1364,7 @@ export function mountSearchUI() {
     root.addEventListener('mouseleave', () => {
         // 仅在“输入为空”时自动收回
         if (root.classList.contains('is-collapsed')) return;
+        if (isMobileStationSearchPresentation()) return;
         collapseIfEmpty();
     });
     fab.addEventListener('pointerdown', (evt) => {

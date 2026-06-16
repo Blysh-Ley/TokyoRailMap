@@ -203,15 +203,209 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mod
     pointer-events: auto;
 }
 
+html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'],
+body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] {
+    --mobile-journey-sheet-bottom: var(--mobile-bottom-nav-clearance);
+}
+
+html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .mobile-search-mode-switch,
+body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .mobile-search-mode-switch,
+html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results::before,
+body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results::before,
+html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results .journey-bar,
+body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results .journey-bar,
+html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results .journey-fab,
+body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results .journey-fab {
+    display: none;
+}
+
 html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-results,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-results {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: var(--mobile-journey-sheet-bottom);
+    max-height: min(42vh, 360px);
+}
+
 html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-results,
-body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-results,
 body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-results {
     position: fixed;
     left: 12px;
     right: 12px;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 152px);
-    max-height: min(42vh, 360px);
+    bottom: var(--mobile-journey-sheet-bottom);
+    z-index: 9000;
+    height: min(58vh, calc(100vh - env(safe-area-inset-top, 0px) - 170px));
+    max-height: none;
+    margin-top: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    overflow: hidden;
+    opacity: 1;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-results[data-journey-plan-sheet-dragging='1'],
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-results[data-journey-plan-sheet-dragging='1'] {
+    transition: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-list,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-list {
+    height: 100%;
+    max-height: 100%;
+    display: flex;
+    align-items: flex-end;
+    overflow: visible;
+    padding: 0;
+    pointer-events: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-item,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-item {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    pointer-events: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-drawer,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-drawer {
+    position: relative;
+    z-index: 1;
+    min-height: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--ui-frosted-border);
+    border-bottom: 0;
+    border-radius: 18px 18px 0 0;
+    background: var(--ui-frosted-background);
+    box-shadow: var(--ui-frosted-shadow);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    backdrop-filter: var(--ui-frosted-blur);
+    pointer-events: auto;
+    box-sizing: border-box;
+    transition: transform 0.22s ease;
+    will-change: transform;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-sheet-handle,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-sheet-handle {
+    position: relative;
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) 32px;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 40px;
+    padding: 10px 10px 4px;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    box-sizing: border-box;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-sheet-back-btn,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-sheet-back-btn {
+    appearance: none;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ui-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-sheet-back-btn:hover,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-sheet-back-btn:hover {
+    background: var(--ui-surface-hover);
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-sheet-back-icon,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-sheet-back-icon {
+    width: 17px;
+    height: 17px;
+    display: block;
+    transform: rotate(180deg);
+    pointer-events: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-sheet-title,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-sheet-title {
+    min-width: 0;
+    color: var(--ui-text);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-results[data-journey-plan-sheet-dragging='1'] .journey-plan-sheet-handle,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-results[data-journey-plan-sheet-dragging='1'] .journey-plan-sheet-handle {
+    cursor: grabbing;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-sheet-handle::before,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-sheet-handle::before {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    width: 44px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--ui-border-strong);
+    transform: translateX(-50%);
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-path,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-path {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding: 8px 12px 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-brief,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-brief {
+    position: relative;
+    z-index: 2;
+    flex: 0 0 auto;
+    border: 1px solid var(--ui-frosted-border);
+    border-radius: 0 0 18px 18px;
+    background: var(--ui-badge-surface);
+    box-shadow: var(--ui-frosted-shadow);
+    pointer-events: auto;
+    box-sizing: border-box;
 }
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-focus='station'] .journey-results,
@@ -233,9 +427,9 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .mobile-search-mode-sw
     position: fixed;
     left: 12px;
     right: 12px;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 114px);
+    bottom: var(--mobile-search-mode-switch-bottom);
     z-index: 9002;
-    height: 30px;
+    height: var(--mobile-search-mode-switch-height);
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 4px;
@@ -247,6 +441,11 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .mobile-search-mode-sw
     -webkit-backdrop-filter: var(--ui-frosted-blur);
     backdrop-filter: var(--ui-frosted-blur);
     box-sizing: border-box;
+}
+
+html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .mobile-search-mode-switch,
+body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .mobile-search-mode-switch {
+    display: none;
 }
 
 html[data-mobile-ui='1'] .mobile-search-mode-btn,
@@ -368,6 +567,14 @@ body[data-mobile-ui='1'] .mobile-menu-sheet {
 html[data-mobile-ui='1'],
 body[data-mobile-ui='1'] {
     --mobile-bottom-nav-clearance: calc(env(safe-area-inset-bottom, 0px) + 76px);
+    --mobile-search-mode-switch-bottom: calc(env(safe-area-inset-bottom, 0px) + 114px);
+    --mobile-search-mode-switch-height: 30px;
+    --mobile-search-mode-switch-gap: 8px;
+    --mobile-journey-sheet-bottom: calc(
+        var(--mobile-search-mode-switch-bottom)
+        + var(--mobile-search-mode-switch-height)
+        + var(--mobile-search-mode-switch-gap)
+    );
 }
 
 html[data-mobile-ui='1'] .mobile-menu-sheet:not(.is-hidden),
@@ -1362,6 +1569,21 @@ html[data-theme="dark"] .journey-pick-pin-icon {
     -webkit-backdrop-filter: var(--ui-frosted-blur);
     backdrop-filter: var(--ui-frosted-blur);
     box-sizing: border-box;
+}
+
+.journey-plan-sheet-handle {
+    display: none;
+}
+
+.journey-plan-drawer {
+    min-height: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.journey-plan-item.is-message {
+    min-height: 140px;
 }
 
 .journey-plan-path {
@@ -5550,8 +5772,20 @@ html[data-theme='dark'] .panel-dir-filter-col-body {
 }
 
 html[data-theme='dark'] .journey-plan-brief {
-    background-color: #2a2a2a;
+    background: #2a2a2a;
     border-top-color: var(--ui-border);
+}
+
+html[data-theme='dark'][data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-brief,
+html[data-theme='dark'] body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-brief {
+    background: rgba(34, 34, 34, 0.96);
+    border-color: var(--ui-frosted-border);
+    color: #f2f2f2;
+}
+
+html[data-theme='dark'][data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-brief .journey-plan-tag,
+html[data-theme='dark'] body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-brief .journey-plan-tag {
+    color: #d8d8d8;
 }
 
 html[data-theme='dark'] .journey-trip-popover {
@@ -5787,6 +6021,7 @@ html[data-theme='dark'] .search-fab-icon,
 html[data-theme='dark'] .journey-fab-icon,
 html[data-theme='dark'] .journey-map-pick-icon,
 html[data-theme='dark'] .journey-close-icon,
+html[data-theme='dark'] .journey-plan-sheet-back-icon,
 html[data-theme='dark'] .settings-fab-icon,
 html[data-theme='dark'] .panel-day-print-icon,
 html[data-theme='dark'] .panel-dir-filter-icon,

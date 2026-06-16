@@ -2655,9 +2655,18 @@ const initMapApp = async () => {
         clearSelectionsAndRestore();
         return true;
     };
+    const handleJourneyBackIntent = (payload = {}) => {
+        try {
+            if (window?.TokyoRailJourneyUI?.handleMobileBackIntent?.(payload) === true) return true;
+        } catch {
+            return false;
+        }
+        return false;
+    };
     installAndroidBackRuntime({
         handleBackIntent: (payload) => (
             handleRouteMapBackIntent(payload)
+            || handleJourneyBackIntent(payload)
             || panel?.handlePanelBackIntent?.(payload) === true
         )
     });
