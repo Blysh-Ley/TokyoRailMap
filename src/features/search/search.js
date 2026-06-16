@@ -236,6 +236,50 @@ const parseStationNodeId = (nodeId) => {
     return { id, company, stationName, lineId };
 };
 
+export const buildStationResultGroupMetaMap = (groups = []) => {
+    const out = new Map();
+
+    for (const group of Array.isArray(groups) ? groups : []) {
+        const rawIds = Array.isArray(group?.ids)
+            ? group.ids
+            : (Array.isArray(group) ? group.flat(Infinity) : []);
+        const allNodes = [];
+        const seenIds = new Set();
+        for (const nodeId of rawIds) {
+            const p = parseStationNodeId(nodeId);
+            if (!p || seenIds.has(p.id)) continue;
+            seenIds.add(p.id);
+            allNodes.push(p);
+        }
+        if (!allNodes.length) continue;
+
+        const sortedIds = allNodes.map((x) => x.id).sort();
+        const allLineIds = Array.from(new Set(allNodes.map((x) => x.lineId))).filter(Boolean);
+        const nodesByStationName = new Map();
+        for (const node of allNodes) {
+            const stationName = normalizeText(node.stationName);
+            if (!stationName) continue;
+            if (!nodesByStationName.has(stationName)) nodesByStationName.set(stationName, []);
+            nodesByStationName.get(stationName).push(node);
+        }
+
+        for (const [stationName, nodes] of nodesByStationName.entries()) {
+            const primaryId = normalizeText(nodes[0]?.id || '');
+            if (!primaryId) continue;
+            const clusterKey = `station-result-group:${stationName}:${sortedIds.join('|')}`;
+            for (const n of nodes) {
+                out.set(n.id, {
+                    clusterKey,
+                    primaryId,
+                    lineIds: allLineIds.slice()
+                });
+            }
+        }
+    }
+
+    return out;
+};
+
 async function ensureStationResultGroupLoaded() {
     if (stationResultGroupByStationId instanceof Map) return stationResultGroupByStationId;
     if (stationResultGroupLoading) return stationResultGroupLoading;
@@ -244,35 +288,7 @@ async function ensureStationResultGroupLoaded() {
         try {
             const raw = await getCachedJson('./data/station-groups.json');
             const groups = Array.isArray(raw) ? raw : [];
-
-            const out = new Map();
-
-            for (const group of groups) {
-                const rawIds = Array.isArray(group?.ids)
-                    ? group.ids
-                    : (Array.isArray(group) ? group.flat(Infinity) : []);
-                const allNodes = [];
-                const seenIds = new Set();
-                for (const nodeId of rawIds) {
-                    const p = parseStationNodeId(nodeId);
-                    if (!p || seenIds.has(p.id)) continue;
-                    seenIds.add(p.id);
-                    allNodes.push(p);
-                }
-                if (!allNodes.length) continue;
-
-                const primaryId = normalizeText(allNodes[0]?.id || '');
-                const stationName = normalizeText(allNodes[0]?.stationName || '');
-                const sortedIds = allNodes.map((x) => x.id).sort();
-                const clusterKey = `station-result-group:${stationName}:${sortedIds.join('|')}`;
-                const lineIds = Array.from(new Set(allNodes.map((x) => x.lineId))).filter(Boolean);
-
-                for (const n of allNodes) {
-                    out.set(n.id, { clusterKey, primaryId, lineIds });
-                }
-            }
-
-            stationResultGroupByStationId = out;
+            stationResultGroupByStationId = buildStationResultGroupMetaMap(groups);
             return stationResultGroupByStationId;
         } catch (e) {
             console.warn('search.js: 无法加载 station-groups.json（站点结果合并将退化）', e);
@@ -1505,5 +1521,7 @@ export function mountSearchUI() {
     return ui;
 }
 
-// 自动挂载
-mountSearchUI();
+// 自动挂载；Node smoke tests import pure helpers from this module without a DOM.
+if (typeof document !== 'undefined') {
+    mountSearchUI();
+}
