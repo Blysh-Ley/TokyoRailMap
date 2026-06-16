@@ -1,3 +1,5 @@
+import { JOURNEY_CLEAR_REQUEST_EVENT } from '../store/events.js';
+
 export const MOBILE_BOTTOM_NAV_EVENT = 'tokyoRail:mobileNavSelect';
 
 // Icons are inline Lucide SVG paths. Lucide is ISC licensed; search is MIT via Feather.
@@ -76,8 +78,37 @@ const setMobileSearchModeDataset = (doc, value) => {
     return mode;
 };
 
-const collapseLegacyFloatingUi = (doc, itemId) => {
+const isJourneyUiActiveForMobile = (doc) => {
+    const journeyRoot = doc?.querySelector?.('.journey-ui');
+    if (!journeyRoot) return false;
+    const rootDataset = doc?.documentElement?.dataset || {};
+    const bodyDataset = doc?.body?.dataset || {};
+    return !journeyRoot.classList?.contains?.('is-collapsed')
+        || rootDataset.mobileSearchMode === 'journey'
+        || bodyDataset.mobileSearchMode === 'journey'
+        || rootDataset.mobileSearchFocus === 'journey'
+        || bodyDataset.mobileSearchFocus === 'journey';
+};
+
+const requestJourneyClear = (doc, win, reason) => {
+    if (!isJourneyUiActiveForMobile(doc)) return false;
+    try {
+        win?.dispatchEvent?.(new CustomEvent(JOURNEY_CLEAR_REQUEST_EVENT, {
+            detail: {
+                reason,
+                source: 'mobile-bottom-nav',
+                ts: Date.now()
+            }
+        }));
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+const collapseLegacyFloatingUi = (doc, win, itemId) => {
     if (itemId !== 'search') {
+        requestJourneyClear(doc, win, 'nav-switch');
         doc?.querySelector?.('.search-ui')?.classList?.add?.('is-collapsed');
         doc?.querySelector?.('.journey-ui')?.classList?.add?.('is-collapsed');
         setMobileSearchFocusDataset(doc, '');
@@ -193,6 +224,7 @@ export const installMobileBottomNav = ({
     let searchMode = 'station';
 
     const setSearchMode = (mode, { focus = true } = {}) => {
+        const previousSearchMode = searchMode;
         searchMode = searchModeSwitch.setActive(setMobileSearchModeDataset(doc, mode));
         if (searchMode === 'journey') {
             setMobileSearchFocusDataset(doc, 'journey');
@@ -200,6 +232,9 @@ export const installMobileBottomNav = ({
             doc?.querySelector?.('.journey-ui')?.classList?.remove?.('is-collapsed');
             if (focus) doc?.querySelector?.('.journey-input-origin')?.focus?.();
         } else {
+            if (previousSearchMode === 'journey') {
+                requestJourneyClear(doc, win, 'search-mode-switch');
+            }
             setMobileSearchFocusDataset(doc, 'station');
             doc?.querySelector?.('.journey-ui')?.classList?.add?.('is-collapsed');
             if (focus) doc?.querySelector?.('.search-input')?.focus?.();
@@ -223,7 +258,7 @@ export const installMobileBottomNav = ({
         const id = buttons.has(itemId) ? itemId : 'map';
         nav.dataset.activeItem = id;
         setActiveDataset(doc, id);
-        collapseLegacyFloatingUi(doc, id);
+        collapseLegacyFloatingUi(doc, win, id);
         for (const [buttonId, button] of buttons) {
             const active = buttonId === id;
             button.classList.toggle('is-active', active);

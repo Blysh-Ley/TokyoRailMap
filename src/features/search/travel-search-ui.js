@@ -65,6 +65,7 @@ import {
 import { exportJourneyPopoverToPng } from './journeyCaptureExport.js';
 import { journeyRuntimeAdapter } from './journeyRuntimeAdapter.js';
 import { isDarkThemeActive } from '../../map/element_ui.js';
+import { JOURNEY_CLEAR_REQUEST_EVENT } from '../../store/events.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -2482,6 +2483,10 @@ export function mountTravelSearchUI() {
         clearJourneyInputsAndCollapse();
     });
 
+    window.addEventListener(JOURNEY_CLEAR_REQUEST_EVENT, () => {
+        clearJourneyInputsAndCollapse();
+    });
+
     divider.addEventListener('pointerdown', (evt) => {
         evt.preventDefault?.();
         evt.stopPropagation?.();
@@ -2559,6 +2564,7 @@ export function mountTravelSearchUI() {
             lastPlanComputeKey = '';
             return maybeComputePlans();
         },
+        clearAndCollapse: () => clearJourneyInputsAndCollapse(),
         getSelection() {
             return {
                 originStationId: selectedOriginId,
