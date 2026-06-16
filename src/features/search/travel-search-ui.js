@@ -1220,6 +1220,7 @@ export function mountTravelSearchUI() {
                     } catch {
                         // ignore
                     }
+                    fitMobileJourneyPlanResult({ row: allPlanRows[currentPlanPage] }).catch(() => null);
                 }
             });
             bindJourneyPlanPageButton(i, btn);
@@ -1472,7 +1473,17 @@ export function mountTravelSearchUI() {
     };
 
     const fitMobileJourneyPlanResult = async ({ row } = {}) => {
-        if (!row || !isMobileJourneyPlanResultsActive()) return false;
+        const rootDataset = document.documentElement?.dataset || {};
+        const bodyDataset = document.body?.dataset || {};
+        const isJourneyFitContext = isMobileJourneyPlanResultsActive()
+            || root.classList.contains('is-mobile-plan-results')
+            || rootDataset.mobileJourneyPlanResults === '1'
+            || bodyDataset.mobileJourneyPlanResults === '1'
+            || (
+                (rootDataset.mobileNavActive === 'search' || bodyDataset.mobileNavActive === 'search')
+                && (rootDataset.mobileSearchMode === 'journey' || bodyDataset.mobileSearchMode === 'journey')
+            );
+        if (!row || !isJourneyFitContext) return false;
         try {
             const displayPlan = await getDisplayPlanForRow(row);
             const payload = await buildTripPreviewPayloadFromDisplayPlan({ row, displayPlan });
@@ -2040,6 +2051,7 @@ export function mountTravelSearchUI() {
         } catch {
             // ignore highlighting errors
         }
+        fitMobileJourneyPlanResult({ row: allPlanRows[currentPlanPage] }).catch(() => null);
     };
 
     const readServiceDayFromPanel = () => {
