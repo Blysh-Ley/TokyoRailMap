@@ -306,6 +306,42 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mod
     will-change: transform;
 }
 
+.journey-plan-trip-detail.is-hidden {
+    display: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-trip-detail,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-trip-detail {
+    min-height: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    pointer-events: auto;
+    box-sizing: border-box;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-trip-detail.is-hidden,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-trip-detail.is-hidden {
+    display: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-results[data-journey-trip-detail-open='1'] .journey-plan-path,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-results[data-journey-trip-detail-open='1'] .journey-plan-path {
+    display: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-trip-detail-body,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-trip-detail-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    padding: 8px 12px 12px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
 html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-sheet-handle,
 body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-sheet-handle {
     position: relative;
@@ -5804,6 +5840,11 @@ html[data-theme='dark'] body[data-mobile-ui='1'][data-mobile-nav-active='search'
 html[data-theme='dark'][data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-brief .journey-plan-tag,
 html[data-theme='dark'] body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-brief .journey-plan-tag {
     color: #d8d8d8;
+}
+
+html[data-theme='dark'][data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-trip-detail,
+html[data-theme='dark'] body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-trip-detail {
+    background: transparent;
 }
 
 html[data-theme='dark'] .journey-trip-popover {

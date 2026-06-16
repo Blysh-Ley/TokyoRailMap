@@ -664,6 +664,12 @@ export function mountTravelSearchUI() {
     const planPagination = el('div', 'journey-plan-pagination is-hidden');
     planResults.appendChild(planList);
 
+    const mobileTripDetail = el('section', 'journey-plan-trip-detail is-hidden', {
+        'aria-label': '路线班次详情'
+    });
+    const mobileTripDetailBody = el('div', 'journey-trip-body journey-plan-trip-detail-body');
+    mobileTripDetail.appendChild(mobileTripDetailBody);
+
     const tripPopover = el('div', 'journey-trip-popover is-hidden');
     const tripPopoverHeader = el('div', 'journey-trip-header');
     const tripPopoverTitle = el('div', 'journey-trip-title');
@@ -710,6 +716,7 @@ export function mountTravelSearchUI() {
     let popoverHideTimer = null;
     let pinnedTripPopoverKey = '';
     let tripPopoverHoverTimer = null;
+    let mobileTripDetailOpen = false;
     let currentPlanPage = 0;
     let allPlanRows = [];
     let journeyPlanPreviewController = null;
@@ -749,6 +756,25 @@ export function mountTravelSearchUI() {
             || document.body?.dataset?.mobileJourneyPlanResults === '1'
         )
     );
+
+    const setMobileJourneyTripDetailActive = (active) => {
+        const enabled = active === true && isMobileJourneyPlanResultsActive();
+        mobileTripDetailOpen = enabled;
+        mobileTripDetail.classList.toggle('is-hidden', !enabled);
+        if (enabled) {
+            planResults.setAttribute('data-journey-trip-detail-open', '1');
+        } else {
+            planResults.removeAttribute('data-journey-trip-detail-open');
+        }
+        return enabled;
+    };
+
+    const closeMobileJourneyTripDetail = () => {
+        if (!mobileTripDetailOpen && mobileTripDetail.classList.contains('is-hidden')) return false;
+        setMobileJourneyTripDetailActive(false);
+        while (mobileTripDetailBody.firstChild) mobileTripDetailBody.removeChild(mobileTripDetailBody.firstChild);
+        return true;
+    };
 
     const getJourneyPlanEndpointText = (kind, row = null) => {
         const input = kind === 'destination' ? destinationInput : originInput;
@@ -800,6 +826,7 @@ export function mountTravelSearchUI() {
         backBtn.addEventListener('click', (evt) => {
             evt.preventDefault?.();
             evt.stopPropagation?.();
+            if (closeMobileJourneyTripDetail()) return;
             exitMobileJourneyPlanResults();
         });
 
@@ -1055,6 +1082,7 @@ export function mountTravelSearchUI() {
 
     const clearPlanList = ({ clearMapPreview = false } = {}) => {
         cancelTripPopoverHover();
+        closeMobileJourneyTripDetail();
         if (clearMapPreview) {
             try {
                 travelSearchMapActions.clearTripPathPreview();
@@ -1075,10 +1103,9 @@ export function mountTravelSearchUI() {
     };
 
     const syncJourneyPickPinsForPlanRow = async (row) => {
-        const originStationId = normalizeText(row?.originStationId || '');
         const destinationStationId = normalizeText(row?.destinationStationId || '');
         try {
-            if (originStationId) await journeyPickController.showStationPin({ stationId: originStationId, type: 'origin' });
+            journeyPickController.clearPin('origin');
             if (destinationStationId) await journeyPickController.showStationPin({ stationId: destinationStationId, type: 'destination' });
         } catch {
             // ignore
@@ -1105,15 +1132,25 @@ export function mountTravelSearchUI() {
         await appendJourneyPath(path, row, displayPlan);
 
         path.addEventListener('mouseenter', () => {
+            if (isMobileJourneyPresentation()) return;
             scheduleTripPopoverHover({ anchorEl: path, row });
         });
 
         path.addEventListener('mouseleave', () => {
+            if (isMobileJourneyPresentation()) return;
             cancelTripPopoverHover();
             scheduleHideTripPopover();
         });
 
+        path.addEventListener('click', (evt) => {
+            if (!isMobileJourneyPlanResultsActive()) return;
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            showMobileTripDetail({ row }).catch(() => null);
+        });
+
         drawer.appendChild(path);
+        drawer.appendChild(mobileTripDetail);
         li.appendChild(drawer);
 
         let stationCount = null;
@@ -1145,6 +1182,13 @@ export function mountTravelSearchUI() {
             stationCount
         });
 
+        brief.addEventListener('click', (evt) => {
+            if (!isMobileJourneyPlanResultsActive()) return;
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            showMobileTripDetail({ row }).catch(() => null);
+        });
+
         li.appendChild(brief);
 
         planList.appendChild(li);
@@ -1165,6 +1209,7 @@ export function mountTravelSearchUI() {
                     if (index === currentPlanPage && journeyPlanPreviewController?.isHighlightedPage?.(index)) return;
 
                     // 切换到新页面
+                    closeMobileJourneyTripDetail();
                     currentPlanPage = index;
                     await showCurrentPage();
                     updatePaginationButtons();
@@ -1183,13 +1228,13 @@ export function mountTravelSearchUI() {
         }
     };
 
-    const clearTripPopoverBody = () => {
-        while (tripPopoverBody.firstChild) tripPopoverBody.removeChild(tripPopoverBody.firstChild);
+    const clearTripDetailBody = (bodyEl = tripPopoverBody) => {
+        while (bodyEl?.firstChild) bodyEl.removeChild(bodyEl.firstChild);
     };
 
     const hideTripPopover = () => {
         tripPopover.classList.add('is-hidden');
-        clearTripPopoverBody();
+        clearTripDetailBody(tripPopoverBody);
         pinnedTripPopoverKey = '';
     };
 
@@ -1288,8 +1333,8 @@ export function mountTravelSearchUI() {
         normalizeText
     });
 
-    const renderTripDetailBody = async ({ row }) => {
-        clearTripPopoverBody();
+    const renderTripDetailBody = async ({ row, bodyEl = tripPopoverBody } = {}) => {
+        clearTripDetailBody(bodyEl);
         const displayPlan = await getDisplayPlanForRow(row);
         const sectionsForDisplay = Array.isArray(displayPlan?.sections) ? displayPlan.sections : [];
         const sectionThroughMetaList = sectionsForDisplay.length
@@ -1307,7 +1352,7 @@ export function mountTravelSearchUI() {
             originStationId: row.originStationId
         });
         if (!blocks.length) {
-            tripPopoverBody.appendChild(createJourneyTripEmptyRow({ createElement: el }));
+            bodyEl.appendChild(createJourneyTripEmptyRow({ createElement: el }));
             return;
         }
 
@@ -1323,7 +1368,7 @@ export function mountTravelSearchUI() {
         for (let blockIndex = 0; blockIndex < blocks.length; blockIndex += 1) {
             const block = blocks[blockIndex] || {};
             if (block.kind === 'transfer') {
-                tripPopoverBody.appendChild(createJourneyTripTransferRow({ createElement: el }));
+                bodyEl.appendChild(createJourneyTripTransferRow({ createElement: el }));
                 shouldAppendDirectionForNextNote = true;
                 currentSectionIndex += 1;
                 hasRenderedSectionLineNote = false;
@@ -1397,7 +1442,7 @@ export function mountTravelSearchUI() {
                 if (shouldAppendDirectionForNextNote && !shouldRenderBoundaryLineNote) shouldAppendDirectionForNextNote = false;
                 hasRenderedSectionLineNote = true;
                 if (!sectionsForDisplay.length && !shouldRenderBoundaryLineNote) currentLegIndex += 1;
-                tripPopoverBody.appendChild(note);
+                bodyEl.appendChild(note);
             }
 
             if (blockLineKey) previousRideLineKey = blockLineKey;
@@ -1421,7 +1466,7 @@ export function mountTravelSearchUI() {
                     stationName: normalizeText(s.stationName || s.stationId),
                     arrivalText: arriveText
                 });
-                if (rowEl) tripPopoverBody.appendChild(rowEl);
+                if (rowEl) bodyEl.appendChild(rowEl);
             }
         }
     };
@@ -1466,6 +1511,16 @@ export function mountTravelSearchUI() {
         tripPopoverTitle.textContent = `${originZh} → ${destinationZh}`;
         await renderTripDetailBody({ row });
         positionTripPopover(anchorEl);
+    };
+
+    const showMobileTripDetail = async ({ row } = {}) => {
+        if (!row || !isMobileJourneyPlanResultsActive()) return false;
+        cancelTripPopoverHover();
+        hideTripPopover();
+        await renderTripDetailBody({ row, bodyEl: mobileTripDetailBody });
+        setMobileJourneyTripDetailActive(true);
+        journeyPlanSheet.show({ nextState: 'expanded' });
+        return true;
     };
 
     const showPlanMessage = (message, { mobilePlanResults = false } = {}) => {
@@ -2508,6 +2563,7 @@ export function mountTravelSearchUI() {
         selectedDestinationLngLat = null;
         setMapPickTarget(null);
         hideTripPopover();
+        closeMobileJourneyTripDetail();
         clearPlanList({ clearMapPreview: true });
         planResults.classList.add('is-hidden');
         planPagination.classList.add('is-hidden');
@@ -2860,7 +2916,10 @@ export function mountTravelSearchUI() {
             return maybeComputePlans();
         },
         clearAndCollapse: () => clearJourneyInputsAndCollapse(),
-        handleMobileBackIntent: () => exitMobileJourneyPlanResults(),
+        handleMobileBackIntent: () => {
+            if (closeMobileJourneyTripDetail()) return true;
+            return exitMobileJourneyPlanResults();
+        },
         getSelection() {
             return {
                 originStationId: selectedOriginId,
