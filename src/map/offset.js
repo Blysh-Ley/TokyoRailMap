@@ -249,6 +249,63 @@ const nearestProjectionOnPolylinePixelsInSegmentRange = (pixelPoints, targetPx, 
     return best;
 };
 
+const interpolatePixelPointOnPolylineSegment = (pixelPoints, segmentIndex, t) => {
+    if (!Array.isArray(pixelPoints) || pixelPoints.length < 2) return null;
+    const maxSeg = pixelPoints.length - 2;
+    const seg = clamp(Number(segmentIndex) || 0, 0, maxSeg);
+    const a = pixelPoints[seg];
+    const b = pixelPoints[seg + 1];
+    if (!a || !b) return null;
+    const ratio = clamp(Number(t) || 0, 0, 1);
+    const x = a.x + (b.x - a.x) * ratio;
+    const y = a.y + (b.y - a.y) * ratio;
+    if (![x, y].every(Number.isFinite)) return null;
+    return { x, y };
+};
+
+const getSegmentNormalInPixels = (pixelPoints, segmentIndex) => {
+    if (!Array.isArray(pixelPoints) || pixelPoints.length < 2) return null;
+    const maxSeg = pixelPoints.length - 2;
+    const seg = clamp(Number(segmentIndex) || 0, 0, maxSeg);
+    const a = pixelPoints[seg];
+    const b = pixelPoints[seg + 1];
+    if (!a || !b) return null;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (!Number.isFinite(len) || len < 1e-8) return null;
+    return { x: -dy / len, y: dx / len };
+};
+
+const normalizePixelVector = (v) => {
+    const x = Number(v?.x);
+    const y = Number(v?.y);
+    const len = Math.hypot(x, y);
+    if (!Number.isFinite(len) || len < 1e-8) return null;
+    return { x: x / len, y: y / len };
+};
+
+const getFixedOffsetDirectionAtAnchor = (pixelPoints, segmentIndex, t) => {
+    const current = getSegmentNormalInPixels(pixelPoints, segmentIndex);
+    if (!current) return null;
+
+    const maxSeg = Array.isArray(pixelPoints) ? pixelPoints.length - 2 : 0;
+    const seg = clamp(Number(segmentIndex) || 0, 0, maxSeg);
+    const ratio = clamp(Number(t) || 0, 0, 1);
+
+    if (ratio <= 1e-4 && seg > 0) {
+        const prev = getSegmentNormalInPixels(pixelPoints, seg - 1);
+        return normalizePixelVector({ x: (prev?.x || 0) + current.x, y: (prev?.y || 0) + current.y }) || current;
+    }
+
+    if (ratio >= 1 - 1e-4 && seg < maxSeg) {
+        const next = getSegmentNormalInPixels(pixelPoints, seg + 1);
+        return normalizePixelVector({ x: current.x + (next?.x || 0), y: current.y + (next?.y || 0) }) || current;
+    }
+
+    return current;
+};
+
 const buildRailwayCoordinateChains = (coordDef) => {
     const out = [];
     const sublines = Array.isArray(coordDef?.sublines) ? coordDef.sublines : [];
@@ -425,6 +482,23 @@ export const buildStationOffsetAlgorithmContext = ({ stationFeatures, lineOffset
             continue;
         }
 
+        const localAnchorSegmentIndex = Number(local.localAnchorSegmentIndex) || 0;
+        const localAnchorT = clamp(Number(local.localAnchorT) || 0, 0, 1);
+        const anchorPixelAtZoom12 = interpolatePixelPointOnPolylineSegment(
+            local.localPixels,
+            localAnchorSegmentIndex,
+            localAnchorT
+        );
+        const offsetDirectionAtZoom12 = getFixedOffsetDirectionAtAnchor(
+            local.localPixels,
+            localAnchorSegmentIndex,
+            localAnchorT
+        );
+        if (!anchorPixelAtZoom12 || !offsetDirectionAtZoom12) {
+            unresolvedStationIds.push(stationId);
+            continue;
+        }
+
         stationLocalChainsById[stationId] = {
             railwayId,
             units: Number(lineOffsetByRailwayId.get(railwayId)) || 0,
@@ -432,8 +506,10 @@ export const buildStationOffsetAlgorithmContext = ({ stationFeatures, lineOffset
             stationPixelAtZoom12: stationPx,
             localLineCoords: local.localChain,
             localLinePixelsAtZoom12: local.localPixels,
-            localAnchorSegmentIndex: Number(local.localAnchorSegmentIndex) || 0,
-            localAnchorT: clamp(Number(local.localAnchorT) || 0, 0, 1),
+            localAnchorSegmentIndex,
+            localAnchorT,
+            anchorPixelAtZoom12,
+            offsetDirectionAtZoom12,
             nearestDistancePx,
             nearestSegmentIndex: Number(best.hit.segmentIndex) || 0
         };
@@ -474,9 +550,9 @@ export const buildStationOffsetGeoJSONAtZoom = ({ baseStationsGeoJSON, stationOf
 
     for (const [stationId, info] of Object.entries(stationLocalChainsById)) {
         const units = Number(info?.units) || 0;
-        const localPixels = Array.isArray(info?.localLinePixelsAtZoom12) ? info.localLinePixelsAtZoom12 : [];
-        const stationPx = info?.stationPixelAtZoom12;
-        if (!units || !localPixels.length || !stationPx) continue;
+        const anchorPx = info?.anchorPixelAtZoom12;
+        const offsetDirection = info?.offsetDirectionAtZoom12;
+        if (!units || !anchorPx || !offsetDirection) continue;
 
         const offsetPxAtCurrentZoom = units * pxPerUnit;
         if (!offsetPxAtCurrentZoom) continue;
@@ -485,19 +561,13 @@ export const buildStationOffsetGeoJSONAtZoom = ({ baseStationsGeoJSON, stationOf
         const offsetPxAtZoom12 = offsetPxAtCurrentZoom * scaleFactor * geoJsonLowZoomFactor;
         if (!offsetPxAtZoom12) continue;
 
-        const shifted = buildOffsetPolylinePixelsWithMiter(localPixels, offsetPxAtZoom12, {
-            miterLimitRatio: Number(stationOffsetAlgorithmContext?.miterLimitRatio) || 2
-        });
-        if (!Array.isArray(shifted) || shifted.length < 2) continue;
+        const point = {
+            x: Number(anchorPx.x) + Number(offsetDirection.x) * offsetPxAtZoom12,
+            y: Number(anchorPx.y) + Number(offsetDirection.y) * offsetPxAtZoom12
+        };
+        if (![point.x, point.y].every(Number.isFinite)) continue;
 
-        const anchorSeg = Number(info?.localAnchorSegmentIndex) || 0;
-        const hit = nearestProjectionOnPolylinePixelsInSegmentRange(
-            shifted,
-            stationPx,
-            anchorSeg - 2,
-            anchorSeg + 2
-        ) || nearestProjectionOnPolylinePixels(shifted, stationPx);
-        const ll = hit?.point ? unprojectPixelToLngLatAtZoom12(hit.point) : null;
+        const ll = unprojectPixelToLngLatAtZoom12(point);
         if (!Array.isArray(ll) || ll.length < 2) continue;
         stationOffsetCoordsById[stationId] = ll;
     }
