@@ -24,6 +24,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         center,
         zoom,
         style,
+        attributionControl: false,
         localIdeographFontFamily
     });
 

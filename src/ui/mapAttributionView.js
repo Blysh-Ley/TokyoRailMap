@@ -97,32 +97,49 @@ export const renderMapAttributionInner = (inner, { doc = globalThis.document } =
     return true;
 };
 
-const resolveAttributionControl = (inner) => {
-    const closest = inner?.closest?.('.maplibregl-ctrl-attrib');
-    if (closest) return closest;
-    let node = inner?.parentElement || inner?.parentNode || null;
-    while (node) {
-        if (typeof node.matches === 'function' && node.matches('.maplibregl-ctrl-attrib')) return node;
-        node = node.parentElement || node.parentNode || null;
-    }
-    return null;
+const createMapAttributionControl = (doc) => {
+    if (!doc?.createElement) return null;
+    const root = doc.createElement('div');
+    root.className = 'tokyo-map-attribution-control';
+    root.setAttribute('data-map-attribution-mobile', '0');
+
+    const button = doc.createElement('button');
+    button.className = 'tokyo-map-attribution-toggle';
+    button.type = 'button';
+    button.title = 'Map attribution';
+    button.setAttribute('aria-label', 'Map attribution');
+    button.setAttribute('aria-expanded', 'true');
+    button.textContent = 'i';
+
+    const inner = doc.createElement('div');
+    inner.className = 'tokyo-map-attribution-inner';
+
+    root.append(button, inner);
+    return { root, button, inner };
 };
 
-const syncAttributionToggleState = (control, compact) => {
+export const applyAttributionExpandedState = (control, expanded) => {
+    if (!control) return false;
+    const shouldExpand = expanded === true;
+    control.setAttribute('data-map-attribution-expanded', shouldExpand ? '1' : '0');
+    control.classList?.toggle?.('is-expanded', shouldExpand);
+    const button = control.querySelector?.('.tokyo-map-attribution-toggle, button');
+    button?.setAttribute?.('aria-expanded', shouldExpand ? 'true' : 'false');
+    return true;
+};
+
+export const syncAttributionToggleState = (control, compact) => {
     if (!control) return false;
     const shouldCompact = compact === true;
+    const wasMobile = control.getAttribute('data-map-attribution-mobile') === '1';
     control.setAttribute('data-map-attribution-mobile', shouldCompact ? '1' : '0');
     if (shouldCompact) {
-        if (!control.getAttribute('data-map-attribution-expanded')) {
-            control.setAttribute('data-map-attribution-expanded', '0');
-        }
+        applyAttributionExpandedState(
+            control,
+            wasMobile && control.getAttribute('data-map-attribution-expanded') === '1'
+        );
     } else {
-        control.removeAttribute?.('data-map-attribution-expanded');
-    }
-
-    const button = control.querySelector?.('.maplibregl-ctrl-attrib-button, button');
-    if (button) {
-        button.setAttribute('aria-expanded', shouldCompact && control.getAttribute('data-map-attribution-expanded') !== '1' ? 'false' : 'true');
+        applyAttributionExpandedState(control, true);
     }
     return true;
 };
@@ -134,28 +151,34 @@ const bindAttributionToggle = (control) => {
         if (control.getAttribute('data-map-attribution-mobile') !== '1') return;
         const target = event?.target;
         const isToggle = target === control
-            || target?.closest?.('.maplibregl-ctrl-attrib-button')
+            || target?.closest?.('.tokyo-map-attribution-toggle')
             || target?.tagName === 'BUTTON';
         if (!isToggle) return;
-        const nextExpanded = control.getAttribute('data-map-attribution-expanded') === '1' ? '0' : '1';
-        control.setAttribute('data-map-attribution-expanded', nextExpanded);
-        const button = control.querySelector?.('.maplibregl-ctrl-attrib-button, button');
-        button?.setAttribute?.('aria-expanded', nextExpanded === '1' ? 'true' : 'false');
+        event?.preventDefault?.();
+        applyAttributionExpandedState(
+            control,
+            control.getAttribute('data-map-attribution-expanded') !== '1'
+        );
     });
 };
 
 export const installMapAttributionView = ({
     doc = globalThis.document,
     mapEngine = null,
+    container = null,
     isCompact = false
 } = {}) => {
+    const parent = container || doc?.getElementById?.('map') || doc?.body || null;
+    const control = createMapAttributionControl(doc);
+    if (parent && control?.root) {
+        parent.appendChild(control.root);
+    }
+
     const apply = () => {
         try {
-            const inner = doc?.querySelector?.('.maplibregl-ctrl-attrib-inner');
-            const rendered = renderMapAttributionInner(inner, { doc });
-            const control = resolveAttributionControl(inner);
-            bindAttributionToggle(control);
-            syncAttributionToggleState(control, typeof isCompact === 'function' ? isCompact() : isCompact);
+            const rendered = renderMapAttributionInner(control?.inner, { doc });
+            bindAttributionToggle(control?.root);
+            syncAttributionToggleState(control?.root, typeof isCompact === 'function' ? isCompact() : isCompact);
             return rendered;
         } catch {
             return false;
@@ -164,5 +187,11 @@ export const installMapAttributionView = ({
 
     apply();
     mapEngine?.on?.('styledata', apply);
-    return { apply };
+    return {
+        apply,
+        destroy: () => {
+            control?.root?.remove?.();
+        },
+        getElement: () => control?.root || null
+    };
 };
