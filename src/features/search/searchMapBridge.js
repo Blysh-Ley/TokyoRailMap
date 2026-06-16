@@ -71,6 +71,9 @@ export const createSearchMapBridge = ({
         clearTripPathPreviewBySource: (source) => {
             return routePreviewApi.clearTripPathPreviewBySource?.(source);
         },
+        fitMobileTripBounds: (payload, options = {}) => {
+            return routePreviewApi.fitMobileTripBounds?.(payload, options) === true;
+        },
 
         isMultiSelectModeEnabled: () => (
             typeof multiSelectApi.isEnabled === 'function'

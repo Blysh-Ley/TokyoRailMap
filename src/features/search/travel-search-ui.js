@@ -1471,6 +1471,26 @@ export function mountTravelSearchUI() {
         }
     };
 
+    const fitMobileJourneyPlanResult = async ({ row } = {}) => {
+        if (!row || !isMobileJourneyPlanResultsActive()) return false;
+        try {
+            const displayPlan = await getDisplayPlanForRow(row);
+            const payload = await buildTripPreviewPayloadFromDisplayPlan({ row, displayPlan });
+            if (!payload) return false;
+            return travelSearchMapActions.fitMobileTripBounds?.(
+                {
+                    ...(payload || {}),
+                    __previewInteraction: 'click',
+                    fitMode: 'commit',
+                    previewSource: 'journey'
+                },
+                { fitMode: 'commit' }
+            ) === true;
+        } catch {
+            return false;
+        }
+    };
+
     const positionTripPopover = (anchorEl) => {
         const rect = anchorEl.getBoundingClientRect();
         const maxW = 360;
@@ -1517,6 +1537,7 @@ export function mountTravelSearchUI() {
         if (!row || !isMobileJourneyPlanResultsActive()) return false;
         cancelTripPopoverHover();
         hideTripPopover();
+        fitMobileJourneyPlanResult({ row }).catch(() => null);
         await renderTripDetailBody({ row, bodyEl: mobileTripDetailBody });
         setMobileJourneyTripDetailActive(true);
         journeyPlanSheet.show({ nextState: 'expanded' });

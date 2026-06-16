@@ -3,6 +3,7 @@ const toText = (value) => String(value ?? '').trim();
 export const createRoutePreviewBridgeApi = ({
     previewTripPath,
     clearTripPathPreview,
+    fitMobileTripBounds,
     isMultiSelectModeEnabled,
     defaultSource = 'journey'
 } = {}) => {
@@ -32,6 +33,15 @@ export const createRoutePreviewBridgeApi = ({
             const s = toText(previewSource);
             if (!s) return;
             clearTripPathPreview?.({ source: s });
+        },
+        fitMobileTripBounds: (payload, options = {}) => {
+            return fitMobileTripBounds?.(
+                {
+                    ...(payload || {}),
+                    __previewSource: toText(payload?.__previewSource || payload?.previewSource) || source
+                },
+                options
+            ) === true;
         }
     };
 };

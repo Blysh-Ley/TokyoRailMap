@@ -16,6 +16,11 @@ export const travelSearchMapActions = Object.freeze({
     clearJourneyPickPin: (type) => callSearchMapAction('clearJourneyPickPin', type),
     clearReachableStopsOverlay: () => callSearchMapAction('clearReachableStopsOverlay'),
     clearTripPathPreview: () => callSearchMapAction('clearTripPathPreview'),
+    fitMobileTripBounds: (payload, options) => (
+        hasSearchMapAction('fitMobileTripBounds')
+            ? callSearchMapAction('fitMobileTripBounds', payload, options) === true
+            : undefined
+    ),
     hasAction: (name) => hasSearchMapAction(name),
     isMultiSelectModeEnabled: () => (
         hasSearchMapAction('isMultiSelectModeEnabled')

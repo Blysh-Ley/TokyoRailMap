@@ -83,6 +83,7 @@ import {
     writeStationOffsetMode
 } from './services/appSettings.js';
 import { createMapEngine } from './services/mapEngine.js';
+import { createMobileTripFitBoundsController } from './services/mobileTripFitBounds.js';
 import { createStore } from './store/appStore.js';
 import { hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested, selectionClear } from './store/actions.js';
 import { createBaseHighlightEventBridge } from './features/highlight/baseHighlightEventBridge.js';
@@ -339,6 +340,7 @@ const initMapApp = async () => {
     let transferStationIdsByStationId = new Map();
     let previewTripPath = (_payload) => {};
     let clearTripPathPreview = () => {};
+    let fitMobileTripBounds = (_payload, _options = {}) => false;
     let tripPreviewStationIds = null; // Set<string> | null
     let tripPreviewLineIds = null; // Set<string> | null
     let tripPreviewLineNameLabelsData = null;
@@ -2994,6 +2996,7 @@ const initMapApp = async () => {
     const routePreviewBridgeApi = createRoutePreviewBridgeApi({
         previewTripPath: (payload, options) => previewTripPath(payload, options),
         clearTripPathPreview: (options) => clearTripPathPreview(options),
+        fitMobileTripBounds: (payload, options) => fitMobileTripBounds(payload, options),
         isMultiSelectModeEnabled
     });
 
@@ -3676,6 +3679,35 @@ const initMapApp = async () => {
             getEnabledLineIdsByCompany: () => enabledLineIdsByCompany,
             getStationCoord: (stationId) => stationCoordByIdBase.get(stationId) || stationCoordById.get(stationId)
         });
+        const mobileTripFitBounds = createMobileTripFitBoundsController({
+            mapEngine,
+            getStationCoord: (stationId) => stationCoordByIdBase.get(stationId) || stationCoordById.get(stationId)
+        });
+        const isMobileJourneyPlanFitContext = () => {
+            const rootDataset = document.documentElement?.dataset || {};
+            const bodyDataset = document.body?.dataset || {};
+            return rootDataset.mobileJourneyPlanResults === '1'
+                || bodyDataset.mobileJourneyPlanResults === '1'
+                || (
+                    (rootDataset.mobileNavActive === 'search' || bodyDataset.mobileNavActive === 'search')
+                    && (rootDataset.mobileSearchMode === 'journey' || bodyDataset.mobileSearchMode === 'journey')
+                );
+        };
+        const isMobileTripFitBoundsContext = () => {
+            if (isMobileUiMode()) return true;
+            if (isMobileJourneyPlanFitContext()) return true;
+            return panel?.el?.getAttribute?.('data-panel-presentation') === 'mobile';
+        };
+        fitMobileTripBounds = (payload = {}, _options = {}) => {
+            if (!isMobileTripFitBoundsContext()) return false;
+            return mobileTripFitBounds.fitTripPayload(payload);
+        };
+        const fitMobileTripBoundsIfNeeded = (payload = {}, options = {}) => {
+            const fitMode = String(options?.fitMode || payload?.fitMode || '').trim();
+            const interaction = String(payload?.__previewInteraction || payload?.previewInteraction || '').trim();
+            if (fitMode !== 'commit' && interaction !== 'click') return false;
+            return fitMobileTripBounds(payload, options);
+        };
 
         const routeEndpointPopups = createRouteEndpointPopupRuntime({
             mapEngine,
@@ -3763,7 +3795,10 @@ const initMapApp = async () => {
         });
 
         clearTripPathPreview = routePreviewController.clearTripPathPreview;
-        previewTripPath = routePreviewController.previewTripPath;
+        previewTripPath = (payload, options = {}) => {
+            routePreviewController.previewTripPath(payload, options);
+            fitMobileTripBoundsIfNeeded(payload, options);
+        };
         clearDirHeaderPreview = routePreviewController.clearDirHeaderPreview;
         previewDirHeader = routePreviewController.previewDirHeader;
         const toggleTripPreviewSelectionVisibility = routePreviewController.toggleTripPreviewSelectionVisibility;
