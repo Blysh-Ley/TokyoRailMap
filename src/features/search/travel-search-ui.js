@@ -2240,8 +2240,63 @@ export function mountTravelSearchUI() {
         return row;
     };
 
-    const renderHistoryResults = async () => {
+    const resolveTravelHistoryStationItem = async (item) => {
+        const base = normalizeTravelHistoryItem(item);
+        if (!base || base.type === 'line' || base.type === 'company') return base;
+
+        const currentLineIds = Array.isArray(base.lineIds)
+            ? base.lineIds.map(String).filter(Boolean)
+            : [];
+        const candidates = await searchRailEntities(base.text || base.id || '', {
+            limit: 20,
+            allowedTypes: new Set(['station'])
+        }).catch(() => []);
+        const stationItems = Array.isArray(candidates) ? candidates : [];
+        const match = stationItems.find((candidate) => (
+            (base.id && candidate?.id && String(candidate.id) === String(base.id))
+            || (base.text && normalizeText(candidate?.text) === normalizeText(base.text))
+        )) || stationItems[0] || null;
+
+        if (!match) return base;
+
+        const mergedLineIds = Array.from(new Set([
+            ...currentLineIds,
+            ...(Array.isArray(match.lineIds) ? match.lineIds.map(String).filter(Boolean) : [])
+        ]));
+        return {
+            ...base,
+            id: base.id || (match.id ? String(match.id) : undefined),
+            text: base.text || normalizeText(match.text),
+            type: 'station',
+            isTransfer: base.isTransfer || match.isTransfer === true,
+            lineIds: mergedLineIds.length ? mergedLineIds : undefined
+        };
+    };
+
+    const resolveTravelHistoryForRender = async () => {
         const history = loadTravelHistory().filter(item => item.type !== 'line' && item.type !== 'company');
+        if (!history.length) return [];
+
+        const resolved = await Promise.all(history.map(resolveTravelHistoryStationItem));
+        const changed = resolved.some((item, index) => {
+            const prev = history[index] || {};
+            const prevLineIds = Array.isArray(prev.lineIds) ? prev.lineIds.map(String).filter(Boolean) : [];
+            const nextLineIds = Array.isArray(item?.lineIds) ? item.lineIds.map(String).filter(Boolean) : [];
+            return String(prev.id || '') !== String(item?.id || '')
+                || prev.isTransfer !== item?.isTransfer
+                || nextLineIds.length !== prevLineIds.length
+                || nextLineIds.some((lineId) => !prevLineIds.includes(lineId));
+        });
+        if (changed) {
+            const blockedTypes = new Set(['line', 'company']);
+            const nonStationHistory = loadTravelHistory().filter((item) => blockedTypes.has(item.type));
+            saveTravelHistory([...resolved.filter(Boolean), ...nonStationHistory]);
+        }
+        return resolved.filter(Boolean);
+    };
+
+    const renderHistoryResults = async () => {
+        const history = await resolveTravelHistoryForRender();
         if (!history.length) {
             clearList();
             results.classList.add('is-hidden');
