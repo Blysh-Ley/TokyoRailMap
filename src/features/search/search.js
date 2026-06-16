@@ -1,7 +1,7 @@
 import { loadRailGeoDataFromDataFolder } from '../../lib/data.js';
 import { createLineIconElement, getRoutesIndex, resolveMainLineIdForIcon } from '../../lib/line-icons.js';
-import { resolveLineColorForTheme } from '../../lib/line-icons.js';
 import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
+import { buildCompactTripDetailTransferLineItemHtmls } from '../panel/panelTripDetailTransfers.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -13,6 +13,13 @@ function el(tag, className, attrs = {}) {
     }
     return node;
 }
+
+const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
 function buildResultIcon(item) {
     if (!item || !item.type) return buildResultIcon({ type: 'station' });
@@ -88,6 +95,16 @@ const refreshStationLineAlignment = (rootEl) => {
         const clamped = Math.max(-8, Math.min(8, delta));
         textNode.style.setProperty('--journey-line-offset', `${clamped.toFixed(2)}px`);
     });
+};
+
+const appendStationLineIconGroup = (textEl, lineMetas) => {
+    const itemHtmls = buildCompactTripDetailTransferLineItemHtmls(lineMetas, { escapeHtml });
+    if (!itemHtmls.length) return;
+
+    const wrap = document.createElement('span');
+    wrap.className = 'journey-station-result-lines journey-station-result-line-icons';
+    wrap.innerHTML = `<span class="panel-trip-detail-transfer-items panel-trip-detail-transfer-items-main"><span class="panel-trip-detail-transfer-row">${itemHtmls.join('')}</span></span>`;
+    textEl.appendChild(wrap);
 };
 
 const tokenizeQuery = (q) =>
@@ -202,8 +219,8 @@ let lineMetaById = new Map(); // lineId -> { name, color, code }
 let dataReady = false;
 let dataLoading = false;
 
-let sameCompanyTransferClusterByStationId = null; // Map<stationId, { clusterKey, lineIds:string[] }>
-let sameCompanyTransferClusterLoading = null;
+let stationResultGroupByStationId = null; // Map<stationId, { clusterKey, primaryId, lineIds:string[] }>
+let stationResultGroupLoading = null;
 
 let companyMetaMerged = false;
 
@@ -219,11 +236,11 @@ const parseStationNodeId = (nodeId) => {
     return { id, company, stationName, lineId };
 };
 
-async function ensureSameCompanyTransferClusterLoaded() {
-    if (sameCompanyTransferClusterByStationId instanceof Map) return sameCompanyTransferClusterByStationId;
-    if (sameCompanyTransferClusterLoading) return sameCompanyTransferClusterLoading;
+async function ensureStationResultGroupLoaded() {
+    if (stationResultGroupByStationId instanceof Map) return stationResultGroupByStationId;
+    if (stationResultGroupLoading) return stationResultGroupLoading;
 
-    sameCompanyTransferClusterLoading = (async () => {
+    stationResultGroupLoading = (async () => {
         try {
             const raw = await getCachedJson('./data/station-groups.json');
             const groups = Array.isArray(raw) ? raw : [];
@@ -231,49 +248,42 @@ async function ensureSameCompanyTransferClusterLoaded() {
             const out = new Map();
 
             for (const group of groups) {
-                const subGroups = Array.isArray(group) ? group : [];
+                const rawIds = Array.isArray(group?.ids)
+                    ? group.ids
+                    : (Array.isArray(group) ? group.flat(Infinity) : []);
                 const allNodes = [];
-                for (const sub of subGroups) {
-                    if (!Array.isArray(sub)) continue;
-                    for (const nodeId of sub) {
-                        const p = parseStationNodeId(nodeId);
-                        if (p) allNodes.push(p);
-                    }
+                const seenIds = new Set();
+                for (const nodeId of rawIds) {
+                    const p = parseStationNodeId(nodeId);
+                    if (!p || seenIds.has(p.id)) continue;
+                    seenIds.add(p.id);
+                    allNodes.push(p);
                 }
                 if (!allNodes.length) continue;
 
-                const byCompany = new Map();
-                for (const node of allNodes) {
-                    if (!byCompany.has(node.company)) byCompany.set(node.company, []);
-                    byCompany.get(node.company).push(node);
-                }
+                const primaryId = normalizeText(allNodes[0]?.id || '');
+                const stationName = normalizeText(allNodes[0]?.stationName || '');
+                const sortedIds = allNodes.map((x) => x.id).sort();
+                const clusterKey = `station-result-group:${stationName}:${sortedIds.join('|')}`;
+                const lineIds = Array.from(new Set(allNodes.map((x) => x.lineId))).filter(Boolean);
 
-                for (const [company, nodes] of byCompany.entries()) {
-                    if (!Array.isArray(nodes) || nodes.length <= 1) continue;
-
-                    const stationName = normalizeText(nodes[0]?.stationName || '');
-                    const sortedIds = nodes.map((x) => x.id).sort();
-                    const clusterKey = `same-company-transfer:${company}:${stationName}:${sortedIds.join('|')}`;
-                    const lineIds = Array.from(new Set(nodes.map((x) => x.lineId))).filter(Boolean);
-
-                    for (const n of nodes) {
-                        out.set(n.id, { clusterKey, lineIds });
-                    }
+                for (const n of allNodes) {
+                    out.set(n.id, { clusterKey, primaryId, lineIds });
                 }
             }
 
-            sameCompanyTransferClusterByStationId = out;
-            return sameCompanyTransferClusterByStationId;
+            stationResultGroupByStationId = out;
+            return stationResultGroupByStationId;
         } catch (e) {
-            console.warn('search.js: 无法加载 station-groups.json（换乘同公司聚类将退化）', e);
-            sameCompanyTransferClusterByStationId = new Map();
-            return sameCompanyTransferClusterByStationId;
+            console.warn('search.js: 无法加载 station-groups.json（站点结果合并将退化）', e);
+            stationResultGroupByStationId = new Map();
+            return stationResultGroupByStationId;
         } finally {
-            sameCompanyTransferClusterLoading = null;
+            stationResultGroupLoading = null;
         }
     })();
 
-    return sameCompanyTransferClusterLoading;
+    return stationResultGroupLoading;
 }
 
 function mergeCompanyMetaIfAvailable() {
@@ -324,7 +334,7 @@ async function ensureDataLoaded() {
     try {
         const { stationsGeoJSON: stationsData, linesGeoJSON: linesData } = await loadRailGeoDataFromDataFolder();
         const routesIndex = await getRoutesIndex();
-        const sameCompanyCluster = await ensureSameCompanyTransferClusterLoaded();
+        const stationResultGroups = await ensureStationResultGroupLoaded();
 
         // 线路多语言 title：用于搜索 + 展示（显示 zh-Hans）
         const titles = await ensureRailwayTitlesLoaded();
@@ -364,9 +374,9 @@ async function ensureDataLoaded() {
 
                 if (!id || !nameZh) return null;
                 const sid = String(id);
-                const clusterMeta = sameCompanyCluster?.get?.(sid) || null;
-                const mergedLineIds = clusterMeta?.lineIds?.length
-                    ? clusterMeta.lineIds.slice()
+                const groupMeta = stationResultGroups?.get?.(sid) || null;
+                const mergedLineIds = groupMeta?.lineIds?.length
+                    ? groupMeta.lineIds.slice()
                     : lineIds;
 
                 return {
@@ -380,23 +390,28 @@ async function ensureDataLoaded() {
                         name,
                         nameJa
                     ].map(normalizeText).filter(Boolean))),
-                    isTransfer: isTransfer || !!clusterMeta,
+                    isTransfer: isTransfer || !!groupMeta,
                     lineIds: mergedLineIds,
-                    sameCompanyClusterKey: normalizeText(clusterMeta?.clusterKey || '')
+                    stationGroupKey: normalizeText(groupMeta?.clusterKey || ''),
+                    stationGroupPrimaryId: normalizeText(groupMeta?.primaryId || '')
                 };
             })
             .filter(Boolean);
 
-        if (sameCompanyCluster?.size) {
+        if (stationResultGroups?.size) {
             const mergedMap = new Map();
             for (const s of stationRaw) {
-                const key = s.sameCompanyClusterKey || `single:${s.id}`;
+                const key = s.stationGroupKey || `single:${s.id}`;
                 const prev = mergedMap.get(key);
                 if (!prev) {
+                    const primaryId = normalizeText(s.stationGroupPrimaryId || s.id);
                     mergedMap.set(key, {
                         ...s,
+                        id: primaryId || s.id,
                         names: Array.isArray(s.names) ? Array.from(new Set(s.names)) : [],
-                        lineIds: Array.isArray(s.lineIds) ? Array.from(new Set(s.lineIds)) : []
+                        lineIds: Array.isArray(s.lineIds) ? Array.from(new Set(s.lineIds)) : [],
+                        stationGroupKey: s.stationGroupKey || '',
+                        stationGroupPrimaryId: primaryId
                     });
                     continue;
                 }
@@ -404,7 +419,12 @@ async function ensureDataLoaded() {
                 prev.isTransfer = prev.isTransfer || s.isTransfer;
                 prev.names = Array.from(new Set([...(prev.names || []), ...(s.names || [])]));
                 prev.lineIds = Array.from(new Set([...(prev.lineIds || []), ...(s.lineIds || [])]));
-                if (!prev.text && s.text) prev.text = s.text;
+                if (s.id && s.stationGroupPrimaryId && s.id === s.stationGroupPrimaryId) {
+                    prev.id = s.id;
+                    if (s.text) prev.text = s.text;
+                } else if (!prev.text && s.text) {
+                    prev.text = s.text;
+                }
             }
             stationIndex = Array.from(mergedMap.values());
         } else {
@@ -465,7 +485,12 @@ async function ensureDataLoaded() {
         for (const l of lineIndex) {
             if (!l?.id) continue;
             const displayName = normalizeText(l.text);
-            lineMetaById.set(String(l.id), { name: displayName, color: l.color || null, code: l.code || null });
+            lineMetaById.set(String(l.id), {
+                name: displayName,
+                color: l.color || null,
+                code: l.code || null,
+                company: l.company || null
+            });
         }
 
         // 公司：从 companyLogoMap + lines 的 company 汇总
@@ -588,7 +613,8 @@ function buildSearchResults(query, { limit = 30, allowedTypes = null } = {}) {
                         id: s.id,
                         text: s.text,
                         isTransfer: s.isTransfer,
-                        lineIds: Array.isArray(s.lineIds) ? s.lineIds.slice() : []
+                        lineIds: Array.isArray(s.lineIds) ? s.lineIds.slice() : [],
+                        stationGroupKey: s.stationGroupKey || ''
                     }
                 });
             }
@@ -631,6 +657,81 @@ function buildSearchResults(query, { limit = 30, allowedTypes = null } = {}) {
     return finalHits.slice(0, limit);
 }
 
+const findStationIndexItemForSearchItem = (item) => {
+    if (!item || item.type !== 'station') return null;
+    const stationGroupKey = normalizeText(item.stationGroupKey);
+    const id = normalizeText(item.id);
+    const text = normalizeText(item.text);
+    if (!stationIndex.length) return null;
+    if (stationGroupKey) {
+        const byGroup = stationIndex.find((s) => normalizeText(s.stationGroupKey) === stationGroupKey);
+        if (byGroup) return byGroup;
+    }
+    if (id) {
+        const groupMeta = stationResultGroupByStationId?.get?.(id) || null;
+        const groupKey = normalizeText(groupMeta?.clusterKey || '');
+        if (groupKey) {
+            const byGroup = stationIndex.find((s) => normalizeText(s.stationGroupKey) === groupKey);
+            if (byGroup) return byGroup;
+        }
+        const byId = stationIndex.find((s) => normalizeText(s.id) === id);
+        if (byId) return byId;
+    }
+    if (text) {
+        return stationIndex.find((s) => normalizeText(s.text) === text) || null;
+    }
+    return null;
+};
+
+export function mergeStationSearchItems(items = []) {
+    const merged = [];
+    const stationByKey = new Map();
+
+    for (const item of Array.isArray(items) ? items : []) {
+        if (!item || item.type !== 'station') {
+            merged.push(item);
+            continue;
+        }
+
+        const indexed = findStationIndexItemForSearchItem(item);
+        const groupMeta = item.id ? stationResultGroupByStationId?.get?.(String(item.id)) : null;
+        const stationGroupKey = normalizeText(indexed?.stationGroupKey || item.stationGroupKey || groupMeta?.clusterKey || '');
+        const key = `station:${stationGroupKey || normalizeText(indexed?.id || item.id) || normalizeText(indexed?.text || item.text)}`;
+        const lineIds = Array.from(new Set([
+            ...(Array.isArray(item.lineIds) ? item.lineIds.map(String).filter(Boolean) : []),
+            ...(Array.isArray(indexed?.lineIds) ? indexed.lineIds.map(String).filter(Boolean) : []),
+            ...(Array.isArray(groupMeta?.lineIds) ? groupMeta.lineIds.map(String).filter(Boolean) : [])
+        ]));
+        const next = {
+            ...item,
+            type: 'station',
+            id: indexed?.id || normalizeText(groupMeta?.primaryId || '') || item.id,
+            text: indexed?.text || item.text,
+            isTransfer: item.isTransfer || indexed?.isTransfer || lineIds.length > 1,
+            lineIds: lineIds.length ? lineIds : undefined,
+            stationGroupKey: stationGroupKey || undefined
+        };
+
+        const prev = stationByKey.get(key);
+        if (!prev) {
+            stationByKey.set(key, next);
+            merged.push(next);
+            continue;
+        }
+
+        prev.id = indexed?.id || prev.id || next.id;
+        prev.text = indexed?.text || prev.text || next.text;
+        prev.isTransfer = prev.isTransfer || next.isTransfer;
+        prev.stationGroupKey = prev.stationGroupKey || next.stationGroupKey;
+        prev.lineIds = Array.from(new Set([
+            ...(Array.isArray(prev.lineIds) ? prev.lineIds : []),
+            ...(Array.isArray(next.lineIds) ? next.lineIds : [])
+        ]));
+    }
+
+    return merged;
+}
+
 export async function searchRailEntities(query, { limit = 30, allowedTypes = null } = {}) {
     const q = normalizeText(query);
     if (!q) return [];
@@ -650,7 +751,13 @@ export async function getLineMetaByIds(lineIds) {
     for (const id of ids) {
         const meta = lineMetaById.get(String(id));
         if (!meta || !meta.name) continue;
-        out.push({ id: String(id), name: String(meta.name), color: meta.color || null });
+        out.push({
+            id: String(id),
+            name: String(meta.name),
+            color: meta.color || null,
+            code: meta.code || null,
+            company: meta.company || null
+        });
     }
     return out;
 }
@@ -680,6 +787,7 @@ export function mountSearchUI() {
             text,
             isTransfer: !!item.isTransfer,
             lineIds: Array.isArray(item.lineIds) ? item.lineIds.map(String) : undefined,
+            stationGroupKey: item.stationGroupKey ? String(item.stationGroupKey) : undefined,
             color: item.color ? String(item.color) : undefined,
             code: item.code ? String(item.code) : undefined,
             logoUrl: item.logoUrl ? String(item.logoUrl) : undefined
@@ -692,7 +800,7 @@ export function mountSearchUI() {
             if (!raw) return [];
             const parsed = JSON.parse(raw);
             if (!Array.isArray(parsed)) return [];
-            return parsed.map(normalizeHistoryItem).filter(Boolean).slice(0, MAX_HISTORY);
+            return mergeStationSearchItems(parsed.map(normalizeHistoryItem).filter(Boolean)).slice(0, MAX_HISTORY);
         } catch {
             return [];
         }
@@ -700,7 +808,7 @@ export function mountSearchUI() {
 
     const saveHistory = (items) => {
         try {
-            const list = Array.isArray(items) ? items.map(normalizeHistoryItem).filter(Boolean) : [];
+            const list = mergeStationSearchItems(Array.isArray(items) ? items.map(normalizeHistoryItem).filter(Boolean) : []);
             window.localStorage?.setItem?.(HISTORY_KEY, JSON.stringify(list.slice(0, MAX_HISTORY)));
         } catch {
             // ignore
@@ -712,10 +820,10 @@ export function mountSearchUI() {
         if (!value) return;
 
         const list = loadHistory();
-        const next = [
+        const next = mergeStationSearchItems([
             value,
             ...list.filter((x) => (x.id && value.id ? x.id !== value.id : x.text !== value.text))
-        ].slice(0, MAX_HISTORY);
+        ]).slice(0, MAX_HISTORY);
         saveHistory(next);
     };
 
@@ -950,23 +1058,8 @@ export function mountSearchUI() {
                         text.appendChild(nameSpan);
 
                         const ids = Array.isArray(item?.lineIds) ? item.lineIds : [];
-                        const metas = ids.map((id) => ({ id: String(id), meta: lineMetaById.get(String(id)) }));
-
-                        if (metas.length) {
-                            const wrap = document.createElement('span');
-                            wrap.className = 'journey-station-result-lines';
-                            wrap.style.fontSize = '11px';
-                            wrap.style.whiteSpace = 'normal';
-
-                            metas.forEach((x, idx) => {
-                                if (idx > 0) wrap.appendChild(document.createTextNode('、'));
-                                const seg = document.createElement('span');
-                                seg.textContent = String(x.meta?.name || x.id);
-                                if (x.meta?.color) seg.style.color = String(resolveLineColorForTheme(x.meta.color));
-                                wrap.appendChild(seg);
-                            });
-                            text.appendChild(wrap);
-                        }
+                        const metas = ids.map((id) => ({ id: String(id), ...(lineMetaById.get(String(id)) || {}) }));
+                        appendStationLineIconGroup(text, metas);
                     } else {
                         text = el('div', 'search-result-text', { text: item?.text ?? '' });
                     }
@@ -1180,25 +1273,8 @@ export function mountSearchUI() {
                     text.appendChild(nameSpan);
 
                     const ids = Array.isArray(item?.lineIds) ? item.lineIds : [];
-                    const metas = ids.map((id) => ({ id: String(id), meta: lineMetaById.get(String(id)) }));
-
-                    if (metas.length) {
-                        const wrap = document.createElement('span');
-                        wrap.className = 'journey-station-result-lines';
-                        wrap.style.fontSize = '11px';
-                        wrap.style.whiteSpace = 'normal';
-
-                        metas.forEach((x, idx) => {
-                            if (idx > 0) wrap.appendChild(document.createTextNode('、'));
-                            const seg = document.createElement('span');
-                            seg.textContent = String(x.meta?.name || x.id);
-                            if (x.meta?.color) seg.style.color = String(resolveLineColorForTheme(x.meta.color));
-                            wrap.appendChild(seg);
-                        });
-
-                        //wrap.appendChild(document.createTextNode('）'));
-                        text.appendChild(wrap);
-                    }
+                    const metas = ids.map((id) => ({ id: String(id), ...(lineMetaById.get(String(id)) || {}) }));
+                    appendStationLineIconGroup(text, metas);
                 } else {
                     text = el('div', 'search-result-text', { text: item?.text ?? '' });
                 }

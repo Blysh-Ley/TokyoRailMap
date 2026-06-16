@@ -4629,6 +4629,24 @@ body.is-pinned .panel-grid-cell-trip {
     transform: translateY(var(--journey-line-offset, 0px));
 }
 
+.journey-station-result-line-icons {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+    overflow-wrap: normal;
+}
+
+.journey-station-result-line-icons .panel-trip-detail-transfer-items {
+    flex-direction: row;
+    align-items: center;
+    max-width: 100%;
+}
+
+.journey-station-result-line-icons .panel-trip-detail-transfer-row {
+    flex-wrap: wrap;
+    max-width: 100%;
+}
+
 .journey-station-result-text.is-lines-multiline .journey-station-result-lines {
     align-self: center;
     transform: none;

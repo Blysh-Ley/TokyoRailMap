@@ -1,4 +1,4 @@
-import { searchRailEntities, getLineMetaByIds } from './search.js';
+import { searchRailEntities, getLineMetaByIds, mergeStationSearchItems } from './search.js';
 import {
     collectJourneyCandidatesRaptor,
     getReachableStopsWithinMinutes,
@@ -22,6 +22,7 @@ import {
 } from './travel-search-planner-raptor.js';
 import { getCachedJson, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
 import { createTimetableNoteRow } from '../panel/panelTimetableCore.js';
+import { buildCompactTripDetailTransferLineItemHtmls } from '../panel/panelTripDetailTransfers.js';
 import {
     detectThroughServiceCategoryFromTrips,
     THROUGH_SERVICE_DISPLAY,
@@ -80,6 +81,23 @@ function el(tag, className, attrs = {}) {
 }
 
 const normalizeText = (v) => String(v ?? '').trim();
+
+const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const appendJourneyStationLineIconGroup = (textEl, lineMetas) => {
+    const itemHtmls = buildCompactTripDetailTransferLineItemHtmls(lineMetas, { escapeHtml });
+    if (!itemHtmls.length) return;
+
+    const wrap = document.createElement('span');
+    wrap.className = 'journey-station-result-lines journey-station-result-line-icons';
+    wrap.innerHTML = `<span class="panel-trip-detail-transfer-items panel-trip-detail-transfer-items-main"><span class="panel-trip-detail-transfer-row">${itemHtmls.join('')}</span></span>`;
+    textEl.appendChild(wrap);
+};
 
 const formatJourneyMapCoordinates = (lngLat) => {
     const lng = Number(lngLat?.lng ?? lngLat?.[0]);
@@ -347,7 +365,8 @@ const normalizeTravelHistoryItem = (item) => {
         text: normalizeText(item.text).slice(0, 120),
         type: item.type || 'station',
         isTransfer: !!item.isTransfer,
-        lineIds: Array.isArray(item.lineIds) ? item.lineIds.map(String) : undefined
+        lineIds: Array.isArray(item.lineIds) ? item.lineIds.map(String) : undefined,
+        stationGroupKey: item.stationGroupKey ? String(item.stationGroupKey) : undefined
     };
 };
 
@@ -357,7 +376,7 @@ const loadTravelHistory = () => {
         if (!raw) return [];
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
-        return parsed.map(normalizeTravelHistoryItem).filter(Boolean).slice(0, TRAVEL_MAX_HISTORY);
+        return mergeStationSearchItems(parsed.map(normalizeTravelHistoryItem).filter(Boolean)).slice(0, TRAVEL_MAX_HISTORY);
     } catch {
         return [];
     }
@@ -365,7 +384,7 @@ const loadTravelHistory = () => {
 
 const saveTravelHistory = (items) => {
     try {
-        const list = Array.isArray(items) ? items.map(normalizeTravelHistoryItem).filter(Boolean) : [];
+        const list = mergeStationSearchItems(Array.isArray(items) ? items.map(normalizeTravelHistoryItem).filter(Boolean) : []);
         window.localStorage?.setItem?.(TRAVEL_HISTORY_KEY, JSON.stringify(list.slice(0, TRAVEL_MAX_HISTORY)));
     } catch {
         // ignore
@@ -376,7 +395,10 @@ const addTravelHistory = (item) => {
     const value = normalizeTravelHistoryItem(item);
     if (!value || !value.text) return;
     const list = loadTravelHistory();
-    const next = [value, ...list.filter((x) => (x.id && value.id ? x.id !== value.id : x.text !== value.text))].slice(0, TRAVEL_MAX_HISTORY);
+    const next = mergeStationSearchItems([
+        value,
+        ...list.filter((x) => (x.id && value.id ? x.id !== value.id : x.text !== value.text))
+    ]).slice(0, TRAVEL_MAX_HISTORY);
     saveTravelHistory(next);
 };
 
@@ -2218,22 +2240,7 @@ export function mountTravelSearchUI() {
         nameSpan.textContent = String(item?.text ?? '');
         text.appendChild(nameSpan);
 
-        if (Array.isArray(lineMetas) && lineMetas.length) {
-            const wrap = document.createElement('span');
-            wrap.className = 'journey-station-result-lines';
-            wrap.style.fontSize = '11px';
-            wrap.style.whiteSpace = 'normal';
-
-            lineMetas.forEach((meta, idx) => {
-                if (idx > 0) wrap.appendChild(document.createTextNode('、'));
-                const seg = document.createElement('span');
-                seg.textContent = String(meta?.name || '');
-                if (meta?.color) seg.style.color = String(resolveJourneyColorForTheme(meta.color));
-                wrap.appendChild(seg);
-            });
-
-            text.appendChild(wrap);
-        }
+        appendJourneyStationLineIconGroup(text, lineMetas);
 
         row.appendChild(icon);
         row.appendChild(text);
@@ -2265,11 +2272,12 @@ export function mountTravelSearchUI() {
         ]));
         return {
             ...base,
-            id: base.id || (match.id ? String(match.id) : undefined),
+            id: match.id ? String(match.id) : (base.id || undefined),
             text: base.text || normalizeText(match.text),
             type: 'station',
             isTransfer: base.isTransfer || match.isTransfer === true,
-            lineIds: mergedLineIds.length ? mergedLineIds : undefined
+            lineIds: mergedLineIds.length ? mergedLineIds : undefined,
+            stationGroupKey: match.stationGroupKey ? String(match.stationGroupKey) : base.stationGroupKey
         };
     };
 
@@ -2277,22 +2285,23 @@ export function mountTravelSearchUI() {
         const history = loadTravelHistory().filter(item => item.type !== 'line' && item.type !== 'company');
         if (!history.length) return [];
 
-        const resolved = await Promise.all(history.map(resolveTravelHistoryStationItem));
-        const changed = resolved.some((item, index) => {
+        const resolved = mergeStationSearchItems((await Promise.all(history.map(resolveTravelHistoryStationItem))).filter(Boolean));
+        const changed = resolved.length !== history.length || resolved.some((item, index) => {
             const prev = history[index] || {};
             const prevLineIds = Array.isArray(prev.lineIds) ? prev.lineIds.map(String).filter(Boolean) : [];
             const nextLineIds = Array.isArray(item?.lineIds) ? item.lineIds.map(String).filter(Boolean) : [];
             return String(prev.id || '') !== String(item?.id || '')
                 || prev.isTransfer !== item?.isTransfer
+                || String(prev.stationGroupKey || '') !== String(item?.stationGroupKey || '')
                 || nextLineIds.length !== prevLineIds.length
                 || nextLineIds.some((lineId) => !prevLineIds.includes(lineId));
         });
         if (changed) {
             const blockedTypes = new Set(['line', 'company']);
             const nonStationHistory = loadTravelHistory().filter((item) => blockedTypes.has(item.type));
-            saveTravelHistory([...resolved.filter(Boolean), ...nonStationHistory]);
+            saveTravelHistory([...resolved, ...nonStationHistory]);
         }
-        return resolved.filter(Boolean);
+        return resolved;
     };
 
     const renderHistoryResults = async () => {

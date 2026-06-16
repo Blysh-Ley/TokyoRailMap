@@ -56,7 +56,7 @@ const getTripDetailTransferDedupTargets = (entry, { toText = defaultToText } = {
     return [{ key: `color||${company}||${iconColor}`, code: '' }];
 };
 
-const buildCompactTripDetailTransferItemHtmls = (entries, { toText = defaultToText } = {}) => {
+export const buildCompactTripDetailTransferItemHtmls = (entries, { toText = defaultToText } = {}) => {
     const seenIconKeys = new Set();
     const compactHtmls = [];
 
@@ -81,6 +81,61 @@ const buildCompactTripDetailTransferItemHtmls = (entries, { toText = defaultToTe
     }
 
     return compactHtmls;
+};
+
+const buildTripDetailTransferEntryFromLineMeta = (lineMeta, {
+    escapeHtml = (value) => String(value ?? ''),
+    toText = defaultToText
+} = {}) => {
+    const routeId = toText(lineMeta?.id || lineMeta?.routeId);
+    if (!routeId) return null;
+
+    const company = toText(lineMeta?.company) || routeId.split('.')[0] || '';
+    const lineColor = toText(lineMeta?.color) || '#888';
+    const displayName = toText(lineMeta?.name) || routeId;
+    const code = toText(lineMeta?.code);
+
+    let lineIconHtml = '';
+    if (code || lineColor) {
+        const iconEl = createLineIconElement({ routeId, code, color: lineColor });
+        lineIconHtml = formatPanelTripDetailLineIconHtml(iconEl);
+    }
+
+    const html = `<span class="panel-trip-detail-transfer-item">${lineIconHtml}<span class="panel-trip-detail-transfer-line-name" style="color:${escapeHtml(lineColor)}">${escapeHtml(displayName)}</span></span>`;
+    return {
+        routeId,
+        company,
+        displayName,
+        html,
+        iconCodes: [code].filter(Boolean),
+        iconColor: lineColor
+    };
+};
+
+export const buildCompactTripDetailTransferLineItemHtmls = (lineMetas, {
+    escapeHtml = (value) => String(value ?? ''),
+    toText = defaultToText
+} = {}) => {
+    const entries = [];
+    const companyOrder = [];
+    const groups = new Map();
+
+    for (const lineMeta of Array.isArray(lineMetas) ? lineMetas : []) {
+        const entry = buildTripDetailTransferEntryFromLineMeta(lineMeta, { escapeHtml, toText });
+        if (!entry?.html) continue;
+        const company = toText(entry.company);
+        if (!groups.has(company)) {
+            groups.set(company, []);
+            companyOrder.push(company);
+        }
+        groups.get(company).push(entry);
+    }
+
+    for (const company of sortTripDetailTransferCompanies(companyOrder, { toText })) {
+        for (const entry of groups.get(company) || []) entries.push(entry);
+    }
+
+    return buildCompactTripDetailTransferItemHtmls(entries, { toText });
 };
 
 export const buildTripDetailTransferDisplayByStationId = async ({
