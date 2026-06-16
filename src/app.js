@@ -1965,6 +1965,34 @@ const initMapApp = async () => {
         });
     };
 
+    const recordStationSearchHistoryFromProps = (props) => {
+        const p = props || {};
+        const id = String(p?.id ?? '').trim();
+        const text = String(
+            p?.name_zh ||
+            p?.['name:zh'] ||
+            p?.name ||
+            p?.name_ja ||
+            p?.['name:ja'] ||
+            id ||
+            ''
+        ).trim();
+        if (!id || !text) return;
+
+        const lineIds = getServingLineIdsFromStationProps(p);
+        try {
+            window.TokyoRailSearchUI?.addHistory?.({
+                type: 'station',
+                id,
+                text,
+                isTransfer: lineIds.length > 1,
+                lineIds
+            });
+        } catch {
+            // ignore
+        }
+    };
+
     const isJourneyMapPickActive = () => {
         try {
             if (window.__TokyoRailJourneyMapPickActive === true) return true;
@@ -3116,6 +3144,7 @@ const initMapApp = async () => {
                 selectServingLinesForStation,
                 openPanelForStationWithAutoScroll,
                 getServingLineIdsFromStationProps,
+                recordStationHistory: recordStationSearchHistoryFromProps,
                 preloadTimetablesByLineIds: preloadTimetablesForLineIds
             }
         });
@@ -4552,6 +4581,7 @@ const initMapApp = async () => {
                 if (!isMultiSelectModeEnabled()) {
                     selectServingLinesForStation(item.props || {});
                 }
+                recordStationSearchHistoryFromProps(item.props || {});
                 openPanelForStationWithAutoScroll(item.props || {}, { autoScroll: hadStationSelection });
 
                 // 预加载该站点关联线路的时刻表

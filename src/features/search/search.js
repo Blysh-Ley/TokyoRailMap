@@ -725,7 +725,8 @@ export function mergeStationSearchItems(items = []) {
             text: indexed?.text || item.text,
             isTransfer: item.isTransfer || indexed?.isTransfer || lineIds.length > 1,
             lineIds: lineIds.length ? lineIds : undefined,
-            stationGroupKey: stationGroupKey || undefined
+            stationGroupKey: stationGroupKey || undefined,
+            favorite: item.favorite === true
         };
 
         const prev = stationByKey.get(key);
@@ -739,6 +740,7 @@ export function mergeStationSearchItems(items = []) {
         prev.text = indexed?.text || prev.text || next.text;
         prev.isTransfer = prev.isTransfer || next.isTransfer;
         prev.stationGroupKey = prev.stationGroupKey || next.stationGroupKey;
+        prev.favorite = prev.favorite || next.favorite;
         prev.lineIds = Array.from(new Set([
             ...(Array.isArray(prev.lineIds) ? prev.lineIds : []),
             ...(Array.isArray(next.lineIds) ? next.lineIds : [])
@@ -789,6 +791,21 @@ export function mountSearchUI() {
     const HISTORY_KEY = 'TokyoRailSearchHistory';
     const MAX_HISTORY = 20;
 
+    const getHistoryItemKey = (item) => (
+        item?.id
+            ? `${normalizeText(item.type || 'station')}:${normalizeText(item.id)}`
+            : `text:${normalizeText(item?.text)}`
+    );
+
+    const sortHistoryItems = (items) => {
+        const arr = Array.isArray(items) ? items.slice() : [];
+        return arr.sort((a, b) => {
+            const af = a?.favorite === true ? 1 : 0;
+            const bf = b?.favorite === true ? 1 : 0;
+            return bf - af;
+        });
+    };
+
     const normalizeHistoryItem = (item) => {
         if (typeof item === 'string') {
             const text = normalizeText(item);
@@ -806,7 +823,8 @@ export function mountSearchUI() {
             stationGroupKey: item.stationGroupKey ? String(item.stationGroupKey) : undefined,
             color: item.color ? String(item.color) : undefined,
             code: item.code ? String(item.code) : undefined,
-            logoUrl: item.logoUrl ? String(item.logoUrl) : undefined
+            logoUrl: item.logoUrl ? String(item.logoUrl) : undefined,
+            favorite: item.favorite === true
         };
     };
 
@@ -816,7 +834,7 @@ export function mountSearchUI() {
             if (!raw) return [];
             const parsed = JSON.parse(raw);
             if (!Array.isArray(parsed)) return [];
-            return mergeStationSearchItems(parsed.map(normalizeHistoryItem).filter(Boolean)).slice(0, MAX_HISTORY);
+            return sortHistoryItems(mergeStationSearchItems(parsed.map(normalizeHistoryItem).filter(Boolean))).slice(0, MAX_HISTORY);
         } catch {
             return [];
         }
@@ -824,7 +842,7 @@ export function mountSearchUI() {
 
     const saveHistory = (items) => {
         try {
-            const list = mergeStationSearchItems(Array.isArray(items) ? items.map(normalizeHistoryItem).filter(Boolean) : []);
+            const list = sortHistoryItems(mergeStationSearchItems(Array.isArray(items) ? items.map(normalizeHistoryItem).filter(Boolean) : []));
             window.localStorage?.setItem?.(HISTORY_KEY, JSON.stringify(list.slice(0, MAX_HISTORY)));
         } catch {
             // ignore
@@ -836,11 +854,53 @@ export function mountSearchUI() {
         if (!value) return;
 
         const list = loadHistory();
+        const valueKey = getHistoryItemKey(value);
+        const existing = list.find((x) => getHistoryItemKey(x) === valueKey) || null;
+        if (existing?.favorite === true) value.favorite = true;
         const next = mergeStationSearchItems([
             value,
-            ...list.filter((x) => (x.id && value.id ? x.id !== value.id : x.text !== value.text))
+            ...list.filter((x) => getHistoryItemKey(x) !== valueKey)
         ]).slice(0, MAX_HISTORY);
         saveHistory(next);
+    };
+
+    const toggleHistoryFavorite = (item) => {
+        const value = normalizeHistoryItem(item);
+        if (!value) return;
+        const key = getHistoryItemKey(value);
+        const next = loadHistory().map((x) => {
+            if (getHistoryItemKey(x) !== key) return x;
+            return {
+                ...x,
+                favorite: x.favorite !== true
+            };
+        });
+        saveHistory(next);
+    };
+
+    const createHistoryFavoriteButton = (item) => {
+        const favorite = item?.favorite === true;
+        const btn = el('button', 'search-history-favorite', {
+            type: 'button',
+            'aria-label': favorite ? '取消收藏' : '收藏'
+        });
+        btn.textContent = favorite ? '★' : '☆';
+        btn.style.marginLeft = '8px';
+        btn.style.background = 'transparent';
+        btn.style.border = 'none';
+        btn.style.padding = '0 2px';
+        btn.style.cursor = 'pointer';
+        btn.style.color = favorite ? '#f5a400' : 'inherit';
+        btn.style.fontSize = '16px';
+        btn.style.lineHeight = '1';
+        btn.style.opacity = favorite ? '1' : '0.6';
+        btn.addEventListener('click', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            toggleHistoryFavorite(item);
+            ui.render();
+        });
+        return btn;
     };
 
     const fab = el('button', 'search-fab', { type: 'button', 'aria-label': '搜索' });
@@ -1002,6 +1062,7 @@ export function mountSearchUI() {
             this.items = Array.isArray(items) ? items.slice() : [];
             this.render();
         },
+        addHistory,
         showResults(show) {
             this.results.classList.toggle('is-hidden', !show);
         },
@@ -1084,6 +1145,9 @@ export function mountSearchUI() {
                     row.appendChild(icon);
                     row.appendChild(text);
 
+                    const favoriteBtn = createHistoryFavoriteButton(item);
+                    row.appendChild(favoriteBtn);
+
                     const del = el('button', '', { type: 'button', 'aria-label': '删除记录' });
                     const delIcon = el('img', '', { alt: '' });
                     delIcon.style.width = '12px';
@@ -1108,7 +1172,8 @@ export function mountSearchUI() {
                     del.addEventListener('click', (evt) => {
                         evt.preventDefault?.();
                         evt.stopPropagation?.();
-                        const next = loadHistory().filter((x) => (x.id && item.id ? x.id !== item.id : x.text !== item.text));
+                        const itemKey = getHistoryItemKey(item);
+                        const next = loadHistory().filter((x) => getHistoryItemKey(x) !== itemKey);
                         saveHistory(next);
                         ui.render();
                     });

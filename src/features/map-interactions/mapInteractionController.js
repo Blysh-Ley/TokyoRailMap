@@ -124,6 +124,7 @@ export const bindStationClickHighlightServingLines = ({
     selectServingLinesForStation,
     openPanelForStationWithAutoScroll,
     getServingLineIdsFromStationProps,
+    recordStationHistory,
     preloadTimetablesByLineIds
 } = {}) => {
     if (!mapEngine || typeof mapEngine.on !== 'function') {
@@ -145,6 +146,7 @@ export const bindStationClickHighlightServingLines = ({
         if (isMultiSelectModeEnabled?.() !== true) {
             selectServingLinesForStation?.(props);
         }
+        recordStationHistory?.(props);
 
         await openPanelForStationWithAutoScroll?.(props, { autoScroll: hadStationSelection });
 

@@ -357,8 +357,23 @@ const collectPlanCandidateTripIds = (displayPlan) => {
 const TRAVEL_HISTORY_KEY = 'TokyoRailSearchHistory';
 const TRAVEL_MAX_HISTORY = 20;
 
+const getTravelHistoryItemKey = (item) => (
+    item?.id
+        ? `${normalizeText(item.type || 'station')}:${normalizeText(item.id)}`
+        : `text:${normalizeText(item?.text)}`
+);
+
+const sortTravelHistoryItems = (items) => {
+    const arr = Array.isArray(items) ? items.slice() : [];
+    return arr.sort((a, b) => {
+        const af = a?.favorite === true ? 1 : 0;
+        const bf = b?.favorite === true ? 1 : 0;
+        return bf - af;
+    });
+};
+
 const normalizeTravelHistoryItem = (item) => {
-    if (typeof item === 'string') return { text: normalizeText(item).slice(0, 120) };
+    if (typeof item === 'string') return { text: normalizeText(item).slice(0, 120), favorite: false };
     if (!item || typeof item !== 'object') return null;
     return {
         id: item.id ? String(item.id) : undefined,
@@ -366,7 +381,8 @@ const normalizeTravelHistoryItem = (item) => {
         type: item.type || 'station',
         isTransfer: !!item.isTransfer,
         lineIds: Array.isArray(item.lineIds) ? item.lineIds.map(String) : undefined,
-        stationGroupKey: item.stationGroupKey ? String(item.stationGroupKey) : undefined
+        stationGroupKey: item.stationGroupKey ? String(item.stationGroupKey) : undefined,
+        favorite: item.favorite === true
     };
 };
 
@@ -376,7 +392,7 @@ const loadTravelHistory = () => {
         if (!raw) return [];
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
-        return mergeStationSearchItems(parsed.map(normalizeTravelHistoryItem).filter(Boolean)).slice(0, TRAVEL_MAX_HISTORY);
+        return sortTravelHistoryItems(mergeStationSearchItems(parsed.map(normalizeTravelHistoryItem).filter(Boolean))).slice(0, TRAVEL_MAX_HISTORY);
     } catch {
         return [];
     }
@@ -384,7 +400,7 @@ const loadTravelHistory = () => {
 
 const saveTravelHistory = (items) => {
     try {
-        const list = mergeStationSearchItems(Array.isArray(items) ? items.map(normalizeTravelHistoryItem).filter(Boolean) : []);
+        const list = sortTravelHistoryItems(mergeStationSearchItems(Array.isArray(items) ? items.map(normalizeTravelHistoryItem).filter(Boolean) : []));
         window.localStorage?.setItem?.(TRAVEL_HISTORY_KEY, JSON.stringify(list.slice(0, TRAVEL_MAX_HISTORY)));
     } catch {
         // ignore
@@ -395,9 +411,12 @@ const addTravelHistory = (item) => {
     const value = normalizeTravelHistoryItem(item);
     if (!value || !value.text) return;
     const list = loadTravelHistory();
+    const valueKey = getTravelHistoryItemKey(value);
+    const existing = list.find((x) => getTravelHistoryItemKey(x) === valueKey) || null;
+    if (existing?.favorite === true) value.favorite = true;
     const next = mergeStationSearchItems([
         value,
-        ...list.filter((x) => (x.id && value.id ? x.id !== value.id : x.text !== value.text))
+        ...list.filter((x) => getTravelHistoryItemKey(x) !== valueKey)
     ]).slice(0, TRAVEL_MAX_HISTORY);
     saveTravelHistory(next);
 };
@@ -2277,7 +2296,8 @@ export function mountTravelSearchUI() {
             type: 'station',
             isTransfer: base.isTransfer || match.isTransfer === true,
             lineIds: mergedLineIds.length ? mergedLineIds : undefined,
-            stationGroupKey: match.stationGroupKey ? String(match.stationGroupKey) : base.stationGroupKey
+            stationGroupKey: match.stationGroupKey ? String(match.stationGroupKey) : base.stationGroupKey,
+            favorite: base.favorite === true
         };
     };
 
@@ -2292,6 +2312,7 @@ export function mountTravelSearchUI() {
             const nextLineIds = Array.isArray(item?.lineIds) ? item.lineIds.map(String).filter(Boolean) : [];
             return String(prev.id || '') !== String(item?.id || '')
                 || prev.isTransfer !== item?.isTransfer
+                || prev.favorite !== item?.favorite
                 || String(prev.stationGroupKey || '') !== String(item?.stationGroupKey || '')
                 || nextLineIds.length !== prevLineIds.length
                 || nextLineIds.some((lineId) => !prevLineIds.includes(lineId));
@@ -2302,6 +2323,45 @@ export function mountTravelSearchUI() {
             saveTravelHistory([...resolved, ...nonStationHistory]);
         }
         return resolved;
+    };
+
+    const toggleTravelHistoryFavorite = (item) => {
+        const value = normalizeTravelHistoryItem(item);
+        if (!value) return;
+        const key = getTravelHistoryItemKey(value);
+        const next = loadTravelHistory().map((x) => {
+            if (getTravelHistoryItemKey(x) !== key) return x;
+            return {
+                ...x,
+                favorite: x.favorite !== true
+            };
+        });
+        saveTravelHistory(next);
+    };
+
+    const createTravelHistoryFavoriteButton = (item) => {
+        const favorite = item?.favorite === true;
+        const btn = el('button', 'search-history-favorite', {
+            type: 'button',
+            'aria-label': favorite ? '取消收藏' : '收藏'
+        });
+        btn.textContent = favorite ? '★' : '☆';
+        btn.style.marginLeft = '8px';
+        btn.style.background = 'transparent';
+        btn.style.border = 'none';
+        btn.style.padding = '0 2px';
+        btn.style.cursor = 'pointer';
+        btn.style.color = favorite ? '#f5a400' : 'inherit';
+        btn.style.fontSize = '16px';
+        btn.style.lineHeight = '1';
+        btn.style.opacity = favorite ? '1' : '0.6';
+        btn.addEventListener('click', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            toggleTravelHistoryFavorite(item);
+            renderHistoryResults();
+        });
+        return btn;
     };
 
     const renderHistoryResults = async () => {
@@ -2337,6 +2397,9 @@ export function mountTravelSearchUI() {
             const row = createStationResultRow(item, lineMetas);
             row.querySelector('.search-result-text').style.flex = '1 1 auto';
 
+            const favoriteBtn = createTravelHistoryFavoriteButton(item);
+            row.appendChild(favoriteBtn);
+
             const del = el('button', '', { type: 'button', 'aria-label': '删除记录' });
             const delIcon = el('img', '', { alt: '' });
             delIcon.style.width = '12px';
@@ -2361,7 +2424,8 @@ export function mountTravelSearchUI() {
             del.addEventListener('click', (evt) => {
                 evt.preventDefault?.();
                 evt.stopPropagation?.();
-                const next = loadTravelHistory().filter((x) => (x.id && item.id ? x.id !== item.id : x.text !== item.text));
+                const itemKey = getTravelHistoryItemKey(item);
+                const next = loadTravelHistory().filter((x) => getTravelHistoryItemKey(x) !== itemKey);
                 saveTravelHistory(next);
                 renderHistoryResults();
             });
