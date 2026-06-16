@@ -64,6 +64,35 @@ const bboxToBounds = (bbox) => {
     ];
 };
 
+const toPositiveDimension = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+const resolveMapViewportSize = (mapEngine) => {
+    const canvas = mapEngine?.getCanvas?.() || null;
+    const width = toPositiveDimension(canvas?.clientWidth)
+        || toPositiveDimension(canvas?.offsetWidth)
+        || toPositiveDimension(globalThis?.innerWidth)
+        || toPositiveDimension(canvas?.width);
+    const height = toPositiveDimension(canvas?.clientHeight)
+        || toPositiveDimension(canvas?.offsetHeight)
+        || toPositiveDimension(globalThis?.innerHeight)
+        || toPositiveDimension(canvas?.height);
+    return { width, height };
+};
+
+export const buildMobileTripFitPadding = ({ width = 0, height = 0 } = {}) => {
+    const safeWidth = toPositiveDimension(width);
+    const safeHeight = toPositiveDimension(height);
+    return {
+        top: Math.round(safeHeight * 0.1),
+        bottom: Math.round(safeHeight * 0.2),
+        left: Math.round(safeWidth * 0.1),
+        right: Math.round(safeWidth * 0.1)
+    };
+};
+
 export const createMobileTripFitBoundsController = ({
     mapEngine,
     getStationCoord = () => null
@@ -83,7 +112,7 @@ export const createMobileTripFitBoundsController = ({
         if (!bounds) return false;
 
         mapEngine?.fitBounds?.(bounds, {
-            padding: 0,
+            padding: buildMobileTripFitPadding(resolveMapViewportSize(mapEngine)),
             duration: 300,
             easing: (t) => t,
             essential: true
