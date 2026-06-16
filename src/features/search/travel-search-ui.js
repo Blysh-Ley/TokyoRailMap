@@ -1561,7 +1561,7 @@ export function mountTravelSearchUI() {
         planList.appendChild(wrapPlanMessageItemDrawer(item));
         planResults.classList.remove('is-hidden');
         setMobileJourneyPlanResultsActive(mobilePlanResults);
-        journeyPlanSheet.show({ nextState: 'expanded' });
+        journeyPlanSheet.show({ nextState: mobilePlanResults ? 'half' : 'expanded' });
         planPagination.classList.add('is-hidden');
     };
 
@@ -2036,7 +2036,7 @@ export function mountTravelSearchUI() {
         updatePaginationButtons();
         planResults.classList.remove('is-hidden');
         setMobileJourneyPlanResultsActive(true);
-        journeyPlanSheet.show({ nextState: 'expanded' });
+        journeyPlanSheet.show({ nextState: 'half' });
         if (allPlanRows.length > 1) {
             planPagination.classList.remove('is-hidden');
         } else {
