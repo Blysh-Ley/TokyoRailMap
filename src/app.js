@@ -85,7 +85,7 @@ import {
 import { createMapEngine } from './services/mapEngine.js';
 import { createMobileTripFitBoundsController } from './services/mobileTripFitBounds.js';
 import { createStore } from './store/appStore.js';
-import { hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested, selectionClear } from './store/actions.js';
+import { ACTION_TYPES, hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested, selectionClear } from './store/actions.js';
 import { createBaseHighlightEventBridge } from './features/highlight/baseHighlightEventBridge.js';
 import { createHighlightFeature } from './features/highlight/highlightFeature.js';
 import { createHighlightRenderer } from './features/highlight/highlightRenderer.js';
@@ -431,6 +431,13 @@ const initMapApp = async () => {
         selectedServiceMode,
         hoverPreviewEnabled,
         multiSelectEnabled: multiSelectModeEnabled
+    });
+    const returnMobileSettingsToMap = () => (
+        mobileBottomNavController?.returnToMapFromSettings?.() === true
+    );
+    appStore.subscribe((_state, action = {}) => {
+        if (action?.type !== ACTION_TYPES.MAP_CLICK) return;
+        returnMobileSettingsToMap();
     });
 
     const isHoverPreviewEnabled = () => (
@@ -2918,6 +2925,7 @@ const initMapApp = async () => {
     const showRouteMapFloatingPanelForLine = (lineId) => {
         const id = String(lineId || '').trim();
         if (!id) return;
+        returnMobileSettingsToMap();
         const lineName = String(lineNameById.get(id) || id).trim() || id;
         try {
             window.dispatchEvent(new CustomEvent('__TokyoRailShowRouteMapPanel', {

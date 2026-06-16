@@ -303,11 +303,13 @@ export const installMobileBottomNav = ({
         if (emit) emitSelect(id);
     };
 
-    const handleBackIntent = () => {
+    const returnToMapFromSettings = () => {
         if (!isMobileSettingsPanelOpen(doc, nav)) return false;
         setActive('map', { emit: false });
         return true;
     };
+
+    const handleBackIntent = () => returnToMapFromSettings();
 
     nav.addEventListener('click', (event) => {
         const button = event.target?.closest?.('.mobile-bottom-nav-btn');
@@ -335,6 +337,7 @@ export const installMobileBottomNav = ({
         searchModeRoot: searchModeSwitch.root,
         setActive,
         setSearchMode,
+        returnToMapFromSettings,
         handleBackIntent,
         getActive: () => nav.dataset.activeItem || 'map'
     };
