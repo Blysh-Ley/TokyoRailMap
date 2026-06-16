@@ -675,6 +675,7 @@ body[data-mobile-ui='1'] {
     --mobile-search-mode-switch-height: 30px;
     --mobile-search-mode-switch-gap: 8px;
     --mobile-foldable-pane-width: 100vw;
+    --mobile-bottom-nav-side-inset: 10vw;
     --mobile-journey-sheet-bottom: calc(
         var(--mobile-search-mode-switch-bottom)
         + var(--mobile-search-mode-switch-height)
@@ -938,8 +939,8 @@ body[data-mobile-ui='1'] .mobile-menu-row-chevron {
 html[data-mobile-ui='1'] .mobile-bottom-nav,
 body[data-mobile-ui='1'] .mobile-bottom-nav {
     position: fixed;
-    left: 50px;
-    right: 50px;
+    left: var(--mobile-bottom-nav-side-inset);
+    right: var(--mobile-bottom-nav-side-inset);
     bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
     z-index: 9000;
     height: 52px;
@@ -1032,6 +1033,7 @@ body[data-mobile-ui='1'] .maplibregl-ctrl-bottom-right {
     html[data-mobile-ui='1'],
     body[data-mobile-ui='1'] {
         --mobile-foldable-pane-width: 50vw;
+        --mobile-bottom-nav-side-inset: 5vw;
     }
 
     html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='station'] .search-ui,
@@ -1041,13 +1043,26 @@ body[data-mobile-ui='1'] .maplibregl-ctrl-bottom-right {
     html[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-ui,
     body[data-mobile-ui='1'][data-mobile-nav-active='settings'] .settings-ui,
     html[data-mobile-ui='1'][data-mobile-nav-active='search'] .mobile-search-mode-switch,
-    body[data-mobile-ui='1'][data-mobile-nav-active='search'] .mobile-search-mode-switch,
-    html[data-mobile-ui='1'] .mobile-bottom-nav,
-    body[data-mobile-ui='1'] .mobile-bottom-nav {
+    body[data-mobile-ui='1'][data-mobile-nav-active='search'] .mobile-search-mode-switch {
         left: 0;
         right: auto;
         width: var(--mobile-foldable-pane-width);
         max-width: var(--mobile-foldable-pane-width);
+    }
+
+    html[data-mobile-ui='1'] .mobile-bottom-nav,
+    body[data-mobile-ui='1'] .mobile-bottom-nav {
+        right: auto;
+        width: calc(
+            var(--mobile-foldable-pane-width)
+            - var(--mobile-bottom-nav-side-inset)
+            - var(--mobile-bottom-nav-side-inset)
+        );
+        max-width: calc(
+            var(--mobile-foldable-pane-width)
+            - var(--mobile-bottom-nav-side-inset)
+            - var(--mobile-bottom-nav-side-inset)
+        );
     }
 
     html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='station'] .search-results,
