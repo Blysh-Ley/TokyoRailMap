@@ -112,6 +112,64 @@ const applyDesktopExportLayout = (element) => {
 
 const nextFrame = () => new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
 
+const parseComputedGridColumns = (gridEl) => {
+    if (!(gridEl instanceof HTMLElement)) return '';
+    const value = toText(window.getComputedStyle(gridEl).gridTemplateColumns);
+    if (!value || value === 'none') return '';
+    return value;
+};
+
+const applyRouteMapExportGridAlignment = (root) => {
+    if (!(root instanceof HTMLElement)) return () => {};
+    const headerGrid = root.querySelector('.route-map-grid-header .route-map-grid');
+    const bodyGrid = root.querySelector('.route-map-body .route-map-grid');
+    if (!(headerGrid instanceof HTMLElement) || !(bodyGrid instanceof HTMLElement)) return () => {};
+
+    const resolvedColumns = parseComputedGridColumns(bodyGrid);
+    if (!resolvedColumns) return () => {};
+
+    const savedHeaderStyle = headerGrid.style.cssText;
+    const savedHeaderWidth = headerGrid.style.width || '';
+    headerGrid.style.gridTemplateColumns = resolvedColumns;
+    headerGrid.style.width = `${Math.ceil(bodyGrid.getBoundingClientRect().width || bodyGrid.scrollWidth || 0)}px`;
+
+    return () => {
+        headerGrid.style.cssText = savedHeaderStyle;
+        headerGrid.style.width = savedHeaderWidth;
+    };
+};
+
+const measureRouteMapExportBounds = (element) => {
+    if (!(element instanceof HTMLElement)) {
+        return { width: 1, height: 1 };
+    }
+    const rootRect = element.getBoundingClientRect();
+    const rootLeft = Number(rootRect?.left) || 0;
+    const rootTop = Number(rootRect?.top) || 0;
+    let right = rootLeft + 1;
+    let bottom = rootTop + 1;
+
+    const selectors = [
+        '.route-map-title',
+        '.route-map-grid-header .route-map-grid',
+        '.route-map-body .route-map-grid'
+    ];
+    for (const selector of selectors) {
+        for (const node of Array.from(element.querySelectorAll(selector))) {
+            if (!(node instanceof HTMLElement)) continue;
+            const rect = node.getBoundingClientRect();
+            if (!rect) continue;
+            right = Math.max(right, Number(rect.right) || right);
+            bottom = Math.max(bottom, Number(rect.bottom) || bottom);
+        }
+    }
+
+    return {
+        width: Math.max(1, Math.ceil(right - rootLeft)),
+        height: Math.max(1, Math.ceil(bottom - rootTop), Math.ceil(Number(element.scrollHeight) || 0))
+    };
+};
+
 const canvasToBlobPng = (canvas) => new Promise((resolve, reject) => {
     try {
         canvas.toBlob((blob) => {
@@ -229,6 +287,7 @@ export const captureRouteMapElementAsPng = async ({ element, filenameBase, butto
     const EXPORT_CLASS = 'is-route-map-exporting';
     let exportStyleEl = null;
     let restoreDesktopExportLayout = () => {};
+    let restoreGridAlignment = () => {};
 
     const typeheadPatches = [];
     let exportMeasureSpan = null;
@@ -494,12 +553,17 @@ export const captureRouteMapElementAsPng = async ({ element, filenameBase, butto
             applyTypeheadExportPatch(element);
 
             await nextFrame();
+            restoreGridAlignment = applyRouteMapExportGridAlignment(element);
+            await nextFrame();
 
-            const exportRect = element.getBoundingClientRect?.();
-            const exportWindowWidth = ROUTE_MAP_EXPORT_DESKTOP_VIEWPORT_WIDTH_PX;
+            const exportBounds = measureRouteMapExportBounds(element);
+            const exportWindowWidth = Math.max(
+                ROUTE_MAP_EXPORT_DESKTOP_VIEWPORT_WIDTH_PX,
+                exportBounds.width
+            );
             const exportWindowHeight = Math.max(
                 ROUTE_MAP_EXPORT_DESKTOP_VIEWPORT_MIN_HEIGHT_PX,
-                Math.ceil(element.scrollHeight || exportRect?.height || 0)
+                exportBounds.height
             );
 
             const canvas = await html2canvas(element, {
@@ -508,10 +572,14 @@ export const captureRouteMapElementAsPng = async ({ element, filenameBase, butto
                 logging: false,
                 scale: Math.max(2, Math.ceil(window.devicePixelRatio || 1)),
                 windowWidth: exportWindowWidth,
-                windowHeight: exportWindowHeight
+                windowHeight: exportWindowHeight,
+                width: exportBounds.width,
+                height: exportBounds.height
             });
             blob = await canvasToBlobPng(canvas);
         } finally {
+            restoreGridAlignment();
+            restoreGridAlignment = () => {};
             restoreTypeheadExportPatch();
             document.documentElement.classList.remove(EXPORT_CLASS);
             if (exportStyleEl) {
