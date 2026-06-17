@@ -6339,8 +6339,8 @@ html[data-theme='dark'] .panel-grid-hint-sep {
 html[data-theme='dark'] .panel-grid-hour {
     color: var(--panel-grid-hour-color, #fff);
     background: var(--panel-grid-hour-bg, #2f7bb6);
-    border-top-color: rgba(255, 255, 255, 0.35);
-    border-bottom-color: rgba(255, 255, 255, 0.35);
+    border-top-color: rgba(0, 0, 0, 0.38);
+    border-bottom-color: rgba(0, 0, 0, 0.38);
 }
 
 html[data-theme='dark'] .panel-grid-cell {
