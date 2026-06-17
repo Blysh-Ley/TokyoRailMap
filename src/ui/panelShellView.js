@@ -7,6 +7,7 @@ import {
 } from './mobileSheetSnap.js';
 
 const DEFAULT_DESKTOP_HIDDEN_TRANSFORM = 'translateX(calc(100% + 24px))';
+const DEFAULT_DESKTOP_VERTICAL_INSET_PX = 60;
 const DEFAULT_MOBILE_HIDDEN_TRANSFORM = 'translateY(calc(100% + 24px))';
 const DEFAULT_MOBILE_COLLAPSED_PEEK_PX = DEFAULT_MOBILE_SHEET_PEEK_PX;
 const MOBILE_FOLDABLE_MIN_WIDTH_PX = 700;
@@ -83,8 +84,9 @@ export const createDesktopPanelShell = ({
 
     const layout = () => {
         const heightSource = Number(win?.innerHeight) || 0;
-        const top = Math.round(heightSource * 0.05);
-        const height = Math.round(heightSource * 0.9);
+        const inset = DEFAULT_DESKTOP_VERTICAL_INSET_PX;
+        const height = Math.max(0, Math.round(heightSource - inset * 2));
+        const top = Math.max(0, Math.round((heightSource - height) / 2));
         root.style.top = `${top}px`;
         root.style.height = `${height}px`;
         return { top, height, presentation: 'desktop' };
