@@ -1,5 +1,5 @@
 // panelExportCapture.js
-import { shareOrDownloadArtifact } from '../../services/nativeExportShareService.js';
+import { shareOrSaveImageArtifact } from '../../services/nativeExportShareService.js';
 
 const HTML2CANVAS_SRC_panelExportCapture = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
 const defaultToText_panelExportCapture = (value) => String(value ?? '').trim();
@@ -256,7 +256,7 @@ export const exportElementToPng = async (element, filenameBase, buttonEl, {
     nextFrameFn = nextFrame,
     canvasToBlobPngFn = canvasToBlobPng,
     downloadBlobFn = downloadBlob,
-    shareOrDownloadArtifactFn = shareOrDownloadArtifact,
+    shareOrDownloadArtifactFn = shareOrSaveImageArtifact,
     sanitizeFilePartFn = sanitizePanelExportFilePart,
     nowIsoCompactFn = nowIsoCompact,
     logger = console

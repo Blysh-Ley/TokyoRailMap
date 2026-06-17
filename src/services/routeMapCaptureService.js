@@ -1,4 +1,4 @@
-import { shareOrDownloadArtifact } from './nativeExportShareService.js';
+import { shareOrSaveImageArtifact } from './nativeExportShareService.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -591,7 +591,7 @@ export const captureRouteMapElementAsPng = async ({ element, filenameBase, butto
             restoreDesktopExportLayout = () => {};
         }
         const base = sanitizeFilePart(filenameBase) || 'route-map';
-        await shareOrDownloadArtifact({
+        await shareOrSaveImageArtifact({
             blob,
             filename: `${base}.png`,
             mimeType: 'image/png',

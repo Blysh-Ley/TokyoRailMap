@@ -4,7 +4,10 @@
  */
 import { getCachedJson } from '../../lib/fetch.js';
 import { getMacaronColor } from '../../lib/macaron.js';
-import { shareOrDownloadArtifact } from '../../services/nativeExportShareService.js';
+import {
+    shareOrDownloadArtifact,
+    shareOrSaveImageArtifact
+} from '../../services/nativeExportShareService.js';
 (() => {
     'use strict';
 
@@ -1617,7 +1620,7 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
             const fileName = `${stationName}_${lineName}_${serviceDay}时刻表.png`;
 
             const blob = await canvasToPngBlob(canvas);
-            await shareOrDownloadArtifact({
+            await shareOrSaveImageArtifact({
                 blob,
                 filename: fileName,
                 mimeType: 'image/png',
