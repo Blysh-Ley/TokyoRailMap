@@ -605,13 +605,14 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
             const pdf = new jsPDF({
                 orientation: 'portrait',
                 unit: 'mm',
-                format: 'a4'
+                format: 'a4',
+                compress: true
             });
 
             const canvas = await html2canvas(root, {
-                scale: Math.max(2, window.devicePixelRatio || 1),
+                scale: Math.max(1.5, Math.min(2, window.devicePixelRatio || 1)),
                 useCORS: true,
-                backgroundColor: null,
+                backgroundColor: getComputedStyle(document.body).getPropertyValue('background-color') || '#ffffff',
                 logging: false
             });
 
@@ -619,7 +620,7 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
             const pageH = pdf.internal.pageSize.getHeight();
 
             if (isGrid) {
-                const dataUrl = canvas.toDataURL('image/png');
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.86);
                 const imgWmm = pageW;
                 const imgHmm = (canvas.height * imgWmm) / canvas.width;
                 const fitScale = Math.min(1, pageH / imgHmm);
@@ -627,7 +628,7 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
                 const drawH = imgHmm * fitScale;
                 const offsetX = (pageW - drawW) / 2;
                 const offsetY = (pageH - drawH) / 2;
-                pdf.addImage(dataUrl, 'PNG', offsetX, offsetY, drawW, drawH, undefined, 'FAST');
+                pdf.addImage(dataUrl, 'JPEG', offsetX, offsetY, drawW, drawH, undefined, 'MEDIUM');
             } else {
                 const pagePxH = (canvas.width * pageH) / pageW;
                 let renderedPx = 0;
@@ -653,11 +654,11 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
                         slicePxH
                     );
 
-                    const dataUrl = pageCanvas.toDataURL('image/png');
+                    const dataUrl = pageCanvas.toDataURL('image/jpeg', 0.86);
                     const sliceMmH = (slicePxH * pageW) / canvas.width;
 
                     if (pageIndex > 0) pdf.addPage();
-                    pdf.addImage(dataUrl, 'PNG', 0, 0, pageW, sliceMmH, undefined, 'FAST');
+                    pdf.addImage(dataUrl, 'JPEG', 0, 0, pageW, sliceMmH, undefined, 'MEDIUM');
 
                     renderedPx += slicePxH;
                     pageIndex += 1;
@@ -678,7 +679,7 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
         if (!canvas) return;
         const pageW = pdf.internal.pageSize.getWidth();
         const pageH = pdf.internal.pageSize.getHeight();
-        const dataUrl = canvas.toDataURL('image/png');
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.86);
         const imgWmm = pageW;
         const imgHmm = (canvas.height * imgWmm) / canvas.width;
         const fitScale = Math.min(1, pageH / imgHmm);
@@ -687,7 +688,7 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
         const offsetX = (pageW - drawW) / 2;
         const offsetY = (pageH - drawH) / 2;
         if (appendPage) pdf.addPage();
-        pdf.addImage(dataUrl, 'PNG', offsetX, offsetY, drawW, drawH, undefined, 'FAST');
+        pdf.addImage(dataUrl, 'JPEG', offsetX, offsetY, drawW, drawH, undefined, 'MEDIUM');
     };
 
     const addCanvasAsPagedSlices = (pdf, canvas, { appendPage = false } = {}) => {
@@ -720,11 +721,11 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
                 slicePxH
             );
 
-            const dataUrl = pageCanvas.toDataURL('image/png');
+            const dataUrl = pageCanvas.toDataURL('image/jpeg', 0.86);
             const sliceMmH = (slicePxH * pageW) / canvas.width;
 
             if ((appendPage && pageIndex === 0) || pageIndex > 0) pdf.addPage();
-            pdf.addImage(dataUrl, 'PNG', 0, 0, pageW, sliceMmH, undefined, 'FAST');
+            pdf.addImage(dataUrl, 'JPEG', 0, 0, pageW, sliceMmH, undefined, 'MEDIUM');
 
             renderedPx += slicePxH;
             pageIndex += 1;
@@ -732,8 +733,6 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
 
         return pageIndex;
     };
-
-       
 
     const createLineImageExportDom = (detail = {}) => {
         const root = document.createElement('div');
@@ -1641,7 +1640,8 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
         const pdf = new jsPDF({
             orientation: 'portrait',
             unit: 'mm',
-            format: 'a4'
+            format: 'a4',
+            compress: true
         });
 
         let pageCount = 0;
@@ -1660,9 +1660,9 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
                 const isGrid = toText(pageDetail.timetableViewMode) === 'grid';
                 if (isGrid) fitGridToSinglePage(root, { pageAspect: A4_PORTRAIT_ASPECT });
                 const canvas = await html2canvas(root, {
-                    scale: Math.max(2, window.devicePixelRatio || 1),
+                    scale: Math.max(1.5, Math.min(2, window.devicePixelRatio || 1)),
                     useCORS: true,
-                    backgroundColor: null,
+                    backgroundColor: getComputedStyle(document.body).getPropertyValue('background-color') || '#ffffff',
                     logging: false
                 });
 
@@ -1788,7 +1788,7 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
             if (shouldExportServiceDayPair) alignServiceDayPairHeaderHeights(root);
 
             try {
-                const scaleFactor = Math.max(2, window.devicePixelRatio || 1);
+                const scaleFactor = Math.max(1.5, Math.min(2, window.devicePixelRatio || 1));
                 
                 const canvas = await html2canvas(root, {
                     scale: scaleFactor,
@@ -1801,25 +1801,24 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
                     windowHeight: root.scrollHeight
                 });
 
-                const imgData = canvas.toDataURL('image/png');
+                const imgData = canvas.toDataURL('image/jpeg', 0.86);
                 
                 const pdfWidth = canvas.width / scaleFactor;
                 const pdfHeight = canvas.height / scaleFactor;
                 const orientation = pdfWidth > pdfHeight ? 'landscape' : 'portrait';
 
                 if (pageCount === 0) {
-                    // 第一页：用第一张图的尺寸初始化 PDF
                     pdf = new jsPDF({
                         orientation: orientation,
                         unit: 'px',
-                        format: [pdfWidth, pdfHeight]
+                        format: [pdfWidth, pdfHeight],
+                        compress: true
                     });
                 } else {
-                    // 后续页：新建适应当前图片的页面
                     pdf.addPage([pdfWidth, pdfHeight], orientation);
                 }
 
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'MEDIUM');
                 
                 pageCount += 1;
             } finally {
@@ -1894,7 +1893,7 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
                 if (shouldExportServiceDayPair) alignServiceDayPairHeaderHeights(root);
 
                 try {
-                    const scaleFactor = Math.max(2, window.devicePixelRatio || 1);
+                    const scaleFactor = Math.max(1.5, Math.min(2, window.devicePixelRatio || 1));
                     const canvas = await html2canvas(root, {
                         scale: scaleFactor,
                         useCORS: true,
@@ -1906,7 +1905,7 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
                         windowHeight: root.scrollHeight
                     });
 
-                    const imgData = canvas.toDataURL('image/png');
+                    const imgData = canvas.toDataURL('image/jpeg', 0.86);
                     const pdfWidth = canvas.width / scaleFactor;
                     const pdfHeight = canvas.height / scaleFactor;
                     const orientation = pdfWidth > pdfHeight ? 'landscape' : 'portrait';
@@ -1915,13 +1914,14 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
                         pdf = new jsPDF({
                             orientation,
                             unit: 'px',
-                            format: [pdfWidth, pdfHeight]
+                            format: [pdfWidth, pdfHeight],
+                            compress: true
                         });
                     } else {
                         pdf.addPage([pdfWidth, pdfHeight], orientation);
                     }
 
-                    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+                    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'MEDIUM');
                     canvas.width = 1;
                     canvas.height = 1;
                     pageCount += 1;
