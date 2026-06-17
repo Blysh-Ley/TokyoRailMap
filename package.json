@@ -123,6 +123,7 @@
     "maplibre-gl": "3.6.2"
   },
   "dependencies": {
+    "@capacitor-community/media": "^9.1.0",
     "electron-updater": "^6.8.3"
   }
 }

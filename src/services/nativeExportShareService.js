@@ -170,7 +170,8 @@ const requestImageGalleryPermission = async (Media) => {
             status.images,
             status.media,
             status.storage,
-            status.publicStorage
+            status.publicStorage,
+            status.publicStorage13Plus
         ].some(isPermissionGranted);
     };
 
