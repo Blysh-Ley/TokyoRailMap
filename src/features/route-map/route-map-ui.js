@@ -1986,6 +1986,7 @@ const setupRouteMapUi = () => {
         const hit = target.closest?.('.panel-line-name');
         if (!hit) return null;
         const lineEl = hit.closest?.('[data-line-id]');
+        if (lineEl?.getAttribute?.('data-panel-line-collapsed') === '1') return null;
         const lineId = toText(lineEl?.getAttribute?.('data-line-id'));
         if (!lineId) return null;
         const displayName = toText(hit.getAttribute?.('data-line-name')) || lineId;

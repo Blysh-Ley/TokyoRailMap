@@ -97,7 +97,6 @@ import {
     createPanelDismissController,
     createPanelEventDelegationCoordinator,
     createPanelInteractionPolicy,
-    resolvePanelCompanyTarget,
     resolvePanelDirFilterButtonTarget,
     resolvePanelDirPrintButtonTarget,
     resolvePanelDirTitleTarget,
@@ -1190,6 +1189,90 @@ export function createPanel(options = {}) {
         if (!k) return;
         if (expanded) expandedDirKeys.add(k);
         else expandedDirKeys.delete(k);
+    };
+
+    const updatePanelCompanyCollapseState = (companyEl) => {
+        if (!(companyEl instanceof Element)) return;
+        const lineEls = Array.from(companyEl.querySelectorAll?.('.panel-line[data-line-id]') || []);
+        const allCollapsed = lineEls.length > 0 && lineEls.every((lineEl) => lineEl.getAttribute('data-panel-line-collapsed') === '1');
+        companyEl.setAttribute('data-panel-company-collapsed', allCollapsed ? '1' : '0');
+        const toggleEl = companyEl.querySelector?.('[data-panel-company-toggle-btn]');
+        if (toggleEl instanceof Element) {
+            toggleEl.setAttribute('aria-expanded', allCollapsed ? 'false' : 'true');
+            toggleEl.setAttribute('aria-label', allCollapsed ? '展开运营商线路' : '收起运营商线路');
+        }
+        const iconEl = toggleEl?.querySelector?.('.panel-company-toggle-icon');
+        if (iconEl instanceof Element) iconEl.textContent = allCollapsed ? '▸' : '▾';
+    };
+
+    const setPanelLineCollapsed = (lineEl, collapsed) => {
+        if (!(lineEl instanceof Element)) return;
+        const nextCollapsed = collapsed === true;
+        lineEl.setAttribute('data-panel-line-collapsed', nextCollapsed ? '1' : '0');
+        const toggleEl = lineEl.querySelector?.('[data-panel-line-toggle]');
+        if (toggleEl instanceof Element) {
+            toggleEl.setAttribute('aria-expanded', nextCollapsed ? 'false' : 'true');
+            toggleEl.setAttribute('aria-label', nextCollapsed ? '展开线路' : '收起线路');
+        }
+        const iconEl = toggleEl?.querySelector?.('.panel-line-toggle-icon');
+        if (iconEl instanceof Element) iconEl.textContent = nextCollapsed ? '▸' : '▾';
+        updatePanelCompanyCollapseState(lineEl.closest?.('.panel-company'));
+    };
+
+    const applyDefaultPanelLineCollapse = (rootEl, shouldCollapse) => {
+        if (!(rootEl instanceof Element)) return;
+        const lineEls = Array.from(rootEl.querySelectorAll?.('.panel-line[data-line-id]') || []);
+        for (const lineEl of lineEls) {
+            setPanelLineCollapsed(lineEl, shouldCollapse);
+        }
+        const companyEls = Array.from(rootEl.querySelectorAll?.('.panel-company') || []);
+        for (const companyEl of companyEls) updatePanelCompanyCollapseState(companyEl);
+    };
+
+    const getPanelLineToggleTarget = (target) => {
+        if (!(target instanceof Element) || !body?.contains?.(target)) return null;
+        const toggleEl = target.closest?.('[data-panel-line-toggle]');
+        if (!(toggleEl instanceof Element) || !body.contains(toggleEl)) return null;
+        const lineEl = toggleEl.closest?.('.panel-line[data-line-id]');
+        if (!(lineEl instanceof Element)) return null;
+        return { toggleEl, lineEl };
+    };
+
+    const togglePanelLineCollapsed = (lineEl) => {
+        if (!(lineEl instanceof Element)) return;
+        setPanelLineCollapsed(lineEl, lineEl.getAttribute('data-panel-line-collapsed') !== '1');
+    };
+
+    const getPanelCompanyToggleTarget = (target) => {
+        if (!(target instanceof Element) || !body?.contains?.(target)) return null;
+        const companyHeaderEl = target.closest?.('.panel-company-header[data-panel-company-toggle]');
+        if (!(companyHeaderEl instanceof Element) || !body.contains(companyHeaderEl)) return null;
+        const companyEl = companyHeaderEl.closest?.('.panel-company');
+        if (!(companyEl instanceof Element)) return null;
+        return { companyHeaderEl, companyEl };
+    };
+
+    const togglePanelCompanyLinesCollapsed = (companyEl) => {
+        if (!(companyEl instanceof Element)) return;
+        const lineEls = Array.from(companyEl.querySelectorAll?.('.panel-line[data-line-id]') || []);
+        if (!lineEls.length) return;
+        const shouldCollapse = lineEls.some((lineEl) => lineEl.getAttribute('data-panel-line-collapsed') !== '1');
+        for (const lineEl of lineEls) setPanelLineCollapsed(lineEl, shouldCollapse);
+        updatePanelCompanyCollapseState(companyEl);
+    };
+
+    const getCollapsedPanelLineTarget = (target) => {
+        if (!(target instanceof Element) || !body?.contains?.(target)) return null;
+        const lineEl = target.closest?.('.panel-line[data-line-id][data-panel-line-collapsed="1"]');
+        if (!(lineEl instanceof Element) || !body.contains(lineEl)) return null;
+        return lineEl;
+    };
+
+    const expandCollapsedPanelLineFromTarget = (target) => {
+        const lineEl = getCollapsedPanelLineTarget(target);
+        if (!lineEl) return false;
+        setPanelLineCollapsed(lineEl, false);
+        return true;
     };
 
     const applyDirPreviewByKey = async (lineDirKey, { force = false, fitMode } = {}) => {
@@ -3542,9 +3625,7 @@ export function createPanel(options = {}) {
     const restoreStationLinesIfNeeded = () => panelHoverRestoreRuntime.restoreStationLinesIfNeeded();
     const scheduleRestoreStationLines = () => panelHoverRestoreRuntime.scheduleRestoreStationLines();
 
-    const getCompanyTarget = (target) => {
-        return resolvePanelCompanyTarget(target, { body, toText });
-    };
+    const getCompanyTarget = () => '';
 
     const getLineTarget = (target) => {
         return resolvePanelLineTarget(target, { body, toText });
@@ -3820,6 +3901,25 @@ export function createPanel(options = {}) {
 
         if (!pointerState.isTouchLike) return;
 
+        if (expandCollapsedPanelLineFromTarget(evt?.target)) {
+            stopEvent(evt);
+            return;
+        }
+
+        const lineToggleTarget = getPanelLineToggleTarget(evt?.target);
+        if (lineToggleTarget) {
+            stopEvent(evt);
+            togglePanelLineCollapsed(lineToggleTarget.lineEl);
+            return;
+        }
+
+        const companyToggleTarget = getPanelCompanyToggleTarget(evt?.target);
+        if (companyToggleTarget) {
+            stopEvent(evt);
+            togglePanelCompanyLinesCollapsed(companyToggleTarget.companyEl);
+            return;
+        }
+
         const filterTarget = getDirFilterButtonTarget(evt?.target);
         if (filterTarget) {
             stopEvent(evt);
@@ -3944,6 +4044,15 @@ export function createPanel(options = {}) {
     };
 
     const onBodyMove = (evt) => {
+        if (getCollapsedPanelLineTarget(evt?.target)) {
+            clearHoverTimer();
+            hoverCandidateKey = null;
+            lastFiredHoverKey = null;
+            lastAppliedHoverKey = null;
+            stopPropagationOnly(evt);
+            return;
+        }
+
         if (panelInteractionPolicy.shouldSuppressMouseHover()) {
             clearHoverTimer();
             hoverCandidateKey = null;
@@ -4022,6 +4131,11 @@ export function createPanel(options = {}) {
             return;
         }
 
+        if (expandCollapsedPanelLineFromTarget(evt?.target)) {
+            stopEvent(evt);
+            return;
+        }
+
         const earlyPrintTarget = getDirPrintButtonTarget(evt?.target);
         if (earlyPrintTarget) {
             stopEvent(evt);
@@ -4031,6 +4145,20 @@ export function createPanel(options = {}) {
 
         if (panelInteractionPolicy.shouldSuppressMouseClick()) {
             stopEvent(evt);
+            return;
+        }
+
+        const lineToggleTarget = getPanelLineToggleTarget(evt?.target);
+        if (lineToggleTarget) {
+            stopEvent(evt);
+            togglePanelLineCollapsed(lineToggleTarget.lineEl);
+            return;
+        }
+
+        const companyToggleTarget = getPanelCompanyToggleTarget(evt?.target);
+        if (companyToggleTarget) {
+            stopEvent(evt);
+            togglePanelCompanyLinesCollapsed(companyToggleTarget.companyEl);
             return;
         }
 
@@ -4543,6 +4671,7 @@ export function createPanel(options = {}) {
         // 渲染 popup 同结构的内容（公司分组 + 线路）
         body.innerHTML = buildPanelCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId, railwaysOrderIndex, toText });
         await enhancePanelLineHeaderIcons(body);
+        applyDefaultPanelLineCollapse(body, displayServingIds.length > 3);
         openMobileStationOverview();
         scheduleCatalogRefresh();
 

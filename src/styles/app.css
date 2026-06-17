@@ -2880,7 +2880,7 @@ html[data-theme="dark"] .ms-show-icon-btn {
     box-sizing: border-box;
     margin: 0;
     padding-top: 10px;
-    padding-bottom: 10px;
+    padding-bottom: 0;
     cursor: default;
 }
 
@@ -2891,7 +2891,7 @@ html[data-theme="dark"] .ms-show-icon-btn {
 .panel-popup .panel-company-lines .panel-line {
     position: relative;
     --panel-line-accent: currentColor;
-    padding: 10px 12px 10px 18px;
+    padding: 10px 12px 0 18px;
     border: 1px solid color-mix(in srgb, currentColor 68%, #ffffff);
     border-radius: 8px;
     background:
@@ -2925,8 +2925,10 @@ html[data-theme="dark"] .ms-show-icon-btn {
 
 .panel-line-name {
     font-size: 20px;
-    flex: 0 1 auto;
-    display: inline-block;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
     width: fit-content;
     max-width: 100%;
     overflow: hidden;
@@ -2935,6 +2937,22 @@ html[data-theme="dark"] .ms-show-icon-btn {
     pointer-events: auto;
     cursor: pointer;
     padding-right: 5px;
+}
+
+.panel-line-collapsible {
+    display: block;
+}
+
+.panel-line[data-panel-line-collapsed='1'] .panel-line-collapsible {
+    display: none;
+}
+
+.panel-popup .panel-company-lines .panel-line[data-panel-line-collapsed='1'] {
+    padding-top: 0;
+}
+
+.panel-line[data-panel-line-collapsed='1'] .panel-line-header {
+    min-height: 34px;
 }
 
 .panel-line-name-main-bold{
@@ -2974,7 +2992,7 @@ html[data-theme="dark"] .ms-show-icon-btn {
     display: flex;
     align-items: center;
     gap: 0;
-    width: 100%;
+    width: 105%;
     margin-top: 2px;
     margin-bottom: 2px;
     min-height: 20px;
@@ -3050,11 +3068,30 @@ html[data-theme="dark"] .ms-show-icon-btn {
 
 .panel-line-toggle {
     flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
     color: var(--ui-text-muted);
     font-size: 12px;
     line-height: 1;
-    padding: 2px 4px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    pointer-events: auto;
     user-select: none;
+}
+
+.panel-line-toggle:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--ui-text);
+}
+
+.panel-line-toggle .panel-dir-triangle {
+    pointer-events: none;
 }
 
 .panel-view-toggle {
@@ -4405,21 +4442,34 @@ body[data-mobile-ui='1'] .panel-trip-detail-transfer-hover-portal .panel-trip-de
     margin-top: 6px;
 }
 
+.panel-company + .panel-company {
+    padding-top: 8px;
+}
+
 .panel-company-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 6px;
     color: var(--ui-text);
     font-weight: 700;
     white-space: nowrap;
-    cursor: default;
-    pointer-events: none;
+    cursor: pointer;
+    pointer-events: auto;
+    user-select: none;
 }
 
 .panel-popup.is-interactive .panel-line-name,
-.panel-popup.is-interactive .panel-company-name,
-.panel-popup.is-interactive .panel-company-logo {
+.panel-popup.is-interactive .panel-company-header {
     cursor: pointer;
+}
+
+.panel-company-identity {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .panel-company-logo {
@@ -4427,7 +4477,35 @@ body[data-mobile-ui='1'] .panel-trip-detail-transfer-hover-portal .panel-trip-de
     height: 22px;
     object-fit: contain;
     flex: 0 0 20px;
+    pointer-events: none;
+}
+
+.panel-company-toggle {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ui-text-muted);
+    font-size: 12px;
+    line-height: 1;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
     pointer-events: auto;
+    user-select: none;
+}
+
+.panel-company-toggle:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--ui-text);
+}
+
+.panel-company-toggle .panel-dir-triangle {
+    pointer-events: none;
 }
 
 .panel-company-lines {
@@ -4441,7 +4519,10 @@ body[data-mobile-ui='1'] .panel-trip-detail-transfer-hover-portal .panel-trip-de
     font-size: 25px;
     display: inline-block;
     width: fit-content;
-    pointer-events: auto;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
 }
 
 
@@ -4626,8 +4707,6 @@ html[data-theme='dark'] .panel-catalog-close-btn {
 
 /* panel：固定态下的鼠标样式（由 body.is-pinned 驱动） */
 body.is-pinned .panel-line-name,
-body.is-pinned .panel-company-name,
-body.is-pinned .panel-company-logo,
 body.is-pinned .panel-dir-header,
 body.is-pinned .panel-dir-filter-btn {
     cursor: default;
@@ -6250,6 +6329,8 @@ html[data-theme='dark'] .panel-day-seg button:hover,
 html[data-theme='dark'] .panel-day-print-btn:hover,
 html[data-theme='dark'] .panel-map-select-btn:hover,
 html[data-theme='dark'] .panel-map-select-item:hover,
+html[data-theme='dark'] .panel-line-toggle:hover,
+html[data-theme='dark'] .panel-company-toggle:hover,
 html[data-theme='dark'] .settings-seg button:hover,
 html[data-theme='dark'] .settings-time-picker-option:hover,
 html[data-theme='dark'] .settings-time-picker-btn:hover,
@@ -6493,6 +6574,7 @@ html[data-theme='dark'] .maplibregl-popup-content .station-hover-company-type,
 html[data-theme='dark'] .maplibregl-popup-content .panel-line-name-suffix,
 html[data-theme='dark'] .maplibregl-popup-content .panel-station-info-type-sep,
 html[data-theme='dark'] .maplibregl-popup-content .panel-line-toggle,
+html[data-theme='dark'] .maplibregl-popup-content .panel-company-toggle,
 html[data-theme='dark'] .maplibregl-popup-content .panel-time-label,
 html[data-theme='dark'] .maplibregl-popup-content .panel-timetable {
     color: #b8bcc3;

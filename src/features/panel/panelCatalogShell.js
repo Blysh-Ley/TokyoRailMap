@@ -646,21 +646,31 @@ export const buildPanelCompaniesHtml = (props = {}, {
                     <div class="panel-line-top">
                         <div class="panel-line-header">
                             <span class="panel-line-name" data-line-name="${escapeHtml_panelCompanyCatalogRenderer(line.displayName)}"${transferCodeAttr}><span class="panel-line-name-main${boldClass}">${escapeHtml_panelCompanyCatalogRenderer(line.displayName)}</span></span>
+                            <button type="button" class="panel-line-toggle" data-panel-line-toggle="1" aria-label="收起线路" aria-expanded="true">
+                                <span class="panel-dir-triangle panel-line-toggle-icon" aria-hidden="true">▾</span>
+                            </button>
                         </div>
-                        ${suffixHtml ? `<div class="panel-line-suffix-row" data-line-suffix-row="1">${suffixHtml}</div>` : ''}
-                        <div class="panel-station-info" data-station-info="1">
-                            <span class="panel-station-info-left"></span>
-                            <span class="panel-station-info-types" data-station-type-summary="1"></span>
+                        <div class="panel-line-collapsible" data-panel-line-collapsible="1">
+                            ${suffixHtml ? `<div class="panel-line-suffix-row" data-line-suffix-row="1">${suffixHtml}</div>` : ''}
+                            <div class="panel-station-info" data-station-info="1">
+                                <span class="panel-station-info-left"></span>
+                                <span class="panel-station-info-types" data-station-type-summary="1"></span>
+                            </div>
+                            <div class="panel-timetable-root" data-timetable-root="1"></div>
                         </div>
                     </div>
-                    <div class="panel-timetable-root" data-timetable-root="1"></div>
                 </div>
             `;
         }
 
         companiesHtml += `
             <div class="panel-company">
-                <div class="panel-company-header" data-company="${escapeHtml_panelCompanyCatalogRenderer(company)}">${logoHtml}<span class="panel-company-name">${escapeHtml_panelCompanyCatalogRenderer(companyDisplay)}</span></div>
+                <div class="panel-company-header" data-company="${escapeHtml_panelCompanyCatalogRenderer(company)}" data-panel-company-toggle="1">
+                    <span class="panel-company-identity">${logoHtml}<span class="panel-company-name">${escapeHtml_panelCompanyCatalogRenderer(companyDisplay)}</span></span>
+                    <button type="button" class="panel-company-toggle" data-panel-company-toggle-btn="1" aria-label="收起运营商线路" aria-expanded="true">
+                        <span class="panel-dir-triangle panel-company-toggle-icon" aria-hidden="true">▾</span>
+                    </button>
+                </div>
                 <div class="panel-company-lines">${linesHtml}</div>
             </div>
         `;
