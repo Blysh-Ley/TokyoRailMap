@@ -101,7 +101,6 @@ import {
     resolvePanelDirPrintButtonTarget,
     resolvePanelDirTitleTarget,
     resolvePanelDirTriangleTarget,
-    resolvePanelLineTarget,
     resolveTripDetailStationTarget
 } from './panelInteractionCore.js';
 import {
@@ -1238,6 +1237,15 @@ export function createPanel(options = {}) {
         return { toggleEl, lineEl };
     };
 
+    const getPanelLineHeaderToggleTarget = (target) => {
+        if (!(target instanceof Element) || !body?.contains?.(target)) return null;
+        const headerEl = target.closest?.('.panel-line-header');
+        if (!(headerEl instanceof Element) || !body.contains(headerEl)) return null;
+        const lineEl = headerEl.closest?.('.panel-line[data-line-id]');
+        if (!(lineEl instanceof Element)) return null;
+        return { headerEl, lineEl };
+    };
+
     const togglePanelLineCollapsed = (lineEl) => {
         if (!(lineEl instanceof Element)) return;
         setPanelLineCollapsed(lineEl, lineEl.getAttribute('data-panel-line-collapsed') !== '1');
@@ -1266,13 +1274,6 @@ export function createPanel(options = {}) {
         const lineEl = target.closest?.('.panel-line[data-line-id][data-panel-line-collapsed="1"]');
         if (!(lineEl instanceof Element) || !body.contains(lineEl)) return null;
         return lineEl;
-    };
-
-    const expandCollapsedPanelLineFromTarget = (target) => {
-        const lineEl = getCollapsedPanelLineTarget(target);
-        if (!lineEl) return false;
-        setPanelLineCollapsed(lineEl, false);
-        return true;
     };
 
     const applyDirPreviewByKey = async (lineDirKey, { force = false, fitMode } = {}) => {
@@ -3627,9 +3628,7 @@ export function createPanel(options = {}) {
 
     const getCompanyTarget = () => '';
 
-    const getLineTarget = (target) => {
-        return resolvePanelLineTarget(target, { body, toText });
-    };
+    const getLineTarget = () => '';
 
     const getDirTitleTarget = (target) => {
         return resolvePanelDirTitleTarget(target, { body, toText });
@@ -3901,8 +3900,10 @@ export function createPanel(options = {}) {
 
         if (!pointerState.isTouchLike) return;
 
-        if (expandCollapsedPanelLineFromTarget(evt?.target)) {
+        const lineHeaderToggleTarget = getPanelLineHeaderToggleTarget(evt?.target);
+        if (lineHeaderToggleTarget) {
             stopEvent(evt);
+            togglePanelLineCollapsed(lineHeaderToggleTarget.lineEl);
             return;
         }
 
@@ -4131,8 +4132,10 @@ export function createPanel(options = {}) {
             return;
         }
 
-        if (expandCollapsedPanelLineFromTarget(evt?.target)) {
+        const lineHeaderToggleTarget = getPanelLineHeaderToggleTarget(evt?.target);
+        if (lineHeaderToggleTarget) {
             stopEvent(evt);
+            togglePanelLineCollapsed(lineHeaderToggleTarget.lineEl);
             return;
         }
 

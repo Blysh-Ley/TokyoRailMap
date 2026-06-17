@@ -2920,7 +2920,9 @@ html[data-theme="dark"] .ms-show-icon-btn {
     justify-content: space-between;
     gap: 8px;
     width: 100%;
-    pointer-events: none;
+    cursor: pointer;
+    pointer-events: auto;
+    user-select: none;
 }
 
 .panel-line-name {
@@ -4706,7 +4708,6 @@ html[data-theme='dark'] .panel-catalog-close-btn {
 }
 
 /* panel：固定态下的鼠标样式（由 body.is-pinned 驱动） */
-body.is-pinned .panel-line-name,
 body.is-pinned .panel-dir-header,
 body.is-pinned .panel-dir-filter-btn {
     cursor: default;
