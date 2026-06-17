@@ -69,6 +69,28 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
         });
     };
 
+    const canvasToPngBlob = (canvas) => new Promise((resolve, reject) => {
+        try {
+            canvas?.toBlob?.((blob) => {
+                if (blob) resolve(blob);
+                else reject(new Error('toBlob returned an empty png'));
+            }, 'image/png');
+        } catch (error) {
+            reject(error);
+        }
+    });
+
+    const downloadBlob = (blob, filename) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+
     const normalizeArrayLike = (value) => {
         if (Array.isArray(value)) return value;
         return value == null ? [] : [value];
@@ -1587,8 +1609,6 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
                 x: 0,
                 y: 0
             });
-            const dataUrl = canvas.toDataURL('image/png');
-            
             const firstDir = detail.dirs?.[0] || {};
             const stationName = sanitizeFilePart(firstDir.stationName || 'station');
             const lineName = sanitizeFilePart(firstDir.lineName || detail.lineId || 'line');
@@ -1596,11 +1616,16 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
                 ? '平日_节假日'
                 : (toText(firstDir.serviceDay) === 'SaturdayHoliday' ? '休息日' : '工作日');
             const fileName = `${stationName}_${lineName}_${serviceDay}时刻表.png`;
-            
-            const link = document.createElement('a');
-            link.download = fileName;
-            link.href = dataUrl;
-            link.click();
+
+            const blob = await canvasToPngBlob(canvas);
+            await shareOrDownloadArtifact({
+                blob,
+                filename: fileName,
+                mimeType: 'image/png',
+                title: 'TokyoRailMap',
+                dialogTitle: '分享时刻表图片',
+                fallbackDownload: downloadBlob
+            });
         } finally {
             root.remove();
         }
@@ -1821,7 +1846,9 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
 
         const lineId = toText(detail.lineId);
         const stationIds = await resolveRouteMapLineStationIds(lineId);
-        if (!stationIds.length) return;
+        if (!stationIds.length) {
+            throw new Error(`no stations found for line: ${lineId || '(empty)'}`);
+        }
 
         const builder = window?.TokyoRailPanelTimetablePrintPayloadBuilder;
         if (typeof builder?.buildLineStationPrintPayload !== 'function') {
@@ -1906,7 +1933,9 @@ import { shareOrDownloadArtifact } from '../../services/nativeExportShareService
             session?.close?.();
         }
 
-        if (!pageCount || !pdf) return;
+        if (!pageCount || !pdf) {
+            throw new Error(`no printable timetable pages found for line: ${lineId}`);
+        }
 
         await savePdfArtifact(
             pdf,

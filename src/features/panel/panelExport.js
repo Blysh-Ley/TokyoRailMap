@@ -83,8 +83,8 @@ export const sanitizePanelExportFilePart = (value) => String(value || '')
     .replace(/[^A-Za-z0-9_.\-\u4e00-\u9fa5]/g, '_')
     .slice(0, 120);
 
-const PANEL_EXPORT_DESKTOP_WIDTH_PX = 440;
-const PANEL_EXPORT_DESKTOP_MIN_WINDOW_WIDTH_PX = 1024;
+const PANEL_EXPORT_DESKTOP_VIEWPORT_WIDTH_PX = 1024;
+const PANEL_EXPORT_DESKTOP_VIEWPORT_MIN_HEIGHT_PX = 720;
 
 export const applyPanelTripDetailDesktopExportLayout = (element, {
     HTMLElementRef = globalThis.HTMLElement
@@ -125,8 +125,8 @@ export const applyPanelTripDetailDesktopExportLayout = (element, {
     element.style.right = 'auto';
     element.style.top = '0';
     element.style.bottom = 'auto';
-    element.style.width = `${PANEL_EXPORT_DESKTOP_WIDTH_PX}px`;
-    element.style.minWidth = `${PANEL_EXPORT_DESKTOP_WIDTH_PX}px`;
+    element.style.width = 'max-content';
+    element.style.minWidth = '240px';
     element.style.maxWidth = 'none';
     element.style.height = 'auto';
     element.style.maxHeight = 'none';
@@ -285,8 +285,8 @@ export const exportElementToPng = async (element, filenameBase, buttonEl, {
                 exportStyleEl?.setAttribute?.('data-panel-trip-detail-export-style', '1');
                 if (exportStyleEl) {
                     exportStyleEl.textContent = `
-                        html.${exportClass} .panel-trip-detail { border-radius: 0 !important; border: none !important; box-shadow: none !important; max-width: none !important; max-height: none !important; overflow: visible !important; }
-                        html.${exportClass} .panel-trip-detail.is-panel-trip-detail-desktop-export-layout { width: ${PANEL_EXPORT_DESKTOP_WIDTH_PX}px !important; min-width: ${PANEL_EXPORT_DESKTOP_WIDTH_PX}px !important; display: block !important; background: #fff !important; }
+                        html.${exportClass} .panel-trip-detail { border-radius: 0 !important; border: none !important; box-shadow: none !important; width: max-content !important; max-width: none !important; max-height: none !important; overflow: visible !important; }
+                        html.${exportClass} .panel-trip-detail.is-panel-trip-detail-desktop-export-layout { min-width: 240px !important; display: block !important; background: #fff !important; }
                         html.${exportClass} .panel-trip-detail.is-panel-trip-detail-desktop-export-layout .panel-trip-detail-header { display: flex !important; }
                         html.${exportClass} .panel-trip-detail.is-panel-trip-detail-desktop-export-layout .panel-trip-detail-back-btn { display: none !important; }
                         html.${exportClass} .panel-trip-detail-body { max-height: none !important; overflow: visible !important; padding-bottom: 6px !important; }
@@ -301,12 +301,9 @@ export const exportElementToPng = async (element, filenameBase, buttonEl, {
             }
 
             const exportRect = element.getBoundingClientRect?.();
-            const exportWindowWidth = Math.max(
-                PANEL_EXPORT_DESKTOP_MIN_WINDOW_WIDTH_PX,
-                Math.ceil(exportRect?.width || element.scrollWidth || PANEL_EXPORT_DESKTOP_WIDTH_PX)
-            );
+            const exportWindowWidth = PANEL_EXPORT_DESKTOP_VIEWPORT_WIDTH_PX;
             const exportWindowHeight = Math.max(
-                720,
+                PANEL_EXPORT_DESKTOP_VIEWPORT_MIN_HEIGHT_PX,
                 Math.ceil(element.scrollHeight || exportRect?.height || 0)
             );
 

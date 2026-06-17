@@ -3957,6 +3957,13 @@ export function createPanel(options = {}) {
             return;
         }
 
+        const printTarget = getDirPrintButtonTarget(evt?.target);
+        if (printTarget) {
+            stopEvent(evt);
+            requestPrintTimetable(printTarget.lineId, printTarget.dirKey);
+            return;
+        }
+
         const rowEl = findTripTarget(evt?.target);
         if (rowEl && body.contains(rowEl)) {
             clearTripHighlightTimer();

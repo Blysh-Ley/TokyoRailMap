@@ -39,14 +39,8 @@ const sanitizeFilePart = (s) => String(s || '')
     .replace(/[^A-Za-z0-9_.\-\u4e00-\u9fa5]/g, '_')
     .slice(0, 120);
 
-const ROUTE_MAP_EXPORT_DESKTOP_MIN_WIDTH_PX = 1280;
-const ROUTE_MAP_EXPORT_DESKTOP_MAX_WIDTH_PX = 2400;
-
-const clampNumber = (value, min, max) => {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return min;
-    return Math.min(max, Math.max(min, n));
-};
+const ROUTE_MAP_EXPORT_DESKTOP_VIEWPORT_WIDTH_PX = 1280;
+const ROUTE_MAP_EXPORT_DESKTOP_VIEWPORT_MIN_HEIGHT_PX = 900;
 
 const applyDesktopExportLayout = (element) => {
     if (!(element instanceof HTMLElement)) return () => {};
@@ -91,8 +85,8 @@ const applyDesktopExportLayout = (element) => {
     element.style.right = 'auto';
     element.style.top = '0';
     element.style.bottom = 'auto';
-    element.style.width = `${ROUTE_MAP_EXPORT_DESKTOP_MIN_WIDTH_PX}px`;
-    element.style.minWidth = `${ROUTE_MAP_EXPORT_DESKTOP_MIN_WIDTH_PX}px`;
+    element.style.width = 'max-content';
+    element.style.minWidth = '100px';
     element.style.maxWidth = 'none';
     element.style.height = 'auto';
     element.style.maxHeight = 'none';
@@ -114,23 +108,6 @@ const applyDesktopExportLayout = (element) => {
             element.style[prop] = value;
         }
     };
-};
-
-const fitDesktopExportWidth = (element) => {
-    if (!(element instanceof HTMLElement)) return;
-    if (!element.classList.contains('is-route-map-desktop-export-layout')) return;
-
-    const candidates = [
-        element.scrollWidth,
-        element.querySelector('.route-map-grid-header')?.scrollWidth,
-        element.querySelector('.route-map-body')?.scrollWidth,
-        ...Array.from(element.querySelectorAll('.route-map-grid')).map((node) => node.scrollWidth)
-    ].map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0);
-
-    const contentWidth = candidates.length ? Math.max(...candidates) : ROUTE_MAP_EXPORT_DESKTOP_MIN_WIDTH_PX;
-    const width = clampNumber(contentWidth + 48, ROUTE_MAP_EXPORT_DESKTOP_MIN_WIDTH_PX, ROUTE_MAP_EXPORT_DESKTOP_MAX_WIDTH_PX);
-    element.style.width = `${width}px`;
-    element.style.minWidth = `${width}px`;
 };
 
 const nextFrame = () => new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
@@ -424,6 +401,9 @@ export const captureRouteMapElementAsPng = async ({ element, filenameBase, butto
                     html.${EXPORT_CLASS} .route-map-popover.is-route-map-desktop-export-layout {
                         border-radius: 0 !important;
                         transform: none !important;
+                        width: max-content !important;
+                        min-width: 100px !important;
+                        max-width: none !important;
                     }
                     html.${EXPORT_CLASS} .route-map-popover.is-route-map-desktop-export-layout .route-map-mobile-drag-bar {
                         display: none !important;
@@ -514,17 +494,11 @@ export const captureRouteMapElementAsPng = async ({ element, filenameBase, butto
             applyTypeheadExportPatch(element);
 
             await nextFrame();
-            fitDesktopExportWidth(element);
-            await nextFrame();
 
             const exportRect = element.getBoundingClientRect?.();
-            const exportWindowWidth = clampNumber(
-                Math.ceil(exportRect?.width || element.scrollWidth || ROUTE_MAP_EXPORT_DESKTOP_MIN_WIDTH_PX),
-                ROUTE_MAP_EXPORT_DESKTOP_MIN_WIDTH_PX,
-                ROUTE_MAP_EXPORT_DESKTOP_MAX_WIDTH_PX
-            );
+            const exportWindowWidth = ROUTE_MAP_EXPORT_DESKTOP_VIEWPORT_WIDTH_PX;
             const exportWindowHeight = Math.max(
-                900,
+                ROUTE_MAP_EXPORT_DESKTOP_VIEWPORT_MIN_HEIGHT_PX,
                 Math.ceil(element.scrollHeight || exportRect?.height || 0)
             );
 
