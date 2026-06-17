@@ -251,10 +251,17 @@ export const createMobileMenu = ({
         applyDrawerState('expanded');
     };
 
+    const isHeaderControlTarget = (event) => Boolean(event?.target?.closest?.(
+        'button, a, input, select, textarea, [role="button"], [data-mobile-menu-no-drag]'
+    ));
+
     const beginDrag = (event) => {
         if (root.classList.contains('is-hidden')) return false;
         if (event?.button != null && event.button !== 0) return false;
+        if (event?.currentTarget === header && isHeaderControlTarget(event)) return false;
+        const dragHandle = event?.currentTarget || dragBar;
         dragState = {
+            handle: dragHandle,
             pointerId: event?.pointerId,
             session: createMobileSheetDragSession({
                 startY: Number(event?.clientY) || 0,
@@ -270,7 +277,7 @@ export const createMobileMenu = ({
         root.setAttribute('data-mobile-menu-dragging', '1');
         sheet.style.transition = 'none';
         try {
-            dragBar.setPointerCapture?.(event.pointerId);
+            dragHandle.setPointerCapture?.(event.pointerId);
         } catch {
             // Pointer capture is best-effort across embedded browsers.
         }
@@ -299,11 +306,12 @@ export const createMobileMenu = ({
             nowMs: Number(event?.timeStamp) || undefined,
             cancelled
         });
+        const dragHandle = dragState.handle;
         dragState = null;
         root.removeAttribute('data-mobile-menu-dragging');
         sheet.style.transition = '';
         try {
-            dragBar.releasePointerCapture?.(event.pointerId);
+            dragHandle?.releasePointerCapture?.(event.pointerId);
         } catch {
             // ignore pointer-capture gaps
         }
@@ -367,14 +375,17 @@ export const createMobileMenu = ({
         close();
     });
 
-    dragBar.addEventListener('pointerdown', beginDrag, { passive: false });
-    dragBar.addEventListener('pointermove', updateDrag, { passive: false });
+    const dragHandles = [dragBar, header];
+    for (const handle of dragHandles) {
+        handle.addEventListener('pointerdown', beginDrag, { passive: false });
+        handle.addEventListener('pointermove', updateDrag, { passive: false });
+        handle.addEventListener('pointerup', endDrag, { passive: false });
+        handle.addEventListener('pointercancel', (event) => endDrag(event, { cancelled: true }), { passive: false });
+        handle.addEventListener('lostpointercapture', (event) => endDrag(event, { cancelled: true }), { passive: false });
+    }
     doc.addEventListener?.('pointermove', updateDrag, { capture: true, passive: false });
-    dragBar.addEventListener('pointerup', endDrag, { passive: false });
     doc.addEventListener?.('pointerup', endDrag, { capture: true, passive: false });
-    dragBar.addEventListener('pointercancel', (event) => endDrag(event, { cancelled: true }), { passive: false });
     doc.addEventListener?.('pointercancel', (event) => endDrag(event, { cancelled: true }), { capture: true, passive: false });
-    dragBar.addEventListener('lostpointercapture', (event) => endDrag(event, { cancelled: true }), { passive: false });
     createMobileSheetPullDownController({
         scrollEl: content,
         doc,

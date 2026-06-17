@@ -784,6 +784,14 @@ body[data-mobile-ui='1'] .mobile-menu-header {
     gap: 8px;
     padding: 6px 12px 10px;
     border-bottom: 1px solid var(--ui-border);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+html[data-mobile-ui='1'] .mobile-menu-sheet[data-mobile-menu-dragging='1'] .mobile-menu-header,
+body[data-mobile-ui='1'] .mobile-menu-sheet[data-mobile-menu-dragging='1'] .mobile-menu-header {
+    cursor: grabbing;
 }
 
 html[data-mobile-ui='1'] .mobile-menu-title,
