@@ -3,7 +3,7 @@
  * 方向班次表导出 PDF（A4）
  */
 import { getCachedJson } from '../../lib/fetch.js';
-import { getMacaronColor } from '../../lib/macaron.js';
+import { resolveTimetablePrintPalette } from '../../lib/timetable-print-palette.js';
 import {
     shareOrDownloadArtifact,
     shareOrSaveImageArtifact
@@ -375,6 +375,7 @@ import {
 
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         if (isDark) root.classList.add('is-dark');
+        const printTitleTextColor = isDark ? '#f2f2f2' : '#111';
 
         const card = document.createElement('div');
         card.className = 'timetable-print-card';
@@ -461,6 +462,7 @@ import {
         dirHeader.className = 'panel-dir-header';
         const dirTitle = document.createElement('span');
         dirTitle.className = 'panel-dir-title';
+        dirTitle.style.color = printTitleTextColor;
         const dirPrefix = document.createElement('span');
         dirPrefix.className = 'panel-dir-prefix';
         dirPrefix.setAttribute('aria-hidden', 'true');
@@ -743,6 +745,7 @@ import {
 
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         if (isDark) root.classList.add('is-dark');
+        const printTitleTextColor = isDark ? '#f2f2f2' : '#111';
 
         const card = document.createElement('div');
         card.className = 'timetable-print-card';
@@ -776,15 +779,19 @@ import {
         const lineSuffixHtml = toText(detail.lineSuffixHtml);
         const stationInfoHtml = toText(detail.stationInfoHtml);
         const lineHeaderHtml = toText(detail.lineHeaderHtml);
-        const macaronColor = getMacaronColor(lineColor).macaron;
-        const useComplementaryServiceDayColor = toText(detail.serviceDayColorMode) === 'complementary';
-        const serviceDayAccentColor = useComplementaryServiceDayColor ? macaronColor.complementary : macaronColor.hex;
-        const serviceDayAccentTextColor = useComplementaryServiceDayColor ? macaronColor.complementaryText : macaronColor.textColor;
-        const serviceDayPalette = useComplementaryServiceDayColor ? getMacaronColor(serviceDayAccentColor).macaron : macaronColor;
-        const serviceDayHourColor = serviceDayPalette.ink;
-        const serviceDayHourTextColor = serviceDayPalette.inkText;
-        const specialTripColor = useComplementaryServiceDayColor ? serviceDayPalette.complementary : macaronColor.complementary;
-        const specialTripTextColor = useComplementaryServiceDayColor ? serviceDayPalette.complementaryText : macaronColor.complementaryText;
+        const timetablePalette = resolveTimetablePrintPalette({
+            lineColor,
+            serviceDayColorMode: detail.serviceDayColorMode,
+            isDarkTheme: isDark
+        });
+        const {
+            serviceDayAccentColor,
+            serviceDayAccentTextColor,
+            serviceDayHourColor,
+            serviceDayHourTextColor,
+            specialTripColor,
+            specialTripTextColor
+        } = timetablePalette;
         
 
         // 站名和服务日信息部分
@@ -799,6 +806,7 @@ import {
         head.style.paddingTop = '15px';
         head.style.paddingBottom = '15px';
         head.style.backgroundColor = lineColor ? serviceDayAccentColor : 'transparent';
+        head.style.color = lineColor ? serviceDayAccentTextColor : '';
 
         const stationTitle = document.createElement('div');
         stationTitle.className = 'panel-name';
@@ -978,6 +986,7 @@ import {
             leftHeader.style.flex = '1';
             leftHeader.style.textAlign = 'right';
             leftHeader.style.fontSize = '25px'
+            leftHeader.style.color = printTitleTextColor;
             leftHeader.innerHTML = `
                 <span class="panel-dir-title">
                     <span class="panel-dir-marquee"><span class="panel-dir-marquee-inner">${toText(leftDir.dirLabel) || toText(leftDir.dirKey) || '未知方向'}</span></span>
@@ -992,7 +1001,7 @@ import {
             headerSpacer.style.justifyContent = 'center'; // 水平居中
             headerSpacer.style.alignItems = 'center';     // 垂直居中
             const centerLabel = document.createElement('span');
-            centerLabel.style.color = '#000'; // 可根据你界面的整体风格调整颜色，或者加粗 fontweight: 'bold'
+            centerLabel.style.color = printTitleTextColor;
             centerLabel.style.fontSize = '20px'; 
             centerLabel.style.paddingTop = '2px'; // 微调位置
             centerLabel.textContent = '方向';
@@ -1006,6 +1015,7 @@ import {
             rightHeader.style.flex = '1';
             rightHeader.style.textAlign = 'left';
             rightHeader.style.fontSize = '25px'
+            rightHeader.style.color = printTitleTextColor;
             if (rightDir) {
                 rightHeader.innerHTML = `
                     <span class="panel-dir-title">
@@ -1192,9 +1202,9 @@ import {
             };
 
             
-            const bgColorHead = `${serviceDayAccentColor}5f`;
-            const rightBgColorHead = shouldRenderServiceDayPair ? `${macaronColor.complementary}73` : bgColorHead;
-            const rightPaneTextColor = shouldRenderServiceDayPair ? macaronColor.complementaryText : serviceDayAccentTextColor;
+            const bgColorHead = timetablePalette.gridHeaderTripsColor;
+            const rightBgColorHead = shouldRenderServiceDayPair ? timetablePalette.rightGridHeaderTripsColor : bgColorHead;
+            const rightPaneTextColor = shouldRenderServiceDayPair ? timetablePalette.rightPaneTextColor : serviceDayAccentTextColor;
 
             // 1. 左侧标题区 (分钟)
             const lHeaderTrips = document.createElement('div');
@@ -1248,8 +1258,8 @@ import {
                 const hourText = lRow
                     ? lRow.querySelector('.panel-grid-hour')?.textContent
                     : (rRow ? rRow.querySelector('.panel-grid-hour')?.textContent : globalGridHourLabels[String(h)]);
-                const bgColor = `${serviceDayAccentColor}46`;
-                const rightBgColor = shouldRenderServiceDayPair ? `${macaronColor.complementary}52` : bgColor;
+                const bgColor = timetablePalette.gridRowTripsColor;
+                const rightBgColor = shouldRenderServiceDayPair ? timetablePalette.rightGridRowTripsColor : bgColor;
                 const lCells = lRow ? Array.from(lRow.querySelectorAll('.panel-grid-cell')) : [];
                 const rCells = rRow ? Array.from(rRow.querySelectorAll('.panel-grid-cell')) : [];
                 const configuredRowSlots = Number(globalGridRowsByHour[String(h)] ?? globalGridRowsByHour[h]);
@@ -1286,7 +1296,7 @@ import {
                 lTrips.style.overflow = 'hidden';
                 lTrips.style.gridAutoRows = 'max-content';
                 lTrips.style.direction = 'rtl';
-                lTrips.style.backgroundColor = isEven ? bgColor : '#fff';
+                lTrips.style.backgroundColor = isEven ? bgColor : timetablePalette.gridBaseTripsColor;
                 
                 if (lCells.length) {
                     lCells.forEach(c => {
@@ -1321,7 +1331,7 @@ import {
                 rTrips.style.overflow = 'hidden';
                 rTrips.style.gridAutoRows = 'max-content';
                 rTrips.style.direction = 'ltr';
-                rTrips.style.backgroundColor = isEven ? rightBgColor : '#fff';
+                rTrips.style.backgroundColor = isEven ? rightBgColor : timetablePalette.gridBaseTripsColor;
                 if (rCells.length) {
                     rCells.forEach(c => {
                         const clone = c.cloneNode(true);
@@ -1395,7 +1405,7 @@ import {
             }
 
             .panel-grid-trips{
-                background-color: #fff !important;
+                background-color: var(--panel-grid-trips-bg, ${timetablePalette.gridBaseTripsColor}) !important;
             }
 
             .panel-grid-trip{

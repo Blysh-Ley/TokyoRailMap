@@ -3,6 +3,7 @@ import {
     formatPanelServiceHourLabel,
     toPanelServiceHourIndex
 } from './panelTimetableCore.js';
+import { resolveTimetablePrintPalette } from '../../lib/timetable-print-palette.js';
 
 import { resolvePanelTimetableTripKey } from './panelTimetableCore.js';
 
@@ -378,6 +379,9 @@ export const buildPanelTimetableGridHtmlForDirection = ({
     expanded,
     nowMs,
     serviceDayStartMs,
+    lineColor = '',
+    serviceDayColorMode = '',
+    isDarkTheme = false,
     serviceDayBoundaryHour = 3,
     buildTypeAbbr = (value) => defaultToText_panelTimetableGridRenderer(value).slice(0, 1),
     deriveSpecialSp = () => '',
@@ -417,6 +421,7 @@ export const buildPanelTimetableGridHtmlForDirection = ({
         ? Array.from({ length: maxHour - minHour + 1 }, (_, index) => minHour + index)
         : choosePanelHourWindow({ minHour, maxHour, currentHour, expanded: false });
     if (!hourWindow.length) return '<div class="panel-timetable-empty">当前无班次</div>';
+    const timetablePalette = resolveTimetablePrintPalette({ lineColor, serviceDayColorMode, isDarkTheme });
 
     const typeAbbrByName = new Map((Array.isArray(typeHints) ? typeHints : []).map((item) => [toText(item?.full), toText(item?.abbr)]));
     const terminalAbbrByName = new Map((Array.isArray(terminalHints) ? terminalHints : []).map((item) => [toText(item?.full), toText(item?.abbr)]));
@@ -435,6 +440,12 @@ export const buildPanelTimetableGridHtmlForDirection = ({
     const rowHtml = hourWindow.map((hour, index) => {
         const trips = Array.isArray(byHour.get(hour)) ? byHour.get(hour) : [];
         const bgClass = index % 2 === 0 ? 'is-alt-a' : 'is-alt-b';
+        const gridTripsBackground = index % 2 === 1 ? timetablePalette.gridRowTripsColor : timetablePalette.gridBaseTripsColor;
+        const rowStyle = [
+            `--panel-grid-hour-bg:${timetablePalette.serviceDayHourColor}`,
+            `--panel-grid-hour-color:${timetablePalette.serviceDayHourTextColor}`,
+            `--panel-grid-trips-bg:${gridTripsBackground}`
+        ].join(';');
         const focusAttr = expanded && hour === focusStartHour ? ' data-grid-focus-start="1"' : '';
         const currentAttr = (!expanded && hour === currentHourForFocus) ? ' data-grid-current-hour="1"' : '';
 
@@ -514,7 +525,7 @@ export const buildPanelTimetableGridHtmlForDirection = ({
             : '<div class="panel-grid-cell is-empty is-hour-last"></div>';
 
         return `
-                <div class="panel-grid-row ${bgClass}"${focusAttr}${currentAttr} data-grid-hour="${escapeHtml(String(hour))}">
+                <div class="panel-grid-row ${bgClass}" style="${escapeHtml(rowStyle)}"${focusAttr}${currentAttr} data-grid-hour="${escapeHtml(String(hour))}">
                     <div class="panel-grid-hour">${escapeHtml(formatPanelServiceHourLabel(hour, { serviceDayBoundaryHour }))}</div>
                     <div class="panel-grid-trips">
                         ${cellsHtml}
@@ -643,4 +654,3 @@ export const hydrateRenderedTimetable = (ttEl, deps = {}) => {
     hydrateTimetableActionIcons(ttEl, deps);
     applyTimetableBodyScrollState(ttEl, deps);
 };
-

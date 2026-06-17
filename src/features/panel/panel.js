@@ -1739,7 +1739,10 @@ export function createPanel(options = {}) {
         specialHints,
         expanded,
         nowMs,
-        serviceDayStartMs
+        serviceDayStartMs,
+        lineColor = '',
+        serviceDayColorMode = '',
+        isDarkTheme = false
     }) => buildPanelTimetableGridHtmlForDirection({
         rowsForDir,
         typeHints,
@@ -1748,6 +1751,9 @@ export function createPanel(options = {}) {
         expanded,
         nowMs,
         serviceDayStartMs,
+        lineColor,
+        serviceDayColorMode,
+        isDarkTheme,
         serviceDayBoundaryHour: SERVICE_DAY_BOUNDARY_HOUR,
         buildTypeAbbr,
         deriveSpecialSp,
@@ -1820,6 +1826,10 @@ export function createPanel(options = {}) {
 
         const now = getDisplayNowMs();
         const serviceDayStartMs = getServiceDayStartMs(new Date(now));
+        const lineMetaForTimetablePalette = getLineMeta?.(lineId) || {};
+        const lineColorForTimetablePalette = toText(lineMetaForTimetablePalette?.color);
+        const currentServiceDayColorMode = currentServiceDay === 'SaturdayHoliday' ? 'complementary' : 'base';
+        const isDarkThemeForTimetablePalette = document.documentElement.getAttribute('data-theme') === 'dark';
         const rows = [];
         const rowsForPreview = [];
         const printRowsByServiceDay = new Map(PRINT_SERVICE_DAYS.map((day) => [day, []]));
@@ -2400,7 +2410,10 @@ export function createPanel(options = {}) {
                 specialHints,
                 expanded: true,
                 nowMs: now,
-                serviceDayStartMs
+                serviceDayStartMs,
+                lineColor: lineColorForTimetablePalette,
+                serviceDayColorMode: currentServiceDayColorMode,
+                isDarkTheme: isDarkThemeForTimetablePalette
             });
 
             const buildPrintPayloadForServiceDay = (serviceDay) => {
@@ -2431,7 +2444,10 @@ export function createPanel(options = {}) {
                     specialHints: serviceSpecialHints,
                     expanded: true,
                     nowMs: now,
-                    serviceDayStartMs
+                    serviceDayStartMs,
+                    lineColor: lineColorForTimetablePalette,
+                    serviceDayColorMode: serviceDay === 'SaturdayHoliday' ? 'complementary' : 'base',
+                    isDarkTheme: isDarkThemeForTimetablePalette
                 });
 
                 return buildTimetablePrintPayload({
@@ -2481,7 +2497,10 @@ export function createPanel(options = {}) {
                     specialHints,
                     expanded,
                     nowMs: now,
-                    serviceDayStartMs
+                    serviceDayStartMs,
+                    lineColor: lineColorForTimetablePalette,
+                    serviceDayColorMode: currentServiceDayColorMode,
+                    isDarkTheme: isDarkThemeForTimetablePalette
                 })
                 : renderPanelTimetableListHtml({
                     rows: visible,

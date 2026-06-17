@@ -3378,11 +3378,11 @@ html[data-theme="dark"] .ms-show-icon-btn {
 }
 
 .panel-grid-row.is-alt-a {
-    background: #f6f7f9;
+    background: var(--panel-grid-trips-bg, #f6f7f9);
 }
 
 .panel-grid-row.is-alt-b {
-    background: #eef1f5;
+    background: var(--panel-grid-trips-bg, #eef1f5);
 }
 
 .panel-grid-hour {
@@ -3393,8 +3393,8 @@ html[data-theme="dark"] .ms-show-icon-btn {
     justify-content: center;
     font-size: 18px;
     font-weight: 700;
-    color: #fff;
-    background: var(--is-active-color);
+    color: var(--panel-grid-hour-color, #fff);
+    background: var(--panel-grid-hour-bg, var(--is-active-color));
     border-bottom: 1px solid rgba(255, 255, 255, 0.9);
     user-select: none;
     box-sizing: border-box;
@@ -3407,6 +3407,7 @@ html[data-theme="dark"] .ms-show-icon-btn {
     align-items: stretch;
     align-content: flex-start;
     gap: 0;
+    background: var(--panel-grid-trips-bg, transparent);
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
@@ -6278,11 +6279,11 @@ html[data-theme='dark'] .panel-trip-detail-body::-webkit-scrollbar-thumb {
 }
 
 html[data-theme='dark'] .panel-grid-row.is-alt-a {
-    background: #1e232a;
+    background: var(--panel-grid-trips-bg, #1e232a);
 }
 
 html[data-theme='dark'] .panel-grid-row.is-alt-b {
-    background: rgb(53, 52, 52);
+    background: var(--panel-grid-trips-bg, rgb(53, 52, 52));
 }
 
 html[data-theme='dark'] .is-terminal-flag {
@@ -6323,7 +6324,8 @@ html[data-theme='dark'] .panel-grid-hint-sep {
 }
 
 html[data-theme='dark'] .panel-grid-hour {
-    background: #2f7bb6;
+    color: var(--panel-grid-hour-color, #fff);
+    background: var(--panel-grid-hour-bg, #2f7bb6);
     border-top-color: rgba(255, 255, 255, 0.35);
     border-bottom-color: rgba(255, 255, 255, 0.35);
 }
