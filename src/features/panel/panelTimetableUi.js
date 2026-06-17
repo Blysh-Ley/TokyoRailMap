@@ -381,7 +381,6 @@ export const buildPanelTimetableGridHtmlForDirection = ({
     serviceDayStartMs,
     lineColor = '',
     serviceDayColorMode = '',
-    isDarkTheme = false,
     serviceDayBoundaryHour = 3,
     buildTypeAbbr = (value) => defaultToText_panelTimetableGridRenderer(value).slice(0, 1),
     deriveSpecialSp = () => '',
@@ -421,7 +420,16 @@ export const buildPanelTimetableGridHtmlForDirection = ({
         ? Array.from({ length: maxHour - minHour + 1 }, (_, index) => minHour + index)
         : choosePanelHourWindow({ minHour, maxHour, currentHour, expanded: false });
     if (!hourWindow.length) return '<div class="panel-timetable-empty">当前无班次</div>';
-    const timetablePalette = resolveTimetablePrintPalette({ lineColor, serviceDayColorMode, isDarkTheme });
+    const lightTimetablePalette = resolveTimetablePrintPalette({
+        lineColor,
+        serviceDayColorMode,
+        isDarkTheme: false
+    });
+    const darkTimetablePalette = resolveTimetablePrintPalette({
+        lineColor,
+        serviceDayColorMode,
+        isDarkTheme: true
+    });
 
     const typeAbbrByName = new Map((Array.isArray(typeHints) ? typeHints : []).map((item) => [toText(item?.full), toText(item?.abbr)]));
     const terminalAbbrByName = new Map((Array.isArray(terminalHints) ? terminalHints : []).map((item) => [toText(item?.full), toText(item?.abbr)]));
@@ -440,11 +448,15 @@ export const buildPanelTimetableGridHtmlForDirection = ({
     const rowHtml = hourWindow.map((hour, index) => {
         const trips = Array.isArray(byHour.get(hour)) ? byHour.get(hour) : [];
         const bgClass = index % 2 === 0 ? 'is-alt-a' : 'is-alt-b';
-        const gridTripsBackground = index % 2 === 1 ? timetablePalette.gridRowTripsColor : timetablePalette.gridBaseTripsColor;
+        const lightGridTripsBackground = index % 2 === 1 ? lightTimetablePalette.gridRowTripsColor : lightTimetablePalette.gridBaseTripsColor;
+        const darkGridTripsBackground = index % 2 === 1 ? darkTimetablePalette.gridRowTripsColor : darkTimetablePalette.gridBaseTripsColor;
         const rowStyle = [
-            `--panel-grid-hour-bg:${timetablePalette.serviceDayHourColor}`,
-            `--panel-grid-hour-color:${timetablePalette.serviceDayHourTextColor}`,
-            `--panel-grid-trips-bg:${gridTripsBackground}`
+            `--panel-grid-hour-bg-light:${lightTimetablePalette.serviceDayHourColor}`,
+            `--panel-grid-hour-color-light:${lightTimetablePalette.serviceDayHourTextColor}`,
+            `--panel-grid-trips-bg-light:${lightGridTripsBackground}`,
+            `--panel-grid-hour-bg-dark:${darkTimetablePalette.serviceDayHourColor}`,
+            `--panel-grid-hour-color-dark:${darkTimetablePalette.serviceDayHourTextColor}`,
+            `--panel-grid-trips-bg-dark:${darkGridTripsBackground}`
         ].join(';');
         const focusAttr = expanded && hour === focusStartHour ? ' data-grid-focus-start="1"' : '';
         const currentAttr = (!expanded && hour === currentHourForFocus) ? ' data-grid-current-hour="1"' : '';

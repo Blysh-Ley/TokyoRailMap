@@ -3370,6 +3370,9 @@ html[data-theme="dark"] .ms-show-icon-btn {
 }
 
 .panel-grid-row {
+    --panel-grid-hour-bg: var(--panel-grid-hour-bg-light, var(--is-active-color));
+    --panel-grid-hour-color: var(--panel-grid-hour-color-light, #fff);
+    --panel-grid-trips-bg: var(--panel-grid-trips-bg-light, transparent);
     display: grid;
     grid-template-columns: 48px minmax(0, 1fr);
     align-items: stretch;
@@ -6288,6 +6291,12 @@ html[data-theme='dark'] .panel-grid-row.is-alt-a {
 
 html[data-theme='dark'] .panel-grid-row.is-alt-b {
     background: var(--panel-grid-trips-bg, rgb(53, 52, 52));
+}
+
+html[data-theme='dark'] .panel-grid-row {
+    --panel-grid-hour-bg: var(--panel-grid-hour-bg-dark, #2f7bb6);
+    --panel-grid-hour-color: var(--panel-grid-hour-color-dark, #fff);
+    --panel-grid-trips-bg: var(--panel-grid-trips-bg-dark, #1e232a);
 }
 
 html[data-theme='dark'] .is-terminal-flag {
