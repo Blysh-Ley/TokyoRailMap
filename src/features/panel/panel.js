@@ -1787,9 +1787,20 @@ export function createPanel(options = {}) {
             };
         }
 
+        const resolveStationKeyForSourceLine = async (sourceLineId) => {
+            const sourceId = toText(sourceLineId);
+            if (fallbackStationKey && sourceId && (
+                fallbackStationKey === sourceId ||
+                fallbackStationKey.startsWith(`${sourceId}.`)
+            )) {
+                return fallbackStationKey;
+            }
+            return resolveStationIdForLine(sourceId);
+        };
+
         const sourceDatas = await Promise.all(mergedSourceLineIds.map(async (sourceLineId) => {
             const [resolvedStationId, data] = await Promise.all([
-                resolveStationIdForLine(sourceLineId),
+                resolveStationKeyForSourceLine(sourceLineId),
                 loadTimetableForLineId(sourceLineId)
             ]);
             const stationKey = toText(resolvedStationId) || fallbackStationKey;
