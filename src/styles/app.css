@@ -6232,6 +6232,10 @@ html[data-theme='dark'] .panel-trip-detail-head {
     color: #9aa2ae;
 }
 
+html[data-theme='dark'] .panel-station-info-type.is-base-stop {
+    background-color: #374151 !important;
+}
+
 html[data-theme='dark'] .panel-trip-detail-row {
     color: #d8dbe1;
 }

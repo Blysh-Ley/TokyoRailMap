@@ -2557,7 +2557,7 @@ export function createPanel(options = {}) {
         if (/\s/.test(name)) return name;
         const chars = Array.from(name);
         if (chars.length !== 2) return name;
-        return `${chars[0]}      ${chars[1]}`;
+        return `${chars[0]}     ${chars[1]}`;
     };
 
     const shouldUseSmallStationTypeBadgeFont = (typeNameRaw) => {
@@ -2594,7 +2594,8 @@ export function createPanel(options = {}) {
         }
 
         const html = typeItems.map((item) => {
-            const cls = item.isStop ? 'panel-station-info-type is-stop' : 'panel-station-info-type is-pass';
+            const baseStopClass = item.isStop && isNoMarkTypeName(item.name) ? ' is-base-stop' : '';
+            const cls = item.isStop ? `panel-station-info-type is-stop${baseStopClass}` : 'panel-station-info-type is-pass';
             const bgColor = item.isStop ? (toText(item.color) || '#555') : '#ddd';
             const smallFontStyle = shouldUseSmallStationTypeBadgeFont(item.name) ? ';font-size:10px' : '';
             const style = ` style="background-color:${escapeHtml(bgColor)}${smallFontStyle}"`;
