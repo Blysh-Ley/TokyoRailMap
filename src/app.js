@@ -2704,10 +2704,19 @@ const initMapApp = async () => {
         payload?.source === 'android-back'
         && mobileBottomNavController?.handleBackIntent?.(payload) === true
     );
+    const handleMobileMenuBackIntent = (payload = {}) => {
+        if (payload?.source !== 'android-back') return false;
+        if (mobileMenu?.handleBackIntent?.(payload) !== true) return false;
+        if (mobileMenu?.isOpen?.() !== true) {
+            mobileBottomNavController?.setActive?.('map', { emit: false });
+        }
+        return true;
+    };
     installAndroidBackRuntime({
         handleBackIntent: (payload) => (
             handleRouteMapBackIntent(payload)
             || handleJourneyBackIntent(payload)
+            || handleMobileMenuBackIntent(payload)
             || handleMobileNavBackIntent(payload)
             || panel?.handlePanelBackIntent?.(payload) === true
         )

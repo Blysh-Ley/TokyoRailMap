@@ -237,6 +237,8 @@ export const createMobileMenu = ({
         scheduleLineTerminalMarquees();
     };
 
+    const isOpen = () => !root.classList.contains('is-hidden');
+
     const close = () => {
         applyDrawerState('hidden');
         root.classList.add('is-hidden');
@@ -396,12 +398,22 @@ export const createMobileMenu = ({
     }, { passive: true });
 
     doc.addEventListener?.('keydown', (event) => {
-        if (root.classList.contains('is-hidden')) return;
+        if (!isOpen()) return;
         if (event?.key !== 'Escape') return;
         event.preventDefault?.();
         if (screen === 'lines') renderCompanies();
         else close();
     });
+
+    const handleBackIntent = () => {
+        if (!isOpen()) return false;
+        if (screen === 'lines') {
+            renderCompanies();
+            return true;
+        }
+        close();
+        return true;
+    };
 
     const mount = (container = doc.body || doc.documentElement) => {
         if (root.parentNode !== container) container?.appendChild?.(root);
@@ -420,6 +432,8 @@ export const createMobileMenu = ({
         close,
         getActiveCompany: () => activeCompanyName,
         getScreen: () => screen,
+        handleBackIntent,
+        isOpen,
         mount,
         open,
         root,
