@@ -1259,6 +1259,13 @@ export function createPanel(options = {}) {
         setPanelLineCollapsed(lineEl, lineEl.getAttribute('data-panel-line-collapsed') !== '1');
     };
 
+    const togglePanelLineCollapsedById = (lineId) => {
+        const lid = toText(lineId);
+        if (!lid) return;
+        const lineEl = body.querySelector?.(`.panel-line[data-line-id="${escapeHtml(String(lid))}"]`);
+        togglePanelLineCollapsed(lineEl);
+    };
+
     const getPanelCompanyToggleTarget = (target) => {
         if (!(target instanceof Element) || !body?.contains?.(target)) return null;
         const companyHeaderEl = target.closest?.('.panel-company-header[data-panel-company-toggle]');
@@ -3910,15 +3917,21 @@ export function createPanel(options = {}) {
 
         const lineHeaderToggleTarget = getPanelLineHeaderToggleTarget(evt?.target);
         if (lineHeaderToggleTarget) {
-            stopEvent(evt);
-            togglePanelLineCollapsed(lineHeaderToggleTarget.lineEl);
+            stopPropagationOnly(evt);
+            panelInteractionPolicy.startTripTap(evt, {
+                kind: 'line-header-toggle',
+                lineId: lineHeaderToggleTarget.lineEl.getAttribute?.('data-line-id')
+            });
             return;
         }
 
         const lineToggleTarget = getPanelLineToggleTarget(evt?.target);
         if (lineToggleTarget) {
-            stopEvent(evt);
-            togglePanelLineCollapsed(lineToggleTarget.lineEl);
+            stopPropagationOnly(evt);
+            panelInteractionPolicy.startTripTap(evt, {
+                kind: 'line-toggle',
+                lineId: lineToggleTarget.lineEl.getAttribute?.('data-line-id')
+            });
             return;
         }
 
@@ -3962,10 +3975,11 @@ export function createPanel(options = {}) {
 
         const dirTriangle = getDirTriangleTarget(evt?.target);
         if (dirTriangle) {
-            stopEvent(evt);
-            dispatchPanelDirectionToggleIntent({
-                dirTarget: dirTriangle,
-                toggleDirectionTimetable
+            stopPropagationOnly(evt);
+            panelInteractionPolicy.startTripTap(evt, {
+                kind: 'dir-triangle-toggle',
+                lineId: dirTriangle.lineId,
+                dirKey: dirTriangle.dirKey
             });
             return;
         }
@@ -4031,7 +4045,13 @@ export function createPanel(options = {}) {
 
         stopPropagationOnly(evt);
 
-        if (toText(pending?.kind) === 'dir-title-toggle') {
+        const pendingKind = toText(pending?.kind);
+        if (pendingKind === 'line-header-toggle' || pendingKind === 'line-toggle') {
+            togglePanelLineCollapsedById(pending.lineId);
+            return;
+        }
+
+        if (pendingKind === 'dir-title-toggle' || pendingKind === 'dir-triangle-toggle') {
             dispatchPanelDirectionToggleIntent({
                 dirTarget: {
                     lineId: pending.lineId,
