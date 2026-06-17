@@ -1212,6 +1212,7 @@ export function createPanel(options = {}) {
 
     const setPanelLineCollapsed = (lineEl, collapsed) => {
         if (!(lineEl instanceof Element)) return;
+        const wasCollapsed = lineEl.getAttribute('data-panel-line-collapsed') === '1';
         const nextCollapsed = collapsed === true;
         lineEl.setAttribute('data-panel-line-collapsed', nextCollapsed ? '1' : '0');
         const toggleEl = lineEl.querySelector?.('[data-panel-line-toggle]');
@@ -1222,6 +1223,7 @@ export function createPanel(options = {}) {
         const iconEl = toggleEl?.querySelector?.('.panel-line-toggle-icon');
         if (iconEl instanceof Element) iconEl.textContent = nextCollapsed ? '▸' : '▾';
         updatePanelCompanyCollapseState(lineEl.closest?.('.panel-company'));
+        if (wasCollapsed && !nextCollapsed) scheduleMarqueeApply(lineEl);
     };
 
     const applyDefaultPanelLineCollapse = (rootEl, shouldCollapse) => {
