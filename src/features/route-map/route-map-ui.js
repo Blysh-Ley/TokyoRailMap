@@ -884,6 +884,7 @@ const setupRouteMapUi = () => {
             hideTimer = 0;
             if (pinned) return;
             if (hoverInsidePanel) return;
+            if (isPointerOverRouteMapHoverTarget()) return;
             root.classList.add('is-hidden');
             applyMobileSheetState('hidden');
             hideTransferHoverPortal();
@@ -1996,6 +1997,15 @@ const setupRouteMapUi = () => {
         };
     };
 
+    const isPointerOverRouteMapHoverTarget = () => {
+        const x = Number(lastPointer?.x);
+        const y = Number(lastPointer?.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+        const target = document.elementFromPoint?.(x, y);
+        if (!(target instanceof Element)) return false;
+        return root.contains(target) || !!readLineIdAndNameFromTarget(target);
+    };
+
     const showRouteMapStationIndicator = (stationId) => {
         const sid = toText(stationId);
         if (!sid) return;
@@ -2256,8 +2266,9 @@ const setupRouteMapUi = () => {
         if (pinned) return;
         const fromLine = readLineIdAndNameFromTarget(evt?.target);
         if (!fromLine) return;
-        // If pointer moves into the floating panel, do not hide.
+        // If pointer moves into another line-name or the floating panel, do not hide.
         const related = evt?.relatedTarget;
+        if (readLineIdAndNameFromTarget(related)) return;
         if (related instanceof Element && root.contains(related)) return;
         scheduleHide(200);
     }, true);
