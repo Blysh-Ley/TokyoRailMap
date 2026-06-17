@@ -1130,6 +1130,7 @@ export function mountTravelSearchUI() {
 
         const path = el('div', 'journey-plan-path');
         await appendJourneyPath(path, row, displayPlan);
+        journeyPlanSheet.bindScrollableContent(path);
 
         path.addEventListener('mouseenter', () => {
             if (isMobileJourneyPresentation()) return;

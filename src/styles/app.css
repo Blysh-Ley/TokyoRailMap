@@ -497,7 +497,8 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mod
     min-height: 0;
     flex: 1 1 auto;
     overflow-y: auto;
-    overscroll-behavior: contain;
+    overscroll-behavior: none;
+    overscroll-behavior-y: none;
     touch-action: pan-y;
     padding: 8px 12px 0;
     -webkit-overflow-scrolling: touch;

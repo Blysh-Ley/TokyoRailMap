@@ -6,6 +6,7 @@ import {
     resolveMobileSheetDragTarget,
     updateMobileSheetDragSession
 } from './mobileSheetSnap.js';
+import { createMobileSheetPullDownController } from './mobileSheetPullDown.js';
 
 const getFallbackHeight = (win) => {
     const height = Number(win?.innerHeight) || 0;
@@ -56,10 +57,46 @@ export const createMobileJourneyPlanSheet = ({
         return state;
     };
 
+    const beginDrag = (event, { captureEl = null } = {}) => {
+        if (!isEnabled() || !isVisible()) return false;
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        dragSession = createMobileSheetDragSession({
+            startY: Number(event?.clientY) || 0,
+            startOffset: getOffsetForState(state),
+            startState: state,
+            ...getSnapOptions()
+        });
+        if (rootEl?.dataset) rootEl.dataset.journeyPlanSheetDragging = '1';
+        const transformEl = getTransformElement();
+        if (transformEl?.style) transformEl.style.transition = 'none';
+        try {
+            if (event?.pointerId != null) captureEl?.setPointerCapture?.(event.pointerId);
+        } catch {
+            // ignore unsupported pointer capture
+        }
+        return true;
+    };
+
+    const updateDrag = (event) => {
+        if (!dragSession) return false;
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        const session = updateMobileSheetDragSession(dragSession, {
+            clientY: Number(event?.clientY) || dragSession.currentY
+        });
+        const transformEl = getTransformElement();
+        if (session && transformEl?.style) {
+            transformEl.style.transform = `translateY(${session.currentOffset}px)`;
+        }
+        return true;
+    };
+
     const finishDrag = (event, { cancelled = false } = {}) => {
         if (!dragSession) return state;
 
         event?.preventDefault?.();
+        event?.stopPropagation?.();
         const targetState = resolveMobileSheetDragTarget(dragSession, {
             clientY: Number(event?.clientY) || dragSession.currentY,
             cancelled
@@ -77,49 +114,18 @@ export const createMobileJourneyPlanSheet = ({
     const bindHandle = (handleEl) => {
         if (!handleEl?.addEventListener) return null;
 
-        const beginDrag = (event) => {
-            if (!isEnabled() || !isVisible()) return;
-            event.preventDefault?.();
-            event.stopPropagation?.();
-            dragSession = createMobileSheetDragSession({
-                startY: Number(event?.clientY) || 0,
-                startOffset: getOffsetForState(state),
-                startState: state,
-                ...getSnapOptions()
-            });
-            if (rootEl?.dataset) rootEl.dataset.journeyPlanSheetDragging = '1';
-            const transformEl = getTransformElement();
-            if (transformEl?.style) transformEl.style.transition = 'none';
-            try {
-                handleEl.setPointerCapture?.(event.pointerId);
-            } catch {
-                // ignore unsupported pointer capture
-            }
-        };
-
-        const updateDrag = (event) => {
-            if (!dragSession) return;
-            event.preventDefault?.();
-            const session = updateMobileSheetDragSession(dragSession, {
-                clientY: Number(event?.clientY) || dragSession.currentY
-            });
-            const transformEl = getTransformElement();
-            if (session && transformEl?.style) {
-                transformEl.style.transform = `translateY(${session.currentOffset}px)`;
-            }
-        };
-
+        const beginHandleDrag = (event) => beginDrag(event, { captureEl: handleEl });
         const endDrag = (event) => finishDrag(event);
         const cancelDrag = (event) => finishDrag(event, { cancelled: true });
 
-        handleEl.addEventListener('pointerdown', beginDrag);
+        handleEl.addEventListener('pointerdown', beginHandleDrag);
         handleEl.addEventListener('pointermove', updateDrag);
         handleEl.addEventListener('pointerup', endDrag);
         handleEl.addEventListener('pointercancel', cancelDrag);
         handleEl.addEventListener('lostpointercapture', cancelDrag);
 
         return () => {
-            handleEl.removeEventListener('pointerdown', beginDrag);
+            handleEl.removeEventListener('pointerdown', beginHandleDrag);
             handleEl.removeEventListener('pointermove', updateDrag);
             handleEl.removeEventListener('pointerup', endDrag);
             handleEl.removeEventListener('pointercancel', cancelDrag);
@@ -127,12 +133,22 @@ export const createMobileJourneyPlanSheet = ({
         };
     };
 
+    const bindScrollableContent = (scrollEl) => createMobileSheetPullDownController({
+        scrollEl,
+        doc: rootEl?.ownerDocument || win?.document || globalThis.document,
+        isEnabled: () => isEnabled() && isVisible(),
+        beginSheetDrag: (event) => beginDrag(event),
+        updateSheetDrag: updateDrag,
+        endSheetDrag: finishDrag
+    });
+
     win?.addEventListener?.('resize', () => {
         if (isVisible()) applyState(state, { transition: false });
     });
 
     return {
         bindHandle,
+        bindScrollableContent,
         getState: () => state,
         hide() {
             if (rootEl?.dataset) rootEl.dataset.journeyPlanSheetState = 'hidden';
