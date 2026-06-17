@@ -2828,7 +2828,8 @@ html[data-theme="dark"] .ms-show-icon-btn {
     flex: 1 1 auto;
     overflow-y: auto;
     overflow-x: hidden;
-    overscroll-behavior: contain;
+    overscroll-behavior: none;
+    overscroll-behavior-y: none;
     touch-action: pan-y;
     padding-bottom: var(--mobile-bottom-nav-clearance);
     scroll-padding-bottom: var(--mobile-bottom-nav-clearance);
@@ -3971,6 +3972,8 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     max-height: none;
     padding-bottom: calc(6px + var(--mobile-bottom-nav-clearance));
     scroll-padding-bottom: var(--mobile-bottom-nav-clearance);
+    overscroll-behavior: none;
+    overscroll-behavior-y: none;
 }
 
 [data-panel-root][data-panel-presentation='mobile'] .panel-trip-detail[data-panel-trip-detail-presentation='mobile'] .panel-trip-detail-row {
