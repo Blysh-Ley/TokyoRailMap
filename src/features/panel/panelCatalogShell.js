@@ -615,8 +615,9 @@ export const buildPanelCompaniesHtml = (props = {}, {
                 ? THROUGH_SERVICE_CONFIGS.some((info) => info.tempId === line.lineId || info.lineId === line.lineId)
                 : false;
             const boldClass = isVirtualThrough ? ' panel-line-name-main-bold' : '';
-            const style = typeof line.color === 'string' && line.color.trim()
-                ? ` style="color:${escapeHtml_panelCompanyCatalogRenderer(line.color.trim())}"`
+            const safeLineColor = typeof line.color === 'string' ? line.color.trim() : '';
+            const style = safeLineColor
+                ? ` style="color:${escapeHtml_panelCompanyCatalogRenderer(safeLineColor)};--panel-line-accent:${escapeHtml_panelCompanyCatalogRenderer(safeLineColor)}"`
                 : '';
             const transferMetaRaw = line.lineId
                 ? (lineStationNameByLineId?.get?.(line.lineId) || lineStationNameByLineId?.[line.lineId] || null)
@@ -642,13 +643,15 @@ export const buildPanelCompaniesHtml = (props = {}, {
 
             linesHtml += `
                 <div class="panel-line"${idAttr}${style}>
-                    <div class="panel-line-header">
-                        <span class="panel-line-name" data-line-name="${escapeHtml_panelCompanyCatalogRenderer(line.displayName)}"${transferCodeAttr}><span class="panel-line-name-main${boldClass}">${escapeHtml_panelCompanyCatalogRenderer(line.displayName)}</span></span>
-                    </div>
-                    ${suffixHtml ? `<div class="panel-line-suffix-row" data-line-suffix-row="1">${suffixHtml}</div>` : ''}
-                    <div class="panel-station-info" data-station-info="1">
-                        <span class="panel-station-info-left"></span>
-                        <span class="panel-station-info-types" data-station-type-summary="1"></span>
+                    <div class="panel-line-top">
+                        <div class="panel-line-header">
+                            <span class="panel-line-name" data-line-name="${escapeHtml_panelCompanyCatalogRenderer(line.displayName)}"${transferCodeAttr}><span class="panel-line-name-main${boldClass}">${escapeHtml_panelCompanyCatalogRenderer(line.displayName)}</span></span>
+                        </div>
+                        ${suffixHtml ? `<div class="panel-line-suffix-row" data-line-suffix-row="1">${suffixHtml}</div>` : ''}
+                        <div class="panel-station-info" data-station-info="1">
+                            <span class="panel-station-info-left"></span>
+                            <span class="panel-station-info-types" data-station-type-summary="1"></span>
+                        </div>
                     </div>
                     <div class="panel-timetable-root" data-timetable-root="1"></div>
                 </div>

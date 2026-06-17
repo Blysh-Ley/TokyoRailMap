@@ -2884,6 +2884,36 @@ html[data-theme="dark"] .ms-show-icon-btn {
     cursor: default;
 }
 
+.panel-popup .panel-company-lines {
+    gap: 8px;
+}
+
+.panel-popup .panel-company-lines .panel-line {
+    position: relative;
+    --panel-line-accent: currentColor;
+    padding: 10px 12px 10px 18px;
+    border: 1px solid color-mix(in srgb, currentColor 68%, #ffffff);
+    border-radius: 8px;
+    background:
+        linear-gradient(90deg, color-mix(in srgb, currentColor 8%, transparent), transparent 42px),
+        rgba(255, 255, 255, 0.78);
+    box-shadow: 0 1px 4px rgba(18, 24, 38, 0.08);
+    overflow: hidden;
+}
+
+.panel-popup .panel-company-lines .panel-line::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 6px;
+    background: currentColor;
+}
+
+.panel-popup .panel-company-lines .panel-line > * {
+    position: relative;
+    z-index: 1;
+}
+
 .panel-line-header {
     display: flex;
     align-items: center;
@@ -3091,6 +3121,15 @@ html[data-theme="dark"] .ms-show-icon-btn {
     gap: 8px;
     cursor: pointer;
     user-select: none;
+}
+
+.panel-popup .panel-company-lines .panel-line .panel-dir-header {
+    margin: 8px -12px 5px -12px;
+    padding: 7px 12px;
+    border-top: 1px solid color-mix(in srgb, var(--panel-line-accent) 20%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-line-accent) 18%, transparent);
+    border-radius: 0;
+    background: color-mix(in srgb, var(--panel-line-accent) 10%, #ffffff);
 }
 
 .panel-dir-title {
@@ -6166,6 +6205,20 @@ html[data-theme='dark'] .is-origin-flag {
 html[data-theme='dark'] .panel-timetable.panel-timetable-view-grid {
     background: rgba(24, 27, 33, 0.65);
     border: 1px solid rgba(90, 93, 98, 0.55);
+}
+
+html[data-theme='dark'] .panel-popup .panel-company-lines .panel-line {
+    border-color: color-mix(in srgb, currentColor 68%, #101216);
+    background:
+        linear-gradient(90deg, color-mix(in srgb, currentColor 14%, transparent), transparent 42px),
+        rgba(24, 27, 33, 0.68);
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.28);
+}
+
+html[data-theme='dark'] .panel-popup .panel-company-lines .panel-line .panel-dir-header {
+    border-top-color: color-mix(in srgb, var(--panel-line-accent) 26%, transparent);
+    border-bottom-color: color-mix(in srgb, var(--panel-line-accent) 22%, transparent);
+    background: color-mix(in srgb, var(--panel-line-accent) 18%, rgba(24, 27, 33, 0.92));
 }
 
 
