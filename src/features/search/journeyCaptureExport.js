@@ -1,3 +1,5 @@
+import { shareOrDownloadArtifact } from '../../services/nativeExportShareService.js';
+
 const normalizeText = (value) => String(value ?? '').trim();
 
 let html2canvasPromise = null;
@@ -185,7 +187,15 @@ export const exportJourneyPopoverToPng = async (element, filenameBase, buttonEl)
         }
 
         const base = sanitizeJourneyExportFilePart(filenameBase) || 'journey-detail';
-        downloadJourneyBlob(blob, `${base}-${formatJourneyExportTimestamp()}.png`);
+        const filename = `${base}-${formatJourneyExportTimestamp()}.png`;
+        await shareOrDownloadArtifact({
+            blob,
+            filename,
+            mimeType: 'image/png',
+            title: 'TokyoRailMap',
+            dialogTitle: '分享行程截图',
+            fallbackDownload: downloadJourneyBlob
+        });
     } catch {
         // Preserve legacy behavior: export failures do not surface in the UI.
     } finally {

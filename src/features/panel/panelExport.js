@@ -1,6 +1,6 @@
-
-
 // panelExportCapture.js
+import { shareOrDownloadArtifact } from '../../services/nativeExportShareService.js';
+
 const HTML2CANVAS_SRC_panelExportCapture = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
 const defaultToText_panelExportCapture = (value) => String(value ?? '').trim();
 
@@ -82,6 +82,70 @@ export const sanitizePanelExportFilePart = (value) => String(value || '')
     .replace(/\s+/g, '_')
     .replace(/[^A-Za-z0-9_.\-\u4e00-\u9fa5]/g, '_')
     .slice(0, 120);
+
+const PANEL_EXPORT_DESKTOP_WIDTH_PX = 440;
+const PANEL_EXPORT_DESKTOP_MIN_WINDOW_WIDTH_PX = 1024;
+
+export const applyPanelTripDetailDesktopExportLayout = (element, {
+    HTMLElementRef = globalThis.HTMLElement
+} = {}) => {
+    if (!HTMLElementRef || !(element instanceof HTMLElementRef)) return () => {};
+
+    const isMobilePresentation = element.getAttribute?.('data-panel-trip-detail-presentation') === 'mobile';
+    const panelRoot = element.closest?.('[data-panel-root]');
+    const isInsideMobilePanel = panelRoot?.getAttribute?.('data-panel-presentation') === 'mobile';
+    if (!isMobilePresentation && !isInsideMobilePanel) return () => {};
+
+    const styleProps = [
+        'position',
+        'left',
+        'right',
+        'top',
+        'bottom',
+        'width',
+        'minWidth',
+        'maxWidth',
+        'height',
+        'maxHeight',
+        'display',
+        'flex',
+        'overflow',
+        'transform',
+        'transition',
+        'pointerEvents'
+    ];
+    const savedStyles = Object.fromEntries(styleProps.map((prop) => [prop, element.style[prop] || '']));
+    const savedPresentation = element.getAttribute('data-panel-trip-detail-presentation');
+    const hadExportClass = element.classList.contains('is-panel-trip-detail-desktop-export-layout');
+
+    element.setAttribute('data-panel-trip-detail-presentation', 'desktop');
+    element.classList.add('is-panel-trip-detail-desktop-export-layout');
+    element.style.position = 'fixed';
+    element.style.left = '-100000px';
+    element.style.right = 'auto';
+    element.style.top = '0';
+    element.style.bottom = 'auto';
+    element.style.width = `${PANEL_EXPORT_DESKTOP_WIDTH_PX}px`;
+    element.style.minWidth = `${PANEL_EXPORT_DESKTOP_WIDTH_PX}px`;
+    element.style.maxWidth = 'none';
+    element.style.height = 'auto';
+    element.style.maxHeight = 'none';
+    element.style.display = 'block';
+    element.style.flex = '0 0 auto';
+    element.style.overflow = 'visible';
+    element.style.transform = 'none';
+    element.style.transition = 'none';
+    element.style.pointerEvents = 'none';
+
+    return () => {
+        if (!hadExportClass) element.classList.remove('is-panel-trip-detail-desktop-export-layout');
+        if (savedPresentation == null) element.removeAttribute('data-panel-trip-detail-presentation');
+        else element.setAttribute('data-panel-trip-detail-presentation', savedPresentation);
+        for (const [prop, value] of Object.entries(savedStyles)) {
+            element.style[prop] = value;
+        }
+    };
+};
 
 export const nextFrame = (requestFrame = globalThis.window?.requestAnimationFrame?.bind(globalThis.window)) => new Promise((resolve) => {
     if (typeof requestFrame === 'function') {
@@ -186,11 +250,13 @@ export const exportElementToPng = async (element, filenameBase, buttonEl, {
     documentRef = globalThis.document,
     windowRef = globalThis.window,
     ensureHtml2canvas = ensurePanelHtml2canvas,
+    applyDesktopExportLayoutFn = applyPanelTripDetailDesktopExportLayout,
     collectScrollableStateFn = collectScrollableState,
     restoreScrollableStateFn = restoreScrollableState,
     nextFrameFn = nextFrame,
     canvasToBlobPngFn = canvasToBlobPng,
     downloadBlobFn = downloadBlob,
+    shareOrDownloadArtifactFn = shareOrDownloadArtifact,
     sanitizeFilePartFn = sanitizePanelExportFilePart,
     nowIsoCompactFn = nowIsoCompact,
     logger = console
@@ -201,10 +267,12 @@ export const exportElementToPng = async (element, filenameBase, buttonEl, {
     const previousDisabled = button?.disabled;
     const exportClass = 'is-panel-trip-detail-exporting';
     let exportStyleEl = null;
+    let restoreDesktopExportLayout = () => {};
 
     try {
         if (button) button.disabled = true;
         const html2canvas = await ensureHtml2canvas({ documentRef, windowRef });
+        restoreDesktopExportLayout = applyDesktopExportLayoutFn(element, { HTMLElementRef });
         const states = collectScrollableStateFn(element, { HTMLElementRef, windowRef });
         await nextFrameFn(windowRef?.requestAnimationFrame?.bind?.(windowRef));
         await nextFrameFn(windowRef?.requestAnimationFrame?.bind?.(windowRef));
@@ -217,8 +285,11 @@ export const exportElementToPng = async (element, filenameBase, buttonEl, {
                 exportStyleEl?.setAttribute?.('data-panel-trip-detail-export-style', '1');
                 if (exportStyleEl) {
                     exportStyleEl.textContent = `
-                        html.${exportClass} .panel-trip-detail { border-radius: 0 !important; border: none !important; box-shadow: none !important; width: max-content !important; max-width: none !important; }
-                        html.${exportClass} .panel-trip-detail-body { max-height: none !important; overflow: visible !important; }
+                        html.${exportClass} .panel-trip-detail { border-radius: 0 !important; border: none !important; box-shadow: none !important; max-width: none !important; max-height: none !important; overflow: visible !important; }
+                        html.${exportClass} .panel-trip-detail.is-panel-trip-detail-desktop-export-layout { width: ${PANEL_EXPORT_DESKTOP_WIDTH_PX}px !important; min-width: ${PANEL_EXPORT_DESKTOP_WIDTH_PX}px !important; display: block !important; background: #fff !important; }
+                        html.${exportClass} .panel-trip-detail.is-panel-trip-detail-desktop-export-layout .panel-trip-detail-header { display: flex !important; }
+                        html.${exportClass} .panel-trip-detail.is-panel-trip-detail-desktop-export-layout .panel-trip-detail-back-btn { display: none !important; }
+                        html.${exportClass} .panel-trip-detail-body { max-height: none !important; overflow: visible !important; padding-bottom: 6px !important; }
                         html.${exportClass} .panel-trip-detail-table { width: max-content !important; max-width: none !important; }
                         html.${exportClass} .panel-trip-detail-station,
                         html.${exportClass} .panel-trip-detail-station-marquee { max-width: none !important; overflow: visible !important; }
@@ -229,11 +300,23 @@ export const exportElementToPng = async (element, filenameBase, buttonEl, {
                 }
             }
 
+            const exportRect = element.getBoundingClientRect?.();
+            const exportWindowWidth = Math.max(
+                PANEL_EXPORT_DESKTOP_MIN_WINDOW_WIDTH_PX,
+                Math.ceil(exportRect?.width || element.scrollWidth || PANEL_EXPORT_DESKTOP_WIDTH_PX)
+            );
+            const exportWindowHeight = Math.max(
+                720,
+                Math.ceil(element.scrollHeight || exportRect?.height || 0)
+            );
+
             const canvas = await html2canvas(element, {
                 useCORS: true,
                 backgroundColor: '#fff',
                 logging: false,
-                scale: Math.max(2, Math.ceil(windowRef?.devicePixelRatio || 1))
+                scale: Math.max(2, Math.ceil(windowRef?.devicePixelRatio || 1)),
+                windowWidth: exportWindowWidth,
+                windowHeight: exportWindowHeight
             });
             blob = await canvasToBlobPngFn(canvas);
         } finally {
@@ -246,17 +329,30 @@ export const exportElementToPng = async (element, filenameBase, buttonEl, {
                 }
             }
             restoreScrollableStateFn(states, { HTMLElementRef });
+            restoreDesktopExportLayout();
+            restoreDesktopExportLayout = () => {};
         }
 
         const base = sanitizeFilePartFn(filenameBase) || 'panel';
-        downloadBlobFn(blob, `${base}-${nowIsoCompactFn()}.png`, {
-            documentRef,
-            windowRef,
-            URLRef: globalThis.URL
+        const filename = `${base}-${nowIsoCompactFn()}.png`;
+        await shareOrDownloadArtifactFn({
+            blob,
+            filename,
+            mimeType: 'image/png',
+            title: 'TokyoRailMap',
+            dialogTitle: '分享行程截图',
+            target: windowRef || globalThis,
+            logger,
+            fallbackDownload: (fallbackBlob, fallbackFilename) => downloadBlobFn(fallbackBlob, fallbackFilename, {
+                documentRef,
+                windowRef,
+                URLRef: globalThis.URL
+            })
         });
     } catch (error) {
         logger?.error?.('[panel] export png failed', error);
     } finally {
+        restoreDesktopExportLayout();
         if (button) button.disabled = !!previousDisabled;
     }
 };
@@ -409,4 +505,3 @@ export const createPanelPrintRequestController = ({
         requestLineTimetableImage
     };
 };
-

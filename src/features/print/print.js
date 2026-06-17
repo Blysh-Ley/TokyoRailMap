@@ -1192,6 +1192,25 @@
         setTimeout(() => URL.revokeObjectURL(url), 2000);
     };
 
+    const shareOrDownloadBlob = async ({ blob, filename, mimeType, dialogTitle }) => {
+        const api = window?.TokyoRailNativeExportShare;
+        if (typeof api?.shareOrDownloadArtifact === 'function') {
+            return await api.shareOrDownloadArtifact({
+                blob,
+                filename,
+                mimeType,
+                title: 'TokyoRailMap',
+                dialogTitle,
+                fallbackDownload: (fallbackBlob, fallbackFilename) => downloadBlob({
+                    blob: fallbackBlob,
+                    filename: fallbackFilename
+                })
+            });
+        }
+        downloadBlob({ blob, filename });
+        return { shared: false, downloaded: true, fallback: true };
+    };
+
     // 增加 capsules 参数
     const buildSvgFromBuilt = async ({ map, payload, built, backgroundImageHref, transparentBackground = false, capsules, stationLabelScale = 1 }) => {
         const container = map.getContainer?.();
@@ -2297,10 +2316,20 @@
                         width: outW,
                         height: outH,
                     });
-                    downloadBlob({ blob: merged, filename: pngName });
+                    await shareOrDownloadBlob({
+                        blob: merged,
+                        filename: pngName,
+                        mimeType: 'image/png',
+                        dialogTitle: '分享路线截图'
+                    });
                 } catch {
                     // 部分浏览器可能限制 SVG -> Canvas；兜底至少提供底图 PNG
-                    downloadBlob({ blob: pngBlob, filename: pngName });
+                    await shareOrDownloadBlob({
+                        blob: pngBlob,
+                        filename: pngName,
+                        mimeType: 'image/png',
+                        dialogTitle: '分享路线截图'
+                    });
                 }
                 return;
             }
@@ -2317,8 +2346,18 @@
             const JSZipCtor = window.JSZip;
             if (!JSZipCtor) {
                 // 无 JSZip：退化为分别下载
-                downloadBlob({ blob: pngBlob, filename: pngName });
-                downloadBlob({ blob: new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' }), filename: svgName });
+                await shareOrDownloadBlob({
+                    blob: pngBlob,
+                    filename: pngName,
+                    mimeType: 'image/png',
+                    dialogTitle: '分享路线截图'
+                });
+                await shareOrDownloadBlob({
+                    blob: new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' }),
+                    filename: svgName,
+                    mimeType: 'image/svg+xml',
+                    dialogTitle: '分享路线 SVG'
+                });
                 return;
             }
 
@@ -2326,7 +2365,12 @@
             zip.file(pngName, pngBlob);
             zip.file(svgName, svgText);
             const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-            downloadBlob({ blob: zipBlob, filename: zipName });
+            await shareOrDownloadBlob({
+                blob: zipBlob,
+                filename: zipName,
+                mimeType: 'application/zip',
+                dialogTitle: '分享路线导出文件'
+            });
         } catch (err) {
             reportExportError(err);
         } finally {

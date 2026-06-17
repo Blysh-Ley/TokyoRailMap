@@ -1,3 +1,5 @@
+import { shareOrDownloadArtifact } from './nativeExportShareService.js';
+
 const toText = (v) => String(v ?? '').trim();
 
 let html2canvasPromise = null;
@@ -36,6 +38,100 @@ const sanitizeFilePart = (s) => String(s || '')
     .replace(/\s+/g, '_')
     .replace(/[^A-Za-z0-9_.\-\u4e00-\u9fa5]/g, '_')
     .slice(0, 120);
+
+const ROUTE_MAP_EXPORT_DESKTOP_MIN_WIDTH_PX = 1280;
+const ROUTE_MAP_EXPORT_DESKTOP_MAX_WIDTH_PX = 2400;
+
+const clampNumber = (value, min, max) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return min;
+    return Math.min(max, Math.max(min, n));
+};
+
+const applyDesktopExportLayout = (element) => {
+    if (!(element instanceof HTMLElement)) return () => {};
+
+    const wasMobilePlacement = element.classList.contains('is-mobile-panel-placement')
+        || element.getAttribute('data-route-map-mobile-state') != null;
+    if (!wasMobilePlacement) return () => {};
+
+    const styleProps = [
+        'position',
+        'left',
+        'right',
+        'top',
+        'bottom',
+        'width',
+        'minWidth',
+        'maxWidth',
+        'height',
+        'maxHeight',
+        'overflow',
+        'transform',
+        'transition',
+        'pointerEvents',
+        'paddingBottom'
+    ];
+    const savedStyles = Object.fromEntries(styleProps.map((prop) => [prop, element.style[prop] || '']));
+    const savedAttrs = {
+        mobileState: element.getAttribute('data-route-map-mobile-state'),
+        mobileDragging: element.getAttribute('data-route-map-mobile-dragging')
+    };
+    const hadMobileClass = element.classList.contains('is-mobile-panel-placement');
+    const hadPanelClass = element.classList.contains('is-panel-placement');
+
+    element.classList.remove('is-mobile-panel-placement');
+    element.classList.remove('is-panel-placement');
+    element.classList.add('is-route-map-desktop-export-layout');
+    element.removeAttribute('data-route-map-mobile-state');
+    element.removeAttribute('data-route-map-mobile-dragging');
+
+    element.style.position = 'fixed';
+    element.style.left = '-100000px';
+    element.style.right = 'auto';
+    element.style.top = '0';
+    element.style.bottom = 'auto';
+    element.style.width = `${ROUTE_MAP_EXPORT_DESKTOP_MIN_WIDTH_PX}px`;
+    element.style.minWidth = `${ROUTE_MAP_EXPORT_DESKTOP_MIN_WIDTH_PX}px`;
+    element.style.maxWidth = 'none';
+    element.style.height = 'auto';
+    element.style.maxHeight = 'none';
+    element.style.overflow = 'visible';
+    element.style.transform = 'none';
+    element.style.transition = 'none';
+    element.style.pointerEvents = 'none';
+    element.style.paddingBottom = '0';
+
+    return () => {
+        element.classList.remove('is-route-map-desktop-export-layout');
+        if (hadMobileClass) element.classList.add('is-mobile-panel-placement');
+        if (hadPanelClass) element.classList.add('is-panel-placement');
+        if (savedAttrs.mobileState == null) element.removeAttribute('data-route-map-mobile-state');
+        else element.setAttribute('data-route-map-mobile-state', savedAttrs.mobileState);
+        if (savedAttrs.mobileDragging == null) element.removeAttribute('data-route-map-mobile-dragging');
+        else element.setAttribute('data-route-map-mobile-dragging', savedAttrs.mobileDragging);
+        for (const [prop, value] of Object.entries(savedStyles)) {
+            element.style[prop] = value;
+        }
+    };
+};
+
+const fitDesktopExportWidth = (element) => {
+    if (!(element instanceof HTMLElement)) return;
+    if (!element.classList.contains('is-route-map-desktop-export-layout')) return;
+
+    const candidates = [
+        element.scrollWidth,
+        element.querySelector('.route-map-grid-header')?.scrollWidth,
+        element.querySelector('.route-map-body')?.scrollWidth,
+        ...Array.from(element.querySelectorAll('.route-map-grid')).map((node) => node.scrollWidth)
+    ].map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0);
+
+    const contentWidth = candidates.length ? Math.max(...candidates) : ROUTE_MAP_EXPORT_DESKTOP_MIN_WIDTH_PX;
+    const width = clampNumber(contentWidth + 48, ROUTE_MAP_EXPORT_DESKTOP_MIN_WIDTH_PX, ROUTE_MAP_EXPORT_DESKTOP_MAX_WIDTH_PX);
+    element.style.width = `${width}px`;
+    element.style.minWidth = `${width}px`;
+};
 
 const nextFrame = () => new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
 
@@ -155,6 +251,7 @@ export const captureRouteMapElementAsPng = async ({ element, filenameBase, butto
     const prevDisabled = btn?.disabled;
     const EXPORT_CLASS = 'is-route-map-exporting';
     let exportStyleEl = null;
+    let restoreDesktopExportLayout = () => {};
 
     const typeheadPatches = [];
     let exportMeasureSpan = null;
@@ -285,6 +382,7 @@ export const captureRouteMapElementAsPng = async ({ element, filenameBase, butto
     try {
         if (btn) btn.disabled = true;
         const html2canvas = await ensureHtml2canvas();
+        restoreDesktopExportLayout = applyDesktopExportLayout(element);
         const states = collectScrollableState(element);
         await nextFrame();
         await nextFrame();
@@ -319,7 +417,24 @@ export const captureRouteMapElementAsPng = async ({ element, filenameBase, butto
                         border-radius: 0 !important;
                         border: none !important;
                         box-shadow: none !important;
-                        overflow: hidden !important;
+                        overflow: visible !important;
+                        max-width: none !important;
+                        max-height: none !important;
+                    }
+                    html.${EXPORT_CLASS} .route-map-popover.is-route-map-desktop-export-layout {
+                        border-radius: 0 !important;
+                        transform: none !important;
+                    }
+                    html.${EXPORT_CLASS} .route-map-popover.is-route-map-desktop-export-layout .route-map-mobile-drag-bar {
+                        display: none !important;
+                    }
+                    html.${EXPORT_CLASS} .route-map-popover.is-route-map-desktop-export-layout .route-map-body,
+                    html.${EXPORT_CLASS} .route-map-popover.is-route-map-desktop-export-layout .route-map-grid-header {
+                        overflow: visible !important;
+                        max-height: none !important;
+                    }
+                    html.${EXPORT_CLASS} .route-map-popover.is-route-map-desktop-export-layout .route-map-body {
+                        padding-bottom: 0 !important;
                     }
                     html.${EXPORT_CLASS} .route-map-grid-header .route-map-grid {
                         align-items: end !important;
@@ -399,12 +514,27 @@ export const captureRouteMapElementAsPng = async ({ element, filenameBase, butto
             applyTypeheadExportPatch(element);
 
             await nextFrame();
+            fitDesktopExportWidth(element);
+            await nextFrame();
+
+            const exportRect = element.getBoundingClientRect?.();
+            const exportWindowWidth = clampNumber(
+                Math.ceil(exportRect?.width || element.scrollWidth || ROUTE_MAP_EXPORT_DESKTOP_MIN_WIDTH_PX),
+                ROUTE_MAP_EXPORT_DESKTOP_MIN_WIDTH_PX,
+                ROUTE_MAP_EXPORT_DESKTOP_MAX_WIDTH_PX
+            );
+            const exportWindowHeight = Math.max(
+                900,
+                Math.ceil(element.scrollHeight || exportRect?.height || 0)
+            );
 
             const canvas = await html2canvas(element, {
                 useCORS: true,
                 backgroundColor: '#fff',
                 logging: false,
-                scale: Math.max(2, Math.ceil(window.devicePixelRatio || 1))
+                scale: Math.max(2, Math.ceil(window.devicePixelRatio || 1)),
+                windowWidth: exportWindowWidth,
+                windowHeight: exportWindowHeight
             });
             blob = await canvasToBlobPng(canvas);
         } finally {
@@ -415,12 +545,22 @@ export const captureRouteMapElementAsPng = async ({ element, filenameBase, butto
                 exportStyleEl = null;
             }
             restoreScrollableState(states);
+            restoreDesktopExportLayout();
+            restoreDesktopExportLayout = () => {};
         }
         const base = sanitizeFilePart(filenameBase) || 'route-map';
-        downloadBlob(blob, `${base}.png`);
+        await shareOrDownloadArtifact({
+            blob,
+            filename: `${base}.png`,
+            mimeType: 'image/png',
+            title: 'TokyoRailMap',
+            dialogTitle: '分享路线图截图',
+            fallbackDownload: downloadBlob
+        });
     } catch (err) {
         console.error('[route-map] export png failed', err);
     } finally {
+        restoreDesktopExportLayout();
         if (btn) btn.disabled = !!prevDisabled;
     }
 };

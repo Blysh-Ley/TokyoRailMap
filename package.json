@@ -109,10 +109,12 @@
     }
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.4.0",
     "@capacitor/android": "^8.4.0",
     "@capacitor/app": "^8.1.0",
+    "@capacitor/cli": "^8.4.0",
     "@capacitor/core": "^8.4.0",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/share": "^8.0.1",
     "electron": "^41.2.1",
     "electron-builder": "^24.13.3",
     "japanese-holidays": "^1.0.10",

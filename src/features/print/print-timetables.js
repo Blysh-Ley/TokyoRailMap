@@ -4,6 +4,7 @@
  */
 import { getCachedJson } from '../../lib/fetch.js';
 import { getMacaronColor } from '../../lib/macaron.js';
+import { shareOrDownloadArtifact } from '../../services/nativeExportShareService.js';
 (() => {
     'use strict';
 
@@ -48,6 +49,25 @@ import { getMacaronColor } from '../../lib/macaron.js';
         .replace(/\s+/g, '_')
         .replace(/[^A-Za-z0-9_.\-\u4e00-\u9fa5]/g, '_')
         .slice(0, 120);
+
+    const savePdfArtifact = async (pdf, fileName, {
+        dialogTitle = '分享时刻表 PDF'
+    } = {}) => {
+        if (!pdf) return;
+        if (typeof pdf.output !== 'function') {
+            pdf.save(fileName);
+            return;
+        }
+        const blob = pdf.output('blob');
+        await shareOrDownloadArtifact({
+            blob,
+            filename: fileName,
+            mimeType: 'application/pdf',
+            title: 'TokyoRailMap',
+            dialogTitle,
+            fallbackDownload: () => pdf.save(fileName)
+        });
+    };
 
     const normalizeArrayLike = (value) => {
         if (Array.isArray(value)) return value;
@@ -626,7 +646,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
             const lineName = sanitizeFilePart(detail.lineName || detail.lineId || 'line');
             const dirName = sanitizeFilePart(detail.dirLabel || detail.dirKey || 'dir');
             const fileName = `${stationName}_${lineName}_${dirName}时刻.pdf`;
-            pdf.save(fileName);
+            await savePdfArtifact(pdf, fileName);
         } finally {
             root.remove();
         }
@@ -1636,7 +1656,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
 
         const stationName = sanitizeFilePart(detail.stationName || pages[0]?.stationName || 'station');
         const fileName = `总时刻表_${stationName}.pdf`;
-        pdf.save(fileName);
+        await savePdfArtifact(pdf, fileName);
     };
 
     const exportAllLinesToPdf = async (detail = {}) => {
@@ -1792,7 +1812,7 @@ import { getMacaronColor } from '../../lib/macaron.js';
             ? '平日_周六节假日'
             : (toText(pages[0]?.serviceDay) === 'SaturdayHoliday' ? '休息日' : '工作日');
         const fileName = `${stationName}_${serviceDay}总时刻表.pdf`;
-        pdf.save(fileName);
+        await savePdfArtifact(pdf, fileName);
     };
 
     const exportRouteMapLineStationsToPdf = async (detail = {}) => {
@@ -1888,7 +1908,10 @@ import { getMacaronColor } from '../../lib/macaron.js';
 
         if (!pageCount || !pdf) return;
 
-        pdf.save(`${lineNameForFile}_\u5168\u7ad9_\u5e73\u65e5_\u5468\u516d\u8282\u5047\u65e5\u65f6\u523b\u8868.pdf`);
+        await savePdfArtifact(
+            pdf,
+            `${lineNameForFile}_\u5168\u7ad9_\u5e73\u65e5_\u5468\u516d\u8282\u5047\u65e5\u65f6\u523b\u8868.pdf`
+        );
     };
 
     const onPrintRequest = async (evt) => {
