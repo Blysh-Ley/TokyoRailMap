@@ -507,6 +507,11 @@ export function createPanel(options = {}) {
             panelCatalogController?.syncTitleForActiveLine(activeLineId);
         }
     });
+
+    /*
+     * PC panel catalog is intentionally disabled.
+     * Keep the controller wiring here for future restore, but do not mount it.
+     *
     panelCatalogController = createPanelCatalogController({
         body,
         documentRef: document,
@@ -534,6 +539,7 @@ export function createPanel(options = {}) {
         stopEvent,
         toText
     });
+     */
 
     tripDetailRoot.addEventListener('pointerdown', (e) => {
         tripDetailPinned = true;
