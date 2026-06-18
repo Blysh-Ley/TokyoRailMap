@@ -10,9 +10,19 @@ const setAttributes = (node, attrs = {}) => {
     return node;
 };
 
-const createSvgNode = (documentRef, tagName, attrs = {}) => {
+const setStyles = (node, styles = {}) => {
+    if (!node?.style) return node;
+    for (const [key, value] of Object.entries(styles)) {
+        if (value == null) continue;
+        node.style[key] = String(value);
+    }
+    return node;
+};
+
+const createSvgNode = (documentRef, tagName, attrs = {}, styles = {}) => {
     const node = documentRef.createElementNS(SVG_NS, tagName);
-    return setAttributes(node, attrs);
+    setAttributes(node, attrs);
+    return setStyles(node, styles);
 };
 
 const clearChildren = (node) => {
@@ -135,13 +145,28 @@ const getTextModel = ({ code, preset, dark, fillColor }) => {
         };
     }
 
+    if (preset === 'circle-thin-border') {
+        return {
+            color: dark ? '#fff' : '#000',
+            fontSize: length <= 1 ? 48 : (length === 2 ? 40 : 29),
+            y: 50
+        };
+    }
+
     if (preset === 'rectangle') {
         return {
             color: dark ? '#000' : '#fff',
             fontSize: length <= 1 ? 63 : (length === 2 ? 53 : 34),
-            y: 52,
-            textLength: length <= 1 ? 38 : (length === 2 ? 58 : 72),
-            transform: 'translate(0 -3)'
+            y: 50,
+            textLength: length <= 1 ? 38 : (length === 2 ? 58 : 72)
+        };
+    }
+
+    if (preset === 'rectangle-border') {
+        return {
+            color: dark ? '#fff' : '#000',
+            fontSize: length <= 1 ? 48 : (length === 2 ? 40 : 29),
+            y: 50
         };
     }
 
@@ -149,7 +174,7 @@ const getTextModel = ({ code, preset, dark, fillColor }) => {
         return {
             color: '#000',
             fontSize: length <= 1 ? 48 : (length === 2 ? 40 : 29),
-            y: 52
+            y: 50
         };
     }
 
@@ -157,8 +182,7 @@ const getTextModel = ({ code, preset, dark, fillColor }) => {
         return {
             color: fillColor || '#000',
             fontSize: length <= 1 ? 56 : (length === 2 ? 46 : 34),
-            y: 51,
-            transform: 'translate(0 -3)'
+            y: 52
         };
     }
 
@@ -166,8 +190,7 @@ const getTextModel = ({ code, preset, dark, fillColor }) => {
         return {
             color: '#000',
             fontSize: length <= 1 ? 48 : (length === 2 ? 36 : 24),
-            y: 65,
-            transform: 'translate(0 -35)'
+            y: 32,
         };
     }
 
@@ -182,7 +205,7 @@ const getTextModel = ({ code, preset, dark, fillColor }) => {
     return {
         color: dark ? '#fff' : '#000',
         fontSize: length <= 1 ? 48 : (length === 2 ? 40 : 29),
-        y: 52
+        y: 50
     };
 };
 
@@ -233,7 +256,9 @@ export const renderLineIconSvg = (root, {
     fillColor = '#888',
     backgroundColor = '#fff',
     dark = false,
-    trainIconHref = ''
+    trainIconHref = '',
+    rootStyle = {},
+    svgStyle = {}
 } = {}) => {
     if (!root?.style || !documentRef?.createElementNS) return null;
 
@@ -248,8 +273,11 @@ export const renderLineIconSvg = (root, {
         focusable: 'false',
         role: 'img'
     });
-    svg.style.display = 'block';
-    svg.style.overflow = 'visible';
+    setStyles(svg, {
+        display: 'block',
+        overflow: 'visible',
+        ...svgStyle
+    });
 
     if (isTrainPreset) {
         appendTrainImage({ svg, documentRef, trainIconHref });
@@ -274,24 +302,27 @@ export const renderLineIconSvg = (root, {
         });
     }
 
-    root.style.display = 'inline-flex';
-    root.style.alignItems = 'center';
-    root.style.justifyContent = 'center';
-    root.style.boxSizing = 'border-box';
-    root.style.flex = '0 0 auto';
-    root.style.userSelect = 'none';
-    root.style.width = root.style.width || '25px';
-    root.style.height = root.style.height || '25px';
-    root.style.padding = '0';
-    root.style.border = '0';
-    root.style.borderRadius = '0';
-    root.style.background = 'transparent';
-    root.style.color = 'inherit';
-    root.style.lineHeight = '0';
-    root.style.letterSpacing = '0';
-    root.style.fontSize = '';
-    root.style.fontWeight = '';
-    root.style.overflow = 'visible';
+    setStyles(root, {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxSizing: 'border-box',
+        flex: '0 0 auto',
+        userSelect: 'none',
+        width: root.style.width || '25px',
+        height: root.style.height || '25px',
+        padding: '0',
+        border: '0',
+        borderRadius: '0',
+        background: 'transparent',
+        color: 'inherit',
+        lineHeight: '0',
+        letterSpacing: '0',
+        fontSize: '',
+        fontWeight: '',
+        overflow: 'visible',
+        ...rootStyle
+    });
 
     clearChildren(root);
     root.appendChild(svg);
