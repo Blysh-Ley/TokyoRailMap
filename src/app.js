@@ -26,6 +26,7 @@ import {
     addLinesLayer,
     addStationLabelsLayer,
     addStationsLayer,
+    buildLineNameLabelsLayerPaint,
     buildStationLabelsLayerPaint,
     setupLineHoverPopup,
     setupStationPopup
@@ -397,6 +398,18 @@ const initMapApp = async () => {
     const SELECTION_LINE_TRIP_PREVIEW_KEY = 'selection-line';
     const SELECTION_COMPANY_TRIP_PREVIEW_SOURCE = 'selection-company-trip-preview';
     const SELECTION_COMPANY_TRIP_PREVIEW_KEY = 'selection-company';
+
+    const applyLineNameLabelDarkColors = (labelsData) => {
+        const features = Array.isArray(labelsData?.features) ? labelsData.features : [];
+        for (const feature of features) {
+            const props = feature?.properties;
+            if (!props || typeof props !== 'object') continue;
+            const color = String(props.color || '').trim();
+            if (!color) continue;
+            props._dark_color = resolveRailColorForTheme(color, { isDarkThemeActive: true });
+        }
+        return labelsData;
+    };
 
 
     let panel = null;
@@ -2116,7 +2129,7 @@ const initMapApp = async () => {
 
         if (!groups.size) return EMPTY_LINE_NAME_LABELS_DATA;
 
-        return buildLineNameLabelGeoJSON(Array.from(groups.values()).map((group) => ({
+        return applyLineNameLabelDarkColors(buildLineNameLabelGeoJSON(Array.from(groups.values()).map((group) => ({
             type: 'Feature',
             id: group.id,
             properties: {
@@ -2130,7 +2143,7 @@ const initMapApp = async () => {
                 type: 'MultiLineString',
                 coordinates: group.chains
             }
-        })));
+        }))));
     };
 
     const syncLineNameLabelDataForCurrentState = () => {
@@ -2311,6 +2324,7 @@ const initMapApp = async () => {
             }
         });
         mapEngine.applyPaintProperties?.('station-labels-layer', buildStationLabelsLayerPaint({ isDark: dark }));
+        mapEngine.applyPaintProperties?.('line-name-labels-layer', buildLineNameLabelsLayerPaint({ isDark: dark }));
         mapEngine.setLayoutProperty?.(
             'station-labels-layer',
             'icon-image',
@@ -3228,7 +3242,7 @@ const initMapApp = async () => {
             diagnostics
         } = await loadRailGeoDataFromDataFolder();
         generatedLinesData = linesGeoJSON;
-        generatedLineNameLabelsData = lineNameLabelsGeoJSON;
+        generatedLineNameLabelsData = applyLineNameLabelDarkColors(lineNameLabelsGeoJSON);
         generatedStationsData = stationsGeoJSON;
         generatedRawRailways = rawRailways;
         generatedRawStations = rawStations;

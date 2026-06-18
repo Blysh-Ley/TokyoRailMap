@@ -207,6 +207,11 @@ const shouldShowLineNameLabel = (name) => {
 
 const roundOffset = (value) => Math.round(value * 10000) / 10000;
 
+const optionalTextProperty = (key, value) => {
+    const text = toText(value);
+    return text ? { [key]: text } : {};
+};
+
 const buildLineNameTextOffset = (lineOffsetUnits) => {
     const units = Number(lineOffsetUnits);
 
@@ -336,7 +341,8 @@ export const buildLineNameLabelGeoJSON = (lineFeatures = []) => {
                 properties: {
                     id: lineId,
                     name,
-                    color: toText(props.color),
+                    ...optionalTextProperty('color', props.color),
+                    ...optionalTextProperty('_dark_color', props._dark_color),
                     line_offset_units: lineOffsetUnits,
                     text_offset: buildLineNameTextOffset(lineOffsetUnits),
                     label_index: index + 1,

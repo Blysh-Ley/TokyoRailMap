@@ -238,15 +238,35 @@ export function addLineNameLabelsLayer(mapOrEngine, labelsData) {
                 'text-ignore-placement': false,
                 'text-padding': 2
             },
-            paint: {
-                'text-color': ['coalesce', ['get', 'color'], '#2f6fdf'],
-                'text-halo-color': ['coalesce', ['get', 'color'], '#2f6fdf'],
-                'text-halo-width': 0.35,
-                'text-opacity': ['interpolate', ['linear'], ['zoom'], 7.5, 0, 8.5, 1]
-            }
+            paint: buildLineNameLabelsLayerPaint({ isDark: isDarkThemeActive() })
         }, beforeLayerId);
     }
 }
+
+const buildLineNameLabelColorExpr = (isDark) => {
+    const colorExpr = ['coalesce', ['get', 'color'], ''];
+    const darkColorExpr = ['coalesce', ['get', '_dark_color'], ''];
+    const fallback = '#2f6fdf';
+    if (!isDark) {
+        return ['case', ['!=', colorExpr, ''], colorExpr, fallback];
+    }
+    return [
+        'case',
+        ['!=', darkColorExpr, ''], darkColorExpr,
+        ['!=', colorExpr, ''], colorExpr,
+        fallback
+    ];
+};
+
+export const buildLineNameLabelsLayerPaint = ({
+    isDark = (typeof document !== 'undefined' && isDarkThemeActive())
+} = {}) => ({
+    'text-color': buildLineNameLabelColorExpr(isDark),
+    'text-halo-color': isDark ? 'rgba(16, 18, 22, 0.82)' : 'rgba(255, 255, 255, 0.86)',
+    'text-halo-width': isDark ? 0.75 : 0.65,
+    'text-halo-blur': 0,
+    'text-opacity': ['interpolate', ['linear'], ['zoom'], 7.5, 0, 8.5, 1]
+});
 
 export const STATION_LABELS_SOURCE_ID = 'station-labels-source';
 export const STATION_LABELS_LAYER_ID = 'station-labels-layer';
