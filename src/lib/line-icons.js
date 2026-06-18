@@ -25,6 +25,25 @@ const applyStyleMap = (el, styles = {}) => {
     }
 };
 
+const resolveStationStyleValue = (value, context = {}) => {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+        if ('dark' in value || 'light' in value) return context.dark ? value.dark : value.light;
+        return value;
+    }
+    if (typeof value !== 'string') return value;
+    if (Object.prototype.hasOwnProperty.call(context, value)) return context[value];
+    return value;
+};
+
+const applyStationStyleMap = (el, styles = {}, context = {}) => {
+    if (!(el instanceof HTMLElement)) return;
+    const resolved = {};
+    for (const [key, value] of Object.entries(styles || {})) {
+        resolved[key] = resolveStationStyleValue(value, context);
+    }
+    applyStyleMap(el, resolved);
+};
+
 const pickByCodeLength = (rules = [], length = 0, fallback = null) => {
     for (const rule of Array.isArray(rules) ? rules : []) {
         if (!rule || typeof rule !== 'object') continue;
@@ -415,6 +434,7 @@ const applyStationCodeBadgeStyleForTheme = (el) => {
         ? toText(colors.border)
         : routeColor;
     const borderColor = resolveBorderColorForTheme(borderSource) || borderSource || 'transparent';
+    const borderWidth = toText(design.borderWidth) || toText(colors.borderWidth) || toText(styleConfig.borderWidth) || '2px';
     const prefixTextColor = getReadableTextColorForBackground(borderColor);
     const prefixEl = el.querySelector(`.${prefixClass}`);
     const suffixEl = el.querySelector(`.${suffixClass}`);
@@ -426,22 +446,29 @@ const applyStationCodeBadgeStyleForTheme = (el) => {
     const prefixText = toText(colors.prefixText) === 'readableOnPrefixBackground'
         ? getReadableTextColorForBackground(prefixBackground)
         : toText(colors.prefixText) || prefixTextColor;
+    const styleContext = {
+        lineColor: routeColor,
+        borderColor,
+        prefixBackground,
+        prefixText,
+        dark: isDarkThemeActive()
+    };
 
-    applyStyleMap(el, {
+    applyStationStyleMap(el, {
         ...(styleConfig.rootStyle || styleConfig.root || {}),
-        border: `2px solid ${borderColor}`
-    });
+        border: `${borderWidth} solid ${borderColor}`
+    }, styleContext);
 
     if (prefixEl instanceof HTMLElement) {
-        applyStyleMap(prefixEl, {
+        applyStationStyleMap(prefixEl, {
             ...(styleConfig.prefixStyle || styleConfig.prefix || {}),
             backgroundColor: prefixBackground,
             color: prefixText
-        });
+        }, styleContext);
     }
 
     if (suffixEl instanceof HTMLElement) {
-        applyStyleMap(suffixEl, styleConfig.suffixStyle || styleConfig.suffix || {});
+        applyStationStyleMap(suffixEl, styleConfig.suffixStyle || styleConfig.suffix || {}, styleContext);
     }
 
     applyStyleMap(el, pickByCodeLength(design.fontSizeByCodeLength || STATION_BADGE_SETTINGS.fontSizeByCodeLength, code.length, {}));
