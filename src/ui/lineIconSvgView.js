@@ -1,6 +1,10 @@
+import { lineIconSettings } from '../config/lineIconSettings.js';
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const toText = (value) => String(value ?? '').trim();
+const LINE_ICON_SETTINGS = lineIconSettings.lineIcon || {};
+const LINE_ICON_DESIGNS = lineIconSettings.lineIconDesigns || {};
 
 const setAttributes = (node, attrs = {}) => {
     for (const [key, value] of Object.entries(attrs)) {
@@ -31,6 +35,41 @@ const clearChildren = (node) => {
         return;
     }
     while (node.firstChild) node.removeChild(node.firstChild);
+};
+
+const pickByCodeLength = (rules = [], length = 0, fallback = undefined) => {
+    for (const rule of Array.isArray(rules) ? rules : []) {
+        if (!rule || typeof rule !== 'object') continue;
+        const max = Number(rule.max);
+        if (Number.isFinite(max) && length > max) continue;
+        if ('value' in rule) return rule.value;
+        return rule;
+    }
+    return fallback;
+};
+
+const resolveConfiguredValue = (value, context = {}) => {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+        if ('dark' in value || 'light' in value) return context.dark ? value.dark : value.light;
+        return value;
+    }
+    if (typeof value !== 'string') return value;
+    if (Object.prototype.hasOwnProperty.call(context, value)) return context[value];
+    return value;
+};
+
+const resolveConfiguredAttrs = (attrs = {}, context = {}) => {
+    const result = {};
+    for (const [key, value] of Object.entries(attrs || {})) {
+        result[key] = resolveConfiguredValue(value, context);
+    }
+    return result;
+};
+
+const getLineIconDesign = (designName) => {
+    const name = toText(designName);
+    const fallbackName = LINE_ICON_SETTINGS.defaultDesign || 'rectangle-border';
+    return LINE_ICON_DESIGNS[name] || LINE_ICON_DESIGNS[fallbackName] || LINE_ICON_DESIGNS.default || null;
 };
 
 const createNipporiToneriFrame = (documentRef) => {
@@ -71,160 +110,46 @@ const createNipporiToneriFrame = (documentRef) => {
 
 const createShape = ({
     documentRef,
-    preset,
+    design,
     borderColor,
     fillColor,
     backgroundColor
 }) => {
-    switch (preset) {
-        case 'nippori-toneri':
-            return createNipporiToneriFrame(documentRef);
-        case 'circle':
-            return createSvgNode(documentRef, 'circle', {
-                cx: 50,
-                cy: 50,
-                r: 44,
-                fill: fillColor
-            });
-        case 'circle-border':
-            return createSvgNode(documentRef, 'circle', {
-                cx: 50,
-                cy: 50,
-                r: 38,
-                fill: backgroundColor,
-                stroke: borderColor,
-                'stroke-width': 20
-            });
-        case 'circle-thin-border':
-            return createSvgNode(documentRef, 'circle', {
-                cx: 50,
-                cy: 50,
-                r: 41,
-                fill: backgroundColor,
-                stroke: borderColor,
-                'stroke-width': 12
-            });
-        case 'hexagon':
-            return createSvgNode(documentRef, 'polygon', {
-                points: '50 5,89 27,89 73,50 95,11 73,11 27',
-                fill: fillColor
-            });
-        case 'rectangle':
-            return createSvgNode(documentRef, 'rect', {
-                x: 8,
-                y: 8,
-                width: 84,
-                height: 84,
-                rx: 12,
-                fill: fillColor
-            });
-        case 'rectangle-border':
-        default:
-            return createSvgNode(documentRef, 'rect', {
-                x: 10,
-                y: 10,
-                width: 80,
-                height: 80,
-                rx: 11,
-                fill: backgroundColor,
-                stroke: borderColor,
-                'stroke-width': 14
-            });
-    }
+    const shapeConfig = design?.shape || null;
+    if (shapeConfig?.custom === 'nipporiToneriFrame') return createNipporiToneriFrame(documentRef);
+    if (!shapeConfig?.tag) return null;
+
+    return createSvgNode(documentRef, shapeConfig.tag, resolveConfiguredAttrs(shapeConfig.attrs, {
+        borderColor,
+        fillColor,
+        backgroundColor
+    }));
 };
 
-const getTextModel = ({ code, preset, dark, fillColor }) => {
+const getTextModel = ({ code, design, dark, fillColor }) => {
     const length = toText(code).length;
-    const trainPreset = ['arakawa', 'odakyu', 'seibu'].includes(preset);
-
-    if (preset === 'circle') {
-        return {
-            color: dark ? '#000' : '#fff',
-            fontSize: length <= 1 ? 58 : (length === 2 ? 46 : 34),
-            y: 52
-        };
-    }
-
-    if (preset === 'circle-thin-border') {
-        return {
-            color: dark ? '#fff' : '#000',
-            fontSize: length <= 1 ? 48 : (length === 2 ? 40 : 29),
-            y: 50
-        };
-    }
-
-    if (preset === 'rectangle') {
-        return {
-            color: dark ? '#000' : '#fff',
-            fontSize: length <= 1 ? 63 : (length === 2 ? 53 : 34),
-            y: 50,
-            textLength: length <= 1 ? 38 : (length === 2 ? 58 : 72)
-        };
-    }
-
-    if (preset === 'rectangle-border') {
-        return {
-            color: dark ? '#fff' : '#000',
-            fontSize: length <= 1 ? 48 : (length === 2 ? 40 : 29),
-            y: 50
-        };
-    }
-
-    if (preset === 'nippori-toneri') {
-        return {
-            color: '#000',
-            fontSize: length <= 1 ? 48 : (length === 2 ? 40 : 29),
-            y: 50
-        };
-    }
-
-    if (preset === 'odakyu') {
-        return {
-            color: fillColor || '#000',
-            fontSize: length <= 1 ? 56 : (length === 2 ? 46 : 34),
-            y: 52
-        };
-    }
-
-    if (preset === 'seibu') {
-        return {
-            color: '#000',
-            fontSize: length <= 1 ? 48 : (length === 2 ? 36 : 24),
-            y: 32,
-        };
-    }
-
-    if (trainPreset) {
-        return {
-            color: '#000',
-            fontSize: length <= 1 ? 42 : (length === 2 ? 34 : 26),
-            y: 52
-        };
-    }
+    const model = design?.text || {};
 
     return {
-        color: dark ? '#fff' : '#000',
-        fontSize: length <= 1 ? 48 : (length === 2 ? 40 : 29),
-        y: 50
+        ...model,
+        color: resolveConfiguredValue(model.color, { dark, fillColor }),
+        fontSize: pickByCodeLength(model.fontSizeByCodeLength, length, model.fontSize),
+        textLength: pickByCodeLength(model.textLengthByCodeLength, length, model.textLength)
     };
 };
 
-const appendCenteredText = ({ svg, documentRef, code, preset, dark, fillColor }) => {
+const appendCenteredText = ({ svg, documentRef, code, design, dark, fillColor }) => {
     const safeCode = toText(code);
     if (!safeCode) return;
 
-    const textModel = getTextModel({ code: safeCode, preset, dark, fillColor });
-    const textLength = textModel.textLength || (safeCode.length <= 1 ? 32 : (safeCode.length === 2 ? 50 : 66));
+    const textModel = getTextModel({ code: safeCode, design, dark, fillColor });
+    if (textModel.hidden) return;
+    const textLength = textModel.textLength || pickByCodeLength(textModel.textLengthByCodeLength, safeCode.length, 66);
     const textAttrs = {
-        x: 50,
+        ...(textModel.attrs || {}),
         y: textModel.y,
         fill: textModel.color,
-        'font-family': 'Arial, Helvetica, sans-serif',
         'font-size': textModel.fontSize,
-        'font-weight': 800,
-        'text-anchor': 'middle',
-        'dominant-baseline': 'central',
-        lengthAdjust: 'spacingAndGlyphs',
         textLength
     };
     if (textModel.transform) textAttrs.transform = textModel.transform;
@@ -234,24 +159,20 @@ const appendCenteredText = ({ svg, documentRef, code, preset, dark, fillColor })
     svg.appendChild(text);
 };
 
-const appendTrainImage = ({ svg, documentRef, trainIconHref }) => {
+const appendTrainImage = ({ svg, documentRef, design, trainIconHref }) => {
     const href = toText(trainIconHref);
     if (!href) return;
 
     svg.appendChild(createSvgNode(documentRef, 'image', {
+        ...(design?.image?.attrs || {}),
         href,
-        x: 0,
-        y: 0,
-        width: 100,
-        height: 100,
-        preserveAspectRatio: 'xMidYMid meet'
     }));
 };
 
 export const renderLineIconSvg = (root, {
     documentRef = globalThis.document,
     code = '',
-    preset = 'rectangle-border',
+    preset = LINE_ICON_SETTINGS.defaultDesign || 'rectangle-border',
     borderColor = 'transparent',
     fillColor = '#888',
     backgroundColor = '#fff',
@@ -262,65 +183,36 @@ export const renderLineIconSvg = (root, {
 } = {}) => {
     if (!root?.style || !documentRef?.createElementNS) return null;
 
-    const safePreset = toText(preset) || 'rectangle-border';
+    const safePreset = toText(preset) || LINE_ICON_SETTINGS.defaultDesign || 'rectangle-border';
+    const design = getLineIconDesign(safePreset);
+    if (!design) return null;
+
     const safeCode = toText(code);
-    const isTrainPreset = ['arakawa', 'nex', 'odakyu', 'seibu'].includes(safePreset);
-    const svg = createSvgNode(documentRef, 'svg', {
-        viewBox: '0 0 100 100',
-        width: '100%',
-        height: '100%',
-        'aria-hidden': 'true',
-        focusable: 'false',
-        role: 'img'
-    });
+    const svg = createSvgNode(documentRef, 'svg', design.svg?.attrs || {});
     setStyles(svg, {
-        display: 'block',
-        overflow: 'visible',
+        ...(design.svg?.style || {}),
         ...svgStyle
     });
 
-    if (isTrainPreset) {
-        appendTrainImage({ svg, documentRef, trainIconHref });
+    if (design.image) {
+        appendTrainImage({ svg, documentRef, design, trainIconHref });
     } else {
-        svg.appendChild(createShape({
+        const shape = createShape({
             documentRef,
-            preset: safePreset,
+            design,
             borderColor,
             fillColor,
             backgroundColor
-        }));
+        });
+        if (shape) svg.appendChild(shape);
     }
 
-    if (safePreset !== 'nex') {
-        appendCenteredText({
-            svg,
-            documentRef,
-            code: safeCode,
-            preset: safePreset,
-            dark,
-            fillColor
-        });
-    }
+    appendCenteredText({ svg, documentRef, code: safeCode, design, dark, fillColor });
 
     setStyles(root, {
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxSizing: 'border-box',
-        flex: '0 0 auto',
-        userSelect: 'none',
-        width: root.style.width || '25px',
-        height: root.style.height || '25px',
-        padding: '0',
-        border: '0',
-        borderRadius: '0',
-        background: 'transparent',
-        color: 'inherit',
-        lineHeight: '0',
-        letterSpacing: '0',
-        fontSize: '',
-        fontWeight: '',
-        overflow: 'visible',
+        ...(design.html?.rootStyle || {}),
+        width: root.style.width || design.html?.rootStyle?.width || '25px',
+        height: root.style.height || design.html?.rootStyle?.height || '25px',
         ...rootStyle
     });
 

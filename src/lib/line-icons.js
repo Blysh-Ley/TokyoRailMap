@@ -1,8 +1,45 @@
 import { getCachedJson } from './fetch.js';
 import { resolveMainLineIdByBranchRule } from './special-condition.js';
 import { renderLineIconSvg } from '../ui/lineIconSvgView.js';
+import { lineIconSettings } from '../config/lineIconSettings.js';
 
 const toText = (v) => String(v ?? '').trim();
+const LINE_COMPANY_SETTINGS = Array.isArray(lineIconSettings.companies) ? lineIconSettings.companies : [];
+const LINE_ICON_SETTINGS = lineIconSettings.lineIcon || {};
+const LINE_ICON_DESIGNS = lineIconSettings.lineIconDesigns || {};
+const STATION_BADGE_SETTINGS = lineIconSettings.stationCodeBadge || {};
+const LINE_ICON_CLASS = LINE_ICON_SETTINGS.className || 'rw-line-icon';
+const STATION_BADGE_CLASS_NAMES = STATION_BADGE_SETTINGS.classNames || {};
+const STATION_BADGE_ROOT_CLASS = STATION_BADGE_CLASS_NAMES.root || 'rw-station-code-badge';
+const STATION_BADGE_PREFIX_CLASS = STATION_BADGE_CLASS_NAMES.prefix || 'rw-station-code-badge-prefix';
+const STATION_BADGE_SUFFIX_CLASS = STATION_BADGE_CLASS_NAMES.suffix || 'rw-station-code-badge-suffix';
+
+const applyStyleMap = (el, styles = {}) => {
+    if (!(el instanceof HTMLElement)) return;
+    for (const [key, value] of Object.entries(styles || {})) {
+        if (value == null) continue;
+        el.style[key] = String(value);
+    }
+};
+
+const pickByCodeLength = (rules = [], length = 0, fallback = null) => {
+    for (const rule of Array.isArray(rules) ? rules : []) {
+        if (!rule || typeof rule !== 'object') continue;
+        const max = Number(rule.max);
+        if (Number.isFinite(max) && length > max) continue;
+        const { max: _max, ...style } = rule;
+        return style;
+    }
+    return fallback;
+};
+
+const routeIdMatches = (id, match = {}) => {
+    const routeIds = Array.isArray(match.routeIds) ? match.routeIds.map(toText) : [];
+    if (routeIds.includes(id)) return true;
+
+    const routePrefixes = Array.isArray(match.routePrefixes) ? match.routePrefixes.map(toText).filter(Boolean) : [];
+    return routePrefixes.some((prefix) => id.startsWith(prefix));
+};
 
 export const removeCompanyAbbFromLineName = (lineName, abb, { lineId = '', normalize = toText } = {}) => {
     const name = normalize(lineName);
@@ -16,7 +53,8 @@ export const removeCompanyAbbFromLineName = (lineName, abb, { lineId = '', norma
 
 const splitStationCodeForBadge = (code) => {
     const c = toText(code);
-    const match = c.match(/^([A-Za-z]+)(.+)$/);
+    const pattern = toText(STATION_BADGE_SETTINGS.splitPattern) || '^([A-Za-z]+)(.+)$';
+    const match = c.match(new RegExp(pattern));
     if (!match) return { prefix: c, suffix: '' };
     return { prefix: match[1], suffix: match[2] };
 };
@@ -57,76 +95,15 @@ export const resolveMainLineIdForIcon = (lineId, index = null) => {
 
 export const selectLineIconPreset = (routeId, code) => {
     const id = toText(routeId);
-    if (!id) return 'default';
+    if (!id) return LINE_ICON_SETTINGS.emptyRouteDesign || 'default';
 
-    if(
-        id=='Toei.NipporiToneri'
-    ) {
-        return 'nippori-toneri';
+    for (const company of LINE_COMPANY_SETTINGS) {
+        if (!routeIdMatches(id, company?.match)) continue;
+        const design = toText(company?.lineIcon?.design) || toText(company?.lineIcon?.preset);
+        if (design) return design;
     }
-    else if(
-        id=='Toei.Arakawa'
-    ){
-        return 'arakawa';
-    }
-    else if(
-        id=='JR-East.NaritaExpress'
-    ){
-        return 'nex';
-    }
-    else if(
-        id.startsWith('TokyoMetro.')||
-        id.startsWith('Toei.')
-    ) {
-        return 'circle-border';
-    }
-    else if(
-        id=='TWR.Rinkai'||
-        id=='Yurikamome.Yurikamome' || 
-        id.startsWith('YokohamaMunicipal.')
-    ) {
-        return 'circle';
-    }
-    else if(
-        id.startsWith('MIR.')||
-        id.startsWith('Sotetsu.')||
-        id.startsWith('Tokyu.')||
-        id.startsWith('JR-Central')||
-        id=='Minatomirai.Minatomirai'
-    ) {
-        return 'rectangle';
-    }
-    else if(
-        id.startsWith('Keikyu.')||
-        id.startsWith('Keisei.')||
-        id.startsWith('Hokuso.')||
-        id.startsWith('Keio.')||
-        id.startsWith('ChibaMonorail.')||
-        id.startsWith('ToyoRapid.')||
-        id.startsWith('SaitamaRailway.')||
-        id=="Enoden.Enoden"
-    ) {
-        return 'circle-thin-border';
-    }
-    else if(
-        id.startsWith('SaitamaTransit.')
-    ){
-        return 'hexagon'
-    }
-    else if(
-        id.startsWith('Seibu.')
-    ){
-        return 'seibu';
-    }
-    else if(
-        id.startsWith('Odakyu.')||
-        id.startsWith('OdakyuHakone.')
-    ){
-        return 'odakyu';
-    }
-    else{
-        return 'rectangle-border';
-    }
+
+    return LINE_ICON_SETTINGS.defaultDesign || 'rectangle-border';
 };
 
 export const isDarkThemeActive = () => {
@@ -379,13 +356,14 @@ const applyIconStyleForTheme = (el) => {
     const borderColor = resolveBorderColorForTheme(routeColor) || routeColor;
     const fillColor = resolveLineColorForTheme(routeColor) || routeColor;
     const darkBackground = dark ? 'rgba(28, 28, 28, 0.94)' : '#fff';
-    const trainIconHref = preset === 'arakawa'
-        ? getTrainSvgDataHref('#000', 'arakawa')
-        : (preset === 'seibu'
-            ? getTrainSvgDataHref(fillColor || '#000', 'seibu')
-            : (preset === 'odakyu'
-                ? getTrainSvgDataHref(fillColor || '#000', 'odakyu')
-                : (preset === 'nex' ? getTrainSvgDataHref('', 'nex') : '')));
+    const designConfig = LINE_ICON_DESIGNS[preset] || LINE_ICON_DESIGNS[LINE_ICON_SETTINGS.defaultDesign] || null;
+    const trainIconConfig = designConfig?.image || null;
+    const trainIconFill = trainIconConfig?.fill === 'lineColor'
+        ? (fillColor || '#000')
+        : toText(trainIconConfig?.fill);
+    const trainIconHref = trainIconConfig
+        ? getTrainSvgDataHref(trainIconFill, trainIconConfig.brand || preset)
+        : '';
 
     renderLineIconSvg(el, {
         code,
@@ -407,55 +385,27 @@ const applyStationCodeBadgeStyleForTheme = (el) => {
     const routeColor = toText(el.dataset.lineColor);
     const borderColor = resolveBorderColorForTheme(routeColor) || routeColor || 'transparent';
     const prefixTextColor = getReadableTextColorForBackground(borderColor);
-    const prefixEl = el.querySelector('.rw-station-code-badge-prefix');
-    const suffixEl = el.querySelector('.rw-station-code-badge-suffix');
+    const prefixEl = el.querySelector(`.${STATION_BADGE_PREFIX_CLASS}`);
+    const suffixEl = el.querySelector(`.${STATION_BADGE_SUFFIX_CLASS}`);
 
-    el.style.display = 'inline-flex';
-    el.style.alignItems = 'center';
-    el.style.justifyContent = 'center';
-    el.style.boxSizing = 'border-box';
-    el.style.userSelect = 'none';
-    el.style.overflow = 'hidden';
-    el.style.backgroundColor = '#fff';
-    el.style.color = '#000';
-    el.style.border = `2px solid ${borderColor}`;
-    el.style.borderRadius = '3.5px';
-    el.style.height = '20px';
-    el.style.minWidth = '20px';
-    el.style.padding = '0 0.2em 0 0';
-    el.style.lineHeight = '1';
-    el.style.fontWeight = '700';
+    applyStyleMap(el, {
+        ...(STATION_BADGE_SETTINGS.style?.root || {}),
+        border: `2px solid ${borderColor}`
+    });
 
     if (prefixEl instanceof HTMLElement) {
-        prefixEl.style.display = 'inline-flex';
-        prefixEl.style.alignItems = 'center';
-        prefixEl.style.alignSelf = 'stretch';
-        prefixEl.style.boxSizing = 'border-box';
-        prefixEl.style.paddingLeft = '2px';
-        prefixEl.style.paddingRight = '2px';
-        prefixEl.style.marginRight = '0.2em';
-        prefixEl.style.backgroundColor = borderColor;
-        prefixEl.style.color = prefixTextColor;
-        prefixEl.style.lineHeight = '1';
+        applyStyleMap(prefixEl, {
+            ...(STATION_BADGE_SETTINGS.style?.prefix || {}),
+            backgroundColor: borderColor,
+            color: prefixTextColor
+        });
     }
 
     if (suffixEl instanceof HTMLElement) {
-        suffixEl.style.display = 'inline-flex';
-        suffixEl.style.alignItems = 'center';
-        suffixEl.style.color = '#000';
-        suffixEl.style.lineHeight = '1';
+        applyStyleMap(suffixEl, STATION_BADGE_SETTINGS.style?.suffix || {});
     }
 
-    if (code.length <= 2) {
-        el.style.fontSize = '11px';
-        el.style.letterSpacing = '0px';
-    } else if (code.length <= 4) {
-        el.style.fontSize = '10px';
-        el.style.letterSpacing = '0px';
-    } else {
-        el.style.fontSize = '9px';
-        el.style.letterSpacing = '0px';
-    }
+    applyStyleMap(el, pickByCodeLength(STATION_BADGE_SETTINGS.fontSizeByCodeLength, code.length, {}));
 };
 
 export const createStationCodeBadgeElement = ({ code, color }) => {
@@ -463,19 +413,19 @@ export const createStationCodeBadgeElement = ({ code, color }) => {
     if (!c) return null;
 
     const el = document.createElement('span');
-    el.className = 'rw-station-code-badge';
+    el.className = STATION_BADGE_ROOT_CLASS;
     el.dataset.code = c;
     el.dataset.lineColor = toText(color);
 
     const { prefix, suffix } = splitStationCodeForBadge(c);
     const prefixEl = document.createElement('span');
-    prefixEl.className = 'rw-station-code-badge-prefix';
+    prefixEl.className = STATION_BADGE_PREFIX_CLASS;
     prefixEl.textContent = prefix;
     el.appendChild(prefixEl);
 
     if (suffix) {
         const suffixEl = document.createElement('span');
-        suffixEl.className = 'rw-station-code-badge-suffix';
+        suffixEl.className = STATION_BADGE_SUFFIX_CLASS;
         suffixEl.textContent = suffix;
         el.appendChild(suffixEl);
     }
@@ -494,8 +444,8 @@ const ensureThemeObserver = () => {
     try {
         const target = document.documentElement;
         const obs = new MutationObserver(() => {
-            document.querySelectorAll('.rw-line-icon').forEach((el) => applyIconStyleForTheme(el));
-            document.querySelectorAll('.rw-station-code-badge').forEach((el) => applyStationCodeBadgeStyleForTheme(el));
+            document.querySelectorAll(`.${LINE_ICON_CLASS}`).forEach((el) => applyIconStyleForTheme(el));
+            document.querySelectorAll(`.${STATION_BADGE_ROOT_CLASS}`).forEach((el) => applyStationCodeBadgeStyleForTheme(el));
         });
         obs.observe(target, { attributes: true, attributeFilter: ['data-theme'] });
     } catch {
@@ -515,7 +465,7 @@ export const createLineIconElement = ({ routeId, code, color }) => {
     if (!resolvedId || (!c && !resolvedColor)) return null;
 
     const el = document.createElement('span');
-    el.className = 'rw-line-icon';
+    el.className = LINE_ICON_CLASS;
 
     el.dataset.routeId = resolvedId;
     el.dataset.sourceRouteId = id;
@@ -535,7 +485,7 @@ export const prependLineIconElements = (targetEl, {
     color = ''
 } = {}) => {
     if (!(targetEl instanceof HTMLElement)) return [];
-    if (targetEl.querySelector('.rw-line-icon')) return [];
+    if (targetEl.querySelector(`.${LINE_ICON_CLASS}`)) return [];
 
     const iconNodes = [];
     for (const code of Array.isArray(codes) ? codes : []) {
@@ -565,7 +515,7 @@ export const ensureLineIconForRwLineContent = async (rwLineContentEl, routeId) =
         rwLineContentEl.querySelector('.rw-line-left') ||
         rwLineContentEl;
 
-    if (left.querySelector('.rw-line-icon')) return;
+    if (left.querySelector(`.${LINE_ICON_CLASS}`)) return;
 
     const meta = await getResolvedRouteIconMeta(routeId);
     if (!meta || (!meta.code && !meta.color)) return;
