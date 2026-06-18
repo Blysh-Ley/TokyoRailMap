@@ -166,7 +166,8 @@ const enhancePopupLineBadges = async ({ popup, mode }) => {
             for (let index = 0; index < stationCodes.length; index += 1) {
                 const badge = createStationCodeBadgeElement({
                     code: stationCodes[index],
-                    color: toText(meta?.color) || fallbackColor
+                    color: toText(meta?.color) || fallbackColor,
+                    routeId: toText(meta?.id) || lineId
                 });
                 if (!badge) continue;
                 badge.style.marginLeft = index === 0 ? '6px' : '4px';

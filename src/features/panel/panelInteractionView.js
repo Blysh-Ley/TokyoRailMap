@@ -528,7 +528,8 @@ export const enhancePanelLineHeaderIcons = async (rootEl, {
 
         const stationBadge = createStationCodeBadgeElement?.({
             code: stationCode,
-            color: meta.color
+            color: meta.color,
+            routeId: meta.id || lineId
         });
         if (!stationBadge) continue;
 
@@ -896,4 +897,3 @@ export const createPanelScrollRuntime = ({
         syncPanelTitleForActiveLine
     };
 };
-

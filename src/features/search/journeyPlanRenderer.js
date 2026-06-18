@@ -251,6 +251,7 @@ export const createJourneyTripStationRow = ({
     departureText,
     isPast = false,
     lineColor = '',
+    routeId = '',
     showDestination = false,
     stationCode = '',
     stationId,
@@ -266,7 +267,7 @@ export const createJourneyTripStationRow = ({
     const code = String(stationCode ?? '').trim();
     if (code) {
         const badgeWrap = create('span', 'journey-trip-station-badge');
-        const badge = createStationCodeBadgeElement({ code, color: lineColor });
+        const badge = createStationCodeBadgeElement({ code, color: lineColor, routeId });
         if (badge) badgeWrap.appendChild(badge);
         station.appendChild(badgeWrap);
     }

@@ -394,12 +394,16 @@ const escapeHtml_panelTripDetailStationRenderer = (input) => String(input ?? '')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-const renderStationCodeBadgeHtml_panelTripDetailStationRenderer = ({ stationCode = '', lineColor = '' } = {}) => {
+const renderStationCodeBadgeHtml_panelTripDetailStationRenderer = ({ stationCode = '', lineColor = '', routeId = '' } = {}) => {
     const code = toText_panelTripDetailStationRenderer(stationCode);
     if (!code) return '';
 
     try {
-        const badge = createStationCodeBadgeElement({ code, color: toText_panelTripDetailStationRenderer(lineColor) });
+        const badge = createStationCodeBadgeElement({
+            code,
+            color: toText_panelTripDetailStationRenderer(lineColor),
+            routeId: toText_panelTripDetailStationRenderer(routeId)
+        });
         return badge?.outerHTML || '';
     } catch {
         return '';
@@ -410,10 +414,11 @@ export const renderPanelTripDetailStationContentHtml = ({
     stationCode = '',
     stationName = '',
     stationId = '',
-    lineColor = ''
+    lineColor = '',
+    lineId = ''
 } = {}) => {
     const name = toText_panelTripDetailStationRenderer(stationName || stationId);
-    const badgeHtml = renderStationCodeBadgeHtml_panelTripDetailStationRenderer({ stationCode, lineColor });
+    const badgeHtml = renderStationCodeBadgeHtml_panelTripDetailStationRenderer({ stationCode, lineColor, routeId: lineId });
     const badgeWrapHtml = badgeHtml
         ? `<span class="panel-trip-detail-station-badge" aria-hidden="true">${badgeHtml}</span>`
         : '';
@@ -459,7 +464,8 @@ export const renderPanelTripDetailStationCellHtml = ({
         stationCode,
         stationName,
         stationId,
-        lineColor
+        lineColor,
+        lineId
     })}</div>`;
 };
 

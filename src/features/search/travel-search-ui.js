@@ -1462,6 +1462,7 @@ export function mountTravelSearchUI() {
                     departureText: depText,
                     isPast: !!s?.isPast,
                     lineColor: lineColorResolved ? String(resolveJourneyColorForTheme(lineColorResolved)) : '',
+                    routeId: normalizeText(block.lineId || block.routeId || ''),
                     showDestination: !!(overallDestinationStationId && stationId && overallDestinationStationId === stationId),
                     stationCode: normalizeText(stationCodeMap.get(stationId) || ''),
                     stationId,

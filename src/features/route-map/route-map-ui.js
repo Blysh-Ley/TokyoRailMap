@@ -119,7 +119,7 @@ const enhanceRouteMapStationCodeBadges = async (containerEl, { lineId, lineColor
         const code = toText(codeMap.get(sid) || '');
         if (!code) continue;
 
-        const badge = createStationCodeBadgeElement({ code, color: badgeColor });
+        const badge = createStationCodeBadgeElement({ code, color: badgeColor, routeId: lineId });
         if (!badge) continue;
         badge.style.marginRight = '4px';
         badge.style.verticalAlign = 'middle';

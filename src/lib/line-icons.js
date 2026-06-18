@@ -7,9 +7,12 @@ const toText = (v) => String(v ?? '').trim();
 const LINE_COMPANY_SETTINGS = Array.isArray(lineIconSettings.companies) ? lineIconSettings.companies : [];
 const LINE_ICON_SETTINGS = lineIconSettings.lineIcon || {};
 const LINE_ICON_DESIGNS = lineIconSettings.lineIconDesigns || {};
-const STATION_BADGE_SETTINGS = lineIconSettings.stationCodeBadge || {};
+const STATION_BADGE_SETTINGS = lineIconSettings.stationBadge || lineIconSettings.stationCodeBadge || {};
+const STATION_BADGE_DESIGNS = lineIconSettings.stationBadgeDesigns || STATION_BADGE_SETTINGS.designs || {};
+const DEFAULT_STATION_BADGE_DESIGN_NAME = STATION_BADGE_SETTINGS.defaultDesign || 'split-rectangle';
+const DEFAULT_STATION_BADGE_DESIGN = STATION_BADGE_DESIGNS[DEFAULT_STATION_BADGE_DESIGN_NAME] || lineIconSettings.stationCodeBadge || {};
 const LINE_ICON_CLASS = LINE_ICON_SETTINGS.className || 'rw-line-icon';
-const STATION_BADGE_CLASS_NAMES = STATION_BADGE_SETTINGS.classNames || {};
+const STATION_BADGE_CLASS_NAMES = DEFAULT_STATION_BADGE_DESIGN.classNames || STATION_BADGE_SETTINGS.classNames || {};
 const STATION_BADGE_ROOT_CLASS = STATION_BADGE_CLASS_NAMES.root || 'rw-station-code-badge';
 const STATION_BADGE_PREFIX_CLASS = STATION_BADGE_CLASS_NAMES.prefix || 'rw-station-code-badge-prefix';
 const STATION_BADGE_SUFFIX_CLASS = STATION_BADGE_CLASS_NAMES.suffix || 'rw-station-code-badge-suffix';
@@ -41,6 +44,11 @@ const routeIdMatches = (id, match = {}) => {
     return routePrefixes.some((prefix) => id.startsWith(prefix));
 };
 
+const getStationBadgeDesign = (designName) => {
+    const name = toText(designName) || DEFAULT_STATION_BADGE_DESIGN_NAME;
+    return STATION_BADGE_DESIGNS[name] || DEFAULT_STATION_BADGE_DESIGN || {};
+};
+
 export const removeCompanyAbbFromLineName = (lineName, abb, { lineId = '', normalize = toText } = {}) => {
     const name = normalize(lineName);
     const companyAbb = normalize(abb);
@@ -51,9 +59,9 @@ export const removeCompanyAbbFromLineName = (lineName, abb, { lineId = '', norma
     return normalize(name.replace(companyAbb, '')) || name;
 };
 
-const splitStationCodeForBadge = (code) => {
+const splitStationCodeForBadge = (code, design = null) => {
     const c = toText(code);
-    const pattern = toText(STATION_BADGE_SETTINGS.splitPattern) || '^([A-Za-z]+)(.+)$';
+    const pattern = toText(design?.splitPattern) || toText(STATION_BADGE_SETTINGS.splitPattern) || '^([A-Za-z]+)(.+)$';
     const match = c.match(new RegExp(pattern));
     if (!match) return { prefix: c, suffix: '' };
     return { prefix: match[1], suffix: match[2] };
@@ -104,6 +112,19 @@ export const selectLineIconPreset = (routeId, code) => {
     }
 
     return LINE_ICON_SETTINGS.defaultDesign || 'rectangle-border';
+};
+
+export const selectStationBadgeDesign = (routeId, code) => {
+    const id = toText(routeId);
+    if (!id) return STATION_BADGE_SETTINGS.emptyRouteDesign || DEFAULT_STATION_BADGE_DESIGN_NAME;
+
+    for (const company of LINE_COMPANY_SETTINGS) {
+        if (!routeIdMatches(id, company?.match)) continue;
+        const design = toText(company?.stationBadge?.design);
+        if (design) return design;
+    }
+
+    return STATION_BADGE_SETTINGS.defaultDesign || DEFAULT_STATION_BADGE_DESIGN_NAME;
 };
 
 export const isDarkThemeActive = () => {
@@ -383,49 +404,77 @@ const applyStationCodeBadgeStyleForTheme = (el) => {
     if (!code) return;
 
     const routeColor = toText(el.dataset.lineColor);
-    const borderColor = resolveBorderColorForTheme(routeColor) || routeColor || 'transparent';
+    const designName = toText(el.dataset.stationBadgeDesign) || selectStationBadgeDesign(el.dataset.routeId, code);
+    const design = getStationBadgeDesign(designName);
+    const classNames = design.classNames || {};
+    const prefixClass = classNames.prefix || STATION_BADGE_PREFIX_CLASS;
+    const suffixClass = classNames.suffix || STATION_BADGE_SUFFIX_CLASS;
+    const styleConfig = design.html || design.style || {};
+    const colors = design.colors || {};
+    const borderSource = toText(colors.border) && toText(colors.border) !== 'lineColor'
+        ? toText(colors.border)
+        : routeColor;
+    const borderColor = resolveBorderColorForTheme(borderSource) || borderSource || 'transparent';
     const prefixTextColor = getReadableTextColorForBackground(borderColor);
-    const prefixEl = el.querySelector(`.${STATION_BADGE_PREFIX_CLASS}`);
-    const suffixEl = el.querySelector(`.${STATION_BADGE_SUFFIX_CLASS}`);
+    const prefixEl = el.querySelector(`.${prefixClass}`);
+    const suffixEl = el.querySelector(`.${suffixClass}`);
+    const prefixBackground = toText(colors.prefixBackground) === 'lineColor'
+        ? routeColor
+        : toText(colors.prefixBackground) === 'borderColor'
+            ? borderColor
+            : toText(colors.prefixBackground) || borderColor;
+    const prefixText = toText(colors.prefixText) === 'readableOnPrefixBackground'
+        ? getReadableTextColorForBackground(prefixBackground)
+        : toText(colors.prefixText) || prefixTextColor;
 
     applyStyleMap(el, {
-        ...(STATION_BADGE_SETTINGS.style?.root || {}),
+        ...(styleConfig.rootStyle || styleConfig.root || {}),
         border: `2px solid ${borderColor}`
     });
 
     if (prefixEl instanceof HTMLElement) {
         applyStyleMap(prefixEl, {
-            ...(STATION_BADGE_SETTINGS.style?.prefix || {}),
-            backgroundColor: borderColor,
-            color: prefixTextColor
+            ...(styleConfig.prefixStyle || styleConfig.prefix || {}),
+            backgroundColor: prefixBackground,
+            color: prefixText
         });
     }
 
     if (suffixEl instanceof HTMLElement) {
-        applyStyleMap(suffixEl, STATION_BADGE_SETTINGS.style?.suffix || {});
+        applyStyleMap(suffixEl, styleConfig.suffixStyle || styleConfig.suffix || {});
     }
 
-    applyStyleMap(el, pickByCodeLength(STATION_BADGE_SETTINGS.fontSizeByCodeLength, code.length, {}));
+    applyStyleMap(el, pickByCodeLength(design.fontSizeByCodeLength || STATION_BADGE_SETTINGS.fontSizeByCodeLength, code.length, {}));
 };
 
-export const createStationCodeBadgeElement = ({ code, color }) => {
+export const createStationCodeBadgeElement = ({ code, color, routeId = '', design = '' }) => {
     const c = toText(code);
     if (!c) return null;
 
+    const id = toText(routeId);
+    const designName = toText(design) || selectStationBadgeDesign(id, c);
+    const designConfig = getStationBadgeDesign(designName);
+    const classNames = designConfig.classNames || {};
+    const rootClass = classNames.root || STATION_BADGE_ROOT_CLASS;
+    const prefixClass = classNames.prefix || STATION_BADGE_PREFIX_CLASS;
+    const suffixClass = classNames.suffix || STATION_BADGE_SUFFIX_CLASS;
+
     const el = document.createElement('span');
-    el.className = STATION_BADGE_ROOT_CLASS;
+    el.className = rootClass;
     el.dataset.code = c;
     el.dataset.lineColor = toText(color);
+    el.dataset.routeId = id;
+    el.dataset.stationBadgeDesign = designName;
 
-    const { prefix, suffix } = splitStationCodeForBadge(c);
+    const { prefix, suffix } = splitStationCodeForBadge(c, designConfig);
     const prefixEl = document.createElement('span');
-    prefixEl.className = STATION_BADGE_PREFIX_CLASS;
+    prefixEl.className = prefixClass;
     prefixEl.textContent = prefix;
     el.appendChild(prefixEl);
 
     if (suffix) {
         const suffixEl = document.createElement('span');
-        suffixEl.className = STATION_BADGE_SUFFIX_CLASS;
+        suffixEl.className = suffixClass;
         suffixEl.textContent = suffix;
         el.appendChild(suffixEl);
     }
@@ -445,7 +494,7 @@ const ensureThemeObserver = () => {
         const target = document.documentElement;
         const obs = new MutationObserver(() => {
             document.querySelectorAll(`.${LINE_ICON_CLASS}`).forEach((el) => applyIconStyleForTheme(el));
-            document.querySelectorAll(`.${STATION_BADGE_ROOT_CLASS}`).forEach((el) => applyStationCodeBadgeStyleForTheme(el));
+            document.querySelectorAll('[data-station-badge-design]').forEach((el) => applyStationCodeBadgeStyleForTheme(el));
         });
         obs.observe(target, { attributes: true, attributeFilter: ['data-theme'] });
     } catch {
