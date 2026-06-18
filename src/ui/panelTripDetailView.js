@@ -63,9 +63,31 @@ const placeMobileTripDetail = ({
     root.style.maxHeight = 'none';
 };
 
+const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const renderMobileHeaderMarqueeHtml = ({
+    className = '',
+    html = '',
+    label = ''
+} = {}) => {
+    const safeLabel = escapeHtml(label);
+    const innerHtml = html || safeLabel;
+    const safeClassName = className ? ` ${className}` : '';
+    return `<span class="panel-dir-title panel-mobile-trip-detail-title-line${safeClassName}"><span class="panel-dir-marquee panel-mobile-trip-detail-title-marquee" aria-label="${safeLabel}"><span class="panel-dir-marquee-inner panel-mobile-trip-detail-title-marquee-inner">${innerHtml}</span></span></span>`;
+};
+
 export const createPanelTripDetailView = ({
     desktopHost = globalThis.document?.body,
+    mobileActionRow = null,
+    mobileCaptureButton = null,
     mobileHost = null,
+    mobileTitleMain = null,
+    mobileTitleSub = null,
     root,
     panelRoot,
     title,
@@ -75,6 +97,13 @@ export const createPanelTripDetailView = ({
     if (!root || !title || !body) {
         throw new Error('createPanelTripDetailView requires root, title, and body elements');
     }
+
+    const defaultMobileActionItems = mobileActionRow?.children
+        ? Array.from(mobileActionRow.children)
+        : [];
+    const defaultCaptureParent = mobileCaptureButton?.parentNode || null;
+    let mobileHeaderActive = false;
+    let savedMobileTitle = null;
 
     const resolvePresentation = (presentation) => (
         presentation === 'mobile'
@@ -86,6 +115,59 @@ export const createPanelTripDetailView = ({
         root,
         win
     });
+
+    const restoreMobileHeader = () => {
+        if (!mobileHeaderActive) return;
+        if (mobileTitleMain && savedMobileTitle) {
+            mobileTitleMain.innerHTML = savedMobileTitle.mainHtml;
+            mobileTitleMain.style.fontSize = savedMobileTitle.mainFontSize;
+        }
+        if (mobileTitleSub && savedMobileTitle) {
+            mobileTitleSub.innerHTML = savedMobileTitle.subHtml;
+            mobileTitleSub.hidden = savedMobileTitle.subHidden;
+        }
+        if (mobileActionRow) {
+            mobileActionRow.replaceChildren(...defaultMobileActionItems);
+        }
+        if (defaultCaptureParent && mobileCaptureButton && mobileCaptureButton.parentNode !== defaultCaptureParent) {
+            defaultCaptureParent.appendChild(mobileCaptureButton);
+        }
+        savedMobileTitle = null;
+        mobileHeaderActive = false;
+    };
+
+    const applyMobileHeader = ({
+        main = '',
+        sub = '',
+        subHtml = ''
+    } = {}) => {
+        if (!mobileTitleMain || !mobileTitleSub) return;
+        if (!mobileHeaderActive) {
+            savedMobileTitle = {
+                mainFontSize: mobileTitleMain.style.fontSize || '',
+                mainHtml: mobileTitleMain.innerHTML || '',
+                subHidden: !!mobileTitleSub.hidden,
+                subHtml: mobileTitleSub.innerHTML || ''
+            };
+            mobileHeaderActive = true;
+        }
+        mobileTitleMain.innerHTML = renderMobileHeaderMarqueeHtml({
+            className: 'is-main',
+            label: main
+        });
+        mobileTitleMain.style.fontSize = '20px';
+        mobileTitleSub.innerHTML = sub
+            ? renderMobileHeaderMarqueeHtml({
+                className: 'is-sub',
+                html: subHtml,
+                label: sub
+            })
+            : '';
+        mobileTitleSub.hidden = !sub;
+        if (mobileActionRow && mobileCaptureButton) {
+            mobileActionRow.replaceChildren(mobileCaptureButton);
+        }
+    };
 
     const place = ({ clientY = 0, presentation } = {}) => {
         const activePresentation = resolvePresentation(presentation);
@@ -105,26 +187,39 @@ export const createPanelTripDetailView = ({
 
     const hide = () => {
         transferHoverPortal.hide();
+        restoreMobileHeader();
         root.classList.add('is-hidden');
         clearPlacement(root);
     };
 
     const setContent = ({
         titleHtml = '',
-        bodyHtml = ''
+        bodyHtml = '',
+        mobileHeader = null,
+        presentation
     } = {}) => {
         transferHoverPortal.hide();
         title.innerHTML = titleHtml;
         body.innerHTML = bodyHtml;
+        if (resolvePresentation(presentation) === 'mobile') {
+            applyMobileHeader({
+                main: String(mobileHeader?.main ?? ''),
+                sub: String(mobileHeader?.sub ?? ''),
+                subHtml: String(mobileHeader?.subHtml ?? '')
+            });
+        } else {
+            restoreMobileHeader();
+        }
     };
 
     const render = ({
         titleHtml = '',
         bodyHtml = '',
         clientY = 0,
+        mobileHeader = null,
         presentation
     } = {}) => {
-        setContent({ titleHtml, bodyHtml });
+        setContent({ titleHtml, bodyHtml, mobileHeader, presentation });
         return show({ clientY, presentation });
     };
 

@@ -235,30 +235,103 @@ export const applyTripDetailPastState = ({
 export const buildTripDetailTitleViewModel = ({
     buildTerminalDisplayLabel = (names) => (Array.isArray(names) ? names.join(' / ') : ''),
     fallbackDestName = '',
+    fallbackOriginName = '',
+    originIds = [],
     resolveTrainTypeColorForTheme = (color) => color,
     stationNameById = new Map(),
+    specialNames = [],
     terminalIds = [],
     toText = defaultToText_panelTripDetailViewModel,
     trainTypeColorIndex = new Map(),
     trainTypesIndex = new Map(),
     trip
 } = {}) => {
+    const titleOriginIds = Array.isArray(originIds) ? originIds.map((x) => toText(x)).filter(Boolean) : [];
+    const titleOriginNames = Array.from(new Set(
+        titleOriginIds.map((id) => toText(stationNameById?.get?.(id) || id)).filter(Boolean)
+    ));
     const titleTerminalIds = Array.isArray(terminalIds) ? terminalIds.map((x) => toText(x)).filter(Boolean) : [];
     const titleTerminalNames = Array.from(new Set(
         titleTerminalIds.map((id) => toText(stationNameById?.get?.(id) || id)).filter(Boolean)
     ));
+    const originName = buildTerminalDisplayLabel(titleOriginNames) || toText(fallbackOriginName);
     const destName = buildTerminalDisplayLabel(titleTerminalNames) || toText(fallbackDestName);
     const typeId = toText(trip?.y);
     const typeName = typeId ? toText(trainTypesIndex?.get?.(typeId) || typeId) : '';
     const typeColor = typeId ? toText(resolveTrainTypeColorForTheme(trainTypeColorIndex?.get?.(typeId))) : '';
+    const tripNumber = toText(trip?.n) || toText(trip?.t) || toText(trip?.id);
+    const specialTypeCodes = Array.from(new Set(
+        (Array.isArray(specialNames) ? specialNames : [])
+            .map((name) => {
+                const text = toText(name);
+                return text.split(/\s+/).filter(Boolean)[0] || text;
+            })
+            .map((value) => toText(value))
+            .filter(Boolean)
+    ));
+    const metaParts = [];
+    if (tripNumber) metaParts.push(`车次号 ${tripNumber}`);
+    if (specialTypeCodes.length) metaParts.push(`特殊种别号 ${specialTypeCodes.join(' / ')}`);
 
     return {
         destName,
-        titlePrefix: `寰€ ${destName || '鏈煡鏂瑰悜'}`.trim(),
+        metaText: metaParts.join(' · '),
+        originName,
+        routeText: `${originName || '未知始发'}→${destName || '未知终点'}`,
+        specialTypeCodes,
+        titlePrefix: `往 ${destName || '未知方向'}`.trim(),
         typeColor,
         typeId,
-        typeName
+        typeName,
+        tripNumber
     };
+};
+
+export const buildPanelTripDetailMobileHeaderViewModel = async ({
+    trip,
+    stationsIndex,
+    trainTypesIndex,
+    trainTypeColorIndex,
+    resolveThroughServiceEndpointIds = async () => ({ originId: '', originIds: [], terminalIds: [] }),
+    getStationIds = () => [],
+    buildTerminalDisplayLabel,
+    getTripDestName = () => '',
+    resolveTrainTypeColorForTheme = (color) => color,
+    collectTripSpecialNames = async () => [],
+    toText = defaultToText_panelTripDetailViewModel
+} = {}) => {
+    const throughEndpoints = await resolveThroughServiceEndpointIds(trip);
+    const originIds = Array.isArray(throughEndpoints?.originIds)
+        ? throughEndpoints.originIds.map((value) => toText(value)).filter(Boolean)
+        : [];
+    const titleOriginIds = originIds.length
+        ? originIds
+        : [toText(throughEndpoints?.originId), ...getStationIds(trip?.os)].filter(Boolean);
+    const terminalIds = Array.isArray(throughEndpoints?.terminalIds)
+        ? throughEndpoints.terminalIds.map((value) => toText(value)).filter(Boolean)
+        : [];
+    const titleTerminalIds = terminalIds.length ? terminalIds : getStationIds(trip?.ds);
+    const specialNames = await collectTripSpecialNames(trip);
+    const fallbackOriginId = titleOriginIds[0] || toText(trip?.tt?.[0]?.s);
+    const fallbackDestName = getTripDestName(trip, stationsIndex);
+    const fallbackOriginName = fallbackOriginId
+        ? toText(stationsIndex?.idToNameZh?.get?.(fallbackOriginId) || fallbackOriginId)
+        : '';
+
+    return buildTripDetailTitleViewModel({
+        buildTerminalDisplayLabel,
+        fallbackDestName,
+        fallbackOriginName,
+        originIds: titleOriginIds,
+        resolveTrainTypeColorForTheme,
+        stationNameById: stationsIndex?.idToNameZh,
+        specialNames,
+        terminalIds: titleTerminalIds,
+        toText,
+        trainTypeColorIndex,
+        trainTypesIndex,
+        trip
+    });
 };
 
 // panelTripDetailTitleRenderer.js

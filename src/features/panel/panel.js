@@ -127,7 +127,10 @@ import {
     PANEL_MOBILE_STACK_SCREENS
 } from './panelMobileStackController.js';
 import { resolvePanelStationJumpIntent } from './panelStationJump.js';
-import { buildPanelTripDetailTitleHtml } from './panelTripDetailRender.js';
+import {
+    buildPanelTripDetailMobileHeaderViewModel,
+    buildPanelTripDetailTitleHtml
+} from './panelTripDetailRender.js';
 import {
     renderPanelTripDetailGridMarkerCell,
 } from './panelTripDetailRender.js';
@@ -3001,6 +3004,46 @@ export function createPanel(options = {}) {
             color: color || null
         };
     };
+    const buildTripDetailThroughLineHeader = ({ ptChain, trip, ntChain }) => {
+        const orderedTrips = [
+            ...(Array.isArray(ptChain) ? ptChain.slice().reverse() : []),
+            trip,
+            ...(Array.isArray(ntChain) ? ntChain : [])
+        ];
+        const lines = [];
+        const seen = new Set();
+        for (const item of orderedTrips) {
+            const lineId = getTripLineId(item);
+            const descriptor = buildLineDescriptor(lineId);
+            const name = toText(descriptor?.text || lineId);
+            if (!name || seen.has(name)) continue;
+            seen.add(name);
+            lines.push({
+                color: toText(descriptor?.color),
+                name
+            });
+        }
+        if (!lines.length) {
+            return { html: '', text: '' };
+        }
+        if (lines.length === 1) {
+            const [line] = lines;
+            const style = line.color ? ` style="color:${escapeHtml(line.color)}"` : '';
+            return {
+                html: `<span class="panel-trip-detail-through-line"${style}>${escapeHtml(line.name)}</span>`,
+                text: line.name
+            };
+        }
+        const text = `${lines.map((item) => item.name).join('·')} 直通`;
+        const lineHtml = lines.map((item) => {
+            const style = item.color ? ` style="color:${escapeHtml(item.color)}"` : '';
+            return `<span class="panel-trip-detail-through-line"${style}>${escapeHtml(item.name)}</span>`;
+        }).join('<span class="panel-trip-detail-through-sep">·</span>');
+        return {
+            html: `${lineHtml}<span class="panel-trip-detail-through-suffix"> 直通</span>`,
+            text
+        };
+    };
     const isSameLineName = (lineIdA, lineIdB) => {
         const a = buildLineDescriptor(lineIdA);
         const b = buildLineDescriptor(lineIdB);
@@ -3067,6 +3110,10 @@ export function createPanel(options = {}) {
                 titleHtml: '<div class="panel-trip-detail-title-main">加载中</div>',
                 bodyHtml: '<div class="panel-timetable-empty">正在加载班次详情</div>',
                 clientY,
+                mobileHeader: {
+                    main: '加载中',
+                    sub: '正在加载班次详情'
+                },
                 presentation: panelPresentation
             });
         }
@@ -3292,6 +3339,25 @@ export function createPanel(options = {}) {
             toText
         });
         if (token !== tripDetailToken) return;
+        const tripDetailMobileHeader = await buildPanelTripDetailMobileHeaderViewModel({
+            trip,
+            stationsIndex,
+            trainTypesIndex,
+            trainTypeColorIndex,
+            resolveThroughServiceEndpointIds,
+            getStationIds,
+            buildTerminalDisplayLabel,
+            getTripDestName,
+            resolveTrainTypeColorForTheme,
+            collectTripSpecialNames,
+            toText
+        });
+        if (token !== tripDetailToken) return;
+        const tripDetailThroughLineHeader = buildTripDetailThroughLineHeader({
+            ptChain,
+            trip,
+            ntChain
+        });
         const currentLineDesc = buildLineDescriptor(getTripLineId(trip) || lineId);
         const typeName = getTripTypeName(trip, trainTypesIndex);
         const typeColor = getTripTypeColor(trip, trainTypeColorIndex);
@@ -3555,9 +3621,15 @@ export function createPanel(options = {}) {
             titleHtml: tripDetailTitleHtml,
             bodyHtml: tripDetailBodyHtml,
             clientY,
+            mobileHeader: {
+                main: tripDetailMobileHeader.routeText,
+                sub: tripDetailThroughLineHeader.text,
+                subHtml: tripDetailThroughLineHeader.html
+            },
             presentation: panelPresentation
         });
         scheduleMarqueeApply(tripDetailRoot);
+        scheduleMarqueeApply(header);
     };
 
     const hideTripDetail = ({ restoreMobileLine = true } = {}) => {

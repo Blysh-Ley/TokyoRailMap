@@ -459,9 +459,13 @@ export const createPanelMainView = ({
     document.body.appendChild(tripDetailRoot);
 
     const tripDetailView = createPanelTripDetailView({
+        mobileActionRow: dayActionRow,
+        mobileCaptureButton: tripDetailCaptureBtn,
         root: tripDetailRoot,
         mobileHost: panel,
         panelRoot: root,
+        mobileTitleMain: titleMain,
+        mobileTitleSub: titleSub,
         title: tripDetailTitle,
         body: tripDetailBody
     });
