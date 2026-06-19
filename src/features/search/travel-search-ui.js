@@ -1449,6 +1449,13 @@ export function mountTravelSearchUI() {
 
             if (blockLineKey) previousRideLineKey = blockLineKey;
 
+            const blockRouteId = normalizeText(block.lineId || block.routeId || '');
+            const getJourneyTripStationRouteId = (stationIdRaw) => {
+                const parts = normalizeText(stationIdRaw).split('.').map((part) => normalizeText(part)).filter(Boolean);
+                if (parts.length >= 2) return `${parts[0]}.${parts[1]}`;
+                return blockRouteId;
+            };
+
             for (let i = 0; i < block.rows.length; i += 1) {
                 const s = block.rows[i];
                 const isFirst = i === 0;
@@ -1462,7 +1469,7 @@ export function mountTravelSearchUI() {
                     departureText: depText,
                     isPast: !!s?.isPast,
                     lineColor: lineColorResolved ? String(resolveJourneyColorForTheme(lineColorResolved)) : '',
-                    routeId: normalizeText(block.lineId || block.routeId || ''),
+                    routeId: getJourneyTripStationRouteId(stationId),
                     showDestination: !!(overallDestinationStationId && stationId && overallDestinationStationId === stationId),
                     stationCode: normalizeText(stationCodeMap.get(stationId) || ''),
                     stationId,

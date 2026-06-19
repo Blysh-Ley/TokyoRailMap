@@ -446,10 +446,6 @@ const applyLineIconStyle_panelLineHeaderEnhancer = (icon, { marginRight = '4px' 
 
 const applyStationBadgeStyle_panelLineHeaderEnhancer = (badge) => {
     if (!badge?.style) return;
-    badge.style.width = '20px';
-    badge.style.height = '20px';
-    badge.style.minWidth = '20px';
-    badge.style.minHeight = '20px';
     badge.style.marginLeft = '0';
     badge.style.marginRight = '0';
     badge.style.verticalAlign = 'middle';

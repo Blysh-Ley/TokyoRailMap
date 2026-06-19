@@ -121,6 +121,7 @@ const enhanceRouteMapStationCodeBadges = async (containerEl, { lineId, lineColor
 
         const badge = createStationCodeBadgeElement({ code, color: badgeColor, routeId: lineId });
         if (!badge) continue;
+        badge.classList.add('route-map-station-code-badge');
         badge.style.marginRight = '4px';
         badge.style.verticalAlign = 'middle';
 
@@ -353,6 +354,17 @@ const formatRouteMapLineIconHtml = (iconEl) => {
     iconEl.style.height = '20px';
     iconEl.style.paddingTop = '1px';
     return iconEl.outerHTML;
+};
+
+const formatRouteMapTransferStationBadgeHtml = (badgeEl) => {
+    if (!(badgeEl instanceof HTMLElement)) return '';
+    badgeEl.classList.add('route-map-through-line-icon');
+    badgeEl.style.width = '20px';
+    badgeEl.style.height = '20px';
+    badgeEl.style.minWidth = '20px';
+    badgeEl.style.minHeight = '20px';
+    badgeEl.style.paddingTop = '1px';
+    return badgeEl.outerHTML;
 };
 
 const setupRouteMapUi = () => {
@@ -1131,6 +1143,7 @@ const setupRouteMapUi = () => {
         });
 
         const railwayMetaIndex = await getRailwayMetaIndex();
+        const stationCodeIndex = await getStationCodeIndex();
         const transferItemEntryByRouteId = new Map();
         const getTransferItemDisplayNameByRouteId = (routeId) => {
             const rid = toText(routeId);
@@ -1140,10 +1153,12 @@ const setupRouteMapUi = () => {
             return toText(railwayMeta?.title?.['zh-Hans']).replace(/（.*?）|\(.*?\)/g, '') || rid;
         };
 
-        const buildTransferItemEntry = async (routeId) => {
+        const buildTransferItemEntry = async (routeId, stationCodeRaw = '') => {
             const rid = toText(routeId);
             if (!rid) return null;
-            if (transferItemEntryByRouteId.has(rid)) return transferItemEntryByRouteId.get(rid);
+            const stationCode = toText(stationCodeRaw);
+            const cacheKey = `${rid}||${stationCode}`;
+            if (transferItemEntryByRouteId.has(cacheKey)) return transferItemEntryByRouteId.get(cacheKey);
 
             const railwayMeta = railwayMetaIndex instanceof Map ? railwayMetaIndex.get(rid) : null;
             const lineName = getTransferItemDisplayNameByRouteId(rid);
@@ -1151,7 +1166,14 @@ const setupRouteMapUi = () => {
             const iconMeta = await getResolvedRouteIconMeta(rid);
 
             let lineIconHtml = '';
-            if (iconMeta && (iconMeta.code || iconMeta.color)) {
+            if (stationCode) {
+                const badgeEl = createStationCodeBadgeElement({
+                    code: stationCode,
+                    color: toText(iconMeta?.color) || lineColor,
+                    routeId: toText(iconMeta?.id) || rid
+                });
+                lineIconHtml = formatRouteMapTransferStationBadgeHtml(badgeEl);
+            } else if (iconMeta && (iconMeta.code || iconMeta.color)) {
                 const iconEl = createLineIconElement({ routeId: iconMeta.id, code: iconMeta.code, color: iconMeta.color });
                 if (iconEl) {
                     lineIconHtml = formatRouteMapLineIconHtml(iconEl);
@@ -1164,10 +1186,10 @@ const setupRouteMapUi = () => {
                 company: rid.split('.')[0] || '',
                 displayName: lineName,
                 html,
-                iconCodes: [toText(iconMeta?.code)].filter(Boolean),
+                iconCodes: [stationCode || toText(iconMeta?.code)].filter(Boolean),
                 iconColor: toText(iconMeta?.color) || lineColor
             };
-            transferItemEntryByRouteId.set(rid, entry);
+            transferItemEntryByRouteId.set(cacheKey, entry);
             return entry;
         };
 
@@ -1317,12 +1339,14 @@ const setupRouteMapUi = () => {
             const transferStationIdSet = transferStationIds instanceof Set ? transferStationIds : new Set();
             const selfRouteId = getRouteIdFromStationId(sid);
             const routeIds = [];
+            const transferStationIdByRouteId = new Map();
             const seenRouteIds = new Set();
             for (const transferSid of transferStationIdSet) {
                 const rid = getRouteIdFromStationId(transferSid);
                 if (!rid || rid === selfRouteId || seenRouteIds.has(rid)) continue;
                 seenRouteIds.add(rid);
                 routeIds.push(rid);
+                transferStationIdByRouteId.set(rid, transferSid);
             }
 
             const transferSUFlags = getTransferSUFlags({ selfRouteId, routeIds });
@@ -1340,7 +1364,9 @@ const setupRouteMapUi = () => {
             }
 
             // build transfer item HTMLs, then group by company (first segment of route id)
-            const pendingHtmls = await Promise.all(routeIds.map((rid) => buildTransferItemEntry(rid)));
+            const pendingHtmls = await Promise.all(routeIds.map((rid) => (
+                buildTransferItemEntry(rid, stationCodeIndex?.get?.(transferStationIdByRouteId.get(rid)) || '')
+            )));
             const filtered = [];
             const seenDisplayNames = new Set();
 

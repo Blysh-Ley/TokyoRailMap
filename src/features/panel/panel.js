@@ -3305,6 +3305,7 @@ export function createPanel(options = {}) {
             currentLineId: tripLineId,
             escapeHtml,
             getLineMeta,
+            getStationCode: (stationId) => toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
             getStationGroupsIndex,
             toText
         });

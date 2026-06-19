@@ -1,4 +1,4 @@
-import { createLineIconElement, getResolvedRouteIconMeta } from '../../lib/line-icons.js';
+import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from '../../lib/line-icons.js';
 import { preferredOrder } from '../../lib/special-condition.js';
 
 const defaultToText = (value) => String(value ?? '').trim();
@@ -18,6 +18,17 @@ const formatPanelTripDetailLineIconHtml = (iconEl) => {
     iconEl.style.height = '20px';
     iconEl.style.paddingTop = '1px';
     return iconEl.outerHTML;
+};
+
+const formatPanelTripDetailTransferStationBadgeHtml = (badgeEl) => {
+    if (typeof HTMLElement === 'undefined' || !(badgeEl instanceof HTMLElement)) return '';
+    badgeEl.classList.add('panel-trip-detail-transfer-line-icon');
+    badgeEl.style.width = '20px';
+    badgeEl.style.height = '20px';
+    badgeEl.style.minWidth = '20px';
+    badgeEl.style.minHeight = '20px';
+    badgeEl.style.paddingTop = '1px';
+    return badgeEl.outerHTML;
 };
 
 const sortTripDetailTransferCompanies = (companyOrder, { toText = defaultToText } = {}) => {
@@ -85,6 +96,7 @@ export const buildCompactTripDetailTransferItemHtmls = (entries, { toText = defa
 
 const buildTripDetailTransferEntryFromLineMeta = (lineMeta, {
     escapeHtml = (value) => String(value ?? ''),
+    stationCode = '',
     toText = defaultToText
 } = {}) => {
     const routeId = toText(lineMeta?.id || lineMeta?.routeId);
@@ -95,8 +107,12 @@ const buildTripDetailTransferEntryFromLineMeta = (lineMeta, {
     const displayName = toText(lineMeta?.name) || routeId;
     const code = toText(lineMeta?.code);
 
+    const safeStationCode = toText(stationCode);
     let lineIconHtml = '';
-    if (code || lineColor) {
+    if (safeStationCode) {
+        const badgeEl = createStationCodeBadgeElement({ code: safeStationCode, color: lineColor, routeId });
+        lineIconHtml = formatPanelTripDetailTransferStationBadgeHtml(badgeEl);
+    } else if (code || lineColor) {
         const iconEl = createLineIconElement({ routeId, code, color: lineColor });
         lineIconHtml = formatPanelTripDetailLineIconHtml(iconEl);
     }
@@ -107,7 +123,7 @@ const buildTripDetailTransferEntryFromLineMeta = (lineMeta, {
         company,
         displayName,
         html,
-        iconCodes: [code].filter(Boolean),
+        iconCodes: [safeStationCode || code].filter(Boolean),
         iconColor: lineColor
     };
 };
@@ -142,6 +158,7 @@ export const buildTripDetailTransferDisplayByStationId = async ({
     currentLineId = '',
     escapeHtml = (value) => String(value ?? ''),
     getLineMeta = () => null,
+    getStationCode = () => '',
     getStationGroupsIndex = async () => new Map(),
     stationIds = [],
     toText = defaultToText
@@ -158,10 +175,12 @@ export const buildTripDetailTransferDisplayByStationId = async ({
     const out = new Map();
     const transferItemEntryByRouteId = new Map();
 
-    const buildTransferEntry = async (routeIdRaw) => {
+    const buildTransferEntry = async (routeIdRaw, stationCodeRaw = '') => {
         const routeId = toText(routeIdRaw);
         if (!routeId) return null;
-        if (transferItemEntryByRouteId.has(routeId)) return transferItemEntryByRouteId.get(routeId);
+        const stationCode = toText(stationCodeRaw);
+        const cacheKey = `${routeId}||${stationCode}`;
+        if (transferItemEntryByRouteId.has(cacheKey)) return transferItemEntryByRouteId.get(cacheKey);
 
         const meta = getLineMeta(routeId) || {};
         const company = toText(meta?.company) || routeId.split('.')[0] || '';
@@ -169,7 +188,14 @@ export const buildTripDetailTransferDisplayByStationId = async ({
         const displayName = toText(meta?.name) || routeId;
         const iconMeta = await getResolvedRouteIconMeta(routeId, { color: lineColor });
         let lineIconHtml = '';
-        if (iconMeta && (iconMeta.code || iconMeta.color)) {
+        if (stationCode) {
+            const badgeEl = createStationCodeBadgeElement({
+                code: stationCode,
+                color: toText(iconMeta?.color) || lineColor,
+                routeId: toText(iconMeta?.id) || routeId
+            });
+            lineIconHtml = formatPanelTripDetailTransferStationBadgeHtml(badgeEl);
+        } else if (iconMeta && (iconMeta.code || iconMeta.color)) {
             const iconEl = createLineIconElement({ routeId: iconMeta.id, code: iconMeta.code, color: iconMeta.color || lineColor });
             lineIconHtml = formatPanelTripDetailLineIconHtml(iconEl);
         }
@@ -179,10 +205,10 @@ export const buildTripDetailTransferDisplayByStationId = async ({
             company,
             displayName,
             html,
-            iconCodes: [toText(iconMeta?.code)].filter(Boolean),
+            iconCodes: [stationCode || toText(iconMeta?.code)].filter(Boolean),
             iconColor: toText(iconMeta?.color) || lineColor
         };
-        transferItemEntryByRouteId.set(routeId, entry);
+        transferItemEntryByRouteId.set(cacheKey, entry);
         return entry;
     };
 
@@ -193,16 +219,20 @@ export const buildTripDetailTransferDisplayByStationId = async ({
             : [stationId];
         const selfRouteId = getRouteIdFromStationId(stationId, toText);
         const routeIds = [];
+        const stationIdByRouteId = new Map();
         const seenRouteIds = new Set();
         for (const groupId of groupIds) {
             const routeId = getRouteIdFromStationId(groupId, toText);
             if (!routeId || routeId === selfRouteId || routeId === currentRouteId || seenRouteIds.has(routeId)) continue;
             seenRouteIds.add(routeId);
             routeIds.push(routeId);
+            stationIdByRouteId.set(routeId, groupId);
         }
         if (!routeIds.length) continue;
 
-        const entriesRaw = await Promise.all(routeIds.map((routeId) => buildTransferEntry(routeId)));
+        const entriesRaw = await Promise.all(routeIds.map((routeId) => (
+            buildTransferEntry(routeId, getStationCode(stationIdByRouteId.get(routeId)))
+        )));
         const companyOrder = [];
         const groups = new Map();
         for (const entry of entriesRaw) {
