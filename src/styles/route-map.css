@@ -556,8 +556,8 @@ html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
     display: none;
 }
 .route-map-transfer-hover-portal {
-    position: absolute;
-    z-index: 1000;
+    position: fixed;
+    z-index: 10020;
     display: block;
     min-width: max-content;
     max-width: 280px;
@@ -576,6 +576,32 @@ html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
 }
 .route-map-transfer-hover-portal .route-map-transfer-row {
     gap: 8px;
+}
+html[data-mobile-ui='1'] .route-map-transfer-hover-portal,
+body[data-mobile-ui='1'] .route-map-transfer-hover-portal {
+    box-sizing: border-box;
+    width: calc(100vw - 12px);
+    min-width: 0;
+    max-width: calc(100vw - 12px);
+}
+html[data-mobile-ui='1'] .route-map-transfer-hover-portal .route-map-transfer-items,
+body[data-mobile-ui='1'] .route-map-transfer-hover-portal .route-map-transfer-items,
+html[data-mobile-ui='1'] .route-map-transfer-hover-portal .route-map-transfer-row,
+body[data-mobile-ui='1'] .route-map-transfer-hover-portal .route-map-transfer-row {
+    max-width: 100%;
+}
+html[data-mobile-ui='1'] .route-map-transfer-hover-portal .route-map-transfer-row,
+body[data-mobile-ui='1'] .route-map-transfer-hover-portal .route-map-transfer-row {
+    flex-wrap: wrap;
+}
+html[data-mobile-ui='1'] .route-map-transfer-hover-portal .route-map-transfer-item,
+body[data-mobile-ui='1'] .route-map-transfer-hover-portal .route-map-transfer-item {
+    min-width: 0;
+    max-width: 100%;
+}
+html[data-mobile-ui='1'] .route-map-transfer-hover-portal .route-map-transfer-line-name,
+body[data-mobile-ui='1'] .route-map-transfer-hover-portal .route-map-transfer-line-name {
+    overflow-wrap: anywhere;
 }
 .route-map-through-prefix {
     color: var(--ui-text-subtle, #666);

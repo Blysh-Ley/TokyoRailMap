@@ -486,8 +486,8 @@ const setupRouteMapUi = () => {
     root.appendChild(topHeader);
     root.appendChild(gridHeader);
     root.appendChild(body);
-    root.appendChild(transferHoverPortal);
     document.body.appendChild(root);
+    document.body.appendChild(transferHoverPortal);
 
     let pinned = false;
     let hoverInsidePanel = false;
@@ -802,22 +802,29 @@ const setupRouteMapUi = () => {
     const positionTransferHoverPortal = (shell) => {
         if (!(shell instanceof HTMLElement) || transferHoverPortal.classList.contains('is-hidden')) return;
 
-        const rootRect = root.getBoundingClientRect();
-        const shellRect = shell.getBoundingClientRect();
-        const portalRect = transferHoverPortal.getBoundingClientRect();
         const pad = 6;
         const gap = 8;
+        const rawViewportWidth = Number(window.innerWidth) || 0;
+        const maxPortalWidth = rawViewportWidth > pad * 2 ? rawViewportWidth - pad * 2 : 280;
+        transferHoverPortal.style.maxWidth = `${maxPortalWidth}px`;
 
-        let viewportLeft = shellRect.left - portalRect.width - gap;
-        if (!Number.isFinite(viewportLeft)) viewportLeft = pad;
-        viewportLeft = Math.max(pad, viewportLeft);
+        const shellRect = shell.getBoundingClientRect();
+        const portalRect = transferHoverPortal.getBoundingClientRect();
+        const viewportWidth = rawViewportWidth || portalRect.width + pad * 2;
+        const viewportHeight = Number(window.innerHeight) || portalRect.height + pad * 2;
 
-        let viewportTop = shellRect.top + shellRect.height / 2 - portalRect.height / 2;
-        if (!Number.isFinite(viewportTop)) viewportTop = pad;
-        viewportTop = Math.max(pad, Math.min(viewportTop, Math.max(pad, window.innerHeight - portalRect.height - pad)));
+        let left = shellRect.left - portalRect.width - gap;
+        if (!Number.isFinite(left) || left < pad) {
+            left = shellRect.right + gap;
+        }
+        left = Math.max(pad, Math.min(left, Math.max(pad, viewportWidth - portalRect.width - pad)));
 
-        transferHoverPortal.style.left = `${viewportLeft - rootRect.left}px`;
-        transferHoverPortal.style.top = `${viewportTop - rootRect.top}px`;
+        let top = shellRect.top + shellRect.height / 2 - portalRect.height / 2;
+        if (!Number.isFinite(top)) top = pad;
+        top = Math.max(pad, Math.min(top, Math.max(pad, viewportHeight - portalRect.height - pad)));
+
+        transferHoverPortal.style.left = `${left}px`;
+        transferHoverPortal.style.top = `${top}px`;
     };
 
     const showTransferHoverPortal = (shell) => {
@@ -2354,6 +2361,7 @@ const setupRouteMapUi = () => {
         }
         pinned = false;
         root.classList.add('is-hidden');
+        hideTransferHoverPortal();
         activeLineId = '';
         activeLineName = '';
         clearRouteMapStationIndicator();
@@ -2365,6 +2373,7 @@ const setupRouteMapUi = () => {
         if (root.classList.contains('is-hidden')) return;
         pinned = false;
         root.classList.add('is-hidden');
+        hideTransferHoverPortal();
         activeLineId = '';
         activeLineName = '';
         clearRouteMapStationIndicator();
