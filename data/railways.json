@@ -1806,7 +1806,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"altitude": -1,
-		"color": "#00418E",
+		"color": "#8ECED3",
 		"code": "R",
 		"carComposition": 10
 	},
@@ -2483,7 +2483,7 @@
 		"ascending": "Inbound",
 		"descending": "Outbound",
 		"altitude": -1,
-		"color": "#093F86",
+		"color": "#0170C1",
 		"code": "B",
 		"carComposition": 6,
 		"dynamic": true
@@ -4507,7 +4507,7 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"altitude": -1,
-		"color": "#09357F",
+		"color": "#02489A",
 		"code": "MM",
 		"carComposition": 10
 	},
@@ -5226,7 +5226,7 @@
 		],
 		"ascending": "Outbound",
 		"descending": "Inbound",
-		"color": "#27404E",
+		"color": "#0E62B9",
 		"code": "U",
 		"carComposition": 6
 	},
@@ -5375,7 +5375,7 @@
 		],
 		"ascending": "Northbound",
 		"descending": "Southbound",
-		"color": "#FF6633",
+		"color": "#23625D",
 		"code": "TT",
 		"carComposition": 4
 	},

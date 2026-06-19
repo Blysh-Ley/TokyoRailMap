@@ -3378,7 +3378,9 @@ export function createPanel(options = {}) {
                 arrivalTime: toText(s.arr || s.dep || ''),
                 stationCode: toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
                 stationName: toText(s.stationName || stationId),
-                lineColor: toText(s.lineColor || '')
+                lineId: toText(s.lineId || tripLineId || lineId),
+                lineColor: toText(s.lineColor || ''),
+                muted: !!s.isPast
             });
         };
 

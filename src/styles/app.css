@@ -2127,6 +2127,13 @@ html[data-theme="dark"] .journey-pick-pin-icon {
     align-items: center;
 }
 
+.journey-trip-station-badge .rw-station-code-badge {
+    width: 20px !important;
+    min-width: 20px !important;
+    height: 20px !important;
+    min-height: 20px !important;
+}
+
 .journey-trip-station-name {
     min-width: 0;
     white-space: nowrap;
@@ -4302,21 +4309,6 @@ body[data-mobile-ui='1'] .panel-dir-filter-option-count {
     color: var(--ui-text-disabled);
 }
 
-.panel-trip-detail-row.is-past .rw-station-code-badge {
-    border-color: var(--ui-past-bg) !important;
-    background: #fff !important;
-}
-
-.panel-trip-detail-row.is-past .rw-station-code-badge-prefix {
-    background: var(--ui-past-bg) !important;
-    color: #fff !important;
-}
-
-.panel-trip-detail-row.is-past .rw-station-code-badge-suffix {
-    color: var(--ui-text-disabled) !important;
-}
-
-
 .panel-trip-detail-station {
     flex: 1 1 auto;
     min-width: 0;
@@ -4339,6 +4331,13 @@ body[data-mobile-ui='1'] .panel-dir-filter-option-count {
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
+}
+
+.panel-trip-detail-station-badge .rw-station-code-badge {
+    width: 20px !important;
+    min-width: 20px !important;
+    height: 20px !important;
+    min-height: 20px !important;
 }
 
 .panel-trip-detail-station-marquee {

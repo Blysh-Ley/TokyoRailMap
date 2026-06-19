@@ -18,7 +18,12 @@ const setStyles = (node, styles = {}) => {
     if (!node?.style) return node;
     for (const [key, value] of Object.entries(styles)) {
         if (value == null) continue;
-        node.style[key] = String(value);
+        const stringValue = String(value);
+        if (key.startsWith('--') || key.includes('-')) {
+            node.style.setProperty(key, stringValue);
+        } else {
+            node.style[key] = stringValue;
+        }
     }
     return node;
 };
@@ -55,7 +60,9 @@ const resolveConfiguredValue = (value, context = {}) => {
     }
     if (typeof value !== 'string') return value;
     if (Object.prototype.hasOwnProperty.call(context, value)) return context[value];
-    return value;
+    return value.replace(/\b(borderColor|fillColor|backgroundColor|lineColor)\b/g, (token) => (
+        Object.prototype.hasOwnProperty.call(context, token) ? toText(context[token]) : token
+    ));
 };
 
 const resolveConfiguredAttrs = (attrs = {}, context = {}) => {
@@ -66,10 +73,155 @@ const resolveConfiguredAttrs = (attrs = {}, context = {}) => {
     return result;
 };
 
+const resolveConfiguredStyles = (styles = {}, context = {}) => {
+    const result = {};
+    for (const [key, value] of Object.entries(styles || {})) {
+        result[key] = resolveConfiguredValue(value, context);
+    }
+    return result;
+};
+
+const parseSvgNumber = (value, fallback = 0) => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    const match = toText(value).match(/^-?\d+(?:\.\d+)?/);
+    if (!match) return fallback;
+    const numeric = Number(match[0]);
+    return Number.isFinite(numeric) ? numeric : fallback;
+};
+
+const getStrokeWidth = (attrs = {}) => parseSvgNumber(attrs['stroke-width'] ?? attrs.strokeWidth, 0);
+
+const getShapeVisualBounds = (shapeConfig = {}, context = {}) => {
+    if (!shapeConfig?.tag || shapeConfig.custom) return null;
+
+    const attrs = resolveConfiguredAttrs(shapeConfig.attrs, context);
+    const strokeInset = getStrokeWidth(attrs) / 2;
+
+    if (shapeConfig.tag === 'circle') {
+        const cx = parseSvgNumber(attrs.cx, 50);
+        const cy = parseSvgNumber(attrs.cy, 50);
+        const r = parseSvgNumber(attrs.r, 50);
+        return {
+            minX: cx - r - strokeInset,
+            minY: cy - r - strokeInset,
+            maxX: cx + r + strokeInset,
+            maxY: cy + r + strokeInset
+        };
+    }
+
+    if (shapeConfig.tag === 'rect') {
+        const x = parseSvgNumber(attrs.x, 0);
+        const y = parseSvgNumber(attrs.y, 0);
+        const width = parseSvgNumber(attrs.width, 100);
+        const height = parseSvgNumber(attrs.height, 100);
+        return {
+            minX: x - strokeInset,
+            minY: y - strokeInset,
+            maxX: x + width + strokeInset,
+            maxY: y + height + strokeInset
+        };
+    }
+
+    if (shapeConfig.tag === 'polygon') {
+        const points = toText(attrs.points)
+            .split(/[\s,]+/)
+            .map((part) => Number(part))
+            .filter(Number.isFinite);
+        if (points.length < 4) return null;
+        const xs = [];
+        const ys = [];
+        for (let i = 0; i + 1 < points.length; i += 2) {
+            xs.push(points[i]);
+            ys.push(points[i + 1]);
+        }
+        if (!xs.length || !ys.length) return null;
+        return {
+            minX: Math.min(...xs) - strokeInset,
+            minY: Math.min(...ys) - strokeInset,
+            maxX: Math.max(...xs) + strokeInset,
+            maxY: Math.max(...ys) + strokeInset
+        };
+    }
+
+    return null;
+};
+
+const isNearlyEqual = (a, b) => Math.abs(a - b) < 0.001;
+
+export const getFittedFrameViewBox = (design = {}, context = {}) => {
+    const bounds = getShapeVisualBounds(design.shape, context);
+    if (!bounds) return '';
+
+    const minX = Math.max(0, bounds.minX);
+    const minY = Math.max(0, bounds.minY);
+    const maxX = Math.min(100, bounds.maxX);
+    const maxY = Math.min(100, bounds.maxY);
+    const width = maxX - minX;
+    const height = maxY - minY;
+    if (!(width > 0 && height > 0)) return '';
+    if (!isNearlyEqual(width, height)) return '';
+    return `${minX} ${minY} ${width} ${height}`;
+};
+
+const getImageAspectRatio = (imageConfig = {}) => {
+    const direct = parseSvgNumber(imageConfig.aspectRatio, 0);
+    if (direct > 0) return direct;
+
+    const naturalWidth = parseSvgNumber(imageConfig.naturalWidth, 0);
+    const naturalHeight = parseSvgNumber(imageConfig.naturalHeight, 0);
+    if (naturalWidth > 0 && naturalHeight > 0) return naturalWidth / naturalHeight;
+
+    return 0;
+};
+
+const getImageFittedAttrs = (imageConfig = {}, context = {}) => {
+    const attrs = resolveConfiguredAttrs(imageConfig.attrs || {}, context);
+    const fit = toText(imageConfig.fit || imageConfig.sizing);
+    if (fit !== 'width') return attrs;
+
+    const aspectRatio = getImageAspectRatio(imageConfig);
+    if (!(aspectRatio > 0)) return attrs;
+
+    const width = parseSvgNumber(attrs.width, 100);
+    const height = width / aspectRatio;
+    const x = parseSvgNumber(attrs.x, 0);
+    const y = Object.prototype.hasOwnProperty.call(attrs, 'y')
+        ? parseSvgNumber(attrs.y, 0)
+        : (100 - height) / 2;
+
+    return {
+        ...attrs,
+        x,
+        y,
+        width,
+        height,
+        preserveAspectRatio: attrs.preserveAspectRatio || 'xMidYMid meet'
+    };
+};
+
 const getLineIconDesign = (designName) => {
     const name = toText(designName);
     const fallbackName = LINE_ICON_SETTINGS.defaultDesign || 'rectangle-border';
     return LINE_ICON_DESIGNS[name] || LINE_ICON_DESIGNS[fallbackName] || LINE_ICON_DESIGNS.default || null;
+};
+
+const getEffectiveDesign = (design = {}, imageConfig = null) => {
+    if (!imageConfig || typeof imageConfig !== 'object') return design;
+    return {
+        ...design,
+        image: {
+            ...(design?.image || {}),
+            ...imageConfig,
+            attrs: {
+                ...(design?.image?.attrs || {}),
+                ...(imageConfig.attrs || {})
+            },
+            style: {
+                ...(design?.image?.style || {}),
+                ...(imageConfig.style || {})
+            }
+        }
+    };
 };
 
 const createNipporiToneriFrame = (documentRef) => {
@@ -119,22 +271,133 @@ const createShape = ({
     if (shapeConfig?.custom === 'nipporiToneriFrame') return createNipporiToneriFrame(documentRef);
     if (!shapeConfig?.tag) return null;
 
-    return createSvgNode(documentRef, shapeConfig.tag, resolveConfiguredAttrs(shapeConfig.attrs, {
+    const styleContext = {
+        borderColor,
+        fillColor,
+        backgroundColor,
+        lineColor: fillColor
+    };
+    return createSvgNode(
+        documentRef,
+        shapeConfig.tag,
+        resolveConfiguredAttrs(shapeConfig.attrs, styleContext),
+        resolveConfiguredStyles(shapeConfig.style || {}, styleContext)
+    );
+};
+
+const createImageFrame = ({
+    documentRef,
+    design,
+    trainIconHref,
+    borderColor,
+    fillColor,
+    backgroundColor
+}) => {
+    const href = toText(trainIconHref);
+    if (!href || !design?.image) return null;
+    const styleContext = {
+        borderColor,
+        fillColor,
+        backgroundColor,
+        lineColor: fillColor
+    };
+    return createSvgNode(
+        documentRef,
+        'image',
+        {
+            ...getImageFittedAttrs(design.image || {}, styleContext),
+            href
+        },
+        resolveConfiguredStyles(design.image.style || {}, styleContext)
+    );
+};
+
+const createDecorationNodes = ({
+    documentRef,
+    design,
+    borderColor,
+    fillColor,
+    backgroundColor
+}) => {
+    const decorations = Array.isArray(design?.decorations) ? design.decorations : [];
+    if (!decorations.length) return [];
+    const styleContext = {
+        borderColor,
+        fillColor,
+        backgroundColor,
+        lineColor: fillColor
+    };
+
+    return decorations
+        .map((decoration) => {
+            if (!decoration?.tag) return null;
+            return createSvgNode(
+                documentRef,
+                decoration.tag,
+                resolveConfiguredAttrs(decoration.attrs || {}, styleContext),
+                resolveConfiguredStyles(decoration.style || {}, styleContext)
+            );
+        })
+        .filter(Boolean);
+};
+
+export const createLineIconFrameNode = ({
+    documentRef = globalThis.document,
+    design,
+    borderColor = 'transparent',
+    fillColor = '#888',
+    backgroundColor = '#fff',
+    trainIconHref = '',
+    imageConfig = null
+} = {}) => {
+    const effectiveDesign = getEffectiveDesign(design, imageConfig);
+    const frameNode = effectiveDesign?.image
+        ? createImageFrame({
+            documentRef,
+            design: effectiveDesign,
+            trainIconHref,
+            borderColor,
+            fillColor,
+            backgroundColor
+        })
+        : createShape({
+            documentRef,
+            design: effectiveDesign,
+            borderColor,
+            fillColor,
+            backgroundColor
+        });
+    if (!frameNode) return null;
+
+    const decorations = createDecorationNodes({
+        documentRef,
+        design: effectiveDesign,
         borderColor,
         fillColor,
         backgroundColor
-    }));
+    });
+    if (!decorations.length) return frameNode;
+
+    const group = createSvgNode(documentRef, 'g');
+    group.appendChild(frameNode);
+    decorations.forEach((node) => group.appendChild(node));
+    return group;
 };
 
 const getTextModel = ({ code, design, dark, fillColor }) => {
     const length = toText(code).length;
     const model = design?.text || {};
+    const explicitTextLength = model.textLength ??
+        model.textWidth ??
+        model.attrs?.textLength ??
+        model.attrs?.textWidth ??
+        model.attrs?.['text-width'];
 
     return {
         ...model,
         color: resolveConfiguredValue(model.color, { dark, fillColor }),
         fontSize: pickByCodeLength(model.fontSizeByCodeLength, length, model.fontSize),
-        textLength: pickByCodeLength(model.textLengthByCodeLength, length, model.textLength)
+        textLength: explicitTextLength ?? pickByCodeLength(model.textLengthByCodeLength, length, model.textLength)
     };
 };
 
@@ -145,8 +408,9 @@ const appendCenteredText = ({ svg, documentRef, code, design, dark, fillColor })
     const textModel = getTextModel({ code: safeCode, design, dark, fillColor });
     if (textModel.hidden) return;
     const textLength = textModel.textLength || pickByCodeLength(textModel.textLengthByCodeLength, safeCode.length, 66);
+    const { textWidth: _textWidth, 'text-width': _textWidthAttr, textLength: _textLengthAttr, ...configuredAttrs } = textModel.attrs || {};
     const textAttrs = {
-        ...(textModel.attrs || {}),
+        ...configuredAttrs,
         y: textModel.y,
         fill: textModel.color,
         'font-size': textModel.fontSize,
@@ -159,14 +423,28 @@ const appendCenteredText = ({ svg, documentRef, code, design, dark, fillColor })
     svg.appendChild(text);
 };
 
-const appendTrainImage = ({ svg, documentRef, design, trainIconHref }) => {
+const appendTrainImage = ({
+    svg,
+    documentRef,
+    design,
+    trainIconHref,
+    borderColor,
+    fillColor,
+    backgroundColor
+}) => {
     const href = toText(trainIconHref);
     if (!href) return;
 
+    const styleContext = {
+        borderColor,
+        fillColor,
+        backgroundColor,
+        lineColor: fillColor
+    };
     svg.appendChild(createSvgNode(documentRef, 'image', {
-        ...(design?.image?.attrs || {}),
+        ...getImageFittedAttrs(design?.image || {}, styleContext),
         href,
-    }));
+    }, resolveConfiguredStyles(design?.image?.style || {}, styleContext)));
 };
 
 export const renderLineIconSvg = (root, {
@@ -178,26 +456,46 @@ export const renderLineIconSvg = (root, {
     backgroundColor = '#fff',
     dark = false,
     trainIconHref = '',
+    imageConfig = null,
     rootStyle = {},
     svgStyle = {}
 } = {}) => {
     if (!root?.style || !documentRef?.createElementNS) return null;
 
     const safePreset = toText(preset) || LINE_ICON_SETTINGS.defaultDesign || 'rectangle-border';
-    const design = getLineIconDesign(safePreset);
+    const design = getEffectiveDesign(getLineIconDesign(safePreset), imageConfig);
     if (!design) return null;
 
     const safeCode = toText(code);
-    const svg = createSvgNode(documentRef, 'svg', design.svg?.attrs || {});
+    const styleContext = {
+        borderColor,
+        fillColor,
+        backgroundColor,
+        lineColor: fillColor,
+        dark
+    };
+    const fittedViewBox = getFittedFrameViewBox(design, styleContext);
+    const svg = createSvgNode(documentRef, 'svg', {
+        ...(design.svg?.attrs || {}),
+        ...(fittedViewBox ? { viewBox: fittedViewBox } : {})
+    });
     setStyles(svg, {
-        ...(design.svg?.style || {}),
+        ...resolveConfiguredStyles(design.svg?.style || {}, styleContext),
         ...svgStyle
     });
 
     if (design.image) {
-        appendTrainImage({ svg, documentRef, design, trainIconHref });
+        appendTrainImage({
+            svg,
+            documentRef,
+            design,
+            trainIconHref,
+            borderColor,
+            fillColor,
+            backgroundColor
+        });
     } else {
-        const shape = createShape({
+        const shape = createLineIconFrameNode({
             documentRef,
             design,
             borderColor,
@@ -209,10 +507,11 @@ export const renderLineIconSvg = (root, {
 
     appendCenteredText({ svg, documentRef, code: safeCode, design, dark, fillColor });
 
+    const resolvedRootStyle = resolveConfiguredStyles(design.html?.rootStyle || {}, styleContext);
     setStyles(root, {
-        ...(design.html?.rootStyle || {}),
-        width: root.style.width || design.html?.rootStyle?.width || '25px',
-        height: root.style.height || design.html?.rootStyle?.height || '25px',
+        ...resolvedRootStyle,
+        width: root.style.width || resolvedRootStyle.width || '25px',
+        height: root.style.height || resolvedRootStyle.height || '25px',
         ...rootStyle
     });
 

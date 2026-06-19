@@ -170,6 +170,10 @@ const enhancePopupLineBadges = async ({ popup, mode }) => {
                     routeId: toText(meta?.id) || lineId
                 });
                 if (!badge) continue;
+                badge.style.width = '20px';
+                badge.style.height = '20px';
+                badge.style.minWidth = '20px';
+                badge.style.minHeight = '20px';
                 badge.style.marginLeft = index === 0 ? '6px' : '4px';
                 badge.style.marginRight = '0';
                 stationBadgeFrag.appendChild(badge);

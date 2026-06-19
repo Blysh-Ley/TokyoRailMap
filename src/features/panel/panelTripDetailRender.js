@@ -394,7 +394,7 @@ const escapeHtml_panelTripDetailStationRenderer = (input) => String(input ?? '')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-const renderStationCodeBadgeHtml_panelTripDetailStationRenderer = ({ stationCode = '', lineColor = '', routeId = '' } = {}) => {
+const renderStationCodeBadgeHtml_panelTripDetailStationRenderer = ({ stationCode = '', lineColor = '', routeId = '', muted = false } = {}) => {
     const code = toText_panelTripDetailStationRenderer(stationCode);
     if (!code) return '';
 
@@ -402,7 +402,8 @@ const renderStationCodeBadgeHtml_panelTripDetailStationRenderer = ({ stationCode
         const badge = createStationCodeBadgeElement({
             code,
             color: toText_panelTripDetailStationRenderer(lineColor),
-            routeId: toText_panelTripDetailStationRenderer(routeId)
+            routeId: toText_panelTripDetailStationRenderer(routeId),
+            muted
         });
         return badge?.outerHTML || '';
     } catch {
@@ -415,10 +416,11 @@ export const renderPanelTripDetailStationContentHtml = ({
     stationName = '',
     stationId = '',
     lineColor = '',
-    lineId = ''
+    lineId = '',
+    muted = false
 } = {}) => {
     const name = toText_panelTripDetailStationRenderer(stationName || stationId);
-    const badgeHtml = renderStationCodeBadgeHtml_panelTripDetailStationRenderer({ stationCode, lineColor, routeId: lineId });
+    const badgeHtml = renderStationCodeBadgeHtml_panelTripDetailStationRenderer({ stationCode, lineColor, routeId: lineId, muted });
     const badgeWrapHtml = badgeHtml
         ? `<span class="panel-trip-detail-station-badge" aria-hidden="true">${badgeHtml}</span>`
         : '';
@@ -441,7 +443,8 @@ export const renderPanelTripDetailStationCellHtml = ({
     lineColor = '',
     stationCode = '',
     stationName = '',
-    stationId = ''
+    stationId = '',
+    muted = false
 } = {}) => {
     const safeStationId = toText_panelTripDetailStationRenderer(dataStationId || stationId);
     const safeArrivalTime = normalizePanelStationJumpTime(arrivalTime, { toText: toText_panelTripDetailStationRenderer });
@@ -465,7 +468,8 @@ export const renderPanelTripDetailStationCellHtml = ({
         stationName,
         stationId,
         lineColor,
-        lineId
+        lineId,
+        muted
     })}</div>`;
 };
 
@@ -537,7 +541,9 @@ export const renderPanelTripDetailStopRowHtml = ({
     stationId = '',
     stationCode = '',
     stationName = '',
+    lineId = '',
     lineColor = '',
+    muted = false,
     arrivalTime = '',
     arrivalLabelHtml = '',
     departLabelHtml = '',
@@ -565,7 +571,9 @@ export const renderPanelTripDetailStopRowHtml = ({
                 className: stationClass,
                 dataStationId: stationId,
                 arrivalTime: arrivalTime || arrivalText,
+                lineId,
                 lineColor,
+                muted,
                 stationCode,
                 stationName,
                 stationId
@@ -850,6 +858,7 @@ export const renderPanelTripDetailGridStopCellsSharedStation = ({
     rowMarkerText = '',
     stationCode = '',
     stationName = '',
+    lineId = '',
     renderPanelTripDetailStationCellHtml,
     renderTripDetailMomentHtml,
     escapeHtml = (value) => String(value ?? ''),
@@ -869,7 +878,9 @@ export const renderPanelTripDetailGridStopCellsSharedStation = ({
         style: `grid-column:${stationCol};`,
         dataStationId: stationId,
         arrivalTime: toText(s.arr || s.dep || ''),
+        lineId: toText(s.lineId || lineId),
         lineColor: safeLineColor,
+        muted: !!s.isPast,
         stationCode: toText(stationCode),
         stationName: toText(stationName || s.stationName || stationId),
         stationId
@@ -924,6 +935,7 @@ export const renderPanelTripDetailGridLaneBlock = ({
     stationColStart = 1,
     transferColStart = 0,
     totalCols,
+    lineId = '',
     lineColor = '',
     flowMarkerCol = 0,
     rowMarkerText = '',
@@ -947,15 +959,17 @@ export const renderPanelTripDetailGridLaneBlock = ({
     });
 
     const safeLineColor = toText(lineColor);
+    const safeLineId = toText(lineId || descriptor?.lineId);
     for (const row of safeRows) {
         const stationId = toText(row?.stationId);
         html += renderPanelTripDetailGridStopCellsSharedStation({
-            stop: { ...(row || {}), lineColor: safeLineColor },
+            stop: { ...(row || {}), lineColor: safeLineColor, lineId: toText(row?.lineId || safeLineId) },
             timeColStart,
             stationColStart,
             transferColStart,
             transferDisplay: row?.transferDisplay || null,
             lineColor: safeLineColor,
+            lineId: safeLineId,
             rowMarkerCol: flowMarkerCol,
             rowMarkerText,
             stationCode: toText(resolveStationCode(stationId)),
@@ -993,6 +1007,7 @@ export const renderPanelTripDetailBranchBreakRow = ({
     primaryTimeColStart,
     stationColStart = 1,
     firstBranchMarkerCol = 0,
+    lineId = '',
     lineColor = '',
     stationCode = '',
     stationName = '',
@@ -1044,7 +1059,9 @@ export const renderPanelTripDetailBranchBreakRow = ({
     const breakStationHtml = renderPanelTripDetailStationCellHtml({
         className: `panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}`,
         style: `grid-column:${Math.max(1, Number(stationColStart) || 1)};`,
+        lineId: toText(lineId),
         lineColor: toText(lineColor),
+        muted: breakIsPast,
         stationCode: breakStationId ? safeStationCode : '',
         stationName: breakStationText.replace(/^\S+\s+/, ''),
         stationId: breakStationId
@@ -1091,6 +1108,7 @@ export const renderPanelTripDetailBranchGridRows = ({
             stationColStart,
             transferColStart,
             totalCols,
+            lineId: toText(mainDescriptor?.lineId),
             lineColor: mainLineColor,
             resolveStationCode,
             renderPanelTripDetailStationCellHtml,
@@ -1114,6 +1132,7 @@ export const renderPanelTripDetailBranchGridRows = ({
             stationColStart,
             transferColStart,
             totalCols,
+            lineId: toText(lane?.descriptor?.lineId || lane?.lineId),
             lineColor: laneLineColor,
             flowMarkerCol,
             rowMarkerText: flowMarkerCol > 0 ? '||' : '',
@@ -1145,6 +1164,7 @@ export const renderPanelTripDetailBranchGridRows = ({
             primaryTimeColStart,
             stationColStart,
             firstBranchMarkerCol,
+            lineId: toText(primaryLane?.descriptor?.lineId || primaryLane?.lineId || mainDescriptor?.lineId),
             lineColor: toText(primaryLane?.descriptor?.color || mainDescriptor?.color || typeColor || ''),
             stationCode: breakStationId ? toText(resolveStationCode(breakStationId) || '') : '',
             stationName: toText(breakStop?.stationName || breakStationId),

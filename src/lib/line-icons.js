@@ -1,6 +1,7 @@
-import { getCachedJson } from './fetch.js';
+import { getCachedJson, getCompanyLogoCandidates } from './fetch.js';
 import { resolveMainLineIdByBranchRule } from './special-condition.js';
 import { renderLineIconSvg } from '../ui/lineIconSvgView.js';
+import { renderStationBadgeSvg } from '../ui/stationBadgeSvgView.js';
 import { lineIconSettings } from '../config/lineIconSettings.js';
 
 const toText = (v) => String(v ?? '').trim();
@@ -14,16 +15,6 @@ const DEFAULT_STATION_BADGE_DESIGN = STATION_BADGE_DESIGNS[DEFAULT_STATION_BADGE
 const LINE_ICON_CLASS = LINE_ICON_SETTINGS.className || 'rw-line-icon';
 const STATION_BADGE_CLASS_NAMES = DEFAULT_STATION_BADGE_DESIGN.classNames || STATION_BADGE_SETTINGS.classNames || {};
 const STATION_BADGE_ROOT_CLASS = STATION_BADGE_CLASS_NAMES.root || 'rw-station-code-badge';
-const STATION_BADGE_PREFIX_CLASS = STATION_BADGE_CLASS_NAMES.prefix || 'rw-station-code-badge-prefix';
-const STATION_BADGE_SUFFIX_CLASS = STATION_BADGE_CLASS_NAMES.suffix || 'rw-station-code-badge-suffix';
-
-const applyStyleMap = (el, styles = {}) => {
-    if (!(el instanceof HTMLElement)) return;
-    for (const [key, value] of Object.entries(styles || {})) {
-        if (value == null) continue;
-        el.style[key] = String(value);
-    }
-};
 
 const resolveStationStyleValue = (value, context = {}) => {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -32,16 +23,39 @@ const resolveStationStyleValue = (value, context = {}) => {
     }
     if (typeof value !== 'string') return value;
     if (Object.prototype.hasOwnProperty.call(context, value)) return context[value];
-    return value;
+    return value.replace(/\b(lineColor|fillColor|borderColor|prefixBackground|prefixText)\b/g, (token) => (
+        Object.prototype.hasOwnProperty.call(context, token) ? toText(context[token]) : token
+    ));
 };
 
-const applyStationStyleMap = (el, styles = {}, context = {}) => {
-    if (!(el instanceof HTMLElement)) return;
+const resolveStationStyleMap = (styles = {}, context = {}) => {
     const resolved = {};
     for (const [key, value] of Object.entries(styles || {})) {
         resolved[key] = resolveStationStyleValue(value, context);
     }
-    applyStyleMap(el, resolved);
+    return resolved;
+};
+
+const getStationStyleValue = (styles = {}, keys = []) => {
+    for (const key of keys) {
+        if (!Object.prototype.hasOwnProperty.call(styles || {}, key)) continue;
+        const value = toText(styles[key]);
+        if (value) return value;
+    }
+    return '';
+};
+
+const parseCssBorder = (value) => {
+    const raw = toText(value);
+    if (!raw) return {};
+    const width = raw.match(/(?:^|\s)(\d+(?:\.\d+)?(?:px|em|rem)?)(?=\s|$)/i)?.[1] || '';
+    const styleWords = new Set(['none', 'solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset']);
+    const color = raw
+        .split(/\s+/)
+        .filter(Boolean)
+        .filter((part) => part !== width && !styleWords.has(part.toLowerCase()))
+        .join(' ');
+    return { width, color };
 };
 
 const pickByCodeLength = (rules = [], length = 0, fallback = null) => {
@@ -63,9 +77,152 @@ const routeIdMatches = (id, match = {}) => {
     return routePrefixes.some((prefix) => id.startsWith(prefix));
 };
 
+const selectLineIconConfig = (routeId, code) => {
+    const id = toText(routeId);
+    if (!id) return { design: LINE_ICON_SETTINGS.emptyRouteDesign || 'default' };
+
+    for (const company of LINE_COMPANY_SETTINGS) {
+        if (!routeIdMatches(id, company?.match)) continue;
+        const config = company?.lineIcon && typeof company.lineIcon === 'object' ? company.lineIcon : {};
+        const design = toText(config.design) || toText(config.preset);
+        if (design) return { ...config, design };
+    }
+
+    return { design: LINE_ICON_SETTINGS.defaultDesign || 'rectangle-border' };
+};
+
+const getLineIconImageConfig = (lineIconConfig = {}) => {
+    const imageSource = lineIconConfig.image && typeof lineIconConfig.image === 'object'
+        ? lineIconConfig.image
+        : lineIconConfig;
+    const result = {};
+
+    for (const key of ['logo', 'companyLogo', 'href', 'src', 'url', 'fit', 'sizing', 'aspectRatio', 'naturalWidth', 'naturalHeight']) {
+        if (!Object.prototype.hasOwnProperty.call(imageSource || {}, key)) continue;
+        const value = imageSource[key];
+        if (value == null || value === '') continue;
+        result[key] = value;
+    }
+
+    return Object.keys(result).length ? result : null;
+};
+
+const getLineIconImageConfigFromDataset = (el) => {
+    if (!(el instanceof HTMLElement)) return null;
+    const result = {};
+    const map = {
+        lineIconLogo: 'logo',
+        lineIconCompanyLogo: 'companyLogo',
+        lineIconHref: 'href',
+        lineIconSrc: 'src',
+        lineIconUrl: 'url',
+        lineIconFit: 'fit',
+        lineIconSizing: 'sizing',
+        lineIconAspectRatio: 'aspectRatio',
+        lineIconNaturalWidth: 'naturalWidth',
+        lineIconNaturalHeight: 'naturalHeight'
+    };
+
+    for (const [datasetKey, configKey] of Object.entries(map)) {
+        const value = toText(el.dataset[datasetKey]);
+        if (!value) continue;
+        result[configKey] = value;
+    }
+
+    return Object.keys(result).length ? result : null;
+};
+
+const applyLineIconConfigDataset = (el, lineIconConfig = {}) => {
+    if (!(el instanceof HTMLElement)) return;
+    const imageConfig = getLineIconImageConfig(lineIconConfig) || {};
+    const map = {
+        logo: 'lineIconLogo',
+        companyLogo: 'lineIconCompanyLogo',
+        href: 'lineIconHref',
+        src: 'lineIconSrc',
+        url: 'lineIconUrl',
+        fit: 'lineIconFit',
+        sizing: 'lineIconSizing',
+        aspectRatio: 'lineIconAspectRatio',
+        naturalWidth: 'lineIconNaturalWidth',
+        naturalHeight: 'lineIconNaturalHeight'
+    };
+
+    for (const [configKey, datasetKey] of Object.entries(map)) {
+        const value = toText(imageConfig[configKey]);
+        if (value) {
+            el.dataset[datasetKey] = value;
+        } else {
+            delete el.dataset[datasetKey];
+        }
+    }
+};
+
 const getStationBadgeDesign = (designName) => {
     const name = toText(designName) || DEFAULT_STATION_BADGE_DESIGN_NAME;
     return STATION_BADGE_DESIGNS[name] || DEFAULT_STATION_BADGE_DESIGN || {};
+};
+
+const getLineIconDesign = (designName) => {
+    const name = toText(designName);
+    const fallbackName = LINE_ICON_SETTINGS.defaultDesign || 'rectangle-border';
+    return LINE_ICON_DESIGNS[name] || LINE_ICON_DESIGNS[fallbackName] || LINE_ICON_DESIGNS.default || null;
+};
+
+const shouldReuseLineIconFrameForStationBadge = (design = {}) => {
+    const frame = design?.frame || {};
+    return design?.reuseLineIconFrame === true ||
+        frame.reuseLineIconFrame === true ||
+        toText(frame.source) === 'line-icon';
+};
+
+const resolveLineIconFrameForStationBadge = ({
+    stationBadgeDesign,
+    routeId,
+    code,
+    routeColor,
+    borderColor
+} = {}) => {
+    if (!shouldReuseLineIconFrameForStationBadge(stationBadgeDesign)) return null;
+
+    const frame = stationBadgeDesign?.frame || {};
+    const lineIconConfig = selectLineIconConfig(routeId, code);
+    const preset = toText(frame.preset || frame.lineIconDesign) || toText(lineIconConfig.design) || selectLineIconPreset(routeId, code);
+    const design = getLineIconDesign(preset);
+    if (!design?.shape && !design?.image) return null;
+
+    const dark = isDarkThemeActive();
+    const fillColor = resolveLineColorForTheme(routeColor) || routeColor || borderColor || '#888';
+    const frameBorderColor = resolveBorderColorForTheme(routeColor) || routeColor || borderColor || 'transparent';
+    const trainIconConfig = design?.image || null;
+    const imageConfig = getLineIconImageConfig(frame.image || lineIconConfig);
+    const effectiveTrainIconConfig = trainIconConfig
+        ? {
+            ...(trainIconConfig || {}),
+            ...(imageConfig || {}),
+            attrs: {
+                ...(trainIconConfig?.attrs || {}),
+                ...(imageConfig?.attrs || {})
+            },
+            style: {
+                ...(trainIconConfig?.style || {}),
+                ...(imageConfig?.style || {})
+            }
+        }
+        : null;
+    const trainIconHref = trainIconConfig
+        ? resolveImageHref(effectiveTrainIconConfig, fillColor, preset)
+        : '';
+
+    return {
+        design,
+        preset,
+        borderColor: frameBorderColor,
+        fillColor,
+        backgroundColor: dark ? 'rgba(28, 28, 28, 0.94)' : '#fff',
+        trainIconHref,
+        imageConfig
+    };
 };
 
 export const removeCompanyAbbFromLineName = (lineName, abb, { lineId = '', normalize = toText } = {}) => {
@@ -121,16 +278,9 @@ export const resolveMainLineIdForIcon = (lineId, index = null) => {
 
 
 export const selectLineIconPreset = (routeId, code) => {
-    const id = toText(routeId);
-    if (!id) return LINE_ICON_SETTINGS.emptyRouteDesign || 'default';
-
-    for (const company of LINE_COMPANY_SETTINGS) {
-        if (!routeIdMatches(id, company?.match)) continue;
-        const design = toText(company?.lineIcon?.design) || toText(company?.lineIcon?.preset);
-        if (design) return design;
-    }
-
-    return LINE_ICON_SETTINGS.defaultDesign || 'rectangle-border';
+    return toText(selectLineIconConfig(routeId, code).design) ||
+        LINE_ICON_SETTINGS.defaultDesign ||
+        'rectangle-border';
 };
 
 export const selectStationBadgeDesign = (routeId, code) => {
@@ -243,6 +393,23 @@ export const resolveLineColorForTheme = (color) => {
 };
 
 const _trainSvgCache = new Map();
+
+const resolveImageHref = (imageConfig = {}, fill = '', preset = '') => {
+    if (!imageConfig) return '';
+
+    const directHref = toText(imageConfig.href || imageConfig.src || imageConfig.url);
+    if (directHref) return directHref;
+
+    const logoFile = toText(imageConfig.logo || imageConfig.companyLogo);
+    if (logoFile) return getCompanyLogoCandidates(logoFile)[0] || logoFile;
+
+    const brand = toText(imageConfig.brand || preset);
+    if (!brand) return '';
+    const imageFill = imageConfig.fill === 'lineColor'
+        ? (fill || '#000')
+        : toText(imageConfig.fill);
+    return getTrainSvgDataHref(imageFill, brand);
+};
 
 const getTrainSvgDataHref = (fill, company, defaultColor = '#000') => {
     const color = toText(fill) || defaultColor;
@@ -397,12 +564,23 @@ const applyIconStyleForTheme = (el) => {
     const fillColor = resolveLineColorForTheme(routeColor) || routeColor;
     const darkBackground = dark ? 'rgba(28, 28, 28, 0.94)' : '#fff';
     const designConfig = LINE_ICON_DESIGNS[preset] || LINE_ICON_DESIGNS[LINE_ICON_SETTINGS.defaultDesign] || null;
-    const trainIconConfig = designConfig?.image || null;
-    const trainIconFill = trainIconConfig?.fill === 'lineColor'
-        ? (fillColor || '#000')
-        : toText(trainIconConfig?.fill);
+    const imageConfig = getLineIconImageConfigFromDataset(el);
+    const trainIconConfig = designConfig?.image
+        ? {
+            ...(designConfig.image || {}),
+            ...(imageConfig || {}),
+            attrs: {
+                ...(designConfig.image?.attrs || {}),
+                ...(imageConfig?.attrs || {})
+            },
+            style: {
+                ...(designConfig.image?.style || {}),
+                ...(imageConfig?.style || {})
+            }
+        }
+        : null;
     const trainIconHref = trainIconConfig
-        ? getTrainSvgDataHref(trainIconFill, trainIconConfig.brand || preset)
+        ? resolveImageHref(trainIconConfig, fillColor, preset)
         : '';
 
     renderLineIconSvg(el, {
@@ -412,7 +590,8 @@ const applyIconStyleForTheme = (el) => {
         fillColor: fillColor || (dark ? '#000' : '#fff'),
         backgroundColor: darkBackground,
         dark,
-        trainIconHref
+        trainIconHref,
+        imageConfig
     });
 };
 
@@ -423,58 +602,123 @@ const applyStationCodeBadgeStyleForTheme = (el) => {
     if (!code) return;
 
     const routeColor = toText(el.dataset.lineColor);
+    const fillColor = resolveLineColorForTheme(routeColor) || routeColor;
     const designName = toText(el.dataset.stationBadgeDesign) || selectStationBadgeDesign(el.dataset.routeId, code);
     const design = getStationBadgeDesign(designName);
     const classNames = design.classNames || {};
-    const prefixClass = classNames.prefix || STATION_BADGE_PREFIX_CLASS;
-    const suffixClass = classNames.suffix || STATION_BADGE_SUFFIX_CLASS;
     const styleConfig = design.html || design.style || {};
+    const rawRootStyle = styleConfig.rootStyle || styleConfig.root || {};
+    const rawPrefixStyle = styleConfig.prefixStyle || styleConfig.prefix || {};
+    const rawSuffixStyle = styleConfig.suffixStyle || styleConfig.suffix || {};
     const colors = design.colors || {};
-    const borderSource = toText(colors.border) && toText(colors.border) !== 'lineColor'
-        ? toText(colors.border)
-        : routeColor;
+    const baseStyleContext = {
+        lineColor: routeColor,
+        fillColor,
+        borderColor: routeColor,
+        dark: isDarkThemeActive()
+    };
+    const rootStyleBase = resolveStationStyleMap(rawRootStyle, baseStyleContext);
+    const prefixStyleBase = resolveStationStyleMap(rawPrefixStyle, baseStyleContext);
+    const suffixStyleBase = resolveStationStyleMap(rawSuffixStyle, baseStyleContext);
+    const rootBorder = parseCssBorder(rootStyleBase.border);
+    const configuredDesignBorder = resolveStationStyleValue(design.borderColor, baseStyleContext);
+    const configuredBorder = resolveStationStyleValue(colors.border, baseStyleContext);
+    const borderSource =
+        toText(configuredDesignBorder) ||
+        toText(configuredBorder) ||
+        getStationStyleValue(rootStyleBase, ['borderColor']) ||
+        rootBorder.color ||
+        routeColor;
     const borderColor = resolveBorderColorForTheme(borderSource) || borderSource || 'transparent';
-    const borderWidth = toText(design.borderWidth) || toText(colors.borderWidth) || toText(styleConfig.borderWidth) || '2px';
-    const prefixTextColor = getReadableTextColorForBackground(borderColor);
-    const prefixEl = el.querySelector(`.${prefixClass}`);
-    const suffixEl = el.querySelector(`.${suffixClass}`);
-    const prefixBackground = toText(colors.prefixBackground) === 'lineColor'
+    const borderWidth =
+        toText(design.borderWidth) ||
+        toText(colors.borderWidth) ||
+        toText(styleConfig.borderWidth) ||
+        getStationStyleValue(rootStyleBase, ['borderWidth']) ||
+        rootBorder.width ||
+        '2px';
+    const prefixStyleBackground = getStationStyleValue(prefixStyleBase, ['backgroundColor', 'background']);
+    const rawPrefixBackground = resolveStationStyleValue(colors.prefixBackground, {
+        ...baseStyleContext,
+        borderColor
+    });
+    const prefixBackground = toText(rawPrefixBackground) === 'lineColor'
         ? routeColor
-        : toText(colors.prefixBackground) === 'borderColor'
+        : toText(rawPrefixBackground) === 'fillColor'
+            ? fillColor
+            : toText(rawPrefixBackground) === 'borderColor'
             ? borderColor
-            : toText(colors.prefixBackground) || borderColor;
-    const prefixText = toText(colors.prefixText) === 'readableOnPrefixBackground'
+            : toText(rawPrefixBackground) || prefixStyleBackground || borderColor;
+    const prefixTextColor = getReadableTextColorForBackground(prefixBackground || borderColor);
+    const rawPrefixText = resolveStationStyleValue(colors.prefixText, {
+        ...baseStyleContext,
+        borderColor,
+        prefixBackground
+    });
+    const prefixText = toText(rawPrefixText) === 'readableOnPrefixBackground'
         ? getReadableTextColorForBackground(prefixBackground)
-        : toText(colors.prefixText) || prefixTextColor;
+        : toText(rawPrefixText) || getStationStyleValue(prefixStyleBase, ['fill', 'color']) || prefixTextColor;
     const styleContext = {
         lineColor: routeColor,
+        fillColor,
         borderColor,
         prefixBackground,
         prefixText,
         dark: isDarkThemeActive()
     };
+    const rootStyle = resolveStationStyleMap(rawRootStyle, styleContext);
+    const prefixStyle = resolveStationStyleMap(rawPrefixStyle, styleContext);
+    const suffixStyle = resolveStationStyleMap(rawSuffixStyle, styleContext);
+    const backgroundColor =
+        getStationStyleValue(rootStyle, ['fill', 'backgroundColor', 'background']) ||
+        '#fff';
+    const suffixText =
+        getStationStyleValue(suffixStyle, ['fill', 'color']) ||
+        getStationStyleValue(rootStyle, ['fill', 'color']) ||
+        '#000';
+    const lengthStyle = resolveStationStyleMap(
+        pickByCodeLength(design.fontSizeByCodeLength || STATION_BADGE_SETTINGS.fontSizeByCodeLength, code.length, {}),
+        styleContext
+    );
+    const { prefix, suffix } = splitStationCodeForBadge(code, design);
+    const lineIconFrame = resolveLineIconFrameForStationBadge({
+        stationBadgeDesign: design,
+        routeId: el.dataset.routeId,
+        code,
+        routeColor,
+        borderColor
+    });
+    const muted = toText(el.dataset.stationBadgeMuted) === '1';
+    const mutedColor = isDarkThemeActive() ? '#777d86' : '#c3c7cd';
 
-    applyStationStyleMap(el, {
-        ...(styleConfig.rootStyle || styleConfig.root || {}),
-        border: `${borderWidth} solid ${borderColor}`
-    }, styleContext);
-
-    if (prefixEl instanceof HTMLElement) {
-        applyStationStyleMap(prefixEl, {
-            ...(styleConfig.prefixStyle || styleConfig.prefix || {}),
-            backgroundColor: prefixBackground,
-            color: prefixText
-        }, styleContext);
-    }
-
-    if (suffixEl instanceof HTMLElement) {
-        applyStationStyleMap(suffixEl, styleConfig.suffixStyle || styleConfig.suffix || {}, styleContext);
-    }
-
-    applyStyleMap(el, pickByCodeLength(design.fontSizeByCodeLength || STATION_BADGE_SETTINGS.fontSizeByCodeLength, code.length, {}));
+    renderStationBadgeSvg(el, {
+        code,
+        prefix,
+        suffix,
+        design: {
+            ...design,
+            html: {
+                ...(design.html || {}),
+                rootStyle,
+                prefixStyle,
+                suffixStyle
+            }
+        },
+        borderColor,
+        borderWidth,
+        backgroundColor,
+        prefixBackground,
+        prefixText,
+        suffixText,
+        classNames,
+        lineIconFrame,
+        muted,
+        mutedColor,
+        rootStyle: lengthStyle
+    });
 };
 
-export const createStationCodeBadgeElement = ({ code, color, routeId = '', design = '' }) => {
+export const createStationCodeBadgeElement = ({ code, color, routeId = '', design = '', muted = false }) => {
     const c = toText(code);
     if (!c) return null;
 
@@ -483,8 +727,6 @@ export const createStationCodeBadgeElement = ({ code, color, routeId = '', desig
     const designConfig = getStationBadgeDesign(designName);
     const classNames = designConfig.classNames || {};
     const rootClass = classNames.root || STATION_BADGE_ROOT_CLASS;
-    const prefixClass = classNames.prefix || STATION_BADGE_PREFIX_CLASS;
-    const suffixClass = classNames.suffix || STATION_BADGE_SUFFIX_CLASS;
 
     const el = document.createElement('span');
     el.className = rootClass;
@@ -492,19 +734,7 @@ export const createStationCodeBadgeElement = ({ code, color, routeId = '', desig
     el.dataset.lineColor = toText(color);
     el.dataset.routeId = id;
     el.dataset.stationBadgeDesign = designName;
-
-    const { prefix, suffix } = splitStationCodeForBadge(c, designConfig);
-    const prefixEl = document.createElement('span');
-    prefixEl.className = prefixClass;
-    prefixEl.textContent = prefix;
-    el.appendChild(prefixEl);
-
-    if (suffix) {
-        const suffixEl = document.createElement('span');
-        suffixEl.className = suffixClass;
-        suffixEl.textContent = suffix;
-        el.appendChild(suffixEl);
-    }
+    if (muted) el.dataset.stationBadgeMuted = '1';
 
     applyStationCodeBadgeStyleForTheme(el);
     ensureThemeObserver();
@@ -547,7 +777,9 @@ export const createLineIconElement = ({ routeId, code, color }) => {
     el.dataset.sourceRouteId = id;
     el.dataset.code = c;
     el.dataset.routeColor = resolvedColor;
-    el.dataset.preset = selectLineIconPreset(resolvedId, c);
+    const lineIconConfig = selectLineIconConfig(resolvedId, c);
+    el.dataset.preset = toText(lineIconConfig.design) || selectLineIconPreset(resolvedId, c);
+    applyLineIconConfigDataset(el, lineIconConfig);
 
     applyIconStyleForTheme(el);
     ensureThemeObserver();
