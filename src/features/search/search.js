@@ -97,8 +97,38 @@ const refreshStationLineAlignment = (rootEl) => {
     });
 };
 
-const appendStationLineIconGroup = (textEl, lineMetas) => {
-    const itemHtmls = buildCompactTripDetailTransferLineItemHtmls(lineMetas, { escapeHtml });
+const getSearchStationCodeById = (stationId) => {
+    const id = normalizeText(stationId);
+    if (!id) return '';
+    return normalizeText(stationTitleById?.get?.(id)?.code || '');
+};
+
+const getSearchStationCodeForLineMeta = (stationItem, lineMeta) => {
+    const routeId = normalizeText(lineMeta?.id || lineMeta?.routeId);
+    const stationId = normalizeText(stationItem?.id);
+    if (!routeId || !stationId) return '';
+
+    const parts = stationId.split('.').filter(Boolean);
+    const stationName = normalizeText(parts[parts.length - 1] || '');
+    if (!stationName) return '';
+
+    const currentRouteId = parts.length >= 3 ? parts.slice(0, -1).join('.') : '';
+    if (currentRouteId === routeId) {
+        const directCode = getSearchStationCodeById(stationId);
+        if (directCode) return directCode;
+    }
+
+    const routeStationCode = getSearchStationCodeById(`${routeId}.${stationName}`);
+    if (routeStationCode) return routeStationCode;
+
+    return '';
+};
+
+const appendStationLineIconGroup = (textEl, lineMetas, stationItem = null) => {
+    const itemHtmls = buildCompactTripDetailTransferLineItemHtmls(lineMetas, {
+        escapeHtml,
+        getStationCode: (lineMeta) => getSearchStationCodeForLineMeta(stationItem, lineMeta)
+    });
     if (!itemHtmls.length) return;
 
     const wrap = document.createElement('span');
@@ -1136,7 +1166,7 @@ export function mountSearchUI() {
 
                         const ids = Array.isArray(item?.lineIds) ? item.lineIds : [];
                         const metas = ids.map((id) => ({ id: String(id), ...(lineMetaById.get(String(id)) || {}) }));
-                        appendStationLineIconGroup(text, metas);
+                        appendStationLineIconGroup(text, metas, item);
                     } else {
                         text = el('div', 'search-result-text', { text: item?.text ?? '' });
                     }
@@ -1366,7 +1396,7 @@ export function mountSearchUI() {
 
                     const ids = Array.isArray(item?.lineIds) ? item.lineIds : [];
                     const metas = ids.map((id) => ({ id: String(id), ...(lineMetaById.get(String(id)) || {}) }));
-                    appendStationLineIconGroup(text, metas);
+                    appendStationLineIconGroup(text, metas, item);
                 } else {
                     text = el('div', 'search-result-text', { text: item?.text ?? '' });
                 }

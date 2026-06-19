@@ -89,8 +89,35 @@ const escapeHtml = (value) => String(value ?? '')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-const appendJourneyStationLineIconGroup = (textEl, lineMetas) => {
-    const itemHtmls = buildCompactTripDetailTransferLineItemHtmls(lineMetas, { escapeHtml });
+const getJourneyStationCodeById = (stationCodeMap, stationId) => {
+    const id = normalizeText(stationId);
+    if (!id) return '';
+    return normalizeText(stationCodeMap?.get?.(id) || '');
+};
+
+const getJourneyStationCodeForLineMeta = (stationItem, lineMeta, stationCodeMap) => {
+    const routeId = normalizeText(lineMeta?.id || lineMeta?.routeId);
+    const stationId = normalizeText(stationItem?.id);
+    if (!routeId || !stationId) return '';
+
+    const parts = stationId.split('.').filter(Boolean);
+    const stationName = normalizeText(parts[parts.length - 1] || '');
+    if (!stationName) return '';
+
+    const currentRouteId = parts.length >= 3 ? parts.slice(0, -1).join('.') : '';
+    if (currentRouteId === routeId) {
+        const directCode = getJourneyStationCodeById(stationCodeMap, stationId);
+        if (directCode) return directCode;
+    }
+
+    return getJourneyStationCodeById(stationCodeMap, `${routeId}.${stationName}`);
+};
+
+const appendJourneyStationLineIconGroup = (textEl, lineMetas, stationItem = null, stationCodeMap = null) => {
+    const itemHtmls = buildCompactTripDetailTransferLineItemHtmls(lineMetas, {
+        escapeHtml,
+        getStationCode: (lineMeta) => getJourneyStationCodeForLineMeta(stationItem, lineMeta, stationCodeMap)
+    });
     if (!itemHtmls.length) return;
 
     const wrap = document.createElement('span');
@@ -2347,7 +2374,7 @@ export function mountTravelSearchUI() {
         maybeComputePlans();
     };
 
-    const createStationResultRow = (item, lineMetas) => {
+    const createStationResultRow = (item, lineMetas, stationCodeMap = null) => {
         const row = el('div', 'search-result-item');
         const icon = item?.id ? buildStationIcon(item?.isTransfer === true) : el('span', 'search-result-icon');
         const text = el('div', 'search-result-text journey-station-result-text');
@@ -2356,7 +2383,7 @@ export function mountTravelSearchUI() {
         nameSpan.textContent = String(item?.text ?? '');
         text.appendChild(nameSpan);
 
-        appendJourneyStationLineIconGroup(text, lineMetas);
+        appendJourneyStationLineIconGroup(text, lineMetas, item, stationCodeMap);
 
         row.appendChild(icon);
         row.appendChild(text);
@@ -2469,10 +2496,13 @@ export function mountTravelSearchUI() {
             return;
         }
 
-        const itemsWithMetas = await Promise.all(history.map(async (item) => {
-            const lineMetas = item.lineIds ? await getLineMetaByIds(item.lineIds) : [];
-            return { item, lineMetas };
-        }));
+        const [stationCodeMap, itemsWithMetas] = await Promise.all([
+            getJourneyStationCodeMap(),
+            Promise.all(history.map(async (item) => {
+                const lineMetas = item.lineIds ? await getLineMetaByIds(item.lineIds) : [];
+                return { item, lineMetas };
+            }))
+        ]);
 
         clearList();
 
@@ -2491,7 +2521,7 @@ export function mountTravelSearchUI() {
 
         for (const { item, lineMetas } of itemsWithMetas) {
             const li = document.createElement('li');
-            const row = createStationResultRow(item, lineMetas);
+            const row = createStationResultRow(item, lineMetas, stationCodeMap);
             row.querySelector('.search-result-text').style.flex = '1 1 auto';
 
             const favoriteBtn = createTravelHistoryFavoriteButton(item);
@@ -2631,10 +2661,13 @@ export function mountTravelSearchUI() {
 
     const renderStationResults = async (items) => {
         const token = ++stationResultRequestToken;
-        const itemsWithMetas = await Promise.all(items.map(async (item) => {
-            const lineMetas = await getLineMetaByIds(item?.lineIds);
-            return { item, lineMetas };
-        }));
+        const [stationCodeMap, itemsWithMetas] = await Promise.all([
+            getJourneyStationCodeMap(),
+            Promise.all(items.map(async (item) => {
+                const lineMetas = await getLineMetaByIds(item?.lineIds);
+                return { item, lineMetas };
+            }))
+        ]);
 
         if (token !== stationResultRequestToken) return;
 
@@ -2646,7 +2679,7 @@ export function mountTravelSearchUI() {
 
         for (const { item, lineMetas } of itemsWithMetas) {
             const li = document.createElement('li');
-            const row = createStationResultRow(item, lineMetas);
+            const row = createStationResultRow(item, lineMetas, stationCodeMap);
 
             row.addEventListener('click', (evt) => {
                 evt.preventDefault?.();

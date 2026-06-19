@@ -1418,6 +1418,7 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
                 if (company === info.operator && stationGroupSUFlags[category]) {
                     throughServiceLines.push({
                         key: category,
+                        lineId: info.tempId || info.lineId || '',
                         // 优先读 THROUGH_SERVICE_CONFIGS_OBJECT 里的配置，兼容老的 THROUGH_SERVICE_DISPLAY
                         displayName: info.lineName || THROUGH_SERVICE_DISPLAY?.[category]?.name || '',
                         color: info.color || THROUGH_SERVICE_DISPLAY?.[category]?.color || '',
@@ -1446,12 +1447,12 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
                 const style = (typeof line.color === 'string' && line.color.trim())
                     ? ` style="color:${escapeHtml(line.color.trim())}"`
                     : '';
-                const lineIdAttr = line.key 
-                    ? ` data-line-id="${escapeHtml(String(line.key))}"`
-                    : line.lineId 
-                        ? ` data-line-id="${escapeHtml(String(line.lineId))}"` 
-                        : '';
                 const lineId = String(line.lineId ?? '').trim();
+                const lineIdAttr = lineId
+                    ? ` data-line-id="${escapeHtml(lineId)}"`
+                    : line.key
+                        ? ` data-line-id="${escapeHtml(String(line.key))}"`
+                        : '';
                 let stationCode = String(line.stationCode || lineStationCodeByLineId.get(lineId) || '').trim();
                 const stationCodeAttr = stationCode ? ` data-station-code="${escapeHtml(stationCode)}"` : '';
                 const lineCodeAttr = line.code ? ` data-line-code="${escapeHtml(line.code)}"` : '';

@@ -1,7 +1,8 @@
 import {
     createLineIconElement as defaultCreateLineIconElement,
     createStationCodeBadgeElement as defaultCreateStationCodeBadgeElement,
-    getResolvedRouteIconMeta as defaultGetResolvedRouteIconMeta
+    getResolvedRouteIconMeta as defaultGetResolvedRouteIconMeta,
+    normalizeStationCodeBadgeCodes as defaultNormalizeStationCodeBadgeCodes
 } from '../../lib/line-icons.js';
 
 import { THROUGH_SERVICE_CONFIGS } from '../../lib/throughServiceManager.js';
@@ -460,6 +461,7 @@ export const enhancePanelLineHeaderIcons = async (rootEl, {
     createLineIconElement = defaultCreateLineIconElement,
     createStationCodeBadgeElement = defaultCreateStationCodeBadgeElement,
     getResolvedRouteIconMeta = defaultGetResolvedRouteIconMeta,
+    normalizeStationCodeBadgeCodes = defaultNormalizeStationCodeBadgeCodes,
     toText = defaultToText_panelLineHeaderEnhancer
 } = {}) => {
     if (!ElementRef || !(rootEl instanceof ElementRef)) return;
@@ -473,7 +475,7 @@ export const enhancePanelLineHeaderIcons = async (rootEl, {
         if (!lineId) continue;
 
         const throughInfo = Array.isArray(throughServiceConfigs)
-            ? throughServiceConfigs.find((item) => lineId === item?.tempId)
+            ? throughServiceConfigs.find((item) => lineId === item?.tempId || lineId === item?.lineId)
             : null;
 
         if (throughInfo && !nameEl.querySelector?.('.rw-line-icon')) {
@@ -493,10 +495,15 @@ export const enhancePanelLineHeaderIcons = async (rootEl, {
                 fragment?.appendChild?.(icon);
             }
             if (fragment) nameEl.prepend?.(fragment);
-            continue;
         }
 
-        const meta = await getResolvedRouteIconMeta?.(lineId);
+        const meta = throughInfo
+            ? {
+                id: lineId,
+                code: Array.isArray(throughInfo.codes) ? throughInfo.codes.join('/') : '',
+                color: toText(throughInfo.color)
+            }
+            : await getResolvedRouteIconMeta?.(lineId);
         if (!meta || (!meta.code && !meta.color)) continue;
 
         if (!nameEl.querySelector?.('.rw-line-icon')) {
@@ -526,25 +533,34 @@ export const enhancePanelLineHeaderIcons = async (rootEl, {
         const stationInfoHostEl = suffixRowEl || stationInfoLeftEl || nameEl;
         if (stationInfoHostEl?.querySelector?.('.rw-station-code-badge')) continue;
 
-        const stationBadge = createStationCodeBadgeElement?.({
-            code: stationCode,
-            color: meta.color,
-            routeId: meta.id || lineId
-        });
-        if (!stationBadge) continue;
-
-        applyStationBadgeStyle_panelLineHeaderEnhancer(stationBadge);
+        const stationCodes = typeof normalizeStationCodeBadgeCodes === 'function'
+            ? normalizeStationCodeBadgeCodes(stationCode)
+            : [stationCode];
+        const stationBadgeFragment = documentRef?.createDocumentFragment?.();
+        for (const code of stationCodes) {
+            const cleanCode = toText(code);
+            if (!cleanCode) continue;
+            const stationBadge = createStationCodeBadgeElement?.({
+                code: cleanCode,
+                color: meta.color,
+                routeId: throughInfo ? lineId : (meta.id || lineId)
+            });
+            if (!stationBadge) continue;
+            applyStationBadgeStyle_panelLineHeaderEnhancer(stationBadge);
+            stationBadgeFragment?.appendChild?.(stationBadge);
+        }
+        if (!stationBadgeFragment?.childNodes?.length) continue;
 
         const suffixEl = stationInfoHostEl.querySelector?.('.panel-line-name-suffix');
         if (suffixEl) {
-            stationInfoHostEl.insertBefore?.(stationBadge, suffixEl);
+            stationInfoHostEl.insertBefore?.(stationBadgeFragment, suffixEl);
             continue;
         }
 
         const mainEl = nameEl.querySelector?.('.panel-line-name-main');
-        if (stationInfoHostEl !== nameEl) stationInfoHostEl.prepend?.(stationBadge);
-        else if (mainEl && mainEl.nextSibling) nameEl.insertBefore?.(stationBadge, mainEl.nextSibling);
-        else nameEl.appendChild?.(stationBadge);
+        if (stationInfoHostEl !== nameEl) stationInfoHostEl.prepend?.(stationBadgeFragment);
+        else if (mainEl && mainEl.nextSibling) nameEl.insertBefore?.(stationBadgeFragment, mainEl.nextSibling);
+        else nameEl.appendChild?.(stationBadgeFragment);
     }
 };
 

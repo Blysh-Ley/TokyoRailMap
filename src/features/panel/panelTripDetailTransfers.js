@@ -130,6 +130,8 @@ const buildTripDetailTransferEntryFromLineMeta = (lineMeta, {
 
 export const buildCompactTripDetailTransferLineItemHtmls = (lineMetas, {
     escapeHtml = (value) => String(value ?? ''),
+    getStationCode = null,
+    stationCode = '',
     toText = defaultToText
 } = {}) => {
     const entries = [];
@@ -137,7 +139,14 @@ export const buildCompactTripDetailTransferLineItemHtmls = (lineMetas, {
     const groups = new Map();
 
     for (const lineMeta of Array.isArray(lineMetas) ? lineMetas : []) {
-        const entry = buildTripDetailTransferEntryFromLineMeta(lineMeta, { escapeHtml, toText });
+        const resolvedStationCode = typeof getStationCode === 'function'
+            ? toText(getStationCode(lineMeta))
+            : toText(stationCode);
+        const entry = buildTripDetailTransferEntryFromLineMeta(lineMeta, {
+            escapeHtml,
+            stationCode: resolvedStationCode,
+            toText
+        });
         if (!entry?.html) continue;
         const company = toText(entry.company);
         if (!groups.has(company)) {

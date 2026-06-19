@@ -4404,7 +4404,7 @@ body[data-mobile-ui='1'] .panel-dir-filter-option-count {
     display: flex;
     align-items: center;
     flex-wrap: nowrap;
-    gap: 0;
+    gap: 1px;
 }
 
 .panel-trip-detail-transfer-item {
@@ -5236,8 +5236,10 @@ body.is-pinned .panel-grid-cell-trip {
 .journey-station-result-line-icons {
     display: inline-flex;
     align-items: center;
+    align-self: center;
     line-height: 1;
     overflow-wrap: normal;
+    transform: none;
 }
 
 .journey-station-result-line-icons .panel-trip-detail-transfer-items {
@@ -5249,6 +5251,20 @@ body.is-pinned .panel-grid-cell-trip {
 .journey-station-result-line-icons .panel-trip-detail-transfer-row {
     flex-wrap: wrap;
     max-width: 100%;
+}
+
+.journey-station-result-line-icons .panel-trip-detail-transfer-item {
+    align-items: center;
+    line-height: 1;
+}
+
+.journey-station-result-line-icons .panel-trip-detail-transfer-line-icon {
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 0 !important;
+    vertical-align: middle;
 }
 
 .journey-station-result-text.is-lines-multiline .journey-station-result-lines {

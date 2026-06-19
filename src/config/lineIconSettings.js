@@ -1,6 +1,7 @@
 export const lineIconSettings = {
     // Edit a company here first. Each company points to complete designs below.
     companies: [
+        { key: 'JR-East', label: 'JR东日本', match: { routePrefixes: ['TokyoRail.Temp.', 'TokyoRail.MenuThrough.'] }, lineIcon: { design: 'jr-east-square' }, stationBadge: { design: 'jr-east-station-square' } },
         { key: 'JR-East', label: 'JR东日本', match: { routeIds: ['JR-East.NaritaExpress'] }, lineIcon: { design: 'nex' }, stationBadge: { design: 'jr-east-station-square' } },
         { key: 'JR-East', label: 'JR东日本', match: { routePrefixes: ['JR-East.'] }, lineIcon: { design: 'jr-east-square' }, stationBadge: { design: 'jr-east-station-square' } },
         { key: 'JR-Central', label: 'JR东海', match: { routePrefixes: ['JR-Central'] }, lineIcon: { design: 'jr-central-rectangle' }, stationBadge: { design: 'jr-central-station-square' } },

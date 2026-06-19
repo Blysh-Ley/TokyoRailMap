@@ -394,6 +394,13 @@ const escapeHtml_panelTripDetailStationRenderer = (input) => String(input ?? '')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+const getRouteIdFromStationId_panelTripDetailStationRenderer = (stationId) => {
+    const id = toText_panelTripDetailStationRenderer(stationId);
+    const parts = id.split('.').filter(Boolean);
+    if (parts.length < 3) return '';
+    return parts.slice(0, -1).join('.');
+};
+
 const renderStationCodeBadgeHtml_panelTripDetailStationRenderer = ({ stationCode = '', lineColor = '', routeId = '', muted = false } = {}) => {
     const code = toText_panelTripDetailStationRenderer(stationCode);
     if (!code) return '';
@@ -420,7 +427,8 @@ export const renderPanelTripDetailStationContentHtml = ({
     muted = false
 } = {}) => {
     const name = toText_panelTripDetailStationRenderer(stationName || stationId);
-    const badgeHtml = renderStationCodeBadgeHtml_panelTripDetailStationRenderer({ stationCode, lineColor, routeId: lineId, muted });
+    const badgeRouteId = getRouteIdFromStationId_panelTripDetailStationRenderer(stationId) || toText_panelTripDetailStationRenderer(lineId);
+    const badgeHtml = renderStationCodeBadgeHtml_panelTripDetailStationRenderer({ stationCode, lineColor, routeId: badgeRouteId, muted });
     const badgeWrapHtml = badgeHtml
         ? `<span class="panel-trip-detail-station-badge" aria-hidden="true">${badgeHtml}</span>`
         : '';
