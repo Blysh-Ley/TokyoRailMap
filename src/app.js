@@ -113,6 +113,7 @@ import {
     buildTripPreviewLineFeatureDedupKey,
     resolveTripPreviewPayloadSource as resolveRoutePreviewPayloadSource
 } from './domain/routePreviewSelection.js';
+import { isMapClickSelectionAllowedByHighlight } from './domain/mapClickSelectionEligibility.js';
 import { buildPreviewVirtualStationInjection, getLineIdFromStationId } from './domain/previewVirtualStations.js';
 import { createSelectionBadge } from './ui/selectionBadge.js';
 import { buildSelectionBadgeViewModel, createSelectionBadgeAdapter } from './ui/selectionBadgeAdapter.js';
@@ -2219,6 +2220,78 @@ const initMapApp = async () => {
         );
     }
 
+    function getHighlightedLineIdsForMapClickSelection() {
+        if (!shouldUseHighlightStyle()) return null;
+
+        if (tripPreviewActive) {
+            return tripPreviewLineIds instanceof Set ? tripPreviewLineIds : new Set();
+        }
+
+        if (dirPreviewActive) {
+            return dirPreviewLineIds instanceof Set ? dirPreviewLineIds : new Set();
+        }
+
+        if (isMultiSelectModeEnabled()) {
+            const ids = getBaseMultiSelectedLineIds();
+            if (ids.size) return ids;
+        }
+
+        if (selectedLineId) {
+            if (selectedStationLineIds && selectedStationLineIds.size > 1) return selectedStationLineIds;
+            return new Set([String(selectedLineId)]);
+        }
+
+        if (selectedStationLineIds && selectedStationLineIds.size) {
+            return selectedStationLineIds;
+        }
+
+        if (selectedCompany && enabledLineIdsByCompany.has(selectedCompany)) {
+            return enabledLineIdsByCompany.get(selectedCompany);
+        }
+
+        return new Set();
+    }
+
+    function getHighlightedStationIdsForMapClickSelection() {
+        if (!shouldUseHighlightStyle()) return null;
+        const ids = getVisibleStationIdsForTransferCapsules();
+        return ids instanceof Set ? ids : new Set();
+    }
+
+    function isLineFeatureAllowedForHighlightInteraction(feature) {
+        const props = feature?.properties || {};
+        const rawLineId = String(props?.id ?? feature?.id ?? '').trim();
+        if (!rawLineId) {
+            return isMapClickSelectionAllowedByHighlight({
+                highlightActive: shouldUseHighlightStyle(),
+                candidateIds: [],
+                highlightedIds: getHighlightedLineIdsForMapClickSelection()
+            });
+        }
+
+        const resolved = resolveLineSelectionForApp(rawLineId);
+        const mainLineId = String(resolved?.mainLineId ?? rawLineId).trim();
+        const merged = Array.isArray(resolved?.mergedLineIds)
+            ? resolved.mergedLineIds.map(String).filter(Boolean)
+            : [mainLineId];
+
+        return isMapClickSelectionAllowedByHighlight({
+            highlightActive: shouldUseHighlightStyle(),
+            candidateIds: [rawLineId, mainLineId, ...merged],
+            highlightedIds: getHighlightedLineIdsForMapClickSelection()
+        });
+    }
+
+    function isStationFeatureAllowedForHighlightInteraction(feature) {
+        const props = feature?.properties || {};
+        const stationId = String(props?.id ?? feature?.id ?? '').trim();
+        return isMapClickSelectionAllowedByHighlight({
+            highlightActive: shouldUseHighlightStyle(),
+            candidateIds: [stationId],
+            highlightedIds: getHighlightedStationIdsForMapClickSelection()
+        });
+    }
+
     function applyLineNameLabelSelectionFilter() {
         syncLineNameLabelDataForCurrentState();
         highlightRenderer.applyLineNameLabelFilter(
@@ -3167,7 +3240,15 @@ const initMapApp = async () => {
                 commitLine: (lineId) => searchFeature.commitLine(lineId),
                 markActiveLine: markActiveMenuLine,
                 fitToCurrentSelection,
-                showRouteMapFloatingPanelForLine
+                showRouteMapFloatingPanelForLine,
+                isHighlightClickGateActive: shouldUseHighlightStyle,
+                getHighlightedLineIdsForClickGate: getHighlightedLineIdsForMapClickSelection,
+                onBlockedLineClick: () => {
+                    if (isMultiSelectModeEnabled() !== true) {
+                        clearTripPathPreview();
+                    }
+                    clearSelectionsAndRestore();
+                }
             }
         });
     };
@@ -3184,7 +3265,9 @@ const initMapApp = async () => {
                 openPanelForStationWithAutoScroll,
                 getServingLineIdsFromStationProps,
                 recordStationHistory: recordStationSearchHistoryFromProps,
-                preloadTimetablesByLineIds: preloadTimetablesForLineIds
+                preloadTimetablesByLineIds: preloadTimetablesForLineIds,
+                isHighlightClickGateActive: shouldUseHighlightStyle,
+                getHighlightedStationIdsForClickGate: getHighlightedStationIdsForMapClickSelection
             }
         });
     };
@@ -4160,7 +4243,8 @@ const initMapApp = async () => {
             lineHoverPopup = setupLineHoverPopup(mapEngine, {
                 hoverMinZoom: HOVER_PREVIEW_MIN_ZOOM,
                 companyLogoMap,
-                getHoverPreviewEnabled: () => isHoverPreviewEnabled()
+                getHoverPreviewEnabled: () => isHoverPreviewEnabled(),
+                canShowLineHoverFeature: isLineFeatureAllowedForHighlightInteraction
             });
 
 
@@ -4606,6 +4690,7 @@ const initMapApp = async () => {
             hoverMinZoom: HOVER_PREVIEW_MIN_ZOOM,
             getHoverPreviewEnabled: () => isHoverPreviewEnabled(),
             getStationLabelHoverEnabled: () => stationLabelMode !== 'auto',
+            canShowStationHoverFeature: isStationFeatureAllowedForHighlightInteraction,
             onSelectCompany: popupSelectionCallbacks.onSelectCompany,
             onSelectLine: popupSelectionCallbacks.onSelectLine,
             onRestoreStationLines: popupSelectionCallbacks.onRestoreStationLines,
@@ -4649,6 +4734,10 @@ const initMapApp = async () => {
             const fireStationLabelTap = (item, pt) => {
                 if (isJourneyMapPickActive()) return;
                 if (item?.forceHiddenByTransferCollapse) return;
+                if (!isStationFeatureAllowedForHighlightInteraction({
+                    id: item?.stationId,
+                    properties: item?.props || {}
+                })) return;
                 const hadStationSelection = !!String(selectedStationId || '').trim();
                 if (!isMultiSelectModeEnabled()) {
                     selectServingLinesForStation(item.props || {});
@@ -4705,6 +4794,10 @@ const initMapApp = async () => {
                         labelLongPressTimer = null;
                         if (isJourneyMapPickActive()) return;
                         if (item?.forceHiddenByTransferCollapse) return;
+                        if (!isStationFeatureAllowedForHighlightInteraction({
+                            id: item?.stationId,
+                            properties: item?.props || {}
+                        })) return;
                         labelLongPressFired = true;
                         void stationPopup?.showTouchHoverPopupAt?.(item.coordinates, item.props || {}, {
                             pointerType: pt,

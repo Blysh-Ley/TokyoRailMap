@@ -1,4 +1,5 @@
 import { mapClick } from '../../store/actions.js';
+import { isMapClickSelectionAllowedByHighlight } from '../../domain/mapClickSelectionEligibility.js';
 
 const STATION_INTERACTION_LAYER_IDS = ['stations-layer', 'station-labels-layer'];
 
@@ -64,12 +65,42 @@ export const bindLineClickSelect = ({
     commitLine,
     markActiveLine,
     fitToCurrentSelection,
-    showRouteMapFloatingPanelForLine
+    showRouteMapFloatingPanelForLine,
+    isHighlightClickGateActive,
+    getHighlightedLineIdsForClickGate,
+    onBlockedLineClick
 } = {}) => {
     if (!mapEngine || typeof mapEngine.on !== 'function') {
         throw new Error('bindLineClickSelect requires mapEngine');
     }
     if (!mapEngine.hasLayer?.('lines-layer')) return;
+
+    const getLineSelectionContext = (feature) => {
+        const lineId = feature?.properties?.id ?? feature?.id;
+        if (lineId == null) return null;
+
+        const rawLineId = String(lineId);
+        const resolved = resolveLineSelection?.(rawLineId);
+        const mainLineId = String(resolved?.mainLineId ?? rawLineId);
+        const merged = Array.isArray(resolved?.mergedLineIds)
+            ? resolved.mergedLineIds.map(String).filter(Boolean)
+            : [mainLineId];
+
+        return {
+            rawLineId,
+            mainLineId,
+            merged,
+            candidateLineIds: [rawLineId, mainLineId, ...merged]
+        };
+    };
+
+    const isLineAllowedByHighlightGate = (context) => (
+        isMapClickSelectionAllowedByHighlight({
+            highlightActive: isHighlightClickGateActive?.() === true,
+            candidateIds: context?.candidateLineIds || [],
+            highlightedIds: getHighlightedLineIdsForClickGate?.()
+        })
+    );
 
     mapEngine.on('click', 'lines-layer', (event) => {
         if (touchTapGuard?.allowTap?.(event?.originalEvent) === false) return;
@@ -81,33 +112,40 @@ export const bindLineClickSelect = ({
         }
 
         const feature = event?.features?.[0];
-        const lineId = feature?.properties?.id ?? feature?.id;
-        if (lineId == null) return;
+        const context = getLineSelectionContext(feature);
+        if (!context) return;
 
-        const rawLineId = String(lineId);
-        const resolved = resolveLineSelection?.(rawLineId);
-        const mainLineId = String(resolved?.mainLineId ?? rawLineId);
-        const merged = Array.isArray(resolved?.mergedLineIds)
-            ? resolved.mergedLineIds.map(String).filter(Boolean)
-            : [mainLineId];
+        if (!isLineAllowedByHighlightGate(context)) {
+            onBlockedLineClick?.({
+                event,
+                lineId: context.rawLineId,
+                candidateLineIds: context.candidateLineIds
+            });
+            return;
+        }
 
         if (isMultiSelectModeEnabled?.() === true) {
-            toggleBaseMultiSelection?.(`line:${mainLineId}`, merged, 'line');
+            toggleBaseMultiSelection?.(`line:${context.mainLineId}`, context.merged, 'line');
             if (getBaseMultiSelectedLineIds?.().size) setStationLabelMode?.('all');
             else setStationLabelMode?.('auto');
             applySelectionEffects?.();
             return;
         }
 
-        const payload = commitLine?.(rawLineId);
-        const nextLineId = String(payload?.selectedLineId || mainLineId);
+        const payload = commitLine?.(context.rawLineId);
+        const nextLineId = String(payload?.selectedLineId || context.mainLineId);
         setStationLabelMode?.('all');
         markActiveLine?.(nextLineId);
         fitToCurrentSelection?.(`line:${nextLineId}`, 'commit');
-        showRouteMapFloatingPanelForLine?.(rawLineId);
+        showRouteMapFloatingPanelForLine?.(context.rawLineId);
     });
 
-    mapEngine.on('mouseenter', 'lines-layer', () => {
+    mapEngine.on('mouseenter', 'lines-layer', (event) => {
+        const context = getLineSelectionContext(event?.features?.[0]);
+        if (context && !isLineAllowedByHighlightGate(context)) {
+            mapEngine.setCursor?.('');
+            return;
+        }
         mapEngine.setCursor?.('pointer');
     });
     mapEngine.on('mouseleave', 'lines-layer', () => {
@@ -125,7 +163,9 @@ export const bindStationClickHighlightServingLines = ({
     openPanelForStationWithAutoScroll,
     getServingLineIdsFromStationProps,
     recordStationHistory,
-    preloadTimetablesByLineIds
+    preloadTimetablesByLineIds,
+    isHighlightClickGateActive,
+    getHighlightedStationIdsForClickGate
 } = {}) => {
     if (!mapEngine || typeof mapEngine.on !== 'function') {
         throw new Error('bindStationClickHighlightServingLines requires mapEngine');
@@ -141,6 +181,12 @@ export const bindStationClickHighlightServingLines = ({
 
         const feature = event?.features?.[0];
         const props = feature?.properties || {};
+        const stationId = String(props?.id ?? feature?.id ?? '').trim();
+        if (!isMapClickSelectionAllowedByHighlight({
+            highlightActive: isHighlightClickGateActive?.() === true,
+            candidateIds: [stationId],
+            highlightedIds: getHighlightedStationIdsForClickGate?.()
+        })) return;
         const hadStationSelection = !!String(getSelectedStationId?.() || '').trim();
 
         if (isMultiSelectModeEnabled?.() !== true) {

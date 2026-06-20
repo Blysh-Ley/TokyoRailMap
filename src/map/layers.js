@@ -412,6 +412,9 @@ export function setupLineHoverPopup(mapOrEngine, maplibreglOrOptions, optionsMay
     const stationProximityPx = Number.isFinite(options.stationProximityPx) ? Math.max(0, Number(options.stationProximityPx)) : 10;
     const companyLogoMap = options.companyLogoMap || {};
     const getHoverPreviewEnabled = typeof options.getHoverPreviewEnabled === 'function' ? options.getHoverPreviewEnabled : null;
+    const canShowLineHoverFeature = typeof options.canShowLineHoverFeature === 'function'
+        ? options.canShowLineHoverFeature
+        : null;
 
     const popup = mapAdapter.createPopup({
         closeButton: false,
@@ -495,6 +498,10 @@ export function setupLineHoverPopup(mapOrEngine, maplibreglOrOptions, optionsMay
         return hasStationNearPoint(evt?.point);
     };
 
+    const isLineHoverAllowed = (feature) => (
+        canShowLineHoverFeature ? canShowLineHoverFeature(feature) !== false : true
+    );
+
     mapAdapter.on('mouseenter', 'lines-layer', (e) => {
         if (!isEnabled()) return;
         const z = mapAdapter.getZoom();
@@ -509,6 +516,11 @@ export function setupLineHoverPopup(mapOrEngine, maplibreglOrOptions, optionsMay
         const props = f?.properties || {};
         const lineId = String(props?.id ?? f?.id ?? '').trim();
         if (!lineId) return;
+        if (!isLineHoverAllowed(f)) {
+            mapAdapter.setCursor('');
+            if (popupShown) hidePopup();
+            return;
+        }
 
         mapAdapter.setCursor('pointer');
         const html = buildPopupHtml(props);
@@ -541,6 +553,11 @@ export function setupLineHoverPopup(mapOrEngine, maplibreglOrOptions, optionsMay
         const props = f?.properties || {};
         const lineId = String(props?.id ?? f?.id ?? '').trim();
         if (!lineId) {
+            if (popupShown) hidePopup();
+            return;
+        }
+        if (!isLineHoverAllowed(f)) {
+            mapAdapter.setCursor('');
             if (popupShown) hidePopup();
             return;
         }
@@ -636,11 +653,18 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
     const getStationLabelHoverEnabled = typeof options.getStationLabelHoverEnabled === 'function'
         ? options.getStationLabelHoverEnabled
         : (() => true);
+    const canShowStationHoverFeature = typeof options.canShowStationHoverFeature === 'function'
+        ? options.canShowStationHoverFeature
+        : null;
     let hoverPreviewEnabled = getHoverPreviewEnabled ? getHoverPreviewEnabled() !== false : true;
     const isHoverPreviewEnabled = () => hoverPreviewEnabled !== false;
     const isStationLabelFeature = (feature) => feature?.layer?.id === STATION_LABELS_LAYER_ID;
+    const isStationHoverAllowed = (feature) => (
+        canShowStationHoverFeature ? canShowStationHoverFeature(feature) !== false : true
+    );
     const canShowPopupForFeature = (feature) => {
         if (!feature) return false;
+        if (!isStationHoverAllowed(feature)) return false;
         if (isStationLabelFeature(feature)) return getStationLabelHoverEnabled() !== false;
         return true;
     };
@@ -919,6 +943,7 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
     const showTouchHoverPopupAt = async (coordinates, props = {}, meta = {}) => {
         if (!isHoverPreviewEnabled()) return false;
         if (!coordinates) return false;
+        if (!isStationHoverAllowed({ properties: props || {}, id: props?.id })) return false;
         const isStillActive = typeof meta?.isStillActive === 'function' ? meta.isStillActive : null;
         if (isStillActive && !isStillActive()) return false;
 
@@ -1542,6 +1567,7 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
     // 外部触发（例如：站名 DOM 标签点击）
     const showPopupAt = async (coordinates, props = {}, meta = {}) => {
         if (!coordinates) return;
+        if (!isStationHoverAllowed({ properties: props || {}, id: props?.id })) return;
 
         const pt = meta?.pointerType;
         if (pt) {
