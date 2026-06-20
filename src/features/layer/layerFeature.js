@@ -1,4 +1,4 @@
-const DEFAULT_STATION_LABEL_ZOOMEND_DELAY_MS = 200;
+const DEFAULT_STATION_LABEL_ZOOMEND_DELAY_MS = 50;
 
 const normalizeDelayMs = (value, fallback) => {
     const n = Number(value);

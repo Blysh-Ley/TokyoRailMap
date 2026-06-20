@@ -4,13 +4,11 @@ const normalizeMode = (mode) => (
         : 'dynamic'
 );
 
-const DEFAULT_VISUAL_ZOOM_DELTA = 0.001;
-const DEFAULT_SETTLING_VISUAL_ZOOM_DELTA = 0.001;
-const DEFAULT_FINAL_ZOOM_DELTA = 0.16;
-const DEFAULT_SETTLING_FINAL_ZOOM_DELTA = 0.025;
 const DEFAULT_SETTLING_VELOCITY = 0.025;
-const DEFAULT_SETTLING_DELAY_MS = 80;
-const DEFAULT_IDLE_DELAY_MS = 140;
+const DEFAULT_ACTIVE_VISUAL_INTERVAL_MS = 48;
+const DEFAULT_SETTLING_VISUAL_INTERVAL_MS = 16;
+const DEFAULT_ACTIVE_FINAL_INTERVAL_MS = 144;
+const DEFAULT_SETTLING_FINAL_INTERVAL_MS = 64;
 
 const normalizeDelay = (value, fallback) => {
     const n = Number(value);
@@ -23,23 +21,18 @@ const normalizeZoomKey = (zoom) => {
 };
 
 export const createStationOffsetRuntimeController = ({
-    clearTimeoutFn = globalThis.clearTimeout,
     getZoom = () => 0,
-    idleDelayMs = DEFAULT_IDLE_DELAY_MS,
     initialMode = 'dynamic',
     mapEngine,
-    finalZoomDelta = DEFAULT_FINAL_ZOOM_DELTA,
     onZoomActivity,
     onDynamicZoomEnd,
-    requestFrame = globalThis.requestAnimationFrame,
-    cancelFrame = globalThis.cancelAnimationFrame,
-    settlingFinalZoomDelta = DEFAULT_SETTLING_FINAL_ZOOM_DELTA,
+    nowFn,
     settlingVelocity = DEFAULT_SETTLING_VELOCITY,
-    settlingDelayMs = DEFAULT_SETTLING_DELAY_MS,
-    setTimeoutFn = globalThis.setTimeout,
     syncStationOffsetForZoom,
-    visualZoomDelta = DEFAULT_VISUAL_ZOOM_DELTA,
-    settlingVisualZoomDelta = DEFAULT_SETTLING_VISUAL_ZOOM_DELTA
+    activeVisualIntervalMs = DEFAULT_ACTIVE_VISUAL_INTERVAL_MS,
+    settlingVisualIntervalMs = DEFAULT_SETTLING_VISUAL_INTERVAL_MS,
+    activeFinalIntervalMs = DEFAULT_ACTIVE_FINAL_INTERVAL_MS,
+    settlingFinalIntervalMs = DEFAULT_SETTLING_FINAL_INTERVAL_MS
 } = {}) => {
     if (!mapEngine || typeof mapEngine.on !== 'function') {
         throw new Error('stationOffsetRuntimeController requires mapEngine.on');
@@ -53,46 +46,31 @@ export const createStationOffsetRuntimeController = ({
     let lastFrameZoom = Number(getZoom());
     let lastFinalZoom = Number(getZoom());
     let lastFinalZoomKey = '';
-    let settleTimerId = null;
-    let visualFrameId = null;
-    let pendingVisualReason = '';
+    let lastVisualSyncTime = Number.NEGATIVE_INFINITY;
+    let lastFinalSyncTime = 0;
     const unbinders = [];
-    const visualDelta = normalizeDelay(visualZoomDelta, DEFAULT_VISUAL_ZOOM_DELTA);
-    const settlingVisualDelta = normalizeDelay(settlingVisualZoomDelta, DEFAULT_SETTLING_VISUAL_ZOOM_DELTA);
-    const activeFinalDelta = normalizeDelay(finalZoomDelta, DEFAULT_FINAL_ZOOM_DELTA);
-    const nearIdleFinalDelta = normalizeDelay(settlingFinalZoomDelta, DEFAULT_SETTLING_FINAL_ZOOM_DELTA);
     const nearIdleVelocity = normalizeDelay(settlingVelocity, DEFAULT_SETTLING_VELOCITY);
-    const settlingDelay = normalizeDelay(settlingDelayMs, DEFAULT_SETTLING_DELAY_MS);
-    const idleDelay = normalizeDelay(idleDelayMs, DEFAULT_IDLE_DELAY_MS);
+    const activeVisualInterval = normalizeDelay(activeVisualIntervalMs, DEFAULT_ACTIVE_VISUAL_INTERVAL_MS);
+    const settlingVisualInterval = normalizeDelay(settlingVisualIntervalMs, DEFAULT_SETTLING_VISUAL_INTERVAL_MS);
+    const activeFinalInterval = normalizeDelay(activeFinalIntervalMs, DEFAULT_ACTIVE_FINAL_INTERVAL_MS);
+    const settlingFinalInterval = normalizeDelay(settlingFinalIntervalMs, DEFAULT_SETTLING_FINAL_INTERVAL_MS);
     const notifyZoomActivity = typeof onZoomActivity === 'function' ? onZoomActivity : null;
     const notifyDynamicZoomEnd = typeof onDynamicZoomEnd === 'function' ? onDynamicZoomEnd : null;
+    const readNow = typeof nowFn === 'function'
+        ? nowFn
+        : (() => {
+            if (globalThis.performance && typeof globalThis.performance.now === 'function') {
+                return globalThis.performance.now();
+            }
+            return Date.now();
+        });
 
     const getCurrentZoom = () => {
         const zoom = Number(getZoom());
         return Number.isFinite(zoom) ? zoom : 0;
     };
 
-    const clearSettlingTimer = () => {
-        if (settleTimerId == null) return;
-        if (typeof clearTimeoutFn === 'function') clearTimeoutFn(settleTimerId);
-        settleTimerId = null;
-    };
-
-    const runInFrame = (callback) => {
-        if (typeof requestFrame === 'function') return requestFrame(callback);
-        return setTimeoutFn(callback, 16);
-    };
-
-    const clearVisualFrame = () => {
-        if (visualFrameId == null) return;
-        if (typeof cancelFrame === 'function') cancelFrame(visualFrameId);
-        else clearTimeoutFn(visualFrameId);
-        visualFrameId = null;
-        pendingVisualReason = '';
-    };
-
     const syncFinalAtCurrentZoom = (reason = 'manual') => {
-        clearVisualFrame();
         const zoom = getCurrentZoom();
         const key = normalizeZoomKey(zoom);
         if (key && key === lastFinalZoomKey) return false;
@@ -100,6 +78,7 @@ export const createStationOffsetRuntimeController = ({
         lastVisualZoom = zoom;
         lastFrameZoom = zoom;
         lastFinalZoom = zoom;
+        lastFinalSyncTime = readNow();
         if (key) lastFinalZoomKey = key;
         return synced;
     };
@@ -108,19 +87,8 @@ export const createStationOffsetRuntimeController = ({
         const zoom = getCurrentZoom();
         const synced = syncStationOffsetForZoom(zoom, { phase: 'visual', reason });
         lastVisualZoom = zoom;
+        lastVisualSyncTime = readNow();
         return synced;
-    };
-
-    const scheduleVisualAtCurrentZoom = (reason = 'zoom') => {
-        pendingVisualReason = reason;
-        if (visualFrameId != null) return;
-        visualFrameId = runInFrame(() => {
-            const reasonToRun = pendingVisualReason || 'zoom';
-            visualFrameId = null;
-            pendingVisualReason = '';
-            if (!isDynamicMode()) return;
-            syncVisualAtCurrentZoom(reasonToRun);
-        });
     };
 
     const syncAtCurrentZoom = () => syncFinalAtCurrentZoom('manual');
@@ -134,18 +102,18 @@ export const createStationOffsetRuntimeController = ({
 
         const frameVelocity = Math.abs(currentZoom - lastFrameZoom);
         const settlingCandidate = frameVelocity > 0 && frameVelocity < nearIdleVelocity;
-        const visualDeltaForFrame = settlingCandidate ? settlingVisualDelta : visualDelta;
-        const finalDeltaForFrame = settlingCandidate ? nearIdleFinalDelta : activeFinalDelta;
-        const cumulativeVisualDelta = Math.abs(currentZoom - lastVisualZoom);
-        const cumulativeFinalDelta = Math.abs(currentZoom - lastFinalZoom);
+        const visualIntervalForFrame = settlingCandidate ? settlingVisualInterval : activeVisualInterval;
+        const finalIntervalForFrame = settlingCandidate ? settlingFinalInterval : activeFinalInterval;
+        const now = readNow();
         lastFrameZoom = currentZoom;
 
-        if (cumulativeVisualDelta >= visualDeltaForFrame) {
-            scheduleVisualAtCurrentZoom(settlingCandidate ? 'zoom-settling' : 'zoom');
-        }
+        const reason = settlingCandidate ? 'zoom-settling' : 'zoom';
+        const visualSynced = now - lastVisualSyncTime >= visualIntervalForFrame
+            ? syncVisualAtCurrentZoom(reason)
+            : false;
 
-        if (cumulativeFinalDelta >= finalDeltaForFrame) {
-            syncFinalAtCurrentZoom(settlingCandidate ? 'zoom-settling' : 'zoom');
+        if (visualSynced && now - lastFinalSyncTime >= finalIntervalForFrame) {
+            syncFinalAtCurrentZoom(reason);
         }
     };
 
@@ -154,7 +122,6 @@ export const createStationOffsetRuntimeController = ({
             notifyDynamicZoomEnd?.({ zoom: getCurrentZoom() });
             return;
         }
-        clearSettlingTimer();
         syncFinalAtCurrentZoom('zoomend');
     };
 
@@ -167,15 +134,12 @@ export const createStationOffsetRuntimeController = ({
 
     const setMode = (nextMode, { sync = true } = {}) => {
         mode = normalizeMode(nextMode);
-        clearSettlingTimer();
-        clearVisualFrame();
+        lastVisualSyncTime = Number.NEGATIVE_INFINITY;
         if (sync) syncAtCurrentZoom();
         return mode;
     };
 
     const destroy = () => {
-        clearSettlingTimer();
-        clearVisualFrame();
         while (unbinders.length) {
             const unbind = unbinders.pop();
             try {
