@@ -4823,6 +4823,26 @@ export function createPanel(options = {}) {
         panelScrollRuntime.syncPanelTitleForActiveLine();
     };
 
+    const refreshPanelThemeColors = async () => {
+        const lineEls = Array.from(body.querySelectorAll('.panel-line[data-line-id]'));
+        for (const lineEl of lineEls) {
+            const lineId = toText(lineEl.getAttribute('data-line-id'));
+            const color = toText(getLineMeta(lineId)?.color);
+            if (color) {
+                lineEl.style.color = color;
+                lineEl.style.setProperty('--panel-line-accent', color);
+            } else {
+                lineEl.style.removeProperty('color');
+                lineEl.style.removeProperty('--panel-line-accent');
+            }
+        }
+        if (toText(currentStationId)) {
+            await renderAllTimetables();
+        } else {
+            scheduleCatalogRefresh();
+        }
+    };
+
     const setHoverPreviewEnabled = (enabled) => {
         const next = enabled !== false;
         if (hoverPreviewEnabled === next) return;
@@ -4854,6 +4874,7 @@ export function createPanel(options = {}) {
         setTimeOverride,
         resetTemporaryTimeOverride,
         handlePanelBackIntent,
+        refreshThemeColors: refreshPanelThemeColors,
         setTimetableViewMode: (mode) => applyTimetableViewMode(mode, { rerender: true }),
         showForStationProps,
         scrollToLineId: (...args) => panelScrollRuntime.scrollToLineId(...args),

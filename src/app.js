@@ -3208,6 +3208,7 @@ const initMapApp = async () => {
         onThemeChanged: () => {
             applyStationThemePaintToMapLayers();
             applySelectionEffects();
+            panel?.refreshThemeColors?.();
         },
         setImageElementFromCache,
         stationLabelMode
