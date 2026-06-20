@@ -29,6 +29,7 @@ export const createStationOffsetRuntimeController = ({
     initialMode = 'dynamic',
     mapEngine,
     finalZoomDelta = DEFAULT_FINAL_ZOOM_DELTA,
+    onZoomActivity,
     onDynamicZoomEnd,
     requestFrame = globalThis.requestAnimationFrame,
     cancelFrame = globalThis.cancelAnimationFrame,
@@ -63,6 +64,7 @@ export const createStationOffsetRuntimeController = ({
     const nearIdleVelocity = normalizeDelay(settlingVelocity, DEFAULT_SETTLING_VELOCITY);
     const settlingDelay = normalizeDelay(settlingDelayMs, DEFAULT_SETTLING_DELAY_MS);
     const idleDelay = normalizeDelay(idleDelayMs, DEFAULT_IDLE_DELAY_MS);
+    const notifyZoomActivity = typeof onZoomActivity === 'function' ? onZoomActivity : null;
     const notifyDynamicZoomEnd = typeof onDynamicZoomEnd === 'function' ? onDynamicZoomEnd : null;
 
     const getCurrentZoom = () => {
@@ -126,9 +128,10 @@ export const createStationOffsetRuntimeController = ({
     const isDynamicMode = () => mode !== 'performance';
 
     const handleZoom = () => {
+        const currentZoom = getCurrentZoom();
+        notifyZoomActivity?.({ zoom: currentZoom });
         if (!isDynamicMode()) return;
 
-        const currentZoom = getCurrentZoom();
         const frameVelocity = Math.abs(currentZoom - lastFrameZoom);
         const settlingCandidate = frameVelocity > 0 && frameVelocity < nearIdleVelocity;
         const visualDeltaForFrame = settlingCandidate ? settlingVisualDelta : visualDelta;

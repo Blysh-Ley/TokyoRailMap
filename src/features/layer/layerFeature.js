@@ -1,3 +1,10 @@
+const DEFAULT_STATION_LABEL_ZOOMEND_DELAY_MS = 200;
+
+const normalizeDelayMs = (value, fallback) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+};
+
 export const createLayerFeature = ({
     baseStationsGeoJSON,
     stationOffsetAlgorithmContext,
@@ -29,7 +36,10 @@ export const createLayerFeature = ({
     getStationLabelMode,
     initialStationOffsetMode = 'dynamic',
     requestFrame = globalThis.requestAnimationFrame,
-    cancelFrame = globalThis.cancelAnimationFrame
+    cancelFrame = globalThis.cancelAnimationFrame,
+    setTimeoutFn = globalThis.setTimeout,
+    clearTimeoutFn = globalThis.clearTimeout,
+    stationLabelZoomEndDelayMs = DEFAULT_STATION_LABEL_ZOOMEND_DELAY_MS
 } = {}) => {
     let collisionController = null;
     let currentStationOffsetVisualKey = null;
@@ -40,6 +50,11 @@ export const createLayerFeature = ({
     let pendingStationLabelGeoJSON = null;
     let stationOffsetRuntimeController = null;
     let transferCapsuleRefreshFrameId = null;
+    let stationLabelRefreshTimerId = null;
+    const stationLabelZoomEndDelay = normalizeDelayMs(
+        stationLabelZoomEndDelayMs,
+        DEFAULT_STATION_LABEL_ZOOMEND_DELAY_MS
+    );
 
     const runInFrame = (callback) => {
         if (typeof requestFrame === 'function') return requestFrame(callback);
@@ -50,6 +65,13 @@ export const createLayerFeature = ({
         if (frameId == null) return;
         if (typeof cancelFrame === 'function') cancelFrame(frameId);
         else clearTimeout(frameId);
+    };
+
+    const clearStationLabelGeoJSONFlush = () => {
+        if (stationLabelRefreshTimerId == null) return;
+        if (typeof clearTimeoutFn === 'function') clearTimeoutFn(stationLabelRefreshTimerId);
+        else clearTimeout(stationLabelRefreshTimerId);
+        stationLabelRefreshTimerId = null;
     };
 
     const scheduleTransferCapsuleRefresh = () => {
@@ -171,10 +193,27 @@ export const createLayerFeature = ({
     };
 
     const flushStationLabelGeoJSON = () => {
+        clearStationLabelGeoJSONFlush();
         if (isStationLabelHiddenMode()) return false;
         const nextGeoJSON = pendingStationLabelGeoJSON || currentStationOffsetGeoJSON;
         if (!updateStationLabelLayerGeoJSON(nextGeoJSON)) return false;
         scheduleCollision();
+        return true;
+    };
+
+    const scheduleStationLabelGeoJSONFlush = (delayMs = stationLabelZoomEndDelay) => {
+        clearStationLabelGeoJSONFlush();
+        if (isStationLabelHiddenMode()) return false;
+        if (!pendingStationLabelGeoJSON) return false;
+
+        const delay = normalizeDelayMs(delayMs, stationLabelZoomEndDelay);
+        if (delay <= 0) return flushStationLabelGeoJSON();
+
+        const schedule = typeof setTimeoutFn === 'function' ? setTimeoutFn : setTimeout;
+        stationLabelRefreshTimerId = schedule(() => {
+            stationLabelRefreshTimerId = null;
+            flushStationLabelGeoJSON();
+        }, delay);
         return true;
     };
 
@@ -187,6 +226,7 @@ export const createLayerFeature = ({
         let stationLabelsUpdated = false;
 
         if (updateVisible) {
+            clearStationLabelGeoJSONFlush();
             updateStationsSourceData?.(nextGeoJSON);
             updateStationCircleCoordinates?.(nextGeoJSON);
             if (deferStationLabels) pendingStationLabelGeoJSON = nextGeoJSON;
@@ -229,12 +269,18 @@ export const createLayerFeature = ({
 
         const updateVisible = phase === 'visual' || stateKey !== currentStationOffsetVisualKey;
         const reason = String(options?.reason || '').trim();
-        const deferStationLabels = phase === 'visual' || reason === 'zoom' || reason === 'zoom-settling';
+        const deferStationLabels = phase === 'visual'
+            || reason === 'zoom'
+            || reason === 'zoom-settling'
+            || reason === 'zoomend';
         if (!applyStationLayerGeoJSON(nextGeoJSON, stateKey, { phase, updateVisible, deferStationLabels })) return false;
         currentStationOffsetGeoJSON = nextGeoJSON;
         currentStationOffsetGeoJSONKey = stateKey;
         if (updateVisible) currentStationOffsetVisualKey = stateKey;
         if (phase === 'final') currentStationOffsetFinalKey = stateKey;
+        if (deferStationLabels && reason === 'zoomend') {
+            scheduleStationLabelGeoJSONFlush();
+        }
         return true;
     };
 
@@ -248,7 +294,8 @@ export const createLayerFeature = ({
         stationOffsetRuntimeController = createStationOffsetRuntimeController({
             getZoom,
             initialMode,
-            onDynamicZoomEnd: flushStationLabelGeoJSON,
+            onZoomActivity: clearStationLabelGeoJSONFlush,
+            onDynamicZoomEnd: () => scheduleStationLabelGeoJSONFlush(),
             syncStationOffsetForZoom
         });
         stationOffsetRuntimeController.syncAtCurrentZoom?.();
@@ -265,6 +312,7 @@ export const createLayerFeature = ({
     const destroy = () => {
         clearFrame(transferCapsuleRefreshFrameId);
         transferCapsuleRefreshFrameId = null;
+        clearStationLabelGeoJSONFlush();
         pendingStationLabelGeoJSON = null;
         stationOffsetRuntimeController?.destroy?.();
         stationOffsetRuntimeController = null;
