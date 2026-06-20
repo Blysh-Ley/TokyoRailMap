@@ -18,7 +18,7 @@ const STATION_BADGE_ROOT_CLASS = STATION_BADGE_CLASS_NAMES.root || 'rw-station-c
 
 const resolveStationStyleValue = (value, context = {}) => {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
-        if ('dark' in value || 'light' in value) return context.dark ? value.dark : value.light;
+        if ('light' in value) return value.light;
         return value;
     }
     if (typeof value !== 'string') return value;
@@ -191,7 +191,6 @@ const resolveLineIconFrameForStationBadge = ({
     const design = getLineIconDesign(preset);
     if (!design?.shape && !design?.image) return null;
 
-    const dark = isDarkThemeActive();
     const fillColor = resolveLineColorForTheme(routeColor) || routeColor || borderColor || '#888';
     const frameBorderColor = resolveBorderColorForTheme(routeColor) || routeColor || borderColor || 'transparent';
     const trainIconConfig = design?.image || null;
@@ -219,7 +218,7 @@ const resolveLineIconFrameForStationBadge = ({
         preset,
         borderColor: frameBorderColor,
         fillColor,
-        backgroundColor: dark ? 'rgba(28, 28, 28, 0.94)' : '#fff',
+        backgroundColor: '#fff',
         trainIconHref,
         imageConfig
     };
@@ -338,11 +337,6 @@ const parseCssColorToRgb = (input) => {
     return null;
 };
 
-const rgbToHex = ({ r, g, b }) => {
-    const to2 = (v) => Math.max(0, Math.min(255, Math.round(Number(v) || 0))).toString(16).padStart(2, '0');
-    return `#${to2(r)}${to2(g)}${to2(b)}`;
-};
-
 const relativeLuminance = ({ r, g, b }) => {
     const toLinear = (v) => {
         const x = Math.max(0, Math.min(255, Number(v) || 0)) / 255;
@@ -360,36 +354,12 @@ const getReadableTextColorForBackground = (color) => {
     return relativeLuminance(parsed) > 0.55 ? '#000' : '#fff';
 };
 
-const DARK_INVERT_TRIGGER_LUMINANCE = (() => {
-    // Align with existing UI logic: use Keisei blue as reference threshold.
-    const ref = parseCssColorToRgb('#005AAA');
-    return ref ? relativeLuminance(ref) : 0.102;
-})();
-
-const adjustColorForDarkThemeIfNeeded = (color) => {
-    const parsed = parseCssColorToRgb(color);
-    if (!parsed) return toText(color);
-
-    const lum = relativeLuminance(parsed);
-    if (!(lum < DARK_INVERT_TRIGGER_LUMINANCE)) return toText(color);
-
-    const inverted = { r: 255 - parsed.r, g: 255 - parsed.g, b: 255 - parsed.b };
-    return rgbToHex(inverted);
-};
-
 export const resolveBorderColorForTheme = (color) => {
-    const raw = toText(color);
-    if (!raw) return raw;
-    if (!isDarkThemeActive()) return raw;
-    return adjustColorForDarkThemeIfNeeded(raw);
+    return toText(color);
 };
 
 export const resolveLineColorForTheme = (color) => {
-    // Same as border rule: in dark theme, invert too-dark colors for visibility.
-    const raw = toText(color);
-    if (!raw) return raw;
-    if (!isDarkThemeActive()) return raw;
-    return adjustColorForDarkThemeIfNeeded(raw);
+    return toText(color);
 };
 
 const _trainSvgCache = new Map();
@@ -558,11 +528,9 @@ const applyIconStyleForTheme = (el) => {
     const code = toText(el.dataset.code);
     const preset = el.dataset.preset || selectLineIconPreset(routeId, code);
     const routeColor = toText(el.dataset.routeColor);
-    const dark = isDarkThemeActive();
 
     const borderColor = resolveBorderColorForTheme(routeColor) || routeColor;
     const fillColor = resolveLineColorForTheme(routeColor) || routeColor;
-    const darkBackground = dark ? 'rgba(28, 28, 28, 0.94)' : '#fff';
     const designConfig = LINE_ICON_DESIGNS[preset] || LINE_ICON_DESIGNS[LINE_ICON_SETTINGS.defaultDesign] || null;
     const imageConfig = getLineIconImageConfigFromDataset(el);
     const trainIconConfig = designConfig?.image
@@ -587,9 +555,8 @@ const applyIconStyleForTheme = (el) => {
         code,
         preset,
         borderColor: borderColor || 'transparent',
-        fillColor: fillColor || (dark ? '#000' : '#fff'),
-        backgroundColor: darkBackground,
-        dark,
+        fillColor: fillColor || '#fff',
+        backgroundColor: '#fff',
         trainIconHref,
         imageConfig
     });
@@ -614,8 +581,7 @@ const applyStationCodeBadgeStyleForTheme = (el) => {
     const baseStyleContext = {
         lineColor: routeColor,
         fillColor,
-        borderColor: routeColor,
-        dark: isDarkThemeActive()
+        borderColor: routeColor
     };
     const rootStyleBase = resolveStationStyleMap(rawRootStyle, baseStyleContext);
     const prefixStyleBase = resolveStationStyleMap(rawPrefixStyle, baseStyleContext);
@@ -663,8 +629,7 @@ const applyStationCodeBadgeStyleForTheme = (el) => {
         fillColor,
         borderColor,
         prefixBackground,
-        prefixText,
-        dark: isDarkThemeActive()
+        prefixText
     };
     const rootStyle = resolveStationStyleMap(rawRootStyle, styleContext);
     const prefixStyle = resolveStationStyleMap(rawPrefixStyle, styleContext);
@@ -689,7 +654,7 @@ const applyStationCodeBadgeStyleForTheme = (el) => {
         borderColor
     });
     const muted = toText(el.dataset.stationBadgeMuted) === '1';
-    const mutedColor = isDarkThemeActive() ? '#777d86' : '#c3c7cd';
+    const mutedColor = '#c3c7cd';
 
     renderStationBadgeSvg(el, {
         code,

@@ -55,7 +55,7 @@ const pickByCodeLength = (rules = [], length = 0, fallback = undefined) => {
 
 const resolveConfiguredValue = (value, context = {}) => {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
-        if ('dark' in value || 'light' in value) return context.dark ? value.dark : value.light;
+        if ('light' in value) return value.light;
         return value;
     }
     if (typeof value !== 'string') return value;
@@ -384,7 +384,7 @@ export const createLineIconFrameNode = ({
     return group;
 };
 
-const getTextModel = ({ code, design, dark, fillColor }) => {
+const getTextModel = ({ code, design, fillColor }) => {
     const length = toText(code).length;
     const model = design?.text || {};
     const explicitTextLength = model.textLength ??
@@ -395,17 +395,17 @@ const getTextModel = ({ code, design, dark, fillColor }) => {
 
     return {
         ...model,
-        color: resolveConfiguredValue(model.color, { dark, fillColor }),
+        color: resolveConfiguredValue(model.color, { fillColor }),
         fontSize: pickByCodeLength(model.fontSizeByCodeLength, length, model.fontSize),
         textLength: explicitTextLength ?? pickByCodeLength(model.textLengthByCodeLength, length, model.textLength)
     };
 };
 
-const appendCenteredText = ({ svg, documentRef, code, design, dark, fillColor }) => {
+const appendCenteredText = ({ svg, documentRef, code, design, fillColor }) => {
     const safeCode = toText(code);
     if (!safeCode) return;
 
-    const textModel = getTextModel({ code: safeCode, design, dark, fillColor });
+    const textModel = getTextModel({ code: safeCode, design, fillColor });
     if (textModel.hidden) return;
     const textLength = textModel.textLength || pickByCodeLength(textModel.textLengthByCodeLength, safeCode.length, 66);
     const { textWidth: _textWidth, 'text-width': _textWidthAttr, textLength: _textLengthAttr, ...configuredAttrs } = textModel.attrs || {};
@@ -454,7 +454,6 @@ export const renderLineIconSvg = (root, {
     borderColor = 'transparent',
     fillColor = '#888',
     backgroundColor = '#fff',
-    dark = false,
     trainIconHref = '',
     imageConfig = null,
     rootStyle = {},
@@ -471,8 +470,7 @@ export const renderLineIconSvg = (root, {
         borderColor,
         fillColor,
         backgroundColor,
-        lineColor: fillColor,
-        dark
+        lineColor: fillColor
     };
     const fittedViewBox = getFittedFrameViewBox(design, styleContext);
     const svg = createSvgNode(documentRef, 'svg', {
@@ -505,7 +503,7 @@ export const renderLineIconSvg = (root, {
         if (shape) svg.appendChild(shape);
     }
 
-    appendCenteredText({ svg, documentRef, code: safeCode, design, dark, fillColor });
+    appendCenteredText({ svg, documentRef, code: safeCode, design, fillColor });
 
     const resolvedRootStyle = resolveConfiguredStyles(design.html?.rootStyle || {}, styleContext);
     setStyles(root, {

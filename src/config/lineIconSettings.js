@@ -507,10 +507,10 @@ export const lineIconSettings = {
                 attrs: { viewBox: '0 0 100 100', width: '100%', height: '100%', 'aria-hidden': 'true', focusable: 'false', role: 'img' },
                 style: { display: 'block', overflow: 'visible' }
             },
-            shape: { tag: 'rect', attrs: { x: 10, y: 10, width: 80, height: 80, rx: 5, fill: 'transparent', stroke: '#000', 'stroke-width': 3 } },
+            shape: { tag: 'rect', attrs: { x: 10, y: 10, width: 80, height: 80, rx: 5, fill: '#fff', stroke: '#000', 'stroke-width': 3 } },
             text: {
                 attrs: { x: 50, 'font-family': 'Arial, Helvetica, sans-serif', 'font-weight': 800, 'text-anchor': 'middle', 'dominant-baseline': 'central', lengthAdjust: 'spacingAndGlyphs' },
-                color: { light: '#000', dark: '#fff' },
+                color: '#000',
                 fontSizeByCodeLength: [{ max: 1, value: 48 }, { max: 2, value: 60 }, { value: 29 }],
                 textLengthByCodeLength: [{ max: 1, value: 32 }, { max: 2, value: 70 }, { value: 66 }],
                 y: 50
@@ -532,7 +532,7 @@ export const lineIconSettings = {
             shape: { tag: 'rect', attrs: { x: 8, y: 8, width: 84, height: 84, rx: 12, fill: 'fillColor' } },
             text: {
                 attrs: { x: 50, 'font-family': 'Arial, Helvetica, sans-serif', 'font-weight': 800, 'text-anchor': 'middle', 'dominant-baseline': 'central', lengthAdjust: 'spacingAndGlyphs' },
-                color: { light: '#fff', dark: '#000' },
+                color: '#fff',
                 fontSizeByCodeLength: [{ max: 1, value: 58 }, { max: 2, value: 47 }, { value: 31 }],
                 textLengthByCodeLength: [{ max: 1, value: 36 }, { max: 2, value: 58 }, { value: 64 }],
                 y: 50
