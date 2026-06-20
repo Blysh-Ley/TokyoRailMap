@@ -10,6 +10,7 @@ const DEFAULT_DESKTOP_HIDDEN_TRANSFORM = 'translateX(calc(100% + 24px))';
 const DEFAULT_DESKTOP_VERTICAL_INSET_PX = 60;
 const DEFAULT_MOBILE_HIDDEN_TRANSFORM = 'translateY(calc(100% + 24px))';
 const DEFAULT_MOBILE_COLLAPSED_PEEK_PX = DEFAULT_MOBILE_SHEET_PEEK_PX;
+const DEFAULT_MOBILE_EXPANDED_HEIGHT = 'min(88vh, calc(100vh - var(--mobile-expanded-sheet-top-clearance)))';
 const MOBILE_FOLDABLE_MIN_WIDTH_PX = 700;
 
 const isWithinAnyElement = (target, elements = []) => (
@@ -194,12 +195,14 @@ export const createMobilePanelShell = ({
 
     const layout = () => {
         const heightSource = Number(win?.innerHeight) || 0;
-        const height = Math.round(heightSource * 0.88);
+        const fallbackHeight = Math.round(heightSource * 0.88);
+        root.style.height = DEFAULT_MOBILE_EXPANDED_HEIGHT;
+        root.style.maxHeight = 'calc(100vh - var(--mobile-expanded-sheet-top-clearance))';
+        const measuredHeight = Number(root.getBoundingClientRect?.().height) || 0;
+        const height = measuredHeight > 0 ? Math.round(measuredHeight) : fallbackHeight;
         lastLayoutHeight = height;
         syncFoldableWidth();
         root.style.top = 'auto';
-        root.style.height = `${height}px`;
-        root.style.maxHeight = 'calc(100vh - env(safe-area-inset-top, 0px) - 12px)';
         root.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
 
         if (!visible) {

@@ -9,6 +9,34 @@ const mediaMatches = (win, query) => {
     }
 };
 
+const toPlatformText = (value) => String(value ?? '').trim().toLowerCase();
+
+const resolveNativePlatform = (win) => {
+    const capacitor = win?.Capacitor || null;
+    if (!capacitor) return '';
+
+    let platform = '';
+    try {
+        if (typeof capacitor.getPlatform === 'function') {
+            platform = toPlatformText(capacitor.getPlatform());
+        }
+    } catch {
+        platform = '';
+    }
+    if (!platform) platform = toPlatformText(capacitor.platform);
+    if (!platform || platform === 'web') return '';
+
+    try {
+        if (typeof capacitor.isNativePlatform === 'function' && capacitor.isNativePlatform() !== true) {
+            return '';
+        }
+    } catch {
+        return '';
+    }
+
+    return platform;
+};
+
 export const isMobileViewport = (win = globalThis.window) => {
     if (!win) return false;
 
@@ -22,12 +50,19 @@ export const isMobileViewport = (win = globalThis.window) => {
     return Number.isFinite(width) && width > 0 && width <= MOBILE_VIEWPORT_MAX_WIDTH_PX;
 };
 
-const setMobileUiDataset = (doc, isMobile) => {
+const setMobileUiDataset = (doc, isMobile, nativePlatform = '') => {
     const value = isMobile ? '1' : '0';
     const root = doc?.documentElement || null;
     const body = doc?.body || null;
-    if (root?.dataset) root.dataset.mobileUi = value;
-    if (body?.dataset) body.dataset.mobileUi = value;
+    for (const node of [root, body]) {
+        if (!node?.dataset) continue;
+        node.dataset.mobileUi = value;
+        if (isMobile && nativePlatform) {
+            node.dataset.nativePlatform = nativePlatform;
+        } else {
+            delete node.dataset.nativePlatform;
+        }
+    }
 };
 
 export const createMobileUiModeController = ({
@@ -39,7 +74,7 @@ export const createMobileUiModeController = ({
 
     const refresh = () => {
         const next = isMobileViewport(win);
-        setMobileUiDataset(doc, next);
+        setMobileUiDataset(doc, next, resolveNativePlatform(win));
         if (next !== current && typeof onChange === 'function') {
             onChange(next);
         }
