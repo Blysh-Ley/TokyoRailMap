@@ -1829,7 +1829,8 @@ export function createPanel(options = {}) {
         const serviceDayStartMs = getServiceDayStartMs(new Date(now));
         const lineMetaForTimetablePalette = getLineMeta?.(lineId) || {};
         const lineColorForTimetablePalette = toText(lineMetaForTimetablePalette?.color);
-        const currentServiceDayColorMode = currentServiceDay === 'SaturdayHoliday' ? 'complementary' : 'base';
+        const panelServiceDayColorMode = 'base';
+        const currentPrintServiceDayColorMode = currentServiceDay === 'SaturdayHoliday' ? 'complementary' : 'base';
         const rows = [];
         const rowsForPreview = [];
         const printRowsByServiceDay = new Map(PRINT_SERVICE_DAYS.map((day) => [day, []]));
@@ -2412,7 +2413,7 @@ export function createPanel(options = {}) {
                 nowMs: now,
                 serviceDayStartMs,
                 lineColor: lineColorForTimetablePalette,
-                serviceDayColorMode: currentServiceDayColorMode
+                serviceDayColorMode: currentPrintServiceDayColorMode
             });
 
             const buildPrintPayloadForServiceDay = (serviceDay) => {
@@ -2497,7 +2498,7 @@ export function createPanel(options = {}) {
                     nowMs: now,
                     serviceDayStartMs,
                     lineColor: lineColorForTimetablePalette,
-                    serviceDayColorMode: currentServiceDayColorMode
+                    serviceDayColorMode: panelServiceDayColorMode
                 })
                 : renderPanelTimetableListHtml({
                     rows: visible,
