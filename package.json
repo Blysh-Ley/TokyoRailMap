@@ -114,6 +114,7 @@
     "@capacitor/cli": "^8.4.0",
     "@capacitor/core": "^8.4.0",
     "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/ios": "^8.4.1",
     "@capacitor/share": "^8.0.1",
     "electron": "^41.2.1",
     "electron-builder": "^24.13.3",
