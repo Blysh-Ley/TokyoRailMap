@@ -30,11 +30,19 @@ export const getCapacitorPlatform = (target = globalThis) => {
 };
 
 export const isAndroidNativeExportTarget = (target = globalThis) => {
+    return isNativeCapacitorPlatform(target, 'android');
+};
+
+export const isIosNativeExportTarget = (target = globalThis) => {
+    return isNativeCapacitorPlatform(target, 'ios');
+};
+
+const isNativeCapacitorPlatform = (target, expectedPlatform = '') => {
     const capacitor = target?.Capacitor;
     if (!capacitor) return false;
 
     const platform = getCapacitorPlatform(target);
-    if (platform !== 'android') return false;
+    if (platform !== expectedPlatform) return false;
 
     try {
         if (typeof capacitor.isNativePlatform === 'function') return capacitor.isNativePlatform() === true;
@@ -44,6 +52,14 @@ export const isAndroidNativeExportTarget = (target = globalThis) => {
 
     return true;
 };
+
+const isNativeShareTarget = (target = globalThis) => (
+    isAndroidNativeExportTarget(target) || isIosNativeExportTarget(target)
+);
+
+const isNativeImageSaveTarget = (target = globalThis) => (
+    isAndroidNativeExportTarget(target) || isIosNativeExportTarget(target)
+);
 
 export const getNativeExportPlugins = (target = globalThis) => {
     const capacitor = target?.Capacitor;
@@ -152,12 +168,23 @@ const isPermissionGranted = (value) => {
     return v === 'granted' || v === 'limited';
 };
 
-const requestImageGalleryPermission = async (Media) => {
+const callPermissionMethod = async (method, platform) => {
+    if (typeof method !== 'function') return null;
+    if (platform === 'ios') {
+        try {
+            return await method({ permission: 'addOnly' });
+        } catch {
+            // Some plugin versions expose permission methods without options.
+        }
+    }
+    return await method();
+};
+
+const requestImageGalleryPermission = async (Media, { platform = '' } = {}) => {
     if (!Media) return false;
     const readStatus = async () => {
-        if (typeof Media.checkPermissions !== 'function') return null;
         try {
-            return await Media.checkPermissions();
+            return await callPermissionMethod(Media.checkPermissions?.bind(Media), platform);
         } catch {
             return null;
         }
@@ -169,6 +196,8 @@ const requestImageGalleryPermission = async (Media) => {
             status.photo,
             status.images,
             status.media,
+            status.addOnly,
+            status.readWrite,
             status.storage,
             status.publicStorage,
             status.publicStorage13Plus
@@ -179,7 +208,7 @@ const requestImageGalleryPermission = async (Media) => {
     if (hasGrant(initial)) return true;
 
     if (typeof Media.requestPermissions !== 'function') return true;
-    const requested = await Media.requestPermissions();
+    const requested = await callPermissionMethod(Media.requestPermissions.bind(Media), platform);
     return hasGrant(requested);
 };
 
@@ -228,34 +257,29 @@ const saveNativeImageToGallery = async ({
     data,
     filename,
     mimeType,
-    album = 'TokyoRailMap'
+    album = 'TokyoRailMap',
+    platform = ''
 }) => {
     if (!Media) throw new Error('Media plugin is unavailable');
     const path = buildImageDataUri({ data, mimeType });
     if (!path) throw new Error('missing image file uri');
-    const albumIdentifier = await ensureNativeMediaAlbumIdentifier(Media, album);
-    const fileName = filenameWithoutExtension(filename);
+    const albumIdentifier = platform === 'ios' ? '' : await ensureNativeMediaAlbumIdentifier(Media, album);
+    const fileName = platform === 'ios' ? '' : filenameWithoutExtension(filename);
+
+    const options = {
+        path,
+        ...(fileName ? { fileName } : {}),
+        ...(albumIdentifier ? { albumIdentifier } : {})
+    };
 
     if (typeof Media.savePhoto === 'function') {
-        return await Media.savePhoto({
-            path,
-            fileName,
-            ...(albumIdentifier ? { albumIdentifier } : {})
-        });
+        return await Media.savePhoto(options);
     }
     if (typeof Media.saveImage === 'function') {
-        return await Media.saveImage({
-            path,
-            fileName,
-            ...(albumIdentifier ? { albumIdentifier } : {})
-        });
+        return await Media.saveImage(options);
     }
     if (typeof Media.saveToGallery === 'function') {
-        return await Media.saveToGallery({
-            path,
-            fileName,
-            ...(albumIdentifier ? { albumIdentifier } : {})
-        });
+        return await Media.saveToGallery(options);
     }
 
     throw new Error('Media plugin has no supported image save method');
@@ -272,7 +296,7 @@ export const shareOrDownloadArtifact = async ({
     logger = console
 } = {}) => {
     const safeFilename = sanitizeNativeExportFilename(filename);
-    if (!isAndroidNativeExportTarget(target)) {
+    if (!isNativeShareTarget(target)) {
         return await runFallbackDownload({ blob, filename: safeFilename, fallbackDownload });
     }
 
@@ -327,10 +351,11 @@ export const shareOrSaveImageArtifact = async ({
             logger
         });
     }
-    if (!isAndroidNativeExportTarget(target)) {
+    if (!isNativeImageSaveTarget(target)) {
         return await runFallbackDownload({ blob, filename: safeFilename, fallbackDownload });
     }
 
+    const platform = getCapacitorPlatform(target);
     const { Filesystem, Media, Share } = getNativeExportPlugins(target);
     if (
         typeof Filesystem?.writeFile !== 'function'
@@ -341,7 +366,7 @@ export const shareOrSaveImageArtifact = async ({
 
     try {
         const { data, uri } = await writeBlobToNativeCache({ Filesystem, blob, filename: safeFilename });
-        const canSave = await requestImageGalleryPermission(Media);
+        const canSave = await requestImageGalleryPermission(Media, { platform });
         if (!canSave) {
             return await shareOrDownloadArtifact({
                 blob,
@@ -359,7 +384,8 @@ export const shareOrSaveImageArtifact = async ({
             Media,
             data,
             filename: safeFilename,
-            mimeType
+            mimeType,
+            platform
         });
         const shouldShare = typeof target?.confirm === 'function'
             ? target.confirm(toText(savedPrompt) || '图片已保存到本地相册。是否继续分享？')
@@ -409,6 +435,7 @@ export const installNativeExportShareGlobal = (target = globalThis) => {
         getCapacitorPlatform,
         getNativeExportPlugins,
         isAndroidNativeExportTarget,
+        isIosNativeExportTarget,
         sanitizeNativeExportFilename,
         shareOrSaveImageArtifact,
         shareOrDownloadArtifact

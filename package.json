@@ -16,6 +16,8 @@
     "web:vendor": "node scripts/sync-web-vendor.mjs",
     "cap:web": "npm run icons:generate && npm run web:vendor && node scripts/sync-capacitor-web.mjs",
     "cap:sync:android": "npm run cap:web && npx cap sync android",
+    "ios:permissions": "node scripts/patch-ios-info-plist.mjs",
+    "cap:sync:ios": "npm run cap:web && npx cap sync ios && npm run ios:permissions",
     "android:open": "npm run cap:sync:android && npx cap open android",
     "android:doctor": "node scripts/check-android-env.mjs",
     "android:sdk:licenses": "node scripts/run-android-sdkmanager.mjs --licenses",
