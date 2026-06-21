@@ -6,11 +6,6 @@ const ATTRIBUTION_ITEMS = Object.freeze([
     },
     {
         group: 'map',
-        label: 'CARTO',
-        href: 'https://carto.com/'
-    },
-    {
-        group: 'map',
         label: 'OpenStreetMap',
         href: 'https://www.openstreetmap.org/copyright'
     },

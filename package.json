@@ -123,7 +123,8 @@
     "japanese-holidays": "^1.0.10",
     "jszip": "^3.10.1",
     "live-server": "^1.2.2",
-    "maplibre-gl": "3.6.2"
+    "maplibre-gl": "3.6.2",
+    "pmtiles": "^4.4.1"
   },
   "dependencies": {
     "@capacitor-community/media": "^9.1.0",

@@ -3,31 +3,12 @@ import {
     readBasemapMode as defaultReadBasemapMode,
     resolveThemeFromAppearance as defaultResolveThemeFromAppearance
 } from '../services/appSettings.js';
+import { normalizeBasemapMode } from '../domain/basemapMode.js';
 import { createBasemapController as defaultCreateBasemapController } from '../services/mapEngine.js';
 
-const DEFAULT_LIGHT_RASTER_PAINT = Object.freeze({
-    'raster-contrast': -0.3,
-    'raster-brightness-min': 0.12,
-    'raster-brightness-max': 1,
-    'raster-saturation': -0.2,
-    'raster-hue-rotate': 0
-});
-
-const DEFAULT_DARK_RASTER_PAINT = Object.freeze({
-    'raster-contrast': -0.3,
-    'raster-brightness-min': 0,
-    'raster-brightness-max': 0.48,
-    'raster-saturation': -0.2,
-    'raster-hue-rotate': 180
-});
+const DEFAULT_BASEMAP_PMTILES_URL = './tiles/kanto.pmtiles';
 
 const normalizeTheme = (theme) => (theme === 'dark' ? 'dark' : 'light');
-
-const normalizeMode = (mode) => (
-    mode === 'carto' || mode === 'ost' || mode === 'transparent'
-        ? mode
-        : 'carto'
-);
 
 const getDefaultDocument = () => (
     typeof document !== 'undefined' ? document : null
@@ -36,6 +17,13 @@ const getDefaultDocument = () => (
 const getDefaultWindow = () => (
     typeof window !== 'undefined' ? window : null
 );
+
+const defaultReadBasemapRuntimeConfig = ({ windowRef = getDefaultWindow() } = {}) => {
+    const rawUrl = String(windowRef?.TOKYO_RAIL_OSM_BASEMAP_URL || DEFAULT_BASEMAP_PMTILES_URL).trim();
+    return {
+        pmtilesUrl: rawUrl || DEFAULT_BASEMAP_PMTILES_URL
+    };
+};
 
 const dispatchThemeChanged = (windowRef) => {
     try {
@@ -58,14 +46,14 @@ export const createBasemapThemeRuntime = ({
     createBasemapController = defaultCreateBasemapController,
     readAppearanceMode = defaultReadAppearanceMode,
     readBasemapMode = defaultReadBasemapMode,
+    readBasemapRuntimeConfig = defaultReadBasemapRuntimeConfig,
     resolveThemeFromAppearance = defaultResolveThemeFromAppearance,
     documentRef = getDefaultDocument(),
-    windowRef = getDefaultWindow(),
-    lightRasterPaint = DEFAULT_LIGHT_RASTER_PAINT,
-    darkRasterPaint = DEFAULT_DARK_RASTER_PAINT
+    windowRef = getDefaultWindow()
 } = {}) => {
     const initialTheme = normalizeTheme(resolveThemeFromAppearance(readAppearanceMode()));
-    const initialMode = normalizeMode(readBasemapMode());
+    const initialMode = normalizeBasemapMode(readBasemapMode());
+    const basemapRuntimeConfig = readBasemapRuntimeConfig({ windowRef }) || {};
 
     documentRef?.documentElement?.setAttribute?.('data-theme', initialTheme);
 
@@ -76,8 +64,7 @@ export const createBasemapThemeRuntime = ({
         mapEngine,
         initialTheme: mapTheme,
         initialMode: basemapMode,
-        lightRasterPaint,
-        darkRasterPaint,
+        pmtilesUrl: basemapRuntimeConfig.pmtilesUrl || DEFAULT_BASEMAP_PMTILES_URL,
         onThemeChanged: () => dispatchThemeChanged(windowRef)
     });
 
@@ -105,7 +92,7 @@ export const createBasemapThemeRuntime = ({
     };
 
     const setBasemapMode = (mode) => {
-        basemapMode = normalizeMode(mode);
+        basemapMode = normalizeBasemapMode(mode);
         syncBasemapStyle();
         return basemapMode;
     };
@@ -138,6 +125,12 @@ export const createBasemapThemeRuntime = ({
         applyAppTheme,
         applyBasemapTheme,
         ensureBasemapLayers,
+        getExportStyle: (options = {}) => basemapController.getStyle?.({
+            mode: basemapMode,
+            theme: mapTheme,
+            ...options
+        }),
+        getMapAttributionItems: () => basemapController.getAttributionItems?.() || [],
         getMode: () => basemapMode,
         getTheme: () => mapTheme,
         setBasemapMode,

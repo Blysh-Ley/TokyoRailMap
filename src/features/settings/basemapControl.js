@@ -7,13 +7,13 @@ export const mountBasemapToggle = ({ hostEl, onModeChanged } = {}) => {
         className: 'settings-item-basemap',
         title: '地图底图',
         options: [
-            { value: 'carto', label: 'Carto' },
-            { value: 'ost', label: 'OST' },
+            { value: 'osm-white', label: '极简' },
+            { value: 'osm-detailed', label: '详细' },
             { value: 'transparent', label: '透明' }
         ]
     });
-    const btnCarto = row.buttons.get('carto');
-    const btnOst = row.buttons.get('ost');
+    const btnWhite = row.buttons.get('osm-white');
+    const btnDetailed = row.buttons.get('osm-detailed');
     const btnTransparent = row.buttons.get('transparent');
 
     const setMode = (mode) => {
@@ -22,8 +22,8 @@ export const mountBasemapToggle = ({ hostEl, onModeChanged } = {}) => {
         onModeChanged?.(next);
     };
 
-    btnCarto.addEventListener('click', () => setMode('carto'));
-    btnOst.addEventListener('click', () => setMode('ost'));
+    btnWhite.addEventListener('click', () => setMode('osm-white'));
+    btnDetailed.addEventListener('click', () => setMode('osm-detailed'));
     btnTransparent.addEventListener('click', () => setMode('transparent'));
 
     setMode(readBasemapMode());

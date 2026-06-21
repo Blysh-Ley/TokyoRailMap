@@ -1,0 +1,129 @@
+import assert from 'node:assert/strict';
+
+import { createBasemapController, createMapEngine } from '../src/services/mapEngine.js';
+
+class FakeMap {
+    constructor(options) {
+        this.options = options;
+        this.sources = new Map();
+        this.layers = new Map();
+        this.canvas = { style: {} };
+    }
+
+    addSource(id, source) {
+        this.sources.set(id, source);
+    }
+
+    getSource(id) {
+        return this.sources.get(id) || null;
+    }
+
+    addLayer(layer, beforeLayerId) {
+        this.layers.set(layer.id, { ...layer, beforeLayerId });
+    }
+
+    getLayer(id) {
+        return this.layers.get(id) || null;
+    }
+
+    moveLayer(id, beforeLayerId) {
+        const layer = this.layers.get(id);
+        if (layer) layer.beforeLayerId = beforeLayerId;
+    }
+
+    setLayoutProperty(id, property, value) {
+        const layer = this.layers.get(id);
+        if (layer) layer.layout = { ...(layer.layout || {}), [property]: value };
+    }
+
+    setPaintProperty(id, property, value) {
+        const layer = this.layers.get(id);
+        if (layer) layer.paint = { ...(layer.paint || {}), [property]: value };
+    }
+
+    getCanvas() {
+        return this.canvas;
+    }
+}
+
+{
+    const calls = [];
+    const maplibregl = {
+        Map: FakeMap,
+        Marker: class {},
+        Popup: class {},
+        ScaleControl: class {},
+        addProtocol: (scheme, tile) => calls.push([scheme, typeof tile])
+    };
+    const Protocol = class {
+        constructor() {
+            this.tile = () => {};
+        }
+    };
+
+    const oldPmtiles = globalThis.pmtiles;
+    globalThis.pmtiles = { Protocol };
+    try {
+        const engine = createMapEngine({ maplibregl, container: 'map' });
+        assert.equal(engine.ensurePmtilesProtocol(), true);
+        assert.deepEqual(calls, [['pmtiles', 'function']]);
+    } finally {
+        globalThis.pmtiles = oldPmtiles;
+    }
+}
+
+{
+    const sources = new Map();
+    const layers = new Map();
+    const layoutCalls = [];
+    const mapEngine = {
+        addSource: (id, source) => sources.set(id, source),
+        getSource: (id) => sources.get(id) || null,
+        addLayer: (layer, beforeLayerId) => layers.set(layer.id, { ...layer, beforeLayerId }),
+        getLayer: (id) => layers.get(id) || null,
+        moveLayer: () => {},
+        setLayoutProperty: (id, property, value) => {
+            layoutCalls.push([id, property, value]);
+            const layer = layers.get(id);
+            if (layer) layer.layout = { ...(layer.layout || {}), [property]: value };
+        },
+        setPaintProperty: () => {},
+        getCanvas: () => ({ style: {} }),
+        ensurePmtilesProtocol: () => true
+    };
+    const controller = createBasemapController({
+        mapEngine,
+        initialMode: 'ost',
+        pmtilesUrl: './tiles/kanto.pmtiles'
+    });
+
+    controller.ensureLayers();
+    assert.equal(controller.getMode(), 'osm-white');
+    assert.equal(sources.get('osm-vector-source').url, 'pmtiles://./tiles/kanto.pmtiles');
+    assert.equal(layers.get('osm-water-layer').type, 'fill');
+    assert.equal(layers.get('osm-place-label-layer').type, 'symbol');
+    assert.deepEqual(controller.getAttributionItems(), [
+        {
+            group: 'map',
+            label: 'OpenStreetMap',
+            href: 'https://www.openstreetmap.org/copyright'
+        }
+    ]);
+
+    controller.setMode('transparent');
+    assert.ok(layoutCalls.some(([id, property, value]) => (
+        id === 'osm-water-layer' && property === 'visibility' && value === 'none'
+    )));
+
+    controller.setMode('osm-detailed');
+    assert.ok(layoutCalls.some(([id, property, value]) => (
+        id === 'osm-building-layer' && property === 'visibility' && value === 'visible'
+    )));
+
+    const style = controller.getStyle({ mode: 'osm-detailed', theme: 'dark' });
+    assert.equal(style.sources['osm-vector-source'].url, 'pmtiles://./tiles/kanto.pmtiles');
+    assert.equal(style.layers.some((layer) => layer.id === 'osm-water-layer'), true);
+    assert.equal(style.layers.some((layer) => layer.id === 'osm-building-layer'), true);
+}
+
+console.log('map engine pmtiles basemap smoke ok');

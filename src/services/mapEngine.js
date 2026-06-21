@@ -1,3 +1,7 @@
+import { DEFAULT_BASEMAP_MODE, normalizeBasemapMode } from '../domain/basemapMode.js';
+
+const pmtilesProtocolTargets = new WeakSet();
+
 export const createMapEngine = ({ maplibregl, container, center, zoom, style, localIdeographFontFamily = 'sans-serif' } = {}) => {
     if (!maplibregl?.Map) {
         throw new Error('MapLibre GL JS is not available');
@@ -74,6 +78,18 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
     const setLayerFilter = (layerId, filterExpr) => {
         if (!layerId || !map.getLayer(layerId)) return false;
         map.setFilter(layerId, filterExpr);
+        return true;
+    };
+
+    const ensurePmtilesProtocol = () => {
+        if (pmtilesProtocolTargets.has(maplibregl)) return true;
+        const Protocol = globalThis.pmtiles?.Protocol;
+        if (typeof maplibregl.addProtocol !== 'function' || typeof Protocol !== 'function') {
+            return false;
+        }
+        const protocol = new Protocol();
+        maplibregl.addProtocol('pmtiles', protocol.tile);
+        pmtilesProtocolTargets.add(maplibregl);
         return true;
     };
 
@@ -227,6 +243,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         applyPaintProperties,
         ensureGeoJsonSource,
         ensureLayer,
+        ensurePmtilesProtocol,
         onMapClick: (listener) => {
             if (typeof listener !== 'function') return () => {};
             map.on('click', listener);
@@ -272,12 +289,247 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
     };
 };
 
+const OSM_ATTRIBUTION = '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap contributors</a>';
+const DEFAULT_PMTILES_URL = './tiles/kanto.pmtiles';
+const OSM_VECTOR_SOURCE_ID = 'osm-vector-source';
+const BASEMAP_GLYPHS_URL = 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf';
+
+const normalizePmtilesUrl = (pmtilesUrl = DEFAULT_PMTILES_URL) => {
+    const url = String(pmtilesUrl || DEFAULT_PMTILES_URL).trim() || DEFAULT_PMTILES_URL;
+    return url.startsWith('pmtiles://') ? url : `pmtiles://${url}`;
+};
+
+const getBasemapBackgroundColor = (theme) => (
+    theme === 'dark' ? '#101216' : '#ffffff'
+);
+
+const getLayerVisibility = (mode, modes) => (
+    modes.includes(mode) ? 'visible' : 'none'
+);
+
+const createTextField = () => ([
+    'coalesce',
+    ['get', 'name:ja'],
+    ['get', 'name:en'],
+    ['get', 'name']
+]);
+
+const createOsmBasemapSource = (pmtilesUrl) => ({
+    type: 'vector',
+    url: normalizePmtilesUrl(pmtilesUrl),
+    attribution: OSM_ATTRIBUTION
+});
+
+const createOsmBasemapLayerItems = ({ mode = DEFAULT_BASEMAP_MODE, theme = 'light' } = {}) => {
+    const dark = theme === 'dark';
+    const textColor = dark ? '#d9dde5' : '#4f5663';
+    const textHalo = dark ? '#101216' : '#ffffff';
+    const roadColor = dark ? '#323846' : '#e7e9ee';
+    const detailedRoadColor = dark ? '#4c5261' : '#d7dbe2';
+
+    return [
+        {
+            modes: ['osm-white', 'osm-detailed'],
+            layer: {
+                id: 'osm-water-layer',
+                type: 'fill',
+                source: OSM_VECTOR_SOURCE_ID,
+                'source-layer': 'water',
+                paint: {
+                    'fill-color': dark ? '#172435' : '#edf6fb',
+                    'fill-opacity': mode === 'osm-detailed' ? 0.75 : 0.45
+                }
+            }
+        },
+        {
+            modes: ['osm-detailed'],
+            layer: {
+                id: 'osm-landuse-layer',
+                type: 'fill',
+                source: OSM_VECTOR_SOURCE_ID,
+                'source-layer': 'landuse',
+                paint: {
+                    'fill-color': dark ? '#172015' : '#f2f7ef',
+                    'fill-opacity': 0.45
+                }
+            }
+        },
+        {
+            modes: ['osm-detailed'],
+            layer: {
+                id: 'osm-building-layer',
+                type: 'fill',
+                source: OSM_VECTOR_SOURCE_ID,
+                'source-layer': 'building',
+                minzoom: 13,
+                paint: {
+                    'fill-color': dark ? '#2a2d34' : '#ece7df',
+                    'fill-opacity': 0.55
+                }
+            }
+        },
+        {
+            modes: ['osm-white', 'osm-detailed'],
+            layer: {
+                id: 'osm-road-layer',
+                type: 'line',
+                source: OSM_VECTOR_SOURCE_ID,
+                'source-layer': 'transportation',
+                filter: [
+                    'match',
+                    ['get', 'class'],
+                    ['motorway', 'trunk', 'primary', 'secondary'],
+                    true,
+                    false
+                ],
+                paint: {
+                    'line-color': mode === 'osm-detailed' ? detailedRoadColor : roadColor,
+                    'line-width': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        8,
+                        mode === 'osm-detailed' ? 0.35 : 0.2,
+                        14,
+                        mode === 'osm-detailed' ? 1.4 : 0.65
+                    ],
+                    'line-opacity': mode === 'osm-detailed' ? 0.8 : 0.45
+                }
+            }
+        },
+        {
+            modes: ['osm-detailed'],
+            layer: {
+                id: 'osm-road-minor-layer',
+                type: 'line',
+                source: OSM_VECTOR_SOURCE_ID,
+                'source-layer': 'transportation',
+                minzoom: 12,
+                filter: [
+                    'match',
+                    ['get', 'class'],
+                    ['minor', 'service', 'track', 'path'],
+                    true,
+                    false
+                ],
+                paint: {
+                    'line-color': dark ? '#373c49' : '#e5e2dd',
+                    'line-width': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        12,
+                        0.25,
+                        16,
+                        1.1
+                    ],
+                    'line-opacity': 0.65
+                }
+            }
+        },
+        {
+            modes: ['osm-detailed'],
+            layer: {
+                id: 'osm-poi-label-layer',
+                type: 'symbol',
+                source: OSM_VECTOR_SOURCE_ID,
+                'source-layer': 'poi',
+                minzoom: 14,
+                layout: {
+                    'text-field': createTextField(),
+                    'text-size': 11,
+                    'text-anchor': 'top',
+                    'text-offset': [0, 0.7],
+                    'text-allow-overlap': false
+                },
+                paint: {
+                    'text-color': dark ? '#b6beca' : '#707782',
+                    'text-halo-color': textHalo,
+                    'text-halo-width': 1
+                }
+            }
+        },
+        {
+            modes: ['osm-white', 'osm-detailed'],
+            layer: {
+                id: 'osm-place-label-layer',
+                type: 'symbol',
+                source: OSM_VECTOR_SOURCE_ID,
+                'source-layer': 'place',
+                layout: {
+                    'text-field': createTextField(),
+                    'text-size': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        6,
+                        mode === 'osm-detailed' ? 11 : 10,
+                        12,
+                        mode === 'osm-detailed' ? 15 : 13
+                    ],
+                    'text-allow-overlap': false
+                },
+                paint: {
+                    'text-color': textColor,
+                    'text-halo-color': textHalo,
+                    'text-halo-width': dark ? 1.4 : 1.1
+                }
+            }
+        }
+    ].map((item) => ({
+        ...item,
+        layer: {
+            ...item.layer,
+            layout: {
+                ...(item.layer.layout || {}),
+                visibility: getLayerVisibility(mode, item.modes)
+            }
+        }
+    }));
+};
+
+const getOsmBasemapLayerIds = () => (
+    createOsmBasemapLayerItems().map((item) => item.layer.id)
+);
+
+export const createOsmBasemapStyle = ({
+    mode = DEFAULT_BASEMAP_MODE,
+    theme = 'light',
+    pmtilesUrl = DEFAULT_PMTILES_URL
+} = {}) => {
+    const nextMode = normalizeBasemapMode(mode);
+    const nextTheme = theme === 'dark' ? 'dark' : 'light';
+    const layers = nextMode === 'transparent'
+        ? []
+        : createOsmBasemapLayerItems({ mode: nextMode, theme: nextTheme })
+            .filter((item) => item.modes.includes(nextMode))
+            .map((item) => item.layer);
+
+    return {
+        version: 8,
+        glyphs: BASEMAP_GLYPHS_URL,
+        sources: {
+            [OSM_VECTOR_SOURCE_ID]: createOsmBasemapSource(pmtilesUrl)
+        },
+        layers: [
+            {
+                id: 'tokyo-basemap-background-layer',
+                type: 'background',
+                paint: {
+                    'background-color': getBasemapBackgroundColor(nextTheme),
+                    'background-opacity': 1
+                }
+            },
+            ...layers
+        ]
+    };
+};
+
 export const createBasemapController = ({
     mapEngine,
     initialTheme = 'light',
-    initialMode = 'carto',
-    lightRasterPaint = {},
-    darkRasterPaint = {},
+    initialMode = DEFAULT_BASEMAP_MODE,
+    pmtilesUrl = DEFAULT_PMTILES_URL,
     onThemeChanged
 } = {}) => {
     if (!mapEngine) {
@@ -285,31 +537,30 @@ export const createBasemapController = ({
     }
 
     let theme = initialTheme === 'dark' ? 'dark' : 'light';
-    let mode = ['carto', 'ost', 'transparent'].includes(initialMode) ? initialMode : 'carto';
+    let mode = normalizeBasemapMode(initialMode);
     const backgroundLayerId = 'tokyo-basemap-background-layer';
-    const rasterLayerIds = Object.freeze(['carto-light-layer', 'carto-dark-layer', 'ost-layer']);
+    const basemapLayerIds = Object.freeze(getOsmBasemapLayerIds());
 
-    const getOstPaint = () => (theme === 'dark' ? darkRasterPaint : lightRasterPaint);
-    const getBackgroundColor = () => (theme === 'dark' ? '#101216' : '#ffffff');
+    const getBackgroundColor = () => getBasemapBackgroundColor(theme);
     const getOverlayAnchorLayerId = () => (
         mapEngine.getLayer('lines-layer')
             ? 'lines-layer'
             : (mapEngine.getLayer('stations-layer') ? 'stations-layer' : undefined)
     );
-    const getFirstRasterLayerId = () => rasterLayerIds.find((layerId) => mapEngine.getLayer(layerId)) || null;
+    const getFirstBasemapLayerId = () => basemapLayerIds.find((layerId) => mapEngine.getLayer(layerId)) || null;
 
     const normalizeBasemapLayerOrder = () => {
         const overlayAnchorLayerId = getOverlayAnchorLayerId();
         try {
-            for (const layerId of rasterLayerIds) {
+            for (const layerId of basemapLayerIds) {
                 if (overlayAnchorLayerId && mapEngine.getLayer(layerId)) {
                     mapEngine.moveLayer(layerId, overlayAnchorLayerId);
                 }
             }
 
-            const firstRasterLayerId = getFirstRasterLayerId();
+            const firstBasemapLayerId = getFirstBasemapLayerId();
             if (mapEngine.getLayer(backgroundLayerId)) {
-                if (firstRasterLayerId) mapEngine.moveLayer(backgroundLayerId, firstRasterLayerId);
+                if (firstBasemapLayerId) mapEngine.moveLayer(backgroundLayerId, firstBasemapLayerId);
                 else if (overlayAnchorLayerId) mapEngine.moveLayer(backgroundLayerId, overlayAnchorLayerId);
             }
         } catch {
@@ -317,70 +568,19 @@ export const createBasemapController = ({
         }
     };
 
-    const getBasemapItems = () => [
-        {
-            id: 'carto-light-layer',
-            sourceId: 'carto-light-source',
-            source: {
-                type: 'raster',
-                tiles: [
-                    'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-                    'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-                    'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-                    'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
-                ],
-                tileSize: 256,
-                attribution: '&copy; <a href="https://carto.com/">Carto</a>'
-            },
-            layout: { visibility: (mode === 'carto' && theme === 'light') ? 'visible' : 'none' }
-        },
-        {
-            id: 'carto-dark-layer',
-            sourceId: 'carto-dark-source',
-            source: {
-                type: 'raster',
-                tiles: [
-                    'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                    'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                    'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                    'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-                ],
-                tileSize: 256,
-                attribution: '&copy; <a href="https://carto.com/">Carto</a>'
-            },
-            layout: { visibility: (mode === 'carto' && theme === 'dark') ? 'visible' : 'none' }
-        },
-        {
-            id: 'ost-layer',
-            sourceId: 'ost-source',
-            source: {
-                type: 'raster',
-                tiles: [
-                    'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
-                ],
-                tileSize: 256,
-                attribution: '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap contributors</a>'
-            },
-            layout: { visibility: mode === 'ost' ? 'visible' : 'none' },
-            paint: getOstPaint()
-        }
-    ];
+    const getBasemapItems = () => createOsmBasemapLayerItems({ mode, theme });
 
     const applyTheme = (nextTheme) => {
         theme = nextTheme === 'dark' ? 'dark' : 'light';
-        const lightVisibility = (mode === 'carto' && theme === 'light') ? 'visible' : 'none';
-        const darkVisibility = (mode === 'carto' && theme === 'dark') ? 'visible' : 'none';
-        const ostVisibility = mode === 'ost' ? 'visible' : 'none';
+        const items = getBasemapItems();
 
         try {
-            if (mapEngine.getLayer('carto-light-layer')) mapEngine.setLayoutProperty('carto-light-layer', 'visibility', lightVisibility);
-            if (mapEngine.getLayer('carto-dark-layer')) mapEngine.setLayoutProperty('carto-dark-layer', 'visibility', darkVisibility);
-            if (mapEngine.getLayer('ost-layer')) {
-                mapEngine.setLayoutProperty('ost-layer', 'visibility', ostVisibility);
-                Object.entries(getOstPaint()).forEach(([key, value]) => {
-                    mapEngine.setPaintProperty('ost-layer', key, value);
+            for (const item of items) {
+                const layerId = item.layer.id;
+                if (!mapEngine.getLayer(layerId)) continue;
+                mapEngine.setLayoutProperty(layerId, 'visibility', getLayerVisibility(mode, item.modes));
+                Object.entries(item.layer.paint || {}).forEach(([key, value]) => {
+                    mapEngine.setPaintProperty(layerId, key, value);
                 });
             }
             if (mapEngine.getLayer(backgroundLayerId)) {
@@ -398,17 +598,16 @@ export const createBasemapController = ({
     };
 
     const setMode = (nextMode, nextTheme = theme) => {
-        mode = ['carto', 'ost', 'transparent'].includes(nextMode) ? nextMode : 'carto';
+        mode = normalizeBasemapMode(nextMode);
         applyTheme(nextTheme);
     };
 
     const ensureLayers = () => {
+        mapEngine.ensurePmtilesProtocol?.();
         const items = getBasemapItems();
 
-        for (const item of items) {
-            if (!mapEngine.getSource(item.sourceId)) {
-                mapEngine.addSource(item.sourceId, item.source);
-            }
+        if (!mapEngine.getSource(OSM_VECTOR_SOURCE_ID)) {
+            mapEngine.addSource(OSM_VECTOR_SOURCE_ID, createOsmBasemapSource(pmtilesUrl));
         }
 
         const beforeLayerId = getOverlayAnchorLayerId();
@@ -432,14 +631,14 @@ export const createBasemapController = ({
         }
 
         for (const item of items) {
-            if (!mapEngine.getLayer(item.id)) {
+            const layer = item.layer;
+            if (!mapEngine.getLayer(layer.id)) {
                 mapEngine.addLayer({
-                    id: item.id,
-                    type: 'raster',
-                    source: item.sourceId,
-                    layout: item.layout,
-                    minzoom: 0,
-                    paint: item.paint || {}
+                    ...layer,
+                    layout: {
+                        ...(layer.layout || {}),
+                        visibility: getLayerVisibility(mode, item.modes)
+                    }
                 }, beforeLayerId);
             }
         }
@@ -450,7 +649,20 @@ export const createBasemapController = ({
     return {
         applyTheme,
         ensureLayers,
+        getAttributionItems: () => [
+            {
+                group: 'map',
+                label: 'OpenStreetMap',
+                href: 'https://www.openstreetmap.org/copyright'
+            }
+        ],
         setMode,
+        getStyle: (options = {}) => createOsmBasemapStyle({
+            mode,
+            theme,
+            pmtilesUrl,
+            ...options
+        }),
         getMode: () => mode,
         getTheme: () => theme
     };

@@ -1,3 +1,5 @@
+import { DEFAULT_BASEMAP_MODE, normalizeBasemapMode } from '../domain/basemapMode.js';
+
 export const APPEARANCE_STORAGE_KEY = 'tokyorail.appearance.mode';
 export const BASEMAP_STORAGE_KEY = 'tokyorail.basemap.mode';
 export const AUTO_UPDATE_CHECK_STORAGE_KEY = 'tokyorail.auto.update.check.enabled';
@@ -48,13 +50,12 @@ export const resolveThemeFromAppearance = (mode) => {
 };
 
 export const readBasemapMode = () => {
-    const raw = String(getLocalStorageValue(BASEMAP_STORAGE_KEY, 'carto')).trim().toLowerCase();
-    if (raw === 'carto' || raw === 'ost' || raw === 'transparent') return raw;
-    return 'carto';
+    const raw = getLocalStorageValue(BASEMAP_STORAGE_KEY, DEFAULT_BASEMAP_MODE);
+    return normalizeBasemapMode(raw);
 };
 
 export const writeBasemapMode = (mode) => {
-    const next = (mode === 'carto' || mode === 'ost' || mode === 'transparent') ? mode : 'carto';
+    const next = normalizeBasemapMode(mode);
     setLocalStorageValue(BASEMAP_STORAGE_KEY, next);
     return next;
 };

@@ -93,12 +93,6 @@ export const DATA_SOURCE_NOTICES = Object.freeze([
         license: 'GPL-3.0',
         role: '线路与站点编号数据参考',
         url: 'https://github.com/MKuranowski/TokyoGTFS'
-    },
-    {
-        name: 'CARTO',
-        license: 'BSD-3-Clause / CC-BY-4.0',
-        role: '地图底图',
-        url: 'https://carto.com/'
     }
 ]);
 
