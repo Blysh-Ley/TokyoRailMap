@@ -384,6 +384,7 @@ const initMapApp = async () => {
     let generatedLinesData = null;
     let generatedLineNameLabelsData = null;
     let currentLineNameLabelsData = null;
+    let currentLineNameLabelBlockingBBoxes = [];
     let generatedStationsData = null;
     let generatedRawRailways = null;
     let generatedRawStations = null;
@@ -2148,10 +2149,95 @@ const initMapApp = async () => {
         }))));
     };
 
+    const getProjectedLineNameLabelBBox = (feature) => {
+        const coords = Array.isArray(feature?.geometry?.coordinates) ? feature.geometry.coordinates : [];
+        const points = coords
+            .filter((coord) => Array.isArray(coord) && coord.length >= 2)
+            .map((coord) => {
+                try {
+                    return mapEngine.project({
+                        lng: Number(coord[0]),
+                        lat: Number(coord[1])
+                    });
+                } catch {
+                    return null;
+                }
+            })
+            .filter((point) => Number.isFinite(point?.x) && Number.isFinite(point?.y));
+
+        if (!points.length) return null;
+
+        const xs = points.map((point) => point.x);
+        const ys = points.map((point) => point.y);
+        const props = feature?.properties || {};
+        const name = String(props.name || '').trim();
+        const labelWidth = Math.max(48, Array.from(name).length * 11 + 22);
+        const labelHeight = 24;
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+
+        return {
+            minX: Math.min(minX, centerX - labelWidth / 2) - 6,
+            minY: Math.min(minY, centerY - labelHeight / 2) - 6,
+            maxX: Math.max(maxX, centerX + labelWidth / 2) + 6,
+            maxY: Math.max(maxY, centerY + labelHeight / 2) + 6
+        };
+    };
+
+    const isBBoxInViewport = (bbox) => {
+        const canvas = mapEngine.getCanvas?.();
+        const width = Number(canvas?.clientWidth || canvas?.width || window.innerWidth || 0);
+        const height = Number(canvas?.clientHeight || canvas?.height || window.innerHeight || 0);
+        if (!(width > 0) || !(height > 0)) return true;
+        return bbox.maxX >= -80 && bbox.minX <= width + 80 && bbox.maxY >= -80 && bbox.minY <= height + 80;
+    };
+
+    const doLineNameLabelBBoxesOverlap = (a, b) => (
+        a.minX <= b.maxX
+        && a.maxX >= b.minX
+        && a.minY <= b.maxY
+        && a.maxY >= b.minY
+    );
+
+    const shouldUseNativeLineNameLabelPlacement = () => {
+        const zoom = Number(mapEngine.getZoom?.());
+        return zoom > 15;
+    };
+
+    const selectLineNameLabelsForCurrentView = (sourceData = EMPTY_LINE_NAME_LABELS_DATA) => {
+        const selectedFeatures = [];
+        const blockingBBoxes = [];
+        const features = Array.isArray(sourceData?.features) ? sourceData.features : [];
+
+        for (const feature of features) {
+            const bbox = getProjectedLineNameLabelBBox(feature);
+            if (!bbox || !isBBoxInViewport(bbox)) continue;
+            if (blockingBBoxes.some((blocked) => doLineNameLabelBBoxesOverlap(bbox, blocked))) continue;
+
+            selectedFeatures.push(feature);
+            blockingBBoxes.push(bbox);
+        }
+
+        currentLineNameLabelBlockingBBoxes = blockingBBoxes;
+        return {
+            type: 'FeatureCollection',
+            features: selectedFeatures
+        };
+    };
+
     const syncLineNameLabelDataForCurrentState = () => {
-        const nextData = tripPreviewActive
+        const sourceData = tripPreviewActive
             ? (tripPreviewLineNameLabelsData || EMPTY_LINE_NAME_LABELS_DATA)
             : (generatedLineNameLabelsData || EMPTY_LINE_NAME_LABELS_DATA);
+        const useNativePlacement = shouldUseNativeLineNameLabelPlacement();
+        const nextData = useNativePlacement ? sourceData : selectLineNameLabelsForCurrentView(sourceData);
+        currentLineNameLabelBlockingBBoxes = useNativePlacement
+            ? []
+            : currentLineNameLabelBlockingBBoxes;
         if (currentLineNameLabelsData === nextData) return;
         currentLineNameLabelsData = nextData;
         try {
@@ -2299,6 +2385,9 @@ const initMapApp = async () => {
             buildLineNameLabelFilter(getLineNameLabelLineIdsForCurrentHighlight())
         );
     }
+
+    mapEngine.on?.('moveend', syncLineNameLabelDataForCurrentState);
+    mapEngine.on?.('zoomend', syncLineNameLabelDataForCurrentState);
 
     function applyLineSelectionStyle() {
         if (!highlightRenderer.hasLayer('lines-layer')) return;
