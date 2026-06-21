@@ -83,6 +83,38 @@ import {
         }
     });
 
+    const isIosNativeRuntime = () => {
+        const capacitor = window?.Capacitor;
+        try {
+            if (typeof capacitor?.getPlatform === 'function') {
+                return String(capacitor.getPlatform()).toLowerCase() === 'ios'
+                    && (typeof capacitor.isNativePlatform !== 'function' || capacitor.isNativePlatform() === true);
+            }
+        } catch {
+            return false;
+        }
+        return false;
+    };
+
+    const resolveLineImageCaptureOptions = (root) => {
+        const width = Math.max(1, Math.ceil(root?.scrollWidth || root?.getBoundingClientRect?.().width || 1));
+        const height = Math.max(1, Math.ceil(root?.scrollHeight || root?.getBoundingClientRect?.().height || 1));
+        const baseScale = Math.max(2, window.devicePixelRatio || 1);
+        const maxPixels = isIosNativeRuntime() ? 14000000 : 32000000;
+        const pixelBudgetScale = Math.sqrt(maxPixels / Math.max(1, width * height));
+        const scale = Math.max(1, Math.min(baseScale, pixelBudgetScale));
+
+        return {
+            scale,
+            width,
+            height,
+            windowWidth: width,
+            windowHeight: height,
+            x: 0,
+            y: 0
+        };
+    };
+
     const downloadBlob = (blob, filename) => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -1608,18 +1640,20 @@ import {
             : createLineImageExportDom(detail);
         document.body.appendChild(root);
         if (shouldExportServiceDayPair) alignServiceDayPairHeaderHeights(root);
+        let canvas = null;
         try {
-            const canvas = await html2canvas(root, {
-                scale: Math.max(2, window.devicePixelRatio || 1),
+            const captureOptions = resolveLineImageCaptureOptions(root);
+            canvas = await html2canvas(root, {
+                scale: captureOptions.scale,
                 useCORS: true,
                 backgroundColor: getComputedStyle(document.body).getPropertyValue('background-color') || '#ffffff',
                 logging: false,
-                width: root.scrollWidth,
-                height: root.scrollHeight,
-                windowWidth: root.scrollWidth,
-                windowHeight: root.scrollHeight,
-                x: 0,
-                y: 0
+                width: captureOptions.width,
+                height: captureOptions.height,
+                windowWidth: captureOptions.windowWidth,
+                windowHeight: captureOptions.windowHeight,
+                x: captureOptions.x,
+                y: captureOptions.y
             });
             const firstDir = detail.dirs?.[0] || {};
             const stationName = sanitizeFilePart(firstDir.stationName || 'station');
@@ -1639,6 +1673,10 @@ import {
                 fallbackDownload: downloadBlob
             });
         } finally {
+            if (canvas) {
+                canvas.width = 1;
+                canvas.height = 1;
+            }
             root.remove();
         }
     };
