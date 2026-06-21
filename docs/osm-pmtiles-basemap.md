@@ -60,4 +60,9 @@ PLANETILER_JAR=/path/to/planetiler.jar npm run basemap:build -- --download --onl
 
 ## 离线包边界
 
-当前版本只完成 PMTiles 在线按需加载和本地生成脚本。用户手动下载离线包、校验、切换本地包路径属于后续功能，不在本模块内实现。
+当前版本完成 PMTiles 在线按需加载、本地生成脚本，以及离线包元信息预留。运行时会读取：
+
+- `window.TOKYO_RAIL_OSM_BASEMAP_URL`：当前底图 PMTiles 地址
+- `window.TOKYO_RAIL_OSM_BASEMAP_DOWNLOAD_URL`：后续手动下载入口地址
+
+用户手动下载离线包、校验、切换本地包路径的 UI 属于后续功能，不在本模块内实现。

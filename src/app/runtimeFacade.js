@@ -24,6 +24,7 @@ export const registerTokyoRailMapRuntime = ({
                 ? {
                     getExportBasemapStyle: (options = {}) => basemapThemeRuntime.getExportStyle?.(options) || null,
                     getBasemapMode: () => basemapThemeRuntime.getMode?.() || null,
+                    getBasemapPackage: () => basemapThemeRuntime.getPackage?.() || null,
                     getMapAttributionItems: () => basemapThemeRuntime.getMapAttributionItems?.() || []
                 }
                 : {}),

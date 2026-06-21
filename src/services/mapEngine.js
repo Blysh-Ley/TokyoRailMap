@@ -1,4 +1,9 @@
 import { DEFAULT_BASEMAP_MODE, normalizeBasemapMode } from '../domain/basemapMode.js';
+import {
+    DEFAULT_OSM_BASEMAP_PMTILES_URL,
+    OSM_BASEMAP_ATTRIBUTION_HTML,
+    toPmtilesStyleUrl
+} from '../domain/osmBasemapPackage.js';
 
 const pmtilesProtocolTargets = new WeakSet();
 
@@ -289,15 +294,8 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
     };
 };
 
-const OSM_ATTRIBUTION = '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap contributors</a>';
-const DEFAULT_PMTILES_URL = './tiles/kanto.pmtiles';
 const OSM_VECTOR_SOURCE_ID = 'osm-vector-source';
 const BASEMAP_GLYPHS_URL = 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf';
-
-const normalizePmtilesUrl = (pmtilesUrl = DEFAULT_PMTILES_URL) => {
-    const url = String(pmtilesUrl || DEFAULT_PMTILES_URL).trim() || DEFAULT_PMTILES_URL;
-    return url.startsWith('pmtiles://') ? url : `pmtiles://${url}`;
-};
 
 const getBasemapBackgroundColor = (theme) => (
     theme === 'dark' ? '#101216' : '#ffffff'
@@ -316,8 +314,8 @@ const createTextField = () => ([
 
 const createOsmBasemapSource = (pmtilesUrl) => ({
     type: 'vector',
-    url: normalizePmtilesUrl(pmtilesUrl),
-    attribution: OSM_ATTRIBUTION
+    url: toPmtilesStyleUrl(pmtilesUrl),
+    attribution: OSM_BASEMAP_ATTRIBUTION_HTML
 });
 
 const createOsmBasemapLayerItems = ({ mode = DEFAULT_BASEMAP_MODE, theme = 'light' } = {}) => {
@@ -495,7 +493,7 @@ const getOsmBasemapLayerIds = () => (
 export const createOsmBasemapStyle = ({
     mode = DEFAULT_BASEMAP_MODE,
     theme = 'light',
-    pmtilesUrl = DEFAULT_PMTILES_URL
+    pmtilesUrl = DEFAULT_OSM_BASEMAP_PMTILES_URL
 } = {}) => {
     const nextMode = normalizeBasemapMode(mode);
     const nextTheme = theme === 'dark' ? 'dark' : 'light';
@@ -529,7 +527,7 @@ export const createBasemapController = ({
     mapEngine,
     initialTheme = 'light',
     initialMode = DEFAULT_BASEMAP_MODE,
-    pmtilesUrl = DEFAULT_PMTILES_URL,
+    pmtilesUrl = DEFAULT_OSM_BASEMAP_PMTILES_URL,
     onThemeChanged
 } = {}) => {
     if (!mapEngine) {

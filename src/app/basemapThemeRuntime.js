@@ -4,9 +4,9 @@ import {
     resolveThemeFromAppearance as defaultResolveThemeFromAppearance
 } from '../services/appSettings.js';
 import { normalizeBasemapMode } from '../domain/basemapMode.js';
+import { DEFAULT_OSM_BASEMAP_PMTILES_URL } from '../domain/osmBasemapPackage.js';
 import { createBasemapController as defaultCreateBasemapController } from '../services/mapEngine.js';
-
-const DEFAULT_BASEMAP_PMTILES_URL = './tiles/kanto.pmtiles';
+import { readOsmBasemapRuntimeConfig } from '../services/osmBasemapConfig.js';
 
 const normalizeTheme = (theme) => (theme === 'dark' ? 'dark' : 'light');
 
@@ -17,13 +17,6 @@ const getDefaultDocument = () => (
 const getDefaultWindow = () => (
     typeof window !== 'undefined' ? window : null
 );
-
-const defaultReadBasemapRuntimeConfig = ({ windowRef = getDefaultWindow() } = {}) => {
-    const rawUrl = String(windowRef?.TOKYO_RAIL_OSM_BASEMAP_URL || DEFAULT_BASEMAP_PMTILES_URL).trim();
-    return {
-        pmtilesUrl: rawUrl || DEFAULT_BASEMAP_PMTILES_URL
-    };
-};
 
 const dispatchThemeChanged = (windowRef) => {
     try {
@@ -46,7 +39,7 @@ export const createBasemapThemeRuntime = ({
     createBasemapController = defaultCreateBasemapController,
     readAppearanceMode = defaultReadAppearanceMode,
     readBasemapMode = defaultReadBasemapMode,
-    readBasemapRuntimeConfig = defaultReadBasemapRuntimeConfig,
+    readBasemapRuntimeConfig = readOsmBasemapRuntimeConfig,
     resolveThemeFromAppearance = defaultResolveThemeFromAppearance,
     documentRef = getDefaultDocument(),
     windowRef = getDefaultWindow()
@@ -64,7 +57,7 @@ export const createBasemapThemeRuntime = ({
         mapEngine,
         initialTheme: mapTheme,
         initialMode: basemapMode,
-        pmtilesUrl: basemapRuntimeConfig.pmtilesUrl || DEFAULT_BASEMAP_PMTILES_URL,
+        pmtilesUrl: basemapRuntimeConfig.pmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL,
         onThemeChanged: () => dispatchThemeChanged(windowRef)
     });
 
@@ -131,6 +124,7 @@ export const createBasemapThemeRuntime = ({
             ...options
         }),
         getMapAttributionItems: () => basemapController.getAttributionItems?.() || [],
+        getPackage: () => basemapRuntimeConfig.basemapPackage || null,
         getMode: () => basemapMode,
         getTheme: () => mapTheme,
         setBasemapMode,
