@@ -412,16 +412,29 @@ export const shareOrSaveImageArtifact = async ({
             ? target.confirm(toText(savedPrompt) || '图片已保存到本地相册。是否继续分享？')
             : false;
         if (shouldShare && typeof Share?.share === 'function') {
-            await shareNativeFile({ Share, uri, filename: safeFilename, title, dialogTitle });
-            return {
-                saved: true,
-                shared: true,
-                downloaded: false,
-                fallback: false,
-                filename: safeFilename,
-                mimeType: toText(mimeType),
-                uri
-            };
+            try {
+                await shareNativeFile({ Share, uri, filename: safeFilename, title, dialogTitle });
+                return {
+                    saved: true,
+                    shared: true,
+                    downloaded: false,
+                    fallback: false,
+                    filename: safeFilename,
+                    mimeType: toText(mimeType),
+                    uri
+                };
+            } catch (shareError) {
+                logger?.warn?.('[native-export] optional native image share was cancelled or failed after save', shareError);
+                return {
+                    saved: true,
+                    shared: false,
+                    downloaded: false,
+                    fallback: false,
+                    filename: safeFilename,
+                    mimeType: toText(mimeType),
+                    uri
+                };
+            }
         }
 
         return {
