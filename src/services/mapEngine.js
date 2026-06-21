@@ -493,11 +493,12 @@ const getOsmBasemapLayerIds = () => (
 export const createOsmBasemapStyle = ({
     mode = DEFAULT_BASEMAP_MODE,
     theme = 'light',
+    pmtilesAvailable = true,
     pmtilesUrl = DEFAULT_OSM_BASEMAP_PMTILES_URL
 } = {}) => {
     const nextMode = normalizeBasemapMode(mode);
     const nextTheme = theme === 'dark' ? 'dark' : 'light';
-    const layers = nextMode === 'transparent'
+    const layers = nextMode === 'transparent' || !pmtilesAvailable
         ? []
         : createOsmBasemapLayerItems({ mode: nextMode, theme: nextTheme })
             .filter((item) => item.modes.includes(nextMode))
@@ -506,9 +507,9 @@ export const createOsmBasemapStyle = ({
     return {
         version: 8,
         glyphs: BASEMAP_GLYPHS_URL,
-        sources: {
-            [OSM_VECTOR_SOURCE_ID]: createOsmBasemapSource(pmtilesUrl)
-        },
+        sources: pmtilesAvailable
+            ? { [OSM_VECTOR_SOURCE_ID]: createOsmBasemapSource(pmtilesUrl) }
+            : {},
         layers: [
             {
                 id: 'tokyo-basemap-background-layer',
@@ -527,6 +528,7 @@ export const createBasemapController = ({
     mapEngine,
     initialTheme = 'light',
     initialMode = DEFAULT_BASEMAP_MODE,
+    pmtilesAvailable = true,
     pmtilesUrl = DEFAULT_OSM_BASEMAP_PMTILES_URL,
     onThemeChanged
 } = {}) => {
@@ -536,6 +538,7 @@ export const createBasemapController = ({
 
     let theme = initialTheme === 'dark' ? 'dark' : 'light';
     let mode = normalizeBasemapMode(initialMode);
+    let hasPmtilesArchive = pmtilesAvailable === true;
     const backgroundLayerId = 'tokyo-basemap-background-layer';
     const basemapLayerIds = Object.freeze(getOsmBasemapLayerIds());
 
@@ -600,11 +603,18 @@ export const createBasemapController = ({
         applyTheme(nextTheme);
     };
 
+    const setPmtilesAvailable = (available) => {
+        hasPmtilesArchive = available === true;
+        ensureLayers();
+        applyTheme(theme);
+        return hasPmtilesArchive;
+    };
+
     const ensureLayers = () => {
-        mapEngine.ensurePmtilesProtocol?.();
+        if (hasPmtilesArchive) mapEngine.ensurePmtilesProtocol?.();
         const items = getBasemapItems();
 
-        if (!mapEngine.getSource(OSM_VECTOR_SOURCE_ID)) {
+        if (hasPmtilesArchive && !mapEngine.getSource(OSM_VECTOR_SOURCE_ID)) {
             mapEngine.addSource(OSM_VECTOR_SOURCE_ID, createOsmBasemapSource(pmtilesUrl));
         }
 
@@ -630,6 +640,7 @@ export const createBasemapController = ({
 
         for (const item of items) {
             const layer = item.layer;
+            if (!hasPmtilesArchive) continue;
             if (!mapEngine.getLayer(layer.id)) {
                 mapEngine.addLayer({
                     ...layer,
@@ -658,10 +669,12 @@ export const createBasemapController = ({
         getStyle: (options = {}) => createOsmBasemapStyle({
             mode,
             theme,
+            pmtilesAvailable: hasPmtilesArchive,
             pmtilesUrl,
             ...options
         }),
         getMode: () => mode,
+        getPmtilesAvailable: () => hasPmtilesArchive,
         getTheme: () => theme
     };
 };

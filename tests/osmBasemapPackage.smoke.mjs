@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
     createOsmBasemapPackage,
     DEFAULT_OSM_BASEMAP_PMTILES_URL,
+    hasPmtilesMagicNumber,
     normalizeOsmBasemapArchiveUrl,
     toPmtilesStyleUrl
 } from '../src/domain/osmBasemapPackage.js';
@@ -12,6 +13,8 @@ assert.equal(normalizeOsmBasemapArchiveUrl(''), './tiles/kanto.pmtiles');
 assert.equal(normalizeOsmBasemapArchiveUrl('  /offline/kanto.pmtiles  '), '/offline/kanto.pmtiles');
 assert.equal(toPmtilesStyleUrl('./tiles/kanto.pmtiles'), 'pmtiles://./tiles/kanto.pmtiles');
 assert.equal(toPmtilesStyleUrl('pmtiles://./tiles/kanto.pmtiles'), 'pmtiles://./tiles/kanto.pmtiles');
+assert.equal(hasPmtilesMagicNumber(new Uint8Array([0x50, 0x4d])), true);
+assert.equal(hasPmtilesMagicNumber(new TextEncoder().encode('<!doctype html>')), false);
 
 const basemapPackage = createOsmBasemapPackage({
     pmtilesUrl: 'https://example.test/kanto.pmtiles',

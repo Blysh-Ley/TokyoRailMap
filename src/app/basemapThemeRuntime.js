@@ -6,7 +6,10 @@ import {
 import { normalizeBasemapMode } from '../domain/basemapMode.js';
 import { DEFAULT_OSM_BASEMAP_PMTILES_URL } from '../domain/osmBasemapPackage.js';
 import { createBasemapController as defaultCreateBasemapController } from '../services/mapEngine.js';
-import { readOsmBasemapRuntimeConfig } from '../services/osmBasemapConfig.js';
+import {
+    readOsmBasemapRuntimeConfig,
+    verifyOsmBasemapArchive as defaultVerifyOsmBasemapArchive
+} from '../services/osmBasemapConfig.js';
 
 const normalizeTheme = (theme) => (theme === 'dark' ? 'dark' : 'light');
 
@@ -41,6 +44,7 @@ export const createBasemapThemeRuntime = ({
     readBasemapMode = defaultReadBasemapMode,
     readBasemapRuntimeConfig = readOsmBasemapRuntimeConfig,
     resolveThemeFromAppearance = defaultResolveThemeFromAppearance,
+    verifyOsmBasemapArchive = defaultVerifyOsmBasemapArchive,
     documentRef = getDefaultDocument(),
     windowRef = getDefaultWindow()
 } = {}) => {
@@ -57,9 +61,19 @@ export const createBasemapThemeRuntime = ({
         mapEngine,
         initialTheme: mapTheme,
         initialMode: basemapMode,
+        pmtilesAvailable: basemapRuntimeConfig.pmtilesAvailable === true,
         pmtilesUrl: basemapRuntimeConfig.pmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL,
         onThemeChanged: () => dispatchThemeChanged(windowRef)
     });
+
+    const validateBasemapArchive = async () => {
+        const available = await verifyOsmBasemapArchive({
+            fetchFn: windowRef?.fetch?.bind?.(windowRef) || globalThis.fetch,
+            pmtilesUrl: basemapRuntimeConfig.pmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL
+        });
+        basemapController.setPmtilesAvailable?.(available);
+        return available;
+    };
 
     const ensureBasemapLayers = () => {
         try {
@@ -113,6 +127,10 @@ export const createBasemapThemeRuntime = ({
         systemThemeMedia.addListener(syncSystemAppearanceTheme);
     }
 
+    validateBasemapArchive().catch(() => {
+        basemapController.setPmtilesAvailable?.(false);
+    });
+
     return {
         controller: basemapController,
         applyAppTheme,
@@ -125,6 +143,7 @@ export const createBasemapThemeRuntime = ({
         }),
         getMapAttributionItems: () => basemapController.getAttributionItems?.() || [],
         getPackage: () => basemapRuntimeConfig.basemapPackage || null,
+        getPmtilesAvailable: () => basemapController.getPmtilesAvailable?.() === true,
         getMode: () => basemapMode,
         getTheme: () => mapTheme,
         setBasemapMode,

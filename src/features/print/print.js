@@ -90,7 +90,6 @@
     };
     const EXPORT_ORIENTATIONS = new Set(['landscape', 'portrait']);
     const EXPORT_BASEMAP_SOURCE_ID = 'osm-vector-source';
-    const DEFAULT_EXPORT_PMTILES_URL = './tiles/kanto.pmtiles';
 
     const getRuntimeBaseMap = () => {
         try {
@@ -104,11 +103,6 @@
 
     /** @type {Promise<{ map: any, container: HTMLDivElement }> | null} */
     let virtualMapPromise = null;
-
-    const normalizePmtilesUrlForExport = (pmtilesUrl = DEFAULT_EXPORT_PMTILES_URL) => {
-        const url = String(pmtilesUrl || DEFAULT_EXPORT_PMTILES_URL).trim() || DEFAULT_EXPORT_PMTILES_URL;
-        return url.startsWith('pmtiles://') ? url : `pmtiles://${url}`;
-    };
 
     const ensurePmtilesProtocolForExport = (maplibregl) => {
         try {
@@ -129,13 +123,7 @@
         return {
             version: 8,
             glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-            sources: {
-                [EXPORT_BASEMAP_SOURCE_ID]: {
-                    type: 'vector',
-                    url: normalizePmtilesUrlForExport(DEFAULT_EXPORT_PMTILES_URL),
-                    attribution: '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap contributors</a>'
-                }
-            },
+            sources: {},
             layers: [
                 {
                     id: 'tokyo-basemap-background-layer',
@@ -224,8 +212,10 @@
             container.style.overflow = 'hidden';
             document.body.appendChild(container);
 
-            ensurePmtilesProtocolForExport(maplibregl);
             const style = buildExportBasemapStyle();
+            if (style?.sources?.[EXPORT_BASEMAP_SOURCE_ID]) {
+                ensurePmtilesProtocolForExport(maplibregl);
+            }
 
             const map = new maplibregl.Map({
                 container,

@@ -16,7 +16,12 @@ const createControllerFactory = (calls) => (options) => ({
     options,
     ensureLayers: () => calls.push(['ensureLayers']),
     getAttributionItems: () => [{ label: 'OpenStreetMap', href: 'https://www.openstreetmap.org/copyright' }],
+    getPmtilesAvailable: () => options.pmtilesAvailable === true,
     getStyle: (styleOptions) => ({ version: 8, options, styleOptions }),
+    setPmtilesAvailable: (available) => {
+        options.pmtilesAvailable = available === true;
+        calls.push(['setPmtilesAvailable', options.pmtilesAvailable]);
+    },
     setMode: (mode, theme) => {
         calls.push(['setMode', mode, theme]);
         options.onThemeChanged?.({ mode, theme });
@@ -36,6 +41,7 @@ const createControllerFactory = (calls) => (options) => ({
         readAppearanceMode: () => 'dark',
         readBasemapMode: () => 'ost',
         readBasemapRuntimeConfig: () => ({ pmtilesUrl: './tiles/kanto.pmtiles' }),
+        verifyOsmBasemapArchive: async () => false,
         resolveThemeFromAppearance: () => 'dark'
     });
 
@@ -76,7 +82,8 @@ const createControllerFactory = (calls) => (options) => ({
         },
         readAppearanceMode: () => appearanceMode,
         readBasemapMode: () => 'osm-detailed',
-        readBasemapRuntimeConfig: () => ({ pmtilesUrl: './tiles/kanto.pmtiles' }),
+        readBasemapRuntimeConfig: () => ({ pmtilesAvailable: true, pmtilesUrl: './tiles/kanto.pmtiles' }),
+        verifyOsmBasemapArchive: async () => true,
         resolveThemeFromAppearance: (mode) => (mode === 'system' ? 'dark' : 'light')
     });
 

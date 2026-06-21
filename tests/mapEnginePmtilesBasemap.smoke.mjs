@@ -94,6 +94,7 @@ class FakeMap {
     const controller = createBasemapController({
         mapEngine,
         initialMode: 'ost',
+        pmtilesAvailable: true,
         pmtilesUrl: './tiles/kanto.pmtiles'
     });
 
@@ -124,6 +125,37 @@ class FakeMap {
     assert.equal(style.sources['osm-vector-source'].url, 'pmtiles://./tiles/kanto.pmtiles');
     assert.equal(style.layers.some((layer) => layer.id === 'osm-water-layer'), true);
     assert.equal(style.layers.some((layer) => layer.id === 'osm-building-layer'), true);
+}
+
+{
+    const sources = new Map();
+    const layers = new Map();
+    const mapEngine = {
+        addSource: (id, source) => sources.set(id, source),
+        getSource: (id) => sources.get(id) || null,
+        addLayer: (layer, beforeLayerId) => layers.set(layer.id, { ...layer, beforeLayerId }),
+        getLayer: (id) => layers.get(id) || null,
+        moveLayer: () => {},
+        setLayoutProperty: () => {},
+        setPaintProperty: () => {},
+        getCanvas: () => ({ style: {} }),
+        ensurePmtilesProtocol: () => {
+            throw new Error('PMTiles protocol should not be registered without a valid archive');
+        }
+    };
+    const controller = createBasemapController({
+        mapEngine,
+        initialMode: 'osm-detailed',
+        pmtilesAvailable: false,
+        pmtilesUrl: './tiles/kanto.pmtiles'
+    });
+
+    controller.ensureLayers();
+    assert.equal(sources.has('osm-vector-source'), false);
+    assert.equal(layers.has('tokyo-basemap-background-layer'), true);
+    assert.equal(layers.has('osm-water-layer'), false);
+    assert.deepEqual(controller.getStyle().sources, {});
+    assert.equal(controller.getStyle().layers.length, 1);
 }
 
 console.log('map engine pmtiles basemap smoke ok');
