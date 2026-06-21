@@ -85,9 +85,8 @@ export const resolveSelectionLineHighlightIds = ({
     selectedStationLineIds
 } = {}) => {
     const lineId = toText(selectedLineId);
-    if (!lineId) return [];
-
     const mergedIds = normalizeLineIds(selectedStationLineIds);
+    if (!lineId) return mergedIds;
     if (mergedIds.length > 1) return mergedIds;
 
     return [lineId];
