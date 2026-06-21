@@ -156,7 +156,7 @@
             });
             if (style?.version && style.sources && Array.isArray(style.layers)) return style;
         } catch {
-            // fall through to the no-Carto fallback
+            // 兜底到自托管 PMTiles 背景样式。
         }
         return buildFallbackExportBasemapStyle(isDarkTheme());
     };

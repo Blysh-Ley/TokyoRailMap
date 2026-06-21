@@ -7,6 +7,7 @@ export const BASEMAP_MODES = Object.freeze([
 ]);
 
 const LEGACY_OSM_VALUES = new Set([
+    // 仅迁移旧本地设置值，不继续暴露旧底图模式。
     'ost',
     'osm',
     'openstreetmap',
