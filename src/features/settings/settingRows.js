@@ -65,3 +65,41 @@ export const createSegmentedSettingRow = ({
         title: text
     };
 };
+
+export const createActionSettingRow = ({
+    hostEl,
+    className = '',
+    title = '',
+    actionLabel = '',
+    actionAriaLabel = ''
+} = {}) => {
+    const container = document.createElement('div');
+    container.className = ['settings-item', className].filter(Boolean).join(' ');
+
+    const text = document.createElement('span');
+    text.className = 'settings-item-title';
+    text.textContent = title;
+
+    const control = document.createElement('div');
+    control.className = 'settings-item-control';
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'settings-action-btn';
+    button.textContent = actionLabel;
+    if (actionAriaLabel) button.setAttribute('aria-label', actionAriaLabel);
+
+    control.appendChild(button);
+    container.appendChild(text);
+    container.appendChild(control);
+
+    const host = (hostEl && hostEl.appendChild) ? hostEl : document.body;
+    host.appendChild(container);
+
+    return {
+        button,
+        container,
+        control,
+        title: text
+    };
+};

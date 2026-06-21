@@ -1,4 +1,5 @@
 import {
+    mountAboutControl,
     mountAdaptiveViewportToggle,
     mountAppearanceToggle,
     mountAutoUpdateToggle,
@@ -11,6 +12,7 @@ import {
 } from '../features/settings/settingsControls.js';
 
 const DEFAULT_CONTROLS = Object.freeze({
+    mountAboutControl,
     mountAdaptiveViewportToggle,
     mountAppearanceToggle,
     mountAutoUpdateToggle,
@@ -124,6 +126,10 @@ export const mountAppSettingsControls = ({
         initialMode: stationLabelMode,
         onModeChanged: onStationLabelModeChanged,
         onUserModeChanged: onStationLabelUserModeChanged
+    });
+
+    controls.mountAboutControl?.({
+        hostEl
     });
 
     return {
