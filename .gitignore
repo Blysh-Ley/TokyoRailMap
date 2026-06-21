@@ -31,6 +31,7 @@ pnpm-debug.log*
 # Dependency caches and build output
 data/**/*.bak
 /remotedata
+/tiles/
 .github
 dist/
 node_modules/
