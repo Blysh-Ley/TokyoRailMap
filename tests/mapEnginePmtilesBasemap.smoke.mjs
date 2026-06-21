@@ -163,4 +163,34 @@ class FakeMap {
     assert.equal(controller.getStyle().layers.length, 1);
 }
 
+{
+    let addSourceFailed = false;
+    const mapEngine = {
+        addSource: () => {
+            addSourceFailed = true;
+            throw new Error('Style is not ready');
+        },
+        getSource: () => null,
+        addLayer: () => {
+            throw new Error('Style is not ready');
+        },
+        getLayer: () => null,
+        moveLayer: () => {},
+        setLayoutProperty: () => {},
+        setPaintProperty: () => {},
+        getCanvas: () => ({ style: {} }),
+        ensurePmtilesProtocol: () => true
+    };
+    const controller = createBasemapController({
+        mapEngine,
+        initialMode: 'osm-white',
+        pmtilesAvailable: false,
+        pmtilesUrl: './tiles/kanto.pmtiles'
+    });
+
+    assert.equal(controller.setPmtilesAvailable(true), true);
+    assert.equal(controller.getPmtilesAvailable(), true);
+    assert.equal(addSourceFailed, true);
+}
+
 console.log('map engine pmtiles basemap smoke ok');

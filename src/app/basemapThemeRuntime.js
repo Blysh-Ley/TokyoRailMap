@@ -45,6 +45,7 @@ export const createBasemapThemeRuntime = ({
     readBasemapRuntimeConfig = readOsmBasemapRuntimeConfig,
     resolveThemeFromAppearance = defaultResolveThemeFromAppearance,
     verifyOsmBasemapArchive = defaultVerifyOsmBasemapArchive,
+    archiveRetryDelays = [1000, 3000, 10000],
     documentRef = getDefaultDocument(),
     windowRef = getDefaultWindow()
 } = {}) => {
@@ -65,13 +66,27 @@ export const createBasemapThemeRuntime = ({
         pmtilesUrl: basemapRuntimeConfig.pmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL,
         onThemeChanged: () => dispatchThemeChanged(windowRef)
     });
+    const retryDelays = Array.isArray(archiveRetryDelays)
+        ? archiveRetryDelays.map((delay) => Math.max(0, Number(delay) || 0))
+        : [];
+    const setTimeoutFn = windowRef?.setTimeout?.bind?.(windowRef)
+        || (typeof setTimeout === 'function' ? setTimeout : null);
 
-    const validateBasemapArchive = async () => {
+    const validateBasemapArchive = async (attempt = 0) => {
         const available = await verifyOsmBasemapArchive({
             fetchFn: windowRef?.fetch?.bind?.(windowRef) || globalThis.fetch,
             pmtilesUrl: basemapRuntimeConfig.pmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL
         });
         basemapController.setPmtilesAvailable?.(available);
+        if (available) {
+            syncBasemapStyle();
+        } else if (setTimeoutFn && attempt < retryDelays.length) {
+            setTimeoutFn(() => {
+                validateBasemapArchive(attempt + 1).catch(() => {
+                    basemapController.setPmtilesAvailable?.(false);
+                });
+            }, retryDelays[attempt]);
+        }
         return available;
     };
 

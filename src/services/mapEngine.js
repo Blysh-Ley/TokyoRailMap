@@ -606,8 +606,12 @@ export const createBasemapController = ({
 
     const setPmtilesAvailable = (available) => {
         hasPmtilesArchive = available === true;
-        ensureLayers();
-        applyTheme(theme);
+        try {
+            ensureLayers();
+            applyTheme(theme);
+        } catch {
+            // Keep the archive availability state; layer sync retries when the map style is ready.
+        }
         return hasPmtilesArchive;
     };
 
@@ -660,6 +664,7 @@ export const createBasemapController = ({
         applyTheme,
         ensureLayers,
         getAttributionItems: () => OSM_BASEMAP_ATTRIBUTION_ITEMS.map((item) => ({ ...item })),
+        setPmtilesAvailable,
         setMode,
         getStyle: (options = {}) => createOsmBasemapStyle({
             mode,
