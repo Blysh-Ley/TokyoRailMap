@@ -61,13 +61,25 @@ const isNativeImageSaveTarget = (target = globalThis) => (
     isAndroidNativeExportTarget(target) || isIosNativeExportTarget(target)
 );
 
-export const getNativeExportPlugins = (target = globalThis) => {
+const getCapacitorPluginProxy = (target, name) => {
     const capacitor = target?.Capacitor;
     const plugins = capacitor?.Plugins || {};
+    const existing = plugins[name] || capacitor?.[name] || target?.[name] || null;
+    if (existing) return existing;
+
+    if (typeof capacitor?.registerPlugin !== 'function') return null;
+    try {
+        return capacitor.registerPlugin(name);
+    } catch {
+        return null;
+    }
+};
+
+export const getNativeExportPlugins = (target = globalThis) => {
     return {
-        Filesystem: plugins.Filesystem || capacitor?.Filesystem || target?.Filesystem || null,
-        Media: plugins.Media || capacitor?.Media || target?.Media || null,
-        Share: plugins.Share || capacitor?.Share || target?.Share || null
+        Filesystem: getCapacitorPluginProxy(target, 'Filesystem'),
+        Media: getCapacitorPluginProxy(target, 'Media'),
+        Share: getCapacitorPluginProxy(target, 'Share')
     };
 };
 
@@ -177,7 +189,11 @@ const callPermissionMethod = async (method, platform) => {
             // Some plugin versions expose permission methods without options.
         }
     }
-    return await method();
+    try {
+        return await method();
+    } catch {
+        return null;
+    }
 };
 
 const requestImageGalleryPermission = async (Media, { platform = '' } = {}) => {
@@ -209,6 +225,7 @@ const requestImageGalleryPermission = async (Media, { platform = '' } = {}) => {
 
     if (typeof Media.requestPermissions !== 'function') return true;
     const requested = await callPermissionMethod(Media.requestPermissions.bind(Media), platform);
+    if (!requested) return true;
     return hasGrant(requested);
 };
 
@@ -255,13 +272,16 @@ const ensureNativeMediaAlbumIdentifier = async (Media, albumName) => {
 const saveNativeImageToGallery = async ({
     Media,
     data,
+    uri,
     filename,
     mimeType,
     album = 'TokyoRailMap',
     platform = ''
 }) => {
     if (!Media) throw new Error('Media plugin is unavailable');
-    const path = buildImageDataUri({ data, mimeType });
+    const path = platform === 'ios' && toText(uri)
+        ? toText(uri)
+        : buildImageDataUri({ data, mimeType });
     if (!path) throw new Error('missing image file uri');
     const albumIdentifier = platform === 'ios' ? '' : await ensureNativeMediaAlbumIdentifier(Media, album);
     const fileName = platform === 'ios' ? '' : filenameWithoutExtension(filename);
@@ -383,6 +403,7 @@ export const shareOrSaveImageArtifact = async ({
         await saveNativeImageToGallery({
             Media,
             data,
+            uri,
             filename: safeFilename,
             mimeType,
             platform
