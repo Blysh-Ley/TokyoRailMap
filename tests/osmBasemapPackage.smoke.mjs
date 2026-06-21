@@ -25,6 +25,7 @@ assert.equal(basemapPackage.id, 'kanto');
 assert.equal(basemapPackage.pmtilesUrl, 'https://example.test/kanto.pmtiles');
 assert.equal(basemapPackage.styleUrl, 'pmtiles://https://example.test/kanto.pmtiles');
 assert.equal(basemapPackage.downloadUrl, 'https://example.test/download/kanto.pmtiles');
+assert.match(basemapPackage.attributionHtml, /OpenMapTiles/);
 assert.match(basemapPackage.attributionHtml, /OpenStreetMap contributors/);
 
 console.log('osm basemap package smoke ok');

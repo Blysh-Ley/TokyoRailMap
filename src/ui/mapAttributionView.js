@@ -5,11 +5,6 @@ const ATTRIBUTION_ITEMS = Object.freeze([
         href: 'https://maplibre.org/'
     },
     {
-        group: 'map',
-        label: 'OpenStreetMap',
-        href: 'https://www.openstreetmap.org/copyright'
-    },
-    {
         group: 'data',
         label: 'mini-tokyo-3d',
         href: 'https://github.com/nagix/mini-tokyo-3d'
@@ -62,7 +57,10 @@ const appendGroup = (root, group, items, doc) => {
     root.appendChild(groupEl);
 };
 
-export const renderMapAttributionInner = (inner, { doc = globalThis.document } = {}) => {
+export const renderMapAttributionInner = (inner, {
+    doc = globalThis.document,
+    mapAttributionItems = []
+} = {}) => {
     if (!inner || !doc) return false;
 
     const root = doc.createElement('span');
@@ -71,7 +69,11 @@ export const renderMapAttributionInner = (inner, { doc = globalThis.document } =
 
     const groupOrder = ['engine', 'map', 'data', 'fare'];
     const groups = new Map();
-    for (const item of ATTRIBUTION_ITEMS) {
+    const items = [
+        ...ATTRIBUTION_ITEMS,
+        ...(Array.isArray(mapAttributionItems) ? mapAttributionItems : [])
+    ];
+    for (const item of items) {
         if (!groups.has(item.group)) groups.set(item.group, []);
         groups.get(item.group).push(item);
     }
@@ -161,6 +163,7 @@ export const installMapAttributionView = ({
     doc = globalThis.document,
     mapEngine = null,
     container = null,
+    getMapAttributionItems = null,
     isCompact = false
 } = {}) => {
     const parent = container || doc?.getElementById?.('map') || doc?.body || null;
@@ -171,7 +174,10 @@ export const installMapAttributionView = ({
 
     const apply = () => {
         try {
-            const rendered = renderMapAttributionInner(control?.inner, { doc });
+            const mapAttributionItems = typeof getMapAttributionItems === 'function'
+                ? getMapAttributionItems()
+                : [];
+            const rendered = renderMapAttributionInner(control?.inner, { doc, mapAttributionItems });
             bindAttributionToggle(control?.root);
             syncAttributionToggleState(control?.root, typeof isCompact === 'function' ? isCompact() : isCompact);
             return rendered;

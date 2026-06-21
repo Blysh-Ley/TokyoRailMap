@@ -312,7 +312,11 @@ const MOBILE_PANEL_DISMISS_NAV_ITEMS = new Set(['search', 'menu', 'settings']);
 const initMapApp = async () => {
     //console.log('地图初始化完成，准备加载 GeoJSON...');
 
-    mapAttributionView = installMapAttributionView({ mapEngine, isCompact: isMobileUiMode });
+    mapAttributionView = installMapAttributionView({
+        mapEngine,
+        getMapAttributionItems: () => basemapThemeRuntime.getMapAttributionItems(),
+        isCompact: isMobileUiMode
+    });
 
     const railwaysOrderIndex = await loadRailwaysOrderIndex();
 

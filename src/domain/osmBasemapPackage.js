@@ -1,7 +1,21 @@
 export const OSM_BASEMAP_PACKAGE_ID = 'kanto';
 export const OSM_BASEMAP_PACKAGE_LABEL = 'Kanto OSM PMTiles';
 export const DEFAULT_OSM_BASEMAP_PMTILES_URL = './tiles/kanto.pmtiles';
-export const OSM_BASEMAP_ATTRIBUTION_HTML = '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap contributors</a>';
+export const OSM_BASEMAP_ATTRIBUTION_ITEMS = Object.freeze([
+    {
+        group: 'map',
+        label: 'OpenMapTiles',
+        href: 'https://www.openmaptiles.org/'
+    },
+    {
+        group: 'map',
+        label: 'OpenStreetMap',
+        href: 'https://www.openstreetmap.org/copyright'
+    }
+]);
+export const OSM_BASEMAP_ATTRIBUTION_HTML = OSM_BASEMAP_ATTRIBUTION_ITEMS
+    .map((item) => `<a href="${item.href}" target="_blank" rel="noopener noreferrer">&copy; ${item.label}${item.label === 'OpenStreetMap' ? ' contributors' : ''}</a>`)
+    .join(' ');
 export const PMTILES_MAGIC_NUMBER = 0x4d50;
 
 export const normalizeOsmBasemapArchiveUrl = (

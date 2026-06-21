@@ -1,5 +1,6 @@
 import { DEFAULT_BASEMAP_MODE, normalizeBasemapMode } from '../domain/basemapMode.js';
 import {
+    OSM_BASEMAP_ATTRIBUTION_ITEMS,
     DEFAULT_OSM_BASEMAP_PMTILES_URL,
     OSM_BASEMAP_ATTRIBUTION_HTML,
     toPmtilesStyleUrl
@@ -658,13 +659,7 @@ export const createBasemapController = ({
     return {
         applyTheme,
         ensureLayers,
-        getAttributionItems: () => [
-            {
-                group: 'map',
-                label: 'OpenStreetMap',
-                href: 'https://www.openstreetmap.org/copyright'
-            }
-        ],
+        getAttributionItems: () => OSM_BASEMAP_ATTRIBUTION_ITEMS.map((item) => ({ ...item })),
         setMode,
         getStyle: (options = {}) => createOsmBasemapStyle({
             mode,

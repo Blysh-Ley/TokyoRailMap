@@ -106,6 +106,11 @@ class FakeMap {
     assert.deepEqual(controller.getAttributionItems(), [
         {
             group: 'map',
+            label: 'OpenMapTiles',
+            href: 'https://www.openmaptiles.org/'
+        },
+        {
+            group: 'map',
             label: 'OpenStreetMap',
             href: 'https://www.openstreetmap.org/copyright'
         }
