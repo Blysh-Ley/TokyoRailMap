@@ -290,6 +290,7 @@ const canRunHoverPreviewAtCurrentZoom = () => {
 registerTokyoRailMapRuntime({
     map,
     mapEngine,
+    basemapThemeRuntime,
     buildOffsetPolylinePixelsWithMiter,
     getLineOffsetPixelsPerUnitAtZoom
 });
@@ -4628,6 +4629,7 @@ const initMapApp = async () => {
         registerTokyoRailMapRuntime({
             map,
             mapEngine,
+            basemapThemeRuntime,
             buildOffsetPolylinePixelsWithMiter,
             getLineOffsetPixelsPerUnitAtZoom,
             getStationOffsetGeoJSONAtZoom: (zoom) => buildStationOffsetGeoJSONAtZoom({

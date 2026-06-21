@@ -1,6 +1,8 @@
 export const registerTokyoRailMapRuntime = ({
     map,
     mapEngine,
+    basemapThemeRuntime,
+    getExportBasemapStyle,
     buildOffsetPolylinePixelsWithMiter,
     getLineOffsetPixelsPerUnitAtZoom,
     getStationOffsetGeoJSONAtZoom,
@@ -15,6 +17,16 @@ export const registerTokyoRailMapRuntime = ({
             ...previous,
             getBaseMap: () => map || previous.getBaseMap?.() || null,
             getMapEngine: () => mapEngine || previous.getMapEngine?.() || null,
+            ...(typeof getExportBasemapStyle === 'function'
+                ? { getExportBasemapStyle }
+                : {}),
+            ...(basemapThemeRuntime
+                ? {
+                    getExportBasemapStyle: (options = {}) => basemapThemeRuntime.getExportStyle?.(options) || null,
+                    getBasemapMode: () => basemapThemeRuntime.getMode?.() || null,
+                    getMapAttributionItems: () => basemapThemeRuntime.getMapAttributionItems?.() || []
+                }
+                : {}),
             ...(typeof buildOffsetPolylinePixelsWithMiter === 'function'
                 ? { buildOffsetPolylinePixelsWithMiter }
                 : {}),

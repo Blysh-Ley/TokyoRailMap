@@ -89,6 +89,8 @@
         '1:1': { w: 1, h: 1 }
     };
     const EXPORT_ORIENTATIONS = new Set(['landscape', 'portrait']);
+    const EXPORT_BASEMAP_SOURCE_ID = 'osm-vector-source';
+    const DEFAULT_EXPORT_PMTILES_URL = './tiles/kanto.pmtiles';
 
     const getRuntimeBaseMap = () => {
         try {
@@ -103,42 +105,60 @@
     /** @type {Promise<{ map: any, container: HTMLDivElement }> | null} */
     let virtualMapPromise = null;
 
-    const buildRasterStyle = (dark, maxRasterZoom = null) => {
-        const tiles = dark ? [
-            'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-            'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-            'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-            'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-        ] : [
-            'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-            'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-            'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-            'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
-        ];
+    const normalizePmtilesUrlForExport = (pmtilesUrl = DEFAULT_EXPORT_PMTILES_URL) => {
+        const url = String(pmtilesUrl || DEFAULT_EXPORT_PMTILES_URL).trim() || DEFAULT_EXPORT_PMTILES_URL;
+        return url.startsWith('pmtiles://') ? url : `pmtiles://${url}`;
+    };
 
-        const source = {
-            type: 'raster',
-            tiles,
-            tileSize: 256
-        };
-        const cap = Number(maxRasterZoom);
-        if (Number.isFinite(cap)) source.maxzoom = cap;
+    const ensurePmtilesProtocolForExport = (maplibregl) => {
+        try {
+            if (window?.TokyoRailMapRuntime?.getMapEngine?.()?.ensurePmtilesProtocol?.()) return true;
+            const Protocol = window?.pmtiles?.Protocol;
+            if (typeof maplibregl?.addProtocol !== 'function' || typeof Protocol !== 'function') return false;
+            if (maplibregl.__tokyoRailPmtilesProtocolRegistered) return true;
+            const protocol = new Protocol();
+            maplibregl.addProtocol('pmtiles', protocol.tile);
+            maplibregl.__tokyoRailPmtilesProtocolRegistered = true;
+            return true;
+        } catch {
+            return false;
+        }
+    };
 
+    const buildFallbackExportBasemapStyle = (dark) => {
         return {
             version: 8,
+            glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
             sources: {
-                'export-raster': {
-                    ...source
+                [EXPORT_BASEMAP_SOURCE_ID]: {
+                    type: 'vector',
+                    url: normalizePmtilesUrlForExport(DEFAULT_EXPORT_PMTILES_URL),
+                    attribution: '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap contributors</a>'
                 }
             },
             layers: [
                 {
-                    id: 'export-raster-layer',
-                    type: 'raster',
-                    source: 'export-raster'
+                    id: 'tokyo-basemap-background-layer',
+                    type: 'background',
+                    paint: {
+                        'background-color': dark ? '#101216' : '#ffffff',
+                        'background-opacity': 1
+                    }
                 }
             ]
         };
+    };
+
+    const buildExportBasemapStyle = () => {
+        try {
+            const style = window?.TokyoRailMapRuntime?.getExportBasemapStyle?.({
+                theme: isDarkTheme() ? 'dark' : 'light'
+            });
+            if (style?.version && style.sources && Array.isArray(style.layers)) return style;
+        } catch {
+            // fall through to the no-Carto fallback
+        }
+        return buildFallbackExportBasemapStyle(isDarkTheme());
     };
 
     const waitForMapLibre = ({
@@ -204,7 +224,8 @@
             container.style.overflow = 'hidden';
             document.body.appendChild(container);
 
-            const style = buildRasterStyle(isDarkTheme());
+            ensurePmtilesProtocolForExport(maplibregl);
+            const style = buildExportBasemapStyle();
 
             const map = new maplibregl.Map({
                 container,
@@ -1577,31 +1598,6 @@
         };
     };
 
-    const approxBboxSpanKm = (bbox) => {
-        const b = normalizeBbox(bbox);
-        if (!b) return null;
-        const dLng = Math.abs(b.maxLng - b.minLng);
-        const dLat = Math.abs(b.maxLat - b.minLat);
-        const meanLatRad = (((b.minLat + b.maxLat) / 2) * Math.PI) / 180;
-        const wKm = dLng * 111.32 * Math.max(0.01, Math.cos(meanLatRad));
-        const hKm = dLat * 110.54;
-        const maxKm = Math.max(wKm, hKm);
-        return { wKm, hKm, maxKm };
-    };
-
-
-    const pickMaxExportZoom = (geoBbox, baseZoom) => {
-        const span = approxBboxSpanKm(geoBbox);
-        if (!span || !Number.isFinite(span.maxKm)) return null;
-        const km = span.maxKm;
-        const z = Number(baseZoom);
-
-        if (!(km > 25 && Number.isFinite(z) && z > 12)) return z;
-
-        const targetZoom = Math.log2(204800 / km);
-        return Math.max(6, Math.min(14, targetZoom));
-    };
-
     const chooseAspectRatio = (w, h) => {
         const ww = Math.max(1, Number(w));
         const hh = Math.max(1, Number(h));
@@ -1819,7 +1815,7 @@
     };
 
     const waitForMapLibreBasemapTilesReadyForExport = async (map, {
-        sourceId = 'export-raster',
+        sourceId = EXPORT_BASEMAP_SOURCE_ID,
         timeoutMs = 60000,
         settleFrames = 2,
         pollMs = 120
@@ -1853,34 +1849,15 @@
         }
     };
 
-    const waitForMapLibreBasemapTilesReadyForExportWithZoomFallback = async (map, {
-        sourceId = 'export-raster',
-        initialMaxRasterZoom = null,
+    const waitForMapLibreBasemapTilesReadyForExportWithStyleFallback = async (map, {
+        sourceId = EXPORT_BASEMAP_SOURCE_ID,
         checkEveryMs = 10000,
-        maxFallbackAttempts = 3,
+        maxReloadAttempts = 3,
         settleFrames = 2,
         pollMs = 160,
         onFallback = null
     } = {}) => {
-        // attempt 0: keep current tile level
-        // attempt 1..N: cap raster source maxzoom to (currentTileLevel - attempt)
-        const baseTileLevel = (() => {
-            try {
-                const z = Number(map?.getZoom?.());
-                if (!Number.isFinite(z)) return 0;
-                return Math.max(0, Math.floor(z));
-            } catch {
-                return 0;
-            }
-        })();
-
-        const cappedBaseTileLevel = (() => {
-            const cap = Number(initialMaxRasterZoom);
-            if (!Number.isFinite(cap)) return baseTileLevel;
-            return Math.max(0, Math.min(baseTileLevel, Math.floor(cap)));
-        })();
-
-        for (let attempt = 0; attempt <= Math.max(0, Number(maxFallbackAttempts) || 0); attempt += 1) {
+        for (let attempt = 0; attempt <= Math.max(0, Number(maxReloadAttempts) || 0); attempt += 1) {
             try {
                 await waitForMapLibreBasemapTilesReadyForExport(map, {
                     sourceId,
@@ -1893,19 +1870,17 @@
                 const code = err && typeof err === 'object' ? String(err.code || '') : '';
                 const isTimeout = code === 'EXPORT_TILE_TIMEOUT';
                 if (!isTimeout) throw err;
-                if (attempt >= Math.max(0, Number(maxFallbackAttempts) || 0)) throw err;
-
-                const nextMaxZoom = Math.max(0, cappedBaseTileLevel - (attempt + 1));
+                if (attempt >= Math.max(0, Number(maxReloadAttempts) || 0)) throw err;
 
                 try {
                     if (typeof onFallback === 'function') {
-                        onFallback({ attempt: attempt + 1, nextMaxZoom, baseTileLevel: cappedBaseTileLevel });
+                        onFallback({ attempt: attempt + 1 });
                     }
                 } catch {
                     // ignore
                 }
 
-                await ensureStyleMatchesTheme(map, nextMaxZoom);
+                await ensureStyleMatchesTheme(map);
 
                 // 给 style 切换一点点时间进入渲染循环
                 try { map.triggerRepaint?.(); } catch {}
@@ -1971,8 +1946,8 @@
         }
     };
 
-    const ensureStyleMatchesTheme = async (map, maxRasterZoom = null) => {
-        const style = buildRasterStyle(isDarkTheme(), maxRasterZoom);
+    const ensureStyleMatchesTheme = async (map) => {
+        const style = buildExportBasemapStyle();
         if (typeof map.setStyle !== 'function') return;
         map.setStyle(style);
         await waitForEventOnce(map, 'load', 5000);
@@ -2130,8 +2105,6 @@
             const baseBearing = (typeof baseMap.getBearing === 'function') ? baseMap.getBearing() : 0;
             const basePitch = (typeof baseMap.getPitch === 'function') ? baseMap.getPitch() : 0;
             const { map: vmap, container: vcontainer } = await ensureVirtualMap();
-            const maxExportZoom = pickMaxExportZoom(geoBbox, baseZoom);
-
             const baseName = [
                 'trip',
                 sanitizeFilePart(lineId || 'unknown'),
@@ -2144,7 +2117,7 @@
 
             // 导出尺寸由设置里的比例和横竖屏决定。
             const tryExportPng = async ({ baseW, baseH, paddingPx }) => {
-                await ensureStyleMatchesTheme(vmap, maxExportZoom);
+                await ensureStyleMatchesTheme(vmap);
 
                 if (zoomMode === 'auto') {
                     // 自动：使用 fitBounds 自适应缩放，输出尺寸严格等于 baseW/baseH
@@ -2189,11 +2162,10 @@
                 }
 
                 await waitForEventOnce(vmap, 'moveend', 2000);
-                await waitForMapLibreBasemapTilesReadyForExportWithZoomFallback(vmap, {
-                    sourceId: 'export-raster',
-                    initialMaxRasterZoom: maxExportZoom,
+                await waitForMapLibreBasemapTilesReadyForExportWithStyleFallback(vmap, {
+                    sourceId: EXPORT_BASEMAP_SOURCE_ID,
                     checkEveryMs: 10000,
-                    maxFallbackAttempts: 3,
+                    maxReloadAttempts: 3,
                 });
 
                 const canvas = vmap.getCanvas?.();
