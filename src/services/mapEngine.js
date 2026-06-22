@@ -5,6 +5,10 @@ import {
     OSM_BASEMAP_ATTRIBUTION_HTML,
     toPmtilesTileTemplate
 } from '../domain/osmBasemapPackage.js';
+import {
+    readAndroidPmtilesRange,
+    shouldUseAndroidNativePmtiles
+} from './androidPmtilesArchiveSource.js';
 
 const pmtilesProtocolTargets = new WeakSet();
 let pmtilesRangeRequestCounter = 0;
@@ -23,6 +27,17 @@ const appendPmtilesRangeCacheKey = (url, offset, length) => {
 const createRangeSafePmtilesSource = (url) => ({
     getKey: () => url,
     getBytes: async (offset, length, signal, etag) => {
+        if (shouldUseAndroidNativePmtiles({ url })) {
+            const range = await readAndroidPmtilesRange({ offset, length });
+            if (!range?.data) throw new Error('Android PMTiles range reader returned no data');
+            return {
+                data: range.data,
+                etag: undefined,
+                cacheControl: undefined,
+                expires: undefined
+            };
+        }
+
         const headers = new Headers();
         headers.set('Range', `bytes=${offset}-${offset + length - 1}`);
         const response = await fetch(appendPmtilesRangeCacheKey(url, offset, length), {

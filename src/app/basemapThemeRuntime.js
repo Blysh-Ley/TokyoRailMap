@@ -75,7 +75,8 @@ export const createBasemapThemeRuntime = ({
     const validateBasemapArchive = async (attempt = 0) => {
         const available = await verifyOsmBasemapArchive({
             fetchFn: windowRef?.fetch?.bind?.(windowRef) || globalThis.fetch,
-            pmtilesUrl: basemapRuntimeConfig.pmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL
+            pmtilesUrl: basemapRuntimeConfig.pmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL,
+            windowRef
         });
         basemapController.setPmtilesAvailable?.(available);
         if (available) {

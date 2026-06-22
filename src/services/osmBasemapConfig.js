@@ -5,6 +5,10 @@ import {
     PMTILES_HEADER_RANGE_END,
     PMTILES_HEADER_RANGE_LENGTH
 } from '../domain/osmBasemapPackage.js';
+import {
+    shouldUseAndroidNativePmtiles,
+    verifyAndroidPmtilesArchive
+} from './androidPmtilesArchiveSource.js';
 
 const getDefaultWindow = () => (
     typeof window !== 'undefined' ? window : null
@@ -44,10 +48,15 @@ export const readOsmBasemapRuntimeConfig = ({
 export const verifyOsmBasemapArchive = async ({
     fetchFn = globalThis.fetch,
     pmtilesUrl,
-    signal
+    signal,
+    windowRef = getDefaultWindow()
 } = {}) => {
-    if (typeof fetchFn !== 'function') return false;
     const url = String(pmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL).trim() || DEFAULT_OSM_BASEMAP_PMTILES_URL;
+    if (shouldUseAndroidNativePmtiles({ url, target: windowRef || globalThis })) {
+        return verifyAndroidPmtilesArchive({ target: windowRef || globalThis });
+    }
+
+    if (typeof fetchFn !== 'function') return false;
 
     try {
         const headResponse = await fetchFn(url, {

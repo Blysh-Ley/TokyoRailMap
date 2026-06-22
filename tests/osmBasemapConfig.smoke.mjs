@@ -121,4 +121,44 @@ const createPmtilesHeaderBytes = (magicBytes = [0x50, 0x4d]) => {
     }), true);
 }
 
+{
+    const calls = [];
+    const windowRef = {
+        Capacitor: {
+            getPlatform: () => 'android',
+            isNativePlatform: () => true,
+            registerPlugin: (name) => {
+                assert.equal(name, 'TokyoRailBasemap');
+                return {
+                    prepare: async () => {
+                        calls.push(['prepare']);
+                        return { ok: true, size: PMTILES_HEADER_RANGE_LENGTH };
+                    },
+                    readRange: async ({ offset, length }) => {
+                        calls.push(['readRange', offset, length]);
+                        return {
+                            data: Buffer.from(createPmtilesHeaderBytes()).toString('base64'),
+                            offset,
+                            length,
+                            size: PMTILES_HEADER_RANGE_LENGTH
+                        };
+                    }
+                };
+            }
+        }
+    };
+
+    assert.equal(await verifyOsmBasemapArchive({
+        fetchFn: () => {
+            throw new Error('Android archive verification should use the native PMTiles reader');
+        },
+        pmtilesUrl: './tiles/kanto.pmtiles?pmtiles-cache=header-16384',
+        windowRef
+    }), true);
+    assert.deepEqual(calls, [
+        ['prepare'],
+        ['readRange', 0, PMTILES_HEADER_RANGE_LENGTH]
+    ]);
+}
+
 console.log('osm basemap config smoke ok');

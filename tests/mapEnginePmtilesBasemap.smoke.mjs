@@ -73,6 +73,77 @@ class FakeMap {
 }
 
 {
+    const oldCapacitor = globalThis.Capacitor;
+    const oldAtob = globalThis.atob;
+    const oldPmtiles = globalThis.pmtiles;
+    const oldFetch = globalThis.fetch;
+    const calls = [];
+    globalThis.Capacitor = {
+        getPlatform: () => 'android',
+        isNativePlatform: () => true,
+        registerPlugin: (name) => {
+            assert.equal(name, 'TokyoRailBasemap');
+            return {
+                prepare: async () => ({ ok: true, size: 4 }),
+                readRange: async ({ offset, length }) => {
+                    calls.push([offset, length]);
+                    return {
+                        data: 'AQIDBA==',
+                        offset,
+                        length: 4,
+                        size: 4
+                    };
+                }
+            };
+        }
+    };
+    globalThis.atob = (value) => Buffer.from(value, 'base64').toString('binary');
+    globalThis.fetch = () => {
+        throw new Error('Android PMTiles source should not use fetch ranges');
+    };
+    class PMTiles {
+        constructor(source) {
+            this.source = source;
+        }
+
+        async getZxy() {
+            return this.source.getBytes(0, 4);
+        }
+    }
+    globalThis.pmtiles = { PMTiles };
+
+    try {
+        const protocol = [];
+        const maplibregl = {
+            Map: FakeMap,
+            Marker: class {},
+            Popup: class {},
+            ScaleControl: class {},
+            addProtocol: (scheme, tile) => protocol.push([scheme, tile])
+        };
+        const engine = createMapEngine({ maplibregl, container: 'map' });
+        assert.equal(engine.ensurePmtilesProtocol(), true);
+        assert.equal(protocol[0][0], 'pmtiles');
+        await new Promise((resolve, reject) => {
+            protocol[0][1]({ url: 'pmtiles://./tiles/kanto.pmtiles/1/0/0' }, (error, data) => {
+                if (error) {
+                    reject(error);
+                    return;
+                }
+                assert.deepEqual([...new Uint8Array(data)], [1, 2, 3, 4]);
+                resolve();
+            });
+        });
+        assert.deepEqual(calls, [[0, 4]]);
+    } finally {
+        globalThis.Capacitor = oldCapacitor;
+        globalThis.atob = oldAtob;
+        globalThis.pmtiles = oldPmtiles;
+        globalThis.fetch = oldFetch;
+    }
+}
+
+{
     const sources = new Map();
     const layers = new Map();
     const layoutCalls = [];
