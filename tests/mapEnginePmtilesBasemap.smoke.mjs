@@ -106,8 +106,8 @@ class FakeMap {
     assert.equal(layers.get('osm-water-layer').type, 'fill');
     assert.equal(layers.get('osm-landcover-layer').type, 'fill');
     assert.equal(layers.get('osm-landcover-layer')['source-layer'], 'landcover');
-    assert.equal(layers.get('osm-road-layer').paint['line-color'], '#efeee9');
-    assert.equal(layers.get('osm-road-layer').paint['line-opacity'], 0.36);
+    assert.equal(layers.get('osm-road-layer').paint['line-color'], '#e7e5db');
+    assert.equal(layers.get('osm-road-layer').paint['line-opacity'], 0.5);
     assert.equal(layers.get('osm-place-label-layer').type, 'symbol');
     assert.deepEqual(layers.get('osm-place-label-layer').filter, [
         'match',

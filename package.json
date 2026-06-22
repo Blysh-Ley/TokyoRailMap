@@ -14,7 +14,10 @@
     "release:github": "node scripts/create-github-release.mjs",
     "icons:generate": "node scripts/generate-icons.mjs",
     "web:vendor": "node scripts/sync-web-vendor.mjs",
-    "cap:web": "npm run icons:generate && npm run web:vendor && node scripts/sync-capacitor-web.mjs",
+    "basemap:package:verify": "node scripts/verify-basemap-package-assets.mjs",
+    "prebuild": "npm run basemap:package:verify",
+    "prebuildall": "npm run basemap:package:verify",
+    "cap:web": "npm run icons:generate && npm run web:vendor && npm run basemap:package:verify && node scripts/sync-capacitor-web.mjs",
     "cap:sync:android": "npm run cap:web && npx cap sync android",
     "ios:permissions": "node scripts/patch-ios-info-plist.mjs",
     "cap:sync:ios": "npm run cap:web && npx cap sync ios && npm run ios:permissions",
@@ -65,6 +68,7 @@
       "icons/**",
       "companyLogos/**",
       "images/**",
+      "tiles/kanto.pmtiles",
       "!**/.DS_Store"
     ],
     "win": {
