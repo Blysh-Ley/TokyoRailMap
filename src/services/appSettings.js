@@ -8,6 +8,7 @@ export const HOVER_PREVIEW_STORAGE_KEY = 'tokyorail.hover.preview.enabled';
 export const ADAPTIVE_VIEWPORT_STORAGE_KEY = 'tokyorail.adaptive.viewport.enabled';
 export const LINE_NAME_LABELS_STORAGE_KEY = 'tokyorail.line.name.labels.enabled';
 export const STATION_OFFSET_MODE_STORAGE_KEY = 'tokyorail.station.offset.mode';
+export const DESKTOP_LAYOUT_STORAGE_KEY = 'tokyorail.desktop.layout.enabled';
 
 const getLocalStorageValue = (key, fallback) => {
     try {
@@ -133,5 +134,18 @@ export const readStationOffsetMode = () => {
 export const writeStationOffsetMode = (mode) => {
     const next = String(mode || '').trim().toLowerCase() === 'performance' ? 'performance' : 'dynamic';
     setLocalStorageValue(STATION_OFFSET_MODE_STORAGE_KEY, next);
+    return next;
+};
+
+export const readDesktopLayoutEnabled = () => {
+    const raw = String(getLocalStorageValue(DESKTOP_LAYOUT_STORAGE_KEY, '0')).trim().toLowerCase();
+    if (raw === '1' || raw === 'true') return true;
+    if (raw === '0' || raw === 'false') return false;
+    return false;
+};
+
+export const writeDesktopLayoutEnabled = (enabled) => {
+    const next = enabled === true;
+    setLocalStorageValue(DESKTOP_LAYOUT_STORAGE_KEY, next ? '1' : '0');
     return next;
 };

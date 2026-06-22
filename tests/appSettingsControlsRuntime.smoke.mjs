@@ -40,6 +40,7 @@ const createControls = (calls) => ({
     mountAppearanceToggle: (args) => calls.push(['appearance', args]),
     mountAutoUpdateToggle: (args) => calls.push(['autoUpdate', args]),
     mountBasemapToggle: (args) => calls.push(['basemap', args]),
+    mountDesktopLayoutToggle: (args) => calls.push(['desktopLayout', args]),
     mountTimetableViewToggle: (args) => calls.push(['timetable', args]),
     mountAdaptiveViewportToggle: (args) => calls.push(['adaptive', args]),
     mountStationOffsetToggle: (args) => calls.push(['stationOffset', args]),
@@ -88,6 +89,7 @@ const createControls = (calls) => ({
         getIconCandidates: () => ['icon.svg'],
         getPreferredCachedImageSrc: () => 'icon.svg',
         onAdaptiveViewportEnabledChanged: (enabled) => effects.push(['adaptive', enabled]),
+        onDesktopLayoutEnabledChanged: (enabled) => effects.push(['desktopLayout', enabled]),
         onHoverPreviewEnabledChanged: (enabled) => effects.push(['hover', enabled]),
         onLineNameLabelsEnabledChanged: (enabled) => effects.push(['lineNameLabels', enabled]),
         onStationLabelModeChanged: (mode) => effects.push(['stationLabelMode', mode]),
@@ -106,6 +108,7 @@ const createControls = (calls) => ({
         'autoUpdate',
         'basemap',
         'adaptive',
+        'desktopLayout',
         'stationOffset',
         'lineNameLabels',
         'hoverPreview',
@@ -118,6 +121,7 @@ const createControls = (calls) => ({
     getArgs('appearance').onThemeChanged({ theme: 'dark' });
     getArgs('basemap').onModeChanged('osm-detailed');
     getArgs('adaptive').onEnabledChanged(false);
+    getArgs('desktopLayout').onEnabledChanged(true);
     getArgs('stationOffset').onModeChanged('performance');
     getArgs('lineNameLabels').onEnabledChanged(false);
     getArgs('hoverPreview').onEnabledChanged(true);
@@ -130,6 +134,7 @@ const createControls = (calls) => ({
         ['themeChanged', 'dark'],
         ['setBasemapMode', 'osm-detailed'],
         ['adaptive', false],
+        ['desktopLayout', true],
         ['stationOffset', 'performance'],
         ['lineNameLabels', false],
         ['hover', true],

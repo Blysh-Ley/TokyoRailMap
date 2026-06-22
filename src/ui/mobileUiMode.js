@@ -1,3 +1,6 @@
+import { readDesktopLayoutEnabled } from '../services/appSettings.js';
+import { isDesktopLayoutPreferenceAvailableForCurrentDevice } from '../services/deviceFormFactorService.js';
+
 const MOBILE_VIEWPORT_MAX_WIDTH_PX = 760;
 const COARSE_POINTER_MAX_WIDTH_PX = 900;
 
@@ -37,8 +40,15 @@ const resolveNativePlatform = (win) => {
     return platform;
 };
 
-export const isMobileViewport = (win = globalThis.window) => {
+export const isMobileViewport = (
+    win = globalThis.window,
+    { desktopLayoutEnabled = readDesktopLayoutEnabled() } = {}
+) => {
     if (!win) return false;
+
+    if (isDesktopLayoutPreferenceAvailableForCurrentDevice(win)) {
+        return desktopLayoutEnabled !== true;
+    }
 
     if (mediaMatches(win, `(max-width: ${MOBILE_VIEWPORT_MAX_WIDTH_PX}px)`)) return true;
 

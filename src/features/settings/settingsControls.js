@@ -2,6 +2,7 @@ export { mountAboutControl } from './aboutControl.js';
 export { mountAppearanceToggle } from './appearanceControl.js';
 export { mountAutoUpdateToggle } from './autoUpdateControl.js';
 export { mountBasemapToggle } from './basemapControl.js';
+export { mountDesktopLayoutToggle } from './desktopLayoutControl.js';
 export {
     mountAdaptiveViewportToggle,
     mountHoverPreviewToggle,

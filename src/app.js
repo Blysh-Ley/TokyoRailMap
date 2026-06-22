@@ -305,6 +305,10 @@ const mobileUiMode = createMobileUiModeController({
     }
 });
 const isMobileUiMode = () => mobileUiMode.isMobile();
+const reloadForDesktopLayoutPreference = () => {
+    window.requestAnimationFrame?.(() => window.location.reload());
+    if (!window.requestAnimationFrame) window.location.reload();
+};
 const mobileBottomNavController = installMobileBottomNav();
 const MOBILE_PANEL_DISMISS_NAV_ITEMS = new Set(['search', 'menu', 'settings']);
 
@@ -3373,6 +3377,7 @@ const initMapApp = async () => {
         getIconCandidates,
         getPreferredCachedImageSrc,
         onAdaptiveViewportEnabledChanged: applyAdaptiveViewportEnabled,
+        onDesktopLayoutEnabledChanged: reloadForDesktopLayoutPreference,
         onHoverPreviewEnabledChanged: applyHoverPreviewEnabled,
         onLineNameLabelsEnabledChanged: applyLineNameLabelsEnabled,
         onStationLabelModeChanged: (mode) => {

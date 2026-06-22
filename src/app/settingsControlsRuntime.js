@@ -4,6 +4,7 @@ import {
     mountAppearanceToggle,
     mountAutoUpdateToggle,
     mountBasemapToggle,
+    mountDesktopLayoutToggle,
     mountHoverPreviewToggle,
     mountLineNameLabelsToggle,
     mountStationLabelToggle,
@@ -17,6 +18,7 @@ const DEFAULT_CONTROLS = Object.freeze({
     mountAppearanceToggle,
     mountAutoUpdateToggle,
     mountBasemapToggle,
+    mountDesktopLayoutToggle,
     mountHoverPreviewToggle,
     mountLineNameLabelsToggle,
     mountStationLabelToggle,
@@ -56,6 +58,7 @@ export const mountAppSettingsControls = ({
     getPreferredCachedImageSrc,
     setImageElementFromCache,
     onAdaptiveViewportEnabledChanged,
+    onDesktopLayoutEnabledChanged,
     onHoverPreviewEnabledChanged,
     onLineNameLabelsEnabledChanged,
     onStationLabelModeChanged,
@@ -104,6 +107,11 @@ export const mountAppSettingsControls = ({
     controls.mountAdaptiveViewportToggle({
         hostEl,
         onEnabledChanged: onAdaptiveViewportEnabledChanged
+    });
+
+    controls.mountDesktopLayoutToggle?.({
+        hostEl,
+        onEnabledChanged: onDesktopLayoutEnabledChanged
     });
 
     controls.mountStationOffsetToggle({
