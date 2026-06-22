@@ -333,6 +333,11 @@ const shouldUseSmallTypeBadgeFont_panelTimetableRenderer = (typeNameRaw) => {
     return Array.from(plain).length > 4;
 };
 
+const isBaseStopTypeName_panelTimetableRenderer = (typeNameRaw) => {
+    const typeName = toText_panelTimetableRenderer(typeNameRaw);
+    return typeName === '普通' || typeName === '各站停车';
+};
+
 const renderPanelTimetableRowHtml_panelTimetableRenderer = ({
     row,
     renderTime,
@@ -356,7 +361,11 @@ const renderPanelTimetableRowHtml_panelTimetableRenderer = ({
     const destText = toText_panelTimetableRenderer(item.terminalDisplayName || item.destName || item.terminalName);
     const typeName = toText_panelTimetableRenderer(item.typeName);
     const typeLabel = formatTypeBadgeLabel_panelTimetableRenderer(typeName);
-    const typeSmallClass = shouldUseSmallTypeBadgeFont_panelTimetableRenderer(typeName) ? ' is-small-text' : '';
+    const typeClasses = [
+        'panel-timetable-type-marquee',
+        isBaseStopTypeName_panelTimetableRenderer(typeName) ? 'panel-station-info-type is-stop is-base-stop' : '',
+        shouldUseSmallTypeBadgeFont_panelTimetableRenderer(typeName) ? 'is-small-text' : ''
+    ].filter(Boolean).join(' ');
     const parseMinutes = (time) => { const m = toText_panelTimetableRenderer(time).match(/^(\d{1,2}):(\d{2})$/); return m ? Number(m[1]) * 60 + Number(m[2]) : NaN; };
     const arrTotal = parseMinutes(item.arr) + (item.arrPlus ? 1440 : 0);
     let depTotal = parseMinutes(item.dep) + (item.depPlus ? 1440 : 0);
@@ -369,7 +378,7 @@ const renderPanelTimetableRowHtml_panelTimetableRenderer = ({
         <div class="${rowClass}"${tripAttr}>
             <div class="${timeClass_panelTimetableRenderer}">${renderTime(item)}${extraHtml}</div>
             <div class="panel-timetable-type">
-                <span class="panel-timetable-type-marquee${typeSmallClass}"${typeStyle} aria-label="${escapeHtml_panelTimetableRenderer(typeName)}" title="${escapeHtml_panelTimetableRenderer(typeName)}">
+                <span class="${typeClasses}"${typeStyle} aria-label="${escapeHtml_panelTimetableRenderer(typeName)}" title="${escapeHtml_panelTimetableRenderer(typeName)}">
                     <span class="panel-timetable-type-marquee-inner">${escapeHtml_panelTimetableRenderer(typeLabel)}</span>
                 </span>
             </div>
@@ -651,4 +660,3 @@ export const buildTimetablePrintPayload = ({
         timetableViewMode
     };
 };
-

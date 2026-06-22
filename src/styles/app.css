@@ -3865,6 +3865,11 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     font-size: 10px;
 }
 
+.panel-timetable-type-marquee.panel-station-info-type.is-base-stop {
+    color: #fff;
+    font-weight: 700;
+}
+
 .panel-timetable-type-marquee-inner {
     display: inline-block;
     white-space: pre;
@@ -6740,6 +6745,10 @@ html[data-theme='dark'] .panel-trip-detail-head {
 
 html[data-theme='dark'] .panel-station-info-type.is-base-stop {
     background-color: #374151 !important;
+}
+
+html[data-theme='dark'] .panel-timetable-type-marquee.panel-station-info-type.is-base-stop {
+    background: #374151;
 }
 
 html[data-theme='dark'] .panel-trip-detail-row {
