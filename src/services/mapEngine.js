@@ -387,7 +387,7 @@ const OSM_VECTOR_SOURCE_ID = 'osm-vector-source';
 const BASEMAP_GLYPHS_URL = 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf';
 
 const getBasemapBackgroundColor = (theme) => (
-    theme === 'dark' ? '#101216' : '#ffffff'
+    getBasemapPalette(theme).background
 );
 
 const getLayerVisibility = (mode, modes) => (
@@ -401,6 +401,97 @@ const createTextField = () => ([
     ['get', 'name']
 ]);
 
+const BASEMAP_PALETTES = {
+    light: {
+        background: '#f8f7f1',
+        water: '#c9dce2',
+        waterDetailed: '#abcbd7',
+        forest: '#ccdbc3',
+        grass: '#d9e2cf',
+        farmland: '#e1dfce',
+        wetland: '#d2dcda',
+        rock: '#d5d1c9',
+        sand: '#e4ddcc',
+        landcover: '#e5e3db',
+        landuse: '#ece9e1',
+        park: '#d5dfd2',
+        urban: '#ece8df',
+        industry: '#e7e0d8',
+        building: '#ded8cf',
+        road: '#e7e5db',
+        roadDetailed: '#b0bac4',
+        roadMinor: '#d3cec5',
+        text: '#343b44',
+        textHalo: '#fffdf8',
+        poiText: '#69727b'
+    },
+    dark: {
+        background: '#101418',
+        water: '#243746',
+        waterDetailed: '#2b4554',
+        forest: '#2c352f',
+        grass: '#303830',
+        farmland: '#38382e',
+        wetland: '#2b3c3d',
+        rock: '#3a3732',
+        sand: '#403b31',
+        landcover: '#2b2f2d',
+        landuse: '#20252a',
+        park: '#2c3b32',
+        urban: '#23272d',
+        industry: '#2d2930',
+        building: '#30343a',
+        road: '#252a30',
+        roadDetailed: '#606a76',
+        roadMinor: '#3f4650',
+        text: '#e1e6ea',
+        textHalo: '#0d1115',
+        poiText: '#b7c0c8'
+    }
+};
+
+const getBasemapPalette = (theme) => (
+    theme === 'dark' ? BASEMAP_PALETTES.dark : BASEMAP_PALETTES.light
+);
+
+const createLandcoverColorExpression = (palette) => ([
+    'match',
+    ['get', 'class'],
+    'wood',
+    palette.forest,
+    'grass',
+    palette.grass,
+    'farmland',
+    palette.farmland,
+    'wetland',
+    palette.wetland,
+    'rock',
+    palette.rock,
+    'sand',
+    palette.sand,
+    palette.landcover
+]);
+
+const createLanduseColorExpression = (palette) => ([
+    'match',
+    ['get', 'class'],
+    ['park', 'grass', 'recreation_ground', 'zoo'],
+    palette.park,
+    ['commercial', 'retail', 'residential', 'school', 'university', 'hospital'],
+    palette.urban,
+    ['industrial', 'railway', 'military', 'quarry'],
+    palette.industry,
+    palette.landuse
+]);
+
+const createMunicipalityPlaceFilter = () => ([
+    'match',
+    ['get', 'class'],
+    ['city', 'town', 'village'],
+    true,
+    false
+]);
+
 const createOsmBasemapSource = (pmtilesUrl) => ({
     type: 'vector',
     tiles: [toPmtilesTileTemplate(pmtilesUrl)],
@@ -411,10 +502,11 @@ const createOsmBasemapSource = (pmtilesUrl) => ({
 
 const createOsmBasemapLayerItems = ({ mode = DEFAULT_BASEMAP_MODE, theme = 'light' } = {}) => {
     const dark = theme === 'dark';
-    const textColor = dark ? '#d9dde5' : '#4f5663';
-    const textHalo = dark ? '#101216' : '#ffffff';
-    const roadColor = dark ? '#323846' : '#e7e9ee';
-    const detailedRoadColor = dark ? '#4c5261' : '#d7dbe2';
+    const palette = getBasemapPalette(theme);
+    const textColor = palette.text;
+    const textHalo = palette.textHalo;
+    const roadColor = palette.road;
+    const detailedRoadColor = palette.roadDetailed;
 
     return [
         {
@@ -425,8 +517,21 @@ const createOsmBasemapLayerItems = ({ mode = DEFAULT_BASEMAP_MODE, theme = 'ligh
                 source: OSM_VECTOR_SOURCE_ID,
                 'source-layer': 'water',
                 paint: {
-                    'fill-color': dark ? '#172435' : '#edf6fb',
-                    'fill-opacity': mode === 'osm-detailed' ? 0.75 : 0.45
+                    'fill-color': mode === 'osm-detailed' ? palette.waterDetailed : palette.water,
+                    'fill-opacity': mode === 'osm-detailed' ? 0.82 : 0.72
+                }
+            }
+        },
+        {
+            modes: ['osm-white', 'osm-detailed'],
+            layer: {
+                id: 'osm-landcover-layer',
+                type: 'fill',
+                source: OSM_VECTOR_SOURCE_ID,
+                'source-layer': 'landcover',
+                paint: {
+                    'fill-color': createLandcoverColorExpression(palette),
+                    'fill-opacity': mode === 'osm-detailed' ? 0.72 : 0.48
                 }
             }
         },
@@ -438,8 +543,8 @@ const createOsmBasemapLayerItems = ({ mode = DEFAULT_BASEMAP_MODE, theme = 'ligh
                 source: OSM_VECTOR_SOURCE_ID,
                 'source-layer': 'landuse',
                 paint: {
-                    'fill-color': dark ? '#172015' : '#f2f7ef',
-                    'fill-opacity': 0.45
+                    'fill-color': createLanduseColorExpression(palette),
+                    'fill-opacity': 0.54
                 }
             }
         },
@@ -452,8 +557,8 @@ const createOsmBasemapLayerItems = ({ mode = DEFAULT_BASEMAP_MODE, theme = 'ligh
                 'source-layer': 'building',
                 minzoom: 13,
                 paint: {
-                    'fill-color': dark ? '#2a2d34' : '#ece7df',
-                    'fill-opacity': 0.55
+                    'fill-color': palette.building,
+                    'fill-opacity': dark ? 0.62 : 0.58
                 }
             }
         },
@@ -478,11 +583,11 @@ const createOsmBasemapLayerItems = ({ mode = DEFAULT_BASEMAP_MODE, theme = 'ligh
                         ['linear'],
                         ['zoom'],
                         8,
-                        mode === 'osm-detailed' ? 0.35 : 0.2,
+                        mode === 'osm-detailed' ? 0.35 :0.16,
                         14,
-                        mode === 'osm-detailed' ? 1.4 : 0.65
+                        mode === 'osm-detailed' ? 1.4 : 0.45
                     ],
-                    'line-opacity': mode === 'osm-detailed' ? 0.8 : 0.45
+                    'line-opacity': mode === 'osm-detailed' ? 0.82 : 0.5
                 }
             }
         },
@@ -502,7 +607,7 @@ const createOsmBasemapLayerItems = ({ mode = DEFAULT_BASEMAP_MODE, theme = 'ligh
                     false
                 ],
                 paint: {
-                    'line-color': dark ? '#373c49' : '#e5e2dd',
+                    'line-color': palette.roadMinor,
                     'line-width': [
                         'interpolate',
                         ['linear'],
@@ -512,7 +617,7 @@ const createOsmBasemapLayerItems = ({ mode = DEFAULT_BASEMAP_MODE, theme = 'ligh
                         16,
                         1.1
                     ],
-                    'line-opacity': 0.65
+                    'line-opacity': 0.7
                 }
             }
         },
@@ -532,7 +637,7 @@ const createOsmBasemapLayerItems = ({ mode = DEFAULT_BASEMAP_MODE, theme = 'ligh
                     'text-allow-overlap': false
                 },
                 paint: {
-                    'text-color': dark ? '#b6beca' : '#707782',
+                    'text-color': palette.poiText,
                     'text-halo-color': textHalo,
                     'text-halo-width': 1
                 }
@@ -545,6 +650,7 @@ const createOsmBasemapLayerItems = ({ mode = DEFAULT_BASEMAP_MODE, theme = 'ligh
                 type: 'symbol',
                 source: OSM_VECTOR_SOURCE_ID,
                 'source-layer': 'place',
+                filter: createMunicipalityPlaceFilter(),
                 layout: {
                     'text-field': createTextField(),
                     'text-size': [
@@ -552,10 +658,11 @@ const createOsmBasemapLayerItems = ({ mode = DEFAULT_BASEMAP_MODE, theme = 'ligh
                         ['linear'],
                         ['zoom'],
                         6,
-                        mode === 'osm-detailed' ? 11 : 10,
+                        mode === 'osm-detailed' ? 11.5 : 10.5,
                         12,
-                        mode === 'osm-detailed' ? 15 : 13
+                        mode === 'osm-detailed' ? 15.5 : 13.5
                     ],
+                    'symbol-sort-key': ['coalesce', ['get', 'rank'], 20],
                     'text-allow-overlap': false
                 },
                 paint: {

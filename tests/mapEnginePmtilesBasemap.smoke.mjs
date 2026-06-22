@@ -104,7 +104,18 @@ class FakeMap {
     assert.equal(sources.get('osm-vector-source').minzoom, 0);
     assert.equal(sources.get('osm-vector-source').maxzoom, 14);
     assert.equal(layers.get('osm-water-layer').type, 'fill');
+    assert.equal(layers.get('osm-landcover-layer').type, 'fill');
+    assert.equal(layers.get('osm-landcover-layer')['source-layer'], 'landcover');
+    assert.equal(layers.get('osm-road-layer').paint['line-color'], '#efeee9');
+    assert.equal(layers.get('osm-road-layer').paint['line-opacity'], 0.36);
     assert.equal(layers.get('osm-place-label-layer').type, 'symbol');
+    assert.deepEqual(layers.get('osm-place-label-layer').filter, [
+        'match',
+        ['get', 'class'],
+        ['city', 'town', 'village'],
+        true,
+        false
+    ]);
     assert.deepEqual(controller.getAttributionItems(), [
         {
             group: 'map',
@@ -130,7 +141,10 @@ class FakeMap {
 
     const style = controller.getStyle({ mode: 'osm-detailed', theme: 'dark' });
     assert.deepEqual(style.sources['osm-vector-source'].tiles, ['pmtiles://./tiles/kanto.pmtiles/{z}/{x}/{y}']);
+    assert.equal(style.layers[0].paint['background-color'], '#101418');
     assert.equal(style.layers.some((layer) => layer.id === 'osm-water-layer'), true);
+    assert.equal(style.layers.find((layer) => layer.id === 'osm-water-layer').paint['fill-color'], '#2b4554');
+    assert.equal(style.layers.some((layer) => layer.id === 'osm-landcover-layer'), true);
     assert.equal(style.layers.some((layer) => layer.id === 'osm-building-layer'), true);
 }
 
