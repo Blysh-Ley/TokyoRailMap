@@ -17,6 +17,8 @@ export const OSM_BASEMAP_ATTRIBUTION_HTML = OSM_BASEMAP_ATTRIBUTION_ITEMS
     .map((item) => `<a href="${item.href}" target="_blank" rel="noopener noreferrer">&copy; ${item.label}${item.label === 'OpenStreetMap' ? ' contributors' : ''}</a>`)
     .join(' ');
 export const PMTILES_MAGIC_NUMBER = 0x4d50;
+export const PMTILES_HEADER_RANGE_END = 16383;
+export const PMTILES_HEADER_RANGE_LENGTH = PMTILES_HEADER_RANGE_END + 1;
 
 export const normalizeOsmBasemapArchiveUrl = (
     url,
@@ -30,6 +32,11 @@ export const normalizeOsmBasemapArchiveUrl = (
 export const toPmtilesStyleUrl = (url) => {
     const archiveUrl = normalizeOsmBasemapArchiveUrl(url);
     return archiveUrl.startsWith('pmtiles://') ? archiveUrl : `pmtiles://${archiveUrl}`;
+};
+
+export const toPmtilesTileTemplate = (url) => {
+    const styleUrl = toPmtilesStyleUrl(url);
+    return `${styleUrl}/{z}/{x}/{y}`;
 };
 
 export const hasPmtilesMagicNumber = (bytes) => {

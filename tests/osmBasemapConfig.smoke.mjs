@@ -1,15 +1,34 @@
 import assert from 'node:assert/strict';
 
 import {
+    appendDefaultOsmBasemapCacheKey,
     readOsmBasemapRuntimeConfig,
     verifyOsmBasemapArchive
 } from '../src/services/osmBasemapConfig.js';
+import {
+    PMTILES_HEADER_RANGE_END,
+    PMTILES_HEADER_RANGE_LENGTH
+} from '../src/domain/osmBasemapPackage.js';
+
+const createPmtilesHeaderBytes = (magicBytes = [0x50, 0x4d]) => {
+    const bytes = new Uint8Array(PMTILES_HEADER_RANGE_LENGTH);
+    bytes.set(magicBytes, 0);
+    return bytes;
+};
 
 {
     const config = readOsmBasemapRuntimeConfig({ windowRef: {} });
-    assert.equal(config.pmtilesUrl, './tiles/kanto.pmtiles');
-    assert.equal(config.basemapPackage.styleUrl, 'pmtiles://./tiles/kanto.pmtiles');
+    assert.equal(config.pmtilesUrl, './tiles/kanto.pmtiles?pmtiles-cache=header-16384');
+    assert.equal(config.basemapPackage.styleUrl, 'pmtiles://./tiles/kanto.pmtiles?pmtiles-cache=header-16384');
     assert.equal(config.basemapPackage.downloadUrl, './tiles/kanto.pmtiles');
+    assert.equal(
+        appendDefaultOsmBasemapCacheKey('./tiles/kanto.pmtiles?pmtiles-cache=custom'),
+        './tiles/kanto.pmtiles?pmtiles-cache=custom'
+    );
+    assert.equal(
+        appendDefaultOsmBasemapCacheKey('./tiles/kanto.pmtiles#download'),
+        './tiles/kanto.pmtiles?pmtiles-cache=header-16384#download'
+    );
 }
 
 {
@@ -36,7 +55,8 @@ import {
                 }
             };
         }
-        assert.equal(options.headers.Range, 'bytes=0-1');
+        assert.equal(options.headers.Range, `bytes=0-${PMTILES_HEADER_RANGE_END}`);
+        assert.notEqual(options.headers.Range, 'bytes=0-1');
         return {
             ok: status >= 200 && status < 300,
             status,
@@ -48,11 +68,15 @@ import {
     };
 
     assert.equal(await verifyOsmBasemapArchive({
-        fetchFn: createFetch(new Uint8Array([0x50, 0x4d])),
+        fetchFn: createFetch(createPmtilesHeaderBytes()),
         pmtilesUrl: './tiles/kanto.pmtiles'
     }), true);
     assert.equal(await verifyOsmBasemapArchive({
-        fetchFn: createFetch(new TextEncoder().encode('<!doctype html>'), 200, 15),
+        fetchFn: createFetch(createPmtilesHeaderBytes([0x3c, 0x21]), 206),
+        pmtilesUrl: './tiles/kanto.pmtiles'
+    }), false);
+    assert.equal(await verifyOsmBasemapArchive({
+        fetchFn: createFetch(createPmtilesHeaderBytes(), 200, 301674438),
         pmtilesUrl: './tiles/kanto.pmtiles'
     }), false);
 
@@ -84,12 +108,13 @@ import {
                     headers: { get: () => null }
                 };
             }
-            assert.equal(options.headers.Range, 'bytes=0-1');
+            assert.equal(options.headers.Range, `bytes=0-${PMTILES_HEADER_RANGE_END}`);
+            assert.notEqual(options.headers.Range, 'bytes=0-1');
             return {
                 ok: true,
                 status: 206,
-                headers: { get: () => '2' },
-                arrayBuffer: async () => new Uint8Array([0x50, 0x4d]).buffer
+                headers: { get: () => String(PMTILES_HEADER_RANGE_LENGTH) },
+                arrayBuffer: async () => createPmtilesHeaderBytes().buffer
             };
         },
         pmtilesUrl: './tiles/kanto.pmtiles'

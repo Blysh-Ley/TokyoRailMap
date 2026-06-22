@@ -3,10 +3,98 @@ import {
     OSM_BASEMAP_ATTRIBUTION_ITEMS,
     DEFAULT_OSM_BASEMAP_PMTILES_URL,
     OSM_BASEMAP_ATTRIBUTION_HTML,
-    toPmtilesStyleUrl
+    toPmtilesTileTemplate
 } from '../domain/osmBasemapPackage.js';
 
 const pmtilesProtocolTargets = new WeakSet();
+let pmtilesRangeRequestCounter = 0;
+
+const appendPmtilesRangeCacheKey = (url, offset, length) => {
+    const value = String(url || '').trim();
+    if (!value) return value;
+    const hashIndex = value.indexOf('#');
+    const base = hashIndex >= 0 ? value.slice(0, hashIndex) : value;
+    const hash = hashIndex >= 0 ? value.slice(hashIndex) : '';
+    const separator = base.includes('?') ? '&' : '?';
+    pmtilesRangeRequestCounter = (pmtilesRangeRequestCounter + 1) % Number.MAX_SAFE_INTEGER;
+    return `${base}${separator}pmtiles-range=${offset}-${length}-${pmtilesRangeRequestCounter}${hash}`;
+};
+
+const createRangeSafePmtilesSource = (url) => ({
+    getKey: () => url,
+    getBytes: async (offset, length, signal, etag) => {
+        const headers = new Headers();
+        headers.set('Range', `bytes=${offset}-${offset + length - 1}`);
+        const response = await fetch(appendPmtilesRangeCacheKey(url, offset, length), {
+            cache: 'no-store',
+            headers,
+            signal
+        });
+        const responseEtag = response.headers?.get?.('Etag');
+        const nextEtag = responseEtag && !responseEtag.startsWith('W/') ? responseEtag : undefined;
+        if (response.status === 416 || (etag && nextEtag && nextEtag !== etag)) {
+            throw new Error('PMTiles archive changed while reading ranges');
+        }
+        if (response.status >= 300) {
+            throw new Error(`Bad response code: ${response.status}`);
+        }
+        const contentLength = Number(response.headers?.get?.('Content-Length') || 0);
+        if (response.status === 200 && (!contentLength || contentLength > length)) {
+            throw new Error('PMTiles server does not support byte range requests');
+        }
+        return {
+            data: await response.arrayBuffer(),
+            etag: nextEtag,
+            cacheControl: response.headers?.get?.('Cache-Control') || undefined,
+            expires: response.headers?.get?.('Expires') || undefined
+        };
+    }
+});
+
+const createRangeSafePmtilesProtocol = (pmtilesGlobal) => {
+    const PMTilesCtor = pmtilesGlobal?.PMTiles;
+    if (typeof PMTilesCtor !== 'function') return null;
+
+    const archives = new Map();
+    const getArchive = (url) => {
+        if (!archives.has(url)) {
+            archives.set(url, new PMTilesCtor(createRangeSafePmtilesSource(url)));
+        }
+        return archives.get(url);
+    };
+
+    const tile = (params, callback) => {
+        const abortController = new AbortController();
+        Promise.resolve().then(async () => {
+            const match = String(params?.url || '').match(/^pmtiles:\/\/(.+)\/(\d+)\/(\d+)\/(\d+)(?:\.\w+)?$/);
+            if (!match) throw new Error('Invalid PMTiles protocol URL');
+            const [, archiveUrl, z, x, y] = match;
+            const tileResult = await getArchive(archiveUrl).getZxy(+z, +x, +y, abortController.signal);
+            if (!tileResult) {
+                callback(null, new ArrayBuffer(0));
+                return;
+            }
+            const data = tileResult.data instanceof ArrayBuffer
+                ? tileResult.data
+                : tileResult.data.buffer.slice(
+                    tileResult.data.byteOffset,
+                    tileResult.data.byteOffset + tileResult.data.byteLength
+                );
+            callback(
+                null,
+                data,
+                tileResult.cacheControl || '',
+                tileResult.expires || ''
+            );
+        }).catch((error) => callback(error));
+
+        return {
+            cancel: () => abortController.abort()
+        };
+    };
+
+    return { tile };
+};
 
 export const createMapEngine = ({ maplibregl, container, center, zoom, style, localIdeographFontFamily = 'sans-serif' } = {}) => {
     if (!maplibregl?.Map) {
@@ -90,10 +178,10 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
     const ensurePmtilesProtocol = () => {
         if (pmtilesProtocolTargets.has(maplibregl)) return true;
         const Protocol = globalThis.pmtiles?.Protocol;
-        if (typeof maplibregl.addProtocol !== 'function' || typeof Protocol !== 'function') {
+        if (typeof maplibregl.addProtocol !== 'function' || (typeof Protocol !== 'function' && typeof globalThis.pmtiles?.PMTiles !== 'function')) {
             return false;
         }
-        const protocol = new Protocol();
+        const protocol = createRangeSafePmtilesProtocol(globalThis.pmtiles) || new Protocol();
         maplibregl.addProtocol('pmtiles', protocol.tile);
         pmtilesProtocolTargets.add(maplibregl);
         return true;
@@ -315,7 +403,9 @@ const createTextField = () => ([
 
 const createOsmBasemapSource = (pmtilesUrl) => ({
     type: 'vector',
-    url: toPmtilesStyleUrl(pmtilesUrl),
+    tiles: [toPmtilesTileTemplate(pmtilesUrl)],
+    minzoom: 0,
+    maxzoom: 14,
     attribution: OSM_BASEMAP_ATTRIBUTION_HTML
 });
 
