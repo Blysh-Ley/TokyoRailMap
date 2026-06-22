@@ -282,6 +282,15 @@ const resolveTextY = (styles = {}, fallback) => (
     hasStyleValue(styles, 'y') ? styles.y : fallback
 );
 
+const normalizeSvgTextTransform = (value) => {
+    const raw = toText(value);
+    const axisScale = raw.match(/^scale([XY])\(\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)\s*\)$/i);
+    if (!axisScale) return value;
+    return axisScale[1].toUpperCase() === 'X'
+        ? `scale(${axisScale[2]} 1)`
+        : `scale(1 ${axisScale[2]})`;
+};
+
 const getSvgTextAttrsFromStyles = (styles = {}) => {
     const attrs = {};
     for (const [styleKey, attrKey] of [
@@ -294,7 +303,10 @@ const getSvgTextAttrsFromStyles = (styles = {}) => {
         ['dominantBaseline', 'dominant-baseline'],
         ['alignmentBaseline', 'alignment-baseline']
     ]) {
-        if (hasStyleValue(styles, styleKey)) attrs[attrKey] = styles[styleKey];
+        if (!hasStyleValue(styles, styleKey)) continue;
+        attrs[attrKey] = attrKey === 'transform'
+            ? normalizeSvgTextTransform(styles[styleKey])
+            : styles[styleKey];
     }
     return attrs;
 };
