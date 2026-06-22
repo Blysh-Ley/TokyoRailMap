@@ -42,6 +42,9 @@
     "productName": "东京铁路图",
     "artifactName": "TokyoRailMap-${version}-${os}-${arch}.${ext}",
     "asar": true,
+    "asarUnpack": [
+      "tiles/kanto.pmtiles"
+    ],
     "releaseInfo": {
       "releaseNotesFile": "CHANGELOG.md"
     },

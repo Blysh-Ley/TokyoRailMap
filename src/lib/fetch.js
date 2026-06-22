@@ -72,6 +72,29 @@ const shouldUseElectronLocalRead = (absUrl) => {
     return true;
 };
 
+const getRequestHeader = (headers, name) => {
+    const key = normalizeText(name).toLowerCase();
+    if (!headers || !key) return '';
+    try {
+        if (typeof Headers !== 'undefined' && headers instanceof Headers) {
+            return normalizeText(headers.get(key));
+        }
+    } catch {
+        // ignore
+    }
+    if (Array.isArray(headers)) {
+        const found = headers.find(([headerName]) => normalizeText(headerName).toLowerCase() === key);
+        return normalizeText(found?.[1]);
+    }
+    if (typeof headers === 'object') {
+        const foundKey = Object.keys(headers).find((headerName) => normalizeText(headerName).toLowerCase() === key);
+        return normalizeText(foundKey ? headers[foundKey] : '');
+    }
+    return '';
+};
+
+const getRangeHeader = (init = {}) => getRequestHeader(init?.headers, 'range');
+
 const base64ToArrayBuffer = (base64) => {
     const raw = normalizeText(base64);
     if (!raw) return new ArrayBuffer(0);
@@ -84,13 +107,14 @@ const base64ToArrayBuffer = (base64) => {
     return bytes.buffer;
 };
 
-const fetchViaElectronLocalRead = async (url) => {
+const fetchViaElectronLocalRead = async (url, init = {}) => {
     const api = getElectronLocalFileApi();
     if (!api) return null;
     if (!shouldUseElectronLocalRead(url)) return null;
 
     try {
-        const result = await api.readLocalFile(url);
+        const range = getRangeHeader(init);
+        const result = await api.readLocalFile(url, range ? { range } : {});
         if (!result || typeof result !== 'object') return null;
 
         return {
@@ -448,12 +472,19 @@ const storeResponseMetaFromResponse = async (url, resp) => {
 
 const fetchAndStore = async (url, input, init) => {
     const nativeFetch = state.nativeFetch || fetch.bind(window);
+    if (shouldUseElectronLocalRead(url) && getRangeHeader(init)) {
+        const rangeMeta = await fetchViaElectronLocalRead(url, init);
+        if (rangeMeta) {
+            storeResponseMeta(url, rangeMeta);
+            return buildResponseFromMeta(rangeMeta);
+        }
+    }
     try {
         const resp = await nativeFetch(input, init);
 
         // file:// 下 fetch 在不同平台行为不一致，优先回退到 Electron 的本地读取。
         if (shouldUseElectronLocalRead(url) && (!resp || !resp.ok)) {
-            const fallbackMeta = await fetchViaElectronLocalRead(url);
+            const fallbackMeta = await fetchViaElectronLocalRead(url, init);
             if (fallbackMeta) {
                 storeResponseMeta(url, fallbackMeta);
                 return buildResponseFromMeta(fallbackMeta);
@@ -463,7 +494,7 @@ const fetchAndStore = async (url, input, init) => {
         const meta = await storeResponseMetaFromResponse(url, resp);
         return buildResponseFromMeta(meta);
     } catch (nativeErr) {
-        const fallbackMeta = await fetchViaElectronLocalRead(url);
+        const fallbackMeta = await fetchViaElectronLocalRead(url, init);
         if (fallbackMeta) {
             storeResponseMeta(url, fallbackMeta);
             return buildResponseFromMeta(fallbackMeta);
@@ -474,17 +505,21 @@ const fetchAndStore = async (url, input, init) => {
 
 const fetchWithoutResponseCache = async (url, input, init) => {
     const nativeFetch = state.nativeFetch || fetch.bind(window);
+    if (shouldUseElectronLocalRead(url) && getRangeHeader(init)) {
+        const rangeMeta = await fetchViaElectronLocalRead(url, init);
+        if (rangeMeta) return buildResponseFromMeta(rangeMeta);
+    }
     try {
         const resp = await nativeFetch(input, init);
 
         if (shouldUseElectronLocalRead(url) && (!resp || !resp.ok)) {
-            const fallbackMeta = await fetchViaElectronLocalRead(url);
+            const fallbackMeta = await fetchViaElectronLocalRead(url, init);
             if (fallbackMeta) return buildResponseFromMeta(fallbackMeta);
         }
 
         return resp;
     } catch (nativeErr) {
-        const fallbackMeta = await fetchViaElectronLocalRead(url);
+        const fallbackMeta = await fetchViaElectronLocalRead(url, init);
         if (fallbackMeta) return buildResponseFromMeta(fallbackMeta);
         throw nativeErr;
     }
