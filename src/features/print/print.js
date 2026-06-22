@@ -1,3 +1,10 @@
+import {
+    getHighlightLineWidthAtZoom,
+    getHighlightStationRadiusAtZoom,
+    getHighlightStationStrokeWidthAtZoom,
+    getHighlightTransferCapsuleSizesAtZoom
+} from '../../domain/highlightStyleSizing.js';
+
 /*
  * print.js
  *
@@ -748,37 +755,6 @@
 
     const lerp = (a, b, t) => a + (b - a) * t;
 
-    const expSizeAtZoom = (zoom, baseAtZ12, maxAtZ16) => {
-        const z = Number(zoom);
-        const a = Number(baseAtZ12);
-        const b = Number(maxAtZ16);
-        if (!Number.isFinite(z) || !Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) return a;
-        const growthPerZoom = Math.pow(b / a, 1 / 4);
-        return a * Math.pow(growthPerZoom, z - 12);
-    };
-
-    const lineBaseWidthForZoom = (zoom) => {
-        const at12 = 4;
-        const at16 = 4 * (5 / 3.5);
-        return expSizeAtZoom(zoom, at12, at16);
-    };
-
-    const lineLowlightWidthForZoom = (zoom) => {
-        const at12 = 1.2;
-        const at16 = 1.2 * (5 / 3.5);
-        return expSizeAtZoom(zoom, at12, at16);
-    };
-
-    const radiusForStop = (zoom, servingCount) => {
-        return expSizeAtZoom(zoom, 3.5, 5);
-    };
-
-    const stopStrokeWidth = (zoom, servingCount) => {
-        const sc = Number(servingCount || 1);
-        if (sc > 1) return 0;
-        return expSizeAtZoom(zoom, 2, 2.8);
-    };
-
     let stationStyleContextPromise = null;
 
     const getStationStyleContext = async (map) => {
@@ -860,16 +836,6 @@
             inner: isDark ? '#111' : '#fff'
         };
     };
-
-    const capsuleLineWidths = (z) => ({
-        outline: expSizeAtZoom(z, 12, 24),
-        inner: expSizeAtZoom(z, 8, 14)
-    });
-
-    const capsuleCircleRadii = (z) => ({
-        outline: expSizeAtZoom(z, 6.8, 11.5),
-        inner: expSizeAtZoom(z, 5.0, 8.6)
-    });
 
     const getRuntimeApi = () => {
         try {
@@ -995,12 +961,11 @@
         if (!capsuleLines?.length && !capsuleCentroids?.length) return;
 
         const colors = getThemeCapsuleColors();
-        const widths = capsuleLineWidths(z);
-        const radii = capsuleCircleRadii(z);
+        const sizes = getHighlightTransferCapsuleSizesAtZoom(z);
 
         // Draw Capsule Lines - Outline (排除 fallbackCircle)
         if (capsuleLines?.length) {
-            parts.push(`<g id="capsules-outline" fill="none" stroke="${colors.outline}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${widths.outline}">`);
+            parts.push(`<g id="capsules-outline" fill="none" stroke="${colors.outline}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${sizes.outlineLineWidth}">`);
             for (const f of capsuleLines) {
                 if (f.properties?.fallbackCircle === 1) continue;
                 const d = pathFromCoords(map, f.geometry?.coordinates);
@@ -1009,7 +974,7 @@
             parts.push(`</g>`);
 
             // Draw Capsule Lines - Inner (排除 fallbackCircle)
-            parts.push(`<g id="capsules-inner" fill="none" stroke="${colors.inner}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${widths.inner}">`);
+            parts.push(`<g id="capsules-inner" fill="none" stroke="${colors.inner}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${sizes.innerLineWidth}">`);
             for (const f of capsuleLines) {
                 if (f.properties?.fallbackCircle === 1) continue;
                 const d = pathFromCoords(map, f.geometry?.coordinates);
@@ -1026,7 +991,7 @@
                 const c = f.geometry?.coordinates;
                 if (!Array.isArray(c) || c.length < 2) continue;
                 const p = project(map, { lng: Number(c[0]), lat: Number(c[1]) });
-                if (Number.isFinite(p.x)) parts.push(`<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${radii.outline.toFixed(2)}"/>`);
+                if (Number.isFinite(p.x)) parts.push(`<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${sizes.fallbackOutlineRadius.toFixed(2)}"/>`);
             }
             parts.push(`</g>`);
 
@@ -1035,7 +1000,7 @@
                 const c = f.geometry?.coordinates;
                 if (!Array.isArray(c) || c.length < 2) continue;
                 const p = project(map, { lng: Number(c[0]), lat: Number(c[1]) });
-                if (Number.isFinite(p.x)) parts.push(`<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${radii.inner.toFixed(2)}"/>`);
+                if (Number.isFinite(p.x)) parts.push(`<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${sizes.fallbackInnerRadius.toFixed(2)}"/>`);
             }
             parts.push(`</g>`);
         }
@@ -1269,7 +1234,7 @@
         // lowlight base lines (grey)
         if (lowlightLineFeatures.length) {
             const stroke = isDarkTheme() ? '#666' : '#999';
-            parts.push(`<g id="base-lines-lowlight" fill="none" stroke="${stroke}" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2" opacity="0.45">`);
+            parts.push(`<g id="base-lines-lowlight" fill="none" stroke="${stroke}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${getHighlightLineWidthAtZoom(z, { isLowlight: true })}" opacity="0.45">`);
             for (const f of lowlightLineFeatures) {
                 const geom = f?.geometry;
                 if (!geom) continue;
@@ -1306,8 +1271,8 @@
             const color = resolveLineColorForTheme(f?.properties, '#0a84ff');
             const opacity = role === 'connector' ? 0.95 : 1;
             const strokeWidth = role === 'connector'
-                ? lineLowlightWidthForZoom(z)
-                : lineBaseWidthForZoom(z);
+                ? getHighlightLineWidthAtZoom(z, { isLowlight: true })
+                : getHighlightLineWidthAtZoom(z);
 
             if (geom.type === 'LineString') {
                 const d = pathFromLineFeatureCoords(map, f, geom.coordinates);
@@ -1366,8 +1331,8 @@
             if (!Array.isArray(c) || c.length < 2) continue;
 
             const servingCount = Number(f?.properties?.serving_count ?? 1);
-            const r = radiusForStop(z, servingCount);
-            const sw = stopStrokeWidth(z, servingCount);
+            const r = getHighlightStationRadiusAtZoom(z);
+            const sw = getHighlightStationStrokeWidthAtZoom(z, { servingCount });
             const fill = resolveStationFillColor({ props: f?.properties || {}, styleContext: stationStyleContext });
 
             const p = project(map, { lng: Number(c[0]), lat: Number(c[1]) });
