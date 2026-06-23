@@ -3,6 +3,7 @@ import {
     APP_UPDATE_APP_ID,
     APP_UPDATE_MANIFEST_URL,
     IOS_APP_STORE_LOOKUP_URL,
+    buildAndroidStoreCapability,
     formatAndroidStoreUrl,
     resolveAndroidStoreProvider
 } from '../config/appUpdateSources.js';
@@ -136,7 +137,8 @@ const getAndroidStoreInfo = async ({ target, appInfo }) => {
             return {
                 packageName: toText(info?.packageName) || appInfo.id || APP_UPDATE_APP_ID,
                 installerPackageName: toText(info?.installerPackageName),
-                provider
+                provider,
+                capability: buildAndroidStoreCapability(provider)
             };
         } catch {
             // Fall back to a generic market URL.
@@ -146,7 +148,8 @@ const getAndroidStoreInfo = async ({ target, appInfo }) => {
     return {
         packageName: appInfo.id || APP_UPDATE_APP_ID,
         installerPackageName: '',
-        provider: ANDROID_STORE_PROVIDERS.generic_android
+        provider: ANDROID_STORE_PROVIDERS.generic_android,
+        capability: buildAndroidStoreCapability(ANDROID_STORE_PROVIDERS.generic_android)
     };
 };
 
@@ -337,14 +340,22 @@ const checkMobileUpdate = async ({ target, automatic = false } = {}) => {
             return {
                 ok: true,
                 platform,
-                update: { available: false, reason: 'manifest-not-configured' },
+                update: {
+                    available: false,
+                    reason: 'manifest-not-configured',
+                    storeCapability: androidStore.capability
+                },
                 opened
             };
         }
         return {
             ok: true,
             platform,
-            update: { available: false, reason: 'manifest-not-configured' },
+            update: {
+                available: false,
+                reason: 'manifest-not-configured',
+                storeCapability: androidStore.capability
+            },
             opened: false
         };
     }
