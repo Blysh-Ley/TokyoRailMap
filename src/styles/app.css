@@ -937,6 +937,17 @@ body[data-mobile-ui='1'] .mobile-menu-company-logo-slot {
     overflow: hidden;
 }
 
+html[data-mobile-ui='1'] .mobile-menu-company-logo-slot[hidden],
+body[data-mobile-ui='1'] .mobile-menu-company-logo-slot[hidden] {
+    display: none !important;
+}
+
+html[data-mobile-ui='1'] .mobile-menu-company-row[data-company-logo-hidden='1'] .mobile-menu-row-text,
+body[data-mobile-ui='1'] .mobile-menu-company-row[data-company-logo-hidden='1'] .mobile-menu-row-text {
+    align-items: flex-start;
+    text-align: left;
+}
+
 html[data-mobile-ui='1'] .mobile-menu-company-logo,
 body[data-mobile-ui='1'] .mobile-menu-company-logo {
     flex: 0 1 auto;

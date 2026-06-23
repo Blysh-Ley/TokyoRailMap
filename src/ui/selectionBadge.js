@@ -29,6 +29,7 @@ export const createSelectionBadge = ({ host = document.body } = {}) => {
     const show = ({ text, color, icons = [] } = {}) => {
         clearChildren(iconEl);
         appendNodes(iconEl, icons);
+        iconEl.style.display = icons.length ? '' : 'none';
         textEl.textContent = String(text ?? '');
         textEl.style.color = String(color || '');
         root.classList.remove('is-hidden');
@@ -36,6 +37,7 @@ export const createSelectionBadge = ({ host = document.body } = {}) => {
 
     const clear = () => {
         clearChildren(iconEl);
+        iconEl.style.display = 'none';
         textEl.textContent = '';
         textEl.style.color = '';
         root.classList.add('is-hidden');

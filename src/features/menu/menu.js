@@ -14,9 +14,10 @@
  */
 
 import { ensureLineIconForRwLineContent, prependLineIconElements } from '../../lib/line-icons.js';
-import { COMPANY_LOGO_BASE_PATH, getCompanyLogoCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
+import { COMPANY_LOGO_BASE_PATH, getCompanyLogoCandidates, getPreferredCachedImageSrc, setImageElementFromCache, shouldHideCompanyLogos } from '../../lib/fetch.js';
 import { THROUGH_SERVICE_CONFIGS } from '../../lib/throughServiceManager.js';
 import { isBranchLineId, preferredOrder, resolveMainLineIdByBranchRule } from '../../lib/special-condition.js';
+import { bindCompanyLogoFailure } from '../../ui/companyLogoVisibility.js';
 
 const shouldHideInMenuByZhFreight = (meta) => {
     const zhName = String(meta?.simplified || '').trim();
@@ -648,7 +649,7 @@ export class Menu {
                 leftBox.appendChild(typeSpan);
             }
 
-            const logoFile = company.logoFile;
+            const logoFile = shouldHideCompanyLogos() ? '' : company.logoFile;
             const logoWidth = company.logoWidth || 28;
             let rightEl;
 
@@ -657,6 +658,7 @@ export class Menu {
                 img.className = 'RW-company-logo';
                 if (company.shouldReverseLogo) img.classList.add('reverse-color');
                 img.alt = companyName;
+                bindCompanyLogoFailure(img);
                 const candidates = getCompanyLogoCandidates(logoFile);
                 setImageElementFromCache(img, candidates, {
                     cacheKey: `companyLogo:${logoFile}`,
@@ -665,13 +667,11 @@ export class Menu {
                 img.style.width = `${logoWidth}px`;
                 rightEl = img;
             } else {
-                const placeholder = document.createElement('span');
-                placeholder.className = 'RW-company-logo RW-company-logo--placeholder';
-                rightEl = placeholder;
+                rightEl = null;
             }
 
             companyContent.appendChild(leftBox);
-            companyContent.appendChild(rightEl);
+            if (rightEl) companyContent.appendChild(rightEl);
 
             company.lines.forEach(({ lineId, lineName, isVirtualThrough, virtualCodes, virtualColor }) => {
                 // 线路项 + 运行模式子菜单

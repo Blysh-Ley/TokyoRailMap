@@ -46,6 +46,34 @@ const MAX_RESOLVED_IMAGE_SRC_ENTRIES = 512;
 
 let imageLoadRequestSeq = 0;
 
+const getCapacitorPlatform = (target = globalThis) => {
+    const capacitor = target?.Capacitor;
+    try {
+        if (typeof capacitor?.getPlatform === 'function') {
+            return normalizeText(capacitor.getPlatform()).toLowerCase();
+        }
+    } catch {
+        // ignore broken platform probes
+    }
+    return normalizeText(capacitor?.platform).toLowerCase();
+};
+
+const isIosNativeRuntime = (target = globalThis) => {
+    const capacitor = target?.Capacitor;
+    if (!capacitor) return false;
+    if (getCapacitorPlatform(target) !== 'ios') return false;
+    try {
+        if (typeof capacitor.isNativePlatform === 'function') {
+            return capacitor.isNativePlatform() === true;
+        }
+    } catch {
+        return false;
+    }
+    return true;
+};
+
+export const shouldHideCompanyLogos = (target = globalThis) => isIosNativeRuntime(target);
+
 const toAbsoluteUrl = (input) => {
     try {
         if (typeof input === 'string') return new URL(input, window.location.href).href;
@@ -393,6 +421,8 @@ export const clearFetchCache = ({ preserveImages = true, preserveResponses = tru
 };
 
 export const getCompanyLogoSrc = (companyKey, companyLogoMap = state.companyLogoMap) => {
+    if (shouldHideCompanyLogos()) return '';
+
     const key = normalizeText(companyKey);
     if (!key) return '';
 
@@ -405,6 +435,8 @@ export const getCompanyLogoSrc = (companyKey, companyLogoMap = state.companyLogo
 };
 
 export const preloadCompanyLogos = async (companyLogoMap = state.companyLogoMap, { concurrency = 8 } = {}) => {
+    if (shouldHideCompanyLogos()) return { total: 0, loaded: 0, skipped: true };
+
     const map = companyLogoMap && typeof companyLogoMap === 'object' ? companyLogoMap : {};
     const files = Array.from(new Set(
         Object.values(map)

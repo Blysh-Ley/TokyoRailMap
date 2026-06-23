@@ -1,3 +1,5 @@
+import { bindCompanyLogoFailure } from './companyLogoVisibility.js';
+
 const toText = (value) => String(value ?? '').trim();
 
 const createLineBadgeIconModel = ({ routeId, code = '', color = '' } = {}) => ({
@@ -78,7 +80,8 @@ export const createSelectionBadgeAdapter = ({
     badge,
     createLineIconElement,
     getCompanyLogoCandidates = () => [],
-    setImageElementFromCache = () => Promise.resolve()
+    setImageElementFromCache = () => Promise.resolve(),
+    shouldHideCompanyLogos = () => false
 } = {}) => {
     if (!badge) {
         throw new Error('selectionBadgeAdapter requires badge');
@@ -93,11 +96,13 @@ export const createSelectionBadgeAdapter = ({
 
     const createCompanyLogo = ({ file, alt } = {}) => {
         const logoFile = toText(file);
+        if (shouldHideCompanyLogos()) return null;
         if (!logoFile) return null;
 
         const logoIcon = document.createElement('img');
         logoIcon.className = 'selection-badge-company-logo';
         logoIcon.alt = toText(alt);
+        bindCompanyLogoFailure(logoIcon);
         logoIcon.decoding = 'async';
         logoIcon.loading = 'eager';
         logoIcon.style.height = '25px';

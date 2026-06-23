@@ -1,5 +1,6 @@
 import { ensureLineIconForRwLineContent, prependLineIconElements } from '../../lib/line-icons.js';
-import { getCompanyLogoCandidates, setImageElementFromCache } from '../../lib/fetch.js';
+import { getCompanyLogoCandidates, setImageElementFromCache, shouldHideCompanyLogos } from '../../lib/fetch.js';
+import { bindCompanyLogoFailure } from '../../ui/companyLogoVisibility.js';
 import {
     DEFAULT_MOBILE_SHEET_PEEK_PX,
     createMobileSheetDragSession,
@@ -30,12 +31,14 @@ const findCompany = (model, companyName) => (
 );
 
 const createCompanyLogo = (doc, company) => {
+    if (shouldHideCompanyLogos()) return null;
     const logoFile = toText(company?.logoFile);
     if (!logoFile) return null;
     const img = createEl(doc, 'img', 'mobile-menu-company-logo', {
         alt: company?.displayName || company?.companyName || ''
     });
     if (company?.shouldReverseLogo) img.classList.add('reverse-color');
+    bindCompanyLogoFailure(img);
     img.decoding = 'async';
     img.loading = 'eager';
     const logoWidth = Number(company?.logoWidth);
@@ -51,7 +54,17 @@ const createCompanyLogo = (doc, company) => {
 const createCompanyLogoSlot = (doc, company) => {
     const slot = createEl(doc, 'span', 'mobile-menu-company-logo-slot', { 'aria-hidden': 'true' });
     const logo = createCompanyLogo(doc, company);
+    if (!logo) {
+        slot.hidden = true;
+        return slot;
+    }
     if (logo) slot.appendChild(logo);
+    return slot;
+};
+
+const appendCompanyLogoSlot = (doc, button, company) => {
+    const slot = button.appendChild(createCompanyLogoSlot(doc, company));
+    if (slot?.hidden) button.setAttribute('data-company-logo-hidden', '1');
     return slot;
 };
 
@@ -178,7 +191,7 @@ export const createMobileMenu = ({
             const text = createEl(doc, 'span', 'mobile-menu-row-text');
             const main = createEl(doc, 'span', 'mobile-menu-row-main', { text: company.displayName || company.companyName });
             text.appendChild(main);
-            button.appendChild(createCompanyLogoSlot(doc, company));
+            appendCompanyLogoSlot(doc, button, company);
             button.appendChild(text);
             button.appendChild(createEl(doc, 'span', 'mobile-menu-row-chevron', { text: '›', 'aria-hidden': 'true' }));
             item.appendChild(button);

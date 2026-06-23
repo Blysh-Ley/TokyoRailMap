@@ -1,7 +1,8 @@
 import { loadRailGeoDataFromDataFolder } from '../../lib/data.js';
 import { createLineIconElement, getRoutesIndex, resolveMainLineIdForIcon } from '../../lib/line-icons.js';
-import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
+import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache, shouldHideCompanyLogos } from '../../lib/fetch.js';
 import { buildCompactTripDetailTransferLineItemHtmls } from '../panel/panelTripDetailTransfers.js';
+import { bindCompanyLogoFailure } from '../../ui/companyLogoVisibility.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -25,8 +26,10 @@ function buildResultIcon(item) {
     if (!item || !item.type) return buildResultIcon({ type: 'station' });
 
     if (item.type === 'company') {
+        if (shouldHideCompanyLogos()) return null;
         const wrap = el('span', 'search-result-icon');
         const img = el('img', 'search-result-icon--company', { alt: '' });
+        bindCompanyLogoFailure(img);
         
         // 优先使用 ID 动态解析 logoUrl，避免 Blob URL 失效
         let url = item.logoUrl;
@@ -1172,7 +1175,7 @@ export function mountSearchUI() {
                     }
                     text.style.flex = '1 1 auto';
 
-                    row.appendChild(icon);
+                    if (icon) row.appendChild(icon);
                     row.appendChild(text);
 
                     const favoriteBtn = createHistoryFavoriteButton(item);
@@ -1401,7 +1404,7 @@ export function mountSearchUI() {
                     text = el('div', 'search-result-text', { text: item?.text ?? '' });
                 }
 
-                row.appendChild(icon);
+                if (icon) row.appendChild(icon);
                 row.appendChild(text);
 
                 // ===== 交互：mouse hover 0.5s 预览；mouse click 提交 =====

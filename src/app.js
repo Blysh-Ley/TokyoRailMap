@@ -8,7 +8,8 @@ import {
     preloadAllDataAssets,
     preloadIcons,
     registerCompanyLogoMap,
-    setImageElementFromCache
+    setImageElementFromCache,
+    shouldHideCompanyLogos
 } from './lib/fetch.js';
 import { loadRailGeoDataFromDataFolder } from './lib/data.js';
 import {
@@ -37,6 +38,7 @@ import { buildTransferCapsuleGeoJSON, addTransferCapsuleLayers, buildTransferCap
 import { installMapAttributionView } from './ui/mapAttributionView.js';
 import { installMobileBottomNav, MOBILE_BOTTOM_NAV_EVENT } from './ui/mobileBottomNav.js';
 import { createMobileUiModeController } from './ui/mobileUiMode.js';
+import { installCompanyLogoFailureVisibility } from './ui/companyLogoVisibility.js';
 import { Menu, buildMenuModel } from './features/menu/menu.js';
 import { createMobileMenu } from './features/menu/mobileMenu.js';
 import { getGlobalTouchTapGuard } from './map/touchTapGuard.js';
@@ -138,6 +140,7 @@ import { registerTokyoRailMapRuntime } from './app/runtimeFacade.js';
 import { mountAppSettingsControls } from './app/settingsControlsRuntime.js';
 
 initializeFetchCache();
+installCompanyLogoFailureVisibility();
 
 try {
     preloadIcons([
@@ -1298,7 +1301,8 @@ const initMapApp = async () => {
         badge: selectionBadge,
         createLineIconElement,
         getCompanyLogoCandidates,
-        setImageElementFromCache
+        setImageElementFromCache,
+        shouldHideCompanyLogos
     });
     const baseHighlightEventBridge = createBaseHighlightEventBridge({ target: window });
 
