@@ -1,5 +1,6 @@
 import { getLineMetaByIds } from './search.js';
 import { getCachedJson } from '../../lib/fetch.js';
+import { buildAlternateLineMembership } from '../../domain/alternateLineMembership.js';
 import {
     formatDuration,
     getServiceDayStartMs,
@@ -36,6 +37,8 @@ import {
 import {
     buildRailPreviewSegment,
     buildTripPreviewPayloadFromSegments,
+    resolveAlternateRoutePlanningStationIdentity,
+    rewriteTripPreviewSegmentsForAlternateMembership,
     rowsToCompactStationIds
 } from '../../domain/routePlanning/displayRows.js';
 
@@ -67,6 +70,7 @@ export const plannerState = {
     stationNameById: new Map(),
     stationCoordById: new Map(),
     lineMetaById: new Map(),
+    alternateLineMembership: null,
     lineTripsCache: new Map(),
     tripByIdByDay: new Map(),
     mergedThroughRootByTripIdByDay: new Map(),
@@ -214,11 +218,12 @@ export const ensurePlannerStaticData = async () => {
     if (plannerState.staticLoadingPromise) return plannerState.staticLoadingPromise;
 
     plannerState.staticLoadingPromise = (async () => {
-        const [railways, groups, trainTypes, stationList] = await Promise.all([
+        const [railways, groups, trainTypes, stationList, coordinates] = await Promise.all([
             getCachedJson('./data/railways.json'),
             getCachedJson('./data/station-groups.json'),
             getCachedJson('./data/train-types.json'),
-            getCachedJson('./data/stations.json')
+            getCachedJson('./data/stations.json'),
+            getCachedJson('./data/coordinates.json')
         ]);
 
         const groupByStop = new Map();
@@ -292,6 +297,11 @@ export const ensurePlannerStaticData = async () => {
         plannerState.typeMetaById = typeMetaById;
         plannerState.stationNameById = stationNameById;
         plannerState.stationCoordById = stationCoordById;
+        plannerState.alternateLineMembership = buildAlternateLineMembership({
+            railways,
+            stations: stationList,
+            coordinates
+        });
         plannerState.staticReady = true;
     })();
 
@@ -433,6 +443,97 @@ const buildLineDescriptorText = (lineMeta) => {
     let lineName = rawName;
     if (lineName.startsWith(abb)) lineName = normalizeText(lineName.slice(abb.length));
     return normalizeText(`${abb}${lineName}`) || rawName;
+};
+
+const applyAlternateMembershipToPlanDetailBlocks = async (blocks) => {
+    if (!plannerState.alternateLineMembership) return Array.isArray(blocks) ? blocks : [];
+
+    const hasStationId = (stationId) => plannerState.stationNameById.has(normalizeText(stationId));
+    const buildRideBlockForLine = async (block, lineId, rows, isAlternateDisplayIdentity = false) => {
+        const meta = await getLineMeta(lineId);
+        return {
+            ...block,
+            lineId,
+            routeId: lineId,
+            lineName: normalizeText(meta?.name || lineId),
+            lineDisplayName: buildLineDescriptorText(meta),
+            lineColor: meta?.color || null,
+            isAlternateDisplayIdentity,
+            rows
+        };
+    };
+    const out = [];
+    for (const block of Array.isArray(blocks) ? blocks : []) {
+        if (block?.kind !== 'ride') {
+            out.push(block);
+            continue;
+        }
+
+        const lineId = normalizeText(block?.lineId || block?.routeId || '');
+        const rows = Array.isArray(block?.rows) ? block.rows : [];
+        if (!lineId || !rows.length) {
+            out.push(block);
+            continue;
+        }
+
+        const alternateLineIds = new Set();
+        const resolvedRows = rows.map((row) => {
+            const sourceStationId = normalizeText(row?.stationId || '');
+            const alternate = resolveAlternateRoutePlanningStationIdentity({
+                alternateLineMembership: plannerState.alternateLineMembership,
+                hasStationId,
+                lineId,
+                stationId: sourceStationId
+            });
+            if (!alternate?.lineId || !alternate?.stationId) return { row, alternate: null };
+
+            alternateLineIds.add(alternate.lineId);
+            return { row, alternate, sourceStationId };
+        });
+        const alternateMetaByLineId = new Map();
+        for (const alternateLineId of alternateLineIds) {
+            alternateMetaByLineId.set(alternateLineId, await getLineMeta(alternateLineId));
+        }
+        const mappedRows = resolvedRows.map(({ row, alternate, sourceStationId }) => {
+            if (!alternate) return row;
+            const alternateMeta = alternateMetaByLineId.get(alternate.lineId) || null;
+            return {
+                ...(row || {}),
+                displayLineColor: alternateMeta?.color || null,
+                displayLineId: alternate.lineId,
+                sourceStationId,
+                stationId: alternate.stationId,
+                stationName: getStationNameById(alternate.stationId)
+            };
+        });
+        if (!alternateLineIds.size) {
+            out.push(block);
+            continue;
+        }
+
+        let currentLineId = '';
+        let currentRows = [];
+        const flushCurrentRows = async () => {
+            if (!currentLineId || !currentRows.length) return;
+            out.push(await buildRideBlockForLine(
+                block,
+                currentLineId,
+                currentRows,
+                true
+            ));
+            currentLineId = '';
+            currentRows = [];
+        };
+
+        for (const row of mappedRows) {
+            const rowLineId = normalizeText(row?.displayLineId || lineId);
+            if (currentLineId && currentLineId !== rowLineId) await flushCurrentRows();
+            currentLineId = rowLineId;
+            currentRows.push(row);
+        }
+        await flushCurrentRows();
+    }
+    return out;
 };
 
 const hasTripNmMarker = (tripLike) => {
@@ -1692,6 +1793,7 @@ export const buildPlanDetailBlocks = async ({ plan, legsOverride, sectionsOverri
                     if (!rows.length) continue;
                     blocks.push({
                         kind: 'ride',
+                        lineId: normalizeText(seg?.lineId),
                         lineName: normalizeText(lineMeta?.name || seg?.lineId),
                         lineDisplayName: buildLineDescriptorText(lineMeta),
                         lineColor: lineMeta?.color || null,
@@ -1716,6 +1818,7 @@ export const buildPlanDetailBlocks = async ({ plan, legsOverride, sectionsOverri
 
                 blocks.push({
                     kind: 'ride',
+                    lineId: firstLineId,
                     lineName: normalizeText(firstMeta?.name || firstLineId),
                     lineDisplayName,
                     lineColor: firstMeta?.color || null,
@@ -1727,7 +1830,7 @@ export const buildPlanDetailBlocks = async ({ plan, legsOverride, sectionsOverri
 
             if (i < sectionSource.length - 1) blocks.push({ kind: 'transfer' });
         }
-        return blocks;
+        return applyAlternateMembershipToPlanDetailBlocks(blocks);
     }
 
     const resolved = [];
@@ -1762,6 +1865,7 @@ export const buildPlanDetailBlocks = async ({ plan, legsOverride, sectionsOverri
                 if (!rows.length) continue;
                 blocks.push({
                     kind: 'ride',
+                    lineId: normalizeText(seg?.lineId),
                     lineName: normalizeText(lineMeta?.name || seg?.lineId),
                     lineDisplayName: buildLineDescriptorText(lineMeta),
                     lineColor: lineMeta?.color || null,
@@ -1793,6 +1897,7 @@ export const buildPlanDetailBlocks = async ({ plan, legsOverride, sectionsOverri
             if (rows.length) {
                 blocks.push({
                     kind: 'ride',
+                    lineId: normalizeText(leg?.lineId),
                     lineName: normalizeText(lineMeta?.name || leg?.lineId),
                     lineDisplayName: buildLineDescriptorText(lineMeta),
                     lineColor: lineMeta?.color || null,
@@ -1813,7 +1918,7 @@ export const buildPlanDetailBlocks = async ({ plan, legsOverride, sectionsOverri
         if (!through) blocks.push({ kind: 'transfer' });
     }
 
-    return blocks;
+    return applyAlternateMembershipToPlanDetailBlocks(blocks);
 };
 
 export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan }) => {
@@ -1901,10 +2006,16 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
         }
     }
 
+    const previewSegments = rewriteTripPreviewSegmentsForAlternateMembership({
+        alternateLineMembership: plannerState.alternateLineMembership,
+        hasStationId: (stationId) => plannerState.stationNameById.has(normalizeText(stationId)),
+        segments
+    });
+
     return buildTripPreviewPayloadFromSegments({
         row,
         displayPlan,
-        segments,
+        segments: previewSegments,
         toHHMM
     });
 };

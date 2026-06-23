@@ -875,9 +875,9 @@ export const renderPanelTripDetailGridStopCellsSharedStation = ({
     const s = stop || {};
     const timeCol = Math.max(1, Number(timeColStart) || 1);
     const stationCol = Math.max(1, Number(stationColStart) || 1);
-    const stationId = toText(s.stationId);
+    const stationId = toText(s.displayStationId || s.stationId);
     const pastCls = s.isPast ? ' is-past' : '';
-    const safeLineColor = toText(lineColor);
+    const safeLineColor = toText(s.displayLineColor || lineColor);
     const markerCol = Number(rowMarkerCol) || 0;
     const markerText = toText(rowMarkerText);
     const transferCol = Math.max(0, Number(transferColStart) || 0);
@@ -886,11 +886,11 @@ export const renderPanelTripDetailGridStopCellsSharedStation = ({
         style: `grid-column:${stationCol};`,
         dataStationId: stationId,
         arrivalTime: toText(s.arr || s.dep || ''),
-        lineId: toText(s.lineId || lineId),
+        lineId: toText(s.displayLineId || s.lineId || lineId),
         lineColor: safeLineColor,
         muted: !!s.isPast,
         stationCode: toText(stationCode),
-        stationName: toText(stationName || s.stationName || stationId),
+        stationName: toText(stationName || s.displayStationName || s.stationName || stationId),
         stationId
     });
     const timeHtml = `<div class="panel-trip-detail-time panel-trip-detail-moment panel-trip-detail-grid-cell${pastCls}" style="grid-column:${timeCol} / span 2;">${renderTripDetailMomentHtml(s)}</div>`;
@@ -969,7 +969,7 @@ export const renderPanelTripDetailGridLaneBlock = ({
     const safeLineColor = toText(lineColor);
     const safeLineId = toText(lineId || descriptor?.lineId);
     for (const row of safeRows) {
-        const stationId = toText(row?.stationId);
+        const stationId = toText(row?.displayStationId || row?.stationId);
         html += renderPanelTripDetailGridStopCellsSharedStation({
             stop: { ...(row || {}), lineColor: safeLineColor, lineId: toText(row?.lineId || safeLineId) },
             timeColStart,
@@ -980,8 +980,8 @@ export const renderPanelTripDetailGridLaneBlock = ({
             lineId: safeLineId,
             rowMarkerCol: flowMarkerCol,
             rowMarkerText,
-            stationCode: toText(resolveStationCode(stationId)),
-            stationName: toText(row?.stationName || stationId),
+            stationCode: toText(row?.displayStationCode || resolveStationCode(stationId)),
+            stationName: toText(row?.displayStationName || row?.stationName || stationId),
             renderPanelTripDetailStationCellHtml,
             renderTripDetailMomentHtml,
             escapeHtml,
@@ -1163,7 +1163,7 @@ export const renderPanelTripDetailBranchGridRows = ({
             ? (laneRowsForBreak[0] || null)
             : (laneRowsForBreak[laneRowsForBreak.length - 1] || null);
         const breakIsPast = !!breakStop?.isPast;
-        const breakStationId = toText(breakStop?.stationId || '');
+        const breakStationId = toText(breakStop?.displayStationId || breakStop?.stationId || '');
         return renderPanelTripDetailBranchBreakRow({
             branchMode,
             breakStop,
@@ -1172,10 +1172,10 @@ export const renderPanelTripDetailBranchGridRows = ({
             primaryTimeColStart,
             stationColStart,
             firstBranchMarkerCol,
-            lineId: toText(primaryLane?.descriptor?.lineId || primaryLane?.lineId || mainDescriptor?.lineId),
-            lineColor: toText(primaryLane?.descriptor?.color || mainDescriptor?.color || typeColor || ''),
-            stationCode: breakStationId ? toText(resolveStationCode(breakStationId) || '') : '',
-            stationName: toText(breakStop?.stationName || breakStationId),
+            lineId: toText(breakStop?.displayLineId || primaryLane?.descriptor?.lineId || primaryLane?.lineId || mainDescriptor?.lineId),
+            lineColor: toText(breakStop?.displayLineColor || primaryLane?.descriptor?.color || mainDescriptor?.color || typeColor || ''),
+            stationCode: breakStationId ? toText(breakStop?.displayStationCode || resolveStationCode(breakStationId) || '') : '',
+            stationName: toText(breakStop?.displayStationName || breakStop?.stationName || breakStationId),
             buildTimetableStationText,
             renderPanelTripDetailGridMarkerCell,
             renderPanelTripDetailStationCellHtml,

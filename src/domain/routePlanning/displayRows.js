@@ -1,3 +1,5 @@
+import { getPairMapValue } from '../alternateLineMembership.js';
+
 const normalizeText = (value) => String(value ?? '').trim();
 
 export const compactStationIds = (stationIds) => {
@@ -65,6 +67,112 @@ export const buildTripPreviewPayloadFromSegments = ({
         fitMode: 'preview',
         segments: list
     };
+};
+
+const getStationTailToken = (stationId) => {
+    const parts = normalizeText(stationId).split('.').map(normalizeText).filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : '';
+};
+
+export const resolveAlternateRoutePlanningStationIdentity = ({
+    alternateLineMembership = null,
+    hasStationId = () => false,
+    lineId = '',
+    stationId = ''
+} = {}) => {
+    const sourceLineId = normalizeText(lineId);
+    const sourceStationId = normalizeText(stationId);
+    if (!sourceLineId || !sourceStationId) return null;
+
+    const alternateLineId = getPairMapValue(
+        alternateLineMembership?.alternateLineIdByLineStationId,
+        sourceLineId,
+        sourceStationId
+    );
+    if (!alternateLineId) return null;
+
+    const directStationId = getPairMapValue(
+        alternateLineMembership?.alternateStationIdByLineStationId,
+        sourceLineId,
+        sourceStationId
+    );
+    if (directStationId) return { lineId: alternateLineId, stationId: directStationId };
+
+    const tail = getStationTailToken(sourceStationId);
+    const sameTailStationId = tail ? `${alternateLineId}.${tail}` : '';
+    if (sameTailStationId && hasStationId(sameTailStationId)) {
+        return { lineId: alternateLineId, stationId: sameTailStationId };
+    }
+
+    return null;
+};
+
+const pushAlternatePreviewPairSegment = (segments, baseSegment, lineId, stationIds) => {
+    const resolvedLineId = normalizeText(lineId);
+    const ids = compactStationIds(stationIds);
+    if (!resolvedLineId || !ids.length) return;
+
+    const prev = segments[segments.length - 1];
+    if (
+        prev
+        && normalizeText(prev.lineId) === resolvedLineId
+        && normalizeText(prev.d) === normalizeText(baseSegment?.d)
+        && normalizeText(prev.typeColor) === normalizeText(baseSegment?.typeColor)
+        && normalizeText(prev.stationIds?.[prev.stationIds.length - 1]) === ids[0]
+    ) {
+        prev.stationIds.push(...ids.slice(1));
+        return;
+    }
+
+    segments.push({
+        ...(baseSegment || {}),
+        lineId: resolvedLineId,
+        stationIds: ids
+    });
+};
+
+export const rewriteTripPreviewSegmentsForAlternateMembership = ({
+    alternateLineMembership = null,
+    hasStationId = () => false,
+    segments = []
+} = {}) => {
+    if (!alternateLineMembership) return Array.isArray(segments) ? segments : [];
+
+    const out = [];
+    for (const segment of Array.isArray(segments) ? segments : []) {
+        const lineId = normalizeText(segment?.lineId);
+        const stationIds = compactStationIds(segment?.stationIds);
+        if (!lineId || stationIds.length < 2) {
+            if (segment) out.push(segment);
+            continue;
+        }
+
+        let currentLineId = '';
+        let currentStationIds = [];
+        const flushCurrent = () => {
+            pushAlternatePreviewPairSegment(out, segment, currentLineId, currentStationIds);
+            currentLineId = '';
+            currentStationIds = [];
+        };
+
+        for (const stationId of stationIds) {
+            const alternate = resolveAlternateRoutePlanningStationIdentity({
+                alternateLineMembership,
+                hasStationId,
+                lineId,
+                stationId
+            });
+            const nextLineId = normalizeText(alternate?.lineId || lineId);
+            const nextStationId = normalizeText(alternate?.stationId || stationId);
+            if (!nextLineId || !nextStationId) continue;
+            if (currentLineId && currentLineId !== nextLineId) flushCurrent();
+            currentLineId = nextLineId;
+            currentStationIds.push(nextStationId);
+        }
+        flushCurrent();
+    }
+
+    return out;
 };
 
 export const calculateDisplayPlanTiming = ({ expandedLegs, plan, row } = {}) => {

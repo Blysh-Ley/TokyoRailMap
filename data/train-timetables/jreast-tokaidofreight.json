@@ -18,10 +18,10 @@
 		"JR-East.Tokaido.3076M.Weekday.1"
 	],
 	"tt": [{
-		"s": "JR-East.Tokaido.Fujisawa",
+		"s": "JR-East.TokaidoFreight.Fujisawa",
 		"d": "07:11"
 	}, {
-		"s": "JR-East.Tokaido.Shinagawa",
+		"s": "JR-East.TokaidoFreight.Shinagawa",
 		"a": "07:49"
 	}],
 	"nm": [{
@@ -52,10 +52,10 @@
 		"JR-East.Yokosuka.3078M.Weekday"
 	],
 	"tt": [{
-		"s": "JR-East.Tokaido.Fujisawa",
+		"s": "JR-East.TokaidoFreight.Fujisawa",
 		"d": "07:23"
 	}, {
-		"s": "JR-East.Yokosuka.Shinagawa",
+		"s": "JR-East.TokaidoFreight.Shinagawa",
 		"a": "08:03"
 	}],
 	"nm": [{
@@ -86,10 +86,10 @@
 		"JR-East.Yokosuka.3080M.Weekday"
 	],
 	"tt": [{
-		"s": "JR-East.Tokaido.Fujisawa",
+		"s": "JR-East.TokaidoFreight.Fujisawa",
 		"d": "08:00"
 	}, {
-		"s": "JR-East.Yokosuka.Shinagawa",
+		"s": "JR-East.TokaidoFreight.Shinagawa",
 		"a": "08:38"
 	}],
 	"nm": [{

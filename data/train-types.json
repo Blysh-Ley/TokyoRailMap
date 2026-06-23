@@ -1,1614 +1,1826 @@
-[{
-	"id": "JR-East.ChuoSpecialRapid",
-	"title": {
-		"en": "Chuo Special Rapid",
-		"ja": "中央特快",
-		"ko": "주오 특별쾌속",
-		"zh-Hans": "中央特快",
-		"zh-Hant": "中央特快",
-		"color": "#0299CB"
-	}
-}, {
-	"id": "JR-East.CommuterRapid",
-	"title": {
-		"en": "Commuter Rapid",
-		"ja": "通勤快速",
-		"ko": "통근쾌속",
-		"zh-Hans": "通勤快速",
-		"zh-Hant": "通勤快速",
-		"color":"#00CBC9"
-	}
-}, {
-	"id": "JR-East.CommuterSpecialRapid",
-	"title": {
-		"en": "Commuter Special Rapid",
-		"ja": "通勤特快",
-		"ko": "통근 특별쾌속",
-		"zh-Hans": "通勤特快",
-		"zh-Hant": "通勤特快",
-		"color": "#FF3366"
-	}
-}, {
-	"id": "JR-East.Express",
-	"title": {
-		"en": "Express",
-		"ja": "急行",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行",
-		"color":"#0032FF"
-	}
-}, {
-	"id": "JR-East.LimitedExpress",
-	"title": {
-		"en": "Limited Express",
-		"ja": "特急",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急",
-		"color":"#FF1000"
-	}
-}, {
-	"id": "JR-East.Liner",
-	"title": {
-		"en": "Liner",
-		"ja": "ライナー",
-		"ko": "라이너",
-		"zh-Hans": "Liner",
-		"zh-Hant": "Liner"
-	}
-}, {
-	"id": "JR-East.Local",
-	"title": {
-		"en": "Local",
-		"ja": "普通",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "JR-East.OmeSpecialRapid",
-	"title": {
-		"en": "Ome Special Rapid",
-		"ja": "青梅特快",
-		"ko": "오메 특별쾌속",
-		"zh-Hans": "青梅特快",
-		"zh-Hant": "青梅特快",
-		"color": "#EB6519"
-	}
-}, {
-	"id": "JR-East.Rapid",
-	"title": {
-		"en": "Rapid",
-		"ja": "快速",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速",
-		"color":"#0032FF"
-	}
-}, {
-	"id": "JR-East.SpecialRapid",
-	"title": {
-		"en": "Special Rapid",
-		"ja": "特別快速",
-		"ko": "특별쾌속",
-		"zh-Hans": "特別快速",
-		"zh-Hant": "特別快速",
-		"color":"#A52A2A"
-	}
-}, {
-	"id": "TokyoMetro.CommuterExpress",
-	"title": {
-		"en": "Commuter Express",
-		"ja": "通勤急行",
-		"ko": "통근급행",
-		"zh-Hans": "通勤急行",
-		"zh-Hant": "通勤急行",
-		"color": "#0040FF"
-	}
-}, {
-	"id": "JR-Central.LimitedExpress",
-	"title": {
-		"en": "Limited Express",
-		"ja": "特急",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急"
-	}
-}, {
-	"id": "JR-Central.Local",
-	"title": {
-		"en": "Local",
-		"ja": "普通",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "TokyoMetro.CommuterLimitedExpress",
-	"title": {
-		"en": "Commuter Limited Express",
-		"ja": "通勤特急",
-		"ko": "통근특급",
-		"zh-Hans": "通勤特急",
-		"zh-Hant": "通勤特急",
-		"color": "#FF8A00"
-	}
-}, {
-	"id": "TokyoMetro.CommuterRapid",
-	"title": {
-		"en": "Commuter Rapid",
-		"ja": "通勤快速",
-		"ko": "통근쾌속",
-		"zh-Hans": "通勤快速",
-		"zh-Hant": "通勤快速",
-		"color": "#00CBC9"
-	}
-}, {
-	"id": "TokyoMetro.Express",
-	"title": {
-		"en": "Express",
-		"ja": "急行",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行",
-		"color": "#FC4226"
-	}
-}, {
-	"id": "TokyoMetro.F-Liner",
-	"title": {
-		"en": "F-Liner",
-		"ja": "Fライナー",
-		"ko": "F-라이너",
-		"zh-Hans": "F-liner",
-		"zh-Hant": "F-liner",
-		"color": "#01B050"
-	}
-}, {
-	"id": "TokyoMetro.LimitedExpress",
-	"title": {
-		"en": "Limited Express",
-		"ja": "特急",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急",
-		"color": "#FC4226"
-	}
-}, {
-	"id": "TokyoMetro.Local",
-	"title": {
-		"en": "Local",
-		"ja": "普通",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "TokyoMetro.RapidExpress",
-	"title": {
-		"en": "Rapid Express",
-		"ja": "快速急行",
-		"ko": "쾌속급행",
-		"zh-Hans": "快速急行",
-		"zh-Hant": "快速急行",
-		"color": "#C05EC4"
-	}
-}, {
-	"id": "TokyoMetro.Rapid",
-	"title": {
-		"en": "Rapid",
-		"ja": "快速",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速",
-		"color": "#00ACD1"
-	}
-}, {
-	"id": "TokyoMetro.S-TRAIN",
-	"title": {
-		"en": "S-TRAIN",
-		"ja": "Sトレイン",
-		"ko": "S-트레인",
-		"zh-Hans": "S-Train",
-		"zh-Hant": "S-Train",
-		"color": "#0270FF",
-		"surcharge": true
-	}
-}, {
-	"id": "TokyoMetro.SemiExpress",
-	"title": {
-		"en": "Semi Express",
-		"ja": "準急",
-		"ko": "준급",
-		"zh-Hans": "准急",
-		"zh-Hant": "準急",
-		"color": "#01B050"
-	}
-}, {
-	"id": "TokyoMetro.TH-LINER",
-	"title": {
-		"en": "TH-LINER",
-		"ja": "THライナー",
-		"ko": "준급",
-		"zh-Hans": "TH Liner",
-		"zh-Hant": "TH Liner",
-		"color": "#E70E12"
-	}
-}, {
-	"id": "TWR.CommuterRapid",
-	"title": {
-		"en": "Commuter Rapid",
-		"ja": "通勤快速",
-		"ko": "통근쾌속",
-		"zh-Hans": "通勤快速",
-		"zh-Hant": "通勤快速",
-		"color": "#CC0A00"
-	}
-}, {
-	"id": "TWR.Local",
-	"title": {
-		"en": "Local",
-		"ja": "各駅停車",
-		"ko": "각역정차",
-		"zh-Hans": "各站停车",
-		"zh-Hant": "各站停車"
-	}
-}, {
-	"id": "TWR.Rapid",
-	"title": {
-		"en": "Rapid",
-		"ja": "快速",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速",
-		"color": "#001A99"
-	}
-}, {
-	"id": "Toei.AccessExpress",
-	"title": {
-		"en": "Access Express",
-		"ja": "アクセス特急",
-		"ko": "엑세스특급",
-		"zh-Hans": "Access特急",
-		"zh-Hant": "Access特急",
-		"color": "#F47B22"
-	}
-}, {
-	"id": "Toei.AirportRapidLimitedExpress",
-	"title": {
-		"en": "Airport Rapid Limited Express",
-		"ja": "エアポート快特",
-		"ko": "에어포트 쾌속특급",
-		"zh-Hans": "机场快特",
-		"zh-Hant": "機場快特",
-		"color": "#0B7309",
-		"surcharge": false
-	}
-}, {
-	"id": "Toei.CommuterLimitedExpress",
-	"title": {
-		"en": "Commuter Limited Express",
-		"ja": "通勤特急",
-		"ko": "통근특급",
-		"zh-Hans": "通勤特急",
-		"zh-Hant": "通勤特急",
-		"color": "#1EB0E6"
-	}
-}, {
-	"id": "Toei.Express",
-	"title": {
-		"en": "Express",
-		"ja": "急行",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行",
-		"color": "#0059B2"
-	}
-}, {
-	"id": "Toei.LimitedExpress",
-	"title": {
-		"en": "Limited Express",
-		"ja": "特急",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急",
-		"color": "#9C2400"
-	}
-}, {
-	"id": "Toei.Local",
-	"title": {
-		"en": "Local",
-		"ja": "普通",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Toei.RapidLimitedExpress",
-	"title": {
-		"en": "Rapid Limited Express",
-		"ja": "快特",
-		"ko": "쾌속특급",
-		"zh-Hans": "快特",
-		"zh-Hant": "快特",
-		"color": "#0B7309"
-	}
-}, {
-	"id": "Toei.Rapid",
-	"title": {
-		"en": "Rapid",
-		"ja": "快速",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速",
-		"color": "#9C2400"
-	}
-}, {
-	"id": "YokohamaMunicipal.Local",
-	"title": {
-		"en": "Local",
-		"ja": "普通",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "YokohamaMunicipal.Rapid",
-	"title": {
-		"en": "Rapid",
-		"ja": "快速",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速",
-		"color": "#FF5802"
-	}
-}, {
-	"id": "Keio.Express",
-	"title": {
-		"en": "Express",
-		"ja": "急行",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行",
-		"color": "#07B08D"
-	}
-}, {
-	"id": "Keio.KeioLiner",
-	"title": {
-		"en": "Keio Liner",
-		"ja": "京王ライナー",
-		"ko": "케이오 라이너",
-		"zh-Hans": "Keio Liner",
-		"zh-Hant": "Keio Liner",
-		"color": "#CF197C"
-	}
-}, {
-	"id": "Keio.LimitedExpress",
-	"title": {
-		"en": "Limited Express",
-		"ja": "特急",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急",
-		"color": "#CF197C",
-		"surcharge": false
-	}
-}, {
-	"id": "Keio.Local",
-	"title": {
-		"en": "Local",
-		"ja": "各駅停車",
-		"ko": "각역정차",
-		"zh-Hans": "各站停车",
-		"zh-Hant": "各站停車"
-	}
-}, {
-	"id": "Keio.Rapid",
-	"title": {
-		"en": "Rapid",
-		"ja": "快速",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速",
-		"color": "#104E8C"
-	}
-}, {
-	"id": "Keio.SemiExpress",
-	"title": {
-		"en": "Semi Express",
-		"ja": "区間急行",
-		"ko": "구간급행",
-		"zh-Hans": "区间急行",
-		"zh-Hant": "區間急行",
-		"color": "#D3C426"
-	}
-}, {
-	"id": "Keikyu.AccessExpress",
-	"title": {
-		"en": "Access Express",
-		"ja": "アクセス特急",
-		"ko": "엑세스특급",
-		"zh-Hans": "Access特急",
-		"zh-Hant": "Access特急",
-		"color": "#F47B22"
-	}
-}, {
-	"id": "Keikyu.AirportRapidLimitedExpress",
-	"title": {
-		"en": "Airport Rapid Limited Express",
-		"ja": "エアポート快特",
-		"ko": "에어포트 쾌속특급",
-		"zh-Hans": "机场快特",
-		"zh-Hant": "機場快特",
-		"color": "#0B7309",
-		"surcharge": false
-	}
-}, {
-	"id": "Keikyu.CommuterLimitedExpress",
-	"title": {
-		"en": "Commuter Limited Express",
-		"ja": "通勤特急",
-		"ko": "통근특급",
-		"zh-Hans": "通勤特急",
-		"zh-Hant": "通勤特急"
-	}
-}, {
-	"id": "Keikyu.Express",
-	"title": {
-		"en": "Express",
-		"ja": "急行",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行",
-		"color": "#0E83C3"
-	}
-}, {
-	"id": "Keikyu.EveningWing",
-	"title": {
-		"en": "Evening Wing",
-		"ja": "イブニング・ウィング",
-		"ko": "저녁 윙",
-		"zh-Hans": "晚上翼号",
-		"zh-Hant": "晚上翼號",
-		"color":"#21B488"
-	}
-}, {
-	"id": "Keikyu.LimitedExpress",
-	"title": {
-		"en": "Limited Express",
-		"ja": "特急",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急",
-		"color": "#EA0E04",
-		"surcharge": false
-	}
-}, {
-	"id": "Keikyu.Local",
-	"title": {
-		"en": "Local",
-		"ja": "普通",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Keikyu.MorningWing",
-	"title": {
-		"en": "Morning Wing",
-		"ja": "モーニング・ウィング",
-		"ko": "모닝 윙",
-		"zh-Hans": "早上翼号",
-		"zh-Hant": "早上翼號",
-		"color":"#21B488"
-	}
-}, {
-	"id": "Keikyu.RapidLimitedExpress",
-	"title": {
-		"en": "Rapid Limited Express",
-		"ja": "快特",
-		"ko": "쾌속특급",
-		"zh-Hans": "快特",
-		"zh-Hant": "快特",
-		"color": "#379414"
-	}
-}, {
-	"id": "Keikyu.Rapid",
-	"title": {
-		"en": "Rapid",
-		"ja": "快速",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速",
-		"color": "#9C2400"
-	}
-}, {
-	"id": "Keisei.AccessExpress",
-	"title": {
-		"en": "Access Express",
-		"ja": "アクセス特急",
-		"ko": "엑세스특급",
-		"zh-Hans": "Access特急",
-		"zh-Hant": "Access特急",
-		"color":"#F47B22"
-	}
-}, {
-	"id": "Keisei.CommuterLimitedExpress",
-	"title": {
-		"en": "Commuter Limited Express",
-		"ja": "通勤特急",
-		"ko": "통근특급",
-		"zh-Hans": "通勤特急",
-		"zh-Hant": "通勤特急",
-		"color":"#1EB0E6"
-	}
-}, {
-	"id": "Keisei.Eveningliner",
-	"title": {
-		"en": "Eveningliner",
-		"ja": "イブニングライナー",
-		"ko": "이브닝 라이너",
-		"zh-Hans": "Evening Liner",
-		"zh-Hant": "Evening Liner",
-		"color":"#5464AE"
-	}
-}, {
-	"id": "Keisei.Express",
-	"title": {
-		"en": "Express",
-		"ja": "急行",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行"
-	}
-}, {
-	"id": "Keisei.LimitedExpress",
-	"title": {
-		"en": "Limited Express",
-		"ja": "特急",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急",
-		"color":"#EE3D56",
-		"surcharge": false
-	}
-}, {
-	"id": "Keisei.Local",
-	"title": {
-		"en": "Local",
-		"ja": "普通",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Keisei.Morningliner",
-	"title": {
-		"en": "Morningliner",
-		"ja": "モーニングライナー",
-		"ko": "모닝 라이너",
-		"zh-Hans": "Morning Liner",
-		"zh-Hant": "Morning Liner",
-		"color":"#5464AE"
-	}
-}, {
-	"id": "Keisei.RapidLimitedExpress",
-	"title": {
-		"en": "Rapid Limited Express",
-		"ja": "快速特急",
-		"ko": "쾌속특급",
-		"zh-Hans": "快速特急",
-		"zh-Hant": "快速特急",
-		"color":"#0FA268"
-	}
-}, {
-	"id": "Keisei.Rapid",
-	"title": {
-		"en": "Rapid",
-		"ja": "快速",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速",
-		"color":"#F386A0"
-	}
-}, {
-	"id": "Keisei.Skyliner",
-	"title": {
-		"en": "Skyliner",
-		"ja": "スカイライナー",
-		"ko": "스카이라이너",
-		"zh-Hans": "Skyliner",
-		"zh-Hant": "Skyliner",
-		"color":"#1E3267",
-		"bg":"#0A2D67"
-	}
-}, {
-	"id": "Hokuso.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Hokuso.Express",
-	"title": {
-		"ja": "急行",
-		"en": "Express",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行"
-	}
-}, {
-	"id": "Hokuso.LimitedExpress",
-	"title": {
-		"ja": "特急",
-		"en": "Limited Express",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急",
-		"color":"#EE3D56"
-	}
-}, {
-	"id": "Tobu.Express",
-	"title": {
-		"ja": "急行",
-		"en": "Express",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行",
-		"color": "#DF2E8B"
-	}
-}, {
-	"id": "Tobu.F-Liner",
-	"title": {
-		"ja": "Fライナー",
-		"en": "F-Liner",
-		"ko": "F-라이너",
-		"zh-Hans": "F-liner",
-		"zh-Hant": "F-liner",
-		"color": "#01B050"
-	}
-}, {
-	"id": "Tobu.KawagoeLimitedExpress",
-	"title": {
-		"ja": "川越特急",
-		"en": "Kawagoe Limited Express",
-		"ko": "가와고에 특급",
-		"zh-Hans": "川越特急",
-		"zh-Hant": "川越特急",
-		"color": "#B22F92"
-	}
-}, {
-	"id": "Tobu.LimitedExpress",
-	"title": {
-		"ja": "特急",
-		"en": "Limited Express",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急",
-		"color":"#024E9F"
-	}
-}, {
-	"id": "Tobu.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Tobu.RapidExpress",
-	"title": {
-		"ja": "快速急行",
-		"en": "Rapid Express",
-		"ko": "쾌속 급행",
-		"zh-Hans": "快速急行",
-		"zh-Hant": "快速急行",
-		"color": "#0062A9"
-	}
-}, {
-	"id": "Tobu.Rapid",
-	"title": {
-		"ja": "快速",
-		"en": "Rapid",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速"
-	}
-}, {
-	"id": "Tobu.SL-Taiju",
-	"title": {
-		"ja": "SL大樹",
-		"en": "SL-Taiju",
-		"ko": "SL 타이쥬",
-		"zh-Hans": "SL大树",
-		"zh-Hant": "SL大樹"
-	}
-}, {
-	"id": "Tobu.SectionExpress",
-	"title": {
-		"ja": "区間急行",
-		"en": "Section Express",
-		"ko": "구간 급행",
-		"zh-Hans": "区间急行",
-		"zh-Hant": "區間急行",
-		"color": "#F2A2C5"
-	}
-}, {
-	"id": "Tobu.SectionSemiExpress",
-	"title": {
-		"ja": "区間準急",
-		"en": "Section Semi Express",
-		"ko": "구간 준급",
-		"zh-Hans": "区间准急",
-		"zh-Hant": "區間準急",
-		"color": "#CAD30A"
-	}
-}, {
-	"id": "Tobu.SemiExpress",
-	"title": {
-		"ja": "準急",
-		"en": "Semi Express",
-		"ko": "준급",
-		"zh-Hans": "准急",
-		"zh-Hant": "準急",
-		"color": "#44B035"
-	}
-}, {
-	"id": "Tobu.TJ-Liner",
-	"title": {
-		"ja": "TJライナー",
-		"en": "TJ-Liner",
-		"ko": "TJ 라이너",
-		"zh-Hans": "TJ Liner",
-		"zh-Hant": "TJ Liner",
-		"color": "#03AB4D"
-	}
-}, {
-	"id": "Tobu.TH-LINER",
-	"title": {
-		"ja": "THライナー",
-		"en": "TH-LINER",
-		"ko": "TH 라이너",
-		"zh-Hans": "TH Liner",
-		"zh-Hant": "TH Liner",
-		"color": "#E70E12"
-	}
-}, {
-	"id": "Seibu.CommuterExpress",
-	"title": {
-		"en": "Commuter Express",
-		"ja": "通勤急行",
-		"ko": "통근 급행",
-		"zh-Hans": "通勤急行",
-		"zh-Hant": "通勤急行",
-		"color": "#FFB700"
-	}
-}, {
-	"id": "Seibu.CommuterSemiExpress",
-	"title": {
-		"en": "Commuter Semi Express",
-		"ja": "通勤準急",
-		"ko": "통근 준급",
-		"zh-Hans": "通勤准急",
-		"zh-Hant": "通勤準急",
-		"color": "#0072BA"
-	}
-}, {
-	"id": "Seibu.Express",
-	"title": {
-		"en": "Express",
-		"ja": "急行",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行",
-		"color": "#FF6B01"
-	}
-}, {
-	"id": "Seibu.F-Liner",
-	"title": {
-		"en": "F-Liner",
-		"ja": "Fライナー",
-		"ko": "F-라이너",
-		"zh-Hans": "F-liner",
-		"zh-Hant": "F-liner",
-		"color": "#01B050"
-	}
-}, {
-	"id": "Seibu.HaijimaLiner",
-	"title": {
-		"en": "Haijima Liner",
-		"ja": "拝島ライナー",
-		"ko": "하이지마 라이너",
-		"zh-Hans": "拜岛Liner",
-		"zh-Hant": "拜島Liner"
-	}
-}, {
-	"id": "Seibu.LimitedExpress",
-	"title": {
-		"en": "Limited Express",
-		"ja": "特急",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急",
-		"color": "#F7251C"
-	}
-}, {
-	"id": "Seibu.Local",
-	"title": {
-		"en": "Local",
-		"ja": "各駅停車",
-		"ko": "각역정차",
-		"zh-Hans": "各站停车",
-		"zh-Hant": "各站停車"
-	}
-}, {
-	"id": "Seibu.RapidExpress",
-	"title": {
-		"en": "Rapid Express",
-		"ja": "快速急行",
-		"ko": "쾌속 급행",
-		"zh-Hans": "快速急行",
-		"zh-Hant": "快速急行",
-		"color": "#C05EC4"
-	}
-}, {
-	"id": "Seibu.Rapid",
-	"title": {
-		"en": "Rapid",
-		"ja": "快速",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速",
-		"color": "#00ACD1"
-	}
-}, {
-	"id": "Seibu.S-TRAIN",
-	"title": {
-		"en": "S-TRAIN",
-		"ja": "Sトレイン",
-		"ko": "S-트레인",
-		"zh-Hans": "S-Train",
-		"zh-Hant": "S-Train",
-		"color": "#0270FF",
-		"surcharge": true
-	}
-}, {
-	"id": "Seibu.SemiExpress",
-	"title": {
-		"en": "Semi Express",
-		"ja": "準急",
-		"ko": "준급",
-		"zh-Hans": "准急",
-		"zh-Hant": "準急",
-		"color": "#00A794"
-	}
-}, {
-	"id": "Odakyu.CommuterExpress",
-	"title": {
-		"ja": "通勤急行",
-		"en": "Commuter Express",
-		"ko": "통근 급행",
-		"zh-Hans": "通勤急行",
-		"zh-Hant": "通勤急行",
-		"color": "#DC5215"
-	}
-}, {
-	"id": "Odakyu.CommuterSemiExpress",
-	"title": {
-		"ja": "通勤準急",
-		"en": "Commuter Semi Express",
-		"ko": "통근 준급",
-		"zh-Hans": "通勤准急",
-		"zh-Hant": "通勤準急",
-		"color": "#029970"
-	}
-}, {
-	"id": "Odakyu.Express",
-	"title": {
-		"ja": "急行",
-		"en": "Express",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行",
-		"color": "#DC5215"
-	}
-}, {
-	"id": "Odakyu.LimitedExpress",
-	"title": {
-		"ja": "特急",
-		"en": "Limited Express",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急",
-		"color":"#FF1000"
-	}
-}, {
-	"id": "Odakyu.Local",
-	"title": {
-		"ja": "各駅停車",
-		"en": "Local",
-		"ko": "각역정차",
-		"zh-Hans": "各站停车",
-		"zh-Hant": "各站停車"
-	}
-}, {
-	"id": "Odakyu.RapidExpress",
-	"title": {
-		"ja": "快速急行",
-		"en": "Rapid Express",
-		"ko": "쾌속 급행",
-		"zh-Hans": "快速急行",
-		"zh-Hant": "快速急行",
-		"color": "#E89401"
-	}
-}, {
-	"id": "Odakyu.SemiExpress",
-	"title": {
-		"ja": "準急",
-		"en": "Semi Express",
-		"ko": "준급",
-		"zh-Hans": "准急",
-		"zh-Hant": "準急",
-		"color": "#029970"
-	}
-}, {
-	"id": "OdakyuHakone.LimitedExpress",
-	"title": {
-		"ja": "特急",
-		"en": "Limited Express",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急"
-	}
-}, {
-	"id": "OdakyuHakone.Local",
-	"title": {
-		"ja": "各駅停車",
-		"en": "Local",
-		"ko": "각역정차",
-		"zh-Hans": "各站停车",
-		"zh-Hant": "各站停車"
-	}
-}, {
-	"id": "Tokyu.CommuterLimitedExpress",
-	"title": {
-		"en": "Commuter Limited Express",
-		"ja": "通勤特急",
-		"ko": "통근특급",
-		"zh-Hans": "通勤特急",
-		"zh-Hant": "通勤特急",
-		"color":"#FF8A00"
-	}
-}, {
-	"id": "Tokyu.Express",
-	"title": {
-		"en": "Express",
-		"ja": "急行",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行",
-		"color":"#FF1000"
-	}
-}, {
-	"id": "Tokyu.F-Liner",
-	"title": {
-		"en": "F-Liner",
-		"ja": "Fライナー",
-		"ko": "F-라이너",
-		"zh-Hans": "F-liner",
-		"zh-Hant": "F-liner",
-		"color":"#01B050"
-	}
-}, {
-	"id": "Tokyu.LimitedExpress",
-	"title": {
-		"en": "Limited Express",
-		"ja": "特急",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急",
-		"color":"#B222B0"
-	}
-}, {
-	"id": "Tokyu.Local",
-	"title": {
-		"en": "Local",
-		"ja": "各駅停車",
-		"ko": "각역정차",
-		"zh-Hans": "各站停车",
-		"zh-Hant": "各站停車"
-	}
-}, {
-	"id": "Tokyu.S-TRAIN",
-	"title": {
-		"en": "S-TRAIN",
-		"ja": "Sトレイン",
-		"ko": "S-트레인",
-		"zh-Hans": "S-Train",
-		"zh-Hant": "S-Train",
-		"color":"#0270FF",
-		"surcharge": true
-	}
-}, {
-	"id": "Tokyu.SemiExpress",
-	"title": {
-		"en": "Semi Express",
-		"ja": "準急",
-		"ko": "준급",
-		"zh-Hans": "准急",
-		"zh-Hant": "準急",
-		"color":"#01B050"
-	}
-}, {
-	"id": "Minatomirai.CommuterLimitedExpress",
-	"title": {
-		"ja": "通勤特急",
-		"en": "Commuter Limited Express",
-		"ko": "통근특급",
-		"zh-Hans": "通勤特急",
-		"zh-Hant": "通勤特急",
-		"color":"#FF8A00"
-	}
-}, {
-	"id": "Minatomirai.Express",
-	"title": {
-		"ja": "急行",
-		"en": "Express",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行",
-		"color":"#FF1000"
-	}
-}, {
-	"id": "Minatomirai.F-Liner",
-	"title": {
-		"ja": "Fライナー",
-		"en": "F-Liner",
-		"ko": "F-라이너",
-		"zh-Hans": "F-liner",
-		"zh-Hant": "F-liner",
-		"color":"#01B050"
-	}
-}, {
-	"id": "Minatomirai.LimitedExpress",
-	"title": {
-		"ja": "特急",
-		"en": "Limited Express",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急",
-		"color":"#B222B0"
-	}
-}, {
-	"id": "Minatomirai.Local",
-	"title": {
-		"ja": "各駅停車",
-		"en": "Local",
-		"ko": "각역정차",
-		"zh-Hans": "各站停车",
-		"zh-Hant": "各站停車"
-	}
-}, {
-	"id": "Minatomirai.S-TRAIN",
-	"title": {
-		"ja": "Sトレイン",
-		"en": "S-TRAIN",
-		"ko": "S-트레인",
-		"zh-Hans": "S-Train",
-		"zh-Hant": "S-Train",
-		"color":"#0270FF",
-		"surcharge": true
-	}
-}, {
-	"id": "Sotetsu.CommuterExpress",
-	"title": {
-		"ja": "通勤急行",
-		"en": "Commuter Express",
-		"ko": "통근급행",
-		"zh-Hans": "通勤急行",
-		"zh-Hant": "通勤急行",
-		"color": "#EB5757"
-	}
-}, {
-	"id": "Sotetsu.CommuterLimitedExpress",
-	"title": {
-		"ja": "通勤特急",
-		"en": "Commuter Limited Express",
-		"ko": "통근특급",
-		"zh-Hans": "通勤特急",
-		"zh-Hant": "通勤特急",
-		"color": "#F2994A"
-	}
-}, {
-	"id": "Sotetsu.Express",
-	"title": {
-		"ja": "急行",
-		"en": "Express",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行"
-	}
-}, {
-	"id": "Sotetsu.LimitedExpress",
-	"title": {
-		"ja": "特急",
-		"en": "Limited Express",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急",
-		"color": "#F2994A"
-	}
-}, {
-	"id": "Sotetsu.Local",
-	"title": {
-		"ja": "各駅停車",
-		"en": "Local",
-		"ko": "각역정차",
-		"zh-Hans": "各站停车",
-		"zh-Hant": "各站停車"
-	}
-}, {
-	"id": "Sotetsu.Rapid",
-	"title": {
-		"ja": "快速",
-		"en": "Rapid",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速",
-		"color": "#2E9CDB"
-	}
-}, {
-	"id": "SaitamaRailway.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "SaitamaRailway.Express",
-	"title": {
-		"ja": "急行",
-		"en": "Express",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行",
-		"color": "#FC4226"
-	}
-}, {
-	"id": "MIR.CommuterRapid",
-	"title": {
-		"en": "Commuter Rapid",
-		"ja": "通勤快速",
-		"ko": "통근쾌속",
-		"zh-Hans": "通勤快速",
-		"zh-Hant": "通勤快速",
-		"color":"#FF9827"
-	}
-}, {
-	"id": "MIR.Local",
-	"title": {
-		"en": "Local",
-		"ja": "普通",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "MIR.Rapid",
-	"title": {
-		"en": "Rapid",
-		"ja": "快速",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速",
-		"color":"#F72F5A"
-	}
-}, {
-	"id": "MIR.SemiRapid",
-	"title": {
-		"en": "Semi Rapid",
-		"ja": "区間快速",
-		"ko": "구간쾌속",
-		"zh-Hans": "区间快速",
-		"zh-Hant": "區間快速",
-		"color":"#0C81E0"
-	}
-}, {
-	"id": "ToyoRapid.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "ToyoRapid.Rapid",
-	"title": {
-		"ja": "快速",
-		"en": "Rapid",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速",
-		"color": "#00ACD1"
-	}
-}, {
-	"id": "ToyoRapid.CommuterRapid",
-	"title": {
-		"ja": "通勤快速",
-		"en": "Commuter Rapid",
-		"ko": "통근쾌속",
-		"zh-Hans": "通勤快速",
-		"zh-Hant": "通勤快速",
-		"color": "#00CBC9"
-	}
-}, {
-	"id": "Shibayama.CommuterLimitedExpress",
-	"title": {
-		"ja": "通勤特急",
-		"en": "Commuter Limited Express",
-		"ko": "통근특급",
-		"zh-Hans": "通勤特急",
-		"zh-Hant": "通勤特急"
-	}
-}, {
-	"id": "Shibayama.LimitedExpress",
-	"title": {
-		"ja": "特急",
-		"en": "Limited Express",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急"
-	}
-}, {
-	"id": "Shibayama.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Shibayama.RapidLimitedExpress",
-	"title": {
-		"ja": "快速特急",
-		"en": "Rapid Limited Express",
-		"ko": "쾌속특급",
-		"zh-Hans": "快速特急",
-		"zh-Hant": "快速特急"
-	}
-}, {
-	"id": "Shibayama.Rapid",
-	"title": {
-		"ja": "快速",
-		"en": "Rapid",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速"
-	}
-}, {
-	"id": "KantoRailway.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "KantoRailway.Rapid",
-	"title": {
-		"ja": "快速",
-		"en": "Rapid",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速"
-	}
-}, {
-	"id": "Ryutetsu.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Kominato.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Kominato.Bus",
-	"title": {
-		"ja": "バス代行運転",
-		"en": "Bus Substitution",
-		"ko": "버스대리운전",
-		"zh-Hans": "公交替代运营",
-		"zh-Hant": "公交替代運營"
-	}
-}, {
-	"id": "Isumi.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Isumi.Express",
-	"title": {
-		"ja": "急行",
-		"en": "Express",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行"
-	}
-}, {
-	"id": "Choshi.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "KashimaRinkai.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Hitachinaka.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Moka.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Moka.SL-Moka",
-	"title": {
-		"ja": "SLもおか",
-		"en": "SL-Moka",
-		"ko": "SL 모카",
-		"zh-Hans": "SL真冈",
-		"zh-Hant": "SL真岡"
-	}
-}, {
-	"id": "UtsunomiyaLightRail.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "UtsunomiyaLightRail.Rapid",
-	"title": {
-		"ja": "快速",
-		"en": "Rapid",
-		"ko": "쾌속",
-		"zh-Hans": "快速",
-		"zh-Hant": "快速"
-	}
-}, {
-	"id": "Enoden.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "IzuHakone.LimitedExpress",
-	"title": {
-		"ja": "特急",
-		"en": "Limited Express",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急"
-	}
-}, {
-	"id": "IzuHakone.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Izukyu.LimitedExpress",
-	"title": {
-		"ja": "特急",
-		"en": "Limited Express",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急"
-	}
-}, {
-	"id": "Izukyu.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Fujikyu.LimitedExpress",
-	"title": {
-		"ja": "特急",
-		"en": "Limited Express",
-		"ko": "특급",
-		"zh-Hans": "特急",
-		"zh-Hant": "特急",
-		"color":"#FF1000"
-	}
-}, {
-	"id": "Fujikyu.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Chichibu.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Chichibu.Express",
-	"title": {
-		"ja": "急行",
-		"en": "Express",
-		"ko": "급행",
-		"zh-Hans": "急行",
-		"zh-Hant": "急行"
-	}
-}, {
-	"id": "Chichibu.PaleoExpress",
-	"title": {
-		"ja": "パレオエクスプレス",
-		"en": "Paleo Express",
-		"ko": "팔레오 익스프레스",
-		"zh-Hans": "Paleo Express",
-		"zh-Hant": "Paleo Express"
-	}
-}, {
-	"id": "Yurikamome.Local",
-	"title": {
-		"en": "Local",
-		"ja": "普通",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "YokohamaSeaside.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "Yamaman.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "SaitamaTransit.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "TokyoMonorail.HanedaExpress",
-	"title": {
-		"ja": "空港快速",
-		"en": "Haneda Express",
-		"ko": "공항쾌속",
-		"zh-Hans": "机场快速",
-		"zh-Hant": "機場快速",
-		"color": "#E60013"
-	}
-}, {
-	"id": "TokyoMonorail.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "TokyoMonorail.Rapid",
-	"title": {
-		"ja": "区間快速",
-		"en": "Rapid",
-		"ko": "구간쾌속",
-		"zh-Hans": "区间快速",
-		"zh-Hant": "區間快速",
-		"color":"#E57D27"
-	}
-}, {
-	"id": "TamaMonorail.Local",
-	"title": {
-		"en": "Local",
-		"ja": "普通",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "ChibaMonorail.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-}, {
-	"id": "ShonanMonorail.Local",
-	"title": {
-		"ja": "普通",
-		"en": "Local",
-		"ko": "보통",
-		"zh-Hans": "普通",
-		"zh-Hant": "普通"
-	}
-},{
-	"id":"Disney.Local",
-	"title":{
-		"ja":"普通",
-		"en":"Local",
-		"ko":"보통",
-		"zh-Hans":"普通",
-		"zh-Hant":"普通"
-	}
-}]
+[
+	{
+		"id": "JR-East.ChuoSpecialRapid",
+		"title": {
+			"en": "Chuo Special Rapid",
+			"ja": "中央特快",
+			"ko": "주오 특별쾌속",
+			"zh-Hans": "中央特快",
+			"zh-Hant": "中央特快",
+			"color": "#0299CB"
+		}
+	},
+	{
+		"id": "JR-East.CommuterRapid",
+		"title": {
+			"en": "Commuter Rapid",
+			"ja": "通勤快速",
+			"ko": "통근쾌속",
+			"zh-Hans": "通勤快速",
+			"zh-Hant": "通勤快速",
+			"color": "#00CBC9"
+		}
+	},
+	{
+		"id": "JR-East.CommuterSpecialRapid",
+		"title": {
+			"en": "Commuter Special Rapid",
+			"ja": "通勤特快",
+			"ko": "통근 특별쾌속",
+			"zh-Hans": "通勤特快",
+			"zh-Hant": "通勤特快",
+			"color": "#FF3366"
+		}
+	},
+	{
+		"id": "JR-East.Express",
+		"title": {
+			"en": "Express",
+			"ja": "急行",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行",
+			"color": "#0032FF"
+		}
+	},
+	{
+		"id": "JR-East.LimitedExpress",
+		"title": {
+			"en": "Limited Express",
+			"ja": "特急",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急",
+			"color": "#FF1000"
+		}
+	},
+	{
+		"id": "JR-East.Liner",
+		"title": {
+			"en": "Liner",
+			"ja": "ライナー",
+			"ko": "라이너",
+			"zh-Hans": "Liner",
+			"zh-Hant": "Liner"
+		}
+	},
+	{
+		"id": "JR-East.Local",
+		"title": {
+			"en": "Local",
+			"ja": "普通",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "JR-East.OmeSpecialRapid",
+		"title": {
+			"en": "Ome Special Rapid",
+			"ja": "青梅特快",
+			"ko": "오메 특별쾌속",
+			"zh-Hans": "青梅特快",
+			"zh-Hant": "青梅特快",
+			"color": "#EB6519"
+		}
+	},
+	{
+		"id": "JR-East.Rapid",
+		"title": {
+			"en": "Rapid",
+			"ja": "快速",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速",
+			"color": "#0032FF"
+		}
+	},
+	{
+		"id": "JR-East.SpecialRapid",
+		"title": {
+			"en": "Special Rapid",
+			"ja": "特別快速",
+			"ko": "특별쾌속",
+			"zh-Hans": "特別快速",
+			"zh-Hant": "特別快速",
+			"color": "#A52A2A"
+		}
+	},
+	{
+		"id": "TokyoMetro.CommuterExpress",
+		"title": {
+			"en": "Commuter Express",
+			"ja": "通勤急行",
+			"ko": "통근급행",
+			"zh-Hans": "通勤急行",
+			"zh-Hant": "通勤急行",
+			"color": "#0040FF"
+		}
+	},
+	{
+		"id": "JR-Central.LimitedExpress",
+		"title": {
+			"en": "Limited Express",
+			"ja": "特急",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急"
+		}
+	},
+	{
+		"id": "JR-Central.Local",
+		"title": {
+			"en": "Local",
+			"ja": "普通",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "TokyoMetro.CommuterLimitedExpress",
+		"title": {
+			"en": "Commuter Limited Express",
+			"ja": "通勤特急",
+			"ko": "통근특급",
+			"zh-Hans": "通勤特急",
+			"zh-Hant": "通勤特急",
+			"color": "#FF8A00"
+		}
+	},
+	{
+		"id": "TokyoMetro.CommuterRapid",
+		"title": {
+			"en": "Commuter Rapid",
+			"ja": "通勤快速",
+			"ko": "통근쾌속",
+			"zh-Hans": "通勤快速",
+			"zh-Hant": "通勤快速",
+			"color": "#00CBC9"
+		}
+	},
+	{
+		"id": "TokyoMetro.Express",
+		"title": {
+			"en": "Express",
+			"ja": "急行",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行",
+			"color": "#FC4226"
+		}
+	},
+	{
+		"id": "TokyoMetro.F-Liner",
+		"title": {
+			"en": "F-Liner",
+			"ja": "Fライナー",
+			"ko": "F-라이너",
+			"zh-Hans": "F-liner",
+			"zh-Hant": "F-liner",
+			"color": "#01B050"
+		}
+	},
+	{
+		"id": "TokyoMetro.LimitedExpress",
+		"title": {
+			"en": "Limited Express",
+			"ja": "特急",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急",
+			"color": "#FC4226"
+		}
+	},
+	{
+		"id": "TokyoMetro.Local",
+		"title": {
+			"en": "Local",
+			"ja": "普通",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "TokyoMetro.RapidExpress",
+		"title": {
+			"en": "Rapid Express",
+			"ja": "快速急行",
+			"ko": "쾌속급행",
+			"zh-Hans": "快速急行",
+			"zh-Hant": "快速急行",
+			"color": "#C05EC4"
+		}
+	},
+	{
+		"id": "TokyoMetro.Rapid",
+		"title": {
+			"en": "Rapid",
+			"ja": "快速",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速",
+			"color": "#00ACD1"
+		}
+	},
+	{
+		"id": "TokyoMetro.S-TRAIN",
+		"title": {
+			"en": "S-TRAIN",
+			"ja": "Sトレイン",
+			"ko": "S-트레인",
+			"zh-Hans": "S-Train",
+			"zh-Hant": "S-Train",
+			"color": "#0270FF",
+			"surcharge": true
+		}
+	},
+	{
+		"id": "TokyoMetro.SemiExpress",
+		"title": {
+			"en": "Semi Express",
+			"ja": "準急",
+			"ko": "준급",
+			"zh-Hans": "准急",
+			"zh-Hant": "準急",
+			"color": "#01B050"
+		}
+	},
+	{
+		"id": "TokyoMetro.TH-LINER",
+		"title": {
+			"en": "TH-LINER",
+			"ja": "THライナー",
+			"ko": "준급",
+			"zh-Hans": "TH Liner",
+			"zh-Hant": "TH Liner",
+			"color": "#E70E12"
+		}
+	},
+	{
+		"id": "TWR.CommuterRapid",
+		"title": {
+			"en": "Commuter Rapid",
+			"ja": "通勤快速",
+			"ko": "통근쾌속",
+			"zh-Hans": "通勤快速",
+			"zh-Hant": "通勤快速",
+			"color": "#CC0A00"
+		}
+	},
+	{
+		"id": "TWR.Local",
+		"title": {
+			"en": "Local",
+			"ja": "各駅停車",
+			"ko": "각역정차",
+			"zh-Hans": "各站停车",
+			"zh-Hant": "各站停車"
+		}
+	},
+	{
+		"id": "TWR.Rapid",
+		"title": {
+			"en": "Rapid",
+			"ja": "快速",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速",
+			"color": "#001A99"
+		}
+	},
+	{
+		"id": "Toei.AccessExpress",
+		"title": {
+			"en": "Access Express",
+			"ja": "アクセス特急",
+			"ko": "엑세스특급",
+			"zh-Hans": "Access特急",
+			"zh-Hant": "Access特急",
+			"color": "#F47B22"
+		}
+	},
+	{
+		"id": "Toei.AirportRapidLimitedExpress",
+		"title": {
+			"en": "Airport Rapid Limited Express",
+			"ja": "エアポート快特",
+			"ko": "에어포트 쾌속특급",
+			"zh-Hans": "机场快特",
+			"zh-Hant": "機場快特",
+			"color": "#0B7309",
+			"surcharge": false
+		}
+	},
+	{
+		"id": "Toei.CommuterLimitedExpress",
+		"title": {
+			"en": "Commuter Limited Express",
+			"ja": "通勤特急",
+			"ko": "통근특급",
+			"zh-Hans": "通勤特急",
+			"zh-Hant": "通勤特急",
+			"color": "#1EB0E6"
+		}
+	},
+	{
+		"id": "Toei.Express",
+		"title": {
+			"en": "Express",
+			"ja": "急行",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行",
+			"color": "#0059B2"
+		}
+	},
+	{
+		"id": "Toei.LimitedExpress",
+		"title": {
+			"en": "Limited Express",
+			"ja": "特急",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急",
+			"color": "#9C2400"
+		}
+	},
+	{
+		"id": "Toei.Local",
+		"title": {
+			"en": "Local",
+			"ja": "普通",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Toei.RapidLimitedExpress",
+		"title": {
+			"en": "Rapid Limited Express",
+			"ja": "快特",
+			"ko": "쾌속특급",
+			"zh-Hans": "快特",
+			"zh-Hant": "快特",
+			"color": "#0B7309"
+		}
+	},
+	{
+		"id": "Toei.Rapid",
+		"title": {
+			"en": "Rapid",
+			"ja": "快速",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速",
+			"color": "#9C2400"
+		}
+	},
+	{
+		"id": "YokohamaMunicipal.Local",
+		"title": {
+			"en": "Local",
+			"ja": "普通",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "YokohamaMunicipal.Rapid",
+		"title": {
+			"en": "Rapid",
+			"ja": "快速",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速",
+			"color": "#FF5802"
+		}
+	},
+	{
+		"id": "Keio.Express",
+		"title": {
+			"en": "Express",
+			"ja": "急行",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行",
+			"color": "#07B08D"
+		}
+	},
+	{
+		"id": "Keio.KeioLiner",
+		"title": {
+			"en": "Keio Liner",
+			"ja": "京王ライナー",
+			"ko": "케이오 라이너",
+			"zh-Hans": "Keio Liner",
+			"zh-Hant": "Keio Liner",
+			"color": "#CF197C"
+		}
+	},
+	{
+		"id": "Keio.LimitedExpress",
+		"title": {
+			"en": "Limited Express",
+			"ja": "特急",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急",
+			"color": "#CF197C",
+			"surcharge": false
+		}
+	},
+	{
+		"id": "Keio.Local",
+		"title": {
+			"en": "Local",
+			"ja": "各駅停車",
+			"ko": "각역정차",
+			"zh-Hans": "各站停车",
+			"zh-Hant": "各站停車"
+		}
+	},
+	{
+		"id": "Keio.Rapid",
+		"title": {
+			"en": "Rapid",
+			"ja": "快速",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速",
+			"color": "#104E8C"
+		}
+	},
+	{
+		"id": "Keio.SemiExpress",
+		"title": {
+			"en": "Semi Express",
+			"ja": "区間急行",
+			"ko": "구간급행",
+			"zh-Hans": "区间急行",
+			"zh-Hant": "區間急行",
+			"color": "#D3C426"
+		}
+	},
+	{
+		"id": "Keikyu.AccessExpress",
+		"title": {
+			"en": "Access Express",
+			"ja": "アクセス特急",
+			"ko": "엑세스특급",
+			"zh-Hans": "Access特急",
+			"zh-Hant": "Access特急",
+			"color": "#F47B22"
+		}
+	},
+	{
+		"id": "Keikyu.AirportRapidLimitedExpress",
+		"title": {
+			"en": "Airport Rapid Limited Express",
+			"ja": "エアポート快特",
+			"ko": "에어포트 쾌속특급",
+			"zh-Hans": "机场快特",
+			"zh-Hant": "機場快特",
+			"color": "#0B7309",
+			"surcharge": false
+		}
+	},
+	{
+		"id": "Keikyu.CommuterLimitedExpress",
+		"title": {
+			"en": "Commuter Limited Express",
+			"ja": "通勤特急",
+			"ko": "통근특급",
+			"zh-Hans": "通勤特急",
+			"zh-Hant": "通勤特急"
+		}
+	},
+	{
+		"id": "Keikyu.Express",
+		"title": {
+			"en": "Express",
+			"ja": "急行",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行",
+			"color": "#0E83C3"
+		}
+	},
+	{
+		"id": "Keikyu.EveningWing",
+		"title": {
+			"en": "Evening Wing",
+			"ja": "イブニング・ウィング",
+			"ko": "저녁 윙",
+			"zh-Hans": "晚上翼号",
+			"zh-Hant": "晚上翼號",
+			"color": "#21B488"
+		}
+	},
+	{
+		"id": "Keikyu.LimitedExpress",
+		"title": {
+			"en": "Limited Express",
+			"ja": "特急",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急",
+			"color": "#EA0E04",
+			"surcharge": false
+		}
+	},
+	{
+		"id": "Keikyu.Local",
+		"title": {
+			"en": "Local",
+			"ja": "普通",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Keikyu.MorningWing",
+		"title": {
+			"en": "Morning Wing",
+			"ja": "モーニング・ウィング",
+			"ko": "모닝 윙",
+			"zh-Hans": "早上翼号",
+			"zh-Hant": "早上翼號",
+			"color": "#21B488"
+		}
+	},
+	{
+		"id": "Keikyu.RapidLimitedExpress",
+		"title": {
+			"en": "Rapid Limited Express",
+			"ja": "快特",
+			"ko": "쾌속특급",
+			"zh-Hans": "快特",
+			"zh-Hant": "快特",
+			"color": "#379414"
+		}
+	},
+	{
+		"id": "Keikyu.Rapid",
+		"title": {
+			"en": "Rapid",
+			"ja": "快速",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速",
+			"color": "#9C2400"
+		}
+	},
+	{
+		"id": "Keisei.AccessExpress",
+		"title": {
+			"en": "Access Express",
+			"ja": "アクセス特急",
+			"ko": "엑세스특급",
+			"zh-Hans": "Access特急",
+			"zh-Hant": "Access特急",
+			"color": "#F47B22"
+		}
+	},
+	{
+		"id": "Keisei.CommuterLimitedExpress",
+		"title": {
+			"en": "Commuter Limited Express",
+			"ja": "通勤特急",
+			"ko": "통근특급",
+			"zh-Hans": "通勤特急",
+			"zh-Hant": "通勤特急",
+			"color": "#1EB0E6"
+		}
+	},
+	{
+		"id": "Keisei.Eveningliner",
+		"title": {
+			"en": "Eveningliner",
+			"ja": "イブニングライナー",
+			"ko": "이브닝 라이너",
+			"zh-Hans": "Evening Liner",
+			"zh-Hant": "Evening Liner",
+			"color": "#5464AE"
+		}
+	},
+	{
+		"id": "Keisei.Express",
+		"title": {
+			"en": "Express",
+			"ja": "急行",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行"
+		}
+	},
+	{
+		"id": "Keisei.LimitedExpress",
+		"title": {
+			"en": "Limited Express",
+			"ja": "特急",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急",
+			"color": "#EE3D56",
+			"surcharge": false
+		}
+	},
+	{
+		"id": "Keisei.Local",
+		"title": {
+			"en": "Local",
+			"ja": "普通",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Keisei.Morningliner",
+		"title": {
+			"en": "Morningliner",
+			"ja": "モーニングライナー",
+			"ko": "모닝 라이너",
+			"zh-Hans": "Morning Liner",
+			"zh-Hant": "Morning Liner",
+			"color": "#5464AE"
+		}
+	},
+	{
+		"id": "Keisei.RapidLimitedExpress",
+		"title": {
+			"en": "Rapid Limited Express",
+			"ja": "快速特急",
+			"ko": "쾌속특급",
+			"zh-Hans": "快速特急",
+			"zh-Hant": "快速特急",
+			"color": "#0FA268"
+		}
+	},
+	{
+		"id": "Keisei.Rapid",
+		"title": {
+			"en": "Rapid",
+			"ja": "快速",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速",
+			"color": "#F386A0"
+		}
+	},
+	{
+		"id": "Keisei.Skyliner",
+		"title": {
+			"en": "Skyliner",
+			"ja": "スカイライナー",
+			"ko": "스카이라이너",
+			"zh-Hans": "Skyliner",
+			"zh-Hant": "Skyliner",
+			"color": "#1E3267",
+			"bg": "#0A2D67"
+		}
+	},
+	{
+		"id": "Hokuso.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Hokuso.Express",
+		"title": {
+			"ja": "急行",
+			"en": "Express",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行"
+		}
+	},
+	{
+		"id": "Hokuso.LimitedExpress",
+		"title": {
+			"ja": "特急",
+			"en": "Limited Express",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急",
+			"color": "#EE3D56"
+		}
+	},
+	{
+		"id": "Tobu.Express",
+		"title": {
+			"ja": "急行",
+			"en": "Express",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行",
+			"color": "#DF2E8B"
+		}
+	},
+	{
+		"id": "Tobu.F-Liner",
+		"title": {
+			"ja": "Fライナー",
+			"en": "F-Liner",
+			"ko": "F-라이너",
+			"zh-Hans": "F-liner",
+			"zh-Hant": "F-liner",
+			"color": "#01B050"
+		}
+	},
+	{
+		"id": "Tobu.KawagoeLimitedExpress",
+		"title": {
+			"ja": "川越特急",
+			"en": "Kawagoe Limited Express",
+			"ko": "가와고에 특급",
+			"zh-Hans": "川越特急",
+			"zh-Hant": "川越特急",
+			"color": "#B22F92"
+		}
+	},
+	{
+		"id": "Tobu.LimitedExpress",
+		"title": {
+			"ja": "特急",
+			"en": "Limited Express",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急",
+			"color": "#024E9F"
+		}
+	},
+	{
+		"id": "Tobu.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Tobu.RapidExpress",
+		"title": {
+			"ja": "快速急行",
+			"en": "Rapid Express",
+			"ko": "쾌속 급행",
+			"zh-Hans": "快速急行",
+			"zh-Hant": "快速急行",
+			"color": "#0062A9"
+		}
+	},
+	{
+		"id": "Tobu.Rapid",
+		"title": {
+			"ja": "快速",
+			"en": "Rapid",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速"
+		}
+	},
+	{
+		"id": "Tobu.SL-Taiju",
+		"title": {
+			"ja": "SL大樹",
+			"en": "SL-Taiju",
+			"ko": "SL 타이쥬",
+			"zh-Hans": "SL大树",
+			"zh-Hant": "SL大樹"
+		}
+	},
+	{
+		"id": "Tobu.SectionExpress",
+		"title": {
+			"ja": "区間急行",
+			"en": "Section Express",
+			"ko": "구간 급행",
+			"zh-Hans": "区间急行",
+			"zh-Hant": "區間急行",
+			"color": "#F2A2C5"
+		}
+	},
+	{
+		"id": "Tobu.SectionSemiExpress",
+		"title": {
+			"ja": "区間準急",
+			"en": "Section Semi Express",
+			"ko": "구간 준급",
+			"zh-Hans": "区间准急",
+			"zh-Hant": "區間準急",
+			"color": "#CAD30A"
+		}
+	},
+	{
+		"id": "Tobu.SemiExpress",
+		"title": {
+			"ja": "準急",
+			"en": "Semi Express",
+			"ko": "준급",
+			"zh-Hans": "准急",
+			"zh-Hant": "準急",
+			"color": "#44B035"
+		}
+	},
+	{
+		"id": "Tobu.TJ-Liner",
+		"title": {
+			"ja": "TJライナー",
+			"en": "TJ-Liner",
+			"ko": "TJ 라이너",
+			"zh-Hans": "TJ Liner",
+			"zh-Hant": "TJ Liner",
+			"color": "#03AB4D"
+		}
+	},
+	{
+		"id": "Tobu.TH-LINER",
+		"title": {
+			"ja": "THライナー",
+			"en": "TH-LINER",
+			"ko": "TH 라이너",
+			"zh-Hans": "TH Liner",
+			"zh-Hant": "TH Liner",
+			"color": "#E70E12"
+		}
+	},
+	{
+		"id": "Seibu.CommuterExpress",
+		"title": {
+			"en": "Commuter Express",
+			"ja": "通勤急行",
+			"ko": "통근 급행",
+			"zh-Hans": "通勤急行",
+			"zh-Hant": "通勤急行",
+			"color": "#FFB700"
+		}
+	},
+	{
+		"id": "Seibu.CommuterSemiExpress",
+		"title": {
+			"en": "Commuter Semi Express",
+			"ja": "通勤準急",
+			"ko": "통근 준급",
+			"zh-Hans": "通勤准急",
+			"zh-Hant": "通勤準急",
+			"color": "#0072BA"
+		}
+	},
+	{
+		"id": "Seibu.Express",
+		"title": {
+			"en": "Express",
+			"ja": "急行",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行",
+			"color": "#FF6B01"
+		}
+	},
+	{
+		"id": "Seibu.F-Liner",
+		"title": {
+			"en": "F-Liner",
+			"ja": "Fライナー",
+			"ko": "F-라이너",
+			"zh-Hans": "F-liner",
+			"zh-Hant": "F-liner",
+			"color": "#01B050"
+		}
+	},
+	{
+		"id": "Seibu.HaijimaLiner",
+		"title": {
+			"en": "Haijima Liner",
+			"ja": "拝島ライナー",
+			"ko": "하이지마 라이너",
+			"zh-Hans": "拜岛Liner",
+			"zh-Hant": "拜島Liner"
+		}
+	},
+	{
+		"id": "Seibu.LimitedExpress",
+		"title": {
+			"en": "Limited Express",
+			"ja": "特急",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急",
+			"color": "#F7251C"
+		}
+	},
+	{
+		"id": "Seibu.Local",
+		"title": {
+			"en": "Local",
+			"ja": "各駅停車",
+			"ko": "각역정차",
+			"zh-Hans": "各站停车",
+			"zh-Hant": "各站停車"
+		}
+	},
+	{
+		"id": "Seibu.RapidExpress",
+		"title": {
+			"en": "Rapid Express",
+			"ja": "快速急行",
+			"ko": "쾌속 급행",
+			"zh-Hans": "快速急行",
+			"zh-Hant": "快速急行",
+			"color": "#C05EC4"
+		}
+	},
+	{
+		"id": "Seibu.Rapid",
+		"title": {
+			"en": "Rapid",
+			"ja": "快速",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速",
+			"color": "#00ACD1"
+		}
+	},
+	{
+		"id": "Seibu.S-TRAIN",
+		"title": {
+			"en": "S-TRAIN",
+			"ja": "Sトレイン",
+			"ko": "S-트레인",
+			"zh-Hans": "S-Train",
+			"zh-Hant": "S-Train",
+			"color": "#0270FF",
+			"surcharge": true
+		}
+	},
+	{
+		"id": "Seibu.SemiExpress",
+		"title": {
+			"en": "Semi Express",
+			"ja": "準急",
+			"ko": "준급",
+			"zh-Hans": "准急",
+			"zh-Hant": "準急",
+			"color": "#00A794"
+		}
+	},
+	{
+		"id": "Odakyu.CommuterExpress",
+		"title": {
+			"ja": "通勤急行",
+			"en": "Commuter Express",
+			"ko": "통근 급행",
+			"zh-Hans": "通勤急行",
+			"zh-Hant": "通勤急行",
+			"color": "#DC5215"
+		}
+	},
+	{
+		"id": "Odakyu.CommuterSemiExpress",
+		"title": {
+			"ja": "通勤準急",
+			"en": "Commuter Semi Express",
+			"ko": "통근 준급",
+			"zh-Hans": "通勤准急",
+			"zh-Hant": "通勤準急",
+			"color": "#029970"
+		}
+	},
+	{
+		"id": "Odakyu.Express",
+		"title": {
+			"ja": "急行",
+			"en": "Express",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行",
+			"color": "#DC5215"
+		}
+	},
+	{
+		"id": "Odakyu.LimitedExpress",
+		"title": {
+			"ja": "特急",
+			"en": "Limited Express",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急",
+			"color": "#FF1000"
+		}
+	},
+	{
+		"id": "Odakyu.Local",
+		"title": {
+			"ja": "各駅停車",
+			"en": "Local",
+			"ko": "각역정차",
+			"zh-Hans": "各站停车",
+			"zh-Hant": "各站停車"
+		}
+	},
+	{
+		"id": "Odakyu.RapidExpress",
+		"title": {
+			"ja": "快速急行",
+			"en": "Rapid Express",
+			"ko": "쾌속 급행",
+			"zh-Hans": "快速急行",
+			"zh-Hant": "快速急行",
+			"color": "#E89401"
+		}
+	},
+	{
+		"id": "Odakyu.SemiExpress",
+		"title": {
+			"ja": "準急",
+			"en": "Semi Express",
+			"ko": "준급",
+			"zh-Hans": "准急",
+			"zh-Hant": "準急",
+			"color": "#029970"
+		}
+	},
+	{
+		"id": "OdakyuHakone.LimitedExpress",
+		"title": {
+			"ja": "特急",
+			"en": "Limited Express",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急"
+		}
+	},
+	{
+		"id": "OdakyuHakone.Local",
+		"title": {
+			"ja": "各駅停車",
+			"en": "Local",
+			"ko": "각역정차",
+			"zh-Hans": "各站停车",
+			"zh-Hant": "各站停車"
+		}
+	},
+	{
+		"id": "Tokyu.CommuterLimitedExpress",
+		"title": {
+			"en": "Commuter Limited Express",
+			"ja": "通勤特急",
+			"ko": "통근특급",
+			"zh-Hans": "通勤特急",
+			"zh-Hant": "通勤特急",
+			"color": "#FF8A00"
+		}
+	},
+	{
+		"id": "Tokyu.Express",
+		"title": {
+			"en": "Express",
+			"ja": "急行",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行",
+			"color": "#FF1000"
+		}
+	},
+	{
+		"id": "Tokyu.F-Liner",
+		"title": {
+			"en": "F-Liner",
+			"ja": "Fライナー",
+			"ko": "F-라이너",
+			"zh-Hans": "F-liner",
+			"zh-Hant": "F-liner",
+			"color": "#01B050"
+		}
+	},
+	{
+		"id": "Tokyu.LimitedExpress",
+		"title": {
+			"en": "Limited Express",
+			"ja": "特急",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急",
+			"color": "#B222B0"
+		}
+	},
+	{
+		"id": "Tokyu.Local",
+		"title": {
+			"en": "Local",
+			"ja": "各駅停車",
+			"ko": "각역정차",
+			"zh-Hans": "各站停车",
+			"zh-Hant": "各站停車"
+		}
+	},
+	{
+		"id": "Tokyu.S-TRAIN",
+		"title": {
+			"en": "S-TRAIN",
+			"ja": "Sトレイン",
+			"ko": "S-트레인",
+			"zh-Hans": "S-Train",
+			"zh-Hant": "S-Train",
+			"color": "#0270FF",
+			"surcharge": true
+		}
+	},
+	{
+		"id": "Tokyu.SemiExpress",
+		"title": {
+			"en": "Semi Express",
+			"ja": "準急",
+			"ko": "준급",
+			"zh-Hans": "准急",
+			"zh-Hant": "準急",
+			"color": "#01B050"
+		}
+	},
+	{
+		"id": "Minatomirai.CommuterLimitedExpress",
+		"title": {
+			"ja": "通勤特急",
+			"en": "Commuter Limited Express",
+			"ko": "통근특급",
+			"zh-Hans": "通勤特急",
+			"zh-Hant": "通勤特急",
+			"color": "#FF8A00"
+		}
+	},
+	{
+		"id": "Minatomirai.Express",
+		"title": {
+			"ja": "急行",
+			"en": "Express",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行",
+			"color": "#FF1000"
+		}
+	},
+	{
+		"id": "Minatomirai.F-Liner",
+		"title": {
+			"ja": "Fライナー",
+			"en": "F-Liner",
+			"ko": "F-라이너",
+			"zh-Hans": "F-liner",
+			"zh-Hant": "F-liner",
+			"color": "#01B050"
+		}
+	},
+	{
+		"id": "Minatomirai.LimitedExpress",
+		"title": {
+			"ja": "特急",
+			"en": "Limited Express",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急",
+			"color": "#B222B0"
+		}
+	},
+	{
+		"id": "Minatomirai.Local",
+		"title": {
+			"ja": "各駅停車",
+			"en": "Local",
+			"ko": "각역정차",
+			"zh-Hans": "各站停车",
+			"zh-Hant": "各站停車"
+		}
+	},
+	{
+		"id": "Minatomirai.S-TRAIN",
+		"title": {
+			"ja": "Sトレイン",
+			"en": "S-TRAIN",
+			"ko": "S-트레인",
+			"zh-Hans": "S-Train",
+			"zh-Hant": "S-Train",
+			"color": "#0270FF",
+			"surcharge": true
+		}
+	},
+	{
+		"id": "Sotetsu.CommuterExpress",
+		"title": {
+			"ja": "通勤急行",
+			"en": "Commuter Express",
+			"ko": "통근급행",
+			"zh-Hans": "通勤急行",
+			"zh-Hant": "通勤急行",
+			"color": "#EB5757"
+		}
+	},
+	{
+		"id": "Sotetsu.CommuterLimitedExpress",
+		"title": {
+			"ja": "通勤特急",
+			"en": "Commuter Limited Express",
+			"ko": "통근특급",
+			"zh-Hans": "通勤特急",
+			"zh-Hant": "通勤特急",
+			"color": "#F2994A"
+		}
+	},
+	{
+		"id": "Sotetsu.Express",
+		"title": {
+			"ja": "急行",
+			"en": "Express",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行"
+		}
+	},
+	{
+		"id": "Sotetsu.LimitedExpress",
+		"title": {
+			"ja": "特急",
+			"en": "Limited Express",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急",
+			"color": "#F2994A"
+		}
+	},
+	{
+		"id": "Sotetsu.Local",
+		"title": {
+			"ja": "各駅停車",
+			"en": "Local",
+			"ko": "각역정차",
+			"zh-Hans": "各站停车",
+			"zh-Hant": "各站停車"
+		}
+	},
+	{
+		"id": "Sotetsu.Rapid",
+		"title": {
+			"ja": "快速",
+			"en": "Rapid",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速",
+			"color": "#2E9CDB"
+		}
+	},
+	{
+		"id": "SaitamaRailway.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "SaitamaRailway.Express",
+		"title": {
+			"ja": "急行",
+			"en": "Express",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行",
+			"color": "#FC4226"
+		}
+	},
+	{
+		"id": "MIR.CommuterRapid",
+		"title": {
+			"en": "Commuter Rapid",
+			"ja": "通勤快速",
+			"ko": "통근쾌속",
+			"zh-Hans": "通勤快速",
+			"zh-Hant": "通勤快速",
+			"color": "#FF9827"
+		}
+	},
+	{
+		"id": "MIR.Local",
+		"title": {
+			"en": "Local",
+			"ja": "普通",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "MIR.Rapid",
+		"title": {
+			"en": "Rapid",
+			"ja": "快速",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速",
+			"color": "#F72F5A"
+		}
+	},
+	{
+		"id": "MIR.SemiRapid",
+		"title": {
+			"en": "Semi Rapid",
+			"ja": "区間快速",
+			"ko": "구간쾌속",
+			"zh-Hans": "区间快速",
+			"zh-Hant": "區間快速",
+			"color": "#0C81E0"
+		}
+	},
+	{
+		"id": "ToyoRapid.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "ToyoRapid.Rapid",
+		"title": {
+			"ja": "快速",
+			"en": "Rapid",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速",
+			"color": "#00ACD1"
+		}
+	},
+	{
+		"id": "ToyoRapid.CommuterRapid",
+		"title": {
+			"ja": "通勤快速",
+			"en": "Commuter Rapid",
+			"ko": "통근쾌속",
+			"zh-Hans": "通勤快速",
+			"zh-Hant": "通勤快速",
+			"color": "#00CBC9"
+		}
+	},
+	{
+		"id": "Shibayama.CommuterLimitedExpress",
+		"title": {
+			"ja": "通勤特急",
+			"en": "Commuter Limited Express",
+			"ko": "통근특급",
+			"zh-Hans": "通勤特急",
+			"zh-Hant": "通勤特急"
+		}
+	},
+	{
+		"id": "Shibayama.LimitedExpress",
+		"title": {
+			"ja": "特急",
+			"en": "Limited Express",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急"
+		}
+	},
+	{
+		"id": "Shibayama.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Shibayama.RapidLimitedExpress",
+		"title": {
+			"ja": "快速特急",
+			"en": "Rapid Limited Express",
+			"ko": "쾌속특급",
+			"zh-Hans": "快速特急",
+			"zh-Hant": "快速特急"
+		}
+	},
+	{
+		"id": "Shibayama.Rapid",
+		"title": {
+			"ja": "快速",
+			"en": "Rapid",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速"
+		}
+	},
+	{
+		"id": "KantoRailway.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "KantoRailway.Rapid",
+		"title": {
+			"ja": "快速",
+			"en": "Rapid",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速"
+		}
+	},
+	{
+		"id": "Ryutetsu.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Kominato.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Kominato.Bus",
+		"title": {
+			"ja": "バス代行運転",
+			"en": "Bus Substitution",
+			"ko": "버스대리운전",
+			"zh-Hans": "公交替代运营",
+			"zh-Hant": "公交替代運營"
+		}
+	},
+	{
+		"id": "Isumi.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Isumi.Express",
+		"title": {
+			"ja": "急行",
+			"en": "Express",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行"
+		}
+	},
+	{
+		"id": "Choshi.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "KashimaRinkai.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Hitachinaka.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Moka.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Moka.SL-Moka",
+		"title": {
+			"ja": "SLもおか",
+			"en": "SL-Moka",
+			"ko": "SL 모카",
+			"zh-Hans": "SL真冈",
+			"zh-Hant": "SL真岡"
+		}
+	},
+	{
+		"id": "UtsunomiyaLightRail.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "UtsunomiyaLightRail.Rapid",
+		"title": {
+			"ja": "快速",
+			"en": "Rapid",
+			"ko": "쾌속",
+			"zh-Hans": "快速",
+			"zh-Hant": "快速"
+		}
+	},
+	{
+		"id": "Enoden.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "IzuHakone.LimitedExpress",
+		"title": {
+			"ja": "特急",
+			"en": "Limited Express",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急"
+		}
+	},
+	{
+		"id": "IzuHakone.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Izukyu.LimitedExpress",
+		"title": {
+			"ja": "特急",
+			"en": "Limited Express",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急"
+		}
+	},
+	{
+		"id": "Izukyu.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Fujikyu.LimitedExpress",
+		"title": {
+			"ja": "特急",
+			"en": "Limited Express",
+			"ko": "특급",
+			"zh-Hans": "特急",
+			"zh-Hant": "特急",
+			"color": "#FF1000"
+		}
+	},
+	{
+		"id": "Fujikyu.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Chichibu.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Chichibu.Express",
+		"title": {
+			"ja": "急行",
+			"en": "Express",
+			"ko": "급행",
+			"zh-Hans": "急行",
+			"zh-Hant": "急行"
+		}
+	},
+	{
+		"id": "Chichibu.PaleoExpress",
+		"title": {
+			"ja": "パレオエクスプレス",
+			"en": "Paleo Express",
+			"ko": "팔레오 익스프레스",
+			"zh-Hans": "Paleo Express",
+			"zh-Hant": "Paleo Express"
+		}
+	},
+	{
+		"id": "Jomo.Local",
+		"title": {
+			"en": "Local",
+			"fr": "Omnibus",
+			"ja": "普通",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Joshin.Local",
+		"title": {
+			"en": "Local",
+			"fr": "Omnibus",
+			"ja": "普通",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "WataraseKeikoku.Local",
+		"title": {
+			"en": "Local",
+			"fr": "Omnibus",
+			"ja": "普通",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "WataraseKeikoku.Torokko",
+		"title": {
+			"en": "Torokko",
+			"fr": "Torokko",
+			"ja": "トロッコ",
+			"ko": "트로코",
+			"zh-Hans": "Torokko",
+			"zh-Hant": "Torokko"
+		}
+	},
+	{
+		"id": "Yurikamome.Local",
+		"title": {
+			"en": "Local",
+			"ja": "普通",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "YokohamaSeaside.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Yamaman.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "SaitamaTransit.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "TokyoMonorail.HanedaExpress",
+		"title": {
+			"ja": "空港快速",
+			"en": "Haneda Express",
+			"ko": "공항쾌속",
+			"zh-Hans": "机场快速",
+			"zh-Hant": "機場快速",
+			"color": "#E60013"
+		}
+	},
+	{
+		"id": "TokyoMonorail.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "TokyoMonorail.Rapid",
+		"title": {
+			"ja": "区間快速",
+			"en": "Rapid",
+			"ko": "구간쾌속",
+			"zh-Hans": "区间快速",
+			"zh-Hant": "區間快速",
+			"color": "#E57D27"
+		}
+	},
+	{
+		"id": "TamaMonorail.Local",
+		"title": {
+			"en": "Local",
+			"ja": "普通",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "ChibaMonorail.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "ShonanMonorail.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	},
+	{
+		"id": "Disney.Local",
+		"title": {
+			"ja": "普通",
+			"en": "Local",
+			"ko": "보통",
+			"zh-Hans": "普通",
+			"zh-Hant": "普通"
+		}
+	}
+]

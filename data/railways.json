@@ -4,6 +4,7 @@
 		"title": {
 			"ja": "山手線",
 			"en": "Yamanote Line",
+			"fr": "Ligne Yamanote",
 			"ko": "야마노테 선",
 			"zh-Hans": "山手线",
 			"zh-Hant": "山手線"
@@ -44,17 +45,18 @@
 		"ascending": "OuterLoop",
 		"descending": "InnerLoop",
 		"color": "#80C342",
-		"code": "JY",
-		"carComposition": 11
+		"carComposition": 11,
+		"code": "JY"
 	},
 	{
 		"id": "JR-East.ChuoRapid",
 		"title": {
-			"ja": "中央線(快速)",
+			"ja": "中央線快速",
 			"en": "Chuo Rapid Line",
+			"fr": "Ligne Chuo Rapid",
 			"ko": "주오 선 쾌속",
-			"zh-Hans": "中央线(快速)",
-			"zh-Hant": "中央線(快速)"
+			"zh-Hans": "中央线快速",
+			"zh-Hant": "中央線快速"
 		},
 		"stations": [
 			"JR-East.ChuoRapid.Tokyo",
@@ -85,15 +87,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F15A22",
-		"code": "JC",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JC"
 	},
 	{
 		"id": "JR-East.Chuo",
 		"title": {
 			"ja": "中央本線",
 			"en": "Chuo Line",
+			"fr": "Ligne Chuo",
 			"ko": "주오 본선",
 			"zh-Hans": "中央本线",
 			"zh-Hant": "中央本線"
@@ -124,15 +127,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0074BE",
-		"code": "CO",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "CO"
 	},
 	{
 		"id": "JR-East.Ome",
 		"title": {
 			"ja": "青梅線",
 			"en": "Ome Line",
+			"fr": "Ligne Ome",
 			"ko": "오메 선",
 			"zh-Hans": "青梅线",
 			"zh-Hant": "青梅線"
@@ -167,15 +171,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F15A22",
-		"code": "JC",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JC"
 	},
 	{
 		"id": "JR-East.Itsukaichi",
 		"title": {
 			"ja": "五日市線",
 			"en": "Itsukaichi Line",
+			"fr": "Ligne Itsukaichi",
 			"ko": "이쓰카이치 선",
 			"zh-Hans": "五日市线",
 			"zh-Hant": "五日市線"
@@ -192,17 +197,18 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F15A22",
-		"code": "JC",
 		"carComposition": 6,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JC"
 	},
 	{
 		"id": "JR-East.ChuoSobuLocal",
 		"title": {
 			"ja": "中央・総武各駅停車",
 			"en": "Chuo Sobu Local Line",
+			"fr": "Ligne Chuo Sobu Local",
 			"ko": "주오·소부 각역정차",
-			"zh-Hans": "中央·总武缓行线",
+			"zh-Hans": "中央·总武各站停车",
 			"zh-Hant": "中央·總武各站停車"
 		},
 		"stations": [
@@ -249,15 +255,16 @@
 		"ascending": "Westbound",
 		"descending": "Eastbound",
 		"color": "#FFD400",
-		"code": "JB",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JB"
 	},
 	{
 		"id": "JR-East.Tokaido",
 		"title": {
 			"ja": "東海道線",
 			"en": "Tokaido Line",
+			"fr": "Ligne Tokaido",
 			"ko": "도카이도 선",
 			"zh-Hans": "东海道线",
 			"zh-Hant": "東海道線"
@@ -288,15 +295,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F68B1E",
-		"code": "JT",
 		"carComposition": 15,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JT"
 	},
 	{
 		"id": "JR-East.Utsunomiya",
 		"title": {
 			"ja": "宇都宮線",
 			"en": "Utsunomiya Line",
+			"fr": "Ligne Utsunomiya",
 			"ko": "우쓰노미야 선",
 			"zh-Hans": "宇都宫线",
 			"zh-Hant": "宇都宮線"
@@ -340,15 +348,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F68B1E",
-		"code": "JU",
 		"carComposition": 15,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JU"
 	},
 	{
 		"id": "JR-East.Takasaki",
 		"title": {
 			"ja": "高崎線",
 			"en": "Takasaki Line",
+			"fr": "Ligne Takasaki",
 			"ko": "다카사키 선",
 			"zh-Hans": "高崎线",
 			"zh-Hant": "高崎線"
@@ -383,15 +392,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F68B1E",
-		"code": "JU",
 		"carComposition": 15,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JU"
 	},
 	{
 		"id": "JR-East.Joetsu",
 		"title": {
 			"ja": "上越線",
 			"en": "Joetsu Line",
+			"fr": "Ligne Joetsu",
 			"ko": "조에쓰 선",
 			"zh-Hans": "上越线",
 			"zh-Hant": "上越線"
@@ -423,6 +433,7 @@
 		"title": {
 			"ja": "京浜東北線・根岸線",
 			"en": "Keihin-Tohoku-Negishi Line",
+			"fr": "Ligne Keihin-Tohoku-Negishi",
 			"ko": "게이힌 도호쿠 선·네기시 선",
 			"zh-Hans": "京滨东北线·根岸线",
 			"zh-Hant": "京濱東北線·根岸線"
@@ -479,18 +490,19 @@
 		"ascending": "Southbound",
 		"descending": "Northbound",
 		"color": "#00B2E5",
-		"code": "JK",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JK"
 	},
 	{
 		"id": "JR-East.JobanRapid",
 		"title": {
-			"ja": "常磐線(快速)",
+			"ja": "常磐線快速",
 			"en": "Joban Rapid Line",
+			"fr": "Ligne Joban Rapid",
 			"ko": "조반 선 쾌속",
-			"zh-Hans": "常磐线(快速)",
-			"zh-Hant": "常磐線(快速)"
+			"zh-Hans": "常磐线快速",
+			"zh-Hant": "常磐線快速"
 		},
 		"stations": [
 			"JR-East.JobanRapid.Shinagawa",
@@ -510,17 +522,18 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#00B261",
-		"code": "JJ",
 		"carComposition": 15,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JJ"
 	},
 	{
 		"id": "JR-East.JobanLocal",
 		"title": {
 			"ja": "常磐線各駅停車",
 			"en": "Joban Local Line",
+			"fr": "Ligne Joban Local",
 			"ko": "조반 선 각역정차",
-			"zh-Hans": "常磐缓行线",
+			"zh-Hans": "常磐线各站停车",
 			"zh-Hant": "常磐線各站停車"
 		},
 		"stations": [
@@ -542,15 +555,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#A8A39D",
-		"code": "JL",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JL"
 	},
 	{
 		"id": "JR-East.Joban",
 		"title": {
 			"ja": "常磐線",
 			"en": "Joban Line",
+			"fr": "Ligne Joban",
 			"ko": "조반 선",
 			"zh-Hans": "常磐线",
 			"zh-Hant": "常磐線"
@@ -595,11 +609,12 @@
 	{
 		"id": "JR-East.SobuRapid",
 		"title": {
-			"ja": "総武線(快速)",
+			"ja": "総武快速線",
 			"en": "Sobu Rapid Line",
+			"fr": "Ligne Sobu Rapid",
 			"ko": "소부 쾌속선",
-			"zh-Hans": "总武线(快速)",
-			"zh-Hant": "總武線(快速)"
+			"zh-Hans": "总武快速线",
+			"zh-Hant": "總武快速線"
 		},
 		"stations": [
 			"JR-East.SobuRapid.Tokyo",
@@ -611,20 +626,29 @@
 			"JR-East.SobuRapid.Funabashi",
 			"JR-East.SobuRapid.Tsudanuma",
 			"JR-East.SobuRapid.Inage",
-			"JR-East.SobuRapid.Chiba"
+			"JR-East.SobuRapid.Chiba",
+			"JR-East.SobuRapid.Tsuga",
+			"JR-East.SobuRapid.Yotsukaido",
+			"JR-East.SobuRapid.Monoi",
+			"JR-East.SobuRapid.Sakura",
+			"JR-East.SobuRapid.Shisui",
+			"JR-East.SobuRapid.Narita",
+			"JR-East.SobuRapid.NaritaAirportTerminal2and3",
+			"JR-East.SobuRapid.NaritaAirportTerminal1"
 		],
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#007AC1",
-		"code": "JO",
 		"carComposition": 15,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JO"
 	},
 	{
 		"id": "JR-East.Sobu",
 		"title": {
 			"ja": "総武本線",
 			"en": "Sobu Line",
+			"fr": "Ligne Sobu",
 			"ko": "소부 본선",
 			"zh-Hans": "总武本线",
 			"zh-Hant": "總武本線"
@@ -664,6 +688,7 @@
 		"title": {
 			"ja": "成田線",
 			"en": "Narita Line",
+			"fr": "Ligne Narita",
 			"ko": "나리타 선",
 			"zh-Hans": "成田线",
 			"zh-Hant": "成田線"
@@ -698,6 +723,7 @@
 		"title": {
 			"ja": "成田線空港支線",
 			"en": "Narita Airport Branch Line",
+			"fr": "Branche de la ligne Aéroport de Narita",
 			"ko": "나리타 선 공항 지선",
 			"zh-Hans": "成田线机场支线",
 			"zh-Hant": "成田線機場支線"
@@ -718,6 +744,7 @@
 		"title": {
 			"ja": "成田線我孫子支線",
 			"en": "Narita Abiko Branch Line",
+			"fr": "Branche de la ligne de Narita Abiko",
 			"ko": "나리타 선 아비코 지선",
 			"zh-Hans": "成田线我孙子支线",
 			"zh-Hant": "成田線我孫子支線"
@@ -745,6 +772,7 @@
 		"title": {
 			"ja": "内房線",
 			"en": "Uchibo Line",
+			"fr": "Ligne Uchibo",
 			"ko": "우치보 선",
 			"zh-Hans": "内房线",
 			"zh-Hant": "內房線"
@@ -794,6 +822,7 @@
 		"title": {
 			"ja": "外房線",
 			"en": "Sotobo Line",
+			"fr": "Ligne Sotobo",
 			"ko": "소토보 선",
 			"zh-Hans": "外房线",
 			"zh-Hant": "外房線"
@@ -838,6 +867,7 @@
 		"title": {
 			"ja": "横須賀線",
 			"en": "Yokosuka Line",
+			"fr": "Ligne Yokosuka",
 			"ko": "요코스카 선",
 			"zh-Hans": "横须贺线",
 			"zh-Hant": "橫須賀線"
@@ -866,15 +896,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#007AC1",
-		"code": "JO",
 		"carComposition": 15,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JO"
 	},
 	{
 		"id": "JR-East.Keiyo",
 		"title": {
 			"ja": "京葉線",
 			"en": "Keiyo Line",
+			"fr": "Ligne Keiyo",
 			"ko": "게이요 선",
 			"zh-Hans": "京叶线",
 			"zh-Hant": "京葉線"
@@ -902,17 +933,18 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#C9252F",
-		"code": "JE",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JE"
 	},
 	{
 		"id": "JR-East.KeiyoKoyaBranch",
 		"title": {
 			"ja": "武蔵野線",
 			"en": "Musashino Line",
+			"fr": "Ligne Musashino",
 			"ko": "무사시노 선",
-			"zh-Hans": "武藏野线（海滨幕张支线）",
+			"zh-Hans": "武藏野线",
 			"zh-Hant": "武藏野線"
 		},
 		"stations": [
@@ -932,8 +964,9 @@
 		"title": {
 			"ja": "武蔵野線",
 			"en": "Musashino Line",
+			"fr": "Ligne Musashino",
 			"ko": "무사시노 선",
-			"zh-Hans": "武藏野线（东京支线）",
+			"zh-Hans": "武藏野线",
 			"zh-Hant": "武藏野線"
 		},
 		"stations": [
@@ -958,6 +991,7 @@
 		"title": {
 			"ja": "埼京線・川越線",
 			"en": "Saikyo-Kawagoe Line",
+			"fr": "Ligne Saikyo-Kawagoe",
 			"ko": "사이쿄 선·가와고에 선",
 			"zh-Hans": "埼京线·川越线",
 			"zh-Hant": "埼京線·川越線"
@@ -991,15 +1025,16 @@
 		"ascending": "Northbound",
 		"descending": "Southbound",
 		"color": "#00B48D",
-		"code": "JA",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JA"
 	},
 	{
 		"id": "JR-East.ShonanShinjuku",
 		"title": {
 			"ja": "湘南新宿ライン",
 			"en": "Shonan-Shinjuku Line",
+			"fr": "Ligne Shonan-Shinjuku",
 			"ko": "쇼난 신주쿠 라인",
 			"zh-Hans": "湘南新宿线",
 			"zh-Hant": "湘南新宿線"
@@ -1025,58 +1060,28 @@
 		"ascending": "Northbound",
 		"descending": "Southbound",
 		"color": "#E31F26",
-		"code": "JS",
 		"carComposition": 15,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JS"
 	},
 	{
-		"id": "JR-East.NaritaExpress",
+		"id": "JR-East.YamanoteFreight",
 		"title": {
-			"ja": "成田エクスプレス",
-			"en": "Narita Express",
-			"ko": "나리타 익스프레스",
-			"zh-Hans": "成田特快",
-			"zh-Hant": "成田特快"
+			"ja": "山手貨物線",
+			"en": "Yamanote Freight Line",
+			"fr": "Ligne de fret Yamanote",
+			"ko": "야마노테 화물선",
+			"zh-Hans": "山手货物线",
+			"zh-Hant": "山手貨物線"
 		},
 		"stations": [
-			"JR-East.NaritaExpress.Shinjuku",
-			"JR-East.NaritaExpress.Shibuya",
-			"JR-East.NaritaExpress.Shinagawa",
-			"JR-East.NaritaExpress.Tokyo",
-			"JR-East.NaritaExpress.Chiba",
-			"JR-East.NaritaExpress.Yotsukaido",
-			"JR-East.NaritaExpress.Sakura",
-			"JR-East.NaritaExpress.Narita",
-			"JR-East.NaritaExpress.NaritaAirportTerminal2and3",
-			"JR-East.NaritaExpress.NaritaAirportTerminal1"
+			"JR-East.YamanoteFreight.Tokyo",
+			"JR-East.YamanoteFreight.Shinagawa",
+			"JR-East.YamanoteFreight.Shibuya"
 		],
 		"ascending": "Outbound",
 		"descending": "Inbound",
-		"color": "#E60012",
-		"code": "NEX",
-		"carComposition": 6
-	},
-	{
-		"id": "JR-East.NaritaExpressBranch",
-		"title": {
-			"ja": "成田エクスプレス",
-			"en": "Narita Express",
-			"ko": "나리타 익스프레스",
-			"zh-Hans": "成田特快",
-			"zh-Hant": "成田特快"
-		},
-		"stations": [
-			"JR-East.NaritaExpressBranch.Tokyo",
-			"JR-East.NaritaExpressBranch.Shinagawa",
-			"JR-East.NaritaExpressBranch.MusashiKosugi",
-			"JR-East.NaritaExpressBranch.Yokohama",
-			"JR-East.NaritaExpressBranch.Totsuka",
-			"JR-East.NaritaExpressBranch.Ofuna"
-		],
-		"ascending": "Outbound",
-		"descending": "Inbound",
-		"color": "#E60012",
-		"code": "NEX",
+		"color": "#007AC1",
 		"carComposition": 6
 	},
 	{
@@ -1084,6 +1089,7 @@
 		"title": {
 			"ja": "相鉄直通線",
 			"en": "Sotetsu Direct Connection Line",
+			"fr": "Ligne de connexion directe Sotetsu",
 			"ko": "소테쓰 직통 선",
 			"zh-Hans": "相铁直通线",
 			"zh-Hant": "相鐵直通線"
@@ -1105,11 +1111,14 @@
 		"title": {
 			"ja": "大崎支線",
 			"en": "Osaki Branch Line",
+			"fr": "Branche de la ligne d'Osaki",
 			"ko": "오사키 지선",
 			"zh-Hans": "大崎支线",
 			"zh-Hant": "大崎支線"
 		},
 		"stations": [
+			"JR-East.OsakiBranch.Osaki",
+			"JR-East.OsakiBranch.Fujisawa"
 		],
 		"ascending": "Outbound",
 		"descending": "Inbound",
@@ -1121,11 +1130,14 @@
 		"title": {
 			"ja": "東海道貨物線",
 			"en": "Tokaido Freight Line",
+			"fr": "Ligne de fret Tokaido",
 			"ko": "도카이도 화물선",
 			"zh-Hans": "东海道货物线",
 			"zh-Hant": "東海道貨物線"
 		},
 		"stations": [
+			"JR-East.TokaidoFreight.Shinagawa",
+			"JR-East.TokaidoFreight.Fujisawa"
 		],
 		"ascending": "Outbound",
 		"descending": "Inbound",
@@ -1137,6 +1149,7 @@
 		"title": {
 			"ja": "鶴見線",
 			"en": "Tsurumi Line",
+			"fr": "Ligne Tsurumi",
 			"ko": "쓰루미 선",
 			"zh-Hans": "鹤见线",
 			"zh-Hant": "鶴見線"
@@ -1156,15 +1169,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFD400",
-		"code": "JI",
 		"carComposition": 3,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JI"
 	},
 	{
 		"id": "JR-East.TsurumiUmiShibauraBranch",
 		"title": {
 			"ja": "鶴見線海芝浦支線",
 			"en": "Tsurumi Umi Shibaura Branch Line",
+			"fr": "Branche de la ligne de Tsurumi Umi Shibaura",
 			"ko": "쓰루미 선 우미시바우라 지선",
 			"zh-Hans": "鹤见线海芝浦支线",
 			"zh-Hant": "鶴見線海芝浦支線"
@@ -1185,6 +1199,7 @@
 		"title": {
 			"ja": "鶴見線大川支線",
 			"en": "Tsurumi Okawa Branch Line",
+			"fr": "Branche de la ligne de Tsurumi Okawa",
 			"ko": "쓰루미 선 오카와 지선",
 			"zh-Hans": "鹤见线大川支线",
 			"zh-Hant": "鶴見線大川支線"
@@ -1204,6 +1219,7 @@
 		"title": {
 			"ja": "南武線",
 			"en": "Nambu Line",
+			"fr": "Ligne Nambu",
 			"ko": "난부 선",
 			"zh-Hans": "南武线",
 			"zh-Hant": "南武線"
@@ -1239,15 +1255,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFD400",
-		"code": "JN",
 		"carComposition": 6,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JN"
 	},
 	{
 		"id": "JR-East.NambuBranch",
 		"title": {
 			"ja": "南武線浜川崎支線",
 			"en": "Nambu Branch Line",
+			"fr": "Branche de la ligne Nambu",
 			"ko": "난부 선 하마카와사키 지선",
 			"zh-Hans": "南武线滨川崎支线",
 			"zh-Hant": "南武線濱川崎支線"
@@ -1262,15 +1279,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFD400",
-		"code": "JN",
 		"carComposition": 2,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JN"
 	},
 	{
 		"id": "JR-East.Musashino",
 		"title": {
 			"ja": "武蔵野線",
 			"en": "Musashino Line",
+			"fr": "Ligne Musashino",
 			"ko": "무사시노 선",
 			"zh-Hans": "武藏野线",
 			"zh-Hant": "武藏野線"
@@ -1306,17 +1324,18 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F15A22",
-		"code": "JM",
 		"carComposition": 8,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JM"
 	},
 	{
 		"id": "JR-East.MusashinoKunitachiBranch",
 		"title": {
 			"ja": "武蔵野線",
 			"en": "Musashino Line",
+			"fr": "Ligne Musashino",
 			"ko": "무사시노 선",
-			"zh-Hans": "武藏野线（八王子支线）",
+			"zh-Hans": "武藏野线",
 			"zh-Hant": "武藏野線"
 		},
 		"stations": [
@@ -1337,8 +1356,9 @@
 		"title": {
 			"ja": "武蔵野線",
 			"en": "Musashino Line",
+			"fr": "Ligne Musashino",
 			"ko": "무사시노 선",
-			"zh-Hans": "武藏野线（西浦和-大宫支线）",
+			"zh-Hans": "武藏野线",
 			"zh-Hant": "武藏野線"
 		},
 		"stations": [
@@ -1355,8 +1375,9 @@
 		"title": {
 			"ja": "武蔵野線",
 			"en": "Musashino Line",
+			"fr": "Ligne Musashino",
 			"ko": "무사시노 선",
-			"zh-Hans": "武藏野线（武藏浦和-大宫支线）",
+			"zh-Hans": "武藏野线",
 			"zh-Hant": "武藏野線"
 		},
 		"stations": [
@@ -1373,6 +1394,7 @@
 		"title": {
 			"ja": "横浜線",
 			"en": "Yokohama Line",
+			"fr": "Ligne Yokohama",
 			"ko": "요코하마 선",
 			"zh-Hans": "横滨线",
 			"zh-Hant": "橫濱線"
@@ -1402,15 +1424,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#80C342",
-		"code": "JH",
 		"carComposition": 8,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JH"
 	},
 	{
 		"id": "JR-East.Hachiko",
 		"title": {
 			"ja": "八高線",
 			"en": "Hachiko Line",
+			"fr": "Ligne Hachiko",
 			"ko": "하치코 선",
 			"zh-Hans": "八高线",
 			"zh-Hant": "八高線"
@@ -1452,6 +1475,7 @@
 		"title": {
 			"ja": "川越線(川越-高麗川間)",
 			"en": "Kawagoe Line",
+			"fr": "Ligne Kawagoe",
 			"ko": "가와고에 선",
 			"zh-Hans": "川越线",
 			"zh-Hant": "川越線"
@@ -1475,6 +1499,7 @@
 		"title": {
 			"ja": "相模線",
 			"en": "Sagami Line",
+			"fr": "Ligne Sagami",
 			"ko": "사가미 선",
 			"zh-Hans": "相模线",
 			"zh-Hant": "相模線"
@@ -1510,6 +1535,7 @@
 		"title": {
 			"ja": "鹿島線",
 			"en": "Kashima Line",
+			"fr": "Ligne Kashima",
 			"ko": "가시마 선",
 			"zh-Hans": "鹿岛线",
 			"zh-Hant": "鹿島線"
@@ -1534,6 +1560,7 @@
 		"title": {
 			"ja": "東金線",
 			"en": "Togane Line",
+			"fr": "Ligne Togane",
 			"ko": "도가네 선",
 			"zh-Hans": "东金线",
 			"zh-Hant": "東金線"
@@ -1556,6 +1583,7 @@
 		"title": {
 			"ja": "久留里線",
 			"en": "Kururi Line",
+			"fr": "Ligne Kururi",
 			"ko": "구루리 선",
 			"zh-Hans": "久留里线",
 			"zh-Hant": "久留里線"
@@ -1587,6 +1615,7 @@
 		"title": {
 			"ja": "伊東線",
 			"en": "Ito Line",
+			"fr": "Ligne Ito",
 			"ko": "이토 선",
 			"zh-Hans": "伊东线",
 			"zh-Hant": "伊東線"
@@ -1602,15 +1631,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F68B1E",
-		"code": "JT",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "JT"
 	},
 	{
 		"id": "JR-East.Ryomo",
 		"title": {
 			"ja": "両毛線",
 			"en": "Ryomo Line",
+			"fr": "Ligne Ryomo",
 			"ko": "료모 선",
 			"zh-Hans": "两毛线",
 			"zh-Hant": "兩毛線"
@@ -1650,6 +1680,7 @@
 		"title": {
 			"ja": "水戸線",
 			"en": "Mito Line",
+			"fr": "Ligne Mito",
 			"ko": "미토 선",
 			"zh-Hans": "水户线",
 			"zh-Hant": "水戶線"
@@ -1679,10 +1710,73 @@
 		"dynamic": true
 	},
 	{
+		"id": "JR-East.Suigun",
+		"title": {
+			"ja": "水郡線",
+			"en": "Suigun Line",
+			"fr": "Ligne Suigun",
+			"ko": "스이군 선",
+			"zh-Hans": "水郡线",
+			"zh-Hant": "水郡線"
+		},
+		"stations": [
+			"JR-East.Suigun.Mito",
+			"JR-East.Suigun.HitachiAoyagi",
+			"JR-East.Suigun.HitachiTsuda",
+			"JR-East.Suigun.Godai",
+			"JR-East.Suigun.ShimoSugaya",
+			"JR-East.Suigun.NakaSugaya",
+			"JR-East.Suigun.KamiSugaya",
+			"JR-East.Suigun.HitachiKonosu",
+			"JR-East.Suigun.Urizura",
+			"JR-East.Suigun.Shizu",
+			"JR-East.Suigun.HitachiOmiya",
+			"JR-East.Suigun.Tamagawamura",
+			"JR-East.Suigun.Nogamihara",
+			"JR-East.Suigun.Yamagatajuku",
+			"JR-East.Suigun.NakaFunyu",
+			"JR-East.Suigun.ShimoOgawa",
+			"JR-East.Suigun.Saigane",
+			"JR-East.Suigun.KamiOgawa",
+			"JR-East.Suigun.Fukuroda",
+			"JR-East.Suigun.HitachiDaigo"
+		],
+		"ascending": "Outbound",
+		"descending": "Inbound",
+		"color": "#368C44",
+		"carComposition": 4,
+		"dynamic": true
+	},
+	{
+		"id": "JR-East.SuigunBranch",
+		"title": {
+			"ja": "水郡線常陸太田支線",
+			"en": "Suigun Branch Line",
+			"fr": "Branche de la ligne Suigun",
+			"ko": "닛스이군 선 히타치오타 지선",
+			"zh-Hans": "水郡线常陆太田支线",
+			"zh-Hant": "水郡線常陸太田支線"
+		},
+		"stations": [
+			"JR-East.SuigunBranch.KamiSugaya",
+			"JR-East.SuigunBranch.MinamiSakaide",
+			"JR-East.SuigunBranch.Nukada",
+			"JR-East.SuigunBranch.Kawai",
+			"JR-East.SuigunBranch.Yagawara",
+			"JR-East.SuigunBranch.HitachiOta"
+		],
+		"ascending": "Outbound",
+		"descending": "Inbound",
+		"color": "#368C44",
+		"carComposition": 4,
+		"dynamic": true
+	},
+	{
 		"id": "JR-East.Nikko",
 		"title": {
 			"ja": "日光線",
 			"en": "Nikko Line",
+			"fr": "Ligne Nikko",
 			"ko": "닛코 선",
 			"zh-Hans": "日光线",
 			"zh-Hant": "日光線"
@@ -1707,6 +1801,7 @@
 		"title": {
 			"ja": "烏山線",
 			"en": "Karasuyama Line",
+			"fr": "Ligne Karasuyama",
 			"ko": "닛가라스야마 선",
 			"zh-Hans": "乌山线",
 			"zh-Hant": "烏山線"
@@ -1728,10 +1823,73 @@
 		"dynamic": true
 	},
 	{
+		"id": "JR-East.Shinetsu",
+		"title": {
+			"ja": "信越本線",
+			"en": "Shinetsu Line",
+			"fr": "Ligne Shinetsu",
+			"ko": "신에쓰 본선",
+			"zh-Hans": "信越本线",
+			"zh-Hant": "信越本線"
+		},
+		"stations": [
+			"JR-East.Shinetsu.Takasaki",
+			"JR-East.Shinetsu.KitaTakasaki",
+			"JR-East.Shinetsu.GummaYawata",
+			"JR-East.Shinetsu.Annaka",
+			"JR-East.Shinetsu.Isobe",
+			"JR-East.Shinetsu.Matsuida",
+			"JR-East.Shinetsu.NishiMatsuida",
+			"JR-East.Shinetsu.Yokokawa"
+		],
+		"ascending": "Outbound",
+		"descending": "Inbound",
+		"color": "#9ACD32",
+		"carComposition": 4,
+		"dynamic": true
+	},
+	{
+		"id": "JR-East.Agatsuma",
+		"title": {
+			"ja": "吾妻線",
+			"en": "Agatsuma Line",
+			"fr": "Ligne Agatsuma",
+			"ko": "아가쓰마 선",
+			"zh-Hans": "吾妻线",
+			"zh-Hant": "吾妻線"
+		},
+		"stations": [
+			"JR-East.Agatsuma.Shibukawa",
+			"JR-East.Agatsuma.Kanashima",
+			"JR-East.Agatsuma.Ubashima",
+			"JR-East.Agatsuma.Onogami",
+			"JR-East.Agatsuma.OnogamiOnsen",
+			"JR-East.Agatsuma.Ichishiro",
+			"JR-East.Agatsuma.Nakanojo",
+			"JR-East.Agatsuma.GunmaHaramachi",
+			"JR-East.Agatsuma.Gobara",
+			"JR-East.Agatsuma.Yagura",
+			"JR-East.Agatsuma.Iwashima",
+			"JR-East.Agatsuma.KawarayuOnsen",
+			"JR-East.Agatsuma.Naganoharakusatsuguchi",
+			"JR-East.Agatsuma.GunmaOtsu",
+			"JR-East.Agatsuma.Haneo",
+			"JR-East.Agatsuma.Fukurogura",
+			"JR-East.Agatsuma.ManzaKazawaguchi",
+			"JR-East.Agatsuma.Omae"
+		],
+		"ascending": "Outbound",
+		"descending": "Inbound",
+		"color": "#0F5474",
+		"carComposition": 4,
+		"dynamic": true
+	},
+	{
 		"id": "JR-Central.Tokaido",
 		"title": {
 			"ja": "東海道線",
 			"en": "Tokaido Line",
+			"fr": "Ligne Tokaido",
 			"ko": "도카이도 선",
 			"zh-Hans": "东海道线",
 			"zh-Hant": "東海道線"
@@ -1745,14 +1903,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F68B1E",
-		"code": "CA",
-		"carComposition": 15
+		"carComposition": 15,
+		"code": "CA"
 	},
 	{
 		"id": "JR-Central.Gotemba",
 		"title": {
 			"ja": "御殿場線",
 			"en": "Gotemba Line",
+			"fr": "Ligne Gotemba",
 			"ko": "고텐바 선",
 			"zh-Hans": "御殿场线",
 			"zh-Hant": "御殿場線"
@@ -1781,14 +1940,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#3F743A",
-		"code": "CB",
-		"carComposition": 5
+		"carComposition": 5,
+		"code": "CB"
 	},
 	{
 		"id": "TWR.Rinkai",
 		"title": {
 			"ja": "りんかい線",
 			"en": "Rinkai Line",
+			"fr": "Ligne Rinkai",
 			"ko": "린카이선",
 			"zh-Hans": "临海线",
 			"zh-Hant": "臨海線"
@@ -1807,14 +1967,15 @@
 		"descending": "Inbound",
 		"altitude": -1,
 		"color": "#8ECED3",
-		"code": "R",
-		"carComposition": 10
+		"carComposition": 10,
+		"code": "R"
 	},
 	{
 		"id": "TokyoMetro.Ginza",
 		"title": {
 			"ja": "銀座線",
 			"en": "Ginza Line",
+			"fr": "Ligne Ginza",
 			"ko": "긴자선",
 			"zh-Hans": "银座线",
 			"zh-Hant": "銀座線"
@@ -1844,14 +2005,15 @@
 		"descending": "TokyoMetro.Shibuya",
 		"altitude": -1,
 		"color": "#FF9500",
-		"code": "G",
-		"carComposition": 6
+		"carComposition": 6,
+		"code": "G"
 	},
 	{
 		"id": "TokyoMetro.Marunouchi",
 		"title": {
 			"ja": "丸ノ内線",
 			"en": "Marunouchi Line",
+			"fr": "Ligne Marunouchi",
 			"ko": "마루노우치선",
 			"zh-Hans": "丸之内线",
 			"zh-Hant": "丸之内線"
@@ -1887,14 +2049,15 @@
 		"descending": "TokyoMetro.Ogikubo",
 		"altitude": -1,
 		"color": "#F62E36",
-		"code": "M",
-		"carComposition": 6
+		"carComposition": 6,
+		"code": "M"
 	},
 	{
 		"id": "TokyoMetro.MarunouchiBranch",
 		"title": {
 			"ja": "丸ノ内線支線",
 			"en": "Marunouchi Branch Line",
+			"fr": "Branche de la ligne Marunouchi",
 			"ko": "마루노우치선 지선",
 			"zh-Hans": "丸之内线支线",
 			"zh-Hant": "丸之內線支線"
@@ -1909,14 +2072,15 @@
 		"descending": "TokyoMetro.Honancho",
 		"altitude": -1,
 		"color": "#F62E36",
-		"code": "Mb",
-		"carComposition": 6
+		"carComposition": 6,
+		"code": "Mb"
 	},
 	{
 		"id": "TokyoMetro.Hibiya",
 		"title": {
 			"ja": "日比谷線",
 			"en": "Hibiya Line",
+			"fr": "Ligne Hibiya",
 			"ko": "히비야선",
 			"zh-Hans": "日比谷线",
 			"zh-Hant": "日比谷線"
@@ -1943,20 +2107,22 @@
 			"TokyoMetro.Hibiya.Iriya",
 			"TokyoMetro.Hibiya.Minowa",
 			"TokyoMetro.Hibiya.MinamiSenju",
-			"TokyoMetro.Hibiya.KitaSenju"
+			"TokyoMetro.Hibiya.KitaSenju",
+			"TokyoMetro.Hibiya.ShinKoshigaya"
 		],
 		"ascending": "TokyoMetro.KitaSenju",
 		"descending": "TokyoMetro.NakaMeguro",
 		"altitude": -1,
 		"color": "#B5B5AC",
-		"code": "H",
-		"carComposition": 7
+		"carComposition": 7,
+		"code": "H"
 	},
 	{
 		"id": "TokyoMetro.Tozai",
 		"title": {
 			"ja": "東西線",
 			"en": "Tozai Line",
+			"fr": "Ligne Tozai",
 			"ko": "도자이선",
 			"zh-Hans": "东西线",
 			"zh-Hant": "東西線"
@@ -1990,19 +2156,22 @@
 		"descending": "TokyoMetro.Nakano",
 		"altitude": -1,
 		"color": "#009BBF",
-		"code": "T",
-		"carComposition": 10
+		"carComposition": 10,
+		"code": "T"
 	},
 	{
 		"id": "TokyoMetro.Chiyoda",
 		"title": {
 			"ja": "千代田線",
 			"en": "Chiyoda Line",
+			"fr": "Ligne Chiyoda",
 			"ko": "치요다선",
 			"zh-Hans": "千代田线",
 			"zh-Hant": "千代田線"
 		},
 		"stations": [
+			"TokyoMetro.Chiyoda.Machida",
+			"TokyoMetro.Chiyoda.SeijogakuenMae",
 			"TokyoMetro.Chiyoda.YoyogiUehara",
 			"TokyoMetro.Chiyoda.YoyogiKoen",
 			"TokyoMetro.Chiyoda.MeijiJingumae",
@@ -2028,14 +2197,15 @@
 		"descending": "TokyoMetro.YoyogiUehara",
 		"altitude": -1,
 		"color": "#00BB85",
-		"code": "C",
-		"carComposition": 10
+		"carComposition": 10,
+		"code": "C"
 	},
 	{
 		"id": "TokyoMetro.Yurakucho",
 		"title": {
 			"ja": "有楽町線",
 			"en": "Yurakucho Line",
+			"fr": "Ligne Yurakucho",
 			"ko": "유라쿠초선",
 			"zh-Hans": "有乐町线",
 			"zh-Hant": "有樂町線"
@@ -2070,14 +2240,15 @@
 		"descending": "TokyoMetro.Wakoshi",
 		"altitude": -1,
 		"color": "#C1A470",
-		"code": "Y",
-		"carComposition": 10
+		"carComposition": 10,
+		"code": "Y"
 	},
 	{
 		"id": "TokyoMetro.Hanzomon",
 		"title": {
 			"ja": "半蔵門線",
 			"en": "Hanzomon Line",
+			"fr": "Ligne Hanzomon",
 			"ko": "한조몬선",
 			"zh-Hans": "半藏门线",
 			"zh-Hant": "半藏門線"
@@ -2102,14 +2273,15 @@
 		"descending": "TokyoMetro.Shibuya",
 		"altitude": -1,
 		"color": "#8F76D6",
-		"code": "Z",
-		"carComposition": 10
+		"carComposition": 10,
+		"code": "Z"
 	},
 	{
 		"id": "TokyoMetro.Namboku",
 		"title": {
 			"ja": "南北線",
 			"en": "Namboku Line",
+			"fr": "Ligne Namboku",
 			"ko": "난보쿠선",
 			"zh-Hans": "南北线",
 			"zh-Hant": "南北線"
@@ -2139,14 +2311,15 @@
 		"descending": "TokyoMetro.Meguro",
 		"altitude": -1,
 		"color": "#00AC9B",
-		"code": "N",
-		"carComposition": 8
+		"carComposition": 8,
+		"code": "N"
 	},
 	{
 		"id": "TokyoMetro.Fukutoshin",
 		"title": {
 			"ja": "副都心線",
 			"en": "Fukutoshin Line",
+			"fr": "Ligne Fukutoshin",
 			"ko": "후쿠토신선",
 			"zh-Hans": "副都心线",
 			"zh-Hant": "副都心線"
@@ -2173,14 +2346,15 @@
 		"descending": "TokyoMetro.Wakoshi",
 		"altitude": -1,
 		"color": "#9C5E31",
-		"code": "F",
-		"carComposition": 10
+		"carComposition": 10,
+		"code": "F"
 	},
 	{
 		"id": "Toei.Asakusa",
 		"title": {
 			"ja": "浅草線",
 			"en": "Asakusa Line",
+			"fr": "Ligne Asakusa",
 			"ko": "아사쿠사 선",
 			"zh-Hans": "浅草线",
 			"zh-Hant": "淺草線"
@@ -2211,15 +2385,16 @@
 		"descending": "Southbound",
 		"altitude": -1,
 		"color": "#DC435F",
-		"code": "A",
 		"carComposition": 8,
-		"dynamic": true
+		"dynamic": true,
+		"code": "A"
 	},
 	{
 		"id": "Toei.Mita",
 		"title": {
 			"ja": "三田線",
 			"en": "Mita Line",
+			"fr": "Ligne Mita",
 			"ko": "미타 선",
 			"zh-Hans": "三田线",
 			"zh-Hant": "三田線"
@@ -2257,15 +2432,16 @@
 		"descending": "Southbound",
 		"altitude": -1,
 		"color": "#006AB8",
-		"code": "I",
 		"carComposition": 8,
-		"dynamic": true
+		"dynamic": true,
+		"code": "I"
 	},
 	{
 		"id": "Toei.Shinjuku",
 		"title": {
 			"ja": "新宿線",
 			"en": "Shinjuku Line",
+			"fr": "Ligne Shinjuku",
 			"ko": "신주쿠 선",
 			"zh-Hans": "新宿线",
 			"zh-Hant": "新宿線"
@@ -2297,15 +2473,16 @@
 		"descending": "Westbound",
 		"altitude": -1,
 		"color": "#B0BF1E",
-		"code": "S",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "S"
 	},
 	{
 		"id": "Toei.Oedo",
 		"title": {
 			"ja": "大江戸線",
 			"en": "Oedo Line",
+			"fr": "Ligne Oedo",
 			"ko": "오에도 선",
 			"zh-Hans": "大江户线",
 			"zh-Hant": "大江戶線"
@@ -2355,15 +2532,16 @@
 		"descending": "InnerLoop",
 		"altitude": -1,
 		"color": "#CE045B",
-		"code": "E",
 		"carComposition": 8,
-		"dynamic": true
+		"dynamic": true,
+		"code": "E"
 	},
 	{
 		"id": "Toei.NipporiToneri",
 		"title": {
 			"ja": "日暮里・舎人ライナー",
 			"en": "Nippori-Toneri Liner",
+			"fr": "Nippori-Toneri Liner",
 			"ko": "닛포리·도네리 라이너",
 			"zh-Hans": "日暮里-舍人线",
 			"zh-Hant": "日暮里-舍人線"
@@ -2386,17 +2564,18 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#D53A77",
-		"code": "NT",
-		"carComposition": 5
+		"carComposition": 5,
+		"code": "NT"
 	},
 	{
 		"id": "Toei.Arakawa",
 		"title": {
 			"ja": "東京さくらトラム（都電荒川線）",
 			"en": "Tokyo Sakura Tram (Arakawa Line)",
+			"fr": "Tokyo Sakura Tram (Ligne Arakawa)",
 			"ko": "도쿄 사쿠라 트램 (아라카와 선)",
-			"zh-Hans": "都电荒川线",
-			"zh-Hant": "都電荒川線"
+			"zh-Hans": "东京樱电 (荒川线)",
+			"zh-Hant": "東京櫻花 (荒川線)"
 		},
 		"stations": [
 			"Toei.Arakawa.Minowabashi",
@@ -2433,15 +2612,16 @@
 		"ascending": "Toei.Waseda",
 		"descending": "Toei.Minowabashi",
 		"color": "#EE86A7",
-		"code": "SA",
 		"carComposition": 1,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SA"
 	},
 	{
 		"id": "YokohamaMunicipal.Blue",
 		"title": {
 			"ja": "ブルーライン",
 			"en": "Blue Line",
+			"fr": "Ligne Bleue",
 			"ko": "블루 라인",
 			"zh-Hans": "蓝线",
 			"zh-Hant": "藍線"
@@ -2484,15 +2664,16 @@
 		"descending": "Outbound",
 		"altitude": -1,
 		"color": "#0170C1",
-		"code": "B",
 		"carComposition": 6,
-		"dynamic": true
+		"dynamic": true,
+		"code": "B"
 	},
 	{
 		"id": "YokohamaMunicipal.Green",
 		"title": {
 			"ja": "グリーンライン",
 			"en": "Green Line",
+			"fr": "Ligne Verte",
 			"ko": "그린 라인",
 			"zh-Hans": "绿线",
 			"zh-Hant": "綠線"
@@ -2513,15 +2694,16 @@
 		"descending": "Outbound",
 		"altitude": -1,
 		"color": "#00A15A",
-		"code": "G",
 		"carComposition": 4,
-		"dynamic": true
+		"dynamic": true,
+		"code": "G"
 	},
 	{
 		"id": "Keio.KeioNew",
 		"title": {
 			"ja": "京王新線",
 			"en": "Keiō New Line",
+			"fr": "Ligne Nouvelle Keiō",
 			"ko": "게이오신선",
 			"zh-Hans": "京王新线",
 			"zh-Hant": "京王新線"
@@ -2536,15 +2718,16 @@
 		"descending": "Inbound",
 		"altitude": -1,
 		"color": "#DD0077",
-		"code": "KO",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "KO"
 	},
 	{
 		"id": "Keio.Keio",
 		"title": {
 			"ja": "京王線",
 			"en": "Keiō Line",
+			"fr": "Ligne Keiō",
 			"ko": "게이오선",
 			"zh-Hans": "京王线",
 			"zh-Hant": "京王線"
@@ -2586,15 +2769,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#DD0077",
-		"code": "KO",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "KO"
 	},
 	{
 		"id": "Keio.Sagamihara",
 		"title": {
 			"ja": "相模原線",
 			"en": "Sagamihara Line",
+			"fr": "Ligne Sagamihara",
 			"ko": "사가미하라선",
 			"zh-Hans": "相模原线",
 			"zh-Hant": "相模原線"
@@ -2617,15 +2801,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#DD0077",
-		"code": "KO",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "KO"
 	},
 	{
 		"id": "Keio.Keibajo",
 		"title": {
 			"ja": "競馬場線",
 			"en": "Keibajō Line",
+			"fr": "Ligne Keibajō",
 			"ko": "게이바조선",
 			"zh-Hans": "竞马场线",
 			"zh-Hant": "競馬場線"
@@ -2637,15 +2822,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#DD0077",
-		"code": "KO",
 		"carComposition": 2,
-		"dynamic": true
+		"dynamic": true,
+		"code": "KO"
 	},
 	{
 		"id": "Keio.Dobutsuen",
 		"title": {
 			"ja": "動物園線",
 			"en": "Dōbutsuen Line",
+			"fr": "Ligne Dōbutsuen",
 			"ko": "도부쓰엔선",
 			"zh-Hans": "动物园线",
 			"zh-Hant": "動物園線"
@@ -2657,15 +2843,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#DD0077",
-		"code": "KO",
 		"carComposition": 4,
-		"dynamic": true
+		"dynamic": true,
+		"code": "KO"
 	},
 	{
 		"id": "Keio.Takao",
 		"title": {
 			"ja": "高尾線",
 			"en": "Takao Line",
+			"fr": "Ligne Takao",
 			"ko": "다카오선",
 			"zh-Hans": "高尾线",
 			"zh-Hant": "高尾線"
@@ -2683,15 +2870,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#DD0077",
-		"code": "KO",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "KO"
 	},
 	{
 		"id": "Keio.Inokashira",
 		"title": {
 			"ja": "井の頭線",
 			"en": "Inokashira Line",
+			"fr": "Ligne Inokashira",
 			"ko": "이노카시라선",
 			"zh-Hans": "井之头线",
 			"zh-Hant": "井之頭線"
@@ -2718,15 +2906,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#000088",
-		"code": "IN",
 		"carComposition": 5,
-		"dynamic": true
+		"dynamic": true,
+		"code": "IN"
 	},
 	{
 		"id": "Keikyu.Main",
 		"title": {
 			"ja": "京急本線",
 			"en": "Keikyū Main Line",
+			"fr": "Ligne Principale Keikyū",
 			"ko": "게이큐 본선",
 			"zh-Hans": "京急本线",
 			"zh-Hant": "京急本線"
@@ -2786,16 +2975,17 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33C2E4",
-		"code": "KK",
-		"carComposition": 8
+		"carComposition": 8,
+		"code": "KK"
 	},
 	{
 		"id": "Keikyu.Airport",
 		"title": {
 			"ja": "空港線",
 			"en": "Airport Line",
+			"fr": "Ligne de l'Aéroport",
 			"ko": "공항선",
-			"zh-Hans": "京急空港线",
+			"zh-Hans": "机场线",
 			"zh-Hant": "機場線"
 		},
 		"stations": [
@@ -2811,14 +3001,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33C2E4",
-		"code": "KK",
-		"carComposition": 8
+		"carComposition": 8,
+		"code": "KK"
 	},
 	{
 		"id": "Keikyu.Daishi",
 		"title": {
 			"ja": "大師線",
 			"en": "Daishi Line",
+			"fr": "Ligne Daishi",
 			"ko": "다이시선",
 			"zh-Hans": "大师线",
 			"zh-Hant": "大師線"
@@ -2835,14 +3026,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33C2E4",
-		"code": "KK",
-		"carComposition": 4
+		"carComposition": 4,
+		"code": "KK"
 	},
 	{
 		"id": "Keikyu.Zushi",
 		"title": {
 			"ja": "逗子線",
 			"en": "Zushi Line",
+			"fr": "Ligne Zushi",
 			"ko": "즈시선",
 			"zh-Hans": "逗子线",
 			"zh-Hant": "逗子線"
@@ -2856,14 +3048,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33C2E4",
-		"code": "KK",
-		"carComposition": 8
+		"carComposition": 8,
+		"code": "KK"
 	},
 	{
 		"id": "Keikyu.Kurihama",
 		"title": {
 			"ja": "久里浜線",
 			"en": "Kurihama Line",
+			"fr": "Ligne Kurihama",
 			"ko": "구리하마선",
 			"zh-Hans": "久里滨线",
 			"zh-Hant": "久里濱線"
@@ -2883,14 +3076,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33C2E4",
-		"code": "KK",
-		"carComposition": 8
+		"carComposition": 8,
+		"code": "KK"
 	},
 	{
 		"id": "Keisei.Main",
 		"title": {
 			"ja": "京成本線",
 			"en": "Keisei Main Line",
+			"fr": "Ligne Principale Keisei",
 			"ko": "게이세이 본선",
 			"zh-Hans": "京成本线",
 			"zh-Hant": "京成本線"
@@ -2942,15 +3136,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005AAA",
-		"code": "KS",
 		"carComposition": 6,
-		"dynamic": true
+		"dynamic": true,
+		"code": "KS"
 	},
 	{
 		"id": "Keisei.HigashiNarita",
 		"title": {
 			"ja": "東成田線",
 			"en": "Higashi-Narita Line",
+			"fr": "Ligne Higashi-Narita",
 			"ko": "히가시나리타 선",
 			"zh-Hans": "东成田线",
 			"zh-Hant": "東成田線"
@@ -2962,15 +3157,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005AAA",
-		"code": "KS",
 		"carComposition": 6,
-		"dynamic": true
+		"dynamic": true,
+		"code": "KS"
 	},
 	{
 		"id": "Keisei.Oshiage",
 		"title": {
 			"ja": "押上線",
 			"en": "Oshiage Line",
+			"fr": "Ligne Oshiage",
 			"ko": "오시아게 선",
 			"zh-Hans": "押上线",
 			"zh-Hant": "押上線"
@@ -2986,15 +3182,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005AAA",
-		"code": "KS",
 		"carComposition": 8,
-		"dynamic": true
+		"dynamic": true,
+		"code": "KS"
 	},
 	{
 		"id": "Keisei.Chiba",
 		"title": {
 			"ja": "千葉線",
 			"en": "Chiba Line",
+			"fr": "Ligne Chiba",
 			"ko": "지바 선",
 			"zh-Hans": "千叶线",
 			"zh-Hant": "千葉線"
@@ -3014,15 +3211,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005AAA",
-		"code": "KS",
 		"carComposition": 6,
-		"dynamic": true
+		"dynamic": true,
+		"code": "KS"
 	},
 	{
 		"id": "Keisei.Chihara",
 		"title": {
 			"ja": "千原線",
 			"en": "Chihara Line",
+			"fr": "Ligne Chihara",
 			"ko": "지하라 선",
 			"zh-Hans": "千原线",
 			"zh-Hant": "千原線"
@@ -3038,15 +3236,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005AAA",
-		"code": "KS",
 		"carComposition": 6,
-		"dynamic": true
+		"dynamic": true,
+		"code": "KS"
 	},
 	{
 		"id": "Keisei.NaritaSkyAccess",
 		"title": {
 			"ja": "成田スカイアクセス線",
 			"en": "Narita Sky Access Line",
+			"fr": "Ligne d'accès Narita Sky",
 			"ko": "나리타 스카이액세스선",
 			"zh-Hans": "成田Sky Access线",
 			"zh-Hant": "成田Sky Access線"
@@ -3067,15 +3266,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF8620",
-		"code": "KS",
 		"carComposition": 8,
-		"dynamic": true
+		"dynamic": true,
+		"code": "KS"
 	},
 	{
 		"id": "Keisei.Kanamachi",
 		"title": {
 			"ja": "金町線",
 			"en": "Kanamachi Line",
+			"fr": "Ligne Kanamachi",
 			"ko": "가나마치 선",
 			"zh-Hans": "金町线",
 			"zh-Hant": "金町線"
@@ -3088,15 +3288,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005AAA",
-		"code": "KS",
 		"carComposition": 4,
-		"dynamic": true
+		"dynamic": true,
+		"code": "KS"
 	},
 	{
 		"id": "Keisei.Matsudo",
 		"title": {
 			"ja": "松戸線",
 			"en": "Matsudo Line",
+			"fr": "Ligne Matsudo",
 			"ko": "마쓰도 선",
 			"zh-Hans": "松户线",
 			"zh-Hant": "松戶線"
@@ -3130,15 +3331,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005AAA",
-		"code": "KS",
 		"carComposition": 6,
-		"dynamic": true
+		"dynamic": true,
+		"code": "KS"
 	},
 	{
 		"id": "Hokuso.Hokuso",
 		"title": {
 			"ja": "北総線",
 			"en": "Hokuso Line",
+			"fr": "Ligne Hokuso",
 			"ko": "호쿠소 선",
 			"zh-Hans": "北总线",
 			"zh-Hant": "北總線"
@@ -3163,15 +3365,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#00BDF2",
-		"code": "HS",
 		"carComposition": 8,
-		"dynamic": true
+		"dynamic": true,
+		"code": "HS"
 	},
 	{
 		"id": "Shibayama.Shibayama",
 		"title": {
 			"ja": "芝山鉄道線",
 			"en": "Shibayama Line",
+			"fr": "Ligne Shibayama",
 			"ko": "시바야마 철도선",
 			"zh-Hans": "芝山铁道线",
 			"zh-Hant": "芝山鐵道線"
@@ -3183,18 +3386,19 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#00A650",
-		"code": "SR",
 		"carComposition": 6,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SR"
 	},
 	{
 		"id": "Tobu.TobuSkytree",
 		"title": {
 			"ja": "東武スカイツリーライン",
 			"en": "TOBU SKYTREE Line",
+			"fr": "Ligne TOBU SKYTREE",
 			"ko": "도부 스카이트리 라인",
-			"zh-Hans": "晴空塔线",
-			"zh-Hant": "晴空塔線"
+			"zh-Hans": "东武晴空塔线",
+			"zh-Hant": "東武晴空塔線"
 		},
 		"stations": [
 			"Tobu.TobuSkytree.Asakusa",
@@ -3230,14 +3434,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0F6CC3",
-		"code": "TS",
-		"carComposition": 6
+		"carComposition": 6,
+		"code": "TS"
 	},
 	{
 		"id": "Tobu.TobuSkytreeBranch",
 		"title": {
 			"ja": "東武スカイツリーライン",
 			"en": "TOBU SKYTREE Line",
+			"fr": "Ligne TOBU SKYTREE",
 			"ko": "도부 스카이트리 라인",
 			"zh-Hans": "东武晴空塔线",
 			"zh-Hant": "東武晴空塔線"
@@ -3256,6 +3461,7 @@
 		"title": {
 			"ja": "伊勢崎線",
 			"en": "Isesaki Line",
+			"fr": "Ligne Isesaki",
 			"ko": "이세사키선",
 			"zh-Hans": "伊势崎线",
 			"zh-Hant": "伊勢崎線"
@@ -3291,14 +3497,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF0000",
-		"code": "TI",
-		"carComposition": 10
+		"carComposition": 10,
+		"code": "TI"
 	},
 	{
 		"id": "Tobu.Sano",
 		"title": {
 			"ja": "佐野線",
 			"en": "Sano Line",
+			"fr": "Ligne Sano",
 			"ko": "사노선",
 			"zh-Hans": "佐野线",
 			"zh-Hant": "佐野線"
@@ -3318,14 +3525,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF0000",
-		"code": "TI",
-		"carComposition": 3
+		"carComposition": 3,
+		"code": "TI"
 	},
 	{
 		"id": "Tobu.Koizumi",
 		"title": {
 			"ja": "小泉線",
 			"en": "Koizumi Line",
+			"fr": "Ligne Koizumi",
 			"ko": "고이즈미선",
 			"zh-Hans": "小泉线",
 			"zh-Hant": "小泉線"
@@ -3342,14 +3550,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF0000",
-		"code": "TI",
-		"carComposition": 2
+		"carComposition": 2,
+		"code": "TI"
 	},
 	{
 		"id": "Tobu.KoizumiBranch",
 		"title": {
 			"ja": "小泉線(東小泉-太田)",
 			"en": "Koizumi Line(Higashi-koizumi-Ota)",
+			"fr": "Ligne Koizumi (Higashi-koizumi-Ota)",
 			"ko": "고이즈미선(히가시코이즈미-오타)",
 			"zh-Hans": "小泉线(东小泉-太田)",
 			"zh-Hant": "小泉線(東小泉-太田)"
@@ -3362,14 +3571,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF0000",
-		"code": "TI",
-		"carComposition": 2
+		"carComposition": 2,
+		"code": "TI"
 	},
 	{
 		"id": "Tobu.Kiryu",
 		"title": {
 			"ja": "桐生線",
 			"en": "Kiryu Line",
+			"fr": "Ligne Kiryu",
 			"ko": "기류선",
 			"zh-Hans": "桐生线",
 			"zh-Hant": "桐生線"
@@ -3387,14 +3597,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF0000",
-		"code": "TI",
-		"carComposition": 2
+		"carComposition": 2,
+		"code": "TI"
 	},
 	{
 		"id": "Tobu.Nikko",
 		"title": {
 			"ja": "日光線",
 			"en": "Nikko Line",
+			"fr": "Ligne Nikko",
 			"ko": "닛코선",
 			"zh-Hans": "日光线",
 			"zh-Hant": "日光線"
@@ -3431,14 +3642,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFA500",
-		"code": "TN",
-		"carComposition": 6
+		"carComposition": 6,
+		"code": "TN"
 	},
 	{
 		"id": "Tobu.JRTobuConnection",
 		"title": {
 			"ja": "日光線",
 			"en": "Nikko Line",
+			"fr": "Ligne Nikko",
 			"ko": "닛코선",
 			"zh-Hans": "日光线",
 			"zh-Hant": "日光線"
@@ -3457,6 +3669,7 @@
 		"title": {
 			"ja": "宇都宮線",
 			"en": "Utsunomiya Line",
+			"fr": "Ligne Utsunomiya",
 			"ko": "우쓰노미야선",
 			"zh-Hans": "宇都宫线",
 			"zh-Hant": "宇都宮線"
@@ -3477,14 +3690,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFA500",
-		"code": "TN",
-		"carComposition": 4
+		"carComposition": 4,
+		"code": "TN"
 	},
 	{
 		"id": "Tobu.Kinugawa",
 		"title": {
 			"ja": "鬼怒川線",
 			"en": "Kinugawa Line",
+			"fr": "Ligne Kinugawa",
 			"ko": "기누가와선",
 			"zh-Hans": "鬼怒川线",
 			"zh-Hant": "鬼怒川線"
@@ -3503,14 +3717,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFA500",
-		"code": "TN",
-		"carComposition": 2
+		"carComposition": 2,
+		"code": "TN"
 	},
 	{
 		"id": "Tobu.Kameido",
 		"title": {
 			"ja": "亀戸線",
 			"en": "Kameido Line",
+			"fr": "Ligne Kameido",
 			"ko": "가메이도선",
 			"zh-Hans": "龟户线",
 			"zh-Hant": "龜戶線"
@@ -3525,14 +3740,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0F6CC3",
-		"code": "TS",
-		"carComposition": 2
+		"carComposition": 2,
+		"code": "TS"
 	},
 	{
 		"id": "Tobu.Daishi",
 		"title": {
 			"ja": "大師線",
 			"en": "Daishi Line",
+			"fr": "Ligne Daishi",
 			"ko": "다이시선",
 			"zh-Hans": "大师线",
 			"zh-Hant": "大師線"
@@ -3544,17 +3760,18 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0F6CC3",
-		"code": "TS",
-		"carComposition": 2
+		"carComposition": 2,
+		"code": "TS"
 	},
 	{
 		"id": "Tobu.TobuUrbanPark",
 		"title": {
 			"ja": "東武アーバンパークライン",
 			"en": "TOBU URBAN PARK Line",
+			"fr": "Ligne TOBU URBAN PARK",
 			"ko": "도부 어번 파크 라인",
-			"zh-Hans": "都市公园线",
-			"zh-Hant": "都市公園線"
+			"zh-Hans": "东武都市公园线",
+			"zh-Hant": "東武都市公園線"
 		},
 		"stations": [
 			"Tobu.TobuUrbanPark.Omiya",
@@ -3596,14 +3813,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33CCCC",
-		"code": "TD",
-		"carComposition": 6
+		"carComposition": 6,
+		"code": "TD"
 	},
 	{
 		"id": "Tobu.Tojo",
 		"title": {
 			"ja": "東上線",
 			"en": "Tojo Line",
+			"fr": "Ligne Tojo",
 			"ko": "도조선",
 			"zh-Hans": "东上线",
 			"zh-Hant": "東上線"
@@ -3652,14 +3870,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#000099",
-		"code": "TJ",
-		"carComposition": 10
+		"carComposition": 10,
+		"code": "TJ"
 	},
 	{
 		"id": "Tobu.Ogose",
 		"title": {
 			"ja": "越生線",
 			"en": "Ogose Line",
+			"fr": "Ligne Ogose",
 			"ko": "오고세선",
 			"zh-Hans": "越生线",
 			"zh-Hant": "越生線"
@@ -3677,14 +3896,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#000099",
-		"code": "TJ",
-		"carComposition": 4
+		"carComposition": 4,
+		"code": "TJ"
 	},
 	{
 		"id": "Seibu.Ikebukuro",
 		"title": {
 			"ja": "池袋線",
 			"en": "Ikebukuro Line",
+			"fr": "Ligne Ikebukuro",
 			"ko": "이케부쿠로 선",
 			"zh-Hans": "池袋线",
 			"zh-Hant": "池袋線"
@@ -3725,15 +3945,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF6600",
-		"code": "SI",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SI"
 	},
 	{
 		"id": "Seibu.Toshima",
 		"title": {
 			"ja": "豊島線",
 			"en": "Toshima Line",
+			"fr": "Ligne Toshima",
 			"ko": "도시마 선",
 			"zh-Hans": "丰岛线",
 			"zh-Hant": "豐島線"
@@ -3745,15 +3966,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF6600",
-		"code": "SI",
 		"carComposition": 8,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SI"
 	},
 	{
 		"id": "Seibu.Sayama",
 		"title": {
 			"ja": "狭山線",
 			"en": "Sayama Line",
+			"fr": "Ligne Sayama",
 			"ko": "사야마 선",
 			"zh-Hans": "狭山线",
 			"zh-Hant": "狹山線"
@@ -3766,15 +3988,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF6600",
-		"code": "SI",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SI"
 	},
 	{
 		"id": "Seibu.SeibuChichibu",
 		"title": {
 			"ja": "西武秩父線",
 			"en": "Seibu-Chichibu Line",
+			"fr": "Ligne Seibu-Chichibu",
 			"ko": "세이부 지치부 선",
 			"zh-Hans": "西武秩父线",
 			"zh-Hant": "西武秩父線"
@@ -3792,15 +4015,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF6600",
-		"code": "SI",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SI"
 	},
 	{
 		"id": "Seibu.SeibuChichibuBranch",
 		"title": {
 			"ja": "西武秩父線",
 			"en": "Seibu-Chichibu Line",
+			"fr": "Ligne Seibu-Chichibu",
 			"ko": "세이부 지치부 선",
 			"zh-Hans": "西武秩父线",
 			"zh-Hant": "西武秩父線"
@@ -3819,6 +4043,7 @@
 		"title": {
 			"ja": "西武有楽町線",
 			"en": "Seibu-Yurakucho Line",
+			"fr": "Ligne Seibu-Yurakucho",
 			"ko": "세이부 유라쿠초 선",
 			"zh-Hans": "西武有乐町线",
 			"zh-Hant": "西武有樂町線"
@@ -3831,15 +4056,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF6600",
-		"code": "SI",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SI"
 	},
 	{
 		"id": "Seibu.S-Fukutoshin",
 		"title": {
 			"ja": "池袋線",
 			"en": "Ikebukuro Line",
+			"fr": "Ligne Ikebukuro",
 			"ko": "이케부쿠로 선",
 			"zh-Hans": "池袋线",
 			"zh-Hant": "池袋線"
@@ -3858,6 +4084,7 @@
 		"title": {
 			"ja": "池袋線",
 			"en": "Ikebukuro Line",
+			"fr": "Ligne Ikebukuro",
 			"ko": "이케부쿠로 선",
 			"zh-Hans": "池袋线",
 			"zh-Hant": "池袋線"
@@ -3877,6 +4104,7 @@
 		"title": {
 			"ja": "新宿線",
 			"en": "Shinjuku Line",
+			"fr": "Ligne Shinjuku",
 			"ko": "신주쿠 선",
 			"zh-Hans": "新宿线",
 			"zh-Hant": "新宿線"
@@ -3915,15 +4143,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0099CC",
-		"code": "SS",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SS"
 	},
 	{
 		"id": "Seibu.Haijima",
 		"title": {
 			"ja": "拝島線",
 			"en": "Haijima Line",
+			"fr": "Ligne Haijima",
 			"ko": "하이지마 선",
 			"zh-Hans": "拜岛线",
 			"zh-Hant": "拜島線"
@@ -3941,15 +4170,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0099CC",
-		"code": "SS",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SS"
 	},
 	{
 		"id": "Seibu.Tamako",
 		"title": {
 			"ja": "多摩湖線",
 			"en": "Tamako Line",
+			"fr": "Ligne Tamako",
 			"ko": "다마코 선",
 			"zh-Hans": "多摩湖线",
 			"zh-Hant": "多摩湖線"
@@ -3966,15 +4196,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FFCC33",
-		"code": "ST",
 		"carComposition": 8,
-		"dynamic": true
+		"dynamic": true,
+		"code": "ST"
 	},
 	{
 		"id": "Seibu.Kokubunji",
 		"title": {
 			"ja": "国分寺線",
 			"en": "Kokubunji Line",
+			"fr": "Ligne Kokubunji",
 			"ko": "고쿠분지 선",
 			"zh-Hans": "国分寺线",
 			"zh-Hant": "國分寺線"
@@ -3989,15 +4220,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33CC66",
-		"code": "SK",
 		"carComposition": 6,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SK"
 	},
 	{
 		"id": "Seibu.Seibuen",
 		"title": {
 			"ja": "西武園線",
 			"en": "Seibuen Line",
+			"fr": "Ligne Seibuen",
 			"ko": "세이부엔 선",
 			"zh-Hans": "西武园线",
 			"zh-Hant": "西武園線"
@@ -4009,15 +4241,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#33CC66",
-		"code": "SK",
 		"carComposition": 6,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SK"
 	},
 	{
 		"id": "Seibu.Tamagawa",
 		"title": {
 			"ja": "多摩川線",
 			"en": "Tamagawa Line",
+			"fr": "Ligne Tamagawa",
 			"ko": "다마가와 선",
 			"zh-Hans": "多摩川线",
 			"zh-Hant": "多摩川線"
@@ -4033,15 +4266,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF6600",
-		"code": "SW",
 		"carComposition": 4,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SW"
 	},
 	{
 		"id": "Seibu.Yamaguchi",
 		"title": {
 			"ja": "山口線",
 			"en": "Yamaguchi Line",
+			"fr": "Ligne Yamaguchi",
 			"ko": "야마구치 선",
 			"zh-Hans": "山口线",
 			"zh-Hant": "山口線"
@@ -4054,15 +4288,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF3333",
-		"code": "SY",
 		"carComposition": 4,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SY"
 	},
 	{
 		"id": "Odakyu.Odawara",
 		"title": {
 			"ja": "小田原線",
 			"en": "Odawara Line",
+			"fr": "Ligne Odawara",
 			"ko": "오다와라 선",
 			"zh-Hans": "小田原线",
 			"zh-Hant": "小田原線"
@@ -4119,15 +4354,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#2288CC",
-		"code": "OH",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "OH"
 	},
 	{
 		"id": "Odakyu.Tama",
 		"title": {
 			"ja": "多摩線",
 			"en": "Tama Line",
+			"fr": "Ligne Tama",
 			"ko": "다마 선",
 			"zh-Hans": "多摩线",
 			"zh-Hant": "多摩線"
@@ -4145,15 +4381,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#2288CC",
-		"code": "OT",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "OT"
 	},
 	{
 		"id": "Odakyu.Enoshima",
 		"title": {
 			"ja": "江ノ島線",
 			"en": "Enoshima Line",
+			"fr": "Ligne Enoshima",
 			"ko": "에노시마 선",
 			"zh-Hans": "江之岛线",
 			"zh-Hant": "江之島線"
@@ -4180,18 +4417,38 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#2288CC",
-		"code": "OE",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "OE"
+	},
+	{
+		"id": "Odakyu.JROdakyuConnection",
+		"title": {
+			"ja": "小田原線",
+			"en": "Odawara Line",
+			"fr": "Ligne Odawara",
+			"ko": "오다와라 선",
+			"zh-Hans": "小田原线",
+			"zh-Hant": "小田原線"
+		},
+		"stations": [
+			"Odakyu.JROdakyuConnection.Hadano",
+			"Odakyu.JROdakyuConnection.Matsuda"
+		],
+		"ascending": "Outbound",
+		"descending": "Inbound",
+		"color": "#2288CC",
+		"carComposition": 6
 	},
 	{
 		"id": "OdakyuHakone.HakoneTozan",
 		"title": {
-			"ja": "箱根登山電車",
+			"ja": "箱根登山線",
 			"en": "Hakone-Tozan Line",
+			"fr": "Ligne Hakone-Tozan",
 			"ko": "하코네 등산선",
-			"zh-Hans": "箱根登山电车",
-			"zh-Hant": "箱根登山電車"
+			"zh-Hans": "箱根登山线",
+			"zh-Hant": "箱根登山線"
 		},
 		"stations": [
 			"OdakyuHakone.HakoneTozan.Odawara",
@@ -4209,14 +4466,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F15A22",
-		"code": "OH",
-		"carComposition": 3
+		"carComposition": 3,
+		"code": "OH"
 	},
 	{
 		"id": "Tokyu.DenEnToshi",
 		"title": {
 			"ja": "田園都市線",
 			"en": "Den-En-Toshi Line",
+			"fr": "Ligne Den-En-Toshi",
 			"ko": "덴엔토시 선",
 			"zh-Hans": "田园都市线",
 			"zh-Hant": "田園都市線"
@@ -4253,15 +4511,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#20A288",
-		"code": "DT",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "DT"
 	},
 	{
 		"id": "Tokyu.Toyoko",
 		"title": {
 			"ja": "東横線",
 			"en": "Toyoko Line",
+			"fr": "Ligne Toyoko",
 			"ko": "도요코 선",
 			"zh-Hans": "东横线",
 			"zh-Hant": "東橫線"
@@ -4292,15 +4551,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#DA0442",
-		"code": "TY",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "TY"
 	},
 	{
 		"id": "Tokyu.Meguro",
 		"title": {
 			"ja": "目黒線",
 			"en": "Meguro Line",
+			"fr": "Ligne Meguro",
 			"ko": "메구로 선",
 			"zh-Hans": "目黑线",
 			"zh-Hant": "目黑線"
@@ -4323,15 +4583,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#009CD2",
-		"code": "ME",
 		"carComposition": 8,
-		"dynamic": true
+		"dynamic": true,
+		"code": "ME"
 	},
 	{
 		"id": "Tokyu.TokyuShinYokohama",
 		"title": {
 			"ja": "東急新横浜線",
 			"en": "Tokyu-Shin-Yokohama Line",
+			"fr": "Ligne Tokyu-Shin-Yokohama",
 			"ko": "도큐 신요코하마 선",
 			"zh-Hans": "东急新横滨线",
 			"zh-Hant": "東急新橫濱線"
@@ -4344,15 +4605,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#5D4D8D",
-		"code": "SH",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SH"
 	},
 	{
 		"id": "Tokyu.Oimachi",
 		"title": {
 			"ja": "大井町線",
 			"en": "Oimachi Line",
+			"fr": "Ligne Oimachi",
 			"ko": "오이마치 선",
 			"zh-Hans": "大井町线",
 			"zh-Hant": "大井町線"
@@ -4380,15 +4642,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#F18C43",
-		"code": "OM",
 		"carComposition": 5,
-		"dynamic": true
+		"dynamic": true,
+		"code": "OM"
 	},
 	{
 		"id": "Tokyu.Ikegami",
 		"title": {
 			"ja": "池上線",
 			"en": "Ikegami Line",
+			"fr": "Ligne Ikegami",
 			"ko": "이케가미 선",
 			"zh-Hans": "池上线",
 			"zh-Hant": "池上線"
@@ -4413,14 +4676,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#EE86A7",
-		"code": "IK",
-		"carComposition": 3
+		"carComposition": 3,
+		"code": "IK"
 	},
 	{
 		"id": "Tokyu.TokyuTamagawa",
 		"title": {
 			"ja": "東急多摩川線",
 			"en": "Tokyu-Tamagawa Line",
+			"fr": "Ligne Tokyu-Tamagawa",
 			"ko": "도큐 다마가와 선",
 			"zh-Hans": "东急多摩川线",
 			"zh-Hant": "東急多摩川線"
@@ -4437,14 +4701,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#AE0378",
-		"code": "TM",
-		"carComposition": 3
+		"carComposition": 3,
+		"code": "TM"
 	},
 	{
 		"id": "Tokyu.Kodomonokuni",
 		"title": {
 			"ja": "こどもの国線",
 			"en": "Kodomonokuni Line",
+			"fr": "Ligne Kodomonokuni",
 			"ko": "고도모노쿠니 선",
 			"zh-Hans": "儿童之国线",
 			"zh-Hant": "兒童之國線"
@@ -4457,14 +4722,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0068B7",
-		"code": "KD",
-		"carComposition": 2
+		"carComposition": 2,
+		"code": "KD"
 	},
 	{
 		"id": "Tokyu.Setagaya",
 		"title": {
 			"ja": "世田谷線",
 			"en": "Setagaya Line",
+			"fr": "Ligne Setagaya",
 			"ko": "세타가야 선",
 			"zh-Hans": "世田谷线",
 			"zh-Hant": "世田谷線"
@@ -4484,14 +4750,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FCC70D",
-		"code": "SG",
-		"carComposition": 2
+		"carComposition": 2,
+		"code": "SG"
 	},
 	{
 		"id": "Minatomirai.Minatomirai",
 		"title": {
 			"ja": "みなとみらい線",
 			"en": "Minatomirai Line",
+			"fr": "Ligne Minatomirai",
 			"ko": "미나토미라이 선",
 			"zh-Hans": "港未来线",
 			"zh-Hant": "港未來線"
@@ -4508,14 +4775,15 @@
 		"descending": "Inbound",
 		"altitude": -1,
 		"color": "#02489A",
-		"code": "MM",
-		"carComposition": 10
+		"carComposition": 10,
+		"code": "MM"
 	},
 	{
 		"id": "Sotetsu.Main",
 		"title": {
 			"ja": "相鉄本線",
 			"en": "Sotetsu Main Line",
+			"fr": "Ligne Principale Sotetsu",
 			"ko": "소테쓰 본선",
 			"zh-Hans": "相铁本线",
 			"zh-Hant": "相鐵本線"
@@ -4543,15 +4811,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#000080",
-		"code": "SO",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SO"
 	},
 	{
 		"id": "Sotetsu.Izumino",
 		"title": {
 			"ja": "いずみ野線",
 			"en": "Izumino Line",
+			"fr": "Ligne Izumino",
 			"ko": "이즈미노 선",
 			"zh-Hans": "泉野线",
 			"zh-Hant": "泉野線"
@@ -4569,15 +4838,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#000080",
-		"code": "SO",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SO"
 	},
 	{
 		"id": "Sotetsu.SotetsuShinYokohama",
 		"title": {
 			"ja": "相鉄新横浜線",
 			"en": "Sotetsu Shin-Yokohama Line",
+			"fr": "Ligne Sotetsu Shin-Yokohama",
 			"ko": "소테쓰 신요코하마 선",
 			"zh-Hans": "相铁新横滨线",
 			"zh-Hant": "相鐵新橫濱線"
@@ -4590,15 +4860,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#000080",
-		"code": "SO",
 		"carComposition": 10,
-		"dynamic": true
+		"dynamic": true,
+		"code": "SO"
 	},
 	{
 		"id": "SaitamaRailway.SaitamaRailway",
 		"title": {
 			"ja": "埼玉高速鉄道線",
 			"en": "Saitama Railway Line",
+			"fr": "Ligne Saitama Railway",
 			"ko": "사이타마 고속 철도선",
 			"zh-Hans": "埼玉高速铁道线",
 			"zh-Hant": "埼玉高速鐵道線"
@@ -4617,16 +4888,17 @@
 		"descending": "Inbound",
 		"altitude": -1,
 		"color": "#2351A5",
-		"code": "SR",
-		"carComposition": 6
+		"carComposition": 6,
+		"code": "SR"
 	},
 	{
 		"id": "MIR.TsukubaExpress",
 		"title": {
 			"ja": "つくばエクスプレス",
 			"en": "Tsukuba Express Line",
+			"fr": "Ligne Tsukuba Express",
 			"ko": "츠쿠바 익스프레스선",
-			"zh-Hans": "筑波快线",
+			"zh-Hans": "筑波特快线",
 			"zh-Hant": "筑波快線"
 		},
 		"stations": [
@@ -4654,14 +4926,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#000084",
-		"code": "TX",
-		"carComposition": 6
+		"carComposition": 6,
+		"code": "TX"
 	},
 	{
 		"id": "ToyoRapid.ToyoRapid",
 		"title": {
 			"ja": "東葉高速線",
 			"en": "Toyo Rapid Line",
+			"fr": "Ligne Toyo Rapid",
 			"ko": "도요 고속선",
 			"zh-Hans": "东叶高速线",
 			"zh-Hant": "東葉高速線"
@@ -4680,14 +4953,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#3FB036",
-		"code": "TR",
-		"carComposition": 10
+		"carComposition": 10,
+		"code": "TR"
 	},
 	{
 		"id": "KantoRailway.Joso",
 		"title": {
 			"ja": "常総線",
 			"en": "Joso Line",
+			"fr": "Ligne Joso",
 			"ko": "조소 선",
 			"zh-Hans": "常总线",
 			"zh-Hant": "常總線"
@@ -4729,6 +5003,7 @@
 		"title": {
 			"ja": "竜ヶ崎線",
 			"en": "Ryugasaki Line",
+			"fr": "Ligne Ryugasaki",
 			"ko": "류가사키 선",
 			"zh-Hans": "龙崎线",
 			"zh-Hant": "龍崎線"
@@ -4748,6 +5023,7 @@
 		"title": {
 			"ja": "流山線",
 			"en": "Nagareyama Line",
+			"fr": "Ligne Nagareyama",
 			"ko": "나가레야마 선",
 			"zh-Hans": "流山线",
 			"zh-Hant": "流山線"
@@ -4763,14 +5039,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#C64F24",
-		"code": "RN",
-		"carComposition": 2
+		"carComposition": 2,
+		"code": "RN"
 	},
 	{
 		"id": "Kominato.Kominato",
 		"title": {
 			"ja": "小湊鉄道線",
 			"en": "Kominato Line",
+			"fr": "Ligne Kominato",
 			"ko": "고미나토 철도선",
 			"zh-Hans": "小凑铁道线",
 			"zh-Hant": "小湊鐵道線"
@@ -4805,6 +5082,7 @@
 		"title": {
 			"ja": "いすみ線",
 			"en": "Isumi Line",
+			"fr": "Ligne Isumi",
 			"ko": "이스미 선",
 			"zh-Hans": "夷隅线",
 			"zh-Hant": "夷隅線"
@@ -4835,6 +5113,7 @@
 		"title": {
 			"ja": "銚子電鉄線",
 			"en": "Choshi Electric Railway Line",
+			"fr": "Ligne Choshi Electric Railway",
 			"ko": "조시 전기철도선",
 			"zh-Hans": "铫子电铁线",
 			"zh-Hant": "銚子電鐵線"
@@ -4854,14 +5133,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#B00000",
-		"code": "CD",
-		"carComposition": 2
+		"carComposition": 2,
+		"code": "CD"
 	},
 	{
 		"id": "KashimaRinkai.OaraiKashima",
 		"title": {
 			"ja": "大洗鹿島線",
 			"en": "Oarai-Kashima Line",
+			"fr": "Ligne Oarai-Kashima",
 			"ko": "오아라이카시마 선",
 			"zh-Hans": "大洗鹿岛线",
 			"zh-Hant": "大洗鹿島線"
@@ -4894,6 +5174,7 @@
 		"title": {
 			"ja": "湊線",
 			"en": "Minato Line",
+			"fr": "Ligne Minato",
 			"ko": "미나토 선",
 			"zh-Hans": "凑线",
 			"zh-Hant": "湊線"
@@ -4921,6 +5202,7 @@
 		"title": {
 			"ja": "真岡線",
 			"en": "Moka Line",
+			"fr": "Ligne Moka",
 			"ko": "모카 선",
 			"zh-Hans": "真冈线",
 			"zh-Hant": "真岡線"
@@ -4954,6 +5236,7 @@
 		"title": {
 			"ja": "宇都宮ライトレール",
 			"en": "Utsunomiya Light Rail Line",
+			"fr": "Ligne Utsunomiya Light Rail",
 			"ko": "우츠노미야 경전철선",
 			"zh-Hans": "宇都宫轻轨线",
 			"zh-Hant": "宇都宮輕軌線"
@@ -4989,6 +5272,7 @@
 		"title": {
 			"ja": "江ノ島電鉄線",
 			"en": "Enoden Line",
+			"fr": "Ligne Enoden",
 			"ko": "에노시마 전철선",
 			"zh-Hans": "江之岛电铁线",
 			"zh-Hant": "江之島電鐵線"
@@ -5013,14 +5297,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#005B1A",
-		"code": "EN",
-		"carComposition": 4
+		"carComposition": 4,
+		"code": "EN"
 	},
 	{
 		"id": "IzuHakone.Daiyuzan",
 		"title": {
 			"ja": "大雄山線",
 			"en": "Daiyuzan Line",
+			"fr": "Ligne Daiyuzan",
 			"ko": "다이유잔 선",
 			"zh-Hans": "大雄山线",
 			"zh-Hant": "大雄山線"
@@ -5042,14 +5327,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#2A639D",
-		"code": "ID",
-		"carComposition": 3
+		"carComposition": 3,
+		"code": "ID"
 	},
 	{
 		"id": "IzuHakone.Sunzu",
 		"title": {
 			"ja": "駿豆線",
 			"en": "Sunzu Line",
+			"fr": "Ligne Sunzu",
 			"ko": "슨즈 선",
 			"zh-Hans": "骏豆线",
 			"zh-Hant": "駿豆線"
@@ -5072,15 +5358,16 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#2A639D",
-		"code": "IS",
-		"carComposition": 3
+		"carComposition": 3,
+		"code": "IS"
 	},
 	{
 		"id": "Izukyu.Izukyu",
 		"title": {
 			"ja": "伊豆急行線",
 			"en": "Izukyu Line",
-			"ko": "이즈큐 선",
+			"fr": "Ligne Izukyu",
+			"ko": "이즈 급행선",
 			"zh-Hans": "伊豆急行线",
 			"zh-Hant": "伊豆急行線"
 		},
@@ -5105,14 +5392,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#00BFFF",
-		"code": "IZ",
-		"carComposition": 9
+		"carComposition": 9,
+		"code": "IZ"
 	},
 	{
 		"id": "Fujikyu.Fujikyu",
 		"title": {
 			"ja": "富士急行線",
 			"en": "Fujikyu Line",
+			"fr": "Ligne Fujikyu",
 			"ko": "후지 급행선",
 			"zh-Hans": "富士急行线",
 			"zh-Hant": "富士急行線"
@@ -5140,14 +5428,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#3B85E0",
-		"code": "FJ",
-		"carComposition": 3
+		"carComposition": 3,
+		"code": "FJ"
 	},
 	{
 		"id": "Chichibu.Chichibu",
 		"title": {
 			"ja": "秩父本線",
 			"en": "Chichibu Main Line",
+			"fr": "Ligne Principale Chichibu",
 			"ko": "지치부 본선",
 			"zh-Hans": "秩父本线",
 			"zh-Hant": "秩父本線"
@@ -5194,14 +5483,127 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0054A6",
-		"code": "CR",
-		"carComposition": 3
+		"carComposition": 3,
+		"code": "CR"
+	},
+	{
+		"id": "Jomo.Jomo",
+		"title": {
+			"ja": "上毛線",
+			"en": "Jomo Line",
+			"fr": "Ligne Jomo",
+			"ko": "조모 선",
+			"zh-Hans": "上毛线",
+			"zh-Hant": "上毛線"
+		},
+		"stations": [
+			"Jomo.Jomo.ChuoMaebashi",
+			"Jomo.Jomo.Joto",
+			"Jomo.Jomo.Mitsumata",
+			"Jomo.Jomo.Katakai",
+			"Jomo.Jomo.Kamiizumi",
+			"Jomo.Jomo.Akasaka",
+			"Jomo.Jomo.ShinzoKekkanCenter",
+			"Jomo.Jomo.Egi",
+			"Jomo.Jomo.Ogo",
+			"Jomo.Jomo.Higoshi",
+			"Jomo.Jomo.Kitahara",
+			"Jomo.Jomo.Araya",
+			"Jomo.Jomo.Kasukawa",
+			"Jomo.Jomo.Zen",
+			"Jomo.Jomo.Niisato",
+			"Jomo.Jomo.Nikkawa",
+			"Jomo.Jomo.HigashiNikkawa",
+			"Jomo.Jomo.Akagi",
+			"Jomo.Jomo.KiryuKyujoMae",
+			"Jomo.Jomo.Tennojuku",
+			"Jomo.Jomo.Fujiyamashita",
+			"Jomo.Jomo.Maruyamashita",
+			"Jomo.Jomo.NishiKiryu"
+		],
+		"ascending": "Outbound",
+		"descending": "Inbound",
+		"color": "#51BA97",
+		"carComposition": 2
+	},
+	{
+		"id": "Joshin.Joshin",
+		"title": {
+			"ja": "上信線",
+			"en": "Joshin line",
+			"fr": "Ligne Joshin",
+			"ko": "조신 선",
+			"zh-Hans": "上信线",
+			"zh-Hant": "上信線"
+		},
+		"stations": [
+			"Joshin.Joshin.Takasaki",
+			"Joshin.Joshin.MinamiTakasaki",
+			"Joshin.Joshin.Sanonowatashi",
+			"Joshin.Joshin.Negoya",
+			"Joshin.Joshin.TakasakiShokaDaigakumae",
+			"Joshin.Joshin.Yamana",
+			"Joshin.Joshin.NishiYamana",
+			"Joshin.Joshin.Maniwa",
+			"Joshin.Joshin.Yoshii",
+			"Joshin.Joshin.NishiYoshii",
+			"Joshin.Joshin.JoshuNiiya",
+			"Joshin.Joshin.JoshuFukushima",
+			"Joshin.Joshin.HigashiTomioka",
+			"Joshin.Joshin.JoshuTomioka",
+			"Joshin.Joshin.NishiTomioka",
+			"Joshin.Joshin.JoshuNanokaichi",
+			"Joshin.Joshin.JoshuIchinomiya",
+			"Joshin.Joshin.Kanohara",
+			"Joshin.Joshin.Nanjai",
+			"Joshin.Joshin.Sendaira",
+			"Joshin.Joshin.Shimonita"
+		],
+		"ascending": "Outbound",
+		"descending": "Inbound",
+		"color": "#004998",
+		"carComposition": 2
+	},
+	{
+		"id": "WataraseKeikoku.WataraseKeikoku",
+		"title": {
+			"ja": "わたらせ渓谷線",
+			"en": "Watarase Keikoku Line",
+			"fr": "Ligne Watarase Keikoku",
+			"ko": "와타라세 계곡선",
+			"zh-Hans": "渡良濑溪谷线",
+			"zh-Hant": "渡良瀨溪谷線"
+		},
+		"stations": [
+			"WataraseKeikoku.WataraseKeikoku.Kiryu",
+			"WataraseKeikoku.WataraseKeikoku.ShimoShinden",
+			"WataraseKeikoku.WataraseKeikoku.Aioi",
+			"WataraseKeikoku.WataraseKeikoku.UndoKoen",
+			"WataraseKeikoku.WataraseKeikoku.Omama",
+			"WataraseKeikoku.WataraseKeikoku.KamiKambai",
+			"WataraseKeikoku.WataraseKeikoku.Motojuku",
+			"WataraseKeikoku.WataraseKeikoku.Mizunuma",
+			"WataraseKeikoku.WataraseKeikoku.Hanawa",
+			"WataraseKeikoku.WataraseKeikoku.Nakano",
+			"WataraseKeikoku.WataraseKeikoku.Konaka",
+			"WataraseKeikoku.WataraseKeikoku.Godo",
+			"WataraseKeikoku.WataraseKeikoku.Sori",
+			"WataraseKeikoku.WataraseKeikoku.Haramuko",
+			"WataraseKeikoku.WataraseKeikoku.Tsudo",
+			"WataraseKeikoku.WataraseKeikoku.Ashio",
+			"WataraseKeikoku.WataraseKeikoku.Mato"
+		],
+		"ascending": "Outbound",
+		"descending": "Inbound",
+		"color": "#5D1B28",
+		"carComposition": 1
 	},
 	{
 		"id": "Yurikamome.Yurikamome",
 		"title": {
 			"ja": "ゆりかもめ",
 			"en": "Yurikamome line",
+			"fr": "Ligne Yurikamome",
 			"ko": "유리카모메선",
 			"zh-Hans": "百合鸥线",
 			"zh-Hant": "百合鷗線"
@@ -5227,14 +5629,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#0E62B9",
-		"code": "U",
-		"carComposition": 6
+		"carComposition": 6,
+		"code": "U"
 	},
 	{
 		"id": "YokohamaSeaside.KanazawaSeaside",
 		"title": {
 			"ja": "金沢シーサイドライン",
 			"en": "Kanazawa Seaside Line",
+			"fr": "Ligne Kanazawa Seaside",
 			"ko": "가나자와 시사이드 라인",
 			"zh-Hans": "金泽海岸线",
 			"zh-Hant": "金澤海岸線"
@@ -5265,9 +5668,10 @@
 		"title": {
 			"ja": "ニューシャトル",
 			"en": "New Shuttle",
+			"fr": "New Shuttle",
 			"ko": "뉴셔틀",
-			"zh-Hans": "伊奈线 New Shuttle",
-			"zh-Hant": "伊奈線 New Shuttle"
+			"zh-Hans": "New Shuttle",
+			"zh-Hant": "New Shuttle"
 		},
 		"stations": [
 			"SaitamaTransit.NewShuttle.Omiya",
@@ -5287,14 +5691,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#32A699",
-		"code": "NS",
-		"carComposition": 6
+		"carComposition": 6,
+		"code": "NS"
 	},
 	{
 		"id": "Yamaman.Yukarigaoka",
 		"title": {
 			"ja": "ユーカリが丘線",
 			"en": "Yukarigaoka Line",
+			"fr": "Ligne Yukarigaoka",
 			"ko": "유카리가오카 선",
 			"zh-Hans": "有加利丘线",
 			"zh-Hant": "有加利丘線"
@@ -5320,6 +5725,7 @@
 		"title": {
 			"ja": "羽田空港線",
 			"en": "Haneda Airport Line",
+			"fr": "Ligne de l'aéroport de Haneda",
 			"ko": "하네다 공항선",
 			"zh-Hans": "羽田机场线",
 			"zh-Hant": "羽田機場線"
@@ -5340,14 +5746,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#003686",
-		"code": "MO",
-		"carComposition": 6
+		"carComposition": 6,
+		"code": "MO"
 	},
 	{
 		"id": "TamaMonorail.TamaMonorail",
 		"title": {
 			"ja": "多摩モノレール",
 			"en": "Tama Monorail Line",
+			"fr": "Ligne Tama Monorail",
 			"ko": "다마 모노레일",
 			"zh-Hans": "多摩单轨电车",
 			"zh-Hant": "多摩單軌電車"
@@ -5376,14 +5783,15 @@
 		"ascending": "Northbound",
 		"descending": "Southbound",
 		"color": "#23625D",
-		"code": "TT",
-		"carComposition": 4
+		"carComposition": 4,
+		"code": "TT"
 	},
 	{
 		"id": "ChibaMonorail.Line1",
 		"title": {
 			"ja": "千葉モノレール1号線",
 			"en": "Chiba Monorail Line 1",
+			"fr": "Ligne Chiba Monorail 1",
 			"ko": "지바 모노레일 1호선",
 			"zh-Hans": "千叶单轨电车1号线",
 			"zh-Hant": "千葉單軌電車1號線"
@@ -5399,14 +5807,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#2843BA",
-		"code": "CM",
-		"carComposition": 2
+		"carComposition": 2,
+		"code": "CM"
 	},
 	{
 		"id": "ChibaMonorail.Line2",
 		"title": {
 			"ja": "千葉モノレール2号線",
 			"en": "Chiba Monorail Line 2",
+			"fr": "Ligne Chiba Monorail 2",
 			"ko": "지바 모노레일 2호선",
 			"zh-Hans": "千叶单轨电车2号线",
 			"zh-Hant": "千葉單軌電車2號線"
@@ -5429,14 +5838,15 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#2843BA",
-		"code": "CM",
-		"carComposition": 2
+		"carComposition": 2,
+		"code": "CM"
 	},
 	{
 		"id": "ShonanMonorail.ShonanMonorail",
 		"title": {
 			"ja": "湘南モノレール線",
 			"en": "Shonan Monorail Line",
+			"fr": "Ligne Shonan Monorail",
 			"ko": "쇼난 모노레일 선",
 			"zh-Hans": "湘南单轨电车线",
 			"zh-Hant": "湘南單軌電車線"
@@ -5454,8 +5864,8 @@
 		"ascending": "Outbound",
 		"descending": "Inbound",
 		"color": "#FF0000",
-		"code": "SMR",
-		"carComposition": 3
+		"carComposition": 3,
+		"code": "SMR"
 	},
 	{
 		"id": "Disney.DisneyResortLine",
@@ -5475,31 +5885,6 @@
 		"color": "#cf98de",
 		"ascending": "OuterLoop",
 		"carComposition": 6,
-		"dynamic": true,
-		"altitude": -1
-	},
-	{
-		"id": "OdakyuHakone.Kosaku",
-		"title": {
-			"ja": "箱根登山鉄道鋼索線",
-			"en": "Hakone-Kosaku Line",
-			"ko": "오다큐 하코네 강삭선",
-			"zh-Hans": "箱根登山缆车",
-			"zh-Hant": "箱根登山纜車"
-		},
-		"stations": [
-			"OdakyuHakone.Kosaku.Gora",
-			"OdakyuHakone.Kosaku.KoenShimo",
-			"OdakyuHakone.Kosaku.KoenKami",
-			"OdakyuHakone.Kosaku.NakaGora",
-			"OdakyuHakone.Kosaku.KamiGora",
-			"OdakyuHakone.Kosaku.Sounzan"
-		],
-		"color": "#f15a22",
-		"ascending": "Outbound",
-		"descending": "Inbound",
-		"code": "OH",
-		"carComposition": 1,
 		"dynamic": true,
 		"altitude": -1
 	}

@@ -9,6 +9,10 @@
  */
 
 import { getCachedJson } from '../../lib/fetch.js';
+import {
+    buildAlternateLineMembership,
+    filterLineStationIdsForAlternateMembership
+} from '../../domain/alternateLineMembership.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -182,6 +186,24 @@ const getRailwaysIndex = async () => {
     return railwaysIndexPromise;
 };
 
+let alternateLineMembershipPromise = null;
+const getAlternateLineMembership = async () => {
+    if (alternateLineMembershipPromise) return alternateLineMembershipPromise;
+    alternateLineMembershipPromise = (async () => {
+        try {
+            const [railways, stations, coordinates] = await Promise.all([
+                getCachedJson('./data/railways.json'),
+                getCachedJson('./data/stations.json'),
+                getCachedJson('./data/coordinates.json')
+            ]);
+            return buildAlternateLineMembership({ railways, stations, coordinates });
+        } catch {
+            return null;
+        }
+    })();
+    return alternateLineMembershipPromise;
+};
+
 const loadTimetableForLineId = async (lineId) => {
     const id = toText(lineId);
     if (!id) return null;
@@ -297,19 +319,24 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
 
     const serviceDay = toText(options?.serviceDay);
 
-    const [stationsIndex, trainTypesIndex, trainTypeColorIndex, railwaysIndex, timetableData] = await Promise.all([
+    const [stationsIndex, trainTypesIndex, trainTypeColorIndex, railwaysIndex, timetableData, alternateLineMembership] = await Promise.all([
         getStationsIndex(),
         getTrainTypesIndex(),
         getTrainTypeColorIndex(),
         getRailwaysIndex(),
-        loadTimetableForLineId(lineId)
+        loadTimetableForLineId(lineId),
+        getAlternateLineMembership()
     ]);
 
     const list = Array.isArray(timetableData) ? timetableData : [];
-        const lineMeta = railwaysIndex.get(lineId) || { id: lineId, name: lineId, color: '', company: '', stationIds: [] };
-        const preferredList = list.filter((trip) => !isTripIdSuffixExcluded(getTripIdText(trip)));
-        const effectiveList = preferredList.length ? preferredList : list;
-    const lineStationIds = Array.isArray(lineMeta?.stationIds) ? lineMeta.stationIds : [];
+    const lineMeta = railwaysIndex.get(lineId) || { id: lineId, name: lineId, color: '', company: '', stationIds: [] };
+    const preferredList = list.filter((trip) => !isTripIdSuffixExcluded(getTripIdText(trip)));
+    const effectiveList = preferredList.length ? preferredList : list;
+    const lineStationIds = filterLineStationIdsForAlternateMembership(
+        lineId,
+        Array.isArray(lineMeta?.stationIds) ? lineMeta.stationIds : [],
+        alternateLineMembership
+    );
 
     const stationName = (sid) => stationsIndex?.idToNameZh?.get?.(sid) || sid;
     const typeName = (tid) => toText(trainTypesIndex?.get?.(tid) || tid);

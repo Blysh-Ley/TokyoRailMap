@@ -5,6 +5,10 @@
 import { getCachedJson } from '../../lib/fetch.js';
 import { resolveTimetablePrintPalette } from '../../lib/timetable-print-palette.js';
 import {
+    buildAlternateLineMembership,
+    filterLineStationIdsForAlternateMembership
+} from '../../domain/alternateLineMembership.js';
+import {
     shareOrDownloadArtifact,
     shareOrSaveImageArtifact
 } from '../../services/nativeExportShareService.js';
@@ -132,7 +136,8 @@ import {
     };
 
     const routePrintDataCache = {
-        railways: null
+        railways: null,
+        alternateLineMembership: null
     };
 
     const loadRoutePrintRailwaysIndex = async () => {
@@ -153,14 +158,34 @@ import {
         return routePrintDataCache.railways;
     };
 
+    const loadRoutePrintAlternateLineMembership = async () => {
+        if (routePrintDataCache.alternateLineMembership) return routePrintDataCache.alternateLineMembership;
+        routePrintDataCache.alternateLineMembership = (async () => {
+            try {
+                const [railways, stations, coordinates] = await Promise.all([
+                    getCachedJson('./data/railways.json'),
+                    getCachedJson('./data/stations.json'),
+                    getCachedJson('./data/coordinates.json')
+                ]);
+                return buildAlternateLineMembership({ railways, stations, coordinates });
+            } catch {
+                return null;
+            }
+        })();
+        return routePrintDataCache.alternateLineMembership;
+    };
+
     const resolveRouteMapLineStationIds = async (lineId) => {
         const id = toText(lineId);
         if (!id) return [];
 
-        const railwaysIndex = await loadRoutePrintRailwaysIndex();
+        const [railwaysIndex, alternateLineMembership] = await Promise.all([
+            loadRoutePrintRailwaysIndex(),
+            loadRoutePrintAlternateLineMembership()
+        ]);
         const lineMeta = railwaysIndex.get(id) || {};
         const stationIds = Array.isArray(lineMeta.stationIds) ? lineMeta.stationIds : [];
-        return stationIds.slice();
+        return filterLineStationIdsForAlternateMembership(id, stationIds, alternateLineMembership);
     };
 
     const loadScript = (src) => new Promise((resolve, reject) => {

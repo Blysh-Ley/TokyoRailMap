@@ -99,7 +99,8 @@ export const buildMenuModel = ({
     companyLogoMap = {},
     railwaysOrderIndex = null,
     railwaysList = [],
-    stationsList = []
+    stationsList = [],
+    hiddenLineIds = null
 } = {}) => {
     const companiesRaw = Object.keys(companyObj || {});
     const rank = new Map(preferredOrder.map((name, idx) => [name, idx]));
@@ -108,6 +109,10 @@ export const buildMenuModel = ({
     const lines = Object.entries(linesObj || {});
     const railwayById = buildRailwayById(railwaysList);
     const stationNameById = buildStationNameById(stationsList);
+    const hiddenIds = hiddenLineIds instanceof Set
+        ? hiddenLineIds
+        : new Set(Array.isArray(hiddenLineIds) ? hiddenLineIds.map(String).filter(Boolean) : []);
+    const isHiddenLineId = (lineId) => hiddenIds.has(String(lineId || '').trim());
     const mainLineIdByAnyLineId = new Map();
     const mergedLineIdsByMenuLineId = new Map();
     const lineDisplayNameById = new Map();
@@ -129,6 +134,7 @@ export const buildMenuModel = ({
             if (isBranchLineId(id)) return false;
             const meta = companyLineMetaById.get(id);
             if (!(meta && meta.company === companyName)) return false;
+            if (isHiddenLineId(id)) return false;
             if (shouldHideInMenuByZhFreight(meta)) return false;
             return true;
         };
@@ -162,6 +168,7 @@ export const buildMenuModel = ({
             : null;
 
         const decorated = companyLines.map(([lineId, meta], idx) => {
+            if (isHiddenLineId(lineId)) return null;
             if (mergedBranchIds.has(String(lineId))) return null;
             if (shouldHideInMenuByZhFreight(meta)) return null;
             if (exceptionSet.has(String(lineId))) return null;

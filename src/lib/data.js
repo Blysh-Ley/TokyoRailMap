@@ -7,6 +7,7 @@ import {
     buildStationOffsetAlgorithmContext
 } from '../map/offset.js';
 import { buildLineNameLabelGeoJSON } from '../domain/lineNameLabels.js';
+import { buildAlternateLineMembership } from '../domain/alternateLineMembership.js';
 
 export async function loadGeoJSON(url) {
     const response = await cachedFetch(url);
@@ -666,6 +667,74 @@ export async function loadRailGeoDataFromDataFolder() {
             coordsByRailwayId.set(id, c);
         }
 
+        const alternateLineMembership = buildAlternateLineMembership({
+            railways: railwayList,
+            stations: stationList,
+            coordinates
+        });
+        const stationMembershipHiddenIdsByLineId = alternateLineMembership.stationMembershipHiddenIdsByLineId instanceof Map
+            ? alternateLineMembership.stationMembershipHiddenIdsByLineId
+            : new Map();
+        const fullAlternateLineIds = alternateLineMembership.fullAlternateLineIds instanceof Set
+            ? alternateLineMembership.fullAlternateLineIds
+            : new Set();
+        const directHiddenLineIdsByStationId = new Map();
+        const hiddenLineIdsByStationId = new Map();
+        const addHiddenLineForStation = (target, stationId, lineId) => {
+            const sid = normalizeText(stationId);
+            const lid = normalizeText(lineId);
+            if (!sid || !lid) return;
+            if (!target.has(sid)) target.set(sid, new Set());
+            target.get(sid).add(lid);
+        };
+        for (const [lineId, stationIds] of stationMembershipHiddenIdsByLineId.entries()) {
+            const ids = stationIds instanceof Set ? Array.from(stationIds) : [];
+            for (const stationId of ids) {
+                addHiddenLineForStation(directHiddenLineIdsByStationId, stationId, lineId);
+                addHiddenLineForStation(hiddenLineIdsByStationId, stationId, lineId);
+            }
+        }
+        for (const group of groupList) {
+            if (!Array.isArray(group)) continue;
+            const groupStationIds = [];
+            for (const chunk of group) {
+                if (!Array.isArray(chunk)) continue;
+                for (const sid of chunk) {
+                    const id = normalizeText(sid);
+                    if (id) groupStationIds.push(id);
+                }
+            }
+            if (!groupStationIds.length) continue;
+
+            const groupHiddenLineIds = new Set();
+            for (const sid of groupStationIds) {
+                const hiddenIds = directHiddenLineIdsByStationId.get(sid);
+                if (!(hiddenIds instanceof Set)) continue;
+                for (const lineId of hiddenIds) groupHiddenLineIds.add(lineId);
+            }
+            if (!groupHiddenLineIds.size) continue;
+
+            for (const sid of groupStationIds) {
+                for (const lineId of groupHiddenLineIds) {
+                    addHiddenLineForStation(hiddenLineIdsByStationId, sid, lineId);
+                }
+            }
+        }
+        const isDirectHiddenStationMembership = (stationId, lineId) => {
+            const sid = normalizeText(stationId);
+            const lid = normalizeText(lineId);
+            if (!sid || !lid) return false;
+            if (fullAlternateLineIds.has(lid)) return true;
+            return directHiddenLineIdsByStationId.get(sid)?.has?.(lid) === true;
+        };
+        const isHiddenServingMembership = (stationId, lineId) => {
+            const sid = normalizeText(stationId);
+            const lid = normalizeText(lineId);
+            if (!sid || !lid) return false;
+            if (fullAlternateLineIds.has(lid)) return true;
+            return hiddenLineIdsByStationId.get(sid)?.has?.(lid) === true;
+        };
+
         const railwayNameById = new Map();
         const railwayZhHansById = new Map();
         const railwayColorById = new Map();
@@ -1203,9 +1272,20 @@ export async function loadRailGeoDataFromDataFolder() {
             const nameEn = normalizeText(title.en);
 
             const stationLineId = getLineIdFromStationNodeId(id) || railwayId;
+            if (isDirectHiddenStationMembership(id, stationLineId)) continue;
+
             const servingSet = servingRailwayIdsByStationId.get(id);
-            const servingIds = servingSet && servingSet.size ? Array.from(servingSet) : [stationLineId];
-            if (stationLineId && !servingIds.includes(stationLineId)) servingIds.push(stationLineId);
+            const servingIds = (servingSet && servingSet.size ? Array.from(servingSet) : [stationLineId])
+                .map((value) => normalizeText(value))
+                .filter((lineId) => lineId && !isHiddenServingMembership(id, lineId));
+            if (
+                stationLineId &&
+                !isHiddenServingMembership(id, stationLineId) &&
+                !servingIds.includes(stationLineId)
+            ) {
+                servingIds.push(stationLineId);
+            }
+            if (!servingIds.length) continue;
             servingIds.sort((a, b) => String(a).localeCompare(String(b)));
 
             const platformLineName = railwayNameById.get(stationLineId) || railwayNameById.get(railwayId) || stationLineId;
@@ -1251,6 +1331,7 @@ export async function loadRailGeoDataFromDataFolder() {
             stationsGeoJSON: { type: 'FeatureCollection', features: stationsFeatures },
             rawRailways: railwayList,
             rawStations: stationList,
+            alternateLineMembership,
             stationOffsetAlgorithmContext,
             diagnostics: {
                 // 可能包含重复 id；打印时建议按 id 做 max 聚合

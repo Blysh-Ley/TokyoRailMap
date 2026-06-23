@@ -1,8 +1,11 @@
+import { getPairMapValue } from '../../domain/alternateLineMembership.js';
+
 export const createTripPreviewBuilder = ({
     stationCoordByIdBase,
     stationCoordById,
     stationServingCountById,
     lineColorById,
+    alternateLineMembership = null,
     throughServiceConfigsObject = {},
     resolveRailColorForTheme,
     isLineTerminalStation,
@@ -15,9 +18,35 @@ export const createTripPreviewBuilder = ({
     getLineOffsetUnits = () => 0,
     isDebugLoopEnabled
 } = {}) => {
-    const getStationCoord = (stationId) => {
+    const resolveAlternateStationId = (stationId, sourceLineId = '') => {
         const sid = String(stationId || '').trim();
-        return stationCoordByIdBase?.get(sid) || stationCoordById?.get(sid);
+        if (!sid) return '';
+        const map = alternateLineMembership?.alternateStationIdByLineStationId;
+        if (!map || typeof map.get !== 'function') return '';
+        const direct = getPairMapValue(map, sourceLineId, sid);
+        if (direct) return direct;
+        for (const [key, value] of map.entries()) {
+            const text = String(key || '');
+            if (text.endsWith(`\u0000${sid}`)) return String(value || '').trim();
+        }
+        return '';
+    };
+
+    const getStationCoord = (stationId, sourceLineId = '', allowAlternate = false) => {
+        const sid = String(stationId || '').trim();
+        const coord = stationCoordByIdBase?.get(sid) || stationCoordById?.get(sid);
+        if (coord) return coord;
+        if (!allowAlternate) return null;
+        const alternateStationId = resolveAlternateStationId(sid, sourceLineId);
+        return alternateStationId
+            ? (stationCoordByIdBase?.get(alternateStationId) || stationCoordById?.get(alternateStationId))
+            : null;
+    };
+
+    const resolvePreviewStationId = (stationId, sourceLineId = '', allowAlternate = false) => {
+        const sid = String(stationId || '').trim();
+        if (!sid || !allowAlternate) return sid;
+        return resolveAlternateStationId(sid, sourceLineId) || sid;
     };
 
     const getLineColor = (lineId) => {
@@ -85,6 +114,7 @@ export const createTripPreviewBuilder = ({
         const coordsForBbox = [];
         const stopIds = new Set();
         const debugLoop = !!isDebugLoopEnabled?.();
+        const usePanelAlternateTripPreview = String(payload?.previewSource || payload?.__previewSource || '').trim() === 'panel-trip';
 
         const allSegments = Array.isArray(payload?.segments) ? payload.segments : [];
         const ntSeg = allSegments.find((s) => String(s?.kind) === 'nt') || null;
@@ -134,6 +164,95 @@ export const createTripPreviewBuilder = ({
                 return resolveRailColorForTheme?.(segTypeColorRaw) || segTypeColorRaw;
             }
             return resolveRailColorForTheme?.(getLineColor(fallbackLineId) || '') || '';
+        };
+        const resolvePairColor = (seg, fromStationId, toStationId, fallbackColor, fallbackLineId) => {
+            if (!usePanelAlternateTripPreview) return fallbackColor;
+            const map = alternateLineMembership?.highlightAlternateLineIdByLineStationId;
+            if (!map || typeof map.get !== 'function') return fallbackColor;
+
+            const candidateLineIds = Array.from(new Set([
+                String(seg?.lineId || '').trim(),
+                String(seg?.sourceLineId || '').trim(),
+                String(seg?.r || seg?.routeLineId || seg?.railwayId || '').trim(),
+                String(seg?.geometryLineId || seg?.geometry_line_id || '').trim(),
+                String(fallbackLineId || '').trim()
+            ].filter(Boolean)));
+
+            for (const sourceLineId of candidateLineIds) {
+                const fromAlternateLineId = getPairMapValue(map, sourceLineId, fromStationId);
+                const toAlternateLineId = getPairMapValue(map, sourceLineId, toStationId);
+                if (!fromAlternateLineId || fromAlternateLineId !== toAlternateLineId) continue;
+                const alternateColor = resolveRailColorForTheme?.(getLineColor(fromAlternateLineId) || '') || '';
+                if (alternateColor) return alternateColor;
+            }
+            return fallbackColor;
+        };
+        const resolvePairAlternateBoundary = (seg, fromStationId, toStationId, fallbackLineId) => {
+            if (!usePanelAlternateTripPreview) return null;
+            const rules = Array.isArray(alternateLineMembership?.rangeRules) ? alternateLineMembership.rangeRules : [];
+            if (!rules.length) return null;
+            const candidateLineIds = Array.from(new Set([
+                String(seg?.lineId || '').trim(),
+                String(seg?.sourceLineId || '').trim(),
+                String(seg?.r || seg?.routeLineId || seg?.railwayId || '').trim(),
+                String(seg?.geometryLineId || seg?.geometry_line_id || '').trim(),
+                String(fallbackLineId || '').trim()
+            ].filter(Boolean)));
+            for (const sourceLineId of candidateLineIds) {
+                for (const rule of rules) {
+                    if (String(rule?.lineId || '').trim() !== sourceLineId) continue;
+                    const membershipIds = new Set((Array.isArray(rule?.stationMembershipStationIds) ? rule.stationMembershipStationIds : []).map(String));
+                    const fromIn = membershipIds.has(String(fromStationId || '').trim());
+                    const toIn = membershipIds.has(String(toStationId || '').trim());
+                    if (fromIn === toIn) continue;
+                    const boundaryStationId = String((Array.isArray(rule?.boundaryExpansionStationIds) ? rule.boundaryExpansionStationIds : [])[0] || '').trim();
+                    const alternateLineId = getPairMapValue(
+                        alternateLineMembership?.alternateLineIdByLineStationId,
+                        sourceLineId,
+                        fromIn ? fromStationId : toStationId
+                    ) || getPairMapValue(
+                        alternateLineMembership?.highlightAlternateLineIdByLineStationId,
+                        sourceLineId,
+                        boundaryStationId
+                    );
+                    const alternateColor = resolveRailColorForTheme?.(getLineColor(alternateLineId) || '') || '';
+                    const boundaryCoord = boundaryStationId ? getStationCoord(boundaryStationId, sourceLineId, true) : null;
+                    if (!boundaryCoord || !alternateColor) continue;
+                    return { alternateColor, alternateFromStart: fromIn, boundaryCoord };
+                }
+            }
+            return null;
+        };
+
+        const splitCoordsAtBoundary = (coords, boundaryCoord) => {
+            if (!Array.isArray(coords) || coords.length < 2 || !Array.isArray(boundaryCoord)) return null;
+            let bestIndex = -1;
+            let bestDistance = Infinity;
+            for (let index = 0; index < coords.length; index += 1) {
+                const distance = distMeters?.(coords[index], boundaryCoord);
+                if (!Number.isFinite(distance) || distance >= bestDistance) continue;
+                bestDistance = distance;
+                bestIndex = index;
+            }
+            if (bestIndex < 0 || bestDistance > 500) return null;
+            if (bestIndex === 0) return { first: null, second: coords };
+            if (bestIndex === coords.length - 1) return { first: coords, second: null };
+            return {
+                first: coords.slice(0, bestIndex + 1),
+                second: coords.slice(bestIndex)
+            };
+        };
+
+        const pushPairLineFeature = (coords, lineId, role, pairColor, options, alternateBoundary) => {
+            const split = alternateBoundary ? splitCoordsAtBoundary(coords, alternateBoundary.boundaryCoord) : null;
+            if (!split) {
+                pushLineFeature(coords, lineId, role, pairColor, options);
+                return;
+            }
+            const firstColor = alternateBoundary.alternateFromStart ? alternateBoundary.alternateColor : pairColor;
+            const secondColor = alternateBoundary.alternateFromStart ? pairColor : alternateBoundary.alternateColor;
+            if (split.first) pushLineFeature(split.first, lineId, role, firstColor, options);
+            if (split.second) pushLineFeature(split.second, lineId, role, secondColor, options);
         };
 
         const pushLineFeature = (coords, lineId, role = 'line', colorOverride = '', options = {}) => {
@@ -194,16 +313,21 @@ export const createTripPreviewBuilder = ({
                 }
             }
 
-            for (const sid of stationIds) stopIds.add(sid);
+            const sourceLineIdForStation = lineId || routeLineId || geometryLineId;
+            for (const sid of stationIds) {
+                stopIds.add(resolvePreviewStationId(sid, sourceLineIdForStation, usePanelAlternateTripPreview));
+            }
 
             for (let j = 0; j < stationIds.length - 1; j += 1) {
                 const fromId = stationIds[j];
                 const toId = stationIds[j + 1];
-                const from = getStationCoord(fromId);
-                const to = getStationCoord(toId);
-                if (!from || !to) continue;
                 const pairGeometryLineId = geometryLineId || lineId;
                 const pairOffsetLineId = offsetLineId || pairGeometryLineId;
+                const from = getStationCoord(fromId, lineId || routeLineId || pairGeometryLineId, usePanelAlternateTripPreview);
+                const to = getStationCoord(toId, lineId || routeLineId || pairGeometryLineId, usePanelAlternateTripPreview);
+                if (!from || !to) continue;
+                const pairColor = resolvePairColor(seg, fromId, toId, segColor, lineId || routeLineId || pairGeometryLineId);
+                const alternateBoundary = resolvePairAlternateBoundary(seg, fromId, toId, lineId || routeLineId || pairGeometryLineId);
 
                 const clipped = extractLineSegment?.(pairGeometryLineId || geometryLineId || lineId, from, to, {
                     preferLoopShortest: isLoopDirectionSeg,
@@ -211,19 +335,19 @@ export const createTripPreviewBuilder = ({
                     preserveLineDirection: true
                 });
                 if (clipped && clipped.length >= 2) {
-                    pushLineFeature(clipped, lineId, 'line', segColor, {
+                    pushPairLineFeature(clipped, lineId, 'line', pairColor, {
                         routeLineId,
                         geometryLineId: pairGeometryLineId || geometryLineId || lineId,
                         offsetLineId: pairOffsetLineId || offsetLineId
-                    });
+                    }, alternateBoundary);
                 }
                 else {
-                    pushLineFeature([from, to], lineId, 'connector', segColor, {
+                    pushPairLineFeature([from, to], lineId, 'connector', pairColor, {
                         routeLineId,
                         geometryLineId: pairGeometryLineId || geometryLineId || lineId,
                         offsetLineId: pairOffsetLineId || offsetLineId,
                         lineOffsetUnits: resolveLineOffsetUnits(pairOffsetLineId || offsetLineId)
-                    });
+                    }, alternateBoundary);
                 }
             }
 
@@ -233,8 +357,8 @@ export const createTripPreviewBuilder = ({
                 const prevLast = String(prevIds.length ? prevIds[prevIds.length - 1] : '').trim();
                 const currFirst = String(stationIds.length ? stationIds[0] : '').trim();
                 if (prevLast && currFirst && !isSamePhysicalStation?.(prevLast, currFirst)) {
-                    const a = getStationCoord(prevLast);
-                    const b = getStationCoord(currFirst);
+                    const a = getStationCoord(prevLast, prev?.lineId, usePanelAlternateTripPreview);
+                    const b = getStationCoord(currFirst, lineId, usePanelAlternateTripPreview);
                     if (a && b) {
                         const prevRouteLineId = resolveSegmentRouteLineId(prev, prev?.lineId);
                         const prevGeometryLineId = resolveSegmentGeometryLineId(prev, prevRouteLineId || prev?.lineId);
@@ -298,7 +422,7 @@ export const createTripPreviewBuilder = ({
         }
 
         for (const sid of stopIds) {
-            const c = getStationCoord(sid);
+            const c = getStationCoord(sid, '', usePanelAlternateTripPreview);
             if (!c) continue;
             outStopFeatures.push({
                 type: 'Feature',

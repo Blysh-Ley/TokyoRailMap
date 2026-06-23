@@ -59,9 +59,7 @@ import {
 import { createReachableStopsController } from './reachableStopsController.js';
 import { travelSearchMapActions } from './travelSearchMapActions.js';
 import {
-    buildDisplayPlanFromExpandedLegs,
-    buildRailPreviewSegment,
-    buildTripPreviewPayloadFromSegments
+    buildDisplayPlanFromExpandedLegs
 } from '../../domain/routePlanning/displayRows.js';
 import { exportJourneyPopoverToPng } from './journeyCaptureExport.js';
 import { journeyRuntimeAdapter } from './journeyRuntimeAdapter.js';
@@ -1293,43 +1291,6 @@ export function mountTravelSearchUI() {
         journeyPlanPreviewController?.scheduleClearPreview?.(delayMs);
     };
 
-    const buildTripPreviewPayloadFromDisplayPlanLegacy = async ({ row, displayPlan }) => {
-        const legs = Array.isArray(displayPlan?.legs) ? displayPlan.legs : [];
-        if (!legs.length) return null;
-
-        const segments = [];
-        for (const leg of legs) {
-            if (!leg || leg.kind !== 'rail') continue;
-
-            const lineId = normalizeText(leg?.lineId);
-            if (!lineId) continue;
-
-            const trip = await resolveTripForLeg({ leg, serviceDay: row?.serviceDay });
-            const segDir = trip ? (normalizeText(trip?.d) || null) : null;
-            let stationIds = [];
-            if (trip) {
-                const rows = toLegStopRows({ trip, leg });
-                stationIds = rows.map((x) => normalizeText(x?.stationId)).filter(Boolean);
-            } else {
-                stationIds = [normalizeText(leg?.fromStop), normalizeText(leg?.toStop)].filter(Boolean);
-            }
-
-            const seg = buildRailPreviewSegment({
-                lineId,
-                stationIds,
-                direction: segDir
-            });
-            if (seg) segments.push(seg);
-        }
-
-        return buildTripPreviewPayloadFromSegments({
-            row,
-            displayPlan,
-            segments,
-            toHHMM
-        });
-    };
-
     const getDisplayPlanForRow = async (row) => {
         if (!row || !row.plan) return null;
         if (row.__displayPlan) return row.__displayPlan;
@@ -1406,6 +1367,7 @@ export function mountTravelSearchUI() {
             }
 
             const sectionThroughMeta = sectionThroughMetaList[currentSectionIndex] || null;
+            const useBlockDisplayIdentity = block?.isAlternateDisplayIdentity === true;
             const isSpecialThroughCategory = !!THROUGH_SERVICE_CONFIGS_OBJECT[sectionThroughMeta?.category];
             const blockLineKey = normalizeText(block.lineDisplayName || block.lineName || '');
             const shouldRenderBoundaryLineNote = !!(
@@ -1418,12 +1380,12 @@ export function mountTravelSearchUI() {
             const lineText = normalizeText(
                 shouldRenderBoundaryLineNote
                     ? (block.lineDisplayName || block.lineName)
-                    : (sectionThroughMeta?.name || block.lineDisplayName || block.lineName)
+                    : (useBlockDisplayIdentity ? (block.lineDisplayName || block.lineName) : (sectionThroughMeta?.name || block.lineDisplayName || block.lineName))
             );
             const lineColorResolved = normalizeText(
                 shouldRenderBoundaryLineNote
                     ? (block.lineColor || '')
-                    : (sectionThroughMeta?.color || block.lineColor || '')
+                    : (useBlockDisplayIdentity ? (block.lineColor || '') : (sectionThroughMeta?.color || block.lineColor || ''))
             );
             const shouldRenderLineNote = !hasRenderedSectionLineNote || shouldRenderBoundaryLineNote;
 
@@ -1488,16 +1450,19 @@ export function mountTravelSearchUI() {
                 const isFirst = i === 0;
                 const isLast = i === block.rows.length - 1;
                 const stationId = normalizeText(s.stationId || '');
+                const sourceStationId = normalizeText(s.sourceStationId || stationId);
+                const stationLineColor = normalizeText(s.displayLineColor || lineColorResolved);
                 const arriveText = normalizeText(s.arrText || '') || (isFirst ? normalizeText(s.depText || '') : '');
-                const depText = overallDestinationStationId && stationId && overallDestinationStationId === stationId
+                const isDestinationStation = !!(overallDestinationStationId && sourceStationId && overallDestinationStationId === sourceStationId);
+                const depText = isDestinationStation
                     ? ''
                     : (normalizeText(s.depText || '') || (isLast ? '-' : ''));
                 const rowEl = createJourneyTripStationRow({
                     departureText: depText,
                     isPast: !!s?.isPast,
-                    lineColor: lineColorResolved ? String(resolveJourneyColorForTheme(lineColorResolved)) : '',
+                    lineColor: stationLineColor ? String(resolveJourneyColorForTheme(stationLineColor)) : '',
                     routeId: getJourneyTripStationRouteId(stationId),
-                    showDestination: !!(overallDestinationStationId && stationId && overallDestinationStationId === stationId),
+                    showDestination: isDestinationStation,
                     stationCode: normalizeText(stationCodeMap.get(stationId) || ''),
                     stationId,
                     stationName: normalizeText(s.stationName || s.stationId),
@@ -1923,6 +1888,7 @@ export function mountTravelSearchUI() {
             if (!blockRows.length) continue;
 
             const sectionThroughMeta = sectionThroughMetaList[currentSectionIndex] || null;
+            const useBlockDisplayIdentity = block?.isAlternateDisplayIdentity === true;
             const isSpecialThroughCategory = !!THROUGH_SERVICE_CONFIGS_OBJECT[sectionThroughMeta?.category];
             const blockLineKey = normalizeText(block.lineDisplayName || block.lineName || '');
             const shouldRenderBoundaryLineNote = !!(
@@ -1954,13 +1920,13 @@ export function mountTravelSearchUI() {
                 const lineText = normalizeText(
                     shouldRenderBoundaryLineNote
                         ? (block.lineDisplayName || block.lineName)
-                        : (sectionThroughMeta?.name || block.lineDisplayName || block.lineName)
+                        : (useBlockDisplayIdentity ? (block.lineDisplayName || block.lineName) : (sectionThroughMeta?.name || block.lineDisplayName || block.lineName))
                 ) || '线路';
                 const rideColor = normalizeText(
                     shouldRenderBoundaryLineNote
                         ? (block.lineColor || '')
-                        : (sectionThroughMeta?.color || block.lineColor || '')
-                ) ? String(resolveJourneyColorForTheme(shouldRenderBoundaryLineNote ? block.lineColor : (sectionThroughMeta?.color || block.lineColor))) : '#9a9a9a';
+                        : (useBlockDisplayIdentity ? (block.lineColor || '') : (sectionThroughMeta?.color || block.lineColor || ''))
+                ) ? String(resolveJourneyColorForTheme(shouldRenderBoundaryLineNote ? block.lineColor : (useBlockDisplayIdentity ? block.lineColor : (sectionThroughMeta?.color || block.lineColor)))) : '#9a9a9a';
 
                 let directionText = '';
                 if (!shouldRenderBoundaryLineNote) {

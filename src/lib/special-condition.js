@@ -224,10 +224,10 @@ export const companyLogoMap = {
     'IzuHakone': { 'zh': '伊豆箱根铁道', 'img':["yidouxianggen.png",35] },
     'OdakyuHakone': { 'zh': '箱根登山铁道', 'img':["xiaotianji.png"] },
     'Chichibu': { 'zh': '秩父铁道', 'img': ["zhifu.svg", 35] },
-    //'Jōmō Electric Railway': { 'zh': '上毛电气铁道', 'img':["shangmao.svg",35] },
+    'Jomo': { 'zh': '上毛电气铁道', 'img': ["shangmao.svg", 35]},
     'Moka': { 'zh': '真冈铁道', 'img':["zhengang.svg",35] , 'reverse': true },
-    //'Jōshin Dentetsu': { 'zh': '上信电铁', 'img':["shangxin.svg",35] },
-    //'Watarase Keikoku Railway': { 'zh': '渡良濑溪谷铁道', 'img':["dulianglai.png",35] }
+    'Joshin': { 'zh': '上信电铁', 'img': ["shangxin.svg", 35] },
+    'WataraseKeikoku': { 'zh': '渡良濑溪谷铁道', 'img': ["dulianglai.png", 35] }
 };
 
 // 车公司优先级，决定了在Menu面板等处显示多个公司时的排序。

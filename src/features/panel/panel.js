@@ -154,9 +154,8 @@ import {
     resolvePanelTripDetailBranchRefIds
 } from './panelTripDetailRuntime.js';
 import { preparePanelTripDetailBranchMainFlow } from './panelTripDetailRuntime.js';
-import { buildPanelTripDetailSegmentBlocks } from './panelTripDetailRender.js';
-import { renderPanelTripDetailLinearRows } from './panelTripDetailRender.js';
-import { buildPanelTripDetailLayoutShell } from './panelTripDetailRender.js';
+import { buildPanelTripDetailSegmentBlocks, renderPanelTripDetailLinearRows, buildPanelTripDetailLayoutShell } from './panelTripDetailRender.js';
+import { applyPanelTripDetailAlternateBodyTransferDisplay, applyPanelTripDetailAlternateBodyDisplayToLanes, renderPanelTripDetailAlternateBodyStopRow, splitPanelTripDetailAlternateBodySegmentsByDisplayLine } from './panelTripDetailAlternateBody.js';
 import {
     getPanelTripDetailSegmentFirstRow,
     getPanelTripDetailSegmentLastRow,
@@ -387,6 +386,7 @@ export function createPanel(options = {}) {
     const settingsContentEl = options.settingsContentEl && options.settingsContentEl.appendChild ? options.settingsContentEl : null;
     const getTimetableViewMode = typeof options.getTimetableViewMode === 'function' ? options.getTimetableViewMode : null;
     const onTimetableViewModeChanged = typeof options.onTimetableViewModeChanged === 'function' ? options.onTimetableViewModeChanged : null;
+    const getAlternateLineMembership = typeof options.getAlternateLineMembership === 'function' ? options.getAlternateLineMembership : (async () => null);
     const getHoverPreviewEnabled = typeof options.getHoverPreviewEnabled === 'function' ? options.getHoverPreviewEnabled : null;
     const getMultiSelectModeEnabled = typeof options.getMultiSelectModeEnabled === 'function' ? options.getMultiSelectModeEnabled : null;
     let hoverPreviewEnabled = getHoverPreviewEnabled ? getHoverPreviewEnabled() !== false : true;
@@ -1794,6 +1794,25 @@ export function createPanel(options = {}) {
             };
         }
 
+        const sourceRequests = [];
+        const sourceRequestKeys = new Set();
+        const addSourceRequest = ({ sourceLineId, stationId: sourceStationId, resolveStation = true }) => {
+            const sourceId = toText(sourceLineId);
+            const sourceStationKey = toText(sourceStationId);
+            if (!sourceId) return;
+            const key = `${sourceId}||${sourceStationKey}||${resolveStation ? 'resolve' : 'fixed'}`;
+            if (sourceRequestKeys.has(key)) return;
+            sourceRequestKeys.add(key);
+            sourceRequests.push({
+                sourceLineId: sourceId,
+                stationId: sourceStationKey,
+                resolveStation
+            });
+        };
+        for (const sourceLineId of mergedSourceLineIds) {
+            addSourceRequest({ sourceLineId, resolveStation: true });
+        }
+
         const resolveStationKeyForSourceLine = async (sourceLineId) => {
             const sourceId = toText(sourceLineId);
             if (fallbackStationKey && sourceId && (
@@ -1805,9 +1824,12 @@ export function createPanel(options = {}) {
             return resolveStationIdForLine(sourceId);
         };
 
-        const sourceDatas = await Promise.all(mergedSourceLineIds.map(async (sourceLineId) => {
+        const sourceDatas = await Promise.all(sourceRequests.map(async (sourceRequest) => {
+            const sourceLineId = toText(sourceRequest?.sourceLineId);
             const [resolvedStationId, data] = await Promise.all([
-                resolveStationKeyForSourceLine(sourceLineId),
+                sourceRequest?.resolveStation === false
+                    ? Promise.resolve(toText(sourceRequest?.stationId))
+                    : resolveStationKeyForSourceLine(sourceLineId),
                 loadTimetableForLineId(sourceLineId)
             ]);
             const stationKey = toText(resolvedStationId) || fallbackStationKey;
@@ -3140,10 +3162,11 @@ export function createPanel(options = {}) {
         const now = getDisplayNowMs();
         const serviceDayStartMs = getServiceDayStartMs(new Date(now));
 
-        const [stationsIndex, trainTypesIndex, trainTypeColorIndex] = await Promise.all([
+        const [stationsIndex, trainTypesIndex, trainTypeColorIndex, alternateLineMembership] = await Promise.all([
             getStationsIndex(),
             getTrainTypesIndex(),
-            getTrainTypeColorIndex()
+            getTrainTypeColorIndex(),
+            getAlternateLineMembership()
         ]);
         if (token !== tripDetailToken) return;
 
@@ -3295,29 +3318,23 @@ export function createPanel(options = {}) {
             segments: mergedSegments,
             toText
         });
-        const tripDetailStationIds = Array.from(new Set(
-            segmentsWithPast
-                .flatMap((segment) => Array.isArray(segment?.rows) ? segment.rows : [])
-                .map((row) => toText(row?.stationId))
-                .filter(Boolean)
-        ));
-        const tripDetailTransferDisplayByStationId = await buildTripDetailTransferDisplayByStationId({
-            stationIds: tripDetailStationIds,
-            currentLineId: tripLineId,
-            escapeHtml,
+        const segmentsWithTransferDisplay = await applyPanelTripDetailAlternateBodyTransferDisplay({
+            alternateLineMembership,
             getLineMeta,
-            getStationCode: (stationId) => toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
-            getStationGroupsIndex,
-            toText
+            segments: segmentsWithPast,
+            stationsIndex,
+            toText,
+            resolveTransferDisplayByStationIds: (stationIds) => buildTripDetailTransferDisplayByStationId({
+                stationIds,
+                currentLineId: tripLineId,
+                escapeHtml,
+                getLineMeta,
+                getStationCode: (stationId) => toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
+                getStationGroupsIndex,
+                toText
+            })
         });
         if (token !== tripDetailToken) return;
-        const segmentsWithTransferDisplay = segmentsWithPast.map((segment) => ({
-            ...segment,
-            rows: (Array.isArray(segment?.rows) ? segment.rows : []).map((row) => ({
-                ...row,
-                transferDisplay: tripDetailTransferDisplayByStationId.get(toText(row?.stationId)) || null
-            }))
-        }));
         const markRowsPastByCurrentStation = (rowsInput, fallbackPast = false) => markRowsPastByStation({
             currentStationId: stationIdForLine,
             fallbackPast,
@@ -3364,27 +3381,7 @@ export function createPanel(options = {}) {
         const typeName = getTripTypeName(trip, trainTypesIndex);
         const typeColor = getTripTypeColor(trip, trainTypeColorIndex);
 
-        const renderStopRow = (s) => {
-            const rowCls = s.isPast ? 'panel-trip-detail-row is-past' : 'panel-trip-detail-row';
-            const stationId = toText(s.stationId);
-            const transferDisplay = s?.transferDisplay || null;
-            const transferRowCount = Math.max(1, Number(transferDisplay?.rowCount) || 1);
-            return renderPanelTripDetailStopRowHtml({
-                rowClass: rowCls,
-                rowStyle: transferRowCount > 1 ? `min-height:${20 + (transferRowCount - 1) * 24}px;` : '',
-                stationClass: 'panel-trip-detail-station',
-                timeCellClass: 'panel-trip-detail-time panel-trip-detail-moment',
-                timeHtml: renderTripDetailMomentHtml(s),
-                transferDisplay,
-                stationId,
-                arrivalTime: toText(s.arr || s.dep || ''),
-                stationCode: toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
-                stationName: toText(s.stationName || stationId),
-                lineId: toText(s.lineId || tripLineId || lineId),
-                lineColor: toText(s.lineColor || ''),
-                muted: !!s.isPast
-            });
-        };
+        const renderStopRow = (s) => renderPanelTripDetailAlternateBodyStopRow({ lineId, renderPanelTripDetailStopRowHtml, renderTripDetailMomentHtml, stationsIndex, stop: s, toText, tripLineId });
 
         const pickPrimaryLaneIndex = (lanes, mainLineId) => {
             const list = Array.isArray(lanes) ? lanes : [];
@@ -3480,6 +3477,7 @@ export function createPanel(options = {}) {
             ntBranchLanes,
             ptBranchLanes
         });
+        const activeBranchLanesForBody = applyPanelTripDetailAlternateBodyDisplayToLanes({ alternateLineMembership, buildLineDescriptor, getLineMeta, lanes: activeBranchLanes, stationsIndex, toText });
         const throughCategory = detectThroughServiceCategoryFromTrips([
             ...(Array.isArray(ptChain) ? ptChain : []),
             trip,
@@ -3513,8 +3511,9 @@ export function createPanel(options = {}) {
         });
 
         if (!useBranchGridLayout) {
+            const bodyDisplaySegmentBlocks = splitPanelTripDetailAlternateBodySegmentsByDisplayLine({ segments: segmentsWithTransferDisplay, toText });
             const segmentBlocks = buildPanelTripDetailSegmentBlocks({
-                segmentsWithPast: segmentsWithTransferDisplay,
+                segmentsWithPast: bodyDisplaySegmentBlocks,
                 throughCategoryLabel,
                 throughCategoryColor,
                 currentLineDesc,
@@ -3551,7 +3550,7 @@ export function createPanel(options = {}) {
                 primaryLane,
                 secondaryLanes
             } = preparePanelTripDetailBranchMainFlow({
-                activeBranchLanes,
+                activeBranchLanes: activeBranchLanesForBody,
                 buildLineDescriptor,
                 currentLineDesc,
                 fallbackLineId: lineId,

@@ -1,4 +1,5 @@
 import { buildVirtualTripPreviewPayload } from '../lib/trip-preview.js';
+import { getPairMapValue } from './alternateLineMembership.js';
 
 const toText = (value) => String(value ?? '').trim();
 
@@ -38,6 +39,132 @@ const isClosedStationSequence = (stationIds) => {
     return toText(stationIds[0]) === toText(stationIds[stationIds.length - 1]);
 };
 
+const getSetMapValues = (map, key) => {
+    if (!map || typeof map.get !== 'function') return new Set();
+    const value = map.get(toText(key));
+    return value instanceof Set ? value : new Set(Array.isArray(value) ? value.map(toText).filter(Boolean) : []);
+};
+
+const isHiddenHighlightPair = (hiddenStationIds, a, b) => (
+    hiddenStationIds.has(toText(a)) && hiddenStationIds.has(toText(b))
+);
+
+const pushStationSegment = (segments, lineId, stationIds, extra = {}) => {
+    const ids = Array.isArray(stationIds) ? stationIds.map(toText).filter(Boolean) : [];
+    if (ids.length < 2) return;
+    segments.push({
+        lineId,
+        r: lineId,
+        geometryLineId: lineId,
+        offsetLineId: lineId,
+        stationIds: ids,
+        ...extra
+    });
+};
+
+export const buildLineHighlightStationSegments = ({
+    lineId,
+    stationIds,
+    isLoopLine = false,
+    alternateLineMembership = null
+} = {}) => {
+    const id = toText(lineId);
+    const ids = Array.isArray(stationIds) ? stationIds.map(toText).filter(Boolean) : [];
+    if (!id || ids.length < 2) return [];
+
+    const hiddenStationIds = getSetMapValues(alternateLineMembership?.highlightHiddenIdsByLineId, id);
+    if (!hiddenStationIds.size) {
+        const d = isLoopLine ? { d: 'loop' } : {};
+        const out = [];
+        pushStationSegment(out, id, ids, d);
+        return out;
+    }
+
+    const out = [];
+    let current = [];
+    const flush = () => {
+        pushStationSegment(out, id, current);
+        current = [];
+    };
+
+    for (let i = 0; i < ids.length - 1; i += 1) {
+        const a = ids[i];
+        const b = ids[i + 1];
+        if (isHiddenHighlightPair(hiddenStationIds, a, b)) {
+            flush();
+            continue;
+        }
+        if (!current.length) {
+            current.push(a);
+        } else if (current[current.length - 1] !== a) {
+            current.push(a);
+        }
+        current.push(b);
+    }
+    flush();
+
+    return out;
+};
+
+export const buildAlternateLineHighlightSegments = ({
+    lineId,
+    stationIds,
+    alternateLineMembership = null
+} = {}) => {
+    const id = toText(lineId);
+    const ids = Array.isArray(stationIds) ? stationIds.map(toText).filter(Boolean) : [];
+    if (!id || ids.length < 2) return [];
+
+    const hiddenStationIds = getSetMapValues(alternateLineMembership?.highlightHiddenIdsByLineId, id);
+    if (!hiddenStationIds.size) return [];
+
+    const out = [];
+    let currentLineId = '';
+    let current = [];
+    const flush = () => {
+        if (currentLineId) {
+            pushStationSegment(out, currentLineId, current, {
+                kind: 'alternate',
+                geometryLineId: currentLineId,
+                offsetLineId: currentLineId
+            });
+        }
+        currentLineId = '';
+        current = [];
+    };
+
+    for (let i = 0; i < ids.length - 1; i += 1) {
+        const a = ids[i];
+        const b = ids[i + 1];
+        if (!isHiddenHighlightPair(hiddenStationIds, a, b)) {
+            flush();
+            continue;
+        }
+
+        const aLineId = getPairMapValue(alternateLineMembership?.highlightAlternateLineIdByLineStationId, id, a);
+        const bLineId = getPairMapValue(alternateLineMembership?.highlightAlternateLineIdByLineStationId, id, b);
+        const alternateLineId = aLineId && aLineId === bLineId ? aLineId : (aLineId || bLineId);
+        if (!alternateLineId) {
+            flush();
+            continue;
+        }
+
+        if (currentLineId !== alternateLineId) {
+            flush();
+            currentLineId = alternateLineId;
+            current = [a];
+        } else if (!current.length) {
+            current = [a];
+        } else if (current[current.length - 1] !== a) {
+            current.push(a);
+        }
+        current.push(b);
+    }
+    flush();
+
+    return out;
+};
+
 const getLineTitle = (meta, lineId, getLineName) => {
     const fromTitle = toText(meta?.title?.['zh-Hans'])
         || toText(meta?.title?.['zh-Hant'])
@@ -49,6 +176,7 @@ const getLineTitle = (meta, lineId, getLineName) => {
 export const buildLineHighlightVirtualTripPayloads = ({
     lineIds,
     railwaysIndexById,
+    alternateLineMembership = null,
     getLineName = (lineId) => lineId,
     previewSource = 'virtual',
     fitMode = 'none',
@@ -64,12 +192,18 @@ export const buildLineHighlightVirtualTripPayloads = ({
         if (stationIds.length < 2) continue;
 
         const isLoopLine = isClosedStationSequence(stationIds);
+        const segments = buildLineHighlightStationSegments({
+            lineId,
+            stationIds,
+            isLoopLine,
+            alternateLineMembership
+        });
+        if (!segments.length) continue;
+
         const payload = buildPayload({
             lineId,
             lineName: getLineTitle(meta, lineId, getLineName),
-            ...(isLoopLine
-                ? { segments: [{ lineId, stationIds, d: 'loop' }] }
-                : { stationIds }),
+            segments,
             tripKey: lineId,
             previewSource,
             fitMode

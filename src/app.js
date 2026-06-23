@@ -48,6 +48,7 @@ import {
     buildLineHighlightVirtualTripPayloads,
     resolveSelectionLineHighlightIds
 } from './domain/lineHighlightVirtualTripBuilder.js';
+import { buildAlternateLineMembership } from './domain/alternateLineMembership.js';
 import { buildLineHighlightLabelItems } from './domain/lineHighlightLabels.js';
 import { buildLineNameLabelGeoJSON } from './domain/lineNameLabels.js';
 import { previewBranchesForLine } from './map/analyze_branch.js';
@@ -389,6 +390,8 @@ const initMapApp = async () => {
     let travelSearchMapRuntime = null;
     let syncStationOffsetForTripPreviewState = () => {};
     let railwaysIndexByIdCachePromise = null;
+    let alternateLineMembershipCachePromise = null;
+    let generatedAlternateLineMembership = null;
     let generatedLinesData = null;
     let generatedLineNameLabelsData = null;
     let currentLineNameLabelsData = null;
@@ -1416,6 +1419,22 @@ const initMapApp = async () => {
         return railwaysIndexByIdCachePromise;
     };
 
+    const getAlternateLineMembership = async () => {
+        if (generatedAlternateLineMembership) return generatedAlternateLineMembership;
+        if (alternateLineMembershipCachePromise) return alternateLineMembershipCachePromise;
+
+        alternateLineMembershipCachePromise = (async () => {
+            const [railways, stations, coordinates] = await Promise.all([
+                Array.isArray(generatedRawRailways) ? generatedRawRailways : getCachedJson('./data/railways.json'),
+                Array.isArray(generatedRawStations) ? generatedRawStations : getCachedJson('./data/stations.json'),
+                getCachedJson('./data/coordinates.json')
+            ]);
+            return buildAlternateLineMembership({ railways, stations, coordinates });
+        })().catch(() => null);
+
+        return alternateLineMembershipCachePromise;
+    };
+
     const getMultiSelectBaseTripPreviewLineIds = () => {
         const ids = Array.from(getBaseMultiSelectedLineIds()).map(String).filter(Boolean);
         ids.sort((a, b) => a.localeCompare(b));
@@ -1423,10 +1442,14 @@ const initMapApp = async () => {
     };
 
     const buildMultiSelectBaseTripVirtualTrips = async (lineIds) => {
-        const railwaysIndexById = await getRailwaysIndexById();
+        const [railwaysIndexById, alternateLineMembership] = await Promise.all([
+            getRailwaysIndexById(),
+            getAlternateLineMembership()
+        ]);
         return buildLineHighlightVirtualTripPayloads({
             lineIds,
             railwaysIndexById,
+            alternateLineMembership,
             getLineName: (lineId) => lineNameById.get(lineId) || lineId,
             previewSource: MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE,
             fitMode: 'none'
@@ -1439,10 +1462,14 @@ const initMapApp = async () => {
     });
 
     const buildSelectionLineTripVirtualTrips = async (lineIds) => {
-        const railwaysIndexById = await getRailwaysIndexById();
+        const [railwaysIndexById, alternateLineMembership] = await Promise.all([
+            getRailwaysIndexById(),
+            getAlternateLineMembership()
+        ]);
         return buildLineHighlightVirtualTripPayloads({
             lineIds,
             railwaysIndexById,
+            alternateLineMembership,
             getLineName: (lineId) => lineNameById.get(lineId) || lineId,
             previewSource: SELECTION_LINE_TRIP_PREVIEW_SOURCE,
             fitMode: 'none'
@@ -1458,10 +1485,14 @@ const initMapApp = async () => {
     };
 
     const buildSelectionCompanyTripVirtualTrips = async (lineIds) => {
-        const railwaysIndexById = await getRailwaysIndexById();
+        const [railwaysIndexById, alternateLineMembership] = await Promise.all([
+            getRailwaysIndexById(),
+            getAlternateLineMembership()
+        ]);
         return buildLineHighlightVirtualTripPayloads({
             lineIds,
             railwaysIndexById,
+            alternateLineMembership,
             getLineName: (lineId) => lineNameById.get(lineId) || lineId,
             previewSource: SELECTION_COMPANY_TRIP_PREVIEW_SOURCE,
             fitMode: 'none'
@@ -2819,6 +2850,7 @@ const initMapApp = async () => {
         getMultiSelectModeEnabled: () => isMultiSelectModeEnabled(),
         getTimetableViewMode: () => readTimetableViewMode(),
         onTimetableViewModeChanged: (mode) => writeTimetableViewMode(mode),
+        getAlternateLineMembership,
         getLineMeta: (lineId) => {
             const id = String(lineId);
             return {
@@ -3421,6 +3453,7 @@ const initMapApp = async () => {
             stationsGeoJSON,
             rawRailways,
             rawStations,
+            alternateLineMembership,
             stationOffsetAlgorithmContext,
             diagnostics
         } = await loadRailGeoDataFromDataFolder();
@@ -3429,6 +3462,7 @@ const initMapApp = async () => {
         generatedStationsData = stationsGeoJSON;
         generatedRawRailways = rawRailways;
         generatedRawStations = rawStations;
+        generatedAlternateLineMembership = alternateLineMembership || null;
         generatedStationOffsetAlgorithmContext = stationOffsetAlgorithmContext;
         transferStationIdsByStationId = await loadTransferStationIdMap();
 
@@ -3525,6 +3559,9 @@ const initMapApp = async () => {
             ? linesData.features.filter((f) => f?.properties?.type === 'line')
             : [];
         const lineFeatures = allLineFeatures.filter((f) => Number(f?.properties?.hidden_by_opacity_zero) !== 1);
+        const fullAlternateLineIds = generatedAlternateLineMembership?.fullAlternateLineIds instanceof Set
+            ? generatedAlternateLineMembership.fullAlternateLineIds
+            : new Set();
         const lineChainsById = new Map();
 
 
@@ -3935,6 +3972,7 @@ const initMapApp = async () => {
                 stationCoordById,
                 stationServingCountById,
                 lineColorById,
+                alternateLineMembership: generatedAlternateLineMembership,
                 throughServiceConfigsObject: THROUGH_SERVICE_CONFIGS_OBJECT,
                 resolveRailColorForTheme,
                 isLineTerminalStation,
@@ -4144,6 +4182,7 @@ const initMapApp = async () => {
             const lineId = f?.properties?.id ?? f?.id;
             if (!lineId) continue;
             lineFeatureById.set(String(lineId), f);
+            const isFullAlternateLine = fullAlternateLineIds.has(String(lineId));
 
             const company = f?.properties?.company ?? '未知公司';
             const name = f?.properties?.name ?? String(lineId);
@@ -4160,6 +4199,11 @@ const initMapApp = async () => {
             if (typeof color === 'string' && color.trim()) lineColorById.set(String(lineId), color.trim());
             if (typeof color === 'string' && color.trim()) lineColorByName.set(String(name), color.trim());
             lineOffsetUnitsById.set(String(lineId), Number.isFinite(lineOffsetUnits) ? lineOffsetUnits : 0);
+
+            if (isFullAlternateLine) {
+                routePreviewViewport.addLineBounds(lineId, f.geometry);
+                continue;
+            }
 
             companyObj[company] = true;
 
@@ -4193,7 +4237,8 @@ const initMapApp = async () => {
             companyLogoMap,
             railwaysOrderIndex,
             railwaysList: generatedRawRailways,
-            stationsList: generatedRawStations
+            stationsList: generatedRawStations,
+            hiddenLineIds: fullAlternateLineIds
         });
 
         const menuActionHandlers = {
