@@ -11,12 +11,10 @@ const defaultCoreUrls = [
     './data/station-groups.json',
     './data/train-types.json',
     './data/railways-order.json',
-    './data/operators.json',
     './data/rail-directions.json',
     './data/train-vehicles.json',
     './data/train-types.json',
     './data/poi.json',
-    './data/airports.json',
     './data/coordinates.json',
     './data/line-offset.json'
 ];
