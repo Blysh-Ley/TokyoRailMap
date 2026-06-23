@@ -2405,7 +2405,7 @@ export function createPanel(options = {}) {
             });
 
             const timetableViewClass = effectiveTimetableViewMode === 'grid' ? 'panel-timetable-view-grid' : 'panel-timetable-view-list';
-            const gridHintsHtml = effectiveTimetableViewMode === 'grid'
+            const gridHintsHtml = effectiveTimetableViewMode === 'grid' && expanded
                 ? buildGridHintsHtml({ typeHints, terminalHints, specialHints })
                 : '';
             const rowsForListView = filteredRowsForDir.map((row) => {

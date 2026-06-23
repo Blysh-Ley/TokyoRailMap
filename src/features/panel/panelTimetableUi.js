@@ -1,5 +1,4 @@
 import {
-    choosePanelHourWindow,
     formatPanelServiceHourLabel,
     toPanelServiceHourIndex
 } from './panelTimetableCore.js';
@@ -370,6 +369,49 @@ export const buildPanelTimetableGridHintsHtml = ({
 
 // panelTimetableGridRenderer.js
 const defaultToText_panelTimetableGridRenderer = (value) => String(value ?? '').trim();
+const COLLAPSED_PANEL_GRID_TRIPS_PER_ROW = 5;
+
+const clampPanelServiceHour_panelTimetableGridRenderer = (value, minHour, maxHour) => {
+    const hour = Number(value);
+    if (!Number.isFinite(hour)) return null;
+    return Math.max(minHour, Math.min(maxHour, hour));
+};
+
+const resolveCollapsedPanelGridFocus = ({
+    rows,
+    minHour,
+    maxHour,
+    nowMs,
+    serviceDayStartMs
+} = {}) => {
+    if (!Number.isFinite(minHour) || !Number.isFinite(maxHour)) return { hour: null, row: null };
+    const now = Number(nowMs);
+    const futureRow = (Array.isArray(rows) ? rows : []).find((row) => {
+        const timeMs = Number(row?.timeMs);
+        return Number.isFinite(timeMs) && Number.isFinite(now) && timeMs >= now;
+    });
+    const futureHour = clampPanelServiceHour_panelTimetableGridRenderer(
+        futureRow?.serviceHourIndex,
+        minHour,
+        maxHour
+    );
+    if (Number.isFinite(futureHour)) return { hour: futureHour, row: futureRow || null };
+
+    const currentHour = clampPanelServiceHour_panelTimetableGridRenderer(
+        toPanelServiceHourIndex(nowMs, serviceDayStartMs),
+        minHour,
+        maxHour
+    );
+    const fallbackHour = Number.isFinite(currentHour) ? currentHour : maxHour;
+    const fallbackRows = (Array.isArray(rows) ? rows : []).filter((row) => {
+        const hour = Number(row?.serviceHourIndex);
+        return Number.isFinite(hour) && hour === fallbackHour;
+    });
+    return {
+        hour: fallbackHour,
+        row: fallbackRows.length ? fallbackRows[fallbackRows.length - 1] : null
+    };
+};
 
 export const buildPanelTimetableGridHtmlForDirection = ({
     rowsForDir,
@@ -416,9 +458,18 @@ export const buildPanelTimetableGridHtmlForDirection = ({
         ? Math.max(minHour, Math.min(maxHour, currentHour))
         : minHour;
     const focusStartHour = currentHourForFocus;
+    const collapsedFocus = resolveCollapsedPanelGridFocus({
+        rows,
+        minHour,
+        maxHour,
+        nowMs,
+        serviceDayStartMs
+    });
+    const collapsedFocusHour = collapsedFocus.hour;
+    const collapsedFocusRow = collapsedFocus.row;
     const hourWindow = expanded
         ? Array.from({ length: maxHour - minHour + 1 }, (_, index) => minHour + index)
-        : choosePanelHourWindow({ minHour, maxHour, currentHour, expanded: false });
+        : (Number.isFinite(collapsedFocusHour) ? [collapsedFocusHour] : [minHour]);
     if (!hourWindow.length) return '<div class="panel-timetable-empty">当前无班次</div>';
     const lightTimetablePalette = resolveTimetablePrintPalette({
         lineColor,
@@ -447,6 +498,13 @@ export const buildPanelTimetableGridHtmlForDirection = ({
 
     const rowHtml = hourWindow.map((hour, index) => {
         const trips = Array.isArray(byHour.get(hour)) ? byHour.get(hour) : [];
+        const visibleTrips = (() => {
+            if (expanded || hour !== collapsedFocusHour) return trips;
+            const focusIndex = trips.indexOf(collapsedFocusRow);
+            if (focusIndex < 0) return trips.slice(0, COLLAPSED_PANEL_GRID_TRIPS_PER_ROW);
+            const start = Math.floor(focusIndex / COLLAPSED_PANEL_GRID_TRIPS_PER_ROW) * COLLAPSED_PANEL_GRID_TRIPS_PER_ROW;
+            return trips.slice(start, start + COLLAPSED_PANEL_GRID_TRIPS_PER_ROW);
+        })();
         const bgClass = index % 2 === 0 ? 'is-alt-a' : 'is-alt-b';
         const lightGridTripsBackground = index % 2 === 1 ? lightTimetablePalette.gridRowTripsColor : lightTimetablePalette.gridBaseTripsColor;
         const darkGridTripsBackground = index % 2 === 1 ? darkTimetablePalette.gridRowTripsColor : darkTimetablePalette.gridBaseTripsColor;
@@ -459,10 +517,10 @@ export const buildPanelTimetableGridHtmlForDirection = ({
             `--panel-grid-trips-bg-dark:${darkGridTripsBackground}`
         ].join(';');
         const focusAttr = expanded && hour === focusStartHour ? ' data-grid-focus-start="1"' : '';
-        const currentAttr = (!expanded && hour === currentHourForFocus) ? ' data-grid-current-hour="1"' : '';
+        const currentAttr = (!expanded && hour === collapsedFocusHour) ? ' data-grid-collapsed-focus-hour="1"' : '';
 
-        const cellsHtml = trips.length
-            ? trips.map((trip, tripIndex) => {
+        const cellsHtml = visibleTrips.length
+            ? visibleTrips.map((trip, tripIndex) => {
                 const typeName = toText(trip?.typeName);
                 const destName = toText(trip?.terminalDisplayName || trip?.terminalName || trip?.destName);
                 const typeAbbr = toText(typeAbbrByName.get(typeName)) || buildTypeAbbr(typeName);
@@ -481,7 +539,7 @@ export const buildPanelTimetableGridHtmlForDirection = ({
                 const tripKey = resolvePanelTimetableTripKey(trip, { toText });
                 const color = resolveTrainTypeColorForTheme(trip?.typeColor) || 'var(--ui-text, #111)';
                 const tripAttr = tripKey ? ` data-trip-key="${escapeHtml(tripKey)}"` : '';
-                const lastClass = tripIndex === trips.length - 1 ? ' is-hour-last' : '';
+                const lastClass = tripIndex === visibleTrips.length - 1 ? ' is-hour-last' : '';
 
                 const showTypeAbbr = !isNoMarkTypeName(typeName);
                 const showDestAbbr = !!destAbbr;
@@ -645,16 +703,12 @@ export const applyTimetableBodyScrollState = (ttEl, {
             ttEl?.querySelectorAll?.('.panel-timetable.panel-timetable-view-grid.is-collapsed') || []
         );
         for (const bodyEl of collapsedGridBodies) {
-            const collapsedBaseHeight = 70;
-            bodyEl.style.maxHeight = `${collapsedBaseHeight}px`;
-
-            const currentHourRow = bodyEl.querySelector?.('[data-grid-current-hour="1"]')
+            const currentHourRow = bodyEl.querySelector?.('[data-grid-collapsed-focus-hour="1"]')
                 || bodyEl.querySelector?.('.panel-grid-row');
             if (!ElementRef || !(currentHourRow instanceof ElementRef)) continue;
 
             const currentHourFullHeight = Math.ceil((currentHourRow.offsetHeight || 0) + 1);
-            const targetHeight = Math.max(collapsedBaseHeight, currentHourFullHeight);
-            bodyEl.style.maxHeight = `${targetHeight}px`;
+            bodyEl.style.maxHeight = `${Math.max(45, currentHourFullHeight)}px`;
             bodyEl.scrollTop = 0;
         }
     } catch {

@@ -3524,7 +3524,7 @@ html[data-theme="dark"] .ms-show-icon-btn {
 }
 
 .panel-timetable.panel-timetable-view-grid.is-collapsed {
-    max-height: calc(2 * 34px + 2px);
+    max-height: calc(1 * 45px + 2px);
     overflow: hidden;
 }
 
@@ -3547,6 +3547,10 @@ html[data-theme="dark"] .ms-show-icon-btn {
     gap: 2px;
     padding: 2px 2px 4px 2px;
     box-sizing: border-box;
+}
+
+.panel-dir:has(.panel-timetable.panel-timetable-view-grid.is-collapsed) .panel-grid-hints {
+    display: none;
 }
 
 .panel-grid-hint-line {
