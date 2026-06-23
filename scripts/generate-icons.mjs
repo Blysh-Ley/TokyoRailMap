@@ -6,8 +6,8 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
-const sourceIcon = join(rootDir, 'icons', 'icon.png');
-const iconDir = join(rootDir, 'icons');
+const sourceIcon = join(rootDir, 'assets', 'icons', 'icon.png');
+const iconDir = join(rootDir, 'assets', 'icons');
 const androidResDir = join(rootDir, 'android', 'app', 'src', 'main', 'res');
 const iosAppIconDir = join(rootDir, 'ios', 'App', 'App', 'Assets.xcassets', 'AppIcon.appiconset');
 const androidSafeSourceIcon = join(iconDir, 'icon-android.png');
@@ -145,7 +145,7 @@ async function buildIcns(tempDir) {
     try {
         run('iconutil', ['-c', 'icns', iconsetDir, '-o', join(iconDir, 'icon.icns')], { stdio: 'inherit' });
     } catch {
-        console.warn('warning: iconutil rejected the generated macOS iconset; kept existing icons/icon.icns');
+        console.warn('warning: iconutil rejected the generated macOS iconset; kept existing assets/icons/icon.icns');
     }
 }
 
@@ -224,7 +224,7 @@ try {
     await buildIcns(tempDir);
     await buildAndroidIcons(tempDir);
     await buildIosAppIcons(tempDir);
-    console.log('generated icons from icons/icon.png');
+    console.log('generated icons from assets/icons/icon.png');
 } finally {
     if (process.env.KEEP_ICON_TEMP === '1') {
         console.log(`kept temporary icon files at ${tempDir}`);

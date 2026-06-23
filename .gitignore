@@ -13,8 +13,8 @@ Thumbs.db
 .venv
 .vscode
 __pycache__
-/images/.DS_Store
-/icons/.DS_Store
+/assets/readme-images/.DS_Store
+/assets/icons/.DS_Store
 /data/.DS_Store
 
 # Local environment and logs
@@ -48,9 +48,9 @@ node_modules/
 /electron.vite.config.*
 
 # App packaging icons generated from the website icon
-/icons/icon.png
-/icons/icon.ico
-/icons/icon.icns
+/assets/icons/icon.png
+/assets/icons/icon.ico
+/assets/icons/icon.icns
 
 # Capacitor generated web assets
 /android/app/src/main/assets/public/

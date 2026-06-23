@@ -68,14 +68,12 @@
       "src/**",
       "data/**",
       "vendor/**",
-      "icons/**",
-      "companyLogos/**",
-      "images/**",
+      "assets/**",
       "tiles/kanto.pmtiles",
       "!**/.DS_Store"
     ],
     "win": {
-      "icon": "icons/icon.ico",
+      "icon": "assets/icons/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -91,12 +89,12 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "东京铁路图",
-      "installerIcon": "icons/icon.ico",
-      "uninstallerIcon": "icons/icon.ico",
+      "installerIcon": "assets/icons/icon.ico",
+      "uninstallerIcon": "assets/icons/icon.ico",
       "uninstallDisplayName": "卸载东京铁路图"
     },
     "mac": {
-      "icon": "icons/icon.icns",
+      "icon": "assets/icons/icon.icns",
       "target": [
         "dmg"
       ],

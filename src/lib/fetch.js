@@ -1,9 +1,9 @@
 const normalizeText = (v) => String(v ?? '').trim();
 
-export const ICON_BASE_PATH = './icons/';
-export const ICON_ROOT_PATH = '/icons/';
-export const COMPANY_LOGO_BASE_PATH = './companyLogos/';
-export const COMPANY_LOGO_ROOT_PATH = '/companyLogos/';
+export const ICON_BASE_PATH = './assets/icons/';
+export const ICON_ROOT_PATH = '/assets/icons/';
+export const COMPANY_LOGO_BASE_PATH = './assets/company-logos/';
+export const COMPANY_LOGO_ROOT_PATH = '/assets/company-logos/';
 
 const defaultCoreUrls = [
     './data/railways.json',
