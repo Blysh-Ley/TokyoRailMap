@@ -13,6 +13,7 @@ export const OSM_BASEMAP_ATTRIBUTION_ITEMS = Object.freeze([
         href: 'https://www.openstreetmap.org/copyright'
     }
 ]);
+export const OSM_BASEMAP_ATTRIBUTION_TEXT = 'Map: OpenMapTiles, © OpenStreetMap contributors';
 export const OSM_BASEMAP_ATTRIBUTION_HTML = OSM_BASEMAP_ATTRIBUTION_ITEMS
     .map((item) => `<a href="${item.href}" target="_blank" rel="noopener noreferrer">&copy; ${item.label}${item.label === 'OpenStreetMap' ? ' contributors' : ''}</a>`)
     .join(' ');

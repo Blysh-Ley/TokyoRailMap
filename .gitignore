@@ -1,6 +1,7 @@
 /legacy
 /tools
-/scripts/
+/scripts/*
+!/scripts/strip-ios-company-logos.mjs
 /tests/
 
 # OS/editor metadata

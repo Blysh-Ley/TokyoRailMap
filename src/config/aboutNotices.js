@@ -3,6 +3,7 @@ export const PROJECT_NOTICE = Object.freeze({
     displayName: '东京铁路图',
     copyright: 'Copyright (c) 2026 Blysh',
     license: 'MIT License',
+    privacyPolicyUrl: './privacy-policy.html',
     licenseSummary: '本项目以 MIT License 开源。你可以自由使用、复制、修改、合并、发布、分发、再授权和销售本软件副本，但需保留版权声明和许可声明；软件按原样提供，不附带任何担保。'
 });
 
@@ -90,8 +91,8 @@ export const DATA_SOURCE_NOTICES = Object.freeze([
     },
     {
         name: 'TokyoGTFS',
-        license: 'GPL-3.0',
-        role: '线路与站点编号数据参考',
+        license: 'CC0',
+        role: '仅使用线路与站点编号等简单静态数据',
         url: 'https://github.com/MKuranowski/TokyoGTFS'
     }
 ]);

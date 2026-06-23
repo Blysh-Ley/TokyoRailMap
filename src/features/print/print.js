@@ -4,6 +4,7 @@ import {
     getHighlightStationStrokeWidthAtZoom,
     getHighlightTransferCapsuleSizesAtZoom
 } from '../../domain/highlightStyleSizing.js';
+import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js';
 
 /*
  * print.js
@@ -1188,6 +1189,27 @@ import {
     };
 
     // 增加 capsules 参数
+    const appendExportAttributionSvg = ({ parts, width, height, text = OSM_BASEMAP_ATTRIBUTION_TEXT }) => {
+        const value = String(text || '').trim();
+        if (!value) return;
+        const fontPx = Math.max(10, Math.min(15, Math.round(Math.min(width, height) / 96)));
+        const paddingX = Math.max(10, Math.round(fontPx * 0.85));
+        const paddingY = Math.max(8, Math.round(fontPx * 0.7));
+        const textWidth = Math.max(fontPx * 12, value.length * fontPx * 0.58);
+        const boxWidth = Math.min(width - 12, Math.ceil(textWidth + paddingX * 2));
+        const boxHeight = Math.ceil(fontPx + paddingY * 2);
+        const x = Math.max(6, width - boxWidth - 8);
+        const y = Math.max(6, height - boxHeight - 8);
+        const textX = x + paddingX;
+        const textY = y + paddingY + fontPx * 0.82;
+        const dark = isDarkTheme();
+
+        parts.push(`<g id="map-attribution" aria-label="Map attribution">`);
+        parts.push(`<rect x="${x}" y="${y}" width="${boxWidth}" height="${boxHeight}" rx="4" ry="4" fill="${dark ? '#111827' : '#ffffff'}" fill-opacity="0.86"/>`);
+        parts.push(`<text x="${textX}" y="${textY.toFixed(2)}" fill="${dark ? '#f9fafb' : '#111827'}" font-family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="${fontPx}" text-anchor="start">${escapeXml(value)}</text>`);
+        parts.push(`</g>`);
+    };
+
     const buildSvgFromBuilt = async ({ map, payload, built, backgroundImageHref, transparentBackground = false, capsules, stationLabelScale = 1 }) => {
         const container = map.getContainer?.();
         const rect = container?.getBoundingClientRect?.();
@@ -1404,6 +1426,7 @@ import {
         }
 
         parts.push(`</g>`);
+        appendExportAttributionSvg({ parts, width, height });
         parts.push(`</svg>`);
         return parts.join('\n');
     };

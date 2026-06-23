@@ -67,6 +67,10 @@
 
 本项目使用 MIT License。
 
+## 隐私政策
+
+- [TokyoRailMap 隐私政策](./privacy-policy.html)
+
 ## 声明
 
 本项目代码主要由 AI 完成。

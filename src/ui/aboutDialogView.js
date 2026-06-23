@@ -67,6 +67,11 @@ const buildAboutDialog = ({ doc, model, onClose }) => {
     projectSection.appendChild(createEl(doc, 'p', 'about-dialog-project-line', model.project.copyright));
     projectSection.appendChild(createEl(doc, 'p', 'about-dialog-project-line', model.project.license));
     projectSection.appendChild(createEl(doc, 'p', 'about-dialog-project-summary', model.project.licenseSummary));
+    if (model.project.privacyPolicyUrl) {
+        const privacyLine = createEl(doc, 'p', 'about-dialog-project-line');
+        appendLink(doc, privacyLine, '隐私政策', model.project.privacyPolicyUrl);
+        projectSection.appendChild(privacyLine);
+    }
     body.appendChild(projectSection);
 
     appendNoticeList(doc, body, '地图与数据来源', model.dataSources);

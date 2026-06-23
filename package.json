@@ -20,7 +20,8 @@
     "cap:web": "npm run icons:generate && npm run web:vendor && npm run basemap:package:verify && node scripts/sync-capacitor-web.mjs",
     "cap:sync:android": "npm run cap:web && npx cap sync android",
     "ios:permissions": "node scripts/patch-ios-info-plist.mjs",
-    "cap:sync:ios": "npm run cap:web && npx cap sync ios && npm run ios:permissions",
+    "ios:strip-company-logos": "node scripts/strip-ios-company-logos.mjs",
+    "cap:sync:ios": "npm run cap:web && npx cap sync ios && npm run ios:permissions && npm run ios:strip-company-logos",
     "android:open": "npm run cap:sync:android && npx cap open android",
     "android:doctor": "node scripts/check-android-env.mjs",
     "android:sdk:licenses": "node scripts/run-android-sdkmanager.mjs --licenses",
@@ -60,6 +61,7 @@
     },
     "files": [
       "index.html",
+      "privacy-policy.html",
       "main.js",
       "package.json",
       "CHANGELOG.md",

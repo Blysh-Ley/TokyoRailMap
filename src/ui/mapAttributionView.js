@@ -1,3 +1,5 @@
+import { OSM_BASEMAP_ATTRIBUTION_ITEMS } from '../domain/osmBasemapPackage.js';
+
 const ATTRIBUTION_ITEMS = Object.freeze([
     {
         group: 'engine',
@@ -16,6 +18,11 @@ const ATTRIBUTION_ITEMS = Object.freeze([
     }
 ]);
 
+const DEFAULT_ATTRIBUTION_ITEMS = Object.freeze([
+    ...ATTRIBUTION_ITEMS,
+    ...OSM_BASEMAP_ATTRIBUTION_ITEMS
+]);
+
 const ATTRIBUTION_GROUP_LABELS = Object.freeze({
     data: 'Data',
     engine: '',
@@ -31,6 +38,12 @@ const createAttributionLink = (item, doc) => {
     link.textContent = item.label;
     return link;
 };
+
+const getAttributionItemKey = (item) => [
+    String(item?.group || '').trim(),
+    String(item?.label || '').trim(),
+    String(item?.href || '').trim()
+].join('\u0000');
 
 const appendGroup = (root, group, items, doc) => {
     const groupEl = doc.createElement('span');
@@ -69,11 +82,15 @@ export const renderMapAttributionInner = (inner, {
 
     const groupOrder = ['engine', 'map', 'data', 'fare'];
     const groups = new Map();
+    const seen = new Set();
     const items = [
-        ...ATTRIBUTION_ITEMS,
+        ...DEFAULT_ATTRIBUTION_ITEMS,
         ...(Array.isArray(mapAttributionItems) ? mapAttributionItems : [])
     ];
     for (const item of items) {
+        const key = getAttributionItemKey(item);
+        if (seen.has(key)) continue;
+        seen.add(key);
         if (!groups.has(item.group)) groups.set(item.group, []);
         groups.get(item.group).push(item);
     }

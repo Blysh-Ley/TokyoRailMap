@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TokyoRailMap 隐私政策</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f7f8fb;
+      --fg: #172033;
+      --muted: #5d6678;
+      --card: #ffffff;
+      --border: #d9deea;
+      --link: #1f63d6;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #10131a;
+        --fg: #f3f6fb;
+        --muted: #a8b1c3;
+        --card: #171c26;
+        --border: #303849;
+        --link: #8cb5ff;
+      }
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 16px/1.7 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 32px 18px 56px;
+    }
+
+    article {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 28px;
+    }
+
+    h1, h2 {
+      line-height: 1.25;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    h2 {
+      margin: 28px 0 10px;
+      font-size: 20px;
+    }
+
+    p, ul {
+      margin: 10px 0;
+    }
+
+    ul {
+      padding-left: 22px;
+    }
+
+    a {
+      color: var(--link);
+    }
+
+    .meta {
+      color: var(--muted);
+      margin-top: 0;
+    }
+
+    .summary {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: color-mix(in srgb, var(--card) 82%, var(--bg));
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>TokyoRailMap 隐私政策</h1>
+      <p class="meta">生效日期：2026-06-23</p>
+
+      <section class="summary" aria-label="摘要">
+        <p>TokyoRailMap 是用于查看东京都市圈铁路线路、站点、班次和路线规划的工具。本应用不提供账号系统，不投放广告，不内置第三方统计 SDK，不出售个人数据，也不会主动收集或上传你的精确位置。</p>
+      </section>
+
+      <h2>1. 适用范围</h2>
+      <p>本政策适用于 TokyoRailMap 的网页端、Electron 桌面端、Android 端和 iOS 端。项目开发者为 Blysh。你可以通过 <a href="https://github.com/Blysh-Ley/TokyoRailMap/issues" rel="noopener noreferrer">GitHub Issues</a> 或应用商店开发者联系渠道提交隐私相关问题。</p>
+
+      <h2>2. 我们不会收集的内容</h2>
+      <ul>
+        <li>不要求创建账号，也不收集姓名、邮箱、电话号码或支付信息。</li>
+        <li>不请求系统定位权限，不收集 GPS、后台位置或行程轨迹。</li>
+        <li>不读取通讯录、日历、短信、麦克风、摄像头或健康数据。</li>
+        <li>不内置广告 SDK、行为分析 SDK 或跨应用追踪 SDK。</li>
+        <li>不出售个人数据。</li>
+      </ul>
+
+      <h2>3. 本地保存的数据</h2>
+      <p>为了让应用可用，TokyoRailMap 会在你的设备或浏览器本地保存少量设置和使用偏好，例如：</p>
+      <ul>
+        <li>主题、底图、导出格式等应用设置；</li>
+        <li>搜索历史、收藏状态和最近使用记录；</li>
+        <li>导出图片或 PDF 时生成的临时文件。</li>
+      </ul>
+      <p>这些数据默认保存在你的设备或浏览器本地，不会由 TokyoRailMap 上传到开发者服务器。你可以通过浏览器清除站点数据、卸载应用，或使用系统提供的应用数据清理功能删除这些本地数据。</p>
+
+      <h2>4. 权限使用</h2>
+      <ul>
+        <li><strong>网络访问：</strong>用于加载应用资源、地图字体、第三方开源前端库以及地图/铁路数据文件。</li>
+        <li><strong>相册/媒体权限：</strong>仅在你主动保存或分享导出的铁路图、截图、班次图片时使用。应用不会扫描、分析或上传你相册中的既有照片或视频。</li>
+        <li><strong>文件保存与分享：</strong>当你选择导出、保存或分享图片/PDF 时，系统分享面板或你选择的第三方应用可能会处理该文件；这些第三方应用的处理方式适用其各自隐私政策。</li>
+      </ul>
+
+      <h2>5. 网络请求与第三方服务</h2>
+      <p>TokyoRailMap 尽量以本地静态资源运行，但在部分环境中可能访问以下第三方或托管服务：</p>
+      <ul>
+        <li><strong>GitHub Pages / GitHub Releases：</strong>用于网页访问、下载或更新应用资源。</li>
+        <li><strong>jsDelivr：</strong>在导出图片或 PDF 时按需加载 <code>html2canvas</code>、<code>jsPDF</code> 等开源前端库。</li>
+        <li><strong>MapLibre demo glyphs：</strong>用于地图文字字体资源加载。</li>
+        <li><strong>OpenStreetMap / OpenMapTiles 相关数据来源：</strong>用于地图底图 attribution 和数据来源说明；当前应用使用自托管 PMTiles 时不会直接向 OpenStreetMap 官方瓦片服务发送地图浏览请求。</li>
+      </ul>
+      <p>访问这些网络资源时，第三方服务器可能会按其自身日志规则接收 IP 地址、User-Agent、请求时间和请求 URL 等基础网络信息。TokyoRailMap 不会向这些第三方发送你的账号信息，因为本应用没有账号系统；也不会主动发送你的精确位置。</p>
+
+      <h2>6. 数据分享</h2>
+      <p>TokyoRailMap 不会将个人数据出售给广告商或数据经纪商。除以下情形外，我们不会主动向第三方分享数据：</p>
+      <ul>
+        <li>你主动使用系统分享功能，把导出的图片、SVG、ZIP 或 PDF 发送给其他应用；</li>
+        <li>为了加载应用运行所需的第三方静态资源而产生的基础网络请求；</li>
+        <li>法律法规、监管机关或司法机关依法要求披露的情形。</li>
+      </ul>
+
+      <h2>7. 数据保留与删除</h2>
+      <p>本地设置、搜索历史和收藏记录会保留在你的设备上，直到你清除浏览器站点数据、清除应用数据或卸载应用。导出的图片/PDF 由你保存到本地文件系统或相册后，由你自行管理和删除。由于 TokyoRailMap 没有账号系统和开发者服务器，通常不存在需要向开发者申请删除的云端账号数据。</p>
+
+      <h2>8. 儿童隐私</h2>
+      <p>TokyoRailMap 面向一般出行信息查询场景，不以儿童为主要目标用户。我们不会有意收集儿童个人信息。如果你认为本应用意外处理了儿童个人信息，请通过本政策中的联系方式告知。</p>
+
+      <h2>9. 数据安全</h2>
+      <p>TokyoRailMap 以静态应用和本地处理为主，尽量减少需要上传的数据。网络资源会优先通过 HTTPS 加载。请注意，任何通过系统分享面板发送给第三方应用的文件，将由你选择的第三方应用继续处理。</p>
+
+      <h2>10. 政策更新</h2>
+      <p>如果 TokyoRailMap 后续新增账号、云同步、定位、统计分析、广告或其他会改变数据处理方式的功能，本政策会随之更新，并在应用内或发布说明中提示重要变化。</p>
+
+      <h2>11. 非官方声明</h2>
+      <p>TokyoRailMap 不是铁路运营商官方应用。线路、站点、票价和班次信息仅供参考，请以各运营商官方公告和现场信息为准。</p>
+    </article>
+  </main>
+</body>
+</html>
