@@ -1,31 +1,6 @@
 [
 	[
 		[
-			"ChibaMonorail.Line1.YoshikawaKoen"
-		],
-		[
-			"Keisei.Chiba.ChibaChuo",
-			"Keisei.Chihara.ChibaChuo"
-		]
-	],
-	[
-		[
-			"JR-East.ChuoSobuLocal.Makuhari"
-		],
-		[
-			"Keisei.Chiba.KeiseiMakuhari"
-		]
-	],
-	[
-		[
-			"JR-East.ChuoSobuLocal.Okubo"
-		],
-		[
-			"JR-East.Yamanote.ShinOkubo"
-		]
-	],
-	[
-		[
 			"JR-East.KeihinTohokuNegishi.Hamamatsucho",
 			"JR-East.Yamanote.Hamamatsucho"
 		],
@@ -42,9 +17,6 @@
 	[
 		[
 			"JR-East.KeihinTohokuNegishi.Oji"
-		],
-		[
-			"Toei.Arakawa.Asukayama"
 		]
 	],
 	[
@@ -71,52 +43,10 @@
 	],
 	[
 		[
-			"JR-East.Tsurumi.Kokudo"
-		],
-		[
-			"Keikyu.Main.Kagetsusojiji"
-		]
-	],
-	[
-		[
 			"Jomo.Jomo.KiryuKyujoMae"
 		],
 		[
 			"WataraseKeikoku.WataraseKeikoku.UndoKoen"
-		]
-	],
-	[
-		[
-			"Keio.Keio.Musashinodai"
-		],
-		[
-			"Seibu.Tamagawa.Shiraitodai"
-		]
-	],
-	[
-		[
-			"Keisei.Main.Machiya"
-		],
-		[
-			"Toei.Arakawa.ArakawaNanachome"
-		]
-	],
-	[
-		[
-			"Keisei.Oshiage.KeiseiHikifune"
-		],
-		[
-			"Tobu.Kameido.Hikifune",
-			"Tobu.TobuSkytree.Hikifune",
-			"Tobu.TobuSkytreeBranch.Hikifune"
-		]
-	],
-	[
-		[
-			"Odakyu.Odawara.MinamiShinjuku"
-		],
-		[
-			"Toei.Oedo.Yoyogi"
 		]
 	],
 	[
@@ -171,40 +101,10 @@
 	],
 	[
 		[
-			"Toei.Arakawa.ArakawaItchumae"
-		],
-		[
-			"Toei.Arakawa.Arakawakuyakushomae"
-		],
-		[
-			"Toei.Arakawa.Minowabashi"
-		]
-	],
-	[
-		[
 			"Toei.Arakawa.HigashiIkebukuroYonchome"
 		],
 		[
-			"Toei.Arakawa.TodenZoshigaya"
-		],
-		[
 			"TokyoMetro.Yurakucho.HigashiIkebukuro"
-		]
-	],
-	[
-		[
-			"Toei.Arakawa.HigashiOguSanchome"
-		],
-		[
-			"Toei.Arakawa.MachiyaNichome"
-		]
-	],
-	[
-		[
-			"Toei.Arakawa.Koshinzuka"
-		],
-		[
-			"Toei.Arakawa.ShinKoshinzuka"
 		]
 	],
 	[
@@ -213,20 +113,14 @@
 		],
 		[
 			"Toei.Oedo.Shiodome"
-		],
+		]
+	],
+	[
 		[
 			"Yurikamome.Yurikamome.Shimbashi"
 		],
 		[
 			"Yurikamome.Yurikamome.Shiodome"
-		]
-	],
-	[
-		[
-			"Tokyu.TokyuShinYokohama.ShinTsunashima"
-		],
-		[
-			"Tokyu.Toyoko.Tsunashima"
 		]
 	]
 ]
