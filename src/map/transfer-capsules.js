@@ -470,7 +470,8 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
             type: 'geojson',
             data: data?.lines || { type: 'FeatureCollection', features: [] },
             tolerance: 0,
-            buffer: 0
+            // Thick capsule strokes need tile buffer, otherwise MapLibre clips them at integer zoom tile boundaries.
+            buffer: 128
         });
     } else {
         mapAdapter.setSourceData(ids.lineSourceId, data?.lines || { type: 'FeatureCollection', features: [] });
