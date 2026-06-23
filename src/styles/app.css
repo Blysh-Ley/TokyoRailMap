@@ -4805,7 +4805,7 @@ body[data-mobile-ui='1'] .panel-trip-detail-transfer-hover-portal .panel-trip-de
     display: grid;
     grid-template-columns: repeat(var(--panel-trip-detail-branch-count, 2), minmax(0, 0.9fr) minmax(0, 0.9fr)) minmax(0, 1.5fr) minmax(0, 104px);
     column-gap: 6px;
-    row-gap: 3px;
+    row-gap: 4px;
     align-items: center;
     position: relative;
 }
@@ -4813,16 +4813,16 @@ body[data-mobile-ui='1'] .panel-trip-detail-transfer-hover-portal .panel-trip-de
 .panel-trip-detail-head-cell {
     font-weight: 600;
     color: var(--ui-text-muted);
-    font-size: 12px;
-    height: 18px;
+    font-size: 14px;
+    height: 20px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell {
-    font-size: 12px;
-    height: 18px;
+    font-size: 14px;
+    height: 20px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -4831,7 +4831,7 @@ body[data-mobile-ui='1'] .panel-trip-detail-transfer-hover-portal .panel-trip-de
 
 .panel-trip-detail-table.is-branch-grid .panel-trip-detail-transfer.panel-trip-detail-grid-cell {
     height: auto;
-    min-height: 18px;
+    min-height: 20px;
     overflow: visible;
 }
 
@@ -6744,7 +6744,8 @@ html[data-theme='dark'] .panel-trip-detail-transfer-hover-portal {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
 }
 
-html[data-theme='dark'] .panel-trip-detail-head {
+html[data-theme='dark'] .panel-trip-detail-head,
+html[data-theme='dark'] .panel-trip-detail-head-cell {
     color: #9aa2ae;
 }
 
@@ -6756,7 +6757,8 @@ html[data-theme='dark'] .panel-timetable-type-marquee.panel-station-info-type.is
     background: #374151;
 }
 
-html[data-theme='dark'] .panel-trip-detail-row {
+html[data-theme='dark'] .panel-trip-detail-row,
+html[data-theme='dark'] .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell {
     color: #d8dbe1;
 }
 
@@ -6780,7 +6782,12 @@ html[data-theme='dark'] .panel-trip-detail-row .panel-time-arrive,
 html[data-theme='dark'] .panel-trip-detail-row .panel-time-depart,
 html[data-theme='dark'] .panel-trip-detail-row .panel-time-label-origin,
 html[data-theme='dark'] .panel-trip-detail-row .panel-time-label-terminal,
-html[data-theme='dark'] .panel-trip-detail-row .panel-trip-detail-time-extra {
+html[data-theme='dark'] .panel-trip-detail-row .panel-trip-detail-time-extra,
+html[data-theme='dark'] .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell .panel-time-arrive,
+html[data-theme='dark'] .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell .panel-time-depart,
+html[data-theme='dark'] .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell .panel-time-label-origin,
+html[data-theme='dark'] .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell .panel-time-label-terminal,
+html[data-theme='dark'] .panel-trip-detail-table.is-branch-grid .panel-trip-detail-grid-cell .panel-trip-detail-time-extra {
     filter: saturate(1.05) brightness(1.05);
 }
 

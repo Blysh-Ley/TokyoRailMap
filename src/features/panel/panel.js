@@ -3575,6 +3575,7 @@ export function createPanel(options = {}) {
                 renderPanelTripDetailGridLaneBlock,
                 renderPanelTripDetailGridMarkerCell,
                 renderPanelTripDetailStationCellHtml,
+                renderTimetableNoteRowHtml,
                 renderTripDetailMomentHtml,
                 resolveStationCode: (stationId) => toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
                 secondaryLanes,

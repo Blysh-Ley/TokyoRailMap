@@ -77,6 +77,7 @@ export const buildTimetableStationText = ({ stationCode = '', stationName = '', 
 
 export const renderTimetableNoteRowHtml = ({
     rowClass = '',
+    rowStyle = '',
     dotClass = '',
     lineClass = '',
     typeClass = '',
@@ -87,6 +88,7 @@ export const renderTimetableNoteRowHtml = ({
     typeColor = ''
 } = {}) => {
     const safeRowClass = toText_timetable_table(rowClass);
+    const safeRowStyle = toText_timetable_table(rowStyle);
     const safeDotClass = toText_timetable_table(dotClass);
     const safeLineClass = toText_timetable_table(lineClass);
     const safeTypeClass = toText_timetable_table(typeClass);
@@ -106,7 +108,7 @@ export const renderTimetableNoteRowHtml = ({
         ? `<span class="${escapeHtml_timetable_table(safeTypeClass)}"${safeTypeColor ? ` style="background:${escapeHtml_timetable_table(safeTypeColor)};color:${escapeHtml_timetable_table(getBadgeTextColor_timetable_table(safeTypeColor))}"` : ''}>${escapeHtml_timetable_table(safeTypeText)}</span>`
         : '';
 
-    return `<div class="${escapeHtml_timetable_table(safeRowClass)}">${dotHtml}${lineHtml}${typeHtml}</div>`;
+    return `<div class="${escapeHtml_timetable_table(safeRowClass)}"${safeRowStyle ? ` style="${escapeHtml_timetable_table(safeRowStyle)}"` : ''}>${dotHtml}${lineHtml}${typeHtml}</div>`;
 };
 
 export const renderTimetablePlainNoteRowHtml = ({

@@ -834,6 +834,7 @@ export const renderPanelTripDetailGridNoteCell = ({
     isPast,
     colStart,
     colSpan = 3,
+    renderTimetableNoteRowHtml = null,
     escapeHtml = (value) => String(value ?? ''),
     toText = defaultToText_panelTripDetailGridHelpers
 } = {}) => {
@@ -846,6 +847,20 @@ export const renderPanelTripDetailGridNoteCell = ({
     const noteCls = `panel-trip-detail-note-row panel-trip-detail-grid-note${past ? ' is-past' : ''}`;
     const col = Number(colStart) || 1;
     const span = Math.max(1, Number(colSpan) || 3);
+    if (typeof renderTimetableNoteRowHtml === 'function') {
+        return renderTimetableNoteRowHtml({
+            rowClass: noteCls,
+            rowStyle: `grid-column:${col} / span ${span};`,
+            dotClass: 'panel-trip-detail-note-dot',
+            lineClass: 'panel-trip-detail-note-line',
+            typeClass: 'panel-trip-detail-note-type',
+            lineText: toText(descriptor?.text),
+            lineColor,
+            dotColor,
+            typeText: safeTypeName,
+            typeColor: safeTypeColor
+        });
+    }
     return `
         <div class="${noteCls}" style="grid-column:${col} / span ${span};">
             <span class="panel-trip-detail-note-dot"${dotColor ? ` style="background:${escapeHtml(dotColor)}"` : ''}></span>
@@ -949,6 +964,7 @@ export const renderPanelTripDetailGridLaneBlock = ({
     rowMarkerText = '',
     resolveStationCode = () => '',
     renderPanelTripDetailStationCellHtml,
+    renderTimetableNoteRowHtml = null,
     renderTripDetailMomentHtml,
     escapeHtml = (value) => String(value ?? ''),
     toText = defaultToText_panelTripDetailGridLaneBlockRenderer
@@ -962,6 +978,7 @@ export const renderPanelTripDetailGridLaneBlock = ({
         isPast,
         colStart: 1,
         colSpan: totalCols,
+        renderTimetableNoteRowHtml,
         escapeHtml,
         toText
     });
@@ -1097,6 +1114,7 @@ export const renderPanelTripDetailBranchGridRows = ({
     renderPanelTripDetailGridLaneBlock,
     renderPanelTripDetailGridMarkerCell,
     renderPanelTripDetailStationCellHtml,
+    renderTimetableNoteRowHtml = null,
     renderTripDetailMomentHtml,
     resolveStationCode = () => '',
     secondaryLanes = [],
@@ -1120,6 +1138,7 @@ export const renderPanelTripDetailBranchGridRows = ({
             lineColor: mainLineColor,
             resolveStationCode,
             renderPanelTripDetailStationCellHtml,
+            renderTimetableNoteRowHtml,
             renderTripDetailMomentHtml,
             escapeHtml,
             toText
@@ -1146,6 +1165,7 @@ export const renderPanelTripDetailBranchGridRows = ({
             rowMarkerText: flowMarkerCol > 0 ? '||' : '',
             resolveStationCode,
             renderPanelTripDetailStationCellHtml,
+            renderTimetableNoteRowHtml,
             renderTripDetailMomentHtml,
             escapeHtml,
             toText
