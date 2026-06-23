@@ -150,6 +150,39 @@ const getAndroidStoreInfo = async ({ target, appInfo }) => {
     };
 };
 
+const checkNativeStoreUpdate = async ({ target }) => {
+    const plugin = getCapacitorPluginProxy(target, UPDATE_PLUGIN_NAME);
+    if (typeof plugin?.checkStoreUpdate !== 'function') return null;
+
+    try {
+        const update = await plugin.checkStoreUpdate();
+        return update && typeof update === 'object' ? update : null;
+    } catch {
+        return null;
+    }
+};
+
+const chooseNativeStoreUpdateType = (update) => {
+    if (update?.flexibleAllowed === true) return 'flexible';
+    if (update?.immediateAllowed === true) return 'immediate';
+    return '';
+};
+
+const startNativeStoreUpdate = async ({ target, updateType }) => {
+    const plugin = getCapacitorPluginProxy(target, UPDATE_PLUGIN_NAME);
+    if (typeof plugin?.startStoreUpdate !== 'function') return null;
+
+    return plugin.startStoreUpdate({
+        updateType: updateType || 'flexible'
+    });
+};
+
+const completeNativeFlexibleUpdate = async ({ target }) => {
+    const plugin = getCapacitorPluginProxy(target, UPDATE_PLUGIN_NAME);
+    if (typeof plugin?.completeFlexibleUpdate !== 'function') return null;
+    return plugin.completeFlexibleUpdate();
+};
+
 const openExternalUrl = async (url, target) => {
     const value = toText(url);
     if (!value) return false;
@@ -221,6 +254,34 @@ const showManualAndroidStorePrompt = async ({ target, androidStore }) => {
     });
 };
 
+const promptForNativeStoreUpdate = async ({ target, update, automatic }) => {
+    if (!update?.available) return { opened: false, skipped: true };
+    if (update.downloaded === true) {
+        const accepted = automatic !== true && typeof target?.confirm === 'function'
+            ? target.confirm('更新已下载完成，是否立即重启完成安装？')
+            : automatic !== true;
+        if (!accepted) return { opened: false, skipped: true };
+        const completed = await completeNativeFlexibleUpdate({ target });
+        return { opened: completed?.completed === true, completed };
+    }
+
+    const updateType = chooseNativeStoreUpdateType(update);
+    if (!updateType) return { opened: false, skipped: true, reason: 'no-allowed-update-type' };
+
+    const question = updateType === 'immediate'
+        ? 'Google Play 有可用更新，需要打开全屏更新流程。是否继续？'
+        : 'Google Play 有可用更新，是否开始后台下载？';
+    const accepted = typeof target?.confirm === 'function' ? target.confirm(question) : true;
+    if (!accepted) return { opened: false, skipped: true };
+
+    const started = await startNativeStoreUpdate({ target, updateType });
+    return {
+        opened: started?.started === true,
+        updateType,
+        started
+    };
+};
+
 const showNoUpdatePrompt = ({ target, automatic, message = '已是最新版本' } = {}) => {
     if (automatic) return;
     if (typeof target?.alert === 'function') target.alert(message);
@@ -248,6 +309,24 @@ const checkMobileUpdate = async ({ target, automatic = false } = {}) => {
 
     if (platform === 'android') {
         const androidStore = await getAndroidStoreInfo({ target, appInfo });
+        const nativeStoreUpdate = await checkNativeStoreUpdate({ target });
+        if (nativeStoreUpdate?.mechanism === 'google_play_in_app') {
+            const nativeAction = await promptForNativeStoreUpdate({
+                target,
+                update: nativeStoreUpdate,
+                automatic
+            });
+            if (nativeStoreUpdate.available || nativeAction.opened || nativeAction.completed) {
+                return {
+                    ok: true,
+                    platform,
+                    update: nativeStoreUpdate,
+                    opened: nativeAction.opened === true,
+                    nativeAction
+                };
+            }
+        }
+
         if (manifestUpdate) {
             const opened = await promptForUpdate({ target, update: manifestUpdate, platform, androidStore });
             return { ok: true, platform, update: manifestUpdate, opened };
