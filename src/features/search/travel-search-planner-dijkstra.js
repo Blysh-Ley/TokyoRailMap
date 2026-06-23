@@ -1,5 +1,6 @@
 import { ensurePlannerStaticData, plannerState, getGroupStops, filterNearbyStops, normalizeText, getTransferPenaltyMs, loadTripsForLineAndDay } from './travel-search-planner-raptor.js';
 import { collectRefChainTrips } from '../route-map/route-map.js';
+import { getCachedStationGroups } from '../../lib/fetch.js';
 
 
 class MaxHeap {
@@ -51,7 +52,7 @@ const getStationGroupsIndex = (() => {
     return async () => {
         if (cache) return cache;
         try {
-            const groups = await fetch('./data/station-groups.json').then(r => r.json());
+            const groups = await getCachedStationGroups();
             cache = new Map();
             for (const g of (Array.isArray(groups) ? groups : [])) {
                 if (!Array.isArray(g)) continue;

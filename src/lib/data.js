@@ -2,7 +2,7 @@
  * 加载本地（或远程）GeoJSON。
  * 注意：需要通过 HTTP 服务器访问（不能直接双击打开 html）。
  */
-import { cachedFetch } from './fetch.js';
+import { cachedFetch, getCachedJson } from './fetch.js';
 import {
     buildStationOffsetAlgorithmContext
 } from '../map/offset.js';
@@ -10,6 +10,11 @@ import { buildLineNameLabelGeoJSON } from '../domain/lineNameLabels.js';
 import { buildAlternateLineMembership } from '../domain/alternateLineMembership.js';
 
 export async function loadGeoJSON(url) {
+    if (String(url ?? '').trim().replace(/^\.\//, '') === 'data/station-groups.json') {
+        const stationGroups = await getCachedJson(url);
+        if (stationGroups != null) return stationGroups;
+    }
+
     const response = await cachedFetch(url);
     if (!response.ok) {
         throw new Error(`加载失败 ${url}: ${response.status} ${response.statusText}`);

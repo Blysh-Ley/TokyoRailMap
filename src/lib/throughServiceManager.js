@@ -295,21 +295,24 @@ export const THROUGH_SERVICE_TEMP_LINE_IDS = Object.freeze({
     UENO_TOKYO: 'TokyoRail.Temp.UenoTokyo',
     SHONAN_SHINJUKU: 'TokyoRail.Temp.ShonanShinjuku',
     UENO_TOKYO_JOBAN: 'TokyoRail.Temp.UenoTokyoJoban',
-    YOKOSUKA_SOBU_RAPID: 'TokyoRail.Temp.YokosukaSobuRapid'
+    YOKOSUKA_SOBU_RAPID: 'TokyoRail.Temp.YokosukaSobuRapid',
+    NARITA_EXPRESS: 'TokyoRail.Temp.NaritaExpress'
 });
 
 export const THROUGH_SERVICE_DISPLAY = Object.freeze({
     ShonanShinjuku: { name: '湘南新宿线', color: '#E31F26' },
     UenoTokyo: { name: '上野东京线', color: '#F68B1E' },
     UenoTokyoJoban: { name: '上野东京线(常磐线)', color: '#00B261' },
-    YokosukaSobuRapid: { name: '横须贺线·总武线(快速)', color: '#007AC1' }
+    YokosukaSobuRapid: { name: '横须贺线·总武线(快速)', color: '#007AC1' },
+    NaritaExpress: { name: '成田特快', color: '#FF6600' }
 });
 
 export const MENU_THROUGH_LINE_IDS = Object.freeze({
     UENO_TOKYO: 'TokyoRail.MenuThrough.UenoTokyo',
     SHONAN_SHINJUKU: 'TokyoRail.MenuThrough.ShonanShinjuku',
     UENO_TOKYO_JOBAN: 'TokyoRail.MenuThrough.UenoTokyoJoban',
-    YOKOSUKA_SOBU_RAPID: 'TokyoRail.MenuThrough.YokosukaSobuRapid'
+    YOKOSUKA_SOBU_RAPID: 'TokyoRail.MenuThrough.YokosukaSobuRapid',
+    NARITA_EXPRESS: 'TokyoRail.MenuThrough.NaritaExpress'
 });
 
 export const THROUGH_SERVICE_CONFIGS = Object.freeze([
@@ -436,6 +439,30 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
             'JR-East.Ryomo'
         ],
         triggerStations: ['Shinagawa', 'ShinNihombashi']
+    },
+    {
+        operator: 'JR-East',
+        category: 'NaritaExpress',
+        lineId: MENU_THROUGH_LINE_IDS.NARITA_EXPRESS,
+        tempId: THROUGH_SERVICE_TEMP_LINE_IDS.NARITA_EXPRESS,
+        lineName: THROUGH_SERVICE_DISPLAY.NaritaExpress.name,
+        color: THROUGH_SERVICE_DISPLAY.NaritaExpress.color,
+        codes: ["NE'X"],
+        routeIds: ["JR-East.SobuRapid",'JR-East.ShonanShinjuku','JR-East.YamonoteFreight'],
+        directionRule: { southNode: 'Tokyo', northNode: 'Narita' },
+        triggerLineIds: [
+            'JR-East.YamonoteFreight',
+            "JR-East.SobuRapid",
+            'JR-East.ShonanShinjuku'
+        ],
+        excludeLineIds: [
+            'JR-East.KeihinTohokuNegishi',
+            'JR-East.Yamanote',
+            'JR-East.SaikyoKawagoe',
+            "JR-East.Yokosuka"
+        ],
+        triggerStations: ['Tokyo',  'Shinagawa']
+
     }
 ]);
 

@@ -1,4 +1,9 @@
+import { mergeStationGroups } from '../domain/stationGroupMerge.js';
+
 const normalizeText = (v) => String(v ?? '').trim();
+
+const STATION_GROUPS_URL = './data/station-groups.json';
+const SUPPLEMENTAL_STATION_GROUPS_URL = './data/station-groups-supplemental.json';
 
 export const ICON_BASE_PATH = './assets/icons/';
 export const ICON_ROOT_PATH = '/assets/icons/';
@@ -8,7 +13,8 @@ export const COMPANY_LOGO_ROOT_PATH = '/assets/company-logos/';
 const defaultCoreUrls = [
     './data/railways.json',
     './data/stations.json',
-    './data/station-groups.json',
+    STATION_GROUPS_URL,
+    SUPPLEMENTAL_STATION_GROUPS_URL,
     './data/train-types.json',
     './data/railways-order.json',
     './data/rail-directions.json',
@@ -25,6 +31,7 @@ const state = {
     responseMetaByUrl: new Map(),
     responsePromiseByUrl: new Map(),
     jsonPromiseByUrl: new Map(),
+    stationGroupsPromise: null,
     preloadAllPromise: null,
     imageObjectUrlByAbsUrl: new Map(),
     imagePromiseByAbsUrl: new Map(),
@@ -368,6 +375,7 @@ export const registerCompanyLogoMap = (companyLogoMap, { preload = true, concurr
 export const clearFetchCache = ({ preserveImages = true, preserveResponses = true } = {}) => {
     state.responsePromiseByUrl.clear();
     state.jsonPromiseByUrl.clear();
+    state.stationGroupsPromise = null;
     state.preloadAllPromise = null;
 
     if (!preserveResponses) {
@@ -523,6 +531,34 @@ const fetchWithoutResponseCache = async (url, input, init) => {
     }
 };
 
+const getCachedJsonRaw = async (url) => {
+    const abs = toAbsoluteUrl(url);
+    if (!abs) return null;
+    if (shouldBypassResponseCache(abs)) {
+        const resp = await cachedFetch(abs);
+        if (!resp.ok) return null;
+        return resp.json();
+    }
+
+    if (!state.jsonPromiseByUrl.has(abs)) {
+        const p = cachedFetch(abs)
+            .then(async (resp) => {
+                if (!resp.ok) return null;
+                return resp.json();
+            })
+            .catch(() => null);
+        state.jsonPromiseByUrl.set(abs, p);
+    }
+
+    return state.jsonPromiseByUrl.get(abs);
+};
+
+const isStationGroupsUrl = (url) => {
+    const abs = toAbsoluteUrl(url);
+    const stationGroupsAbs = toAbsoluteUrl(STATION_GROUPS_URL);
+    return Boolean(abs && stationGroupsAbs && abs === stationGroupsAbs);
+};
+
 export const cachedFetch = async (input, init = {}) => {
     if (!shouldCacheRequest(input, init)) {
         const nativeFetch = state.nativeFetch || fetch.bind(window);
@@ -559,25 +595,22 @@ export const cachedFetch = async (input, init = {}) => {
 };
 
 export const getCachedJson = async (url) => {
-    const abs = toAbsoluteUrl(url);
-    if (!abs) return null;
-    if (shouldBypassResponseCache(abs)) {
-        const resp = await cachedFetch(abs);
-        if (!resp.ok) return null;
-        return resp.json();
-    }
+    if (isStationGroupsUrl(url)) return getCachedStationGroups();
+    return getCachedJsonRaw(url);
+};
 
-    if (!state.jsonPromiseByUrl.has(abs)) {
-        const p = cachedFetch(abs)
-            .then(async (resp) => {
-                if (!resp.ok) return null;
-                return resp.json();
-            })
-            .catch(() => null);
-        state.jsonPromiseByUrl.set(abs, p);
+export const getCachedStationGroups = async () => {
+    if (!state.stationGroupsPromise) {
+        state.stationGroupsPromise = (async () => {
+            const primaryGroups = await getCachedJsonRaw(STATION_GROUPS_URL);
+            const supplementalGroups = await getCachedJsonRaw(SUPPLEMENTAL_STATION_GROUPS_URL).catch(() => null);
+            return mergeStationGroups(
+                Array.isArray(primaryGroups) ? primaryGroups : [],
+                Array.isArray(supplementalGroups) ? supplementalGroups : []
+            );
+        })();
     }
-
-    return state.jsonPromiseByUrl.get(abs);
+    return state.stationGroupsPromise;
 };
 
 const toFileStem = (lineId) => {
@@ -662,6 +695,7 @@ export const initializeFetchCache = () => {
         window.fetch = patched;
         window.TokyoRailFetchCache = {
             getCachedJson,
+            getCachedStationGroups,
             preloadAllDataAssets,
             clearFetchCache,
             getIconCandidates,
