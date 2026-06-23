@@ -217,8 +217,17 @@ const getTransferStationIdMap = async () => {
     if (transferStationIdMapPromise) return transferStationIdMapPromise;
     transferStationIdMapPromise = (async () => {
         try {
-            const groups = await getCachedJson('./data/station-groups.json');
+            const [groups, stations] = await Promise.all([
+                getCachedJson('./data/station-groups.json'),
+                getCachedJson('./data/stations.json')
+            ]);
             const map = new Map();
+            const alternateStationIdById = new Map();
+            for (const station of Array.isArray(stations) ? stations : []) {
+                const id = String(station?.id ?? '').trim();
+                const alternate = String(station?.alternate ?? '').trim();
+                if (id && alternate) alternateStationIdById.set(id, alternate);
+            }
 
             for (const group of Array.isArray(groups) ? groups : []) {
                 if (!Array.isArray(group)) continue;
@@ -236,8 +245,14 @@ const getTransferStationIdMap = async () => {
                 }
 
                 if (!ids.length) continue;
-                const groupSet = new Set(ids);
-                for (const id of ids) {
+                const rawGroupSet = new Set(ids);
+                const visibleIds = ids.filter((id) => {
+                    const alternate = alternateStationIdById.get(id);
+                    return !(alternate && rawGroupSet.has(alternate));
+                });
+                const groupIds = visibleIds.length ? visibleIds : ids;
+                const groupSet = new Set(groupIds);
+                for (const id of groupIds) {
                     map.set(id, groupSet);
                 }
             }
@@ -397,6 +412,7 @@ const initMapApp = async () => {
     let currentLineNameLabelsData = null;
     let currentLineNameLabelBlockingBBoxes = [];
     let generatedStationsData = null;
+    let generatedStationGroups = null;
     let generatedRawRailways = null;
     let generatedRawStations = null;
     let generatedStationOffsetAlgorithmContext = null;
@@ -3451,6 +3467,7 @@ const initMapApp = async () => {
             lineNameLabelsGeoJSON,
             lineRoutingCoordsById,
             stationsGeoJSON,
+            stationGroups,
             rawRailways,
             rawStations,
             alternateLineMembership,
@@ -3460,6 +3477,7 @@ const initMapApp = async () => {
         generatedLinesData = linesGeoJSON;
         generatedLineNameLabelsData = applyLineNameLabelDarkColors(lineNameLabelsGeoJSON);
         generatedStationsData = stationsGeoJSON;
+        generatedStationGroups = stationGroups;
         generatedRawRailways = rawRailways;
         generatedRawStations = rawStations;
         generatedAlternateLineMembership = alternateLineMembership || null;
@@ -4450,6 +4468,7 @@ const initMapApp = async () => {
             ? null
             : await loadRailGeoDataFromDataFolder();
         const stationsData = generatedStationsData || loadedGeoData?.stationsGeoJSON;
+        const stationGroupsData = generatedStationGroups || loadedGeoData?.stationGroups || await getCachedJson('./data/station-groups.json');
         const stationOffsetAlgorithmContext = generatedStationOffsetAlgorithmContext || loadedGeoData?.stationOffsetAlgorithmContext;
 
 
@@ -4513,7 +4532,7 @@ const initMapApp = async () => {
 
         try {
             transferCapsuleStationsData = stationsData;
-            transferCapsuleStationGroups = await getCachedJson('./data/station-groups.json');
+            transferCapsuleStationGroups = stationGroupsData;
             transferCapsuleBaseConnectionOrder = buildTransferCapsuleConnectionOrder(stationsData, transferCapsuleStationGroups);
             invalidateAndScheduleTransferCapsules('__init__');
         } catch (e) {

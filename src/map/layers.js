@@ -699,7 +699,16 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         if (stationGroupsIndexPromise) return stationGroupsIndexPromise;
         stationGroupsIndexPromise = (async () => {
             try {
-                const groups = await getCachedJson('./data/station-groups.json');
+                const [groups, stations] = await Promise.all([
+                    getCachedJson('./data/station-groups.json'),
+                    getCachedJson('./data/stations.json')
+                ]);
+                const alternateStationIdById = new Map();
+                for (const station of Array.isArray(stations) ? stations : []) {
+                    const id = String(station?.id ?? '').trim();
+                    const alternate = String(station?.alternate ?? '').trim();
+                    if (id && alternate) alternateStationIdById.set(id, alternate);
+                }
                 const map = new Map();
                 for (const g of Array.isArray(groups) ? groups : []) {
                     if (!Array.isArray(g)) continue;
@@ -715,7 +724,13 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
                         }
                     }
                     if (!ids.length) continue;
-                    for (const id of ids) map.set(id, ids);
+                    const rawSet = new Set(ids);
+                    const visibleIds = ids.filter((id) => {
+                        const alternate = alternateStationIdById.get(id);
+                        return !(alternate && rawSet.has(alternate));
+                    });
+                    const groupIds = visibleIds.length ? visibleIds : ids;
+                    for (const id of groupIds) map.set(id, groupIds);
                 }
                 return map;
             } catch {

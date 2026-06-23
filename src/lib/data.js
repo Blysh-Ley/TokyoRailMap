@@ -734,6 +734,29 @@ export async function loadRailGeoDataFromDataFolder() {
             if (fullAlternateLineIds.has(lid)) return true;
             return hiddenLineIdsByStationId.get(sid)?.has?.(lid) === true;
         };
+        const filteredStationGroups = groupList.map((group) => {
+            if (!Array.isArray(group)) return group;
+            const rawIds = [];
+            for (const chunk of group) {
+                if (!Array.isArray(chunk)) continue;
+                for (const sid of chunk) {
+                    const id = normalizeText(sid);
+                    if (id) rawIds.push(id);
+                }
+            }
+            const rawSet = new Set(rawIds);
+            const filtered = group
+                .map((chunk) => {
+                    if (!Array.isArray(chunk)) return chunk;
+                    return chunk.filter((sid) => {
+                        const id = normalizeText(sid);
+                        const alternate = normalizeText(stationById.get(id)?.alternate);
+                        return !(alternate && rawSet.has(alternate));
+                    });
+                })
+                .filter((chunk) => !Array.isArray(chunk) || chunk.length);
+            return filtered.length ? filtered : group;
+        });
 
         const railwayNameById = new Map();
         const railwayZhHansById = new Map();
@@ -777,7 +800,10 @@ export async function loadRailGeoDataFromDataFolder() {
                     servingRailwayIdsByStationId.set(sid, new Set());
                 }
                 const set = servingRailwayIdsByStationId.get(sid);
-                for (const rid of railwayIds) set.add(rid);
+                for (const rid of railwayIds) {
+                    if (isHiddenServingMembership(sid, rid)) continue;
+                    set.add(rid);
+                }
             }
         }
 
@@ -1329,6 +1355,7 @@ export async function loadRailGeoDataFromDataFolder() {
             lineNameLabelsGeoJSON: buildLineNameLabelGeoJSON(linesGeoJSONByZoom[18]?.features || []),
             lineRoutingCoordsById: Object.fromEntries(Array.from(routingCoordsByRailwayId.entries())),
             stationsGeoJSON: { type: 'FeatureCollection', features: stationsFeatures },
+            stationGroups: filteredStationGroups,
             rawRailways: railwayList,
             rawStations: stationList,
             alternateLineMembership,

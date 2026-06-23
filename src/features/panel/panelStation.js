@@ -195,12 +195,31 @@ export const getStationGroupsIndex = async ({
     stationGroupsIndexPromise_panelStationMetadata = (async () => {
         try {
             const list = await loadJson('./data/station-groups.json');
+            let stations = [];
+            try {
+                const stationList = await loadJson('./data/stations.json');
+                stations = Array.isArray(stationList) ? stationList : [];
+            } catch {
+                stations = [];
+            }
+            const alternateStationIdById = new Map();
+            for (const station of stations) {
+                const id = toText(station?.id);
+                const alternate = toText(station?.alternate);
+                if (id && alternate) alternateStationIdById.set(id, alternate);
+            }
             const map = new Map();
             for (const group of Array.isArray(list) ? list : []) {
                 const rawIds = Array.isArray(group?.ids)
                     ? group.ids
                     : (Array.isArray(group) ? group.flat(Infinity) : []);
-                const ids = rawIds.map((value) => toText(value)).filter(Boolean);
+                const rawGroupIds = rawIds.map((value) => toText(value)).filter(Boolean);
+                const rawGroupSet = new Set(rawGroupIds);
+                const visibleIds = rawGroupIds.filter((id) => {
+                    const alternate = alternateStationIdById.get(id);
+                    return !(alternate && rawGroupSet.has(alternate));
+                });
+                const ids = visibleIds.length ? visibleIds : rawGroupIds;
                 if (!ids.length) continue;
                 for (const id of ids) {
                     const existing = map.get(id) || [];
