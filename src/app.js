@@ -86,6 +86,7 @@ import {
 } from './services/appSettings.js';
 import { createMapEngine } from './services/mapEngine.js';
 import { createMobileTripFitBoundsController } from './services/mobileTripFitBounds.js';
+import { createAppUpdateApi } from './services/appUpdateService.js';
 import { createStore } from './store/appStore.js';
 import { ACTION_TYPES, hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested, selectionClear } from './store/actions.js';
 import { createBaseHighlightEventBridge } from './features/highlight/baseHighlightEventBridge.js';
@@ -3418,10 +3419,22 @@ const initMapApp = async () => {
         });
     };
 
+    const updateApi = createAppUpdateApi({
+        target: window,
+        electronApi: window?.TokyoRailElectron
+    });
+    if (updateApi && !window.TokyoRailUpdate) {
+        try {
+            window.TokyoRailUpdate = updateApi;
+        } catch {
+            // ignore read-only globals
+        }
+    }
+
     const settingsControlsRuntime = mountAppSettingsControls({
         hostEl: settingsMenuContentEl,
         basemapThemeRuntime,
-        updateApi: window?.TokyoRailUpdate ?? window?.TokyoRailElectron,
+        updateApi,
         getIconCandidates,
         getPreferredCachedImageSrc,
         onAdaptiveViewportEnabledChanged: applyAdaptiveViewportEnabled,
@@ -3449,6 +3462,7 @@ const initMapApp = async () => {
     if (settingsControlsRuntime.setStationLabelMode) {
         setStationLabelMode = settingsControlsRuntime.setStationLabelMode;
     }
+    updateApi?.scheduleAutoCheck?.();
 
     bindMultiSelectModeEvents({
         target: window,
