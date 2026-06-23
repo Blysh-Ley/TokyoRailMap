@@ -3421,7 +3421,7 @@ const initMapApp = async () => {
     const settingsControlsRuntime = mountAppSettingsControls({
         hostEl: settingsMenuContentEl,
         basemapThemeRuntime,
-        electronApi: window?.TokyoRailElectron,
+        updateApi: window?.TokyoRailUpdate ?? window?.TokyoRailElectron,
         getIconCandidates,
         getPreferredCachedImageSrc,
         onAdaptiveViewportEnabledChanged: applyAdaptiveViewportEnabled,

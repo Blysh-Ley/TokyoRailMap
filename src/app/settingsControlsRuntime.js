@@ -53,6 +53,7 @@ export const shouldMountSettingsControls = (hostEl) => !(
 export const mountAppSettingsControls = ({
     hostEl,
     basemapThemeRuntime,
+    updateApi,
     electronApi,
     getIconCandidates,
     getPreferredCachedImageSrc,
@@ -93,7 +94,7 @@ export const mountAppSettingsControls = ({
 
     controls.mountAutoUpdateToggle({
         hostEl,
-        electronApi,
+        updateApi: updateApi ?? electronApi,
         getIconCandidates,
         getPreferredCachedImageSrc,
         setImageElementFromCache

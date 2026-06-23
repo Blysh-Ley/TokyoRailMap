@@ -6,17 +6,19 @@ import { createSettingsIconButton } from './settingsIconLoader.js';
 
 export const mountAutoUpdateToggle = ({
     hostEl,
-    electronApi = globalThis.window?.TokyoRailElectron,
+    updateApi = globalThis.window?.TokyoRailUpdate ?? globalThis.window?.TokyoRailElectron,
+    electronApi,
     getIconCandidates,
     getPreferredCachedImageSrc,
     setImageElementFromCache
 } = {}) => {
-    const hasElectronApi = !!(
-        electronApi &&
-        typeof electronApi.setAutoUpdateCheckEnabled === 'function' &&
-        typeof electronApi.checkForUpdatesNow === 'function'
+    const updateBridge = updateApi ?? electronApi;
+    const hasUpdateCapability = !!(
+        updateBridge &&
+        typeof updateBridge.setAutoUpdateCheckEnabled === 'function' &&
+        typeof updateBridge.checkForUpdatesNow === 'function'
     );
-    if (!hasElectronApi) return null;
+    if (!hasUpdateCapability) return null;
 
     const container = document.createElement('div');
     container.className = 'settings-item settings-item-auto-update';
@@ -74,7 +76,7 @@ export const mountAutoUpdateToggle = ({
         btnOn.classList.toggle('is-active', next);
         btnOff.classList.toggle('is-active', !next);
         writeAutoUpdateCheckEnabled(next);
-        electronApi.setAutoUpdateCheckEnabled(next).catch(() => null);
+        updateBridge.setAutoUpdateCheckEnabled(next).catch(() => null);
     };
 
     btnOn.addEventListener('click', () => setEnabled(true));
@@ -84,7 +86,7 @@ export const mountAutoUpdateToggle = ({
         if (left.disabled) return;
         left.disabled = true;
         try {
-            await electronApi.checkForUpdatesNow();
+            await updateBridge.checkForUpdatesNow();
         } catch {
             // ignore
         } finally {
