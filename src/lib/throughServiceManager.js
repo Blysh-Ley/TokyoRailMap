@@ -296,7 +296,7 @@ export const THROUGH_SERVICE_TEMP_LINE_IDS = Object.freeze({
     SHONAN_SHINJUKU: 'TokyoRail.Temp.ShonanShinjuku',
     UENO_TOKYO_JOBAN: 'TokyoRail.Temp.UenoTokyoJoban',
     YOKOSUKA_SOBU_RAPID: 'TokyoRail.Temp.YokosukaSobuRapid',
-    NARITA_EXPRESS: 'TokyoRail.Temp.NaritaExpress'
+    //NARITA_EXPRESS: 'TokyoRail.Temp.NaritaExpress'
 });
 
 export const THROUGH_SERVICE_DISPLAY = Object.freeze({
@@ -304,7 +304,7 @@ export const THROUGH_SERVICE_DISPLAY = Object.freeze({
     UenoTokyo: { name: '上野东京线', color: '#F68B1E' },
     UenoTokyoJoban: { name: '上野东京线(常磐线)', color: '#00B261' },
     YokosukaSobuRapid: { name: '横须贺线·总武线(快速)', color: '#007AC1' },
-    NaritaExpress: { name: '成田特快', color: '#FF6600' }
+    //NaritaExpress: { name: '成田特快', color: '#FF6600' }
 });
 
 export const MENU_THROUGH_LINE_IDS = Object.freeze({
@@ -312,7 +312,7 @@ export const MENU_THROUGH_LINE_IDS = Object.freeze({
     SHONAN_SHINJUKU: 'TokyoRail.MenuThrough.ShonanShinjuku',
     UENO_TOKYO_JOBAN: 'TokyoRail.MenuThrough.UenoTokyoJoban',
     YOKOSUKA_SOBU_RAPID: 'TokyoRail.MenuThrough.YokosukaSobuRapid',
-    NARITA_EXPRESS: 'TokyoRail.MenuThrough.NaritaExpress'
+    //NARITA_EXPRESS: 'TokyoRail.MenuThrough.NaritaExpress'
 });
 
 export const THROUGH_SERVICE_CONFIGS = Object.freeze([
@@ -439,7 +439,8 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
             'JR-East.Ryomo'
         ],
         triggerStations: ['Shinagawa', 'ShinNihombashi']
-    },
+    }
+    /*
     {
         operator: 'JR-East',
         category: 'NaritaExpress',
@@ -463,7 +464,7 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
         ],
         triggerStations: ['Tokyo',  'Shinagawa']
 
-    }
+    }*/
 ]);
 
 
