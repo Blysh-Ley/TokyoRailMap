@@ -367,7 +367,10 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
             'JR-East.SaikyoKawagoe',
             'JR-East.Ito',
             'Izukyu.Izukyu',
-            'JR-East.NaritaAbikoBranch'
+            'JR-East.NaritaAbikoBranch',
+            'JR-East.YamanoteFreight',
+            'JR-East.SotetsuDirect',
+            "JR-East.OsakiBranch"
         ],
         triggerStations: ['Shinjuku', 'Shibuya']
     },
