@@ -1,12 +1,6 @@
-/legacy
-/tools
-/scripts/*
-!/scripts/build-all-releases.mjs
-!/scripts/build-ios-release.mjs
-!/scripts/collect-release-artifacts.mjs
-!/scripts/sync-native-versions.mjs
-!/scripts/strip-ios-company-logos.mjs
-/tests/
+# TokyoRailMap public static web boundary
+# Keep the GitHub Pages/index.html runtime source visible; ignore native apps,
+# desktop packaging, tests, tools, generated outputs, and local map packages.
 
 # OS/editor metadata
 .DS_Store
@@ -15,14 +9,12 @@
 .Spotlight-V100
 .Trashes
 Thumbs.db
-.venv
-.vscode
-__pycache__
-/assets/readme-images/.DS_Store
-/assets/icons/.DS_Store
-/data/.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# Local environment and logs
+# Local environment, caches, and logs
 .env
 .env.*
 !.env.example
@@ -31,60 +23,71 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.codex/
 .codex-runtime/
-
-# Dependency caches and build output
-data/**/*.bak
-/remotedata
-/tiles/
-.github
-dist/
-node_modules/
 .npm-cache/
-/www/
+.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
 
-# Native/mobile/desktop app packaging sources
-/android/
-/ios/
-/capacitor.config.*
-/main.js
-/src/preload.js
-/electron-builder.*
-/electron.vite.config.*
-
-# App packaging icons generated from the website icon
-/assets/icons/icon.png
-/assets/icons/icon.ico
-/assets/icons/icon.icns
-
-# Capacitor generated web assets
-/android/app/src/main/assets/public/
-
-# Android local/build artifacts
-/android/.gradle/
-/android/build/
-/android/app/build/
-/android/app/release/
-/android/local.properties
-/android/*.iml
-/android/app/*.iml
+# Dependency installs and generated web/native output
+node_modules/
+dist/
+www/
+remotedata/
+legacy/
+backups/
+.github/
+*.dmg
+*.exe
+*.blockmap
 *.apk
 *.aab
 *.ap_
 *.jks
 *.keystore
 
-# iOS local/build artifacts
-/ios/App/build/
-/ios/App/Pods/
-/ios/App/DerivedData/
-/ios/App/App.xcworkspace/xcuserdata/
-/ios/App/App.xcodeproj/xcuserdata/
-/ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
-*.xcuserstate
+# Package/build metadata and release automation
+package.json
+package-lock.json
+npm-shrinkwrap.json
+pnpm-lock.yaml
+yarn.lock
+electron-builder.*
+electron.vite.config.*
+capacitor.config.*
+scripts/
 
-/.codex/
-AGENTS.md
+# Electron desktop shell
+main.js
+src/preload.js
+
+# Native/mobile app projects
+android/
+ios/
+
+# Test suites, audit tools, and local reports
+tests/
+tools/
+docs/
 Refactor-Panel.md
+AGENTS.md
 line-icon-preview.html
-/backups
+src/debug/
+
+# Local/generated basemap packages and source extracts
+tiles/
+*.pmtiles
+*.mbtiles
+*.osm.pbf
+
+# App packaging icons generated from the website icon
+assets/icons/icon.png
+assets/icons/icon.ico
+assets/icons/icon.icns
+
+# Readme/demo-only media and local data scratch files
+assets/readme-images/
+data/**/*.bak
+data/tmp/
