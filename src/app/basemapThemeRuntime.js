@@ -14,6 +14,11 @@ import {
     ONLINE_BASEMAP_PROVIDER_NONE
 } from '../domain/openFreeMapBasemap.js';
 import {
+    BASEMAP_SOURCE_OPENFREEMAP,
+    BASEMAP_SOURCE_PMTILES,
+    normalizeBasemapSource
+} from '../domain/basemapSource.js';
+import {
     loadOpenFreeMapBasemapStyle as defaultLoadOpenFreeMapBasemapStyle
 } from '../services/openFreeMapBasemapStyleService.js';
 
@@ -64,14 +69,21 @@ export const createBasemapThemeRuntime = ({
 
     let mapTheme = initialTheme;
     let basemapMode = initialMode;
-    let basemapSourceKind = basemapRuntimeConfig.pmtilesAvailable === true ? 'pmtiles' : 'none';
-    let onlineFallbackRequestId = 0;
+    const configuredBasemapSource = normalizeBasemapSource(
+        basemapRuntimeConfig.basemapSource,
+        BASEMAP_SOURCE_PMTILES
+    );
+    let basemapSourceKind = configuredBasemapSource === BASEMAP_SOURCE_OPENFREEMAP
+        ? BASEMAP_SOURCE_OPENFREEMAP
+        : (basemapRuntimeConfig.pmtilesAvailable === true ? BASEMAP_SOURCE_PMTILES : 'none');
+    let onlineBasemapRequestId = 0;
 
     const basemapController = createBasemapController({
         mapEngine,
         initialTheme: mapTheme,
         initialMode: basemapMode,
-        pmtilesAvailable: basemapRuntimeConfig.pmtilesAvailable === true,
+        pmtilesAvailable: configuredBasemapSource === BASEMAP_SOURCE_PMTILES
+            && basemapRuntimeConfig.pmtilesAvailable === true,
         pmtilesUrl: basemapRuntimeConfig.pmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL,
         onThemeChanged: () => dispatchThemeChanged(windowRef)
     });
@@ -81,7 +93,9 @@ export const createBasemapThemeRuntime = ({
     const setTimeoutFn = windowRef?.setTimeout?.bind?.(windowRef)
         || (typeof setTimeout === 'function' ? setTimeout : null);
 
-    const shouldUseOnlineFallback = () => (
+    const shouldUseOnlineBasemap = () => (
+        configuredBasemapSource === BASEMAP_SOURCE_OPENFREEMAP
+        &&
         basemapRuntimeConfig.onlineBasemapProvider !== ONLINE_BASEMAP_PROVIDER_NONE
         && basemapMode !== 'transparent'
     );
@@ -93,9 +107,9 @@ export const createBasemapThemeRuntime = ({
         return true;
     };
 
-    const loadAndApplyOnlineFallbackStyle = async () => {
-        const requestId = ++onlineFallbackRequestId;
-        if (!shouldUseOnlineFallback()) {
+    const loadAndApplyOnlineBasemapStyle = async () => {
+        const requestId = ++onlineBasemapRequestId;
+        if (!shouldUseOnlineBasemap()) {
             basemapController.setOnlineBasemapStyle?.(null);
             syncBasemapStyle();
             return false;
@@ -107,14 +121,14 @@ export const createBasemapThemeRuntime = ({
                 mode: basemapMode,
                 theme: mapTheme
             });
-            if (requestId !== onlineFallbackRequestId || basemapSourceKind !== 'online-fallback') {
+            if (requestId !== onlineBasemapRequestId || basemapSourceKind !== BASEMAP_SOURCE_OPENFREEMAP) {
                 return false;
             }
             basemapController.setOnlineBasemapStyle?.(descriptor);
             syncBasemapStyle();
             return Boolean(descriptor);
         } catch {
-            if (requestId === onlineFallbackRequestId) {
+            if (requestId === onlineBasemapRequestId) {
                 basemapController.setOnlineBasemapStyle?.(null);
                 syncBasemapStyle();
             }
@@ -122,28 +136,33 @@ export const createBasemapThemeRuntime = ({
         }
     };
 
-    const queueOnlineFallbackStyleRefresh = () => {
-        if (basemapSourceKind !== 'online-fallback') return;
-        loadAndApplyOnlineFallbackStyle().catch(() => null);
+    const queueOnlineBasemapStyleRefresh = () => {
+        if (basemapSourceKind !== BASEMAP_SOURCE_OPENFREEMAP) return;
+        loadAndApplyOnlineBasemapStyle().catch(() => null);
     };
 
     const activatePmtilesBasemap = () => {
-        basemapSourceKind = 'pmtiles';
-        onlineFallbackRequestId += 1;
+        basemapSourceKind = BASEMAP_SOURCE_PMTILES;
+        onlineBasemapRequestId += 1;
         basemapController.setOnlineBasemapStyle?.(null);
         basemapController.setPmtilesAvailable?.(true);
         syncBasemapStyle();
     };
 
-    const activateOnlineFallbackBasemap = async () => {
-        basemapSourceKind = shouldUseOnlineFallback() ? 'online-fallback' : 'none';
+    const activateNoBasemap = () => {
+        basemapSourceKind = 'none';
+        onlineBasemapRequestId += 1;
         basemapController.setPmtilesAvailable?.(false);
-        if (basemapSourceKind !== 'online-fallback') {
-            basemapController.setOnlineBasemapStyle?.(null);
-            syncBasemapStyle();
-            return false;
-        }
-        return loadAndApplyOnlineFallbackStyle();
+        basemapController.setOnlineBasemapStyle?.(null);
+        syncBasemapStyle();
+        return false;
+    };
+
+    const activateOnlineBasemap = async () => {
+        basemapSourceKind = shouldUseOnlineBasemap() ? BASEMAP_SOURCE_OPENFREEMAP : 'none';
+        basemapController.setPmtilesAvailable?.(false);
+        if (basemapSourceKind !== BASEMAP_SOURCE_OPENFREEMAP) return activateNoBasemap();
+        return loadAndApplyOnlineBasemapStyle();
     };
 
     const validateBasemapArchive = async (attempt = 0) => {
@@ -155,12 +174,12 @@ export const createBasemapThemeRuntime = ({
         if (available) {
             activatePmtilesBasemap();
         } else {
-            activateOnlineFallbackBasemap().catch(() => null);
+            activateNoBasemap();
         }
         if (!available && setTimeoutFn && attempt < retryDelays.length) {
             setTimeoutFn(() => {
                 validateBasemapArchive(attempt + 1).catch(() => {
-                    basemapController.setPmtilesAvailable?.(false);
+                    activateNoBasemap();
                 });
             }, retryDelays[attempt]);
         }
@@ -180,14 +199,14 @@ export const createBasemapThemeRuntime = ({
     const applyBasemapTheme = (theme) => {
         mapTheme = normalizeTheme(theme);
         syncBasemapStyle();
-        queueOnlineFallbackStyleRefresh();
+        queueOnlineBasemapStyleRefresh();
         return mapTheme;
     };
 
     const setBasemapMode = (mode) => {
         basemapMode = normalizeBasemapMode(mode);
         syncBasemapStyle();
-        queueOnlineFallbackStyleRefresh();
+        queueOnlineBasemapStyleRefresh();
         return basemapMode;
     };
 
@@ -214,10 +233,13 @@ export const createBasemapThemeRuntime = ({
         systemThemeMedia.addListener(syncSystemAppearanceTheme);
     }
 
-    const initialValidationPromise = validateBasemapArchive().catch(async () => {
-        await activateOnlineFallbackBasemap();
-        return false;
-    });
+    const initialValidationPromise = configuredBasemapSource === BASEMAP_SOURCE_OPENFREEMAP
+        ? activateOnlineBasemap()
+        : (
+            configuredBasemapSource === BASEMAP_SOURCE_PMTILES
+                ? validateBasemapArchive().catch(() => activateNoBasemap())
+                : Promise.resolve(activateNoBasemap())
+        );
 
     return {
         controller: basemapController,

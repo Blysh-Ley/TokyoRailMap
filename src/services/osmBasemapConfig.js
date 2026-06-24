@@ -10,6 +10,11 @@ import {
     verifyAndroidPmtilesArchive
 } from './androidPmtilesArchiveSource.js';
 import { normalizeOnlineBasemapProvider } from '../domain/openFreeMapBasemap.js';
+import {
+    BASEMAP_SOURCE_OPENFREEMAP,
+    BASEMAP_SOURCE_PMTILES,
+    normalizeBasemapSource
+} from '../domain/basemapSource.js';
 
 const getDefaultWindow = () => (
     typeof window !== 'undefined' ? window : null
@@ -35,6 +40,7 @@ export const readOsmBasemapRuntimeConfig = ({
     const customPmtilesUrl = windowRef?.TOKYO_RAIL_OSM_BASEMAP_URL;
     const pmtilesUrl = customPmtilesUrl || appendDefaultOsmBasemapCacheKey(DEFAULT_OSM_BASEMAP_PMTILES_URL);
     const downloadUrl = windowRef?.TOKYO_RAIL_OSM_BASEMAP_DOWNLOAD_URL || customPmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL;
+    const basemapSource = normalizeBasemapSource(windowRef?.TOKYO_RAIL_BASEMAP_SOURCE, BASEMAP_SOURCE_PMTILES);
     const onlineBasemapProvider = normalizeOnlineBasemapProvider(windowRef?.TOKYO_RAIL_ONLINE_BASEMAP_PROVIDER);
     const basemapPackage = createOsmBasemapPackage({
         pmtilesUrl,
@@ -42,6 +48,9 @@ export const readOsmBasemapRuntimeConfig = ({
     });
 
     return {
+        basemapSource,
+        usesPmtilesBasemap: basemapSource === BASEMAP_SOURCE_PMTILES,
+        usesOnlineBasemap: basemapSource === BASEMAP_SOURCE_OPENFREEMAP,
         pmtilesUrl: basemapPackage.pmtilesUrl,
         onlineBasemapProvider,
         basemapPackage

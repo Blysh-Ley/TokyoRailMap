@@ -1,12 +1,13 @@
 import { normalizeBasemapMode } from '../domain/basemapMode.js';
 import {
     ONLINE_BASEMAP_PROVIDER_OPENFREEMAP,
-    OPENFREEMAP_GLYPHS_URL,
     selectOpenFreeMapStyleUrl
 } from '../domain/openFreeMapBasemap.js';
+import { BASEMAP_GLYPHS_URL } from './mapEngine.js';
 
 export const ONLINE_BASEMAP_LAYER_PREFIX = 'online-basemap-layer-';
 export const ONLINE_BASEMAP_SOURCE_PREFIX = 'online-basemap-source-';
+export const BASEMAP_TEXT_FONT_STACK = Object.freeze(['Open Sans Regular', 'Arial Unicode MS Regular']);
 
 const styleCache = new Map();
 
@@ -59,6 +60,7 @@ const sanitizeLayer = (layer, sourceIdMap) => {
         delete next.layout['icon-allow-overlap'];
         delete next.layout['icon-ignore-placement'];
         if (!hasTextField(next)) return null;
+        next.layout['text-font'] = [...BASEMAP_TEXT_FONT_STACK];
     }
 
     return next;
@@ -103,13 +105,13 @@ export const createOpenFreeMapBasemapStyle = ({
         layerIds: layers.map((layer) => layer.id),
         style: {
             version: 8,
-            glyphs: OPENFREEMAP_GLYPHS_URL,
+            glyphs: BASEMAP_GLYPHS_URL,
             sources,
             layers,
             metadata: {
                 tokyoRailBasemap: {
                     provider: ONLINE_BASEMAP_PROVIDER_OPENFREEMAP,
-                    sourceKind: 'online-fallback',
+                    sourceKind: 'openfreemap',
                     primarySourceId,
                     styleUrl,
                     mode: nextMode,
@@ -143,4 +145,3 @@ export const loadOpenFreeMapBasemapStyle = async ({
     const styleJson = await styleCache.get(styleUrl);
     return createOpenFreeMapBasemapStyle({ styleJson, styleUrl, mode, theme });
 };
-

@@ -6,8 +6,7 @@ import {
     toPmtilesTileTemplate
 } from '../domain/osmBasemapPackage.js';
 import {
-    OPENFREEMAP_ATTRIBUTION_ITEMS,
-    OPENFREEMAP_GLYPHS_URL
+    OPENFREEMAP_ATTRIBUTION_ITEMS
 } from '../domain/openFreeMapBasemap.js';
 import {
     readAndroidPmtilesRange,
@@ -408,7 +407,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
 };
 
 const OSM_VECTOR_SOURCE_ID = 'osm-vector-source';
-export const BASEMAP_GLYPHS_URL = OPENFREEMAP_GLYPHS_URL;
+export const BASEMAP_GLYPHS_URL = 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf';
 
 const getBasemapBackgroundColor = (theme) => (
     getBasemapPalette(theme).background
@@ -780,7 +779,7 @@ const createOnlineBasemapExportStyle = (descriptor, theme = 'light') => {
             ...(descriptor.style.metadata || {}),
             tokyoRailBasemap: {
                 ...(descriptor.style.metadata?.tokyoRailBasemap || {}),
-                sourceKind: 'online-fallback',
+                sourceKind: 'openfreemap',
                 primarySourceId: descriptor.primarySourceId || null
             }
         }
