@@ -1,6 +1,6 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'node:fs';
 import { readFileSync } from 'node:fs';
-import { basename, join, relative } from 'node:path';
+import { basename, extname, join, relative } from 'node:path';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -49,6 +49,43 @@ function walk(dir) {
     });
 }
 
+function getCollectedName(filePath) {
+    const relativePath = relative(rootDir, filePath);
+    const extension = extname(filePath);
+
+    if (relativePath.startsWith(join('android', 'app', 'build', 'outputs', 'apk', 'release'))) {
+        return `TokyoRailMap-${version}-android${extension}`;
+    }
+
+    if (relativePath.startsWith(join('android', 'app', 'build', 'outputs', 'bundle', 'release'))) {
+        return `TokyoRailMap-${version}-android${extension}`;
+    }
+
+    if (
+        extension === '.ipa'
+        && (
+            relativePath.startsWith(join('dist', 'ios-release', 'export'))
+            || relativePath.startsWith(join('ios', 'App', 'build'))
+        )
+    ) {
+        return `TokyoRailMap-${version}-ios${extension}`;
+    }
+
+    return basename(filePath);
+}
+
+function cleanNativeCollectedArtifacts() {
+    for (const entry of readdirSync(outputDir)) {
+        if (
+            /^app-release(-unsigned)?\.(apk|aab)$/.test(entry)
+            || /^App\.ipa$/.test(entry)
+            || new RegExp(`^TokyoRailMap-${version}-(android|ios)\\.(apk|aab|ipa)$`).test(entry)
+        ) {
+            unlinkSync(join(outputDir, entry));
+        }
+    }
+}
+
 const candidates = Array.from(new Set([
     ...walk(join(rootDir, 'dist')),
     ...walk(join(rootDir, 'android/app/build/outputs/apk/release')),
@@ -57,8 +94,10 @@ const candidates = Array.from(new Set([
     ...walk(join(rootDir, 'dist/ios-release/export'))
 ]));
 
+cleanNativeCollectedArtifacts();
+
 for (const candidate of candidates) {
-    const targetPath = join(outputDir, basename(candidate));
+    const targetPath = join(outputDir, getCollectedName(candidate));
     if (candidate === targetPath) {
         continue;
     }
