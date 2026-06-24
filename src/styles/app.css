@@ -1025,6 +1025,13 @@ body[data-mobile-ui='1'] .mobile-bottom-nav {
     -webkit-tap-highlight-color: transparent;
 }
 
+html[data-ios-native-nav='1'][data-mobile-ui='1'] .mobile-bottom-nav,
+html[data-mobile-ui='1'] body[data-ios-native-nav='1'] .mobile-bottom-nav,
+body[data-ios-native-nav='1'][data-mobile-ui='1'] .mobile-bottom-nav {
+    display: none !important;
+    pointer-events: none;
+}
+
 html[data-mobile-ui='1'] .mobile-bottom-nav-btn,
 body[data-mobile-ui='1'] .mobile-bottom-nav-btn {
     appearance: none;

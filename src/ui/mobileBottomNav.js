@@ -1,6 +1,7 @@
 import { JOURNEY_CLEAR_REQUEST_EVENT } from '../store/events.js';
 
 export const MOBILE_BOTTOM_NAV_EVENT = 'tokyoRail:mobileNavSelect';
+export const IOS_NATIVE_BOTTOM_NAV_EVENT = 'tokyoRail:nativeNavSelect';
 
 // Icons are inline Lucide SVG paths. Lucide is ISC licensed; search is MIT via Feather.
 // Sources: https://lucide.dev/icons/map, /menu, /search, /settings and https://lucide.dev/license
@@ -92,6 +93,28 @@ const isMobileNavItemActive = (doc, nav, itemId) => {
     return nav?.dataset?.activeItem === id
         || rootDataset.mobileNavActive === id
         || bodyDataset.mobileNavActive === id;
+};
+
+const isIosNativeBottomNavEnabled = (win = globalThis.window) => (
+    win?.__TOKYO_RAIL_IOS_NATIVE_NAV__ === true
+    || typeof win?.TokyoRailNativeNav?.setActive === 'function'
+);
+
+const notifyIosNativeBottomNavActive = (win, itemId) => {
+    if (!isIosNativeBottomNavEnabled(win)) return;
+    const id = String(itemId || 'map').trim() || 'map';
+    try {
+        if (typeof win?.TokyoRailNativeNav?.setActive === 'function') {
+            win.TokyoRailNativeNav.setActive(id);
+            return;
+        }
+        win?.webkit?.messageHandlers?.tokyoRailNativeNav?.postMessage?.({
+            type: 'active',
+            item: id
+        });
+    } catch {
+        // Native state sync is best-effort; Web state remains authoritative.
+    }
 };
 
 const isJourneyUiActiveForMobile = (doc) => {
@@ -299,6 +322,7 @@ export const installMobileBottomNav = ({
         }
         if (id === 'search') setSearchMode(searchMode, { focus: false });
         openLegacyFloatingUi(doc, win, id, () => searchMode);
+        notifyIosNativeBottomNavActive(win, id);
         if (typeof onSelect === 'function') onSelect(id);
         if (emit) emitSelect(id);
     };
@@ -328,6 +352,12 @@ export const installMobileBottomNav = ({
         event.stopPropagation?.();
         setActive('search');
         setSearchMode(mode, { focus: true });
+    });
+
+    win?.addEventListener?.(IOS_NATIVE_BOTTOM_NAV_EVENT, (event) => {
+        const itemId = String(event?.detail?.item || '').trim();
+        if (!buttons.has(itemId)) return;
+        setActive(itemId);
     });
 
     (doc.body || doc.documentElement)?.appendChild?.(nav);
