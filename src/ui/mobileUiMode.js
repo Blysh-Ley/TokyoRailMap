@@ -67,7 +67,7 @@ const setMobileUiDataset = (doc, isMobile, nativePlatform = '') => {
     for (const node of [root, body]) {
         if (!node?.dataset) continue;
         node.dataset.mobileUi = value;
-        if (isMobile && nativePlatform) {
+        if (nativePlatform) {
             node.dataset.nativePlatform = nativePlatform;
         } else {
             delete node.dataset.nativePlatform;

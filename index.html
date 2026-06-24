@@ -10,6 +10,33 @@
     <script defer src="./vendor/maplibre-gl/maplibre-gl.js"></script>
     <script defer src="./vendor/pmtiles/pmtiles.js"></script>
     <link href="./vendor/maplibre-gl/maplibre-gl.css" rel="stylesheet" />
+    <script>
+        (function () {
+            var ua = String(window.navigator && window.navigator.userAgent || '');
+            var platform = String(window.navigator && window.navigator.platform || '');
+            var maxTouchPoints = Number(window.navigator && window.navigator.maxTouchPoints || 0);
+            var isAppleMobile = /iPad|iPhone|iPod/.test(ua) || (/Mac/.test(platform) && maxTouchPoints > 1);
+            if (isAppleMobile) {
+                document.documentElement.setAttribute('data-native-platform', 'ios');
+            }
+
+            var mode = 'system';
+            try {
+                mode = String(window.localStorage.getItem('tokyorail.appearance.mode') || 'system');
+            } catch (err) {
+                mode = 'system';
+            }
+            var isDark = mode === 'dark';
+            if (mode !== 'dark' && mode !== 'light') {
+                try {
+                    isDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                } catch (err) {
+                    isDark = false;
+                }
+            }
+            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+        }());
+    </script>
     
     <link rel="stylesheet" href="./src/styles/tokens.css">
     <link rel="stylesheet" href="./src/styles/app.css">
@@ -17,6 +44,9 @@
 </head>
 <body>
 
+<div id="mobile-startup-splash" class="mobile-startup-splash" aria-hidden="true">
+    <img class="mobile-startup-splash-icon" src="./assets/icons/icon-android.png" alt="" decoding="async" />
+</div>
 <div id="map"></div>
 <div id="controls"></div>
 <div id="startup-timebar" class="settings-top-timebar" data-startup-lcp="1">

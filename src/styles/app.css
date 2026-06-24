@@ -13,6 +13,93 @@ html, body {
     overflow: hidden;
 }
 
+.mobile-startup-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    opacity: 1;
+    transition:
+        opacity 260ms ease,
+        visibility 260ms ease;
+    pointer-events: auto;
+    visibility: visible;
+}
+
+.mobile-startup-splash-icon {
+    width: 96px;
+    height: 96px;
+    border-radius: 24px;
+    filter: none;
+    object-fit: contain;
+    animation: mobile-startup-splash-pulse 1400ms ease-in-out infinite;
+}
+
+.mobile-startup-splash.is-hidden,
+.mobile-startup-splash.is-disabled {
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+}
+
+html[data-mobile-ui='1'] .mobile-startup-splash,
+html[data-native-platform='ios'] .mobile-startup-splash,
+body[data-mobile-ui='1'] .mobile-startup-splash {
+    display: flex;
+}
+
+html[data-mobile-ui='0']:not([data-native-platform='ios']) .mobile-startup-splash,
+body[data-mobile-ui='0']:not([data-native-platform='ios']) .mobile-startup-splash {
+    display: none;
+}
+
+@media (max-width: 760px), (pointer: coarse) {
+    .mobile-startup-splash {
+        display: flex;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .mobile-startup-splash {
+        background: #0d1117;
+    }
+
+    .mobile-startup-splash-icon {
+        filter: invert(1);
+    }
+}
+
+html[data-theme='light'] .mobile-startup-splash {
+    background: #fff;
+}
+
+html[data-theme='light'] .mobile-startup-splash-icon {
+    filter: none;
+}
+
+html[data-theme='dark'] .mobile-startup-splash {
+    background: #0d1117;
+}
+
+html[data-theme='dark'] .mobile-startup-splash-icon {
+    filter: invert(1);
+}
+
+@keyframes mobile-startup-splash-pulse {
+    0%,
+    100% {
+        opacity: 0.92;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.035);
+    }
+}
+
 .tokyo-map-attribution-control {
     position: absolute;
     right: 10px;

@@ -38,6 +38,7 @@ import { buildTransferCapsuleGeoJSON, addTransferCapsuleLayers, buildTransferCap
 import { installMapAttributionView } from './ui/mapAttributionView.js';
 import { installMobileBottomNav, MOBILE_BOTTOM_NAV_EVENT } from './ui/mobileBottomNav.js';
 import { createMobileUiModeController } from './ui/mobileUiMode.js';
+import { createMobileStartupSplashView } from './ui/mobileStartupSplashView.js';
 import { installCompanyLogoFailureVisibility } from './ui/companyLogoVisibility.js';
 import { Menu, buildMenuModel } from './features/menu/menu.js';
 import { createMobileMenu } from './features/menu/mobileMenu.js';
@@ -127,6 +128,7 @@ import { createRouteEndpointPopupRuntime } from './ui/routeEndpointPopups.js';
 import { createRoutePreviewViewportController } from './ui/routePreviewViewport.js';
 import { createBasemapThemeRuntime } from './app/basemapThemeRuntime.js';
 import { installAndroidBackRuntime } from './app/androidBackRuntime.js';
+import { createMobileStartupSplashRuntime } from './app/mobileStartupSplashRuntime.js';
 import { registerDebugZoomTools } from './app/debugZoomTools.js';
 import { bindMapStartup } from './app/mapStartup.js';
 import {
@@ -319,12 +321,26 @@ registerTokyoRailMapRuntime({
 mapEngine.addMetricScaleControl({ maxWidth: 100, position: 'bottom-left' });
 
 let mapAttributionView = null;
-const mobileUiMode = createMobileUiModeController({
+const mobileStartupSplashView = createMobileStartupSplashView();
+let mobileUiMode = null;
+const isMobileUiMode = () => mobileUiMode?.isMobile?.() === true;
+const isIosNativePlatform = () => (
+    document.documentElement?.dataset?.nativePlatform === 'ios'
+    || document.body?.dataset?.nativePlatform === 'ios'
+);
+const isMobileStartupSplashEnabled = () => isMobileUiMode() || isIosNativePlatform();
+mobileUiMode = createMobileUiModeController({
     onChange: () => {
         mapAttributionView?.apply?.();
+        mobileStartupSplashView.setEnabled?.(isMobileStartupSplashEnabled());
     }
 });
-const isMobileUiMode = () => mobileUiMode.isMobile();
+mobileStartupSplashView.setEnabled?.(isMobileStartupSplashEnabled());
+const mobileStartupSplashRuntime = createMobileStartupSplashRuntime({
+    mapEngine,
+    splashView: mobileStartupSplashView,
+    isEnabled: isMobileStartupSplashEnabled
+});
 const reloadForDesktopLayoutPreference = () => {
     window.requestAnimationFrame?.(() => window.location.reload());
     if (!window.requestAnimationFrame) window.location.reload();
@@ -5089,9 +5105,16 @@ const initMapApp = async () => {
 bindMapStartup({
     map,
     mapEngine,
-    start: () => initMapApp(),
+    start: async () => {
+        await initMapApp();
+        if (isMobileUiMode()) {
+            await basemapThemeRuntime.whenBasemapValidated?.();
+        }
+        await mobileStartupSplashRuntime.waitForBasemapThenDismiss();
+    },
     onError: (e) => {
         console.error('Map initialization failed', e);
+        mobileStartupSplashRuntime.dismiss();
     }
 });
 

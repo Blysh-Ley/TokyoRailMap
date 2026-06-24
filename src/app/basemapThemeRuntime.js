@@ -143,8 +143,9 @@ export const createBasemapThemeRuntime = ({
         systemThemeMedia.addListener(syncSystemAppearanceTheme);
     }
 
-    validateBasemapArchive().catch(() => {
+    const initialValidationPromise = validateBasemapArchive().catch(() => {
         basemapController.setPmtilesAvailable?.(false);
+        return false;
     });
 
     return {
@@ -164,6 +165,7 @@ export const createBasemapThemeRuntime = ({
         getTheme: () => mapTheme,
         setBasemapMode,
         syncBasemapStyle,
-        syncSystemAppearanceTheme
+        syncSystemAppearanceTheme,
+        whenBasemapValidated: () => initialValidationPromise
     };
 };
