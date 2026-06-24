@@ -87,7 +87,7 @@ import {
     writeTimetableViewMode,
     writeStationOffsetMode
 } from './services/appSettings.js';
-import { createMapEngine } from './services/mapEngine.js';
+import { BASEMAP_GLYPHS_URL, createMapEngine } from './services/mapEngine.js';
 import { createMobileTripFitBoundsController } from './services/mobileTripFitBounds.js';
 import { createAppUpdateApi } from './services/appUpdateService.js';
 import { createStore } from './store/appStore.js';
@@ -293,7 +293,7 @@ const mapEngine = createMapEngine({
     zoom: 11,
     style: {
         version: 8,
-        glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+        glyphs: BASEMAP_GLYPHS_URL,
         sources: {},
         layers: []
     }

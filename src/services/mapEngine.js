@@ -6,6 +6,10 @@ import {
     toPmtilesTileTemplate
 } from '../domain/osmBasemapPackage.js';
 import {
+    OPENFREEMAP_ATTRIBUTION_ITEMS,
+    OPENFREEMAP_GLYPHS_URL
+} from '../domain/openFreeMapBasemap.js';
+import {
     readAndroidPmtilesRange,
     shouldUseAndroidNativePmtiles
 } from './androidPmtilesArchiveSource.js';
@@ -346,6 +350,8 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         addSource: (...args) => map.addSource(...args),
         addLayer: (...args) => map.addLayer(...args),
         addImage: (...args) => map.addImage(...args),
+        removeLayer: (...args) => map.removeLayer(...args),
+        removeSource: (...args) => map.removeSource(...args),
         getLayer: (...args) => map.getLayer(...args),
         hasImage: (...args) => map.hasImage(...args),
         getSource: (...args) => map.getSource(...args),
@@ -402,7 +408,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
 };
 
 const OSM_VECTOR_SOURCE_ID = 'osm-vector-source';
-const BASEMAP_GLYPHS_URL = 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf';
+export const BASEMAP_GLYPHS_URL = OPENFREEMAP_GLYPHS_URL;
 
 const getBasemapBackgroundColor = (theme) => (
     getBasemapPalette(theme).background
@@ -740,6 +746,47 @@ export const createOsmBasemapStyle = ({
     };
 };
 
+const createBackgroundBasemapStyle = (theme = 'light', backgroundColor) => ({
+    version: 8,
+    glyphs: BASEMAP_GLYPHS_URL,
+    sources: {},
+    layers: [
+        {
+            id: 'tokyo-basemap-background-layer',
+            type: 'background',
+            paint: {
+                'background-color': backgroundColor || getBasemapBackgroundColor(theme),
+                'background-opacity': 1
+            }
+        }
+    ],
+    metadata: {
+        tokyoRailBasemap: {
+            sourceKind: 'none',
+            primarySourceId: null
+        }
+    }
+});
+
+const createOnlineBasemapExportStyle = (descriptor, theme = 'light') => {
+    if (!descriptor?.style) return createBackgroundBasemapStyle(theme);
+    return {
+        ...descriptor.style,
+        layers: [
+            createBackgroundBasemapStyle(theme, descriptor.backgroundColor).layers[0],
+            ...(descriptor.style.layers || [])
+        ],
+        metadata: {
+            ...(descriptor.style.metadata || {}),
+            tokyoRailBasemap: {
+                ...(descriptor.style.metadata?.tokyoRailBasemap || {}),
+                sourceKind: 'online-fallback',
+                primarySourceId: descriptor.primarySourceId || null
+            }
+        }
+    };
+};
+
 export const createBasemapController = ({
     mapEngine,
     initialTheme = 'light',
@@ -755,21 +802,65 @@ export const createBasemapController = ({
     let theme = initialTheme === 'dark' ? 'dark' : 'light';
     let mode = normalizeBasemapMode(initialMode);
     let hasPmtilesArchive = pmtilesAvailable === true;
+    let onlineBasemapStyle = null;
     const backgroundLayerId = 'tokyo-basemap-background-layer';
     const basemapLayerIds = Object.freeze(getOsmBasemapLayerIds());
 
-    const getBackgroundColor = () => getBasemapBackgroundColor(theme);
+    const shouldUseOnlineBasemap = () => (
+        !hasPmtilesArchive
+        && mode !== 'transparent'
+        && onlineBasemapStyle?.style
+    );
+    const getBackgroundColor = () => (
+        shouldUseOnlineBasemap()
+            ? onlineBasemapStyle.backgroundColor
+            : getBasemapBackgroundColor(theme)
+    );
     const getOverlayAnchorLayerId = () => (
         mapEngine.getLayer('lines-layer')
             ? 'lines-layer'
             : (mapEngine.getLayer('stations-layer') ? 'stations-layer' : undefined)
     );
-    const getFirstBasemapLayerId = () => basemapLayerIds.find((layerId) => mapEngine.getLayer(layerId)) || null;
+    const getActiveBasemapLayerIds = () => [
+        ...basemapLayerIds,
+        ...(onlineBasemapStyle?.layerIds || [])
+    ];
+    const getFirstBasemapLayerId = () => getActiveBasemapLayerIds().find((layerId) => mapEngine.getLayer(layerId)) || null;
+
+    const removeLayers = (layerIds = []) => {
+        for (const layerId of [...layerIds].reverse()) {
+            try {
+                if (layerId && mapEngine.getLayer(layerId)) mapEngine.removeLayer?.(layerId);
+            } catch {
+                // ignore cleanup races during style changes
+            }
+        }
+    };
+
+    const removeSources = (sourceIds = []) => {
+        for (const sourceId of sourceIds) {
+            try {
+                if (sourceId && mapEngine.getSource(sourceId)) mapEngine.removeSource?.(sourceId);
+            } catch {
+                // ignore cleanup races during style changes
+            }
+        }
+    };
+
+    const cleanupPmtilesBasemap = () => {
+        removeLayers(basemapLayerIds);
+        removeSources([OSM_VECTOR_SOURCE_ID]);
+    };
+
+    const cleanupOnlineBasemap = () => {
+        removeLayers(onlineBasemapStyle?.layerIds || []);
+        removeSources(onlineBasemapStyle?.sourceIds || []);
+    };
 
     const normalizeBasemapLayerOrder = () => {
         const overlayAnchorLayerId = getOverlayAnchorLayerId();
         try {
-            for (const layerId of basemapLayerIds) {
+            for (const layerId of getActiveBasemapLayerIds()) {
                 if (overlayAnchorLayerId && mapEngine.getLayer(layerId)) {
                     mapEngine.moveLayer(layerId, overlayAnchorLayerId);
                 }
@@ -816,6 +907,11 @@ export const createBasemapController = ({
 
     const setMode = (nextMode, nextTheme = theme) => {
         mode = normalizeBasemapMode(nextMode);
+        try {
+            ensureLayers();
+        } catch {
+            // Layer sync retries when the map style is ready.
+        }
         applyTheme(nextTheme);
     };
 
@@ -830,9 +926,27 @@ export const createBasemapController = ({
         return hasPmtilesArchive;
     };
 
+    const setOnlineBasemapStyle = (descriptor) => {
+        cleanupOnlineBasemap();
+        onlineBasemapStyle = descriptor?.style ? descriptor : null;
+        try {
+            ensureLayers();
+            applyTheme(theme);
+        } catch {
+            // Layer sync retries when the map style is ready.
+        }
+        return onlineBasemapStyle;
+    };
+
     const ensureLayers = () => {
         if (hasPmtilesArchive) mapEngine.ensurePmtilesProtocol?.();
         const items = getBasemapItems();
+
+        if (hasPmtilesArchive) {
+            cleanupOnlineBasemap();
+        } else {
+            cleanupPmtilesBasemap();
+        }
 
         if (hasPmtilesArchive && !mapEngine.getSource(OSM_VECTOR_SOURCE_ID)) {
             mapEngine.addSource(OSM_VECTOR_SOURCE_ID, createOsmBasemapSource(pmtilesUrl));
@@ -872,24 +986,67 @@ export const createBasemapController = ({
             }
         }
 
+        if (shouldUseOnlineBasemap()) {
+            const descriptor = onlineBasemapStyle;
+            Object.entries(descriptor.style.sources || {}).forEach(([sourceId, source]) => {
+                if (!mapEngine.getSource(sourceId)) mapEngine.addSource(sourceId, source);
+            });
+            for (const layer of descriptor.style.layers || []) {
+                if (!mapEngine.getLayer(layer.id)) {
+                    mapEngine.addLayer(layer, beforeLayerId);
+                }
+            }
+        } else if (!hasPmtilesArchive) {
+            cleanupOnlineBasemap();
+        }
+
         normalizeBasemapLayerOrder();
+    };
+
+    const getStyle = (options = {}) => {
+        const nextMode = normalizeBasemapMode(options.mode || mode);
+        const nextTheme = options.theme === 'dark' ? 'dark' : (options.theme === 'light' ? 'light' : theme);
+        if (hasPmtilesArchive) {
+            const style = createOsmBasemapStyle({
+                mode: nextMode,
+                theme: nextTheme,
+                pmtilesAvailable: true,
+                pmtilesUrl,
+                ...options
+            });
+            return {
+                ...style,
+                metadata: {
+                    ...(style.metadata || {}),
+                    tokyoRailBasemap: {
+                        sourceKind: nextMode === 'transparent' ? 'none' : 'pmtiles',
+                        primarySourceId: nextMode === 'transparent' ? null : OSM_VECTOR_SOURCE_ID
+                    }
+                }
+            };
+        }
+        if (nextMode !== 'transparent' && onlineBasemapStyle?.style) {
+            return createOnlineBasemapExportStyle(onlineBasemapStyle, nextTheme);
+        }
+        return createBackgroundBasemapStyle(nextTheme);
     };
 
     return {
         applyTheme,
         ensureLayers,
-        getAttributionItems: () => OSM_BASEMAP_ATTRIBUTION_ITEMS.map((item) => ({ ...item })),
+        getAttributionItems: () => (
+            shouldUseOnlineBasemap()
+                ? OPENFREEMAP_ATTRIBUTION_ITEMS
+                : OSM_BASEMAP_ATTRIBUTION_ITEMS
+        ).map((item) => ({ ...item })),
         setPmtilesAvailable,
+        setOnlineBasemapStyle,
         setMode,
-        getStyle: (options = {}) => createOsmBasemapStyle({
-            mode,
-            theme,
-            pmtilesAvailable: hasPmtilesArchive,
-            pmtilesUrl,
-            ...options
-        }),
+        getStyle,
+        getExportStyle: getStyle,
         getMode: () => mode,
         getPmtilesAvailable: () => hasPmtilesArchive,
+        getOnlineBasemapStyle: () => onlineBasemapStyle,
         getTheme: () => theme
     };
 };

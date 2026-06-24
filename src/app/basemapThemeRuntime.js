@@ -10,6 +10,12 @@ import {
     readOsmBasemapRuntimeConfig,
     verifyOsmBasemapArchive as defaultVerifyOsmBasemapArchive
 } from '../services/osmBasemapConfig.js';
+import {
+    ONLINE_BASEMAP_PROVIDER_NONE
+} from '../domain/openFreeMapBasemap.js';
+import {
+    loadOpenFreeMapBasemapStyle as defaultLoadOpenFreeMapBasemapStyle
+} from '../services/openFreeMapBasemapStyleService.js';
 
 const normalizeTheme = (theme) => (theme === 'dark' ? 'dark' : 'light');
 
@@ -45,6 +51,7 @@ export const createBasemapThemeRuntime = ({
     readBasemapRuntimeConfig = readOsmBasemapRuntimeConfig,
     resolveThemeFromAppearance = defaultResolveThemeFromAppearance,
     verifyOsmBasemapArchive = defaultVerifyOsmBasemapArchive,
+    loadOpenFreeMapBasemapStyle = defaultLoadOpenFreeMapBasemapStyle,
     archiveRetryDelays = [1000, 3000, 10000],
     documentRef = getDefaultDocument(),
     windowRef = getDefaultWindow()
@@ -57,6 +64,8 @@ export const createBasemapThemeRuntime = ({
 
     let mapTheme = initialTheme;
     let basemapMode = initialMode;
+    let basemapSourceKind = basemapRuntimeConfig.pmtilesAvailable === true ? 'pmtiles' : 'none';
+    let onlineFallbackRequestId = 0;
 
     const basemapController = createBasemapController({
         mapEngine,
@@ -72,16 +81,83 @@ export const createBasemapThemeRuntime = ({
     const setTimeoutFn = windowRef?.setTimeout?.bind?.(windowRef)
         || (typeof setTimeout === 'function' ? setTimeout : null);
 
+    const shouldUseOnlineFallback = () => (
+        basemapRuntimeConfig.onlineBasemapProvider !== ONLINE_BASEMAP_PROVIDER_NONE
+        && basemapMode !== 'transparent'
+    );
+
+    const syncBasemapStyle = () => {
+        const ready = ensureBasemapLayers();
+        if (!ready) return false;
+        basemapController.setMode(basemapMode, mapTheme);
+        return true;
+    };
+
+    const loadAndApplyOnlineFallbackStyle = async () => {
+        const requestId = ++onlineFallbackRequestId;
+        if (!shouldUseOnlineFallback()) {
+            basemapController.setOnlineBasemapStyle?.(null);
+            syncBasemapStyle();
+            return false;
+        }
+
+        try {
+            const descriptor = await loadOpenFreeMapBasemapStyle({
+                fetchFn: windowRef?.fetch?.bind?.(windowRef) || globalThis.fetch,
+                mode: basemapMode,
+                theme: mapTheme
+            });
+            if (requestId !== onlineFallbackRequestId || basemapSourceKind !== 'online-fallback') {
+                return false;
+            }
+            basemapController.setOnlineBasemapStyle?.(descriptor);
+            syncBasemapStyle();
+            return Boolean(descriptor);
+        } catch {
+            if (requestId === onlineFallbackRequestId) {
+                basemapController.setOnlineBasemapStyle?.(null);
+                syncBasemapStyle();
+            }
+            return false;
+        }
+    };
+
+    const queueOnlineFallbackStyleRefresh = () => {
+        if (basemapSourceKind !== 'online-fallback') return;
+        loadAndApplyOnlineFallbackStyle().catch(() => null);
+    };
+
+    const activatePmtilesBasemap = () => {
+        basemapSourceKind = 'pmtiles';
+        onlineFallbackRequestId += 1;
+        basemapController.setOnlineBasemapStyle?.(null);
+        basemapController.setPmtilesAvailable?.(true);
+        syncBasemapStyle();
+    };
+
+    const activateOnlineFallbackBasemap = async () => {
+        basemapSourceKind = shouldUseOnlineFallback() ? 'online-fallback' : 'none';
+        basemapController.setPmtilesAvailable?.(false);
+        if (basemapSourceKind !== 'online-fallback') {
+            basemapController.setOnlineBasemapStyle?.(null);
+            syncBasemapStyle();
+            return false;
+        }
+        return loadAndApplyOnlineFallbackStyle();
+    };
+
     const validateBasemapArchive = async (attempt = 0) => {
         const available = await verifyOsmBasemapArchive({
             fetchFn: windowRef?.fetch?.bind?.(windowRef) || globalThis.fetch,
             pmtilesUrl: basemapRuntimeConfig.pmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL,
             windowRef
         });
-        basemapController.setPmtilesAvailable?.(available);
         if (available) {
-            syncBasemapStyle();
-        } else if (setTimeoutFn && attempt < retryDelays.length) {
+            activatePmtilesBasemap();
+        } else {
+            activateOnlineFallbackBasemap().catch(() => null);
+        }
+        if (!available && setTimeoutFn && attempt < retryDelays.length) {
             setTimeoutFn(() => {
                 validateBasemapArchive(attempt + 1).catch(() => {
                     basemapController.setPmtilesAvailable?.(false);
@@ -101,22 +177,17 @@ export const createBasemapThemeRuntime = ({
         }
     };
 
-    const syncBasemapStyle = () => {
-        const ready = ensureBasemapLayers();
-        if (!ready) return false;
-        basemapController.setMode(basemapMode, mapTheme);
-        return true;
-    };
-
     const applyBasemapTheme = (theme) => {
         mapTheme = normalizeTheme(theme);
         syncBasemapStyle();
+        queueOnlineFallbackStyleRefresh();
         return mapTheme;
     };
 
     const setBasemapMode = (mode) => {
         basemapMode = normalizeBasemapMode(mode);
         syncBasemapStyle();
+        queueOnlineFallbackStyleRefresh();
         return basemapMode;
     };
 
@@ -143,8 +214,8 @@ export const createBasemapThemeRuntime = ({
         systemThemeMedia.addListener(syncSystemAppearanceTheme);
     }
 
-    const initialValidationPromise = validateBasemapArchive().catch(() => {
-        basemapController.setPmtilesAvailable?.(false);
+    const initialValidationPromise = validateBasemapArchive().catch(async () => {
+        await activateOnlineFallbackBasemap();
         return false;
     });
 
@@ -162,6 +233,7 @@ export const createBasemapThemeRuntime = ({
         getPackage: () => basemapRuntimeConfig.basemapPackage || null,
         getPmtilesAvailable: () => basemapController.getPmtilesAvailable?.() === true,
         getMode: () => basemapMode,
+        getBasemapSourceKind: () => basemapSourceKind,
         getTheme: () => mapTheme,
         setBasemapMode,
         syncBasemapStyle,

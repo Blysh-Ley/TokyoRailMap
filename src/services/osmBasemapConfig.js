@@ -9,6 +9,7 @@ import {
     shouldUseAndroidNativePmtiles,
     verifyAndroidPmtilesArchive
 } from './androidPmtilesArchiveSource.js';
+import { normalizeOnlineBasemapProvider } from '../domain/openFreeMapBasemap.js';
 
 const getDefaultWindow = () => (
     typeof window !== 'undefined' ? window : null
@@ -34,6 +35,7 @@ export const readOsmBasemapRuntimeConfig = ({
     const customPmtilesUrl = windowRef?.TOKYO_RAIL_OSM_BASEMAP_URL;
     const pmtilesUrl = customPmtilesUrl || appendDefaultOsmBasemapCacheKey(DEFAULT_OSM_BASEMAP_PMTILES_URL);
     const downloadUrl = windowRef?.TOKYO_RAIL_OSM_BASEMAP_DOWNLOAD_URL || customPmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL;
+    const onlineBasemapProvider = normalizeOnlineBasemapProvider(windowRef?.TOKYO_RAIL_ONLINE_BASEMAP_PROVIDER);
     const basemapPackage = createOsmBasemapPackage({
         pmtilesUrl,
         downloadUrl
@@ -41,6 +43,7 @@ export const readOsmBasemapRuntimeConfig = ({
 
     return {
         pmtilesUrl: basemapPackage.pmtilesUrl,
+        onlineBasemapProvider,
         basemapPackage
     };
 };

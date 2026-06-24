@@ -5,6 +5,7 @@ import {
     getHighlightTransferCapsuleSizesAtZoom
 } from '../../domain/highlightStyleSizing.js';
 import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js';
+import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
 
 /*
  * print.js
@@ -99,6 +100,13 @@ import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js'
     const EXPORT_ORIENTATIONS = new Set(['landscape', 'portrait']);
     const EXPORT_BASEMAP_SOURCE_ID = 'osm-vector-source';
 
+    const getExportBasemapPrimarySourceId = (style) => {
+        const sourceId = style?.metadata?.tokyoRailBasemap?.primarySourceId;
+        if (typeof sourceId === 'string' && sourceId) return sourceId;
+        if (style?.sources?.[EXPORT_BASEMAP_SOURCE_ID]) return EXPORT_BASEMAP_SOURCE_ID;
+        return null;
+    };
+
     const getRuntimeBaseMap = () => {
         try {
             return window?.TokyoRailMapRuntime?.getBaseMap?.() || window.__TokyoRailMap || null;
@@ -130,7 +138,7 @@ import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js'
     const buildFallbackExportBasemapStyle = (dark) => {
         return {
             version: 8,
-            glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+            glyphs: BASEMAP_GLYPHS_URL,
             sources: {},
             layers: [
                 {
@@ -155,6 +163,16 @@ import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js'
             // 兜底到自托管 PMTiles 背景样式。
         }
         return buildFallbackExportBasemapStyle(isDarkTheme());
+    };
+
+    const ensurePmtilesProtocolForStyle = (maplibregl, style) => {
+        if (style?.metadata?.tokyoRailBasemap?.sourceKind === 'pmtiles') {
+            ensurePmtilesProtocolForExport(maplibregl);
+            return;
+        }
+        if (style?.sources?.[EXPORT_BASEMAP_SOURCE_ID]) {
+            ensurePmtilesProtocolForExport(maplibregl);
+        }
     };
 
     const waitForMapLibre = ({
@@ -221,9 +239,7 @@ import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js'
             document.body.appendChild(container);
 
             const style = buildExportBasemapStyle();
-            if (style?.sources?.[EXPORT_BASEMAP_SOURCE_ID]) {
-                ensurePmtilesProtocolForExport(maplibregl);
-            }
+            ensurePmtilesProtocolForStyle(maplibregl, style);
 
             const map = new maplibregl.Map({
                 container,
@@ -235,6 +251,7 @@ import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js'
                 preserveDrawingBuffer: true,
                 pixelRatio: 1
             });
+            map.__tokyoRailExportBasemapSourceId = getExportBasemapPrimarySourceId(style);
 
             await new Promise((resolve) => {
                 if (map.loaded?.()) return resolve();
@@ -1210,6 +1227,23 @@ import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js'
         parts.push(`</g>`);
     };
 
+    const getExportAttributionText = () => {
+        try {
+            const items = window?.TokyoRailMapRuntime?.getMapAttributionItems?.() || [];
+            const labels = items
+                .filter((item) => item?.group === 'map' || !item?.group)
+                .map((item) => {
+                    const label = String(item?.label || '').trim();
+                    if (!label) return '';
+                    return label === 'OpenStreetMap' ? '© OpenStreetMap contributors' : label;
+                })
+                .filter(Boolean);
+            return labels.length ? `Map: ${labels.join(', ')}` : OSM_BASEMAP_ATTRIBUTION_TEXT;
+        } catch {
+            return OSM_BASEMAP_ATTRIBUTION_TEXT;
+        }
+    };
+
     const buildSvgFromBuilt = async ({ map, payload, built, backgroundImageHref, transparentBackground = false, capsules, stationLabelScale = 1 }) => {
         const container = map.getContainer?.();
         const rect = container?.getBoundingClientRect?.();
@@ -1426,7 +1460,7 @@ import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js'
         }
 
         parts.push(`</g>`);
-        appendExportAttributionSvg({ parts, width, height });
+        appendExportAttributionSvg({ parts, width, height, text: getExportAttributionText() });
         parts.push(`</svg>`);
         return parts.join('\n');
     };
@@ -1835,10 +1869,11 @@ import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js'
         pollMs = 160,
         onFallback = null
     } = {}) => {
+        let activeSourceId = sourceId;
         for (let attempt = 0; attempt <= Math.max(0, Number(maxReloadAttempts) || 0); attempt += 1) {
             try {
                 await waitForMapLibreBasemapTilesReadyForExport(map, {
-                    sourceId,
+                    sourceId: activeSourceId,
                     timeoutMs: Math.max(0, Number(checkEveryMs) || 0),
                     settleFrames,
                     pollMs
@@ -1859,6 +1894,7 @@ import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js'
                 }
 
                 await ensureStyleMatchesTheme(map);
+                activeSourceId = map.__tokyoRailExportBasemapSourceId || null;
 
                 // 给 style 切换一点点时间进入渲染循环
                 try { map.triggerRepaint?.(); } catch {}
@@ -1927,6 +1963,9 @@ import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js'
     const ensureStyleMatchesTheme = async (map) => {
         const style = buildExportBasemapStyle();
         if (typeof map.setStyle !== 'function') return;
+        const maplibregl = window.maplibregl;
+        ensurePmtilesProtocolForStyle(maplibregl, style);
+        map.__tokyoRailExportBasemapSourceId = getExportBasemapPrimarySourceId(style);
         map.setStyle(style);
         await waitForEventOnce(map, 'load', 5000);
     };
@@ -2141,7 +2180,7 @@ import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js'
 
                 await waitForEventOnce(vmap, 'moveend', 2000);
                 await waitForMapLibreBasemapTilesReadyForExportWithStyleFallback(vmap, {
-                    sourceId: EXPORT_BASEMAP_SOURCE_ID,
+                    sourceId: vmap.__tokyoRailExportBasemapSourceId || null,
                     checkEveryMs: 10000,
                     maxReloadAttempts: 3,
                 });
