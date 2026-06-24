@@ -1,6 +1,10 @@
 /legacy
 /tools
 /scripts/*
+!/scripts/build-all-releases.mjs
+!/scripts/build-ios-release.mjs
+!/scripts/collect-release-artifacts.mjs
+!/scripts/sync-native-versions.mjs
 !/scripts/strip-ios-company-logos.mjs
 /tests/
 
