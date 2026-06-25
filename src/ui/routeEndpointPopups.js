@@ -6,10 +6,20 @@ const removePopup = (popup) => {
     }
 };
 
+const removeMarker = (marker) => {
+    try {
+        marker?.remove?.();
+    } catch {
+        // keep marker cleanup non-fatal during preview transitions
+    }
+};
+
 export const createRouteEndpointPopupRuntime = ({
     mapEngine,
     getStationCoord,
     getIsDarkTheme = () => false,
+    createJourneyPickPinElement = null,
+    onTripEndpointPinStationIdsChange = () => {},
     documentRef = document
 } = {}) => {
     if (!mapEngine) {
@@ -18,14 +28,24 @@ export const createRouteEndpointPopupRuntime = ({
 
     let tripOriginPopups = [];
     let tripTerminalPopups = [];
+    let tripEndpointMarkers = [];
     let dirOriginPopups = [];
     let dirTerminalPopups = [];
+    let tripEndpointRenderToken = 0;
 
     const resolveStationCoord = (stationId) => {
         const sid = String(stationId || '').trim();
         if (!sid) return null;
         const coord = getStationCoord?.(sid);
         return Array.isArray(coord) && coord.length >= 2 ? coord : null;
+    };
+
+    const notifyTripEndpointPinStationIdsChange = (idsByType = {}) => {
+        try {
+            onTripEndpointPinStationIdsChange(idsByType);
+        } catch {
+            // keep endpoint marker rendering independent from label-position updates
+        }
     };
 
     const createEndpointPopup = ({ stationId, text, color, yOffset = 8 } = {}) => {
@@ -66,18 +86,54 @@ export const createRouteEndpointPopupRuntime = ({
     };
 
     const clearTripEndpointPopups = () => {
+        tripEndpointRenderToken += 1;
         for (const popup of tripOriginPopups) removePopup(popup);
         for (const popup of tripTerminalPopups) removePopup(popup);
+        for (const marker of tripEndpointMarkers) removeMarker(marker);
         tripOriginPopups = [];
         tripTerminalPopups = [];
+        tripEndpointMarkers = [];
+        notifyTripEndpointPinStationIdsChange();
     };
 
-    const updateTripEndpointPopups = (startStationId, endStationId) => {
+    const createEndpointPin = async ({ stationId, type = 'destination' } = {}) => {
+        const coord = resolveStationCoord(stationId);
+        if (!coord || typeof createJourneyPickPinElement !== 'function') return null;
+
+        const token = tripEndpointRenderToken;
+        try {
+            const element = await createJourneyPickPinElement({ type });
+            if (token !== tripEndpointRenderToken) return null;
+            const marker = mapEngine.createMarker({ element, anchor: 'bottom', offset: [0, 0] })
+                .setLngLat(coord);
+            mapEngine.addMarker(marker);
+            return marker;
+        } catch {
+            return null;
+        }
+    };
+
+    const updateTripEndpointPopups = (startStationId, endStationId, options = {}) => {
         clearTripEndpointPopups();
 
         const startId = String(startStationId || '').trim();
         const endId = String(endStationId || '').trim();
         if (!startId && !endId) return;
+
+        if (String(options?.displayMode || '').trim() === 'destination-pin-only') {
+            if (!endId) return;
+            const token = tripEndpointRenderToken;
+            createEndpointPin({ stationId: endId, type: 'destination' }).then((marker) => {
+                if (!marker) return;
+                if (token !== tripEndpointRenderToken) {
+                    removeMarker(marker);
+                    return;
+                }
+                tripEndpointMarkers = [marker];
+                notifyTripEndpointPinStationIdsChange({ destination: endId });
+            });
+            return;
+        }
 
         const originPopup = createEndpointPopup({
             stationId: startId,

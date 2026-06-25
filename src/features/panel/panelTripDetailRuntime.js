@@ -110,6 +110,7 @@ export const buildPanelTripPreviewScheduleArgs = ({
         virtualTimetable: buildVirtualTimetableChain(payloadSegments, toText(tripKey)),
         segments: payloadSegments,
         previewSource: 'panel-trip',
+        endpointDisplayMode: 'destination-pin-only',
         fitMode: toText(fitMode)
     };
 
@@ -246,6 +247,7 @@ export const buildPanelTripPreviewScheduleArgs = ({
                 forceIncludeNt: branchMode === 'split',
                 segments: normalizedChainSegments,
                 fitMode: payload.fitMode,
+                endpointDisplayMode: payload.endpointDisplayMode,
                 previewSource: payload.previewSource,
                 __previewSource: payload.__previewSource,
                 previewInteraction: payload.previewInteraction,
@@ -839,4 +841,3 @@ export const collectPanelTripDetailBranchLanesFromRefs = async ({
 
     return lanes;
 };
-

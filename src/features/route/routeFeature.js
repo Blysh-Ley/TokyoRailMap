@@ -436,7 +436,9 @@ export const createRouteFeature = ({
                 // Keep legacy route preview interactions non-fatal during renderer migration.
             }
 
-            updateEndpointPopups?.(built?.startStationId, built?.endStationId);
+            updateEndpointPopups?.(built?.startStationId, built?.endStationId, {
+                displayMode: normalizeKey(payload?.endpointDisplayMode)
+            });
             emitTripPreviewUpdated?.({ payload, built });
             setStationLabelMode?.('all');
             applySelectionEffects?.();

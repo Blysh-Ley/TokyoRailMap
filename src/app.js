@@ -384,6 +384,7 @@ const initMapApp = async () => {
     let stationLabelChipsAdapter = null;
     let fixedPopupStationId = null;
     const journeyPickPinnedStationIds = new Map();
+    const tripEndpointPinnedStationIds = new Map();
     let transferStationIdsByStationId = new Map();
     let previewTripPath = (_payload) => {};
     let clearTripPathPreview = () => {};
@@ -2984,6 +2985,10 @@ const initMapApp = async () => {
             const id = String(sid ?? '').trim();
             if (id && !ids.includes(id)) ids.push(id);
         }
+        for (const sid of tripEndpointPinnedStationIds.values()) {
+            const id = String(sid ?? '').trim();
+            if (id && !ids.includes(id)) ids.push(id);
+        }
         return ids;
     };
 
@@ -4015,7 +4020,16 @@ const initMapApp = async () => {
         const routeEndpointPopups = createRouteEndpointPopupRuntime({
             mapEngine,
             getStationCoord: (stationId) => stationCoordByIdBase.get(stationId) || stationCoordById.get(stationId),
-            getIsDarkTheme: () => document.documentElement.getAttribute('data-theme') === 'dark'
+            getIsDarkTheme: () => document.documentElement.getAttribute('data-theme') === 'dark',
+            createJourneyPickPinElement,
+            onTripEndpointPinStationIdsChange: (idsByType = {}) => {
+                tripEndpointPinnedStationIds.clear();
+                for (const type of ['origin', 'destination']) {
+                    const sid = String(idsByType?.[type] ?? '').trim();
+                    if (sid) tripEndpointPinnedStationIds.set(type, sid);
+                }
+                applyStationLabelPositionOverrides();
+            }
         });
 
         const routePreviewController = createRoutePreviewRuntimeController({
