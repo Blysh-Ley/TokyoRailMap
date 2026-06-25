@@ -92,3 +92,5 @@ assets/icons/icon.icns
 assets/readme-images/
 data/**/*.bak
 data/tmp/
+videos/
+renders/
