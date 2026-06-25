@@ -108,6 +108,7 @@ import {
 import {
     applyTemporarySourceLineOverrides,
     createEmptyPanelThroughServiceState,
+    reorderPanelThroughServiceLinesAfterHtml,
     resolvePanelThroughServiceSetup
 } from './panelStation.js';
 import {
@@ -4883,6 +4884,11 @@ export function createPanel(options = {}) {
 
         // 渲染 popup 同结构的内容（公司分组 + 线路）
         body.innerHTML = buildPanelCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId, railwaysOrderIndex, toText });
+        reorderPanelThroughServiceLinesAfterHtml(body, {
+            temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
+            throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
+            toText
+        });
         await enhancePanelLineHeaderIcons(body);
         applyDefaultPanelLineCollapse(body, displayServingIds.length > 3);
         openMobileStationOverview();

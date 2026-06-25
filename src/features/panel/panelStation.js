@@ -472,6 +472,160 @@ export const buildPanelStationRenderInputs = async ({
     };
 };
 
+// panelThroughServiceDisplayOrder.js
+const toText_panelThroughServiceDisplayOrder = (value) => String(value ?? '').trim();
+
+const normalizeTextList_panelThroughServiceDisplayOrder = (value, {
+    toText = toText_panelThroughServiceDisplayOrder
+} = {}) => {
+    const source = (() => {
+        if (Array.isArray(value)) return value;
+        if (value instanceof Set) return Array.from(value);
+        if (value && typeof value !== 'string' && typeof value[Symbol.iterator] === 'function') {
+            return Array.from(value);
+        }
+        return value ? [value] : [];
+    })();
+    return Array.from(new Set(source.map((item) => toText(item)).filter(Boolean)));
+};
+
+const getPanelThroughConfigSegmentLineIds = (config, {
+    toText = toText_panelThroughServiceDisplayOrder
+} = {}) => {
+    const derivedIds = normalizeTextList_panelThroughServiceDisplayOrder(config?.segmentLineIds, { toText });
+    if (derivedIds.length) return derivedIds;
+    return normalizeTextList_panelThroughServiceDisplayOrder(
+        (Array.isArray(config?.segments) ? config.segments : []).map((segment) => segment?.lineId),
+        { toText }
+    );
+};
+
+const isPanelLineElement = (value) => (
+    !!value?.classList?.contains?.('panel-line')
+    && typeof value?.getAttribute === 'function'
+);
+
+const addPanelThroughOrderGroupEntry = (groups, entry) => {
+    const overlaps = groups.filter((group) => (
+        entry.sourceIds.some((sourceId) => group.sourceIdSet.has(sourceId))
+    ));
+
+    if (!overlaps.length) {
+        groups.push({
+            sourceIdSet: new Set(entry.sourceIds),
+            throughEntries: [entry]
+        });
+        return;
+    }
+
+    const target = overlaps[0];
+    for (const sourceId of entry.sourceIds) target.sourceIdSet.add(sourceId);
+    target.throughEntries.push(entry);
+
+    for (const group of overlaps.slice(1)) {
+        for (const sourceId of group.sourceIdSet) target.sourceIdSet.add(sourceId);
+        target.throughEntries.push(...group.throughEntries);
+        const idx = groups.indexOf(group);
+        if (idx >= 0) groups.splice(idx, 1);
+    }
+};
+
+export const reorderPanelThroughServiceLinesAfterHtml = (root, {
+    temporarySourceLineIdsByDisplayLineId,
+    throughServiceConfigs = [],
+    toText = toText_panelThroughServiceDisplayOrder
+} = {}) => {
+    const companyLineContainers = Array.from(root?.querySelectorAll?.('.panel-company-lines') || []);
+    if (!companyLineContainers.length) return;
+
+    const configs = Array.isArray(throughServiceConfigs) ? throughServiceConfigs : [];
+    if (!configs.length) return;
+
+    for (const companyLinesEl of companyLineContainers) {
+        const lineEls = Array.from(companyLinesEl.children || []).filter(isPanelLineElement);
+        if (lineEls.length < 2) continue;
+
+        const lineElById = new Map();
+        const lineIndexById = new Map();
+        lineEls.forEach((lineEl, index) => {
+            const lineId = toText(lineEl.getAttribute('data-line-id'));
+            if (!lineId || lineElById.has(lineId)) return;
+            lineElById.set(lineId, lineEl);
+            lineIndexById.set(lineId, index);
+        });
+        if (!lineElById.size) continue;
+
+        const groups = [];
+        configs.forEach((config, configIndex) => {
+            const throughLineId = toText(config?.lineId);
+            if (!throughLineId || !lineElById.has(throughLineId)) return;
+
+            const runtimeSourceIds = normalizeTextList_panelThroughServiceDisplayOrder(
+                temporarySourceLineIdsByDisplayLineId instanceof Map
+                    ? temporarySourceLineIdsByDisplayLineId.get(throughLineId)
+                    : [],
+                { toText }
+            ).filter((lineId) => lineId !== throughLineId && lineElById.has(lineId));
+
+            const sourceIds = runtimeSourceIds.length
+                ? runtimeSourceIds
+                : getPanelThroughConfigSegmentLineIds(config, { toText })
+                    .filter((lineId) => lineId !== throughLineId && lineElById.has(lineId));
+
+            if (!sourceIds.length) return;
+            addPanelThroughOrderGroupEntry(groups, {
+                throughLineId,
+                configIndex,
+                sourceIds
+            });
+        });
+
+        if (!groups.length) continue;
+
+        const blockByAnchorLineId = new Map();
+        const managedLineIds = new Set();
+        for (const group of groups) {
+            const orderedSourceIds = Array.from(group.sourceIdSet)
+                .filter((lineId) => lineElById.has(lineId))
+                .sort((left, right) => lineIndexById.get(left) - lineIndexById.get(right));
+            if (!orderedSourceIds.length) continue;
+
+            const orderedThroughIds = Array.from(new Map(
+                group.throughEntries
+                    .filter((entry) => lineElById.has(entry.throughLineId))
+                    .sort((left, right) => left.configIndex - right.configIndex)
+                    .map((entry) => [entry.throughLineId, entry.throughLineId])
+            ).values());
+            if (!orderedThroughIds.length) continue;
+
+            const blockIds = [...orderedSourceIds, ...orderedThroughIds];
+            for (const lineId of blockIds) managedLineIds.add(lineId);
+            blockByAnchorLineId.set(orderedSourceIds[0], blockIds);
+        }
+
+        if (!blockByAnchorLineId.size) continue;
+
+        const nextLineEls = [];
+        const appendedGroups = new Set();
+        for (const lineEl of lineEls) {
+            const lineId = toText(lineEl.getAttribute('data-line-id'));
+            const blockIds = blockByAnchorLineId.get(lineId);
+            if (blockIds && !appendedGroups.has(lineId)) {
+                for (const blockLineId of blockIds) {
+                    const blockLineEl = lineElById.get(blockLineId);
+                    if (blockLineEl) nextLineEls.push(blockLineEl);
+                }
+                appendedGroups.add(lineId);
+                continue;
+            }
+            if (managedLineIds.has(lineId)) continue;
+            nextLineEls.push(lineEl);
+        }
+
+        nextLineEls.forEach((lineEl) => companyLinesEl.appendChild(lineEl));
+    }
+};
+
 // panelThroughServiceSetup.js
 const toText_panelThroughServiceSetup = (value) => String(value ?? '').trim();
 
