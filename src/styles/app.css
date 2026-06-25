@@ -4950,7 +4950,16 @@ body[data-mobile-ui='1'] .panel-trip-detail-transfer-hover-portal .panel-trip-de
 }
 
 .panel-trip-detail-grid-note {
-    overflow: hidden;
+    min-width: 0;
+    justify-self: stretch;
+    overflow: visible;
+}
+
+.panel-trip-detail-grid-note .panel-trip-detail-note-line {
+    flex: 0 0 auto;
+    min-width: max-content;
+    overflow: visible;
+    text-overflow: clip;
 }
 
 .panel-trip-detail-grid-break-marker {

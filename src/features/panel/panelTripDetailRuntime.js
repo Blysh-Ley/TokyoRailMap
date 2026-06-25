@@ -731,6 +731,40 @@ export const preparePanelTripDetailBranchMainFlow = ({
     };
 };
 
+export const mergePanelTripDetailBoundaryStops = (base, next, {
+    getStationAKey = (stationId) => stationId,
+    toText = defaultToText_panelTripDetailBranchMainFlow
+} = {}) => {
+    const out = Array.isArray(base) ? base.slice() : [];
+    const arr = Array.isArray(next) ? next : [];
+    if (!arr.length) return out;
+    if (!out.length) return arr.slice();
+
+    const last = out[out.length - 1];
+    const first = arr[0];
+    const lastStationId = toText(last?.stationId);
+    const firstStationId = toText(first?.stationId);
+    const sameById = !!lastStationId && lastStationId === firstStationId;
+    const lastAKey = toText(getStationAKey(lastStationId));
+    const firstAKey = toText(getStationAKey(firstStationId));
+    const sameByAKey = !!lastAKey && lastAKey === firstAKey;
+    if (!sameById && !sameByAKey) return out.concat(arr);
+
+    const merged = {
+        ...first,
+        arr: toText(last?.arr) || toText(first?.arr) || null,
+        arrPlus: toText(last?.arr) ? !!last?.arrPlus : !!first?.arrPlus,
+        dep: toText(first?.dep) || toText(last?.dep) || null,
+        depPlus: toText(first?.dep) ? !!first?.depPlus : !!last?.depPlus,
+        stationName: toText(first?.stationName) || toText(last?.stationName),
+        showOriginLabel: !!(last?.showOriginLabel || first?.showOriginLabel),
+        showTerminalLabel: !!(last?.showTerminalLabel || first?.showTerminalLabel)
+    };
+
+    out[out.length - 1] = merged;
+    return out.concat(arr.slice(1));
+};
+
 // panelTripDetailBranchLaneBuilder.js
 const defaultToText_panelTripDetailBranchLaneBuilder = (value) => String(value ?? '').trim();
 
@@ -752,12 +786,16 @@ export const buildPanelTripDetailBranchLaneFromChain = ({
     const chain = Array.isArray(chainTrips) ? chainTrips : [];
     if (!chain.length) return null;
 
+    const displayChain = kind === 'pt' ? chain.slice().reverse() : chain;
     let laneRows = [];
     const lanePreviewSegments = [];
 
-    for (const laneTrip of chain) {
+    for (const laneTrip of displayChain) {
+        const laneTripLineId = toText(getTripLineId(laneTrip));
         const rows = (Array.isArray(buildRowsForTrip(laneTrip)) ? buildRowsForTrip(laneTrip) : []).map((stop) => ({
             ...stop,
+            lineId: laneTripLineId,
+            sourceLineId: laneTripLineId,
             seg: kind,
             isMain: false
         }));
@@ -766,8 +804,8 @@ export const buildPanelTripDetailBranchLaneFromChain = ({
         if (laneStationIds.length >= 2) {
             lanePreviewSegments.push({
                 kind,
-                lineId: toText(getTripLineId(laneTrip)),
-                r: toText(getTripLineId(laneTrip)),
+                lineId: laneTripLineId,
+                r: laneTripLineId,
                 d: toText(laneTrip?.d),
                 stationIds: laneStationIds,
                 typeColor: toText(getTripTypeColor(laneTrip, trainTypeColorIndex))
@@ -777,7 +815,7 @@ export const buildPanelTripDetailBranchLaneFromChain = ({
         laneRows = mergeStops(laneRows, rows);
     }
 
-    const firstTrip = chain[0] || null;
+    const firstTrip = displayChain[0] || null;
     return {
         kind,
         lineId: getTripLineId(firstTrip),

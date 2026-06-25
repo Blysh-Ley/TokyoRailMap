@@ -955,6 +955,8 @@ export const renderPanelTripDetailGridLaneBlock = ({
     typeColor,
     rows,
     timeColStart,
+    noteColStart = 1,
+    noteColSpan = totalCols,
     stationColStart = 1,
     transferColStart = 0,
     totalCols,
@@ -970,31 +972,41 @@ export const renderPanelTripDetailGridLaneBlock = ({
     toText = defaultToText_panelTripDetailGridLaneBlockRenderer
 } = {}) => {
     const safeRows = Array.isArray(rows) ? rows : [];
-    const isPast = safeRows.length ? !!safeRows[0]?.isPast : false;
-    let html = renderPanelTripDetailGridNoteCell({
-        descriptor,
+    const safeLineId = toText(lineId || descriptor?.lineId);
+    const renderNote = (noteDescriptor, isPast) => renderPanelTripDetailGridNoteCell({
+        descriptor: noteDescriptor,
         typeName,
         typeColor,
         isPast,
-        colStart: 1,
-        colSpan: totalCols,
+        colStart: noteColStart,
+        colSpan: noteColSpan,
         renderTimetableNoteRowHtml,
         escapeHtml,
         toText
     });
 
-    const safeLineColor = toText(lineColor);
-    const safeLineId = toText(lineId || descriptor?.lineId);
+    if (!safeRows.length) {
+        return renderNote(descriptor, false);
+    }
+
+    let html = '';
+    let currentDisplayLineId = null;
     for (const row of safeRows) {
         const stationId = toText(row?.displayStationId || row?.stationId);
+        const rowLineId = toText(row?.displayLineId || row?.lineId || safeLineId);
+        if (rowLineId !== currentDisplayLineId) {
+            currentDisplayLineId = rowLineId;
+            html += renderNote(row?.displayLineDescriptor || descriptor, !!row?.isPast);
+        }
+        const safeLineColor = toText(row?.displayLineColor || row?.displayLineDescriptor?.color || lineColor);
         html += renderPanelTripDetailGridStopCellsSharedStation({
-            stop: { ...(row || {}), lineColor: safeLineColor, lineId: toText(row?.lineId || safeLineId) },
+            stop: { ...(row || {}), lineColor: safeLineColor, lineId: rowLineId },
             timeColStart,
             stationColStart,
             transferColStart,
             transferDisplay: row?.transferDisplay || null,
             lineColor: safeLineColor,
-            lineId: safeLineId,
+            lineId: rowLineId,
             rowMarkerCol: flowMarkerCol,
             rowMarkerText,
             stationCode: toText(row?.displayStationCode || resolveStationCode(stationId)),
@@ -1045,7 +1057,6 @@ export const renderPanelTripDetailBranchBreakRow = ({
     const safeBranchMode = toText(branchMode) === BRANCH_SPLIT_panelTripDetailBranchBreakRowRenderer ? BRANCH_SPLIT_panelTripDetailBranchBreakRowRenderer : 'merge';
     const breakStationId = toText(breakStop?.stationId || '');
     const pastCls = breakIsPast ? ' is-past' : '';
-    const safeStationCode = toText(stationCode);
     const safeStationName = toText(stationName || breakStop?.stationName || breakStationId);
     const rowStart = `<div class="panel-trip-detail-grid-break-row${pastCls}" style="grid-column:1 / span ${totalCols}; --panel-trip-detail-cols:${totalCols};">`;
     const rowEnd = '</div>';
@@ -1075,7 +1086,7 @@ export const renderPanelTripDetailBranchBreakRow = ({
 
     const breakStationText = breakStationId
         ? `${buildTimetableStationText({
-            stationCode: safeStationCode,
+            stationCode: '',
             stationName: safeStationName,
             stationId: breakStationId
         })}${safeBranchMode === BRANCH_SPLIT_panelTripDetailBranchBreakRowRenderer ? SPLIT_STATION_SUFFIX_panelTripDetailBranchBreakRowRenderer : MERGE_STATION_SUFFIX_panelTripDetailBranchBreakRowRenderer}`
@@ -1087,12 +1098,13 @@ export const renderPanelTripDetailBranchBreakRow = ({
         lineId: toText(lineId),
         lineColor: toText(lineColor),
         muted: breakIsPast,
-        stationCode: breakStationId ? safeStationCode : '',
-        stationName: breakStationText.replace(/^\S+\s+/, ''),
-        stationId: breakStationId
+        stationCode: '',
+        stationName: breakStationText,
+        stationId: '',
+        stationJumpEnabled: false
     });
 
-    return `${rowStart}${breakStationHtml}${markerLeft}${markerCenter}${markerRight}${rowEnd}`;
+    return `${rowStart}${markerLeft}${markerCenter}${markerRight}${breakStationHtml}${rowEnd}`;
 };
 
 // panelTripDetailBranchGridRenderer.js
@@ -1136,6 +1148,8 @@ export const renderPanelTripDetailBranchGridRows = ({
             totalCols,
             lineId: toText(mainDescriptor?.lineId),
             lineColor: mainLineColor,
+            noteColStart: 1,
+            noteColSpan: totalCols,
             resolveStationCode,
             renderPanelTripDetailStationCellHtml,
             renderTimetableNoteRowHtml,
@@ -1161,6 +1175,8 @@ export const renderPanelTripDetailBranchGridRows = ({
             totalCols,
             lineId: toText(lane?.descriptor?.lineId || lane?.lineId),
             lineColor: laneLineColor,
+            noteColStart: timeColStart,
+            noteColSpan: 2,
             flowMarkerCol,
             rowMarkerText: flowMarkerCol > 0 ? '||' : '',
             resolveStationCode,

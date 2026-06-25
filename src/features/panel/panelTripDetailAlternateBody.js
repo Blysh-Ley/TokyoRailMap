@@ -192,19 +192,30 @@ export const applyPanelTripDetailAlternateBodyDisplayToLanes = ({
     toText = defaultToText
 } = {}) => (Array.isArray(lanes) ? lanes : []).map((lane) => {
     const sourceLineId = toText(lane?.lineId || lane?.descriptor?.lineId);
-    const rows = (Array.isArray(lane?.rows) ? lane.rows : []).map((row) => ({
-        ...row,
-        ...resolvePanelTripDetailAlternateBodyStop({
+    const rows = (Array.isArray(lane?.rows) ? lane.rows : []).map((row) => {
+        const rowSourceLineId = toText(row?.sourceLineId || row?.lineId || sourceLineId);
+        const display = resolvePanelTripDetailAlternateBodyStop({
             alternateLineMembership,
             getLineMeta,
-            sourceLineId,
+            sourceLineId: rowSourceLineId,
             stationId: row?.stationId,
             stationName: row?.stationName,
             stationsIndex,
             toText
-        }),
-        sourceLineId
-    }));
+        });
+        const displayLineDescriptor = resolveLineDescriptor({
+            buildLineDescriptor,
+            getLineMeta,
+            lineId: display.displayLineId,
+            toText
+        }) || lane?.descriptor || null;
+        return {
+            ...row,
+            ...display,
+            displayLineDescriptor,
+            sourceLineId: rowSourceLineId
+        };
+    });
     const firstDisplayLineId = toText(rows.find((row) => toText(row?.displayLineId))?.displayLineId);
     const descriptor = firstDisplayLineId && firstDisplayLineId !== sourceLineId
         ? (resolveLineDescriptor({

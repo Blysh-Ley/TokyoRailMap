@@ -151,6 +151,7 @@ import {
 import { findPanelTripByKey } from './panelTripDetailRuntime.js';
 import {
     derivePanelTripDetailBranchRuntime,
+    mergePanelTripDetailBoundaryStops,
     resolvePanelTripDetailBranchRefIds
 } from './panelTripDetailRuntime.js';
 import { preparePanelTripDetailBranchMainFlow } from './panelTripDetailRuntime.js';
@@ -2969,19 +2970,10 @@ export function createPanel(options = {}) {
     };
 
     const mergeStops = (base, next) => {
-        const out = Array.isArray(base) ? base.slice() : [];
-        const arr = Array.isArray(next) ? next : [];
-        if (!arr.length) return out;
-        if (!out.length) return arr.slice();
-
-        const last = out[out.length - 1];
-        const first = arr[0];
-        const sameStation = last?.stationId && first?.stationId && last.stationId === first.stationId;
-        const sameTime = toText(last?.arr) === toText(first?.arr) && toText(last?.dep) === toText(first?.dep);
-        if (sameStation && sameTime) {
-            return out.concat(arr.slice(1));
-        }
-        return out.concat(arr);
+        return mergePanelTripDetailBoundaryStops(base, next, {
+            getStationAKey,
+            toText
+        });
     };
 
     const sameStopTime = (a, b) => {
