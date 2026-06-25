@@ -67,12 +67,15 @@ const getTripDetailTransferDedupTargets = (entry, { toText = defaultToText } = {
     return [{ key: `color||${company}||${iconColor}`, code: '' }];
 };
 
-export const buildCompactTripDetailTransferItemHtmls = (entries, { toText = defaultToText } = {}) => {
+export const buildCompactTripDetailTransferItemHtmls = (entries, {
+    htmlKey = 'html',
+    toText = defaultToText
+} = {}) => {
     const seenIconKeys = new Set();
     const compactHtmls = [];
 
     for (const entry of Array.isArray(entries) ? entries : []) {
-        const html = toText(entry?.html);
+        const html = toText(entry?.[htmlKey] || entry?.html);
         if (!html) continue;
         const targets = getTripDetailTransferDedupTargets(entry, { toText });
         if (!targets.length) {
@@ -109,20 +112,26 @@ const buildTripDetailTransferEntryFromLineMeta = (lineMeta, {
 
     const safeStationCode = toText(stationCode);
     let lineIconHtml = '';
+    let mutedLineIconHtml = '';
     if (safeStationCode) {
         const badgeEl = createStationCodeBadgeElement({ code: safeStationCode, color: lineColor, routeId });
+        const mutedBadgeEl = createStationCodeBadgeElement({ code: safeStationCode, color: lineColor, routeId, muted: true });
         lineIconHtml = formatPanelTripDetailTransferStationBadgeHtml(badgeEl);
+        mutedLineIconHtml = formatPanelTripDetailTransferStationBadgeHtml(mutedBadgeEl);
     } else if (code || lineColor) {
         const iconEl = createLineIconElement({ routeId, code, color: lineColor });
         lineIconHtml = formatPanelTripDetailLineIconHtml(iconEl);
+        mutedLineIconHtml = lineIconHtml;
     }
 
     const html = `<span class="panel-trip-detail-transfer-item">${lineIconHtml}<span class="panel-trip-detail-transfer-line-name" style="color:${escapeHtml(lineColor)}">${escapeHtml(displayName)}</span></span>`;
+    const mutedHtml = `<span class="panel-trip-detail-transfer-item">${mutedLineIconHtml || lineIconHtml}<span class="panel-trip-detail-transfer-line-name" style="color:${escapeHtml(lineColor)}">${escapeHtml(displayName)}</span></span>`;
     return {
         routeId,
         company,
         displayName,
         html,
+        mutedHtml,
         iconCodes: [safeStationCode || code].filter(Boolean),
         iconColor: lineColor
     };
@@ -197,23 +206,34 @@ export const buildTripDetailTransferDisplayByStationId = async ({
         const displayName = toText(meta?.name) || routeId;
         const iconMeta = await getResolvedRouteIconMeta(routeId, { color: lineColor });
         let lineIconHtml = '';
+        let mutedLineIconHtml = '';
         if (stationCode) {
             const badgeEl = createStationCodeBadgeElement({
                 code: stationCode,
                 color: toText(iconMeta?.color) || lineColor,
                 routeId: toText(iconMeta?.id) || routeId
             });
+            const mutedBadgeEl = createStationCodeBadgeElement({
+                code: stationCode,
+                color: toText(iconMeta?.color) || lineColor,
+                routeId: toText(iconMeta?.id) || routeId,
+                muted: true
+            });
             lineIconHtml = formatPanelTripDetailTransferStationBadgeHtml(badgeEl);
+            mutedLineIconHtml = formatPanelTripDetailTransferStationBadgeHtml(mutedBadgeEl);
         } else if (iconMeta && (iconMeta.code || iconMeta.color)) {
             const iconEl = createLineIconElement({ routeId: iconMeta.id, code: iconMeta.code, color: iconMeta.color || lineColor });
             lineIconHtml = formatPanelTripDetailLineIconHtml(iconEl);
+            mutedLineIconHtml = lineIconHtml;
         }
         const html = `<span class="panel-trip-detail-transfer-item">${lineIconHtml}<span class="panel-trip-detail-transfer-line-name" style="color:${escapeHtml(lineColor)}">${escapeHtml(displayName)}</span></span>`;
+        const mutedHtml = `<span class="panel-trip-detail-transfer-item">${mutedLineIconHtml || lineIconHtml}<span class="panel-trip-detail-transfer-line-name" style="color:${escapeHtml(lineColor)}">${escapeHtml(displayName)}</span></span>`;
         const entry = {
             routeId,
             company,
             displayName,
             html,
+            mutedHtml,
             iconCodes: [stationCode || toText(iconMeta?.code)].filter(Boolean),
             iconColor: toText(iconMeta?.color) || lineColor
         };
@@ -260,9 +280,11 @@ export const buildTripDetailTransferDisplayByStationId = async ({
         }
         const popoverItemHtmls = sortedEntries.map((entry) => toText(entry?.html)).filter(Boolean);
         const itemHtmls = buildCompactTripDetailTransferItemHtmls(sortedEntries, { toText });
+        const mutedItemHtmls = buildCompactTripDetailTransferItemHtmls(sortedEntries, { htmlKey: 'mutedHtml', toText });
         if (!itemHtmls.length && !popoverItemHtmls.length) continue;
         out.set(stationId, {
             itemHtmls,
+            mutedItemHtmls,
             popoverItemHtmls,
             rowCount: Math.max(1, Math.ceil(itemHtmls.length / 5)),
             popoverRowCount: Math.max(1, Math.ceil(popoverItemHtmls.length / 5)),

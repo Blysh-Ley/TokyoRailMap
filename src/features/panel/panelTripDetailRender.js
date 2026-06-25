@@ -499,15 +499,18 @@ export const renderPanelTripDetailTransferCellHtml = ({
     className = 'panel-trip-detail-transfer',
     style = '',
     itemHtmls = [],
+    mutedItemHtmls = null,
     popoverItemHtmls = null,
     rowCount = 1,
     popoverRowCount = 1,
-    label = ''
+    label = '',
+    muted = false
 } = {}) => {
-    const items = Array.isArray(itemHtmls) ? itemHtmls.map((value) => String(value || '').trim()).filter(Boolean) : [];
+    const mainItemHtmls = muted && Array.isArray(mutedItemHtmls) ? mutedItemHtmls : itemHtmls;
+    const items = Array.isArray(mainItemHtmls) ? mainItemHtmls.map((value) => String(value || '').trim()).filter(Boolean) : [];
     const popoverItems = Array.isArray(popoverItemHtmls)
         ? popoverItemHtmls.map((value) => String(value || '').trim()).filter(Boolean)
-        : items;
+        : (Array.isArray(itemHtmls) ? itemHtmls.map((value) => String(value || '').trim()).filter(Boolean) : items);
     const safeClass = toText_panelTripDetailStationRenderer(className);
     const safeStyle = toText_panelTripDetailStationRenderer(style);
     const attrs = [
@@ -586,7 +589,10 @@ export const renderPanelTripDetailStopRowHtml = ({
                 stationName,
                 stationId
             })}
-            ${renderPanelTripDetailTransferCellHtml(transferDisplay || {})}
+            ${renderPanelTripDetailTransferCellHtml({
+                ...(transferDisplay || {}),
+                muted
+            })}
         </div>
     `;
 };
@@ -919,7 +925,8 @@ export const renderPanelTripDetailGridStopCellsSharedStation = ({
             html: renderPanelTripDetailTransferCellHtml({
                 className: `panel-trip-detail-transfer panel-trip-detail-grid-cell${pastCls}`,
                 style: `grid-column:${transferCol};`,
-                ...(transferDisplay || {})
+                ...(transferDisplay || {}),
+                muted: !!s.isPast
             })
         });
     }
