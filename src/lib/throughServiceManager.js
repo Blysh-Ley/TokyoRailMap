@@ -29,6 +29,20 @@ const getLineIdFromStationId = (stationId) => {
 
 const createThroughServiceConfig = (base) => {
     const category = toText(base?.category);
+    const rawRequiredThroughStationToken = base?.requiredThroughStationToken;
+    const requiredThroughStationToken = (() => {
+        if (!rawRequiredThroughStationToken) return null;
+        if (typeof rawRequiredThroughStationToken === 'object' && !Array.isArray(rawRequiredThroughStationToken)) {
+            const station = toText(rawRequiredThroughStationToken.station);
+            if (!station) return null;
+            return Object.freeze({
+                station,
+                through: rawRequiredThroughStationToken.through === true
+            });
+        }
+        const station = toText(rawRequiredThroughStationToken);
+        return station ? Object.freeze({ station, through: false }) : null;
+    })();
     const codeBadges = Object.freeze(
         (Array.isArray(base?.codeBadges) ? base.codeBadges : [])
             .map((badge) => Object.freeze({
@@ -56,6 +70,8 @@ const createThroughServiceConfig = (base) => {
         color: toText(base?.color),
         codeBadges,
         hiddenEntityLineIds: freezeArray(base?.hiddenEntityLineIds),
+        requiredThroughStationToken,
+        excludeNmTrips: base?.excludeNmTrips !== false,
         directionRule: Object.freeze({ ...(base?.directionRule || {}) }),
         segments,
         get codes() {
@@ -84,6 +100,7 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
             { lineId: 'JR-East.Utsunomiya', code: 'JU' },
             { lineId: 'JR-East.Tokaido', code: 'JT' }
         ],
+        requiredThroughStationToken: { station: 'Tokyo', through: true },
         directionRule: { southNode: 'Tokyo', northNode: 'Ueno' },
         segments: [
             { lineId: 'JR-East.Tokaido', from: 'JR-East.Tokaido.Tokyo', to: 'JR-East.Tokaido.Atami' },
@@ -102,6 +119,7 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
         color: '#E31F26',
         codeBadges: [{ lineId: 'JR-East.ShonanShinjuku', code: 'JS' }],
         hiddenEntityLineIds: ['JR-East.ShonanShinjuku'],
+        requiredThroughStationToken: { station: 'Shinjuku', through: true },
         directionRule: { southNode: 'Shibuya', northNode: 'Shinjuku' },
         segments: [
             { lineId: 'JR-East.ShonanShinjuku', from: 'JR-East.ShonanShinjuku.Ofuna', to: 'JR-East.ShonanShinjuku.Omiya' },
@@ -119,6 +137,7 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
         lineName: '上野东京线(常磐线)',
         color: '#00B261',
         codeBadges: [{ lineId: 'JR-East.JobanRapid', code: 'JJ' }],
+        requiredThroughStationToken: { station: 'Tokyo', through: true },
         directionRule: { southNode: 'Tokyo', northNode: 'Ueno' },
         segments: [
             { lineId: 'JR-East.JobanRapid', from: 'JR-East.JobanRapid.Shinagawa', to: 'JR-East.JobanRapid.Toride' },
@@ -138,7 +157,8 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
         lineName: '横须贺线·总武线(快速)',
         color: '#007AC1',
         codeBadges: [{ lineId: 'JR-East.Yokosuka', code: 'JO' }],
-        hiddenEntityLineIds: ['JR-East.Yokosuka', 'JR-East.SobuRapid'],
+        //hiddenEntityLineIds: ['JR-East.Yokosuka', 'JR-East.SobuRapid'],
+        requiredThroughStationToken: { station: 'Tokyo', through: true },
         directionRule: { southNode: 'Shinagawa', northNode: 'ShinNihombashi' },
         segments: [
             { lineId: 'JR-East.Yokosuka', from: 'JR-East.Yokosuka.Tokyo', to: 'JR-East.Yokosuka.Kurihama' },
@@ -334,30 +354,134 @@ const getRefs = (trip, key) => {
     return Array.from(new Set(raw.map((x) => toText(x)).filter(Boolean)));
 };
 
-const collectTripStationIdsFromTrip = (trip, visitedSet) => {
-    const tt = Array.isArray(trip?.tt) ? trip.tt : [];
-    for (const stop of tt) {
-        const sid = toText(stop?.s);
-        if (!sid) continue;
-        visitedSet.add(sid);
-    }
+const getTripRefLineIds = (trip) => {
+    return [...getRefs(trip, 'pt'), ...getRefs(trip, 'nt')]
+        .map((refId) => getLineIdFromStationId(refId))
+        .filter(Boolean);
 };
 
-const classifyTripByThroughServiceSegments = (visitedStationIds) => {
+const getTripIdentityKeys = (trip) => {
+    const keys = new Set(buildTripFilterKeys(trip));
+    return keys;
+};
+
+const getFirstStopToken = (trip) => {
+    const tt = Array.isArray(trip?.tt) ? trip.tt : [];
+    return getStationToken(tt[0]?.s);
+};
+
+const getLastStopToken = (trip) => {
+    const tt = Array.isArray(trip?.tt) ? trip.tt : [];
+    return getStationToken(tt.length ? tt[tt.length - 1]?.s : '');
+};
+
+const getStationToken = (stationId) => {
+    const sid = toText(stationId);
+    if (!sid) return '';
+    const parts = sid.split('.').map((part) => toText(part)).filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : '';
+};
+
+const hasTripNmMarker = (trip) => {
+    if (!trip || typeof trip !== 'object') return false;
+    if (!Object.prototype.hasOwnProperty.call(trip, 'nm')) return false;
+    const nm = trip.nm;
+    if (Array.isArray(nm)) return nm.length > 0;
+    if (nm && typeof nm === 'object') return Object.keys(nm).length > 0;
+    return toText(nm) !== '';
+};
+
+const doesRefMatchTrip = (refId, tripKeySet) => {
+    const ref = toText(refId);
+    if (!ref || !(tripKeySet instanceof Set)) return false;
+    if (tripKeySet.has(ref)) return true;
+    const base = ref.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '');
+    return !!base && tripKeySet.has(base);
+};
+
+const hasRequiredThroughStation = (trips, requiredRule) => {
+    const requiredStation = toText(requiredRule?.station || requiredRule);
+    if (!requiredStation) return true;
+    const requiresThrough = requiredRule?.through === true;
+
+    const list = Array.isArray(trips) ? trips : [];
+    let hasStation = false;
+    const allTripKeys = new Set();
+    for (const trip of list) {
+        for (const key of getTripIdentityKeys(trip)) {
+            allTripKeys.add(key);
+        }
+    }
+
+    const endpointTokens = new Set();
+    for (const trip of list) {
+        const tt = Array.isArray(trip?.tt) ? trip.tt : [];
+        for (const stop of tt) {
+            if (getStationToken(stop?.s) === requiredStation) {
+                hasStation = true;
+            }
+        }
+
+        if (!requiresThrough) continue;
+
+        const hasPreviousInChain = getRefs(trip, 'pt').some((refId) => doesRefMatchTrip(refId, allTripKeys));
+        const hasNextInChain = getRefs(trip, 'nt').some((refId) => doesRefMatchTrip(refId, allTripKeys));
+        if (!hasPreviousInChain) {
+            const token = getFirstStopToken(trip);
+            if (token) endpointTokens.add(token);
+        }
+        if (!hasNextInChain) {
+            const token = getLastStopToken(trip);
+            if (token) endpointTokens.add(token);
+        }
+    }
+
+    if (!hasStation) return false;
+    return !requiresThrough || !endpointTokens.has(requiredStation);
+};
+
+const classifyTripByThroughServiceSegments = (trips) => {
+    const list = Array.isArray(trips) ? trips : [];
     let best = null;
     for (const info of THROUGH_SERVICE_CONFIGS) {
         const stationSet = info.stationIdSet;
         if (!(stationSet instanceof Set) || !stationSet.size) continue;
+        if (info.excludeNmTrips !== false && list.some((trip) => hasTripNmMarker(trip))) continue;
+        const segmentLineIdSet = new Set(info.segmentLineIds || []);
+        const requiredThroughStationToken = info.requiredThroughStationToken;
 
         const matchedLineIds = new Set();
         let matchedStationCount = 0;
-        for (const stationId of visitedStationIds) {
-            if (!stationSet.has(stationId)) continue;
-            matchedStationCount += 1;
-            const lineId = getLineIdFromStationId(stationId);
-            if (lineId) matchedLineIds.add(lineId);
+        let hasStation = false;
+        let isInsideCategory = true;
+
+        for (const trip of list) {
+            for (const refLineId of getTripRefLineIds(trip)) {
+                if (!segmentLineIdSet.has(refLineId)) {
+                    isInsideCategory = false;
+                    break;
+                }
+            }
+            if (!isInsideCategory) break;
+
+            const tt = Array.isArray(trip?.tt) ? trip.tt : [];
+            for (const stop of tt) {
+                const stationId = toText(stop?.s);
+                if (!stationId) continue;
+                hasStation = true;
+                if (!stationSet.has(stationId)) {
+                    isInsideCategory = false;
+                    break;
+                }
+                matchedStationCount += 1;
+                const lineId = getLineIdFromStationId(stationId);
+                if (lineId) matchedLineIds.add(lineId);
+            }
+            if (!isInsideCategory) break;
         }
 
+        if (!isInsideCategory || !hasStation) continue;
+        if (!hasRequiredThroughStation(list, requiredThroughStationToken)) continue;
         if (matchedLineIds.size < 2) continue;
         const score = (matchedLineIds.size * 1000) + matchedStationCount;
         if (!best || score > best.score) {
@@ -369,14 +493,7 @@ const classifyTripByThroughServiceSegments = (visitedStationIds) => {
 
 export const detectThroughServiceCategoryFromTrips = (trips) => {
     const list = Array.isArray(trips) ? trips : [];
-
-    const visitedStationIds = new Set();
-
-    for (const trip of list) {
-        collectTripStationIdsFromTrip(trip, visitedStationIds);
-    }
-
-    return classifyTripByThroughServiceSegments(visitedStationIds);
+    return classifyTripByThroughServiceSegments(list);
 };
 
 const isTripStoppingAtStation = (trip, stationIdSet) => {
