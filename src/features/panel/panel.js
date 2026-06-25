@@ -3483,7 +3483,7 @@ export function createPanel(options = {}) {
         const throughCategoryLabel = currentSuInfo ? currentSuInfo.lineName : '';
 
         const throughCategoryColor = toText(THROUGH_CATEGORY_COLOR[throughCategory] || '');
-        const useBranchGridLayout = branchCount >= 2 && !throughCategoryLabel;
+        const useBranchGridLayout = branchCount >= 2;
         let rowsHtml = '';
         const {
             tripDetailTableClass,
@@ -3549,15 +3549,63 @@ export function createPanel(options = {}) {
                 toText,
                 tripLineId: getTripLineId(trip)
             });
+            const buildThroughBranchDescriptor = (descriptor = null, fallbackLineId = '') => {
+                if (!throughCategoryLabel) return descriptor;
+                return {
+                    ...(descriptor || {}),
+                    lineId: toText(descriptor?.lineId || fallbackLineId),
+                    text: throughCategoryLabel,
+                    name: throughCategoryLabel,
+                    lineName: throughCategoryLabel,
+                    color: throughCategoryColor || toText(descriptor?.color)
+                };
+            };
+            const applyThroughCategoryIdentityToBranchLane = (lane = null) => {
+                if (!throughCategoryLabel || !lane) return lane;
+                const laneDescriptor = buildThroughBranchDescriptor(lane.descriptor, lane.lineId);
+                return {
+                    ...lane,
+                    descriptor: laneDescriptor,
+                    typeColor: throughCategoryColor || toText(lane.typeColor),
+                    rows: (Array.isArray(lane.rows) ? lane.rows : []).map((row) => ({
+                        ...row,
+                        displayLineDescriptor: buildThroughBranchDescriptor(
+                            row?.displayLineDescriptor || lane.descriptor,
+                            row?.displayLineId || lane.lineId
+                        ),
+                        displayLineColor: throughCategoryColor || toText(row?.displayLineColor),
+                        lineColor: throughCategoryColor || toText(row?.lineColor)
+                    }))
+                };
+            };
+            const applyThroughCategoryIdentityToBranchRows = (rows = [], descriptor = null, fallbackLineId = '') => (
+                !throughCategoryLabel
+                    ? rows
+                    : (Array.isArray(rows) ? rows : []).map((row) => ({
+                        ...row,
+                        displayLineDescriptor: buildThroughBranchDescriptor(
+                            row?.displayLineDescriptor || descriptor,
+                            row?.displayLineId || fallbackLineId
+                        ),
+                        displayLineColor: throughCategoryColor || toText(row?.displayLineColor),
+                        lineColor: throughCategoryColor || toText(row?.lineColor)
+                    }))
+            );
+            const displayMainDescriptor = buildThroughBranchDescriptor(mainDescriptor, getTripLineId(trip) || lineId);
+            const displayMainRows = applyThroughCategoryIdentityToBranchRows(mainRows, mainDescriptor, getTripLineId(trip) || lineId);
+            const displayPrimaryLane = applyThroughCategoryIdentityToBranchLane(primaryLane);
+            const displaySecondaryLanes = throughCategoryLabel
+                ? secondaryLanes.map((lane) => applyThroughCategoryIdentityToBranchLane(lane))
+                : secondaryLanes;
             rowsHtml += renderPanelTripDetailBranchGridRows({
                 branchMode,
                 buildTimetableStationText,
                 escapeHtml,
                 firstBranchMarkerCol,
-                mainDescriptor,
-                mainRows,
+                mainDescriptor: displayMainDescriptor,
+                mainRows: displayMainRows,
                 markRowsPastByCurrentStation,
-                primaryLane,
+                primaryLane: displayPrimaryLane,
                 primaryTimeColStart,
                 stationColStart,
                 transferColStart,
@@ -3568,10 +3616,10 @@ export function createPanel(options = {}) {
                 renderTimetableNoteRowHtml,
                 renderTripDetailMomentHtml,
                 resolveStationCode: (stationId) => toText(stationsIndex?.idToCode?.get?.(stationId) || ''),
-                secondaryLanes,
+                secondaryLanes: displaySecondaryLanes,
                 toText,
                 totalCols,
-                typeColor,
+                typeColor: throughCategoryColor || typeColor,
                 typeName
             });
         }

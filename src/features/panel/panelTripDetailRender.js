@@ -973,6 +973,12 @@ export const renderPanelTripDetailGridLaneBlock = ({
 } = {}) => {
     const safeRows = Array.isArray(rows) ? rows : [];
     const safeLineId = toText(lineId || descriptor?.lineId);
+    const getNoteKey = (noteDescriptor = null) => [
+        toText(noteDescriptor?.text || noteDescriptor?.name || noteDescriptor?.lineName),
+        toText(noteDescriptor?.color),
+        toText(typeName),
+        toText(typeColor)
+    ].join('\u0000');
     const renderNote = (noteDescriptor, isPast) => renderPanelTripDetailGridNoteCell({
         descriptor: noteDescriptor,
         typeName,
@@ -991,12 +997,18 @@ export const renderPanelTripDetailGridLaneBlock = ({
 
     let html = '';
     let currentDisplayLineId = null;
+    let currentNoteKey = null;
     for (const row of safeRows) {
         const stationId = toText(row?.displayStationId || row?.stationId);
         const rowLineId = toText(row?.displayLineId || row?.lineId || safeLineId);
         if (rowLineId !== currentDisplayLineId) {
             currentDisplayLineId = rowLineId;
-            html += renderNote(row?.displayLineDescriptor || descriptor, !!row?.isPast);
+            const rowNoteDescriptor = row?.displayLineDescriptor || descriptor;
+            const rowNoteKey = getNoteKey(rowNoteDescriptor);
+            if (rowNoteKey !== currentNoteKey) {
+                currentNoteKey = rowNoteKey;
+                html += renderNote(rowNoteDescriptor, !!row?.isPast);
+            }
         }
         const safeLineColor = toText(row?.displayLineColor || row?.displayLineDescriptor?.color || lineColor);
         html += renderPanelTripDetailGridStopCellsSharedStation({

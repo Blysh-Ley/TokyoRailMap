@@ -179,6 +179,23 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
             { lineId: 'JR-East.Narita', from: 'JR-East.Narita.Sakura', to: 'JR-East.Narita.Katori' },
             { lineId: 'JR-East.Kashima', from: 'JR-East.Kashima.Sawara', to: 'JR-East.Kashima.Kashimajingu' }
         ]
+    }),
+    createThroughServiceConfig({
+        operator: 'JR-East',
+        category: 'NariraExpress',
+        lineId: 'TokyoRail.Temp.NariraExpress',
+        lineName: '成田特快',
+        color: '#ff0000',
+        codeBadges: [{ lineId: 'JR-East.NaritaExpress', code: "NE'X" }],
+        requiredThroughStationToken: { station: "NaritaAirportTerminal2and3", through: true },
+        directionRule: { southNode: "NaritaAirportTerminal2and3", northNode: 'NaritaAirportTerminal1' },
+        excludeNmTrips: false,
+        segments: [
+            { lineId: 'JR-East.SobuRapid', from: 'JR-East.SobuRapid.Tokyo', to: "JR-East.SobuRapid.NaritaAirportTerminal1" },
+            { lineId: 'JR-East.Yokosuka', from: 'JR-East.Yokosuka.Tokyo', to: 'JR-East.Yokosuka.Ofuna' },
+            { lineId: 'JR-East.YamanoteFreight', from: 'JR-East.YamanoteFreight.Tokyo', to: 'JR-East.YamanoteFreight.Shibuya' },
+            { lineId: 'JR-East.ShonanShinjuku', from: 'JR-East.ShonanShinjuku.Shinjuku', to: 'JR-East.ShonanShinjuku.Shibuya' }
+        ]
     })
 ]);
 

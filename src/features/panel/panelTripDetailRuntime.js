@@ -29,6 +29,7 @@ const buildSegmentsWithIdentity_panelTripDetailPreviewPayloadBuilder = (segments
 } = {}) => segments.map((seg) => withTripPreviewLineIdentity(seg, { toText }));
 
 const buildPreviewSegmentsFromSegmentsWithPast_panelTripDetailPreviewPayloadBuilder = ({
+    forcedTypeColor = '',
     kindFilter,
     payloadTypeColor = '',
     segmentsWithPast = [],
@@ -49,7 +50,7 @@ const buildPreviewSegmentsFromSegmentsWithPast_panelTripDetailPreviewPayloadBuil
             offsetLineId: toText(seg?.offsetLineId || seg?.line_offset_id),
             d: toText(seg?.d),
             stationIds,
-            typeColor: toText(seg?.typeColor || payloadTypeColor)
+            typeColor: toText(forcedTypeColor || seg?.typeColor || payloadTypeColor)
         });
     }
     return buildSegmentsWithIdentity_panelTripDetailPreviewPayloadBuilder(out, { toText });
@@ -114,7 +115,8 @@ export const buildPanelTripPreviewScheduleArgs = ({
         fitMode: toText(fitMode)
     };
 
-    if (!throughCategoryLabel && branchMode && Array.isArray(activeBranchLanes) && activeBranchLanes.length >= 2) {
+    if (branchMode && Array.isArray(activeBranchLanes) && activeBranchLanes.length >= 2) {
+        const throughBranchTypeColor = toText(throughCategoryColor);
         const mainSegForPreview = segmentsWithPast.find((segment) => toText(segment?.kind) === 'main') || null;
         const mainSegStationIds = Array.isArray(mainSegForPreview?.rows)
             ? mainSegForPreview.rows.map((row) => toText(row?.stationId)).filter(Boolean)
@@ -123,12 +125,14 @@ export const buildPanelTripPreviewScheduleArgs = ({
         const mainSegDir = toText(mainSegForPreview?.d || trip?.d);
 
         const previewPtContextSegments = buildPreviewSegmentsFromSegmentsWithPast_panelTripDetailPreviewPayloadBuilder({
+            forcedTypeColor: throughBranchTypeColor,
             kindFilter: 'pt',
             payloadTypeColor: payload.typeColor,
             segmentsWithPast,
             toText
         });
         const previewNtContextSegments = buildPreviewSegmentsFromSegmentsWithPast_panelTripDetailPreviewPayloadBuilder({
+            forcedTypeColor: throughBranchTypeColor,
             kindFilter: 'nt',
             payloadTypeColor: payload.typeColor,
             segmentsWithPast,
@@ -158,7 +162,7 @@ export const buildPanelTripPreviewScheduleArgs = ({
                         offsetLineId: toText(seg?.offsetLineId || seg?.line_offset_id),
                         d: toText(seg?.d || laneDir),
                         stationIds: Array.isArray(seg?.stationIds) ? seg.stationIds.map((value) => toText(value)).filter(Boolean) : [],
-                        typeColor: toText(seg?.typeColor || lane?.typeColor || payload?.typeColor)
+                        typeColor: toText(throughBranchTypeColor || seg?.typeColor || lane?.typeColor || payload?.typeColor)
                     })));
                 } else if (laneStationIds.length >= 2) {
                     chainSegments.push(addPreviewLineIdentity({
@@ -167,7 +171,7 @@ export const buildPanelTripPreviewScheduleArgs = ({
                         r: laneLineId,
                         d: laneDir,
                         stationIds: laneStationIds,
-                        typeColor: toText(lane?.typeColor || payload?.typeColor)
+                        typeColor: toText(throughBranchTypeColor || lane?.typeColor || payload?.typeColor)
                     }));
                 }
                 if (mainSegStationIds.length >= 2) {
@@ -177,7 +181,7 @@ export const buildPanelTripPreviewScheduleArgs = ({
                         r: toText(mainSegForPreview?.r || mainSegLineId),
                         d: mainSegDir,
                         stationIds: mainSegStationIds,
-                        typeColor: toText(payload?.typeColor)
+                        typeColor: toText(throughBranchTypeColor || payload?.typeColor)
                     }));
                 }
                 chainSegments.push(...previewNtContextSegments);
@@ -190,7 +194,7 @@ export const buildPanelTripPreviewScheduleArgs = ({
                         r: toText(mainSegForPreview?.r || mainSegLineId),
                         d: mainSegDir,
                         stationIds: mainSegStationIds,
-                        typeColor: toText(payload?.typeColor)
+                        typeColor: toText(throughBranchTypeColor || payload?.typeColor)
                     }));
                 }
                 if (lanePreviewSegments.length) {
@@ -202,7 +206,7 @@ export const buildPanelTripPreviewScheduleArgs = ({
                         offsetLineId: toText(seg?.offsetLineId || seg?.line_offset_id),
                         d: toText(seg?.d || laneDir),
                         stationIds: Array.isArray(seg?.stationIds) ? seg.stationIds.map((value) => toText(value)).filter(Boolean) : [],
-                        typeColor: toText(seg?.typeColor || lane?.typeColor || payload?.typeColor)
+                        typeColor: toText(throughBranchTypeColor || seg?.typeColor || lane?.typeColor || payload?.typeColor)
                     })));
                 } else if (laneStationIds.length >= 2) {
                     chainSegments.push(addPreviewLineIdentity({
@@ -211,7 +215,7 @@ export const buildPanelTripPreviewScheduleArgs = ({
                         r: laneLineId,
                         d: laneDir,
                         stationIds: laneStationIds,
-                        typeColor: toText(lane?.typeColor || payload?.typeColor)
+                        typeColor: toText(throughBranchTypeColor || lane?.typeColor || payload?.typeColor)
                     }));
                 }
             }
