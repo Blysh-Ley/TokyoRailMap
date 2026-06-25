@@ -1,10 +1,10 @@
 {
-    "JR-East.ChuoSobuLocal":-1,
+    "JR-East.ChuoSobuLocal":0,
     "JR-East.JobanRapid":-1,
     "JR-East.Joban":-1,
     "Keisei.NaritaSkyAccess":-1,
     "JR-East.KeihinTohokuNegishi":1,
-    "JR-East.Yokosuka":0,
+    "JR-East.Yokosuka":1,
     "TokyoMetro.Yurakucho":-2,
     "TokyoMetro.Fukutoshin":-1,
     "TokyoMetro.Tozai":-1,
@@ -13,7 +13,7 @@
     "JR-East.ShonanShinjuku":1,
     "JR-East.SaikyoKawagoe":-1,
     "JR-East.KeiyoFutamataBranch":1,
-    "JR-East.Tokaido":1,
+    "JR-East.Tokaido":0,
     "Toei.Mita":-1,
     "Tobu.Kameido":1,
     "JR-Central.Gotemba":1,
@@ -24,7 +24,7 @@
     "Tokyu.Toyoko":1,
     "Tokyu.TokyuTamagawa":-1,
     "MIR.TsukubaExpress":1,
-    "JR-East.SotetsuDirect":1,
+    "JR-East.SotetsuDirect":0,
     "TokyoMetro.Hanzomon":1,
     "Tokyu.DenEnToshi":-1,
     "Tokyu.Kodomonokuni":1,
@@ -32,5 +32,8 @@
     "YokohamaMunicipal.Green":-1,
     "Keisei.Matsudo":1,
     "Keisei.Chiba":1,
-    "Keisei.Chihara":1
+    "Keisei.Chihara":1,
+    "JR-East.YamanoteFreight":1,
+    "JR-East.TokaidoFreight":1,
+    "JR-East.SobuRapid":-1
 }
