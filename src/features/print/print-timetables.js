@@ -37,6 +37,25 @@ import {
     const getPrintServiceDayLabel = (serviceDay) => (
         PRINT_SERVICE_DAY_LABELS[toText(serviceDay)] || toText(serviceDay) || '\u672a\u77e5'
     );
+    const resolvePrintStationInfoHtml = (...candidates) => {
+        for (const candidate of candidates) {
+            const html = toText(candidate);
+            if (html) return html;
+        }
+        return '';
+    };
+    const normalizePrintStationInfoElement = (root, { lineColor = '' } = {}) => {
+        if (!root?.querySelectorAll) return root;
+        const fallbackColor = toText(lineColor);
+        const passBadges = Array.from(root.querySelectorAll('.panel-station-info-type.is-pass'));
+        for (const badge of passBadges) {
+            badge.classList.remove('is-pass');
+            const inlineBg = toText(badge.style?.backgroundColor || badge.getAttribute?.('style') || '').toLowerCase();
+            const isFallbackGray = inlineBg.includes('#ddd') || inlineBg.includes('221, 221, 221');
+            if (fallbackColor && isFallbackGray) badge.style.backgroundColor = fallbackColor;
+        }
+        return root;
+    };
 
     const nowIsoCompact = () => {
         const d = new Date();
@@ -445,7 +464,7 @@ import {
         const dirLabel = toText(detail.dirLabel) || toText(detail.dirKey) || '未知方向';
         const serviceDay = toText(detail.serviceDay) === 'SaturdayHoliday' ? '休息日' : '工作日';
         const lineSuffixHtml = toText(detail.lineSuffixHtml);
-        const stationInfoHtml = toText(detail.stationInfoHtml);
+        const stationInfoHtml = resolvePrintStationInfoHtml(detail.stationInfoHtml);
 
         const head = document.createElement('div');
         head.className = 'timetable-print-head';
@@ -510,7 +529,7 @@ import {
             const stationInfoHost = document.createElement('div');
             stationInfoHost.innerHTML = stationInfoHtml;
             const stationInfoEl = stationInfoHost.firstElementChild;
-            if (stationInfoEl) line.appendChild(stationInfoEl);
+            if (stationInfoEl) line.appendChild(normalizePrintStationInfoElement(stationInfoEl, { lineColor }));
         }
 
         const dir = document.createElement('div');
@@ -834,7 +853,11 @@ import {
             ? `${baseDirLabel ? `${baseDirLabel}\u65b9\u5411 / ` : ''}\u5e73\u65e5\u30fb\u5468\u516d\u30fb\u8282\u5047\u65e5\u6642\u523b\u8868`
             : (toText(firstDir.serviceDay) === 'SaturdayHoliday' ? '周六·休息日时刻表' : '平日时刻表'));
         const lineSuffixHtml = toText(detail.lineSuffixHtml);
-        const stationInfoHtml = toText(detail.stationInfoHtml);
+        const stationInfoHtml = resolvePrintStationInfoHtml(
+            detail.stationInfoHtml,
+            firstDir.stationInfoHtml,
+            triggerDir.stationInfoHtml
+        );
         const lineHeaderHtml = toText(detail.lineHeaderHtml);
         const timetablePalette = resolveTimetablePrintPalette({
             lineColor,
@@ -986,27 +1009,29 @@ import {
             const temp = document.createElement('div');
             temp.innerHTML = stationInfoHtml;
             const el = temp.querySelector('.panel-station-info-types');
-            if (el) line.appendChild(el);
-            el.style.display = 'flex';
-            el.style.flexWrap = 'wrap';      
-            el.style.justifyContent = 'center';
-            el.style.alignItems = 'center'; 
-            
-            // 2. 创建分隔线元素
-            const separator = document.createElement('div');
-            separator.className = 'print-separator'; // 可以加个类名方便以后调 CSS
-            
-            // 设置分隔线样式
-            separator.style.width = '24%';
-            separator.style.marginLeft = '38%';
-            separator.style.height = '1px';
-            separator.style.backgroundColor =  '#ccc'; 
-            separator.style.marginTop = '10px'; // 设置上下间距
-            separator.style.marginBottom = '5px';
-            separator.style.flexShrink = '0'; // 防止在 flex 布局中被压缩
+            if (el) {
+                line.appendChild(normalizePrintStationInfoElement(el, { lineColor }));
+                el.style.display = 'flex';
+                el.style.flexWrap = 'wrap';
+                el.style.justifyContent = 'center';
+                el.style.alignItems = 'center';
 
-            // 3. 将分隔线插入到 line 中，它会自动排在 el 的后面
-            line.appendChild(separator);
+                // 2. 创建分隔线元素
+                const separator = document.createElement('div');
+                separator.className = 'print-separator'; // 可以加个类名方便以后调 CSS
+
+                // 设置分隔线样式
+                separator.style.width = '24%';
+                separator.style.marginLeft = '38%';
+                separator.style.height = '1px';
+                separator.style.backgroundColor =  '#ccc';
+                separator.style.marginTop = '10px'; // 设置上下间距
+                separator.style.marginBottom = '5px';
+                separator.style.flexShrink = '0'; // 防止在 flex 布局中被压缩
+
+                // 3. 将分隔线插入到 line 中，它会自动排在 el 的后面
+                line.appendChild(separator);
+            }
         }
 
         // 时刻表
@@ -1792,6 +1817,9 @@ import {
 
             if (Array.isArray(pageDetailRaw?.dirs) && pageDetailRaw.dirs.length) {
                 for (const dirRaw of pageDetailRaw.dirs) {
+                    if (!toText(group.stationInfoHtml) && toText(dirRaw?.stationInfoHtml)) {
+                        group.stationInfoHtml = dirRaw.stationInfoHtml;
+                    }
                     const viewMode = toText(dirRaw?.timetableViewMode)
                         || toText(pageDetailRaw?.timetableViewMode)
                         || toText(detail?.timetableViewMode);

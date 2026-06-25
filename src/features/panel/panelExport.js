@@ -1,4 +1,5 @@
 // panelExportCapture.js
+import { createStationCodeBadgeElement } from '../../lib/line-icons.js';
 import { shareOrSaveImageArtifact } from '../../services/nativeExportShareService.js';
 
 const HTML2CANVAS_SRC_panelExportCapture = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
@@ -229,6 +230,106 @@ export const restoreScrollableState = (states, {
     }
 };
 
+const restoreAll_panelExportCapture = (restoreFns = []) => {
+    for (let index = restoreFns.length - 1; index >= 0; index -= 1) {
+        try {
+            restoreFns[index]?.();
+        } catch {
+            // ignore teardown errors
+        }
+    }
+};
+
+export const applyPanelTripDetailExportOriginalColors = (element, {
+    HTMLElementRef = globalThis.HTMLElement
+} = {}) => {
+    if (!HTMLElementRef || !(element instanceof HTMLElementRef)) return () => {};
+
+    const restoreFns = [];
+    const nodes = [element, ...Array.from(element.querySelectorAll?.('*') || [])];
+    for (const node of nodes) {
+        if (!(node instanceof HTMLElementRef)) continue;
+        for (const className of ['is-past', 'is-pass']) {
+            if (!node.classList?.contains?.(className)) continue;
+            node.classList.remove(className);
+            restoreFns.push(() => node.classList.add(className));
+        }
+    }
+
+    for (const shell of Array.from(element.querySelectorAll?.('.panel-trip-detail-transfer-shell') || [])) {
+        const main = shell.querySelector?.('.panel-trip-detail-transfer-items-main');
+        const popover = shell.querySelector?.('.panel-trip-detail-transfer-items-popover');
+        const popoverHtml = defaultToText_panelExportCapture(popover?.innerHTML);
+        if (!main || !popoverHtml) continue;
+        const previousHtml = main.innerHTML;
+        main.innerHTML = popoverHtml;
+        restoreFns.push(() => {
+            main.innerHTML = previousHtml;
+        });
+    }
+
+    for (const badge of Array.from(element.querySelectorAll?.('.rw-station-code-badge[data-station-badge-muted="1"]') || [])) {
+        if (!(badge instanceof HTMLElementRef)) continue;
+        const code = defaultToText_panelExportCapture(badge.dataset?.code);
+        if (!code) continue;
+        const replacement = createStationCodeBadgeElement({
+            code,
+            color: defaultToText_panelExportCapture(badge.dataset?.lineColor),
+            routeId: defaultToText_panelExportCapture(badge.dataset?.routeId),
+            design: defaultToText_panelExportCapture(badge.dataset?.stationBadgeDesign)
+        });
+        if (!replacement) continue;
+        for (const className of Array.from(badge.classList || [])) {
+            replacement.classList.add(className);
+        }
+        replacement.style.cssText = badge.style?.cssText || '';
+        badge.replaceWith(replacement);
+        restoreFns.push(() => {
+            replacement.replaceWith(badge);
+        });
+    }
+
+    for (const passBadge of Array.from(element.querySelectorAll?.('.panel-station-info-type') || [])) {
+        if (!(passBadge instanceof HTMLElementRef)) continue;
+        const inlineBg = defaultToText_panelExportCapture(passBadge.style?.backgroundColor || '').toLowerCase();
+        if (inlineBg !== 'rgb(221, 221, 221)' && inlineBg !== '#ddd') continue;
+        const previousBg = passBadge.style.backgroundColor;
+        const lineColor = defaultToText_panelExportCapture(passBadge.closest?.('.panel-line')?.style?.color);
+        if (!lineColor) continue;
+        passBadge.style.backgroundColor = lineColor;
+        restoreFns.push(() => {
+            passBadge.style.backgroundColor = previousBg;
+        });
+    }
+
+    for (const colorNode of Array.from(element.querySelectorAll?.('[data-panel-export-original-color]') || [])) {
+        if (!(colorNode instanceof HTMLElementRef)) continue;
+        const originalColor = defaultToText_panelExportCapture(colorNode.getAttribute?.('data-panel-export-original-color'));
+        if (!originalColor) continue;
+        const previousColor = colorNode.style.color;
+        colorNode.style.color = originalColor;
+        restoreFns.push(() => {
+            colorNode.style.color = previousColor;
+        });
+    }
+
+    for (const backgroundNode of Array.from(element.querySelectorAll?.('[data-panel-export-original-background]') || [])) {
+        if (!(backgroundNode instanceof HTMLElementRef)) continue;
+        const originalBackground = defaultToText_panelExportCapture(backgroundNode.getAttribute?.('data-panel-export-original-background'));
+        if (!originalBackground) continue;
+        const previousBackground = backgroundNode.style.background;
+        const previousBackgroundColor = backgroundNode.style.backgroundColor;
+        backgroundNode.style.background = originalBackground;
+        backgroundNode.style.backgroundColor = originalBackground;
+        restoreFns.push(() => {
+            backgroundNode.style.background = previousBackground;
+            backgroundNode.style.backgroundColor = previousBackgroundColor;
+        });
+    }
+
+    return () => restoreAll_panelExportCapture(restoreFns);
+};
+
 export const downloadBlob = (blob, filename, {
     URLRef = globalThis.URL,
     documentRef = globalThis.document,
@@ -252,6 +353,7 @@ export const exportElementToPng = async (element, filenameBase, buttonEl, {
     ensureHtml2canvas = ensurePanelHtml2canvas,
     applyDesktopExportLayoutFn = applyPanelTripDetailDesktopExportLayout,
     collectScrollableStateFn = collectScrollableState,
+    applyOriginalColorsFn = applyPanelTripDetailExportOriginalColors,
     restoreScrollableStateFn = restoreScrollableState,
     nextFrameFn = nextFrame,
     canvasToBlobPngFn = canvasToBlobPng,
@@ -268,12 +370,14 @@ export const exportElementToPng = async (element, filenameBase, buttonEl, {
     const exportClass = 'is-panel-trip-detail-exporting';
     let exportStyleEl = null;
     let restoreDesktopExportLayout = () => {};
+    let restoreOriginalColors = () => {};
 
     try {
         if (button) button.disabled = true;
         const html2canvas = await ensureHtml2canvas({ documentRef, windowRef });
         restoreDesktopExportLayout = applyDesktopExportLayoutFn(element, { HTMLElementRef });
         const states = collectScrollableStateFn(element, { HTMLElementRef, windowRef });
+        restoreOriginalColors = applyOriginalColorsFn(element, { HTMLElementRef });
         await nextFrameFn(windowRef?.requestAnimationFrame?.bind?.(windowRef));
         await nextFrameFn(windowRef?.requestAnimationFrame?.bind?.(windowRef));
         let blob = null;
@@ -326,6 +430,8 @@ export const exportElementToPng = async (element, filenameBase, buttonEl, {
                 }
             }
             restoreScrollableStateFn(states, { HTMLElementRef });
+            restoreOriginalColors();
+            restoreOriginalColors = () => {};
             restoreDesktopExportLayout();
             restoreDesktopExportLayout = () => {};
         }
@@ -385,7 +491,7 @@ export const collectLinePrintPayloads = ({
     if (!lineEl || !lineId || !(dirPrintPayloadByKey instanceof Map)) return null;
 
     const lineSuffixHtml = toText(lineEl.querySelector?.('[data-line-suffix-row]')?.outerHTML || '');
-    const stationInfoHtml = toText(lineEl.querySelector?.('[data-station-info]')?.outerHTML || '');
+    const domStationInfoHtml = toText(lineEl.querySelector?.('[data-station-info]')?.outerHTML || '');
     const lineHeaderHtml = toText(lineEl.querySelector?.('.panel-line-header')?.outerHTML || '');
     const stationName = toText(lineEl?.getAttribute?.('data-station-name') || '');
     const dirs = [];
@@ -402,10 +508,11 @@ export const collectLinePrintPayloads = ({
             lineId,
             lineHeaderHtml,
             lineSuffixHtml,
-            stationInfoHtml
+            stationInfoHtml: toText(payload.stationInfoHtml) || domStationInfoHtml
         };
         dirs.push(nextPayload);
     }
+    const stationInfoHtml = toText(dirs.find((payload) => toText(payload?.stationInfoHtml))?.stationInfoHtml) || domStationInfoHtml;
 
     return {
         dirs,

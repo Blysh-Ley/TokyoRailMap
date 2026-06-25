@@ -610,6 +610,8 @@ export const renderPanelTripDetailNoteRow = ({
 } = {}) => {
     if (!descriptor?.text) return '';
     const past = !!isPast;
+    const originalLineColor = toText(descriptor.color);
+    const originalTypeColor = toText(typeColor);
     return renderTimetableNoteRowHtml({
         rowClass: past ? 'panel-trip-detail-note-row is-past' : 'panel-trip-detail-note-row',
         dotClass: 'panel-trip-detail-note-dot',
@@ -619,7 +621,10 @@ export const renderPanelTripDetailNoteRow = ({
         lineColor: past ? '#ccc' : toText(descriptor.color),
         dotColor: past ? '#ccc' : toText(descriptor.color),
         typeText: toText(typeName),
-        typeColor: past ? '' : toText(typeColor)
+        typeColor: past ? '' : toText(typeColor),
+        lineOriginalColor: past ? originalLineColor : '',
+        dotOriginalColor: past ? originalLineColor : '',
+        typeOriginalColor: past ? originalTypeColor : ''
     });
 };
 
@@ -846,10 +851,12 @@ export const renderPanelTripDetailGridNoteCell = ({
 } = {}) => {
     if (!descriptor?.text) return '';
     const past = !!isPast;
-    const lineColor = past ? '#ccc' : toText(descriptor?.color);
-    const dotColor = past ? '#ccc' : toText(descriptor?.color);
+    const originalLineColor = toText(descriptor?.color);
+    const originalTypeColor = toText(typeColor);
+    const lineColor = past ? '#ccc' : originalLineColor;
+    const dotColor = past ? '#ccc' : originalLineColor;
     const safeTypeName = toText(typeName);
-    const safeTypeColor = past ? '' : toText(typeColor);
+    const safeTypeColor = past ? '' : originalTypeColor;
     const noteCls = `panel-trip-detail-note-row panel-trip-detail-grid-note${past ? ' is-past' : ''}`;
     const col = Number(colStart) || 1;
     const span = Math.max(1, Number(colSpan) || 3);
@@ -864,14 +871,17 @@ export const renderPanelTripDetailGridNoteCell = ({
             lineColor,
             dotColor,
             typeText: safeTypeName,
-            typeColor: safeTypeColor
+            typeColor: safeTypeColor,
+            lineOriginalColor: past ? originalLineColor : '',
+            dotOriginalColor: past ? originalLineColor : '',
+            typeOriginalColor: past ? originalTypeColor : ''
         });
     }
     return `
         <div class="${noteCls}" style="grid-column:${col} / span ${span};">
-            <span class="panel-trip-detail-note-dot"${dotColor ? ` style="background:${escapeHtml(dotColor)}"` : ''}></span>
-            <span class="panel-trip-detail-note-line"${lineColor ? ` style="color:${escapeHtml(lineColor)}"` : ''}>${escapeHtml(toText(descriptor?.text))}</span>
-            ${safeTypeName ? `<span class="panel-trip-detail-note-type"${safeTypeColor ? ` style="color:${escapeHtml(safeTypeColor)}"` : ''}>${escapeHtml(safeTypeName)}</span>` : ''}
+            <span class="panel-trip-detail-note-dot"${dotColor ? ` style="background:${escapeHtml(dotColor)}"` : ''}${past && originalLineColor ? ` data-panel-export-original-background="${escapeHtml(originalLineColor)}"` : ''}></span>
+            <span class="panel-trip-detail-note-line"${lineColor ? ` style="color:${escapeHtml(lineColor)}"` : ''}${past && originalLineColor ? ` data-panel-export-original-color="${escapeHtml(originalLineColor)}"` : ''}>${escapeHtml(toText(descriptor?.text))}</span>
+            ${safeTypeName ? `<span class="panel-trip-detail-note-type"${safeTypeColor ? ` style="color:${escapeHtml(safeTypeColor)}"` : ''}${past && originalTypeColor ? ` data-panel-export-original-background="${escapeHtml(originalTypeColor)}"` : ''}>${escapeHtml(safeTypeName)}</span>` : ''}
         </div>
     `;
 };

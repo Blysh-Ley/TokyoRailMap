@@ -2436,6 +2436,9 @@ export function createPanel(options = {}) {
                 lineColor: lineColorForTimetablePalette,
                 serviceDayColorMode: currentPrintServiceDayColorMode
             });
+            const printableStationInfoHtml = renderPrintableStationInfoHtml({
+                typeItems: stationTypeSummaryItems
+            });
 
             const buildPrintPayloadForServiceDay = (serviceDay) => {
                 const serviceRowsForDir = (printRowsByServiceDay.get(serviceDay) || [])
@@ -2482,6 +2485,7 @@ export function createPanel(options = {}) {
                     dirKey,
                     dirLabel: label,
                     serviceDay,
+                    stationInfoHtml: printableStationInfoHtml,
                     timetableViewMode: effectiveTimetableViewMode,
                     titleText: effectivePrintTitleText,
                     toText
@@ -2500,6 +2504,7 @@ export function createPanel(options = {}) {
                 dirKey,
                 dirLabel: label,
                 serviceDay: currentServiceDay,
+                stationInfoHtml: printableStationInfoHtml,
                 timetableViewMode: effectiveTimetableViewMode,
                 titleText: effectivePrintTitleText,
                 toText
@@ -2583,6 +2588,37 @@ export function createPanel(options = {}) {
         const plain = toText(typeNameRaw).replace(/\s+/g, '');
         if (!plain) return false;
         return Array.from(plain).length > 4;
+    };
+
+    const renderPrintableStationInfoHtml = (stationInfo) => {
+        const typeItems = Array.isArray(stationInfo?.typeItems)
+            ? stationInfo.typeItems
+                .map((item) => ({
+                    name: toText(item?.name),
+                    isStop: item?.isStop === true,
+                    color: toText(item?.color)
+                }))
+                .filter((item) => item.name)
+            : [];
+
+        if (!typeItems.length) return '';
+
+        const typesHtml = typeItems.map((item) => {
+            const baseStopClass = item.isStop && isNoMarkTypeName(item.name) ? ' is-base-stop' : '';
+            const cls = `panel-station-info-type${item.isStop ? ` is-stop${baseStopClass}` : ''}`;
+            const bgColor = toText(item.color) || '#555';
+            const smallFontStyle = shouldUseSmallStationTypeBadgeFont(item.name) ? ';font-size:10px' : '';
+            const style = ` style="background-color:${escapeHtml(bgColor)}${smallFontStyle}"`;
+            const label = formatStationTypeBadgeLabel(item.name);
+            return `<span class="${cls}"${style}>${escapeHtml(label)}</span>`;
+        }).join('');
+
+        return `
+            <div class="panel-station-info" data-station-info="1">
+                <span class="panel-station-info-left"></span>
+                <span class="panel-station-info-types" data-station-type-summary="1">${typesHtml}</span>
+            </div>
+        `;
     };
 
     const applyLineStationInfo = (lineEl, stationInfo) => {

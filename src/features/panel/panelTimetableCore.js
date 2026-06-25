@@ -85,7 +85,10 @@ export const renderTimetableNoteRowHtml = ({
     lineColor = '',
     dotColor = '',
     typeText = '',
-    typeColor = ''
+    typeColor = '',
+    lineOriginalColor = '',
+    dotOriginalColor = '',
+    typeOriginalColor = ''
 } = {}) => {
     const safeRowClass = toText_timetable_table(rowClass);
     const safeRowStyle = toText_timetable_table(rowStyle);
@@ -97,15 +100,18 @@ export const renderTimetableNoteRowHtml = ({
     const safeDotColor = toText_timetable_table(dotColor);
     const safeTypeText = toText_timetable_table(typeText);
     const safeTypeColor = toText_timetable_table(typeColor);
+    const safeLineOriginalColor = toText_timetable_table(lineOriginalColor);
+    const safeDotOriginalColor = toText_timetable_table(dotOriginalColor);
+    const safeTypeOriginalColor = toText_timetable_table(typeOriginalColor);
 
     if (!safeRowClass || !safeLineClass || !safeLineText) return '';
 
     const dotHtml = safeDotClass
-        ? `<span class="${escapeHtml_timetable_table(safeDotClass)}"${safeDotColor ? ` style="background:${escapeHtml_timetable_table(safeDotColor)}"` : ''}></span>`
+        ? `<span class="${escapeHtml_timetable_table(safeDotClass)}"${safeDotColor ? ` style="background:${escapeHtml_timetable_table(safeDotColor)}"` : ''}${safeDotOriginalColor ? ` data-panel-export-original-background="${escapeHtml_timetable_table(safeDotOriginalColor)}"` : ''}></span>`
         : '';
-    const lineHtml = `<span class="${escapeHtml_timetable_table(safeLineClass)}"${safeLineColor ? ` style="color:${escapeHtml_timetable_table(safeLineColor)}"` : ''}>${escapeHtml_timetable_table(safeLineText)}</span>`;
+    const lineHtml = `<span class="${escapeHtml_timetable_table(safeLineClass)}"${safeLineColor ? ` style="color:${escapeHtml_timetable_table(safeLineColor)}"` : ''}${safeLineOriginalColor ? ` data-panel-export-original-color="${escapeHtml_timetable_table(safeLineOriginalColor)}"` : ''}>${escapeHtml_timetable_table(safeLineText)}</span>`;
     const typeHtml = (safeTypeClass && safeTypeText)
-        ? `<span class="${escapeHtml_timetable_table(safeTypeClass)}"${safeTypeColor ? ` style="background:${escapeHtml_timetable_table(safeTypeColor)};color:${escapeHtml_timetable_table(getBadgeTextColor_timetable_table(safeTypeColor))}"` : ''}>${escapeHtml_timetable_table(safeTypeText)}</span>`
+        ? `<span class="${escapeHtml_timetable_table(safeTypeClass)}"${safeTypeColor ? ` style="background:${escapeHtml_timetable_table(safeTypeColor)};color:${escapeHtml_timetable_table(getBadgeTextColor_timetable_table(safeTypeColor))}"` : ''}${safeTypeOriginalColor ? ` data-panel-export-original-background="${escapeHtml_timetable_table(safeTypeOriginalColor)}"` : ''}>${escapeHtml_timetable_table(safeTypeText)}</span>`
         : '';
 
     return `<div class="${escapeHtml_timetable_table(safeRowClass)}"${safeRowStyle ? ` style="${escapeHtml_timetable_table(safeRowStyle)}"` : ''}>${dotHtml}${lineHtml}${typeHtml}</div>`;
@@ -638,6 +644,7 @@ export const buildTimetablePrintPayload = ({
     lineMeta = {},
     listHtml = '',
     serviceDay = '',
+    stationInfoHtml = '',
     timetableViewMode = '',
     titleText = '',
     toText = defaultToText_panelTimetableViewModel
@@ -658,6 +665,7 @@ export const buildTimetablePrintPayload = ({
         lineName: toText(lineMeta?.name) || toText(lineId),
         listHtml,
         serviceDay: toText(serviceDay),
+        stationInfoHtml: toText(stationInfoHtml),
         stationName: toText(currentStationName) || toText(titleText),
         timetableViewMode
     };
