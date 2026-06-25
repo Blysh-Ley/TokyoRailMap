@@ -30,10 +30,13 @@ export const buildSelectionBadgeViewModel = ({
         const iconModels = [];
 
         if (throughConfig) {
-            for (const code of throughConfig.codes || []) {
+            const badges = Array.isArray(throughConfig.codeBadges) && throughConfig.codeBadges.length
+                ? throughConfig.codeBadges
+                : (throughConfig.codes || []).map((code) => ({ code, lineId: throughConfig.lineId || '' }));
+            for (const badge of badges) {
                 iconModels.push(createLineBadgeIconModel({
-                    routeId: throughConfig.routeIds?.[0] || '',
-                    code,
+                    routeId: badge?.lineId || throughConfig.lineId || '',
+                    code: badge?.code || '',
                     color: throughConfig.color || ''
                 }));
             }

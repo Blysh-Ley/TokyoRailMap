@@ -1,6 +1,9 @@
 import { getCachedJson } from '../lib/fetch.js';
 import { buildVirtualTripPreviewPayload } from '../lib/trip-preview.js';
-import { detectThroughServiceCategoryFromTrips } from '../lib/throughServiceManager.js';
+import {
+    detectThroughServiceCategoryFromTrips,
+    THROUGH_SERVICE_CONFIGS_OBJECT
+} from '../lib/throughServiceManager.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -302,6 +305,84 @@ const selectFullRoutes = (ttLists) => {
     }
 
     return Array.from(byEndpoint.values());
+};
+
+const getThroughServiceStationSet = (category) => {
+    const info = THROUGH_SERVICE_CONFIGS_OBJECT[toText(category)] || null;
+    if (!info) return null;
+    if (info.stationIdSet instanceof Set && info.stationIdSet.size) return info.stationIdSet;
+
+    const stations = Array.isArray(info.stations) ? info.stations.map((x) => toText(x)).filter(Boolean) : [];
+    return stations.length ? new Set(stations) : null;
+};
+
+const splitAllowedStationRuns = (stationIds, allowedStationSet) => {
+    const out = [];
+    let current = [];
+
+    for (const stationId of Array.isArray(stationIds) ? stationIds : []) {
+        const sid = toText(stationId);
+        if (sid && allowedStationSet?.has?.(sid)) {
+            current.push(sid);
+            continue;
+        }
+
+        if (current.length >= 2) out.push(dedupKeepOrder(current));
+        current = [];
+    }
+
+    if (current.length >= 2) out.push(dedupKeepOrder(current));
+    return out.filter((run) => run.length >= 2);
+};
+
+const clipSegmentsToAllowedStations = (segments, allowedStationSet) => {
+    const out = [];
+    for (const segment of Array.isArray(segments) ? segments : []) {
+        const runs = splitAllowedStationRuns(getRouteStationIds(segment), allowedStationSet);
+        for (const run of runs) {
+            out.push({
+                ...(segment || {}),
+                stationIds: run
+            });
+        }
+    }
+    return out;
+};
+
+const clipRouteToAllowedStations = (route, allowedStationSet) => {
+    if (!(allowedStationSet instanceof Set) || !allowedStationSet.size) return [route].filter(Boolean);
+
+    const routeRuns = splitAllowedStationRuns(getRouteStationIds(route), allowedStationSet);
+    if (!routeRuns.length) return [];
+
+    const clippedSegments = clipSegmentsToAllowedStations(getRouteSegments(route), allowedStationSet);
+    return routeRuns.map((stationIds) => ({
+        ...(Array.isArray(route) ? {} : route),
+        stationIds,
+        segments: clippedSegments.filter((segment) => {
+            const ids = getRouteStationIds(segment);
+            return ids.length >= 2 && ids.every((stationId) => stationIds.includes(stationId));
+        })
+    }));
+};
+
+const clipRoutesToThroughServiceSegments = (routes, throughServiceCategory) => {
+    const allowedStationSet = getThroughServiceStationSet(throughServiceCategory);
+    if (!(allowedStationSet instanceof Set) || !allowedStationSet.size) return routes;
+
+    const out = [];
+    const seen = new Set();
+    for (const route of Array.isArray(routes) ? routes : []) {
+        for (const clipped of clipRouteToAllowedStations(route, allowedStationSet)) {
+            const ids = getRouteStationIds(clipped);
+            if (ids.length < 2) continue;
+            const key = canonicalKey(ids);
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            out.push(clipped);
+        }
+    }
+    return out;
 };
 
 const collectRouteEndpoints = (routes) => {
@@ -740,7 +821,10 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
             }
 
             const ttLists = buildThroughServiceTtLists(targetTimetables, idMap);
-            const fullRoutes = selectFullRoutes(ttLists);
+            const fullRoutes = clipRoutesToThroughServiceSegments(
+                selectFullRoutes(ttLists),
+                throughServiceCategory
+            );
             const graph = buildGraph(fullRoutes);
             const branchList = extractBranchLists(graph, fullRoutes).map((seq) => dedupKeepOrder(seq));
             const endpoints = collectRouteEndpoints(fullRoutes);

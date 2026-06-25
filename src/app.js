@@ -70,9 +70,9 @@ import {
     tripPreviewStopLayerPaint
 } from './map/element_ui.js';
 import {
-    MENU_THROUGH_LINE_IDS,
-    THROUGH_SERVICE_DISPLAY,
+    getThroughServiceDisplayByCategory,
     getMenuThroughCategoryByLineId,
+    initializeThroughServiceStationIndex,
     isMenuThroughLineId,
     THROUGH_SERVICE_CONFIGS_OBJECT
 } from './lib/throughServiceManager.js';
@@ -1768,16 +1768,14 @@ const initMapApp = async () => {
         Object.fromEntries(
             Object.entries(THROUGH_SERVICE_CONFIGS_OBJECT).map(([category, info]) => [
                 category, 
-                Object.freeze(info.routeIds)
+                Object.freeze(info.segmentLineIds)
             ])
         )
     );
     const MENU_THROUGH_PREVIEW_SOURCES = Object.freeze(
         Object.values(THROUGH_SERVICE_CONFIGS_OBJECT).map(info => `rw-menu-through:${info.lineId}`)
     );
-    const getMenuThroughDisplayByCategory = (category) => {
-        return THROUGH_SERVICE_DISPLAY[category] || null;
-    };
+    const getMenuThroughDisplayByCategory = getThroughServiceDisplayByCategory;
     const getMenuThroughDisplayByLineId = (lineId) => {
         const category = getMenuThroughCategoryByLineId(lineId);
         return getMenuThroughDisplayByCategory(category);
@@ -3521,6 +3519,7 @@ const initMapApp = async () => {
         generatedRawStations = rawStations;
         generatedAlternateLineMembership = alternateLineMembership || null;
         generatedStationOffsetAlgorithmContext = stationOffsetAlgorithmContext;
+        initializeThroughServiceStationIndex({ railways: rawRailways });
         transferStationIdsByStationId = await loadTransferStationIdMap();
 
         /*
@@ -4518,6 +4517,12 @@ const initMapApp = async () => {
         const stationsData = generatedStationsData || loadedGeoData?.stationsGeoJSON;
         const stationGroupsData = generatedStationGroups || loadedGeoData?.stationGroups || await getCachedJson('./data/station-groups.json');
         const stationOffsetAlgorithmContext = generatedStationOffsetAlgorithmContext || loadedGeoData?.stationOffsetAlgorithmContext;
+        const throughServiceRailways = Array.isArray(generatedRawRailways)
+            ? generatedRawRailways
+            : loadedGeoData?.rawRailways;
+        if (Array.isArray(throughServiceRailways)) {
+            initializeThroughServiceStationIndex({ railways: throughServiceRailways });
+        }
 
 
 

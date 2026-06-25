@@ -4,7 +4,7 @@
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
 import { getCachedJson, getCompanyLogoSrc } from '../lib/fetch.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, normalizeStationCodeBadgeCodes } from '../lib/line-icons.js';
-import { THROUGH_SERVICE_DISPLAY, isSUStations,THROUGH_SERVICE_CONFIGS_OBJECT } from '../lib/throughServiceManager.js';
+import { isSUStations, THROUGH_SERVICE_CONFIGS_OBJECT } from '../lib/throughServiceManager.js';
 import {
     isDarkThemeActive,
     buildBaseLineColorExpr,
@@ -1458,10 +1458,9 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
                 if (company === info.operator && stationGroupSUFlags[category]) {
                     throughServiceLines.push({
                         key: category,
-                        lineId: info.tempId || info.lineId || '',
-                        // 优先读 THROUGH_SERVICE_CONFIGS_OBJECT 里的配置，兼容老的 THROUGH_SERVICE_DISPLAY
-                        displayName: info.lineName || THROUGH_SERVICE_DISPLAY?.[category]?.name || '',
-                        color: info.color || THROUGH_SERVICE_DISPLAY?.[category]?.color || '',
+                        lineId: info.lineId || '',
+                        displayName: info.lineName || '',
+                        color: info.color || '',
                         // 智能拼接 code：如果配置是数组 ['JU', 'JT'] 就用 / 连起来，变成 'JU/JT'
                         code: Array.isArray(info.codes) ? info.codes.join('/') : (info.codes || ''),
                         stationCode: Array.from(stationGroupSUCodes[category] || []).join(',')

@@ -426,7 +426,7 @@ export const derivePanelTripDetailThroughServiceDirection = async ({
 } = {}) => {
     const lineId = toText(displayLineId);
     const targetInfo = (Array.isArray(throughServiceConfigs) ? throughServiceConfigs : [])
-        .find((info) => info?.tempId === lineId);
+        .find((info) => info?.lineId === lineId);
     const directionRule = targetInfo?.directionRule;
     if (!directionRule) return '';
 

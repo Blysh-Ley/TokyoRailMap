@@ -141,8 +141,7 @@ const resolveThroughConfigFromSource = (source, throughServiceConfigsObject) => 
         if (!info) continue;
         const ids = [
             info.lineId,
-            info.tempId,
-            ...(Array.isArray(info.routeIds) ? info.routeIds : [])
+            ...(Array.isArray(info.segmentLineIds) ? info.segmentLineIds : [])
         ].map(toText).filter(Boolean);
         if (ids.includes(lineId)) return { category: toText(category), info };
     }
@@ -161,7 +160,7 @@ const resolveTripParticipant = ({ entry, trip, throughServiceConfigsObject } = {
     return {
         participantKey,
         source,
-        lineId: lineId || toText(through?.info?.routeIds?.[0]),
+        lineId: lineId || toText(through?.info?.segmentLineIds?.[0]),
         throughCategory: toText(through?.category),
         throughStationIds: toSet(through?.info?.stations),
         name: toText(trip?.selectedLineName || trip?.lineName || trip?.mainLineName || through?.info?.lineName || lineId || source)

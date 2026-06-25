@@ -25,7 +25,7 @@ import { createTimetableNoteRow } from '../panel/panelTimetableCore.js';
 import { buildCompactTripDetailTransferLineItemHtmls } from '../panel/panelTripDetailTransfers.js';
 import {
     detectThroughServiceCategoryFromTrips,
-    THROUGH_SERVICE_DISPLAY,
+    getThroughServiceDisplayByCategory,
     THROUGH_SERVICE_CONFIGS_OBJECT
 } from '../../lib/throughServiceManager.js';
 import { createJourneyPickController } from './journeyPickController.js';
@@ -285,7 +285,7 @@ const detectJourneyThroughCategoryMeta = async ({ tripIds, serviceDay }) => {
     if (!trips.length) return null;
 
     const category = normalizeText(detectThroughServiceCategoryFromTrips(trips));
-    const display = THROUGH_SERVICE_DISPLAY?.[category] || null;
+    const display = getThroughServiceDisplayByCategory(category);
     if (!category || !display) return null;
 
     return {

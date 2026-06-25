@@ -17,7 +17,7 @@ import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCached
 import { previewBranchesForLine } from '../../map/analyze_branch.js';
 import { isExcludedLineType, preferredOrder } from '../../lib/special-condition.js';
 import { getTransferStationIdsByStationId } from '../../app.js';
-import { MENU_THROUGH_LINE_IDS, THROUGH_SERVICE_CONFIGS_OBJECT, THROUGH_SERVICE_DISPLAY, isSUStations as isStationSUStations } from '../../lib/throughServiceManager.js';
+import { THROUGH_SERVICE_CONFIGS_OBJECT, isSUStations as isStationSUStations } from '../../lib/throughServiceManager.js';
 import {
     DEFAULT_MOBILE_SHEET_PEEK_PX,
     createMobileSheetDragSession,
@@ -95,7 +95,7 @@ const getTransferSUFlags = ({ selfRouteId, routeIds } = {}) => {
 return Object.fromEntries(
         Object.entries(THROUGH_SERVICE_CONFIGS_OBJECT).map(([category, info]) => [
             category,                                
-            info.routeIds.some((rid) => ids.has(rid)) 
+            info.segmentLineIds.some((rid) => ids.has(rid)) 
         ])
     );
 };
@@ -1200,13 +1200,20 @@ const setupRouteMapUi = () => {
             return entry;
         };
 
-        const buildSUTransferItemHtml = (info, codes) => {
-            const iconCodes = Array.isArray(codes) ? codes.map((code) => toText(code)).filter(Boolean) : [];
-            if (!info || !iconCodes.length) return '';
+        const buildSUTransferItemHtml = (info, badges) => {
+            const iconBadges = Array.isArray(badges)
+                ? badges
+                    .map((badge) => {
+                        if (typeof badge === 'string') return { lineId: toText(info?.lineId), code: toText(badge) };
+                        return { lineId: toText(badge?.lineId), code: toText(badge?.code) };
+                    })
+                    .filter((badge) => badge.code)
+                : [];
+            if (!info || !iconBadges.length) return '';
 
             const iconHtmls = [];
-            for (const code of iconCodes) {
-                const iconEl = createLineIconElement({ routeId: info.lineId, code, color: info.color });
+            for (const badge of iconBadges) {
+                const iconEl = createLineIconElement({ routeId: badge.lineId || info.lineId, code: badge.code, color: info.color });
                 if (!iconEl) continue;
                 iconHtmls.push(formatRouteMapLineIconHtml(iconEl));
             }
@@ -1220,8 +1227,8 @@ const setupRouteMapUi = () => {
             const info = SU_SERVICE_INFO_BY_KEY[serviceKey] || null;
             if (!info) return null;
 
-            const iconCodes = Array.isArray(info.codes) ? info.codes.map((code) => toText(code)).filter(Boolean) : [];
-            const html = buildSUTransferItemHtml(info, iconCodes);
+            const iconBadges = Array.isArray(info.codeBadges) ? info.codeBadges : [];
+            const html = buildSUTransferItemHtml(info, iconBadges);
             if (!html) return null;
 
             const rid = `${toText(info.operator) || toText(info.lineId).split('.')[0] || 'JR-East'}.${serviceKey}`;
@@ -1231,7 +1238,7 @@ const setupRouteMapUi = () => {
                 serviceKey,
                 displayName: toText(info.lineName),
                 html,
-                iconCodes,
+                iconCodes: iconBadges.map((badge) => toText(badge?.code)).filter(Boolean),
                 iconColor: toText(info.color),
                 buildCompactHtml: (codes) => buildSUTransferItemHtml(info, codes)
             };

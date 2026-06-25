@@ -15,8 +15,6 @@ import {
 import {
     buildTemporaryThroughServicePanelPlan,
     detectThroughServiceCategoryFromTrips,
-    THROUGH_SERVICE_TEMP_LINE_IDS,
-    THROUGH_SERVICE_DISPLAY,
     THROUGH_SERVICE_CONFIGS,
     THROUGH_SERVICE_CONFIGS_OBJECT,
 } from '../../lib/throughServiceManager.js';

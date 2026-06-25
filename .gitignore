@@ -70,6 +70,14 @@ ios/
 
 # Test suites, audit tools, and local reports
 tests/
+!tests/
+tests/*
+!tests/fixtures/
+tests/fixtures/*
+!tests/throughServiceConfigRanges.smoke.mjs
+!tests/throughServiceBranchPreviewCategory.smoke.mjs
+!tests/throughServiceManager.smoke.mjs
+!tests/fixtures/throughServiceStationIdsByCategory.fixture.mjs
 tools/
 docs/
 Refactor-Panel.md

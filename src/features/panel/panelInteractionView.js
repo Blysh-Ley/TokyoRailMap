@@ -475,14 +475,15 @@ export const enhancePanelLineHeaderIcons = async (rootEl, {
         if (!lineId) continue;
 
         const throughInfo = Array.isArray(throughServiceConfigs)
-            ? throughServiceConfigs.find((item) => lineId === item?.tempId || lineId === item?.lineId)
+            ? throughServiceConfigs.find((item) => lineId === item?.lineId)
             : null;
 
         if (throughInfo && !nameEl.querySelector?.('.rw-line-icon')) {
             const fragment = documentRef?.createDocumentFragment?.();
-            for (let index = 0; index < throughInfo.codes.length; index += 1) {
-                const code = throughInfo.codes[index];
-                const iconRouteId = throughInfo.routeIds[index];
+            const badges = Array.isArray(throughInfo.codeBadges) ? throughInfo.codeBadges : [];
+            for (let index = 0; index < badges.length; index += 1) {
+                const code = badges[index]?.code;
+                const iconRouteId = badges[index]?.lineId || throughInfo.lineId;
                 const icon = createLineIconElement?.({
                     routeId: iconRouteId,
                     code,

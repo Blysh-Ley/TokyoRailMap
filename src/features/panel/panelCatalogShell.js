@@ -4,7 +4,7 @@ import { getCompanyLogoSrc } from '../../lib/fetch.js';
 
 import {
     THROUGH_SERVICE_CONFIGS,
-    TRIGGER_LINE_IDS
+    THROUGH_SERVICE_SEGMENT_LINE_IDS
 } from '../../lib/throughServiceManager.js';
 
 
@@ -511,7 +511,7 @@ const sortCompanyLines_panelCompanyCatalogRenderer = (lines, { railwaysOrderInde
 
     let maxTriggerRank = Number.NEGATIVE_INFINITY;
     for (const item of src) {
-        if (item?.lineId && TRIGGER_LINE_IDS.has(item.lineId)) {
+        if (item?.lineId && THROUGH_SERVICE_SEGMENT_LINE_IDS.has(item.lineId)) {
             const key = toRailwaysOrderKey_panelCompanyCatalogRenderer(item.lineId);
             const rank = key ? orderIndex.get(key) : undefined;
             if (typeof rank === 'number' && Number.isFinite(rank) && rank > maxTriggerRank) {
@@ -525,7 +525,7 @@ const sortCompanyLines_panelCompanyCatalogRenderer = (lines, { railwaysOrderInde
         let rank = key ? orderIndex.get(key) : undefined;
 
         if (!Number.isFinite(rank) && maxTriggerRank > Number.NEGATIVE_INFINITY) {
-            const throughIndex = THROUGH_SERVICE_CONFIGS.findIndex((info) => info.tempId === line?.lineId);
+            const throughIndex = THROUGH_SERVICE_CONFIGS.findIndex((info) => info.lineId === line?.lineId);
             if (throughIndex !== -1) {
                 rank = maxTriggerRank + ((THROUGH_SERVICE_CONFIGS.length - throughIndex) * 0.1);
             }
@@ -612,7 +612,7 @@ export const buildPanelCompaniesHtml = (props = {}, {
         let linesHtml = '';
         for (const line of sortedLines) {
             const isVirtualThrough = line.lineId
-                ? THROUGH_SERVICE_CONFIGS.some((info) => info.tempId === line.lineId || info.lineId === line.lineId)
+                ? THROUGH_SERVICE_CONFIGS.some((info) => info.lineId === line.lineId)
                 : false;
             const boldClass = isVirtualThrough ? ' panel-line-name-main-bold' : '';
             const safeLineColor = typeof line.color === 'string' ? line.color.trim() : '';
