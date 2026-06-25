@@ -560,6 +560,14 @@ export const buildPanelCompaniesHtml = (props = {}, {
     const servingIdsRaw = normalizeArrayLike_panelCompanyCatalogRenderer(props.display_serving_ids ?? props.serving_ids);
     const servingIds = servingIdsRaw.map(String).filter(Boolean);
     const servingIdSet = new Set(servingIds);
+    const hiddenEntityLineIds = new Set();
+    for (const info of THROUGH_SERVICE_CONFIGS) {
+        if (!servingIdSet.has(info.lineId)) continue;
+        for (const hiddenLineId of info.hiddenEntityLineIds || []) {
+            const id = toText(hiddenLineId);
+            if (id) hiddenEntityLineIds.add(id);
+        }
+    }
     const safeGetLineMeta = typeof getLineMeta === 'function' ? getLineMeta : (() => null);
     const logoMap = companyLogoMap || {};
     const groups = new Map();
@@ -568,6 +576,7 @@ export const buildPanelCompaniesHtml = (props = {}, {
     for (const lineId of servingIds) {
         const id = String(lineId);
         if (!id || seenLineIds.has(id)) continue;
+        if (hiddenEntityLineIds.has(id)) continue;
         seenLineIds.add(id);
 
         const meta = safeGetLineMeta(id);

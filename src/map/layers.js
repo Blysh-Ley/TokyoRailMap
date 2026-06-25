@@ -1453,9 +1453,13 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
             // 彻底摒弃了 if (company === 'JR-East') 和内部硬编码
             // ==========================================
             const throughServiceLines = [];
+            const hiddenEntityLineIds = new Set();
             for (const [category, info] of Object.entries(THROUGH_SERVICE_CONFIGS_OBJECT)) {
                 // 仅当当前遍历的公司与配置中的 operator 匹配，且拥有该线路的 flag 时才添加
                 if (company === info.operator && stationGroupSUFlags[category]) {
+                    for (const hiddenLineId of info.hiddenEntityLineIds || []) {
+                        hiddenEntityLineIds.add(String(hiddenLineId || '').trim());
+                    }
                     throughServiceLines.push({
                         key: category,
                         lineId: info.lineId || '',
@@ -1471,7 +1475,8 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
             // 去重放在“原线路 + 追加项”都准备好之后，判断口径仍然是最终展示名。
             const dedupedLines = [];
             const seenDisplayNames = new Set();
-            for (const line of [...sortedLines, ...throughServiceLines]) {
+            const displaySortedLines = sortedLines.filter((line) => !hiddenEntityLineIds.has(String(line?.lineId || '').trim()));
+            for (const line of [...displaySortedLines, ...throughServiceLines]) {
                 const candidateName = line.key 
                 ? String(line.displayName).trim() 
                 : (stripParenText(String(line?.displayName ?? '')).trim() || String(line?.lineId ?? '').trim());

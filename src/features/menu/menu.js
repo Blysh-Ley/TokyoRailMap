@@ -26,6 +26,13 @@ const shouldHideInMenuByZhFreight = (meta) => {
 
 const shouldUseRwMenuThroughEntries = (companyName) => String(companyName || '').trim() === 'JR-East';
 
+const getMenuThroughHiddenEntityLineIds = (companyName) => {
+    if (!shouldUseRwMenuThroughEntries(companyName)) return new Set();
+    return new Set(THROUGH_SERVICE_CONFIGS.flatMap((entry) => (
+        Array.isArray(entry?.hiddenEntityLineIds) ? entry.hiddenEntityLineIds : []
+    )));
+};
+
 const toRailwaysOrderKey = (lineId) => {
     const raw = String(lineId ?? '').trim();
     if (!raw) return '';
@@ -194,7 +201,8 @@ export const buildMenuModel = ({
 
         let visibleLines = decorated;
         if (shouldUseRwMenuThroughEntries(companyName)) {
-            visibleLines = visibleLines.filter((item) => String(item?.lineId || '') !== 'JR-East.ShonanShinjuku');
+            const hiddenEntityLineIds = getMenuThroughHiddenEntityLineIds(companyName);
+            visibleLines = visibleLines.filter((item) => !hiddenEntityLineIds.has(String(item?.lineId || '')));
         }
 
         if ((orderIndex && orderIndex.size) || (preferredLineOrder && preferredLineOrder.length)) {

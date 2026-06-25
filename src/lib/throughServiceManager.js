@@ -55,6 +55,7 @@ const createThroughServiceConfig = (base) => {
         lineName: toText(base?.lineName),
         color: toText(base?.color),
         codeBadges,
+        hiddenEntityLineIds: freezeArray(base?.hiddenEntityLineIds),
         directionRule: Object.freeze({ ...(base?.directionRule || {}) }),
         segments,
         get codes() {
@@ -100,6 +101,7 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
         lineName: '湘南新宿线',
         color: '#E31F26',
         codeBadges: [{ lineId: 'JR-East.ShonanShinjuku', code: 'JS' }],
+        hiddenEntityLineIds: ['JR-East.ShonanShinjuku'],
         directionRule: { southNode: 'Shibuya', northNode: 'Shinjuku' },
         segments: [
             { lineId: 'JR-East.ShonanShinjuku', from: 'JR-East.ShonanShinjuku.Ofuna', to: 'JR-East.ShonanShinjuku.Omiya' },
@@ -136,6 +138,7 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
         lineName: '横须贺线·总武线(快速)',
         color: '#007AC1',
         codeBadges: [{ lineId: 'JR-East.Yokosuka', code: 'JO' }],
+        hiddenEntityLineIds: ['JR-East.Yokosuka', 'JR-East.SobuRapid'],
         directionRule: { southNode: 'Shinagawa', northNode: 'ShinNihombashi' },
         segments: [
             { lineId: 'JR-East.Yokosuka', from: 'JR-East.Yokosuka.Tokyo', to: 'JR-East.Yokosuka.Kurihama' },
@@ -477,11 +480,11 @@ export async function buildTemporaryThroughServicePanelPlan(options = {}) {
         }
     }
 
-    const hasShonanServingLine = servingLineIds.includes('JR-East.ShonanShinjuku');
     const displayServingIds = servingLineIds.slice();
     const temporaryLineMetaById = new Map();
     const temporarySourceLineIdsByDisplayLineId = new Map();
     const temporaryAllowedTripKeysByDisplayLineId = new Map();
+    const hiddenEntityLineIds = new Set();
 
     const firstTriggerIndex = (() => {
         const idx = displayServingIds.findIndex((id) => THROUGH_SERVICE_SEGMENT_LINE_IDS.has(toText(id)));
@@ -494,12 +497,12 @@ export async function buildTemporaryThroughServicePanelPlan(options = {}) {
     for (const info of THROUGH_SERVICE_CONFIGS) {
         const bucket = bucketByCategory[info.category];
         const hasTrips = bucket.allowedTripKeys.size > 0;
-        
-        // 特殊逻辑：湘南新宿线如果已有原生线路，则跳过
-        if (info.category === 'ShonanShinjuku' && hasShonanServingLine) continue;
 
         if (hasTrips) {
             const lineId = info.lineId;
+            for (const hiddenLineId of info.hiddenEntityLineIds || []) {
+                hiddenEntityLineIds.add(hiddenLineId);
+            }
             
             if (!displayServingIds.includes(lineId)) {
                 displayServingIds.splice(insertCursor, 0, lineId);
@@ -525,7 +528,7 @@ export async function buildTemporaryThroughServicePanelPlan(options = {}) {
     if (!temporarySourceLineIdsByDisplayLineId.size) return null;
 
     return {
-        displayServingIds,
+        displayServingIds: displayServingIds.filter((lineId) => !hiddenEntityLineIds.has(lineId)),
         temporaryLineMetaById,
         temporarySourceLineIdsByDisplayLineId,
         temporaryAllowedTripKeysByDisplayLineId

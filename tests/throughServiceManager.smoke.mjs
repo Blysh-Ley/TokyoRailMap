@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { buildMenuModel } from '../src/features/menu/menu.js';
 import { analyzeBranchesForLine } from '../src/map/analyze_branch.js';
 import {
+    buildTemporaryThroughServicePanelPlan,
     detectThroughServiceCategoryFromTrips,
     getMenuThroughCategoryByLineId,
     getThroughServiceDisplayByCategory,
@@ -76,6 +78,81 @@ assert.deepEqual(getThroughServiceDisplayByCategory('YokosukaSobuRapid'), {
 assert.equal(isSUStations('JR-East.Sobu.HigashiChiba').YokosukaSobuRapid, false);
 assert.equal(isSUStations('JR-East.Sobu.Yotsukaido').YokosukaSobuRapid, true);
 assert.deepEqual(THROUGH_SERVICE_CONFIGS_OBJECT.UenoTokyo.codes, ['JU', 'JT']);
+assert.deepEqual(THROUGH_SERVICE_CONFIGS_OBJECT.ShonanShinjuku.hiddenEntityLineIds, ['JR-East.ShonanShinjuku']);
+assert.deepEqual(THROUGH_SERVICE_CONFIGS_OBJECT.YokosukaSobuRapid.hiddenEntityLineIds, [
+    'JR-East.Yokosuka',
+    'JR-East.SobuRapid'
+]);
+
+const yokosukaTrip = {
+    id: 'JR-East.Yokosuka.Test.Weekday',
+    t: 'JR-East.Yokosuka.Test',
+    r: 'JR-East.Yokosuka',
+    nt: ['JR-East.SobuRapid.Test.Weekday'],
+    tt: [
+        { s: 'JR-East.Yokosuka.Tokyo' },
+        { s: 'JR-East.Yokosuka.Shinagawa' }
+    ]
+};
+const sobuRapidTrip = {
+    id: 'JR-East.SobuRapid.Test.Weekday',
+    t: 'JR-East.SobuRapid.Test',
+    r: 'JR-East.SobuRapid',
+    pt: ['JR-East.Yokosuka.Test.Weekday'],
+    tt: [
+        { s: 'JR-East.SobuRapid.Tokyo' },
+        { s: 'JR-East.SobuRapid.Chiba' }
+    ]
+};
+const tripsByLineId = new Map([
+    ['JR-East.Yokosuka', [yokosukaTrip]],
+    ['JR-East.SobuRapid', [sobuRapidTrip]]
+]);
+const tripsByRefId = new Map([
+    [yokosukaTrip.id, yokosukaTrip],
+    [sobuRapidTrip.id, sobuRapidTrip]
+]);
+const yokosukaSobuPanelPlan = await buildTemporaryThroughServicePanelPlan({
+    stationId: 'JR-East.Yokosuka.Tokyo',
+    servingLineIds: ['JR-East.Yokosuka', 'JR-East.SobuRapid'],
+    loadTimetableForLineId: async (lineId) => tripsByLineId.get(lineId) || [],
+    resolveStationIdForLine: async (lineId) => (
+        lineId === 'JR-East.SobuRapid' ? 'JR-East.SobuRapid.Tokyo' : 'JR-East.Yokosuka.Tokyo'
+    ),
+    loadTripByRefId: async (tripId) => tripsByRefId.get(tripId) || null
+});
+assert.ok(yokosukaSobuPanelPlan, 'Yokosuka/Sobu Rapid through panel plan should be generated');
+assert.ok(
+    yokosukaSobuPanelPlan.displayServingIds.includes('TokyoRail.Temp.YokosukaSobuRapid'),
+    'Yokosuka/Sobu Rapid panel plan should display the virtual through-service row'
+);
+assert.equal(
+    yokosukaSobuPanelPlan.displayServingIds.includes('JR-East.Yokosuka'),
+    false,
+    'Yokosuka/Sobu Rapid panel plan should hide the Yokosuka entity line'
+);
+assert.equal(
+    yokosukaSobuPanelPlan.displayServingIds.includes('JR-East.SobuRapid'),
+    false,
+    'Yokosuka/Sobu Rapid panel plan should hide the Sobu Rapid entity line'
+);
+
+const menuModel = buildMenuModel({
+    companyObj: { 'JR-East': true },
+    linesObj: {
+        'JR-East.ShonanShinjuku': { company: 'JR-East', simplified: '湘南新宿ライン', modes: ['all'] },
+        'JR-East.Yokosuka': { company: 'JR-East', simplified: '横須賀線', modes: ['all'] },
+        'JR-East.SobuRapid': { company: 'JR-East', simplified: '総武快速線', modes: ['all'] },
+        'JR-East.Yamanote': { company: 'JR-East', simplified: '山手線', modes: ['all'] }
+    },
+    companyLogoMap: { 'JR-East': { zh: 'JR东日本' } }
+});
+const jrEastMenuLines = menuModel.companies.find((company) => company.companyName === 'JR-East')?.lines || [];
+assert.equal(jrEastMenuLines.some((line) => line.lineId === 'JR-East.ShonanShinjuku'), false);
+assert.equal(jrEastMenuLines.some((line) => line.lineId === 'JR-East.Yokosuka'), false);
+assert.equal(jrEastMenuLines.some((line) => line.lineId === 'JR-East.SobuRapid'), false);
+assert.ok(jrEastMenuLines.some((line) => line.lineId === 'TokyoRail.Temp.YokosukaSobuRapid'));
+assert.ok(jrEastMenuLines.some((line) => line.lineId === 'JR-East.Yamanote'));
 
 const uenoTokyoResult = await analyzeBranchesForLine('JR-East.Tokaido', {
     throughServiceCategory: 'UenoTokyo',
