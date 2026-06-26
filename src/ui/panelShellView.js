@@ -64,7 +64,7 @@ export const createDesktopPanelShell = ({
     documentRef = globalThis.document,
     win = globalThis.window,
     rightPx = 10,
-    widthPx = 360,
+    widthPx = 380,
     zIndex = 4000
 } = {}) => {
     if (!documentRef?.createElement) {
@@ -79,7 +79,7 @@ export const createDesktopPanelShell = ({
     root.style.right = `${rightPx}px`;
     root.style.zIndex = String(zIndex);
     root.style.width = `${widthPx}px`;
-    root.style.maxWidth = 'calc(100vw - 20px)';
+    //root.style.maxWidth = 'calc(100vw - 20px)';
     root.style.transform = DEFAULT_DESKTOP_HIDDEN_TRANSFORM;
     root.style.transition = 'transform 0.2s ease';
 

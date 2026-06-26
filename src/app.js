@@ -156,6 +156,7 @@ try {
         'clockwise.svg',
         'filter.svg',
         'fs.svg',
+        'fullscreen-exit.svg',
         'travel.svg',
         'change-dirc.svg',
         'x.svg',

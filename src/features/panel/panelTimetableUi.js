@@ -633,6 +633,12 @@ export const hydrateTimetableActionIcons = (ttEl, deps = {}) => {
         for (const icon of printIcons) {
             applyCachedIcon_panelTimetablePostRenderHydrator(icon, 'print.svg', deps);
         }
+
+        const focusIcons = Array.from(ttEl?.querySelectorAll?.('.panel-dir-focus-icon') || []);
+        for (const icon of focusIcons) {
+            const iconName = icon?.getAttribute?.('data-focus-icon') || 'fs.svg';
+            applyCachedIcon_panelTimetablePostRenderHydrator(icon, iconName, deps);
+        }
     } catch {
         // ignore
     }

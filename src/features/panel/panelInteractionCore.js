@@ -189,6 +189,11 @@ export const resolvePanelDirPrintButtonTarget = (target, options = {}) => resolv
     selector: '.panel-dir-print-btn[data-dir-print-btn]'
 });
 
+export const resolvePanelDirFocusButtonTarget = (target, options = {}) => resolveDirButtonTarget_panelEventDelegationCoordinator(target, {
+    ...options,
+    selector: '.panel-dir-focus-btn[data-dir-focus-btn]'
+});
+
 export const resolveTripDetailStationTarget = (target, {
     rootEl = null
 } = {}) => closestInside_panelEventDelegationCoordinator(target, '.panel-trip-detail-station[data-station-id]', rootEl);
@@ -487,6 +492,15 @@ export const dispatchPanelDirectionToggleIntent = ({
     return true;
 };
 
+export const dispatchPanelDirectionFocusIntent = ({
+    dirTarget,
+    toggleDirectionFocus = () => {}
+} = {}) => {
+    if (!dirTarget) return false;
+    toggleDirectionFocus(dirTarget.lineId, dirTarget.dirKey);
+    return true;
+};
+
 export const dispatchPanelPrimarySelectionIntent = ({
     primaryTarget,
     mode = 'mouse',
@@ -569,6 +583,7 @@ export const findPanelTripTarget = (target, {
 export const resolvePanelInteractionKeyFromTarget = (target, {
     body,
     findTripTarget = findPanelTripTarget,
+    getDirFocusButtonTarget = () => null,
     getDirFilterButtonTarget = () => null,
     getDirPrintButtonTarget = () => null,
     getDirTitleTarget = () => null,
@@ -591,6 +606,9 @@ export const resolvePanelInteractionKeyFromTarget = (target, {
 
     const dirPrint = getDirPrintButtonTarget(target);
     if (dirPrint) return `dir:${makeLineDirKey(dirPrint.lineId, dirPrint.dirKey)}`;
+
+    const dirFocus = getDirFocusButtonTarget(target);
+    if (dirFocus) return `dir:${makeLineDirKey(dirFocus.lineId, dirFocus.dirKey)}`;
 
     const dirTitle = getDirTitleTarget(target);
     if (dirTitle) return `dir:${makeLineDirKey(dirTitle.lineId, dirTitle.dirKey)}`;

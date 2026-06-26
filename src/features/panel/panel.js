@@ -95,6 +95,7 @@ import {
     createPanelDismissController,
     createPanelEventDelegationCoordinator,
     createPanelInteractionPolicy,
+    resolvePanelDirFocusButtonTarget,
     resolvePanelDirFilterButtonTarget,
     resolvePanelDirPrintButtonTarget,
     resolvePanelDirTitleTarget,
@@ -117,6 +118,7 @@ import {
 } from './panelStation.js';
 import { createPanelHoverRestoreRuntime } from './panelInteractionCore.js';
 import {
+    dispatchPanelDirectionFocusIntent,
     dispatchPanelDirectionToggleIntent,
     dispatchPanelDirFilterIntent,
     dispatchPanelPrimarySelectionIntent
@@ -350,7 +352,7 @@ const renderTripDetailMomentHtml = (stop = {}) => {
 export function createPanel(options = {}) {
     const TIMETABLE_PRINT_EVENT = '__TokyoRailPrintTimetableRequested';
     const TIMETABLE_PRINT_ALL_EVENT = '__TokyoRailPrintAllTimetablesRequested';
-    const widthPx = Number.isFinite(options.widthPx) ? options.widthPx : 320;
+    const widthPx = Number.isFinite(options.widthPx) ? options.widthPx : 380;
     const rightPx = Number.isFinite(options.rightPx) ? options.rightPx : 20;
     const zIndex = Number.isFinite(options.zIndex) ? options.zIndex : 9999;
     const panelPresentation = options.panelPresentation === 'mobile' ? 'mobile' : 'desktop';
@@ -733,6 +735,7 @@ export function createPanel(options = {}) {
     let suppressTripDetailStationJumpUntilMs = 0;
     let tripDetailHideTimer = null;
     let timetableViewMode = 'list';
+    let focusedDirectionKey = '';
     let pendingGridDataDebugLog = false;
     const gridDataDebugByLineId = new Map();
 
@@ -1110,6 +1113,27 @@ export function createPanel(options = {}) {
         applyTimetableViewMode(next, { rerender: true });
     };
 
+    const syncDirectionFocusVisibility = () => {
+        const focusedLineId = getFocusedDirectionLineId();
+        body.classList.toggle('is-direction-focused', !!focusedLineId);
+        body.setAttribute('data-direction-focus', focusedDirectionKey || '');
+
+        const lineEls = Array.from(body.querySelectorAll?.('.panel-line[data-line-id]') || []);
+        for (const lineEl of lineEls) {
+            const lineId = toText(lineEl.getAttribute?.('data-line-id'));
+            lineEl.classList.toggle('is-direction-focus-hidden', !!focusedLineId && lineId !== focusedLineId);
+        }
+
+        const companyEls = Array.from(body.querySelectorAll?.('.panel-company') || []);
+        for (const companyEl of companyEls) {
+            const lines = Array.from(companyEl.querySelectorAll?.('.panel-line[data-line-id]') || []);
+            const hasVisibleLine = !focusedLineId || lines.some((lineEl) => !lineEl.classList.contains('is-direction-focus-hidden'));
+            companyEl.classList.toggle('is-direction-focus-hidden', !hasVisibleLine);
+        }
+
+        scheduleCatalogRefresh();
+    };
+
     const clearTripDetailHideTimer = () => {
         if (tripDetailHideTimer != null) {
             clearTimeout(tripDetailHideTimer);
@@ -1187,6 +1211,7 @@ export function createPanel(options = {}) {
     const dirPreviewMetaByKey = new Map(); // lineId||dir -> { lineId, originStationIds:string[], terminalStationIds:string[] }
     const makeLineDirKey = (lineId, dirKey) => `${toText(lineId)}||${toText(dirKey) || 'Unknown'}`;
     const dirKeyOf = (lineId, dir) => `${toText(lineId)}||${toText(dir) || 'Unknown'}`;
+    const getFocusedDirectionLineId = () => toText(focusedDirectionKey).split('||')[0] || '';
     const isLoopLine = (lineId) => {
         const s = toText(lineId);
         return s === 'JR-East.Yamanote' || s === 'Toei.Oedo';
@@ -1398,6 +1423,7 @@ export function createPanel(options = {}) {
     const getInteractionKeyFromTarget = (target) => resolvePanelInteractionKeyFromTarget(target, {
         body,
         findTripTarget,
+        getDirFocusButtonTarget,
         getDirFilterButtonTarget,
         getDirPrintButtonTarget,
         getDirTitleTarget,
@@ -2349,7 +2375,9 @@ export function createPanel(options = {}) {
                 })
                 .map(([name]) => name);
             const lineDirKey = makeLineDirKey(lineId, dirKey);
-            const expanded = isDirExpanded(lineId, dirKey);
+            const focused = focusedDirectionKey === lineDirKey;
+            if (focusedDirectionKey && !focused) continue;
+            const expanded = focused || isDirExpanded(lineId, dirKey);
             const tri = expanded ? '▾' : '▸';
 
             const rowsForDir = rows.filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
@@ -2576,6 +2604,8 @@ export function createPanel(options = {}) {
                     renderTime,
                     resolveBadgeTextColor: resolvePanelBadgeTextColor
                 });
+            const focusIconName = focused ? 'fullscreen-exit.svg' : 'fs.svg';
+            const focusButtonLabel = focused ? '退出方向聚焦' : '只看该方向班次';
 
             html += `
                 <div class="panel-dir">
@@ -2598,6 +2628,9 @@ export function createPanel(options = {}) {
                             ${effectiveTimetableViewMode === 'grid' ? `<button type="button" class="panel-dir-print-btn" data-dir-print-btn="1" data-line-id="${escapeHtml(lineId)}" data-dir-key="${escapeHtml(dirKey)}" aria-label="打印时刻表">
                                 <img class="panel-dir-print-icon" alt="" src="${escapeHtml(getPreferredCachedImageSrc(getIconCandidates('print.svg'), { cacheKey: 'icon:print.svg' }))}" />
                             </button>` : ''}
+                            <button type="button" class="panel-dir-focus-btn${focused ? ' is-active' : ''}" data-dir-focus-btn="1" data-line-id="${escapeHtml(lineId)}" data-dir-key="${escapeHtml(dirKey)}" aria-label="${escapeHtml(focusButtonLabel)}" aria-pressed="${focused ? 'true' : 'false'}">
+                                <img class="panel-dir-focus-icon" alt="" src="${escapeHtml(getPreferredCachedImageSrc(getIconCandidates(focusIconName), { cacheKey: `icon:${focusIconName}` }))}" data-focus-icon="${escapeHtml(focusIconName)}" />
+                            </button>
                         </span>
                     </div>
                     ${gridHintsHtml}
@@ -3795,6 +3828,7 @@ export function createPanel(options = {}) {
 
     const renderAllTimetables = async () => {
         closeDirFilterPopover();
+        syncDirectionFocusVisibility();
         const token = ++timetableRenderToken;
         const stationId = currentStationId;
         if (pendingGridDataDebugLog) gridDataDebugByLineId.clear();
@@ -3884,6 +3918,10 @@ export function createPanel(options = {}) {
         return resolvePanelDirPrintButtonTarget(target, { body, toText });
     };
 
+    const getDirFocusButtonTarget = (target) => {
+        return resolvePanelDirFocusButtonTarget(target, { body, toText });
+    };
+
     const panelPrintRequests = createPanelPrintRequestController({
         body,
         dirPrintPayloadByKey,
@@ -3962,6 +4000,18 @@ export function createPanel(options = {}) {
         const lineEl = body.querySelector(`[data-line-id="${escapeHtml(String(lid))}"]`);
         const token = ++timetableRenderToken;
         renderTimetableForLineEl(lineEl, currentStationId, token);
+    };
+
+    const toggleDirectionFocus = (lineId, dirKey) => {
+        const lid = toText(lineId);
+        const dkey = toText(dirKey);
+        if (!lid || !dkey) return;
+
+        const nextKey = makeLineDirKey(lid, dkey);
+        focusedDirectionKey = focusedDirectionKey === nextKey ? '' : nextKey;
+        if (focusedDirectionKey) setDirExpanded(lid, dkey, true);
+        syncDirectionFocusVisibility();
+        renderAllTimetables();
     };
 
     const expandMobileLineTimetableDirections = (lineId) => {
@@ -4184,6 +4234,16 @@ export function createPanel(options = {}) {
         if (printTarget) {
             stopEvent(evt);
             requestPrintTimetable(printTarget.lineId, printTarget.dirKey);
+            return;
+        }
+
+        const focusTarget = getDirFocusButtonTarget(evt?.target);
+        if (focusTarget) {
+            stopEvent(evt);
+            dispatchPanelDirectionFocusIntent({
+                dirTarget: focusTarget,
+                toggleDirectionFocus
+            });
             return;
         }
 
@@ -4423,6 +4483,16 @@ export function createPanel(options = {}) {
         if (earlyPrintTarget) {
             stopEvent(evt);
             requestPrintTimetable(earlyPrintTarget.lineId, earlyPrintTarget.dirKey);
+            return;
+        }
+
+        const earlyFocusTarget = getDirFocusButtonTarget(evt?.target);
+        if (earlyFocusTarget) {
+            stopEvent(evt);
+            dispatchPanelDirectionFocusIntent({
+                dirTarget: earlyFocusTarget,
+                toggleDirectionFocus
+            });
             return;
         }
 
@@ -4878,6 +4948,8 @@ export function createPanel(options = {}) {
             closeDirFilterPopover,
             clearPinnedPanelState
         }));
+        focusedDirectionKey = '';
+        syncDirectionFocusVisibility();
 
         const stationRenderBootstrap = preparePanelStationRenderBootstrap({
             props,

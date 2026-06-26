@@ -3589,11 +3589,30 @@ html[data-theme="dark"] .ms-show-icon-btn {
     flex: 0 0 auto;
 }
 
+.panel-dir-focus-btn {
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+
 .panel-dir-filter-btn:hover {
     background: var(--ui-surface-hover);
 }
 
 .panel-dir-print-btn:hover {
+    background: var(--ui-surface-hover);
+}
+
+.panel-dir-focus-btn:hover,
+.panel-dir-focus-btn.is-active {
     background: var(--ui-surface-hover);
 }
 
@@ -3605,6 +3624,13 @@ html[data-theme="dark"] .ms-show-icon-btn {
 }
 
 .panel-dir-print-icon {
+    width: 12px;
+    height: 12px;
+    display: block;
+    pointer-events: none;
+}
+
+.panel-dir-focus-icon {
     width: 12px;
     height: 12px;
     display: block;
@@ -3659,6 +3685,18 @@ html[data-theme="dark"] .ms-show-icon-btn {
     overflow-x: hidden;
     padding-top: 0;
     padding-bottom: 0;
+}
+
+.panel-list.is-direction-focused .panel-timetable.is-expanded,
+.panel-list.is-direction-focused .panel-timetable.panel-timetable-view-grid.is-expanded {
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+}
+
+.panel-line.is-direction-focus-hidden,
+.panel-company.is-direction-focus-hidden {
+    display: none;
 }
 
 .panel-timetable-grid {
@@ -3758,7 +3796,7 @@ html[data-theme="dark"] .ms-show-icon-btn {
 }
 
 .panel-grid-cell {
-    min-height: 45px;
+    min-height: 49px;
     padding: 1px 3px;
     display: flex;
     align-items: center;
@@ -7042,6 +7080,8 @@ html[data-theme='dark'] .settings-time-picker-option:hover,
 html[data-theme='dark'] .settings-time-picker-btn:hover,
 html[data-theme='dark'] .panel-dir-filter-popover-clear:hover,
 html[data-theme='dark'] .panel-dir-print-btn:hover,
+html[data-theme='dark'] .panel-dir-focus-btn:hover,
+html[data-theme='dark'] .panel-dir-focus-btn.is-active,
 html[data-theme='dark'] .panel-capture-btn:hover {
     background: #2d323a;
 }
@@ -7113,6 +7153,7 @@ html[data-theme='dark'] .settings-fab-icon,
 html[data-theme='dark'] .panel-day-print-icon,
 html[data-theme='dark'] .panel-dir-filter-icon,
 html[data-theme='dark'] .panel-dir-print-icon,
+html[data-theme='dark'] .panel-dir-focus-icon,
 html[data-theme='dark'] .panel-capture-icon,
 html[data-theme='dark'] .settings-time-reset-icon,
 html[data-theme='dark'] .settings-view-btn-icon {
