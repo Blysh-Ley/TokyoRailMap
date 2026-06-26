@@ -828,28 +828,72 @@ export function createPanel(options = {}) {
     const deriveSpecialSp = (nameRaw) => {
         const name = toText(nameRaw);
         if (!name) return '';
-        const sp = name.split(/\s+/).filter(Boolean)[0] || name;
-        return toText(sp);
+        const parts = name.split(/\s+/).map((part) => toText(part)).filter(Boolean);
+        if (parts.length > 1 && /^\d+$/.test(parts[parts.length - 1])) {
+            parts.pop();
+        }
+        return toText(parts.join(' ') || name);
     };
 
     const buildUniqueSpecialAbbrMap = (orderedSpecialSp) => {
         const names = Array.isArray(orderedSpecialSp) ? orderedSpecialSp.map((x) => toText(x)).filter(Boolean) : [];
-        const tokens = names.map((sp) => {
+        const tokenEntries = names.map((sp) => {
             const chars = Array.from(sp);
-            return chars.length ? chars : Array.from(toText(sp));
-        });
-        const lengths = tokens.map((chars) => (chars.length >= 2 ? 2 : 1));
+            const firstSignificantChar = chars.find((ch) => /\S/.test(ch)) || '';
+            const latinInitials = (sp.match(/[A-Za-z]+/g) || [])
+                .map((part) => part[0]?.toUpperCase?.() || '')
+                .filter(Boolean);
+            const cjkChars = Array.from(sp).filter((ch) => /[\u3400-\u9FFF]/.test(ch));
+            if (latinInitials.length && /^[A-Za-z]$/.test(firstSignificantChar)) {
+                const prefix = latinInitials.join('');
+                if (cjkChars.length) {
+                    return {
+                        chars: cjkChars,
+                        prefix,
+                        initialLength: 1,
+                        maxLength: Math.max(1, Math.min(cjkChars.length, 4))
+                    };
+                }
+                const latinWords = sp.match(/[A-Za-z]+/g) || [];
+                if (latinWords.length === 1) {
+                    const wordChars = Array.from(latinWords[0].toUpperCase());
+                    const pureLatinLength = wordChars.length <= 4 ? wordChars.length : 3;
+                    return {
+                        chars: wordChars,
+                        prefix: '',
+                        initialLength: Math.max(1, pureLatinLength),
+                        maxLength: Math.max(1, pureLatinLength)
+                    };
+                }
+                const pureLatinLength = latinInitials.length <= 4 ? latinInitials.length : 3;
+                return {
+                    chars: latinInitials,
+                    prefix: '',
+                    initialLength: Math.max(1, pureLatinLength),
+                    maxLength: Math.max(1, pureLatinLength)
+                };
+            }
 
-        const pick = (chars, len) => {
-            if (!Array.isArray(chars) || !chars.length) return '';
+            return {
+                chars,
+                prefix: '',
+                initialLength: chars.length >= 2 ? 2 : 1,
+                maxLength: Math.max(1, Math.min(chars.length, 4))
+            };
+        });
+        const lengths = tokenEntries.map((entry) => Number(entry?.initialLength) || 1);
+
+        const pick = (entry, len) => {
+            const chars = Array.isArray(entry?.chars) ? entry.chars : [];
+            if (!chars.length) return toText(entry?.prefix);
             const n = Math.max(1, Math.min(len, chars.length));
-            return chars.slice(0, n).join('');
+            return `${toText(entry?.prefix)}${chars.slice(0, n).join('')}`;
         };
 
         for (let round = 0; round < 16; round += 1) {
             const bucket = new Map();
-            for (let i = 0; i < tokens.length; i += 1) {
-                const abbr = pick(tokens[i], lengths[i]);
+            for (let i = 0; i < tokenEntries.length; i += 1) {
+                const abbr = pick(tokenEntries[i], lengths[i]);
                 if (!bucket.has(abbr)) bucket.set(abbr, []);
                 bucket.get(abbr).push(i);
             }
@@ -858,7 +902,7 @@ export function createPanel(options = {}) {
             for (const [, indices] of bucket.entries()) {
                 if (!Array.isArray(indices) || indices.length <= 1) continue;
                 for (const i of indices) {
-                    const maxLen = Math.max(1, Math.min(tokens[i].length, 4));
+                    const maxLen = Number(tokenEntries[i]?.maxLength) || 1;
                     if (lengths[i] < maxLen) {
                         lengths[i] += 1;
                         changed = true;
@@ -870,7 +914,7 @@ export function createPanel(options = {}) {
 
         const out = new Map();
         for (let i = 0; i < names.length; i += 1) {
-            out.set(names[i], pick(tokens[i], lengths[i]));
+            out.set(names[i], pick(tokenEntries[i], lengths[i]));
         }
         return out;
     };
@@ -930,6 +974,15 @@ export function createPanel(options = {}) {
             ? Array.from(new Set(names.map((x) => toText(x)).filter(Boolean)))
             : [];
         return list.join('·');
+    };
+
+    const buildTerminalDisplayAbbr = (nameRaw) => {
+        const chars = Array.from(toText(nameRaw)).filter((ch) => /\S/.test(ch));
+        if (chars.length <= 3) return chars.join('');
+        return [chars[0], chars[2] || chars[1]]
+            .map((ch) => toText(ch))
+            .filter(Boolean)
+            .join('');
     };
 
     const buildDirectionGridHints = (rowsForDir) => {
@@ -1052,9 +1105,14 @@ export function createPanel(options = {}) {
             abbr: (() => {
                 const fullNames = terminalNamesByLabel.get(name) || [name];
                 const parts = fullNames
-                    .map((fullName) => toText(terminalAbbrMap.get(fullName)) || toText(fullName).slice(0, 1))
+                    .map((fullName) => {
+                        const normalized = toText(fullName);
+                        if (!normalized) return '';
+                        if (fullNames.length > 1) return buildTerminalDisplayAbbr(normalized);
+                        return toText(terminalAbbrMap.get(normalized)) || buildTerminalDisplayAbbr(normalized);
+                    })
                     .filter(Boolean);
-                if (!parts.length) return toText(name).slice(0, 1);
+                if (!parts.length) return buildTerminalDisplayAbbr(name);
                 return parts.join('·');
             })(),
             hintParts: (() => {
@@ -1065,7 +1123,9 @@ export function createPanel(options = {}) {
                         if (!normalized) return null;
                         return {
                             full: normalized,
-                            abbr: toText(terminalAbbrMap.get(normalized)) || normalized.slice(0, 1),
+                            abbr: fullNames.length > 1
+                                ? buildTerminalDisplayAbbr(normalized)
+                                : (toText(terminalAbbrMap.get(normalized)) || buildTerminalDisplayAbbr(normalized)),
                             noMarkMode: toText(noMarkModeByTerminalName.get(normalized))
                         };
                     })

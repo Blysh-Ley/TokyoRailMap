@@ -255,6 +255,20 @@ export const createPanelTimePickerController = ({
 // panelTimetableGridHintsRenderer.js
 const defaultToText_panelTimetableGridHintsRenderer = (value) => String(value ?? '').trim();
 
+const formatPanelGridLegendPair = ({
+    full,
+    label,
+    separator = '-',
+    escapeHtml = defaultToText_panelTimetableGridHintsRenderer,
+    toText = defaultToText_panelTimetableGridHintsRenderer
+} = {}) => {
+    const fullText = toText(full);
+    const labelText = toText(label);
+    if (!fullText) return '';
+    if (!labelText || labelText === fullText) return escapeHtml(fullText);
+    return `${escapeHtml(labelText)}${escapeHtml(separator)}${escapeHtml(fullText)}`;
+};
+
 export const buildPanelTimetableGridHintsHtml = ({
     typeHints,
     terminalHints,
@@ -305,10 +319,16 @@ export const buildPanelTimetableGridHintsHtml = ({
 
                 if (noMarkMode === 'label') continue;
 
-                const abbrKey = `${part.abbr}||${part.full}`;
+                const terminalLabel = buildPanelGridDestLabel(part.full, { fallbackAbbr: part.abbr, toText });
+                const abbrKey = `${terminalLabel}||${part.full}`;
                 if (seenTerminalPair.has(abbrKey)) continue;
                 seenTerminalPair.add(abbrKey);
-                terminalPairHtml.push(`<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888">${escapeHtml(part.abbr)}-${escapeHtml(part.full)}</span>`);
+                terminalPairHtml.push(`<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888">${formatPanelGridLegendPair({
+                    full: part.full,
+                    label: terminalLabel,
+                    escapeHtml,
+                    toText
+                })}</span>`);
             }
             continue;
         }
@@ -322,10 +342,16 @@ export const buildPanelTimetableGridHintsHtml = ({
         const pairLen = Math.max(fullParts.length, abbrParts.length);
 
         if (pairLen <= 1) {
-            const key = `${abbr}||${full}`;
+            const terminalLabel = buildPanelGridDestLabel(full, { fallbackAbbr: abbr, toText });
+            const key = `${terminalLabel}||${full}`;
             if (seenTerminalPair.has(key)) continue;
             seenTerminalPair.add(key);
-            terminalPairHtml.push(`<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888">${escapeHtml(abbr)}-${escapeHtml(full)}</span>`);
+            terminalPairHtml.push(`<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888">${formatPanelGridLegendPair({
+                full,
+                label: terminalLabel,
+                escapeHtml,
+                toText
+            })}</span>`);
             continue;
         }
 
@@ -333,21 +359,36 @@ export const buildPanelTimetableGridHintsHtml = ({
             const fullPart = toText(fullParts[index] || fullParts[fullParts.length - 1]);
             const abbrPart = toText(abbrParts[index] || abbrParts[abbrParts.length - 1]);
             if (!fullPart || !abbrPart) continue;
-            const key = `${abbrPart}||${fullPart}`;
+            const terminalLabel = buildPanelGridDestLabel(fullPart, { fallbackAbbr: abbrPart, toText });
+            const key = `${terminalLabel}||${fullPart}`;
             if (seenTerminalPair.has(key)) continue;
             seenTerminalPair.add(key);
-            terminalPairHtml.push(`<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888">${escapeHtml(abbrPart)}-${escapeHtml(fullPart)}</span>`);
+            terminalPairHtml.push(`<span class="panel-grid-hint-item panel-grid-hint-item-terminal" style="color:#888">${formatPanelGridLegendPair({
+                full: fullPart,
+                label: terminalLabel,
+                escapeHtml,
+                toText
+            })}</span>`);
         }
     }
 
     const terminalLegendItems = terminalPairHtml.join('<span class="panel-grid-hint-sep"> / </span>');
+    const seenSpecialPair = new Set();
     const specialLegendItems = (Array.isArray(specialHints) ? specialHints : [])
         .map((item) => {
             const full = toText(item?.full);
             const abbr = toText(item?.abbr);
-            const sp = full.split(' ')[0];
-            if (!full || !abbr) return '';
-            return `<span class="panel-grid-hint-item panel-grid-hint-item-special" style="color:#888">${escapeHtml(abbr)}-${escapeHtml(sp)}</span>`;
+            const sp = toText(item?.sp) || full.split(' ')[0];
+            if (!sp || !abbr) return '';
+            const key = `${abbr === sp ? sp : `${abbr}||${sp}`}`;
+            if (seenSpecialPair.has(key)) return '';
+            seenSpecialPair.add(key);
+            return `<span class="panel-grid-hint-item panel-grid-hint-item-special" style="color:#888">${formatPanelGridLegendPair({
+                full: sp,
+                label: abbr,
+                escapeHtml,
+                toText
+            })}</span>`;
         })
         .filter(Boolean)
         .join('<span class="panel-grid-hint-sep"> / </span>');
@@ -370,6 +411,8 @@ export const buildPanelTimetableGridHintsHtml = ({
 // panelTimetableGridRenderer.js
 const defaultToText_panelTimetableGridRenderer = (value) => String(value ?? '').trim();
 const COLLAPSED_PANEL_GRID_TRIPS_PER_ROW = 5;
+const MAX_PANEL_GRID_DEST_LABEL_CHARS = 3;
+const MAX_PANEL_GRID_DEST_ABBR_CHARS = 2;
 
 const clampPanelServiceHour_panelTimetableGridRenderer = (value, minHour, maxHour) => {
     const hour = Number(value);
@@ -411,6 +454,30 @@ const resolveCollapsedPanelGridFocus = ({
         hour: fallbackHour,
         row: fallbackRows.length ? fallbackRows[fallbackRows.length - 1] : null
     };
+};
+
+const buildPanelGridDestLabel = (destNameRaw, {
+    fallbackAbbr = '',
+    toText = defaultToText_panelTimetableGridRenderer
+} = {}) => {
+    const destName = toText(destNameRaw);
+    if (!destName) return '';
+
+    const chars = Array.from(destName).filter((ch) => /\S/.test(ch));
+    if (chars.length <= MAX_PANEL_GRID_DEST_LABEL_CHARS) return chars.join('');
+
+    const fallbackText = toText(fallbackAbbr);
+    if (/[\/·]/.test(fallbackText)) return fallbackText;
+
+    const abbrChars = Array.from(fallbackText).filter((ch) => /\S/.test(ch));
+    if (abbrChars.length >= MAX_PANEL_GRID_DEST_ABBR_CHARS) {
+        return abbrChars.slice(0, MAX_PANEL_GRID_DEST_ABBR_CHARS).join('');
+    }
+
+    return [chars[0], chars[2] || chars[1]]
+        .map((ch) => toText(ch))
+        .filter(Boolean)
+        .join('');
 };
 
 export const buildPanelTimetableGridHtmlForDirection = ({
@@ -524,7 +591,7 @@ export const buildPanelTimetableGridHtmlForDirection = ({
                 const typeName = toText(trip?.typeName);
                 const destName = toText(trip?.terminalDisplayName || trip?.terminalName || trip?.destName);
                 const typeAbbr = toText(typeAbbrByName.get(typeName)) || buildTypeAbbr(typeName);
-                const rawDestAbbr = toText(terminalAbbrByName.get(destName)) || toText(destName).slice(0, 1);
+                const rawDestAbbr = toText(terminalAbbrByName.get(destName));
                 const rowTerminalNames = Array.isArray(trip?.terminalNames)
                     ? trip.terminalNames.map((value) => toText(value)).filter(Boolean)
                     : [];
@@ -534,7 +601,9 @@ export const buildPanelTimetableGridHtmlForDirection = ({
                     .filter(Boolean);
                 const shouldHideDestAbbr = rowNoMarkModes.length > 0
                     && !(rowHasSplitByNtMultiDest && rowNoMarkModes.some((mode) => mode === 'dual'));
-                const destAbbr = shouldHideDestAbbr ? '' : rawDestAbbr;
+                const destAbbr = shouldHideDestAbbr
+                    ? ''
+                    : buildPanelGridDestLabel(destName, { fallbackAbbr: rawDestAbbr, toText });
                 const minute = toText(trip?.minuteLabel).slice(0, 2);
                 const tripKey = resolvePanelTimetableTripKey(trip, { toText });
                 const color = resolveTrainTypeColorForTheme(trip?.typeColor) || 'var(--ui-text, #111)';
@@ -555,26 +624,28 @@ export const buildPanelTimetableGridHtmlForDirection = ({
                 const hasSpecialNames = specialAbbrs.length > 0;
                 const useSpecialBackground = hasSpecialNames || !!trip?.hasNameMeta;
 
-                let tripAbbrText = `${showTypeAbbr ? `[${typeAbbr}]` : ''}${showDestAbbr ? destAbbr : ''}`;
+                let typeLabel = showTypeAbbr ? `[${typeAbbr}]` : '';
+                let destLabel = showDestAbbr ? destAbbr : '';
                 if (hasSpecialNames) {
-                    const specialPrefix = `[${specialAbbrs.join('·')}]`;
-                    if (specialAbbrs.length >= 2) {
-                        const multiDestAbbr = toText(rawDestAbbr);
-                        const fallbackDest = toText(trip?.terminalDisplayName || trip?.terminalName || trip?.destName);
-                        tripAbbrText = `${specialPrefix}${multiDestAbbr || fallbackDest}`;
-                    } else {
-                        tripAbbrText = `${specialPrefix}${toText(rawDestAbbr)}`;
-                    }
+                    typeLabel = `[${specialAbbrs.join('·')}]`;
                 }
 
-                const tripAbbrLen = Array.from(toText(tripAbbrText)).length;
-                const needScale = specialAbbrs.length >= 2 || tripAbbrLen > 5;
-                const tripAbbrStyle = tripAbbrLen > 8
+                const typeLabelLen = Array.from(toText(typeLabel)).length;
+                const destLabelLen = Array.from(toText(destLabel)).length;
+                const typeNeedScale = specialAbbrs.length >= 2 || typeLabelLen > 4;
+                const destNeedScale = destLabelLen > 3;
+                const typeStyle = typeLabelLen > 8
                     ? ' style="transform:scale(0.45,1)"'
-                    : (needScale ? ' style="transform:scale(0.7,1)"' : '');
-                const tripAbbrHtml = tripAbbrText
-                    ? `<span class="panel-grid-trip-abbr"${tripAbbrStyle}>${escapeHtml(tripAbbrText)}</span>`
-                    : '<span class="panel-grid-trip-abbr" aria-hidden="true">&nbsp;</span>';
+                    : (typeNeedScale ? ' style="transform:scale(0.7,1)"' : '');
+                const destStyle = destLabelLen > 8
+                    ? ' style="transform:scale(0.45,1)"'
+                    : (destNeedScale ? ' style="transform:scale(0.7,1)"' : '');
+                const typeHtml = typeLabel
+                    ? `<span class="panel-grid-trip-type"${typeStyle}>${escapeHtml(typeLabel)}</span>`
+                    : '<span class="panel-grid-trip-type" aria-hidden="true">&nbsp;</span>';
+                const destHtml = destLabel
+                    ? `<span class="panel-grid-trip-dest"${destStyle}>${escapeHtml(destLabel)}</span>`
+                    : '<span class="panel-grid-trip-dest" aria-hidden="true">&nbsp;</span>';
 
                 const isTerminal = !!trip?.showTerminalLabel;
                 const isOrigin = !!trip?.showOriginLabel;
@@ -583,11 +654,12 @@ export const buildPanelTimetableGridHtmlForDirection = ({
                 return `
                         <div class="panel-grid-cell panel-grid-cell-trip${useSpecialBackground ? ' has-special' : ''}${pastClass}${lastClass}"${tripAttr}>
                             <span class="panel-grid-trip${pastClass}" style="color:${escapeHtml(color)}">
-                                ${tripAbbrHtml}
+                                ${typeHtml}
                                 <span class="panel-grid-trip-minute"><span class="panel-grid-trip-minute-text">${escapeHtml(minute)}</span>${
                                     isTerminal ? '<span class="panel-grid-trip-minute-flag is-terminal-flag" aria-label="终点站">终</span>' :
                                     isOrigin ? '<span class="panel-grid-trip-minute-flag is-origin-flag" aria-label="始发站">始</span>' :
                                     ''}</span>
+                                ${destHtml}
                             </span>
                         </div>
                     `;

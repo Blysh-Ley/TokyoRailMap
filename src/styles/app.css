@@ -3902,8 +3902,9 @@ html[data-theme="dark"] .ms-show-icon-btn {
 }
 
 .panel-grid-cell-trip.has-special .panel-grid-trip,
-.panel-grid-cell-trip.has-special .panel-grid-trip-abbr,
+.panel-grid-cell-trip.has-special .panel-grid-trip-type,
 .panel-grid-cell-trip.has-special .panel-grid-trip-minute,
+.panel-grid-cell-trip.has-special .panel-grid-trip-dest,
 .panel-grid-cell-trip.has-special .panel-grid-trip-minute-flag {
     color: #fff !important;
 }
@@ -3913,38 +3914,57 @@ html[data-theme="dark"] .ms-show-icon-btn {
 }
 
 .panel-grid-cell-trip.has-special.is-past .panel-grid-trip,
-.panel-grid-cell-trip.has-special.is-past .panel-grid-trip-abbr,
+.panel-grid-cell-trip.has-special.is-past .panel-grid-trip-type,
 .panel-grid-cell-trip.has-special.is-past .panel-grid-trip-minute,
+.panel-grid-cell-trip.has-special.is-past .panel-grid-trip-dest,
 .panel-grid-cell-trip.has-special.is-past .panel-grid-trip-minute-flag {
     color: #d2d2d2 !important;
 }
 
 .panel-grid-trip {
-    display: inline-flex;
-    flex-direction: column;
+    width: 100%;
+    min-height: 49px;
+    display: grid;
+    grid-template-rows: minmax(13px, 1fr) auto minmax(13px, 1fr);
     align-items: center;
+    justify-items: center;
     justify-content: center;
     gap: 0;
-    line-height: 1.05;
+    line-height: 1;
     color: var(--ui-text);
 }
 
-.panel-grid-trip-abbr {
+.panel-grid-trip-type,
+.panel-grid-trip-dest {
     font-size: 11px;
     font-weight: 600;
+    line-height: 1;
     white-space: nowrap;
+    transform-origin: center;
+}
+
+.panel-grid-trip-dest {
+    font-size: 10px;
+    font-weight: 600;
+    opacity: 0.86;
 }
 
 .panel-grid-trip-minute {
     font-size: 16px;
     font-weight: 700;
     position: relative;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 18px;
+    line-height: 1;
 }
 
 .panel-grid-trip-minute-flag {
     position: absolute;
-    bottom: 0;
+    left: 100%;
+    top: 50%;
+    transform: translate(1px, -50%);
     font-size:10px;
     font-weight: 700;
     line-height: 1;

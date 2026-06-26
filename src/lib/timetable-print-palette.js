@@ -111,7 +111,7 @@ export const resolveTimetablePrintPalette = ({
             specialTripTextColor: CYBER_TEXT_DARK,
             gridBaseTripsColor: CYBER_SURFACE_ALT,
             gridHeaderTripsColor: serviceDayAccentColor,
-            gridRowTripsColor: withAlpha(serviceDayAccentColor, '30'),
+            gridRowTripsColor: withAlpha(serviceDayAccentColor, '0f'),
             rightGridHeaderTripsColor: rightAccentColor,
             rightGridRowTripsColor: withAlpha(rightAccentColor, '34'),
             rightPaneTextColor: CYBER_TEXT_DARK,
@@ -133,7 +133,7 @@ export const resolveTimetablePrintPalette = ({
         specialTripTextColor: baseSpecialTripTextColor,
         gridBaseTripsColor: '#fff',
         gridHeaderTripsColor: `${serviceDayAccentColor}5f`,
-        gridRowTripsColor: `${serviceDayAccentColor}46`,
+        gridRowTripsColor: `${serviceDayAccentColor}0f`,
         rightGridHeaderTripsColor: `${macaronColor.complementary}73`,
         rightGridRowTripsColor: `${macaronColor.complementary}52`,
         rightPaneTextColor: macaronColor.complementaryText
