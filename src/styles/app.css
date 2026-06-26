@@ -976,7 +976,9 @@ body[data-mobile-ui='1'] .mobile-menu-content {
     min-height: 0;
     overflow-y: auto;
     padding: 8px 10px var(--mobile-bottom-nav-clearance);
+    padding: 8px 10px calc(var(--mobile-bottom-nav-clearance) + var(--mobile-sheet-covered-offset, 0px));
     scroll-padding-bottom: var(--mobile-bottom-nav-clearance);
+    scroll-padding-bottom: calc(var(--mobile-bottom-nav-clearance) + var(--mobile-sheet-covered-offset, 0px));
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
 }
@@ -3189,7 +3191,9 @@ html[data-theme="dark"] .ms-show-icon-btn {
     overscroll-behavior-y: none;
     touch-action: pan-y;
     padding-bottom: var(--mobile-bottom-nav-clearance);
+    padding-bottom: calc(var(--mobile-bottom-nav-clearance) + var(--mobile-sheet-covered-offset, 0px));
     scroll-padding-bottom: var(--mobile-bottom-nav-clearance);
+    scroll-padding-bottom: calc(var(--mobile-bottom-nav-clearance) + var(--mobile-sheet-covered-offset, 0px));
     -webkit-overflow-scrolling: touch;
 }
 
@@ -4736,7 +4740,9 @@ body[data-mobile-ui='1'] .panel-dir-filter-option-count {
     min-height: 0;
     max-height: none;
     padding-bottom: calc(6px + var(--mobile-bottom-nav-clearance));
+    padding-bottom: calc(6px + var(--mobile-bottom-nav-clearance) + var(--mobile-sheet-covered-offset, 0px));
     scroll-padding-bottom: var(--mobile-bottom-nav-clearance);
+    scroll-padding-bottom: calc(var(--mobile-bottom-nav-clearance) + var(--mobile-sheet-covered-offset, 0px));
     overscroll-behavior: none;
     overscroll-behavior-y: none;
 }

@@ -110,6 +110,7 @@ export const createMobileMenu = ({
 
     const sheet = createEl(doc, 'section', 'mobile-menu-panel');
     sheet.style.setProperty('--mobile-sheet-peek-height', `${DEFAULT_MOBILE_SHEET_PEEK_PX}px`);
+    sheet.style.setProperty('--mobile-sheet-covered-offset', '0px');
     const dragBar = createEl(doc, 'div', 'mobile-menu-drag-bar', { 'aria-hidden': 'true' });
     const header = createEl(doc, 'div', 'mobile-menu-header');
     const backBtn = createEl(doc, 'button', 'mobile-menu-back-btn', {
@@ -136,6 +137,10 @@ export const createMobileMenu = ({
 
     const getPanelHeight = () => Math.max(1, Math.round(sheet.getBoundingClientRect?.().height || win?.innerHeight || 1));
     const getSnapOptions = () => ({ height: getPanelHeight(), peekPx: DEFAULT_MOBILE_SHEET_PEEK_PX });
+    const setSheetCoveredOffset = (offset) => {
+        const value = Math.max(0, Math.round(Number(offset) || 0));
+        sheet.style.setProperty('--mobile-sheet-covered-offset', `${value}px`);
+    };
     const scheduleLineTerminalMarquees = () => {
         if (screen !== 'lines') return false;
         return scheduleOverflowTextMarquees(content, {
@@ -158,12 +163,18 @@ export const createMobileMenu = ({
         root.setAttribute('data-mobile-menu-state', drawerState);
         sheet.style.transition = transition ? '' : 'none';
         if (drawerState === 'hidden') {
+            setSheetCoveredOffset(0);
             sheet.style.transform = 'translateY(calc(100% + 24px))';
         } else if (drawerState === 'collapsed') {
-            sheet.style.transform = `translateY(${getMobileSheetOffsetForState('collapsed', getSnapOptions())}px)`;
+            const offset = getMobileSheetOffsetForState('collapsed', getSnapOptions());
+            setSheetCoveredOffset(offset);
+            sheet.style.transform = `translateY(${offset}px)`;
         } else if (drawerState === 'half') {
-            sheet.style.transform = `translateY(${getMobileSheetOffsetForState('half', getSnapOptions())}px)`;
+            const offset = getMobileSheetOffsetForState('half', getSnapOptions());
+            setSheetCoveredOffset(offset);
+            sheet.style.transform = `translateY(${offset}px)`;
         } else {
+            setSheetCoveredOffset(0);
             sheet.style.transform = 'translateY(0)';
         }
     };
@@ -306,6 +317,7 @@ export const createMobileMenu = ({
             clientY: Number(event?.clientY) || dragState.session.currentY,
             nowMs: Number(event?.timeStamp) || undefined
         });
+        setSheetCoveredOffset(dragState.session.currentOffset);
         sheet.style.transform = `translateY(${dragState.session.currentOffset}px)`;
         event?.preventDefault?.();
         event?.stopPropagation?.();

@@ -144,6 +144,7 @@ export const createMobilePanelShell = ({
     root.style.transition = 'transform 0.22s ease';
     root.style.overflow = 'hidden';
     root.style.setProperty('--panel-mobile-peek-height', `${peekPx}px`);
+    root.style.setProperty('--mobile-sheet-covered-offset', '0px');
 
     const isFoldableWidth = () => {
         const width = Number(win?.innerWidth);
@@ -168,6 +169,10 @@ export const createMobilePanelShell = ({
         if (halfCollapsed) return getHalfOffset();
         return 0;
     };
+    const setCoveredOffset = (offset) => {
+        const value = Math.max(0, Math.round(Number(offset) || 0));
+        root.style.setProperty('--mobile-sheet-covered-offset', `${value}px`);
+    };
     const setTransitionEnabled = (enabled) => {
         root.style.transition = enabled ? 'transform 0.22s ease' : 'none';
     };
@@ -176,20 +181,26 @@ export const createMobilePanelShell = ({
         root.setAttribute('data-panel-mobile-state', state);
 
         if (state === 'hidden') {
+            setCoveredOffset(0);
             root.style.transform = DEFAULT_MOBILE_HIDDEN_TRANSFORM;
             return;
         }
 
         if (state === 'collapsed') {
-            root.style.transform = `translateY(${getCollapsedOffset()}px)`;
+            const offset = getCollapsedOffset();
+            setCoveredOffset(offset);
+            root.style.transform = `translateY(${offset}px)`;
             return;
         }
 
         if (state === 'half') {
-            root.style.transform = `translateY(${getHalfOffset()}px)`;
+            const offset = getHalfOffset();
+            setCoveredOffset(offset);
+            root.style.transform = `translateY(${offset}px)`;
             return;
         }
 
+        setCoveredOffset(0);
         root.style.transform = 'translateY(0)';
     };
 
@@ -273,6 +284,7 @@ export const createMobilePanelShell = ({
                 clientY,
                 nowMs: dragUsesLegacyDelta ? 1000 : (typeof input === 'object' ? input?.nowMs : undefined)
             });
+            setCoveredOffset(dragSession.currentOffset);
             root.style.transform = `translateY(${dragSession.currentOffset}px)`;
             return true;
         },
