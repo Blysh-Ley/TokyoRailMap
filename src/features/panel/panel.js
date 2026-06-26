@@ -4160,8 +4160,11 @@ export function createPanel(options = {}) {
 
         const companyToggleTarget = getPanelCompanyToggleTarget(evt?.target);
         if (companyToggleTarget) {
-            stopEvent(evt);
-            togglePanelCompanyLinesCollapsed(companyToggleTarget.companyEl);
+            stopPropagationOnly(evt);
+            panelInteractionPolicy.startTripTap(evt, {
+                kind: 'company-toggle',
+                companyEl: companyToggleTarget.companyEl
+            });
             return;
         }
 
@@ -4275,6 +4278,11 @@ export function createPanel(options = {}) {
         const pendingKind = toText(pending?.kind);
         if (pendingKind === 'line-header-toggle' || pendingKind === 'line-toggle') {
             togglePanelLineCollapsedById(pending.lineId);
+            return;
+        }
+
+        if (pendingKind === 'company-toggle') {
+            togglePanelCompanyLinesCollapsed(pending.companyEl);
             return;
         }
 
