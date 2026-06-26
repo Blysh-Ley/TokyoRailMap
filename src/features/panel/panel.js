@@ -3987,7 +3987,8 @@ export function createPanel(options = {}) {
                 sub: tripDetailThroughLineHeader.text,
                 subHtml: tripDetailThroughLineHeader.html
             },
-            presentation: panelPresentation
+            presentation: panelPresentation,
+            scrollToCurrentStation: true
         });
         scheduleMarqueeApply(tripDetailRoot);
         scheduleMarqueeApply(header);

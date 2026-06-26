@@ -132,14 +132,16 @@ export const renderPanelTripDetailAlternateBodyStopRow = ({
     const stationId = toText(s.displayStationId || s.stationId);
     const transferDisplay = s?.transferDisplay || null;
     const transferRowCount = Math.max(1, Number(transferDisplay?.rowCount) || 1);
+    const currentCls = s.isCurrent ? ' is-current' : '';
     return renderPanelTripDetailStopRowHtml({
-        rowClass: s.isPast ? 'panel-trip-detail-row is-past' : 'panel-trip-detail-row',
+        rowClass: `panel-trip-detail-row${s.isPast ? ' is-past' : ''}${currentCls}`,
         rowStyle: transferRowCount > 1 ? `min-height:${20 + (transferRowCount - 1) * 24}px;` : '',
-        stationClass: 'panel-trip-detail-station',
+        stationClass: `panel-trip-detail-station${currentCls}`,
         timeCellClass: 'panel-trip-detail-time panel-trip-detail-moment',
         timeHtml: renderTripDetailMomentHtml(s),
         transferDisplay,
         stationId,
+        isCurrent: !!s.isCurrent,
         arrivalTime: toText(s.arr || s.dep || ''),
         stationCode: toText(s.displayStationCode || stationsIndex?.idToCode?.get?.(stationId) || ''),
         stationName: toText(s.displayStationName || s.stationName || stationId),

@@ -187,11 +187,13 @@ export const markRowsPastByStation = ({
     if (idx >= 0) {
         return list.map((s, rowIndex) => ({
             ...s,
+            isCurrent: rowIndex === idx,
             isPast: rowIndex < idx
         }));
     }
     return list.map((s) => ({
         ...s,
+        isCurrent: false,
         isPast: !!fallbackPast
     }));
 };
@@ -213,6 +215,7 @@ export const applyTripDetailPastState = ({
     });
     const stopsWithPast = normalizedStops.map((s, idx) => ({
         ...s,
+        isCurrent: currentIdx >= 0 && idx === currentIdx,
         isPast: currentIdx >= 0 ? idx < currentIdx : false
     }));
 
@@ -452,7 +455,8 @@ export const renderPanelTripDetailStationCellHtml = ({
     stationCode = '',
     stationName = '',
     stationId = '',
-    muted = false
+    muted = false,
+    isCurrent = false
 } = {}) => {
     const safeStationId = toText_panelTripDetailStationRenderer(dataStationId || stationId);
     const safeArrivalTime = normalizePanelStationJumpTime(arrivalTime, { toText: toText_panelTripDetailStationRenderer });
@@ -463,6 +467,7 @@ export const renderPanelTripDetailStationCellHtml = ({
         `class="${escapeHtml_panelTripDetailStationRenderer(safeClassName)}"`,
         toText_panelTripDetailStationRenderer(style) ? `style="${escapeHtml_panelTripDetailStationRenderer(style)}"` : '',
         safeStationId ? `data-station-id="${escapeHtml_panelTripDetailStationRenderer(safeStationId)}"` : '',
+        isCurrent ? 'data-panel-trip-detail-current-station="1"' : '',
         stationJumpEnabled && safeStationId ? 'data-panel-station-jump="1"' : '',
         stationJumpEnabled && safeStationId ? 'role="button"' : '',
         stationJumpEnabled && safeStationId ? 'tabindex="0"' : '',
@@ -555,6 +560,7 @@ export const renderPanelTripDetailStopRowHtml = ({
     lineId = '',
     lineColor = '',
     muted = false,
+    isCurrent = false,
     arrivalTime = '',
     arrivalLabelHtml = '',
     departLabelHtml = '',
@@ -584,6 +590,7 @@ export const renderPanelTripDetailStopRowHtml = ({
                 arrivalTime: arrivalTime || arrivalText,
                 lineId,
                 lineColor,
+                isCurrent,
                 muted,
                 stationCode,
                 stationName,
@@ -908,15 +915,17 @@ export const renderPanelTripDetailGridStopCellsSharedStation = ({
     const stationCol = Math.max(1, Number(stationColStart) || 1);
     const stationId = toText(s.displayStationId || s.stationId);
     const pastCls = s.isPast ? ' is-past' : '';
+    const currentCls = s.isCurrent ? ' is-current' : '';
     const safeLineColor = toText(s.displayLineColor || lineColor);
     const markerCol = Number(rowMarkerCol) || 0;
     const markerText = toText(rowMarkerText);
     const transferCol = Math.max(0, Number(transferColStart) || 0);
     const stationHtml = renderPanelTripDetailStationCellHtml({
-        className: `panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}`,
+        className: `panel-trip-detail-station panel-trip-detail-grid-cell${pastCls}${currentCls}`,
         style: `grid-column:${stationCol};`,
         dataStationId: stationId,
         arrivalTime: toText(s.arr || s.dep || ''),
+        isCurrent: !!s.isCurrent,
         lineId: toText(s.displayLineId || s.lineId || lineId),
         lineColor: safeLineColor,
         muted: !!s.isPast,
@@ -924,7 +933,7 @@ export const renderPanelTripDetailGridStopCellsSharedStation = ({
         stationName: toText(stationName || s.displayStationName || s.stationName || stationId),
         stationId
     });
-    const timeHtml = `<div class="panel-trip-detail-time panel-trip-detail-moment panel-trip-detail-grid-cell${pastCls}" style="grid-column:${timeCol} / span 2;">${renderTripDetailMomentHtml(s)}</div>`;
+    const timeHtml = `<div class="panel-trip-detail-time panel-trip-detail-moment panel-trip-detail-grid-cell${pastCls}${currentCls}" style="grid-column:${timeCol} / span 2;">${renderTripDetailMomentHtml(s)}</div>`;
     const cells = [
         { col: stationCol, html: stationHtml },
         { col: timeCol, html: timeHtml }

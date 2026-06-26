@@ -81,6 +81,41 @@ const renderMobileHeaderMarqueeHtml = ({
     return `<span class="panel-dir-title panel-mobile-trip-detail-title-line${safeClassName}"><span class="panel-dir-marquee panel-mobile-trip-detail-title-marquee" aria-label="${safeLabel}"><span class="panel-dir-marquee-inner panel-mobile-trip-detail-title-marquee-inner">${innerHtml}</span></span></span>`;
 };
 
+const scrollCurrentStationIntoView = ({
+    behavior = 'auto',
+    body,
+    setTimeoutFn = globalThis.setTimeout,
+    win = globalThis.window
+} = {}) => {
+    const apply = () => {
+        const target = body?.querySelector?.('[data-panel-trip-detail-current-station="1"]');
+        if (!target?.getBoundingClientRect || !body?.getBoundingClientRect) return false;
+
+        const bodyRect = body.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        const bodyHeight = Math.max(0, Number(body.clientHeight) || 0);
+        const targetHeight = Math.max(0, Number(targetRect.height) || 0);
+        const naturalTop = (Number(body.scrollTop) || 0) + (Number(targetRect.top) - Number(bodyRect.top));
+        const top = Math.max(0, naturalTop - Math.max(0, (bodyHeight / 2) - (targetHeight / 2)));
+
+        try {
+            body.scrollTo?.({ top, behavior });
+        } catch {
+            body.scrollTop = top;
+        }
+        return true;
+    };
+
+    const raf = win?.requestAnimationFrame;
+    if (typeof raf === 'function') {
+        raf(() => {
+            if (!apply()) setTimeoutFn?.(apply, 80);
+        });
+        return;
+    }
+    setTimeoutFn?.(apply, 0);
+};
+
 export const createPanelTripDetailView = ({
     desktopHost = globalThis.document?.body,
     mobileActionRow = null,
@@ -217,10 +252,15 @@ export const createPanelTripDetailView = ({
         bodyHtml = '',
         clientY = 0,
         mobileHeader = null,
-        presentation
+        presentation,
+        scrollToCurrentStation = false
     } = {}) => {
         setContent({ titleHtml, bodyHtml, mobileHeader, presentation });
-        return show({ clientY, presentation });
+        const placement = show({ clientY, presentation });
+        if (scrollToCurrentStation) {
+            scrollCurrentStationIntoView({ body, win });
+        }
+        return placement;
     };
 
     return {
