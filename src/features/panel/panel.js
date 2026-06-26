@@ -1117,6 +1117,10 @@ export function createPanel(options = {}) {
         const focusedLineId = getFocusedDirectionLineId();
         body.classList.toggle('is-direction-focused', !!focusedLineId);
         body.setAttribute('data-direction-focus', focusedDirectionKey || '');
+        if (!focusedLineId) {
+            body.style.removeProperty('--panel-focus-line-header-height');
+            body.style.removeProperty('--panel-focus-dir-header-height');
+        }
 
         const lineEls = Array.from(body.querySelectorAll?.('.panel-line[data-line-id]') || []);
         for (const lineEl of lineEls) {
@@ -1132,6 +1136,30 @@ export function createPanel(options = {}) {
         }
 
         scheduleCatalogRefresh();
+    };
+
+    const syncDirectionFocusStickyMetrics = () => {
+        if (!getFocusedDirectionLineId()) {
+            body.style.removeProperty('--panel-focus-line-header-height');
+            body.style.removeProperty('--panel-focus-dir-header-height');
+            return;
+        }
+
+        const lineHeaderEl = body.querySelector?.('.panel-line:not(.is-direction-focus-hidden) .panel-line-header');
+        const lineHeaderHeight = Math.ceil(Number(lineHeaderEl?.getBoundingClientRect?.()?.height) || 0);
+        if (lineHeaderHeight > 0) {
+            body.style.setProperty('--panel-focus-line-header-height', `${lineHeaderHeight}px`);
+        } else {
+            body.style.removeProperty('--panel-focus-line-header-height');
+        }
+
+        const dirHeaderEl = body.querySelector?.('.panel-line:not(.is-direction-focus-hidden) .panel-dir-header[data-dir-key]');
+        const dirHeaderHeight = Math.ceil(Number(dirHeaderEl?.getBoundingClientRect?.()?.height) || 0);
+        if (dirHeaderHeight > 0) {
+            body.style.setProperty('--panel-focus-dir-header-height', `${dirHeaderHeight}px`);
+        } else {
+            body.style.removeProperty('--panel-focus-dir-header-height');
+        }
     };
 
     const clearTripDetailHideTimer = () => {
@@ -3836,6 +3864,7 @@ export function createPanel(options = {}) {
         for (const el of lineEls) {
             await renderTimetableForLineEl(el, stationId, token);
         }
+        syncDirectionFocusStickyMetrics();
 
         if (pendingGridDataDebugLog) {
             const lines = Array.from(gridDataDebugByLineId.values()).sort((a, b) => String(a?.lineName || '').localeCompare(String(b?.lineName || '')));
