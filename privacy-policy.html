@@ -133,8 +133,9 @@
       <ul>
         <li><strong>GitHub Pages / GitHub Releases：</strong>用于网页访问、下载或更新应用资源。</li>
         <li><strong>jsDelivr：</strong>在导出图片或 PDF 时按需加载 <code>html2canvas</code>、<code>jsPDF</code> 等开源前端库。</li>
-        <li><strong>MapLibre demo glyphs：</strong>用于地图文字字体资源加载。</li>
-        <li><strong>OpenStreetMap / OpenMapTiles 相关数据来源：</strong>用于地图底图 attribution 和数据来源说明；当前应用使用自托管 PMTiles 时不会直接向 OpenStreetMap 官方瓦片服务发送地图浏览请求。</li>
+        <li><strong>MapLibre demo glyphs：</strong>用于本地 PMTiles 极简底图的地图文字字体资源加载。</li>
+        <li><strong>本地 PMTiles 极简底图：</strong>极简模式使用随应用打包的 <code>tiles/kanto.pmtiles</code>，不会为了浏览极简底图向 OpenStreetMap 官方瓦片服务发送地图浏览请求。</li>
+        <li><strong>OpenFreeMap：</strong>详细、深色详细和 3D 底图会按需向 OpenFreeMap 请求样式、矢量瓦片和字体资源；相关地图数据 attribution 包括 OpenFreeMap、OpenMapTiles 与 OpenStreetMap contributors。</li>
       </ul>
       <p>访问这些网络资源时，第三方服务器可能会按其自身日志规则接收 IP 地址、User-Agent、请求时间和请求 URL 等基础网络信息。TokyoRailMap 不会向这些第三方发送你的账号信息，因为本应用没有账号系统；也不会主动发送你的精确位置。</p>
 

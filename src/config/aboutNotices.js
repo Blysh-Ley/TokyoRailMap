@@ -78,6 +78,12 @@ export const DATA_SOURCE_NOTICES = Object.freeze([
         url: 'https://www.openstreetmap.org/copyright'
     },
     {
+        name: 'OpenFreeMap',
+        license: 'OpenMapTiles / OpenStreetMap attribution',
+        role: '详细、深色详细与 3D 在线底图服务',
+        url: 'https://openfreemap.org/'
+    },
+    {
         name: 'mini-tokyo-3d',
         license: 'MIT',
         role: '铁路数据参考',

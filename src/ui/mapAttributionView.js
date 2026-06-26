@@ -1,4 +1,5 @@
 import { OSM_BASEMAP_ATTRIBUTION_ITEMS } from '../domain/osmBasemapPackage.js';
+import { OPENFREEMAP_ATTRIBUTION_ITEMS } from '../domain/openFreeMapBasemap.js';
 
 const ATTRIBUTION_ITEMS = Object.freeze([
     {
@@ -20,7 +21,8 @@ const ATTRIBUTION_ITEMS = Object.freeze([
 
 const DEFAULT_ATTRIBUTION_ITEMS = Object.freeze([
     ...ATTRIBUTION_ITEMS,
-    ...OSM_BASEMAP_ATTRIBUTION_ITEMS
+    ...OSM_BASEMAP_ATTRIBUTION_ITEMS,
+    ...OPENFREEMAP_ATTRIBUTION_ITEMS
 ]);
 
 const ATTRIBUTION_GROUP_LABELS = Object.freeze({
