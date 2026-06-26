@@ -1315,6 +1315,27 @@ export function createPanel(options = {}) {
         setPanelLineCollapsed(lineEl, lineEl.getAttribute('data-panel-line-collapsed') !== '1');
     };
 
+    const collapsePanelLineAfterFocusExit = (lineEl) => {
+        if (!(lineEl instanceof Element)) return;
+        const lineId = toText(lineEl.getAttribute?.('data-line-id'));
+        if (lineId && getFocusedDirectionLineId() === lineId) {
+            focusedDirectionKey = '';
+            syncDirectionFocusVisibility();
+            syncDirectionFocusStickyMetrics();
+            renderAllTimetables();
+            setPanelLineCollapsed(lineEl, true);
+            return;
+        }
+        togglePanelLineCollapsed(lineEl);
+    };
+
+    const collapsePanelLineAfterFocusExitById = (lineId) => {
+        const lid = toText(lineId);
+        if (!lid) return;
+        const lineEl = body.querySelector?.(`.panel-line[data-line-id="${escapeHtml(String(lid))}"]`);
+        collapsePanelLineAfterFocusExit(lineEl);
+    };
+
     const togglePanelLineCollapsedById = (lineId) => {
         const lid = toText(lineId);
         if (!lid) return;
@@ -4217,22 +4238,22 @@ export function createPanel(options = {}) {
 
         if (!pointerState.isTouchLike) return;
 
-        const lineHeaderToggleTarget = getPanelLineHeaderToggleTarget(evt?.target);
-        if (lineHeaderToggleTarget) {
-            stopPropagationOnly(evt);
-            panelInteractionPolicy.startTripTap(evt, {
-                kind: 'line-header-toggle',
-                lineId: lineHeaderToggleTarget.lineEl.getAttribute?.('data-line-id')
-            });
-            return;
-        }
-
         const lineToggleTarget = getPanelLineToggleTarget(evt?.target);
         if (lineToggleTarget) {
             stopPropagationOnly(evt);
             panelInteractionPolicy.startTripTap(evt, {
                 kind: 'line-toggle',
                 lineId: lineToggleTarget.lineEl.getAttribute?.('data-line-id')
+            });
+            return;
+        }
+
+        const lineHeaderToggleTarget = getPanelLineHeaderToggleTarget(evt?.target);
+        if (lineHeaderToggleTarget) {
+            stopPropagationOnly(evt);
+            panelInteractionPolicy.startTripTap(evt, {
+                kind: 'line-header-toggle',
+                lineId: lineHeaderToggleTarget.lineEl.getAttribute?.('data-line-id')
             });
             return;
         }
@@ -4365,8 +4386,17 @@ export function createPanel(options = {}) {
         stopPropagationOnly(evt);
 
         const pendingKind = toText(pending?.kind);
-        if (pendingKind === 'line-header-toggle' || pendingKind === 'line-toggle') {
-            togglePanelLineCollapsedById(pending.lineId);
+        if (pendingKind === 'line-toggle') {
+            collapsePanelLineAfterFocusExitById(pending.lineId);
+            return;
+        }
+
+        if (pendingKind === 'line-header-toggle') {
+            if (getFocusedDirectionLineId() === toText(pending.lineId)) {
+                collapsePanelLineAfterFocusExitById(pending.lineId);
+            } else {
+                togglePanelLineCollapsedById(pending.lineId);
+            }
             return;
         }
 
@@ -4501,6 +4531,13 @@ export function createPanel(options = {}) {
             return;
         }
 
+        const earlyLineToggleTarget = getPanelLineToggleTarget(evt?.target);
+        if (earlyLineToggleTarget) {
+            stopEvent(evt);
+            collapsePanelLineAfterFocusExit(earlyLineToggleTarget.lineEl);
+            return;
+        }
+
         const lineHeaderToggleTarget = getPanelLineHeaderToggleTarget(evt?.target);
         if (lineHeaderToggleTarget) {
             stopEvent(evt);
@@ -4533,7 +4570,7 @@ export function createPanel(options = {}) {
         const lineToggleTarget = getPanelLineToggleTarget(evt?.target);
         if (lineToggleTarget) {
             stopEvent(evt);
-            togglePanelLineCollapsed(lineToggleTarget.lineEl);
+            collapsePanelLineAfterFocusExit(lineToggleTarget.lineEl);
             return;
         }
 
