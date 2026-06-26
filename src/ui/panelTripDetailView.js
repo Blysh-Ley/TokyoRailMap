@@ -81,6 +81,19 @@ const renderMobileHeaderMarqueeHtml = ({
     return `<span class="panel-dir-title panel-mobile-trip-detail-title-line${safeClassName}"><span class="panel-dir-marquee panel-mobile-trip-detail-title-marquee" aria-label="${safeLabel}"><span class="panel-dir-marquee-inner panel-mobile-trip-detail-title-marquee-inner">${innerHtml}</span></span></span>`;
 };
 
+const readCssPx = (value) => {
+    const n = Number.parseFloat(String(value ?? '').trim());
+    return Number.isFinite(n) ? n : 0;
+};
+
+const getVisibleScrollHeight = (body, win = globalThis.window) => {
+    const bodyHeight = Math.max(0, Number(body?.clientHeight) || 0);
+    if (bodyHeight <= 0) return 0;
+    const style = win?.getComputedStyle?.(body);
+    const coveredOffset = Math.max(0, readCssPx(style?.getPropertyValue?.('--mobile-sheet-covered-offset')));
+    return Math.max(1, bodyHeight - Math.min(bodyHeight - 1, coveredOffset));
+};
+
 const scrollCurrentStationIntoView = ({
     behavior = 'auto',
     body,
@@ -93,10 +106,14 @@ const scrollCurrentStationIntoView = ({
 
         const bodyRect = body.getBoundingClientRect();
         const targetRect = target.getBoundingClientRect();
-        const bodyHeight = Math.max(0, Number(body.clientHeight) || 0);
+        const bodyHeight = getVisibleScrollHeight(body, win);
         const targetHeight = Math.max(0, Number(targetRect.height) || 0);
         const naturalTop = (Number(body.scrollTop) || 0) + (Number(targetRect.top) - Number(bodyRect.top));
-        const top = Math.max(0, naturalTop - Math.max(0, (bodyHeight / 2) - (targetHeight / 2)));
+        const maxTop = Math.max(0, (Number(body.scrollHeight) || 0) - (Number(body.clientHeight) || 0));
+        const top = Math.min(
+            maxTop,
+            Math.max(0, naturalTop - Math.max(0, (bodyHeight / 2) - (targetHeight / 2)))
+        );
 
         try {
             body.scrollTo?.({ top, behavior });
@@ -109,7 +126,8 @@ const scrollCurrentStationIntoView = ({
     const raf = win?.requestAnimationFrame;
     if (typeof raf === 'function') {
         raf(() => {
-            if (!apply()) setTimeoutFn?.(apply, 80);
+            apply();
+            setTimeoutFn?.(apply, 80);
         });
         return;
     }
