@@ -1588,6 +1588,39 @@ export function createPanel(options = {}) {
         if (parts.length < 2) return null;
         return `${parts[0]}.${parts[1]}`;
     };
+    const collectTerminalThroughLineIds = ({
+        isTerminalStation,
+        ntRefs,
+        sourceLineId,
+        displayLineId
+    } = {}) => {
+        if (!isTerminalStation) return [];
+        const currentLineIds = new Set([sourceLineId, displayLineId].map((x) => toText(x)).filter(Boolean));
+        const out = [];
+        for (const refId of Array.isArray(ntRefs) ? ntRefs : []) {
+            const nextLineId = toText(getRefLineId(refId));
+            if (!nextLineId || currentLineIds.has(nextLineId)) continue;
+            out.push(nextLineId);
+        }
+        return Array.from(new Set(out));
+    };
+    const resolveThroughLineLabel = (lineId) => {
+        const id = toText(lineId);
+        if (!id) return '';
+        return toText(getLineMeta?.(id)?.name) || id;
+    };
+    const buildDirectionThroughLabel = (rowsForDir) => {
+        const ids = new Set();
+        for (const row of Array.isArray(rowsForDir) ? rowsForDir : []) {
+            const nextLineIds = Array.isArray(row?.terminalThroughLineIds) ? row.terminalThroughLineIds : [];
+            for (const lineId of nextLineIds) {
+                const id = toText(lineId);
+                if (id) ids.add(id);
+            }
+        }
+        const labels = Array.from(ids).map(resolveThroughLineLabel).filter(Boolean);
+        return labels.length ? `直通 ${labels.join('、')}` : '';
+    };
     const loadTripByRefId = async (refId) => {
         const key = toText(refId);
         if (!key) return null;
@@ -1947,6 +1980,12 @@ export function createPanel(options = {}) {
                 const tripDirectionCacheKey = `${toText(lineId)}||${toText(trip?.id) || toText(trip?.t)}`;
                 const isOriginStation = sg?.get?.(trip.tt?.[0]?.s)?.includes?.(stationKey) || trip.tt?.[0]?.s === stationKey;
                 const isTerminalStation = sg?.get?.(trip.tt.at(-1)?.s)?.includes?.(stationKey) || trip.tt.at(-1)?.s === stationKey;
+                const terminalThroughLineIds = collectTerminalThroughLineIds({
+                    isTerminalStation,
+                    ntRefs,
+                    sourceLineId,
+                    displayLineId: lineId
+                });
 
                 let derivedThroughDirection = throughDirectionCache.get(tripDirectionCacheKey);
                 if (derivedThroughDirection === undefined) {
@@ -2057,6 +2096,7 @@ export function createPanel(options = {}) {
                     originIdsCount: os.length,
                     terminalIdsCount: ds.length,
                     hasNt,
+                    terminalThroughLineIds,
                     resolvedTerminalIdsCount: resolvedTerminalIds.length,
                     terminalIds: resolvedTerminalIds.length ? resolvedTerminalIds : (terminalIdForFilter ? [terminalIdForFilter] : []),
                     dir,
@@ -2395,10 +2435,14 @@ export function createPanel(options = {}) {
                 .map(([name]) => name);
 
             const label = labelEntries.length ? labelEntries.join('，') : (filteredNames.length ? filteredNames.slice(0, 1).join('，') : dirKey);
+            const throughLabel = buildDirectionThroughLabel(
+                filteredRowsForDirPreview.length ? filteredRowsForDirPreview : rowsForDirPreview
+            );
 
             directionDebug.push({
                 dirKey,
                 dirLabel: label,
+                throughLabel,
                 typeHints,
                 terminalHints,
                 specialHints
@@ -2537,11 +2581,14 @@ export function createPanel(options = {}) {
                 <div class="panel-dir">
                     <div class="panel-dir-header" data-dir-toggle="1" data-dir-key="${escapeHtml(dirKey)}">
                         <span class="panel-dir-title">
-                            <span class="panel-dir-prefix" aria-hidden="true">往</span>
-                            <span class="panel-dir-marquee" aria-label="往 ${escapeHtml(label)} 方向">
-                                <span class="panel-dir-marquee-inner">${escapeHtml(label)}</span>
+                            <span class="panel-dir-main">
+                                <span class="panel-dir-prefix" aria-hidden="true">往</span>
+                                <span class="panel-dir-marquee" aria-label="往 ${escapeHtml(label)} 方向">
+                                    <span class="panel-dir-marquee-inner">${escapeHtml(label)}</span>
+                                </span>
+                                <span class="panel-dir-suffix" aria-hidden="true">方向</span>
                             </span>
-                            <span class="panel-dir-suffix" aria-hidden="true">方向</span>
+                            ${throughLabel ? `<span class="panel-dir-through">${escapeHtml(throughLabel)}</span>` : ''}
                         </span>
                         <span class="panel-dir-actions">
                             <span class="panel-dir-triangle" aria-hidden="true">${tri}</span>

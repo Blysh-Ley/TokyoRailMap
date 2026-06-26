@@ -51,12 +51,12 @@
 	{
 		"id": "JR-East.ChuoRapid",
 		"title": {
-			"ja": "中央線快速",
+			"ja": "中央線（快速）",
 			"en": "Chuo Rapid Line",
 			"fr": "Ligne Chuo Rapid",
 			"ko": "주오 선 쾌속",
-			"zh-Hans": "中央线快速",
-			"zh-Hant": "中央線快速"
+			"zh-Hans": "中央线（快速）",
+			"zh-Hant": "中央線（快速）"
 		},
 		"stations": [
 			"JR-East.ChuoRapid.Tokyo",
@@ -204,12 +204,12 @@
 	{
 		"id": "JR-East.ChuoSobuLocal",
 		"title": {
-			"ja": "中央・総武各駅停車",
+			"ja": "中央线・総武线（各駅停車）",
 			"en": "Chuo Sobu Local Line",
 			"fr": "Ligne Chuo Sobu Local",
 			"ko": "주오·소부 각역정차",
-			"zh-Hans": "中央·总武各站停车",
-			"zh-Hant": "中央·總武各站停車"
+			"zh-Hans": "中央线·总武线(各站停车)",
+			"zh-Hant": "中央线・総武线（各站停車）"
 		},
 		"stations": [
 			"JR-East.ChuoSobuLocal.Chiba",
@@ -302,12 +302,12 @@
 	{
 		"id": "JR-East.Utsunomiya",
 		"title": {
-			"ja": "宇都宮線（東北線）",
+			"ja": "宇都宮線",
 			"en": "Utsunomiya Line",
 			"fr": "Ligne Utsunomiya",
 			"ko": "우쓰노미야 선",
-			"zh-Hans": "宇都宫线（东北线）",
-			"zh-Hant": "宇都宮線（東北線）"
+			"zh-Hans": "宇都宫线",
+			"zh-Hant": "宇都宮線"
 		},
 		"stations": [
 			"JR-East.Utsunomiya.Tokyo",
@@ -609,12 +609,12 @@
 	{
 		"id": "JR-East.SobuRapid",
 		"title": {
-			"ja": "総武快速線",
+			"ja": "総武線（快速）",
 			"en": "Sobu Rapid Line",
 			"fr": "Ligne Sobu Rapid",
 			"ko": "소부 쾌속선",
-			"zh-Hans": "总武快速线",
-			"zh-Hant": "總武快速線"
+			"zh-Hans": "总武线（快速）",
+			"zh-Hant": "總武線（快速）"
 		},
 		"stations": [
 			"JR-East.SobuRapid.Tokyo",
@@ -1036,7 +1036,7 @@
 			"en": "Shonan-Shinjuku Line",
 			"fr": "Ligne Shonan-Shinjuku",
 			"ko": "쇼난 신주쿠 라인",
-			"zh-Hans": "湘南新宿线",
+			"zh-Hans": "东北·山手货物线",
 			"zh-Hant": "湘南新宿線"
 		},
 		"stations": [

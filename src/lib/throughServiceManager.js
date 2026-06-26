@@ -118,7 +118,7 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
         lineName: '湘南新宿LINE',
         color: '#E31F26',
         codeBadges: [{ lineId: 'JR-East.ShonanShinjuku', code: 'JS' }],
-        hiddenEntityLineIds: ['JR-East.ShonanShinjuku'],
+        //hiddenEntityLineIds: ['JR-East.ShonanShinjuku'],
         requiredThroughStationToken: { station: 'Shinjuku', through: true },
         directionRule: { southNode: 'Shibuya', northNode: 'Shinjuku' },
         segments: [

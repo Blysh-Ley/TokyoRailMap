@@ -3504,6 +3504,14 @@ html[data-theme="dark"] .ms-show-icon-btn {
     flex: 1 1 auto;
     min-width: 0;
     display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1px;
+}
+
+.panel-dir-main {
+    min-width: 0;
+    display: flex;
     align-items: center;
     gap: 4px;
 }
@@ -3525,6 +3533,18 @@ html[data-theme="dark"] .ms-show-icon-btn {
     display: inline-block;
     white-space: nowrap;
     will-change: transform;
+}
+
+.panel-dir-through {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ui-text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.15;
+    pointer-events: none;
 }
 
 .panel-dir-triangle {
@@ -6716,6 +6736,11 @@ html[data-theme='dark'] .journey-plan-page-btn.is-active:hover {
     background-color: #0052a3;
     border-color: #004080;
 }
+
+html[data-theme='dark'] .panel-dir-through {
+    color: #a8adb7;
+}
+
 html[data-theme='dark'] .search-result-item,
 html[data-theme='dark'] .search-result-text,
 html[data-theme='dark'] .journey-plan-item,
