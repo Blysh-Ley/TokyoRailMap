@@ -20,10 +20,13 @@ export const DIR_FILTER_FIELD_TO_ROW_KEY = {
     types: 'type'
 };
 
+export const DIR_FILTER_TERMINAL_STOPS_FIELD = 'terminalStops';
+
 export const createEmptyDirFilterState = () => ({
     origins: new Set(),
     terminals: new Set(),
-    types: new Set()
+    types: new Set(),
+    terminalStops: true
 });
 
 export const normalizeDirFilterState = (state) => {
@@ -36,18 +39,20 @@ export const normalizeDirFilterState = (state) => {
             if (text) next[field].add(text);
         }
     }
+    next.terminalStops = state?.terminalStops !== false;
     return next;
 };
 
 export const toDirFilterRow = (row, { toText = defaultToText_panelDirFilterModel } = {}) => ({
     origin: toText(row?.origin ?? row?.originName),
     terminal: toText(row?.terminal ?? row?.terminalDisplayName ?? row?.terminalName ?? row?.destName),
-    type: toText(row?.type ?? row?.typeName)
+    type: toText(row?.type ?? row?.typeName),
+    terminalStop: row?.terminalStop === true || row?.showTerminalLabel === true
 });
 
 export const hasDirFilterRowValue = (row) => {
     const filterRow = toDirFilterRow(row);
-    return !!(filterRow.origin || filterRow.terminal || filterRow.type);
+    return !!(filterRow.origin || filterRow.terminal || filterRow.type || filterRow.terminalStop);
 };
 
 export const collectDirFilterOptionSets = (rows) => {
@@ -73,12 +78,14 @@ export const syncDirFilterStateWithRows = (state, rows) => {
             if (allValues[field].has(value)) next[field].add(value);
         }
     }
+    next.terminalStops = source.terminalStops !== false;
     return next;
 };
 
 export const isAllSelectedDirFilterState = (state, rows) => {
     const allValues = collectDirFilterOptionSets(rows);
     const current = normalizeDirFilterState(state);
+    if (current.terminalStops === false) return false;
     for (const field of DIR_FILTER_FIELDS) {
         if (current[field].size !== allValues[field].size) return false;
         for (const value of allValues[field]) {
@@ -91,6 +98,9 @@ export const isAllSelectedDirFilterState = (state, rows) => {
 export const doesDirFilterRowMatchState = (row, state, { ignoreField = '' } = {}) => {
     const filterRow = toDirFilterRow(row);
     const current = state || createEmptyDirFilterState();
+    if (ignoreField !== DIR_FILTER_TERMINAL_STOPS_FIELD && current.terminalStops === false && filterRow.terminalStop) {
+        return false;
+    }
     for (const field of DIR_FILTER_FIELDS) {
         if (ignoreField === field) continue;
         const selected = current[field];
@@ -139,9 +149,30 @@ export const buildDirFilterFacetEntries = ({ rows, field, state }) => {
         });
 };
 
-export const setDirFilterAllSelected = (rows, checked) => (
-    checked ? createAllSelectedDirFilterState(rows) : createEmptyDirFilterState()
+export const countDirFilterTerminalStops = ({ rows, state } = {}) => (
+    (() => {
+        const scopedRows = getDirFilterRowsForFacet({
+            rows,
+            state,
+            ignoreField: DIR_FILTER_TERMINAL_STOPS_FIELD
+        });
+        return (scopedRows.length ? scopedRows : (Array.isArray(rows) ? rows : []))
+            .filter((row) => toDirFilterRow(row).terminalStop).length;
+    })()
 );
+
+export const setDirFilterAllSelected = (rows, checked) => {
+    if (checked) return createAllSelectedDirFilterState(rows);
+    return {
+        ...createEmptyDirFilterState(),
+        terminalStops: false
+    };
+};
+
+export const setDirFilterTerminalStopsVisible = (state, visible) => ({
+    ...normalizeDirFilterState(state),
+    terminalStops: visible !== false
+});
 
 export const toggleDirFilterFieldValue = (state, { field, value, checked }) => {
     if (!DIR_FILTER_FIELDS.includes(field)) return normalizeDirFilterState(state);
@@ -229,7 +260,7 @@ export const createPanelDirFilterPopoverController = ({
         root.style.top = `${Math.round(Math.max(8, top))}px`;
     };
 
-    const buildColumnHtml = ({ title, field, entries, selected }) => {
+    const buildColumnHtml = ({ title, field, entries, selected, appendHtml = '' }) => {
         const items = Array.isArray(entries) ? entries : [];
         const safeField = DIR_FILTER_FIELDS.includes(field) ? field : '';
         const fieldClass = safeField ? ` is-${safeField}` : '';
@@ -250,6 +281,23 @@ export const createPanelDirFilterPopoverController = ({
             <div class="panel-dir-filter-col${fieldClass}">
                 <div class="panel-dir-filter-col-title">${escapeHtml(title)}</div>
                 <div class="panel-dir-filter-col-body">${rowsHtml}</div>
+                ${appendHtml}
+            </div>
+        `;
+    };
+
+    const buildTerminalStopsSectionHtml = ({ checked, count }) => {
+        if (count <= 0) return '';
+        return `
+            <div class="panel-dir-filter-subsection is-terminal-stops">
+                <div class="panel-dir-filter-col-title">终到班次</div>
+                <div class="panel-dir-filter-col-body">
+                    <label class="panel-dir-filter-option">
+                        <input type="checkbox" data-dir-filter-terminal-stops="1"${checked ? ' checked' : ''} />
+                        <span class="panel-dir-filter-option-name">显示</span>
+                        <span class="panel-dir-filter-option-count">（${escapeHtml(String(count))}）</span>
+                    </label>
+                </div>
             </div>
         `;
     };
@@ -260,10 +308,20 @@ export const createPanelDirFilterPopoverController = ({
         const originEntries = buildDirFilterFacetEntries({ rows, field: 'origins', state });
         const terminalEntries = buildDirFilterFacetEntries({ rows, field: 'terminals', state });
         const typeEntries = buildDirFilterFacetEntries({ rows, field: 'types', state });
+        const terminalStopCount = countDirFilterTerminalStops({ rows, state });
         bodyEl.innerHTML = [
             buildColumnHtml({ title: '始发站', field: 'origins', entries: originEntries, selected: state.origins }),
             buildColumnHtml({ title: '终点站', field: 'terminals', entries: terminalEntries, selected: state.terminals }),
-            buildColumnHtml({ title: '种别', field: 'types', entries: typeEntries, selected: state.types })
+            buildColumnHtml({
+                title: '种别',
+                field: 'types',
+                entries: typeEntries,
+                selected: state.types,
+                appendHtml: buildTerminalStopsSectionHtml({
+                    checked: state?.terminalStops !== false,
+                    count: terminalStopCount
+                })
+            })
         ].join('');
 
         const toggleAllInput = root.querySelector('[data-dir-filter-toggle-all="1"]');
@@ -294,6 +352,16 @@ export const createPanelDirFilterPopoverController = ({
                 }
                 const selected = state?.[field];
                 checkbox.checked = !!(selected instanceof Set && selected.size && selected.has(value));
+            }
+        }
+
+        const terminalStopsInput = bodyEl.querySelector('[data-dir-filter-terminal-stops="1"]');
+        if (terminalStopsInput instanceof (win?.HTMLInputElement || globalThis.HTMLInputElement)) {
+            terminalStopsInput.checked = state?.terminalStops !== false;
+            const label = terminalStopsInput.closest('.panel-dir-filter-option');
+            const countSpan = label?.querySelector?.('.panel-dir-filter-option-count');
+            if (countSpan) {
+                countSpan.textContent = `（${countDirFilterTerminalStops({ rows, state })}）`;
             }
         }
 
@@ -359,6 +427,9 @@ export const createPanelDirFilterPopoverController = ({
 
         if (target.hasAttribute('data-dir-filter-toggle-all')) {
             state = setDirFilterAllSelected(rows, target.checked);
+            setState(activeKey, state);
+        } else if (target.hasAttribute('data-dir-filter-terminal-stops')) {
+            state = setDirFilterTerminalStopsVisible(state, target.checked);
             setState(activeKey, state);
         } else {
             const field = toText(target.getAttribute('data-dir-filter-field'));

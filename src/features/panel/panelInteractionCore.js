@@ -1,4 +1,9 @@
 import { previewBranchesForLine } from '../../map/analyze_branch.js';
+import {
+    createTouchTapIntentTracker,
+    isTouchLikePointer as isTouchLikePointerShared,
+    readPointerType as readPointerTypeShared
+} from '../../ui/touchTapIntent.js';
 
 
 
@@ -1018,25 +1023,22 @@ export const createPanelSelectionStateController = ({ toText = defaultToText_pan
 
 // panelTouchInteractionController.js
 export const readPointerType = (evt) => {
-    const pt = evt?.pointerType;
-    if (pt) return String(pt);
-    const t = evt?.type;
-    if (t && String(t).startsWith('touch')) return 'touch';
-    return 'mouse';
+    return readPointerTypeShared(evt);
 };
 
-export const isTouchLikePointer = (pt) => pt === 'touch' || pt === 'pen';
+export const isTouchLikePointer = (pt) => isTouchLikePointerShared(pt);
 
 export const createPanelTouchInteractionController = ({
     cancelClickSuppressMs = 260,
     cancelHoverSuppressMs = 1000,
+    maxDurationMs = 500,
     maxMovePx = 12,
     mouseSuppressMs = 800,
     now = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now())
 } = {}) => {
-    const maxMoveSq = maxMovePx * maxMovePx;
+    const tapTracker = createTouchTapIntentTracker({ maxDurationMs, maxMovePx, now });
+    const activeTouchPointers = new Set();
     let lastPointerType = 'mouse';
-    let pendingTripTap = null;
     let suppressMouseClickUntilMs = 0;
     let suppressMouseEventsUntilMs = 0;
     let suppressMouseHoverUntilMs = 0;
@@ -1046,74 +1048,35 @@ export const createPanelTouchInteractionController = ({
         return lastPointerType;
     };
 
-    const pointerMatchesPending = (evt, pending) => {
-        const pendingPointerId = pending?.pointerId;
-        const evtPointerId = evt?.pointerId;
-        return !(pendingPointerId != null && evtPointerId != null && pendingPointerId !== evtPointerId);
-    };
-
     const beginPointer = (evt) => {
         const pointerType = markPointer(evt);
         const isTouchLike = isTouchLikePointer(pointerType);
         if (isTouchLike) {
             suppressMouseEventsUntilMs = now() + mouseSuppressMs;
-            pendingTripTap = null;
+            const pointerId = evt?.pointerId;
+            if (pointerId != null) activeTouchPointers.add(pointerId);
+            if (activeTouchPointers.size > 1) tapTracker.markMultiTouch();
+            else tapTracker.cancel();
         }
         return { isTouchLike, pointerType };
     };
 
     const startTripTap = (evt, payload = {}) => {
-        pendingTripTap = {
-            pointerId: evt?.pointerId,
-            startX: evt?.clientX ?? 0,
-            startY: evt?.clientY ?? 0,
-            moved: false,
-            ...payload
-        };
-        return pendingTripTap;
+        tapTracker.begin(evt, payload);
+        if (activeTouchPointers.size > 1) tapTracker.markMultiTouch();
+        return payload;
     };
 
     const moveTripTap = (evt) => {
-        if (!pendingTripTap) return { handled: false };
-        const pointerType = readPointerType(evt);
-        if (!isTouchLikePointer(pointerType)) return { handled: false, pointerType };
-        if (!pointerMatchesPending(evt, pendingTripTap)) return { handled: false, pointerMismatch: true, pointerType };
-
-        const dx = (evt?.clientX ?? pendingTripTap.startX) - pendingTripTap.startX;
-        const dy = (evt?.clientY ?? pendingTripTap.startY) - pendingTripTap.startY;
-        if ((dx * dx + dy * dy) > maxMoveSq) {
-            pendingTripTap.moved = true;
-        }
-        return { handled: true, pointerType, tap: pendingTripTap };
+        return tapTracker.move(evt);
     };
 
     const finishTripTap = (evt) => {
-        const pending = pendingTripTap;
-        if (!pending) return { handled: false };
-
         const pointerType = markPointer(evt);
-        if (!isTouchLikePointer(pointerType)) {
-            pendingTripTap = null;
-            return { handled: false, pointerType };
-        }
-
-        if (!pointerMatchesPending(evt, pending)) {
-            return { handled: false, pointerMismatch: true, pointerType };
-        }
-
-        pendingTripTap = null;
-        const dx = (evt?.clientX ?? pending.startX) - pending.startX;
-        const dy = (evt?.clientY ?? pending.startY) - pending.startY;
-        const moved = pending.moved || (dx * dx + dy * dy) > maxMoveSq;
-
-        return {
-            clientX: evt?.clientX || pending.startX,
-            clientY: evt?.clientY || pending.startY,
-            handled: true,
-            moved,
-            pointerType,
-            tap: pending
-        };
+        const result = tapTracker.finish(evt);
+        const pointerId = evt?.pointerId;
+        if (pointerId != null) activeTouchPointers.delete(pointerId);
+        return result.handled ? result : { ...result, pointerType };
     };
 
     const armCancelInteractionSuppression = () => {
@@ -1126,11 +1089,12 @@ export const createPanelTouchInteractionController = ({
         armCancelInteractionSuppression,
         beginPointer,
         cancelTripTap() {
-            pendingTripTap = null;
+            activeTouchPointers.clear();
+            tapTracker.cancel();
         },
         finishTripTap,
         getLastPointerType: () => lastPointerType,
-        hasPendingTripTap: () => !!pendingTripTap,
+        hasPendingTripTap: () => tapTracker.hasPending(),
         isLastPointerTouchLike: () => isTouchLikePointer(lastPointerType),
         isTouchLikePointer,
         markPointer,

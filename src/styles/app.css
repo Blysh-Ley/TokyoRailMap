@@ -4122,6 +4122,10 @@ html[data-theme="dark"] .panel-grid-trip-minute-flag {
     min-width: 0;
 }
 
+.panel-dir-filter-subsection {
+    margin-top: 5px;
+}
+
 .panel-dir-filter-col-title {
     font-size: 12px;
     font-weight: 700;

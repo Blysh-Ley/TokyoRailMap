@@ -4167,15 +4167,12 @@ export function createPanel(options = {}) {
 
         const filterTarget = getDirFilterButtonTarget(evt?.target);
         if (filterTarget) {
-            stopEvent(evt);
-            dispatchPanelDirFilterIntent({
-                filterTarget,
-                fitMode: 'commit',
-                makeLineDirKey,
-                applyDirPreviewByKey,
-                pinDirPreviewByKey,
-                setPinnedPanelSelection,
-                toggleDirFilterPopoverFromButton
+            stopPropagationOnly(evt);
+            panelInteractionPolicy.startTripTap(evt, {
+                kind: 'dir-filter',
+                lineId: filterTarget.lineId,
+                dirKey: filterTarget.dirKey,
+                buttonEl: filterTarget.buttonEl
             });
             return;
         }
@@ -4270,7 +4267,7 @@ export function createPanel(options = {}) {
 
     const onBodyPointerUpTouchTap = (evt) => {
         const completed = panelInteractionPolicy.finishTripTap(evt);
-        if (!completed.handled || completed.moved) return;
+        if (!completed.handled || completed.eligible !== true) return;
         const pending = completed.tap;
 
         stopPropagationOnly(evt);
@@ -4288,6 +4285,23 @@ export function createPanel(options = {}) {
                     dirKey: pending.dirKey
                 },
                 toggleDirectionTimetable
+            });
+            return;
+        }
+
+        if (pendingKind === 'dir-filter') {
+            dispatchPanelDirFilterIntent({
+                filterTarget: {
+                    lineId: pending.lineId,
+                    dirKey: pending.dirKey,
+                    buttonEl: pending.buttonEl
+                },
+                fitMode: 'commit',
+                makeLineDirKey,
+                applyDirPreviewByKey,
+                pinDirPreviewByKey,
+                setPinnedPanelSelection,
+                toggleDirFilterPopoverFromButton
             });
             return;
         }
