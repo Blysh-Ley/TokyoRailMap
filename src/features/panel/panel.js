@@ -732,7 +732,7 @@ export function createPanel(options = {}) {
     let tripDetailToken = 0;
     let tripDetailPinned = false;
     let tripDetailStationJumpEnabled = false;
-    let suppressTripDetailStationJumpUntilMs = 0;
+    let tripDetailStationPointerIntent = null;
     let tripDetailHideTimer = null;
     let timetableViewMode = 'list';
     let focusedDirectionKey = '';
@@ -3415,28 +3415,16 @@ export function createPanel(options = {}) {
         tripDetailRoot.toggleAttribute('data-panel-station-jump-enabled', tripDetailStationJumpEnabled);
     };
 
-    const suppressInitialTripDetailStationJump = (durationMs = 500) => {
-        suppressTripDetailStationJumpUntilMs = Math.max(
-            suppressTripDetailStationJumpUntilMs,
-            nowMs() + durationMs
-        );
-    };
-
-    const shouldSuppressTripDetailStationJump = () => (
-        isMobilePanelPresentation()
-        && nowMs() < suppressTripDetailStationJumpUntilMs
-    );
-
     const renderTripDetail = async ({ lineId, tripKey, clientX, clientY, pinned, fitMode }) => {
         const token = ++tripDetailToken;
         tripDetailPinned = !!pinned;
         setTripDetailInteractive(!!pinned || isMobilePanelPresentation());
         clearTripDetailHideTimer();
         clearTripDetailStationIndicator();
+        tripDetailStationPointerIntent = null;
 
         const openedMobileTripDetailEarly = !!pinned && isMobilePanelPresentation();
         if (openedMobileTripDetailEarly) {
-            suppressInitialTripDetailStationJump();
             openMobileTripDetail({ lineId, tripKey });
             tripDetailView.render({
                 titleHtml: '<div class="panel-trip-detail-title-main">加载中</div>',
@@ -4000,7 +3988,7 @@ export function createPanel(options = {}) {
         unlockTripPreview();
         tripDetailToken += 1;
         setTripDetailInteractive(false);
-        suppressTripDetailStationJumpUntilMs = 0;
+        tripDetailStationPointerIntent = null;
         clearTripDetailHideTimer();
         hideTripCurrentStationHint();
         clearTripDetailStationIndicator();
@@ -4956,6 +4944,32 @@ export function createPanel(options = {}) {
 
     const getTripDetailStationTarget = (target) => resolveTripDetailStationTarget(target, { rootEl: tripDetailBody });
 
+    const rememberTripDetailStationPointerIntent = (evt, stationId) => {
+        const sid = toText(stationId);
+        if (!sid) {
+            tripDetailStationPointerIntent = null;
+            return;
+        }
+        tripDetailStationPointerIntent = {
+            pointerId: evt?.pointerId != null ? String(evt.pointerId) : '',
+            stationId: sid,
+            startedAt: nowMs(),
+            token: tripDetailToken
+        };
+    };
+
+    const consumeTripDetailStationPointerIntent = (evt, stationId) => {
+        const intent = tripDetailStationPointerIntent;
+        tripDetailStationPointerIntent = null;
+        if (!intent) return false;
+        if (intent.token !== tripDetailToken) return false;
+        if (toText(intent.stationId) !== toText(stationId)) return false;
+        if (nowMs() - Number(intent.startedAt || 0) > 1200) return false;
+        const eventPointerId = evt?.pointerId != null ? String(evt.pointerId) : '';
+        if (eventPointerId && intent.pointerId && eventPointerId !== intent.pointerId) return false;
+        return true;
+    };
+
     const onTripDetailMouseOver = (evt) => {
         if (panelInteractionPolicy.shouldSkipDesktopHover()) return;
         const stationEl = getTripDetailStationTarget(evt?.target);
@@ -4981,16 +4995,24 @@ export function createPanel(options = {}) {
 
     const onTripDetailPointerDown = (evt) => {
         const pt = panelInteractionPolicy.markPointer(evt);
-        if (!isTouchLikePointer(pt)) return;
         const stationEl = getTripDetailStationTarget(evt?.target);
-        if (!stationEl) return;
+        if (!stationEl) {
+            tripDetailStationPointerIntent = null;
+            return;
+        }
         const sid = toText(stationEl.getAttribute('data-station-id'));
-        if (!sid) return;
-        showTripDetailStationIndicator(sid);
+        if (!sid) {
+            tripDetailStationPointerIntent = null;
+            return;
+        }
+        rememberTripDetailStationPointerIntent(evt, sid);
+        if (isTouchLikePointer(pt)) showTripDetailStationIndicator(sid);
     };
 
     const jumpToTripDetailStation = (target, {
-        adjustTime = true
+        adjustTime = true,
+        requirePointerIntent = false,
+        sourceEvent = null
     } = {}) => {
         if (!tripDetailStationJumpEnabled) return false;
         const intent = resolvePanelStationJumpIntent(target, {
@@ -4999,6 +5021,7 @@ export function createPanel(options = {}) {
             toText
         });
         if (!intent) return false;
+        if (requirePointerIntent && !consumeTripDetailStationPointerIntent(sourceEvent, intent.stationId)) return false;
 
         hideTripDetail({ restoreMobileLine: false });
         lastTripDetailKey = null;
@@ -5011,11 +5034,15 @@ export function createPanel(options = {}) {
     };
 
     const onTripDetailStationClick = (evt) => {
-        if (shouldSuppressTripDetailStationJump()) {
-            stopEvent(evt);
+        const requirePointerIntent = isMobilePanelPresentation();
+        if (!jumpToTripDetailStation(evt?.target, {
+            adjustTime: true,
+            requirePointerIntent,
+            sourceEvent: evt
+        })) {
+            if (requirePointerIntent && getTripDetailStationTarget(evt?.target)) stopEvent(evt);
             return;
         }
-        if (!jumpToTripDetailStation(evt?.target, { adjustTime: true })) return;
         stopEvent(evt);
     };
 
