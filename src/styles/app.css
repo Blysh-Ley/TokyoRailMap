@@ -3876,7 +3876,7 @@ html[data-theme="dark"] .ms-show-icon-btn {
 }
 
 .panel-grid-cell {
-    min-height: 49px;
+    min-height: 55px;
     padding: 1px 3px;
     display: flex;
     align-items: center;
