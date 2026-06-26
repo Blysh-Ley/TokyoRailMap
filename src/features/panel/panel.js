@@ -2081,6 +2081,11 @@ export function createPanel(options = {}) {
                 const tripServiceDay = parseTripServiceDayFromId(tripId);
                 if (tripServiceDay && tripServiceDay !== targetServiceDay) continue;
 
+                if (allowedKeys && allowedKeys.size) {
+                    const hit = buildTripFilterKeys(trip).some((k) => allowedKeys.has(k));
+                    if (!hit) continue;
+                }
+
                 const typeId = toText(trip?.y);
                 const isTypeExcludedForSummary = isExcludedLineType(lineId, typeId);
                 let typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
@@ -2129,10 +2134,6 @@ export function createPanel(options = {}) {
                     }
                 }
 
-                if (allowedKeys && allowedKeys.size) {
-                    const hit = buildTripFilterKeys(trip).some((k) => allowedKeys.has(k));
-                    if (!hit) continue;
-                }
                 if (!stop) continue;
 
                 let arr = toText(stop?.a);
