@@ -3962,20 +3962,25 @@ html[data-theme="dark"] .ms-show-icon-btn {
 
 .panel-grid-trip-minute-flag {
     position: absolute;
-    left: 100%;
-    top: 50%;
-    transform: translate(1px, -50%);
-    font-size:10px;
-    font-weight: 700;
-    line-height: 1;
+    bottom: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    color: inherit;
+    font-size: 0;
+    line-height: 0;
+    pointer-events: none;
 }
 
 .is-terminal-flag{
-    color: red;
+    left: 100%;
+    transform: translate(2px,-3px);
 }
 
 .is-origin-flag{
-    color: green;
+    right: 100%;
+    transform: translate(-2px,-3px);
 }
 
 
@@ -3985,9 +3990,9 @@ html[data-theme="dark"] .ms-show-icon-btn {
 }
 
 html[data-theme="dark"] .panel-grid-cell-trip.is-past,
-html[data-theme="dark"] .panel-grid-trip-minute-flag,
 html[data-theme="dark"] .panel-grid-trip.is-past,
-html[data-theme="dark"] .panel-grid-trip-minute-flag {
+html[data-theme="dark"] .panel-grid-cell-trip.is-past .panel-grid-trip-minute-flag,
+html[data-theme="dark"] .panel-grid-trip.is-past .panel-grid-trip-minute-flag {
     color: #555 ;
 }
 .panel-timetable-row {
@@ -7114,15 +7119,6 @@ html[data-theme='dark'] .panel-grid-row {
     --panel-grid-hour-color: var(--panel-grid-hour-color-dark, #fff);
     --panel-grid-trips-bg: var(--panel-grid-trips-bg-dark, #1e232a);
 }
-
-html[data-theme='dark'] .is-terminal-flag {
-    color: var(--ui-danger);
-}
-
-html[data-theme='dark'] .is-origin-flag {
-    color: var(--ui-success);
-}
-
 
 html[data-theme='dark'] .panel-timetable.panel-timetable-view-grid {
     background: rgba(24, 27, 33, 0.65);

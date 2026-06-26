@@ -656,8 +656,8 @@ export const buildPanelTimetableGridHtmlForDirection = ({
                             <span class="panel-grid-trip${pastClass}" style="color:${escapeHtml(color)}">
                                 ${typeHtml}
                                 <span class="panel-grid-trip-minute"><span class="panel-grid-trip-minute-text">${escapeHtml(minute)}</span>${
-                                    isTerminal ? '<span class="panel-grid-trip-minute-flag is-terminal-flag" aria-label="终点站">终</span>' :
-                                    isOrigin ? '<span class="panel-grid-trip-minute-flag is-origin-flag" aria-label="始发站">始</span>' :
+                                    isTerminal ? '<span class="panel-grid-trip-minute-flag is-terminal-flag" aria-label="终点站"></span>' :
+                                    isOrigin ? '<span class="panel-grid-trip-minute-flag is-origin-flag" aria-label="始发站"></span>' :
                                     ''}</span>
                                 ${destHtml}
                             </span>
