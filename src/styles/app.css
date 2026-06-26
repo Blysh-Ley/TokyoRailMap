@@ -4273,9 +4273,20 @@ body[data-mobile-ui='1'] .panel-dir-filter-col {
     min-width: 0;
 }
 
-html[data-mobile-ui='1'] .panel-dir-filter-col:first-child,
-body[data-mobile-ui='1'] .panel-dir-filter-col:first-child {
+html[data-mobile-ui='1'] .panel-dir-filter-col.is-terminals,
+body[data-mobile-ui='1'] .panel-dir-filter-col.is-terminals {
     grid-column: 1 / -1;
+    order: 1;
+}
+
+html[data-mobile-ui='1'] .panel-dir-filter-col.is-origins,
+body[data-mobile-ui='1'] .panel-dir-filter-col.is-origins {
+    order: 2;
+}
+
+html[data-mobile-ui='1'] .panel-dir-filter-col.is-types,
+body[data-mobile-ui='1'] .panel-dir-filter-col.is-types {
+    order: 3;
 }
 
 html[data-mobile-ui='1'] .panel-dir-filter-col-title,
@@ -4291,8 +4302,8 @@ body[data-mobile-ui='1'] .panel-dir-filter-col-body {
     box-sizing: border-box;
 }
 
-html[data-mobile-ui='1'] .panel-dir-filter-col:not(:first-child) .panel-dir-filter-col-body,
-body[data-mobile-ui='1'] .panel-dir-filter-col:not(:first-child) .panel-dir-filter-col-body {
+html[data-mobile-ui='1'] .panel-dir-filter-col:not(.is-terminals) .panel-dir-filter-col-body,
+body[data-mobile-ui='1'] .panel-dir-filter-col:not(.is-terminals) .panel-dir-filter-col-body {
     max-height: 22dvh;
 }
 
@@ -4327,8 +4338,8 @@ body[data-mobile-ui='1'] .panel-dir-filter-option-count {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    html[data-mobile-ui='1'] .panel-dir-filter-col:first-child,
-    body[data-mobile-ui='1'] .panel-dir-filter-col:first-child {
+    html[data-mobile-ui='1'] .panel-dir-filter-col.is-terminals,
+    body[data-mobile-ui='1'] .panel-dir-filter-col.is-terminals {
         grid-column: auto;
     }
 }

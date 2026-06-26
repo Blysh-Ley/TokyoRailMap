@@ -231,6 +231,8 @@ export const createPanelDirFilterPopoverController = ({
 
     const buildColumnHtml = ({ title, field, entries, selected }) => {
         const items = Array.isArray(entries) ? entries : [];
+        const safeField = DIR_FILTER_FIELDS.includes(field) ? field : '';
+        const fieldClass = safeField ? ` is-${safeField}` : '';
         const rowsHtml = items.length
             ? items.map(({ value, count }) => {
                 const checked = selected?.has?.(value) ? ' checked' : '';
@@ -245,7 +247,7 @@ export const createPanelDirFilterPopoverController = ({
             : '<div class="panel-dir-filter-empty">无可选项</div>';
 
         return `
-            <div class="panel-dir-filter-col">
+            <div class="panel-dir-filter-col${fieldClass}">
                 <div class="panel-dir-filter-col-title">${escapeHtml(title)}</div>
                 <div class="panel-dir-filter-col-body">${rowsHtml}</div>
             </div>
