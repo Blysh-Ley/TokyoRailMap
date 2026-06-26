@@ -736,6 +736,7 @@ export function createPanel(options = {}) {
     let tripDetailHideTimer = null;
     let timetableViewMode = 'list';
     let focusedDirectionKey = '';
+    let mobileTripDetailReturnContext = null;
     let pendingGridDataDebugLog = false;
     const gridDataDebugByLineId = new Map();
 
@@ -1113,10 +1114,30 @@ export function createPanel(options = {}) {
         applyTimetableViewMode(next, { rerender: true });
     };
 
+    const syncDocumentDirectionFocusState = (active) => {
+        const shouldMark = active === true && isMobilePanelPresentation();
+        const documentRef = typeof document !== 'undefined' ? document : null;
+        const docEl = documentRef?.documentElement || null;
+        const pageBody = documentRef?.body || null;
+        if (shouldMark) {
+            docEl?.setAttribute?.('data-mobile-panel-direction-focus', '1');
+            pageBody?.setAttribute?.('data-mobile-panel-direction-focus', '1');
+            return;
+        }
+        docEl?.removeAttribute?.('data-mobile-panel-direction-focus');
+        pageBody?.removeAttribute?.('data-mobile-panel-direction-focus');
+    };
+
     const syncDirectionFocusVisibility = () => {
         const focusedLineId = getFocusedDirectionLineId();
+        const active = !!focusedLineId;
+        const mobileStackScreen = toText(mobilePanelStack.getState?.()?.screen);
+        const shouldUseFullscreenFocus = active
+            && !(isMobilePanelPresentation() && mobileStackScreen === PANEL_MOBILE_STACK_SCREENS.TRIP_DETAIL);
         body.classList.toggle('is-direction-focused', !!focusedLineId);
         body.setAttribute('data-direction-focus', focusedDirectionKey || '');
+        root.setAttribute('data-panel-direction-focus', shouldUseFullscreenFocus ? '1' : '0');
+        syncDocumentDirectionFocusState(shouldUseFullscreenFocus);
         if (!focusedLineId) {
             body.style.removeProperty('--panel-focus-line-header-height');
             body.style.removeProperty('--panel-focus-dir-header-height');
@@ -1160,6 +1181,76 @@ export function createPanel(options = {}) {
         } else {
             body.style.removeProperty('--panel-focus-dir-header-height');
         }
+    };
+
+    const clearDirectionFocus = ({ rerender = true } = {}) => {
+        if (!focusedDirectionKey) {
+            syncDirectionFocusVisibility();
+            syncDirectionFocusStickyMetrics();
+            return false;
+        }
+        focusedDirectionKey = '';
+        mobileTripDetailReturnContext = null;
+        syncDirectionFocusVisibility();
+        syncDirectionFocusStickyMetrics();
+        if (rerender) renderAllTimetables();
+        return true;
+    };
+
+    const clearMobileTripDetailReturnContext = () => {
+        mobileTripDetailReturnContext = null;
+    };
+
+    const captureMobileTripDetailReturnContext = ({
+        lineId = '',
+        dirKey = ''
+    } = {}) => {
+        if (!isMobilePanelPresentation()) {
+            clearMobileTripDetailReturnContext();
+            return null;
+        }
+
+        const focusKey = toText(focusedDirectionKey);
+        const focusLineId = getFocusedDirectionLineId();
+        const focusDirKey = getFocusedDirectionDirKey();
+        const lid = toText(lineId);
+        const dkey = toText(dirKey) || focusDirKey;
+        const isFocusedTrip = Boolean(
+            focusKey
+            && lid
+            && focusLineId === lid
+            && makeLineDirKey(lid, dkey) === focusKey
+        );
+
+        if (!isFocusedTrip) {
+            clearMobileTripDetailReturnContext();
+            return null;
+        }
+
+        mobileTripDetailReturnContext = {
+            source: 'direction-focus',
+            focusedDirectionKey: focusKey,
+            lineId: lid,
+            dirKey: dkey,
+            scrollTop: Number(body?.scrollTop || 0),
+            timetableViewMode
+        };
+        return mobileTripDetailReturnContext;
+    };
+
+    const restorePanelBodyScrollTop = (scrollTop) => {
+        const nextScrollTop = Number(scrollTop);
+        if (!Number.isFinite(nextScrollTop) || nextScrollTop < 0) return;
+
+        const applyScrollTop = () => {
+            body.scrollTop = nextScrollTop;
+            syncDirectionFocusStickyMetrics();
+        };
+
+        const requestFrame = typeof requestAnimationFrame === 'function'
+            ? requestAnimationFrame
+            : (callback) => setTimeout(callback, 0);
+        requestFrame(() => requestFrame(applyScrollTop));
     };
 
     const clearTripDetailHideTimer = () => {
@@ -1240,6 +1331,10 @@ export function createPanel(options = {}) {
     const makeLineDirKey = (lineId, dirKey) => `${toText(lineId)}||${toText(dirKey) || 'Unknown'}`;
     const dirKeyOf = (lineId, dir) => `${toText(lineId)}||${toText(dir) || 'Unknown'}`;
     const getFocusedDirectionLineId = () => toText(focusedDirectionKey).split('||')[0] || '';
+    const getFocusedDirectionDirKey = () => {
+        const parts = toText(focusedDirectionKey).split('||');
+        return parts.length > 1 ? parts.slice(1).join('||') : '';
+    };
     const isLoopLine = (lineId) => {
         const s = toText(lineId);
         return s === 'JR-East.Yamanote' || s === 'Toei.Oedo';
@@ -1319,10 +1414,7 @@ export function createPanel(options = {}) {
         if (!(lineEl instanceof Element)) return;
         const lineId = toText(lineEl.getAttribute?.('data-line-id'));
         if (lineId && getFocusedDirectionLineId() === lineId) {
-            focusedDirectionKey = '';
-            syncDirectionFocusVisibility();
-            syncDirectionFocusStickyMetrics();
-            renderAllTimetables();
+            clearDirectionFocus({ rerender: true });
             setPanelLineCollapsed(lineEl, true);
             return;
         }
@@ -4060,6 +4152,9 @@ export function createPanel(options = {}) {
         const nextKey = makeLineDirKey(lid, dkey);
         focusedDirectionKey = focusedDirectionKey === nextKey ? '' : nextKey;
         if (focusedDirectionKey) setDirExpanded(lid, dkey, true);
+        if (focusedDirectionKey && isMobilePanelPresentation()) {
+            panelShell.expand?.();
+        }
         syncDirectionFocusVisibility();
         renderAllTimetables();
     };
@@ -4124,6 +4219,7 @@ export function createPanel(options = {}) {
             tripKey: key
         });
         syncMobilePanelStackUi();
+        syncDirectionFocusVisibility();
         collapseMobilePanelForMapContext();
     };
 
@@ -4131,6 +4227,33 @@ export function createPanel(options = {}) {
         if (!isMobilePanelPresentation()) return;
         const state = mobilePanelStack.getState();
         if (state?.screen !== PANEL_MOBILE_STACK_SCREENS.TRIP_DETAIL) return;
+
+        const returnContext = mobileTripDetailReturnContext;
+        clearMobileTripDetailReturnContext();
+
+        if (returnContext?.source === 'direction-focus') {
+            const lid = toText(returnContext.lineId);
+            const dkey = toText(returnContext.dirKey);
+            if (lid && dkey && toText(returnContext.focusedDirectionKey) === makeLineDirKey(lid, dkey)) {
+                focusedDirectionKey = returnContext.focusedDirectionKey;
+                setDirExpanded(lid, dkey, true);
+                applyTimetableViewMode(returnContext.timetableViewMode, { rerender: false });
+                mobilePanelStack.openLineTimetable({
+                    ...getMobilePanelStationContext(),
+                    lineId: lid
+                });
+                syncMobilePanelStackUi();
+                panelShell.expand?.();
+                syncDirectionFocusVisibility();
+                const renderPromise = renderAllTimetables();
+                Promise.resolve(renderPromise).then(
+                    () => restorePanelBodyScrollTop(returnContext.scrollTop),
+                    () => restorePanelBodyScrollTop(returnContext.scrollTop)
+                );
+                scheduleCatalogRefresh();
+                return;
+            }
+        }
 
         mobilePanelStack.openStationOverview(getMobilePanelStationContext());
         syncMobilePanelStackUi();
@@ -4142,12 +4265,15 @@ export function createPanel(options = {}) {
     const resolveTripRowPayload = (rowEl) => {
         if (!rowEl || !body.contains(rowEl)) return null;
         const lineEl = rowEl.closest?.('[data-line-id]');
+        const dirBody = rowEl.closest?.('[data-dir-body][data-dir-key]');
         const lineId = rowEl.getAttribute?.('data-line-id') || lineEl?.getAttribute?.('data-line-id');
         const tripKey = rowEl.getAttribute?.('data-trip-key');
+        const dirKey = dirBody?.getAttribute?.('data-dir-key') || '';
         if (!lineId || !tripKey) return null;
         return {
             key: `${String(lineId)}||${String(tripKey)}`,
             lineId: String(lineId),
+            dirKey: String(dirKey || ''),
             tripKey: String(tripKey)
         };
     };
@@ -4158,9 +4284,12 @@ export function createPanel(options = {}) {
         fitMode = 'commit',
         key = '',
         lineId = '',
+        dirKey = '',
         tripKey = ''
     } = {}) => {
         if (!lineId || !tripKey || !key) return false;
+
+        captureMobileTripDetailReturnContext({ lineId, dirKey });
 
         if (!isMobilePanelPresentation() && tripLocked && key !== lockedTripKey) {
             hideTripDetail({ restoreMobileLine: false });
@@ -4300,14 +4429,13 @@ export function createPanel(options = {}) {
         const rowEl = findTripTarget(evt?.target);
         if (rowEl && body.contains(rowEl)) {
             clearTripHighlightTimer();
-            const lineEl = rowEl.closest?.('[data-line-id]');
-            const lineId = lineEl?.getAttribute?.('data-line-id');
-            const tripKey = rowEl.getAttribute?.('data-trip-key');
-            if (lineId && tripKey) {
+            const payload = resolveTripRowPayload(rowEl);
+            if (payload) {
                 stopPropagationOnly(evt);
                 panelInteractionPolicy.startTripTap(evt, {
-                    lineId: String(lineId),
-                    tripKey: String(tripKey)
+                    lineId: payload.lineId,
+                    dirKey: payload.dirKey,
+                    tripKey: payload.tripKey
                 });
                 return;
             }
@@ -4435,6 +4563,7 @@ export function createPanel(options = {}) {
 
         openTripDetailFromPayload({
             lineId: pending.lineId,
+            dirKey: pending.dirKey,
             tripKey: pending.tripKey,
             key: `${pending.lineId}||${pending.tripKey}`,
             clientX: completed.clientX,
@@ -4896,6 +5025,7 @@ export function createPanel(options = {}) {
     };
 
     const hide = () => {
+        clearDirectionFocus({ rerender: false });
         timePickerController.close();
         closeDirFilterPopover();
         clearPinnedPanelState({ restoreStation: false });
@@ -4921,6 +5051,10 @@ export function createPanel(options = {}) {
         if (state?.screen === PANEL_MOBILE_STACK_SCREENS.TRIP_DETAIL) {
             hideTripDetail();
             lastTripDetailKey = null;
+            return true;
+        }
+
+        if (clearDirectionFocus({ rerender: true })) {
             return true;
         }
 
@@ -5014,8 +5148,7 @@ export function createPanel(options = {}) {
             closeDirFilterPopover,
             clearPinnedPanelState
         }));
-        focusedDirectionKey = '';
-        syncDirectionFocusVisibility();
+        clearDirectionFocus({ rerender: false });
 
         const stationRenderBootstrap = preparePanelStationRenderBootstrap({
             props,
