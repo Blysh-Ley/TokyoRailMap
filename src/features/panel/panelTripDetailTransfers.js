@@ -120,8 +120,9 @@ const buildTripDetailTransferEntryFromLineMeta = (lineMeta, {
         mutedLineIconHtml = formatPanelTripDetailTransferStationBadgeHtml(mutedBadgeEl);
     } else if (code || lineColor) {
         const iconEl = createLineIconElement({ routeId, code, color: lineColor });
+        const mutedIconEl = createLineIconElement({ routeId, code, color: lineColor, muted: true });
         lineIconHtml = formatPanelTripDetailLineIconHtml(iconEl);
-        mutedLineIconHtml = lineIconHtml;
+        mutedLineIconHtml = formatPanelTripDetailLineIconHtml(mutedIconEl);
     }
 
     const html = `<span class="panel-trip-detail-transfer-item">${lineIconHtml}<span class="panel-trip-detail-transfer-line-name" style="color:${escapeHtml(lineColor)}">${escapeHtml(displayName)}</span></span>`;
@@ -223,8 +224,9 @@ export const buildTripDetailTransferDisplayByStationId = async ({
             mutedLineIconHtml = formatPanelTripDetailTransferStationBadgeHtml(mutedBadgeEl);
         } else if (iconMeta && (iconMeta.code || iconMeta.color)) {
             const iconEl = createLineIconElement({ routeId: iconMeta.id, code: iconMeta.code, color: iconMeta.color || lineColor });
+            const mutedIconEl = createLineIconElement({ routeId: iconMeta.id, code: iconMeta.code, color: iconMeta.color || lineColor, muted: true });
             lineIconHtml = formatPanelTripDetailLineIconHtml(iconEl);
-            mutedLineIconHtml = lineIconHtml;
+            mutedLineIconHtml = formatPanelTripDetailLineIconHtml(mutedIconEl);
         }
         const html = `<span class="panel-trip-detail-transfer-item">${lineIconHtml}<span class="panel-trip-detail-transfer-line-name" style="color:${escapeHtml(lineColor)}">${escapeHtml(displayName)}</span></span>`;
         const mutedHtml = `<span class="panel-trip-detail-transfer-item">${mutedLineIconHtml || lineIconHtml}<span class="panel-trip-detail-transfer-line-name" style="color:${escapeHtml(lineColor)}">${escapeHtml(displayName)}</span></span>`;

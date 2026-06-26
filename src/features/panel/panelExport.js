@@ -1,5 +1,5 @@
 // panelExportCapture.js
-import { createStationCodeBadgeElement } from '../../lib/line-icons.js';
+import { createLineIconElement, createStationCodeBadgeElement } from '../../lib/line-icons.js';
 import { shareOrSaveImageArtifact } from '../../services/nativeExportShareService.js';
 
 const HTML2CANVAS_SRC_panelExportCapture = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
@@ -286,6 +286,24 @@ export const applyPanelTripDetailExportOriginalColors = (element, {
         badge.replaceWith(replacement);
         restoreFns.push(() => {
             replacement.replaceWith(badge);
+        });
+    }
+
+    for (const icon of Array.from(element.querySelectorAll?.('.rw-line-icon[data-line-icon-muted="1"]') || [])) {
+        if (!(icon instanceof HTMLElementRef)) continue;
+        const replacement = createLineIconElement({
+            routeId: defaultToText_panelExportCapture(icon.dataset?.sourceRouteId || icon.dataset?.routeId),
+            code: defaultToText_panelExportCapture(icon.dataset?.code),
+            color: defaultToText_panelExportCapture(icon.dataset?.routeColor)
+        });
+        if (!replacement) continue;
+        for (const className of Array.from(icon.classList || [])) {
+            replacement.classList.add(className);
+        }
+        replacement.style.cssText = icon.style?.cssText || '';
+        icon.replaceWith(replacement);
+        restoreFns.push(() => {
+            replacement.replaceWith(icon);
         });
     }
 

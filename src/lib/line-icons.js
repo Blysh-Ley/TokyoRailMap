@@ -528,9 +528,13 @@ const applyIconStyleForTheme = (el) => {
     const code = toText(el.dataset.code);
     const preset = el.dataset.preset || selectLineIconPreset(routeId, code);
     const routeColor = toText(el.dataset.routeColor);
+    const muted = toText(el.dataset.lineIconMuted) === '1';
+    const mutedColor = '#c3c7cd';
 
     const borderColor = resolveBorderColorForTheme(routeColor) || routeColor;
     const fillColor = resolveLineColorForTheme(routeColor) || routeColor;
+    const renderBorderColor = muted ? mutedColor : borderColor;
+    const renderFillColor = muted ? mutedColor : fillColor;
     const designConfig = LINE_ICON_DESIGNS[preset] || LINE_ICON_DESIGNS[LINE_ICON_SETTINGS.defaultDesign] || null;
     const imageConfig = getLineIconImageConfigFromDataset(el);
     const trainIconConfig = designConfig?.image
@@ -548,17 +552,19 @@ const applyIconStyleForTheme = (el) => {
         }
         : null;
     const trainIconHref = trainIconConfig
-        ? resolveImageHref(trainIconConfig, fillColor, preset)
+        ? resolveImageHref(trainIconConfig, renderFillColor, preset)
         : '';
 
     renderLineIconSvg(el, {
         code,
         preset,
-        borderColor: borderColor || 'transparent',
-        fillColor: fillColor || '#fff',
+        borderColor: renderBorderColor || 'transparent',
+        fillColor: renderFillColor || '#fff',
         backgroundColor: '#fff',
         trainIconHref,
-        imageConfig
+        imageConfig,
+        muted,
+        mutedColor
     });
 };
 
@@ -724,7 +730,7 @@ const ensureThemeObserver = () => {
     }
 };
 
-export const createLineIconElement = ({ routeId, code, color }) => {
+export const createLineIconElement = ({ routeId, code, color, muted = false }) => {
     const id = toText(routeId);
     const resolvedId = resolveMainLineIdForIcon(id, _routesIndex instanceof Map ? _routesIndex : null) || id;
     const sourceMeta = _routesIndex instanceof Map ? (_routesIndex.get(id) || null) : null;
@@ -742,6 +748,7 @@ export const createLineIconElement = ({ routeId, code, color }) => {
     el.dataset.sourceRouteId = id;
     el.dataset.code = c;
     el.dataset.routeColor = resolvedColor;
+    if (muted) el.dataset.lineIconMuted = '1';
     const lineIconConfig = selectLineIconConfig(resolvedId, c);
     el.dataset.preset = toText(lineIconConfig.design) || selectLineIconPreset(resolvedId, c);
     applyLineIconConfigDataset(el, lineIconConfig);

@@ -89,6 +89,68 @@ const parseSvgNumber = (value, fallback = 0) => {
     return Number.isFinite(numeric) ? numeric : fallback;
 };
 
+const parseColorChannel = (value) => {
+    if (value.endsWith?.('%')) {
+        const percent = Number(value.slice(0, -1));
+        if (!Number.isFinite(percent)) return null;
+        return Math.max(0, Math.min(255, Math.round(percent * 2.55)));
+    }
+    const number = Number(value);
+    if (!Number.isFinite(number)) return null;
+    return Math.max(0, Math.min(255, Math.round(number)));
+};
+
+const parseSimpleColor = (value) => {
+    const raw = toText(value).toLowerCase();
+    if (!raw || raw === 'none' || raw === 'transparent' || raw === 'currentcolor') return null;
+    const hex = raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (hex) {
+        const body = hex[1].length === 3
+            ? hex[1].split('').map((char) => `${char}${char}`).join('')
+            : hex[1];
+        return {
+            r: Number.parseInt(body.slice(0, 2), 16),
+            g: Number.parseInt(body.slice(2, 4), 16),
+            b: Number.parseInt(body.slice(4, 6), 16)
+        };
+    }
+    const rgb = raw.match(/^rgba?\(([^)]+)\)$/);
+    if (rgb) {
+        const parts = rgb[1].split(',').map((part) => parseColorChannel(part.trim()));
+        if (parts.length >= 3 && parts.slice(0, 3).every((part) => part != null)) {
+            return { r: parts[0], g: parts[1], b: parts[2] };
+        }
+    }
+    return null;
+};
+
+const isWhiteColor = (value) => {
+    const color = parseSimpleColor(value);
+    if (!color) return false;
+    return color.r >= 245 && color.g >= 245 && color.b >= 245;
+};
+
+const applyMutedLineIconPalette = (svg, mutedColor = '#c3c7cd') => {
+    if (!svg?.querySelectorAll) return;
+    const nodes = [svg, ...svg.querySelectorAll('*')];
+    for (const node of nodes) {
+        for (const attrName of ['fill', 'stroke']) {
+            const value = node.getAttribute?.(attrName);
+            if (!value || isWhiteColor(value)) continue;
+            const parsed = parseSimpleColor(value);
+            if (!parsed) continue;
+            node.setAttribute(attrName, mutedColor);
+        }
+        for (const propName of ['fill', 'stroke']) {
+            const value = node.style?.[propName];
+            if (!value || isWhiteColor(value)) continue;
+            const parsed = parseSimpleColor(value);
+            if (!parsed) continue;
+            node.style[propName] = mutedColor;
+        }
+    }
+};
+
 const getStrokeWidth = (attrs = {}) => parseSvgNumber(attrs['stroke-width'] ?? attrs.strokeWidth, 0);
 
 const getShapeVisualBounds = (shapeConfig = {}, context = {}) => {
@@ -456,6 +518,8 @@ export const renderLineIconSvg = (root, {
     backgroundColor = '#fff',
     trainIconHref = '',
     imageConfig = null,
+    muted = false,
+    mutedColor = '#c3c7cd',
     rootStyle = {},
     svgStyle = {}
 } = {}) => {
@@ -504,6 +568,7 @@ export const renderLineIconSvg = (root, {
     }
 
     appendCenteredText({ svg, documentRef, code: safeCode, design, fillColor });
+    if (muted) applyMutedLineIconPalette(svg, mutedColor);
 
     const resolvedRootStyle = resolveConfiguredStyles(design.html?.rootStyle || {}, styleContext);
     setStyles(root, {
