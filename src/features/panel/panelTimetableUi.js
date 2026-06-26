@@ -714,7 +714,7 @@ export const applyTimetableBodyScrollState = (ttEl, {
             if (!ElementRef || !(currentHourRow instanceof ElementRef)) continue;
 
             const currentHourFullHeight = Math.ceil((currentHourRow.offsetHeight || 0) + 1);
-            bodyEl.style.maxHeight = `${Math.max(45, currentHourFullHeight)}px`;
+            bodyEl.style.maxHeight = `${Math.max(54, currentHourFullHeight)}px`;
             bodyEl.scrollTop = 0;
         }
     } catch {
