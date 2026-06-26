@@ -9,11 +9,13 @@ export const OPENFREEMAP_GLYPHS_URL = 'https://tiles.openfreemap.org/fonts/{font
 export const OPENFREEMAP_STYLE_URLS = Object.freeze({
     light: Object.freeze({
         'osm-white': 'https://tiles.openfreemap.org/styles/positron',
-        'osm-detailed': 'https://tiles.openfreemap.org/styles/bright'
+        'osm-detailed': 'https://tiles.openfreemap.org/styles/bright',
+        'osm-3d': 'https://tiles.openfreemap.org/styles/liberty'
     }),
     dark: Object.freeze({
         'osm-white': 'https://tiles.openfreemap.org/styles/dark',
-        'osm-detailed': 'https://tiles.openfreemap.org/styles/fiord'
+        'osm-detailed': 'https://tiles.openfreemap.org/styles/dark',
+        'osm-3d': 'https://tiles.openfreemap.org/styles/liberty'
     })
 });
 
@@ -56,4 +58,3 @@ export const selectOpenFreeMapStyleUrl = ({
     const nextTheme = theme === 'dark' ? 'dark' : 'light';
     return OPENFREEMAP_STYLE_URLS[nextTheme]?.[nextMode] || null;
 };
-

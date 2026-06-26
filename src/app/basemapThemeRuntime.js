@@ -3,7 +3,11 @@ import {
     readBasemapMode as defaultReadBasemapMode,
     resolveThemeFromAppearance as defaultResolveThemeFromAppearance
 } from '../services/appSettings.js';
-import { normalizeBasemapMode } from '../domain/basemapMode.js';
+import {
+    basemapModeUses3dCamera,
+    basemapModeUsesOnlineEnhancement,
+    normalizeBasemapMode
+} from '../domain/basemapMode.js';
 import { DEFAULT_OSM_BASEMAP_PMTILES_URL } from '../domain/osmBasemapPackage.js';
 import { createBasemapController as defaultCreateBasemapController } from '../services/mapEngine.js';
 import {
@@ -69,6 +73,7 @@ export const createBasemapThemeRuntime = ({
 
     let mapTheme = initialTheme;
     let basemapMode = initialMode;
+    let pmtilesArchiveAvailable = basemapRuntimeConfig.pmtilesAvailable === true;
     const configuredBasemapSource = normalizeBasemapSource(
         basemapRuntimeConfig.basemapSource,
         BASEMAP_SOURCE_PMTILES
@@ -94,16 +99,46 @@ export const createBasemapThemeRuntime = ({
         || (typeof setTimeout === 'function' ? setTimeout : null);
 
     const shouldUseOnlineBasemap = () => (
-        configuredBasemapSource === BASEMAP_SOURCE_OPENFREEMAP
-        &&
         basemapRuntimeConfig.onlineBasemapProvider !== ONLINE_BASEMAP_PROVIDER_NONE
         && basemapMode !== 'transparent'
+        && (
+            configuredBasemapSource === BASEMAP_SOURCE_OPENFREEMAP
+            || (
+                configuredBasemapSource === BASEMAP_SOURCE_PMTILES
+                && basemapModeUsesOnlineEnhancement(basemapMode)
+            )
+        )
     );
+
+    const shouldUsePmtilesBasemap = () => (
+        configuredBasemapSource === BASEMAP_SOURCE_PMTILES
+        && pmtilesArchiveAvailable
+        && basemapMode !== 'transparent'
+        && !basemapModeUsesOnlineEnhancement(basemapMode)
+    );
+
+    const applyBasemapCamera = () => {
+        try {
+            const use3d = basemapModeUses3dCamera(basemapMode);
+            const currentPitch = Number(mapEngine?.getPitch?.() || 0);
+            const currentBearing = Number(mapEngine?.getBearing?.() || 0);
+            if (use3d) {
+                mapEngine?.easeTo?.({ pitch: 60, bearing: 35, duration: 600 });
+                return;
+            }
+            if (Math.abs(currentPitch) > 0.5 || Math.abs(currentBearing) > 0.5) {
+                mapEngine?.easeTo?.({ pitch: 0, bearing: 0, duration: 450 });
+            }
+        } catch {
+            // Keep basemap mode changes working on map engines without camera support.
+        }
+    };
 
     const syncBasemapStyle = () => {
         const ready = ensureBasemapLayers();
         if (!ready) return false;
         basemapController.setMode(basemapMode, mapTheme);
+        applyBasemapCamera();
         return true;
     };
 
@@ -137,7 +172,7 @@ export const createBasemapThemeRuntime = ({
     };
 
     const queueOnlineBasemapStyleRefresh = () => {
-        if (basemapSourceKind !== BASEMAP_SOURCE_OPENFREEMAP) return;
+        if (!shouldUseOnlineBasemap()) return;
         loadAndApplyOnlineBasemapStyle().catch(() => null);
     };
 
@@ -165,14 +200,29 @@ export const createBasemapThemeRuntime = ({
         return loadAndApplyOnlineBasemapStyle();
     };
 
+    const activateBasemapForCurrentMode = () => {
+        if (shouldUseOnlineBasemap()) {
+            activateOnlineBasemap().catch(() => null);
+            return;
+        }
+        if (shouldUsePmtilesBasemap()) {
+            activatePmtilesBasemap();
+            return;
+        }
+        activateNoBasemap();
+    };
+
     const validateBasemapArchive = async (attempt = 0) => {
         const available = await verifyOsmBasemapArchive({
             fetchFn: windowRef?.fetch?.bind?.(windowRef) || globalThis.fetch,
             pmtilesUrl: basemapRuntimeConfig.pmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL,
             windowRef
         });
-        if (available) {
+        pmtilesArchiveAvailable = available === true;
+        if (available && shouldUsePmtilesBasemap()) {
             activatePmtilesBasemap();
+        } else if (shouldUseOnlineBasemap()) {
+            activateOnlineBasemap().catch(() => null);
         } else {
             activateNoBasemap();
         }
@@ -198,15 +248,14 @@ export const createBasemapThemeRuntime = ({
 
     const applyBasemapTheme = (theme) => {
         mapTheme = normalizeTheme(theme);
-        syncBasemapStyle();
-        queueOnlineBasemapStyleRefresh();
+        if (shouldUseOnlineBasemap()) queueOnlineBasemapStyleRefresh();
+        else syncBasemapStyle();
         return mapTheme;
     };
 
     const setBasemapMode = (mode) => {
         basemapMode = normalizeBasemapMode(mode);
-        syncBasemapStyle();
-        queueOnlineBasemapStyleRefresh();
+        activateBasemapForCurrentMode();
         return basemapMode;
     };
 
