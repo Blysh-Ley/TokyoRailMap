@@ -1565,6 +1565,7 @@ export function mountSearchUI() {
     root.addEventListener('mouseleave', () => {
         if (root.classList.contains('is-collapsed')) return;
         if (isMobileStationSearchPresentation()) return;
+        if (isSearchPlannerExpanded()) return;
         collapseIfEmpty();
     });
     plannerToggleBtn.addEventListener('pointerdown', (evt) => {

@@ -1363,6 +1363,8 @@ html[data-theme='dark'] .journey-trip-note-direction{
     z-index: 9999;
     --search-planner-card-height: 86px;
     --search-planner-swap-size: 22px;
+    --search-planner-left-inset: calc(10px + var(--search-planner-swap-size) + 8px);
+    --search-planner-right-inset: 10px;
     --mobile-search-field-height: 36.4px;
     width: 320px;
     max-width: calc(100vw - 20px);
@@ -1403,7 +1405,6 @@ html[data-theme='dark'] .journey-trip-note-direction{
 }
 
 .search-ui.is-planner-open {
-    padding-left: calc(var(--search-planner-swap-size) + 8px);
     width: 320px;
 }
 
@@ -1517,11 +1518,12 @@ html[data-theme='dark'] .journey-trip-note-direction{
     display: inline-flex !important;
     position: absolute;
     left: 8px;
-    top: calc(var(--mobile-search-field-height) + 3px);
+    top: calc(var(--mobile-search-field-height) - 4px);
     z-index: 3;
     width: var(--search-planner-swap-size);
     height: var(--search-planner-swap-size);
     background: transparent;
+    transform: rotate(90deg);
 }
 
 .search-ui.is-planner-open .search-bar .search-planner-origin-control {
@@ -1531,6 +1533,10 @@ html[data-theme='dark'] .journey-trip-note-direction{
     min-height: 28px;
     padding-left: 4px;
     padding-right: 0;
+}
+
+.search-ui.is-planner-open .search-bar {
+    padding-left: var(--search-planner-left-inset);
 }
 
 .search-planner-toggle-btn:hover {
@@ -1652,7 +1658,13 @@ html[data-theme='dark'] .search-planner-toggle-btn {
     max-width: none;
     grid-row: auto;
     grid-template-rows: auto auto auto;
-    margin: 0 10px 10px;
+    margin: 0 var(--search-planner-right-inset) 10px var(--search-planner-left-inset);
+}
+
+html:not([data-mobile-ui='1']) .search-ui > .journey-ui .journey-results,
+html:not([data-mobile-ui='1']) .search-ui > .journey-ui .journey-plan-results {
+    width: calc(100% + var(--search-planner-left-inset) + var(--search-planner-right-inset));
+    margin-left: calc(-1 * var(--search-planner-left-inset));
 }
 
 .search-ui > .journey-ui::before {

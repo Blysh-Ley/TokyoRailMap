@@ -67,6 +67,7 @@ import { isDarkThemeActive } from '../../map/element_ui.js';
 import { JOURNEY_CLEAR_REQUEST_EVENT } from '../../store/events.js';
 import { createMobileJourneyPlanSheet } from '../../ui/mobileJourneyPlanSheet.js';
 import {
+    isSearchPlannerExpanded,
     registerSearchPlannerJourneyRoot,
     registerSearchPlannerOriginControls,
     setSearchPlannerExpanded
@@ -2285,6 +2286,7 @@ export function mountTravelSearchUI() {
 
     const collapseIfBothEmpty = () => {
         if (mapPickTarget) return;
+        if (isSearchPlannerExpanded()) return;
         if (normalizeText(originInput.value) || normalizeText(destinationInput.value)) return;
         collapse();
     };
