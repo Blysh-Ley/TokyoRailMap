@@ -1494,7 +1494,7 @@ html[data-theme='dark'] .journey-trip-note-direction{
     height: 22px;
     border: none;
     border-radius: 999px;
-    background: rgba(52, 152, 219, 0.12);
+    background: transparent;
     color: var(--ui-text);
     cursor: pointer;
     display: inline-flex;
@@ -1565,6 +1565,13 @@ html[data-theme='dark'] .search-planner-toggle-btn {
 
 .search-input::placeholder {
     color: var(--ui-text-muted);
+}
+
+.search-input::-webkit-search-cancel-button,
+.journey-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
 }
 
 .search-results {
@@ -1665,6 +1672,15 @@ html:not([data-mobile-ui='1']) .search-ui > .journey-ui .journey-results,
 html:not([data-mobile-ui='1']) .search-ui > .journey-ui .journey-plan-results {
     width: calc(100% + var(--search-planner-left-inset) + var(--search-planner-right-inset));
     margin-left: calc(-1 * var(--search-planner-left-inset));
+}
+
+html:not([data-mobile-ui='1']) .search-ui.is-planner-open > .journey-ui .journey-results,
+html:not([data-mobile-ui='1']) .search-ui.is-planner-open > .journey-ui .journey-plan-results {
+    margin-top: 18px;
+}
+
+html:not([data-mobile-ui='1']) .search-ui.is-planner-open > .journey-ui .journey-plan-results {
+    margin-top: 0;
 }
 
 .search-ui > .journey-ui::before {
@@ -1774,10 +1790,21 @@ html:not([data-mobile-ui='1']) .search-ui > .journey-ui .journey-plan-results {
 }
 
 .search-ui > .journey-ui .journey-input-row {
-    border-top: 1px solid rgba(148, 163, 184, 0.32);
+    position: relative;
+    border-top: 0;
 }
 
-html[data-theme='dark'] .search-ui > .journey-ui .journey-input-row {
+.search-ui > .journey-ui .journey-input-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: calc(var(--search-planner-swap-size) + 8px);
+    border-top: 1px solid rgba(148, 163, 184, 0.32);
+    pointer-events: none;
+}
+
+html[data-theme='dark'] .search-ui > .journey-ui .journey-input-row::before {
     border-top-color: var(--ui-border);
 }
 
@@ -1827,7 +1854,7 @@ html[data-theme='dark'] .journey-input-wrap {
     background: transparent;
     min-height: 32px;
     padding-left: 4px;
-    padding-right: 0;
+    padding-right: calc(var(--search-planner-swap-size) + 8px);
 }
 
 html[data-theme='dark'] .search-ui > .journey-ui .journey-input-wrap {
@@ -1860,6 +1887,67 @@ html[data-theme='dark'] .search-ui > .journey-ui .journey-input-wrap {
 }
 
 .journey-map-pick-icon {
+    width: 14px;
+    height: 14px;
+    display: block;
+    pointer-events: none;
+}
+
+.journey-field-clear-btn {
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    border-radius: 999px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex: 0 0 20px;
+    opacity: 0.9;
+}
+
+.journey-field-clear-btn:hover {
+    background: rgba(52, 152, 219, 0.12);
+    opacity: 1;
+}
+
+.journey-field-clear-icon {
+    width: 12px;
+    height: 12px;
+    display: block;
+    pointer-events: none;
+}
+
+.journey-plan-search-btn {
+    display: none;
+}
+
+.search-ui > .journey-ui .journey-plan-search-btn {
+    position: absolute;
+    top: calc((var(--search-planner-card-height) - 22px) / 2 - var(--mobile-search-field-height) - 8px);
+    right: 0;
+    z-index: 4;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0.9;
+}
+
+.search-ui > .journey-ui .journey-plan-search-btn:hover {
+    background: rgba(52, 152, 219, 0.12);
+    opacity: 1;
+}
+
+.journey-plan-search-icon {
     width: 14px;
     height: 14px;
     display: block;
@@ -7151,6 +7239,8 @@ html[data-theme='dark'] .journey-trip-capture-btn:hover {
     background: #2d323a;
 }
 
+html[data-theme='dark'] .search-ui > .journey-ui .journey-plan-search-btn:hover,
+html[data-theme='dark'] .journey-field-clear-btn:hover,
 html[data-theme='dark'] .journey-close-btn:hover {
     background: #2d323a;
 }
@@ -7416,6 +7506,8 @@ html[data-theme='dark'] .settings-time-picker-list::-webkit-scrollbar-thumb {
 html[data-theme='dark'] .search-fab-icon,
 html[data-theme='dark'] .journey-fab-icon,
 html[data-theme='dark'] .journey-map-pick-icon,
+html[data-theme='dark'] .journey-field-clear-icon,
+html[data-theme='dark'] .journey-plan-search-icon,
 html[data-theme='dark'] .journey-close-icon,
 html[data-theme='dark'] .journey-plan-sheet-back-icon,
 html[data-theme='dark'] .settings-fab-icon,

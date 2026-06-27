@@ -638,8 +638,16 @@ export function mountTravelSearchUI() {
     const originMapPickIcon = el('img', 'journey-map-pick-icon', { alt: '' });
     setJourneyIconFromCache(originMapPickIcon, 'map-select.svg');
     originMapPickBtn.appendChild(originMapPickIcon);
+    const originClearBtn = el('button', 'journey-field-clear-btn journey-field-clear-origin', {
+        type: 'button',
+        'aria-label': '清空起点站'
+    });
+    const originClearIcon = el('img', 'journey-field-clear-icon', { alt: '' });
+    setJourneyIconFromCache(originClearIcon, 'x.svg');
+    originClearBtn.appendChild(originClearIcon);
     originWrap.appendChild(originInput);
     originWrap.appendChild(originMapPickBtn);
+    originWrap.appendChild(originClearBtn);
 
     const divider = el('button', 'journey-divider', {
         type: 'button',
@@ -648,6 +656,14 @@ export function mountTravelSearchUI() {
     const dividerIcon = el('img', 'journey-divider-icon', { alt: '' });
     setJourneyIconFromCache(dividerIcon, 'change-dirc.svg');
     divider.appendChild(dividerIcon);
+
+    const planSearchBtn = el('button', 'journey-plan-search-btn', {
+        type: 'button',
+        'aria-label': '搜索路线'
+    });
+    const planSearchIcon = el('img', 'journey-plan-search-icon', { alt: '' });
+    setJourneyIconFromCache(planSearchIcon, 'search.svg');
+    planSearchBtn.appendChild(planSearchIcon);
 
     const destinationRow = el('div', 'journey-input-row journey-input-row-destination');
     const destinationWrap = el('div', 'journey-input-wrap');
@@ -661,19 +677,17 @@ export function mountTravelSearchUI() {
     const destinationMapPickIcon = el('img', 'journey-map-pick-icon', { alt: '' });
     setJourneyIconFromCache(destinationMapPickIcon, 'map-select.svg');
     destinationMapPickBtn.appendChild(destinationMapPickIcon);
+    const destinationClearBtn = el('button', 'journey-field-clear-btn journey-field-clear-destination', {
+        type: 'button',
+        'aria-label': '清空终点站'
+    });
+    const destinationClearIcon = el('img', 'journey-field-clear-icon', { alt: '' });
+    setJourneyIconFromCache(destinationClearIcon, 'x.svg');
+    destinationClearBtn.appendChild(destinationClearIcon);
     destinationWrap.appendChild(destinationInput);
     destinationWrap.appendChild(destinationMapPickBtn);
+    destinationWrap.appendChild(destinationClearBtn);
     destinationRow.appendChild(destinationWrap);
-
-    const closeBtn = el('button', 'journey-close-btn', {
-        type: 'button',
-        'aria-label': '关闭行程搜索并清空'
-    });
-    const closeIcon = el('img', 'journey-close-icon', { alt: '' });
-    setJourneyIconFromCache(closeIcon, 'x.svg');
-    closeBtn.appendChild(closeIcon);
-
-    destinationRow.appendChild(closeBtn);
     fields.appendChild(destinationRow);
     bar.appendChild(fields);
 
@@ -707,6 +721,7 @@ export function mountTravelSearchUI() {
     document.body.appendChild(tripPopover);
 
     root.appendChild(bar);
+    root.appendChild(planSearchBtn);
     root.appendChild(results);
     root.appendChild(planResults);
     document.body.appendChild(root);
@@ -939,7 +954,7 @@ export function mountTravelSearchUI() {
 
         setMapPickTarget(null);
         results.classList.add('is-hidden');
-        maybeComputePlans();
+        clearStalePlanResults();
     };
 
     const applyPickedCoordinate = async ({ target, lngLat }) => {
@@ -980,8 +995,7 @@ export function mountTravelSearchUI() {
 
         setMapPickTarget(null);
         results.classList.add('is-hidden');
-        lastPlanComputeKey = '';
-        await maybeComputePlans();
+        clearStalePlanResults();
     };
 
     // 供外部 UI（如 panel header 下拉）直接写入起终点。
@@ -2235,6 +2249,61 @@ export function mountTravelSearchUI() {
         while (list.firstChild) list.removeChild(list.firstChild);
     };
 
+    const clearStalePlanResults = ({ clearMapPreview = false } = {}) => {
+        planComputeToken += 1;
+        lastPlanComputeKey = '';
+        clearPlanList({ clearMapPreview });
+        planResults.classList.add('is-hidden');
+        planPagination.classList.add('is-hidden');
+        setMobileJourneyPlanResultsActive(false);
+        journeyPlanSheet.hide();
+    };
+
+    const ensurePlanningStationSeed = async (field) => {
+        const isDestination = field === 'destination';
+        const input = isDestination ? destinationInput : originInput;
+        const selectedId = isDestination ? selectedDestinationId : selectedOriginId;
+        const candidateIds = isDestination ? selectedDestinationCandidateIds : selectedOriginCandidateIds;
+        if (normalizeText(selectedId || input.dataset.stationId || '')) return true;
+        if (Array.isArray(candidateIds) && candidateIds.length) return true;
+
+        const hit = await resolveStationByName(input.value);
+        if (!hit?.id) return false;
+
+        const resolvedId = String(hit.id);
+        input.value = String(hit?.text || input.value || '');
+        input.dataset.stationId = resolvedId;
+        if (isDestination) {
+            selectedDestinationId = resolvedId;
+            selectedDestinationCandidateIds = [];
+            selectedDestinationCandidateMeta = [];
+            selectedDestinationLngLat = null;
+        } else {
+            selectedOriginId = resolvedId;
+            selectedOriginCandidateIds = [];
+            selectedOriginCandidateMeta = [];
+            selectedOriginLngLat = null;
+            scheduleDestinationReachableStopsTestRef?.();
+        }
+
+        try {
+            await journeyPickController.showStationPin({ stationId: resolvedId, type: isDestination ? 'destination' : 'origin' });
+        } catch {
+            // ignore
+        }
+        return true;
+    };
+
+    const requestJourneyPlan = async () => {
+        results.classList.add('is-hidden');
+        await Promise.all([
+            ensurePlanningStationSeed('origin'),
+            ensurePlanningStationSeed('destination')
+        ]);
+        lastPlanComputeKey = '';
+        await maybeComputePlans();
+    };
+
     const expand = () => {
         if (!root.classList.contains('is-collapsed')) return;
         setSearchPlannerExpanded(true);
@@ -2282,6 +2351,45 @@ export function mountTravelSearchUI() {
             // ignore
         }
         collapse();
+    };
+
+    const clearJourneyField = (field) => {
+        const isDestination = field === 'destination';
+        const input = isDestination ? destinationInput : originInput;
+        input.value = '';
+        input.dataset.stationId = '';
+        if (isDestination) {
+            selectedDestinationId = '';
+            selectedDestinationCandidateIds = [];
+            selectedDestinationCandidateMeta = [];
+            selectedDestinationLngLat = null;
+        } else {
+            selectedOriginId = '';
+            selectedOriginCandidateIds = [];
+            selectedOriginCandidateMeta = [];
+            selectedOriginLngLat = null;
+            try {
+                reachableStopsController?.clear?.();
+            } catch {
+                // ignore
+            }
+        }
+        lastPlanComputeKey = '';
+        setMapPickTarget(null);
+        hideTripPopover();
+        clearPlanList({ clearMapPreview: false });
+        planResults.classList.add('is-hidden');
+        planPagination.classList.add('is-hidden');
+        setMobileJourneyPlanResultsActive(false);
+        journeyPlanSheet.hide();
+        disableMultiSelectMode();
+        try {
+            journeyPickController.clearPin(isDestination ? 'destination' : 'origin');
+        } catch {
+            // ignore
+        }
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.focus?.();
     };
 
     const collapseIfBothEmpty = () => {
@@ -2336,7 +2444,7 @@ export function mountTravelSearchUI() {
         }
 
         results.classList.add('is-hidden');
-        maybeComputePlans();
+        clearStalePlanResults();
     };
 
     const createStationResultRow = (item, lineMetas, stationCodeMap = null) => {
@@ -2721,6 +2829,7 @@ export function mountTravelSearchUI() {
             }
 
             lastPlanComputeKey = '';
+            clearStalePlanResults();
 
             refresh();
 
@@ -2823,7 +2932,7 @@ export function mountTravelSearchUI() {
         if (typeof scheduleDestinationReachableStopsTestRef === 'function') {
             scheduleDestinationReachableStopsTestRef();
         }
-        maybeComputePlans();
+        clearStalePlanResults();
     };
 
     originMapPickBtn.addEventListener('pointerdown', (evt) => {
@@ -2848,15 +2957,20 @@ export function mountTravelSearchUI() {
         toggleMapPickMode('destination');
     });
 
-    closeBtn.addEventListener('pointerdown', (evt) => {
-        evt.preventDefault?.();
-        evt.stopPropagation?.();
-    });
-    closeBtn.addEventListener('click', (evt) => {
-        evt.preventDefault?.();
-        evt.stopPropagation?.();
-        clearJourneyInputsAndCollapse();
-    });
+    const bindFieldClearButton = (button, field) => {
+        button.addEventListener('pointerdown', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+        });
+        button.addEventListener('click', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            clearJourneyField(field);
+        });
+    };
+
+    bindFieldClearButton(originClearBtn, 'origin');
+    bindFieldClearButton(destinationClearBtn, 'destination');
 
     window.addEventListener(JOURNEY_CLEAR_REQUEST_EVENT, () => {
         clearJourneyInputsAndCollapse();
@@ -2873,32 +2987,27 @@ export function mountTravelSearchUI() {
         swapOriginDestination();
     });
 
-    originInput.addEventListener('keydown', (evt) => {
-        if (evt?.key === 'Enter') {
-            evt.preventDefault?.();
-            maybeComputePlans();
-        }
+    planSearchBtn.addEventListener('pointerdown', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
     });
-    destinationInput.addEventListener('keydown', (evt) => {
-        if (evt?.key === 'Enter') {
-            evt.preventDefault?.();
-            maybeComputePlans();
-        }
+    planSearchBtn.addEventListener('click', async (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+        await requestJourneyPlan();
     });
 
     const timeInput = document.querySelector('.settings-time-input');
     if (timeInput) {
         timeInput.addEventListener('input', () => {
-            lastPlanComputeKey = '';
-            maybeComputePlans();
+            clearStalePlanResults();
         });
     }
 
     const dayButtons = document.querySelectorAll('.panel-day-seg button[data-day]');
     dayButtons.forEach((btn) => {
         btn.addEventListener('click', () => {
-            lastPlanComputeKey = '';
-            maybeComputePlans();
+            clearStalePlanResults();
         });
     });
 
