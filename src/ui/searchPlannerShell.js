@@ -4,6 +4,7 @@ const state = {
     searchRoot: null,
     journeyRoot: null,
     originControl: null,
+    originDragHandle: null,
     swapButton: null,
     toggleButton: null,
     expanded: false
@@ -59,6 +60,9 @@ const attachOriginControls = () => {
     const bar = searchRoot?.querySelector?.('.search-bar') || null;
     if (!bar) return;
     const beforeNode = state.toggleButton && bar.contains(state.toggleButton) ? state.toggleButton : null;
+    if (state.originDragHandle && !bar.contains(state.originDragHandle)) {
+        bar.insertBefore(state.originDragHandle, beforeNode);
+    }
     if (state.originControl && !bar.contains(state.originControl)) {
         bar.insertBefore(state.originControl, beforeNode);
     }
@@ -118,9 +122,11 @@ export const registerSearchPlannerJourneyRoot = (root) => {
     };
 };
 
-export const registerSearchPlannerOriginControls = ({ originControl, swapButton } = {}) => {
+export const registerSearchPlannerOriginControls = ({ originControl, originDragHandle, swapButton } = {}) => {
     state.originControl = originControl || state.originControl;
+    state.originDragHandle = originDragHandle || state.originDragHandle;
     state.swapButton = swapButton || state.swapButton;
+    state.originDragHandle?.classList?.add?.('search-planner-origin-drag-handle');
     state.originControl?.classList?.add?.('search-planner-origin-control');
     state.swapButton?.classList?.add?.('search-planner-swap-btn');
     syncShell();

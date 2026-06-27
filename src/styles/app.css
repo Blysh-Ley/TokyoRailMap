@@ -1365,7 +1365,9 @@ html[data-theme='dark'] .journey-trip-note-direction{
     --journey-waypoint-extra-height: 0px;
     --search-planner-card-height: calc(86px + var(--journey-waypoint-extra-height));
     --search-planner-swap-size: 22px;
+    --journey-drag-handle-size: 16px;
     --search-planner-left-inset: calc(10px + var(--search-planner-swap-size) + 8px);
+    --search-planner-journey-left-inset: var(--search-planner-left-inset);
     --search-planner-right-inset: 10px;
     --mobile-search-field-height: 36.4px;
     width: 320px;
@@ -1528,6 +1530,14 @@ html[data-theme='dark'] .journey-trip-note-direction{
     transform: rotate(90deg);
 }
 
+.search-ui.is-planner-open.has-journey-waypoints .search-planner-swap-btn {
+    display: none !important;
+}
+
+.search-ui.is-planner-open.has-journey-waypoints {
+    --search-planner-journey-left-inset: 10px;
+}
+
 .search-ui.is-planner-open .search-bar .search-planner-origin-control {
     border: 0;
     background: transparent;
@@ -1539,6 +1549,10 @@ html[data-theme='dark'] .journey-trip-note-direction{
 
 .search-ui.is-planner-open .search-bar {
     padding-left: var(--search-planner-left-inset);
+}
+
+.search-ui.is-planner-open.has-journey-waypoints .search-bar {
+    padding-left: 10px;
 }
 
 .search-planner-toggle-btn:hover {
@@ -1667,13 +1681,13 @@ html[data-theme='dark'] .search-planner-toggle-btn {
     max-width: none;
     grid-row: auto;
     grid-template-rows: auto auto auto;
-    margin: 0 var(--search-planner-right-inset) 10px var(--search-planner-left-inset);
+    margin: 0 var(--search-planner-right-inset) 10px var(--search-planner-journey-left-inset);
 }
 
 html:not([data-mobile-ui='1']) .search-ui > .journey-ui .journey-results,
 html:not([data-mobile-ui='1']) .search-ui > .journey-ui .journey-plan-results {
-    width: calc(100% + var(--search-planner-left-inset) + var(--search-planner-right-inset));
-    margin-left: calc(-1 * var(--search-planner-left-inset));
+    width: calc(100% + var(--search-planner-journey-left-inset) + var(--search-planner-right-inset));
+    margin-left: calc(-1 * var(--search-planner-journey-left-inset));
 }
 
 html:not([data-mobile-ui='1']) .search-ui.is-planner-open > .journey-ui .journey-results,
@@ -1808,6 +1822,100 @@ html:not([data-mobile-ui='1']) .search-ui.is-planner-open > .journey-ui .journey
 
 html[data-theme='dark'] .search-ui > .journey-ui .journey-input-row::before {
     border-top-color: var(--ui-border);
+}
+
+.journey-drag-handle {
+    display: none;
+    width: var(--journey-drag-handle-size);
+    height: var(--journey-drag-handle-size);
+    flex: 0 0 var(--journey-drag-handle-size);
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.72;
+    cursor: grab;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.search-ui.is-planner-open.has-journey-waypoints .journey-drag-handle {
+    display: inline-flex;
+}
+
+.search-ui.is-planner-open.has-journey-waypoints .journey-drag-handle:hover,
+.search-ui.is-planner-open.has-journey-waypoints .journey-drag-handle.is-drag-active {
+    background: rgba(52, 152, 219, 0.12);
+    opacity: 1;
+}
+
+.journey-drag-handle.is-drag-active {
+    cursor: grabbing;
+}
+
+.journey-drag-handle.is-drag-disabled {
+    cursor: default;
+    opacity: 0.36;
+}
+
+.journey-drag-handle-icon {
+    width: 16px;
+    height: 16px;
+    display: block;
+    pointer-events: none;
+}
+
+html[data-theme='dark'] .search-ui.is-planner-open.has-journey-waypoints .journey-drag-handle-icon {
+    filter: invert(1) brightness(1.1);
+}
+
+html[data-theme='dark'] .search-ui.is-planner-open.has-journey-waypoints .journey-drag-handle {
+    opacity: 0.78;
+}
+
+html[data-theme='dark'] .search-ui.is-planner-open.has-journey-waypoints .journey-drag-handle:hover,
+html[data-theme='dark'] .search-ui.is-planner-open.has-journey-waypoints .journey-drag-handle.is-drag-active {
+    background: rgba(52, 152, 219, 0.26);
+    opacity: 1;
+}
+
+.search-ui.is-endpoint-dragging,
+.journey-ui.is-endpoint-dragging {
+    user-select: none;
+}
+
+.search-ui.is-endpoint-dragging .search-bar,
+.search-ui .search-bar.is-drop-target,
+.search-ui .search-bar.is-drop-invalid {
+    position: relative;
+}
+
+body.is-journey-endpoint-dragging {
+    cursor: grabbing;
+}
+
+.search-ui.is-planner-open.has-journey-waypoints .is-drag-source .journey-input-wrap,
+.search-ui.is-planner-open.has-journey-waypoints .journey-input-wrap.is-drag-source {
+    opacity: 0.58;
+}
+
+.search-ui.is-planner-open.has-journey-waypoints .is-drop-target::after,
+.search-ui.is-planner-open.has-journey-waypoints .is-drop-invalid::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: calc(var(--search-planner-swap-size) + 8px);
+    top: -1px;
+    height: 2px;
+    border-radius: 999px;
+    background: rgba(52, 152, 219, 0.72);
+    pointer-events: none;
+}
+
+.search-ui.is-planner-open.has-journey-waypoints .is-drop-invalid::after {
+    background: rgba(239, 68, 68, 0.72);
 }
 
 .journey-waypoint-add-btn {

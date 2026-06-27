@@ -631,6 +631,18 @@ export function mountTravelSearchUI() {
 
     const bar = el('div', 'journey-bar');
     const fields = el('div', 'journey-fields');
+    const createJourneyDragHandle = () => {
+        const dragHandle = el('button', 'journey-drag-handle', {
+            type: 'button',
+            'aria-label': '拖动调整站点顺序',
+            'aria-disabled': 'true'
+        });
+        const icon = el('img', 'journey-drag-handle-icon', { alt: '', 'aria-hidden': 'true' });
+        setJourneyIconFromCache(icon, 'drag.svg');
+        dragHandle.appendChild(icon);
+        return dragHandle;
+    };
+    const originDragHandle = createJourneyDragHandle();
     const originWrap = el('div', 'journey-input-wrap');
     const originInput = el('input', 'journey-input journey-input-origin', {
         type: 'search',
@@ -680,6 +692,7 @@ export function mountTravelSearchUI() {
 
     const destinationRow = el('div', 'journey-input-row journey-input-row-destination');
     const destinationAddBtn = createWaypointAddButton();
+    const destinationDragHandle = createJourneyDragHandle();
     const destinationWrap = el('div', 'journey-input-wrap');
     const destinationInput = el('input', 'journey-input journey-input-destination', {
         type: 'search',
@@ -702,6 +715,7 @@ export function mountTravelSearchUI() {
     destinationWrap.appendChild(destinationMapPickBtn);
     destinationWrap.appendChild(destinationClearBtn);
     destinationRow.appendChild(destinationAddBtn);
+    destinationRow.appendChild(destinationDragHandle);
     destinationRow.appendChild(destinationWrap);
     fields.appendChild(destinationRow);
     bar.appendChild(fields);
@@ -741,7 +755,7 @@ export function mountTravelSearchUI() {
     root.appendChild(planResults);
     document.body.appendChild(root);
     registerSearchPlannerJourneyRoot(root);
-    registerSearchPlannerOriginControls({ originControl: originWrap, swapButton: divider });
+    registerSearchPlannerOriginControls({ originControl: originWrap, originDragHandle, swapButton: divider });
 
     let activeField = 'origin';
     let stationResultRequestToken = 0;
@@ -772,6 +786,7 @@ export function mountTravelSearchUI() {
     let pinnedTripPopoverKey = '';
     let tripPopoverHoverTimer = null;
     let activeWaypointRow = null;
+    let endpointDragState = null;
     let clearingPlannerSession = false;
     let suppressNextEmptyHistoryRender = false;
     let mobileTripDetailOpen = false;
@@ -1004,6 +1019,7 @@ export function mountTravelSearchUI() {
 
         setMapPickTarget(null);
         results.classList.add('is-hidden');
+        syncEndpointDragHandles();
         clearStalePlanResults();
     };
 
@@ -1053,6 +1069,7 @@ export function mountTravelSearchUI() {
 
         setMapPickTarget(null);
         results.classList.add('is-hidden');
+        syncEndpointDragHandles();
         clearStalePlanResults();
     };
 
@@ -1092,6 +1109,7 @@ export function mountTravelSearchUI() {
         // 外部写入也应退出 map pick 状态
         try { setMapPickTarget(null); } catch {}
         results.classList.add('is-hidden');
+        syncEndpointDragHandles();
 
         if (options?.recompute !== false) {
             lastPlanComputeKey = '';
@@ -1134,6 +1152,7 @@ export function mountTravelSearchUI() {
         } catch {
             // ignore
         }
+        syncEndpointDragHandles();
         return true;
     };
 
@@ -2450,6 +2469,312 @@ export function mountTravelSearchUI() {
         journeyPlanSheet.hide();
     };
 
+    const cloneJourneyArray = (value) => (Array.isArray(value) ? value.slice() : []);
+
+    const cloneJourneyLngLat = (value) => {
+        if (Array.isArray(value)) return value.slice();
+        if (value && typeof value === 'object') {
+            const lng = Number(value.lng ?? value[0]);
+            const lat = Number(value.lat ?? value[1]);
+            return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null;
+        }
+        return null;
+    };
+
+    const getEndpointSlots = () => ([
+        {
+            role: 'origin',
+            row: originDragHandle.closest?.('.search-bar') || originWrap,
+            wrap: originWrap,
+            input: originInput,
+            dragHandle: originDragHandle,
+            pinType: 'origin'
+        },
+        ...waypointRows.map((rowState) => ({
+            role: 'waypoint',
+            row: rowState.row,
+            wrap: rowState.input?.closest?.('.journey-input-wrap') || rowState.row,
+            input: rowState.input,
+            dragHandle: rowState.dragHandle,
+            pinType: rowState.pinType,
+            rowState
+        })),
+        {
+            role: 'destination',
+            row: destinationRow,
+            wrap: destinationWrap,
+            input: destinationInput,
+            dragHandle: destinationDragHandle,
+            pinType: 'destination'
+        }
+    ]);
+
+    const readEndpointSnapshot = (slot) => {
+        if (slot?.role === 'origin') {
+            return {
+                text: originInput.value || '',
+                stationId: normalizeText(selectedOriginId || originInput.dataset.stationId || ''),
+                candidateIds: cloneJourneyArray(selectedOriginCandidateIds),
+                candidateMeta: cloneJourneyArray(selectedOriginCandidateMeta),
+                lngLat: cloneJourneyLngLat(selectedOriginLngLat)
+            };
+        }
+        if (slot?.role === 'destination') {
+            return {
+                text: destinationInput.value || '',
+                stationId: normalizeText(selectedDestinationId || destinationInput.dataset.stationId || ''),
+                candidateIds: cloneJourneyArray(selectedDestinationCandidateIds),
+                candidateMeta: cloneJourneyArray(selectedDestinationCandidateMeta),
+                lngLat: cloneJourneyLngLat(selectedDestinationLngLat)
+            };
+        }
+        const rowState = slot?.rowState;
+        return {
+            text: rowState?.input?.value || '',
+            stationId: normalizeText(rowState?.stationId || rowState?.input?.dataset?.stationId || ''),
+            candidateIds: cloneJourneyArray(rowState?.candidateIds),
+            candidateMeta: cloneJourneyArray(rowState?.candidateMeta),
+            lngLat: cloneJourneyLngLat(rowState?.lngLat)
+        };
+    };
+
+    const endpointHasResolvedContent = (snapshot) => (
+        Boolean(normalizeText(snapshot?.text || ''))
+        && (
+            Boolean(normalizeText(snapshot?.stationId || ''))
+            || cloneJourneyArray(snapshot?.candidateIds).length > 0
+            || Boolean(cloneJourneyLngLat(snapshot?.lngLat))
+        )
+    );
+
+    const setEndpointSlotSnapshot = (slot, snapshot) => {
+        const text = String(snapshot?.text || '');
+        const stationId = normalizeText(snapshot?.stationId || '');
+        const candidateIds = cloneJourneyArray(snapshot?.candidateIds);
+        const candidateMeta = cloneJourneyArray(snapshot?.candidateMeta);
+        const lngLat = cloneJourneyLngLat(snapshot?.lngLat);
+
+        if (slot?.input) {
+            slot.input.value = text;
+            slot.input.dataset.stationId = stationId;
+        }
+
+        if (slot?.role === 'origin') {
+            selectedOriginId = stationId;
+            selectedOriginCandidateIds = candidateIds;
+            selectedOriginCandidateMeta = candidateMeta;
+            selectedOriginLngLat = lngLat;
+            return;
+        }
+        if (slot?.role === 'destination') {
+            selectedDestinationId = stationId;
+            selectedDestinationCandidateIds = candidateIds;
+            selectedDestinationCandidateMeta = candidateMeta;
+            selectedDestinationLngLat = lngLat;
+            return;
+        }
+        if (slot?.rowState) {
+            slot.rowState.stationId = stationId;
+            slot.rowState.candidateIds = candidateIds;
+            slot.rowState.candidateMeta = candidateMeta;
+            slot.rowState.lngLat = lngLat;
+        }
+    };
+
+    const redrawEndpointPins = async () => {
+        const slots = getEndpointSlots();
+        try {
+            journeyPickController.clearPin();
+        } catch {
+            // ignore
+        }
+        for (const slot of slots) {
+            const snapshot = readEndpointSnapshot(slot);
+            if (!endpointHasResolvedContent(snapshot)) continue;
+            try {
+                if (snapshot.stationId) {
+                    await journeyPickController.showStationPin({ stationId: snapshot.stationId, type: slot.pinType });
+                } else if (snapshot.lngLat) {
+                    await journeyPickController.showCoordinatePin({ lngLat: snapshot.lngLat, type: slot.pinType });
+                }
+            } catch {
+                // ignore individual pin refresh failures
+            }
+        }
+    };
+
+    const getEndpointDragSlotByHandle = (handle) => (
+        getEndpointSlots().find((slot) => slot.dragHandle === handle) || null
+    );
+
+    const canDragEndpointSlot = (slot) => {
+        if (!slot || waypointRows.length <= 0) return false;
+        const slots = getEndpointSlots();
+        const originSlot = slots[0];
+        const destinationSlot = slots[slots.length - 1];
+        return endpointHasResolvedContent(readEndpointSnapshot(originSlot))
+            && endpointHasResolvedContent(readEndpointSnapshot(destinationSlot))
+            && endpointHasResolvedContent(readEndpointSnapshot(slot));
+    };
+
+    const syncEndpointDragHandles = () => {
+        for (const slot of getEndpointSlots()) {
+            const disabled = !canDragEndpointSlot(slot);
+            slot.dragHandle?.classList?.toggle?.('is-drag-disabled', disabled);
+            slot.dragHandle?.setAttribute?.('aria-disabled', disabled ? 'true' : 'false');
+            const label = slot.role === 'origin'
+                ? '拖动起点调整站点顺序'
+                : (slot.role === 'destination' ? '拖动终点调整站点顺序' : '拖动途径点调整站点顺序');
+            slot.dragHandle?.setAttribute?.('aria-label', disabled ? `${label}（当前不可拖动）` : label);
+        }
+    };
+
+    const clearEndpointDragClasses = () => {
+        root.classList.remove('is-endpoint-dragging');
+        for (const slot of getEndpointSlots()) {
+            slot.row?.classList?.remove?.('is-drag-source', 'is-drop-target', 'is-drop-invalid');
+            slot.wrap?.classList?.remove?.('is-drag-source');
+            slot.dragHandle?.classList?.remove?.('is-drag-active');
+        }
+        document.body?.classList?.remove?.('is-journey-endpoint-dragging');
+    };
+
+    const reorderSnapshots = (snapshots, sourceIndex, targetIndex) => {
+        const next = snapshots.slice();
+        const [source] = next.splice(sourceIndex, 1);
+        const insertIndex = Math.max(0, Math.min(next.length, targetIndex > sourceIndex ? targetIndex - 1 : targetIndex));
+        next.splice(insertIndex, 0, source);
+        return { next, insertIndex };
+    };
+
+    const isValidEndpointOrder = (snapshots) => (
+        Array.isArray(snapshots)
+        && snapshots.length >= 2
+        && endpointHasResolvedContent(snapshots[0])
+        && endpointHasResolvedContent(snapshots[snapshots.length - 1])
+    );
+
+    const resolveEndpointDropIndex = (clientY, slots) => {
+        const rows = slots.map((slot) => slot.row).filter(Boolean);
+        if (!rows.length) return 0;
+        for (let index = 0; index < rows.length; index += 1) {
+            const rect = rows[index].getBoundingClientRect();
+            if (clientY < rect.top + rect.height / 2) return index;
+        }
+        return rows.length;
+    };
+
+    const markEndpointDropTarget = (targetIndex, valid) => {
+        if (!endpointDragState) return;
+        for (const slot of endpointDragState.slots) {
+            slot.row?.classList?.remove?.('is-drop-target', 'is-drop-invalid');
+        }
+        const slots = endpointDragState.slots;
+        const targetSlot = slots[Math.min(targetIndex, slots.length - 1)] || slots[slots.length - 1];
+        targetSlot?.row?.classList?.add?.(valid ? 'is-drop-target' : 'is-drop-invalid');
+    };
+
+    const commitEndpointReorder = async (orderedSnapshots) => {
+        const slots = getEndpointSlots();
+        if (!isValidEndpointOrder(orderedSnapshots) || orderedSnapshots.length !== slots.length) return false;
+        slots.forEach((slot, index) => {
+            setEndpointSlotSnapshot(slot, orderedSnapshots[index]);
+        });
+        activeField = 'origin';
+        activeWaypointRow = null;
+        setMapPickTarget(null);
+        results.classList.add('is-hidden');
+        clearList();
+        hideTripPopover();
+        lastPlanComputeKey = '';
+        clearStalePlanResults();
+        if (typeof scheduleDestinationReachableStopsTestRef === 'function') {
+            scheduleDestinationReachableStopsTestRef();
+        }
+        await redrawEndpointPins();
+        syncEndpointDragHandles();
+        return true;
+    };
+
+    const finishEndpointDrag = (evt, { cancelled = false } = {}) => {
+        const state = endpointDragState;
+        if (!state) return;
+        if (state.pointerId != null && evt?.pointerId !== state.pointerId) return;
+        endpointDragState = null;
+        try {
+            state.handle?.releasePointerCapture?.(state.pointerId);
+        } catch {
+            // ignore
+        }
+        clearEndpointDragClasses();
+        if (!cancelled && state.hasMoved && state.proposedSnapshots && state.validDrop) {
+            commitEndpointReorder(state.proposedSnapshots).catch(() => null);
+        } else {
+            syncEndpointDragHandles();
+        }
+    };
+
+    const updateEndpointDrag = (evt) => {
+        const state = endpointDragState;
+        if (!state) return;
+        if (state.pointerId != null && evt?.pointerId !== state.pointerId) return;
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+        const dx = Math.abs((Number(evt?.clientX) || state.startX) - state.startX);
+        const dy = Math.abs((Number(evt?.clientY) || state.startY) - state.startY);
+        state.hasMoved = state.hasMoved || dx > 3 || dy > 3;
+        const targetIndex = resolveEndpointDropIndex(Number(evt?.clientY) || state.startY, state.slots);
+        const { next } = reorderSnapshots(state.snapshots, state.sourceIndex, targetIndex);
+        state.targetIndex = targetIndex;
+        state.proposedSnapshots = next;
+        state.validDrop = isValidEndpointOrder(next);
+        markEndpointDropTarget(targetIndex, state.validDrop);
+    };
+
+    const beginEndpointDrag = (handle, evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+        const slot = getEndpointDragSlotByHandle(handle);
+        if (!canDragEndpointSlot(slot)) {
+            syncEndpointDragHandles();
+            return;
+        }
+        const slots = getEndpointSlots();
+        const sourceIndex = slots.findIndex((item) => item.dragHandle === handle);
+        if (sourceIndex < 0) return;
+        endpointDragState = {
+            handle,
+            pointerId: evt?.pointerId,
+            slots,
+            snapshots: slots.map(readEndpointSnapshot),
+            sourceIndex,
+            targetIndex: sourceIndex,
+            proposedSnapshots: null,
+            validDrop: false,
+            hasMoved: false,
+            startX: Number(evt?.clientX) || 0,
+            startY: Number(evt?.clientY) || 0
+        };
+        root.classList.add('is-endpoint-dragging');
+        document.body?.classList?.add?.('is-journey-endpoint-dragging');
+        slot.row?.classList?.add?.('is-drag-source');
+        slot.wrap?.classList?.add?.('is-drag-source');
+        handle.classList.add('is-drag-active');
+        try {
+            handle.setPointerCapture?.(evt.pointerId);
+        } catch {
+            // ignore
+        }
+    };
+
+    const bindEndpointDragHandle = (handle) => {
+        handle?.addEventListener?.('pointerdown', (evt) => beginEndpointDrag(handle, evt), { passive: false });
+        handle?.addEventListener?.('pointermove', updateEndpointDrag, { passive: false });
+        handle?.addEventListener?.('pointerup', (evt) => finishEndpointDrag(evt), { passive: false });
+        handle?.addEventListener?.('pointercancel', (evt) => finishEndpointDrag(evt, { cancelled: true }), { passive: false });
+        handle?.addEventListener?.('lostpointercapture', (evt) => finishEndpointDrag(evt, { cancelled: true }), { passive: false });
+    };
+
     const syncWaypointLayout = () => {
         const count = waypointRows.length;
         const extraHeight = `${count * 38}px`;
@@ -2458,17 +2783,27 @@ export function mountTravelSearchUI() {
             node.style.setProperty('--journey-waypoint-count', String(count));
             node.style.setProperty('--journey-waypoint-extra-height', extraHeight);
         };
+        const searchRoot = root.closest?.('.search-ui');
+        const applyWaypointState = (node) => {
+            if (!node) return;
+            node.classList?.toggle?.('has-journey-waypoints', count > 0);
+            if (node.dataset) node.dataset.waypointCount = String(count);
+        };
         applyVars(root);
-        applyVars(root.closest?.('.search-ui'));
+        applyVars(searchRoot);
         applyVars(document.documentElement);
         applyVars(document.body);
-        root.dataset.waypointCount = String(count);
+        applyWaypointState(root);
+        applyWaypointState(searchRoot);
+        divider.hidden = count > 0;
+        divider.setAttribute('aria-hidden', count > 0 ? 'true' : 'false');
         waypointRows.forEach((rowState, index) => {
             const label = `途径点${index + 1}`;
             if (rowState?.input) rowState.input.placeholder = label;
             rowState?.mapPickBtn?.setAttribute?.('aria-label', `地图选择${label}`);
             rowState?.clearBtn?.setAttribute?.('aria-label', `删除${label}`);
         });
+        syncEndpointDragHandles();
     };
 
     const removeWaypointRow = (rowState) => {
@@ -2495,6 +2830,7 @@ export function mountTravelSearchUI() {
         const waypointId = nextWaypointId++;
         const row = el('div', 'journey-input-row journey-input-row-waypoint');
         const addBtn = createWaypointAddButton();
+        const dragHandle = createJourneyDragHandle();
         const wrap = el('div', 'journey-input-wrap journey-waypoint-wrap');
         const input = el('input', 'journey-input journey-input-waypoint', {
             type: 'search',
@@ -2520,12 +2856,14 @@ export function mountTravelSearchUI() {
         wrap.appendChild(mapPickBtn);
         wrap.appendChild(clearBtn);
         row.appendChild(addBtn);
+        row.appendChild(dragHandle);
         row.appendChild(wrap);
 
         const rowState = {
             row,
             input,
             addBtn,
+            dragHandle,
             mapPickBtn,
             clearBtn,
             pinType: `waypoint-${waypointId}`,
@@ -2566,6 +2904,7 @@ export function mountTravelSearchUI() {
         });
 
         bindInput(input, 'waypoint', rowState);
+        bindEndpointDragHandle(dragHandle);
 
         return rowState;
     };
@@ -2964,6 +3303,7 @@ export function mountTravelSearchUI() {
         } catch {
             // ignore
         }
+        syncEndpointDragHandles();
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.focus?.();
     };
@@ -3029,6 +3369,7 @@ export function mountTravelSearchUI() {
         }
 
         results.classList.add('is-hidden');
+        syncEndpointDragHandles();
         clearStalePlanResults();
     };
 
@@ -3445,6 +3786,7 @@ export function mountTravelSearchUI() {
             }
 
             lastPlanComputeKey = '';
+            syncEndpointDragHandles();
             clearStalePlanResults();
 
             refresh();
@@ -3459,6 +3801,8 @@ export function mountTravelSearchUI() {
 
     bindInput(originInput, 'origin');
     bindInput(destinationInput, 'destination');
+    bindEndpointDragHandle(originDragHandle);
+    bindEndpointDragHandle(destinationDragHandle);
 
     root.addEventListener('mouseleave', () => {
         if (root.classList.contains('is-collapsed')) return;
@@ -3550,6 +3894,7 @@ export function mountTravelSearchUI() {
         activeWaypointRow = null;
         setMapPickTarget(null);
         lastPlanComputeKey = '';
+        syncEndpointDragHandles();
 
         if (normalizeText(originInput.value) || normalizeText(destinationInput.value)) {
             expand();
@@ -3653,6 +3998,9 @@ export function mountTravelSearchUI() {
     });
 
     if (typeof window !== 'undefined' && 'PointerEvent' in window) {
+        document.addEventListener('pointermove', updateEndpointDrag, { capture: true, passive: false });
+        document.addEventListener('pointerup', (evt) => finishEndpointDrag(evt), { capture: true, passive: false });
+        document.addEventListener('pointercancel', (evt) => finishEndpointDrag(evt, { cancelled: true }), { capture: true, passive: false });
         document.addEventListener('pointerdown', onMapPress, true);
     } else {
         document.addEventListener('mousedown', onMapPress, true);
