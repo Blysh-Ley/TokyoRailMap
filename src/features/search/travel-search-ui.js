@@ -37,6 +37,9 @@ import {
     createJourneyComputeKey,
     createJourneyPairPlanRequest,
     createPickedJourneyResultRows,
+    createWaypointJourneyComputeKey,
+    createWaypointJourneyResultRow,
+    computeWaypointJourneySegments,
     getMissingJourneySeedState,
     normalizeJourneyComputeInput,
     prepareOriginStopSet
@@ -768,6 +771,7 @@ export function mountTravelSearchUI() {
     let popoverHideTimer = null;
     let pinnedTripPopoverKey = '';
     let tripPopoverHoverTimer = null;
+    let activeWaypointRow = null;
     let mobileTripDetailOpen = false;
     let currentPlanPage = 0;
     let allPlanRows = [];
@@ -972,10 +976,13 @@ export function mountTravelSearchUI() {
         input.dataset.stationId = resolvedId || '';
         if (kind === 'waypoint') {
             rowState.stationId = resolvedId || '';
+            rowState.candidateIds = [];
+            rowState.candidateMeta = [];
             rowState.lngLat = null;
         } else if (key === 'origin') {
             selectedOriginId = resolvedId || '';
             selectedOriginCandidateIds = [];
+            selectedOriginCandidateMeta = [];
             selectedOriginLngLat = null;
             if (typeof scheduleDestinationReachableStopsTestRef === 'function') {
                 scheduleDestinationReachableStopsTestRef();
@@ -983,6 +990,7 @@ export function mountTravelSearchUI() {
         } else {
             selectedDestinationId = resolvedId || '';
             selectedDestinationCandidateIds = [];
+            selectedDestinationCandidateMeta = [];
             selectedDestinationLngLat = null;
         }
 
@@ -1013,6 +1021,8 @@ export function mountTravelSearchUI() {
         input.dataset.stationId = '';
         if (kind === 'waypoint') {
             rowState.stationId = '';
+            rowState.candidateIds = Array.isArray(candidateIds) ? candidateIds : [];
+            rowState.candidateMeta = Array.isArray(candidateMeta) ? candidateMeta : [];
             rowState.lngLat = normalizedLngLat;
         } else if (key === 'origin') {
             selectedOriginId = '';
@@ -1131,7 +1141,16 @@ export function mountTravelSearchUI() {
         if (mapPickHookBound) window.clearInterval(mapPickBindTimer);
     }, 400);
 
-    const getActiveInput = () => (activeField === 'destination' ? destinationInput : originInput);
+    const getActiveInput = () => {
+        if (activeField === 'waypoint' && activeWaypointRow?.input) return activeWaypointRow.input;
+        return activeField === 'destination' ? destinationInput : originInput;
+    };
+
+    const getActivePinType = () => (
+        activeField === 'waypoint' && activeWaypointRow?.pinType
+            ? activeWaypointRow.pinType
+            : activeField
+    );
 
     const cancelTripPopoverHover = () => {
         if (!tripPopoverHoverTimer) return;
@@ -1350,8 +1369,43 @@ export function mountTravelSearchUI() {
     };
 
     const getDisplayPlanForRow = async (row) => {
-        if (!row || !row.plan) return null;
+        if (!row) return null;
         if (row.__displayPlan) return row.__displayPlan;
+        if (row.kind === 'waypointJourney') {
+            const segmentDisplays = [];
+            for (const segment of Array.isArray(row.segments) ? row.segments : []) {
+                const displayPlan = await getDisplayPlanForRow(segment?.row);
+                if (displayPlan) segmentDisplays.push({ ...segment, displayPlan });
+            }
+            const legs = segmentDisplays.flatMap((segment) => Array.isArray(segment.displayPlan?.legs) ? segment.displayPlan.legs : []);
+            const sections = segmentDisplays.flatMap((segment) => Array.isArray(segment.displayPlan?.sections) ? segment.displayPlan.sections : []);
+            const firstDisplay = segmentDisplays[0]?.displayPlan || null;
+            const lastDisplay = segmentDisplays[segmentDisplays.length - 1]?.displayPlan || null;
+            const baseDepartureMs = Number.isFinite(Number(row.baseDepartureMs))
+                ? Number(row.baseDepartureMs)
+                : (Number.isFinite(Number(row.plan?.baseDepartureMs)) ? Number(row.plan.baseDepartureMs) : null);
+            const arrivalMs = Number.isFinite(Number(lastDisplay?.arrivalMs))
+                ? Number(lastDisplay.arrivalMs)
+                : (Number.isFinite(Number(row.plan?.arrivalMs)) ? Number(row.plan.arrivalMs) : null);
+            row.__displayPlan = {
+                ...(row.plan || {}),
+                serviceDay: row.serviceDay,
+                firstDepMs: Number.isFinite(Number(firstDisplay?.firstDepMs)) ? Number(firstDisplay.firstDepMs) : row.plan?.firstDepMs,
+                arrivalMs,
+                durationMs: Number.isFinite(Number(arrivalMs)) && Number.isFinite(Number(baseDepartureMs))
+                    ? Number(arrivalMs) - Number(baseDepartureMs)
+                    : row.plan?.durationMs,
+                transfers: segmentDisplays.reduce((sum, segment) => {
+                    const value = Number(segment.displayPlan?.transfers);
+                    return sum + (Number.isFinite(value) ? value : 0);
+                }, 0),
+                legs,
+                sections,
+                waypointSegments: segmentDisplays
+            };
+            return row.__displayPlan;
+        }
+        if (!row.plan) return null;
 
         const expandedLegs = await expandLegsForDisplay({
             legs: row?.plan?.legs || [],
@@ -1383,6 +1437,20 @@ export function mountTravelSearchUI() {
 
     const renderTripDetailBody = async ({ row, bodyEl = tripPopoverBody } = {}) => {
         clearTripDetailBody(bodyEl);
+        if (row?.kind === 'waypointJourney') {
+            const segments = Array.isArray(row.segments) ? row.segments : [];
+            for (const segment of segments) {
+                const heading = el('div', 'journey-plan-segment-heading', {
+                    text: `第 ${Number(segment.index) + 1} 段：${normalizeText(segment.fromName || '起点')} → ${normalizeText(segment.toName || '终点')}`
+                });
+                bodyEl.appendChild(heading);
+                const segmentBody = el('div', 'journey-plan-segment-detail');
+                await renderTripDetailBody({ row: segment.row, bodyEl: segmentBody });
+                while (segmentBody.firstChild) bodyEl.appendChild(segmentBody.firstChild);
+            }
+            if (!segments.length) bodyEl.appendChild(createJourneyTripEmptyRow({ createElement: el }));
+            return;
+        }
         const displayPlan = await getDisplayPlanForRow(row);
         const sectionsForDisplay = Array.isArray(displayPlan?.sections) ? displayPlan.sections : [];
         const sectionThroughMetaList = sectionsForDisplay.length
@@ -1591,6 +1659,17 @@ export function mountTravelSearchUI() {
     const showTripPopover = async ({ anchorEl, row }) => {
         cancelHideTripPopover();
         const displayPlan = await getDisplayPlanForRow(row);
+        if (row?.kind === 'waypointJourney') {
+            const names = [
+                normalizeText(row.originName || ''),
+                ...(Array.isArray(row.waypointNames) ? row.waypointNames.map(normalizeText).filter(Boolean) : []),
+                normalizeText(row.destinationName || '')
+            ].filter(Boolean);
+            tripPopoverTitle.textContent = names.length ? names.join(' → ') : '途径点路线';
+            await renderTripDetailBody({ row });
+            positionTripPopover(anchorEl);
+            return;
+        }
         const planLegs = Array.isArray(displayPlan?.legs) ? displayPlan.legs : (Array.isArray(row?.plan?.legs) ? row.plan.legs : []);
         const fallbackOriginId = normalizeText(planLegs[0]?.fromStop || '');
         const fallbackDestinationId = normalizeText(planLegs[planLegs.length - 1]?.toStop || '');
@@ -1634,6 +1713,33 @@ export function mountTravelSearchUI() {
     };
 
     const appendJourneyPath = async (container, row, displayPlan) => {
+        if (row?.kind === 'waypointJourney') {
+            const segmentDisplays = Array.isArray(displayPlan?.waypointSegments)
+                ? displayPlan.waypointSegments
+                : [];
+            const segments = Array.isArray(row.segments) ? row.segments : [];
+            for (const segment of segments) {
+                const segmentWrap = el('div', 'journey-plan-segment');
+                segmentWrap.appendChild(el('div', 'journey-plan-segment-heading', {
+                    text: `第 ${Number(segment.index) + 1} 段：${normalizeText(segment.fromName || '起点')} → ${normalizeText(segment.toName || '终点')}`
+                }));
+                const segmentPath = el('div', 'journey-plan-segment-path');
+                const segmentDisplayPlan = segmentDisplays.find((item) => item?.row === segment.row)?.displayPlan
+                    || await getDisplayPlanForRow(segment.row);
+                await appendJourneyPath(segmentPath, segment.row, segmentDisplayPlan);
+                segmentWrap.appendChild(segmentPath);
+                container.appendChild(segmentWrap);
+            }
+            if (row?.planSummary?.isPartial) {
+                container.appendChild(el('div', 'journey-plan-segment-pending', {
+                    text: `继续计算剩余 ${Math.max(0, Number(row.planSummary.totalCount) - Number(row.planSummary.completedCount))} 段...`
+                }));
+            }
+            if (!segments.length) {
+                container.appendChild(el('div', 'journey-plan-empty', { text: '正在计算路线...' }));
+            }
+            return;
+        }
         const effectiveServiceDay = normalizeText(row?.serviceDay || displayPlan?.serviceDay || 'Weekday') || 'Weekday';
         const sectionsForDisplay = Array.isArray(displayPlan?.sections) ? displayPlan.sections : [];
         const legsForDisplay = Array.isArray(displayPlan?.legs) ? displayPlan.legs : [];
@@ -2325,6 +2431,10 @@ export function mountTravelSearchUI() {
         if (index < 0) return;
         waypointRows.splice(index, 1);
         if (mapPickTarget?.rowState === rowState) setMapPickTarget(null);
+        if (activeWaypointRow === rowState) {
+            activeWaypointRow = null;
+            activeField = 'origin';
+        }
         try {
             journeyPickController.clearPin(rowState.pinType);
         } catch {
@@ -2375,6 +2485,8 @@ export function mountTravelSearchUI() {
             clearBtn,
             pinType: `waypoint-${waypointId}`,
             stationId: '',
+            candidateIds: [],
+            candidateMeta: [],
             lngLat: null
         };
 
@@ -2408,21 +2520,7 @@ export function mountTravelSearchUI() {
             removeWaypointRow(rowState);
         });
 
-        input.addEventListener('focus', () => {
-            expand();
-            results.classList.add('is-hidden');
-        });
-        input.addEventListener('input', () => {
-            rowState.stationId = '';
-            rowState.lngLat = null;
-            try {
-                journeyPickController.clearPin(rowState.pinType);
-            } catch {
-                // ignore
-            }
-            results.classList.add('is-hidden');
-            clearStalePlanResults();
-        });
+        bindInput(input, 'waypoint', rowState);
 
         return rowState;
     };
@@ -2436,11 +2534,14 @@ export function mountTravelSearchUI() {
         results.classList.add('is-hidden');
         syncWaypointLayout();
         clearStalePlanResults();
+        activeField = 'waypoint';
+        activeWaypointRow = rowState;
         try {
             rowState.input.focus?.();
         } catch {
             // ignore
         }
+        refresh().catch(() => null);
         return rowState;
     };
 
@@ -2454,6 +2555,7 @@ export function mountTravelSearchUI() {
             }
             rowState.row.remove();
         }
+        activeWaypointRow = null;
         if (getMapPickKind() === 'waypoint') setMapPickTarget(null);
         syncWaypointLayout();
     };
@@ -2493,13 +2595,170 @@ export function mountTravelSearchUI() {
         return true;
     };
 
+    const ensureWaypointPlanningSeed = async (rowState) => {
+        if (!rowState?.input) return false;
+        if (normalizeText(rowState.stationId || rowState.input.dataset.stationId || '')) return true;
+        if (Array.isArray(rowState.candidateIds) && rowState.candidateIds.length) return true;
+
+        const hit = await resolveStationByName(rowState.input.value);
+        if (!hit?.id) return false;
+
+        const resolvedId = String(hit.id);
+        rowState.input.value = String(hit?.text || rowState.input.value || '');
+        rowState.input.dataset.stationId = resolvedId;
+        rowState.stationId = resolvedId;
+        rowState.candidateIds = [];
+        rowState.candidateMeta = [];
+        rowState.lngLat = null;
+
+        try {
+            await journeyPickController.showStationPin({ stationId: resolvedId, type: rowState.pinType });
+        } catch {
+            // ignore
+        }
+        return true;
+    };
+
+    const getJourneyEndpointText = (input) => normalizeText(input?.value || '');
+
+    const buildWaypointPlanningEndpoints = () => {
+        const originEndpoint = {
+            role: 'origin',
+            label: '起点',
+            inputText: getJourneyEndpointText(originInput),
+            stationId: selectedOriginId,
+            inputStationId: originInput.dataset.stationId || '',
+            candidateIds: selectedOriginCandidateIds,
+            candidateMeta: selectedOriginCandidateMeta,
+            lngLat: selectedOriginLngLat
+        };
+        const waypointEndpoints = waypointRows.map((rowState, index) => ({
+            role: 'waypoint',
+            index: index + 1,
+            label: `途径点 ${index + 1}`,
+            inputText: getJourneyEndpointText(rowState.input),
+            stationId: rowState.stationId,
+            inputStationId: rowState.input?.dataset?.stationId || '',
+            candidateIds: rowState.candidateIds,
+            candidateMeta: rowState.candidateMeta,
+            lngLat: rowState.lngLat
+        }));
+        const destinationEndpoint = {
+            role: 'destination',
+            label: '终点',
+            inputText: getJourneyEndpointText(destinationInput),
+            stationId: selectedDestinationId,
+            inputStationId: destinationInput.dataset.stationId || '',
+            candidateIds: selectedDestinationCandidateIds,
+            candidateMeta: selectedDestinationCandidateMeta,
+            lngLat: selectedDestinationLngLat
+        };
+        return [originEndpoint, ...waypointEndpoints, destinationEndpoint];
+    };
+
+    const renderWaypointSegmentProgress = async ({
+        departureMs,
+        endpoints,
+        isPartial,
+        segmentRows,
+        serviceDay,
+        token
+    } = {}) => {
+        if (token !== planComputeToken || !Array.isArray(segmentRows) || !segmentRows.length) return;
+        const row = createWaypointJourneyResultRow({
+            departureMs,
+            endpoints,
+            getStationNameById,
+            isPartial,
+            normalizeText,
+            segmentRows,
+            serviceDay
+        });
+        await renderPlanResults([row]);
+    };
+
+    const maybeComputeWaypointPlans = async () => {
+        const endpoints = buildWaypointPlanningEndpoints();
+        const serviceDay = readServiceDayFromPanel();
+        const { departureMs } = readDepartureBase();
+        const key = createWaypointJourneyComputeKey({
+            departureMs,
+            endpoints,
+            serviceDay
+        });
+        const token = ++planComputeToken;
+        lastPlanComputeKey = key;
+
+        clearPlanList();
+        disableMultiSelectMode();
+        showPlanMessage('正在计算路线...', { mobilePlanResults: true });
+        await new Promise(resolve => setTimeout(resolve, 120));
+        if (token !== planComputeToken) return;
+
+        await ensurePlannerStaticData();
+        const result = await computeWaypointJourneySegments({
+            collectPlans: collectJourneyCandidatesRaptor,
+            departureMs,
+            endpoints,
+            filterNearbyStops,
+            getGroupStops,
+            getStationNameById,
+            isCancelled: () => token !== planComputeToken,
+            normalizeText,
+            sameSet,
+            serviceDay,
+            shouldBlockJourneyPlanning,
+            onSegmentComplete: async ({ endpointList, isPartial, segmentRows }) => {
+                await renderWaypointSegmentProgress({
+                    departureMs,
+                    endpoints: endpointList,
+                    isPartial,
+                    segmentRows,
+                    serviceDay,
+                    token
+                });
+            }
+        });
+        if (token !== planComputeToken || result?.cancelled) return;
+        if (result?.errorMessage) {
+            showPlanMessage(result.errorMessage, { mobilePlanResults: true });
+            return;
+        }
+
+        const segmentRows = Array.isArray(result?.rows) ? result.rows : [];
+        if (!segmentRows.length) {
+            showPlanMessage('无可用路线', { mobilePlanResults: true });
+            return;
+        }
+
+        const finalRow = createWaypointJourneyResultRow({
+            departureMs,
+            endpoints,
+            getStationNameById,
+            isPartial: false,
+            normalizeText,
+            segmentRows,
+            serviceDay
+        });
+        await logJourneyFareEstimates({
+            rows: [finalRow],
+            getDisplayPlanForRow
+        }).catch(() => null);
+        await renderPlanResults([finalRow]);
+    };
+
     const requestJourneyPlan = async () => {
         results.classList.add('is-hidden');
         await Promise.all([
             ensurePlanningStationSeed('origin'),
-            ensurePlanningStationSeed('destination')
+            ensurePlanningStationSeed('destination'),
+            ...waypointRows.map((rowState) => ensureWaypointPlanningSeed(rowState))
         ]);
         lastPlanComputeKey = '';
+        if (waypointRows.length) {
+            await maybeComputeWaypointPlans();
+            return;
+        }
         await maybeComputePlans();
     };
 
@@ -2538,6 +2797,7 @@ export function mountTravelSearchUI() {
         selectedDestinationCandidateIds = [];
         lastPlanComputeKey = '';
         setMapPickTarget(null);
+        activeWaypointRow = null;
         hideTripPopover();
         clearPlanList({ clearMapPreview: false });
         planResults.classList.add('is-hidden');
@@ -2627,20 +2887,29 @@ export function mountTravelSearchUI() {
         input.dataset.stationId = String(item?.id ?? '');
 
         try {
-            journeyPickController.showStationPin({ stationId: String(item?.id ?? ''), type: activeField });
+            journeyPickController.showStationPin({ stationId: String(item?.id ?? ''), type: getActivePinType() });
         } catch {
             // ignore
         }
 
-        if (activeField === 'origin') {
+        if (activeField === 'waypoint' && activeWaypointRow) {
+            activeWaypointRow.stationId = String(item?.id ?? '');
+            activeWaypointRow.candidateIds = [];
+            activeWaypointRow.candidateMeta = [];
+            activeWaypointRow.lngLat = null;
+        } else if (activeField === 'origin') {
             selectedOriginId = String(item?.id ?? '');
             selectedOriginCandidateIds = [];
+            selectedOriginCandidateMeta = [];
+            selectedOriginLngLat = null;
             if (typeof scheduleDestinationReachableStopsTestRef === 'function') {
                 scheduleDestinationReachableStopsTestRef();
             }
         } else {
             selectedDestinationId = String(item?.id ?? '');
             selectedDestinationCandidateIds = [];
+            selectedDestinationCandidateMeta = [];
+            selectedDestinationLngLat = null;
         }
 
         results.classList.add('is-hidden');
@@ -2907,6 +3176,7 @@ export function mountTravelSearchUI() {
         selectedOriginLngLat = null;
         selectedDestinationLngLat = null;
         setMapPickTarget(null);
+        activeWaypointRow = null;
         hideTripPopover();
         closeMobileJourneyTripDetail();
         clearPlanList({ clearMapPreview: true });
@@ -2985,8 +3255,9 @@ export function mountTravelSearchUI() {
         await renderStationResults(Array.isArray(stationItems) ? stationItems : []);
     };
 
-    const bindInput = (input, key) => {
+    const bindInput = (input, key, rowState = null) => {
         const isOrigin = key === 'origin';
+        const isWaypoint = key === 'waypoint';
 
         input.addEventListener('focus', () => {
             try {
@@ -2996,28 +3267,49 @@ export function mountTravelSearchUI() {
                 // ignore
             }
             activeField = key;
+            activeWaypointRow = isWaypoint ? rowState : null;
             expand();
             refresh();
         });
 
         input.addEventListener('compositionstart', () => {
             if (isOrigin) composingOrigin = true;
+            else if (isWaypoint && rowState) rowState.composing = true;
             else composingDestination = true;
         });
 
         input.addEventListener('compositionend', () => {
             if (isOrigin) composingOrigin = false;
+            else if (isWaypoint && rowState) rowState.composing = false;
             else composingDestination = false;
             refresh();
         });
 
         input.addEventListener('input', () => {
-            const composing = isOrigin ? composingOrigin : composingDestination;
+            const composing = isOrigin
+                ? composingOrigin
+                : (isWaypoint ? rowState?.composing === true : composingDestination);
             if (composing) return;
 
-            if (isOrigin) {
+            activeField = key;
+            activeWaypointRow = isWaypoint ? rowState : null;
+
+            if (isWaypoint && rowState) {
+                rowState.stationId = '';
+                rowState.candidateIds = [];
+                rowState.candidateMeta = [];
+                rowState.lngLat = null;
+                input.dataset.stationId = '';
+                try {
+                    journeyPickController.clearPin(rowState.pinType);
+                } catch {
+                    // ignore
+                }
+            } else if (isOrigin) {
                 selectedOriginId = '';
                 selectedOriginCandidateIds = [];
+                selectedOriginCandidateMeta = [];
+                selectedOriginLngLat = null;
                 try {
                     reachableStopsController?.clear?.();
                 } catch {
@@ -3026,6 +3318,8 @@ export function mountTravelSearchUI() {
             } else {
                 selectedDestinationId = '';
                 selectedDestinationCandidateIds = [];
+                selectedDestinationCandidateMeta = [];
+                selectedDestinationLngLat = null;
             }
 
             lastPlanComputeKey = '';
@@ -3033,7 +3327,7 @@ export function mountTravelSearchUI() {
 
             refresh();
 
-            if (!isOrigin) scheduleDestinationReachableStopsTestRef?.();
+            if (!isOrigin && !isWaypoint) scheduleDestinationReachableStopsTestRef?.();
         });
 
         input.addEventListener('search', () => {
@@ -3077,7 +3371,10 @@ export function mountTravelSearchUI() {
 
     const armMapPick = (target) => {
         const targetKind = target?.kind || target;
-        activeField = targetKind === 'destination' ? 'destination' : 'origin';
+        activeField = targetKind === 'waypoint'
+            ? 'waypoint'
+            : (targetKind === 'destination' ? 'destination' : 'origin');
+        activeWaypointRow = targetKind === 'waypoint' ? target?.rowState || null : null;
         expand();
         setMapPickTarget(target?.kind === 'waypoint' ? target : activeField);
         try {
@@ -3128,6 +3425,7 @@ export function mountTravelSearchUI() {
         selectedDestinationCandidateIds = prevOriginCandidates;
 
         activeField = 'origin';
+        activeWaypointRow = null;
         setMapPickTarget(null);
         lastPlanComputeKey = '';
 

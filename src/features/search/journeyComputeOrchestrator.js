@@ -47,6 +47,25 @@ export const createJourneyComputeKey = ({
     serviceDay
 } = {}) => `${(originSeeds || []).join('|')}||${(destinationSeeds || []).join('|')}||${serviceDay || ''}||${Math.floor((Number(departureMs) || 0) / 60000)}`;
 
+export const createWaypointJourneyComputeKey = ({
+    departureMs,
+    endpoints,
+    serviceDay
+} = {}) => {
+    const endpointKey = (Array.isArray(endpoints) ? endpoints : []).map((endpoint) => {
+        const seedText = Array.isArray(endpoint?.candidateIds) && endpoint.candidateIds.length
+            ? endpoint.candidateIds.join(',')
+            : fallbackNormalizeText(endpoint?.stationId || endpoint?.inputStationId || '');
+        const lng = Number(endpoint?.lngLat?.lng);
+        const lat = Number(endpoint?.lngLat?.lat);
+        const coordText = Number.isFinite(lng) && Number.isFinite(lat)
+            ? `${lng.toFixed(6)},${lat.toFixed(6)}`
+            : '';
+        return `${fallbackNormalizeText(endpoint?.role || '')}:${seedText}:${coordText}:${fallbackNormalizeText(endpoint?.inputText || '')}`;
+    }).join('>');
+    return `${endpointKey}||${serviceDay || ''}||${Math.floor((Number(departureMs) || 0) / 60000)}`;
+};
+
 export const getMissingJourneySeedState = ({
     destinationInputText,
     destinationSeeds,
@@ -356,4 +375,292 @@ export const createPickedJourneyResultRows = ({
         pairBestWrappers,
         serviceDay
     });
+};
+
+const getEndpointDisplayName = ({
+    endpoint,
+    getStationNameById,
+    normalizeText
+} = {}) => {
+    const normalize = typeof normalizeText === 'function' ? normalizeText : fallbackNormalizeText;
+    const getStationName = typeof getStationNameById === 'function' ? getStationNameById : () => '';
+    const seeds = Array.isArray(endpoint?.seeds) ? endpoint.seeds : [];
+    return normalize(endpoint?.inputText)
+        || seeds.map(getStationName).map(normalize).find(Boolean)
+        || normalize(endpoint?.label)
+        || '';
+};
+
+const createCombinedWaypointPlan = ({
+    departureMs,
+    segmentRows
+} = {}) => {
+    const rows = Array.isArray(segmentRows) ? segmentRows.filter(Boolean) : [];
+    const legs = rows.flatMap((row) => Array.isArray(row?.plan?.legs) ? row.plan.legs : []);
+    const sections = rows.flatMap((row) => Array.isArray(row?.plan?.sections) ? row.plan.sections : []);
+    const firstPlan = rows[0]?.plan || null;
+    const lastPlan = rows[rows.length - 1]?.plan || null;
+    const firstDepMs = Number.isFinite(Number(firstPlan?.firstDepMs))
+        ? Number(firstPlan.firstDepMs)
+        : (Number.isFinite(Number(departureMs)) ? Number(departureMs) : null);
+    const arrivalMs = Number.isFinite(Number(lastPlan?.arrivalMs)) ? Number(lastPlan.arrivalMs) : null;
+    const baseDepartureMs = Number.isFinite(Number(departureMs))
+        ? Number(departureMs)
+        : (Number.isFinite(Number(firstPlan?.baseDepartureMs)) ? Number(firstPlan.baseDepartureMs) : firstDepMs);
+    const summedDurationMs = rows.reduce((sum, row) => {
+        const value = Number(row?.plan?.durationMs);
+        return sum + (Number.isFinite(value) ? value : 0);
+    }, 0);
+    const durationMs = Number.isFinite(Number(arrivalMs)) && Number.isFinite(Number(baseDepartureMs))
+        ? Number(arrivalMs) - Number(baseDepartureMs)
+        : summedDurationMs;
+    const transfers = rows.reduce((sum, row) => {
+        const value = Number(row?.plan?.transfers);
+        return sum + (Number.isFinite(value) ? value : 0);
+    }, 0);
+
+    return {
+        baseDepartureMs,
+        durationMs,
+        firstDepMs,
+        arrivalMs,
+        legs,
+        sections,
+        transfers,
+        hasSurcharge: rows.some((row) => row?.plan?.hasSurcharge === true)
+    };
+};
+
+export const createWaypointJourneyResultRow = ({
+    departureMs,
+    endpoints,
+    getStationNameById,
+    isPartial = false,
+    normalizeText,
+    segmentRows,
+    serviceDay
+} = {}) => {
+    const normalize = typeof normalizeText === 'function' ? normalizeText : fallbackNormalizeText;
+    const rows = Array.isArray(segmentRows) ? segmentRows.filter(Boolean) : [];
+    const endpointList = Array.isArray(endpoints) ? endpoints : [];
+    const originEndpoint = endpointList[0] || {};
+    const destinationEndpoint = endpointList[endpointList.length - 1] || {};
+    const waypointEndpoints = endpointList.slice(1, Math.max(1, endpointList.length - 1));
+    const originName = getEndpointDisplayName({ endpoint: originEndpoint, getStationNameById, normalizeText: normalize });
+    const destinationName = getEndpointDisplayName({ endpoint: destinationEndpoint, getStationNameById, normalizeText: normalize });
+    const waypointNames = waypointEndpoints.map((endpoint, index) => (
+        getEndpointDisplayName({ endpoint, getStationNameById, normalizeText: normalize }) || `途径点 ${index + 1}`
+    ));
+    const completedCount = rows.length;
+    const totalCount = Math.max(0, endpointList.length - 1);
+    const segments = rows.map((row, index) => {
+        const fromEndpoint = endpointList[index] || {};
+        const toEndpoint = endpointList[index + 1] || {};
+        return {
+            index,
+            fromName: getEndpointDisplayName({ endpoint: fromEndpoint, getStationNameById, normalizeText: normalize }) || row.originName || `第 ${index + 1} 段起点`,
+            toName: getEndpointDisplayName({ endpoint: toEndpoint, getStationNameById, normalizeText: normalize }) || row.destinationName || `第 ${index + 1} 段终点`,
+            row
+        };
+    });
+
+    const combinedPlan = createCombinedWaypointPlan({ departureMs, segmentRows: rows });
+    const finalDestinationSeed = normalize(
+        destinationEndpoint.stationId
+        || destinationEndpoint.inputStationId
+        || destinationEndpoint.seeds?.[0]
+        || rows[rows.length - 1]?.destinationStationId
+        || ''
+    );
+
+    return {
+        kind: 'waypointJourney',
+        label: isPartial ? `已完成 ${completedCount}/${totalCount} 段` : '途径点路线',
+        tagLabels: [isPartial ? `计算中 ${completedCount}/${totalCount}` : '途径点路线'],
+        serviceDay,
+        baseDepartureMs: departureMs,
+        originStationId: rows[0]?.originStationId || normalize(originEndpoint.stationId || originEndpoint.inputStationId || originEndpoint.seeds?.[0] || ''),
+        destinationStationId: finalDestinationSeed,
+        originName,
+        destinationName,
+        waypointNames,
+        planSummary: {
+            completedCount,
+            totalCount,
+            isPartial
+        },
+        segments,
+        plan: combinedPlan
+    };
+};
+
+export const computeWaypointJourneySegments = async ({
+    collectPlans,
+    departureMs,
+    endpoints,
+    filterNearbyStops,
+    getGroupStops,
+    getStationNameById,
+    isCancelled,
+    normalizeText,
+    onSegmentComplete,
+    sameSet,
+    serviceDay,
+    shouldBlockJourneyPlanning
+} = {}) => {
+    const normalize = typeof normalizeText === 'function' ? normalizeText : fallbackNormalizeText;
+    const endpointList = (Array.isArray(endpoints) ? endpoints : []).map((endpoint) => ({
+        ...endpoint,
+        inputStationId: normalize(endpoint?.inputStationId || ''),
+        stationId: normalize(endpoint?.stationId || ''),
+        inputText: normalize(endpoint?.inputText || ''),
+        candidateIds: Array.isArray(endpoint?.candidateIds)
+            ? endpoint.candidateIds.map(normalize).filter(Boolean)
+            : [],
+        candidateMeta: Array.isArray(endpoint?.candidateMeta) ? endpoint.candidateMeta : []
+    }));
+
+    if (endpointList.length < 2) {
+        return { errorMessage: '请填写起点和终点', rows: [] };
+    }
+
+    const segmentRows = [];
+    let segmentDepartureMs = departureMs;
+
+    for (let segmentIndex = 0; segmentIndex < endpointList.length - 1; segmentIndex += 1) {
+        if (isCancelled?.()) return { cancelled: true, rows: segmentRows };
+
+        const fromEndpoint = endpointList[segmentIndex];
+        const toEndpoint = endpointList[segmentIndex + 1];
+        const {
+            bothCoordinatePicks,
+            bothStationPicks,
+            coordinateMode,
+            destinationId,
+            destinationSeeds,
+            originId,
+            originSeeds
+        } = normalizeJourneyComputeInput({
+            destinationCandidateIds: toEndpoint.candidateIds,
+            destinationId: toEndpoint.stationId,
+            destinationInputStationId: toEndpoint.inputStationId,
+            normalizeText: normalize,
+            originCandidateIds: fromEndpoint.candidateIds,
+            originId: fromEndpoint.stationId,
+            originInputStationId: fromEndpoint.inputStationId
+        });
+
+        fromEndpoint.seeds = originSeeds;
+        toEndpoint.seeds = destinationSeeds;
+
+        const fromLabel = segmentIndex === 0 ? '起点' : `途径点 ${segmentIndex}`;
+        const toLabel = segmentIndex === endpointList.length - 2 ? '终点' : `途径点 ${segmentIndex + 1}`;
+        if (!originSeeds.length) return { errorMessage: `${fromLabel}附近未找到可用站点`, rows: segmentRows };
+        if (!destinationSeeds.length) return { errorMessage: `${toLabel}附近未找到可用站点`, rows: segmentRows };
+
+        const stationPickBlocked = bothStationPicks && shouldBlockJourneyPlanning?.({
+            originStationId: originId,
+            destinationStationId: destinationId
+        });
+        const coordinatePickBlocked = bothCoordinatePicks && shouldBlockJourneyPlanning?.({
+            originLngLat: fromEndpoint.lngLat,
+            destinationLngLat: toEndpoint.lngLat,
+            maxDistanceMeters: 500
+        });
+        if (stationPickBlocked || coordinatePickBlocked) {
+            return { errorMessage: '相邻站点不能相同', rows: segmentRows };
+        }
+
+        const segmentCandidates = [];
+        for (const originStationId of originSeeds) {
+            if (isCancelled?.()) return { cancelled: true, rows: segmentRows };
+
+            const sourceStops = prepareOriginStopSet({
+                filterNearbyStops,
+                getGroupStops,
+                originStationId,
+                radiusMeters: 800
+            });
+            if (!sourceStops) continue;
+
+            for (const destinationStationId of destinationSeeds) {
+                if (isCancelled?.()) return { cancelled: true, rows: segmentRows };
+
+                const pairRequest = createJourneyPairPlanRequest({
+                    baseDepartureMs: segmentDepartureMs,
+                    destinationCandidateMeta: toEndpoint.candidateMeta,
+                    destinationStationId,
+                    getGroupStops,
+                    normalizeText: normalize,
+                    originCandidateMeta: fromEndpoint.candidateMeta,
+                    originStationId,
+                    sameSet,
+                    serviceDay,
+                    sourceStops
+                });
+                if (!pairRequest) continue;
+
+                const plans = await collectJourneyCandidatePlans({
+                    collectPlans,
+                    request: pairRequest
+                });
+                if (!Array.isArray(plans) || !plans.length) continue;
+
+                for (const plan of plans) {
+                    applyJourneyWalkMetadata({
+                        destWalkMin: pairRequest.destWalkMin,
+                        originWalkMin: pairRequest.originWalkMin,
+                        plan
+                    });
+                    segmentCandidates.push({
+                        destinationStationId: pairRequest.destinationStationId,
+                        destWalkMin: pairRequest.destWalkMin,
+                        originStationId: pairRequest.originStationId,
+                        originWalkMin: pairRequest.originWalkMin,
+                        plan
+                    });
+                }
+            }
+        }
+
+        if (isCancelled?.()) return { cancelled: true, rows: segmentRows };
+        if (!segmentCandidates.length) {
+            return { errorMessage: `第 ${segmentIndex + 1} 段无可用路线`, rows: segmentRows };
+        }
+
+        const bestPlan = pickShortestJourneyPlan(segmentCandidates.map((candidate) => candidate.plan));
+        const bestWrapper = segmentCandidates.find((candidate) => candidate.plan === bestPlan) || segmentCandidates[0];
+        const pickedRows = createPickedJourneyRows({
+            bestPlanBuckets: [{ label: `第 ${segmentIndex + 1} 段`, plan: bestWrapper.plan }],
+            departureMs: segmentDepartureMs,
+            destinationId,
+            destinationInputText: toEndpoint.inputText || toEndpoint.label || toLabel,
+            destinationSeeds,
+            getStationNameById,
+            normalizeText: normalize,
+            originId,
+            originInputText: fromEndpoint.inputText || fromEndpoint.label || fromLabel,
+            originSeeds,
+            pairBestWrappers: [bestWrapper],
+            serviceDay
+        });
+        const segmentRow = pickedRows[0] || null;
+        if (!segmentRow) {
+            return { errorMessage: `第 ${segmentIndex + 1} 段无可用路线`, rows: segmentRows };
+        }
+
+        segmentRows.push(segmentRow);
+        if (Number.isFinite(Number(bestWrapper.plan?.arrivalMs))) {
+            segmentDepartureMs = Number(bestWrapper.plan.arrivalMs);
+        }
+
+        await onSegmentComplete?.({
+            endpointList,
+            isPartial: segmentRows.length < endpointList.length - 1,
+            segmentIndex,
+            segmentRows: segmentRows.slice()
+        });
+    }
+
+    return { rows: segmentRows };
 };
