@@ -346,7 +346,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-foc
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui .journey-ui,
 body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui .journey-ui {
-    position: static;
+    position: relative;
     top: auto;
     left: auto;
     right: auto;
@@ -787,7 +787,8 @@ body[data-mobile-ui='1'] {
     --mobile-search-mode-switch-bottom: var(--mobile-search-panel-bottom);
     --mobile-search-mode-switch-height: 0px;
     --mobile-search-mode-switch-gap: 8px;
-    --mobile-search-planner-height: 86px;
+    --journey-waypoint-extra-height: 0px;
+    --mobile-search-planner-height: calc(86px + var(--journey-waypoint-extra-height));
     --mobile-search-panel-height: var(--mobile-search-field-height);
     --mobile-search-field-bottom: var(--mobile-search-panel-bottom);
     --mobile-foldable-pane-width: 100vw;
@@ -1361,7 +1362,8 @@ html[data-theme='dark'] .journey-trip-note-direction{
     top: 10px;
     left: 20px;
     z-index: 9999;
-    --search-planner-card-height: 86px;
+    --journey-waypoint-extra-height: 0px;
+    --search-planner-card-height: calc(86px + var(--journey-waypoint-extra-height));
     --search-planner-swap-size: 22px;
     --search-planner-left-inset: calc(10px + var(--search-planner-swap-size) + 8px);
     --search-planner-right-inset: 10px;
@@ -1808,6 +1810,36 @@ html[data-theme='dark'] .search-ui > .journey-ui .journey-input-row::before {
     border-top-color: var(--ui-border);
 }
 
+.journey-waypoint-add-btn {
+    display: none;
+}
+
+.search-ui > .journey-ui .journey-waypoint-add-btn {
+    position: absolute;
+    top: -11px;
+    right: 0;
+    z-index: 4;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ui-text);
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 17px;
+    line-height: 1;
+    opacity: 0.9;
+}
+
+.search-ui > .journey-ui .journey-waypoint-add-btn:hover {
+    background: rgba(52, 152, 219, 0.12);
+    opacity: 1;
+}
+
 .journey-actions {
     display: grid;
     grid-template-rows: repeat(2, 1fr);
@@ -1926,7 +1958,7 @@ html[data-theme='dark'] .search-ui > .journey-ui .journey-input-wrap {
 
 .search-ui > .journey-ui .journey-plan-search-btn {
     position: absolute;
-    top: calc((var(--search-planner-card-height) - 22px) / 2 - var(--mobile-search-field-height) - 8px);
+    top: calc(6px + var(--journey-waypoint-extra-height));
     right: 0;
     z-index: 4;
     width: 22px;
@@ -7239,6 +7271,7 @@ html[data-theme='dark'] .journey-trip-capture-btn:hover {
     background: #2d323a;
 }
 
+html[data-theme='dark'] .search-ui > .journey-ui .journey-waypoint-add-btn:hover,
 html[data-theme='dark'] .search-ui > .journey-ui .journey-plan-search-btn:hover,
 html[data-theme='dark'] .journey-field-clear-btn:hover,
 html[data-theme='dark'] .journey-close-btn:hover {

@@ -67,6 +67,7 @@ import { isDarkThemeActive } from '../../map/element_ui.js';
 import { JOURNEY_CLEAR_REQUEST_EVENT } from '../../store/events.js';
 import { createMobileJourneyPlanSheet } from '../../ui/mobileJourneyPlanSheet.js';
 import {
+    SEARCH_PLANNER_STATE_EVENT,
     isSearchPlannerExpanded,
     registerSearchPlannerJourneyRoot,
     registerSearchPlannerOriginControls,
@@ -657,6 +658,15 @@ export function mountTravelSearchUI() {
     setJourneyIconFromCache(dividerIcon, 'change-dirc.svg');
     divider.appendChild(dividerIcon);
 
+    const createWaypointAddButton = () => {
+        const button = el('button', 'journey-waypoint-add-btn', {
+            type: 'button',
+            'aria-label': '增加途径点'
+        });
+        button.textContent = '+';
+        return button;
+    };
+
     const planSearchBtn = el('button', 'journey-plan-search-btn', {
         type: 'button',
         'aria-label': '搜索路线'
@@ -666,6 +676,7 @@ export function mountTravelSearchUI() {
     planSearchBtn.appendChild(planSearchIcon);
 
     const destinationRow = el('div', 'journey-input-row journey-input-row-destination');
+    const destinationAddBtn = createWaypointAddButton();
     const destinationWrap = el('div', 'journey-input-wrap');
     const destinationInput = el('input', 'journey-input journey-input-destination', {
         type: 'search',
@@ -687,6 +698,7 @@ export function mountTravelSearchUI() {
     destinationWrap.appendChild(destinationInput);
     destinationWrap.appendChild(destinationMapPickBtn);
     destinationWrap.appendChild(destinationClearBtn);
+    destinationRow.appendChild(destinationAddBtn);
     destinationRow.appendChild(destinationWrap);
     fields.appendChild(destinationRow);
     bar.appendChild(fields);
@@ -738,9 +750,11 @@ export function mountTravelSearchUI() {
     let selectedDestinationCandidateMeta = [];
     let selectedOriginLngLat = null;
     let selectedDestinationLngLat = null;
+    const waypointRows = [];
+    let nextWaypointId = 1;
     let composingOrigin = false;
     let composingDestination = false;
-    let mapPickTarget = null; // 'origin' | 'destination' | null
+    let mapPickTarget = null; // { kind: 'origin' | 'destination' | 'waypoint', rowState? } | null
     const journeyPickController = createJourneyPickController({
         formatCoordinates: formatJourneyMapCoordinates,
         getNearbyStationsForJourneyPick,
@@ -890,10 +904,30 @@ export function mountTravelSearchUI() {
         journeyRuntimeAdapter.suppressStationSelectionOnce(ms);
     };
 
+    const getMapPickKind = (target = mapPickTarget) => (
+        target && typeof target === 'object' ? target.kind : ''
+    );
+
+    const getMapPickPinType = (target = mapPickTarget) => {
+        const kind = getMapPickKind(target);
+        if (kind === 'waypoint') return target?.rowState?.pinType || '';
+        return kind === 'destination' ? 'destination' : (kind === 'origin' ? 'origin' : '');
+    };
+
     const setMapPickTarget = (target) => {
-        mapPickTarget = target === 'origin' || target === 'destination' ? target : null;
-        originMapPickBtn.classList.toggle('is-active', mapPickTarget === 'origin');
-        destinationMapPickBtn.classList.toggle('is-active', mapPickTarget === 'destination');
+        if (target === 'origin' || target === 'destination') {
+            mapPickTarget = { kind: target };
+        } else if (target?.kind === 'waypoint' && target?.rowState) {
+            mapPickTarget = { kind: 'waypoint', rowState: target.rowState };
+        } else {
+            mapPickTarget = null;
+        }
+        const kind = getMapPickKind();
+        originMapPickBtn.classList.toggle('is-active', kind === 'origin');
+        destinationMapPickBtn.classList.toggle('is-active', kind === 'destination');
+        for (const rowState of waypointRows) {
+            rowState.mapPickBtn?.classList?.toggle?.('is-active', kind === 'waypoint' && mapPickTarget?.rowState === rowState);
+        }
         journeyRuntimeAdapter.setMapPickActive(!!mapPickTarget);
     };
 
@@ -908,8 +942,11 @@ export function mountTravelSearchUI() {
 
     const applyPickedStation = async ({ target, stationId, stationName }) => {
         suppressStationSelectionOnce(900);
-        const key = target === 'destination' ? 'destination' : 'origin';
-        const input = key === 'destination' ? destinationInput : originInput;
+        const kind = getMapPickKind(target);
+        const pinType = getMapPickPinType(target);
+        const rowState = kind === 'waypoint' ? target?.rowState : null;
+        const key = kind === 'destination' ? 'destination' : 'origin';
+        const input = rowState?.input || (key === 'destination' ? destinationInput : originInput);
 
         let resolvedId = normalizeText(stationId);
         let resolvedName = normalizeText(stationName);
@@ -933,7 +970,10 @@ export function mountTravelSearchUI() {
 
         input.value = resolvedName || input.value;
         input.dataset.stationId = resolvedId || '';
-        if (key === 'origin') {
+        if (kind === 'waypoint') {
+            rowState.stationId = resolvedId || '';
+            rowState.lngLat = null;
+        } else if (key === 'origin') {
             selectedOriginId = resolvedId || '';
             selectedOriginCandidateIds = [];
             selectedOriginLngLat = null;
@@ -947,7 +987,7 @@ export function mountTravelSearchUI() {
         }
 
         try {
-            await journeyPickController.showStationPin({ stationId: resolvedId, type: key });
+            await journeyPickController.showStationPin({ stationId: resolvedId, type: pinType || key });
         } catch {
             // ignore
         }
@@ -959,8 +999,11 @@ export function mountTravelSearchUI() {
 
     const applyPickedCoordinate = async ({ target, lngLat }) => {
         suppressStationSelectionOnce(900);
-        const key = target === 'destination' ? 'destination' : 'origin';
-        const input = key === 'destination' ? destinationInput : originInput;
+        const kind = getMapPickKind(target);
+        const pinType = getMapPickPinType(target);
+        const rowState = kind === 'waypoint' ? target?.rowState : null;
+        const key = kind === 'destination' ? 'destination' : 'origin';
+        const input = rowState?.input || (key === 'destination' ? destinationInput : originInput);
         const resolvedPick = await journeyPickController.resolveCoordinatePick({ lngLat });
         if (!resolvedPick) return;
         const { candidateIds, candidateMeta, coordsText, lngLat: normalizedLngLat } = resolvedPick;
@@ -968,7 +1011,10 @@ export function mountTravelSearchUI() {
         // 始终显示经纬度文本（格式化为一位小数），但保存候选站点 meta 供稍后计算步行时间
         input.value = coordsText;
         input.dataset.stationId = '';
-        if (key === 'origin') {
+        if (kind === 'waypoint') {
+            rowState.stationId = '';
+            rowState.lngLat = normalizedLngLat;
+        } else if (key === 'origin') {
             selectedOriginId = '';
             selectedOriginCandidateIds = candidateIds;
             selectedOriginCandidateMeta = candidateMeta;
@@ -981,12 +1027,12 @@ export function mountTravelSearchUI() {
         }
 
         try {
-            await journeyPickController.showCoordinatePin({ lngLat, type: key });
+            await journeyPickController.showCoordinatePin({ lngLat, type: pinType || key });
         } catch {
             // ignore
         }
 
-        if (!candidateIds.length) {
+        if (kind !== 'waypoint' && !candidateIds.length) {
             setMapPickTarget(null);
             results.classList.add('is-hidden');
             showPlanMessage('2公里内没有站点');
@@ -2259,6 +2305,159 @@ export function mountTravelSearchUI() {
         journeyPlanSheet.hide();
     };
 
+    const syncWaypointLayout = () => {
+        const count = waypointRows.length;
+        const extraHeight = `${count * 38}px`;
+        const applyVars = (node) => {
+            if (!node?.style) return;
+            node.style.setProperty('--journey-waypoint-count', String(count));
+            node.style.setProperty('--journey-waypoint-extra-height', extraHeight);
+        };
+        applyVars(root);
+        applyVars(root.closest?.('.search-ui'));
+        applyVars(document.documentElement);
+        applyVars(document.body);
+        root.dataset.waypointCount = String(count);
+    };
+
+    const removeWaypointRow = (rowState) => {
+        const index = waypointRows.indexOf(rowState);
+        if (index < 0) return;
+        waypointRows.splice(index, 1);
+        if (mapPickTarget?.rowState === rowState) setMapPickTarget(null);
+        try {
+            journeyPickController.clearPin(rowState.pinType);
+        } catch {
+            // ignore
+        }
+        rowState.row.remove();
+        results.classList.add('is-hidden');
+        syncWaypointLayout();
+        clearStalePlanResults();
+    };
+
+    const createWaypointRow = () => {
+        const waypointId = nextWaypointId++;
+        const row = el('div', 'journey-input-row journey-input-row-waypoint');
+        const addBtn = createWaypointAddButton();
+        const wrap = el('div', 'journey-input-wrap journey-waypoint-wrap');
+        const input = el('input', 'journey-input journey-input-waypoint', {
+            type: 'search',
+            placeholder: '途径点',
+            autocomplete: 'off',
+            spellcheck: 'false'
+        });
+        const mapPickBtn = el('button', 'journey-map-pick-btn journey-map-pick-waypoint-btn', {
+            type: 'button',
+            'aria-label': '地图选择途径点'
+        });
+        const mapPickIcon = el('img', 'journey-map-pick-icon', { alt: '' });
+        setJourneyIconFromCache(mapPickIcon, 'map-select.svg');
+        mapPickBtn.appendChild(mapPickIcon);
+        const clearBtn = el('button', 'journey-field-clear-btn journey-field-clear-waypoint', {
+            type: 'button',
+            'aria-label': '删除途径点'
+        });
+        const clearIcon = el('img', 'journey-field-clear-icon', { alt: '' });
+        setJourneyIconFromCache(clearIcon, 'x.svg');
+        clearBtn.appendChild(clearIcon);
+        wrap.appendChild(input);
+        wrap.appendChild(mapPickBtn);
+        wrap.appendChild(clearBtn);
+        row.appendChild(addBtn);
+        row.appendChild(wrap);
+
+        const rowState = {
+            row,
+            input,
+            addBtn,
+            mapPickBtn,
+            clearBtn,
+            pinType: `waypoint-${waypointId}`,
+            stationId: '',
+            lngLat: null
+        };
+
+        addBtn.addEventListener('pointerdown', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+        });
+        addBtn.addEventListener('click', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            insertWaypointBeforeRow(row);
+        });
+
+        mapPickBtn.addEventListener('pointerdown', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+        });
+        mapPickBtn.addEventListener('click', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            toggleMapPickMode({ kind: 'waypoint', rowState });
+        });
+
+        clearBtn.addEventListener('pointerdown', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+        });
+        clearBtn.addEventListener('click', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            removeWaypointRow(rowState);
+        });
+
+        input.addEventListener('focus', () => {
+            expand();
+            results.classList.add('is-hidden');
+        });
+        input.addEventListener('input', () => {
+            rowState.stationId = '';
+            rowState.lngLat = null;
+            try {
+                journeyPickController.clearPin(rowState.pinType);
+            } catch {
+                // ignore
+            }
+            results.classList.add('is-hidden');
+            clearStalePlanResults();
+        });
+
+        return rowState;
+    };
+
+    const insertWaypointBeforeRow = (beforeRow = destinationRow) => {
+        const rowState = createWaypointRow();
+        const beforeIndex = waypointRows.findIndex((item) => item.row === beforeRow);
+        if (beforeIndex >= 0) waypointRows.splice(beforeIndex, 0, rowState);
+        else waypointRows.push(rowState);
+        fields.insertBefore(rowState.row, beforeRow);
+        results.classList.add('is-hidden');
+        syncWaypointLayout();
+        clearStalePlanResults();
+        try {
+            rowState.input.focus?.();
+        } catch {
+            // ignore
+        }
+        return rowState;
+    };
+
+    const clearWaypointRows = () => {
+        if (!waypointRows.length) return;
+        for (const rowState of waypointRows.splice(0)) {
+            try {
+                journeyPickController.clearPin(rowState.pinType);
+            } catch {
+                // ignore
+            }
+            rowState.row.remove();
+        }
+        if (getMapPickKind() === 'waypoint') setMapPickTarget(null);
+        syncWaypointLayout();
+    };
+
     const ensurePlanningStationSeed = async (field) => {
         const isDestination = field === 'destination';
         const input = isDestination ? destinationInput : originInput;
@@ -2330,6 +2529,7 @@ export function mountTravelSearchUI() {
         }
         originInput.value = '';
         destinationInput.value = '';
+        clearWaypointRows();
         originInput.dataset.stationId = '';
         destinationInput.dataset.stationId = '';
         selectedOriginId = '';
@@ -2876,11 +3076,13 @@ export function mountTravelSearchUI() {
     };
 
     const armMapPick = (target) => {
-        activeField = target === 'destination' ? 'destination' : 'origin';
+        const targetKind = target?.kind || target;
+        activeField = targetKind === 'destination' ? 'destination' : 'origin';
         expand();
-        setMapPickTarget(activeField);
+        setMapPickTarget(target?.kind === 'waypoint' ? target : activeField);
         try {
-            getActiveInput().focus?.();
+            if (target?.kind === 'waypoint') target.rowState?.input?.focus?.();
+            else getActiveInput().focus?.();
         } catch {
             // ignore
         }
@@ -2888,10 +3090,14 @@ export function mountTravelSearchUI() {
     };
 
     const toggleMapPickMode = (target) => {
-        const nextTarget = target === 'destination' ? 'destination' : 'origin';
-        if (mapPickTarget === nextTarget) {
+        const nextTarget = target?.kind === 'waypoint'
+            ? target
+            : (target === 'destination' ? { kind: 'destination' } : { kind: 'origin' });
+        const sameTarget = getMapPickKind() === nextTarget.kind
+            && (nextTarget.kind !== 'waypoint' || mapPickTarget?.rowState === nextTarget.rowState);
+        if (sameTarget) {
             try {
-                journeyPickController.clearPin(nextTarget);
+                journeyPickController.clearPin(getMapPickPinType(nextTarget));
             } catch {
                 // ignore
             }
@@ -2972,8 +3178,23 @@ export function mountTravelSearchUI() {
     bindFieldClearButton(originClearBtn, 'origin');
     bindFieldClearButton(destinationClearBtn, 'destination');
 
+    destinationAddBtn.addEventListener('pointerdown', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+    });
+    destinationAddBtn.addEventListener('click', (evt) => {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+        insertWaypointBeforeRow(destinationRow);
+    });
+
     window.addEventListener(JOURNEY_CLEAR_REQUEST_EVENT, () => {
         clearJourneyInputsAndCollapse();
+    });
+    window.addEventListener(SEARCH_PLANNER_STATE_EVENT, (evt) => {
+        if (evt?.detail?.expanded === false) {
+            clearWaypointRows();
+        }
     });
 
     divider.addEventListener('pointerdown', (evt) => {

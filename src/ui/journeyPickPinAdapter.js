@@ -5,8 +5,9 @@ import {
 } from '../lib/fetch.js';
 
 export const createJourneyPickPinElement = async ({ type = 'origin' } = {}) => {
-    const pinType = String(type || 'origin').trim().toLowerCase() === 'destination'
-        ? 'destination'
+    const rawType = String(type || 'origin').trim().toLowerCase();
+    const pinType = rawType === 'destination' || rawType.startsWith('waypoint-')
+        ? rawType
         : 'origin';
     const outer = document.createElement('div');
     outer.className = `journey-pick-pin-marker journey-pick-pin-${pinType}`;

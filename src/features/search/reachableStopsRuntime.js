@@ -174,6 +174,7 @@ export const createTravelSearchMapRuntime = ({
     let lastReachableStopsPayload = null;
     let journeyPickOriginPin = null;
     let journeyPickDestinationPin = null;
+    const journeyPickWaypointPins = new Map();
     const journeyPickStationIdsByType = {
         origin: '',
         destination: ''
@@ -213,6 +214,15 @@ export const createTravelSearchMapRuntime = ({
             journeyPickDestinationPin = null;
             journeyPickStationIdsByType.destination = '';
         }
+        if (!pinType) {
+            for (const marker of journeyPickWaypointPins.values()) {
+                try { marker?.remove?.(); } catch { /* ignore */ }
+            }
+            journeyPickWaypointPins.clear();
+        } else if (pinType.startsWith('waypoint-')) {
+            try { journeyPickWaypointPins.get(pinType)?.remove?.(); } catch { /* ignore */ }
+            journeyPickWaypointPins.delete(pinType);
+        }
         notifyJourneyPickPinStationIdsChange();
     };
 
@@ -237,7 +247,8 @@ export const createTravelSearchMapRuntime = ({
 
     const showJourneyPickPin = async ({ lngLat, stationId, type = 'origin' } = {}) => {
         const pinType = toText(type).toLowerCase();
-        if (pinType !== 'origin' && pinType !== 'destination') return;
+        const waypointPin = pinType.startsWith('waypoint-');
+        if (pinType !== 'origin' && pinType !== 'destination' && !waypointPin) return;
         const sid = toText(stationId);
         const coord = resolvePinCoordinate({ lngLat, stationId });
 
@@ -251,8 +262,11 @@ export const createTravelSearchMapRuntime = ({
                 .setLngLat(coord);
             mapEngine.addMarker(marker);
             if (pinType === 'origin') journeyPickOriginPin = marker;
-            else journeyPickDestinationPin = marker;
-            journeyPickStationIdsByType[pinType] = sid;
+            else if (pinType === 'destination') journeyPickDestinationPin = marker;
+            else journeyPickWaypointPins.set(pinType, marker);
+            if (pinType === 'origin' || pinType === 'destination') {
+                journeyPickStationIdsByType[pinType] = sid;
+            }
             notifyJourneyPickPinStationIdsChange();
         } catch {
             // ignore
