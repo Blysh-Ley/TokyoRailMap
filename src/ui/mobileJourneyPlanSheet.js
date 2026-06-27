@@ -29,7 +29,15 @@ export const createMobileJourneyPlanSheet = ({
         || rootEl
     );
 
-    const getTransformElement = () => getSheetHeightElement();
+    const getTransformElement = () => (
+        rootEl?.querySelector?.('.journey-plan-drawer')
+        || rootEl?.querySelector?.('.journey-plan-item')
+        || null
+    );
+
+    const clearRootTransform = () => {
+        if (rootEl?.style) rootEl.style.transform = '';
+    };
 
     const getHeight = () => {
         const rect = getSheetHeightElement()?.getBoundingClientRect?.();
@@ -45,6 +53,7 @@ export const createMobileJourneyPlanSheet = ({
     const applyState = (nextState, { transition = true } = {}) => {
         state = normalizeMobileSheetState(nextState);
         if (rootEl?.dataset) rootEl.dataset.journeyPlanSheetState = state;
+        clearRootTransform();
         const transformEl = getTransformElement();
         if (transformEl?.style) transformEl.style.transition = transition ? '' : 'none';
 
@@ -152,6 +161,7 @@ export const createMobileJourneyPlanSheet = ({
         getState: () => state,
         hide() {
             if (rootEl?.dataset) rootEl.dataset.journeyPlanSheetState = 'hidden';
+            clearRootTransform();
             const transformEl = getTransformElement();
             if (transformEl?.style) transformEl.style.transform = '';
             dragSession = null;

@@ -3620,22 +3620,12 @@ export function mountTravelSearchUI() {
             // ignore
         }
 
-        originInput.value = '';
-        destinationInput.value = '';
-        originInput.dataset.stationId = '';
-        destinationInput.dataset.stationId = '';
-        selectedOriginId = '';
-        selectedDestinationId = '';
-        selectedOriginCandidateIds = [];
-        selectedDestinationCandidateIds = [];
-        selectedOriginCandidateMeta = [];
-        selectedDestinationCandidateMeta = [];
-        selectedOriginLngLat = null;
-        selectedDestinationLngLat = null;
         setMapPickTarget(null);
         activeWaypointRow = null;
         hideTripPopover();
         closeMobileJourneyTripDetail();
+        clearList();
+        results.classList.add('is-hidden');
         clearPlanList({ clearMapPreview: true });
         planResults.classList.add('is-hidden');
         planPagination.classList.add('is-hidden');
@@ -3655,7 +3645,6 @@ export function mountTravelSearchUI() {
         } catch {
             // ignore
         }
-        renderHistoryResults().catch(() => null);
         return true;
     };
 

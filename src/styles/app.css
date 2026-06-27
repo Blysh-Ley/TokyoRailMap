@@ -381,13 +381,33 @@ body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] {
 
 html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .mobile-search-mode-switch,
 body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .mobile-search-mode-switch,
+html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .search-ui::before,
+body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .search-ui::before,
+html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .search-ui > .search-bar,
+body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .search-ui > .search-bar,
+html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .search-ui > .search-results,
+body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .search-ui > .search-results,
+html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results > .journey-results,
+body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results > .journey-results,
 html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results::before,
 body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results::before,
 html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results .journey-bar,
 body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results .journey-bar,
+html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results .journey-plan-search-btn,
+body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results .journey-plan-search-btn,
 html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results .journey-fab,
 body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .journey-ui.is-mobile-plan-results .journey-fab {
     display: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .search-ui,
+body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .search-ui {
+    pointer-events: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .search-ui .journey-plan-results,
+body[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .search-ui .journey-plan-results {
+    pointer-events: none;
 }
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-results,
