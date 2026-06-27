@@ -1698,10 +1698,6 @@ export function createPanel(options = {}) {
         btnHoliday.classList.toggle('is-active', day === 'SaturdayHoliday');
     };
 
-    const notifyJourneyRecompute = () => {
-        crossFeatureBridge.recomputeJourney();
-    };
-
     const setServiceDay = (day) => {
         const v = String(day || '').trim();
         if (v !== 'Weekday' && v !== 'SaturdayHoliday') return;
@@ -1709,7 +1705,6 @@ export function createPanel(options = {}) {
         currentServiceDay = v;
         applyDayToggleUi();
         renderAllTimetables();
-        notifyJourneyRecompute();
     };
 
     btnWeekday.addEventListener('click', (e) => {
@@ -1762,7 +1757,6 @@ export function createPanel(options = {}) {
         hasTemporaryTimeOverride = false;
         currentNowOverrideHHMM = v;
         renderAllTimetables();
-        notifyJourneyRecompute();
     });
     timeInput.addEventListener('blur', () => {
         const normalized = normalizeTimePickerHHMM(timeInput.value, { toText });
@@ -1770,7 +1764,6 @@ export function createPanel(options = {}) {
     });
 
     const setTimeOverride = (value, {
-        notify = true,
         rerender = true,
         temporary = false
     } = {}) => {
@@ -1783,16 +1776,12 @@ export function createPanel(options = {}) {
         timeInput.value = normalized;
         timePickerController.close();
         if (rerender && toText(currentStationId)) renderAllTimetables();
-        if (notify) notifyJourneyRecompute();
         return true;
     };
 
-    const resetTemporaryTimeOverride = ({
-        notify = true
-    } = {}) => {
+    const resetTemporaryTimeOverride = () => {
         if (!hasTemporaryTimeOverride) return false;
         restoreAutoNowClock();
-        if (notify) notifyJourneyRecompute();
         return true;
     };
 
@@ -1800,7 +1789,6 @@ export function createPanel(options = {}) {
         stopEvent(e);
         timePickerController.close();
         restoreAutoNowClock();
-        notifyJourneyRecompute();
     }, { passive: false });
 
     const loadTimetableForLineId = async (lineId) => {
