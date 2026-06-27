@@ -1067,7 +1067,7 @@ export function mountTravelSearchUI() {
         if (!resolvedId && !resolvedName) return false;
 
         if (options?.expand !== false) {
-            try { root.classList.remove('is-collapsed'); } catch {}
+            try { setSearchPlannerExpanded(true); } catch {}
         }
 
         input.value = resolvedName || input.value;
@@ -1095,7 +1095,44 @@ export function mountTravelSearchUI() {
 
         if (options?.recompute !== false) {
             lastPlanComputeKey = '';
-            maybeComputePlans();
+            requestJourneyPlan().catch(() => null);
+        }
+        return true;
+    };
+
+    const applyStationToWaypointRow = async (rowState, stationId, stationName) => {
+        if (!rowState?.input) return false;
+        let resolvedId = normalizeText(stationId);
+        let resolvedName = normalizeText(stationName);
+
+        if (!resolvedId && resolvedName) {
+            const hit = await resolveStationByName(resolvedName);
+            if (hit) {
+                resolvedId = normalizeText(hit.id);
+                if (!resolvedName) resolvedName = normalizeText(hit.text);
+            }
+        }
+
+        if (!resolvedName && resolvedId) {
+            const byId = await searchRailEntities(resolvedId, { limit: 10, allowedTypes: new Set(['station']) });
+            const list = Array.isArray(byId) ? byId : [];
+            const hit = list.find((x) => normalizeText(x?.id) === resolvedId) || list[0] || null;
+            if (hit) resolvedName = normalizeText(hit.text);
+        }
+
+        if (!resolvedName && !resolvedId) return false;
+
+        rowState.input.value = resolvedName || rowState.input.value;
+        rowState.input.dataset.stationId = resolvedId || '';
+        rowState.stationId = resolvedId || '';
+        rowState.candidateIds = [];
+        rowState.candidateMeta = [];
+        rowState.lngLat = null;
+
+        try {
+            await journeyPickController.showStationPin({ stationId: resolvedId, type: rowState.pinType });
+        } catch {
+            // ignore
         }
         return true;
     };
@@ -2426,6 +2463,12 @@ export function mountTravelSearchUI() {
         applyVars(document.documentElement);
         applyVars(document.body);
         root.dataset.waypointCount = String(count);
+        waypointRows.forEach((rowState, index) => {
+            const label = `途径点${index + 1}`;
+            if (rowState?.input) rowState.input.placeholder = label;
+            rowState?.mapPickBtn?.setAttribute?.('aria-label', `地图选择${label}`);
+            rowState?.clearBtn?.setAttribute?.('aria-label', `删除${label}`);
+        });
     };
 
     const removeWaypointRow = (rowState) => {
@@ -2527,7 +2570,10 @@ export function mountTravelSearchUI() {
         return rowState;
     };
 
-    const insertWaypointBeforeRow = (beforeRow = destinationRow) => {
+    const insertWaypointBeforeRow = (beforeRow = destinationRow, {
+        focus = true,
+        refreshResults = true
+    } = {}) => {
         const rowState = createWaypointRow();
         const beforeIndex = waypointRows.findIndex((item) => item.row === beforeRow);
         if (beforeIndex >= 0) waypointRows.splice(beforeIndex, 0, rowState);
@@ -2538,12 +2584,16 @@ export function mountTravelSearchUI() {
         clearStalePlanResults();
         activeField = 'waypoint';
         activeWaypointRow = rowState;
-        try {
-            rowState.input.focus?.();
-        } catch {
-            // ignore
+        if (focus) {
+            try {
+                rowState.input.focus?.();
+            } catch {
+                // ignore
+            }
         }
-        refresh().catch(() => null);
+        if (refreshResults) {
+            refresh().catch(() => null);
+        }
         return rowState;
     };
 
@@ -2617,6 +2667,46 @@ export function mountTravelSearchUI() {
             await journeyPickController.showStationPin({ stationId: resolvedId, type: rowState.pinType });
         } catch {
             // ignore
+        }
+        return true;
+    };
+
+    const getWaypointRowByIndex = (index) => {
+        const resolvedIndex = Number(index);
+        if (!Number.isFinite(resolvedIndex) || resolvedIndex < 0) return null;
+        return waypointRows[Math.floor(resolvedIndex)] || null;
+    };
+
+    const getJourneyWaypointOptions = () => waypointRows.map((rowState, index) => ({
+        index,
+        label: `作为途径点${index + 1}`,
+        stationId: normalizeText(rowState.stationId || rowState.input?.dataset?.stationId || ''),
+        text: normalizeText(rowState.input?.value || '')
+    }));
+
+    const applyExternalWaypointSelection = async (stationId, stationName, options = {}) => {
+        if (options?.expand !== false) {
+            try { setSearchPlannerExpanded(true); } catch {}
+        }
+
+        const index = Number(options?.waypointIndex);
+        const rowState = getWaypointRowByIndex(index)
+            || insertWaypointBeforeRow(destinationRow, { focus: false, refreshResults: false });
+        const applied = await applyStationToWaypointRow(rowState, stationId, stationName);
+        if (!applied) return false;
+
+        activeField = 'waypoint';
+        activeWaypointRow = rowState;
+        results.classList.add('is-hidden');
+        lastPlanComputeKey = '';
+        clearStalePlanResults();
+
+        if (
+            options?.recompute !== false
+            && normalizeText(originInput.value)
+            && normalizeText(destinationInput.value)
+        ) {
+            await requestJourneyPlan().catch(() => null);
         }
         return true;
     };
@@ -3592,11 +3682,18 @@ export function mountTravelSearchUI() {
         root,
         originInput,
         destinationInput,
+        openPlanner: () => {
+            setSearchPlannerExpanded(true);
+            return true;
+        },
+        isPlannerOpen: () => isSearchPlannerExpanded(),
+        getWaypointOptions: () => getJourneyWaypointOptions(),
         setOriginStation: (stationId, stationName, options) => applyExternalStationSelection('origin', stationId, stationName, options),
         setDestinationStation: (stationId, stationName, options) => applyExternalStationSelection('destination', stationId, stationName, options),
+        setWaypointStation: (stationId, stationName, options) => applyExternalWaypointSelection(stationId, stationName, options),
         recompute: () => {
             lastPlanComputeKey = '';
-            return maybeComputePlans();
+            return waypointRows.length ? requestJourneyPlan() : maybeComputePlans();
         },
         clearAndCollapse: () => clearJourneyInputsAndCollapse(),
         handleMobileBackIntent: () => {

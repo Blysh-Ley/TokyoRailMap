@@ -441,8 +441,10 @@ export function createPanel(options = {}) {
             stationId: currentStationId,
             stationName: toText(currentStationNameZh) || toText(titleMain.textContent)
         }),
-        onJourneyStationSelect: ({ field, stationId, stationName }) => {
-            crossFeatureBridge.setJourneyStation({ field, stationId, stationName });
+        getJourneyWaypointOptions: () => crossFeatureBridge.getJourneyWaypointOptions(),
+        isJourneyPlannerOpen: () => crossFeatureBridge.isJourneyPlannerOpen(),
+        onJourneyStationSelect: ({ field, stationId, stationName, waypointIndex }) => {
+            crossFeatureBridge.setJourneyStation({ field, waypointIndex, stationId, stationName });
             crossFeatureBridge.clearStationSelection();
         },
         toText,

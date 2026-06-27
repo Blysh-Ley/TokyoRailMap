@@ -21,6 +21,8 @@ export const createPanelMainView = ({
     stopPropagationOnly,
     setTimePickerOpenState,
     getJourneyStationContext,
+    getJourneyWaypointOptions = () => [],
+    isJourneyPlannerOpen = () => false,
     onJourneyStationSelect,
     toText = (value) => String(value ?? '').trim(),
     zIndex = 9999
@@ -109,18 +111,39 @@ export const createPanelMainView = ({
     }).catch(() => null);
     dayPrintBtn.appendChild(dayPrintIcon);
 
-    const applyStationToJourneyField = (field) => {
+    const applyStationToJourneyField = (action) => {
+        const field = typeof action === 'string' ? action : toText(action?.field);
         const context = typeof getJourneyStationContext === 'function'
             ? getJourneyStationContext({ titleMain })
             : {};
         const stationId = toText(context?.stationId);
         const stationName = toText(context?.stationName) || toText(titleMain.textContent);
         if (!stationId && !stationName) return;
-        onJourneyStationSelect?.({ field, stationId, stationName });
+        onJourneyStationSelect?.({
+            field,
+            stationId,
+            stationName,
+            waypointIndex: Number.isFinite(Number(action?.waypointIndex)) ? Number(action.waypointIndex) : undefined
+        });
     };
 
     const mapSelectController = createPanelMapSelectController({
         stopEvent,
+        getWaypointOptions: () => {
+            try {
+                const options = getJourneyWaypointOptions();
+                return Array.isArray(options) ? options : [];
+            } catch {
+                return [];
+            }
+        },
+        isPlannerOpen: () => {
+            try {
+                return isJourneyPlannerOpen() === true;
+            } catch {
+                return false;
+            }
+        },
         loadIcon: (iconEl) => setImageElementFromCache(iconEl, getIconCandidates('map-select.svg'), {
             cacheKey: 'icon:map-select.svg',
             fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('map-select.svg'), { cacheKey: 'icon:map-select.svg' })
@@ -128,9 +151,10 @@ export const createPanelMainView = ({
         onSelectField: applyStationToJourneyField,
         labels: {
             button: '将本站加入行程（起点/终点）',
-            menu: '将本站作为起点或终点',
+            menu: '将本站作为起点、途径点或终点',
             origin: '作为起点',
-            destination: '作为终点'
+            destination: '作为终点',
+            newWaypoint: '作为新增途径点'
         }
     });
 

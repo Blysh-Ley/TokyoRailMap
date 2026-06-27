@@ -31,15 +31,38 @@ export const createPanelCrossFeatureBridgeController = ({
 
     const setJourneyStation = ({
         field,
+        waypointIndex,
         stationId,
         stationName
     } = {}) => callSafely_panelCrossFeatureBridgeController(() => {
         const ui = getJourney();
-        const methodName = field === 'destination' ? 'setDestinationStation' : 'setOriginStation';
+        const methodName = field === 'waypoint'
+            ? 'setWaypointStation'
+            : (field === 'destination' ? 'setDestinationStation' : 'setOriginStation');
         const method = ui?.[methodName];
         if (typeof method !== 'function') return false;
-        method.call(ui, stationId, stationName, { expand: true, recompute: true });
+        method.call(ui, stationId, stationName, { expand: true, recompute: true, waypointIndex });
         return true;
+    }) === true;
+
+    const openJourneyPlanner = () => callSafely_panelCrossFeatureBridgeController(() => {
+        const openPlanner = getJourney()?.openPlanner;
+        if (typeof openPlanner !== 'function') return false;
+        openPlanner();
+        return true;
+    }) === true;
+
+    const getJourneyWaypointOptions = () => callSafely_panelCrossFeatureBridgeController(() => {
+        const getOptions = getJourney()?.getWaypointOptions;
+        if (typeof getOptions !== 'function') return [];
+        const options = getOptions();
+        return Array.isArray(options) ? options : [];
+    }) || [];
+
+    const isJourneyPlannerOpen = () => callSafely_panelCrossFeatureBridgeController(() => {
+        const isOpen = getJourney()?.isPlannerOpen;
+        if (typeof isOpen !== 'function') return false;
+        return isOpen() === true;
     }) === true;
 
     const clearStationSelection = () => callSafely_panelCrossFeatureBridgeController(() => {
@@ -95,7 +118,10 @@ export const createPanelCrossFeatureBridgeController = ({
         applyStationToJourneyField,
         clearStationSelection,
         clearTripPathPreviewBySource,
+        getJourneyWaypointOptions,
+        isJourneyPlannerOpen,
         loadTimetableForLineId,
+        openJourneyPlanner,
         recomputeJourney,
         setJourneyStation,
         setTimePickerOpenState
@@ -650,6 +676,8 @@ export const resolvePanelMousePrimaryTarget = (target, {
 export const createPanelMapSelectController = ({
     doc = globalThis.document,
     stopEvent = (event) => event?.preventDefault?.(),
+    getWaypointOptions = () => [],
+    isPlannerOpen = () => false,
     loadIcon = () => {},
     onSelectField = () => {},
     labels = {}
@@ -678,24 +706,54 @@ export const createPanelMapSelectController = ({
     menu.setAttribute('role', 'menu');
     menu.setAttribute('aria-label', labels.menu || 'Use station as origin or destination');
 
-    const originItem = doc.createElement('button');
-    originItem.type = 'button';
-    originItem.className = 'panel-map-select-item';
-    originItem.textContent = labels.origin || 'Origin';
-    originItem.setAttribute('role', 'menuitem');
-
-    const destinationItem = doc.createElement('button');
-    destinationItem.type = 'button';
-    destinationItem.className = 'panel-map-select-item';
-    destinationItem.textContent = labels.destination || 'Destination';
-    destinationItem.setAttribute('role', 'menuitem');
-
-    menu.appendChild(originItem);
-    menu.appendChild(destinationItem);
     root.appendChild(button);
     root.appendChild(menu);
 
+    const createMenuItem = ({ action, text }) => {
+        const item = doc.createElement('button');
+        item.type = 'button';
+        item.className = 'panel-map-select-item';
+        item.textContent = text || '';
+        item.setAttribute('role', 'menuitem');
+        item.addEventListener('click', (event) => {
+            select(action, event);
+        }, { passive: false });
+        return item;
+    };
+
+    const rebuildMenu = () => {
+        while (menu.firstChild) menu.removeChild(menu.firstChild);
+        menu.appendChild(createMenuItem({
+            action: { field: 'origin' },
+            text: labels.origin || 'Origin'
+        }));
+
+        const plannerOpen = typeof isPlannerOpen === 'function' && isPlannerOpen() === true;
+        if (plannerOpen) {
+            const waypointOptions = typeof getWaypointOptions === 'function' ? getWaypointOptions() : [];
+            for (const option of Array.isArray(waypointOptions) ? waypointOptions : []) {
+                const index = Number(option?.index);
+                if (!Number.isFinite(index) || index < 0) continue;
+                menu.appendChild(createMenuItem({
+                    action: { field: 'waypoint', waypointIndex: index },
+                    text: option?.label || `Waypoint ${index + 1}`
+                }));
+            }
+
+            menu.appendChild(createMenuItem({
+                action: { field: 'waypoint', waypointIndex: -1 },
+                text: labels.newWaypoint || 'New waypoint'
+            }));
+        }
+
+        menu.appendChild(createMenuItem({
+            action: { field: 'destination' },
+            text: labels.destination || 'Destination'
+        }));
+    };
+
     const open = () => {
+        rebuildMenu();
         root.classList.add('is-open');
         button.setAttribute('aria-expanded', 'true');
     };
@@ -754,18 +812,11 @@ export const createPanelMapSelectController = ({
         toggle();
     }, { passive: false });
 
-    const select = (field, event) => {
+    const select = (action, event) => {
         stopEvent(event);
         close();
-        onSelectField(field);
+        onSelectField(action);
     };
-
-    originItem.addEventListener('click', (event) => {
-        select('origin', event);
-    }, { passive: false });
-    destinationItem.addEventListener('click', (event) => {
-        select('destination', event);
-    }, { passive: false });
 
     doc.addEventListener('pointerdown', (event) => {
         if (!isOpen()) return;
