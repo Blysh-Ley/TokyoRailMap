@@ -772,6 +772,8 @@ export function mountTravelSearchUI() {
     let pinnedTripPopoverKey = '';
     let tripPopoverHoverTimer = null;
     let activeWaypointRow = null;
+    let clearingPlannerSession = false;
+    let suppressNextEmptyHistoryRender = false;
     let mobileTripDetailOpen = false;
     let currentPlanPage = 0;
     let allPlanRows = [];
@@ -2780,37 +2782,61 @@ export function mountTravelSearchUI() {
         if (!mapPickTarget) hidePlanResultsIfEmptyInputs({ clearMapPreview: false });
     };
 
-    const clearJourneyInputsAndCollapse = () => {
+    const clearJourneyPlanningSession = ({
+        collapseShell = false,
+        clearMapPreview = false
+    } = {}) => {
+        if (clearingPlannerSession) return;
+        clearingPlannerSession = true;
         try {
             reachableStopsController?.clear?.();
         } catch {
             // ignore
         }
-        originInput.value = '';
-        destinationInput.value = '';
-        clearWaypointRows();
-        originInput.dataset.stationId = '';
-        destinationInput.dataset.stationId = '';
-        selectedOriginId = '';
-        selectedDestinationId = '';
-        selectedOriginCandidateIds = [];
-        selectedDestinationCandidateIds = [];
-        lastPlanComputeKey = '';
-        setMapPickTarget(null);
-        activeWaypointRow = null;
-        hideTripPopover();
-        clearPlanList({ clearMapPreview: false });
-        planResults.classList.add('is-hidden');
-        setMobileJourneyPlanResultsActive(false);
-        journeyPlanSheet.hide();
-        results.classList.add('is-hidden');
-        disableMultiSelectMode();
         try {
-            journeyPickController.clearPin();
-        } catch {
-            // ignore
+            planComputeToken += 1;
+            stationResultRequestToken += 1;
+            activeField = 'origin';
+            activeWaypointRow = null;
+            originInput.value = '';
+            destinationInput.value = '';
+            originInput.dataset.stationId = '';
+            destinationInput.dataset.stationId = '';
+            selectedOriginId = '';
+            selectedDestinationId = '';
+            selectedOriginCandidateIds = [];
+            selectedDestinationCandidateIds = [];
+            selectedOriginCandidateMeta = [];
+            selectedDestinationCandidateMeta = [];
+            selectedOriginLngLat = null;
+            selectedDestinationLngLat = null;
+            lastPlanComputeKey = '';
+            suppressNextEmptyHistoryRender = true;
+            setMapPickTarget(null);
+            clearWaypointRows();
+            clearList();
+            results.classList.add('is-hidden');
+            hideTripPopover();
+            closeMobileJourneyTripDetail();
+            clearPlanList({ clearMapPreview });
+            planResults.classList.add('is-hidden');
+            planPagination.classList.add('is-hidden');
+            setMobileJourneyPlanResultsActive(false);
+            journeyPlanSheet.hide();
+            disableMultiSelectMode();
+            try {
+                journeyPickController.clearPin();
+            } catch {
+                // ignore
+            }
+            if (collapseShell) collapse();
+        } finally {
+            clearingPlannerSession = false;
         }
-        collapse();
+    };
+
+    const clearJourneyInputsAndCollapse = () => {
+        clearJourneyPlanningSession({ collapseShell: true, clearMapPreview: false });
     };
 
     const clearJourneyField = (field) => {
@@ -3247,10 +3273,16 @@ export function mountTravelSearchUI() {
         if (!q) {
             stationResultRequestToken += 1;
             clearList();
+            if (suppressNextEmptyHistoryRender) {
+                suppressNextEmptyHistoryRender = false;
+                results.classList.add('is-hidden');
+                return;
+            }
             await renderHistoryResults();
             return;
         }
 
+        suppressNextEmptyHistoryRender = false;
         const stationItems = await searchRailEntities(q, { limit: 30, allowedTypes: new Set(['station']) });
         await renderStationResults(Array.isArray(stationItems) ? stationItems : []);
     };
@@ -3491,7 +3523,7 @@ export function mountTravelSearchUI() {
     });
     window.addEventListener(SEARCH_PLANNER_STATE_EVENT, (evt) => {
         if (evt?.detail?.expanded === false) {
-            clearWaypointRows();
+            clearJourneyPlanningSession({ collapseShell: false, clearMapPreview: false });
         }
     });
 

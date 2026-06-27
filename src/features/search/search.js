@@ -1582,6 +1582,8 @@ export function mountSearchUI() {
                 originInput.value = normalizeText(input.value);
                 originInput.dispatchEvent(new Event('input', { bubbles: true }));
             }
+        } else {
+            input.value = '';
         }
         ui.showResults(false);
         maybeEndPreviewSession();
