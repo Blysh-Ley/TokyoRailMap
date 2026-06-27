@@ -9,6 +9,10 @@ import {
     OPENFREEMAP_ATTRIBUTION_ITEMS
 } from '../domain/openFreeMapBasemap.js';
 import {
+    BASEMAP_SOURCE_OPENFREEMAP,
+    BASEMAP_SOURCE_PMTILES
+} from '../domain/basemapSource.js';
+import {
     readAndroidPmtilesRange,
     shouldUseAndroidNativePmtiles
 } from './androidPmtilesArchiveSource.js';
@@ -803,14 +807,20 @@ export const createBasemapController = ({
     let theme = initialTheme === 'dark' ? 'dark' : 'light';
     let mode = normalizeBasemapMode(initialMode);
     let hasPmtilesArchive = pmtilesAvailable === true;
+    let activeBasemapSourceKind = hasPmtilesArchive ? BASEMAP_SOURCE_PMTILES : 'none';
     let onlineBasemapStyle = null;
     const backgroundLayerId = 'tokyo-basemap-background-layer';
     const basemapLayerIds = Object.freeze(getOsmBasemapLayerIds());
 
     const shouldUseOnlineBasemap = () => (
-        !hasPmtilesArchive
+        activeBasemapSourceKind === BASEMAP_SOURCE_OPENFREEMAP
         && mode !== 'transparent'
         && onlineBasemapStyle?.style
+    );
+    const shouldUsePmtilesBasemap = () => (
+        activeBasemapSourceKind === BASEMAP_SOURCE_PMTILES
+        && hasPmtilesArchive
+        && mode !== 'transparent'
     );
     const getBackgroundColor = () => (
         shouldUseOnlineBasemap()
@@ -878,6 +888,9 @@ export const createBasemapController = ({
     };
 
     const getBasemapItems = () => createOsmBasemapLayerItems({ mode, theme });
+    const getPmtilesLayerVisibility = (item) => (
+        shouldUsePmtilesBasemap() ? getLayerVisibility(mode, item.modes) : 'none'
+    );
 
     const applyTheme = (nextTheme) => {
         theme = nextTheme === 'dark' ? 'dark' : 'light';
@@ -887,7 +900,7 @@ export const createBasemapController = ({
             for (const item of items) {
                 const layerId = item.layer.id;
                 if (!mapEngine.getLayer(layerId)) continue;
-                mapEngine.setLayoutProperty(layerId, 'visibility', getLayerVisibility(mode, item.modes));
+                mapEngine.setLayoutProperty(layerId, 'visibility', getPmtilesLayerVisibility(item));
                 Object.entries(item.layer.paint || {}).forEach(([key, value]) => {
                     mapEngine.setPaintProperty(layerId, key, value);
                 });
@@ -918,6 +931,9 @@ export const createBasemapController = ({
 
     const setPmtilesAvailable = (available) => {
         hasPmtilesArchive = available === true;
+        if (!hasPmtilesArchive && activeBasemapSourceKind === BASEMAP_SOURCE_PMTILES) {
+            activeBasemapSourceKind = 'none';
+        }
         try {
             ensureLayers();
             applyTheme(theme);
@@ -925,6 +941,23 @@ export const createBasemapController = ({
             // Keep the archive availability state; layer sync retries when the map style is ready.
         }
         return hasPmtilesArchive;
+    };
+
+    const setActiveBasemapSource = (sourceKind) => {
+        if (sourceKind === BASEMAP_SOURCE_OPENFREEMAP) {
+            activeBasemapSourceKind = BASEMAP_SOURCE_OPENFREEMAP;
+        } else if (sourceKind === BASEMAP_SOURCE_PMTILES && hasPmtilesArchive) {
+            activeBasemapSourceKind = BASEMAP_SOURCE_PMTILES;
+        } else {
+            activeBasemapSourceKind = 'none';
+        }
+        try {
+            ensureLayers();
+            applyTheme(theme);
+        } catch {
+            // Layer sync retries when the map style is ready.
+        }
+        return activeBasemapSourceKind;
     };
 
     const setOnlineBasemapStyle = (descriptor) => {
@@ -940,16 +973,19 @@ export const createBasemapController = ({
     };
 
     const ensureLayers = () => {
-        if (hasPmtilesArchive) mapEngine.ensurePmtilesProtocol?.();
         const items = getBasemapItems();
+        const pmtilesProtocolReady = hasPmtilesArchive
+            ? mapEngine.ensurePmtilesProtocol?.() === true
+            : false;
 
-        if (hasPmtilesArchive) {
-            cleanupOnlineBasemap();
-        } else {
+        if (!hasPmtilesArchive) {
             cleanupPmtilesBasemap();
         }
+        if (!shouldUseOnlineBasemap()) {
+            cleanupOnlineBasemap();
+        }
 
-        if (hasPmtilesArchive && !mapEngine.getSource(OSM_VECTOR_SOURCE_ID)) {
+        if (pmtilesProtocolReady && !mapEngine.getSource(OSM_VECTOR_SOURCE_ID)) {
             mapEngine.addSource(OSM_VECTOR_SOURCE_ID, createOsmBasemapSource(pmtilesUrl));
         }
 
@@ -975,13 +1011,13 @@ export const createBasemapController = ({
 
         for (const item of items) {
             const layer = item.layer;
-            if (!hasPmtilesArchive) continue;
+            if (!hasPmtilesArchive || !mapEngine.getSource(OSM_VECTOR_SOURCE_ID)) continue;
             if (!mapEngine.getLayer(layer.id)) {
                 mapEngine.addLayer({
                     ...layer,
                     layout: {
                         ...(layer.layout || {}),
-                        visibility: getLayerVisibility(mode, item.modes)
+                        visibility: getPmtilesLayerVisibility(item)
                     }
                 }, beforeLayerId);
             }
@@ -997,7 +1033,7 @@ export const createBasemapController = ({
                     mapEngine.addLayer(layer, beforeLayerId);
                 }
             }
-        } else if (!hasPmtilesArchive) {
+        } else {
             cleanupOnlineBasemap();
         }
 
@@ -1007,6 +1043,13 @@ export const createBasemapController = ({
     const getStyle = (options = {}) => {
         const nextMode = normalizeBasemapMode(options.mode || mode);
         const nextTheme = options.theme === 'dark' ? 'dark' : (options.theme === 'light' ? 'light' : theme);
+        if (
+            activeBasemapSourceKind === BASEMAP_SOURCE_OPENFREEMAP
+            && nextMode !== 'transparent'
+            && onlineBasemapStyle?.style
+        ) {
+            return createOnlineBasemapExportStyle(onlineBasemapStyle, nextTheme);
+        }
         if (hasPmtilesArchive) {
             const style = createOsmBasemapStyle({
                 mode: nextMode,
@@ -1026,9 +1069,6 @@ export const createBasemapController = ({
                 }
             };
         }
-        if (nextMode !== 'transparent' && onlineBasemapStyle?.style) {
-            return createOnlineBasemapExportStyle(onlineBasemapStyle, nextTheme);
-        }
         return createBackgroundBasemapStyle(nextTheme);
     };
 
@@ -1041,12 +1081,14 @@ export const createBasemapController = ({
                 : OSM_BASEMAP_ATTRIBUTION_ITEMS
         ).map((item) => ({ ...item })),
         setPmtilesAvailable,
+        setActiveBasemapSource,
         setOnlineBasemapStyle,
         setMode,
         getStyle,
         getExportStyle: getStyle,
         getMode: () => mode,
         getPmtilesAvailable: () => hasPmtilesArchive,
+        getActiveBasemapSource: () => activeBasemapSourceKind,
         getOnlineBasemapStyle: () => onlineBasemapStyle,
         getTheme: () => theme
     };

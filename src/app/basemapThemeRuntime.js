@@ -82,6 +82,7 @@ export const createBasemapThemeRuntime = ({
         ? BASEMAP_SOURCE_OPENFREEMAP
         : (basemapRuntimeConfig.pmtilesAvailable === true ? BASEMAP_SOURCE_PMTILES : 'none');
     let onlineBasemapRequestId = 0;
+    let pmtilesValidationPromise = null;
 
     const basemapController = createBasemapController({
         mapEngine,
@@ -181,13 +182,14 @@ export const createBasemapThemeRuntime = ({
         onlineBasemapRequestId += 1;
         basemapController.setOnlineBasemapStyle?.(null);
         basemapController.setPmtilesAvailable?.(true);
+        basemapController.setActiveBasemapSource?.(BASEMAP_SOURCE_PMTILES);
         syncBasemapStyle();
     };
 
     const activateNoBasemap = () => {
         basemapSourceKind = 'none';
         onlineBasemapRequestId += 1;
-        basemapController.setPmtilesAvailable?.(false);
+        basemapController.setActiveBasemapSource?.('none');
         basemapController.setOnlineBasemapStyle?.(null);
         syncBasemapStyle();
         return false;
@@ -195,7 +197,7 @@ export const createBasemapThemeRuntime = ({
 
     const activateOnlineBasemap = async () => {
         basemapSourceKind = shouldUseOnlineBasemap() ? BASEMAP_SOURCE_OPENFREEMAP : 'none';
-        basemapController.setPmtilesAvailable?.(false);
+        basemapController.setActiveBasemapSource?.(basemapSourceKind);
         if (basemapSourceKind !== BASEMAP_SOURCE_OPENFREEMAP) return activateNoBasemap();
         return loadAndApplyOnlineBasemapStyle();
     };
@@ -209,31 +211,48 @@ export const createBasemapThemeRuntime = ({
             activatePmtilesBasemap();
             return;
         }
+        if (
+            configuredBasemapSource === BASEMAP_SOURCE_PMTILES
+            && basemapMode !== 'transparent'
+            && !basemapModeUsesOnlineEnhancement(basemapMode)
+            && !pmtilesArchiveAvailable
+        ) {
+            validateBasemapArchive().catch(() => activateNoBasemap());
+            return;
+        }
         activateNoBasemap();
     };
 
     const validateBasemapArchive = async (attempt = 0) => {
-        const available = await verifyOsmBasemapArchive({
-            fetchFn: windowRef?.fetch?.bind?.(windowRef) || globalThis.fetch,
-            pmtilesUrl: basemapRuntimeConfig.pmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL,
-            windowRef
+        if (pmtilesValidationPromise && attempt === 0) return pmtilesValidationPromise;
+        const runValidation = async () => {
+            const available = await verifyOsmBasemapArchive({
+                fetchFn: windowRef?.fetch?.bind?.(windowRef) || globalThis.fetch,
+                pmtilesUrl: basemapRuntimeConfig.pmtilesUrl || DEFAULT_OSM_BASEMAP_PMTILES_URL,
+                windowRef
+            });
+            pmtilesArchiveAvailable = available === true;
+            basemapController.setPmtilesAvailable?.(pmtilesArchiveAvailable);
+            if (available && shouldUsePmtilesBasemap()) {
+                activatePmtilesBasemap();
+            } else if (shouldUseOnlineBasemap()) {
+                activateOnlineBasemap().catch(() => null);
+            } else {
+                activateNoBasemap();
+            }
+            if (!available && setTimeoutFn && attempt < retryDelays.length) {
+                setTimeoutFn(() => {
+                    validateBasemapArchive(attempt + 1).catch(() => {
+                        activateNoBasemap();
+                    });
+                }, retryDelays[attempt]);
+            }
+            return available;
+        };
+        pmtilesValidationPromise = runValidation().finally(() => {
+            pmtilesValidationPromise = null;
         });
-        pmtilesArchiveAvailable = available === true;
-        if (available && shouldUsePmtilesBasemap()) {
-            activatePmtilesBasemap();
-        } else if (shouldUseOnlineBasemap()) {
-            activateOnlineBasemap().catch(() => null);
-        } else {
-            activateNoBasemap();
-        }
-        if (!available && setTimeoutFn && attempt < retryDelays.length) {
-            setTimeoutFn(() => {
-                validateBasemapArchive(attempt + 1).catch(() => {
-                    activateNoBasemap();
-                });
-            }, retryDelays[attempt]);
-        }
-        return available;
+        return pmtilesValidationPromise;
     };
 
     const ensureBasemapLayers = () => {
