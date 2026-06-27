@@ -42,6 +42,12 @@ export const createMobileJourneyPlanSheet = ({
         if (rootEl?.style) rootEl.style.transform = '';
     };
 
+    const setCoveredOffset = (offset) => {
+        const value = Math.max(0, Math.round(Number(offset) || 0));
+        const transformEl = getTransformElement();
+        if (transformEl?.style) transformEl.style.setProperty('--mobile-sheet-covered-offset', `${value}px`);
+    };
+
     const getHeight = () => {
         const rect = getSheetHeightElement()?.getBoundingClientRect?.();
         return Math.max(1, Math.round(Number(rect?.height) || getFallbackHeight(win)));
@@ -73,10 +79,13 @@ export const createMobileJourneyPlanSheet = ({
 
         if (!isEnabled() || !isVisible()) {
             if (transformEl?.style) transformEl.style.transform = '';
+            setCoveredOffset(0);
             return state;
         }
 
-        if (transformEl?.style) transformEl.style.transform = `translateY(${getOffsetForState(state)}px)`;
+        const offset = getOffsetForState(state);
+        setCoveredOffset(offset);
+        if (transformEl?.style) transformEl.style.transform = `translateY(${offset}px)`;
         return state;
     };
 
@@ -110,6 +119,7 @@ export const createMobileJourneyPlanSheet = ({
         });
         const transformEl = getTransformElement();
         if (session && transformEl?.style) {
+            setCoveredOffset(session.currentOffset);
             transformEl.style.transform = `translateY(${session.currentOffset}px)`;
         }
         return true;
@@ -176,6 +186,7 @@ export const createMobileJourneyPlanSheet = ({
         hide() {
             if (rootEl?.dataset) rootEl.dataset.journeyPlanSheetState = 'hidden';
             clearRootTransform();
+            setCoveredOffset(0);
             const transformEl = getTransformElement();
             if (transformEl?.style) transformEl.style.transform = '';
             dragSession = null;

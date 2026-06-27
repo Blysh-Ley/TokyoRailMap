@@ -528,7 +528,9 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mod
     min-height: 0;
     max-height: none;
     padding: 8px 12px 12px;
+    padding-bottom: calc(12px + var(--mobile-sheet-covered-offset, 0px));
     overflow-y: auto;
+    scroll-padding-bottom: var(--mobile-sheet-covered-offset, 0px);
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
 }
@@ -620,6 +622,8 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mod
     overscroll-behavior-y: none;
     touch-action: pan-y;
     padding: 8px 12px 0;
+    padding-bottom: var(--mobile-sheet-covered-offset, 0px);
+    scroll-padding-bottom: var(--mobile-sheet-covered-offset, 0px);
     -webkit-overflow-scrolling: touch;
 }
 
