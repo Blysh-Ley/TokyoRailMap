@@ -33,14 +33,19 @@ export const normalizeMobileSheetState = (state) => {
 
 export const getMobileSheetSnapPoints = ({
     height = 0,
-    peekPx = DEFAULT_MOBILE_SHEET_PEEK_PX
+    peekPx = DEFAULT_MOBILE_SHEET_PEEK_PX,
+    halfOffsetPx = null
 } = {}) => {
     const h = Math.max(1, Math.round(toPositiveNumber(height, 1)));
     const peek = Math.max(48, Math.min(h, Math.round(toPositiveNumber(peekPx, DEFAULT_MOBILE_SHEET_PEEK_PX))));
     const collapsed = Math.max(0, h - peek);
+    const customHalf = halfOffsetPx == null ? NaN : Number(halfOffsetPx);
+    const half = Number.isFinite(customHalf)
+        ? Math.max(0, Math.min(collapsed, Math.round(customHalf)))
+        : Math.max(0, Math.min(collapsed, Math.round(h * 0.5)));
     return {
         expanded: 0,
-        half: Math.max(0, Math.min(collapsed, Math.round(h * 0.5))),
+        half,
         collapsed
     };
 };
@@ -111,15 +116,17 @@ export const createMobileSheetDragSession = ({
     startState = 'expanded',
     height = 0,
     peekPx = DEFAULT_MOBILE_SHEET_PEEK_PX,
+    halfOffsetPx = null,
     nowMs
 } = {}) => {
-    const options = { height, peekPx };
+    const options = { height, peekPx, halfOffsetPx };
     const t = toFiniteNumber(nowMs, now());
     const y = toFiniteNumber(startY, 0);
     const offset = clampMobileSheetOffset(startOffset, options);
     return {
         height: Math.max(1, Math.round(toPositiveNumber(height, 1))),
         peekPx,
+        halfOffsetPx,
         startY: y,
         currentY: y,
         startOffset: offset,
@@ -134,7 +141,7 @@ export const updateMobileSheetDragSession = (session, {
     nowMs
 } = {}) => {
     if (!session) return null;
-    const options = { height: session.height, peekPx: session.peekPx };
+    const options = { height: session.height, peekPx: session.peekPx, halfOffsetPx: session.halfOffsetPx };
     const y = toFiniteNumber(clientY, session.currentY);
     session.currentY = y;
     session.currentOffset = clampMobileSheetOffset(
@@ -154,7 +161,7 @@ export const resolveMobileSheetDragTarget = (session, {
     if (cancelled) return normalizeMobileSheetState(session.startState);
 
     updateMobileSheetDragSession(session, { clientY, nowMs });
-    const options = { height: session.height, peekPx: session.peekPx };
+    const options = { height: session.height, peekPx: session.peekPx, halfOffsetPx: session.halfOffsetPx };
     const currentOffset = clampMobileSheetOffset(session.currentOffset, options);
     const startState = normalizeMobileSheetState(session.startState);
     const totalDeltaY = session.currentY - session.startY;

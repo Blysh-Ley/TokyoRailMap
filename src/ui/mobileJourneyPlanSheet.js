@@ -13,12 +13,15 @@ const getFallbackHeight = (win) => {
     return Math.max(1, Math.round(Math.min(height * 0.58, 560) || 1));
 };
 
+const DEFAULT_HALF_VISIBLE_RATIO = 0.54375;
+
 export const createMobileJourneyPlanSheet = ({
     rootEl,
     win = globalThis.window,
     isEnabled = () => false,
     isVisible = () => true,
-    peekPx = DEFAULT_MOBILE_SHEET_PEEK_PX
+    peekPx = DEFAULT_MOBILE_SHEET_PEEK_PX,
+    halfVisibleRatio = DEFAULT_HALF_VISIBLE_RATIO
 } = {}) => {
     let state = 'expanded';
     let dragSession = null;
@@ -44,7 +47,18 @@ export const createMobileJourneyPlanSheet = ({
         return Math.max(1, Math.round(Number(rect?.height) || getFallbackHeight(win)));
     };
 
-    const getSnapOptions = () => ({ height: getHeight(), peekPx });
+    const getHalfOffset = (height) => {
+        const visibleRatio = Number(halfVisibleRatio);
+        const ratio = Number.isFinite(visibleRatio) && visibleRatio > 0 && visibleRatio < 1
+            ? visibleRatio
+            : DEFAULT_HALF_VISIBLE_RATIO;
+        return Math.round(height * (1 - ratio));
+    };
+
+    const getSnapOptions = () => {
+        const height = getHeight();
+        return { height, peekPx, halfOffsetPx: getHalfOffset(height) };
+    };
 
     const getOffsetForState = (nextState) => (
         getMobileSheetOffsetForState(normalizeMobileSheetState(nextState), getSnapOptions())

@@ -426,7 +426,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mod
     right: 12px;
     bottom: var(--mobile-journey-sheet-bottom);
     z-index: 9000;
-    height: min(58vh, calc(100vh - env(safe-area-inset-top, 0px) - 170px));
+    height: min(80vh, calc(100vh - env(safe-area-inset-top, 0px) - 96px));
     max-height: none;
     margin-top: 0;
     border: 0;
