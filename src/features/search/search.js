@@ -3,6 +3,11 @@ import { createLineIconElement, getRoutesIndex, resolveMainLineIdForIcon } from 
 import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache, shouldHideCompanyLogos } from '../../lib/fetch.js';
 import { buildCompactTripDetailTransferLineItemHtmls } from '../panel/panelTripDetailTransfers.js';
 import { bindCompanyLogoFailure } from '../../ui/companyLogoVisibility.js';
+import {
+    isSearchPlannerExpanded,
+    registerSearchPlannerSearchRoot,
+    toggleSearchPlanner
+} from '../../ui/searchPlannerShell.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -819,7 +824,7 @@ export function mountSearchUI() {
         return window.TokyoRailSearchUI;
     }
 
-    const root = el('div', 'search-ui is-collapsed');
+    const root = el('div', 'search-ui');
 
     const HISTORY_KEY = 'TokyoRailSearchHistory';
     const MAX_HISTORY = 20;
@@ -936,14 +941,6 @@ export function mountSearchUI() {
         return btn;
     };
 
-    const fab = el('button', 'search-fab', { type: 'button', 'aria-label': '搜索' });
-    const fabIcon = el('img', 'search-fab-icon', { alt: '' });
-    setImageElementFromCache(fabIcon, getIconCandidates('search.svg'), {
-        cacheKey: 'icon:search.svg',
-        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('search.svg'), { cacheKey: 'icon:search.svg' })
-    }).catch(() => null);
-    fab.appendChild(fabIcon);
-
     const bar = el('div', 'search-bar');
     const input = el('input', 'search-input', {
         type: 'search',
@@ -951,17 +948,24 @@ export function mountSearchUI() {
         autocomplete: 'off',
         spellcheck: 'false'
     });
+    const plannerToggleBtn = el('button', 'search-planner-toggle-btn', {
+        type: 'button',
+        'aria-label': '展开路线规划',
+        'aria-expanded': 'false'
+    });
+    plannerToggleBtn.textContent = '+';
 
     bar.appendChild(input);
+    bar.appendChild(plannerToggleBtn);
 
     const results = el('div', 'search-results is-hidden');
     const list = el('ul', 'search-results-list');
     results.appendChild(list);
 
-    root.appendChild(fab);
     root.appendChild(bar);
     root.appendChild(results);
     document.body.appendChild(root);
+    registerSearchPlannerSearchRoot({ root, toggleButton: plannerToggleBtn });
 
     const getMapActions = () => {
         try {
@@ -1081,7 +1085,7 @@ export function mountSearchUI() {
 
     const ui = {
         root,
-        fab,
+        plannerToggleBtn,
         input,
         results,
         list,
@@ -1487,7 +1491,7 @@ export function mountSearchUI() {
         if (clear) ui.clear();
         else maybeEndPreviewSession();
         touchTapArmedKey = null;
-        root.classList.add('is-collapsed');
+        ui.showResults(false);
     };
 
     const collapseIfEmpty = () => {
@@ -1558,32 +1562,36 @@ export function mountSearchUI() {
         refresh();
     });
 
-    // 交互：鼠标 hover 或触屏点击后展开
-    root.addEventListener('mouseenter', () => {
-        expand();
-    });
     root.addEventListener('mouseleave', () => {
-        // 仅在“输入为空”时自动收回
         if (root.classList.contains('is-collapsed')) return;
         if (isMobileStationSearchPresentation()) return;
         collapseIfEmpty();
     });
-    fab.addEventListener('pointerdown', (evt) => {
+    plannerToggleBtn.addEventListener('pointerdown', (evt) => {
         evt.preventDefault?.();
         evt.stopPropagation?.();
-        expand();
     });
-    fab.addEventListener('click', (evt) => {
+    plannerToggleBtn.addEventListener('click', (evt) => {
         evt.preventDefault?.();
         evt.stopPropagation?.();
-        expand();
+        const openingPlanner = !isSearchPlannerExpanded();
+        if (openingPlanner) {
+            const originInput = document.querySelector('.journey-input-origin');
+            if (originInput instanceof HTMLInputElement && !normalizeText(originInput.value)) {
+                originInput.value = normalizeText(input.value);
+                originInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+        ui.showResults(false);
+        maybeEndPreviewSession();
+        toggleSearchPlanner({ focusJourney: true });
     });
     // 任何点击到搜索条也应展开（防止某些浏览器先点到外层）
     bar.addEventListener('pointerdown', () => {
         expand();
     });
 
-    // 点击地图空白位置：无论是否有结果，都清除并收回
+    // 点击地图空白位置：隐藏结果和预览，但保留默认展开的搜索框。
     // 说明：这里不依赖 MapLibre 实例，仅基于 #map 容器区域判断。
     const mapEl = document.getElementById('map');
     const shouldIgnoreTarget = (target) => {
@@ -1600,7 +1608,8 @@ export function mountSearchUI() {
         const target = evt?.target;
         if (shouldIgnoreTarget(target)) return;
         if (!mapEl || !target || !(target instanceof Node) || !mapEl.contains(target)) return;
-        clearAndCollapse();
+        ui.showResults(false);
+        maybeEndPreviewSession();
     };
 
     if (typeof window !== 'undefined' && 'PointerEvent' in window) {

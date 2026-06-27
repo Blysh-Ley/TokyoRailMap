@@ -66,6 +66,11 @@ import { journeyRuntimeAdapter } from './journeyRuntimeAdapter.js';
 import { isDarkThemeActive } from '../../map/element_ui.js';
 import { JOURNEY_CLEAR_REQUEST_EVENT } from '../../store/events.js';
 import { createMobileJourneyPlanSheet } from '../../ui/mobileJourneyPlanSheet.js';
+import {
+    registerSearchPlannerJourneyRoot,
+    registerSearchPlannerOriginControls,
+    setSearchPlannerExpanded
+} from '../../ui/searchPlannerShell.js';
 
 function el(tag, className, attrs = {}) {
     const node = document.createElement(tag);
@@ -619,18 +624,8 @@ export function mountTravelSearchUI() {
 
     const root = el('div', 'journey-ui is-collapsed');
 
-    const fab = el('button', 'journey-fab', { type: 'button', 'aria-label': '行程搜索' });
-    const fabIcon = el('img', 'journey-fab-icon', { alt: '' });
-    setImageElementFromCache(fabIcon, [
-        ...getIconCandidates('travel.svg'),
-        ...getIconCandidates('search.svg')
-    ], {
-        cacheKey: 'icon:travel_or_search',
-        fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('travel.svg'), { cacheKey: 'icon:travel.svg' })
-    }).catch(() => null);
-    fab.appendChild(fabIcon);
-
     const bar = el('div', 'journey-bar');
+    const fields = el('div', 'journey-fields');
     const originWrap = el('div', 'journey-input-wrap');
     const originInput = el('input', 'journey-input journey-input-origin', {
         type: 'search',
@@ -653,6 +648,7 @@ export function mountTravelSearchUI() {
     setJourneyIconFromCache(dividerIcon, 'change-dirc.svg');
     divider.appendChild(dividerIcon);
 
+    const destinationRow = el('div', 'journey-input-row journey-input-row-destination');
     const destinationWrap = el('div', 'journey-input-wrap');
     const destinationInput = el('input', 'journey-input journey-input-destination', {
         type: 'search',
@@ -666,6 +662,7 @@ export function mountTravelSearchUI() {
     destinationMapPickBtn.appendChild(destinationMapPickIcon);
     destinationWrap.appendChild(destinationInput);
     destinationWrap.appendChild(destinationMapPickBtn);
+    destinationRow.appendChild(destinationWrap);
 
     const closeBtn = el('button', 'journey-close-btn', {
         type: 'button',
@@ -675,10 +672,9 @@ export function mountTravelSearchUI() {
     setJourneyIconFromCache(closeIcon, 'x.svg');
     closeBtn.appendChild(closeIcon);
 
-    bar.appendChild(originWrap);
-    bar.appendChild(divider);
-    bar.appendChild(destinationWrap);
-    bar.appendChild(closeBtn);
+    destinationRow.appendChild(closeBtn);
+    fields.appendChild(destinationRow);
+    bar.appendChild(fields);
 
     const results = el('div', 'journey-results is-hidden');
     const list = el('ul', 'search-results-list');
@@ -709,11 +705,12 @@ export function mountTravelSearchUI() {
     tripPopover.appendChild(tripPopoverBody);
     document.body.appendChild(tripPopover);
 
-    root.appendChild(fab);
     root.appendChild(bar);
     root.appendChild(results);
     root.appendChild(planResults);
     document.body.appendChild(root);
+    registerSearchPlannerJourneyRoot(root);
+    registerSearchPlannerOriginControls({ originControl: originWrap, swapButton: divider });
 
     let activeField = 'origin';
     let stationResultRequestToken = 0;
@@ -2239,7 +2236,7 @@ export function mountTravelSearchUI() {
 
     const expand = () => {
         if (!root.classList.contains('is-collapsed')) return;
-        root.classList.remove('is-collapsed');
+        setSearchPlannerExpanded(true);
         try {
             getActiveInput().focus?.();
         } catch {
@@ -2248,7 +2245,7 @@ export function mountTravelSearchUI() {
     };
 
     const collapse = () => {
-        root.classList.add('is-collapsed');
+        setSearchPlannerExpanded(false);
         results.classList.add('is-hidden');
         hideTripPopover();
         clearJourneyPlanPreview({ force: true, clearMapPreview: false });
@@ -2736,26 +2733,10 @@ export function mountTravelSearchUI() {
     bindInput(originInput, 'origin');
     bindInput(destinationInput, 'destination');
 
-    root.addEventListener('mouseenter', () => {
-        expand();
-    });
-
     root.addEventListener('mouseleave', () => {
         if (root.classList.contains('is-collapsed')) return;
         if (mapPickTarget) return;
         collapseIfBothEmpty();
-    });
-
-    fab.addEventListener('pointerdown', (evt) => {
-        evt.preventDefault?.();
-        evt.stopPropagation?.();
-        expand();
-    });
-
-    fab.addEventListener('click', (evt) => {
-        evt.preventDefault?.();
-        evt.stopPropagation?.();
-        expand();
     });
 
     bar.addEventListener('pointerdown', () => {
@@ -2947,7 +2928,6 @@ export function mountTravelSearchUI() {
 
     const ui = {
         root,
-        fab,
         originInput,
         destinationInput,
         setOriginStation: (stationId, stationName, options) => applyExternalStationSelection('origin', stationId, stationName, options),

@@ -1,4 +1,5 @@
 import { JOURNEY_CLEAR_REQUEST_EVENT } from '../store/events.js';
+import { setSearchPlannerExpanded } from './searchPlannerShell.js';
 
 export const MOBILE_BOTTOM_NAV_EVENT = 'tokyoRail:mobileNavSelect';
 export const IOS_NATIVE_BOTTOM_NAV_EVENT = 'tokyoRail:nativeNavSelect';
@@ -159,6 +160,7 @@ const collapseLegacyFloatingUi = (doc, win, itemId) => {
         requestJourneyClear(doc, win, 'nav-switch');
         doc?.querySelector?.('.search-ui')?.classList?.add?.('is-collapsed');
         doc?.querySelector?.('.journey-ui')?.classList?.add?.('is-collapsed');
+        setSearchPlannerExpanded(false);
         setMobileSearchFocusDataset(doc, '');
         setMobileSearchModeDataset(doc, 'station');
     }
@@ -189,24 +191,21 @@ const openLegacyFloatingUi = (doc, win, itemId, getSearchMode = () => 'station')
     if (itemId === 'search') {
         const mode = setMobileSearchModeDataset(doc, getSearchMode());
         setMobileSearchFocusDataset(doc, mode);
-        if (mode === 'journey') {
-            doc?.querySelector?.('.search-ui')?.classList?.add?.('is-collapsed');
-            doc?.querySelector?.('.journey-ui')?.classList?.remove?.('is-collapsed');
-        } else {
-            doc?.querySelector?.('.journey-ui')?.classList?.add?.('is-collapsed');
-        }
+        doc?.querySelector?.('.search-ui')?.classList?.remove?.('is-collapsed');
+        setSearchPlannerExpanded(mode === 'journey');
     }
 
     if (itemId === 'settings' && openMobileSettingsPanel(doc)) return;
 
     const selector = itemId === 'search'
-        ? '.search-fab'
+        ? '.search-input'
         : (itemId === 'settings' ? '.settings-fab' : '');
     if (!selector) return;
 
     const run = () => {
         const button = doc?.querySelector?.(selector);
-        button?.click?.();
+        if (itemId === 'search') button?.focus?.();
+        else button?.click?.();
     };
     if (typeof win?.requestAnimationFrame === 'function') win.requestAnimationFrame(run);
     else run();
@@ -283,15 +282,16 @@ export const installMobileBottomNav = ({
         searchMode = searchModeSwitch.setActive(setMobileSearchModeDataset(doc, mode));
         if (searchMode === 'journey') {
             setMobileSearchFocusDataset(doc, 'journey');
-            doc?.querySelector?.('.search-ui')?.classList?.add?.('is-collapsed');
-            doc?.querySelector?.('.journey-ui')?.classList?.remove?.('is-collapsed');
+            doc?.querySelector?.('.search-ui')?.classList?.remove?.('is-collapsed');
+            setSearchPlannerExpanded(true);
             if (focus) doc?.querySelector?.('.journey-input-origin')?.focus?.();
         } else {
             if (previousSearchMode === 'journey') {
                 requestJourneyClear(doc, win, 'search-mode-switch');
             }
             setMobileSearchFocusDataset(doc, 'station');
-            doc?.querySelector?.('.journey-ui')?.classList?.add?.('is-collapsed');
+            doc?.querySelector?.('.search-ui')?.classList?.remove?.('is-collapsed');
+            setSearchPlannerExpanded(false);
             if (focus) doc?.querySelector?.('.search-input')?.focus?.();
         }
     };
