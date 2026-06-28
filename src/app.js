@@ -1354,6 +1354,11 @@ const initMapApp = async () => {
             tripPreviewLineNameLabelsData = buildTripPreviewLineNameLabelsData({ built });
             syncLineNameLabelDataForCurrentState();
             try {
+                travelSearchMapRuntime?.syncJourneyPickPinsToStations?.();
+            } catch {
+                // ignore marker sync failures
+            }
+            try {
                 window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewUpdated', {
                     detail: {
                         ts: Date.now(),

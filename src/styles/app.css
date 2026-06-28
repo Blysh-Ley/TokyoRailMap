@@ -2119,6 +2119,12 @@ html[data-theme='dark'] .search-ui > .journey-ui .journey-input-wrap {
 }
 
 .journey-pick-pin-marker {
+    width: 26px;
+    height: 26px;
+    pointer-events: none;
+}
+
+.journey-pick-pin-frame {
     position: relative;
     width: 26px;
     height: 26px;

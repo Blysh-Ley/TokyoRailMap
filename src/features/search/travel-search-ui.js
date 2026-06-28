@@ -1363,6 +1363,11 @@ export function mountTravelSearchUI() {
         li.appendChild(brief);
 
         planList.appendChild(li);
+    };
+
+    const syncCurrentJourneyPickPins = async () => {
+        const row = allPlanRows[currentPlanPage];
+        if (!row) return;
         await syncJourneyPickPinsForPlanRow(row);
     };
 
@@ -1391,6 +1396,7 @@ export function mountTravelSearchUI() {
                     } catch {
                         // ignore
                     }
+                    await syncCurrentJourneyPickPins();
                     fitMobileJourneyPlanResult({ row: allPlanRows[currentPlanPage] }).catch(() => null);
                 }
             });
@@ -2285,6 +2291,7 @@ export function mountTravelSearchUI() {
         } catch {
             // ignore highlighting errors
         }
+        await syncCurrentJourneyPickPins();
         fitMobileJourneyPlanResult({ row: allPlanRows[currentPlanPage] }).catch(() => null);
     };
 

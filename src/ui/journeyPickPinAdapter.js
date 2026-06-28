@@ -11,17 +11,20 @@ export const createJourneyPickPinElement = async ({ label = '', type = 'origin' 
         : 'origin';
     const outer = document.createElement('div');
     outer.className = `journey-pick-pin-marker journey-pick-pin-${pinType}`;
+    const frame = document.createElement('div');
+    frame.className = 'journey-pick-pin-frame';
     const labelText = String(label ?? '').trim();
     if (labelText) {
         const labelEl = document.createElement('div');
         labelEl.className = 'journey-pick-pin-label';
         labelEl.textContent = labelText;
-        outer.appendChild(labelEl);
+        frame.appendChild(labelEl);
     }
     const icon = document.createElement('img');
     icon.className = `journey-pick-pin-icon journey-pick-pin-icon-${pinType}`;
     icon.alt = '';
-    outer.appendChild(icon);
+    frame.appendChild(icon);
+    outer.appendChild(frame);
 
     try {
         const candidates = getIconCandidates('pin.svg');
