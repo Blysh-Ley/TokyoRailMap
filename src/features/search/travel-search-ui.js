@@ -1264,8 +1264,18 @@ export function mountTravelSearchUI() {
 
     const syncJourneyPickPinsForPlanRow = async (row) => {
         const destinationStationId = normalizeText(row?.destinationStationId || '');
+        const waypointStationIds = row?.kind === 'waypointJourney' && Array.isArray(row?.waypointStationIds)
+            ? row.waypointStationIds.map(normalizeText).filter(Boolean)
+            : [];
         try {
-            journeyPickController.clearPin('origin');
+            journeyPickController.clearPin();
+            for (let index = 0; index < waypointStationIds.length; index += 1) {
+                await journeyPickController.showStationPin({
+                    label: `途径点${index + 1}`,
+                    stationId: waypointStationIds[index],
+                    type: `waypoint-result-${index + 1}`
+                });
+            }
             if (destinationStationId) await journeyPickController.showStationPin({ stationId: destinationStationId, type: 'destination' });
         } catch {
             // ignore

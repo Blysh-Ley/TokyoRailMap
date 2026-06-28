@@ -1232,6 +1232,13 @@ const initMapApp = async () => {
                 const sid = String(idsByType?.[type] ?? '').trim();
                 if (sid) journeyPickPinnedStationIds.set(type, sid);
             }
+            const waypoints = idsByType?.waypoints && typeof idsByType.waypoints === 'object'
+                ? idsByType.waypoints
+                : {};
+            for (const [type, stationId] of Object.entries(waypoints)) {
+                const sid = String(stationId ?? '').trim();
+                if (sid) journeyPickPinnedStationIds.set(type, sid);
+            }
             applyStationLabelPositionOverrides();
         },
         scheduleCollisionLayerRefresh

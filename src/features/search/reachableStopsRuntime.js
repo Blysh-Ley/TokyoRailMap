@@ -175,6 +175,7 @@ export const createTravelSearchMapRuntime = ({
     let journeyPickOriginPin = null;
     let journeyPickDestinationPin = null;
     const journeyPickWaypointPins = new Map();
+    const journeyPickWaypointStationIdsByType = new Map();
     const journeyPickStationIdsByType = {
         origin: '',
         destination: ''
@@ -184,7 +185,8 @@ export const createTravelSearchMapRuntime = ({
         try {
             onJourneyPickPinStationIdsChange({
                 origin: journeyPickStationIdsByType.origin || '',
-                destination: journeyPickStationIdsByType.destination || ''
+                destination: journeyPickStationIdsByType.destination || '',
+                waypoints: Object.fromEntries(journeyPickWaypointStationIdsByType)
             });
         } catch {
             // ignore
@@ -219,9 +221,11 @@ export const createTravelSearchMapRuntime = ({
                 try { marker?.remove?.(); } catch { /* ignore */ }
             }
             journeyPickWaypointPins.clear();
+            journeyPickWaypointStationIdsByType.clear();
         } else if (pinType.startsWith('waypoint-')) {
             try { journeyPickWaypointPins.get(pinType)?.remove?.(); } catch { /* ignore */ }
             journeyPickWaypointPins.delete(pinType);
+            journeyPickWaypointStationIdsByType.delete(pinType);
         }
         notifyJourneyPickPinStationIdsChange();
     };
@@ -245,7 +249,7 @@ export const createTravelSearchMapRuntime = ({
         return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null;
     };
 
-    const showJourneyPickPin = async ({ lngLat, stationId, type = 'origin' } = {}) => {
+    const showJourneyPickPin = async ({ label = '', lngLat, stationId, type = 'origin' } = {}) => {
         const pinType = toText(type).toLowerCase();
         const waypointPin = pinType.startsWith('waypoint-');
         if (pinType !== 'origin' && pinType !== 'destination' && !waypointPin) return;
@@ -257,7 +261,7 @@ export const createTravelSearchMapRuntime = ({
         if (!mapEngine || typeof createJourneyPickPinElement !== 'function') return;
 
         try {
-            const element = await createJourneyPickPinElement({ type: pinType });
+            const element = await createJourneyPickPinElement({ label, type: pinType });
             const marker = mapEngine.createMarker({ element, anchor: 'bottom', offset: [0, 0] })
                 .setLngLat(coord);
             mapEngine.addMarker(marker);
@@ -266,6 +270,8 @@ export const createTravelSearchMapRuntime = ({
             else journeyPickWaypointPins.set(pinType, marker);
             if (pinType === 'origin' || pinType === 'destination') {
                 journeyPickStationIdsByType[pinType] = sid;
+            } else if (sid) {
+                journeyPickWaypointStationIdsByType.set(pinType, sid);
             }
             notifyJourneyPickPinStationIdsChange();
         } catch {
@@ -276,10 +282,13 @@ export const createTravelSearchMapRuntime = ({
     const syncJourneyPickPinsToStations = () => {
         const pairs = [
             { pinType: 'origin', marker: journeyPickOriginPin },
-            { pinType: 'destination', marker: journeyPickDestinationPin }
+            { pinType: 'destination', marker: journeyPickDestinationPin },
+            ...Array.from(journeyPickWaypointPins, ([pinType, marker]) => ({ pinType, marker }))
         ];
         for (const { pinType, marker } of pairs) {
-            const sid = journeyPickStationIdsByType[pinType];
+            const sid = pinType.startsWith('waypoint-')
+                ? journeyPickWaypointStationIdsByType.get(pinType)
+                : journeyPickStationIdsByType[pinType];
             if (!marker || !sid) continue;
             const coord = resolvePinCoordinate({ stationId: sid });
             if (!coord) continue;

@@ -9,14 +9,14 @@ export const createJourneyPickController = ({
         ? normalizeText
         : (value) => String(value ?? '').trim();
 
-    const showStationPin = async ({ type, stationId } = {}) => {
+    const showStationPin = async ({ label = '', type, stationId } = {}) => {
         await mapActions?.clearJourneyPickPin?.(type);
-        return mapActions?.showJourneyPickPin?.({ stationId: normalize(stationId), type });
+        return mapActions?.showJourneyPickPin?.({ label, stationId: normalize(stationId), type });
     };
 
-    const showCoordinatePin = async ({ type, lngLat } = {}) => {
+    const showCoordinatePin = async ({ label = '', type, lngLat } = {}) => {
         await mapActions?.clearJourneyPickPin?.(type);
-        return mapActions?.showJourneyPickPin?.({ lngLat, type });
+        return mapActions?.showJourneyPickPin?.({ label, lngLat, type });
     };
 
     const resolveCoordinatePick = async ({ lngLat } = {}) => {
@@ -53,4 +53,3 @@ export const createJourneyPickController = ({
         showStationPin
     });
 };
-

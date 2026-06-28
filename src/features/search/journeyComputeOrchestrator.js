@@ -451,6 +451,13 @@ export const createWaypointJourneyResultRow = ({
     const waypointNames = waypointEndpoints.map((endpoint, index) => (
         getEndpointDisplayName({ endpoint, getStationNameById, normalizeText: normalize }) || `途径点 ${index + 1}`
     ));
+    const waypointStationIds = waypointEndpoints.map((endpoint, index) => normalize(
+        endpoint.stationId
+        || endpoint.inputStationId
+        || endpoint.seeds?.[0]
+        || rows[index]?.destinationStationId
+        || ''
+    ));
     const completedCount = rows.length;
     const totalCount = Math.max(0, endpointList.length - 1);
     const segments = rows.map((row, index) => {
@@ -484,6 +491,7 @@ export const createWaypointJourneyResultRow = ({
         originName,
         destinationName,
         waypointNames,
+        waypointStationIds,
         planSummary: {
             completedCount,
             totalCount,
