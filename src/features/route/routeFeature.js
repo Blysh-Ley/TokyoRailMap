@@ -403,7 +403,7 @@ export const createRouteFeature = ({
                 const selectionKey = String(buildSelectionKey?.(payload) || '').trim();
                 if (!selectionKey) return;
 
-                if (this.hasTripPreviewSelection(selectionKey)) {
+                if (previewInteraction !== 'auto' && this.hasTripPreviewSelection(selectionKey)) {
                     this.deleteTripPreviewSelection(selectionKey);
                 } else {
                     const builtSingle = buildFeatures?.(payload);

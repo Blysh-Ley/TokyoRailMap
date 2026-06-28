@@ -3097,25 +3097,23 @@ export function mountTravelSearchUI() {
         return [originEndpoint, ...waypointEndpoints, destinationEndpoint];
     };
 
-    const renderWaypointSegmentProgress = async ({
-        departureMs,
-        endpoints,
-        isPartial,
+    const updateWaypointSegmentProgressMessage = ({
+        endpointList,
         segmentRows,
-        serviceDay,
         token
     } = {}) => {
         if (token !== planComputeToken || !Array.isArray(segmentRows) || !segmentRows.length) return;
-        const row = createWaypointJourneyResultRow({
-            departureMs,
-            endpoints,
-            getStationNameById,
-            isPartial,
-            normalizeText,
-            segmentRows,
-            serviceDay
-        });
-        await renderPlanResults([row]);
+        const completedCount = segmentRows.length;
+        const totalCount = Math.max(0, (Array.isArray(endpointList) ? endpointList.length : 0) - 1);
+        const message = totalCount > 0
+            ? `正在计算路线... 已完成 ${completedCount}/${totalCount} 段`
+            : '正在计算路线...';
+        const currentMessage = planList.querySelector?.('.journey-plan-empty');
+        if (currentMessage) {
+            currentMessage.textContent = message;
+            return;
+        }
+        showPlanMessage(message, { mobilePlanResults: true });
     };
 
     const maybeComputeWaypointPlans = async () => {
@@ -3149,13 +3147,10 @@ export function mountTravelSearchUI() {
             sameSet,
             serviceDay,
             shouldBlockJourneyPlanning,
-            onSegmentComplete: async ({ endpointList, isPartial, segmentRows }) => {
-                await renderWaypointSegmentProgress({
-                    departureMs,
-                    endpoints: endpointList,
-                    isPartial,
+            onSegmentComplete: ({ endpointList, segmentRows }) => {
+                updateWaypointSegmentProgressMessage({
+                    endpointList,
                     segmentRows,
-                    serviceDay,
                     token
                 });
             }
