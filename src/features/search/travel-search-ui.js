@@ -594,6 +594,31 @@ const isElementTextMultiLine = (node) => {
     return node.scrollHeight > (lineHeight * 1.45);
 };
 
+const JOURNEY_WAIT_MINUTES_OPTIONS = Array.from({ length: 25 }, (_, index) => index * 5);
+
+const formatJourneyWaitSelectLabel = (minutes) => {
+    const value = Number(minutes);
+    return Number.isFinite(value) && value > 0 ? `${Math.round(value)}分` : '等待';
+};
+
+const readJourneyWaitMinutes = (control) => {
+    const minutes = Number(control?.dataset?.value);
+    return Number.isFinite(minutes) && minutes > 0 ? Math.max(0, Math.min(120, Math.round(minutes))) : 0;
+};
+
+const createJourneyWaitSelect = (label) => {
+    const button = el('button', 'journey-wait-select', {
+        type: 'button',
+        'aria-label': `${label}等待时间`,
+        'aria-haspopup': 'dialog',
+        'aria-expanded': 'false',
+        title: `${label}等待时间`,
+        text: '等待'
+    });
+    button.dataset.value = '0';
+    return button;
+};
+
 const refreshJourneyStationLineAlignment = (rootEl) => {
     if (!(rootEl instanceof HTMLElement)) return;
     const lineNodes = rootEl.querySelectorAll('.journey-station-result-lines');
@@ -654,6 +679,7 @@ export function mountTravelSearchUI() {
     const originMapPickIcon = el('img', 'journey-map-pick-icon', { alt: '' });
     setJourneyIconFromCache(originMapPickIcon, 'map-select.svg');
     originMapPickBtn.appendChild(originMapPickIcon);
+    const originWaitSelect = createJourneyWaitSelect('起点');
     const originClearBtn = el('button', 'journey-field-clear-btn journey-field-clear-origin', {
         type: 'button',
         'aria-label': '清空起点站'
@@ -662,6 +688,7 @@ export function mountTravelSearchUI() {
     setJourneyIconFromCache(originClearIcon, 'x.svg');
     originClearBtn.appendChild(originClearIcon);
     originWrap.appendChild(originInput);
+    originWrap.appendChild(originWaitSelect);
     originWrap.appendChild(originMapPickBtn);
     originWrap.appendChild(originClearBtn);
 
@@ -790,6 +817,7 @@ export function mountTravelSearchUI() {
     let clearingPlannerSession = false;
     let suppressNextEmptyHistoryRender = false;
     let mobileTripDetailOpen = false;
+    let originWaitPickerController = null;
     let currentPlanPage = 0;
     let allPlanRows = [];
     let journeyPlanPreviewController = null;
@@ -1973,6 +2001,17 @@ export function mountTravelSearchUI() {
             return Math.max(0, ids.length - 1);
         };
 
+        const isRailwayMarkLayoutReady = () => {
+            if (!rowsWrap.isConnected) return false;
+            if (rowsWrap.closest?.('.journey-plan-results.is-hidden')) return false;
+            const wrapRect = rowsWrap.getBoundingClientRect();
+            if (!Number.isFinite(wrapRect.height) || wrapRect.height <= 0) return false;
+            return stationMarkerRows.every((rowEl) => {
+                const rect = rowEl?.getBoundingClientRect?.();
+                return rect && Number.isFinite(rect.height) && rect.height > 0;
+            });
+        };
+
         const renderRailwayMark = () => {
             if (!(rowsWrap instanceof HTMLElement)) return;
             const markerCount = stationMarkerRows.length;
@@ -1980,6 +2019,7 @@ export function mountTravelSearchUI() {
                 while (svg.firstChild) svg.removeChild(svg.firstChild);
                 return;
             }
+            if (!isRailwayMarkLayoutReady()) return;
 
             const wrapRect = rowsWrap.getBoundingClientRect();
             const points = stationMarkerRows.map((rowEl) => {
@@ -2063,6 +2103,16 @@ export function mountTravelSearchUI() {
                 slashBase.setAttribute('stroke-linecap', 'round');
                 svg.appendChild(slashBase);
             }
+        };
+
+        const scheduleRailwayMarkRender = (attempt = 0) => {
+            window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(() => {
+                    renderRailwayMark();
+                    if (attempt >= 8 || svg.firstChild) return;
+                    scheduleRailwayMarkRender(attempt + 1);
+                });
+            });
         };
 
         if (svg instanceof SVGElement) {
@@ -2230,9 +2280,7 @@ export function mountTravelSearchUI() {
             // ignore
         }
 
-        window.requestAnimationFrame(() => {
-            window.requestAnimationFrame(renderRailwayMark);
-        });
+        scheduleRailwayMarkRender();
     };
 
     const enableMultiSelectMode = () => {
@@ -2484,6 +2532,174 @@ export function mountTravelSearchUI() {
         planPagination.classList.add('is-hidden');
         setMobileJourneyPlanResultsActive(false);
         journeyPlanSheet.hide();
+    };
+
+    const bindJourneyWaitSelect = (select, rowState = null) => {
+        const pickerRoot = document.createElement('div');
+        pickerRoot.className = 'settings-time-picker journey-wait-picker is-hidden';
+        pickerRoot.style.position = 'fixed';
+        pickerRoot.style.zIndex = '10020';
+
+        const title = document.createElement('div');
+        title.className = 'journey-wait-picker-title';
+        title.textContent = '等待时间';
+
+        const col = document.createElement('div');
+        col.className = 'settings-time-picker-col journey-wait-picker-col';
+        const list = document.createElement('div');
+        list.className = 'settings-time-picker-list journey-wait-picker-list';
+        col.appendChild(list);
+
+        const actions = document.createElement('div');
+        actions.className = 'settings-time-picker-actions journey-wait-picker-actions';
+        const cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.className = 'settings-time-picker-btn settings-time-picker-btn-cancel';
+        cancelButton.textContent = '取消';
+        const confirmButton = document.createElement('button');
+        confirmButton.type = 'button';
+        confirmButton.className = 'settings-time-picker-btn settings-time-picker-btn-confirm';
+        confirmButton.textContent = '确认';
+        actions.appendChild(cancelButton);
+        actions.appendChild(confirmButton);
+
+        const state = {
+            open: false,
+            minutes: readJourneyWaitMinutes(select),
+            optionButtons: []
+        };
+
+        const setControlValue = (minutes) => {
+            const value = Math.max(0, Math.min(120, Math.round(Number(minutes) || 0)));
+            select.dataset.value = String(value);
+            select.textContent = formatJourneyWaitSelectLabel(value);
+            if (rowState) rowState.waitMinutes = value;
+        };
+
+        const applySelectionUi = () => {
+            for (const button of state.optionButtons) {
+                const selected = Number(button?.dataset?.value) === state.minutes;
+                button.classList.toggle('is-selected', selected);
+            }
+        };
+
+        const scrollSelectionIntoView = () => {
+            const button = state.optionButtons.find((item) => Number(item?.dataset?.value) === state.minutes);
+            button?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+        };
+
+        const position = () => {
+            if (!state.open) return;
+            const rect = select.getBoundingClientRect();
+            const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
+            const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
+            const pickerRect = pickerRoot.getBoundingClientRect();
+            const pickerW = Math.max(120, Math.ceil(pickerRect.width || 120));
+            const pickerH = Math.max(150, Math.ceil(pickerRect.height || 230));
+            const gap = 6;
+            let left = rect.left + (rect.width / 2) - (pickerW / 2);
+            left = Math.max(8, Math.min(left, Math.max(8, viewportW - pickerW - 8)));
+            const canShowBelow = rect.bottom + gap + pickerH <= viewportH - 8;
+            const top = canShowBelow
+                ? Math.min(viewportH - pickerH - 8, rect.bottom + gap)
+                : Math.max(8, rect.top - gap - pickerH);
+            pickerRoot.style.left = `${Math.round(left)}px`;
+            pickerRoot.style.top = `${Math.round(top)}px`;
+        };
+
+        const close = () => {
+            if (!state.open) return;
+            state.open = false;
+            pickerRoot.classList.add('is-hidden');
+            select.setAttribute('aria-expanded', 'false');
+        };
+
+        const open = () => {
+            state.minutes = readJourneyWaitMinutes(select);
+            applySelectionUi();
+            pickerRoot.classList.remove('is-hidden');
+            state.open = true;
+            select.setAttribute('aria-expanded', 'true');
+            scrollSelectionIntoView();
+            position();
+        };
+
+        const commit = () => {
+            const previous = readJourneyWaitMinutes(select);
+            setControlValue(state.minutes);
+            close();
+            if (previous !== state.minutes) clearStalePlanResults();
+        };
+
+        for (const minutes of JOURNEY_WAIT_MINUTES_OPTIONS) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'settings-time-picker-option journey-wait-picker-option';
+            button.textContent = `${minutes}分`;
+            button.dataset.value = String(minutes);
+            button.addEventListener('click', (evt) => {
+                evt.preventDefault?.();
+                evt.stopPropagation?.();
+                state.minutes = minutes;
+                applySelectionUi();
+                scrollSelectionIntoView();
+            }, { passive: false });
+            state.optionButtons.push(button);
+            list.appendChild(button);
+        }
+
+        pickerRoot.appendChild(title);
+        pickerRoot.appendChild(col);
+        pickerRoot.appendChild(actions);
+        document.body.appendChild(pickerRoot);
+        applySelectionUi();
+
+        select.addEventListener('pointerdown', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+        });
+        select.addEventListener('click', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            if (state.open) close();
+            else open();
+        }, { passive: false });
+        pickerRoot.addEventListener('pointerdown', (evt) => evt.stopPropagation?.(), { passive: true });
+        pickerRoot.addEventListener('wheel', (evt) => evt.stopPropagation?.(), { passive: true });
+        pickerRoot.addEventListener('click', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+        }, { passive: false });
+        cancelButton.addEventListener('click', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            close();
+        }, { passive: false });
+        confirmButton.addEventListener('click', (evt) => {
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            commit();
+        }, { passive: false });
+        window.addEventListener('resize', position);
+        window.addEventListener('scroll', position, true);
+        document.addEventListener('pointerdown', (evt) => {
+            if (!state.open) return;
+            const target = evt?.target;
+            if (target && (select.contains(target) || pickerRoot.contains(target))) return;
+            close();
+        }, true);
+        document.addEventListener('keydown', (evt) => {
+            if (!state.open) return;
+            if (evt?.key === 'Escape') close();
+            if (evt?.key === 'Enter') commit();
+        });
+
+        const controller = {
+            reset: () => setControlValue(0),
+            destroy: () => pickerRoot.remove()
+        };
+        if (rowState) rowState.waitPicker = controller;
+        return controller;
     };
 
     const cloneJourneyArray = (value) => (Array.isArray(value) ? value.slice() : []);
@@ -2837,6 +3053,7 @@ export function mountTravelSearchUI() {
         } catch {
             // ignore
         }
+        rowState.waitPicker?.destroy?.();
         rowState.row.remove();
         results.classList.add('is-hidden');
         syncWaypointLayout();
@@ -2862,6 +3079,7 @@ export function mountTravelSearchUI() {
         const mapPickIcon = el('img', 'journey-map-pick-icon', { alt: '' });
         setJourneyIconFromCache(mapPickIcon, 'map-select.svg');
         mapPickBtn.appendChild(mapPickIcon);
+        const waitSelect = createJourneyWaitSelect('途径点');
         const clearBtn = el('button', 'journey-field-clear-btn journey-field-clear-waypoint', {
             type: 'button',
             'aria-label': '删除途径点'
@@ -2870,6 +3088,7 @@ export function mountTravelSearchUI() {
         setJourneyIconFromCache(clearIcon, 'x.svg');
         clearBtn.appendChild(clearIcon);
         wrap.appendChild(input);
+        wrap.appendChild(waitSelect);
         wrap.appendChild(mapPickBtn);
         wrap.appendChild(clearBtn);
         row.appendChild(addBtn);
@@ -2882,6 +3101,8 @@ export function mountTravelSearchUI() {
             addBtn,
             dragHandle,
             mapPickBtn,
+            waitSelect,
+            waitMinutes: 0,
             clearBtn,
             pinType: `waypoint-${waypointId}`,
             stationId: '',
@@ -2921,6 +3142,7 @@ export function mountTravelSearchUI() {
         });
 
         bindInput(input, 'waypoint', rowState);
+        bindJourneyWaitSelect(waitSelect, rowState);
         bindEndpointDragHandle(dragHandle);
 
         return rowState;
@@ -2961,6 +3183,7 @@ export function mountTravelSearchUI() {
             } catch {
                 // ignore
             }
+            rowState.waitPicker?.destroy?.();
             rowState.row.remove();
         }
         activeWaypointRow = null;
@@ -3076,6 +3299,7 @@ export function mountTravelSearchUI() {
             inputText: getJourneyEndpointText(originInput),
             stationId: selectedOriginId,
             inputStationId: originInput.dataset.stationId || '',
+            waitMinutes: readJourneyWaitMinutes(originWaitSelect),
             candidateIds: selectedOriginCandidateIds,
             candidateMeta: selectedOriginCandidateMeta,
             lngLat: selectedOriginLngLat
@@ -3087,6 +3311,7 @@ export function mountTravelSearchUI() {
             inputText: getJourneyEndpointText(rowState.input),
             stationId: rowState.stationId,
             inputStationId: rowState.input?.dataset?.stationId || '',
+            waitMinutes: rowState.waitMinutes ?? readJourneyWaitMinutes(rowState.waitSelect),
             candidateIds: rowState.candidateIds,
             candidateMeta: rowState.candidateMeta,
             lngLat: rowState.lngLat
@@ -3241,6 +3466,7 @@ export function mountTravelSearchUI() {
             activeWaypointRow = null;
             originInput.value = '';
             destinationInput.value = '';
+            originWaitPickerController?.reset?.();
             originInput.dataset.stationId = '';
             destinationInput.dataset.stationId = '';
             selectedOriginId = '';
@@ -3802,6 +4028,7 @@ export function mountTravelSearchUI() {
 
     bindInput(originInput, 'origin');
     bindInput(destinationInput, 'destination');
+    originWaitPickerController = bindJourneyWaitSelect(originWaitSelect);
     bindEndpointDragHandle(originDragHandle);
     bindEndpointDragHandle(destinationDragHandle);
 

@@ -1986,6 +1986,7 @@ body.is-journey-endpoint-dragging {
 
 .journey-input {
     width: 100%;
+    flex: 1 1 auto;
     border: none;
     background: transparent;
     outline: none;
@@ -2055,6 +2056,61 @@ html[data-theme='dark'] .search-ui > .journey-ui .journey-input-wrap {
     height: 14px;
     display: block;
     pointer-events: none;
+}
+
+.journey-wait-select {
+    flex: 0 0 38px;
+    max-width: 38px;
+    height: 22px;
+    border: 1px solid rgba(148, 163, 184, 0.34);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.42);
+    color: var(--ui-text-muted);
+    font-size: 10.5px;
+    line-height: 1;
+    padding: 0 2px;
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.journey-wait-select:hover {
+    background: rgba(52, 152, 219, 0.12);
+    color: var(--ui-text);
+}
+
+.journey-wait-select:focus {
+    outline: none;
+    border-color: rgba(52, 152, 219, 0.62);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.14);
+}
+
+.settings-time-picker.journey-wait-picker {
+    width: 120px;
+    padding: 7px;
+}
+
+.journey-wait-picker-title {
+    width: 100%;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ui-text);
+    text-align: center;
+    line-height: 1.2;
+    padding: 2px 0 4px;
+}
+
+.journey-wait-picker-col {
+    flex-basis: 100%;
+}
+
+.settings-time-picker-list.journey-wait-picker-list {
+    max-height: 154px;
+}
+
+.journey-wait-picker-option {
+    text-align: center;
 }
 
 .journey-field-clear-btn {
@@ -7815,6 +7871,22 @@ html[data-theme='dark'] .journey-map-pick-btn:hover {
 
 html[data-theme='dark'] .journey-map-pick-btn.is-active {
     background: rgba(52, 152, 219, 0.36);
+}
+
+html[data-theme='dark'] .journey-wait-select {
+    border-color: var(--ui-border);
+    background: rgba(15, 23, 42, 0.48);
+    color: var(--ui-text-muted);
+}
+
+html[data-theme='dark'] .journey-wait-select:hover {
+    background: rgba(52, 152, 219, 0.26);
+    color: var(--ui-text);
+}
+
+html[data-theme='dark'] .journey-wait-select:focus {
+    border-color: rgba(52, 152, 219, 0.72);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.22);
 }
 
 html[data-theme='dark'] .panel-timetable-row.is-past,

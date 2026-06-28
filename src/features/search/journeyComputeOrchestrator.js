@@ -1,4 +1,11 @@
 const fallbackNormalizeText = (value) => String(value ?? '').trim();
+const MAX_JOURNEY_WAIT_MINUTES = 120;
+
+const normalizeJourneyWaitMinutes = (value) => {
+    const minutes = Number(value);
+    if (!Number.isFinite(minutes) || minutes <= 0) return 0;
+    return Math.max(0, Math.min(MAX_JOURNEY_WAIT_MINUTES, Math.round(minutes)));
+};
 
 const uniqueSeeds = (values, fallbackValue, normalizeText) => {
     const normalize = typeof normalizeText === 'function' ? normalizeText : fallbackNormalizeText;
@@ -61,7 +68,8 @@ export const createWaypointJourneyComputeKey = ({
         const coordText = Number.isFinite(lng) && Number.isFinite(lat)
             ? `${lng.toFixed(6)},${lat.toFixed(6)}`
             : '';
-        return `${fallbackNormalizeText(endpoint?.role || '')}:${seedText}:${coordText}:${fallbackNormalizeText(endpoint?.inputText || '')}`;
+        const waitText = normalizeJourneyWaitMinutes(endpoint?.waitMinutes);
+        return `${fallbackNormalizeText(endpoint?.role || '')}:${seedText}:${coordText}:${fallbackNormalizeText(endpoint?.inputText || '')}:wait=${waitText}`;
     }).join('>');
     return `${endpointKey}||${serviceDay || ''}||${Math.floor((Number(departureMs) || 0) / 60000)}`;
 };
@@ -451,6 +459,8 @@ export const createWaypointJourneyResultRow = ({
     const waypointNames = waypointEndpoints.map((endpoint, index) => (
         getEndpointDisplayName({ endpoint, getStationNameById, normalizeText: normalize }) || `途径点 ${index + 1}`
     ));
+    const waitMinutesByEndpoint = endpointList.map((endpoint) => normalizeJourneyWaitMinutes(endpoint?.waitMinutes));
+    const totalWaitMinutes = waitMinutesByEndpoint.reduce((sum, minutes) => sum + minutes, 0);
     const waypointStationIds = waypointEndpoints.map((endpoint, index) => normalize(
         endpoint.stationId
         || endpoint.inputStationId
@@ -492,6 +502,8 @@ export const createWaypointJourneyResultRow = ({
         destinationName,
         waypointNames,
         waypointStationIds,
+        waitMinutesByEndpoint,
+        totalWaitMinutes,
         planSummary: {
             completedCount,
             totalCount,
@@ -522,6 +534,7 @@ export const computeWaypointJourneySegments = async ({
         inputStationId: normalize(endpoint?.inputStationId || ''),
         stationId: normalize(endpoint?.stationId || ''),
         inputText: normalize(endpoint?.inputText || ''),
+        waitMinutes: normalizeJourneyWaitMinutes(endpoint?.waitMinutes),
         candidateIds: Array.isArray(endpoint?.candidateIds)
             ? endpoint.candidateIds.map(normalize).filter(Boolean)
             : [],
@@ -540,6 +553,10 @@ export const computeWaypointJourneySegments = async ({
 
         const fromEndpoint = endpointList[segmentIndex];
         const toEndpoint = endpointList[segmentIndex + 1];
+        const waitMs = normalizeJourneyWaitMinutes(fromEndpoint?.waitMinutes) * 60000;
+        const segmentBaseDepartureMs = Number.isFinite(Number(segmentDepartureMs))
+            ? Number(segmentDepartureMs) + waitMs
+            : segmentDepartureMs;
         const {
             bothCoordinatePicks,
             bothStationPicks,
@@ -595,7 +612,7 @@ export const computeWaypointJourneySegments = async ({
                 if (isCancelled?.()) return { cancelled: true, rows: segmentRows };
 
                 const pairRequest = createJourneyPairPlanRequest({
-                    baseDepartureMs: segmentDepartureMs,
+                    baseDepartureMs: segmentBaseDepartureMs,
                     destinationCandidateMeta: toEndpoint.candidateMeta,
                     destinationStationId,
                     getGroupStops,
@@ -640,7 +657,7 @@ export const computeWaypointJourneySegments = async ({
         const bestWrapper = segmentCandidates.find((candidate) => candidate.plan === bestPlan) || segmentCandidates[0];
         const pickedRows = createPickedJourneyRows({
             bestPlanBuckets: [{ label: `第 ${segmentIndex + 1} 段`, plan: bestWrapper.plan }],
-            departureMs: segmentDepartureMs,
+            departureMs: segmentBaseDepartureMs,
             destinationId,
             destinationInputText: toEndpoint.inputText || toEndpoint.label || toLabel,
             destinationSeeds,
