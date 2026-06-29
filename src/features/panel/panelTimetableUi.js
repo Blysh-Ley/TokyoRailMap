@@ -460,7 +460,7 @@ const buildPanelGridDestLabel = (destNameRaw, {
     fallbackAbbr = '',
     toText = defaultToText_panelTimetableGridRenderer
 } = {}) => {
-    const destName = toText(destNameRaw);
+    const destName = toText(destNameRaw).replace(/<[^<>]*>|（[^（）]*）|\([^()]*\)/g, '').trim();
     if (!destName) return '';
 
     const chars = Array.from(destName).filter((ch) => /\S/.test(ch));
