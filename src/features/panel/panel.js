@@ -306,7 +306,7 @@ const renderTripDetailMomentHtml = (stop = {}) => {
     }
 
     const dwellMinutes = getTripDetailStopDwellMinutes(stop);
-    if (dwellMinutes > 2) {
+    if (dwellMinutes >= 2) {
         extras.push({ className: 'panel-trip-detail-time-extra is-dwell', text: `+${dwellMinutes}'` });
     }
 
