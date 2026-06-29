@@ -30,6 +30,7 @@ import {
     appendStationJumpClass,
     resolveStationJumpIntent
 } from '../../ui/stationJump.js';
+import { createTransferHoverTouchPortalController } from '../../ui/transferHoverTouchPortal.js';
 
 const toText = (v) => String(v ?? '').trim();
 const ROUTE_MAP_BACK_INTENT_EVENT = '__TokyoRailRouteMapBackIntent';
@@ -804,6 +805,7 @@ const setupRouteMapUi = () => {
     }, true);
 
     let activeTransferHoverShell = null;
+    let transferHoverTouchController = null;
     const hideTransferHoverPortal = () => {
         activeTransferHoverShell = null;
         transferHoverPortal.classList.add('is-hidden');
@@ -859,6 +861,7 @@ const setupRouteMapUi = () => {
     };
 
     body.addEventListener('pointerover', (evt) => {
+        if (transferHoverTouchController?.isMobileInteraction?.(evt)) return;
         const shell = evt?.target?.closest?.('.route-map-transfer-items-shell');
         if (!(shell instanceof HTMLElement) || !body.contains(shell)) return;
         if (shell === activeTransferHoverShell) {
@@ -869,6 +872,7 @@ const setupRouteMapUi = () => {
     });
 
     body.addEventListener('pointerout', (evt) => {
+        if (transferHoverTouchController?.isMobileInteraction?.(evt)) return;
         const shell = evt?.target?.closest?.('.route-map-transfer-items-shell');
         if (!(shell instanceof HTMLElement) || shell !== activeTransferHoverShell) return;
         const related = evt.relatedTarget;
@@ -877,12 +881,14 @@ const setupRouteMapUi = () => {
     });
 
     body.addEventListener('focusin', (evt) => {
+        if (isMobileRouteMapPresentation()) return;
         const shell = evt?.target?.closest?.('.route-map-transfer-items-shell');
         if (!(shell instanceof HTMLElement) || !body.contains(shell)) return;
         showTransferHoverPortal(shell);
     });
 
     body.addEventListener('focusout', (evt) => {
+        if (isMobileRouteMapPresentation()) return;
         const shell = evt?.target?.closest?.('.route-map-transfer-items-shell');
         if (!(shell instanceof HTMLElement) || shell !== activeTransferHoverShell) return;
         const related = evt.relatedTarget;
@@ -897,6 +903,16 @@ const setupRouteMapUi = () => {
     window.addEventListener('resize', () => {
         if (activeTransferHoverShell) positionTransferHoverPortal(activeTransferHoverShell);
     }, { passive: true });
+
+    transferHoverTouchController = createTransferHoverTouchPortalController({
+        doc: document,
+        findShell: (target) => target?.closest?.('.route-map-transfer-items-shell'),
+        hide: hideTransferHoverPortal,
+        isMobile: isMobileRouteMapPresentation,
+        portal: transferHoverPortal,
+        root: body,
+        show: showTransferHoverPortal
+    });
 
     const cache = new Map(); // key: lineId||serviceDay -> payload
 
@@ -2379,6 +2395,7 @@ const setupRouteMapUi = () => {
         const t = evt?.target;
         if (t instanceof Element) {
             if (root.contains(t)) return;
+            if (transferHoverPortal.contains(t)) return;
             if (t.closest?.('.panel-line-name')) return;
         }
         pinned = false;

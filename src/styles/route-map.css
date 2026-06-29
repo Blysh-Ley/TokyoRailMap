@@ -591,6 +591,8 @@ body[data-mobile-ui='1'] .route-map-transfer-hover-portal {
     width: calc(100vw - 12px);
     min-width: 0;
     max-width: calc(100vw - 12px);
+    pointer-events: auto;
+    touch-action: manipulation;
 }
 html[data-mobile-ui='1'] .route-map-transfer-hover-portal .route-map-transfer-items,
 body[data-mobile-ui='1'] .route-map-transfer-hover-portal .route-map-transfer-items,

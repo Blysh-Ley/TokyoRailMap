@@ -1,3 +1,5 @@
+import { createTransferHoverTouchPortalController } from './transferHoverTouchPortal.js';
+
 const toText = (value) => String(value ?? '').trim();
 
 const isElement = (value, win = globalThis.window) => {
@@ -24,6 +26,14 @@ export const createPanelTripDetailTransferHoverPortal = ({
     doc.body.appendChild(portal);
 
     let activeShell = null;
+    let touchPortalController = null;
+
+    const isMobilePresentation = () => (
+        root?.getAttribute?.('data-panel-trip-detail-presentation') === 'mobile'
+        || root?.closest?.('[data-panel-root]')?.getAttribute?.('data-panel-presentation') === 'mobile'
+        || doc?.documentElement?.dataset?.mobileUi === '1'
+        || doc?.body?.dataset?.mobileUi === '1'
+    );
 
     const hide = () => {
         activeShell = null;
@@ -80,6 +90,7 @@ export const createPanelTripDetailTransferHoverPortal = ({
     };
 
     const onPointerOver = (evt) => {
+        if (touchPortalController?.isMobileInteraction?.(evt)) return;
         const shell = evt?.target?.closest?.('.panel-trip-detail-transfer-shell');
         if (!isElement(shell, win) || !body.contains(shell)) return;
         if (shell === activeShell) {
@@ -90,6 +101,7 @@ export const createPanelTripDetailTransferHoverPortal = ({
     };
 
     const onPointerOut = (evt) => {
+        if (touchPortalController?.isMobileInteraction?.(evt)) return;
         const shell = evt?.target?.closest?.('.panel-trip-detail-transfer-shell');
         if (!isElement(shell, win) || shell !== activeShell) return;
         const related = evt.relatedTarget;
@@ -99,12 +111,14 @@ export const createPanelTripDetailTransferHoverPortal = ({
     };
 
     const onFocusIn = (evt) => {
+        if (isMobilePresentation()) return;
         const shell = evt?.target?.closest?.('.panel-trip-detail-transfer-shell');
         if (!isElement(shell, win) || !body.contains(shell)) return;
         show(shell);
     };
 
     const onFocusOut = (evt) => {
+        if (isMobilePresentation()) return;
         const shell = evt?.target?.closest?.('.panel-trip-detail-transfer-shell');
         if (!isElement(shell, win) || shell !== activeShell) return;
         const related = evt.relatedTarget;
@@ -121,6 +135,16 @@ export const createPanelTripDetailTransferHoverPortal = ({
         if (activeShell) position(activeShell);
     };
 
+    touchPortalController = createTransferHoverTouchPortalController({
+        doc,
+        findShell: (target) => target?.closest?.('.panel-trip-detail-transfer-shell'),
+        hide,
+        isMobile: isMobilePresentation,
+        portal,
+        root: body,
+        show
+    });
+
     body.addEventListener('pointerover', onPointerOver);
     body.addEventListener('pointerout', onPointerOut);
     body.addEventListener('focusin', onFocusIn);
@@ -130,6 +154,7 @@ export const createPanelTripDetailTransferHoverPortal = ({
 
     return {
         destroy: () => {
+            touchPortalController?.destroy?.();
             hide();
             body.removeEventListener('pointerover', onPointerOver);
             body.removeEventListener('pointerout', onPointerOut);
