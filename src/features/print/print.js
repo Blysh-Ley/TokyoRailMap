@@ -294,6 +294,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
     };
 
     const toText = (v) => String(v ?? '').trim();
+    const TRIP_PREVIEW_PAST_EXPORT_COLOR = '#b8bec8';
 
     const normalizeArrayLike = (value) => {
         if (Array.isArray(value)) return value;
@@ -2097,6 +2098,68 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         return hydrated;
     };
 
+    const normalizeTripPreviewPastDimmingForExport = async (baseMap, built) => {
+        const normalizedBuilt = normalizeBuiltSnapshot(built);
+        if (!normalizedBuilt) return null;
+
+        const styleContext = await getStationStyleContext(baseMap);
+        const lineColorById = styleContext?.lineColorById instanceof Map
+            ? styleContext.lineColorById
+            : new Map();
+        const dark = isDarkTheme();
+
+        const resolveExportLineColor = (props = {}) => {
+            const candidateIds = [
+                props.geometry_line_id,
+                props.r,
+                props.lineId,
+                props.id
+            ].map((value) => toText(value)).filter(Boolean);
+            for (const lineId of candidateIds) {
+                const rawColor = toText(lineColorById.get(lineId));
+                if (!rawColor) continue;
+                return resolveRailColorForTheme(rawColor, { isDarkThemeActive: dark }) || rawColor;
+            }
+            return resolveLineColorForTheme(props, '#0a84ff');
+        };
+
+        const lineFeatures = (Array.isArray(normalizedBuilt.lineFc?.features) ? normalizedBuilt.lineFc.features : []).map((feature) => {
+            const props = feature?.properties || {};
+            const color = String(props.color || '').trim().toLowerCase();
+            const wasPast = props.isPast === true || color === TRIP_PREVIEW_PAST_EXPORT_COLOR;
+            if (!wasPast) return feature;
+
+            const nextProps = {
+                ...props,
+                color: resolveExportLineColor(props)
+            };
+            delete nextProps.isPast;
+
+            return {
+                ...(feature || {}),
+                properties: nextProps
+            };
+        });
+
+        const stopFeatures = (Array.isArray(normalizedBuilt.stopFc?.features) ? normalizedBuilt.stopFc.features : []).map((feature) => {
+            const props = feature?.properties || {};
+            if (props.isPast !== true) return feature;
+            const nextProps = { ...props };
+            delete nextProps.isPast;
+            return {
+                ...(feature || {}),
+                properties: nextProps
+            };
+        });
+
+        return {
+            ...normalizedBuilt,
+            lineFc: { type: 'FeatureCollection', features: lineFeatures },
+            stopFc: { type: 'FeatureCollection', features: stopFeatures },
+            pastStopIds: new Set()
+        };
+    };
+
     const exportSnapshot = async (snapshot, options) => {
         if (exporting) return;
         const baseMap = getRuntimeBaseMap();
@@ -2104,7 +2167,8 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
 
         const normalized = normalizeTripSnapshot(snapshot);
         const payload = normalized?.payload;
-        const built = await ensureBuiltHasRenderableFeatures(baseMap, normalized?.built);
+        const rawBuilt = await ensureBuiltHasRenderableFeatures(baseMap, normalized?.built);
+        const built = await normalizeTripPreviewPastDimmingForExport(baseMap, rawBuilt);
         if (!payload || !built) return;
 
         const lineId = String(payload?.selectedLineId || '').trim();
