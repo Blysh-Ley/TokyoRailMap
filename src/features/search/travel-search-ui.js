@@ -619,6 +619,17 @@ const createJourneyWaitSelect = (label) => {
     return button;
 };
 
+const createJourneySegmentHeadingText = ({ segment, waitMinutesByEndpoint } = {}) => {
+    const segmentIndex = Math.max(0, Math.floor(Number(segment?.index) || 0));
+    const fromName = normalizeText(segment?.fromName || '起点');
+    const toName = normalizeText(segment?.toName || '终点');
+    const waitMinutes = Number(waitMinutesByEndpoint?.[segmentIndex]);
+    const waitText = Number.isFinite(waitMinutes) && waitMinutes > 0
+        ? `（等待${Math.round(waitMinutes)}分钟）`
+        : '';
+    return `第 ${segmentIndex + 1} 段：${fromName} → ${toName}${waitText}`;
+};
+
 const refreshJourneyStationLineAlignment = (rootEl) => {
     if (!(rootEl instanceof HTMLElement)) return;
     const lineNodes = rootEl.querySelectorAll('.journey-station-result-lines');
@@ -1541,9 +1552,10 @@ export function mountTravelSearchUI() {
         clearTripDetailBody(bodyEl);
         if (row?.kind === 'waypointJourney') {
             const segments = Array.isArray(row.segments) ? row.segments : [];
+            const waitMinutesByEndpoint = Array.isArray(row.waitMinutesByEndpoint) ? row.waitMinutesByEndpoint : [];
             for (const segment of segments) {
                 const heading = el('div', 'journey-plan-segment-heading', {
-                    text: `第 ${Number(segment.index) + 1} 段：${normalizeText(segment.fromName || '起点')} → ${normalizeText(segment.toName || '终点')}`
+                    text: createJourneySegmentHeadingText({ segment, waitMinutesByEndpoint })
                 });
                 bodyEl.appendChild(heading);
                 const segmentBody = el('div', 'journey-plan-segment-detail');
@@ -1820,10 +1832,11 @@ export function mountTravelSearchUI() {
                 ? displayPlan.waypointSegments
                 : [];
             const segments = Array.isArray(row.segments) ? row.segments : [];
+            const waitMinutesByEndpoint = Array.isArray(row.waitMinutesByEndpoint) ? row.waitMinutesByEndpoint : [];
             for (const segment of segments) {
                 const segmentWrap = el('div', 'journey-plan-segment');
                 segmentWrap.appendChild(el('div', 'journey-plan-segment-heading', {
-                    text: `第 ${Number(segment.index) + 1} 段：${normalizeText(segment.fromName || '起点')} → ${normalizeText(segment.toName || '终点')}`
+                    text: createJourneySegmentHeadingText({ segment, waitMinutesByEndpoint })
                 }));
                 const segmentPath = el('div', 'journey-plan-segment-path');
                 const segmentDisplayPlan = segmentDisplays.find((item) => item?.row === segment.row)?.displayPlan
