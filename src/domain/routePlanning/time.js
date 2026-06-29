@@ -1,4 +1,5 @@
 export const SERVICE_DAY_BOUNDARY_HOUR = 3;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const toText = (value) => String(value ?? '').trim();
 
@@ -8,6 +9,39 @@ export const getServiceDayStartMs = (now = new Date()) => {
     candidate.setHours(SERVICE_DAY_BOUNDARY_HOUR, 0, 0, 0);
     if (d.getTime() < candidate.getTime()) candidate.setDate(candidate.getDate() - 1);
     return candidate.getTime();
+};
+
+export const getNextServiceDayStartMs = (departureMs = Date.now()) => {
+    const baseMs = Number.isFinite(Number(departureMs)) ? Number(departureMs) : Date.now();
+    return getServiceDayStartMs(new Date(baseMs)) + MS_PER_DAY;
+};
+
+export const getNextCalendarDayServiceStartMs = (departureMs = Date.now()) => {
+    const baseMs = Number.isFinite(Number(departureMs)) ? Number(departureMs) : Date.now();
+    const next = new Date(baseMs);
+    next.setDate(next.getDate() + 1);
+    next.setHours(SERVICE_DAY_BOUNDARY_HOUR, 0, 0, 0);
+    return next.getTime();
+};
+
+export const inferServiceDayFromDate = (dateLike = new Date(), { isHoliday } = {}) => {
+    const date = dateLike instanceof Date ? new Date(dateLike.getTime()) : new Date(dateLike || Date.now());
+    if (!Number.isFinite(date.getTime())) return 'Weekday';
+
+    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+    const holiday = typeof isHoliday === 'function' ? isHoliday(date) : false;
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const isNewYearHoliday = (month === 12 && day >= 30) || (month === 1 && day <= 3);
+    return (isWeekend || holiday || isNewYearHoliday) ? 'SaturdayHoliday' : 'Weekday';
+};
+
+export const createNextDayFallbackPlanningBase = ({ departureMs = Date.now(), isHoliday } = {}) => {
+    const nextDepartureMs = getNextCalendarDayServiceStartMs(departureMs);
+    return {
+        departureMs: nextDepartureMs,
+        serviceDay: inferServiceDayFromDate(new Date(nextDepartureMs), { isHoliday })
+    };
 };
 
 export const normalizeHHMM = (value) => {

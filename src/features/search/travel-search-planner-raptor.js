@@ -5,6 +5,7 @@ import {
     formatDuration,
     getServiceDayStartMs,
     hhmmToOffsetMinutes,
+    inferServiceDayFromDate,
     normalizeHHMM,
     toHHMM
 } from '../../domain/routePlanning/time.js';
@@ -2115,12 +2116,6 @@ export const collectJourneyCandidatesRaptor = async ({ sourceStops, destinationS
     return sortedPlans;
 };
 
-const inferServiceDayFromDate = (dateLike) => {
-    const d = dateLike instanceof Date ? dateLike : new Date(dateLike || Date.now());
-    const day = d.getDay();
-    return (day === 0 || day === 6) ? 'SaturdayHoliday' : 'Weekday';
-};
-
 export async function findPath(startStopId, endStopId, startTime) {
     const originId = normalizeText(startStopId);
     const destinationId = normalizeText(endStopId);
@@ -2142,7 +2137,7 @@ export async function findPath(startStopId, endStopId, startTime) {
     const panelDay = normalizeText(document.querySelector('.panel-day-seg button.is-active[data-day]')?.getAttribute?.('data-day') || '');
     const serviceDay = panelDay === 'SaturdayHoliday'
         ? 'SaturdayHoliday'
-        : inferServiceDayFromDate(new Date(departureMs));
+        : inferServiceDayFromDate(new Date(departureMs), { isHoliday: (date) => globalThis?.JapaneseHolidays?.isHoliday?.(date) });
 
     const plans = await collectJourneyCandidatesRaptor({
         sourceStops,

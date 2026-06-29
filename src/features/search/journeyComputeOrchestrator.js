@@ -1,5 +1,8 @@
+import { createNextDayFallbackPlanningBase } from '../../domain/routePlanning/time.js';
+
 const fallbackNormalizeText = (value) => String(value ?? '').trim();
 const MAX_JOURNEY_WAIT_MINUTES = 120;
+export const NEXT_DAY_FALLBACK_TAG = '次日最早';
 
 const normalizeJourneyWaitMinutes = (value) => {
     const minutes = Number(value);
@@ -385,6 +388,179 @@ export const createPickedJourneyResultRows = ({
     });
 };
 
+export const applyNextDayFallbackMetadataToRows = ({
+    fallbackDepartureMs,
+    fallbackServiceDay,
+    originalDepartureMs,
+    originalServiceDay,
+    rows
+} = {}) => {
+    if (!Array.isArray(rows)) return [];
+    return rows.map((row) => {
+        const labels = Array.isArray(row?.tagLabels)
+            ? row.tagLabels.map(fallbackNormalizeText).filter(Boolean)
+            : [];
+        if (!labels.includes(NEXT_DAY_FALLBACK_TAG)) labels.unshift(NEXT_DAY_FALLBACK_TAG);
+        return {
+            ...row,
+            isNextDayFallback: true,
+            nextDayFallbackFrom: {
+                departureMs: originalDepartureMs,
+                serviceDay: originalServiceDay
+            },
+            nextDayFallbackBase: {
+                departureMs: fallbackDepartureMs,
+                serviceDay: fallbackServiceDay
+            },
+            tagLabels: labels
+        };
+    });
+};
+
+export const computeJourneyResultRowsForBase = async ({
+    collectPlans,
+    coordinateMode = false,
+    departureMs,
+    destinationCandidateMeta,
+    destinationId,
+    destinationInputText,
+    destinationSeeds,
+    filterNearbyStops,
+    getGroupStops,
+    getStationNameById,
+    isCancelled,
+    normalizeText,
+    originCandidateMeta,
+    originId,
+    originInputText,
+    originSeeds,
+    pickPlanBuckets,
+    sameSet,
+    serviceDay
+} = {}) => {
+    const pairBestPlans = [];
+    const pairBestWrappers = [];
+
+    for (const originStationId of Array.isArray(originSeeds) ? originSeeds : []) {
+        if (isCancelled?.()) return { cancelled: true, rows: [] };
+
+        const sourceStops = prepareOriginStopSet({
+            filterNearbyStops,
+            getGroupStops,
+            originStationId,
+            radiusMeters: 800
+        });
+        if (!sourceStops) continue;
+
+        for (const destinationStationId of Array.isArray(destinationSeeds) ? destinationSeeds : []) {
+            if (isCancelled?.()) return { cancelled: true, rows: [] };
+
+            const pairRequest = createJourneyPairPlanRequest({
+                baseDepartureMs: departureMs,
+                destinationCandidateMeta,
+                destinationStationId,
+                getGroupStops,
+                normalizeText,
+                originCandidateMeta,
+                originStationId,
+                sameSet,
+                serviceDay,
+                sourceStops
+            });
+            if (!pairRequest) continue;
+
+            const plans = await collectJourneyCandidatePlans({
+                collectPlans,
+                request: pairRequest
+            });
+
+            if (isCancelled?.()) return { cancelled: true, rows: [] };
+            if (!Array.isArray(plans) || !plans.length) continue;
+
+            appendJourneyPairPlans({
+                coordinateMode,
+                destWalkMin: pairRequest.destWalkMin,
+                destinationStationId: pairRequest.destinationStationId,
+                originStationId: pairRequest.originStationId,
+                originWalkMin: pairRequest.originWalkMin,
+                pairBestPlans,
+                pairBestWrappers,
+                pickPlanBuckets,
+                plans
+            });
+        }
+    }
+
+    if (!pairBestPlans.length) {
+        return {
+            departureMs,
+            pairBestPlans,
+            pairBestWrappers,
+            rows: [],
+            serviceDay
+        };
+    }
+
+    const rows = createPickedJourneyResultRows({
+        departureMs,
+        destinationId,
+        destinationInputText,
+        destinationSeeds,
+        getStationNameById,
+        normalizeText,
+        originId,
+        originInputText,
+        originSeeds,
+        pairBestWrappers,
+        pairBestPlans,
+        pickPlanBuckets,
+        serviceDay
+    });
+
+    return {
+        departureMs,
+        pairBestPlans,
+        pairBestWrappers,
+        rows,
+        serviceDay
+    };
+};
+
+export const computeJourneyResultRowsWithNextDayFallback = async ({
+    isHoliday,
+    ...options
+} = {}) => {
+    const primary = await computeJourneyResultRowsForBase(options);
+    if (primary?.cancelled || (Array.isArray(primary?.rows) && primary.rows.length)) return primary;
+
+    const fallbackBase = createNextDayFallbackPlanningBase({
+        departureMs: options.departureMs,
+        isHoliday
+    });
+    const fallback = await computeJourneyResultRowsForBase({
+        ...options,
+        departureMs: fallbackBase.departureMs,
+        serviceDay: fallbackBase.serviceDay
+    });
+    if (fallback?.cancelled) return fallback;
+    if (!Array.isArray(fallback?.rows) || !fallback.rows.length) return primary;
+
+    return {
+        ...fallback,
+        fallbackAttempted: true,
+        originalDepartureMs: options.departureMs,
+        originalServiceDay: options.serviceDay,
+        rows: applyNextDayFallbackMetadataToRows({
+            fallbackDepartureMs: fallbackBase.departureMs,
+            fallbackServiceDay: fallbackBase.serviceDay,
+            originalDepartureMs: options.departureMs,
+            originalServiceDay: options.serviceDay,
+            rows: fallback.rows
+        }),
+        usedNextDayFallback: true
+    };
+};
+
 const getEndpointDisplayName = ({
     endpoint,
     getStationNameById,
@@ -443,6 +619,7 @@ export const createWaypointJourneyResultRow = ({
     departureMs,
     endpoints,
     getStationNameById,
+    isNextDayFallback = false,
     isPartial = false,
     normalizeText,
     segmentRows,
@@ -450,6 +627,7 @@ export const createWaypointJourneyResultRow = ({
 } = {}) => {
     const normalize = typeof normalizeText === 'function' ? normalizeText : fallbackNormalizeText;
     const rows = Array.isArray(segmentRows) ? segmentRows.filter(Boolean) : [];
+    const usesNextDayFallback = Boolean(isNextDayFallback || rows.some((row) => row?.isNextDayFallback === true));
     const endpointList = Array.isArray(endpoints) ? endpoints : [];
     const originEndpoint = endpointList[0] || {};
     const destinationEndpoint = endpointList[endpointList.length - 1] || {};
@@ -493,7 +671,11 @@ export const createWaypointJourneyResultRow = ({
     return {
         kind: 'waypointJourney',
         label: isPartial ? `已完成 ${completedCount}/${totalCount} 段` : '途径点路线',
-        tagLabels: [isPartial ? `计算中 ${completedCount}/${totalCount}` : '途径点路线'],
+        tagLabels: [
+            ...(usesNextDayFallback ? [NEXT_DAY_FALLBACK_TAG] : []),
+            isPartial ? `计算中 ${completedCount}/${totalCount}` : '途径点路线'
+        ],
+        isNextDayFallback: usesNextDayFallback,
         serviceDay,
         baseDepartureMs: departureMs,
         originStationId: rows[0]?.originStationId || normalize(originEndpoint.stationId || originEndpoint.inputStationId || originEndpoint.seeds?.[0] || ''),
@@ -511,6 +693,66 @@ export const createWaypointJourneyResultRow = ({
         },
         segments,
         plan: combinedPlan
+    };
+};
+
+const isWaypointNoRouteError = (message) => /^第\s*\d+\s*段无可用路线$/.test(fallbackNormalizeText(message));
+
+export const computeWaypointJourneySegmentsWithNextDayFallback = async ({
+    isHoliday,
+    ...options
+} = {}) => {
+    const primary = await computeWaypointJourneySegments(options);
+    if (primary?.cancelled) return primary;
+    const primaryRows = Array.isArray(primary?.rows) ? primary.rows : [];
+    if (!primary?.errorMessage && primaryRows.length) {
+        return {
+            ...primary,
+            departureMs: options.departureMs,
+            serviceDay: options.serviceDay
+        };
+    }
+    if (!isWaypointNoRouteError(primary?.errorMessage)) {
+        return {
+            ...primary,
+            departureMs: options.departureMs,
+            serviceDay: options.serviceDay
+        };
+    }
+
+    const fallbackBase = createNextDayFallbackPlanningBase({
+        departureMs: options.departureMs,
+        isHoliday
+    });
+    const fallback = await computeWaypointJourneySegments({
+        ...options,
+        departureMs: fallbackBase.departureMs,
+        serviceDay: fallbackBase.serviceDay
+    });
+    if (fallback?.cancelled) return fallback;
+    const fallbackRows = Array.isArray(fallback?.rows) ? fallback.rows : [];
+    if (fallback?.errorMessage || !fallbackRows.length) {
+        return {
+            ...primary,
+            departureMs: options.departureMs,
+            serviceDay: options.serviceDay
+        };
+    }
+
+    return {
+        ...fallback,
+        departureMs: fallbackBase.departureMs,
+        originalDepartureMs: options.departureMs,
+        originalServiceDay: options.serviceDay,
+        rows: applyNextDayFallbackMetadataToRows({
+            fallbackDepartureMs: fallbackBase.departureMs,
+            fallbackServiceDay: fallbackBase.serviceDay,
+            originalDepartureMs: options.departureMs,
+            originalServiceDay: options.serviceDay,
+            rows: fallbackRows
+        }),
+        serviceDay: fallbackBase.serviceDay,
+        usedNextDayFallback: true
     };
 };
 

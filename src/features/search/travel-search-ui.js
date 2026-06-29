@@ -32,17 +32,13 @@ import { createJourneyPickController } from './journeyPickController.js';
 import { logJourneyFareEstimates } from './journeyFareLogger.js';
 import { createJourneyPlanPreviewController } from './journeyPlanPreviewController.js';
 import {
-    appendJourneyPairPlans,
-    collectJourneyCandidatePlans,
+    computeJourneyResultRowsWithNextDayFallback,
     createJourneyComputeKey,
-    createJourneyPairPlanRequest,
-    createPickedJourneyResultRows,
     createWaypointJourneyComputeKey,
     createWaypointJourneyResultRow,
-    computeWaypointJourneySegments,
+    computeWaypointJourneySegmentsWithNextDayFallback,
     getMissingJourneySeedState,
-    normalizeJourneyComputeInput,
-    prepareOriginStopSet
+    normalizeJourneyComputeInput
 } from './journeyComputeOrchestrator.js';
 import {
     countJourneyPlanRideStations,
@@ -89,6 +85,11 @@ function el(tag, className, attrs = {}) {
 }
 
 const normalizeText = (v) => String(v ?? '').trim();
+
+const getJapaneseHolidayChecker = () => {
+    const api = globalThis?.JapaneseHolidays;
+    return typeof api?.isHoliday === 'function' ? (date) => api.isHoliday(date) : null;
+};
 
 const escapeHtml = (value) => String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -2452,80 +2453,36 @@ export function mountTravelSearchUI() {
         // 异步执行规划逻辑
         await ensurePlannerStaticData();
         
-        const pairBestPlans = [];
-        const pairBestWrappers = []; // { plan, originStationId, destinationStationId, originWalkMin, destWalkMin }
+        const result = await computeJourneyResultRowsWithNextDayFallback({
+            collectPlans: collectJourneyCandidatesRaptor,
+            coordinateMode,
+            departureMs,
+            destinationCandidateMeta: selectedDestinationCandidateMeta,
+            destinationId,
+            destinationInputText: destinationInput.value,
+            destinationSeeds,
+            filterNearbyStops,
+            getGroupStops,
+            getStationNameById,
+            isCancelled: () => token !== planComputeToken,
+            isHoliday: getJapaneseHolidayChecker(),
+            normalizeText,
+            originCandidateMeta: selectedOriginCandidateMeta,
+            originId,
+            originInputText: originInput.value,
+            originSeeds,
+            pickPlanBuckets,
+            sameSet,
+            serviceDay
+        });
 
-        for (const originStationId of originSeeds) {
-            if (token !== planComputeToken) return;
-
-            const sourceStops = prepareOriginStopSet({
-                filterNearbyStops,
-                getGroupStops,
-                originStationId,
-                radiusMeters: 800
-            });
-            if (!sourceStops) continue;
-
-            for (const destinationStationId of destinationSeeds) {
-                if (token !== planComputeToken) return;
-
-                const pairRequest = createJourneyPairPlanRequest({
-                    baseDepartureMs: departureMs,
-                    destinationCandidateMeta: selectedDestinationCandidateMeta,
-                    destinationStationId,
-                    getGroupStops,
-                    normalizeText,
-                    originCandidateMeta: selectedOriginCandidateMeta,
-                    originStationId,
-                    sameSet,
-                    serviceDay,
-                    sourceStops
-                });
-                if (!pairRequest) continue;
-
-                const plans = await collectJourneyCandidatePlans({
-                    collectPlans: collectJourneyCandidatesRaptor,
-                    request: pairRequest
-                });
-
-                if (token !== planComputeToken) return;
-                if (!Array.isArray(plans) || !plans.length) continue;
-
-                appendJourneyPairPlans({
-                    coordinateMode,
-                    destWalkMin: pairRequest.destWalkMin,
-                    destinationStationId: pairRequest.destinationStationId,
-                    originStationId: pairRequest.originStationId,
-                    originWalkMin: pairRequest.originWalkMin,
-                    pairBestPlans,
-                    pairBestWrappers,
-                    pickPlanBuckets,
-                    plans
-                });
-            }
-        }
-
-        if (token !== planComputeToken) return;
-        if (!pairBestPlans.length) {
+        if (token !== planComputeToken || result?.cancelled) return;
+        const picked = Array.isArray(result?.rows) ? result.rows : [];
+        if (!picked.length) {
             showPlanMessage('无可用路线', { mobilePlanResults: true });
             return;
         }
 
-        const picked = createPickedJourneyResultRows({
-            departureMs,
-            destinationId,
-            destinationInputText: destinationInput.value,
-            destinationSeeds,
-            getStationNameById,
-            normalizeText,
-            originId,
-            originInputText: originInput.value,
-            originSeeds,
-            pairBestWrappers,
-            pairBestPlans,
-            pickPlanBuckets,
-            serviceDay
-        });
         await logJourneyFareEstimates({
             rows: picked,
             getDisplayPlanForRow
@@ -3305,7 +3262,13 @@ export function mountTravelSearchUI() {
 
     const getJourneyEndpointText = (input) => normalizeText(input?.value || '');
 
-    const buildWaypointPlanningEndpoints = () => {
+    const getActiveWaypointRows = () => waypointRows.filter((rowState) => (
+        normalizeText(rowState?.input?.value || '')
+        || normalizeText(rowState?.stationId || rowState?.input?.dataset?.stationId || '')
+        || (Array.isArray(rowState?.candidateIds) && rowState.candidateIds.length > 0)
+    ));
+
+    const buildWaypointPlanningEndpoints = (activeWaypointRows = getActiveWaypointRows()) => {
         const originEndpoint = {
             role: 'origin',
             label: '起点',
@@ -3317,7 +3280,7 @@ export function mountTravelSearchUI() {
             candidateMeta: selectedOriginCandidateMeta,
             lngLat: selectedOriginLngLat
         };
-        const waypointEndpoints = waypointRows.map((rowState, index) => ({
+        const waypointEndpoints = activeWaypointRows.map((rowState, index) => ({
             role: 'waypoint',
             index: index + 1,
             label: `途径点 ${index + 1}`,
@@ -3362,7 +3325,8 @@ export function mountTravelSearchUI() {
     };
 
     const maybeComputeWaypointPlans = async () => {
-        const endpoints = buildWaypointPlanningEndpoints();
+        const activeWaypointRows = getActiveWaypointRows();
+        const endpoints = buildWaypointPlanningEndpoints(activeWaypointRows);
         const serviceDay = readServiceDayFromPanel();
         const { departureMs } = readDepartureBase();
         const key = createWaypointJourneyComputeKey({
@@ -3380,7 +3344,7 @@ export function mountTravelSearchUI() {
         if (token !== planComputeToken) return;
 
         await ensurePlannerStaticData();
-        const result = await computeWaypointJourneySegments({
+        const result = await computeWaypointJourneySegmentsWithNextDayFallback({
             collectPlans: collectJourneyCandidatesRaptor,
             departureMs,
             endpoints,
@@ -3388,6 +3352,7 @@ export function mountTravelSearchUI() {
             getGroupStops,
             getStationNameById,
             isCancelled: () => token !== planComputeToken,
+            isHoliday: getJapaneseHolidayChecker(),
             normalizeText,
             sameSet,
             serviceDay,
@@ -3412,14 +3377,17 @@ export function mountTravelSearchUI() {
             return;
         }
 
+        const effectiveDepartureMs = Number.isFinite(Number(result?.departureMs)) ? Number(result.departureMs) : departureMs;
+        const effectiveServiceDay = normalizeText(result?.serviceDay || serviceDay) || serviceDay;
         const finalRow = createWaypointJourneyResultRow({
-            departureMs,
+            departureMs: effectiveDepartureMs,
             endpoints,
             getStationNameById,
+            isNextDayFallback: result?.usedNextDayFallback === true,
             isPartial: false,
             normalizeText,
             segmentRows,
-            serviceDay
+            serviceDay: effectiveServiceDay
         });
         await logJourneyFareEstimates({
             rows: [finalRow],
@@ -3430,13 +3398,14 @@ export function mountTravelSearchUI() {
 
     const requestJourneyPlan = async () => {
         results.classList.add('is-hidden');
+        const activeWaypointRows = getActiveWaypointRows();
         await Promise.all([
             ensurePlanningStationSeed('origin'),
             ensurePlanningStationSeed('destination'),
-            ...waypointRows.map((rowState) => ensureWaypointPlanningSeed(rowState))
+            ...activeWaypointRows.map((rowState) => ensureWaypointPlanningSeed(rowState))
         ]);
         lastPlanComputeKey = '';
-        if (waypointRows.length) {
+        if (activeWaypointRows.length) {
             await maybeComputeWaypointPlans();
             return;
         }
@@ -4282,7 +4251,7 @@ export function mountTravelSearchUI() {
         setWaypointStation: (stationId, stationName, options) => applyExternalWaypointSelection(stationId, stationName, options),
         recompute: () => {
             lastPlanComputeKey = '';
-            return waypointRows.length ? requestJourneyPlan() : maybeComputePlans();
+            return getActiveWaypointRows().length ? requestJourneyPlan() : maybeComputePlans();
         },
         clearAndCollapse: () => clearJourneyInputsAndCollapse(),
         handleMobileBackIntent: () => {
