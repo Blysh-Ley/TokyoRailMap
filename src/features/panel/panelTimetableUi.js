@@ -403,7 +403,7 @@ export const buildPanelTimetableGridHintsHtml = ({
                     <span class="panel-grid-hint-label">终点站：</span>
                     <span class="panel-grid-hint-content">${terminalLegendItems || '<span class="panel-grid-hint-item" style="color:#888">无</span>'}</span>
                 </div>
-                ${specialLegendItems ? `<div class="panel-grid-hint-line"><span class="panel-grid-hint-label">特殊班次：</span><span class="panel-grid-hint-content">${specialLegendItems}</span></div>` : ''}
+                ${specialLegendItems ? `<div class="panel-grid-hint-line"><span class="panel-grid-hint-label">品牌列车：</span><span class="panel-grid-hint-content">${specialLegendItems}</span></div>` : ''}
             </div>
         `;
 };
