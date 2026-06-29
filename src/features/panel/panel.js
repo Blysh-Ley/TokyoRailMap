@@ -64,7 +64,9 @@ import {
     normalizeTimetableAllowedTripKeys,
     normalizeTimetableSourceLineIds
 } from './panelTimetableCore.js';
+import { buildAlternateTripSourceIndex } from '../../domain/alternateLineMembership.js';
 import { toPanelServiceHourIndex } from './panelTimetableCore.js';
+import { postprocessPanelTimetableTrips } from './panelTimetablePostprocess.js';
 import { buildPanelTimetableGridHtmlForDirection } from './panelTimetableUi.js';
 import {
     buildPanelCompaniesHtml,
@@ -220,6 +222,7 @@ const escapeHtml = (s) =>
 
 const SERVICE_DAY_BOUNDARY_HOUR = 3;
 const PRINT_SERVICE_DAYS = ['Weekday', 'SaturdayHoliday'];
+const PANEL_TIMETABLE_ALTERNATE_OVERLAY_ENABLED = true;
 
 const getServiceDayStartMs = (now = new Date()) => {
     const d = new Date(now.getTime());
@@ -2030,11 +2033,13 @@ export function createPanel(options = {}) {
         const effectivePrintStationName = toText(printStationName) || toText(currentStationNameZh);
         const effectivePrintTitleText = toText(printTitleText) || toText(titleMain.textContent);
 
-        const [stationsIndex, trainTypesIndex, trainTypeColorIndex] = await Promise.all([
+        const [stationsIndex, trainTypesIndex, trainTypeColorIndex, alternateLineMembership] = await Promise.all([
             getStationsIndex(),
             getTrainTypesIndex(),
-            getTrainTypeColorIndex()
+            getTrainTypeColorIndex(),
+            getAlternateLineMembership()
         ]);
+        const alternateSourcePlanIndex = buildAlternateTripSourceIndex(alternateLineMembership);
 
         const mergedSourceLineIds = normalizeTimetableSourceLineIds({ lineId, sourceLineIds, toText });
         if (!mergedSourceLineIds.length) {
@@ -2114,6 +2119,7 @@ export function createPanel(options = {}) {
         const typeStopCountByName = new Map();
         const typeStopStationSetByName = new Map();
         const sg = await getStationGroupsIndex();
+        const postprocessDebug = [];
 
         const collectRowsFromTripList = async ({
             tripList,
@@ -2337,117 +2343,21 @@ export function createPanel(options = {}) {
             const stationKey = toText(sourceData?.stationKey);
             const rawList = Array.isArray(sourceData?.list) ? sourceData.list : [];
             if (!stationKey || !rawList.length) continue;
-            let displayList = rawList.slice();
-            
-            // 1. 使用 Set 收集所有终到车次的下一步线路前缀
-            const nextLinePrefixes = new Set();
-            const previousLinePrefixes = new Set();
-            const currentLineDirctionForNext = new Set();
-            const currentLineDirectionForPrevious = new Set();
-
-            
-            for (const trip of rawList) {
-                if (/Loop/i.test(toText(trip?.d))) continue; 
-                const isTerminal = trip.tt.at(-1)?.s === stationKey;
-                const isOrigin = trip.tt?.[0]?.s === stationKey;
-                const nt = trip.nt;
-                const pt = trip.pt;
-                
-                if (isTerminal && nt) {
-                    // 统一转为数组处理，并提取前缀（例如 "JR-East.Yamanote"）
-                    const refs = Array.isArray(nt) ? nt : [nt];
-                    refs.forEach(ref => {
-                        const prefix = ref.split('.').slice(0, 2).join('.');
-                        const direction = trip.d;
-                        if (prefix) nextLinePrefixes.add(prefix);
-                        if (direction) currentLineDirctionForNext.add(direction);
-                    });
-                }
-
-                if (isOrigin && pt) {
-                    const refs = Array.isArray(pt) ? pt : [pt];
-                    refs.forEach(ref => {
-                        const prefix = ref.split('.').slice(0, 2).join('.');
-                        const direction = trip.d;
-                        if (prefix) previousLinePrefixes.add(prefix);
-                        if (direction) currentLineDirectionForPrevious.add(direction);
-                    });
-                }
-            }
-
-            
-            // 2. 如果去向唯一，则过滤掉所有在本站终到且有去向的的 trip,并插入下一条线路的data
-            if (nextLinePrefixes.size === 1) {
-                displayList = displayList.filter(trip => {
-                    const isTerminal = trip.tt.at(-1)?.s === stationKey;
-                    return !(isTerminal && trip.nt);
-                });
-                const nextLineId = Array.from(nextLinePrefixes)[0];
-                const currentLineDirc = Array.from(currentLineDirctionForNext)[0];
-                const nextLineSourceData = await loadTimetableForLineId(nextLineId);
-                nextLineSourceData.forEach(trip => {
-                    let shouldAdd = false;
-                    const originStation = trip.tt?.[0]?.s;
-                    const isOrigin = originStation && sg?.get?.(originStation)?.includes(stationKey);
-                    const pt = trip?.pt;
-                    if(isOrigin && !pt) shouldAdd = true;
-                    if (isOrigin && pt) {
-                        const ptLength = pt.length
-                        if(ptLength==1 && pt[0].split('.').slice(0, 2).join('.') === sourceLineId ){
-                            shouldAdd = true;
-                        }
-                    }
-                    // 2. 执行插入与 ID 归化
-                    if (shouldAdd) {
-                        // 使用深拷贝防止污染共享时刻表缓存
-                        const newTrip = structuredClone(trip);
-                        // 替换 Trip ID：确保运行日过滤、缓存 Key 匹配正常
-                        if (typeof newTrip.id === 'string') {
-                            newTrip.realOriginId = newTrip.id;
-                            newTrip.id = newTrip.id.replace(nextLineId, sourceLineId);
-                        }
-
-                        if (typeof newTrip.d === 'string') {
-                            newTrip.originD = newTrip.d;
-                            newTrip.d = currentLineDirc;
-                        }
-
-                        displayList.push(newTrip);
-                    }
-                    })
-            }
-
-            if (previousLinePrefixes.size === 1) {
-                const previousLineId = Array.from(previousLinePrefixes)[0];
-                const currentLineDirc = Array.from(currentLineDirectionForPrevious)[0];
-                const previousLineSourceData = await loadTimetableForLineId(previousLineId);
-                previousLineSourceData.forEach(trip => {
-                    let shouldAdd = false;
-                    const destStation = trip.tt?.at(-1)?.s;
-                    const isTerminal = destStation && sg?.get?.(destStation)?.includes(stationKey);
-                    const nt = trip?.nt;
-                    if(isTerminal && !nt) shouldAdd = true;
-                    if (shouldAdd) {
-                        const newTrip = structuredClone(trip);
-                        if (typeof newTrip.id === 'string') {
-                            newTrip.realOriginId = newTrip.id;
-                            newTrip.id = newTrip.id.replace(previousLineId, sourceLineId);
-                        }
-                        if (typeof newTrip.d === 'string') {
-                            newTrip.originD = newTrip.d;
-                            newTrip.d = currentLineDirc;
-                        }
-                        displayList.push(newTrip);
-                    }
-                })
-            }
-
-            displayList = displayList.map(trip => {
-                if (trip.realOriginId === undefined) {
-                    trip.realOriginId = trip.id;
-                }
-                return trip;
-            })
+            const {
+                displayList,
+                postprocessDebug: currentPostprocessDebug,
+                previewList
+            } = await postprocessPanelTimetableTrips({
+                alternateSourcePlanIndex,
+                displayLineId: lineId,
+                enableAlternateOverlay: PANEL_TIMETABLE_ALTERNATE_OVERLAY_ENABLED,
+                loadTimetableForLineId,
+                rawList,
+                sourceLineId,
+                stationGroupsIndex: sg,
+                stationKey
+            });
+            if (currentPostprocessDebug) postprocessDebug.push(currentPostprocessDebug);
 
             const displayRows = await collectRowsFromTripList({
                 tripList: displayList,
@@ -2472,7 +2382,7 @@ export function createPanel(options = {}) {
             }
 
             const previewRows = await collectRowsFromTripList({
-                tripList: rawList,
+                tripList: previewList,
                 sourceLineId,
                 stationKey,
                 serviceDay: currentServiceDay,
@@ -2837,6 +2747,7 @@ export function createPanel(options = {}) {
         gridDataDebugByLineId.set(toText(lineId), {
             lineId: toText(lineId),
             lineName: toText(lineMeta?.name) || toText(lineId),
+            postprocess: postprocessDebug,
             directions: directionDebug
         });
 
