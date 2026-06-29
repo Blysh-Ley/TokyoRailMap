@@ -6860,6 +6860,10 @@ html[data-theme="dark"] .reverse-color {
     border-width: 1.5px;
 }
 
+.station-label.station-trip-preview-past-label {
+    color: #b8bec8;
+}
+
 html[data-theme='dark'] .station-label.station-selected-current-label {
     border-color: #eee;
 }

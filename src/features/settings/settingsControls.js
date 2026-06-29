@@ -6,7 +6,8 @@ export { mountDesktopLayoutToggle } from './desktopLayoutControl.js';
 export {
     mountAdaptiveViewportToggle,
     mountHoverPreviewToggle,
-    mountLineNameLabelsToggle
+    mountLineNameLabelsToggle,
+    mountTripPastDimmingToggle
 } from './previewViewportControls.js';
 export { mountTimetableViewToggle } from './timetableViewControl.js';
 export {

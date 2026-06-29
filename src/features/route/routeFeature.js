@@ -125,6 +125,7 @@ export const createRouteFeature = ({
             const stopFeatureByStationId = new Map();
             const lineIds = new Set();
             const stopIds = new Set();
+            const pastStopIds = new Set();
             let bbox = null;
 
             for (const entry of tripPreviewSelectionsByKey.values()) {
@@ -162,6 +163,19 @@ export const createRouteFeature = ({
                     }
                 }
 
+                const pastIds = built?.pastStopIds instanceof Set ? built.pastStopIds : null;
+                if (pastIds) {
+                    for (const sid of pastIds) {
+                        const s = String(sid || '').trim();
+                        if (s) pastStopIds.add(s);
+                    }
+                } else {
+                    for (const sf of stopFeatures) {
+                        const sid = String(sf?.properties?.id || '').trim();
+                        if (sid && sf?.properties?.isPast === true) pastStopIds.add(sid);
+                    }
+                }
+
                 const b = built?.bbox;
                 if (b && Number.isFinite(b.minLng) && Number.isFinite(b.maxLng) && Number.isFinite(b.minLat) && Number.isFinite(b.maxLat)) {
                     bbox = bbox
@@ -186,6 +200,7 @@ export const createRouteFeature = ({
                 stopFc: { type: 'FeatureCollection', features: Array.from(stopFeatureByStationId.values()) },
                 lineIds,
                 stopIds,
+                pastStopIds,
                 bbox
             };
         },
@@ -218,6 +233,7 @@ export const createRouteFeature = ({
                 active: hasVisible,
                 stationIds: hasVisible ? built.stopIds : null,
                 lineIds: hasVisible ? built.lineIds : null,
+                pastStationIds: hasVisible ? built.pastStopIds : null,
                 stationOverrideColor: ''
             });
             syncStationOffset?.();
@@ -347,6 +363,7 @@ export const createRouteFeature = ({
                             stopFc: aggregate.stopFc,
                             lineIds: aggregate.lineIds,
                             stopIds: aggregate.stopIds,
+                            pastStopIds: aggregate.pastStopIds,
                             startStationId: aggregate.startStationId,
                             endStationId: aggregate.endStationId,
                             bbox: aggregate.bbox
@@ -376,6 +393,7 @@ export const createRouteFeature = ({
                         aggregate,
                         virtualTrips
                     }) || aggregate.stopIds,
+                    pastStationIds: aggregate.pastStopIds,
                     lineIds: aggregate.lineIds
                 });
                 syncStationOffset?.();
@@ -426,6 +444,7 @@ export const createRouteFeature = ({
                 source: payloadSource,
                 stationOverrideColor: resolveStationOverrideColor?.(payload, payloadSource) || '',
                 stationIds: built?.stopIds,
+                pastStationIds: built?.pastStopIds,
                 lineIds: built?.lineIds
             });
             syncStationOffset?.();

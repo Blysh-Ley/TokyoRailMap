@@ -9,7 +9,8 @@ import {
     mountLineNameLabelsToggle,
     mountStationLabelToggle,
     mountStationOffsetToggle,
-    mountTimetableViewToggle
+    mountTimetableViewToggle,
+    mountTripPastDimmingToggle
 } from '../features/settings/settingsControls.js';
 
 const DEFAULT_CONTROLS = Object.freeze({
@@ -23,7 +24,8 @@ const DEFAULT_CONTROLS = Object.freeze({
     mountLineNameLabelsToggle,
     mountStationLabelToggle,
     mountStationOffsetToggle,
-    mountTimetableViewToggle
+    mountTimetableViewToggle,
+    mountTripPastDimmingToggle
 });
 
 export const dedupeSettingsControls = (hostEl) => {
@@ -67,6 +69,7 @@ export const mountAppSettingsControls = ({
     onStationOffsetModeChanged,
     onThemeChanged,
     onTimetableViewModeChanged,
+    onTripPastDimmingEnabledChanged,
     stationLabelMode,
     controls = DEFAULT_CONTROLS
 } = {}) => {
@@ -128,6 +131,11 @@ export const mountAppSettingsControls = ({
     const hoverPreviewToggleController = controls.mountHoverPreviewToggle({
         hostEl,
         onEnabledChanged: onHoverPreviewEnabledChanged
+    });
+
+    controls.mountTripPastDimmingToggle?.({
+        hostEl,
+        onEnabledChanged: onTripPastDimmingEnabledChanged
     });
 
     const stationLabelController = controls.mountStationLabelToggle({

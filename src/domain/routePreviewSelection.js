@@ -278,6 +278,7 @@ export const buildTripPreviewAggregateFromPayloadList = ({
     const stopFeatureByStationId = new Map();
     const lineIds = new Set();
     const stopIds = new Set();
+    const pastStopIds = new Set();
     let bbox = null;
     let startStationId = '';
     let endStationId = '';
@@ -300,7 +301,9 @@ export const buildTripPreviewAggregateFromPayloadList = ({
 
         for (const feature of stopFeatures) {
             const stationId = toText(feature?.properties?.id);
-            if (!stationId || stopFeatureByStationId.has(stationId)) continue;
+            if (!stationId) continue;
+            if (feature?.properties?.isPast === true) pastStopIds.add(stationId);
+            if (stopFeatureByStationId.has(stationId)) continue;
             stopFeatureByStationId.set(stationId, feature);
         }
 
@@ -320,6 +323,14 @@ export const buildTripPreviewAggregateFromPayloadList = ({
             }
         }
 
+        const builtPastStopIds = built?.pastStopIds instanceof Set ? built.pastStopIds : null;
+        if (builtPastStopIds) {
+            for (const id of builtPastStopIds) {
+                const value = toText(id);
+                if (value) pastStopIds.add(value);
+            }
+        }
+
         bbox = mergeTripPreviewBBox(bbox, built?.bbox);
     }
 
@@ -334,6 +345,7 @@ export const buildTripPreviewAggregateFromPayloadList = ({
         stopFc: { type: 'FeatureCollection', features: Array.from(stopFeatureByStationId.values()) },
         lineIds,
         stopIds,
+        pastStopIds,
         startStationId,
         endStationId,
         bbox

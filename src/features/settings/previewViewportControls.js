@@ -2,9 +2,11 @@ import {
     readAdaptiveViewportEnabled,
     readHoverPreviewEnabled,
     readLineNameLabelsEnabled,
+    readTripPastDimmingEnabled,
     writeAdaptiveViewportEnabled,
     writeHoverPreviewEnabled,
-    writeLineNameLabelsEnabled
+    writeLineNameLabelsEnabled,
+    writeTripPastDimmingEnabled
 } from '../../services/appSettings.js';
 import { createSegmentedSettingRow } from './settingRows.js';
 
@@ -53,6 +55,17 @@ export const mountHoverPreviewToggle = ({ hostEl, onEnabledChanged } = {}) => (
         title: '鼠标悬浮预览',
         readEnabled: readHoverPreviewEnabled,
         writeEnabled: writeHoverPreviewEnabled,
+        onEnabledChanged
+    })
+);
+
+export const mountTripPastDimmingToggle = ({ hostEl, onEnabledChanged } = {}) => (
+    mountBooleanToggle({
+        hostEl,
+        className: 'settings-item-trip-past-dimming',
+        title: '班次过站淡化',
+        readEnabled: readTripPastDimmingEnabled,
+        writeEnabled: writeTripPastDimmingEnabled,
         onEnabledChanged
     })
 );

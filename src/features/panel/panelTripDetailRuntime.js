@@ -28,6 +28,44 @@ const buildSegmentsWithIdentity_panelTripDetailPreviewPayloadBuilder = (segments
     toText = defaultToText_panelTripDetailPreviewPayloadBuilder
 } = {}) => segments.map((seg) => withTripPreviewLineIdentity(seg, { toText }));
 
+const collectPastStationIds_panelTripDetailPreviewPayloadBuilder = ({
+    rows = [],
+    stationIds = [],
+    toText = defaultToText_panelTripDetailPreviewPayloadBuilder
+} = {}) => {
+    const ids = Array.isArray(stationIds)
+        ? stationIds.map((value) => toText(value)).filter(Boolean)
+        : [];
+    if (!ids.length || !Array.isArray(rows) || !rows.length) return [];
+
+    const out = new Set();
+    for (const row of rows) {
+        const stationId = toText(row?.stationId);
+        if (!stationId || row?.isPast !== true) continue;
+        out.add(stationId);
+    }
+    return ids.filter((stationId) => out.has(stationId));
+};
+
+const collectCurrentStationIds_panelTripDetailPreviewPayloadBuilder = ({
+    rows = [],
+    stationIds = [],
+    toText = defaultToText_panelTripDetailPreviewPayloadBuilder
+} = {}) => {
+    const ids = Array.isArray(stationIds)
+        ? stationIds.map((value) => toText(value)).filter(Boolean)
+        : [];
+    if (!ids.length || !Array.isArray(rows) || !rows.length) return [];
+
+    const out = new Set();
+    for (const row of rows) {
+        const stationId = toText(row?.stationId);
+        if (!stationId || row?.isCurrent !== true) continue;
+        out.add(stationId);
+    }
+    return ids.filter((stationId) => out.has(stationId));
+};
+
 const buildPreviewSegmentsFromSegmentsWithPast_panelTripDetailPreviewPayloadBuilder = ({
     forcedTypeColor = '',
     kindFilter,
@@ -42,6 +80,16 @@ const buildPreviewSegmentsFromSegmentsWithPast_panelTripDetailPreviewPayloadBuil
             ? seg.rows.map((row) => toText(row?.stationId)).filter(Boolean)
             : [];
         if (stationIds.length < 2) continue;
+        const pastStationIds = collectPastStationIds_panelTripDetailPreviewPayloadBuilder({
+            rows: seg?.rows,
+            stationIds,
+            toText
+        });
+        const currentStationIds = collectCurrentStationIds_panelTripDetailPreviewPayloadBuilder({
+            rows: seg?.rows,
+            stationIds,
+            toText
+        });
         out.push({
             kind: toText(seg?.kind || kindFilter),
             lineId: toText(seg?.lineId),
@@ -50,6 +98,8 @@ const buildPreviewSegmentsFromSegmentsWithPast_panelTripDetailPreviewPayloadBuil
             offsetLineId: toText(seg?.offsetLineId || seg?.line_offset_id),
             d: toText(seg?.d),
             stationIds,
+            ...(pastStationIds.length ? { pastStationIds } : {}),
+            ...(currentStationIds.length ? { currentStationIds } : {}),
             typeColor: toText(forcedTypeColor || seg?.typeColor || payloadTypeColor)
         });
     }
@@ -77,14 +127,29 @@ export const buildPanelTripPreviewScheduleArgs = ({
 } = {}) => {
     const addPreviewLineIdentity = (seg) => withTripPreviewLineIdentity(seg, { toText });
 
-    const payloadSegments = buildSegmentsWithIdentity_panelTripDetailPreviewPayloadBuilder((segmentsWithPast || []).map((seg) => ({
-        kind: seg.kind,
-        lineId: toText(seg.lineId),
-        r: toText(seg.r || seg.lineId),
-        d: toText(seg?.d || trip?.d),
-        stationIds: (seg.rows || []).map((row) => toText(row.stationId)).filter(Boolean),
-        typeColor: throughCategoryColor || toText(seg.typeColor)
-    })), { toText });
+    const payloadSegments = buildSegmentsWithIdentity_panelTripDetailPreviewPayloadBuilder((segmentsWithPast || []).map((seg) => {
+        const stationIds = (seg.rows || []).map((row) => toText(row.stationId)).filter(Boolean);
+        const pastStationIds = collectPastStationIds_panelTripDetailPreviewPayloadBuilder({
+            rows: seg?.rows,
+            stationIds,
+            toText
+        });
+        const currentStationIds = collectCurrentStationIds_panelTripDetailPreviewPayloadBuilder({
+            rows: seg?.rows,
+            stationIds,
+            toText
+        });
+        return {
+            kind: seg.kind,
+            lineId: toText(seg.lineId),
+            r: toText(seg.r || seg.lineId),
+            d: toText(seg?.d || trip?.d),
+            stationIds,
+            ...(pastStationIds.length ? { pastStationIds } : {}),
+            ...(currentStationIds.length ? { currentStationIds } : {}),
+            typeColor: throughCategoryColor || toText(seg.typeColor)
+        };
+    }), { toText });
 
     const payloadChainLineIds = payloadSegments
         .map((seg) => toText(seg?.r || seg?.lineId))
@@ -121,6 +186,16 @@ export const buildPanelTripPreviewScheduleArgs = ({
         const mainSegStationIds = Array.isArray(mainSegForPreview?.rows)
             ? mainSegForPreview.rows.map((row) => toText(row?.stationId)).filter(Boolean)
             : [];
+        const mainSegPastStationIds = collectPastStationIds_panelTripDetailPreviewPayloadBuilder({
+            rows: mainSegForPreview?.rows,
+            stationIds: mainSegStationIds,
+            toText
+        });
+        const mainSegCurrentStationIds = collectCurrentStationIds_panelTripDetailPreviewPayloadBuilder({
+            rows: mainSegForPreview?.rows,
+            stationIds: mainSegStationIds,
+            toText
+        });
         const mainSegLineId = toText(mainSegForPreview?.lineId || payload?.mainLineId || payload?.selectedLineId);
         const mainSegDir = toText(mainSegForPreview?.d || trip?.d);
 
@@ -145,6 +220,16 @@ export const buildPanelTripPreviewScheduleArgs = ({
             const laneStationIds = Array.isArray(lane?.rows)
                 ? lane.rows.map((row) => toText(row?.stationId)).filter(Boolean)
                 : [];
+            const lanePastStationIds = collectPastStationIds_panelTripDetailPreviewPayloadBuilder({
+                rows: lane?.rows,
+                stationIds: laneStationIds,
+                toText
+            });
+            const laneCurrentStationIds = collectCurrentStationIds_panelTripDetailPreviewPayloadBuilder({
+                rows: lane?.rows,
+                stationIds: laneStationIds,
+                toText
+            });
             const laneLineId = toText(lane?.lineId || mainSegLineId);
             const laneDir = toText(lane?.d || mainSegDir);
             const lanePreviewSegments = Array.isArray(lane?.previewSegments)
@@ -171,6 +256,8 @@ export const buildPanelTripPreviewScheduleArgs = ({
                         r: laneLineId,
                         d: laneDir,
                         stationIds: laneStationIds,
+                        ...(lanePastStationIds.length ? { pastStationIds: lanePastStationIds } : {}),
+                        ...(laneCurrentStationIds.length ? { currentStationIds: laneCurrentStationIds } : {}),
                         typeColor: toText(throughBranchTypeColor || lane?.typeColor || payload?.typeColor)
                     }));
                 }
@@ -181,6 +268,8 @@ export const buildPanelTripPreviewScheduleArgs = ({
                         r: toText(mainSegForPreview?.r || mainSegLineId),
                         d: mainSegDir,
                         stationIds: mainSegStationIds,
+                        ...(mainSegPastStationIds.length ? { pastStationIds: mainSegPastStationIds } : {}),
+                        ...(mainSegCurrentStationIds.length ? { currentStationIds: mainSegCurrentStationIds } : {}),
                         typeColor: toText(throughBranchTypeColor || payload?.typeColor)
                     }));
                 }
@@ -194,6 +283,8 @@ export const buildPanelTripPreviewScheduleArgs = ({
                         r: toText(mainSegForPreview?.r || mainSegLineId),
                         d: mainSegDir,
                         stationIds: mainSegStationIds,
+                        ...(mainSegPastStationIds.length ? { pastStationIds: mainSegPastStationIds } : {}),
+                        ...(mainSegCurrentStationIds.length ? { currentStationIds: mainSegCurrentStationIds } : {}),
                         typeColor: toText(throughBranchTypeColor || payload?.typeColor)
                     }));
                 }
@@ -215,6 +306,8 @@ export const buildPanelTripPreviewScheduleArgs = ({
                         r: laneLineId,
                         d: laneDir,
                         stationIds: laneStationIds,
+                        ...(lanePastStationIds.length ? { pastStationIds: lanePastStationIds } : {}),
+                        ...(laneCurrentStationIds.length ? { currentStationIds: laneCurrentStationIds } : {}),
                         typeColor: toText(throughBranchTypeColor || lane?.typeColor || payload?.typeColor)
                     }));
                 }

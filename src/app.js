@@ -44,6 +44,7 @@ import { Menu, buildMenuModel } from './features/menu/menu.js';
 import { createMobileMenu } from './features/menu/mobileMenu.js';
 import { getGlobalTouchTapGuard } from './map/touchTapGuard.js';
 import { createPanel } from './features/panel/panel.js';
+import { TRIP_PREVIEW_PAST_COLOR } from './features/route/tripPreviewBuilder.js';
 import { getGlobalTimetableCache } from './lib/timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './map/fullscreen.js';
 import { extractShortestLoopSegmentByIndex, isLoopDirection } from './lib/trip-preview.js';
@@ -84,6 +85,7 @@ import {
     readLineNameLabelsEnabled,
     readStationOffsetMode,
     readTimetableViewMode,
+    readTripPastDimmingEnabled,
     writeTimetableViewMode,
     writeStationOffsetMode
 } from './services/appSettings.js';
@@ -391,6 +393,7 @@ const initMapApp = async () => {
     let clearTripPathPreview = () => {};
     let fitMobileTripBounds = (_payload, _options = {}) => false;
     let tripPreviewStationIds = null; // Set<string> | null
+    let tripPreviewPastStationIds = null; // Set<string> | null
     let tripPreviewLineIds = null; // Set<string> | null
     let tripPreviewLineNameLabelsData = null;
     let tripPreviewStationOverrideColor = '';
@@ -409,6 +412,9 @@ const initMapApp = async () => {
     let hoverPreviewEnabled = readHoverPreviewEnabled();
     let adaptiveViewportEnabled = readAdaptiveViewportEnabled();
     let lineNameLabelsEnabled = readLineNameLabelsEnabled();
+    let tripPastDimmingEnabled = readTripPastDimmingEnabled();
+    let routePreviewControllerRef = null;
+    let lastTripPreviewPayload = null;
     let multiSelectModeEnabled = window.__TokyoRailMultiSelectEnabled === true;
     let hoverPreviewEnabledBeforeMultiSelect = hoverPreviewEnabled;
     let hoverPreviewToggleController = {
@@ -509,6 +515,7 @@ const initMapApp = async () => {
         hoverFeature ? hoverFeature.isEnabled() : hoverPreviewEnabled !== false
     );
     const isAdaptiveViewportEnabled = () => adaptiveViewportEnabled !== false;
+    const isTripPastDimmingEnabled = () => tripPastDimmingEnabled !== false;
     const applyHoverPreviewEnabled = (enabled) => {
         if (hoverFeature) {
             hoverFeature.setEnabled(enabled);
@@ -525,6 +532,20 @@ const initMapApp = async () => {
     const applyLineNameLabelsEnabled = (enabled) => {
         lineNameLabelsEnabled = enabled !== false;
         mapEngine.setLayerVisibility?.('line-name-labels-layer', lineNameLabelsEnabled);
+    };
+    const applyTripPastDimmingEnabled = (enabled) => {
+        tripPastDimmingEnabled = enabled !== false;
+        if (tripPreviewActive) {
+            if (isMultiSelectModeEnabled()) {
+                routePreviewControllerRef?.rebuildTripPreviewFromMultiSelections?.('none');
+            } else if (lastTripPreviewPayload) {
+                routePreviewControllerRef?.previewTripPath?.(lastTripPreviewPayload, { fitMode: 'none' });
+            } else {
+                applyStationThemePaintToMapLayers();
+            }
+            return;
+        }
+        applyStationThemePaintToMapLayers();
     };
 
     const applyStationOffsetMode = (mode, { persistStorage = true } = {}) => {
@@ -1843,18 +1864,25 @@ const initMapApp = async () => {
     const getTripPreviewStationColorOverrides = () => {
         if (!tripPreviewActive) return null;
         const entries = routeFeature?.getTripPreviewSelectionEntries?.();
-        if (!Array.isArray(entries) || !entries.length) return null;
 
         const out = new Map();
-        for (const rawEntry of entries) {
-            const entry = Array.isArray(rawEntry) ? rawEntry[1] : rawEntry;
-            if (!entry || entry.hidden === true) continue;
-            const payload = entry.payload || {};
-            const color = resolveTripPreviewStationOverrideColor(payload, entry.source);
-            if (!color) continue;
-            for (const stationId of collectTripPreviewPayloadStationIds(payload)) {
-                if (!stationId || out.has(stationId)) continue;
-                out.set(stationId, color);
+        if (Array.isArray(entries) && entries.length) {
+            for (const rawEntry of entries) {
+                const entry = Array.isArray(rawEntry) ? rawEntry[1] : rawEntry;
+                if (!entry || entry.hidden === true) continue;
+                const payload = entry.payload || {};
+                const color = resolveTripPreviewStationOverrideColor(payload, entry.source);
+                if (!color) continue;
+                for (const stationId of collectTripPreviewPayloadStationIds(payload)) {
+                    if (!stationId || out.has(stationId)) continue;
+                    out.set(stationId, color);
+                }
+            }
+        }
+        if (isTripPastDimmingEnabled() && tripPreviewPastStationIds instanceof Set && tripPreviewPastStationIds.size) {
+            for (const stationId of tripPreviewPastStationIds) {
+                const id = String(stationId || '').trim();
+                if (id) out.set(id, TRIP_PREVIEW_PAST_COLOR);
             }
         }
         return out.size ? out : null;
@@ -1974,6 +2002,22 @@ const initMapApp = async () => {
             const sid = String(item?.stationId ?? item?.props?.id ?? '').trim();
             const isSelected = hasSelected && !!sid && selectedIds.has(sid);
             el.classList.toggle('station-selected-current-label', isSelected);
+        }
+    };
+
+    const updateTripPreviewPastStationLabelClass = () => {
+        const pastIds = tripPreviewActive && isTripPastDimmingEnabled() && tripPreviewPastStationIds instanceof Set
+            ? tripPreviewPastStationIds
+            : null;
+        const hasPastIds = !!pastIds && pastIds.size > 0;
+        const labels = Array.isArray(stationLabels) ? stationLabels : [];
+
+        for (const item of labels) {
+            const el = item?.el;
+            if (!(el instanceof HTMLElement)) continue;
+            const sid = String(item?.stationId ?? item?.props?.id ?? '').trim();
+            const isPast = hasPastIds && !!sid && pastIds.has(sid);
+            el.classList.toggle('station-trip-preview-past-label', isPast);
         }
     };
 
@@ -2545,6 +2589,7 @@ const initMapApp = async () => {
 
     function applyStationThemePaintToMapLayers() {
         const dark = isDarkThemeActive();
+        updateTripPreviewPastStationLabelClass();
         const overrideColor = String(tripPreviewStationOverrideColor || '').trim();
         const tripPreviewStationLayerIds = tripPreviewActive
             ? getVisibleStationIdsForTripPreviewStationLayer()
@@ -2574,7 +2619,17 @@ const initMapApp = async () => {
                 'circle-stroke-color': stationCircleStrokeColorPaint({ isDarkThemeActive: dark })
             }
         });
-        mapEngine.applyPaintProperties?.('station-labels-layer', buildStationLabelsLayerPaint({ isDark: dark }));
+        const stationLabelPaint = buildStationLabelsLayerPaint({ isDark: dark });
+        const pastStationLabelIds = tripPreviewActive && isTripPastDimmingEnabled() && tripPreviewPastStationIds instanceof Set
+            ? Array.from(tripPreviewPastStationIds).map(String).filter(Boolean)
+            : [];
+        if (pastStationLabelIds.length) {
+            const isPastStationLabelExpr = pastStationLabelIds.length === 1
+                ? ['==', ['get', 'id'], pastStationLabelIds[0]]
+                : ['in', ['get', 'id'], ['literal', pastStationLabelIds]];
+            stationLabelPaint['text-color'] = ['case', isPastStationLabelExpr, TRIP_PREVIEW_PAST_COLOR, stationLabelPaint['text-color']];
+        }
+        mapEngine.applyPaintProperties?.('station-labels-layer', stationLabelPaint);
         mapEngine.applyPaintProperties?.('line-name-labels-layer', buildLineNameLabelsLayerPaint({ isDark: dark }));
         mapEngine.setLayoutProperty?.(
             'station-labels-layer',
@@ -3477,6 +3532,7 @@ const initMapApp = async () => {
         onDesktopLayoutEnabledChanged: reloadForDesktopLayoutPreference,
         onHoverPreviewEnabledChanged: applyHoverPreviewEnabled,
         onLineNameLabelsEnabledChanged: applyLineNameLabelsEnabled,
+        onTripPastDimmingEnabledChanged: applyTripPastDimmingEnabled,
         onStationLabelModeChanged: (mode) => {
             stationLabelMode = mode;
         },
@@ -4064,6 +4120,7 @@ const initMapApp = async () => {
                     const units = Number(lineOffsetUnitsById.get(id));
                     return Number.isFinite(units) ? units : 0;
                 },
+                isTripPastDimmingEnabled,
                 distMeters,
                 extendBBox,
                 isDebugLoopEnabled: () => {
@@ -4084,20 +4141,24 @@ const initMapApp = async () => {
                 source,
                 stationOverrideColor,
                 stationIds,
+                pastStationIds,
                 lineIds
             } = {}) => {
                 tripPreviewActive = !!active;
                 if (source !== undefined) tripPreviewActiveSource = String(source || '');
                 tripPreviewStationOverrideColor = String(stationOverrideColor || '');
                 tripPreviewStationIds = stationIds || null;
+                tripPreviewPastStationIds = pastStationIds || null;
                 tripPreviewLineIds = lineIds || null;
             },
             applyTripPreviewInactiveState: () => {
                 tripPreviewActive = false;
                 tripPreviewActiveSource = '';
                 tripPreviewStationIds = null;
+                tripPreviewPastStationIds = null;
                 tripPreviewLineIds = null;
                 tripPreviewStationOverrideColor = '';
+                lastTripPreviewPayload = null;
             },
             getTripPreviewActiveSource: () => tripPreviewActiveSource,
             endpointPopups: routeEndpointPopups,
@@ -4124,8 +4185,13 @@ const initMapApp = async () => {
             }
         });
 
-        clearTripPathPreview = routePreviewController.clearTripPathPreview;
+        routePreviewControllerRef = routePreviewController;
+        clearTripPathPreview = (options = {}) => {
+            routePreviewController.clearTripPathPreview(options);
+            lastTripPreviewPayload = null;
+        };
         previewTripPath = (payload, options = {}) => {
+            lastTripPreviewPayload = payload || null;
             routePreviewController.previewTripPath(payload, options);
             fitMobileTripBoundsIfNeeded(payload, options);
         };

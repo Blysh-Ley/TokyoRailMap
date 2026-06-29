@@ -5,6 +5,7 @@ export const BASEMAP_STORAGE_KEY = 'tokyorail.basemap.mode';
 export const AUTO_UPDATE_CHECK_STORAGE_KEY = 'tokyorail.auto.update.check.enabled';
 export const TIMETABLE_VIEW_STORAGE_KEY = 'tokyorail.timetable.view.mode';
 export const HOVER_PREVIEW_STORAGE_KEY = 'tokyorail.hover.preview.enabled';
+export const TRIP_PAST_DIMMING_STORAGE_KEY = 'tokyorail.trip.past.dimming.enabled';
 export const ADAPTIVE_VIEWPORT_STORAGE_KEY = 'tokyorail.adaptive.viewport.enabled';
 export const LINE_NAME_LABELS_STORAGE_KEY = 'tokyorail.line.name.labels.enabled';
 export const STATION_OFFSET_MODE_STORAGE_KEY = 'tokyorail.station.offset.mode';
@@ -96,6 +97,19 @@ export const readHoverPreviewEnabled = () => {
 export const writeHoverPreviewEnabled = (enabled) => {
     const next = enabled !== false;
     setLocalStorageValue(HOVER_PREVIEW_STORAGE_KEY, next ? '1' : '0');
+    return next;
+};
+
+export const readTripPastDimmingEnabled = () => {
+    const raw = String(getLocalStorageValue(TRIP_PAST_DIMMING_STORAGE_KEY, '1')).trim().toLowerCase();
+    if (raw === '0' || raw === 'false') return false;
+    if (raw === '1' || raw === 'true') return true;
+    return true;
+};
+
+export const writeTripPastDimmingEnabled = (enabled) => {
+    const next = enabled !== false;
+    setLocalStorageValue(TRIP_PAST_DIMMING_STORAGE_KEY, next ? '1' : '0');
     return next;
 };
 
