@@ -599,7 +599,7 @@ export const buildPanelTimetableGridHtmlForDirection = ({
                 const rowNoMarkModes = rowTerminalNames
                     .map((name) => toText(terminalNoMarkModeByName.get(name)))
                     .filter(Boolean);
-                const shouldHideDestAbbr = rowNoMarkModes.length > 0
+                const shouldHideDestAbbr = expanded && rowNoMarkModes.length > 0
                     && !(rowHasSplitByNtMultiDest && rowNoMarkModes.some((mode) => mode === 'dual'));
                 const destAbbr = shouldHideDestAbbr
                     ? ''
