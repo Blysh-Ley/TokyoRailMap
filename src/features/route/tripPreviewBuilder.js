@@ -1,6 +1,11 @@
 import { getPairMapValue } from '../../domain/alternateLineMembership.js';
 
 export const TRIP_PREVIEW_PAST_COLOR = '#b8bec8';
+export const TRIP_PREVIEW_PAST_DARK_COLOR = '#3f454d';
+
+export const resolveTripPreviewPastColor = ({ isDarkThemeActive = false } = {}) => (
+    isDarkThemeActive === true ? TRIP_PREVIEW_PAST_DARK_COLOR : TRIP_PREVIEW_PAST_COLOR
+);
 
 export const createTripPreviewBuilder = ({
     stationCoordByIdBase,
@@ -19,6 +24,7 @@ export const createTripPreviewBuilder = ({
     extendBBox,
     getLineOffsetUnits = () => 0,
     isTripPastDimmingEnabled = () => true,
+    isDarkThemeActive = () => false,
     isDebugLoopEnabled
 } = {}) => {
     const resolveAlternateStationId = (stationId, sourceLineId = '') => {
@@ -163,6 +169,7 @@ export const createTripPreviewBuilder = ({
         const segments = allowNt ? allSegments : allSegments.filter((s) => String(s?.kind) !== 'nt');
         const payloadTypeColor = String(payload?.typeColor || '').trim();
         const shouldDimPastTripStops = isTripPastDimmingEnabled?.() !== false;
+        const pastColor = resolveTripPreviewPastColor({ isDarkThemeActive: isDarkThemeActive?.() === true });
         const getPastStationIdSet = (seg) => new Set(
             (shouldDimPastTripStops && Array.isArray(seg?.pastStationIds) ? seg.pastStationIds : [])
                 .map((value) => String(value || '').trim())
@@ -363,7 +370,7 @@ export const createTripPreviewBuilder = ({
                     && hasPastStation(segmentPastStationIds, toId)
                 );
                 const pairColor = pairIsPast
-                    ? TRIP_PREVIEW_PAST_COLOR
+                    ? pastColor
                     : resolvePairColor(seg, fromId, toId, segColor, lineId || routeLineId || pairGeometryLineId);
                 const alternateBoundary = pairIsPast
                     ? null
@@ -428,9 +435,9 @@ export const createTripPreviewBuilder = ({
                                 preserveLineDirection: true
                             });
                             const prevSegColor = bridgeIsPast
-                                ? TRIP_PREVIEW_PAST_COLOR
+                                ? pastColor
                                 : (resolveSegColor(prev, prevGeometryLineId || prevDisplayLineId) || segColor);
-                            const bridgeColor = bridgeIsPast ? TRIP_PREVIEW_PAST_COLOR : (segColor || prevSegColor);
+                            const bridgeColor = bridgeIsPast ? pastColor : (segColor || prevSegColor);
                             if (segA && segA.length >= 2) {
                                 pushLineFeature(segA, prevDisplayLineId, 'line', prevSegColor, {
                                     routeLineId: prevRouteLineId,
@@ -470,7 +477,7 @@ export const createTripPreviewBuilder = ({
                         } else {
                             const directDist = distMeters?.(a, b);
                             if (Number.isFinite(directDist) && directDist <= 3000) {
-                                pushLineFeature([a, b], lineId || prevDisplayLineId, 'connector', bridgeIsPast ? TRIP_PREVIEW_PAST_COLOR : segColor, {
+                                pushLineFeature([a, b], lineId || prevDisplayLineId, 'connector', bridgeIsPast ? pastColor : segColor, {
                                     routeLineId: routeLineId || prevRouteLineId,
                                     geometryLineId: geometryLineId || lineId || prevGeometryLineId || prevDisplayLineId,
                                     offsetLineId: offsetLineId || prevOffsetLineId,

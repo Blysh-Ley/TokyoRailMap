@@ -44,7 +44,7 @@ import { Menu, buildMenuModel } from './features/menu/menu.js';
 import { createMobileMenu } from './features/menu/mobileMenu.js';
 import { getGlobalTouchTapGuard } from './map/touchTapGuard.js';
 import { createPanel } from './features/panel/panel.js';
-import { TRIP_PREVIEW_PAST_COLOR } from './features/route/tripPreviewBuilder.js';
+import { resolveTripPreviewPastColor } from './features/route/tripPreviewBuilder.js';
 import { getGlobalTimetableCache } from './lib/timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './map/fullscreen.js';
 import { extractShortestLoopSegmentByIndex, isLoopDirection } from './lib/trip-preview.js';
@@ -1880,9 +1880,10 @@ const initMapApp = async () => {
             }
         }
         if (isTripPastDimmingEnabled() && tripPreviewPastStationIds instanceof Set && tripPreviewPastStationIds.size) {
+            const pastColor = resolveTripPreviewPastColor({ isDarkThemeActive: isDarkThemeActive() });
             for (const stationId of tripPreviewPastStationIds) {
                 const id = String(stationId || '').trim();
-                if (id) out.set(id, TRIP_PREVIEW_PAST_COLOR);
+                if (id) out.set(id, pastColor);
             }
         }
         return out.size ? out : null;
@@ -2627,7 +2628,8 @@ const initMapApp = async () => {
             const isPastStationLabelExpr = pastStationLabelIds.length === 1
                 ? ['==', ['get', 'id'], pastStationLabelIds[0]]
                 : ['in', ['get', 'id'], ['literal', pastStationLabelIds]];
-            stationLabelPaint['text-color'] = ['case', isPastStationLabelExpr, TRIP_PREVIEW_PAST_COLOR, stationLabelPaint['text-color']];
+            const pastColor = resolveTripPreviewPastColor({ isDarkThemeActive: dark });
+            stationLabelPaint['text-color'] = ['case', isPastStationLabelExpr, pastColor, stationLabelPaint['text-color']];
         }
         mapEngine.applyPaintProperties?.('station-labels-layer', stationLabelPaint);
         mapEngine.applyPaintProperties?.('line-name-labels-layer', buildLineNameLabelsLayerPaint({ isDark: dark }));
@@ -4121,6 +4123,7 @@ const initMapApp = async () => {
                     return Number.isFinite(units) ? units : 0;
                 },
                 isTripPastDimmingEnabled,
+                isDarkThemeActive,
                 distMeters,
                 extendBBox,
                 isDebugLoopEnabled: () => {

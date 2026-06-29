@@ -6864,6 +6864,10 @@ html[data-theme="dark"] .reverse-color {
     color: #b8bec8;
 }
 
+html[data-theme='dark'] .station-label.station-trip-preview-past-label {
+    color: #3f454d;
+}
+
 html[data-theme='dark'] .station-label.station-selected-current-label {
     border-color: #eee;
 }

@@ -295,6 +295,11 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
 
     const toText = (v) => String(v ?? '').trim();
     const TRIP_PREVIEW_PAST_EXPORT_COLOR = '#b8bec8';
+    const TRIP_PREVIEW_PAST_DARK_EXPORT_COLOR = '#3f454d';
+    const TRIP_PREVIEW_PAST_EXPORT_COLORS = new Set([
+        TRIP_PREVIEW_PAST_EXPORT_COLOR,
+        TRIP_PREVIEW_PAST_DARK_EXPORT_COLOR
+    ]);
 
     const normalizeArrayLike = (value) => {
         if (Array.isArray(value)) return value;
@@ -2126,7 +2131,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         const lineFeatures = (Array.isArray(normalizedBuilt.lineFc?.features) ? normalizedBuilt.lineFc.features : []).map((feature) => {
             const props = feature?.properties || {};
             const color = String(props.color || '').trim().toLowerCase();
-            const wasPast = props.isPast === true || color === TRIP_PREVIEW_PAST_EXPORT_COLOR;
+            const wasPast = props.isPast === true || TRIP_PREVIEW_PAST_EXPORT_COLORS.has(color);
             if (!wasPast) return feature;
 
             const nextProps = {
