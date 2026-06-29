@@ -488,6 +488,8 @@ const setupRouteMapUi = () => {
     root.appendChild(body);
     document.body.appendChild(root);
     document.body.appendChild(transferHoverPortal);
+    root.style.setProperty('--mobile-sheet-peek-height', `${DEFAULT_MOBILE_SHEET_PEEK_PX}px`);
+    root.style.setProperty('--mobile-sheet-covered-offset', '0px');
 
     let pinned = false;
     let hoverInsidePanel = false;
@@ -543,6 +545,10 @@ const setupRouteMapUi = () => {
         if (state === 'hidden') return getMobileSheetHeight();
         return getMobileSheetOffsetForState(state, getMobileSheetSnapOptions());
     };
+    const setMobileSheetCoveredOffset = (offset) => {
+        const value = Math.max(0, Math.round(Number(offset) || 0));
+        root.style.setProperty('--mobile-sheet-covered-offset', `${value}px`);
+    };
 
     const applyMobileSheetState = (state = mobileSheetState, { transition = true } = {}) => {
         mobileSheetState = state === 'expanded'
@@ -551,17 +557,24 @@ const setupRouteMapUi = () => {
         root.style.transition = transition ? '' : 'none';
         if (!isMobilePanelPlacementActive()) {
             root.removeAttribute('data-route-map-mobile-state');
+            setMobileSheetCoveredOffset(0);
             return;
         }
         root.setAttribute('data-route-map-mobile-state', mobileSheetState);
         if (mobileSheetState === 'expanded') {
+            setMobileSheetCoveredOffset(0);
             root.style.transform = 'translateY(0)';
         } else if (mobileSheetState === 'hidden') {
+            setMobileSheetCoveredOffset(0);
             root.style.transform = 'translateY(calc(100% + 24px))';
         } else if (mobileSheetState === 'collapsed') {
-            root.style.transform = `translateY(${getMobileSheetOffset('collapsed')}px)`;
+            const offset = getMobileSheetOffset('collapsed');
+            setMobileSheetCoveredOffset(offset);
+            root.style.transform = `translateY(${offset}px)`;
         } else {
-            root.style.transform = `translateY(${getMobileSheetOffset('half')}px)`;
+            const offset = getMobileSheetOffset('half');
+            setMobileSheetCoveredOffset(offset);
+            root.style.transform = `translateY(${offset}px)`;
         }
     };
 
@@ -599,6 +612,7 @@ const setupRouteMapUi = () => {
             clientY: Number(event?.clientY) || mobileDragState.session.currentY,
             nowMs: Number(event?.timeStamp) || undefined
         });
+        setMobileSheetCoveredOffset(mobileDragState.session.currentOffset);
         root.style.transform = `translateY(${mobileDragState.session.currentOffset}px)`;
         event?.preventDefault?.();
         event?.stopPropagation?.();
@@ -986,6 +1000,7 @@ const setupRouteMapUi = () => {
         root.style.height = '';
         root.style.maxHeight = '';
         root.style.transform = '';
+        setMobileSheetCoveredOffset(0);
         const panelW = root.offsetWidth || 420;
         const panelH = root.offsetHeight || 260;
         const pad = 12;
