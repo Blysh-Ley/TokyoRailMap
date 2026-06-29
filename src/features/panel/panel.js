@@ -931,6 +931,15 @@ export function createPanel(options = {}) {
 
     const isNoMarkTypeName = (typeNameRaw) => NO_MARK_TYPE_NAMES.has(toText(typeNameRaw));
 
+    const hasPanelTripNmMarker = (trip) => {
+        if (!trip || typeof trip !== 'object') return false;
+        if (!Object.prototype.hasOwnProperty.call(trip, 'nm')) return false;
+        const nm = trip.nm;
+        if (Array.isArray(nm)) return nm.length > 0;
+        if (nm && typeof nm === 'object') return Object.keys(nm).length > 0;
+        return toText(nm) !== '';
+    };
+
     const resolveTypeBaseName = (typeNameRaw) => {
         const typeName = toText(typeNameRaw);
         if (!typeName) return '';
@@ -1005,7 +1014,7 @@ export function createPanel(options = {}) {
 
         for (const row of rows) {
             const typeName = toText(row?.typeName);
-            if (typeName) {
+            if (typeName && !row?.hasNm) {
                 typeCount.set(typeName, (typeCount.get(typeName) || 0) + 1);
                 if (!typeColorByName.has(typeName)) {
                     const c = resolveTrainTypeColorForTheme(row?.typeColor);
@@ -2144,12 +2153,13 @@ export function createPanel(options = {}) {
 
                 const typeId = toText(trip?.y);
                 const isTypeExcludedForSummary = isExcludedLineType(lineId, typeId);
+                const hasNm = hasPanelTripNmMarker(trip);
                 let typeName = typeId ? (trainTypesIndex.get(typeId) || typeId) : '';
                 let typeColor = typeId ? resolveTrainTypeColorForTheme(trainTypeColorIndex.get(typeId)) : '';
 
 
                 const typeBaseName = resolveTypeBaseName(typeName);
-                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary) {
+                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary && !hasNm) {
                     typeCountByName.set(typeName, (Number(typeCountByName.get(typeName) || 0)) + 1);
                     if (!allTypeColorByName.has(typeName)) {
                         allTypeColorByName.set(typeName, toText(typeColor));
@@ -2158,7 +2168,7 @@ export function createPanel(options = {}) {
 
                 const tt = Array.isArray(trip?.tt) ? trip.tt : [];
                 if (!tt.length) continue;
-                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary) {
+                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary && !hasNm) {
                     if (!typeStopStationSetByName.has(typeName)) {
                         typeStopStationSetByName.set(typeName, new Set());
                     }
@@ -2181,7 +2191,7 @@ export function createPanel(options = {}) {
                     return sg?.get?.(currentSid)?.includes?.(stationKey);
                 });
 
-                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary) {
+                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary && !hasNm) {
                     if (stop) {
                         stopTypeNameSet.add(typeName);
                         if (!stopTypeColorByName.has(typeName) && toText(typeColor)) {
@@ -2309,6 +2319,7 @@ export function createPanel(options = {}) {
                     typeName,
                     typeColor,
                     specialNames,
+                    hasNm,
                     hasNameMeta: Array.isArray(trip?.nm) && trip.nm.length > 0,
                     originId,
                     originName,

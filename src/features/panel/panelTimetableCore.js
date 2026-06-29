@@ -524,6 +524,7 @@ const mergeRowMetadata_panelTimetableViewModel = (primary, secondary, {
         ...(Array.isArray(out.specialNames) ? out.specialNames : []),
         ...(Array.isArray(other.specialNames) ? other.specialNames : [])
     ].map((x) => toText(x)).filter(Boolean)));
+    out.hasNm = !!(out.hasNm || other.hasNm);
     out.hasNameMeta = !!(out.hasNameMeta || other.hasNameMeta);
     out.originIdsCount = Math.max(Number(out.originIdsCount) || 0, Number(other.originIdsCount) || 0);
     out.terminalIdsCount = Math.max(Number(out.terminalIdsCount) || 0, Number(other.terminalIdsCount) || 0);
