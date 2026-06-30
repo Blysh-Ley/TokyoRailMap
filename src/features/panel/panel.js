@@ -64,7 +64,7 @@ import {
     normalizeTimetableAllowedTripKeys,
     normalizeTimetableSourceLineIds
 } from './panelTimetableCore.js';
-import { buildAlternateTripSourceIndex } from '../../domain/alternateLineMembership.js';
+import { buildAlternateTripSourceIndex, getAlternateTripSources } from '../../domain/alternateLineMembership.js';
 import { toPanelServiceHourIndex } from './panelTimetableCore.js';
 import { postprocessPanelTimetableTrips } from './panelTimetablePostprocess.js';
 import { buildPanelTimetableGridHtmlForDirection } from './panelTimetableUi.js';
@@ -2050,6 +2050,38 @@ export function createPanel(options = {}) {
         getStationsIndex,
         toText
     });
+
+    const buildThroughServicePanelServingLineIds = async ({
+        currentServingLineIds = [],
+        displayLineIds = [],
+        stationId = ''
+    } = {}) => {
+        const baseLineIds = Array.from(new Set([
+            ...(Array.isArray(currentServingLineIds) ? currentServingLineIds : []),
+            ...(Array.isArray(displayLineIds) ? displayLineIds : [])
+        ].map((value) => toText(value)).filter(Boolean)));
+        if (!baseLineIds.length) return [];
+
+        const out = new Set(baseLineIds);
+        const alternateLineMembership = await getAlternateLineMembership();
+        const alternateSourcePlanIndex = buildAlternateTripSourceIndex(alternateLineMembership);
+        if (!alternateSourcePlanIndex?.size) return Array.from(out);
+
+        for (const lineId of baseLineIds) {
+            const lineStationId = toText(await resolveStationIdForLine(lineId)) || toText(stationId);
+            const sourceRequests = getAlternateTripSources(
+                alternateSourcePlanIndex,
+                lineStationId,
+                lineId
+            );
+            for (const source of sourceRequests) {
+                const sourceLineId = toText(source?.sourceLineId);
+                if (sourceLineId) out.add(sourceLineId);
+            }
+        }
+
+        return Array.from(out);
+    };
 
     const buildGridHintsHtml = ({ typeHints, terminalHints, specialHints }) => buildPanelTimetableGridHintsHtml({
         typeHints,
@@ -5511,9 +5543,16 @@ export function createPanel(options = {}) {
 
         let displayServingIds = stationRenderBootstrap.displayServingIds;
 
+        const throughServicePanelServingLineIds = await buildThroughServicePanelServingLineIds({
+            currentServingLineIds: currentStationServingIds,
+            displayLineIds: displayServingIds,
+            stationId: currentStationId
+        });
+        if (renderToken !== stationRenderToken) return;
+
         const throughPlan = await buildTemporaryThroughServicePanelPlan({
             stationId: currentStationId,
-            servingLineIds: Array.isArray(currentStationServingIds) ? currentStationServingIds.slice() : [],
+            servingLineIds: throughServicePanelServingLineIds,
             currentServiceDay,
             loadTimetableForLineId,
             resolveStationIdForLine,
