@@ -4082,9 +4082,9 @@ html[data-theme="dark"] .ms-show-icon-btn {
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--panel-line-accent);
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 1.15;
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1.5;
     pointer-events: none;
 }
 
