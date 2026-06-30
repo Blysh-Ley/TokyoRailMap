@@ -62,7 +62,12 @@ const resolveMapAdapter = (mapOrEngine, maplibregl) => {
 };
 
 const toText = (v) => String(v ?? '').trim();
-const stripParenText = (v) => toText(v).replace(/（.*?）|\(.*?\)/g, '').trim();
+const stripParenText = (v) => toText(v)
+    .replace(/（([^）]*)）|\(([^)]*)\)/g, (match, fullWidthText, halfWidthText) => {
+        const innerText = String(fullWidthText ?? halfWidthText ?? '');
+        return innerText.includes('支线') ? '' : match;
+    })
+    .trim();
 
 const getCleanLineTitle = (meta, fallbackId) => {
     const title = stripParenText(meta?.title?.['zh-Hans'] || meta?.title?.['zh-Hant'] || meta?.title?.ja || meta?.title?.en || '');
