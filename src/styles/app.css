@@ -7899,6 +7899,10 @@ html[data-theme='dark'] .journey-wait-select:focus {
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.22);
 }
 
+html[data-theme='dark'] .panel-timetable-row:not(.is-past) .panel-timetable-dest {
+    color: #eee;
+}
+
 html[data-theme='dark'] .panel-timetable-row.is-past,
 html[data-theme='dark'] .panel-timetable-row.is-past .panel-time-arrive,
 html[data-theme='dark'] .panel-timetable-row.is-past .panel-time-depart,
