@@ -4076,6 +4076,18 @@ html[data-theme="dark"] .ms-show-icon-btn {
     gap: 4px;
 }
 
+.panel-dir-through-service-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--panel-line-accent);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.15;
+    pointer-events: none;
+}
+
 .panel-dir-prefix,
 .panel-dir-suffix {
     flex: 0 0 auto;

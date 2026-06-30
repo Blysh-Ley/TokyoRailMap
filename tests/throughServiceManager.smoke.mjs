@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { buildMenuModel } from '../src/features/menu/menu.js';
+import { resolvePanelThroughServiceSetup } from '../src/features/panel/panelStation.js';
 import { analyzeBranchesForLine } from '../src/map/analyze_branch.js';
 import {
     buildTemporaryThroughServicePanelPlan,
@@ -9,6 +10,7 @@ import {
     getThroughServiceDisplayByCategory,
     initializeThroughServiceStationIndex,
     isSUStations,
+    THROUGH_SERVICE_CONFIGS,
     THROUGH_SERVICE_CONFIGS_OBJECT
 } from '../src/lib/throughServiceManager.js';
 
@@ -182,7 +184,7 @@ assert.deepEqual(THROUGH_SERVICE_CONFIGS_OBJECT.UenoTokyo.requiredThroughStation
     through: true
 });
 assert.equal(THROUGH_SERVICE_CONFIGS_OBJECT.UenoTokyo.excludeNmTrips, true);
-assert.deepEqual(THROUGH_SERVICE_CONFIGS_OBJECT.ShonanShinjuku.hiddenEntityLineIds, ['JR-East.ShonanShinjuku']);
+assert.deepEqual(THROUGH_SERVICE_CONFIGS_OBJECT.ShonanShinjuku.hiddenEntityLineIds, []);
 assert.deepEqual(THROUGH_SERVICE_CONFIGS_OBJECT.YokosukaSobuRapid.hiddenEntityLineIds, []);
 
 const yokosukaTrip = {
@@ -238,7 +240,7 @@ const yokosukaSobuPanelPlan = await buildTemporaryThroughServicePanelPlan({
 assert.ok(yokosukaSobuPanelPlan, 'Yokosuka/Sobu Rapid through panel plan should be generated');
 assert.ok(
     yokosukaSobuPanelPlan.displayServingIds.includes('TokyoRail.Temp.YokosukaSobuRapid'),
-    'Yokosuka/Sobu Rapid panel plan should display the virtual through-service row'
+    'raw Yokosuka/Sobu Rapid through panel plan may still contain the virtual through-service row'
 );
 assert.equal(
     yokosukaSobuPanelPlan.displayServingIds.includes('JR-East.Yokosuka'),
@@ -249,6 +251,35 @@ assert.equal(
     yokosukaSobuPanelPlan.displayServingIds.includes('JR-East.SobuRapid'),
     true,
     'Yokosuka/Sobu Rapid panel plan should keep the Sobu Rapid entity line when it is not hidden by config'
+);
+const yokosukaSobuPanelSetup = resolvePanelThroughServiceSetup({
+    throughPlan: yokosukaSobuPanelPlan,
+    displayServingIds: ['JR-East.Yokosuka', 'JR-East.SobuRapid'],
+    throughServiceConfigs: THROUGH_SERVICE_CONFIGS
+});
+assert.equal(
+    yokosukaSobuPanelSetup.displayServingIds.includes('TokyoRail.Temp.YokosukaSobuRapid'),
+    false,
+    'station panel setup should not display virtual through-service rows'
+);
+assert.deepEqual(
+    yokosukaSobuPanelSetup.displayServingIds,
+    ['JR-East.Yokosuka', 'JR-East.SobuRapid'],
+    'station panel setup should preserve current station entity lines'
+);
+assert.equal(
+    yokosukaSobuPanelSetup.throughServiceDirectionsByEntityLineId.get('JR-East.Yokosuka')?.[0]?.category,
+    'YokosukaSobuRapid',
+    'Yokosuka entity line should receive the through-service direction entry'
+);
+assert.equal(
+    yokosukaSobuPanelSetup.throughServiceDirectionsByEntityLineId.get('JR-East.SobuRapid')?.[0]?.throughLineId,
+    'TokyoRail.Temp.YokosukaSobuRapid',
+    'Sobu Rapid entity line should point at the virtual through-service direction identity'
+);
+assert.ok(
+    yokosukaSobuPanelSetup.throughServiceDirectionsByEntityLineId.get('JR-East.SobuRapid')?.[0]?.allowedTripKeys?.has?.('JR-East.SobuRapid.Test.Weekday'),
+    'through-service direction entries should carry allowed trip keys for entity-line filtering'
 );
 
 const outsideRefPanelPlan = await buildTemporaryThroughServicePanelPlan({
@@ -279,7 +310,7 @@ const menuModel = buildMenuModel({
     companyLogoMap: { 'JR-East': { zh: 'JR东日本' } }
 });
 const jrEastMenuLines = menuModel.companies.find((company) => company.companyName === 'JR-East')?.lines || [];
-assert.equal(jrEastMenuLines.some((line) => line.lineId === 'JR-East.ShonanShinjuku'), false);
+assert.equal(jrEastMenuLines.some((line) => line.lineId === 'JR-East.ShonanShinjuku'), true);
 assert.equal(jrEastMenuLines.some((line) => line.lineId === 'JR-East.Yokosuka'), true);
 assert.equal(jrEastMenuLines.some((line) => line.lineId === 'JR-East.SobuRapid'), true);
 assert.ok(jrEastMenuLines.some((line) => line.lineId === 'TokyoRail.Temp.YokosukaSobuRapid'));

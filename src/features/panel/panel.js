@@ -366,6 +366,7 @@ export function createPanel(options = {}) {
     let temporaryPanelLineMetaById = new Map();
     let temporaryPanelSourceLineIdsByDisplayLineId = new Map();
     let temporaryPanelAllowedTripKeysByDisplayLineId = new Map();
+    let throughServiceDirectionsByEntityLineId = new Map();
     const getLineMeta = (lineId) => {
         const id = toText(lineId);
         if (!id) return null;
@@ -1558,6 +1559,8 @@ export function createPanel(options = {}) {
         const sourceLineIds = (() => {
             const temp = temporaryPanelSourceLineIdsByDisplayLineId.get(toText(meta.lineId));
             if (Array.isArray(temp) && temp.length) return Array.from(new Set(temp.map(x => toText(x)).filter(Boolean)));
+            const fromMeta = Array.isArray(meta.sourceLineIds) ? meta.sourceLineIds : [];
+            if (fromMeta.length) return Array.from(new Set(fromMeta.map(x => toText(x)).filter(Boolean)));
             return [];
         })();
 
@@ -1566,7 +1569,7 @@ export function createPanel(options = {}) {
             : [];
 
         const targetId = toText(meta.lineId);
-        const throughServiceCategory = THROUGH_SERVICE_CONFIGS.find(info => 
+        const throughServiceCategory = toText(meta.throughServiceCategory) || THROUGH_SERVICE_CONFIGS.find(info => 
             info.lineId === targetId 
         )?.category || '';
 
@@ -1850,6 +1853,32 @@ export function createPanel(options = {}) {
         const labels = Array.from(ids).map(resolveThroughLineLabel).filter(Boolean);
         return labels.length ? `直通 ${labels.join('、')}` : '';
     };
+    const throughServicePanelDirectionDisplayNames = Object.freeze({});
+    const getThroughServiceDirectionKey = (dirKey) => {
+        const parts = toText(dirKey).split(':').map((part) => toText(part));
+        return parts[0] === 'through' ? parts[2] || '' : toText(dirKey);
+    };
+    const resolveThroughServicePanelDirectionDisplayName = ({
+        category = '',
+        dirKey = '',
+        rowsForDir = [],
+        stationId = ''
+    } = {}) => {
+        const cat = toText(category);
+        const station = toText(stationId);
+        const direction = getThroughServiceDirectionKey(dirKey);
+        const custom = throughServicePanelDirectionDisplayNames?.[cat]?.[station]?.[direction]
+            || throughServicePanelDirectionDisplayNames?.[cat]?.[station]?.default
+            || throughServicePanelDirectionDisplayNames?.[cat]?.default?.[direction]
+            || throughServicePanelDirectionDisplayNames?.[cat]?.default?.default;
+        if (toText(custom)) return toText(custom);
+
+        for (const row of Array.isArray(rowsForDir) ? rowsForDir : []) {
+            const name = toText(row?.throughServiceName);
+            if (name) return name;
+        }
+        return '';
+    };
     const loadTripByRefId = async (refId) => {
         const key = toText(refId);
         if (!key) return null;
@@ -2032,12 +2061,38 @@ export function createPanel(options = {}) {
         stationId,
         sourceLineIds,
         allowedTripKeySet,
+        throughServiceEntries,
         printStationName,
         printTitleText,
         timetableViewModeOverride
     }) => {
         const fallbackStationKey = toText(stationId);
         const allowedKeys = normalizeTimetableAllowedTripKeys(allowedTripKeySet, { toText });
+        const normalizeThroughServiceEntriesForLine = (entries) => (
+            (Array.isArray(entries) ? entries : [])
+                .map((entry) => {
+                    const allowedTripKeys = normalizeTimetableAllowedTripKeys(entry?.allowedTripKeys, { toText });
+                    const sourceLineIdsForEntry = Array.isArray(entry?.sourceLineIds)
+                        ? Array.from(new Set(entry.sourceLineIds.map((value) => toText(value)).filter(Boolean)))
+                        : [];
+                    return {
+                        category: toText(entry?.category),
+                        throughLineId: toText(entry?.throughLineId),
+                        sourceLineIds: sourceLineIdsForEntry,
+                        allowedTripKeys,
+                        lineName: toText(entry?.lineName),
+                        color: toText(entry?.color)
+                    };
+                })
+                .filter((entry) => (
+                    entry.category &&
+                    entry.throughLineId &&
+                    entry.sourceLineIds.length &&
+                    entry.allowedTripKeys.size
+                ))
+        );
+        const currentThroughServiceEntries = normalizeThroughServiceEntriesForLine(throughServiceEntries);
+        const throughTripKeySets = currentThroughServiceEntries.map((entry) => entry.allowedTripKeys);
         const effectiveTimetableViewMode = toText(timetableViewModeOverride) || timetableViewMode;
         const effectivePrintStationName = toText(printStationName) || toText(currentStationNameZh);
         const effectivePrintTitleText = toText(printTitleText) || toText(titleMain.textContent);
@@ -2119,6 +2174,7 @@ export function createPanel(options = {}) {
         const currentPrintServiceDayColorMode = currentServiceDay === 'SaturdayHoliday' ? 'complementary' : 'base';
         const rows = [];
         const rowsForPreview = [];
+        const rowsForThroughLabel = [];
         const printRowsByServiceDay = new Map(PRINT_SERVICE_DAYS.map((day) => [day, []]));
         const throughDirectionCache = new Map();
         const allTypeColorByName = new Map();
@@ -2135,20 +2191,33 @@ export function createPanel(options = {}) {
             sourceLineId,
             stationKey,
             serviceDay = currentServiceDay,
-            trackTypeSummary
+            trackTypeSummary,
+            allowedTripKeys = allowedKeys,
+            excludedTripKeySets = [],
+            throughServiceEntry = null
         }) => {
             const out = [];
             const list = Array.isArray(tripList) ? tripList : [];
             const targetServiceDay = toText(serviceDay) || currentServiceDay;
+            const activeAllowedKeys = allowedTripKeys instanceof Set ? allowedTripKeys : null;
+            const activeExcludedTripKeySets = (Array.isArray(excludedTripKeySets) ? excludedTripKeySets : [])
+                .filter((item) => item instanceof Set && item.size);
+            const throughCategory = toText(throughServiceEntry?.category);
+            const throughLineId = toText(throughServiceEntry?.throughLineId);
+            const throughLineName = toText(throughServiceEntry?.lineName);
             for (const trip of list) {
             // 按 timetables 的 id 最后一段区分工作日/休息日
                 const tripId = toText(trip?.id);
                 const tripServiceDay = parseTripServiceDayFromId(tripId);
                 if (tripServiceDay && tripServiceDay !== targetServiceDay) continue;
 
-                if (allowedKeys && allowedKeys.size) {
-                    const hit = buildTripFilterKeys(trip).some((k) => allowedKeys.has(k));
+                const tripFilterKeys = buildTripFilterKeys(trip);
+                if (activeAllowedKeys && activeAllowedKeys.size) {
+                    const hit = tripFilterKeys.some((k) => activeAllowedKeys.has(k));
                     if (!hit) continue;
+                }
+                if (activeExcludedTripKeySets.some((keySet) => tripFilterKeys.some((key) => keySet.has(key)))) {
+                    continue;
                 }
 
                 const typeId = toText(trip?.y);
@@ -2218,7 +2287,8 @@ export function createPanel(options = {}) {
                     ...ptRefs.map((x) => toText(x)),
                     ...ntRefs.map((x) => toText(x))
                 ].filter(Boolean)));
-                const tripDirectionCacheKey = `${toText(lineId)}||${toText(trip?.id) || toText(trip?.t)}`;
+                const directionDisplayLineId = throughLineId || lineId;
+                const tripDirectionCacheKey = `${toText(directionDisplayLineId)}||${toText(trip?.id) || toText(trip?.t)}`;
                 const isOriginStation = sg?.get?.(trip.tt?.[0]?.s)?.includes?.(stationKey) || trip.tt?.[0]?.s === stationKey;
                 const isTerminalStation = sg?.get?.(trip.tt.at(-1)?.s)?.includes?.(stationKey) || trip.tt.at(-1)?.s === stationKey;
                 const terminalThroughLineIds = collectTerminalThroughLineIds({
@@ -2232,7 +2302,7 @@ export function createPanel(options = {}) {
                 if (derivedThroughDirection === undefined) {
                     derivedThroughDirection = await derivePanelTripDetailThroughServiceDirection({
                         trip,
-                        displayLineId: lineId,
+                        displayLineId: directionDisplayLineId,
                         throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
                         loadTripByRefId,
                         isTokenCurrent: () => true,
@@ -2240,7 +2310,10 @@ export function createPanel(options = {}) {
                     });
                     throughDirectionCache.set(tripDirectionCacheKey, derivedThroughDirection);
                 }
-                const dir = toText(derivedThroughDirection || trip?.d);
+                const baseDir = toText(derivedThroughDirection || trip?.d);
+                const dir = throughCategory
+                    ? `through:${throughCategory}:${baseDir || 'Unknown'}`
+                    : baseDir;
                 const isLoopDirection = /Loop/i.test(dir);
                 const skipCrossTripFillForLoop = isLoopDirection && (hasPt || hasNt);
                 // 真始发/真终点：没有 pt/nt 的端点站，不补全时间
@@ -2355,7 +2428,13 @@ export function createPanel(options = {}) {
                     stationHasNativeDeparture,
                     stopCount: Array.isArray(tt) ? tt.length : null,
                     rawStopNames: (Array.isArray(tt) ? tt : []).map(x => stationsIndex?.idToNameZh?.get?.(toText(x?.s)) || toText(x?.s)),
-                    sourceLineId: toText(sourceLineId)
+                    sourceLineId: toText(sourceLineId),
+                    throughServiceCategory: throughCategory,
+                    throughLineId,
+                    throughServiceName: throughLineName,
+                    throughServiceSourceLineIds: Array.isArray(throughServiceEntry?.sourceLineIds)
+                        ? throughServiceEntry.sourceLineIds.slice()
+                        : []
                 });
             }
             return out;
@@ -2387,7 +2466,8 @@ export function createPanel(options = {}) {
                 sourceLineId,
                 stationKey,
                 serviceDay: currentServiceDay,
-                trackTypeSummary: true
+                trackTypeSummary: true,
+                excludedTripKeySets: throughTripKeySets
             });
             rows.push(...displayRows);
             printRowsByServiceDay.get(currentServiceDay)?.push(...displayRows);
@@ -2399,7 +2479,8 @@ export function createPanel(options = {}) {
                     sourceLineId,
                     stationKey,
                     serviceDay,
-                    trackTypeSummary: false
+                    trackTypeSummary: false,
+                    excludedTripKeySets: throughTripKeySets
                 });
                 printRowsByServiceDay.get(serviceDay)?.push(...printRows);
             }
@@ -2409,9 +2490,60 @@ export function createPanel(options = {}) {
                 sourceLineId,
                 stationKey,
                 serviceDay: currentServiceDay,
-                trackTypeSummary: false
+                trackTypeSummary: false,
+                excludedTripKeySets: throughTripKeySets
             });
             rowsForPreview.push(...previewRows);
+
+            const throughLabelRows = await collectRowsFromTripList({
+                tripList: previewList,
+                sourceLineId,
+                stationKey,
+                serviceDay: currentServiceDay,
+                trackTypeSummary: false
+            });
+            rowsForThroughLabel.push(...throughLabelRows);
+
+            for (const throughEntry of currentThroughServiceEntries) {
+                if (!throughEntry.sourceLineIds.includes(sourceLineId)) continue;
+
+                const throughDisplayRows = await collectRowsFromTripList({
+                    tripList: displayList,
+                    sourceLineId,
+                    stationKey,
+                    serviceDay: currentServiceDay,
+                    trackTypeSummary: true,
+                    allowedTripKeys: throughEntry.allowedTripKeys,
+                    throughServiceEntry: throughEntry
+                });
+                rows.push(...throughDisplayRows);
+                printRowsByServiceDay.get(currentServiceDay)?.push(...throughDisplayRows);
+
+                for (const serviceDay of PRINT_SERVICE_DAYS) {
+                    if (serviceDay === currentServiceDay) continue;
+                    const throughPrintRows = await collectRowsFromTripList({
+                        tripList: displayList,
+                        sourceLineId,
+                        stationKey,
+                        serviceDay,
+                        trackTypeSummary: false,
+                        allowedTripKeys: throughEntry.allowedTripKeys,
+                        throughServiceEntry: throughEntry
+                    });
+                    printRowsByServiceDay.get(serviceDay)?.push(...throughPrintRows);
+                }
+
+                const throughPreviewRows = await collectRowsFromTripList({
+                    tripList: previewList,
+                    sourceLineId,
+                    stationKey,
+                    serviceDay: currentServiceDay,
+                    trackTypeSummary: false,
+                    allowedTripKeys: throughEntry.allowedTripKeys,
+                    throughServiceEntry: throughEntry
+                });
+                rowsForPreview.push(...throughPreviewRows);
+            }
         }
 
         const stationTypeSummaryItems = buildStationTypeSummaryItems({
@@ -2438,6 +2570,7 @@ export function createPanel(options = {}) {
 
         rows.sort((a, b) => a.timeMs - b.timeMs);
         rowsForPreview.sort((a, b) => a.timeMs - b.timeMs);
+        rowsForThroughLabel.sort((a, b) => a.timeMs - b.timeMs);
         for (const serviceDay of PRINT_SERVICE_DAYS) {
             const dayRows = printRowsByServiceDay.get(serviceDay) || [];
             printRowsByServiceDay.set(
@@ -2506,6 +2639,8 @@ export function createPanel(options = {}) {
             const tri = expanded ? '▾' : '▸';
 
             const rowsForDir = rows.filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
+            const throughServiceCategory = toText(rowsForDir.find((row) => toText(row?.throughServiceCategory))?.throughServiceCategory);
+            const isThroughServiceDirection = !!throughServiceCategory;
             const { typeHints, terminalHints, specialHints } = buildDirectionGridHints(rowsForDir);
             const filterRowsForDir = rowsForDir
                 .map((r) => toDirFilterRow(r, { toText }))
@@ -2521,6 +2656,13 @@ export function createPanel(options = {}) {
 
             const rowsForDirPreview = rowsForPreview.filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
             const filteredRowsForDirPreview = filterRowsByDirFilterState(rowsForDirPreview, state);
+            const previewRowsForMeta = filteredRowsForDirPreview.length ? filteredRowsForDirPreview : rowsForDirPreview;
+            const rowsForDirThroughLabel = isThroughServiceDirection
+                ? []
+                : rowsForThroughLabel.filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
+            const filteredRowsForDirThroughLabel = isThroughServiceDirection
+                ? []
+                : filterRowsByDirFilterState(rowsForDirThroughLabel, state);
 
             const filteredTripKeys = Array.from(new Set(
                 filteredRowsForDirPreview
@@ -2532,12 +2674,16 @@ export function createPanel(options = {}) {
             const uniqueIds = (arr) => Array.from(new Set((Array.isArray(arr) ? arr : []).map((x) => toText(x)).filter(Boolean)));
             dirPreviewMetaByKey.set(lineDirKey, {
                 lineId: toText(lineId),
-                originStationIds: uniqueIds(filteredRowsForDirPreview.flatMap((r) => {
+                throughServiceCategory,
+                sourceLineIds: uniqueIds(previewRowsForMeta.flatMap((r) => (
+                    Array.isArray(r?.throughServiceSourceLineIds) ? r.throughServiceSourceLineIds : []
+                ))),
+                originStationIds: uniqueIds(previewRowsForMeta.flatMap((r) => {
                     if (r?.throughEndpoints?.originIds?.length) return r.throughEndpoints.originIds;
                     if (r?.throughEndpoints?.originId) return [r.throughEndpoints.originId];
                     return [r.originId];
                 })),
-                terminalStationIds: uniqueIds(filteredRowsForDirPreview.flatMap((r) => {
+                terminalStationIds: uniqueIds(previewRowsForMeta.flatMap((r) => {
                     if (r?.throughEndpoints?.terminalIds?.length) return r.throughEndpoints.terminalIds;
                     if (r?.throughEndpoints?.terminalId) return [r.throughEndpoints.terminalId];
                     const ids = Array.isArray(r?.terminalIds) ? r.terminalIds : [];
@@ -2587,15 +2733,31 @@ export function createPanel(options = {}) {
                 })
                 .map(([name]) => name);
 
-            const label = labelEntries.length ? labelEntries.join('，') : (filteredNames.length ? filteredNames.slice(0, 1).join('，') : dirKey);
-            const throughLabel = buildDirectionThroughLabel(
-                filteredRowsForDirPreview.length ? filteredRowsForDirPreview : rowsForDirPreview
-            );
+            const visibleDirFallback = (() => {
+                if (!dirKey.startsWith('through:')) return dirKey;
+                const parts = dirKey.split(':').map((part) => toText(part));
+                return parts[2] || dirKey;
+            })();
+            const label = labelEntries.length ? labelEntries.join('，') : (filteredNames.length ? filteredNames.slice(0, 1).join('，') : visibleDirFallback);
+            const throughLabel = isThroughServiceDirection
+                ? ''
+                : buildDirectionThroughLabel(
+                    filteredRowsForDirThroughLabel.length ? filteredRowsForDirThroughLabel : rowsForDirThroughLabel
+                );
+            const throughServiceDirectionName = isThroughServiceDirection
+                ? resolveThroughServicePanelDirectionDisplayName({
+                    category: throughServiceCategory,
+                    dirKey,
+                    rowsForDir,
+                    stationId: currentStationId
+                })
+                : '';
 
             directionDebug.push({
                 dirKey,
                 dirLabel: label,
                 throughLabel,
+                throughServiceDirectionName,
                 typeHints,
                 terminalHints,
                 specialHints
@@ -2736,6 +2898,7 @@ export function createPanel(options = {}) {
                 <div class="panel-dir">
                     <div class="panel-dir-header" data-dir-toggle="1" data-dir-key="${escapeHtml(dirKey)}">
                         <span class="panel-dir-title">
+                            ${throughServiceDirectionName ? `<span class="panel-dir-through-service-name">${escapeHtml(throughServiceDirectionName)}</span>` : ''}
                             <span class="panel-dir-main">
                                 <span class="panel-dir-prefix" aria-hidden="true">往</span>
                                 <span class="panel-dir-marquee" aria-label="往 ${escapeHtml(label)} 方向">
@@ -3046,7 +3209,8 @@ export function createPanel(options = {}) {
             lineId,
             stationId: resolvedStationId || stationId,
             sourceLineIds,
-            allowedTripKeySet: temporaryPanelAllowedTripKeysByDisplayLineId.get(lineId) || null
+            allowedTripKeySet: temporaryPanelAllowedTripKeysByDisplayLineId.get(lineId) || null,
+            throughServiceEntries: throughServiceDirectionsByEntityLineId.get(lineId) || []
         });
 
         if (token !== timetableRenderToken) return;
@@ -5050,7 +5214,8 @@ export function createPanel(options = {}) {
         ({
             temporaryLineMetaById: temporaryPanelLineMetaById,
             temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
-            temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId
+            temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId,
+            throughServiceDirectionsByEntityLineId
         } = createEmptyPanelThroughServiceState());
         panelShell.hide();
         scheduleCatalogRefresh();
@@ -5177,7 +5342,8 @@ export function createPanel(options = {}) {
         ({
             temporaryLineMetaById: temporaryPanelLineMetaById,
             temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
-            temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId
+            temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId,
+            throughServiceDirectionsByEntityLineId
         } = stationRenderBootstrap.throughServiceState);
 
         let displayServingIds = stationRenderBootstrap.displayServingIds;
@@ -5200,10 +5366,12 @@ export function createPanel(options = {}) {
             temporaryLineMetaById: temporaryPanelLineMetaById,
             temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
             temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId,
+            throughServiceDirectionsByEntityLineId,
             displayServingIds
         } = resolvePanelThroughServiceSetup({
             throughPlan,
-            displayServingIds
+            displayServingIds,
+            throughServiceConfigs: THROUGH_SERVICE_CONFIGS
         }));
         /* if (throughPlan) {
                     // 1. 初始化 Map

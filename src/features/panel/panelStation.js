@@ -632,17 +632,51 @@ const toText_panelThroughServiceSetup = (value) => String(value ?? '').trim();
 const createEmptyState_panelThroughServiceSetup = () => ({
     temporaryLineMetaById: new Map(),
     temporarySourceLineIdsByDisplayLineId: new Map(),
-    temporaryAllowedTripKeysByDisplayLineId: new Map()
+    temporaryAllowedTripKeysByDisplayLineId: new Map(),
+    throughServiceDirectionsByEntityLineId: new Map()
 });
 
 export const createEmptyPanelThroughServiceState = () => createEmptyState_panelThroughServiceSetup();
 
+const normalizeTextList_panelThroughServiceSetup = (values) => Array.from(new Set(
+    (Array.isArray(values) ? values : [])
+        .map((value) => toText_panelThroughServiceSetup(value))
+        .filter(Boolean)
+));
+
+const cloneTripKeySet_panelThroughServiceSetup = (values) => (
+    values instanceof Set
+        ? new Set(Array.from(values).map((value) => toText_panelThroughServiceSetup(value)).filter(Boolean))
+        : new Set(normalizeTextList_panelThroughServiceSetup(values))
+);
+
+const appendThroughServiceDirectionEntry = (target, entityLineId, entry) => {
+    const lineId = toText_panelThroughServiceSetup(entityLineId);
+    if (!lineId) return;
+    const current = Array.isArray(target.get(lineId)) ? target.get(lineId) : [];
+    if (!current.some((item) => (
+        item?.throughLineId === entry.throughLineId &&
+        item?.category === entry.category
+    ))) {
+        current.push(entry);
+    }
+    target.set(lineId, current);
+};
+
 export const resolvePanelThroughServiceSetup = ({
     throughPlan = null,
-    displayServingIds = []
+    displayServingIds = [],
+    throughServiceConfigs = []
 } = {}) => {
     const state = createEmptyState_panelThroughServiceSetup();
-    const nextDisplayServingIds = Array.isArray(displayServingIds) ? displayServingIds : [];
+    const configByLineId = new Map(
+        (Array.isArray(throughServiceConfigs) ? throughServiceConfigs : [])
+            .map((config) => [toText_panelThroughServiceSetup(config?.lineId), config])
+            .filter(([lineId]) => lineId)
+    );
+    const throughLineIds = new Set(configByLineId.keys());
+    const nextDisplayServingIds = normalizeTextList_panelThroughServiceSetup(displayServingIds)
+        .filter((lineId) => !throughLineIds.has(lineId));
 
     if (!throughPlan) {
         return {
@@ -661,11 +695,48 @@ export const resolvePanelThroughServiceSetup = ({
         state.temporaryAllowedTripKeysByDisplayLineId = throughPlan.temporaryAllowedTripKeysByDisplayLineId;
     }
 
+    const sourceLineIdsByThroughLineId = state.temporarySourceLineIdsByDisplayLineId instanceof Map
+        ? state.temporarySourceLineIdsByDisplayLineId
+        : new Map();
+    const allowedTripKeysByThroughLineId = state.temporaryAllowedTripKeysByDisplayLineId instanceof Map
+        ? state.temporaryAllowedTripKeysByDisplayLineId
+        : new Map();
+    const servingLineIdSet = new Set(nextDisplayServingIds);
+
+    for (const [throughLineIdRaw, sourceLineIdsRaw] of sourceLineIdsByThroughLineId.entries()) {
+        const throughLineId = toText_panelThroughServiceSetup(throughLineIdRaw);
+        if (!throughLineId) continue;
+        const config = configByLineId.get(throughLineId) || null;
+        const sourceLineIds = normalizeTextList_panelThroughServiceSetup(sourceLineIdsRaw)
+            .filter((lineId) => servingLineIdSet.has(lineId));
+        if (!sourceLineIds.length) continue;
+
+        const allowedTripKeys = cloneTripKeySet_panelThroughServiceSetup(
+            allowedTripKeysByThroughLineId.get(throughLineId)
+        );
+        if (!allowedTripKeys.size) continue;
+
+        const entry = {
+            category: toText_panelThroughServiceSetup(config?.category),
+            throughLineId,
+            sourceLineIds,
+            allowedTripKeys,
+            lineName: toText_panelThroughServiceSetup(config?.lineName),
+            color: toText_panelThroughServiceSetup(config?.color)
+        };
+
+        for (const sourceLineId of sourceLineIds) {
+            appendThroughServiceDirectionEntry(
+                state.throughServiceDirectionsByEntityLineId,
+                sourceLineId,
+                entry
+            );
+        }
+    }
+
     return {
         ...state,
-        displayServingIds: Array.isArray(throughPlan.displayServingIds)
-            ? throughPlan.displayServingIds
-            : nextDisplayServingIds
+        displayServingIds: nextDisplayServingIds
     };
 };
 
