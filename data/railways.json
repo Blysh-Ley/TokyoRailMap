@@ -55,7 +55,7 @@
 			"en": "Chuo Rapid Line",
 			"fr": "Ligne Chuo Rapid",
 			"ko": "주오 선 쾌속",
-			"zh-Hans": "中央线（快速）",
+			"zh-Hans": "中央线(快速)",
 			"zh-Hant": "中央線（快速）"
 		},
 		"stations": [
@@ -613,7 +613,7 @@
 			"en": "Sobu Rapid Line",
 			"fr": "Ligne Sobu Rapid",
 			"ko": "소부 쾌속선",
-			"zh-Hans": "总武线（快速）",
+			"zh-Hans": "总武线(快速)",
 			"zh-Hant": "總武線（快速）"
 		},
 		"stations": [
