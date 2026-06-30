@@ -1880,6 +1880,39 @@ export function createPanel(options = {}) {
         }
         return '';
     };
+    const parsePanelThroughServiceDirKey = (dirKey) => {
+        const parts = toText(dirKey).split(':').map((part) => toText(part));
+        if (parts[0] !== 'through') return null;
+        return {
+            category: parts[1] || '',
+            direction: parts.slice(2).join(':') || 'Unknown'
+        };
+    };
+    const sortPanelDirectionOrder = (dirOrder = []) => {
+        const categoryOrder = new Map(
+            THROUGH_SERVICE_CONFIGS.map((config, index) => [toText(config?.category), index])
+        );
+        const originalIndex = new Map(
+            (Array.isArray(dirOrder) ? dirOrder : []).map((dirKey, index) => [toText(dirKey), index])
+        );
+
+        return (Array.isArray(dirOrder) ? dirOrder.slice() : []).sort((left, right) => {
+            const leftInfo = parsePanelThroughServiceDirKey(left);
+            const rightInfo = parsePanelThroughServiceDirKey(right);
+            if (leftInfo && !rightInfo) return -1;
+            if (!leftInfo && rightInfo) return 1;
+            if (leftInfo && rightInfo) {
+                const leftOrder = categoryOrder.has(leftInfo.category)
+                    ? categoryOrder.get(leftInfo.category)
+                    : Number.MAX_SAFE_INTEGER;
+                const rightOrder = categoryOrder.has(rightInfo.category)
+                    ? categoryOrder.get(rightInfo.category)
+                    : Number.MAX_SAFE_INTEGER;
+                if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+            }
+            return (originalIndex.get(toText(left)) ?? 0) - (originalIndex.get(toText(right)) ?? 0);
+        });
+    };
     const loadTripByRefId = async (refId) => {
         const key = toText(refId);
         if (!key) return null;
@@ -2579,15 +2612,16 @@ export function createPanel(options = {}) {
 
         // 统计每条线路的所有方向 d，并聚合/计数该方向下所有对应 ds 的中文名
         const DEST_NAME_MIN_COUNT = 0; // 方向下目的地名称至少出现x次才显示
-        const {
-            anyDestAboveThreshold,
-            dirOrder,
-            dirToDestCounts
-        } = deriveDirectionStats({
+        const directionStats = deriveDirectionStats({
             destNameMinCount: DEST_NAME_MIN_COUNT,
             rows,
             toText
         });
+        const {
+            anyDestAboveThreshold,
+            dirToDestCounts
+        } = directionStats;
+        const dirOrder = sortPanelDirectionOrder(directionStats.dirOrder);
 
         const renderTime = (r) => {
             const a = toText(r.arr);
