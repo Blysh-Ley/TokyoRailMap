@@ -1584,7 +1584,7 @@ html[data-theme='dark'] .journey-trip-note-direction{
 }
 
 html[data-theme='dark'] .search-planner-toggle-btn {
-    background: var(--is-active-color);
+    background: transparent;
     color: #fff;
 }
 
@@ -7487,7 +7487,7 @@ html[data-theme='dark'] .panel-trip-detail-head,
 html[data-theme='dark'] .panel-trip-detail-head-cell,
 html[data-theme='dark'] .panel-trip-detail-note-row,
 html[data-theme='dark'] .RW-company-type {
-    color: #fff;
+    color: #6a6a6a;
 }
 
 html[data-theme='dark'] .search-result-item::after,

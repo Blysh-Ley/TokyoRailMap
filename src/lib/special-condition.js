@@ -195,12 +195,12 @@ export const companyLogoMap = {
     'Hokuso': { 'zh': '北总铁道', 'img': ["beizong.png", 80], 'reverse': true  },
     'MIR': { 'zh': '首都圈新都市铁道', 'img': ["TsukubaExpress.png", 40], 'reverse': true },
     'TokyoMonorail': { 'zh': '东京单轨电车', 'img': ["tokyoMonorail.png"] },
-    'TWR': { 'zh': '东京临海高速铁道', 'img': ["linhai.png", 40], 'reverse': true },
+    'TWR': { 'zh': '东京临海高速铁道', 'img': ["linhai.png", 40], 'reverse': true, 'type': "地下铁"  },
     'Yurikamome': { 'zh': '新交通百合鸥', 'img': ["yurikamome.png", 45] },
     'Disney': { 'zh': '迪士尼', 'img': ["disney.png", 65], 'abb': " " },
     'YokohamaMunicipal': { 'zh': '横滨市营地下铁', 'img': ["yokohamaMetro.svg"], 'type': "地下铁" },
-    'YokohamaSeaside': { 'zh': '横滨海岸线', 'img': ["YokohamaSeaside.png", 45] , 'reverse': true},
-    'Minatomirai': { 'zh': '横滨高速铁道', 'img': ["gangweilai.png"] },
+    'YokohamaSeaside': { 'zh': '横滨海岸线', 'img': ["YokohamaSeaside.png", 45] , 'reverse': true },
+    'Minatomirai': { 'zh': '横滨高速铁道', 'img': ["gangweilai.png"] , 'type': "地下铁" },
     //'Yokohama Ropeway': { 'zh': '横滨索道', 'img': ["quanyang.png"]},
     'ChibaMonorail': { 'zh': '千叶都市单轨', 'img': ["chibaMonorail.png", 35] },
     'ToyoRapid': { 'zh': '东叶高速铁道', 'img': ["dongyegaosu.png", 40] },
@@ -244,6 +244,8 @@ export const preferredOrder = [
     'Keio',              // 京王电铁
     'Keikyu',            // 京急电铁
     'Sotetsu',           // 相模铁道
+    'TWR',               // 东京临海高速铁道
+    'Minatomirai',       // 横滨高速铁道
     'JR-Central',        // JR东海
     'TokyoMonorail',     // 东京单轨电车
     'MIR',               // 首都圈新都市铁道
