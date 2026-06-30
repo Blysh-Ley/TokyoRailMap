@@ -481,12 +481,23 @@ const rowPickScore_panelTimetableViewModel = (row, {
     toText = defaultToText_panelTimetableViewModel
 } = {}) => {
     let score = 0;
+    if (row?.stationHasNativeDeparture === true) score += 100;
+    if (row?.stationHasNativeArrival === true) score += 20;
     if (toText(row?.dep)) score += 10;
     if (toText(row?.typeName)) score += 5;
     if (toText(row?.typeColor)) score += 2;
     if (toText(row?.terminalName) || toText(row?.destName)) score += 1;
     return score;
 };
+
+const collectThroughTripRefIds_panelTimetableViewModel = (row, {
+    toText = defaultToText_panelTimetableViewModel
+} = {}) => Array.from(new Set([
+    toText(row?.realOriginId),
+    ...(Array.isArray(row?.tripRefIds) ? row.tripRefIds : []),
+    ...(Array.isArray(row?.ptRefIds) ? row.ptRefIds : []),
+    ...(Array.isArray(row?.ntRefIds) ? row.ntRefIds : [])
+].map((value) => toText(value)).filter(Boolean)));
 
 const mergeRowMetadata_panelTimetableViewModel = (primary, secondary, {
     toText = defaultToText_panelTimetableViewModel
@@ -506,8 +517,20 @@ const mergeRowMetadata_panelTimetableViewModel = (primary, secondary, {
     out.showOriginLabel = !!(out.showOriginLabel || other.showOriginLabel);
     out.showTerminalLabel = !!(out.showTerminalLabel || other.showTerminalLabel);
 
-    if (!toText(out.typeName) && toText(other.typeName)) out.typeName = other.typeName;
-    if (!toText(out.typeColor) && toText(other.typeColor)) out.typeColor = other.typeColor;
+    const primaryTypeName = toText(out.typeName);
+    const secondaryTypeName = toText(other.typeName);
+    if (!primaryTypeName && secondaryTypeName) {
+        out.typeName = other.typeName;
+        if (!toText(out.typeColor) && toText(other.typeColor)) out.typeColor = other.typeColor;
+    } else if (
+        primaryTypeName &&
+        secondaryTypeName &&
+        primaryTypeName === secondaryTypeName &&
+        !toText(out.typeColor) &&
+        toText(other.typeColor)
+    ) {
+        out.typeColor = other.typeColor;
+    }
     if (!toText(out.originId) && toText(other.originId)) out.originId = other.originId;
     if (!toText(out.originName) && toText(other.originName)) out.originName = other.originName;
     if (!toText(out.terminalId) && toText(other.terminalId)) out.terminalId = other.terminalId;
@@ -538,26 +561,74 @@ export const mergeDuplicateTimetableRows = (rows, {
     toText = defaultToText_panelTimetableViewModel
 } = {}) => {
     const merged = new Map();
+    const throughRefKeyByTimeAndRef = new Map();
+    const throughRefsByKey = new Map();
+    let throughKeySeq = 0;
+    const mergeRows = (left, right) => {
+        const keepRight = rowPickScore_panelTimetableViewModel(right, { toText }) > rowPickScore_panelTimetableViewModel(left, { toText });
+        const primary = keepRight ? right : left;
+        const secondary = keepRight ? left : right;
+        return mergeRowMetadata_panelTimetableViewModel(primary, secondary, { toText });
+    };
+    const makeThroughRefIndexKey = (timeMs, ref) => `${timeMs}||${ref}`;
+
     for (const row of (Array.isArray(rows) ? rows : [])) {
         const base = toText(row?.baseTripKey) || toText(row?.tripKey);
         const dirKey = toText(row?.dir) || 'Unknown';
         const timeMs = Number(row?.timeMs);
-        if (!base || !Number.isFinite(timeMs)) {
+        if (!Number.isFinite(timeMs)) {
             merged.set(Symbol('row'), row);
             continue;
         }
 
-        const key = `${base}||${dirKey}||${timeMs}`;
+        const throughRefs = collectThroughTripRefIds_panelTimetableViewModel(row, { toText });
+        let key = '';
+        if (throughRefs.length >= 2) {
+            const indexedKeys = Array.from(new Set(
+                throughRefs
+                    .map((ref) => throughRefKeyByTimeAndRef.get(makeThroughRefIndexKey(timeMs, ref)))
+                    .filter(Boolean)
+            ));
+            key = indexedKeys[0] || `through||${timeMs}||${throughKeySeq++}`;
+            for (const otherKey of indexedKeys.slice(1)) {
+                if (otherKey === key) continue;
+                const current = merged.get(key);
+                const other = merged.get(otherKey);
+                if (current && other) merged.set(key, mergeRows(current, other));
+                else if (other) merged.set(key, other);
+                merged.delete(otherKey);
+
+                const targetRefs = throughRefsByKey.get(key) || new Set();
+                const otherRefs = throughRefsByKey.get(otherKey) || new Set();
+                for (const ref of otherRefs) {
+                    targetRefs.add(ref);
+                    throughRefKeyByTimeAndRef.set(makeThroughRefIndexKey(timeMs, ref), key);
+                }
+                throughRefsByKey.set(key, targetRefs);
+                throughRefsByKey.delete(otherKey);
+            }
+
+            const targetRefs = throughRefsByKey.get(key) || new Set();
+            for (const ref of throughRefs) {
+                targetRefs.add(ref);
+                throughRefKeyByTimeAndRef.set(makeThroughRefIndexKey(timeMs, ref), key);
+            }
+            throughRefsByKey.set(key, targetRefs);
+        } else {
+            if (!base) {
+                merged.set(Symbol('row'), row);
+                continue;
+            }
+            key = `${base}||${dirKey}||${timeMs}`;
+        }
+
         const prev = merged.get(key);
         if (!prev) {
             merged.set(key, row);
             continue;
         }
 
-        const keepRow = rowPickScore_panelTimetableViewModel(row, { toText }) > rowPickScore_panelTimetableViewModel(prev, { toText });
-        const primary = keepRow ? row : prev;
-        const secondary = keepRow ? prev : row;
-        merged.set(key, mergeRowMetadata_panelTimetableViewModel(primary, secondary, { toText }));
+        merged.set(key, mergeRows(prev, row));
     }
 
     return Array.from(merged.values());

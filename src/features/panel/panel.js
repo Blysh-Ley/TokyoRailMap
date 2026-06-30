@@ -2204,6 +2204,8 @@ export function createPanel(options = {}) {
 
                 let arr = toText(stop?.a);
                 let dep = toText(stop?.d);
+                const stationHasNativeArrival = !!arr;
+                const stationHasNativeDeparture = !!dep;
 
                 const os = Array.isArray(trip?.os) ? trip.os : (trip?.os ? [trip.os] : []);
                 const ds = Array.isArray(trip?.ds) ? trip.ds : (trip?.ds ? [trip.ds] : []);
@@ -2211,6 +2213,11 @@ export function createPanel(options = {}) {
                 const ntRefs = Array.isArray(trip?.nt) ? trip.nt : (trip?.nt ? [trip.nt] : []);
                 const hasPt = ptRefs.some((x) => !!toText(x));
                 const hasNt = ntRefs.some((x) => !!toText(x));
+                const tripRefIds = Array.from(new Set([
+                    toText(trip?.realOriginId || trip?.id),
+                    ...ptRefs.map((x) => toText(x)),
+                    ...ntRefs.map((x) => toText(x))
+                ].filter(Boolean)));
                 const tripDirectionCacheKey = `${toText(lineId)}||${toText(trip?.id) || toText(trip?.t)}`;
                 const isOriginStation = sg?.get?.(trip.tt?.[0]?.s)?.includes?.(stationKey) || trip.tt?.[0]?.s === stationKey;
                 const isTerminalStation = sg?.get?.(trip.tt.at(-1)?.s)?.includes?.(stationKey) || trip.tt.at(-1)?.s === stationKey;
@@ -2341,6 +2348,11 @@ export function createPanel(options = {}) {
                     tripKey,
                     baseTripKey,
                     realOriginId: toText(trip?.realOriginId || trip?.id),
+                    tripRefIds,
+                    ptRefIds: ptRefs.map((x) => toText(x)).filter(Boolean),
+                    ntRefIds: ntRefs.map((x) => toText(x)).filter(Boolean),
+                    stationHasNativeArrival,
+                    stationHasNativeDeparture,
                     stopCount: Array.isArray(tt) ? tt.length : null,
                     rawStopNames: (Array.isArray(tt) ? tt : []).map(x => stationsIndex?.idToNameZh?.get?.(toText(x?.s)) || toText(x?.s)),
                     sourceLineId: toText(sourceLineId)
