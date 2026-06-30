@@ -1,15 +1,14 @@
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from '../../lib/line-icons.js';
 import { preferredOrder } from '../../lib/special-condition.js';
+import { THROUGH_SERVICE_CONFIGS_OBJECT, isSUStations as isStationSUStations } from '../../lib/throughServiceManager.js';
+import {
+    buildSupplementalTransferBadgeEntries,
+    buildTransferBadgeEntriesByStationId,
+    compactTransferBadgeEntries,
+    sortTransferBadgeEntriesByCompany
+} from '../../domain/transferBadgeDisplay.js';
 
 const defaultToText = (value) => String(value ?? '').trim();
-
-const getRouteIdFromStationId = (stationIdRaw, toText = defaultToText) => {
-    const stationId = toText(stationIdRaw);
-    if (!stationId) return '';
-    const parts = stationId.split('.').map((part) => toText(part)).filter(Boolean);
-    if (parts.length >= 2) return `${parts[0]}.${parts[1]}`;
-    return parts[0] || '';
-};
 
 const formatPanelTripDetailLineIconHtml = (iconEl) => {
     if (typeof HTMLElement === 'undefined' || !(iconEl instanceof HTMLElement)) return '';
@@ -31,70 +30,16 @@ const formatPanelTripDetailTransferStationBadgeHtml = (badgeEl) => {
     return badgeEl.outerHTML;
 };
 
-const sortTripDetailTransferCompanies = (companyOrder, { toText = defaultToText } = {}) => {
-    const preferredCompanyOrderIndex = new Map(
-        preferredOrder.map((company, index) => [toText(company), index])
-    );
-    const originalIndex = new Map(
-        (Array.isArray(companyOrder) ? companyOrder : []).map((company, index) => [toText(company), index])
-    );
-    return (Array.isArray(companyOrder) ? companyOrder.slice() : []).sort((a, b) => {
-        const ac = toText(a);
-        const bc = toText(b);
-        const ai = preferredCompanyOrderIndex.has(ac)
-            ? preferredCompanyOrderIndex.get(ac)
-            : Number.POSITIVE_INFINITY;
-        const bi = preferredCompanyOrderIndex.has(bc)
-            ? preferredCompanyOrderIndex.get(bc)
-            : Number.POSITIVE_INFINITY;
-        if (ai !== bi) return ai - bi;
-        const ao = originalIndex.has(ac) ? originalIndex.get(ac) : Number.POSITIVE_INFINITY;
-        const bo = originalIndex.has(bc) ? originalIndex.get(bc) : Number.POSITIVE_INFINITY;
-        if (ao !== bo) return ao - bo;
-        return ac.localeCompare(bc, 'zh-Hans');
-    });
-};
-
-const getTripDetailTransferDedupTargets = (entry, { toText = defaultToText } = {}) => {
-    const company = toText(entry?.company);
-    const codes = Array.isArray(entry?.iconCodes) ? entry.iconCodes.map((code) => toText(code)).filter(Boolean) : [];
-    if (!company) return [];
-    if (codes.length) {
-        return codes.map((code) => ({ key: `code||${company}||${code}`, code }));
-    }
-    const iconColor = toText(entry?.iconColor).toLowerCase();
-    if (!iconColor) return [];
-    return [{ key: `color||${company}||${iconColor}`, code: '' }];
-};
-
 export const buildCompactTripDetailTransferItemHtmls = (entries, {
     htmlKey = 'html',
     toText = defaultToText
 } = {}) => {
-    const seenIconKeys = new Set();
-    const compactHtmls = [];
-
-    for (const entry of Array.isArray(entries) ? entries : []) {
-        const html = toText(entry?.[htmlKey] || entry?.html);
-        if (!html) continue;
-        const targets = getTripDetailTransferDedupTargets(entry, { toText });
-        if (!targets.length) {
-            compactHtmls.push(html);
-            continue;
-        }
-
-        let hasFreshIcon = false;
-        for (const target of targets) {
-            const key = toText(target?.key);
-            if (!key || seenIconKeys.has(key)) continue;
-            seenIconKeys.add(key);
-            hasFreshIcon = true;
-        }
-        if (!hasFreshIcon) continue;
-        compactHtmls.push(html);
-    }
-
-    return compactHtmls;
+    return compactTransferBadgeEntries(
+        (Array.isArray(entries) ? entries : [])
+            .map((entry) => ({ ...entry, html: toText(entry?.[htmlKey] || entry?.html) }))
+            .filter((entry) => entry.html),
+        { toText }
+    ).map((entry) => toText(entry?.html)).filter(Boolean);
 };
 
 const buildTripDetailTransferEntryFromLineMeta = (lineMeta, {
@@ -166,11 +111,79 @@ export const buildCompactTripDetailTransferLineItemHtmls = (lineMetas, {
         groups.get(company).push(entry);
     }
 
-    for (const company of sortTripDetailTransferCompanies(companyOrder, { toText })) {
-        for (const entry of groups.get(company) || []) entries.push(entry);
-    }
+    for (const entry of sortTransferBadgeEntriesByCompany(
+        companyOrder.flatMap((company) => groups.get(company) || []),
+        { preferredCompanyOrder: preferredOrder, toText }
+    )) entries.push(entry);
 
     return buildCompactTripDetailTransferItemHtmls(entries, { toText });
+};
+
+const buildTripDetailTransferEntryHtml = (entry, {
+    escapeHtml = (value) => String(value ?? ''),
+    muted = false,
+    toText = defaultToText
+} = {}) => {
+    const routeId = toText(entry?.routeId);
+    if (!routeId) return '';
+    const lineColor = toText(entry?.lineColor) || '#888';
+    const displayName = toText(entry?.displayName) || routeId;
+    const stationCode = toText(entry?.stationCode);
+    const iconRouteId = toText(entry?.iconRouteId) || routeId;
+    const iconCode = toText(entry?.iconCode);
+    const iconColor = toText(entry?.iconColor) || lineColor;
+
+    let lineIconHtml = '';
+    if (stationCode) {
+        const badgeEl = createStationCodeBadgeElement({
+            code: stationCode,
+            color: iconColor,
+            routeId: iconRouteId,
+            muted
+        });
+        lineIconHtml = formatPanelTripDetailTransferStationBadgeHtml(badgeEl);
+    } else if (entry?.hasIconMeta && (iconCode || iconColor)) {
+        const iconEl = createLineIconElement({
+            routeId: iconRouteId,
+            code: iconCode,
+            color: iconColor,
+            muted
+        });
+        lineIconHtml = formatPanelTripDetailLineIconHtml(iconEl);
+    }
+
+    return `<span class="panel-trip-detail-transfer-item">${lineIconHtml}<span class="panel-trip-detail-transfer-line-name" style="color:${escapeHtml(lineColor)}">${escapeHtml(displayName)}</span></span>`;
+};
+
+const expandSupplementalTransferEntriesForPanel = (entries, {
+    toText = defaultToText
+} = {}) => {
+    const out = [];
+    for (const entry of Array.isArray(entries) ? entries : []) {
+        const badgeSpecs = Array.isArray(entry?.badgeSpecs) ? entry.badgeSpecs : [];
+        if (!badgeSpecs.length) {
+            out.push(entry);
+            continue;
+        }
+        for (const badge of badgeSpecs) {
+            const iconCode = toText(badge?.code);
+            if (!iconCode) continue;
+            const routeId = toText(badge?.lineId) || toText(entry?.routeId);
+            const iconColor = toText(badge?.color || entry?.iconColor || entry?.lineColor) || '#888';
+            out.push({
+                ...entry,
+                routeId,
+                rid: routeId,
+                iconRouteId: routeId,
+                iconCode,
+                iconColor,
+                iconCodes: [iconCode],
+                hasIconMeta: true,
+                badgeSpecs: null
+            });
+        }
+    }
+    return out;
 };
 
 export const buildTripDetailTransferDisplayByStationId = async ({
@@ -189,100 +202,70 @@ export const buildTripDetailTransferDisplayByStationId = async ({
     ));
     if (!ids.length) return new Map();
 
-    const stationGroupsIndex = await getStationGroupsIndex();
-    const currentRouteId = toText(currentLineId);
     const out = new Map();
-    const transferItemEntryByRouteId = new Map();
 
-    const buildTransferEntry = async (routeIdRaw, stationCodeRaw = '') => {
-        const routeId = toText(routeIdRaw);
-        if (!routeId) return null;
-        const stationCode = toText(stationCodeRaw);
-        const cacheKey = `${routeId}||${stationCode}`;
-        if (transferItemEntryByRouteId.has(cacheKey)) return transferItemEntryByRouteId.get(cacheKey);
-
-        const meta = getLineMeta(routeId) || {};
-        const company = toText(meta?.company) || routeId.split('.')[0] || '';
-        const lineColor = toText(meta?.color) || '#888';
-        const displayName = toText(meta?.name) || routeId;
-        const iconMeta = await getResolvedRouteIconMeta(routeId, { color: lineColor });
-        let lineIconHtml = '';
-        let mutedLineIconHtml = '';
-        if (stationCode) {
-            const badgeEl = createStationCodeBadgeElement({
-                code: stationCode,
-                color: toText(iconMeta?.color) || lineColor,
-                routeId: toText(iconMeta?.id) || routeId
-            });
-            const mutedBadgeEl = createStationCodeBadgeElement({
-                code: stationCode,
-                color: toText(iconMeta?.color) || lineColor,
-                routeId: toText(iconMeta?.id) || routeId,
-                muted: true
-            });
-            lineIconHtml = formatPanelTripDetailTransferStationBadgeHtml(badgeEl);
-            mutedLineIconHtml = formatPanelTripDetailTransferStationBadgeHtml(mutedBadgeEl);
-        } else if (iconMeta && (iconMeta.code || iconMeta.color)) {
-            const iconEl = createLineIconElement({ routeId: iconMeta.id, code: iconMeta.code, color: iconMeta.color || lineColor });
-            const mutedIconEl = createLineIconElement({ routeId: iconMeta.id, code: iconMeta.code, color: iconMeta.color || lineColor, muted: true });
-            lineIconHtml = formatPanelTripDetailLineIconHtml(iconEl);
-            mutedLineIconHtml = formatPanelTripDetailLineIconHtml(mutedIconEl);
-        }
-        const html = `<span class="panel-trip-detail-transfer-item">${lineIconHtml}<span class="panel-trip-detail-transfer-line-name" style="color:${escapeHtml(lineColor)}">${escapeHtml(displayName)}</span></span>`;
-        const mutedHtml = `<span class="panel-trip-detail-transfer-item">${mutedLineIconHtml || lineIconHtml}<span class="panel-trip-detail-transfer-line-name" style="color:${escapeHtml(lineColor)}">${escapeHtml(displayName)}</span></span>`;
-        const entry = {
-            routeId,
-            company,
-            displayName,
-            html,
-            mutedHtml,
-            iconCodes: [stationCode || toText(iconMeta?.code)].filter(Boolean),
-            iconColor: toText(iconMeta?.color) || lineColor
-        };
-        transferItemEntryByRouteId.set(cacheKey, entry);
-        return entry;
-    };
+    const stationGroupsIndex = await getStationGroupsIndex();
+    const transferBadgeEntriesByStationId = await buildTransferBadgeEntriesByStationId({
+        currentLineId,
+        getGroupIdsForStation: (stationId) => stationGroupsIndex?.get?.(stationId),
+        getLineMeta,
+        getStationCode: (stationId) => getStationCode(stationId),
+        preferredCompanyOrder: preferredOrder,
+        resolveIconMeta: (routeId, { color } = {}) => getResolvedRouteIconMeta(routeId, { color }),
+        stationIds: ids,
+        toText
+    });
 
     for (const stationId of ids) {
-        const groupIdsRaw = stationGroupsIndex?.get?.(stationId);
-        const groupIds = Array.isArray(groupIdsRaw) && groupIdsRaw.length
-            ? groupIdsRaw.map((value) => toText(value)).filter(Boolean)
-            : [stationId];
-        const selfRouteId = getRouteIdFromStationId(stationId, toText);
-        const routeIds = [];
-        const stationIdByRouteId = new Map();
-        const seenRouteIds = new Set();
-        for (const groupId of groupIds) {
-            const routeId = getRouteIdFromStationId(groupId, toText);
-            if (!routeId || routeId === selfRouteId || routeId === currentRouteId || seenRouteIds.has(routeId)) continue;
-            seenRouteIds.add(routeId);
-            routeIds.push(routeId);
-            stationIdByRouteId.set(routeId, groupId);
+        const transferBadgeDisplay = transferBadgeEntriesByStationId.get(stationId) || null;
+        const ordinaryEntries = Array.isArray(transferBadgeDisplay?.entries) ? transferBadgeDisplay.entries : [];
+        const supplementalStationRefs = [
+            {
+                stationId,
+                displayStationIds: stationGroupsIndex?.get?.(stationId)
+            },
+            ...ordinaryEntries.map((entry) => ({
+                stationId: toText(entry?.stationId),
+                displayStationIds: entry?.displayStationIds
+            }))
+        ];
+        const existingDisplayStationIds = ordinaryEntries.flatMap((entry) => (
+            Array.isArray(entry?.displayStationIds) && entry.displayStationIds.length
+                ? entry.displayStationIds
+                : [entry?.stationId]
+        ));
+        const supplementalEntries = buildSupplementalTransferBadgeEntries({
+            existingDisplayStationIds,
+            serviceConfigsByKey: THROUGH_SERVICE_CONFIGS_OBJECT,
+            stationRefs: supplementalStationRefs,
+            stationServiceFlags: isStationSUStations(stationId),
+            toText
+        });
+        const filtered = ordinaryEntries.slice();
+        const seenDisplayNames = new Set(
+            ordinaryEntries.map((entry) => toText(entry?.displayName)).filter(Boolean)
+        );
+        for (const entry of supplementalEntries) {
+            const displayName = toText(entry?.displayName);
+            if (!displayName || seenDisplayNames.has(displayName)) continue;
+            seenDisplayNames.add(displayName);
+            filtered.push(entry);
         }
-        if (!routeIds.length) continue;
-
-        const entriesRaw = await Promise.all(routeIds.map((routeId) => (
-            buildTransferEntry(routeId, getStationCode(stationIdByRouteId.get(routeId)))
-        )));
-        const companyOrder = [];
-        const groups = new Map();
-        for (const entry of entriesRaw) {
-            if (!entry?.html) continue;
-            const company = toText(entry.company);
-            if (!groups.has(company)) {
-                groups.set(company, []);
-                companyOrder.push(company);
-            }
-            groups.get(company).push(entry);
-        }
-
-        const sortedEntries = [];
-        for (const company of sortTripDetailTransferCompanies(companyOrder, { toText })) {
-            for (const entry of groups.get(company) || []) sortedEntries.push(entry);
-        }
-        const popoverItemHtmls = sortedEntries.map((entry) => toText(entry?.html)).filter(Boolean);
-        const itemHtmls = buildCompactTripDetailTransferItemHtmls(sortedEntries, { toText });
-        const mutedItemHtmls = buildCompactTripDetailTransferItemHtmls(sortedEntries, { htmlKey: 'mutedHtml', toText });
+        const panelEntries = expandSupplementalTransferEntriesForPanel(filtered, { toText });
+        const sortedEntries = sortTransferBadgeEntriesByCompany(panelEntries, {
+            preferredCompanyOrder: preferredOrder,
+            toText
+        });
+        const compactEntries = compactTransferBadgeEntries(sortedEntries, { toText });
+        const popoverItemHtmls = sortedEntries
+            .map((entry) => buildTripDetailTransferEntryHtml(entry, { escapeHtml, toText }))
+            .filter(Boolean);
+        const itemHtmls = compactEntries
+            .map((entry) => buildTripDetailTransferEntryHtml(entry, { escapeHtml, toText }))
+            .filter(Boolean);
+        const mutedItemHtmls = compactEntries
+            .map((entry) => buildTripDetailTransferEntryHtml(entry, { escapeHtml, muted: true, toText }))
+            .filter(Boolean);
         if (!itemHtmls.length && !popoverItemHtmls.length) continue;
         out.set(stationId, {
             itemHtmls,
