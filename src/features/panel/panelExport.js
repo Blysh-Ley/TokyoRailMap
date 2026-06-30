@@ -503,6 +503,7 @@ export const collectLinePrintPayloads = ({
     lineEl,
     lineId,
     dirPrintPayloadByKey,
+    linePrintPayloadsByLineId,
     makeLineDirKey,
     toText = defaultToText_panelPrintRequestController
 } = {}) => {
@@ -513,23 +514,43 @@ export const collectLinePrintPayloads = ({
     const lineHeaderHtml = toText(lineEl.querySelector?.('.panel-line-header')?.outerHTML || '');
     const stationName = toText(lineEl?.getAttribute?.('data-station-name') || '');
     const dirs = [];
-    const dirEls = Array.from(lineEl.querySelectorAll?.('[data-dir-toggle][data-dir-key]') || []);
+    const linePayload = linePrintPayloadsByLineId instanceof Map
+        ? linePrintPayloadsByLineId.get(toText(lineId))
+        : null;
+    const rawDirs = Array.isArray(linePayload?.dirs) ? linePayload.dirs : [];
 
-    for (const dirEl of dirEls) {
-        const dirKey = toText(dirEl.getAttribute?.('data-dir-key'));
-        const lineDirKey = makeLineDirKey(lineId, dirKey);
-        const payload = dirPrintPayloadByKey.get(lineDirKey);
-        if (!payload) continue;
-        const nextPayload = {
-            ...payload,
-            stationName,
-            lineId,
-            lineHeaderHtml,
-            lineSuffixHtml,
-            stationInfoHtml: toText(payload.stationInfoHtml) || domStationInfoHtml
-        };
-        dirs.push(nextPayload);
+    if (rawDirs.length) {
+        for (const payload of rawDirs) {
+            if (!payload) continue;
+            const nextPayload = {
+                ...payload,
+                stationName,
+                lineId,
+                lineHeaderHtml,
+                lineSuffixHtml,
+                stationInfoHtml: toText(payload.stationInfoHtml) || domStationInfoHtml
+            };
+            dirs.push(nextPayload);
+        }
+    } else {
+        const dirEls = Array.from(lineEl.querySelectorAll?.('[data-dir-toggle][data-dir-key]') || []);
+        for (const dirEl of dirEls) {
+            const dirKey = toText(dirEl.getAttribute?.('data-dir-key'));
+            const lineDirKey = makeLineDirKey(lineId, dirKey);
+            const payload = dirPrintPayloadByKey.get(lineDirKey);
+            if (!payload) continue;
+            const nextPayload = {
+                ...payload,
+                stationName,
+                lineId,
+                lineHeaderHtml,
+                lineSuffixHtml,
+                stationInfoHtml: toText(payload.stationInfoHtml) || domStationInfoHtml
+            };
+            dirs.push(nextPayload);
+        }
     }
+
     const stationInfoHtml = toText(dirs.find((payload) => toText(payload?.stationInfoHtml))?.stationInfoHtml) || domStationInfoHtml;
 
     return {
@@ -544,6 +565,7 @@ export const collectLinePrintPayloads = ({
 export const createPanelPrintRequestController = ({
     body,
     dirPrintPayloadByKey,
+    linePrintPayloadsByLineId,
     makeLineDirKey,
     printAllEventName,
     toText = defaultToText_panelPrintRequestController,
@@ -564,6 +586,7 @@ export const createPanelPrintRequestController = ({
         lineEl: findLineEl(lineId),
         lineId: toText(lineId),
         dirPrintPayloadByKey,
+        linePrintPayloadsByLineId,
         makeLineDirKey,
         toText
     });
@@ -593,6 +616,7 @@ export const createPanelPrintRequestController = ({
                 lineEl,
                 lineId,
                 dirPrintPayloadByKey,
+                linePrintPayloadsByLineId,
                 makeLineDirKey,
                 toText
             });

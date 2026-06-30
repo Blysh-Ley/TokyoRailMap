@@ -1402,6 +1402,7 @@ export function createPanel(options = {}) {
     const dirFilterRowsByKey = new Map(); // lineId||dir -> Array<{origin,terminal,type}>
     const dirFilteredTripKeysByKey = new Map(); // lineId||dir -> Array<tripKey|baseTripKey>
     const dirPrintPayloadByKey = new Map(); // lineId||dir -> export payload for print-timetables.js
+    const linePrintPayloadsByLineId = new Map(); // lineId -> raw export payloads before through-service panel split
     const dirPreviewMetaByKey = new Map(); // lineId||dir -> { lineId, originStationIds:string[], terminalStationIds:string[] }
     const makeLineDirKey = (lineId, dirKey) => `${toText(lineId)}||${toText(dirKey) || 'Unknown'}`;
     const dirKeyOf = (lineId, dir) => `${toText(lineId)}||${toText(dir) || 'Unknown'}`;
@@ -2175,7 +2176,8 @@ export function createPanel(options = {}) {
         const rows = [];
         const rowsForPreview = [];
         const rowsForThroughLabel = [];
-        const printRowsByServiceDay = new Map(PRINT_SERVICE_DAYS.map((day) => [day, []]));
+        const rowsForPrintOriginal = [];
+        const printRowsByServiceDayOriginal = new Map(PRINT_SERVICE_DAYS.map((day) => [day, []]));
         const throughDirectionCache = new Map();
         const allTypeColorByName = new Map();
         const stopTypeColorByName = new Map();
@@ -2461,6 +2463,28 @@ export function createPanel(options = {}) {
             });
             if (currentPostprocessDebug) postprocessDebug.push(currentPostprocessDebug);
 
+            const originalDisplayRows = await collectRowsFromTripList({
+                tripList: displayList,
+                sourceLineId,
+                stationKey,
+                serviceDay: currentServiceDay,
+                trackTypeSummary: false
+            });
+            rowsForPrintOriginal.push(...originalDisplayRows);
+            printRowsByServiceDayOriginal.get(currentServiceDay)?.push(...originalDisplayRows);
+
+            for (const serviceDay of PRINT_SERVICE_DAYS) {
+                if (serviceDay === currentServiceDay) continue;
+                const originalPrintRows = await collectRowsFromTripList({
+                    tripList: displayList,
+                    sourceLineId,
+                    stationKey,
+                    serviceDay,
+                    trackTypeSummary: false
+                });
+                printRowsByServiceDayOriginal.get(serviceDay)?.push(...originalPrintRows);
+            }
+
             const displayRows = await collectRowsFromTripList({
                 tripList: displayList,
                 sourceLineId,
@@ -2470,20 +2494,6 @@ export function createPanel(options = {}) {
                 excludedTripKeySets: throughTripKeySets
             });
             rows.push(...displayRows);
-            printRowsByServiceDay.get(currentServiceDay)?.push(...displayRows);
-
-            for (const serviceDay of PRINT_SERVICE_DAYS) {
-                if (serviceDay === currentServiceDay) continue;
-                const printRows = await collectRowsFromTripList({
-                    tripList: displayList,
-                    sourceLineId,
-                    stationKey,
-                    serviceDay,
-                    trackTypeSummary: false,
-                    excludedTripKeySets: throughTripKeySets
-                });
-                printRowsByServiceDay.get(serviceDay)?.push(...printRows);
-            }
 
             const previewRows = await collectRowsFromTripList({
                 tripList: previewList,
@@ -2517,21 +2527,6 @@ export function createPanel(options = {}) {
                     throughServiceEntry: throughEntry
                 });
                 rows.push(...throughDisplayRows);
-                printRowsByServiceDay.get(currentServiceDay)?.push(...throughDisplayRows);
-
-                for (const serviceDay of PRINT_SERVICE_DAYS) {
-                    if (serviceDay === currentServiceDay) continue;
-                    const throughPrintRows = await collectRowsFromTripList({
-                        tripList: displayList,
-                        sourceLineId,
-                        stationKey,
-                        serviceDay,
-                        trackTypeSummary: false,
-                        allowedTripKeys: throughEntry.allowedTripKeys,
-                        throughServiceEntry: throughEntry
-                    });
-                    printRowsByServiceDay.get(serviceDay)?.push(...throughPrintRows);
-                }
 
                 const throughPreviewRows = await collectRowsFromTripList({
                     tripList: previewList,
@@ -2567,15 +2562,17 @@ export function createPanel(options = {}) {
         // 且种别 y 可能不同，导致 UI 同一时刻出现“多条不同种别”。
         // 这里按 (baseTripKey + dir + timeMs) 合并，优先保留“有 dep 的记录”（更符合站点时刻表的上车语义）。
         rows.splice(0, rows.length, ...mergeDuplicateTimetableRows(rows, { toText }));
+        rowsForPrintOriginal.splice(0, rowsForPrintOriginal.length, ...mergeDuplicateTimetableRows(rowsForPrintOriginal, { toText }));
 
         rows.sort((a, b) => a.timeMs - b.timeMs);
         rowsForPreview.sort((a, b) => a.timeMs - b.timeMs);
         rowsForThroughLabel.sort((a, b) => a.timeMs - b.timeMs);
+        rowsForPrintOriginal.sort((a, b) => a.timeMs - b.timeMs);
         for (const serviceDay of PRINT_SERVICE_DAYS) {
-            const dayRows = printRowsByServiceDay.get(serviceDay) || [];
-            printRowsByServiceDay.set(
+            const originalDayRows = printRowsByServiceDayOriginal.get(serviceDay) || [];
+            printRowsByServiceDayOriginal.set(
                 serviceDay,
-                mergeDuplicateTimetableRows(dayRows, { toText })
+                mergeDuplicateTimetableRows(originalDayRows, { toText })
                     .sort((a, b) => a.timeMs - b.timeMs)
             );
         }
@@ -2615,6 +2612,113 @@ export function createPanel(options = {}) {
         };
 
         const renderTimeForPrint = (r) => renderTime({ ...(r || {}), isPast: false });
+
+        const originalDirectionStats = deriveDirectionStats({
+            destNameMinCount: DEST_NAME_MIN_COUNT,
+            rows: rowsForPrintOriginal,
+            toText
+        });
+        const buildOriginalDirectionLabel = (dirKey) => {
+            const counts = originalDirectionStats.dirToDestCounts.get(dirKey) || new Map();
+            const entries = Array.from(counts.entries());
+            const names = entries
+                .filter(([name, count]) => originalDirectionStats.anyDestAboveThreshold ? Number(count) >= DEST_NAME_MIN_COUNT : !!name)
+                .sort((a, b) => {
+                    const dc = Number(b[1]) - Number(a[1]);
+                    if (dc) return dc;
+                    return String(a[0]).localeCompare(String(b[0]));
+                })
+                .map(([name]) => toText(name))
+                .filter(Boolean);
+            return names.length ? names.slice(0, 1).join('，') : dirKey;
+        };
+        const printableStationInfoHtmlForExport = renderPrintableStationInfoHtml({
+            typeItems: stationTypeSummaryItems
+        });
+        const buildOriginalPrintPayload = ({
+            dirKey,
+            serviceDay,
+            rowsForDir
+        } = {}) => {
+            const printableRows = (Array.isArray(rowsForDir) ? rowsForDir : [])
+                .map((r) => ({ ...(r || {}), isPast: false }));
+            if (!printableRows.length) return null;
+
+            const {
+                typeHints: originalTypeHints,
+                terminalHints: originalTerminalHints,
+                specialHints: originalSpecialHints
+            } = buildDirectionGridHints(printableRows);
+            const originalGridHintsHtml = effectiveTimetableViewMode === 'grid'
+                ? buildGridHintsHtml({
+                    typeHints: originalTypeHints,
+                    terminalHints: originalTerminalHints,
+                    specialHints: originalSpecialHints
+                })
+                : '';
+            const originalListHtml = renderPanelPrintableTimetableListHtml({
+                rows: printableRows,
+                renderTime: renderTimeForPrint,
+                resolveBadgeTextColor: resolvePanelBadgeTextColor
+            });
+            const originalGridHtml = buildGridTableHtmlForDirection({
+                rowsForDir: printableRows,
+                typeHints: originalTypeHints,
+                terminalHints: originalTerminalHints,
+                specialHints: originalSpecialHints,
+                expanded: true,
+                nowMs: now,
+                serviceDayStartMs,
+                lineColor: lineColorForTimetablePalette,
+                serviceDayColorMode: serviceDay === 'SaturdayHoliday' ? 'complementary' : 'base'
+            });
+
+            return buildTimetablePrintPayload({
+                companyLogoMap,
+                currentStationName: effectivePrintStationName,
+                getCompanyLogoSrc,
+                gridHintsHtml: originalGridHintsHtml,
+                gridHtml: originalGridHtml,
+                lineId,
+                lineMeta: getLineMeta?.(lineId) || {},
+                listHtml: originalListHtml,
+                dirKey,
+                dirLabel: buildOriginalDirectionLabel(dirKey),
+                serviceDay,
+                stationInfoHtml: printableStationInfoHtmlForExport,
+                timetableViewMode: effectiveTimetableViewMode,
+                titleText: effectivePrintTitleText,
+                toText
+            });
+        };
+        const originalLinePrintPayloads = originalDirectionStats.dirOrder
+            .map((dirKey) => {
+                const currentRowsForDir = rowsForPrintOriginal
+                    .filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
+                const currentPayload = buildOriginalPrintPayload({
+                    dirKey,
+                    serviceDay: currentServiceDay,
+                    rowsForDir: currentRowsForDir
+                });
+                if (!currentPayload) return null;
+                return {
+                    ...currentPayload,
+                    serviceDayVariants: PRINT_SERVICE_DAYS
+                        .map((serviceDay) => buildOriginalPrintPayload({
+                            dirKey,
+                            serviceDay,
+                            rowsForDir: (printRowsByServiceDayOriginal.get(serviceDay) || [])
+                                .filter((r) => (toText(r.dir) || 'Unknown') === dirKey)
+                        }))
+                        .filter(Boolean)
+                };
+            })
+            .filter(Boolean);
+        if (originalLinePrintPayloads.length) {
+            linePrintPayloadsByLineId.set(toText(lineId), { dirs: originalLinePrintPayloads });
+        } else {
+            linePrintPayloadsByLineId.delete(toText(lineId));
+        }
 
         // 分组显示：默认显示所有方向；方向内默认展示 3 条未来班次
         let html = '';
@@ -2779,17 +2883,33 @@ export function createPanel(options = {}) {
             const future = rowsForListView.filter((r) => !r.isPast);
             const visible = expanded ? rowsForListView : future.slice(0, 3);
 
-            const printableRowsForDir = filteredRowsForDir.map((r) => ({ ...(r || {}), isPast: false }));
+            const originalPrintRowsForDir = isThroughServiceDirection
+                ? []
+                : rowsForPrintOriginal
+                    .filter((r) => (toText(r.dir) || 'Unknown') === dirKey)
+                    .map((r) => ({ ...(r || {}), isPast: false }));
+            const {
+                typeHints: originalPrintTypeHints,
+                terminalHints: originalPrintTerminalHints,
+                specialHints: originalPrintSpecialHints
+            } = buildDirectionGridHints(originalPrintRowsForDir);
+            const originalPrintGridHintsHtml = effectiveTimetableViewMode === 'grid'
+                ? buildGridHintsHtml({
+                    typeHints: originalPrintTypeHints,
+                    terminalHints: originalPrintTerminalHints,
+                    specialHints: originalPrintSpecialHints
+                })
+                : '';
             const printableListHtml = renderPanelPrintableTimetableListHtml({
-                rows: printableRowsForDir,
+                rows: originalPrintRowsForDir,
                 renderTime: renderTimeForPrint,
                 resolveBadgeTextColor: resolvePanelBadgeTextColor
             });
             const printableGridHtml = buildGridTableHtmlForDirection({
-                rowsForDir: printableRowsForDir,
-                typeHints,
-                terminalHints,
-                specialHints,
+                rowsForDir: originalPrintRowsForDir,
+                typeHints: originalPrintTypeHints,
+                terminalHints: originalPrintTerminalHints,
+                specialHints: originalPrintSpecialHints,
                 expanded: true,
                 nowMs: now,
                 serviceDayStartMs,
@@ -2801,7 +2921,7 @@ export function createPanel(options = {}) {
             });
 
             const buildPrintPayloadForServiceDay = (serviceDay) => {
-                const serviceRowsForDir = (printRowsByServiceDay.get(serviceDay) || [])
+                const serviceRowsForDir = (printRowsByServiceDayOriginal.get(serviceDay) || [])
                     .filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
                 const {
                     typeHints: serviceTypeHints,
@@ -2856,7 +2976,7 @@ export function createPanel(options = {}) {
                 companyLogoMap,
                 currentStationName: effectivePrintStationName,
                 getCompanyLogoSrc,
-                gridHintsHtml,
+                gridHintsHtml: originalPrintGridHintsHtml,
                 gridHtml: printableGridHtml,
                 lineId,
                 lineMeta: getLineMeta?.(lineId) || {},
@@ -2869,10 +2989,14 @@ export function createPanel(options = {}) {
                 titleText: effectivePrintTitleText,
                 toText
             });
-            dirPrintPayloadByKey.set(lineDirKey, {
-                ...currentPrintPayload,
-                serviceDayVariants: PRINT_SERVICE_DAYS.map((serviceDay) => buildPrintPayloadForServiceDay(serviceDay))
-            });
+            if (isThroughServiceDirection) {
+                dirPrintPayloadByKey.delete(lineDirKey);
+            } else {
+                dirPrintPayloadByKey.set(lineDirKey, {
+                    ...currentPrintPayload,
+                    serviceDayVariants: PRINT_SERVICE_DAYS.map((serviceDay) => buildPrintPayloadForServiceDay(serviceDay))
+                });
+            }
 
             const timetableHtml = effectiveTimetableViewMode === 'grid'
                 ? buildGridTableHtmlForDirection({
@@ -3037,6 +3161,7 @@ export function createPanel(options = {}) {
         dirFilterStateByKey: new Map(dirFilterStateByKey),
         dirPreviewMetaByKey: new Map(dirPreviewMetaByKey),
         dirPrintPayloadByKey: new Map(dirPrintPayloadByKey),
+        linePrintPayloadsByLineId: new Map(linePrintPayloadsByLineId),
         gridDataDebugByLineId: new Map(gridDataDebugByLineId)
     });
 
@@ -3052,6 +3177,7 @@ export function createPanel(options = {}) {
         restoreMap(dirFilterStateByKey, snapshot?.dirFilterStateByKey);
         restoreMap(dirPreviewMetaByKey, snapshot?.dirPreviewMetaByKey);
         restoreMap(dirPrintPayloadByKey, snapshot?.dirPrintPayloadByKey);
+        restoreMap(linePrintPayloadsByLineId, snapshot?.linePrintPayloadsByLineId);
         restoreMap(gridDataDebugByLineId, snapshot?.gridDataDebugByLineId);
     };
 
@@ -3124,6 +3250,7 @@ export function createPanel(options = {}) {
             lineEl,
             lineId: lid,
             dirPrintPayloadByKey,
+            linePrintPayloadsByLineId,
             makeLineDirKey,
             toText
         });
@@ -4205,6 +4332,7 @@ export function createPanel(options = {}) {
     const panelPrintRequests = createPanelPrintRequestController({
         body,
         dirPrintPayloadByKey,
+        linePrintPayloadsByLineId,
         makeLineDirKey,
         printAllEventName: TIMETABLE_PRINT_ALL_EVENT,
         toText,
@@ -5210,6 +5338,7 @@ export function createPanel(options = {}) {
         mobilePanelStack.close();
         syncMobilePanelStackUi();
         dirPrintPayloadByKey.clear();
+        linePrintPayloadsByLineId.clear();
         dirFilterStateByKey.clear();
         ({
             temporaryLineMetaById: temporaryPanelLineMetaById,
