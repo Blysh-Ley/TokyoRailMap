@@ -375,7 +375,6 @@ export function createPanel(options = {}) {
         return getLineMetaBase(id);
     };
     const companyLogoMap = options.companyLogoMap || {};
-    const railwaysOrderIndex = options.railwaysOrderIndex instanceof Map ? options.railwaysOrderIndex : null;
     const onSelectCompany = typeof options.onSelectCompany === 'function' ? options.onSelectCompany : null;
     const onSelectLine = typeof options.onSelectLine === 'function' ? options.onSelectLine : null;
     const onRestoreStationLines = typeof options.onRestoreStationLines === 'function' ? options.onRestoreStationLines : null;
@@ -606,6 +605,7 @@ export function createPanel(options = {}) {
     let currentStationServingIds = [];
     let currentStationId = null;
     let currentStationNameZh = '';
+    let currentStationProps = null;
 
     const getMobilePanelStationContext = () => ({
         stationId: toText(currentStationId),
@@ -3284,7 +3284,6 @@ export function createPanel(options = {}) {
             companyLogoMap,
             getLineMeta,
             lineStationNameByLineId,
-            railwaysOrderIndex,
             toText
         });
 
@@ -5497,6 +5496,7 @@ export function createPanel(options = {}) {
         const name = readStationName(props);
         panelCatalogController?.resetTransientUiState();
 
+        currentStationProps = props || null;
         currentStationId = toText(props?.id);
         currentStationNameZh = toText(props?.name_zh || props?.['name:zh'] || name);
         const stationIndex = await getStationsIndex();
@@ -5606,7 +5606,7 @@ export function createPanel(options = {}) {
         if (renderToken !== stationRenderToken) return;
 
         // 渲染 popup 同结构的内容（公司分组 + 线路）
-        body.innerHTML = buildPanelCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId, railwaysOrderIndex, toText });
+        body.innerHTML = buildPanelCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId, toText });
         reorderPanelThroughServiceLinesAfterHtml(body, {
             temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
             throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
@@ -5627,6 +5627,13 @@ export function createPanel(options = {}) {
     };
 
     const refreshPanelThemeColors = async () => {
+        if (toText(currentStationId) && currentStationProps && panelShell.isVisible?.()) {
+            const scrollTop = panelScrollRuntime.getScrollTop();
+            await showForStationProps(currentStationProps);
+            panelScrollRuntime.setScrollTop(scrollTop);
+            return;
+        }
+
         const lineEls = Array.from(body.querySelectorAll('.panel-line[data-line-id]'));
         for (const lineEl of lineEls) {
             const lineId = toText(lineEl.getAttribute('data-line-id'));

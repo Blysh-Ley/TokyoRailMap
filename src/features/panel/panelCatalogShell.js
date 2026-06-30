@@ -3,8 +3,7 @@ import { removeCompanyAbbFromLineName, resolveMainLineIdForIcon } from '../../li
 import { getCompanyLogoSrc } from '../../lib/fetch.js';
 
 import {
-    THROUGH_SERVICE_CONFIGS,
-    THROUGH_SERVICE_SEGMENT_LINE_IDS
+    THROUGH_SERVICE_CONFIGS
 } from '../../lib/throughServiceManager.js';
 
 
@@ -494,55 +493,94 @@ const normalizeArrayLike_panelCompanyCatalogRenderer = (value) => {
     return text ? [text] : [];
 };
 
-const toRailwaysOrderKey_panelCompanyCatalogRenderer = (lineId) => {
-    const raw = String(lineId ?? '').trim();
-    if (!raw) return '';
-    const parts = raw.split('.');
-    const company = String(parts[0] ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const name = String(parts.slice(1).join('') ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (!company || !name) return '';
-    return `${company}-${name}`;
-};
+const parsePanelLineColorToRgb_panelCompanyCatalogRenderer = (input) => {
+    const value = String(input ?? '').trim();
+    if (!value) return null;
 
-const sortCompanyLines_panelCompanyCatalogRenderer = (lines, { railwaysOrderIndex } = {}) => {
-    const src = Array.isArray(lines) ? lines : [];
-    const orderIndex = railwaysOrderIndex instanceof Map ? railwaysOrderIndex : null;
-    if (!orderIndex || !orderIndex.size) return src;
-
-    let maxTriggerRank = Number.NEGATIVE_INFINITY;
-    for (const item of src) {
-        if (item?.lineId && THROUGH_SERVICE_SEGMENT_LINE_IDS.has(item.lineId)) {
-            const key = toRailwaysOrderKey_panelCompanyCatalogRenderer(item.lineId);
-            const rank = key ? orderIndex.get(key) : undefined;
-            if (typeof rank === 'number' && Number.isFinite(rank) && rank > maxTriggerRank) {
-                maxTriggerRank = rank;
-            }
+    const hex = value.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+    if (hex) {
+        const raw = hex[1];
+        if (raw.length === 3) {
+            return {
+                r: parseInt(raw[0] + raw[0], 16),
+                g: parseInt(raw[1] + raw[1], 16),
+                b: parseInt(raw[2] + raw[2], 16)
+            };
         }
+        return {
+            r: parseInt(raw.slice(0, 2), 16),
+            g: parseInt(raw.slice(2, 4), 16),
+            b: parseInt(raw.slice(4, 6), 16)
+        };
     }
 
-    const decorated = src.map((line, idx) => {
-        const key = toRailwaysOrderKey_panelCompanyCatalogRenderer(line?.lineId);
-        let rank = key ? orderIndex.get(key) : undefined;
+    const rgb = value.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*(?:[0-9]+(?:\.[0-9]+)?))?\s*\)$/i);
+    if (!rgb) return null;
 
-        if (!Number.isFinite(rank) && maxTriggerRank > Number.NEGATIVE_INFINITY) {
-            const throughIndex = THROUGH_SERVICE_CONFIGS.findIndex((info) => info.lineId === line?.lineId);
-            if (throughIndex !== -1) {
-                rank = maxTriggerRank + ((THROUGH_SERVICE_CONFIGS.length - throughIndex) * 0.1);
-            }
+    return {
+        r: Math.max(0, Math.min(255, Math.round(Number(rgb[1])))),
+        g: Math.max(0, Math.min(255, Math.round(Number(rgb[2])))),
+        b: Math.max(0, Math.min(255, Math.round(Number(rgb[3]))))
+    };
+};
+
+const rgbToHsv_panelCompanyCatalogRenderer = ({ r, g, b }) => {
+    const rn = Math.max(0, Math.min(255, Number(r) || 0)) / 255;
+    const gn = Math.max(0, Math.min(255, Number(g) || 0)) / 255;
+    const bn = Math.max(0, Math.min(255, Number(b) || 0)) / 255;
+    const max = Math.max(rn, gn, bn);
+    const min = Math.min(rn, gn, bn);
+    const delta = max - min;
+
+    let hue = 0;
+    if (delta > 0) {
+        if (max === rn) {
+            hue = 60 * (((gn - bn) / delta) % 6);
+        } else if (max === gn) {
+            hue = 60 * (((bn - rn) / delta) + 2);
+        } else {
+            hue = 60 * (((rn - gn) / delta) + 4);
         }
+    }
+    if (hue < 0) hue += 360;
+
+    return {
+        hue,
+        saturation: max === 0 ? 0 : delta / max,
+        value: max
+    };
+};
+
+const getRainbowSortHue_panelCompanyCatalogRenderer = (hue) => {
+    const value = Number(hue);
+    if (!Number.isFinite(value)) return Number.POSITIVE_INFINITY;
+    return value >= 330 ? value - 360 : value;
+};
+
+const sortCompanyLines_panelCompanyCatalogRenderer = (lines) => {
+    const src = Array.isArray(lines) ? lines : [];
+
+    const decorated = src.map((line, idx) => {
+        const rgb = parsePanelLineColorToRgb_panelCompanyCatalogRenderer(line?.color);
+        const hsv = rgb ? rgbToHsv_panelCompanyCatalogRenderer(rgb) : null;
 
         return {
+            hasColor: !!hsv,
+            hue: hsv ? getRainbowSortHue_panelCompanyCatalogRenderer(hsv.hue) : Number.POSITIVE_INFINITY,
             idx,
             line,
-            rank: (typeof rank === 'number' && Number.isFinite(rank)) ? rank : Number.POSITIVE_INFINITY
+            saturation: hsv ? hsv.saturation : 0,
+            value: hsv ? hsv.value : 0
         };
     });
 
     decorated.sort((a, b) => {
-        const aFinite = Number.isFinite(a.rank);
-        const bFinite = Number.isFinite(b.rank);
-        if (aFinite !== bFinite) return aFinite ? -1 : 1;
-        if (aFinite && bFinite && a.rank !== b.rank) return b.rank - a.rank;
+        if (a.hasColor !== b.hasColor) return a.hasColor ? -1 : 1;
+        if (a.hasColor && b.hasColor) {
+            if (a.hue !== b.hue) return a.hue - b.hue;
+            if (a.saturation !== b.saturation) return b.saturation - a.saturation;
+            if (a.value !== b.value) return b.value - a.value;
+        }
         return a.idx - b.idx;
     });
 
@@ -554,7 +592,6 @@ export const buildPanelCompaniesHtml = (props = {}, {
     fallbackCompanyName = DEFAULT_COMPANY_NAME_panelCompanyCatalogRenderer,
     getLineMeta,
     lineStationNameByLineId,
-    railwaysOrderIndex,
     toText = defaultToText_panelCompanyCatalogRenderer
 } = {}) => {
     const servingIdsRaw = normalizeArrayLike_panelCompanyCatalogRenderer(props.display_serving_ids ?? props.serving_ids);
@@ -610,7 +647,7 @@ export const buildPanelCompaniesHtml = (props = {}, {
 
     let companiesHtml = '';
     for (const [company, lines] of groups) {
-        const sortedLines = sortCompanyLines_panelCompanyCatalogRenderer(lines, { railwaysOrderIndex });
+        const sortedLines = sortCompanyLines_panelCompanyCatalogRenderer(lines);
         const companyZh = logoMap?.[company]?.zh || null;
         const companyDisplay = String(companyZh || company);
         const logoSrc = getCompanyLogoSrc(company, logoMap) || null;
