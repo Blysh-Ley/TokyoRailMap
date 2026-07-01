@@ -413,7 +413,7 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
                 const aBoost = Number(a.collisionPriorityBoost) || 0;
                 const bBoost = Number(b.collisionPriorityBoost) || 0;
                 if (aBoost !== bBoost) return bBoost - aBoost;
-                if (mode === STATION_LABEL_MODES.FOCUS) {
+                if (mode === STATION_LABEL_MODES.AUTO || mode === STATION_LABEL_MODES.FOCUS) {
                     const aFocus = getFocusedStationLabelPriority(a);
                     const bFocus = getFocusedStationLabelPriority(b);
                     if (aFocus !== bFocus) return bFocus - aFocus;

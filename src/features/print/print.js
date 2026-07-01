@@ -612,6 +612,9 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         if (!list.length) return new Set();
 
         const sorted = list.slice().sort((a, b) => {
+            const fa = Number(a?.focusPriority || 0);
+            const fb = Number(b?.focusPriority || 0);
+            if (fb !== fa) return fb - fa;
             const pa = Number(a?.priority || 0);
             const pb = Number(b?.priority || 0);
             if (pb !== pa) return pb - pa;
