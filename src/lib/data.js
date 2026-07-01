@@ -775,7 +775,11 @@ export async function loadRailGeoDataFromDataFolder() {
             const color = normalizeText(r?.color);
             if (color) railwayColorById.set(id, color);
         }
-        const terminalStationIds = buildTerminalStationIdSet(railwayList);
+        const terminalStationIds = buildTerminalStationIdSet(railwayList, {
+            shouldSkipStation: (stationId, { lineId } = {}) => (
+                isDirectHiddenStationMembership(stationId, lineId)
+            )
+        });
 
         // 诊断：检测“大跨度（相邻跳跃距离过大）”的线路
         const LARGE_SPAN_JUMP_METERS = 5000;

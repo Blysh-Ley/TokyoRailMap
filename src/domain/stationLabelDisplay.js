@@ -13,17 +13,40 @@ export const normalizeStationLabelMode = (mode) => {
     return STATION_LABEL_MODES.AUTO;
 };
 
-export const buildTerminalStationIdSet = (railways = []) => {
+export const buildTerminalStationIdSet = (railways = [], {
+    shouldSkipStation
+} = {}) => {
     const ids = new Set();
     if (!Array.isArray(railways)) return ids;
+    const shouldSkip = typeof shouldSkipStation === 'function'
+        ? shouldSkipStation
+        : null;
 
     for (const railway of railways) {
+        const lineId = String(railway?.id || '').trim();
         const stations = Array.isArray(railway?.stations)
             ? railway.stations.map((stationId) => String(stationId || '').trim()).filter(Boolean)
             : [];
         if (!stations.length) continue;
-        ids.add(stations[0]);
-        ids.add(stations[stations.length - 1]);
+
+        const isSkipped = (stationId, index) => {
+            if (!shouldSkip) return false;
+            try {
+                return shouldSkip(stationId, { railway, lineId, index }) === true;
+            } catch {
+                return false;
+            }
+        };
+
+        let firstIndex = 0;
+        while (firstIndex < stations.length && isSkipped(stations[firstIndex], firstIndex)) firstIndex += 1;
+
+        let lastIndex = stations.length - 1;
+        while (lastIndex >= firstIndex && isSkipped(stations[lastIndex], lastIndex)) lastIndex -= 1;
+
+        if (firstIndex > lastIndex) continue;
+        ids.add(stations[firstIndex]);
+        ids.add(stations[lastIndex]);
     }
 
     return ids;
