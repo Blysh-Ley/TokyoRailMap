@@ -135,40 +135,15 @@ const buildLineFeatureItemContextKey = (item) => {
     return toText(item?.source);
 };
 
-const MULTI_SELECT_BASE_SOURCE = 'ms-base-trip-preview';
-const MULTI_SELECT_BRANCH_SOURCE_PREFIX = 'ms-line-branch:';
-
-const getMultiSelectBranchLineIdFromSource = (source) => {
-    const value = toText(source);
-    if (!value.startsWith(MULTI_SELECT_BRANCH_SOURCE_PREFIX)) return '';
-    return toText(value.slice(MULTI_SELECT_BRANCH_SOURCE_PREFIX.length));
-};
-
-const getLineIdentitySetFromFeature = (feature) => new Set([
-    feature?.properties?.lineId,
-    feature?.properties?.r,
-    feature?.properties?.geometry_line_id,
-    feature?.properties?.line_offset_id
-].map(toText).filter(Boolean));
-
-const toFiniteNumber = (value, fallback = 0) => {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : fallback;
-};
-
-const cloneLineFeatureWithOffset = (feature, lineOffsetUnits, laneIndex, laneCount) => {
-    const props = feature?.properties || {};
-    const baseOffsetUnits = toFiniteNumber(props.line_offset_units, 0);
-    return {
-        ...(feature || {}),
-        properties: {
-            ...props,
-            line_offset_units: baseOffsetUnits + lineOffsetUnits,
-            line_offset_collision_lane: laneIndex,
-            line_offset_collision_count: laneCount
-        }
-    };
-};
+const cloneLineFeatureWithOffset = (feature, lineOffsetUnits, laneIndex, laneCount) => ({
+    ...(feature || {}),
+    properties: {
+        ...(feature?.properties || {}),
+        line_offset_units: lineOffsetUnits,
+        line_offset_collision_lane: laneIndex,
+        line_offset_collision_count: laneCount
+    }
+});
 
 const cloneLineFeatureWithSource = (feature, source) => {
     const value = toText(source);
@@ -245,7 +220,6 @@ export const aggregateTripPreviewLineFeatureItems = ({
     if (!list.length) return [];
 
     const sourceSetByCollisionKey = new Map();
-    const multiSelectBranchLineIdsByCollisionKey = new Map();
     for (const item of list) {
         const feature = item?.feature;
         const collisionKey = buildTripPreviewLineFeatureCollisionKey(feature);
@@ -255,13 +229,6 @@ export const aggregateTripPreviewLineFeatureItems = ({
         if (!contextKey) continue;
         if (!sourceSetByCollisionKey.has(collisionKey)) sourceSetByCollisionKey.set(collisionKey, new Set());
         sourceSetByCollisionKey.get(collisionKey).add(contextKey);
-
-        const branchLineId = getMultiSelectBranchLineIdFromSource(contextKey);
-        if (!branchLineId) continue;
-        if (!multiSelectBranchLineIdsByCollisionKey.has(collisionKey)) {
-            multiSelectBranchLineIdsByCollisionKey.set(collisionKey, new Set());
-        }
-        multiSelectBranchLineIdsByCollisionKey.get(collisionKey).add(branchLineId);
     }
 
     const lineFeatureByKey = new Map();
@@ -274,16 +241,6 @@ export const aggregateTripPreviewLineFeatureItems = ({
         const hasCrossSourceCollision = collisionKey
             && (sourceSetByCollisionKey.get(collisionKey)?.size || 0) > 1;
         const contextKey = buildLineFeatureItemContextKey(item);
-        if (contextKey === MULTI_SELECT_BASE_SOURCE && collisionKey) {
-            const branchLineIds = multiSelectBranchLineIdsByCollisionKey.get(collisionKey);
-            const lineIdentities = getLineIdentitySetFromFeature(feature);
-            if (
-                branchLineIds instanceof Set
-                && Array.from(branchLineIds).some((lineId) => lineIdentities.has(lineId))
-            ) {
-                continue;
-            }
-        }
         const key = collisionKey
             ? (hasCrossSourceCollision && contextKey
                 ? `${collisionKey}||ctx:${contextKey}`
