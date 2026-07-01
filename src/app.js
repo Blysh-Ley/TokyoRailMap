@@ -3327,6 +3327,21 @@ const initMapApp = async () => {
         );
     };
 
+    const resolveDomStationLabelPropsForClick = (originalEvent) => {
+        const rawTarget = originalEvent?.target || null;
+        const target = rawTarget?.nodeType === 1 ? rawTarget : rawTarget?.parentElement || null;
+        const labelEl = target?.closest?.('.station-label') || null;
+        if (!labelEl || !Array.isArray(stationLabels) || !stationLabels.length) return null;
+
+        const labelItem = stationLabels.find((item) => item?.el === labelEl) || null;
+        const stationId = String(labelItem?.stationId ?? labelItem?.props?.id ?? '').trim();
+        if (!stationId) return null;
+        return {
+            ...(labelItem?.props || {}),
+            id: stationId
+        };
+    };
+
     const hoverBridgeApi = {
         beginPreview: () => hoverFeature?.beginPreview() === true,
         endPreview: () => hoverFeature?.closePreview({ committed: false }),
@@ -3507,7 +3522,8 @@ const initMapApp = async () => {
                 recordStationHistory: recordStationSearchHistoryFromProps,
                 preloadTimetablesByLineIds: preloadTimetablesForLineIds,
                 isHighlightClickGateActive: shouldUseHighlightStyle,
-                getHighlightedStationIdsForClickGate: getHighlightedStationIdsForMapClickSelection
+                getHighlightedStationIdsForClickGate: getHighlightedStationIdsForMapClickSelection,
+                resolveDomStationLabelProps: resolveDomStationLabelPropsForClick
             }
         });
     };

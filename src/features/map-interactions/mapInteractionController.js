@@ -2,10 +2,39 @@ import { mapClick } from '../../store/actions.js';
 import { isMapClickSelectionAllowedByHighlight } from '../../domain/mapClickSelectionEligibility.js';
 
 const STATION_INTERACTION_LAYER_IDS = ['stations-layer', 'station-labels-layer'];
+const STATION_LABEL_INTERACTION_LAYER_ID = 'station-labels-layer';
 
 const getExistingStationInteractionLayers = (mapEngine) => (
     STATION_INTERACTION_LAYER_IDS.filter((layerId) => mapEngine.hasLayer?.(layerId))
 );
+
+const queryRenderedStationLabelFeature = (mapEngine, point) => {
+    if (!point || !mapEngine?.hasLayer?.(STATION_LABEL_INTERACTION_LAYER_ID)) return null;
+    const hits = mapEngine.queryRenderedFeatures?.(point, {
+        layers: [STATION_LABEL_INTERACTION_LAYER_ID]
+    }) || [];
+    return hits[0] || null;
+};
+
+export const resolveStationClickFeature = ({
+    event,
+    mapEngine,
+    resolveDomStationLabelProps
+} = {}) => {
+    const domLabelProps = resolveDomStationLabelProps?.(event?.originalEvent);
+    if (domLabelProps) {
+        const stationId = String(domLabelProps?.id ?? '').trim();
+        return {
+            id: stationId || undefined,
+            properties: domLabelProps
+        };
+    }
+
+    const labelFeature = queryRenderedStationLabelFeature(mapEngine, event?.point);
+    if (labelFeature) return labelFeature;
+
+    return event?.features?.[0] || null;
+};
 
 export const bindBlankMapClickRestore = ({
     mapEngine,
@@ -165,7 +194,8 @@ export const bindStationClickHighlightServingLines = ({
     recordStationHistory,
     preloadTimetablesByLineIds,
     isHighlightClickGateActive,
-    getHighlightedStationIdsForClickGate
+    getHighlightedStationIdsForClickGate,
+    resolveDomStationLabelProps
 } = {}) => {
     if (!mapEngine || typeof mapEngine.on !== 'function') {
         throw new Error('bindStationClickHighlightServingLines requires mapEngine');
@@ -179,7 +209,11 @@ export const bindStationClickHighlightServingLines = ({
         if (event?.originalEvent?.__tokyoRailStationClickHandled === true) return;
         if (event?.originalEvent) event.originalEvent.__tokyoRailStationClickHandled = true;
 
-        const feature = event?.features?.[0];
+        const feature = resolveStationClickFeature({
+            event,
+            mapEngine,
+            resolveDomStationLabelProps
+        });
         const props = feature?.properties || {};
         const stationId = String(props?.id ?? feature?.id ?? '').trim();
         if (!isMapClickSelectionAllowedByHighlight({

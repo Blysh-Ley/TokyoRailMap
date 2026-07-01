@@ -662,6 +662,7 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         ? options.canShowStationHoverFeature
         : null;
     let hoverPreviewEnabled = getHoverPreviewEnabled ? getHoverPreviewEnabled() !== false : true;
+    let externalStationHover = false;
     const isHoverPreviewEnabled = () => hoverPreviewEnabled !== false;
     const isStationLabelFeature = (feature) => feature?.layer?.id === STATION_LABELS_LAYER_ID;
     const isStationHoverAllowed = (feature) => (
@@ -669,6 +670,7 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
     );
     const canShowPopupForFeature = (feature) => {
         if (!feature) return false;
+        if (externalStationHover) return false;
         if (!isStationHoverAllowed(feature)) return false;
         if (isStationLabelFeature(feature)) return getStationLabelHoverEnabled() !== false;
         return true;
@@ -1535,6 +1537,11 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
 
     const handleStationMouseEnter = async (e) => {
         if (!isHoverPreviewEnabled()) return;
+        if (externalStationHover) {
+            mapAdapter.setCursor('');
+            if (popupOpenMode === 'hover') removePopupNow({ committed: false });
+            return;
+        }
         // 触屏会产生合成 mouseenter：这里直接忽略，改用 click 来显示 popup
         if (nowMs() < suppressMouseEventsUntilMs || isTouchLikePointer(lastPointerType)) return;
 
@@ -1616,12 +1623,17 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
     };
 
     const setExternalStationHover = (over) => {
-        if (popupOpenMode !== 'hover') return;
-        isOverStation = over === true;
-        if (isOverStation) {
-            clearHideTimer();
+        externalStationHover = over === true;
+        if (externalStationHover) {
+            mapAdapter.setCursor('');
+            isOverStation = false;
+            if (popupOpenMode === 'hover') {
+                removePopupNow({ committed: false });
+            }
             return;
         }
+        if (popupOpenMode !== 'hover') return;
+        isOverStation = false;
         tryHidePopup();
     };
 
