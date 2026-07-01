@@ -16,6 +16,9 @@ export const createPanelMainView = ({
     getIconCandidates,
     getPreferredCachedImageSrc,
     setImageElementFromCache,
+    formatDateInputValue: formatDateInputValueOption,
+    formatPanelDateText: formatPanelDateTextOption,
+    getInitialPanelDate,
     isSaturdayHoliday,
     stopEvent,
     stopPropagationOnly,
@@ -289,6 +292,7 @@ export const createPanelMainView = ({
     datePanel.setAttribute('aria-label', '选择日期');
 
     const formatPanelDateText = (date) => {
+        if (typeof formatPanelDateTextOption === 'function') return formatPanelDateTextOption(date);
         const mm = String(date.getMonth() + 1).padStart(2, '0');
         const dd = String(date.getDate()).padStart(2, '0');
         const dayType = (typeof isSaturdayHoliday === 'function' && isSaturdayHoliday(date) === 'SaturdayHoliday') ? '休息日' : '工作日';
@@ -296,6 +300,7 @@ export const createPanelMainView = ({
     };
 
     const formatDateInputValue = (date) => {
+        if (typeof formatDateInputValueOption === 'function') return formatDateInputValueOption(date);
         const y = String(date.getFullYear());
         const mm = String(date.getMonth() + 1).padStart(2, '0');
         const dd = String(date.getDate()).padStart(2, '0');
@@ -320,7 +325,7 @@ export const createPanelMainView = ({
     datePickerInput.type = 'date';
     datePickerInput.className = 'panel-date-picker-input';
 
-    const initialDate = new Date();
+    const initialDate = typeof getInitialPanelDate === 'function' ? getInitialPanelDate() : new Date();
     const initialDateText = formatPanelDateText(initialDate);
     if (datePanel.textContent !== initialDateText) {
         datePanel.textContent = initialDateText;

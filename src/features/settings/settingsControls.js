@@ -14,3 +14,4 @@ export {
     mountStationLabelToggle,
     mountStationOffsetToggle
 } from './stationDisplayControls.js';
+export { mountTimezoneToggle } from './timezoneControl.js';

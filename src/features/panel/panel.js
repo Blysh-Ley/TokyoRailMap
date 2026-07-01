@@ -65,6 +65,19 @@ import {
     normalizeTimetableSourceLineIds
 } from './panelTimetableCore.js';
 import { buildAlternateTripSourceIndex, getAlternateTripSources } from '../../domain/alternateLineMembership.js';
+import {
+    formatBusinessDateInputValue,
+    formatBusinessDateLabel,
+    getBusinessDateParts,
+    getDisplayServiceDayStartMs,
+    getServiceDayStartMs,
+    inferServiceDayFromDate,
+    parseDisplayHHMMToMs,
+    parseHHMMToServiceDayMs,
+    readBusinessTimezoneMode,
+    SERVICE_DAY_BOUNDARY_HOUR,
+    toHHMMForTimezone
+} from '../../domain/routePlanning/time.js';
 import { toPanelServiceHourIndex } from './panelTimetableCore.js';
 import { postprocessPanelTimetableTrips } from './panelTimetablePostprocess.js';
 import { buildPanelTimetableGridHtmlForDirection } from './panelTimetableUi.js';
@@ -189,17 +202,17 @@ import {
 
 const toText = (v) => String(v ?? '').trim();
 
-const isSaturdayHoliday = (day) => {
-    const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+const isSaturdayHoliday = (day, { timezoneMode = readBusinessTimezoneMode() } = {}) => {
     const isHoliday = (typeof JapaneseHolidays !== 'undefined' && typeof JapaneseHolidays.isHoliday === 'function')
-        ? JapaneseHolidays.isHoliday(day)
-        : false;
-    const month = day.getMonth() + 1;
-    const date = day.getDate();
-    const isNewYearHoliday = (month === 12 && date >= 30) || (month === 1 && date <= 3);
-    const isSH = isWeekend || isHoliday || isNewYearHoliday;
-    return isSH ? 'SaturdayHoliday' : 'Weekday';
+        ? (date) => JapaneseHolidays.isHoliday(date)
+        : null;
+    return inferServiceDayFromDate(day, {
+        isHoliday,
+        timezoneMode
+    });
 }
+
+const getTimezoneMode = () => readBusinessTimezoneMode();
 
 const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
 
@@ -220,38 +233,8 @@ const escapeHtml = (s) =>
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
-const SERVICE_DAY_BOUNDARY_HOUR = 3;
 const PRINT_SERVICE_DAYS = ['Weekday', 'SaturdayHoliday'];
 const PANEL_TIMETABLE_ALTERNATE_OVERLAY_ENABLED = true;
-
-const getServiceDayStartMs = (now = new Date()) => {
-    const d = new Date(now.getTime());
-    // service day starts at 03:00
-    const candidate = new Date(d.getTime());
-    candidate.setHours(SERVICE_DAY_BOUNDARY_HOUR, 0, 0, 0);
-    // If it's before 03:00, service day started yesterday at 03:00
-    if (d.getTime() < candidate.getTime()) {
-        candidate.setDate(candidate.getDate() - 1);
-    }
-    return candidate.getTime();
-};
-
-const parseHHMMToServiceDayMs = (hhmm, serviceDayStartMs) => {
-    const s = toText(hhmm);
-    const m = s.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
-    if (!m) return null;
-    const h = Number(m[1]);
-    const min = Number(m[2]);
-
-    const d = new Date(serviceDayStartMs);
-    d.setHours(h, min, 0, 0);
-
-    // Times between 00:00–02:59 belong to the next calendar day segment of the same service day.
-    const isNextDaySegment = h < SERVICE_DAY_BOUNDARY_HOUR;
-    if (isNextDaySegment) d.setDate(d.getDate() + 1);
-
-    return { ms: d.getTime(), isNextDaySegment };
-};
 
 const parseTripServiceDayFromId = (tripId) => {
     const id = toText(tripId);
@@ -267,6 +250,20 @@ const formatTimeWithPlus = (hhmm, isNextDaySegment) => {
     const s = toText(hhmm);
     if (!s) return '';
     return isNextDaySegment ? `${s}` : s;
+};
+
+const buildDisplayTimeFromSourceHHMM = (hhmm, serviceDayStartMs) => {
+    const parsed = parseHHMMToServiceDayMs(hhmm, serviceDayStartMs);
+    if (!parsed) return {
+        isNextDaySegment: false,
+        ms: null,
+        text: ''
+    };
+    return {
+        isNextDaySegment: parsed.isNextDaySegment,
+        ms: parsed.ms,
+        text: toHHMMForTimezone(parsed.ms, { timezoneMode: getTimezoneMode() })
+    };
 };
 
 const parseTripDetailTimeMinutes = (hhmm) => {
@@ -434,6 +431,12 @@ export function createPanel(options = {}) {
         getIconCandidates,
         getPreferredCachedImageSrc,
         setImageElementFromCache,
+        formatDateInputValue: (date) => formatBusinessDateInputValue(date, { timezoneMode: getTimezoneMode() }),
+        formatPanelDateText: (date) => formatBusinessDateLabel(date, {
+            isHoliday: (holidayDate) => globalThis?.JapaneseHolidays?.isHoliday?.(holidayDate),
+            timezoneMode: getTimezoneMode()
+        }),
+        getInitialPanelDate: () => Date.now(),
         isSaturdayHoliday,
         stopEvent,
         stopPropagationOnly,
@@ -670,7 +673,7 @@ export function createPanel(options = {}) {
     let stationRenderToken = 0;
     let currentServiceDay = 'SaturdayHoliday';
 
-    let day = new Date();
+    let day = Date.now();
     currentServiceDay = isSaturdayHoliday(day);
 
     let currentNowOverrideHHMM = '';
@@ -682,20 +685,23 @@ export function createPanel(options = {}) {
         const baseNowMs = Date.now();
         const hhmm = toText(currentNowOverrideHHMM);
         if (!hhmm) return baseNowMs;
-        const serviceDayStartMs = getServiceDayStartMs(new Date(baseNowMs));
-        const parsed = parseHHMMToServiceDayMs(hhmm, serviceDayStartMs);
+        const parsed = parseDisplayHHMMToMs(hhmm, {
+            referenceMs: baseNowMs,
+            timezoneMode: getTimezoneMode()
+        });
         return parsed?.ms || baseNowMs;
     };
 
-    const formatNowHHMM = (d = new Date()) => {
-        const hh = String(d.getHours()).padStart(2, '0');
-        const mm = String(d.getMinutes()).padStart(2, '0');
+    const formatNowHHMM = (d = Date.now()) => {
+        const parts = getBusinessDateParts(d, { timezoneMode: getTimezoneMode() });
+        const hh = String(parts.hour).padStart(2, '0');
+        const mm = String(parts.minute).padStart(2, '0');
         return `${hh}:${mm}`;
     };
 
     const syncAutoNowClock = ({ forceRender = false } = {}) => {
         if (!isAutoNowClock) return;
-        const hhmm = formatNowHHMM(new Date());
+        const hhmm = formatNowHHMM(Date.now());
         if (toText(timeInput.value) !== hhmm) {
             timeInput.value = hhmm;
         }
@@ -2233,7 +2239,8 @@ export function createPanel(options = {}) {
         }
 
         const now = getDisplayNowMs();
-        const serviceDayStartMs = getServiceDayStartMs(new Date(now));
+        const serviceDayStartMs = getServiceDayStartMs(now);
+        const displayServiceDayStartMs = getDisplayServiceDayStartMs(now, { timezoneMode: getTimezoneMode() });
         const lineMetaForTimetablePalette = getLineMeta?.(lineId) || {};
         const lineColorForTimetablePalette = toText(lineMetaForTimetablePalette?.color);
         const panelServiceDayColorMode = 'base';
@@ -2449,19 +2456,21 @@ export function createPanel(options = {}) {
                 const tripKey = tripId || toText(trip?.t) || '';
                 const baseTripKey = toText(trip?.n) //|| (tripId ? tripId.replace(/\.(Weekday|SaturdayHoliday)(\.[0-9]+)?$/, '') : '');
 
-                const arrParsed = arr ? parseHHMMToServiceDayMs(arr, serviceDayStartMs) : null;
-                const depParsed = dep ? parseHHMMToServiceDayMs(dep, serviceDayStartMs) : null;
+                const arrDisplay = arr ? buildDisplayTimeFromSourceHHMM(arr, serviceDayStartMs) : null;
+                const depDisplay = dep ? buildDisplayTimeFromSourceHHMM(dep, serviceDayStartMs) : null;
+                const displayTimeMs = (depDisplay?.ms || arrDisplay?.ms || timeMs);
+                const displayTimeText = toHHMMForTimezone(displayTimeMs, { timezoneMode: getTimezoneMode() });
 
                 out.push({
                     destName,
                     destId,
-                    arr: arr || null,
-                    dep: dep || null,
-                    arrPlus: !!arrParsed?.isNextDaySegment,
-                    depPlus: !!depParsed?.isNextDaySegment,
+                    arr: arrDisplay?.text || null,
+                    dep: depDisplay?.text || null,
+                    arrPlus: !!arrDisplay?.isNextDaySegment,
+                    depPlus: !!depDisplay?.isNextDaySegment,
                     timeMs,
-                    serviceHourIndex: toPanelServiceHourIndex(timeMs, serviceDayStartMs),
-                    minuteLabel: toText(timeStr).slice(3, 5),
+                    serviceHourIndex: toPanelServiceHourIndex(displayTimeMs, displayServiceDayStartMs),
+                    minuteLabel: toText(displayTimeText).slice(3, 5),
                     isPast: timeMs < now,
                     typeName,
                     typeColor,
@@ -2734,7 +2743,7 @@ export function createPanel(options = {}) {
                 specialHints: originalSpecialHints,
                 expanded: true,
                 nowMs: now,
-                serviceDayStartMs,
+                serviceDayStartMs: displayServiceDayStartMs,
                 lineColor: lineColorForTimetablePalette,
                 serviceDayColorMode: serviceDay === 'SaturdayHoliday' ? 'complementary' : 'base'
             });
@@ -2937,15 +2946,7 @@ export function createPanel(options = {}) {
             const gridHintsHtml = effectiveTimetableViewMode === 'grid' && expanded
                 ? buildGridHintsHtml({ typeHints, terminalHints, specialHints })
                 : '';
-            const rowsForListView = filteredRowsForDir.map((row) => {
-                const displayTime = toText(row?.arr) || toText(row?.dep);
-                const parsedDisplayTime = displayTime ? parseHHMMToServiceDayMs(displayTime, serviceDayStartMs) : null;
-                if (!parsedDisplayTime) return row;
-                return {
-                    ...(row || {}),
-                    isPast: parsedDisplayTime.ms < now
-                };
-            });
+            const rowsForListView = filteredRowsForDir;
             const future = rowsForListView.filter((r) => !r.isPast);
             const visible = expanded ? rowsForListView : future.slice(0, 3);
 
@@ -2978,7 +2979,7 @@ export function createPanel(options = {}) {
                 specialHints: originalPrintSpecialHints,
                 expanded: true,
                 nowMs: now,
-                serviceDayStartMs,
+                serviceDayStartMs: displayServiceDayStartMs,
                 lineColor: lineColorForTimetablePalette,
                 serviceDayColorMode: currentPrintServiceDayColorMode
             });
@@ -3014,7 +3015,7 @@ export function createPanel(options = {}) {
                     specialHints: serviceSpecialHints,
                     expanded: true,
                     nowMs: now,
-                    serviceDayStartMs,
+                    serviceDayStartMs: displayServiceDayStartMs,
                     lineColor: lineColorForTimetablePalette,
                     serviceDayColorMode: serviceDay === 'SaturdayHoliday' ? 'complementary' : 'base'
                 });
@@ -3072,7 +3073,7 @@ export function createPanel(options = {}) {
                     specialHints,
                     expanded,
                     nowMs: now,
-                    serviceDayStartMs,
+                    serviceDayStartMs: displayServiceDayStartMs,
                     lineColor: lineColorForTimetablePalette,
                     serviceDayColorMode: panelServiceDayColorMode
                 })
@@ -3549,14 +3550,16 @@ export function createPanel(options = {}) {
             const arrParsed = arr ? parseHHMMToServiceDayMs(arr, serviceDayStartMs) : null;
             const depParsed = dep ? parseHHMMToServiceDayMs(dep, serviceDayStartMs) : null;
             const timeMs = depParsed?.ms || arrParsed?.ms || null;
+            const arrDisplay = arrParsed ? buildDisplayTimeFromSourceHHMM(arr, serviceDayStartMs) : null;
+            const depDisplay = depParsed ? buildDisplayTimeFromSourceHHMM(dep, serviceDayStartMs) : null;
 
             out.push({
                 stationId,
                 stationName: toText(s?.stationName),
-                arr: arr || null,
-                dep: dep || null,
-                arrPlus: !!arrParsed?.isNextDaySegment,
-                depPlus: !!depParsed?.isNextDaySegment,
+                arr: arrDisplay?.text || null,
+                dep: depDisplay?.text || null,
+                arrPlus: !!arrDisplay?.isNextDaySegment,
+                depPlus: !!depDisplay?.isNextDaySegment,
                 timeMs,
                 isPast: false,
                 showOriginLabel: isOriginStop,
@@ -3737,7 +3740,7 @@ export function createPanel(options = {}) {
         if (token !== tripDetailToken) return;
 
         const now = getDisplayNowMs();
-        const serviceDayStartMs = getServiceDayStartMs(new Date(now));
+        const serviceDayStartMs = getServiceDayStartMs(now);
 
         const [stationsIndex, trainTypesIndex, trainTypeColorIndex, alternateLineMembership] = await Promise.all([
             getStationsIndex(),
@@ -3808,8 +3811,9 @@ export function createPanel(options = {}) {
                 if (token !== tripDetailToken) return;
                 const parsed = ptArr ? parseHHMMToServiceDayMs(ptArr, serviceDayStartMs) : null;
                 if (ptArr) {
-                    firstMain.arr = ptArr;
+                    firstMain.arr = parsed ? toHHMMForTimezone(parsed.ms, { timezoneMode: getTimezoneMode() }) : ptArr;
                     firstMain.arrPlus = !!parsed?.isNextDaySegment;
+                    firstMain.timeMs = firstMain.timeMs || parsed?.ms || null;
                 }
             }
 
@@ -3819,8 +3823,9 @@ export function createPanel(options = {}) {
                 if (token !== tripDetailToken) return;
                 const parsed = ntDep ? parseHHMMToServiceDayMs(ntDep, serviceDayStartMs) : null;
                 if (ntDep) {
-                    lastMain.dep = ntDep;
+                    lastMain.dep = parsed ? toHHMMForTimezone(parsed.ms, { timezoneMode: getTimezoneMode() }) : ntDep;
                     lastMain.depPlus = !!parsed?.isNextDaySegment;
+                    lastMain.timeMs = lastMain.timeMs || parsed?.ms || null;
                 }
             }
         }
@@ -5653,6 +5658,29 @@ export function createPanel(options = {}) {
         }
     };
 
+    const refreshBusinessTime = async () => {
+        const scrollTop = panelScrollRuntime.getScrollTop();
+        applyPanelDateSelection(new Date());
+        if (isAutoNowClock) {
+            syncAutoNowClock({ forceRender: true });
+        } else if (toText(currentStationId)) {
+            await renderAllTimetables();
+        }
+        const activeTripKey = toText(lastTripDetailKey);
+        if (activeTripKey) {
+            const [lineId, tripKey] = activeTripKey.split('||');
+            if (toText(lineId) && toText(tripKey)) {
+                renderTripDetail({
+                    lineId,
+                    tripKey,
+                    pinned: tripDetailPinned,
+                    fitMode: 'none'
+                });
+            }
+        }
+        panelScrollRuntime.setScrollTop(scrollTop);
+    };
+
     const setHoverPreviewEnabled = (enabled) => {
         const next = enabled !== false;
         if (hoverPreviewEnabled === next) return;
@@ -5684,6 +5712,7 @@ export function createPanel(options = {}) {
         setTimeOverride,
         resetTemporaryTimeOverride,
         handlePanelBackIntent,
+        refreshBusinessTime,
         refreshThemeColors: refreshPanelThemeColors,
         setTimetableViewMode: (mode) => applyTimetableViewMode(mode, { rerender: true }),
         showForStationProps,

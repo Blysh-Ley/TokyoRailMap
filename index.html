@@ -57,15 +57,39 @@
     (function () {
         var dateEl = document.getElementById('startup-panel-date');
         if (!dateEl) return;
+        var mode = 'local';
+        try {
+            mode = String(window.localStorage.getItem('tokyorail.timezone.mode') || 'local') === 'japan' ? 'japan' : 'local';
+        } catch (err) {
+            mode = 'local';
+        }
         var d = new Date();
-        var mm = String(d.getMonth() + 1).padStart(2, '0');
-        var dd = String(d.getDate()).padStart(2, '0');
-        var day = d.getDay();
-        var month = d.getMonth() + 1;
-        var date = d.getDate();
+        var parts = null;
+        if (mode === 'japan' && window.Intl && Intl.DateTimeFormat) {
+            try {
+                var fmt = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'Asia/Tokyo',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+                parts = {};
+                fmt.formatToParts(d).forEach(function (part) {
+                    if (part.type !== 'literal') parts[part.type] = part.value;
+                });
+            } catch (err) {
+                parts = null;
+            }
+        }
+        var year = parts ? Number(parts.year) : d.getFullYear();
+        var month = parts ? Number(parts.month) : d.getMonth() + 1;
+        var date = parts ? Number(parts.day) : d.getDate();
+        var mm = String(month).padStart(2, '0');
+        var dd = String(date).padStart(2, '0');
+        var day = parts ? new Date(Date.UTC(year, month - 1, date)).getUTCDay() : d.getDay();
         var isHoliday = false;
         try {
-            isHoliday = !!(window.JapaneseHolidays && JapaneseHolidays.isHoliday(d));
+            isHoliday = !!(window.JapaneseHolidays && JapaneseHolidays.isHoliday(new Date(year, month - 1, date)));
         } catch (err) {
             isHoliday = false;
         }

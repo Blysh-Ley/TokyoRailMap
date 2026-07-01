@@ -16,9 +16,12 @@ import {
     buildTripPreviewPayloadFromDisplayPlan,
     toHHMM,
     formatDuration,
-    getServiceDayStartMs,
+    getDisplayServiceDayStartMs,
     normalizeHHMM,
-    hhmmToOffsetMinutes
+    hhmmToOffsetMinutes,
+    parseDisplayHHMMToMs,
+    readBusinessTimezoneMode,
+    toHHMMForTimezone
 } from './travel-search-planner-raptor.js';
 import { getCachedJson, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
 import { createTimetableNoteRow } from '../panel/panelTimetableCore.js';
@@ -2364,12 +2367,16 @@ export function mountTravelSearchUI() {
     };
 
     const readDepartureBase = () => {
-        const now = new Date();
-        const serviceDayStartMs = getServiceDayStartMs(now);
+        const nowMs = Date.now();
+        const timezoneMode = readBusinessTimezoneMode();
+        const serviceDayStartMs = getDisplayServiceDayStartMs(nowMs, { timezoneMode });
         const input = document.querySelector('.settings-time-input');
-        const hhmm = normalizeHHMM(input?.value || '') || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        const offset = hhmmToOffsetMinutes(hhmm);
-        const depMs = Number.isFinite(offset) ? serviceDayStartMs + offset * 60000 : now.getTime();
+        const hhmm = normalizeHHMM(input?.value || '') || toHHMMForTimezone(nowMs, { timezoneMode });
+        const parsed = parseDisplayHHMMToMs(hhmm, {
+            referenceMs: nowMs,
+            timezoneMode
+        });
+        const depMs = Number.isFinite(Number(parsed?.ms)) ? Number(parsed.ms) : nowMs;
         return { serviceDayStartMs, departureMs: depMs };
     };
 
@@ -3982,8 +3989,14 @@ export function mountTravelSearchUI() {
                 selectedOriginCandidateIds = [];
                 selectedOriginCandidateMeta = [];
                 selectedOriginLngLat = null;
+                input.dataset.stationId = '';
                 try {
                     reachableStopsController?.clear?.();
+                } catch {
+                    // ignore
+                }
+                try {
+                    journeyPickController.clearPin('origin');
                 } catch {
                     // ignore
                 }
@@ -3992,6 +4005,12 @@ export function mountTravelSearchUI() {
                 selectedDestinationCandidateIds = [];
                 selectedDestinationCandidateMeta = [];
                 selectedDestinationLngLat = null;
+                input.dataset.stationId = '';
+                try {
+                    journeyPickController.clearPin('destination');
+                } catch {
+                    // ignore
+                }
             }
 
             lastPlanComputeKey = '';

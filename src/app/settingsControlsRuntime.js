@@ -9,6 +9,7 @@ import {
     mountLineNameLabelsToggle,
     mountStationLabelToggle,
     mountStationOffsetToggle,
+    mountTimezoneToggle,
     mountTimetableViewToggle,
     mountTripPastDimmingToggle
 } from '../features/settings/settingsControls.js';
@@ -24,6 +25,7 @@ const DEFAULT_CONTROLS = Object.freeze({
     mountLineNameLabelsToggle,
     mountStationLabelToggle,
     mountStationOffsetToggle,
+    mountTimezoneToggle,
     mountTimetableViewToggle,
     mountTripPastDimmingToggle
 });
@@ -68,6 +70,7 @@ export const mountAppSettingsControls = ({
     onStationLabelUserModeChanged,
     onStationOffsetModeChanged,
     onThemeChanged,
+    onTimezoneModeChanged,
     onTimetableViewModeChanged,
     onTripPastDimmingEnabledChanged,
     stationLabelMode,
@@ -106,6 +109,11 @@ export const mountAppSettingsControls = ({
     controls.mountBasemapToggle({
         hostEl,
         onModeChanged: basemapThemeRuntime?.setBasemapMode
+    });
+
+    controls.mountTimezoneToggle?.({
+        hostEl,
+        onModeChanged: onTimezoneModeChanged
     });
 
     controls.mountAdaptiveViewportToggle({

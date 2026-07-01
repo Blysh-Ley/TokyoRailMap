@@ -3474,6 +3474,9 @@ const initMapApp = async () => {
             applySelectionEffects();
             panel?.refreshThemeColors?.();
         },
+        onTimezoneModeChanged: () => {
+            panel?.refreshBusinessTime?.();
+        },
         setImageElementFromCache,
         stationLabelMode
     });

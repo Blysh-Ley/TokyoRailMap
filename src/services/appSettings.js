@@ -1,5 +1,9 @@
 import { DEFAULT_BASEMAP_MODE, normalizeBasemapMode } from '../domain/basemapMode.js';
 import { normalizeStationLabelMode } from '../domain/stationLabelDisplay.js';
+import {
+    TIMEZONE_STORAGE_KEY,
+    normalizeTimezoneMode
+} from '../domain/routePlanning/time.js';
 
 export const APPEARANCE_STORAGE_KEY = 'tokyorail.appearance.mode';
 export const BASEMAP_STORAGE_KEY = 'tokyorail.basemap.mode';
@@ -86,6 +90,17 @@ export const readTimetableViewMode = () => {
 export const writeTimetableViewMode = (mode) => {
     const next = mode === 'grid' ? 'grid' : 'list';
     setLocalStorageValue(TIMETABLE_VIEW_STORAGE_KEY, next);
+    return next;
+};
+
+export const readTimezoneMode = () => {
+    const raw = getLocalStorageValue(TIMEZONE_STORAGE_KEY, 'local');
+    return normalizeTimezoneMode(raw);
+};
+
+export const writeTimezoneMode = (mode) => {
+    const next = normalizeTimezoneMode(mode);
+    setLocalStorageValue(TIMEZONE_STORAGE_KEY, next);
     return next;
 };
 

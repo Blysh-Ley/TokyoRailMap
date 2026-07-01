@@ -7,10 +7,15 @@ import {
 import { buildAlternateLineMembership } from '../../domain/alternateLineMembership.js';
 import {
     formatDuration,
+    getDisplayServiceDayStartMs,
     getServiceDayStartMs,
     hhmmToOffsetMinutes,
     inferServiceDayFromDate,
     normalizeHHMM,
+    parseDisplayHHMMToMs,
+    readBusinessTimezoneMode,
+    TIMEZONE_MODE_JAPAN,
+    toHHMMForTimezone,
     toHHMM
 } from '../../domain/routePlanning/time.js';
 import {
@@ -58,11 +63,15 @@ export const getReachableStopsWithinMinutes = async (options) => {
 export {
     distanceMeters,
     formatDuration,
+    getDisplayServiceDayStartMs,
     getServiceDayStartMs,
     hhmmToOffsetMinutes,
     normalizeHHMM,
     normalizeText,
+    parseDisplayHHMMToMs,
     pickPlanBuckets,
+    readBusinessTimezoneMode,
+    toHHMMForTimezone,
     toHHMM
 };
 
@@ -2231,7 +2240,10 @@ export async function findPath(startStopId, endStopId, startTime) {
     const panelDay = normalizeText(document.querySelector('.panel-day-seg button.is-active[data-day]')?.getAttribute?.('data-day') || '');
     const serviceDay = panelDay === 'SaturdayHoliday'
         ? 'SaturdayHoliday'
-        : inferServiceDayFromDate(new Date(departureMs), { isHoliday: (date) => globalThis?.JapaneseHolidays?.isHoliday?.(date) });
+        : inferServiceDayFromDate(departureMs, {
+            isHoliday: (date) => globalThis?.JapaneseHolidays?.isHoliday?.(date),
+            timezoneMode: TIMEZONE_MODE_JAPAN
+        });
 
     const plans = await collectJourneyCandidatesRaptor({
         sourceStops,
