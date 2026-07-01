@@ -528,6 +528,17 @@ export const createTripPreviewBuilder = ({
         const endStationId = lastSeg
             ? String(lastSeg.stationIds[lastSeg.stationIds.length - 1] || '').trim()
             : '';
+        const endpointStationIds = new Set([startStationId, endStationId].filter(Boolean));
+        if (endpointStationIds.size) {
+            for (const feature of outStopFeatures) {
+                const sid = String(feature?.properties?.id || '').trim();
+                if (!endpointStationIds.has(sid)) continue;
+                feature.properties = {
+                    ...(feature.properties || {}),
+                    is_preview_endpoint: 1
+                };
+            }
+        }
 
         return {
             lineFc: { type: 'FeatureCollection', features: outLineFeatures },

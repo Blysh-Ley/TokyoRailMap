@@ -389,6 +389,18 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         return serving.length ? serving[0] : '';
     };
 
+    const isTerminalStationProps = (props) => (
+        Number(props?.is_terminal_station) === 1 || props?.is_terminal_station === true
+    );
+
+    const isPreviewEndpointProps = (props) => (
+        Number(props?.is_preview_endpoint) === 1 || props?.is_preview_endpoint === true
+    );
+
+    const isFocusTerminalStationProps = (props) => (
+        isTerminalStationProps(props) || isPreviewEndpointProps(props)
+    );
+
     const getCurrentStationLabelMode = () => {
         try {
             const host = document.querySelector('.settings-item.settings-item-station-label');
@@ -777,6 +789,28 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
             return out;
         })();
         return rawStationsCoordByIdPromise;
+    };
+
+    let stationPropsByIdPromise = null;
+    const getStationPropsById = async (mapForSource = null) => {
+        if (stationPropsByIdPromise) return stationPropsByIdPromise;
+        stationPropsByIdPromise = (async () => {
+            const out = new Map();
+            try {
+                const baseMap = getRuntimeBaseMap() || mapForSource;
+                const stationsFc = baseMap ? await getGeoJsonSourceData(baseMap, 'stations-source') : null;
+                for (const f of Array.isArray(stationsFc?.features) ? stationsFc.features : []) {
+                    const props = f?.properties || {};
+                    const id = toText(props?.id ?? f?.id);
+                    if (!id) continue;
+                    out.set(id, props);
+                }
+            } catch {
+                // ignore
+            }
+            return out;
+        })();
+        return stationPropsByIdPromise;
     };
 
     // ---- geometry helpers ----
@@ -1412,6 +1446,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         {
             const mode = getCurrentStationLabelMode();
             if (mode !== 'off') {
+                const stationPropsById = await getStationPropsById(map);
                 const scale = Math.max(1, Number(stationLabelScale) || 1);
                 const fontPx = 12 * scale;
                 const font = `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
@@ -1426,13 +1461,18 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
                     const c = geom.coordinates;
                     if (!Array.isArray(c) || c.length < 2) continue;
 
-                    const name = resolveStationDisplayName({ props, stationId: sid, stationNameById });
+                    const baseProps = stationPropsById?.get?.(sid) || {};
+                    const mergedProps = { ...baseProps, ...props };
+                    const name = resolveStationDisplayName({ props: mergedProps, stationId: sid, stationNameById });
                     if (!name) continue;
-                    const servingIds = normalizeArrayLike(props?.serving_ids);
-                    const servingCount = Number.isFinite(Number(props?.serving_count))
-                        ? Number(props.serving_count)
-                        : (servingIds.length || 1);
-                    const isTerminalStation = Number(props?.is_terminal_station) === 1 || props?.is_terminal_station === true;
+                    const servingIds = normalizeArrayLike(mergedProps?.serving_ids);
+                    const servingCountRaw = Number(mergedProps?.serving_count);
+                    const servingCount = Math.max(
+                        1,
+                        servingIds.length,
+                        Number.isFinite(servingCountRaw) ? servingCountRaw : 0
+                    );
+                    const isTerminalStation = isFocusTerminalStationProps(mergedProps);
                     const focusPriority = isTerminalStation ? 2 : (servingCount > 1 ? 1 : 0);
                     const textW = measureTextWidthPx(name, font);
 

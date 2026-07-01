@@ -1,5 +1,7 @@
 import {
     aggregateTripPreviewLineFeatureItems,
+    isTripPreviewEndpointProps,
+    markTripPreviewStopFeatureEndpoint,
     normalizeDirPreviewPayload
 } from '../../domain/routePreviewSelection.js';
 
@@ -37,6 +39,15 @@ export const createRouteFeature = ({
 
     const hasVisibleBuiltPreview = (built) => {
         return built?.lineIds instanceof Set && built.lineIds.size > 0;
+    };
+
+    const getBuiltEndpointStationIds = (built) => {
+        const out = new Set();
+        const startStationId = normalizeKey(built?.startStationId);
+        const endStationId = normalizeKey(built?.endStationId);
+        if (startStationId) out.add(startStationId);
+        if (endStationId) out.add(endStationId);
+        return out;
     };
 
     return {
@@ -133,6 +144,7 @@ export const createRouteFeature = ({
                 const built = entry?.built;
                 const lineFeatures = Array.isArray(built?.lineFc?.features) ? built.lineFc.features : [];
                 const stopFeatures = Array.isArray(built?.stopFc?.features) ? built.stopFc.features : [];
+                const builtEndpointIds = getBuiltEndpointStationIds(built);
 
                 for (const lf of lineFeatures) {
                     lineFeatureItems.push({
@@ -144,7 +156,18 @@ export const createRouteFeature = ({
                 for (const sf of stopFeatures) {
                     const sid = String(sf?.properties?.id || '').trim();
                     if (!sid) continue;
-                    if (!stopFeatureByStationId.has(sid)) stopFeatureByStationId.set(sid, sf);
+                    const isEndpoint = builtEndpointIds.has(sid) || isTripPreviewEndpointProps(sf?.properties);
+                    if (stopFeatureByStationId.has(sid)) {
+                        const current = stopFeatureByStationId.get(sid);
+                        if (isEndpoint && !isTripPreviewEndpointProps(current?.properties)) {
+                            stopFeatureByStationId.set(sid, markTripPreviewStopFeatureEndpoint(current));
+                        }
+                        continue;
+                    }
+                    stopFeatureByStationId.set(
+                        sid,
+                        isEndpoint ? markTripPreviewStopFeatureEndpoint(sf) : sf
+                    );
                 }
 
                 const ids = built?.lineIds instanceof Set ? built.lineIds : null;
