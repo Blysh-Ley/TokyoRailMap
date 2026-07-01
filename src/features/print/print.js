@@ -1336,9 +1336,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
             const role = String(f?.properties?.role || 'line');
             const color = resolveLineColorForTheme(f?.properties, '#0a84ff');
             const opacity = role === 'connector' ? 0.95 : 1;
-            const strokeWidth = role === 'connector'
-                ? getHighlightLineWidthAtZoom(z, { isLowlight: true })
-                : getHighlightLineWidthAtZoom(z);
+            const strokeWidth = getHighlightLineWidthAtZoom(z);
 
             if (geom.type === 'LineString') {
                 const d = pathFromLineFeatureCoords(map, f, geom.coordinates);
