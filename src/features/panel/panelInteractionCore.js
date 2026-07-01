@@ -41,7 +41,7 @@ export const createPanelCrossFeatureBridgeController = ({
             : (field === 'destination' ? 'setDestinationStation' : 'setOriginStation');
         const method = ui?.[methodName];
         if (typeof method !== 'function') return false;
-        method.call(ui, stationId, stationName, { expand: true, recompute: true, waypointIndex });
+        method.call(ui, stationId, stationName, { expand: true, recompute: false, waypointIndex });
         return true;
     }) === true;
 
