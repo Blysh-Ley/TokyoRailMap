@@ -4699,6 +4699,65 @@ const initMapApp = async () => {
         const markers = createStationMarkers(mapEngine, stationsData, { attachMarkers: false });
         stationLabels = markers.stationLabels;
         const stationCircles = markers.stationCircles;
+        const resolveTouchStationFeatureAtPoint = (point) => {
+            const px = Number(point?.x);
+            const py = Number(point?.y);
+            if (!Number.isFinite(px) || !Number.isFinite(py)) return null;
+            const labelItems = Array.isArray(stationLabels) ? stationLabels : [];
+            const circleItems = Array.isArray(stationCircles) ? stationCircles : [];
+            if (!labelItems.length && !circleItems.length) return null;
+
+            const maxDistancePx = 34;
+            const maxDistanceSq = maxDistancePx * maxDistancePx;
+            const labelByStationId = new Map();
+            let best = null;
+            let bestDistanceSq = Number.POSITIVE_INFINITY;
+
+            for (const item of labelItems) {
+                const stationId = String(item?.stationId ?? item?.props?.id ?? '').trim();
+                if (stationId && !labelByStationId.has(stationId)) labelByStationId.set(stationId, item);
+            }
+
+            for (const item of [...labelItems, ...circleItems]) {
+                if (!item || item.hiddenByOpacityZero || item.forceHiddenByTransferCollapse) continue;
+                const coordinates = Array.isArray(item.coordinates) ? item.coordinates : null;
+                if (!coordinates || coordinates.length < 2) continue;
+
+                let projected = null;
+                try {
+                    projected = mapEngine.project?.(coordinates);
+                } catch {
+                    projected = null;
+                }
+                const sx = Number(projected?.x);
+                const sy = Number(projected?.y);
+                if (!Number.isFinite(sx) || !Number.isFinite(sy)) continue;
+
+                const dx = sx - px;
+                const dy = sy - py;
+                const distanceSq = dx * dx + dy * dy;
+                if (distanceSq > maxDistanceSq || distanceSq >= bestDistanceSq) continue;
+
+                bestDistanceSq = distanceSq;
+                best = item;
+            }
+
+            if (!best) return null;
+            const stationId = String(best.stationId ?? best.props?.id ?? '').trim();
+            if (!stationId) return null;
+            const props = best.props || labelByStationId.get(stationId)?.props || {};
+            return {
+                id: stationId,
+                properties: {
+                    ...props,
+                    id: stationId
+                },
+                geometry: {
+                    type: 'Point',
+                    coordinates: Array.isArray(best.coordinates) ? best.coordinates.slice() : []
+                }
+            };
+        };
         stationLabelChipsAdapter = createStationLabelChipsAdapter({
             getLineColor: (lineId) => lineColorById.get(lineId),
             getTransferStationIds: (stationId) => transferStationIdsByStationId.get(String(stationId || '').trim()),
@@ -4989,6 +5048,8 @@ const initMapApp = async () => {
             sourcePrefix: 'popup-'
         });
 
+        const stationTouchLongPressMs = 560;
+
         stationPopup = setupStationPopup(mapEngine, {
 
             getLineMeta: (lineId) => {
@@ -5003,9 +5064,11 @@ const initMapApp = async () => {
             railwaysOrderIndex,
             hoverDelayMs: 50,
             hoverMinZoom: HOVER_PREVIEW_MIN_ZOOM,
+            touchHoverLongPressMs: stationTouchLongPressMs,
             getHoverPreviewEnabled: () => isHoverPreviewEnabled(),
             getStationLabelHoverEnabled: () => stationLabelMode !== 'auto',
             canShowStationHoverFeature: isStationFeatureAllowedForHighlightInteraction,
+            resolveTouchStationFeatureAtPoint,
             onSelectCompany: popupSelectionCallbacks.onSelectCompany,
             onSelectLine: popupSelectionCallbacks.onSelectLine,
             onRestoreStationLines: popupSelectionCallbacks.onRestoreStationLines,
@@ -5043,7 +5106,7 @@ const initMapApp = async () => {
                 evt?.preventDefault?.();
                 evt?.stopPropagation?.();
             };
-            const labelLongPressMs = 510;
+            const labelLongPressMs = stationTouchLongPressMs;
             const labelLongPressMoveTolerancePx = 12;
 
             const fireStationLabelTap = (item, pt) => {

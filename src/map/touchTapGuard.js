@@ -22,6 +22,7 @@ function createGuard({
         eligible: false,
         pointerType: 'mouse'
     };
+    let suppressTapUntilMs = 0;
 
     const onPointerDown = (evt) => {
         const pt = evt?.pointerType;
@@ -83,13 +84,20 @@ function createGuard({
     };
 
     const allowTap = (evt) => {
+        const t = nowMs();
+        if (t < suppressTapUntilMs) return false;
+
         // 非触屏（鼠标）不拦截
         if (!isLikelyTouchDerivedEvent(evt)) return true;
 
-        const t = nowMs();
         if (!lastGesture.eligible) return false;
         if (t - (lastGesture.endedAt || 0) > clickWindowMs) return false;
         return true;
+    };
+
+    const suppressNextTap = (ms = clickWindowMs) => {
+        const duration = Number(ms);
+        suppressTapUntilMs = nowMs() + (Number.isFinite(duration) && duration > 0 ? duration : clickWindowMs);
     };
 
     const bind = (target) => {
@@ -104,7 +112,8 @@ function createGuard({
     return {
         allowTap,
         isTouchLikePointerType,
-        bind
+        bind,
+        suppressNextTap
     };
 }
 

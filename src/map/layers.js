@@ -661,6 +661,9 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
     const canShowStationHoverFeature = typeof options.canShowStationHoverFeature === 'function'
         ? options.canShowStationHoverFeature
         : null;
+    const resolveTouchStationFeatureAtPoint = typeof options.resolveTouchStationFeatureAtPoint === 'function'
+        ? options.resolveTouchStationFeatureAtPoint
+        : null;
     let hoverPreviewEnabled = getHoverPreviewEnabled ? getHoverPreviewEnabled() !== false : true;
     let externalStationHover = false;
     const isHoverPreviewEnabled = () => hoverPreviewEnabled !== false;
@@ -973,6 +976,7 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         lastPointerType = String(pt);
         if (isTouchLikePointer(lastPointerType)) {
             suppressMouseEventsUntilMs = nowMs() + 800;
+            touchTapGuard?.suppressNextTap?.(1200);
         }
 
         popupOpenMode = 'hover';
@@ -996,6 +1000,7 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
     const hideTouchHoverPopup = ({ pointerId } = {}) => {
         if (pointerId != null && touchHoverPointerId != null && pointerId !== touchHoverPointerId) return false;
         const wasShown = touchHoverShown === true || popupOpenMode === 'hover';
+        if (wasShown) touchTapGuard?.suppressNextTap?.(1200);
         resetTouchHoverState();
         isOverStation = false;
         if (popupOpenMode === 'hover') {
@@ -1015,6 +1020,9 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
 
     const queryStationFeatureAtPoint = (point) => {
         if (!point) return null;
+        const resolved = resolveTouchStationFeatureAtPoint?.(point);
+        if (resolved && canShowPopupForFeature(resolved)) return resolved;
+        if (resolveTouchStationFeatureAtPoint) return null;
         try {
             const layers = ['stations-layer', STATION_LABELS_LAYER_ID].filter((layerId) => mapAdapter.hasLayer(layerId));
             const hits = layers.length
