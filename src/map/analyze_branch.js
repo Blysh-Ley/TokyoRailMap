@@ -735,7 +735,6 @@ const matchesThroughServiceCategory = (trip, idMap, expectedCategory, cache) => 
 };
 
 export const analyzeBranchesForLine = async (lineId, options = {}) => {
-    
     const sourceLineIds = Array.isArray(options?.sourceLineIds)
         ? options.sourceLineIds.map((x) => toText(x)).filter(Boolean)
         : [];
@@ -756,9 +755,10 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
     })();
     const lineIdsKey = activeLineIds.slice().sort().join('|');
     const categoryKey = throughServiceCategory || '*';
-    //const cacheKey = `${lineIdsKey}##${tripFilterKey}##${categoryKey}`;
+    const filterSpecial = options?.filterSpecial === true;
+    const cacheKey = `${lineIdsKey}##${tripFilterKey}##${categoryKey}##${filterSpecial ? 'base' : 'all'}`;
 
-    //if (!branchAnalysisCacheByLine.has(cacheKey)) {
+    if (!branchAnalysisCacheByLine.has(cacheKey)) {
         const p = (async () => {
             const { allRecords, idMap, lineStationIdsById } = await loadAllTimetableRecords();
             const throughCategoryCache = new Map();
@@ -769,7 +769,7 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
             const osFrequencyMap = new Map();
 
             for (const rec of allRecords) {
-                if (options?.filterSpecial && rec && rec.nm) continue;
+                if (filterSpecial && rec && rec.nm) continue;
                 if (!activeLineSet.has(getTripLineId(rec))) continue;
                 if (!matchesTripFilter(rec, tripFilterSet)) continue;
                 if (!matchesThroughServiceCategory(rec, idMap, throughServiceCategory, throughCategoryCache)) continue;
@@ -783,11 +783,11 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
                 osFrequencyMap.set(osKey, (osFrequencyMap.get(osKey) || 0) + 1);
             }
 
-            if(options?.filterSpecial){
+            if (filterSpecial) {
                 for (const rec of baseFilteredRecords) {
                     const dsKey = rec.ds && Array.isArray(rec.ds) ? rec.ds.join(',') : '';
                     const osKey = rec.os && Array.isArray(rec.os) ? rec.os.join(',') : '';
-                    
+
                     const dsCount = dsFrequencyMap.get(dsKey) || 0;
                     const osCount = osFrequencyMap.get(osKey) || 0;
 
@@ -801,8 +801,7 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
                     activeLineIds,
                     lineStationIdsById
                 });
-            }
-            else{
+            } else {
                 targetTimetables.push(...baseFilteredRecords);
             }
 
@@ -845,11 +844,44 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
             };
         })();
 
-        //branchAnalysisCacheByLine.set(cacheKey, p);
-    //}
+        branchAnalysisCacheByLine.set(cacheKey, p.catch((error) => {
+            branchAnalysisCacheByLine.delete(cacheKey);
+            throw error;
+        }));
+    }
 
-    //return branchAnalysisCacheByLine.get(cacheKey);
-    return p;
+    return branchAnalysisCacheByLine.get(cacheKey);
+};
+
+export const prewarmThroughServiceBranchAnalysis = async ({
+    throughServiceConfigsObject = THROUGH_SERVICE_CONFIGS_OBJECT
+} = {}) => {
+    const configs = Object.values(throughServiceConfigsObject || {});
+    const tasks = [];
+
+    for (const info of configs) {
+        const lineId = toText(info?.lineId);
+        const throughServiceCategory = toText(info?.category);
+        const sourceLineIds = Array.isArray(info?.segmentLineIds)
+            ? info.segmentLineIds.map((x) => toText(x)).filter(Boolean)
+            : [];
+        if (!lineId || !throughServiceCategory || !sourceLineIds.length) continue;
+
+        for (const filterSpecial of [false, true]) {
+            tasks.push(analyzeBranchesForLine(lineId, {
+                throughServiceCategory,
+                sourceLineIds,
+                filterSpecial
+            }));
+        }
+    }
+
+    const results = await Promise.allSettled(tasks);
+    return {
+        requested: tasks.length,
+        fulfilled: results.filter((result) => result.status === 'fulfilled').length,
+        rejected: results.filter((result) => result.status === 'rejected').length
+    };
 };
 
 export const buildBranchVirtualTrips = ({ lineId, lineName, branchList } = {}) => {

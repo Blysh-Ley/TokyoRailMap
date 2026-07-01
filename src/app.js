@@ -55,7 +55,7 @@ import {
 import { buildAlternateLineMembership } from './domain/alternateLineMembership.js';
 import { buildLineHighlightLabelItems } from './domain/lineHighlightLabels.js';
 import { buildLineNameLabelGeoJSON } from './domain/lineNameLabels.js';
-import { previewBranchesForLine } from './map/analyze_branch.js';
+import { previewBranchesForLine, prewarmThroughServiceBranchAnalysis } from './map/analyze_branch.js';
 import { createLineIconElement, getResolvedRouteIconMeta } from './lib/line-icons.js';
 import {
     buildBaseLineColorExpr,
@@ -1678,6 +1678,19 @@ const initMapApp = async () => {
         Object.values(THROUGH_SERVICE_CONFIGS_OBJECT).map(info => buildMenuThroughSource(info.lineId))
     );
     const getMenuThroughDisplayByCategory = getThroughServiceDisplayByCategory;
+    let menuThroughBranchAnalysisPrewarmPromise = null;
+    const prewarmMenuThroughBranchAnalysis = () => {
+        if (!menuThroughBranchAnalysisPrewarmPromise) {
+            menuThroughBranchAnalysisPrewarmPromise = prewarmThroughServiceBranchAnalysis({
+                throughServiceConfigsObject: THROUGH_SERVICE_CONFIGS_OBJECT
+            }).catch((error) => {
+                console.warn('[through-service] 线路高亮预计算失败，将在菜单选择时回退为即时计算', error);
+                menuThroughBranchAnalysisPrewarmPromise = null;
+                return null;
+            });
+        }
+        return menuThroughBranchAnalysisPrewarmPromise;
+    };
     const getMenuThroughDisplayByLineId = (lineId) => {
         const category = getMenuThroughCategoryByLineId(lineId);
         return getMenuThroughDisplayByCategory(category);
@@ -3468,6 +3481,7 @@ const initMapApp = async () => {
         generatedAlternateLineMembership = alternateLineMembership || null;
         generatedStationOffsetAlgorithmContext = stationOffsetAlgorithmContext;
         initializeThroughServiceStationIndex({ railways: rawRailways });
+        await prewarmMenuThroughBranchAnalysis();
         transferStationIdsByStationId = await loadTransferStationIdMap();
 
         /*
@@ -4438,6 +4452,7 @@ const initMapApp = async () => {
             : loadedGeoData?.rawRailways;
         if (Array.isArray(throughServiceRailways)) {
             initializeThroughServiceStationIndex({ railways: throughServiceRailways });
+            await prewarmMenuThroughBranchAnalysis();
         }
 
 
