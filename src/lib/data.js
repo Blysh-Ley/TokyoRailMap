@@ -8,6 +8,7 @@ import {
 } from '../map/offset.js';
 import { buildLineNameLabelGeoJSON } from '../domain/lineNameLabels.js';
 import { buildAlternateLineMembership } from '../domain/alternateLineMembership.js';
+import { buildTerminalStationIdSet } from '../domain/stationLabelDisplay.js';
 
 export async function loadGeoJSON(url) {
     if (String(url ?? '').trim().replace(/^\.\//, '') === 'data/station-groups.json') {
@@ -774,6 +775,7 @@ export async function loadRailGeoDataFromDataFolder() {
             const color = normalizeText(r?.color);
             if (color) railwayColorById.set(id, color);
         }
+        const terminalStationIds = buildTerminalStationIdSet(railwayList);
 
         // 诊断：检测“大跨度（相邻跳跃距离过大）”的线路
         const LARGE_SPAN_JUMP_METERS = 5000;
@@ -1335,6 +1337,7 @@ export async function loadRailGeoDataFromDataFolder() {
                     platform_line_id: [stationLineId],
                     serving_ids: servingIds,
                     line_colors: platformColor ? [platformColor] : [],
+                    is_terminal_station: terminalStationIds.has(id) ? 1 : 0,
                     hidden_by_opacity_zero: hiddenByOpacityZero
                 },
                 geometry: {

@@ -1,3 +1,8 @@
+import {
+    getFocusedStationLabelPriority,
+    isTerminalStationLabel
+} from '../domain/stationLabelDisplay.js';
+
 /**
  * 创建站名 DOM Marker（文字标签）。
  * 同时返回用于“圆点碰撞检测”的站点列表（按站点 id 过滤 circle layer）。
@@ -32,6 +37,8 @@ export function buildStationLabelGeoJSON(stationsData) {
 
         const servingIds = Array.isArray(props.serving_ids) ? props.serving_ids.map(String) : [];
         const priority = servingIds.length;
+        const isTerminalStation = isTerminalStationLabel({ props });
+        const focusPriority = getFocusedStationLabelPriority({ priority, isTerminalStation });
 
         features.push({
             type: 'Feature',
@@ -41,6 +48,8 @@ export function buildStationLabelGeoJSON(stationsData) {
                 id: stationId,
                 name,
                 priority,
+                focus_priority: focusPriority,
+                is_terminal_station: isTerminalStation ? 1 : 0,
                 hidden_by_opacity_zero: Number(props.hidden_by_opacity_zero) === 1 || props.hidden_by_opacity_zero === true ? 1 : 0
             },
             geometry: {
@@ -86,6 +95,8 @@ export function createStationMarkers(mapOrEngine, maplibreglOrStationsData, stat
             : servingIds;
 
         const priority = servingIds.length;
+        const isTerminalStation = isTerminalStationLabel({ props });
+        const focusPriority = getFocusedStationLabelPriority({ priority, isTerminalStation });
         const servingLineIds = platformIds;
         const hiddenByOpacityZero = Number(props.hidden_by_opacity_zero) === 1 || props.hidden_by_opacity_zero === true;
 
@@ -107,6 +118,8 @@ export function createStationMarkers(mapOrEngine, maplibreglOrStationsData, stat
             coordinates,
             props: propsSnapshot,
             priority,
+            focusPriority,
+            isTerminalStation,
             servingLineIds,
             hiddenByOpacityZero,
             labelDyPx,

@@ -1,4 +1,5 @@
 import { readStationOffsetMode } from '../../services/appSettings.js';
+import { normalizeStationLabelMode, STATION_LABEL_MODES } from '../../domain/stationLabelDisplay.js';
 import { createSegmentedSettingRow } from './settingRows.js';
 
 export const mountStationOffsetToggle = ({ hostEl, onModeChanged } = {}) => {
@@ -44,21 +45,21 @@ export const mountStationLabelToggle = ({
         className: 'settings-item-station-label',
         title: '站名显示',
         options: [
-            { value: 'off', label: '隐藏' },
-            { value: 'auto', label: '自动' },
-            { value: 'all', label: '全显' }
+            { value: STATION_LABEL_MODES.OFF, label: '隐藏' },
+            { value: STATION_LABEL_MODES.FOCUS, label: '重点' },
+            { value: STATION_LABEL_MODES.AUTO, label: '自动' },
+            { value: STATION_LABEL_MODES.ALL, label: '全显' }
         ]
     });
-    const btnOff = row.buttons.get('off');
-    const btnAuto = row.buttons.get('auto');
-    const btnAll = row.buttons.get('all');
-    let modeState = initialMode === 'off' || initialMode === 'all' ? initialMode : 'auto';
-
-    const normalizeMode = (mode) => (mode === 'off' || mode === 'all' ? mode : 'auto');
+    const btnOff = row.buttons.get(STATION_LABEL_MODES.OFF);
+    const btnFocus = row.buttons.get(STATION_LABEL_MODES.FOCUS);
+    const btnAuto = row.buttons.get(STATION_LABEL_MODES.AUTO);
+    const btnAll = row.buttons.get(STATION_LABEL_MODES.ALL);
+    let modeState = normalizeStationLabelMode(initialMode);
 
     const setMode = (mode, options = {}) => {
         if (options?.fromUser !== true) return false;
-        const next = normalizeMode(mode);
+        const next = normalizeStationLabelMode(mode);
         if (modeState === next) return false;
         modeState = next;
         row.setActive(modeState);
@@ -67,9 +68,10 @@ export const mountStationLabelToggle = ({
         return true;
     };
 
-    btnOff.addEventListener('click', () => setMode('off', { fromUser: true }));
-    btnAuto.addEventListener('click', () => setMode('auto', { fromUser: true }));
-    btnAll.addEventListener('click', () => setMode('all', { fromUser: true }));
+    btnOff.addEventListener('click', () => setMode(STATION_LABEL_MODES.OFF, { fromUser: true }));
+    btnFocus.addEventListener('click', () => setMode(STATION_LABEL_MODES.FOCUS, { fromUser: true }));
+    btnAuto.addEventListener('click', () => setMode(STATION_LABEL_MODES.AUTO, { fromUser: true }));
+    btnAll.addEventListener('click', () => setMode(STATION_LABEL_MODES.ALL, { fromUser: true }));
 
     row.setActive(modeState);
 

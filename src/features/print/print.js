@@ -395,6 +395,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
             const active = host?.querySelector('button.is-active');
             const t = String(active?.textContent || '').trim();
             if (t.includes('隐藏')) return 'off';
+            if (t.includes('重点')) return 'focus';
             if (t.includes('全显')) return 'all';
             if (t.includes('自动')) return 'auto';
         } catch {
@@ -1426,13 +1427,19 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
 
                     const name = resolveStationDisplayName({ props, stationId: sid, stationNameById });
                     if (!name) continue;
-                    const servingCount = Number(props?.serving_count ?? 1);
+                    const servingIds = normalizeArrayLike(props?.serving_ids);
+                    const servingCount = Number.isFinite(Number(props?.serving_count))
+                        ? Number(props.serving_count)
+                        : (servingIds.length || 1);
+                    const isTerminalStation = Number(props?.is_terminal_station) === 1 || props?.is_terminal_station === true;
+                    const focusPriority = isTerminalStation ? 2 : (servingCount > 1 ? 1 : 0);
                     const textW = measureTextWidthPx(name, font);
 
                     candidates.push({
                         id: sid,
                         text: name,
                         priority: servingCount,
+                        focusPriority,
                         coordinates: [Number(c[0]), Number(c[1])],
                         fontPx,
                         font,
@@ -1450,14 +1457,24 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
                     visibleIds
                 });
 
-                const visible = mode === 'auto'
-                    ? pickVisibleLabelIdsByCollision({ map, candidates: collapsedCandidates, gridCellPx: 80 })
-                    : new Set(collapsedCandidates.map((c) => c.id));
+                const focusCandidates = mode === 'focus'
+                    ? collapsedCandidates.filter((c) => Number(c?.focusPriority) > 0)
+                    : collapsedCandidates;
+                const collisionCandidates = mode === 'focus'
+                    ? focusCandidates.slice().sort((a, b) => {
+                        const focus = (Number(b?.focusPriority) || 0) - (Number(a?.focusPriority) || 0);
+                        if (focus) return focus;
+                        return (Number(b?.priority) || 0) - (Number(a?.priority) || 0);
+                    })
+                    : focusCandidates;
+                const visible = mode === 'auto' || mode === 'focus'
+                    ? pickVisibleLabelIdsByCollision({ map, candidates: collisionCandidates, gridCellPx: 80 })
+                    : new Set(collisionCandidates.map((c) => c.id));
                 appendStationLabelBoxesSvg({
                     parts,
                     groupId: 'trip-preview-labels',
                     map,
-                    candidates: collapsedCandidates,
+                    candidates: collisionCandidates,
                     visibleIds: visible,
                     labelScale: scale,
                     omitBoxRect: Boolean(backgroundImageHref)

@@ -1,3 +1,10 @@
+import {
+    getFocusedStationLabelPriority,
+    normalizeStationLabelMode,
+    shouldShowFocusedStationLabel,
+    STATION_LABEL_MODES
+} from '../domain/stationLabelDisplay.js';
+
 /**
  * 基于屏幕像素的简易“碰撞检测”。
  * 核心思想：
@@ -316,11 +323,12 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
             typeof getPinnedStationId === 'function' ? getPinnedStationId() : null
         );
 
-        const mode =
+        const mode = normalizeStationLabelMode(
             (typeof getLabelMode === 'function' ? getLabelMode() : null) ??
-            (typeof getLabelsVisible === 'function' ? (getLabelsVisible() ? 'auto' : 'off') : 'auto');
+            (typeof getLabelsVisible === 'function' ? (getLabelsVisible() ? 'auto' : 'off') : 'auto')
+        );
 
-        if (mode === 'off') {
+        if (mode === STATION_LABEL_MODES.OFF) {
             setStationSymbolLabelsVisible(false);
             if (options.interaction === true || domStationLabelsHiddenForOffMode) return;
             stationLabels.forEach((label) => {
@@ -338,7 +346,7 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
         const explicitIdsSet = typeof getVisibleStationIds === 'function' ? getVisibleStationIds() : null;
 
         const useSymbolAutoLabels =
-            mode === 'auto'
+            mode === STATION_LABEL_MODES.AUTO
             && mapAdapter.hasLayer(stationLabelsLayerId)
             && !(pinnedIds instanceof Set)
             && !(enabledLineIdsSet instanceof Set)
@@ -355,7 +363,7 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
             return;
         }
 
-        if (mode === 'all') {
+        if (mode === STATION_LABEL_MODES.ALL) {
             stationLabels.forEach((label) => {
                 if (label.forceHiddenByTransferCollapse) {
                     label.el.style.display = 'none';
@@ -405,6 +413,11 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
                 const aBoost = Number(a.collisionPriorityBoost) || 0;
                 const bBoost = Number(b.collisionPriorityBoost) || 0;
                 if (aBoost !== bBoost) return bBoost - aBoost;
+                if (mode === STATION_LABEL_MODES.FOCUS) {
+                    const aFocus = getFocusedStationLabelPriority(a);
+                    const bFocus = getFocusedStationLabelPriority(b);
+                    if (aFocus !== bFocus) return bFocus - aFocus;
+                }
                 return (b.priority - a.priority) || String(a.el.textContent).localeCompare(String(b.el.textContent));
             });
 
@@ -417,6 +430,10 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
                 return;
             }
             if (!label.priority) {
+                label.el.style.display = 'none';
+                return;
+            }
+            if (mode === STATION_LABEL_MODES.FOCUS && !shouldShowFocusedStationLabel(label)) {
                 label.el.style.display = 'none';
                 return;
             }
