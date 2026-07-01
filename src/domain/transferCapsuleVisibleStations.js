@@ -1,5 +1,10 @@
 const toText = (value) => String(value ?? '').trim();
 
+export const DEFAULT_TRANSFER_CAPSULE_BASE_HIDDEN_LINE_IDS = Object.freeze([
+    'Seibu.S-Yurakucho',
+    'Seibu.S-Fukutoshin'
+]);
+
 export const normalizeTransferCapsuleStationIdSet = (value) => {
     if (value instanceof Set) {
         return new Set(Array.from(value).map(toText).filter(Boolean));
@@ -16,6 +21,57 @@ export const mergeTransferCapsuleStationIdSets = (...sets) => {
         for (const id of normalizeTransferCapsuleStationIdSet(set)) {
             out.add(id);
         }
+    }
+    return out;
+};
+
+export const shouldApplyTransferCapsuleBaseHiddenFilter = ({
+    tripPreviewActive = false,
+    dirPreviewActive = false
+} = {}) => !(tripPreviewActive === true || dirPreviewActive === true);
+
+export const isTransferCapsuleBaseHiddenStationId = (
+    stationId,
+    hiddenLineIds = DEFAULT_TRANSFER_CAPSULE_BASE_HIDDEN_LINE_IDS
+) => {
+    const sid = toText(stationId);
+    if (!sid) return false;
+    const lineIds = Array.isArray(hiddenLineIds) || hiddenLineIds instanceof Set
+        ? Array.from(hiddenLineIds).map(toText).filter(Boolean)
+        : DEFAULT_TRANSFER_CAPSULE_BASE_HIDDEN_LINE_IDS;
+    return lineIds.some((lineId) => sid === lineId || sid.startsWith(`${lineId}.`));
+};
+
+export const filterTransferCapsuleStationIdsForBaseLayer = (
+    stationIds,
+    { active = true, hiddenLineIds = DEFAULT_TRANSFER_CAPSULE_BASE_HIDDEN_LINE_IDS } = {}
+) => {
+    if (!(stationIds instanceof Set)) return stationIds;
+    if (active !== true) return stationIds;
+
+    const out = new Set();
+    for (const rawId of stationIds) {
+        const id = toText(rawId);
+        if (!id) continue;
+        if (isTransferCapsuleBaseHiddenStationId(id, hiddenLineIds)) continue;
+        out.add(id);
+    }
+    return out;
+};
+
+export const getFixedTransferCapsuleVisibleStationIds = (
+    stationsGeoJSON,
+    { active = true, hiddenLineIds = DEFAULT_TRANSFER_CAPSULE_BASE_HIDDEN_LINE_IDS } = {}
+) => {
+    if (active !== true) return null;
+    if (!stationsGeoJSON || !Array.isArray(stationsGeoJSON.features)) return null;
+
+    const out = new Set();
+    for (const feature of stationsGeoJSON.features) {
+        const sid = toText(feature?.properties?.id ?? feature?.id);
+        if (!sid) continue;
+        if (isTransferCapsuleBaseHiddenStationId(sid, hiddenLineIds)) continue;
+        out.add(sid);
     }
     return out;
 };
