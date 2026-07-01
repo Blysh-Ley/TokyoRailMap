@@ -116,12 +116,55 @@ import { createSearchSelectionController } from './features/search/searchSelecti
 import { createSelectionEffectsController } from './features/selection/selectionEffectsController.js';
 import { createPanelSearchSelectionCallbacks } from './features/selection/panelSearchSelectionCallbacks.js';
 import { createSettingsMenu } from './features/settings/settingsMenu.js';
+import { runMultiSelectLayerCommandFromInputs } from './features/highlight/multiSelectLayerCommandRouter.js';
+import {
+    clearBaseMultiSelectionsState,
+    getVisibleBaseMultiSelectionLineIds,
+    removeBaseMultiSelectionState,
+    splitCompanyBaseMultiSelectionState,
+    toggleBaseMultiSelectionState,
+    toggleBaseMultiSelectionVisibilityState
+} from './domain/multiSelectBaseSelection.js';
+import {
+    buildBaseMultiSelectLineKey,
+    getLineIdFromBaseMultiSelectKey
+} from './domain/multiSelectLayerProtocol.js';
+import {
+    MULTI_SELECT_BRANCH_PREVIEW_ACTION_CLEAR,
+    MULTI_SELECT_BRANCH_PREVIEW_ACTION_PREVIEW,
+    resolveMultiSelectBranchPreviewToggle
+} from './domain/multiSelectBranchPreviewState.js';
+import {
+    resolveMultiSelectBaseLayerModeEffects,
+    resolveMultiSelectTripPreviewModeEffects
+} from './domain/multiSelectModeTransition.js';
 import {
     buildTripPreviewLineFeatureDedupKey,
     resolveTripPreviewPayloadSource as resolveRoutePreviewPayloadSource
 } from './domain/routePreviewSelection.js';
+import {
+    buildMenuThroughSource,
+    buildMultiSelectBranchSource,
+    getLineIdFromMenuThroughSource
+} from './domain/previewSelectionPolicy.js';
+import { selectPreviewLineFeatureCandidates } from './domain/previewLineCandidates.js';
+import { selectNearestProjectedPreviewLineCoordinate } from './domain/previewLineProjection.js';
 import { isMapClickSelectionAllowedByHighlight } from './domain/mapClickSelectionEligibility.js';
-import { buildPreviewVirtualStationInjection, getLineIdFromStationId } from './domain/previewVirtualStations.js';
+import { buildPreviewVirtualStationInjection } from './domain/previewVirtualStations.js';
+import {
+    buildTransferCapsulePreviewScopeKey,
+    buildTransferCapsuleVisibleKey
+} from './domain/transferCapsuleVisibilityKey.js';
+import {
+    buildLngLatBoundsObject,
+    getStationIdsInLngLatBounds
+} from './domain/transferCapsuleViewport.js';
+import {
+    doesTransferCapsuleStationServeAnyLine,
+    mergeTransferCapsuleStationIdSets,
+    normalizeTransferCapsuleStationIdSet,
+    resolveTransferCapsuleHighlightLineIds
+} from './domain/transferCapsuleVisibleStations.js';
 import { createSelectionBadge } from './ui/selectionBadge.js';
 import { buildSelectionBadgeViewModel, createSelectionBadgeAdapter } from './ui/selectionBadgeAdapter.js';
 import { createStationLabelChipsAdapter } from './ui/layer/stationLabelChipsAdapter.js';
@@ -136,10 +179,12 @@ import { bindMapStartup } from './app/mapStartup.js';
 import {
     bindMultiSelectLayerCommandRuntime,
     bindMultiSelectModeEvents,
+    commitMultiSelectModeState,
     createMultiSelectLayersUpdatedEmitter,
-    registerMultiSelectModeInternalApi,
-    setMultiSelectGlobalEnabled
+    registerMultiSelectModeInternalApi
 } from './app/multiSelectEventsRuntime.js';
+import { createBaseMultiSelectionCommitter } from './app/multiSelectBaseSelectionRuntime.js';
+import { createBranchPreviewStepCommitter } from './app/multiSelectBranchPreviewRuntime.js';
 import { registerTokyoRailMapRuntime } from './app/runtimeFacade.js';
 import { mountAppSettingsControls } from './app/settingsControlsRuntime.js';
 
@@ -404,6 +449,8 @@ const initMapApp = async () => {
     let selectedStationCurrentPopupStationId = null;
     let tripDetailStationTriangleMarker = null;
     let baseMultiSelectionsByKey = new Map();
+    let baseMultiSelectionCommitter = null;
+    let branchPreviewStepCommitter = null;
     let dirPreviewActive = false;
     let dirPreviewLineIds = null; // Set<string> | null
     let dirPreviewStationIds = null; // Set<string> | null
@@ -651,74 +698,41 @@ const initMapApp = async () => {
     };
 
     const getBaseMultiSelectedLineIds = () => {
-        const out = new Set();
-        for (const [key, entry] of baseMultiSelectionsByKey.entries()) {
-            if (!key) continue;
-            if (entry?.hidden === true) continue;
-            const ids = entry?.lineIds;
-            if (!(ids instanceof Set)) continue;
-            for (const id of ids) {
-                const s = String(id || '').trim();
-                if (s) out.add(s);
-            }
-        }
-        return out;
+        return getVisibleBaseMultiSelectionLineIds(baseMultiSelectionsByKey);
     };
 
     const toggleBaseMultiSelection = (key, lineIds, kind = 'line', displayName = '') => {
-        const k = String(key || '').trim();
-        const ids = Array.isArray(lineIds)
-            ? lineIds.map((x) => String(x || '').trim()).filter(Boolean)
-            : [];
-        const label = String(displayName || '').trim();
-        if (!k || !ids.length) return false;
-        if (baseMultiSelectionsByKey.has(k)) {
-            baseMultiSelectionsByKey.delete(k);
-            emitMultiSelectLayersUpdated();
-            syncMultiSelectBaseTripPreview().catch(() => null);
-            return false;
-        }
-        baseMultiSelectionsByKey.set(k, {
-            kind: String(kind || 'line').trim() || 'line',
-            lineIds: new Set(ids),
-            displayName: label,
-            hidden: false
+        const result = toggleBaseMultiSelectionState({
+            selectionsByKey: baseMultiSelectionsByKey,
+            key,
+            lineIds,
+            kind,
+            displayName
         });
-        emitMultiSelectLayersUpdated();
-        syncMultiSelectBaseTripPreview().catch(() => null);
-        return true;
+        if (!baseMultiSelectionCommitter?.commitChangedResult(result)) return false;
+        return result.selected === true;
     };
 
     const toggleBaseMultiSelectionVisibility = (key) => {
-        const k = String(key || '').trim();
-        if (!k || !baseMultiSelectionsByKey.has(k)) return false;
-        const current = baseMultiSelectionsByKey.get(k) || {};
-        const next = {
-            ...current,
-            hidden: !(current?.hidden === true),
-            branchAutoHidden: false
-        };
-        baseMultiSelectionsByKey.set(k, next);
-        emitMultiSelectLayersUpdated();
-        syncMultiSelectBaseTripPreview().catch(() => null);
+        const result = toggleBaseMultiSelectionVisibilityState({
+            selectionsByKey: baseMultiSelectionsByKey,
+            key
+        });
+        if (!baseMultiSelectionCommitter?.commitChangedResult(result)) return false;
         return true;
     };
 
     const removeBaseMultiSelection = (key) => {
-        const k = String(key || '').trim();
-        if (!k) return false;
-        const removed = baseMultiSelectionsByKey.delete(k);
-        if (removed) {
-            emitMultiSelectLayersUpdated();
-            syncMultiSelectBaseTripPreview().catch(() => null);
-        }
-        return removed;
+        const result = removeBaseMultiSelectionState({
+            selectionsByKey: baseMultiSelectionsByKey,
+            key
+        });
+        if (!baseMultiSelectionCommitter?.commitRemovedResult(result)) return false;
+        return true;
     };
 
     const clearBaseMultiSelections = () => {
-        baseMultiSelectionsByKey = new Map();
-        emitMultiSelectLayersUpdated();
-        syncMultiSelectBaseTripPreview().catch(() => null);
+        baseMultiSelectionCommitter?.commitSelectionsByKey(clearBaseMultiSelectionsState().selectionsByKey);
     };
 
     const getVisibleStationIdsForBaseMultiSelection = () => {
@@ -733,19 +747,7 @@ const initMapApp = async () => {
             if (!sid) continue;
             if (isStationHiddenInBaseLayer(sid)) continue;
 
-            const platform = normalizeArrayLike(props?.platform_line_id).map((x) => String(x || '').trim()).filter(Boolean);
-            const servingIds = normalizeArrayLike(props?.serving_ids).map((x) => String(x || '').trim()).filter(Boolean);
-            const lines = platform.length ? platform : servingIds;
-
-            if (!lines.length) continue;
-            let hit = false;
-            for (const lid of lines) {
-                if (selectedLineIds.has(lid)) {
-                    hit = true;
-                    break;
-                }
-            }
-            if (hit) out.add(sid);
+            if (doesTransferCapsuleStationServeAnyLine(props, selectedLineIds)) out.add(sid);
         }
         return out;
     };
@@ -764,19 +766,7 @@ const initMapApp = async () => {
             if (!sid) continue;
             if (isStationHiddenInBaseLayer(sid)) continue;
 
-            const platform = normalizeArrayLike(props?.platform_line_id).map((x) => String(x || '').trim()).filter(Boolean);
-            const servingIds = normalizeArrayLike(props?.serving_ids).map((x) => String(x || '').trim()).filter(Boolean);
-            const lines = platform.length ? platform : servingIds;
-            if (!lines.length) continue;
-
-            let hit = false;
-            for (const lid of lines) {
-                if (ids.has(lid)) {
-                    hit = true;
-                    break;
-                }
-            }
-            if (hit) out.add(sid);
+            if (doesTransferCapsuleStationServeAnyLine(props, ids)) out.add(sid);
         }
         return filterStationIdsForBaseLayer(out);
     };
@@ -786,16 +776,14 @@ const initMapApp = async () => {
             if (isMultiSelectModeEnabled()) {
                 const baseIds = getVisibleStationIdsForBaseMultiSelection();
                 if (baseIds.size) {
-                    const merged = new Set(baseIds);
-                    for (const sid of tripPreviewStationIds) merged.add(String(sid || '').trim());
-                    return merged;
+                    return mergeTransferCapsuleStationIdSets(baseIds, tripPreviewStationIds);
                 }
             }
-            return new Set(Array.from(tripPreviewStationIds).map((x) => String(x || '').trim()).filter(Boolean));
+            return normalizeTransferCapsuleStationIdSet(tripPreviewStationIds);
         }
 
         if (dirPreviewActive && dirPreviewStationIds && dirPreviewStationIds.size) {
-            return new Set(Array.from(dirPreviewStationIds).map((x) => String(x || '').trim()).filter(Boolean));
+            return normalizeTransferCapsuleStationIdSet(dirPreviewStationIds);
         }
 
         if (isMultiSelectModeEnabled()) {
@@ -807,42 +795,18 @@ const initMapApp = async () => {
             return getVisibleStationIdsForSelectedStationSelection();
         }
 
-        const highlightLineIds = (() => {
-            if (selectedLineId) {
-                if (selectedStationLineIds && selectedStationLineIds.size > 1) {
-                    return new Set(Array.from(selectedStationLineIds).map(String).filter(Boolean));
-                }
-                return new Set([String(selectedLineId)]);
-            }
-
-            if (selectedStationLineIds && selectedStationLineIds.size) {
-                return new Set(Array.from(selectedStationLineIds).map(String).filter(Boolean));
-            }
-
-            if (selectedCompany && enabledLineIdsByCompany && enabledLineIdsByCompany.has(selectedCompany)) {
-                return new Set(Array.from(enabledLineIdsByCompany.get(selectedCompany) || []).map(String).filter(Boolean));
-            }
-
-            return null;
-        })();
+        const highlightLineIds = resolveTransferCapsuleHighlightLineIds({
+            selectedLineId,
+            selectedStationLineIds,
+            selectedCompany,
+            enabledLineIdsByCompany
+        });
 
         if (highlightLineIds && highlightLineIds.size) {
             return getVisibleStationIdsByLineIds(highlightLineIds);
         }
 
         return null;
-    };
-
-    const getLineFeatureIdCandidates = (feature) => {
-        const props = feature?.properties || {};
-        return [
-            props.lineId,
-            props.r,
-            props.geometry_line_id,
-            props.line_offset_id,
-            props.id,
-            feature?.id
-        ].map((value) => String(value || '').trim()).filter(Boolean);
     };
 
     const getCurrentTripPreviewAggregateLineFeatures = () => {
@@ -853,66 +817,29 @@ const initMapApp = async () => {
         return Array.isArray(aggregate?.lineFc?.features) ? aggregate.lineFc.features : [];
     };
 
-    const projectStationToPreviewLineFeature = ({ baseCoord, feature } = {}) => {
-        const coords = Array.isArray(feature?.geometry?.coordinates) ? feature.geometry.coordinates : [];
-        if (!Array.isArray(baseCoord) || baseCoord.length < 2 || coords.length < 2) return null;
-
-        const sourcePixels = coords.map(projectLngLatToPixelAtZoom12).filter(Boolean);
-        const basePx = projectLngLatToPixelAtZoom12(baseCoord);
-        if (!basePx || sourcePixels.length < 2) return null;
-
-        const units = Number(feature?.properties?.line_offset_units);
-        const offsetPxAtZoom = Number.isFinite(units)
-            ? units * getLineOffsetPixelsPerUnitAtZoom(mapEngine.getZoom())
-            : 0;
-        const zoom = Number(mapEngine.getZoom());
-        const scaleToZoom12 = Math.pow(2, 12 - (Number.isFinite(zoom) ? zoom : 12));
-        const offsetPxAtZoom12 = offsetPxAtZoom * scaleToZoom12;
-        const targetPixels = offsetPxAtZoom12
-            ? buildOffsetPolylinePixelsWithMiter(sourcePixels, offsetPxAtZoom12)
-            : sourcePixels;
-        if (!Array.isArray(targetPixels) || targetPixels.length < 2) return null;
-
-        const hit = nearestProjectionOnPolylinePixels(targetPixels, basePx);
-        const lngLat = hit?.point ? unprojectPixelToLngLatAtZoom12(hit.point) : null;
-        return Array.isArray(lngLat) && lngLat.length >= 2 ? lngLat : null;
-    };
-
     const createPreviewVirtualStationCoordinateResolver = () => {
         const lineFeatures = getCurrentTripPreviewAggregateLineFeatures();
+        const zoom = Number(mapEngine.getZoom());
         return ({ baseCoord, source, lineId, realStationId } = {}) => {
-            const src = String(source || '').trim();
-            const lid = String(lineId || getLineIdFromStationId(realStationId) || '').trim();
-            const realLineId = String(getLineIdFromStationId(realStationId) || '').trim();
-            const sourceMatches = [];
-            const lineMatches = [];
-
-            for (const feature of lineFeatures) {
-                const props = feature?.properties || {};
-                const featureSource = String(props.line_offset_collision_source || '').trim();
-                const candidates = getLineFeatureIdCandidates(feature);
-                if (src && featureSource === src) sourceMatches.push(feature);
-                if ((lid && candidates.includes(lid)) || (realLineId && candidates.includes(realLineId))) {
-                    lineMatches.push(feature);
+            const candidates = selectPreviewLineFeatureCandidates({
+                lineFeatures,
+                source,
+                lineId,
+                realStationId
+            });
+            const best = selectNearestProjectedPreviewLineCoordinate({
+                baseCoord,
+                lineFeatures: candidates,
+                projectLngLatToPixelAtZoom12,
+                projectionOptions: {
+                    buildOffsetPolylinePixelsWithMiter,
+                    getLineOffsetPixelsPerUnitAtZoom,
+                    nearestProjectionOnPolylinePixels,
+                    projectLngLatToPixelAtZoom12,
+                    unprojectPixelToLngLatAtZoom12,
+                    zoom
                 }
-            }
-
-            const candidates = sourceMatches.length ? sourceMatches : lineMatches;
-            let best = null;
-            let bestDist = Number.POSITIVE_INFINITY;
-            const basePx = projectLngLatToPixelAtZoom12(baseCoord);
-            for (const feature of candidates) {
-                const coord = projectStationToPreviewLineFeature({ baseCoord, feature });
-                const px = projectLngLatToPixelAtZoom12(coord);
-                if (!coord || !basePx || !px) continue;
-                const dx = px.x - basePx.x;
-                const dy = px.y - basePx.y;
-                const dist = dx * dx + dy * dy;
-                if (dist < bestDist) {
-                    best = coord;
-                    bestDist = dist;
-                }
-            }
+            });
             return best || baseCoord;
         };
     };
@@ -940,7 +867,7 @@ const initMapApp = async () => {
 
     const getVisibleStationIdsForTripPreviewStationLayer = () => {
         if (!(tripPreviewStationIds instanceof Set) || !tripPreviewStationIds.size) return null;
-        const visibleIds = new Set(Array.from(tripPreviewStationIds).map((x) => String(x || '').trim()).filter(Boolean));
+        const visibleIds = normalizeTransferCapsuleStationIdSet(tripPreviewStationIds);
         const injection = buildPreviewVirtualStationInjectionForCapsules({
             stationsGeoJSON: transferCapsuleStationsData || stationsData,
             stationGroups: transferCapsuleStationGroups,
@@ -1156,26 +1083,16 @@ const initMapApp = async () => {
     };
 
     const toTransferCapsuleVisibleKey = (visibleIds, options = {}) => {
-        const mode = options?.useFixedConnections ? 'fixed' : 'auto';
-        const scope = options?.viewportOnly ? 'viewport' : 'final';
-        const previewScopeKey = (() => {
-            if (!tripPreviewActive || !isMultiSelectModeEnabled()) return '';
-            const previewKeys = Array.isArray(routeFeature?.getTripPreviewSelectionEntries?.())
-                ? routeFeature.getTripPreviewSelectionEntries()
-                    .map(([key, entry]) => `${String(key || '').trim()}:${entry?.hidden === true ? '0' : '1'}`)
-                    .filter(Boolean)
-                    .sort()
-                : [];
-            const baseKeys = Array.from(getBaseMultiSelectedLineIds()).sort();
-            return `preview:${previewKeys.join(',')};base:${baseKeys.join(',')}`;
-        })();
-        const prefix = previewScopeKey ? `${mode}:${scope}:${previewScopeKey}:` : `${mode}:${scope}:`;
-        if (options?.useFixedConnections && options?.baseHiddenFilterActive) {
-            return `${prefix}__base-hidden-filter__`;
-        }
-        if (!(visibleIds instanceof Set)) return `${prefix}*`;
-        if (!visibleIds.size) return `${prefix}__empty__`;
-        return `${prefix}${Array.from(visibleIds).map(String).filter(Boolean).sort().join('|')}`;
+        const previewScopeKey = buildTransferCapsulePreviewScopeKey({
+            active: tripPreviewActive,
+            multiSelectEnabled: isMultiSelectModeEnabled(),
+            previewSelectionEntries: routeFeature?.getTripPreviewSelectionEntries?.(),
+            baseSelectedLineIds: getBaseMultiSelectedLineIds()
+        });
+        return buildTransferCapsuleVisibleKey(visibleIds, {
+            ...options,
+            previewScopeKey
+        });
     };
 
     const shouldUseFixedTransferCapsuleConnections = () => {
@@ -1266,29 +1183,21 @@ const initMapApp = async () => {
     });
 
     const applyMultiSelectBaseLayerState = (enabled) => {
-        const active = enabled === true;
-        if (active) {
-            try {
-                clearBaseMultiSelections();
-            } catch {
-                // ignore
-            }
-            return;
-        }
+        const effects = resolveMultiSelectBaseLayerModeEffects({ enabled });
         try {
-            clearBaseMultiSelections();
-            clearSelectionsAndRestore();
+            if (effects.clearBaseSelections) clearBaseMultiSelections();
+            if (effects.clearSelectionState) clearSelectionsAndRestore();
         } catch {
             // ignore
         }
     };
 
     const applyMultiSelectTripPreviewLayerState = (enabled) => {
+        const effects = resolveMultiSelectTripPreviewModeEffects({ enabled });
         const active = enabled === true;
         try {
-
-            clearTripPathPreview();
-            clearDirHeaderPreview();
+            if (effects.clearTripPathPreview) clearTripPathPreview();
+            if (effects.clearDirHeaderPreview) clearDirHeaderPreview();
         } catch {
             // ignore
         }
@@ -1300,12 +1209,18 @@ const initMapApp = async () => {
         }
     };
 
+    const commitMultiSelectModeStateForApp = (enabled) => commitMultiSelectModeState({
+        target: window,
+        enabled,
+        dispatchEnabled: (next) => appStore.dispatch(multiSelectSetEnabled(next))
+    });
+
     const applyMultiSelectModeState = (enabled) => {
         const next = enabled === true;
         if (multiSelectModeEnabled === next) return;
         multiSelectModeEnabled = next;
 
-        setMultiSelectGlobalEnabled(window, next);
+        commitMultiSelectModeStateForApp(next);
 
         if (next) {
             hoverPreviewEnabledBeforeMultiSelect = isHoverPreviewEnabled();
@@ -1318,7 +1233,6 @@ const initMapApp = async () => {
 
         applyMultiSelectBaseLayerState(next);
         applyMultiSelectTripPreviewLayerState(next);
-        appStore.dispatch(multiSelectSetEnabled(next));
         emitMultiSelectLayersUpdated();
     };
 
@@ -1327,8 +1241,7 @@ const initMapApp = async () => {
         setEnabledSilent: (enabled) => {
             const next = enabled === true;
             multiSelectModeEnabled = next;
-            setMultiSelectGlobalEnabled(window, next);
-            appStore.dispatch(multiSelectSetEnabled(next));
+            commitMultiSelectModeStateForApp(next);
         }
     });
 
@@ -1735,18 +1648,10 @@ const initMapApp = async () => {
     };
 
     const getMultiSelectLineBranchSource = (lineId) => {
-        const id = String(lineId || '').trim();
-        if (!id) return '';
-        return `ms-line-branch:${id}`;
+        return buildMultiSelectBranchSource(lineId);
     };
 
     const multiSelectBranchPreviewStepByLineId = new Map();
-
-    const getLineIdFromBaseMultiSelectKey = (key) => {
-        const k = String(key || '').trim();
-        if (!k.startsWith('line:')) return '';
-        return String(k.slice('line:'.length) || '').trim();
-    };
 
     const hasTripPreviewSelectionBySource = (source) => {
         return routeFeature.hasVisibleTripPreviewSelectionBySource(source, resolveRoutePreviewPayloadSource);
@@ -1760,39 +1665,39 @@ const initMapApp = async () => {
         if (!source) return false;
 
         const baseEntry = baseMultiSelectionsByKey.get(key);
-        if (!baseEntry) return false;
+        const decision = resolveMultiSelectBranchPreviewToggle({
+            lineId,
+            source,
+            hasBaseEntry: !!baseEntry,
+            currentStep: multiSelectBranchPreviewStepByLineId.get(lineId),
+            hasPreviewSelection: hasTripPreviewSelectionBySource(source)
+        });
+        if (decision.ok !== true) return false;
 
-        const currentStep = Number(multiSelectBranchPreviewStepByLineId.get(lineId) || 0);
-
-        if (currentStep >= 2) {
-            if (hasTripPreviewSelectionBySource(source)) {
+        if (decision.action === MULTI_SELECT_BRANCH_PREVIEW_ACTION_CLEAR) {
+            if (decision.shouldClearPreview) {
                 clearTripPathPreview({ source });
             }
-            multiSelectBranchPreviewStepByLineId.delete(lineId);
-            emitMultiSelectLayersUpdated();
+            branchPreviewStepCommitter?.clearStep(lineId);
             return false;
         }
 
-        const isFirstClick = currentStep <= 0 || !hasTripPreviewSelectionBySource(source);
-        const nextStep = isFirstClick ? 1 : 2;
-        multiSelectBranchPreviewStepByLineId.set(lineId, nextStep);
-        emitMultiSelectLayersUpdated();
+        if (decision.action !== MULTI_SELECT_BRANCH_PREVIEW_ACTION_PREVIEW) return false;
+        branchPreviewStepCommitter?.setStep(lineId, decision.nextStep);
 
         previewBranchesForLine({
             lineId,
             lineName: getLineNameForMultiSelect(lineId),
             fitMode: 'none',
             previewSource: source,
-            filterSpecial: isFirstClick
+            filterSpecial: decision.filterSpecial
         }).then((result) => {
             if (result?.ok !== true) {
-                multiSelectBranchPreviewStepByLineId.delete(lineId);
-                emitMultiSelectLayersUpdated();
+                branchPreviewStepCommitter?.clearStep(lineId);
             }
         }).catch(() => {
             clearTripPathPreview({ source });
-            multiSelectBranchPreviewStepByLineId.delete(lineId);
-            emitMultiSelectLayersUpdated();
+            branchPreviewStepCommitter?.clearStep(lineId);
         });
 
         return true;
@@ -1807,7 +1712,7 @@ const initMapApp = async () => {
         )
     );
     const MENU_THROUGH_PREVIEW_SOURCES = Object.freeze(
-        Object.values(THROUGH_SERVICE_CONFIGS_OBJECT).map(info => `rw-menu-through:${info.lineId}`)
+        Object.values(THROUGH_SERVICE_CONFIGS_OBJECT).map(info => buildMenuThroughSource(info.lineId))
     );
     const getMenuThroughDisplayByCategory = getThroughServiceDisplayByCategory;
     const getMenuThroughDisplayByLineId = (lineId) => {
@@ -1816,9 +1721,7 @@ const initMapApp = async () => {
     };
 
     const getMenuThroughDisplayByPreviewSource = (source) => {
-        const raw = String(source || '').trim();
-        if (!raw.startsWith('rw-menu-through:')) return null;
-        const lineId = raw.slice('rw-menu-through:'.length).trim();
+        const lineId = getLineIdFromMenuThroughSource(source);
         if (!lineId) return null;
         return getMenuThroughDisplayByLineId(lineId);
     };
@@ -1905,7 +1808,7 @@ const initMapApp = async () => {
         if (!sourceLineIds.length) return false;
 
         const display = getMenuThroughDisplayByCategory(throughCategory);
-        const previewSource = `rw-menu-through:${menuLineId}`;
+        const previewSource = buildMenuThroughSource(menuLineId);
         const fitMode = source === 'hover' ? 'preview' : 'commit';
 
 
@@ -1959,6 +1862,17 @@ const initMapApp = async () => {
         target: window,
         getEnabled: isMultiSelectModeEnabled,
         getItems: buildMultiSelectLayerItems
+    });
+    baseMultiSelectionCommitter = createBaseMultiSelectionCommitter({
+        setSelectionsByKey: (next) => {
+            baseMultiSelectionsByKey = next;
+        },
+        emitLayersUpdated: emitMultiSelectLayersUpdated,
+        syncBaseTripPreview: syncMultiSelectBaseTripPreview
+    });
+    branchPreviewStepCommitter = createBranchPreviewStepCommitter({
+        stepsByLineId: multiSelectBranchPreviewStepByLineId,
+        emitLayersUpdated: emitMultiSelectLayersUpdated
     });
 
     const normalizeArrayLike = (value) => {
@@ -4218,102 +4132,59 @@ const initMapApp = async () => {
         previewDirHeader = routePreviewController.previewDirHeader;
         const toggleTripPreviewSelectionVisibility = routePreviewController.toggleTripPreviewSelectionVisibility;
         const removeTripPreviewSelection = routePreviewController.removeTripPreviewSelection;
-        const parseMultiSelectItemScope = (id) => {
-            const raw = String(id || '').trim();
-            if (!raw) return null;
-            if (raw.startsWith('base:')) return { scope: 'base', key: raw.slice(5) };
-            if (raw.startsWith('trip:')) return { scope: 'trip', key: raw.slice(5) };
-            return null;
-        };
 
         const runMultiSelectLayersCommand = (action, itemId) => {
-            const parsed = parseMultiSelectItemScope(itemId);
-            if (!parsed?.key) return false;
-
-            if (parsed.scope === 'base') {
-                if (action === 'toggle-visibility') {
-                    const ok = toggleBaseMultiSelectionVisibility(parsed.key);
-                    if (ok) {
-                        applySelectionEffects();
-                        scheduleCollisionLayerRefresh();
-                    }
-                    return ok;
-                }
-                if (action === 'toggle-branch-preview') {
-                    return toggleBaseLineBranchPreview(parsed.key);
-                }
-                if (action === 'remove') {
-                    const lineId = getLineIdFromBaseMultiSelectKey(parsed.key);
-                    const source = getMultiSelectLineBranchSource(lineId);
-                    const ok = removeBaseMultiSelection(parsed.key);
-                    if (ok) {
-                        if (lineId) multiSelectBranchPreviewStepByLineId.delete(lineId);
-                        if (source) clearTripPathPreview({ source });
-                        if (!getBaseMultiSelectedLineIds().size && !tripPreviewActive) setStationLabelMode('auto');
-                        applySelectionEffects();
-                        scheduleCollisionLayerRefresh();
-                    }
-                    return ok;
-                }
-
-                // Split company into individual line selections (respecting main+branch merge rules)
-                if (action === 'split-company') {
-                    try {
-                        const baseKey = String(parsed.key || '').trim();
-                        if (!baseKey) return false;
-                        const entry = baseMultiSelectionsByKey.get(baseKey);
-                        if (!entry || String(entry.kind || '') !== 'company') return false;
-
-                        // Build map of mainLineId -> Set(mergedLineIds)
-                        const mainMap = new Map();
-                        const ids = entry.lineIds instanceof Set ? Array.from(entry.lineIds) : [];
-                        for (const lidRaw of ids) {
-                            const lid = String(lidRaw || '').trim();
-                            if (!lid) continue;
-                            const resolved = resolveLineSelectionForApp(lid) || {};
-                            const mainLineId = String(resolved?.mainLineId || lid).trim() || lid;
-                            const merged = Array.isArray(resolved?.mergedLineIds) ? resolved.mergedLineIds.map(String).filter(Boolean) : [mainLineId];
-                            if (!mainMap.has(mainLineId)) mainMap.set(mainLineId, new Set());
-                            const setRef = mainMap.get(mainLineId);
-                            for (const x of merged) setRef.add(String(x));
+            return runMultiSelectLayerCommandFromInputs({
+                action,
+                itemId,
+                handlers: {
+                    base: {
+                        toggleVisibility: (key) => {
+                            const ok = toggleBaseMultiSelectionVisibility(key);
+                            if (ok) {
+                                applySelectionEffects();
+                                scheduleCollisionLayerRefresh();
+                            }
+                            return ok;
+                        },
+                        toggleBranchPreview: (key) => toggleBaseLineBranchPreview(key),
+                        remove: (key) => {
+                            const lineId = getLineIdFromBaseMultiSelectKey(key);
+                            const source = getMultiSelectLineBranchSource(lineId);
+                            const ok = removeBaseMultiSelection(key);
+                            if (ok) {
+                                if (lineId) branchPreviewStepCommitter?.clearStep(lineId, { emit: false });
+                                if (source) clearTripPathPreview({ source });
+                                if (!getBaseMultiSelectedLineIds().size && !tripPreviewActive) setStationLabelMode('auto');
+                                applySelectionEffects();
+                                scheduleCollisionLayerRefresh();
+                            }
+                            return ok;
+                        },
+                        splitCompany: (key) => {
+                            try {
+                                const result = splitCompanyBaseMultiSelectionState({
+                                    selectionsByKey: baseMultiSelectionsByKey,
+                                    key,
+                                    getLineName: getLineNameForMultiSelect,
+                                    resolveLineSelection: resolveLineSelectionForApp
+                                });
+                                if (!result.changed) return false;
+                                baseMultiSelectionCommitter?.commitChangedResult(result);
+                                applySelectionEffects();
+                                scheduleCollisionLayerRefresh();
+                                return true;
+                            } catch {
+                                return false;
+                            }
                         }
-
-                        // Remove the company selection
-                        baseMultiSelectionsByKey.delete(baseKey);
-
-                        // Add per-main-line selections (skip if already present)
-                        for (const [mainId, setIds] of mainMap.entries()) {
-                            const arr = Array.from(setIds).map(String).filter(Boolean);
-                            if (!arr.length) continue;
-                            const lineKey = `line:${mainId}`;
-                            if (baseMultiSelectionsByKey.has(lineKey)) continue;
-                            baseMultiSelectionsByKey.set(lineKey, {
-                                kind: 'line',
-                                lineIds: new Set(arr),
-                                displayName: getLineNameForMultiSelect(mainId) || '',
-                                hidden: false
-                            });
-                        }
-
-                        emitMultiSelectLayersUpdated();
-                        syncMultiSelectBaseTripPreview().catch(() => null);
-                        applySelectionEffects();
-                        scheduleCollisionLayerRefresh();
-                        return true;
-                    } catch {
-                        return false;
+                    },
+                    trip: {
+                        toggleVisibility: (key) => toggleTripPreviewSelectionVisibility(key),
+                        remove: (key) => removeTripPreviewSelection(key)
                     }
                 }
-                return false;
-            }
-
-            if (parsed.scope === 'trip') {
-                if (action === 'toggle-visibility') return toggleTripPreviewSelectionVisibility(parsed.key);
-                if (action === 'remove') return removeTripPreviewSelection(parsed.key);
-                return false;
-            }
-
-            return false;
+            });
         };
 
         bindMultiSelectLayerCommandRuntime({
@@ -4459,7 +4330,7 @@ const initMapApp = async () => {
                     : (Array.isArray(resolved?.mergedLineIds) ? resolved.mergedLineIds.map(String).filter(Boolean) : [mainLineId]);
 
                 if (isMultiSelectModeEnabled() && source !== 'hover') {
-                    toggleBaseMultiSelection(`line:${mainLineId}`, merged, 'line');
+                    toggleBaseMultiSelection(buildBaseMultiSelectLineKey(mainLineId), merged, 'line');
                     if (getBaseMultiSelectedLineIds().size) setStationLabelMode('all');
                     else setStationLabelMode('auto');
                     applySelectionEffects();
@@ -4801,26 +4672,10 @@ const initMapApp = async () => {
             const east = Number(bounds?.getEast?.() ?? bounds?._ne?.lng);
             const south = Number(bounds?.getSouth?.() ?? bounds?._sw?.lat);
             const north = Number(bounds?.getNorth?.() ?? bounds?._ne?.lat);
-            if (![west, east, south, north].every(Number.isFinite)) return null;
-
-            const features = Array.isArray(stationsGeoJSON?.features) ? stationsGeoJSON.features : [];
-            const out = new Set();
-            for (const feature of features) {
-                if (feature?.geometry?.type !== 'Point') continue;
-                const c = feature?.geometry?.coordinates;
-                if (!Array.isArray(c) || c.length < 2) continue;
-                const lng = Number(c[0]);
-                const lat = Number(c[1]);
-                if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
-                if (lat < south || lat > north) continue;
-                const inLngRange = west <= east
-                    ? lng >= west && lng <= east
-                    : (lng >= west || lng <= east);
-                if (!inLngRange) continue;
-                const sid = String(feature?.properties?.id ?? feature?.id ?? '').trim();
-                if (sid) out.add(sid);
-            }
-            return out;
+            return getStationIdsInLngLatBounds(
+                stationsGeoJSON,
+                buildLngLatBoundsObject({ west, east, south, north })
+            );
         };
 
         layerFeature = createLayerFeature({

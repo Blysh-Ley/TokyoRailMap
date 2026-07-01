@@ -26,6 +26,17 @@ export const setMultiSelectGlobalEnabled = (target, enabled) => {
     }
 };
 
+export const commitMultiSelectModeState = ({
+    target = getDefaultWindow(),
+    enabled,
+    dispatchEnabled = () => {}
+} = {}) => {
+    const next = enabled === true;
+    setMultiSelectGlobalEnabled(target, next);
+    dispatchEnabled(next);
+    return next;
+};
+
 export const createMultiSelectLayersUpdatedEmitter = ({
     target = getDefaultWindow(),
     getEnabled,
