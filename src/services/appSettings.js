@@ -1,4 +1,5 @@
 import { DEFAULT_BASEMAP_MODE, normalizeBasemapMode } from '../domain/basemapMode.js';
+import { normalizeStationLabelMode } from '../domain/stationLabelDisplay.js';
 
 export const APPEARANCE_STORAGE_KEY = 'tokyorail.appearance.mode';
 export const BASEMAP_STORAGE_KEY = 'tokyorail.basemap.mode';
@@ -9,6 +10,7 @@ export const TRIP_PAST_DIMMING_STORAGE_KEY = 'tokyorail.trip.past.dimming.enable
 export const ADAPTIVE_VIEWPORT_STORAGE_KEY = 'tokyorail.adaptive.viewport.enabled';
 export const LINE_NAME_LABELS_STORAGE_KEY = 'tokyorail.line.name.labels.enabled';
 export const STATION_OFFSET_MODE_STORAGE_KEY = 'tokyorail.station.offset.mode';
+export const STATION_LABEL_MODE_STORAGE_KEY = 'tokyorail.station.label.mode';
 export const DESKTOP_LAYOUT_STORAGE_KEY = 'tokyorail.desktop.layout.enabled';
 
 const getLocalStorageValue = (key, fallback) => {
@@ -148,6 +150,17 @@ export const readStationOffsetMode = () => {
 export const writeStationOffsetMode = (mode) => {
     const next = String(mode || '').trim().toLowerCase() === 'performance' ? 'performance' : 'dynamic';
     setLocalStorageValue(STATION_OFFSET_MODE_STORAGE_KEY, next);
+    return next;
+};
+
+export const readStationLabelMode = () => {
+    const raw = getLocalStorageValue(STATION_LABEL_MODE_STORAGE_KEY, 'auto');
+    return normalizeStationLabelMode(raw);
+};
+
+export const writeStationLabelMode = (mode) => {
+    const next = normalizeStationLabelMode(mode);
+    setLocalStorageValue(STATION_LABEL_MODE_STORAGE_KEY, next);
     return next;
 };
 

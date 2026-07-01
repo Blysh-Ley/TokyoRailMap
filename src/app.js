@@ -83,10 +83,12 @@ import {
     readAdaptiveViewportEnabled,
     readHoverPreviewEnabled,
     readLineNameLabelsEnabled,
+    readStationLabelMode,
     readStationOffsetMode,
     readTimetableViewMode,
     readTripPastDimmingEnabled,
     writeTimetableViewMode,
+    writeStationLabelMode,
     writeStationOffsetMode
 } from './services/appSettings.js';
 import { BASEMAP_GLYPHS_URL, createMapEngine } from './services/mapEngine.js';
@@ -421,7 +423,7 @@ const initMapApp = async () => {
     let selectedStationId = null; // 点击站点高亮时，仅高亮该站点
     let selectedServiceMode = 'all';
     let isolateStationsToSelectedLine = false; // 仅用于“popup 提交线路”：隐藏非该线路站点
-    let stationLabelMode = 'auto';
+    let stationLabelMode = readStationLabelMode();
     let setStationLabelMode = (_mode) => false;
     // mode: 'preview' | 'commit'
     let fitToCurrentSelection = (_triggerKey, _mode = 'preview') => {};
@@ -3462,7 +3464,8 @@ const initMapApp = async () => {
         onStationLabelModeChanged: (mode) => {
             stationLabelMode = mode;
         },
-        onStationLabelUserModeChanged: () => {
+        onStationLabelUserModeChanged: (mode) => {
+            writeStationLabelMode(mode);
             scheduleCollisionLayerRefresh();
         },
         onStationOffsetModeChanged: applyStationOffsetMode,
