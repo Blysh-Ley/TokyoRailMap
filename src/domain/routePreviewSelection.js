@@ -269,11 +269,11 @@ export const aggregateTripPreviewLineFeatureItems = ({
         const policy = resolveTripPreviewLineCollisionPolicy({ feature, source: contextKey });
         const usesCollisionLane = policy.sourceAllowsCollisionLane;
         const key = collisionKey
-            ? ((!usesCollisionLane || hasCrossSourceCollision) && contextKey
+            ? (hasCrossSourceCollision && contextKey
                 ? `${collisionKey}||ctx:${contextKey}`
                 : collisionKey)
             : baseKey;
-        if (!key || lineFeatureByKey.has(key)) continue;
+        if (!key) continue;
         const featureWithSource = cloneLineFeatureWithSource(feature, contextKey);
         lineFeatureByKey.set(
             key,
