@@ -1,3 +1,17 @@
+import {
+    getLineIdFromMenuThroughSource,
+    getPreviewSelectionSource,
+    PREVIEW_CAPSULE_MODE_VIRTUAL,
+    resolvePreviewCapsuleMode
+} from './previewSelectionPolicy.js';
+
+export {
+    getPreviewSelectionSource,
+    PREVIEW_CAPSULE_MODE_NONE,
+    PREVIEW_CAPSULE_MODE_VIRTUAL,
+    resolvePreviewCapsuleMode
+} from './previewSelectionPolicy.js';
+
 const VIRTUAL_STATION_PREFIX = '__preview_virtual__';
 
 const toText = (value) => String(value ?? '').trim();
@@ -132,9 +146,7 @@ const collectSegmentStationIds = (tripOrPayload) => {
 };
 
 const resolveThroughConfigFromSource = (source, throughServiceConfigsObject) => {
-    const raw = toText(source);
-    if (!raw.startsWith('rw-menu-through:')) return null;
-    const lineId = raw.slice('rw-menu-through:'.length).trim();
+    const lineId = getLineIdFromMenuThroughSource(source);
     if (!lineId) return null;
 
     for (const [category, info] of Object.entries(throughServiceConfigsObject || {})) {
@@ -148,22 +160,22 @@ const resolveThroughConfigFromSource = (source, throughServiceConfigsObject) => 
     return null;
 };
 
-const resolveTripParticipant = ({ entry, trip, throughServiceConfigsObject } = {}) => {
-    const source = toText(entry?.source || trip?.previewSource || trip?.__previewSource);
-    const through = resolveThroughConfigFromSource(source, throughServiceConfigsObject);
+const resolveTripParticipant = ({ entry, trip, throughServiceConfigsObject, source } = {}) => {
+    const resolvedSource = toText(source) || getPreviewSelectionSource({ entry, trip });
+    const through = resolveThroughConfigFromSource(resolvedSource, throughServiceConfigsObject);
     const lineId = toText(trip?.selectedLineId || trip?.mainLineId || trip?.lineId || trip?.r);
     const participantKey = through
         ? `through:${through.category}`
-        : (lineId ? `base-line:${lineId}` : source);
+        : (lineId ? `base-line:${lineId}` : resolvedSource);
     if (!participantKey) return null;
 
     return {
         participantKey,
-        source,
+        source: resolvedSource,
         lineId: lineId || toText(through?.info?.segmentLineIds?.[0]),
         throughCategory: toText(through?.category),
         throughStationIds: toSet(through?.info?.stations),
-        name: toText(trip?.selectedLineName || trip?.lineName || trip?.mainLineName || through?.info?.lineName || lineId || source)
+        name: toText(trip?.selectedLineName || trip?.lineName || trip?.mainLineName || through?.info?.lineName || lineId || resolvedSource)
     };
 };
 
@@ -256,6 +268,20 @@ const buildVirtualFeature = ({ feature, participant, coordinate, getLineColor })
     };
 };
 
+export const shouldInjectPreviewVirtualStationForTrip = ({
+    entry,
+    payload,
+    trip,
+    source,
+    resolveCapsuleMode = resolvePreviewCapsuleMode
+} = {}) => {
+    const resolvedSource = toText(source) || getPreviewSelectionSource({ entry, payload, trip });
+    const capsuleMode = typeof resolveCapsuleMode === 'function'
+        ? resolveCapsuleMode({ entry, payload, trip, source: resolvedSource })
+        : resolvePreviewCapsuleMode({ entry, payload, trip, source: resolvedSource });
+    return capsuleMode === PREVIEW_CAPSULE_MODE_VIRTUAL;
+};
+
 export const buildPreviewVirtualStationInjection = ({
     baseSelectedLineIds,
     getLineColor = () => '',
@@ -264,6 +290,7 @@ export const buildPreviewVirtualStationInjection = ({
     stationsData,
     throughServiceConfigsObject,
     tripPreviewSelectionEntries,
+    resolveCapsuleMode = resolvePreviewCapsuleMode,
     visibleStationIds
 } = {}) => {
     const sourceFeatures = Array.isArray(stationsData?.features)
@@ -287,7 +314,21 @@ export const buildPreviewVirtualStationInjection = ({
         if (entry?.hidden === true) continue;
         const payload = entry?.payload || {};
         for (const trip of normalizeTripList(payload)) {
-            const participant = resolveTripParticipant({ entry, trip, throughServiceConfigsObject });
+            const source = getPreviewSelectionSource({ entry, payload, trip });
+            if (!shouldInjectPreviewVirtualStationForTrip({
+                entry,
+                payload,
+                trip,
+                source,
+                resolveCapsuleMode
+            })) continue;
+
+            const participant = resolveTripParticipant({
+                entry,
+                trip,
+                throughServiceConfigsObject,
+                source
+            });
             if (!participant) continue;
             const payloadStationIds = collectSegmentStationIds(trip);
             const candidateStationIds = getCandidateStationIdsForParticipant({ participant, payloadStationIds });

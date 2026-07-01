@@ -1,3 +1,5 @@
+import { shouldUsePreviewCollisionLane } from './previewSelectionPolicy.js';
+
 const toText = (value) => String(value ?? '').trim();
 
 export const resolveTripPreviewPayloadSource = (payload) => {
@@ -135,6 +137,26 @@ const buildLineFeatureItemContextKey = (item) => {
     return toText(item?.source);
 };
 
+export const doesTripPreviewLineFeatureAllowCollisionLane = (feature) => (
+    Number(feature?.properties?.line_offset_collision_passive) !== 1
+);
+
+export const resolveTripPreviewLineCollisionPolicy = ({ feature, source } = {}) => ({
+    featureAllowsCollisionLane: doesTripPreviewLineFeatureAllowCollisionLane(feature),
+    sourceAllowsCollisionLane: shouldUsePreviewCollisionLane({ source })
+});
+
+const cloneLineFeatureWithCollisionPolicy = (feature, usesCollisionLane) => {
+    if (usesCollisionLane) return feature;
+    return {
+        ...(feature || {}),
+        properties: {
+            ...(feature?.properties || {}),
+            line_offset_collision_passive: 1
+        }
+    };
+};
+
 const cloneLineFeatureWithOffset = (feature, lineOffsetUnits, laneIndex, laneCount) => ({
     ...(feature || {}),
     properties: {
@@ -187,6 +209,7 @@ export const applyTripPreviewCollisionLaneOffsets = (features, options = {}) => 
     const groups = new Map();
     for (let index = 0; index < list.length; index += 1) {
         const feature = list[index];
+        if (!doesTripPreviewLineFeatureAllowCollisionLane(feature)) continue;
         const key = buildTripPreviewLineFeatureCollisionKey(feature);
         if (!key) continue;
         if (!groups.has(key)) groups.set(key, []);
@@ -227,6 +250,8 @@ export const aggregateTripPreviewLineFeatureItems = ({
         if (!collisionKey || !baseKey) continue;
         const contextKey = buildLineFeatureItemContextKey(item);
         if (!contextKey) continue;
+        const policy = resolveTripPreviewLineCollisionPolicy({ feature, source: contextKey });
+        if (!policy.sourceAllowsCollisionLane) continue;
         if (!sourceSetByCollisionKey.has(collisionKey)) sourceSetByCollisionKey.set(collisionKey, new Set());
         sourceSetByCollisionKey.get(collisionKey).add(contextKey);
     }
@@ -241,13 +266,19 @@ export const aggregateTripPreviewLineFeatureItems = ({
         const hasCrossSourceCollision = collisionKey
             && (sourceSetByCollisionKey.get(collisionKey)?.size || 0) > 1;
         const contextKey = buildLineFeatureItemContextKey(item);
+        const policy = resolveTripPreviewLineCollisionPolicy({ feature, source: contextKey });
+        const usesCollisionLane = policy.sourceAllowsCollisionLane;
         const key = collisionKey
-            ? (hasCrossSourceCollision && contextKey
+            ? ((!usesCollisionLane || hasCrossSourceCollision) && contextKey
                 ? `${collisionKey}||ctx:${contextKey}`
                 : collisionKey)
             : baseKey;
         if (!key || lineFeatureByKey.has(key)) continue;
-        lineFeatureByKey.set(key, cloneLineFeatureWithSource(feature, contextKey));
+        const featureWithSource = cloneLineFeatureWithSource(feature, contextKey);
+        lineFeatureByKey.set(
+            key,
+            cloneLineFeatureWithCollisionPolicy(featureWithSource, usesCollisionLane)
+        );
     }
 
     return applyTripPreviewCollisionLaneOffsets(Array.from(lineFeatureByKey.values()));
