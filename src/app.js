@@ -1154,6 +1154,15 @@ const initMapApp = async () => {
         }
     };
 
+    const applyMultiSelectBranchPreviewLayerState = (enabled) => {
+        if (enabled === true) return;
+        try {
+            branchPreviewStepCommitter?.clearAll?.({ emit: false });
+        } catch {
+            // ignore
+        }
+    };
+
     const commitMultiSelectModeStateForApp = (enabled) => commitMultiSelectModeState({
         target: window,
         enabled,
@@ -1178,6 +1187,7 @@ const initMapApp = async () => {
 
         applyMultiSelectBaseLayerState(next);
         applyMultiSelectTripPreviewLayerState(next);
+        applyMultiSelectBranchPreviewLayerState(next);
         emitMultiSelectLayersUpdated();
     };
 

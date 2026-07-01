@@ -28,7 +28,16 @@ export const createBranchPreviewStepCommitter = ({
         return true;
     };
 
+    const clearAll = (options = {}) => {
+        const store = getStore();
+        if (!store || !store.size) return false;
+        store.clear();
+        if (shouldEmit(options)) emitLayersUpdated?.();
+        return true;
+    };
+
     return {
+        clearAll,
         clearStep,
         setStep
     };
