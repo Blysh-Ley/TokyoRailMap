@@ -1,5 +1,6 @@
 import {
     getFocusedStationLabelPriority,
+    isTerminalStationLabel,
     normalizeStationLabelMode,
     shouldShowFocusedStationLabel,
     STATION_LABEL_MODES
@@ -14,7 +15,8 @@ import {
  * 说明：这里的“网格”是用来加速碰撞判断（避免 O(n^2) 全量比对）。
  */
 
-const FOCUS_LABEL_COLLISION_AREA_PADDING_PX = 0;
+const FOCUS_LABEL_COLLISION_AREA_PADDING_PX = 12;
+const FOCUS_LABEL_AUTO_MODE_MIN_ZOOM = 13;
 const STATION_SYMBOL_SORT_KEY_AUTO = [
     '-',
     0,
@@ -217,6 +219,7 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
     let symbolStationLabelsVisible = false;
     let lastSymbolStationLabelFilterKey = '';
     let lastSymbolStationLabelSortKeyMode = '';
+    let lastSymbolStationLabelMode = '';
 
     const setStationSymbolLabelsVisible = (visible) => {
         if (!stationLabelsLayerId || !mapAdapter.hasLayer(stationLabelsLayerId)) return false;
@@ -372,9 +375,16 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
             (typeof getLabelMode === 'function' ? getLabelMode() : null) ??
             (typeof getLabelsVisible === 'function' ? (getLabelsVisible() ? 'auto' : 'off') : 'auto')
         );
+        const zoom = Number(mapAdapter.getZoom());
+        const effectiveMode = mode === STATION_LABEL_MODES.FOCUS
+            && Number.isFinite(zoom)
+            && zoom > FOCUS_LABEL_AUTO_MODE_MIN_ZOOM
+            ? STATION_LABEL_MODES.AUTO
+            : mode;
 
-        if (mode === STATION_LABEL_MODES.OFF) {
+        if (effectiveMode === STATION_LABEL_MODES.OFF) {
             setStationSymbolLabelsVisible(false);
+            lastSymbolStationLabelMode = '';
             if (options.interaction === true || domStationLabelsHiddenForOffMode) return;
             stationLabels.forEach((label) => {
                 label.el.style.display = 'none';
@@ -391,7 +401,7 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
         const explicitIdsSet = typeof getVisibleStationIds === 'function' ? getVisibleStationIds() : null;
 
         const useSymbolStationLabels =
-            (mode === STATION_LABEL_MODES.AUTO || mode === STATION_LABEL_MODES.FOCUS)
+            (effectiveMode === STATION_LABEL_MODES.AUTO || effectiveMode === STATION_LABEL_MODES.FOCUS)
             && mapAdapter.hasLayer(stationLabelsLayerId)
             && !(pinnedIds instanceof Set)
             && !(enabledLineIdsSet instanceof Set)
@@ -403,13 +413,18 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
             attachDomStationLabels();
         }
 
-        if (useSymbolStationLabels && options.interaction === true) {
-            syncStationSymbolSortKey(mode);
+        if (
+            useSymbolStationLabels
+            && options.interaction === true
+            && lastSymbolStationLabelMode === effectiveMode
+        ) {
+            syncStationSymbolSortKey(effectiveMode);
             setStationSymbolLabelsVisible(true);
             return;
         }
 
-        if (mode === STATION_LABEL_MODES.ALL) {
+        if (effectiveMode === STATION_LABEL_MODES.ALL) {
+            lastSymbolStationLabelMode = '';
             stationLabels.forEach((label) => {
                 if (label.forceHiddenByTransferCollapse) {
                     label.el.style.display = 'none';
@@ -459,7 +474,7 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
                 const aBoost = Number(a.collisionPriorityBoost) || 0;
                 const bBoost = Number(b.collisionPriorityBoost) || 0;
                 if (aBoost !== bBoost) return bBoost - aBoost;
-                if (mode === STATION_LABEL_MODES.AUTO || mode === STATION_LABEL_MODES.FOCUS) {
+                if (effectiveMode === STATION_LABEL_MODES.AUTO || effectiveMode === STATION_LABEL_MODES.FOCUS) {
                     const aFocus = getFocusedStationLabelPriority(a);
                     const bFocus = getFocusedStationLabelPriority(b);
                     if (aFocus !== bFocus) return bFocus - aFocus;
@@ -479,7 +494,7 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
                 label.el.style.display = 'none';
                 return;
             }
-            if (mode === STATION_LABEL_MODES.FOCUS && !shouldShowFocusedStationLabel(label)) {
+            if (effectiveMode === STATION_LABEL_MODES.FOCUS && !shouldShowFocusedStationLabel(label)) {
                 label.el.style.display = 'none';
                 return;
             }
@@ -505,7 +520,9 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
 
             const bbox = expandBBox(
                 getLabelBBox(mapAdapter, label),
-                mode === STATION_LABEL_MODES.FOCUS ? focusLabelCollisionAreaPaddingPx : 0
+                effectiveMode === STATION_LABEL_MODES.FOCUS && !isTerminalStationLabel(label)
+                    ? focusLabelCollisionAreaPaddingPx
+                    : 0
             );
             const minCx = Math.floor(bbox.left / gridCellPx);
             const maxCx = Math.floor(bbox.right / gridCellPx);
@@ -550,12 +567,14 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
             const visibleLabels = shouldApplyLowZoomThin
                 ? visibleAfterCollision.slice(0, Math.ceil(visibleAfterCollision.length * lowZoomLabelKeepRatio))
                 : visibleAfterCollision;
-            syncStationSymbolSortKey(mode);
+            syncStationSymbolSortKey(effectiveMode);
             syncStationSymbolLabelFilter(visibleLabels.map((label) => label.stationId));
+            lastSymbolStationLabelMode = effectiveMode;
             setStationSymbolLabelsVisible(true);
             return;
         }
 
+        lastSymbolStationLabelMode = '';
         if (!shouldApplyLowZoomThin) {
             visibleAfterCollision.forEach((label) => {
                 label.el.style.display = 'block';
