@@ -14,6 +14,18 @@ import {
  * 说明：这里的“网格”是用来加速碰撞判断（避免 O(n^2) 全量比对）。
  */
 
+const FOCUS_LABEL_COLLISION_AREA_PADDING_PX = 0;
+const STATION_SYMBOL_SORT_KEY_AUTO = [
+    '-',
+    0,
+    [
+        '+',
+        ['*', ['coalesce', ['get', 'focus_priority'], 0], 100],
+        ['coalesce', ['get', 'priority'], 0]
+    ]
+];
+const STATION_SYMBOL_SORT_KEY_FOCUS = STATION_SYMBOL_SORT_KEY_AUTO;
+
 function bboxesIntersect(a, b) {
     return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
 }
@@ -76,6 +88,7 @@ const resolveMapAdapter = (mapOrEngine) => ({
     on: (...args) => mapOrEngine?.on?.(...args),
     project: (...args) => mapOrEngine?.project?.(...args),
     setFilter: (...args) => mapOrEngine?.setFilter?.(...args),
+    setLayoutProperty: (...args) => mapOrEngine?.setLayoutProperty?.(...args),
     setLayerVisibility: (layerId, visible) => {
         if (typeof mapOrEngine?.setLayerVisibility === 'function') {
             return mapOrEngine.setLayerVisibility(layerId, visible);
@@ -103,6 +116,17 @@ function getLabelBBox(mapAdapter, label) {
     const bottom = p.y - dy;
     const top = bottom - h;
     return { left, right, top, bottom };
+}
+
+function expandBBox(bbox, paddingPx = 0) {
+    const p = Number(paddingPx);
+    if (!Number.isFinite(p) || p <= 0) return bbox;
+    return {
+        left: bbox.left - p,
+        right: bbox.right + p,
+        top: bbox.top - p,
+        bottom: bbox.bottom + p
+    };
 }
 
 function circleRadiusPxAtZoom(zoom) {
@@ -173,6 +197,10 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
         ? Number(options.lowZoomLabelKeepRatio)
         : 0.5;
     const lowZoomLabelKeepRatio = Math.min(1, Math.max(0, lowZoomLabelKeepRatioRaw));
+    const focusLabelCollisionAreaPaddingPxRaw = Number.isFinite(options.focusLabelCollisionAreaPaddingPx)
+        ? Number(options.focusLabelCollisionAreaPaddingPx)
+        : FOCUS_LABEL_COLLISION_AREA_PADDING_PX;
+    const focusLabelCollisionAreaPaddingPx = Math.max(0, focusLabelCollisionAreaPaddingPxRaw);
     const transferGroupByStationId = options.transferGroupByStationId instanceof Map
         ? options.transferGroupByStationId
         : null;
@@ -188,6 +216,7 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
     let domStationLabelsHiddenForOffMode = false;
     let symbolStationLabelsVisible = false;
     let lastSymbolStationLabelFilterKey = '';
+    let lastSymbolStationLabelSortKeyMode = '';
 
     const setStationSymbolLabelsVisible = (visible) => {
         if (!stationLabelsLayerId || !mapAdapter.hasLayer(stationLabelsLayerId)) return false;
@@ -252,6 +281,22 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
         try {
             mapAdapter.setFilter(stationLabelsLayerId, buildStationSymbolLabelFilter(ids));
             lastSymbolStationLabelFilterKey = key;
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
+    const syncStationSymbolSortKey = (mode) => {
+        if (!stationLabelsLayerId || !mapAdapter.hasLayer(stationLabelsLayerId)) return false;
+        const sortMode = mode === STATION_LABEL_MODES.FOCUS ? STATION_LABEL_MODES.FOCUS : STATION_LABEL_MODES.AUTO;
+        if (lastSymbolStationLabelSortKeyMode === sortMode) return true;
+        const sortKey = sortMode === STATION_LABEL_MODES.FOCUS
+            ? STATION_SYMBOL_SORT_KEY_FOCUS
+            : STATION_SYMBOL_SORT_KEY_AUTO;
+        try {
+            mapAdapter.setLayoutProperty(stationLabelsLayerId, 'symbol-sort-key', sortKey);
+            lastSymbolStationLabelSortKeyMode = sortMode;
             return true;
         } catch {
             return false;
@@ -345,20 +390,21 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
                 : null;
         const explicitIdsSet = typeof getVisibleStationIds === 'function' ? getVisibleStationIds() : null;
 
-        const useSymbolAutoLabels =
-            mode === STATION_LABEL_MODES.AUTO
+        const useSymbolStationLabels =
+            (mode === STATION_LABEL_MODES.AUTO || mode === STATION_LABEL_MODES.FOCUS)
             && mapAdapter.hasLayer(stationLabelsLayerId)
             && !(pinnedIds instanceof Set)
             && !(enabledLineIdsSet instanceof Set)
             && !(explicitIdsSet instanceof Set);
 
-        if (useSymbolAutoLabels) detachDomStationLabels();
+        if (useSymbolStationLabels) detachDomStationLabels();
         else {
             setStationSymbolLabelsVisible(false);
             attachDomStationLabels();
         }
 
-        if (useSymbolAutoLabels && options.interaction === true) {
+        if (useSymbolStationLabels && options.interaction === true) {
+            syncStationSymbolSortKey(mode);
             setStationSymbolLabelsVisible(true);
             return;
         }
@@ -457,7 +503,10 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
                 return;
             }
 
-            const bbox = getLabelBBox(mapAdapter, label);
+            const bbox = expandBBox(
+                getLabelBBox(mapAdapter, label),
+                mode === STATION_LABEL_MODES.FOCUS ? focusLabelCollisionAreaPaddingPx : 0
+            );
             const minCx = Math.floor(bbox.left / gridCellPx);
             const maxCx = Math.floor(bbox.right / gridCellPx);
             const minCy = Math.floor(bbox.top / gridCellPx);
@@ -497,10 +546,11 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
             && mapAdapter.getZoom() < lowZoomLabelThinMaxZoom
             && visibleAfterCollision.length > 0;
 
-        if (useSymbolAutoLabels) {
+        if (useSymbolStationLabels) {
             const visibleLabels = shouldApplyLowZoomThin
                 ? visibleAfterCollision.slice(0, Math.ceil(visibleAfterCollision.length * lowZoomLabelKeepRatio))
                 : visibleAfterCollision;
+            syncStationSymbolSortKey(mode);
             syncStationSymbolLabelFilter(visibleLabels.map((label) => label.stationId));
             setStationSymbolLabelsVisible(true);
             return;

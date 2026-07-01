@@ -377,7 +377,15 @@ export function addStationLabelsLayer(mapOrEngine, stationLabelData) {
             layout: {
                 'symbol-placement': 'point',
                 'symbol-avoid-edges': false,
-                'symbol-sort-key': ['-', 0, ['coalesce', ['get', 'priority'], 0]],
+                'symbol-sort-key': [
+                    '-',
+                    0,
+                    [
+                        '+',
+                        ['*', ['coalesce', ['get', 'focus_priority'], 0], 100],
+                        ['coalesce', ['get', 'priority'], 0]
+                    ]
+                ],
                 'icon-image': (typeof document !== 'undefined' && document.documentElement && isDarkThemeActive())
                     ? STATION_LABEL_BACKGROUND_DARK_IMAGE_ID
                     : STATION_LABEL_BACKGROUND_LIGHT_IMAGE_ID,
