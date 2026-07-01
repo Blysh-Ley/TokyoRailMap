@@ -1722,6 +1722,21 @@ const initMapApp = async () => {
         return resolveRailColorForTheme(fallback) || fallback;
     };
 
+    const resolveTripPreviewSegmentStationOverrideColor = (segment) => {
+        const throughColor = String(segment?.throughServiceColor || '').trim();
+        if (throughColor) return resolveRailColorForTheme(throughColor) || throughColor;
+
+        const fallback = String(segment?.highlightColor || segment?.typeColor || '').trim();
+        if (!fallback) return '';
+        const throughColors = new Set(
+            Object.values(THROUGH_SERVICE_CONFIGS_OBJECT)
+                .map(info => String(info.color || '').trim().toLowerCase())
+                .filter(Boolean)
+        );
+        if (!throughColors.has(fallback.toLowerCase())) return '';
+        return resolveRailColorForTheme(fallback) || fallback;
+    };
+
     const collectTripPreviewPayloadStationIds = (payload) => {
         const out = new Set();
         const payloads = Array.isArray(payload?.virtualTrips) && payload.virtualTrips.length
@@ -1751,10 +1766,29 @@ const initMapApp = async () => {
                 if (!entry || entry.hidden === true) continue;
                 const payload = entry.payload || {};
                 const color = resolveTripPreviewStationOverrideColor(payload, entry.source);
-                if (!color) continue;
-                for (const stationId of collectTripPreviewPayloadStationIds(payload)) {
-                    if (!stationId || out.has(stationId)) continue;
-                    out.set(stationId, color);
+                if (color) {
+                    for (const stationId of collectTripPreviewPayloadStationIds(payload)) {
+                        if (!stationId || out.has(stationId)) continue;
+                        out.set(stationId, color);
+                    }
+                    continue;
+                }
+
+                const payloads = Array.isArray(payload?.virtualTrips) && payload.virtualTrips.length
+                    ? payload.virtualTrips
+                    : [payload];
+                for (const item of payloads) {
+                    const segments = Array.isArray(item?.segments) ? item.segments : [];
+                    for (const segment of segments) {
+                        const segmentColor = resolveTripPreviewSegmentStationOverrideColor(segment);
+                        if (!segmentColor) continue;
+                        const stationIds = Array.isArray(segment?.stationIds) ? segment.stationIds : [];
+                        for (const rawId of stationIds) {
+                            const stationId = String(rawId || '').trim();
+                            if (!stationId || out.has(stationId)) continue;
+                            out.set(stationId, segmentColor);
+                        }
+                    }
                 }
             }
         }

@@ -1684,6 +1684,25 @@ const collectLegPreviewTripIds = (leg) => collectUniquePreviewTripIds([
     ...(Array.isArray(leg?.throughTripIds) ? leg.throughTripIds : [])
 ]);
 
+const toThroughServiceClassifierTrip = (trip) => {
+    if (!trip || typeof trip !== 'object') return null;
+    if (Array.isArray(trip?.tt)) return trip;
+
+    const stops = Array.isArray(trip?.stops) ? trip.stops : [];
+    if (!stops.length) return trip;
+
+    const out = {
+        id: normalizeText(trip?.rawTripId || trip?.tripId || ''),
+        t: normalizeText(trip?.tripId || trip?.rawTripId || ''),
+        pt: normalizeRefArray(trip?.ptRefs),
+        nt: normalizeRefArray(trip?.ntRefs),
+        tt: stops.map((stop) => ({ s: normalizeText(stop?.stopId || stop?.s || '') }))
+            .filter((stop) => stop.s)
+    };
+    if (trip?.hasNm === true) out.nm = true;
+    return out;
+};
+
 const resolveThroughServicePreviewMeta = async ({ tripIds, serviceDay }) => {
     const ids = collectUniquePreviewTripIds(tripIds);
     if (!ids.length) return null;
@@ -1691,7 +1710,8 @@ const resolveThroughServicePreviewMeta = async ({ tripIds, serviceDay }) => {
     const trips = [];
     for (const tripId of ids) {
         const trip = await getParsedTripByTripId({ tripId, serviceDay });
-        if (trip) trips.push(trip);
+        const classifierTrip = toThroughServiceClassifierTrip(trip);
+        if (classifierTrip) trips.push(classifierTrip);
     }
     if (!trips.length) return null;
 
