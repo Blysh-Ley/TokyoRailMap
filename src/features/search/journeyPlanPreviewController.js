@@ -1,3 +1,5 @@
+import { MULTI_SELECT_LAYER_ACTION_TOGGLE_VISIBILITY } from '../../domain/multiSelectLayerProtocol.js';
+
 export const createJourneyPlanPreviewController = ({
     buildTripPreviewPayloadFromDisplayPlan,
     clearTimeoutFn = globalThis.clearTimeout,
@@ -81,7 +83,7 @@ export const createJourneyPlanPreviewController = ({
             if (!entry) continue;
             const shouldBeVisible = entry.pageIndex === pageIndex;
             if (entry.visible === shouldBeVisible) continue;
-            runMultiSelectLayerCommand('toggle-visibility', entry.itemId);
+            runMultiSelectLayerCommand(MULTI_SELECT_LAYER_ACTION_TOGGLE_VISIBILITY, entry.itemId);
             entry.visible = shouldBeVisible;
         }
 
@@ -95,7 +97,7 @@ export const createJourneyPlanPreviewController = ({
         let changed = false;
         for (const entry of previewPool) {
             if (!entry || entry.visible !== false) continue;
-            runMultiSelectLayerCommand('toggle-visibility', entry.itemId);
+            runMultiSelectLayerCommand(MULTI_SELECT_LAYER_ACTION_TOGGLE_VISIBILITY, entry.itemId);
             entry.visible = true;
             changed = true;
         }

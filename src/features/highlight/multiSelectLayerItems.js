@@ -1,3 +1,10 @@
+import {
+    buildBaseMultiSelectLayerItemId,
+    buildTripPreviewLayerItemId
+} from '../../domain/multiSelectLayerProtocol.js';
+import { resolveMultiSelectBranchLayerState } from '../../domain/multiSelectBranchLayerState.js';
+import { shouldShowPreviewSelectionInLayerList } from '../../domain/previewSelectionPolicy.js';
+
 const toText = (value) => String(value ?? '').trim();
 
 const toLineIds = (value) => {
@@ -62,11 +69,17 @@ export const buildMultiSelectLayerItemsFromInputs = ({
 
                 const branchSource = getBranchSource(lineId);
                 const branchStep = Number(getBranchPreviewStep(lineId, branchSource) || 0);
+                const branchState = resolveMultiSelectBranchLayerState({
+                    supported: !!lineId,
+                    branchSource,
+                    branchPreviewStep: branchStep,
+                    hasPreviewSelection: branchSource ? hasTripPreviewSelectionBySource(branchSource) : false
+                });
                 const baseLineName = toText(tripPayload?.selectedLineName || tripPayload?.lineName || tripPayload?.mainLineName)
                     || getLineName(lineId);
                 baseLineKeysRenderedFromTripPreview.add(baseRef.key);
                 items.push({
-                    id: `base:${baseRef.key}`,
+                    id: buildBaseMultiSelectLayerItemId(baseRef.key),
                     scope: 'base',
                     key: baseRef.key,
                     visible: baseRef.entry?.hidden !== true && entry?.hidden !== true,
@@ -76,11 +89,7 @@ export const buildMultiSelectLayerItemsFromInputs = ({
                     originName: '-',
                     terminalName: '-',
                     typeName: getBaseKindName(baseRef.entry?.kind),
-                    branchToggleSupported: !!lineId,
-                    branchVisible: branchStep > 0 || (branchSource
-                        ? hasTripPreviewSelectionBySource(branchSource)
-                        : false),
-                    branchPreviewStep: branchStep,
+                    ...branchState,
                     source: basePreviewSource
                 });
             }
@@ -101,12 +110,20 @@ export const buildMultiSelectLayerItemsFromInputs = ({
         const branchStep = kind === 'line'
             ? Number(getBranchPreviewStep(firstLineId, branchSource) || 0)
             : 0;
+        const branchState = resolveMultiSelectBranchLayerState({
+            supported: kind === 'line' && !!firstLineId,
+            branchSource,
+            branchPreviewStep: branchStep,
+            hasPreviewSelection: kind === 'line' && !!branchSource
+                ? hasTripPreviewSelectionBySource(branchSource)
+                : false
+        });
         const baseLineName = kind === 'company'
             ? (baseDisplayName || fallbackCompanyName || getLineName(firstLineId))
             : getLineName(firstLineId);
 
         items.push({
-            id: `base:${key}`,
+            id: buildBaseMultiSelectLayerItemId(key),
             scope: 'base',
             key,
             visible: entry?.hidden !== true,
@@ -116,11 +133,7 @@ export const buildMultiSelectLayerItemsFromInputs = ({
             originName: '-',
             terminalName: '-',
             typeName: getBaseKindName(entry?.kind),
-            branchToggleSupported: kind === 'line' && !!firstLineId,
-            branchVisible: branchStep > 0 || (kind === 'line' && !!branchSource
-                ? hasTripPreviewSelectionBySource(branchSource)
-                : false),
-            branchPreviewStep: branchStep
+            ...branchState
         });
     }
 
@@ -140,25 +153,23 @@ export const buildMultiSelectLayerItemsFromInputs = ({
         const source = toText(entry?.source) || toText(resolveTripPreviewPayloadSource?.(payload));
         if (source && source === excludedSource) continue;
 
-        const isBranchSource = source.startsWith('ms-line-branch:');
-        if (isBranchSource) continue;
+        if (!shouldShowPreviewSelectionInLayerList({ entry, payload, source })) continue;
         const typeName = toText(payload?.typeName || payload?.tripTypeName) || '-';
         const originName = getStationName(built?.startStationId || payload?.originStationId || '');
         const terminalName = getStationName(built?.endStationId || payload?.terminalStationId || '');
         const baseLineName = toText(payload?.selectedLineName || payload?.lineName || payload?.mainLineName)
             || getLineName(lineId);
-        const displayLineName = isBranchSource ? formatBranchLineName(baseLineName) : baseLineName;
 
         items.push({
-            id: `trip:${key}`,
+            id: buildTripPreviewLayerItemId(key),
             scope: 'trip',
             key,
             visible: entry?.hidden !== true,
-            lineName: displayLineName,
+            lineName: baseLineName,
             originName,
             terminalName,
             typeName,
-            displayText: isBranchSource ? displayLineName : ''
+            displayText: ''
         });
     }
 
