@@ -1,5 +1,6 @@
 import { getCachedJson } from '../lib/fetch.js';
 import { buildVirtualTripPreviewPayload } from '../lib/trip-preview.js';
+import { getLineIdFromStationId } from '../domain/alternateLineMembership.js';
 import {
     detectThroughServiceCategoryFromTrips,
     THROUGH_SERVICE_CONFIGS_OBJECT
@@ -940,7 +941,23 @@ const findSegmentForPair = (segments, a, b) => {
     return null;
 };
 
-const appendBranchPairSegment = (segments, lineId, d, a, b) => {
+const resolveBranchPairSegmentInfo = ({ sourceSegment, fallbackLineId, fromStationId, toStationId } = {}) => {
+    const fromLineId = getLineIdFromStationId(fromStationId);
+    const toLineId = getLineIdFromStationId(toStationId);
+    if (fromLineId && fromLineId === toLineId) {
+        return {
+            lineId: fromLineId,
+            allowMerge: true
+        };
+    }
+
+    return {
+        lineId: toText(sourceSegment?.r || sourceSegment?.lineId || fallbackLineId),
+        allowMerge: !(fromLineId && toLineId && fromLineId !== toLineId)
+    };
+};
+
+const appendBranchPairSegment = (segments, lineId, d, a, b, options = {}) => {
     const rid = toText(lineId);
     const from = toText(a);
     const to = toText(b);
@@ -949,7 +966,9 @@ const appendBranchPairSegment = (segments, lineId, d, a, b) => {
     const direction = toText(d);
     const last = segments.length ? segments[segments.length - 1] : null;
     if (
+        options?.allowMerge !== false &&
         last
+        && last.__allowMerge !== false
         && toText(last.r || last.lineId) === rid
         && toText(last.d) === direction
         && last.stationIds?.[last.stationIds.length - 1] === from
@@ -965,6 +984,7 @@ const appendBranchPairSegment = (segments, lineId, d, a, b) => {
         r: rid,
         geometryLineId: rid,
         offsetLineId: rid,
+        __allowMerge: options?.allowMerge !== false,
         ...(direction ? { d: direction } : {}),
         stationIds: [from, to]
     });
@@ -989,11 +1009,23 @@ const buildBranchSegmentsFromRouteChains = (stationIds, routeChains, fallbackLin
         const a = list[i];
         const b = list[i + 1];
         const sourceSegment = findSegmentForPair(chainSegments, a, b);
-        const rid = toText(sourceSegment?.r || sourceSegment?.lineId || fallback);
-        appendBranchPairSegment(segments, rid, sourceSegment?.d, a, b);
+        const pairInfo = resolveBranchPairSegmentInfo({
+            sourceSegment,
+            fallbackLineId: fallback,
+            fromStationId: a,
+            toStationId: b
+        });
+        appendBranchPairSegment(segments, pairInfo.lineId, sourceSegment?.d, a, b, {
+            allowMerge: pairInfo.allowMerge
+        });
     }
 
-    return segments.filter((seg) => toText(seg?.r || seg?.lineId) && Array.isArray(seg?.stationIds) && seg.stationIds.length >= 2);
+    return segments
+        .filter((seg) => toText(seg?.r || seg?.lineId) && Array.isArray(seg?.stationIds) && seg.stationIds.length >= 2)
+        .map((seg) => {
+            const { __allowMerge, ...rest } = seg || {};
+            return rest;
+        });
 };
 
 const appendUnique = (target, item, key, seen) => {
