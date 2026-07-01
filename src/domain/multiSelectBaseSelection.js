@@ -98,6 +98,21 @@ export const getVisibleBaseMultiSelectionLineIds = (selectionsByKey) => {
     return out;
 };
 
+export const getVisibleBaseMultiSelectionLineIdsForPreview = ({
+    selectionsByKey,
+    branchPreviewStepByLineId
+} = {}) => {
+    const out = getVisibleBaseMultiSelectionLineIds(selectionsByKey);
+    if (!(branchPreviewStepByLineId instanceof Map) || !branchPreviewStepByLineId.size) return out;
+
+    for (const [rawLineId, rawStep] of branchPreviewStepByLineId.entries()) {
+        const lineId = toText(rawLineId);
+        const step = Number(rawStep) || 0;
+        if (lineId && step > 0) out.delete(lineId);
+    }
+    return out;
+};
+
 export const buildSplitCompanyLineSelectionEntries = ({
     entry,
     existingSelectionsByKey,

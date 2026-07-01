@@ -119,6 +119,7 @@ import { createSettingsMenu } from './features/settings/settingsMenu.js';
 import { runMultiSelectLayerCommandFromInputs } from './features/highlight/multiSelectLayerCommandRouter.js';
 import {
     clearBaseMultiSelectionsState,
+    getVisibleBaseMultiSelectionLineIdsForPreview,
     getVisibleBaseMultiSelectionLineIds,
     removeBaseMultiSelectionState,
     splitCompanyBaseMultiSelectionState,
@@ -652,6 +653,13 @@ const initMapApp = async () => {
         return getVisibleBaseMultiSelectionLineIds(baseMultiSelectionsByKey);
     };
 
+    const getBaseMultiPreviewLineIds = () => {
+        return getVisibleBaseMultiSelectionLineIdsForPreview({
+            selectionsByKey: baseMultiSelectionsByKey,
+            branchPreviewStepByLineId: multiSelectBranchPreviewStepByLineId
+        });
+    };
+
     const toggleBaseMultiSelection = (key, lineIds, kind = 'line', displayName = '') => {
         const result = toggleBaseMultiSelectionState({
             selectionsByKey: baseMultiSelectionsByKey,
@@ -803,7 +811,7 @@ const initMapApp = async () => {
             visibleStationIds,
             tripPreviewSelectionEntries: entries,
             throughServiceConfigsObject: THROUGH_SERVICE_CONFIGS_OBJECT,
-            baseSelectedLineIds: getBaseMultiSelectedLineIds(),
+            baseSelectedLineIds: getBaseMultiPreviewLineIds(),
             getLineColor: (lineId, participant) => {
                 const throughColor = String(THROUGH_SERVICE_CONFIGS_OBJECT?.[participant?.throughCategory]?.color || '').trim();
                 if (throughColor) return resolveRailColorForTheme(throughColor) || throughColor;
@@ -1024,7 +1032,7 @@ const initMapApp = async () => {
             active: tripPreviewActive,
             multiSelectEnabled: isMultiSelectModeEnabled(),
             previewSelectionEntries: routeFeature?.getTripPreviewSelectionEntries?.(),
-            baseSelectedLineIds: getBaseMultiSelectedLineIds()
+            baseSelectedLineIds: getBaseMultiPreviewLineIds()
         });
         return buildTransferCapsuleVisibleKey(visibleIds, {
             ...options,
@@ -1358,7 +1366,7 @@ const initMapApp = async () => {
     };
 
     const getMultiSelectBaseTripPreviewLineIds = () => {
-        const ids = Array.from(getBaseMultiSelectedLineIds()).map(String).filter(Boolean);
+        const ids = Array.from(getBaseMultiPreviewLineIds()).map(String).filter(Boolean);
         ids.sort((a, b) => a.localeCompare(b));
         return ids;
     };
@@ -1594,6 +1602,10 @@ const initMapApp = async () => {
         return routeFeature.hasVisibleTripPreviewSelectionBySource(source, resolveRoutePreviewPayloadSource);
     };
 
+    const syncMultiSelectBaseTripPreviewAfterBranchChange = () => {
+        Promise.resolve(syncMultiSelectBaseTripPreview()).catch(() => null);
+    };
+
     const toggleBaseLineBranchPreview = (baseKey) => {
         const key = String(baseKey || '').trim();
         const lineId = getLineIdFromBaseMultiSelectKey(key);
@@ -1616,11 +1628,13 @@ const initMapApp = async () => {
                 clearTripPathPreview({ source });
             }
             branchPreviewStepCommitter?.clearStep(lineId);
+            syncMultiSelectBaseTripPreviewAfterBranchChange();
             return false;
         }
 
         if (decision.action !== MULTI_SELECT_BRANCH_PREVIEW_ACTION_PREVIEW) return false;
         branchPreviewStepCommitter?.setStep(lineId, decision.nextStep);
+        syncMultiSelectBaseTripPreviewAfterBranchChange();
 
         previewBranchesForLine({
             lineId,
@@ -1631,10 +1645,12 @@ const initMapApp = async () => {
         }).then((result) => {
             if (result?.ok !== true) {
                 branchPreviewStepCommitter?.clearStep(lineId);
+                syncMultiSelectBaseTripPreviewAfterBranchChange();
             }
         }).catch(() => {
             clearTripPathPreview({ source });
             branchPreviewStepCommitter?.clearStep(lineId);
+            syncMultiSelectBaseTripPreviewAfterBranchChange();
         });
 
         return true;
