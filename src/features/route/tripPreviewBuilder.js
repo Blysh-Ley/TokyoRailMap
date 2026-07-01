@@ -187,6 +187,10 @@ export const createTripPreviewBuilder = ({
             ids instanceof Set && ids.has(String(stationId || '').trim())
         );
         const resolveSegColor = (seg, fallbackLineId) => {
+            const throughServiceColorRaw = String(seg?.throughServiceColor || '').trim();
+            if (throughServiceColorRaw) {
+                return resolveRailColorForTheme?.(throughServiceColorRaw) || throughServiceColorRaw;
+            }
             const segTypeColorRaw = String(seg?.typeColor || payloadTypeColor).trim();
             if (isThroughServiceHighlightColor(segTypeColorRaw)) {
                 return resolveRailColorForTheme?.(segTypeColorRaw) || segTypeColorRaw;

@@ -21,6 +21,7 @@ export const buildRailPreviewSegment = ({
     direction = null,
     lineId,
     stationIds,
+    throughServiceColor = null,
     typeColor = null
 } = {}) => {
     const resolvedLineId = normalizeText(lineId);
@@ -33,8 +34,10 @@ export const buildRailPreviewSegment = ({
         stationIds: compactIds
     };
     const resolvedDirection = normalizeText(direction);
+    const resolvedThroughServiceColor = normalizeText(throughServiceColor);
     const resolvedTypeColor = normalizeText(typeColor);
     if (resolvedDirection) segment.d = resolvedDirection;
+    if (resolvedThroughServiceColor) segment.throughServiceColor = resolvedThroughServiceColor;
     if (resolvedTypeColor) segment.typeColor = resolvedTypeColor;
     return segment;
 };
@@ -117,6 +120,7 @@ const pushAlternatePreviewPairSegment = (segments, baseSegment, lineId, stationI
         prev
         && normalizeText(prev.lineId) === resolvedLineId
         && normalizeText(prev.d) === normalizeText(baseSegment?.d)
+        && normalizeText(prev.throughServiceColor) === normalizeText(baseSegment?.throughServiceColor)
         && normalizeText(prev.typeColor) === normalizeText(baseSegment?.typeColor)
         && normalizeText(prev.stationIds?.[prev.stationIds.length - 1]) === ids[0]
     ) {

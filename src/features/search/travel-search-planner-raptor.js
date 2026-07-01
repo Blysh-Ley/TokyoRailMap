@@ -1,5 +1,9 @@
 import { getLineMetaByIds } from './search.js';
 import { getCachedJson } from '../../lib/fetch.js';
+import {
+    detectThroughServiceCategoryFromTrips,
+    getThroughServiceDisplayByCategory
+} from '../../lib/throughServiceManager.js';
 import { buildAlternateLineMembership } from '../../domain/alternateLineMembership.js';
 import {
     formatDuration,
@@ -1646,6 +1650,62 @@ const buildThroughDisplaySegments = async ({ leg, serviceDay }) => {
     return segments;
 };
 
+const collectUniquePreviewTripIds = (ids) => {
+    const out = [];
+    const seen = new Set();
+    for (const rawId of Array.isArray(ids) ? ids : []) {
+        const id = normalizeText(rawId);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        out.push(id);
+    }
+    return out;
+};
+
+const collectSectionPreviewTripIds = (section) => {
+    const ids = [];
+    ids.push(
+        ...(Array.isArray(section?.throughTripIds) ? section.throughTripIds : []),
+        ...(Array.isArray(section?.tripIds) ? section.tripIds : [])
+    );
+    for (const leg of Array.isArray(section?.legs) ? section.legs : []) {
+        ids.push(
+            normalizeText(leg?.rawTripId || ''),
+            normalizeText(leg?.tripId || ''),
+            ...(Array.isArray(leg?.throughTripIds) ? leg.throughTripIds : [])
+        );
+    }
+    return collectUniquePreviewTripIds(ids);
+};
+
+const collectLegPreviewTripIds = (leg) => collectUniquePreviewTripIds([
+    normalizeText(leg?.rawTripId || ''),
+    normalizeText(leg?.tripId || ''),
+    ...(Array.isArray(leg?.throughTripIds) ? leg.throughTripIds : [])
+]);
+
+const resolveThroughServicePreviewMeta = async ({ tripIds, serviceDay }) => {
+    const ids = collectUniquePreviewTripIds(tripIds);
+    if (!ids.length) return null;
+
+    const trips = [];
+    for (const tripId of ids) {
+        const trip = await getParsedTripByTripId({ tripId, serviceDay });
+        if (trip) trips.push(trip);
+    }
+    if (!trips.length) return null;
+
+    const category = normalizeText(detectThroughServiceCategoryFromTrips(trips));
+    if (!category) return null;
+    const display = getThroughServiceDisplayByCategory(category);
+    if (!display) return null;
+
+    return {
+        category,
+        color: normalizeText(display?.color || '') || null
+    };
+};
+
 const isThroughLegPair = ({ currentLeg, nextLeg, currentTrip, nextTrip }) => {
     if (!currentLeg || !nextLeg || !currentTrip || !nextTrip) return false;
 
@@ -1932,6 +1992,11 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
     const segments = [];
     if (sections.length) {
         for (const section of sections) {
+            const throughPreviewMeta = await resolveThroughServicePreviewMeta({
+                tripIds: collectSectionPreviewTripIds(section),
+                serviceDay: row?.serviceDay
+            });
+            const throughServiceColor = normalizeText(throughPreviewMeta?.color || '');
             const throughSegs = await buildSectionThroughSegments({ section, serviceDay: row?.serviceDay });
             if (throughSegs.length) {
                 for (const seg of throughSegs) {
@@ -1939,6 +2004,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
                         lineId: seg?.lineId,
                         stationIds: rowsToCompactStationIds(seg?.rows),
                         direction: seg?.d,
+                        throughServiceColor,
                         typeColor: seg?.typeColor || section?.legs?.[0]?.typeColor || ''
                     });
                     if (segment) segments.push(segment);
@@ -1964,6 +2030,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
                     lineId: segmentLineId,
                     stationIds,
                     direction: trip?.d,
+                    throughServiceColor,
                     typeColor: leg?.typeColor || trip?.typeColor || ''
                 });
                 if (segment) segments.push(segment);
@@ -1974,6 +2041,11 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
             const lineId = normalizeText(leg?.lineId);
             if (!lineId) continue;
 
+            const throughPreviewMeta = await resolveThroughServicePreviewMeta({
+                tripIds: collectLegPreviewTripIds(leg),
+                serviceDay: row?.serviceDay
+            });
+            const throughServiceColor = normalizeText(throughPreviewMeta?.color || '');
             const throughSegments = await buildThroughDisplaySegments({ leg, serviceDay: row?.serviceDay });
             if (throughSegments.length) {
                 for (const seg of throughSegments) {
@@ -1981,6 +2053,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
                         lineId: normalizeText(seg?.lineId || lineId),
                         stationIds: rowsToCompactStationIds(seg?.rows),
                         direction: seg?.d,
+                        throughServiceColor,
                         typeColor: seg?.typeColor || leg?.typeColor || ''
                     });
                     if (segment) segments.push(segment);
@@ -2001,6 +2074,7 @@ export const buildTripPreviewPayloadFromDisplayPlan = async ({ row, displayPlan 
                 lineId,
                 stationIds,
                 direction: trip?.d,
+                throughServiceColor,
                 typeColor: leg?.typeColor || trip?.typeColor || ''
             });
             if (segment) segments.push(segment);
