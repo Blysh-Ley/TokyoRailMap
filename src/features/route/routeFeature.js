@@ -1,5 +1,6 @@
 import {
     aggregateTripPreviewLineFeatureItems,
+    buildEndpointStationIdSetFromPayloadList,
     isTripPreviewEndpointProps,
     markTripPreviewStopFeatureEndpoint,
     normalizeDirPreviewPayload
@@ -43,12 +44,58 @@ export const createRouteFeature = ({
 
     const getBuiltEndpointStationIds = (built) => {
         const out = new Set();
+        if (built?.endpointStationIds instanceof Set) {
+            for (const stationId of built.endpointStationIds) {
+                const id = normalizeKey(stationId);
+                if (id) out.add(id);
+            }
+        }
         const startStationId = normalizeKey(built?.startStationId);
         const endStationId = normalizeKey(built?.endStationId);
         if (startStationId) out.add(startStationId);
         if (endStationId) out.add(endStationId);
         return out;
     };
+
+    const addStationId = (out, stationId) => {
+        const id = normalizeKey(stationId);
+        if (id) out.add(id);
+    };
+
+    const addStationIds = (out, stationIds) => {
+        const list = stationIds instanceof Set
+            ? Array.from(stationIds)
+            : (Array.isArray(stationIds) ? stationIds : []);
+        for (const stationId of list) addStationId(out, stationId);
+    };
+
+    const getExplicitEndpointStationIds = (payload) => {
+        const out = new Set();
+        addStationIds(out, payload?.originStationIds);
+        addStationIds(out, payload?.terminalStationIds);
+        addStationId(out, payload?.originStationId);
+        addStationId(out, payload?.terminalStationId);
+        addStationId(out, payload?.mainOriginStationId);
+        addStationId(out, payload?.mainTerminalStationId);
+        return out;
+    };
+
+    const buildPreviewEndpointStationIds = ({ payload, built, payloadList } = {}) => {
+        const out = getExplicitEndpointStationIds(payload);
+
+        const segmentEndpointIds = buildEndpointStationIdSetFromPayloadList(
+            Array.isArray(payloadList) && payloadList.length ? payloadList : [payload]
+        );
+        addStationIds(out, segmentEndpointIds);
+        addStationIds(out, getBuiltEndpointStationIds(built));
+
+        return out;
+    };
+
+    const attachEndpointStationIds = (built, endpointStationIds) => ({
+        ...(built || {}),
+        endpointStationIds: endpointStationIds instanceof Set ? new Set(endpointStationIds) : new Set()
+    });
 
     return {
         ensureTripPreviewLayers() {
@@ -137,6 +184,7 @@ export const createRouteFeature = ({
             const lineIds = new Set();
             const stopIds = new Set();
             const pastStopIds = new Set();
+            const endpointStationIds = new Set();
             let bbox = null;
 
             for (const entry of tripPreviewSelectionsByKey.values()) {
@@ -145,6 +193,7 @@ export const createRouteFeature = ({
                 const lineFeatures = Array.isArray(built?.lineFc?.features) ? built.lineFc.features : [];
                 const stopFeatures = Array.isArray(built?.stopFc?.features) ? built.stopFc.features : [];
                 const builtEndpointIds = getBuiltEndpointStationIds(built);
+                addStationIds(endpointStationIds, builtEndpointIds);
 
                 for (const lf of lineFeatures) {
                     lineFeatureItems.push({
@@ -224,6 +273,7 @@ export const createRouteFeature = ({
                 lineIds,
                 stopIds,
                 pastStopIds,
+                endpointStationIds,
                 bbox
             };
         },
@@ -255,6 +305,7 @@ export const createRouteFeature = ({
             applyPreviewState?.({
                 active: hasVisible,
                 stationIds: hasVisible ? built.stopIds : null,
+                endpointStationIds: hasVisible ? built.endpointStationIds : null,
                 lineIds: hasVisible ? built.lineIds : null,
                 pastStationIds: hasVisible ? built.pastStopIds : null,
                 stationOverrideColor: ''
@@ -378,10 +429,15 @@ export const createRouteFeature = ({
                         rebuildMultiTripPreview?.('none');
                         return;
                     }
+                    const endpointStationIds = buildPreviewEndpointStationIds({
+                        payload,
+                        built: aggregate,
+                        payloadList: virtualTrips
+                    });
 
                     this.setTripPreviewSelection(selectionKey, {
                         payload: { ...(payload || {}) },
-                        built: {
+                        built: attachEndpointStationIds({
                             lineFc: aggregate.lineFc,
                             stopFc: aggregate.stopFc,
                             lineIds: aggregate.lineIds,
@@ -390,7 +446,7 @@ export const createRouteFeature = ({
                             startStationId: aggregate.startStationId,
                             endStationId: aggregate.endStationId,
                             bbox: aggregate.bbox
-                        },
+                        }, endpointStationIds),
                         source: payloadSource,
                         hidden: false
                     });
@@ -404,6 +460,11 @@ export const createRouteFeature = ({
                     clearTripPathPreview?.({ source: payloadSource || '' });
                     return;
                 }
+                const endpointStationIds = buildPreviewEndpointStationIds({
+                    payload,
+                    built: aggregate,
+                    payloadList: virtualTrips
+                });
 
                 tripPreviewRenderer.ensureLayers();
                 applyActiveState?.({
@@ -416,6 +477,7 @@ export const createRouteFeature = ({
                         aggregate,
                         virtualTrips
                     }) || aggregate.stopIds,
+                    endpointStationIds,
                     pastStationIds: aggregate.pastStopIds,
                     lineIds: aggregate.lineIds
                 });
@@ -448,9 +510,10 @@ export const createRouteFeature = ({
                     this.deleteTripPreviewSelection(selectionKey);
                 } else {
                     const builtSingle = buildFeatures?.(payload);
+                    const endpointStationIds = buildPreviewEndpointStationIds({ payload, built: builtSingle });
                     this.setTripPreviewSelection(selectionKey, {
                         payload: { ...(payload || {}) },
-                        built: builtSingle,
+                        built: attachEndpointStationIds(builtSingle, endpointStationIds),
                         source: payloadSource,
                         hidden: false
                     });
@@ -462,11 +525,13 @@ export const createRouteFeature = ({
 
             tripPreviewRenderer.ensureLayers();
             const built = buildFeatures?.(payload);
+            const endpointStationIds = buildPreviewEndpointStationIds({ payload, built });
             applyActiveState?.({
                 active: true,
                 source: payloadSource,
                 stationOverrideColor: resolveStationOverrideColor?.(payload, payloadSource) || '',
                 stationIds: built?.stopIds,
+                endpointStationIds,
                 pastStationIds: built?.pastStopIds,
                 lineIds: built?.lineIds
             });

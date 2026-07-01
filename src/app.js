@@ -55,6 +55,7 @@ import {
 import { buildAlternateLineMembership } from './domain/alternateLineMembership.js';
 import { buildLineHighlightLabelItems } from './domain/lineHighlightLabels.js';
 import { buildLineNameLabelGeoJSON } from './domain/lineNameLabels.js';
+import { getFocusedStationLabelPriority } from './domain/stationLabelDisplay.js';
 import { previewBranchesForLine, prewarmThroughServiceBranchAnalysis } from './map/analyze_branch.js';
 import { createLineIconElement, getResolvedRouteIconMeta } from './lib/line-icons.js';
 import {
@@ -441,6 +442,7 @@ const initMapApp = async () => {
     let clearTripPathPreview = () => {};
     let fitMobileTripBounds = (_payload, _options = {}) => false;
     let tripPreviewStationIds = null; // Set<string> | null
+    let tripPreviewEndpointStationIds = null; // Set<string> | null
     let tripPreviewPastStationIds = null; // Set<string> | null
     let tripPreviewLineIds = null; // Set<string> | null
     let tripPreviewLineNameLabelsData = null;
@@ -1026,6 +1028,64 @@ const initMapApp = async () => {
                 ? (offsetByStationId.get(sid) || baseTranslate)
                 : baseTranslate);
             if (!isMultiSelectModeEnabled() && item?.el) item.el.textContent = baseName;
+        }
+    };
+
+    const normalizeStationIdSetForApp = (value) => {
+        if (value == null) return null;
+        const list = value instanceof Set
+            ? Array.from(value)
+            : (Array.isArray(value) ? value : [value]);
+        const ids = list
+            .map((item) => String(item ?? '').trim())
+            .filter(Boolean);
+        return ids.length ? new Set(ids) : null;
+    };
+
+    const captureBaseStationLabelTerminalState = (label) => {
+        if (!label || label._tripPreviewEndpointBaseTerminalState) return;
+        label._tripPreviewEndpointBaseTerminalState = {
+            isTerminalStation: label.isTerminalStation === true,
+            focusPriority: Number(label.focusPriority) || 0,
+            propsIsTerminalStation: label.props?.is_terminal_station,
+            propsFocusPriority: label.props?.focus_priority
+        };
+    };
+
+    const restoreBaseStationLabelTerminalState = (label) => {
+        const base = label?._tripPreviewEndpointBaseTerminalState;
+        if (!label || !base) return;
+        label.isTerminalStation = base.isTerminalStation;
+        label.focusPriority = base.focusPriority;
+        if (label.props) {
+            label.props.is_terminal_station = base.propsIsTerminalStation;
+            label.props.focus_priority = base.propsFocusPriority;
+        }
+    };
+
+    const applyTripPreviewEndpointLabelProtection = () => {
+        if (!Array.isArray(stationLabels) || !stationLabels.length) return;
+        const endpointIds = tripPreviewEndpointStationIds instanceof Set && tripPreviewEndpointStationIds.size
+            ? tripPreviewEndpointStationIds
+            : null;
+
+        for (const label of stationLabels) {
+            if (!label) continue;
+            captureBaseStationLabelTerminalState(label);
+            restoreBaseStationLabelTerminalState(label);
+
+            const sid = String(label.stationId || label.props?.id || '').trim();
+            if (!sid || !endpointIds?.has(sid)) continue;
+
+            label.isTerminalStation = true;
+            label.focusPriority = Math.max(
+                Number(label.focusPriority) || 0,
+                getFocusedStationLabelPriority({ priority: label.priority, isTerminalStation: true })
+            );
+            if (label.props) {
+                label.props.is_terminal_station = 1;
+                label.props.focus_priority = label.focusPriority;
+            }
         }
     };
 
@@ -4075,6 +4135,7 @@ const initMapApp = async () => {
                 source,
                 stationOverrideColor,
                 stationIds,
+                endpointStationIds,
                 pastStationIds,
                 lineIds
             } = {}) => {
@@ -4082,17 +4143,21 @@ const initMapApp = async () => {
                 if (source !== undefined) tripPreviewActiveSource = String(source || '');
                 tripPreviewStationOverrideColor = String(stationOverrideColor || '');
                 tripPreviewStationIds = stationIds || null;
+                tripPreviewEndpointStationIds = normalizeStationIdSetForApp(endpointStationIds);
                 tripPreviewPastStationIds = pastStationIds || null;
                 tripPreviewLineIds = lineIds || null;
+                applyTripPreviewEndpointLabelProtection();
             },
             applyTripPreviewInactiveState: () => {
                 tripPreviewActive = false;
                 tripPreviewActiveSource = '';
                 tripPreviewStationIds = null;
+                tripPreviewEndpointStationIds = null;
                 tripPreviewPastStationIds = null;
                 tripPreviewLineIds = null;
                 tripPreviewStationOverrideColor = '';
                 lastTripPreviewPayload = null;
+                applyTripPreviewEndpointLabelProtection();
             },
             getTripPreviewActiveSource: () => tripPreviewActiveSource,
             endpointPopups: routeEndpointPopups,
@@ -4571,6 +4636,7 @@ const initMapApp = async () => {
 
         const markers = createStationMarkers(mapEngine, stationsData, { attachMarkers: false });
         stationLabels = markers.stationLabels;
+        applyTripPreviewEndpointLabelProtection();
         const stationCircles = markers.stationCircles;
         const resolveTouchStationFeatureAtPoint = (point) => {
             const px = Number(point?.x);

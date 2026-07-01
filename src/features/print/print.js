@@ -99,6 +99,11 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
     };
     const EXPORT_ORIENTATIONS = new Set(['landscape', 'portrait']);
     const EXPORT_BASEMAP_SOURCE_ID = 'osm-vector-source';
+    const EXPORT_MINIMAL_BASEMAP_MODE = 'osm-white';
+    const EXPORT_PMTILES_SOURCE_KIND = 'pmtiles';
+    const EXPORT_MAX_CANVAS_SIDE = 16384;
+    const EXPORT_MAX_CANVAS_PIXELS = EXPORT_MAX_CANVAS_SIDE * EXPORT_MAX_CANVAS_SIDE;
+    const EXPORT_WEBGL_TILE_SIZE = 4096;
 
     const getExportBasemapPrimarySourceId = (style) => {
         const sourceId = style?.metadata?.tokyoRailBasemap?.primarySourceId;
@@ -156,6 +161,8 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
     const buildExportBasemapStyle = () => {
         try {
             const style = window?.TokyoRailMapRuntime?.getExportBasemapStyle?.({
+                mode: EXPORT_MINIMAL_BASEMAP_MODE,
+                sourceKind: EXPORT_PMTILES_SOURCE_KIND,
                 theme: isDarkTheme() ? 'dark' : 'light'
             });
             if (style?.version && style.sources && Array.isArray(style.layers)) return style;
@@ -249,6 +256,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
                 interactive: false,
                 attributionControl: false,
                 preserveDrawingBuffer: true,
+                maxCanvasSize: [EXPORT_MAX_CANVAS_SIDE, EXPORT_MAX_CANVAS_SIDE],
                 pixelRatio: 1
             });
             map.__tokyoRailExportBasemapSourceId = getExportBasemapPrimarySourceId(style);
@@ -1272,20 +1280,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
     };
 
     const getExportAttributionText = () => {
-        try {
-            const items = window?.TokyoRailMapRuntime?.getMapAttributionItems?.() || [];
-            const labels = items
-                .filter((item) => item?.group === 'map' || !item?.group)
-                .map((item) => {
-                    const label = String(item?.label || '').trim();
-                    if (!label) return '';
-                    return label === 'OpenStreetMap' ? '© OpenStreetMap contributors' : label;
-                })
-                .filter(Boolean);
-            return labels.length ? `Map: ${labels.join(', ')}` : OSM_BASEMAP_ATTRIBUTION_TEXT;
-        } catch {
-            return OSM_BASEMAP_ATTRIBUTION_TEXT;
-        }
+        return OSM_BASEMAP_ATTRIBUTION_TEXT;
     };
 
     const buildSvgFromBuilt = async ({ map, payload, built, backgroundImageHref, transparentBackground = false, capsules, stationLabelScale = 1 }) => {
@@ -1656,6 +1651,35 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         return { minLng, minLat, maxLng, maxLat };
     };
 
+    const collectHighlightLngLatCoords = (built) => {
+        const out = [];
+        const features = [
+            ...(Array.isArray(built?.lineFc?.features) ? built.lineFc.features : []),
+            ...(Array.isArray(built?.stopFc?.features) ? built.stopFc.features : [])
+        ];
+
+        const eatCoords = (coords) => {
+            if (!Array.isArray(coords)) return;
+            if (coords.length >= 2 && typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+                const lng = Number(coords[0]);
+                const lat = Number(coords[1]);
+                if (Number.isFinite(lng) && Number.isFinite(lat)) out.push([lng, lat]);
+                return;
+            }
+            for (const c of coords) eatCoords(c);
+        };
+
+        for (const feature of features) {
+            const geometry = feature?.geometry;
+            if (!geometry) continue;
+            if (geometry.type === 'Point' || geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
+                eatCoords(geometry.coordinates);
+            }
+        }
+
+        return out;
+    };
+
     const normalizeBbox = (bbox) => {
         if (!bbox) return null;
         const minLng = Number(bbox.minLng);
@@ -1719,11 +1743,32 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
     };
 
     const clampCanvasSize = ({ w, h }) => {
-        // 常见浏览器单边上限约 16384；这里留一点余量
-        const MAX_SIDE = 16384;
-        const ww = Math.max(1, Math.min(MAX_SIDE, Math.round(Number(w) || 1)));
-        const hh = Math.max(1, Math.min(MAX_SIDE, Math.round(Number(h) || 1)));
+        const rawW = Math.max(1, Number(w) || 1);
+        const rawH = Math.max(1, Number(h) || 1);
+        const sideScale = Math.min(
+            1,
+            EXPORT_MAX_CANVAS_SIDE / rawW,
+            EXPORT_MAX_CANVAS_SIDE / rawH
+        );
+        const pixelScale = Math.min(
+            1,
+            Math.sqrt(EXPORT_MAX_CANVAS_PIXELS / Math.max(1, rawW * rawH))
+        );
+        const scale = Math.min(sideScale, pixelScale);
+        const ww = Math.max(1, Math.round(rawW * scale));
+        const hh = Math.max(1, Math.round(rawH * scale));
         return { w: ww, h: hh };
+    };
+
+    const expandSizeToAspectRatio = ({ minW, minH, aspectRatio, orientation }) => {
+        const dims = getExportAspectDimensions(aspectRatio, orientation);
+        const ratio = Math.max(0.001, dims.w / Math.max(0.001, dims.h));
+        const ww = Math.max(1, Number(minW) || 1);
+        const hh = Math.max(1, Number(minH) || 1);
+        if ((ww / hh) >= ratio) {
+            return { w: ww, h: ww / ratio };
+        }
+        return { w: hh * ratio, h: hh };
     };
 
     const projectLngLat = (map, lng, lat) => {
@@ -1755,6 +1800,43 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         return { minX, minY, maxX, maxY };
     };
 
+    const calcPixelBboxForHighlight = (map, built, geoBbox) => {
+        const coords = collectHighlightLngLatCoords(built);
+        const pts = [];
+        for (const coord of coords) {
+            const p = projectLngLat(map, coord[0], coord[1]);
+            if (Number.isFinite(p.x) && Number.isFinite(p.y)) pts.push(p);
+        }
+        if (!pts.length) return calcPixelBboxForGeoBbox(map, geoBbox);
+
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        for (const p of pts) {
+            if (p.x < minX) minX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y > maxY) maxY = p.y;
+        }
+        if (![minX, minY, maxX, maxY].every(Number.isFinite)) return calcPixelBboxForGeoBbox(map, geoBbox);
+        return { minX, minY, maxX, maxY };
+    };
+
+    const unprojectPixelCenter = (map, pixelBbox, fallbackCenter) => {
+        try {
+            if (!pixelBbox || typeof map?.unproject !== 'function') return fallbackCenter;
+            const ll = map.unproject({
+                x: (pixelBbox.minX + pixelBbox.maxX) / 2,
+                y: (pixelBbox.minY + pixelBbox.maxY) / 2
+            });
+            if (ll && Number.isFinite(ll.lng) && Number.isFinite(ll.lat)) return ll;
+        } catch {
+            // ignore
+        }
+        return fallbackCenter;
+    };
+
     const pickCenterForBbox = (map, geoBbox, paddingPx, bearing, pitch) => {
         const b = normalizeBbox(geoBbox);
         if (!b) return null;
@@ -1776,9 +1858,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         return fallback;
     };
 
-    const computeExportSizeAtFixedZoom = ({ map, container, geoBbox, baseW, baseH, paddingPx, zoom, bearing, pitch }) => {
-        let w = Math.max(1, Math.round(Number(baseW) || 1));
-        let h = Math.max(1, Math.round(Number(baseH) || 1));
+    const computeExportSizeAtFixedZoom = ({ map, container, built, geoBbox, aspectRatio, orientation, paddingPx, zoom, bearing, pitch }) => {
         const pad = Math.max(0, Math.round(Number(paddingPx) || 0));
 
         const applySize = (ww, hh) => {
@@ -1788,36 +1868,42 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
             map.resize?.();
         };
 
-        // 等比放大画布，直到 bbox 在当前 zoom 下能放下
-        for (let i = 0; i < 8; i += 1) {
-            ({ w, h } = clampCanvasSize({ w, h }));
+        const provisional = clampCanvasSize(expandSizeToAspectRatio({
+            minW: 1024,
+            minH: 1024,
+            aspectRatio,
+            orientation
+        }));
+        const initialCenter = pickCenterForBbox(map, geoBbox, pad, bearing, pitch);
+        applySize(provisional.w, provisional.h);
+        map.jumpTo?.({
+            center: initialCenter,
+            zoom: Number(zoom) || 0,
+            bearing: Number(bearing) || 0,
+            pitch: Number(pitch) || 0
+        });
 
-            applySize(w, h);
+        const px = calcPixelBboxForHighlight(map, built, geoBbox);
+        if (!px) return { ...provisional, center: initialCenter };
 
-            const center = pickCenterForBbox(map, geoBbox, pad, bearing, pitch);
-            map.jumpTo?.({ center, zoom: Number(zoom) || 0, bearing: Number(bearing) || 0, pitch: Number(pitch) || 0 });
-
-            const px = calcPixelBboxForGeoBbox(map, geoBbox);
-            if (!px) break;
-
-            const needW = (px.maxX - px.minX) + pad * 2;
-            const needH = (px.maxY - px.minY) + pad * 2;
-
-            if (needW <= w && needH <= h) return { w, h, center };
-
-            const scale = Math.max(needW / Math.max(1, w), needH / Math.max(1, h)) * 1.02;
-            w = Math.ceil(w * scale);
-            h = Math.ceil(h * scale);
-
-            // 如果已经到上限，别死循环
-            const atLimit = w >= 16384 || h >= 16384;
-            if (atLimit) break;
-        }
-
-        const center = pickCenterForBbox(map, geoBbox, pad, bearing, pitch);
-        ({ w, h } = clampCanvasSize({ w, h }));
+        const needed = expandSizeToAspectRatio({
+            minW: (px.maxX - px.minX) + pad * 2,
+            minH: (px.maxY - px.minY) + pad * 2,
+            aspectRatio,
+            orientation
+        });
+        const { w, h } = clampCanvasSize(needed);
+        const limitExceeded = w < Math.round(needed.w) || h < Math.round(needed.h);
+        const center = unprojectPixelCenter(map, px, initialCenter);
         applySize(w, h);
-        return { w, h, center };
+        return {
+            w,
+            h,
+            center,
+            limitExceeded,
+            neededW: Math.round(needed.w),
+            neededH: Math.round(needed.h)
+        };
     };
 
     const waitForEventOnce = (target, eventName, timeoutMs) => new Promise((resolve) => {
@@ -1969,6 +2055,121 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         }
     };
 
+    const setExportMapViewport = ({ map, container, width, height, center, zoom, bearing, pitch }) => {
+        const w = Math.max(1, Math.round(Number(width) || 1));
+        const h = Math.max(1, Math.round(Number(height) || 1));
+        if (container?.style) {
+            container.style.width = `${w}px`;
+            container.style.height = `${h}px`;
+        }
+        map?.resize?.();
+        map?.jumpTo?.({
+            center,
+            zoom: Number(zoom) || 0,
+            bearing: Number(bearing) || 0,
+            pitch: Number(pitch) || 0
+        });
+        return { w, h };
+    };
+
+    const captureTiledMapCanvasPngBlob = async ({
+        map,
+        container,
+        width,
+        height,
+        center,
+        zoom,
+        bearing,
+        pitch,
+        sourceId,
+        tileSize = EXPORT_WEBGL_TILE_SIZE
+    } = {}) => {
+        const targetW = Math.max(1, Math.round(Number(width) || 1));
+        const targetH = Math.max(1, Math.round(Number(height) || 1));
+        const tileLimit = Math.max(256, Math.min(EXPORT_WEBGL_TILE_SIZE, Math.round(Number(tileSize) || EXPORT_WEBGL_TILE_SIZE)));
+
+        const outputCanvas = document.createElement('canvas');
+        outputCanvas.width = targetW;
+        outputCanvas.height = targetH;
+        const ctx = outputCanvas.getContext('2d');
+        if (!ctx) throw new Error('export tile canvas context not available');
+
+        setExportMapViewport({
+            map,
+            container,
+            width: targetW,
+            height: targetH,
+            center,
+            zoom,
+            bearing,
+            pitch
+        });
+
+        const tiles = [];
+        for (let y = 0; y < targetH; y += tileLimit) {
+            const tileH = Math.min(tileLimit, targetH - y);
+            for (let x = 0; x < targetW; x += tileLimit) {
+                const tileW = Math.min(tileLimit, targetW - x);
+                let tileCenter = center;
+                try {
+                    tileCenter = map.unproject?.({
+                        x: x + tileW / 2,
+                        y: y + tileH / 2
+                    }) || center;
+                } catch {
+                    tileCenter = center;
+                }
+                tiles.push({ x, y, tileW, tileH, tileCenter });
+            }
+        }
+
+        for (const tile of tiles) {
+            setExportMapViewport({
+                map,
+                container,
+                width: tile.tileW,
+                height: tile.tileH,
+                center: tile.tileCenter,
+                zoom,
+                bearing,
+                pitch
+            });
+            await waitNextAnimationFrame();
+            await waitForMapLibreBasemapTilesReadyForExportWithStyleFallback(map, {
+                sourceId,
+                checkEveryMs: 10000,
+                maxReloadAttempts: 3
+            });
+
+            const canvas = map.getCanvas?.();
+            if (!canvas) throw new Error('tile canvas not available');
+            ctx.drawImage(
+                canvas,
+                0,
+                0,
+                Math.max(1, canvas.width),
+                Math.max(1, canvas.height),
+                tile.x,
+                tile.y,
+                tile.tileW,
+                tile.tileH
+            );
+        }
+
+        setExportMapViewport({
+            map,
+            container,
+            width: targetW,
+            height: targetH,
+            center,
+            zoom,
+            bearing,
+            pitch
+        });
+
+        return await canvasToPngBlob(outputCanvas);
+    };
+
     const reportExportError = (err) => {
         try {
             console.warn('导出失败', err);
@@ -1980,6 +2181,12 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         if (code === 'EXPORT_TILE_TIMEOUT') {
             try {
                 window.alert('导出失败：底图瓦片加载超时。\n\n请检查网络后重试，或稍等片刻再导出。');
+            } catch {
+                // ignore
+            }
+        } else if (code === 'EXPORT_RESOLUTION_LIMIT_EXCEEDED') {
+            try {
+                window.alert('超过分辨率上限');
             } catch {
                 // ignore
             }
@@ -2264,6 +2471,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
             // 导出尺寸由设置里的比例和横竖屏决定。
             const tryExportPng = async ({ baseW, baseH, paddingPx }) => {
                 await ensureStyleMatchesTheme(vmap);
+                let currentExportSize = null;
 
                 if (zoomMode === 'auto') {
                     // 自动：使用 fitBounds 自适应缩放，输出尺寸严格等于 baseW/baseH
@@ -2287,12 +2495,13 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
                     );
                 } else {
                     // 当前：保持与当前视图一致的 zoom，不用 fitBounds（fitBounds 会自动改 zoom）
-                    const size = computeExportSizeAtFixedZoom({
+                    currentExportSize = computeExportSizeAtFixedZoom({
                         map: vmap,
                         container: vcontainer,
+                        built,
                         geoBbox,
-                        baseW,
-                        baseH,
+                        aspectRatio,
+                        orientation,
                         paddingPx,
                         zoom: baseZoom,
                         bearing: baseBearing,
@@ -2300,7 +2509,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
                     });
 
                     vmap.jumpTo?.({
-                        center: size.center,
+                        center: currentExportSize.center,
                         zoom: Number(baseZoom) || 11,
                         bearing: Number(baseBearing) || 0,
                         pitch: Number(basePitch) || 0,
@@ -2319,22 +2528,56 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
                 if (zoomMode === 'auto') {
                     return { blob: await canvasToPngBlob(canvas), w: Math.round(Number(baseW) || 1), h: Math.round(Number(baseH) || 1) };
                 }
-                // zoomMode === 'current': 使用实际画布尺寸
-                return { blob: await canvasToPngBlob(canvas), w: canvas.width, h: canvas.height };
+                const targetW = Math.max(1, Math.round(Number(currentExportSize?.w) || canvas.width || 1));
+                const targetH = Math.max(1, Math.round(Number(currentExportSize?.h) || canvas.height || 1));
+                if (currentExportSize?.limitExceeded === true) {
+                    const err = new Error('Export resolution limit exceeded');
+                    err.code = 'EXPORT_RESOLUTION_LIMIT_EXCEEDED';
+                    err.neededW = currentExportSize.neededW;
+                    err.neededH = currentExportSize.neededH;
+                    err.limitW = targetW;
+                    err.limitH = targetH;
+                    throw err;
+                }
+                const shouldTile = canvas.width !== targetW
+                    || canvas.height !== targetH
+                    || targetW > EXPORT_WEBGL_TILE_SIZE
+                    || targetH > EXPORT_WEBGL_TILE_SIZE;
+                if (!shouldTile) {
+                    return { blob: await canvasToPngBlob(canvas), w: canvas.width, h: canvas.height };
+                }
+                const tiledBlob = await captureTiledMapCanvasPngBlob({
+                    map: vmap,
+                    container: vcontainer,
+                    width: targetW,
+                    height: targetH,
+                    center: currentExportSize.center,
+                    zoom: baseZoom,
+                    bearing: baseBearing,
+                    pitch: basePitch,
+                    sourceId: vmap.__tokyoRailExportBasemapSourceId || null
+                });
+                return { blob: tiledBlob, w: targetW, h: targetH };
             };
 
             const resolution = String(options?.resolution || '4k');
             const aspectRatio = normalizeExportAspectRatio(options?.aspectRatio);
             const orientation = normalizeExportOrientation(options?.orientation);
-            const stationLabelScale = resolution === '4k' ? 2 : 1;
+            const stationLabelScale = zoomMode === 'current' ? 1 : (resolution === '4k' ? 2 : 1);
 
-            // 4K：优先 4K，失败回退 1080P；1080P：直接 1080P（不尝试 4K）
+            // 自动模式保留 4K/1080P 分辨率；当前模式只按路线范围与比例计算尺寸。
             let pngBlob = null;
-            const size4k = getExportBaseSize({ aspectRatio, orientation, resolution: '4k' });
-            const size1080p = getExportBaseSize({ aspectRatio, orientation, resolution: '1080p' });
-            let outW = size4k.w;
-            let outH = size4k.h;
-            if (resolution === '1080p') {
+            let outW = 1;
+            let outH = 1;
+            if (zoomMode === 'current') {
+                const r = await tryExportPng({
+                    paddingPx: 60,
+                });
+                pngBlob = r.blob;
+                outW = r.w;
+                outH = r.h;
+            } else if (resolution === '1080p') {
+                const size1080p = getExportBaseSize({ aspectRatio, orientation, resolution: '1080p' });
                 const r = await tryExportPng({
                     baseW: size1080p.w,
                     baseH: size1080p.h,
@@ -2344,6 +2587,8 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
                 outW = r.w;
                 outH = r.h;
             } else {
+                const size4k = getExportBaseSize({ aspectRatio, orientation, resolution: '4k' });
+                const size1080p = getExportBaseSize({ aspectRatio, orientation, resolution: '1080p' });
                 try {
                     const r = await tryExportPng({
                         baseW: size4k.w,
@@ -2494,6 +2739,286 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         } finally {
             exporting = false;
         }
+    };
+
+    const getMapCanvasDiagnostics = ({ map, container } = {}) => {
+        const canvas = map?.getCanvas?.() || null;
+        const rect = container?.getBoundingClientRect?.() || canvas?.getBoundingClientRect?.() || null;
+        const gl = (() => {
+            try {
+                return canvas?.getContext?.('webgl2')
+                    || canvas?.getContext?.('webgl')
+                    || canvas?.getContext?.('experimental-webgl')
+                    || null;
+            } catch {
+                return null;
+            }
+        })();
+        return {
+            canvas: canvas ? {
+                width: canvas.width,
+                height: canvas.height,
+                pixels: canvas.width * canvas.height,
+                clientWidth: canvas.clientWidth || 0,
+                clientHeight: canvas.clientHeight || 0
+            } : null,
+            css: rect ? {
+                width: Math.round(rect.width || 0),
+                height: Math.round(rect.height || 0)
+            } : null,
+            mapLibre: {
+                maxCanvasSize: Array.isArray(map?._maxCanvasSize) ? [...map._maxCanvasSize] : null,
+                pixelRatio: map?.painter?.pixelRatio ?? null,
+                painterWidth: map?.painter?.width ?? null,
+                painterHeight: map?.painter?.height ?? null,
+                transformWidth: map?.transform?.width ?? null,
+                transformHeight: map?.transform?.height ?? null
+            },
+            webgl: gl ? {
+                maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+                maxRenderbufferSize: gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),
+                drawingBufferWidth: gl.drawingBufferWidth,
+                drawingBufferHeight: gl.drawingBufferHeight
+            } : null
+        };
+    };
+
+    const summarizePixelBbox = (bbox, paddingPx, aspectRatio, orientation) => {
+        if (!bbox) return null;
+        const rawWidth = Math.max(0, bbox.maxX - bbox.minX);
+        const rawHeight = Math.max(0, bbox.maxY - bbox.minY);
+        const padded = {
+            w: rawWidth + paddingPx * 2,
+            h: rawHeight + paddingPx * 2
+        };
+        const aspectExpanded = expandSizeToAspectRatio({
+            minW: padded.w,
+            minH: padded.h,
+            aspectRatio,
+            orientation
+        });
+        const clamped = clampCanvasSize(aspectExpanded);
+        return {
+            bbox,
+            raw: {
+                width: Math.round(rawWidth),
+                height: Math.round(rawHeight),
+                pixels: Math.round(rawWidth * rawHeight)
+            },
+            padded: {
+                width: Math.round(padded.w),
+                height: Math.round(padded.h),
+                pixels: Math.round(padded.w * padded.h)
+            },
+            aspectExpanded: {
+                width: Math.round(aspectExpanded.w),
+                height: Math.round(aspectExpanded.h),
+                pixels: Math.round(aspectExpanded.w * aspectExpanded.h)
+            },
+            clamped: {
+                width: clamped.w,
+                height: clamped.h,
+                pixels: clamped.w * clamped.h
+            }
+        };
+    };
+
+    const resolveProbeSnapshot = async (snapshot) => {
+        const baseMap = getRuntimeBaseMap();
+        if (!baseMap) throw new Error('TokyoRail export probe: base map is not available');
+
+        const normalized = normalizeTripSnapshot(snapshot || lastSnapshot);
+        const payload = normalized?.payload;
+        const rawBuilt = await ensureBuiltHasRenderableFeatures(baseMap, normalized?.built);
+        const built = await normalizeTripPreviewPastDimmingForExport(baseMap, rawBuilt);
+        if (!payload || !built) throw new Error('TokyoRail export probe: no active export snapshot/highlight');
+
+        const geoBbox = normalizeBbox(calcBboxFromBuilt(built));
+        if (!geoBbox) throw new Error('TokyoRail export probe: highlight bbox is empty');
+
+        return { baseMap, payload, built, geoBbox };
+    };
+
+    const computeProbeAtZoom = async ({
+        vmap,
+        vcontainer,
+        built,
+        geoBbox,
+        aspectRatio,
+        orientation,
+        paddingPx,
+        zoom,
+        bearing,
+        pitch
+    }) => {
+        const size = computeExportSizeAtFixedZoom({
+            map: vmap,
+            container: vcontainer,
+            built,
+            geoBbox,
+            aspectRatio,
+            orientation,
+            paddingPx,
+            zoom,
+            bearing,
+            pitch
+        });
+
+        vmap.jumpTo?.({
+            center: size.center,
+            zoom: Number(zoom) || 11,
+            bearing: Number(bearing) || 0,
+            pitch: Number(pitch) || 0
+        });
+        await waitForEventOnce(vmap, 'moveend', 500);
+
+        const pixelBbox = calcPixelBboxForHighlight(vmap, built, geoBbox);
+        return {
+            zoom,
+            pixelBbox: summarizePixelBbox(pixelBbox, paddingPx, aspectRatio, orientation),
+            algorithmSize: {
+                width: size.w,
+                height: size.h,
+                pixels: size.w * size.h
+            },
+            map: getMapCanvasDiagnostics({ map: vmap, container: vcontainer })
+        };
+    };
+
+    const runCurrentExportProbe = async (options = {}) => {
+        const { baseMap, payload, built, geoBbox } = await resolveProbeSnapshot(options.snapshot);
+        const aspectRatio = normalizeExportAspectRatio(options.aspectRatio || '16:9');
+        const orientation = normalizeExportOrientation(options.orientation || 'landscape');
+        const paddingPx = Math.max(0, Math.round(Number(options.paddingPx) || 60));
+        const baseZoom = (typeof baseMap.getZoom === 'function') ? baseMap.getZoom() : 11;
+        const baseBearing = (typeof baseMap.getBearing === 'function') ? baseMap.getBearing() : 0;
+        const basePitch = (typeof baseMap.getPitch === 'function') ? baseMap.getPitch() : 0;
+        const basePixelBbox = calcPixelBboxForHighlight(baseMap, built, geoBbox);
+
+        const { map: vmap, container: vcontainer } = await ensureVirtualMap();
+        await ensureStyleMatchesTheme(vmap);
+        const virtual = await computeProbeAtZoom({
+            vmap,
+            vcontainer,
+            built,
+            geoBbox,
+            aspectRatio,
+            orientation,
+            paddingPx,
+            zoom: baseZoom,
+            bearing: baseBearing,
+            pitch: basePitch
+        });
+
+        const result = {
+            timestamp: new Date().toISOString(),
+            options: { aspectRatio, orientation, paddingPx },
+            payload: {
+                selectedLineId: payload?.selectedLineId || null,
+                tripKey: payload?.tripKey || null
+            },
+            camera: {
+                zoom: baseZoom,
+                bearing: baseBearing,
+                pitch: basePitch
+            },
+            featureCounts: {
+                line: Array.isArray(built?.lineFc?.features) ? built.lineFc.features.length : 0,
+                stop: Array.isArray(built?.stopFc?.features) ? built.stopFc.features.length : 0,
+                coords: collectHighlightLngLatCoords(built).length
+            },
+            geoBbox,
+            baseMap: {
+                pixelBbox: summarizePixelBbox(basePixelBbox, paddingPx, aspectRatio, orientation),
+                map: getMapCanvasDiagnostics({ map: baseMap })
+            },
+            virtualExportMap: virtual,
+            limits: {
+                configuredMaxCanvasSide: EXPORT_MAX_CANVAS_SIDE,
+                configuredMaxCanvasPixels: EXPORT_MAX_CANVAS_PIXELS
+            }
+        };
+
+        try {
+            console.groupCollapsed('[TokyoRailExportProbe] current');
+            console.log(result);
+            console.table({
+                baseRaw: result.baseMap.pixelBbox?.raw,
+                baseClamped: result.baseMap.pixelBbox?.clamped,
+                virtualRaw: result.virtualExportMap.pixelBbox?.raw,
+                virtualClamped: result.virtualExportMap.pixelBbox?.clamped,
+                virtualAlgorithm: result.virtualExportMap.algorithmSize,
+                virtualCanvas: result.virtualExportMap.map.canvas,
+                virtualMaxCanvasSize: { value: result.virtualExportMap.map.mapLibre.maxCanvasSize?.join('x') }
+            });
+            console.groupEnd();
+        } catch {
+            // ignore console formatting failures
+        }
+        return result;
+    };
+
+    const runExportZoomSweepProbe = async (options = {}) => {
+        const { baseMap, built, geoBbox } = await resolveProbeSnapshot(options.snapshot);
+        const aspectRatio = normalizeExportAspectRatio(options.aspectRatio || '16:9');
+        const orientation = normalizeExportOrientation(options.orientation || 'landscape');
+        const paddingPx = Math.max(0, Math.round(Number(options.paddingPx) || 60));
+        const baseZoom = (typeof baseMap.getZoom === 'function') ? baseMap.getZoom() : 11;
+        const baseBearing = (typeof baseMap.getBearing === 'function') ? baseMap.getBearing() : 0;
+        const basePitch = (typeof baseMap.getPitch === 'function') ? baseMap.getPitch() : 0;
+        const zooms = Array.isArray(options.zooms) && options.zooms.length
+            ? options.zooms.map(Number).filter(Number.isFinite)
+            : [baseZoom - 1, baseZoom, baseZoom + 1, baseZoom + 2].filter((z) => z >= 0);
+
+        const { map: vmap, container: vcontainer } = await ensureVirtualMap();
+        await ensureStyleMatchesTheme(vmap);
+        const samples = [];
+        for (const zoom of zooms) {
+            samples.push(await computeProbeAtZoom({
+                vmap,
+                vcontainer,
+                built,
+                geoBbox,
+                aspectRatio,
+                orientation,
+                paddingPx,
+                zoom,
+                bearing: baseBearing,
+                pitch: basePitch
+            }));
+        }
+
+        const result = {
+            timestamp: new Date().toISOString(),
+            options: { aspectRatio, orientation, paddingPx, zooms },
+            samples
+        };
+        try {
+            console.groupCollapsed('[TokyoRailExportProbe] zoom sweep');
+            console.log(result);
+            console.table(samples.map((sample) => ({
+                zoom: Number(sample.zoom).toFixed(3),
+                rawW: sample.pixelBbox?.raw?.width,
+                rawH: sample.pixelBbox?.raw?.height,
+                clampedW: sample.pixelBbox?.clamped?.width,
+                clampedH: sample.pixelBbox?.clamped?.height,
+                algorithmW: sample.algorithmSize.width,
+                algorithmH: sample.algorithmSize.height,
+                canvasW: sample.map.canvas?.width,
+                canvasH: sample.map.canvas?.height,
+                maxCanvas: sample.map.mapLibre.maxCanvasSize?.join('x')
+            })));
+            console.groupEnd();
+        } catch {
+            // ignore console formatting failures
+        }
+        return result;
+    };
+
+    window.TokyoRailExportProbe = {
+        ...(window.TokyoRailExportProbe || {}),
+        runCurrent: runCurrentExportProbe,
+        runZoomSweep: runExportZoomSweepProbe
     };
 
     window.addEventListener(EXPORT_EVENT, (evt) => {
@@ -2921,8 +3446,12 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         }
 
         refreshResolutionDisabled = () => {
-            const disabled = (format === 'svg+png') && (zoomMode === 'current');
+            const disabled = zoomMode === 'current';
             rowRes.classList.toggle('is-disabled', disabled);
+            rowRes.querySelectorAll('button').forEach((button) => {
+                button.disabled = disabled;
+                button.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+            });
             // 禁用鼠标/触摸交互（整行）
             rowRes.style.pointerEvents = disabled ? 'none' : '';
         };

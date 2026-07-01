@@ -1043,6 +1043,29 @@ export const createBasemapController = ({
     const getStyle = (options = {}) => {
         const nextMode = normalizeBasemapMode(options.mode || mode);
         const nextTheme = options.theme === 'dark' ? 'dark' : (options.theme === 'light' ? 'light' : theme);
+        const forcePmtilesSource = options.sourceKind === BASEMAP_SOURCE_PMTILES;
+        if (forcePmtilesSource) {
+            if (hasPmtilesArchive) {
+                const style = createOsmBasemapStyle({
+                    mode: nextMode,
+                    theme: nextTheme,
+                    pmtilesAvailable: true,
+                    pmtilesUrl,
+                    ...options
+                });
+                return {
+                    ...style,
+                    metadata: {
+                        ...(style.metadata || {}),
+                        tokyoRailBasemap: {
+                            sourceKind: nextMode === 'transparent' ? 'none' : 'pmtiles',
+                            primarySourceId: nextMode === 'transparent' ? null : OSM_VECTOR_SOURCE_ID
+                        }
+                    }
+                };
+            }
+            return createBackgroundBasemapStyle(nextTheme);
+        }
         if (
             activeBasemapSourceKind === BASEMAP_SOURCE_OPENFREEMAP
             && nextMode !== 'transparent'
