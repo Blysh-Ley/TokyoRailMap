@@ -94,7 +94,7 @@ export const THROUGH_SERVICE_CONFIGS = Object.freeze([
         operator: 'JR-East',
         category: 'UenoTokyo',
         lineId: 'TokyoRail.Temp.UenoTokyo',
-        lineName: '上野东京LINE(宇都宫·高崎·东海道线)',
+        lineName: '上野东京LINE',
         color: '#F68B1E',
         codeBadges: [
             { lineId: 'JR-East.Utsunomiya', code: 'JU' },
