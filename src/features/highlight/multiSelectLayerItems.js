@@ -34,7 +34,7 @@ export const buildMultiSelectLayerItemsFromInputs = ({
     const tripEntries = Array.isArray(tripPreviewSelectionEntries) ? tripPreviewSelectionEntries : [];
     const basePreviewSource = toText(baseTripPreviewSource);
     const baseSelectionByFirstLineId = new Map();
-    const baseLineKeysRenderedFromTripPreview = new Set();
+    const baseTripPreviewByBaseKey = new Map();
 
     if (baseSelectionsByKey instanceof Map) {
         for (const [rawKey, entry] of baseSelectionsByKey.entries()) {
@@ -69,29 +69,17 @@ export const buildMultiSelectLayerItemsFromInputs = ({
 
                 const branchSource = getBranchSource(lineId);
                 const branchStep = Number(getBranchPreviewStep(lineId, branchSource) || 0);
-                const branchState = resolveMultiSelectBranchLayerState({
-                    supported: !!lineId,
-                    branchSource,
-                    branchPreviewStep: branchStep,
-                    hasPreviewSelection: branchSource ? hasTripPreviewSelectionBySource(branchSource) : false
-                });
                 const baseLineName = toText(tripPayload?.selectedLineName || tripPayload?.lineName || tripPayload?.mainLineName)
                     || getLineName(lineId);
-                baseLineKeysRenderedFromTripPreview.add(baseRef.key);
-                items.push({
-                    id: buildBaseMultiSelectLayerItemId(baseRef.key),
-                    scope: 'base',
-                    key: baseRef.key,
-                    visible: baseRef.entry?.hidden !== true && entry?.hidden !== true,
-                    lineName: branchStep > 0
-                        ? formatBaseBranchLineName(baseLineName, branchStep)
-                        : baseLineName,
-                    originName: '-',
-                    terminalName: '-',
-                    typeName: getBaseKindName(baseRef.entry?.kind),
-                    ...branchState,
-                    source: basePreviewSource
-                });
+                if (!baseTripPreviewByBaseKey.has(baseRef.key)) {
+                    baseTripPreviewByBaseKey.set(baseRef.key, {
+                        hidden: entry?.hidden === true,
+                        lineName: branchStep > 0
+                            ? formatBaseBranchLineName(baseLineName, branchStep)
+                            : baseLineName,
+                        source: basePreviewSource
+                    });
+                }
             }
         }
     }
@@ -99,7 +87,6 @@ export const buildMultiSelectLayerItemsFromInputs = ({
     for (const [rawKey, entry] of baseEntries) {
         const key = toText(rawKey);
         if (!key) continue;
-        if (baseLineKeysRenderedFromTripPreview.has(key)) continue;
 
         const ids = toLineIds(entry?.lineIds);
         const firstLineId = ids[0] || '';
@@ -121,19 +108,24 @@ export const buildMultiSelectLayerItemsFromInputs = ({
         const baseLineName = kind === 'company'
             ? (baseDisplayName || fallbackCompanyName || getLineName(firstLineId))
             : getLineName(firstLineId);
+        const previewInfo = baseTripPreviewByBaseKey.get(key) || null;
+        const displayLineName = previewInfo?.lineName || (
+            branchStep > 0
+                ? formatBaseBranchLineName(baseLineName, branchStep)
+                : baseLineName
+        );
 
         items.push({
             id: buildBaseMultiSelectLayerItemId(key),
             scope: 'base',
             key,
-            visible: entry?.hidden !== true,
-            lineName: branchStep > 0
-                ? formatBaseBranchLineName(baseLineName, branchStep)
-                : baseLineName,
+            visible: entry?.hidden !== true && previewInfo?.hidden !== true,
+            lineName: displayLineName,
             originName: '-',
             terminalName: '-',
             typeName: getBaseKindName(entry?.kind),
-            ...branchState
+            ...branchState,
+            ...(previewInfo?.source ? { source: previewInfo.source } : {})
         });
     }
 
