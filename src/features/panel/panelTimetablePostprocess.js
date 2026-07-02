@@ -57,6 +57,11 @@ const hasSinglePtRefToSourceLine = (pt, sourceLineId) => {
     return getRefLinePrefix(pt[0]) === sourceLineId;
 };
 
+const hasSingleNtRefToSourceLine = (nt, sourceLineId) => {
+    const refs = normalizeRefs(nt);
+    return refs.length === 1 && getRefLinePrefix(refs[0]) === sourceLineId;
+};
+
 const collectEndpointContinuationInfo = ({
     rawList = [],
     stationKey = ''
@@ -319,7 +324,7 @@ const applyEndpointOverlay = async ({
             const destStation = getTripStops(trip).at(-1)?.s;
             const isTerminal = destStation && isStationInGroup(stationGroupsIndex, destStation, stationId);
             const nt = trip?.nt;
-            if (!(isTerminal && !nt)) continue;
+            if (!(isTerminal && hasSingleNtRefToSourceLine(nt, sourceId))) continue;
 
             displayList.push(cloneTripForDisplayLine({
                 direction: currentLineDirection,
