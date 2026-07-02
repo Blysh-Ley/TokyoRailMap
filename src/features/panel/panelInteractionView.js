@@ -231,7 +231,7 @@ export const createPanelDirFilterPopoverController = ({
     const contains = (target) => !!(target && root.contains(target));
     const getActiveKey = () => activeKey;
 
-    const close = ({ clearPreview = false } = {}) => {
+    const close = ({ clearPreview = true } = {}) => {
         activeKey = '';
         root.classList.add('is-hidden');
         if (clearPreview) clearPinnedDirPreview();
@@ -401,7 +401,7 @@ export const createPanelDirFilterPopoverController = ({
         if (!lineId || !dirKey) return;
         const lineDirKey = makeLineDirKey(lineId, dirKey);
         if (isOpen() && activeKey === lineDirKey) {
-            close();
+            close({ clearPreview: true });
             return;
         }
         open({ lineId, dirKey, anchorEl: buttonEl });
@@ -468,14 +468,14 @@ export const createPanelDirFilterPopoverController = ({
             await rerenderLineById(lineId);
             const anchorEl = body?.querySelector?.(`.panel-dir-filter-btn[data-line-id="${escapeHtml(String(lineId))}"][data-dir-key="${escapeHtml(String(dirKey))}"]`);
             if (anchorEl) open({ lineId, dirKey, anchorEl });
-            else close();
+            else close({ clearPreview: true });
             return;
         }
 
         const closeBtn = event?.target?.closest?.('[data-dir-filter-close]');
         if (!closeBtn) return;
         stopEvent(event);
-        close();
+        close({ clearPreview: true });
     }, { passive: false });
 
     doc.addEventListener('pointerdown', (event) => {
@@ -484,15 +484,16 @@ export const createPanelDirFilterPopoverController = ({
         const ElementCtor = win?.Element || globalThis.Element;
         if (target instanceof ElementCtor) {
             if (target.closest('.maplibregl-canvas-container, .maplibregl-canvas, .maplibregl-ctrl, #map')) return;
+            if (body?.contains?.(target)) return;
             if (target.closest('.panel-dir-filter-btn')) return;
         }
         if (contains(target)) return;
-        close();
+        close({ clearPreview: true });
     }, true);
 
     doc.addEventListener('keydown', (event) => {
         if (event?.key !== 'Escape' || !isOpen()) return;
-        close();
+        close({ clearPreview: true });
     });
 
     win?.addEventListener?.('resize', refreshAnchorPosition);

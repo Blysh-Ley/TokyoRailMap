@@ -4378,11 +4378,60 @@ export function createPanel(options = {}) {
         setState: (lineDirKey, state) => dirFilterStateByKey.set(lineDirKey, state),
         rerenderLineById,
         applyDirPreviewByKey,
-        clearPinnedDirPreview
+        clearPinnedDirPreview: () => clearPinnedPanelState({ restoreStation: true })
     });
 
     const closeDirFilterPopover = (options = {}) => dirFilterPopoverController.close(options);
     const toggleDirFilterPopoverFromButton = (btnEl) => dirFilterPopoverController.toggleFromButton(btnEl);
+    let suppressNextDirFilterPopoverPanelClick = false;
+
+    const isDirFilterPopoverOpen = () => dirFilterPopoverController.isOpen?.() === true;
+
+    const clearDirFilterPopoverPanelHoverState = () => {
+        clearTripHighlightTimer();
+        clearHoverTimer();
+        clearRestoreTimer();
+        hoverCandidateKey = null;
+        lastFiredHoverKey = null;
+        lastAppliedHoverKey = null;
+        lastMousePrimaryKey = '';
+    };
+
+    const getOpenDirFilterPreviewKey = () => (
+        toText(dirFilterPopoverController.getActiveKey?.())
+        || toText(panelSelectionState.getPinnedDirPreviewKey())
+    );
+
+    const restoreOpenDirFilterPreview = (lineDirKey = '') => {
+        const key = toText(lineDirKey) || getOpenDirFilterPreviewKey();
+        if (!key) return;
+        applyDirPreviewByKey(key, { force: true });
+    };
+
+    const isPanelTargetOutsideDirFilterPopover = (target) => (
+        target instanceof Element
+        && body.contains(target)
+        && !dirFilterPopoverController.contains(target)
+    );
+
+    const guardOpenDirFilterPopoverHover = (evt) => {
+        if (!isDirFilterPopoverOpen()) return false;
+        if (!isPanelTargetOutsideDirFilterPopover(evt?.target)) return false;
+        clearDirFilterPopoverPanelHoverState();
+        restoreOpenDirFilterPreview();
+        return true;
+    };
+
+    const consumeOpenDirFilterPopoverPanelEvent = (evt, { suppressClick = false } = {}) => {
+        if (!isDirFilterPopoverOpen()) return false;
+        if (!isPanelTargetOutsideDirFilterPopover(evt?.target)) return false;
+        clearDirFilterPopoverPanelHoverState();
+        panelInteractionPolicy.cancelTripTap();
+        closeDirFilterPopover({ clearPreview: true });
+        if (suppressClick) suppressNextDirFilterPopoverPanelClick = true;
+        stopEvent(evt);
+        return true;
+    };
 
     startAutoNowClock();
     applyTimetableViewMode(getTimetableViewMode ? getTimetableViewMode() : 'list', { rerender: false });
@@ -4693,6 +4742,7 @@ export function createPanel(options = {}) {
 
     const onBodyPointerDown = (evt) => {
         const pointerState = panelInteractionPolicy.beginPointer(evt);
+        if (consumeOpenDirFilterPopoverPanelEvent(evt, { suppressClick: true })) return;
         const pt = pointerState.pointerType;
         const pointerTripRowEl = findTripTarget(evt?.target);
         const pointerHitsTripRow = pointerTripRowEl && body.contains(pointerTripRowEl);
@@ -4939,6 +4989,8 @@ export function createPanel(options = {}) {
     };
 
     const onBodyMove = (evt) => {
+        if (guardOpenDirFilterPopoverHover(evt)) return;
+
         if (getCollapsedPanelLineTarget(evt?.target)) {
             clearHoverTimer();
             hoverCandidateKey = null;
@@ -5020,6 +5072,13 @@ export function createPanel(options = {}) {
     };
 
     const onBodyClick = (evt) => {
+        if (suppressNextDirFilterPopoverPanelClick) {
+            suppressNextDirFilterPopoverPanelClick = false;
+            stopEvent(evt);
+            return;
+        }
+        if (consumeOpenDirFilterPopoverPanelEvent(evt)) return;
+
         // 触屏：由 pointerdown 接管两段式逻辑
         if (panelInteractionPolicy.isLastPointerTouchLike() || panelInteractionPolicy.shouldSuppressMouseEvents()) {
             stopEvent(evt);
@@ -5184,6 +5243,7 @@ export function createPanel(options = {}) {
     };
 
     const onBodyTripMouseOver = (evt) => {
+        if (guardOpenDirFilterPopoverHover(evt)) return;
         if (!isHoverPreviewEnabled()) return;
         if (panelInteractionPolicy.shouldSkipDesktopHover()) return;
         const rowEl = findTripTarget(evt?.target);
@@ -5223,6 +5283,7 @@ export function createPanel(options = {}) {
     };
 
     const onBodyTripMouseOut = (evt) => {
+        if (guardOpenDirFilterPopoverHover(evt)) return;
         if (!isHoverPreviewEnabled()) return;
         clearTripHighlightTimer();
         if (tripLocked) return;
