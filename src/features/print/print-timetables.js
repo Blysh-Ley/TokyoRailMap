@@ -332,6 +332,16 @@ import {
                 cursor: default;
             }
 
+            .timetable-print-card .panel-line > .panel-station-info-types {
+                width: fit-content;
+                max-width: 100%;
+                margin-left: auto !important;
+                margin-right: auto !important;
+                justify-content: center;
+                align-items: center;
+                align-content: center;
+            }
+
             .timetable-print-card .panel-dir-header {
                 cursor: default;
                 user-select: none;
