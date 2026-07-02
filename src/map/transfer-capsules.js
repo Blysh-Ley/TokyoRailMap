@@ -611,6 +611,8 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
         mapAdapter.setPaintProperty(ids.dotLayerId, 'circle-stroke-width', 0);
     }
 
+    const fallbackInsertBefore = mapAdapter.hasLayer(ids.dotLayerId) ? ids.dotLayerId : insertBefore;
+
     if (!mapAdapter.hasLayer(ids.fallbackCircleOutlineLayerId)) {
         const layerDef = {
             id: ids.fallbackCircleOutlineLayerId,
@@ -624,7 +626,7 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
                 'circle-radius': capsuleFallbackOutlineRadiusExpr
             }
         };
-        if (insertBefore) mapAdapter.addLayer(layerDef, insertBefore); else mapAdapter.addLayer(layerDef);
+        if (fallbackInsertBefore) mapAdapter.addLayer(layerDef, fallbackInsertBefore); else mapAdapter.addLayer(layerDef);
     } else {
         mapAdapter.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-color', getThemeCapsuleColors().outline);
         mapAdapter.setPaintProperty(ids.fallbackCircleOutlineLayerId, 'circle-opacity', 1);
@@ -645,7 +647,7 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
                 'circle-radius': capsuleFallbackInnerRadiusExpr
             }
         };
-        if (insertBefore) mapAdapter.addLayer(layerDef, insertBefore); else mapAdapter.addLayer(layerDef);
+        if (fallbackInsertBefore) mapAdapter.addLayer(layerDef, fallbackInsertBefore); else mapAdapter.addLayer(layerDef);
     } else {
         mapAdapter.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-color', getThemeCapsuleColors().inner);
         mapAdapter.setPaintProperty(ids.fallbackCircleInnerLayerId, 'circle-opacity', 1);
