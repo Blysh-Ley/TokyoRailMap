@@ -95,6 +95,40 @@ const buildStopStationIds = (trip) => {
     return out;
 };
 
+const parseStationCodeForRouteMapOrder = (codeRaw) => {
+    const code = toText(codeRaw);
+    const match = code.match(/^([A-Za-z]+)(\d+)$/);
+    if (!match) return null;
+    const number = Number.parseInt(match[2], 10);
+    if (!Number.isFinite(number)) return null;
+    return {
+        code,
+        prefix: match[1].toUpperCase(),
+        number
+    };
+};
+
+const sortStationIdsBySingleCodePrefix = (stationIds, idToCode) => {
+    const ids = Array.isArray(stationIds) ? stationIds.map((x) => toText(x)).filter(Boolean) : [];
+    if (ids.length < 2 || !(idToCode instanceof Map)) return ids;
+
+    const entries = ids.map((stationId, index) => {
+        const parsed = parseStationCodeForRouteMapOrder(idToCode.get(stationId));
+        return parsed ? { stationId, index, ...parsed } : null;
+    });
+    if (entries.some((entry) => !entry)) return ids;
+    if (new Set(entries.map((entry) => entry.prefix)).size !== 1) return ids;
+
+    return entries
+        .slice()
+        .sort((a, b) => (
+            a.number - b.number
+            || a.code.localeCompare(b.code, 'en', { numeric: true })
+            || a.index - b.index
+        ))
+        .map((entry) => entry.stationId);
+};
+
 const yieldToMain = async () => new Promise((r) => setTimeout(r, 0));
 
 let stationsIndexPromise = null;
@@ -104,15 +138,18 @@ const getStationsIndex = async () => {
         try {
             const list = await getCachedJson('./data/stations.json');
             const idToNameZh = new Map();
+            const idToCode = new Map();
             for (const s of Array.isArray(list) ? list : []) {
                 const id = toText(s?.id);
                 if (!id) continue;
                 const name = pickTitleZhHans(s?.title) || id;
                 if (name) idToNameZh.set(id, name);
+                const code = toText(s?.title?.code);
+                if (code) idToCode.set(id, code);
             }
-            return { idToNameZh };
+            return { idToNameZh, idToCode };
         } catch {
-            return { idToNameZh: new Map() };
+            return { idToNameZh: new Map(), idToCode: new Map() };
         }
     })();
     return stationsIndexPromise;
@@ -165,17 +202,22 @@ const getRailwaysIndex = async () => {
     if (railwaysIndexPromise) return railwaysIndexPromise;
     railwaysIndexPromise = (async () => {
         try {
-            const list = await getCachedJson('./data/railways.json');
+            const [list, stationsIndex] = await Promise.all([
+                getCachedJson('./data/railways.json'),
+                getStationsIndex()
+            ]);
+            const idToCode = stationsIndex?.idToCode instanceof Map ? stationsIndex.idToCode : new Map();
             const map = new Map();
             for (const r of Array.isArray(list) ? list : []) {
                 const id = toText(r?.id);
                 if (!id) continue;
+                const stationIds = sortStationIdsBySingleCodePrefix(r?.stations, idToCode);
                 map.set(id, {
                     id,
                     name: pickTitleZhHans(r?.title) || id,
                     color: toText(r?.color) || '',
                     company: toText(r?.company) || '',
-                    stationIds: (Array.isArray(r?.stations) ? r.stations : []).map((x) => toText(x)).filter(Boolean)
+                    stationIds
                 });
             }
             return map;
@@ -472,7 +514,23 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
         return nextGapIndex > prevGapIndex;
     };
 
-    const resolveThroughEntryFromRefTrip = (refTrip, kind) => {
+    const getThroughBranchSide = (kindRaw, tripStepRaw) => {
+        const kind = toText(kindRaw) || 'nt';
+        const tripStep = Number(tripStepRaw) < 0 ? -1 : 1;
+        return kind === 'pt' ? -tripStep : tripStep;
+    };
+
+    const buildThroughGeometryKey = (entry, gapIndex) => [
+        toText(entry?.refLineId),
+        `gap:${Number(gapIndex)}`,
+        `side:${Number(entry?.branchSide) || 0}`
+    ].join('||');
+
+    const resolveThroughEntryFromRefTrip = (refTrip, kind, {
+        tripStep = 1,
+        afterStationIndex = 0,
+        junctionStationId = ''
+    } = {}) => {
         const refTripId = getTripIdText(refTrip);
         if (isTripIdSuffixExcluded(refTripId)) return null;
         const refLineId = getTripLineId(refTrip);
@@ -483,8 +541,14 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
         const refTypeName = typeName(refTypeId) || refTypeId;
         const refRawTypeColor = typeColor(refTypeId);
         const refTypeColor = isLocalLikeTypeName(refTypeName) ? '#888' : (refRawTypeColor || '#888');
+        const safeKind = toText(kind) || 'nt';
+        const safeTripStep = Number(tripStep) < 0 ? -1 : 1;
         return {
-            kind: toText(kind) || 'nt',
+            kind: safeKind,
+            tripStep: safeTripStep,
+            branchSide: getThroughBranchSide(safeKind, safeTripStep),
+            afterStationIndex: Number(afterStationIndex),
+            junctionStationId: toText(junctionStationId),
             refLineId,
             refLineName: toText(refLineMeta?.name) || refLineId,
             refLineColor: toText(refLineMeta?.color) || '#888',
@@ -532,9 +596,13 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
         for (const refId of ptRefs) {
             const refTrip = await loadTripByRefId(refId);
             if (!refTrip) continue;
-            const entry = resolveThroughEntryFromRefTrip(refTrip, 'pt');
+            const entry = resolveThroughEntryFromRefTrip(refTrip, 'pt', {
+                tripStep: step,
+                afterStationIndex: ptGapIndex,
+                junctionStationId: lineStationIds[firstIndex]
+            });
             if (!entry) continue;
-            const key = `${entry.kind}||${entry.refLineId}`;
+            const key = `${entry.kind}||${entry.refLineId}||side:${entry.branchSide}`;
             pushThroughEntry(dir, ptGapIndex, typeId, key, entry);
         }
 
@@ -542,9 +610,13 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
         for (const refId of ntRefs) {
             const refTrip = await loadTripByRefId(refId);
             if (!refTrip) continue;
-            const entry = resolveThroughEntryFromRefTrip(refTrip, 'nt');
+            const entry = resolveThroughEntryFromRefTrip(refTrip, 'nt', {
+                tripStep: step,
+                afterStationIndex: ntGapIndex,
+                junctionStationId: lineStationIds[lastIndex]
+            });
             if (!entry) continue;
-            const key = `${entry.kind}||${entry.refLineId}`;
+            const key = `${entry.kind}||${entry.refLineId}||side:${entry.branchSide}`;
             pushThroughEntry(dir, ntGapIndex, typeId, key, entry);
         }
 
@@ -582,30 +654,19 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
             }
         }
 
-        const pickedByType = new Map(); // typeId -> Map<refLineId, { entryKey, gapIndex, entry, hits }>
+        const pickedByType = new Map(); // typeId -> Map<geometryKey, { entryKey, gapIndex, entry, hits }>
         for (const [typeId, bestByKey] of bestByTypeAndLine.entries()) {
-            // Further collapse by refLineId: if both pt+nt exist for the same line,
-            // prefer nt ("go to") to avoid duplicate branches for one junction.
-            const bestByRefLine = new Map(); // refLineId -> { entryKey, gapIndex, entry, hits }
+            const bestByGeometry = new Map(); // geometryKey -> { entryKey, gapIndex, entry, hits }
             for (const [entryKey, picked] of bestByKey.entries()) {
-                const refLineId = toText(picked?.entry?.refLineId) || '';
-                if (!refLineId) continue;
+                const geometryKey = buildThroughGeometryKey(picked?.entry, picked?.gapIndex);
+                if (!toText(picked?.entry?.refLineId) || !geometryKey) continue;
 
-                if (!bestByRefLine.has(refLineId)) {
-                    bestByRefLine.set(refLineId, { entryKey, ...picked });
+                if (!bestByGeometry.has(geometryKey)) {
+                    bestByGeometry.set(geometryKey, { entryKey, ...picked });
                     continue;
                 }
 
-                const prev = bestByRefLine.get(refLineId);
-                const prevKind = toText(prev?.entry?.kind);
-                const nextKind = toText(picked?.entry?.kind);
-
-                if (prevKind !== nextKind) {
-                    // nt beats pt
-                    if (nextKind === 'nt') bestByRefLine.set(refLineId, { entryKey, ...picked });
-                    continue;
-                }
-
+                const prev = bestByGeometry.get(geometryKey);
                 const preferNew = shouldPreferGapIndex(
                     dir,
                     picked?.entry?.kind,
@@ -614,68 +675,16 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
                     Number(picked?.hits || 0),
                     Number(prev?.hits || 0)
                 );
-                if (preferNew) bestByRefLine.set(refLineId, { entryKey, ...picked });
+                if (preferNew) bestByGeometry.set(geometryKey, { entryKey, ...picked });
             }
 
-            pickedByType.set(typeId, bestByRefLine);
-        }
-
-        // Global collapse: one refLineId should use one junction gap per direction
-        // (avoid multiple branch rows for the same target line).
-        const bestGapByRefLine = new Map(); // refLineId -> { gapIndex, kind, hits }
-        for (const bestByRefLine of pickedByType.values()) {
-            for (const [refLineId, picked] of bestByRefLine.entries()) {
-                const nextGapIndex = Number(picked?.gapIndex);
-                if (!Number.isFinite(nextGapIndex)) continue;
-                const nextHits = Number(picked?.hits || 0);
-                const nextKind = toText(picked?.entry?.kind);
-                if (!bestGapByRefLine.has(refLineId)) {
-                    bestGapByRefLine.set(refLineId, {
-                        gapIndex: nextGapIndex,
-                        kind: nextKind,
-                        hits: nextHits
-                    });
-                    continue;
-                }
-
-                const prev = bestGapByRefLine.get(refLineId);
-                const prevKind = toText(prev?.kind);
-                if (prevKind !== nextKind) {
-                    if (nextKind === 'nt') {
-                        bestGapByRefLine.set(refLineId, {
-                            gapIndex: nextGapIndex,
-                            kind: nextKind,
-                            hits: nextHits
-                        });
-                    }
-                    continue;
-                }
-
-                const preferNew = shouldPreferGapIndex(
-                    dir,
-                    nextKind,
-                    nextGapIndex,
-                    Number(prev?.gapIndex),
-                    nextHits,
-                    Number(prev?.hits || 0)
-                );
-                if (preferNew) {
-                    bestGapByRefLine.set(refLineId, {
-                        gapIndex: nextGapIndex,
-                        kind: toText(picked?.entry?.kind),
-                        hits: nextHits
-                    });
-                }
-            }
+            pickedByType.set(typeId, bestByGeometry);
         }
 
         const collapsedByGap = new Map(); // afterStationIndex -> Map<typeId, Map<entryKey, entry>>
-        for (const [typeId, bestByRefLine] of pickedByType.entries()) {
-            for (const [refLineId, picked] of bestByRefLine.entries()) {
-                const forcedGap = Number(bestGapByRefLine.get(refLineId)?.gapIndex);
-                const gapIndex = Number.isFinite(forcedGap)
-                    ? forcedGap
-                    : Number(picked?.gapIndex);
+        for (const [typeId, bestByGeometry] of pickedByType.entries()) {
+            for (const [geometryKey, picked] of bestByGeometry.entries()) {
+                const gapIndex = Number(picked?.gapIndex);
                 if (!Number.isFinite(gapIndex)) continue;
 
                 if (!collapsedByGap.has(gapIndex)) collapsedByGap.set(gapIndex, new Map());
@@ -685,7 +694,7 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
 
                 const cleanEntry = { ...(picked?.entry || {}) };
                 delete cleanEntry._hits;
-                const entryKey = `${toText(cleanEntry?.kind) || 'nt'}||${refLineId}`;
+                const entryKey = geometryKey || buildThroughGeometryKey(cleanEntry, gapIndex);
                 byEntry.set(entryKey, cleanEntry);
             }
         }

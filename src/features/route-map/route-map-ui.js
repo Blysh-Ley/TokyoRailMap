@@ -1346,8 +1346,7 @@ const setupRouteMapUi = () => {
         const stationColumnIndex = typeColumnOffset + types.length + 1;
 
         const throughGapMap = new Map(); // afterStationIndex -> { byTypeId: Map<typeId, target[]>, allTargets: target[] }
-        const throughGapDirectionScore = new Map(); // afterStationIndex -> score(pt:+1, nt:-1)
-        const preferredGapByLineId = new Map(); // refLineId -> preferred gapIndex (primary dir first)
+        const throughGapDirectionScore = new Map(); // afterStationIndex -> visual direction score (positive: up, negative: down)
         const primaryDirBlock = directions.find((d) => toText(d?.dir) === preferredPrimaryDir) || null;
         const throughDirBlocks = primaryDirBlock
             ? [primaryDirBlock, ...directions.filter((d) => d !== primaryDirBlock)]
@@ -1378,31 +1377,20 @@ const setupRouteMapUi = () => {
                         const refLineId = toText(target?.refLineId);
                         const kind = toText(target?.kind) || 'nt';
                         if (!refLineId) continue;
-                        const lineKey = refLineId;
-
-                        if (!preferredGapByLineId.has(lineKey)) {
-                            preferredGapByLineId.set(lineKey, gapIndex);
-                        }
-                        const preferredGap = Number(preferredGapByLineId.get(lineKey));
-                        if (!Number.isFinite(preferredGap)) continue;
+                        const branchSide = Number(target?.branchSide);
+                        const safeBranchSide = branchSide < 0 ? -1 : (branchSide > 0 ? 1 : 0);
+                        const lineKey = `${refLineId}||side:${safeBranchSide}`;
 
                         const rawKindScore = kind === 'pt' ? 1 : (kind === 'nt' ? -1 : 0);
-                        const kindScore = rawKindScore * dirOrientationSign;
+                        const kindScore = safeBranchSide !== 0
+                            ? -safeBranchSide
+                            : (rawKindScore * dirOrientationSign);
                         throughGapDirectionScore.set(
-                            preferredGap,
-                            Number(throughGapDirectionScore.get(preferredGap) || 0) + kindScore
+                            gapIndex,
+                            Number(throughGapDirectionScore.get(gapIndex) || 0) + kindScore
                         );
 
-                        let targetGap = gap;
-                        if (preferredGap !== gapIndex) {
-                            if (!throughGapMap.has(preferredGap)) {
-                                throughGapMap.set(preferredGap, {
-                                    byTypeId: new Map(),
-                                    allTargetsByKey: new Map()
-                                });
-                            }
-                            targetGap = throughGapMap.get(preferredGap);
-                        }
+                        const targetGap = gap;
 
                         if (!targetGap.byTypeId.has(typeId)) targetGap.byTypeId.set(typeId, new Map());
                         const targetTypeMap = targetGap.byTypeId.get(typeId);
