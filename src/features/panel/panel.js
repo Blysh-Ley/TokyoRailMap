@@ -28,6 +28,7 @@ import { createPanelMainView } from '../../ui/panelMainView.js';
 import { createPanelShell } from '../../ui/panelShellView.js';
 import { createPanelRouteMapBridge } from './panelRouteMapBridge.js';
 import { buildTimetableStationText, renderTimetableNoteRowHtml, renderTimetablePlainNoteRowHtml } from './panelTimetableCore.js';
+import { buildDirectionEndpointLabelCounts } from '../../domain/stationLabelDisplay.js';
 import {
     renderPanelPrintableTimetableListHtml,
     renderPanelTimetableListHtml
@@ -3005,23 +3006,30 @@ export function createPanel(options = {}) {
             dirFilteredTripKeysByKey.set(lineDirKey, filteredTripKeys);
 
             const uniqueIds = (arr) => Array.from(new Set((Array.isArray(arr) ? arr : []).map((x) => toText(x)).filter(Boolean)));
+            const getDirPreviewOriginIds = (row) => {
+                if (row?.throughEndpoints?.originIds?.length) return row.throughEndpoints.originIds;
+                if (row?.throughEndpoints?.originId) return [row.throughEndpoints.originId];
+                return [row.originId];
+            };
+            const getDirPreviewTerminalIds = (row) => {
+                if (row?.throughEndpoints?.terminalIds?.length) return row.throughEndpoints.terminalIds;
+                if (row?.throughEndpoints?.terminalId) return [row.throughEndpoints.terminalId];
+                const ids = Array.isArray(row?.terminalIds) ? row.terminalIds : [];
+                return ids.length ? ids : [row.terminalId || row.destId];
+            };
             dirPreviewMetaByKey.set(lineDirKey, {
                 lineId: toText(lineId),
                 throughServiceCategory,
                 sourceLineIds: uniqueIds(previewRowsForMeta.flatMap((r) => (
                     Array.isArray(r?.throughServiceSourceLineIds) ? r.throughServiceSourceLineIds : []
                 ))),
-                originStationIds: uniqueIds(previewRowsForMeta.flatMap((r) => {
-                    if (r?.throughEndpoints?.originIds?.length) return r.throughEndpoints.originIds;
-                    if (r?.throughEndpoints?.originId) return [r.throughEndpoints.originId];
-                    return [r.originId];
-                })),
-                terminalStationIds: uniqueIds(previewRowsForMeta.flatMap((r) => {
-                    if (r?.throughEndpoints?.terminalIds?.length) return r.throughEndpoints.terminalIds;
-                    if (r?.throughEndpoints?.terminalId) return [r.throughEndpoints.terminalId];
-                    const ids = Array.isArray(r?.terminalIds) ? r.terminalIds : [];
-                    return ids.length ? ids : [r.terminalId || r.destId];
-                }))
+                originStationIds: uniqueIds(previewRowsForMeta.flatMap(getDirPreviewOriginIds)),
+                terminalStationIds: uniqueIds(previewRowsForMeta.flatMap(getDirPreviewTerminalIds)),
+                endpointLabelCounts: buildDirectionEndpointLabelCounts(previewRowsForMeta, {
+                    getOriginStationIds: getDirPreviewOriginIds,
+                    getTerminalStationIds: getDirPreviewTerminalIds,
+                    toText
+                })
             });
 
             const labelRows = filteredRowsForDir.length ? filteredRowsForDir : rowsForDir;

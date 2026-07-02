@@ -72,3 +72,39 @@ export const getFocusedStationLabelPriority = (stationLike = {}) => {
 export const shouldShowFocusedStationLabel = (stationLike = {}) => (
     getFocusedStationLabelPriority(stationLike) > 0
 );
+
+export const buildDirectionEndpointLabelCounts = (rows, {
+    getOriginStationIds,
+    getTerminalStationIds,
+    toText = (value) => String(value ?? '').trim()
+} = {}) => {
+    const countsByStationId = new Map();
+    const list = Array.isArray(rows) ? rows : [];
+    const readOriginIds = typeof getOriginStationIds === 'function' ? getOriginStationIds : () => [];
+    const readTerminalIds = typeof getTerminalStationIds === 'function' ? getTerminalStationIds : () => [];
+
+    const normalizeIds = (value) => Array.from(new Set(
+        (Array.isArray(value) ? value : [value])
+            .map((item) => toText(item))
+            .filter(Boolean)
+    ));
+
+    const addCount = (stationId, key) => {
+        const sid = toText(stationId);
+        if (!sid) return;
+        const current = countsByStationId.get(sid) || { stationId: sid, originCount: 0, terminalCount: 0 };
+        current[key] = Number(current[key] || 0) + 1;
+        countsByStationId.set(sid, current);
+    };
+
+    for (const row of list) {
+        for (const stationId of normalizeIds(readOriginIds(row))) {
+            addCount(stationId, 'originCount');
+        }
+        for (const stationId of normalizeIds(readTerminalIds(row))) {
+            addCount(stationId, 'terminalCount');
+        }
+    }
+
+    return Array.from(countsByStationId.values());
+};

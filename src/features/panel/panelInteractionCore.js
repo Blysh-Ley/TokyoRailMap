@@ -946,6 +946,7 @@ export const createPanelRoutePreviewController = ({
             : [];
         const originStationIds = Array.isArray(meta.originStationIds) ? meta.originStationIds.slice() : [];
         const terminalStationIds = Array.isArray(meta.terminalStationIds) ? meta.terminalStationIds.slice() : [];
+        const endpointLabelCounts = Array.isArray(meta.endpointLabelCounts) ? meta.endpointLabelCounts.slice() : [];
         const normalizedCurrentStationIds = Array.isArray(currentStationIds)
             ? currentStationIds.map((x) => toText(x)).filter(Boolean)
             : [];
@@ -955,6 +956,7 @@ export const createPanelRoutePreviewController = ({
                 currentStationIds: normalizedCurrentStationIds.slice(),
                 fitMode: toText(fitMode),
                 lineId: toText(meta.lineId),
+                endpointLabelCounts,
                 originStationIds,
                 sourceLineIds: normalizedSourceLineIds.slice(),
                 terminalStationIds
@@ -976,6 +978,7 @@ export const createPanelRoutePreviewController = ({
                 highlightStationIds,
                 lineId: toText(meta.lineId),
                 lineName: '',
+                endpointLabelCounts,
                 originStationIds,
                 previewSource,
                 sourceLineIds: normalizedSourceLineIds,

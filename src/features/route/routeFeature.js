@@ -604,6 +604,17 @@ export const createRouteFeature = ({
                 if (!roleMap.has(sid)) roleMap.set(sid, new Set());
                 roleMap.get(sid).add('terminal');
             }
+            const endpointCountsByStationId = new Map(
+                normalized.endpointLabelCounts.map((item) => [item.stationId, item])
+            );
+            const getEndpointLabelText = (stationId, role) => {
+                const counts = endpointCountsByStationId.get(stationId) || {};
+                const count = role === 'origin'
+                    ? Number(counts.originCount || 0)
+                    : Number(counts.terminalCount || 0);
+                const label = role === 'origin' ? '始发' : '终点';
+                return count > 0 ? `${label}(${count})` : label;
+            };
 
             for (const [sid, roles] of roleMap.entries()) {
                 const hasOrigin = roles.has('origin');
@@ -611,7 +622,7 @@ export const createRouteFeature = ({
                 if (hasOrigin) {
                     const popup = createEndpointPopup?.({
                         stationId: sid,
-                        text: '始发站',
+                        text: getEndpointLabelText(sid, 'origin'),
                         color: '#1A9B2D',
                         yOffset: 10
                     });
@@ -620,7 +631,7 @@ export const createRouteFeature = ({
                 if (hasTerminal) {
                     const popup = createEndpointPopup?.({
                         stationId: sid,
-                        text: '终点站',
+                        text: getEndpointLabelText(sid, 'terminal'),
                         color: '#D32F2F',
                         yOffset: hasOrigin ? 30 : 10
                     });

@@ -63,7 +63,7 @@ export const createRouteEndpointPopupRuntime = ({
                 : String(color || '#111');
 
         const el = documentRef.createElement('div');
-        el.style.fontSize = '12px';
+        el.style.fontSize = '10px';
         el.style.fontWeight = '700';
         el.style.lineHeight = '1.2';
         el.style.color = resolvedColor;

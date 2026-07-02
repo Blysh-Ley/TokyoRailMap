@@ -425,6 +425,15 @@ export const normalizeDirPreviewPayload = (payload) => {
     const sourceLineIds = Array.isArray(payload?.sourceLineIds)
         ? payload.sourceLineIds.map(toText).filter(Boolean)
         : [];
+    const endpointLabelCounts = Array.isArray(payload?.endpointLabelCounts)
+        ? payload.endpointLabelCounts
+            .map((item) => ({
+                stationId: toText(item?.stationId),
+                originCount: Math.max(0, Math.floor(Number(item?.originCount) || 0)),
+                terminalCount: Math.max(0, Math.floor(Number(item?.terminalCount) || 0))
+            }))
+            .filter((item) => item.stationId && (item.originCount > 0 || item.terminalCount > 0))
+        : [];
 
     return {
         lineId,
@@ -432,6 +441,7 @@ export const normalizeDirPreviewPayload = (payload) => {
         originIds,
         terminalIds,
         currentIds,
+        endpointLabelCounts,
         sourceLineIds,
         stationIds: new Set([...originIds, ...terminalIds, ...currentIds])
     };
