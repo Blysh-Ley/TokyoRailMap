@@ -13,6 +13,7 @@ import {
     buildAlternateLineMembership,
     filterLineStationIdsForAlternateMembership
 } from '../../domain/alternateLineMembership.js';
+import { hasTripNmMarker } from '../../domain/timetableTripMarkers.js';
 
 const toText = (v) => String(v ?? '').trim();
 
@@ -374,6 +375,7 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
     const lineMeta = railwaysIndex.get(lineId) || { id: lineId, name: lineId, color: '', company: '', stationIds: [] };
     const preferredList = list.filter((trip) => !isTripIdSuffixExcluded(getTripIdText(trip)));
     const effectiveList = preferredList.length ? preferredList : list;
+    const diagramTripList = effectiveList.filter((trip) => !hasTripNmMarker(trip));
     const lineStationIds = filterLineStationIdsForAlternateMembership(
         lineId,
         Array.isArray(lineMeta?.stationIds) ? lineMeta.stationIds : [],
@@ -443,8 +445,8 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
     };
 
     // base patterns (selected line only)
-    for (let i = 0; i < effectiveList.length; i += 1) {
-        const trip = effectiveList[i];
+    for (let i = 0; i < diagramTripList.length; i += 1) {
+        const trip = diagramTripList[i];
         const day = getTripServiceDay(trip);
         if (serviceDay && day && day !== serviceDay) continue;
         const dir = toText(trip?.d) || 'Unknown';
@@ -559,8 +561,8 @@ const computeLineTrainTypePatterns = async (selectedLineId, options = {}) => {
         };
     };
 
-    for (let i = 0; i < effectiveList.length; i += 1) {
-        const trip = effectiveList[i];
+    for (let i = 0; i < diagramTripList.length; i += 1) {
+        const trip = diagramTripList[i];
         const day = getTripServiceDay(trip);
         if (serviceDay && day && day !== serviceDay) continue;
 

@@ -72,6 +72,7 @@ import {
     normalizeTimetableSourceLineIds
 } from './panelTimetableCore.js';
 import { buildAlternateTripSourceIndex, getAlternateTripSources } from '../../domain/alternateLineMembership.js';
+import { hasTripNmMarker } from '../../domain/timetableTripMarkers.js';
 import {
     formatBusinessDateInputValue,
     formatBusinessDateLabel,
@@ -945,14 +946,7 @@ export function createPanel(options = {}) {
 
     const isNoMarkTypeName = isLocalStopTypeName;
 
-    const hasPanelTripNmMarker = (trip) => {
-        if (!trip || typeof trip !== 'object') return false;
-        if (!Object.prototype.hasOwnProperty.call(trip, 'nm')) return false;
-        const nm = trip.nm;
-        if (Array.isArray(nm)) return nm.length > 0;
-        if (nm && typeof nm === 'object') return Object.keys(nm).length > 0;
-        return toText(nm) !== '';
-    };
+    const hasPanelTripNmMarker = hasTripNmMarker;
 
     const resolveTypeBaseName = (typeNameRaw) => {
         const typeName = toText(typeNameRaw);
