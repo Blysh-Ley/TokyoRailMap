@@ -35,5 +35,7 @@
     "Keisei.Chihara":1,
     "JR-East.YamanoteFreight":1,
     "JR-East.TokaidoFreight":1,
-    "JR-East.SobuRapid":-1
+    "JR-East.SobuRapid":-1,
+    "JR-East.ChuoRapid":-1,
+    "JR-East.MusashinoKunitachiBranch":-1
 }
