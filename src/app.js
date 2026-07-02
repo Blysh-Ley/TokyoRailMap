@@ -3447,6 +3447,7 @@ const initMapApp = async () => {
                 hasActiveSelection: () => !!(
                     selectedCompany ||
                     selectedLineId ||
+                    selectedStationId ||
                     (selectedStationLineIds && selectedStationLineIds.size)
                 ),
                 hidePanel: () => panel?.hide?.(),

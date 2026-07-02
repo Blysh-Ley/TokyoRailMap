@@ -2226,6 +2226,17 @@ export function createPanel(options = {}) {
         }
     };
 
+    const restoreStationThroughPreviewDefault = () => {
+        if (panelShell.isVisible?.() !== true) return false;
+        const sid = toText(currentStationId);
+        if (!sid) return false;
+        scheduleStationThroughPreview({
+            renderToken: stationRenderToken,
+            stationId: sid
+        }).catch(() => null);
+        return true;
+    };
+
     const buildGridHintsHtml = ({ typeHints, terminalHints, specialHints }) => buildPanelTimetableGridHintsHtml({
         typeHints,
         terminalHints,
@@ -4410,7 +4421,10 @@ export function createPanel(options = {}) {
         scheduleMarqueeApply(header);
     };
 
-    const hideTripDetail = ({ restoreMobileLine = true } = {}) => {
+    const hideTripDetail = ({
+        restoreMobileLine = true,
+        restoreStationThroughPreview = restoreMobileLine
+    } = {}) => {
         clearTripHighlightTimer();
         tripPreviewScheduler.clearApplied();
         unlockTripPreview();
@@ -4429,6 +4443,9 @@ export function createPanel(options = {}) {
         if (restoreMobileLine) {
             restoreMobileLineAfterTripDetail();
         }
+        if (restoreStationThroughPreview) {
+            restoreStationThroughPreviewDefault();
+        }
     };
 
     const clearUnpinnedTripPreview = () => {
@@ -4440,6 +4457,7 @@ export function createPanel(options = {}) {
         } catch {
             // ignore
         }
+        restoreStationThroughPreviewDefault();
     };
 
     const panelMarqueeController = createPanelMarqueeController({ maxAnimations: 30 });
@@ -4498,7 +4516,10 @@ export function createPanel(options = {}) {
         setState: (lineDirKey, state) => dirFilterStateByKey.set(lineDirKey, state),
         rerenderLineById,
         applyDirPreviewByKey,
-        clearPinnedDirPreview: () => clearPinnedPanelState({ restoreStation: true })
+        clearPinnedDirPreview: () => {
+            clearPinnedPanelState({ restoreStation: true });
+            restoreStationThroughPreviewDefault();
+        }
     });
 
     const closeDirFilterPopover = (options = {}) => dirFilterPopoverController.close(options);
@@ -5613,7 +5634,7 @@ export function createPanel(options = {}) {
     const hide = () => {
         clearDirectionFocus({ rerender: false });
         timePickerController.close();
-        closeDirFilterPopover();
+        closeDirFilterPopover({ clearPreview: false });
         clearPinnedPanelState({ restoreStation: false });
         hideTripDetail({ restoreMobileLine: false });
         mobilePanelStack.close();
