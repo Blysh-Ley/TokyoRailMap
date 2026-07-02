@@ -1133,12 +1133,10 @@ const mergeEndpointIds = (...groups) => {
     return out;
 };
 
-export const previewBranchesForLine = async ({
+export const buildBranchPreviewForLineRequest = async ({
     lineId,
     lineName,
-    fitMode = 'commit',
     targetTripKeys,
-    highlightStationIds,
     previewSource = 'route-map-branch',
     throughServiceCategory,
     sourceLineIds,
@@ -1149,11 +1147,6 @@ export const previewBranchesForLine = async ({
 } = {}) => {
     const lid = toText(lineId);
     if (!lid) return { ok: false, reason: 'line-id-empty' };
-
-    const actions = window?.TokyoRailSearchMapActions;
-    if (!actions || typeof actions.previewTripPath !== 'function') {
-        return { ok: false, reason: 'map-actions-unavailable' };
-    }
 
     const source = toText(previewSource) || 'route-map-branch';
     const normalizedCategory = toText(throughServiceCategory);
@@ -1168,7 +1161,7 @@ export const previewBranchesForLine = async ({
         sourceLineIds: normalizedSourceLineIds,
         filterSpecial: filterSpecial === true
     });
-    
+
     let fullChainOriginStationIds = Array.isArray(originStationIds) && originStationIds.length
         ? originStationIds.map((x) => toText(x)).filter(Boolean)
         : (Array.isArray(result?.originStationIds) ? result.originStationIds.map((x) => toText(x)).filter(Boolean) : []);
@@ -1229,9 +1222,6 @@ export const previewBranchesForLine = async ({
     }
 
     if (!virtualTrips.length) {
-        if (typeof actions.clearTripPathPreviewBySource === 'function') {
-            actions.clearTripPathPreviewBySource(source);
-        }
         return {
             ok: false,
             reason: 'empty-branches',
@@ -1239,13 +1229,145 @@ export const previewBranchesForLine = async ({
         };
     }
 
+    return {
+        ok: true,
+        lineId: lid,
+        lineName: toText(lineName) || lid,
+        previewSource: source,
+        originStationIds: fullChainOriginStationIds,
+        terminalStationIds: fullChainTerminalStationIds,
+        result,
+        virtualTrips,
+        virtualTripCount: virtualTrips.length
+    };
+};
+
+export const previewBranchesForLine = async ({
+    lineId,
+    lineName,
+    fitMode = 'commit',
+    targetTripKeys,
+    highlightStationIds,
+    previewSource = 'route-map-branch',
+    throughServiceCategory,
+    sourceLineIds,
+    highlightColor,
+    filterSpecial = false,
+    originStationIds,
+    terminalStationIds
+} = {}) => {
+    const source = toText(previewSource) || 'route-map-branch';
+    const actions = window?.TokyoRailSearchMapActions;
+    if (!actions || typeof actions.previewTripPath !== 'function') {
+        return { ok: false, reason: 'map-actions-unavailable' };
+    }
+
+    const built = await buildBranchPreviewForLineRequest({
+        lineId,
+        lineName,
+        targetTripKeys,
+        previewSource: source,
+        throughServiceCategory,
+        sourceLineIds,
+        highlightColor,
+        filterSpecial,
+        originStationIds,
+        terminalStationIds
+    });
+
+    if (!built?.ok) {
+        if (built?.reason === 'empty-branches' && typeof actions.clearTripPathPreviewBySource === 'function') {
+            actions.clearTripPathPreviewBySource(source);
+        }
+        return built;
+    }
+
+    const lid = built.lineId;
     actions.previewTripPath({
         selectedLineId: lid,
         mainLineId: lid,
         tripKey: `branches:${lid}`,
         previewSource: source,
-        originStationIds: fullChainOriginStationIds,
-        terminalStationIds: fullChainTerminalStationIds,
+        originStationIds: built.originStationIds,
+        terminalStationIds: built.terminalStationIds,
+        highlightStationIds: Array.isArray(highlightStationIds)
+            ? highlightStationIds.map((x) => toText(x)).filter(Boolean)
+            : [],
+        fitMode: toText(fitMode) || 'commit',
+        virtualTrips: built.virtualTrips
+    }, {
+        fitMode: toText(fitMode) || 'commit',
+        clearBefore: true
+    });
+
+    return {
+        ok: true,
+        result: built.result,
+        virtualTripCount: built.virtualTripCount
+    };
+};
+
+export const previewBranchesForLineRequests = async ({
+    requests,
+    fitMode = 'commit',
+    highlightStationIds,
+    previewSource = 'route-map-branch'
+} = {}) => {
+    const source = toText(previewSource) || 'route-map-branch';
+    const actions = window?.TokyoRailSearchMapActions;
+    if (!actions || typeof actions.previewTripPath !== 'function') {
+        return { ok: false, reason: 'map-actions-unavailable' };
+    }
+
+    const list = Array.isArray(requests) ? requests : [];
+    if (!list.length) {
+        if (typeof actions.clearTripPathPreviewBySource === 'function') {
+            actions.clearTripPathPreviewBySource(source);
+        }
+        return { ok: false, reason: 'requests-empty' };
+    }
+
+    const virtualTrips = [];
+    const originStationIds = [];
+    const terminalStationIds = [];
+    const results = [];
+    const virtualTripKeys = new Set();
+    let primaryLineId = '';
+
+    for (const request of list) {
+        const built = await buildBranchPreviewForLineRequest({
+            ...(request || {}),
+            previewSource: source
+        });
+        results.push(built);
+        if (!built?.ok) continue;
+        if (!primaryLineId) primaryLineId = built.lineId;
+        for (const payload of built.virtualTrips || []) {
+            appendUnique(virtualTrips, payload, buildBranchPayloadKey(payload), virtualTripKeys);
+        }
+        originStationIds.push(...(Array.isArray(built.originStationIds) ? built.originStationIds : []));
+        terminalStationIds.push(...(Array.isArray(built.terminalStationIds) ? built.terminalStationIds : []));
+    }
+
+    if (!virtualTrips.length) {
+        if (typeof actions.clearTripPathPreviewBySource === 'function') {
+            actions.clearTripPathPreviewBySource(source);
+        }
+        return {
+            ok: false,
+            reason: 'empty-branches',
+            results
+        };
+    }
+
+    const selectedLineId = primaryLineId || 'multi';
+    actions.previewTripPath({
+        selectedLineId,
+        mainLineId: selectedLineId,
+        tripKey: `branches:${source}:${virtualTrips.length}`,
+        previewSource: source,
+        originStationIds: mergeEndpointIds(originStationIds),
+        terminalStationIds: mergeEndpointIds(terminalStationIds),
         highlightStationIds: Array.isArray(highlightStationIds)
             ? highlightStationIds.map((x) => toText(x)).filter(Boolean)
             : [],
@@ -1258,7 +1380,7 @@ export const previewBranchesForLine = async ({
 
     return {
         ok: true,
-        result,
+        results,
         virtualTripCount: virtualTrips.length
     };
 };

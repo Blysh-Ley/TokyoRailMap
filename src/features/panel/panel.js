@@ -17,6 +17,7 @@ import {
     getPreferredCachedImageSrc,
     setImageElementFromCache
 } from '../../lib/fetch.js';
+import { previewBranchesForLineRequests } from '../../map/analyze_branch.js';
 import {
     buildTemporaryThroughServicePanelPlan,
     detectThroughServiceCategoryFromTrips,
@@ -357,6 +358,7 @@ const renderTripDetailMomentHtml = (stop = {}) => {
 export function createPanel(options = {}) {
     const TIMETABLE_PRINT_EVENT = '__TokyoRailPrintTimetableRequested';
     const TIMETABLE_PRINT_ALL_EVENT = '__TokyoRailPrintAllTimetablesRequested';
+    const STATION_THROUGH_PREVIEW_SOURCE = 'station-through-branch';
     const widthPx = Number.isFinite(options.widthPx) ? options.widthPx : 380;
     const rightPx = Number.isFinite(options.rightPx) ? options.rightPx : 20;
     const zIndex = Number.isFinite(options.zIndex) ? options.zIndex : 9999;
@@ -2111,6 +2113,117 @@ export function createPanel(options = {}) {
         }
 
         return Array.from(out);
+    };
+
+    const buildStationThroughPreviewRequests = () => {
+        if (!(dirPreviewMetaByKey instanceof Map) || !dirPreviewMetaByKey.size) return [];
+
+        const configByLineId = new Map(
+            THROUGH_SERVICE_CONFIGS
+                .map((config) => [toText(config?.lineId), config])
+                .filter(([lineId]) => lineId)
+        );
+        const out = [];
+        const seenRequestKeys = new Set();
+
+        for (const [lineDirKeyRaw, meta] of dirPreviewMetaByKey.entries()) {
+            const lineDirKey = toText(lineDirKeyRaw);
+            const displayLineId = toText(meta?.lineId);
+            if (!lineDirKey || !displayLineId) continue;
+
+            const targetTripKeys = Array.from(new Set(
+                (Array.isArray(dirFilteredTripKeysByKey.get(lineDirKey)) ? dirFilteredTripKeysByKey.get(lineDirKey) : [])
+                    .map((key) => toText(key))
+                    .filter(Boolean)
+            ));
+            if (!targetTripKeys.length) continue;
+
+            const sourceLineIds = Array.from(new Set(
+                (Array.isArray(meta?.sourceLineIds) ? meta.sourceLineIds : [])
+                    .map((lineId) => toText(lineId))
+                    .filter(Boolean)
+            ));
+
+            const config = configByLineId.get(displayLineId);
+            const throughServiceCategory = toText(meta?.throughServiceCategory) || toText(config?.category);
+            const lineMeta = getLineMeta(displayLineId) || {};
+            const requestKey = [
+                displayLineId,
+                sourceLineIds.join('|'),
+                throughServiceCategory,
+                targetTripKeys.join('|')
+            ].join('##');
+            if (seenRequestKeys.has(requestKey)) continue;
+            seenRequestKeys.add(requestKey);
+
+            out.push({
+                lineId: displayLineId,
+                lineName: toText(config?.lineName) || toText(lineMeta?.name) || displayLineId,
+                sourceLineIds,
+                targetTripKeys,
+                throughServiceCategory,
+                highlightColor: toText(config?.color) || toText(lineMeta?.color)
+            });
+        }
+
+        return out;
+    };
+
+    const collectStationThroughPreviewHighlightIds = async (stationId, requests) => {
+        const out = new Set();
+        const sid = toText(stationId);
+        if (sid) out.add(sid);
+
+        const sourceLineIds = new Set();
+        for (const request of Array.isArray(requests) ? requests : []) {
+            for (const lineId of Array.isArray(request?.sourceLineIds) ? request.sourceLineIds : []) {
+                const id = toText(lineId);
+                if (id) sourceLineIds.add(id);
+            }
+        }
+
+        for (const lineId of sourceLineIds) {
+            try {
+                const resolved = toText(await resolveStationIdForLine(lineId));
+                if (resolved) out.add(resolved);
+            } catch {
+                // 单条来源线路解析失败不应取消整个站点直通预览。
+            }
+        }
+
+        return Array.from(out);
+    };
+
+    const scheduleStationThroughPreview = async ({
+        renderToken,
+        stationId = ''
+    } = {}) => {
+        const sid = toText(stationId);
+        if (!sid || renderToken !== stationRenderToken) return false;
+
+        const requests = buildStationThroughPreviewRequests();
+        if (!requests.length) {
+            crossFeatureBridge.clearTripPathPreviewBySource(STATION_THROUGH_PREVIEW_SOURCE);
+            return false;
+        }
+
+        const highlightStationIds = await collectStationThroughPreviewHighlightIds(sid, requests);
+        if (renderToken !== stationRenderToken || sid !== toText(currentStationId)) return false;
+
+        try {
+            await previewBranchesForLineRequests({
+                requests,
+                fitMode: 'commit',
+                highlightStationIds,
+                previewSource: STATION_THROUGH_PREVIEW_SOURCE
+            });
+            return true;
+        } catch {
+            if (renderToken === stationRenderToken && sid === toText(currentStationId)) {
+                crossFeatureBridge.clearTripPathPreviewBySource(STATION_THROUGH_PREVIEW_SOURCE);
+            }
+            return false;
+        }
     };
 
     const buildGridHintsHtml = ({ typeHints, terminalHints, specialHints }) => buildPanelTimetableGridHintsHtml({
@@ -4337,12 +4450,19 @@ export function createPanel(options = {}) {
         syncDirectionFocusVisibility();
         const token = ++timetableRenderToken;
         const stationId = currentStationId;
+        dirFilterRowsByKey.clear();
+        dirFilteredTripKeysByKey.clear();
+        dirPreviewMetaByKey.clear();
         if (pendingGridDataDebugLog) gridDataDebugByLineId.clear();
         const lineEls = Array.from(body.querySelectorAll('[data-line-id]'));
         for (const el of lineEls) {
             await renderTimetableForLineEl(el, stationId, token);
         }
         syncDirectionFocusStickyMetrics();
+        scheduleStationThroughPreview({
+            renderToken: stationRenderToken,
+            stationId: currentStationId
+        }).catch(() => null);
 
         if (pendingGridDataDebugLog) {
             const lines = Array.from(gridDataDebugByLineId.values()).sort((a, b) => String(a?.lineName || '').localeCompare(String(b?.lineName || '')));
