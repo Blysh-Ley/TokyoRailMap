@@ -3,7 +3,12 @@
  * 约束：不引入新配色/主题；panel 样式使用 panel-* 前缀与 search/popup/menu 隔离。
  */
 
-import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from '../../lib/train-type-sort.js';
+import {
+    filterPreferredLocalStopTypeNames,
+    isLocalStopTypeName,
+    TYPE_BASE_SEQUENCE,
+    sortTypeNamesByBaseAndStopCount
+} from '../../lib/train-type-sort.js';
 import { createTripPreviewScheduler } from '../../lib/trip-preview.js';
 import {
     getCachedJson,
@@ -931,12 +936,11 @@ export function createPanel(options = {}) {
         return out;
     };
 
-    const NO_MARK_TYPE_NAMES = new Set(['各站停车', '普通']);
     const BASE_TYPE_KEYWORDS = TYPE_BASE_SEQUENCE
         .map((kw) => toText(kw))
         .filter(Boolean);
 
-    const isNoMarkTypeName = (typeNameRaw) => NO_MARK_TYPE_NAMES.has(toText(typeNameRaw));
+    const isNoMarkTypeName = isLocalStopTypeName;
 
     const hasPanelTripNmMarker = (trip) => {
         if (!trip || typeof trip !== 'object') return false;
@@ -958,9 +962,11 @@ export function createPanel(options = {}) {
 
     const buildStationTypeSummaryItems = ({
         allTypeColorByName,
+        currentLineId,
         stopTypeColorByName,
         stopTypeNameSet,
         typeCountByName,
+        typeIdsByTypeName,
         typeStopCountByName
     }) => {
         const allColorMap = allTypeColorByName instanceof Map ? allTypeColorByName : new Map();
@@ -971,7 +977,14 @@ export function createPanel(options = {}) {
         const filteredTypeNames = Array.from(allColorMap.keys())
             .map((x) => toText(x))
             .filter((name) => !!resolveTypeBaseName(name));
-        const typeNames = sortTypeNamesByBaseAndStopCount(filteredTypeNames, null, stopCountMap);
+        const typeNames = sortTypeNamesByBaseAndStopCount(
+            filterPreferredLocalStopTypeNames(filteredTypeNames, {
+                currentLineId,
+                typeIdsByTypeName
+            }),
+            null,
+            stopCountMap
+        );
         const stopFallbackColor = '#555';
 
         const out = [];
@@ -1006,11 +1019,12 @@ export function createPanel(options = {}) {
             .join('');
     };
 
-    const buildDirectionGridHints = (rowsForDir) => {
+    const buildDirectionGridHints = (rowsForDir, { currentLineId = '' } = {}) => {
         const rows = Array.isArray(rowsForDir) ? rowsForDir : [];
 
         const typeCount = new Map();
         const typeColorByName = new Map();
+        const typeIdsByName = new Map();
         const typeStopCountByName = new Map();
         const terminalCount = new Map();
         const terminalNamesByLabel = new Map();
@@ -1023,6 +1037,9 @@ export function createPanel(options = {}) {
             const typeName = toText(row?.typeName);
             if (typeName && !row?.hasNm) {
                 typeCount.set(typeName, (typeCount.get(typeName) || 0) + 1);
+                if (!typeIdsByName.has(typeName)) typeIdsByName.set(typeName, new Set());
+                const typeId = toText(row?.typeId);
+                if (typeId) typeIdsByName.get(typeName).add(typeId);
                 if (!typeColorByName.has(typeName)) {
                     const c = resolveTrainTypeColorForTheme(row?.typeColor);
                     if (c) typeColorByName.set(typeName, c);
@@ -1099,7 +1116,14 @@ export function createPanel(options = {}) {
             noMarkModeByTerminalName.set(name, topSplitNtMultiDestTerminalNames.has(name) ? 'dual' : 'label');
         }
 
-        const typeNames = sortTypeNamesByBaseAndStopCount(Array.from(typeCount.keys()), typeCount, typeStopCountByName);
+        const typeNames = sortTypeNamesByBaseAndStopCount(
+            filterPreferredLocalStopTypeNames(Array.from(typeCount.keys()), {
+                currentLineId,
+                typeIdsByTypeName: typeIdsByName
+            }),
+            typeCount,
+            typeStopCountByName
+        );
         const typeHints = typeNames.map((name) => ({
             full: name,
             abbr: buildTypeAbbr(name),
@@ -2255,6 +2279,7 @@ export function createPanel(options = {}) {
         const stopTypeColorByName = new Map();
         const stopTypeNameSet = new Set();
         const typeCountByName = new Map();
+        const typeIdsByName = new Map();
         const typeStopCountByName = new Map();
         const typeStopStationSetByName = new Map();
         const sg = await getStationGroupsIndex();
@@ -2304,6 +2329,8 @@ export function createPanel(options = {}) {
                 const typeBaseName = resolveTypeBaseName(typeName);
                 if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary && !hasNm) {
                     typeCountByName.set(typeName, (Number(typeCountByName.get(typeName) || 0)) + 1);
+                    if (!typeIdsByName.has(typeName)) typeIdsByName.set(typeName, new Set());
+                    if (typeId) typeIdsByName.get(typeName).add(typeId);
                     if (!allTypeColorByName.has(typeName)) {
                         allTypeColorByName.set(typeName, toText(typeColor));
                     }
@@ -2472,6 +2499,7 @@ export function createPanel(options = {}) {
                     serviceHourIndex: toPanelServiceHourIndex(displayTimeMs, displayServiceDayStartMs),
                     minuteLabel: toText(displayTimeText).slice(3, 5),
                     isPast: timeMs < now,
+                    typeId,
                     typeName,
                     typeColor,
                     specialNames,
@@ -2617,9 +2645,11 @@ export function createPanel(options = {}) {
 
         const stationTypeSummaryItems = buildStationTypeSummaryItems({
             allTypeColorByName,
+            currentLineId: lineId,
             stopTypeColorByName,
             stopTypeNameSet,
             typeCountByName,
+            typeIdsByTypeName: typeIdsByName,
             typeStopCountByName
         });
 
@@ -2723,7 +2753,7 @@ export function createPanel(options = {}) {
                 typeHints: originalTypeHints,
                 terminalHints: originalTerminalHints,
                 specialHints: originalSpecialHints
-            } = buildDirectionGridHints(printableRows);
+            } = buildDirectionGridHints(printableRows, { currentLineId: lineId });
             const originalGridHintsHtml = effectiveTimetableViewMode === 'grid'
                 ? buildGridHintsHtml({
                     typeHints: originalTypeHints,
@@ -2820,7 +2850,7 @@ export function createPanel(options = {}) {
             const rowsForDir = rows.filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
             const throughServiceCategory = toText(rowsForDir.find((row) => toText(row?.throughServiceCategory))?.throughServiceCategory);
             const isThroughServiceDirection = !!throughServiceCategory;
-            const { typeHints, terminalHints, specialHints } = buildDirectionGridHints(rowsForDir);
+            const { typeHints, terminalHints, specialHints } = buildDirectionGridHints(rowsForDir, { currentLineId: lineId });
             const filterRowsForDir = rowsForDir
                 .map((r) => toDirFilterRow(r, { toText }))
                 .filter(hasDirFilterRowValue);
@@ -2959,7 +2989,7 @@ export function createPanel(options = {}) {
                 typeHints: originalPrintTypeHints,
                 terminalHints: originalPrintTerminalHints,
                 specialHints: originalPrintSpecialHints
-            } = buildDirectionGridHints(originalPrintRowsForDir);
+            } = buildDirectionGridHints(originalPrintRowsForDir, { currentLineId: lineId });
             const originalPrintGridHintsHtml = effectiveTimetableViewMode === 'grid'
                 ? buildGridHintsHtml({
                     typeHints: originalPrintTypeHints,
@@ -2994,7 +3024,7 @@ export function createPanel(options = {}) {
                     typeHints: serviceTypeHints,
                     terminalHints: serviceTerminalHints,
                     specialHints: serviceSpecialHints
-                } = buildDirectionGridHints(serviceRowsForDir);
+                } = buildDirectionGridHints(serviceRowsForDir, { currentLineId: lineId });
                 const serviceRowsPrintable = serviceRowsForDir.map((r) => ({ ...(r || {}), isPast: false }));
                 const serviceGridHintsHtml = effectiveTimetableViewMode === 'grid'
                     ? buildGridHintsHtml({

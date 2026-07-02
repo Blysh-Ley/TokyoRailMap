@@ -2,6 +2,51 @@ const toText = (v) => String(v ?? '').trim();
 
 export const TYPE_BASE_SEQUENCE = ['快特','特急', '急行', '快速','准急', '普通', '各站停车'];
 
+export const LOCAL_STOP_TYPE_NAMES = Object.freeze(['普通', '各站停车']);
+
+const LOCAL_STOP_TYPE_NAME_SET = new Set(LOCAL_STOP_TYPE_NAMES);
+
+export const isLocalStopTypeName = (typeNameRaw) => LOCAL_STOP_TYPE_NAME_SET.has(toText(typeNameRaw));
+
+const getOperatorPrefix = (idRaw) => {
+    const id = toText(idRaw);
+    if (!id) return '';
+    return id.split('.')[0] || '';
+};
+
+const getValuesForType = (valueByTypeName, typeName) => {
+    const value = valueByTypeName?.get?.(typeName) ?? valueByTypeName?.[typeName];
+    if (value instanceof Set) return Array.from(value);
+    if (Array.isArray(value)) return value;
+    return value ? [value] : [];
+};
+
+export const filterPreferredLocalStopTypeNames = (
+    typeNamesRaw,
+    { currentLineId = '', typeIdsByTypeName = new Map() } = {}
+) => {
+    const typeNames = Array.from(new Set(
+        (Array.isArray(typeNamesRaw) ? typeNamesRaw : [])
+            .map((name) => toText(name))
+            .filter(Boolean)
+    ));
+    const localStopNames = typeNames.filter(isLocalStopTypeName);
+    if (localStopNames.length < 2) return typeNames;
+
+    const currentOperator = getOperatorPrefix(currentLineId);
+    if (!currentOperator) return typeNames;
+
+    const currentOperatorNames = localStopNames.filter((typeName) => (
+        getValuesForType(typeIdsByTypeName, typeName)
+            .map(getOperatorPrefix)
+            .includes(currentOperator)
+    ));
+    if (currentOperatorNames.length !== 1) return typeNames;
+
+    const preferredName = currentOperatorNames[0];
+    return typeNames.filter((typeName) => !isLocalStopTypeName(typeName) || typeName === preferredName);
+};
+
 export const resolveTypeBaseIndex = (typeNameRaw) => {
     const typeName = toText(typeNameRaw);
     let best = Number.POSITIVE_INFINITY;
