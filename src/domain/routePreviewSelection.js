@@ -126,11 +126,12 @@ export const buildTripPreviewLineFeatureDedupKey = (feature) => {
 
 export const buildTripPreviewLineFeatureCollisionKey = (feature) => {
     const role = toText(feature?.properties?.role || 'line');
+    const lineId = toText(feature?.properties?.lineId);
     const geom = feature?.geometry;
     if (!geom || geom.type !== 'LineString') return '';
     const pathKey = buildLineCoordsCanonicalKey(geom.coordinates);
     if (!pathKey) return '';
-    return `${role}||${pathKey}`;
+    return `${role}||${lineId}||${pathKey}`;
 };
 
 const buildLineFeatureItemContextKey = (item) => {
