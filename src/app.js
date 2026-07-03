@@ -5016,7 +5016,7 @@ const initMapApp = async () => {
             hoverMinZoom: HOVER_PREVIEW_MIN_ZOOM,
             touchHoverLongPressMs: stationTouchLongPressMs,
             getHoverPreviewEnabled: () => isHoverPreviewEnabled(),
-            getStationLabelHoverEnabled: () => stationLabelMode !== 'auto',
+            getStationLabelHoverEnabled: () => stationLabelMode === 'all',
             canShowStationHoverFeature: isStationFeatureAllowedForHighlightInteraction,
             resolveTouchStationFeatureAtPoint,
             onSelectCompany: popupSelectionCallbacks.onSelectCompany,
