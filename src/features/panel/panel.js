@@ -93,6 +93,8 @@ import { buildPanelTimetableGridHtmlForDirection } from './panelTimetableUi.js';
 import {
     buildPanelCompaniesHtml,
     collectPanelCatalogEntries,
+    resolvePanelCatalogActiveLineState,
+    resolvePanelCatalogTitle,
     renderPanelCatalogEntriesHtml
 } from './panelCatalogShell.js';
 import { enhancePanelLineHeaderIcons } from './panelInteractionView.js';
@@ -413,6 +415,9 @@ export function createPanel(options = {}) {
     let currentLineGroupByMainId = new Map();
     let currentStationsIndex = null;
     let currentLineStationMetaByLineId = new Map();
+    let panelTitleBaseText = { main: '', sub: '' };
+    let panelTitleActiveLineId = '';
+    let panelTitleSyncRafId = 0;
 
     const panelShell = createPanelShell({ presentation: panelPresentation, rightPx, widthPx });
     const panelContentApi = createPanelContentApi();
@@ -537,10 +542,83 @@ export function createPanel(options = {}) {
     const panelScrollRuntime = createPanelScrollRuntime({
         body,
         toText,
-        syncActiveTitle: (activeLineId = '') => {
-            panelCatalogController?.syncTitleForActiveLine(activeLineId);
+        syncActiveTitle: () => {
+            syncPanelTitleForActiveLineByScroll();
         }
     });
+
+    const requestPanelTitleSyncFrame = () => {
+        if (panelTitleSyncRafId) return;
+        const schedule = typeof requestAnimationFrame === 'function'
+            ? requestAnimationFrame
+            : (callback) => setTimeout(callback, 16);
+
+        panelTitleSyncRafId = schedule(() => {
+            panelTitleSyncRafId = 0;
+            syncPanelTitleForActiveLineByScroll();
+        });
+    };
+
+    const hasTransferStationNameVariants = () => {
+        const stationMetaMap = currentLineStationMetaByLineId;
+        if (!(stationMetaMap instanceof Map) || stationMetaMap.size < 2) return false;
+
+        const names = new Set();
+        const index = currentStationsIndex?.idToNameZh;
+        const fallbackStationId = toText(currentStationId);
+
+        for (const meta of stationMetaMap.values()) {
+            const sid = toText(meta?.stationId || fallbackStationId);
+            if (sid) {
+                const mapName = toText(index?.get?.(sid) || '');
+                if (mapName) names.add(mapName);
+            }
+            const metaName = toText(meta?.name || '');
+            if (metaName) names.add(metaName);
+        }
+
+        return names.size > 1;
+    };
+
+    const syncPanelTitleForActiveLineByScroll = (activeLineId = '') => {
+        if (!toText(currentStationId)) {
+            panelTitleActiveLineId = '';
+            return;
+        }
+
+        if (!hasTransferStationNameVariants()) {
+            panelTitleActiveLineId = '';
+            if (panelTitleBaseText.main || panelTitleBaseText.sub) {
+                setTitle(panelTitleBaseText);
+            }
+            return;
+        }
+
+        const activeLine = toText(activeLineId) || toText(resolvePanelCatalogActiveLineState({
+            body,
+            toText
+        })?.activeLineId);
+        if (!activeLine) return;
+
+        if (panelTitleActiveLineId === activeLine) return;
+
+        const nextTitle = resolvePanelCatalogTitle({
+            activeLineId: activeLine,
+            currentLineStationMetaByLineId,
+            currentStationId,
+            currentStationNameZh,
+            currentStationsIndex,
+            toText
+        });
+
+        panelTitleActiveLineId = activeLine;
+        setTitle(nextTitle);
+    };
+
+    const bindPanelBodyScrollTitleSync = () => {
+        body.addEventListener('scroll', requestPanelTitleSyncFrame, { passive: true });
+    };
+    bindPanelBodyScrollTitleSync();
 
     /*
      * PC panel catalog is intentionally disabled.
@@ -5941,6 +6019,8 @@ export function createPanel(options = {}) {
         currentStationsIndex = stationIndex;
         const currentStationNameEn = toText(stationIndex?.idToNameEn?.get?.(currentStationId) || props?.title?.en || props?.title?.['en-US'] || '');
         setTitle({ main: name, sub: currentStationNameEn });
+        panelTitleBaseText = { main: name, sub: currentStationNameEn };
+        panelTitleActiveLineId = '';
 
         // 用 serving_ids 驱动交互恢复/公司过滤
         ({
