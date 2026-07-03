@@ -284,9 +284,14 @@ export const createPanelDismissController = ({
     insidePredicates = [],
     panelSelectionState,
     panelShell,
+    restorePinnedPanelState = null,
     setLastTripDetailKey = () => {},
     tripDetailRoot
 } = {}) => {
+    const restorePinnedState = typeof restorePinnedPanelState === 'function'
+        ? restorePinnedPanelState
+        : () => clearPinnedPanelState({ restoreStation: true });
+
     const handleDocumentClick = (evt) => {
         const target = evt?.target;
         const clickRegion = panelShell?.getClickRegion?.(target, {
@@ -306,7 +311,7 @@ export const createPanelDismissController = ({
 
         if (hasPinnedPanelState()) {
             if (!clickRegion.insidePanelOrExtra) {
-                clearPinnedPanelState({ restoreStation: true });
+                restorePinnedState();
                 return;
             }
         }
@@ -357,6 +362,17 @@ export const createPanelInteractionPolicy = ({
         startTripTap: (evt, payload) => touchInteraction?.startTripTap?.(evt, payload)
     };
 };
+
+// panelStationRestoreController.js
+export const createPanelStationRestoreController = ({
+    clearPinnedPanelState = () => {},
+    restoreStationDefaultSelection = () => {},
+    restoreStationLinesIfNeeded = () => {}
+} = {}) => ({
+    clearPinnedStateAndRestore: () => clearPinnedPanelState({ restoreStation: true }),
+    restoreDefaultSelection: () => restoreStationDefaultSelection(),
+    restoreHoverSelectionIfNeeded: () => restoreStationLinesIfNeeded()
+});
 
 // panelHoverRestoreRuntime.js
 const defaultToText_panelHoverRestoreRuntime = (value) => String(value ?? '').trim();

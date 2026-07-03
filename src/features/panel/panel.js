@@ -141,7 +141,10 @@ import {
     preparePanelStationRenderBootstrap,
     resetPanelStationRenderTransientState
 } from './panelStation.js';
-import { createPanelHoverRestoreRuntime } from './panelInteractionCore.js';
+import {
+    createPanelHoverRestoreRuntime,
+    createPanelStationRestoreController
+} from './panelInteractionCore.js';
 import {
     dispatchPanelDirectionFocusIntent,
     dispatchPanelDirectionToggleIntent,
@@ -602,7 +605,7 @@ export function createPanel(options = {}) {
 
     panelRouteMapBridge.onReturn(() => {
         if (!isMobilePanelPresentation()) return;
-        clearPinnedPanelState({ restoreStation: true });
+        panelStationRestoreController.clearPinnedStateAndRestore();
         panelShell.expand?.();
         scheduleCatalogRefresh();
     });
@@ -4657,7 +4660,7 @@ export function createPanel(options = {}) {
         rerenderLineById,
         applyDirPreviewByKey,
         clearPinnedDirPreview: () => {
-            clearPinnedPanelState({ restoreStation: true });
+            panelStationRestoreController.clearPinnedStateAndRestore();
             restoreStationThroughPreviewDefault();
         }
     });
@@ -4750,6 +4753,11 @@ export function createPanel(options = {}) {
     const clearRestoreTimer = () => panelHoverRestoreRuntime.clearRestoreTimer();
     const restoreStationLinesIfNeeded = () => panelHoverRestoreRuntime.restoreStationLinesIfNeeded();
     const scheduleRestoreStationLines = () => panelHoverRestoreRuntime.scheduleRestoreStationLines();
+    const panelStationRestoreController = createPanelStationRestoreController({
+        clearPinnedPanelState,
+        restoreStationDefaultSelection,
+        restoreStationLinesIfNeeded
+    });
 
     const getCompanyTarget = () => '';
 
@@ -4969,7 +4977,7 @@ export function createPanel(options = {}) {
 
         mobilePanelStack.openStationOverview(getMobilePanelStationContext());
         syncMobilePanelStackUi();
-        restoreStationDefaultSelection();
+        panelStationRestoreController.restoreDefaultSelection();
         expandMobilePanelAfterTripDetailReturn();
         scheduleCatalogRefresh();
     };
@@ -5052,7 +5060,7 @@ export function createPanel(options = {}) {
                 const hitKey = getInteractionKeyFromTarget(evt.target);
                 stopEvent(evt);
                 if (pinnedKey && hitKey && pinnedKey === hitKey) return;
-                clearPinnedPanelState({ restoreStation: true });
+                panelStationRestoreController.clearPinnedStateAndRestore();
                 armCancelInteractionSuppression();
                 return;
             }
@@ -5446,7 +5454,7 @@ export function createPanel(options = {}) {
             const hitKey = getInteractionKeyFromTarget(evt.target);
             stopEvent(evt);
             if (pinnedKey && hitKey && pinnedKey === hitKey) return;
-            clearPinnedPanelState({ restoreStation: true });
+            panelStationRestoreController.clearPinnedStateAndRestore();
             armCancelInteractionSuppression();
             return;
         }
@@ -5527,7 +5535,7 @@ export function createPanel(options = {}) {
             return;
         }
         if (hasPinnedPanelState()) return;
-        restoreStationLinesIfNeeded();
+        panelStationRestoreController.restoreHoverSelectionIfNeeded();
         if (tripLocked) return;
         if (toEl && tripDetailRoot.contains(toEl)) return;
         if (!(toEl && dirFilterPopoverController.contains(toEl)) && !panelSelectionState.getPinnedDirPreviewKey()) {
@@ -5609,7 +5617,7 @@ export function createPanel(options = {}) {
         onLeave: () => {
             routeMapPopoverHoverActive = false;
             if (hasPinnedPanelState()) return;
-            restoreStationLinesIfNeeded();
+            panelStationRestoreController.restoreHoverSelectionIfNeeded();
             if (!panelSelectionState.getPinnedDirPreviewKey()) {
                 clearDirPreview();
             }
@@ -5765,6 +5773,7 @@ export function createPanel(options = {}) {
         insidePredicates: [(node) => dirFilterPopoverController.contains(node)],
         panelSelectionState,
         panelShell,
+        restorePinnedPanelState: () => panelStationRestoreController.clearPinnedStateAndRestore(),
         setLastTripDetailKey: (value) => {
             lastTripDetailKey = value;
         },
@@ -6084,7 +6093,7 @@ export function createPanel(options = {}) {
         hoverCandidateKey = null;
         lastFiredHoverKey = null;
         lastMousePrimaryKey = '';
-        restoreStationLinesIfNeeded();
+        panelStationRestoreController.restoreHoverSelectionIfNeeded();
         clearPinnedPanelState({ restoreStation: false });
         hideTripCurrentStationHint();
         clearTripDetailStationIndicator();
