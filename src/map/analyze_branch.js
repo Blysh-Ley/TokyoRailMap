@@ -1,6 +1,10 @@
 import { getCachedJson } from '../lib/fetch.js';
 import { buildVirtualTripPreviewPayload } from '../lib/trip-preview.js';
-import { getLineIdFromStationId } from '../domain/alternateLineMembership.js';
+import {
+    buildAlternateTripSourceIndex,
+    getAlternateTripSources,
+    getLineIdFromStationId
+} from '../domain/alternateLineMembership.js';
 import {
     detectThroughServiceCategoryFromTrips,
     THROUGH_SERVICE_CONFIGS_OBJECT
@@ -659,6 +663,61 @@ const loadAllTimetableRecords = async () => {
     return allTimetableRecordsPromise;
 };
 
+const alternateTripSourceIndexByMembership = new WeakMap();
+
+const resolveAlternateTripSourceIndex = (alternateLineMembership) => {
+    if (!alternateLineMembership || typeof alternateLineMembership !== 'object') return null;
+    if (alternateTripSourceIndexByMembership.has(alternateLineMembership)) {
+        return alternateTripSourceIndexByMembership.get(alternateLineMembership) || null;
+    }
+
+    const built = buildAlternateTripSourceIndex(alternateLineMembership);
+    alternateTripSourceIndexByMembership.set(alternateLineMembership, built);
+    return built || null;
+};
+
+const normalizeLineIdList = (value) => {
+    const list = Array.isArray(value) ? value : [];
+    const out = [];
+    const seen = new Set();
+    for (const item of list) {
+        const id = toText(item);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        out.push(id);
+    }
+    return out;
+};
+
+const expandLineIdsByAlternateStations = ({
+    sourceLineIds = [],
+    anchorStationIds = [],
+    alternateLineMembership = null
+} = {}) => {
+    const lineIds = normalizeLineIdList(sourceLineIds);
+    if (!lineIds.length) return lineIds;
+    if (!alternateLineMembership || typeof alternateLineMembership !== 'object') return lineIds;
+
+    const index = resolveAlternateTripSourceIndex(alternateLineMembership);
+    if (!(index instanceof Map) || !index.size) return lineIds;
+
+    const stations = normalizeLineIdList(anchorStationIds);
+    if (!stations.length) return lineIds;
+
+    const expanded = new Set(lineIds);
+    for (const lineId of lineIds) {
+        for (const stationId of stations) {
+            const sources = getAlternateTripSources(index, stationId, lineId);
+            for (const source of Array.isArray(sources) ? sources : []) {
+                const sourceLineId = toText(source?.sourceLineId);
+                if (sourceLineId) expanded.add(sourceLineId);
+            }
+        }
+    }
+
+    return Array.from(expanded);
+};
+
 const toTripFilterSet = (targetTripKeys) => {
     const list = Array.isArray(targetTripKeys) ? targetTripKeys : [];
     const set = new Set();
@@ -742,9 +801,13 @@ const matchesThroughServiceCategory = (trip, idMap, expectedCategory, cache) => 
 };
 
 export const analyzeBranchesForLine = async (lineId, options = {}) => {
-    const sourceLineIds = Array.isArray(options?.sourceLineIds)
-        ? options.sourceLineIds.map((x) => toText(x)).filter(Boolean)
-        : [];
+    const sourceLineIds = expandLineIdsByAlternateStations({
+        sourceLineIds: Array.isArray(options?.sourceLineIds)
+            ? options.sourceLineIds.map((x) => toText(x)).filter(Boolean)
+            : [],
+        anchorStationIds: options?.anchorStationIds,
+        alternateLineMembership: options?.alternateLineMembership || null
+    });
 
     const lid = toText(lineId) || sourceLineIds[0] || '';
     if (!lid) return null;
@@ -763,7 +826,7 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
     const lineIdsKey = activeLineIds.slice().sort().join('|');
     const categoryKey = throughServiceCategory || '*';
     const filterSpecial = options?.filterSpecial === true;
-    const cacheKey = `${lineIdsKey}##${tripFilterKey}##${categoryKey}##${filterSpecial ? 'base' : 'all'}`;
+    const cacheKey = `${lineIdsKey}##${tripFilterKey}##${categoryKey}##${filterSpecial ? 'base' : 'all'}##${options?.alternateLineMembership ? 'alt' : 'no-alt'}`;
     const shouldContinue = typeof options?.isStillActive === 'function'
         ? () => options.isStillActive() !== false
         : null;
@@ -1230,6 +1293,8 @@ export const buildBranchPreviewForLineRequest = async ({
     filterSpecial = false,
     originStationIds,
     terminalStationIds,
+    anchorStationIds,
+    alternateLineMembership = null,
     isStillActive
 } = {}) => {
     const lid = toText(lineId);
@@ -1239,6 +1304,9 @@ export const buildBranchPreviewForLineRequest = async ({
     const normalizedCategory = toText(throughServiceCategory);
     const normalizedSourceLineIds = Array.isArray(sourceLineIds)
         ? sourceLineIds.map((x) => toText(x)).filter(Boolean)
+        : [];
+    const normalizedAnchorStationIds = Array.isArray(anchorStationIds)
+        ? Array.from(new Set(anchorStationIds.map((x) => toText(x)).filter(Boolean)))
         : [];
 
     const normalizedHighlightColor = toText(highlightColor);
@@ -1253,6 +1321,8 @@ export const buildBranchPreviewForLineRequest = async ({
         throughServiceCategory: normalizedCategory,
         sourceLineIds: normalizedSourceLineIds,
         filterSpecial: filterSpecial === true,
+        anchorStationIds: normalizedAnchorStationIds,
+        alternateLineMembership,
         ...cancellationOptions
     });
     if (!stillActive() || result?.reason === 'stale') return { ok: false, reason: 'stale', result };
@@ -1292,6 +1362,8 @@ export const buildBranchPreviewForLineRequest = async ({
             throughServiceCategory: normalizedCategory,
             sourceLineIds: normalizedSourceLineIds,
             filterSpecial: true,
+            anchorStationIds: normalizedAnchorStationIds,
+            alternateLineMembership,
             ...cancellationOptions
         });
         if (!stillActive() || baseResult?.reason === 'stale') return { ok: false, reason: 'stale', result };
@@ -1356,13 +1428,21 @@ export const previewBranchesForLine = async ({
     highlightColor,
     filterSpecial = false,
     originStationIds,
-    terminalStationIds
+    terminalStationIds,
+    anchorStationIds,
+    alternateLineMembership = null
 } = {}) => {
     const source = toText(previewSource) || 'route-map-branch';
     const actions = window?.TokyoRailSearchMapActions;
     if (!actions || typeof actions.previewTripPath !== 'function') {
         return { ok: false, reason: 'map-actions-unavailable' };
     }
+
+    const normalizedAnchorStationIds = Array.isArray(anchorStationIds)
+        ? Array.from(new Set(anchorStationIds.map((x) => toText(x)).filter(Boolean)))
+        : (Array.isArray(highlightStationIds)
+            ? Array.from(new Set(highlightStationIds.map((x) => toText(x)).filter(Boolean)))
+            : []);
 
     const built = await buildBranchPreviewForLineRequest({
         lineId,
@@ -1373,6 +1453,8 @@ export const previewBranchesForLine = async ({
         sourceLineIds,
         highlightColor,
         filterSpecial,
+        anchorStationIds: normalizedAnchorStationIds,
+        alternateLineMembership,
         originStationIds,
         terminalStationIds
     });
@@ -1413,6 +1495,7 @@ export const previewBranchesForLineRequests = async ({
     requests,
     fitMode = 'commit',
     highlightStationIds,
+    alternateLineMembership = null,
     isStillActive,
     previewSource = 'route-map-branch'
 } = {}) => {
@@ -1442,9 +1525,14 @@ export const previewBranchesForLineRequests = async ({
 
     for (const request of list) {
         if (!stillActive()) return { ok: false, reason: 'stale' };
+        const requestHighlightStationIds = Array.isArray(request?.anchorStationIds)
+            ? request.anchorStationIds
+            : (Array.isArray(request?.highlightStationIds) ? request.highlightStationIds : highlightStationIds);
         const built = await buildBranchPreviewForLineRequest({
             ...(request || {}),
             previewSource: source,
+            anchorStationIds: requestHighlightStationIds,
+            alternateLineMembership,
             isStillActive: stillActive
         });
         if (!stillActive()) return { ok: false, reason: 'stale' };

@@ -428,6 +428,13 @@ export function createPanel(options = {}) {
     const crossFeatureBridge = createPanelCrossFeatureBridgeController();
     const panelRoutePreview = createPanelRoutePreviewController({
         clearTripPathPreviewBySource: (source) => crossFeatureBridge.clearTripPathPreviewBySource(source),
+        requestRoutePreview: async (payload) => {
+            const alternateLineMembership = await getAlternateLineMembership();
+            return previewBranchesForLine({
+                ...(payload || {}),
+                alternateLineMembership
+            });
+        },
         toText
     });
     const mobilePanelStack = createPanelMobileStackController();
@@ -2235,10 +2242,12 @@ export function createPanel(options = {}) {
         if (stationThroughPreviewSuppressed || renderToken !== stationRenderToken || sid !== toText(currentStationId)) return false;
 
         try {
+            const alternateLineMembership = await getAlternateLineMembership();
             await previewBranchesForLineRequests({
                 requests,
                 fitMode: 'commit',
                 highlightStationIds,
+                alternateLineMembership,
                 isStillActive: () => !stationThroughPreviewSuppressed && renderToken === stationRenderToken && sid === toText(currentStationId),
                 previewSource: STATION_THROUGH_PREVIEW_SOURCE
             });

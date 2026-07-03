@@ -1720,7 +1720,8 @@ const initMapApp = async () => {
             lineName: getLineNameForMultiSelect(lineId),
             fitMode: 'none',
             previewSource: source,
-            filterSpecial: decision.filterSpecial
+            filterSpecial: decision.filterSpecial,
+            alternateLineMembership: generatedAlternateLineMembership
         }).then((result) => {
             if (result?.ok !== true) {
                 branchPreviewStepCommitter?.clearStep(lineId);
@@ -1906,7 +1907,8 @@ const initMapApp = async () => {
             throughServiceCategory: throughCategory,
             highlightColor: String(display?.color || '').trim(),
             fitMode,
-            previewSource
+            previewSource,
+            alternateLineMembership: generatedAlternateLineMembership
         }).catch(() => {
             clearTripPathPreview({ source: previewSource });
         });
