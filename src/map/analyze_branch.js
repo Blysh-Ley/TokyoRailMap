@@ -775,6 +775,7 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
         throughServiceCategory,
         originStationIds: [],
         terminalStationIds: [],
+        lineStationIdsById: new Map(),
         targetCount: 0,
         throughServiceCount: 0,
         fullRouteCount: 0,
@@ -845,6 +846,7 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
                 throughServiceCategory,
                 originStationIds: [],
                 terminalStationIds: [],
+                lineStationIdsById,
                 targetCount: 0,
                 throughServiceCount: 0,
                 fullRouteCount: 0,
@@ -873,6 +875,7 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
             throughServiceCategory,
             originStationIds: endpoints.originStationIds,
             terminalStationIds: endpoints.terminalStationIds,
+            lineStationIdsById,
             targetCount: targetTimetables.length,
             throughServiceCount: ttLists.length,
             fullRouteCount: fullRoutes.length,
@@ -1102,6 +1105,43 @@ const buildBranchSegmentsFromRouteChains = (stationIds, routeChains, fallbackLin
         });
 };
 
+const isLoopDirection = (value) => toText(value).toLowerCase().includes('loop');
+
+const resolveFullLoopStationIds = (lineId, direction, lineStationIdsById) => {
+    const lid = toText(lineId);
+    const source = lineStationIdsById instanceof Map ? lineStationIdsById.get(lid) : null;
+    const stations = Array.isArray(source)
+        ? source.map((stationId) => toText(stationId)).filter(Boolean)
+        : [];
+    if (stations.length < 2) return [];
+    const ordered = toText(direction).toLowerCase().includes('outer')
+        ? stations.slice().reverse()
+        : stations.slice();
+    if (ordered[0] && ordered[ordered.length - 1] !== ordered[0]) {
+        ordered.push(ordered[0]);
+    }
+    return ordered;
+};
+
+const replaceLoopSegmentsWithFullLoop = (segments, lineStationIdsById) => {
+    const loopSegments = [];
+    for (const segment of Array.isArray(segments) ? segments : []) {
+        if (!isLoopDirection(segment?.d)) continue;
+        const lineId = toText(segment?.r || segment?.lineId);
+        const fullStationIds = resolveFullLoopStationIds(lineId, segment?.d, lineStationIdsById);
+        if (fullStationIds.length < 2) continue;
+        loopSegments.push({
+            ...(segment || {}),
+            lineId,
+            r: lineId,
+            geometryLineId: lineId,
+            offsetLineId: lineId,
+            stationIds: fullStationIds
+        });
+    }
+    return loopSegments.length ? loopSegments : segments;
+};
+
 const appendUnique = (target, item, key, seen) => {
     if (!item || !key) return false;
     const set = seen instanceof Set ? seen : new Set();
@@ -1117,6 +1157,7 @@ const buildBranchPreviewPayload = ({
     lineName,
     previewSource,
     routeChains,
+    lineStationIdsById,
     stationIds,
     tripKey
 } = {}) => {
@@ -1124,7 +1165,10 @@ const buildBranchPreviewPayload = ({
     const ids = dedupKeepOrder(stationIds);
     if (!lid || ids.length < 2) return null;
 
-    const segments = buildBranchSegmentsFromRouteChains(ids, routeChains, lid);
+    const segments = replaceLoopSegmentsWithFullLoop(
+        buildBranchSegmentsFromRouteChains(ids, routeChains, lid),
+        lineStationIdsById
+    );
     if (!segments.length) return null;
 
     const payload = buildVirtualTripPreviewPayload({
@@ -1221,6 +1265,7 @@ export const buildBranchPreviewForLineRequest = async ({
         : (Array.isArray(result?.terminalStationIds) ? result.terminalStationIds.map((x) => toText(x)).filter(Boolean) : []);
     const rawBranchList = Array.isArray(result?.branchList) ? result.branchList : [];
     const routeChains = Array.isArray(result?.fullRouteChains) ? result.fullRouteChains : [];
+    const lineStationIdsById = result?.lineStationIdsById instanceof Map ? result.lineStationIdsById : new Map();
     const virtualTrips = [];
     const virtualTripKeys = new Set();
 
@@ -1233,6 +1278,7 @@ export const buildBranchPreviewForLineRequest = async ({
             highlightColor: normalizedHighlightColor,
             previewSource: source,
             routeChains,
+            lineStationIdsById,
             stationIds,
             tripKey: `branch-${i + 1}`,
         });
@@ -1251,6 +1297,7 @@ export const buildBranchPreviewForLineRequest = async ({
         if (!stillActive() || baseResult?.reason === 'stale') return { ok: false, reason: 'stale', result };
         const baseRouteChains = Array.isArray(baseResult?.fullRouteChains) ? baseResult.fullRouteChains : [];
         const baseBranchList = Array.isArray(baseResult?.branchList) ? baseResult.branchList : [];
+        const baseLineStationIdsById = baseResult?.lineStationIdsById instanceof Map ? baseResult.lineStationIdsById : lineStationIdsById;
         for (let i = 0; i < baseBranchList.length; i += 1) {
             const stationIds = dedupKeepOrder(baseBranchList[i]);
             if (stationIds.length < 2) continue;
@@ -1260,6 +1307,7 @@ export const buildBranchPreviewForLineRequest = async ({
                 highlightColor: normalizedHighlightColor,
                 previewSource: source,
                 routeChains: baseRouteChains,
+                lineStationIdsById: baseLineStationIdsById,
                 stationIds,
                 tripKey: `base-branch-${i + 1}`
             });
