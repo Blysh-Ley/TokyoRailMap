@@ -134,8 +134,9 @@ export const createPanelSearchSelectionCallbacks = ({
 
     const restoreStationLines = (lineIds, meta = {}) => {
         const ids = toLineIds(lineIds);
-        const stationId = toText(meta?.stationId) || toText(getSelectedStationId?.()) || null;
-        if (typeof canRestoreStationLines === 'function' && !canRestoreStationLines({
+        const stationId = toText(meta?.stationId) || null;
+        if (!stationId) return;
+        if (typeof canRestoreStationLines !== 'function' || !canRestoreStationLines({
             lineIds: ids,
             meta,
             sourcePrefix,
