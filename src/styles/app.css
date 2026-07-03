@@ -3892,6 +3892,14 @@ html[data-theme="dark"] .ms-show-icon-btn {
     line-height: 1.2;
 }
 
+.panel-station-info-between-directions {
+    width: 100%;
+    margin: 6px 0 2px;
+    padding: 5px 0 0;
+    box-sizing: border-box;
+    border-top: 1px solid color-mix(in srgb, var(--panel-line-accent) 18%, transparent);
+}
+
 .panel-station-info-left {
     flex: 0 0 auto;
     display: inline-flex;

@@ -29,6 +29,7 @@ import { createPanelShell } from '../../ui/panelShellView.js';
 import { createPanelRouteMapBridge } from './panelRouteMapBridge.js';
 import { buildTimetableStationText, renderTimetableNoteRowHtml, renderTimetablePlainNoteRowHtml } from './panelTimetableCore.js';
 import { buildDirectionEndpointLabelCounts } from '../../domain/stationLabelDisplay.js';
+import { resolvePanelStationInfoTypePlacement } from '../../domain/panelStationInfoTypePlacement.js';
 import {
     renderPanelPrintableTimetableListHtml,
     renderPanelTimetableListHtml
@@ -2404,6 +2405,65 @@ export function createPanel(options = {}) {
         const sg = await getStationGroupsIndex();
         const postprocessDebug = [];
 
+        const createTypeSummaryState = () => ({
+            allTypeColorByName: new Map(),
+            stopTypeColorByName: new Map(),
+            stopTypeNameSet: new Set(),
+            typeCountByName: new Map(),
+            typeIdsByName: new Map(),
+            typeStopCountByName: new Map(),
+            typeStopStationSetByName: new Map()
+        });
+
+        const lineTypeSummaryState = {
+            allTypeColorByName,
+            stopTypeColorByName,
+            stopTypeNameSet,
+            typeCountByName,
+            typeIdsByName,
+            typeStopCountByName,
+            typeStopStationSetByName
+        };
+
+        const recordTypeSummaryForTrip = (summary, {
+            stop,
+            tt,
+            typeColor,
+            typeId,
+            typeName
+        } = {}) => {
+            if (!summary) return;
+            const name = toText(typeName);
+            if (!name) return;
+
+            summary.typeCountByName.set(name, (Number(summary.typeCountByName.get(name) || 0)) + 1);
+            if (!summary.typeIdsByName.has(name)) summary.typeIdsByName.set(name, new Set());
+            if (typeId) summary.typeIdsByName.get(name).add(typeId);
+            if (!summary.allTypeColorByName.has(name)) {
+                summary.allTypeColorByName.set(name, toText(typeColor));
+            }
+
+            if (Array.isArray(tt) && tt.length) {
+                if (!summary.typeStopStationSetByName.has(name)) {
+                    summary.typeStopStationSetByName.set(name, new Set());
+                }
+                const stopSet = summary.typeStopStationSetByName.get(name);
+                for (const ttRow of tt) {
+                    const sid = toText(ttRow?.s);
+                    if (!sid) continue;
+                    stopSet.add(sid);
+                }
+                summary.typeStopCountByName.set(name, stopSet.size);
+            }
+
+            if (stop) {
+                summary.stopTypeNameSet.add(name);
+                if (!summary.stopTypeColorByName.has(name) && toText(typeColor)) {
+                    summary.stopTypeColorByName.set(name, toText(typeColor));
+                }
+            }
+        };
+
         const collectRowsFromTripList = async ({
             tripList,
             sourceLineId,
@@ -2446,55 +2506,8 @@ export function createPanel(options = {}) {
 
 
                 const typeBaseName = resolveTypeBaseName(typeName);
-                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary && !hasNm) {
-                    typeCountByName.set(typeName, (Number(typeCountByName.get(typeName) || 0)) + 1);
-                    if (!typeIdsByName.has(typeName)) typeIdsByName.set(typeName, new Set());
-                    if (typeId) typeIdsByName.get(typeName).add(typeId);
-                    if (!allTypeColorByName.has(typeName)) {
-                        allTypeColorByName.set(typeName, toText(typeColor));
-                    }
-                }
-
                 const tt = Array.isArray(trip?.tt) ? trip.tt : [];
                 if (!tt.length) continue;
-                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary && !hasNm) {
-                    if (!typeStopStationSetByName.has(typeName)) {
-                        typeStopStationSetByName.set(typeName, new Set());
-                    }
-                    const stopSet = typeStopStationSetByName.get(typeName);
-                    for (const ttRow of tt) {
-                        const sid = toText(ttRow?.s);
-                        if (!sid) continue;
-                        stopSet.add(sid);
-                    }
-                    typeStopCountByName.set(typeName, stopSet.size);
-                }
-                const stop = tt.find((x) => {
-                    const currentSid = toText(x?.s);
-                    if (!currentSid) return false;
-
-                    // 1. 首先判断 ID 是否完全一致（最快且最直接）
-                    if (currentSid === stationKey) return true;
-
-                    // 2. 如果不一致，再查换乘组索引
-                    return sg?.get?.(currentSid)?.includes?.(stationKey);
-                });
-
-                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary && !hasNm) {
-                    if (stop) {
-                        stopTypeNameSet.add(typeName);
-                        if (!stopTypeColorByName.has(typeName) && toText(typeColor)) {
-                            stopTypeColorByName.set(typeName, toText(typeColor));
-                        }
-                    }
-                }
-
-                if (!stop) continue;
-
-                let arr = toText(stop?.a);
-                let dep = toText(stop?.d);
-                const stationHasNativeArrival = !!arr;
-                const stationHasNativeDeparture = !!dep;
 
                 const os = Array.isArray(trip?.os) ? trip.os : (trip?.os ? [trip.os] : []);
                 const ds = Array.isArray(trip?.ds) ? trip.ds : (trip?.ds ? [trip.ds] : []);
@@ -2509,15 +2522,6 @@ export function createPanel(options = {}) {
                 ].filter(Boolean)));
                 const directionDisplayLineId = throughLineId || lineId;
                 const tripDirectionCacheKey = `${toText(directionDisplayLineId)}||${toText(trip?.id) || toText(trip?.t)}`;
-                const isOriginStation = sg?.get?.(trip.tt?.[0]?.s)?.includes?.(stationKey) || trip.tt?.[0]?.s === stationKey;
-                const isTerminalStation = sg?.get?.(trip.tt.at(-1)?.s)?.includes?.(stationKey) || trip.tt.at(-1)?.s === stationKey;
-                const terminalThroughLineIds = collectTerminalThroughLineIds({
-                    isTerminalStation,
-                    ntRefs,
-                    sourceLineId,
-                    displayLineId: lineId
-                });
-
                 let derivedThroughDirection = throughDirectionCache.get(tripDirectionCacheKey);
                 if (derivedThroughDirection === undefined) {
                     derivedThroughDirection = await derivePanelTripDetailThroughServiceDirection({
@@ -2534,6 +2538,45 @@ export function createPanel(options = {}) {
                 const dir = throughCategory
                     ? `through:${throughCategory}:${baseDir || 'Unknown'}`
                     : baseDir;
+
+                const stop = tt.find((x) => {
+                    const currentSid = toText(x?.s);
+                    if (!currentSid) return false;
+
+                    // 1. 首先判断 ID 是否完全一致（最快且最直接）
+                    if (currentSid === stationKey) return true;
+
+                    // 2. 如果不一致，再查换乘组索引
+                    return sg?.get?.(currentSid)?.includes?.(stationKey);
+                });
+
+                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary && !hasNm) {
+                    const typeSummaryPayload = {
+                        stop,
+                        tt,
+                        typeColor,
+                        typeId,
+                        typeName
+                    };
+                    recordTypeSummaryForTrip(lineTypeSummaryState, typeSummaryPayload);
+                }
+
+                if (!stop) continue;
+
+                let arr = toText(stop?.a);
+                let dep = toText(stop?.d);
+                const stationHasNativeArrival = !!arr;
+                const stationHasNativeDeparture = !!dep;
+
+                const isOriginStation = sg?.get?.(trip.tt?.[0]?.s)?.includes?.(stationKey) || trip.tt?.[0]?.s === stationKey;
+                const isTerminalStation = sg?.get?.(trip.tt.at(-1)?.s)?.includes?.(stationKey) || trip.tt.at(-1)?.s === stationKey;
+                const terminalThroughLineIds = collectTerminalThroughLineIds({
+                    isTerminalStation,
+                    ntRefs,
+                    sourceLineId,
+                    displayLineId: lineId
+                });
+
                 const isLoopDirection = /Loop/i.test(dir);
                 const skipCrossTripFillForLoop = isLoopDirection && (hasPt || hasNt);
                 // 真始发/真终点：没有 pt/nt 的端点站，不补全时间
@@ -2812,6 +2855,67 @@ export function createPanel(options = {}) {
             dirToDestCounts
         } = directionStats;
         const dirOrder = sortPanelDirectionOrder(directionStats.dirOrder);
+        const visibleDirOrder = focusedDirectionKey
+            ? dirOrder.filter((dirKey) => focusedDirectionKey === makeLineDirKey(lineId, dirKey))
+            : dirOrder.slice();
+        const buildTypeSummaryItemsFromState = (summary) => buildStationTypeSummaryItems({
+            allTypeColorByName: summary?.allTypeColorByName,
+            currentLineId: lineId,
+            stopTypeColorByName: summary?.stopTypeColorByName,
+            stopTypeNameSet: summary?.stopTypeNameSet,
+            typeCountByName: summary?.typeCountByName,
+            typeIdsByTypeName: summary?.typeIdsByName,
+            typeStopCountByName: summary?.typeStopCountByName
+        });
+        const buildTypeSummaryItemsFromDirectionRows = (rowsForDir) => {
+            const summary = createTypeSummaryState();
+            for (const row of (Array.isArray(rowsForDir) ? rowsForDir : [])) {
+                const typeName = toText(row?.typeName);
+                const typeId = toText(row?.typeId);
+                if (!typeName || row?.hasNm || isExcludedLineType(lineId, typeId) || !resolveTypeBaseName(typeName)) {
+                    continue;
+                }
+
+                summary.typeCountByName.set(typeName, (Number(summary.typeCountByName.get(typeName) || 0)) + 1);
+                if (!summary.typeIdsByName.has(typeName)) summary.typeIdsByName.set(typeName, new Set());
+                if (typeId) summary.typeIdsByName.get(typeName).add(typeId);
+                if (!summary.allTypeColorByName.has(typeName)) {
+                    summary.allTypeColorByName.set(typeName, toText(row?.typeColor));
+                }
+                summary.stopTypeNameSet.add(typeName);
+                if (!summary.stopTypeColorByName.has(typeName) && toText(row?.typeColor)) {
+                    summary.stopTypeColorByName.set(typeName, toText(row?.typeColor));
+                }
+
+                const stopCount = Number(row?.stopCount);
+                if (Number.isFinite(stopCount) && stopCount > 0) {
+                    const prev = Number(summary.typeStopCountByName.get(typeName));
+                    summary.typeStopCountByName.set(
+                        typeName,
+                        Number.isFinite(prev) ? Math.min(prev, stopCount) : stopCount
+                    );
+                }
+            }
+            return buildTypeSummaryItemsFromState(summary);
+        };
+        const rowsByVisibleDir = new Map(visibleDirOrder.map((dirKey) => [
+            dirKey,
+            rows.filter((r) => (toText(r.dir) || 'Unknown') === dirKey)
+        ]));
+        const stationInfoTypePlacement = resolvePanelStationInfoTypePlacement({
+            globalTypeItems: stationTypeSummaryItems,
+            directionTypeGroups: visibleDirOrder.map((dirKey) => ({
+                dirKey,
+                typeItems: buildTypeSummaryItemsFromDirectionRows(rowsByVisibleDir.get(dirKey))
+            }))
+        });
+        const displayStationTypeSummaryItems = stationInfoTypePlacement.mode === 'split'
+            ? (stationInfoTypePlacement.primaryTypeItems || [])
+            : stationTypeSummaryItems;
+        const directionStationInfoTypeItemsByDirKey = new Map();
+        if (stationInfoTypePlacement.mode === 'split' && visibleDirOrder.length === 2) {
+            directionStationInfoTypeItemsByDirKey.set(visibleDirOrder[1], stationInfoTypePlacement.secondaryTypeItems || []);
+        }
 
         const renderTime = (r) => {
             const a = toText(r.arr);
@@ -2947,7 +3051,7 @@ export function createPanel(options = {}) {
         // 分组显示：默认显示所有方向；方向内默认展示 3 条未来班次
         let html = '';
         const directionDebug = [];
-        for (const dirKey of dirOrder) {
+        for (const dirKey of visibleDirOrder) {
             const counts = dirToDestCounts.get(dirKey) || new Map();
             // If no destination anywhere met threshold, show all destinations sorted by frequency
             const useAllIfBelowThreshold = !anyDestAboveThreshold;
@@ -2962,11 +3066,10 @@ export function createPanel(options = {}) {
                 .map(([name]) => name);
             const lineDirKey = makeLineDirKey(lineId, dirKey);
             const focused = focusedDirectionKey === lineDirKey;
-            if (focusedDirectionKey && !focused) continue;
             const expanded = focused || isDirExpanded(lineId, dirKey);
             const tri = expanded ? '▾' : '▸';
 
-            const rowsForDir = rows.filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
+            const rowsForDir = rowsByVisibleDir.get(dirKey) || [];
             const throughServiceCategory = toText(rowsForDir.find((row) => toText(row?.throughServiceCategory))?.throughServiceCategory);
             const isThroughServiceDirection = !!throughServiceCategory;
             const { typeHints, terminalHints, specialHints } = buildDirectionGridHints(rowsForDir, { currentLineId: lineId });
@@ -3240,8 +3343,12 @@ export function createPanel(options = {}) {
                 });
             const focusIconName = focused ? 'fullscreen-exit.svg' : 'fs.svg';
             const focusButtonLabel = focused ? '退出方向聚焦' : '只看该方向班次';
+            const directionStationInfoHtml = directionStationInfoTypeItemsByDirKey.has(dirKey)
+                ? renderDirectionStationInfoHtml(directionStationInfoTypeItemsByDirKey.get(dirKey))
+                : '';
 
             html += `
+                ${directionStationInfoHtml}
                 <div class="panel-dir">
                     <div class="panel-dir-header" data-dir-toggle="1" data-dir-key="${escapeHtml(dirKey)}">
                         <span class="panel-dir-title">
@@ -3287,7 +3394,7 @@ export function createPanel(options = {}) {
         return {
             html,
             stationInfo: {
-                typeItems: stationTypeSummaryItems
+                typeItems: displayStationTypeSummaryItems
             }
         };
     };
@@ -3307,16 +3414,43 @@ export function createPanel(options = {}) {
         return Array.from(plain).length > 4;
     };
 
-    const renderPrintableStationInfoHtml = (stationInfo) => {
-        const typeItems = Array.isArray(stationInfo?.typeItems)
-            ? stationInfo.typeItems
+    const normalizeStationInfoTypeItems = (typeItemsRaw) => (
+        Array.isArray(typeItemsRaw)
+            ? typeItemsRaw
                 .map((item) => ({
                     name: toText(item?.name),
                     isStop: item?.isStop === true,
                     color: toText(item?.color)
                 }))
                 .filter((item) => item.name)
-            : [];
+            : []
+    );
+
+    const renderLiveStationInfoTypesHtml = (typeItemsRaw) => (
+        normalizeStationInfoTypeItems(typeItemsRaw).map((item) => {
+            const baseStopClass = item.isStop && isNoMarkTypeName(item.name) ? ' is-base-stop' : '';
+            const cls = item.isStop ? `panel-station-info-type is-stop${baseStopClass}` : 'panel-station-info-type is-pass';
+            const bgColor = item.isStop ? (toText(item.color) || '#555') : '#ddd';
+            const smallFontStyle = shouldUseSmallStationTypeBadgeFont(item.name) ? ';font-size:10px' : '';
+            const style = ` style="background-color:${escapeHtml(bgColor)}${smallFontStyle}"`;
+            const label = formatStationTypeBadgeLabel(item.name);
+            return `<span class="${cls}"${style}>${escapeHtml(label)}</span>`;
+        }).join('')
+    );
+
+    const renderDirectionStationInfoHtml = (typeItemsRaw) => {
+        const typesHtml = renderLiveStationInfoTypesHtml(typeItemsRaw);
+        if (!typesHtml) return '';
+        return `
+            <div class="panel-station-info panel-station-info-between-directions" data-station-info-direction-types="1">
+                <span class="panel-station-info-left"></span>
+                <span class="panel-station-info-types" data-station-type-summary="1">${typesHtml}</span>
+            </div>
+        `;
+    };
+
+    const renderPrintableStationInfoHtml = (stationInfo) => {
+        const typeItems = normalizeStationInfoTypeItems(stationInfo?.typeItems);
 
         if (!typeItems.length) return '';
 
@@ -3350,15 +3484,7 @@ export function createPanel(options = {}) {
         const hasSuffix = !!lineEl.querySelector?.('[data-line-suffix-row] .panel-line-name-suffix');
         infoEl.classList.toggle('is-badge-only-no-suffix', hasBadge && !hasSuffix);
 
-        const typeItems = Array.isArray(stationInfo?.typeItems)
-            ? stationInfo.typeItems
-                .map((item) => ({
-                    name: toText(item?.name),
-                    isStop: item?.isStop === true,
-                    color: toText(item?.color)
-                }))
-                .filter((item) => item.name)
-            : [];
+        const typeItems = normalizeStationInfoTypeItems(stationInfo?.typeItems);
 
         if (!typeItems.length) {
             typesEl.innerHTML = '';
