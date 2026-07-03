@@ -2819,6 +2819,11 @@ const initMapApp = async () => {
 
     function clearSelectionsAndRestore() {
         panel?.invalidateStationRestoreSession?.({ cancelRender: true });
+        const stationPopupMode = stationPopup?.getOpenMode?.() || null;
+        stationPopup?.clearRestoreState?.();
+        if (stationPopupMode) {
+            stationPopup?.closePopup?.({ committed: true });
+        }
         panel?.resetTemporaryTimeOverride?.();
         appStore.dispatch(selectionClear({ source: 'app.clearSelectionsAndRestore' }));
         isolateStationsToSelectedLine = false;
@@ -4967,6 +4972,13 @@ const initMapApp = async () => {
             resolveLineSelection: resolveLineSelectionForApp,
             resetLabelOnRestore: false,
             searchFeature,
+            canRestoreStationLines: ({ stationId, lineIds, meta }) => (
+                stationPopup?.canRestoreStationLines?.({
+                    stationId,
+                    lineIds,
+                    sessionId: meta?.restoreSessionId
+                }) === true
+            ),
             setIsolateStationsToSelectedLine: (enabled) => {
                 isolateStationsToSelectedLine = enabled === true;
             },

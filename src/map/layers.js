@@ -852,6 +852,9 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
 
     // 当前 popup 所属站点的 serving_ids（用于离开单条线路 hover 时恢复）
     let currentStationServingIds = [];
+    let popupRestoreSessionId = 0;
+    let popupRestoreContext = null;
+    let popupRenderToken = 0;
 
     // 当前已应用的 hover 预览对象（line:/company:）
     let lastAppliedHoverKey = null;
@@ -865,6 +868,75 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
             clearTimeout(restoreTimerId);
             restoreTimerId = null;
         }
+    };
+
+    const normalizePopupArrayLike = (value) => {
+        if (Array.isArray(value)) return value;
+        if (typeof value !== 'string') return value ? [value] : [];
+
+        const s = value.trim();
+        if (s.startsWith('[') && s.endsWith(']')) {
+            try {
+                const parsed = JSON.parse(s);
+                return Array.isArray(parsed) ? parsed : [value];
+            } catch {
+                return [value];
+            }
+        }
+        return s ? [s] : [];
+    };
+
+    const normalizePopupLineIds = (value) => (
+        Array.isArray(value) ? value.map((entry) => String(entry ?? '').trim()).filter(Boolean) : []
+    );
+
+    const samePopupLineIds = (left, right) => (
+        left.length === right.length && left.every((value, index) => value === right[index])
+    );
+
+    const readPopupStationRestoreContext = (props = {}) => {
+        const stationId = String(props?.id ?? '').trim();
+        const servingIds = normalizePopupLineIds(normalizePopupArrayLike(props?.serving_ids));
+        return { stationId, servingIds };
+    };
+
+    const getPopupRestoreSnapshot = () => (
+        popupRestoreContext
+            ? {
+                sessionId: popupRestoreContext.sessionId,
+                stationId: popupRestoreContext.stationId,
+                servingIds: popupRestoreContext.servingIds.slice()
+            }
+            : null
+    );
+
+    const setPopupRestoreContext = ({ stationId: stationIdValue, servingIds: servingIdsValue } = {}) => {
+        const stationId = String(stationIdValue ?? '').trim();
+        const servingIds = normalizePopupLineIds(servingIdsValue);
+        popupRestoreSessionId += 1;
+        currentStationServingIds = servingIds.slice();
+        popupRestoreContext = stationId
+            ? {
+                sessionId: popupRestoreSessionId,
+                stationId,
+                servingIds
+            }
+            : null;
+        return getPopupRestoreSnapshot();
+    };
+
+    const invalidatePopupRestoreContext = () => {
+        popupRestoreSessionId += 1;
+        popupRestoreContext = null;
+        currentStationServingIds = [];
+        lastAppliedHoverKey = null;
+    };
+
+    const canRestorePopupStationLines = ({ stationId, lineIds, sessionId } = {}) => {
+        if (!popupRestoreContext) return false;
+        if (Number(sessionId) !== popupRestoreContext.sessionId) return false;
+        if (String(stationId ?? '').trim() !== popupRestoreContext.stationId) return false;
+        return samePopupLineIds(normalizePopupLineIds(lineIds), popupRestoreContext.servingIds);
     };
 
     let hoverTimerId = null;
@@ -920,13 +992,21 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
     const restoreStationLinesIfNeeded = () => {
         if (popupOpenMode !== 'fixed') return;
         if (!lastAppliedHoverKey) return;
+        const restoreContext = getPopupRestoreSnapshot();
+        if (!restoreContext) {
+            lastAppliedHoverKey = null;
+            return;
+        }
         if (typeof onRestoreStationLines !== 'function') {
             lastAppliedHoverKey = null;
             return;
         }
 
         try {
-            onRestoreStationLines(Array.isArray(currentStationServingIds) ? currentStationServingIds.slice() : []);
+            onRestoreStationLines(restoreContext.servingIds, {
+                stationId: restoreContext.stationId,
+                restoreSessionId: restoreContext.sessionId
+            });
         } catch {
             // ignore
         }
@@ -957,8 +1037,8 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         lastFiredHoverKey = null;
         tapArmedKey = null;
         popupOpenMode = null;
-        currentStationServingIds = [];
-        lastAppliedHoverKey = null;
+        popupRenderToken += 1;
+        invalidatePopupRestoreContext();
 
         popup.remove();
 
@@ -996,8 +1076,12 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         hoverCandidateKey = null;
         lastFiredHoverKey = null;
 
+        const renderToken = ++popupRenderToken;
+        const restoreContext = readPopupStationRestoreContext(props);
         const html = await buildPopupHtml(props, { interactive: false });
         if (isStillActive && !isStillActive()) return false;
+        if (renderToken !== popupRenderToken || popupOpenMode !== 'hover') return false;
+        setPopupRestoreContext(restoreContext);
         popup.setLngLat(coordinates).setHTML(html);
         mapAdapter.addPopup(popup);
         void enhancePopupLineBadges({ popup, mode: 'station' });
@@ -1311,29 +1395,10 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
     const buildPopupHtml = async (props = {}, meta = {}) => {
         const name = props.name_zh || props.name || '';
         const interactive = meta?.interactive === true;
-        const normalizeArrayLike = (value) => {
-            if (Array.isArray(value)) return value;
-            if (typeof value !== 'string') return value ? [value] : [];
+        const { stationId, servingIds } = readPopupStationRestoreContext(props);
 
-            const s = value.trim();
-            // 兼容：某些数据源会把数组写成 JSON 字符串（例如 "[\"A\",\"B\"]"）
-            if (s.startsWith('[') && s.endsWith(']')) {
-                try {
-                    const parsed = JSON.parse(s);
-                    return Array.isArray(parsed) ? parsed : [value];
-                } catch {
-                    return [value];
-                }
-            }
-            return s ? [s] : [];
-        };
-
-        const servingIdsRaw = normalizeArrayLike(props.serving_ids);
-        const servingIds = servingIdsRaw.map(String).filter(Boolean);
-
-        const stationId = String(props?.id ?? '').trim();
         const currentStationNameZh = String(props?.name_zh || props?.['name:zh'] || name || '').trim();
-        const platformLineIdsRaw = normalizeArrayLike(props?.platform_line_id);
+        const platformLineIdsRaw = normalizePopupArrayLike(props?.platform_line_id);
         const currentPlatformLineId = String(platformLineIdsRaw?.[0] ?? '').trim();
 
         const lineStationNameByLineId = new Map();
@@ -1385,8 +1450,6 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
                 // ignore
             }
         }
-
-        currentStationServingIds = servingIds.slice();
 
         const nameHtml = `<div class="station-hover-name">${escapeHtml(name)}</div>`;
 
@@ -1587,7 +1650,11 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         lastFiredHoverKey = null;
         const coordinates = feature.geometry.coordinates.slice();
         const props = feature.properties || {};
+        const renderToken = ++popupRenderToken;
+        const restoreContext = readPopupStationRestoreContext(props);
         const html = await buildPopupHtml(props, { interactive: false });
+        if (renderToken !== popupRenderToken || popupOpenMode !== 'hover') return;
+        setPopupRestoreContext(restoreContext);
         popup.setLngLat(coordinates).setHTML(html);
         mapAdapter.addPopup(popup);
         void enhancePopupLineBadges({ popup, mode: 'station' });
@@ -1631,7 +1698,11 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         hoverCandidateKey = null;
         lastFiredHoverKey = null;
 
+        const renderToken = ++popupRenderToken;
+        const restoreContext = readPopupStationRestoreContext(props);
         const html = await buildPopupHtml(props, { interactive: true });
+        if (renderToken !== popupRenderToken || popupOpenMode !== 'fixed') return;
+        setPopupRestoreContext(restoreContext);
         popup.setLngLat(coordinates).setHTML(html);
         mapAdapter.addPopup(popup);
         void enhancePopupLineBadges({ popup, mode: 'station' });
@@ -1653,6 +1724,18 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         tryHidePopup();
     };
 
+    const clearRestoreState = () => {
+        clearHideTimer();
+        clearHoverTimer();
+        clearRestoreTimer();
+        resetTouchHoverState();
+        hoverCandidateKey = null;
+        lastFiredHoverKey = null;
+        tapArmedKey = null;
+        popupRenderToken += 1;
+        invalidatePopupRestoreContext();
+    };
+
     return {
         showPopupAt,
         showTouchHoverPopupAt,
@@ -1661,15 +1744,15 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         setHoverPreviewEnabled: (enabled) => {
             hoverPreviewEnabled = enabled !== false;
             if (hoverPreviewEnabled) return;
-            clearHoverTimer();
-            clearRestoreTimer();
-            resetTouchHoverState();
+            clearRestoreState();
             hoverCandidateKey = null;
             lastFiredHoverKey = null;
             if (popupOpenMode === 'hover') {
                 removePopupNow({ committed: false });
             }
         },
+        canRestoreStationLines: (payload = {}) => canRestorePopupStationLines(payload),
+        clearRestoreState,
         getOpenMode: () => popupOpenMode,
         closePopup: ({ committed } = {}) => {
             // 用于：外部 UI（例如菜单）切换选择时，关闭固定 popup 并清理其内部选中/预览状态。
