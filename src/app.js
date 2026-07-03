@@ -1501,6 +1501,13 @@ const initMapApp = async () => {
         });
     };
 
+    const cancelSelectionTripPreviewSync = () => {
+        selectionLineTripPreviewSignature = '';
+        selectionCompanyTripPreviewSignature = '';
+        selectionLineTripPreviewRequestId += 1;
+        selectionCompanyTripPreviewRequestId += 1;
+    };
+
     const syncSelectionLineTripPreview = async () => {
         const activeSource = String(tripPreviewActiveSource || '').trim();
 
@@ -2819,11 +2826,14 @@ const initMapApp = async () => {
 
     function clearSelectionsAndRestore() {
         panel?.invalidateStationRestoreSession?.({ cancelRender: true });
+        panel?.cancelStationThroughPreview?.();
         const stationPopupMode = stationPopup?.getOpenMode?.() || null;
         stationPopup?.clearRestoreState?.();
         if (stationPopupMode) {
             stationPopup?.closePopup?.({ committed: true });
         }
+        cancelSelectionTripPreviewSync();
+        clearTripPathPreview();
         panel?.resetTemporaryTimeOverride?.();
         appStore.dispatch(selectionClear({ source: 'app.clearSelectionsAndRestore' }));
         isolateStationsToSelectedLine = false;

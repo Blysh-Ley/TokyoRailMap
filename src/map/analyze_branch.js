@@ -1311,6 +1311,7 @@ export const previewBranchesForLineRequests = async ({
     requests,
     fitMode = 'commit',
     highlightStationIds,
+    isStillActive,
     previewSource = 'route-map-branch'
 } = {}) => {
     const source = toText(previewSource) || 'route-map-branch';
@@ -1333,12 +1334,17 @@ export const previewBranchesForLineRequests = async ({
     const results = [];
     const virtualTripKeys = new Set();
     let primaryLineId = '';
+    const stillActive = () => (
+        typeof isStillActive === 'function' ? isStillActive() !== false : true
+    );
 
     for (const request of list) {
+        if (!stillActive()) return { ok: false, reason: 'stale' };
         const built = await buildBranchPreviewForLineRequest({
             ...(request || {}),
             previewSource: source
         });
+        if (!stillActive()) return { ok: false, reason: 'stale' };
         results.push(built);
         if (!built?.ok) continue;
         if (!primaryLineId) primaryLineId = built.lineId;
@@ -1361,6 +1367,7 @@ export const previewBranchesForLineRequests = async ({
     }
 
     const selectedLineId = primaryLineId || 'multi';
+    if (!stillActive()) return { ok: false, reason: 'stale', results };
     actions.previewTripPath({
         selectedLineId,
         mainLineId: selectedLineId,

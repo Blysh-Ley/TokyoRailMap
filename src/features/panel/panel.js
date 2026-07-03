@@ -623,12 +623,23 @@ export function createPanel(options = {}) {
     let currentStationId = null;
     let currentStationNameZh = '';
     let currentStationProps = null;
+    let stationThroughPreviewSuppressed = false;
     const stationRestoreContext = createPanelStationRestoreContext({ toText });
 
     const invalidateStationRestoreSession = ({ cancelRender = false } = {}) => {
         if (cancelRender) stationRenderToken += 1;
         stationRestoreContext.invalidate();
         lastAppliedHoverKey = null;
+    };
+
+    const cancelStationThroughPreview = () => {
+        stationThroughPreviewSuppressed = true;
+        stationRenderToken += 1;
+        try {
+            crossFeatureBridge.clearTripPathPreviewBySource(STATION_THROUGH_PREVIEW_SOURCE);
+        } catch {
+            // ignore cross-feature cleanup failures
+        }
     };
 
     const getMobilePanelStationContext = () => ({
@@ -2212,6 +2223,7 @@ export function createPanel(options = {}) {
     } = {}) => {
         const sid = toText(stationId);
         if (!sid || renderToken !== stationRenderToken) return false;
+        if (stationThroughPreviewSuppressed) return false;
 
         const requests = buildStationThroughPreviewRequests();
         if (!requests.length) {
@@ -2220,13 +2232,14 @@ export function createPanel(options = {}) {
         }
 
         const highlightStationIds = await collectStationThroughPreviewHighlightIds(sid, requests);
-        if (renderToken !== stationRenderToken || sid !== toText(currentStationId)) return false;
+        if (stationThroughPreviewSuppressed || renderToken !== stationRenderToken || sid !== toText(currentStationId)) return false;
 
         try {
             await previewBranchesForLineRequests({
                 requests,
                 fitMode: 'commit',
                 highlightStationIds,
+                isStillActive: () => !stationThroughPreviewSuppressed && renderToken === stationRenderToken && sid === toText(currentStationId),
                 previewSource: STATION_THROUGH_PREVIEW_SOURCE
             });
             return true;
@@ -2240,6 +2253,7 @@ export function createPanel(options = {}) {
 
     const restoreStationThroughPreviewDefault = () => {
         if (panelShell.isVisible?.() !== true) return false;
+        if (stationThroughPreviewSuppressed) return false;
         const sid = toText(currentStationId);
         if (!sid) return false;
         scheduleStationThroughPreview({
@@ -5898,6 +5912,7 @@ export function createPanel(options = {}) {
     const showForStationProps = async (props) => {
         const renderToken = ++stationRenderToken;
         const name = readStationName(props);
+        stationThroughPreviewSuppressed = false;
         invalidateStationRestoreSession();
         panelCatalogController?.resetTransientUiState();
 
@@ -6113,6 +6128,7 @@ export function createPanel(options = {}) {
         setHoverPreviewEnabled,
         setTimeOverride,
         invalidateStationRestoreSession,
+        cancelStationThroughPreview,
         canRestoreStationLines: (payload = {}) => stationRestoreContext.canRestore(payload),
         resetTemporaryTimeOverride,
         handlePanelBackIntent,
