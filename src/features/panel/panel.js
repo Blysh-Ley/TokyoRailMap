@@ -4625,7 +4625,8 @@ export function createPanel(options = {}) {
         closeDirFilterPopover();
         syncDirectionFocusVisibility();
         const token = ++timetableRenderToken;
-        const stationId = currentStationId;
+        const stationRenderTokenAtStart = stationRenderToken;
+        const stationId = toText(currentStationId);
         dirFilterRowsByKey.clear();
         dirFilteredTripKeysByKey.clear();
         dirPreviewMetaByKey.clear();
@@ -4633,11 +4634,18 @@ export function createPanel(options = {}) {
         const lineEls = Array.from(body.querySelectorAll('[data-line-id]'));
         for (const el of lineEls) {
             await renderTimetableForLineEl(el, stationId, token);
+            if (
+                token !== timetableRenderToken
+                || stationRenderTokenAtStart !== stationRenderToken
+                || stationId !== toText(currentStationId)
+            ) {
+                return;
+            }
         }
         syncDirectionFocusStickyMetrics();
         scheduleStationThroughPreview({
-            renderToken: stationRenderToken,
-            stationId: currentStationId
+            renderToken: stationRenderTokenAtStart,
+            stationId
         }).catch(() => null);
 
         if (pendingGridDataDebugLog) {

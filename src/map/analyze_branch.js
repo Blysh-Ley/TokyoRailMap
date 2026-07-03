@@ -562,20 +562,24 @@ const addCurrentLineCoverageRecords = ({
     targetTimetables,
     baseFilteredRecords,
     activeLineIds,
-    lineStationIdsById
+    lineStationIdsById,
+    shouldContinue
 } = {}) => {
     if (!Array.isArray(targetTimetables) || !Array.isArray(baseFilteredRecords)) return;
     if (!(lineStationIdsById instanceof Map)) return;
+    const isActive = typeof shouldContinue === 'function' ? shouldContinue : (() => true);
 
     const selectedTripIds = new Set(targetTimetables.map((rec) => getTripId(rec)).filter(Boolean));
     const coveredPairKeys = new Set();
     for (const rec of targetTimetables) {
+        if (!isActive()) return false;
         for (const key of collectAdjacentPairKeys(getRecordStationIds(rec))) coveredPairKeys.add(key);
     }
 
     const requiredPairKeys = [];
     const seenRequired = new Set();
     for (const lineId of Array.isArray(activeLineIds) ? activeLineIds : []) {
+        if (!isActive()) return false;
         const stationIds = lineStationIdsById.get(toText(lineId)) || [];
         for (const key of collectAdjacentPairKeys(stationIds)) {
             if (seenRequired.has(key)) continue;
@@ -585,9 +589,11 @@ const addCurrentLineCoverageRecords = ({
     }
 
     for (const requiredPairKey of requiredPairKeys) {
+        if (!isActive()) return false;
         if (coveredPairKeys.has(requiredPairKey)) continue;
 
         const coverageRecord = baseFilteredRecords.find((rec) => {
+            if (!isActive()) return false;
             const tripId = getTripId(rec);
             if (tripId && selectedTripIds.has(tripId)) return false;
             return collectAdjacentPairKeys(getRecordStationIds(rec)).has(requiredPairKey);
@@ -601,6 +607,7 @@ const addCurrentLineCoverageRecords = ({
             coveredPairKeys.add(key);
         }
     }
+    return true;
 };
 
 const loadAllTimetableRecords = async () => {
@@ -757,92 +764,127 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
     const categoryKey = throughServiceCategory || '*';
     const filterSpecial = options?.filterSpecial === true;
     const cacheKey = `${lineIdsKey}##${tripFilterKey}##${categoryKey}##${filterSpecial ? 'base' : 'all'}`;
+    const shouldContinue = typeof options?.isStillActive === 'function'
+        ? () => options.isStillActive() !== false
+        : null;
+    const staleResult = () => ({
+        ok: false,
+        reason: 'stale',
+        lineId: lid,
+        sourceLineIds: activeLineIds,
+        throughServiceCategory,
+        originStationIds: [],
+        terminalStationIds: [],
+        targetCount: 0,
+        throughServiceCount: 0,
+        fullRouteCount: 0,
+        fullRouteChains: [],
+        branchList: []
+    });
+    const isActive = () => (shouldContinue ? shouldContinue() : true);
 
-    if (!branchAnalysisCacheByLine.has(cacheKey)) {
-        const p = (async () => {
-            const { allRecords, idMap, lineStationIdsById } = await loadAllTimetableRecords();
-            const throughCategoryCache = new Map();
+    const runAnalysis = async () => {
+        if (!isActive()) return staleResult();
+        const { allRecords, idMap, lineStationIdsById } = await loadAllTimetableRecords();
+        if (!isActive()) return staleResult();
+        const throughCategoryCache = new Map();
 
-            const baseFilteredRecords = [];
-            const targetTimetables = [];
-            const dsFrequencyMap = new Map();
-            const osFrequencyMap = new Map();
+        const baseFilteredRecords = [];
+        const targetTimetables = [];
+        const dsFrequencyMap = new Map();
+        const osFrequencyMap = new Map();
 
-            for (const rec of allRecords) {
-                if (filterSpecial && rec && rec.nm) continue;
-                if (!activeLineSet.has(getTripLineId(rec))) continue;
-                if (!matchesTripFilter(rec, tripFilterSet)) continue;
-                if (!matchesThroughServiceCategory(rec, idMap, throughServiceCategory, throughCategoryCache)) continue;
+        for (let i = 0; i < allRecords.length; i += 1) {
+            if (i % 128 === 0 && !isActive()) return staleResult();
+            const rec = allRecords[i];
+            if (filterSpecial && rec && rec.nm) continue;
+            if (!activeLineSet.has(getTripLineId(rec))) continue;
+            if (!matchesTripFilter(rec, tripFilterSet)) continue;
+            if (!matchesThroughServiceCategory(rec, idMap, throughServiceCategory, throughCategoryCache)) continue;
 
-                baseFilteredRecords.push(rec);
+            baseFilteredRecords.push(rec);
 
+            const dsKey = rec.ds && Array.isArray(rec.ds) ? rec.ds.join(',') : '';
+            dsFrequencyMap.set(dsKey, (dsFrequencyMap.get(dsKey) || 0) + 1);
+
+            const osKey = rec.os && Array.isArray(rec.os) ? rec.os.join(',') : '';
+            osFrequencyMap.set(osKey, (osFrequencyMap.get(osKey) || 0) + 1);
+        }
+        if (!isActive()) return staleResult();
+
+        if (filterSpecial) {
+            for (let i = 0; i < baseFilteredRecords.length; i += 1) {
+                if (i % 128 === 0 && !isActive()) return staleResult();
+                const rec = baseFilteredRecords[i];
                 const dsKey = rec.ds && Array.isArray(rec.ds) ? rec.ds.join(',') : '';
-                dsFrequencyMap.set(dsKey, (dsFrequencyMap.get(dsKey) || 0) + 1);
-
                 const osKey = rec.os && Array.isArray(rec.os) ? rec.os.join(',') : '';
-                osFrequencyMap.set(osKey, (osFrequencyMap.get(osKey) || 0) + 1);
-            }
 
-            if (filterSpecial) {
-                for (const rec of baseFilteredRecords) {
-                    const dsKey = rec.ds && Array.isArray(rec.ds) ? rec.ds.join(',') : '';
-                    const osKey = rec.os && Array.isArray(rec.os) ? rec.os.join(',') : '';
+                const dsCount = dsFrequencyMap.get(dsKey) || 0;
+                const osCount = osFrequencyMap.get(osKey) || 0;
 
-                    const dsCount = dsFrequencyMap.get(dsKey) || 0;
-                    const osCount = osFrequencyMap.get(osKey) || 0;
-
-                    if (dsCount >= 10 && osCount >= 10) {
-                        targetTimetables.push(rec);
-                    }
+                if (dsCount >= 10 && osCount >= 10) {
+                    targetTimetables.push(rec);
                 }
-                addCurrentLineCoverageRecords({
-                    targetTimetables,
-                    baseFilteredRecords,
-                    activeLineIds,
-                    lineStationIdsById
-                });
-            } else {
-                targetTimetables.push(...baseFilteredRecords);
             }
+            addCurrentLineCoverageRecords({
+                targetTimetables,
+                baseFilteredRecords,
+                activeLineIds,
+                lineStationIdsById,
+                shouldContinue: isActive
+            });
+            if (!isActive()) return staleResult();
+        } else {
+            targetTimetables.push(...baseFilteredRecords);
+        }
 
-            if (!targetTimetables.length) {
-                return {
-                    lineId: lid,
-                    sourceLineIds: activeLineIds,
-                    throughServiceCategory,
-                    originStationIds: [],
-                    terminalStationIds: [],
-                    targetCount: 0,
-                    throughServiceCount: 0,
-                    fullRouteCount: 0,
-                    fullRouteChains: [],
-                    branchList: []
-                };
-            }
-
-            const ttLists = buildThroughServiceTtLists(targetTimetables, idMap);
-            const fullRoutes = clipRoutesToThroughServiceSegments(
-                selectFullRoutes(ttLists),
-                throughServiceCategory
-            );
-            const graph = buildGraph(fullRoutes);
-            const branchList = extractBranchLists(graph, fullRoutes).map((seq) => dedupKeepOrder(seq));
-            const endpoints = collectRouteEndpoints(fullRoutes);
-
-
+        if (!targetTimetables.length) {
             return {
                 lineId: lid,
                 sourceLineIds: activeLineIds,
                 throughServiceCategory,
-                originStationIds: endpoints.originStationIds,
-                terminalStationIds: endpoints.terminalStationIds,
-                targetCount: targetTimetables.length,
-                throughServiceCount: ttLists.length,
-                fullRouteCount: fullRoutes.length,
-                fullRouteChains: fullRoutes,
-                branchList: branchList.filter((x) => Array.isArray(x) && x.length >= 2)
+                originStationIds: [],
+                terminalStationIds: [],
+                targetCount: 0,
+                throughServiceCount: 0,
+                fullRouteCount: 0,
+                fullRouteChains: [],
+                branchList: []
             };
-        })();
+        }
+
+        if (!isActive()) return staleResult();
+        const ttLists = buildThroughServiceTtLists(targetTimetables, idMap);
+        if (!isActive()) return staleResult();
+        const fullRoutes = clipRoutesToThroughServiceSegments(
+            selectFullRoutes(ttLists),
+            throughServiceCategory
+        );
+        if (!isActive()) return staleResult();
+        const graph = buildGraph(fullRoutes);
+        const branchList = extractBranchLists(graph, fullRoutes).map((seq) => dedupKeepOrder(seq));
+        const endpoints = collectRouteEndpoints(fullRoutes);
+        if (!isActive()) return staleResult();
+
+
+        return {
+            lineId: lid,
+            sourceLineIds: activeLineIds,
+            throughServiceCategory,
+            originStationIds: endpoints.originStationIds,
+            terminalStationIds: endpoints.terminalStationIds,
+            targetCount: targetTimetables.length,
+            throughServiceCount: ttLists.length,
+            fullRouteCount: fullRoutes.length,
+            fullRouteChains: fullRoutes,
+            branchList: branchList.filter((x) => Array.isArray(x) && x.length >= 2)
+        };
+    };
+
+    if (shouldContinue) return runAnalysis();
+
+    if (!branchAnalysisCacheByLine.has(cacheKey)) {
+        const p = runAnalysis();
 
         branchAnalysisCacheByLine.set(cacheKey, p.catch((error) => {
             branchAnalysisCacheByLine.delete(cacheKey);
@@ -1143,7 +1185,8 @@ export const buildBranchPreviewForLineRequest = async ({
     highlightColor,
     filterSpecial = false,
     originStationIds,
-    terminalStationIds
+    terminalStationIds,
+    isStillActive
 } = {}) => {
     const lid = toText(lineId);
     if (!lid) return { ok: false, reason: 'line-id-empty' };
@@ -1155,12 +1198,20 @@ export const buildBranchPreviewForLineRequest = async ({
         : [];
 
     const normalizedHighlightColor = toText(highlightColor);
+    const hasStillActive = typeof isStillActive === 'function';
+    const stillActive = () => (
+        hasStillActive ? isStillActive() !== false : true
+    );
+    const cancellationOptions = hasStillActive ? { isStillActive: stillActive } : {};
+    if (!stillActive()) return { ok: false, reason: 'stale' };
     const result = await analyzeBranchesForLine(lid, {
         targetTripKeys,
         throughServiceCategory: normalizedCategory,
         sourceLineIds: normalizedSourceLineIds,
-        filterSpecial: filterSpecial === true
+        filterSpecial: filterSpecial === true,
+        ...cancellationOptions
     });
+    if (!stillActive() || result?.reason === 'stale') return { ok: false, reason: 'stale', result };
 
     let fullChainOriginStationIds = Array.isArray(originStationIds) && originStationIds.length
         ? originStationIds.map((x) => toText(x)).filter(Boolean)
@@ -1189,12 +1240,15 @@ export const buildBranchPreviewForLineRequest = async ({
     }
 
     if (filterSpecial !== true) {
+        if (!stillActive()) return { ok: false, reason: 'stale', result };
         const baseResult = await analyzeBranchesForLine(lid, {
             targetTripKeys,
             throughServiceCategory: normalizedCategory,
             sourceLineIds: normalizedSourceLineIds,
-            filterSpecial: true
+            filterSpecial: true,
+            ...cancellationOptions
         });
+        if (!stillActive() || baseResult?.reason === 'stale') return { ok: false, reason: 'stale', result };
         const baseRouteChains = Array.isArray(baseResult?.fullRouteChains) ? baseResult.fullRouteChains : [];
         const baseBranchList = Array.isArray(baseResult?.branchList) ? baseResult.branchList : [];
         for (let i = 0; i < baseBranchList.length; i += 1) {
@@ -1342,10 +1396,12 @@ export const previewBranchesForLineRequests = async ({
         if (!stillActive()) return { ok: false, reason: 'stale' };
         const built = await buildBranchPreviewForLineRequest({
             ...(request || {}),
-            previewSource: source
+            previewSource: source,
+            isStillActive: stillActive
         });
         if (!stillActive()) return { ok: false, reason: 'stale' };
         results.push(built);
+        if (built?.reason === 'stale') return { ok: false, reason: 'stale', results };
         if (!built?.ok) continue;
         if (!primaryLineId) primaryLineId = built.lineId;
         for (const payload of built.virtualTrips || []) {
@@ -1368,7 +1424,7 @@ export const previewBranchesForLineRequests = async ({
 
     const selectedLineId = primaryLineId || 'multi';
     if (!stillActive()) return { ok: false, reason: 'stale', results };
-    actions.previewTripPath({
+    const previewPayload = {
         selectedLineId,
         mainLineId: selectedLineId,
         tripKey: `branches:${source}:${virtualTrips.length}`,
@@ -1380,7 +1436,9 @@ export const previewBranchesForLineRequests = async ({
             : [],
         fitMode: toText(fitMode) || 'commit',
         virtualTrips
-    }, {
+    };
+    if (!stillActive()) return { ok: false, reason: 'stale', results };
+    actions.previewTripPath(previewPayload, {
         fitMode: toText(fitMode) || 'commit',
         clearBefore: true
     });
