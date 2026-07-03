@@ -4693,7 +4693,7 @@ export function createPanel(options = {}) {
         }
     };
 
-    const clearUnpinnedTripPreview = () => {
+    const clearUnpinnedTripPreview = ({ skipStationThroughRestore = false } = {}) => {
         if (tripLocked || tripDetailPinned) return;
         clearTripHighlightTimer();
         tripPreviewScheduler.clearApplied();
@@ -4702,6 +4702,7 @@ export function createPanel(options = {}) {
         } catch {
             // ignore
         }
+        if (skipStationThroughRestore) return;
         restoreStationThroughPreviewDefault();
     };
 
@@ -5652,7 +5653,7 @@ export function createPanel(options = {}) {
             clearDirPreview();
         }
         if (!tripDetailPinned) {
-            clearUnpinnedTripPreview();
+            clearUnpinnedTripPreview({ skipStationThroughRestore: true });
             scheduleTripDetailHide();
         }
     };
@@ -5714,7 +5715,7 @@ export function createPanel(options = {}) {
         if (isDirFilterPinned()) {
             applyDirPreviewByKey(panelSelectionState.getPinnedDirPreviewKey(), { force: true });
         } else {
-            clearUnpinnedTripPreview();
+            clearUnpinnedTripPreview({ skipStationThroughRestore: true });
         }
         scheduleTripDetailHide();
     };
