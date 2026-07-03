@@ -1088,13 +1088,15 @@ const setupRouteMapUi = () => {
             const keys = Object.keys(masks);
             const hasAnyTrue = (key) => Array.isArray(masks[key]) && masks[key].some(Boolean);
 
+            const hasLineDirectionPair = !!preferredSecondaryDir && preferredSecondaryDir !== preferredPrimaryDir;
+
             let primaryDir = preferredPrimaryDir;
-            if (!hasAnyTrue(primaryDir)) {
+            if (!hasLineDirectionPair && !hasAnyTrue(primaryDir)) {
                 primaryDir = keys.find((k) => hasAnyTrue(k)) || primaryDir;
             }
 
             let secondaryDir = preferredSecondaryDir;
-            if (!secondaryDir || secondaryDir === primaryDir || !hasAnyTrue(secondaryDir)) {
+            if (!hasLineDirectionPair && (!secondaryDir || secondaryDir === primaryDir || !hasAnyTrue(secondaryDir))) {
                 secondaryDir = keys.find((k) => k !== primaryDir && hasAnyTrue(k)) || '';
             }
 
