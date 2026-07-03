@@ -375,6 +375,9 @@ const defaultToText_panelStationRenderBootstrap = (value) => String(value ?? '')
 export const resetPanelStationRenderTransientState = ({
     dirPrintPayloadByKey,
     dirFilterStateByKey,
+    dirFilterRowsByKey,
+    dirFilteredTripKeysByKey,
+    dirPreviewMetaByKey,
     clearHoverTimer = () => {},
     clearRestoreTimer = () => {},
     clearTripHighlightTimer = () => {},
@@ -384,6 +387,9 @@ export const resetPanelStationRenderTransientState = ({
 } = {}) => {
     dirPrintPayloadByKey?.clear?.();
     dirFilterStateByKey?.clear?.();
+    dirFilterRowsByKey?.clear?.();
+    dirFilteredTripKeysByKey?.clear?.();
+    dirPreviewMetaByKey?.clear?.();
     clearHoverTimer();
     clearRestoreTimer();
     clearTripHighlightTimer();

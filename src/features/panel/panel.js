@@ -5943,6 +5943,9 @@ export function createPanel(options = {}) {
         } = resetPanelStationRenderTransientState({
             dirPrintPayloadByKey,
             dirFilterStateByKey,
+            dirFilterRowsByKey,
+            dirFilteredTripKeysByKey,
+            dirPreviewMetaByKey,
             clearHoverTimer,
             clearRestoreTimer,
             clearTripHighlightTimer,
