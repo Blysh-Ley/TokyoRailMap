@@ -194,14 +194,6 @@ const ensureStyleInstalled = () => {
     document.head.appendChild(link);
 };
 
-const getCurrentServiceDayFromPanelDom = () => {
-    // panel.js toggles is-active on the two buttons
-    const active = document.querySelector('.panel-day-seg button.is-active[data-day]');
-    const day = toText(active?.getAttribute?.('data-day'));
-    if (day === 'Weekday' || day === 'SaturdayHoliday') return day;
-    return 'Weekday';
-};
-
 const isEnglishTypeHeadText = (value) => {
     const s = toText(value);
     if (!s) return false;
@@ -899,7 +891,7 @@ const setupRouteMapUi = () => {
         show: showTransferHoverPortal
     });
 
-    const cache = new Map(); // key: lineId||serviceDay -> payload
+    const cache = new Map(); // key: lineId||all-days||minTrips -> payload
 
     const clearTimers = () => {
         if (showTimer) {
@@ -1827,15 +1819,9 @@ const setupRouteMapUi = () => {
             await appendThroughGapRow(si);
         }
 
-        const metaLine = (() => {
-            const day = toText(payload?.serviceDay);
-            const dayText = day === 'SaturdayHoliday' ? '休息日' : '工作日';
-            return `<div class="route-map-meta">${escapeHtml(dayText)}</div>`;
-        })();
-
         return {
             headHtml: `<div class="route-map-grid" style="${gridStyle}">${headCells}</div>`,
-            bodyHtml: `${metaLine}
+            bodyHtml: `
                 <div class="route-map-section">
                     <div class="route-map-section-title">站序</div>
                     <div class="route-map-grid" style="${gridStyle}">
@@ -1850,9 +1836,8 @@ const setupRouteMapUi = () => {
         if (!lid) return;
         if (!window?.TokyoRailTimetableCache) return;
 
-        const serviceDay = getCurrentServiceDayFromPanelDom();
         const minTripsPerDay = 0;
-        const cacheKey = `${lid}||${serviceDay}||minTrips=${minTripsPerDay}`;
+        const cacheKey = `${lid}||all-days||minTrips=${minTripsPerDay}`;
 
         activeLineId = lid;
         activeLineName = toText(lineName) || lid;
@@ -1879,7 +1864,7 @@ const setupRouteMapUi = () => {
 
         const payload = cache.has(cacheKey)
             ? cache.get(cacheKey)
-            : await computeLineStopDiagramData(lid, { serviceDay, minTripsPerDay });
+            : await computeLineStopDiagramData(lid, { minTripsPerDay });
         if (!payload) {
             gridHeader.innerHTML = '';
             body.innerHTML = '<div class="route-map-meta">无法生成（该线路无时刻表数据或尚未加载）</div>';
@@ -2274,24 +2259,6 @@ const setupRouteMapUi = () => {
         notifyRouteMapPopoverHoverLeave();
     });
 
-    // Day toggle: refresh if panel is visible
-    document.addEventListener('click', (evt) => {
-        const t = evt?.target;
-        if (!(t instanceof Element)) return;
-        if (!t.closest?.('.panel-day-seg button[data-day]')) return;
-        if (root.classList.contains('is-hidden')) return;
-        if (!activeLineId) return;
-
-        // Clear cache for this line for both days to avoid stale render
-        cache.delete(`${activeLineId}||Weekday`);
-        cache.delete(`${activeLineId}||SaturdayHoliday`);
-
-        showForLine({
-            lineId: activeLineId,
-            lineName: activeLineName,
-            anchorRect: lastAnchorRect
-        });
-    }, true);
 };
 
 setupRouteMapUi();
