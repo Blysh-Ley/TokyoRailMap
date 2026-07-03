@@ -2818,6 +2818,7 @@ const initMapApp = async () => {
     }
 
     function clearSelectionsAndRestore() {
+        panel?.invalidateStationRestoreSession?.();
         panel?.resetTemporaryTimeOverride?.();
         appStore.dispatch(selectionClear({ source: 'app.clearSelectionsAndRestore' }));
         isolateStationsToSelectedLine = false;

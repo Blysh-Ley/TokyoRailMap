@@ -107,7 +107,8 @@ import {
     getStationsIndex,
     getTrainTypeColorIndex,
     getTrainTypesIndex,
-    readStationName
+    readStationName,
+    createPanelStationRestoreContext
 } from './panelStation.js';
 import { resolvePanelStationIdForLine } from './panelStation.js';
 import {
@@ -619,6 +620,12 @@ export function createPanel(options = {}) {
     let currentStationId = null;
     let currentStationNameZh = '';
     let currentStationProps = null;
+    const stationRestoreContext = createPanelStationRestoreContext({ toText });
+
+    const invalidateStationRestoreSession = () => {
+        stationRestoreContext.invalidate();
+        lastAppliedHoverKey = null;
+    };
 
     const getMobilePanelStationContext = () => ({
         stationId: toText(currentStationId),
@@ -1683,10 +1690,15 @@ export function createPanel(options = {}) {
 
     const restoreStationDefaultSelection = () => {
         if (!onRestoreStationLines) return;
+        const restoreContext = stationRestoreContext.getSnapshot(currentStationId);
+        if (!restoreContext) return;
         try {
             onRestoreStationLines(
-                Array.isArray(currentStationServingIds) ? currentStationServingIds.slice() : [],
-                { stationId: toText(currentStationId) || null }
+                restoreContext.servingIds,
+                {
+                    stationId: restoreContext.stationId,
+                    restoreSessionId: restoreContext.sessionId
+                }
             );
         } catch {
             // ignore
@@ -4713,7 +4725,23 @@ export function createPanel(options = {}) {
         setLastAppliedHoverKey: (value) => {
             lastAppliedHoverKey = value;
         },
-        onRestoreStationLines,
+        onRestoreStationLines: (lineIds, meta = {}) => {
+            const stationId = toText(meta?.stationId) || toText(currentStationId) || null;
+            const restoreContext = stationRestoreContext.getSnapshot(stationId);
+            if (!restoreContext) return;
+            if (!stationRestoreContext.canRestore({
+                stationId,
+                lineIds,
+                sessionId: restoreContext.sessionId
+            })) {
+                return;
+            }
+            onRestoreStationLines?.(restoreContext.servingIds, {
+                ...meta,
+                stationId: restoreContext.stationId,
+                restoreSessionId: restoreContext.sessionId
+            });
+        },
         getCurrentStationServingIds: () => currentStationServingIds,
         getCurrentStationId: () => currentStationId,
         toText
@@ -5760,6 +5788,7 @@ export function createPanel(options = {}) {
     };
 
     const hide = () => {
+        invalidateStationRestoreSession();
         clearDirectionFocus({ rerender: false });
         timePickerController.close();
         closeDirFilterPopover({ clearPreview: false });
@@ -5859,6 +5888,7 @@ export function createPanel(options = {}) {
     const showForStationProps = async (props) => {
         const renderToken = ++stationRenderToken;
         const name = readStationName(props);
+        invalidateStationRestoreSession();
         panelCatalogController?.resetTransientUiState();
 
         currentStationProps = props || null;
@@ -5897,6 +5927,7 @@ export function createPanel(options = {}) {
             toText
         });
         currentStationServingIds = stationRenderBootstrap.currentStationServingIds;
+        stationRestoreContext.set(currentStationId, currentStationServingIds);
         const mergeInfo = stationRenderBootstrap.mergeInfo;
 
         ({
@@ -6070,6 +6101,7 @@ export function createPanel(options = {}) {
         setTitle,
         setHoverPreviewEnabled,
         setTimeOverride,
+        invalidateStationRestoreSession,
         resetTemporaryTimeOverride,
         handlePanelBackIntent,
         refreshBusinessTime,

@@ -400,6 +400,85 @@ export const resetPanelStationRenderTransientState = ({
     };
 };
 
+// panelStationRestoreContext.js
+const defaultToText_panelStationRestoreContext = (value) => String(value ?? '').trim();
+
+const normalizeRestoreLineIds = (value, toTextFn) => (
+    Array.isArray(value) ? value.map((entry) => toTextFn(entry)).filter(Boolean) : []
+);
+
+const sameRestoreLineIds = (left, right) => (
+    left.length === right.length && left.every((value, index) => value === right[index])
+);
+
+export const createPanelStationRestoreContext = ({
+    toText = defaultToText_panelStationRestoreContext
+} = {}) => {
+    let sessionId = 0;
+    let current = null;
+
+    const snapshot = () => (
+        current
+            ? {
+                sessionId: current.sessionId,
+                stationId: current.stationId,
+                servingIds: current.servingIds.slice()
+            }
+            : null
+    );
+
+    const set = (stationIdValue, servingIdsValue) => {
+        const stationId = toText(stationIdValue);
+        const servingIds = normalizeRestoreLineIds(servingIdsValue, toText);
+        sessionId += 1;
+        current = stationId
+            ? {
+                sessionId,
+                stationId,
+                servingIds
+            }
+            : null;
+        return snapshot();
+    };
+
+    const invalidate = () => {
+        sessionId += 1;
+        current = null;
+    };
+
+    const getSnapshot = (stationIdValue = '') => {
+        if (!current) return null;
+        const stationId = toText(stationIdValue);
+        if (stationId && stationId !== current.stationId) return null;
+        return snapshot();
+    };
+
+    const get = (stationIdValue = '') => {
+        const value = getSnapshot(stationIdValue);
+        return value
+            ? {
+                stationId: value.stationId,
+                servingIds: value.servingIds
+            }
+            : null;
+    };
+
+    const canRestore = ({ stationId, lineIds, sessionId: candidateSessionId } = {}) => {
+        if (!current) return false;
+        if (candidateSessionId != null && Number(candidateSessionId) !== current.sessionId) return false;
+        if (toText(stationId) !== current.stationId) return false;
+        return sameRestoreLineIds(normalizeRestoreLineIds(lineIds, toText), current.servingIds);
+    };
+
+    return {
+        canRestore,
+        get,
+        getSnapshot,
+        invalidate,
+        set
+    };
+};
+
 export const preparePanelStationRenderBootstrap = ({
     props,
     normalizeArrayLike = (value) => value,

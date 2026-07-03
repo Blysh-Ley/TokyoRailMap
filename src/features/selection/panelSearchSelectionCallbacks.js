@@ -13,6 +13,7 @@ const createDefaultHoverLifecycle = () => ({
 });
 
 export const createPanelSearchSelectionCallbacks = ({
+    canRestoreStationLines,
     clearSelection,
     closeOnRestore = false,
     fitOnSelect = true,
@@ -132,13 +133,23 @@ export const createPanelSearchSelectionCallbacks = ({
     };
 
     const restoreStationLines = (lineIds, meta = {}) => {
+        const ids = toLineIds(lineIds);
+        const stationId = toText(meta?.stationId) || toText(getSelectedStationId?.()) || null;
+        if (typeof canRestoreStationLines === 'function' && !canRestoreStationLines({
+            lineIds: ids,
+            meta,
+            sourcePrefix,
+            stationId
+        })) {
+            return;
+        }
+
         if (closeOnRestore) hoverLifecycle.close?.();
         setIsolate(false);
 
-        const ids = toLineIds(lineIds);
         if (ids.length) {
             searchFeature.selectStationLines({
-                stationId: toText(meta?.stationId) || toText(getSelectedStationId?.()) || null,
+                stationId,
                 lineIds: ids
             });
         } else {
