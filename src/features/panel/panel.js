@@ -625,7 +625,8 @@ export function createPanel(options = {}) {
     let currentStationProps = null;
     const stationRestoreContext = createPanelStationRestoreContext({ toText });
 
-    const invalidateStationRestoreSession = () => {
+    const invalidateStationRestoreSession = ({ cancelRender = false } = {}) => {
+        if (cancelRender) stationRenderToken += 1;
         stationRestoreContext.invalidate();
         lastAppliedHoverKey = null;
     };
@@ -5797,7 +5798,7 @@ export function createPanel(options = {}) {
     };
 
     const hide = () => {
-        invalidateStationRestoreSession();
+        invalidateStationRestoreSession({ cancelRender: true });
         clearDirectionFocus({ rerender: false });
         timePickerController.close();
         closeDirFilterPopover({ clearPreview: false });
@@ -5904,6 +5905,7 @@ export function createPanel(options = {}) {
         currentStationId = toText(props?.id);
         currentStationNameZh = toText(props?.name_zh || props?.['name:zh'] || name);
         const stationIndex = await getStationsIndex();
+        if (renderToken !== stationRenderToken) return;
         currentStationsIndex = stationIndex;
         const currentStationNameEn = toText(stationIndex?.idToNameEn?.get?.(currentStationId) || props?.title?.en || props?.title?.['en-US'] || '');
         setTitle({ main: name, sub: currentStationNameEn });
@@ -6111,6 +6113,7 @@ export function createPanel(options = {}) {
         setHoverPreviewEnabled,
         setTimeOverride,
         invalidateStationRestoreSession,
+        canRestoreStationLines: (payload = {}) => stationRestoreContext.canRestore(payload),
         resetTemporaryTimeOverride,
         handlePanelBackIntent,
         refreshBusinessTime,
