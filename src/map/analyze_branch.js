@@ -1215,6 +1215,7 @@ const appendUnique = (target, item, key, seen) => {
 };
 
 const buildBranchPreviewPayload = ({
+    applyHighlightColor = true,
     highlightColor,
     lineId,
     lineName,
@@ -1245,7 +1246,7 @@ const buildBranchPreviewPayload = ({
     });
     if (!payload) return null;
 
-    const color = toText(highlightColor);
+    const color = applyHighlightColor === false ? '' : toText(highlightColor);
     if (color) {
         payload.typeColor = color;
         if (Array.isArray(payload.segments)) {
@@ -1290,6 +1291,7 @@ export const buildBranchPreviewForLineRequest = async ({
     throughServiceCategory,
     sourceLineIds,
     highlightColor,
+    applyHighlightColor = true,
     filterSpecial = false,
     originStationIds,
     terminalStationIds,
@@ -1343,6 +1345,7 @@ export const buildBranchPreviewForLineRequest = async ({
         const stationIds = dedupKeepOrder(rawBranchList[i]);
         if (stationIds.length < 2) continue;
         const payload = buildBranchPreviewPayload({
+            applyHighlightColor,
             lineId: lid,
             lineName: toText(lineName) || lid,
             highlightColor: normalizedHighlightColor,
@@ -1374,6 +1377,7 @@ export const buildBranchPreviewForLineRequest = async ({
             const stationIds = dedupKeepOrder(baseBranchList[i]);
             if (stationIds.length < 2) continue;
             const payload = buildBranchPreviewPayload({
+                applyHighlightColor,
                 lineId: lid,
                 lineName: toText(lineName) || lid,
                 highlightColor: normalizedHighlightColor,
@@ -1426,6 +1430,7 @@ export const previewBranchesForLine = async ({
     throughServiceCategory,
     sourceLineIds,
     highlightColor,
+    applyHighlightColor = true,
     filterSpecial = false,
     originStationIds,
     terminalStationIds,
@@ -1452,6 +1457,7 @@ export const previewBranchesForLine = async ({
         throughServiceCategory,
         sourceLineIds,
         highlightColor,
+        applyHighlightColor,
         filterSpecial,
         anchorStationIds: normalizedAnchorStationIds,
         alternateLineMembership,
