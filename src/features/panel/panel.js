@@ -785,7 +785,8 @@ export function createPanel(options = {}) {
         sourceLineIds: normalizeStringListForSignature(request?.sourceLineIds),
         targetTripKeys: normalizeStringListForSignature(request?.targetTripKeys),
         anchorStationIds: normalizeStringListForSignature(request?.anchorStationIds),
-        highlightColor: toText(request?.highlightColor)
+        highlightColor: toText(request?.highlightColor),
+        applyHighlightColor: request?.applyHighlightColor !== false
     });
 
     const buildStationThroughPreviewRequestsSignature = (requests = []) => {
@@ -1768,7 +1769,7 @@ export function createPanel(options = {}) {
         return lineEl;
     };
 
-    const applyDirPreviewByKey = async (lineDirKey, { force = false, fitMode } = {}) => {
+    const applyDirPreviewByKey = async (lineDirKey, { force = false, fitMode, includeEndpointStations = true } = {}) => {
         if (isMultiSelectModeEnabled()) return;
         const key = toText(lineDirKey);
         if (!key) return;
@@ -1811,6 +1812,7 @@ export function createPanel(options = {}) {
             currentStationIds,
             fitMode,
             force,
+            includeEndpointStations,
             key,
             meta,
             onEnter: onDirPreviewEnter,
@@ -2317,7 +2319,10 @@ export function createPanel(options = {}) {
             throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
             getLineMeta,
             normalize: toText
-        });
+        }).map((request) => ({
+            ...(request || {}),
+            applyHighlightColor: false
+        }));
     };
 
     const collectStationThroughPreviewHighlightIds = async (stationId, requests) => {
@@ -5572,7 +5577,8 @@ export function createPanel(options = {}) {
             lastFiredHoverKey = key;
 
             if (target.kind === 'dir' && !target.key.includes('Loop')) {
-                applyDirPreviewByKey(target.lineDirKey, { fitMode: 'preview' });
+                const includeEndpointStations = !(evt?.target instanceof Element && evt.target.closest?.('.panel-dir-main'));
+                applyDirPreviewByKey(target.lineDirKey, { fitMode: 'preview', includeEndpointStations });
                 lastMousePrimaryKey = key;
             } else if (target.kind === 'line' || target.key.includes('Loop')) {
                 applyLineHoverSelection(target.lineId);

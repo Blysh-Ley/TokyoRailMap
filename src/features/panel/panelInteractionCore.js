@@ -943,6 +943,7 @@ export const createPanelRoutePreviewController = ({
 
     const applyDirectionPreview = async ({
         currentStationIds = [],
+        includeEndpointStations = true,
         fitMode = '',
         force = false,
         key,
@@ -960,9 +961,10 @@ export const createPanelRoutePreviewController = ({
         const normalizedSourceLineIds = Array.isArray(sourceLineIds)
             ? sourceLineIds.map((x) => toText(x)).filter(Boolean)
             : [];
-        const originStationIds = Array.isArray(meta.originStationIds) ? meta.originStationIds.slice() : [];
-        const terminalStationIds = Array.isArray(meta.terminalStationIds) ? meta.terminalStationIds.slice() : [];
-        const endpointLabelCounts = Array.isArray(meta.endpointLabelCounts) ? meta.endpointLabelCounts.slice() : [];
+        const shouldIncludeEndpointStations = includeEndpointStations !== false;
+        const originStationIds = shouldIncludeEndpointStations && Array.isArray(meta.originStationIds) ? meta.originStationIds.slice() : [];
+        const terminalStationIds = shouldIncludeEndpointStations && Array.isArray(meta.terminalStationIds) ? meta.terminalStationIds.slice() : [];
+        const endpointLabelCounts = shouldIncludeEndpointStations && Array.isArray(meta.endpointLabelCounts) ? meta.endpointLabelCounts.slice() : [];
         const normalizedCurrentStationIds = Array.isArray(currentStationIds)
             ? currentStationIds.map((x) => toText(x)).filter(Boolean)
             : [];
