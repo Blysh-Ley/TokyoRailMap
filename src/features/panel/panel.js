@@ -1625,6 +1625,7 @@ export function createPanel(options = {}) {
     const linePrintPayloadsByLineId = new Map(); // lineId -> raw export payloads before through-service panel split
     const dirPreviewMetaByKey = new Map(); // lineId||dir -> { lineId, originStationIds:string[], terminalStationIds:string[] }
     let dirFilterPreviewToken = 0;
+    let dirHeaderPreviewOwnerKey = '';
     const makeLineDirKey = (lineId, dirKey) => `${toText(lineId)}||${toText(dirKey) || 'Unknown'}`;
     const dirKeyOf = (lineId, dir) => `${toText(lineId)}||${toText(dir) || 'Unknown'}`;
     const getFocusedDirectionLineId = () => toText(focusedDirectionKey).split('||')[0] || '';
@@ -2246,7 +2247,10 @@ export function createPanel(options = {}) {
         const previewToken = ++dirFilterPreviewToken;
         const request = buildPanelDirFilterPreviewRequest(lineId, dirKey);
         if (!request) {
-            clearPanelDirFilterDirectionPreview({ restoreStation: true });
+            clearPanelDirFilterDirectionPreview({
+                restoreStation: true,
+                clearHeaderOwner: dirHeaderPreviewOwnerKey === lineDirKey
+            });
             return false;
         }
 
@@ -2268,17 +2272,29 @@ export function createPanel(options = {}) {
             });
             if (previewResult?.ok === true) return true;
             if (previewToken === dirFilterPreviewToken) {
-                clearPanelDirFilterDirectionPreview({ restoreStation: true });
+                clearPanelDirFilterDirectionPreview({
+                    restoreStation: true,
+                    clearHeaderOwner: dirHeaderPreviewOwnerKey === lineDirKey
+                });
             }
             return false;
         } catch {
-            clearPanelDirFilterDirectionPreview({ restoreStation: true });
+            clearPanelDirFilterDirectionPreview({
+                restoreStation: true,
+                clearHeaderOwner: dirHeaderPreviewOwnerKey === lineDirKey
+            });
             return false;
         }
     };
 
-    const clearPanelDirFilterDirectionPreview = ({ restoreStation = false } = {}) => {
+    const clearPanelDirFilterDirectionPreview = ({
+        restoreStation = false,
+        clearHeaderOwner = false
+    } = {}) => {
         dirFilterPreviewToken += 1;
+        if (clearHeaderOwner) {
+            dirHeaderPreviewOwnerKey = '';
+        }
         try {
             crossFeatureBridge.clearTripPathPreviewBySource(DIR_FILTER_TRIP_PREVIEW_SOURCE);
         } catch {
@@ -2286,6 +2302,45 @@ export function createPanel(options = {}) {
         }
         if (restoreStation) {
             restoreStationThroughPreviewDefault();
+        }
+    };
+
+    const applyDirHeaderDirectionPreview = (lineId, dirKey) => {
+        const lid = toText(lineId);
+        const dkey = toText(dirKey);
+        if (!lid || !dkey) return;
+        dirHeaderPreviewOwnerKey = makeLineDirKey(lid, dkey);
+        previewPanelDirFilterDirection(lid, dkey);
+    };
+
+    const reapplyDirHeaderPreviewOwner = () => {
+        const key = toText(dirHeaderPreviewOwnerKey);
+        if (!key) return false;
+        const parts = key.split('||');
+        const lid = toText(parts[0]);
+        const dkey = toText(parts.slice(1).join('||'));
+        if (!lid || !dkey) return false;
+        previewPanelDirFilterDirection(lid, dkey);
+        return true;
+    };
+
+    const restoreDirHeaderDirectionPreviewIfOwner = (lineId, dirKey) => {
+        const lid = toText(lineId);
+        const dkey = toText(dirKey);
+        if (!lid || !dkey) return;
+        const lineDirKey = makeLineDirKey(lid, dkey);
+        if (dirHeaderPreviewOwnerKey !== lineDirKey) return;
+        clearPanelDirFilterDirectionPreview({
+            restoreStation: true,
+            clearHeaderOwner: true
+        });
+    };
+
+    const syncDirHeaderPreviewForExpandedState = ({ lineId, dirKey, expanded } = {}) => {
+        if (expanded) {
+            applyDirHeaderDirectionPreview(lineId, dirKey);
+        } else {
+            restoreDirHeaderDirectionPreviewIfOwner(lineId, dirKey);
         }
     };
 
@@ -4844,7 +4899,9 @@ export function createPanel(options = {}) {
         setState: (lineDirKey, state) => dirFilterStateByKey.set(lineDirKey, state),
         onClose: ({ clearPreview } = {}) => {
             if (clearPreview) {
-                clearPanelDirFilterDirectionPreview({ restoreStation: true });
+                if (!reapplyDirHeaderPreviewOwner()) {
+                    clearPanelDirFilterDirectionPreview({ restoreStation: true });
+                }
             }
         },
         rerenderLineById
@@ -5021,6 +5078,11 @@ export function createPanel(options = {}) {
         if (!lid || !dkey) return;
         if (isDirExpanded(lid, dkey)) return;
         setDirExpanded(lid, dkey, true);
+        syncDirHeaderPreviewForExpandedState({
+            lineId: lid,
+            dirKey: dkey,
+            expanded: true
+        });
         const lineEl = body.querySelector(`[data-line-id="${escapeHtml(String(lid))}"]`);
         const token = ++timetableRenderToken;
         renderTimetableForLineEl(lineEl, currentStationId, token);
@@ -5032,6 +5094,11 @@ export function createPanel(options = {}) {
         if (!lid || !dkey) return;
         const nextExpanded = !isDirExpanded(lid, dkey);
         setDirExpanded(lid, dkey, nextExpanded);
+        syncDirHeaderPreviewForExpandedState({
+            lineId: lid,
+            dirKey: dkey,
+            expanded: nextExpanded
+        });
         const lineEl = body.querySelector(`[data-line-id="${escapeHtml(String(lid))}"]`);
         const token = ++timetableRenderToken;
         renderTimetableForLineEl(lineEl, currentStationId, token);
