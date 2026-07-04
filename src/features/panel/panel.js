@@ -2355,8 +2355,10 @@ export function createPanel(options = {}) {
         stationId = ''
     } = {}) => {
         const sid = toText(stationId);
-        if (!sid || renderToken !== stationRenderToken) return false;
-        if (stationThroughPreviewSuppressed) return false;
+        const isStillActive = () => !stationThroughPreviewSuppressed
+            && renderToken === stationRenderToken
+            && sid === toText(currentStationId);
+        if (!sid || !isStillActive()) return false;
 
         const requests = buildStationThroughPreviewRequests();
         const requestsSignature = buildStationThroughPreviewRequestsSignature(requests);
@@ -2376,6 +2378,7 @@ export function createPanel(options = {}) {
             && stationThroughPreviewCache?.snapshot
             && stationThroughPreviewCache.snapshot.source === STATION_THROUGH_PREVIEW_SOURCE
         ) {
+            if (!isStillActive()) return false;
             const applied = await crossFeatureBridge.applyTripPreviewSnapshot?.(
                 stationThroughPreviewCache.snapshot,
                 {
@@ -2383,12 +2386,17 @@ export function createPanel(options = {}) {
                     source: STATION_THROUGH_PREVIEW_SOURCE
                 }
             );
-            if (applied?.ok === true) return true;
+            if (applied?.ok === true) {
+                if (isStillActive()) return true;
+                crossFeatureBridge.clearTripPathPreviewBySource(STATION_THROUGH_PREVIEW_SOURCE);
+                clearStationThroughPreviewCache();
+                return false;
+            }
             clearStationThroughPreviewCache();
         }
 
         const highlightStationIds = await collectStationThroughPreviewHighlightIds(sid, requests);
-        if (stationThroughPreviewSuppressed || renderToken !== stationRenderToken || sid !== toText(currentStationId)) return false;
+        if (!isStillActive()) return false;
 
         try {
             const alternateLineMembership = await getAlternateLineMembership();
@@ -2397,7 +2405,7 @@ export function createPanel(options = {}) {
                 fitMode: 'commit',
                 highlightStationIds,
                 alternateLineMembership,
-                isStillActive: () => !stationThroughPreviewSuppressed && renderToken === stationRenderToken && sid === toText(currentStationId),
+                isStillActive,
                 previewSource: STATION_THROUGH_PREVIEW_SOURCE
             });
             if (!previewResult?.ok) {

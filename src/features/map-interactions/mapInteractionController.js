@@ -44,6 +44,7 @@ export const bindBlankMapClickRestore = ({
     isMultiSelectModeEnabled,
     hasActiveSelection,
     hidePanel,
+    cancelStationRestoreState,
     clearTripPathPreview,
     clearSelectionsAndRestore
 } = {}) => {
@@ -76,6 +77,7 @@ export const bindBlankMapClickRestore = ({
         if (isMultiSelectModeEnabled?.() !== true) {
             clearTripPathPreview?.();
         }
+        cancelStationRestoreState?.();
 
         if (hasActiveSelection?.() !== true) return;
         clearSelectionsAndRestore?.();

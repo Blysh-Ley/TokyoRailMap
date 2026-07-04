@@ -2744,7 +2744,7 @@ const initMapApp = async () => {
         });
     }
 
-    function clearSelectionsAndRestore() {
+    function cancelStationRestoreState() {
         panel?.invalidateStationRestoreSession?.({ cancelRender: true });
         panel?.cancelStationThroughPreview?.();
         const stationPopupMode = stationPopup?.getOpenMode?.() || null;
@@ -2753,6 +2753,10 @@ const initMapApp = async () => {
             stationPopup?.closePopup?.({ committed: true });
         }
         cancelSelectionTripPreviewSync();
+    }
+
+    function clearSelectionsAndRestore() {
+        cancelStationRestoreState();
         clearTripPathPreview();
         panel?.resetTemporaryTimeOverride?.();
         appStore.dispatch(selectionClear({ source: 'app.clearSelectionsAndRestore' }));
@@ -3390,6 +3394,7 @@ const initMapApp = async () => {
                     (selectedStationLineIds && selectedStationLineIds.size)
                 ),
                 hidePanel: () => panel?.hide?.(),
+                cancelStationRestoreState,
                 clearTripPathPreview,
                 clearSelectionsAndRestore
             },
