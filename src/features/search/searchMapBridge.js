@@ -65,6 +65,9 @@ export const createSearchMapBridge = ({
         previewTripPath: (payload, options = {}) => {
             return routePreviewApi.previewTripPath?.(payload, options);
         },
+        applyTripPreviewSnapshot: (snapshot, options = {}) => {
+            return routePreviewApi.applyTripPreviewSnapshot?.(snapshot, options);
+        },
         clearTripPathPreview: () => {
             return routePreviewApi.clearTripPathPreview?.();
         },

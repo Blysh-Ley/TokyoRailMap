@@ -2,6 +2,7 @@ const toText = (value) => String(value ?? '').trim();
 
 export const createRoutePreviewBridgeApi = ({
     previewTripPath,
+    applyTripPreviewSnapshot,
     clearTripPathPreview,
     fitMobileTripBounds,
     isMultiSelectModeEnabled,
@@ -24,7 +25,10 @@ export const createRoutePreviewBridgeApi = ({
             if (options?.clearBefore === true && isMultiSelectModeEnabled?.() !== true) {
                 clearTripPathPreview?.({ source });
             }
-            previewTripPath?.(nextPayload, options);
+            return previewTripPath?.(nextPayload, options);
+        },
+        applyTripPreviewSnapshot: (snapshot, options = {}) => {
+            return applyTripPreviewSnapshot?.(snapshot, options);
         },
         clearTripPathPreview: () => {
             clearTripPathPreview?.({ source });

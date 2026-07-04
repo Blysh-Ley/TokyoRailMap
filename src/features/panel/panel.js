@@ -712,6 +712,94 @@ export function createPanel(options = {}) {
     let currentStationProps = null;
     let stationThroughPreviewSuppressed = false;
     const stationRestoreContext = createPanelStationRestoreContext({ toText });
+    let stationThroughPreviewCache = { key: '', snapshot: null };
+
+    const clearStationThroughPreviewCache = () => {
+        stationThroughPreviewCache = { key: '', snapshot: null };
+    };
+
+    const cloneStationThroughPreviewSnapshotValue = (value, seen = new WeakMap()) => {
+        if (value === null || typeof value !== 'object') return value;
+        if (value instanceof Set) {
+            const out = new Set();
+            seen.set(value, out);
+            for (const item of value) {
+                out.add(cloneStationThroughPreviewSnapshotValue(item, seen));
+            }
+            return out;
+        }
+        if (Array.isArray(value)) {
+            const out = [];
+            seen.set(value, out);
+            for (const item of value) {
+                out.push(cloneStationThroughPreviewSnapshotValue(item, seen));
+            }
+            return out;
+        }
+        if (typeof value === 'function') return value;
+        if (seen.has(value)) return seen.get(value);
+
+        const out = {};
+        seen.set(value, out);
+        const keys = Object.keys(value);
+        for (const key of keys) {
+            out[key] = cloneStationThroughPreviewSnapshotValue(value[key], seen);
+        }
+        return out;
+    };
+
+    const cloneStationThroughPreviewSnapshot = (snapshot = null) => {
+        const source = snapshot?.source || '';
+        const payload = snapshot?.payload;
+        const built = snapshot?.built;
+        if (!source || !payload || !built) return null;
+        const clonedPayload = cloneStationThroughPreviewSnapshotValue(payload);
+        const clonedBuilt = cloneStationThroughPreviewSnapshotValue(built);
+        return {
+            payload: clonedPayload,
+            built: clonedBuilt,
+            source
+        };
+    };
+
+    const normalizeStringListForSignature = (value) => {
+        const list = Array.isArray(value) ? value : [];
+        const out = [];
+        const seen = new Set();
+        for (const item of list) {
+            const id = toText(item);
+            if (!id || seen.has(id)) continue;
+            seen.add(id);
+            out.push(id);
+        }
+        out.sort();
+        return out;
+    };
+
+    const buildStationThroughPreviewRequestSignature = (request = {}) => ({
+        lineId: toText(request?.lineId),
+        lineName: toText(request?.lineName),
+        previewSource: toText(request?.previewSource),
+        throughServiceCategory: toText(request?.throughServiceCategory),
+        filterSpecial: !!request?.filterSpecial,
+        sourceLineIds: normalizeStringListForSignature(request?.sourceLineIds),
+        targetTripKeys: normalizeStringListForSignature(request?.targetTripKeys),
+        anchorStationIds: normalizeStringListForSignature(request?.anchorStationIds),
+        highlightColor: toText(request?.highlightColor)
+    });
+
+    const buildStationThroughPreviewRequestsSignature = (requests = []) => {
+        const normalized = Array.isArray(requests)
+            ? requests.map((request) => buildStationThroughPreviewRequestSignature(request))
+            : [];
+        return JSON.stringify(normalized);
+    };
+
+    const buildStationThroughPreviewCacheKey = ({
+        stationId = '',
+        token = 0,
+        requestsSignature = ''
+    } = {}) => `${toText(stationId)}||${Number(token) || 0}||${toText(requestsSignature)}`;
 
     const invalidateStationRestoreSession = ({ cancelRender = false } = {}) => {
         if (cancelRender) stationRenderToken += 1;
@@ -722,6 +810,7 @@ export function createPanel(options = {}) {
     const cancelStationThroughPreview = () => {
         stationThroughPreviewSuppressed = true;
         stationRenderToken += 1;
+        clearStationThroughPreviewCache();
         try {
             crossFeatureBridge.clearTripPathPreviewBySource(STATION_THROUGH_PREVIEW_SOURCE);
         } catch {
@@ -2278,9 +2367,32 @@ export function createPanel(options = {}) {
         if (stationThroughPreviewSuppressed) return false;
 
         const requests = buildStationThroughPreviewRequests();
+        const requestsSignature = buildStationThroughPreviewRequestsSignature(requests);
+        const cacheKey = buildStationThroughPreviewCacheKey({
+            stationId: sid,
+            token: stationRenderToken,
+            requestsSignature
+        });
         if (!requests.length) {
+            clearStationThroughPreviewCache();
             crossFeatureBridge.clearTripPathPreviewBySource(STATION_THROUGH_PREVIEW_SOURCE);
             return false;
+        }
+
+        if (
+            stationThroughPreviewCache?.key === cacheKey
+            && stationThroughPreviewCache?.snapshot
+            && stationThroughPreviewCache.snapshot.source === STATION_THROUGH_PREVIEW_SOURCE
+        ) {
+            const applied = await crossFeatureBridge.applyTripPreviewSnapshot?.(
+                stationThroughPreviewCache.snapshot,
+                {
+                    fitMode: 'commit',
+                    source: STATION_THROUGH_PREVIEW_SOURCE
+                }
+            );
+            if (applied?.ok === true) return true;
+            clearStationThroughPreviewCache();
         }
 
         const highlightStationIds = await collectStationThroughPreviewHighlightIds(sid, requests);
@@ -2288,7 +2400,7 @@ export function createPanel(options = {}) {
 
         try {
             const alternateLineMembership = await getAlternateLineMembership();
-            await previewBranchesForLineRequests({
+            const previewResult = await previewBranchesForLineRequests({
                 requests,
                 fitMode: 'commit',
                 highlightStationIds,
@@ -2296,11 +2408,35 @@ export function createPanel(options = {}) {
                 isStillActive: () => !stationThroughPreviewSuppressed && renderToken === stationRenderToken && sid === toText(currentStationId),
                 previewSource: STATION_THROUGH_PREVIEW_SOURCE
             });
+            if (!previewResult?.ok) {
+                if (renderToken === stationRenderToken && sid === toText(currentStationId)) {
+                    clearStationThroughPreviewCache();
+                }
+                return false;
+            }
+            const source = toText(previewResult?.source) || STATION_THROUGH_PREVIEW_SOURCE;
+            const snapshot = cloneStationThroughPreviewSnapshot({
+                payload: previewResult?.payload,
+                built: previewResult?.built,
+                source
+            });
+            if (renderToken !== stationRenderToken || sid !== toText(currentStationId)) {
+                return false;
+            }
+            if (snapshot) {
+                stationThroughPreviewCache = {
+                    key: cacheKey,
+                    snapshot
+                };
+            } else {
+                clearStationThroughPreviewCache();
+            }
             return true;
         } catch {
             if (renderToken === stationRenderToken && sid === toText(currentStationId)) {
                 crossFeatureBridge.clearTripPathPreviewBySource(STATION_THROUGH_PREVIEW_SOURCE);
             }
+            clearStationThroughPreviewCache();
             return false;
         }
     };
@@ -4688,6 +4824,7 @@ export function createPanel(options = {}) {
         const token = ++timetableRenderToken;
         const stationRenderTokenAtStart = stationRenderToken;
         const stationId = toText(currentStationId);
+        clearStationThroughPreviewCache();
         dirFilterRowsByKey.clear();
         dirFilteredTripKeysByKey.clear();
         dirPreviewMetaByKey.clear();
@@ -5982,6 +6119,7 @@ export function createPanel(options = {}) {
         const renderToken = ++stationRenderToken;
         const name = readStationName(props);
         stationThroughPreviewSuppressed = false;
+        clearStationThroughPreviewCache();
         invalidateStationRestoreSession();
         panelCatalogController?.resetTransientUiState();
 

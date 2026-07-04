@@ -1574,13 +1574,25 @@ export const previewBranchesForLineRequests = async ({
         virtualTrips
     };
     if (!stillActive()) return { ok: false, reason: 'stale', results };
-    actions.previewTripPath(previewPayload, {
+    const previewResult = actions.previewTripPath(previewPayload, {
         fitMode: toText(fitMode) || 'commit',
         clearBefore: true
     });
+    if (!previewResult?.ok) {
+        if (previewResult?.reason === 'stale') return { ok: false, reason: previewResult.reason, results };
+        return {
+            ok: false,
+            reason: String(previewResult?.reason || 'preview-failed'),
+            results
+        };
+    }
+    const sourceFromResult = toText(previewResult?.source) || source;
 
     return {
         ok: true,
+        payload: previewPayload,
+        built: previewResult?.built,
+        source: sourceFromResult,
         results,
         virtualTripCount: virtualTrips.length
     };

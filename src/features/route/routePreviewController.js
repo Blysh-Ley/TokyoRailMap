@@ -125,7 +125,7 @@ export const createRoutePreviewController = ({
     const previewTripPath = (payload, options = {}) => {
         const tracePayload = buildTripPreviewTracePayload(payload, options);
         dispatchTrace(tripPreviewRequested(tracePayload));
-        routeFeature.previewTripPath({
+        return routeFeature.previewTripPath({
             payload,
             isMultiSelectModeEnabled,
             clearTripPathPreview,
@@ -159,6 +159,28 @@ export const createRoutePreviewController = ({
             applySelectionEffects,
             scheduleCollisionLayerRefresh,
             previewFitWithSidePanels
+        });
+    };
+
+    const applyTripPreviewSnapshot = (snapshot, options = {}) => {
+        const tracePayload = buildTripPreviewTracePayload(snapshot?.payload || {}, options);
+        dispatchTrace(tripPreviewRequested(tracePayload));
+        return routeFeature.applyTripPreviewSnapshot({
+            snapshot,
+            options,
+            isMultiSelectModeEnabled,
+            clearTripPathPreview,
+            resolvePayloadSource: resolveTripPreviewPayloadSource,
+            applyActiveState: applyTripPreviewState,
+            syncStationOffset: syncStationOffsetForTripPreviewState,
+            clearEndpointPopups: clearTripEndpointPopups,
+            setStationLabelMode,
+            applySelectionEffects,
+            scheduleCollisionLayerRefresh,
+            previewFitWithSidePanels,
+            resolveStationOverrideColor,
+            resolveVirtualTripStationIds,
+            updateEndpointPopups
         });
     };
 
@@ -206,6 +228,7 @@ export const createRoutePreviewController = ({
         rebuildTripPreviewFromMultiSelections,
         clearTripPathPreview,
         previewTripPath,
+        applyTripPreviewSnapshot,
         clearDirHeaderPreview,
         previewDirHeader,
         toggleTripPreviewSelectionVisibility,

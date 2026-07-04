@@ -3357,6 +3357,7 @@ const initMapApp = async () => {
 
     const routePreviewBridgeApi = createRoutePreviewBridgeApi({
         previewTripPath: (payload, options) => previewTripPath(payload, options),
+        applyTripPreviewSnapshot: (snapshot, options) => routePreviewController.applyTripPreviewSnapshot?.(snapshot, options),
         clearTripPathPreview: (options) => clearTripPathPreview(options),
         fitMobileTripBounds: (payload, options) => fitMobileTripBounds(payload, options),
         isMultiSelectModeEnabled
@@ -4225,8 +4226,9 @@ const initMapApp = async () => {
         };
         previewTripPath = (payload, options = {}) => {
             lastTripPreviewPayload = payload || null;
-            routePreviewController.previewTripPath(payload, options);
+            const result = routePreviewController.previewTripPath(payload, options);
             fitMobileTripBoundsIfNeeded(payload, options);
+            return result;
         };
         clearDirHeaderPreview = routePreviewController.clearDirHeaderPreview;
         previewDirHeader = routePreviewController.previewDirHeader;
