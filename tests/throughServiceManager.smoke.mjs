@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { buildMenuModel } from '../src/features/menu/menu.js';
-import { resolvePanelThroughServiceSetup } from '../src/features/panel/panelStation.js';
+import {
+    buildPanelStationThroughPreviewRequests,
+    resolvePanelComputationStationIdForLine,
+    resolvePanelStationIdForLine,
+    resolvePanelThroughServiceSetup
+} from '../src/features/panel/panelStation.js';
 import { analyzeBranchesForLine } from '../src/map/analyze_branch.js';
 import {
     buildTemporaryThroughServicePanelPlan,
@@ -280,6 +285,99 @@ assert.equal(
 assert.ok(
     yokosukaSobuPanelSetup.throughServiceDirectionsByEntityLineId.get('JR-East.SobuRapid')?.[0]?.allowedTripKeys?.has?.('JR-East.SobuRapid.Test.Weekday'),
     'through-service direction entries should carry allowed trip keys for entity-line filtering'
+);
+const hiddenSourcePanelSetup = resolvePanelThroughServiceSetup({
+    throughPlan: {
+        temporarySourceLineIdsByDisplayLineId: new Map([
+            ['TokyoRail.Temp.UenoTokyo', ['JR-East.Utsunomiya', 'JR-East.Takasaki']]
+        ]),
+        temporaryAllowedTripKeysByDisplayLineId: new Map([
+            ['TokyoRail.Temp.UenoTokyo', new Set(['JR-East.Takasaki.Test.Weekday'])]
+        ])
+    },
+    displayServingIds: ['JR-East.Utsunomiya'],
+    throughServiceConfigs: THROUGH_SERVICE_CONFIGS
+});
+assert.deepEqual(
+    hiddenSourcePanelSetup.throughServiceDirectionsByEntityLineId
+        .get('JR-East.Utsunomiya')?.[0]?.sourceLineIds,
+    ['JR-East.Utsunomiya', 'JR-East.Takasaki'],
+    'UenoTokyo through-service direction entries should preserve hidden Takasaki source lines for preview filtering'
+);
+assert.equal(
+    hiddenSourcePanelSetup.throughServiceDirectionsByEntityLineId.has('JR-East.Takasaki'),
+    false,
+    'hidden Takasaki source lines should not create standalone visible entity directions'
+);
+const hiddenSourceLineDirKey = 'JR-East.Utsunomiya||through:UenoTokyo:Northbound';
+const hiddenSourcePreviewRequests = buildPanelStationThroughPreviewRequests({
+    dirPreviewMetaByKey: new Map([
+        [hiddenSourceLineDirKey, {
+            lineId: 'JR-East.Utsunomiya',
+            throughServiceCategory: 'UenoTokyo',
+            sourceLineIds: ['JR-East.Utsunomiya']
+        }]
+    ]),
+    dirFilteredTripKeysByKey: new Map([
+        [hiddenSourceLineDirKey, ['JR-East.Utsunomiya.Test.Weekday']]
+    ]),
+    temporarySourceLineIdsByDisplayLineId: new Map([
+        ['TokyoRail.Temp.UenoTokyo', ['JR-East.Utsunomiya', 'JR-East.Takasaki']]
+    ]),
+    temporaryAllowedTripKeysByDisplayLineId: new Map([
+        ['TokyoRail.Temp.UenoTokyo', new Set(['JR-East.Takasaki.Test.Weekday'])]
+    ]),
+    throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
+    getLineMeta: (lineId) => ({ name: lineId, color: '#f68b1e' })
+});
+assert.deepEqual(
+    hiddenSourcePreviewRequests[0]?.sourceLineIds,
+    ['JR-East.Utsunomiya', 'JR-East.Takasaki'],
+    'station-through preview requests should recover hidden Takasaki sources through the UenoTokyo category'
+);
+assert.equal(
+    hiddenSourcePreviewRequests[0]?.targetTripKeys?.includes?.('JR-East.Takasaki.Test.Weekday'),
+    true,
+    'station-through preview requests should include hidden Takasaki allowed trip keys'
+);
+assert.equal(
+    hiddenSourcePreviewRequests[0]?.lineId,
+    'JR-East.Utsunomiya',
+    'station-through preview requests should keep the visible display line identity'
+);
+const hiddenAlternateStationResolverArgs = {
+    lineId: 'JR-East.Takasaki',
+    currentStationId: 'Keisei.Main.KeiseiUeno',
+    currentStationNameZh: '京成上野',
+    getStationGroupsIndex: async () => new Map([
+        [
+            'Keisei.Main.KeiseiUeno',
+            [
+                'JR-East.Utsunomiya.Ueno',
+                'Keisei.Main.KeiseiUeno'
+            ]
+        ]
+    ]),
+    getStationsIndex: async () => ({
+        idToNameZh: new Map([
+            ['JR-East.Utsunomiya.Ueno', '上野'],
+            ['Keisei.Main.KeiseiUeno', '京成上野']
+        ]),
+        stationIdByRailwayAndNameZh: new Map([
+            ['JR-East.Takasaki||上野', 'JR-East.Takasaki.Ueno'],
+            ['Keisei.Main||京成上野', 'Keisei.Main.KeiseiUeno']
+        ])
+    })
+};
+assert.equal(
+    await resolvePanelStationIdForLine(hiddenAlternateStationResolverArgs),
+    'Keisei.Main.KeiseiUeno',
+    'base panel station resolver should preserve the visible station fallback when exact line/name matching fails'
+);
+assert.equal(
+    await resolvePanelComputationStationIdForLine(hiddenAlternateStationResolverArgs),
+    'JR-East.Takasaki.Ueno',
+    'panel computation station resolver should recover hidden alternate line stations through transfer-group station names'
 );
 
 const outsideRefPanelPlan = await buildTemporaryThroughServicePanelPlan({

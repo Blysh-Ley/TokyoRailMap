@@ -3,7 +3,6 @@ import { resolveMainLineIdForIcon } from '../../lib/line-icons.js';
 import { getCachedJson } from '../../lib/fetch.js';
 
 
-
 // panelServingLineMerge.js
 const toText_panelServingLineMerge = (value) => String(value ?? '').trim();
 
@@ -71,6 +70,14 @@ export const buildPanelLineMergeInfo = ({ servingLineIds, getLineMeta } = {}) =>
 // panelStationIdResolver.js
 const defaultToText_panelStationIdResolver = (value) => String(value ?? '').trim();
 
+const isPanelStationIdForLine = (stationId, lineId, {
+    toText = defaultToText_panelStationIdResolver
+} = {}) => {
+    const sid = toText(stationId);
+    const routeId = toText(lineId);
+    return !!sid && !!routeId && (sid === routeId || sid.startsWith(`${routeId}.`));
+};
+
 export const resolvePanelStationIdForLine = async ({
     lineId = '',
     currentStationId = '',
@@ -107,6 +114,54 @@ export const resolvePanelStationIdForLine = async ({
     const stationsIndex = await getStationsIndex();
     const hit = stationsIndex?.stationIdByRailwayAndNameZh?.get?.(`${routeId}||${stationName}`);
     return hit || stationId || null;
+};
+
+export const resolvePanelComputationStationIdForLine = async ({
+    lineId = '',
+    currentStationId = '',
+    currentStationNameZh = '',
+    getStationGroupsIndex = async () => new Map(),
+    getStationsIndex = async () => ({ stationIdByRailwayAndNameZh: new Map() }),
+    toText = defaultToText_panelStationIdResolver
+} = {}) => {
+    const routeId = toText(lineId);
+    if (!routeId) return null;
+
+    const resolved = await resolvePanelStationIdForLine({
+        lineId,
+        currentStationId,
+        currentStationNameZh,
+        getStationGroupsIndex,
+        getStationsIndex,
+        toText
+    });
+    if (isPanelStationIdForLine(resolved, routeId, { toText })) return resolved;
+
+    const stationId = toText(currentStationId);
+    let groupIds = [];
+    try {
+        const groupsIndex = await getStationGroupsIndex();
+        const rawGroupIds = stationId ? groupsIndex?.get?.(stationId) : null;
+        groupIds = Array.isArray(rawGroupIds)
+            ? rawGroupIds.map((value) => toText(value)).filter(Boolean)
+            : [];
+    } catch {
+        groupIds = [];
+    }
+
+    if (groupIds.length) {
+        const stationsIndex = await getStationsIndex();
+        const seenNames = new Set();
+        for (const candidate of groupIds) {
+            const groupStationName = toText(stationsIndex?.idToNameZh?.get?.(candidate));
+            if (!groupStationName || seenNames.has(groupStationName)) continue;
+            seenNames.add(groupStationName);
+            const hit = stationsIndex?.stationIdByRailwayAndNameZh?.get?.(`${routeId}||${groupStationName}`);
+            if (isPanelStationIdForLine(hit, routeId, { toText })) return hit;
+        }
+    }
+
+    return resolved || stationId || null;
 };
 
 // panelStationMetadata.js
@@ -792,9 +847,11 @@ export const resolvePanelThroughServiceSetup = ({
         const throughLineId = toText_panelThroughServiceSetup(throughLineIdRaw);
         if (!throughLineId) continue;
         const config = configByLineId.get(throughLineId) || null;
-        const sourceLineIds = normalizeTextList_panelThroughServiceSetup(sourceLineIdsRaw)
-            .filter((lineId) => servingLineIdSet.has(lineId));
+        const sourceLineIds = normalizeTextList_panelThroughServiceSetup(sourceLineIdsRaw);
         if (!sourceLineIds.length) continue;
+        const visibleEntityLineIds = sourceLineIds
+            .filter((lineId) => servingLineIdSet.has(lineId));
+        if (!visibleEntityLineIds.length) continue;
 
         const allowedTripKeys = cloneTripKeySet_panelThroughServiceSetup(
             allowedTripKeysByThroughLineId.get(throughLineId)
@@ -809,8 +866,7 @@ export const resolvePanelThroughServiceSetup = ({
             lineName: toText_panelThroughServiceSetup(config?.lineName),
             color: toText_panelThroughServiceSetup(config?.color)
         };
-
-        for (const sourceLineId of sourceLineIds) {
+        for (const sourceLineId of visibleEntityLineIds) {
             appendThroughServiceDirectionEntry(
                 state.throughServiceDirectionsByEntityLineId,
                 sourceLineId,
@@ -823,6 +879,180 @@ export const resolvePanelThroughServiceSetup = ({
         ...state,
         displayServingIds: nextDisplayServingIds
     };
+};
+
+// panelStationThroughPreviewRequests.js
+const normalizeList_panelStationThroughPreview = (values, {
+    normalize = toText_panelThroughServiceSetup
+} = {}) => {
+    const raw = values instanceof Set
+        ? Array.from(values)
+        : (Array.isArray(values) ? values : (values ? [values] : []));
+    return Array.from(new Set(raw.map((value) => normalize(value)).filter(Boolean)));
+};
+
+const buildThroughServiceConfigIndexes_panelStationThroughPreview = ({
+    throughServiceConfigs = [],
+    normalize = toText_panelThroughServiceSetup
+} = {}) => {
+    const byLineId = new Map();
+    const byCategory = new Map();
+    for (const config of Array.isArray(throughServiceConfigs) ? throughServiceConfigs : []) {
+        const lineId = normalize(config?.lineId);
+        const category = normalize(config?.category);
+        if (lineId) byLineId.set(lineId, config);
+        if (category) byCategory.set(category, config);
+    }
+    return { byLineId, byCategory };
+};
+
+const resolveThroughPreviewLineId_panelStationThroughPreview = ({
+    meta = null,
+    displayLineId = '',
+    throughServiceConfigs = [],
+    normalize = toText_panelThroughServiceSetup
+} = {}) => {
+    const explicitThroughLineId = normalize(meta?.throughLineId);
+    if (explicitThroughLineId) return explicitThroughLineId;
+
+    const category = normalize(meta?.throughServiceCategory);
+    if (!category) return '';
+
+    const { byCategory } = buildThroughServiceConfigIndexes_panelStationThroughPreview({
+        throughServiceConfigs,
+        normalize
+    });
+    const configLineId = normalize(byCategory.get(category)?.lineId);
+    return configLineId;
+};
+
+const collectMappedValuesForLineIds_panelStationThroughPreview = ({
+    sourceMap,
+    lineIds,
+    normalize = toText_panelThroughServiceSetup
+} = {}) => {
+    if (!(sourceMap instanceof Map)) return [];
+    const out = [];
+    for (const lineId of normalizeList_panelStationThroughPreview(lineIds, { normalize })) {
+        out.push(...normalizeList_panelStationThroughPreview(sourceMap.get(lineId), { normalize }));
+    }
+    return Array.from(new Set(out));
+};
+
+export const buildPanelStationThroughPreviewFilterValues = ({
+    lineDirKey = '',
+    meta = null,
+    dirFilteredTripKeysByKey,
+    temporarySourceLineIdsByDisplayLineId,
+    temporaryAllowedTripKeysByDisplayLineId,
+    throughServiceConfigs = [],
+    normalize = toText_panelThroughServiceSetup
+} = {}) => {
+    const displayLineId = normalize(meta?.lineId);
+    const normalizedLineDirKey = normalize(lineDirKey);
+    const throughLineId = resolveThroughPreviewLineId_panelStationThroughPreview({
+        meta,
+        displayLineId,
+        throughServiceConfigs,
+        normalize
+    });
+    const lookupLineIds = normalizeList_panelStationThroughPreview(
+        [throughLineId, displayLineId],
+        { normalize }
+    );
+
+    const directionTripKeys = dirFilteredTripKeysByKey instanceof Map
+        ? normalizeList_panelStationThroughPreview(dirFilteredTripKeysByKey.get(normalizedLineDirKey), { normalize })
+        : [];
+    const temporaryTripKeys = collectMappedValuesForLineIds_panelStationThroughPreview({
+        sourceMap: temporaryAllowedTripKeysByDisplayLineId,
+        lineIds: lookupLineIds,
+        normalize
+    });
+    const temporarySourceLineIds = collectMappedValuesForLineIds_panelStationThroughPreview({
+        sourceMap: temporarySourceLineIdsByDisplayLineId,
+        lineIds: lookupLineIds,
+        normalize
+    });
+    const metaSourceLineIds = normalizeList_panelStationThroughPreview(meta?.sourceLineIds, { normalize });
+
+    return {
+        throughLineId,
+        sourceLineIds: Array.from(new Set([
+            ...temporarySourceLineIds,
+            ...metaSourceLineIds
+        ])),
+        targetTripKeys: Array.from(new Set([
+            ...directionTripKeys,
+            ...temporaryTripKeys
+        ]))
+    };
+};
+
+export const buildPanelStationThroughPreviewRequests = ({
+    dirPreviewMetaByKey,
+    dirFilteredTripKeysByKey,
+    temporarySourceLineIdsByDisplayLineId,
+    temporaryAllowedTripKeysByDisplayLineId,
+    throughServiceConfigs = [],
+    getLineMeta = () => null,
+    normalize = toText_panelThroughServiceSetup
+} = {}) => {
+    if (!(dirPreviewMetaByKey instanceof Map) || !dirPreviewMetaByKey.size) return [];
+
+    const { byLineId, byCategory } = buildThroughServiceConfigIndexes_panelStationThroughPreview({
+        throughServiceConfigs,
+        normalize
+    });
+    const out = [];
+    const seenRequestKeys = new Set();
+
+    for (const [lineDirKeyRaw, meta] of dirPreviewMetaByKey.entries()) {
+        const lineDirKey = normalize(lineDirKeyRaw);
+        const displayLineId = normalize(meta?.lineId);
+        if (!lineDirKey || !displayLineId) continue;
+
+        const {
+            throughLineId,
+            sourceLineIds,
+            targetTripKeys
+        } = buildPanelStationThroughPreviewFilterValues({
+            lineDirKey,
+            meta,
+            dirFilteredTripKeysByKey,
+            temporarySourceLineIdsByDisplayLineId,
+            temporaryAllowedTripKeysByDisplayLineId,
+            throughServiceConfigs,
+            normalize
+        });
+        if (!targetTripKeys.length) continue;
+
+        const throughServiceCategory = normalize(meta?.throughServiceCategory)
+            || normalize(byLineId.get(throughLineId)?.category);
+        const config = byLineId.get(throughLineId)
+            || byLineId.get(displayLineId)
+            || byCategory.get(throughServiceCategory);
+        const lineMeta = getLineMeta(displayLineId) || {};
+        const requestKey = [
+            displayLineId,
+            sourceLineIds.join('|'),
+            throughServiceCategory,
+            targetTripKeys.join('|')
+        ].join('##');
+        if (seenRequestKeys.has(requestKey)) continue;
+        seenRequestKeys.add(requestKey);
+
+        out.push({
+            lineId: displayLineId,
+            lineName: normalize(config?.lineName) || normalize(lineMeta?.name) || displayLineId,
+            sourceLineIds,
+            targetTripKeys,
+            throughServiceCategory,
+            highlightColor: normalize(config?.color) || normalize(lineMeta?.color)
+        });
+    }
+
+    return out;
 };
 
 export const applyTemporarySourceLineOverrides = ({

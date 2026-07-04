@@ -110,6 +110,7 @@ import {
     getTrainTypeColorIndex,
     getTrainTypesIndex,
     readStationName,
+    resolvePanelComputationStationIdForLine,
     createPanelStationRestoreContext
 } from './panelStation.js';
 import { resolvePanelStationIdForLine } from './panelStation.js';
@@ -135,6 +136,8 @@ import {
 } from './panelStation.js';
 import {
     applyTemporarySourceLineOverrides,
+    buildPanelStationThroughPreviewFilterValues,
+    buildPanelStationThroughPreviewRequests,
     createEmptyPanelThroughServiceState,
     reorderPanelThroughServiceLinesAfterHtml,
     resolvePanelThroughServiceSetup
@@ -214,7 +217,6 @@ import {
     isExcludedLineType,
     shouldUseExactTripDetailEndpointIds
 } from '../../lib/special-condition.js';
-
 const toText = (v) => String(v ?? '').trim();
 
 const isSaturdayHoliday = (day, { timezoneMode = readBusinessTimezoneMode() } = {}) => {
@@ -1698,17 +1700,18 @@ export function createPanel(options = {}) {
             // ignore
         }
 
-        const sourceLineIds = (() => {
-            const temp = temporaryPanelSourceLineIdsByDisplayLineId.get(toText(meta.lineId));
-            if (Array.isArray(temp) && temp.length) return Array.from(new Set(temp.map(x => toText(x)).filter(Boolean)));
-            const fromMeta = Array.isArray(meta.sourceLineIds) ? meta.sourceLineIds : [];
-            if (fromMeta.length) return Array.from(new Set(fromMeta.map(x => toText(x)).filter(Boolean)));
-            return [];
-        })();
-
-        const tripKeys = Array.isArray(dirFilteredTripKeysByKey.get(key))
-            ? dirFilteredTripKeysByKey.get(key)
-            : [];
+        const {
+            sourceLineIds,
+            targetTripKeys
+        } = buildPanelStationThroughPreviewFilterValues({
+            lineDirKey: key,
+            meta,
+            dirFilteredTripKeysByKey,
+            temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
+            temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId,
+            throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
+            normalize: toText
+        });
 
         const targetId = toText(meta.lineId);
         const throughServiceCategory = toText(meta.throughServiceCategory) || THROUGH_SERVICE_CONFIGS.find(info => 
@@ -1723,7 +1726,7 @@ export function createPanel(options = {}) {
             meta,
             onEnter: onDirPreviewEnter,
             sourceLineIds,
-            targetTripKeys: tripKeys,
+            targetTripKeys,
             throughServiceCategory
         });
     };
@@ -2188,7 +2191,7 @@ export function createPanel(options = {}) {
         toText
     });
 
-    const resolveStationIdForLine = (lineId) => resolvePanelStationIdForLine({
+    const resolveStationIdForLine = (lineId) => resolvePanelComputationStationIdForLine({
         lineId,
         currentStationId,
         currentStationNameZh,
@@ -2230,57 +2233,15 @@ export function createPanel(options = {}) {
     };
 
     const buildStationThroughPreviewRequests = () => {
-        if (!(dirPreviewMetaByKey instanceof Map) || !dirPreviewMetaByKey.size) return [];
-
-        const configByLineId = new Map(
-            THROUGH_SERVICE_CONFIGS
-                .map((config) => [toText(config?.lineId), config])
-                .filter(([lineId]) => lineId)
-        );
-        const out = [];
-        const seenRequestKeys = new Set();
-
-        for (const [lineDirKeyRaw, meta] of dirPreviewMetaByKey.entries()) {
-            const lineDirKey = toText(lineDirKeyRaw);
-            const displayLineId = toText(meta?.lineId);
-            if (!lineDirKey || !displayLineId) continue;
-
-            const targetTripKeys = Array.from(new Set(
-                (Array.isArray(dirFilteredTripKeysByKey.get(lineDirKey)) ? dirFilteredTripKeysByKey.get(lineDirKey) : [])
-                    .map((key) => toText(key))
-                    .filter(Boolean)
-            ));
-            if (!targetTripKeys.length) continue;
-
-            const sourceLineIds = Array.from(new Set(
-                (Array.isArray(meta?.sourceLineIds) ? meta.sourceLineIds : [])
-                    .map((lineId) => toText(lineId))
-                    .filter(Boolean)
-            ));
-
-            const config = configByLineId.get(displayLineId);
-            const throughServiceCategory = toText(meta?.throughServiceCategory) || toText(config?.category);
-            const lineMeta = getLineMeta(displayLineId) || {};
-            const requestKey = [
-                displayLineId,
-                sourceLineIds.join('|'),
-                throughServiceCategory,
-                targetTripKeys.join('|')
-            ].join('##');
-            if (seenRequestKeys.has(requestKey)) continue;
-            seenRequestKeys.add(requestKey);
-
-            out.push({
-                lineId: displayLineId,
-                lineName: toText(config?.lineName) || toText(lineMeta?.name) || displayLineId,
-                sourceLineIds,
-                targetTripKeys,
-                throughServiceCategory,
-                highlightColor: toText(config?.color) || toText(lineMeta?.color)
-            });
-        }
-
-        return out;
+        return buildPanelStationThroughPreviewRequests({
+            dirPreviewMetaByKey,
+            dirFilteredTripKeysByKey,
+            temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
+            temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId,
+            throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
+            getLineMeta,
+            normalize: toText
+        });
     };
 
     const collectStationThroughPreviewHighlightIds = async (stationId, requests) => {
@@ -3194,6 +3155,7 @@ export function createPanel(options = {}) {
 
             const rowsForDir = rowsByVisibleDir.get(dirKey) || [];
             const throughServiceCategory = toText(rowsForDir.find((row) => toText(row?.throughServiceCategory))?.throughServiceCategory);
+            const throughLineIdForDir = toText(rowsForDir.find((row) => toText(row?.throughLineId))?.throughLineId);
             const isThroughServiceDirection = !!throughServiceCategory;
             const { typeHints, terminalHints, specialHints } = buildDirectionGridHints(rowsForDir, { currentLineId: lineId });
             const filterRowsForDir = rowsForDir
@@ -3237,12 +3199,14 @@ export function createPanel(options = {}) {
                 const ids = Array.isArray(row?.terminalIds) ? row.terminalIds : [];
                 return ids.length ? ids : [row.terminalId || row.destId];
             };
+            const dirPreviewSourceLineIds = uniqueIds(previewRowsForMeta.flatMap((r) => (
+                Array.isArray(r?.throughServiceSourceLineIds) ? r.throughServiceSourceLineIds : []
+            )));
             dirPreviewMetaByKey.set(lineDirKey, {
                 lineId: toText(lineId),
+                throughLineId: throughLineIdForDir,
                 throughServiceCategory,
-                sourceLineIds: uniqueIds(previewRowsForMeta.flatMap((r) => (
-                    Array.isArray(r?.throughServiceSourceLineIds) ? r.throughServiceSourceLineIds : []
-                ))),
+                sourceLineIds: dirPreviewSourceLineIds,
                 originStationIds: uniqueIds(previewRowsForMeta.flatMap(getDirPreviewOriginIds)),
                 terminalStationIds: uniqueIds(previewRowsForMeta.flatMap(getDirPreviewTerminalIds)),
                 endpointLabelCounts: buildDirectionEndpointLabelCounts(previewRowsForMeta, {

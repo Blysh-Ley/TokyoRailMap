@@ -2,6 +2,7 @@ import { getPairMapValue } from '../../domain/alternateLineMembership.js';
 
 export const TRIP_PREVIEW_PAST_COLOR = '#b8bec8';
 export const TRIP_PREVIEW_PAST_DARK_COLOR = '#3f454d';
+const STATION_THROUGH_BRANCH_PREVIEW_SOURCE = 'station-through-branch';
 
 export const resolveTripPreviewPastColor = ({ isDarkThemeActive = false } = {}) => (
     isDarkThemeActive === true ? TRIP_PREVIEW_PAST_DARK_COLOR : TRIP_PREVIEW_PAST_COLOR
@@ -124,7 +125,9 @@ export const createTripPreviewBuilder = ({
         const stopIds = new Set();
         const pastStopIds = new Set();
         const debugLoop = !!isDebugLoopEnabled?.();
-        const usePanelAlternateTripPreview = String(payload?.previewSource || payload?.__previewSource || '').trim() === 'panel-trip';
+        const previewSource = String(payload?.previewSource || payload?.__previewSource || '').trim();
+        const usePanelAlternateTripPreview = previewSource === 'panel-trip'
+            || previewSource === STATION_THROUGH_BRANCH_PREVIEW_SOURCE;
 
         const allSegments = Array.isArray(payload?.segments) ? payload.segments : [];
         const ntSeg = allSegments.find((s) => String(s?.kind) === 'nt') || null;
