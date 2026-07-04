@@ -5,6 +5,10 @@ import {
     markTripPreviewStopFeatureEndpoint,
     normalizeDirPreviewPayload
 } from '../../domain/routePreviewSelection.js';
+import {
+    markRoutePreviewProbe,
+    summarizeTripPreviewBuilt
+} from './routePreviewProbe.js';
 
 export const createRouteFeature = ({
     tripPreviewRenderer,
@@ -383,6 +387,7 @@ export const createRouteFeature = ({
         },
         previewTripPath({
             payload,
+            probe,
             isMultiSelectModeEnabled,
             clearTripPathPreview,
             resolvePayloadSource,
@@ -403,8 +408,14 @@ export const createRouteFeature = ({
         } = {}) {
             const hasSegments = Array.isArray(payload?.segments) && payload.segments.length;
             const virtualTrips = getVirtualTrips(payload);
+            markRoutePreviewProbe(probe, 'feature:enter', {
+                hasPayload: !!payload,
+                hasSegments: !!hasSegments,
+                virtualTripCount: virtualTrips.length
+            });
 
             if (!payload || (!hasSegments && !virtualTrips.length)) {
+                markRoutePreviewProbe(probe, 'feature:clear-empty-payload');
                 clearTripPathPreview?.();
                 return;
             }
@@ -415,16 +426,38 @@ export const createRouteFeature = ({
                 : '';
             const previewInteraction = getPreviewInteraction(payload);
             const inMultiSelectMode = !!isMultiSelectModeEnabled?.();
+            markRoutePreviewProbe(probe, 'feature:resolved-context', {
+                fitMode,
+                payloadSource,
+                previewInteraction,
+                inMultiSelectMode
+            });
 
             if (virtualTrips.length) {
+                markRoutePreviewProbe(probe, 'feature:virtual-trips-branch', {
+                    virtualTripCount: virtualTrips.length
+                });
                 if (inMultiSelectMode) {
-                    if (previewInteraction === 'hover') return;
+                    if (previewInteraction === 'hover') {
+                        markRoutePreviewProbe(probe, 'feature:skip-multiselect-hover');
+                        return;
+                    }
 
                     const selectionKey = String(buildSelectionKey?.(payload) || '').trim();
-                    if (!selectionKey) return;
+                    if (!selectionKey) {
+                        markRoutePreviewProbe(probe, 'feature:skip-empty-selection-key');
+                        return;
+                    }
 
+                    markRoutePreviewProbe(probe, 'feature:build-aggregate:start', {
+                        virtualTripCount: virtualTrips.length
+                    });
                     const aggregate = buildAggregateFromPayloadList?.(virtualTrips);
+                    markRoutePreviewProbe(probe, 'feature:build-aggregate:end', summarizeTripPreviewBuilt(aggregate));
                     if (!hasVisibleBuiltPreview(aggregate)) {
+                        markRoutePreviewProbe(probe, 'feature:aggregate-empty-delete-selection', {
+                            selectionKey
+                        });
                         this.deleteTripPreviewSelection(selectionKey);
                         rebuildMultiTripPreview?.('none');
                         return;
@@ -433,6 +466,9 @@ export const createRouteFeature = ({
                         payload,
                         built: aggregate,
                         payloadList: virtualTrips
+                    });
+                    markRoutePreviewProbe(probe, 'feature:endpoints-built', {
+                        endpointStationIdCount: endpointStationIds.size
                     });
 
                     this.setTripPreviewSelection(selectionKey, {
@@ -450,13 +486,27 @@ export const createRouteFeature = ({
                         source: payloadSource,
                         hidden: false
                     });
+                    markRoutePreviewProbe(probe, 'feature:set-multiselect-entry', {
+                        selectionKey,
+                        fitMode
+                    });
 
                     rebuildMultiTripPreview?.(fitMode);
+                    markRoutePreviewProbe(probe, 'feature:rebuild-multiselect-preview', {
+                        fitMode
+                    });
                     return;
                 }
 
+                markRoutePreviewProbe(probe, 'feature:build-aggregate:start', {
+                    virtualTripCount: virtualTrips.length
+                });
                 const aggregate = buildAggregateFromPayloadList?.(virtualTrips);
+                markRoutePreviewProbe(probe, 'feature:build-aggregate:end', summarizeTripPreviewBuilt(aggregate));
                 if (!hasVisibleBuiltPreview(aggregate)) {
+                    markRoutePreviewProbe(probe, 'feature:aggregate-empty-clear-source', {
+                        payloadSource
+                    });
                     clearTripPathPreview?.({ source: payloadSource || '' });
                     return;
                 }
@@ -465,8 +515,12 @@ export const createRouteFeature = ({
                     built: aggregate,
                     payloadList: virtualTrips
                 });
+                markRoutePreviewProbe(probe, 'feature:endpoints-built', {
+                    endpointStationIdCount: endpointStationIds.size
+                });
 
                 tripPreviewRenderer.ensureLayers();
+                markRoutePreviewProbe(probe, 'feature:renderer-ensure-layers');
                 applyActiveState?.({
                     active: true,
                     source: payloadSource,
@@ -481,51 +535,92 @@ export const createRouteFeature = ({
                     pastStationIds: aggregate.pastStopIds,
                     lineIds: aggregate.lineIds
                 });
+                markRoutePreviewProbe(probe, 'feature:apply-active-state');
                 syncStationOffset?.();
+                markRoutePreviewProbe(probe, 'feature:sync-station-offset');
 
                 try {
                     tripPreviewRenderer.setData({ lineFc: aggregate.lineFc, stopFc: aggregate.stopFc });
+                    markRoutePreviewProbe(probe, 'feature:renderer-set-data', summarizeTripPreviewBuilt(aggregate));
                 } catch {
                     // Keep legacy route preview interactions non-fatal during renderer migration.
+                    markRoutePreviewProbe(probe, 'feature:renderer-set-data-error');
                 }
 
                 clearEndpointPopups?.();
+                markRoutePreviewProbe(probe, 'feature:clear-endpoint-popups');
                 emitTripPreviewUpdated?.({ payload, built: aggregate });
+                markRoutePreviewProbe(probe, 'feature:emit-updated');
                 setStationLabelMode?.('all');
+                markRoutePreviewProbe(probe, 'feature:set-station-label-mode-all');
                 applySelectionEffects?.();
+                markRoutePreviewProbe(probe, 'feature:apply-selection-effects');
                 scheduleCollisionLayerRefresh?.();
+                markRoutePreviewProbe(probe, 'feature:schedule-collision-refresh');
                 if (fitMode !== 'none') {
                     previewFitWithSidePanels?.(aggregate.bbox);
+                    markRoutePreviewProbe(probe, 'feature:fit-with-side-panels', {
+                        fitMode,
+                        hasBBox: !!aggregate.bbox
+                    });
                 }
                 return;
             }
 
             if (inMultiSelectMode) {
-                if (previewInteraction === 'hover') return;
+                markRoutePreviewProbe(probe, 'feature:single-trip-multiselect-branch');
+                if (previewInteraction === 'hover') {
+                    markRoutePreviewProbe(probe, 'feature:skip-multiselect-hover');
+                    return;
+                }
 
                 const selectionKey = String(buildSelectionKey?.(payload) || '').trim();
-                if (!selectionKey) return;
+                if (!selectionKey) {
+                    markRoutePreviewProbe(probe, 'feature:skip-empty-selection-key');
+                    return;
+                }
 
                 if (previewInteraction !== 'auto' && this.hasTripPreviewSelection(selectionKey)) {
                     this.deleteTripPreviewSelection(selectionKey);
+                    markRoutePreviewProbe(probe, 'feature:delete-existing-multiselect-entry', {
+                        selectionKey
+                    });
                 } else {
+                    markRoutePreviewProbe(probe, 'feature:build-single:start');
                     const builtSingle = buildFeatures?.(payload);
+                    markRoutePreviewProbe(probe, 'feature:build-single:end', summarizeTripPreviewBuilt(builtSingle));
                     const endpointStationIds = buildPreviewEndpointStationIds({ payload, built: builtSingle });
+                    markRoutePreviewProbe(probe, 'feature:endpoints-built', {
+                        endpointStationIdCount: endpointStationIds.size
+                    });
                     this.setTripPreviewSelection(selectionKey, {
                         payload: { ...(payload || {}) },
                         built: attachEndpointStationIds(builtSingle, endpointStationIds),
                         source: payloadSource,
                         hidden: false
                     });
+                    markRoutePreviewProbe(probe, 'feature:set-multiselect-entry', {
+                        selectionKey,
+                        fitMode
+                    });
                 }
 
                 rebuildMultiTripPreview?.(fitMode);
+                markRoutePreviewProbe(probe, 'feature:rebuild-multiselect-preview', {
+                    fitMode
+                });
                 return;
             }
 
             tripPreviewRenderer.ensureLayers();
+            markRoutePreviewProbe(probe, 'feature:renderer-ensure-layers');
+            markRoutePreviewProbe(probe, 'feature:build-single:start');
             const built = buildFeatures?.(payload);
+            markRoutePreviewProbe(probe, 'feature:build-single:end', summarizeTripPreviewBuilt(built));
             const endpointStationIds = buildPreviewEndpointStationIds({ payload, built });
+            markRoutePreviewProbe(probe, 'feature:endpoints-built', {
+                endpointStationIdCount: endpointStationIds.size
+            });
             applyActiveState?.({
                 active: true,
                 source: payloadSource,
@@ -535,23 +630,39 @@ export const createRouteFeature = ({
                 pastStationIds: built?.pastStopIds,
                 lineIds: built?.lineIds
             });
+            markRoutePreviewProbe(probe, 'feature:apply-active-state');
             syncStationOffset?.();
+            markRoutePreviewProbe(probe, 'feature:sync-station-offset');
 
             try {
                 tripPreviewRenderer.setData({ lineFc: built?.lineFc, stopFc: built?.stopFc });
+                markRoutePreviewProbe(probe, 'feature:renderer-set-data', summarizeTripPreviewBuilt(built));
             } catch {
                 // Keep legacy route preview interactions non-fatal during renderer migration.
+                markRoutePreviewProbe(probe, 'feature:renderer-set-data-error');
             }
 
             updateEndpointPopups?.(built?.startStationId, built?.endStationId, {
                 displayMode: normalizeKey(payload?.endpointDisplayMode)
             });
+            markRoutePreviewProbe(probe, 'feature:update-endpoint-popups', {
+                startStationId: normalizeKey(built?.startStationId) || null,
+                endStationId: normalizeKey(built?.endStationId) || null
+            });
             emitTripPreviewUpdated?.({ payload, built });
+            markRoutePreviewProbe(probe, 'feature:emit-updated');
             setStationLabelMode?.('all');
+            markRoutePreviewProbe(probe, 'feature:set-station-label-mode-all');
             applySelectionEffects?.();
+            markRoutePreviewProbe(probe, 'feature:apply-selection-effects');
             scheduleCollisionLayerRefresh?.();
+            markRoutePreviewProbe(probe, 'feature:schedule-collision-refresh');
             if (fitMode !== 'none') {
                 previewFitWithSidePanels?.(built?.bbox);
+                markRoutePreviewProbe(probe, 'feature:fit-with-side-panels', {
+                    fitMode,
+                    hasBBox: !!built?.bbox
+                });
             }
         },
         clearDirHeaderPreview({

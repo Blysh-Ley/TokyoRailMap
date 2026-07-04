@@ -3,6 +3,11 @@ import {
     tripPreviewCleared,
     tripPreviewRequested
 } from '../../store/actions.js';
+import {
+    beginRoutePreviewProbe,
+    isRoutePreviewProbe,
+    markRoutePreviewProbe
+} from './routePreviewProbe.js';
 
 export const createRoutePreviewController = ({
     routeFeature,
@@ -123,42 +128,69 @@ export const createRoutePreviewController = ({
     };
 
     const previewTripPath = (payload, options = {}) => {
-        dispatchTrace(tripPreviewRequested(buildTripPreviewTracePayload(payload, options)));
-        routeFeature.previewTripPath({
-            payload,
-            isMultiSelectModeEnabled,
-            clearTripPathPreview,
-            resolvePayloadSource: resolveTripPreviewPayloadSource,
-            buildSelectionKey: buildTripPreviewSelectionKey,
-            buildAggregateFromPayloadList: buildTripPreviewAggregateFromPayloadList,
-            buildFeatures: buildTripPreviewFeatures,
-            rebuildMultiTripPreview: rebuildTripPreviewFromMultiSelections,
-            resolveStationOverrideColor: resolveTripPreviewStationOverrideColor,
-            resolveVirtualTripStationIds: ({
-                payload: tripPayload,
-                payloadSource,
-                aggregate,
-                virtualTrips
-            } = {}) => {
-                if (payloadSource !== 'panel-dir-branch') return aggregate?.stopIds || null;
-                const explicitHighlightIds = new Set(
-                    (Array.isArray(tripPayload?.highlightStationIds) ? tripPayload.highlightStationIds : [])
-                        .map((x) => String(x || '').trim())
-                        .filter(Boolean)
-                );
-                if (explicitHighlightIds.size) return explicitHighlightIds;
-                const endpointIds = buildEndpointStationIdSetFromPayloadList(virtualTrips);
-                return endpointIds.size ? endpointIds : aggregate?.stopIds || null;
-            },
-            applyActiveState: applyTripPreviewState,
-            syncStationOffset: syncStationOffsetForTripPreviewState,
-            clearEndpointPopups: clearTripEndpointPopups,
-            updateEndpointPopups: updateTripEndpointPopups,
-            setStationLabelMode,
-            applySelectionEffects,
-            scheduleCollisionLayerRefresh,
-            previewFitWithSidePanels
-        });
+        const tracePayload = buildTripPreviewTracePayload(payload, options);
+        const existingProbe = options?.__routePreviewProbe;
+        const probe = isRoutePreviewProbe(existingProbe)
+            ? existingProbe
+            : beginRoutePreviewProbe({
+                payload,
+                options,
+                tracePayload,
+                owner: 'controller'
+            });
+        const ownsProbe = !isRoutePreviewProbe(existingProbe);
+
+        try {
+            markRoutePreviewProbe(probe, 'controller:dispatch-requested', tracePayload);
+            dispatchTrace(tripPreviewRequested(tracePayload));
+            markRoutePreviewProbe(probe, 'controller:feature-call');
+            routeFeature.previewTripPath({
+                payload,
+                probe,
+                isMultiSelectModeEnabled,
+                clearTripPathPreview,
+                resolvePayloadSource: resolveTripPreviewPayloadSource,
+                buildSelectionKey: buildTripPreviewSelectionKey,
+                buildAggregateFromPayloadList: buildTripPreviewAggregateFromPayloadList,
+                buildFeatures: buildTripPreviewFeatures,
+                rebuildMultiTripPreview: rebuildTripPreviewFromMultiSelections,
+                resolveStationOverrideColor: resolveTripPreviewStationOverrideColor,
+                resolveVirtualTripStationIds: ({
+                    payload: tripPayload,
+                    payloadSource,
+                    aggregate,
+                    virtualTrips
+                } = {}) => {
+                    if (payloadSource !== 'panel-dir-branch') return aggregate?.stopIds || null;
+                    const explicitHighlightIds = new Set(
+                        (Array.isArray(tripPayload?.highlightStationIds) ? tripPayload.highlightStationIds : [])
+                            .map((x) => String(x || '').trim())
+                            .filter(Boolean)
+                    );
+                    if (explicitHighlightIds.size) return explicitHighlightIds;
+                    const endpointIds = buildEndpointStationIdSetFromPayloadList(virtualTrips);
+                    return endpointIds.size ? endpointIds : aggregate?.stopIds || null;
+                },
+                applyActiveState: applyTripPreviewState,
+                syncStationOffset: syncStationOffsetForTripPreviewState,
+                clearEndpointPopups: clearTripEndpointPopups,
+                updateEndpointPopups: updateTripEndpointPopups,
+                setStationLabelMode,
+                applySelectionEffects,
+                scheduleCollisionLayerRefresh,
+                previewFitWithSidePanels
+            });
+            markRoutePreviewProbe(probe, 'controller:feature-return');
+            if (ownsProbe) probe.finish('complete');
+        } catch (error) {
+            markRoutePreviewProbe(probe, 'controller:error', {
+                message: error?.message || String(error)
+            });
+            if (ownsProbe) probe.finish('error', {
+                message: error?.message || String(error)
+            });
+            throw error;
+        }
     };
 
     const clearDirHeaderPreview = () => {

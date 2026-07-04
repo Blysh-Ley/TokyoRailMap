@@ -111,6 +111,11 @@ import { createStationOffsetRuntimeController } from './features/layer/stationOf
 import { createRouteFeature } from './features/route/routeFeature.js';
 import { createRoutePreviewBridgeApi } from './features/route/routePreviewBridgeApi.js';
 import { createRoutePreviewRuntimeController } from './features/route/routePreviewRuntimeController.js';
+import {
+    beginRoutePreviewProbe,
+    isRoutePreviewProbe,
+    markRoutePreviewProbe
+} from './features/route/routePreviewProbe.js';
 import { createReachableStopsOverlayRenderer } from './features/search/reachableStopsOverlayRenderer.js';
 import { createTravelSearchMapRuntime } from './features/search/reachableStopsRuntime.js';
 import { createSearchMapBridge } from './features/search/searchMapBridge.js';
@@ -1509,6 +1514,9 @@ const initMapApp = async () => {
     };
 
     const syncSelectionLineTripPreview = async () => {
+        // Temporarily disabled to isolate station-through preview cost.
+        return;
+
         const activeSource = String(tripPreviewActiveSource || '').trim();
 
         if (isMultiSelectModeEnabled()) {
@@ -2854,7 +2862,8 @@ const initMapApp = async () => {
             applyBaseLayerVisibilityFilters,
             applyLineSelectionStyle,
             syncSelectionLineTripPreview: () => {
-                syncSelectionLineTripPreview().catch(() => null);
+                // Temporarily disabled to isolate station-through preview cost.
+                // syncSelectionLineTripPreview().catch(() => null);
             },
             syncSelectionCompanyTripPreview: () => {
                 syncSelectionCompanyTripPreview().catch(() => null);
@@ -2881,7 +2890,11 @@ const initMapApp = async () => {
         isMultiSelectModeEnabled,
         requestFrame: (callback) => requestAnimationFrame(callback)
     });
-    const applySelectionEffects = () => selectionEffectsController.apply();
+    const applySelectionEffects = () => {
+        // Temporarily disabled to isolate station-through preview from base station-line highlighting.
+        selectedStationLineIds = null;
+        selectionEffectsController.apply();
+    };
 
     createHighlightFeature({
         store: appStore,
@@ -4216,9 +4229,40 @@ const initMapApp = async () => {
             lastTripPreviewPayload = null;
         };
         previewTripPath = (payload, options = {}) => {
-            lastTripPreviewPayload = payload || null;
-            routePreviewController.previewTripPath(payload, options);
-            fitMobileTripBoundsIfNeeded(payload, options);
+            const existingProbe = options?.__routePreviewProbe;
+            const probe = isRoutePreviewProbe(existingProbe)
+                ? existingProbe
+                : beginRoutePreviewProbe({
+                    payload,
+                    options,
+                    owner: 'app'
+                });
+            const ownsProbe = !isRoutePreviewProbe(existingProbe);
+            const nextOptions = probe?.enabled === true && ownsProbe
+                ? { ...(options || {}), __routePreviewProbe: probe }
+                : options;
+
+            try {
+                markRoutePreviewProbe(probe, 'app:set-last-payload');
+                lastTripPreviewPayload = payload || null;
+                markRoutePreviewProbe(probe, 'app:controller-call');
+                routePreviewController.previewTripPath(payload, nextOptions);
+                markRoutePreviewProbe(probe, 'app:controller-return');
+                markRoutePreviewProbe(probe, 'app:mobile-fit:start');
+                const mobileFitApplied = fitMobileTripBoundsIfNeeded(payload, options);
+                markRoutePreviewProbe(probe, 'app:mobile-fit:end', {
+                    applied: mobileFitApplied === true
+                });
+                if (ownsProbe) probe.finish('complete');
+            } catch (error) {
+                markRoutePreviewProbe(probe, 'app:error', {
+                    message: error?.message || String(error)
+                });
+                if (ownsProbe) probe.finish('error', {
+                    message: error?.message || String(error)
+                });
+                throw error;
+            }
         };
         clearDirHeaderPreview = routePreviewController.clearDirHeaderPreview;
         previewDirHeader = routePreviewController.previewDirHeader;
