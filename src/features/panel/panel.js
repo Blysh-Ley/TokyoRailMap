@@ -1527,6 +1527,12 @@ export function createPanel(options = {}) {
         tripPreviewScheduler.schedule({ previewKey, payload, immediate });
     };
 
+    const clearAppliedPanelTripPreviewState = () => {
+        const hadApplied = !!toText(tripPreviewScheduler.getAppliedKey?.());
+        tripPreviewScheduler.clearApplied();
+        return hadApplied;
+    };
+
     let scheduleTripDetailHide = () => {};
     let lockTripPreview = () => {};
     let unlockTripPreview = () => {};
@@ -4671,7 +4677,7 @@ export function createPanel(options = {}) {
         restoreStationThroughPreview = restoreMobileLine
     } = {}) => {
         clearTripHighlightTimer();
-        tripPreviewScheduler.clearApplied();
+        const hadAppliedTripPreview = clearAppliedPanelTripPreviewState();
         unlockTripPreview();
         tripDetailToken += 1;
         setTripDetailInteractive(false);
@@ -4680,15 +4686,17 @@ export function createPanel(options = {}) {
         hideTripCurrentStationHint();
         clearTripDetailStationIndicator();
         tripDetailView.hide();
-        try {
-            onTripClear?.();
-        } catch {
-            // ignore
+        if (hadAppliedTripPreview) {
+            try {
+                onTripClear?.();
+            } catch {
+                // ignore
+            }
         }
         if (restoreMobileLine) {
             restoreMobileLineAfterTripDetail();
         }
-        if (restoreStationThroughPreview) {
+        if (restoreStationThroughPreview && hadAppliedTripPreview) {
             restoreStationThroughPreviewDefault();
         }
     };
@@ -4696,7 +4704,8 @@ export function createPanel(options = {}) {
     const clearUnpinnedTripPreview = ({ skipStationThroughRestore = false } = {}) => {
         if (tripLocked || tripDetailPinned) return;
         clearTripHighlightTimer();
-        tripPreviewScheduler.clearApplied();
+        const hadAppliedTripPreview = clearAppliedPanelTripPreviewState();
+        if (!hadAppliedTripPreview) return;
         try {
             onTripClear?.();
         } catch {
