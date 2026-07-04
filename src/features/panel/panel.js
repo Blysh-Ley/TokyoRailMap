@@ -369,6 +369,7 @@ export function createPanel(options = {}) {
     const TIMETABLE_PRINT_EVENT = '__TokyoRailPrintTimetableRequested';
     const TIMETABLE_PRINT_ALL_EVENT = '__TokyoRailPrintAllTimetablesRequested';
     const STATION_THROUGH_PREVIEW_SOURCE = 'station-through-branch';
+    const DIR_FILTER_TRIP_PREVIEW_SOURCE = 'panel-dir-filter-preview';
     const widthPx = Number.isFinite(options.widthPx) ? options.widthPx : 380;
     const rightPx = Number.isFinite(options.rightPx) ? options.rightPx : 20;
     const zIndex = Number.isFinite(options.zIndex) ? options.zIndex : 9999;
@@ -1623,6 +1624,7 @@ export function createPanel(options = {}) {
     const dirPrintPayloadByKey = new Map(); // lineId||dir -> export payload for print-timetables.js
     const linePrintPayloadsByLineId = new Map(); // lineId -> raw export payloads before through-service panel split
     const dirPreviewMetaByKey = new Map(); // lineId||dir -> { lineId, originStationIds:string[], terminalStationIds:string[] }
+    let dirFilterPreviewToken = 0;
     const makeLineDirKey = (lineId, dirKey) => `${toText(lineId)}||${toText(dirKey) || 'Unknown'}`;
     const dirKeyOf = (lineId, dir) => `${toText(lineId)}||${toText(dir) || 'Unknown'}`;
     const getFocusedDirectionLineId = () => toText(focusedDirectionKey).split('||')[0] || '';
@@ -2215,6 +2217,60 @@ export function createPanel(options = {}) {
             ...(request || {}),
             applyHighlightColor: false
         }));
+    };
+
+    const buildPanelDirFilterPreviewRequest = (lineId, dirKey) => {
+        const lineDirKey = makeLineDirKey(lineId, dirKey);
+        if (!lineDirKey || !dirPreviewMetaByKey.has(lineDirKey)) return null;
+
+        const scopedMeta = new Map([[lineDirKey, dirPreviewMetaByKey.get(lineDirKey)]]);
+        const scopedTripKeys = new Map([[lineDirKey, dirFilteredTripKeysByKey.get(lineDirKey) || []]]);
+        const requests = buildPanelStationThroughPreviewRequests({
+            dirPreviewMetaByKey: scopedMeta,
+            dirFilteredTripKeysByKey: scopedTripKeys,
+            temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
+            temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId,
+            throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
+            getLineMeta,
+            normalize: toText
+        }).map((request) => ({
+            ...(request || {}),
+            applyHighlightColor: false
+        }));
+
+        return requests[0] || null;
+    };
+
+    const previewPanelDirFilterDirection = async (lineId, dirKey) => {
+        const lineDirKey = makeLineDirKey(lineId, dirKey);
+        const previewToken = ++dirFilterPreviewToken;
+        const request = buildPanelDirFilterPreviewRequest(lineId, dirKey);
+        if (!request) {
+            crossFeatureBridge.clearTripPathPreviewBySource(DIR_FILTER_TRIP_PREVIEW_SOURCE);
+            return false;
+        }
+
+        const endpointStationIds = Array.from(new Set([
+            ...(Array.isArray(request.originStationIds) ? request.originStationIds : []),
+            ...(Array.isArray(request.terminalStationIds) ? request.terminalStationIds : [])
+        ].map((value) => toText(value)).filter(Boolean)));
+
+        try {
+            const alternateLineMembership = await getAlternateLineMembership();
+            const previewResult = await previewBranchesForLineRequests({
+                requests: [request],
+                fitMode: 'commit',
+                highlightStationIds: endpointStationIds,
+                alternateLineMembership,
+                isStillActive: () => previewToken === dirFilterPreviewToken && dirPreviewMetaByKey.has(lineDirKey),
+                previewSource: DIR_FILTER_TRIP_PREVIEW_SOURCE,
+                endpointOnlyStationPreview: true
+            });
+            return previewResult?.ok === true;
+        } catch {
+            crossFeatureBridge.clearTripPathPreviewBySource(DIR_FILTER_TRIP_PREVIEW_SOURCE);
+            return false;
+        }
     };
 
     const collectStationThroughPreviewHighlightIds = async (stationId, requests) => {
@@ -5367,6 +5423,7 @@ export function createPanel(options = {}) {
                     dirKey: pending.dirKey,
                     buttonEl: pending.buttonEl
                 },
+                previewDirFilterDirection: previewPanelDirFilterDirection,
                 toggleDirFilterPopoverFromButton
             });
             return;
@@ -5557,6 +5614,7 @@ export function createPanel(options = {}) {
             stopEvent(evt);
             dispatchPanelDirFilterIntent({
                 filterTarget,
+                previewDirFilterDirection: previewPanelDirFilterDirection,
                 toggleDirFilterPopoverFromButton
             });
             return;

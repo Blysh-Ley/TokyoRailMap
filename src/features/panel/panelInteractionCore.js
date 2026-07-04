@@ -500,9 +500,11 @@ export const createPanelIntentController = ({
 // panelIntentDispatcher.js
 export const dispatchPanelDirFilterIntent = ({
     filterTarget,
+    previewDirFilterDirection = () => {},
     toggleDirFilterPopoverFromButton = () => {}
 } = {}) => {
     if (!filterTarget) return false;
+    previewDirFilterDirection(filterTarget.lineId, filterTarget.dirKey);
     toggleDirFilterPopoverFromButton(filterTarget.buttonEl);
     return true;
 };

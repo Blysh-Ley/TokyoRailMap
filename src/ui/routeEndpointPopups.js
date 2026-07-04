@@ -40,6 +40,34 @@ export const createRouteEndpointPopupRuntime = ({
         return Array.isArray(coord) && coord.length >= 2 ? coord : null;
     };
 
+    const normalizeStationIds = (value) => {
+        const list = value instanceof Set
+            ? Array.from(value)
+            : (Array.isArray(value) ? value : []);
+        const out = [];
+        const seen = new Set();
+        for (const item of list) {
+            const sid = String(item || '').trim();
+            if (!sid || seen.has(sid)) continue;
+            seen.add(sid);
+            out.push(sid);
+        }
+        return out;
+    };
+
+    const buildEndpointCountsByStationId = (counts) => {
+        const out = new Map();
+        for (const item of Array.isArray(counts) ? counts : []) {
+            const stationId = String(item?.stationId || '').trim();
+            if (!stationId) continue;
+            out.set(stationId, {
+                originCount: Number(item?.originCount || 0),
+                terminalCount: Number(item?.terminalCount || 0)
+            });
+        }
+        return out;
+    };
+
     const notifyTripEndpointPinStationIdsChange = (idsByType = {}) => {
         try {
             onTripEndpointPinStationIdsChange(idsByType);
@@ -118,9 +146,46 @@ export const createRouteEndpointPopupRuntime = ({
 
         const startId = String(startStationId || '').trim();
         const endId = String(endStationId || '').trim();
+        const displayMode = String(options?.displayMode || '').trim();
+
+        if (displayMode === 'endpoints-list') {
+            const originIds = normalizeStationIds(options?.originStationIds);
+            const terminalIds = normalizeStationIds(options?.terminalStationIds);
+            if (!originIds.length && !terminalIds.length) return;
+
+            const countsByStationId = buildEndpointCountsByStationId(options?.endpointLabelCounts);
+            const buildLabel = (stationId, role) => {
+                const counts = countsByStationId.get(stationId) || {};
+                const count = role === 'origin'
+                    ? Number(counts.originCount || 0)
+                    : Number(counts.terminalCount || 0);
+                const label = role === 'origin' ? '始发' : '终点';
+                return count > 0 ? `${label}(${count})` : `${label}站`;
+            };
+            const originIdSet = new Set(originIds);
+
+            tripOriginPopups = originIds
+                .map((stationId) => createEndpointPopup({
+                    stationId,
+                    text: buildLabel(stationId, 'origin'),
+                    color: '#1A9B2D',
+                    yOffset: 10
+                }))
+                .filter(Boolean);
+            tripTerminalPopups = terminalIds
+                .map((stationId) => createEndpointPopup({
+                    stationId,
+                    text: buildLabel(stationId, 'terminal'),
+                    color: '#D32F2F',
+                    yOffset: originIdSet.has(stationId) ? 30 : 10
+                }))
+                .filter(Boolean);
+            return;
+        }
+
         if (!startId && !endId) return;
 
-        if (String(options?.displayMode || '').trim() === 'destination-pin-only') {
+        if (displayMode === 'destination-pin-only') {
             if (!endId) return;
             const token = tripEndpointRenderToken;
             createEndpointPin({ stationId: endId, type: 'destination' }).then((marker) => {

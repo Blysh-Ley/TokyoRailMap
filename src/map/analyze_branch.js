@@ -919,7 +919,8 @@ const finalizeBranchAnalysisPlan = ({
     const targetTimetables = [];
     const baseFilteredRecords = Array.isArray(plan?.baseFilteredRecords) ? plan.baseFilteredRecords : [];
 
-    if (plan.filterSpecial) {
+    const includeAllBaseRecords = plan.filterSpecial !== true;
+    if (!includeAllBaseRecords) {
         for (let i = 0; i < baseFilteredRecords.length; i += 1) {
             if (i % 128 === 0 && !isActive()) return createStaleBranchAnalysisResult(plan);
             const rec = baseFilteredRecords[i];
@@ -1544,6 +1545,8 @@ export const previewBranchesForLine = async ({
     filterSpecial = false,
     originStationIds,
     terminalStationIds,
+    endpointOnlyStationPreview = false,
+    endpointLabelCounts,
     anchorStationIds,
     alternateLineMembership = null
 } = {}) => {
@@ -1590,6 +1593,8 @@ export const previewBranchesForLine = async ({
         previewSource: source,
         originStationIds: built.originStationIds,
         terminalStationIds: built.terminalStationIds,
+        endpointOnlyStationPreview: endpointOnlyStationPreview === true,
+        endpointLabelCounts: Array.isArray(endpointLabelCounts) ? endpointLabelCounts : [],
         highlightStationIds: Array.isArray(highlightStationIds)
             ? highlightStationIds.map((x) => toText(x)).filter(Boolean)
             : [],
@@ -1613,7 +1618,8 @@ export const previewBranchesForLineRequests = async ({
     highlightStationIds,
     alternateLineMembership = null,
     isStillActive,
-    previewSource = 'route-map-branch'
+    previewSource = 'route-map-branch',
+    endpointOnlyStationPreview = false
 } = {}) => {
     const source = toText(previewSource) || 'route-map-branch';
     const actions = window?.TokyoRailSearchMapActions;
@@ -1632,6 +1638,7 @@ export const previewBranchesForLineRequests = async ({
     const virtualTrips = [];
     const originStationIds = [];
     const terminalStationIds = [];
+    const endpointLabelCounts = [];
     const results = [];
     const virtualTripKeys = new Set();
     let primaryLineId = '';
@@ -1677,7 +1684,8 @@ export const previewBranchesForLineRequests = async ({
             highlightColor: request?.highlightColor,
             applyHighlightColor: request?.applyHighlightColor !== false,
             originStationIds: request?.originStationIds,
-            terminalStationIds: request?.terminalStationIds
+            terminalStationIds: request?.terminalStationIds,
+            endpointLabelCounts: request?.endpointLabelCounts
         });
     }
 
@@ -1717,6 +1725,7 @@ export const previewBranchesForLineRequests = async ({
         }
         originStationIds.push(...(Array.isArray(built.originStationIds) ? built.originStationIds : []));
         terminalStationIds.push(...(Array.isArray(built.terminalStationIds) ? built.terminalStationIds : []));
+        endpointLabelCounts.push(...(Array.isArray(item.endpointLabelCounts) ? item.endpointLabelCounts : []));
     }
 
     if (!virtualTrips.length) {
@@ -1739,6 +1748,8 @@ export const previewBranchesForLineRequests = async ({
         previewSource: source,
         originStationIds: mergeEndpointIds(originStationIds),
         terminalStationIds: mergeEndpointIds(terminalStationIds),
+        endpointOnlyStationPreview: endpointOnlyStationPreview === true,
+        endpointLabelCounts,
         highlightStationIds: Array.isArray(highlightStationIds)
             ? highlightStationIds.map((x) => toText(x)).filter(Boolean)
             : [],

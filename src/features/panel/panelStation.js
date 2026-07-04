@@ -1048,7 +1048,10 @@ export const buildPanelStationThroughPreviewRequests = ({
             sourceLineIds,
             targetTripKeys,
             throughServiceCategory,
-            highlightColor: normalize(config?.color) || normalize(lineMeta?.color)
+            highlightColor: normalize(config?.color) || normalize(lineMeta?.color),
+            originStationIds: normalizeList_panelStationThroughPreview(meta?.originStationIds, { normalize }),
+            terminalStationIds: normalizeList_panelStationThroughPreview(meta?.terminalStationIds, { normalize }),
+            endpointLabelCounts: Array.isArray(meta?.endpointLabelCounts) ? meta.endpointLabelCounts : []
         });
     }
 

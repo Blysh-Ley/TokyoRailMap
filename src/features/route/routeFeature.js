@@ -97,6 +97,30 @@ export const createRouteFeature = ({
         endpointStationIds: endpointStationIds instanceof Set ? new Set(endpointStationIds) : new Set()
     });
 
+    const shouldUseEndpointOnlyStationPreview = (payload) => (
+        payload?.endpointOnlyStationPreview === true
+        || normalizeKey(payload?.stationPreviewMode) === 'endpoints-only'
+    );
+
+    const filterBuiltPreviewToEndpointStations = (built, endpointStationIds, enabled) => {
+        if (!enabled || !(endpointStationIds instanceof Set) || !endpointStationIds.size) return built;
+        const features = Array.isArray(built?.stopFc?.features) ? built.stopFc.features : [];
+        const endpointStopFeatures = features.filter((feature) => {
+            const sid = normalizeKey(feature?.properties?.id);
+            return sid && endpointStationIds.has(sid);
+        });
+        return {
+            ...(built || {}),
+            stopFc: {
+                type: 'FeatureCollection',
+                features: endpointStopFeatures
+            },
+            stopIds: new Set(endpointStationIds),
+            pastStopIds: new Set(Array.from(built?.pastStopIds instanceof Set ? built.pastStopIds : [])
+                .filter((stationId) => endpointStationIds.has(normalizeKey(stationId))))
+        };
+    };
+
     return {
         ensureTripPreviewLayers() {
             tripPreviewRenderer.ensureLayers();
@@ -499,7 +523,7 @@ export const createRouteFeature = ({
                     built: aggregate,
                     payloadList: virtualTrips
                 });
-                const built = attachEndpointStationIds({
+                const builtBase = attachEndpointStationIds({
                     lineFc: aggregate.lineFc,
                     stopFc: aggregate.stopFc,
                     lineIds: aggregate.lineIds,
@@ -509,12 +533,17 @@ export const createRouteFeature = ({
                     endStationId: aggregate.endStationId,
                     bbox: aggregate.bbox
                 }, endpointStationIds);
+                const built = filterBuiltPreviewToEndpointStations(
+                    builtBase,
+                    endpointStationIds,
+                    shouldUseEndpointOnlyStationPreview(payload)
+                );
 
                 tripPreviewRenderer.ensureLayers();
                 const stationIds = resolveVirtualTripStationIds?.({
                     payload,
                     payloadSource,
-                    aggregate,
+                    aggregate: built,
                     virtualTrips
                 }) || built.stopIds;
                 applyActiveState?.({
@@ -523,8 +552,8 @@ export const createRouteFeature = ({
                     stationOverrideColor: resolveStationOverrideColor?.(payload, payloadSource) || '',
                     stationIds,
                     endpointStationIds,
-                    pastStationIds: aggregate.pastStopIds,
-                    lineIds: aggregate.lineIds
+                    pastStationIds: built.pastStopIds,
+                    lineIds: built.lineIds
                 });
                 syncStationOffset?.();
 
@@ -535,6 +564,14 @@ export const createRouteFeature = ({
                 }
 
                 clearEndpointPopups?.();
+                if (shouldUseEndpointOnlyStationPreview(payload)) {
+                    updateEndpointPopups?.(built.startStationId, built.endStationId, {
+                        displayMode: 'endpoints-list',
+                        originStationIds: payload?.originStationIds,
+                        terminalStationIds: payload?.terminalStationIds,
+                        endpointLabelCounts: payload?.endpointLabelCounts
+                    });
+                }
                 emitTripPreviewUpdated?.({ payload, built });
                 setStationLabelMode?.('all');
                 applySelectionEffects?.();
@@ -613,7 +650,7 @@ export const createRouteFeature = ({
                 };
             }
             const endpointStationIds = buildPreviewEndpointStationIds({ payload, built });
-            const endpointAwareBuilt = attachEndpointStationIds({
+            const endpointAwareBuiltBase = attachEndpointStationIds({
                 lineFc: built.lineFc,
                 stopFc: built.stopFc,
                 lineIds: built.lineIds,
@@ -623,14 +660,19 @@ export const createRouteFeature = ({
                 endStationId: built.endStationId,
                 bbox: built.bbox
             }, endpointStationIds);
+            const endpointAwareBuilt = filterBuiltPreviewToEndpointStations(
+                endpointAwareBuiltBase,
+                endpointStationIds,
+                shouldUseEndpointOnlyStationPreview(payload)
+            );
             applyActiveState?.({
                 active: true,
                 source: payloadSource,
                 stationOverrideColor: resolveStationOverrideColor?.(payload, payloadSource) || '',
-                stationIds: built?.stopIds,
+                stationIds: endpointAwareBuilt?.stopIds,
                 endpointStationIds,
-                pastStationIds: built?.pastStopIds,
-                lineIds: built?.lineIds
+                pastStationIds: endpointAwareBuilt?.pastStopIds,
+                lineIds: endpointAwareBuilt?.lineIds
             });
             syncStationOffset?.();
 
@@ -641,7 +683,12 @@ export const createRouteFeature = ({
             }
 
             updateEndpointPopups?.(built?.startStationId, built?.endStationId, {
-                displayMode: normalizeKey(payload?.endpointDisplayMode)
+                displayMode: shouldUseEndpointOnlyStationPreview(payload)
+                    ? 'endpoints-list'
+                    : normalizeKey(payload?.endpointDisplayMode),
+                originStationIds: payload?.originStationIds,
+                terminalStationIds: payload?.terminalStationIds,
+                endpointLabelCounts: payload?.endpointLabelCounts
             });
             emitTripPreviewUpdated?.({ payload, built: endpointAwareBuilt });
             setStationLabelMode?.('all');
@@ -714,7 +761,7 @@ export const createRouteFeature = ({
                 built,
                 payloadList: virtualTrips
             });
-            const endpointAwareBuilt = attachEndpointStationIds({
+            const endpointAwareBuiltBase = attachEndpointStationIds({
                 lineFc: built.lineFc,
                 stopFc: built.stopFc,
                 lineIds: built.lineIds,
@@ -724,6 +771,11 @@ export const createRouteFeature = ({
                 endStationId: built.endStationId,
                 bbox: built.bbox
             }, endpointStationIds);
+            const endpointAwareBuilt = filterBuiltPreviewToEndpointStations(
+                endpointAwareBuiltBase,
+                endpointStationIds,
+                shouldUseEndpointOnlyStationPreview(payload)
+            );
 
             tripPreviewRenderer.ensureLayers();
             const stationIds = resolveVirtualTripStationIds?.({
@@ -750,7 +802,14 @@ export const createRouteFeature = ({
             }
 
             clearEndpointPopups?.();
-            if (virtualTrips.length === 0) {
+            if (shouldUseEndpointOnlyStationPreview(payload)) {
+                updateEndpointPopups?.(endpointAwareBuilt.startStationId, endpointAwareBuilt.endStationId, {
+                    displayMode: 'endpoints-list',
+                    originStationIds: payload?.originStationIds,
+                    terminalStationIds: payload?.terminalStationIds,
+                    endpointLabelCounts: payload?.endpointLabelCounts
+                });
+            } else if (virtualTrips.length === 0) {
                 updateEndpointPopups?.(endpointAwareBuilt.startStationId, endpointAwareBuilt.endStationId, {
                     displayMode: 'auto'
                 });
