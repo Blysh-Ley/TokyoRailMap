@@ -643,6 +643,7 @@ const loadAllTimetableRecords = async () => {
         await runWithConcurrency(tasks, 8);
 
         const allRecords = [];
+        const recordsByLineId = new Map();
         const idMap = new Map();
         for (const list of lineDataById.values()) {
             for (const rec of Array.isArray(list) ? list : []) {
@@ -650,13 +651,19 @@ const loadAllTimetableRecords = async () => {
                 if (!id) continue;
                 allRecords.push(rec);
                 if (!idMap.has(id)) idMap.set(id, rec);
+                const recLineId = getTripLineId(rec);
+                if (recLineId) {
+                    if (!recordsByLineId.has(recLineId)) recordsByLineId.set(recLineId, []);
+                    recordsByLineId.get(recLineId).push(rec);
+                }
             }
         }
 
         return {
             allRecords,
             idMap,
-            lineStationIdsById
+            lineStationIdsById,
+            recordsByLineId
         };
     })();
 
@@ -800,7 +807,7 @@ const matchesThroughServiceCategory = (trip, idMap, expectedCategory, cache) => 
     return category === wanted;
 };
 
-export const analyzeBranchesForLine = async (lineId, options = {}) => {
+const createBranchAnalysisPlan = (lineId, options = {}) => {
     const sourceLineIds = expandLineIdsByAlternateStations({
         sourceLineIds: Array.isArray(options?.sourceLineIds)
             ? options.sourceLineIds.map((x) => toText(x)).filter(Boolean)
@@ -827,138 +834,258 @@ export const analyzeBranchesForLine = async (lineId, options = {}) => {
     const categoryKey = throughServiceCategory || '*';
     const filterSpecial = options?.filterSpecial === true;
     const cacheKey = `${lineIdsKey}##${tripFilterKey}##${categoryKey}##${filterSpecial ? 'base' : 'all'}##${options?.alternateLineMembership ? 'alt' : 'no-alt'}`;
+    return {
+        lid,
+        activeLineIds,
+        activeLineSet,
+        throughServiceCategory,
+        tripFilterSet,
+        filterSpecial,
+        cacheKey,
+        baseFilteredRecords: [],
+        dsFrequencyMap: new Map(),
+        osFrequencyMap: new Map(),
+        throughCategoryCache: new Map()
+    };
+};
+
+const createStaleBranchAnalysisResult = (plan) => ({
+    ok: false,
+    reason: 'stale',
+    lineId: plan?.lid || '',
+    sourceLineIds: Array.isArray(plan?.activeLineIds) ? plan.activeLineIds : [],
+    throughServiceCategory: toText(plan?.throughServiceCategory),
+    originStationIds: [],
+    terminalStationIds: [],
+    lineStationIdsById: new Map(),
+    targetCount: 0,
+    throughServiceCount: 0,
+    fullRouteCount: 0,
+    fullRouteChains: [],
+    branchList: []
+});
+
+const createEmptyBranchAnalysisResult = (plan, lineStationIdsById) => ({
+    lineId: plan.lid,
+    sourceLineIds: plan.activeLineIds,
+    throughServiceCategory: plan.throughServiceCategory,
+    originStationIds: [],
+    terminalStationIds: [],
+    lineStationIdsById,
+    targetCount: 0,
+    throughServiceCount: 0,
+    fullRouteCount: 0,
+    fullRouteChains: [],
+    branchList: []
+});
+
+const getCandidateRecordsForLineIds = ({
+    allRecords,
+    recordsByLineId,
+    lineIds,
+    lineSet
+} = {}) => {
+    const ids = Array.isArray(lineIds) ? lineIds : [];
+    if (recordsByLineId instanceof Map) {
+        return ids.flatMap((id) => recordsByLineId.get(id) || []);
+    }
+    const activeSet = lineSet instanceof Set ? lineSet : new Set(ids);
+    return (Array.isArray(allRecords) ? allRecords : []).filter((rec) => activeSet.has(getTripLineId(rec)));
+};
+
+const appendRecordToBranchAnalysisPlan = (plan, rec, idMap) => {
+    if (!plan || !rec) return false;
+    if (plan.filterSpecial && rec.nm) return false;
+    if (!matchesTripFilter(rec, plan.tripFilterSet)) return false;
+    if (!matchesThroughServiceCategory(rec, idMap, plan.throughServiceCategory, plan.throughCategoryCache)) return false;
+
+    plan.baseFilteredRecords.push(rec);
+
+    const dsKey = rec.ds && Array.isArray(rec.ds) ? rec.ds.join(',') : '';
+    plan.dsFrequencyMap.set(dsKey, (plan.dsFrequencyMap.get(dsKey) || 0) + 1);
+
+    const osKey = rec.os && Array.isArray(rec.os) ? rec.os.join(',') : '';
+    plan.osFrequencyMap.set(osKey, (plan.osFrequencyMap.get(osKey) || 0) + 1);
+    return true;
+};
+
+const finalizeBranchAnalysisPlan = ({
+    plan,
+    idMap,
+    lineStationIdsById,
+    isActive = () => true
+} = {}) => {
+    if (!isActive()) return createStaleBranchAnalysisResult(plan);
+    const targetTimetables = [];
+    const baseFilteredRecords = Array.isArray(plan?.baseFilteredRecords) ? plan.baseFilteredRecords : [];
+
+    if (plan.filterSpecial) {
+        for (let i = 0; i < baseFilteredRecords.length; i += 1) {
+            if (i % 128 === 0 && !isActive()) return createStaleBranchAnalysisResult(plan);
+            const rec = baseFilteredRecords[i];
+            const dsKey = rec.ds && Array.isArray(rec.ds) ? rec.ds.join(',') : '';
+            const osKey = rec.os && Array.isArray(rec.os) ? rec.os.join(',') : '';
+
+            const dsCount = plan.dsFrequencyMap.get(dsKey) || 0;
+            const osCount = plan.osFrequencyMap.get(osKey) || 0;
+
+            if (dsCount >= 10 && osCount >= 10) {
+                targetTimetables.push(rec);
+            }
+        }
+        addCurrentLineCoverageRecords({
+            targetTimetables,
+            baseFilteredRecords,
+            activeLineIds: plan.activeLineIds,
+            lineStationIdsById,
+            shouldContinue: isActive
+        });
+        if (!isActive()) return createStaleBranchAnalysisResult(plan);
+    } else {
+        targetTimetables.push(...baseFilteredRecords);
+    }
+
+    if (!targetTimetables.length) {
+        return createEmptyBranchAnalysisResult(plan, lineStationIdsById);
+    }
+
+    if (!isActive()) return createStaleBranchAnalysisResult(plan);
+    const ttLists = buildThroughServiceTtLists(targetTimetables, idMap);
+    if (!isActive()) return createStaleBranchAnalysisResult(plan);
+    const fullRoutes = clipRoutesToThroughServiceSegments(
+        selectFullRoutes(ttLists),
+        plan.throughServiceCategory
+    );
+    if (!isActive()) return createStaleBranchAnalysisResult(plan);
+    const graph = buildGraph(fullRoutes);
+    const branchList = extractBranchLists(graph, fullRoutes).map((seq) => dedupKeepOrder(seq));
+    const endpoints = collectRouteEndpoints(fullRoutes);
+    if (!isActive()) return createStaleBranchAnalysisResult(plan);
+
+    return {
+        lineId: plan.lid,
+        sourceLineIds: plan.activeLineIds,
+        throughServiceCategory: plan.throughServiceCategory,
+        originStationIds: endpoints.originStationIds,
+        terminalStationIds: endpoints.terminalStationIds,
+        lineStationIdsById,
+        targetCount: targetTimetables.length,
+        throughServiceCount: ttLists.length,
+        fullRouteCount: fullRoutes.length,
+        fullRouteChains: fullRoutes,
+        branchList: branchList.filter((x) => Array.isArray(x) && x.length >= 2)
+    };
+};
+
+const runBranchAnalysisPlan = async ({
+    plan,
+    isActive = () => true
+} = {}) => {
+    if (!isActive()) return createStaleBranchAnalysisResult(plan);
+    const { allRecords, idMap, lineStationIdsById, recordsByLineId } = await loadAllTimetableRecords();
+    if (!isActive()) return createStaleBranchAnalysisResult(plan);
+
+    const candidateRecords = getCandidateRecordsForLineIds({
+        allRecords,
+        recordsByLineId,
+        lineIds: plan.activeLineIds,
+        lineSet: plan.activeLineSet
+    });
+
+    for (let i = 0; i < candidateRecords.length; i += 1) {
+        if (i % 128 === 0 && !isActive()) return createStaleBranchAnalysisResult(plan);
+        appendRecordToBranchAnalysisPlan(plan, candidateRecords[i], idMap);
+    }
+    if (!isActive()) return createStaleBranchAnalysisResult(plan);
+
+    return finalizeBranchAnalysisPlan({
+        plan,
+        idMap,
+        lineStationIdsById,
+        isActive
+    });
+};
+
+const runBranchAnalysisPlansBatch = async ({
+    plans,
+    isActive = () => true
+} = {}) => {
+    const list = Array.isArray(plans) ? plans.filter(Boolean) : [];
+    if (!list.length) return [];
+    if (!isActive()) return list.map((plan) => createStaleBranchAnalysisResult(plan));
+
+    const { allRecords, idMap, lineStationIdsById, recordsByLineId } = await loadAllTimetableRecords();
+    if (!isActive()) return list.map((plan) => createStaleBranchAnalysisResult(plan));
+
+    const lineIds = [];
+    const lineIdSet = new Set();
+    const plansByLineId = new Map();
+    for (const plan of list) {
+        for (const lineId of plan.activeLineIds) {
+            if (!lineId) continue;
+            if (!lineIdSet.has(lineId)) {
+                lineIdSet.add(lineId);
+                lineIds.push(lineId);
+            }
+            if (!plansByLineId.has(lineId)) plansByLineId.set(lineId, []);
+            plansByLineId.get(lineId).push(plan);
+        }
+    }
+
+    const candidateRecords = getCandidateRecordsForLineIds({
+        allRecords,
+        recordsByLineId,
+        lineIds,
+        lineSet: lineIdSet
+    });
+
+    for (let i = 0; i < candidateRecords.length; i += 1) {
+        if (i % 128 === 0 && !isActive()) return list.map((plan) => createStaleBranchAnalysisResult(plan));
+        const rec = candidateRecords[i];
+        const recLineId = getTripLineId(rec);
+        const matchingPlans = plansByLineId.get(recLineId) || [];
+        for (const plan of matchingPlans) {
+            appendRecordToBranchAnalysisPlan(plan, rec, idMap);
+        }
+    }
+    if (!isActive()) return list.map((plan) => createStaleBranchAnalysisResult(plan));
+
+    const results = [];
+    for (const plan of list) {
+        const result = finalizeBranchAnalysisPlan({
+            plan,
+            idMap,
+            lineStationIdsById,
+            isActive
+        });
+        results.push(result);
+        if (result?.reason === 'stale') return results;
+    }
+    return results;
+};
+
+export const analyzeBranchesForLine = async (lineId, options = {}) => {
+    const plan = createBranchAnalysisPlan(lineId, options);
+    if (!plan) return null;
     const shouldContinue = typeof options?.isStillActive === 'function'
         ? () => options.isStillActive() !== false
         : null;
-    const staleResult = () => ({
-        ok: false,
-        reason: 'stale',
-        lineId: lid,
-        sourceLineIds: activeLineIds,
-        throughServiceCategory,
-        originStationIds: [],
-        terminalStationIds: [],
-        lineStationIdsById: new Map(),
-        targetCount: 0,
-        throughServiceCount: 0,
-        fullRouteCount: 0,
-        fullRouteChains: [],
-        branchList: []
-    });
     const isActive = () => (shouldContinue ? shouldContinue() : true);
 
-    const runAnalysis = async () => {
-        if (!isActive()) return staleResult();
-        const { allRecords, idMap, lineStationIdsById } = await loadAllTimetableRecords();
-        if (!isActive()) return staleResult();
-        const throughCategoryCache = new Map();
-
-        const baseFilteredRecords = [];
-        const targetTimetables = [];
-        const dsFrequencyMap = new Map();
-        const osFrequencyMap = new Map();
-
-        for (let i = 0; i < allRecords.length; i += 1) {
-            if (i % 128 === 0 && !isActive()) return staleResult();
-            const rec = allRecords[i];
-            if (filterSpecial && rec && rec.nm) continue;
-            if (!activeLineSet.has(getTripLineId(rec))) continue;
-            if (!matchesTripFilter(rec, tripFilterSet)) continue;
-            if (!matchesThroughServiceCategory(rec, idMap, throughServiceCategory, throughCategoryCache)) continue;
-
-            baseFilteredRecords.push(rec);
-
-            const dsKey = rec.ds && Array.isArray(rec.ds) ? rec.ds.join(',') : '';
-            dsFrequencyMap.set(dsKey, (dsFrequencyMap.get(dsKey) || 0) + 1);
-
-            const osKey = rec.os && Array.isArray(rec.os) ? rec.os.join(',') : '';
-            osFrequencyMap.set(osKey, (osFrequencyMap.get(osKey) || 0) + 1);
-        }
-        if (!isActive()) return staleResult();
-
-        if (filterSpecial) {
-            for (let i = 0; i < baseFilteredRecords.length; i += 1) {
-                if (i % 128 === 0 && !isActive()) return staleResult();
-                const rec = baseFilteredRecords[i];
-                const dsKey = rec.ds && Array.isArray(rec.ds) ? rec.ds.join(',') : '';
-                const osKey = rec.os && Array.isArray(rec.os) ? rec.os.join(',') : '';
-
-                const dsCount = dsFrequencyMap.get(dsKey) || 0;
-                const osCount = osFrequencyMap.get(osKey) || 0;
-
-                if (dsCount >= 10 && osCount >= 10) {
-                    targetTimetables.push(rec);
-                }
-            }
-            addCurrentLineCoverageRecords({
-                targetTimetables,
-                baseFilteredRecords,
-                activeLineIds,
-                lineStationIdsById,
-                shouldContinue: isActive
-            });
-            if (!isActive()) return staleResult();
-        } else {
-            targetTimetables.push(...baseFilteredRecords);
-        }
-
-        if (!targetTimetables.length) {
-            return {
-                lineId: lid,
-                sourceLineIds: activeLineIds,
-                throughServiceCategory,
-                originStationIds: [],
-                terminalStationIds: [],
-                lineStationIdsById,
-                targetCount: 0,
-                throughServiceCount: 0,
-                fullRouteCount: 0,
-                fullRouteChains: [],
-                branchList: []
-            };
-        }
-
-        if (!isActive()) return staleResult();
-        const ttLists = buildThroughServiceTtLists(targetTimetables, idMap);
-        if (!isActive()) return staleResult();
-        const fullRoutes = clipRoutesToThroughServiceSegments(
-            selectFullRoutes(ttLists),
-            throughServiceCategory
-        );
-        if (!isActive()) return staleResult();
-        const graph = buildGraph(fullRoutes);
-        const branchList = extractBranchLists(graph, fullRoutes).map((seq) => dedupKeepOrder(seq));
-        const endpoints = collectRouteEndpoints(fullRoutes);
-        if (!isActive()) return staleResult();
-
-
-        return {
-            lineId: lid,
-            sourceLineIds: activeLineIds,
-            throughServiceCategory,
-            originStationIds: endpoints.originStationIds,
-            terminalStationIds: endpoints.terminalStationIds,
-            lineStationIdsById,
-            targetCount: targetTimetables.length,
-            throughServiceCount: ttLists.length,
-            fullRouteCount: fullRoutes.length,
-            fullRouteChains: fullRoutes,
-            branchList: branchList.filter((x) => Array.isArray(x) && x.length >= 2)
-        };
-    };
+    const runAnalysis = () => runBranchAnalysisPlan({ plan, isActive });
 
     if (shouldContinue) return runAnalysis();
 
-    if (!branchAnalysisCacheByLine.has(cacheKey)) {
+    if (!branchAnalysisCacheByLine.has(plan.cacheKey)) {
         const p = runAnalysis();
 
-        branchAnalysisCacheByLine.set(cacheKey, p.catch((error) => {
-            branchAnalysisCacheByLine.delete(cacheKey);
+        branchAnalysisCacheByLine.set(plan.cacheKey, p.catch((error) => {
+            branchAnalysisCacheByLine.delete(plan.cacheKey);
             throw error;
         }));
     }
 
-    return branchAnalysisCacheByLine.get(cacheKey);
+    return branchAnalysisCacheByLine.get(plan.cacheKey);
 };
 
 export const prewarmThroughServiceBranchAnalysis = async ({
@@ -1283,6 +1410,68 @@ const mergeEndpointIds = (...groups) => {
     return out;
 };
 
+const buildBranchPreviewFromAnalysisResult = ({
+    lid,
+    lineName,
+    result,
+    previewSource,
+    highlightColor,
+    applyHighlightColor = true,
+    originStationIds,
+    terminalStationIds
+} = {}) => {
+    const source = toText(previewSource) || 'route-map-branch';
+    const normalizedHighlightColor = toText(highlightColor);
+    let fullChainOriginStationIds = Array.isArray(originStationIds) && originStationIds.length
+        ? originStationIds.map((x) => toText(x)).filter(Boolean)
+        : (Array.isArray(result?.originStationIds) ? result.originStationIds.map((x) => toText(x)).filter(Boolean) : []);
+    let fullChainTerminalStationIds = Array.isArray(terminalStationIds) && terminalStationIds.length
+        ? terminalStationIds.map((x) => toText(x)).filter(Boolean)
+        : (Array.isArray(result?.terminalStationIds) ? result.terminalStationIds.map((x) => toText(x)).filter(Boolean) : []);
+    const rawBranchList = Array.isArray(result?.branchList) ? result.branchList : [];
+    const routeChains = Array.isArray(result?.fullRouteChains) ? result.fullRouteChains : [];
+    const lineStationIdsById = result?.lineStationIdsById instanceof Map ? result.lineStationIdsById : new Map();
+    const virtualTrips = [];
+    const virtualTripKeys = new Set();
+
+    for (let i = 0; i < rawBranchList.length; i += 1) {
+        const stationIds = dedupKeepOrder(rawBranchList[i]);
+        if (stationIds.length < 2) continue;
+        const payload = buildBranchPreviewPayload({
+            applyHighlightColor,
+            lineId: lid,
+            lineName: toText(lineName) || lid,
+            highlightColor: normalizedHighlightColor,
+            previewSource: source,
+            routeChains,
+            lineStationIdsById,
+            stationIds,
+            tripKey: `branch-${i + 1}`,
+        });
+        appendUnique(virtualTrips, payload, buildBranchPayloadKey(payload), virtualTripKeys);
+    }
+
+    if (!virtualTrips.length) {
+        return {
+            ok: false,
+            reason: 'empty-branches',
+            result
+        };
+    }
+
+    return {
+        ok: true,
+        lineId: lid,
+        lineName: toText(lineName) || lid,
+        previewSource: source,
+        originStationIds: fullChainOriginStationIds,
+        terminalStationIds: fullChainTerminalStationIds,
+        result,
+        virtualTrips,
+        virtualTripCount: virtualTrips.length
+    };
+};
+
 export const buildBranchPreviewForLineRequest = async ({
     lineId,
     lineName,
@@ -1329,95 +1518,16 @@ export const buildBranchPreviewForLineRequest = async ({
     });
     if (!stillActive() || result?.reason === 'stale') return { ok: false, reason: 'stale', result };
 
-    let fullChainOriginStationIds = Array.isArray(originStationIds) && originStationIds.length
-        ? originStationIds.map((x) => toText(x)).filter(Boolean)
-        : (Array.isArray(result?.originStationIds) ? result.originStationIds.map((x) => toText(x)).filter(Boolean) : []);
-    let fullChainTerminalStationIds = Array.isArray(terminalStationIds) && terminalStationIds.length
-        ? terminalStationIds.map((x) => toText(x)).filter(Boolean)
-        : (Array.isArray(result?.terminalStationIds) ? result.terminalStationIds.map((x) => toText(x)).filter(Boolean) : []);
-    const rawBranchList = Array.isArray(result?.branchList) ? result.branchList : [];
-    const routeChains = Array.isArray(result?.fullRouteChains) ? result.fullRouteChains : [];
-    const lineStationIdsById = result?.lineStationIdsById instanceof Map ? result.lineStationIdsById : new Map();
-    const virtualTrips = [];
-    const virtualTripKeys = new Set();
-
-    for (let i = 0; i < rawBranchList.length; i += 1) {
-        const stationIds = dedupKeepOrder(rawBranchList[i]);
-        if (stationIds.length < 2) continue;
-        const payload = buildBranchPreviewPayload({
-            applyHighlightColor,
-            lineId: lid,
-            lineName: toText(lineName) || lid,
-            highlightColor: normalizedHighlightColor,
-            previewSource: source,
-            routeChains,
-            lineStationIdsById,
-            stationIds,
-            tripKey: `branch-${i + 1}`,
-        });
-        appendUnique(virtualTrips, payload, buildBranchPayloadKey(payload), virtualTripKeys);
-    }
-
-    if (filterSpecial !== true) {
-        if (!stillActive()) return { ok: false, reason: 'stale', result };
-        const baseResult = await analyzeBranchesForLine(lid, {
-            targetTripKeys,
-            throughServiceCategory: normalizedCategory,
-            sourceLineIds: normalizedSourceLineIds,
-            filterSpecial: true,
-            anchorStationIds: normalizedAnchorStationIds,
-            alternateLineMembership,
-            ...cancellationOptions
-        });
-        if (!stillActive() || baseResult?.reason === 'stale') return { ok: false, reason: 'stale', result };
-        const baseRouteChains = Array.isArray(baseResult?.fullRouteChains) ? baseResult.fullRouteChains : [];
-        const baseBranchList = Array.isArray(baseResult?.branchList) ? baseResult.branchList : [];
-        const baseLineStationIdsById = baseResult?.lineStationIdsById instanceof Map ? baseResult.lineStationIdsById : lineStationIdsById;
-        for (let i = 0; i < baseBranchList.length; i += 1) {
-            const stationIds = dedupKeepOrder(baseBranchList[i]);
-            if (stationIds.length < 2) continue;
-            const payload = buildBranchPreviewPayload({
-                applyHighlightColor,
-                lineId: lid,
-                lineName: toText(lineName) || lid,
-                highlightColor: normalizedHighlightColor,
-                previewSource: source,
-                routeChains: baseRouteChains,
-                lineStationIdsById: baseLineStationIdsById,
-                stationIds,
-                tripKey: `base-branch-${i + 1}`
-            });
-            appendUnique(virtualTrips, payload, buildBranchPayloadKey(payload), virtualTripKeys);
-        }
-        fullChainOriginStationIds = mergeEndpointIds(
-            fullChainOriginStationIds,
-            baseResult?.originStationIds
-        );
-        fullChainTerminalStationIds = mergeEndpointIds(
-            fullChainTerminalStationIds,
-            baseResult?.terminalStationIds
-        );
-    }
-
-    if (!virtualTrips.length) {
-        return {
-            ok: false,
-            reason: 'empty-branches',
-            result
-        };
-    }
-
-    return {
-        ok: true,
-        lineId: lid,
-        lineName: toText(lineName) || lid,
-        previewSource: source,
-        originStationIds: fullChainOriginStationIds,
-        terminalStationIds: fullChainTerminalStationIds,
+    return buildBranchPreviewFromAnalysisResult({
+        lid,
+        lineName,
         result,
-        virtualTrips,
-        virtualTripCount: virtualTrips.length
-    };
+        previewSource: source,
+        highlightColor: normalizedHighlightColor,
+        applyHighlightColor,
+        originStationIds,
+        terminalStationIds
+    });
 };
 
 export const previewBranchesForLine = async ({
@@ -1529,19 +1639,75 @@ export const previewBranchesForLineRequests = async ({
         typeof isStillActive === 'function' ? isStillActive() !== false : true
     );
 
+    const batchItems = [];
     for (const request of list) {
         if (!stillActive()) return { ok: false, reason: 'stale' };
         const requestHighlightStationIds = Array.isArray(request?.anchorStationIds)
             ? request.anchorStationIds
             : (Array.isArray(request?.highlightStationIds) ? request.highlightStationIds : highlightStationIds);
-        const built = await buildBranchPreviewForLineRequest({
-            ...(request || {}),
-            previewSource: source,
-            anchorStationIds: requestHighlightStationIds,
-            alternateLineMembership,
-            isStillActive: stillActive
+
+        const lid = toText(request?.lineId);
+        if (!lid) {
+            batchItems.push({
+                built: { ok: false, reason: 'line-id-empty' }
+            });
+            continue;
+        }
+
+        const normalizedCategory = toText(request?.throughServiceCategory);
+        const normalizedSourceLineIds = Array.isArray(request?.sourceLineIds)
+            ? request.sourceLineIds.map((x) => toText(x)).filter(Boolean)
+            : [];
+        const normalizedAnchorStationIds = Array.isArray(requestHighlightStationIds)
+            ? Array.from(new Set(requestHighlightStationIds.map((x) => toText(x)).filter(Boolean)))
+            : [];
+        const plan = createBranchAnalysisPlan(lid, {
+            targetTripKeys: request?.targetTripKeys,
+            throughServiceCategory: normalizedCategory,
+            sourceLineIds: normalizedSourceLineIds,
+            filterSpecial: request?.filterSpecial === true,
+            anchorStationIds: normalizedAnchorStationIds,
+            alternateLineMembership
         });
-        if (!stillActive()) return { ok: false, reason: 'stale' };
+
+        batchItems.push({
+            plan,
+            lid,
+            lineName: request?.lineName,
+            highlightColor: request?.highlightColor,
+            applyHighlightColor: request?.applyHighlightColor !== false,
+            originStationIds: request?.originStationIds,
+            terminalStationIds: request?.terminalStationIds
+        });
+    }
+
+    const plans = batchItems.map((item) => item.plan).filter(Boolean);
+    const analysisResults = await runBranchAnalysisPlansBatch({
+        plans,
+        isActive: stillActive
+    });
+    if (!stillActive()) return { ok: false, reason: 'stale', results };
+
+    let analysisResultIndex = 0;
+    for (const item of batchItems) {
+        const analysisResult = item.plan ? analysisResults[analysisResultIndex++] : null;
+        let built = item.built || null;
+        if (!built && analysisResult?.reason === 'stale') {
+            built = { ok: false, reason: 'stale', result: analysisResult };
+        }
+        if (!built) {
+            built = buildBranchPreviewFromAnalysisResult({
+                lid: item.lid,
+                lineName: item.lineName,
+                result: analysisResult,
+                previewSource: source,
+                highlightColor: item.highlightColor,
+                applyHighlightColor: item.applyHighlightColor,
+                originStationIds: item.originStationIds,
+                terminalStationIds: item.terminalStationIds
+            });
+        }
+        if (!stillActive()) return { ok: false, reason: 'stale', results };
         results.push(built);
         if (built?.reason === 'stale') return { ok: false, reason: 'stale', results };
         if (!built?.ok) continue;

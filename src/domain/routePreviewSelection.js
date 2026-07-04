@@ -315,7 +315,8 @@ export const markTripPreviewStopFeatureEndpoint = (feature) => ({
 export const buildTripPreviewAggregateFromPayloadList = ({
     payloadList,
     buildTripPreviewFeatures,
-    buildLineFeatureDedupKey = buildTripPreviewLineFeatureDedupKey
+    buildLineFeatureDedupKey = buildTripPreviewLineFeatureDedupKey,
+    featureCacheStats
 } = {}) => {
     const list = Array.isArray(payloadList) ? payloadList : [];
     const lineFeatureItems = [];
@@ -326,11 +327,13 @@ export const buildTripPreviewAggregateFromPayloadList = ({
     let bbox = null;
     let startStationId = '';
     let endStationId = '';
+    let rawStopFeatureCount = 0;
 
     for (const payload of list) {
         const built = buildTripPreviewFeatures?.(payload);
         const lineFeatures = Array.isArray(built?.lineFc?.features) ? built.lineFc.features : [];
         const stopFeatures = Array.isArray(built?.stopFc?.features) ? built.stopFc.features : [];
+        rawStopFeatureCount += stopFeatures.length;
 
         if (!startStationId) startStationId = toText(built?.startStationId);
         const nextEndStationId = toText(built?.endStationId);
@@ -393,21 +396,35 @@ export const buildTripPreviewAggregateFromPayloadList = ({
         bbox = mergeTripPreviewBBox(bbox, built?.bbox);
     }
 
+    const lineFeatures = aggregateTripPreviewLineFeatureItems({
+        items: lineFeatureItems,
+        buildLineFeatureDedupKey
+    });
+    const stopFeatures = Array.from(stopFeatureByStationId.values());
+    const rawLineFeatureCount = lineFeatureItems.length;
+    const dedupedLineFeatureCount = lineFeatures.length;
+    const dedupedStopFeatureCount = stopFeatures.length;
+
     return {
         lineFc: {
             type: 'FeatureCollection',
-            features: aggregateTripPreviewLineFeatureItems({
-                items: lineFeatureItems,
-                buildLineFeatureDedupKey
-            })
+            features: lineFeatures
         },
-        stopFc: { type: 'FeatureCollection', features: Array.from(stopFeatureByStationId.values()) },
+        stopFc: { type: 'FeatureCollection', features: stopFeatures },
         lineIds,
         stopIds,
         pastStopIds,
         startStationId,
         endStationId,
-        bbox
+        bbox,
+        rawLineFeatureCount,
+        rawStopFeatureCount,
+        dedupedLineFeatureCount,
+        dedupedStopFeatureCount,
+        lineFeatureDuplicateCount: Math.max(0, rawLineFeatureCount - dedupedLineFeatureCount),
+        stopFeatureDuplicateCount: Math.max(0, rawStopFeatureCount - dedupedStopFeatureCount),
+        lineFeatureCacheHitCount: Number(featureCacheStats?.lineFeatureHits || 0),
+        stopFeatureCacheHitCount: Number(featureCacheStats?.stopFeatureHits || 0)
     };
 };
 

@@ -118,12 +118,24 @@ export const createTripPreviewBuilder = ({
         return !!normalized && throughServiceHighlightColors.has(normalized);
     };
 
-    const buildTripPreviewFeatures = (payload) => {
+    const buildTripPreviewFeatures = (payload, context = {}) => {
         const outLineFeatures = [];
         const outStopFeatures = [];
         const coordsForBbox = [];
         const stopIds = new Set();
         const pastStopIds = new Set();
+        const lineSegmentCache = context?.lineSegmentCache instanceof Map
+            ? context.lineSegmentCache
+            : null;
+        const lineFeatureCache = context?.lineFeatureCache instanceof Map
+            ? context.lineFeatureCache
+            : null;
+        const stopFeatureCache = context?.stopFeatureCache instanceof Map
+            ? context.stopFeatureCache
+            : null;
+        const featureCacheStats = context?.featureCacheStats && typeof context.featureCacheStats === 'object'
+            ? context.featureCacheStats
+            : null;
         const debugLoop = !!isDebugLoopEnabled?.();
         const previewSource = String(payload?.previewSource || payload?.__previewSource || '').trim();
         const usePanelAlternateTripPreview = previewSource === 'panel-trip'
@@ -278,6 +290,43 @@ export const createTripPreviewBuilder = ({
             };
         };
 
+        const cloneCoords = (coords) => (
+            Array.isArray(coords)
+                ? coords.map((coord) => (Array.isArray(coord) ? coord.slice() : coord))
+                : coords
+        );
+        const coordKey = (coord) => (
+            Array.isArray(coord) && coord.length >= 2
+                ? `${Number(coord[0]) || 0},${Number(coord[1]) || 0}`
+                : ''
+        );
+        const coordsKey = (coords) => (
+            Array.isArray(coords)
+                ? coords.map((coord) => coordKey(coord)).join('>')
+                : ''
+        );
+        const getCachedLineSegment = (lineId, from, to, options = {}) => {
+            const id = String(lineId || '').trim();
+            if (!id || typeof extractLineSegment !== 'function') return null;
+            if (!(lineSegmentCache instanceof Map)) {
+                return extractLineSegment(id, from, to, options);
+            }
+            const key = [
+                id,
+                coordKey(from),
+                coordKey(to),
+                options?.preferLoopShortest === true ? 'short' : 'default',
+                String(options?.direction || '').trim(),
+                options?.preserveLineDirection === true ? 'preserve' : 'free'
+            ].join('||');
+            if (lineSegmentCache.has(key)) {
+                return cloneCoords(lineSegmentCache.get(key));
+            }
+            const clipped = extractLineSegment(id, from, to, options);
+            lineSegmentCache.set(key, Array.isArray(clipped) ? cloneCoords(clipped) : null);
+            return clipped;
+        };
+
         const pushPairLineFeature = (coords, lineId, role, pairColor, options, alternateBoundary) => {
             const split = alternateBoundary ? splitCoordsAtBoundary(coords, alternateBoundary.boundaryCoord) : null;
             if (!split) {
@@ -305,7 +354,24 @@ export const createTripPreviewBuilder = ({
             const lineOffsetUnits = Number.isFinite(explicitOffsetUnits)
                 ? explicitOffsetUnits
                 : (role === 'line' ? resolveLineOffsetUnits(offsetLineId) : 0);
-            outLineFeatures.push({
+            const featureKey = [
+                role,
+                String(lineId || ''),
+                routeLineId,
+                geometryLineId,
+                offsetLineId,
+                rawColor,
+                options?.isPast === true ? 'past' : 'current',
+                String(lineOffsetUnits),
+                coordsKey(coords)
+            ].join('||');
+            if (lineFeatureCache instanceof Map && lineFeatureCache.has(featureKey)) {
+                if (featureCacheStats) {
+                    featureCacheStats.lineFeatureHits = (featureCacheStats.lineFeatureHits || 0) + 1;
+                }
+                return;
+            }
+            const feature = {
                 type: 'Feature',
                 properties: {
                     role,
@@ -318,7 +384,14 @@ export const createTripPreviewBuilder = ({
                     line_offset_units: lineOffsetUnits
                 },
                 geometry: { type: 'LineString', coordinates: coords }
-            });
+            };
+            if (lineFeatureCache instanceof Map) {
+                lineFeatureCache.set(featureKey, true);
+                if (featureCacheStats) {
+                    featureCacheStats.lineFeatureMisses = (featureCacheStats.lineFeatureMisses || 0) + 1;
+                }
+            }
+            outLineFeatures.push(feature);
         };
 
         for (let i = 0; i < segments.length; i += 1) {
@@ -383,7 +456,7 @@ export const createTripPreviewBuilder = ({
                     ? null
                     : resolvePairAlternateBoundary(seg, fromId, toId, lineId || routeLineId || pairGeometryLineId);
 
-                const clipped = extractLineSegment?.(pairGeometryLineId || geometryLineId || lineId, from, to, {
+                const clipped = getCachedLineSegment(pairGeometryLineId || geometryLineId || lineId, from, to, {
                     preferLoopShortest: isLoopDirectionSeg,
                     direction: seg?.d,
                     preserveLineDirection: true
@@ -435,10 +508,10 @@ export const createTripPreviewBuilder = ({
                         const bridge = nearestBridgeBetweenLines?.(prevGeometryLineId, geometryLineId || lineId, a, b);
                         const canUseBridge = bridge && Number.isFinite(bridge.dist) && bridge.dist <= 3000;
                         if (canUseBridge) {
-                            const segA = extractLineSegment?.(prevGeometryLineId, a, bridge.a, {
+                            const segA = getCachedLineSegment(prevGeometryLineId, a, bridge.a, {
                                 preserveLineDirection: true
                             });
-                            const segB = extractLineSegment?.(geometryLineId || lineId, bridge.b, b, {
+                            const segB = getCachedLineSegment(geometryLineId || lineId, bridge.b, b, {
                                 preserveLineDirection: true
                             });
                             const prevSegColor = bridgeIsPast
@@ -497,27 +570,6 @@ export const createTripPreviewBuilder = ({
             }
         }
 
-        for (const sid of stopIds) {
-            const c = getStationCoord(sid, '', usePanelAlternateTripPreview);
-            if (!c) continue;
-            outStopFeatures.push({
-                type: 'Feature',
-                properties: {
-                    id: sid,
-                    isPast: pastStopIds.has(sid),
-                    serving_count: Number(stationServingCountById?.get(sid) || 1)
-                },
-                geometry: { type: 'Point', coordinates: c }
-            });
-        }
-
-        let bbox = null;
-        for (const c of coordsForBbox) {
-            const lng = Number(c?.[0]);
-            const lat = Number(c?.[1]);
-            bbox = extendBBox?.(bbox, lng, lat) || bbox;
-        }
-
         const firstSeg = segments.find((s) => Array.isArray(s?.stationIds) && s.stationIds.length) || null;
         const lastSeg = (() => {
             for (let i = segments.length - 1; i >= 0; i -= 1) {
@@ -532,15 +584,50 @@ export const createTripPreviewBuilder = ({
             ? String(lastSeg.stationIds[lastSeg.stationIds.length - 1] || '').trim()
             : '';
         const endpointStationIds = new Set([startStationId, endStationId].filter(Boolean));
-        if (endpointStationIds.size) {
-            for (const feature of outStopFeatures) {
-                const sid = String(feature?.properties?.id || '').trim();
-                if (!endpointStationIds.has(sid)) continue;
-                feature.properties = {
-                    ...(feature.properties || {}),
-                    is_preview_endpoint: 1
-                };
+
+        for (const sid of stopIds) {
+            const c = getStationCoord(sid, '', usePanelAlternateTripPreview);
+            if (!c) continue;
+            const isPast = pastStopIds.has(sid);
+            const servingCount = Number(stationServingCountById?.get(sid) || 1);
+            const isEndpoint = endpointStationIds.has(sid);
+            const stopFeatureKey = [
+                sid,
+                coordKey(c),
+                isPast ? 'past' : 'current',
+                String(servingCount),
+                isEndpoint ? 'endpoint' : 'normal'
+            ].join('||');
+            if (stopFeatureCache instanceof Map && stopFeatureCache.has(stopFeatureKey)) {
+                if (featureCacheStats) {
+                    featureCacheStats.stopFeatureHits = (featureCacheStats.stopFeatureHits || 0) + 1;
+                }
+                continue;
             }
+            const feature = {
+                type: 'Feature',
+                properties: {
+                    id: sid,
+                    isPast,
+                    serving_count: servingCount,
+                    ...(isEndpoint ? { is_preview_endpoint: 1 } : {})
+                },
+                geometry: { type: 'Point', coordinates: c }
+            };
+            if (stopFeatureCache instanceof Map) {
+                stopFeatureCache.set(stopFeatureKey, true);
+                if (featureCacheStats) {
+                    featureCacheStats.stopFeatureMisses = (featureCacheStats.stopFeatureMisses || 0) + 1;
+                }
+            }
+            outStopFeatures.push(feature);
+        }
+
+        let bbox = null;
+        for (const c of coordsForBbox) {
+            const lng = Number(c?.[0]);
+            const lat = Number(c?.[1]);
+            bbox = extendBBox?.(bbox, lng, lat) || bbox;
         }
 
         return {
