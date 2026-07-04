@@ -5688,7 +5688,7 @@ export function createPanel(options = {}) {
         if (isDirFilterPinned()) {
             applyDirPreviewByKey(panelSelectionState.getPinnedDirPreviewKey(), { force: true });
         } else {
-            clearUnpinnedTripPreview({ skipStationThroughRestore: true });
+            clearUnpinnedTripPreview();
         }
         scheduleTripDetailHide();
     };
