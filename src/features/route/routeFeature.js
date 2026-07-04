@@ -17,69 +17,6 @@ export const createRouteFeature = ({
 
     const tripPreviewSelectionsByKey = new Map();
 
-    const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
-
-    const isTripPreviewPerfEnabled = () => {
-        const globalFlag = globalThis?.__TOKYO_RAIL_TRIP_PREVIEW_PERF__;
-        if (globalFlag === true || globalFlag === '1') return true;
-        try {
-            return globalThis?.localStorage?.getItem?.('tokyoRail.tripPreviewPerf') === '1';
-        } catch {
-            return false;
-        }
-    };
-
-    const createTripPreviewPerfProbe = (payload, mode) => {
-        if (!isTripPreviewPerfEnabled()) return null;
-        const startedAt = nowMs();
-        let lastAt = startedAt;
-        const steps = [];
-        const source = String(payload?.previewSource || payload?.__previewSource || '').trim();
-        const tripKey = String(payload?.tripKey || '').trim();
-        const virtualTripCount = Array.isArray(payload?.virtualTrips) ? payload.virtualTrips.length : 0;
-
-        const mark = (name, extra = {}) => {
-            const currentAt = nowMs();
-            steps.push({
-                step: name,
-                ms: Number((currentAt - lastAt).toFixed(2)),
-                totalMs: Number((currentAt - startedAt).toFixed(2)),
-                ...extra
-            });
-            lastAt = currentAt;
-        };
-
-        const finish = (result = {}) => {
-            const totalMs = Number((nowMs() - startedAt).toFixed(2));
-            try {
-                console.info('[trip-preview perf]', {
-                    mode,
-                    source,
-                    tripKey,
-                    virtualTripCount,
-                    ok: result?.ok !== false,
-                    reason: result?.reason || '',
-                    lineFeatureCount: result?.built?.lineFc?.features?.length ?? null,
-                    stopFeatureCount: result?.built?.stopFc?.features?.length ?? null,
-                    rawLineFeatureCount: result?.built?.rawLineFeatureCount ?? null,
-                    rawStopFeatureCount: result?.built?.rawStopFeatureCount ?? null,
-                    lineFeatureDuplicateCount: result?.built?.lineFeatureDuplicateCount ?? null,
-                    stopFeatureDuplicateCount: result?.built?.stopFeatureDuplicateCount ?? null,
-                    lineFeatureCacheHitCount: result?.built?.lineFeatureCacheHitCount ?? null,
-                    stopFeatureCacheHitCount: result?.built?.stopFeatureCacheHitCount ?? null,
-                    lineIdCount: result?.built?.lineIds?.size ?? null,
-                    stopIdCount: result?.built?.stopIds?.size ?? null,
-                    totalMs,
-                    steps
-                });
-            } catch {
-                // ignore debug logging failures
-            }
-        };
-
-        return { mark, finish };
-    };
-
     const normalizeKey = (key) => String(key || '').trim();
 
     const getTripPreviewSelectionSource = (entry, resolveSource) => {
@@ -481,13 +418,6 @@ export const createRouteFeature = ({
                 : '';
             const previewInteraction = getPreviewInteraction(payload);
             const inMultiSelectMode = !!isMultiSelectModeEnabled?.();
-            const perfProbe = createTripPreviewPerfProbe(payload, virtualTrips.length ? 'virtual-trips' : 'single-trip');
-            perfProbe?.mark('init', {
-                hasSegments: !!hasSegments,
-                multiSelect: inMultiSelectMode,
-                fitMode,
-                source: payloadSource
-            });
 
             if (virtualTrips.length) {
                 if (inMultiSelectMode) {
@@ -511,36 +441,21 @@ export const createRouteFeature = ({
                     }
 
                     const aggregate = buildAggregateFromPayloadList?.(virtualTrips);
-                    perfProbe?.mark('buildAggregateFromPayloadList', {
-                        rawLineFeatures: aggregate?.rawLineFeatureCount || 0,
-                        rawStopFeatures: aggregate?.rawStopFeatureCount || 0,
-                        lineFeatures: aggregate?.lineFc?.features?.length || 0,
-                        stopFeatures: aggregate?.stopFc?.features?.length || 0,
-                        lineFeatureDuplicates: aggregate?.lineFeatureDuplicateCount || 0,
-                        stopFeatureDuplicates: aggregate?.stopFeatureDuplicateCount || 0,
-                        lineFeatureCacheHits: aggregate?.lineFeatureCacheHitCount || 0,
-                        stopFeatureCacheHits: aggregate?.stopFeatureCacheHitCount || 0
-                    });
                     if (!hasVisibleBuiltPreview(aggregate)) {
                         this.deleteTripPreviewSelection(selectionKey);
                         rebuildMultiTripPreview?.('none');
-                        const result = {
+                        return {
                             ok: false,
                             reason: 'empty-built',
                             payload,
                             built: aggregate,
                             source: payloadSource
                         };
-                        perfProbe?.finish(result);
-                        return result;
                     }
                     const endpointStationIds = buildPreviewEndpointStationIds({
                         payload,
                         built: aggregate,
                         payloadList: virtualTrips
-                    });
-                    perfProbe?.mark('buildEndpointStationIds', {
-                        endpointStationIds: endpointStationIds.size
                     });
 
                     this.setTripPreviewSelection(selectionKey, {
@@ -558,50 +473,31 @@ export const createRouteFeature = ({
                         source: payloadSource,
                         hidden: false
                     });
-                    perfProbe?.mark('setTripPreviewSelection');
 
                     rebuildMultiTripPreview?.(fitMode);
-                    perfProbe?.mark('rebuildMultiTripPreview');
-                    const result = {
+                    return {
                         ok: true,
                         payload,
                         built: aggregate,
                         source: payloadSource
                     };
-                    perfProbe?.finish(result);
-                    return result;
                 }
 
                 const aggregate = buildAggregateFromPayloadList?.(virtualTrips);
-                perfProbe?.mark('buildAggregateFromPayloadList', {
-                    rawLineFeatures: aggregate?.rawLineFeatureCount || 0,
-                    rawStopFeatures: aggregate?.rawStopFeatureCount || 0,
-                    lineFeatures: aggregate?.lineFc?.features?.length || 0,
-                    stopFeatures: aggregate?.stopFc?.features?.length || 0,
-                    lineFeatureDuplicates: aggregate?.lineFeatureDuplicateCount || 0,
-                    stopFeatureDuplicates: aggregate?.stopFeatureDuplicateCount || 0,
-                    lineFeatureCacheHits: aggregate?.lineFeatureCacheHitCount || 0,
-                    stopFeatureCacheHits: aggregate?.stopFeatureCacheHitCount || 0
-                });
                 if (!hasVisibleBuiltPreview(aggregate)) {
                     clearTripPathPreview?.({ source: payloadSource || '' });
-                    const result = {
+                    return {
                         ok: false,
                         reason: 'empty-built',
                         payload,
                         built: aggregate,
                         source: payloadSource
                     };
-                    perfProbe?.finish(result);
-                    return result;
                 }
                 const endpointStationIds = buildPreviewEndpointStationIds({
                     payload,
                     built: aggregate,
                     payloadList: virtualTrips
-                });
-                perfProbe?.mark('buildEndpointStationIds', {
-                    endpointStationIds: endpointStationIds.size
                 });
                 const built = attachEndpointStationIds({
                     lineFc: aggregate.lineFc,
@@ -611,29 +507,16 @@ export const createRouteFeature = ({
                     pastStopIds: aggregate.pastStopIds,
                     startStationId: aggregate.startStationId,
                     endStationId: aggregate.endStationId,
-                    bbox: aggregate.bbox,
-                    rawLineFeatureCount: aggregate.rawLineFeatureCount,
-                    rawStopFeatureCount: aggregate.rawStopFeatureCount,
-                    dedupedLineFeatureCount: aggregate.dedupedLineFeatureCount,
-                    dedupedStopFeatureCount: aggregate.dedupedStopFeatureCount,
-                    lineFeatureDuplicateCount: aggregate.lineFeatureDuplicateCount,
-                    stopFeatureDuplicateCount: aggregate.stopFeatureDuplicateCount,
-                    lineFeatureCacheHitCount: aggregate.lineFeatureCacheHitCount,
-                    stopFeatureCacheHitCount: aggregate.stopFeatureCacheHitCount
+                    bbox: aggregate.bbox
                 }, endpointStationIds);
-                perfProbe?.mark('attachEndpointStationIds');
 
                 tripPreviewRenderer.ensureLayers();
-                perfProbe?.mark('ensureLayers');
                 const stationIds = resolveVirtualTripStationIds?.({
                     payload,
                     payloadSource,
                     aggregate,
                     virtualTrips
                 }) || built.stopIds;
-                perfProbe?.mark('resolveVirtualTripStationIds', {
-                    stationIds: stationIds?.size || 0
-                });
                 applyActiveState?.({
                     active: true,
                     source: payloadSource,
@@ -643,39 +526,28 @@ export const createRouteFeature = ({
                     pastStationIds: aggregate.pastStopIds,
                     lineIds: aggregate.lineIds
                 });
-                perfProbe?.mark('applyActiveState');
                 syncStationOffset?.();
-                perfProbe?.mark('syncStationOffset');
 
                 try {
                     tripPreviewRenderer.setData({ lineFc: built.lineFc, stopFc: built.stopFc });
                 } catch {
                     // Keep legacy route preview interactions non-fatal during renderer migration.
                 }
-                perfProbe?.mark('tripPreviewRenderer.setData');
 
                 clearEndpointPopups?.();
-                perfProbe?.mark('clearEndpointPopups');
                 emitTripPreviewUpdated?.({ payload, built });
-                perfProbe?.mark('emitTripPreviewUpdated');
                 setStationLabelMode?.('all');
-                perfProbe?.mark('setStationLabelMode');
                 applySelectionEffects?.();
-                perfProbe?.mark('applySelectionEffects');
                 scheduleCollisionLayerRefresh?.();
-                perfProbe?.mark('scheduleCollisionLayerRefresh');
                 if (fitMode !== 'none') {
                     previewFitWithSidePanels?.(built.bbox);
-                    perfProbe?.mark('previewFitWithSidePanels');
                 }
-                const result = {
+                return {
                     ok: true,
                     payload,
                     built,
                     source: payloadSource
                 };
-                perfProbe?.finish(result);
-                return result;
             }
 
             if (inMultiSelectMode) {
@@ -702,68 +574,45 @@ export const createRouteFeature = ({
                     this.deleteTripPreviewSelection(selectionKey);
                 } else {
                     const builtSingle = buildFeatures?.(payload);
-                    perfProbe?.mark('buildFeatures', {
-                        lineFeatures: builtSingle?.lineFc?.features?.length || 0,
-                        stopFeatures: builtSingle?.stopFc?.features?.length || 0
-                    });
                     if (!builtSingle) {
                         this.deleteTripPreviewSelection(selectionKey);
                         rebuildMultiTripPreview?.('none');
-                        const result = {
+                        return {
                             ok: false,
                             reason: 'invalid-builtin-preview',
                             payload,
                             source: payloadSource
                         };
-                        perfProbe?.finish(result);
-                        return result;
                     }
                     const endpointStationIds = buildPreviewEndpointStationIds({ payload, built: builtSingle });
-                    perfProbe?.mark('buildEndpointStationIds', {
-                        endpointStationIds: endpointStationIds.size
-                    });
                     this.setTripPreviewSelection(selectionKey, {
                         payload: { ...(payload || {}) },
                         built: attachEndpointStationIds(builtSingle, endpointStationIds),
                         source: payloadSource,
                         hidden: false
                     });
-                    perfProbe?.mark('setTripPreviewSelection');
                 }
 
                 rebuildMultiTripPreview?.(fitMode);
-                perfProbe?.mark('rebuildMultiTripPreview');
-                const result = {
+                return {
                     ok: true,
                     payload,
                     source: payloadSource
                 };
-                perfProbe?.finish(result);
-                return result;
             }
 
             tripPreviewRenderer.ensureLayers();
-            perfProbe?.mark('ensureLayers');
             const built = buildFeatures?.(payload);
-            perfProbe?.mark('buildFeatures', {
-                lineFeatures: built?.lineFc?.features?.length || 0,
-                stopFeatures: built?.stopFc?.features?.length || 0
-            });
             if (!built) {
                 clearTripPathPreview?.({ source: payloadSource || '' });
-                const result = {
+                return {
                     ok: false,
                     reason: 'invalid-builtin-preview',
                     payload,
                     source: payloadSource
                 };
-                perfProbe?.finish(result);
-                return result;
             }
             const endpointStationIds = buildPreviewEndpointStationIds({ payload, built });
-            perfProbe?.mark('buildEndpointStationIds', {
-                endpointStationIds: endpointStationIds.size
-            });
             const endpointAwareBuilt = attachEndpointStationIds({
                 lineFc: built.lineFc,
                 stopFc: built.stopFc,
@@ -774,7 +623,6 @@ export const createRouteFeature = ({
                 endStationId: built.endStationId,
                 bbox: built.bbox
             }, endpointStationIds);
-            perfProbe?.mark('attachEndpointStationIds');
             applyActiveState?.({
                 active: true,
                 source: payloadSource,
@@ -784,41 +632,30 @@ export const createRouteFeature = ({
                 pastStationIds: built?.pastStopIds,
                 lineIds: built?.lineIds
             });
-            perfProbe?.mark('applyActiveState');
             syncStationOffset?.();
-            perfProbe?.mark('syncStationOffset');
 
             try {
                 tripPreviewRenderer.setData({ lineFc: endpointAwareBuilt?.lineFc, stopFc: endpointAwareBuilt?.stopFc });
             } catch {
                 // Keep legacy route preview interactions non-fatal during renderer migration.
             }
-            perfProbe?.mark('tripPreviewRenderer.setData');
 
             updateEndpointPopups?.(built?.startStationId, built?.endStationId, {
                 displayMode: normalizeKey(payload?.endpointDisplayMode)
             });
-            perfProbe?.mark('updateEndpointPopups');
             emitTripPreviewUpdated?.({ payload, built: endpointAwareBuilt });
-            perfProbe?.mark('emitTripPreviewUpdated');
             setStationLabelMode?.('all');
-            perfProbe?.mark('setStationLabelMode');
             applySelectionEffects?.();
-            perfProbe?.mark('applySelectionEffects');
             scheduleCollisionLayerRefresh?.();
-            perfProbe?.mark('scheduleCollisionLayerRefresh');
             if (fitMode !== 'none') {
                 previewFitWithSidePanels?.(endpointAwareBuilt?.bbox);
-                perfProbe?.mark('previewFitWithSidePanels');
             }
-            const result = {
+            return {
                 ok: true,
                 payload,
                 built: endpointAwareBuilt,
                 source: payloadSource
             };
-            perfProbe?.finish(result);
-            return result;
         },
         applyTripPreviewSnapshot({
             snapshot = {},

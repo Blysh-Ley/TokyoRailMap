@@ -48,23 +48,15 @@ export const createRoutePreviewRuntimeController = ({
         const lineSegmentCache = new Map();
         const lineFeatureCache = new Map();
         const stopFeatureCache = new Map();
-        const featureCacheStats = {
-            lineFeatureHits: 0,
-            lineFeatureMisses: 0,
-            stopFeatureHits: 0,
-            stopFeatureMisses: 0
-        };
         const buildTripPreviewFeaturesWithCache = (payload) => buildTripPreviewFeatures(payload, {
             lineSegmentCache,
             lineFeatureCache,
-            stopFeatureCache,
-            featureCacheStats
+            stopFeatureCache
         });
         return buildTripPreviewAggregateFromPayloadList({
             payloadList,
             buildTripPreviewFeatures: buildTripPreviewFeaturesWithCache,
-            buildLineFeatureDedupKey: buildTripPreviewLineFeatureDedupKey,
-            featureCacheStats
+            buildLineFeatureDedupKey: buildTripPreviewLineFeatureDedupKey
         });
     };
 

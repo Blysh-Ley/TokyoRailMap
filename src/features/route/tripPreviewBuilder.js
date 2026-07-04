@@ -133,9 +133,6 @@ export const createTripPreviewBuilder = ({
         const stopFeatureCache = context?.stopFeatureCache instanceof Map
             ? context.stopFeatureCache
             : null;
-        const featureCacheStats = context?.featureCacheStats && typeof context.featureCacheStats === 'object'
-            ? context.featureCacheStats
-            : null;
         const debugLoop = !!isDebugLoopEnabled?.();
         const previewSource = String(payload?.previewSource || payload?.__previewSource || '').trim();
         const usePanelAlternateTripPreview = previewSource === 'panel-trip'
@@ -366,9 +363,6 @@ export const createTripPreviewBuilder = ({
                 coordsKey(coords)
             ].join('||');
             if (lineFeatureCache instanceof Map && lineFeatureCache.has(featureKey)) {
-                if (featureCacheStats) {
-                    featureCacheStats.lineFeatureHits = (featureCacheStats.lineFeatureHits || 0) + 1;
-                }
                 return;
             }
             const feature = {
@@ -387,9 +381,6 @@ export const createTripPreviewBuilder = ({
             };
             if (lineFeatureCache instanceof Map) {
                 lineFeatureCache.set(featureKey, true);
-                if (featureCacheStats) {
-                    featureCacheStats.lineFeatureMisses = (featureCacheStats.lineFeatureMisses || 0) + 1;
-                }
             }
             outLineFeatures.push(feature);
         };
@@ -599,9 +590,6 @@ export const createTripPreviewBuilder = ({
                 isEndpoint ? 'endpoint' : 'normal'
             ].join('||');
             if (stopFeatureCache instanceof Map && stopFeatureCache.has(stopFeatureKey)) {
-                if (featureCacheStats) {
-                    featureCacheStats.stopFeatureHits = (featureCacheStats.stopFeatureHits || 0) + 1;
-                }
                 continue;
             }
             const feature = {
@@ -616,9 +604,6 @@ export const createTripPreviewBuilder = ({
             };
             if (stopFeatureCache instanceof Map) {
                 stopFeatureCache.set(stopFeatureKey, true);
-                if (featureCacheStats) {
-                    featureCacheStats.stopFeatureMisses = (featureCacheStats.stopFeatureMisses || 0) + 1;
-                }
             }
             outStopFeatures.push(feature);
         }
