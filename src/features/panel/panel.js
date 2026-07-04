@@ -2246,7 +2246,7 @@ export function createPanel(options = {}) {
         const previewToken = ++dirFilterPreviewToken;
         const request = buildPanelDirFilterPreviewRequest(lineId, dirKey);
         if (!request) {
-            crossFeatureBridge.clearTripPathPreviewBySource(DIR_FILTER_TRIP_PREVIEW_SOURCE);
+            clearPanelDirFilterDirectionPreview({ restoreStation: true });
             return false;
         }
 
@@ -2266,10 +2266,26 @@ export function createPanel(options = {}) {
                 previewSource: DIR_FILTER_TRIP_PREVIEW_SOURCE,
                 endpointOnlyStationPreview: true
             });
-            return previewResult?.ok === true;
-        } catch {
-            crossFeatureBridge.clearTripPathPreviewBySource(DIR_FILTER_TRIP_PREVIEW_SOURCE);
+            if (previewResult?.ok === true) return true;
+            if (previewToken === dirFilterPreviewToken) {
+                clearPanelDirFilterDirectionPreview({ restoreStation: true });
+            }
             return false;
+        } catch {
+            clearPanelDirFilterDirectionPreview({ restoreStation: true });
+            return false;
+        }
+    };
+
+    const clearPanelDirFilterDirectionPreview = ({ restoreStation = false } = {}) => {
+        dirFilterPreviewToken += 1;
+        try {
+            crossFeatureBridge.clearTripPathPreviewBySource(DIR_FILTER_TRIP_PREVIEW_SOURCE);
+        } catch {
+            // keep filter-popover cleanup independent from bridge availability
+        }
+        if (restoreStation) {
+            restoreStationThroughPreviewDefault();
         }
     };
 
@@ -4826,6 +4842,11 @@ export function createPanel(options = {}) {
         getRows: (lineDirKey) => dirFilterRowsByKey.get(lineDirKey) || [],
         getState: (lineDirKey) => dirFilterStateByKey.get(lineDirKey) || null,
         setState: (lineDirKey, state) => dirFilterStateByKey.set(lineDirKey, state),
+        onClose: ({ clearPreview } = {}) => {
+            if (clearPreview) {
+                clearPanelDirFilterDirectionPreview({ restoreStation: true });
+            }
+        },
         rerenderLineById
     });
 

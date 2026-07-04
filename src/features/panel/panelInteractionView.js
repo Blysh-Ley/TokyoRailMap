@@ -201,6 +201,7 @@ export const createPanelDirFilterPopoverController = ({
     getRows = () => [],
     getState = () => null,
     setState = () => {},
+    onClose = () => {},
     rerenderLineById = async () => {}
 } = {}) => {
     const root = doc.createElement('div');
@@ -229,9 +230,15 @@ export const createPanelDirFilterPopoverController = ({
     const contains = (target) => !!(target && root.contains(target));
     const getActiveKey = () => activeKey;
 
-    const close = () => {
+    const close = (options = {}) => {
+        if (!isOpen()) return;
+        const closedKey = activeKey;
         activeKey = '';
         root.classList.add('is-hidden');
+        onClose({
+            activeKey: closedKey,
+            clearPreview: options?.clearPreview === true
+        });
     };
 
     const position = (anchorEl) => {
