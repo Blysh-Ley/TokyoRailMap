@@ -1,4 +1,3 @@
-import { previewBranchesForLine } from '../../map/analyze_branch.js';
 import {
     createTouchTapIntentTracker,
     isTouchLikePointer as isTouchLikePointerShared,
@@ -271,7 +270,6 @@ export const createPanelEventDelegationCoordinator = ({
 };
 
 export const createPanelDismissController = ({
-    clearPinnedDirPreview = () => {},
     clearPinnedPanelState = () => {},
     findTripTarget = () => null,
     getLockedTripKey = () => null,
@@ -302,12 +300,6 @@ export const createPanelDismissController = ({
 
         const targetIsElement = typeof Element !== 'undefined' && target instanceof Element;
         if (targetIsElement && clickRegion.ignored) return;
-
-        if (panelSelectionState?.getPinnedDirPreviewKey?.()) {
-            if (!clickRegion.insidePanelOrExtra) {
-                clearPinnedDirPreview();
-            }
-        }
 
         if (hasPinnedPanelState()) {
             if (!clickRegion.insidePanelOrExtra) {
@@ -508,19 +500,9 @@ export const createPanelIntentController = ({
 // panelIntentDispatcher.js
 export const dispatchPanelDirFilterIntent = ({
     filterTarget,
-    fitMode = 'preview',
-    makeLineDirKey = () => '',
-    applyDirPreviewByKey = () => {},
-    pinDirPreviewByKey = () => {},
-    setPinnedPanelSelection = () => {},
     toggleDirFilterPopoverFromButton = () => {}
 } = {}) => {
     if (!filterTarget) return false;
-    const lineDirKey = makeLineDirKey(filterTarget.lineId, filterTarget.dirKey);
-    if (!lineDirKey) return false;
-    applyDirPreviewByKey(lineDirKey, { fitMode });
-    pinDirPreviewByKey(lineDirKey);
-    setPinnedPanelSelection('dir', lineDirKey);
     toggleDirFilterPopoverFromButton(filterTarget.buttonEl);
     return true;
 };
@@ -549,7 +531,6 @@ export const dispatchPanelPrimarySelectionIntent = ({
     lastMousePrimaryKey = '',
     clearHoverTimer = () => {},
     resetHoverState = () => {},
-    clearPinnedDirPreview = () => {},
     setPinnedPanelSelection = () => {},
     applyLineHoverSelection = () => {},
     applyCompanyHoverSelection = () => {},
@@ -564,7 +545,6 @@ export const dispatchPanelPrimarySelectionIntent = ({
 
     clearHoverTimer();
     resetHoverState();
-    clearPinnedDirPreview();
 
     if (primaryTarget.kind === 'line') {
         if (mode === 'touch') {
@@ -860,7 +840,6 @@ export const createPanelPinnedTripDetailState = ({
     hideTripDetail = () => {},
     panelSelectionState,
     body,
-    clearPinnedDirPreview = () => {},
     restoreStationDefaultSelection = () => {},
     getTripLocked = () => false,
     setTripLocked = () => {},
@@ -909,9 +888,6 @@ export const createPanelPinnedTripDetailState = ({
             hideTripDetail();
             setLastTripDetailKey(null);
         }
-        if (panelSelectionState?.getPinnedDirPreviewKey?.()) {
-            clearPinnedDirPreview();
-        }
         if (restoreStation) {
             setLastAppliedHoverKey(null);
             restoreStationDefaultSelection();
@@ -929,131 +905,13 @@ export const createPanelPinnedTripDetailState = ({
     };
 };
 
-// panelRoutePreviewController.js
-const defaultToText_panelRoutePreviewController = (value) => String(value ?? '').trim();
-
-export const createPanelRoutePreviewController = ({
-    clearTripPathPreviewBySource = () => false,
-    previewSource = 'panel-dir-branch',
-    requestRoutePreview = previewBranchesForLine,
-    toText = defaultToText_panelRoutePreviewController
-} = {}) => {
-    let activeKey = '';
-    let requestSeq = 0;
-
-    const applyDirectionPreview = async ({
-        currentStationIds = [],
-        includeEndpointStations = true,
-        fitMode = '',
-        force = false,
-        key,
-        meta,
-        onEnter = null,
-        sourceLineIds = [],
-        targetTripKeys = [],
-        throughServiceCategory = ''
-    } = {}) => {
-        const nextKey = toText(key);
-        if (!nextKey || !meta) return false;
-        if (!force && activeKey === nextKey) return false;
-        activeKey = nextKey;
-
-        const normalizedSourceLineIds = Array.isArray(sourceLineIds)
-            ? sourceLineIds.map((x) => toText(x)).filter(Boolean)
-            : [];
-        const shouldIncludeEndpointStations = includeEndpointStations !== false;
-        const originStationIds = shouldIncludeEndpointStations && Array.isArray(meta.originStationIds) ? meta.originStationIds.slice() : [];
-        const terminalStationIds = shouldIncludeEndpointStations && Array.isArray(meta.terminalStationIds) ? meta.terminalStationIds.slice() : [];
-        const endpointLabelCounts = shouldIncludeEndpointStations && Array.isArray(meta.endpointLabelCounts) ? meta.endpointLabelCounts.slice() : [];
-        const normalizedCurrentStationIds = Array.isArray(currentStationIds)
-            ? currentStationIds.map((x) => toText(x)).filter(Boolean)
-            : [];
-
-        try {
-            onEnter?.({
-                currentStationIds: normalizedCurrentStationIds.slice(),
-                fitMode: toText(fitMode),
-                lineId: toText(meta.lineId),
-                endpointLabelCounts,
-                originStationIds,
-                sourceLineIds: normalizedSourceLineIds.slice(),
-                terminalStationIds
-            });
-        } catch {
-            // keep preview request behavior independent from optional UI callbacks
-        }
-
-        const seq = ++requestSeq;
-        const highlightStationIds = Array.from(new Set([
-            ...originStationIds,
-            ...terminalStationIds,
-            ...normalizedCurrentStationIds
-        ].map((x) => toText(x)).filter(Boolean)));
-
-        try {
-            await requestRoutePreview({
-                fitMode: toText(fitMode),
-                highlightStationIds,
-                lineId: toText(meta.lineId),
-                lineName: '',
-                endpointLabelCounts,
-                originStationIds,
-                previewSource,
-                sourceLineIds: normalizedSourceLineIds,
-                targetTripKeys: Array.isArray(targetTripKeys) ? targetTripKeys.slice() : [],
-                terminalStationIds,
-                throughServiceCategory: toText(throughServiceCategory)
-            });
-        } catch {
-            if (seq === requestSeq) {
-                clearTripPathPreviewBySource(previewSource);
-            }
-        }
-
-        return seq === requestSeq;
-    };
-
-    const clearDirectionPreview = ({ onLeave = null } = {}) => {
-        if (!activeKey) return false;
-        activeKey = '';
-        requestSeq += 1;
-        try {
-            onLeave?.();
-        } catch {
-            // keep clear behavior independent from optional UI callbacks
-        }
-        clearTripPathPreviewBySource(previewSource);
-        return true;
-    };
-
-    return {
-        applyDirectionPreview,
-        clearDirectionPreview,
-        getActiveKey: () => activeKey,
-        getRequestSeq: () => requestSeq,
-        previewSource
-    };
-};
-
 // panelSelectionStateController.js
 const defaultToText_panelSelectionStateController = (value) => String(value ?? '').trim();
 
 export const createPanelSelectionStateController = ({ toText = defaultToText_panelSelectionStateController } = {}) => {
-    let pinnedDirPreviewKey = '';
     let pinnedPanelSelection = null;
 
     const normalize = (value) => toText(value);
-
-    const setPinnedDirPreviewKey = (lineDirKey) => {
-        pinnedDirPreviewKey = normalize(lineDirKey);
-        return pinnedDirPreviewKey;
-    };
-
-    const clearPinnedDirPreviewKey = () => {
-        pinnedDirPreviewKey = '';
-    };
-
-    const getPinnedDirPreviewKey = () => pinnedDirPreviewKey;
 
     const setPinnedPanelSelection = (kind, key) => {
         const k = normalize(kind);
@@ -1080,33 +938,21 @@ export const createPanelSelectionStateController = ({ toText = defaultToText_pan
         if (pinnedPanelSelection?.kind && pinnedPanelSelection?.key) {
             return `${normalize(pinnedPanelSelection.kind)}:${normalize(pinnedPanelSelection.key)}`;
         }
-        if (pinnedDirPreviewKey) return `dir:${pinnedDirPreviewKey}`;
         return '';
     };
 
     const hasPinnedPanelState = (options = {}) => !!getCurrentPinnedInteractionKey(options);
 
-    const isDirFilterPinned = () => (
-        normalize(pinnedPanelSelection?.kind) === 'dir'
-        && !!pinnedDirPreviewKey
-        && normalize(pinnedPanelSelection?.key) === pinnedDirPreviewKey
-    );
-
     const clearPinnedState = () => {
         pinnedPanelSelection = null;
-        pinnedDirPreviewKey = '';
     };
 
     return {
-        clearPinnedDirPreviewKey,
         clearPinnedPanelSelection,
         clearPinnedState,
         getCurrentPinnedInteractionKey,
-        getPinnedDirPreviewKey,
         getPinnedPanelSelection,
         hasPinnedPanelState,
-        isDirFilterPinned,
-        setPinnedDirPreviewKey,
         setPinnedPanelSelection
     };
 };

@@ -1,4 +1,3 @@
-import { buildEndpointStationIdSetFromPayloadList } from '../../domain/routePreviewSelection.js';
 import {
     tripPreviewCleared,
     tripPreviewRequested
@@ -135,22 +134,7 @@ export const createRoutePreviewController = ({
             buildFeatures: buildTripPreviewFeatures,
             rebuildMultiTripPreview: rebuildTripPreviewFromMultiSelections,
             resolveStationOverrideColor: resolveTripPreviewStationOverrideColor,
-            resolveVirtualTripStationIds: ({
-                payload: tripPayload,
-                payloadSource,
-                aggregate,
-                virtualTrips
-            } = {}) => {
-                if (payloadSource !== 'panel-dir-branch') return aggregate?.stopIds || null;
-                const explicitHighlightIds = new Set(
-                    (Array.isArray(tripPayload?.highlightStationIds) ? tripPayload.highlightStationIds : [])
-                        .map((x) => String(x || '').trim())
-                        .filter(Boolean)
-                );
-                if (explicitHighlightIds.size) return explicitHighlightIds;
-                const endpointIds = buildEndpointStationIdSetFromPayloadList(virtualTrips);
-                return endpointIds.size ? endpointIds : aggregate?.stopIds || null;
-            },
+            resolveVirtualTripStationIds: ({ aggregate } = {}) => aggregate?.stopIds || null,
             applyActiveState: applyTripPreviewState,
             syncStationOffset: syncStationOffsetForTripPreviewState,
             clearEndpointPopups: clearTripEndpointPopups,

@@ -201,9 +201,7 @@ export const createPanelDirFilterPopoverController = ({
     getRows = () => [],
     getState = () => null,
     setState = () => {},
-    rerenderLineById = async () => {},
-    applyDirPreviewByKey = () => {},
-    clearPinnedDirPreview = () => {}
+    rerenderLineById = async () => {}
 } = {}) => {
     const root = doc.createElement('div');
     root.className = 'panel-dir-filter-popover is-hidden';
@@ -231,10 +229,9 @@ export const createPanelDirFilterPopoverController = ({
     const contains = (target) => !!(target && root.contains(target));
     const getActiveKey = () => activeKey;
 
-    const close = ({ clearPreview = true } = {}) => {
+    const close = () => {
         activeKey = '';
         root.classList.add('is-hidden');
-        if (clearPreview) clearPinnedDirPreview();
     };
 
     const position = (anchorEl) => {
@@ -390,7 +387,6 @@ export const createPanelDirFilterPopoverController = ({
         activeKey = lineDirKey;
         root.classList.remove('is-hidden');
         position(anchorEl);
-        applyDirPreviewByKey(lineDirKey, { force: true });
     };
 
     const toggleFromButton = (buttonEl) => {
@@ -442,20 +438,8 @@ export const createPanelDirFilterPopoverController = ({
         await rerenderLineById(lineId);
         const updatedRows = getRows(activeKey) || rows;
         updateInPlace({ rows: updatedRows, state });
-        applyDirPreviewByKey(activeKey, { force: true });
         refreshAnchorPosition();
     });
-
-    root.addEventListener('mouseenter', () => {
-        if (!activeKey) return;
-        applyDirPreviewByKey(activeKey, { force: true });
-    });
-
-    root.addEventListener('pointerdown', (event) => {
-        const ElementCtor = win?.Element || globalThis.Element;
-        if (!(event?.target instanceof ElementCtor) || !activeKey) return;
-        applyDirPreviewByKey(activeKey, { force: true });
-    }, { passive: true });
 
     root.addEventListener('click', async (event) => {
         const clearBtn = event?.target?.closest?.('[data-dir-filter-clear]');

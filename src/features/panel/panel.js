@@ -55,7 +55,6 @@ import {
 } from './panelExport.js';
 import { createPanelIntentController } from './panelInteractionCore.js';
 import { createPanelCrossFeatureBridgeController } from './panelInteractionCore.js';
-import { createPanelRoutePreviewController } from './panelInteractionCore.js';
 import { renderPanelTripDetailStationCellHtml, renderPanelTripDetailStopRowHtml } from './panelTripDetailRender.js';
 import {
     applyTripDetailPastState,
@@ -400,8 +399,6 @@ export function createPanel(options = {}) {
     const onTripDetailStationIndicator = typeof options.onTripDetailStationIndicator === 'function' ? options.onTripDetailStationIndicator : null;
     const onTripDetailStationIndicatorClear = typeof options.onTripDetailStationIndicatorClear === 'function' ? options.onTripDetailStationIndicatorClear : null;
     const onTripDetailStationJump = typeof options.onTripDetailStationJump === 'function' ? options.onTripDetailStationJump : null;
-    const onDirPreviewEnter = typeof options.onDirPreviewEnter === 'function' ? options.onDirPreviewEnter : null;
-    const onDirPreviewLeave = typeof options.onDirPreviewLeave === 'function' ? options.onDirPreviewLeave : null;
     const onAndroidBackPanelHidden = typeof options.onAndroidBackPanelHidden === 'function' ? options.onAndroidBackPanelHidden : null;
     const settingsContentEl = options.settingsContentEl && options.settingsContentEl.appendChild ? options.settingsContentEl : null;
     const getTimetableViewMode = typeof options.getTimetableViewMode === 'function' ? options.getTimetableViewMode : null;
@@ -433,17 +430,6 @@ export function createPanel(options = {}) {
         captureElement: exportElementToPng
     });
     const crossFeatureBridge = createPanelCrossFeatureBridgeController();
-    const panelRoutePreview = createPanelRoutePreviewController({
-        clearTripPathPreviewBySource: (source) => crossFeatureBridge.clearTripPathPreviewBySource(source),
-        requestRoutePreview: async (payload) => {
-            const alternateLineMembership = await getAlternateLineMembership();
-            return previewBranchesForLine({
-                ...(payload || {}),
-                alternateLineMembership
-            });
-        },
-        toText
-    });
     const mobilePanelStack = createPanelMobileStackController();
     const isMobilePanelPresentation = () => panelPresentation === 'mobile';
 
@@ -1769,76 +1755,6 @@ export function createPanel(options = {}) {
         return lineEl;
     };
 
-    const applyDirPreviewByKey = async (lineDirKey, { force = false, fitMode, includeEndpointStations = true } = {}) => {
-        if (isMultiSelectModeEnabled()) return;
-        const key = toText(lineDirKey);
-        if (!key) return;
-        const meta = dirPreviewMetaByKey.get(key);
-        if (!meta) return;
-
-        const currentStationIds = (() => {
-            const out = [];
-            const sid = toText(currentStationId);
-            if (sid) out.push(sid);
-            return out;
-        })();
-        try {
-            const resolved = await resolveStationIdForLine(toText(meta.lineId));
-            const rid = toText(resolved);
-            if (rid && !currentStationIds.includes(rid)) currentStationIds.push(rid);
-        } catch {
-            // ignore
-        }
-
-        const {
-            sourceLineIds,
-            targetTripKeys
-        } = buildPanelStationThroughPreviewFilterValues({
-            lineDirKey: key,
-            meta,
-            dirFilteredTripKeysByKey,
-            temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
-            temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId,
-            throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
-            normalize: toText
-        });
-
-        const targetId = toText(meta.lineId);
-        const throughServiceCategory = toText(meta.throughServiceCategory) || THROUGH_SERVICE_CONFIGS.find(info => 
-            info.lineId === targetId 
-        )?.category || '';
-
-        panelRoutePreview.applyDirectionPreview({
-            currentStationIds,
-            fitMode,
-            force,
-            includeEndpointStations,
-            key,
-            meta,
-            onEnter: onDirPreviewEnter,
-            sourceLineIds,
-            targetTripKeys,
-            throughServiceCategory
-        });
-    };
-
-    const clearDirPreview = () => {
-        panelRoutePreview.clearDirectionPreview({ onLeave: onDirPreviewLeave });
-    };
-
-    const pinDirPreviewByKey = (lineDirKey) => {
-        panelSelectionState.setPinnedDirPreviewKey(lineDirKey);
-    };
-
-    const unpinDirPreview = () => {
-        panelSelectionState.clearPinnedDirPreviewKey();
-    };
-
-    const clearPinnedDirPreview = () => {
-        unpinDirPreview();
-        clearDirPreview();
-    };
-
     const setPinnedPanelSelection = (kind, key) => {
         const nextSelection = panelSelectionState.setPinnedPanelSelection(kind, key);
         if (!nextSelection) {
@@ -1850,29 +1766,6 @@ export function createPanel(options = {}) {
 
     let getCurrentPinnedInteractionKey = () => '';
     let hasPinnedPanelState = () => false;
-
-    const isDirFilterPinned = () => {
-        // 仅“方向筛选按钮点击后”的固定态允许被时刻表 hover 打断。
-        // 其他固定态（公司/线路/车次锁定）仍然禁止 hover 变更。
-        return panelSelectionState.isDirFilterPinned();
-    };
-
-    // 从 timetable row/grid-cell 向上查找所属 lineId + dirKey，判断是否与 pinnedDirPreviewKey 同方向
-    const isTripRowInPinnedDir = (rowEl) => {
-        if (!(rowEl instanceof Element)) return false;
-        const pinnedDir = toText(panelSelectionState.getPinnedDirPreviewKey());
-        if (!pinnedDir) return false;
-
-        const dirBody = rowEl.closest?.('[data-dir-body][data-dir-key]');
-        const lineEl = rowEl.closest?.('[data-line-id]');
-        if (!dirBody || !lineEl) return false;
-
-        const dirKey = toText(dirBody.getAttribute('data-dir-key'));
-        const lineId = toText(lineEl.getAttribute('data-line-id'));
-        if (!dirKey || !lineId) return false;
-
-        return makeLineDirKey(lineId, dirKey) === pinnedDir;
-    };
 
     const getInteractionKeyFromTarget = (target) => resolvePanelInteractionKeyFromTarget(target, {
         body,
@@ -1904,7 +1797,6 @@ export function createPanel(options = {}) {
         hideTripDetail: () => hideTripDetail(),
         panelSelectionState,
         body,
-        clearPinnedDirPreview,
         restoreStationDefaultSelection,
         getTripLocked: () => tripLocked,
         setTripLocked: (value) => {
@@ -4878,12 +4770,7 @@ export function createPanel(options = {}) {
         getRows: (lineDirKey) => dirFilterRowsByKey.get(lineDirKey) || [],
         getState: (lineDirKey) => dirFilterStateByKey.get(lineDirKey) || null,
         setState: (lineDirKey, state) => dirFilterStateByKey.set(lineDirKey, state),
-        rerenderLineById,
-        applyDirPreviewByKey,
-        clearPinnedDirPreview: () => {
-            panelStationRestoreController.clearPinnedStateAndRestore();
-            restoreStationThroughPreviewDefault();
-        }
+        rerenderLineById
     });
 
     const closeDirFilterPopover = (options = {}) => dirFilterPopoverController.close(options);
@@ -4902,17 +4789,6 @@ export function createPanel(options = {}) {
         lastMousePrimaryKey = '';
     };
 
-    const getOpenDirFilterPreviewKey = () => (
-        toText(dirFilterPopoverController.getActiveKey?.())
-        || toText(panelSelectionState.getPinnedDirPreviewKey())
-    );
-
-    const restoreOpenDirFilterPreview = (lineDirKey = '') => {
-        const key = toText(lineDirKey) || getOpenDirFilterPreviewKey();
-        if (!key) return;
-        applyDirPreviewByKey(key, { force: true });
-    };
-
     const isPanelTargetOutsideDirFilterPopover = (target) => (
         target instanceof Element
         && body.contains(target)
@@ -4923,7 +4799,6 @@ export function createPanel(options = {}) {
         if (!isDirFilterPopoverOpen()) return false;
         if (!isPanelTargetOutsideDirFilterPopover(evt?.target)) return false;
         clearDirFilterPopoverPanelHoverState();
-        restoreOpenDirFilterPreview();
         return true;
     };
 
@@ -5417,7 +5292,6 @@ export function createPanel(options = {}) {
                     lastFiredHoverKey = null;
                     lastAppliedHoverKey = null;
                 },
-                clearPinnedDirPreview,
                 setPinnedPanelSelection: isMobilePanelPresentation() ? () => null : setPinnedPanelSelection,
                 onSelectLine,
                 onSelectCompany,
@@ -5493,11 +5367,6 @@ export function createPanel(options = {}) {
                     dirKey: pending.dirKey,
                     buttonEl: pending.buttonEl
                 },
-                fitMode: 'commit',
-                makeLineDirKey,
-                applyDirPreviewByKey,
-                pinDirPreviewByKey,
-                setPinnedPanelSelection,
                 toggleDirFilterPopoverFromButton
             });
             return;
@@ -5537,7 +5406,6 @@ export function createPanel(options = {}) {
             clearHoverTimer();
             hoverCandidateKey = null;
             lastFiredHoverKey = null;
-            if (!panelSelectionState.getPinnedDirPreviewKey()) clearDirPreview();
             return;
         }
         if (hasPinnedPanelState()) {
@@ -5553,7 +5421,6 @@ export function createPanel(options = {}) {
             clearHoverTimer();
             hoverCandidateKey = null;
             lastFiredHoverKey = null;
-            if (!panelSelectionState.getPinnedDirPreviewKey()) clearDirPreview();
             return;
         }
 
@@ -5564,9 +5431,6 @@ export function createPanel(options = {}) {
             hoverCandidateKey = null;
             lastFiredHoverKey = null;
             lastMousePrimaryKey = '';
-            if (!(evt?.relatedTarget && dirFilterPopoverController.contains(evt.relatedTarget)) && !panelSelectionState.getPinnedDirPreviewKey()) {
-                clearDirPreview();
-            }
             return;
         }
 
@@ -5585,9 +5449,8 @@ export function createPanel(options = {}) {
             lastFiredHoverKey = key;
 
             if (target.kind === 'dir' && !target.key.includes('Loop')) {
-                const includeEndpointStations = !(evt?.target instanceof Element && evt.target.closest?.('.panel-dir-main'));
-                applyDirPreviewByKey(target.lineDirKey, { fitMode: 'preview', includeEndpointStations });
-                lastMousePrimaryKey = key;
+                scheduleRestoreStationLines();
+                lastMousePrimaryKey = '';
             } else if (target.kind === 'line' || target.key.includes('Loop')) {
                 applyLineHoverSelection(target.lineId);
                 lastMousePrimaryKey = key;
@@ -5694,11 +5557,6 @@ export function createPanel(options = {}) {
             stopEvent(evt);
             dispatchPanelDirFilterIntent({
                 filterTarget,
-                fitMode: 'preview',
-                makeLineDirKey,
-                applyDirPreviewByKey,
-                pinDirPreviewByKey,
-                setPinnedPanelSelection,
                 toggleDirFilterPopoverFromButton
             });
             return;
@@ -5737,7 +5595,6 @@ export function createPanel(options = {}) {
                 hoverCandidateKey = null;
                 lastFiredHoverKey = null;
             },
-            clearPinnedDirPreview,
             setPinnedPanelSelection,
             applyLineHoverSelection,
             applyCompanyHoverSelection
@@ -5760,9 +5617,6 @@ export function createPanel(options = {}) {
         panelStationRestoreController.restoreHoverSelectionIfNeeded();
         if (tripLocked) return;
         if (toEl && tripDetailRoot.contains(toEl)) return;
-        if (!(toEl && dirFilterPopoverController.contains(toEl)) && !panelSelectionState.getPinnedDirPreviewKey()) {
-            clearDirPreview();
-        }
         if (!tripDetailPinned) {
             clearUnpinnedTripPreview({ skipStationThroughRestore: true });
             scheduleTripDetailHide();
@@ -5775,10 +5629,7 @@ export function createPanel(options = {}) {
         if (panelInteractionPolicy.shouldSkipDesktopHover()) return;
         const rowEl = findTripTarget(evt?.target);
         if (!rowEl || !body.contains(rowEl)) return;
-        // 有固定态时：仅当 dir-filter 固定 且 row 属于同一方向 才允许 hover 打断
-        if (hasPinnedPanelState()) {
-            if (!isDirFilterPinned() || !isTripRowInPinnedDir(rowEl)) return;
-        }
+        if (hasPinnedPanelState()) return;
         const lineEl = rowEl.closest?.('[data-line-id]');
         const lineId = lineEl?.getAttribute?.('data-line-id');
         const tripKey = rowEl.getAttribute?.('data-trip-key');
@@ -5789,11 +5640,6 @@ export function createPanel(options = {}) {
             const pendingSame = tripPreviewScheduler.isPendingKey(key);
             const appliedSame = tripPreviewScheduler.isAppliedKey(key);
             if (pendingSame || appliedSame) return;
-        }
-
-        // 若 dir-filter 固定态被同方向 row hover 打断，清除方向高亮
-        if (isDirFilterPinned()) {
-            clearDirPreview();
         }
 
         clearTripDetailHideTimer();
@@ -5817,17 +5663,10 @@ export function createPanel(options = {}) {
         if (tripDetailPinned) return;
         const rowEl = findTripTarget(evt?.target);
         if (!rowEl || !body.contains(rowEl)) return;
-        if (hasPinnedPanelState()) {
-            if (!isDirFilterPinned() || !isTripRowInPinnedDir(rowEl)) return;
-        }
+        if (hasPinnedPanelState()) return;
         const toEl = evt?.relatedTarget;
         if (toEl && (rowEl.contains(toEl) || tripDetailRoot.contains(toEl))) return;
-        // dir-filter 固定态下 row mouseout：恢复方向高亮并隐藏 trip detail
-        if (isDirFilterPinned()) {
-            applyDirPreviewByKey(panelSelectionState.getPinnedDirPreviewKey(), { force: true });
-        } else {
-            clearUnpinnedTripPreview();
-        }
+        clearUnpinnedTripPreview();
         scheduleTripDetailHide();
     };
 
@@ -5840,9 +5679,6 @@ export function createPanel(options = {}) {
             routeMapPopoverHoverActive = false;
             if (hasPinnedPanelState()) return;
             panelStationRestoreController.restoreHoverSelectionIfNeeded();
-            if (!panelSelectionState.getPinnedDirPreviewKey()) {
-                clearDirPreview();
-            }
         }
     });
 
@@ -5982,7 +5818,6 @@ export function createPanel(options = {}) {
     });
 
     const panelDismissController = createPanelDismissController({
-        clearPinnedDirPreview,
         clearPinnedPanelState,
         findTripTarget,
         getLockedTripKey: () => lockedTripKey,

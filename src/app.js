@@ -456,7 +456,6 @@ const initMapApp = async () => {
     let dirPreviewActive = false;
     let dirPreviewLineIds = null; // Set<string> | null
     let dirPreviewStationIds = null; // Set<string> | null
-    let previewDirHeader = (_payload) => {};
     let clearDirHeaderPreview = () => {};
     let hoverPreviewEnabled = readHoverPreviewEnabled();
     let adaptiveViewportEnabled = readAdaptiveViewportEnabled();
@@ -2908,13 +2907,6 @@ const initMapApp = async () => {
         onTripDetailStationJump: (payload) => {
             jumpToPanelStation(payload).catch(() => null);
         },
-        onDirPreviewEnter: (payload) => {
-            if (isMultiSelectModeEnabled()) return;
-            previewDirHeader(payload);
-        },
-        onDirPreviewLeave: () => {
-            clearDirHeaderPreview();
-        },
         onAndroidBackPanelHidden: clearSelectionsAndRestore
     });
     const handleRouteMapBackIntent = (payload = {}) => {
@@ -4140,7 +4132,6 @@ const initMapApp = async () => {
             return result;
         };
         clearDirHeaderPreview = routePreviewController.clearDirHeaderPreview;
-        previewDirHeader = routePreviewController.previewDirHeader;
         const toggleTripPreviewSelectionVisibility = routePreviewController.toggleTripPreviewSelectionVisibility;
         const removeTripPreviewSelection = routePreviewController.removeTripPreviewSelection;
 
