@@ -4084,6 +4084,7 @@ const initMapApp = async () => {
                 tripPreviewEndpointStationIds = normalizeStationIdSetForApp(endpointStationIds);
                 tripPreviewPastStationIds = pastStationIds || null;
                 tripPreviewLineIds = lineIds || null;
+                tripPreviewRenderer.applyLinePaint?.();
                 applyTripPreviewEndpointLabelProtection();
             },
             applyTripPreviewInactiveState: () => {
