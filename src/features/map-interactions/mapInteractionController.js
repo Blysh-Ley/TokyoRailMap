@@ -186,9 +186,7 @@ export const bindStationClickHighlightServingLines = ({
     mapEngine,
     touchTapGuard,
     isJourneyMapPickActive,
-    isMultiSelectModeEnabled,
     getSelectedStationId,
-    selectServingLinesForStation,
     openPanelForStationWithAutoScroll,
     getServingLineIdsFromStationProps,
     recordStationHistory,
@@ -223,9 +221,6 @@ export const bindStationClickHighlightServingLines = ({
         })) return;
         const hadStationSelection = !!String(getSelectedStationId?.() || '').trim();
 
-        if (isMultiSelectModeEnabled?.() !== true) {
-            selectServingLinesForStation?.(props);
-        }
         recordStationHistory?.(props);
 
         await openPanelForStationWithAutoScroll?.(props, { autoScroll: hadStationSelection });

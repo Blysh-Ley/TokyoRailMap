@@ -1887,20 +1887,7 @@ export function createPanel(options = {}) {
     });
 
     const restoreStationDefaultSelection = () => {
-        if (!onRestoreStationLines) return;
-        const restoreContext = stationRestoreContext.getSnapshot(currentStationId);
-        if (!restoreContext) return;
-        try {
-            onRestoreStationLines(
-                restoreContext.servingIds,
-                {
-                    stationId: restoreContext.stationId,
-                    restoreSessionId: restoreContext.sessionId
-                }
-            );
-        } catch {
-            // ignore
-        }
+        // Station-through preview is the station click highlight path; do not restore base station-line selection here.
     };
 
     const panelPinnedTripDetailState = createPanelPinnedTripDetailState({
@@ -5198,7 +5185,7 @@ export function createPanel(options = {}) {
 
         mobilePanelStack.openStationOverview(getMobilePanelStationContext());
         syncMobilePanelStackUi();
-        panelStationRestoreController.restoreDefaultSelection();
+        restoreStationDefaultSelection();
         expandMobilePanelAfterTripDetailReturn();
         scheduleCatalogRefresh();
     };

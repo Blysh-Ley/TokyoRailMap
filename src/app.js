@@ -48,10 +48,7 @@ import { resolveTripPreviewPastColor } from './features/route/tripPreviewBuilder
 import { getGlobalTimetableCache } from './lib/timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './map/fullscreen.js';
 import { extractShortestLoopSegmentByIndex, isLoopDirection } from './lib/trip-preview.js';
-import {
-    buildLineHighlightVirtualTripPayloads,
-    resolveSelectionLineHighlightIds
-} from './domain/lineHighlightVirtualTripBuilder.js';
+import { buildLineHighlightVirtualTripPayloads } from './domain/lineHighlightVirtualTripBuilder.js';
 import { buildAlternateLineMembership } from './domain/alternateLineMembership.js';
 import { buildLineHighlightLabelItems } from './domain/lineHighlightLabels.js';
 import { buildLineNameLabelGeoJSON } from './domain/lineNameLabels.js';
@@ -497,15 +494,11 @@ const initMapApp = async () => {
     let generatedRawStations = null;
     let generatedStationOffsetAlgorithmContext = null;
     let multiSelectBaseTripPreviewSignature = '';
-    let selectionLineTripPreviewSignature = '';
-    let selectionLineTripPreviewRequestId = 0;
     let selectionCompanyTripPreviewSignature = '';
     let selectionCompanyTripPreviewRequestId = 0;
 
     const MULTI_SELECT_BASE_TRIP_PREVIEW_SOURCE = 'ms-base-trip-preview';
     const MULTI_SELECT_BASE_TRIP_PREVIEW_KEY = 'multi-base-lines';
-    const SELECTION_LINE_TRIP_PREVIEW_SOURCE = 'selection-line-trip-preview';
-    const SELECTION_LINE_TRIP_PREVIEW_KEY = 'selection-line';
     const SELECTION_COMPANY_TRIP_PREVIEW_SOURCE = 'selection-company-trip-preview';
     const SELECTION_COMPANY_TRIP_PREVIEW_KEY = 'selection-company';
 
@@ -1458,26 +1451,6 @@ const initMapApp = async () => {
         });
     };
 
-    const getSelectionLineTripPreviewLineIds = () => resolveSelectionLineHighlightIds({
-        selectedLineId,
-        selectedStationLineIds
-    });
-
-    const buildSelectionLineTripVirtualTrips = async (lineIds) => {
-        const [railwaysIndexById, alternateLineMembership] = await Promise.all([
-            getRailwaysIndexById(),
-            getAlternateLineMembership()
-        ]);
-        return buildLineHighlightVirtualTripPayloads({
-            lineIds,
-            railwaysIndexById,
-            alternateLineMembership,
-            getLineName: (lineId) => lineNameById.get(lineId) || lineId,
-            previewSource: SELECTION_LINE_TRIP_PREVIEW_SOURCE,
-            fitMode: 'none'
-        });
-    };
-
     const getSelectionCompanyTripPreviewLineIds = () => {
         const company = String(selectedCompany || '').trim();
         if (!company || !enabledLineIdsByCompany || !enabledLineIdsByCompany.has(company)) return [];
@@ -1502,69 +1475,8 @@ const initMapApp = async () => {
     };
 
     const cancelSelectionTripPreviewSync = () => {
-        selectionLineTripPreviewSignature = '';
         selectionCompanyTripPreviewSignature = '';
-        selectionLineTripPreviewRequestId += 1;
         selectionCompanyTripPreviewRequestId += 1;
-    };
-
-    const syncSelectionLineTripPreview = async () => {
-        // Temporarily disabled to isolate station-through preview cost.
-        return;
-
-        const activeSource = String(tripPreviewActiveSource || '').trim();
-
-        if (isMultiSelectModeEnabled()) {
-            const shouldClear = selectionLineTripPreviewSignature
-                || activeSource === SELECTION_LINE_TRIP_PREVIEW_SOURCE;
-            selectionLineTripPreviewSignature = '';
-            selectionLineTripPreviewRequestId += 1;
-            if (shouldClear) clearTripPathPreview({ source: SELECTION_LINE_TRIP_PREVIEW_SOURCE });
-            return;
-        }
-
-        if (activeSource && activeSource !== SELECTION_LINE_TRIP_PREVIEW_SOURCE) {
-            selectionLineTripPreviewRequestId += 1;
-            return;
-        }
-
-        const lineIds = getSelectionLineTripPreviewLineIds();
-        const signature = lineIds.join('|');
-
-        if (!lineIds.length) {
-            const shouldClear = selectionLineTripPreviewSignature
-                || activeSource === SELECTION_LINE_TRIP_PREVIEW_SOURCE;
-            selectionLineTripPreviewSignature = '';
-            selectionLineTripPreviewRequestId += 1;
-            if (shouldClear) clearTripPathPreview({ source: SELECTION_LINE_TRIP_PREVIEW_SOURCE });
-            return;
-        }
-
-        if (
-            signature === selectionLineTripPreviewSignature
-            && activeSource === SELECTION_LINE_TRIP_PREVIEW_SOURCE
-        ) return;
-        selectionLineTripPreviewSignature = signature;
-        const requestId = selectionLineTripPreviewRequestId + 1;
-        selectionLineTripPreviewRequestId = requestId;
-
-        const virtualTrips = await buildSelectionLineTripVirtualTrips(lineIds);
-        if (requestId !== selectionLineTripPreviewRequestId) return;
-        if (!virtualTrips.length) {
-            selectionLineTripPreviewSignature = '';
-            clearTripPathPreview({ source: SELECTION_LINE_TRIP_PREVIEW_SOURCE });
-            return;
-        }
-
-        previewTripPath({
-            selectedLineId: lineIds[0],
-            mainLineId: lineIds[0],
-            tripKey: signature,
-            previewKey: SELECTION_LINE_TRIP_PREVIEW_KEY,
-            previewSource: SELECTION_LINE_TRIP_PREVIEW_SOURCE,
-            fitMode: 'none',
-            virtualTrips
-        }, { fitMode: 'none', clearBefore: true });
     };
 
     const syncSelectionCompanyTripPreview = async () => {
@@ -2106,18 +2018,6 @@ const initMapApp = async () => {
         return out;
     };
 
-    const selectServingLinesForStation = (props) => {
-        const ids = getServingLineIdsFromStationProps(props);
-        if (!ids.length) return;
-
-        isolateStationsToSelectedLine = false;
-        setStationLabelMode('all');
-        searchFeature?.selectStationLines?.({
-            stationId: String(props?.id ?? '').trim() || null,
-            lineIds: ids
-        });
-    };
-
     const recordStationSearchHistoryFromProps = (props) => {
         const p = props || {};
         const id = String(p?.id ?? '').trim();
@@ -2557,9 +2457,24 @@ const initMapApp = async () => {
             return;
         }
 
+        const highlightLineIds = getHighlightedLineIdsForMapClickSelection();
+        if (highlightLineIds && highlightLineIds.size) {
+            const ids = Array.from(highlightLineIds).map(String).filter(Boolean);
+            const hitExpr = ids.length === 1
+                ? ['==', ['get', 'id'], ids[0]]
+                : ['in', ['get', 'id'], ['literal', ids]];
+            applyLinePaint(buildFocusedLinePaint({
+                baseColorExpr,
+                focusExpr: hitExpr,
+                dimOpacity: 0.6,
+                highlightStyle: shouldUseHighlightStyle()
+            }));
+            return;
+        }
+
         applyLinePaint(buildFocusedLinePaint({
             baseColorExpr,
-            highlightStyle: shouldUseHighlightStyle()
+            highlightStyle: false
         }));
     }
 
@@ -2856,10 +2771,6 @@ const initMapApp = async () => {
         effects: {
             applyBaseLayerVisibilityFilters,
             applyLineSelectionStyle,
-            syncSelectionLineTripPreview: () => {
-                // Temporarily disabled to isolate station-through preview cost.
-                // syncSelectionLineTripPreview().catch(() => null);
-            },
             syncSelectionCompanyTripPreview: () => {
                 syncSelectionCompanyTripPreview().catch(() => null);
             },
@@ -2886,8 +2797,6 @@ const initMapApp = async () => {
         requestFrame: (callback) => requestAnimationFrame(callback)
     });
     const applySelectionEffects = () => {
-        // Temporarily disabled to isolate station-through preview from base station-line highlighting.
-        selectedStationLineIds = null;
         selectionEffectsController.apply();
     };
 
@@ -3242,10 +3151,6 @@ const initMapApp = async () => {
             });
         }
 
-        if (!isMultiSelectModeEnabled()) {
-            selectServingLinesForStation(props);
-        }
-
         await openPanelForStationWithAutoScroll(props, { autoScroll: false });
 
         try {
@@ -3519,9 +3424,7 @@ const initMapApp = async () => {
                 mapEngine,
                 touchTapGuard,
                 isJourneyMapPickActive,
-                isMultiSelectModeEnabled,
                 getSelectedStationId: () => selectedStationId,
-                selectServingLinesForStation,
                 openPanelForStationWithAutoScroll,
                 getServingLineIdsFromStationProps,
                 recordStationHistory: recordStationSearchHistoryFromProps,
@@ -5077,9 +4980,6 @@ const initMapApp = async () => {
                     properties: item?.props || {}
                 })) return;
                 const hadStationSelection = !!String(selectedStationId || '').trim();
-                if (!isMultiSelectModeEnabled()) {
-                    selectServingLinesForStation(item.props || {});
-                }
                 recordStationSearchHistoryFromProps(item.props || {});
                 openPanelForStationWithAutoScroll(item.props || {}, { autoScroll: hadStationSelection });
 
