@@ -893,11 +893,16 @@ const getCandidateRecordsForLineIds = ({
     return (Array.isArray(allRecords) ? allRecords : []).filter((rec) => activeSet.has(getTripLineId(rec)));
 };
 
-const appendRecordToBranchAnalysisPlan = (plan, rec, idMap) => {
+const appendRecordToBranchAnalysisPlan = (plan, rec, idMap, throughCategoryCache = null) => {
     if (!plan || !rec) return false;
     if (plan.filterSpecial && rec.nm) return false;
     if (!matchesTripFilter(rec, plan.tripFilterSet)) return false;
-    if (!matchesThroughServiceCategory(rec, idMap, plan.throughServiceCategory, plan.throughCategoryCache)) return false;
+    if (!matchesThroughServiceCategory(
+        rec,
+        idMap,
+        plan.throughServiceCategory,
+        throughCategoryCache instanceof Map ? throughCategoryCache : plan.throughCategoryCache
+    )) return false;
 
     plan.baseFilteredRecords.push(rec);
 
@@ -1040,13 +1045,14 @@ const runBranchAnalysisPlansBatch = async ({
         lineSet: lineIdSet
     });
 
+    const sharedThroughCategoryCache = new Map();
     for (let i = 0; i < candidateRecords.length; i += 1) {
         if (i % 128 === 0 && !isActive()) return list.map((plan) => createStaleBranchAnalysisResult(plan));
         const rec = candidateRecords[i];
         const recLineId = getTripLineId(rec);
         const matchingPlans = plansByLineId.get(recLineId) || [];
         for (const plan of matchingPlans) {
-            appendRecordToBranchAnalysisPlan(plan, rec, idMap);
+            appendRecordToBranchAnalysisPlan(plan, rec, idMap, sharedThroughCategoryCache);
         }
     }
     if (!isActive()) return list.map((plan) => createStaleBranchAnalysisResult(plan));
