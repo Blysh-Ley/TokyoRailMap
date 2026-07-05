@@ -1911,6 +1911,32 @@ const initMapApp = async () => {
         return new Set([sid]);
     };
 
+    const getTripPreviewTransferStationLabelHighlightIds = () => {
+        const out = new Set();
+        const addIfTransferStation = (stationId) => {
+            const sid = String(stationId ?? '').trim();
+            if (!sid) return;
+            const groupSet = transferStationIdsByStationId.get(sid);
+            if (groupSet instanceof Set && groupSet.size > 1) out.add(sid);
+        };
+
+        if (tripPreviewActive && tripPreviewStationIds instanceof Set) {
+            for (const stationId of tripPreviewStationIds) addIfTransferStation(stationId);
+        }
+        if (dirPreviewActive && dirPreviewStationIds instanceof Set) {
+            for (const stationId of dirPreviewStationIds) addIfTransferStation(stationId);
+        }
+        return out;
+    };
+
+    const getStationLabelStyleHighlightIds = () => {
+        const ids = getStationVisualHighlightIds();
+        for (const stationId of getTripPreviewTransferStationLabelHighlightIds()) {
+            ids.add(stationId);
+        }
+        return ids;
+    };
+
     const setStationVisualHighlight = (stationId) => {
         appStore.dispatch(stationVisualHighlightSet({
             stationId: String(stationId ?? '').trim() || null,
@@ -1919,7 +1945,7 @@ const initMapApp = async () => {
     };
 
     const updateSelectedStationLabelClass = () => {
-        const selectedIds = getStationVisualHighlightIds();
+        const selectedIds = getStationLabelStyleHighlightIds();
         const hasSelected = selectedIds.size > 0;
         const labels = Array.isArray(stationLabels) ? stationLabels : [];
 
@@ -2547,7 +2573,7 @@ const initMapApp = async () => {
         }
         mapEngine.applyPaintProperties?.('station-labels-layer', stationLabelPaint);
         mapEngine.applyPaintProperties?.('line-name-labels-layer', buildLineNameLabelsLayerPaint({ isDark: dark }));
-        const selectedLabelIds = Array.from(getStationVisualHighlightIds()).map(String).filter(Boolean);
+        const selectedLabelIds = Array.from(getStationLabelStyleHighlightIds()).map(String).filter(Boolean);
         const baseLabelImageId = dark ? STATION_LABEL_BACKGROUND_DARK_IMAGE_ID : STATION_LABEL_BACKGROUND_LIGHT_IMAGE_ID;
         const selectedLabelImageId = dark
             ? STATION_LABEL_SELECTED_BACKGROUND_DARK_IMAGE_ID
@@ -2997,7 +3023,7 @@ const initMapApp = async () => {
 
     const getCollisionPinnedStationIds = () => {
         const ids = [];
-        for (const id of getStationVisualHighlightIds()) {
+        for (const id of getStationLabelStyleHighlightIds()) {
             if (id && !ids.includes(id)) ids.push(id);
         }
         const selectedId = String(selectedStationId ?? '').trim();
