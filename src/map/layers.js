@@ -282,6 +282,8 @@ export const STATION_LABELS_SOURCE_ID = 'station-labels-source';
 export const STATION_LABELS_LAYER_ID = 'station-labels-layer';
 export const STATION_LABEL_BACKGROUND_LIGHT_IMAGE_ID = 'station-label-bg-light';
 export const STATION_LABEL_BACKGROUND_DARK_IMAGE_ID = 'station-label-bg-dark';
+export const STATION_LABEL_SELECTED_BACKGROUND_LIGHT_IMAGE_ID = 'station-label-selected-bg-light';
+export const STATION_LABEL_SELECTED_BACKGROUND_DARK_IMAGE_ID = 'station-label-selected-bg-dark';
 
 export const buildStationLabelsLayerPaint = ({
     isDark = (typeof document !== 'undefined' && isDarkThemeActive())
@@ -307,7 +309,7 @@ const drawRoundRect = (ctx, x, y, width, height, radius) => {
     ctx.closePath();
 };
 
-const createStationLabelBackgroundImage = ({ isDark = false } = {}) => {
+const createStationLabelBackgroundImage = ({ isDark = false, selected = false } = {}) => {
     if (typeof document === 'undefined') return null;
     const pixelRatio = 2;
     const width = 44;
@@ -320,10 +322,14 @@ const createStationLabelBackgroundImage = ({ isDark = false } = {}) => {
 
     ctx.clearRect(0, 0, width, height);
     drawRoundRect(ctx, 1.5, 1.5, width - 3, height - 3, 6);
-    ctx.fillStyle = isDark ? 'rgba(24, 26, 31, 0.75)' : 'rgba(255, 255, 255, 0.7)';
+    ctx.fillStyle = isDark
+        ? (selected ? 'rgba(24, 26, 31, 0.88)' : 'rgba(24, 26, 31, 0.75)')
+        : (selected ? 'rgba(255, 255, 255, 0.86)' : 'rgba(255, 255, 255, 0.7)');
     ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = isDark ? 'rgba(210, 216, 226, 0.35)' : 'rgba(0, 0, 0, 0.2)';
+    ctx.lineWidth = selected ? 3.5 : 2;
+    ctx.strokeStyle = selected
+        ? (isDark ? 'rgba(238, 238, 238, 0.92)' : 'rgba(85, 85, 85, 0.9)')
+        : (isDark ? 'rgba(210, 216, 226, 0.35)' : 'rgba(0, 0, 0, 0.2)');
     ctx.stroke();
 
     return {
@@ -341,7 +347,9 @@ const ensureStationLabelBackgroundImages = (mapAdapter) => {
     if (!mapAdapter?.addImage || !mapAdapter?.hasImage) return;
     const items = [
         [STATION_LABEL_BACKGROUND_LIGHT_IMAGE_ID, createStationLabelBackgroundImage({ isDark: false })],
-        [STATION_LABEL_BACKGROUND_DARK_IMAGE_ID, createStationLabelBackgroundImage({ isDark: true })]
+        [STATION_LABEL_BACKGROUND_DARK_IMAGE_ID, createStationLabelBackgroundImage({ isDark: true })],
+        [STATION_LABEL_SELECTED_BACKGROUND_LIGHT_IMAGE_ID, createStationLabelBackgroundImage({ isDark: false, selected: true })],
+        [STATION_LABEL_SELECTED_BACKGROUND_DARK_IMAGE_ID, createStationLabelBackgroundImage({ isDark: true, selected: true })]
     ];
 
     for (const [imageId, item] of items) {

@@ -21,6 +21,7 @@ export const createSearchSelectionController = ({
     markActiveLine,
     markActiveCompany,
     findStationLabelItemById,
+    setStationVisualHighlight,
     selectPlatformLinesForStation,
     fitToPointAsBounds,
     openPanelForStationWithAutoScroll,
@@ -81,16 +82,10 @@ export const createSearchSelectionController = ({
             : [];
         const lineIds = requestedLineIds.length ? requestedLineIds : fallbackLineIds;
 
-        if (lineIds.length) {
-            searchFeature.selectStationLines({
-                stationId: toText(stationId) || toText(props?.id) || null,
-                lineIds
-            });
-            setIsolate(false);
-            setStationLabelMode?.('all');
-        } else {
-            selectPlatformLinesForStation?.(props);
-        }
+        setStationVisualHighlight?.(toText(stationId) || toText(props?.id) || null);
+        if (!lineIds.length) selectPlatformLinesForStation?.(props);
+        setIsolate(false);
+        setStationLabelMode?.('all');
         fitToPointAsBounds?.(coords, { maxZoom: meta?.maxZoom });
         return { props, coords, lineIds };
     };

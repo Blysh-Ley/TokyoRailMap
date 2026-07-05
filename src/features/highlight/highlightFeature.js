@@ -1,4 +1,5 @@
 import { lineIdsToSet } from '../../domain/selection.js';
+import { ACTION_TYPES } from '../../store/actions.js';
 
 export const createHighlightFeature = ({ store, applyLegacySelection } = {}) => {
     if (!store || typeof store.subscribe !== 'function') {
@@ -9,7 +10,8 @@ export const createHighlightFeature = ({ store, applyLegacySelection } = {}) => 
     }
 
     const unsubscribe = store.subscribe((state, action) => {
-        if (!String(action?.type || '').startsWith('selection/')) return;
+        const type = String(action?.type || '');
+        if (!type.startsWith('selection/') && type !== ACTION_TYPES.STATION_VISUAL_HIGHLIGHT_SET) return;
         applyLegacySelection({
             ...state,
             selectedStationLineIds: lineIdsToSet(state.selectedStationLineIds),

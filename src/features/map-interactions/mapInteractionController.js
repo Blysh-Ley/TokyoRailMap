@@ -189,6 +189,7 @@ export const bindStationClickHighlightServingLines = ({
     touchTapGuard,
     isJourneyMapPickActive,
     getSelectedStationId,
+    setStationVisualHighlight,
     openPanelForStationWithAutoScroll,
     getServingLineIdsFromStationProps,
     recordStationHistory,
@@ -224,6 +225,7 @@ export const bindStationClickHighlightServingLines = ({
         const hadStationSelection = !!String(getSelectedStationId?.() || '').trim();
 
         recordStationHistory?.(props);
+        setStationVisualHighlight?.(stationId);
 
         await openPanelForStationWithAutoScroll?.(props, { autoScroll: hadStationSelection });
 

@@ -9,6 +9,7 @@ const defaultState = normalizeSelectionState({
 const normalizeAppState = (state = {}) => ({
     ...normalizeSelectionState(state),
     multiSelectEnabled: state.multiSelectEnabled === true,
+    stationVisualHighlightId: String(state.stationVisualHighlightId ?? '').trim() || null,
     lastInteraction: state.lastInteraction || null
 });
 
@@ -38,7 +39,8 @@ const reducer = (state, action = {}) => {
         case ACTION_TYPES.SELECTION_SELECT_STATION_LINES:
             return recordInteraction({
                 ...reduceSelection(state, action.payload),
-                multiSelectEnabled: state.multiSelectEnabled
+                multiSelectEnabled: state.multiSelectEnabled,
+                stationVisualHighlightId: state.stationVisualHighlightId
             }, action);
 
         case ACTION_TYPES.SELECTION_CLEAR:
@@ -46,7 +48,8 @@ const reducer = (state, action = {}) => {
                 return recordInteraction({
                     ...state,
                     selectedStationLineIds: null,
-                    selectedStationId: null
+                    selectedStationId: null,
+                    stationVisualHighlightId: null
                 }, action);
             }
             return recordInteraction({
@@ -55,7 +58,14 @@ const reducer = (state, action = {}) => {
                 selectedLineId: null,
                 selectedStationLineIds: null,
                 selectedStationId: null,
-                selectedServiceMode: 'all'
+                selectedServiceMode: 'all',
+                stationVisualHighlightId: null
+            }, action);
+
+        case ACTION_TYPES.STATION_VISUAL_HIGHLIGHT_SET:
+            return recordInteraction({
+                ...state,
+                stationVisualHighlightId: String(action.payload?.stationId ?? '').trim() || null
             }, action);
 
         case ACTION_TYPES.HOVER_SET_ENABLED:

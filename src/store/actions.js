@@ -5,6 +5,7 @@ export const ACTION_TYPES = Object.freeze({
     SELECTION_COMMIT_COMPANY: 'selection/commitCompany',
     SELECTION_SELECT_STATION_LINES: 'selection/selectStationLines',
     SELECTION_CLEAR: 'selection/clear',
+    STATION_VISUAL_HIGHLIGHT_SET: 'stationVisualHighlight/set',
     HOVER_SET_ENABLED: 'hover/setEnabled',
     HOVER_PREVIEW_BEGIN: 'hover/previewBegin',
     HOVER_PREVIEW_COMMIT: 'hover/previewCommit',
@@ -46,6 +47,11 @@ export const selectionSelectStationLines = (payload = {}) => ({
 
 export const selectionClear = (payload = {}) => ({
     type: ACTION_TYPES.SELECTION_CLEAR,
+    payload
+});
+
+export const stationVisualHighlightSet = (payload = {}) => ({
+    type: ACTION_TYPES.STATION_VISUAL_HIGHLIGHT_SET,
     payload
 });
 

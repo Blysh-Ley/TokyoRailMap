@@ -471,8 +471,8 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
                 const bPinned = pinnedIds instanceof Set && pinnedIds.has(String(b.stationId));
                 if (aPinned && !bPinned) return -1;
                 if (!aPinned && bPinned) return 1;
-                const aBoost = Number(a.collisionPriorityBoost) || 0;
-                const bBoost = Number(b.collisionPriorityBoost) || 0;
+                const aBoost = (Number(a.collisionPriorityBoost) || 0) + (Number(a.stationVisualCollisionPriorityBoost) || 0);
+                const bBoost = (Number(b.collisionPriorityBoost) || 0) + (Number(b.stationVisualCollisionPriorityBoost) || 0);
                 if (aBoost !== bBoost) return bBoost - aBoost;
                 if (effectiveMode === STATION_LABEL_MODES.AUTO || effectiveMode === STATION_LABEL_MODES.FOCUS) {
                     const aFocus = getFocusedStationLabelPriority(a);

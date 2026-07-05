@@ -6879,7 +6879,8 @@ html[data-theme="dark"] .reverse-color {
 
 .station-label.station-selected-current-label {
     border-color: #555;
-    border-width: 1.5px;
+    border-width: 3px;
+    padding: 0 3px;
 }
 
 .station-label.station-trip-preview-past-label {

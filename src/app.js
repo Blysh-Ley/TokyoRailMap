@@ -23,6 +23,8 @@ import {
     STATION_LABELS_SOURCE_ID,
     STATION_LABEL_BACKGROUND_DARK_IMAGE_ID,
     STATION_LABEL_BACKGROUND_LIGHT_IMAGE_ID,
+    STATION_LABEL_SELECTED_BACKGROUND_DARK_IMAGE_ID,
+    STATION_LABEL_SELECTED_BACKGROUND_LIGHT_IMAGE_ID,
     addLineNameLabelsLayer,
     addLinesLayer,
     addStationLabelsLayer,
@@ -93,7 +95,7 @@ import { BASEMAP_GLYPHS_URL, createMapEngine } from './services/mapEngine.js';
 import { createMobileTripFitBoundsController } from './services/mobileTripFitBounds.js';
 import { createAppUpdateApi } from './services/appUpdateService.js';
 import { createStore } from './store/appStore.js';
-import { ACTION_TYPES, hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested, selectionClear } from './store/actions.js';
+import { ACTION_TYPES, hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested, selectionClear, stationVisualHighlightSet } from './store/actions.js';
 import { createBaseHighlightEventBridge } from './features/highlight/baseHighlightEventBridge.js';
 import { createHighlightFeature } from './features/highlight/highlightFeature.js';
 import { createHighlightRenderer } from './features/highlight/highlightRenderer.js';
@@ -419,6 +421,7 @@ const initMapApp = async () => {
     let selectedLineId = null;
     let selectedStationLineIds = null;
     let selectedStationId = null; // 点击站点高亮时，仅高亮该站点
+    let stationVisualHighlightId = null;
     let selectedServiceMode = 'all';
     let isolateStationsToSelectedLine = false; // 仅用于“popup 提交线路”：隐藏非该线路站点
     let stationLabelMode = readStationLabelMode();
@@ -543,6 +546,7 @@ const initMapApp = async () => {
         selectedLineId,
         selectedStationLineIds,
         selectedStationId,
+        stationVisualHighlightId,
         selectedServiceMode,
         hoverPreviewEnabled,
         multiSelectEnabled: multiSelectModeEnabled
@@ -725,27 +729,32 @@ const initMapApp = async () => {
     };
 
     const getVisibleStationIdsForTransferCapsules = () => {
+        const visualIds = getStationVisualHighlightIds();
+        const mergeVisualIds = (ids) => (
+            visualIds.size ? mergeTransferCapsuleStationIdSets(ids, visualIds) : ids
+        );
+
         if (tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size) {
             if (isMultiSelectModeEnabled()) {
                 const baseIds = getVisibleStationIdsForBaseMultiSelection();
                 if (baseIds.size) {
-                    return mergeTransferCapsuleStationIdSets(baseIds, tripPreviewStationIds);
+                    return mergeVisualIds(mergeTransferCapsuleStationIdSets(baseIds, tripPreviewStationIds));
                 }
             }
-            return normalizeTransferCapsuleStationIdSet(tripPreviewStationIds);
+            return mergeVisualIds(normalizeTransferCapsuleStationIdSet(tripPreviewStationIds));
         }
 
         if (dirPreviewActive && dirPreviewStationIds && dirPreviewStationIds.size) {
-            return normalizeTransferCapsuleStationIdSet(dirPreviewStationIds);
+            return mergeVisualIds(normalizeTransferCapsuleStationIdSet(dirPreviewStationIds));
         }
 
         if (isMultiSelectModeEnabled()) {
             const baseIds = getVisibleStationIdsForBaseMultiSelection();
-            if (baseIds.size) return baseIds;
+            if (baseIds.size) return mergeVisualIds(baseIds);
         }
 
         if (!selectedLineId && !selectedCompany && selectedStationId) {
-            return getVisibleStationIdsForSelectedStationSelection();
+            return mergeVisualIds(getVisibleStationIdsForSelectedStationSelection());
         }
 
         const highlightLineIds = resolveTransferCapsuleHighlightLineIds({
@@ -756,10 +765,10 @@ const initMapApp = async () => {
         });
 
         if (highlightLineIds && highlightLineIds.size) {
-            return getVisibleStationIdsByLineIds(highlightLineIds);
+            return mergeVisualIds(getVisibleStationIdsByLineIds(highlightLineIds));
         }
 
-        return null;
+        return visualIds.size ? visualIds : null;
     };
 
     const getCurrentTripPreviewAggregateLineFeatures = () => {
@@ -819,7 +828,10 @@ const initMapApp = async () => {
     };
 
     const getVisibleStationIdsForTripPreviewStationLayer = () => {
-        if (!(tripPreviewStationIds instanceof Set) || !tripPreviewStationIds.size) return null;
+        const visualIds = getStationVisualHighlightIds();
+        if (!(tripPreviewStationIds instanceof Set) || !tripPreviewStationIds.size) {
+            return visualIds.size ? visualIds : null;
+        }
         const visibleIds = normalizeTransferCapsuleStationIdSet(tripPreviewStationIds);
         const injection = buildPreviewVirtualStationInjectionForCapsules({
             stationsGeoJSON: transferCapsuleStationsData || stationsData,
@@ -829,6 +841,7 @@ const initMapApp = async () => {
         if (injection?.replacedRealStationIds instanceof Set) {
             for (const id of injection.replacedRealStationIds) visibleIds.delete(id);
         }
+        for (const id of visualIds) visibleIds.add(id);
         return visibleIds;
     };
 
@@ -1901,8 +1914,25 @@ const initMapApp = async () => {
         return [sid];
     };
 
+    const getStationVisualHighlightIds = () => {
+        const sid = String(stationVisualHighlightId ?? '').trim();
+        if (!sid) return new Set();
+        const groupSet = transferStationIdsByStationId.get(sid);
+        const ids = groupSet && groupSet.size
+            ? Array.from(groupSet).map(String).filter(Boolean)
+            : [sid];
+        return new Set(ids);
+    };
+
+    const setStationVisualHighlight = (stationId) => {
+        appStore.dispatch(stationVisualHighlightSet({
+            stationId: String(stationId ?? '').trim() || null,
+            source: 'app.setStationVisualHighlight'
+        }));
+    };
+
     const updateSelectedStationLabelClass = () => {
-        const selectedIds = new Set(getSelectedStationHighlightIds().map(String).filter(Boolean));
+        const selectedIds = getStationVisualHighlightIds();
         const hasSelected = selectedIds.size > 0;
         const labels = Array.isArray(stationLabels) ? stationLabels : [];
 
@@ -1912,6 +1942,7 @@ const initMapApp = async () => {
             const sid = String(item?.stationId ?? item?.props?.id ?? '').trim();
             const isSelected = hasSelected && !!sid && selectedIds.has(sid);
             el.classList.toggle('station-selected-current-label', isSelected);
+            item.stationVisualCollisionPriorityBoost = isSelected ? 1000000 : 0;
         }
     };
 
@@ -2529,10 +2560,20 @@ const initMapApp = async () => {
         }
         mapEngine.applyPaintProperties?.('station-labels-layer', stationLabelPaint);
         mapEngine.applyPaintProperties?.('line-name-labels-layer', buildLineNameLabelsLayerPaint({ isDark: dark }));
+        const selectedLabelIds = Array.from(getStationVisualHighlightIds()).map(String).filter(Boolean);
+        const baseLabelImageId = dark ? STATION_LABEL_BACKGROUND_DARK_IMAGE_ID : STATION_LABEL_BACKGROUND_LIGHT_IMAGE_ID;
+        const selectedLabelImageId = dark
+            ? STATION_LABEL_SELECTED_BACKGROUND_DARK_IMAGE_ID
+            : STATION_LABEL_SELECTED_BACKGROUND_LIGHT_IMAGE_ID;
+        const selectedLabelExpr = selectedLabelIds.length
+            ? (selectedLabelIds.length === 1
+                ? ['==', ['get', 'id'], selectedLabelIds[0]]
+                : ['in', ['get', 'id'], ['literal', selectedLabelIds]])
+            : ['boolean', false];
         mapEngine.setLayoutProperty?.(
             'station-labels-layer',
             'icon-image',
-            dark ? STATION_LABEL_BACKGROUND_DARK_IMAGE_ID : STATION_LABEL_BACKGROUND_LIGHT_IMAGE_ID
+            ['case', selectedLabelExpr, selectedLabelImageId, baseLabelImageId]
         );
         tripPreviewRenderer.applyStopPaint({
             'circle-color': buildStationCircleColorPaintExpr({
@@ -2580,6 +2621,17 @@ const initMapApp = async () => {
             }));
             applyStationThemePaintToMapLayers();
         };
+        const buildStationIdExpr = (ids) => {
+            const values = Array.from(ids || []).map(String).filter(Boolean);
+            if (!values.length) return null;
+            if (values.length === 1) return ['==', ['get', 'id'], values[0]];
+            return ['in', ['get', 'id'], ['literal', values]];
+        };
+        const mergeWithStationVisualExpr = (expr) => {
+            const stationVisualExpr = buildStationIdExpr(getStationVisualHighlightIds());
+            if (!stationVisualExpr) return expr;
+            return ['any', stationVisualExpr, expr];
+        };
 
         if (tripPreviewActive) {
             const stationLayerIds = getVisibleStationIdsForTripPreviewStationLayer();
@@ -2602,7 +2654,7 @@ const initMapApp = async () => {
             const isSelectedExpr = ids.length === 1
                 ? ['==', ['get', 'id'], ids[0]]
                 : ['in', ['get', 'id'], ['literal', ids]];
-            applyFocusedStationPaint(isSelectedExpr, { hideOthers: true });
+            applyFocusedStationPaint(mergeWithStationVisualExpr(isSelectedExpr), { hideOthers: true });
             return;
         }
 
@@ -2611,15 +2663,14 @@ const initMapApp = async () => {
         const servingIdsExpr = ['coalesce', ['get', 'serving_ids'], ['literal', []]];
 
         const platformIdsExpr = ['coalesce', ['get', 'platform_line_id'], servingIdsExpr];
-
         if (isMultiSelectModeEnabled() && multiLineIds.size) {
             const isSelectedStation = buildStationAnyLineMatchExpr(Array.from(multiLineIds));
-            applyFocusedStationPaint(isSelectedStation, { hideOthers: true });
+            applyFocusedStationPaint(mergeWithStationVisualExpr(isSelectedStation), { hideOthers: true });
             return;
         }
 
         // 未选择任何东西：恢复原样式
-        if (!selectedLineId && !selectedCompany && !(selectedStationLineIds && selectedStationLineIds.size)) {
+        if (!selectedLineId && !selectedCompany && !(selectedStationLineIds && selectedStationLineIds.size) && !stationVisualHighlightId) {
             applyBaseStationPaint();
             return;
         }
@@ -2652,7 +2703,7 @@ const initMapApp = async () => {
                     })()
                     : buildStationAnyLineMatchExpr(Array.from(selectedStationLineIds ?? [])));
 
-        applyFocusedStationPaint(isSelectedStation, { hideOthers: true });
+        applyFocusedStationPaint(mergeWithStationVisualExpr(isSelectedStation), { hideOthers: true });
         
     }
 
@@ -2812,6 +2863,7 @@ const initMapApp = async () => {
                 ? state.selectedStationLineIds
                 : null;
             selectedStationId = state.selectedStationId || null;
+            stationVisualHighlightId = state.stationVisualHighlightId || null;
             selectedServiceMode = state.selectedServiceMode || 'all';
             hoverPreviewEnabled = state.hoverPreviewEnabled !== false;
             applySelectionEffects();
@@ -2970,6 +3022,9 @@ const initMapApp = async () => {
 
     const getCollisionPinnedStationIds = () => {
         const ids = [];
+        for (const id of getStationVisualHighlightIds()) {
+            if (id && !ids.includes(id)) ids.push(id);
+        }
         const selectedId = String(selectedStationId ?? '').trim();
         if (selectedId) ids.push(selectedId);
         for (const id of getStationLabelBelowIds()) {
@@ -3181,13 +3236,9 @@ const initMapApp = async () => {
     };
 
     const selectPlatformLinesForStation = (props) => {
-        const ids = getPlatformLineIdsFromStationProps(props);
-        if (!ids.length) return;
-
-        searchFeature?.selectStationLines?.({
-            stationId: String(props?.id ?? '').trim() || null,
-            lineIds: ids
-        });
+        const stationId = String(props?.id ?? '').trim();
+        if (!stationId) return;
+        setStationVisualHighlight(stationId);
         isolateStationsToSelectedLine = false;
     };
 
@@ -3326,6 +3377,7 @@ const initMapApp = async () => {
             }
         },
         findStationLabelItemById,
+        setStationVisualHighlight,
         selectPlatformLinesForStation,
         fitToPointAsBounds,
         openPanelForStationWithAutoScroll,
@@ -3422,6 +3474,7 @@ const initMapApp = async () => {
                 touchTapGuard,
                 isJourneyMapPickActive,
                 getSelectedStationId: () => selectedStationId,
+                setStationVisualHighlight,
                 openPanelForStationWithAutoScroll,
                 getServingLineIdsFromStationProps,
                 recordStationHistory: recordStationSearchHistoryFromProps,
@@ -4762,6 +4815,7 @@ const initMapApp = async () => {
                 },
                 getEnabledLineIds: getEnabledLineIdsForLabels,
                 getVisibleStationIds: () => {
+                    const visualIds = getStationVisualHighlightIds();
                     const baseVisible = (() => {
                         if (tripPreviewActive && tripPreviewStationIds && tripPreviewStationIds.size) {
                             if (isMultiSelectModeEnabled()) {
@@ -4777,20 +4831,29 @@ const initMapApp = async () => {
                         if (dirPreviewActive && dirPreviewStationIds && dirPreviewStationIds.size) {
                             return dirPreviewStationIds;
                         }
+                        if (visualIds.size) return visualIds;
                         if (!selectedLineId && !selectedCompany && selectedStationId) {
                             return getVisibleStationIdsForSelectedStationSelection();
                         }
                         return null;
                     })();
+                    const visibleWithCurrentStation = (() => {
+                        if (!visualIds.size) return baseVisible;
+                        if (!(baseVisible instanceof Set)) return visualIds;
+                        if (baseVisible === visualIds) return baseVisible;
+                        const merged = new Set(baseVisible);
+                        for (const sid of visualIds) merged.add(sid);
+                        return merged;
+                    })();
 
                     const reachableStopsLabelIds = travelSearchMapRuntime?.getReachableStopsLabelIds?.() || null;
-                    if (!(reachableStopsLabelIds instanceof Set)) return baseVisible;
-                    if (!(baseVisible instanceof Set)) return reachableStopsLabelIds;
+                    if (!(reachableStopsLabelIds instanceof Set)) return visibleWithCurrentStation;
+                    if (!(visibleWithCurrentStation instanceof Set)) return reachableStopsLabelIds;
 
                     const intersect = new Set();
-                    for (const rawId of baseVisible) {
+                    for (const rawId of visibleWithCurrentStation) {
                         const sid = String(rawId || '').trim();
-                        if (sid && reachableStopsLabelIds.has(sid)) intersect.add(sid);
+                        if (sid && (reachableStopsLabelIds.has(sid) || visualIds.has(sid))) intersect.add(sid);
                     }
                     return intersect;
                 },
@@ -4805,6 +4868,7 @@ const initMapApp = async () => {
                         selectedLineId ||
                         selectedCompany ||
                         selectedStationId ||
+                        stationVisualHighlightId ||
                         (selectedStationLineIds && selectedStationLineIds.size) ||
                         (isMultiSelectModeEnabled() && getBaseMultiSelectedLineIds().size)
                     );
