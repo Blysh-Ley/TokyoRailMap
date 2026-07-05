@@ -66,6 +66,26 @@ const collectCurrentStationIds_panelTripDetailPreviewPayloadBuilder = ({
     return ids.filter((stationId) => out.has(stationId));
 };
 
+const resolveCurrentStationVisualHighlightId_panelTripDetailPreviewPayloadBuilder = ({
+    segmentsWithPast = [],
+    toText = defaultToText_panelTripDetailPreviewPayloadBuilder
+} = {}) => {
+    const ids = new Set();
+    for (const segment of (Array.isArray(segmentsWithPast) ? segmentsWithPast : [])) {
+        for (const row of (Array.isArray(segment?.rows) ? segment.rows : [])) {
+            if (row?.isCurrent !== true) continue;
+            const stationId = toText(row?.stationId);
+            if (stationId) ids.add(stationId);
+        }
+    }
+
+    if (ids.size !== 1) {
+        throw new Error(`[panel-trip-preview] expected exactly one current station, got ${ids.size}: ${Array.from(ids).join(',')}`);
+    }
+
+    return Array.from(ids)[0];
+};
+
 const buildPreviewSegmentsFromSegmentsWithPast_panelTripDetailPreviewPayloadBuilder = ({
     forcedTypeColor = '',
     kindFilter,
@@ -126,6 +146,10 @@ export const buildPanelTripPreviewScheduleArgs = ({
     toText = defaultToText_panelTripDetailPreviewPayloadBuilder
 } = {}) => {
     const addPreviewLineIdentity = (seg) => withTripPreviewLineIdentity(seg, { toText });
+    const panelCurrentStationVisualHighlightId = resolveCurrentStationVisualHighlightId_panelTripDetailPreviewPayloadBuilder({
+        segmentsWithPast,
+        toText
+    });
 
     const payloadSegments = buildSegmentsWithIdentity_panelTripDetailPreviewPayloadBuilder((segmentsWithPast || []).map((seg) => {
         const stationIds = (seg.rows || []).map((row) => toText(row.stationId)).filter(Boolean);
@@ -175,6 +199,7 @@ export const buildPanelTripPreviewScheduleArgs = ({
         chainLineIds: payloadChainLineIds,
         virtualTimetable: buildVirtualTimetableChain(payloadSegments, toText(tripKey)),
         segments: payloadSegments,
+        panelCurrentStationVisualHighlightId,
         previewSource: 'panel-trip',
         endpointDisplayMode: 'destination-pin-only',
         fitMode: toText(fitMode)
@@ -348,7 +373,8 @@ export const buildPanelTripPreviewScheduleArgs = ({
                 previewSource: payload.previewSource,
                 __previewSource: payload.__previewSource,
                 previewInteraction: payload.previewInteraction,
-                __previewInteraction: payload.__previewInteraction
+                __previewInteraction: payload.__previewInteraction,
+                panelCurrentStationVisualHighlightId
             });
         }
 

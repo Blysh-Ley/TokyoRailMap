@@ -1616,6 +1616,7 @@ export const previewBranchesForLineRequests = async ({
     requests,
     fitMode = 'commit',
     highlightStationIds,
+    panelCurrentStationVisualHighlightId = '',
     alternateLineMembership = null,
     isStillActive,
     previewSource = 'route-map-branch',
@@ -1753,6 +1754,9 @@ export const previewBranchesForLineRequests = async ({
         highlightStationIds: Array.isArray(highlightStationIds)
             ? highlightStationIds.map((x) => toText(x)).filter(Boolean)
             : [],
+        ...(toText(panelCurrentStationVisualHighlightId)
+            ? { panelCurrentStationVisualHighlightId: toText(panelCurrentStationVisualHighlightId) }
+            : {}),
         fitMode: toText(fitMode) || 'commit',
         virtualTrips
     };

@@ -1582,6 +1582,32 @@ export function createPanel(options = {}) {
         }
     };
 
+    const resolvePanelCurrentStationVisualHighlightIdForLines = async (lineIds, context = 'panel-preview') => {
+        const sourceLineIds = Array.from(new Set(
+            (Array.isArray(lineIds) ? lineIds : [lineIds])
+                .map((value) => toText(value))
+                .filter(Boolean)
+        ));
+        if (!sourceLineIds.length) {
+            throw new Error(`[${context}] expected at least one source line for station visual highlight`);
+        }
+
+        const stationIds = new Set();
+        for (const lineId of sourceLineIds) {
+            const stationId = toText(await resolveStationIdForLine(lineId));
+            if (!stationId) {
+                throw new Error(`[${context}] failed to resolve current station for line ${lineId}`);
+            }
+            stationIds.add(stationId);
+        }
+
+        if (stationIds.size !== 1) {
+            throw new Error(`[${context}] expected exactly one current station, got ${stationIds.size}: ${Array.from(stationIds).join(',')}`);
+        }
+
+        return Array.from(stationIds)[0];
+    };
+
     const showTripDetailStationIndicator = (stationId) => {
         if (!onTripDetailStationIndicator) return;
         const sid = toText(stationId);
@@ -2258,6 +2284,10 @@ export function createPanel(options = {}) {
             ...(Array.isArray(request.originStationIds) ? request.originStationIds : []),
             ...(Array.isArray(request.terminalStationIds) ? request.terminalStationIds : [])
         ].map((value) => toText(value)).filter(Boolean)));
+        const panelCurrentStationVisualHighlightId = await resolvePanelCurrentStationVisualHighlightIdForLines(
+            request.sourceLineIds?.length ? request.sourceLineIds : request.lineId,
+            'panel-dir-filter-preview'
+        );
 
         try {
             const alternateLineMembership = await getAlternateLineMembership();
@@ -2265,6 +2295,7 @@ export function createPanel(options = {}) {
                 requests: [request],
                 fitMode: 'commit',
                 highlightStationIds: endpointStationIds,
+                panelCurrentStationVisualHighlightId,
                 alternateLineMembership,
                 isStillActive: () => previewToken === dirFilterPreviewToken && dirPreviewMetaByKey.has(lineDirKey),
                 previewSource: DIR_FILTER_TRIP_PREVIEW_SOURCE,
@@ -4740,29 +4771,25 @@ export function createPanel(options = {}) {
             });
         }
 
-        try {
-            scheduleTripPreview(buildPanelTripPreviewScheduleArgs({
-                trip,
-                tripKey,
-                lineId,
-                typeName,
-                typeColor,
-                hasNt,
-                fitMode,
-                throughCategoryColor,
-                throughCategoryLabel,
-                segmentsWithPast,
-                activeBranchLanes,
-                branchMode,
-                pinned,
-                tripLocked,
-                getTripLineId,
-                getLineMeta,
-                toText
-            }));
-        } catch {
-            // ignore
-        }
+        scheduleTripPreview(buildPanelTripPreviewScheduleArgs({
+            trip,
+            tripKey,
+            lineId,
+            typeName,
+            typeColor,
+            hasNt,
+            fitMode,
+            throughCategoryColor,
+            throughCategoryLabel,
+            segmentsWithPast,
+            activeBranchLanes,
+            branchMode,
+            pinned,
+            tripLocked,
+            getTripLineId,
+            getLineMeta,
+            toText
+        }));
 
         const tripDetailBodyHtml = `
             <div class="${tripDetailTableClass}"${tripDetailTableInlineStyle}>
