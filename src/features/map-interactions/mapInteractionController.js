@@ -191,6 +191,7 @@ export const bindStationClickHighlightServingLines = ({
     getSelectedStationId,
     setStationVisualHighlight,
     openPanelForStationWithAutoScroll,
+    deferPanelHeavyRender = false,
     getServingLineIdsFromStationProps,
     recordStationHistory,
     preloadTimetablesByLineIds,
@@ -227,7 +228,10 @@ export const bindStationClickHighlightServingLines = ({
         recordStationHistory?.(props);
         setStationVisualHighlight?.(stationId);
 
-        await openPanelForStationWithAutoScroll?.(props, { autoScroll: hadStationSelection });
+        await openPanelForStationWithAutoScroll?.(props, {
+            autoScroll: hadStationSelection,
+            deferHeavyRender: deferPanelHeavyRender === true
+        });
 
         try {
             const ids = getServingLineIdsFromStationProps?.(props) || [];

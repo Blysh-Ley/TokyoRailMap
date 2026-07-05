@@ -3166,7 +3166,9 @@ const initMapApp = async () => {
             mobileBottomNavController?.setActive?.('map', { emit: false });
         }
         const prevScrollTop = panel?.getScrollTop?.() || 0;
-        await panel?.showForStationProps?.(p);
+        await panel?.showForStationProps?.(p, {
+            deferHeavyRender: options?.deferHeavyRender === true
+        });
         const shouldAutoScroll = options?.autoScroll !== false;
         if (!shouldAutoScroll) {
             panel?.setScrollTop?.(0, { behavior: 'auto' });
@@ -3471,6 +3473,7 @@ const initMapApp = async () => {
                 getSelectedStationId: () => selectedStationId,
                 setStationVisualHighlight,
                 openPanelForStationWithAutoScroll,
+                deferPanelHeavyRender: true,
                 getServingLineIdsFromStationProps,
                 recordStationHistory: recordStationSearchHistoryFromProps,
                 preloadTimetablesByLineIds: preloadTimetablesForLineIds,
