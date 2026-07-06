@@ -432,7 +432,7 @@
 }
 .route-map-transfer-line {
     height: 2px;
-    background: #000;
+    background: #00000080;
     pointer-events: none;
     align-self: center;
     z-index: 101;
@@ -443,16 +443,16 @@
 .route-map-cell.is-stop.is-transfer::after {
     width: 4px;
     height: 4px;
-    background: #000;
+    background: #00000080;
     border: 2.5px solid #fff;
     box-sizing: content-box;
 }
 
 html[data-theme='dark'] .route-map-transfer-line {
-    background: #fff !important;
+    background: #ffffffaa !important;
 }
 html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
-    background: #fff !important;
+    background: #ffffffaa !important;
     border: 2.5px solid #000 !important;
 }
 
