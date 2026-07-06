@@ -82,10 +82,11 @@ export const createRoutePreviewViewportController = ({
     let pendingFit = null;
     let lastFitPaddingSig = null;
 
-    const getFitPadding = (paddingMode = 'auto') => {
+    const getFitPadding = (paddingMode = 'auto', fitPaddingOptions = {}) => {
         const base = 60;
         const fallback = { top: base, right: base, bottom: base, left: base };
         if (paddingMode === 'full') return fallback;
+        const ignoreTripDetail = fitPaddingOptions?.ignoreTripDetailInset === true;
 
         let left = base;
         const menuEl = getMenuElement?.();
@@ -111,7 +112,7 @@ export const createRoutePreviewViewportController = ({
             const tripEl = getTripDetailElement?.();
             const hidden = tripEl?.classList?.contains('is-hidden');
             const rect = tripEl?.getBoundingClientRect?.();
-            if (!hidden && rect && Number.isFinite(rect.width) && rect.width > 0) {
+            if (!ignoreTripDetail && !hidden && rect && Number.isFinite(rect.width) && rect.width > 0) {
                 right = Math.max(right, Math.ceil(right + rect.width));
             }
         } catch {
@@ -121,10 +122,11 @@ export const createRoutePreviewViewportController = ({
         return { top: base, right, bottom: base, left };
     };
 
-    const previewFitWithSidePanels = (bbox) => {
+    const previewFitWithSidePanels = (bbox, options = {}) => {
         if (!isAdaptiveViewportEnabled?.()) return;
         const bounds = bboxToFitBounds(bbox);
         if (!bounds) return;
+        const ignoreTripDetail = options?.ignoreTripDetailInset === true;
 
         const base = 50;
         let right = base;
@@ -152,7 +154,7 @@ export const createRoutePreviewViewportController = ({
             const tripEl = getTripDetailElement?.();
             const hidden = tripEl?.classList?.contains('is-hidden');
             const rect = tripEl?.getBoundingClientRect?.();
-            if (!hidden && rect && Number.isFinite(rect.width) && rect.width > 0) {
+            if (!ignoreTripDetail && !hidden && rect && Number.isFinite(rect.width) && rect.width > 0) {
                 right = Math.max(right, Math.ceil(right + rect.width));
             }
         } catch {
@@ -222,8 +224,9 @@ export const createRoutePreviewViewportController = ({
     const scheduleFit = (key, bbox, options = {}) => {
         if (!isAdaptiveViewportEnabled?.()) return;
         if (!bbox) return;
-        const padding = getFitPadding(options?.paddingMode);
-        const paddingSig = `l${padding.left}|r${padding.right}|t${padding.top}|b${padding.bottom}`;
+        const padding = getFitPadding(options?.paddingMode, options);
+        const ignoreTripDetailSig = options?.ignoreTripDetailInset === true ? '1' : '0';
+        const paddingSig = `${ignoreTripDetailSig}|l${padding.left}|r${padding.right}|t${padding.top}|b${padding.bottom}`;
         if (key && key === lastFitKey && paddingSig === lastFitPaddingSig) return;
 
         pendingFit = { key, bbox, options, padding, paddingSig };
@@ -253,26 +256,33 @@ export const createRoutePreviewViewportController = ({
         });
     };
 
-    const fitToCurrentSelectionPreview = (triggerKey) => {
+    const fitToCurrentSelectionPreview = (triggerKey, options = {}) => {
         const bbox = getBBoxForSelected();
         if (!bbox) return;
-        scheduleFit(`preview:${triggerKey}`, bbox, { maxZoom: 11 });
+        scheduleFit(`preview:${triggerKey}`, bbox, {
+            maxZoom: 11,
+            ...options
+        });
     };
 
-    const fitToCurrentSelectionCommit = (triggerKey) => {
+    const fitToCurrentSelectionCommit = (triggerKey, options = {}) => {
         const bbox = getBBoxForSelected();
         if (!bbox) return;
-        scheduleFit(`commit:${triggerKey}`, bbox, { maxZoom: undefined, paddingMode: 'full' });
+        scheduleFit(`commit:${triggerKey}`, bbox, {
+            maxZoom: undefined,
+            paddingMode: 'full',
+            ...options
+        });
     };
 
-    const fitToCurrentSelection = (triggerKey, mode = 'preview') => {
+    const fitToCurrentSelection = (triggerKey, mode = 'preview', options = {}) => {
         const key = String(triggerKey ?? '');
         const explicitCommit = key.startsWith('commit:');
         const explicitPreview = key.startsWith('preview:');
         const cleanKey = key.replace(/^(commit:|preview:)/, '');
         const useCommit = explicitCommit || (!explicitPreview && mode === 'commit');
-        if (useCommit) fitToCurrentSelectionCommit(cleanKey);
-        else fitToCurrentSelectionPreview(cleanKey);
+        if (useCommit) fitToCurrentSelectionCommit(cleanKey, options);
+        else fitToCurrentSelectionPreview(cleanKey, options);
     };
 
     return {

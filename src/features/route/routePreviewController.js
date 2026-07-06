@@ -142,7 +142,8 @@ export const createRoutePreviewController = ({
             setStationLabelMode,
             applySelectionEffects,
             scheduleCollisionLayerRefresh,
-            previewFitWithSidePanels
+            previewFitWithSidePanels,
+            fitOptions: options
         });
     };
 

@@ -425,7 +425,8 @@ export const createRouteFeature = ({
             setStationLabelMode,
             applySelectionEffects,
             scheduleCollisionLayerRefresh,
-            previewFitWithSidePanels
+            previewFitWithSidePanels,
+            fitOptions = {}
         } = {}) {
             const hasSegments = Array.isArray(payload?.segments) && payload.segments.length;
             const virtualTrips = getVirtualTrips(payload);
@@ -588,7 +589,7 @@ export const createRouteFeature = ({
                     runPostDataEffects();
                 }
                 if (fitMode !== 'none') {
-                    previewFitWithSidePanels?.(built.bbox);
+                    previewFitWithSidePanels?.(built.bbox, fitOptions);
                 }
                 return {
                     ok: true,
@@ -706,7 +707,7 @@ export const createRouteFeature = ({
             applySelectionEffects?.();
             scheduleCollisionLayerRefresh?.();
             if (fitMode !== 'none') {
-                previewFitWithSidePanels?.(endpointAwareBuilt?.bbox);
+                previewFitWithSidePanels?.(endpointAwareBuilt?.bbox, fitOptions);
             }
             return {
                 ok: true,
@@ -830,7 +831,7 @@ export const createRouteFeature = ({
             applySelectionEffects?.();
             scheduleCollisionLayerRefresh?.();
             if (fitMode !== 'none') {
-                previewFitWithSidePanels?.(endpointAwareBuilt?.bbox);
+                previewFitWithSidePanels?.(endpointAwareBuilt?.bbox, options);
             }
 
             return {

@@ -2409,7 +2409,8 @@ export function createPanel(options = {}) {
 
     const scheduleStationThroughPreview = async ({
         renderToken,
-        stationId = ''
+        stationId = '',
+        fitOptions = {}
     } = {}) => {
         const sid = toText(stationId);
         const isStillActive = () => !stationThroughPreviewSuppressed
@@ -2436,9 +2437,11 @@ export function createPanel(options = {}) {
             && stationThroughPreviewCache.snapshot.source === STATION_THROUGH_PREVIEW_SOURCE
         ) {
             if (!isStillActive()) return false;
+            const normalizedFitOptions = fitOptions && typeof fitOptions === 'object' ? fitOptions : {};
             const applied = await crossFeatureBridge.applyTripPreviewSnapshot?.(
                 stationThroughPreviewCache.snapshot,
                 {
+                    ...normalizedFitOptions,
                     fitMode: 'commit',
                     source: STATION_THROUGH_PREVIEW_SOURCE
                 }
@@ -2467,7 +2470,8 @@ export function createPanel(options = {}) {
                 highlightStationIds,
                 alternateLineMembership,
                 isStillActive,
-                previewSource: STATION_THROUGH_PREVIEW_SOURCE
+                previewSource: STATION_THROUGH_PREVIEW_SOURCE,
+                fitOptions: fitOptions
             });
             if (!previewResult?.ok) {
                 if (renderToken === stationRenderToken && sid === toText(currentStationId)) {
@@ -2509,7 +2513,10 @@ export function createPanel(options = {}) {
         if (!sid) return false;
         scheduleStationThroughPreview({
             renderToken: stationRenderToken,
-            stationId: sid
+            stationId: sid,
+            fitOptions: {
+                ignoreTripDetailInset: true
+            }
         }).catch(() => null);
         return true;
     };

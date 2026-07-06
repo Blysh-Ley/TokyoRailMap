@@ -1788,9 +1788,12 @@ export const previewBranchesForLine = async ({
     endpointOnlyStationPreview = false,
     endpointLabelCounts,
     anchorStationIds,
-    alternateLineMembership = null
+    alternateLineMembership = null,
+    fitOptions = {}
 } = {}) => {
     const source = toText(previewSource) || 'route-map-branch';
+    const normalizedFitMode = toText(fitMode) || 'commit';
+    const normalizedFitOptions = fitOptions && typeof fitOptions === 'object' ? fitOptions : {};
     const actions = window?.TokyoRailSearchMapActions;
     if (!actions || typeof actions.previewTripPath !== 'function') {
         return { ok: false, reason: 'map-actions-unavailable' };
@@ -1838,10 +1841,11 @@ export const previewBranchesForLine = async ({
         highlightStationIds: Array.isArray(highlightStationIds)
             ? highlightStationIds.map((x) => toText(x)).filter(Boolean)
             : [],
-        fitMode: toText(fitMode) || 'commit',
+        fitMode: normalizedFitMode,
         virtualTrips: built.virtualTrips
     }, {
-        fitMode: toText(fitMode) || 'commit',
+        ...normalizedFitOptions,
+        fitMode: normalizedFitMode,
         clearBefore: true
     });
 
@@ -1860,9 +1864,12 @@ export const previewBranchesForLineRequests = async ({
     alternateLineMembership = null,
     isStillActive,
     previewSource = 'route-map-branch',
-    endpointOnlyStationPreview = false
+    endpointOnlyStationPreview = false,
+    fitOptions = {}
 } = {}) => {
     const source = toText(previewSource) || 'route-map-branch';
+    const normalizedFitMode = toText(fitMode) || 'commit';
+    const normalizedFitOptions = fitOptions && typeof fitOptions === 'object' ? fitOptions : {};
     const actions = window?.TokyoRailSearchMapActions;
     if (!actions || typeof actions.previewTripPath !== 'function') {
         return { ok: false, reason: 'map-actions-unavailable' };
@@ -1997,12 +2004,13 @@ export const previewBranchesForLineRequests = async ({
         ...(toText(panelCurrentStationVisualHighlightId)
             ? { panelCurrentStationVisualHighlightId: toText(panelCurrentStationVisualHighlightId) }
             : {}),
-        fitMode: toText(fitMode) || 'commit',
+        fitMode: normalizedFitMode,
         virtualTrips
     };
     if (!stillActive()) return { ok: false, reason: 'stale', results };
     const previewResult = actions.previewTripPath(previewPayload, {
-        fitMode: toText(fitMode) || 'commit',
+        ...normalizedFitOptions,
+        fitMode: normalizedFitMode,
         clearBefore: true
     });
     if (!previewResult?.ok) {
