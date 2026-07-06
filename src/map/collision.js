@@ -402,10 +402,7 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
 
         const useSymbolStationLabels =
             (effectiveMode === STATION_LABEL_MODES.AUTO || effectiveMode === STATION_LABEL_MODES.FOCUS)
-            && mapAdapter.hasLayer(stationLabelsLayerId)
-            && !(pinnedIds instanceof Set)
-            && !(enabledLineIdsSet instanceof Set)
-            && !(explicitIdsSet instanceof Set);
+            && mapAdapter.hasLayer(stationLabelsLayerId);
 
         if (useSymbolStationLabels) detachDomStationLabels();
         else {
@@ -424,33 +421,28 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
         }
 
         if (effectiveMode === STATION_LABEL_MODES.ALL) {
+            const visibleIds = new Set();
+            stationLabels.forEach((label) => {
+                if (label.forceHiddenByTransferCollapse) return;
+                if (!label.priority) return;
+                if (shouldHideByExternalRule(label, explicitIdsSet)) return;
+                if (shouldHideByOpacity(label, explicitIdsSet)) return;
+                if (!isStationEnabledByLines(label.servingLineIds, enabledLineIdsSet)) return;
+                if (!isStationEnabledByExplicitIds(label.stationId, explicitIdsSet)) return;
+                visibleIds.add(label.stationId);
+            });
+
+            if (useSymbolStationLabels) {
+                lastSymbolStationLabelMode = effectiveMode;
+                syncStationSymbolSortKey(effectiveMode);
+                syncStationSymbolLabelFilter(Array.from(visibleIds));
+                setStationSymbolLabelsVisible(true);
+                return;
+            }
+
             lastSymbolStationLabelMode = '';
             stationLabels.forEach((label) => {
-                if (label.forceHiddenByTransferCollapse) {
-                    label.el.style.display = 'none';
-                    return;
-                }
-                if (!label.priority) {
-                    label.el.style.display = 'none';
-                    return;
-                }
-                if (shouldHideByExternalRule(label, explicitIdsSet)) {
-                    label.el.style.display = 'none';
-                    return;
-                }
-                if (shouldHideByOpacity(label, explicitIdsSet)) {
-                    label.el.style.display = 'none';
-                    return;
-                }
-                if (!isStationEnabledByLines(label.servingLineIds, enabledLineIdsSet)) {
-                    label.el.style.display = 'none';
-                    return;
-                }
-                if (!isStationEnabledByExplicitIds(label.stationId, explicitIdsSet)) {
-                    label.el.style.display = 'none';
-                    return;
-                }
-                label.el.style.display = 'block';
+                label.el.style.display = visibleIds.has(label.stationId) ? 'block' : 'none';
             });
             return;
         }
