@@ -528,6 +528,17 @@ export function createPanel(options = {}) {
         panelCatalogController?.scheduleRefresh();
     };
 
+    const schedulePanelPostPaintTask = (task) => {
+        const requestFrame = typeof requestAnimationFrame === 'function'
+            ? requestAnimationFrame
+            : (callback) => setTimeout(callback, 16);
+        requestFrame(() => {
+            setTimeout(() => {
+                task?.();
+            }, 0);
+        });
+    };
+
     const panelScrollRuntime = createPanelScrollRuntime({
         body,
         toText,
@@ -6242,7 +6253,12 @@ export function createPanel(options = {}) {
             scheduleCatalogRefresh();
             panelScrollRuntime.syncPanelTitleForActiveLine();
 
-            window.setTimeout(async () => {
+            const isStillCurrentStationRender = () => (
+                renderToken === stationRenderToken &&
+                toText(currentStationId) === toText(props?.id)
+            );
+
+            schedulePanelPostPaintTask(async () => {
                 if (renderToken !== stationRenderToken || toText(currentStationId) !== toText(props?.id)) return;
                 await renderAllTimetables({
                     buildPrintPayloads: false,
@@ -6250,81 +6266,78 @@ export function createPanel(options = {}) {
                 });
                 scheduleCatalogRefresh();
                 panelScrollRuntime.syncPanelTitleForActiveLine();
-            }, 80);
 
-            window.setTimeout(async () => {
-                if (renderToken !== stationRenderToken || toText(currentStationId) !== toText(props?.id)) return;
-                const throughServicePanelServingLineIds = await buildThroughServicePanelServingLineIds({
-                    currentServingLineIds: currentStationServingIds,
-                    displayLineIds: displayServingIds,
-                    stationId: currentStationId
-                });
-                if (renderToken !== stationRenderToken || toText(currentStationId) !== toText(props?.id)) return;
+                schedulePanelPostPaintTask(async () => {
+                    if (!isStillCurrentStationRender()) return;
+                    const throughServicePanelServingLineIds = await buildThroughServicePanelServingLineIds({
+                        currentServingLineIds: currentStationServingIds,
+                        displayLineIds: displayServingIds,
+                        stationId: currentStationId
+                    });
+                    if (!isStillCurrentStationRender()) return;
 
-                const throughPlan = await buildTemporaryThroughServicePanelPlan({
-                    stationId: currentStationId,
-                    servingLineIds: throughServicePanelServingLineIds,
-                    currentServiceDay,
-                    loadTimetableForLineId,
-                    resolveStationIdForLine,
-                    loadTripByRefId,
-                    parseTripServiceDayFromId,
-                    isStillCurrentStation: () => (
-                        renderToken === stationRenderToken &&
-                        toText(currentStationId) === toText(props?.id)
-                    )
-                });
-                if (renderToken !== stationRenderToken || toText(currentStationId) !== toText(props?.id)) return;
+                    const throughPlan = await buildTemporaryThroughServicePanelPlan({
+                        stationId: currentStationId,
+                        servingLineIds: throughServicePanelServingLineIds,
+                        currentServiceDay,
+                        loadTimetableForLineId,
+                        resolveStationIdForLine,
+                        loadTripByRefId,
+                        parseTripServiceDayFromId,
+                        isStillCurrentStation: isStillCurrentStationRender
+                    });
+                    if (!isStillCurrentStationRender()) return;
 
-                ({
-                    temporaryLineMetaById: temporaryPanelLineMetaById,
-                    temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
-                    temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId,
-                    throughServiceDirectionsByEntityLineId,
-                    displayServingIds
-                } = resolvePanelThroughServiceSetup({
-                    throughPlan,
-                    displayServingIds,
-                    throughServiceConfigs: THROUGH_SERVICE_CONFIGS
-                }));
+                    ({
+                        temporaryLineMetaById: temporaryPanelLineMetaById,
+                        temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
+                        temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId,
+                        throughServiceDirectionsByEntityLineId,
+                        displayServingIds
+                    } = resolvePanelThroughServiceSetup({
+                        throughPlan,
+                        displayServingIds,
+                        throughServiceConfigs: THROUGH_SERVICE_CONFIGS
+                    }));
 
-                const stationRenderInputs = await buildPanelStationRenderInputs({
-                    stationId: currentStationId,
-                    stationNameZh: currentStationNameZh,
-                    displayServingIds,
-                    getLineMeta,
-                    temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
-                    buildPanelLineMergeInfo,
-                    applyTemporarySourceLineOverrides,
-                    buildTransferLineStationNameMap
-                });
-                if (renderToken !== stationRenderToken || toText(currentStationId) !== toText(props?.id)) return;
-                displayServingIds = stationRenderInputs.displayServingIds;
-                currentLineGroupByMainId = stationRenderInputs.lineGroupByMainId;
-                const lineStationNameByLineId = stationRenderInputs.lineStationNameByLineId;
-                currentLineStationMetaByLineId = lineStationNameByLineId;
+                    const stationRenderInputs = await buildPanelStationRenderInputs({
+                        stationId: currentStationId,
+                        stationNameZh: currentStationNameZh,
+                        displayServingIds,
+                        getLineMeta,
+                        temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
+                        buildPanelLineMergeInfo,
+                        applyTemporarySourceLineOverrides,
+                        buildTransferLineStationNameMap
+                    });
+                    if (!isStillCurrentStationRender()) return;
+                    displayServingIds = stationRenderInputs.displayServingIds;
+                    currentLineGroupByMainId = stationRenderInputs.lineGroupByMainId;
+                    const lineStationNameByLineId = stationRenderInputs.lineStationNameByLineId;
+                    currentLineStationMetaByLineId = lineStationNameByLineId;
 
-                body.innerHTML = buildPanelCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId, toText });
-                reorderPanelThroughServiceLinesAfterHtml(body, {
-                    temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
-                    throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
-                    toText
+                    body.innerHTML = buildPanelCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId, toText });
+                    reorderPanelThroughServiceLinesAfterHtml(body, {
+                        temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
+                        throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
+                        toText
+                    });
+                    await enhancePanelLineHeaderIcons(body);
+                    applyDefaultPanelLineCollapse(body, displayServingIds.length > 3);
+                    openMobileStationOverview();
+                    scheduleCatalogRefresh();
+                    await renderAllTimetables({
+                        buildPrintPayloads: false,
+                        scheduleStationThroughPreviewAfterRender: false
+                    });
+                    scheduleCatalogRefresh();
+                    panelScrollRuntime.syncPanelTitleForActiveLine();
+                    schedulePanelPostPaintTask(() => {
+                        if (!isStillCurrentStationRender()) return;
+                        scheduleStationThroughPreview({ renderToken, stationId: currentStationId }).catch(() => null);
+                    });
                 });
-                await enhancePanelLineHeaderIcons(body);
-                applyDefaultPanelLineCollapse(body, displayServingIds.length > 3);
-                openMobileStationOverview();
-                scheduleCatalogRefresh();
-                await renderAllTimetables({
-                    buildPrintPayloads: false,
-                    scheduleStationThroughPreviewAfterRender: false
-                });
-                scheduleCatalogRefresh();
-                panelScrollRuntime.syncPanelTitleForActiveLine();
-                window.setTimeout(() => {
-                    if (renderToken !== stationRenderToken || toText(currentStationId) !== toText(props?.id)) return;
-                    scheduleStationThroughPreview({ renderToken, stationId: currentStationId }).catch(() => null);
-                }, 1200);
-            }, 1200);
+            });
             return;
         }
 
