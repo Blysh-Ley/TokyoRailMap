@@ -243,37 +243,40 @@ export const aggregateTripPreviewLineFeatureItems = ({
     const list = Array.isArray(items) ? items : [];
     if (!list.length) return [];
 
-    const sourceSetByCollisionKey = new Map();
+    const rows = [];
     for (const item of list) {
         const feature = item?.feature;
         const collisionKey = buildTripPreviewLineFeatureCollisionKey(feature);
         const baseKey = buildLineFeatureDedupKey?.(feature) || '';
-        if (!collisionKey || !baseKey) continue;
+        if (!baseKey) continue;
         const contextKey = buildLineFeatureItemContextKey(item);
         if (!contextKey) continue;
         const policy = resolveTripPreviewLineCollisionPolicy({ feature, source: contextKey });
-        if (!policy.sourceAllowsCollisionLane) continue;
-        if (!sourceSetByCollisionKey.has(collisionKey)) sourceSetByCollisionKey.set(collisionKey, new Set());
-        sourceSetByCollisionKey.get(collisionKey).add(contextKey);
+        rows.push({
+            feature,
+            collisionKey,
+            baseKey,
+            contextKey,
+            policy
+        });
+    }
+
+    const sourceSetByCollisionKey = new Map();
+    for (const row of rows) {
+        if (!row.collisionKey) continue;
+        if (!row.policy.sourceAllowsCollisionLane) continue;
+        if (!sourceSetByCollisionKey.has(row.collisionKey)) sourceSetByCollisionKey.set(row.collisionKey, new Set());
+        sourceSetByCollisionKey.get(row.collisionKey).add(row.contextKey);
     }
 
     const lineFeatureByKey = new Map();
-    for (const item of list) {
-        const feature = item?.feature;
-        const baseKey = buildLineFeatureDedupKey?.(feature) || '';
-        if (!baseKey) continue;
-
-        const collisionKey = buildTripPreviewLineFeatureCollisionKey(feature);
-        const hasCrossSourceCollision = collisionKey
-            && (sourceSetByCollisionKey.get(collisionKey)?.size || 0) > 1;
-        const contextKey = buildLineFeatureItemContextKey(item);
-        const policy = resolveTripPreviewLineCollisionPolicy({ feature, source: contextKey });
+    for (const row of rows) {
+        const { feature, baseKey, collisionKey, contextKey, policy } = row;
+        const hasCrossSourceCollision = (sourceSetByCollisionKey.get(collisionKey)?.size || 0) > 1;
         const usesCollisionLane = policy.sourceAllowsCollisionLane;
-        const key = collisionKey
-            ? (hasCrossSourceCollision && contextKey
-                ? `${collisionKey}||ctx:${contextKey}`
-                : collisionKey)
-            : baseKey;
+        const key = hasCrossSourceCollision
+            ? `${collisionKey}||ctx:${contextKey}`
+            : collisionKey || baseKey;
         if (!key) continue;
         const featureWithSource = cloneLineFeatureWithSource(feature, contextKey);
         lineFeatureByKey.set(
@@ -326,9 +329,17 @@ export const buildTripPreviewAggregateFromPayloadList = ({
     let bbox = null;
     let startStationId = '';
     let endStationId = '';
+    const sharedBuildContext = {
+        lineSegmentCache: new Map(),
+        lineFeatureCache: new Map(),
+        stopFeatureCache: new Map(),
+        stationCoordCache: new Map(),
+        servingCountCache: new Map(),
+        lineOffsetUnitsCache: new Map()
+    };
 
     for (const payload of list) {
-        const built = buildTripPreviewFeatures?.(payload);
+        const built = buildTripPreviewFeatures?.(payload, sharedBuildContext);
         const lineFeatures = Array.isArray(built?.lineFc?.features) ? built.lineFc.features : [];
         const stopFeatures = Array.isArray(built?.stopFc?.features) ? built.stopFc.features : [];
 

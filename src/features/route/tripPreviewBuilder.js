@@ -133,10 +133,54 @@ export const createTripPreviewBuilder = ({
         const stopFeatureCache = context?.stopFeatureCache instanceof Map
             ? context.stopFeatureCache
             : null;
+        const stationCoordCache = context?.stationCoordCache instanceof Map
+            ? context.stationCoordCache
+            : null;
+        const servingCountCache = context?.servingCountCache instanceof Map
+            ? context.servingCountCache
+            : null;
+        const lineOffsetUnitsCache = context?.lineOffsetUnitsCache instanceof Map
+            ? context.lineOffsetUnitsCache
+            : null;
         const debugLoop = !!isDebugLoopEnabled?.();
         const previewSource = String(payload?.previewSource || payload?.__previewSource || '').trim();
         const usePanelAlternateTripPreview = previewSource === 'panel-trip'
             || previewSource === STATION_THROUGH_BRANCH_PREVIEW_SOURCE;
+        const getTripStationCoord = (stationId, lineId = '', useAlternate = usePanelAlternateTripPreview) => {
+            const sid = String(stationId || '').trim();
+            if (!sid) return null;
+            if (!(stationCoordCache instanceof Map)) {
+                return getStationCoord(sid, lineId, useAlternate);
+            }
+            const key = [
+                sid,
+                String(lineId || '').trim(),
+                useAlternate === true ? 'alt' : 'base'
+            ].join('||');
+            if (!stationCoordCache.has(key)) {
+                stationCoordCache.set(key, getStationCoord(sid, lineId, useAlternate));
+            }
+            return stationCoordCache.get(key);
+        };
+        const getServingCount = (stationId) => {
+            const sid = String(stationId || '').trim();
+            if (!sid) return 1;
+            if (!(servingCountCache instanceof Map)) {
+                return Number(stationServingCountById?.get(sid) || 1);
+            }
+            if (!servingCountCache.has(sid)) {
+                servingCountCache.set(sid, Number(stationServingCountById?.get(sid) || 1));
+            }
+            return servingCountCache.get(sid);
+        };
+        const resolveLineOffsetUnitsCached = (lineId) => {
+            const id = String(lineId || '').trim();
+            if (!(lineOffsetUnitsCache instanceof Map)) return resolveLineOffsetUnits(id);
+            if (!lineOffsetUnitsCache.has(id)) {
+                lineOffsetUnitsCache.set(id, resolveLineOffsetUnits(id));
+            }
+            return lineOffsetUnitsCache.get(id);
+        };
 
         const allSegments = Array.isArray(payload?.segments) ? payload.segments : [];
         const ntSeg = allSegments.find((s) => String(s?.kind) === 'nt') || null;
@@ -155,8 +199,8 @@ export const createTripPreviewBuilder = ({
 
             if (!allowNt && payload?.hasNt && ntSeg) {
                 const mainTerminalId = String(payload?.mainTerminalStationId || '').trim();
-                const mainTerminalCoord = getStationCoord(mainTerminalId);
-                const ntFirstCoord = getStationCoord(ntFirstStationId);
+                const mainTerminalCoord = getTripStationCoord(mainTerminalId, '', false);
+                const ntFirstCoord = getTripStationCoord(ntFirstStationId, '', false);
                 const ntLineId = resolveSegmentGeometryLineId(ntSeg, '');
 
                 if (mainTerminalCoord && ntFirstCoord && ntLineId) {
@@ -260,7 +304,7 @@ export const createTripPreviewBuilder = ({
                         boundaryStationId
                     );
                     const alternateColor = resolveRailColorForTheme?.(getLineColor(alternateLineId) || '') || '';
-                    const boundaryCoord = boundaryStationId ? getStationCoord(boundaryStationId, sourceLineId, true) : null;
+                    const boundaryCoord = boundaryStationId ? getTripStationCoord(boundaryStationId, sourceLineId, true) : null;
                     if (!boundaryCoord || !alternateColor) continue;
                     return { alternateColor, alternateFromStart: fromIn, boundaryCoord };
                 }
@@ -350,7 +394,7 @@ export const createTripPreviewBuilder = ({
             const explicitOffsetUnits = Number(options?.lineOffsetUnits);
             const lineOffsetUnits = Number.isFinite(explicitOffsetUnits)
                 ? explicitOffsetUnits
-                : (role === 'line' ? resolveLineOffsetUnits(offsetLineId) : 0);
+                : (role === 'line' ? resolveLineOffsetUnitsCached(offsetLineId) : 0);
             const featureKey = [
                 role,
                 String(lineId || ''),
@@ -427,8 +471,8 @@ export const createTripPreviewBuilder = ({
                 const toId = stationIds[j + 1];
                 const pairGeometryLineId = geometryLineId || lineId;
                 const pairOffsetLineId = offsetLineId || pairGeometryLineId;
-                const from = getStationCoord(fromId, lineId || routeLineId || pairGeometryLineId, usePanelAlternateTripPreview);
-                const to = getStationCoord(toId, lineId || routeLineId || pairGeometryLineId, usePanelAlternateTripPreview);
+                const from = getTripStationCoord(fromId, lineId || routeLineId || pairGeometryLineId, usePanelAlternateTripPreview);
+                const to = getTripStationCoord(toId, lineId || routeLineId || pairGeometryLineId, usePanelAlternateTripPreview);
                 if (!from || !to) continue;
                 const pairIsPast = (
                     hasPastStation(segmentPastStationIds, fromId)
@@ -465,7 +509,7 @@ export const createTripPreviewBuilder = ({
                         routeLineId,
                         geometryLineId: pairGeometryLineId || geometryLineId || lineId,
                         offsetLineId: pairOffsetLineId || offsetLineId,
-                        lineOffsetUnits: resolveLineOffsetUnits(pairOffsetLineId || offsetLineId),
+                        lineOffsetUnits: resolveLineOffsetUnitsCached(pairOffsetLineId || offsetLineId),
                         isPast: pairIsPast
                     }, alternateBoundary);
                 }
@@ -477,8 +521,8 @@ export const createTripPreviewBuilder = ({
                 const prevLast = String(prevIds.length ? prevIds[prevIds.length - 1] : '').trim();
                 const currFirst = String(stationIds.length ? stationIds[0] : '').trim();
                 if (prevLast && currFirst && !isSamePhysicalStation?.(prevLast, currFirst)) {
-                    const a = getStationCoord(prevLast, prev?.lineId, usePanelAlternateTripPreview);
-                    const b = getStationCoord(currFirst, lineId, usePanelAlternateTripPreview);
+                    const a = getTripStationCoord(prevLast, prev?.lineId, usePanelAlternateTripPreview);
+                    const b = getTripStationCoord(currFirst, lineId, usePanelAlternateTripPreview);
                     if (a && b) {
                         const prevRouteLineId = resolveSegmentRouteLineId(prev, prev?.lineId);
                         const prevGeometryLineId = resolveSegmentGeometryLineId(prev, prevRouteLineId || prev?.lineId);
@@ -577,10 +621,10 @@ export const createTripPreviewBuilder = ({
         const endpointStationIds = new Set([startStationId, endStationId].filter(Boolean));
 
         for (const sid of stopIds) {
-            const c = getStationCoord(sid, '', usePanelAlternateTripPreview);
+            const c = getTripStationCoord(sid, '', usePanelAlternateTripPreview);
             if (!c) continue;
             const isPast = pastStopIds.has(sid);
-            const servingCount = Number(stationServingCountById?.get(sid) || 1);
+            const servingCount = getServingCount(sid);
             const isEndpoint = endpointStationIds.has(sid);
             const stopFeatureKey = [
                 sid,

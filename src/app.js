@@ -3775,6 +3775,34 @@ const initMapApp = async () => {
             return Array.isArray(chains) ? chains : [];
         };
 
+        const lineChainPointIndexById = new Map();
+        const lineChainCoordKey = (coord) => {
+            if (!Array.isArray(coord) || coord.length < 2) return '';
+            const lng = Number(coord[0]);
+            const lat = Number(coord[1]);
+            if (!Number.isFinite(lng) || !Number.isFinite(lat)) return '';
+            return `${lng.toFixed(6)},${lat.toFixed(6)}`;
+        };
+        const getLineChainPointIndex = (lineIdRaw) => {
+            const lineId = String(lineIdRaw ?? '').trim();
+            if (!lineId) return new Map();
+            if (lineChainPointIndexById.has(lineId)) return lineChainPointIndexById.get(lineId);
+            const index = new Map();
+            const chains = getLineChains(lineId);
+            for (let chainIndex = 0; chainIndex < chains.length; chainIndex += 1) {
+                const chain = chains[chainIndex];
+                if (!Array.isArray(chain)) continue;
+                for (let pointIndex = 0; pointIndex < chain.length; pointIndex += 1) {
+                    const key = lineChainCoordKey(chain[pointIndex]);
+                    if (!key) continue;
+                    if (!index.has(key)) index.set(key, []);
+                    index.get(key).push({ chain, chainIndex, pointIndex });
+                }
+            }
+            lineChainPointIndexById.set(lineId, index);
+            return index;
+        };
+
         const findNearestIndex = (chain, coord) => {
             if (!Array.isArray(chain) || !Array.isArray(coord)) return { index: -1, dist: Number.POSITIVE_INFINITY };
             let bestIdx = -1;
@@ -3842,6 +3870,20 @@ const initMapApp = async () => {
             return best;
         };
 
+        const lineChainProjectionCacheById = new Map();
+        const getClosestPointOnChainCached = (lineIdRaw, chainIndex, chain, coord) => {
+            const lineId = String(lineIdRaw ?? '').trim();
+            const coordKey = lineChainCoordKey(coord);
+            if (!lineId || !coordKey) return closestPointOnChain(chain, coord);
+            if (!lineChainProjectionCacheById.has(lineId)) lineChainProjectionCacheById.set(lineId, new Map());
+            const byCoord = lineChainProjectionCacheById.get(lineId);
+            const key = `${chainIndex}||${coordKey}`;
+            if (byCoord.has(key)) return byCoord.get(key);
+            const projected = closestPointOnChain(chain, coord);
+            byCoord.set(key, projected);
+            return projected;
+        };
+
         const buildProjectedSubchain = (chain, fromProj, toProj, options = {}) => {
             if (!Array.isArray(chain) || chain.length < 2 || !fromProj?.point || !toProj?.point) return null;
 
@@ -3874,10 +3916,62 @@ const initMapApp = async () => {
             return out;
         };
 
+        const buildIndexedSubchain = (chain, fromIndex, toIndex, options = {}) => {
+            if (!Array.isArray(chain) || chain.length < 2) return null;
+            const i = Number(fromIndex);
+            const j = Number(toIndex);
+            if (!Number.isInteger(i) || !Number.isInteger(j) || i < 0 || j < 0) return null;
+            if (i === j) return null;
+
+            if (
+                options?.preserveLineDirection === true
+                && i > j
+            ) {
+                return buildIndexedSubchain(chain, j, i, { preserveLineDirection: false });
+            }
+
+            const out = [];
+            if (i < j) {
+                for (let k = i; k <= j; k += 1) out.push(chain[k]);
+                return out;
+            }
+
+            for (let k = i; k >= j; k -= 1) out.push(chain[k]);
+            return out;
+        };
+
+        const extractIndexedLineSegment = (lineId, fromCoord, toCoord, options = {}) => {
+            const fromKey = lineChainCoordKey(fromCoord);
+            const toKey = lineChainCoordKey(toCoord);
+            if (!fromKey || !toKey) return null;
+            const index = getLineChainPointIndex(lineId);
+            const fromMatches = index.get(fromKey) || [];
+            const toMatches = index.get(toKey) || [];
+            if (!fromMatches.length || !toMatches.length) return null;
+
+            let best = null;
+            for (const a of fromMatches) {
+                for (const b of toMatches) {
+                    if (a.chainIndex !== b.chainIndex || a.chain !== b.chain) continue;
+                    const seg = buildIndexedSubchain(a.chain, a.pointIndex, b.pointIndex, options);
+                    if (!Array.isArray(seg) || seg.length < 2) continue;
+                    const score = Math.abs(Number(a.pointIndex) - Number(b.pointIndex));
+                    if (!best || score < best.score) best = { score, seg };
+                }
+            }
+            return best?.seg || null;
+        };
+
         const extractLineSegment = (lineId, fromCoord, toCoord, options = {}) => {
             const chains = getLineChains(lineId);
             let best = null;
             const preferLoopShortest = options?.preferLoopShortest === true;
+            if (!preferLoopShortest) {
+                const indexed = extractIndexedLineSegment(lineId, fromCoord, toCoord, {
+                    preserveLineDirection: options?.preserveLineDirection === true
+                });
+                if (Array.isArray(indexed) && indexed.length >= 2) return indexed;
+            }
 
             const measurePolylineMeters = (coords) => {
                 if (!Array.isArray(coords) || coords.length < 2) return Number.POSITIVE_INFINITY;
@@ -3890,7 +3984,8 @@ const initMapApp = async () => {
                 return sum;
             };
 
-            for (const chain of chains) {
+            for (let chainIndex = 0; chainIndex < chains.length; chainIndex += 1) {
+                const chain = chains[chainIndex];
                 if (!Array.isArray(chain) || chain.length < 2) continue;
 
                 if (preferLoopShortest) {
@@ -3908,8 +4003,8 @@ const initMapApp = async () => {
                     }
                 }
 
-                const a = closestPointOnChain(chain, fromCoord);
-                const b = closestPointOnChain(chain, toCoord);
+                const a = getClosestPointOnChainCached(lineId, chainIndex, chain, fromCoord);
+                const b = getClosestPointOnChainCached(lineId, chainIndex, chain, toCoord);
                 if (a.segIndex < 0 || b.segIndex < 0 || !a.point || !b.point) continue;
 
                 const score = a.dist + b.dist;

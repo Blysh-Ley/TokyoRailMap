@@ -48,7 +48,8 @@ export const createRoutePreviewRuntimeController = ({
         const lineSegmentCache = new Map();
         const lineFeatureCache = new Map();
         const stopFeatureCache = new Map();
-        const buildTripPreviewFeaturesWithCache = (payload) => buildTripPreviewFeatures(payload, {
+        const buildTripPreviewFeaturesWithCache = (payload, context = {}) => buildTripPreviewFeatures(payload, {
+            ...(context || {}),
             lineSegmentCache,
             lineFeatureCache,
             stopFeatureCache
