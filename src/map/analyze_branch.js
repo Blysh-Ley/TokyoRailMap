@@ -257,11 +257,13 @@ const buildThroughServiceRouteCandidatesForRecord = (rec, idMap) => {
 };
 
 const buildThroughServiceTtLists = (targetTimetables, idMap, {
-    routeCandidatesByTripId = null
+    routeCandidatesByTripId = null,
+    routeCandidatesByComponentKey = null
 } = {}) => {
     const out = [];
     const seenRoutes = new Set();
     const candidateCache = routeCandidatesByTripId instanceof Map ? routeCandidatesByTripId : null;
+    const componentCache = routeCandidatesByComponentKey instanceof Map ? routeCandidatesByComponentKey : null;
 
     for (const rec of Array.isArray(targetTimetables) ? targetTimetables : []) {
         const rid = getTripId(rec);
@@ -269,8 +271,27 @@ const buildThroughServiceTtLists = (targetTimetables, idMap, {
 
         let routeCandidates = candidateCache?.get(rid);
         if (!routeCandidates) {
-            routeCandidates = buildThroughServiceRouteCandidatesForRecord(rec, idMap);
+            let componentKey = '';
+            let connectedTripIds = [];
+            if (componentCache) {
+                connectedTripIds = collectConnectedTrips(rec, idMap).map((trip) => getTripId(trip)).filter(Boolean).sort();
+                componentKey = connectedTripIds.join('|');
+                routeCandidates = componentCache.get(componentKey);
+            }
+            if (!routeCandidates) {
+                routeCandidates = buildThroughServiceRouteCandidatesForRecord(rec, idMap);
+                if (componentCache && componentKey) {
+                    componentCache.set(componentKey, routeCandidates);
+                }
+            }
             candidateCache?.set(rid, routeCandidates);
+            if (candidateCache && connectedTripIds.length) {
+                for (const connectedTripId of connectedTripIds) {
+                    if (connectedTripId && !candidateCache.has(connectedTripId)) {
+                        candidateCache.set(connectedTripId, routeCandidates);
+                    }
+                }
+            }
         }
         for (const candidate of routeCandidates) {
             const key = toText(candidate?.__canonicalKey) || canonicalKey(getRouteStationIds(candidate));
@@ -994,6 +1015,7 @@ const finalizeBranchAnalysisPlan = ({
     lineStationIdsById,
     isActive = () => true,
     throughServiceRouteCandidatesByTripId = null,
+    throughServiceRouteCandidatesByComponentKey = null,
     analysisBodyCache = null
 } = {}) => {
     if (!isActive()) return createStaleBranchAnalysisResult(plan);
@@ -1054,7 +1076,8 @@ const finalizeBranchAnalysisPlan = ({
 
     if (!isActive()) return createStaleBranchAnalysisResult(plan);
     const ttLists = buildThroughServiceTtLists(targetTimetables, idMap, {
-        routeCandidatesByTripId: throughServiceRouteCandidatesByTripId
+        routeCandidatesByTripId: throughServiceRouteCandidatesByTripId,
+        routeCandidatesByComponentKey: throughServiceRouteCandidatesByComponentKey
     });
     if (!isActive()) return createStaleBranchAnalysisResult(plan);
     const fullRoutes = clipRoutesToThroughServiceSegments(
@@ -1121,7 +1144,8 @@ const runBranchAnalysisPlan = async ({
         idMap,
         lineStationIdsById,
         isActive,
-        throughServiceRouteCandidatesByTripId: new Map()
+        throughServiceRouteCandidatesByTripId: new Map(),
+        throughServiceRouteCandidatesByComponentKey: new Map()
     });
 };
 
@@ -1178,6 +1202,7 @@ const runBranchAnalysisPlansBatch = async ({
 
     const sharedThroughCategoryCache = new Map();
     const sharedThroughServiceRouteCandidatesByTripId = new Map();
+    const sharedThroughServiceRouteCandidatesByComponentKey = new Map();
     const planTripFilterIndexByLineId = buildPlanTripFilterIndexByLineId(uniquePlans);
     for (let i = 0; i < candidateRecords.length; i += 1) {
         if (i % 128 === 0 && !isActive()) return list.map((plan) => createStaleBranchAnalysisResult(plan));
@@ -1212,6 +1237,7 @@ const runBranchAnalysisPlansBatch = async ({
             lineStationIdsById,
             isActive,
             throughServiceRouteCandidatesByTripId: sharedThroughServiceRouteCandidatesByTripId,
+            throughServiceRouteCandidatesByComponentKey: sharedThroughServiceRouteCandidatesByComponentKey,
             analysisBodyCache: sharedAnalysisBodyCache
         });
         resultsByCacheKey.set(toText(plan?.cacheKey) || '', result);

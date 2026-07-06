@@ -331,11 +331,6 @@ export const createTripPreviewBuilder = ({
             };
         };
 
-        const cloneCoords = (coords) => (
-            Array.isArray(coords)
-                ? coords.map((coord) => (Array.isArray(coord) ? coord.slice() : coord))
-                : coords
-        );
         const coordKey = (coord) => (
             Array.isArray(coord) && coord.length >= 2
                 ? `${Number(coord[0]) || 0},${Number(coord[1]) || 0}`
@@ -361,10 +356,10 @@ export const createTripPreviewBuilder = ({
                 options?.preserveLineDirection === true ? 'preserve' : 'free'
             ].join('||');
             if (lineSegmentCache.has(key)) {
-                return cloneCoords(lineSegmentCache.get(key));
+                return lineSegmentCache.get(key);
             }
             const clipped = extractLineSegment(id, from, to, options);
-            lineSegmentCache.set(key, Array.isArray(clipped) ? cloneCoords(clipped) : null);
+            lineSegmentCache.set(key, Array.isArray(clipped) ? clipped : null);
             return clipped;
         };
 

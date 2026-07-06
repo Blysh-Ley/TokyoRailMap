@@ -16,6 +16,7 @@ export const createRouteFeature = ({
     }
 
     const tripPreviewSelectionsByKey = new Map();
+    let tripPreviewPostEffectToken = 0;
 
     const normalizeKey = (key) => String(key || '').trim();
 
@@ -376,6 +377,7 @@ export const createRouteFeature = ({
             scheduleCollisionLayerRefresh,
             emitMultiSelectLayersUpdated
         } = {}) {
+            tripPreviewPostEffectToken += 1;
             const targetSource = normalizeKey(options?.source);
 
             if (targetSource && isMultiSelectModeEnabled?.()) {
@@ -440,6 +442,7 @@ export const createRouteFeature = ({
             const payloadSource = typeof resolvePayloadSource === 'function'
                 ? String(resolvePayloadSource(payload) || '').trim()
                 : '';
+            const previewPostEffectToken = ++tripPreviewPostEffectToken;
             const previewInteraction = getPreviewInteraction(payload);
             const inMultiSelectMode = !!isMultiSelectModeEnabled?.();
 
@@ -563,19 +566,27 @@ export const createRouteFeature = ({
                     // Keep legacy route preview interactions non-fatal during renderer migration.
                 }
 
-                clearEndpointPopups?.();
-                if (shouldUseEndpointOnlyStationPreview(payload)) {
-                    updateEndpointPopups?.(built.startStationId, built.endStationId, {
-                        displayMode: 'endpoints-list',
-                        originStationIds: payload?.originStationIds,
-                        terminalStationIds: payload?.terminalStationIds,
-                        endpointLabelCounts: payload?.endpointLabelCounts
-                    });
+                const runPostDataEffects = () => {
+                    if (previewPostEffectToken !== tripPreviewPostEffectToken) return;
+                    clearEndpointPopups?.();
+                    if (shouldUseEndpointOnlyStationPreview(payload)) {
+                        updateEndpointPopups?.(built.startStationId, built.endStationId, {
+                            displayMode: 'endpoints-list',
+                            originStationIds: payload?.originStationIds,
+                            terminalStationIds: payload?.terminalStationIds,
+                            endpointLabelCounts: payload?.endpointLabelCounts
+                        });
+                    }
+                    emitTripPreviewUpdated?.({ payload, built });
+                    setStationLabelMode?.('all');
+                    applySelectionEffects?.();
+                    scheduleCollisionLayerRefresh?.();
+                };
+                if (payloadSource === 'station-through-branch' && typeof requestAnimationFrame === 'function') {
+                    requestAnimationFrame(runPostDataEffects);
+                } else {
+                    runPostDataEffects();
                 }
-                emitTripPreviewUpdated?.({ payload, built });
-                setStationLabelMode?.('all');
-                applySelectionEffects?.();
-                scheduleCollisionLayerRefresh?.();
                 if (fitMode !== 'none') {
                     previewFitWithSidePanels?.(built.bbox);
                 }
