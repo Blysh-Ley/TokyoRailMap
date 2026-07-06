@@ -2386,26 +2386,22 @@ export function createPanel(options = {}) {
         }
     };
 
-    const collectStationThroughPreviewHighlightIds = async (stationId, requests) => {
+    const collectStationThroughPreviewHighlightIds = async (stationId) => {
         const out = new Set();
         const sid = toText(stationId);
         if (sid) out.add(sid);
 
-        const sourceLineIds = new Set();
-        for (const request of Array.isArray(requests) ? requests : []) {
-            for (const lineId of Array.isArray(request?.sourceLineIds) ? request.sourceLineIds : []) {
-                const id = toText(lineId);
-                if (id) sourceLineIds.add(id);
+        try {
+            const groupsIndex = await getStationGroupsIndex();
+            const groupIds = sid ? groupsIndex?.get?.(sid) : null;
+            if (Array.isArray(groupIds)) {
+                for (const value of groupIds) {
+                    const id = toText(value);
+                    if (id) out.add(id);
+                }
             }
-        }
-
-        for (const lineId of sourceLineIds) {
-            try {
-                const resolved = toText(await resolveStationIdForLine(lineId));
-                if (resolved) out.add(resolved);
-            } catch {
-                // 单条来源线路解析失败不应取消整个站点直通预览。
-            }
+        } catch {
+            // 站点组缺失时保留当前 stationId，避免取消整个站点直通预览。
         }
 
         return Array.from(out);
@@ -2456,13 +2452,17 @@ export function createPanel(options = {}) {
             clearStationThroughPreviewCache();
         }
 
-        const highlightStationIds = await collectStationThroughPreviewHighlightIds(sid, requests);
+        const highlightStationIds = await collectStationThroughPreviewHighlightIds(sid);
         if (!isStillActive()) return false;
 
         try {
             const alternateLineMembership = await getAlternateLineMembership();
+            const anchoredRequests = requests.map((request) => ({
+                ...(request || {}),
+                anchorStationIds: highlightStationIds
+            }));
             const previewResult = await previewBranchesForLineRequests({
-                requests,
+                requests: anchoredRequests,
                 fitMode: 'commit',
                 highlightStationIds,
                 alternateLineMembership,

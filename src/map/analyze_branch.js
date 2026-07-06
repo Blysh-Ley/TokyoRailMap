@@ -217,13 +217,56 @@ const buildThroughServiceIdPaths = (startId, idMap) => {
     return out;
 };
 
-const buildThroughServiceRouteCandidatesForRecord = (rec, idMap) => {
+const normalizeAnchorStationIdSet = (anchorStationIds) => {
+    const list = Array.isArray(anchorStationIds)
+        ? anchorStationIds
+        : (anchorStationIds instanceof Set ? Array.from(anchorStationIds) : []);
+    const ids = list.map((value) => toText(value)).filter(Boolean);
+    return ids.length ? new Set(ids) : null;
+};
+
+const buildAnchorStationKey = (anchorStationIdSet) => (
+    anchorStationIdSet instanceof Set && anchorStationIdSet.size
+        ? Array.from(anchorStationIdSet).sort().join('|')
+        : '*'
+);
+
+const tripStopsAtAnchorStation = (trip, anchorStationIdSet) => {
+    if (!(anchorStationIdSet instanceof Set) || !anchorStationIdSet.size) return true;
+    const tt = Array.isArray(trip?.tt) ? trip.tt : [];
+    for (const stop of tt) {
+        const stationId = toText(stop?.s);
+        if (stationId && anchorStationIdSet.has(stationId)) return true;
+    }
+    return false;
+};
+
+const tripConnectionStopsAtAnchorStation = (trip, idMap, anchorStationIdSet) => {
+    if (!(anchorStationIdSet instanceof Set) || !anchorStationIdSet.size) return true;
+    for (const connectedTrip of collectConnectedTrips(trip, idMap)) {
+        if (tripStopsAtAnchorStation(connectedTrip, anchorStationIdSet)) return true;
+    }
+    return false;
+};
+
+const idPathStopsAtAnchorStation = (idPath, idMap, anchorStationIdSet) => {
+    if (!(anchorStationIdSet instanceof Set) || !anchorStationIdSet.size) return true;
+    for (const tripId of Array.isArray(idPath) ? idPath : []) {
+        if (tripStopsAtAnchorStation(idMap.get(tripId), anchorStationIdSet)) return true;
+    }
+    return false;
+};
+
+const buildThroughServiceRouteCandidatesForRecord = (rec, idMap, {
+    anchorStationIdSet = null
+} = {}) => {
     const rid = getTripId(rec);
     if (!rid || !idMap.has(rid)) return [];
     const idPaths = buildThroughServiceIdPaths(rid, idMap);
     const out = [];
 
     for (const idPath of idPaths) {
+        if (!idPathStopsAtAnchorStation(idPath, idMap, anchorStationIdSet)) continue;
         const stationSequences = [];
         const segments = [];
         for (const oid of idPath) {
@@ -258,37 +301,43 @@ const buildThroughServiceRouteCandidatesForRecord = (rec, idMap) => {
 
 const buildThroughServiceTtLists = (targetTimetables, idMap, {
     routeCandidatesByTripId = null,
-    routeCandidatesByComponentKey = null
+    routeCandidatesByComponentKey = null,
+    anchorStationIdSet = null
 } = {}) => {
     const out = [];
     const seenRoutes = new Set();
     const candidateCache = routeCandidatesByTripId instanceof Map ? routeCandidatesByTripId : null;
     const componentCache = routeCandidatesByComponentKey instanceof Map ? routeCandidatesByComponentKey : null;
+    const anchorKey = buildAnchorStationKey(anchorStationIdSet);
 
     for (const rec of Array.isArray(targetTimetables) ? targetTimetables : []) {
         const rid = getTripId(rec);
         if (!rid || !idMap.has(rid)) continue;
 
-        let routeCandidates = candidateCache?.get(rid);
+        const tripCacheKey = `${rid}##${anchorKey}`;
+        let routeCandidates = candidateCache?.get(tripCacheKey);
         if (!routeCandidates) {
             let componentKey = '';
             let connectedTripIds = [];
             if (componentCache) {
                 connectedTripIds = collectConnectedTrips(rec, idMap).map((trip) => getTripId(trip)).filter(Boolean).sort();
-                componentKey = connectedTripIds.join('|');
+                componentKey = `${connectedTripIds.join('|')}##${anchorKey}`;
                 routeCandidates = componentCache.get(componentKey);
             }
             if (!routeCandidates) {
-                routeCandidates = buildThroughServiceRouteCandidatesForRecord(rec, idMap);
+                routeCandidates = buildThroughServiceRouteCandidatesForRecord(rec, idMap, {
+                    anchorStationIdSet
+                });
                 if (componentCache && componentKey) {
                     componentCache.set(componentKey, routeCandidates);
                 }
             }
-            candidateCache?.set(rid, routeCandidates);
+            candidateCache?.set(tripCacheKey, routeCandidates);
             if (candidateCache && connectedTripIds.length) {
                 for (const connectedTripId of connectedTripIds) {
-                    if (connectedTripId && !candidateCache.has(connectedTripId)) {
-                        candidateCache.set(connectedTripId, routeCandidates);
+                    const connectedCacheKey = `${connectedTripId}##${anchorKey}`;
+                    if (connectedTripId && !candidateCache.has(connectedCacheKey)) {
+                        candidateCache.set(connectedCacheKey, routeCandidates);
                     }
                 }
             }
@@ -878,11 +927,12 @@ const matchesThroughServiceCategory = (trip, idMap, expectedCategory, cache) => 
 };
 
 const createBranchAnalysisPlan = (lineId, options = {}) => {
+    const anchorStationIdSet = normalizeAnchorStationIdSet(options?.anchorStationIds);
     const sourceLineIds = expandLineIdsByAlternateStations({
         sourceLineIds: Array.isArray(options?.sourceLineIds)
             ? options.sourceLineIds.map((x) => toText(x)).filter(Boolean)
             : [],
-        anchorStationIds: options?.anchorStationIds,
+        anchorStationIds: anchorStationIdSet,
         alternateLineMembership: options?.alternateLineMembership || null
     });
 
@@ -903,13 +953,15 @@ const createBranchAnalysisPlan = (lineId, options = {}) => {
     const lineIdsKey = activeLineIds.slice().sort().join('|');
     const categoryKey = throughServiceCategory || '*';
     const filterSpecial = options?.filterSpecial === true;
-    const cacheKey = `${lineIdsKey}##${tripFilterKey}##${categoryKey}##${filterSpecial ? 'base' : 'all'}##${options?.alternateLineMembership ? 'alt' : 'no-alt'}`;
+    const anchorKey = buildAnchorStationKey(anchorStationIdSet);
+    const cacheKey = `${lineIdsKey}##${tripFilterKey}##${categoryKey}##${filterSpecial ? 'base' : 'all'}##${options?.alternateLineMembership ? 'alt' : 'no-alt'}##${anchorKey}`;
     return {
         lid,
         activeLineIds,
         activeLineSet,
         throughServiceCategory,
         tripFilterSet,
+        anchorStationIdSet,
         filterSpecial,
         cacheKey,
         baseFilteredRecords: [],
@@ -969,6 +1021,7 @@ const appendRecordToBranchAnalysisPlan = (plan, rec, idMap, throughCategoryCache
     if (!plan || !rec) return false;
     if (plan.filterSpecial && rec.nm) return false;
     if (!skipTripFilter && !matchesTripFilter(rec, plan.tripFilterSet)) return false;
+    if (!tripConnectionStopsAtAnchorStation(rec, idMap, plan.anchorStationIdSet)) return false;
     if (!matchesThroughServiceCategory(
         rec,
         idMap,
@@ -1077,7 +1130,8 @@ const finalizeBranchAnalysisPlan = ({
     if (!isActive()) return createStaleBranchAnalysisResult(plan);
     const ttLists = buildThroughServiceTtLists(targetTimetables, idMap, {
         routeCandidatesByTripId: throughServiceRouteCandidatesByTripId,
-        routeCandidatesByComponentKey: throughServiceRouteCandidatesByComponentKey
+        routeCandidatesByComponentKey: throughServiceRouteCandidatesByComponentKey,
+        anchorStationIdSet: plan.anchorStationIdSet
     });
     if (!isActive()) return createStaleBranchAnalysisResult(plan);
     const fullRoutes = clipRoutesToThroughServiceSegments(
