@@ -105,6 +105,7 @@ import { buildPanelTripPreviewScheduleArgs } from './panelTripDetailRuntime.js';
 import {
     buildTransferLineStationNameMap,
     getStationGroupsIndex,
+    getStationGroupsIndexIncludingAlternates,
     getStationsIndex,
     getTrainTypeColorIndex,
     getTrainTypesIndex,
@@ -2392,7 +2393,7 @@ export function createPanel(options = {}) {
         if (sid) out.add(sid);
 
         try {
-            const groupsIndex = await getStationGroupsIndex();
+            const groupsIndex = await getStationGroupsIndexIncludingAlternates();
             const groupIds = sid ? groupsIndex?.get?.(sid) : null;
             if (Array.isArray(groupIds)) {
                 for (const value of groupIds) {

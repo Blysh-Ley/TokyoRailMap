@@ -193,12 +193,14 @@ export const pickTitleEn = (titleObj, {
 
 let stationsIndexPromise_panelStationMetadata = null;
 let stationGroupsIndexPromise_panelStationMetadata = null;
+let stationGroupsIndexIncludingAlternatesPromise_panelStationMetadata = null;
 let trainTypesIndexPromise_panelStationMetadata = null;
 let trainTypeColorIndexPromise_panelStationMetadata = null;
 
 export const resetPanelStationMetadataCachesForTest = () => {
     stationsIndexPromise_panelStationMetadata = null;
     stationGroupsIndexPromise_panelStationMetadata = null;
+    stationGroupsIndexIncludingAlternatesPromise_panelStationMetadata = null;
     trainTypesIndexPromise_panelStationMetadata = null;
     trainTypeColorIndexPromise_panelStationMetadata = null;
 };
@@ -242,6 +244,51 @@ export const getStationsIndex = async ({
     return stationsIndexPromise_panelStationMetadata;
 };
 
+const buildStationGroupsIndex = ({
+    groups,
+    stations = [],
+    includeAlternates = false,
+    toText = defaultToText_panelStationMetadata
+} = {}) => {
+    const alternateStationIdById = new Map();
+    if (!includeAlternates) {
+        for (const station of Array.isArray(stations) ? stations : []) {
+            const id = toText(station?.id);
+            const alternate = toText(station?.alternate);
+            if (id && alternate) alternateStationIdById.set(id, alternate);
+        }
+    }
+
+    const map = new Map();
+    for (const group of Array.isArray(groups) ? groups : []) {
+        const rawIds = Array.isArray(group?.ids)
+            ? group.ids
+            : (Array.isArray(group) ? group.flat(Infinity) : []);
+        const rawGroupIds = rawIds.map((value) => toText(value)).filter(Boolean);
+        const rawGroupSet = new Set(rawGroupIds);
+        const visibleIds = includeAlternates
+            ? rawGroupIds
+            : rawGroupIds.filter((id) => {
+                const alternate = alternateStationIdById.get(id);
+                return !(alternate && rawGroupSet.has(alternate));
+            });
+        const ids = visibleIds.length ? visibleIds : rawGroupIds;
+        if (!ids.length) continue;
+        for (const id of ids) {
+            const existing = map.get(id) || [];
+            const mergedSeen = new Set(existing);
+            const merged = existing.slice();
+            for (const value of ids) {
+                if (mergedSeen.has(value)) continue;
+                mergedSeen.add(value);
+                merged.push(value);
+            }
+            map.set(id, merged);
+        }
+    }
+    return map;
+};
+
 export const getStationGroupsIndex = async ({
     toText = defaultToText_panelStationMetadata,
     loadJson = getCachedJson
@@ -257,43 +304,34 @@ export const getStationGroupsIndex = async ({
             } catch {
                 stations = [];
             }
-            const alternateStationIdById = new Map();
-            for (const station of stations) {
-                const id = toText(station?.id);
-                const alternate = toText(station?.alternate);
-                if (id && alternate) alternateStationIdById.set(id, alternate);
-            }
-            const map = new Map();
-            for (const group of Array.isArray(list) ? list : []) {
-                const rawIds = Array.isArray(group?.ids)
-                    ? group.ids
-                    : (Array.isArray(group) ? group.flat(Infinity) : []);
-                const rawGroupIds = rawIds.map((value) => toText(value)).filter(Boolean);
-                const rawGroupSet = new Set(rawGroupIds);
-                const visibleIds = rawGroupIds.filter((id) => {
-                    const alternate = alternateStationIdById.get(id);
-                    return !(alternate && rawGroupSet.has(alternate));
-                });
-                const ids = visibleIds.length ? visibleIds : rawGroupIds;
-                if (!ids.length) continue;
-                for (const id of ids) {
-                    const existing = map.get(id) || [];
-                    const mergedSeen = new Set(existing);
-                    const merged = existing.slice();
-                    for (const value of ids) {
-                        if (mergedSeen.has(value)) continue;
-                        mergedSeen.add(value);
-                        merged.push(value);
-                    }
-                    map.set(id, merged);
-                }
-            }
-            return map;
+            return buildStationGroupsIndex({ groups: list, stations, toText });
         } catch {
             return new Map();
         }
     })();
     return stationGroupsIndexPromise_panelStationMetadata;
+};
+
+export const getStationGroupsIndexIncludingAlternates = async ({
+    toText = defaultToText_panelStationMetadata,
+    loadJson = getCachedJson
+} = {}) => {
+    if (stationGroupsIndexIncludingAlternatesPromise_panelStationMetadata) {
+        return stationGroupsIndexIncludingAlternatesPromise_panelStationMetadata;
+    }
+    stationGroupsIndexIncludingAlternatesPromise_panelStationMetadata = (async () => {
+        try {
+            const list = await loadJson(DATA_URLS.stationGroups);
+            return buildStationGroupsIndex({
+                groups: list,
+                includeAlternates: true,
+                toText
+            });
+        } catch {
+            return new Map();
+        }
+    })();
+    return stationGroupsIndexIncludingAlternatesPromise_panelStationMetadata;
 };
 
 export const getTrainTypesIndex = async ({
