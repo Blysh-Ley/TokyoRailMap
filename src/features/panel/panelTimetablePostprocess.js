@@ -121,6 +121,155 @@ const uniqueTexts = (values) => Array.from(new Set(
         .filter(Boolean)
 ));
 
+const getStationIdentityTokens = (stationId) => {
+    const id = toText(stationId);
+    if (!id) return [];
+    const parts = id.split('.').map((part) => toText(part)).filter(Boolean);
+    const tail = parts.length ? parts[parts.length - 1] : '';
+    return uniqueTexts([id, tail]);
+};
+
+const addStationIdentityTokens = (target, stationId) => {
+    if (!(target instanceof Set)) return;
+    for (const token of getStationIdentityTokens(stationId)) {
+        target.add(token);
+    }
+};
+
+const addStationValueIdentityTokens = (target, value) => {
+    const values = Array.isArray(value) ? value : (value ? [value] : []);
+    for (const item of values) {
+        addStationIdentityTokens(target, item);
+    }
+};
+
+const addStopRangeIdentityTokens = (target, stops) => {
+    for (const stop of Array.isArray(stops) ? stops : []) {
+        addStationIdentityTokens(target, stop?.s);
+    }
+};
+
+const countTokenIntersections = (left, right) => {
+    if (!(left instanceof Set) || !(right instanceof Set) || !left.size || !right.size) return 0;
+    let count = 0;
+    for (const token of left) {
+        if (right.has(token)) count += 1;
+    }
+    return count;
+};
+
+const findTripStopIndexForStation = (trip, stationId, stationGroupsIndex) => {
+    const stops = getTripStops(trip);
+    const targetId = toText(stationId);
+    if (!targetId || !stops.length) return -1;
+    return stops.findIndex((stop) => isSameStationForPanel(stationGroupsIndex, stop?.s, targetId));
+};
+
+const getOrCreateDirectionProfile = (profiles, dir) => {
+    const key = toText(dir);
+    if (!key) return null;
+    if (!profiles.has(key)) {
+        profiles.set(key, {
+            before: new Set(),
+            after: new Set(),
+            origin: new Set(),
+            terminal: new Set()
+        });
+    }
+    return profiles.get(key);
+};
+
+const collectTripDirectionSignals = (trip, stationId, stationGroupsIndex) => {
+    const stops = getTripStops(trip);
+    const index = findTripStopIndexForStation(trip, stationId, stationGroupsIndex);
+    const signals = {
+        before: new Set(),
+        after: new Set(),
+        origin: new Set(),
+        terminal: new Set()
+    };
+
+    addStationValueIdentityTokens(signals.origin, trip?.os);
+    addStationValueIdentityTokens(signals.terminal, trip?.ds);
+    addStationIdentityTokens(signals.origin, stops[0]?.s);
+    addStationIdentityTokens(signals.terminal, stops.at(-1)?.s);
+
+    if (index >= 0) {
+        addStopRangeIdentityTokens(signals.before, stops.slice(0, index));
+        addStopRangeIdentityTokens(signals.after, stops.slice(index + 1));
+    }
+
+    return signals;
+};
+
+const buildDisplayDirectionProfiles = ({
+    displayList = [],
+    stationGroupsIndex = null,
+    stationKey = ''
+} = {}) => {
+    const profiles = new Map();
+    for (const trip of Array.isArray(displayList) ? displayList : []) {
+        const dir = toText(trip?.d);
+        if (!dir || findTripStopIndexForStation(trip, stationKey, stationGroupsIndex) < 0) continue;
+
+        const profile = getOrCreateDirectionProfile(profiles, dir);
+        const signals = collectTripDirectionSignals(trip, stationKey, stationGroupsIndex);
+        for (const key of ['before', 'after', 'origin', 'terminal']) {
+            for (const token of signals[key]) profile[key].add(token);
+        }
+    }
+    return profiles;
+};
+
+const scoreDirectionProfileForTrip = ({
+    profile = null,
+    sourceSignals = null
+} = {}) => {
+    if (!profile || !sourceSignals) return 0;
+    return (
+        countTokenIntersections(sourceSignals.origin, profile.origin) * 4 +
+        countTokenIntersections(sourceSignals.origin, profile.before) * 5 +
+        countTokenIntersections(sourceSignals.terminal, profile.terminal) * 4 +
+        countTokenIntersections(sourceSignals.terminal, profile.after) * 5 +
+        countTokenIntersections(sourceSignals.before, profile.before) * 2 +
+        countTokenIntersections(sourceSignals.after, profile.after) * 2
+    );
+};
+
+const resolveDisplayDirectionForAlternateTrip = ({
+    directionBySourceDirection = null,
+    displayDirectionProfiles = null,
+    sourceStationId = '',
+    sourceStationGroupsIndex = null,
+    trip = null
+} = {}) => {
+    const sourceDirection = toText(trip?.d);
+    if (!(displayDirectionProfiles instanceof Map) || !displayDirectionProfiles.size || !trip) {
+        return sourceDirection;
+    }
+    const mappedDirection = toText(directionBySourceDirection?.[sourceDirection]);
+    if (mappedDirection && displayDirectionProfiles.has(mappedDirection)) return mappedDirection;
+    if (sourceDirection && displayDirectionProfiles.has(sourceDirection)) return sourceDirection;
+
+    const sourceSignals = collectTripDirectionSignals(trip, sourceStationId, sourceStationGroupsIndex);
+    let bestDirection = '';
+    let bestScore = 0;
+    let tie = false;
+
+    for (const [dir, profile] of displayDirectionProfiles.entries()) {
+        const score = scoreDirectionProfileForTrip({ profile, sourceSignals });
+        if (score > bestScore) {
+            bestDirection = dir;
+            bestScore = score;
+            tie = false;
+        } else if (score > 0 && score === bestScore) {
+            tie = true;
+        }
+    }
+
+    return bestScore > 0 && !tie ? bestDirection : sourceDirection;
+};
+
 const buildStationEquivalenceIndex = ({
     stationGroupsIndex = null,
     stationIds = []
@@ -255,6 +404,9 @@ const buildAlternateSourceRequests = ({
         .map((source) => ({
             displayLineId: toText(source?.displayLineId || displayLineId),
             displayStationId: toText(source?.displayStationId || stationKey),
+            directionBySourceDirection: source?.directionBySourceDirection && typeof source.directionBySourceDirection === 'object'
+                ? { ...source.directionBySourceDirection }
+                : {},
             reason: 'alternate',
             resolveStation: false,
             sourceLineId: toText(source?.sourceLineId),
@@ -362,6 +514,8 @@ const hasMatchingSingletonContinuation = (displayInfo, sourceInfo, kind) => {
 };
 
 const buildAlternateOverlayTrips = async ({
+    directionBySourceDirection = null,
+    displayDirectionProfiles = null,
     displayEndpointInfo = null,
     displayLineId = '',
     loadTimetableForLineId = async () => null,
@@ -406,7 +560,15 @@ const buildAlternateOverlayTrips = async ({
     const addedTrips = [];
     for (const trip of sourceDisplayList) {
         if (!tripStopsAtStation(trip, sourceStationId, sourceStationGroupsIndex)) continue;
+        const direction = resolveDisplayDirectionForAlternateTrip({
+            directionBySourceDirection,
+            displayDirectionProfiles,
+            sourceStationId,
+            sourceStationGroupsIndex,
+            trip
+        });
         const cloned = cloneTripForDisplayLine({
+            direction,
             fromLineId: sourceLineId,
             sourceLineId: displayLineId,
             trip
@@ -492,6 +654,11 @@ export const postprocessPanelTimetableTrips = async ({
     displayList = endpointOverlayResult.displayList;
 
     if (enableAlternateOverlay === true && sourceRequests.length) {
+        const displayDirectionProfiles = buildDisplayDirectionProfiles({
+            displayList,
+            stationGroupsIndex,
+            stationKey: stationId
+        });
         const seenDisplayKeys = buildTripDedupeSet({
             displayLineId: displayId,
             stationId,
@@ -505,6 +672,8 @@ export const postprocessPanelTimetableTrips = async ({
 
         for (const request of sourceRequests) {
             const overlay = await buildAlternateOverlayTrips({
+                directionBySourceDirection: request.directionBySourceDirection,
+                displayDirectionProfiles,
                 displayEndpointInfo: endpointOverlayResult.info,
                 displayLineId: sourceId,
                 loadTimetableForLineId,

@@ -58,6 +58,15 @@ const setPairMap = (map, lineId, stationId, value) => {
     map.set(`${line}\u0000${station}`, v);
 };
 
+const setDirectionMap = (map, lineId, stationId, sourceDirection, displayDirection) => {
+    const line = toText(lineId);
+    const station = toText(stationId);
+    const sourceDir = toText(sourceDirection);
+    const displayDir = toText(displayDirection);
+    if (!line || !station || !sourceDir || !displayDir) return;
+    map.set(`${line}\u0000${station}\u0000${sourceDir}`, displayDir);
+};
+
 export const getPairMapValue = (map, lineId, stationId) => {
     if (!map || typeof map.get !== 'function') return '';
     return toText(map.get(`${toText(lineId)}\u0000${toText(stationId)}`));
@@ -74,9 +83,45 @@ const parsePairMapKey = (key) => {
     return { lineId, stationId };
 };
 
+const parseDirectionMapKey = (key) => {
+    const text = toText(key);
+    if (!text) return null;
+    const parts = text.split('\u0000');
+    if (parts.length !== 3) return null;
+    const lineId = toText(parts[0]);
+    const stationId = toText(parts[1]);
+    const direction = toText(parts[2]);
+    if (!lineId || !stationId || !direction) return null;
+    return { direction, lineId, stationId };
+};
+
+const buildDirectionMapForLineStation = (map, lineId, stationId) => {
+    const out = {};
+    if (!map || typeof map.entries !== 'function') return out;
+    const sourceLineId = toText(lineId);
+    const sourceStationId = toText(stationId);
+    if (!sourceLineId || !sourceStationId) return out;
+
+    for (const [rawKey, rawDisplayDirection] of map.entries()) {
+        const parsed = parseDirectionMapKey(rawKey);
+        const displayDirection = toText(rawDisplayDirection);
+        if (
+            !parsed ||
+            !displayDirection ||
+            parsed.lineId !== sourceLineId ||
+            parsed.stationId !== sourceStationId
+        ) {
+            continue;
+        }
+        out[parsed.direction] = displayDirection;
+    }
+    return out;
+};
+
 export const buildAlternateTripSourceIndex = (alternateLineMembership = null) => {
     const sourceMap = alternateLineMembership?.alternateStationIdByLineStationId;
     const lineMap = alternateLineMembership?.alternateLineIdByLineStationId;
+    const directionMap = alternateLineMembership?.alternateDirectionByLineStationDirection;
     const out = new Map();
     if (!sourceMap || typeof sourceMap.entries !== 'function') return out;
 
@@ -93,6 +138,7 @@ export const buildAlternateTripSourceIndex = (alternateLineMembership = null) =>
         out.get(key).push({
             displayLineId: alternateLineId,
             displayStationId: alternateStationId,
+            directionBySourceDirection: buildDirectionMapForLineStation(directionMap, parsed.lineId, parsed.stationId),
             sourceLineId: parsed.lineId,
             sourceStationId: parsed.stationId
         });
@@ -262,6 +308,7 @@ export const buildAlternateLineMembership = ({
     const highlightHiddenIdsByLineId = new Map();
     const alternateStationIdByLineStationId = new Map();
     const alternateLineIdByLineStationId = new Map();
+    const alternateDirectionByLineStationDirection = new Map();
     const highlightAlternateStationIdByLineStationId = new Map();
     const highlightAlternateLineIdByLineStationId = new Map();
     const fullAlternateLineIds = new Set();
@@ -296,6 +343,9 @@ export const buildAlternateLineMembership = ({
                 const alternateLineId = rule.alternateLineIdsByStationId[stationId];
                 setPairMap(alternateStationIdByLineStationId, lineId, stationId, alternateStationId);
                 setPairMap(alternateLineIdByLineStationId, lineId, stationId, alternateLineId);
+                const station = stationById.get(stationId);
+                setDirectionMap(alternateDirectionByLineStationDirection, lineId, stationId, railway?.ascending, station?.ascending);
+                setDirectionMap(alternateDirectionByLineStationDirection, lineId, stationId, railway?.descending, station?.descending);
             }
 
             for (const stationId of rule.highlightStationIds) {
@@ -313,6 +363,7 @@ export const buildAlternateLineMembership = ({
         highlightHiddenIdsByLineId,
         alternateStationIdByLineStationId,
         alternateLineIdByLineStationId,
+        alternateDirectionByLineStationDirection,
         highlightAlternateStationIdByLineStationId,
         highlightAlternateLineIdByLineStationId,
         fullAlternateLineIds,
