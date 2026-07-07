@@ -1692,6 +1692,8 @@ const initMapApp = async () => {
     };
 
     const resolveTripPreviewStationOverrideColor = (payload, source) => {
+        if (payload?.applyHighlightColor === false) return '';
+
         const throughFromSource = getMenuThroughDisplayByPreviewSource(source);
         const bySourceColor = String(throughFromSource?.color || '').trim();
         if (bySourceColor) return resolveRailColorForTheme(bySourceColor) || bySourceColor;
@@ -1711,11 +1713,17 @@ const initMapApp = async () => {
         return resolveRailColorForTheme(fallback) || fallback;
     };
 
-    const resolveTripPreviewSegmentStationOverrideColor = (segment) => {
+    const resolveTripPreviewSegmentStationOverrideColor = (segment, payload = {}) => {
+        if (payload?.applyHighlightColor === false) return '';
+
         const throughColor = String(segment?.throughServiceColor || '').trim();
         if (throughColor) return resolveRailColorForTheme(throughColor) || throughColor;
 
-        const fallback = String(segment?.highlightColor || segment?.typeColor || '').trim();
+        const byCategory = getMenuThroughDisplayByCategory(String(segment?.throughServiceCategory || payload?.throughServiceCategory || '').trim());
+        const byCategoryColor = String(byCategory?.color || '').trim();
+        if (byCategoryColor) return resolveRailColorForTheme(byCategoryColor) || byCategoryColor;
+
+        const fallback = String(segment?.highlightColor || payload?.highlightColor || segment?.typeColor || payload?.typeColor || '').trim();
         if (!fallback) return '';
         const throughColors = new Set(
             Object.values(THROUGH_SERVICE_CONFIGS_OBJECT)
@@ -1767,9 +1775,18 @@ const initMapApp = async () => {
                     ? payload.virtualTrips
                     : [payload];
                 for (const item of payloads) {
+                    const itemColor = resolveTripPreviewStationOverrideColor(item, entry.source);
+                    if (itemColor) {
+                        for (const stationId of collectTripPreviewPayloadStationIds(item)) {
+                            if (!stationId || out.has(stationId)) continue;
+                            out.set(stationId, itemColor);
+                        }
+                        continue;
+                    }
+
                     const segments = Array.isArray(item?.segments) ? item.segments : [];
                     for (const segment of segments) {
-                        const segmentColor = resolveTripPreviewSegmentStationOverrideColor(segment);
+                        const segmentColor = resolveTripPreviewSegmentStationOverrideColor(segment, item);
                         if (!segmentColor) continue;
                         const stationIds = Array.isArray(segment?.stationIds) ? segment.stationIds : [];
                         for (const rawId of stationIds) {

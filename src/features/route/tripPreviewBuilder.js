@@ -224,6 +224,10 @@ export const createTripPreviewBuilder = ({
 
         const segments = allowNt ? allSegments : allSegments.filter((s) => String(s?.kind) !== 'nt');
         const payloadTypeColor = String(payload?.typeColor || '').trim();
+        const payloadHighlightColor = String(payload?.highlightColor || '').trim();
+        const payloadThroughServiceCategory = String(payload?.throughServiceCategory || '').trim();
+        const shouldApplyAlternateColor = payload?.applyAlternateColor !== false;
+        const shouldApplyThroughServiceColor = payload?.applyHighlightColor !== false;
         const shouldDimPastTripStops = isTripPastDimmingEnabled?.() !== false;
         const pastColor = resolveTripPreviewPastColor({ isDarkThemeActive: isDarkThemeActive?.() === true });
         const getPastStationIdSet = (seg) => new Set(
@@ -242,19 +246,37 @@ export const createTripPreviewBuilder = ({
         const hasCurrentStation = (ids, stationId) => (
             ids instanceof Set && ids.has(String(stationId || '').trim())
         );
-        const resolveSegColor = (seg, fallbackLineId) => {
+        const resolveThroughServiceCategoryColor = (category) => {
+            const id = String(category || '').trim();
+            if (!id) return '';
+            const rawColor = String(throughServiceConfigsObject?.[id]?.color || '').trim();
+            return rawColor ? (resolveRailColorForTheme?.(rawColor) || rawColor) : '';
+        };
+        const resolveThroughServiceOverrideColor = (seg) => {
+            if (!shouldApplyThroughServiceColor) return '';
             const throughServiceColorRaw = String(seg?.throughServiceColor || '').trim();
             if (throughServiceColorRaw) {
                 return resolveRailColorForTheme?.(throughServiceColorRaw) || throughServiceColorRaw;
+            }
+            const categoryColor = resolveThroughServiceCategoryColor(
+                String(seg?.throughServiceCategory || '').trim() || payloadThroughServiceCategory
+            );
+            if (categoryColor) return categoryColor;
+            const highlightColorRaw = String(seg?.highlightColor || payloadHighlightColor).trim();
+            if (isThroughServiceHighlightColor(highlightColorRaw)) {
+                return resolveRailColorForTheme?.(highlightColorRaw) || highlightColorRaw;
             }
             const segTypeColorRaw = String(seg?.typeColor || payloadTypeColor).trim();
             if (isThroughServiceHighlightColor(segTypeColorRaw)) {
                 return resolveRailColorForTheme?.(segTypeColorRaw) || segTypeColorRaw;
             }
+            return '';
+        };
+        const resolveSegColor = (seg, fallbackLineId) => {
             return resolveRailColorForTheme?.(getLineColor(fallbackLineId) || '') || '';
         };
         const resolvePairColor = (seg, fromStationId, toStationId, fallbackColor, fallbackLineId) => {
-            if (!usePanelAlternateTripPreview) return fallbackColor;
+            if (!usePanelAlternateTripPreview || !shouldApplyAlternateColor) return fallbackColor;
             const map = alternateLineMembership?.highlightAlternateLineIdByLineStationId;
             if (!map || typeof map.get !== 'function') return fallbackColor;
 
@@ -276,7 +298,7 @@ export const createTripPreviewBuilder = ({
             return fallbackColor;
         };
         const resolvePairAlternateBoundary = (seg, fromStationId, toStationId, fallbackLineId) => {
-            if (!usePanelAlternateTripPreview) return null;
+            if (!usePanelAlternateTripPreview || !shouldApplyAlternateColor) return null;
             const rules = Array.isArray(alternateLineMembership?.rangeRules) ? alternateLineMembership.rangeRules : [];
             if (!rules.length) return null;
             const candidateLineIds = Array.from(new Set([
@@ -479,10 +501,19 @@ export const createTripPreviewBuilder = ({
                     hasCurrentStation(segmentCurrentStationIds, fromId)
                     && hasPastStation(segmentPastStationIds, toId)
                 );
-                const pairColor = pairIsPast
-                    ? pastColor
-                    : resolvePairColor(seg, fromId, toId, segColor, lineId || routeLineId || pairGeometryLineId);
+                const pairColor = (() => {
+                    if (pairIsPast) return pastColor;
+                    const alternateColor = resolvePairColor(
+                        seg,
+                        fromId,
+                        toId,
+                        segColor,
+                        lineId || routeLineId || pairGeometryLineId
+                    );
+                    return resolveThroughServiceOverrideColor(seg) || alternateColor;
+                })();
                 const alternateBoundary = pairIsPast
+                    || resolveThroughServiceOverrideColor(seg)
                     ? null
                     : resolvePairAlternateBoundary(seg, fromId, toId, lineId || routeLineId || pairGeometryLineId);
 
@@ -546,8 +577,12 @@ export const createTripPreviewBuilder = ({
                             });
                             const prevSegColor = bridgeIsPast
                                 ? pastColor
-                                : (resolveSegColor(prev, prevGeometryLineId || prevDisplayLineId) || segColor);
-                            const bridgeColor = bridgeIsPast ? pastColor : (segColor || prevSegColor);
+                                : (resolveThroughServiceOverrideColor(prev)
+                                    || resolveSegColor(prev, prevGeometryLineId || prevDisplayLineId)
+                                    || segColor);
+                            const bridgeColor = bridgeIsPast
+                                ? pastColor
+                                : (resolveThroughServiceOverrideColor(seg) || segColor || prevSegColor);
                             if (segA && segA.length >= 2) {
                                 pushLineFeature(segA, prevDisplayLineId, 'line', prevSegColor, {
                                     routeLineId: prevRouteLineId,
@@ -587,7 +622,7 @@ export const createTripPreviewBuilder = ({
                         } else {
                             const directDist = distMeters?.(a, b);
                             if (Number.isFinite(directDist) && directDist <= 3000) {
-                                pushLineFeature([a, b], lineId || prevDisplayLineId, 'connector', bridgeIsPast ? pastColor : segColor, {
+                                pushLineFeature([a, b], lineId || prevDisplayLineId, 'connector', bridgeIsPast ? pastColor : (resolveThroughServiceOverrideColor(seg) || segColor), {
                                     routeLineId: routeLineId || prevRouteLineId,
                                     geometryLineId: geometryLineId || lineId || prevGeometryLineId || prevDisplayLineId,
                                     offsetLineId: offsetLineId || prevOffsetLineId,

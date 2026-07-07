@@ -785,7 +785,8 @@ export function createPanel(options = {}) {
         targetTripKeys: normalizeStringListForSignature(request?.targetTripKeys),
         anchorStationIds: normalizeStringListForSignature(request?.anchorStationIds),
         highlightColor: toText(request?.highlightColor),
-        applyHighlightColor: request?.applyHighlightColor !== false
+        applyHighlightColor: request?.applyHighlightColor !== false,
+        applyAlternateColor: request?.applyAlternateColor !== false
     });
 
     const buildStationThroughPreviewRequestsSignature = (requests = []) => {

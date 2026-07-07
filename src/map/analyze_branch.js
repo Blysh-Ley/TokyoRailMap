@@ -1584,7 +1584,9 @@ const appendUnique = (target, item, key, seen) => {
 
 const buildBranchPreviewPayload = ({
     applyHighlightColor = true,
+    applyAlternateColor = true,
     highlightColor,
+    throughServiceCategory,
     lineId,
     lineName,
     previewSource,
@@ -1614,13 +1616,12 @@ const buildBranchPreviewPayload = ({
     });
     if (!payload) return null;
 
-    const color = applyHighlightColor === false ? '' : toText(highlightColor);
-    if (color) {
-        payload.typeColor = color;
-        if (Array.isArray(payload.segments)) {
-            payload.segments = payload.segments.map((seg) => ({ ...seg, typeColor: color }));
-        }
-    }
+    const color = toText(highlightColor);
+    const category = toText(throughServiceCategory);
+    payload.applyHighlightColor = applyHighlightColor !== false;
+    payload.applyAlternateColor = applyAlternateColor !== false;
+    if (color) payload.highlightColor = color;
+    if (category) payload.throughServiceCategory = category;
     return payload;
 };
 
@@ -1658,6 +1659,8 @@ const buildBranchPreviewFromAnalysisResult = ({
     previewSource,
     highlightColor,
     applyHighlightColor = true,
+    applyAlternateColor = true,
+    throughServiceCategory,
     originStationIds,
     terminalStationIds
 } = {}) => {
@@ -1680,9 +1683,11 @@ const buildBranchPreviewFromAnalysisResult = ({
         if (stationIds.length < 2) continue;
         const payload = buildBranchPreviewPayload({
             applyHighlightColor,
+            applyAlternateColor,
             lineId: lid,
             lineName: toText(lineName) || lid,
             highlightColor: normalizedHighlightColor,
+            throughServiceCategory,
             previewSource: source,
             routeChains,
             lineStationIdsById,
@@ -1722,6 +1727,7 @@ export const buildBranchPreviewForLineRequest = async ({
     sourceLineIds,
     highlightColor,
     applyHighlightColor = true,
+    applyAlternateColor = true,
     filterSpecial = false,
     originStationIds,
     terminalStationIds,
@@ -1766,6 +1772,8 @@ export const buildBranchPreviewForLineRequest = async ({
         previewSource: source,
         highlightColor: normalizedHighlightColor,
         applyHighlightColor,
+        applyAlternateColor,
+        throughServiceCategory: normalizedCategory,
         originStationIds,
         terminalStationIds
     });
@@ -1782,6 +1790,7 @@ export const previewBranchesForLine = async ({
     sourceLineIds,
     highlightColor,
     applyHighlightColor = true,
+    applyAlternateColor = true,
     filterSpecial = false,
     originStationIds,
     terminalStationIds,
@@ -1814,6 +1823,7 @@ export const previewBranchesForLine = async ({
         sourceLineIds,
         highlightColor,
         applyHighlightColor,
+        applyAlternateColor,
         filterSpecial,
         anchorStationIds: normalizedAnchorStationIds,
         alternateLineMembership,
@@ -1931,6 +1941,7 @@ export const previewBranchesForLineRequests = async ({
             lineName: request?.lineName,
             highlightColor: request?.highlightColor,
             applyHighlightColor: request?.applyHighlightColor !== false,
+            applyAlternateColor: request?.applyAlternateColor !== false,
             originStationIds: request?.originStationIds,
             terminalStationIds: request?.terminalStationIds,
             endpointLabelCounts: request?.endpointLabelCounts
@@ -1959,6 +1970,8 @@ export const previewBranchesForLineRequests = async ({
                 previewSource: source,
                 highlightColor: item.highlightColor,
                 applyHighlightColor: item.applyHighlightColor,
+                applyAlternateColor: item.applyAlternateColor,
+                throughServiceCategory: toText(item.plan?.throughServiceCategory),
                 originStationIds: item.originStationIds,
                 terminalStationIds: item.terminalStationIds
             });
