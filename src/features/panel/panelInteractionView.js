@@ -202,7 +202,8 @@ export const createPanelDirFilterPopoverController = ({
     getState = () => null,
     setState = () => {},
     onClose = () => {},
-    rerenderLineById = async () => {}
+    rerenderLineById = async () => {},
+    getSuppressActivationAfterOpenMs = () => 0
 } = {}) => {
     const root = doc.createElement('div');
     root.className = 'panel-dir-filter-popover is-hidden';
@@ -225,15 +226,28 @@ export const createPanelDirFilterPopoverController = ({
     doc.body.appendChild(root);
 
     let activeKey = '';
+    let suppressActivationUntil = 0;
 
     const isOpen = () => !root.classList.contains('is-hidden');
     const contains = (target) => !!(target && root.contains(target));
     const getActiveKey = () => activeKey;
+    const getNow = () => {
+        if (win?.performance?.now) return win.performance.now();
+        if (globalThis.performance?.now) return globalThis.performance.now();
+        return Date.now();
+    };
+    const isSuppressingInitialActivation = () => suppressActivationUntil > 0 && getNow() < suppressActivationUntil;
+    const stopInitialActivationEvent = (event) => {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        event?.stopImmediatePropagation?.();
+    };
 
     const close = (options = {}) => {
         if (!isOpen()) return;
         const closedKey = activeKey;
         activeKey = '';
+        suppressActivationUntil = 0;
         root.classList.add('is-hidden');
         onClose({
             activeKey: closedKey,
@@ -394,6 +408,8 @@ export const createPanelDirFilterPopoverController = ({
         activeKey = lineDirKey;
         root.classList.remove('is-hidden');
         position(anchorEl);
+        const suppressMs = Math.max(0, Number(getSuppressActivationAfterOpenMs?.() || 0));
+        suppressActivationUntil = suppressMs > 0 ? getNow() + suppressMs : 0;
     };
 
     const toggleFromButton = (buttonEl) => {
@@ -416,6 +432,16 @@ export const createPanelDirFilterPopoverController = ({
         const anchorEl = body?.querySelector?.(`.panel-dir-filter-btn[data-line-id="${escapeHtml(String(lineId))}"][data-dir-key="${escapeHtml(String(dirKey))}"]`);
         if (anchorEl) position(anchorEl);
     };
+
+    root.addEventListener('click', (event) => {
+        if (!isSuppressingInitialActivation()) return;
+        stopInitialActivationEvent(event);
+    }, { capture: true, passive: false });
+
+    root.addEventListener('change', (event) => {
+        if (!isSuppressingInitialActivation()) return;
+        stopInitialActivationEvent(event);
+    }, { capture: true, passive: false });
 
     root.addEventListener('change', async (event) => {
         const target = event?.target;

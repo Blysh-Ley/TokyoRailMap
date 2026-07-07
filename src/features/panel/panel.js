@@ -4978,7 +4978,8 @@ export function createPanel(options = {}) {
                 }
             }
         },
-        rerenderLineById
+        rerenderLineById,
+        getSuppressActivationAfterOpenMs: () => (isMobilePanelPresentation() ? 350 : 0)
     });
 
     const closeDirFilterPopover = (options = {}) => dirFilterPopoverController.close(options);
