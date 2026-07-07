@@ -23,7 +23,7 @@ import {
     readBusinessTimezoneMode,
     toHHMMForTimezone
 } from './travel-search-planner-raptor.js';
-import { getCachedJson, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
+import { DATA_URLS, getCachedJson, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
 import { createTimetableNoteRow } from '../panel/panelTimetableCore.js';
 import { buildCompactTripDetailTransferLineItemHtmls } from '../panel/panelTripDetailTransfers.js';
 import {
@@ -465,7 +465,7 @@ const getJourneyStationCodeMap = async () => {
     if (journeyStationCodeMapPromise) return journeyStationCodeMapPromise;
     journeyStationCodeMapPromise = (async () => {
         try {
-            const list = await getCachedJson('./data/stations.json');
+            const list = await getCachedJson(DATA_URLS.stations);
             const map = new Map();
             for (const s of Array.isArray(list) ? list : []) {
                 const id = normalizeText(s?.id);

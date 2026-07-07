@@ -2,7 +2,7 @@
  * 添加线路图层。
  */
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
-import { getCachedJson, getCompanyLogoSrc } from '../lib/fetch.js';
+import { DATA_URLS, getCachedJson, getCompanyLogoSrc } from '../lib/fetch.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, normalizeStationCodeBadgeCodes } from '../lib/line-icons.js';
 import { isSUStations, THROUGH_SERVICE_CONFIGS_OBJECT } from '../lib/throughServiceManager.js';
 import {
@@ -700,7 +700,7 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         if (stationsIndexPromise) return stationsIndexPromise;
         stationsIndexPromise = (async () => {
             try {
-                const list = await getCachedJson('./data/stations.json');
+                const list = await getCachedJson(DATA_URLS.stations);
                 const idToNameZh = new Map();
                 const idToCode = new Map();
                 for (const s of Array.isArray(list) ? list : []) {
@@ -726,8 +726,8 @@ export function setupStationPopup(mapOrEngine, maplibreglOrOptions, optionsMaybe
         stationGroupsIndexPromise = (async () => {
             try {
                 const [groups, stations] = await Promise.all([
-                    getCachedJson('./data/station-groups.json'),
-                    getCachedJson('./data/stations.json')
+                    getCachedJson(DATA_URLS.stationGroups),
+                    getCachedJson(DATA_URLS.stations)
                 ]);
                 const alternateStationIdById = new Map();
                 for (const station of Array.isArray(stations) ? stations : []) {

@@ -13,7 +13,7 @@ import { computeLineStopDiagramData } from './route-map.js';
 import { captureRouteMapImage, requestRouteMapLineTimetablesPrint } from './route-map-actions.js';
 import { TYPE_BASE_SEQUENCE, sortTypeNamesByBaseAndStopCount } from '../../lib/train-type-sort.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from '../../lib/line-icons.js';
-import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
+import { DATA_URLS, getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
 import { previewBranchesForLine } from '../../map/analyze_branch.js';
 import { isExcludedLineType, preferredOrder } from '../../lib/special-condition.js';
 import {
@@ -47,7 +47,7 @@ const getStationCodeIndex = async () => {
     if (stationCodeIndexPromise) return stationCodeIndexPromise;
     stationCodeIndexPromise = (async () => {
         try {
-            const list = await getCachedJson('./data/stations.json');
+            const list = await getCachedJson(DATA_URLS.stations);
             const map = new Map();
             for (const s of Array.isArray(list) ? list : []) {
                 const id = toText(s?.id);
@@ -68,7 +68,7 @@ const getRailwayMetaIndex = async () => {
     if (railwayMetaIndexPromise) return railwayMetaIndexPromise;
     railwayMetaIndexPromise = (async () => {
         try {
-            const list = await getCachedJson('./data/railways.json');
+            const list = await getCachedJson(DATA_URLS.railways);
             const map = new Map();
             for (const row of Array.isArray(list) ? list : []) {
                 const id = toText(row?.id);

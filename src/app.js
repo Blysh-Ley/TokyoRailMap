@@ -1,5 +1,6 @@
 import {
     COMPANY_LOGO_BASE_PATH,
+    DATA_URLS,
     getCachedJson,
     getCompanyLogoCandidates,
     getIconCandidates,
@@ -245,7 +246,7 @@ const loadRailwaysOrderIndex = (() => {
         if (promise) return promise;
         promise = (async () => {
             try {
-                const list = await getCachedJson('./data/railways-order.json');
+                const list = await getCachedJson(DATA_URLS.railwaysOrder);
                 const arr_re = Array.isArray(list) ? list : [];
                 const arr = arr_re.toReversed()
                 const map = new Map();
@@ -275,8 +276,8 @@ const getTransferStationIdMap = async () => {
     transferStationIdMapPromise = (async () => {
         try {
             const [groups, stations] = await Promise.all([
-                getCachedJson('./data/station-groups.json'),
-                getCachedJson('./data/stations.json')
+                getCachedJson(DATA_URLS.stationGroups),
+                getCachedJson(DATA_URLS.stations)
             ]);
             const map = new Map();
             const alternateStationIdById = new Map();
@@ -1404,7 +1405,7 @@ const initMapApp = async () => {
         if (railwaysIndexByIdCachePromise) return railwaysIndexByIdCachePromise;
 
         railwaysIndexByIdCachePromise = (async () => {
-            const list = await getCachedJson('./data/railways.json');
+            const list = await getCachedJson(DATA_URLS.railways);
             const out = new Map();
             for (const row of Array.isArray(list) ? list : []) {
                 const id = String(row?.id || '').trim();
@@ -1423,9 +1424,9 @@ const initMapApp = async () => {
 
         alternateLineMembershipCachePromise = (async () => {
             const [railways, stations, coordinates] = await Promise.all([
-                Array.isArray(generatedRawRailways) ? generatedRawRailways : getCachedJson('./data/railways.json'),
-                Array.isArray(generatedRawStations) ? generatedRawStations : getCachedJson('./data/stations.json'),
-                getCachedJson('./data/coordinates.json')
+                Array.isArray(generatedRawRailways) ? generatedRawRailways : getCachedJson(DATA_URLS.railways),
+                Array.isArray(generatedRawStations) ? generatedRawStations : getCachedJson(DATA_URLS.stations),
+                getCachedJson(DATA_URLS.coordinates)
             ]);
             return buildAlternateLineMembership({ railways, stations, coordinates });
         })().catch(() => null);
@@ -3600,7 +3601,7 @@ const initMapApp = async () => {
 
         // - 未出现在 order 文件中的线路排到末尾（保持稳定性）
         try {
-            const orderList = await getCachedJson('./data/railways-order.json');
+            const orderList = await getCachedJson(DATA_URLS.railwaysOrder);
             if (Array.isArray(orderList) && Array.isArray(linesData?.features)) {
                 const normOrderMap = new Map();
                 for (let i = 0; i < orderList.length; i++) {
@@ -3694,7 +3695,7 @@ const initMapApp = async () => {
             }
 
             // Fallback: also load raw coordinates from stations.json for off-map branch endpoints
-            const rawStations = await getCachedJson('./data/stations.json');
+            const rawStations = await getCachedJson(DATA_URLS.stations);
             if (Array.isArray(rawStations)) {
                 for (const s of rawStations) {
                     const sid = String(s?.id || '').trim();
@@ -4633,7 +4634,7 @@ const initMapApp = async () => {
             ? null
             : await loadRailGeoDataFromDataFolder();
         const stationsData = generatedStationsData || loadedGeoData?.stationsGeoJSON;
-        const stationGroupsData = generatedStationGroups || loadedGeoData?.stationGroups || await getCachedJson('./data/station-groups.json');
+        const stationGroupsData = generatedStationGroups || loadedGeoData?.stationGroups || await getCachedJson(DATA_URLS.stationGroups);
         const stationOffsetAlgorithmContext = generatedStationOffsetAlgorithmContext || loadedGeoData?.stationOffsetAlgorithmContext;
         const throughServiceRailways = Array.isArray(generatedRawRailways)
             ? generatedRawRailways
@@ -4647,7 +4648,7 @@ const initMapApp = async () => {
 
 
         try {
-            const orderList = await getCachedJson('./data/railways-order.json');
+            const orderList = await getCachedJson(DATA_URLS.railwaysOrder);
             if (Array.isArray(orderList) && Array.isArray(stationsData?.features)) {
                 const normOrderMap = new Map();
                 for (let i = 0; i < orderList.length; i++) {

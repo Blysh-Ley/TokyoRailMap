@@ -2,8 +2,38 @@ import { mergeStationGroups } from '../domain/stationGroupMerge.js';
 
 const normalizeText = (v) => String(v ?? '').trim();
 
-const STATION_GROUPS_URL = './data/station-groups.json';
-const SUPPLEMENTAL_STATION_GROUPS_URL = './data/station-groups-supplemental.json';
+export const DATA_URLS = Object.freeze({
+    railways: './data/railways.json',
+    stations: './data/stations.json',
+    stationGroups: './data/station-groups.json',
+    stationGroupsSupplemental: './data/station-groups-supplemental.json',
+    trainTypes: './data/train-types.json',
+    railwaysOrder: './data/railways-order.json',
+    railDirections: './data/rail-directions.json',
+    trainVehicles: './data/train-vehicles.json',
+    poi: './data/poi.json',
+    coordinates: './data/coordinates.json',
+    lineOffset: './data/line-offset.json'
+});
+
+const STATION_GROUPS_URL = DATA_URLS.stationGroups;
+const SUPPLEMENTAL_STATION_GROUPS_URL = DATA_URLS.stationGroupsSupplemental;
+
+const dataUrlAliasByPath = new Map(
+    Object.entries({
+        'data/railways.json': 'railways',
+        'data/stations.json': 'stations',
+        'data/station-groups.json': 'stationGroups',
+        'data/station-groups-supplemental.json': 'stationGroupsSupplemental',
+        'data/train-types.json': 'trainTypes',
+        'data/railways-order.json': 'railwaysOrder',
+        'data/rail-directions.json': 'railDirections',
+        'data/train-vehicles.json': 'trainVehicles',
+        'data/poi.json': 'poi',
+        'data/coordinates.json': 'coordinates',
+        'data/line-offset.json': 'lineOffset'
+    })
+);
 
 export const ICON_BASE_PATH = './assets/icons/';
 export const ICON_ROOT_PATH = '/assets/icons/';
@@ -11,18 +41,18 @@ export const COMPANY_LOGO_BASE_PATH = './assets/company-logos/';
 export const COMPANY_LOGO_ROOT_PATH = '/assets/company-logos/';
 
 const defaultCoreUrls = [
-    './data/railways.json',
-    './data/stations.json',
-    STATION_GROUPS_URL,
-    SUPPLEMENTAL_STATION_GROUPS_URL,
-    './data/train-types.json',
-    './data/railways-order.json',
-    './data/rail-directions.json',
-    './data/train-vehicles.json',
-    './data/train-types.json',
-    './data/poi.json',
-    './data/coordinates.json',
-    './data/line-offset.json'
+    DATA_URLS.railways,
+    DATA_URLS.stations,
+    DATA_URLS.stationGroups,
+    DATA_URLS.stationGroupsSupplemental,
+    DATA_URLS.trainTypes,
+    DATA_URLS.railwaysOrder,
+    DATA_URLS.railDirections,
+    DATA_URLS.trainVehicles,
+    DATA_URLS.trainTypes,
+    DATA_URLS.poi,
+    DATA_URLS.coordinates,
+    DATA_URLS.lineOffset
 ];
 
 const state = {
@@ -45,6 +75,40 @@ const MAX_IMAGE_OBJECT_URL_ENTRIES = 256;
 const MAX_RESOLVED_IMAGE_SRC_ENTRIES = 512;
 
 let imageLoadRequestSeq = 0;
+
+const normalizeDataPath = (url) => {
+    const raw = normalizeText(url);
+    if (!raw) return '';
+    try {
+        const base = (typeof window !== 'undefined' && window.location?.href)
+            ? window.location.href
+            : 'http://localhost/';
+        const parsed = new URL(raw, base);
+        return parsed.pathname.replace(/^\/+/, '');
+    } catch {
+        return raw.replace(/^\.\//, '').replace(/^\/+/, '').split(/[?#]/)[0];
+    }
+};
+
+const getManagedDataKeyForUrl = (url) => dataUrlAliasByPath.get(normalizeDataPath(url)) || '';
+
+export const getDataAssetUrl = (key) => DATA_URLS[normalizeText(key)] || '';
+
+export const isManagedDataAssetUrl = (url) => Boolean(getManagedDataKeyForUrl(url));
+
+const resolveManagedDataUrl = (url) => {
+    const key = getManagedDataKeyForUrl(url);
+    return key ? getDataAssetUrl(key) : url;
+};
+
+const resolveManagedDataInput = (input) => {
+    if (typeof input === 'string') return resolveManagedDataUrl(input);
+    if (input instanceof URL) {
+        const resolved = resolveManagedDataUrl(input.href);
+        return resolved === input.href ? input : resolved;
+    }
+    return input;
+};
 
 const getCapacitorPlatform = (target = globalThis) => {
     const capacitor = target?.Capacitor;
@@ -564,7 +628,8 @@ const fetchWithoutResponseCache = async (url, input, init) => {
 };
 
 const getCachedJsonRaw = async (url) => {
-    const abs = toAbsoluteUrl(url);
+    const resolvedUrl = resolveManagedDataUrl(url);
+    const abs = toAbsoluteUrl(resolvedUrl);
     if (!abs) return null;
     if (shouldBypassResponseCache(abs)) {
         const resp = await cachedFetch(abs);
@@ -586,32 +651,34 @@ const getCachedJsonRaw = async (url) => {
 };
 
 const isStationGroupsUrl = (url) => {
-    const abs = toAbsoluteUrl(url);
+    const abs = toAbsoluteUrl(resolveManagedDataUrl(url));
     const stationGroupsAbs = toAbsoluteUrl(STATION_GROUPS_URL);
     return Boolean(abs && stationGroupsAbs && abs === stationGroupsAbs);
 };
 
 export const cachedFetch = async (input, init = {}) => {
-    if (!shouldCacheRequest(input, init)) {
+    const requestInput = resolveManagedDataInput(input);
+
+    if (!shouldCacheRequest(requestInput, init)) {
         const nativeFetch = state.nativeFetch || fetch.bind(window);
-        return nativeFetch(input, init);
+        return nativeFetch(requestInput, init);
     }
 
-    const url = toAbsoluteUrl(input);
+    const url = toAbsoluteUrl(requestInput);
     if (!url) {
         const nativeFetch = state.nativeFetch || fetch.bind(window);
-        return nativeFetch(input, init);
+        return nativeFetch(requestInput, init);
     }
 
     if (shouldBypassResponseCache(url)) {
-        return fetchWithoutResponseCache(url, input, init);
+        return fetchWithoutResponseCache(url, requestInput, init);
     }
 
     const existingMeta = state.responseMetaByUrl.get(url);
     if (existingMeta) return buildResponseFromMeta(existingMeta);
 
     if (!state.responsePromiseByUrl.has(url)) {
-        const p = fetchAndStore(url, input, init)
+        const p = fetchAndStore(url, requestInput, init)
             .catch((err) => {
                 state.responsePromiseByUrl.delete(url);
                 throw err;
@@ -630,6 +697,8 @@ export const getCachedJson = async (url) => {
     if (isStationGroupsUrl(url)) return getCachedStationGroups();
     return getCachedJsonRaw(url);
 };
+
+export const getDataAssetJson = async (key) => getCachedJson(getDataAssetUrl(key));
 
 export const getCachedStationGroups = async () => {
     if (!state.stationGroupsPromise) {
@@ -683,7 +752,7 @@ export const preloadAllDataAssets = async ({ includeTimetables = false, timetabl
         const coreUrls = Array.from(new Set(defaultCoreUrls.map((u) => toAbsoluteUrl(u)).filter(Boolean)));
         await Promise.all(coreUrls.map((u) => cachedFetch(u).catch(() => null)));
 
-        const railways = await getCachedJson('./data/railways.json');
+        const railways = await getDataAssetJson('railways');
         const railwayIds = (Array.isArray(railways) ? railways : [])
             .map((row) => normalizeText(row?.id))
             .filter(Boolean);
@@ -726,6 +795,9 @@ export const initializeFetchCache = () => {
     if (typeof window !== 'undefined') {
         window.fetch = patched;
         window.TokyoRailFetchCache = {
+            DATA_URLS,
+            getDataAssetUrl,
+            getDataAssetJson,
             getCachedJson,
             getCachedStationGroups,
             preloadAllDataAssets,

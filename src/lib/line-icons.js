@@ -1,4 +1,4 @@
-import { getCachedJson, getCompanyLogoCandidates } from './fetch.js';
+import { DATA_URLS, getCachedJson, getCompanyLogoCandidates } from './fetch.js';
 import { resolveMainLineIdByBranchRule } from './special-condition.js';
 import { renderLineIconSvg } from '../ui/lineIconSvgView.js';
 import { renderStationBadgeSvg } from '../ui/stationBadgeSvgView.js';
@@ -444,7 +444,7 @@ let _routesIndex = null;
 let _railwayColorIndexPromise = null;
 let _railwayColorIndex = null;
 
-export const getRoutesIndex = async (url = './data/railways.json') => {
+export const getRoutesIndex = async (url = DATA_URLS.railways) => {
     if (_routesIndex instanceof Map) return _routesIndex;
     if (_routesIndexPromise) return _routesIndexPromise;
 
@@ -472,7 +472,7 @@ export const getRoutesIndex = async (url = './data/railways.json') => {
     return _routesIndexPromise;
 };
 
-const getRailwayColorIndex = async (url = './data/railways.json') => {
+const getRailwayColorIndex = async (url = DATA_URLS.railways) => {
     if (_railwayColorIndex instanceof Map) return _railwayColorIndex;
     if (_railwayColorIndexPromise) return _railwayColorIndexPromise;
 

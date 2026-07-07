@@ -2,7 +2,7 @@
  * print-timetables.js
  * 方向班次表导出 PDF（A4）
  */
-import { getCachedJson } from '../../lib/fetch.js';
+import { DATA_URLS, getCachedJson } from '../../lib/fetch.js';
 import { resolveTimetablePrintPalette } from '../../lib/timetable-print-palette.js';
 import {
     buildAlternateLineMembership,
@@ -162,7 +162,7 @@ import {
     const loadRoutePrintRailwaysIndex = async () => {
         if (routePrintDataCache.railways) return routePrintDataCache.railways;
         routePrintDataCache.railways = (async () => {
-            const list = await getCachedJson('./data/railways.json');
+            const list = await getCachedJson(DATA_URLS.railways);
             const map = new Map();
             for (const item of Array.isArray(list) ? list : []) {
                 const id = toText(item?.id);
@@ -182,9 +182,9 @@ import {
         routePrintDataCache.alternateLineMembership = (async () => {
             try {
                 const [railways, stations, coordinates] = await Promise.all([
-                    getCachedJson('./data/railways.json'),
-                    getCachedJson('./data/stations.json'),
-                    getCachedJson('./data/coordinates.json')
+                    getCachedJson(DATA_URLS.railways),
+                    getCachedJson(DATA_URLS.stations),
+                    getCachedJson(DATA_URLS.coordinates)
                 ]);
                 return buildAlternateLineMembership({ railways, stations, coordinates });
             } catch {

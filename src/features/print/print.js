@@ -25,6 +25,11 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
 (() => {
     'use strict';
 
+    const getDataUrl = (key, fallback) => {
+        const urls = window?.TokyoRailFetchCache?.DATA_URLS;
+        return String(urls?.[key] || fallback || '').trim();
+    };
+
     const getCachedJsonSafe = async (url) => {
         try {
             const api = window?.TokyoRailFetchCache;
@@ -465,7 +470,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
 
         transferStationIdMapPromise = (async () => {
             try {
-                const groups = await getCachedJsonSafe('./data/station-groups.json');
+                const groups = await getCachedJsonSafe(getDataUrl('stationGroups', './data/station-groups.json'));
                 const map = new Map();
 
                 for (const group of Array.isArray(groups) ? groups : []) {
@@ -753,7 +758,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
             if (out.size) return out;
 
             try {
-                const list = await getCachedJsonSafe('./data/stations.json');
+                const list = await getCachedJsonSafe(getDataUrl('stations', './data/stations.json'));
                 for (const s of Array.isArray(list) ? list : []) {
                     const id = String(s?.id ?? '').trim();
                     if (!id) continue;
@@ -781,7 +786,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         rawStationsCoordByIdPromise = (async () => {
             const out = new Map();
             try {
-                const list = await getCachedJsonSafe('./data/stations.json');
+                const list = await getCachedJsonSafe(getDataUrl('stations', './data/stations.json'));
                 for (const s of Array.isArray(list) ? list : []) {
                     const id = String(s?.id || '').trim();
                     const c = Array.isArray(s?.coord) ? s.coord : null;
@@ -3152,7 +3157,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         if (!(stationsById instanceof Map) || !stationsById.size) {
             stationsById = await getRawStationsCoordById();
         }
-        const groups = await getCachedJsonSafe('./data/station-groups.json');
+        const groups = await getCachedJsonSafe(getDataUrl('stationGroups', './data/station-groups.json'));
         if (!(stationsById instanceof Map) || !stationsById.size || !Array.isArray(groups)) {
             return { lines: [], centroids: [] };
         }

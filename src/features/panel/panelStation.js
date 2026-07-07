@@ -1,6 +1,6 @@
 import { resolveMainLineIdForIcon } from '../../lib/line-icons.js';
 
-import { getCachedJson } from '../../lib/fetch.js';
+import { DATA_URLS, getCachedJson } from '../../lib/fetch.js';
 
 
 // panelServingLineMerge.js
@@ -210,7 +210,7 @@ export const getStationsIndex = async ({
     if (stationsIndexPromise_panelStationMetadata) return stationsIndexPromise_panelStationMetadata;
     stationsIndexPromise_panelStationMetadata = (async () => {
         try {
-            const list = await loadJson('./data/stations.json');
+            const list = await loadJson(DATA_URLS.stations);
             const idToNameZh = new Map();
             const idToNameEn = new Map();
             const idToCode = new Map();
@@ -249,10 +249,10 @@ export const getStationGroupsIndex = async ({
     if (stationGroupsIndexPromise_panelStationMetadata) return stationGroupsIndexPromise_panelStationMetadata;
     stationGroupsIndexPromise_panelStationMetadata = (async () => {
         try {
-            const list = await loadJson('./data/station-groups.json');
+            const list = await loadJson(DATA_URLS.stationGroups);
             let stations = [];
             try {
-                const stationList = await loadJson('./data/stations.json');
+                const stationList = await loadJson(DATA_URLS.stations);
                 stations = Array.isArray(stationList) ? stationList : [];
             } catch {
                 stations = [];
@@ -303,7 +303,7 @@ export const getTrainTypesIndex = async ({
     if (trainTypesIndexPromise_panelStationMetadata) return trainTypesIndexPromise_panelStationMetadata;
     trainTypesIndexPromise_panelStationMetadata = (async () => {
         try {
-            const list = await loadJson('./data/train-types.json');
+            const list = await loadJson(DATA_URLS.trainTypes);
             const map = new Map();
             for (const item of Array.isArray(list) ? list : []) {
                 const id = toText(item?.id);
@@ -325,7 +325,7 @@ export const getTrainTypeColorIndex = async ({
     if (trainTypeColorIndexPromise_panelStationMetadata) return trainTypeColorIndexPromise_panelStationMetadata;
     trainTypeColorIndexPromise_panelStationMetadata = (async () => {
         try {
-            const list = await loadJson('./data/train-types.json');
+            const list = await loadJson(DATA_URLS.trainTypes);
             const map = new Map();
             for (const item of Array.isArray(list) ? list : []) {
                 const id = toText(item?.id);

@@ -1,4 +1,4 @@
-import { getCachedJson } from '../lib/fetch.js';
+import { DATA_URLS, getCachedJson } from '../lib/fetch.js';
 import { buildVirtualTripPreviewPayload } from '../lib/trip-preview.js';
 import {
     buildAlternateTripSourceIndex,
@@ -708,7 +708,7 @@ const loadAllTimetableRecords = async () => {
     if (allTimetableRecordsPromise) return allTimetableRecordsPromise;
 
     allTimetableRecordsPromise = (async () => {
-        const railways = await getCachedJson('./data/railways.json');
+        const railways = await getCachedJson(DATA_URLS.railways);
         const lineStationIdsById = new Map();
         for (const railway of Array.isArray(railways) ? railways : []) {
             const id = toText(railway?.id);

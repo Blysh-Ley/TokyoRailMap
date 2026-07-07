@@ -1,6 +1,6 @@
 import { loadRailGeoDataFromDataFolder } from '../../lib/data.js';
 import { createLineIconElement, getRoutesIndex, resolveMainLineIdForIcon } from '../../lib/line-icons.js';
-import { getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache, shouldHideCompanyLogos } from '../../lib/fetch.js';
+import { DATA_URLS, getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache, shouldHideCompanyLogos } from '../../lib/fetch.js';
 import { buildCompactTripDetailTransferLineItemHtmls } from '../panel/panelTripDetailTransfers.js';
 import { bindCompanyLogoFailure } from '../../ui/companyLogoVisibility.js';
 import {
@@ -203,7 +203,7 @@ async function ensureRailwayTitlesLoaded() {
     if (railwayTitleLoading) return railwayTitleLoading;
     railwayTitleLoading = (async () => {
         try {
-            const list = await getCachedJson('./data/railways.json');
+            const list = await getCachedJson(DATA_URLS.railways);
             const arr = Array.isArray(list) ? list : [];
             const map = new Map();
             for (const r of arr) {
@@ -229,7 +229,7 @@ async function ensureStationTitlesLoaded() {
     if (stationTitleLoading) return stationTitleLoading;
     stationTitleLoading = (async () => {
         try {
-            const list = await getCachedJson('./data/stations.json');
+            const list = await getCachedJson(DATA_URLS.stations);
             const arr = Array.isArray(list) ? list : [];
             const map = new Map();
             for (const s of arr) {
@@ -324,7 +324,7 @@ async function ensureStationResultGroupLoaded() {
 
     stationResultGroupLoading = (async () => {
         try {
-            const raw = await getCachedJson('./data/station-groups.json');
+            const raw = await getCachedJson(DATA_URLS.stationGroups);
             const groups = Array.isArray(raw) ? raw : [];
             stationResultGroupByStationId = buildStationResultGroupMetaMap(groups);
             return stationResultGroupByStationId;

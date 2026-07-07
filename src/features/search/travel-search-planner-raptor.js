@@ -1,5 +1,5 @@
 import { getLineMetaByIds } from './search.js';
-import { getCachedJson } from '../../lib/fetch.js';
+import { DATA_URLS, getCachedJson } from '../../lib/fetch.js';
 import {
     detectThroughServiceCategoryFromTrips,
     getThroughServiceDisplayByCategory
@@ -233,11 +233,11 @@ export const ensurePlannerStaticData = async () => {
 
     plannerState.staticLoadingPromise = (async () => {
         const [railways, groups, trainTypes, stationList, coordinates] = await Promise.all([
-            getCachedJson('./data/railways.json'),
-            getCachedJson('./data/station-groups.json'),
-            getCachedJson('./data/train-types.json'),
-            getCachedJson('./data/stations.json'),
-            getCachedJson('./data/coordinates.json')
+            getCachedJson(DATA_URLS.railways),
+            getCachedJson(DATA_URLS.stationGroups),
+            getCachedJson(DATA_URLS.trainTypes),
+            getCachedJson(DATA_URLS.stations),
+            getCachedJson(DATA_URLS.coordinates)
         ]);
 
         const groupByStop = new Map();

@@ -2,7 +2,12 @@
  * 加载本地（或远程）GeoJSON。
  * 注意：需要通过 HTTP 服务器访问（不能直接双击打开 html）。
  */
-import { cachedFetch, getCachedJson } from './fetch.js';
+import {
+    DATA_URLS,
+    cachedFetch,
+    getCachedJson,
+    isManagedDataAssetUrl
+} from './fetch.js';
 import {
     buildStationOffsetAlgorithmContext
 } from '../map/offset.js';
@@ -11,9 +16,9 @@ import { buildAlternateLineMembership } from '../domain/alternateLineMembership.
 import { buildTerminalStationIdSet } from '../domain/stationLabelDisplay.js';
 
 export async function loadGeoJSON(url) {
-    if (String(url ?? '').trim().replace(/^\.\//, '') === 'data/station-groups.json') {
-        const stationGroups = await getCachedJson(url);
-        if (stationGroups != null) return stationGroups;
+    if (isManagedDataAssetUrl(url)) {
+        const data = await getCachedJson(url);
+        if (data != null) return data;
     }
 
     const response = await cachedFetch(url);
@@ -616,23 +621,19 @@ const getLineIdFromStationNodeId = (stationNodeId) => {
 };
 
 /**
- * 从 /data/ 下的 JSON 数据生成 lines/stations GeoJSON。
- * 数据来源约定（按用户说明）：
- * - data/railways.json：线路元信息（不含坐标）
- * - data/coordinates.json：coordinates.railways 为线路坐标
- * - data/stations.json：站点数据
- * - data/station-groups.json：换乘站分组
+ * 从当前数据源的 JSON 数据生成 lines/stations GeoJSON。
+ * 数据源路径统一由 fetch.js 的 DATA_URLS 管理。
  */
 export async function loadRailGeoDataFromDataFolder() {
     if (railDataCachePromise) return railDataCachePromise;
 
     railDataCachePromise = (async () => {
         const [railways, stations, stationGroups, coordinates, lineOffsetConfig] = await Promise.all([
-            loadGeoJSON('./data/railways.json'),
-            loadGeoJSON('./data/stations.json'),
-            loadGeoJSON('./data/station-groups.json'),
-            loadGeoJSON('./data/coordinates.json'),
-            loadGeoJSON('./data/line-offset.json')
+            loadGeoJSON(DATA_URLS.railways),
+            loadGeoJSON(DATA_URLS.stations),
+            loadGeoJSON(DATA_URLS.stationGroups),
+            loadGeoJSON(DATA_URLS.coordinates),
+            loadGeoJSON(DATA_URLS.lineOffset)
         ]);
 
         const railwayList = Array.isArray(railways) ? railways : [];

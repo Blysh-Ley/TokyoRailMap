@@ -8,7 +8,7 @@
  * - UI is implemented in route-map-ui.js.
  */
 
-import { getCachedJson } from '../../lib/fetch.js';
+import { DATA_URLS, getCachedJson } from '../../lib/fetch.js';
 import {
     buildAlternateLineMembership,
     filterLineStationIdsForAlternateMembership
@@ -137,7 +137,7 @@ const getStationsIndex = async () => {
     if (stationsIndexPromise) return stationsIndexPromise;
     stationsIndexPromise = (async () => {
         try {
-            const list = await getCachedJson('./data/stations.json');
+            const list = await getCachedJson(DATA_URLS.stations);
             const idToNameZh = new Map();
             const idToCode = new Map();
             for (const s of Array.isArray(list) ? list : []) {
@@ -161,7 +161,7 @@ const getTrainTypesIndex = async () => {
     if (trainTypesIndexPromise) return trainTypesIndexPromise;
     trainTypesIndexPromise = (async () => {
         try {
-            const list = await getCachedJson('./data/train-types.json');
+            const list = await getCachedJson(DATA_URLS.trainTypes);
             const map = new Map();
             for (const t of Array.isArray(list) ? list : []) {
                 const id = toText(t?.id);
@@ -181,7 +181,7 @@ const getTrainTypeColorIndex = async () => {
     if (trainTypeColorIndexPromise) return trainTypeColorIndexPromise;
     trainTypeColorIndexPromise = (async () => {
         try {
-            const list = await getCachedJson('./data/train-types.json');
+            const list = await getCachedJson(DATA_URLS.trainTypes);
             const map = new Map();
             for (const t of Array.isArray(list) ? list : []) {
                 const id = toText(t?.id);
@@ -204,7 +204,7 @@ const getRailwaysIndex = async () => {
     railwaysIndexPromise = (async () => {
         try {
             const [list, stationsIndex] = await Promise.all([
-                getCachedJson('./data/railways.json'),
+                getCachedJson(DATA_URLS.railways),
                 getStationsIndex()
             ]);
             const idToCode = stationsIndex?.idToCode instanceof Map ? stationsIndex.idToCode : new Map();
@@ -235,9 +235,9 @@ const getAlternateLineMembership = async () => {
     alternateLineMembershipPromise = (async () => {
         try {
             const [railways, stations, coordinates] = await Promise.all([
-                getCachedJson('./data/railways.json'),
-                getCachedJson('./data/stations.json'),
-                getCachedJson('./data/coordinates.json')
+                getCachedJson(DATA_URLS.railways),
+                getCachedJson(DATA_URLS.stations),
+                getCachedJson(DATA_URLS.coordinates)
             ]);
             return buildAlternateLineMembership({ railways, stations, coordinates });
         } catch {
