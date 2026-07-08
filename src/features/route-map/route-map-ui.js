@@ -483,6 +483,7 @@ const setupRouteMapUi = () => {
     let branchPreviewBusy = false;
     let mobileSheetState = 'half';
     let mobileDragState = null;
+    let mobileDragCaptureEl = null;
     let returnTarget = '';
 
     const isMobileRouteMapPresentation = () => {
@@ -571,10 +572,11 @@ const setupRouteMapUi = () => {
                 nowMs: Number(event?.timeStamp) || undefined
             })
         };
+        mobileDragCaptureEl = event?.currentTarget instanceof HTMLElement ? event.currentTarget : mobileDragBar;
         root.setAttribute('data-route-map-mobile-dragging', '1');
         root.style.transition = 'none';
         try {
-            mobileDragBar.setPointerCapture?.(event.pointerId);
+            mobileDragCaptureEl.setPointerCapture?.(event.pointerId);
         } catch {
             // ignore pointer-capture gaps
         }
@@ -605,10 +607,12 @@ const setupRouteMapUi = () => {
             cancelled
         });
         mobileDragState = null;
+        const captureEl = mobileDragCaptureEl || mobileDragBar;
+        mobileDragCaptureEl = null;
         root.removeAttribute('data-route-map-mobile-dragging');
         root.style.transition = '';
         try {
-            mobileDragBar.releasePointerCapture?.(event.pointerId);
+            captureEl.releasePointerCapture?.(event.pointerId);
         } catch {
             // ignore pointer-capture gaps
         }
@@ -616,6 +620,18 @@ const setupRouteMapUi = () => {
         applyMobileSheetState(targetState);
         event?.preventDefault?.();
         event?.stopPropagation?.();
+    };
+
+    const isRouteMapHeaderDragControl = (target) => {
+        if (!(target instanceof Element)) return false;
+        return Boolean(target.closest?.(
+            'button, a, input, select, textarea, [role="button"], [role="menu"], [role="menuitem"], .route-map-actions, .route-map-export-menu-ui'
+        ));
+    };
+
+    const beginRouteMapHeaderSheetDrag = (event) => {
+        if (isRouteMapHeaderDragControl(event?.target)) return false;
+        return beginMobileSheetDrag(event);
     };
 
     const setBranchButtonState = ({ active = false, busy = false } = {}) => {
@@ -2142,6 +2158,7 @@ const setupRouteMapUi = () => {
     });
 
     mobileDragBar.addEventListener('pointerdown', beginMobileSheetDrag, { passive: false });
+    topHeader.addEventListener('pointerdown', beginRouteMapHeaderSheetDrag, { passive: false });
     mobileDragBar.addEventListener('pointermove', updateMobileSheetDrag, { passive: false });
     document.addEventListener('pointermove', updateMobileSheetDrag, { capture: true, passive: false });
     mobileDragBar.addEventListener('pointerup', endMobileSheetDrag, { passive: false });
@@ -2149,6 +2166,7 @@ const setupRouteMapUi = () => {
     mobileDragBar.addEventListener('pointercancel', (event) => endMobileSheetDrag(event, { cancelled: true }), { passive: false });
     document.addEventListener('pointercancel', (event) => endMobileSheetDrag(event, { cancelled: true }), { capture: true, passive: false });
     mobileDragBar.addEventListener('lostpointercapture', (event) => endMobileSheetDrag(event, { cancelled: true }), { passive: false });
+    topHeader.addEventListener('lostpointercapture', (event) => endMobileSheetDrag(event, { cancelled: true }), { passive: false });
     createMobileSheetPullDownController({
         scrollEl: body,
         doc: document,

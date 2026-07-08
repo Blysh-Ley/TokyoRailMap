@@ -256,6 +256,16 @@
 .route-map.is-mobile-panel-placement .route-map-header {
     flex: 0 0 auto;
     padding-top: 6px;
+    cursor: grab;
+    touch-action: none;
+}
+.route-map.is-mobile-panel-placement[data-route-map-mobile-dragging='1'] .route-map-header {
+    cursor: grabbing;
+}
+.route-map.is-mobile-panel-placement .route-map-header button,
+.route-map.is-mobile-panel-placement .route-map-header .route-map-export-menu-ui {
+    cursor: pointer;
+    touch-action: manipulation;
 }
 .route-map.is-mobile-panel-placement .route-map-grid-header {
     flex: 0 0 auto;
