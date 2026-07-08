@@ -3505,6 +3505,7 @@ export function createPanel(options = {}) {
             const dirHeaderStyle = throughServiceDirectionColor
                 ? ` style="--panel-line-accent:${escapeHtml(throughServiceDirectionColor)}"`
                 : '';
+            const directionTimetablePaletteColor = throughServiceDirectionColor || lineColorForTimetablePalette;
 
             directionDebug.push({
                 dirKey,
@@ -3656,7 +3657,7 @@ export function createPanel(options = {}) {
                     expanded,
                     nowMs: now,
                     serviceDayStartMs: displayServiceDayStartMs,
-                    lineColor: lineColorForTimetablePalette,
+                    lineColor: directionTimetablePaletteColor,
                     serviceDayColorMode: panelServiceDayColorMode
                 })
                 : renderPanelTimetableListHtml({
