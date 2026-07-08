@@ -183,7 +183,7 @@ const escapeHtml = (s) =>
 const nextFrame = () => new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
 
 const ROUTE_MAP_STYLE_HREF = './src/styles/route-map.css';
-const MOBILE_FOLDABLE_MIN_WIDTH_PX = 700;
+const MOBILE_FOLDABLE_MIN_WIDTH_PX = 600;
 
 const ensureStyleInstalled = () => {
     if (document.querySelector('link[data-route-map-style="1"], style[data-route-map-style="1"]')) return;
@@ -954,7 +954,7 @@ const setupRouteMapUi = () => {
             root.style.right = isMobileFoldableWidth() ? 'auto' : '0';
             root.style.top = 'auto';
             root.style.bottom = '0';
-            root.style.width = isMobileFoldableWidth() ? '50vw' : '100%';
+            root.style.width = isMobileFoldableWidth() ? 'var(--mobile-foldable-pane-width, 50vw)' : '100%';
             root.style.minWidth = '0';
             root.style.height = 'min(88vh, calc(100vh - env(safe-area-inset-top, 0px) - 12px))';
             root.style.maxHeight = 'min(88vh, calc(100vh - env(safe-area-inset-top, 0px) - 12px))';

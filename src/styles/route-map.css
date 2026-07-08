@@ -282,13 +282,13 @@
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
 }
-@media (min-width: 700px) {
+@media (min-width: 600px) {
     html[data-mobile-ui='1'] .route-map.is-mobile-panel-placement,
     body[data-mobile-ui='1'] .route-map.is-mobile-panel-placement {
         left: 0 !important;
         right: auto !important;
-        width: 50vw !important;
-        max-width: 50vw !important;
+        width: var(--mobile-foldable-pane-width, 50vw) !important;
+        max-width: var(--mobile-foldable-pane-width, 50vw) !important;
     }
 }
 .route-map-meta {
