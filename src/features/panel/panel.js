@@ -3499,6 +3499,12 @@ export function createPanel(options = {}) {
                     stationId: currentStationId
                 })
                 : '';
+            const throughServiceDirectionColor = isThroughServiceDirection
+                ? toText(THROUGH_SERVICE_CONFIGS_OBJECT?.[throughServiceCategory]?.color)
+                : '';
+            const dirHeaderStyle = throughServiceDirectionColor
+                ? ` style="--panel-line-accent:${escapeHtml(throughServiceDirectionColor)}"`
+                : '';
 
             directionDebug.push({
                 dirKey,
@@ -3667,7 +3673,7 @@ export function createPanel(options = {}) {
             html += `
                 ${directionStationInfoHtml}
                 <div class="panel-dir">
-                    <div class="panel-dir-header" data-dir-toggle="1" data-dir-key="${escapeHtml(dirKey)}">
+                    <div class="panel-dir-header" data-dir-toggle="1" data-dir-key="${escapeHtml(dirKey)}"${dirHeaderStyle}>
                         <span class="panel-dir-title">
                             ${throughServiceDirectionName ? `<span class="panel-dir-through-service-name">${escapeHtml(throughServiceDirectionName)}</span>` : ''}
                             <span class="panel-dir-main">
