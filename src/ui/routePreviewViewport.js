@@ -82,14 +82,40 @@ export const createRoutePreviewViewportController = ({
     let pendingFit = null;
     let lastFitPaddingSig = null;
 
+    const isRectOnScreen = (rect) => {
+        if (!rect) return false;
+        if (!isFiniteNumber(rect.width) || !isFiniteNumber(rect.height)) return false;
+        if (rect.width <= 0 || rect.height <= 0) return false;
+        const win = globalThis.window || {};
+        const docEl = globalThis.document?.documentElement || {};
+        const viewportWidth = Number(win.innerWidth || docEl.clientWidth || 0);
+        const viewportHeight = Number(win.innerHeight || docEl.clientHeight || 0);
+        if (!isFiniteNumber(viewportWidth) || !isFiniteNumber(viewportHeight) || viewportWidth <= 0 || viewportHeight <= 0) return true;
+        return rect.right > 0 && rect.left < viewportWidth && rect.bottom > 0 && rect.top < viewportHeight;
+    };
+
+    const readPanelLayout = () => {
+        try {
+            const el = getPanelElement?.();
+            const rect = el?.getBoundingClientRect?.();
+            return {
+                rect,
+                visible: isRectOnScreen(rect)
+            };
+        } catch {
+            return { rect: null, visible: false };
+        }
+    };
+
     const getFitPadding = (paddingMode = 'auto', fitPaddingOptions = {}) => {
         const base = 60;
         const fallback = { top: base, right: base, bottom: base, left: base };
         if (paddingMode === 'full') return fallback;
         const ignoreTripDetail = fitPaddingOptions?.ignoreTripDetailInset === true;
+        const panelLayout = readPanelLayout();
 
         let left = base;
-        const menuEl = getMenuElement?.();
+        const menuEl = panelLayout.visible ? null : getMenuElement?.();
         if (menuEl) {
             const rect = menuEl.getBoundingClientRect?.();
             if (rect && Number.isFinite(rect.width)) {
@@ -100,7 +126,7 @@ export const createRoutePreviewViewportController = ({
 
         let right = base;
         try {
-            const panelRect = getPanelElement?.()?.getBoundingClientRect?.();
+            const panelRect = panelLayout.rect;
             if (panelRect && Number.isFinite(panelRect.width) && panelRect.width > 0) {
                 right = Math.max(right, Math.ceil(panelRect.width + base));
             }
@@ -131,9 +157,10 @@ export const createRoutePreviewViewportController = ({
         const base = 50;
         let right = base;
         let left = base;
+        const panelLayout = readPanelLayout();
 
         try {
-            const menuRect = getMenuElement?.()?.getBoundingClientRect?.();
+            const menuRect = panelLayout.visible ? null : getMenuElement?.()?.getBoundingClientRect?.();
             if (menuRect && Number.isFinite(menuRect.width)) {
                 left = Math.max(left, Math.ceil(Math.max(menuRect.right || 0, menuRect.width) + base));
             }
@@ -142,7 +169,7 @@ export const createRoutePreviewViewportController = ({
         }
 
         try {
-            const panelRect = getPanelElement?.()?.getBoundingClientRect?.();
+            const panelRect = panelLayout.rect;
             if (panelRect && Number.isFinite(panelRect.width)) {
                 right = Math.max(right, Math.ceil(panelRect.width + base));
             }
