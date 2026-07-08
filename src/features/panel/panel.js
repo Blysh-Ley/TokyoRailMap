@@ -3448,11 +3448,14 @@ export function createPanel(options = {}) {
 
             const lineMetaStations = getLineMeta?.(lineId)?.stations || [];
             const lineStationNamesSet = new Set(lineMetaStations.map(x => toText(stationsIndex?.idToNameZh?.get?.(toText(x)) || toText(x))));
+            const maxLabelCount = Array.from(labelCount.values())
+                .reduce((max, count) => Math.max(max, Number(count) || 0), 0);
 
             const labelEntries = Array.from(labelCount.entries())
                 .filter(([name, count]) => {
-                    if (count >= 20) return true;
-                    if (count <= 5) return false;
+                    const numericCount = Number(count) || 0;
+                    if (maxLabelCount > 0 && numericCount > maxLabelCount * 0.8) return true;
+                    if (numericCount < 5) return false;
                     if (lineStationNamesSet.has(name)) return true;
 
                     for (const row of labelRows) {
