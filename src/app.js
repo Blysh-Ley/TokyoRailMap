@@ -2934,6 +2934,12 @@ const initMapApp = async () => {
         getMultiSelectModeEnabled: () => isMultiSelectModeEnabled(),
         getTimetableViewMode: () => readTimetableViewMode(),
         onTimetableViewModeChanged: (mode) => writeTimetableViewMode(mode),
+        onJourneyStationAssigned: ({ field } = {}) => {
+            if (!isMobileUiMode()) return;
+            mobileBottomNavController?.setSearchMode?.('journey', { focus: false });
+            mobileBottomNavController?.setActive?.('search', { focus: false });
+            window.TokyoRailJourneyUI?.showHistoryForNextEmptyField?.({ assignedField: field });
+        },
         getAlternateLineMembership,
         getLineMeta: (lineId) => {
             const id = String(lineId);

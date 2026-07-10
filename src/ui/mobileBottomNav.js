@@ -187,7 +187,7 @@ const isMobileSettingsPanelOpen = (doc, nav) => {
         && settingsRoot.classList?.contains?.('is-collapsed') !== true;
 };
 
-const openLegacyFloatingUi = (doc, win, itemId, getSearchMode = () => 'station') => {
+const openLegacyFloatingUi = (doc, win, itemId, getSearchMode = () => 'station', { focus = true } = {}) => {
     if (itemId === 'search') {
         const mode = setMobileSearchModeDataset(doc, getSearchMode());
         setMobileSearchFocusDataset(doc, mode);
@@ -198,7 +198,7 @@ const openLegacyFloatingUi = (doc, win, itemId, getSearchMode = () => 'station')
     if (itemId === 'settings' && openMobileSettingsPanel(doc)) return;
 
     const selector = itemId === 'search'
-        ? '.search-input'
+        ? (focus ? '.search-input' : '')
         : (itemId === 'settings' ? '.settings-fab' : '');
     if (!selector) return;
 
@@ -309,7 +309,7 @@ export const installMobileBottomNav = ({
         }
     };
 
-    const setActive = (itemId, { emit = true } = {}) => {
+    const setActive = (itemId, { emit = true, focus = true } = {}) => {
         const id = buttons.has(itemId) ? itemId : 'map';
         nav.dataset.activeItem = id;
         setActiveDataset(doc, id);
@@ -321,7 +321,7 @@ export const installMobileBottomNav = ({
             else button.removeAttribute('aria-current');
         }
         if (id === 'search') setSearchMode(searchMode, { focus: false });
-        openLegacyFloatingUi(doc, win, id, () => searchMode);
+        openLegacyFloatingUi(doc, win, id, () => searchMode, { focus });
         notifyIosNativeBottomNavActive(win, id);
         if (typeof onSelect === 'function') onSelect(id);
         if (emit) emitSelect(id);

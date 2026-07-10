@@ -831,6 +831,7 @@ export function mountTravelSearchUI() {
     let endpointDragState = null;
     let clearingPlannerSession = false;
     let suppressNextEmptyHistoryRender = false;
+    let keepHistoryVisibleOnInputFocus = false;
     let mobileTripDetailOpen = false;
     let originWaitPickerController = null;
     let currentPlanPage = 0;
@@ -3468,6 +3469,7 @@ export function mountTravelSearchUI() {
             selectedDestinationLngLat = null;
             lastPlanComputeKey = '';
             suppressNextEmptyHistoryRender = true;
+            keepHistoryVisibleOnInputFocus = false;
             setMapPickTarget(null);
             clearWaypointRows();
             clearList();
@@ -3552,6 +3554,7 @@ export function mountTravelSearchUI() {
 
     const selectStation = (item) => {
         if (!item || (!item.id && !item.text)) return;
+        keepHistoryVisibleOnInputFocus = false;
 
         const input = getActiveInput();
 
@@ -3948,7 +3951,11 @@ export function mountTravelSearchUI() {
             activeField = key;
             activeWaypointRow = isWaypoint ? rowState : null;
             expand();
-            refresh();
+            if (keepHistoryVisibleOnInputFocus) {
+                renderHistoryResults();
+            } else {
+                refresh();
+            }
         });
 
         input.addEventListener('compositionstart', () => {
@@ -3961,10 +3968,12 @@ export function mountTravelSearchUI() {
             if (isOrigin) composingOrigin = false;
             else if (isWaypoint && rowState) rowState.composing = false;
             else composingDestination = false;
+            keepHistoryVisibleOnInputFocus = false;
             refresh();
         });
 
         input.addEventListener('input', () => {
+            keepHistoryVisibleOnInputFocus = false;
             const composing = isOrigin
                 ? composingOrigin
                 : (isWaypoint ? rowState?.composing === true : composingDestination);
@@ -4255,6 +4264,22 @@ export function mountTravelSearchUI() {
         await exportJourneyPopoverToPng(tripPopover, baseName, tripCaptureBtn);
     });
 
+    const showHistoryForNextEmptyField = ({ assignedField } = {}) => {
+        const preferredInputs = assignedField === 'origin'
+            ? [destinationInput, originInput]
+            : (assignedField === 'destination'
+                ? [originInput, destinationInput]
+                : [originInput, destinationInput]);
+        const input = preferredInputs.find((candidate) => !normalizeText(candidate?.value || '')) || null;
+        if (!input) return false;
+
+        activeField = input === destinationInput ? 'destination' : 'origin';
+        activeWaypointRow = null;
+        keepHistoryVisibleOnInputFocus = true;
+        renderHistoryResults().catch(() => null);
+        return true;
+    };
+
     const ui = {
         root,
         originInput,
@@ -4265,6 +4290,7 @@ export function mountTravelSearchUI() {
         },
         isPlannerOpen: () => isSearchPlannerExpanded(),
         getWaypointOptions: () => getJourneyWaypointOptions(),
+        showHistoryForNextEmptyField,
         setOriginStation: (stationId, stationName, options) => applyExternalStationSelection('origin', stationId, stationName, options),
         setDestinationStation: (stationId, stationName, options) => applyExternalStationSelection('destination', stationId, stationName, options),
         setWaypointStation: (stationId, stationName, options) => applyExternalWaypointSelection(stationId, stationName, options),

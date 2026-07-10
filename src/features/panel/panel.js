@@ -402,6 +402,7 @@ export function createPanel(options = {}) {
     const onTripDetailStationIndicatorClear = typeof options.onTripDetailStationIndicatorClear === 'function' ? options.onTripDetailStationIndicatorClear : null;
     const onTripDetailStationJump = typeof options.onTripDetailStationJump === 'function' ? options.onTripDetailStationJump : null;
     const onAndroidBackPanelHidden = typeof options.onAndroidBackPanelHidden === 'function' ? options.onAndroidBackPanelHidden : null;
+    const onJourneyStationAssigned = typeof options.onJourneyStationAssigned === 'function' ? options.onJourneyStationAssigned : null;
     const settingsContentEl = options.settingsContentEl && options.settingsContentEl.appendChild ? options.settingsContentEl : null;
     const getTimetableViewMode = typeof options.getTimetableViewMode === 'function' ? options.getTimetableViewMode : null;
     const onTimetableViewModeChanged = typeof options.onTimetableViewModeChanged === 'function' ? options.onTimetableViewModeChanged : null;
@@ -466,8 +467,10 @@ export function createPanel(options = {}) {
         getJourneyWaypointOptions: () => crossFeatureBridge.getJourneyWaypointOptions(),
         isJourneyPlannerOpen: () => crossFeatureBridge.isJourneyPlannerOpen(),
         onJourneyStationSelect: ({ field, stationId, stationName, waypointIndex }) => {
-            crossFeatureBridge.setJourneyStation({ field, waypointIndex, stationId, stationName });
+            const payload = { field, waypointIndex, stationId, stationName };
+            const assigned = crossFeatureBridge.setJourneyStation(payload);
             crossFeatureBridge.clearStationSelection();
+            if (assigned) onJourneyStationAssigned?.(payload);
         },
         toText,
         zIndex
