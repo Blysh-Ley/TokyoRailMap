@@ -6222,6 +6222,34 @@ body.is-pinned .panel-grid-cell-trip {
         visibility 0s;
 }
 
+.map-station-journey-menu {
+    position: absolute;
+    inset: 0;
+    z-index: 32;
+    pointer-events: none;
+}
+
+.map-station-journey-menu .panel-map-select-menu {
+    display: grid;
+    top: calc(var(--map-station-journey-menu-y, 0px) + 10px);
+    right: auto;
+    left: clamp(74px, var(--map-station-journey-menu-x, 50%), calc(100% - 74px));
+    width: max-content;
+    min-width: 0;
+    transform: translate(-50%, -6px) scale(0.985);
+    transform-origin: top center;
+}
+
+.map-station-journey-menu.is-open .panel-map-select-menu {
+    transform: translate(-50%, 0) scale(1);
+}
+
+.map-station-journey-menu .panel-map-select-item {
+    width: auto;
+    min-width: max-content;
+    white-space: nowrap;
+}
+
 .panel-map-select-item {
     width: 100%;
     border: none;

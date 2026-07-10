@@ -43,10 +43,12 @@ import { installMobileBottomNav, MOBILE_BOTTOM_NAV_EVENT } from './ui/mobileBott
 import { createMobileUiModeController } from './ui/mobileUiMode.js';
 import { createMobileStartupSplashView } from './ui/mobileStartupSplashView.js';
 import { installCompanyLogoFailureVisibility } from './ui/companyLogoVisibility.js';
+import { createMapStationJourneyMenu } from './ui/mapStationJourneyMenu.js';
 import { Menu, buildMenuModel } from './features/menu/menu.js';
 import { createMobileMenu } from './features/menu/mobileMenu.js';
 import { getGlobalTouchTapGuard } from './map/touchTapGuard.js';
 import { createPanel } from './features/panel/panel.js';
+import { createPanelCrossFeatureBridgeController } from './features/panel/panelInteractionCore.js';
 import { resolveTripPreviewPastColor } from './features/route/tripPreviewBuilder.js';
 import { getGlobalTimetableCache } from './lib/timetableCache.js';
 import { initFullscreen, isInFullscreenMode } from './map/fullscreen.js';
@@ -3411,6 +3413,42 @@ const initMapApp = async () => {
         timetableCache?.preloadRecursiveByLineIds?.(ids);
     };
 
+    const mapStationJourneyBridge = createPanelCrossFeatureBridgeController();
+    const mapStationJourneyMenu = createMapStationJourneyMenu({
+        container: document.getElementById('map'),
+        getWaypointOptions: () => mapStationJourneyBridge.getJourneyWaypointOptions(),
+        onSelectField: (action, station) => {
+            mapStationJourneyBridge.applyStationToJourneyField({
+                field: action?.field,
+                waypointIndex: action?.waypointIndex,
+                stationId: station?.stationId,
+                stationName: station?.stationName
+            });
+        },
+        labels: {
+            menu: '将本站作为起点、途径点或终点',
+            origin: '作为起点',
+            destination: '作为终点',
+            newWaypoint: '作为新增途径点'
+        }
+    });
+
+    const openMapStationJourneyMenu = ({ point, props, stationId } = {}) => {
+        const stationName = String(
+            props?.name_zh ||
+            props?.['name:zh'] ||
+            props?.name ||
+            props?.name_ja ||
+            props?.['name:ja'] ||
+            stationId ||
+            ''
+        ).trim();
+        return mapStationJourneyMenu.open({
+            point,
+            station: { stationId, stationName }
+        });
+    };
+
     if (searchMapActions) {
         Object.assign(searchMapActions, createSearchMapBridge({
             hoverApi: hoverBridgeApi,
@@ -3488,6 +3526,8 @@ const initMapApp = async () => {
                 mapEngine,
                 touchTapGuard,
                 isJourneyMapPickActive,
+                isJourneyPlannerOpen: () => mapStationJourneyBridge.isJourneyPlannerOpen(),
+                onJourneyPlannerStationClick: openMapStationJourneyMenu,
                 getSelectedStationId: () => selectedStationId,
                 setStationVisualHighlight,
                 openPanelForStationWithAutoScroll,

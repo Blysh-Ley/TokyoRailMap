@@ -188,6 +188,8 @@ export const bindStationClickHighlightServingLines = ({
     mapEngine,
     touchTapGuard,
     isJourneyMapPickActive,
+    isJourneyPlannerOpen,
+    onJourneyPlannerStationClick,
     getSelectedStationId,
     setStationVisualHighlight,
     openPanelForStationWithAutoScroll,
@@ -218,6 +220,16 @@ export const bindStationClickHighlightServingLines = ({
         });
         const props = feature?.properties || {};
         const stationId = String(props?.id ?? feature?.id ?? '').trim();
+        if (isJourneyPlannerOpen?.() === true) {
+            onJourneyPlannerStationClick?.({
+                event,
+                feature,
+                point: event?.point || null,
+                props,
+                stationId
+            });
+            return;
+        }
         if (!isMapClickSelectionAllowedByHighlight({
             highlightActive: isHighlightClickGateActive?.() === true,
             candidateIds: [stationId],
