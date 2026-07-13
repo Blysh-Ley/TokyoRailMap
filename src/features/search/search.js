@@ -3,6 +3,7 @@ import { createLineIconElement, getRoutesIndex, resolveMainLineIdForIcon } from 
 import { DATA_URLS, getCachedJson, getCompanyLogoSrc, getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache, shouldHideCompanyLogos } from '../../lib/fetch.js';
 import { buildCompactTripDetailTransferLineItemHtmls } from '../panel/panelTripDetailTransfers.js';
 import { bindCompanyLogoFailure } from '../../ui/companyLogoVisibility.js';
+import { createSearchHeatmapControl } from '../../ui/searchHeatmapControl.js';
 import {
     isSearchPlannerExpanded,
     registerSearchPlannerSearchRoot,
@@ -955,9 +956,6 @@ export function mountSearchUI() {
     });
     plannerToggleBtn.textContent = '+';
 
-    bar.appendChild(input);
-    bar.appendChild(plannerToggleBtn);
-
     const results = el('div', 'search-results is-hidden');
     const list = el('ul', 'search-results-list');
     results.appendChild(list);
@@ -974,6 +972,11 @@ export function mountSearchUI() {
             return null;
         }
     };
+    const heatmapControl = createSearchHeatmapControl({ getActions: getMapActions });
+
+    bar.appendChild(input);
+    bar.appendChild(heatmapControl.button);
+    bar.appendChild(plannerToggleBtn);
 
     const readPointerType = (evt) => {
         const pt = evt?.pointerType;
@@ -1227,10 +1230,13 @@ export function mountSearchUI() {
                             if (actions) {
                                 if (item.type === 'company') actions.commitCompany?.(item.id);
                                 else if (item.type === 'line') actions.commitLine?.(item.id);
-                                else if (item.type === 'station') actions.commitStation?.(item.id, {
-                                    maxZoom: 12,
-                                    lineIds: Array.isArray(item.lineIds) ? item.lineIds.slice() : []
-                                });
+                                else if (item.type === 'station') {
+                                    actions.commitStation?.(item.id, {
+                                        maxZoom: 12,
+                                        lineIds: Array.isArray(item.lineIds) ? item.lineIds.slice() : []
+                                    });
+                                    void heatmapControl.drawForStation(item.id).catch(() => false);
+                                }
                                 ui.clearAndCollapse();
                                 return;
                             }
@@ -1370,6 +1376,7 @@ export function mountSearchUI() {
                             maxZoom: 12,
                             lineIds: Array.isArray(item.lineIds) ? item.lineIds.slice() : []
                         });
+                        void heatmapControl.drawForStation(item.id).catch(() => false);
 
                         // 提交站点：接下来 ui.clear()/render()/collapse 不应关闭固定 popup
                         suppressEndPreviewCount = Math.max(suppressEndPreviewCount, 2);

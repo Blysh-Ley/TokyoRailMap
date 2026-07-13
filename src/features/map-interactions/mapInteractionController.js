@@ -60,6 +60,7 @@ export const bindBlankMapClickRestore = ({
     hidePanel,
     cancelStationRestoreState,
     clearTripPathPreview,
+    clearReachableStopsOverlay,
     clearSelectionsAndRestore
 } = {}) => {
     if (!mapEngine || typeof mapEngine.on !== 'function') {
@@ -92,6 +93,7 @@ export const bindBlankMapClickRestore = ({
             clearTripPathPreview?.();
         }
         cancelStationRestoreState?.();
+        clearReachableStopsOverlay?.();
 
         if (hasActiveSelection?.() !== true) return;
         clearSelectionsAndRestore?.();

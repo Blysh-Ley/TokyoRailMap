@@ -1,7 +1,6 @@
 import { searchRailEntities, getLineMetaByIds, mergeStationSearchItems } from './search.js';
 import {
     collectJourneyCandidatesRaptor,
-    getReachableStopsWithinMinutes,
     pickPlanBuckets,
     ensurePlannerStaticData,
     getGroupStops,
@@ -58,7 +57,6 @@ import {
     createJourneyTransferPathRow,
     createJourneyWalkPathRow
 } from './journeyPlanRenderer.js';
-import { createReachableStopsController } from './reachableStopsController.js';
 import { travelSearchMapActions } from './travelSearchMapActions.js';
 import {
     buildDisplayPlanFromExpandedLegs
@@ -823,8 +821,6 @@ export function mountTravelSearchUI() {
     });
     let lastPlanComputeKey = '';
     let planComputeToken = 0;
-    let reachableStopsController = null;
-    let scheduleDestinationReachableStopsTestRef = null;
     let popoverHideTimer = null;
     let pinnedTripPopoverKey = '';
     let tripPopoverHoverTimer = null;
@@ -1054,9 +1050,6 @@ export function mountTravelSearchUI() {
             selectedOriginCandidateIds = [];
             selectedOriginCandidateMeta = [];
             selectedOriginLngLat = null;
-            if (typeof scheduleDestinationReachableStopsTestRef === 'function') {
-                scheduleDestinationReachableStopsTestRef();
-            }
         } else {
             selectedDestinationId = resolvedId || '';
             selectedDestinationCandidateIds = [];
@@ -1145,9 +1138,6 @@ export function mountTravelSearchUI() {
         if (key === 'origin') {
             selectedOriginId = resolvedId || '';
             selectedOriginCandidateIds = [];
-            if (typeof scheduleDestinationReachableStopsTestRef === 'function') {
-                scheduleDestinationReachableStopsTestRef();
-            }
         } else {
             selectedDestinationId = resolvedId || '';
             selectedDestinationCandidateIds = [];
@@ -2407,17 +2397,6 @@ export function mountTravelSearchUI() {
         return { serviceDayStartMs, departureMs: depMs };
     };
 
-    reachableStopsController = createReachableStopsController({
-        getDepartureBase: readDepartureBase,
-        getDestinationRaw: () => destinationInput.value,
-        getOriginStationId: () => selectedOriginId || originInput.dataset.stationId || '',
-        getReachableStopsWithinMinutes,
-        getServiceDay: readServiceDayFromPanel,
-        mapActions: travelSearchMapActions,
-        normalizeText
-    });
-    scheduleDestinationReachableStopsTestRef = () => reachableStopsController?.schedule?.();
-
     const maybeComputePlans = async () => {
         const {
             bothCoordinatePicks,
@@ -2925,9 +2904,6 @@ export function mountTravelSearchUI() {
         hideTripPopover();
         lastPlanComputeKey = '';
         clearStalePlanResults();
-        if (typeof scheduleDestinationReachableStopsTestRef === 'function') {
-            scheduleDestinationReachableStopsTestRef();
-        }
         await redrawEndpointPins();
         syncEndpointDragHandles();
         return true;
@@ -3219,7 +3195,6 @@ export function mountTravelSearchUI() {
             selectedOriginCandidateIds = [];
             selectedOriginCandidateMeta = [];
             selectedOriginLngLat = null;
-            scheduleDestinationReachableStopsTestRef?.();
         }
 
         try {
@@ -3471,11 +3446,6 @@ export function mountTravelSearchUI() {
         if (clearingPlannerSession) return;
         clearingPlannerSession = true;
         try {
-            reachableStopsController?.clear?.();
-        } catch {
-            // ignore
-        }
-        try {
             planComputeToken += 1;
             stationResultRequestToken += 1;
             activeField = 'origin';
@@ -3538,11 +3508,6 @@ export function mountTravelSearchUI() {
             selectedOriginCandidateIds = [];
             selectedOriginCandidateMeta = [];
             selectedOriginLngLat = null;
-            try {
-                reachableStopsController?.clear?.();
-            } catch {
-                // ignore
-            }
         }
         lastPlanComputeKey = '';
         setMapPickTarget(null);
@@ -3618,9 +3583,6 @@ export function mountTravelSearchUI() {
             selectedOriginCandidateIds = [];
             selectedOriginCandidateMeta = [];
             selectedOriginLngLat = null;
-            if (typeof scheduleDestinationReachableStopsTestRef === 'function') {
-                scheduleDestinationReachableStopsTestRef();
-            }
         } else {
             selectedDestinationId = String(item?.id ?? '');
             selectedDestinationCandidateIds = [];
@@ -3878,12 +3840,6 @@ export function mountTravelSearchUI() {
         lastPlanComputeKey = '';
         activeField = 'origin';
 
-        try {
-            reachableStopsController?.clear?.();
-        } catch {
-            // ignore
-        }
-
         setMapPickTarget(null);
         activeWaypointRow = null;
         hideTripPopover();
@@ -4042,11 +3998,6 @@ export function mountTravelSearchUI() {
                 selectedOriginLngLat = null;
                 input.dataset.stationId = '';
                 try {
-                    reachableStopsController?.clear?.();
-                } catch {
-                    // ignore
-                }
-                try {
                     journeyPickController.clearPin('origin');
                 } catch {
                     // ignore
@@ -4069,8 +4020,6 @@ export function mountTravelSearchUI() {
             clearStalePlanResults();
 
             refresh();
-
-            if (!isOrigin && !isWaypoint) scheduleDestinationReachableStopsTestRef?.();
         });
 
         input.addEventListener('search', () => {
@@ -4182,9 +4131,6 @@ export function mountTravelSearchUI() {
             expand();
         }
 
-        if (typeof scheduleDestinationReachableStopsTestRef === 'function') {
-            scheduleDestinationReachableStopsTestRef();
-        }
         clearStalePlanResults();
     };
 

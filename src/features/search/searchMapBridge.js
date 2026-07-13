@@ -103,10 +103,20 @@ export const createSearchMapBridge = ({
             dispatch(reachableStopsUpdateRequested({ source: 'searchMapBridge', payload }));
             return reachableStopsApi.updateReachableStopsOverlay?.(payload);
         },
+        drawReachableStopsHeatmap: (payload = {}) => {
+            dispatch(reachableStopsUpdateRequested({ source: 'searchMapBridge', payload }));
+            return reachableStopsApi.drawReachableStopsHeatmap?.(payload) ?? false;
+        },
+        setReachableStopsHeatmapMinutes: (minutes) => (
+            reachableStopsApi.setReachableStopsHeatmapMinutes?.(minutes) ?? 0
+        ),
         clearReachableStopsOverlay: () => {
             dispatch(reachableStopsCleared({ source: 'searchMapBridge' }));
             return reachableStopsApi.clearReachableStopsOverlay?.();
         },
+        subscribeReachableStopsHeatmap: (listener) => (
+            reachableStopsApi.subscribeReachableStopsHeatmap?.(listener) || (() => {})
+        ),
 
         clearStationSelection: () => selectionApi.clearStationSelection?.(),
         previewLine: (lineId) => selectionApi.previewLine?.(lineId),

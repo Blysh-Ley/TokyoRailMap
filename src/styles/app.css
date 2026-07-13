@@ -1538,6 +1538,10 @@ html[data-theme='dark'] .journey-trip-note-direction{
     display: none;
 }
 
+.search-ui.is-planner-open .search-heatmap-select {
+    display: none;
+}
+
 .search-ui.is-planner-open .search-planner-origin-control {
     display: flex !important;
 }
@@ -2084,6 +2088,82 @@ html[data-theme='dark'] .search-ui > .journey-ui .journey-input-wrap {
     outline: none;
     border-color: rgba(52, 152, 219, 0.62);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.14);
+}
+
+.settings-time-picker.search-heatmap-picker {
+    position: fixed;
+    width: 120px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    padding: 7px;
+    pointer-events: auto;
+}
+
+.settings-time-picker.search-heatmap-picker.is-hidden {
+    display: none;
+}
+
+.search-heatmap-picker .settings-time-picker-col {
+    flex: 1 1 100%;
+    min-width: 0;
+}
+
+.search-heatmap-picker .settings-time-picker-actions {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    padding-top: 2px;
+}
+
+.search-heatmap-picker .settings-time-picker-btn {
+    border: 1px solid #d5dce3;
+    border-radius: 8px;
+    height: 28px;
+    min-width: 52px;
+    padding: 0 10px;
+    font-size: 12px;
+    cursor: pointer;
+    background: #fff;
+    color: #333;
+}
+
+.search-heatmap-picker .settings-time-picker-btn-confirm {
+    border-color: var(--is-active-color);
+    color: var(--is-active-color);
+    font-weight: 600;
+}
+
+.search-heatmap-picker .settings-time-picker-list {
+    max-height: 154px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-right: 2px;
+}
+
+.search-heatmap-picker .settings-time-picker-option {
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    height: 28px;
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+    text-align: center;
+}
+
+.search-heatmap-picker .settings-time-picker-option.is-selected {
+    background: var(--is-active-color) !important;
+    color: #fff !important;
+    font-weight: 600;
 }
 
 .settings-time-picker.journey-wait-picker {

@@ -98,7 +98,7 @@ import { BASEMAP_GLYPHS_URL, createMapEngine } from './services/mapEngine.js';
 import { createMobileTripFitBoundsController } from './services/mobileTripFitBounds.js';
 import { createAppUpdateApi } from './services/appUpdateService.js';
 import { createStore } from './store/appStore.js';
-import { ACTION_TYPES, hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested, selectionClear, stationVisualHighlightSet } from './store/actions.js';
+import { ACTION_TYPES, hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested, reachableStopsCleared, selectionClear, stationVisualHighlightSet } from './store/actions.js';
 import { createBaseHighlightEventBridge } from './features/highlight/baseHighlightEventBridge.js';
 import { createHighlightFeature } from './features/highlight/highlightFeature.js';
 import { createHighlightRenderer } from './features/highlight/highlightRenderer.js';
@@ -118,6 +118,7 @@ import { createRoutePreviewBridgeApi } from './features/route/routePreviewBridge
 import { createRoutePreviewRuntimeController } from './features/route/routePreviewRuntimeController.js';
 import { createReachableStopsOverlayRenderer } from './features/search/reachableStopsOverlayRenderer.js';
 import { createTravelSearchMapRuntime } from './features/search/reachableStopsRuntime.js';
+import { createSearchHeatmapFeature } from './features/search/searchHeatmapFeature.js';
 import { createSearchMapBridge } from './features/search/searchMapBridge.js';
 import { createSearchFeature } from './features/search/searchFeature.js';
 import { createSearchSelectionController } from './features/search/searchSelectionController.js';
@@ -1189,6 +1190,18 @@ const initMapApp = async () => {
             applyStationLabelPositionOverrides();
         },
         scheduleCollisionLayerRefresh
+    });
+    const searchHeatmapFeature = createSearchHeatmapFeature({
+        updateOverlay: (payload) => travelSearchMapRuntime?.updateReachableStopsOverlay?.(payload),
+        clearOverlay: () => travelSearchMapRuntime?.clearReachableStopsOverlay?.()
+    });
+    appStore.subscribe((_state, action) => {
+        if (
+            action?.type === ACTION_TYPES.SELECTION_COMMIT_LINE ||
+            action?.type === ACTION_TYPES.SELECTION_COMMIT_COMPANY
+        ) {
+            searchHeatmapFeature.clear();
+        }
     });
 
     const applyMultiSelectBaseLayerState = (enabled) => {
@@ -3381,9 +3394,12 @@ const initMapApp = async () => {
         updateReachableStopsOverlay: async (payload = {}) => {
             await travelSearchMapRuntime?.updateReachableStopsOverlay?.(payload || {});
         },
+        drawReachableStopsHeatmap: (payload = {}) => searchHeatmapFeature.draw(payload),
+        setReachableStopsHeatmapMinutes: (minutes) => searchHeatmapFeature.setMinutes(minutes),
         clearReachableStopsOverlay: () => {
-            travelSearchMapRuntime?.clearReachableStopsOverlay?.();
-        }
+            searchHeatmapFeature.clear();
+        },
+        subscribeReachableStopsHeatmap: (listener) => searchHeatmapFeature.subscribe(listener)
     };
 
     const searchSelectionController = createSearchSelectionController({
@@ -3525,6 +3541,10 @@ const initMapApp = async () => {
                 hidePanel: () => panel?.hide?.(),
                 cancelStationRestoreState,
                 clearTripPathPreview,
+                clearReachableStopsOverlay: () => {
+                    appStore.dispatch(reachableStopsCleared({ source: 'blankMapClick' }));
+                    searchHeatmapFeature.clear();
+                },
                 clearSelectionsAndRestore
             },
             lineClick: {
