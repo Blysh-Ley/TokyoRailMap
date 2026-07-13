@@ -16,10 +16,19 @@ const queryRenderedStationLabelFeature = (mapEngine, point) => {
     return hits[0] || null;
 };
 
+const queryRenderedStationFeature = (mapEngine, point) => {
+    if (!point || !mapEngine?.hasLayer?.('stations-layer')) return null;
+    const hits = mapEngine.queryRenderedFeatures?.(point, {
+        layers: ['stations-layer']
+    }) || [];
+    return hits[0] || null;
+};
+
 export const resolveStationClickFeature = ({
     event,
     mapEngine,
-    resolveDomStationLabelProps
+    resolveDomStationLabelProps,
+    includeRenderedStation = false
 } = {}) => {
     const domLabelProps = resolveDomStationLabelProps?.(event?.originalEvent);
     if (domLabelProps) {
@@ -32,6 +41,11 @@ export const resolveStationClickFeature = ({
 
     const labelFeature = queryRenderedStationLabelFeature(mapEngine, event?.point);
     if (labelFeature) return labelFeature;
+
+    if (includeRenderedStation === true) {
+        const stationFeature = queryRenderedStationFeature(mapEngine, event?.point);
+        if (stationFeature) return stationFeature;
+    }
 
     return event?.features?.[0] || null;
 };

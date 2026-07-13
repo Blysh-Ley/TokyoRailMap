@@ -996,6 +996,14 @@ export function mountTravelSearchUI() {
         journeyRuntimeAdapter.setMapPickActive(!!mapPickTarget);
     };
 
+    const consumeMapPickTarget = () => {
+        const target = mapPickTarget;
+        if (!target) return null;
+        setMapPickTarget(null);
+        results.classList.add('is-hidden');
+        return target;
+    };
+
     const resolveStationByName = async (name) => {
         const q = normalizeText(name);
         if (!q) return null;
@@ -1206,8 +1214,22 @@ export function mountTravelSearchUI() {
         const lngLat = eventLike?.lngLat;
         if (!lngLat) return;
 
+        const target = consumeMapPickTarget();
+        if (!target) return;
+
+        const stationId = normalizeText(eventLike?.stationId);
+        const stationName = normalizeText(eventLike?.stationName);
+        if (stationId || stationName) {
+            await applyPickedStation({
+                target,
+                stationId,
+                stationName
+            });
+            return;
+        }
+
         await applyPickedCoordinate({
-            target: mapPickTarget,
+            target,
             lngLat
         });
     };
@@ -1222,9 +1244,12 @@ export function mountTravelSearchUI() {
         const stationName = normalizeText(labelEl.textContent || '');
         if (!stationName) return;
 
+        const pickedTarget = consumeMapPickTarget();
+        if (!pickedTarget) return;
+
         await applyPickedStation({
-            target: mapPickTarget,
-            stationId: '',
+            target: pickedTarget,
+            stationId: normalizeText(labelEl.dataset?.stationId),
             stationName
         });
     };

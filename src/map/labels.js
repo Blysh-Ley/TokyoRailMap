@@ -106,6 +106,7 @@ export function createStationMarkers(mapOrEngine, maplibreglOrStationsData, stat
         const el = document.createElement('div');
         el.className = 'station-label';
         el.textContent = name;
+        if (stationId) el.dataset.stationId = String(stationId);
 
         // 站名标签上移：换乘站 6px，非换乘站 3px（只在这里集中设置）
         const labelDyPx = priority > 1 ? 6 : 3;

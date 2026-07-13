@@ -107,7 +107,10 @@ import { createTripPreviewRenderer } from './features/highlight/tripPreviewRende
 import { createHoverFeature } from './features/hover/hoverFeature.js';
 import { createPanelHoverPreviewLifecycle } from './features/hover/panelHoverPreviewAdapter.js';
 import { createLayerFeature } from './features/layer/layerFeature.js';
-import { bindMapInteractions } from './features/map-interactions/mapInteractionController.js';
+import {
+    bindMapInteractions,
+    resolveStationClickFeature
+} from './features/map-interactions/mapInteractionController.js';
 import { createStationCoordinateAdapter } from './features/layer/stationCoordinateAdapter.js';
 import { createStationOffsetRuntimeController } from './features/layer/stationOffsetRuntimeController.js';
 import { createRouteFeature } from './features/route/routeFeature.js';
@@ -3346,7 +3349,30 @@ const initMapApp = async () => {
         },
         onMapPickClick: (listener) => {
             if (typeof listener !== 'function') return false;
-            mapEngine.on('click', listener);
+            mapEngine.on('click', (event) => {
+                const stationFeature = resolveStationClickFeature({
+                    event,
+                    mapEngine,
+                    resolveDomStationLabelProps: resolveDomStationLabelPropsForClick,
+                    includeRenderedStation: true
+                });
+                const stationProps = stationFeature?.properties || {};
+                const stationId = String(stationProps?.id ?? stationFeature?.id ?? '').trim();
+                const stationName = String(
+                    stationProps?.name_zh ||
+                    stationProps?.['name:zh'] ||
+                    stationProps?.name ||
+                    stationProps?.name_ja ||
+                    stationProps?.['name:ja'] ||
+                    ''
+                ).trim();
+                listener({
+                    ...event,
+                    stationFeature,
+                    stationId,
+                    stationName
+                });
+            });
             return true;
         }
     };
