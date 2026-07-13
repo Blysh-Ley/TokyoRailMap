@@ -70,6 +70,7 @@ import { JOURNEY_CLEAR_REQUEST_EVENT } from '../../store/events.js';
 import { createMobileJourneyPlanSheet } from '../../ui/mobileJourneyPlanSheet.js';
 import {
     SEARCH_PLANNER_STATE_EVENT,
+    hideSearchPlannerResultSurfaces,
     isSearchPlannerExpanded,
     registerSearchPlannerJourneyRoot,
     registerSearchPlannerOriginControls,
@@ -3574,6 +3575,10 @@ export function mountTravelSearchUI() {
         const li = document.createElement('li');
         li.appendChild(el('div', 'search-empty', { text }));
         list.appendChild(li);
+        if (mapPickTarget) {
+            results.classList.add('is-hidden');
+            return;
+        }
         results.classList.remove('is-hidden');
     };
 
@@ -3856,6 +3861,10 @@ export function mountTravelSearchUI() {
             refreshJourneyStationLineAlignment(list);
         });
 
+        if (mapPickTarget) {
+            results.classList.add('is-hidden');
+            return;
+        }
         results.classList.remove('is-hidden');
     };
 
@@ -3939,6 +3948,10 @@ export function mountTravelSearchUI() {
             refreshJourneyStationLineAlignment(list);
         });
 
+        if (mapPickTarget) {
+            results.classList.add('is-hidden');
+            return;
+        }
         results.classList.remove('is-hidden');
     };
 
@@ -3976,6 +3989,10 @@ export function mountTravelSearchUI() {
             activeField = key;
             activeWaypointRow = isWaypoint ? rowState : null;
             expand();
+            if (mapPickTarget) {
+                hideSearchPlannerResultSurfaces();
+                return;
+            }
             if (keepHistoryVisibleOnInputFocus) {
                 renderHistoryResults();
             } else {
@@ -4106,6 +4123,8 @@ export function mountTravelSearchUI() {
         activeWaypointRow = targetKind === 'waypoint' ? target?.rowState || null : null;
         expand();
         setMapPickTarget(target?.kind === 'waypoint' ? target : activeField);
+        stationResultRequestToken += 1;
+        hideSearchPlannerResultSurfaces();
         try {
             if (target?.kind === 'waypoint') target.rowState?.input?.focus?.();
             else getActiveInput().focus?.();

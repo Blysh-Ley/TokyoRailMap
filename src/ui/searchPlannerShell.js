@@ -147,3 +147,8 @@ export const toggleSearchPlanner = (options = {}) => (
 );
 
 export const isSearchPlannerExpanded = () => state.expanded === true;
+
+export const hideSearchPlannerResultSurfaces = () => {
+    state.searchRoot?.querySelector?.('.search-results')?.classList?.add?.('is-hidden');
+    state.journeyRoot?.querySelector?.('.journey-results')?.classList?.add?.('is-hidden');
+};
