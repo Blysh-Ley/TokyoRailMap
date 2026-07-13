@@ -1231,11 +1231,15 @@ export function mountSearchUI() {
                                 if (item.type === 'company') actions.commitCompany?.(item.id);
                                 else if (item.type === 'line') actions.commitLine?.(item.id);
                                 else if (item.type === 'station') {
+                                    const heatmapActive = heatmapControl.isActive();
                                     actions.commitStation?.(item.id, {
                                         maxZoom: 12,
-                                        lineIds: Array.isArray(item.lineIds) ? item.lineIds.slice() : []
+                                        lineIds: Array.isArray(item.lineIds) ? item.lineIds.slice() : [],
+                                        showPanel: !heatmapActive
                                     });
-                                    void heatmapControl.drawForStation(item.id).catch(() => false);
+                                    if (heatmapActive) {
+                                        void heatmapControl.drawForStation(item.id).catch(() => false);
+                                    }
                                 }
                                 ui.clearAndCollapse();
                                 return;
@@ -1371,12 +1375,16 @@ export function mountSearchUI() {
 
                     if (type === 'station') {
                         if (actions.isReady !== true) return;
+                        const heatmapActive = heatmapControl.isActive();
                         actions.commitStation?.(item.id, {
                             pointerType: meta.pointerType,
                             maxZoom: 12,
-                            lineIds: Array.isArray(item.lineIds) ? item.lineIds.slice() : []
+                            lineIds: Array.isArray(item.lineIds) ? item.lineIds.slice() : [],
+                            showPanel: !heatmapActive
                         });
-                        void heatmapControl.drawForStation(item.id).catch(() => false);
+                        if (heatmapActive) {
+                            void heatmapControl.drawForStation(item.id).catch(() => false);
+                        }
 
                         // 提交站点：接下来 ui.clear()/render()/collapse 不应关闭固定 popup
                         suppressEndPreviewCount = Math.max(suppressEndPreviewCount, 2);

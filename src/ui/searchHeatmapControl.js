@@ -1,25 +1,50 @@
 import { SEARCH_PLANNER_STATE_EVENT } from './searchPlannerShell.js';
 import { bindMinutePicker } from './minutePicker.js';
 
-const MINUTE_OPTIONS = Array.from({ length: 25 }, (_, index) => index * 5);
+const MINUTE_OPTIONS = [15, 30, 45, 60, 90, 120];
 const normalizeText = (value) => String(value ?? '').trim();
+// Lucide Radar, ISC: https://lucide.dev/icons/radar
+const RADAR_ICON_MARKUP = `
+    <span class="search-heatmap-time-label" aria-hidden="true"></span>
+    <span class="search-heatmap-icon-shell">
+        <svg class="search-heatmap-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/>
+            <path d="M4 6h.01"/>
+            <path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/>
+            <path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/>
+            <path d="M12 18h.01"/>
+            <path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/>
+            <circle cx="12" cy="12" r="2"/>
+            <path d="m13.41 10.59 5.66-5.66"/>
+        </svg>
+    </span>
+`;
 
 export const createSearchHeatmapControl = ({ getActions } = {}) => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'journey-wait-select search-heatmap-select';
+    button.className = 'search-heatmap-select';
     button.setAttribute('aria-label', '热力图时间');
     button.setAttribute('aria-haspopup', 'dialog');
     button.setAttribute('aria-expanded', 'false');
+    button.setAttribute('aria-pressed', 'false');
     button.title = '热力图时间';
+    button.innerHTML = RADAR_ICON_MARKUP;
 
     let minutes = 0;
     let subscription = null;
     let subscriptionActions = null;
 
     const render = () => {
+        const active = minutes > 0;
         button.dataset.value = String(minutes);
-        button.textContent = minutes > 0 ? `${minutes}分` : '热力图';
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        const timeLabel = button.querySelector('.search-heatmap-time-label');
+        if (timeLabel) timeLabel.textContent = active ? `${minutes}分` : '';
+        const label = active ? `热力图时间：${minutes}分` : '热力图时间';
+        button.setAttribute('aria-label', label);
+        button.title = label;
     };
 
     const ensureSubscription = (actions = getActions?.()) => {
@@ -85,6 +110,7 @@ export const createSearchHeatmapControl = ({ getActions } = {}) => {
         button,
         clear,
         drawForStation,
+        isActive: () => minutes > 0,
         destroy: () => {
             window.removeEventListener(SEARCH_PLANNER_STATE_EVENT, onPlannerState);
             subscription?.();

@@ -2090,6 +2090,88 @@ html[data-theme='dark'] .search-ui > .journey-ui .journey-input-wrap {
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.14);
 }
 
+.search-heatmap-select {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ui-text-muted);
+    padding: 0;
+    cursor: pointer;
+    opacity: 0.9;
+}
+
+.search-heatmap-select.is-active {
+    width: auto;
+    flex-basis: auto;
+    gap: 4px;
+}
+
+.search-heatmap-select:hover {
+    background: transparent;
+    color: var(--ui-text);
+    opacity: 1;
+}
+
+.search-heatmap-select.is-active,
+.search-heatmap-select.is-active:hover {
+    background: transparent;
+    color: #000;
+    opacity: 1;
+}
+
+.search-heatmap-time-label {
+    display: none;
+    color: #000;
+    font-size: 12px;
+    line-height: 1;
+    white-space: nowrap;
+    background: transparent;
+    pointer-events: none;
+}
+
+.search-heatmap-select.is-active .search-heatmap-time-label {
+    display: inline;
+}
+
+.search-heatmap-icon-shell {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: var(--ui-text-muted);
+}
+
+.search-heatmap-select.is-active .search-heatmap-icon-shell {
+    background: #3498db;
+    color: #fff;
+}
+
+.search-heatmap-select:focus-visible {
+    outline: 2px solid rgba(52, 152, 219, 0.62);
+    outline-offset: 1px;
+}
+
+.search-heatmap-icon {
+    width: 16px;
+    height: 16px;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
+
 .settings-time-picker.search-heatmap-picker {
     position: fixed;
     width: 120px;

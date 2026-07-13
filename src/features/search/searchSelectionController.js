@@ -178,6 +178,8 @@ export const createSearchSelectionController = ({
         commitStation(stationId, meta) {
             hoverLifecycle.commitPreview();
             const opened = openStationForStationId(stationId, meta || {});
+            if (meta?.showPanel === false) return;
+
             openPanelForStationWithAutoScroll?.(opened?.props || {}, { collapseMobileSearch: true });
 
             try {
