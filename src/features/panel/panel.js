@@ -1211,7 +1211,7 @@ export function createPanel(options = {}) {
     };
 
     const buildTerminalDisplayAbbr = (nameRaw) => {
-        const chars = Array.from(toText(nameRaw)).filter((ch) => /\S/.test(ch));
+        const chars = Array.from(toText(nameRaw)).filter((ch) => /\S/.test(ch) && ch !== '·');
         if (chars.length <= 3) return chars.join('');
         return [chars[0], chars[2] || chars[1]]
             .map((ch) => toText(ch))
