@@ -1,6 +1,6 @@
-# TokyoRailMap public static web boundary
-# Keep the GitHub Pages/index.html runtime source visible; ignore native apps,
-# desktop packaging, tests, tools, generated outputs, and local map packages.
+# TokyoRailMap source and build boundary
+# Keep the Web, Electron, Capacitor native projects, release scripts, and smoke
+# tests trackable; ignore only dependencies, generated outputs, and local files.
 
 # OS/editor metadata
 .DS_Store
@@ -49,47 +49,65 @@ backups/
 *.jks
 *.keystore
 
-# Package/build metadata and release automation
-package.json
-package-lock.json
+# Alternate package-manager metadata (this project uses package-lock.json)
 npm-shrinkwrap.json
 pnpm-lock.yaml
 yarn.lock
 electron-builder.*
 electron.vite.config.*
-capacitor.config.*
-scripts/
 
-# Electron desktop shell
-main.js
-src/preload.js
-
-# Native/mobile app projects
-android/
-ios/
-
-# Test suites, audit tools, and local reports
-tests/
+# Audit tools and local reports
 tools/
-docs/
+docs/*
+!docs/android-build.md
 Refactor-Panel.md
 AGENTS.md
 line-icon-preview.html
 src/debug/
 
 # Local/generated basemap packages and source extracts
-tiles/
+tiles/*
 *.pmtiles
 *.mbtiles
 *.osm.pbf
 
-# App packaging icons generated from the website icon
-assets/icons/icon.png
-assets/icons/icon.ico
-assets/icons/icon.icns
+# Capacitor-generated web bundles
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+ios/App/App/config.xml
+ios/capacitor-cordova-ios-plugins/
+
+# Android local/build artifacts
+android/.gradle/
+android/build/
+android/**/build/
+android/app/build/
+android/app/release/
+android/local.properties
+android/*.iml
+android/app/*.iml
+
+# iOS local/build artifacts
+ios/App/build/
+ios/App/Pods/
+ios/App/DerivedData/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcuserstate
+
+# Timestamp-suffixed conflict copies left by local file recovery
+**/* [0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9][0-9].*
+
+# Temporary local review server; its GBData working set is not part of this repo
+scripts/gbdata-review-server.mjs
 
 # Readme/demo-only media and local data scratch files
 assets/readme-images/
+promo/
 data/**/*.bak
 data/tmp/
 videos/

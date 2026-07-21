@@ -1,0 +1,40 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const source = readFileSync('src/features/print/print.js', 'utf8');
+
+assert.doesNotMatch(source, /basemaps\.cartocdn/);
+assert.doesNotMatch(source, /tile\.openstreetmap\.org/);
+assert.doesNotMatch(source, /export-raster/);
+assert.doesNotMatch(source, /DEFAULT_EXPORT_PMTILES_URL/);
+assert.doesNotMatch(source, /normalizePmtilesUrlForExport/);
+assert.match(source, /getExportBasemapStyle/);
+assert.match(source, /mode:\s*EXPORT_MINIMAL_BASEMAP_MODE/);
+assert.match(source, /sourceKind:\s*EXPORT_PMTILES_SOURCE_KIND/);
+assert.match(source, /const EXPORT_MINIMAL_BASEMAP_MODE = 'osm-white'/);
+assert.match(source, /const EXPORT_PMTILES_SOURCE_KIND = 'pmtiles'/);
+assert.doesNotMatch(source, /EXPORT_CURRENT_REFERENCE_ZOOM/);
+assert.doesNotMatch(source, /EXPORT_CURRENT_REFERENCE_LONG_SIDE/);
+assert.match(source, /maxCanvasSize:\s*\[EXPORT_MAX_CANVAS_SIDE,\s*EXPORT_MAX_CANVAS_SIDE\]/);
+assert.match(source, /const EXPORT_WEBGL_TILE_SIZE = 4096/);
+assert.match(source, /const captureTiledMapCanvasPngBlob = async/);
+assert.match(source, /EXPORT_BASEMAP_SOURCE_ID = 'osm-vector-source'/);
+assert.match(source, /sources:\s*\{\}/);
+assert.match(source, /const collectHighlightLngLatCoords = \(built\) =>/);
+assert.match(source, /const calcPixelBboxForHighlight = \(map, built, geoBbox\) =>/);
+assert.match(source, /const px = calcPixelBboxForHighlight\(map, built, geoBbox\)/);
+assert.match(source, /minW: \(px\.maxX - px\.minX\) \+ pad \* 2/);
+assert.match(source, /const center = unprojectPixelCenter\(map, px, initialCenter\)/);
+assert.match(source, /window\.TokyoRailExportProbe = \{/);
+assert.match(source, /runCurrent: runCurrentExportProbe/);
+assert.match(source, /runZoomSweep: runExportZoomSweepProbe/);
+assert.match(source, /const shouldTile = canvas\.width !== targetW/);
+assert.match(source, /return \{ blob: tiledBlob, w: targetW, h: targetH \}/);
+assert.match(source, /EXPORT_RESOLUTION_LIMIT_EXCEEDED/);
+assert.match(source, /window\.alert\('超过分辨率上限'\)/);
+assert.match(source, /const stationLabelScale = zoomMode === 'current' \? 1 : \(resolution === '4k' \? 2 : 1\)/);
+assert.match(source, /if \(zoomMode === 'current'\) \{\s*const r = await tryExportPng\(\{\s*paddingPx: 60,/s);
+assert.match(source, /const disabled = zoomMode === 'current'/);
+assert.match(source, /return OSM_BASEMAP_ATTRIBUTION_TEXT/);
+
+console.log('print basemap export style smoke ok');

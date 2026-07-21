@@ -1,0 +1,13 @@
+{
+  "appId": "com.blysh.tokyorailmap",
+  "appName": "东京铁路图",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "Media": {
+      "androidGalleryMode": true
+    }
+  }
+}
