@@ -9,6 +9,8 @@ const DEFAULT_ACTIVE_VISUAL_INTERVAL_MS = 48;
 const DEFAULT_SETTLING_VISUAL_INTERVAL_MS = 16;
 const DEFAULT_ACTIVE_FINAL_INTERVAL_MS = 144;
 const DEFAULT_SETTLING_FINAL_INTERVAL_MS = 64;
+const DEFAULT_VISUAL_SYNC_STRATEGY = 'interval';
+const RAF_LATEST_VISUAL_SYNC_STRATEGY = 'raf-latest';
 
 const normalizeDelay = (value, fallback) => {
     const n = Number(value);
@@ -19,6 +21,12 @@ const normalizeZoomKey = (zoom) => {
     const z = Number(zoom);
     return Number.isFinite(z) ? z.toFixed(3) : '';
 };
+
+const normalizeVisualSyncStrategy = (strategy) => (
+    String(strategy || '').trim().toLowerCase() === RAF_LATEST_VISUAL_SYNC_STRATEGY
+        ? RAF_LATEST_VISUAL_SYNC_STRATEGY
+        : DEFAULT_VISUAL_SYNC_STRATEGY
+);
 
 export const createStationOffsetRuntimeController = ({
     getZoom = () => 0,
@@ -32,7 +40,10 @@ export const createStationOffsetRuntimeController = ({
     activeVisualIntervalMs = DEFAULT_ACTIVE_VISUAL_INTERVAL_MS,
     settlingVisualIntervalMs = DEFAULT_SETTLING_VISUAL_INTERVAL_MS,
     activeFinalIntervalMs = DEFAULT_ACTIVE_FINAL_INTERVAL_MS,
-    settlingFinalIntervalMs = DEFAULT_SETTLING_FINAL_INTERVAL_MS
+    settlingFinalIntervalMs = DEFAULT_SETTLING_FINAL_INTERVAL_MS,
+    visualSyncStrategy: requestedVisualSyncStrategy = DEFAULT_VISUAL_SYNC_STRATEGY,
+    requestFrame = globalThis.requestAnimationFrame,
+    cancelFrame = globalThis.cancelAnimationFrame
 } = {}) => {
     if (!mapEngine || typeof mapEngine.on !== 'function') {
         throw new Error('stationOffsetRuntimeController requires mapEngine.on');
@@ -48,12 +59,24 @@ export const createStationOffsetRuntimeController = ({
     let lastFinalZoomKey = '';
     let lastVisualSyncTime = Number.NEGATIVE_INFINITY;
     let lastFinalSyncTime = 0;
+    let pendingVisualFrameId = null;
+    let pendingVisualFrameScheduled = false;
+    let pendingVisualFrameGeneration = 0;
+    let pendingVisualReason = 'zoom';
+    let pendingFinalInterval = DEFAULT_ACTIVE_FINAL_INTERVAL_MS;
     const unbinders = [];
     const nearIdleVelocity = normalizeDelay(settlingVelocity, DEFAULT_SETTLING_VELOCITY);
     const activeVisualInterval = normalizeDelay(activeVisualIntervalMs, DEFAULT_ACTIVE_VISUAL_INTERVAL_MS);
     const settlingVisualInterval = normalizeDelay(settlingVisualIntervalMs, DEFAULT_SETTLING_VISUAL_INTERVAL_MS);
     const activeFinalInterval = normalizeDelay(activeFinalIntervalMs, DEFAULT_ACTIVE_FINAL_INTERVAL_MS);
     const settlingFinalInterval = normalizeDelay(settlingFinalIntervalMs, DEFAULT_SETTLING_FINAL_INTERVAL_MS);
+    const requestVisualFrame = typeof requestFrame === 'function' ? requestFrame : null;
+    const cancelVisualFrame = typeof cancelFrame === 'function' ? cancelFrame : null;
+    const visualSyncStrategy = normalizeVisualSyncStrategy(requestedVisualSyncStrategy) === RAF_LATEST_VISUAL_SYNC_STRATEGY
+        && requestVisualFrame
+        && cancelVisualFrame
+        ? RAF_LATEST_VISUAL_SYNC_STRATEGY
+        : DEFAULT_VISUAL_SYNC_STRATEGY;
     const notifyZoomActivity = typeof onZoomActivity === 'function' ? onZoomActivity : null;
     const notifyDynamicZoomEnd = typeof onDynamicZoomEnd === 'function' ? onDynamicZoomEnd : null;
     const readNow = typeof nowFn === 'function'
@@ -95,6 +118,45 @@ export const createStationOffsetRuntimeController = ({
 
     const isDynamicMode = () => mode !== 'performance';
 
+    const cancelPendingVisualFrame = () => {
+        pendingVisualFrameGeneration += 1;
+        if (pendingVisualFrameScheduled && pendingVisualFrameId != null) {
+            cancelVisualFrame?.(pendingVisualFrameId);
+        }
+        pendingVisualFrameId = null;
+        pendingVisualFrameScheduled = false;
+        pendingVisualReason = 'zoom';
+        pendingFinalInterval = activeFinalInterval;
+    };
+
+    const scheduleLatestVisualSync = ({ finalInterval, reason }) => {
+        pendingVisualReason = reason;
+        pendingFinalInterval = finalInterval;
+        if (pendingVisualFrameScheduled) return;
+
+        pendingVisualFrameScheduled = true;
+        const generation = pendingVisualFrameGeneration;
+        const frameId = requestVisualFrame?.(() => {
+            if (generation !== pendingVisualFrameGeneration) return;
+            pendingVisualFrameId = null;
+            pendingVisualFrameScheduled = false;
+            const latestReason = pendingVisualReason;
+            const latestFinalInterval = pendingFinalInterval;
+            pendingVisualReason = 'zoom';
+            pendingFinalInterval = activeFinalInterval;
+            if (!isDynamicMode()) return;
+
+            const visualSynced = syncVisualAtCurrentZoom(latestReason);
+            const now = readNow();
+            if (visualSynced && now - lastFinalSyncTime >= latestFinalInterval) {
+                syncFinalAtCurrentZoom(latestReason);
+            }
+        });
+        if (pendingVisualFrameScheduled && generation === pendingVisualFrameGeneration) {
+            pendingVisualFrameId = frameId ?? null;
+        }
+    };
+
     const handleZoom = () => {
         const currentZoom = getCurrentZoom();
         notifyZoomActivity?.({ zoom: currentZoom });
@@ -108,6 +170,11 @@ export const createStationOffsetRuntimeController = ({
         lastFrameZoom = currentZoom;
 
         const reason = settlingCandidate ? 'zoom-settling' : 'zoom';
+        if (visualSyncStrategy === RAF_LATEST_VISUAL_SYNC_STRATEGY) {
+            scheduleLatestVisualSync({ finalInterval: finalIntervalForFrame, reason });
+            return;
+        }
+
         const visualSynced = now - lastVisualSyncTime >= visualIntervalForFrame
             ? syncVisualAtCurrentZoom(reason)
             : false;
@@ -119,6 +186,13 @@ export const createStationOffsetRuntimeController = ({
 
     const handleZoomEnd = () => {
         if (isDynamicMode()) {
+            if (visualSyncStrategy === RAF_LATEST_VISUAL_SYNC_STRATEGY) {
+                cancelPendingVisualFrame();
+                if (normalizeZoomKey(getCurrentZoom()) !== normalizeZoomKey(lastVisualZoom)) {
+                    syncVisualAtCurrentZoom('zoomend');
+                }
+                syncFinalAtCurrentZoom('zoomend');
+            }
             notifyDynamicZoomEnd?.({ zoom: getCurrentZoom() });
             return;
         }
@@ -133,6 +207,7 @@ export const createStationOffsetRuntimeController = ({
     };
 
     const setMode = (nextMode, { sync = true } = {}) => {
+        cancelPendingVisualFrame();
         mode = normalizeMode(nextMode);
         lastVisualSyncTime = Number.NEGATIVE_INFINITY;
         if (sync) syncAtCurrentZoom();
@@ -140,6 +215,7 @@ export const createStationOffsetRuntimeController = ({
     };
 
     const destroy = () => {
+        cancelPendingVisualFrame();
         while (unbinders.length) {
             const unbind = unbinders.pop();
             try {

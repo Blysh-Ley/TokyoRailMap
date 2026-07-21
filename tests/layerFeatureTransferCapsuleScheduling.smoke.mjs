@@ -51,12 +51,17 @@ const stationGroups = [{ id: 'G1', stationIds: ['S1'] }];
 {
     const scheduled = [];
     const runtimeCalls = [];
+    const runtimeOptions = [];
+    const requestFrame = () => 1;
+    const cancelFrame = () => {};
     const feature = createLayerFeature({
+        cancelFrame,
         createCollisionController: (labels, circles, options) => ({
             options,
             scheduleUpdate: () => scheduled.push('collision')
         }),
         createStationOffsetRuntimeController: (options) => {
+            runtimeOptions.push(options);
             runtimeCalls.push(['create', options.initialMode]);
             return {
                 destroy: () => runtimeCalls.push(['destroy']),
@@ -70,6 +75,8 @@ const stationGroups = [{ id: 'G1', stationIds: ['S1'] }];
         getTripPreviewActive: () => false,
         getZoom: () => 13,
         initialStationOffsetMode: 'dynamic',
+        requestFrame,
+        stationOffsetVisualSyncStrategy: 'raf-latest',
         syncTransferCapsuleStationsData: () => {}
     });
 
@@ -82,6 +89,9 @@ const stationGroups = [{ id: 'G1', stationIds: ['S1'] }];
         ['create', 'performance'],
         ['sync']
     ]);
+    assert.equal(runtimeOptions[0].visualSyncStrategy, 'raf-latest');
+    assert.equal(runtimeOptions[0].requestFrame, requestFrame);
+    assert.equal(runtimeOptions[0].cancelFrame, cancelFrame);
 
     assert.equal(feature.setStationOffsetMode('dynamic'), 'dynamic');
     assert.deepEqual(runtimeCalls, [

@@ -185,6 +185,7 @@ import { createBasemapThemeRuntime } from './app/basemapThemeRuntime.js';
 import { installAndroidBackRuntime } from './app/androidBackRuntime.js';
 import { createMobileStartupSplashRuntime } from './app/mobileStartupSplashRuntime.js';
 import { registerDebugZoomTools } from './app/debugZoomTools.js';
+import { registerStationOffsetPerformanceProbe } from './debug/stationOffsetPerformanceProbe.js';
 import { bindMapStartup } from './app/mapStartup.js';
 import {
     bindMultiSelectLayerCommandRuntime,
@@ -357,6 +358,11 @@ const mapEngine = createMapEngine({
     }
 });
 const map = mapEngine.getMap();
+const stationOffsetPerformanceProbe = registerStationOffsetPerformanceProbe({
+    mapEngine,
+    target: window,
+    autoStart: new URLSearchParams(window.location.search).get('stationOffsetPerf') === '1'
+});
 const highlightRenderer = createHighlightRenderer({ mapEngine });
 const reachableStopsOverlayRenderer = createReachableStopsOverlayRenderer({ mapEngine });
 const basemapThemeRuntime = createBasemapThemeRuntime({ map, mapEngine });
@@ -5010,8 +5016,10 @@ const initMapApp = async () => {
                 ...options,
                 mapEngine
             }),
+            stationOffsetPerformanceProbe,
             getStationLabelMode: () => stationLabelMode,
             initialStationOffsetMode: stationOffsetMode,
+            stationOffsetVisualSyncStrategy: 'raf-latest',
             collisionConfig: {
                 transferGroupByStationId: transferStationIdsByStationId,
                 onCircleCollisionResolved: ({ visibleStationIds }) => {

@@ -32,9 +32,11 @@ export const createLayerFeature = ({
     resolveTransferCapsuleLineColor,
     createCollisionController,
     createStationOffsetRuntimeController,
+    stationOffsetPerformanceProbe,
     collisionConfig = {},
     getStationLabelMode,
     initialStationOffsetMode = 'dynamic',
+    stationOffsetVisualSyncStrategy = 'interval',
     requestFrame = globalThis.requestAnimationFrame,
     cancelFrame = globalThis.cancelAnimationFrame,
     setTimeoutFn = globalThis.setTimeout,
@@ -55,6 +57,30 @@ export const createLayerFeature = ({
         stationLabelZoomEndDelayMs,
         DEFAULT_STATION_LABEL_ZOOMEND_DELAY_MS
     );
+
+    const measureStationOffsetStage = (stageName, callback) => {
+        if (typeof stationOffsetPerformanceProbe?.measure === 'function') {
+            return stationOffsetPerformanceProbe.measure(stageName, callback);
+        }
+        return callback();
+    };
+
+    const recordStationOffsetSyncAttempt = (detail) => {
+        stationOffsetPerformanceProbe?.recordSyncAttempt?.(detail);
+    };
+
+    stationOffsetPerformanceProbe?.setContext?.({
+        baseStationFeatureCount: Array.isArray(baseStationsGeoJSON?.features)
+            ? baseStationsGeoJSON.features.length
+            : 0,
+        offsetStationCount: Object.keys(
+            stationOffsetAlgorithmContext?.stationLocalChainsById || {}
+        ).length,
+        unresolvedOffsetStationCount: Array.isArray(stationOffsetAlgorithmContext?.unresolvedStationIds)
+            ? stationOffsetAlgorithmContext.unresolvedStationIds.length
+            : 0,
+        stationOffsetMode: String(initialStationOffsetMode || 'dynamic')
+    });
 
     const runInFrame = (callback) => {
         if (typeof requestFrame === 'function') return requestFrame(callback);
@@ -93,7 +119,7 @@ export const createLayerFeature = ({
             flushStationLabelGeoJSON();
             return;
         }
-        scheduleCollision();
+        measureStationOffsetStage('schedule-collision', () => scheduleCollision());
     };
 
     const resetTransferCapsuleVisibleKey = (keyHint = '__init__') => {
@@ -152,15 +178,19 @@ export const createLayerFeature = ({
         if (nextKey && nextKey === getTransferCapsuleVisibleKey?.()) return false;
         if (nextKey) setTransferCapsuleVisibleKey?.(nextKey);
 
-        const transferCapsuleData = buildTransferCapsuleGeoJSON?.(stationsData, stationGroups, {
-            visibleStationIds,
-            fixedConnectionsByGroupId: useFixedConnections ? getTransferCapsuleBaseConnectionOrder?.() : null,
-            singleStationFallbackCircle: true,
-            resolveLineColor: (lineId) => resolveTransferCapsuleLineColor?.(lineId) || ''
-        });
+        const transferCapsuleData = measureStationOffsetStage('build-transfer-capsules', () => (
+            buildTransferCapsuleGeoJSON?.(stationsData, stationGroups, {
+                visibleStationIds,
+                fixedConnectionsByGroupId: useFixedConnections ? getTransferCapsuleBaseConnectionOrder?.() : null,
+                singleStationFallbackCircle: true,
+                resolveLineColor: (lineId) => resolveTransferCapsuleLineColor?.(lineId) || ''
+            })
+        ));
         if (!transferCapsuleData) return false;
 
-        renderTransferCapsules?.(transferCapsuleData);
+        measureStationOffsetStage('render-transfer-capsules', () => {
+            renderTransferCapsules?.(transferCapsuleData);
+        });
         return true;
     };
 
@@ -187,8 +217,12 @@ export const createLayerFeature = ({
         const nextGeoJSON = geojson && typeof geojson === 'object' ? geojson : null;
         if (!nextGeoJSON) return false;
         pendingStationLabelGeoJSON = null;
-        updateStationLabelsSourceData?.(nextGeoJSON);
-        updateStationLabelCoordinates?.(nextGeoJSON);
+        measureStationOffsetStage('update-station-label-source', () => {
+            updateStationLabelsSourceData?.(nextGeoJSON);
+        });
+        measureStationOffsetStage('update-station-label-markers', () => {
+            updateStationLabelCoordinates?.(nextGeoJSON);
+        });
         return true;
     };
 
@@ -227,62 +261,115 @@ export const createLayerFeature = ({
 
         if (updateVisible) {
             clearStationLabelGeoJSONFlush();
-            updateStationsSourceData?.(nextGeoJSON);
-            updateStationCircleCoordinates?.(nextGeoJSON);
+            measureStationOffsetStage('update-stations-source', () => {
+                updateStationsSourceData?.(nextGeoJSON);
+            });
+            measureStationOffsetStage('update-station-circles', () => {
+                updateStationCircleCoordinates?.(nextGeoJSON);
+            });
             if (deferStationLabels) pendingStationLabelGeoJSON = nextGeoJSON;
             else stationLabelsUpdated = updateStationLabelLayerGeoJSON(nextGeoJSON);
         }
 
         if (phase === 'visual') {
-            syncTransferCapsuleStationsData?.(nextGeoJSON);
+            measureStationOffsetStage('sync-transfer-capsule-data', () => {
+                syncTransferCapsuleStationsData?.(nextGeoJSON);
+            });
             refreshTransferCapsulesNow();
             return true;
         }
 
-        rebuildStationCoordMap?.(nextGeoJSON);
-        syncTransferCapsuleStationsData?.(nextGeoJSON);
-        invalidateTransferCapsuleData?.(String(keyHint || '__station-geojson__'));
-        scheduleTransferCapsuleRefresh();
+        measureStationOffsetStage('rebuild-station-coordinate-map', () => {
+            rebuildStationCoordMap?.(nextGeoJSON);
+        });
+        measureStationOffsetStage('sync-transfer-capsule-data', () => {
+            syncTransferCapsuleStationsData?.(nextGeoJSON);
+        });
+        measureStationOffsetStage('invalidate-transfer-capsule-data', () => {
+            invalidateTransferCapsuleData?.(String(keyHint || '__station-geojson__'));
+        });
+        measureStationOffsetStage('schedule-transfer-capsule-refresh', () => {
+            scheduleTransferCapsuleRefresh();
+        });
         if (deferStationLabels) pendingStationLabelGeoJSON = nextGeoJSON;
         else if (!stationLabelsUpdated) updateStationLabelLayerGeoJSON(nextGeoJSON);
-        scheduleCollision(deferStationLabels ? { interaction: true } : {});
+        measureStationOffsetStage('schedule-collision', () => {
+            scheduleCollision(deferStationLabels ? { interaction: true } : {});
+        });
         return true;
     };
 
-    const syncStationOffsetForZoom = (zoom, options = {}) => {
+    const syncStationOffsetForZoomImpl = (zoom, options = {}) => {
         const z = Number(zoom);
-        if (!Number.isFinite(z)) return false;
+        const phase = options?.phase === 'visual' ? 'visual' : 'final';
+        const reason = String(options?.reason || '').trim();
+        const recordOutcome = (outcome) => recordStationOffsetSyncAttempt({
+            zoom: z,
+            phase,
+            reason,
+            outcome
+        });
+        if (!Number.isFinite(z)) {
+            recordOutcome('invalid-zoom');
+            return false;
+        }
 
         const stateKey = `offset-zoom:${z.toFixed(3)}`;
-        const phase = options?.phase === 'visual' ? 'visual' : 'final';
-        if (phase === 'visual' && stateKey === currentStationOffsetVisualKey) return false;
-        if (phase === 'final' && stateKey === currentStationOffsetFinalKey) return false;
+        if (phase === 'visual' && stateKey === currentStationOffsetVisualKey) {
+            recordOutcome('visual-key-hit');
+            return false;
+        }
+        if (phase === 'final' && stateKey === currentStationOffsetFinalKey) {
+            recordOutcome('final-key-hit');
+            return false;
+        }
 
         const nextGeoJSON = currentStationOffsetGeoJSONKey === stateKey
             ? currentStationOffsetGeoJSON
-            : buildStationOffsetGeoJSONAtZoom?.({
-                baseStationsGeoJSON,
-                stationOffsetAlgorithmContext,
-                zoom: z
-            });
-        if (!nextGeoJSON) return false;
+            : measureStationOffsetStage('build-offset-geojson', () => (
+                buildStationOffsetGeoJSONAtZoom?.({
+                    baseStationsGeoJSON,
+                    stationOffsetAlgorithmContext,
+                    zoom: z
+                })
+            ));
+        if (!nextGeoJSON) {
+            recordOutcome('no-geojson');
+            return false;
+        }
 
         const updateVisible = phase === 'visual' || stateKey !== currentStationOffsetVisualKey;
-        const reason = String(options?.reason || '').trim();
         const deferStationLabels = phase === 'visual'
             || reason === 'zoom'
             || reason === 'zoom-settling'
             || reason === 'zoomend';
-        if (!applyStationLayerGeoJSON(nextGeoJSON, stateKey, { phase, updateVisible, deferStationLabels })) return false;
+        const applied = measureStationOffsetStage('apply-station-layer-total', () => (
+            applyStationLayerGeoJSON(nextGeoJSON, stateKey, { phase, updateVisible, deferStationLabels })
+        ));
+        if (!applied) {
+            recordOutcome('apply-failed');
+            return false;
+        }
         currentStationOffsetGeoJSON = nextGeoJSON;
         currentStationOffsetGeoJSONKey = stateKey;
         if (updateVisible) currentStationOffsetVisualKey = stateKey;
         if (phase === 'final') currentStationOffsetFinalKey = stateKey;
+        stationOffsetPerformanceProbe?.recordOffsetApplied?.({
+            zoom: z,
+            phase,
+            reason,
+            updateVisible
+        });
         if (deferStationLabels && reason === 'zoomend') {
             scheduleStationLabelGeoJSONFlush();
         }
+        recordOutcome('completed');
         return true;
     };
+
+    const syncStationOffsetForZoom = (zoom, options = {}) => (
+        measureStationOffsetStage('sync-total', () => syncStationOffsetForZoomImpl(zoom, options))
+    );
 
     const syncStationOffsetForTripPreviewState = () => {
         return syncStationOffsetForZoom(getZoom?.(), { phase: 'final', reason: 'trip-preview' });
@@ -290,12 +377,16 @@ export const createLayerFeature = ({
 
     const bindStationOffsetRuntime = ({ initialMode = initialStationOffsetMode } = {}) => {
         if (typeof createStationOffsetRuntimeController !== 'function') return null;
+        stationOffsetPerformanceProbe?.setContext?.({ stationOffsetMode: String(initialMode || 'dynamic') });
         stationOffsetRuntimeController?.destroy?.();
         stationOffsetRuntimeController = createStationOffsetRuntimeController({
             getZoom,
             initialMode,
             onZoomActivity: clearStationLabelGeoJSONFlush,
             onDynamicZoomEnd: () => scheduleStationLabelGeoJSONFlush(),
+            requestFrame,
+            cancelFrame,
+            visualSyncStrategy: stationOffsetVisualSyncStrategy,
             syncStationOffsetForZoom
         });
         stationOffsetRuntimeController.syncAtCurrentZoom?.();
@@ -304,9 +395,13 @@ export const createLayerFeature = ({
 
     const setStationOffsetMode = (mode, options = {}) => {
         if (stationOffsetRuntimeController?.setMode) {
-            return stationOffsetRuntimeController.setMode(mode, options);
+            const nextMode = stationOffsetRuntimeController.setMode(mode, options);
+            stationOffsetPerformanceProbe?.setContext?.({ stationOffsetMode: nextMode });
+            return nextMode;
         }
-        return String(mode || '').trim().toLowerCase() === 'performance' ? 'performance' : 'dynamic';
+        const nextMode = String(mode || '').trim().toLowerCase() === 'performance' ? 'performance' : 'dynamic';
+        stationOffsetPerformanceProbe?.setContext?.({ stationOffsetMode: nextMode });
+        return nextMode;
     };
 
     const destroy = () => {

@@ -46,6 +46,30 @@ const createTimerStub = () => {
     };
 };
 
+const createFrameStub = () => {
+    let nextId = 1;
+    const tasks = new Map();
+    return {
+        cancelFrame(id) {
+            tasks.delete(id);
+        },
+        pendingCount() {
+            return tasks.size;
+        },
+        requestFrame(callback) {
+            const id = nextId;
+            nextId += 1;
+            tasks.set(id, callback);
+            return id;
+        },
+        runAll() {
+            const pending = Array.from(tasks.values());
+            tasks.clear();
+            for (const callback of pending) callback();
+        }
+    };
+};
+
 const recordSync = (calls) => (nextZoom, options = {}) => {
     calls.push({
         zoom: Number(nextZoom.toFixed(3)),
@@ -104,8 +128,7 @@ const recordSync = (calls) => (nextZoom, options = {}) => {
     assert.deepEqual(synced, [
         { zoom: 10, phase: 'final', reason: 'manual' },
         { zoom: 10.1, phase: 'visual', reason: 'zoom' },
-        { zoom: 10.19, phase: 'visual', reason: 'zoom' },
-        { zoom: 10.19, phase: 'final', reason: 'zoomend' }
+        { zoom: 10.19, phase: 'visual', reason: 'zoom' }
     ].map((x) => ({ ...x, updateVisible: undefined })));
 
     controller.destroy();
@@ -142,16 +165,128 @@ const recordSync = (calls) => (nextZoom, options = {}) => {
         { zoom: 10.015, phase: 'visual', reason: 'zoom-settling' },
         { zoom: 10.025, phase: 'visual', reason: 'zoom-settling' },
         { zoom: 10.035, phase: 'visual', reason: 'zoom-settling' },
-        { zoom: 10.045, phase: 'visual', reason: 'zoom-settling' }
+        { zoom: 10.045, phase: 'visual', reason: 'zoom-settling' },
+        { zoom: 10.045, phase: 'final', reason: 'zoom-settling' }
     ].map((x) => ({ ...x, updateVisible: undefined }));
     assert.deepEqual(synced, expectedSettlingSyncs);
     assert.deepEqual(timers.pendingDelays(), []);
 
     mapEngine.emit('zoomend');
+    assert.deepEqual(synced, expectedSettlingSyncs);
+}
+
+{
+    let zoom = 10;
+    let now = 0;
+    const synced = [];
+    const zoomEndNotifications = [];
+    const frames = createFrameStub();
+    const mapEngine = createMapEngineStub();
+    const controller = createStationOffsetRuntimeController({
+        activeFinalIntervalMs: 1000,
+        cancelFrame: frames.cancelFrame,
+        getZoom: () => zoom,
+        initialMode: 'dynamic',
+        mapEngine,
+        nowFn: () => now,
+        onDynamicZoomEnd: ({ zoom: finalZoom }) => zoomEndNotifications.push(finalZoom),
+        requestFrame: frames.requestFrame,
+        settlingFinalIntervalMs: 15,
+        syncStationOffsetForZoom: recordSync(synced),
+        visualSyncStrategy: 'raf-latest'
+    });
+
+    controller.syncAtCurrentZoom();
+    zoom = 10.1;
+    now = 5;
+    mapEngine.emit('zoom');
+    zoom = 10.2;
+    now = 6;
+    mapEngine.emit('zoom');
+    zoom = 10.3;
+    now = 7;
+    mapEngine.emit('zoom');
+
+    assert.equal(frames.pendingCount(), 1);
     assert.deepEqual(synced, [
-        ...expectedSettlingSyncs,
-        { zoom: 10.045, phase: 'final', reason: 'zoomend', updateVisible: undefined }
+        { zoom: 10, phase: 'final', reason: 'manual', updateVisible: undefined }
     ]);
+
+    frames.runAll();
+    assert.equal(frames.pendingCount(), 0);
+    assert.deepEqual(synced, [
+        { zoom: 10, phase: 'final', reason: 'manual', updateVisible: undefined },
+        { zoom: 10.3, phase: 'visual', reason: 'zoom', updateVisible: undefined }
+    ]);
+
+    zoom = 10.31;
+    now = 15;
+    mapEngine.emit('zoom');
+    zoom = 10.32;
+    now = 16;
+    mapEngine.emit('zoom');
+    assert.equal(frames.pendingCount(), 1);
+    frames.runAll();
+    assert.deepEqual(synced.slice(-2), [
+        { zoom: 10.32, phase: 'visual', reason: 'zoom-settling', updateVisible: undefined },
+        { zoom: 10.32, phase: 'final', reason: 'zoom-settling', updateVisible: undefined }
+    ]);
+
+    zoom = 10.5;
+    now = 20;
+    mapEngine.emit('zoom');
+    assert.equal(frames.pendingCount(), 1);
+    mapEngine.emit('zoomend');
+    assert.equal(frames.pendingCount(), 0);
+    assert.deepEqual(synced.slice(-2), [
+        { zoom: 10.5, phase: 'visual', reason: 'zoomend', updateVisible: undefined },
+        { zoom: 10.5, phase: 'final', reason: 'zoomend', updateVisible: undefined }
+    ]);
+    assert.deepEqual(zoomEndNotifications, [10.5]);
+    const syncCountAfterZoomEnd = synced.length;
+    frames.runAll();
+    assert.equal(synced.length, syncCountAfterZoomEnd);
+
+    zoom = 10.7;
+    mapEngine.emit('zoom');
+    assert.equal(frames.pendingCount(), 1);
+    controller.setMode('performance', { sync: false });
+    assert.equal(frames.pendingCount(), 0);
+    frames.runAll();
+    assert.equal(synced.length, syncCountAfterZoomEnd);
+
+    controller.setMode('dynamic', { sync: false });
+    zoom = 10.8;
+    mapEngine.emit('zoom');
+    assert.equal(frames.pendingCount(), 1);
+    controller.destroy();
+    assert.equal(frames.pendingCount(), 0);
+    frames.runAll();
+    assert.equal(synced.length, syncCountAfterZoomEnd);
+}
+
+{
+    let zoom = 9;
+    const synced = [];
+    const frames = createFrameStub();
+    const mapEngine = createMapEngineStub();
+    const controller = createStationOffsetRuntimeController({
+        cancelFrame: null,
+        getZoom: () => zoom,
+        initialMode: 'dynamic',
+        mapEngine,
+        requestFrame: frames.requestFrame,
+        syncStationOffsetForZoom: recordSync(synced),
+        visualSyncStrategy: 'raf-latest'
+    });
+
+    zoom = 9.2;
+    mapEngine.emit('zoom');
+    assert.equal(frames.pendingCount(), 0);
+    assert.deepEqual(synced, [
+        { zoom: 9.2, phase: 'visual', reason: 'zoom', updateVisible: undefined }
+    ]);
+    controller.destroy();
 }
 
 {

@@ -64,6 +64,9 @@ Refactor-Panel.md
 AGENTS.md
 line-icon-preview.html
 src/debug/
+!src/debug/
+src/debug/*
+!src/debug/stationOffsetPerformanceProbe.js
 
 # Local/generated basemap packages and source extracts
 tiles/*
