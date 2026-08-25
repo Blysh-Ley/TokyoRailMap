@@ -23,7 +23,7 @@
 		"d": "05:35"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "05:36",
+		"a": "05:37",
 		"d": "05:37"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
@@ -281,12 +281,12 @@
 		"d": "06:01"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "06:02",
+		"a": "06:03",
 		"d": "06:03"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
 		"a": "06:04",
-		"d": "06:04"
+		"d": "06:05"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
 		"a": "06:06",
@@ -297,7 +297,7 @@
 		"d": "06:08"
 	}, {
 		"s": "Keio.Keio.HachimanYama",
-		"a": "06:09",
+		"a": "06:10",
 		"d": "06:10"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
@@ -305,15 +305,15 @@
 		"d": "06:11"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
-		"a": "06:12",
+		"a": "06:13",
 		"d": "06:13"
 	}, {
 		"s": "Keio.Keio.Sengawa",
-		"a": "06:14",
+		"a": "06:15",
 		"d": "06:15"
 	}, {
 		"s": "Keio.Keio.Tsutsujigaoka",
-		"a": "06:16",
+		"a": "06:17",
 		"d": "06:19"
 	}, {
 		"s": "Keio.Keio.Shibasaki",
@@ -802,7 +802,7 @@
 		"d": "06:49"
 	}, {
 		"s": "Keio.Keio.Kokuryo",
-		"a": "06:50",
+		"a": "06:51",
 		"d": "06:51"
 	}, {
 		"s": "Keio.Keio.Fuda",
@@ -2446,18 +2446,18 @@
 	}, {
 		"s": "Keio.Keio.Fuchu",
 		"a": "08:10",
-		"d": "08:15"
+		"d": "08:16"
 	}, {
 		"s": "Keio.Keio.Bubaigawara",
 		"a": "08:17",
-		"d": "08:17"
+		"d": "08:18"
 	}, {
 		"s": "Keio.Keio.Nakagawara",
 		"a": "08:19",
-		"d": "08:19"
+		"d": "08:20"
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
-		"a": "08:21",
+		"a": "08:22",
 		"d": "08:22"
 	}, {
 		"s": "Keio.Keio.Mogusaen",
@@ -2470,7 +2470,7 @@
 	}, {
 		"s": "Keio.Keio.Minamidaira",
 		"a": "08:29",
-		"d": "08:29"
+		"d": "08:30"
 	}, {
 		"s": "Keio.Keio.HirayamajoshiKoen",
 		"a": "08:31",
@@ -4101,7 +4101,7 @@
 	}, {
 		"s": "Keio.Keio.Takahatafudo",
 		"a": "09:36",
-		"d": "09:37"
+		"d": "09:36"
 	}, {
 		"s": "Keio.Keio.Minamidaira",
 		"a": "09:39",
@@ -4577,15 +4577,15 @@
 		"d": "09:51"
 	}, {
 		"s": "Keio.Keio.Minamidaira",
-		"a": "09:53",
+		"a": "09:54",
 		"d": "09:54"
 	}, {
 		"s": "Keio.Keio.HirayamajoshiKoen",
-		"a": "09:55",
+		"a": "09:56",
 		"d": "09:56"
 	}, {
 		"s": "Keio.Keio.Naganuma",
-		"a": "09:57",
+		"a": "09:58",
 		"d": "09:58"
 	}, {
 		"s": "Keio.Keio.Kitano",
@@ -4681,7 +4681,7 @@
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
 		"a": "09:17",
-		"d": "09:18"
+		"d": "09:17"
 	}, {
 		"s": "Keio.Keio.Takahatafudo",
 		"a": "09:21",
@@ -5876,7 +5876,7 @@
 	}, {
 		"s": "Keio.Keio.Daitabashi",
 		"a": "09:32",
-		"d": "09:33"
+		"d": "09:32"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "09:34",
@@ -6247,7 +6247,7 @@
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
 		"a": "10:10",
-		"d": "10:11"
+		"d": "10:10"
 	}, {
 		"s": "Keio.Keio.Takahatafudo",
 		"a": "10:14",
@@ -7292,7 +7292,7 @@
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
 		"a": "11:21",
-		"d": "11:22"
+		"d": "11:21"
 	}, {
 		"s": "Keio.Keio.Mogusaen",
 		"a": "11:23",
@@ -7589,12 +7589,12 @@
 		"d": "10:45"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "10:46",
+		"a": "10:47",
 		"d": "10:47"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "10:51",
-		"d": "10:51"
+		"d": "10:52"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "10:57",
@@ -7787,12 +7787,12 @@
 		"d": "10:51"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "10:52",
+		"a": "10:53",
 		"d": "10:53"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "10:57",
-		"d": "10:57"
+		"d": "10:58"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "11:03"
@@ -8247,12 +8247,12 @@
 		"d": "11:15"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "11:16",
+		"a": "11:17",
 		"d": "11:17"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "11:21",
-		"d": "11:21"
+		"d": "11:22"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "11:27",
@@ -8864,12 +8864,12 @@
 		"d": "11:45"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "11:46",
+		"a": "11:47",
 		"d": "11:47"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "11:51",
-		"d": "11:51"
+		"d": "11:52"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "11:56",
@@ -8924,7 +8924,7 @@
 	}, {
 		"s": "Keio.Keio.Daitabashi",
 		"a": "11:48",
-		"d": "11:48"
+		"d": "11:49"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "11:50",
@@ -9062,12 +9062,12 @@
 		"d": "11:51"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "11:52",
+		"a": "11:53",
 		"d": "11:53"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "11:57",
-		"d": "11:57"
+		"d": "11:58"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "12:03"
@@ -9522,12 +9522,12 @@
 		"d": "12:15"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "12:16",
+		"a": "12:17",
 		"d": "12:17"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "12:21",
-		"d": "12:21"
+		"d": "12:22"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "12:27",
@@ -10139,12 +10139,12 @@
 		"d": "12:45"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "12:46",
+		"a": "12:47",
 		"d": "12:47"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "12:51",
-		"d": "12:51"
+		"d": "12:52"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "12:56",
@@ -10199,7 +10199,7 @@
 	}, {
 		"s": "Keio.Keio.Daitabashi",
 		"a": "12:48",
-		"d": "12:48"
+		"d": "12:49"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "12:50",
@@ -10337,12 +10337,12 @@
 		"d": "12:51"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "12:52",
+		"a": "12:53",
 		"d": "12:53"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "12:57",
-		"d": "12:57"
+		"d": "12:58"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "13:03"
@@ -10797,12 +10797,12 @@
 		"d": "13:15"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "13:16",
+		"a": "13:17",
 		"d": "13:17"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "13:21",
-		"d": "13:21"
+		"d": "13:22"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "13:27",
@@ -11414,12 +11414,12 @@
 		"d": "13:45"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "13:46",
+		"a": "13:47",
 		"d": "13:47"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "13:51",
-		"d": "13:51"
+		"d": "13:52"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "13:56",
@@ -11474,7 +11474,7 @@
 	}, {
 		"s": "Keio.Keio.Daitabashi",
 		"a": "13:48",
-		"d": "13:48"
+		"d": "13:49"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "13:50",
@@ -11612,12 +11612,12 @@
 		"d": "13:51"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "13:52",
+		"a": "13:53",
 		"d": "13:53"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "13:57",
-		"d": "13:57"
+		"d": "13:58"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "14:03"
@@ -12052,12 +12052,12 @@
 		"d": "14:15"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "14:16",
+		"a": "14:17",
 		"d": "14:17"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "14:21",
-		"d": "14:21"
+		"d": "14:22"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "14:27",
@@ -12669,12 +12669,12 @@
 		"d": "14:45"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "14:46",
+		"a": "14:47",
 		"d": "14:47"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "14:51",
-		"d": "14:51"
+		"d": "14:52"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "14:56",
@@ -12729,7 +12729,7 @@
 	}, {
 		"s": "Keio.Keio.Daitabashi",
 		"a": "14:48",
-		"d": "14:48"
+		"d": "14:49"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "14:50",
@@ -12867,12 +12867,12 @@
 		"d": "14:51"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "14:52",
+		"a": "14:53",
 		"d": "14:53"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "14:57",
-		"d": "14:57"
+		"d": "14:58"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "15:03"
@@ -13327,12 +13327,12 @@
 		"d": "15:15"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "15:16",
+		"a": "15:17",
 		"d": "15:17"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "15:21",
-		"d": "15:21"
+		"d": "15:22"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "15:27",
@@ -13687,10 +13687,10 @@
 	}, {
 		"s": "Keio.Keio.Kitano",
 		"a": "16:36",
-		"d": "16:37"
+		"d": "16:36"
 	}, {
 		"s": "Keio.Keio.KeioHachioji",
-		"a": "16:40"
+		"a": "16:39"
 	}]
 }, {
 	"id": "Keio.Keio.741.Weekday",
@@ -13944,12 +13944,12 @@
 		"d": "15:45"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "15:46",
+		"a": "15:47",
 		"d": "15:47"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "15:51",
-		"d": "15:51"
+		"d": "15:52"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "15:56",
@@ -14001,7 +14001,7 @@
 	}, {
 		"s": "Keio.Keio.Daitabashi",
 		"a": "15:48",
-		"d": "15:48"
+		"d": "15:49"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "15:50",
@@ -14351,12 +14351,12 @@
 		"d": "16:05"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "16:06",
+		"a": "16:07",
 		"d": "16:07"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "16:11",
-		"d": "16:11"
+		"d": "16:12"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "16:16",
@@ -27445,7 +27445,7 @@
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
 		"a": "16:10",
-		"d": "16:10"
+		"d": "16:11"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
 		"a": "16:12",
@@ -29401,7 +29401,7 @@
 		"d": "06:10"
 	}, {
 		"s": "Keio.Keio.Shibasaki",
-		"a": "06:11",
+		"a": "06:12",
 		"d": "06:12"
 	}, {
 		"s": "Keio.Keio.Kokuryo",
@@ -30820,7 +30820,7 @@
 		"d": "05:21"
 	}, {
 		"s": "Keio.Keio.Naganuma",
-		"a": "05:22",
+		"a": "05:23",
 		"d": "05:23"
 	}, {
 		"s": "Keio.Keio.HirayamajoshiKoen",
@@ -31302,10 +31302,10 @@
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "06:58",
-		"d": "06:59"
+		"d": "06:58"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "07:01",
+		"a": "07:00",
 		"d": "07:02"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -32639,7 +32639,7 @@
 	}, {
 		"s": "Keio.Keio.Sasazuka",
 		"a": "09:35",
-		"d": "09:36"
+		"d": "09:35"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
 		"a": "09:41"
@@ -33692,10 +33692,10 @@
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "10:45",
-		"d": "10:46"
+		"d": "10:45"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "10:48",
+		"a": "10:47",
 		"d": "10:48"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -40168,7 +40168,7 @@
 	}, {
 		"s": "Keio.Keio.KamiKitazawa",
 		"a": "00:35",
-		"d": "00:35"
+		"d": "00:36"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
 		"a": "00:37"
@@ -40231,7 +40231,7 @@
 		"d": "00:11"
 	}, {
 		"s": "Keio.Keio.Naganuma",
-		"a": "00:12",
+		"a": "00:13",
 		"d": "00:13"
 	}, {
 		"s": "Keio.Keio.HirayamajoshiKoen",
@@ -46849,7 +46849,7 @@
 		"d": "18:53"
 	}, {
 		"s": "Keio.Keio.Daitabashi",
-		"a": "18:55",
+		"a": "18:54",
 		"d": "18:55"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
@@ -47548,7 +47548,7 @@
 		"d": "19:45"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "19:47",
+		"a": "19:46",
 		"d": "19:47"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -50026,7 +50026,7 @@
 		"d": "22:58"
 	}, {
 		"s": "Keio.Keio.Daitabashi",
-		"a": "23:00",
+		"a": "22:59",
 		"d": "23:00"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
@@ -50133,7 +50133,7 @@
 		"d": "00:15"
 	}, {
 		"s": "Keio.Keio.Sengawa",
-		"a": "00:17",
+		"a": "00:16",
 		"d": "00:17"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
@@ -50311,7 +50311,7 @@
 		"d": "05:12"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
-		"a": "05:13",
+		"a": "05:14",
 		"d": "05:14"
 	}, {
 		"s": "Keio.Keio.HachimanYama",
@@ -50339,7 +50339,7 @@
 		"d": "05:24"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "05:25",
+		"a": "05:26",
 		"d": "05:28"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -50491,7 +50491,7 @@
 	}, {
 		"s": "Keio.Keio.KamiKitazawa",
 		"a": "06:02",
-		"d": "06:02"
+		"d": "06:03"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
 		"a": "06:04",
@@ -50983,7 +50983,7 @@
 		"d": "09:03"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "09:06",
+		"a": "09:05",
 		"d": "09:07"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -51215,7 +51215,7 @@
 		"d": "17:18"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "17:20",
+		"a": "17:19",
 		"d": "17:20"
 	}, {
 		"s": "Keio.Keio.Daitabashi",
@@ -51223,7 +51223,7 @@
 		"d": "17:21"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "17:23",
+		"a": "17:22",
 		"d": "17:26"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -52186,19 +52186,19 @@
 		"d": "23:44"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
-		"a": "23:46",
+		"a": "23:45",
 		"d": "23:46"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "23:47",
-		"d": "23:48"
+		"d": "23:47"
 	}, {
 		"s": "Keio.Keio.Daitabashi",
 		"a": "23:49",
 		"d": "23:49"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "23:51",
+		"a": "23:50",
 		"d": "23:51"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -52353,7 +52353,7 @@
 		"d": "23:50"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
-		"a": "23:51",
+		"a": "23:52",
 		"d": "23:52"
 	}, {
 		"s": "Keio.Keio.HachimanYama",
@@ -52365,7 +52365,7 @@
 		"d": "23:55"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
-		"a": "23:56",
+		"a": "23:57",
 		"d": "23:57"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
@@ -52539,7 +52539,7 @@
 		"d": "00:08"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
-		"a": "00:09",
+		"a": "00:10",
 		"d": "00:10"
 	}, {
 		"s": "Keio.Keio.HachimanYama",
@@ -52556,7 +52556,7 @@
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
 		"a": "00:17",
-		"d": "00:17"
+		"d": "00:18"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "00:19",
@@ -53395,7 +53395,7 @@
 		"d": "07:14"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "07:16",
+		"a": "07:15",
 		"d": "07:17"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -53584,27 +53584,27 @@
 	],
 	"tt": [{
 		"s": "Keio.Keio.Chofu",
-		"d": "07:13"
+		"d": "07:12"
 	}, {
 		"s": "Keio.Keio.Tsutsujigaoka",
-		"a": "07:18",
+		"a": "07:17",
 		"d": "07:19"
 	}, {
 		"s": "Keio.Keio.Sengawa",
 		"a": "07:21",
-		"d": "07:22"
+		"d": "07:21"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
-		"a": "07:24",
-		"d": "07:25"
+		"a": "07:23",
+		"d": "07:24"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
 		"a": "07:28",
 		"d": "07:29"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "07:32",
-		"d": "07:33"
+		"a": "07:31",
+		"d": "07:32"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
 		"a": "07:35"
@@ -54777,11 +54777,11 @@
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "09:34",
-		"d": "09:35"
+		"d": "09:34"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "09:37",
-		"d": "09:38"
+		"a": "09:36",
+		"d": "09:37"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
 		"a": "09:43"
@@ -55174,7 +55174,7 @@
 		"d": "10:27"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "10:30",
+		"a": "10:29",
 		"d": "10:30"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -55579,7 +55579,7 @@
 		"d": "11:27"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "11:30",
+		"a": "11:29",
 		"d": "11:30"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -55984,7 +55984,7 @@
 		"d": "12:27"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "12:30",
+		"a": "12:29",
 		"d": "12:30"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -56389,7 +56389,7 @@
 		"d": "13:27"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "13:30",
+		"a": "13:29",
 		"d": "13:30"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -56794,7 +56794,7 @@
 		"d": "14:27"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "14:30",
+		"a": "14:29",
 		"d": "14:30"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -57869,7 +57869,7 @@
 		"d": "16:56"
 	}, {
 		"s": "Keio.Keio.Tsutsujigaoka",
-		"a": "17:00",
+		"a": "16:59",
 		"d": "17:00"
 	}, {
 		"s": "Keio.Keio.Sengawa",
@@ -60125,7 +60125,7 @@
 		"d": "23:00"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "23:03"
+		"a": "23:02"
 	}]
 }, {
 	"id": "Keio.Keio.2854.Weekday",
@@ -60405,7 +60405,7 @@
 		"d": "04:55"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
-		"a": "04:56",
+		"a": "04:57",
 		"d": "04:57"
 	}, {
 		"s": "Keio.Keio.HachimanYama",
@@ -60417,7 +60417,7 @@
 		"d": "05:00"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
-		"a": "05:01",
+		"a": "05:02",
 		"d": "05:02"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
@@ -61066,7 +61066,7 @@
 		"d": "05:35"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "05:36",
+		"a": "05:37",
 		"d": "05:37"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
@@ -61337,7 +61337,7 @@
 		"d": "06:01"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "06:02",
+		"a": "06:03",
 		"d": "06:03"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
@@ -61349,12 +61349,12 @@
 		"d": "06:06"
 	}, {
 		"s": "Keio.Keio.KamiKitazawa",
-		"a": "06:07",
+		"a": "06:08",
 		"d": "06:08"
 	}, {
 		"s": "Keio.Keio.HachimanYama",
 		"a": "06:09",
-		"d": "06:09"
+		"d": "06:10"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
 		"a": "06:11",
@@ -61362,11 +61362,11 @@
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "06:12",
-		"d": "06:12"
+		"d": "06:13"
 	}, {
 		"s": "Keio.Keio.Sengawa",
 		"a": "06:14",
-		"d": "06:14"
+		"d": "06:15"
 	}, {
 		"s": "Keio.Keio.Tsutsujigaoka",
 		"a": "06:16",
@@ -61378,10 +61378,10 @@
 	}, {
 		"s": "Keio.Keio.Kokuryo",
 		"a": "06:19",
-		"d": "06:19"
+		"d": "06:20"
 	}, {
 		"s": "Keio.Keio.Fuda",
-		"a": "06:20",
+		"a": "06:21",
 		"d": "06:21"
 	}, {
 		"s": "Keio.Keio.Chofu",
@@ -61682,7 +61682,7 @@
 		"d": "06:32"
 	}, {
 		"s": "Keio.Keio.HachimanYama",
-		"a": "06:33",
+		"a": "06:34",
 		"d": "06:34"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
@@ -61698,7 +61698,7 @@
 		"d": "06:39"
 	}, {
 		"s": "Keio.Keio.Tsutsujigaoka",
-		"a": "06:40",
+		"a": "06:41",
 		"d": "06:45"
 	}, {
 		"s": "Keio.Keio.Shibasaki",
@@ -61865,7 +61865,7 @@
 	}, {
 		"s": "Keio.Keio.HachimanYama",
 		"a": "06:47",
-		"d": "06:48"
+		"d": "06:47"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
 		"a": "06:49",
@@ -63163,7 +63163,7 @@
 	}, {
 		"s": "Keio.Keio.HachimanYama",
 		"a": "07:53",
-		"d": "07:54"
+		"d": "07:53"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
 		"a": "07:55",
@@ -63171,11 +63171,11 @@
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "07:56",
-		"d": "07:57"
+		"d": "07:56"
 	}, {
 		"s": "Keio.Keio.Sengawa",
 		"a": "07:58",
-		"d": "07:59"
+		"d": "07:58"
 	}, {
 		"s": "Keio.Keio.Tsutsujigaoka",
 		"a": "08:01",
@@ -63465,7 +63465,7 @@
 	}, {
 		"s": "Keio.Keio.Fuchu",
 		"a": "08:35",
-		"d": "08:37"
+		"d": "08:38"
 	}, {
 		"s": "Keio.Keio.Bubaigawara",
 		"a": "08:39",
@@ -63477,27 +63477,27 @@
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
 		"a": "08:43",
-		"d": "08:43"
+		"d": "08:44"
 	}, {
 		"s": "Keio.Keio.Mogusaen",
-		"a": "08:45",
+		"a": "08:46",
 		"d": "08:46"
 	}, {
 		"s": "Keio.Keio.Takahatafudo",
-		"a": "08:48",
+		"a": "08:49",
 		"d": "08:49"
 	}, {
 		"s": "Keio.Keio.Minamidaira",
-		"a": "08:51",
-		"d": "08:51"
+		"a": "08:52",
+		"d": "08:52"
 	}, {
 		"s": "Keio.Keio.HirayamajoshiKoen",
 		"a": "08:53",
-		"d": "08:53"
+		"d": "08:54"
 	}, {
 		"s": "Keio.Keio.Naganuma",
 		"a": "08:55",
-		"d": "08:55"
+		"d": "08:56"
 	}, {
 		"s": "Keio.Keio.Kitano",
 		"a": "08:57"
@@ -63533,7 +63533,7 @@
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "08:07",
-		"d": "08:10"
+		"d": "08:09"
 	}, {
 		"s": "Keio.Keio.Fuchu",
 		"a": "08:15",
@@ -64121,28 +64121,28 @@
 		"d": "08:47"
 	}, {
 		"s": "Keio.Keio.Kokuryo",
-		"a": "08:49",
+		"a": "08:48",
 		"d": "08:49"
 	}, {
 		"s": "Keio.Keio.Fuda",
 		"a": "08:50",
-		"d": "08:51"
+		"d": "08:50"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "08:52",
-		"d": "08:53"
+		"d": "08:52"
 	}, {
 		"s": "Keio.Keio.NishiChofu",
 		"a": "08:54",
-		"d": "08:55"
+		"d": "08:54"
 	}, {
 		"s": "Keio.Keio.Tobitakyu",
-		"a": "08:56",
-		"d": "08:56"
+		"a": "08:55",
+		"d": "08:55"
 	}, {
 		"s": "Keio.Keio.Musashinodai",
-		"a": "08:58",
-		"d": "08:58"
+		"a": "08:57",
+		"d": "08:57"
 	}, {
 		"s": "Keio.Keio.TamaReien",
 		"a": "08:59",
@@ -64150,7 +64150,7 @@
 	}, {
 		"s": "Keio.Keio.HigashiFuchu",
 		"a": "09:00",
-		"d": "09:01"
+		"d": "09:00"
 	}, {
 		"s": "Keio.Keio.Fuchu",
 		"a": "09:03",
@@ -64349,7 +64349,7 @@
 	}, {
 		"s": "Keio.Keio.Fuchu",
 		"a": "09:13",
-		"d": "09:19"
+		"d": "09:20"
 	}, {
 		"s": "Keio.Keio.Bubaigawara",
 		"a": "09:21",
@@ -64361,30 +64361,30 @@
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
 		"a": "09:25",
-		"d": "09:25"
+		"d": "09:26"
 	}, {
 		"s": "Keio.Keio.Mogusaen",
-		"a": "09:27",
-		"d": "09:27"
+		"a": "09:28",
+		"d": "09:28"
 	}, {
 		"s": "Keio.Keio.Takahatafudo",
-		"a": "09:30",
+		"a": "09:31",
 		"d": "09:31"
 	}, {
 		"s": "Keio.Keio.Minamidaira",
-		"a": "09:33",
-		"d": "09:33"
+		"a": "09:34",
+		"d": "09:34"
 	}, {
 		"s": "Keio.Keio.HirayamajoshiKoen",
 		"a": "09:35",
-		"d": "09:35"
+		"d": "09:36"
 	}, {
 		"s": "Keio.Keio.Naganuma",
 		"a": "09:37",
-		"d": "09:37"
+		"d": "09:38"
 	}, {
 		"s": "Keio.Keio.Kitano",
-		"a": "09:39"
+		"a": "09:40"
 	}]
 }, {
 	"id": "Keio.Keio.1701.SaturdayHoliday",
@@ -64603,7 +64603,7 @@
 	}, {
 		"s": "Keio.Keio.Mogusaen",
 		"a": "09:36",
-		"d": "09:36"
+		"d": "09:37"
 	}, {
 		"s": "Keio.Keio.Takahatafudo",
 		"a": "09:39",
@@ -64829,38 +64829,38 @@
 	}, {
 		"s": "Keio.Keio.Fuchu",
 		"a": "09:35",
-		"d": "09:39"
+		"d": "09:40"
 	}, {
 		"s": "Keio.Keio.Bubaigawara",
 		"a": "09:41",
-		"d": "09:41"
+		"d": "09:42"
 	}, {
 		"s": "Keio.Keio.Nakagawara",
 		"a": "09:43",
-		"d": "09:43"
+		"d": "09:44"
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
-		"a": "09:45",
-		"d": "09:45"
+		"a": "09:46",
+		"d": "09:46"
 	}, {
 		"s": "Keio.Keio.Mogusaen",
-		"a": "09:47",
+		"a": "09:48",
 		"d": "09:48"
 	}, {
 		"s": "Keio.Keio.Takahatafudo",
-		"a": "09:50",
+		"a": "09:51",
 		"d": "09:51"
 	}, {
 		"s": "Keio.Keio.Minamidaira",
-		"a": "09:53",
+		"a": "09:54",
 		"d": "09:54"
 	}, {
 		"s": "Keio.Keio.HirayamajoshiKoen",
-		"a": "09:55",
-		"d": "09:55"
+		"a": "09:56",
+		"d": "09:56"
 	}, {
 		"s": "Keio.Keio.Naganuma",
-		"a": "09:57",
+		"a": "09:58",
 		"d": "09:58"
 	}, {
 		"s": "Keio.Keio.Kitano",
@@ -68786,11 +68786,11 @@
 		"d": "12:00"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "12:01",
+		"a": "12:02",
 		"d": "12:02"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
-		"a": "12:03",
+		"a": "12:04",
 		"d": "12:04"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
@@ -69835,7 +69835,7 @@
 		"d": "12:49"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "12:50",
+		"a": "12:51",
 		"d": "12:51"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
@@ -70201,11 +70201,11 @@
 		"d": "13:07"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
-		"a": "13:11",
+		"a": "13:12",
 		"d": "13:12"
 	}, {
 		"s": "Keio.Keio.Chofu",
-		"a": "13:16",
+		"a": "13:17",
 		"d": "13:17"
 	}, {
 		"s": "Keio.Keio.Fuchu",
@@ -71110,7 +71110,7 @@
 		"d": "13:49"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "13:50",
+		"a": "13:51",
 		"d": "13:51"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
@@ -71340,7 +71340,7 @@
 		"d": "14:02"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
-		"a": "14:03",
+		"a": "14:04",
 		"d": "14:04"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
@@ -71901,7 +71901,7 @@
 		"d": "14:27"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
-		"a": "14:31",
+		"a": "14:32",
 		"d": "14:32"
 	}, {
 		"s": "Keio.Keio.Chofu",
@@ -73391,10 +73391,10 @@
 	],
 	"tt": [{
 		"s": "Keio.Keio.Shinjuku",
-		"d": "15:27"
+		"d": "15:28"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "15:31",
+		"a": "15:32",
 		"d": "15:32"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
@@ -73406,7 +73406,7 @@
 		"d": "15:39"
 	}, {
 		"s": "Keio.Keio.Chofu",
-		"a": "15:44"
+		"a": "15:45"
 	}]
 }, {
 	"id": "Keio.Keio.71.SaturdayHoliday",
@@ -73426,7 +73426,7 @@
 		"d": "15:29"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "15:33",
+		"a": "15:34",
 		"d": "15:34"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
@@ -74923,20 +74923,20 @@
 		"d": "17:26"
 	}, {
 		"s": "Keio.Keio.Bubaigawara",
-		"a": "17:27",
+		"a": "17:28",
 		"d": "17:28"
 	}, {
 		"s": "Keio.Keio.Nakagawara",
-		"a": "17:29",
+		"a": "17:30",
 		"d": "17:30"
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
-		"a": "17:31",
+		"a": "17:32",
 		"d": "17:32"
 	}, {
 		"s": "Keio.Keio.Mogusaen",
 		"a": "17:34",
-		"d": "17:34"
+		"d": "17:35"
 	}, {
 		"s": "Keio.Keio.Takahatafudo",
 		"a": "17:36",
@@ -74944,7 +74944,7 @@
 	}, {
 		"s": "Keio.Keio.Minamidaira",
 		"a": "17:39",
-		"d": "17:39"
+		"d": "17:40"
 	}, {
 		"s": "Keio.Keio.HirayamajoshiKoen",
 		"a": "17:41",
@@ -74956,10 +74956,10 @@
 	}, {
 		"s": "Keio.Keio.Kitano",
 		"a": "17:45",
-		"d": "17:49"
+		"d": "17:50"
 	}, {
 		"s": "Keio.Keio.KeioHachioji",
-		"a": "17:52"
+		"a": "17:53"
 	}]
 }, {
 	"id": "Keio.Keio.81.SaturdayHoliday",
@@ -75416,7 +75416,7 @@
 		"d": "17:08"
 	}, {
 		"s": "Keio.Keio.Chofu",
-		"a": "17:12",
+		"a": "17:13",
 		"d": "17:16"
 	}, {
 		"s": "Keio.Keio.Fuchu",
@@ -76572,7 +76572,7 @@
 		"d": "17:52"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "17:53",
+		"a": "17:54",
 		"d": "17:54"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
@@ -76890,7 +76890,7 @@
 		"d": "18:13"
 	}, {
 		"s": "Keio.Keio.KamiKitazawa",
-		"a": "18:15",
+		"a": "18:14",
 		"d": "18:15"
 	}, {
 		"s": "Keio.Keio.HachimanYama",
@@ -76954,39 +76954,39 @@
 		"d": "18:55"
 	}, {
 		"s": "Keio.Keio.Bubaigawara",
-		"a": "18:56",
+		"a": "18:57",
 		"d": "18:57"
 	}, {
 		"s": "Keio.Keio.Nakagawara",
-		"a": "18:58",
+		"a": "18:59",
 		"d": "18:59"
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
-		"a": "19:00",
+		"a": "19:01",
 		"d": "19:01"
 	}, {
 		"s": "Keio.Keio.Mogusaen",
 		"a": "19:03",
-		"d": "19:03"
+		"d": "19:04"
 	}, {
 		"s": "Keio.Keio.Takahatafudo",
-		"a": "19:05",
+		"a": "19:06",
 		"d": "19:06"
 	}, {
 		"s": "Keio.Keio.Minamidaira",
 		"a": "19:08",
-		"d": "19:08"
+		"d": "19:09"
 	}, {
 		"s": "Keio.Keio.HirayamajoshiKoen",
 		"a": "19:10",
-		"d": "19:10"
+		"d": "19:11"
 	}, {
 		"s": "Keio.Keio.Naganuma",
 		"a": "19:12",
-		"d": "19:12"
+		"d": "19:13"
 	}, {
 		"s": "Keio.Keio.Kitano",
-		"a": "19:14"
+		"a": "19:15"
 	}]
 }, {
 	"id": "Keio.Keio.745.SaturdayHoliday",
@@ -77469,7 +77469,7 @@
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "18:31",
-		"d": "18:31"
+		"d": "18:32"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "18:38",
@@ -77632,22 +77632,22 @@
 	}, {
 		"s": "Keio.Keio.Fuchu",
 		"a": "19:20",
-		"d": "19:24"
+		"d": "19:25"
 	}, {
 		"s": "Keio.Keio.Bubaigawara",
 		"a": "19:26",
-		"d": "19:26"
+		"d": "19:27"
 	}, {
 		"s": "Keio.Keio.Nakagawara",
 		"a": "19:28",
-		"d": "19:28"
+		"d": "19:29"
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
-		"a": "19:30",
+		"a": "19:31",
 		"d": "19:31"
 	}, {
 		"s": "Keio.Keio.Mogusaen",
-		"a": "19:32",
+		"a": "19:33",
 		"d": "19:33"
 	}, {
 		"s": "Keio.Keio.Takahatafudo",
@@ -77873,7 +77873,7 @@
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
 		"a": "19:40",
-		"d": "19:40"
+		"d": "19:41"
 	}, {
 		"s": "Keio.Keio.Mogusaen",
 		"a": "19:42",
@@ -78284,7 +78284,7 @@
 		"d": "19:19"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
-		"a": "19:20",
+		"a": "19:21",
 		"d": "19:21"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
@@ -78490,7 +78490,7 @@
 		"d": "19:17"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "19:18",
+		"a": "19:19",
 		"d": "19:19"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
@@ -78855,7 +78855,7 @@
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "19:31",
-		"d": "19:31"
+		"d": "19:32"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "19:38",
@@ -78948,7 +78948,7 @@
 		"d": "19:37"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "19:38",
+		"a": "19:39",
 		"d": "19:39"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
@@ -78969,7 +78969,7 @@
 	}, {
 		"s": "Keio.Keio.RokaKoen",
 		"a": "19:50",
-		"d": "19:51"
+		"d": "19:50"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "19:52",
@@ -79021,18 +79021,18 @@
 	}, {
 		"s": "Keio.Keio.Fuchu",
 		"a": "20:20",
-		"d": "20:24"
+		"d": "20:25"
 	}, {
 		"s": "Keio.Keio.Bubaigawara",
 		"a": "20:26",
-		"d": "20:26"
+		"d": "20:27"
 	}, {
 		"s": "Keio.Keio.Nakagawara",
 		"a": "20:28",
-		"d": "20:28"
+		"d": "20:29"
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
-		"a": "20:30",
+		"a": "20:31",
 		"d": "20:31"
 	}, {
 		"s": "Keio.Keio.Mogusaen",
@@ -79308,7 +79308,7 @@
 		"d": "19:49"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "19:50",
+		"a": "19:51",
 		"d": "19:51"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
@@ -79348,10 +79348,10 @@
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "19:59",
-		"d": "19:59"
+		"d": "20:00"
 	}, {
 		"s": "Keio.Keio.Chofu",
-		"a": "20:04",
+		"a": "20:05",
 		"d": "20:06"
 	}, {
 		"s": "Keio.Keio.Fuchu",
@@ -79563,7 +79563,7 @@
 	}, {
 		"s": "Keio.Keio.Kitano",
 		"a": "20:38",
-		"d": "20:39"
+		"d": "20:40"
 	}, {
 		"s": "Keio.Keio.KeioHachioji",
 		"a": "20:42"
@@ -79665,7 +79665,7 @@
 	}, {
 		"s": "Keio.Keio.HachimanYama",
 		"a": "20:16",
-		"d": "20:20"
+		"d": "20:19"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
 		"a": "20:21",
@@ -79673,14 +79673,14 @@
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "20:22",
-		"d": "20:23"
+		"d": "20:22"
 	}, {
 		"s": "Keio.Keio.Sengawa",
 		"a": "20:24",
-		"d": "20:25"
+		"d": "20:24"
 	}, {
 		"s": "Keio.Keio.Tsutsujigaoka",
-		"a": "20:27",
+		"a": "20:26",
 		"d": "20:32"
 	}, {
 		"s": "Keio.Keio.Shibasaki",
@@ -80379,18 +80379,18 @@
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "21:09",
-		"d": "21:10"
+		"d": "21:09"
 	}, {
 		"s": "Keio.Keio.NishiChofu",
 		"a": "21:11",
-		"d": "21:12"
+		"d": "21:11"
 	}, {
 		"s": "Keio.Keio.Tobitakyu",
 		"a": "21:13",
 		"d": "21:13"
 	}, {
 		"s": "Keio.Keio.Musashinodai",
-		"a": "21:15",
+		"a": "21:14",
 		"d": "21:15"
 	}, {
 		"s": "Keio.Keio.TamaReien",
@@ -80398,7 +80398,7 @@
 		"d": "21:16"
 	}, {
 		"s": "Keio.Keio.HigashiFuchu",
-		"a": "21:18",
+		"a": "21:17",
 		"d": "21:18"
 	}, {
 		"s": "Keio.Keio.Fuchu",
@@ -80414,7 +80414,7 @@
 		"d": "21:30"
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
-		"a": "21:31",
+		"a": "21:32",
 		"d": "21:32"
 	}, {
 		"s": "Keio.Keio.Mogusaen",
@@ -80458,11 +80458,11 @@
 		"d": "20:54"
 	}, {
 		"s": "Keio.Keio.Fuchu",
-		"a": "21:02",
+		"a": "21:03",
 		"d": "21:03"
 	}, {
 		"s": "Keio.Keio.Bubaigawara",
-		"a": "21:04",
+		"a": "21:05",
 		"d": "21:05"
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
@@ -80660,7 +80660,7 @@
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "20:58",
-		"d": "20:58"
+		"d": "20:59"
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "21:03"
@@ -81488,14 +81488,14 @@
 	],
 	"tt": [{
 		"s": "Keio.Keio.Shinjuku",
-		"d": "21:22"
+		"d": "21:23"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "21:27",
+		"a": "21:28",
 		"d": "21:28"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "21:30",
+		"a": "21:31",
 		"d": "21:31"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
@@ -82681,7 +82681,7 @@
 	}, {
 		"s": "Keio.Keio.HachimanYama",
 		"a": "22:56",
-		"d": "22:59"
+		"d": "22:58"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
 		"a": "23:00",
@@ -82689,7 +82689,7 @@
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "23:01",
-		"d": "23:02"
+		"d": "23:01"
 	}, {
 		"s": "Keio.Keio.Sengawa",
 		"a": "23:03",
@@ -82705,10 +82705,10 @@
 	}, {
 		"s": "Keio.Keio.Kokuryo",
 		"a": "23:08",
-		"d": "23:08"
+		"d": "23:09"
 	}, {
 		"s": "Keio.Keio.Fuda",
-		"a": "23:09",
+		"a": "23:10",
 		"d": "23:10"
 	}, {
 		"s": "Keio.Keio.Chofu",
@@ -84624,7 +84624,7 @@
 		"d": "08:02"
 	}, {
 		"s": "Keio.Keio.Chofu",
-		"a": "08:05"
+		"a": "08:06"
 	}]
 }, {
 	"id": "Keio.Keio.2803.SaturdayHoliday",
@@ -85923,7 +85923,7 @@
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
 		"a": "12:10",
-		"d": "12:10"
+		"d": "12:11"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
 		"a": "12:12",
@@ -86023,7 +86023,7 @@
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
 		"a": "12:30",
-		"d": "12:30"
+		"d": "12:31"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
 		"a": "12:32",
@@ -86623,7 +86623,7 @@
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
 		"a": "14:30",
-		"d": "14:30"
+		"d": "14:31"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
 		"a": "14:32",
@@ -87448,15 +87448,15 @@
 		"d": "17:10"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "17:12",
+		"a": "17:13",
 		"d": "17:13"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
 		"a": "17:14",
-		"d": "17:14"
+		"d": "17:15"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
-		"a": "17:16",
+		"a": "17:17",
 		"d": "17:19"
 	}, {
 		"s": "Keio.Keio.HachimanYama",
@@ -87856,11 +87856,11 @@
 		"d": "18:35"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
-		"a": "18:36",
+		"a": "18:37",
 		"d": "18:39"
 	}, {
 		"s": "Keio.Keio.HachimanYama",
-		"a": "18:41",
+		"a": "18:42",
 		"d": "18:42"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
@@ -88061,10 +88061,10 @@
 	}, {
 		"s": "Keio.Keio.HachimanYama",
 		"a": "19:21",
-		"d": "19:21"
+		"d": "19:22"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
-		"a": "19:23",
+		"a": "19:24",
 		"d": "19:24"
 	}, {
 		"s": "Keio.Keio.Sengawa",
@@ -88072,7 +88072,7 @@
 		"d": "19:26"
 	}, {
 		"s": "Keio.Keio.Tsutsujigaoka",
-		"a": "19:27",
+		"a": "19:28",
 		"d": "19:28"
 	}, {
 		"s": "Keio.Keio.Chofu",
@@ -88156,7 +88156,7 @@
 		"d": "19:35"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
-		"a": "19:36",
+		"a": "19:37",
 		"d": "19:39"
 	}, {
 		"s": "Keio.Keio.HachimanYama",
@@ -90405,7 +90405,7 @@
 	],
 	"tt": [{
 		"s": "Keio.Keio.KeioHachioji",
-		"d": "05:19"
+		"d": "05:18"
 	}, {
 		"s": "Keio.Keio.Kitano",
 		"a": "05:21",
@@ -90588,7 +90588,7 @@
 		"d": "05:52"
 	}, {
 		"s": "Keio.Keio.Naganuma",
-		"a": "05:53",
+		"a": "05:54",
 		"d": "05:54"
 	}, {
 		"s": "Keio.Keio.HirayamajoshiKoen",
@@ -90857,7 +90857,7 @@
 	}, {
 		"s": "Keio.Keio.Tsutsujigaoka",
 		"a": "07:05",
-		"d": "07:10"
+		"d": "07:09"
 	}, {
 		"s": "Keio.Keio.Sengawa",
 		"a": "07:11",
@@ -91092,7 +91092,7 @@
 		"d": "06:51"
 	}, {
 		"s": "Keio.Keio.Naganuma",
-		"a": "06:52",
+		"a": "06:53",
 		"d": "06:53"
 	}, {
 		"s": "Keio.Keio.HirayamajoshiKoen",
@@ -91305,7 +91305,7 @@
 	}, {
 		"s": "Keio.Keio.Tsutsujigaoka",
 		"a": "07:45",
-		"d": "07:51"
+		"d": "07:50"
 	}, {
 		"s": "Keio.Keio.Sengawa",
 		"a": "07:52",
@@ -92675,23 +92675,23 @@
 	}, {
 		"s": "Keio.Keio.Chofu",
 		"a": "10:07",
-		"d": "10:08"
+		"d": "10:07"
 	}, {
 		"s": "Keio.Keio.Fuda",
-		"a": "10:09",
+		"a": "10:08",
 		"d": "10:09"
 	}, {
 		"s": "Keio.Keio.Kokuryo",
 		"a": "10:10",
-		"d": "10:11"
+		"d": "10:10"
 	}, {
 		"s": "Keio.Keio.Shibasaki",
-		"a": "10:12",
+		"a": "10:11",
 		"d": "10:12"
 	}, {
 		"s": "Keio.Keio.Tsutsujigaoka",
 		"a": "10:14",
-		"d": "10:19"
+		"d": "10:18"
 	}, {
 		"s": "Keio.Keio.Sengawa",
 		"a": "10:20",
@@ -93246,10 +93246,10 @@
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
 		"a": "11:50",
-		"d": "11:51"
+		"d": "11:50"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "11:52",
+		"a": "11:51",
 		"d": "11:52"
 	}, {
 		"s": "Keio.Keio.Daitabashi",
@@ -93417,7 +93417,7 @@
 		"d": "11:51"
 	}, {
 		"s": "Keio.Keio.Sengawa",
-		"a": "11:52",
+		"a": "11:53",
 		"d": "11:53"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
@@ -93426,11 +93426,11 @@
 	}, {
 		"s": "Keio.Keio.RokaKoen",
 		"a": "11:56",
-		"d": "11:56"
+		"d": "11:57"
 	}, {
 		"s": "Keio.Keio.HachimanYama",
 		"a": "11:58",
-		"d": "11:58"
+		"d": "11:59"
 	}, {
 		"s": "Keio.Keio.KamiKitazawa",
 		"a": "12:00",
@@ -94534,18 +94534,18 @@
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
 		"a": "14:10",
-		"d": "14:11"
+		"d": "14:10"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "14:12",
+		"a": "14:11",
 		"d": "14:12"
 	}, {
 		"s": "Keio.Keio.Daitabashi",
 		"a": "14:13",
-		"d": "14:14"
+		"d": "14:13"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "14:15",
+		"a": "14:14",
 		"d": "14:15"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -96413,7 +96413,7 @@
 		"d": "16:44"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
-		"a": "16:49",
+		"a": "16:50",
 		"d": "16:50"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
@@ -96525,11 +96525,11 @@
 		"d": "17:04"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
-		"a": "17:09",
-		"d": "17:10"
+		"a": "17:10",
+		"d": "17:11"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "17:15",
+		"a": "17:16",
 		"d": "17:17"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
@@ -96554,26 +96554,26 @@
 	],
 	"tt": [{
 		"s": "Keio.Keio.KeioHachioji",
-		"d": "16:49"
+		"d": "16:50"
 	}, {
 		"s": "Keio.Keio.Kitano",
-		"a": "16:51",
+		"a": "16:52",
 		"d": "16:52"
 	}, {
 		"s": "Keio.Keio.Takahatafudo",
-		"a": "16:57",
+		"a": "16:58",
 		"d": "16:58"
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
 		"a": "17:01",
-		"d": "17:01"
+		"d": "17:02"
 	}, {
 		"s": "Keio.Keio.Bubaigawara",
-		"a": "17:04",
-		"d": "17:04"
+		"a": "17:05",
+		"d": "17:05"
 	}, {
 		"s": "Keio.Keio.Fuchu",
-		"a": "17:06",
+		"a": "17:07",
 		"d": "17:07"
 	}, {
 		"s": "Keio.Keio.Chofu",
@@ -96782,7 +96782,7 @@
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "17:43",
-		"d": "17:44"
+		"d": "17:43"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
 		"a": "17:45",
@@ -97210,14 +97210,14 @@
 	}, {
 		"s": "Keio.Keio.HachimanYama",
 		"a": "19:00",
-		"d": "19:02"
+		"d": "19:01"
 	}, {
 		"s": "Keio.Keio.KamiKitazawa",
 		"a": "19:03",
 		"d": "19:03"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
-		"a": "19:05",
+		"a": "19:04",
 		"d": "19:05"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
@@ -97229,7 +97229,7 @@
 		"d": "19:08"
 	}, {
 		"s": "Keio.Keio.Daitabashi",
-		"a": "19:10",
+		"a": "19:09",
 		"d": "19:10"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
@@ -97589,11 +97589,11 @@
 		"d": "19:32"
 	}, {
 		"s": "Keio.Keio.Sengawa",
-		"a": "19:33",
+		"a": "19:34",
 		"d": "19:34"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
-		"a": "19:35",
+		"a": "19:36",
 		"d": "19:36"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
@@ -97865,11 +97865,11 @@
 		"d": "19:26"
 	}, {
 		"s": "Keio.Keio.Chofu",
-		"a": "19:32",
+		"a": "19:34",
 		"d": "19:34"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
-		"a": "19:38",
+		"a": "19:39",
 		"d": "19:39"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
@@ -99403,7 +99403,7 @@
 		"d": "23:02"
 	}, {
 		"s": "Keio.Keio.Naganuma",
-		"a": "23:03",
+		"a": "23:04",
 		"d": "23:04"
 	}, {
 		"s": "Keio.Keio.HirayamajoshiKoen",
@@ -99607,7 +99607,7 @@
 	}, {
 		"s": "Keio.Keio.Tsutsujigaoka",
 		"a": "00:26",
-		"d": "00:27"
+		"d": "00:26"
 	}, {
 		"s": "Keio.Keio.Sengawa",
 		"a": "00:28",
@@ -99683,7 +99683,7 @@
 	],
 	"tt": [{
 		"s": "Keio.Keio.KeioHachioji",
-		"d": "00:09"
+		"d": "00:08"
 	}, {
 		"s": "Keio.Keio.Kitano",
 		"a": "00:11",
@@ -100428,7 +100428,7 @@
 		"d": "07:03"
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
-		"a": "07:06",
+		"a": "07:07",
 		"d": "07:07"
 	}, {
 		"s": "Keio.Keio.Bubaigawara",
@@ -101225,7 +101225,7 @@
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "09:04",
-		"d": "09:04"
+		"d": "09:05"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
 		"a": "09:06",
@@ -102358,7 +102358,7 @@
 		"d": "10:41"
 	}, {
 		"s": "Keio.Keio.Sengawa",
-		"a": "10:43",
+		"a": "10:42",
 		"d": "10:43"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
@@ -103199,7 +103199,7 @@
 		"d": "11:35"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "11:38",
+		"a": "11:37",
 		"d": "11:38"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -103865,7 +103865,7 @@
 		"d": "12:36"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "12:38",
+		"a": "12:37",
 		"d": "12:38"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -104447,7 +104447,7 @@
 		"d": "13:35"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "13:38",
+		"a": "13:37",
 		"d": "13:38"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -105026,10 +105026,10 @@
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "14:35",
-		"d": "14:36"
+		"d": "14:35"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "14:38",
+		"a": "14:37",
 		"d": "14:38"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -105661,7 +105661,7 @@
 		"d": "15:36"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "15:38",
+		"a": "15:37",
 		"d": "15:38"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -106761,7 +106761,7 @@
 	}, {
 		"s": "Keio.Keio.Sasazuka",
 		"a": "17:41",
-		"d": "17:42"
+		"d": "17:41"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
 		"a": "17:46"
@@ -107209,27 +107209,27 @@
 	}, {
 		"s": "Keio.Keio.HachimanYama",
 		"a": "18:10",
-		"d": "18:12"
+		"d": "18:11"
 	}, {
 		"s": "Keio.Keio.KamiKitazawa",
-		"a": "18:13",
+		"a": "18:12",
 		"d": "18:13"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
 		"a": "18:14",
-		"d": "18:15"
+		"d": "18:14"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
 		"a": "18:16",
-		"d": "18:17"
+		"d": "18:16"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
-		"a": "18:18",
+		"a": "18:17",
 		"d": "18:18"
 	}, {
 		"s": "Keio.Keio.Daitabashi",
 		"a": "18:19",
-		"d": "18:20"
+		"d": "18:19"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
 		"a": "18:21",
@@ -107941,7 +107941,7 @@
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "19:18",
-		"d": "19:19"
+		"d": "19:18"
 	}, {
 		"s": "Keio.Keio.Daitabashi",
 		"a": "19:20",
@@ -107975,7 +107975,7 @@
 		"d": "18:22"
 	}, {
 		"s": "Keio.Keio.Takahatafudo",
-		"a": "18:27",
+		"a": "18:28",
 		"d": "18:28"
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
@@ -107987,7 +107987,7 @@
 		"d": "18:35"
 	}, {
 		"s": "Keio.Keio.Fuchu",
-		"a": "18:36",
+		"a": "18:37",
 		"d": "18:37"
 	}, {
 		"s": "Keio.Keio.Chofu",
@@ -108107,11 +108107,11 @@
 	}, {
 		"s": "Keio.Keio.Sengawa",
 		"a": "19:24",
-		"d": "19:24"
+		"d": "19:25"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
 		"a": "19:26",
-		"d": "19:26"
+		"d": "19:27"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
 		"a": "19:28",
@@ -109968,7 +109968,7 @@
 	}, {
 		"s": "Keio.Keio.Tsutsujigaoka",
 		"a": "00:12",
-		"d": "00:16"
+		"d": "00:15"
 	}, {
 		"s": "Keio.Keio.Sengawa",
 		"a": "00:17",
@@ -110103,7 +110103,7 @@
 	}, {
 		"s": "Keio.Keio.Tsutsujigaoka",
 		"a": "05:07",
-		"d": "05:09"
+		"d": "05:08"
 	}, {
 		"s": "Keio.Keio.Sengawa",
 		"a": "05:10",
@@ -110484,7 +110484,7 @@
 		"d": "06:29"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "06:31",
+		"a": "06:30",
 		"d": "06:31"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -110834,10 +110834,10 @@
 	],
 	"tt": [{
 		"s": "Keio.Keio.Takahatafudo",
-		"d": "22:24"
+		"d": "22:23"
 	}, {
 		"s": "Keio.Keio.Mogusaen",
-		"a": "22:26",
+		"a": "22:25",
 		"d": "22:26"
 	}, {
 		"s": "Keio.Keio.SeisekiSakuragaoka",
@@ -111584,7 +111584,7 @@
 		"d": "00:08"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
-		"a": "00:09",
+		"a": "00:10",
 		"d": "00:10"
 	}, {
 		"s": "Keio.Keio.HachimanYama",
@@ -112317,7 +112317,7 @@
 		"d": "06:58"
 	}, {
 		"s": "Keio.Keio.Sasazuka",
-		"a": "07:00",
+		"a": "06:59",
 		"d": "07:00"
 	}, {
 		"s": "Keio.Keio.Shinjuku",
@@ -112580,7 +112580,7 @@
 		"d": "07:36"
 	}, {
 		"s": "Keio.Keio.Sengawa",
-		"a": "07:38",
+		"a": "07:37",
 		"d": "07:38"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
@@ -114127,7 +114127,7 @@
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",
 		"a": "11:31",
-		"d": "11:32"
+		"d": "11:31"
 	}, {
 		"s": "Keio.Keio.Meidaimae",
 		"a": "11:33",
@@ -117439,7 +117439,7 @@
 		"d": "19:39"
 	}, {
 		"s": "Keio.Keio.Sengawa",
-		"a": "19:40",
+		"a": "19:41",
 		"d": "19:41"
 	}, {
 		"s": "Keio.Keio.ChitoseKarasuyama",
@@ -118817,7 +118817,7 @@
 		"d": "04:55"
 	}, {
 		"s": "Keio.Keio.RokaKoen",
-		"a": "04:56",
+		"a": "04:57",
 		"d": "04:57"
 	}, {
 		"s": "Keio.Keio.HachimanYama",
@@ -118829,7 +118829,7 @@
 		"d": "05:00"
 	}, {
 		"s": "Keio.Keio.Sakurajosui",
-		"a": "05:01",
+		"a": "05:02",
 		"d": "05:02"
 	}, {
 		"s": "Keio.Keio.ShimoTakaido",

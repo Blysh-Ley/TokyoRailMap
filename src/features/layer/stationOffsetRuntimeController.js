@@ -11,6 +11,8 @@ const DEFAULT_ACTIVE_FINAL_INTERVAL_MS = 144;
 const DEFAULT_SETTLING_FINAL_INTERVAL_MS = 64;
 const DEFAULT_VISUAL_SYNC_STRATEGY = 'interval';
 const RAF_LATEST_VISUAL_SYNC_STRATEGY = 'raf-latest';
+const DEFAULT_FINAL_SYNC_STRATEGY = 'interval';
+const ZOOMEND_ONLY_FINAL_SYNC_STRATEGY = 'zoomend-only';
 
 const normalizeDelay = (value, fallback) => {
     const n = Number(value);
@@ -28,6 +30,12 @@ const normalizeVisualSyncStrategy = (strategy) => (
         : DEFAULT_VISUAL_SYNC_STRATEGY
 );
 
+const normalizeFinalSyncStrategy = (strategy) => (
+    String(strategy || '').trim().toLowerCase() === ZOOMEND_ONLY_FINAL_SYNC_STRATEGY
+        ? ZOOMEND_ONLY_FINAL_SYNC_STRATEGY
+        : DEFAULT_FINAL_SYNC_STRATEGY
+);
+
 export const createStationOffsetRuntimeController = ({
     getZoom = () => 0,
     initialMode = 'dynamic',
@@ -42,6 +50,7 @@ export const createStationOffsetRuntimeController = ({
     activeFinalIntervalMs = DEFAULT_ACTIVE_FINAL_INTERVAL_MS,
     settlingFinalIntervalMs = DEFAULT_SETTLING_FINAL_INTERVAL_MS,
     visualSyncStrategy: requestedVisualSyncStrategy = DEFAULT_VISUAL_SYNC_STRATEGY,
+    finalSyncStrategy: requestedFinalSyncStrategy = DEFAULT_FINAL_SYNC_STRATEGY,
     requestFrame = globalThis.requestAnimationFrame,
     cancelFrame = globalThis.cancelAnimationFrame
 } = {}) => {
@@ -77,6 +86,7 @@ export const createStationOffsetRuntimeController = ({
         && cancelVisualFrame
         ? RAF_LATEST_VISUAL_SYNC_STRATEGY
         : DEFAULT_VISUAL_SYNC_STRATEGY;
+    const finalSyncStrategy = normalizeFinalSyncStrategy(requestedFinalSyncStrategy);
     const notifyZoomActivity = typeof onZoomActivity === 'function' ? onZoomActivity : null;
     const notifyDynamicZoomEnd = typeof onDynamicZoomEnd === 'function' ? onDynamicZoomEnd : null;
     const readNow = typeof nowFn === 'function'
@@ -93,11 +103,13 @@ export const createStationOffsetRuntimeController = ({
         return Number.isFinite(zoom) ? zoom : 0;
     };
 
-    const syncFinalAtCurrentZoom = (reason = 'manual') => {
+    const syncFinalAtCurrentZoom = (reason = 'manual', { force = false } = {}) => {
         const zoom = getCurrentZoom();
         const key = normalizeZoomKey(zoom);
-        if (key && key === lastFinalZoomKey) return false;
-        const synced = syncStationOffsetForZoom(zoom, { phase: 'final', reason });
+        if (!force && key && key === lastFinalZoomKey) return false;
+        const syncOptions = { phase: 'final', reason };
+        if (force) syncOptions.force = true;
+        const synced = syncStationOffsetForZoom(zoom, syncOptions);
         lastVisualZoom = zoom;
         lastFrameZoom = zoom;
         lastFinalZoom = zoom;
@@ -148,7 +160,9 @@ export const createStationOffsetRuntimeController = ({
 
             const visualSynced = syncVisualAtCurrentZoom(latestReason);
             const now = readNow();
-            if (visualSynced && now - lastFinalSyncTime >= latestFinalInterval) {
+            if (finalSyncStrategy === DEFAULT_FINAL_SYNC_STRATEGY
+                && visualSynced
+                && now - lastFinalSyncTime >= latestFinalInterval) {
                 syncFinalAtCurrentZoom(latestReason);
             }
         });
@@ -179,7 +193,9 @@ export const createStationOffsetRuntimeController = ({
             ? syncVisualAtCurrentZoom(reason)
             : false;
 
-        if (visualSynced && now - lastFinalSyncTime >= finalIntervalForFrame) {
+        if (finalSyncStrategy === DEFAULT_FINAL_SYNC_STRATEGY
+            && visualSynced
+            && now - lastFinalSyncTime >= finalIntervalForFrame) {
             syncFinalAtCurrentZoom(reason);
         }
     };
@@ -191,7 +207,12 @@ export const createStationOffsetRuntimeController = ({
                 if (normalizeZoomKey(getCurrentZoom()) !== normalizeZoomKey(lastVisualZoom)) {
                     syncVisualAtCurrentZoom('zoomend');
                 }
-                syncFinalAtCurrentZoom('zoomend');
+            }
+            if (visualSyncStrategy === RAF_LATEST_VISUAL_SYNC_STRATEGY
+                || finalSyncStrategy === ZOOMEND_ONLY_FINAL_SYNC_STRATEGY) {
+                syncFinalAtCurrentZoom('zoomend', {
+                    force: finalSyncStrategy === ZOOMEND_ONLY_FINAL_SYNC_STRATEGY
+                });
             }
             notifyDynamicZoomEnd?.({ zoom: getCurrentZoom() });
             return;

@@ -323,4 +323,52 @@ const recordSync = (calls) => (nextZoom, options = {}) => {
     assert.equal(controller.isDynamicMode(), true);
 }
 
+{
+    let zoom = 10;
+    const synced = [];
+    const frames = createFrameStub();
+    const mapEngine = createMapEngineStub();
+    const controller = createStationOffsetRuntimeController({
+        cancelFrame: frames.cancelFrame,
+        finalSyncStrategy: 'zoomend-only',
+        getZoom: () => zoom,
+        initialMode: 'dynamic',
+        mapEngine,
+        requestFrame: frames.requestFrame,
+        syncStationOffsetForZoom: (nextZoom, options = {}) => {
+            synced.push({
+                zoom: Number(nextZoom.toFixed(3)),
+                phase: options.phase,
+                reason: options.reason,
+                force: options.force === true
+            });
+            return true;
+        },
+        visualSyncStrategy: 'raf-latest'
+    });
+
+    controller.syncAtCurrentZoom();
+    zoom = 10.5;
+    mapEngine.emit('zoom');
+    frames.runAll();
+    zoom = 10;
+    mapEngine.emit('zoom');
+    frames.runAll();
+
+    assert.deepEqual(synced, [
+        { zoom: 10, phase: 'final', reason: 'manual', force: false },
+        { zoom: 10.5, phase: 'visual', reason: 'zoom', force: false },
+        { zoom: 10, phase: 'visual', reason: 'zoom', force: false }
+    ]);
+
+    mapEngine.emit('zoomend');
+    assert.deepEqual(synced.at(-1), {
+        zoom: 10,
+        phase: 'final',
+        reason: 'zoomend',
+        force: true
+    });
+    controller.destroy();
+}
+
 console.log('station offset runtime controller smoke ok');

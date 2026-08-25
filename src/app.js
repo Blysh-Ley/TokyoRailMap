@@ -5020,6 +5020,7 @@ const initMapApp = async () => {
             getStationLabelMode: () => stationLabelMode,
             initialStationOffsetMode: stationOffsetMode,
             stationOffsetVisualSyncStrategy: 'raf-latest',
+            stationOffsetVisualUpdateStrategy: 'circle-fast-path',
             collisionConfig: {
                 transferGroupByStationId: transferStationIdsByStationId,
                 onCircleCollisionResolved: ({ visibleStationIds }) => {

@@ -1439,7 +1439,7 @@
 		"d": "08:16"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
-		"a": "08:17",
+		"a": "08:18",
 		"d": "08:18"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
@@ -1710,11 +1710,11 @@
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "08:50",
-		"d": "08:50"
+		"d": "08:51"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "08:53",
-		"d": "08:53"
+		"d": "08:54"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "08:56",
@@ -1773,11 +1773,11 @@
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "08:56",
-		"d": "08:56"
+		"d": "08:57"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "08:59",
-		"d": "08:59"
+		"d": "09:00"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "09:02",
@@ -2011,10 +2011,10 @@
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "09:22",
-		"d": "09:22"
+		"d": "09:23"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
-		"a": "09:25",
+		"a": "09:26",
 		"d": "09:26"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
@@ -2617,7 +2617,7 @@
 		"d": "10:19"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
-		"a": "10:21",
+		"a": "10:22",
 		"d": "10:22"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
@@ -5651,12 +5651,12 @@
 		"d": "17:08"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
-		"a": "17:10",
+		"a": "17:11",
 		"d": "17:11"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "17:13",
-		"d": "17:13"
+		"d": "17:14"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
 		"a": "17:16",
@@ -8857,7 +8857,7 @@
 		"d": "00:16"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
-		"a": "00:18",
+		"a": "00:19",
 		"d": "00:19"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
@@ -8976,11 +8976,11 @@
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "00:43",
-		"d": "00:43"
+		"d": "00:44"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "00:46",
-		"d": "00:46"
+		"d": "00:47"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "00:49",
@@ -9023,7 +9023,7 @@
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "00:57",
-		"d": "00:57"
+		"d": "00:58"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "01:01"
@@ -9131,7 +9131,7 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
 		"a": "05:21",
-		"d": "05:22"
+		"d": "05:21"
 	}, {
 		"s": "Keio.Sagamihara.KeioHorinouchi",
 		"a": "05:24",
@@ -10663,12 +10663,12 @@
 		"d": "04:57"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
-		"a": "04:58",
+		"a": "04:59",
 		"d": "04:59"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
 		"a": "05:00",
-		"d": "05:00"
+		"d": "05:01"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
 		"a": "05:03"
@@ -10715,15 +10715,15 @@
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "05:12",
-		"d": "05:12"
+		"d": "05:13"
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "05:15",
-		"d": "05:15"
+		"d": "05:16"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
 		"a": "05:17",
-		"d": "05:17"
+		"d": "05:18"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
 		"a": "05:19",
@@ -10782,11 +10782,11 @@
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "05:35",
-		"d": "05:35"
+		"d": "05:36"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
 		"a": "05:37",
-		"d": "05:37"
+		"d": "05:38"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
 		"a": "05:39",
@@ -11302,18 +11302,18 @@
 	}, {
 		"s": "Keio.Sagamihara.MinamiOsawa",
 		"a": "06:40",
-		"d": "06:41"
+		"d": "06:40"
 	}, {
 		"s": "Keio.Sagamihara.KeioHorinouchi",
 		"a": "06:43",
 		"d": "06:43"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
-		"a": "06:46",
+		"a": "06:45",
 		"d": "06:51"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
-		"a": "06:54",
+		"a": "06:53",
 		"d": "06:54"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
@@ -11325,7 +11325,7 @@
 		"d": "07:01"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
-		"a": "07:03",
+		"a": "07:02",
 		"d": "07:03"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
@@ -11823,7 +11823,7 @@
 		"d": "07:42"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
-		"a": "07:43",
+		"a": "07:44",
 		"d": "07:44"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
@@ -20528,7 +20528,7 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
 		"a": "05:31",
-		"d": "05:31"
+		"d": "05:32"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
 		"a": "05:34"
@@ -20606,7 +20606,7 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
 		"a": "06:08",
-		"d": "06:08"
+		"d": "06:09"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
 		"a": "06:11"
@@ -21354,7 +21354,7 @@
 		"d": "06:23"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
-		"a": "06:25",
+		"a": "06:26",
 		"d": "06:26"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
@@ -21363,10 +21363,10 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioHorinouchi",
 		"a": "06:30",
-		"d": "06:30"
+		"d": "06:31"
 	}, {
 		"s": "Keio.Sagamihara.MinamiOsawa",
-		"a": "06:32",
+		"a": "06:33",
 		"d": "06:33"
 	}, {
 		"s": "Keio.Sagamihara.Tamasakai",
@@ -21457,7 +21457,7 @@
 	],
 	"tt": [{
 		"s": "Keio.Sagamihara.Chofu",
-		"d": "06:40"
+		"d": "06:39"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
 		"a": "06:42",
@@ -21917,12 +21917,12 @@
 		"d": "07:57"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
-		"a": "07:59",
+		"a": "08:00",
 		"d": "08:00"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "08:02",
-		"d": "08:02"
+		"d": "08:03"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
 		"a": "08:05",
@@ -22192,7 +22192,7 @@
 		"d": "08:33"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
-		"a": "08:35",
+		"a": "08:34",
 		"d": "08:35"
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
@@ -22322,10 +22322,10 @@
 	],
 	"tt": [{
 		"s": "Keio.Sagamihara.Chofu",
-		"d": "08:49"
+		"d": "08:48"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
-		"a": "08:51",
+		"a": "08:50",
 		"d": "08:51"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
@@ -22346,7 +22346,7 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "09:02",
-		"d": "09:03"
+		"d": "09:02"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
 		"a": "09:05",
@@ -22357,7 +22357,7 @@
 		"d": "09:08"
 	}, {
 		"s": "Keio.Sagamihara.MinamiOsawa",
-		"a": "09:11",
+		"a": "09:10",
 		"d": "09:11"
 	}, {
 		"s": "Keio.Sagamihara.Tamasakai",
@@ -22385,15 +22385,15 @@
 	],
 	"tt": [{
 		"s": "Keio.Sagamihara.Chofu",
-		"d": "08:59"
+		"d": "08:58"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
-		"a": "09:01",
+		"a": "09:00",
 		"d": "09:01"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
 		"a": "09:02",
-		"d": "09:03"
+		"d": "09:02"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
 		"a": "09:04",
@@ -22401,7 +22401,7 @@
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "09:06",
-		"d": "09:07"
+		"d": "09:06"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "09:09",
@@ -22412,7 +22412,7 @@
 		"d": "09:12"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
-		"a": "09:15",
+		"a": "09:14",
 		"d": "09:18"
 	}, {
 		"s": "Keio.Sagamihara.KeioHorinouchi",
@@ -22507,7 +22507,7 @@
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "09:20",
-		"d": "09:20"
+		"d": "09:21"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "09:23",
@@ -22550,10 +22550,10 @@
 	],
 	"tt": [{
 		"s": "Keio.Sagamihara.Chofu",
-		"d": "09:21"
+		"d": "09:20"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
-		"a": "09:23",
+		"a": "09:22",
 		"d": "09:23"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
@@ -22613,10 +22613,10 @@
 	],
 	"tt": [{
 		"s": "Keio.Sagamihara.Chofu",
-		"d": "09:30"
+		"d": "09:29"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
-		"a": "09:32",
+		"a": "09:31",
 		"d": "09:32"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
@@ -22739,10 +22739,10 @@
 	],
 	"tt": [{
 		"s": "Keio.Sagamihara.Chofu",
-		"d": "09:51"
+		"d": "09:50"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
-		"a": "09:53",
+		"a": "09:52",
 		"d": "09:53"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
@@ -22814,19 +22814,19 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
 		"a": "10:01",
-		"d": "10:01"
+		"d": "10:02"
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "10:03",
 		"d": "10:04"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
-		"a": "10:06",
+		"a": "10:07",
 		"d": "10:07"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "10:09",
-		"d": "10:09"
+		"d": "10:10"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
 		"a": "10:12",
@@ -22838,7 +22838,7 @@
 	}, {
 		"s": "Keio.Sagamihara.MinamiOsawa",
 		"a": "10:18",
-		"d": "10:19"
+		"d": "10:18"
 	}, {
 		"s": "Keio.Sagamihara.Tamasakai",
 		"a": "10:20",
@@ -23000,7 +23000,7 @@
 		"d": "10:31"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
-		"a": "10:33",
+		"a": "10:34",
 		"d": "10:34"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
@@ -23040,10 +23040,10 @@
 	],
 	"tt": [{
 		"s": "Keio.Sagamihara.Chofu",
-		"d": "10:29"
+		"d": "10:28"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
-		"a": "10:31",
+		"a": "10:30",
 		"d": "10:31"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
@@ -23052,7 +23052,7 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
 		"a": "10:34",
-		"d": "10:35"
+		"d": "10:34"
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "10:36",
@@ -25696,12 +25696,12 @@
 		"d": "16:35"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
-		"a": "16:37",
+		"a": "16:38",
 		"d": "16:38"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "16:40",
-		"d": "16:40"
+		"d": "16:41"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
 		"a": "16:43",
@@ -25756,7 +25756,7 @@
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "16:45",
-		"d": "16:45"
+		"d": "16:46"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "16:48",
@@ -25771,7 +25771,7 @@
 		"d": "16:54"
 	}, {
 		"s": "Keio.Sagamihara.KeioHorinouchi",
-		"a": "16:56",
+		"a": "16:57",
 		"d": "16:57"
 	}, {
 		"s": "Keio.Sagamihara.MinamiOsawa",
@@ -25920,7 +25920,7 @@
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "17:06",
-		"d": "17:06"
+		"d": "17:07"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "17:09",
@@ -26021,7 +26021,7 @@
 		"d": "17:14"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
-		"a": "17:16",
+		"a": "17:17",
 		"d": "17:17"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
@@ -26244,7 +26244,7 @@
 		"d": "17:45"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
-		"a": "17:47",
+		"a": "17:48",
 		"d": "17:48"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
@@ -26729,7 +26729,7 @@
 		"d": "18:45"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
-		"a": "18:47",
+		"a": "18:48",
 		"d": "18:48"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
@@ -26776,10 +26776,10 @@
 	],
 	"tt": [{
 		"s": "Keio.Sagamihara.Chofu",
-		"d": "18:45"
+		"d": "18:44"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
-		"a": "18:48",
+		"a": "18:47",
 		"d": "18:48"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
@@ -26827,7 +26827,7 @@
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "18:57",
-		"d": "18:57"
+		"d": "18:58"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "19:00",
@@ -26889,12 +26889,12 @@
 		"d": "19:04"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
-		"a": "19:06",
+		"a": "19:07",
 		"d": "19:07"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "19:09",
-		"d": "19:09"
+		"d": "19:10"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
 		"a": "19:12",
@@ -27062,7 +27062,7 @@
 		"d": "19:28"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
-		"a": "19:31"
+		"a": "19:30"
 	}]
 }, {
 	"id": "Keio.Sagamihara.751.SaturdayHoliday",
@@ -27475,7 +27475,7 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
 		"a": "20:18",
-		"d": "20:19"
+		"d": "20:18"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
 		"a": "20:20",
@@ -27638,7 +27638,7 @@
 		"d": "20:50"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
-		"a": "20:52"
+		"a": "20:53"
 	}]
 }, {
 	"id": "Keio.Sagamihara.759.SaturdayHoliday",
@@ -27852,7 +27852,7 @@
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "21:14",
-		"d": "21:14"
+		"d": "21:15"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "21:17",
@@ -27918,7 +27918,7 @@
 		"d": "21:22"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
-		"a": "21:24",
+		"a": "21:25",
 		"d": "21:26"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
@@ -27999,7 +27999,7 @@
 		"d": "21:35"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
-		"a": "21:37",
+		"a": "21:38",
 		"d": "21:38"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
@@ -28063,7 +28063,7 @@
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "21:47",
-		"d": "21:47"
+		"d": "21:48"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "21:50",
@@ -28251,7 +28251,7 @@
 		"d": "22:18"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
-		"a": "22:20",
+		"a": "22:21",
 		"d": "22:21"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
@@ -28614,12 +28614,12 @@
 		"d": "23:10"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
-		"a": "23:12",
+		"a": "23:11",
 		"d": "23:12"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
 		"a": "23:13",
-		"d": "23:14"
+		"d": "23:13"
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "23:15",
@@ -28858,7 +28858,7 @@
 		"d": "00:16"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
-		"a": "00:18",
+		"a": "00:19",
 		"d": "00:19"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
@@ -28906,7 +28906,7 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
 		"a": "00:23",
-		"d": "00:23"
+		"d": "00:24"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
 		"a": "00:25",
@@ -28914,14 +28914,14 @@
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "00:27",
-		"d": "00:27"
+		"d": "00:28"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "00:30",
 		"d": "00:31"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
-		"a": "00:33",
+		"a": "00:34",
 		"d": "00:34"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
@@ -28961,15 +28961,15 @@
 	],
 	"tt": [{
 		"s": "Keio.Sagamihara.Chofu",
-		"d": "00:36"
+		"d": "00:35"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
-		"a": "00:38",
+		"a": "00:37",
 		"d": "00:38"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
 		"a": "00:39",
-		"d": "00:40"
+		"d": "00:39"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
 		"a": "00:41",
@@ -29008,10 +29008,10 @@
 	],
 	"tt": [{
 		"s": "Keio.Sagamihara.Chofu",
-		"d": "00:50"
+		"d": "00:49"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
-		"a": "00:52",
+		"a": "00:51",
 		"d": "00:52"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
@@ -30412,12 +30412,12 @@
 		"d": "04:57"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
-		"a": "04:58",
+		"a": "04:59",
 		"d": "04:59"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
 		"a": "05:00",
-		"d": "05:00"
+		"d": "05:01"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
 		"a": "05:03"
@@ -30464,15 +30464,15 @@
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "05:12",
-		"d": "05:12"
+		"d": "05:13"
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "05:15",
-		"d": "05:15"
+		"d": "05:16"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
 		"a": "05:17",
-		"d": "05:17"
+		"d": "05:18"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
 		"a": "05:19",
@@ -30531,11 +30531,11 @@
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "05:35",
-		"d": "05:35"
+		"d": "05:36"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
 		"a": "05:37",
-		"d": "05:37"
+		"d": "05:38"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
 		"a": "05:39",
@@ -30601,12 +30601,12 @@
 		"d": "05:57"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
-		"a": "05:58",
+		"a": "05:59",
 		"d": "05:59"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
 		"a": "06:00",
-		"d": "06:00"
+		"d": "06:01"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
 		"a": "06:03"
@@ -30876,7 +30876,7 @@
 		"d": "06:45"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
-		"a": "06:48",
+		"a": "06:47",
 		"d": "06:48"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
@@ -30889,11 +30889,11 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
 		"a": "06:55",
-		"d": "06:56"
+		"d": "06:55"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
 		"a": "06:57",
-		"d": "06:58"
+		"d": "06:57"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
 		"a": "06:59",
@@ -30959,7 +30959,7 @@
 		"d": "07:06"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
-		"a": "07:08",
+		"a": "07:07",
 		"d": "07:08"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
@@ -31086,10 +31086,10 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
 		"a": "07:25",
-		"d": "07:25"
+		"d": "07:26"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
-		"a": "07:29"
+		"a": "07:28"
 	}]
 }, {
 	"id": "Keio.Sagamihara.4804.SaturdayHoliday",
@@ -31545,7 +31545,7 @@
 		"d": "08:28"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
-		"a": "08:31"
+		"a": "08:30"
 	}]
 }, {
 	"id": "Keio.Sagamihara.7732.SaturdayHoliday",
@@ -31713,7 +31713,7 @@
 		"d": "08:48"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
-		"a": "08:51"
+		"a": "08:50"
 	}]
 }, {
 	"id": "Keio.Sagamihara.6700.SaturdayHoliday",
@@ -31768,50 +31768,50 @@
 	],
 	"tt": [{
 		"s": "Keio.Sagamihara.Hashimoto",
-		"d": "08:42"
+		"d": "08:43"
 	}, {
 		"s": "Keio.Sagamihara.Tamasakai",
-		"a": "08:45",
-		"d": "08:45"
+		"a": "08:46",
+		"d": "08:46"
 	}, {
 		"s": "Keio.Sagamihara.MinamiOsawa",
-		"a": "08:47",
-		"d": "08:47"
+		"a": "08:48",
+		"d": "08:48"
 	}, {
 		"s": "Keio.Sagamihara.KeioHorinouchi",
-		"a": "08:49",
-		"d": "08:49"
+		"a": "08:50",
+		"d": "08:50"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
-		"a": "08:52",
-		"d": "08:54"
+		"a": "08:53",
+		"d": "08:53"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
-		"a": "08:56",
-		"d": "08:56"
+		"a": "08:55",
+		"d": "08:55"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "08:58",
-		"d": "08:59"
+		"d": "08:58"
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
-		"a": "09:02",
-		"d": "09:02"
+		"a": "09:01",
+		"d": "09:01"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
-		"a": "09:04",
-		"d": "09:04"
+		"a": "09:03",
+		"d": "09:03"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
-		"a": "09:06",
-		"d": "09:06"
+		"a": "09:05",
+		"d": "09:05"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
 		"a": "09:07",
-		"d": "09:08"
+		"d": "09:07"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
-		"a": "09:11"
+		"a": "09:10"
 	}]
 }, {
 	"id": "Keio.Sagamihara.2812.SaturdayHoliday",
@@ -31914,7 +31914,7 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "09:16",
-		"d": "09:17"
+		"d": "09:16"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "09:19",
@@ -32038,7 +32038,7 @@
 		"d": "09:36"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
-		"a": "09:37",
+		"a": "09:38",
 		"d": "09:38"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
@@ -32126,7 +32126,7 @@
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "09:39",
-		"d": "09:40"
+		"d": "09:39"
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "09:42",
@@ -32145,7 +32145,7 @@
 		"d": "09:48"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
-		"a": "09:51"
+		"a": "09:50"
 	}]
 }, {
 	"id": "Keio.Sagamihara.4814.SaturdayHoliday",
@@ -32350,7 +32350,7 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "10:07",
-		"d": "10:07"
+		"d": "10:08"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "10:10",
@@ -32514,23 +32514,23 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
 		"a": "10:22",
-		"d": "10:26"
+		"d": "10:25"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
-		"a": "10:28",
-		"d": "10:28"
+		"a": "10:27",
+		"d": "10:27"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
 		"a": "10:30",
-		"d": "10:31"
+		"d": "10:30"
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "10:33",
-		"d": "10:34"
+		"d": "10:33"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
 		"a": "10:35",
-		"d": "10:36"
+		"d": "10:35"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
 		"a": "10:37",
@@ -32589,11 +32589,11 @@
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
 		"a": "10:45",
-		"d": "10:45"
+		"d": "10:46"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
 		"a": "10:47",
-		"d": "10:47"
+		"d": "10:48"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
 		"a": "10:49",
@@ -32604,7 +32604,7 @@
 		"d": "10:51"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
-		"a": "10:54"
+		"a": "10:53"
 	}]
 }, {
 	"id": "Keio.Sagamihara.6704.SaturdayHoliday",
@@ -32690,7 +32690,7 @@
 		"d": "11:07"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
-		"a": "11:08",
+		"a": "11:09",
 		"d": "11:09"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
@@ -32699,7 +32699,7 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
 		"a": "11:12",
-		"d": "11:12"
+		"d": "11:13"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
 		"a": "11:15"
@@ -34672,7 +34672,7 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
 		"a": "17:02",
-		"d": "17:07"
+		"d": "17:06"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "17:09",
@@ -34683,15 +34683,15 @@
 		"d": "17:12"
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
-		"a": "17:15",
+		"a": "17:14",
 		"d": "17:15"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
-		"a": "17:17",
+		"a": "17:16",
 		"d": "17:17"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
-		"a": "17:19",
+		"a": "17:18",
 		"d": "17:19"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
@@ -35167,7 +35167,7 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
 		"a": "18:02",
-		"d": "18:07"
+		"d": "18:06"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "18:09",
@@ -35178,15 +35178,15 @@
 		"d": "18:12"
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
-		"a": "18:15",
+		"a": "18:14",
 		"d": "18:15"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
-		"a": "18:17",
+		"a": "18:16",
 		"d": "18:17"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
-		"a": "18:19",
+		"a": "18:18",
 		"d": "18:19"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
@@ -35823,12 +35823,12 @@
 		"d": "19:36"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
-		"a": "19:37",
+		"a": "19:38",
 		"d": "19:38"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
 		"a": "19:39",
-		"d": "19:39"
+		"d": "19:40"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
 		"a": "19:42"
@@ -37170,18 +37170,18 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioTamaCenter",
 		"a": "23:53",
-		"d": "23:54"
+		"d": "23:53"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
-		"a": "23:56",
+		"a": "23:55",
 		"d": "23:56"
 	}, {
 		"s": "Keio.Sagamihara.Wakabadai",
-		"a": "23:59",
+		"a": "23:58",
 		"d": "23:59"
 	}, {
 		"s": "Keio.Sagamihara.Inagi",
-		"a": "00:02",
+		"a": "00:01",
 		"d": "00:02"
 	}, {
 		"s": "Keio.Sagamihara.KeioYomiuriLand",
@@ -37189,7 +37189,7 @@
 		"d": "00:04"
 	}, {
 		"s": "Keio.Sagamihara.KeioInadazutsumi",
-		"a": "00:06",
+		"a": "00:05",
 		"d": "00:06"
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
@@ -39086,7 +39086,7 @@
 	],
 	"tt": [{
 		"s": "Keio.Sagamihara.KeioTamaCenter",
-		"d": "20:07"
+		"d": "20:06"
 	}, {
 		"s": "Keio.Sagamihara.KeioNagayama",
 		"a": "20:09",
@@ -39392,7 +39392,7 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
 		"a": "05:31",
-		"d": "05:31"
+		"d": "05:32"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
 		"a": "05:34"
@@ -39470,7 +39470,7 @@
 	}, {
 		"s": "Keio.Sagamihara.KeioTamagawa",
 		"a": "06:09",
-		"d": "06:09"
+		"d": "06:10"
 	}, {
 		"s": "Keio.Sagamihara.Chofu",
 		"a": "06:12"

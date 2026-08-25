@@ -1,4 +1,7 @@
 const DEFAULT_STATION_LABEL_ZOOMEND_DELAY_MS = 50;
+const DEFAULT_LOW_ZOOM_CAPSULE_INTERVAL_MS = 96;
+const DEFAULT_HIGH_ZOOM_CAPSULE_THRESHOLD = 13;
+const CIRCLE_FAST_PATH_STRATEGY = 'circle-fast-path';
 
 const normalizeDelayMs = (value, fallback) => {
     const n = Number(value);
@@ -37,8 +40,12 @@ export const createLayerFeature = ({
     getStationLabelMode,
     initialStationOffsetMode = 'dynamic',
     stationOffsetVisualSyncStrategy = 'interval',
+    stationOffsetVisualUpdateStrategy = 'legacy',
+    stationOffsetHighZoomCapsuleThreshold = DEFAULT_HIGH_ZOOM_CAPSULE_THRESHOLD,
+    stationOffsetLowZoomCapsuleIntervalMs = DEFAULT_LOW_ZOOM_CAPSULE_INTERVAL_MS,
     requestFrame = globalThis.requestAnimationFrame,
     cancelFrame = globalThis.cancelAnimationFrame,
+    nowFn,
     setTimeoutFn = globalThis.setTimeout,
     clearTimeoutFn = globalThis.clearTimeout,
     stationLabelZoomEndDelayMs = DEFAULT_STATION_LABEL_ZOOMEND_DELAY_MS
@@ -53,10 +60,25 @@ export const createLayerFeature = ({
     let stationOffsetRuntimeController = null;
     let transferCapsuleRefreshFrameId = null;
     let stationLabelRefreshTimerId = null;
+    let lowZoomCapsuleRefreshTimerId = null;
+    let pendingLowZoomCapsuleGeoJSON = null;
+    let lastLowZoomCapsuleRefreshTime = Number.NEGATIVE_INFINITY;
+    const useCircleFastPath = String(stationOffsetVisualUpdateStrategy || '').trim().toLowerCase()
+        === CIRCLE_FAST_PATH_STRATEGY;
+    const highZoomCapsuleThreshold = Number.isFinite(Number(stationOffsetHighZoomCapsuleThreshold))
+        ? Number(stationOffsetHighZoomCapsuleThreshold)
+        : DEFAULT_HIGH_ZOOM_CAPSULE_THRESHOLD;
+    const lowZoomCapsuleInterval = normalizeDelayMs(
+        stationOffsetLowZoomCapsuleIntervalMs,
+        DEFAULT_LOW_ZOOM_CAPSULE_INTERVAL_MS
+    );
     const stationLabelZoomEndDelay = normalizeDelayMs(
         stationLabelZoomEndDelayMs,
         DEFAULT_STATION_LABEL_ZOOMEND_DELAY_MS
     );
+    const readNow = typeof nowFn === 'function'
+        ? nowFn
+        : (() => globalThis.performance?.now?.() ?? Date.now());
 
     const measureStationOffsetStage = (stageName, callback) => {
         if (typeof stationOffsetPerformanceProbe?.measure === 'function') {
@@ -98,6 +120,15 @@ export const createLayerFeature = ({
         if (typeof clearTimeoutFn === 'function') clearTimeoutFn(stationLabelRefreshTimerId);
         else clearTimeout(stationLabelRefreshTimerId);
         stationLabelRefreshTimerId = null;
+    };
+
+    const clearLowZoomCapsuleRefresh = () => {
+        if (lowZoomCapsuleRefreshTimerId != null) {
+            if (typeof clearTimeoutFn === 'function') clearTimeoutFn(lowZoomCapsuleRefreshTimerId);
+            else clearTimeout(lowZoomCapsuleRefreshTimerId);
+        }
+        lowZoomCapsuleRefreshTimerId = null;
+        pendingLowZoomCapsuleGeoJSON = null;
     };
 
     const scheduleTransferCapsuleRefresh = () => {
@@ -175,7 +206,7 @@ export const createLayerFeature = ({
             baseHiddenFilterActive: fixedVisibleStationIds instanceof Set
         });
 
-        if (nextKey && nextKey === getTransferCapsuleVisibleKey?.()) return false;
+        if (options?.force !== true && nextKey && nextKey === getTransferCapsuleVisibleKey?.()) return false;
         if (nextKey) setTransferCapsuleVisibleKey?.(nextKey);
 
         const transferCapsuleData = measureStationOffsetStage('build-transfer-capsules', () => (
@@ -192,6 +223,54 @@ export const createLayerFeature = ({
             renderTransferCapsules?.(transferCapsuleData);
         });
         return true;
+    };
+
+    const syncAndRefreshTransferCapsules = (geojson, options = {}) => {
+        if (!geojson) return false;
+        measureStationOffsetStage('sync-transfer-capsule-data', () => {
+            syncTransferCapsuleStationsData?.(geojson);
+        });
+        return refreshTransferCapsulesNow(options);
+    };
+
+    const flushLowZoomCapsuleRefresh = () => {
+        if (!pendingLowZoomCapsuleGeoJSON) return false;
+        const nextGeoJSON = pendingLowZoomCapsuleGeoJSON;
+        pendingLowZoomCapsuleGeoJSON = null;
+        lastLowZoomCapsuleRefreshTime = readNow();
+        return syncAndRefreshTransferCapsules(nextGeoJSON, { force: true });
+    };
+
+    const scheduleLowZoomCapsuleRefresh = (geojson) => {
+        pendingLowZoomCapsuleGeoJSON = geojson;
+        const elapsed = readNow() - lastLowZoomCapsuleRefreshTime;
+        if (lowZoomCapsuleRefreshTimerId == null && elapsed >= lowZoomCapsuleInterval) {
+            return flushLowZoomCapsuleRefresh();
+        }
+        if (lowZoomCapsuleRefreshTimerId != null) return true;
+
+        const schedule = typeof setTimeoutFn === 'function' ? setTimeoutFn : setTimeout;
+        const delay = Math.max(0, lowZoomCapsuleInterval - Math.max(0, elapsed));
+        lowZoomCapsuleRefreshTimerId = schedule(() => {
+            lowZoomCapsuleRefreshTimerId = null;
+            if (Number(getZoom?.()) > highZoomCapsuleThreshold) {
+                pendingLowZoomCapsuleGeoJSON = null;
+                return;
+            }
+            flushLowZoomCapsuleRefresh();
+        }, delay);
+        return true;
+    };
+
+    const refreshTransferCapsulesForVisualZoom = (geojson, zoom) => {
+        if (Number(zoom) > highZoomCapsuleThreshold) {
+            clearLowZoomCapsuleRefresh();
+            return syncAndRefreshTransferCapsules(geojson, {
+                viewportOnly: true,
+                force: true
+            });
+        }
+        return scheduleLowZoomCapsuleRefresh(geojson);
     };
 
     const setupCollisionController = ({ stationLabels, stationCircles } = {}) => {
@@ -272,6 +351,11 @@ export const createLayerFeature = ({
         }
 
         if (phase === 'visual') {
+            if (useCircleFastPath) {
+                pendingStationLabelGeoJSON = nextGeoJSON;
+                refreshTransferCapsulesForVisualZoom(nextGeoJSON, options?.zoom);
+                return true;
+            }
             measureStationOffsetStage('sync-transfer-capsule-data', () => {
                 syncTransferCapsuleStationsData?.(nextGeoJSON);
             });
@@ -279,23 +363,34 @@ export const createLayerFeature = ({
             return true;
         }
 
+        if (useCircleFastPath) {
+            clearLowZoomCapsuleRefresh();
+            lastLowZoomCapsuleRefreshTime = Number.NEGATIVE_INFINITY;
+        }
+
         measureStationOffsetStage('rebuild-station-coordinate-map', () => {
             rebuildStationCoordMap?.(nextGeoJSON);
         });
-        measureStationOffsetStage('sync-transfer-capsule-data', () => {
-            syncTransferCapsuleStationsData?.(nextGeoJSON);
-        });
-        measureStationOffsetStage('invalidate-transfer-capsule-data', () => {
-            invalidateTransferCapsuleData?.(String(keyHint || '__station-geojson__'));
-        });
-        measureStationOffsetStage('schedule-transfer-capsule-refresh', () => {
-            scheduleTransferCapsuleRefresh();
-        });
+        if (useCircleFastPath) {
+            syncAndRefreshTransferCapsules(nextGeoJSON, { force: true });
+        } else {
+            measureStationOffsetStage('sync-transfer-capsule-data', () => {
+                syncTransferCapsuleStationsData?.(nextGeoJSON);
+            });
+            measureStationOffsetStage('invalidate-transfer-capsule-data', () => {
+                invalidateTransferCapsuleData?.(String(keyHint || '__station-geojson__'));
+            });
+            measureStationOffsetStage('schedule-transfer-capsule-refresh', () => {
+                scheduleTransferCapsuleRefresh();
+            });
+        }
         if (deferStationLabels) pendingStationLabelGeoJSON = nextGeoJSON;
         else if (!stationLabelsUpdated) updateStationLabelLayerGeoJSON(nextGeoJSON);
-        measureStationOffsetStage('schedule-collision', () => {
-            scheduleCollision(deferStationLabels ? { interaction: true } : {});
-        });
+        if (!useCircleFastPath || !deferStationLabels || isStationLabelHiddenMode()) {
+            measureStationOffsetStage('schedule-collision', () => {
+                scheduleCollision(deferStationLabels ? { interaction: true } : {});
+            });
+        }
         return true;
     };
 
@@ -303,6 +398,7 @@ export const createLayerFeature = ({
         const z = Number(zoom);
         const phase = options?.phase === 'visual' ? 'visual' : 'final';
         const reason = String(options?.reason || '').trim();
+        const force = options?.force === true;
         const recordOutcome = (outcome) => recordStationOffsetSyncAttempt({
             zoom: z,
             phase,
@@ -319,7 +415,7 @@ export const createLayerFeature = ({
             recordOutcome('visual-key-hit');
             return false;
         }
-        if (phase === 'final' && stateKey === currentStationOffsetFinalKey) {
+        if (phase === 'final' && !force && stateKey === currentStationOffsetFinalKey) {
             recordOutcome('final-key-hit');
             return false;
         }
@@ -344,7 +440,12 @@ export const createLayerFeature = ({
             || reason === 'zoom-settling'
             || reason === 'zoomend';
         const applied = measureStationOffsetStage('apply-station-layer-total', () => (
-            applyStationLayerGeoJSON(nextGeoJSON, stateKey, { phase, updateVisible, deferStationLabels })
+            applyStationLayerGeoJSON(nextGeoJSON, stateKey, {
+                phase,
+                updateVisible,
+                deferStationLabels,
+                zoom: z
+            })
         ));
         if (!applied) {
             recordOutcome('apply-failed');
@@ -387,6 +488,7 @@ export const createLayerFeature = ({
             requestFrame,
             cancelFrame,
             visualSyncStrategy: stationOffsetVisualSyncStrategy,
+            ...(useCircleFastPath ? { finalSyncStrategy: 'zoomend-only' } : {}),
             syncStationOffsetForZoom
         });
         stationOffsetRuntimeController.syncAtCurrentZoom?.();
@@ -408,6 +510,7 @@ export const createLayerFeature = ({
         clearFrame(transferCapsuleRefreshFrameId);
         transferCapsuleRefreshFrameId = null;
         clearStationLabelGeoJSONFlush();
+        clearLowZoomCapsuleRefresh();
         pendingStationLabelGeoJSON = null;
         stationOffsetRuntimeController?.destroy?.();
         stationOffsetRuntimeController = null;

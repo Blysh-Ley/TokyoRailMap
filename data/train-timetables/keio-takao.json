@@ -4286,7 +4286,7 @@
 	"t": "Keio.Takao.7161",
 	"r": "Keio.Takao",
 	"n": "7161",
-	"y": "Keio.LimitedExpress",
+	"y": "Keio.KeioLiner",
 	"d": "Outbound",
 	"os": [
 		"Keio.Keio.Shinjuku"
@@ -4311,6 +4311,13 @@
 	}, {
 		"s": "Keio.Takao.Takaosanguchi",
 		"a": "23:16"
+	}],
+	"nm": [{
+		"ja": "京王ライナー 61号",
+		"en": "Keio Liner 61",
+		"ko": "케이오 라이너 61",
+		"zh-Hans": "KEIO LINER 61",
+		"zh-Hant": "KEIO LINER 61"
 	}]
 }, {
 	"id": "Keio.Takao.6145.Weekday",
@@ -10039,7 +10046,7 @@
 	"t": "Keio.Takao.7161",
 	"r": "Keio.Takao",
 	"n": "7161",
-	"y": "Keio.LimitedExpress",
+	"y": "Keio.KeioLiner",
 	"d": "Outbound",
 	"os": [
 		"Keio.Keio.Shinjuku"
@@ -10064,6 +10071,13 @@
 	}, {
 		"s": "Keio.Takao.Takaosanguchi",
 		"a": "08:47"
+	}],
+	"nm": [{
+		"ja": "京王ライナー 61号",
+		"en": "Keio Liner 61",
+		"ko": "케이오 라이너 61",
+		"zh-Hans": "KEIO LINER 61",
+		"zh-Hant": "KEIO LINER 61"
 	}]
 }, {
 	"id": "Keio.Takao.5111.SaturdayHoliday",
@@ -10285,7 +10299,7 @@
 	"t": "Keio.Takao.7163",
 	"r": "Keio.Takao",
 	"n": "7163",
-	"y": "Keio.LimitedExpress",
+	"y": "Keio.KeioLiner",
 	"d": "Outbound",
 	"os": [
 		"Keio.Keio.Shinjuku"
@@ -10310,6 +10324,13 @@
 	}, {
 		"s": "Keio.Takao.Takaosanguchi",
 		"a": "09:43"
+	}],
+	"nm": [{
+		"ja": "京王ライナー 63号",
+		"en": "Keio Liner 63",
+		"ko": "케이오 라이너 63",
+		"zh-Hans": "KEIO LINER 63",
+		"zh-Hant": "KEIO LINER 63"
 	}]
 }, {
 	"id": "Keio.Takao.5119.SaturdayHoliday",
@@ -13265,7 +13286,7 @@
 	}, {
 		"s": "Keio.Takao.Hazama",
 		"a": "20:57",
-		"d": "20:57"
+		"d": "20:58"
 	}, {
 		"s": "Keio.Takao.Takao",
 		"a": "21:00",
@@ -16177,19 +16198,19 @@
 		"d": "14:22"
 	}, {
 		"s": "Keio.Takao.Mejirodai",
-		"a": "14:24",
+		"a": "14:23",
 		"d": "14:24"
 	}, {
 		"s": "Keio.Takao.Yamada",
 		"a": "14:25",
-		"d": "14:26"
+		"d": "14:25"
 	}, {
 		"s": "Keio.Takao.KeioKatakura",
 		"a": "14:27",
-		"d": "14:28"
+		"d": "14:27"
 	}, {
 		"s": "Keio.Takao.Kitano",
-		"a": "14:31"
+		"a": "14:30"
 	}]
 }, {
 	"id": "Keio.Takao.138.SaturdayHoliday",
@@ -16345,12 +16366,12 @@
 		"d": "15:00"
 	}, {
 		"s": "Keio.Takao.Hazama",
-		"a": "15:02",
-		"d": "15:02"
+		"a": "15:01",
+		"d": "15:01"
 	}, {
 		"s": "Keio.Takao.Mejirodai",
-		"a": "15:04",
-		"d": "15:04"
+		"a": "15:03",
+		"d": "15:03"
 	}, {
 		"s": "Keio.Takao.Yamada",
 		"a": "15:05",
@@ -16361,7 +16382,7 @@
 		"d": "15:07"
 	}, {
 		"s": "Keio.Takao.Kitano",
-		"a": "15:11"
+		"a": "15:10"
 	}]
 }, {
 	"id": "Keio.Takao.142.SaturdayHoliday",
@@ -16513,7 +16534,7 @@
 	}, {
 		"s": "Keio.Takao.Hazama",
 		"a": "15:33",
-		"d": "15:33"
+		"d": "15:34"
 	}, {
 		"s": "Keio.Takao.Mejirodai",
 		"a": "15:35",
@@ -16552,7 +16573,7 @@
 	}, {
 		"s": "Keio.Takao.Takao",
 		"a": "15:40",
-		"d": "15:41"
+		"d": "15:40"
 	}, {
 		"s": "Keio.Takao.Hazama",
 		"a": "15:42",
@@ -16563,11 +16584,11 @@
 		"d": "15:44"
 	}, {
 		"s": "Keio.Takao.Yamada",
-		"a": "15:46",
+		"a": "15:45",
 		"d": "15:46"
 	}, {
 		"s": "Keio.Takao.KeioKatakura",
-		"a": "15:48",
+		"a": "15:47",
 		"d": "15:48"
 	}, {
 		"s": "Keio.Takao.Kitano",
@@ -17292,7 +17313,7 @@
 		"d": "18:19"
 	}, {
 		"s": "Keio.Takao.Kitano",
-		"a": "18:21"
+		"a": "18:22"
 	}]
 }, {
 	"id": "Keio.Takao.5192.SaturdayHoliday",
@@ -17672,11 +17693,11 @@
 	}, {
 		"s": "Keio.Takao.Yamada",
 		"a": "19:45",
-		"d": "19:46"
+		"d": "19:45"
 	}, {
 		"s": "Keio.Takao.KeioKatakura",
 		"a": "19:47",
-		"d": "19:48"
+		"d": "19:47"
 	}, {
 		"s": "Keio.Takao.Kitano",
 		"a": "19:50"
