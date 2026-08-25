@@ -828,6 +828,16 @@ const toTripFilterSet = (targetTripKeys) => {
     return set;
 };
 
+const toExactTripFilterSet = (targetTripKeys) => {
+    const list = Array.isArray(targetTripKeys) ? targetTripKeys : [];
+    const set = new Set();
+    for (const item of list) {
+        const key = toText(item);
+        if (key) set.add(key);
+    }
+    return set;
+};
+
 const tripFilterMatchKeysByRecord = new WeakMap();
 
 const getTripFilterMatchKeys = (rec) => {
@@ -945,7 +955,10 @@ const createBranchAnalysisPlan = (lineId, options = {}) => {
     const activeLineSet = new Set(activeLineIds);
     const throughServiceCategory = toText(options?.throughServiceCategory);
 
-    const tripFilterSet = toTripFilterSet(options?.targetTripKeys);
+    const exactTargetTripKeys = options?.exactTargetTripKeys === true;
+    const tripFilterSet = exactTargetTripKeys
+        ? toExactTripFilterSet(options?.targetTripKeys)
+        : toTripFilterSet(options?.targetTripKeys);
     const tripFilterKey = (() => {
         if (!tripFilterSet.size) return '*';
         return Array.from(tripFilterSet).sort().join('||');
@@ -954,7 +967,7 @@ const createBranchAnalysisPlan = (lineId, options = {}) => {
     const categoryKey = throughServiceCategory || '*';
     const filterSpecial = options?.filterSpecial === true;
     const anchorKey = buildAnchorStationKey(anchorStationIdSet);
-    const cacheKey = `${lineIdsKey}##${tripFilterKey}##${categoryKey}##${filterSpecial ? 'base' : 'all'}##${options?.alternateLineMembership ? 'alt' : 'no-alt'}##${anchorKey}`;
+    const cacheKey = `${lineIdsKey}##${tripFilterKey}##${categoryKey}##${filterSpecial ? 'base' : 'all'}##${options?.alternateLineMembership ? 'alt' : 'no-alt'}##${anchorKey}${exactTargetTripKeys ? '##exact' : ''}`;
     return {
         lid,
         activeLineIds,
@@ -1732,6 +1745,7 @@ export const buildBranchPreviewForLineRequest = async ({
     originStationIds,
     terminalStationIds,
     anchorStationIds,
+    exactTargetTripKeys = false,
     alternateLineMembership = null,
     isStillActive
 } = {}) => {
@@ -1760,6 +1774,7 @@ export const buildBranchPreviewForLineRequest = async ({
         sourceLineIds: normalizedSourceLineIds,
         filterSpecial: filterSpecial === true,
         anchorStationIds: normalizedAnchorStationIds,
+        exactTargetTripKeys: exactTargetTripKeys === true,
         alternateLineMembership,
         ...cancellationOptions
     });
@@ -1797,6 +1812,7 @@ export const previewBranchesForLine = async ({
     endpointOnlyStationPreview = false,
     endpointLabelCounts,
     anchorStationIds,
+    exactTargetTripKeys = false,
     alternateLineMembership = null,
     fitOptions = {}
 } = {}) => {
@@ -1826,6 +1842,7 @@ export const previewBranchesForLine = async ({
         applyAlternateColor,
         filterSpecial,
         anchorStationIds: normalizedAnchorStationIds,
+        exactTargetTripKeys,
         alternateLineMembership,
         originStationIds,
         terminalStationIds
@@ -1932,6 +1949,7 @@ export const previewBranchesForLineRequests = async ({
             sourceLineIds: normalizedSourceLineIds,
             filterSpecial: request?.filterSpecial === true,
             anchorStationIds: normalizedAnchorStationIds,
+            exactTargetTripKeys: request?.exactTargetTripKeys === true,
             alternateLineMembership
         });
 

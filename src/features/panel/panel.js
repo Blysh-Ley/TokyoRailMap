@@ -140,6 +140,7 @@ import {
     buildPanelStationThroughPreviewRequests,
     createEmptyPanelThroughServiceState,
     reorderPanelThroughServiceLinesAfterHtml,
+    resolvePanelDirectionPreviewVisualLineId,
     resolvePanelThroughServiceSetup
 } from './panelStation.js';
 import {
@@ -2275,7 +2276,8 @@ export function createPanel(options = {}) {
             temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId,
             throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
             getLineMeta,
-            normalize: toText
+            normalize: toText,
+            exactTargetTripKeys: true
         }).map((request) => ({
             ...(request || {}),
             applyHighlightColor: false
@@ -2300,8 +2302,9 @@ export function createPanel(options = {}) {
             ...(Array.isArray(request.originStationIds) ? request.originStationIds : []),
             ...(Array.isArray(request.terminalStationIds) ? request.terminalStationIds : [])
         ].map((value) => toText(value)).filter(Boolean)));
+        const visualLineId = resolvePanelDirectionPreviewVisualLineId(request, { normalize: toText });
         const panelCurrentStationVisualHighlightId = await resolvePanelCurrentStationVisualHighlightIdForLines(
-            request.sourceLineIds?.length ? request.sourceLineIds : request.lineId,
+            visualLineId,
             'panel-dir-filter-preview'
         );
 

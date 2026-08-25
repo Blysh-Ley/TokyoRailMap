@@ -964,6 +964,17 @@ const resolveThroughPreviewLineId_panelStationThroughPreview = ({
     return configLineId;
 };
 
+export const resolvePanelDirectionPreviewVisualLineId = ({
+    lineId = '',
+    sourceLineIds = []
+} = {}, {
+    normalize = toText_panelThroughServiceSetup
+} = {}) => {
+    const displayLineId = normalize(lineId);
+    if (displayLineId) return displayLineId;
+    return normalizeList_panelStationThroughPreview(sourceLineIds, { normalize })[0] || '';
+};
+
 const collectMappedValuesForLineIds_panelStationThroughPreview = ({
     sourceMap,
     lineIds,
@@ -1034,7 +1045,8 @@ export const buildPanelStationThroughPreviewRequests = ({
     temporaryAllowedTripKeysByDisplayLineId,
     throughServiceConfigs = [],
     getLineMeta = () => null,
-    normalize = toText_panelThroughServiceSetup
+    normalize = toText_panelThroughServiceSetup,
+    exactTargetTripKeys = false
 } = {}) => {
     if (!(dirPreviewMetaByKey instanceof Map) || !dirPreviewMetaByKey.size) return [];
 
@@ -1085,6 +1097,7 @@ export const buildPanelStationThroughPreviewRequests = ({
             lineName: normalize(config?.lineName) || normalize(lineMeta?.name) || displayLineId,
             sourceLineIds,
             targetTripKeys,
+            ...(exactTargetTripKeys === true ? { exactTargetTripKeys: true } : {}),
             throughServiceCategory,
             highlightColor: normalize(config?.color) || normalize(lineMeta?.color),
             originStationIds: normalizeList_panelStationThroughPreview(meta?.originStationIds, { normalize }),
