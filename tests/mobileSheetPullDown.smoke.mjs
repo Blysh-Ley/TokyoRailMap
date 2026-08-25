@@ -22,7 +22,8 @@ const createEvent = ({
     clientX = 0,
     clientY = 0,
     button = 0,
-    timeStamp = 0
+    timeStamp = 0,
+    target = null
 } = {}) => {
     const event = {
         pointerId,
@@ -30,6 +31,7 @@ const createEvent = ({
         clientY,
         button,
         timeStamp,
+        target,
         defaultPrevented: false,
         propagationStopped: false,
         preventDefault() {
@@ -47,10 +49,11 @@ const createTouchEvent = ({
     clientX = 0,
     clientY = 0,
     timeStamp = 0,
-    ended = false
+    ended = false,
+    target = null
 } = {}) => {
     const touch = { identifier, clientX, clientY };
-    const event = createEvent({ pointerId: identifier, clientX, clientY, timeStamp });
+    const event = createEvent({ pointerId: identifier, clientX, clientY, timeStamp, target });
     event.touches = ended ? [] : [touch];
     event.changedTouches = [touch];
     return event;
@@ -109,6 +112,35 @@ const active = runGesture({ startScrollTop: 0, moveY: 126 });
 assert.deepEqual(active.calls, ['begin', 'update', 'end']);
 assert.equal(active.moveEvent.defaultPrevented, true);
 assert.equal(active.moveEvent.propagationStopped, true);
+
+{
+    const scrollEl = createTarget();
+    const doc = createTarget();
+    const calls = [];
+    const expandedTimetableTarget = { closest: (selector) => selector === '.panel-timetable.is-expanded' ? {} : null };
+    createMobileSheetPullDownController({
+        scrollEl,
+        doc,
+        canStartGesture: (event) => !event?.target?.closest?.('.panel-timetable.is-expanded'),
+        beginSheetDrag: () => {
+            calls.push('begin');
+            return true;
+        },
+        updateSheetDrag: () => calls.push('update'),
+        endSheetDrag: () => calls.push('end')
+    });
+    scrollEl.fire('pointerdown', createEvent({ clientY: 100, target: expandedTimetableTarget }));
+    doc.fire('pointermove', createEvent({ clientY: 140, target: expandedTimetableTarget }));
+    doc.fire('pointerup', createEvent({ clientY: 140, target: expandedTimetableTarget }));
+    scrollEl.fire('touchstart', createTouchEvent({ clientY: 100, target: expandedTimetableTarget }));
+    doc.fire('touchmove', createTouchEvent({ clientY: 140, target: expandedTimetableTarget }));
+    doc.fire('touchend', createTouchEvent({ clientY: 140, ended: true, target: expandedTimetableTarget }));
+    assert.deepEqual(
+        calls,
+        [],
+        'pull-down must not arm when the gesture starts inside an excluded nested scroll area'
+    );
+}
 
 assert.deepEqual(
     runGesture({ startScrollTop: 0, moveY: 126, finish: 'pointercancel' }).calls,

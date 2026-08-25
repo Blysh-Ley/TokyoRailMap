@@ -438,6 +438,7 @@ export const createPanelMainView = ({
         scrollEl: body,
         doc: document,
         isEnabled: canDragMobilePanel,
+        canStartGesture: (event) => !event?.target?.closest?.('.panel-timetable.is-expanded'),
         beginSheetDrag: beginPanelSheetDragFromEvent,
         updateSheetDrag: (event) => updatePanelSheetDragFromEvent(event),
         endSheetDrag: (event, options) => endPanelSheetDragFromEvent(event, options)

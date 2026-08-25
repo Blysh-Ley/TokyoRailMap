@@ -128,6 +128,11 @@ assert.match(
     /createMobileSheetPullDownController\(\{[\s\S]*scrollEl:\s*body[\s\S]*beginSheetDrag:\s*beginPanelSheetDragFromEvent[\s\S]*endSheetDrag:[\s\S]*endPanelSheetDragFromEvent/,
     'mobile panel body must support top pull-down through the shared sheet bridge'
 );
+assert.match(
+    panelViewSource,
+    /scrollEl:\s*body[\s\S]*canStartGesture:\s*\(event\)\s*=>\s*!event\?\.target\?\.closest\?\.\('\.panel-timetable\.is-expanded'\)/,
+    'expanded timetable scrolling must not start the outer mobile panel pull-down gesture'
+);
 assert.doesNotMatch(panelViewSource, /panelShell\.hide\(\)/);
 assert.match(panelViewSource, /body\.style\.minHeight\s*=\s*'0'/);
 assert.match(panelViewSource, /body\.style\.touchAction\s*=\s*'pan-y'/);

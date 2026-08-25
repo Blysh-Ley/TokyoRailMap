@@ -41,6 +41,7 @@ export const createMobileSheetPullDownController = ({
     startThresholdPx = DEFAULT_START_THRESHOLD_PX,
     horizontalSlopRatio = DEFAULT_HORIZONTAL_SLOP_RATIO,
     isEnabled = () => true,
+    canStartGesture = () => true,
     beginSheetDrag = () => false,
     updateSheetDrag = () => {},
     endSheetDrag = () => {}
@@ -55,8 +56,9 @@ export const createMobileSheetPullDownController = ({
         gesture = null;
     };
 
-    const canStartAtTop = () => (
+    const canStartAtTop = (evt) => (
         isEnabled?.() === true
+        && canStartGesture?.(evt) === true
         && getScrollTop(scrollEl) <= topEpsilonPx
     );
 
@@ -65,7 +67,7 @@ export const createMobileSheetPullDownController = ({
             clearGesture();
             return;
         }
-        if (!canStartAtTop()) {
+        if (!canStartAtTop(evt)) {
             clearGesture();
             return;
         }
@@ -135,7 +137,7 @@ export const createMobileSheetPullDownController = ({
             clearGesture();
             return;
         }
-        if (!canStartAtTop()) {
+        if (!canStartAtTop(evt)) {
             clearGesture();
             return;
         }
