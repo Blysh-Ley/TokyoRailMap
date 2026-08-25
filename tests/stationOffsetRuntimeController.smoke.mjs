@@ -227,13 +227,21 @@ const recordSync = (calls) => (nextZoom, options = {}) => {
     mapEngine.emit('zoom');
     assert.equal(frames.pendingCount(), 1);
     frames.runAll();
+    assert.deepEqual(synced.slice(-1), [
+        { zoom: 10.3, phase: 'visual', reason: 'zoom', updateVisible: undefined }
+    ]);
+
+    zoom = 10.33;
+    now = 23;
+    mapEngine.emit('zoom');
+    frames.runAll();
     assert.deepEqual(synced.slice(-2), [
-        { zoom: 10.32, phase: 'visual', reason: 'zoom-settling', updateVisible: undefined },
-        { zoom: 10.32, phase: 'final', reason: 'zoom-settling', updateVisible: undefined }
+        { zoom: 10.33, phase: 'visual', reason: 'zoom-settling', updateVisible: undefined },
+        { zoom: 10.33, phase: 'final', reason: 'zoom-settling', updateVisible: undefined }
     ]);
 
     zoom = 10.5;
-    now = 20;
+    now = 30;
     mapEngine.emit('zoom');
     assert.equal(frames.pendingCount(), 1);
     mapEngine.emit('zoomend');
@@ -329,6 +337,7 @@ const recordSync = (calls) => (nextZoom, options = {}) => {
     const frames = createFrameStub();
     const mapEngine = createMapEngineStub();
     const controller = createStationOffsetRuntimeController({
+        activeVisualIntervalMs: 0,
         cancelFrame: frames.cancelFrame,
         finalSyncStrategy: 'zoomend-only',
         getZoom: () => zoom,

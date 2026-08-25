@@ -20,6 +20,31 @@ import {
 const pmtilesProtocolTargets = new WeakSet();
 let pmtilesRangeRequestCounter = 0;
 
+const toGeoJsonFeatureId = (feature, promoteId = '') => {
+    if (promoteId) return feature?.properties?.[promoteId];
+    return feature?.id;
+};
+
+export const buildGeoJsonUpdateDiff = (data, { featureIds, promoteId = '' } = {}) => {
+    const features = Array.isArray(data?.features) ? data.features : null;
+    if (!features) return null;
+
+    const allowedIds = featureIds instanceof Set
+        ? featureIds
+        : (Array.isArray(featureIds) ? new Set(featureIds) : null);
+    const update = [];
+
+    for (const feature of features) {
+        const id = toGeoJsonFeatureId(feature, promoteId);
+        if (id == null) return null;
+        if (allowedIds && !allowedIds.has(id) && !allowedIds.has(String(id))) continue;
+        if (!feature?.geometry || typeof feature.geometry !== 'object') return null;
+        update.push({ id, newGeometry: feature.geometry });
+    }
+
+    return { update };
+};
+
 const appendPmtilesRangeCacheKey = (url, offset, length) => {
     const value = String(url || '').trim();
     if (!value) return value;
@@ -147,6 +172,86 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         attributionControl: false,
         localIdeographFontFamily
     });
+    const geoJsonSourcesReadyForDiff = new WeakSet();
+    const latestGeoJsonUpdateStateBySource = new WeakMap();
+    const observesGeoJsonSourceReadiness = typeof map.on === 'function';
+
+    const applyGeoJsonSourceDataUpdate = (source, data, options = {}) => {
+        if (!source) return false;
+
+        const fallbackData = typeof options?.fallbackData === 'function'
+            ? options.fallbackData()
+            : (options?.fallbackData || data);
+        const canUseDiff = typeof source.updateData === 'function'
+            && (!observesGeoJsonSourceReadiness || geoJsonSourcesReadyForDiff.has(source));
+        const diff = canUseDiff
+            ? buildGeoJsonUpdateDiff(data, {
+                featureIds: options?.featureIds,
+                promoteId: options?.promoteId
+            })
+            : null;
+
+        if (diff && diff.update.length) {
+            try {
+                source.updateData(diff);
+                if ('_data' in source) source._data = fallbackData;
+                return true;
+            } catch {
+                // Fall back to the legacy full-source update below.
+            }
+        } else if (diff) {
+            return false;
+        }
+
+        if (typeof source.setData !== 'function') return false;
+        source.setData(fallbackData);
+        return true;
+    };
+
+    const getLatestGeoJsonUpdateState = (source) => {
+        let state = latestGeoJsonUpdateStateBySource.get(source);
+        if (state) return state;
+        state = {
+            inFlight: false,
+            pending: null
+        };
+        latestGeoJsonUpdateStateBySource.set(source, state);
+        return state;
+    };
+
+    const flushLatestGeoJsonSourceData = (source) => {
+        const state = latestGeoJsonUpdateStateBySource.get(source);
+        if (!state || state.inFlight || !state.pending) return false;
+        if (observesGeoJsonSourceReadiness && !geoJsonSourcesReadyForDiff.has(source)) return false;
+
+        const request = state.pending;
+        state.pending = null;
+        state.inFlight = applyGeoJsonSourceDataUpdate(source, request.data, request.options);
+        return state.inFlight;
+    };
+
+    const settleLatestGeoJsonSourceData = (source, { markReady = false } = {}) => {
+        if (!source || typeof source !== 'object') return;
+        if (markReady) geoJsonSourcesReadyForDiff.add(source);
+        const state = latestGeoJsonUpdateStateBySource.get(source);
+        if (!state) return;
+        state.inFlight = false;
+        flushLatestGeoJsonSourceData(source);
+    };
+
+    if (observesGeoJsonSourceReadiness) {
+        map.on('sourcedata', (event) => {
+            if (event?.sourceDataType !== 'content') return;
+            const sourceId = String(event?.sourceId || '').trim();
+            if (!sourceId) return;
+            settleLatestGeoJsonSourceData(map.getSource?.(sourceId), { markReady: true });
+        });
+        map.on('sourcedataabort', (event) => {
+            const sourceId = String(event?.sourceId || '').trim();
+            if (!sourceId) return;
+            settleLatestGeoJsonSourceData(map.getSource?.(sourceId));
+        });
+    }
 
     if (canCleanContainer) {
         containerEl.__tokyoRailMapLibreInstance = map;
@@ -396,6 +501,25 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         setSourceData: (sourceId, data) => {
             const source = map.getSource(sourceId);
             source?.setData?.(data);
+            return source;
+        },
+        updateGeoJsonSourceData: (sourceId, data, options = {}) => {
+            const source = map.getSource(sourceId);
+            if (!source) return source;
+            applyGeoJsonSourceDataUpdate(source, data, options);
+            return source;
+        },
+        updateGeoJsonSourceDataLatest: (sourceId, data, options = {}) => {
+            const source = map.getSource(sourceId);
+            if (!source) return source;
+            if (!observesGeoJsonSourceReadiness) {
+                applyGeoJsonSourceDataUpdate(source, data, options);
+                return source;
+            }
+
+            const state = getLatestGeoJsonUpdateState(source);
+            state.pending = { data, options };
+            flushLatestGeoJsonSourceData(source);
             return source;
         },
         clearLineHighlightLabels,

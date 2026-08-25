@@ -72,6 +72,7 @@ export const createStationOffsetRuntimeController = ({
     let pendingVisualFrameScheduled = false;
     let pendingVisualFrameGeneration = 0;
     let pendingVisualReason = 'zoom';
+    let pendingVisualInterval = DEFAULT_ACTIVE_VISUAL_INTERVAL_MS;
     let pendingFinalInterval = DEFAULT_ACTIVE_FINAL_INTERVAL_MS;
     const unbinders = [];
     const nearIdleVelocity = normalizeDelay(settlingVelocity, DEFAULT_SETTLING_VELOCITY);
@@ -138,11 +139,13 @@ export const createStationOffsetRuntimeController = ({
         pendingVisualFrameId = null;
         pendingVisualFrameScheduled = false;
         pendingVisualReason = 'zoom';
+        pendingVisualInterval = activeVisualInterval;
         pendingFinalInterval = activeFinalInterval;
     };
 
-    const scheduleLatestVisualSync = ({ finalInterval, reason }) => {
+    const scheduleLatestVisualSync = ({ visualInterval, finalInterval, reason }) => {
         pendingVisualReason = reason;
+        pendingVisualInterval = visualInterval;
         pendingFinalInterval = finalInterval;
         if (pendingVisualFrameScheduled) return;
 
@@ -153,13 +156,17 @@ export const createStationOffsetRuntimeController = ({
             pendingVisualFrameId = null;
             pendingVisualFrameScheduled = false;
             const latestReason = pendingVisualReason;
+            const latestVisualInterval = pendingVisualInterval;
             const latestFinalInterval = pendingFinalInterval;
             pendingVisualReason = 'zoom';
+            pendingVisualInterval = activeVisualInterval;
             pendingFinalInterval = activeFinalInterval;
             if (!isDynamicMode()) return;
 
-            const visualSynced = syncVisualAtCurrentZoom(latestReason);
             const now = readNow();
+            if (now - lastVisualSyncTime < latestVisualInterval) return;
+
+            const visualSynced = syncVisualAtCurrentZoom(latestReason);
             if (finalSyncStrategy === DEFAULT_FINAL_SYNC_STRATEGY
                 && visualSynced
                 && now - lastFinalSyncTime >= latestFinalInterval) {
@@ -185,7 +192,11 @@ export const createStationOffsetRuntimeController = ({
 
         const reason = settlingCandidate ? 'zoom-settling' : 'zoom';
         if (visualSyncStrategy === RAF_LATEST_VISUAL_SYNC_STRATEGY) {
-            scheduleLatestVisualSync({ finalInterval: finalIntervalForFrame, reason });
+            scheduleLatestVisualSync({
+                visualInterval: visualIntervalForFrame,
+                finalInterval: finalIntervalForFrame,
+                reason
+            });
             return;
         }
 

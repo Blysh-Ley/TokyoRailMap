@@ -44,6 +44,17 @@ const resolveMapAdapter = (mapOrEngine) => ({
         const source = mapOrEngine?.getSource?.(sourceId);
         source?.setData?.(data);
         return source;
+    },
+    setSourceDataLatest: (sourceId, data) => {
+        if (typeof mapOrEngine?.updateGeoJsonSourceDataLatest === 'function') {
+            return mapOrEngine.updateGeoJsonSourceDataLatest(sourceId, data);
+        }
+        if (typeof mapOrEngine?.setSourceData === 'function') {
+            return mapOrEngine.setSourceData(sourceId, data);
+        }
+        const source = mapOrEngine?.getSource?.(sourceId);
+        source?.setData?.(data);
+        return source;
     }
 });
 
@@ -445,6 +456,9 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
     const beforeLayerId = options.beforeLayerId || 'stations-layer';
     const minZoom = Number.isFinite(options.minZoom) ? Number(options.minZoom) : 8;
     const highlightStyle = options.highlightStyle === true;
+    const updateSourceData = options.latestSourceUpdates === true
+        ? mapAdapter.setSourceDataLatest
+        : mapAdapter.setSourceData;
     const capsuleOutlineLineWidthExpr = highlightStyle
         ? buildHighlightLineWidthScaledExpr(getLineBasedSizeScale('capsuleOutlineLineWidthScale', 1.8))
         : buildZoomBasedExponentialSizeExpr(...TRANSFER_CAPSULE_SIZE.outlineLineWidth);
@@ -474,7 +488,7 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
             buffer: 128
         });
     } else {
-        mapAdapter.setSourceData(ids.lineSourceId, data?.lines || { type: 'FeatureCollection', features: [] });
+        updateSourceData(ids.lineSourceId, data?.lines || { type: 'FeatureCollection', features: [] });
     }
 
     if (!mapAdapter.getSource(ids.centroidSourceId)) {
@@ -483,7 +497,7 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
             data: data?.centroids || { type: 'FeatureCollection', features: [] }
         });
     } else {
-        mapAdapter.setSourceData(ids.centroidSourceId, data?.centroids || { type: 'FeatureCollection', features: [] });
+        updateSourceData(ids.centroidSourceId, data?.centroids || { type: 'FeatureCollection', features: [] });
     }
 
     if (!mapAdapter.getSource(ids.dotSourceId)) {
@@ -492,7 +506,7 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
             data: data?.dots || { type: 'FeatureCollection', features: [] }
         });
     } else {
-        mapAdapter.setSourceData(ids.dotSourceId, data?.dots || { type: 'FeatureCollection', features: [] });
+        updateSourceData(ids.dotSourceId, data?.dots || { type: 'FeatureCollection', features: [] });
     }
 
     const getThemeCapsuleColors = () => {

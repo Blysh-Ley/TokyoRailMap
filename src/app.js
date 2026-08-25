@@ -4936,6 +4936,9 @@ const initMapApp = async () => {
         };
 
         const stationCoordinateAdapter = createStationCoordinateAdapter({ stationLabels, stationCircles });
+        const stationOffsetFeatureIds = new Set(Object.keys(
+            stationOffsetAlgorithmContext?.stationLocalChainsById || {}
+        ));
         const getViewportStationIdsForTransferCapsules = (stationsGeoJSON) => {
             let bounds = null;
             try {
@@ -4961,14 +4964,20 @@ const initMapApp = async () => {
             getZoom: () => mapEngine.getZoom(),
             updateStationsSourceData: (nextGeoJSON) => {
                 try {
-                    mapEngine.setSourceData('stations-source', nextGeoJSON);
+                    mapEngine.updateGeoJsonSourceDataLatest('stations-source', nextGeoJSON, {
+                        featureIds: stationOffsetFeatureIds,
+                        fallbackData: nextGeoJSON
+                    });
                 } catch {
                     // ignore
                 }
             },
             updateStationLabelsSourceData: (nextGeoJSON) => {
                 try {
-                    mapEngine.setSourceData(STATION_LABELS_SOURCE_ID, buildStationLabelGeoJSON(nextGeoJSON));
+                    mapEngine.updateGeoJsonSourceDataLatest(
+                        STATION_LABELS_SOURCE_ID,
+                        buildStationLabelGeoJSON(nextGeoJSON)
+                    );
                 } catch {
                     // ignore
                 }
@@ -5012,7 +5021,8 @@ const initMapApp = async () => {
                 addTransferCapsuleLayers(mapEngine, transferCapsuleData, {
                     beforeLayerId: 'stations-layer',
                     minZoom: 8,
-                    highlightStyle: shouldUseHighlightStyle()
+                    highlightStyle: shouldUseHighlightStyle(),
+                    latestSourceUpdates: true
                 });
             },
             resolveTransferCapsuleLineColor: (lineId) => {
