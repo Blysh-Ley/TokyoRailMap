@@ -393,10 +393,19 @@ const isIosNativePlatform = () => (
     || document.body?.dataset?.nativePlatform === 'ios'
 );
 const isMobileStartupSplashEnabled = () => isMobileUiMode() || isIosNativePlatform();
+let viewportModeReloadScheduled = false;
+const reloadForViewportModeChange = () => {
+    if (viewportModeReloadScheduled) return;
+    viewportModeReloadScheduled = true;
+    window.requestAnimationFrame?.(() => window.location.reload());
+    if (!window.requestAnimationFrame) window.location.reload();
+};
 mobileUiMode = createMobileUiModeController({
+    notifyOnInit: false,
     onChange: () => {
         mapAttributionView?.apply?.();
         mobileStartupSplashView.setEnabled?.(isMobileStartupSplashEnabled());
+        reloadForViewportModeChange();
     }
 });
 mobileStartupSplashView.setEnabled?.(isMobileStartupSplashEnabled());

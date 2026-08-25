@@ -78,17 +78,24 @@ const setMobileUiDataset = (doc, isMobile, nativePlatform = '') => {
 export const createMobileUiModeController = ({
     doc = globalThis.document,
     win = globalThis.window,
-    onChange = null
+    onChange = null,
+    notifyOnInit = true
 } = {}) => {
     let current = false;
+    let initialized = false;
 
     const refresh = () => {
         const next = isMobileViewport(win);
         setMobileUiDataset(doc, next, resolveNativePlatform(win));
-        if (next !== current && typeof onChange === 'function') {
+        if (
+            next !== current
+            && typeof onChange === 'function'
+            && (initialized || notifyOnInit)
+        ) {
             onChange(next);
         }
         current = next;
+        initialized = true;
         return current;
     };
 

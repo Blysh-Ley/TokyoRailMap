@@ -8,6 +8,7 @@ const createWindow = ({ width, matches = {} }) => {
     const listeners = new Map();
     return {
         innerWidth: width,
+        dispatch: (type) => listeners.get(type)?.(),
         addEventListener: (type, listener) => listeners.set(type, listener),
         removeEventListener: (type) => listeners.delete(type),
         matchMedia: (query) => ({
@@ -41,6 +42,29 @@ assert.equal(doc.documentElement.dataset.mobileUi, '1');
 assert.equal(doc.body.dataset.mobileUi, '1');
 controller.destroy();
 
+const responsiveDoc = {
+    documentElement: { dataset: {} },
+    body: { dataset: {} }
+};
+const responsiveWin = createWindow({ width: 1180 });
+const responsiveChanges = [];
+const responsiveController = createMobileUiModeController({
+    doc: responsiveDoc,
+    win: responsiveWin,
+    notifyOnInit: false,
+    onChange: (isMobile) => responsiveChanges.push(isMobile)
+});
+assert.deepEqual(responsiveChanges, []);
+responsiveWin.innerWidth = 430;
+responsiveWin.dispatch('resize');
+assert.deepEqual(responsiveChanges, [true]);
+responsiveWin.dispatch('resize');
+assert.deepEqual(responsiveChanges, [true]);
+responsiveWin.innerWidth = 1180;
+responsiveWin.dispatch('resize');
+assert.deepEqual(responsiveChanges, [true, false]);
+responsiveController.destroy();
+
 const iosDoc = {
     documentElement: { dataset: {} },
     body: { dataset: {} }
@@ -62,6 +86,8 @@ iosController.destroy();
 
 const appSource = readFileSync(join(process.cwd(), 'src/app.js'), 'utf8');
 assert.match(appSource, /createMobileUiModeController/);
+assert.match(appSource, /notifyOnInit:\s*false/);
+assert.match(appSource, /reloadForViewportModeChange/);
 assert.match(appSource, /panelPresentation:\s*isMobileUiMode\(\)\s*\?\s*'mobile'\s*:\s*'desktop'/);
 assert.match(appSource, /if\s*\(!isMobileUiMode\(\)\)\s*\{\s*menu = new Menu/);
 
