@@ -14,6 +14,7 @@ const androidManifest = readFileSync('android/app/src/main/AndroidManifest.xml',
 const androidMainStrings = readFileSync('android/app/src/main/res/values/strings.xml', 'utf8');
 const androidMainActivity = readFileSync('android/app/src/main/java/com/blysh/tokyorailmap/MainActivity.java', 'utf8');
 const androidBasemapPlugin = readFileSync('android/app/src/main/java/com/blysh/tokyorailmap/TokyoRailBasemapPlugin.java', 'utf8');
+const androidUpdatePlugin = readFileSync('android/app/src/main/java/com/blysh/tokyorailmap/TokyoRailUpdatePlugin.java', 'utf8');
 const capacitorSyncScript = readFileSync('scripts/sync-capacitor-web.mjs', 'utf8');
 const releaseVariantsScript = readFileSync('scripts/release-variants.mjs', 'utf8');
 const electronVariantScript = readFileSync('scripts/build-electron-variant.mjs', 'utf8');
@@ -110,10 +111,13 @@ assert.match(androidMainStrings, /东京铁路图/);
 assert.match(androidMainStrings, /com\.blysh\.tokyorailmap/);
 assert.doesNotMatch(androidMainStrings, /离线版|\.offline|\.online/);
 assert.match(androidFilePaths, /<cache-path\b[^>]*path="\."/);
+assert.match(androidFilePaths, /<cache-path\b[^>]*path="tokyorail-updates\/"/);
 assert.match(androidManifest, /android\.permission\.READ_EXTERNAL_STORAGE/);
 assert.match(androidManifest, /android\.permission\.WRITE_EXTERNAL_STORAGE/);
 assert.match(androidManifest, /android\.permission\.READ_MEDIA_IMAGES/);
+assert.match(androidManifest, /android\.permission\.REQUEST_INSTALL_PACKAGES/);
 assert.match(androidMainActivity, /registerPlugin\(TokyoRailBasemapPlugin\.class\)/);
+assert.match(androidMainActivity, /registerPlugin\(TokyoRailUpdatePlugin\.class\)/);
 assert.match(androidBasemapPlugin, /@CapacitorPlugin\(name = "TokyoRailBasemap"\)/);
 assert.match(androidBasemapPlugin, /RandomAccessFile/);
 assert.match(androidBasemapPlugin, /file\.seek\(offset\)/);
@@ -147,5 +151,9 @@ assert.match(fetchCacheSource, /api\.readLocalFile\(url, range \? \{ range \} : 
 assert.match(androidPmtilesSource, /TokyoRailBasemap/);
 assert.match(androidPmtilesSource, /readRange/);
 assert.match(androidPmtilesSource, /hasPmtilesMagicNumber/);
+assert.match(androidUpdatePlugin, /downloadAndInstallApk/);
+assert.match(androidUpdatePlugin, /ACTION_MANAGE_UNKNOWN_APP_SOURCES/);
+assert.match(androidUpdatePlugin, /Intent\.ACTION_INSTALL_PACKAGE/);
+assert.match(androidUpdatePlugin, /GITHUB_RELEASE_PATH_PREFIX/);
 
 console.log('android packaging smoke ok');

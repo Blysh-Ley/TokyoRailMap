@@ -1,4 +1,5 @@
 import {
+    ANDROID_GITHUB_LATEST_RELEASE_API,
     ANDROID_STORE_PROVIDERS,
     APP_UPDATE_APP_ID,
     APP_UPDATE_MANIFEST_URL,
@@ -8,6 +9,7 @@ import {
     resolveAndroidStoreProvider
 } from '../config/appUpdateSources.js';
 import { compareAppVersions } from '../domain/appVersion.js';
+import { resolveGitHubAndroidRelease } from '../domain/githubAndroidRelease.js';
 import {
     readAutoUpdateCheckEnabled,
     writeAutoUpdateCheckEnabled
@@ -71,10 +73,13 @@ const getNativeAppInfo = async (target) => {
     };
 };
 
-const fetchJson = async (url, target) => {
+const fetchJson = async (url, target, options = {}) => {
     const value = toText(url);
     if (!value || typeof target?.fetch !== 'function') return null;
-    const response = await target.fetch(value, { cache: 'no-store' });
+    const response = await target.fetch(value, {
+        ...options,
+        cache: 'no-store'
+    });
     if (!response?.ok) return null;
     return response.json();
 };
@@ -126,6 +131,19 @@ const readIosAppStoreUpdate = async ({ target, appInfo }) => {
         storeUrl,
         source: 'app-store'
     };
+};
+
+const readGitHubAndroidUpdate = async ({ target, appInfo }) => {
+    const release = await fetchJson(ANDROID_GITHUB_LATEST_RELEASE_API, target, {
+        headers: {
+            Accept: 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28'
+        }
+    });
+    return resolveGitHubAndroidRelease({
+        release,
+        currentVersion: appInfo.version
+    });
 };
 
 const getAndroidStoreInfo = async ({ target, appInfo }) => {
@@ -285,6 +303,34 @@ const promptForNativeStoreUpdate = async ({ target, update, automatic }) => {
     };
 };
 
+const downloadAndInstallGitHubAndroidUpdate = async ({ target, update }) => {
+    const plugin = getCapacitorPluginProxy(target, UPDATE_PLUGIN_NAME);
+    if (typeof plugin?.downloadAndInstallApk !== 'function') {
+        throw new Error('当前安装包不支持应用内安装，请安装包含 GitHub 更新器的新版本。');
+    }
+
+    return plugin.downloadAndInstallApk({
+        url: update.downloadUrl,
+        fileName: update.assetName,
+        expectedSize: update.assetSize || 0,
+        expectedSha256: update.assetSha256 || ''
+    });
+};
+
+const promptForGitHubAndroidUpdate = async ({ target, update }) => {
+    if (!update?.available) return { started: false, skipped: true };
+
+    const title = `发现新版本：${update.latestVersion}`;
+    const current = update.currentVersion ? `当前版本：${update.currentVersion}` : '';
+    const notes = update.releaseNotes ? `\n\n${update.releaseNotes}` : '';
+    const question = '是否从 GitHub 下载并安装更新？\n下载完成后将打开 Android 系统安装界面。';
+    const message = [title, current, question].filter(Boolean).join('\n') + notes;
+    const accepted = typeof target?.confirm === 'function' ? target.confirm(message) : true;
+    if (!accepted) return { started: false, skipped: true };
+
+    return downloadAndInstallGitHubAndroidUpdate({ target, update });
+};
+
 const showNoUpdatePrompt = ({ target, automatic, message = '已是最新版本' } = {}) => {
     if (automatic) return;
     if (typeof target?.alert === 'function') target.alert(message);
@@ -293,9 +339,9 @@ const showNoUpdatePrompt = ({ target, automatic, message = '已是最新版本' 
 const checkMobileUpdate = async ({ target, automatic = false } = {}) => {
     const platform = getCapacitorPlatform(target);
     const appInfo = await getNativeAppInfo(target);
-    const manifestUpdate = await readManifestUpdate({ platform, target, appInfo });
 
     if (platform === 'ios') {
+        const manifestUpdate = await readManifestUpdate({ platform, target, appInfo });
         const update = manifestUpdate || await readIosAppStoreUpdate({ target, appInfo });
         const opened = await promptForUpdate({ target, update, platform });
         if (!update?.available) {
@@ -311,51 +357,41 @@ const checkMobileUpdate = async ({ target, automatic = false } = {}) => {
     }
 
     if (platform === 'android') {
-        const androidStore = await getAndroidStoreInfo({ target, appInfo });
-        const nativeStoreUpdate = await checkNativeStoreUpdate({ target });
-        if (nativeStoreUpdate?.mechanism === 'google_play_in_app') {
-            const nativeAction = await promptForNativeStoreUpdate({
-                target,
-                update: nativeStoreUpdate,
-                automatic
-            });
-            if (nativeStoreUpdate.available || nativeAction.opened || nativeAction.completed) {
+        const update = await readGitHubAndroidUpdate({ target, appInfo });
+        if (update.available) {
+            try {
+                const nativeAction = await promptForGitHubAndroidUpdate({ target, update });
                 return {
-                    ok: true,
+                    ok: nativeAction?.started !== false || nativeAction?.skipped === true,
                     platform,
-                    update: nativeStoreUpdate,
-                    opened: nativeAction.opened === true,
+                    update,
+                    opened: nativeAction?.started === true,
                     nativeAction
+                };
+            } catch (error) {
+                if (!automatic && typeof target?.alert === 'function') {
+                    target.alert(`更新下载或安装启动失败：${toText(error?.message) || '请稍后重试'}`);
+                }
+                return {
+                    ok: false,
+                    platform,
+                    update,
+                    opened: false,
+                    reason: 'github-apk-install-failed'
                 };
             }
         }
 
-        if (manifestUpdate) {
-            const opened = await promptForUpdate({ target, update: manifestUpdate, platform, androidStore });
-            return { ok: true, platform, update: manifestUpdate, opened };
-        }
-
-        if (!automatic) {
-            const opened = await showManualAndroidStorePrompt({ target, androidStore });
-            return {
-                ok: true,
-                platform,
-                update: {
-                    available: false,
-                    reason: 'manifest-not-configured',
-                    storeCapability: androidStore.capability
-                },
-                opened
-            };
-        }
+        const noUpdateMessage = update.reason === 'github-android-apk-missing'
+            ? `GitHub 已发布 ${update.latestVersion}，但暂未找到 Android APK 安装包。`
+            : update.reason
+                ? '暂时无法从 GitHub 获取更新信息，请稍后重试。'
+                : '已是最新版本';
+        showNoUpdatePrompt({ target, automatic, message: noUpdateMessage });
         return {
-            ok: true,
+            ok: !update.reason,
             platform,
-            update: {
-                available: false,
-                reason: 'manifest-not-configured',
-                storeCapability: androidStore.capability
-            },
+            update,
             opened: false
         };
     }
