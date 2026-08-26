@@ -21,8 +21,8 @@ const createMapStub = () => {
             return sources.get(sourceId) || null;
         },
         setPaintProperty() {},
-        updateGeoJsonSourceDataLatest(sourceId, data) {
-            latestSourceUpdateCalls.push({ sourceId, data });
+        updateGeoJsonSourceDataLatest(sourceId, data, options) {
+            latestSourceUpdateCalls.push({ sourceId, data, options });
         }
     };
 };
@@ -42,5 +42,8 @@ assert.deepEqual(mapEngine.latestSourceUpdateCalls.map(({ sourceId }) => sourceI
     'transfer-capsule-centroids-source',
     'transfer-capsule-dots-source'
 ]);
+assert.equal(mapEngine.latestSourceUpdateCalls.every(
+    ({ options }) => options?.replaceDataOnEmptyDiff === true
+), true);
 
 console.log('transfer capsule latest source update smoke ok');

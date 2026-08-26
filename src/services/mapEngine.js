@@ -199,7 +199,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
             } catch {
                 // Fall back to the legacy full-source update below.
             }
-        } else if (diff) {
+        } else if (diff && options?.replaceDataOnEmptyDiff !== true) {
             return false;
         }
 

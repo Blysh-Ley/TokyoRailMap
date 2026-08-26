@@ -4976,7 +4976,8 @@ const initMapApp = async () => {
                 try {
                     mapEngine.updateGeoJsonSourceDataLatest(
                         STATION_LABELS_SOURCE_ID,
-                        buildStationLabelGeoJSON(nextGeoJSON)
+                        buildStationLabelGeoJSON(nextGeoJSON),
+                        { replaceDataOnEmptyDiff: true }
                     );
                 } catch {
                     // ignore

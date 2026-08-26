@@ -45,9 +45,9 @@ const resolveMapAdapter = (mapOrEngine) => ({
         source?.setData?.(data);
         return source;
     },
-    setSourceDataLatest: (sourceId, data) => {
+    setSourceDataLatest: (sourceId, data, options = {}) => {
         if (typeof mapOrEngine?.updateGeoJsonSourceDataLatest === 'function') {
-            return mapOrEngine.updateGeoJsonSourceDataLatest(sourceId, data);
+            return mapOrEngine.updateGeoJsonSourceDataLatest(sourceId, data, options);
         }
         if (typeof mapOrEngine?.setSourceData === 'function') {
             return mapOrEngine.setSourceData(sourceId, data);
@@ -488,7 +488,11 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
             buffer: 128
         });
     } else {
-        updateSourceData(ids.lineSourceId, data?.lines || { type: 'FeatureCollection', features: [] });
+        updateSourceData(
+            ids.lineSourceId,
+            data?.lines || { type: 'FeatureCollection', features: [] },
+            { replaceDataOnEmptyDiff: true }
+        );
     }
 
     if (!mapAdapter.getSource(ids.centroidSourceId)) {
@@ -497,7 +501,11 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
             data: data?.centroids || { type: 'FeatureCollection', features: [] }
         });
     } else {
-        updateSourceData(ids.centroidSourceId, data?.centroids || { type: 'FeatureCollection', features: [] });
+        updateSourceData(
+            ids.centroidSourceId,
+            data?.centroids || { type: 'FeatureCollection', features: [] },
+            { replaceDataOnEmptyDiff: true }
+        );
     }
 
     if (!mapAdapter.getSource(ids.dotSourceId)) {
@@ -506,7 +514,11 @@ export function addTransferCapsuleLayers(mapOrEngine, data, options = {}) {
             data: data?.dots || { type: 'FeatureCollection', features: [] }
         });
     } else {
-        updateSourceData(ids.dotSourceId, data?.dots || { type: 'FeatureCollection', features: [] });
+        updateSourceData(
+            ids.dotSourceId,
+            data?.dots || { type: 'FeatureCollection', features: [] },
+            { replaceDataOnEmptyDiff: true }
+        );
     }
 
     const getThemeCapsuleColors = () => {

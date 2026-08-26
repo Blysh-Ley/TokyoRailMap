@@ -122,6 +122,51 @@ const createEngine = (MapCtor = FakeMap) => createMapEngine({
 }
 
 {
+    const engine = createEngine(ObservableFakeMap);
+    engine.addSource('transfer-capsule-lines-source', {
+        type: 'geojson',
+        data: nextStations
+    });
+    const source = engine.getSource('transfer-capsule-lines-source');
+    const emptyData = { type: 'FeatureCollection', features: [] };
+
+    engine.getMap().emit('sourcedata', {
+        sourceDataType: 'content',
+        sourceId: 'transfer-capsule-lines-source'
+    });
+    engine.updateGeoJsonSourceDataLatest('transfer-capsule-lines-source', nextStations);
+    engine.updateGeoJsonSourceDataLatest('transfer-capsule-lines-source', emptyData, {
+        replaceDataOnEmptyDiff: true
+    });
+
+    assert.equal(source.setCalls.length, 0);
+    assert.equal(source.updateCalls.length, 1);
+    engine.getMap().emit('sourcedata', {
+        sourceDataType: 'content',
+        sourceId: 'transfer-capsule-lines-source'
+    });
+    assert.deepEqual(source.setCalls, [emptyData]);
+    assert.equal(source.updateCalls.length, 1);
+}
+
+{
+    const engine = createEngine();
+    engine.addSource('unchanged-empty-diff-source', {
+        type: 'geojson',
+        data: nextStations
+    });
+    const source = engine.getSource('unchanged-empty-diff-source');
+
+    engine.updateGeoJsonSourceData('unchanged-empty-diff-source', {
+        type: 'FeatureCollection',
+        features: []
+    });
+
+    assert.equal(source.setCalls.length, 0);
+    assert.equal(source.updateCalls.length, 0);
+}
+
+{
     const makeStationsAtLongitude = (longitude) => ({
         type: 'FeatureCollection',
         features: [makeStationFeature('S1', [longitude, 35.1])]
