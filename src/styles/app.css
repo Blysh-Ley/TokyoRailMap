@@ -2121,13 +2121,13 @@ html[data-theme='dark'] .search-ui > .journey-ui .journey-input-wrap {
 .search-heatmap-select.is-active,
 .search-heatmap-select.is-active:hover {
     background: transparent;
-    color: #000;
+    color: var(--ui-text);
     opacity: 1;
 }
 
 .search-heatmap-time-label {
     display: none;
-    color: #000;
+    color: currentColor;
     font-size: 12px;
     line-height: 1;
     white-space: nowrap;
@@ -2178,7 +2178,8 @@ html[data-theme='dark'] .search-ui > .journey-ui .journey-input-wrap {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    background: rgba(255, 255, 255, 0.98);
+    background: var(--ui-surface);
+    color: var(--ui-text);
     border: 1px solid var(--ui-border);
     border-radius: 12px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
@@ -2204,15 +2205,15 @@ html[data-theme='dark'] .search-ui > .journey-ui .journey-input-wrap {
 }
 
 .search-heatmap-picker .settings-time-picker-btn {
-    border: 1px solid #d5dce3;
+    border: 1px solid var(--ui-border);
     border-radius: 8px;
     height: 28px;
     min-width: 52px;
     padding: 0 10px;
     font-size: 12px;
     cursor: pointer;
-    background: #fff;
-    color: #333;
+    background: var(--ui-surface);
+    color: var(--ui-text);
 }
 
 .search-heatmap-picker .settings-time-picker-btn-confirm {
@@ -2237,7 +2238,7 @@ html[data-theme='dark'] .search-ui > .journey-ui .journey-input-wrap {
     border-radius: 8px;
     height: 28px;
     font-size: 13px;
-    color: #333;
+    color: var(--ui-text);
     cursor: pointer;
     text-align: center;
 }
@@ -8005,6 +8006,19 @@ html[data-theme='dark'] .settings-time-picker-option {
     background: #22262d;
     border-color: var(--ui-border);
     color: #d8dbe1;
+}
+
+html[data-theme='dark'] .settings-time-picker.search-heatmap-picker,
+html[data-theme='dark'] .search-heatmap-picker .settings-time-picker-btn,
+html[data-theme='dark'] .search-heatmap-picker .settings-time-picker-option {
+    background: var(--ui-surface);
+    border-color: var(--ui-border);
+    color: var(--ui-text);
+}
+
+html[data-theme='dark'] .search-heatmap-picker .settings-time-picker-btn-confirm {
+    border-color: var(--is-active-color);
+    color: var(--is-active-color);
 }
 
 html[data-theme='dark'] .settings-time-input {

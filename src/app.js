@@ -1186,6 +1186,7 @@ const initMapApp = async () => {
     travelSearchMapRuntime = createTravelSearchMapRuntime({
         mapEngine,
         overlayRenderer: reachableStopsOverlayRenderer,
+        getIsDarkTheme: () => document.documentElement.getAttribute('data-theme') === 'dark',
         getStationCoord: (stationId) => stationCoordById.get(stationId) || stationCoordByIdBase.get(stationId),
         getStationLabels: () => stationLabels,
         createJourneyPickPinElement,
@@ -3664,6 +3665,10 @@ const initMapApp = async () => {
         onThemeChanged: () => {
             applyStationThemePaintToMapLayers();
             applySelectionEffects();
+            void travelSearchMapRuntime?.refreshReachableStopsOverlay?.(
+                undefined,
+                { fitBounds: false, forcePaint: true }
+            );
             panel?.refreshThemeColors?.();
         },
         onTimezoneModeChanged: () => {

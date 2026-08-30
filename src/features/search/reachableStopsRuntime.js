@@ -1,38 +1,30 @@
+import {
+    createReachableStopsColorExpression,
+    normalizeReachableStopsPaletteTheme
+} from './reachableStopsPalette.js';
+import {
+    getReachableStopsLastMileRadiusMeters
+} from '../../domain/reachableStops/rules.js';
+
 const EMPTY_KEY = '__empty__';
 const INIT_KEY = '__init__';
 
 const toText = (value) => String(value ?? '').trim();
 
 export const reachableStopsCircleRadiusMeters = (remainingMs) => {
-    const maxMinutes = 20;
-    const minMinutes = 5;
-    const remainingMinutes = Math.max(minMinutes, Number(remainingMs) / 60000);
-    const walkMinutes = Math.min(maxMinutes, remainingMinutes);
-    return walkMinutes * 50;
-};
-
-const generateAbsoluteColorExpressionAbsolute = (countsArray) => {
-    const fixedSteps = [0, 18, 36, 54, 72, 108, 180, 360];
-    const steps = fixedSteps.length;
-    const colors = [];
-    for (let i = 0; i < steps; i += 1) {
-        const ratio = i / (steps - 1);
-        const h = Math.round(50 * (1 - ratio));
-        const s = 100;
-        const l = Math.round(80 - 30 * ratio);
-        colors.push(`hsl(${h}, ${s}%, ${l}%)`);
-    }
-
-    const expression = ['interpolate', ['linear'], ['get', 'shiftCount']];
-    for (let i = 0; i < steps; i += 1) {
-        expression.push(fixedSteps[i], colors[i]);
-    }
-    return expression;
+    const remainingMinutes = Number(remainingMs) / 60000;
+    if (Number.isNaN(remainingMinutes)) return Number.NaN;
+    return getReachableStopsLastMileRadiusMeters(
+        remainingMinutes === Number.POSITIVE_INFINITY
+            ? Number.MAX_VALUE
+            : remainingMinutes
+    );
 };
 
 export const buildReachableStopsOverlayGeoJSON = ({
     payload = {},
-    getStationCoord = () => null
+    getStationCoord = () => null,
+    theme = 'light'
 } = {}) => {
     const reachableStops = payload?.reachableStops;
     const remainingMsByStop = payload?.remainingMsByStop instanceof Map
@@ -43,8 +35,7 @@ export const buildReachableStopsOverlayGeoJSON = ({
         ? reachableStops
         : (reachableStops instanceof Set ? Array.from(reachableStops) : Object.keys(payload?.remainingMsByStop || {}));
 
-    const features = [];
-    const allShiftCounts = [];
+    const featureByCircleKey = new Map();
 
     for (const rawStopId of stopIds) {
         const stopId = toText(rawStopId);
@@ -62,40 +53,93 @@ export const buildReachableStopsOverlayGeoJSON = ({
 
         for (const shift of shiftsArray) {
             const remainingMs = Number(shift?.remainMs);
-            const shiftCount = Number(shift?.count) || 0;
+            const rawOpportunityCount = shift?.departureOpportunityCount ?? shift?.count ?? shift?.shiftCount;
+            const departureOpportunityCount = Number(rawOpportunityCount) || 0;
             if (!Number.isFinite(remainingMs) || remainingMs < 0) continue;
+            if (departureOpportunityCount <= 0) continue;
 
-            if (shiftCount > 0) allShiftCounts.push(shiftCount);
-            const radiusMeters = reachableStopsCircleRadiusMeters(remainingMs);
-            const sortKey = (shiftCount * 100000) - radiusMeters;
-            features.push({
+            const radiusMeters = Math.trunc(reachableStopsCircleRadiusMeters(remainingMs));
+            const normalizedLng = lng.toFixed(6);
+            const normalizedLat = lat.toFixed(6);
+            const circleKey = `${normalizedLng}|${normalizedLat}|${radiusMeters}`;
+            const existing = featureByCircleKey.get(circleKey);
+
+            if (existing) {
+                if (!existing.stationIdSet.has(stopId)) {
+                    existing.stationIdSet.add(stopId);
+                    existing.feature.properties.stationIds.push(stopId);
+                }
+                existing.feature.properties.remainingMs = Math.max(
+                    existing.feature.properties.remainingMs,
+                    remainingMs
+                );
+                existing.feature.properties.departureOpportunityCount = Math.max(
+                    existing.feature.properties.departureOpportunityCount,
+                    departureOpportunityCount
+                );
+                existing.feature.properties.shiftCount = existing.feature.properties.departureOpportunityCount;
+                continue;
+            }
+
+            const feature = {
                 type: 'Feature',
                 properties: {
                     id: stopId,
+                    stationIds: [stopId],
                     remainingMs,
                     radiusMeters,
-                    shiftCount,
-                    sortKey
+                    departureOpportunityCount,
+                    shiftCount: departureOpportunityCount,
+                    sortKey: 0
                 },
                 geometry: {
                     type: 'Point',
-                    coordinates: [lng, lat]
+                    coordinates: [Number(normalizedLng), Number(normalizedLat)]
                 }
+            };
+            featureByCircleKey.set(circleKey, {
+                feature,
+                stationIdSet: new Set([stopId])
             });
         }
     }
 
+    const features = Array.from(featureByCircleKey.values(), ({ feature }) => {
+        feature.properties.stationIds.sort();
+        feature.properties.id = feature.properties.stationIds[0] || feature.properties.id;
+        feature.properties.sortKey = (
+            (feature.properties.departureOpportunityCount * 100000)
+            - feature.properties.radiusMeters
+        );
+        return feature;
+    });
+
     features.sort((a, b) => {
-        if (a.properties.shiftCount !== b.properties.shiftCount) {
-            return a.properties.shiftCount - b.properties.shiftCount;
+        if (a.properties.departureOpportunityCount !== b.properties.departureOpportunityCount) {
+            return a.properties.departureOpportunityCount - b.properties.departureOpportunityCount;
         }
-        return b.properties.radiusMeters - a.properties.radiusMeters;
+        if (a.properties.radiusMeters !== b.properties.radiusMeters) {
+            return b.properties.radiusMeters - a.properties.radiusMeters;
+        }
+        const aCoordinates = a.geometry.coordinates;
+        const bCoordinates = b.geometry.coordinates;
+        if (aCoordinates[0] !== bCoordinates[0]) return aCoordinates[0] - bCoordinates[0];
+        if (aCoordinates[1] !== bCoordinates[1]) return aCoordinates[1] - bCoordinates[1];
+        return toText(a.properties.id).localeCompare(toText(b.properties.id));
     });
 
     return {
         geojson: { type: 'FeatureCollection', features },
-        dynamicColorExpression: generateAbsoluteColorExpressionAbsolute(allShiftCounts)
+        dynamicColorExpression: createReachableStopsColorExpression(theme),
+        theme: normalizeReachableStopsPaletteTheme(theme)
     };
+};
+
+const getFeatureStationIds = (feature) => {
+    const stationIds = Array.isArray(feature?.properties?.stationIds)
+        ? feature.properties.stationIds
+        : [feature?.properties?.id ?? feature?.id];
+    return stationIds.map(toText).filter(Boolean);
 };
 
 export const getReachableStopsLabelIdSet = (geojson) => {
@@ -103,8 +147,7 @@ export const getReachableStopsLabelIdSet = (geojson) => {
     if (!features.length) return null;
     const out = new Set();
     for (const feature of features) {
-        const sid = toText(feature?.properties?.id ?? feature?.id);
-        if (sid) out.add(sid);
+        for (const sid of getFeatureStationIds(feature)) out.add(sid);
     }
     return out.size ? out : null;
 };
@@ -152,10 +195,11 @@ export const getReachableStopsExtremeLabelIdSet = (geojson) => {
 
 const buildVisibleKey = (geojson) => JSON.stringify(
     (Array.isArray(geojson?.features) ? geojson.features : []).map((feature) => [
-        feature?.properties?.id,
-        Math.round(Number(feature?.properties?.remainingMs) || 0),
+        Number(feature?.properties?.departureOpportunityCount ?? feature?.properties?.shiftCount) || 0,
+        Math.trunc(Number(feature?.properties?.radiusMeters) || 0),
         (feature?.geometry?.coordinates?.[0] || 0).toFixed(6),
-        (feature?.geometry?.coordinates?.[1] || 0).toFixed(6)
+        (feature?.geometry?.coordinates?.[1] || 0).toFixed(6),
+        getFeatureStationIds(feature).sort()
     ])
 );
 
@@ -164,11 +208,13 @@ export const createTravelSearchMapRuntime = ({
     overlayRenderer,
     getStationCoord = () => null,
     getStationLabels = () => [],
+    getIsDarkTheme = () => false,
     createJourneyPickPinElement,
     onJourneyPickPinStationIdsChange = () => {},
     scheduleCollisionLayerRefresh = () => {}
 } = {}) => {
     let reachableStopsOverlayVisibleKey = INIT_KEY;
+    let reachableStopsOverlaySourceDirty = false;
     let reachableStopsLabelIds = null;
     let reachableStopsExtremeLabelIds = null;
     let lastReachableStopsPayload = null;
@@ -301,13 +347,20 @@ export const createTravelSearchMapRuntime = ({
     };
 
     const clearReachableStopsOverlay = () => {
+        let sourceCleared = true;
+        try {
+            sourceCleared = overlayRenderer?.clear?.() !== false;
+        } catch {
+            sourceCleared = false;
+        }
+        reachableStopsOverlaySourceDirty = !sourceCleared;
         reachableStopsOverlayVisibleKey = EMPTY_KEY;
         lastReachableStopsPayload = null;
         reachableStopsLabelIds = null;
         reachableStopsExtremeLabelIds = null;
         applyReachableStopsLabelPriorityBoost(null);
-        overlayRenderer?.clear?.();
         scheduleCollisionLayerRefresh?.();
+        return sourceCleared;
     };
 
     const refreshReachableStopsOverlay = async (payload = null, options = {}) => {
@@ -316,16 +369,41 @@ export const createTravelSearchMapRuntime = ({
         } else {
             payload = lastReachableStopsPayload;
         }
-        if (!payload) return;
+        if (!payload) return true;
 
-        const data = buildReachableStopsOverlayGeoJSON({ payload, getStationCoord });
-        overlayRenderer?.ensureLayers?.(data.dynamicColorExpression, payload.opacity);
+        let theme = options?.theme ?? payload?.theme;
+        if (theme !== 'dark' && theme !== 'light') {
+            try {
+                theme = getIsDarkTheme?.() === true ? 'dark' : 'light';
+            } catch {
+                theme = 'light';
+            }
+        }
+        const data = buildReachableStopsOverlayGeoJSON({ payload, getStationCoord, theme });
+        overlayRenderer?.ensureLayers?.(
+            data.dynamicColorExpression,
+            payload.opacity,
+            { theme: data.theme }
+        );
 
         const nextKey = buildVisibleKey(data.geojson);
-        if (nextKey === reachableStopsOverlayVisibleKey) return;
-        reachableStopsOverlayVisibleKey = nextKey;
+        if (
+            nextKey === reachableStopsOverlayVisibleKey &&
+            !reachableStopsOverlaySourceDirty
+        ) return true;
 
-        overlayRenderer?.setData?.(data.geojson);
+        let sourceUpdated = true;
+        try {
+            sourceUpdated = overlayRenderer?.setData?.(data.geojson) !== false;
+        } catch {
+            sourceUpdated = false;
+        }
+        if (!sourceUpdated) {
+            reachableStopsOverlaySourceDirty = true;
+            return false;
+        }
+        reachableStopsOverlaySourceDirty = false;
+        reachableStopsOverlayVisibleKey = nextKey;
 
         reachableStopsLabelIds = getReachableStopsLabelIdSet(data.geojson);
         reachableStopsExtremeLabelIds = getReachableStopsExtremeLabelIdSet(data.geojson);
@@ -335,6 +413,7 @@ export const createTravelSearchMapRuntime = ({
         if (options?.fitBounds !== false && payload?.fitBounds !== false) {
             overlayRenderer?.fitToBounds?.(data.geojson, options);
         }
+        return true;
     };
 
     return {
