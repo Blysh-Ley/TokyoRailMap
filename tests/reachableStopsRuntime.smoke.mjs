@@ -31,7 +31,7 @@ import {
     );
     assert.deepEqual([...getReachableStopsLabelIdSet(built.geojson)].sort(), ['A', 'B']);
     assert.deepEqual([...getReachableStopsExtremeLabelIdSet(built.geojson)].sort(), ['A', 'B']);
-    assert.equal(built.dynamicColorExpression[0], 'interpolate');
+    assert.equal(built.dynamicColorExpression[0], 'interpolate-lab');
 }
 
 {
