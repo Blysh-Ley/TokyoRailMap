@@ -678,6 +678,7 @@ export const createPanelMapSelectController = ({
     isPlannerOpen = () => false,
     loadIcon = () => {},
     onSelectField = () => {},
+    onSelectHeatmap = () => {},
     labels = {}
 } = {}) => {
     const root = doc.createElement('div');
@@ -748,6 +749,11 @@ export const createPanelMapSelectController = ({
             action: { field: 'destination' },
             text: labels.destination || 'Destination'
         }));
+
+        menu.appendChild(createMenuItem({
+            action: { type: 'travelHeatmap' },
+            text: labels.heatmap || '出行热图'
+        }));
     };
 
     const open = () => {
@@ -813,7 +819,8 @@ export const createPanelMapSelectController = ({
     const select = (action, event) => {
         stopEvent(event);
         close();
-        onSelectField(action);
+        if (action?.type === 'travelHeatmap') onSelectHeatmap();
+        else onSelectField(action);
     };
 
     doc.addEventListener('pointerdown', (event) => {

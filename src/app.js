@@ -2972,6 +2972,11 @@ const initMapApp = async () => {
             mobileBottomNavController?.setActive?.('search', { focus: false });
             window.TokyoRailJourneyUI?.showHistoryForNextEmptyField?.({ assignedField: field });
         },
+        onTravelHeatmapStation: ({ stationId, stationName } = {}) => {
+            clearSelectionsAndRestore();
+            panel?.hide?.();
+            window.TokyoRailSearchUI?.openHeatmapForStation?.({ stationId, stationName });
+        },
         getAlternateLineMembership,
         getLineMeta: (lineId) => {
             const id = String(lineId);
@@ -3596,6 +3601,21 @@ const initMapApp = async () => {
                 isJourneyMapPickActive,
                 isJourneyPlannerOpen: () => mapStationJourneyBridge.isJourneyPlannerOpen(),
                 onJourneyPlannerStationClick: openMapStationJourneyMenu,
+                isHeatmapActive: () => window.TokyoRailSearchUI?.isHeatmapActive?.() === true,
+                onHeatmapStationClick: ({ stationId, props } = {}) => {
+                    const stationName = String(
+                        props?.name_zh ||
+                        props?.['name:zh'] ||
+                        props?.name ||
+                        props?.name_ja ||
+                        props?.['name:ja'] ||
+                        stationId ||
+                        ''
+                    ).trim();
+                    clearSelectionsAndRestore();
+                    panel?.hide?.();
+                    window.TokyoRailSearchUI?.openHeatmapForStation?.({ stationId, stationName, openPicker: false });
+                },
                 getSelectedStationId: () => selectedStationId,
                 setStationVisualHighlight,
                 openPanelForStationWithAutoScroll,

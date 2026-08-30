@@ -1084,6 +1084,37 @@ export function mountSearchUI() {
         try { ui?.render?.(); } catch {}
     };
 
+    const openHeatmapForStation = async ({ stationId, stationName, openPicker = true } = {}) => {
+        const name = normalizeText(stationName) || normalizeText(stationId);
+        if (!name) return false;
+
+        // 从面板触发时，先把移动端导航切到搜索，再展开搜索输入区。
+        const navController = document.querySelector('.mobile-bottom-nav')?.__tokyoRailMobileBottomNavController;
+        navController?.setActive?.('search', { emit: false, focus: false });
+        root.classList.remove('is-collapsed');
+        setMobileSearchFocus();
+        input.value = name;
+        ui.setQuery(name);
+        try {
+            await refresh();
+        } catch {
+            ui.setResults([]);
+        }
+        // 热力图入口只保留当前站点输入，不弹出搜索历史/结果列表遮挡时间控件。
+        ui.showResults(false);
+        if (normalizeText(stationId)) {
+            const shouldDrawWithCurrentTime = openPicker === false && heatmapControl.isActive?.() === true;
+            if (shouldDrawWithCurrentTime) {
+                void Promise.resolve(heatmapControl.drawForStation?.(stationId)).catch(() => false);
+            } else {
+                heatmapControl.openForStation?.(stationId);
+            }
+        } else if (openPicker !== false) {
+            heatmapControl.openPicker?.();
+        }
+        return true;
+    };
+
     let refresh = async () => {};
 
     const ui = {
@@ -1095,6 +1126,8 @@ export function mountSearchUI() {
         query: '',
         items: [],
         expand,
+        openHeatmapForStation,
+        isHeatmapActive: () => heatmapControl.isActive(),
         setQuery(q) {
             this.query = String(q ?? '');
         },

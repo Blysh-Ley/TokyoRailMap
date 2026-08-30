@@ -28,6 +28,7 @@ export const createPanelMainView = ({
     getJourneyWaypointOptions = () => [],
     isJourneyPlannerOpen = () => false,
     onJourneyStationSelect,
+    onTravelHeatmapStation,
     toText = (value) => String(value ?? '').trim(),
     dateTimePickerMode = 'legacy',
     zIndex = 9999
@@ -104,6 +105,13 @@ export const createPanelMainView = ({
     daySeg.appendChild(btnWeekday);
     daySeg.appendChild(btnHoliday);
 
+    const handleTravelHeatmap = () => {
+        const context = typeof getJourneyStationContext === 'function'
+            ? getJourneyStationContext({ titleMain })
+            : {};
+        onTravelHeatmapStation?.(context);
+    };
+
     const dayPrintBtn = document.createElement('button');
     dayPrintBtn.type = 'button';
     dayPrintBtn.className = 'panel-day-print-btn is-hidden';
@@ -156,12 +164,14 @@ export const createPanelMainView = ({
             fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('map-select.svg'), { cacheKey: 'icon:map-select.svg' })
         }).catch(() => null),
         onSelectField: applyStationToJourneyField,
+        onSelectHeatmap: handleTravelHeatmap,
         labels: {
             button: '将本站加入行程（起点/终点）',
             menu: '将本站作为起点、途径点或终点',
             origin: '作为起点',
             destination: '作为终点',
-            newWaypoint: '作为新增途径点'
+            newWaypoint: '作为新增途径点',
+            heatmap: '出行热图'
         }
     });
 

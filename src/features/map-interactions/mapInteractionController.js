@@ -207,6 +207,8 @@ export const bindStationClickHighlightServingLines = ({
     isJourneyPlannerOpen,
     onJourneyPlannerStationClick,
     getSelectedStationId,
+    isHeatmapActive,
+    onHeatmapStationClick,
     setStationVisualHighlight,
     openPanelForStationWithAutoScroll,
     deferPanelHeavyRender = false,
@@ -236,6 +238,16 @@ export const bindStationClickHighlightServingLines = ({
         });
         const props = feature?.properties || {};
         const stationId = String(props?.id ?? feature?.id ?? '').trim();
+        if (isHeatmapActive?.() === true) {
+            onHeatmapStationClick?.({
+                event,
+                feature,
+                point: event?.point || null,
+                props,
+                stationId
+            });
+            return;
+        }
         if (isJourneyPlannerOpen?.() === true) {
             onJourneyPlannerStationClick?.({
                 event,

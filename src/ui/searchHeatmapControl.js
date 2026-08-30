@@ -32,6 +32,7 @@ export const createSearchHeatmapControl = ({ getActions } = {}) => {
     button.innerHTML = RADAR_ICON_MARKUP;
 
     let minutes = 0;
+    let pendingStationId = '';
     let subscription = null;
     let subscriptionActions = null;
 
@@ -63,6 +64,7 @@ export const createSearchHeatmapControl = ({ getActions } = {}) => {
     const clear = () => {
         const actions = getActions?.();
         ensureSubscription(actions);
+        pendingStationId = '';
         if (typeof actions?.clearReachableStopsOverlay === 'function') {
             actions.clearReachableStopsOverlay();
             return;
@@ -80,11 +82,17 @@ export const createSearchHeatmapControl = ({ getActions } = {}) => {
             const nextMinutes = Number(value) || 0;
             const actions = getActions?.();
             ensureSubscription(actions);
+            // Keep the control state in sync before triggering the station draw.
+            // The store subscription may publish its update asynchronously.
+            minutes = nextMinutes;
+            render();
             if (typeof actions?.setReachableStopsHeatmapMinutes === 'function') {
                 actions.setReachableStopsHeatmapMinutes(nextMinutes);
-            } else if (nextMinutes <= 0) {
-                minutes = 0;
-                render();
+            }
+            const stationId = pendingStationId;
+            pendingStationId = '';
+            if (stationId && nextMinutes > 0) {
+                void drawForStation(stationId).catch(() => false);
             }
         }
     });
@@ -111,6 +119,11 @@ export const createSearchHeatmapControl = ({ getActions } = {}) => {
         clear,
         drawForStation,
         isActive: () => minutes > 0,
+        openPicker: picker.open,
+        openForStation: (stationId) => {
+            pendingStationId = normalizeText(stationId);
+            if (pendingStationId) picker.open();
+        },
         destroy: () => {
             window.removeEventListener(SEARCH_PLANNER_STATE_EVENT, onPlannerState);
             subscription?.();
