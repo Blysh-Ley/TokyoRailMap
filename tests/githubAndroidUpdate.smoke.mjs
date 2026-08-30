@@ -80,4 +80,32 @@ const release = {
     }]);
 }
 
+{
+    const alerts = [];
+    const target = {
+        alert: (message) => alerts.push(message),
+        fetch: async () => ({ ok: true, json: async () => release }),
+        setTimeout,
+        Capacitor: {
+            getPlatform: () => 'android',
+            isNativePlatform: () => true,
+            Plugins: {
+                App: {
+                    getInfo: async () => ({
+                        id: 'com.blysh.tokyorailmap',
+                        version: '1.3.0',
+                        build: '10300'
+                    })
+                },
+                TokyoRailUpdate: {}
+            }
+        }
+    };
+
+    const api = createAppUpdateApi({ target });
+    const result = await api.checkForUpdatesNow();
+    assert.equal(result.ok, true);
+    assert.deepEqual(alerts, ['已是最新版本\n当前版本：v1.3.0']);
+}
+
 console.log('github android update smoke ok');

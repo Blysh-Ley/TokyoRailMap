@@ -26,6 +26,8 @@ const mainProcessSource = readFileSync('main.js', 'utf8');
 const preloadSource = readFileSync('src/preload.js', 'utf8');
 const fetchCacheSource = readFileSync('src/lib/fetch.js', 'utf8');
 const androidPmtilesSource = readFileSync('src/services/androidPmtilesArchiveSource.js', 'utf8');
+const webAppVersionSource = readFileSync('src/config/appVersion.js', 'utf8');
+const nativeVersionSyncSource = readFileSync('scripts/sync-native-versions.mjs', 'utf8');
 const packageDeps = {
     ...packageJson.dependencies,
     ...packageJson.devDependencies
@@ -146,6 +148,12 @@ assert.match(mainProcessSource, /\$\{APP_ROOT\}\.unpacked/);
 assert.match(mainProcessSource, /content-range/);
 assert.match(mainProcessSource, /Partial Content/);
 assert.match(preloadSource, /readLocalFile: async \(urlOrPath, options = \{\}\)/);
+assert.match(mainProcessSource, /已是最新版本\\n当前版本：v/);
+assert.equal(
+    /CURRENT_APP_VERSION = '([^']+)'/.exec(webAppVersionSource)?.[1],
+    packageJson.version
+);
+assert.match(nativeVersionSyncSource, /Web\/Android\/iOS versions synced/);
 assert.match(fetchCacheSource, /getRangeHeader/);
 assert.match(fetchCacheSource, /api\.readLocalFile\(url, range \? \{ range \} : \{\}\)/);
 assert.match(androidPmtilesSource, /TokyoRailBasemap/);

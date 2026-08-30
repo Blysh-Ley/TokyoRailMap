@@ -1,3 +1,5 @@
+import { CURRENT_APP_VERSION } from './appVersion.js';
+
 export const PROJECT_NOTICE = Object.freeze({
     name: 'TokyoRailMap',
     displayName: '东京铁路图',
@@ -104,7 +106,10 @@ export const DATA_SOURCE_NOTICES = Object.freeze([
 ]);
 
 export const getAboutNoticeModel = () => ({
-    project: PROJECT_NOTICE,
+    project: {
+        ...PROJECT_NOTICE,
+        version: CURRENT_APP_VERSION
+    },
     libraries: OPEN_SOURCE_NOTICES,
     dataSources: DATA_SOURCE_NOTICES
 });

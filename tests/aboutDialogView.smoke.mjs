@@ -152,6 +152,7 @@ const model = getAboutNoticeModel();
 assert.equal(model.project.name, 'TokyoRailMap');
 assert.equal(model.project.copyright, 'Copyright (c) 2026 Blysh');
 assert.equal(model.project.license, 'MIT License');
+assert.equal(model.project.version, '1.2.6');
 assert.ok(model.libraries.some((item) => item.name === 'MapLibre GL JS' && item.license === 'BSD-3-Clause'));
 assert.ok(model.libraries.some((item) => item.name === 'JSZip' && /MIT/.test(item.license) && /GPL/.test(item.license)));
 assert.ok(model.libraries.some((item) => item.name === 'Lucide' && item.license === 'ISC'));
@@ -169,6 +170,7 @@ assert.match(controller.dialog.className, /about-dialog/);
 assert.match(collectText(controller.overlay), /地图与数据来源/);
 assert.match(collectText(controller.overlay), /开源库 License/);
 assert.match(collectText(controller.overlay), /MIT License/);
+assert.match(collectText(controller.overlay), /当前版本 v1\.2\.6/);
 assert.doesNotMatch(collectText(controller.overlay), /感谢 MapLibre/);
 
 const anchors = collectAnchors(controller.overlay);
@@ -189,6 +191,7 @@ assert.equal(doc.body.children.length, 0);
 
 const cssSource = readFileSync(join(process.cwd(), 'src/styles/app.css'), 'utf8');
 assert.match(cssSource, /\.about-dialog-overlay/);
+assert.match(cssSource, /\.about-dialog-version/);
 assert.match(cssSource, /html\[data-theme='dark'\][\s\S]*\.about-dialog/);
 assert.match(cssSource, /html\[data-mobile-ui='1'\][\s\S]*\.about-dialog-overlay/);
 

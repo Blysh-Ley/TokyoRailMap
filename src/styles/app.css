@@ -3684,6 +3684,20 @@ html[data-theme="dark"] .ms-show-icon-btn {
     overflow-wrap: anywhere;
 }
 
+.about-dialog-version {
+    display: inline-flex;
+    align-items: center;
+    margin: 10px 0 0;
+    padding: 5px 10px;
+    border: 1px solid var(--ui-border-strong);
+    border-radius: 999px;
+    background: var(--ui-surface-hover);
+    color: var(--ui-text);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
 .about-dialog-close {
     appearance: none;
     flex: 0 0 auto;

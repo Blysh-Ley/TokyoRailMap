@@ -54,6 +54,10 @@ const buildAboutDialog = ({ doc, model, onClose }) => {
     title.id = 'about-dialog-title';
     titleGroup.appendChild(title);
     titleGroup.appendChild(createEl(doc, 'p', 'about-dialog-subtitle', `${model.project.displayName} / ${model.project.name}`));
+    const currentVersion = String(model.project.version ?? '').trim().replace(/^v/i, '');
+    if (currentVersion) {
+        titleGroup.appendChild(createEl(doc, 'p', 'about-dialog-version', `当前版本 v${currentVersion}`));
+    }
 
     const closeButton = createEl(doc, 'button', 'about-dialog-close', '×');
     closeButton.type = 'button';

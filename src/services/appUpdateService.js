@@ -336,6 +336,13 @@ const showNoUpdatePrompt = ({ target, automatic, message = '已是最新版本' 
     if (typeof target?.alert === 'function') target.alert(message);
 };
 
+const formatUpToDateMessage = (version) => {
+    const currentVersion = toText(version);
+    return currentVersion
+        ? `已是最新版本\n当前版本：v${currentVersion.replace(/^v/i, '')}`
+        : '已是最新版本';
+};
+
 const checkMobileUpdate = async ({ target, automatic = false } = {}) => {
     const platform = getCapacitorPlatform(target);
     const appInfo = await getNativeAppInfo(target);
@@ -350,7 +357,7 @@ const checkMobileUpdate = async ({ target, automatic = false } = {}) => {
                 automatic,
                 message: update?.reason === 'app-store-record-not-found'
                     ? '暂未在 App Store 查询到该应用版本信息。'
-                    : '已是最新版本'
+                    : formatUpToDateMessage(appInfo.version)
             });
         }
         return { ok: true, platform, update, opened };
@@ -386,7 +393,7 @@ const checkMobileUpdate = async ({ target, automatic = false } = {}) => {
             ? `GitHub 已发布 ${update.latestVersion}，但暂未找到 Android APK 安装包。`
             : update.reason
                 ? '暂时无法从 GitHub 获取更新信息，请稍后重试。'
-                : '已是最新版本';
+                : formatUpToDateMessage(appInfo.version);
         showNoUpdatePrompt({ target, automatic, message: noUpdateMessage });
         return {
             ok: !update.reason,

@@ -474,10 +474,11 @@ const showUpdatePrompt = async (info) => {
 };
 
 const showUpToDatePrompt = async () => {
+    const currentVersion = app.getVersion();
     await dialog.showMessageBox({
         type: 'info',
         title: '版本检查',
-        message: '已是最新版本',
+        message: `已是最新版本\n当前版本：v${currentVersion}`,
         buttons: ['确定'],
         defaultId: 0,
         noLink: true
