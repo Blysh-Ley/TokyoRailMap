@@ -12,6 +12,7 @@ export const createPanelMainView = ({
     panelContentApi,
     panelShell,
     createPanelMapSelectController,
+    createPanelDateTimePickerView = null,
     createPanelTimePickerController,
     getIconCandidates,
     getPreferredCachedImageSrc,
@@ -28,10 +29,13 @@ export const createPanelMainView = ({
     isJourneyPlannerOpen = () => false,
     onJourneyStationSelect,
     toText = (value) => String(value ?? '').trim(),
+    dateTimePickerMode = 'legacy',
     zIndex = 9999
 } = {}) => {
     const root = panelComposition.root;
     const panel = panelComposition.panel;
+    const usesCombinedDateTimePicker = dateTimePickerMode === 'combined'
+        && typeof createPanelDateTimePickerView === 'function';
 
     const header = document.createElement('div');
     header.setAttribute('data-panel-header', '');
@@ -181,6 +185,14 @@ export const createPanelMainView = ({
     timeInput.placeholder = 'HH:MM';
     timeInput.maxLength = 5;
     timeInput.value = '';
+    if (usesCombinedDateTimePicker) {
+        timeInput.readOnly = true;
+        timeInput.inputMode = 'none';
+        timeInput.setAttribute('role', 'button');
+        timeInput.setAttribute('aria-label', '选择时间');
+        timeInput.setAttribute('aria-haspopup', 'dialog');
+        timeInput.setAttribute('aria-expanded', 'false');
+    }
 
     const btnAutoNow = document.createElement('button');
     btnAutoNow.type = 'button';
@@ -201,14 +213,22 @@ export const createPanelMainView = ({
     timeOps.appendChild(timeInput);
     timeOps.appendChild(btnAutoNow);
 
-    const timePickerController = createPanelTimePickerController({
-        timeInput,
-        timeOps,
-        zIndex,
-        stopEvent,
-        stopPropagationOnly,
-        setOpenState: setTimePickerOpenState
-    });
+    const timePickerController = usesCombinedDateTimePicker
+        ? {
+            close: () => {},
+            confirm: () => {},
+            isOpen: () => false,
+            open: () => {},
+            position: () => {}
+        }
+        : createPanelTimePickerController({
+            timeInput,
+            timeOps,
+            zIndex,
+            stopEvent,
+            stopPropagationOnly,
+            setOpenState: setTimePickerOpenState
+        });
 
     timeControl.appendChild(timeOps);
 
@@ -290,6 +310,10 @@ export const createPanelMainView = ({
     datePanel.setAttribute('role', 'button');
     datePanel.setAttribute('tabindex', '0');
     datePanel.setAttribute('aria-label', '选择日期');
+    if (usesCombinedDateTimePicker) {
+        datePanel.setAttribute('aria-haspopup', 'dialog');
+        datePanel.setAttribute('aria-expanded', 'false');
+    }
 
     const formatPanelDateText = (date) => {
         if (typeof formatPanelDateTextOption === 'function') return formatPanelDateTextOption(date);
@@ -322,7 +346,7 @@ export const createPanelMainView = ({
     };
 
     const datePickerInput = document.createElement('input');
-    datePickerInput.type = 'date';
+    datePickerInput.type = usesCombinedDateTimePicker ? 'hidden' : 'date';
     datePickerInput.className = 'panel-date-picker-input';
 
     const initialDate = typeof getInitialPanelDate === 'function' ? getInitialPanelDate() : new Date();
@@ -345,6 +369,19 @@ export const createPanelMainView = ({
     if (!timeOverlay.parentNode) {
         document.body.appendChild(timeOverlay);
     }
+
+    const dateTimePickerView = usesCombinedDateTimePicker
+        ? createPanelDateTimePickerView({
+            anchor: timeOverlay,
+            dateTrigger: datePanel,
+            timeTrigger: timeInput,
+            loadArrowIcon: (iconEl) => setImageElementFromCache(iconEl, getIconCandidates('arrow-right.svg'), {
+                cacheKey: 'icon:arrow-right.svg',
+                fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('arrow-right.svg'), { cacheKey: 'icon:arrow-right.svg' })
+            }).catch(() => null),
+            setOpenState: setTimePickerOpenState
+        })
+        : null;
 
     const syncMobileDrawerState = () => {
         const state = typeof panelShell?.getMobileState === 'function'
@@ -538,6 +575,7 @@ export const createPanelMainView = ({
         btnWeekday,
         datePanel,
         datePickerInput,
+        dateTimePickerView,
         dayPrintBtn,
         daySeg,
         formatDateInputValue,

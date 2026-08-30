@@ -25,7 +25,9 @@ import {
     THROUGH_SERVICE_CONFIGS_OBJECT,
 } from '../../lib/throughServiceManager.js';
 import { createPanelMainView } from '../../ui/panelMainView.js';
+import { createPanelDateTimePickerView } from '../../ui/panelDateTimePickerView.js';
 import { createPanelShell } from '../../ui/panelShellView.js';
+import { createPanelDateTimeFeature } from './panelDateTimeFeature.js';
 import { createPanelRouteMapBridge } from './panelRouteMapBridge.js';
 import { buildTimetableStationText, renderTimetableNoteRowHtml, renderTimetablePlainNoteRowHtml } from './panelTimetableCore.js';
 import { buildDirectionEndpointLabelCounts } from '../../domain/stationLabelDisplay.js';
@@ -376,6 +378,7 @@ export function createPanel(options = {}) {
     const rightPx = Number.isFinite(options.rightPx) ? options.rightPx : 20;
     const zIndex = Number.isFinite(options.zIndex) ? options.zIndex : 9999;
     const panelPresentation = options.panelPresentation === 'mobile' ? 'mobile' : 'desktop';
+    const dateTimePickerMode = options.dateTimePickerMode === 'combined' ? 'combined' : 'legacy';
 
     const hoverDelayMs = Number.isFinite(options.hoverDelayMs) ? options.hoverDelayMs : 50;
     const primaryHoverDelayMs = 500;
@@ -445,6 +448,7 @@ export function createPanel(options = {}) {
         panelContentApi,
         panelShell,
         createPanelMapSelectController,
+        createPanelDateTimePickerView,
         createPanelTimePickerController,
         getIconCandidates,
         getPreferredCachedImageSrc,
@@ -474,6 +478,7 @@ export function createPanel(options = {}) {
             if (assigned) onJourneyStationAssigned?.(payload);
         },
         toText,
+        dateTimePickerMode,
         zIndex
     });
     const {
@@ -485,6 +490,7 @@ export function createPanel(options = {}) {
         btnWeekday,
         datePanel,
         datePickerInput,
+        dateTimePickerView,
         dayPrintBtn,
         daySeg,
         formatDateInputValue,
@@ -1879,13 +1885,13 @@ export function createPanel(options = {}) {
         btnHoliday.classList.toggle('is-active', day === 'SaturdayHoliday');
     };
 
-    const setServiceDay = (day) => {
+    const setServiceDay = (day, { rerender = true } = {}) => {
         const v = String(day || '').trim();
         if (v !== 'Weekday' && v !== 'SaturdayHoliday') return;
         if (currentServiceDay === v) return;
         currentServiceDay = v;
         applyDayToggleUi();
-        renderAllTimetables();
+        if (rerender) renderAllTimetables();
     };
 
     btnWeekday.addEventListener('click', (e) => {
@@ -1898,55 +1904,18 @@ export function createPanel(options = {}) {
     });
     applyDayToggleUi();
 
-    const applyPanelDateSelection = (pickedDate) => {
+    const applyPanelDateSelection = (pickedDate, { rerender = true } = {}) => {
         if (!(pickedDate instanceof Date) || Number.isNaN(pickedDate.getTime())) return;
         currentPanelDate = new Date(pickedDate.getTime());
         datePanel.textContent = formatPanelDateText(currentPanelDate);
         datePickerInput.value = formatDateInputValue(currentPanelDate);
-        setServiceDay(isSaturdayHoliday(currentPanelDate));
+        setServiceDay(isSaturdayHoliday(currentPanelDate), { rerender });
     };
-
-    const openDatePicker = (evt) => {
-        stopEvent(evt);
-        datePickerInput.showPicker();
-    };
-
-    datePanel.addEventListener('click', openDatePicker, { passive: false });
-    datePanel.addEventListener('keydown', (evt) => {
-        const key = toText(evt?.key);
-        if (key !== 'Enter' && key !== ' ') return;
-        openDatePicker(evt);
-    }, { passive: false });
-
-    datePickerInput.addEventListener('change', (evt) => {
-        const picked = parseDateInputValue(evt?.target?.value);
-        if (!picked) return;
-        applyPanelDateSelection(picked);
-    });
-
-    timeInput.addEventListener('input', (e) => {
-        stopEvent(e);
-        const normalized = normalizeTimePickerHHMM(timeInput.value, { toText });
-        const v = normalized || toText(timeInput.value) || '';
-        if (!v) {
-            isAutoNowClock = true;
-            syncAutoNowClock({ forceRender: true });
-            return;
-        }
-
-        isAutoNowClock = false;
-        hasTemporaryTimeOverride = false;
-        currentNowOverrideHHMM = v;
-        renderAllTimetables();
-    });
-    timeInput.addEventListener('blur', () => {
-        const normalized = normalizeTimePickerHHMM(timeInput.value, { toText });
-        if (normalized) timeInput.value = normalized;
-    });
 
     const setTimeOverride = (value, {
         rerender = true,
-        temporary = false
+        temporary = false,
+        emitInput = false
     } = {}) => {
         const normalized = normalizeTimePickerHHMM(value, { toText });
         if (!normalized) return false;
@@ -1956,9 +1925,80 @@ export function createPanel(options = {}) {
         currentNowOverrideHHMM = normalized;
         timeInput.value = normalized;
         timePickerController.close();
+        if (emitInput) {
+            const EventCtor = document?.defaultView?.Event || globalThis.Event;
+            timeInput.dispatchEvent(new EventCtor('input', { bubbles: true }));
+        }
         if (rerender && toText(currentStationId)) renderAllTimetables();
         return true;
     };
+
+    let dateTimePickerFeature = null;
+    if (dateTimePickerView) {
+        const getPanelDateTimeValue = (dateLike = currentPanelDate, { autoNow = isAutoNowClock } = {}) => ({
+            dateKey: formatDateInputValue(dateLike),
+            time: normalizeTimePickerHHMM(timeInput.value, { toText }) || formatNowHHMM(Date.now()),
+            autoNow
+        });
+        dateTimePickerFeature = createPanelDateTimeFeature({
+            getCurrentValue: () => getPanelDateTimeValue(),
+            getNowValue: () => getPanelDateTimeValue(new Date(), { autoNow: true }),
+            getTodayDateKey: () => formatDateInputValue(new Date()),
+            resolveServiceDayLabel: (dateKey) => {
+                const date = parseDateInputValue(dateKey);
+                if (!date) return '';
+                return isSaturdayHoliday(date) === 'SaturdayHoliday' ? '休息日' : '';
+            },
+            onCommit: ({ dateKey, time }) => {
+                const pickedDate = parseDateInputValue(dateKey);
+                if (!pickedDate) return;
+                applyPanelDateSelection(pickedDate, { rerender: false });
+                setTimeOverride(time, { rerender: false, emitInput: true });
+                if (toText(currentStationId)) renderAllTimetables();
+            },
+            onResetNow: () => restoreAutoNowClock()
+        });
+        dateTimePickerView.setIntentHandler(dateTimePickerFeature.handleIntent);
+        dateTimePickerFeature.subscribe((viewModel) => dateTimePickerView.render(viewModel));
+    } else {
+        const openDatePicker = (evt) => {
+            stopEvent(evt);
+            datePickerInput.showPicker();
+        };
+
+        datePanel.addEventListener('click', openDatePicker, { passive: false });
+        datePanel.addEventListener('keydown', (evt) => {
+            const key = toText(evt?.key);
+            if (key !== 'Enter' && key !== ' ') return;
+            openDatePicker(evt);
+        }, { passive: false });
+
+        datePickerInput.addEventListener('change', (evt) => {
+            const picked = parseDateInputValue(evt?.target?.value);
+            if (!picked) return;
+            applyPanelDateSelection(picked);
+        });
+
+        timeInput.addEventListener('input', (e) => {
+            stopEvent(e);
+            const normalized = normalizeTimePickerHHMM(timeInput.value, { toText });
+            const v = normalized || toText(timeInput.value) || '';
+            if (!v) {
+                isAutoNowClock = true;
+                syncAutoNowClock({ forceRender: true });
+                return;
+            }
+
+            isAutoNowClock = false;
+            hasTemporaryTimeOverride = false;
+            currentNowOverrideHHMM = v;
+            renderAllTimetables();
+        });
+        timeInput.addEventListener('blur', () => {
+            const normalized = normalizeTimePickerHHMM(timeInput.value, { toText });
+            if (normalized) timeInput.value = normalized;
+        });
+    }
 
     const resetTemporaryTimeOverride = () => {
         if (!hasTemporaryTimeOverride) return false;
@@ -1968,6 +2008,7 @@ export function createPanel(options = {}) {
 
     btnAutoNow.addEventListener('click', (e) => {
         stopEvent(e);
+        dateTimePickerFeature?.close();
         timePickerController.close();
         restoreAutoNowClock();
     }, { passive: false });
@@ -6064,9 +6105,12 @@ export function createPanel(options = {}) {
         getTripLocked: () => tripLocked,
         hasPinnedPanelState,
         hideTripDetail,
-        ignoredElements: [settingsContentEl, timeOverlay],
+        ignoredElements: [settingsContentEl, timeOverlay, dateTimePickerView?.el, dateTimePickerView?.backdrop],
         ignoredSelectors: ['.settings-content', '.settings-ui'],
-        insidePredicates: [(node) => dirFilterPopoverController.contains(node)],
+        insidePredicates: [
+            (node) => dirFilterPopoverController.contains(node),
+            (node) => dateTimePickerView?.contains(node) === true
+        ],
         panelSelectionState,
         panelShell,
         restorePinnedPanelState: () => panelStationRestoreController.clearPinnedStateAndRestore(),
@@ -6095,6 +6139,7 @@ export function createPanel(options = {}) {
     const hide = () => {
         invalidateStationRestoreSession({ cancelRender: true });
         clearDirectionFocus({ rerender: false });
+        dateTimePickerFeature?.close();
         timePickerController.close();
         closeDirFilterPopover({ clearPreview: false });
         clearPinnedPanelState({ restoreStation: false });
@@ -6117,6 +6162,11 @@ export function createPanel(options = {}) {
     const handlePanelBackIntent = ({ source = '' } = {}) => {
         if (!isMobilePanelPresentation()) return false;
         const isAndroidBack = source === 'android-back';
+
+        if (dateTimePickerFeature?.isOpen()) {
+            dateTimePickerFeature.close();
+            return true;
+        }
 
         const state = mobilePanelStack.getState();
         if (state?.screen === PANEL_MOBILE_STACK_SCREENS.TRIP_DETAIL) {

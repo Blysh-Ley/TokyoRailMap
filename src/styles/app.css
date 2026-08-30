@@ -8249,3 +8249,496 @@ html[data-theme='dark'] .maplibregl-popup-content .trip-endpoint-terminal {
 html[data-theme="dark"] .journey-walk-icon {
     filter: invert(1) ;
 }
+
+/* 日期与时间合并弹层：body portal，层级高于业务抽屉但低于全局模态框。 */
+.panel-datetime-picker-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 11000;
+    background: transparent;
+    touch-action: none;
+}
+
+.panel-datetime-picker-backdrop.is-hidden {
+    display: none;
+}
+
+.settings-top-timebar.is-datetime-picker-open {
+    z-index: 11020 !important;
+    border-color: var(--ui-accent);
+    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+}
+
+.settings-time-picker.panel-datetime-picker {
+    --panel-datetime-day-row-height: 52px;
+    position: fixed;
+    z-index: 11010;
+    width: min(540px, calc(100vw - 20px));
+    max-height: 660px;
+    display: flex;
+    flex-flow: column nowrap;
+    gap: 0;
+    box-sizing: border-box;
+    padding: 0;
+    overflow: visible;
+    border: 1px solid var(--ui-frosted-border);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.96);
+    color: var(--ui-text);
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+}
+
+.settings-time-picker.panel-datetime-picker::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: -7px;
+    left: calc(var(--panel-datetime-anchor-x, 50%) - 7px);
+    width: 14px;
+    height: 14px;
+    border-top: 1px solid var(--ui-frosted-border);
+    border-left: 1px solid var(--ui-frosted-border);
+    background: rgba(255, 255, 255, 0.96);
+    transform: rotate(45deg);
+}
+
+.settings-time-picker.panel-datetime-picker.is-hidden {
+    display: none;
+}
+
+.panel-datetime-picker-calendar {
+    padding: 10px 18px 8px;
+}
+
+.panel-datetime-picker-month-nav {
+    min-height: 58px;
+    display: grid;
+    grid-template-columns: 48px 1fr 48px;
+    align-items: center;
+}
+
+.panel-datetime-picker-month-label {
+    color: var(--ui-text);
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.01em;
+}
+
+.panel-datetime-picker-month-btn {
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ui-text);
+    cursor: pointer;
+}
+
+.panel-datetime-picker-month-btn:hover,
+.panel-datetime-picker-month-btn:focus-visible {
+    background: var(--ui-surface-hover);
+    outline: none;
+}
+
+.panel-datetime-picker-month-icon {
+    width: 17px;
+    height: 17px;
+    display: block;
+    pointer-events: none;
+}
+
+.panel-datetime-picker-month-icon-prev {
+    transform: rotate(180deg);
+}
+
+.panel-datetime-picker-weekdays,
+.panel-datetime-picker-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.panel-datetime-picker-weekdays {
+    min-height: 34px;
+    align-items: center;
+}
+
+.panel-datetime-picker-weekday {
+    color: var(--ui-text-muted);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.panel-datetime-picker-days {
+    grid-auto-rows: var(--panel-datetime-day-row-height);
+}
+
+.panel-datetime-picker-day {
+    position: relative;
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: flex-start;
+    justify-content: center;
+    justify-self: center;
+    width: 100%;
+    padding: 4px 0 0;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--ui-text);
+    cursor: pointer;
+}
+
+.panel-datetime-picker-day:hover,
+.panel-datetime-picker-day:focus-visible {
+    background: var(--ui-surface-hover);
+    outline: none;
+}
+
+.panel-datetime-picker-day.is-outside-month {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.panel-datetime-picker-day-number {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 17px;
+    line-height: 1;
+}
+
+.panel-datetime-picker-day.is-today:not(.is-selected) .panel-datetime-picker-day-number {
+    box-shadow: inset 0 0 0 1px var(--ui-accent);
+    color: var(--ui-accent);
+}
+
+.panel-datetime-picker-day.is-selected {
+    background: transparent;
+}
+
+.panel-datetime-picker-day.is-selected .panel-datetime-picker-day-number {
+    background: var(--ui-accent);
+    color: var(--ui-text-inverse);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.28);
+    font-weight: 700;
+}
+
+.panel-datetime-picker-day-service {
+    position: absolute;
+    top: 40px;
+    left: 50%;
+    color: var(--ui-accent);
+    font-size: 11px;
+    line-height: 1;
+    white-space: nowrap;
+    transform: translateX(-50%);
+}
+
+.panel-datetime-picker-day.is-selected .panel-datetime-picker-day-service {
+    top: 41px;
+}
+
+.panel-datetime-picker-time {
+    margin: 2px 20px 14px;
+    overflow: hidden;
+    border: 1px solid var(--ui-border);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--ui-surface) 82%, transparent);
+}
+
+.panel-datetime-picker-time-labels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 10px 44px 2px;
+}
+
+.panel-datetime-picker-time-label {
+    color: var(--ui-text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.panel-datetime-picker-wheels {
+    position: relative;
+    height: 150px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr);
+    align-items: center;
+    padding: 0 14px 8px;
+}
+
+.panel-datetime-picker-wheel {
+    height: 142px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding-block: 50px;
+    box-sizing: border-box;
+    scrollbar-width: none;
+    scroll-snap-type: y mandatory;
+    overscroll-behavior: contain;
+}
+
+.panel-datetime-picker-wheel::-webkit-scrollbar {
+    display: none;
+}
+
+.panel-datetime-picker-time-option {
+    flex: 0 0 42px;
+    min-height: 42px;
+    border: 0;
+    border-top: 1px solid transparent;
+    border-bottom: 1px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    color: var(--ui-text-subtle);
+    font-size: 19px;
+    line-height: 40px;
+    cursor: pointer;
+    scroll-snap-align: center;
+}
+
+.panel-datetime-picker-time-option:hover,
+.panel-datetime-picker-time-option:focus-visible {
+    background: var(--ui-surface-hover);
+    color: var(--ui-text);
+    outline: none;
+}
+
+.panel-datetime-picker-time-option.is-selected {
+    border-color: var(--ui-border);
+    background: var(--ui-surface-soft);
+    color: var(--ui-text-strong);
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.panel-datetime-picker-time-separator {
+    color: var(--ui-text-strong);
+    font-size: 25px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.panel-datetime-picker-footer {
+    min-height: 62px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    box-sizing: border-box;
+    padding: 8px 16px;
+    border-top: 1px solid var(--ui-border);
+}
+
+.panel-datetime-picker-footer-end {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.panel-datetime-picker-action {
+    min-width: 72px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ui-text);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.panel-datetime-picker-action:hover,
+.panel-datetime-picker-action:focus-visible {
+    background: var(--ui-surface-hover);
+    outline: none;
+}
+
+.panel-datetime-picker-reset,
+.panel-datetime-picker-confirm {
+    color: var(--ui-accent);
+}
+
+.panel-datetime-picker-confirm {
+    background: var(--ui-accent-soft);
+    font-weight: 700;
+}
+
+html[data-theme='dark'] .settings-time-picker.panel-datetime-picker,
+html[data-theme='dark'] .settings-time-picker.panel-datetime-picker::before {
+    background: rgba(28, 28, 28, 0.96);
+}
+
+html[data-theme='dark'] .panel-datetime-picker-month-icon {
+    filter: invert(1) brightness(1.15);
+}
+
+@media (max-width: 480px) {
+    .settings-time-picker.panel-datetime-picker {
+        --panel-datetime-day-row-height: 46px;
+        width: calc(100vw - 20px);
+        border-radius: 18px;
+    }
+
+    .panel-datetime-picker-calendar {
+        padding: 8px 10px 6px;
+    }
+
+    .panel-datetime-picker-month-nav {
+        min-height: 50px;
+        grid-template-columns: 44px 1fr 44px;
+    }
+
+    .panel-datetime-picker-month-label {
+        font-size: 19px;
+    }
+
+    .panel-datetime-picker-weekdays {
+        min-height: 32px;
+    }
+
+    .panel-datetime-picker-day {
+        min-width: 40px;
+        min-height: 42px;
+        padding-top: 3px;
+    }
+
+    .panel-datetime-picker-day-number {
+        width: 34px;
+        height: 34px;
+        font-size: 16px;
+    }
+
+    .panel-datetime-picker-day-service {
+        top: 37px;
+        font-size: 10px;
+    }
+
+    .panel-datetime-picker-day.is-selected .panel-datetime-picker-day-service {
+        top: 38px;
+    }
+
+    .panel-datetime-picker-time {
+        margin: 4px 12px 10px;
+    }
+
+    .panel-datetime-picker-time-labels {
+        padding: 8px 36px 0;
+    }
+
+    .panel-datetime-picker-wheels {
+        height: 148px;
+        padding-inline: 10px;
+    }
+
+    .panel-datetime-picker-wheel {
+        height: 140px;
+        padding-block: 49px;
+    }
+
+    .panel-datetime-picker-footer {
+        min-height: 56px;
+        padding: 6px 10px;
+    }
+
+    .panel-datetime-picker-action {
+        min-width: 66px;
+        min-height: 44px;
+        padding-inline: 10px;
+    }
+}
+
+@media (max-height: 720px) {
+    .settings-time-picker.panel-datetime-picker {
+        --panel-datetime-day-row-height: 42px;
+    }
+
+    .panel-datetime-picker-month-nav {
+        min-height: 44px;
+    }
+
+    .panel-datetime-picker-weekdays {
+        min-height: 28px;
+    }
+
+    .panel-datetime-picker-day {
+        min-height: 40px;
+        padding-top: 2px;
+    }
+
+    .panel-datetime-picker-day-number {
+        width: 32px;
+        height: 32px;
+        font-size: 15px;
+    }
+
+    .panel-datetime-picker-day-service {
+        top: 34px;
+    }
+
+    .panel-datetime-picker-day.is-selected .panel-datetime-picker-day-service {
+        top: 35px;
+    }
+
+    .panel-datetime-picker-wheels {
+        height: 126px;
+    }
+
+    .panel-datetime-picker-wheel {
+        height: 118px;
+        padding-block: 38px;
+    }
+
+    .panel-datetime-picker-time-option {
+        flex-basis: 40px;
+        min-height: 40px;
+        line-height: 38px;
+    }
+
+    .panel-datetime-picker-footer {
+        min-height: 52px;
+    }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+    .settings-time-picker.panel-datetime-picker {
+        width: min(760px, calc(100vw - 20px));
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(210px, 0.65fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+    }
+
+    .panel-datetime-picker-calendar {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .panel-datetime-picker-time {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: center;
+        margin-inline: 8px 14px;
+    }
+
+    .panel-datetime-picker-footer {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+}

@@ -2957,6 +2957,7 @@ const initMapApp = async () => {
 
     panel = createPanel({
         panelPresentation: isMobileUiMode() ? 'mobile' : 'desktop',
+        dateTimePickerMode: 'combined',
         hoverDelayMs: 50,
         settingsContentEl: settingsMenuContentEl,
         companyLogoMap,
