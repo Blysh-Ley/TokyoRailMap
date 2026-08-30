@@ -8438,7 +8438,7 @@ html[data-theme="dark"] .journey-walk-icon {
 
 .panel-datetime-picker-day-service {
     position: absolute;
-    top: 40px;
+    top: 34px;
     left: 50%;
     color: var(--ui-accent);
     font-size: 11px;
@@ -8447,7 +8447,8 @@ html[data-theme="dark"] .journey-walk-icon {
     transform: translateX(-50%);
 }
 
-.panel-datetime-picker-day.is-selected .panel-datetime-picker-day-service {
+.panel-datetime-picker-day.is-selected .panel-datetime-picker-day-service,
+.panel-datetime-picker-day.is-today .panel-datetime-picker-day-service {
     top: 41px;
 }
 
@@ -8627,11 +8628,12 @@ html[data-theme='dark'] .panel-datetime-picker-month-icon {
     }
 
     .panel-datetime-picker-day-service {
-        top: 37px;
+        top: 32px;
         font-size: 10px;
     }
 
-    .panel-datetime-picker-day.is-selected .panel-datetime-picker-day-service {
+    .panel-datetime-picker-day.is-selected .panel-datetime-picker-day-service,
+    .panel-datetime-picker-day.is-today .panel-datetime-picker-day-service {
         top: 38px;
     }
 
@@ -8690,10 +8692,11 @@ html[data-theme='dark'] .panel-datetime-picker-month-icon {
     }
 
     .panel-datetime-picker-day-service {
-        top: 34px;
+        top: 29px;
     }
 
-    .panel-datetime-picker-day.is-selected .panel-datetime-picker-day-service {
+    .panel-datetime-picker-day.is-selected .panel-datetime-picker-day-service,
+    .panel-datetime-picker-day.is-today .panel-datetime-picker-day-service {
         top: 35px;
     }
 

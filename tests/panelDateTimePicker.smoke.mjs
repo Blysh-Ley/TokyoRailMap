@@ -106,7 +106,10 @@ assert.match(panelMainViewSource, /usesCombinedDateTimePicker\s*\?\s*'hidden'\s*
 assert.doesNotMatch(pickerViewSource, /选择日期与时间|当前时间/);
 assert.match(pickerViewSource, /anchor\.getBoundingClientRect\(\)/);
 assert.match(pickerViewSource, /settings-time-picker panel-datetime-picker/);
-assert.match(cssSource, /\.panel-datetime-picker-day\.is-selected \.panel-datetime-picker-day-service\s*\{\s*top:\s*41px/);
+assert.match(cssSource, /\.panel-datetime-picker-day-service\s*\{\s*position:\s*absolute;\s*top:\s*34px/);
+assert.match(cssSource, /@media \(max-width:\s*480px\)[\s\S]*?\.panel-datetime-picker-day-service\s*\{\s*top:\s*32px/);
+assert.match(cssSource, /@media \(max-height:\s*720px\)[\s\S]*?\.panel-datetime-picker-day-service\s*\{\s*top:\s*29px/);
+assert.match(cssSource, /\.panel-datetime-picker-day\.is-selected \.panel-datetime-picker-day-service,\s*\.panel-datetime-picker-day\.is-today \.panel-datetime-picker-day-service\s*\{\s*top:\s*41px/);
 
 const pickerZIndex = Number(cssSource.match(/\.settings-time-picker\.panel-datetime-picker\s*\{[\s\S]*?z-index:\s*(\d+)/)?.[1]);
 assert.ok(pickerZIndex > 10030, 'picker must sit above all business drawers and popovers');
