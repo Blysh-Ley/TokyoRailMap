@@ -3,6 +3,9 @@ import {
     buildReachableStopsOpportunityMeta,
     getReachableStopsPlanningBudgetMinutes
 } from './rules.js';
+import { createTerminalTransferIndex } from './terminalTransferIndex.js';
+import { createTransferHistoryIndex } from './transferHistoryIndex.js';
+import { createCompactArrivalStore } from './compactArrivalStore.js';
 
 const normalizeText = (value) => String(value ?? '').trim();
 
@@ -53,7 +56,7 @@ const createVisitedGroupHistoryRegistry = () => {
         return history;
     };
 
-    return { hasVisitedGroup, isSubset, addGroups, terminalVisitedGroups };
+    return { hasVisitedGroup, isSubset, addGroups, getGroupBit, terminalVisitedGroups };
 };
 
 const lowerBoundByArrival = (rows, targetMinute) => {
@@ -194,8 +197,12 @@ export const scanReachableStopsByDepartureOpportunity = async ({
     sourceStops = null,
     signal = null,
     opportunityBatchSize = 64,
+    opportunityPartitionIndex = 0,
+    opportunityPartitionCount = 1,
     yieldEveryConnections = 4096,
-    yieldControl = null
+    yieldControl = null,
+    optimizeTransferChecks = false,
+    groupEquivalentStates = false
 } = {}) => {
     throwIfAborted(signal);
     const originId = normalizeText(originStationId);
@@ -233,11 +240,12 @@ export const scanReachableStopsByDepartureOpportunity = async ({
         planningBudgetMinutes / REACHABLE_STOPS_RULES.bucketCount
     );
     const batchSize = Math.max(1, Math.floor(Number(opportunityBatchSize) || 64));
+    const useGroupedStates = optimizeTransferChecks && groupEquivalentStates;
 
     for (
-        let batchStart = 0;
+        let batchStart = opportunityPartitionIndex * batchSize;
         batchStart < opportunityByNumber.length;
-        batchStart += batchSize
+        batchStart += batchSize * opportunityPartitionCount
     ) {
         throwIfAborted(signal);
         const batchEnd = Math.min(opportunityByNumber.length, batchStart + batchSize);
@@ -257,10 +265,38 @@ export const scanReachableStopsByDepartureOpportunity = async ({
         const lastArrivalPruneMinuteByStopId = new Map();
         const {
             hasVisitedGroup,
-            isSubset,
+            isSubset: compareSubset,
             addGroups,
+            getGroupBit,
             terminalVisitedGroups
         } = createVisitedGroupHistoryRegistry();
+        const isSubset = optimizeTransferChecks
+            ? (subset, superset) => subset === superset || compareSubset(subset, superset)
+            : compareSubset;
+        const compactArrivals = useGroupedStates
+            ? createCompactArrivalStore({
+                opportunities: opportunityByNumber,
+                batchStart,
+                maxWaitMinutes: REACHABLE_STOPS_RULES.maxWaitMinutes,
+                maxTransferCount: REACHABLE_STOPS_RULES.maxTransferCount,
+                isSubset,
+                hasVisitedGroup,
+                getOpportunityBit: (opportunityNumber) => getTerminalOpportunityBit(opportunityNumber)
+            })
+            : null;
+        const terminalTransferIndex = optimizeTransferChecks && !useGroupedStates
+            ? createTerminalTransferIndex({
+                getOpportunityBit: (opportunityNumber) => getTerminalOpportunityBit(opportunityNumber),
+                hasVisitedGroup,
+                onExpire: (stopId, opportunityNumber) => arrivalFrontierByStopId.get(stopId)?.delete(opportunityNumber)
+            })
+            : null;
+        const transferHistoryIndex = optimizeTransferChecks && !useGroupedStates
+            ? createTransferHistoryIndex({
+                hasVisitedGroup,
+                onExpire: (stopId, opportunityNumber) => arrivalFrontierByStopId.get(stopId)?.delete(opportunityNumber)
+            })
+            : null;
 
     const getOnboardBuckets = (tripId) => {
         if (!onboardByTripId.has(tripId)) onboardByTripId.set(tripId, new Map());
@@ -269,8 +305,8 @@ export const scanReachableStopsByDepartureOpportunity = async ({
 
     const onboardFrontierKey = (label) => label.opportunityNumber;
 
-    const addOnboardLabel = (tripId, label) => {
-        const trip = index.tripById.get(tripId);
+    const addOnboardLabel = (tripId, label, knownTrip = null) => {
+        const trip = knownTrip || index.tripById.get(tripId);
         const nextDepartureMinute = trip?.stops?.[label.nextIndex]?.depMin;
         const nextArrivalMinute = trip?.stops?.[label.nextIndex + 1]?.arrMin;
         if (Number.isFinite(nextArrivalMinute) && nextArrivalMinute > label.deadlineMin) return false;
@@ -278,13 +314,38 @@ export const scanReachableStopsByDepartureOpportunity = async ({
             const dwellMinutes = nextDepartureMinute - label.lastArrMin;
             if (dwellMinutes < 0 || dwellMinutes > REACHABLE_STOPS_RULES.maxWaitMinutes) return false;
         }
+        if (optimizeTransferChecks && Number.isFinite(nextDepartureMinute) && Number.isFinite(nextArrivalMinute)) {
+            // Boarding legality was checked above. Every admitted label now
+            // takes the same fixed leg; its previous arrival time no longer
+            // distinguishes future rides, waits, or transfer permissions.
+            label.lastArrMin = nextDepartureMinute;
+        }
 
         const buckets = getOnboardBuckets(tripId);
         if (!buckets.has(label.nextIndex)) buckets.set(label.nextIndex, new Map());
         const frontier = buckets.get(label.nextIndex);
         const key = onboardFrontierKey(label);
         if (!frontier.has(key)) frontier.set(key, []);
-        const rows = frontier.get(key);
+        let rows = frontier.get(key);
+        if (typeof rows === 'bigint') {
+            if (
+                label.transferCount <= REACHABLE_STOPS_RULES.maxTransferCount - 1 &&
+                label.lastArrMin >= nextDepartureMinute &&
+                isSubset(label.visitedGroups, rows)
+            ) {
+                frontier.set(key, [label]);
+                return true;
+            }
+            rows = [{
+                opportunityNumber: key,
+                deadlineMin: opportunityByNumber[key].deadlineMin,
+                transferCount: REACHABLE_STOPS_RULES.maxTransferCount - 1,
+                lastArrMin: nextDepartureMinute,
+                nextIndex: label.nextIndex,
+                visitedGroups: rows
+            }];
+            frontier.set(key, rows);
+        }
         if (label.transferCount === REACHABLE_STOPS_RULES.maxTransferCount - 1) {
             for (let rowIndex = rows.length - 1; rowIndex >= 0; rowIndex -= 1) {
                 const existing = rows[rowIndex];
@@ -292,6 +353,7 @@ export const scanReachableStopsByDepartureOpportunity = async ({
                     existing.transferCount !== label.transferCount ||
                     existing.lastArrMin !== label.lastArrMin
                 ) continue;
+                if (optimizeTransferChecks && isSubset(existing.visitedGroups, label.visitedGroups)) return false;
                 label.visitedGroups &= existing.visitedGroups;
                 rows.splice(rowIndex, 1);
             }
@@ -319,6 +381,62 @@ export const scanReachableStopsByDepartureOpportunity = async ({
         return true;
     };
 
+    const addRoundTwoBoardingMember = (frontier, fixedLeg, tripId, trip, nextIndex, lastArrMin, visitedGroups, opportunityNumber) => {
+        const rows = frontier.get(opportunityNumber);
+        if (fixedLeg && (rows === undefined || typeof rows === 'bigint')) {
+            frontier.set(opportunityNumber, rows === undefined ? visitedGroups : rows & visitedGroups);
+        } else {
+            addOnboardLabel(tripId, {
+                opportunityNumber,
+                deadlineMin: opportunityByNumber[opportunityNumber].deadlineMin,
+                transferCount: REACHABLE_STOPS_RULES.maxTransferCount - 1,
+                lastArrMin,
+                nextIndex,
+                visitedGroups
+            }, trip);
+        }
+    };
+
+    // Members share a fixed leg and history, but keep their own deadline.
+    // A lone round-two state needs only its history; materialize a label only
+    // when another transfer round must coexist at the same trip position.
+    const addGroupedRoundTwoBoarding = (tripId, nextIndex, lastArrMin, visitedGroups, members, knownTrip = null) => {
+        const trip = knownTrip || index.tripById.get(tripId);
+        const nextDepartureMinute = trip?.stops?.[nextIndex]?.depMin;
+        const nextArrivalMinute = trip?.stops?.[nextIndex + 1]?.arrMin;
+        const singleMember = typeof members === 'number';
+        let bits = singleMember ? 0n : members;
+        if (Number.isFinite(nextArrivalMinute)) {
+            if (singleMember) {
+                if (opportunityByNumber[members].deadlineMin < nextArrivalMinute) return;
+            } else bits &= getTerminalDeadlineMask(nextArrivalMinute);
+        }
+        if (!singleMember && !bits) return;
+        if (Number.isFinite(nextDepartureMinute) && Number.isFinite(lastArrMin)) {
+            const dwellMinutes = nextDepartureMinute - lastArrMin;
+            if (dwellMinutes < 0 || dwellMinutes > REACHABLE_STOPS_RULES.maxWaitMinutes) return;
+        }
+        const fixedLeg = Number.isFinite(nextDepartureMinute) && Number.isFinite(nextArrivalMinute);
+        const buckets = getOnboardBuckets(tripId);
+        if (!buckets.has(nextIndex)) buckets.set(nextIndex, new Map());
+        const frontier = buckets.get(nextIndex);
+        if (singleMember) {
+            addRoundTwoBoardingMember(frontier, fixedLeg, tripId, trip, nextIndex, lastArrMin, visitedGroups, members);
+            return;
+        }
+        let offset = batchStart;
+        while (bits) {
+            let word = Number(bits & 0xffffffffn);
+            while (word) {
+                const opportunityNumber = offset + 31 - Math.clz32(word & -word);
+                addRoundTwoBoardingMember(frontier, fixedLeg, tripId, trip, nextIndex, lastArrMin, visitedGroups, opportunityNumber);
+                word &= word - 1;
+            }
+            bits >>= 32n;
+            offset += 32;
+        }
+    };
+
     const getArrivalFrontier = (stopId) => {
         if (!arrivalFrontierByStopId.has(stopId)) arrivalFrontierByStopId.set(stopId, new Map());
         return arrivalFrontierByStopId.get(stopId);
@@ -344,8 +462,23 @@ export const scanReachableStopsByDepartureOpportunity = async ({
     const addArrivalLabel = (stopId, label) => {
         const frontier = getArrivalFrontier(stopId);
         const key = label.opportunityNumber;
-        if (!frontier.has(key)) frontier.set(key, []);
-        const rows = frontier.get(key);
+        let rows;
+        if (optimizeTransferChecks) {
+            if (!frontier.has(key)) frontier.set(key, { earlyByArrival: null, lateRows: null });
+            const partitions = frontier.get(key);
+            // Before this cutoff, only equal arrival times can dominate or
+            // merge. A later partition cannot dominate an earlier arrival.
+            if (label.arrMin + REACHABLE_STOPS_RULES.maxWaitMinutes < label.deadlineMin) {
+                const earlyByArrival = partitions.earlyByArrival ??= new Map();
+                if (!earlyByArrival.has(label.arrMin)) earlyByArrival.set(label.arrMin, []);
+                rows = earlyByArrival.get(label.arrMin);
+            } else {
+                rows = partitions.lateRows ??= [];
+            }
+        } else {
+            if (!frontier.has(key)) frontier.set(key, []);
+            rows = frontier.get(key);
+        }
         if (label.transferCount === REACHABLE_STOPS_RULES.maxTransferCount - 1) {
             for (let rowIndex = rows.length - 1; rowIndex >= 0; rowIndex -= 1) {
                 const existing = rows[rowIndex];
@@ -355,7 +488,13 @@ export const scanReachableStopsByDepartureOpportunity = async ({
                     existing.arrMin !== label.arrMin ||
                     existing.forbiddenTripId !== label.forbiddenTripId
                 ) continue;
+                // Keep this mutation even for an equivalent frontier state:
+                // through continuations consume the merged arrival history.
                 label.visitedGroups &= existing.visitedGroups;
+                if (
+                    optimizeTransferChecks && existing.forbiddenTripId != null &&
+                    label.visitedGroups === existing.visitedGroups
+                ) return false;
                 existing.active = false;
                 rows.splice(rowIndex, 1);
             }
@@ -390,14 +529,22 @@ export const scanReachableStopsByDepartureOpportunity = async ({
                 rows.splice(indexOfRow, 1);
             }
         }
-        label.frontierKey = key;
+        // The optimized queues already key labels by opportunityNumber; avoid
+        // adding a redundant property (and changing every label's shape).
+        if (!optimizeTransferChecks) label.frontierKey = key;
         rows.push(label);
-        if (!arrivalsByStopId.has(stopId)) arrivalsByStopId.set(stopId, []);
-        insertByArrival(arrivalsByStopId.get(stopId), label);
+        if (transferHistoryIndex && label.transferCount === 1) {
+            transferHistoryIndex.add(stopId, label);
+        } else if (terminalTransferIndex && label.transferCount === REACHABLE_STOPS_RULES.maxTransferCount - 1) {
+            terminalTransferIndex.add(stopId, label);
+        } else {
+            if (!arrivalsByStopId.has(stopId)) arrivalsByStopId.set(stopId, []);
+            insertByArrival(arrivalsByStopId.get(stopId), label);
+        }
         return true;
     };
 
-    const recordReachableGroup = ({ groupKey, opportunityNumber, remainingMinutes }) => {
+    const recordReachableGroup = (groupKey, opportunityNumber, remainingMinutes) => {
         if (!Number.isFinite(remainingMinutes) || remainingMinutes < 0) return;
         let byOpportunity = bestRemainingBucketByGroup.get(groupKey);
         if (!byOpportunity) {
@@ -414,10 +561,23 @@ export const scanReachableStopsByDepartureOpportunity = async ({
     const terminalRideSeenBitsByConnectionIndex = new Map();
     const terminalDeadlineMaskByArrivalMinute = new Map();
     let terminalAbortCheckCounter = 0;
+    const groupedOpportunityBits = useGroupedStates
+        ? Array.from({ length: batchEnd - batchStart }, (_, number) => 1n << BigInt(number))
+        : null;
 
     const getTerminalOpportunityBit = (opportunityNumber) => (
-        1n << BigInt(opportunityNumber - batchStart)
+        groupedOpportunityBits
+            ? groupedOpportunityBits[opportunityNumber - batchStart]
+            : 1n << BigInt(opportunityNumber - batchStart)
     );
+
+    const addOpportunityToGroup = (groups, history, opportunityNumber) => {
+        const members = groups.get(history);
+        if (members === undefined) groups.set(history, opportunityNumber);
+        else if (typeof members === 'number') {
+            groups.set(history, getTerminalOpportunityBit(members) | getTerminalOpportunityBit(opportunityNumber));
+        } else groups.set(history, members | getTerminalOpportunityBit(opportunityNumber));
+    };
 
     const getTerminalDeadlineMask = (arrivalMinute) => {
         if (terminalDeadlineMaskByArrivalMinute.has(arrivalMinute)) {
@@ -435,19 +595,17 @@ export const scanReachableStopsByDepartureOpportunity = async ({
 
     const recordReachableGroupBits = ({ groupKey, opportunityBits, arrivalMinute }) => {
         let bits = opportunityBits;
-        let localOpportunityNumber = 0;
+        let offset = batchStart;
         while (bits) {
-            if ((bits & 1n) !== 0n) {
-                const opportunityNumber = batchStart + localOpportunityNumber;
+            let word = Number(bits & 0xffffffffn);
+            while (word) {
+                const opportunityNumber = offset + 31 - Math.clz32(word & -word);
                 const opportunity = opportunityByNumber[opportunityNumber];
-                recordReachableGroup({
-                    groupKey,
-                    opportunityNumber,
-                    remainingMinutes: opportunity.deadlineMin - arrivalMinute
-                });
+                recordReachableGroup(groupKey, opportunityNumber, opportunity.deadlineMin - arrivalMinute);
+                word &= word - 1;
             }
-            bits >>= 1n;
-            localOpportunityNumber += 1;
+            bits >>= 32n;
+            offset += 32;
         }
     };
 
@@ -526,7 +684,7 @@ export const scanReachableStopsByDepartureOpportunity = async ({
             } else {
                 if (state.active) {
                     state.active = false;
-                    frontier?.delete(state.frontierKey);
+                    frontier?.delete(optimizeTransferChecks ? state.opportunityNumber : state.frontierKey);
                 }
                 changed = true;
             }
@@ -543,7 +701,7 @@ export const scanReachableStopsByDepartureOpportunity = async ({
         return { rows, start, end };
     };
 
-    const addStartBoarding = (connection) => {
+    const addStartBoarding = (connection, knownTrip = null) => {
         const opportunityNumber = opportunityNumberByConnectionId.get(connection.id);
         if (
             !Number.isInteger(opportunityNumber) ||
@@ -559,27 +717,65 @@ export const scanReachableStopsByDepartureOpportunity = async ({
             lastArrMin: connection.depMin,
             nextIndex: connection.fromIndex,
             visitedGroups: addGroups(null, index.groupKeyByStop.get(originId) || originId, connection.fromGroupKey)
-        });
+        }, knownTrip);
     };
 
     const transferCandidateRowsByOpportunity = new Array(opportunityByNumber.length);
+    const transferRound2CandidateByOpportunity = optimizeTransferChecks
+        ? new Array(opportunityByNumber.length)
+        : null;
     const touchedTransferOpportunityNumbers = [];
+    let transferFromGroupBit = null;
+    const canSkipTransferHistory = (opportunityNumber, history) => {
+        const candidate = transferRound2CandidateByOpportunity?.[opportunityNumber];
+        return typeof candidate === 'bigint'
+            ? isSubset(candidate, history)
+            : candidate && isSubset(candidate.visitedGroups, history);
+    };
 
-    const addNondominatedTransferCandidate = (state, fromGroupKey) => {
-        const transferCount = state.transferCount + 1;
+    const addTransferCandidateValues = (opportunityNumber, previousTransferCount, previousVisitedGroups, fromGroupKey) => {
+        const transferCount = previousTransferCount + 1;
         const visitedGroups = transferCount >= REACHABLE_STOPS_RULES.maxTransferCount
             ? terminalVisitedGroups
-            : addGroups(state.visitedGroups, fromGroupKey);
-        let rows = transferCandidateRowsByOpportunity[state.opportunityNumber];
-        if (!rows) {
+            : optimizeTransferChecks
+                ? previousVisitedGroups | (transferFromGroupBit ??= getGroupBit(fromGroupKey))
+                : addGroups(previousVisitedGroups, fromGroupKey);
+        let rows = transferCandidateRowsByOpportunity[opportunityNumber];
+        if (rows == null) {
+            touchedTransferOpportunityNumbers.push(opportunityNumber);
+            if (useGroupedStates && transferCount === REACHABLE_STOPS_RULES.maxTransferCount - 1) {
+                transferCandidateRowsByOpportunity[opportunityNumber] = visitedGroups;
+                transferRound2CandidateByOpportunity[opportunityNumber] = visitedGroups;
+                return;
+            }
             rows = [];
-            transferCandidateRowsByOpportunity[state.opportunityNumber] = rows;
-            touchedTransferOpportunityNumbers.push(state.opportunityNumber);
+            transferCandidateRowsByOpportunity[opportunityNumber] = rows;
+        } else if (typeof rows === 'bigint') {
+            if (transferCount === REACHABLE_STOPS_RULES.maxTransferCount - 1) {
+                const merged = rows & visitedGroups;
+                transferCandidateRowsByOpportunity[opportunityNumber] = merged;
+                transferRound2CandidateByOpportunity[opportunityNumber] = merged;
+                return;
+            }
+            if (transferCount < REACHABLE_STOPS_RULES.maxTransferCount - 1 && isSubset(visitedGroups, rows)) {
+                rows = [];
+                transferRound2CandidateByOpportunity[opportunityNumber] = null;
+            } else {
+                const previous = {
+                    opportunityNumber,
+                    deadlineMin: opportunityByNumber[opportunityNumber].deadlineMin,
+                    transferCount: REACHABLE_STOPS_RULES.maxTransferCount - 1,
+                    visitedGroups: rows
+                };
+                rows = [previous];
+                transferRound2CandidateByOpportunity[opportunityNumber] = previous;
+            }
+            transferCandidateRowsByOpportunity[opportunityNumber] = rows;
         }
         if (transferCount === REACHABLE_STOPS_RULES.maxTransferCount - 1) {
-            const sameRoundCandidate = rows.find((candidate) => (
-                candidate.transferCount === transferCount
-            ));
+            const sameRoundCandidate = transferRound2CandidateByOpportunity
+                ? transferRound2CandidateByOpportunity[opportunityNumber]
+                : rows.find((candidate) => candidate.transferCount === transferCount);
             if (sameRoundCandidate) {
                 sameRoundCandidate.visitedGroups &= visitedGroups;
                 return;
@@ -599,29 +795,82 @@ export const scanReachableStopsByDepartureOpportunity = async ({
                 transferCount <= existing.transferCount &&
                 isSubset(visitedGroups, existing.visitedGroups)
             ) {
+                if (transferRound2CandidateByOpportunity?.[opportunityNumber] === existing) {
+                    transferRound2CandidateByOpportunity[opportunityNumber] = null;
+                }
                 rows.splice(rowIndex, 1);
             }
         }
-        rows.push({
-            opportunityNumber: state.opportunityNumber,
-            deadlineMin: state.deadlineMin,
+        const candidate = {
+            opportunityNumber,
+            deadlineMin: opportunityByNumber[opportunityNumber].deadlineMin,
             transferCount,
             visitedGroups
-        });
+        };
+        rows.push(candidate);
+        if (transferRound2CandidateByOpportunity && transferCount === REACHABLE_STOPS_RULES.maxTransferCount - 1) {
+            transferRound2CandidateByOpportunity[opportunityNumber] = candidate;
+        }
     };
 
-    const addOrdinaryTransferBoardings = (connection) => {
+    const addNondominatedTransferCandidate = (state, fromGroupKey) => (
+        addTransferCandidateValues(state.opportunityNumber, state.transferCount, state.visitedGroups, fromGroupKey)
+    );
+
+    const addOrdinaryTransferBoardings = (connection, knownTrip = null) => {
         const transferSources = index.transferSourcesByTargetStop.get(connection.fromStopId) || [
             { stopId: connection.fromStopId, penaltyMin: 0 }
         ];
         touchedTransferOpportunityNumbers.length = 0;
-        let terminalOpportunityBits = 0n;
+        transferFromGroupBit = null;
+        const completedTerminalBits = optimizeTransferChecks
+            ? terminalRideSeenBitsByConnectionIndex.get(connection.scanIndex) || 0n
+            : 0n;
+        let terminalOpportunityBits = completedTerminalBits;
         for (const transferSource of transferSources) {
-            if (!arrivalsByStopId.has(transferSource.stopId)) continue;
+            if (!compactArrivals && !terminalTransferIndex && !arrivalsByStopId.has(transferSource.stopId)) continue;
             const penaltyMin = Number(transferSource.penaltyMin);
             if (!Number.isFinite(penaltyMin) || penaltyMin < 0) continue;
             const maxArrivalMinute = connection.depMin - penaltyMin;
             const minArrivalMinute = maxArrivalMinute - REACHABLE_STOPS_RULES.maxWaitMinutes;
+            if (compactArrivals) {
+                terminalOpportunityBits = compactArrivals.findTerminalBoardableBits({
+                    stopId: transferSource.stopId,
+                    connection,
+                    minArrivalMinute,
+                    maxArrivalMinute,
+                    alreadyBoardedBits: terminalOpportunityBits
+                });
+                compactArrivals.forEachBoardable({
+                    stopId: transferSource.stopId,
+                    connection,
+                    minArrivalMinute,
+                    maxArrivalMinute,
+                    canSkipHistory: canSkipTransferHistory,
+                    visit: addTransferCandidateValues
+                });
+                continue;
+            }
+            if (terminalTransferIndex) {
+                terminalOpportunityBits = terminalTransferIndex.findBoardableBits({
+                    stopId: transferSource.stopId,
+                    connection,
+                    minArrivalMinute,
+                    maxArrivalMinute,
+                    alreadyBoardedBits: terminalOpportunityBits
+                });
+            }
+            if (transferHistoryIndex) {
+                transferHistoryIndex.forEachBoardable({
+                    stopId: transferSource.stopId,
+                    connection,
+                    minArrivalMinute,
+                    maxArrivalMinute,
+                    canSkipHistory: canSkipTransferHistory,
+                    visit: addNondominatedTransferCandidate
+                });
+            }
+            if (!arrivalsByStopId.has(transferSource.stopId)) continue;
             const arrivalWindow = queryArrivalWindow({
                 stopId: transferSource.stopId,
                 minArrivalMinute,
@@ -636,8 +885,8 @@ export const scanReachableStopsByDepartureOpportunity = async ({
                 }
                 if (state.transferCount >= REACHABLE_STOPS_RULES.maxTransferCount) continue;
                 if (
-                    hasVisitedGroup(state.visitedGroups, connection.toGroupKey) &&
-                    connection.toGroupKey !== connection.fromGroupKey
+                    connection.toGroupKey !== connection.fromGroupKey &&
+                    hasVisitedGroup(state.visitedGroups, connection.toGroupKey)
                 ) {
                     continue;
                 }
@@ -648,11 +897,23 @@ export const scanReachableStopsByDepartureOpportunity = async ({
                 addNondominatedTransferCandidate(state, connection.fromGroupKey);
             }
         }
+        let groupedBoardings = null;
         for (const opportunityNumber of touchedTransferOpportunityNumbers) {
             const rows = transferCandidateRowsByOpportunity[opportunityNumber];
-            for (const candidate of rows) {
+            if (typeof rows === 'bigint') {
+                if (touchedTransferOpportunityNumbers.length === 1) {
+                    addGroupedRoundTwoBoarding(connection.tripId, connection.fromIndex, connection.depMin,
+                        rows, opportunityNumber, knownTrip);
+                } else {
+                    groupedBoardings ??= new Map();
+                    addOpportunityToGroup(groupedBoardings, rows, opportunityNumber);
+                }
+            } else for (const candidate of rows) {
                 if (candidate.transferCount >= REACHABLE_STOPS_RULES.maxTransferCount) {
                     terminalOpportunityBits |= getTerminalOpportunityBit(candidate.opportunityNumber);
+                } else if (useGroupedStates && rows.length === 1 && candidate.transferCount === REACHABLE_STOPS_RULES.maxTransferCount - 1) {
+                    groupedBoardings ??= new Map();
+                    addOpportunityToGroup(groupedBoardings, candidate.visitedGroups, opportunityNumber);
                 } else {
                     addOnboardLabel(connection.tripId, {
                         opportunityNumber: candidate.opportunityNumber,
@@ -661,13 +922,20 @@ export const scanReachableStopsByDepartureOpportunity = async ({
                         lastArrMin: connection.depMin,
                         nextIndex: connection.fromIndex,
                         visitedGroups: candidate.visitedGroups
-                    });
+                    }, knownTrip);
                 }
             }
             transferCandidateRowsByOpportunity[opportunityNumber] = null;
+            if (transferRound2CandidateByOpportunity) transferRound2CandidateByOpportunity[opportunityNumber] = null;
         }
-        if (terminalOpportunityBits) {
-            recordTerminalRide({ connection, opportunityBits: terminalOpportunityBits });
+        if (groupedBoardings) {
+            for (const [history, bits] of groupedBoardings) {
+                addGroupedRoundTwoBoarding(connection.tripId, connection.fromIndex, connection.depMin, history, bits, knownTrip);
+            }
+        }
+        const newTerminalBits = terminalOpportunityBits & ~completedTerminalBits;
+        if (newTerminalBits) {
+            recordTerminalRide({ connection, opportunityBits: newTerminalBits });
         }
     };
 
@@ -692,6 +960,66 @@ export const scanReachableStopsByDepartureOpportunity = async ({
         }
     };
 
+    const continueThroughCompactState = (connection, opportunityNumber, transferCount, arrivalHistory) => {
+        const sourceTrip = index.tripById.get(connection.tripId);
+        if (!sourceTrip || connection.toIndex !== sourceTrip.stops.length - 1) return;
+        const deadlineMin = opportunityByNumber[opportunityNumber].deadlineMin;
+        for (const edge of index.throughEdgesFromTripId.get(connection.tripId) || []) {
+            const targetTrip = index.tripById.get(edge.targetTripId);
+            const targetEntry = targetTrip?.stops?.[edge.targetEntryIndex];
+            if (!targetTrip || !targetEntry) continue;
+            if (targetEntry.depMin < connection.arrMin || targetEntry.depMin > deadlineMin) continue;
+            if (transferCount === REACHABLE_STOPS_RULES.maxTransferCount - 1) {
+                addGroupedRoundTwoBoarding(edge.targetTripId, edge.targetEntryIndex, connection.arrMin,
+                    arrivalHistory, opportunityNumber, targetTrip);
+            } else {
+                addOnboardLabel(edge.targetTripId, {
+                    opportunityNumber,
+                    deadlineMin,
+                    transferCount,
+                    lastArrMin: connection.arrMin,
+                    nextIndex: edge.targetEntryIndex,
+                    visitedGroups: arrivalHistory
+                }, targetTrip);
+            }
+        }
+    };
+
+    const recordRoundTwoArrival = (connection, opportunityNumber, riddenHistory, hasNextLeg) => {
+        recordReachableGroup(connection.toGroupKey, opportunityNumber,
+            opportunityByNumber[opportunityNumber].deadlineMin - connection.arrMin);
+        const arrivalHistory = compactArrivals.add(connection.toStopId, opportunityNumber,
+            REACHABLE_STOPS_RULES.maxTransferCount - 1, connection.arrMin, connection.tripId, riddenHistory);
+        if (!hasNextLeg) {
+            continueThroughCompactState(connection, opportunityNumber,
+                REACHABLE_STOPS_RULES.maxTransferCount - 1, arrivalHistory);
+        }
+    };
+
+    const rideGroupedRoundTwoStates = (connection, trip, history, members) => {
+        const riddenHistory = history | getGroupBit(connection.toGroupKey);
+        const hasNextLeg = trip && connection.toIndex < trip.stops.length - 1;
+        let bits = typeof members === 'number' ? 0n : members;
+        if (typeof members === 'number') recordRoundTwoArrival(connection, members, riddenHistory, hasNextLeg);
+        let offset = batchStart;
+        while (bits) {
+            let word = Number(bits & 0xffffffffn);
+            while (word) {
+                const opportunityNumber = offset + 31 - Math.clz32(word & -word);
+                recordRoundTwoArrival(connection, opportunityNumber, riddenHistory, hasNextLeg);
+                word &= word - 1;
+            }
+            bits >>= 32n;
+            offset += 32;
+        }
+        if (hasNextLeg) {
+            // Arrival-frontier merging is opportunity-specific. Same-trip
+            // continuation keeps the shared ridden history, as before.
+            addGroupedRoundTwoBoarding(connection.tripId, connection.toIndex, connection.arrMin,
+                riddenHistory, members, trip);
+        }
+    };
+
     const stride = Math.max(256, Number(yieldEveryConnections) || 4096);
     let connectionNumber = 0;
     for (
@@ -707,15 +1035,28 @@ export const scanReachableStopsByDepartureOpportunity = async ({
             throwIfAborted(signal);
         }
 
-        addStartBoarding(connection);
-        addOrdinaryTransferBoardings(connection);
+        const connectionTrip = optimizeTransferChecks ? index.tripById.get(connection.tripId) : null;
+        addStartBoarding(connection, connectionTrip);
+        addOrdinaryTransferBoardings(connection, connectionTrip);
 
         const tripBuckets = onboardByTripId.get(connection.tripId);
         const tripFrontier = tripBuckets?.get(connection.fromIndex);
         if (!tripFrontier) continue;
         tripBuckets.delete(connection.fromIndex);
         if (!tripBuckets.size) onboardByTripId.delete(connection.tripId);
-        for (const ridingLabels of tripFrontier.values()) {
+        let rideGroupBit = null;
+        let groupedRides = null;
+        for (const [opportunityNumber, ridingLabels] of tripFrontier) {
+            if (typeof ridingLabels === 'bigint') {
+                if (tripFrontier.size === 1) {
+                    rideGroupedRoundTwoStates(connection, connectionTrip, ridingLabels, opportunityNumber);
+                } else {
+                    groupedRides ??= new Map();
+                    addOpportunityToGroup(groupedRides, ridingLabels, opportunityNumber);
+                }
+                continue;
+            }
+            let recordedOpportunity = false;
             for (const riddenLabel of ridingLabels) {
                 if (Number.isFinite(riddenLabel.lastArrMin)) {
                     const dwellMinutes = connection.depMin - riddenLabel.lastArrMin;
@@ -725,8 +1066,10 @@ export const scanReachableStopsByDepartureOpportunity = async ({
 
                 const visitedGroups = riddenLabel.transferCount >= REACHABLE_STOPS_RULES.maxTransferCount
                     ? terminalVisitedGroups
-                    : addGroups(riddenLabel.visitedGroups, connection.toGroupKey);
-                const arrivalLabel = {
+                    : optimizeTransferChecks
+                        ? riddenLabel.visitedGroups | (rideGroupBit ??= getGroupBit(connection.toGroupKey))
+                        : addGroups(riddenLabel.visitedGroups, connection.toGroupKey);
+                const arrivalLabel = compactArrivals ? null : {
                     opportunityNumber: riddenLabel.opportunityNumber,
                     deadlineMin: riddenLabel.deadlineMin,
                     transferCount: riddenLabel.transferCount,
@@ -736,24 +1079,42 @@ export const scanReachableStopsByDepartureOpportunity = async ({
                     active: true
                 };
                 const remainingMinutes = riddenLabel.deadlineMin - connection.arrMin;
-                recordReachableGroup({
-                    groupKey: connection.toGroupKey,
-                    opportunityNumber: riddenLabel.opportunityNumber,
-                    remainingMinutes
-                });
+                if (!optimizeTransferChecks || !recordedOpportunity) {
+                    recordReachableGroup(connection.toGroupKey, riddenLabel.opportunityNumber, remainingMinutes);
+                    recordedOpportunity = true;
+                }
+                let arrivalHistory = visitedGroups;
                 if (riddenLabel.transferCount < REACHABLE_STOPS_RULES.maxTransferCount) {
-                    addArrivalLabel(connection.toStopId, arrivalLabel);
+                    if (compactArrivals) {
+                        arrivalHistory = compactArrivals.add(connection.toStopId, riddenLabel.opportunityNumber,
+                            riddenLabel.transferCount, connection.arrMin, connection.tripId, visitedGroups);
+                    } else {
+                        addArrivalLabel(connection.toStopId, arrivalLabel);
+                    }
                 }
 
-                const trip = index.tripById.get(connection.tripId);
+                const trip = connectionTrip || index.tripById.get(connection.tripId);
                 if (trip && connection.toIndex < trip.stops.length - 1) {
                     riddenLabel.lastArrMin = connection.arrMin;
                     riddenLabel.nextIndex = connection.toIndex;
                     riddenLabel.visitedGroups = visitedGroups;
-                    addOnboardLabel(connection.tripId, riddenLabel);
+                    if (useGroupedStates && riddenLabel.transferCount === REACHABLE_STOPS_RULES.maxTransferCount - 1) {
+                        addGroupedRoundTwoBoarding(connection.tripId, connection.toIndex, connection.arrMin,
+                            visitedGroups, riddenLabel.opportunityNumber, connectionTrip);
+                    } else {
+                        addOnboardLabel(connection.tripId, riddenLabel, connectionTrip);
+                    }
+                } else if (compactArrivals) {
+                    continueThroughCompactState(connection, riddenLabel.opportunityNumber,
+                        riddenLabel.transferCount, arrivalHistory);
                 } else {
                     continueThroughEdges({ connection, riddenLabel, arrivalLabel });
                 }
+            }
+        }
+        if (groupedRides) {
+            for (const [history, bits] of groupedRides) {
+                rideGroupedRoundTwoStates(connection, connectionTrip, history, bits);
             }
         }
     }

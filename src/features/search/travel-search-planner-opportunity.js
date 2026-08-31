@@ -16,6 +16,8 @@ import {
 import {
     scanReachableStopsByDepartureOpportunity
 } from '../../domain/reachableStops/opportunityPlanner.js';
+import { buildReachableStopsQueryIndex } from '../../domain/reachableStops/queryIndex.js';
+import { scanReachableStopsInParallel } from '../../services/reachableStopsParallelScan.js';
 import {
     createReachableStopsServiceDayIndexCache
 } from '../../services/reachableStopsServiceDayIndexCache.js';
@@ -170,14 +172,24 @@ export const getReachableStopsByDepartureOpportunity = async ({
     const day = normalizeReachableStopsServiceDay(serviceDay);
     const index = await getIndexForServiceDay(day);
     throwIfAborted(signal);
-    return scanReachableStopsByDepartureOpportunity({
-        index,
+    const sourceStops = getOriginSourceStops(originStationId);
+    const useParallelScan = Number(minutes) >= 60;
+    const queryIndex = useParallelScan
+        ? buildReachableStopsQueryIndex({ index, originStationId, minutes, sourceStops })
+        : index;
+    const scan = useParallelScan ? scanReachableStopsInParallel : scanReachableStopsByDepartureOpportunity;
+    return scan({
+        index: queryIndex,
         originStationId,
         minutes,
         serviceDay: day,
-        sourceStops: getOriginSourceStops(originStationId),
+        sourceStops,
         signal,
-        yieldControl: yieldToHost
+        yieldControl: yieldToHost,
+        // The 15/30/45-minute presets have smaller arrival frontiers; avoid
+        // index maintenance there. Both paths retain the same V2 semantics.
+        optimizeTransferChecks: Number(minutes) >= 60,
+        groupEquivalentStates: true
     });
 };
 

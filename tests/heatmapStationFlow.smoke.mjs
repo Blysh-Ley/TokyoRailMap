@@ -62,4 +62,20 @@ assert.match(appSource, /isHeatmapSessionOpen\?\.\(\) === true\) return/);
 assert.match(mapInteractionSource, /if\s*\(isHeatmapActive\?\.\(\)\s*===\s*true\)/);
 assert.match(mapInteractionSource, /onHeatmapStationClick\?\.\(\{[\s\S]*stationId/);
 
+const opportunityPlannerSource = await read('src/features/search/travel-search-planner-opportunity.js');
+assert.match(
+    opportunityPlannerSource,
+    /return scan\(\{[^}]*optimizeTransferChecks:\s*Number\(minutes\)\s*>=\s*60[\s,]/,
+    'the heatmap entry must retain the unoptimized V2 path for 15/30/45-minute presets'
+);
+assert.match(
+    opportunityPlannerSource,
+    /return scan\(\{[^}]*groupEquivalentStates:\s*true[\s,]/,
+    'the heatmap entry must explicitly enable equivalent-state grouping for optimized scans'
+);
+assert.match(opportunityPlannerSource, /const useParallelScan = Number\(minutes\) >= 60;/);
+assert.match(opportunityPlannerSource, /const queryIndex = useParallelScan\s*\? buildReachableStopsQueryIndex\(\{ index, originStationId, minutes, sourceStops \}\)\s*: index;/);
+assert.match(opportunityPlannerSource, /const scan = useParallelScan \? scanReachableStopsInParallel : scanReachableStopsByDepartureOpportunity;/);
+assert.match(opportunityPlannerSource, /return scan\(\{\s*index: queryIndex,/);
+
 console.log('heatmap station flow smoke ok');

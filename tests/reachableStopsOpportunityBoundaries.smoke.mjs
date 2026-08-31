@@ -41,6 +41,8 @@ const scan = (index, originStationId, minutes, options = {}) => (
         index,
         originStationId,
         minutes,
+        optimizeTransferChecks: true,
+        groupEquivalentStates: true,
         yieldControl: async () => {},
         yieldEveryConnections: Number.MAX_SAFE_INTEGER,
         ...options
@@ -120,6 +122,8 @@ const byId = (rows, id) => rows.find((trip) => trip.id === id);
             index,
             originStationId: 'O',
             minutes: 400,
+            optimizeTransferChecks: true,
+            groupEquivalentStates: true,
             signal: controller.signal,
             yieldEveryConnections: 256,
             yieldControl: async () => controller.abort()

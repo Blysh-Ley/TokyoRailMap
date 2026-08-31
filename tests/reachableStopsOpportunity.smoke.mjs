@@ -49,6 +49,8 @@ const scan = (index, originStationId, minutes, sourceStops = null, options = {})
         originStationId,
         minutes,
         sourceStops,
+        optimizeTransferChecks: true,
+        groupEquivalentStates: true,
         ...options,
         yieldControl: async () => {},
         yieldEveryConnections: Number.MAX_SAFE_INTEGER
