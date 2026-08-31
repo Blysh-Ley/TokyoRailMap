@@ -26,9 +26,9 @@ const origin = { value: '' };
 const destination = { value: '' };
 const waypoint = { value: '' };
 
-const assertAvailability = ({ inputs, mobile = true, disabled, ready, message }) => {
+const assertAvailability = ({ inputs, mobile = true, independent, disabled, ready, message }) => {
     const valuesBefore = inputs.map((input) => input.value);
-    syncJourneySearchButtonAvailability({ button, inputs, mobile });
+    syncJourneySearchButtonAvailability({ button, inputs, mobile, independent });
     assert.equal(button.disabled, disabled, `${message}: native disabled state`);
     assert.equal(button.getAttribute('aria-disabled'), String(disabled), `${message}: accessible disabled state`);
     assert.equal(button.classList.contains('is-ready'), ready, `${message}: ready styling`);
@@ -110,6 +110,38 @@ assertAvailability({
     inputs: [origin, destination], mobile: false, disabled: false, ready: false,
     message: 'desktop clears the mobile highlight for complete inputs'
 });
+origin.value = '';
+assertAvailability({
+    inputs: [origin, destination], mobile: false, independent: true, disabled: true, ready: false,
+    message: 'an explicitly independent desktop button is disabled until both endpoints are filled'
+});
+origin.value = '东京';
+assertAvailability({
+    inputs: [origin, destination], mobile: false, independent: true, disabled: false, ready: true,
+    message: 'an explicitly independent desktop button becomes ready for plain station text'
+});
+assertAvailability({
+    inputs: [origin, waypoint, destination], mobile: false, independent: true, disabled: true, ready: false,
+    message: 'independent desktop readiness includes every added waypoint'
+});
+waypoint.value = '秋叶原';
+assertAvailability({
+    inputs: [origin, waypoint, destination], mobile: false, independent: true, disabled: false, ready: true,
+    message: 'filling the desktop waypoint restores the same ready state'
+});
+assertAvailability({
+    inputs: [origin, destination], mobile: false, independent: true, disabled: false, ready: true,
+    message: 'removing a desktop waypoint preserves endpoint readiness'
+});
+origin.value = '';
+assertAvailability({
+    inputs: [origin, destination], mobile: true, independent: false, disabled: false, ready: false,
+    message: 'the optional independent flag can explicitly opt out without changing the search action'
+});
+syncJourneySearchButtonAvailability({ button, inputs: [origin, destination] });
+assert.equal(button.disabled, false, 'omitting both optional flags preserves the original desktop enabled behavior');
+assert.equal(button.getAttribute('aria-disabled'), 'false');
+assert.equal(button.classList.contains('is-ready'), false);
 
 const root = process.cwd();
 const journeyUiSource = readFileSync(join(root, 'src/features/search/travel-search-ui.js'), 'utf8');
@@ -130,8 +162,8 @@ assert.ok(
 
 assert.match(
     journeyUiSource,
-    /const syncPlanSearchButton = \(\) => syncJourneySearchButtonAvailability\(\{[\s\S]*?button: planSearchBtn,[\s\S]*?inputs: \[originInput, destinationInput, \.\.\.waypointRows\.map\(\(row\) => row\.input\)\],[\s\S]*?mobile: document\.documentElement\?\.dataset\?\.mobileUi === '1'[\s\S]*?document\.body\?\.dataset\?\.mobileUi === '1'[\s\S]*?\}\);\s*syncPlanSearchButton\(\);/,
-    'the UI must initialize button state from all visible endpoint fields and mobile presentation flags'
+    /const syncPlanSearchButton = \(\) => syncJourneySearchButtonAvailability\(\{[\s\S]*?button: planSearchBtn,[\s\S]*?inputs: \[originInput, destinationInput, \.\.\.waypointRows\.map\(\(row\) => row\.input\)\],[\s\S]*?independent: true,[\s\S]*?mobile: document\.documentElement\?\.dataset\?\.mobileUi === '1'[\s\S]*?document\.body\?\.dataset\?\.mobileUi === '1'[\s\S]*?\}\);\s*syncPlanSearchButton\(\);/,
+    'the UI must opt into independent readiness on both desktop and mobile without changing helper defaults'
 );
 assert.match(
     journeyUiSource,
@@ -168,8 +200,11 @@ const mobileRule = (ending) => cssRules.find(({ selector }) => (
     selector.includes("[data-mobile-ui='1']")
     && selector.split(',').some((part) => part.trim().endsWith(ending))
 ));
+const desktopRules = (ending) => cssRules.filter(({ selector }) => selector.split(',').some((part) => (
+    part.trim().startsWith("html:not([data-mobile-ui='1'])") && part.trim().endsWith(ending)
+)));
 const searchButtonRule = mobileRule('.search-ui > .journey-ui .journey-plan-search-btn');
-assert.ok(searchButtonRule, 'the independent button must have mobile-only positioning');
+assert.ok(searchButtonRule, 'the shared independent-button styling must retain mobile positioning');
 assert.match(searchButtonRule.declarations, /position:\s*fixed;/);
 assert.match(searchButtonRule.declarations, /right:\s*12px;/);
 assert.match(searchButtonRule.declarations, /bottom:\s*var\(--mobile-search-field-bottom\);/);
@@ -221,6 +256,43 @@ assert.match(
     mobileRule('.journey-ui.is-mobile-plan-results .journey-plan-search-btn')?.declarations || '',
     /display:\s*none\s*(?:!important)?;/,
     'the existing mobile results presentation must continue hiding the search button'
+);
+
+const desktopRootRules = desktopRules('.search-ui.is-planner-open');
+assert.ok(desktopRootRules.some(({ declarations }) => /width:\s*372px;/.test(declarations)));
+assert.ok(
+    desktopRootRules.some(({ declarations }) => /padding-right:\s*52px;/.test(declarations)),
+    'the 372px desktop shell must keep the original 320px input card and reserve the separate button column'
+);
+const desktopButtonRules = desktopRules('.search-ui.is-planner-open > .journey-ui .journey-plan-search-btn');
+assert.ok(desktopButtonRules.some(({ declarations }) => /position:\s*fixed;/.test(declarations)));
+assert.ok(desktopButtonRules.some(({ declarations }) => /width:\s*44px;/.test(declarations)));
+const desktopPositionRule = desktopButtonRules.find(({ declarations }) => /top:\s*10px;/.test(declarations));
+assert.ok(desktopPositionRule, 'desktop must override the shared mobile bottom positioning');
+assert.match(desktopPositionRule.declarations, /left:\s*calc\(20px \+ min\(372px, calc\(100vw - 20px\)\) - 44px\);/);
+assert.match(desktopPositionRule.declarations, /right:\s*auto;/);
+assert.match(desktopPositionRule.declarations, /bottom:\s*auto;/);
+assert.match(
+    desktopPositionRule.declarations,
+    /height:\s*var\(--search-planner-card-height\);/,
+    'desktop button height must follow the planner card including additional waypoint rows'
+);
+assert.match(cssSource, /--search-planner-card-height:\s*calc\(86px \+ var\(--journey-waypoint-extra-height\)\);/);
+assert.match(
+    desktopRules('.search-ui > .journey-ui .journey-plan-results')[0]?.declarations || '',
+    /width:\s*calc\(100% \+ var\(--search-planner-journey-left-inset\) \+ var\(--search-planner-right-inset\)\);/,
+    'desktop result panels must retain the original card-width calculation'
+);
+assert.ok(
+    desktopRules('.journey-plan-search-btn:disabled').some(({ declarations }) => /box-shadow:\s*none;/.test(declarations)),
+    'independent desktop buttons must reuse the disabled appearance'
+);
+assert.ok(
+    desktopRules('.journey-plan-search-btn.is-ready').some(({ declarations }) => (
+        /border-color:\s*var\(--is-active-color\);/.test(declarations)
+        && /box-shadow:[^;]*rgba\(52, 152, 219,[^;]*;/.test(declarations)
+    )),
+    'independent desktop buttons must reuse the ready border and blue light-theme glow'
 );
 
 console.log('mobile journey search button smoke ok');

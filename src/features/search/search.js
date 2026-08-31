@@ -7,6 +7,7 @@ import { createSearchHeatmapControl } from '../../ui/searchHeatmapControl.js';
 import {
     isSearchPlannerExpanded,
     registerSearchPlannerSearchRoot,
+    setSearchPlannerExpanded,
     toggleSearchPlanner
 } from '../../ui/searchPlannerShell.js';
 
@@ -972,7 +973,18 @@ export function mountSearchUI() {
             return null;
         }
     };
-    const heatmapControl = createSearchHeatmapControl({ getActions: getMapActions });
+    const heatmapControl = createSearchHeatmapControl({
+        getActions: getMapActions,
+        searchRoot: root,
+        searchStations: (query) => searchRailEntities(query, { limit: 20, allowedTypes: new Set(['station']) }),
+        loadHistory,
+        addHistory,
+        onOpen: () => {
+            setSearchPlannerExpanded(false);
+            ui.showResults(false);
+            maybeEndPreviewSession();
+        }
+    });
 
     bar.appendChild(input);
     bar.appendChild(heatmapControl.button);
@@ -1084,7 +1096,7 @@ export function mountSearchUI() {
         try { ui?.render?.(); } catch {}
     };
 
-    const openHeatmapForStation = async ({ stationId, stationName, openPicker = true } = {}) => {
+    const openHeatmapForStation = async ({ stationId, stationName } = {}) => {
         const name = normalizeText(stationName) || normalizeText(stationId);
         if (!name) return false;
 
@@ -1093,25 +1105,8 @@ export function mountSearchUI() {
         navController?.setActive?.('search', { emit: false, focus: false });
         root.classList.remove('is-collapsed');
         setMobileSearchFocus();
-        input.value = name;
-        ui.setQuery(name);
-        try {
-            await refresh();
-        } catch {
-            ui.setResults([]);
-        }
-        // 热力图入口只保留当前站点输入，不弹出搜索历史/结果列表遮挡时间控件。
         ui.showResults(false);
-        if (normalizeText(stationId)) {
-            const shouldDrawWithCurrentTime = openPicker === false && heatmapControl.isActive?.() === true;
-            if (shouldDrawWithCurrentTime) {
-                void Promise.resolve(heatmapControl.drawForStation?.(stationId)).catch(() => false);
-            } else {
-                heatmapControl.openForStation?.(stationId);
-            }
-        } else if (openPicker !== false) {
-            heatmapControl.openPicker?.();
-        }
+        heatmapControl.openForStation({ stationId, stationName: name });
         return true;
     };
 
@@ -1128,6 +1123,9 @@ export function mountSearchUI() {
         expand,
         openHeatmapForStation,
         isHeatmapActive: () => heatmapControl.isActive(),
+        isHeatmapSessionOpen: () => heatmapControl.isSessionOpen(),
+        isHeatmapMapPickActive: () => heatmapControl.isMapPickActive(),
+        pickHeatmapStation: (station) => heatmapControl.pickStation(station),
         setQuery(q) {
             this.query = String(q ?? '');
         },
@@ -1264,15 +1262,10 @@ export function mountSearchUI() {
                                 if (item.type === 'company') actions.commitCompany?.(item.id);
                                 else if (item.type === 'line') actions.commitLine?.(item.id);
                                 else if (item.type === 'station') {
-                                    const heatmapActive = heatmapControl.isActive();
                                     actions.commitStation?.(item.id, {
                                         maxZoom: 12,
-                                        lineIds: Array.isArray(item.lineIds) ? item.lineIds.slice() : [],
-                                        showPanel: !heatmapActive
+                                        lineIds: Array.isArray(item.lineIds) ? item.lineIds.slice() : []
                                     });
-                                    if (heatmapActive) {
-                                        void heatmapControl.drawForStation(item.id).catch(() => false);
-                                    }
                                 }
                                 ui.clearAndCollapse();
                                 return;
@@ -1408,16 +1401,11 @@ export function mountSearchUI() {
 
                     if (type === 'station') {
                         if (actions.isReady !== true) return;
-                        const heatmapActive = heatmapControl.isActive();
                         actions.commitStation?.(item.id, {
                             pointerType: meta.pointerType,
                             maxZoom: 12,
-                            lineIds: Array.isArray(item.lineIds) ? item.lineIds.slice() : [],
-                            showPanel: !heatmapActive
+                            lineIds: Array.isArray(item.lineIds) ? item.lineIds.slice() : []
                         });
-                        if (heatmapActive) {
-                            void heatmapControl.drawForStation(item.id).catch(() => false);
-                        }
 
                         // 提交站点：接下来 ui.clear()/render()/collapse 不应关闭固定 popup
                         suppressEndPreviewCount = Math.max(suppressEndPreviewCount, 2);

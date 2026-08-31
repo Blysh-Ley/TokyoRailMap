@@ -7,6 +7,7 @@ export const createMapStationJourneyMenu = ({
     doc = globalThis.document,
     container,
     getWaypointOptions = () => [],
+    getMenuItems = null,
     onSelectField = () => {},
     stopEvent = defaultStopEvent,
     labels = {}
@@ -52,6 +53,15 @@ export const createMapStationJourneyMenu = ({
 
     const rebuildMenu = () => {
         while (menu.firstChild) menu.removeChild(menu.firstChild);
+        const customItems = typeof getMenuItems === 'function' ? getMenuItems() : null;
+        if (Array.isArray(customItems)) {
+            menu.setAttribute('aria-label', customItems.length === 1
+                ? customItems[0].text || labels.menu || 'Use station'
+                : labels.menu || 'Use station');
+            for (const item of customItems) menu.appendChild(createMenuItem(item));
+            return;
+        }
+        menu.setAttribute('aria-label', labels.menu || 'Use station as origin, waypoint or destination');
         menu.appendChild(createMenuItem({
             action: { field: 'origin' },
             text: labels.origin || 'Origin'

@@ -12,16 +12,42 @@ const [searchSource, heatmapControlSource, panelViewSource, panelSource, mapInte
     read('src/app.js')
 ]);
 
-assert.match(heatmapControlSource, /openPicker:\s*picker\.open/);
-assert.match(heatmapControlSource, /openForStation:\s*\(stationId\)/);
-assert.match(heatmapControlSource, /pendingStationId\s*=\s*''/);
-assert.match(heatmapControlSource, /minutes\s*=\s*nextMinutes;\s*render\(\);[\s\S]*setReachableStopsHeatmapMinutes/);
-assert.match(searchSource, /openHeatmapForStation\s*=\s*async\s*\(\{\s*stationId,\s*stationName,\s*openPicker\s*=\s*true/);
+const formSource = await read('src/ui/searchHeatmapFormView.js');
+const formCssSource = await read('src/styles/searchHeatmapForm.css');
+assert.match(heatmapControlSource, /createSearchHeatmapFormView/);
+assert.match(heatmapControlSource, /const openForStation = \(\{ stationId, stationName \}/);
+assert.match(heatmapControlSource, /type: 'selectStation'/);
+assert.doesNotMatch(heatmapControlSource, /drawReachableStopsHeatmap|setReachableStopsHeatmapMinutes/);
+assert.match(searchSource, /openHeatmapForStation\s*=\s*async\s*\(\{\s*stationId,\s*stationName\s*\}/);
 assert.match(searchSource, /navController\?\.setActive\?\.\('search',\s*\{\s*emit:\s*false,\s*focus:\s*false\s*\}\)/);
-assert.match(searchSource, /heatmapControl\.openPicker\?\.\(\)/);
-assert.match(searchSource, /ui\.showResults\(false\);[\s\S]*normalizeText\(stationId\)[\s\S]*heatmapControl\.openForStation/);
-assert.match(searchSource, /openPicker\s*===\s*false[\s\S]*heatmapControl\.isActive\?\.\(\)[\s\S]*heatmapControl\.drawForStation/);
+assert.match(searchSource, /ui\.showResults\(false\);\s*heatmapControl\.openForStation/);
+assert.doesNotMatch(searchSource, /heatmapControl\.drawForStation|heatmapControl\.openPicker/);
 assert.match(searchSource, /isHeatmapActive:\s*\(\)\s*=>\s*heatmapControl\.isActive\(\)/);
+assert.match(searchSource, /isHeatmapSessionOpen:\s*\(\)\s*=>\s*heatmapControl\.isSessionOpen\(\)/);
+assert.match(formSource, /timeInput\.readOnly = true/);
+assert.match(formSource, /timeInput\.inputMode = 'none'/);
+assert.match(formSource, /onConfirm: \(minutes\) => send\('minutes', minutes\)/);
+assert.match(formSource, /form\.addEventListener\('submit'[\s\S]*send\('submit'\)/);
+assert.match(formSource, /classList\.toggle\('is-loading', loading\)/);
+assert.match(formSource, /form\.addEventListener\('keydown'[\s\S]*aria-expanded[\s\S]*event\.preventDefault\(\);[\s\S]*\}, true\)/);
+assert.match(heatmapControlSource, /MOBILE_BOTTOM_NAV_EVENT, onMobileNav/);
+assert.match(heatmapControlSource, /isActive: \(\) => interaction\.getState\(\)\.visible && !isOutsideMobileSearch\(\)/);
+assert.match(heatmapControlSource, /event\?\.detail\?\.item === 'search'[\s\S]*if \(interaction\.getState\(\)\.resumeOnSearch\) open\(\)/);
+assert.match(formSource, /stationInput\.placeholder = '选择站点';/);
+assert.match(formSource, /timeInput\.placeholder = '请选择出行时长';/);
+assert.doesNotMatch(formSource, /search-heatmap-hint|stationHint|timeHint/);
+assert.match(
+    formCssSource,
+    /\.search-heatmap-form input::placeholder\s*\{[^}]*font-size:\s*11px;[^}]*text-align:\s*left;/,
+    'heatmap field hints must be native left-aligned small placeholders'
+);
+assert.doesNotMatch(formCssSource, /search-heatmap-hint|has-hint|padding-right:\s*(60|110)px/);
+assert.match(
+    formCssSource,
+    /html\[data-theme='dark'\] \.search-heatmap-submit\.is-ready:not\(:disabled\)\s*\{\s*border-color:\s*rgb\(209, 108, 39\);\s*box-shadow:[^;]*rgba\(209, 108, 39,[^;]*;/,
+    'dark heatmap ready borders and glow must use the same orange accent'
+);
+assert.doesNotMatch(formSource, /增加途径点|切换起点和终点|清空起点站|journey-field-clear/);
 assert.match(panelViewSource, /onSelectHeatmap:\s*handleTravelHeatmap/);
 assert.match(panelViewSource, /heatmap:\s*'出行热图'/);
 assert.match(panelViewSource, /onTravelHeatmapStation\?\.\(context\)/);
@@ -31,7 +57,8 @@ assert.match(panelInteractionSource, /text:\s*labels\.heatmap\s*\|\|\s*'出行�
 assert.match(panelInteractionSource, /text:\s*labels\.destination[\s\S]*text:\s*labels\.heatmap/);
 assert.match(panelSource, /onTravelHeatmapStation\s*=\s*typeof options\.onTravelHeatmapStation/);
 assert.match(appSource, /onTravelHeatmapStation:\s*\(\{ stationId, stationName \} = \{\}\) => \{\s*clearSelectionsAndRestore\(\);\s*panel\?\.hide\?\.\(\);/);
-assert.match(appSource, /onHeatmapStationClick:[\s\S]*clearSelectionsAndRestore\(\);[\s\S]*window\.TokyoRailSearchUI[\s\S]*openPicker:\s*false/);
+assert.match(appSource, /onHeatmapStationClick: handleHeatmapStationClick/);
+assert.match(appSource, /isHeatmapSessionOpen\?\.\(\) === true\) return/);
 assert.match(mapInteractionSource, /if\s*\(isHeatmapActive\?\.\(\)\s*===\s*true\)/);
 assert.match(mapInteractionSource, /onHeatmapStationClick\?\.\(\{[\s\S]*stationId/);
 

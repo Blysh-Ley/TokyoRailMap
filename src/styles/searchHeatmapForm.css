@@ -1,0 +1,187 @@
+.search-ui.is-heatmap-open {
+    height: 86px;
+    grid-template-rows: 86px;
+}
+
+.search-ui.is-heatmap-open > .search-bar,
+.search-ui.is-heatmap-open > .search-results,
+.search-ui.is-heatmap-open > .journey-ui,
+.search-ui.is-heatmap-open::before,
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open > .journey-ui,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open > .journey-ui {
+    display: none !important;
+}
+
+.search-ui > .search-heatmap-form {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    grid-row: 1;
+    grid-column: 1;
+    gap: 8px;
+    height: 86px;
+    min-width: 0;
+    color: var(--ui-text);
+    z-index: 2;
+}
+
+.search-heatmap-form,
+.search-heatmap-form * { box-sizing: border-box; }
+.search-heatmap-form[hidden],
+.search-heatmap-form [hidden] { display: none !important; }
+
+.search-heatmap-card,
+.search-heatmap-submit,
+.search-heatmap-results {
+    border: 1px solid var(--ui-frosted-border);
+    border-radius: 12px;
+    background: var(--ui-frosted-background);
+    box-shadow: var(--ui-frosted-shadow);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    backdrop-filter: var(--ui-frosted-blur);
+}
+
+.search-heatmap-card {
+    display: grid;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    min-width: 0;
+    height: 86px;
+    overflow: hidden;
+}
+.search-heatmap-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 0 10px;
+}
+.search-heatmap-row + .search-heatmap-row { border-top: 1px solid var(--ui-border); }
+.search-heatmap-input-wrap,
+.search-heatmap-time-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1 1 0;
+    min-width: 0;
+}
+.search-heatmap-form .search-heatmap-input,
+.search-heatmap-form .search-heatmap-station-input,
+.search-heatmap-form .search-heatmap-time-input {
+    width: 100%;
+    min-width: 0;
+    height: 32px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--ui-text);
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    user-select: text;
+}
+.search-heatmap-form input::placeholder { color: var(--ui-text-muted); font-size: 11px; text-align: left; }
+.search-heatmap-form input::-webkit-search-cancel-button { display: none; }
+.search-heatmap-time-wrap.is-disabled { pointer-events: none; }
+.search-heatmap-time-input[readonly] { cursor: pointer; }
+
+.search-heatmap-map-pick,
+.search-heatmap-collapse {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ui-text);
+    cursor: pointer;
+}
+.search-heatmap-map-pick:hover,
+.search-heatmap-collapse:hover { background: var(--ui-surface-hover); }
+.search-heatmap-map-pick.is-active { background: var(--ui-accent-soft); outline: 1px solid var(--is-active-color); }
+.search-heatmap-control-icon { width: 14px; height: 14px; }
+.search-heatmap-control-icon,
+.search-heatmap-submit-icon { display: block; object-fit: contain; pointer-events: none; }
+.search-heatmap-submit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 86px;
+    padding: 0;
+    color: var(--ui-text);
+    cursor: pointer;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.search-heatmap-submit-icon { width: 18px; height: 18px; }
+.search-heatmap-submit.is-ready:not(:disabled) {
+    border-color: var(--is-active-color);
+    box-shadow: 0 0 0 1px rgba(52, 152, 219, 0.22), 0 0 12px rgba(52, 152, 219, 0.28);
+}
+.search-heatmap-submit:disabled { cursor: not-allowed; box-shadow: none; }
+.search-heatmap-submit:disabled .search-heatmap-submit-icon { opacity: 0.3; }
+.search-heatmap-form button:focus-visible {
+    outline: 2px solid var(--is-active-color);
+    outline-offset: 2px;
+}
+.search-heatmap-spinner {
+    display: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--ui-border-strong);
+    border-top-color: var(--is-active-color);
+    border-radius: 50%;
+    animation: search-heatmap-spin 800ms linear infinite;
+}
+.search-heatmap-submit.is-loading .search-heatmap-submit-icon { display: none; }
+.search-heatmap-submit.is-loading .search-heatmap-spinner { display: block; }
+@keyframes search-heatmap-spin { to { transform: rotate(360deg); } }
+
+.search-heatmap-results {
+    position: absolute;
+    top: 94px;
+    left: 0;
+    right: 52px;
+    z-index: 3;
+    max-height: 320px;
+    margin: 0;
+    padding: 4px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    list-style: none;
+}
+.search-heatmap-results-list { margin: 0; padding: 0; list-style: none; }
+.search-heatmap-message { padding: 8px 10px; color: var(--ui-text-muted); font-size: 12px; }
+.search-heatmap-result {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ui-text);
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+}
+.search-heatmap-result:hover,
+.search-heatmap-result[aria-selected='true'] { background: var(--ui-surface-hover); }
+.search-heatmap-result small,
+.search-heatmap-result-lines,
+.search-heatmap-result-meta { color: var(--ui-text-muted); font-size: 12px; }
+html[data-theme='dark'] .search-heatmap-control-icon,
+html[data-theme='dark'] .search-heatmap-submit-icon { filter: invert(1) brightness(1.1); }
+html[data-theme='dark'] .search-heatmap-submit.is-ready:not(:disabled) {
+    border-color: rgb(209, 108, 39);
+    box-shadow: 0 0 0 1px rgba(209, 108, 39, 0.22), 0 0 12px rgba(209, 108, 39, 0.28);
+}
+html[data-mobile-ui='1'] .search-heatmap-results,
+body[data-mobile-ui='1'] .search-heatmap-results { top: auto; bottom: 94px; max-height: min(34vh, 320px); }

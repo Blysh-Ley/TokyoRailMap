@@ -813,6 +813,7 @@ export function mountTravelSearchUI() {
     const syncPlanSearchButton = () => syncJourneySearchButtonAvailability({
         button: planSearchBtn,
         inputs: [originInput, destinationInput, ...waypointRows.map((row) => row.input)],
+        independent: true,
         mobile: document.documentElement?.dataset?.mobileUi === '1'
             || document.body?.dataset?.mobileUi === '1'
     });

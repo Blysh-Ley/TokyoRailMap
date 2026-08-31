@@ -1,8 +1,8 @@
 import { SEARCH_PLANNER_STATE_EVENT } from './searchPlannerShell.js';
-import { bindMinutePicker } from './minutePicker.js';
+import { createSearchHeatmapInteraction } from '../features/search/searchHeatmapInteraction.js';
+import { createSearchHeatmapFormView } from './searchHeatmapFormView.js';
+import { MOBILE_BOTTOM_NAV_EVENT } from './mobileBottomNav.js';
 
-const MINUTE_OPTIONS = [15, 30, 45, 60, 90, 120];
-const normalizeText = (value) => String(value ?? '').trim();
 // Lucide Radar, ISC: https://lucide.dev/icons/radar
 const RADAR_ICON_MARKUP = `
     <span class="search-heatmap-time-label" aria-hidden="true"></span>
@@ -20,114 +20,78 @@ const RADAR_ICON_MARKUP = `
     </span>
 `;
 
-export const createSearchHeatmapControl = ({ getActions } = {}) => {
+export const createSearchHeatmapControl = ({ getActions, searchRoot, searchStations, loadHistory, addHistory, onOpen } = {}) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'search-heatmap-select';
-    button.setAttribute('aria-label', '热力图时间');
-    button.setAttribute('aria-haspopup', 'dialog');
+    button.setAttribute('aria-label', '出行热图');
     button.setAttribute('aria-expanded', 'false');
     button.setAttribute('aria-pressed', 'false');
-    button.title = '热力图时间';
+    button.title = '出行热图';
     button.innerHTML = RADAR_ICON_MARKUP;
 
-    let minutes = 0;
-    let pendingStationId = '';
-    let subscription = null;
-    let subscriptionActions = null;
-
-    const render = () => {
-        const active = minutes > 0;
-        button.dataset.value = String(minutes);
-        button.classList.toggle('is-active', active);
-        button.setAttribute('aria-pressed', active ? 'true' : 'false');
-        const timeLabel = button.querySelector('.search-heatmap-time-label');
-        if (timeLabel) timeLabel.textContent = active ? `${minutes}分` : '';
-        const label = active ? `热力图时间：${minutes}分` : '热力图时间';
-        button.setAttribute('aria-label', label);
-        button.title = label;
+    const interaction = createSearchHeatmapInteraction({ getActions, searchStations, loadHistory, addHistory });
+    const clear = () => interaction.dispatch({ type: 'close' });
+    const view = createSearchHeatmapFormView({ interaction, onClose: clear });
+    searchRoot.appendChild(view.form);
+    const render = (state) => {
+        searchRoot.classList.toggle('is-heatmap-open', state.visible);
+        if (state.visible) searchRoot.classList.remove('is-collapsed');
+        button.classList.toggle('is-active', state.open);
+        button.setAttribute('aria-pressed', String(state.open));
+        button.setAttribute('aria-expanded', String(state.visible));
     };
-
-    const ensureSubscription = (actions = getActions?.()) => {
-        if (!actions || typeof actions.subscribeReachableStopsHeatmap !== 'function') return;
-        if (subscriptionActions === actions && typeof subscription === 'function') return;
-        subscription?.();
-        subscriptionActions = actions;
-        subscription = actions.subscribeReachableStopsHeatmap((event) => {
-            const nextMinutes = Number(event?.minutes);
-            if (!Number.isFinite(nextMinutes)) return;
-            minutes = nextMinutes;
-            render();
-        });
+    const subscription = interaction.subscribe(render);
+    const isOutsideMobileSearch = () => {
+        const root = document.documentElement.dataset;
+        const body = document.body.dataset;
+        return (root.mobileUi === '1' || body.mobileUi === '1')
+            && (root.mobileNavActive || body.mobileNavActive) !== 'search';
     };
-
-    const clear = () => {
-        const actions = getActions?.();
-        ensureSubscription(actions);
-        pendingStationId = '';
-        if (typeof actions?.clearReachableStopsOverlay === 'function') {
-            actions.clearReachableStopsOverlay();
-            return;
-        }
-        minutes = 0;
-        render();
+    const open = () => {
+        onOpen?.();
+        interaction.dispatch({ type: 'open' });
     };
-
-    const picker = bindMinutePicker({
-        anchor: button,
-        title: '热力图时间',
-        options: MINUTE_OPTIONS,
-        getValue: () => minutes,
-        onConfirm: (value) => {
-            const nextMinutes = Number(value) || 0;
-            const actions = getActions?.();
-            ensureSubscription(actions);
-            // Keep the control state in sync before triggering the station draw.
-            // The store subscription may publish its update asynchronously.
-            minutes = nextMinutes;
-            render();
-            if (typeof actions?.setReachableStopsHeatmapMinutes === 'function') {
-                actions.setReachableStopsHeatmapMinutes(nextMinutes);
-            }
-            const stationId = pendingStationId;
-            pendingStationId = '';
-            if (stationId && nextMinutes > 0) {
-                void drawForStation(stationId).catch(() => false);
-            }
-        }
+    const openForStation = ({ stationId, stationName } = {}) => {
+        open();
+        return interaction.dispatch({ type: 'selectStation', payload: { id: stationId, text: stationName || stationId } });
+    };
+    button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        open();
     });
-
-    const drawForStation = async (stationId) => {
-        const originStationId = normalizeText(stationId);
-        if (!originStationId || minutes <= 0) return false;
-        const actions = getActions?.();
-        ensureSubscription(actions);
-        if (typeof actions?.drawReachableStopsHeatmap !== 'function') return false;
-        return actions.drawReachableStopsHeatmap({ originStationId, minutes });
-    };
-
     const onPlannerState = (event) => {
-        if (event?.detail?.expanded !== true) return;
-        picker.close();
-        clear();
+        if (event?.detail?.expanded !== true && !isOutsideMobileSearch()) return;
+        view.closePicker();
+        interaction.dispatch({ type: 'suspend', payload: { navigation: event?.detail?.expanded !== true } });
+    };
+    const onMobileNav = (event) => {
+        if (!interaction.getState().open) return;
+        if (event?.detail?.item === 'search') {
+            if (interaction.getState().resumeOnSearch) open();
+        } else interaction.dispatch({ type: 'suspend', payload: { navigation: true } });
     };
     window.addEventListener(SEARCH_PLANNER_STATE_EVENT, onPlannerState);
-    render();
+    window.addEventListener(MOBILE_BOTTOM_NAV_EVENT, onMobileNav);
+    render(interaction.getState());
 
     return Object.freeze({
         button,
         clear,
-        drawForStation,
-        isActive: () => minutes > 0,
-        openPicker: picker.open,
-        openForStation: (stationId) => {
-            pendingStationId = normalizeText(stationId);
-            if (pendingStationId) picker.open();
-        },
+        isActive: () => interaction.getState().visible && !isOutsideMobileSearch(),
+        isSessionOpen: () => interaction.getState().open,
+        isMapPickActive: () => interaction.getState().visible && !isOutsideMobileSearch() && interaction.getState().picking,
+        open,
+        openForStation,
+        pickStation: ({ stationId, stationName } = {}) => interaction.dispatch({
+            type: 'selectStation', payload: { id: stationId, text: stationName || stationId }
+        }),
         destroy: () => {
             window.removeEventListener(SEARCH_PLANNER_STATE_EVENT, onPlannerState);
+            window.removeEventListener(MOBILE_BOTTOM_NAV_EVENT, onMobileNav);
             subscription?.();
-            picker.destroy();
+            view.destroy();
         }
     });
 };

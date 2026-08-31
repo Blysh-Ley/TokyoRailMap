@@ -1213,8 +1213,9 @@ const initMapApp = async () => {
     });
     appStore.subscribe((_state, action) => {
         if (
-            action?.type === ACTION_TYPES.SELECTION_COMMIT_LINE ||
-            action?.type === ACTION_TYPES.SELECTION_COMMIT_COMPANY
+            (action?.type === ACTION_TYPES.SELECTION_COMMIT_LINE ||
+            action?.type === ACTION_TYPES.SELECTION_COMMIT_COMPANY)
+            && window.TokyoRailSearchUI?.isHeatmapSessionOpen?.() !== true
         ) {
             searchHeatmapFeature.clear();
         }
@@ -3487,7 +3488,17 @@ const initMapApp = async () => {
     const mapStationJourneyMenu = createMapStationJourneyMenu({
         container: document.getElementById('map'),
         getWaypointOptions: () => mapStationJourneyBridge.getJourneyWaypointOptions(),
+        getMenuItems: () => window.TokyoRailSearchUI?.isHeatmapActive?.() === true
+            ? [{ action: { type: 'travelHeatmap' }, text: '出行热图' }]
+            : null,
         onSelectField: (action, station) => {
+            if (action?.type === 'travelHeatmap') {
+                window.TokyoRailSearchUI?.openHeatmapForStation?.({
+                    stationId: station?.stationId,
+                    stationName: station?.stationName
+                });
+                return;
+            }
             mapStationJourneyBridge.applyStationToJourneyField({
                 field: action?.field,
                 waypointIndex: action?.waypointIndex,
@@ -3517,6 +3528,24 @@ const initMapApp = async () => {
             point,
             station: { stationId, stationName }
         });
+    };
+
+    const handleHeatmapStationClick = ({ point, props, stationId } = {}) => {
+        if (!String(stationId ?? '').trim()) return false;
+        if (window.TokyoRailSearchUI?.isHeatmapMapPickActive?.() === true) {
+            const stationName = String(
+                props?.name_zh ||
+                props?.['name:zh'] ||
+                props?.name ||
+                props?.name_ja ||
+                props?.['name:ja'] ||
+                stationId
+            ).trim();
+            mapStationJourneyMenu.close();
+            window.TokyoRailSearchUI?.pickHeatmapStation?.({ stationId, stationName });
+            return true;
+        }
+        return openMapStationJourneyMenu({ point, props, stationId });
     };
 
     if (searchMapActions) {
@@ -3564,6 +3593,7 @@ const initMapApp = async () => {
                 cancelStationRestoreState,
                 clearTripPathPreview,
                 clearReachableStopsOverlay: () => {
+                    if (window.TokyoRailSearchUI?.isHeatmapSessionOpen?.() === true) return;
                     appStore.dispatch(reachableStopsCleared({ source: 'blankMapClick' }));
                     searchHeatmapFeature.clear();
                 },
@@ -3603,20 +3633,7 @@ const initMapApp = async () => {
                 isJourneyPlannerOpen: () => mapStationJourneyBridge.isJourneyPlannerOpen(),
                 onJourneyPlannerStationClick: openMapStationJourneyMenu,
                 isHeatmapActive: () => window.TokyoRailSearchUI?.isHeatmapActive?.() === true,
-                onHeatmapStationClick: ({ stationId, props } = {}) => {
-                    const stationName = String(
-                        props?.name_zh ||
-                        props?.['name:zh'] ||
-                        props?.name ||
-                        props?.name_ja ||
-                        props?.['name:ja'] ||
-                        stationId ||
-                        ''
-                    ).trim();
-                    clearSelectionsAndRestore();
-                    panel?.hide?.();
-                    window.TokyoRailSearchUI?.openHeatmapForStation?.({ stationId, stationName, openPicker: false });
-                },
+                onHeatmapStationClick: handleHeatmapStationClick,
                 getSelectedStationId: () => selectedStationId,
                 setStationVisualHighlight,
                 openPanelForStationWithAutoScroll,
@@ -5285,6 +5302,14 @@ const initMapApp = async () => {
             const fireStationLabelTap = (item, pt) => {
                 if (isJourneyMapPickActive()) return;
                 if (item?.forceHiddenByTransferCollapse) return;
+                if (window.TokyoRailSearchUI?.isHeatmapActive?.() === true) {
+                    handleHeatmapStationClick({
+                        point: mapEngine.project(item.coordinates),
+                        props: item.props || {},
+                        stationId: String(item.stationId || item.props?.id || '').trim()
+                    });
+                    return;
+                }
                 if (!isStationFeatureAllowedForHighlightInteraction({
                     id: item?.stationId,
                     properties: item?.props || {}
