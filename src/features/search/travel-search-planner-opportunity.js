@@ -3,7 +3,6 @@ import {
     filterNearbyStops,
     getGroupStops,
     getTransferPenaltyMs,
-    loadTripsForLineAndDay,
     plannerState
 } from './travel-search-planner-raptor.js';
 import {
@@ -20,6 +19,9 @@ import {
 import {
     createReachableStopsServiceDayIndexCache
 } from '../../services/reachableStopsServiceDayIndexCache.js';
+import {
+    loadReachableStopsTripsForLineAndDay
+} from '../../services/reachableStopsTripLoader.js';
 
 const normalizeText = (value) => String(value ?? '').trim();
 const yieldToHost = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -76,10 +78,11 @@ const loadStrictTrips = async ({ lineIds, serviceDay }) => {
     if (Array.isArray(rawParsedTrips)) return rawParsedTrips;
 
     const tripLists = await Promise.all(lineIds.map((lineId) => (
-        loadTripsForLineAndDay({
+        loadReachableStopsTripsForLineAndDay({
             lineId,
             serviceDay,
-            preserveExplicitTimeFlags: true
+            timetableCache: getTimetableCache(),
+            typeMetaById: plannerState.typeMetaById
         })
     )));
     const parsedTrips = [];

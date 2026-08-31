@@ -575,17 +575,11 @@ const planContainsSurcharge = (plan) => planContainsSurchargeByType({
     isTypeIdSurcharge
 });
 
-export const loadTripsForLineAndDay = async ({
-    lineId,
-    serviceDay,
-    excludeSurchargeTypes = false,
-    preserveExplicitTimeFlags = false
-}) => {
+export const loadTripsForLineAndDay = async ({ lineId, serviceDay, excludeSurchargeTypes = false }) => {
     const line = normalizeText(lineId);
     const day = normalizeText(serviceDay) || 'Weekday';
     if (!line) return [];
-    const cacheKey = `${line}||${day}||${excludeSurchargeTypes ? 'nosurcharge' : 'all'}` +
-        (preserveExplicitTimeFlags ? '||explicit-times' : '');
+    const cacheKey = `${line}||${day}||${excludeSurchargeTypes ? 'nosurcharge' : 'all'}`;
     if (plannerState.lineTripsCache.has(cacheKey)) return plannerState.lineTripsCache.get(cacheKey);
 
     const cache = window?.TokyoRailTimetableCache;
@@ -615,19 +609,12 @@ export const loadTripsForLineAndDay = async ({
             if (!stopId) continue;
             const arrOffset = hhmmToOffsetMinutes(row?.a);
             const depOffset = hhmmToOffsetMinutes(row?.d);
-            const hasArrival = Number.isFinite(arrOffset);
-            const hasDeparture = Number.isFinite(depOffset);
             let arrMin = Number.isFinite(arrOffset) ? arrOffset : null;
             let depMin = Number.isFinite(depOffset) ? depOffset : null;
             if (arrMin == null && depMin == null) continue;
             if (arrMin == null) arrMin = depMin;
             if (depMin == null) depMin = arrMin;
-            stops.push({
-                stopId,
-                arrMin,
-                depMin,
-                ...(preserveExplicitTimeFlags ? { hasArrival, hasDeparture } : {})
-            });
+            stops.push({ stopId, arrMin, depMin });
         }
 
         if (stops.length < 2) continue;
