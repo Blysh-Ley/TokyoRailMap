@@ -2337,6 +2337,78 @@ html[data-theme='dark'] .search-ui > .journey-ui .journey-input-wrap {
     pointer-events: none;
 }
 
+/* Mobile: reserve a separate column without moving the existing search button. */
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open {
+    padding-right: 52px;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open::before,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open::before {
+    width: calc(100% - 52px);
+    box-sizing: border-box;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-ui .journey-plan-search-btn,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-ui .journey-plan-search-btn {
+    position: fixed;
+    top: auto;
+    right: 12px;
+    bottom: var(--mobile-search-field-bottom);
+    width: 44px;
+    height: var(--mobile-search-panel-height);
+    box-sizing: border-box;
+    border: 1px solid var(--ui-frosted-border);
+    border-radius: 12px;
+    background: var(--ui-frosted-background);
+    box-shadow: var(--ui-frosted-shadow);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    backdrop-filter: var(--ui-frosted-blur);
+    opacity: 1;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+html[data-mobile-ui='1'] .journey-plan-search-btn .journey-plan-search-icon,
+body[data-mobile-ui='1'] .journey-plan-search-btn .journey-plan-search-icon {
+    width: 18px;
+    height: 18px;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-ui .journey-plan-search-btn:disabled,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-ui .journey-plan-search-btn:disabled {
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+html[data-mobile-ui='1'] .journey-plan-search-btn:disabled .journey-plan-search-icon,
+body[data-mobile-ui='1'] .journey-plan-search-btn:disabled .journey-plan-search-icon {
+    opacity: 0.3;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-ui .journey-plan-search-btn.is-ready,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-ui .journey-plan-search-btn.is-ready {
+    border-color: var(--is-active-color);
+    box-shadow: 0 0 0 1px rgba(52, 152, 219, 0.22), 0 0 12px rgba(52, 152, 219, 0.28);
+}
+
+html[data-theme='dark'][data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-ui .journey-plan-search-btn.is-ready,
+html[data-theme='dark'] body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-ui .journey-plan-search-btn.is-ready {
+    box-shadow: 0 0 0 1px rgba(209, 108, 39, 0.22), 0 0 12px rgba(209, 108, 39, 0.28);
+}
+
+html[data-mobile-ui='1'] .journey-plan-search-btn:focus-visible,
+body[data-mobile-ui='1'] .journey-plan-search-btn:focus-visible {
+    outline: 2px solid var(--is-active-color);
+    outline-offset: 3px;
+}
+
+@media (min-width: 600px) {
+    html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-ui .journey-plan-search-btn,
+    body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-ui .journey-plan-search-btn {
+        right: calc(100vw - var(--mobile-foldable-pane-width));
+    }
+}
+
 .journey-pick-pin-marker {
     width: 26px;
     height: 26px;

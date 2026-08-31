@@ -66,6 +66,7 @@ import { journeyRuntimeAdapter } from './journeyRuntimeAdapter.js';
 import { isDarkThemeActive } from '../../map/element_ui.js';
 import { JOURNEY_CLEAR_REQUEST_EVENT } from '../../store/events.js';
 import { createMobileJourneyPlanSheet } from '../../ui/mobileJourneyPlanSheet.js';
+import { syncJourneySearchButtonAvailability } from '../../ui/journeySearchButtonView.js';
 import {
     SEARCH_PLANNER_STATE_EVENT,
     hideSearchPlannerResultSurfaces,
@@ -809,6 +810,13 @@ export function mountTravelSearchUI() {
     let selectedOriginLngLat = null;
     let selectedDestinationLngLat = null;
     const waypointRows = [];
+    const syncPlanSearchButton = () => syncJourneySearchButtonAvailability({
+        button: planSearchBtn,
+        inputs: [originInput, destinationInput, ...waypointRows.map((row) => row.input)],
+        mobile: document.documentElement?.dataset?.mobileUi === '1'
+            || document.body?.dataset?.mobileUi === '1'
+    });
+    syncPlanSearchButton();
     let nextWaypointId = 1;
     let composingOrigin = false;
     let composingDestination = false;
@@ -1083,6 +1091,7 @@ export function mountTravelSearchUI() {
         // 始终显示经纬度文本（格式化为一位小数），但保存候选站点 meta 供稍后计算步行时间
         input.value = coordsText;
         input.dataset.stationId = '';
+        syncPlanSearchButton();
         if (kind === 'waypoint') {
             rowState.stationId = '';
             rowState.candidateIds = Array.isArray(candidateIds) ? candidateIds : [];
@@ -2834,6 +2843,7 @@ export function mountTravelSearchUI() {
     };
 
     const syncEndpointDragHandles = () => {
+        syncPlanSearchButton();
         for (const slot of getEndpointSlots()) {
             const disabled = !canDragEndpointSlot(slot);
             slot.dragHandle?.classList?.toggle?.('is-drag-disabled', disabled);
@@ -3486,6 +3496,7 @@ export function mountTravelSearchUI() {
             if (collapseShell) collapse();
         } finally {
             clearingPlannerSession = false;
+            syncPlanSearchButton();
         }
     };
 
@@ -3912,6 +3923,7 @@ export function mountTravelSearchUI() {
     };
 
     const refresh = async () => {
+        syncPlanSearchButton();
         const input = getActiveInput();
         const q = normalizeText(input.value);
         if (!q) {
@@ -4185,6 +4197,7 @@ export function mountTravelSearchUI() {
         clearJourneyInputsAndCollapse();
     });
     window.addEventListener(SEARCH_PLANNER_STATE_EVENT, (evt) => {
+        syncPlanSearchButton();
         if (evt?.detail?.expanded === false) {
             clearJourneyPlanningSession({ collapseShell: false, clearMapPreview: false });
         }
