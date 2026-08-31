@@ -97,6 +97,7 @@ import {
 import { BASEMAP_GLYPHS_URL, createMapEngine } from './services/mapEngine.js';
 import { createMobileTripFitBoundsController } from './services/mobileTripFitBounds.js';
 import { createAppUpdateApi } from './services/appUpdateService.js';
+import { createUpdateDialogUi, dismissUpdateDialog } from './ui/updateDialogView.js';
 import { createStore } from './store/appStore.js';
 import { ACTION_TYPES, hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested, reachableStopsCleared, selectionClear, stationVisualHighlightSet } from './store/actions.js';
 import { createBaseHighlightEventBridge } from './features/highlight/baseHighlightEventBridge.js';
@@ -3053,7 +3054,8 @@ const initMapApp = async () => {
     };
     installAndroidBackRuntime({
         handleBackIntent: (payload) => (
-            handleRouteMapBackIntent(payload)
+            dismissUpdateDialog({ doc: document })
+            || handleRouteMapBackIntent(payload)
             || handleJourneyBackIntent(payload)
             || handleMobileMenuBackIntent(payload)
             || handleMobileNavBackIntent(payload)
@@ -3650,6 +3652,7 @@ const initMapApp = async () => {
 
     const updateApi = createAppUpdateApi({
         target: window,
+        dialogs: createUpdateDialogUi({ doc: document }),
         electronApi: window?.TokyoRailElectron
     });
     if (updateApi && !window.TokyoRailUpdate) {

@@ -1,4 +1,6 @@
-const { app, BrowserWindow, ipcMain, Menu, session, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, session, dialog: nativeDialog, shell } = require('electron');
+const { createElectronUpdateDialogs } = require('./src/ui/electronUpdateDialogs.cjs');
+const dialog = createElectronUpdateDialogs({ nativeDialog, BrowserWindow });
 const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs/promises');
 const path = require('node:path');

@@ -1,0 +1,340 @@
+.update-dialog {
+    box-sizing: border-box;
+    width: min(480px, calc(100% - 40px));
+    max-height: min(720px, calc(100vh - 40px));
+    max-height: min(720px, calc(100dvh - 40px));
+    margin: auto;
+    padding: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 1px solid var(--ui-frosted-border);
+    border-radius: 16px;
+    background: var(--ui-frosted-background);
+    color: var(--ui-text);
+    box-shadow: 0 24px 70px rgba(18, 22, 28, 0.24);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color-scheme: light;
+}
+
+.update-dialog[open] {
+    display: flex;
+    flex-direction: column;
+}
+
+.update-dialog::backdrop {
+    background: rgba(18, 22, 28, 0.42);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+}
+
+.update-dialog-header {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 12px;
+    padding: 22px 22px 18px;
+}
+
+.update-dialog-mark {
+    display: grid;
+    flex: 0 0 44px;
+    place-items: center;
+    height: 44px;
+    border: 1px solid color-mix(in srgb, var(--ui-accent) 24%, transparent);
+    border-radius: 12px;
+    background: var(--ui-accent-soft);
+    color: var(--ui-accent);
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1;
+}
+
+.update-dialog-heading {
+    flex: 1;
+    min-width: 0;
+}
+
+.update-dialog-eyebrow {
+    margin: 0 0 3px;
+    color: var(--ui-text-muted);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+}
+
+.update-dialog-title {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.update-dialog-close {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--ui-border);
+    border-radius: 8px;
+    background: var(--ui-frosted-item-background);
+    color: var(--ui-text-muted);
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.update-dialog-body {
+    min-height: 0;
+    padding: 0 22px 20px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--ui-border-strong) transparent;
+}
+
+.update-dialog-versions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 15px 18px;
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    background: var(--ui-frosted-item-background);
+}
+
+.update-dialog-version {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.update-dialog-version-label {
+    color: var(--ui-text-muted);
+    font-size: 12px;
+}
+
+.update-dialog-version-value {
+    font-size: 20px;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.update-dialog-version.is-latest .update-dialog-version-value {
+    color: var(--ui-accent);
+}
+
+.update-dialog-version-arrow {
+    color: var(--ui-text-subtle);
+    font-size: 20px;
+}
+
+.update-dialog-description {
+    margin: 14px 0 0;
+    color: var(--ui-text-muted);
+    font-size: 13px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.update-dialog-description:first-child {
+    margin-top: 0;
+}
+
+.update-dialog-notes {
+    margin-top: 18px;
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    background: var(--ui-frosted-item-background);
+}
+
+.update-dialog-notes-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 46px;
+    box-sizing: border-box;
+    padding: 11px 14px;
+    border-radius: 10px;
+    list-style: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.update-dialog-notes-toggle::-webkit-details-marker {
+    display: none;
+}
+
+.update-dialog-notes-label {
+    flex: 1;
+    font-weight: 600;
+}
+
+.update-dialog-notes-hint {
+    color: var(--ui-text-subtle);
+    font-size: 12px;
+}
+
+.update-dialog-notes-hint::before {
+    content: '展开';
+}
+
+.update-dialog-notes[open] .update-dialog-notes-hint::before {
+    content: '收起';
+}
+
+.update-dialog-notes-toggle::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    margin: 0 2px 3px;
+    border-right: 1.5px solid var(--ui-text-muted);
+    border-bottom: 1.5px solid var(--ui-text-muted);
+    transform: rotate(45deg);
+}
+
+.update-dialog-notes[open] .update-dialog-notes-toggle::after {
+    margin-bottom: -3px;
+    transform: rotate(225deg);
+}
+
+.update-dialog-notes-content {
+    padding: 14px;
+    border-top: 1px solid var(--ui-border);
+    color: var(--ui-text-muted);
+    font-size: 13px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.update-dialog-actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 16px 22px;
+    border-top: 1px solid var(--ui-border);
+    background: var(--ui-frosted-item-background);
+}
+
+.update-dialog-action {
+    min-width: 88px;
+    min-height: 40px;
+    padding: 9px 14px;
+    border: 1px solid var(--ui-border);
+    border-radius: 8px;
+    background: var(--ui-surface);
+    color: var(--ui-text);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+
+.update-dialog-action.is-primary {
+    order: 1;
+    border-color: var(--ui-accent);
+    background: var(--ui-accent);
+    color: #fff;
+}
+
+.update-dialog-action.is-cancel {
+    margin-right: auto;
+    order: -1;
+    background: transparent;
+    color: var(--ui-text-muted);
+}
+
+.update-dialog :is(button, summary):focus-visible {
+    outline: 2px solid var(--ui-accent);
+    outline-offset: 2px;
+}
+
+@media (hover: hover) {
+    .update-dialog :is(.update-dialog-close, .update-dialog-notes-toggle, .update-dialog-action:not(.is-primary)):hover {
+        background: var(--ui-surface-hover);
+        color: var(--ui-text);
+    }
+
+    .update-dialog-action.is-primary:hover {
+        background: color-mix(in srgb, var(--ui-accent) 88%, #000);
+    }
+}
+
+html[data-theme='dark'] .update-dialog {
+    background: rgba(28, 28, 28, 0.96);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+}
+
+html[data-mobile-ui='1'] .update-dialog,
+body[data-mobile-ui='1'] .update-dialog {
+    width: min(480px, calc(100% - 24px));
+    max-height: calc(100vh - max(12px, env(safe-area-inset-top, 0px)) - max(12px, env(safe-area-inset-bottom, 0px)));
+    max-height: calc(100dvh - max(12px, env(safe-area-inset-top, 0px)) - max(12px, env(safe-area-inset-bottom, 0px)));
+    margin: auto auto max(12px, env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 760px) {
+    .update-dialog {
+        width: min(480px, calc(100% - 24px));
+        max-height: calc(100vh - max(12px, env(safe-area-inset-top, 0px)) - max(12px, env(safe-area-inset-bottom, 0px)));
+        max-height: calc(100dvh - max(12px, env(safe-area-inset-top, 0px)) - max(12px, env(safe-area-inset-bottom, 0px)));
+        margin: auto auto max(12px, env(safe-area-inset-bottom, 0px));
+    }
+}
+
+@media (max-width: 480px) {
+    .update-dialog-header {
+        padding: 18px 16px 16px;
+    }
+
+    .update-dialog-close {
+        flex-basis: 40px;
+        width: 40px;
+        height: 40px;
+    }
+
+    .update-dialog-body {
+        padding: 0 16px 18px;
+    }
+
+    .update-dialog-actions {
+        gap: 8px;
+        padding: 12px 16px;
+    }
+
+    .update-dialog-action {
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 44px;
+        padding: 10px 8px;
+    }
+
+    .update-dialog-title {
+        font-size: 20px;
+    }
+}
+
+@media (max-height: 420px) {
+    .update-dialog-header {
+        padding: 10px 16px;
+    }
+
+    .update-dialog-actions {
+        padding: 10px 16px;
+    }
+}

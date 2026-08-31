@@ -242,7 +242,7 @@ const openAndroidStorePage = async ({ target, packageName, provider }) => {
     return openExternalUrl(fallbackUrl, target);
 };
 
-const promptForUpdate = async ({ target, update, platform, androidStore }) => {
+const promptForUpdate = async ({ target, update, platform, androidStore, dialogs }) => {
     if (!update?.available) return false;
     const title = `发现新版本：${update.latestVersion}`;
     const current = update.currentVersion ? `当前版本：${update.currentVersion}` : '';
@@ -251,7 +251,9 @@ const promptForUpdate = async ({ target, update, platform, androidStore }) => {
         ? `是否打开${androidStore?.provider?.label || '应用商店'}查看更新？`
         : '是否打开 App Store 查看更新？';
     const message = [title, current, question].filter(Boolean).join('\n') + notes;
-    const accepted = typeof target?.confirm === 'function' ? target.confirm(message) : true;
+    const accepted = dialogs?.confirm
+        ? await dialogs.confirm(message)
+        : typeof target?.confirm === 'function' ? target.confirm(message) : true;
     if (!accepted) return false;
 
     if (platform === 'android') {
@@ -317,7 +319,7 @@ const downloadAndInstallGitHubAndroidUpdate = async ({ target, update }) => {
     });
 };
 
-const promptForGitHubAndroidUpdate = async ({ target, update }) => {
+const promptForGitHubAndroidUpdate = async ({ target, update, dialogs }) => {
     if (!update?.available) return { started: false, skipped: true };
 
     const title = `发现新版本：${update.latestVersion}`;
@@ -325,14 +327,17 @@ const promptForGitHubAndroidUpdate = async ({ target, update }) => {
     const notes = update.releaseNotes ? `\n\n${update.releaseNotes}` : '';
     const question = '是否从 GitHub 下载并安装更新？\n下载完成后将打开 Android 系统安装界面。';
     const message = [title, current, question].filter(Boolean).join('\n') + notes;
-    const accepted = typeof target?.confirm === 'function' ? target.confirm(message) : true;
+    const accepted = dialogs?.confirm
+        ? await dialogs.confirm(message)
+        : typeof target?.confirm === 'function' ? target.confirm(message) : true;
     if (!accepted) return { started: false, skipped: true };
 
     return downloadAndInstallGitHubAndroidUpdate({ target, update });
 };
 
-const showNoUpdatePrompt = ({ target, automatic, message = '已是最新版本' } = {}) => {
+const showNoUpdatePrompt = ({ target, automatic, message = '已是最新版本', dialogs } = {}) => {
     if (automatic) return;
+    if (dialogs?.alert) return dialogs.alert(message);
     if (typeof target?.alert === 'function') target.alert(message);
 };
 
@@ -343,22 +348,24 @@ const formatUpToDateMessage = (version) => {
         : '已是最新版本';
 };
 
-const checkMobileUpdate = async ({ target, automatic = false } = {}) => {
+const checkMobileUpdate = async ({ target, automatic = false, dialogs } = {}) => {
     const platform = getCapacitorPlatform(target);
     const appInfo = await getNativeAppInfo(target);
 
     if (platform === 'ios') {
         const manifestUpdate = await readManifestUpdate({ platform, target, appInfo });
         const update = manifestUpdate || await readIosAppStoreUpdate({ target, appInfo });
-        const opened = await promptForUpdate({ target, update, platform });
+        const opened = await promptForUpdate({ target, update, platform, dialogs });
         if (!update?.available) {
-            showNoUpdatePrompt({
+            const notice = showNoUpdatePrompt({
                 target,
+                dialogs,
                 automatic,
                 message: update?.reason === 'app-store-record-not-found'
                     ? '暂未在 App Store 查询到该应用版本信息。'
                     : formatUpToDateMessage(appInfo.version)
             });
+            if (dialogs?.alert) await notice;
         }
         return { ok: true, platform, update, opened };
     }
@@ -367,7 +374,7 @@ const checkMobileUpdate = async ({ target, automatic = false } = {}) => {
         const update = await readGitHubAndroidUpdate({ target, appInfo });
         if (update.available) {
             try {
-                const nativeAction = await promptForGitHubAndroidUpdate({ target, update });
+                const nativeAction = await promptForGitHubAndroidUpdate({ target, update, dialogs });
                 return {
                     ok: nativeAction?.started !== false || nativeAction?.skipped === true,
                     platform,
@@ -376,7 +383,9 @@ const checkMobileUpdate = async ({ target, automatic = false } = {}) => {
                     nativeAction
                 };
             } catch (error) {
-                if (!automatic && typeof target?.alert === 'function') {
+                if (!automatic && dialogs?.alert) {
+                    await dialogs.alert(`更新下载或安装启动失败：${toText(error?.message) || '请稍后重试'}`);
+                } else if (!automatic && typeof target?.alert === 'function') {
                     target.alert(`更新下载或安装启动失败：${toText(error?.message) || '请稍后重试'}`);
                 }
                 return {
@@ -394,7 +403,8 @@ const checkMobileUpdate = async ({ target, automatic = false } = {}) => {
             : update.reason
                 ? '暂时无法从 GitHub 获取更新信息，请稍后重试。'
                 : formatUpToDateMessage(appInfo.version);
-        showNoUpdatePrompt({ target, automatic, message: noUpdateMessage });
+        const notice = showNoUpdatePrompt({ target, automatic, message: noUpdateMessage, dialogs });
+        if (dialogs?.alert) await notice;
         return {
             ok: !update.reason,
             platform,
@@ -408,7 +418,8 @@ const checkMobileUpdate = async ({ target, automatic = false } = {}) => {
 
 export const createAppUpdateApi = ({
     target = globalThis,
-    electronApi = target?.TokyoRailElectron
+    electronApi = target?.TokyoRailElectron,
+    dialogs
 } = {}) => {
     if (
         electronApi &&
@@ -428,6 +439,7 @@ export const createAppUpdateApi = ({
         },
         checkForUpdatesNow: async (options = {}) => checkMobileUpdate({
             target,
+            dialogs,
             automatic: options?.automatic === true
         }),
         scheduleAutoCheck: () => {
