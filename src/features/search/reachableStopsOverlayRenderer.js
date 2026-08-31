@@ -44,7 +44,7 @@ export const createReachableStopsOverlayRenderer = ({
         'circle-color': dynamicColorExpression || createReachableStopsColorExpression(theme),
         'circle-opacity': Number.isFinite(Number(baseOpacity)) ? Number(baseOpacity) : 0.6,
         'circle-blur': 0.25,
-        'circle-stroke-width': 0.5,
+        'circle-stroke-width': 0,
         'circle-stroke-color': getReachableStopsStrokeColor(theme),
         'circle-stroke-opacity': 0.7
     });

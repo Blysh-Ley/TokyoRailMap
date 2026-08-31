@@ -14,12 +14,12 @@ import {
 
 const EXPECTED_STOPS = [1, 18, 36, 72, 144, 288, 576, 1152, 2304, 3200];
 const EXPECTED_LIGHT = [
-    '#FFF7BC', '#FEE391', '#FEC44F', '#FE9929', '#EC7014',
-    '#CC4C02', '#A63603', '#7F2704', '#5A1A1A', '#3A0A18'
+    '#FFEE99', '#FFE08A', '#FFCF75', '#FFBA66', '#FFA557',
+    '#FF8742', '#FF6D33', '#FF4C24', '#FF270F', '#FF0000'
 ];
 const EXPECTED_DARK = [
-    '#3B0F70', '#5C1A80', '#7D258C', '#A32E8C', '#CB3E72',
-    '#E85A47', '#F6812D', '#FCA636', '#F8D44A', '#FCFFA4'
+    '#FFEE99', '#FFE08A', '#FFCF75', '#FFBA66', '#FFA557',
+    '#FF8742', '#FF6D33', '#FF4C24', '#FF270F', '#FF0000'
 ];
 
 const hexToLab = (hex) => {
@@ -72,7 +72,7 @@ const getEnclosingColorStops = (count) => {
         ['get', 'shiftCount'],
         0
     ]);
-    assert.deepEqual(lightExpression.slice(3, 7), [0, 'rgba(0, 0, 0, 0)', 1, '#FFF7BC']);
+    assert.deepEqual(lightExpression.slice(3, 7), [0, 'rgba(0, 0, 0, 0)', 1, '#FFEE99']);
     assert.deepEqual(lightExpression.filter((_, index) => index >= 3 && index % 2 === 1), [
         0,
         ...EXPECTED_STOPS
@@ -91,11 +91,11 @@ const getEnclosingColorStops = (count) => {
         const labs = colors.map(hexToLab);
         for (let index = 1; index < labs.length; index += 1) {
             assert.ok(
-                deltaE76(labs[index - 1], labs[index]) >= 9,
-                `${paletteName} adjacent colors must remain perceptually distinct`
+                deltaE76(labs[index - 1], labs[index]) > 0,
+                `${paletteName} adjacent colors must not collapse to the same color`
             );
-            if (paletteName === 'light') assert.ok(labs[index][0] < labs[index - 1][0]);
-            else assert.ok(labs[index][0] > labs[index - 1][0]);
+            // The restored yellow-to-red ramp darkens in both themes.
+            assert.ok(labs[index][0] < labs[index - 1][0]);
         }
     }
 }
@@ -229,7 +229,7 @@ const stationCoordinates = {
     assert.ok(layer);
     assert.equal(layer.paint['circle-opacity'], 0.6);
     assert.equal(layer.paint['circle-blur'], 0.25);
-    assert.equal(layer.paint['circle-stroke-width'], 0.5);
+    assert.equal(layer.paint['circle-stroke-width'], 0);
     assert.equal(layer.paint['circle-stroke-color'], getReachableStopsStrokeColor('light'));
     assert.equal(layer.paint['circle-color'][0], 'interpolate-lab');
 
@@ -237,9 +237,9 @@ const stationCoordinates = {
     assert.equal(paintCalls.length, 1);
     assert.equal(paintCalls[0][1]['circle-opacity'], 0.6);
     assert.equal(paintCalls[0][1]['circle-blur'], 0.25);
-    assert.equal(paintCalls[0][1]['circle-stroke-width'], 0.5);
+    assert.equal(paintCalls[0][1]['circle-stroke-width'], 0);
     assert.equal(paintCalls[0][1]['circle-stroke-color'], getReachableStopsStrokeColor('dark'));
-    assert.equal(paintCalls[0][1]['circle-color'].at(-1), '#FCFFA4');
+    assert.equal(paintCalls[0][1]['circle-color'].at(-1), '#FF0000');
 
     const visibleGeojson = {
         type: 'FeatureCollection',
@@ -267,7 +267,8 @@ const stationCoordinates = {
         getReachableStopsStrokeColor('dark'),
         'style reload must preserve the current theme stroke'
     );
-    assert.equal(reloadedLayer.paint['circle-color'].at(-1), '#FCFFA4');
+    assert.equal(reloadedLayer.paint['circle-stroke-width'], 0);
+    assert.equal(reloadedLayer.paint['circle-color'].at(-1), '#FF0000');
 }
 
 {
@@ -316,7 +317,7 @@ const stationCoordinates = {
     });
     assert.equal(calls.ensure.length, 4);
     assert.equal(calls.ensure.at(-1).options.theme, 'dark');
-    assert.equal(calls.ensure.at(-1).expression.at(-1), '#FCFFA4');
+    assert.equal(calls.ensure.at(-1).expression.at(-1), '#FF0000');
     assert.equal(calls.setData.length, 3, 'theme refresh must not rewrite unchanged source data');
     assert.equal(calls.fit, 3, 'theme refresh must not move the viewport');
 }

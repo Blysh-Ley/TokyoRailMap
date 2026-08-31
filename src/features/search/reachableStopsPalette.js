@@ -13,28 +13,28 @@ export const REACHABLE_STOPS_COLOR_STOPS = Object.freeze([
 
 export const REACHABLE_STOPS_PALETTES = Object.freeze({
     light: Object.freeze([
-        '#FFF7BC',
-        '#FEE391',
-        '#FEC44F',
-        '#FE9929',
-        '#EC7014',
-        '#CC4C02',
-        '#A63603',
-        '#7F2704',
-        '#5A1A1A',
-        '#3A0A18'
+        '#FFEE99',
+        '#FFE08A',
+        '#FFCF75',
+        '#FFBA66',
+        '#FFA557',
+        '#FF8742',
+        '#FF6D33',
+        '#FF4C24',
+        '#FF270F',
+        '#FF0000'
     ]),
     dark: Object.freeze([
-        '#3B0F70',
-        '#5C1A80',
-        '#7D258C',
-        '#A32E8C',
-        '#CB3E72',
-        '#E85A47',
-        '#F6812D',
-        '#FCA636',
-        '#F8D44A',
-        '#FCFFA4'
+        '#FFEE99',
+        '#FFE08A',
+        '#FFCF75',
+        '#FFBA66',
+        '#FFA557',
+        '#FF8742',
+        '#FF6D33',
+        '#FF4C24',
+        '#FF270F',
+        '#FF0000'
     ])
 });
 
