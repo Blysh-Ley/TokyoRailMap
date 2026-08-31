@@ -149,10 +149,11 @@ const collectAnchors = (node, out = []) => {
 };
 
 const model = getAboutNoticeModel();
+const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 assert.equal(model.project.name, 'TokyoRailMap');
 assert.equal(model.project.copyright, 'Copyright (c) 2026 Blysh');
 assert.equal(model.project.license, 'MIT License');
-assert.equal(model.project.version, '1.2.6');
+assert.equal(model.project.version, packageVersion);
 assert.ok(model.libraries.some((item) => item.name === 'MapLibre GL JS' && item.license === 'BSD-3-Clause'));
 assert.ok(model.libraries.some((item) => item.name === 'JSZip' && /MIT/.test(item.license) && /GPL/.test(item.license)));
 assert.ok(model.libraries.some((item) => item.name === 'Lucide' && item.license === 'ISC'));
@@ -170,7 +171,7 @@ assert.match(controller.dialog.className, /about-dialog/);
 assert.match(collectText(controller.overlay), /地图与数据来源/);
 assert.match(collectText(controller.overlay), /开源库 License/);
 assert.match(collectText(controller.overlay), /MIT License/);
-assert.match(collectText(controller.overlay), /当前版本 v1\.2\.6/);
+assert.ok(collectText(controller.overlay).includes(`当前版本 v${packageVersion}`));
 assert.doesNotMatch(collectText(controller.overlay), /感谢 MapLibre/);
 
 const anchors = collectAnchors(controller.overlay);
