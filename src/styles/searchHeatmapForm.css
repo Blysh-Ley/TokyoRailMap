@@ -228,3 +228,56 @@ body[data-mobile-ui='1'] .search-heatmap-results {
     bottom: var(--mobile-journey-sheet-bottom);
     max-height: min(42vh, 360px);
 }
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open {
+    --mobile-search-panel-height: 86px;
+    --mobile-journey-sheet-bottom: calc(
+        var(--mobile-search-field-bottom)
+        + var(--mobile-search-panel-height)
+        + var(--mobile-search-mode-switch-gap)
+    );
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-card,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-card {
+    position: relative;
+    overflow: visible;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-collapse,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-collapse {
+    position: absolute;
+    top: 0;
+    right: -52px;
+    z-index: 1;
+    width: 44px;
+    height: var(--mobile-search-collapse-height);
+    box-sizing: border-box;
+    border: 1px solid var(--ui-frosted-border);
+    border-radius: 12px;
+    background: var(--ui-frosted-background);
+    box-shadow: var(--ui-frosted-shadow);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    backdrop-filter: var(--ui-frosted-blur);
+    color: transparent;
+    font-size: 0;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-collapse::before,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-collapse::before {
+    content: '';
+    display: block;
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+    background: var(--ui-text);
+    -webkit-mask: url('../../assets/icons/x.svg') center / contain no-repeat;
+    mask: url('../../assets/icons/x.svg') center / contain no-repeat;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-submit,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-submit {
+    align-self: end;
+    height: var(--mobile-search-submit-height);
+}

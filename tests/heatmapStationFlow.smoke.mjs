@@ -47,6 +47,31 @@ assert.match(
     /html\[data-theme='dark'\] \.search-heatmap-submit\.is-ready:not\(:disabled\)\s*\{\s*border-color:\s*rgb\(209, 108, 39\);\s*box-shadow:[^;]*rgba\(209, 108, 39,[^;]*;/,
     'dark heatmap ready borders and glow must use the same orange accent'
 );
+assert.match(
+    formCssSource,
+    /\.search-ui\.is-heatmap-open[^{}]*\{[^}]*--mobile-search-panel-height:\s*86px;[^}]*--mobile-journey-sheet-bottom:\s*calc\(/,
+    'mobile heatmap results must clear the full 86px control'
+);
+assert.match(
+    formCssSource,
+    /\.search-ui\.is-heatmap-open \.search-heatmap-card[^{}]*\{[^}]*position:\s*relative;[^}]*overflow:\s*visible;/,
+    'mobile heatmap card must expose its detached action-column button'
+);
+assert.match(
+    formCssSource,
+    /\.search-ui\.is-heatmap-open \.search-heatmap-collapse[^{}]*\{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*right:\s*-52px;[^}]*height:\s*var\(--mobile-search-collapse-height\);/,
+    'mobile heatmap collapse must occupy the upper action-column section'
+);
+assert.match(
+    formCssSource,
+    /\.search-ui\.is-heatmap-open \.search-heatmap-collapse::before[^{}]*\{[^}]*mask:\s*url\('\.\.\/\.\.\/assets\/icons\/x\.svg'\)/,
+    'mobile heatmap collapse must render the existing x.svg icon'
+);
+assert.match(
+    formCssSource,
+    /\.search-ui\.is-heatmap-open \.search-heatmap-submit[^{}]*\{[^}]*align-self:\s*end;[^}]*height:\s*var\(--mobile-search-submit-height\);/,
+    'mobile heatmap search must occupy the lower action-column section'
+);
 assert.doesNotMatch(formSource, /增加途径点|切换起点和终点|清空起点站|journey-field-clear/);
 assert.match(panelViewSource, /onSelectHeatmap:\s*handleTravelHeatmap/);
 assert.match(panelViewSource, /heatmap:\s*'出行热图'/);
