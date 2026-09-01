@@ -279,8 +279,8 @@ const splitSearchButtonRule = mobileOnlyRule('.search-ui.is-planner-open > .jour
 assert.ok(splitSearchButtonRule, 'mobile planner search must occupy the lower action-column section');
 assert.match(
     splitSearchButtonRule.declarations,
-    /height:\s*var\(--mobile-search-submit-height\);/,
-    'mobile planner search must keep the two-thirds action-column height'
+    /height:\s*var\(--mobile-search-submit-height\);[^}]*border-radius:\s*50%;/,
+    'mobile planner search must remain a fixed circular action button'
 );
 const collapseButtonRule = mobileOnlyRule('.search-ui.is-planner-open > .search-bar .search-planner-toggle-btn');
 assert.ok(collapseButtonRule, 'mobile planner collapse must occupy its own upper action-column section');
@@ -288,6 +288,7 @@ assert.match(collapseButtonRule.declarations, /position:\s*fixed;/);
 assert.match(collapseButtonRule.declarations, /right:\s*12px;/);
 assert.match(collapseButtonRule.declarations, /width:\s*44px;/);
 assert.match(collapseButtonRule.declarations, /height:\s*var\(--mobile-search-collapse-height\);/);
+assert.match(collapseButtonRule.declarations, /border-radius:\s*50%;/);
 assert.match(
     collapseButtonRule.declarations,
     /bottom:\s*calc\([^)]*var\(--mobile-search-field-bottom\)[^)]*var\(--mobile-search-submit-height\)[^)]*var\(--mobile-search-action-gap\)[^)]*\);/
@@ -302,15 +303,9 @@ assert.match(
     /mask:\s*url\('\.\.\/\.\.\/assets\/icons\/x\.svg'\)/,
     'mobile planner collapse must render the existing x.svg icon'
 );
-assert.match(cssSource, /--mobile-search-action-gap:\s*4px;/);
-assert.match(
-    cssSource,
-    /--mobile-search-collapse-height:\s*calc\(\s*\(var\(--mobile-search-panel-height\) - var\(--mobile-search-action-gap\)\) \/ 3\s*\);/
-);
-assert.match(
-    cssSource,
-    /--mobile-search-submit-height:\s*calc\(\s*var\(--mobile-search-panel-height\)\s*- var\(--mobile-search-action-gap\)\s*- var\(--mobile-search-collapse-height\)\s*\);/
-);
+assert.match(cssSource, /--mobile-search-action-gap:\s*2px;/);
+assert.match(cssSource, /--mobile-search-collapse-height:\s*44px;/);
+assert.match(cssSource, /--mobile-search-submit-height:\s*44px;/);
 assert.match(
     mobileRule('.search-ui.is-planner-open')?.declarations || '',
     /padding-right:\s*52px;/,

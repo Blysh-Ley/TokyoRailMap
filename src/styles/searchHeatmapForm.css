@@ -302,7 +302,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-
     height: var(--mobile-search-collapse-height);
     box-sizing: border-box;
     border: 1px solid var(--ui-frosted-border);
-    border-radius: 12px;
+    border-radius: 50%;
     background: var(--ui-frosted-background);
     box-shadow: var(--ui-frosted-shadow);
     -webkit-backdrop-filter: var(--ui-frosted-blur);
@@ -327,4 +327,5 @@ html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-
 body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-submit {
     align-self: end;
     height: var(--mobile-search-submit-height);
+    border-radius: 50%;
 }

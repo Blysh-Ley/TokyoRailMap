@@ -283,15 +283,9 @@ html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui,
 body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui {
     --mobile-search-row-height: 45px;
     --mobile-search-transition-duration: 0.3s;
-    --mobile-search-action-gap: 4px;
-    --mobile-search-collapse-height: calc(
-        (var(--mobile-search-panel-height) - var(--mobile-search-action-gap)) / 3
-    );
-    --mobile-search-submit-height: calc(
-        var(--mobile-search-panel-height)
-        - var(--mobile-search-action-gap)
-        - var(--mobile-search-collapse-height)
-    );
+    --mobile-search-action-gap: 2px;
+    --mobile-search-collapse-height: 44px;
+    --mobile-search-submit-height: 44px;
     position: fixed;
     top: auto;
     left: 12px;
@@ -2473,7 +2467,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-
     height: var(--mobile-search-collapse-height);
     box-sizing: border-box;
     border: 1px solid var(--ui-frosted-border);
-    border-radius: 12px;
+    border-radius: 50%;
     background: var(--ui-frosted-background);
     box-shadow: var(--ui-frosted-shadow);
     -webkit-backdrop-filter: var(--ui-frosted-blur);
@@ -2502,6 +2496,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open > .journey-ui .journey-plan-search-btn,
 body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open > .journey-ui .journey-plan-search-btn {
     height: var(--mobile-search-submit-height);
+    border-radius: 50%;
 }
 
 html:not([data-mobile-ui='1']) .journey-plan-search-btn .journey-plan-search-icon,

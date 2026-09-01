@@ -69,8 +69,8 @@ assert.match(
 );
 assert.match(
     formCssSource,
-    /\.search-ui\.is-heatmap-open \.search-heatmap-collapse[^{}]*\{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*right:\s*-52px;[^}]*height:\s*var\(--mobile-search-collapse-height\);/,
-    'mobile heatmap collapse must occupy the upper action-column section'
+    /\.search-ui\.is-heatmap-open \.search-heatmap-collapse[^{}]*\{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*right:\s*-52px;[^}]*width:\s*44px;[^}]*height:\s*var\(--mobile-search-collapse-height\);[^}]*border-radius:\s*50%;/,
+    'mobile heatmap collapse must be a fixed circular action button'
 );
 assert.match(
     formCssSource,
@@ -79,8 +79,8 @@ assert.match(
 );
 assert.match(
     formCssSource,
-    /\.search-ui\.is-heatmap-open \.search-heatmap-submit[^{}]*\{[^}]*align-self:\s*end;[^}]*height:\s*var\(--mobile-search-submit-height\);/,
-    'mobile heatmap search must occupy the lower action-column section'
+    /\.search-ui\.is-heatmap-open \.search-heatmap-submit[^{}]*\{[^}]*align-self:\s*end;[^}]*height:\s*var\(--mobile-search-submit-height\);[^}]*border-radius:\s*50%;/,
+    'mobile heatmap search must be a fixed circular action button'
 );
 assert.doesNotMatch(formSource, /增加途径点|切换起点和终点|清空起点站|journey-field-clear/);
 assert.match(panelViewSource, /onSelectHeatmap:\s*handleTravelHeatmap/);
