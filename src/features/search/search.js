@@ -147,6 +147,27 @@ const appendStationLineIconGroup = (textEl, lineMetas, stationItem = null) => {
     textEl.appendChild(wrap);
 };
 
+const createHeatmapHistoryItemView = (item) => {
+    const row = el('div', 'search-result-item');
+    const icon = item?.id ? buildResultIcon({ ...item, type: 'station' }) : el('span', 'search-result-icon');
+    const dot = icon?.querySelector?.('.search-result-icon--station') || null;
+    if (dot?.style) {
+        const isTransfer = item?.isTransfer === true;
+        dot.style.width = `${isTransfer ? 18 : 12}px`;
+        dot.style.height = `${isTransfer ? 18 : 12}px`;
+        dot.style.borderWidth = `${isTransfer ? 4 : 0.5}px`;
+    }
+
+    const text = el('div', 'search-result-text search-result-text--station journey-station-result-text');
+    const name = el('span', 'journey-station-result-name', { text: item?.text ?? '' });
+    text.appendChild(name);
+    const lineMetas = (Array.isArray(item?.lineIds) ? item.lineIds : [])
+        .map((id) => ({ id: String(id), ...(lineMetaById.get(String(id)) || {}) }));
+    appendStationLineIconGroup(text, lineMetas, item);
+    row.append(icon, text);
+    return row;
+};
+
 const tokenizeQuery = (q) =>
     normalizeText(q)
         .toLowerCase()
@@ -979,6 +1000,16 @@ export function mountSearchUI() {
         searchStations: (query) => searchRailEntities(query, { limit: 20, allowedTypes: new Set(['station']) }),
         loadHistory,
         addHistory,
+        historyView: {
+            createItem: createHeatmapHistoryItemView,
+            onToggleFavorite: toggleHistoryFavorite,
+            onDelete: (item) => {
+                const itemKey = getHistoryItemKey(item);
+                saveHistory(loadHistory().filter((entry) => getHistoryItemKey(entry) !== itemKey));
+            },
+            onClear: () => saveHistory([]),
+            onRendered: refreshStationLineAlignment
+        },
         onOpen: () => {
             setSearchPlannerExpanded(false);
             ui.showResults(false);

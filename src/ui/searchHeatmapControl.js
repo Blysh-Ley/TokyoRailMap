@@ -20,7 +20,15 @@ const RADAR_ICON_MARKUP = `
     </span>
 `;
 
-export const createSearchHeatmapControl = ({ getActions, searchRoot, searchStations, loadHistory, addHistory, onOpen } = {}) => {
+export const createSearchHeatmapControl = ({
+    getActions,
+    searchRoot,
+    searchStations,
+    loadHistory,
+    addHistory,
+    historyView,
+    onOpen
+} = {}) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'search-heatmap-select';
@@ -32,7 +40,7 @@ export const createSearchHeatmapControl = ({ getActions, searchRoot, searchStati
 
     const interaction = createSearchHeatmapInteraction({ getActions, searchStations, loadHistory, addHistory });
     const clear = () => interaction.dispatch({ type: 'close' });
-    const view = createSearchHeatmapFormView({ interaction, onClose: clear });
+    const view = createSearchHeatmapFormView({ interaction, historyView, onClose: clear });
     searchRoot.appendChild(view.form);
     const render = (state) => {
         searchRoot.classList.toggle('is-heatmap-open', state.visible);
@@ -60,6 +68,7 @@ export const createSearchHeatmapControl = ({ getActions, searchRoot, searchStati
         event.preventDefault();
         event.stopPropagation();
         open();
+        view.focusStationInput();
     });
     const onPlannerState = (event) => {
         if (event?.detail?.expanded !== true && !isOutsideMobileSearch()) return;

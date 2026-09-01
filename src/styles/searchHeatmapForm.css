@@ -31,8 +31,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-
 .search-heatmap-form [hidden] { display: none !important; }
 
 .search-heatmap-card,
-.search-heatmap-submit,
-.search-heatmap-results {
+.search-heatmap-submit {
     border: 1px solid var(--ui-frosted-border);
     border-radius: 12px;
     background: var(--ui-frosted-background);
@@ -146,16 +145,22 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-
     position: absolute;
     top: 94px;
     left: 0;
-    right: 52px;
+    right: 0;
     z-index: 3;
-    max-height: 320px;
+    max-height: 360px;
     margin: 0;
-    padding: 4px;
-    overflow-y: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    overflow: hidden;
     overscroll-behavior: contain;
     list-style: none;
 }
-.search-heatmap-results-list { margin: 0; padding: 0; list-style: none; }
+.search-heatmap-results-list { max-height: 320px; }
 .search-heatmap-message { padding: 8px 10px; color: var(--ui-text-muted); font-size: 12px; }
 .search-heatmap-result {
     display: flex;
@@ -177,11 +182,49 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-
 .search-heatmap-result small,
 .search-heatmap-result-lines,
 .search-heatmap-result-meta { color: var(--ui-text-muted); font-size: 12px; }
+.search-heatmap-history-delete {
+    margin-left: auto;
+    padding: 0 2px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 15px;
+    line-height: 1;
+    opacity: 0.7;
+    cursor: pointer;
+}
+.search-heatmap-history-delete-icon {
+    display: block;
+    width: 12px;
+    height: 12px;
+}
+.search-heatmap-history-footer {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    text-align: center;
+}
+.search-heatmap-history-clear {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 12px;
+    line-height: 1.2;
+    cursor: pointer;
+}
 html[data-theme='dark'] .search-heatmap-control-icon,
 html[data-theme='dark'] .search-heatmap-submit-icon { filter: invert(1) brightness(1.1); }
+html[data-theme='dark'] .search-heatmap-history-delete-icon { filter: invert(1); }
 html[data-theme='dark'] .search-heatmap-submit.is-ready:not(:disabled) {
     border-color: rgb(209, 108, 39);
     box-shadow: 0 0 0 1px rgba(209, 108, 39, 0.22), 0 0 12px rgba(209, 108, 39, 0.28);
 }
 html[data-mobile-ui='1'] .search-heatmap-results,
-body[data-mobile-ui='1'] .search-heatmap-results { top: auto; bottom: 94px; max-height: min(34vh, 320px); }
+body[data-mobile-ui='1'] .search-heatmap-results {
+    position: fixed;
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: var(--mobile-journey-sheet-bottom);
+    max-height: min(42vh, 360px);
+}

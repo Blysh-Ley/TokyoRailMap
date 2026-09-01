@@ -19,8 +19,64 @@ const iconButton = (className, label, icon) => {
     return button;
 };
 
+const createDefaultHistoryItemView = (item) => {
+    const row = make('div', 'search-result-item');
+    const icon = make('span', 'search-result-icon');
+    if (item?.id) {
+        const dot = make('span', 'search-result-icon--station');
+        const isTransfer = item?.isTransfer === true;
+        dot.style.width = `${isTransfer ? 18 : 12}px`;
+        dot.style.height = `${isTransfer ? 18 : 12}px`;
+        dot.style.borderWidth = `${isTransfer ? 4 : 0.5}px`;
+        icon.appendChild(dot);
+    }
+    const text = make('div', 'search-result-text search-result-text--station journey-station-result-text');
+    text.appendChild(make('span', 'journey-station-result-name', item?.text ?? ''));
+    row.append(icon, text);
+    return row;
+};
+
+const createHistoryFavoriteButton = (item, onToggle) => {
+    const favorite = item?.favorite === true;
+    const button = make('button', 'search-history-favorite', favorite ? '★' : '☆');
+    button.type = 'button';
+    button.setAttribute('aria-label', favorite ? '取消收藏' : '收藏');
+    button.style.marginLeft = '8px';
+    button.style.background = 'transparent';
+    button.style.border = 'none';
+    button.style.padding = '0 2px';
+    button.style.cursor = 'pointer';
+    button.style.color = favorite ? '#f5a400' : 'inherit';
+    button.style.fontSize = '16px';
+    button.style.lineHeight = '1';
+    button.style.opacity = favorite ? '1' : '0.6';
+    button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onToggle?.(item);
+    });
+    return button;
+};
+
+const createHistoryDeleteButton = (item, onDelete) => {
+    const button = make('button', 'search-heatmap-history-delete');
+    button.type = 'button';
+    button.setAttribute('aria-label', '删除记录');
+    const icon = make('img', 'search-heatmap-history-delete-icon');
+    icon.alt = '';
+    setImageElementFromCache(icon, getIconCandidates('x.svg'), { cacheKey: 'icon:x.svg' })
+        .catch(() => { button.textContent = 'x'; });
+    button.appendChild(icon);
+    button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onDelete?.(item);
+    });
+    return button;
+};
+
 // View only: station resolution, request lifecycle and history stay in the interaction feature.
-export const createSearchHeatmapFormView = ({ interaction, onClose } = {}) => {
+export const createSearchHeatmapFormView = ({ interaction, historyView = {}, onClose } = {}) => {
     const form = make('form', 'search-heatmap-form');
     form.setAttribute('aria-label', '出行热图');
     form.hidden = true;
@@ -63,13 +119,13 @@ export const createSearchHeatmapFormView = ({ interaction, onClose } = {}) => {
     submitButton.appendChild(spinner);
     const results = make('div', 'search-heatmap-results');
     results.hidden = true;
-    const list = make('ul', 'search-heatmap-results-list');
+    const list = make('ul', 'search-heatmap-results-list search-results-list');
     list.id = 'search-heatmap-station-options';
     list.setAttribute('role', 'listbox');
     list.setAttribute('aria-label', '热力图站点候选');
-    const message = make('div', 'search-heatmap-message');
+    const message = make('li', 'search-empty search-heatmap-message');
     message.setAttribute('role', 'status');
-    results.append(message, list);
+    results.appendChild(list);
     form.append(card, submitButton, results);
 
     const send = (type, payload) => interaction.dispatch({ type, payload });
@@ -80,8 +136,20 @@ export const createSearchHeatmapFormView = ({ interaction, onClose } = {}) => {
         getValue: () => interaction.getState().minutes,
         onConfirm: (minutes) => send('minutes', minutes)
     });
+    const rerenderHistory = async (action, item) => {
+        try {
+            await action?.(item);
+        } catch {
+            // History persistence is best effort, matching the existing route planner.
+        }
+        try { await send('suggest'); } catch {}
+    };
     const render = (state) => {
         const loading = state.status === 'loading';
+        const historyMode = state.suggestionsVisible && !state.text.trim() && !state.error;
+        const resultsVisible = state.visible && Boolean(
+            state.error || (state.suggestionsVisible && (!historyMode || state.items.length > 0))
+        );
         form.hidden = !state.visible;
         if (stationInput.value !== state.text) stationInput.value = state.text;
         stationInput.disabled = loading;
@@ -96,13 +164,55 @@ export const createSearchHeatmapFormView = ({ interaction, onClose } = {}) => {
         submitButton.classList.toggle('is-loading', loading);
         submitButton.setAttribute('aria-busy', String(loading));
         submitButton.setAttribute('aria-label', loading ? '正在搜索出行热图' : '搜索出行热图');
-        stationInput.setAttribute('aria-expanded', String(state.suggestionsVisible));
-        results.hidden = !state.visible || (!state.suggestionsVisible && !state.error);
-        message.textContent = state.error || (state.suggestionsVisible ? (state.text.trim() ? (state.items.length ? '' : '暂无结果') : '搜索记录') : '');
-        message.hidden = !message.textContent;
+        stationInput.setAttribute('aria-expanded', String(resultsVisible));
+        results.hidden = !resultsVisible;
         list.replaceChildren();
+        const messageText = state.error
+            || (state.suggestionsVisible && !historyMode && !state.items.length ? '暂无结果' : '');
+        if (messageText) {
+            message.textContent = messageText;
+            list.appendChild(message);
+        }
+        if (historyMode && state.items.length) {
+            const headingItem = make('li', '');
+            const heading = make('div', 'search-empty', '搜索记录');
+            heading.style.fontSize = '12px';
+            heading.style.fontWeight = '600';
+            heading.style.paddingTop = '8px';
+            heading.style.paddingBottom = '8px';
+            headingItem.appendChild(heading);
+            list.appendChild(headingItem);
+        }
         for (const item of state.items) {
             const li = make('li', '');
+            if (historyMode) {
+                let row = null;
+                try { row = historyView.createItem?.(item) || null; } catch {}
+                if (!row) row = createDefaultHistoryItemView(item);
+                row.setAttribute('role', 'option');
+                row.querySelector?.('.search-result-text')?.style?.setProperty('flex', '1 1 auto');
+                if (typeof historyView.onToggleFavorite === 'function') {
+                    row.appendChild(createHistoryFavoriteButton(
+                        item,
+                        () => rerenderHistory(historyView.onToggleFavorite, item)
+                    ));
+                }
+                if (typeof historyView.onDelete === 'function') {
+                    row.appendChild(createHistoryDeleteButton(
+                        item,
+                        () => rerenderHistory(historyView.onDelete, item)
+                    ));
+                }
+                row.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    send('selectStation', item);
+                    stationInput.blur();
+                });
+                li.appendChild(row);
+                list.appendChild(li);
+                continue;
+            }
             const option = make('button', 'search-heatmap-result', item.text);
             option.type = 'button';
             option.setAttribute('role', 'option');
@@ -112,6 +222,25 @@ export const createSearchHeatmapFormView = ({ interaction, onClose } = {}) => {
             });
             li.appendChild(option);
             list.appendChild(li);
+        }
+        if (historyMode && state.items.length && typeof historyView.onClear === 'function') {
+            const footerItem = make('li', '');
+            const footer = make('div', 'search-empty search-heatmap-history-footer');
+            const clearButton = make('button', 'search-heatmap-history-clear', '删除所有记录');
+            clearButton.type = 'button';
+            clearButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                rerenderHistory(historyView.onClear);
+            });
+            footer.appendChild(clearButton);
+            footerItem.appendChild(footer);
+            list.appendChild(footerItem);
+        }
+        if (historyMode && state.items.length) {
+            window.requestAnimationFrame(() => {
+                try { historyView.onRendered?.(list); } catch {}
+            });
         }
         if (!state.visible || loading) picker.close();
     };
@@ -154,6 +283,13 @@ export const createSearchHeatmapFormView = ({ interaction, onClose } = {}) => {
     return {
         form,
         closePicker: picker.close,
+        focusStationInput() {
+            try {
+                stationInput.focus({ preventScroll: true });
+            } catch {
+                stationInput.focus();
+            }
+        },
         destroy() {
             unsubscribe();
             picker.destroy();
