@@ -1,12 +1,19 @@
 .search-ui.is-heatmap-open {
-    height: 86px;
-    grid-template-rows: 86px;
+    height: var(--search-expanded-panel-height);
+    grid-template-rows: var(--search-expanded-panel-height);
+}
+
+.search-ui.is-heatmap-open::before {
+    display: block;
+    width: calc(100% - 52px);
+    height: var(--search-expanded-panel-height);
+    border-radius: var(--search-panel-radius);
+    box-sizing: border-box;
 }
 
 .search-ui.is-heatmap-open > .search-bar,
 .search-ui.is-heatmap-open > .search-results,
 .search-ui.is-heatmap-open > .journey-ui,
-.search-ui.is-heatmap-open::before,
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open > .journey-ui,
 body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open > .journey-ui {
     display: none !important;
@@ -19,7 +26,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-
     grid-row: 1;
     grid-column: 1;
     gap: 8px;
-    height: 86px;
+    height: var(--search-expanded-panel-height);
     min-width: 0;
     color: var(--ui-text);
     z-index: 2;
@@ -33,7 +40,6 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-
 .search-heatmap-card,
 .search-heatmap-submit {
     border: 1px solid var(--ui-frosted-border);
-    border-radius: 12px;
     background: var(--ui-frosted-background);
     box-shadow: var(--ui-frosted-shadow);
     -webkit-backdrop-filter: var(--ui-frosted-blur);
@@ -41,20 +47,39 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-
 }
 
 .search-heatmap-card {
+    position: relative;
     display: grid;
-    grid-template-rows: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, var(--search-row-height));
     min-width: 0;
-    height: 86px;
-    overflow: hidden;
+    height: var(--search-expanded-panel-height);
+    border: 0;
+    border-radius: var(--search-panel-radius);
+    background: transparent;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    overflow: visible;
 }
 .search-heatmap-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     min-width: 0;
-    padding: 0 10px;
+    padding: 0 14px;
 }
-.search-heatmap-row + .search-heatmap-row { border-top: 1px solid var(--ui-border); }
+.search-heatmap-row + .search-heatmap-row {
+    position: relative;
+    border-top: 0;
+}
+.search-heatmap-row + .search-heatmap-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 14px;
+    left: 14px;
+    border-top: 1px solid var(--ui-border);
+    pointer-events: none;
+}
 .search-heatmap-input-wrap,
 .search-heatmap-time-wrap {
     position: relative;
@@ -103,16 +128,46 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-
 .search-heatmap-map-pick:hover,
 .search-heatmap-collapse:hover { background: var(--ui-surface-hover); }
 .search-heatmap-map-pick.is-active { background: var(--ui-accent-soft); outline: 1px solid var(--is-active-color); }
+.search-heatmap-collapse {
+    position: absolute;
+    top: 0;
+    right: -52px;
+    z-index: 1;
+    flex-basis: var(--search-action-size);
+    width: var(--search-action-size);
+    height: var(--search-action-size);
+    box-sizing: border-box;
+    border: 1px solid var(--ui-frosted-border);
+    border-radius: 50%;
+    background: var(--ui-frosted-background);
+    box-shadow: var(--ui-frosted-shadow);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    backdrop-filter: var(--ui-frosted-blur);
+    color: transparent;
+    font-size: 0;
+}
+.search-heatmap-collapse::before {
+    content: '';
+    display: block;
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+    background: var(--ui-text);
+    -webkit-mask: url('../../assets/icons/x.svg') center / contain no-repeat;
+    mask: url('../../assets/icons/x.svg') center / contain no-repeat;
+}
 .search-heatmap-control-icon { width: 14px; height: 14px; }
 .search-heatmap-control-icon,
 .search-heatmap-submit-icon { display: block; object-fit: contain; pointer-events: none; }
 .search-heatmap-submit {
+    align-self: end;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 86px;
+    width: var(--search-action-size);
+    height: var(--search-action-size);
     padding: 0;
+    border-radius: 50%;
     color: var(--ui-text);
     cursor: pointer;
     transition: border-color 160ms ease, box-shadow 160ms ease;
@@ -143,7 +198,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-
 
 .search-heatmap-results {
     position: absolute;
-    top: 94px;
+    top: calc(var(--search-expanded-panel-height) + 8px);
     left: 0;
     right: 0;
     z-index: 3;
@@ -151,7 +206,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-
     margin: 0;
     padding: 0;
     border: 0;
-    border-radius: 12px;
+    border-radius: var(--search-panel-radius);
     background: transparent;
     box-shadow: none;
     -webkit-backdrop-filter: none;
@@ -238,7 +293,7 @@ body[data-mobile-ui='1'] .search-heatmap-results {
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open,
 body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open {
-    --mobile-search-panel-height: 90px;
+    --mobile-search-panel-height: var(--search-expanded-panel-height);
     height: var(--mobile-search-panel-height);
     grid-template-rows: var(--mobile-search-panel-height);
     --mobile-journey-sheet-bottom: calc(

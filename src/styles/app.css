@@ -281,11 +281,11 @@ body[data-mobile-ui='1'] .settings-top-timebar .settings-time-control {
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui,
 body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui {
-    --mobile-search-row-height: 45px;
-    --mobile-search-transition-duration: 0.3s;
-    --mobile-search-action-gap: 2px;
-    --mobile-search-collapse-height: 44px;
-    --mobile-search-submit-height: 44px;
+    --mobile-search-row-height: var(--search-row-height);
+    --mobile-search-transition-duration: var(--search-transition-duration);
+    --mobile-search-action-gap: var(--search-action-gap);
+    --mobile-search-collapse-height: var(--search-action-size);
+    --mobile-search-submit-height: var(--search-action-size);
     position: fixed;
     top: auto;
     left: 12px;
@@ -862,7 +862,7 @@ body[data-mobile-ui='1'] {
     --mobile-expanded-sheet-top-clearance: calc(env(safe-area-inset-top, 0px) + 12px);
     --mobile-bottom-nav-clearance: calc(env(safe-area-inset-bottom, 0px) + 76px);
     --mobile-search-panel-bottom: calc(env(safe-area-inset-bottom, 0px) + 70px);
-    --mobile-search-field-height: 36.4px;
+    --mobile-search-field-height: 45px;
     --mobile-search-mode-switch-bottom: var(--mobile-search-panel-bottom);
     --mobile-search-mode-switch-height: 0px;
     --mobile-search-mode-switch-gap: 8px;
@@ -1446,21 +1446,35 @@ html[data-theme='dark'] .journey-trip-note-direction{
     top: 10px;
     left: 20px;
     z-index: 9999;
+    --search-row-height: 45px;
+    --search-expanded-panel-height: 90px;
+    --search-panel-radius: 26px;
+    --search-action-size: 44px;
+    --search-action-gap: 2px;
+    --search-transition-duration: 0.3s;
     --journey-waypoint-extra-height: 0px;
-    --search-planner-card-height: calc(86px + var(--journey-waypoint-extra-height));
+    --journey-waypoint-count: 0;
+    --search-planner-card-height: calc(
+        var(--search-expanded-panel-height)
+        + var(--journey-waypoint-extra-height)
+        + (var(--journey-waypoint-count) * 7px)
+    );
     --search-planner-swap-size: 22px;
     --journey-drag-handle-size: 16px;
     --search-planner-left-inset: calc(10px + var(--search-planner-swap-size) + 8px);
     --search-planner-journey-left-inset: var(--search-planner-left-inset);
     --search-planner-right-inset: 10px;
-    --mobile-search-field-height: 36.4px;
+    --mobile-search-field-height: var(--search-row-height);
     width: 320px;
+    height: var(--search-row-height);
     max-width: calc(100vw - 20px);
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
     user-select: none;
     /* 动画：从圆形向右展开为圆角矩形（top/left 不变） */
-    transition: width 0.2s ease;
+    transition:
+        width var(--search-transition-duration) ease,
+        height var(--search-transition-duration) ease;
     position: absolute;
     display: grid;
     grid-template-rows: auto auto auto;
@@ -1475,25 +1489,29 @@ html[data-theme='dark'] .journey-trip-note-direction{
     position: absolute;
     top: 0;
     left: 0;
-    height: 36.4px;
+    height: var(--search-row-height);
     width: 100%;
-    border-radius: 18.2px;
+    border-radius: var(--search-panel-radius);
     background: var(--ui-frosted-background);
     border: 1px solid var(--ui-frosted-border);
     box-shadow: var(--ui-frosted-shadow);
     -webkit-backdrop-filter: var(--ui-frosted-blur);
     backdrop-filter: var(--ui-frosted-blur);
-    transition: border-radius 0.2s ease;
+    transition:
+        height var(--search-transition-duration) ease,
+        width var(--search-transition-duration) ease,
+        border-radius var(--search-transition-duration) ease;
     pointer-events: none;
 }
 
 .search-ui.is-planner-open::before {
     height: var(--search-planner-card-height);
-    border-radius: 18.2px;
+    border-radius: var(--search-panel-radius);
 }
 
 .search-ui.is-planner-open {
     width: 320px;
+    height: var(--search-planner-card-height);
 }
 
 .search-ui:not(.is-planner-open) .search-planner-origin-control,
@@ -1503,12 +1521,12 @@ html[data-theme='dark'] .journey-trip-note-direction{
 
 /* 初始：圆形搜索按钮；hover/触屏点击后展开为 search-bar */
 .search-ui.is-collapsed {
-    width: 36.4px;
+    width: var(--search-row-height);
 }
 
 .search-ui.is-collapsed::before {
     /* 用“高度一半”的半径，避免从超大值被浏览器 clamp 导致末尾跳变 */
-    border-radius: 18.2px;
+    border-radius: var(--search-panel-radius);
 }
 
 .search-ui.is-collapsed .search-results {
@@ -1523,7 +1541,7 @@ html[data-theme='dark'] .journey-trip-note-direction{
     grid-row: 1;
     grid-column: 1;
     width: 100%;
-    height: 36.4px;
+    height: var(--search-row-height);
     border-radius: inherit;
     display: flex;
     align-items: center;
@@ -1540,7 +1558,7 @@ html[data-theme='dark'] .journey-trip-note-direction{
     line-height: 1;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.2s ease;
+    transition: opacity var(--search-transition-duration) ease;
     z-index: 1;
 }
 
@@ -1566,15 +1584,26 @@ html[data-theme='dark'] .journey-trip-note-direction{
     display: flex;
     align-items: center;
     gap: 8px;
+    height: var(--search-row-height);
     padding: 8px 10px;
-    border-radius: 12px;
+    border-radius: var(--search-panel-radius);
+    box-sizing: border-box;
     background: transparent;
     border: none;
     box-shadow: none;
     backdrop-filter: none;
     opacity: 1;
-    transition: opacity 0.2s ease;
+    transition: opacity var(--search-transition-duration) ease;
     z-index: 1;
+}
+
+html:not([data-mobile-ui='1']) .search-ui:not(.is-collapsed):not(.is-planner-open):not(.is-heatmap-open) {
+    height: auto;
+}
+
+html:not([data-mobile-ui='1']) .search-ui:not(.is-collapsed):not(.is-planner-open):not(.is-heatmap-open)::before,
+html:not([data-mobile-ui='1']) .search-ui:not(.is-collapsed):not(.is-planner-open):not(.is-heatmap-open) > .search-bar {
+    height: 36.4px;
 }
 
 .search-planner-toggle-btn {
@@ -1610,7 +1639,7 @@ html[data-theme='dark'] .journey-trip-note-direction{
     display: inline-flex !important;
     position: absolute;
     left: 8px;
-    top: calc(var(--mobile-search-field-height) - 4px);
+    top: 34px;
     z-index: 3;
     width: var(--search-planner-swap-size);
     height: var(--search-planner-swap-size);
@@ -1682,7 +1711,7 @@ html[data-theme='dark'] .search-planner-toggle-btn {
     grid-row: auto;
     grid-column: 1;
     margin-top: 8px;
-    border-radius: 12px;
+    border-radius: var(--search-panel-radius);
     background: transparent;
     border-style: solid;
     border-color: transparent;
@@ -1713,7 +1742,7 @@ html[data-theme='dark'] .search-planner-toggle-btn {
     overflow-y: auto;
     overflow-x: hidden;
     border: 1px solid var(--ui-frosted-border);
-    border-radius: 12px;
+    border-radius: var(--search-panel-radius);
     background: var(--ui-frosted-background);
     box-shadow: var(--ui-frosted-shadow);
     -webkit-backdrop-filter: var(--ui-frosted-blur);
@@ -2411,6 +2440,52 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-
     box-sizing: border-box;
 }
 
+.search-ui.is-planner-open > .search-bar {
+    height: var(--search-row-height);
+    box-sizing: border-box;
+}
+
+.search-ui.is-planner-open > .journey-ui .journey-fields {
+    gap: 10px;
+}
+
+.search-ui.is-planner-open > .journey-ui .journey-input-row {
+    min-height: 35px;
+}
+
+.search-ui.is-planner-open > .search-bar .search-planner-toggle-btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 4;
+    width: var(--search-action-size);
+    height: var(--search-action-size);
+    box-sizing: border-box;
+    border: 1px solid var(--ui-frosted-border);
+    border-radius: 50%;
+    background: var(--ui-frosted-background);
+    box-shadow: var(--ui-frosted-shadow);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    backdrop-filter: var(--ui-frosted-blur);
+    color: transparent;
+    font-size: 0;
+}
+
+.search-ui.is-planner-open > .search-bar .search-planner-toggle-btn::before {
+    content: '';
+    display: block;
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+    background: var(--ui-text);
+    -webkit-mask: url('../../assets/icons/x.svg') center / contain no-repeat;
+    mask: url('../../assets/icons/x.svg') center / contain no-repeat;
+}
+
+.search-ui.is-planner-open > .search-bar .search-planner-origin-control {
+    padding-right: calc(var(--search-planner-swap-size) + 8px);
+}
+
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open > .search-bar,
 body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open > .search-bar {
     height: var(--mobile-search-row-height);
@@ -2439,11 +2514,11 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-
     top: auto;
     right: 12px;
     bottom: var(--mobile-search-field-bottom);
-    width: 44px;
-    height: var(--mobile-search-panel-height);
+    width: var(--search-action-size);
+    height: var(--search-action-size);
     box-sizing: border-box;
     border: 1px solid var(--ui-frosted-border);
-    border-radius: 12px;
+    border-radius: 50%;
     background: var(--ui-frosted-background);
     box-shadow: var(--ui-frosted-shadow);
     -webkit-backdrop-filter: var(--ui-frosted-blur);
@@ -2529,6 +2604,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-
 html[data-theme='dark']:not([data-mobile-ui='1']) .search-ui.is-planner-open > .journey-ui .journey-plan-search-btn.is-ready,
 html[data-theme='dark'][data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-ui .journey-plan-search-btn.is-ready,
 html[data-theme='dark'] body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-ui .journey-plan-search-btn.is-ready {
+    border-color: rgb(209, 108, 39);
     box-shadow: 0 0 0 1px rgba(209, 108, 39, 0.22), 0 0 12px rgba(209, 108, 39, 0.28);
 }
 
@@ -2543,12 +2619,20 @@ html:not([data-mobile-ui='1']) .search-ui.is-planner-open {
     width: 372px;
 }
 
-html:not([data-mobile-ui='1']) .search-ui.is-planner-open > .journey-ui .journey-plan-search-btn {
+html:not([data-mobile-ui='1']) .search-ui.is-planner-open > .search-bar .search-planner-toggle-btn {
+    position: fixed;
     top: 10px;
     left: calc(20px + min(372px, calc(100vw - 20px)) - 44px);
     right: auto;
     bottom: auto;
-    height: var(--search-planner-card-height);
+}
+
+html:not([data-mobile-ui='1']) .search-ui.is-planner-open > .journey-ui .journey-plan-search-btn {
+    top: calc(10px + var(--search-action-size) + var(--search-action-gap));
+    left: calc(20px + min(372px, calc(100vw - 20px)) - 44px);
+    right: auto;
+    bottom: auto;
+    height: var(--search-action-size);
 }
 
 @media (min-width: 600px) {
@@ -2682,7 +2766,7 @@ html[data-theme="dark"] .journey-pick-pin-label {
     grid-row: 2;
     grid-column: 1;
     margin-top: 8px;
-    border-radius: 12px;
+    border-radius: var(--search-panel-radius);
     background: transparent;
     border-style: solid;
     border-color: transparent;

@@ -192,8 +192,48 @@ assert.match(
 );
 
 const cssSource = readFileSync(join(root, 'src/styles/app.css'), 'utf8');
-assert.match(cssSource, /--mobile-search-row-height:\s*45px;/);
-assert.match(cssSource, /--mobile-search-transition-duration:\s*0\.3s;/);
+assert.match(cssSource, /--search-row-height:\s*45px;/);
+assert.match(cssSource, /--search-expanded-panel-height:\s*90px;/);
+assert.match(cssSource, /--search-panel-radius:\s*26px;/);
+assert.match(cssSource, /--search-action-size:\s*44px;/);
+assert.match(cssSource, /--search-action-gap:\s*2px;/);
+assert.match(cssSource, /--search-transition-duration:\s*0\.3s;/);
+assert.match(cssSource, /--mobile-search-row-height:\s*var\(--search-row-height\);/);
+assert.match(cssSource, /--mobile-search-transition-duration:\s*var\(--search-transition-duration\);/);
+assert.match(
+    cssSource,
+    /\n\.search-ui\s*\{[^}]*height:\s*var\(--search-row-height\);[^}]*transition:\s*width var\(--search-transition-duration\) ease,\s*height var\(--search-transition-duration\) ease;/,
+    'ordinary desktop search must share the mobile 45px height and 0.3s shell transition'
+);
+assert.match(
+    cssSource,
+    /\.search-ui::before\s*\{[^}]*height:\s*var\(--search-row-height\);[^}]*border-radius:\s*var\(--search-panel-radius\);[^}]*transition:\s*height var\(--search-transition-duration\) ease,\s*width var\(--search-transition-duration\) ease,\s*border-radius var\(--search-transition-duration\) ease;/,
+    'ordinary desktop search shell must share the mobile height, radius and geometry transition'
+);
+assert.match(
+    cssSource,
+    /\.search-bar\s*\{[^}]*height:\s*var\(--search-row-height\);[^}]*border-radius:\s*var\(--search-panel-radius\);/,
+    'ordinary desktop search content must fill the shared shell'
+);
+assert.match(
+    cssSource,
+    /--search-planner-card-height:\s*calc\(\s*var\(--search-expanded-panel-height\)\s*\+ var\(--journey-waypoint-extra-height\)\s*\+ \(var\(--journey-waypoint-count\) \* 7px\)\s*\);/,
+    'desktop and mobile planner shells must allocate the same 90px base and 45px for every waypoint'
+);
+assert.match(
+    cssSource,
+    /\.search-ui\.is-planner-open > \.journey-ui \.journey-fields\s*\{[^}]*gap:\s*10px;/,
+    'desktop and mobile planner rows must share the 10px interval'
+);
+assert.match(
+    cssSource,
+    /\.search-ui\.is-planner-open > \.journey-ui \.journey-input-row\s*\{[^}]*min-height:\s*35px;/,
+    'desktop and mobile planner content rows must share the 35px inner height'
+);
+assert.match(cssSource, /\.search-ui\.is-planner-open \.search-planner-swap-btn\s*\{[^}]*top:\s*34px;/);
+assert.match(cssSource, /\.search-results\s*\{[^}]*border-radius:\s*var\(--search-panel-radius\);/);
+assert.match(cssSource, /\.search-results-list\s*\{[^}]*border-radius:\s*var\(--search-panel-radius\);/);
+assert.match(cssSource, /\.journey-results\s*\{[^}]*border-radius:\s*var\(--search-panel-radius\);/);
 assert.match(
     cssSource,
     /--mobile-search-planner-height:\s*calc\(\s*90px\s*\+ var\(--journey-waypoint-extra-height\)\s*\+ \(var\(--journey-waypoint-count\) \* 7px\)\s*\);/,
@@ -231,7 +271,7 @@ const desktopRules = (ending) => cssRules.filter(({ selector }) => selector.spli
     part.trim().startsWith("html:not([data-mobile-ui='1'])") && part.trim().endsWith(ending)
 )));
 const mobileSearchRootRule = cssRules.find(({ selector, declarations }) => (
-    declarations.includes('--mobile-search-row-height: 45px;')
+    declarations.includes('--mobile-search-row-height: var(--search-row-height);')
     && selector.split(',').some((part) => (
         part.includes("[data-mobile-ui='1']") && part.trim().endsWith('.search-ui')
     ))
@@ -274,7 +314,7 @@ assert.ok(searchButtonRule, 'the shared independent-button styling must retain m
 assert.match(searchButtonRule.declarations, /position:\s*fixed;/);
 assert.match(searchButtonRule.declarations, /right:\s*12px;/);
 assert.match(searchButtonRule.declarations, /bottom:\s*var\(--mobile-search-field-bottom\);/);
-assert.match(searchButtonRule.declarations, /width:\s*44px;/);
+assert.match(searchButtonRule.declarations, /width:\s*var\(--search-action-size\);/);
 const splitSearchButtonRule = mobileOnlyRule('.search-ui.is-planner-open > .journey-ui .journey-plan-search-btn');
 assert.ok(splitSearchButtonRule, 'mobile planner search must occupy the lower action-column section');
 assert.match(
@@ -303,9 +343,9 @@ assert.match(
     /mask:\s*url\('\.\.\/\.\.\/assets\/icons\/x\.svg'\)/,
     'mobile planner collapse must render the existing x.svg icon'
 );
-assert.match(cssSource, /--mobile-search-action-gap:\s*2px;/);
-assert.match(cssSource, /--mobile-search-collapse-height:\s*44px;/);
-assert.match(cssSource, /--mobile-search-submit-height:\s*44px;/);
+assert.match(cssSource, /--mobile-search-action-gap:\s*var\(--search-action-gap\);/);
+assert.match(cssSource, /--mobile-search-collapse-height:\s*var\(--search-action-size\);/);
+assert.match(cssSource, /--mobile-search-submit-height:\s*var\(--search-action-size\);/);
 assert.match(
     mobileRule('.search-ui.is-planner-open')?.declarations || '',
     /padding-right:\s*52px;/,
@@ -356,20 +396,36 @@ assert.ok(
     desktopRootRules.some(({ declarations }) => /padding-right:\s*52px;/.test(declarations)),
     'the 372px desktop shell must keep the original 320px input card and reserve the separate button column'
 );
+const desktopCollapseRule = desktopRules('.search-ui.is-planner-open > .search-bar .search-planner-toggle-btn')
+    .find(({ declarations }) => /position:\s*fixed;/.test(declarations));
+assert.ok(desktopCollapseRule, 'desktop collapse must stay anchored to the action column during endpoint drag states');
+assert.match(desktopCollapseRule.declarations, /top:\s*10px;/);
+assert.match(desktopCollapseRule.declarations, /left:\s*calc\(20px \+ min\(372px, calc\(100vw - 20px\)\) - 44px\);/);
+assert.match(desktopCollapseRule.declarations, /right:\s*auto;/);
+assert.match(desktopCollapseRule.declarations, /bottom:\s*auto;/);
 const desktopButtonRules = desktopRules('.search-ui.is-planner-open > .journey-ui .journey-plan-search-btn');
 assert.ok(desktopButtonRules.some(({ declarations }) => /position:\s*fixed;/.test(declarations)));
-assert.ok(desktopButtonRules.some(({ declarations }) => /width:\s*44px;/.test(declarations)));
-const desktopPositionRule = desktopButtonRules.find(({ declarations }) => /top:\s*10px;/.test(declarations));
+assert.ok(desktopButtonRules.some(({ declarations }) => /width:\s*var\(--search-action-size\);/.test(declarations)));
+const desktopPositionRule = desktopButtonRules.find(({ declarations }) => /top:\s*calc\(10px \+ var\(--search-action-size\) \+ var\(--search-action-gap\)\);/.test(declarations));
 assert.ok(desktopPositionRule, 'desktop must override the shared mobile bottom positioning');
 assert.match(desktopPositionRule.declarations, /left:\s*calc\(20px \+ min\(372px, calc\(100vw - 20px\)\) - 44px\);/);
 assert.match(desktopPositionRule.declarations, /right:\s*auto;/);
 assert.match(desktopPositionRule.declarations, /bottom:\s*auto;/);
 assert.match(
     desktopPositionRule.declarations,
-    /height:\s*var\(--search-planner-card-height\);/,
-    'desktop button height must follow the planner card including additional waypoint rows'
+    /height:\s*var\(--search-action-size\);/,
+    'desktop search must remain a fixed 44px circle when waypoint rows are added'
 );
-assert.match(cssSource, /--search-planner-card-height:\s*calc\(86px \+ var\(--journey-waypoint-extra-height\)\);/);
+assert.match(
+    cssSource,
+    /\.search-ui\.is-planner-open > \.search-bar \.search-planner-toggle-btn\s*\{[^}]*width:\s*var\(--search-action-size\);[^}]*height:\s*var\(--search-action-size\);[^}]*border-radius:\s*50%;/,
+    'desktop and mobile planner collapse buttons must share the fixed circular geometry'
+);
+assert.match(
+    cssSource,
+    /\.search-ui\.is-planner-open > \.search-bar \.search-planner-toggle-btn::before\s*\{[^}]*mask:\s*url\('\.\.\/\.\.\/assets\/icons\/x\.svg'\)/,
+    'desktop and mobile planner collapse buttons must share x.svg'
+);
 assert.match(
     desktopRules('.search-ui > .journey-ui .journey-plan-results')[0]?.declarations || '',
     /width:\s*calc\(100% \+ var\(--search-planner-journey-left-inset\) \+ var\(--search-planner-right-inset\)\);/,

@@ -89,7 +89,7 @@ assert.match(
 );
 assert.match(
     formCssSource,
-    /\.search-ui\.is-heatmap-open[^{}]*\{[^}]*--mobile-search-panel-height:\s*90px;[^}]*height:\s*var\(--mobile-search-panel-height\);[^}]*grid-template-rows:\s*var\(--mobile-search-panel-height\);[^}]*--mobile-journey-sheet-bottom:\s*calc\(/,
+    /\.search-ui\.is-heatmap-open[^{}]*\{[^}]*--mobile-search-panel-height:\s*var\(--search-expanded-panel-height\);[^}]*height:\s*var\(--mobile-search-panel-height\);[^}]*grid-template-rows:\s*var\(--mobile-search-panel-height\);[^}]*--mobile-journey-sheet-bottom:\s*calc\(/,
     'mobile heatmap results must clear the full 90px control'
 );
 assert.match(
@@ -121,6 +121,46 @@ assert.match(
     formCssSource,
     /\.search-ui\.is-heatmap-open \.search-heatmap-submit[^{}]*\{[^}]*align-self:\s*end;[^}]*height:\s*var\(--mobile-search-submit-height\);[^}]*border-radius:\s*50%;/,
     'mobile heatmap search must be a fixed circular action button'
+);
+assert.match(
+    formCssSource,
+    /\.search-ui\.is-heatmap-open\s*\{[^}]*height:\s*var\(--search-expanded-panel-height\);[^}]*grid-template-rows:\s*var\(--search-expanded-panel-height\);/,
+    'desktop and mobile heatmap shells must share the 90px expanded height'
+);
+assert.match(
+    formCssSource,
+    /\.search-heatmap-card\s*\{[^}]*grid-template-rows:\s*repeat\(2, var\(--search-row-height\)\);[^}]*height:\s*var\(--search-expanded-panel-height\);[^}]*border-radius:\s*var\(--search-panel-radius\);[^}]*overflow:\s*visible;/,
+    'desktop and mobile heatmap cards must share two 45px rows and the navigation radius'
+);
+assert.match(
+    formCssSource,
+    /\.search-heatmap-row\s*\{[^}]*gap:\s*8px;[^}]*padding:\s*0 14px;/,
+    'desktop and mobile heatmap rows must share the mobile horizontal spacing'
+);
+assert.match(
+    formCssSource,
+    /\.search-heatmap-row \+ \.search-heatmap-row::before\s*\{[^}]*right:\s*14px;[^}]*left:\s*14px;[^}]*border-top:\s*1px solid var\(--ui-border\);/,
+    'desktop and mobile heatmap dividers must keep matching side insets'
+);
+assert.match(
+    formCssSource,
+    /\.search-heatmap-collapse\s*\{[^}]*right:\s*-52px;[^}]*width:\s*var\(--search-action-size\);[^}]*height:\s*var\(--search-action-size\);[^}]*border-radius:\s*50%;/,
+    'desktop and mobile heatmap collapse buttons must share fixed circular geometry'
+);
+assert.match(
+    formCssSource,
+    /\.search-heatmap-collapse::before\s*\{[^}]*mask:\s*url\('\.\.\/\.\.\/assets\/icons\/x\.svg'\)/,
+    'desktop and mobile heatmap collapse buttons must share x.svg'
+);
+assert.match(
+    formCssSource,
+    /\.search-heatmap-submit\s*\{[^}]*align-self:\s*end;[^}]*width:\s*var\(--search-action-size\);[^}]*height:\s*var\(--search-action-size\);[^}]*border-radius:\s*50%;/,
+    'desktop and mobile heatmap search buttons must share fixed circular geometry'
+);
+assert.match(
+    formCssSource,
+    /\.search-heatmap-results\s*\{[^}]*top:\s*calc\(var\(--search-expanded-panel-height\) \+ 8px\);[^}]*border-radius:\s*var\(--search-panel-radius\);/,
+    'desktop heatmap candidates must keep the mobile shell spacing and radius'
 );
 assert.doesNotMatch(formSource, /增加途径点|切换起点和终点|清空起点站|journey-field-clear/);
 assert.match(panelViewSource, /onSelectHeatmap:\s*handleTravelHeatmap/);
