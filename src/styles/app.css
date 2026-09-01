@@ -894,6 +894,12 @@ body[data-mobile-ui='1'][data-native-platform='ios'] {
     --mobile-expanded-sheet-top-clearance: calc(env(safe-area-inset-top, 0px) + 76px);
 }
 
+html[data-mobile-ui='1'][data-mobile-keyboard-visible='1'],
+body[data-mobile-ui='1'][data-mobile-keyboard-visible='1'] {
+    --mobile-bottom-nav-clearance: calc(env(safe-area-inset-bottom, 0px) + 8px);
+    --mobile-search-panel-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+}
+
 html[data-mobile-ui='1'] .mobile-menu-sheet:not(.is-hidden),
 body[data-mobile-ui='1'] .mobile-menu-sheet:not(.is-hidden) {
     pointer-events: auto;
@@ -1198,6 +1204,12 @@ body[data-mobile-ui='1'] .mobile-bottom-nav {
 html[data-ios-native-nav='1'][data-mobile-ui='1'] .mobile-bottom-nav,
 html[data-mobile-ui='1'] body[data-ios-native-nav='1'] .mobile-bottom-nav,
 body[data-ios-native-nav='1'][data-mobile-ui='1'] .mobile-bottom-nav {
+    display: none !important;
+    pointer-events: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-keyboard-visible='1'] .mobile-bottom-nav,
+body[data-mobile-ui='1'][data-mobile-keyboard-visible='1'] .mobile-bottom-nav {
     display: none !important;
     pointer-events: none;
 }

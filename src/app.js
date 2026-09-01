@@ -96,10 +96,11 @@ import {
 } from './services/appSettings.js';
 import { BASEMAP_GLYPHS_URL, createMapEngine } from './services/mapEngine.js';
 import { createMobileTripFitBoundsController } from './services/mobileTripFitBounds.js';
+import { createMobileKeyboardViewportService } from './services/mobileKeyboardViewportService.js';
 import { createAppUpdateApi } from './services/appUpdateService.js';
 import { createUpdateDialogUi, dismissUpdateDialog } from './ui/updateDialogView.js';
 import { createStore } from './store/appStore.js';
-import { ACTION_TYPES, hoverSetEnabled, multiSelectSetEnabled, panelOpenRequested, reachableStopsCleared, selectionClear, stationVisualHighlightSet } from './store/actions.js';
+import { ACTION_TYPES, hoverSetEnabled, mobileKeyboardVisibilitySet, multiSelectSetEnabled, panelOpenRequested, reachableStopsCleared, selectionClear, stationVisualHighlightSet } from './store/actions.js';
 import { createBaseHighlightEventBridge } from './features/highlight/baseHighlightEventBridge.js';
 import { createHighlightFeature } from './features/highlight/highlightFeature.js';
 import { createHighlightRenderer } from './features/highlight/highlightRenderer.js';
@@ -185,6 +186,7 @@ import { createRoutePreviewViewportController } from './ui/routePreviewViewport.
 import { createBasemapThemeRuntime } from './app/basemapThemeRuntime.js';
 import { installAndroidBackRuntime } from './app/androidBackRuntime.js';
 import { createMobileStartupSplashRuntime } from './app/mobileStartupSplashRuntime.js';
+import { createMobileKeyboardLayoutView } from './ui/mobileKeyboardLayoutView.js';
 import { registerDebugZoomTools } from './app/debugZoomTools.js';
 import { registerStationOffsetPerformanceProbe } from './debug/stationOffsetPerformanceProbe.js';
 import { bindMapStartup } from './app/mapStartup.js';
@@ -573,6 +575,11 @@ const initMapApp = async () => {
         selectedServiceMode,
         hoverPreviewEnabled,
         multiSelectEnabled: multiSelectModeEnabled
+    });
+    createMobileKeyboardLayoutView({ store: appStore });
+    createMobileKeyboardViewportService({
+        isMobile: isMobileUiMode,
+        onChange: (visible) => appStore.dispatch(mobileKeyboardVisibilitySet(visible))
     });
     const returnMobileSettingsToMap = () => (
         mobileBottomNavController?.returnToMapFromSettings?.() === true

@@ -17,7 +17,8 @@ export const ACTION_TYPES = Object.freeze({
     TRIP_PREVIEW_CLEARED: 'tripPreview/cleared',
     REACHABLE_STOPS_UPDATE_REQUESTED: 'reachableStops/updateRequested',
     REACHABLE_STOPS_CLEARED: 'reachableStops/cleared',
-    MULTI_SELECT_SET_ENABLED: 'multiSelect/setEnabled'
+    MULTI_SELECT_SET_ENABLED: 'multiSelect/setEnabled',
+    MOBILE_KEYBOARD_VISIBILITY_SET: 'mobileKeyboard/visibilitySet'
 });
 
 export const selectionPreviewLine = (payload = {}) => ({
@@ -113,4 +114,9 @@ export const reachableStopsCleared = (payload = {}) => ({
 export const multiSelectSetEnabled = (enabled) => ({
     type: ACTION_TYPES.MULTI_SELECT_SET_ENABLED,
     payload: { enabled: enabled === true }
+});
+
+export const mobileKeyboardVisibilitySet = (visible) => ({
+    type: ACTION_TYPES.MOBILE_KEYBOARD_VISIBILITY_SET,
+    payload: { visible: visible === true }
 });

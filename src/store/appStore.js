@@ -9,6 +9,7 @@ const defaultState = normalizeSelectionState({
 const normalizeAppState = (state = {}) => ({
     ...normalizeSelectionState(state),
     multiSelectEnabled: state.multiSelectEnabled === true,
+    mobileKeyboardVisible: state.mobileKeyboardVisible === true,
     stationVisualHighlightId: String(state.stationVisualHighlightId ?? '').trim() || null,
     lastInteraction: state.lastInteraction || null
 });
@@ -40,6 +41,7 @@ const reducer = (state, action = {}) => {
             return recordInteraction({
                 ...reduceSelection(state, action.payload),
                 multiSelectEnabled: state.multiSelectEnabled,
+                mobileKeyboardVisible: state.mobileKeyboardVisible,
                 stationVisualHighlightId: state.stationVisualHighlightId
             }, action);
 
@@ -85,6 +87,12 @@ const reducer = (state, action = {}) => {
                 ...state,
                 multiSelectEnabled: action.payload?.enabled === true
             }, action);
+
+        case ACTION_TYPES.MOBILE_KEYBOARD_VISIBILITY_SET:
+            return normalizeAppState({
+                ...state,
+                mobileKeyboardVisible: action.payload?.visible === true
+            });
 
         case ACTION_TYPES.MAP_CLICK:
         case ACTION_TYPES.PANEL_OPEN_REQUESTED:

@@ -48,6 +48,7 @@ assert.deepEqual(createStore({
     selectedServiceMode: 'all',
     hoverPreviewEnabled: true,
     multiSelectEnabled: false,
+    mobileKeyboardVisible: false,
     stationVisualHighlightId: null,
     lastInteraction: null
 });

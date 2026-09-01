@@ -96,6 +96,8 @@ final class NativeBridgeViewController: CAPBridgeViewController, WKScriptMessage
     private var nativeNavController: NativeBottomTabBarController?
     private var selectedNativeItem: NativeBottomNavItem = .map
     private var didInstallNativeNavScriptBridge = false
+    private var didInstallKeyboardObservers = false
+    private var isNativeNavHiddenForKeyboard = false
 
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
@@ -107,11 +109,15 @@ final class NativeBridgeViewController: CAPBridgeViewController, WKScriptMessage
         super.viewDidLoad()
         guard shouldUseNativeBottomNav else { return }
         installNativeTabBar()
+        installKeyboardObservers()
     }
 
     deinit {
         if didInstallNativeNavScriptBridge {
             webView?.configuration.userContentController.removeScriptMessageHandler(forName: nativeNavHandlerName)
+        }
+        if didInstallKeyboardObservers {
+            NotificationCenter.default.removeObserver(self)
         }
     }
 
@@ -159,6 +165,70 @@ final class NativeBridgeViewController: CAPBridgeViewController, WKScriptMessage
             navController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             navController.view.heightAnchor.constraint(equalToConstant: NativeBottomNavMetrics.hostHeight)
         ])
+    }
+
+    private func installKeyboardObservers() {
+        guard !didInstallKeyboardObservers else { return }
+        didInstallKeyboardObservers = true
+        let center = NotificationCenter.default
+        center.addObserver(
+            self,
+            selector: #selector(keyboardWillShow(_:)),
+            name: UIResponder.keyboardWillShowNotification,
+            object: nil
+        )
+        center.addObserver(
+            self,
+            selector: #selector(keyboardWillChangeFrame(_:)),
+            name: UIResponder.keyboardWillChangeFrameNotification,
+            object: nil
+        )
+        center.addObserver(
+            self,
+            selector: #selector(keyboardWillHide(_:)),
+            name: UIResponder.keyboardWillHideNotification,
+            object: nil
+        )
+    }
+
+    @objc private func keyboardWillShow(_ notification: Notification) {
+        setNativeNavHiddenForKeyboard(true)
+    }
+
+    @objc private func keyboardWillChangeFrame(_ notification: Notification) {
+        guard
+            viewIfLoaded?.window != nil,
+            let screenFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+        else { return }
+
+        let frameInView = view.convert(screenFrame, from: nil)
+        let intersection = view.bounds.intersection(frameInView)
+        setNativeNavHiddenForKeyboard(!intersection.isNull && intersection.height > 0)
+    }
+
+    @objc private func keyboardWillHide(_ notification: Notification) {
+        setNativeNavHiddenForKeyboard(false)
+    }
+
+    private func setNativeNavHiddenForKeyboard(_ hidden: Bool) {
+        guard isNativeNavHiddenForKeyboard != hidden else { return }
+        isNativeNavHiddenForKeyboard = hidden
+
+        if let hostView = nativeNavController?.view {
+            hostView.isUserInteractionEnabled = !hidden
+            hostView.accessibilityElementsHidden = hidden
+            hostView.isHidden = hidden
+        }
+        dispatchKeyboardVisibilityToWeb(hidden)
+    }
+
+    private func dispatchKeyboardVisibilityToWeb(_ visible: Bool) {
+        let js = """
+        window.dispatchEvent(new CustomEvent('tokyoRail:nativeKeyboardVisibility', {
+            detail: { visible: \(visible ? "true" : "false") }
+        }));
+        """
+        webView?.evaluateJavaScript(js, completionHandler: nil)
     }
 
     private func setNativeNavActive(_ item: NativeBottomNavItem, notifyWeb: Bool) {
