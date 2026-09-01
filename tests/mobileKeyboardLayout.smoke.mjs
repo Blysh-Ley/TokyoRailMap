@@ -147,6 +147,7 @@ const searchInput = {
 }
 
 const cssSource = readFileSync('src/styles/app.css', 'utf8');
+const heatmapCssSource = readFileSync('src/styles/searchHeatmapForm.css', 'utf8');
 assert.match(
     cssSource,
     /--mobile-bottom-nav-clearance:\s*calc\(env\(safe-area-inset-bottom,\s*0px\) \+ 76px\)/
@@ -162,6 +163,23 @@ assert.match(
 assert.match(
     cssSource,
     /data-mobile-keyboard-visible='1'\] \.mobile-bottom-nav[\s\S]*display:\s*none !important;[\s\S]*pointer-events:\s*none;/
+);
+assert.match(cssSource, /--mobile-search-entry-list-max-height:\s*300px;/);
+assert.match(
+    cssSource,
+    /data-mobile-nav-active='search'\] \.search-results,[^{}]*\{[^}]*max-height:\s*var\(--mobile-search-entry-list-max-height\);/
+);
+assert.match(
+    cssSource,
+    /data-mobile-nav-active='search'\] \.search-results-list,[^{}]*\{[^}]*max-height:\s*var\(--mobile-search-entry-list-max-height\);/
+);
+assert.match(
+    cssSource,
+    /data-mobile-search-mode='journey'\] \.journey-results,[^{}]*\{[^}]*max-height:\s*var\(--mobile-search-entry-list-max-height\);/
+);
+assert.match(
+    heatmapCssSource,
+    /data-mobile-ui='1'\] \.search-heatmap-results,[^{}]*\{[^}]*max-height:\s*var\(--mobile-search-entry-list-max-height\);/
 );
 
 const appSource = readFileSync('src/app.js', 'utf8');

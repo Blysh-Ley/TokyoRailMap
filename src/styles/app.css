@@ -353,7 +353,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-results {
     right: 12px;
     bottom: var(--mobile-journey-sheet-bottom);
     margin-top: 0;
-    max-height: min(34vh, 320px);
+    max-height: var(--mobile-search-entry-list-max-height);
     background: transparent;
     border-width: 0;
     box-shadow: none;
@@ -361,7 +361,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-results {
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-results-list,
 body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-results-list {
-    max-height: min(32vh, 300px);
+    max-height: var(--mobile-search-entry-list-max-height);
 }
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui:not(.is-planner-open):not(.is-heatmap-open) > .search-results,
@@ -471,7 +471,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mod
     left: 12px;
     right: 12px;
     bottom: var(--mobile-journey-sheet-bottom);
-    max-height: min(42vh, 360px);
+    max-height: var(--mobile-search-entry-list-max-height);
 }
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mode='journey'] .journey-plan-results,
@@ -866,6 +866,7 @@ body[data-mobile-ui='1'] {
     --mobile-search-mode-switch-bottom: var(--mobile-search-panel-bottom);
     --mobile-search-mode-switch-height: 0px;
     --mobile-search-mode-switch-gap: 8px;
+    --mobile-search-entry-list-max-height: 300px;
     --journey-waypoint-extra-height: 0px;
     --journey-waypoint-count: 0;
     --mobile-search-planner-height: calc(

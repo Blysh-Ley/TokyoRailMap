@@ -288,7 +288,7 @@ body[data-mobile-ui='1'] .search-heatmap-results {
     left: 12px;
     right: 12px;
     bottom: var(--mobile-journey-sheet-bottom);
-    max-height: min(42vh, 360px);
+    max-height: var(--mobile-search-entry-list-max-height);
 }
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open,
