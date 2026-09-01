@@ -125,11 +125,19 @@ const createHarness = (options = {}) => {
     interaction.dispatch({ type: 'open' });
     const oldRequest = interaction.dispatch({ type: 'text', payload: 'old' });
     const latestRequest = interaction.dispatch({ type: 'text', payload: { text: 'latest' } });
-    latest.resolve([{ type: 'station', id: 'NEW', text: 'Latest' }, { type: 'line', id: 'L', text: 'Line' }]);
+    const latestStation = {
+        type: 'station',
+        id: 'NEW',
+        text: 'Latest',
+        isTransfer: true,
+        lineIds: ['Line1', 'Line2'],
+        stationGroupKey: 'group-NEW'
+    };
+    latest.resolve([latestStation, { type: 'line', id: 'L', text: 'Line' }]);
     await latestRequest;
     old.resolve([{ type: 'station', id: 'OLD', text: 'Old' }]);
     assert.equal(await oldRequest, false);
-    assert.deepEqual(interaction.getState().items.map((item) => item.id), ['NEW']);
+    assert.deepEqual(interaction.getState().items, [latestStation], 'live suggestions must retain station detail metadata');
     const hiddenRequest = interaction.dispatch({ type: 'text', payload: 'hidden' });
     interaction.dispatch({ type: 'hideSuggestions' });
     hidden.resolve([{ id: 'H', text: 'Hidden' }]);

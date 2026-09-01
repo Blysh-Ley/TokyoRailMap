@@ -147,6 +147,8 @@ export const createSearchHeatmapFormView = ({ interaction, historyView = {}, onC
     const render = (state) => {
         const loading = state.status === 'loading';
         const historyMode = state.suggestionsVisible && !state.text.trim() && !state.error;
+        const detailedSuggestionMode = !historyMode
+            && typeof historyView.createSuggestionItem === 'function';
         const resultsVisible = state.visible && Boolean(
             state.error || (state.suggestionsVisible && (!historyMode || state.items.length > 0))
         );
@@ -213,8 +215,10 @@ export const createSearchHeatmapFormView = ({ interaction, historyView = {}, onC
                 list.appendChild(li);
                 continue;
             }
-            const option = make('button', 'search-heatmap-result', item.text);
-            option.type = 'button';
+            const option = detailedSuggestionMode
+                ? historyView.createSuggestionItem(item)
+                : make('button', 'search-heatmap-result', item.text);
+            if (!detailedSuggestionMode) option.type = 'button';
             option.setAttribute('role', 'option');
             option.addEventListener('click', () => {
                 send('selectStation', item);
@@ -237,7 +241,7 @@ export const createSearchHeatmapFormView = ({ interaction, historyView = {}, onC
             footerItem.appendChild(footer);
             list.appendChild(footerItem);
         }
-        if (historyMode && state.items.length) {
+        if ((historyMode || detailedSuggestionMode) && state.items.length) {
             window.requestAnimationFrame(() => {
                 try { historyView.onRendered?.(list); } catch {}
             });

@@ -27,6 +27,7 @@ export const createSearchHeatmapControl = ({
     loadHistory,
     addHistory,
     historyView,
+    focusStationOnOpen = true,
     onOpen
 } = {}) => {
     const button = document.createElement('button');
@@ -68,7 +69,7 @@ export const createSearchHeatmapControl = ({
         event.preventDefault();
         event.stopPropagation();
         open();
-        view.focusStationInput();
+        if (focusStationOnOpen) view.focusStationInput();
     });
     const onPlannerState = (event) => {
         if (event?.detail?.expanded !== true && !isOutsideMobileSearch()) return;

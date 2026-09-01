@@ -15,6 +15,21 @@ const [searchSource, heatmapControlSource, panelViewSource, panelSource, mapInte
 const formSource = await read('src/ui/searchHeatmapFormView.js');
 const formCssSource = await read('src/styles/searchHeatmapForm.css');
 assert.match(heatmapControlSource, /createSearchHeatmapFormView/);
+assert.match(
+    heatmapControlSource,
+    /focusStationOnOpen = true[\s\S]*if \(focusStationOnOpen\) view\.focusStationInput\(\)/,
+    'the reusable heatmap control must retain its original auto-focus behavior by default'
+);
+assert.match(
+    searchSource,
+    /createSearchHeatmapControl\(\{[\s\S]*focusStationOnOpen:\s*false,[\s\S]*historyView:/,
+    'the current search heatmap entry must suppress auto-focus and automatic history disclosure'
+);
+assert.match(
+    formSource,
+    /stationInput\.addEventListener\('focus', \(\) => send\('suggest'\)\)/,
+    'manual station-field focus must keep the existing history behavior available'
+);
 assert.match(heatmapControlSource, /const openForStation = \(\{ stationId, stationName \}/);
 assert.match(heatmapControlSource, /type: 'selectStation'/);
 assert.doesNotMatch(heatmapControlSource, /drawReachableStopsHeatmap|setReachableStopsHeatmapMinutes/);
@@ -36,6 +51,31 @@ assert.match(heatmapControlSource, /event\?\.detail\?\.item === 'search'[\s\S]*i
 assert.match(formSource, /stationInput\.placeholder = '选择站点';/);
 assert.match(formSource, /timeInput\.placeholder = '请选择出行时长';/);
 assert.doesNotMatch(formSource, /search-heatmap-hint|stationHint|timeHint/);
+assert.match(
+    searchSource,
+    /const createHeatmapHistoryItemView = \(item, \{ interactive = false \} = \{\}\) =>/,
+    'the shared heatmap station row renderer must keep history behavior as its default'
+);
+assert.match(
+    searchSource,
+    /createSuggestionItem:\s*\(item\) => createHeatmapHistoryItemView\(item, \{ interactive: true \}\)/,
+    'heatmap suggestions must reuse the detailed station row renderer as a button'
+);
+assert.match(
+    formSource,
+    /const detailedSuggestionMode = !historyMode\s*&& typeof historyView\.createSuggestionItem === 'function'/,
+    'detailed heatmap suggestions must stay consistent across desktop and mobile'
+);
+assert.match(
+    formSource,
+    /detailedSuggestionMode\s*\? historyView\.createSuggestionItem\(item\)\s*:\s*make\('button', 'search-heatmap-result', item\.text\)/,
+    'live suggestions must render the shared detailed row'
+);
+assert.match(
+    formCssSource,
+    /\.search-heatmap-result-option\s*\{[^}]*width:\s*100%;[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*font:\s*inherit;[^}]*text-align:\s*left;/,
+    'the detailed suggestion button must preserve the shared route-result geometry'
+);
 assert.match(
     formCssSource,
     /\.search-heatmap-form input::placeholder\s*\{[^}]*font-size:\s*11px;[^}]*text-align:\s*left;/,

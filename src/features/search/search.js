@@ -147,8 +147,12 @@ const appendStationLineIconGroup = (textEl, lineMetas, stationItem = null) => {
     textEl.appendChild(wrap);
 };
 
-const createHeatmapHistoryItemView = (item) => {
-    const row = el('div', 'search-result-item');
+const createHeatmapHistoryItemView = (item, { interactive = false } = {}) => {
+    const row = el(
+        interactive ? 'button' : 'div',
+        interactive ? 'search-result-item search-heatmap-result-option' : 'search-result-item'
+    );
+    if (interactive) row.type = 'button';
     const icon = item?.id ? buildResultIcon({ ...item, type: 'station' }) : el('span', 'search-result-icon');
     const dot = icon?.querySelector?.('.search-result-icon--station') || null;
     if (dot?.style) {
@@ -1000,8 +1004,10 @@ export function mountSearchUI() {
         searchStations: (query) => searchRailEntities(query, { limit: 20, allowedTypes: new Set(['station']) }),
         loadHistory,
         addHistory,
+        focusStationOnOpen: false,
         historyView: {
             createItem: createHeatmapHistoryItemView,
+            createSuggestionItem: (item) => createHeatmapHistoryItemView(item, { interactive: true }),
             onToggleFavorite: toggleHistoryFavorite,
             onDelete: (item) => {
                 const itemKey = getHistoryItemKey(item);
