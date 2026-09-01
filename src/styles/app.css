@@ -300,6 +300,57 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui {
     transition: height var(--mobile-search-transition-duration) ease;
 }
 
+/* 第 3 个途径点起将整张路线规划卡封顶为两个途径点的高度。 */
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2']),
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2']) {
+    --mobile-search-waypoint-scroll-height: min(
+        calc(var(--search-expanded-panel-height) + var(--mobile-search-row-height) + var(--mobile-search-row-height)),
+        calc(100vh - var(--mobile-expanded-sheet-top-clearance) - var(--mobile-search-field-bottom))
+    );
+    --mobile-search-waypoint-scroll-height: min(
+        calc(var(--search-expanded-panel-height) + var(--mobile-search-row-height) + var(--mobile-search-row-height)),
+        calc(100dvh - var(--mobile-expanded-sheet-top-clearance) - var(--mobile-search-field-bottom))
+    );
+    right: calc(12px + 52px);
+    max-height: var(--mobile-search-waypoint-scroll-height);
+    padding-right: 0;
+    border-radius: var(--search-panel-radius);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2'])::before,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2'])::before {
+    height: var(--mobile-search-planner-height);
+    width: 100%;
+}
+
+@media (min-width: 600px) {
+    html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2']),
+    body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2']) {
+        right: auto;
+        width: calc(var(--mobile-foldable-pane-width) - 52px);
+        max-width: calc(var(--mobile-foldable-pane-width) - 52px);
+    }
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2'])::-webkit-scrollbar,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2'])::-webkit-scrollbar {
+    display: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2']) > .journey-ui > .journey-results,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2']) > .journey-ui > .journey-results {
+    bottom: calc(
+        var(--mobile-search-field-bottom)
+        + var(--mobile-search-waypoint-scroll-height)
+        + var(--mobile-search-mode-switch-gap)
+    );
+}
+
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui::before,
 body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui::before {
     top: 0;
@@ -2646,6 +2697,47 @@ html:not([data-mobile-ui='1']) .search-ui.is-planner-open > .journey-ui .journey
     right: auto;
     bottom: auto;
     height: var(--search-action-size);
+}
+
+/* 第 6 个途径点起将桌面路线规划卡封顶为五个途径点的高度。 */
+html:not([data-mobile-ui='1']) .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2']):not([data-waypoint-count='3']):not([data-waypoint-count='4']):not([data-waypoint-count='5']) {
+    --desktop-search-waypoint-scroll-height: calc(
+        var(--search-expanded-panel-height)
+        + var(--search-row-height)
+        + var(--search-row-height)
+        + var(--search-row-height)
+        + var(--search-row-height)
+        + var(--search-row-height)
+    );
+    --desktop-search-waypoint-scroll-width: min(320px, calc(100vw - 72px));
+    width: var(--desktop-search-waypoint-scroll-width);
+    max-width: var(--desktop-search-waypoint-scroll-width);
+    max-height: var(--desktop-search-waypoint-scroll-height);
+    padding-right: 0;
+    border-radius: var(--search-panel-radius);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: none;
+}
+
+html:not([data-mobile-ui='1']) .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2']):not([data-waypoint-count='3']):not([data-waypoint-count='4']):not([data-waypoint-count='5'])::before {
+    height: var(--search-planner-card-height);
+    width: 100%;
+}
+
+html:not([data-mobile-ui='1']) .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2']):not([data-waypoint-count='3']):not([data-waypoint-count='4']):not([data-waypoint-count='5'])::-webkit-scrollbar {
+    display: none;
+}
+
+html:not([data-mobile-ui='1']) .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2']):not([data-waypoint-count='3']):not([data-waypoint-count='4']):not([data-waypoint-count='5']) > .journey-ui > .journey-results,
+html:not([data-mobile-ui='1']) .search-ui.is-planner-open[data-waypoint-count]:not([data-waypoint-count='0']):not([data-waypoint-count='1']):not([data-waypoint-count='2']):not([data-waypoint-count='3']):not([data-waypoint-count='4']):not([data-waypoint-count='5']) > .journey-ui > .journey-plan-results {
+    position: fixed;
+    top: calc(10px + var(--desktop-search-waypoint-scroll-height) + 8px);
+    left: 20px;
+    width: var(--desktop-search-waypoint-scroll-width);
+    margin-top: 0;
+    margin-left: 0;
 }
 
 @media (min-width: 600px) {
