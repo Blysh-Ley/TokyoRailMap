@@ -867,7 +867,7 @@ export async function getLineMetaByIds(lineIds) {
     return out;
 }
 
-export function mountSearchUI() {
+export function mountSearchUI({ commitMobileTouchResultOnFirstTap = false } = {}) {
     // 避免重复挂载
     if (document.querySelector('.search-ui')) {
         return window.TokyoRailSearchUI;
@@ -988,11 +988,8 @@ export function mountSearchUI() {
     let suppressEndPreviewCount = 0;
 
     // 用于把 touch click 与 mouse click 区分开
-    let lastTouchDownAt = 0;
-    let lastTouchDownKey = null;
-
-    // 触屏适配：第一次 tap = 预览；第二次 tap 同一项 = 提交（不限制间隔时长）
-    let touchTapArmedKey = null;
+    let lastTouchDownAt = 0, lastTouchDownKey = null;
+    let touchTapArmedKey = null; // 桌面触屏的第二次 tap 确认。
 
     const startPreviewSessionIfNeeded = () => {
         const actions = getMapActions();
@@ -1433,14 +1430,16 @@ export function mountSearchUI() {
                 });
 
                 row.addEventListener('click', (evt) => {
-                    // 触屏：用 click 做“单击预览 / 同一项第二次点击提交（不限间隔）”，避免在 pointerdown 阶段收起导致后续合成 click 落到地图上
                     const now = Date.now();
                     const isTouchClick = lastTouchDownKey === itemKey && now - lastTouchDownAt <= 1200;
                     if (isTouchClick) {
                         evt.preventDefault?.();
                         evt.stopPropagation?.();
-
-                        // 第二次点击同一项：提交；否则：仅预览并 armed
+                        if (commitMobileTouchResultOnFirstTap && isMobileStationSearchPresentation()) {
+                            if (hoverTimer) clearTimeout(hoverTimer);
+                            hoverTimer = touchTapArmedKey = null;
+                            return commitItem({ pointerType: 'touch' });
+                        }
                         if (touchTapArmedKey === itemKey) {
                             touchTapArmedKey = null;
                             commitItem({ pointerType: 'touch' });
@@ -1620,5 +1619,5 @@ export function mountSearchUI() {
 
 // 自动挂载；Node smoke tests import pure helpers from this module without a DOM.
 if (typeof document !== 'undefined') {
-    mountSearchUI();
+    mountSearchUI({ commitMobileTouchResultOnFirstTap: true });
 }
