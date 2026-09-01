@@ -2,6 +2,7 @@ import {
     createSearchHeatmapFormStore,
     SEARCH_HEATMAP_MINUTE_OPTIONS
 } from '../../store/searchHeatmapFormStore.js';
+import { STATION_SEARCH_ENTRY_TYPES } from '../../domain/searchEntries.js';
 
 const normalizeText = (value) => String(value ?? '').trim();
 
@@ -23,6 +24,7 @@ const normalizeHistoryItems = (items) => (Array.isArray(items) ? items : [])
 // This feature owns asynchronous interaction policy; all visible form state lives in the store.
 export const createSearchHeatmapInteraction = ({
     getActions,
+    readEntries = null,
     searchStations = async () => [],
     loadHistory = () => [],
     addHistory = () => {}
@@ -30,6 +32,17 @@ export const createSearchHeatmapInteraction = ({
     const store = createSearchHeatmapFormStore();
     let suggestionVersion = 0;
     let requestVersion = 0;
+
+    const readStationEntries = (query = '') => {
+        if (typeof readEntries === 'function') {
+            return readEntries({
+                query,
+                limit: 20,
+                allowedTypes: STATION_SEARCH_ENTRY_TYPES
+            });
+        }
+        return query ? searchStations(query) : loadHistory();
+    };
 
     const hideSuggestions = () => {
         suggestionVersion += 1;
@@ -67,7 +80,7 @@ export const createSearchHeatmapInteraction = ({
         const version = ++suggestionVersion;
         const query = normalizeText(state.text);
         try {
-            const result = query ? await searchStations(query) : await loadHistory();
+            const result = await readStationEntries(query);
             const current = store.getState();
             if (
                 version !== suggestionVersion ||
@@ -115,7 +128,7 @@ export const createSearchHeatmapInteraction = ({
         try {
             let station = initial.station;
             if (!station?.id) {
-                const items = normalizeStationItems(await searchStations(query));
+                const items = normalizeStationItems(await readStationEntries(query));
                 if (!isCurrent()) return false;
                 station = items.find((item) => normalizeText(item.text) === query) || items[0] || null;
                 if (!station) throw new Error('未找到匹配的车站');

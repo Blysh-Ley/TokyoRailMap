@@ -4,6 +4,8 @@ import { DATA_URLS, getCachedJson, getCompanyLogoSrc, getIconCandidates, getPref
 import { buildCompactTripDetailTransferLineItemHtmls } from '../panel/panelTripDetailTransfers.js';
 import { bindCompanyLogoFailure } from '../../ui/companyLogoVisibility.js';
 import { createSearchHeatmapControl } from '../../ui/searchHeatmapControl.js';
+import { filterSearchEntries, STATION_SEARCH_ENTRY_TYPES } from '../../domain/searchEntries.js';
+import { createSearchHistoryService } from '../../services/searchHistoryService.js';
 import {
     isSearchPlannerExpanded,
     registerSearchPlannerSearchRoot,
@@ -615,17 +617,10 @@ async function ensureDataLoaded() {
     }
 }
 
-function buildSearchResults(query, { limit = 30, allowedTypes = null } = {}) {
+function buildSearchResults(query, { limit = 30, completeTypePool = false } = {}) {
     const tokens = tokenizeQuery(query);
     if (!tokens.length) return [];
     if (!dataReady) return [];
-
-    const allowSet = allowedTypes instanceof Set
-        ? new Set(Array.from(allowedTypes).map((t) => normalizeText(t).toLowerCase()).filter(Boolean))
-        : null;
-    const allowStation = !allowSet || allowSet.has('station');
-    const allowLine = !allowSet || allowSet.has('line');
-    const allowCompany = !allowSet || allowSet.has('company');
 
     // app.js 的 companyLogoMap 可能晚于索引初始化；每次搜索前尝试补齐一次
     mergeCompanyMetaIfAvailable();
@@ -645,60 +640,54 @@ function buildSearchResults(query, { limit = 30, allowedTypes = null } = {}) {
         return Array.from(map.values());
     };
 
-    if (allowCompany) {
-        for (const c of companyIndex) {
-            let best = -1;
-            for (const n of c.names) best = Math.max(best, matchScore(n, tokens));
-            if (best >= 0) {
-                companyHits.push({
-                    score: best,
-                    item: {
-                        type: 'company',
-                        id: c.id,
-                        text: c.text,
-                        logoUrl: getCompanyLogoUrl(c.id)
-                    }
-                });
-            }
+    for (const c of companyIndex) {
+        let best = -1;
+        for (const n of c.names) best = Math.max(best, matchScore(n, tokens));
+        if (best >= 0) {
+            companyHits.push({
+                score: best,
+                item: {
+                    type: 'company',
+                    id: c.id,
+                    text: c.text,
+                    logoUrl: getCompanyLogoUrl(c.id)
+                }
+            });
         }
     }
 
-    if (allowLine) {
-        for (const l of lineIndex) {
-            let best = -1;
-            for (const n of l.names) best = Math.max(best, matchScore(n, tokens));
-            if (best >= 0) {
-                lineHits.push({
-                    score: best,
-                    item: {
-                        type: 'line',
-                        id: l.id,
-                        text: l.text,
-                        color: l.color || null,
-                        code: l.code || null
-                    }
-                });
-            }
+    for (const l of lineIndex) {
+        let best = -1;
+        for (const n of l.names) best = Math.max(best, matchScore(n, tokens));
+        if (best >= 0) {
+            lineHits.push({
+                score: best,
+                item: {
+                    type: 'line',
+                    id: l.id,
+                    text: l.text,
+                    color: l.color || null,
+                    code: l.code || null
+                }
+            });
         }
     }
 
-    if (allowStation) {
-        for (const s of stationIndex) {
-            let best = -1;
-            for (const n of s.names) best = Math.max(best, matchScore(n, tokens));
-            if (best >= 0) {
-                stationHits.push({
-                    score: best + (s.isTransfer ? 3 : 0),
-                    item: {
-                        type: 'station',
-                        id: s.id,
-                        text: s.text,
-                        isTransfer: s.isTransfer,
-                        lineIds: Array.isArray(s.lineIds) ? s.lineIds.slice() : [],
-                        stationGroupKey: s.stationGroupKey || ''
-                    }
-                });
-            }
+    for (const s of stationIndex) {
+        let best = -1;
+        for (const n of s.names) best = Math.max(best, matchScore(n, tokens));
+        if (best >= 0) {
+            stationHits.push({
+                score: best + (s.isTransfer ? 3 : 0),
+                item: {
+                    type: 'station',
+                    id: s.id,
+                    text: s.text,
+                    isTransfer: s.isTransfer,
+                    lineIds: Array.isArray(s.lineIds) ? s.lineIds.slice() : [],
+                    stationGroupKey: s.stationGroupKey || ''
+                }
+            });
         }
     }
 
@@ -735,7 +724,24 @@ function buildSearchResults(query, { limit = 30, allowedTypes = null } = {}) {
         finalHits.push(item);
     }
 
-    return finalHits.slice(0, limit);
+    if (!completeTypePool) return finalHits.slice(0, limit);
+
+    const typeCounts = new Map();
+    for (const item of finalHits) {
+        typeCounts.set(item.type, (typeCounts.get(item.type) || 0) + 1);
+    }
+    const rankedPool = [...stationHits, ...lineHits, ...companyHits].sort(byScoreThenName);
+    for (const hit of rankedPool) {
+        const item = hit?.item;
+        const type = item?.type;
+        if (!type || (typeCounts.get(type) || 0) >= limit) continue;
+        const key = `${type}:${item?.id || ''}`;
+        if (!item?.id || seen.has(key)) continue;
+        seen.add(key);
+        finalHits.push(item);
+        typeCounts.set(type, (typeCounts.get(type) || 0) + 1);
+    }
+    return finalHits;
 }
 
 const findStationIndexItemForSearchItem = (item) => {
@@ -815,14 +821,30 @@ export function mergeStationSearchItems(items = []) {
     return merged;
 }
 
+export const searchHistoryService = createSearchHistoryService({
+    getStorage: () => globalThis.window?.localStorage || null,
+    mergeItems: mergeStationSearchItems
+});
+
+export async function readSearchEntries({ query = '', limit = 30, allowedTypes = null } = {}) {
+    const q = normalizeText(query);
+    const requestedLimit = Math.max(0, Math.floor(Number(limit) || 0));
+
+    await ensureDataLoaded();
+    if (!q) return searchHistoryService.read({ allowedTypes, limit: requestedLimit });
+    if (!dataReady || requestedLimit === 0) return [];
+
+    const completeEntries = buildSearchResults(q, {
+        limit: requestedLimit,
+        completeTypePool: allowedTypes != null
+    });
+    return filterSearchEntries(completeEntries, { allowedTypes, limit: requestedLimit });
+}
+
 export async function searchRailEntities(query, { limit = 30, allowedTypes = null } = {}) {
     const q = normalizeText(query);
     if (!q) return [];
-
-    await ensureDataLoaded();
-    if (!dataReady) return [];
-
-    return buildSearchResults(q, { limit, allowedTypes });
+    return readSearchEntries({ query: q, limit, allowedTypes });
 }
 
 export async function getLineMetaByIds(lineIds) {
@@ -853,96 +875,6 @@ export function mountSearchUI() {
 
     const root = el('div', 'search-ui');
 
-    const HISTORY_KEY = 'TokyoRailSearchHistory';
-    const MAX_HISTORY = 20;
-
-    const getHistoryItemKey = (item) => (
-        item?.id
-            ? `${normalizeText(item.type || 'station')}:${normalizeText(item.id)}`
-            : `text:${normalizeText(item?.text)}`
-    );
-
-    const sortHistoryItems = (items) => {
-        const arr = Array.isArray(items) ? items.slice() : [];
-        return arr.sort((a, b) => {
-            const af = a?.favorite === true ? 1 : 0;
-            const bf = b?.favorite === true ? 1 : 0;
-            return bf - af;
-        });
-    };
-
-    const normalizeHistoryItem = (item) => {
-        if (typeof item === 'string') {
-            const text = normalizeText(item);
-            return text ? { text } : null;
-        }
-        if (!item || typeof item !== 'object') return null;
-        const text = normalizeText(item.text);
-        if (!text) return null;
-        return {
-            type: item.type || 'station',
-            id: item.id ? String(item.id) : undefined,
-            text,
-            isTransfer: !!item.isTransfer,
-            lineIds: Array.isArray(item.lineIds) ? item.lineIds.map(String) : undefined,
-            stationGroupKey: item.stationGroupKey ? String(item.stationGroupKey) : undefined,
-            color: item.color ? String(item.color) : undefined,
-            code: item.code ? String(item.code) : undefined,
-            logoUrl: item.logoUrl ? String(item.logoUrl) : undefined,
-            favorite: item.favorite === true
-        };
-    };
-
-    const loadHistory = () => {
-        try {
-            const raw = window.localStorage?.getItem?.(HISTORY_KEY);
-            if (!raw) return [];
-            const parsed = JSON.parse(raw);
-            if (!Array.isArray(parsed)) return [];
-            return sortHistoryItems(mergeStationSearchItems(parsed.map(normalizeHistoryItem).filter(Boolean))).slice(0, MAX_HISTORY);
-        } catch {
-            return [];
-        }
-    };
-
-    const saveHistory = (items) => {
-        try {
-            const list = sortHistoryItems(mergeStationSearchItems(Array.isArray(items) ? items.map(normalizeHistoryItem).filter(Boolean) : []));
-            window.localStorage?.setItem?.(HISTORY_KEY, JSON.stringify(list.slice(0, MAX_HISTORY)));
-        } catch {
-            // ignore
-        }
-    };
-
-    const addHistory = (item) => {
-        const value = normalizeHistoryItem(item);
-        if (!value) return;
-
-        const list = loadHistory();
-        const valueKey = getHistoryItemKey(value);
-        const existing = list.find((x) => getHistoryItemKey(x) === valueKey) || null;
-        if (existing?.favorite === true) value.favorite = true;
-        const next = mergeStationSearchItems([
-            value,
-            ...list.filter((x) => getHistoryItemKey(x) !== valueKey)
-        ]).slice(0, MAX_HISTORY);
-        saveHistory(next);
-    };
-
-    const toggleHistoryFavorite = (item) => {
-        const value = normalizeHistoryItem(item);
-        if (!value) return;
-        const key = getHistoryItemKey(value);
-        const next = loadHistory().map((x) => {
-            if (getHistoryItemKey(x) !== key) return x;
-            return {
-                ...x,
-                favorite: x.favorite !== true
-            };
-        });
-        saveHistory(next);
-    };
-
     const createHistoryFavoriteButton = (item) => {
         const favorite = item?.favorite === true;
         const btn = el('button', 'search-history-favorite', {
@@ -962,8 +894,8 @@ export function mountSearchUI() {
         btn.addEventListener('click', (evt) => {
             evt.preventDefault?.();
             evt.stopPropagation?.();
-            toggleHistoryFavorite(item);
-            ui.render();
+            searchHistoryService.toggleFavorite(item);
+            refresh();
         });
         return btn;
     };
@@ -1001,19 +933,16 @@ export function mountSearchUI() {
     const heatmapControl = createSearchHeatmapControl({
         getActions: getMapActions,
         searchRoot: root,
-        searchStations: (query) => searchRailEntities(query, { limit: 20, allowedTypes: new Set(['station']) }),
-        loadHistory,
-        addHistory,
+        readEntries: readSearchEntries,
+        loadHistory: () => searchHistoryService.read({ allowedTypes: STATION_SEARCH_ENTRY_TYPES }),
+        addHistory: searchHistoryService.add,
         focusStationOnOpen: false,
         historyView: {
             createItem: createHeatmapHistoryItemView,
             createSuggestionItem: (item) => createHeatmapHistoryItemView(item, { interactive: true }),
-            onToggleFavorite: toggleHistoryFavorite,
-            onDelete: (item) => {
-                const itemKey = getHistoryItemKey(item);
-                saveHistory(loadHistory().filter((entry) => getHistoryItemKey(entry) !== itemKey));
-            },
-            onClear: () => saveHistory([]),
+            onToggleFavorite: searchHistoryService.toggleFavorite,
+            onDelete: searchHistoryService.remove,
+            onClear: () => searchHistoryService.clear({ allowedTypes: STATION_SEARCH_ENTRY_TYPES }),
             onRendered: refreshStationLineAlignment
         },
         onOpen: () => {
@@ -1126,11 +1055,8 @@ export function mountSearchUI() {
         // 展开后聚焦输入框，便于直接输入
         try { input.focus?.(); } catch {}
 
-        // 确保数据加载，以便显示历史记录中的线路信息
-        await ensureDataLoaded();
-
-        // 输入为空时：展示搜索记录
-        try { ui?.render?.(); } catch {}
+        // 搜索结果与历史记录都经由同一个读取入口建立。
+        try { await refresh(); } catch {}
     };
 
     const openHeatmapForStation = async ({ stationId, stationName } = {}) => {
@@ -1170,7 +1096,7 @@ export function mountSearchUI() {
             this.items = Array.isArray(items) ? items.slice() : [];
             this.render();
         },
-        addHistory,
+        addHistory: searchHistoryService.add,
         showResults(show) {
             this.results.classList.toggle('is-hidden', !show);
         },
@@ -1196,7 +1122,7 @@ export function mountSearchUI() {
                     return;
                 }
 
-                const history = loadHistory();
+                const history = this.items;
                 if (!history.length) {
                     this.showResults(false);
                     return;
@@ -1280,10 +1206,8 @@ export function mountSearchUI() {
                     del.addEventListener('click', (evt) => {
                         evt.preventDefault?.();
                         evt.stopPropagation?.();
-                        const itemKey = getHistoryItemKey(item);
-                        const next = loadHistory().filter((x) => getHistoryItemKey(x) !== itemKey);
-                        saveHistory(next);
-                        ui.render();
+                        searchHistoryService.remove(item);
+                        refresh();
                     });
 
                     row.appendChild(del);
@@ -1340,8 +1264,8 @@ export function mountSearchUI() {
                     btn.addEventListener('click', (evt) => {
                         evt.preventDefault?.();
                         evt.stopPropagation?.();
-                        saveHistory([]);
-                        ui.render();
+                        searchHistoryService.clear();
+                        refresh();
                     });
 
                     box.appendChild(btn);
@@ -1377,8 +1301,8 @@ export function mountSearchUI() {
                     if (!actions) return;
 
                     // 仅当用户对结果发生预览/交互时才记录搜索内容
-                    addHistory(input.value);
-                    addHistory(item);
+                    searchHistoryService.add(input.value);
+                    searchHistoryService.add(item);
 
                     const type = item?.type;
                     if (type === 'company') {
@@ -1410,8 +1334,8 @@ export function mountSearchUI() {
                     if (!actions) return;
 
                     // 提交也视为有效交互：记录搜索内容
-                    addHistory(input.value);
-                    addHistory(item);
+                    searchHistoryService.add(input.value);
+                    searchHistoryService.add(item);
 
                     // 提交：不再回滚预览快照
                     try {
@@ -1582,29 +1506,19 @@ export function mountSearchUI() {
     ui.collapse = collapse;
     ui.clearAndCollapse = clearAndCollapse;
 
-    // “实时展示搜索结果”：目前仅做 UI 行为（显示/隐藏 + 空状态），不做真正搜索。
+    let refreshVersion = 0;
     refresh = async () => {
+        const version = ++refreshVersion;
         ui.setQuery(input.value);
         const q = String(ui.query || '').trim();
-        if (!q) {
-            ui.setResults([]);
-            return;
-        }
 
         // 移动端搜索入口会把历史记录固定在搜索框上方；
         // 输入后先切换成结果态，避免异步数据加载期间历史继续占位。
         ui.setResults([]);
-
-        // 确保数据加载
-        await ensureDataLoaded();
-
-        if (!dataReady) {
-            ui.setResults([]);
-            // 用空列表触发“暂无结果”占位（不额外增加新 UI 组件）
-            return;
-        }
-
-        ui.setResults(buildSearchResults(q));
+        const entries = await readSearchEntries({ query: q, limit: 30 });
+        if (version !== refreshVersion || normalizeText(input.value) !== q) return false;
+        ui.setResults(entries);
+        return true;
     };
 
     // 中文/日文等 IME 输入：composition 期间 input 事件行为不一致（不同浏览器/平台差异较大）。

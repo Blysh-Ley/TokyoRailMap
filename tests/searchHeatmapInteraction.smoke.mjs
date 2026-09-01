@@ -24,12 +24,35 @@ const createHarness = (options = {}) => {
     };
     const interaction = createSearchHeatmapInteraction({
         getActions: () => actions,
+        readEntries: options.readEntries || null,
         searchStations: options.searchStations || (async () => []),
         loadHistory: options.loadHistory || (() => []),
         addHistory: (item) => { history.push(item); }
     });
     return { interaction, calls, history };
 };
+
+{
+    const reads = [];
+    const { interaction } = createHarness({
+        readEntries: async (options) => {
+            reads.push(options);
+            return options.query
+                ? [
+                    { type: 'station', id: 'S1', text: '车站' },
+                    { type: 'line', id: 'L1', text: '线路' }
+                ]
+                : [{ type: 'station', id: 'H1', text: '历史车站' }];
+        }
+    });
+    interaction.dispatch({ type: 'open' });
+    await interaction.dispatch({ type: 'suggest' });
+    assert.deepEqual(interaction.getState().items.map((item) => item.id), ['H1']);
+    await interaction.dispatch({ type: 'text', payload: '车站' });
+    assert.deepEqual(interaction.getState().items.map((item) => item.id), ['S1']);
+    assert.deepEqual(reads.map((options) => options.query), ['', '车站']);
+    assert.equal(reads.every((options) => options.allowedTypes.includes('station')), true);
+}
 
 {
     const { interaction, calls, history } = createHarness();

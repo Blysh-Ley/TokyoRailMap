@@ -23,6 +23,7 @@ const RADAR_ICON_MARKUP = `
 export const createSearchHeatmapControl = ({
     getActions,
     searchRoot,
+    readEntries,
     searchStations,
     loadHistory,
     addHistory,
@@ -39,7 +40,13 @@ export const createSearchHeatmapControl = ({
     button.title = '出行热图';
     button.innerHTML = RADAR_ICON_MARKUP;
 
-    const interaction = createSearchHeatmapInteraction({ getActions, searchStations, loadHistory, addHistory });
+    const interaction = createSearchHeatmapInteraction({
+        getActions,
+        readEntries,
+        searchStations,
+        loadHistory,
+        addHistory
+    });
     const clear = () => interaction.dispatch({ type: 'close' });
     const view = createSearchHeatmapFormView({ interaction, historyView, onClose: clear });
     searchRoot.appendChild(view.form);

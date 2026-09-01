@@ -215,8 +215,8 @@ assert.match(
 
 assert.match(
     travelSearchSource,
-    /resolveTravelHistoryStationItem[\s\S]*searchRailEntities\(base\.text \|\| base\.id[\s\S]*mergedLineIds[\s\S]*resolveTravelHistoryForRender[\s\S]*const history = await resolveTravelHistoryForRender\(\)/,
-    'journey history rendering must enrich stored station records before drawing line metadata'
+    /readTravelSearchEntries\('', 20\)[\s\S]*history\.map\(async \(item\)[\s\S]*getLineMetaByIds\(item\.lineIds\)/,
+    'journey history rendering must read filtered shared station records before drawing line metadata'
 );
 
 assert.match(

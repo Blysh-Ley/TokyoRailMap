@@ -1,4 +1,5 @@
-import { searchRailEntities, getLineMetaByIds, mergeStationSearchItems } from './search.js';
+import { getLineMetaByIds, readSearchEntries, searchHistoryService } from './search.js';
+import { STATION_SEARCH_ENTRY_TYPES } from '../../domain/searchEntries.js';
 import {
     collectJourneyCandidatesRaptor,
     pickPlanBuckets,
@@ -88,6 +89,12 @@ function el(tag, className, attrs = {}) {
 }
 
 const normalizeText = (v) => String(v ?? '').trim();
+
+const readTravelSearchEntries = (query = '', limit = 30) => readSearchEntries({
+    query,
+    limit,
+    allowedTypes: STATION_SEARCH_ENTRY_TYPES
+});
 
 const getJapaneseHolidayChecker = () => {
     const api = globalThis?.JapaneseHolidays;
@@ -391,73 +398,6 @@ const collectPlanCandidateTripIds = (displayPlan) => {
     const ids = [];
     for (const leg of legs) ids.push(...collectLegCandidateTripIds(leg));
     return collectUniqueTripIds(ids);
-};
-
-const TRAVEL_HISTORY_KEY = 'TokyoRailSearchHistory';
-const TRAVEL_MAX_HISTORY = 20;
-
-const getTravelHistoryItemKey = (item) => (
-    item?.id
-        ? `${normalizeText(item.type || 'station')}:${normalizeText(item.id)}`
-        : `text:${normalizeText(item?.text)}`
-);
-
-const sortTravelHistoryItems = (items) => {
-    const arr = Array.isArray(items) ? items.slice() : [];
-    return arr.sort((a, b) => {
-        const af = a?.favorite === true ? 1 : 0;
-        const bf = b?.favorite === true ? 1 : 0;
-        return bf - af;
-    });
-};
-
-const normalizeTravelHistoryItem = (item) => {
-    if (typeof item === 'string') return { text: normalizeText(item).slice(0, 120), favorite: false };
-    if (!item || typeof item !== 'object') return null;
-    return {
-        id: item.id ? String(item.id) : undefined,
-        text: normalizeText(item.text).slice(0, 120),
-        type: item.type || 'station',
-        isTransfer: !!item.isTransfer,
-        lineIds: Array.isArray(item.lineIds) ? item.lineIds.map(String) : undefined,
-        stationGroupKey: item.stationGroupKey ? String(item.stationGroupKey) : undefined,
-        favorite: item.favorite === true
-    };
-};
-
-const loadTravelHistory = () => {
-    try {
-        const raw = window.localStorage?.getItem?.(TRAVEL_HISTORY_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return [];
-        return sortTravelHistoryItems(mergeStationSearchItems(parsed.map(normalizeTravelHistoryItem).filter(Boolean))).slice(0, TRAVEL_MAX_HISTORY);
-    } catch {
-        return [];
-    }
-};
-
-const saveTravelHistory = (items) => {
-    try {
-        const list = sortTravelHistoryItems(mergeStationSearchItems(Array.isArray(items) ? items.map(normalizeTravelHistoryItem).filter(Boolean) : []));
-        window.localStorage?.setItem?.(TRAVEL_HISTORY_KEY, JSON.stringify(list.slice(0, TRAVEL_MAX_HISTORY)));
-    } catch {
-        // ignore
-    }
-};
-
-const addTravelHistory = (item) => {
-    const value = normalizeTravelHistoryItem(item);
-    if (!value || !value.text) return;
-    const list = loadTravelHistory();
-    const valueKey = getTravelHistoryItemKey(value);
-    const existing = list.find((x) => getTravelHistoryItemKey(x) === valueKey) || null;
-    if (existing?.favorite === true) value.favorite = true;
-    const next = mergeStationSearchItems([
-        value,
-        ...list.filter((x) => getTravelHistoryItemKey(x) !== valueKey)
-    ]).slice(0, TRAVEL_MAX_HISTORY);
-    saveTravelHistory(next);
 };
 
 let journeyStationCodeMapPromise = null;
@@ -1013,7 +953,7 @@ export function mountTravelSearchUI() {
     const resolveStationByName = async (name) => {
         const q = normalizeText(name);
         if (!q) return null;
-        const hits = await searchRailEntities(q, { limit: 20, allowedTypes: new Set(['station']) });
+        const hits = await readTravelSearchEntries(q, 20);
         const list = Array.isArray(hits) ? hits : [];
         const exact = list.find((x) => normalizeText(x?.text) === q);
         return exact || list[0] || null;
@@ -1039,7 +979,7 @@ export function mountTravelSearchUI() {
         }
 
         if (!resolvedName && resolvedId) {
-            const byId = await searchRailEntities(resolvedId, { limit: 10, allowedTypes: new Set(['station']) });
+            const byId = await readTravelSearchEntries(resolvedId, 10);
             const list = Array.isArray(byId) ? byId : [];
             const hit = list.find((x) => normalizeText(x?.id) === resolvedId) || list[0] || null;
             if (hit) resolvedName = normalizeText(hit.text);
@@ -1185,7 +1125,7 @@ export function mountTravelSearchUI() {
         }
 
         if (!resolvedName && resolvedId) {
-            const byId = await searchRailEntities(resolvedId, { limit: 10, allowedTypes: new Set(['station']) });
+            const byId = await readTravelSearchEntries(resolvedId, 10);
             const list = Array.isArray(byId) ? byId : [];
             const hit = list.find((x) => normalizeText(x?.id) === resolvedId) || list[0] || null;
             if (hit) resolvedName = normalizeText(hit.text);
@@ -3573,8 +3513,8 @@ export function mountTravelSearchUI() {
         }
 
         // 同时保留用户输入的文本记录和点击的实体记录
-        addTravelHistory(input.value);
-        addTravelHistory(item);
+        searchHistoryService.add(input.value);
+        searchHistoryService.add(item);
 
         input.value = String(item?.text ?? '');
         input.dataset.stationId = String(item?.id ?? '');
@@ -3623,79 +3563,6 @@ export function mountTravelSearchUI() {
         return row;
     };
 
-    const resolveTravelHistoryStationItem = async (item) => {
-        const base = normalizeTravelHistoryItem(item);
-        if (!base || base.type === 'line' || base.type === 'company') return base;
-
-        const currentLineIds = Array.isArray(base.lineIds)
-            ? base.lineIds.map(String).filter(Boolean)
-            : [];
-        const candidates = await searchRailEntities(base.text || base.id || '', {
-            limit: 20,
-            allowedTypes: new Set(['station'])
-        }).catch(() => []);
-        const stationItems = Array.isArray(candidates) ? candidates : [];
-        const match = stationItems.find((candidate) => (
-            (base.id && candidate?.id && String(candidate.id) === String(base.id))
-            || (base.text && normalizeText(candidate?.text) === normalizeText(base.text))
-        )) || stationItems[0] || null;
-
-        if (!match) return base;
-
-        const mergedLineIds = Array.from(new Set([
-            ...currentLineIds,
-            ...(Array.isArray(match.lineIds) ? match.lineIds.map(String).filter(Boolean) : [])
-        ]));
-        return {
-            ...base,
-            id: match.id ? String(match.id) : (base.id || undefined),
-            text: base.text || normalizeText(match.text),
-            type: 'station',
-            isTransfer: base.isTransfer || match.isTransfer === true,
-            lineIds: mergedLineIds.length ? mergedLineIds : undefined,
-            stationGroupKey: match.stationGroupKey ? String(match.stationGroupKey) : base.stationGroupKey,
-            favorite: base.favorite === true
-        };
-    };
-
-    const resolveTravelHistoryForRender = async () => {
-        const history = loadTravelHistory().filter(item => item.type !== 'line' && item.type !== 'company');
-        if (!history.length) return [];
-
-        const resolved = mergeStationSearchItems((await Promise.all(history.map(resolveTravelHistoryStationItem))).filter(Boolean));
-        const changed = resolved.length !== history.length || resolved.some((item, index) => {
-            const prev = history[index] || {};
-            const prevLineIds = Array.isArray(prev.lineIds) ? prev.lineIds.map(String).filter(Boolean) : [];
-            const nextLineIds = Array.isArray(item?.lineIds) ? item.lineIds.map(String).filter(Boolean) : [];
-            return String(prev.id || '') !== String(item?.id || '')
-                || prev.isTransfer !== item?.isTransfer
-                || prev.favorite !== item?.favorite
-                || String(prev.stationGroupKey || '') !== String(item?.stationGroupKey || '')
-                || nextLineIds.length !== prevLineIds.length
-                || nextLineIds.some((lineId) => !prevLineIds.includes(lineId));
-        });
-        if (changed) {
-            const blockedTypes = new Set(['line', 'company']);
-            const nonStationHistory = loadTravelHistory().filter((item) => blockedTypes.has(item.type));
-            saveTravelHistory([...resolved, ...nonStationHistory]);
-        }
-        return resolved;
-    };
-
-    const toggleTravelHistoryFavorite = (item) => {
-        const value = normalizeTravelHistoryItem(item);
-        if (!value) return;
-        const key = getTravelHistoryItemKey(value);
-        const next = loadTravelHistory().map((x) => {
-            if (getTravelHistoryItemKey(x) !== key) return x;
-            return {
-                ...x,
-                favorite: x.favorite !== true
-            };
-        });
-        saveTravelHistory(next);
-    };
-
     const createTravelHistoryFavoriteButton = (item) => {
         const favorite = item?.favorite === true;
         const btn = el('button', 'search-history-favorite', {
@@ -3715,14 +3582,16 @@ export function mountTravelSearchUI() {
         btn.addEventListener('click', (evt) => {
             evt.preventDefault?.();
             evt.stopPropagation?.();
-            toggleTravelHistoryFavorite(item);
+            searchHistoryService.toggleFavorite(item);
             renderHistoryResults();
         });
         return btn;
     };
 
     const renderHistoryResults = async () => {
-        const history = await resolveTravelHistoryForRender();
+        const token = ++stationResultRequestToken;
+        const history = await readTravelSearchEntries('', 20);
+        if (token !== stationResultRequestToken) return;
         if (!history.length) {
             clearList();
             results.classList.add('is-hidden');
@@ -3736,6 +3605,8 @@ export function mountTravelSearchUI() {
                 return { item, lineMetas };
             }))
         ]);
+
+        if (token !== stationResultRequestToken) return;
 
         clearList();
 
@@ -3784,9 +3655,7 @@ export function mountTravelSearchUI() {
             del.addEventListener('click', (evt) => {
                 evt.preventDefault?.();
                 evt.stopPropagation?.();
-                const itemKey = getTravelHistoryItemKey(item);
-                const next = loadTravelHistory().filter((x) => getTravelHistoryItemKey(x) !== itemKey);
-                saveTravelHistory(next);
+                searchHistoryService.remove(item);
                 renderHistoryResults();
             });
 
@@ -3822,7 +3691,7 @@ export function mountTravelSearchUI() {
             btn.addEventListener('click', (evt) => {
                 evt.preventDefault?.();
                 evt.stopPropagation?.();
-                saveTravelHistory([]);
+                searchHistoryService.clear({ allowedTypes: STATION_SEARCH_ENTRY_TYPES });
                 renderHistoryResults();
             });
 
@@ -3880,8 +3749,7 @@ export function mountTravelSearchUI() {
         return true;
     };
 
-    const renderStationResults = async (items) => {
-        const token = ++stationResultRequestToken;
+    const renderStationResults = async (items, { token = ++stationResultRequestToken } = {}) => {
         const [stationCodeMap, itemsWithMetas] = await Promise.all([
             getJourneyStationCodeMap(),
             Promise.all(items.map(async (item) => {
@@ -3940,8 +3808,10 @@ export function mountTravelSearchUI() {
         }
 
         suppressNextEmptyHistoryRender = false;
-        const stationItems = await searchRailEntities(q, { limit: 30, allowedTypes: new Set(['station']) });
-        await renderStationResults(Array.isArray(stationItems) ? stationItems : []);
+        const token = ++stationResultRequestToken;
+        const stationItems = await readTravelSearchEntries(q, 30);
+        if (token !== stationResultRequestToken) return;
+        await renderStationResults(Array.isArray(stationItems) ? stationItems : [], { token });
     };
 
     const bindInput = (input, key, rowState = null) => {
