@@ -49,13 +49,23 @@ assert.match(
 );
 assert.match(
     formCssSource,
-    /\.search-ui\.is-heatmap-open[^{}]*\{[^}]*--mobile-search-panel-height:\s*86px;[^}]*--mobile-journey-sheet-bottom:\s*calc\(/,
-    'mobile heatmap results must clear the full 86px control'
+    /\.search-ui\.is-heatmap-open[^{}]*\{[^}]*--mobile-search-panel-height:\s*90px;[^}]*height:\s*var\(--mobile-search-panel-height\);[^}]*grid-template-rows:\s*var\(--mobile-search-panel-height\);[^}]*--mobile-journey-sheet-bottom:\s*calc\(/,
+    'mobile heatmap results must clear the full 90px control'
 );
 assert.match(
     formCssSource,
-    /\.search-ui\.is-heatmap-open \.search-heatmap-card[^{}]*\{[^}]*position:\s*relative;[^}]*overflow:\s*visible;/,
-    'mobile heatmap card must expose its detached action-column button'
+    /\.search-ui\.is-heatmap-open::before[^{}]*\{[^}]*display:\s*block\s*!important;[^}]*width:\s*calc\(100% - 52px\);[^}]*border-radius:\s*26px;/,
+    'mobile heatmap must reuse the animated 26px search shell'
+);
+assert.match(
+    formCssSource,
+    /\.search-ui\.is-heatmap-open > \.search-heatmap-form[^{}]*\{[^}]*height:\s*var\(--mobile-search-panel-height\);[^}]*grid-template-rows:\s*var\(--mobile-search-panel-height\);/,
+    'mobile heatmap form must fill the 90px shell'
+);
+assert.match(
+    formCssSource,
+    /\.search-ui\.is-heatmap-open \.search-heatmap-card[^{}]*\{[^}]*position:\s*relative;[^}]*height:\s*var\(--mobile-search-panel-height\);[^}]*grid-template-rows:\s*repeat\(2, var\(--mobile-search-row-height\)\);[^}]*overflow:\s*visible;[^}]*border-radius:\s*26px;/,
+    'mobile heatmap card must expose its detached button and use two 45px rows'
 );
 assert.match(
     formCssSource,

@@ -281,6 +281,8 @@ body[data-mobile-ui='1'] .settings-top-timebar .settings-time-control {
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui,
 body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui {
+    --mobile-search-row-height: 45px;
+    --mobile-search-transition-duration: 0.3s;
     --mobile-search-action-gap: 4px;
     --mobile-search-collapse-height: calc(
         (var(--mobile-search-panel-height) - var(--mobile-search-action-gap)) / 3
@@ -300,6 +302,8 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui {
     z-index: 9001;
     display: grid !important;
     grid-template-rows: auto;
+    height: var(--mobile-search-panel-height);
+    transition: height var(--mobile-search-transition-duration) ease;
 }
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui::before,
@@ -307,7 +311,11 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui::before {
     top: 0;
     bottom: auto;
     height: var(--mobile-search-panel-height);
-    border-radius: 12px;
+    border-radius: 26px;
+    transition:
+        height var(--mobile-search-transition-duration) ease,
+        width var(--mobile-search-transition-duration) ease,
+        border-radius var(--mobile-search-transition-duration) ease;
 }
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui:not(.is-planner-open):not(.is-heatmap-open),
@@ -865,7 +873,12 @@ body[data-mobile-ui='1'] {
     --mobile-search-mode-switch-height: 0px;
     --mobile-search-mode-switch-gap: 8px;
     --journey-waypoint-extra-height: 0px;
-    --mobile-search-planner-height: calc(86px + var(--journey-waypoint-extra-height));
+    --journey-waypoint-count: 0;
+    --mobile-search-planner-height: calc(
+        90px
+        + var(--journey-waypoint-extra-height)
+        + (var(--journey-waypoint-count) * 7px)
+    );
     --mobile-search-panel-height: var(--mobile-search-field-height);
     --mobile-search-field-bottom: var(--mobile-search-panel-bottom);
     --mobile-foldable-pane-width: 100vw;
@@ -2402,6 +2415,27 @@ html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-
 body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open::before {
     width: calc(100% - 52px);
     box-sizing: border-box;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open > .search-bar,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open > .search-bar {
+    height: var(--mobile-search-row-height);
+    box-sizing: border-box;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open > .journey-ui .journey-fields,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open > .journey-ui .journey-fields {
+    gap: 10px;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open > .journey-ui .journey-input-row,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open > .journey-ui .journey-input-row {
+    min-height: 35px;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open .search-planner-swap-btn,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-open .search-planner-swap-btn {
+    top: 34px;
 }
 
 html:not([data-mobile-ui='1']) .search-ui.is-planner-open > .journey-ui .journey-plan-search-btn,

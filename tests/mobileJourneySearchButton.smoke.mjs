@@ -192,6 +192,13 @@ assert.match(
 );
 
 const cssSource = readFileSync(join(root, 'src/styles/app.css'), 'utf8');
+assert.match(cssSource, /--mobile-search-row-height:\s*45px;/);
+assert.match(cssSource, /--mobile-search-transition-duration:\s*0\.3s;/);
+assert.match(
+    cssSource,
+    /--mobile-search-planner-height:\s*calc\(\s*90px\s*\+ var\(--journey-waypoint-extra-height\)\s*\+ \(var\(--journey-waypoint-count\) \* 7px\)\s*\);/,
+    'mobile planner must allocate 45px for each base and waypoint row'
+);
 assert.match(
     cssSource,
     /\.search-ui:not\(\.is-planner-open\):not\(\.is-heatmap-open\)[^{}]*\{[^}]*--mobile-search-field-height:\s*45px;[^}]*--mobile-search-panel-height:\s*45px;/,
@@ -223,6 +230,45 @@ const mobileOnlyRule = (ending) => cssRules.find(({ selector }) => selector.spli
 const desktopRules = (ending) => cssRules.filter(({ selector }) => selector.split(',').some((part) => (
     part.trim().startsWith("html:not([data-mobile-ui='1'])") && part.trim().endsWith(ending)
 )));
+const mobileSearchRootRule = cssRules.find(({ selector, declarations }) => (
+    declarations.includes('--mobile-search-row-height: 45px;')
+    && selector.split(',').some((part) => (
+        part.includes("[data-mobile-ui='1']") && part.trim().endsWith('.search-ui')
+    ))
+));
+assert.match(mobileSearchRootRule?.declarations || '', /height:\s*var\(--mobile-search-panel-height\);/);
+assert.match(
+    mobileSearchRootRule?.declarations || '',
+    /transition:\s*height var\(--mobile-search-transition-duration\) ease;/,
+    'mobile search shell must animate its bottom-anchored height for 0.3 seconds'
+);
+const mobileSearchShellRule = mobileOnlyRule('.search-ui::before');
+assert.match(mobileSearchShellRule?.declarations || '', /border-radius:\s*26px;/);
+assert.match(
+    mobileSearchShellRule?.declarations || '',
+    /transition:[^;]*height var\(--mobile-search-transition-duration\) ease,[^;]*width var\(--mobile-search-transition-duration\) ease,[^;]*border-radius var\(--mobile-search-transition-duration\) ease;/,
+    'mobile search shell geometry must transition together'
+);
+assert.match(
+    mobileOnlyRule('.search-ui.is-planner-open > .search-bar')?.declarations || '',
+    /height:\s*var\(--mobile-search-row-height\);[^}]*box-sizing:\s*border-box;/,
+    'mobile planner first row must be exactly 45px high'
+);
+assert.match(
+    mobileOnlyRule('.search-ui.is-planner-open > .journey-ui .journey-fields')?.declarations || '',
+    /gap:\s*10px;/,
+    'mobile planner row spacing must bring each additional row to 45px'
+);
+assert.match(
+    mobileOnlyRule('.search-ui.is-planner-open > .journey-ui .journey-input-row')?.declarations || '',
+    /min-height:\s*35px;/,
+    'mobile planner destination and waypoint content rows must complete a 45px line'
+);
+assert.match(
+    mobileOnlyRule('.search-ui.is-planner-open .search-planner-swap-btn')?.declarations || '',
+    /top:\s*34px;/,
+    'mobile planner swap button must stay centered on the 45px row boundary'
+);
 const searchButtonRule = mobileRule('.search-ui > .journey-ui .journey-plan-search-btn');
 assert.ok(searchButtonRule, 'the shared independent-button styling must retain mobile positioning');
 assert.match(searchButtonRule.declarations, /position:\s*fixed;/);

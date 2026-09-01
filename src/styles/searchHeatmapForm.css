@@ -231,7 +231,9 @@ body[data-mobile-ui='1'] .search-heatmap-results {
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open,
 body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open {
-    --mobile-search-panel-height: 86px;
+    --mobile-search-panel-height: 90px;
+    height: var(--mobile-search-panel-height);
+    grid-template-rows: var(--mobile-search-panel-height);
     --mobile-journey-sheet-bottom: calc(
         var(--mobile-search-field-bottom)
         + var(--mobile-search-panel-height)
@@ -239,10 +241,55 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-
     );
 }
 
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open::before,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open::before {
+    display: block !important;
+    width: calc(100% - 52px);
+    border-radius: 26px;
+    box-sizing: border-box;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open > .search-heatmap-form,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open > .search-heatmap-form {
+    height: var(--mobile-search-panel-height);
+    grid-template-rows: var(--mobile-search-panel-height);
+}
+
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-card,
 body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-card {
     position: relative;
+    height: var(--mobile-search-panel-height);
+    grid-template-rows: repeat(2, var(--mobile-search-row-height));
     overflow: visible;
+    border: 0;
+    border-radius: 26px;
+    background: transparent;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-row,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-row {
+    gap: 8px;
+    padding: 0 14px;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-row + .search-heatmap-row,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-row + .search-heatmap-row {
+    position: relative;
+    border-top: 0;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-row + .search-heatmap-row::before,
+body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-row + .search-heatmap-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 14px;
+    left: 14px;
+    border-top: 1px solid var(--ui-border);
+    pointer-events: none;
 }
 
 html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-heatmap-open .search-heatmap-collapse,
