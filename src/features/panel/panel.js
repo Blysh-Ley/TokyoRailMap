@@ -5045,6 +5045,8 @@ export function createPanel(options = {}) {
 
     const closeDirFilterPopover = (options = {}) => dirFilterPopoverController.close(options);
     const toggleDirFilterPopoverFromButton = (btnEl) => dirFilterPopoverController.toggleFromButton(btnEl);
+    const touchDirFilterClickMaxDelayMs = 1000;
+    let pendingTouchDirFilterActivation = null;
     let suppressNextDirFilterPopoverPanelClick = false;
 
     const isDirFilterPopoverOpen = () => dirFilterPopoverController.isOpen?.() === true;
@@ -5423,6 +5425,7 @@ export function createPanel(options = {}) {
 
     const onBodyPointerDown = (evt) => {
         const pointerState = panelInteractionPolicy.beginPointer(evt);
+        if (pointerState.isTouchLike) pendingTouchDirFilterActivation = null;
         if (consumeOpenDirFilterPopoverPanelEvent(evt, { suppressClick: true })) return;
         const pt = pointerState.pointerType;
         const pointerTripRowEl = findTripTarget(evt?.target);
@@ -5599,6 +5602,7 @@ export function createPanel(options = {}) {
     };
 
     const onBodyPointerCancelTouchTap = () => {
+        pendingTouchDirFilterActivation = null;
         panelInteractionPolicy.cancelTripTap();
     };
 
@@ -5641,15 +5645,14 @@ export function createPanel(options = {}) {
         }
 
         if (pendingKind === 'dir-filter') {
-            dispatchPanelDirFilterIntent({
+            pendingTouchDirFilterActivation = {
                 filterTarget: {
                     lineId: pending.lineId,
                     dirKey: pending.dirKey,
                     buttonEl: pending.buttonEl
                 },
-                previewDirFilterDirection: previewPanelDirFilterDirection,
-                toggleDirFilterPopoverFromButton
-            });
+                expiresAt: nowMs() + touchDirFilterClickMaxDelayMs
+            };
             return;
         }
 
@@ -5743,6 +5746,18 @@ export function createPanel(options = {}) {
     };
 
     const onBodyClick = (evt) => {
+        const pendingTouchFilter = pendingTouchDirFilterActivation;
+        pendingTouchDirFilterActivation = null;
+        if (pendingTouchFilter && nowMs() <= pendingTouchFilter.expiresAt) {
+            stopEvent(evt);
+            dispatchPanelDirFilterIntent({
+                filterTarget: pendingTouchFilter.filterTarget,
+                previewDirFilterDirection: previewPanelDirFilterDirection,
+                toggleDirFilterPopoverFromButton
+            });
+            return;
+        }
+
         if (suppressNextDirFilterPopoverPanelClick) {
             suppressNextDirFilterPopoverPanelClick = false;
             stopEvent(evt);
