@@ -3047,6 +3047,26 @@ const initMapApp = async () => {
         }
         return false;
     };
+    const handleMobileSearchModeBackIntent = (payload = {}) => {
+        if (
+            payload?.source !== 'android-back'
+            || mobileBottomNavController?.getActive?.() !== 'search'
+        ) return false;
+
+        try {
+            if (window?.TokyoRailSearchUI?.handleMobileBackIntent?.(payload) === true) {
+                mobileBottomNavController?.setSearchMode?.('station', { focus: false });
+                return true;
+            }
+            if (window?.TokyoRailJourneyUI?.isPlannerOpen?.() === true) {
+                mobileBottomNavController?.setSearchMode?.('station', { focus: false });
+                return true;
+            }
+        } catch {
+            return false;
+        }
+        return false;
+    };
     const handleMobileNavBackIntent = (payload = {}) => (
         payload?.source === 'android-back'
         && mobileBottomNavController?.handleBackIntent?.(payload) === true
@@ -3064,6 +3084,7 @@ const initMapApp = async () => {
             dismissUpdateDialog({ doc: document })
             || handleRouteMapBackIntent(payload)
             || handleJourneyBackIntent(payload)
+            || handleMobileSearchModeBackIntent(payload)
             || handleMobileMenuBackIntent(payload)
             || handleMobileNavBackIntent(payload)
             || panel?.handlePanelBackIntent?.(payload) === true

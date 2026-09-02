@@ -1085,6 +1085,11 @@ export function mountSearchUI({ commitMobileTouchResultOnFirstTap = false } = {}
         isHeatmapActive: () => heatmapControl.isActive(),
         isHeatmapSessionOpen: () => heatmapControl.isSessionOpen(),
         isHeatmapMapPickActive: () => heatmapControl.isMapPickActive(),
+        handleMobileBackIntent: () => {
+            if (!heatmapControl.isActive()) return false;
+            heatmapControl.clear();
+            return true;
+        },
         pickHeatmapStation: (station) => heatmapControl.pickStation(station),
         setQuery(q) {
             this.query = String(q ?? '');
