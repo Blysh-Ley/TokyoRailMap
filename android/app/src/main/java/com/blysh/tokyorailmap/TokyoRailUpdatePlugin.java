@@ -39,9 +39,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class TokyoRailUpdatePlugin extends Plugin {
     private static final String GOOGLE_PLAY_INSTALLER = "com.android.vending";
     private static final String GITHUB_RELEASE_PATH_PREFIX = "/Blysh-Ley/TokyoRailMap/releases/download/";
+    private static final String APK_DOWNLOAD_PROGRESS_EVENT = "apkDownloadProgress";
     private static final long MAX_APK_SIZE_BYTES = 512L * 1024L * 1024L;
+    private static final long PROGRESS_EMIT_INTERVAL_NANOS = 250_000_000L;
     private final ExecutorService downloadExecutor = Executors.newSingleThreadExecutor();
     private final AtomicBoolean downloadInProgress = new AtomicBoolean(false);
+    private final AtomicBoolean cancelDownloadRequested = new AtomicBoolean(false);
+    private volatile HttpURLConnection activeDownloadConnection;
+    private volatile File activePartialFile;
     private File pendingInstallFile;
 
     @PluginMethod
@@ -189,16 +194,44 @@ public class TokyoRailUpdatePlugin extends Plugin {
             call.reject("An update download is already in progress", "UPDATE_DOWNLOAD_IN_PROGRESS");
             return;
         }
+        cancelDownloadRequested.set(false);
+        emitDownloadProgress("downloading", 0, expectedSize, 0);
 
         downloadExecutor.execute(() -> {
             try {
                 File apkFile = downloadApk(rawUrl, expectedSize, expectedSha256);
+                throwIfDownloadCancelled();
+                long apkSize = Math.max(0, apkFile.length());
+                emitDownloadProgress("installing", apkSize, expectedSize > 0 ? expectedSize : apkSize, 0);
                 getBridge().executeOnMainThread(() -> beginPackageInstallation(call, apkFile, false));
             } catch (Exception error) {
+                boolean cancelled = cancelDownloadRequested.get();
                 downloadInProgress.set(false);
-                call.reject("Unable to download the GitHub update", "APK_DOWNLOAD_FAILED", error);
+                cancelDownloadRequested.set(false);
+                emitDownloadProgress(cancelled ? "cancelled" : "error", 0, expectedSize, 0);
+                if (cancelled) {
+                    call.reject("APK download cancelled", "APK_DOWNLOAD_CANCELLED", error);
+                } else {
+                    call.reject("Unable to download the GitHub update", "APK_DOWNLOAD_FAILED", error);
+                }
             }
         });
+    }
+
+    @PluginMethod
+    public void cancelApkDownload(PluginCall call) {
+        boolean active = downloadInProgress.get();
+        if (active) cancelDownloadRequested.set(true);
+
+        HttpURLConnection connection = activeDownloadConnection;
+        if (connection != null) connection.disconnect();
+        File partialFile = activePartialFile;
+        if (partialFile != null && partialFile.isFile()) partialFile.delete();
+
+        JSObject result = new JSObject();
+        result.put("cancelled", active);
+        result.put("phase", active ? "cancelling" : "idle");
+        call.resolve(result);
     }
 
     @ActivityCallback
@@ -207,7 +240,15 @@ public class TokyoRailUpdatePlugin extends Plugin {
         pendingInstallFile = null;
         if (call == null || apkFile == null || !apkFile.isFile()) {
             downloadInProgress.set(false);
+            cancelDownloadRequested.set(false);
             if (call != null) call.reject("Downloaded APK is no longer available", "APK_NOT_FOUND");
+            return;
+        }
+
+        if (cancelDownloadRequested.getAndSet(false)) {
+            downloadInProgress.set(false);
+            apkFile.delete();
+            call.reject("APK download cancelled", "APK_DOWNLOAD_CANCELLED");
             return;
         }
 
@@ -230,42 +271,71 @@ public class TokyoRailUpdatePlugin extends Plugin {
         File partialFile = new File(updateDirectory, "TokyoRailMap-update.apk.part");
         File apkFile = new File(updateDirectory, "TokyoRailMap-update.apk");
         HttpURLConnection connection = openDownloadConnection(rawUrl);
-        long totalBytes = 0;
+        activeDownloadConnection = connection;
+        activePartialFile = partialFile;
 
-        try (
-            BufferedInputStream input = new BufferedInputStream(connection.getInputStream());
-            FileOutputStream output = new FileOutputStream(partialFile)
-        ) {
-            byte[] buffer = new byte[64 * 1024];
-            int count;
-            while ((count = input.read(buffer)) != -1) {
-                totalBytes += count;
-                if (totalBytes > MAX_APK_SIZE_BYTES) {
-                    throw new IOException("APK exceeds the maximum allowed size");
+        try {
+            long resolvedTotalBytes = expectedSize > 0 ? expectedSize : Math.max(0, connection.getContentLengthLong());
+            long downloadedBytes = 0;
+            long lastEmitBytes = 0;
+            long lastEmitNanos = System.nanoTime();
+            emitDownloadProgress("downloading", 0, resolvedTotalBytes, 0);
+
+            try (
+                BufferedInputStream input = new BufferedInputStream(connection.getInputStream());
+                FileOutputStream output = new FileOutputStream(partialFile)
+            ) {
+                byte[] buffer = new byte[64 * 1024];
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    throwIfDownloadCancelled();
+                    downloadedBytes += count;
+                    if (downloadedBytes > MAX_APK_SIZE_BYTES) {
+                        throw new IOException("APK exceeds the maximum allowed size");
+                    }
+                    output.write(buffer, 0, count);
+
+                    long nowNanos = System.nanoTime();
+                    long elapsedNanos = nowNanos - lastEmitNanos;
+                    if (elapsedNanos >= PROGRESS_EMIT_INTERVAL_NANOS) {
+                        double elapsedSeconds = elapsedNanos / 1_000_000_000d;
+                        long bytesPerSecond = Math.max(0, Math.round((downloadedBytes - lastEmitBytes) / elapsedSeconds));
+                        emitDownloadProgress("downloading", downloadedBytes, resolvedTotalBytes, bytesPerSecond);
+                        lastEmitBytes = downloadedBytes;
+                        lastEmitNanos = nowNanos;
+                    }
                 }
-                output.write(buffer, 0, count);
+                output.flush();
             }
+
+            throwIfDownloadCancelled();
+            emitDownloadProgress("downloading", downloadedBytes, resolvedTotalBytes, 0);
+            if (downloadedBytes <= 0 || (expectedSize > 0 && downloadedBytes != expectedSize)) {
+                partialFile.delete();
+                throw new IOException("Downloaded APK size does not match the GitHub release asset");
+            }
+
+            emitDownloadProgress("verifying", downloadedBytes, resolvedTotalBytes, 0);
+            if (!expectedSha256.isEmpty() && !expectedSha256.equals(calculateSha256(partialFile))) {
+                partialFile.delete();
+                throw new IOException("Downloaded APK SHA-256 does not match the GitHub release asset");
+            }
+            throwIfDownloadCancelled();
+            if (apkFile.exists() && !apkFile.delete()) {
+                partialFile.delete();
+                throw new IOException("Unable to replace the previous update APK");
+            }
+            if (!partialFile.renameTo(apkFile)) {
+                partialFile.delete();
+                throw new IOException("Unable to finalize the downloaded APK");
+            }
+            return apkFile;
         } finally {
             connection.disconnect();
+            if (activeDownloadConnection == connection) activeDownloadConnection = null;
+            if (activePartialFile == partialFile) activePartialFile = null;
+            if (cancelDownloadRequested.get()) partialFile.delete();
         }
-
-        if (totalBytes <= 0 || (expectedSize > 0 && totalBytes != expectedSize)) {
-            partialFile.delete();
-            throw new IOException("Downloaded APK size does not match the GitHub release asset");
-        }
-        if (!expectedSha256.isEmpty() && !expectedSha256.equals(calculateSha256(partialFile))) {
-            partialFile.delete();
-            throw new IOException("Downloaded APK SHA-256 does not match the GitHub release asset");
-        }
-        if (apkFile.exists() && !apkFile.delete()) {
-            partialFile.delete();
-            throw new IOException("Unable to replace the previous update APK");
-        }
-        if (!partialFile.renameTo(apkFile)) {
-            partialFile.delete();
-            throw new IOException("Unable to finalize the downloaded APK");
-        }
-        return apkFile;
     }
 
     private HttpURLConnection openDownloadConnection(String rawUrl) throws Exception {
@@ -301,6 +371,13 @@ public class TokyoRailUpdatePlugin extends Plugin {
     }
 
     private void beginPackageInstallation(PluginCall call, File apkFile, boolean permissionRequested) {
+        if (cancelDownloadRequested.getAndSet(false)) {
+            downloadInProgress.set(false);
+            apkFile.delete();
+            call.reject("APK download cancelled", "APK_DOWNLOAD_CANCELLED");
+            return;
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
             && !getContext().getPackageManager().canRequestPackageInstalls()) {
             pendingInstallFile = apkFile;
@@ -313,6 +390,7 @@ public class TokyoRailUpdatePlugin extends Plugin {
             } catch (Exception error) {
                 pendingInstallFile = null;
                 downloadInProgress.set(false);
+                cancelDownloadRequested.set(false);
                 call.reject("Unable to open the install permission settings", "APK_INSTALL_PERMISSION_FAILED", error);
             }
             return;
@@ -335,9 +413,11 @@ public class TokyoRailUpdatePlugin extends Plugin {
             result.put("permissionRequested", permissionRequested);
             result.put("fileName", apkFile.getName());
             downloadInProgress.set(false);
+            cancelDownloadRequested.set(false);
             call.resolve(result);
         } catch (Exception error) {
             downloadInProgress.set(false);
+            cancelDownloadRequested.set(false);
             call.reject("Unable to open the Android package installer", "APK_INSTALLER_FAILED", error);
         }
     }
@@ -365,12 +445,33 @@ public class TokyoRailUpdatePlugin extends Plugin {
         return digest.matches("[0-9a-f]{64}") ? digest : "";
     }
 
+    private void throwIfDownloadCancelled() throws IOException {
+        if (cancelDownloadRequested.get()) throw new IOException("APK download cancelled");
+    }
+
+    private void emitDownloadProgress(String phase, long downloadedBytes, long totalBytes, long bytesPerSecond) {
+        long safeDownloadedBytes = Math.max(0, downloadedBytes);
+        long safeTotalBytes = Math.max(0, totalBytes);
+        JSObject progress = new JSObject();
+        progress.put("phase", phase);
+        progress.put("downloadedBytes", safeDownloadedBytes);
+        progress.put("totalBytes", safeTotalBytes);
+        progress.put("bytesPerSecond", Math.max(0, bytesPerSecond));
+        progress.put("percent", safeTotalBytes > 0
+            ? Math.min(100d, (safeDownloadedBytes * 100d) / safeTotalBytes)
+            : 0d);
+        getBridge().executeOnMainThread(() -> notifyListeners(APK_DOWNLOAD_PROGRESS_EVENT, progress));
+    }
+
     private String calculateSha256(File file) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         try (FileInputStream input = new FileInputStream(file)) {
             byte[] buffer = new byte[64 * 1024];
             int count;
-            while ((count = input.read(buffer)) != -1) digest.update(buffer, 0, count);
+            while ((count = input.read(buffer)) != -1) {
+                throwIfDownloadCancelled();
+                digest.update(buffer, 0, count);
+            }
         }
         StringBuilder hex = new StringBuilder();
         for (byte value : digest.digest()) hex.append(String.format(Locale.ROOT, "%02x", value));
@@ -385,6 +486,9 @@ public class TokyoRailUpdatePlugin extends Plugin {
 
     @Override
     protected void handleOnDestroy() {
+        cancelDownloadRequested.set(true);
+        HttpURLConnection connection = activeDownloadConnection;
+        if (connection != null) connection.disconnect();
         downloadExecutor.shutdownNow();
         super.handleOnDestroy();
     }

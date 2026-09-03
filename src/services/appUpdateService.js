@@ -16,6 +16,7 @@ import {
 } from './appSettings.js';
 
 const UPDATE_PLUGIN_NAME = 'TokyoRailUpdate';
+const APK_DOWNLOAD_PROGRESS_EVENT = 'apkDownloadProgress';
 
 const toText = (value) => String(value ?? '').trim();
 
@@ -305,18 +306,77 @@ const promptForNativeStoreUpdate = async ({ target, update, automatic }) => {
     };
 };
 
-const downloadAndInstallGitHubAndroidUpdate = async ({ target, update }) => {
+const downloadAndInstallGitHubAndroidUpdate = async ({ target, update, dialogs }) => {
     const plugin = getCapacitorPluginProxy(target, UPDATE_PLUGIN_NAME);
     if (typeof plugin?.downloadAndInstallApk !== 'function') {
         throw new Error('当前安装包不支持应用内安装，请安装包含 GitHub 更新器的新版本。');
     }
 
-    return plugin.downloadAndInstallApk({
-        url: update.downloadUrl,
-        fileName: update.assetName,
-        expectedSize: update.assetSize || 0,
-        expectedSha256: update.assetSha256 || ''
+    let progressDialog = null;
+    let progressListener = null;
+    let cancelRequested = false;
+    let nativeActionFinished = false;
+    const totalBytes = Math.max(0, Number(update.assetSize) || 0);
+
+    const cancelDownload = async () => {
+        if (nativeActionFinished) return { cancelled: true, phase: 'installing' };
+        if (typeof plugin?.cancelApkDownload !== 'function') {
+            throw new Error('当前安装包不支持取消下载');
+        }
+        cancelRequested = true;
+        const result = await plugin.cancelApkDownload();
+        if (result?.cancelled !== true) throw new Error('下载已经完成，无法取消');
+        return result;
+    };
+
+    progressDialog = dialogs?.showDownloadProgress?.({
+        latestVersion: update.latestVersion,
+        totalBytes,
+        onCancel: cancelDownload
+    }) || null;
+    progressDialog?.update?.({
+        phase: 'downloading',
+        downloadedBytes: 0,
+        totalBytes,
+        bytesPerSecond: 0,
+        percent: 0
     });
+
+    try {
+        if (typeof plugin?.addListener === 'function') {
+            progressListener = await plugin.addListener(APK_DOWNLOAD_PROGRESS_EVENT, (progress) => {
+                progressDialog?.update?.(progress || {});
+            });
+        }
+
+        const result = await plugin.downloadAndInstallApk({
+            url: update.downloadUrl,
+            fileName: update.assetName,
+            expectedSize: totalBytes,
+            expectedSha256: update.assetSha256 || ''
+        });
+        nativeActionFinished = true;
+        progressDialog?.update?.({
+            phase: 'installing',
+            bytesPerSecond: 0,
+            percent: 100
+        });
+        return result;
+    } catch (error) {
+        const code = toText(error?.code);
+        if (cancelRequested || code === 'APK_DOWNLOAD_CANCELLED') {
+            progressDialog?.close?.();
+            return { started: false, downloaded: false, cancelled: true };
+        }
+        progressDialog?.close?.();
+        throw error;
+    } finally {
+        try {
+            await progressListener?.remove?.();
+        } catch {
+            // Listener cleanup is best-effort after native completion or cancellation.
+        }
+    }
 };
 
 const promptForGitHubAndroidUpdate = async ({ target, update, dialogs }) => {
@@ -332,7 +392,7 @@ const promptForGitHubAndroidUpdate = async ({ target, update, dialogs }) => {
         : typeof target?.confirm === 'function' ? target.confirm(message) : true;
     if (!accepted) return { started: false, skipped: true };
 
-    return downloadAndInstallGitHubAndroidUpdate({ target, update });
+    return downloadAndInstallGitHubAndroidUpdate({ target, update, dialogs });
 };
 
 const showNoUpdatePrompt = ({ target, automatic, message = '已是最新版本', dialogs } = {}) => {
@@ -376,7 +436,9 @@ const checkMobileUpdate = async ({ target, automatic = false, dialogs } = {}) =>
             try {
                 const nativeAction = await promptForGitHubAndroidUpdate({ target, update, dialogs });
                 return {
-                    ok: nativeAction?.started !== false || nativeAction?.skipped === true,
+                    ok: nativeAction?.started !== false
+                        || nativeAction?.skipped === true
+                        || nativeAction?.cancelled === true,
                     platform,
                     update,
                     opened: nativeAction?.started === true,
