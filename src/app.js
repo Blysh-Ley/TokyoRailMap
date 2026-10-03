@@ -1,3 +1,4 @@
+import { buildStationFrameGeometry } from './domain/stationFrameGeometry.js';
 import {
     COMPANY_LOGO_BASE_PATH,
     DATA_URLS,
@@ -189,6 +190,7 @@ import { createMobileStartupSplashRuntime } from './app/mobileStartupSplashRunti
 import { createMobileKeyboardLayoutView } from './ui/mobileKeyboardLayoutView.js';
 import { registerDebugZoomTools } from './app/debugZoomTools.js';
 import { registerStationOffsetPerformanceProbe } from './debug/stationOffsetPerformanceProbe.js';
+import { createStationOffsetVisualSampler } from './debug/stationOffsetVisualSampler.js';
 import { bindMapStartup } from './app/mapStartup.js';
 import {
     bindMultiSelectLayerCommandRuntime,
@@ -351,6 +353,8 @@ export const getTransferStationIdsByStationId = async (stationId) => {
 const mapEngine = createMapEngine({
     maplibregl,
     container: 'map',
+    stationCircleFrameRendering: new URLSearchParams(window.location.search).get('stationCircleRenderer') !== 'legacy',
+    stationCircleFrameLayerOrderSync: true,
     center: [139.767, 35.681],
     zoom: 11,
     style: {
@@ -361,8 +365,10 @@ const mapEngine = createMapEngine({
     }
 });
 const map = mapEngine.getMap();
+let sampleStationOffsetVisuals = null;
 const stationOffsetPerformanceProbe = registerStationOffsetPerformanceProbe({
     mapEngine,
+    sampleRenderedOffsets: () => sampleStationOffsetVisuals?.() || { status: 'unavailable', reason: 'not-ready' },
     target: window,
     autoStart: new URLSearchParams(window.location.search).get('stationOffsetPerf') === '1'
 });
@@ -4895,6 +4901,10 @@ const initMapApp = async () => {
         }
 
         addStationsLayer(mapEngine, stationsData);
+        mapEngine.installStationCircleFrameRenderer({
+            geometry: buildStationFrameGeometry(stationsData, stationOffsetAlgorithmContext),
+            getMode: () => stationOffsetMode
+        });
         addStationLabelsLayer(mapEngine, buildStationLabelGeoJSON(stationsData));
         const lineNameLabelsData = generatedLineNameLabelsData || loadedGeoData?.lineNameLabelsGeoJSON || EMPTY_LINE_NAME_LABELS_DATA;
         generatedLineNameLabelsData = lineNameLabelsData;
@@ -4920,7 +4930,7 @@ const initMapApp = async () => {
         stationLabels = markers.stationLabels;
         applyTripPreviewEndpointLabelProtection();
         const stationCircles = markers.stationCircles;
-        const resolveTouchStationFeatureAtPoint = (point) => {
+        const resolveTouchStationFeatureAtPoint = (point, { useRenderedCircles = false } = {}) => {
             const px = Number(point?.x);
             const py = Number(point?.y);
             if (!Number.isFinite(px) || !Number.isFinite(py)) return null;
@@ -4929,6 +4939,12 @@ const initMapApp = async () => {
             if (!labelItems.length && !circleItems.length) return null;
 
             const maxDistancePx = 34;
+            if (useRenderedCircles && mapEngine.getRenderedStationCircles()) {
+                const hits = mapEngine.queryRenderedFeatures([[px - maxDistancePx, py - maxDistancePx], [px + maxDistancePx, py + maxDistancePx]], { layers: ['stations-layer'] });
+                const nearest = hits.filter((f) => f.screenPoint && Math.hypot(f.screenPoint.x - px, f.screenPoint.y - py) <= maxDistancePx)
+                    .sort((a, b) => Math.hypot(a.screenPoint.x - px, a.screenPoint.y - py) - Math.hypot(b.screenPoint.x - px, b.screenPoint.y - py))[0];
+                if (nearest) return nearest;
+            }
             const maxDistanceSq = maxDistancePx * maxDistancePx;
             const labelByStationId = new Map();
             let best = null;
@@ -4939,7 +4955,7 @@ const initMapApp = async () => {
                 if (stationId && !labelByStationId.has(stationId)) labelByStationId.set(stationId, item);
             }
 
-            for (const item of [...labelItems, ...circleItems]) {
+            for (const item of [...labelItems, ...(useRenderedCircles && mapEngine.getRenderedStationCircles() ? [] : circleItems)]) {
                 if (!item || item.hiddenByOpacityZero || item.forceHiddenByTransferCollapse) continue;
                 const coordinates = Array.isArray(item.coordinates) ? item.coordinates : null;
                 if (!coordinates || coordinates.length < 2) continue;
@@ -5031,6 +5047,13 @@ const initMapApp = async () => {
             );
         };
 
+        sampleStationOffsetVisuals = createStationOffsetVisualSampler({
+            mapEngine,
+            baseStationsGeoJSON: stationsData,
+            stationOffsetAlgorithmContext,
+            buildStationOffsetGeoJSONAtZoom,
+            getRenderedStationCircles: () => mapEngine.getRenderedStationCircles()
+        });
         layerFeature = createLayerFeature({
             baseStationsGeoJSON: stationsData,
             stationOffsetAlgorithmContext,
@@ -5289,7 +5312,7 @@ const initMapApp = async () => {
             getHoverPreviewEnabled: () => isHoverPreviewEnabled(),
             getStationLabelHoverEnabled: () => stationLabelMode === 'all',
             canShowStationHoverFeature: isStationFeatureAllowedForHighlightInteraction,
-            resolveTouchStationFeatureAtPoint,
+            resolveTouchStationFeatureAtPoint: (point) => resolveTouchStationFeatureAtPoint(point, { useRenderedCircles: true }),
             onSelectCompany: popupSelectionCallbacks.onSelectCompany,
             onSelectLine: popupSelectionCallbacks.onSelectLine,
             onRestoreStationLines: popupSelectionCallbacks.onRestoreStationLines,

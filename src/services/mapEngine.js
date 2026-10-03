@@ -1,3 +1,4 @@
+import { createStationCircleFrameRenderer } from './stationCircleFrameRenderer.js';
 import { DEFAULT_BASEMAP_MODE, normalizeBasemapMode } from '../domain/basemapMode.js';
 import {
     OSM_BASEMAP_ATTRIBUTION_ITEMS,
@@ -143,7 +144,123 @@ const createRangeSafePmtilesProtocol = (pmtilesGlobal) => {
     return { tile };
 };
 
-export const createMapEngine = ({ maplibregl, container, center, zoom, style, localIdeographFontFamily = 'sans-serif' } = {}) => {
+// Keep the replacement circles at the retained station layer's visual position.
+// Highlight and capsule renderers may insert layers later using stations-layer
+// as their anchor. Synchronize before painting instead of changing those callers.
+export const bindStationCircleFrameLayerOrderSync = (map) => {
+    const synchronize = () => {
+        const frameLayerId = 'station-circles-frame-layer';
+        const anchorLayerId = 'stations-layer';
+        if (!map.getLayer(frameLayerId) || !map.getLayer(anchorLayerId)) return false;
+        // MapLibre 3.6.2's order cache avoids serializing all GeoJSON sources on
+        // every style update. This access stays inside the map service boundary.
+        const order = map.style?._order;
+        if (!Array.isArray(order)) return false;
+        const frameIndex = order.indexOf(frameLayerId);
+        const anchorIndex = order.indexOf(anchorLayerId);
+        if (frameIndex < 0 || anchorIndex < 0 || frameIndex === anchorIndex - 1) return false;
+        map.moveLayer(frameLayerId, anchorLayerId);
+        return true;
+    };
+    map.on('styledata', synchronize);
+    return () => map.off('styledata', synchronize);
+};
+
+// Optional adapter for the first rendering stage. The retained circle layer is
+// the style/filter authority; only its presentation and hit geometry are replaced.
+const createStationCircleFrameRuntime = (map) => {
+    let renderer = null;
+    let visibility = 'visible';
+    const nativeQuery = map.queryRenderedFeatures.bind(map);
+    const setVisibility = (value) => {
+        visibility = value || 'visible';
+        map.setLayoutProperty('stations-layer', 'visibility', renderer?.isActive() ? 'none' : visibility);
+    };
+    const query = (...args) => {
+        const hits = nativeQuery(...args);
+        if (!renderer?.isActive()) return hits;
+        const first = args[0];
+        const hasGeometry = Array.isArray(first) || (first && Number.isFinite(first.x) && Number.isFinite(first.y));
+        const options = (hasGeometry ? args[1] : first) || {};
+        if (options.layers && !options.layers.includes('stations-layer')) return hits;
+        const geometry = hasGeometry ? first : null;
+        let bounds = null;
+        if (geometry) {
+            const point = (p) => Array.isArray(p) ? { x: p[0], y: p[1] } : p;
+            const box = Array.isArray(geometry) && (Array.isArray(geometry[0]) || typeof geometry[0] === 'object') ? geometry.map(point) : [point(geometry), point(geometry)];
+            bounds = { left: Math.min(box[0].x, box[1].x), right: Math.max(box[0].x, box[1].x),
+                top: Math.min(box[0].y, box[1].y), bottom: Math.max(box[0].y, box[1].y) };
+        }
+        const records = renderer.getRecords().filter((f) => {
+            if (!bounds) return true;
+            const { x, y } = f.screenPoint;
+            const dx = Math.max(bounds.left - x, 0, x - bounds.right);
+            const dy = Math.max(bounds.top - y, 0, y - bounds.bottom);
+            return dx * dx + dy * dy <= f.radius * f.radius;
+        }).slice().reverse();
+        return [...records, ...hits.filter((f) => f.layer?.id !== 'stations-layer')];
+    };
+    const install = ({ geometry, getMode }) => {
+        if (renderer) return renderer;
+        const styleLayer = map.getLayer('stations-layer');
+        if (!styleLayer?.paint?.get) return null;
+        visibility = styleLayer.visibility || 'visible';
+        let frozenZoom = map.getZoom();
+        let previousMode = getMode?.() || 'dynamic';
+        map.on('zoomend', () => { frozenZoom = map.getZoom(); });
+        const onFailure = (error) => {
+            console.warn('当前帧站点绘制失败，回退到原站点图层', error);
+            map.setLayoutProperty('stations-layer', 'visibility', visibility);
+            map.triggerRepaint();
+        };
+        renderer = createStationCircleFrameRenderer({
+            geometry, onFailure,
+            onReady: () => {
+                map.queryRenderedFeatures = query;
+                map.setLayoutProperty('stations-layer', 'visibility', 'none');
+            },
+            onDetach: () => {
+                try {
+                    if (map.getLayer('stations-layer')) map.setLayoutProperty('stations-layer', 'visibility', visibility);
+                } catch {
+                    // The whole style may already be gone during map teardown.
+                }
+            },
+            getFrame: () => {
+                const layer = map.getLayer('stations-layer');
+                const zoom = map.getZoom();
+                const mode = getMode?.() || 'dynamic';
+                if (mode !== previousMode) { frozenZoom = zoom; previousMode = mode; }
+                const evaluatePaint = (name, feature) => {
+                    const value = layer.paint.get(name);
+                    return typeof value?.evaluate === 'function' ? value.evaluate({ type: 1, properties: feature.properties }, {}) : value;
+                };
+                return { zoom, mode, frozenZoom, filter: layer.filter,
+                    visible: visibility !== 'none' && zoom >= (layer.minzoom ?? 0) && zoom < (layer.maxzoom ?? 24),
+                    width: map.transform.width, height: map.transform.height, cameraDistance: map.transform.cameraToCenterDistance,
+                    centerMercatorX: (map.getCenter().lng + 180) / 360,
+                    evaluate: (feature) => ({
+                        radius: evaluatePaint('circle-radius', feature), strokeWidth: evaluatePaint('circle-stroke-width', feature),
+                        fill: evaluatePaint('circle-color', feature), stroke: evaluatePaint('circle-stroke-color', feature),
+                        pitchScale: evaluatePaint('circle-pitch-scale', feature),
+                        opacity: evaluatePaint('circle-opacity', feature), strokeOpacity: evaluatePaint('circle-stroke-opacity', feature)
+                    }) };
+            }
+        });
+        map.addLayer(renderer.layer, 'stations-layer');
+        if (renderer.isActive()) {
+            // MapLibre's delegated layer events also call this instance method,
+            // so click and hover share the exact geometry used by the new draw.
+            map.queryRenderedFeatures = query;
+            map.setLayoutProperty('stations-layer', 'visibility', 'none');
+            map.triggerRepaint();
+        }
+        return renderer;
+    };
+    return { install, setVisibility, getRecords: () => renderer?.isActive() ? renderer.getRecords() : null };
+};
+
+export const createMapEngine = ({ maplibregl, container, center, zoom, style, localIdeographFontFamily = 'sans-serif', stationCircleFrameRendering = false, stationCircleFrameLayerOrderSync = false } = {}) => {
     if (!maplibregl?.Map) {
         throw new Error('MapLibre GL JS is not available');
     }
@@ -172,6 +289,8 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         attributionControl: false,
         localIdeographFontFamily
     });
+    const stationCircleFrameRuntime = stationCircleFrameRendering ? createStationCircleFrameRuntime(map) : null;
+    if (stationCircleFrameLayerOrderSync) bindStationCircleFrameLayerOrderSync(map);
     const geoJsonSourcesReadyForDiff = new WeakSet();
     const latestGeoJsonUpdateStateBySource = new WeakMap();
     const observesGeoJsonSourceReadiness = typeof map.on === 'function';
@@ -429,6 +548,8 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
 
     return {
         getMap: () => map,
+        installStationCircleFrameRenderer: (options) => stationCircleFrameRuntime?.install(options) || null,
+        getRenderedStationCircles: () => stationCircleFrameRuntime?.getRecords() || null,
         addMetricScaleControl: ({ maxWidth = 100, position = 'bottom-left' } = {}) => {
             map.addControl(
                 new maplibregl.ScaleControl({ maxWidth, unit: 'metric' }),
@@ -454,7 +575,8 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         getZoom: (...args) => map.getZoom(...args),
         project: (...args) => map.project(...args),
         setPaintProperty: (...args) => map.setPaintProperty(...args),
-        setLayoutProperty: (...args) => map.setLayoutProperty(...args),
+        setLayoutProperty: (...args) => args[0] === 'stations-layer' && args[1] === 'visibility' && stationCircleFrameRuntime
+            ? stationCircleFrameRuntime.setVisibility(args[2]) : map.setLayoutProperty(...args),
         setFilter: (...args) => map.setFilter(...args),
         moveLayer: (...args) => map.moveLayer(...args),
         addSource: (...args) => map.addSource(...args),
@@ -494,7 +616,8 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         },
         setLayerVisibility: (layerId, visible = true) => {
             if (!layerId || !map.getLayer(layerId)) return false;
-            map.setLayoutProperty(layerId, 'visibility', visible === false ? 'none' : 'visible');
+            if (layerId === 'stations-layer' && stationCircleFrameRuntime) stationCircleFrameRuntime.setVisibility(visible === false ? 'none' : 'visible');
+            else map.setLayoutProperty(layerId, 'visibility', visible === false ? 'none' : 'visible');
             return true;
         },
         setLayerFilter,

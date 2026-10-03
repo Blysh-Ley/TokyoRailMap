@@ -1,3 +1,5 @@
+import { summarizeStationOffsetVisualSamples } from './stationOffsetVisualReport.js';
+
 const DEFAULT_SETTLE_DELAY_MS = 250;
 const DEFAULT_FRAME_BUDGET_MS = 1000 / 60;
 const DEFAULT_LONG_FRAME_MS = 50;
@@ -252,7 +254,10 @@ export const createStationOffsetPerformanceProbe = ({
     settleDelayMs = DEFAULT_SETTLE_DELAY_MS,
     frameBudgetMs = DEFAULT_FRAME_BUDGET_MS,
     longFrameMs = DEFAULT_LONG_FRAME_MS,
-    autoStart = false
+    autoStart = false,
+    sampleRenderedOffsets,
+    visualTolerancePx = 1,
+    visualObservationWindowMs = 2000
 } = {}) => {
     let enabled = false;
     let destroyed = false;
@@ -268,6 +273,11 @@ export const createStationOffsetPerformanceProbe = ({
     let latestAppliedAt = null;
     let pendingSourceUpdate = null;
     let pendingSourcePresentation = null;
+    const usesRenderedSampling = typeof sampleRenderedOffsets === 'function';
+    const renderedTolerancePx = Number.isFinite(Number(visualTolerancePx)) && Number(visualTolerancePx) >= 0
+        ? Number(visualTolerancePx) : 1;
+    const renderedObservationWindowMs = Number.isFinite(Number(visualObservationWindowMs))
+        && Number(visualObservationWindowMs) >= 0 ? Number(visualObservationWindowMs) : 2000;
     const sessions = [];
     const unbinders = [];
 
@@ -291,6 +301,10 @@ export const createStationOffsetPerformanceProbe = ({
             startedAt: readNow(),
             zoom
         });
+        if (usesRenderedSampling) {
+            activeSession.visualSamples = [];
+            activeSession.sourceEvents = [];
+        }
         activeSession.heapStartBytes = readHeapBytes();
         return activeSession;
     };
@@ -315,7 +329,9 @@ export const createStationOffsetPerformanceProbe = ({
 
     const scheduleSessionFinalize = (zoom) => {
         clearSettleTimer();
-        const delay = Math.max(0, Number(settleDelayMs) || DEFAULT_SETTLE_DELAY_MS);
+        const delay = usesRenderedSampling
+            ? renderedObservationWindowMs
+            : Math.max(0, Number(settleDelayMs) || DEFAULT_SETTLE_DELAY_MS);
         settleTimerId = setTimeoutFn?.(() => {
             settleTimerId = null;
             finalizeSession(zoom);
@@ -325,7 +341,11 @@ export const createStationOffsetPerformanceProbe = ({
     const onZoomStart = () => {
         if (!enabled) return;
         clearSettleTimer();
-        ensureSession(mapEngine?.getZoom?.());
+        const session = ensureSession(mapEngine?.getZoom?.());
+        if (usesRenderedSampling) {
+            session.zoomEndedAt = null;
+            session.zoomEndZoom = null;
+        }
     };
 
     const onZoom = () => {
@@ -347,6 +367,17 @@ export const createStationOffsetPerformanceProbe = ({
     };
 
     const onStationSourceData = (event) => {
+        if (usesRenderedSampling) {
+            if (enabled && activeSession && event?.sourceId === 'stations-source') {
+                // Source events have no submission identity and are not presentation acknowledgements.
+                activeSession.sourceEvents.push({
+                    atMs: readNow() - activeSession.startedAt,
+                    type: String(event.sourceDataType || 'unknown'),
+                    tile: Boolean(event.tile || event.coord)
+                });
+            }
+            return;
+        }
         if (!enabled || !activeSession || !pendingSourceUpdate) return;
         if (String(event?.sourceId || '') !== 'stations-source') return;
         const acknowledgedAt = readNow();
@@ -362,6 +393,23 @@ export const createStationOffsetPerformanceProbe = ({
     };
 
     const onMapRender = () => {
+        if (usesRenderedSampling) {
+            if (!enabled || !activeSession) return;
+            const sampledAt = readNow();
+            let sample;
+            try {
+                sample = sampleRenderedOffsets();
+            } catch {
+                sample = { status: 'unavailable', reason: 'sampling-error' };
+            }
+            activeSession.visualSamples.push({
+                ...sample,
+                sampledAt,
+                zoom: sample?.zoom ?? mapEngine?.getZoom?.(),
+                samplingDurationMs: Math.max(0, readNow() - sampledAt)
+            });
+            return;
+        }
         if (!enabled || !activeSession || !pendingSourcePresentation) return;
         const renderedAt = readNow();
         activeSession.sourcePresentations.push({
@@ -486,7 +534,7 @@ export const createStationOffsetPerformanceProbe = ({
         if (updateVisible && Number.isFinite(zoom)) {
             latestAppliedZoom = zoom;
             latestAppliedAt = absoluteAt;
-            if (enabled && activeSession) {
+            if (!usesRenderedSampling && enabled && activeSession) {
                 pendingSourceUpdate = { zoom, submittedAt: absoluteAt };
             }
         }
@@ -513,12 +561,46 @@ export const createStationOffsetPerformanceProbe = ({
         const completed = activeSession
             ? [...sessions, { ...activeSession, endedAt: readNow(), endZoom: Number(mapEngine?.getZoom?.()) }]
             : sessions.slice();
-        const sessionReports = completed.map((session) => toSessionReport(
-            session,
-            frameBudgetMs,
-            longFrameMs,
-            DEFAULT_ZOOM_LAG_THRESHOLDS
-        ));
+        const sessionReports = completed.map((session) => {
+            const legacyReport = toSessionReport(session, frameBudgetMs, longFrameMs, DEFAULT_ZOOM_LAG_THRESHOLDS);
+            if (!usesRenderedSampling) return legacyReport;
+            const { offsetTracking, sourcePipeline: _sourcePipeline, offsetApplications, ...report } = legacyReport;
+            const sourceEvents = session.sourceEvents || [];
+            return {
+                ...report,
+                submissionTracking: {
+                    measurement: 'submitted-offset-requests',
+                    provesPresentation: false,
+                    submittedUpdateCount: offsetTracking.visibleApplicationCount,
+                    firstSubmissionDelayMs: offsetTracking.firstApplicationDelayMs,
+                    submissionIntervals: offsetTracking.applicationIntervals,
+                    submittedZoomGap: offsetTracking.zoomGap,
+                    finalSubmittedZoom: round(session.finalAppliedZoom ?? latestAppliedZoom),
+                    thresholds: offsetTracking.thresholds
+                },
+                visualTracking: {
+                    ...summarizeStationOffsetVisualSamples({
+                        samples: session.visualSamples || [],
+                        zoomEndedAt: session.zoomEndedAt,
+                        zoomEndZoom: session.zoomEndZoom,
+                        observedUntil: session.endedAt,
+                        tolerancePx: renderedTolerancePx,
+                        observationWindowMs: renderedObservationWindowMs
+                    }),
+                    samples: (session.visualSamples || []).map(({ sampledAt, ...sample }) => ({
+                        ...sample,
+                        atMs: round(sampledAt - session.startedAt)
+                    }))
+                },
+                sourcePipeline: {
+                    correlatesSubmissionsToRenderedFrames: false,
+                    sourceEventCount: sourceEvents.length,
+                    contentEventCount: sourceEvents.filter((event) => event.type === 'content').length,
+                    tileEventCount: sourceEvents.filter((event) => event.tile).length
+                },
+                offsetSubmissions: offsetApplications
+            };
+        });
         const totalDurationMs = sessionReports.reduce((sum, session) => sum + (session.durationMs || 0), 0);
         const totalStationOffsetWorkMs = sessionReports.reduce(
             (sum, session) => sum + (session.stationOffsetWorkTotal.totalMs || 0),
@@ -545,6 +627,7 @@ export const createStationOffsetPerformanceProbe = ({
 
         return {
             probe: 'station-offset-performance',
+            ...(usesRenderedSampling ? { schemaVersion: 2, measurementMode: 'rendered-geometry' } : {}),
             generatedAt: new Date().toISOString(),
             enabled,
             context: { ...context },
@@ -569,7 +652,8 @@ export const createStationOffsetPerformanceProbe = ({
             thresholds: {
                 frameBudgetMs: round(frameBudgetMs),
                 longFrameMs: round(longFrameMs),
-                settleDelayMs: round(settleDelayMs)
+                settleDelayMs: round(usesRenderedSampling ? renderedObservationWindowMs : settleDelayMs),
+                ...(usesRenderedSampling ? { visualTolerancePx: renderedTolerancePx } : {})
             }
         };
     };
@@ -605,10 +689,18 @@ export const createStationOffsetPerformanceProbe = ({
                 zoomEvents: session.zoomEventCount,
                 syncCompleted: session.syncCompletedCount,
                 syncSkipped: session.syncSkippedCount,
-                zoomGapP95: session.offsetTracking.zoomGap.p95Zoom,
-                zoomGapMax: session.offsetTracking.zoomGap.maxZoom,
-                laggedFramePercent: session.offsetTracking.thresholds.over0_05Zoom.framePercent,
-                finalZoomGap: session.offsetTracking.finalZoomGap,
+                ...(usesRenderedSampling ? {
+                    renderedErrorMaxPx: session.visualTracking.maxErrorPx,
+                    renderedErrorP95Px: session.visualTracking.p95ErrorPx,
+                    finalRenderedErrorPx: session.visualTracking.finalErrorPx,
+                    visualStatus: session.visualTracking.finalStatus,
+                    catchUpAfterZoomEndMs: session.visualTracking.catchUpAfterZoomEndMs
+                } : {
+                    zoomGapP95: session.offsetTracking.zoomGap.p95Zoom,
+                    zoomGapMax: session.offsetTracking.zoomGap.maxZoom,
+                    laggedFramePercent: session.offsetTracking.thresholds.over0_05Zoom.framePercent,
+                    finalZoomGap: session.offsetTracking.finalZoomGap
+                }),
                 frameP95Ms: session.frames.p95Ms,
                 longFrames: session.frames.longFrameCount,
                 droppedFrames: session.frames.droppedFrameEstimate,
