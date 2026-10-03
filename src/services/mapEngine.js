@@ -1,5 +1,7 @@
 import { createTransferCapsuleFrameRenderer } from './transferCapsuleFrameRenderer.js';
 import { createStationCircleFrameRenderer } from './stationCircleFrameRenderer.js';
+import { createStationLabelAnchorBuffers } from './stationLabelAnchorBuffers.js';
+import { createStationFrameProjection, stationFramePointToLngLat } from '../domain/stationFrameGeometry.js';
 import { DEFAULT_BASEMAP_MODE, normalizeBasemapMode } from '../domain/basemapMode.js';
 import {
     OSM_BASEMAP_ATTRIBUTION_ITEMS,
@@ -343,7 +345,197 @@ const createTransferCapsuleFrameRuntime = (map) => {
         getRecords: () => renderer?.isActive() ? renderer.getRecords() : null };
 };
 
-export const createMapEngine = ({ maplibregl, container, center, zoom, style, localIdeographFontFamily = 'sans-serif', stationCircleFrameRendering = false, stationCircleFrameLayerOrderSync = false, transferCapsuleFrameRendering = false } = {}) => {
+// MapLibre 3.6.2 point symbols use Float32 dynamic anchor attributes for both
+// glyphs and fitted backgrounds. Keep native shaping, collision, fading, paint
+// and source/export data; synchronize these attributes immediately before draw.
+const createStationLabelFrameRuntime = (map, version) => {
+    const id = 'station-label-anchors-frame-layer';
+    const labelId = 'station-labels-layer';
+    let active = false;
+    let records = [];
+    let renderFrame = null;
+    let captureRecords = null;
+    let renderedZoom = null;
+    let query = null;
+    const cache = new WeakMap();
+    const readTiles = (includeCached = false) => {
+        const source = map.style?.sourceCaches?.['station-labels-source'];
+        if (!source) return [];
+        const layer = map.getLayer(labelId);
+        const tiles = includeCached ? Object.values(source._tiles || {})
+            : source.getVisibleCoordinates(true).map((coord) => source.getTile(coord));
+        return layer ? tiles.map((tile) => ({ coord: tile.tileID, tile, bucket: tile?.getBucket(layer) }))
+            .filter(({ bucket }) => bucket?.uploaded) : [];
+    };
+    const restore = () => {
+        for (const { bucket } of readTiles(true)) {
+            cache.get(bucket)?.restore();
+            for (const buffers of [bucket.text, bucket.icon]) {
+                if (buffers.dynamicLayoutVertexBuffer?.buffer) buffers.dynamicLayoutVertexBuffer.updateData(buffers.dynamicLayoutVertexArray);
+            }
+        }
+    };
+    const fail = (error) => {
+        active = false;
+        records = [];
+        restore();
+        console.warn('站名当前帧锚点同步不可用，回退到原站名绘制', error);
+    };
+    const install = ({ geometry, stationLabels, getMode }) => {
+        if (renderFrame || version !== '3.6.2') return null;
+        const byId = new Map(geometry.map((item) => [item.id, item]));
+        let frozenZoom = map.getZoom();
+        let previousMode = getMode?.() || 'dynamic';
+        const synchronizeOrder = () => {
+            const order = map.style?._order;
+            if (map.getLayer(id) && map.getLayer(labelId)
+                && order?.indexOf(id) !== order?.indexOf(labelId) - 1) map.moveLayer(id, labelId);
+        };
+        map.on('zoomend', () => { frozenZoom = map.getZoom(); });
+        map.on('styledata', synchronizeOrder);
+        renderFrame = () => {
+            if (!active) return;
+            const zoom = map.getZoom();
+            const mode = getMode?.() || 'dynamic';
+            if (mode !== previousMode) { frozenZoom = zoom; previousMode = mode; }
+            const project = createStationFrameProjection(zoom, { mode, frozenZoom });
+            records = [];
+            try {
+                const layer = map.getLayer(labelId);
+                // Variable/line placement rewrites the same attributes during
+                // draw. Reject it rather than silently claiming synchrony.
+                if (layer?.layout.get('symbol-placement') !== 'point'
+                    || layer._unevaluatedLayout.hasValue('text-variable-anchor')
+                    || layer._unevaluatedLayout.hasValue('text-variable-anchor-offset')) throw new Error('Unsupported label placement');
+                if (!layer.isHidden(zoom)) for (const { coord, tile, bucket } of readTiles()) {
+                    let anchors = cache.get(bucket);
+                    if (!anchors) {
+                        // Fading buckets can retain older source data. Use the
+                        // matching index held by native symbol placement.
+                        const featureIndex = map.style.placement.retainedQueryData[bucket.bucketInstanceId]?.featureIndex
+                            || tile.latestFeatureIndex;
+                        const features = featureIndex.loadVTLayers()._geojsonTileLayer;
+                        anchors = createStationLabelAnchorBuffers({ text: bucket.text, icon: bucket.icon,
+                            instances: bucket.symbolInstances,
+                            getStationId: (index) => String(features.feature(index).properties.id || '') });
+                        cache.set(bucket, anchors);
+                    }
+                    const scale = 2 ** coord.canonical.z;
+                    for (const part of anchors.parts) {
+                        const item = byId.get(part.id);
+                        if (!item) continue;
+                        const point = project(item);
+                        anchors.move(part, { x: (point.x * scale - coord.canonical.x) * 8192,
+                            y: (point.y * scale - coord.canonical.y) * 8192 });
+                    }
+                    for (const buffers of [bucket.text, bucket.icon]) {
+                        buffers.dynamicLayoutVertexBuffer?.updateData(buffers.dynamicLayoutVertexArray);
+                    }
+                }
+                // DOM markers are retained for all/pinned labels, including
+                // their CSS translates, click handlers and selected/chip skin.
+                for (const label of stationLabels) {
+                    const item = byId.get(label.stationId);
+                    if (!item) continue;
+                    const point = project(item);
+                    label.coordinates = stationFramePointToLngLat(point);
+                    if (!label.marker) continue;
+                    label.marker.setLngLat(label.coordinates);
+                    // setLngLat rounds in 3.6.2; the normal move update does not.
+                    label.marker._update({ type: 'move' });
+                }
+                renderedZoom = zoom;
+            } catch (error) { fail(error); }
+        };
+        // Capture the buffer actually submitted to native symbol rendering,
+        // after draw, instead of reporting a requested source coordinate.
+        captureRecords = () => {
+            if (!active) return;
+            const zoom = renderedZoom;
+            const layer = map.getLayer(labelId);
+            const next = [];
+            if (layer && !layer.isHidden(zoom)) for (const { coord, bucket } of readTiles()) {
+                const matrix = coord.posMatrix;
+                for (const part of cache.get(bucket)?.parts || []) {
+                    const range = part.ranges.find(({ buffers, start }) => {
+                        if (buffers !== bucket.text || !buffers.hasVisibleVertices) return false;
+                        const packed = buffers.opacityVertexArray.uint8[start];
+                        const fade = map.painter.options.fadeDuration ? map.painter.symbolFadeChange : 1;
+                        return (packed >> 1) / 127 + (packed & 1 ? fade : -fade) > 0.01;
+                    });
+                    if (!range) continue;
+                    const { buffers, start } = range;
+                    const array = buffers.dynamicLayoutVertexArray.float32;
+                    const x = array[start * 3], y = array[start * 3 + 1];
+                    const w = matrix[3] * x + matrix[7] * y + matrix[15];
+                    const screenPoint = { x: ((matrix[0] * x + matrix[4] * y + matrix[12]) / w + 1) * map.transform.width / 2,
+                        y: (1 - (matrix[1] * x + matrix[5] * y + matrix[13]) / w) * map.transform.height / 2 };
+                    const coordinates = stationFramePointToLngLat({
+                        x: (coord.canonical.x + x / 8192) / 2 ** coord.canonical.z + coord.wrap,
+                        y: (coord.canonical.y + y / 8192) / 2 ** coord.canonical.z });
+                    const layout = buffers.layoutVertexArray.int16;
+                    const oldX = layout[start * 12], oldY = layout[start * 12 + 1];
+                    const oldW = matrix[3] * oldX + matrix[7] * oldY + matrix[15];
+                    const nativeAnchor = { x: ((matrix[0] * oldX + matrix[4] * oldY + matrix[12]) / oldW + 1) * map.transform.width / 2,
+                        y: (1 - (matrix[1] * oldX + matrix[5] * oldY + matrix[13]) / oldW) * map.transform.height / 2 };
+                    next.push({ type: 'Feature', properties: { id: part.id },
+                        geometry: { type: 'Point', coordinates }, screenPoint, renderedZoom: zoom,
+                        renderer: 'native-symbol-anchor-buffer', nativeAnchor, bounds: part.bounds });
+                }
+            }
+            for (const label of stationLabels) {
+                if (!label.marker || !label.el.isConnected || label.el.style.display === 'none') continue;
+                const style = getComputedStyle(label.el);
+                if (style.display === 'none' || style.visibility === 'hidden') continue;
+                const matrix = new DOMMatrixReadOnly(style.transform);
+                const rect = label.el.getBoundingClientRect();
+                next.push({ type: 'Feature', properties: { id: label.stationId },
+                    geometry: { type: 'Point', coordinates: label.marker.getLngLat().toArray() },
+                    screenPoint: { x: matrix.m41 + rect.width / 2, y: matrix.m42 + rect.height },
+                    renderedZoom: zoom, renderer: 'dom-marker-transform' });
+            }
+            records = next.filter(({ screenPoint: p }) => p.x >= 0 && p.y >= 0
+                && p.x <= map.transform.width && p.y <= map.transform.height);
+            return records;
+        };
+        map.addLayer({ id, type: 'custom', renderingMode: '2d',
+            onAdd: () => { active = true; if (query) map.queryRenderedFeatures = query; }, render: renderFrame,
+            onRemove: () => { active = false; records = []; restore(); map.off('styledata', synchronizeOrder); } }, labelId);
+        const nativeQuery = map.queryRenderedFeatures.bind(map);
+        // Retain native collision/filter hit testing, translating each queried
+        // region back to its retained anchor. Clicks follow the displayed label.
+        query = (...args) => {
+            const hits = nativeQuery(...args);
+            const first = args[0];
+            const hasGeometry = Array.isArray(first) || Number.isFinite(first?.x);
+            const options = (hasGeometry ? args[1] : first) || {};
+            if (!active || !hasGeometry || (options.layers && !options.layers.includes(labelId))
+                || map.getLayer(labelId)?.isHidden(map.getZoom())) return hits;
+            const toPoint = (p) => Array.isArray(p) ? { x: p[0], y: p[1] } : p;
+            const isBox = Array.isArray(first) && (Array.isArray(first[0]) || typeof first[0] === 'object');
+            const points = isBox ? first.map(toPoint) : [toPoint(first)];
+            const left = Math.min(...points.map((p) => p.x)), right = Math.max(...points.map((p) => p.x));
+            const top = Math.min(...points.map((p) => p.y)), bottom = Math.max(...points.map((p) => p.y));
+            const labels = [];
+            for (const record of captureRecords()) {
+                if (!record.nativeAnchor) continue;
+                const { screenPoint: p, bounds: b, nativeAnchor: old } = record;
+                if (map.getPitch() === 0 && (p.x + b.right + 4 < left || p.x + b.left - 4 > right
+                    || p.y + b.bottom + 4 < top || p.y + b.top - 4 > bottom)) continue;
+                const translated = points.map((point) => [point.x + old.x - p.x, point.y + old.y - p.y]);
+                const matching = nativeQuery(isBox ? translated : translated[0], { ...options, layers: [labelId] })
+                    .find((feature) => String(feature.properties?.id) === record.properties.id);
+                if (matching) labels.push({ ...matching, geometry: record.geometry });
+            }
+            return [...hits.filter((feature) => feature.layer?.id !== labelId), ...labels];
+        };
+        map.queryRenderedFeatures = query;
+        return { isActive: () => active };
+    };
+    return { install, getRecords: () => active ? captureRecords?.() || [] : null };
+};
+
+export const createMapEngine = ({ maplibregl, container, center, zoom, style, localIdeographFontFamily = 'sans-serif', stationCircleFrameRendering = false, stationCircleFrameLayerOrderSync = false, transferCapsuleFrameRendering = false, stationLabelFrameAnchors = false } = {}) => {
     if (!maplibregl?.Map) {
         throw new Error('MapLibre GL JS is not available');
     }
@@ -375,6 +567,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
     const stationCircleFrameRuntime = stationCircleFrameRendering ? createStationCircleFrameRuntime(map) : null;
     if (stationCircleFrameLayerOrderSync) bindStationCircleFrameLayerOrderSync(map);
     const transferCapsuleFrameRuntime = transferCapsuleFrameRendering ? createTransferCapsuleFrameRuntime(map) : null;
+    const stationLabelFrameRuntime = stationLabelFrameAnchors ? createStationLabelFrameRuntime(map, maplibregl.version) : null;
     const geoJsonSourcesReadyForDiff = new WeakSet();
     const latestGeoJsonUpdateStateBySource = new WeakMap();
     const observesGeoJsonSourceReadiness = typeof map.on === 'function';
@@ -637,6 +830,8 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         installTransferCapsuleFrameRenderer: (options) => transferCapsuleFrameRuntime?.install(options) || null,
         updateTransferCapsuleFrameRenderer: (options) => transferCapsuleFrameRuntime?.update(options) || null,
         getRenderedTransferCapsules: () => transferCapsuleFrameRuntime?.getRecords() || null,
+        installStationLabelFrameAnchors: (options) => stationLabelFrameRuntime?.install(options) || null,
+        getRenderedStationLabelAnchors: () => stationLabelFrameRuntime?.getRecords() || null,
         addMetricScaleControl: ({ maxWidth = 100, position = 'bottom-left' } = {}) => {
             map.addControl(
                 new maplibregl.ScaleControl({ maxWidth, unit: 'metric' }),

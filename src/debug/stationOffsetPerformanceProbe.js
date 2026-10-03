@@ -257,6 +257,7 @@ export const createStationOffsetPerformanceProbe = ({
     autoStart = false,
     sampleRenderedOffsets,
     sampleRenderedCapsules,
+    sampleRenderedLabelAnchors,
     visualTolerancePx = 1,
     visualObservationWindowMs = 2000
 } = {}) => {
@@ -276,6 +277,7 @@ export const createStationOffsetPerformanceProbe = ({
     let pendingSourcePresentation = null;
     const usesRenderedSampling = typeof sampleRenderedOffsets === 'function';
     const usesCapsuleSampling = typeof sampleRenderedCapsules === 'function';
+    const usesLabelSampling = typeof sampleRenderedLabelAnchors === 'function';
     const renderedTolerancePx = Number.isFinite(Number(visualTolerancePx)) && Number(visualTolerancePx) >= 0
         ? Number(visualTolerancePx) : 1;
     const renderedObservationWindowMs = Number.isFinite(Number(visualObservationWindowMs))
@@ -306,6 +308,7 @@ export const createStationOffsetPerformanceProbe = ({
         if (usesRenderedSampling) {
             activeSession.visualSamples = [];
             if (usesCapsuleSampling) activeSession.capsuleVisualSamples = [];
+            if (usesLabelSampling) activeSession.labelAnchorVisualSamples = [];
             activeSession.sourceEvents = [];
         }
         activeSession.heapStartBytes = readHeapBytes();
@@ -419,6 +422,15 @@ export const createStationOffsetPerformanceProbe = ({
                 activeSession.capsuleVisualSamples.push({ ...capsuleSample, sampledAt: capsuleSampledAt,
                     zoom: capsuleSample?.zoom ?? mapEngine?.getZoom?.(),
                     samplingDurationMs: Math.max(0, readNow() - capsuleSampledAt) });
+            }
+            if (usesLabelSampling) {
+                const labelSampledAt = readNow();
+                let labelSample;
+                try { labelSample = sampleRenderedLabelAnchors(); }
+                catch { labelSample = { status: 'unavailable', reason: 'sampling-error' }; }
+                activeSession.labelAnchorVisualSamples.push({ ...labelSample, sampledAt: labelSampledAt,
+                    zoom: labelSample?.zoom ?? mapEngine?.getZoom?.(),
+                    samplingDurationMs: Math.max(0, readNow() - labelSampledAt) });
             }
             return;
         }
@@ -613,6 +625,17 @@ export const createStationOffsetPerformanceProbe = ({
                     coverage: 'real-offset-station-endpoints-only',
                     excludes: ['railway-centerline-error', 'station-labels', 'virtual-preview-stations'],
                     samples: (session.capsuleVisualSamples || []).map(({ sampledAt, ...sample }) => ({
+                        ...sample, atMs: round(sampledAt - session.startedAt) }))
+                } } : {}),
+                ...(usesLabelSampling ? { labelAnchorVisualTracking: {
+                    ...summarizeStationOffsetVisualSamples({ samples: session.labelAnchorVisualSamples || [],
+                        zoomEndedAt: session.zoomEndedAt, zoomEndZoom: session.zoomEndZoom,
+                        observedUntil: session.endedAt, tolerancePx: renderedTolerancePx,
+                        observationWindowMs: renderedObservationWindowMs }),
+                    measurement: 'rendered-station-label-anchors',
+                    scope: 'visible-offset-station-label-anchors',
+                    excludes: ['glyph-shaping', 'collision-selection', 'railway-centerline-error'],
+                    samples: (session.labelAnchorVisualSamples || []).map(({ sampledAt, ...sample }) => ({
                         ...sample, atMs: round(sampledAt - session.startedAt) }))
                 } } : {}),
                 sourcePipeline: {

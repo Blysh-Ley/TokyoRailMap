@@ -1,4 +1,5 @@
 import { createTransferCapsuleOffsetVisualSampler } from './debug/transferCapsuleOffsetVisualSampler.js';
+import { createStationLabelAnchorVisualSampler } from './debug/stationLabelAnchorVisualSampler.js';
 import { buildTransferCapsuleFrameGeometry } from './domain/transferCapsuleFrameGeometry.js';
 import { buildStationFrameGeometry } from './domain/stationFrameGeometry.js';
 import {
@@ -359,6 +360,7 @@ const mapEngine = createMapEngine({
     stationCircleFrameRendering: new URLSearchParams(window.location.search).get('stationCircleRenderer') !== 'legacy',
     stationCircleFrameLayerOrderSync: true,
     transferCapsuleFrameRendering,
+    stationLabelFrameAnchors: new URLSearchParams(window.location.search).get('stationLabelAnchors') !== 'legacy',
     center: [139.767, 35.681],
     zoom: 11,
     style: {
@@ -371,10 +373,12 @@ const mapEngine = createMapEngine({
 const map = mapEngine.getMap();
 let sampleStationOffsetVisuals = null;
 let sampleTransferCapsuleVisuals = null;
+let sampleStationLabelAnchors = null;
 const stationOffsetPerformanceProbe = registerStationOffsetPerformanceProbe({
     mapEngine,
     sampleRenderedOffsets: () => sampleStationOffsetVisuals?.() || { status: 'unavailable', reason: 'not-ready' },
     sampleRenderedCapsules: () => sampleTransferCapsuleVisuals?.() || { status: 'unavailable', reason: 'not-ready' },
+    sampleRenderedLabelAnchors: () => sampleStationLabelAnchors?.() || { status: 'unavailable', reason: 'not-ready' },
     target: window,
     autoStart: new URLSearchParams(window.location.search).get('stationOffsetPerf') === '1'
 });
@@ -4938,6 +4942,10 @@ const initMapApp = async () => {
 
         const markers = createStationMarkers(mapEngine, stationsData, { attachMarkers: false });
         stationLabels = markers.stationLabels;
+        mapEngine.installStationLabelFrameAnchors({ geometry: stationFrameGeometry,
+            stationLabels, getMode: () => stationOffsetMode });
+        sampleStationLabelAnchors = createStationLabelAnchorVisualSampler({ mapEngine,
+            baseStationsGeoJSON: stationsData, stationOffsetAlgorithmContext, buildStationOffsetGeoJSONAtZoom });
         applyTripPreviewEndpointLabelProtection();
         const stationCircles = markers.stationCircles;
         const resolveTouchStationFeatureAtPoint = (point, { useRenderedCircles = false } = {}) => {
