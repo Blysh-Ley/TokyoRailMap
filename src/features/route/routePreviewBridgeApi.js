@@ -6,6 +6,7 @@ export const createRoutePreviewBridgeApi = ({
     clearTripPathPreview,
     fitMobileTripBounds,
     isMultiSelectModeEnabled,
+    shouldPreserveStationViewport = () => false,
     defaultSource = 'journey'
 } = {}) => {
     const source = toText(defaultSource) || 'journey';
@@ -16,7 +17,8 @@ export const createRoutePreviewBridgeApi = ({
             const inferredFitMode = interaction === 'click'
                 ? 'commit'
                 : (interaction === 'hover' ? 'preview' : 'none');
-            const fitMode = toText(options?.fitMode || payload?.fitMode || inferredFitMode) || 'none';
+            const preserveViewport = shouldPreserveStationViewport(payload) === true;
+            const fitMode = preserveViewport ? 'none' : (toText(options?.fitMode || payload?.fitMode || inferredFitMode) || 'none');
             const nextPayload = {
                 ...(payload || {}),
                 __previewSource: source,
@@ -25,10 +27,14 @@ export const createRoutePreviewBridgeApi = ({
             if (options?.clearBefore === true && isMultiSelectModeEnabled?.() !== true) {
                 clearTripPathPreview?.({ source });
             }
-            return previewTripPath?.(nextPayload, options);
+            return previewTripPath?.(nextPayload, preserveViewport
+                ? { ...options, fitMode: 'none', preserveViewport: true }
+                : options);
         },
         applyTripPreviewSnapshot: (snapshot, options = {}) => {
-            return applyTripPreviewSnapshot?.(snapshot, options);
+            return applyTripPreviewSnapshot?.(snapshot, shouldPreserveStationViewport(snapshot?.payload) === true
+                ? { ...options, fitMode: 'none', preserveViewport: true }
+                : options);
         },
         clearTripPathPreview: () => {
             clearTripPathPreview?.({ source });
@@ -39,6 +45,7 @@ export const createRoutePreviewBridgeApi = ({
             clearTripPathPreview?.({ source: s });
         },
         fitMobileTripBounds: (payload, options = {}) => {
+            if (shouldPreserveStationViewport(payload) === true) return false;
             return fitMobileTripBounds?.(
                 {
                     ...(payload || {}),

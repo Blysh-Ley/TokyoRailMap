@@ -187,6 +187,7 @@ import { createStationLabelChipsAdapter } from './ui/layer/stationLabelChipsAdap
 import { createJourneyPickPinElement } from './ui/journeyPickPinAdapter.js';
 import { createRouteEndpointPopupRuntime } from './ui/routeEndpointPopups.js';
 import { createRoutePreviewViewportController } from './ui/routePreviewViewport.js';
+import { readMobileSelectionViewportFit } from './ui/selectionViewportLayout.js';
 import { createBasemapThemeRuntime } from './app/basemapThemeRuntime.js';
 import { installAndroidBackRuntime } from './app/androidBackRuntime.js';
 import { createMobileStartupSplashRuntime } from './app/mobileStartupSplashRuntime.js';
@@ -2955,10 +2956,14 @@ const initMapApp = async () => {
         if (el) menu.markActive(el);
     };
 
+    const createMobileSelectionFitCallback = (legacyFit) => (key, mode, options) => (
+        isMobileUiMode() ? fitToCurrentSelection(key, mode, options) : legacyFit(key, mode, options)
+    );
+
     const panelSelectionCallbacks = createPanelSearchSelectionCallbacks({
         clearSelection: (options) => appStore.dispatch(selectionClear(options)),
         closeOnRestore: true,
-        fitToCurrentSelection,
+        fitToCurrentSelection: createMobileSelectionFitCallback(fitToCurrentSelection),
         getLineCompany: (lineId) => lineCompanyById.get(String(lineId)),
         getSelectedStationId: () => selectedStationId,
         hoverLifecycle: panelHoverPreviewLifecycle,
@@ -3347,7 +3352,12 @@ const initMapApp = async () => {
         isolateStationsToSelectedLine = false;
     };
 
-    const fitToPointAsBounds = (coordinates, { maxZoom } = {}) => {
+    const getMobileViewportFitOptions = (kind = 'line') => readMobileSelectionViewportFit({
+        canvas: mapEngine.getCanvas(), panelElement: panel?.el,
+        routeMapElement: document.querySelector('[data-route-map]'), isMobile: isMobileUiMode(), kind
+    });
+
+    const fitToPointAsBounds = (coordinates, { maxZoom, viewportFit = false, preserveZoom = false, stationId = '' } = {}) => {
         if (!isAdaptiveViewportEnabled()) return;
         if (!Array.isArray(coordinates) || coordinates.length < 2) return;
         const lng = Number(coordinates[0]);
@@ -3369,11 +3379,31 @@ const initMapApp = async () => {
             essential: true
         };
         if (Number.isFinite(maxZoom)) opts.maxZoom = maxZoom;
+        if (viewportFit) {
+            requestAnimationFrame(() => {
+                if (!isAdaptiveViewportEnabled() || (stationId && stationVisualHighlightId !== stationId)) return;
+                const viewportOptions = getMobileViewportFitOptions('station');
+                if (!viewportOptions) return mapEngine.fitBounds(bounds, opts);
+                const fitOptions = { ...opts, ...viewportOptions };
+                if (preserveZoom) {
+                    fitOptions.minTargetZoom = Math.max(mapEngine.getZoom(), viewportOptions.minTargetZoom);
+                    fitOptions.maxZoom = fitOptions.minTargetZoom;
+                }
+                mapEngine.fitBoundsWithViewport(bounds, fitOptions);
+            });
+            return;
+        }
         try {
             mapEngine.fitBounds(bounds, opts);
         } catch {
             // ignore
         }
+    };
+
+    const fitSelectedMobileStation = (stationId, { preserveZoom = false } = {}) => {
+        if (!isMobileUiMode() || stationVisualHighlightId !== stationId) return;
+        const coordinates = stationCoordByIdBase.get(stationId) || stationCoordById.get(stationId);
+        fitToPointAsBounds(coordinates, { maxZoom: 12, viewportFit: true, preserveZoom, stationId });
     };
 
     const findStationLabelItemById = (stationId) => {
@@ -3413,6 +3443,8 @@ const initMapApp = async () => {
     hoverBridgeApi.commitHoverPreview = hoverBridgeApi.commitPreview;
 
     const routePreviewBridgeApi = createRoutePreviewBridgeApi({
+        shouldPreserveStationViewport: (payload) => isMobileUiMode()
+            && String(payload?.previewSource || payload?.__previewSource || '') === 'station-through-branch',
         previewTripPath: (payload, options) => previewTripPath(payload, options),
         applyTripPreviewSnapshot: (snapshot, options) => {
             applyPanelStationVisualHighlightFromTripPreviewPayload(snapshot?.payload);
@@ -3491,7 +3523,7 @@ const initMapApp = async () => {
             isolateStationsToSelectedLine = enabled === true;
         },
         applySelectionEffects,
-        fitToCurrentSelection,
+        fitToCurrentSelection: createMobileSelectionFitCallback(fitToCurrentSelection),
         hideStationPopupForMenuInteraction,
         showRouteMapFloatingPanelForLine,
         markActiveLine: (lineId) => {
@@ -3513,8 +3545,13 @@ const initMapApp = async () => {
         findStationLabelItemById,
         setStationVisualHighlight,
         selectPlatformLinesForStation,
-        fitToPointAsBounds,
-        openPanelForStationWithAutoScroll,
+        fitToPointAsBounds: (coordinates, options) => {
+            if (!isMobileUiMode()) fitToPointAsBounds(coordinates, options);
+        },
+        openPanelForStationWithAutoScroll: async (props, options) => {
+            await openPanelForStationWithAutoScroll(props, options);
+            fitSelectedMobileStation(String(props?.id || ''));
+        },
         getServingLineIdsFromStationProps,
         preloadTimetablesByLineIds: (ids) => timetableCache?.preloadRecursiveByLineIds?.(ids),
         closeStationPopup: (options) => stationPopup?.closePopup?.(options),
@@ -3684,6 +3721,7 @@ const initMapApp = async () => {
                 getSelectedStationId: () => selectedStationId,
                 setStationVisualHighlight,
                 openPanelForStationWithAutoScroll,
+                fitSelectedStation: (stationId) => fitSelectedMobileStation(stationId, { preserveZoom: true }),
                 deferPanelHeavyRender: true,
                 getServingLineIdsFromStationProps,
                 recordStationHistory: recordStationSearchHistoryFromProps,
@@ -4336,6 +4374,7 @@ const initMapApp = async () => {
         const routePreviewViewport = createRoutePreviewViewportController({
             mapEngine,
             isAdaptiveViewportEnabled,
+            getViewportFitOptions: () => getMobileViewportFitOptions(),
             getMenuElement: () => menu?.wrapper || null,
             getPanelElement: () => panel?.el || null,
             getTripDetailElement: () => document.querySelector('[data-panel-trip-detail]'),
@@ -4347,6 +4386,7 @@ const initMapApp = async () => {
         });
         const mobileTripFitBounds = createMobileTripFitBoundsController({
             mapEngine,
+            getViewportFitOptions: () => getMobileViewportFitOptions(),
             getStationCoord: (stationId) => stationCoordByIdBase.get(stationId) || stationCoordById.get(stationId)
         });
         const isMobileJourneyPlanFitContext = () => {
@@ -4369,6 +4409,7 @@ const initMapApp = async () => {
             return mobileTripFitBounds.fitTripPayload(payload);
         };
         const fitMobileTripBoundsIfNeeded = (payload = {}, options = {}) => {
+            if (options?.preserveViewport === true) return false;
             const fitMode = String(options?.fitMode || payload?.fitMode || '').trim();
             const interaction = String(payload?.__previewInteraction || payload?.previewInteraction || '').trim();
             if (fitMode !== 'commit' && interaction !== 'click') return false;

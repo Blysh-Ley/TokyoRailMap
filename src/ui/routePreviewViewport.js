@@ -70,6 +70,7 @@ export const createRoutePreviewViewportController = ({
     getSelectedCompany = () => '',
     getEnabledLineIdsByCompany = () => new Map(),
     getStationCoord = () => null,
+    getViewportFitOptions = () => null,
     requestFrame = (callback) => requestAnimationFrame(callback)
 } = {}) => {
     if (!mapEngine) {
@@ -152,6 +153,13 @@ export const createRoutePreviewViewportController = ({
         if (!isAdaptiveViewportEnabled?.()) return;
         const bounds = bboxToFitBounds(bbox);
         if (!bounds) return;
+        const viewportOptions = getViewportFitOptions(options);
+        if (viewportOptions) {
+            mapEngine.fitBoundsWithViewport(bounds, {
+                duration: 280, easing: (t) => t, essential: true, ...viewportOptions
+            });
+            return;
+        }
         const ignoreTripDetail = options?.ignoreTripDetailInset === true;
 
         const base = 50;
@@ -251,9 +259,11 @@ export const createRoutePreviewViewportController = ({
     const scheduleFit = (key, bbox, options = {}) => {
         if (!isAdaptiveViewportEnabled?.()) return;
         if (!bbox) return;
-        const padding = getFitPadding(options?.paddingMode, options);
+        const viewportOptions = getViewportFitOptions(options);
+        const padding = viewportOptions?.padding || getFitPadding(options?.paddingMode, options);
         const ignoreTripDetailSig = options?.ignoreTripDetailInset === true ? '1' : '0';
-        const paddingSig = `${ignoreTripDetailSig}|l${padding.left}|r${padding.right}|t${padding.top}|b${padding.bottom}`;
+        const viewportSig = viewportOptions ? `|${viewportOptions.viewportKey}|z${viewportOptions.minTargetZoom}` : '';
+        const paddingSig = `${ignoreTripDetailSig}|l${padding.left}|r${padding.right}|t${padding.top}|b${padding.bottom}${viewportSig}`;
         if (key && key === lastFitKey && paddingSig === lastFitPaddingSig) return;
 
         pendingFit = { key, bbox, options, padding, paddingSig };
@@ -279,6 +289,11 @@ export const createRoutePreviewViewportController = ({
                 essential: true
             };
             if (Number.isFinite(next.options?.maxZoom)) fitOptions.maxZoom = next.options.maxZoom;
+            const currentViewportOptions = getViewportFitOptions(next.options);
+            if (currentViewportOptions) {
+                mapEngine.fitBoundsWithViewport(bounds, { ...fitOptions, ...currentViewportOptions });
+                return;
+            }
             mapEngine.fitBounds(bounds, fitOptions);
         });
     };

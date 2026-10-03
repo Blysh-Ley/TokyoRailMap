@@ -95,7 +95,8 @@ export const buildMobileTripFitPadding = ({ width = 0, height = 0 } = {}) => {
 
 export const createMobileTripFitBoundsController = ({
     mapEngine,
-    getStationCoord = () => null
+    getStationCoord = () => null,
+    getViewportFitOptions = () => null
 } = {}) => {
     const fitTripPayload = (payload = {}) => {
         const stationIds = collectMobileTripFitStationIds(payload);
@@ -111,12 +112,15 @@ export const createMobileTripFitBoundsController = ({
         const bounds = bboxToBounds(bbox);
         if (!bounds) return false;
 
-        mapEngine?.fitBounds?.(bounds, {
+        const viewportOptions = getViewportFitOptions();
+        const fitOptions = {
             padding: buildMobileTripFitPadding(resolveMapViewportSize(mapEngine)),
             duration: 300,
             easing: (t) => t,
             essential: true
-        });
+        };
+        if (viewportOptions) mapEngine?.fitBoundsWithViewport?.(bounds, { ...fitOptions, ...viewportOptions });
+        else mapEngine?.fitBounds?.(bounds, fitOptions);
         return true;
     };
 

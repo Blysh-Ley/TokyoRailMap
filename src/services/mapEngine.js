@@ -542,6 +542,32 @@ const createStationLabelFrameRuntime = (map, version, { onFallback } = {}) => {
         getRecords: () => active ? captureRecords?.() || [] : null };
 };
 
+export const fitMapBoundsWithMinimumZoom = (map, maplibregl, bounds, options = {}) => {
+    const { minTargetZoom, viewportKey, ...fitOptions } = options;
+    if (!Number.isFinite(minTargetZoom)) return map.fitBounds(bounds, fitOptions);
+    const camera = map.cameraForBounds(bounds, fitOptions);
+    if (!camera || !Number.isFinite(camera.zoom)) return false;
+    const maxZoom = Number.isFinite(fitOptions.maxZoom) ? Math.min(fitOptions.maxZoom, map.getMaxZoom()) : map.getMaxZoom();
+    const zoom = Math.min(maxZoom, Math.max(camera.zoom, minTargetZoom, map.getMinZoom()));
+    if (zoom === camera.zoom) return map.fitBounds(bounds, fitOptions);
+
+    const box = maplibregl.LngLatBounds.convert(bounds);
+    const sw = maplibregl.MercatorCoordinate.fromLngLat(box.getSouthWest());
+    const ne = maplibregl.MercatorCoordinate.fromLngLat(box.getNorthEast());
+    const point = maplibregl.MercatorCoordinate.fromLngLat(camera.center);
+    const midX = (sw.x + ne.x) / 2;
+    const midY = (sw.y + ne.y) / 2;
+    const scale = 2 ** (camera.zoom - zoom);
+    const center = new maplibregl.MercatorCoordinate(
+        midX + (point.x - midX) * scale,
+        midY + (point.y - midY) * scale
+    ).toLngLat();
+    // The fitted center already includes asymmetric padding; keep its screen anchor at the clamped zoom.
+    const { padding, offset, ...animationOptions } = fitOptions;
+    const target = { ...animationOptions, ...camera, center, zoom };
+    return fitOptions.linear ? map.easeTo(target) : map.flyTo(target);
+};
+
 export const createMapEngine = ({ maplibregl, container, center, zoom, style, localIdeographFontFamily = 'sans-serif', stationCircleFrameRendering = false, stationCircleFrameLayerOrderSync = false, transferCapsuleFrameRendering = false, stationLabelFrameAnchors = false, stationFrameFallbackNotifications = false } = {}) => {
     if (!maplibregl?.Map) {
         throw new Error('MapLibre GL JS is not available');
@@ -871,6 +897,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         addControl: (...args) => map.addControl(...args),
         easeTo: (...args) => map.easeTo?.(...args),
         fitBounds: (...args) => map.fitBounds(...args),
+        fitBoundsWithViewport: (bounds, options) => fitMapBoundsWithMinimumZoom(map, maplibregl, bounds, options),
         flyTo: (...args) => map.flyTo(...args),
         jumpTo: (...args) => map.jumpTo?.(...args),
         resize: (...args) => map.resize(...args),

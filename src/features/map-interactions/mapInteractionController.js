@@ -211,6 +211,7 @@ export const bindStationClickHighlightServingLines = ({
     onHeatmapStationClick,
     setStationVisualHighlight,
     openPanelForStationWithAutoScroll,
+    fitSelectedStation = null,
     deferPanelHeavyRender = false,
     getServingLineIdsFromStationProps,
     recordStationHistory,
@@ -272,6 +273,7 @@ export const bindStationClickHighlightServingLines = ({
             autoScroll: hadStationSelection,
             deferHeavyRender: deferPanelHeavyRender === true
         });
+        fitSelectedStation?.(stationId);
 
         try {
             const ids = getServingLineIdsFromStationProps?.(props) || [];
