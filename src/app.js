@@ -1,3 +1,5 @@
+import { createTransferCapsuleOffsetVisualSampler } from './debug/transferCapsuleOffsetVisualSampler.js';
+import { buildTransferCapsuleFrameGeometry } from './domain/transferCapsuleFrameGeometry.js';
 import { buildStationFrameGeometry } from './domain/stationFrameGeometry.js';
 import {
     COMPANY_LOGO_BASE_PATH,
@@ -350,11 +352,13 @@ export const getTransferStationIdsByStationId = async (stationId) => {
     return new Set(Array.from(groupSet).map((x) => String(x || '').trim()).filter(Boolean));
 };
 
+const transferCapsuleFrameRendering = new URLSearchParams(window.location.search).get('transferCapsuleRenderer') !== 'legacy';
 const mapEngine = createMapEngine({
     maplibregl,
     container: 'map',
     stationCircleFrameRendering: new URLSearchParams(window.location.search).get('stationCircleRenderer') !== 'legacy',
     stationCircleFrameLayerOrderSync: true,
+    transferCapsuleFrameRendering,
     center: [139.767, 35.681],
     zoom: 11,
     style: {
@@ -366,9 +370,11 @@ const mapEngine = createMapEngine({
 });
 const map = mapEngine.getMap();
 let sampleStationOffsetVisuals = null;
+let sampleTransferCapsuleVisuals = null;
 const stationOffsetPerformanceProbe = registerStationOffsetPerformanceProbe({
     mapEngine,
     sampleRenderedOffsets: () => sampleStationOffsetVisuals?.() || { status: 'unavailable', reason: 'not-ready' },
+    sampleRenderedCapsules: () => sampleTransferCapsuleVisuals?.() || { status: 'unavailable', reason: 'not-ready' },
     target: window,
     autoStart: new URLSearchParams(window.location.search).get('stationOffsetPerf') === '1'
 });
@@ -4901,10 +4907,14 @@ const initMapApp = async () => {
         }
 
         addStationsLayer(mapEngine, stationsData);
+        sampleTransferCapsuleVisuals = createTransferCapsuleOffsetVisualSampler({ mapEngine,
+            baseStationsGeoJSON: stationsData, stationOffsetAlgorithmContext, buildStationOffsetGeoJSONAtZoom });
+        const stationFrameGeometry = buildStationFrameGeometry(stationsData, stationOffsetAlgorithmContext);
         mapEngine.installStationCircleFrameRenderer({
-            geometry: buildStationFrameGeometry(stationsData, stationOffsetAlgorithmContext),
+            geometry: stationFrameGeometry,
             getMode: () => stationOffsetMode
         });
+        mapEngine.installTransferCapsuleFrameRenderer({ getMode: () => stationOffsetMode });
         addStationLabelsLayer(mapEngine, buildStationLabelGeoJSON(stationsData));
         const lineNameLabelsData = generatedLineNameLabelsData || loadedGeoData?.lineNameLabelsGeoJSON || EMPTY_LINE_NAME_LABELS_DATA;
         generatedLineNameLabelsData = lineNameLabelsData;
@@ -5106,7 +5116,7 @@ const initMapApp = async () => {
                     stationGroups,
                     visibleStationIds: options.visibleStationIds
                 });
-                return buildTransferCapsuleGeoJSON(
+                const data = buildTransferCapsuleGeoJSON(
                     injection?.stationsData || stationsGeoJSON,
                     injection?.stationGroups || stationGroups,
                     {
@@ -5114,14 +5124,23 @@ const initMapApp = async () => {
                         visibleStationIds: injection?.visibleStationIds || options.visibleStationIds
                     }
                 );
+                if (transferCapsuleFrameRendering) data.frameGeometry = buildTransferCapsuleFrameGeometry(data, stationFrameGeometry, {
+                    stationsData: injection?.stationsData || stationsGeoJSON,
+                    fixedConnectionsByGroupId: options.fixedConnectionsByGroupId,
+                    previewLineFeatures: injection ? getCurrentTripPreviewAggregateLineFeatures() : [],
+                    previewProjectionOptions: { buildOffsetPolylinePixelsWithMiter, getLineOffsetPixelsPerUnitAtZoom,
+                        nearestProjectionOnPolylinePixels, projectLngLatToPixelAtZoom12, unprojectPixelToLngLatAtZoom12 }
+                });
+                return data;
             },
             renderTransferCapsules: (transferCapsuleData) => {
-                addTransferCapsuleLayers(mapEngine, transferCapsuleData, {
+                const ids = addTransferCapsuleLayers(mapEngine, transferCapsuleData, {
                     beforeLayerId: 'stations-layer',
                     minZoom: 8,
                     highlightStyle: shouldUseHighlightStyle(),
                     latestSourceUpdates: true
                 });
+                mapEngine.updateTransferCapsuleFrameRenderer({ ids, frameGeometry: transferCapsuleData.frameGeometry });
             },
             resolveTransferCapsuleLineColor: (lineId) => {
                 const id = String(lineId || '').trim();

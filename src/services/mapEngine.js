@@ -1,3 +1,4 @@
+import { createTransferCapsuleFrameRenderer } from './transferCapsuleFrameRenderer.js';
 import { createStationCircleFrameRenderer } from './stationCircleFrameRenderer.js';
 import { DEFAULT_BASEMAP_MODE, normalizeBasemapMode } from '../domain/basemapMode.js';
 import {
@@ -260,7 +261,89 @@ const createStationCircleFrameRuntime = (map) => {
     return { install, setVisibility, getRecords: () => renderer?.isActive() ? renderer.getRecords() : null };
 };
 
-export const createMapEngine = ({ maplibregl, container, center, zoom, style, localIdeographFontFamily = 'sans-serif', stationCircleFrameRendering = false, stationCircleFrameLayerOrderSync = false } = {}) => {
+// Optional stage-two adapter. Retained native layers remain the style/filter
+// authority and export sources; the new service draws their current-frame shape.
+const createTransferCapsuleFrameRuntime = (map) => {
+    let configuration = null;
+    let renderer = null;
+    let geometry = [];
+    let styles = [];
+    let frozenZoom = map.getZoom();
+    let previousMode = 'dynamic';
+    const visibility = new Map();
+    const restore = () => {
+        for (const [id, value] of visibility) {
+            try { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', value); } catch {}
+        }
+    };
+    const hide = () => {
+        for (const style of styles) {
+            if (!visibility.has(style.id)) visibility.set(style.id, map.getLayer(style.id)?.visibility || 'visible');
+            if (map.getLayer(style.id)?.visibility !== 'none') map.setLayoutProperty(style.id, 'visibility', 'none');
+        }
+    };
+    const synchronizeOrder = () => {
+        const anchor = map.getLayer('station-circles-frame-layer') ? 'station-circles-frame-layer' : 'stations-layer';
+        const order = map.style?._order;
+        if (!renderer || !map.getLayer(renderer.layer.id) || !map.getLayer(anchor) || !Array.isArray(order)) return;
+        if (order.indexOf(renderer.layer.id) !== order.indexOf(anchor) - 1) map.moveLayer(renderer.layer.id, anchor);
+    };
+    const getFrame = () => {
+        const zoom = map.getZoom();
+        const mode = configuration?.getMode?.() || 'dynamic';
+        if (mode !== previousMode) { frozenZoom = zoom; previousMode = mode; }
+        return { zoom, mode, frozenZoom, width: map.transform.width, height: map.transform.height,
+            cameraDistance: map.transform.cameraToCenterDistance, centerMercatorX: (map.getCenter().lng + 180) / 360,
+            styles: styles.map((style) => {
+                const layer = map.getLayer(style.id);
+                const paint = (name, feature) => {
+                    const value = layer.paint.get(name);
+                    return typeof value?.evaluate === 'function' ? value.evaluate({ type: style.type === 'line' ? 2 : 1, properties: feature.properties }, {}) : value;
+                };
+                const prefix = style.type;
+                return { ...style, filter: layer.filter,
+                    visible: visibility.get(style.id) !== 'none' && zoom >= (layer.minzoom ?? 0) && zoom < (layer.maxzoom ?? 24),
+                    evaluate: (feature) => ({
+                        radius: style.type === 'line' ? paint('line-width', feature) / 2 : paint('circle-radius', feature),
+                        opacity: paint(`${prefix}-opacity`, feature), color: paint(`${prefix}-color`, feature),
+                        pitchScale: style.type === 'circle' ? paint('circle-pitch-scale', feature) : 'viewport'
+                    }) };
+            }) };
+    };
+    const install = (options) => {
+        if (configuration) return configuration;
+        configuration = options;
+        frozenZoom = map.getZoom(); previousMode = options.getMode?.() || 'dynamic';
+        map.on('zoomend', () => { frozenZoom = map.getZoom(); });
+        map.on('styledata', synchronizeOrder);
+        return configuration;
+    };
+    const update = ({ ids, frameGeometry }) => {
+        if (!configuration || !frameGeometry) return null;
+        geometry = frameGeometry;
+        styles = [
+            { id: ids.slaveOutlineLayerId, role: 'line', type: 'line' },
+            { id: ids.slaveInnerLayerId, role: 'line', type: 'line' },
+            { id: ids.fallbackCircleOutlineLayerId, role: 'fallback', type: 'circle' },
+            { id: ids.fallbackCircleInnerLayerId, role: 'fallback', type: 'circle' },
+            { id: ids.dotLayerId, role: 'dot', type: 'circle' }
+        ];
+        if (!renderer) {
+            if (styles.some((style) => !map.getLayer(style.id)?.paint?.get)) return null;
+            renderer = createTransferCapsuleFrameRenderer({ getFrame, getGeometry: () => geometry,
+                onReady: hide, onDetach: restore,
+                onFailure: (error) => { console.warn('当前帧换乘胶囊绘制失败，回退到原胶囊图层', error); restore(); map.triggerRepaint(); } });
+            map.addLayer(renderer.layer, map.getLayer('station-circles-frame-layer') ? 'station-circles-frame-layer' : 'stations-layer');
+        }
+        if (renderer.isActive()) { hide(); synchronizeOrder(); map.triggerRepaint(); }
+        return renderer;
+    };
+    return { install, update, owns: (id) => visibility.has(id),
+        setVisibility: (id, value) => { visibility.set(id, value || 'visible'); map.setLayoutProperty(id, 'visibility', renderer?.isActive() ? 'none' : visibility.get(id)); },
+        getRecords: () => renderer?.isActive() ? renderer.getRecords() : null };
+};
+
+export const createMapEngine = ({ maplibregl, container, center, zoom, style, localIdeographFontFamily = 'sans-serif', stationCircleFrameRendering = false, stationCircleFrameLayerOrderSync = false, transferCapsuleFrameRendering = false } = {}) => {
     if (!maplibregl?.Map) {
         throw new Error('MapLibre GL JS is not available');
     }
@@ -291,6 +374,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
     });
     const stationCircleFrameRuntime = stationCircleFrameRendering ? createStationCircleFrameRuntime(map) : null;
     if (stationCircleFrameLayerOrderSync) bindStationCircleFrameLayerOrderSync(map);
+    const transferCapsuleFrameRuntime = transferCapsuleFrameRendering ? createTransferCapsuleFrameRuntime(map) : null;
     const geoJsonSourcesReadyForDiff = new WeakSet();
     const latestGeoJsonUpdateStateBySource = new WeakMap();
     const observesGeoJsonSourceReadiness = typeof map.on === 'function';
@@ -550,6 +634,9 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         getMap: () => map,
         installStationCircleFrameRenderer: (options) => stationCircleFrameRuntime?.install(options) || null,
         getRenderedStationCircles: () => stationCircleFrameRuntime?.getRecords() || null,
+        installTransferCapsuleFrameRenderer: (options) => transferCapsuleFrameRuntime?.install(options) || null,
+        updateTransferCapsuleFrameRenderer: (options) => transferCapsuleFrameRuntime?.update(options) || null,
+        getRenderedTransferCapsules: () => transferCapsuleFrameRuntime?.getRecords() || null,
         addMetricScaleControl: ({ maxWidth = 100, position = 'bottom-left' } = {}) => {
             map.addControl(
                 new maplibregl.ScaleControl({ maxWidth, unit: 'metric' }),
@@ -576,7 +663,9 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         project: (...args) => map.project(...args),
         setPaintProperty: (...args) => map.setPaintProperty(...args),
         setLayoutProperty: (...args) => args[0] === 'stations-layer' && args[1] === 'visibility' && stationCircleFrameRuntime
-            ? stationCircleFrameRuntime.setVisibility(args[2]) : map.setLayoutProperty(...args),
+            ? stationCircleFrameRuntime.setVisibility(args[2])
+            : args[1] === 'visibility' && transferCapsuleFrameRuntime?.owns(args[0])
+                ? transferCapsuleFrameRuntime.setVisibility(args[0], args[2]) : map.setLayoutProperty(...args),
         setFilter: (...args) => map.setFilter(...args),
         moveLayer: (...args) => map.moveLayer(...args),
         addSource: (...args) => map.addSource(...args),
@@ -617,6 +706,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         setLayerVisibility: (layerId, visible = true) => {
             if (!layerId || !map.getLayer(layerId)) return false;
             if (layerId === 'stations-layer' && stationCircleFrameRuntime) stationCircleFrameRuntime.setVisibility(visible === false ? 'none' : 'visible');
+            else if (transferCapsuleFrameRuntime?.owns(layerId)) transferCapsuleFrameRuntime.setVisibility(layerId, visible === false ? 'none' : 'visible');
             else map.setLayoutProperty(layerId, 'visibility', visible === false ? 'none' : 'visible');
             return true;
         },
