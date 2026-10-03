@@ -1481,7 +1481,8 @@ export function createPanel(options = {}) {
         }
 
         const lineHeaderEl = body.querySelector?.('.panel-line:not(.is-direction-focus-hidden) .panel-line-header');
-        const lineHeaderHeight = Math.ceil(Number(lineHeaderEl?.getBoundingClientRect?.()?.height) || 0);
+        // Preserve fractional CSS pixels so adjacent sticky headers do not leave transparent gaps.
+        const lineHeaderHeight = Number(lineHeaderEl?.getBoundingClientRect?.()?.height) || 0;
         if (lineHeaderHeight > 0) {
             body.style.setProperty('--panel-focus-line-header-height', `${lineHeaderHeight}px`);
         } else {
@@ -1489,7 +1490,7 @@ export function createPanel(options = {}) {
         }
 
         const dirHeaderEl = body.querySelector?.('.panel-line:not(.is-direction-focus-hidden) .panel-dir-header[data-dir-key]');
-        const dirHeaderHeight = Math.ceil(Number(dirHeaderEl?.getBoundingClientRect?.()?.height) || 0);
+        const dirHeaderHeight = Number(dirHeaderEl?.getBoundingClientRect?.()?.height) || 0;
         if (dirHeaderHeight > 0) {
             body.style.setProperty('--panel-focus-dir-header-height', `${dirHeaderHeight}px`);
         } else {
