@@ -171,7 +171,7 @@ export const bindStationCircleFrameLayerOrderSync = (map) => {
 
 // Optional adapter for the first rendering stage. The retained circle layer is
 // the style/filter authority; only its presentation and hit geometry are replaced.
-const createStationCircleFrameRuntime = (map) => {
+const createStationCircleFrameRuntime = (map, { onFallback } = {}) => {
     let renderer = null;
     let visibility = 'visible';
     const nativeQuery = map.queryRenderedFeatures.bind(map);
@@ -213,6 +213,7 @@ const createStationCircleFrameRuntime = (map) => {
         map.on('zoomend', () => { frozenZoom = map.getZoom(); });
         const onFailure = (error) => {
             console.warn('当前帧站点绘制失败，回退到原站点图层', error);
+            onFallback?.();
             map.setLayoutProperty('stations-layer', 'visibility', visibility);
             map.triggerRepaint();
         };
@@ -223,6 +224,7 @@ const createStationCircleFrameRuntime = (map) => {
                 map.setLayoutProperty('stations-layer', 'visibility', 'none');
             },
             onDetach: () => {
+                onFallback?.();
                 try {
                     if (map.getLayer('stations-layer')) map.setLayoutProperty('stations-layer', 'visibility', visibility);
                 } catch {
@@ -260,12 +262,14 @@ const createStationCircleFrameRuntime = (map) => {
         }
         return renderer;
     };
-    return { install, setVisibility, getRecords: () => renderer?.isActive() ? renderer.getRecords() : null };
+    return { install, setVisibility,
+        isActive: () => renderer?.isActive() === true && Boolean(map.getLayer(renderer.layer.id)),
+        getRecords: () => renderer?.isActive() ? renderer.getRecords() : null };
 };
 
 // Optional stage-two adapter. Retained native layers remain the style/filter
 // authority and export sources; the new service draws their current-frame shape.
-const createTransferCapsuleFrameRuntime = (map) => {
+const createTransferCapsuleFrameRuntime = (map, { onFallback } = {}) => {
     let configuration = null;
     let renderer = null;
     let geometry = [];
@@ -333,14 +337,15 @@ const createTransferCapsuleFrameRuntime = (map) => {
         if (!renderer) {
             if (styles.some((style) => !map.getLayer(style.id)?.paint?.get)) return null;
             renderer = createTransferCapsuleFrameRenderer({ getFrame, getGeometry: () => geometry,
-                onReady: hide, onDetach: restore,
-                onFailure: (error) => { console.warn('当前帧换乘胶囊绘制失败，回退到原胶囊图层', error); restore(); map.triggerRepaint(); } });
+                onReady: hide, onDetach: () => { restore(); onFallback?.(); },
+                onFailure: (error) => { console.warn('当前帧换乘胶囊绘制失败，回退到原胶囊图层', error); restore(); onFallback?.(); map.triggerRepaint(); } });
             map.addLayer(renderer.layer, map.getLayer('station-circles-frame-layer') ? 'station-circles-frame-layer' : 'stations-layer');
         }
         if (renderer.isActive()) { hide(); synchronizeOrder(); map.triggerRepaint(); }
         return renderer;
     };
     return { install, update, owns: (id) => visibility.has(id),
+        isActive: () => renderer?.isActive() === true && Boolean(map.getLayer(renderer.layer.id)),
         setVisibility: (id, value) => { visibility.set(id, value || 'visible'); map.setLayoutProperty(id, 'visibility', renderer?.isActive() ? 'none' : visibility.get(id)); },
         getRecords: () => renderer?.isActive() ? renderer.getRecords() : null };
 };
@@ -348,7 +353,7 @@ const createTransferCapsuleFrameRuntime = (map) => {
 // MapLibre 3.6.2 point symbols use Float32 dynamic anchor attributes for both
 // glyphs and fitted backgrounds. Keep native shaping, collision, fading, paint
 // and source/export data; synchronize these attributes immediately before draw.
-const createStationLabelFrameRuntime = (map, version) => {
+const createStationLabelFrameRuntime = (map, version, { onFallback } = {}) => {
     const id = 'station-label-anchors-frame-layer';
     const labelId = 'station-labels-layer';
     let active = false;
@@ -380,6 +385,7 @@ const createStationLabelFrameRuntime = (map, version) => {
         records = [];
         restore();
         console.warn('站名当前帧锚点同步不可用，回退到原站名绘制', error);
+        onFallback?.();
     };
     const install = ({ geometry, stationLabels, getMode }) => {
         if (renderFrame || version !== '3.6.2') return null;
@@ -500,7 +506,7 @@ const createStationLabelFrameRuntime = (map, version) => {
         };
         map.addLayer({ id, type: 'custom', renderingMode: '2d',
             onAdd: () => { active = true; if (query) map.queryRenderedFeatures = query; }, render: renderFrame,
-            onRemove: () => { active = false; records = []; restore(); map.off('styledata', synchronizeOrder); } }, labelId);
+            onRemove: () => { active = false; records = []; restore(); onFallback?.(); map.off('styledata', synchronizeOrder); } }, labelId);
         const nativeQuery = map.queryRenderedFeatures.bind(map);
         // Retain native collision/filter hit testing, translating each queried
         // region back to its retained anchor. Clicks follow the displayed label.
@@ -532,10 +538,11 @@ const createStationLabelFrameRuntime = (map, version) => {
         map.queryRenderedFeatures = query;
         return { isActive: () => active };
     };
-    return { install, getRecords: () => active ? captureRecords?.() || [] : null };
+    return { install, isActive: () => active && Boolean(map.getLayer(id)) && Boolean(map.getLayer(labelId)),
+        getRecords: () => active ? captureRecords?.() || [] : null };
 };
 
-export const createMapEngine = ({ maplibregl, container, center, zoom, style, localIdeographFontFamily = 'sans-serif', stationCircleFrameRendering = false, stationCircleFrameLayerOrderSync = false, transferCapsuleFrameRendering = false, stationLabelFrameAnchors = false } = {}) => {
+export const createMapEngine = ({ maplibregl, container, center, zoom, style, localIdeographFontFamily = 'sans-serif', stationCircleFrameRendering = false, stationCircleFrameLayerOrderSync = false, transferCapsuleFrameRendering = false, stationLabelFrameAnchors = false, stationFrameFallbackNotifications = false } = {}) => {
     if (!maplibregl?.Map) {
         throw new Error('MapLibre GL JS is not available');
     }
@@ -564,10 +571,21 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         attributionControl: false,
         localIdeographFontFamily
     });
-    const stationCircleFrameRuntime = stationCircleFrameRendering ? createStationCircleFrameRuntime(map) : null;
+    // Deliver fallback after drawing, so source updates never run inside GL render.
+    let stationFrameFallbackQueued = false;
+    const notifyStationFrameFallback = () => {
+        if (stationFrameFallbackQueued) return;
+        stationFrameFallbackQueued = true;
+        queueMicrotask(() => {
+            stationFrameFallbackQueued = false;
+            if (!map._removed) map.fire('stationframefallback');
+        });
+    };
+    const frameRuntimeOptions = stationFrameFallbackNotifications ? { onFallback: notifyStationFrameFallback } : undefined;
+    const stationCircleFrameRuntime = stationCircleFrameRendering ? createStationCircleFrameRuntime(map, frameRuntimeOptions) : null;
     if (stationCircleFrameLayerOrderSync) bindStationCircleFrameLayerOrderSync(map);
-    const transferCapsuleFrameRuntime = transferCapsuleFrameRendering ? createTransferCapsuleFrameRuntime(map) : null;
-    const stationLabelFrameRuntime = stationLabelFrameAnchors ? createStationLabelFrameRuntime(map, maplibregl.version) : null;
+    const transferCapsuleFrameRuntime = transferCapsuleFrameRendering ? createTransferCapsuleFrameRuntime(map, frameRuntimeOptions) : null;
+    const stationLabelFrameRuntime = stationLabelFrameAnchors ? createStationLabelFrameRuntime(map, maplibregl.version, frameRuntimeOptions) : null;
     const geoJsonSourcesReadyForDiff = new WeakSet();
     const latestGeoJsonUpdateStateBySource = new WeakMap();
     const observesGeoJsonSourceReadiness = typeof map.on === 'function';
@@ -825,6 +843,12 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
 
     return {
         getMap: () => map,
+        canDeferStationOffsetVisualData: () => stationCircleFrameRuntime?.isActive() === true
+            && transferCapsuleFrameRuntime?.isActive() === true && stationLabelFrameRuntime?.isActive() === true,
+        subscribeStationFrameFallback: (listener) => {
+            map.on('stationframefallback', listener);
+            return () => map.off('stationframefallback', listener);
+        },
         installStationCircleFrameRenderer: (options) => stationCircleFrameRuntime?.install(options) || null,
         getRenderedStationCircles: () => stationCircleFrameRuntime?.getRecords() || null,
         installTransferCapsuleFrameRenderer: (options) => transferCapsuleFrameRuntime?.install(options) || null,

@@ -361,6 +361,7 @@ const mapEngine = createMapEngine({
     stationCircleFrameLayerOrderSync: true,
     transferCapsuleFrameRendering,
     stationLabelFrameAnchors: new URLSearchParams(window.location.search).get('stationLabelAnchors') !== 'legacy',
+    stationFrameFallbackNotifications: new URLSearchParams(window.location.search).get('stationOffsetDataUpdates') !== 'legacy',
     center: [139.767, 35.681],
     zoom: 11,
     style: {
@@ -5165,6 +5166,9 @@ const initMapApp = async () => {
             initialStationOffsetMode: stationOffsetMode,
             stationOffsetVisualSyncStrategy: 'raf-latest',
             stationOffsetVisualUpdateStrategy: 'circle-fast-path',
+            stationOffsetDeferVisualData: new URLSearchParams(window.location.search).get('stationOffsetDataUpdates') !== 'legacy',
+            canDeferStationOffsetVisualData: () => mapEngine.canDeferStationOffsetVisualData(),
+            subscribeStationFrameFallback: (listener) => mapEngine.subscribeStationFrameFallback(listener),
             collisionConfig: {
                 transferGroupByStationId: transferStationIdsByStationId,
                 onCircleCollisionResolved: ({ visibleStationIds }) => {

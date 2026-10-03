@@ -41,6 +41,9 @@ export const createLayerFeature = ({
     initialStationOffsetMode = 'dynamic',
     stationOffsetVisualSyncStrategy = 'interval',
     stationOffsetVisualUpdateStrategy = 'legacy',
+    stationOffsetDeferVisualData = false,
+    canDeferStationOffsetVisualData,
+    subscribeStationFrameFallback,
     stationOffsetHighZoomCapsuleThreshold = DEFAULT_HIGH_ZOOM_CAPSULE_THRESHOLD,
     stationOffsetLowZoomCapsuleIntervalMs = DEFAULT_LOW_ZOOM_CAPSULE_INTERVAL_MS,
     requestFrame = globalThis.requestAnimationFrame,
@@ -51,6 +54,8 @@ export const createLayerFeature = ({
     stationLabelZoomEndDelayMs = DEFAULT_STATION_LABEL_ZOOMEND_DELAY_MS
 } = {}) => {
     let collisionController = null;
+    let deferredStationOffsetVisualData = false;
+    let unsubscribeStationFrameFallback = null;
     let currentStationOffsetVisualKey = null;
     let currentStationOffsetFinalKey = null;
     let currentStationOffsetGeoJSONKey = null;
@@ -410,6 +415,15 @@ export const createLayerFeature = ({
             return false;
         }
 
+        // Opt-in only: current-frame renderers already position all three
+        // elements. Keep the legacy sources for final sync and native fallback.
+        if (phase === 'visual' && useCircleFastPath && stationOffsetDeferVisualData
+            && canDeferStationOffsetVisualData?.() === true) {
+            deferredStationOffsetVisualData = true;
+            recordOutcome('frame-data-deferred');
+            return false;
+        }
+
         const stateKey = `offset-zoom:${z.toFixed(3)}`;
         if (phase === 'visual' && stateKey === currentStationOffsetVisualKey) {
             recordOutcome('visual-key-hit');
@@ -454,7 +468,10 @@ export const createLayerFeature = ({
         currentStationOffsetGeoJSON = nextGeoJSON;
         currentStationOffsetGeoJSONKey = stateKey;
         if (updateVisible) currentStationOffsetVisualKey = stateKey;
-        if (phase === 'final') currentStationOffsetFinalKey = stateKey;
+        if (phase === 'final') {
+            currentStationOffsetFinalKey = stateKey;
+            deferredStationOffsetVisualData = false;
+        }
         stationOffsetPerformanceProbe?.recordOffsetApplied?.({
             zoom: z,
             phase,
@@ -480,6 +497,13 @@ export const createLayerFeature = ({
         if (typeof createStationOffsetRuntimeController !== 'function') return null;
         stationOffsetPerformanceProbe?.setContext?.({ stationOffsetMode: String(initialMode || 'dynamic') });
         stationOffsetRuntimeController?.destroy?.();
+        unsubscribeStationFrameFallback?.();
+        unsubscribeStationFrameFallback = stationOffsetDeferVisualData
+            ? subscribeStationFrameFallback?.(() => {
+                if (!deferredStationOffsetVisualData) return;
+                syncStationOffsetForZoom(getZoom?.(), { phase: 'final', reason: 'frame-fallback', force: true });
+            })
+            : null;
         stationOffsetRuntimeController = createStationOffsetRuntimeController({
             getZoom,
             initialMode,
@@ -512,6 +536,9 @@ export const createLayerFeature = ({
         clearStationLabelGeoJSONFlush();
         clearLowZoomCapsuleRefresh();
         pendingStationLabelGeoJSON = null;
+        unsubscribeStationFrameFallback?.();
+        unsubscribeStationFrameFallback = null;
+        deferredStationOffsetVisualData = false;
         stationOffsetRuntimeController?.destroy?.();
         stationOffsetRuntimeController = null;
     };
