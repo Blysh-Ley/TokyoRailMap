@@ -115,9 +115,20 @@ export const layoutLineServiceDiagram = (data, stationSizes) => {
     const columnX = new Map([[columns[0], 0]]);
     for (let index = 1; index < columns.length; index += 1) {
         const previous = columns[index - 1], column = columns[index];
-        const labelRight = Math.max(...[...positions].filter(([, point]) => point.column === previous).map(([id, point]) => point.rightTrackOffset + 6 + size(id).labelWidth));
-        const transferWidth = Math.max(...[...positions].filter(([, point]) => point.column === column).map(([id]) => size(id).transferWidth));
-        columnX.set(column, columnX.get(previous) + Math.max(pitch, halfWidth + 28 + labelRight + transferWidth));
+        const previousPoints = [...positions].filter(([, point]) => point.column === previous);
+        const currentPoints = [...positions].filter(([, point]) => point.column === column);
+        const labelRight = Math.max(...previousPoints.map(([id, point]) => point.rightTrackOffset + 6 + size(id).labelWidth));
+        const transferWidth = Math.max(...currentPoints.map(([id]) => size(id).transferWidth));
+        let occupiedWidth = Math.max(laneWidth + 16, labelRight + halfWidth + 14);
+        for (const [leftId, leftPoint] of previousPoints) for (const [rightId, rightPoint] of currentPoints) {
+            const leftSize = size(leftId), rightSize = size(rightId);
+            if (Math.abs(leftPoint.y - rightPoint.y) < (leftSize.height + rightSize.height) / 2 + 4) {
+                occupiedWidth = Math.max(occupiedWidth, leftPoint.rightTrackOffset + 6 + leftSize.labelWidth + halfWidth + 14 + rightSize.transferWidth);
+            }
+        }
+        // 保留同高站名、轨迹和换乘的宽度，其余横向留白缩至原来的三分之一。
+        const previousGap = Math.max(pitch, halfWidth + 28 + labelRight + transferWidth);
+        columnX.set(column, columnX.get(previous) + occupiedWidth + (previousGap - occupiedWidth) / 3);
     }
     // 横向区域相交的站名和换乘徽标错开行，分支保持靠近主干。
     const boxes = [];

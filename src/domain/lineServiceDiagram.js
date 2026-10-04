@@ -73,7 +73,7 @@ export const buildLineServiceDiagramData = async ({
     const topology = buildStationTopology({ lineId, railways, stations, stationGroups, runs });
     const processed = buildServicePatterns(roots, runs, topology);
     const nodes = await buildDiagramTransfers({
-        stations: [...processed.stationIds].map(topology.station), stationGroups, railways, topology
+        stations: [...processed.stationIds].map(topology.station), stationGroups, topology
     });
     const edges = [...processed.edges.values()].map((edge) => ({ ...edge, lineIds: [...edge.lineIds] }));
     const line = topology.lineById.get(lineId);
