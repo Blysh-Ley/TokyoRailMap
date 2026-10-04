@@ -5,6 +5,12 @@ export const layoutLineServiceDiagram = (data, stationSizes) => {
     const backboneIndex = new Map(backbone.map((id, index) => [id, index]));
     const laneWidth = Math.max(12, data.trainTypes.length * 12);
     const halfWidth = laneWidth / 2;
+    const rightTrackOffsets = new Map();
+    // 支线缺席的种别不占站名右侧空间，经过但不停车的种别仍计入轨迹边界。
+    data.trainTypes.forEach((type, index) => {
+        const offset = (index - (data.trainTypes.length - 1) / 2) * 12;
+        for (const direction of type.directions) for (const id of direction.stationIds) rightTrackOffsets.set(id, offset);
+    });
     const pitch = Math.max(240, laneWidth + 160);
     const turnHeight = Math.max(120, laneWidth + 72);
     const positions = new Map(backbone.map((id, index) => [id, { column: 0, y: index * 26 }]));
@@ -75,6 +81,7 @@ export const layoutLineServiceDiagram = (data, stationSizes) => {
         const before = positions.has(edge.from) ? edge.from : edge.to;
         place([positions.has(edge.from) ? edge.to : edge.from], before, null, 1);
     }
+    for (const [id, point] of positions) point.rightTrackOffset = rightTrackOffsets.get(id) ?? halfWidth - 6;
     const loops = new Set(data.topology.edges.filter((edge) => {
         const a = positions.get(edge.from), b = positions.get(edge.to);
         return a.column === b.column && [...positions].some(([id, point]) => id !== edge.from && id !== edge.to && point.column === a.column && point.y > Math.min(a.y, b.y) && point.y < Math.max(a.y, b.y));
@@ -108,9 +115,9 @@ export const layoutLineServiceDiagram = (data, stationSizes) => {
     const columnX = new Map([[columns[0], 0]]);
     for (let index = 1; index < columns.length; index += 1) {
         const previous = columns[index - 1], column = columns[index];
-        const labelWidth = Math.max(...[...positions].filter(([, point]) => point.column === previous).map(([id]) => size(id).labelWidth));
+        const labelRight = Math.max(...[...positions].filter(([, point]) => point.column === previous).map(([id, point]) => point.rightTrackOffset + 6 + size(id).labelWidth));
         const transferWidth = Math.max(...[...positions].filter(([, point]) => point.column === column).map(([id]) => size(id).transferWidth));
-        columnX.set(column, columnX.get(previous) + Math.max(pitch, laneWidth + 28 + labelWidth + transferWidth));
+        columnX.set(column, columnX.get(previous) + Math.max(pitch, halfWidth + 28 + labelRight + transferWidth));
     }
     // 横向区域相交的站名和换乘徽标错开行，分支保持靠近主干。
     const boxes = [];
@@ -118,7 +125,7 @@ export const layoutLineServiceDiagram = (data, stationSizes) => {
     for (const [id, point] of [...positions].sort((a, b) => a[1].y - b[1].y || a[1].column - b[1].column)) {
         const metrics = size(id), x = columnX.get(point.column);
         const left = x - halfWidth - 14 - metrics.transferWidth;
-        const right = x + halfWidth + metrics.labelWidth;
+        const right = x + point.rightTrackOffset + 6 + metrics.labelWidth;
         let y = point.y + extra;
         for (const box of boxes) if (left < box.right && right > box.left) {
             y = Math.max(y, box.y + (box.height + metrics.height) / 2 + 4);
@@ -138,7 +145,7 @@ export const layoutLineServiceDiagram = (data, stationSizes) => {
     }
     const mainPoints = backbone.map((id) => ({ ...positions.get(id), id }));
     const mainLeft = Math.min(...mainPoints.map((point) => point.x - halfWidth - 14 - size(point.id).transferWidth));
-    const mainRight = Math.max(...mainPoints.map((point) => point.x + halfWidth + size(point.id).labelWidth));
+    const mainRight = Math.max(...mainPoints.map((point) => point.x + point.rightTrackOffset + 6 + size(point.id).labelWidth));
     return {
         positions, loops, bends, laneWidth, width: right - left + margin * 2, height: bottom - top + margin * 2,
         loopX: margin + halfWidth,

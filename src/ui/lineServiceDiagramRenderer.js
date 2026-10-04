@@ -61,7 +61,7 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
     for (const station of data.topology.stations) {
         const point = layout.positions.get(station.id), metrics = sizes.get(station.id);
         const isTransfer = station.transfers.length > 0;
-        if (isTransfer) connectors.push(`<line class="route-map-diagram-transfer-line" x1="${point.x - layout.laneWidth / 2 - 8}" y1="${point.y}" x2="${point.x + laneOffset(types.length - 1)}" y2="${point.y}"/>`);
+        if (isTransfer) connectors.push(`<line class="route-map-diagram-transfer-line" x1="${point.x - layout.laneWidth / 2 - 8}" y1="${point.y}" x2="${point.x + point.rightTrackOffset}" y2="${point.y}"/>`);
         for (let index = 0; index < types.length; index += 1) {
             const stops = stopsByType[index];
             const up = stops.get(primary.id)?.has(station.id), down = secondary && stops.get(secondary.id)?.has(station.id);
@@ -80,7 +80,7 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
         }
         const meta = lineMeta.get(station.lineIds[0]);
         const badge = station.code ? createStationCodeBadgeElement({ code: station.code, color: mainStations.has(station.id) ? data.selectedLine.color : meta?.color, routeId: meta?.id || station.lineIds[0] }) : null;
-        labels.push(`<span class="${appendStationJumpClass('route-map-station route-map-diagram-station')}${mainStations.has(station.id) ? ' is-main-line' : ''}" data-station-id="${escapeHtml(station.id)}" data-panel-station-jump="1" role="button" tabindex="0" title="${escapeHtml(station.name)}" style="left:${point.x + layout.laneWidth / 2}px;top:${point.y}px">${iconHtml(badge)}<span>${escapeHtml(station.name)}</span></span>`);
+        labels.push(`<span class="${appendStationJumpClass('route-map-station route-map-diagram-station')}${mainStations.has(station.id) ? ' is-main-line' : ''}" data-station-id="${escapeHtml(station.id)}" data-panel-station-jump="1" role="button" tabindex="0" title="${escapeHtml(station.name)}" style="left:${point.x + point.rightTrackOffset + 6}px;top:${point.y}px">${iconHtml(badge)}<span>${escapeHtml(station.name)}</span></span>`);
         if (isTransfer) {
             const rows = transferRows(station.transfers.map(transferItem));
             transfers.push(`<span class="route-map-diagram-transfers" data-transfer-station="${escapeHtml(station.id)}" style="left:${point.x - layout.laneWidth / 2 - 14 - metrics.transferWidth}px;top:${point.y}px;width:${metrics.transferWidth}px"><span class="route-map-transfer-items-shell" tabindex="0" aria-label="${escapeHtml(station.name)}，换乘线路：${station.transfers.length}条"><span class="route-map-transfer-items route-map-transfer-items-main">${rows}</span><span class="route-map-transfer-hover-panel" role="tooltip"><span class="route-map-transfer-items route-map-transfer-items-popover">${rows}</span></span></span></span>`);
