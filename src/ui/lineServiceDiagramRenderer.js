@@ -99,10 +99,9 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
         return `<span class="route-map-diagram-line-label is-${label.side}" data-line-id="${escapeHtml(label.lineId)}" data-source-color="${escapeHtml(color)}" style="left:${label.x}px;top:${label.y}px;color:${escapeHtml(resolveColor(color))}">${iconHtml(icon, 30)}<span>${escapeHtml(line.name)}</span></span>`;
     });
     const legend = types.map((type) => `<span class="route-map-diagram-type" data-type-id="${escapeHtml(type.id)}" data-source-color="${escapeHtml(type.color)}" style="color:${escapeHtml(resolveColor(type.color))}"><i></i>${escapeHtml(type.name)}</span>`).join('');
-    const symbols = `<span>○ ${secondary ? '双向停车' : '停车'}</span>${secondary ? `<span>△ 仅${escapeHtml(primary.name)}停车</span><span>▽ 仅${escapeHtml(secondary.name)}停车</span>` : ''}`;
     return {
         layout,
-        headHtml: `<div class="route-map-diagram-legend">${legend}</div><div class="route-map-diagram-symbols">${symbols}</div><div class="route-map-diagram-controls"><button type="button" data-diagram-action="minus" aria-label="缩小线路图">−</button><button type="button" data-diagram-action="plus" aria-label="放大线路图">＋</button><button type="button" data-diagram-action="focus">居中</button><button type="button" data-diagram-action="fit">全图</button></div>`,
+        headHtml: `<div class="route-map-diagram-legend">${legend}</div>`,
         bodyHtml: `<div class="route-map-diagram-viewport" tabindex="0" aria-label="${escapeHtml(data.selectedLine.name)}种别停站图，可拖动和缩放"><div class="route-map-grid route-map-diagram-canvas" style="width:${layout.width}px;height:${layout.height}px"><svg class="route-map-diagram-svg" xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="全部种别、分支与停站轨迹"><g>${tracks.join('')}</g><g>${markers.join('')}</g><g>${connectors.join('')}${transferDots.join('')}</g></svg>${labels.join('')}${transfers.join('')}${lineLabels.join('')}</div></div>`
     };
 };

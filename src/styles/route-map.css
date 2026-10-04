@@ -763,9 +763,6 @@ html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
 .route-map-diagram-legend { display:flex; flex-wrap:wrap; gap:7px 14px; font-size:12px; }
 .route-map-diagram-type { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
 .route-map-diagram-type i { width:15px; height:10px; border-radius:2px; background:currentColor; }
-.route-map-diagram-symbols { display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; font-size:11px; color:var(--ui-text-subtle, #69707a); }
-.route-map-diagram-controls { display:flex; gap:5px; margin-top:8px; }
-.route-map-diagram-controls button { border:1px solid var(--ui-border); border-radius:5px; padding:3px 9px; background:var(--ui-surface, #fff); color:var(--ui-text); font-size:12px; cursor:pointer; min-height:28px; }
 .route-map-body.has-service-diagram { display:flex; flex-direction:column; overflow:hidden; min-height:160px; }
 .route-map-diagram-viewport { position:relative; overflow:clip; width:min(520px, calc(100vw - 64px)); height:min(48vh, 540px); min-height:0; flex:1 1 auto; touch-action:none; user-select:none; cursor:grab; outline:none; }
 .route-map-diagram-viewport:active { cursor:grabbing; }
@@ -790,7 +787,6 @@ html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
 .route-map-diagram-transfers .route-map-transfer-items { gap:2px; }
 .route-map-diagram-transfers .route-map-transfer-row { height:20px; }
 html[data-theme='dark'] .route-map-diagram-transfer-line { stroke:#fffa; }
-html.is-route-map-exporting .route-map-diagram-controls { display:none !important; }
 html.is-route-map-exporting .route-map-diagram-transfers .route-map-transfer-items-main { display:flex !important; }
 html.is-route-map-exporting .route-map-diagram-transfers .route-map-transfer-hover-panel { display:none !important; }
 

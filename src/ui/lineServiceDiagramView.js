@@ -1,6 +1,6 @@
 import { createLineServiceDiagramViewStore } from '../store/lineServiceDiagramViewStore.js';
 
-export const installLineServiceDiagramView = ({ root, header, viewport, layout, resolveColor, onMove }) => {
+export const installLineServiceDiagramView = ({ root, viewport, layout, resolveColor, onMove }) => {
     const canvas = viewport.querySelector('.route-map-diagram-canvas');
     const store = createLineServiceDiagramViewStore();
     const events = new AbortController();
@@ -16,18 +16,7 @@ export const installLineServiceDiagramView = ({ root, header, viewport, layout, 
         const scale = Math.min(1, (viewport.clientWidth - 24) / width);
         store.dispatch({ type: 'set', payload: { scale, x: (viewport.clientWidth - width * scale) / 2 - layout.mainBounds.left * scale, y: 24 - layout.mainBounds.top * scale } });
     };
-    const fit = () => {
-        const scale = Math.min((viewport.clientWidth - 24) / layout.width, (viewport.clientHeight - 24) / layout.height);
-        store.dispatch({ type: 'set', payload: { scale, x: (viewport.clientWidth - layout.width * scale) / 2, y: (viewport.clientHeight - layout.height * scale) / 2 } });
-    };
     const zoom = (factor, x = viewport.clientWidth / 2, y = viewport.clientHeight / 2) => store.dispatch({ type: 'zoom', payload: { factor, x, y } });
-    listen(header, 'click', (event) => {
-        const action = event.target.closest('[data-diagram-action]')?.dataset.diagramAction;
-        if (!action) return;
-        if (action === 'focus') focus();
-        else if (action === 'fit') fit();
-        else zoom(action === 'plus' ? 1.2 : 1 / 1.2);
-    });
     listen(viewport, 'wheel', (event) => {
         event.preventDefault();
         const bounds = viewport.getBoundingClientRect();

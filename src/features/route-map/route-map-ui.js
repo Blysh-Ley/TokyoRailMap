@@ -906,7 +906,7 @@ const setupRouteMapUi = () => {
             body.innerHTML = rendered.bodyHtml;
             body.classList.toggle('has-service-diagram', !!rendered.layout);
             if (rendered.layout) diagramView = installLineServiceDiagramView({
-                root, header: gridHeader, viewport: body.querySelector('.route-map-diagram-viewport'),
+                root, viewport: body.querySelector('.route-map-diagram-viewport'),
                 layout: rendered.layout, resolveColor: resolveColorForTheme, onMove: hideTransferHoverPortal
             });
         } catch (error) {
