@@ -8,8 +8,8 @@ export const createLineServiceDiagramViewStore = () => {
             if (action.type === 'set') state = { ...state, ...action.payload };
             else if (action.type === 'move') state = { ...state, x: state.x + action.payload.x, y: state.y + action.payload.y };
             else if (action.type === 'zoom') {
-                const { factor, x, y } = action.payload;
-                state = { scale: state.scale * factor, x: x - (x - state.x) * factor, y: y - (y - state.y) * factor };
+                const { factor, x, y, deltaX = 0, deltaY = 0 } = action.payload;
+                state = { scale: state.scale * factor, x: x - (x - state.x) * factor + deltaX, y: y - (y - state.y) * factor + deltaY };
             }
             for (const listener of listeners) listener(state);
         },

@@ -5,7 +5,13 @@ export const installLineServiceDiagramView = ({ root, viewport, layout, resolveC
     const store = createLineServiceDiagramViewStore();
     const events = new AbortController();
     const listen = (element, name, handler, options = {}) => element.addEventListener(name, handler, { ...options, signal: events.signal });
+    const pointers = new Map();
     let gesture = null, suppressClick = false, exporting = false;
+    const readPointers = () => {
+        const [first, second] = pointers.values();
+        return second ? { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2, distance: Math.hypot(second.x - first.x, second.y - first.y) }
+            : { x: first.x, y: first.y, distance: 0 };
+    };
     const render = (state) => {
         canvas.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
         onMove();
@@ -24,27 +30,45 @@ export const installLineServiceDiagramView = ({ root, viewport, layout, resolveC
     }, { passive: false });
     listen(viewport, 'pointerdown', (event) => {
         if (event.button !== 0) return;
-        gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, moved: false };
-        suppressClick = false;
+        pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (pointers.size === 1) {
+            gesture = { ...readPointers(), startX: event.clientX, startY: event.clientY, moved: false };
+            suppressClick = false;
+        } else {
+            gesture = { ...readPointers(), moved: true };
+            suppressClick = true;
+            for (const id of pointers.keys()) viewport.setPointerCapture(id);
+            event.preventDefault();
+        }
     });
     listen(viewport, 'pointermove', (event) => {
-        if (!gesture || event.pointerId !== gesture.id) return;
-        if (!gesture.moved && Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) < 6) return;
+        if (!pointers.has(event.pointerId)) return;
+        pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        const next = readPointers();
+        if (!gesture.moved && Math.hypot(next.x - gesture.startX, next.y - gesture.startY) < 6) return;
         gesture.moved = true;
         viewport.setPointerCapture(event.pointerId);
-        store.dispatch({ type: 'move', payload: { x: event.clientX - gesture.x, y: event.clientY - gesture.y } });
-        gesture.x = event.clientX;
-        gesture.y = event.clientY;
+        if (pointers.size > 1) {
+            const bounds = viewport.getBoundingClientRect();
+            const factor = gesture.distance > 0 && next.distance > 0 ? next.distance / gesture.distance : 1;
+            // 以两指上一帧的中点缩放，再跟随中点移动；同一次更新完成两种变换。
+            store.dispatch({ type: 'zoom', payload: { factor, x: gesture.x - bounds.left, y: gesture.y - bounds.top,
+                deltaX: next.x - gesture.x, deltaY: next.y - gesture.y } });
+        } else store.dispatch({ type: 'move', payload: { x: next.x - gesture.x, y: next.y - gesture.y } });
+        gesture = { ...gesture, ...next };
         event.preventDefault();
     });
     const endGesture = (event) => {
-        if (!gesture || event.pointerId !== gesture.id) return;
+        if (!pointers.has(event.pointerId)) return;
         suppressClick = gesture.moved;
+        pointers.delete(event.pointerId);
+        // 双指结束后用剩余手指的新位置作为基准，继续单指移动时不会跳动。
+        gesture = pointers.size ? { ...readPointers(), moved: gesture.moved } : null;
         if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
-        gesture = null;
     };
     listen(viewport, 'pointerup', endGesture);
     listen(viewport, 'pointercancel', endGesture);
+    listen(viewport, 'lostpointercapture', (event) => { if (event.target === viewport) endGesture(event); });
     listen(viewport, 'click', (event) => {
         if (!suppressClick) return;
         event.preventDefault();
