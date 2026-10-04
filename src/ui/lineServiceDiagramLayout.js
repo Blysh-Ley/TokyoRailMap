@@ -1,15 +1,20 @@
+import { planDiagramLineLabels } from './lineServiceDiagramLineLabels.js';
+
 // 布局只决定图形空间；种别、交路筛选和停站关系来自已处理的拓扑。
-export const layoutLineServiceDiagram = (data, stationSizes) => {
+export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map()) => {
     const stationById = new Map(data.topology.stations.map((station) => [station.id, station]));
     const backbone = (data.selectedLine.stationOrder.length ? data.selectedLine.stationOrder : data.routes[0]?.path || []).slice().reverse();
     const backboneIndex = new Map(backbone.map((id, index) => [id, index]));
     const laneWidth = Math.max(12, data.trainTypes.length * 12);
     const halfWidth = laneWidth / 2;
-    const rightTrackOffsets = new Map();
+    const rightTrackOffsets = new Map(), leftTrackOffsets = new Map();
     // 支线缺席的种别不占站名右侧空间，经过但不停车的种别仍计入轨迹边界。
     data.trainTypes.forEach((type, index) => {
         const offset = (index - (data.trainTypes.length - 1) / 2) * 12;
-        for (const direction of type.directions) for (const id of direction.stationIds) rightTrackOffsets.set(id, offset);
+        for (const direction of type.directions) for (const id of direction.stationIds) {
+            rightTrackOffsets.set(id, offset);
+            if (!leftTrackOffsets.has(id)) leftTrackOffsets.set(id, offset);
+        }
     });
     const pitch = Math.max(240, laneWidth + 160);
     const turnHeight = Math.max(120, laneWidth + 72);
@@ -81,7 +86,10 @@ export const layoutLineServiceDiagram = (data, stationSizes) => {
         const before = positions.has(edge.from) ? edge.from : edge.to;
         place([positions.has(edge.from) ? edge.to : edge.from], before, null, 1);
     }
-    for (const [id, point] of positions) point.rightTrackOffset = rightTrackOffsets.get(id) ?? halfWidth - 6;
+    for (const [id, point] of positions) {
+        point.rightTrackOffset = rightTrackOffsets.get(id) ?? halfWidth - 6;
+        point.leftTrackOffset = leftTrackOffsets.get(id) ?? -halfWidth + 6;
+    }
     const loops = new Set(data.topology.edges.filter((edge) => {
         const a = positions.get(edge.from), b = positions.get(edge.to);
         return a.column === b.column && [...positions].some(([id, point]) => id !== edge.from && id !== edge.to && point.column === a.column && point.y > Math.min(a.y, b.y) && point.y < Math.max(a.y, b.y));
@@ -143,10 +151,14 @@ export const layoutLineServiceDiagram = (data, stationSizes) => {
         }
         extra = y - point.y;
         point.y = y;
-        boxes.push({ left, right, y, height: metrics.height });
+        point.x = x;
+        boxes.push({ id, left, right, y, height: metrics.height });
     }
+    const loopRelativeX = Math.min(...boxes.map((box) => box.left)) - (loops.size ? laneWidth + 36 : 0) + halfWidth;
+    const lineLabels = planDiagramLineLabels(data, positions, lineSizes, boxes, { laneWidth, loops, loopX: loopRelativeX });
+    boxes.push(...lineLabels.map((label) => ({ left: label.x, right: label.x + label.width, y: label.y, height: label.height })));
     const margin = 24;
-    const left = Math.min(...boxes.map((box) => box.left)) - (loops.size ? laneWidth + 36 : 0);
+    const left = Math.min(...boxes.map((box) => box.left), loops.size ? loopRelativeX - halfWidth : Infinity);
     const top = Math.min(...boxes.map((box) => box.y - box.height / 2));
     const right = Math.max(...boxes.map((box) => box.right));
     const bottom = Math.max(...boxes.map((box) => box.y + box.height / 2));
@@ -154,13 +166,19 @@ export const layoutLineServiceDiagram = (data, stationSizes) => {
         point.x = columnX.get(point.column) - left + margin;
         point.y += -top + margin;
     }
+    for (const label of lineLabels) {
+        label.x += -left + margin;
+        label.y += -top + margin;
+    }
     const mainPoints = backbone.map((id) => ({ ...positions.get(id), id }));
     const mainLeft = Math.min(...mainPoints.map((point) => point.x - halfWidth - 14 - size(point.id).transferWidth));
     const mainRight = Math.max(...mainPoints.map((point) => point.x + point.rightTrackOffset + 6 + size(point.id).labelWidth));
+    const mainLabel = lineLabels.find((label) => label.lineId === data.selectedLine.id);
     return {
-        positions, loops, bends, laneWidth, width: right - left + margin * 2, height: bottom - top + margin * 2,
-        loopX: margin + halfWidth,
-        mainBounds: { left: mainLeft, right: mainRight, top: Math.min(...mainPoints.map((point) => point.y)), bottom: Math.max(...mainPoints.map((point) => point.y)) }
+        positions, loops, bends, lineLabels, laneWidth, width: right - left + margin * 2, height: bottom - top + margin * 2,
+        loopX: loopRelativeX - left + margin,
+        mainBounds: { left: Math.min(mainLeft, mainLabel?.x ?? mainLeft), right: Math.max(mainRight, mainLabel ? mainLabel.x + mainLabel.width : mainRight),
+            top: Math.min(...mainPoints.map((point) => point.y), mainLabel ? mainLabel.y - mainLabel.height / 2 : Infinity), bottom: Math.max(...mainPoints.map((point) => point.y)) }
     };
 };
 

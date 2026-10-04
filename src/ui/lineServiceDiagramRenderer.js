@@ -1,13 +1,13 @@
-import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta } from '../lib/line-icons.js';
+import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, getRoutesIndex } from '../lib/line-icons.js';
 import { appendStationJumpClass } from './stationJump.js';
 import { buildServiceTrackPath, layoutLineServiceDiagram } from './lineServiceDiagramLayout.js';
 
 const escapeHtml = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
-const iconHtml = (element) => {
+const iconHtml = (element, size = 20) => {
     if (!element) return '';
     element.classList.add('route-map-through-line-icon');
-    element.style.width = element.style.height = '20px';
-    element.style.minWidth = element.style.minHeight = '20px';
+    element.style.width = element.style.height = `${size}px`;
+    element.style.minWidth = element.style.minHeight = `${size}px`;
     return element.outerHTML;
 };
 const transferItem = (entry) => {
@@ -32,7 +32,14 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
         transferWidth: Math.min(5, station.transfers.length) * 22,
         height: Math.max(22, Math.ceil(station.transfers.length / 5) * 22)
     }]));
-    const layout = layoutLineServiceDiagram(data, sizes);
+    const routesIndex = await getRoutesIndex();
+    const lineMeta = new Map();
+    await Promise.all([...new Set(data.topology.stations.map((station) => station.lineIds[0]))].map(async (id) => lineMeta.set(id, await getResolvedRouteIconMeta(id))));
+    measure.font = '500 19.5px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';
+    const lineSizes = new Map(data.topology.lineOrders.map((line) => [line.lineId, {
+        width: Math.ceil(measure.measureText(line.name).width) + (routesIndex.get(line.lineId)?.code ? 36 : 0), height: 30
+    }]));
+    const layout = layoutLineServiceDiagram(data, sizes, lineSizes);
     const types = data.trainTypes;
     const laneOffset = (index) => (index - (types.length - 1) / 2) * 12;
     const directions = data.directions.slice();
@@ -56,8 +63,6 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
         // 背景描边让几何交叉保留断口，避免把无连接的边看成分岔。
         tracks.push(`<g>${clearances.join('')}${edgeTracks.join('')}</g>`);
     }
-    const lineMeta = new Map();
-    await Promise.all([...new Set(data.topology.stations.map((station) => station.lineIds[0]))].map(async (id) => lineMeta.set(id, await getResolvedRouteIconMeta(id))));
     for (const station of data.topology.stations) {
         const point = layout.positions.get(station.id), metrics = sizes.get(station.id);
         const isTransfer = station.transfers.length > 0;
@@ -86,11 +91,18 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
             transfers.push(`<span class="route-map-diagram-transfers" data-transfer-station="${escapeHtml(station.id)}" style="left:${point.x - layout.laneWidth / 2 - 14 - metrics.transferWidth}px;top:${point.y}px;width:${metrics.transferWidth}px"><span class="route-map-transfer-items-shell" tabindex="0" aria-label="${escapeHtml(station.name)}，换乘线路：${station.transfers.length}条"><span class="route-map-transfer-items route-map-transfer-items-main">${rows}</span><span class="route-map-transfer-hover-panel" role="tooltip"><span class="route-map-transfer-items route-map-transfer-items-popover">${rows}</span></span></span></span>`);
         }
     }
+    const lineOrders = new Map(data.topology.lineOrders.map((line) => [line.lineId, line]));
+    const lineLabels = layout.lineLabels.map((label) => {
+        const line = lineOrders.get(label.lineId), meta = routesIndex.get(label.lineId);
+        const color = meta?.color || data.selectedLine.color;
+        const icon = meta?.code ? createLineIconElement({ routeId: label.lineId, code: meta.code, color }) : null;
+        return `<span class="route-map-diagram-line-label is-${label.side}" data-line-id="${escapeHtml(label.lineId)}" data-source-color="${escapeHtml(color)}" style="left:${label.x}px;top:${label.y}px;color:${escapeHtml(resolveColor(color))}">${iconHtml(icon, 30)}<span>${escapeHtml(line.name)}</span></span>`;
+    });
     const legend = types.map((type) => `<span class="route-map-diagram-type" data-type-id="${escapeHtml(type.id)}" data-source-color="${escapeHtml(type.color)}" style="color:${escapeHtml(resolveColor(type.color))}"><i></i>${escapeHtml(type.name)}</span>`).join('');
     const symbols = `<span>○ ${secondary ? '双向停车' : '停车'}</span>${secondary ? `<span>△ 仅${escapeHtml(primary.name)}停车</span><span>▽ 仅${escapeHtml(secondary.name)}停车</span>` : ''}`;
     return {
         layout,
         headHtml: `<div class="route-map-diagram-legend">${legend}</div><div class="route-map-diagram-symbols">${symbols}</div><div class="route-map-diagram-controls"><button type="button" data-diagram-action="minus" aria-label="缩小线路图">−</button><button type="button" data-diagram-action="plus" aria-label="放大线路图">＋</button><button type="button" data-diagram-action="focus">居中</button><button type="button" data-diagram-action="fit">全图</button></div>`,
-        bodyHtml: `<div class="route-map-diagram-viewport" tabindex="0" aria-label="${escapeHtml(data.selectedLine.name)}种别停站图，可拖动和缩放"><div class="route-map-grid route-map-diagram-canvas" style="width:${layout.width}px;height:${layout.height}px"><svg class="route-map-diagram-svg" xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="全部种别、分支与停站轨迹"><g>${tracks.join('')}</g><g>${markers.join('')}</g><g>${connectors.join('')}${transferDots.join('')}</g></svg>${labels.join('')}${transfers.join('')}</div></div>`
+        bodyHtml: `<div class="route-map-diagram-viewport" tabindex="0" aria-label="${escapeHtml(data.selectedLine.name)}种别停站图，可拖动和缩放"><div class="route-map-grid route-map-diagram-canvas" style="width:${layout.width}px;height:${layout.height}px"><svg class="route-map-diagram-svg" xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="全部种别、分支与停站轨迹"><g>${tracks.join('')}</g><g>${markers.join('')}</g><g>${connectors.join('')}${transferDots.join('')}</g></svg>${labels.join('')}${transfers.join('')}${lineLabels.join('')}</div></div>`
     };
 };
