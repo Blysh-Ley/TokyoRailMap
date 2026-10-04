@@ -214,6 +214,11 @@ class LruTimetableCache {
         return promise;
     }
 
+    // 直接返回加载结果，供需要持有数据的处理任务使用，避免依赖 LRU 是否保留该条目。
+    async loadByLineId(lineId) {
+        return this._loadOne(lineId);
+    }
+
     async preloadByLineIds(lineIds) {
         const ids = Array.isArray(lineIds) ? lineIds.map(normalizeId).filter(Boolean) : [];
         if (!ids.length) return { loaded: 0, attempted: 0 };

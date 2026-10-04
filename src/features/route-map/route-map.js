@@ -875,3 +875,6 @@ export async function computeLineStopDiagramData(lineId, {
         directions
     };
 }
+
+// 新版单图拓扑处理入口；现有绘图调用保持兼容。
+export { computeLineServiceDiagramData } from './line-service-diagram.js';
