@@ -70,16 +70,18 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
         for (let index = 0; index < types.length; index += 1) {
             const stops = stopsByType[index];
             const up = stops.get(primary.id)?.has(station.id), down = secondary && stops.get(secondary.id)?.has(station.id);
+            // 单方向种别在顶部统一说明方向，图内停站标记使用圆形。
+            const roundStop = stops.size === 1 || (up && (down || !secondary));
             const x = point.x + laneOffset(index), y = point.y;
             const description = `${station.name}，${types[index].name}：${directions.map((direction) => `${direction.name}${stops.get(direction.id)?.has(station.id) ? '停车' : '不停车'}`).join('，')}`;
-            if (up && (down || !secondary)) markers.push(`<circle data-stop-type="${escapeHtml(types[index].id)}" data-stop-station="${escapeHtml(station.id)}" class="route-map-diagram-stop${isTransfer ? ' is-transfer' : ''}" cx="${x}" cy="${y}" r="3.5"><title>${escapeHtml(description)}</title></circle>`);
+            if ((up || down) && roundStop) markers.push(`<circle data-stop-type="${escapeHtml(types[index].id)}" data-stop-station="${escapeHtml(station.id)}" class="route-map-diagram-stop${isTransfer ? ' is-transfer' : ''}" cx="${x}" cy="${y}" r="3.5"><title>${escapeHtml(description)}</title></circle>`);
             else if (up || down) {
                 const sign = up ? -1 : 1;
                 markers.push(`<path data-stop-type="${escapeHtml(types[index].id)}" data-stop-station="${escapeHtml(station.id)}" class="route-map-diagram-direction-stop${isTransfer ? ' is-transfer' : ''}" d="M${x},${y + sign * 5.2}L${x - 4.4},${y - sign * 3.1}L${x + 4.4},${y - sign * 3.1}Z"><title>${escapeHtml(description)}</title></path>`);
             }
             if (isTransfer && (up || down)) {
                 // 黑点放在圆心或三角形重心，保持上下朝向的视觉平衡。
-                const dotY = up && (down || !secondary) ? y : y + (up ? 1 : -1) / 3;
+                const dotY = roundStop ? y : y + (up ? 1 : -1) / 3;
                 transferDots.push(`<circle class="route-map-diagram-transfer-dot" cx="${x}" cy="${dotY}" r="1"/>`);
             }
         }
@@ -98,7 +100,12 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
         const icon = meta?.code ? createLineIconElement({ routeId: label.lineId, code: meta.code, color }) : null;
         return `<span class="route-map-diagram-line-label is-${label.side}" data-line-id="${escapeHtml(label.lineId)}" data-source-color="${escapeHtml(color)}" style="left:${label.x}px;top:${label.y}px;color:${escapeHtml(resolveColor(color))}">${iconHtml(icon, 30)}<span>${escapeHtml(line.name)}</span></span>`;
     });
-    const legend = types.map((type) => `<span class="route-map-diagram-type" data-type-id="${escapeHtml(type.id)}" data-source-color="${escapeHtml(type.color)}" style="color:${escapeHtml(resolveColor(type.color))}"><i></i>${escapeHtml(type.name)}</span>`).join('');
+    const legend = types.map((type) => {
+        const direction = type.directions.length === 1 ? directions.find((entry) => entry.id === type.directions[0].id) : null;
+        const directionLabel = direction ? `仅${direction.name}运行` : '';
+        const symbol = direction ? `<span class="route-map-diagram-type-direction" role="img" title="${escapeHtml(directionLabel)}" aria-label="${escapeHtml(directionLabel)}">${direction.id === primary.id ? '△' : '▽'}</span>` : '';
+        return `<span class="route-map-diagram-type" data-type-id="${escapeHtml(type.id)}" data-source-color="${escapeHtml(type.color)}" style="color:${escapeHtml(resolveColor(type.color))}"><i></i>${escapeHtml(type.name)}${symbol}</span>`;
+    }).join('');
     return {
         layout,
         headHtml: `<div class="route-map-diagram-legend">${legend}</div>`,

@@ -25,6 +25,7 @@ export const createTransferHoverTouchPortalController = ({
     longPressMs = 500,
     maxDurationMs = 500,
     maxMovePx = 12,
+    passThroughPointerEvents = false,
     portal,
     root,
     setTimeoutFn = globalThis.setTimeout,
@@ -32,6 +33,7 @@ export const createTransferHoverTouchPortalController = ({
 } = {}) => {
     if (!doc?.addEventListener || !portal) {
         return {
+            cancel: noop,
             destroy: noop,
             isMobileInteraction: () => false
         };
@@ -119,7 +121,7 @@ export const createTransferHoverTouchPortalController = ({
 
         tapTracker.begin(evt, { shell });
         startLongPress(evt, shell);
-        stopPropagationOnly(evt);
+        if (!passThroughPointerEvents) stopPropagationOnly(evt);
     };
 
     const onPointerMove = (evt) => {
@@ -136,7 +138,7 @@ export const createTransferHoverTouchPortalController = ({
         const wasLongPressVisible = longPressVisible && pointerMatchesLongPress(evt);
         clearLongPress({ hideVisible: wasLongPressVisible });
         if (wasLongPressVisible) {
-            stopPropagationOnly(evt);
+            if (!passThroughPointerEvents) stopPropagationOnly(evt);
             return;
         }
         if (!completed.handled) return;
@@ -144,7 +146,7 @@ export const createTransferHoverTouchPortalController = ({
         const shell = completed.tap?.shell;
         if (!shell || (root?.contains && !root.contains(shell))) return;
         show(shell);
-        stopPropagationOnly(evt);
+        if (!passThroughPointerEvents) stopPropagationOnly(evt);
     };
 
     const onPointerCancel = (evt) => {
@@ -167,6 +169,11 @@ export const createTransferHoverTouchPortalController = ({
     doc.addEventListener('click', onClick, { capture: true, passive: true });
 
     return {
+        cancel: () => {
+            tapTracker.cancel();
+            clearLongPress();
+            hide();
+        },
         destroy: () => {
             tapTracker.cancel();
             clearLongPress();

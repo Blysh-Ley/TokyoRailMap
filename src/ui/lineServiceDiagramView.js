@@ -37,6 +37,7 @@ export const installLineServiceDiagramView = ({ root, viewport, layout, resolveC
         } else {
             gesture = { ...readPointers(), moved: true };
             suppressClick = true;
+            onMove();
             for (const id of pointers.keys()) viewport.setPointerCapture(id);
             event.preventDefault();
         }

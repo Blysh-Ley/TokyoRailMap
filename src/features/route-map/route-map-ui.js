@@ -733,6 +733,8 @@ const setupRouteMapUi = () => {
         findShell: (target) => target?.closest?.('.route-map-transfer-items-shell'),
         hide: hideTransferHoverPortal,
         isMobile: isMobileRouteMapPresentation,
+        // 线路图需要接收换乘图标上的指针事件，拖动成立后再取消长按意图。
+        passThroughPointerEvents: true,
         portal: transferHoverPortal,
         root: body,
         show: showTransferHoverPortal
@@ -907,7 +909,7 @@ const setupRouteMapUi = () => {
             body.classList.toggle('has-service-diagram', !!rendered.layout);
             if (rendered.layout) diagramView = installLineServiceDiagramView({
                 root, viewport: body.querySelector('.route-map-diagram-viewport'),
-                layout: rendered.layout, resolveColor: resolveColorForTheme, onMove: hideTransferHoverPortal
+                layout: rendered.layout, resolveColor: resolveColorForTheme, onMove: transferHoverTouchController.cancel
             });
         } catch (error) {
             if (activeLineId !== lid) return;
