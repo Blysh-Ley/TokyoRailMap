@@ -62,14 +62,15 @@ export const buildStationTopology = ({ lineId, railways, stations, stationGroups
     const segmentByTrip = new Map();
     const segment = (trip) => {
         if (segmentByTrip.has(trip)) return segmentByTrip.get(trip);
-        const id = trip.r || lineIdOf(trip.id), order = getOrder(id);
-        const stops = consecutive(stopIds(trip).map(canon));
+        const id = trip.r || lineIdOf(trip.id), railway = lineById.get(id);
+        getOrder(id);
+        // 原始站点 ID 保留同站的不同位置；区间解析后再合并绘图节点。
+        const order = railway.stations, stops = consecutive(stopIds(trip));
         const circular = order.length > 2 && order[0] === order.at(-1);
         const sequence = circular ? order.slice(0, -1) : order;
         const indices = stops.map((sid) => sequence.indexOf(sid));
         if (indices.some((index) => index < 0)) throw new Error(`班次停站不在线路站序中：${trip.id}`);
         const path = stops.length ? [stops[0]] : [];
-        const railway = lineById.get(id);
         const step = circular ? (trip.d === railway.ascending ? 1 : trip.d === railway.descending ? -1 : 0) : 0;
         if (circular && !step && stops.length > 1) throw new Error(`无法确定环线班次方向：${trip.id}`);
         for (let i = 1; i < stops.length; i += 1) {
@@ -85,7 +86,10 @@ export const buildStationTopology = ({ lineId, railways, stations, stationGroups
                 path.push(...span.slice(1));
             }
         }
-        const result = { lineId: id, typeId: text(trip.y), direction: text(trip.d), path, stops };
+        const result = {
+            lineId: id, typeId: text(trip.y), direction: text(trip.d),
+            path: consecutive(path.map(canon)), stops: consecutive(stops.map(canon))
+        };
         segmentByTrip.set(trip, result);
         return result;
     };
