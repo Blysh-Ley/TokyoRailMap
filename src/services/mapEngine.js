@@ -1,3 +1,4 @@
+import { pickSelectionViewportLineAnchor } from '../domain/selectionViewportFit.js';
 import { createTransferCapsuleFrameRenderer } from './transferCapsuleFrameRenderer.js';
 import { createStationCircleFrameRenderer } from './stationCircleFrameRenderer.js';
 import { createStationLabelAnchorBuffers } from './stationLabelAnchorBuffers.js';
@@ -569,7 +570,7 @@ const createStationLabelFrameRuntime = (map, version, { onFallback } = {}) => {
 };
 
 export const fitMapBoundsWithMinimumZoom = (map, maplibregl, bounds, options = {}) => {
-    const { minTargetZoom, viewportKey, ...fitOptions } = options;
+    const { minTargetZoom, viewportKey, lineFeatures, ...fitOptions } = options;
     if (!Number.isFinite(minTargetZoom)) return map.fitBounds(bounds, fitOptions);
     const camera = map.cameraForBounds(bounds, fitOptions);
     if (!camera || !Number.isFinite(camera.zoom)) return false;
@@ -583,12 +584,17 @@ export const fitMapBoundsWithMinimumZoom = (map, maplibregl, bounds, options = {
     const point = maplibregl.MercatorCoordinate.fromLngLat(camera.center);
     const midX = (sw.x + ne.x) / 2;
     const midY = (sw.y + ne.y) / 2;
+    const anchor = pickSelectionViewportLineAnchor({
+        lineFeatures,
+        target: { x: midX, y: midY },
+        projectCoordinate: (coordinate) => maplibregl.MercatorCoordinate.fromLngLat(coordinate)
+    }) || { x: midX, y: midY };
     const scale = 2 ** (camera.zoom - zoom);
     const center = new maplibregl.MercatorCoordinate(
-        midX + (point.x - midX) * scale,
-        midY + (point.y - midY) * scale
+        anchor.x + (point.x - midX) * scale,
+        anchor.y + (point.y - midY) * scale
     ).toLngLat();
-    // The fitted center already includes asymmetric padding; keep its screen anchor at the clamped zoom.
+    // 放大后将真实线路锚点放到原定可见区域中心，并保留非对称 padding 的偏移。
     const { padding, offset, ...animationOptions } = fitOptions;
     const target = { ...animationOptions, ...camera, center, zoom };
     return fitOptions.linear ? map.easeTo(target) : map.flyTo(target);

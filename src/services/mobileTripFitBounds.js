@@ -98,7 +98,7 @@ export const createMobileTripFitBoundsController = ({
     getStationCoord = () => null,
     getViewportFitOptions = () => null
 } = {}) => {
-    const fitTripPayload = (payload = {}) => {
+    const fitTripPayload = (payload = {}, { lineFeatures } = {}) => {
         const stationIds = collectMobileTripFitStationIds(payload);
         if (stationIds.length < 2) return false;
 
@@ -119,7 +119,7 @@ export const createMobileTripFitBoundsController = ({
             easing: (t) => t,
             essential: true
         };
-        if (viewportOptions) mapEngine?.fitBoundsWithViewport?.(bounds, { ...fitOptions, ...viewportOptions });
+        if (viewportOptions) mapEngine?.fitBoundsWithViewport?.(bounds, { ...fitOptions, ...viewportOptions, lineFeatures });
         else mapEngine?.fitBounds?.(bounds, fitOptions);
         return true;
     };

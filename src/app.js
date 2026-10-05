@@ -4421,16 +4421,15 @@ const initMapApp = async () => {
             if (isMobileJourneyPlanFitContext()) return true;
             return panel?.el?.getAttribute?.('data-panel-presentation') === 'mobile';
         };
-        fitMobileTripBounds = (payload = {}, _options = {}) => {
+        fitMobileTripBounds = (payload = {}, options = {}) => {
             if (!isMobileTripFitBoundsContext()) return false;
-            return mobileTripFitBounds.fitTripPayload(payload);
+            return mobileTripFitBounds.fitTripPayload(payload, options);
         };
-        const fitMobileTripBoundsIfNeeded = (payload = {}, options = {}) => {
-            if (options?.preserveViewport === true) return false;
+        const shouldFitMobileTripBounds = (payload = {}, options = {}) => {
+            if (!isMobileTripFitBoundsContext() || options?.preserveViewport === true) return false;
             const fitMode = String(options?.fitMode || payload?.fitMode || '').trim();
             const interaction = String(payload?.__previewInteraction || payload?.previewInteraction || '').trim();
-            if (fitMode !== 'commit' && interaction !== 'click') return false;
-            return fitMobileTripBounds(payload, options);
+            return fitMode === 'commit' || interaction === 'click';
         };
 
         const routeEndpointPopups = createRouteEndpointPopupRuntime({
@@ -4548,8 +4547,12 @@ const initMapApp = async () => {
         previewTripPath = (payload, options = {}) => {
             lastTripPreviewPayload = payload || null;
             applyPanelStationVisualHighlightFromTripPreviewPayload(payload);
-            const result = routePreviewController.previewTripPath(payload, options);
-            fitMobileTripBoundsIfNeeded(payload, options);
+            const fitMobileViewport = shouldFitMobileTripBounds(payload, options);
+            const result = routePreviewController.previewTripPath(payload, fitMobileViewport
+                ? { ...options, preserveViewport: true } : options);
+            if (fitMobileViewport && result?.ok) {
+                fitMobileTripBounds(payload, { ...options, lineFeatures: result.built?.lineFc?.features });
+            }
             return result;
         };
         clearDirHeaderPreview = routePreviewController.clearDirHeaderPreview;

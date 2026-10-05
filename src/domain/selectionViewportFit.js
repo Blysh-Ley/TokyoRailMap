@@ -1,3 +1,5 @@
+import { nearestProjectionOnPolylinePixels } from '../map/offset.js';
+
 export const buildMobileSelectionViewportFit = ({
     width = 0,
     height = 0,
@@ -22,4 +24,19 @@ export const buildMobileSelectionViewportFit = ({
         minTargetZoom: kind === 'station' ? 12 : 10,
         viewportKey: `${width}:${height}:${split ? 'split' : 'phone'}`
     };
+};
+
+export const pickSelectionViewportLineAnchor = ({ lineFeatures = [], target, projectCoordinate } = {}) => {
+    let best = null;
+    for (const feature of lineFeatures) {
+        if (feature.properties?.role === 'connector') continue;
+        const geometry = feature.geometry;
+        const chains = geometry?.type === 'LineString' ? [geometry.coordinates]
+            : (geometry?.type === 'MultiLineString' ? geometry.coordinates : []);
+        for (const chain of chains) {
+            const candidate = nearestProjectionOnPolylinePixels(chain.map(projectCoordinate), target);
+            if (candidate && (!best || candidate.d2 < best.d2)) best = candidate;
+        }
+    }
+    return best?.point || null;
 };

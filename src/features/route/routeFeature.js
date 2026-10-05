@@ -502,7 +502,7 @@ export const createRouteFeature = ({
                         hidden: false
                     });
 
-                    rebuildMultiTripPreview?.(fitMode);
+                    rebuildMultiTripPreview?.(fitOptions.preserveViewport === true ? 'none' : fitMode);
                     return {
                         ok: true,
                         payload,
@@ -588,7 +588,7 @@ export const createRouteFeature = ({
                 } else {
                     runPostDataEffects();
                 }
-                if (fitMode !== 'none') {
+                if (fitMode !== 'none' && fitOptions.preserveViewport !== true) {
                     previewFitWithSidePanels?.(built.bbox, fitOptions);
                 }
                 return {
@@ -642,7 +642,7 @@ export const createRouteFeature = ({
                     });
                 }
 
-                rebuildMultiTripPreview?.(fitMode);
+                rebuildMultiTripPreview?.(fitOptions.preserveViewport === true ? 'none' : fitMode);
                 return {
                     ok: true,
                     payload,
@@ -706,7 +706,7 @@ export const createRouteFeature = ({
             setStationLabelMode?.('all');
             applySelectionEffects?.();
             scheduleCollisionLayerRefresh?.();
-            if (fitMode !== 'none') {
+            if (fitMode !== 'none' && fitOptions.preserveViewport !== true) {
                 previewFitWithSidePanels?.(endpointAwareBuilt?.bbox, fitOptions);
             }
             return {
