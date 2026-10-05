@@ -2,11 +2,6 @@ import { buildAlternateLineMembership, filterLineStationIdsForAlternateMembershi
 import { consecutive, lineIdOf, stopIds, text, title, unique } from './trips.js';
 
 const contains = (part, whole) => whole.some((_, index) => part.every((id, offset) => whole[index + offset] === id));
-const isSubsequence = (part, whole) => {
-    let index = 0;
-    for (const id of whole) if (id === part[index]) index += 1;
-    return index === part.length;
-};
 export const edgeKey = (a, b) => JSON.stringify(a < b ? [a, b] : [b, a]);
 export const containsPath = (part, whole) => contains(part, whole) || contains(part.slice().reverse(), whole);
 
@@ -55,31 +50,13 @@ export const buildStationTopology = ({ lineId, railways, stations, stationGroups
         for (const id of ids) canonical.set(id, ids[0]);
     }
     const canon = (id) => canonical.get(id) || id;
-    const rawOrders = new Map(railways.map((line) => [line.id, consecutive((line.stations || []).map(canon))]));
     const orders = new Map();
     const getOrder = (id) => {
         if (orders.has(id)) return orders.get(id);
-        const raw = rawOrders.get(id);
-        if (!raw?.length) throw new Error(`缺少线路站序：${id}`);
-        const ownStations = new Set(raw);
-        const result = [raw[0]];
-        for (let i = 1; i < raw.length; i += 1) {
-            const a = raw[i - 1], b = raw[i];
-            const spans = [[a, b]];
-            for (const [sourceId, source] of rawOrders) {
-                if (sourceId === id || source[0] === source.at(-1)) continue;
-                const start = source.indexOf(a), end = source.indexOf(b);
-                if (start < 0 || end < 0 || Math.abs(start - end) < 2) continue;
-                const span = start < end ? source.slice(start, end + 1) : source.slice(end, start + 1).reverse();
-                if (span.slice(1, -1).some((sid) => ownStations.has(sid))) continue;
-                spans.push(span);
-            }
-            spans.sort((aSpan, bSpan) => bSpan.length - aSpan.length);
-            // 只展开已有站序一致指向的共用区间，不依据换乘关系猜测绕行。
-            const span = spans.every((candidate) => isSubsequence(candidate, spans[0])) ? spans[0] : [a, b];
-            result.push(...span.slice(1));
-        }
-        orders.set(id, consecutive(result));
+        // 同站关系用于连接站点，经过区段只取班次所属线路的站序，不从其他线路补站。
+        const order = consecutive((lineById.get(id)?.stations || []).map(canon));
+        if (!order.length) throw new Error(`缺少线路站序：${id}`);
+        orders.set(id, order);
         return orders.get(id);
     };
     const segmentByTrip = new Map();
@@ -116,10 +93,16 @@ export const buildStationTopology = ({ lineId, railways, stations, stationGroups
     const displayOrder = codes.every(Boolean) && new Set(codes.map((code) => code[1])).size === 1
         ? visible.map((id, index) => ({ id, number: Number(codes[index][2]) })).sort((a, b) => a.number - b.number).map(({ id }) => canon(id))
         : visible.map(canon);
-    const station = (id) => ({
-        id, name: title(stationById.get(id)?.title) || id,
-        code: text(stationById.get(id)?.title?.code), aliases: aliases.get(id) || [id],
-        lineIds: unique((aliases.get(id) || [id]).map(lineIdOf))
-    });
+    const station = (id, displayLineIds) => {
+        const ids = aliases.get(id) || [id];
+        // 合并节点负责连接，站名和编号取本线或靠近本线的实际运行区段。
+        const displayStationId = ids.find((alias) => preferred.has(alias))
+            || displayLineIds.map((lineId) => ids.find((alias) => lineIdOf(alias) === lineId)).find(Boolean) || id;
+        const source = stationById.get(displayStationId);
+        return {
+            id, displayStationId, name: title(source?.title) || id,
+            code: text(source?.title?.code), aliases: ids, lineIds: unique(ids.map(lineIdOf))
+        };
+    };
     return { selectedLineId: lineId, canon, segment, station, getOrder, orders, lineById, stationById, displayOrder: unique(displayOrder) };
 };

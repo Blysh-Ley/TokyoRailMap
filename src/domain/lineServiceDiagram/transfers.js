@@ -1,6 +1,6 @@
 import { buildTransferBadgeEntriesByStationId, compactTransferBadgeEntries, sortTransferBadgeEntriesByCompany } from '../transferBadgeDisplay.js';
 import { preferredOrder, resolveMainLineIdByBranchRule } from '../../lib/special-condition.js';
-import { title, unique } from './trips.js';
+import { lineIdOf, title, unique } from './trips.js';
 
 export const buildDiagramTransfers = async ({ stations, stationGroups, topology }) => {
     const groupById = new Map();
@@ -13,7 +13,7 @@ export const buildDiagramTransfers = async ({ stations, stationGroups, topology 
     }
     const getGroup = (id) => groupById.get(id) || new Set([id]);
     const badges = await buildTransferBadgeEntriesByStationId({
-        stationIds: stations.map((station) => station.id), dedupeDisplayNames: true,
+        stationIds: stations.map((station) => station.displayStationId), dedupeDisplayNames: true,
         getGroupIdsForStation: getGroup, preferredCompanyOrder: preferredOrder,
         getLineMeta: (id) => {
             const line = topology.lineById.get(id);
@@ -26,8 +26,13 @@ export const buildDiagramTransfers = async ({ stations, stationGroups, topology 
             return line ? { id: mainId, code: line.code, color: line.color } : null;
         }
     });
-    return stations.map((station) => ({
-        ...station,
-        transfers: compactTransferBadgeEntries(sortTransferBadgeEntriesByCompany(badges.get(station.id)?.entries || [], { preferredCompanyOrder: preferredOrder }))
-    }));
+    return stations.map((station) => {
+        const company = lineIdOf(station.displayStationId).split('.')[0];
+        const entries = (badges.get(station.displayStationId)?.entries || [])
+            .filter((entry) => !(entry.company === company && station.code && entry.stationCode === station.code));
+        return {
+            ...station,
+            transfers: compactTransferBadgeEntries(sortTransferBadgeEntriesByCompany(entries, { preferredCompanyOrder: preferredOrder }))
+        };
+    });
 };

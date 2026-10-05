@@ -3,6 +3,30 @@ import { addCount, buildTripChains, emptyCounts, selectDiagramTrips, serviceDay,
 import { buildStationTopology, edgeKey } from './lineServiceDiagram/topology.js';
 import { buildServicePatterns, projectPaths } from './lineServiceDiagram/patterns.js';
 import { buildDiagramTransfers } from './lineServiceDiagram/transfers.js';
+import { resolveMainLineIdByBranchRule } from '../lib/special-condition.js';
+
+const buildDisplayStations = (processed, topology) => {
+    const adjacent = new Map([...processed.stationIds].map((id) => [id, []]));
+    for (const edge of processed.edges.values()) {
+        adjacent.get(edge.from).push(edge);
+        adjacent.get(edge.to).push(edge);
+    }
+    const distance = new Map(topology.displayOrder.map((id) => [id, 0]));
+    const pending = [...topology.displayOrder];
+    for (let index = 0; index < pending.length; index += 1) for (const edge of adjacent.get(pending[index])) {
+        const next = edge.from === pending[index] ? edge.to : edge.from;
+        if (!distance.has(next)) {
+            distance.set(next, distance.get(pending[index]) + 1);
+            pending.push(next);
+        }
+    }
+    return [...processed.stationIds].map((id) => {
+        const other = (edge) => edge.from === id ? edge.to : edge.from;
+        const lines = adjacent.get(id).slice().sort((a, b) => distance.get(other(a)) - distance.get(other(b)))
+            .flatMap((edge) => [...edge.lineIds]);
+        return topology.station(id, lines);
+    });
+};
 
 const buildTrainTypes = (roots, patterns, metadata, topology) => {
     const byId = new Map(metadata.map((type) => [type.id, type]));
@@ -73,7 +97,7 @@ export const buildLineServiceDiagramData = async ({
     const topology = buildStationTopology({ lineId, railways, stations, stationGroups, runs });
     const processed = buildServicePatterns(roots, runs, topology);
     const nodes = await buildDiagramTransfers({
-        stations: [...processed.stationIds].map(topology.station), stationGroups, topology
+        stations: buildDisplayStations(processed, topology), stationGroups, topology
     });
     const edges = [...processed.edges.values()].map((edge) => ({ ...edge, lineIds: [...edge.lineIds] }));
     const line = topology.lineById.get(lineId);
@@ -84,10 +108,15 @@ export const buildLineServiceDiagramData = async ({
         trainTypes: buildTrainTypes(roots, processed.servicePatterns, trainTypes, topology),
         topology: {
             stations: nodes, edges, junctions: buildJunctions(nodes, edges, processed.servicePatterns),
-            lineOrders: [...topology.orders].map(([id, path]) => ({
-                lineId: id, name: title(topology.lineById.get(id)?.title) || id,
-                paths: projectPaths(path, processed.edges, processed.stationIds)
-            })).filter((order) => order.paths.length)
+            lineOrders: [...topology.orders].map(([id, path]) => {
+                const name = title(topology.lineById.get(id)?.title) || id;
+                const mainId = resolveMainLineIdByBranchRule(id, (candidate) => topology.orders.has(candidate));
+                return {
+                    lineId: id, name,
+                    displayLineId: title(topology.lineById.get(mainId)?.title) === name ? mainId : id,
+                    paths: projectPaths(path, processed.edges, processed.stationIds)
+                };
+            }).filter((order) => order.paths.length)
         },
         routes: processed.routes, servicePatterns: processed.servicePatterns, processing: processed.processing
     };

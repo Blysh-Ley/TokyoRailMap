@@ -28,9 +28,28 @@ export const planDiagramLineLabels = (data, positions, lineSizes, stationBoxes, 
     const overlaps = (a, b) => a.x < b.x + b.width + 4 && a.x + a.width + 4 > b.x && Math.abs(a.y - b.y) < (a.height + b.height) / 2 + 4;
     const labels = [];
     // 主线优先占用中段右侧空白；其他线路根据与主干的接续关系靠近交界处。
-    const lines = data.topology.lineOrders.slice().sort((a, b) => Number(b.lineId === data.selectedLine.id) - Number(a.lineId === data.selectedLine.id));
+    const displayIds = new Map(data.topology.lineOrders.map((line) => [line.lineId, line.displayLineId || line.lineId]));
+    const mainLineId = displayIds.get(data.selectedLine.id) || data.selectedLine.id;
+    const lines = [];
+    for (const lineId of new Set(displayIds.values())) {
+        const remaining = new Set(data.topology.edges.filter((edge) => edge.lineIds.some((id) => displayIds.get(id) === lineId)));
+        // 同一显示线路的连续区段共用线路牌，分离的区段仍分别寻找空白。
+        while (remaining.size) {
+            const edges = [remaining.values().next().value];
+            remaining.delete(edges[0]);
+            const ids = new Set([edges[0].from, edges[0].to]);
+            for (let index = 0; index < edges.length; index += 1) for (const edge of remaining) {
+                if (!ids.has(edge.from) && !ids.has(edge.to)) continue;
+                remaining.delete(edge);
+                ids.add(edge.from); ids.add(edge.to);
+                edges.push(edge);
+            }
+            lines.push({ lineId, edges });
+        }
+    }
+    lines.sort((a, b) => Number(b.lineId === mainLineId) - Number(a.lineId === mainLineId));
     for (const line of lines) {
-        const edges = data.topology.edges.filter((edge) => edge.lineIds.includes(line.lineId));
+        const edges = line.edges;
         if (!edges.length || !lineSizes.has(line.lineId)) continue;
         const ids = [...new Set(edges.flatMap((edge) => [edge.from, edge.to]))];
         const columns = new Map();
@@ -44,7 +63,7 @@ export const planDiagramLineLabels = (data, positions, lineSizes, stationBoxes, 
         const [column, stations] = [...columns].sort((a, b) => exclusiveCount(b[1]) - exclusiveCount(a[1]) || b[1].length - a[1].length
             || b[1].filter((id) => !mainStations.has(id)).length - a[1].filter((id) => !mainStations.has(id)).length
             || Math.abs(a[0]) - Math.abs(b[0]))[0];
-        const isMain = line.lineId === data.selectedLine.id, side = isMain || column >= 0 ? 'right' : 'left';
+        const isMain = line.lineId === mainLineId, side = isMain || column >= 0 ? 'right' : 'left';
         const metrics = lineSizes.get(line.lineId), edgeIds = new Set(edges.map((edge) => edge.id));
         const crossings = edges.filter((edge) => (positions.get(edge.from).column === column) !== (positions.get(edge.to).column === column));
         crossings.sort((a, b) => Math.min(distance.get(a.from), distance.get(a.to)) - Math.min(distance.get(b.from), distance.get(b.to)));

@@ -1,6 +1,7 @@
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, getRoutesIndex } from '../lib/line-icons.js';
 import { appendStationJumpClass } from './stationJump.js';
 import { buildServiceTrackPath, layoutLineServiceDiagram } from './lineServiceDiagramLayout.js';
+import { getRouteIdFromStationId } from '../domain/transferBadgeDisplay.js';
 
 const escapeHtml = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const iconHtml = (element, size = 20) => {
@@ -33,8 +34,9 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
         height: Math.max(22, Math.ceil(station.transfers.length / 5) * 22)
     }]));
     const routesIndex = await getRoutesIndex();
+    const stationLineIds = new Map(data.topology.stations.map((station) => [station.id, getRouteIdFromStationId(station.displayStationId)]));
     const lineMeta = new Map();
-    await Promise.all([...new Set(data.topology.stations.map((station) => station.lineIds[0]))].map(async (id) => lineMeta.set(id, await getResolvedRouteIconMeta(id))));
+    await Promise.all([...new Set(stationLineIds.values())].map(async (id) => lineMeta.set(id, await getResolvedRouteIconMeta(id))));
     measure.font = '500 19.5px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';
     const lineSizes = new Map(data.topology.lineOrders.map((line) => [line.lineId, {
         width: Math.ceil(measure.measureText(line.name).width) + (routesIndex.get(line.lineId)?.code ? 36 : 0), height: 30
@@ -50,7 +52,9 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
     const edgeTypes = new Map(data.topology.edges.map((edge) => [edge.id, new Set()]));
     const stopsByType = types.map((type) => new Map(type.directions.map((direction) => [direction.id, new Set(direction.stopStationIds)])));
     for (const type of types) for (const direction of type.directions) for (const edgeId of direction.edgeIds) edgeTypes.get(edgeId).add(type.id);
-    for (const edge of data.topology.edges) {
+    // 先画直行区段，再画转弯区段；主线描边不能擦掉分岔的连接和弧线。
+    const drawingEdges = data.topology.edges.slice().sort((a, b) => Number(layout.bends.has(a.id)) - Number(layout.bends.has(b.id)));
+    for (const edge of drawingEdges) {
         const a = layout.positions.get(edge.from), b = layout.positions.get(edge.to);
         const edgeTracks = [], clearances = [];
         for (let index = 0; index < types.length; index += 1) {
@@ -85,9 +89,9 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
                 transferDots.push(`<circle class="route-map-diagram-transfer-dot" cx="${x}" cy="${dotY}" r="1"/>`);
             }
         }
-        const meta = lineMeta.get(station.lineIds[0]);
-        const badge = station.code ? createStationCodeBadgeElement({ code: station.code, color: mainStations.has(station.id) ? data.selectedLine.color : meta?.color, routeId: meta?.id || station.lineIds[0] }) : null;
-        labels.push(`<span class="${appendStationJumpClass('route-map-station route-map-diagram-station')}${mainStations.has(station.id) ? ' is-main-line' : ''}" data-station-id="${escapeHtml(station.id)}" data-panel-station-jump="1" role="button" tabindex="0" title="${escapeHtml(station.name)}" style="left:${point.x + point.rightTrackOffset + 6}px;top:${point.y}px">${iconHtml(badge)}<span>${escapeHtml(station.name)}</span></span>`);
+        const meta = lineMeta.get(stationLineIds.get(station.id));
+        const badge = station.code ? createStationCodeBadgeElement({ code: station.code, color: mainStations.has(station.id) ? data.selectedLine.color : meta?.color, routeId: meta?.id || stationLineIds.get(station.id) }) : null;
+        labels.push(`<span class="${appendStationJumpClass('route-map-station route-map-diagram-station')}${mainStations.has(station.id) ? ' is-main-line' : ''}" data-station-id="${escapeHtml(station.displayStationId)}" data-panel-station-jump="1" role="button" tabindex="0" title="${escapeHtml(station.name)}" style="left:${point.x + point.rightTrackOffset + 6}px;top:${point.y}px">${iconHtml(badge)}<span>${escapeHtml(station.name)}</span></span>`);
         if (isTransfer) {
             const rows = transferRows(station.transfers.map(transferItem));
             transfers.push(`<span class="route-map-diagram-transfers" data-transfer-station="${escapeHtml(station.id)}" style="left:${point.x - layout.laneWidth / 2 - 14 - metrics.transferWidth}px;top:${point.y}px;width:${metrics.transferWidth}px"><span class="route-map-transfer-items-shell" tabindex="0" aria-label="${escapeHtml(station.name)}，换乘线路：${station.transfers.length}条"><span class="route-map-transfer-items route-map-transfer-items-main">${rows}</span><span class="route-map-transfer-hover-panel" role="tooltip"><span class="route-map-transfer-items route-map-transfer-items-popover">${rows}</span></span></span></span>`);

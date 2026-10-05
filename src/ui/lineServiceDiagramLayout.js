@@ -5,6 +5,11 @@ export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map
     const stationById = new Map(data.topology.stations.map((station) => [station.id, station]));
     const backbone = (data.selectedLine.stationOrder.length ? data.selectedLine.stationOrder : data.routes[0]?.path || []).slice().reverse();
     const backboneIndex = new Map(backbone.map((id, index) => [id, index]));
+    const adjacent = new Map(data.topology.stations.map((station) => [station.id, []]));
+    for (const edge of data.topology.edges) {
+        adjacent.get(edge.from).push(edge.to);
+        adjacent.get(edge.to).push(edge.from);
+    }
     const laneWidth = Math.max(12, data.trainTypes.length * 12);
     const halfWidth = laneWidth / 2;
     const rightTrackOffsets = new Map(), leftTrackOffsets = new Map();
@@ -23,14 +28,23 @@ export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map
     const shiftBelow = (boundary, delta) => {
         for (const point of positions.values()) if (point.y >= boundary) point.y += delta;
     };
-    const chooseColumn = (anchor, from, to, keepColumn) => {
+    const chooseColumn = (anchor, from, to, preferredColumns = []) => {
         const used = [...positions.values()].map((point) => point.column);
         const min = Math.min(0, ...used), max = Math.max(0, ...used);
+        const occupied = (column) => {
+            const top = Math.min(from, to) - 12, bottom = Math.max(from, to) + 12;
+            if ([...positions.values()].some((point) => point.column === column && point.y > top && point.y < bottom)) return true;
+            // 站间轨迹也占用整段列空间，不能把另一支线塞进两站之间的空隙。
+            return data.topology.edges.some((edge) => {
+                const a = positions.get(edge.from), b = positions.get(edge.to);
+                return a?.column === column && b?.column === column && Math.min(a.y, b.y) < bottom && Math.max(a.y, b.y) > top;
+            });
+        };
+        for (const column of new Set(preferredColumns)) if (!occupied(column)) return column;
         const candidates = [];
-        for (let distance = keepColumn ? 0 : 1; distance <= max - min + 2; distance += 1) {
-            for (const column of distance ? [anchor.column - distance, anchor.column + distance] : [anchor.column]) {
-                const occupied = [...positions.values()].some((point) => point.column === column && point.y > Math.min(from, to) - 12 && point.y < Math.max(from, to) + 12);
-                if (!occupied) candidates.push({ column, cost: distance * 10 + (Math.max(max, column) - Math.min(min, column)) * 3 });
+        for (let distance = 1; distance <= max - min + 2; distance += 1) {
+            for (const column of [anchor.column - distance, anchor.column + distance]) {
+                if (!occupied(column)) candidates.push({ column, cost: distance * 10 + (Math.max(max, column) - Math.min(min, column)) * 3 });
             }
         }
         candidates.sort((a, b) => a.cost - b.cost);
@@ -43,18 +57,23 @@ export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map
             const span = Math.abs(end.y - start.y);
             if (span < required) shiftBelow(Math.max(start.y, end.y), required - span);
             const direction = Math.sign(end.y - start.y) || 1;
-            const column = chooseColumn(start, start.y, end.y, false);
             const step = Math.abs(end.y - start.y) / (ids.length + 1);
+            // 双端接续优先沿用已有列，不把中间的无分岔区段另放到第三列。
+            const column = chooseColumn(start, start.y + direction * step, end.y - direction * step, [start.column, end.column]);
             ids.forEach((id, index) => positions.set(id, { column, y: start.y + direction * step * (index + 1) }));
             return;
         }
         const anchorId = start ? before : after;
         const anchor = start || end;
         const ordered = start ? ids : ids.slice().reverse();
-        const direction = start ? sign : -sign;
+        let direction = start ? sign : -sign;
         const length = ordered.reduce((sum, id) => sum + Math.max(26, size(id).height + 4), 0);
         const isEndpoint = backboneIndex.get(anchorId) === 0 || backboneIndex.get(anchorId) === backbone.length - 1;
-        const column = chooseColumn(anchor, anchor.y + direction * 26, anchor.y + direction * length, isEndpoint);
+        const continues = adjacent.get(anchorId).length === 2;
+        const neighbor = continues && adjacent.get(anchorId).map((id) => positions.get(id)).find(Boolean);
+        if (neighbor && !backboneIndex.has(anchorId)) direction = Math.sign(anchor.y - neighbor.y) || direction;
+        // 交路终点不等于拓扑分岔；后续延伸也应保持原区段的列和方向。
+        const column = chooseColumn(anchor, anchor.y + direction * 26, anchor.y + direction * length, isEndpoint || continues ? [anchor.column] : []);
         let y = anchor.y;
         for (const id of ordered) {
             y += direction * Math.max(26, size(id).height + 4);
@@ -90,16 +109,32 @@ export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map
         point.rightTrackOffset = rightTrackOffsets.get(id) ?? halfWidth - 6;
         point.leftTrackOffset = leftTrackOffsets.get(id) ?? -halfWidth + 6;
     }
+    const cyclePairs = data.topology.lineOrders.flatMap((order) => order.paths.flatMap((path) => path.flatMap((id, index) => {
+        const end = path.indexOf(id, index + 1), cycle = path.slice(index, end);
+        if (end - index < 3 || new Set(cycle).size !== cycle.length) return [];
+        return cycle.map((from, at) => [from, path[index + at + 1]]);
+    })));
+    // 同列跨站边保持直连，只有站序明确闭合的边需要绕回，避免把通过区间画成分支。
     const loops = new Set(data.topology.edges.filter((edge) => {
         const a = positions.get(edge.from), b = positions.get(edge.to);
-        return a.column === b.column && [...positions].some(([id, point]) => id !== edge.from && id !== edge.to && point.column === a.column && point.y > Math.min(a.y, b.y) && point.y < Math.max(a.y, b.y));
+        const closesLoop = cyclePairs.some(([from, to]) => (edge.from === from && edge.to === to) || (edge.from === to && edge.to === from));
+        return closesLoop && a.column === b.column && [...positions].some(([id, point]) => id !== edge.from && id !== edge.to && point.column === a.column && point.y > Math.min(a.y, b.y) && point.y < Math.max(a.y, b.y));
     }).map((edge) => edge.id));
     const bends = new Map(), reserved = new Set();
-    const reserveTurn = (id, side) => {
+    const reserveTurn = (id, side, height = turnHeight, columns = null) => {
         const key = `${id}:${side}`;
-        if (reserved.has(key)) return;
-        reserved.add(key);
-        shiftBelow(positions.get(id).y + (side === 'after' ? 0.1 : 0), turnHeight);
+        const anchor = positions.get(id);
+        let delta = height;
+        if (columns) {
+            const nearby = [...positions.values()].filter((point) => point.column >= columns[0] && point.column <= columns[1]
+                && (side === 'after' ? point.y > anchor.y : point.y < anchor.y));
+            const gap = Math.min(...nearby.map((point) => Math.abs(point.y - anchor.y)));
+            delta = Math.max(0, height - gap);
+        } else {
+            if (reserved.has(key)) return;
+            reserved.add(key);
+        }
+        if (delta) shiftBelow(anchor.y + (side === 'after' ? 0.1 : 0), delta);
     };
     // 转弯使用独立的空白行带，避免斜线穿过主干或另一支线的站名、换乘徽标。
     for (const edge of data.topology.edges) {
@@ -115,8 +150,11 @@ export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map
             const topObstacles = between.filter((point) => point.column === top.column).length;
             const bottomObstacles = between.filter((point) => point.column === bottom.column).length;
             const side = bottomObstacles <= topObstacles ? 'after' : 'before';
-            reserveTurn(side === 'after' ? topId : bottomId, side);
-            bends.set(edge.id, { side, height: turnHeight });
+            const radius = Math.max(Math.abs(top.leftTrackOffset), Math.abs(top.rightTrackOffset), Math.abs(bottom.leftTrackOffset), Math.abs(bottom.rightTrackOffset)) + 10;
+            const padding = size(topId).height / 2 + 6;
+            const height = padding + radius * 2 + size(bottomId).height / 2 + 6;
+            reserveTurn(side === 'after' ? topId : bottomId, side, height, [Math.min(top.column, bottom.column), Math.max(top.column, bottom.column)]);
+            bends.set(edge.id, { side, height, padding, radius });
         }
     }
     const columns = [...new Set([...positions.values()].map((point) => point.column))].sort((a, b) => a - b);
@@ -173,7 +211,7 @@ export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map
     const mainPoints = backbone.map((id) => ({ ...positions.get(id), id }));
     const mainLeft = Math.min(...mainPoints.map((point) => point.x - halfWidth - 14 - size(point.id).transferWidth));
     const mainRight = Math.max(...mainPoints.map((point) => point.x + point.rightTrackOffset + 6 + size(point.id).labelWidth));
-    const mainLabel = lineLabels.find((label) => label.lineId === data.selectedLine.id);
+    const mainLabel = lineLabels.find((label) => label.isMain);
     return {
         positions, loops, bends, lineLabels, laneWidth, width: right - left + margin * 2, height: bottom - top + margin * 2,
         loopX: loopRelativeX - left + margin,
@@ -191,8 +229,8 @@ export const buildServiceTrackPath = (a, b, offset, loopX = null, bend = null) =
     }
     if (a.x === b.x) return `M${a.x + offset},${a.y}L${b.x + offset},${b.y}`;
     const height = bend?.height || bottom.y - top.y;
-    const startY = (bend?.side === 'before' ? bottom.y - height : top.y) + 24;
-    const sign = Math.sign(bottom.x - top.x), radius = Math.min((height - 48) / 2, Math.abs(bottom.x - top.x) / 2);
+    const startY = (bend?.side === 'before' ? bottom.y - height : top.y) + (bend?.padding ?? 24);
+    const sign = Math.sign(bottom.x - top.x), radius = Math.min(bend?.radius ?? (height - 48) / 2, Math.abs(bottom.x - top.x) / 2);
     const firstRadius = radius - sign * offset, lastRadius = radius + sign * offset;
     const firstX = top.x + sign * radius, lastX = bottom.x - sign * radius;
     const middleY = startY + radius - sign * offset;
