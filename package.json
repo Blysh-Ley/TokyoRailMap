@@ -108,7 +108,8 @@
       "target": [
         "dmg"
       ],
-      "identity": null
+      "identity": "-",
+      "sign": "scripts/sign-macos-adhoc.cjs"
     },
     "dmg": {
       "contents": [
