@@ -31,7 +31,7 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
     const sizes = new Map(data.topology.stations.map((station) => [station.id, {
         labelWidth: Math.ceil(measure.measureText(station.name).width) + (station.code ? 26 : 0),
         transferWidth: Math.min(5, station.transfers.length) * 22,
-        height: Math.max(22, Math.ceil(station.transfers.length / 5) * 22)
+        height: Math.max(22, Math.ceil(station.transfers.length / 5) * 24 - 4)
     }]));
     const routesIndex = await getRoutesIndex();
     const stationLineIds = new Map(data.topology.stations.map((station) => [station.id, getRouteIdFromStationId(station.displayStationId)]));
@@ -91,7 +91,7 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
         }
         const meta = lineMeta.get(stationLineIds.get(station.id));
         const badge = station.code ? createStationCodeBadgeElement({ code: station.code, color: mainStations.has(station.id) ? data.selectedLine.color : meta?.color, routeId: meta?.id || stationLineIds.get(station.id) }) : null;
-        labels.push(`<span class="${appendStationJumpClass('route-map-station route-map-diagram-station')}${mainStations.has(station.id) ? ' is-main-line' : ''}" data-station-id="${escapeHtml(station.displayStationId)}" data-panel-station-jump="1" role="button" tabindex="0" title="${escapeHtml(station.name)}" style="left:${point.x + point.rightTrackOffset + 6}px;top:${point.y}px">${iconHtml(badge)}<span>${escapeHtml(station.name)}</span></span>`);
+        labels.push(`<span class="${appendStationJumpClass('route-map-station route-map-diagram-station')}${mainStations.has(station.id) ? ' is-main-line' : ''}" data-station-id="${escapeHtml(station.displayStationId)}" data-panel-station-jump="1" role="button" tabindex="0" title="${escapeHtml(station.name)}" style="left:${point.x + (point.labelOffset ?? point.rightTrackOffset + 6)}px;top:${point.y}px">${iconHtml(badge)}<span>${escapeHtml(station.name)}</span></span>`);
         if (isTransfer) {
             const rows = transferRows(station.transfers.map(transferItem));
             transfers.push(`<span class="route-map-diagram-transfers" data-transfer-station="${escapeHtml(station.id)}" style="left:${point.x - layout.laneWidth / 2 - 14 - metrics.transferWidth}px;top:${point.y}px;width:${metrics.transferWidth}px"><span class="route-map-transfer-items-shell" tabindex="0" aria-label="${escapeHtml(station.name)}，换乘线路：${station.transfers.length}条"><span class="route-map-transfer-items route-map-transfer-items-main">${rows}</span><span class="route-map-transfer-hover-panel" role="tooltip"><span class="route-map-transfer-items route-map-transfer-items-popover">${rows}</span></span></span></span>`);

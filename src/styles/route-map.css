@@ -784,8 +784,11 @@ html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
 .route-map-diagram-line-label { position:absolute; transform:translateY(-50%); display:inline-flex; align-items:center; gap:6px; min-height:30px; font-family:-apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; font-size:19.5px; font-weight:500; line-height:30px; white-space:nowrap; z-index:2; }
 .route-map-diagram-line-label .route-map-through-line-icon { flex:none; margin-right:0; }
 .route-map-diagram-transfers { position:absolute; transform:translateY(-50%); z-index:3; display:flex; justify-content:flex-end; }
-.route-map-diagram-transfers .route-map-transfer-items { gap:2px; }
+.route-map-diagram-transfers .route-map-transfer-items { gap:4px; }
 .route-map-diagram-transfers .route-map-transfer-row { height:20px; }
+/* 主题刷新会重建徽标内联尺寸，线路图中的站号和换乘仍使用布局规定的大小。 */
+.route-map-diagram-station .route-map-through-line-icon,
+.route-map-diagram-transfers .route-map-through-line-icon { width:20px !important; min-width:20px !important; height:20px !important; min-height:20px !important; }
 html[data-theme='dark'] .route-map-diagram-transfer-line { stroke:#fffa; }
 html.is-route-map-exporting .route-map-diagram-transfers .route-map-transfer-items-main { display:flex !important; }
 html.is-route-map-exporting .route-map-diagram-transfers .route-map-transfer-hover-panel { display:none !important; }
