@@ -5880,10 +5880,11 @@
 			"Disney.DisneyResortLine.ResortGateway",
 			"Disney.DisneyResortLine.TokyoDisneyland",
 			"Disney.DisneyResortLine.Bayside",
-			"Disney.DisneyResortLine.TokyoDisneySea"
+			"Disney.DisneyResortLine.TokyoDisneySea",
+			"Disney.DisneyResortLine.ResortGateway"
 		],
 		"color": "#cf98de",
-		"ascending": "OuterLoop",
+		"ascending": "InnerLoop",
 		"carComposition": 6,
 		"dynamic": true,
 		"altitude": -1
