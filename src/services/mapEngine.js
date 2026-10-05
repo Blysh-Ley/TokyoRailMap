@@ -174,6 +174,30 @@ export const bindStationCircleFrameLayerOrderSync = (map) => {
 const createStationCircleFrameRuntime = (map, { onFallback } = {}) => {
     let renderer = null;
     let visibility = 'visible';
+    let sourcePaintCache = new WeakMap();
+    map.on('sourcedata', (event) => {
+        if (event.sourceId === 'stations-source') sourcePaintCache = new WeakMap();
+    });
+    const evaluatePaint = (layer, name, feature) => {
+        const value = layer.paint.get(name);
+        if (value?.value?.kind === 'constant') return value.value.value;
+        // source 表达式与缩放无关；以表达式和属性对象为键，选择或主题变化时自然失效。
+        const expression = value?.value;
+        if (expression?.kind === 'source' && !expression.isStateDependent) {
+            let values = sourcePaintCache.get(expression);
+            if (!values) {
+                values = new WeakMap();
+                sourcePaintCache.set(expression, values);
+            }
+            const properties = feature.properties;
+            const key = properties || feature;
+            if (values.has(key)) return values.get(key);
+            const result = value.evaluate({ type: 1, properties }, {});
+            values.set(key, result);
+            return result;
+        }
+        return typeof value?.evaluate === 'function' ? value.evaluate({ type: 1, properties: feature.properties }, {}) : value;
+    };
     const nativeQuery = map.queryRenderedFeatures.bind(map);
     const setVisibility = (value) => {
         visibility = value || 'visible';
@@ -236,19 +260,20 @@ const createStationCircleFrameRuntime = (map, { onFallback } = {}) => {
                 const zoom = map.getZoom();
                 const mode = getMode?.() || 'dynamic';
                 if (mode !== previousMode) { frozenZoom = zoom; previousMode = mode; }
-                const evaluatePaint = (name, feature) => {
-                    const value = layer.paint.get(name);
-                    return typeof value?.evaluate === 'function' ? value.evaluate({ type: 1, properties: feature.properties }, {}) : value;
-                };
+                const paint = (name, feature) => evaluatePaint(layer, name, feature);
                 return { zoom, mode, frozenZoom, filter: layer.filter,
                     visible: visibility !== 'none' && zoom >= (layer.minzoom ?? 0) && zoom < (layer.maxzoom ?? 24),
                     width: map.transform.width, height: map.transform.height, cameraDistance: map.transform.cameraToCenterDistance,
                     centerMercatorX: (map.getCenter().lng + 180) / 360,
-                    evaluate: (feature) => ({
-                        radius: evaluatePaint('circle-radius', feature), strokeWidth: evaluatePaint('circle-stroke-width', feature),
-                        fill: evaluatePaint('circle-color', feature), stroke: evaluatePaint('circle-stroke-color', feature),
-                        pitchScale: evaluatePaint('circle-pitch-scale', feature),
-                        opacity: evaluatePaint('circle-opacity', feature), strokeOpacity: evaluatePaint('circle-stroke-opacity', feature)
+                    evaluateVisibility: (feature) => ({
+                        opacity: paint('circle-opacity', feature), strokeOpacity: paint('circle-stroke-opacity', feature)
+                    }),
+                    evaluate: (feature, visibility) => ({
+                        radius: paint('circle-radius', feature), strokeWidth: paint('circle-stroke-width', feature),
+                        fill: paint('circle-color', feature), stroke: paint('circle-stroke-color', feature),
+                        pitchScale: paint('circle-pitch-scale', feature),
+                        opacity: visibility?.opacity ?? paint('circle-opacity', feature),
+                        strokeOpacity: visibility?.strokeOpacity ?? paint('circle-stroke-opacity', feature)
                     }) };
             }
         });
@@ -304,6 +329,7 @@ const createTransferCapsuleFrameRuntime = (map, { onFallback } = {}) => {
                 const layer = map.getLayer(style.id);
                 const paint = (name, feature) => {
                     const value = layer.paint.get(name);
+                    if (value?.value?.kind === 'constant') return value.value.value;
                     return typeof value?.evaluate === 'function' ? value.evaluate({ type: style.type === 'line' ? 2 : 1, properties: feature.properties }, {}) : value;
                 };
                 const prefix = style.type;

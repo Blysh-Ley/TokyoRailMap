@@ -269,18 +269,22 @@ export const bindStationClickHighlightServingLines = ({
         recordStationHistory?.(props);
         setStationVisualHighlight?.(stationId);
 
+        const preloadStationTimetables = () => {
+            try {
+                const ids = getServingLineIdsFromStationProps?.(props) || [];
+                preloadTimetablesByLineIds?.(ids);
+            } catch {
+                // 保留旧调用方的可选预加载行为。
+            }
+        };
         await openPanelForStationWithAutoScroll?.(props, {
             autoScroll: hadStationSelection,
-            deferHeavyRender: deferPanelHeavyRender === true
+            deferHeavyRender: deferPanelHeavyRender === true,
+            ...(deferPanelHeavyRender === true ? { onTimetablesRendered: preloadStationTimetables } : {})
         });
         fitSelectedStation?.(stationId);
 
-        try {
-            const ids = getServingLineIdsFromStationProps?.(props) || [];
-            preloadTimetablesByLineIds?.(ids);
-        } catch {
-            // ignore
-        }
+        if (deferPanelHeavyRender !== true) preloadStationTimetables();
     };
 
     stationLayers.forEach((layerId) => {

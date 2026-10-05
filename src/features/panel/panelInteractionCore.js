@@ -106,6 +106,7 @@ export const createPanelCrossFeatureBridgeController = ({
             if (!cache) return null;
             const existing = cache.get?.(id);
             if (existing) return existing;
+            if (typeof cache.loadByLineId === 'function') return await cache.loadByLineId(id);
             await cache.preloadByLineIds?.([id]);
             return cache.get?.(id) || null;
         } catch {
