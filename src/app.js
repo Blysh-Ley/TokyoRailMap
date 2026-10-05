@@ -939,7 +939,11 @@ const initMapApp = async () => {
             return baseTranslate;
         };
 
-        const pickNorthernmost = (items) => {
+        const pickNorthernmost = (items, preferredStationId = '') => {
+            const preferred = preferredStationId
+                ? items.find((item) => String(item?.stationId || item?.props?.id || '').trim() === preferredStationId)
+                : null;
+            if (preferred) return preferred;
             let best = null;
             let bestLat = Number.NEGATIVE_INFINITY;
             for (const it of items) {
@@ -997,11 +1001,11 @@ const initMapApp = async () => {
 
             const reps = [];
             if (nameBuckets.size <= 1) {
-                const rep = pickNorthernmost(candidates);
+                const rep = pickNorthernmost(candidates, stationVisualHighlightId);
                 if (rep) reps.push(rep);
             } else {
                 for (const bucket of nameBuckets.values()) {
-                    const rep = pickNorthernmost(bucket);
+                    const rep = pickNorthernmost(bucket, stationVisualHighlightId);
                     if (rep) reps.push(rep);
                 }
             }
@@ -2023,6 +2027,10 @@ const initMapApp = async () => {
             if (!(el instanceof HTMLElement)) continue;
             const sid = String(item?.stationId ?? item?.props?.id ?? '').trim();
             const isSelected = hasSelected && !!sid && selectedIds.has(sid);
+            if (el.classList.contains('station-selected-current-label') !== isSelected) {
+                item.width = null;
+                item.height = null;
+            }
             el.classList.toggle('station-selected-current-label', isSelected);
             item.stationVisualCollisionPriorityBoost = isSelected ? 1000000 : 0;
         }
@@ -2656,6 +2664,13 @@ const initMapApp = async () => {
             'station-labels-layer',
             'icon-image',
             ['case', selectedLabelExpr, selectedLabelImageId, baseLabelImageId]
+        );
+        mapEngine.setLayoutProperty?.(
+            'station-labels-layer',
+            'text-font',
+            ['case', selectedLabelExpr,
+                ['literal', ['Open Sans Bold', 'Arial Unicode MS Regular']],
+                ['literal', ['Open Sans Regular', 'Arial Unicode MS Regular']]]
         );
         tripPreviewRenderer.applyStopPaint({
             'circle-color': buildStationCircleColorPaintExpr({
@@ -3303,6 +3318,7 @@ const initMapApp = async () => {
     } = {}) => {
         const props = findStationPropsById(stationId);
         if (!props) return false;
+        setStationVisualHighlight(props.id);
 
         if (adjustTime !== false && arrivalTime) {
             panel?.setTimeOverride?.(arrivalTime, {
@@ -5442,6 +5458,7 @@ const initMapApp = async () => {
                 })) return;
                 const hadStationSelection = !!String(selectedStationId || '').trim();
                 recordStationSearchHistoryFromProps(item.props || {});
+                setStationVisualHighlight(item.stationId || item.props?.id);
                 openPanelForStationWithAutoScroll(item.props || {}, { autoScroll: hadStationSelection });
 
                 // 预加载该站点关联线路的时刻表

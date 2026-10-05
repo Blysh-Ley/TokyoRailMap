@@ -77,6 +77,7 @@ class FakeElement {
         this.className = '';
         this.textContent = '';
         this.style = {};
+        this.dataset = {};
     }
 }
 

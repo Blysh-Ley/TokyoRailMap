@@ -218,7 +218,7 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
     let domStationLabelsHiddenForOffMode = false;
     let symbolStationLabelsVisible = false;
     let lastSymbolStationLabelFilterKey = '';
-    let lastSymbolStationLabelSortKeyMode = '';
+    let lastSymbolStationLabelSortKey = '';
     let lastSymbolStationLabelMode = '';
 
     const setStationSymbolLabelsVisible = (visible) => {
@@ -293,13 +293,21 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
     const syncStationSymbolSortKey = (mode) => {
         if (!stationLabelsLayerId || !mapAdapter.hasLayer(stationLabelsLayerId)) return false;
         const sortMode = mode === STATION_LABEL_MODES.FOCUS ? STATION_LABEL_MODES.FOCUS : STATION_LABEL_MODES.AUTO;
-        if (lastSymbolStationLabelSortKeyMode === sortMode) return true;
-        const sortKey = sortMode === STATION_LABEL_MODES.FOCUS
+        const selectedIds = stationLabels
+            .filter((label) => Number(label.stationVisualCollisionPriorityBoost) > 0)
+            .map((label) => String(label.stationId))
+            .sort();
+        const key = `${sortMode}:${selectedIds.join('|')}`;
+        if (lastSymbolStationLabelSortKey === key) return true;
+        const baseSortKey = sortMode === STATION_LABEL_MODES.FOCUS
             ? STATION_SYMBOL_SORT_KEY_FOCUS
             : STATION_SYMBOL_SORT_KEY_AUTO;
+        const sortKey = selectedIds.length
+            ? ['case', ['in', ['get', 'id'], ['literal', selectedIds]], -1000000, baseSortKey]
+            : baseSortKey;
         try {
             mapAdapter.setLayoutProperty(stationLabelsLayerId, 'symbol-sort-key', sortKey);
-            lastSymbolStationLabelSortKeyMode = sortMode;
+            lastSymbolStationLabelSortKey = key;
             return true;
         } catch {
             return false;
@@ -415,7 +423,6 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
             && options.interaction === true
             && lastSymbolStationLabelMode === effectiveMode
         ) {
-            syncStationSymbolSortKey(effectiveMode);
             setStationSymbolLabelsVisible(true);
             return;
         }
@@ -486,7 +493,9 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
                 label.el.style.display = 'none';
                 return;
             }
-            if (effectiveMode === STATION_LABEL_MODES.FOCUS && !shouldShowFocusedStationLabel(label)) {
+            if (effectiveMode === STATION_LABEL_MODES.FOCUS
+                && !shouldShowFocusedStationLabel(label)
+                && !(Number(label.stationVisualCollisionPriorityBoost) > 0)) {
                 label.el.style.display = 'none';
                 return;
             }

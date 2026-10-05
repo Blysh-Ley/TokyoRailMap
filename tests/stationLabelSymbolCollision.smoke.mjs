@@ -167,12 +167,15 @@ assert.equal(labels.every((label) => label.marker), true);
 }
 
 {
+    const localFilters = [];
+    const localLayouts = [];
     const localEngine = {
         getZoom: () => 11,
         hasLayer: (layerId) => layerId === 'station-labels-layer',
         on: () => {},
         project: () => ({ x: 0, y: 0 }),
-        setFilter: () => {},
+        setFilter: (layerId, filter) => localFilters.push(filter),
+        setLayoutProperty: (layerId, name, value) => localLayouts.push({ name, value }),
         setLayerVisibility: () => {}
     };
     const localLabels = [
@@ -215,14 +218,43 @@ assert.equal(labels.every((label) => label.marker), true);
         }
     ];
 
-    setupCollisions(localEngine, localLabels, [], {
-        getLabelMode: () => 'auto',
+    let localMode = 'auto';
+    const localController = setupCollisions(localEngine, localLabels, [], {
+        getLabelMode: () => localMode,
         getEnabledLineIds: () => null,
         getVisibleStationIds: () => new Set(['SELECTED', 'TRANSFER'])
     });
 
-    assert.equal(localLabels[0].el.style.display, 'block');
+    assert.deepEqual(localFilters.at(-1).at(-1), ['in', ['get', 'id'], ['literal', ['SELECTED']]]);
+    assert.deepEqual(localLayouts.at(-1).value.slice(0, 3), [
+        'case', ['in', ['get', 'id'], ['literal', ['SELECTED']]], -1000000
+    ]);
+    assert.equal(localLabels[0].marker, null);
     assert.equal(localLabels[1].el.style.display, 'none');
+
+    const layoutCount = localLayouts.length;
+    localController.scheduleUpdate();
+    assert.equal(localLayouts.length, layoutCount);
+
+    localLabels[0].stationVisualCollisionPriorityBoost = 0;
+    localLabels[1].stationVisualCollisionPriorityBoost = 1000000;
+    localController.scheduleUpdate();
+    assert.deepEqual(localLayouts.at(-1).value[1], ['in', ['get', 'id'], ['literal', ['TRANSFER']]]);
+    assert.deepEqual(localFilters.at(-1).at(-1), ['in', ['get', 'id'], ['literal', ['TRANSFER']]]);
+
+    localLabels[1].stationVisualCollisionPriorityBoost = 0;
+    localController.scheduleUpdate();
+    assert.equal(localLayouts.at(-1).value[0], '-');
+
+    localMode = 'focus';
+    localLabels[0].stationVisualCollisionPriorityBoost = 1000000;
+    localController.scheduleUpdate();
+    assert.deepEqual(localFilters.at(-1).at(-1), ['in', ['get', 'id'], ['literal', ['SELECTED']]]);
+
+    localMode = 'all';
+    localController.scheduleUpdate();
+    assert.equal(localLabels[0].el.style.display, 'block');
+    assert.equal(localLabels[1].el.style.display, 'block');
 }
 
 console.log('station label symbol collision smoke ok');
