@@ -89,10 +89,7 @@ export const buildStationTopology = ({ lineId, railways, stations, stationGroups
         segmentByTrip.set(trip, result);
         return result;
     };
-    const codes = visible.map((id) => text(stationById.get(id)?.title?.code).match(/^([A-Za-z]+)(\d+)$/));
-    const displayOrder = codes.every(Boolean) && new Set(codes.map((code) => code[1])).size === 1
-        ? visible.map((id, index) => ({ id, number: Number(codes[index][2]) })).sort((a, b) => a.number - b.number).map(({ id }) => canon(id))
-        : visible.map(canon);
+    const displayOrder = visible.map(canon);
     const station = (id, displayLineIds) => {
         const ids = aliases.get(id) || [id];
         // 合并节点负责连接，站名和编号取本线或靠近本线的实际运行区段。
