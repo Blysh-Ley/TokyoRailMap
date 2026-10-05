@@ -1,7 +1,11 @@
 import { planDiagramLineLabels } from './lineServiceDiagramLineLabels.js';
+import { layoutRingDiagram } from './lineServiceDiagramRingLayout.js';
 
 // 布局只决定图形空间；种别、交路筛选和停站关系来自已处理的拓扑。
-export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map()) => {
+export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map()) =>
+    layoutRingDiagram(data, stationSizes, lineSizes) || layoutDiagram(data, stationSizes, lineSizes);
+
+const layoutDiagram = (data, stationSizes, lineSizes) => {
     const stationById = new Map(data.topology.stations.map((station) => [station.id, station]));
     const cycles = data.topology.lineOrders.flatMap((order) => order.paths.flatMap((path) => path.flatMap((id, index) => {
         const end = path.indexOf(id, index + 1), cycle = path.slice(index, end);

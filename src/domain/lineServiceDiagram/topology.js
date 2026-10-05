@@ -49,7 +49,15 @@ export const buildStationTopology = ({ lineId, railways, stations, stationGroups
         aliases.set(ids[0], ids);
         for (const id of ids) canonical.set(id, ids[0]);
     }
-    const canon = (id) => canonical.get(id) || id;
+    const positionsByStation = new Map();
+    for (const id of visible) {
+        const physicalId = canonical.get(id) || id;
+        if (!positionsByStation.has(physicalId)) positionsByStation.set(physicalId, new Set());
+        positionsByStation.get(physicalId).add(id);
+    }
+    // Railway 已用独立记录表达同站的不同站序位置；绘图保留这些记录，同站别名仍用于物理连接。
+    const repeatedPositions = new Set([...positionsByStation.values()].filter((ids) => ids.size > 1).flatMap((ids) => [...ids]));
+    const canon = (id) => repeatedPositions.has(id) ? id : canonical.get(id) || id;
     const orders = new Map();
     const getOrder = (id) => {
         if (orders.has(id)) return orders.get(id);
@@ -64,7 +72,7 @@ export const buildStationTopology = ({ lineId, railways, stations, stationGroups
         if (segmentByTrip.has(trip)) return segmentByTrip.get(trip);
         const id = trip.r || lineIdOf(trip.id), railway = lineById.get(id);
         getOrder(id);
-        // 原始站点 ID 保留同站的不同位置；区间解析后再合并绘图节点。
+        // 原始站点 ID 保留同站的不同位置；区间解析后只合并没有独立站序位置的同站记录。
         const order = railway.stations, stops = consecutive(stopIds(trip));
         const circular = order.length > 2 && order[0] === order.at(-1);
         const sequence = circular ? order.slice(0, -1) : order;
@@ -95,9 +103,9 @@ export const buildStationTopology = ({ lineId, railways, stations, stationGroups
     };
     const displayOrder = visible.map(canon);
     const station = (id, displayLineIds) => {
-        const ids = aliases.get(id) || [id];
-        // 合并节点负责连接，站名和编号取本线或靠近本线的实际运行区段。
-        const displayStationId = ids.find((alias) => preferred.has(alias))
+        const ids = aliases.get(canonical.get(id) || id) || [id];
+        // 同站别名保留物理关系；独立站序位置各取自己的记录，其余节点取本线或邻近区段。
+        const displayStationId = (repeatedPositions.has(id) ? id : ids.find((alias) => preferred.has(alias)))
             || displayLineIds.map((lineId) => ids.find((alias) => lineIdOf(alias) === lineId)).find(Boolean) || id;
         const source = stationById.get(displayStationId);
         return {

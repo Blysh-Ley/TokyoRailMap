@@ -60,7 +60,8 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
         for (let index = 0; index < types.length; index += 1) {
             const type = types[index];
             if (!edgeTypes.get(edge.id).has(type.id)) continue;
-            const path = buildServiceTrackPath(a, b, laneOffset(index), layout.loops.has(edge.id) ? layout.loopX : null, layout.bends.get(edge.id));
+            const path = layout.trackPaths?.get(edge.id)?.(laneOffset(index))
+                ?? buildServiceTrackPath(a, b, laneOffset(index), layout.loops.has(edge.id) ? layout.loopX : null, layout.bends.get(edge.id));
             clearances.push(`<path class="route-map-service-track-clearance" d="${path}"/>`);
             edgeTracks.push(`<path class="route-map-service-track" data-type-id="${escapeHtml(type.id)}" data-edge-id="${edge.id}" data-source-color="${escapeHtml(type.color)}" d="${path}" stroke="${escapeHtml(resolveColor(type.color))}"/>`);
         }
@@ -70,7 +71,14 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
     for (const station of data.topology.stations) {
         const point = layout.positions.get(station.id), metrics = sizes.get(station.id);
         const isTransfer = station.transfers.length > 0;
-        if (isTransfer) connectors.push(`<line class="route-map-diagram-transfer-line" x1="${point.x - layout.laneWidth / 2 - 8}" y1="${point.y}" x2="${point.x + point.rightTrackOffset}" y2="${point.y}"/>`);
+        const link = (layout.stationLinks || []).find((link) => link.from === station.id);
+        if (!point.hideLabel && (isTransfer || link)) {
+            const end = link ? layout.positions.get(link.to) : point;
+            // 同站连接与换乘连接共用一条水平线，换乘信息只显示一份。
+            const fromX = isTransfer ? point.x - layout.laneWidth / 2 - 8 : point.x + point.leftTrackOffset;
+            const relation = link ? ` data-station-link="${escapeHtml(station.id)}"` : '';
+            connectors.push(`<line class="route-map-diagram-transfer-line${link ? ' route-map-diagram-station-link' : ''}"${relation} x1="${fromX}" y1="${point.y}" x2="${end.x + end.rightTrackOffset}" y2="${end.y}">${link ? `<title>${escapeHtml(station.name)}，同站的两个站序位置</title>` : ''}</line>`);
+        }
         for (let index = 0; index < types.length; index += 1) {
             const stops = stopsByType[index];
             const up = stops.get(primary.id)?.has(station.id), down = secondary && stops.get(secondary.id)?.has(station.id);
@@ -89,6 +97,7 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
                 transferDots.push(`<circle class="route-map-diagram-transfer-dot" cx="${x}" cy="${dotY}" r="1"/>`);
             }
         }
+        if (point.hideLabel) continue;
         const meta = lineMeta.get(stationLineIds.get(station.id));
         const badge = station.code ? createStationCodeBadgeElement({ code: station.code, color: mainStations.has(station.id) ? data.selectedLine.color : meta?.color, routeId: meta?.id || stationLineIds.get(station.id) }) : null;
         labels.push(`<span class="${appendStationJumpClass('route-map-station route-map-diagram-station')}${mainStations.has(station.id) ? ' is-main-line' : ''}" data-station-id="${escapeHtml(station.displayStationId)}" data-panel-station-jump="1" role="button" tabindex="0" title="${escapeHtml(station.name)}" style="left:${point.x + (point.labelOffset ?? point.rightTrackOffset + 6)}px;top:${point.y}px">${iconHtml(badge)}<span>${escapeHtml(station.name)}</span></span>`);

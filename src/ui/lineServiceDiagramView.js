@@ -19,7 +19,9 @@ export const installLineServiceDiagramView = ({ root, viewport, layout, resolveC
     const unsubscribe = store.subscribe(render);
     const focus = () => {
         const width = layout.mainBounds.right - layout.mainBounds.left;
-        const scale = Math.min(1, (viewport.clientWidth - 24) / width);
+        const height = layout.mainBounds.bottom - layout.mainBounds.top;
+        const scale = Math.min(1, (viewport.clientWidth - 24) / width,
+            layout.fitHeight ? (viewport.clientHeight - 48) / height : Infinity);
         store.dispatch({ type: 'set', payload: { scale, x: (viewport.clientWidth - width * scale) / 2 - layout.mainBounds.left * scale, y: 24 - layout.mainBounds.top * scale } });
     };
     const zoom = (factor, x = viewport.clientWidth / 2, y = viewport.clientHeight / 2) => store.dispatch({ type: 'zoom', payload: { factor, x, y } });
