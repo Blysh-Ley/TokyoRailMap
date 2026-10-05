@@ -3299,7 +3299,8 @@ const initMapApp = async () => {
         }
         const prevScrollTop = panel?.getScrollTop?.() || 0;
         await panel?.showForStationProps?.(p, {
-            deferHeavyRender: options?.deferHeavyRender === true
+            deferHeavyRender: options?.deferHeavyRender === true,
+            onTimetablesRendered: options?.onTimetablesRendered
         });
         const shouldAutoScroll = options?.autoScroll !== false;
         if (!shouldAutoScroll) {

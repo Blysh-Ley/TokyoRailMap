@@ -2023,6 +2023,7 @@ export function createPanel(options = {}) {
     };
 
     const refTripCache = new Map(); // refId -> trip|null
+    const refTripIndexes = new WeakMap();
     const getRefLineId = (refId) => {
         const s = toText(refId);
         if (!s) return null;
@@ -2135,17 +2136,29 @@ export function createPanel(options = {}) {
 
         const data = await loadTimetableForLineId(refLineId);
         const list = Array.isArray(data) ? data : [];
-        let hit = list.find((t) => toText(t?.id) === key) || null;
+        let index = refTripIndexes.get(list);
+        if (!index) {
+            index = { byId: new Map(), byTrainId: new Map(), byPrefix: new Map() };
+            for (const trip of list) {
+                const id = toText(trip?.id);
+                const trainId = toText(trip?.t);
+                if (id && !index.byId.has(id)) index.byId.set(id, trip);
+                if (trainId && !index.byTrainId.has(trainId)) index.byTrainId.set(trainId, trip);
+                for (let dot = id.indexOf('.'); dot >= 0; dot = id.indexOf('.', dot + 1)) {
+                    const prefix = id.slice(0, dot);
+                    if (!index.byPrefix.has(prefix)) index.byPrefix.set(prefix, trip);
+                }
+            }
+            refTripIndexes.set(list, index);
+        }
+        let hit = index.byId.get(key) || null;
         if (!hit) {
             const parts = key.split('.').map((x) => x.trim()).filter(Boolean);
             const maybeNoDay = parts.length >= 2 ? parts.slice(0, -1).join('.') : key;
             hit =
-                list.find((t) => toText(t?.t) === maybeNoDay) ||
-                list.find((t) => toText(t?.id) === maybeNoDay) ||
-                list.find((t) => {
-                    const id = toText(t?.id);
-                    return id ? id.startsWith(`${maybeNoDay}.`) : false;
-                }) ||
+                index.byTrainId.get(maybeNoDay) ||
+                index.byId.get(maybeNoDay) ||
+                index.byPrefix.get(maybeNoDay) ||
                 null;
         }
 
@@ -2462,10 +2475,12 @@ export function createPanel(options = {}) {
     const scheduleStationThroughPreview = async ({
         renderToken,
         stationId = '',
-        fitOptions = {}
+        fitOptions = {},
+        isStillCurrentRender = () => true
     } = {}) => {
         const sid = toText(stationId);
         const isStillActive = () => !stationThroughPreviewSuppressed
+            && isStillCurrentRender()
             && renderToken === stationRenderToken
             && sid === toText(currentStationId);
         if (!sid || !isStillActive()) return false;
@@ -2526,7 +2541,7 @@ export function createPanel(options = {}) {
                 fitOptions: fitOptions
             });
             if (!previewResult?.ok) {
-                if (renderToken === stationRenderToken && sid === toText(currentStationId)) {
+                if (isStillActive()) {
                     clearStationThroughPreviewCache();
                 }
                 return false;
@@ -2537,7 +2552,7 @@ export function createPanel(options = {}) {
                 built: previewResult?.built,
                 source
             });
-            if (renderToken !== stationRenderToken || sid !== toText(currentStationId)) {
+            if (!isStillActive()) {
                 return false;
             }
             if (snapshot) {
@@ -2550,10 +2565,10 @@ export function createPanel(options = {}) {
             }
             return true;
         } catch {
-            if (renderToken === stationRenderToken && sid === toText(currentStationId)) {
+            if (isStillActive()) {
                 crossFeatureBridge.clearTripPathPreviewBySource(STATION_THROUGH_PREVIEW_SOURCE);
+                clearStationThroughPreviewCache();
             }
-            clearStationThroughPreviewCache();
             return false;
         }
     };
@@ -2612,7 +2627,7 @@ export function createPanel(options = {}) {
     });
     const findTripTarget = (target) => findPanelTripTarget(target);
 
-    const buildTimetableRowsHtml = async ({
+    const prepareTimetableRowsRender = async ({
         lineId,
         stationId,
         sourceLineIds,
@@ -2621,7 +2636,8 @@ export function createPanel(options = {}) {
         printStationName,
         printTitleText,
         timetableViewModeOverride,
-        buildPrintPayloads = true
+        buildPrintPayloads = true,
+        isStillCurrentRender = () => true
     }) => {
         const fallbackStationKey = toText(stationId);
         const allowedKeys = normalizeTimetableAllowedTripKeys(allowedTripKeySet, { toText });
@@ -2660,14 +2676,15 @@ export function createPanel(options = {}) {
             getTrainTypeColorIndex(),
             getAlternateLineMembership()
         ]);
+        if (!isStillCurrentRender()) return null;
         const alternateSourcePlanIndex = buildAlternateTripSourceIndex(alternateLineMembership);
 
         const mergedSourceLineIds = normalizeTimetableSourceLineIds({ lineId, sourceLineIds, toText });
         if (!mergedSourceLineIds.length) {
-            return {
+            return () => ({
                 html: '',
                 stationInfo: { typeItems: [] }
-            };
+            });
         }
 
         const sourceRequests = [];
@@ -2716,11 +2733,12 @@ export function createPanel(options = {}) {
             };
         }));
 
+        if (!isStillCurrentRender()) return null;
         if (!sourceDatas.some((x) => x.stationKey && x.list.length)) {
-            return {
+            return () => ({
                 html: '',
                 stationInfo: { typeItems: [] }
-            };
+            });
         }
 
         const now = getDisplayNowMs();
@@ -2736,6 +2754,7 @@ export function createPanel(options = {}) {
         const rowsForPrintOriginal = [];
         const printRowsByServiceDayOriginal = new Map(PRINT_SERVICE_DAYS.map((day) => [day, []]));
         const throughDirectionCache = new Map();
+        const collectedRowsByTrip = new WeakMap();
         const allTypeColorByName = new Map();
         const stopTypeColorByName = new Map();
         const stopTypeNameSet = new Set();
@@ -2850,6 +2869,41 @@ export function createPanel(options = {}) {
                 const tt = Array.isArray(trip?.tt) ? trip.tt : [];
                 if (!tt.length) continue;
 
+                const stop = tt.find((x) => {
+                    const currentSid = toText(x?.s);
+                    if (!currentSid) return false;
+
+                    // 1. 首先判断 ID 是否完全一致（最快且最直接）
+                    if (currentSid === stationKey) return true;
+
+                    // 2. 如果不一致，再查换乘组索引
+                    return sg?.get?.(currentSid)?.includes?.(stationKey);
+                });
+
+                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary && !hasNm) {
+                    const typeSummaryPayload = {
+                        stop,
+                        tt,
+                        typeColor,
+                        typeId,
+                        typeName
+                    };
+                    recordTypeSummaryForTrip(lineTypeSummaryState, typeSummaryPayload);
+                }
+
+                if (!stop) continue;
+
+                const cachedRows = collectedRowsByTrip.get(trip) || [];
+                const cachedRow = cachedRows.find((entry) => (
+                    entry.sourceLineId === sourceLineId
+                    && entry.stationKey === stationKey
+                    && entry.throughServiceEntry === throughServiceEntry
+                ));
+                if (cachedRow) {
+                    out.push({ ...cachedRow.row });
+                    continue;
+                }
+
                 const os = Array.isArray(trip?.os) ? trip.os : (trip?.os ? [trip.os] : []);
                 const ds = Array.isArray(trip?.ds) ? trip.ds : (trip?.ds ? [trip.ds] : []);
                 const ptRefs = Array.isArray(trip?.pt) ? trip.pt : (trip?.pt ? [trip.pt] : []);
@@ -2879,30 +2933,6 @@ export function createPanel(options = {}) {
                 const dir = throughCategory
                     ? `through:${throughCategory}:${baseDir || 'Unknown'}`
                     : baseDir;
-
-                const stop = tt.find((x) => {
-                    const currentSid = toText(x?.s);
-                    if (!currentSid) return false;
-
-                    // 1. 首先判断 ID 是否完全一致（最快且最直接）
-                    if (currentSid === stationKey) return true;
-
-                    // 2. 如果不一致，再查换乘组索引
-                    return sg?.get?.(currentSid)?.includes?.(stationKey);
-                });
-
-                if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary && !hasNm) {
-                    const typeSummaryPayload = {
-                        stop,
-                        tt,
-                        typeColor,
-                        typeId,
-                        typeName
-                    };
-                    recordTypeSummaryForTrip(lineTypeSummaryState, typeSummaryPayload);
-                }
-
-                if (!stop) continue;
 
                 let arr = toText(stop?.a);
                 let dep = toText(stop?.d);
@@ -2991,7 +3021,7 @@ export function createPanel(options = {}) {
                 const displayTimeMs = (depDisplay?.ms || arrDisplay?.ms || timeMs);
                 const displayTimeText = toHHMMForTimezone(displayTimeMs, { timezoneMode: getTimezoneMode() });
 
-                out.push({
+                const row = {
                     destName,
                     destId,
                     arr: arrDisplay?.text || null,
@@ -3042,7 +3072,10 @@ export function createPanel(options = {}) {
                     throughServiceSourceLineIds: Array.isArray(throughServiceEntry?.sourceLineIds)
                         ? throughServiceEntry.sourceLineIds.slice()
                         : []
-                });
+                };
+                cachedRows.push({ sourceLineId, stationKey, throughServiceEntry, row });
+                collectedRowsByTrip.set(trip, cachedRows);
+                out.push(row);
             }
             return out;
         };
@@ -3066,6 +3099,7 @@ export function createPanel(options = {}) {
                 stationGroupsIndex: sg,
                 stationKey
             });
+            if (!isStillCurrentRender()) return null;
             if (currentPostprocessDebug) postprocessDebug.push(currentPostprocessDebug);
 
             if (buildPrintPayloads) {
@@ -3148,6 +3182,7 @@ export function createPanel(options = {}) {
             }
         }
 
+        if (!isStillCurrentRender()) return null;
         const stationTypeSummaryItems = buildStationTypeSummaryItems({
             allTypeColorByName,
             currentLineId: lineId,
@@ -3159,12 +3194,12 @@ export function createPanel(options = {}) {
         });
 
         if (!rows.length) {
-            return {
+            return () => ({
                 html: '',
                 stationInfo: {
                     typeItems: stationTypeSummaryItems
                 }
-            };
+            });
         }
 
         // 去重：同一物理班次在同一站点可能被拆成多个记录（如 *.Weekday.1 / *.Weekday.2），
@@ -3264,169 +3299,13 @@ export function createPanel(options = {}) {
             directionStationInfoTypeItemsByDirKey.set(visibleDirOrder[1], stationInfoTypePlacement.secondaryTypeItems || []);
         }
 
-        const renderTime = (r) => {
-            const a = toText(r.arr);
-            const d = toText(r.dep);
-            if (!a && !d) return '';
-
-            const base = (() => {
-                if (!a) return `<span class="panel-time-depart">${escapeHtml(formatTimeWithPlus(d, r.depPlus))}</span>`;
-                if (!d) return `<span class="panel-time-arrive">${escapeHtml(formatTimeWithPlus(a, r.arrPlus))}</span>`;
-                // 到达/发车时间相同也统一显示两者
-                return `<span class="panel-time-arrive">${escapeHtml(formatTimeWithPlus(a, r.arrPlus))}</span> <span class="panel-time-depart">${escapeHtml(formatTimeWithPlus(d, r.depPlus))}</span>`;
-            })();
-
-            const originCls = `panel-time-label panel-time-label-origin${r.isPast ? ' is-past' : ''}`;
-            const terminalCls = `panel-time-label panel-time-label-terminal${r.isPast ? ' is-past' : ''}`;
-            if (r.showOriginLabel && r.showTerminalLabel) {
-                return `<span class="${originCls}">始发站</span> ${base} <span class="${terminalCls}">终点站</span>`;
-            }
-            if (r.showOriginLabel) return `<span class="${originCls}">始发站</span> ${base}`;
-            if (r.showTerminalLabel) return `${base} <span class="${terminalCls}">终点站</span>`;
-            return base;
-        };
-
-        const renderTimeForPrint = (r) => renderTime({ ...(r || {}), isPast: false });
-
-        const originalDirectionStats = buildPrintPayloads
-            ? deriveDirectionStats({
-                destNameMinCount: DEST_NAME_MIN_COUNT,
-                rows: rowsForPrintOriginal,
-                toText
-            })
-            : { anyDestAboveThreshold: false, dirOrder: [], dirToDestCounts: new Map() };
-        const buildOriginalDirectionLabel = (dirKey) => {
-            const counts = originalDirectionStats.dirToDestCounts.get(dirKey) || new Map();
-            const entries = Array.from(counts.entries());
-            const names = entries
-                .filter(([name, count]) => originalDirectionStats.anyDestAboveThreshold ? Number(count) >= DEST_NAME_MIN_COUNT : !!name)
-                .sort((a, b) => {
-                    const dc = Number(b[1]) - Number(a[1]);
-                    if (dc) return dc;
-                    return String(a[0]).localeCompare(String(b[0]));
-                })
-                .map(([name]) => toText(name))
-                .filter(Boolean);
-            return names.length ? names.slice(0, 1).join('，') : dirKey;
-        };
-        const printableStationInfoHtmlForExport = buildPrintPayloads
-            ? renderPrintableStationInfoHtml({ typeItems: stationTypeSummaryItems })
-            : '';
-        const buildOriginalPrintPayload = ({
-            dirKey,
-            serviceDay,
-            rowsForDir
-        } = {}) => {
-            const printableRows = (Array.isArray(rowsForDir) ? rowsForDir : [])
-                .map((r) => ({ ...(r || {}), isPast: false }));
-            if (!printableRows.length) return null;
-
-            const {
-                typeHints: originalTypeHints,
-                terminalHints: originalTerminalHints,
-                specialHints: originalSpecialHints
-            } = buildDirectionGridHints(printableRows, { currentLineId: lineId });
-            const originalGridHintsHtml = effectiveTimetableViewMode === 'grid'
-                ? buildGridHintsHtml({
-                    typeHints: originalTypeHints,
-                    terminalHints: originalTerminalHints,
-                    specialHints: originalSpecialHints
-                })
-                : '';
-            const originalListHtml = renderPanelPrintableTimetableListHtml({
-                rows: printableRows,
-                renderTime: renderTimeForPrint,
-                resolveBadgeTextColor: resolvePanelBadgeTextColor
-            });
-            const originalGridHtml = buildGridTableHtmlForDirection({
-                rowsForDir: printableRows,
-                typeHints: originalTypeHints,
-                terminalHints: originalTerminalHints,
-                specialHints: originalSpecialHints,
-                expanded: true,
-                nowMs: now,
-                serviceDayStartMs: displayServiceDayStartMs,
-                lineColor: lineColorForTimetablePalette,
-                serviceDayColorMode: serviceDay === 'SaturdayHoliday' ? 'complementary' : 'base'
-            });
-
-            return buildTimetablePrintPayload({
-                companyLogoMap,
-                currentStationName: effectivePrintStationName,
-                getCompanyLogoSrc,
-                gridHintsHtml: originalGridHintsHtml,
-                gridHtml: originalGridHtml,
-                lineId,
-                lineMeta: getLineMeta?.(lineId) || {},
-                listHtml: originalListHtml,
-                dirKey,
-                dirLabel: buildOriginalDirectionLabel(dirKey),
-                serviceDay,
-                stationInfoHtml: printableStationInfoHtmlForExport,
-                timetableViewMode: effectiveTimetableViewMode,
-                titleText: effectivePrintTitleText,
-                toText
-            });
-        };
-        if (buildPrintPayloads) {
-            const originalLinePrintPayloads = originalDirectionStats.dirOrder
-                .map((dirKey) => {
-                    const currentRowsForDir = rowsForPrintOriginal
-                        .filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
-                    const currentPayload = buildOriginalPrintPayload({
-                        dirKey,
-                        serviceDay: currentServiceDay,
-                        rowsForDir: currentRowsForDir
-                    });
-                    if (!currentPayload) return null;
-                    return {
-                        ...currentPayload,
-                        serviceDayVariants: PRINT_SERVICE_DAYS
-                            .map((serviceDay) => buildOriginalPrintPayload({
-                                dirKey,
-                                serviceDay,
-                                rowsForDir: (printRowsByServiceDayOriginal.get(serviceDay) || [])
-                                    .filter((r) => (toText(r.dir) || 'Unknown') === dirKey)
-                            }))
-                            .filter(Boolean)
-                    };
-                })
-                .filter(Boolean);
-            if (originalLinePrintPayloads.length) {
-                linePrintPayloadsByLineId.set(toText(lineId), { dirs: originalLinePrintPayloads });
-            } else {
-                linePrintPayloadsByLineId.delete(toText(lineId));
-            }
-        } else {
-            linePrintPayloadsByLineId.delete(toText(lineId));
-        }
-
-        // 分组显示：默认显示所有方向；方向内默认展示 3 条未来班次
-        let html = '';
-        const directionDebug = [];
+        const directionRowsByKey = new Map();
         for (const dirKey of visibleDirOrder) {
-            const counts = dirToDestCounts.get(dirKey) || new Map();
-            // If no destination anywhere met threshold, show all destinations sorted by frequency
-            const useAllIfBelowThreshold = !anyDestAboveThreshold;
-            const entries = Array.from(counts.entries());
-            const filteredNames = entries
-                .filter(([name, c]) => useAllIfBelowThreshold ? true : Number(c) >= DEST_NAME_MIN_COUNT)
-                .sort((a, b) => {
-                    const dc = Number(b[1]) - Number(a[1]);
-                    if (dc) return dc;
-                    return String(a[0]).localeCompare(String(b[0]));
-                })
-                .map(([name]) => name);
             const lineDirKey = makeLineDirKey(lineId, dirKey);
-            const focused = focusedDirectionKey === lineDirKey;
-            const expanded = focused || isDirExpanded(lineId, dirKey);
-            const tri = expanded ? '▾' : '▸';
-
             const rowsForDir = rowsByVisibleDir.get(dirKey) || [];
             const throughServiceCategory = toText(rowsForDir.find((row) => toText(row?.throughServiceCategory))?.throughServiceCategory);
             const throughLineIdForDir = toText(rowsForDir.find((row) => toText(row?.throughLineId))?.throughLineId);
             const isThroughServiceDirection = !!throughServiceCategory;
-            const { typeHints, terminalHints, specialHints } = buildDirectionGridHints(rowsForDir, { currentLineId: lineId });
             const filterRowsForDir = rowsForDir
                 .map((r) => toDirFilterRow(r, { toText }))
                 .filter(hasDirFilterRowValue);
@@ -3485,165 +3364,96 @@ export function createPanel(options = {}) {
                 })
             });
 
-            const labelRows = filteredRowsForDir.length ? filteredRowsForDir : rowsForDir;
-            const labelCount = new Map();
-            for (const item of labelRows) {
-                const names = Array.isArray(item.destNamesForDir) ? item.destNamesForDir : [];
-                for (const n of names) {
-                    const s = toText(n);
-                    if (!s) continue;
-                    labelCount.set(s, (labelCount.get(s) || 0) + 1);
-                }
-            }
-
-            const lineMetaStations = getLineMeta?.(lineId)?.stations || [];
-            const lineStationNamesSet = new Set(lineMetaStations.map(x => toText(stationsIndex?.idToNameZh?.get?.(toText(x)) || toText(x))));
-            const maxLabelCount = Array.from(labelCount.values())
-                .reduce((max, count) => Math.max(max, Number(count) || 0), 0);
-
-            const labelEntries = Array.from(labelCount.entries())
-                .filter(([name, count]) => {
-                    const numericCount = Number(count) || 0;
-                    if (maxLabelCount > 0 && numericCount > maxLabelCount * 0.8) return true;
-                    if (numericCount < 5) return false;
-                    if (lineStationNamesSet.has(name)) return true;
-
-                    for (const row of labelRows) {
-                        const rowDests = Array.isArray(row.destNamesForDir) ? row.destNamesForDir : [];
-                        if (rowDests.includes(name)) continue;
-
-                        const validOtherDest = rowDests.some(d => (labelCount.get(d) || 0) > 5);
-                        if (!validOtherDest) continue;
-
-                        const rawStopNames = Array.isArray(row.rawStopNames) ? row.rawStopNames : [];
-                        if (rawStopNames.includes(name)) {
-                            return false;
-                        }
-                    }
-
-                    return true;
-                })
-                .sort((a, b) => {
-                    const dc = Number(b[1]) - Number(a[1]);
-                    if (dc) return dc;
-                    return String(a[0]).localeCompare(String(b[0]));
-                })
-                .map(([name]) => name);
-
-            const visibleDirFallback = (() => {
-                if (!dirKey.startsWith('through:')) return dirKey;
-                const parts = dirKey.split(':').map((part) => toText(part));
-                return parts[2] || dirKey;
-            })();
-            const label = labelEntries.length ? labelEntries.join('，') : (filteredNames.length ? filteredNames.slice(0, 1).join('，') : visibleDirFallback);
-            const throughLabel = isThroughServiceDirection
-                ? ''
-                : buildDirectionThroughLabel(
-                    filteredRowsForDirThroughLabel.length ? filteredRowsForDirThroughLabel : rowsForDirThroughLabel
-                );
-            const throughServiceDirectionName = isThroughServiceDirection
-                ? resolveThroughServicePanelDirectionDisplayName({
-                    category: throughServiceCategory,
-                    dirKey,
-                    rowsForDir,
-                    stationId: currentStationId
-                })
-                : '';
-            const throughServiceDirectionColor = isThroughServiceDirection
-                ? toText(THROUGH_SERVICE_CONFIGS_OBJECT?.[throughServiceCategory]?.color)
-                : '';
-            const dirHeaderStyle = throughServiceDirectionColor
-                ? ` style="--panel-line-accent:${escapeHtml(throughServiceDirectionColor)}"`
-                : '';
-            const directionTimetablePaletteColor = throughServiceDirectionColor || lineColorForTimetablePalette;
-
-            directionDebug.push({
-                dirKey,
-                dirLabel: label,
-                throughLabel,
-                throughServiceDirectionName,
-                typeHints,
-                terminalHints,
-                specialHints
+            directionRowsByKey.set(dirKey, {
+                rowsForDir,
+                throughServiceCategory,
+                isThroughServiceDirection,
+                filteredRowsForDir,
+                rowsForDirThroughLabel,
+                filteredRowsForDirThroughLabel
             });
+        }
 
-            const timetableViewClass = effectiveTimetableViewMode === 'grid' ? 'panel-timetable-view-grid' : 'panel-timetable-view-list';
-            const gridHintsHtml = effectiveTimetableViewMode === 'grid' && expanded
-                ? buildGridHintsHtml({ typeHints, terminalHints, specialHints })
-                : '';
-            const rowsForListView = filteredRowsForDir;
-            const future = rowsForListView.filter((r) => !r.isPast);
-            const visible = expanded ? rowsForListView : future.slice(0, 3);
+        return () => {
+            const renderTime = (r) => {
+                const a = toText(r.arr);
+                const d = toText(r.dep);
+                if (!a && !d) return '';
 
-            const originalPrintRowsForDir = !buildPrintPayloads || isThroughServiceDirection
-                ? []
-                : rowsForPrintOriginal
-                    .filter((r) => (toText(r.dir) || 'Unknown') === dirKey)
-                    .map((r) => ({ ...(r || {}), isPast: false }));
-            const {
-                typeHints: originalPrintTypeHints,
-                terminalHints: originalPrintTerminalHints,
-                specialHints: originalPrintSpecialHints
-            } = buildPrintPayloads
-                ? buildDirectionGridHints(originalPrintRowsForDir, { currentLineId: lineId })
-                : { typeHints: [], terminalHints: [], specialHints: [] };
-            const originalPrintGridHintsHtml = buildPrintPayloads && effectiveTimetableViewMode === 'grid'
-                ? buildGridHintsHtml({
-                    typeHints: originalPrintTypeHints,
-                    terminalHints: originalPrintTerminalHints,
-                    specialHints: originalPrintSpecialHints
+                const base = (() => {
+                    if (!a) return `<span class="panel-time-depart">${escapeHtml(formatTimeWithPlus(d, r.depPlus))}</span>`;
+                    if (!d) return `<span class="panel-time-arrive">${escapeHtml(formatTimeWithPlus(a, r.arrPlus))}</span>`;
+                    // 到达/发车时间相同也统一显示两者
+                    return `<span class="panel-time-arrive">${escapeHtml(formatTimeWithPlus(a, r.arrPlus))}</span> <span class="panel-time-depart">${escapeHtml(formatTimeWithPlus(d, r.depPlus))}</span>`;
+                })();
+
+                const originCls = `panel-time-label panel-time-label-origin${r.isPast ? ' is-past' : ''}`;
+                const terminalCls = `panel-time-label panel-time-label-terminal${r.isPast ? ' is-past' : ''}`;
+                if (r.showOriginLabel && r.showTerminalLabel) {
+                    return `<span class="${originCls}">始发站</span> ${base} <span class="${terminalCls}">终点站</span>`;
+                }
+                if (r.showOriginLabel) return `<span class="${originCls}">始发站</span> ${base}`;
+                if (r.showTerminalLabel) return `${base} <span class="${terminalCls}">终点站</span>`;
+                return base;
+            };
+
+            const renderTimeForPrint = (r) => renderTime({ ...(r || {}), isPast: false });
+
+            const originalDirectionStats = buildPrintPayloads
+                ? deriveDirectionStats({
+                    destNameMinCount: DEST_NAME_MIN_COUNT,
+                    rows: rowsForPrintOriginal,
+                    toText
                 })
-                : '';
-            const printableListHtml = buildPrintPayloads
-                ? renderPanelPrintableTimetableListHtml({
-                    rows: originalPrintRowsForDir,
-                    renderTime: renderTimeForPrint,
-                    resolveBadgeTextColor: resolvePanelBadgeTextColor
-                })
-                : '';
-            const printableGridHtml = buildPrintPayloads
-                ? buildGridTableHtmlForDirection({
-                    rowsForDir: originalPrintRowsForDir,
-                    typeHints: originalPrintTypeHints,
-                    terminalHints: originalPrintTerminalHints,
-                    specialHints: originalPrintSpecialHints,
-                    expanded: true,
-                    nowMs: now,
-                    serviceDayStartMs: displayServiceDayStartMs,
-                    lineColor: lineColorForTimetablePalette,
-                    serviceDayColorMode: currentPrintServiceDayColorMode
-                })
-                : '';
-            const printableStationInfoHtml = buildPrintPayloads
+                : { anyDestAboveThreshold: false, dirOrder: [], dirToDestCounts: new Map() };
+            const buildOriginalDirectionLabel = (dirKey) => {
+                const counts = originalDirectionStats.dirToDestCounts.get(dirKey) || new Map();
+                const entries = Array.from(counts.entries());
+                const names = entries
+                    .filter(([name, count]) => originalDirectionStats.anyDestAboveThreshold ? Number(count) >= DEST_NAME_MIN_COUNT : !!name)
+                    .sort((a, b) => {
+                        const dc = Number(b[1]) - Number(a[1]);
+                        if (dc) return dc;
+                        return String(a[0]).localeCompare(String(b[0]));
+                    })
+                    .map(([name]) => toText(name))
+                    .filter(Boolean);
+                return names.length ? names.slice(0, 1).join('，') : dirKey;
+            };
+            const printableStationInfoHtmlForExport = buildPrintPayloads
                 ? renderPrintableStationInfoHtml({ typeItems: stationTypeSummaryItems })
                 : '';
+            const buildOriginalPrintPayload = ({
+                dirKey,
+                serviceDay,
+                rowsForDir
+            } = {}) => {
+                const printableRows = (Array.isArray(rowsForDir) ? rowsForDir : [])
+                    .map((r) => ({ ...(r || {}), isPast: false }));
+                if (!printableRows.length) return null;
 
-            const buildPrintPayloadForServiceDay = (serviceDay) => {
-                const serviceRowsForDir = (printRowsByServiceDayOriginal.get(serviceDay) || [])
-                    .filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
                 const {
-                    typeHints: serviceTypeHints,
-                    terminalHints: serviceTerminalHints,
-                    specialHints: serviceSpecialHints
-                } = buildDirectionGridHints(serviceRowsForDir, { currentLineId: lineId });
-                const serviceRowsPrintable = serviceRowsForDir.map((r) => ({ ...(r || {}), isPast: false }));
-                const serviceGridHintsHtml = effectiveTimetableViewMode === 'grid'
+                    typeHints: originalTypeHints,
+                    terminalHints: originalTerminalHints,
+                    specialHints: originalSpecialHints
+                } = buildDirectionGridHints(printableRows, { currentLineId: lineId });
+                const originalGridHintsHtml = effectiveTimetableViewMode === 'grid'
                     ? buildGridHintsHtml({
-                        typeHints: serviceTypeHints,
-                        terminalHints: serviceTerminalHints,
-                        specialHints: serviceSpecialHints
+                        typeHints: originalTypeHints,
+                        terminalHints: originalTerminalHints,
+                        specialHints: originalSpecialHints
                     })
                     : '';
-                const serviceListHtml = renderPanelPrintableTimetableListHtml({
-                    rows: serviceRowsPrintable,
+                const originalListHtml = renderPanelPrintableTimetableListHtml({
+                    rows: printableRows,
                     renderTime: renderTimeForPrint,
                     resolveBadgeTextColor: resolvePanelBadgeTextColor
                 });
-                const serviceGridHtml = buildGridTableHtmlForDirection({
-                    rowsForDir: serviceRowsPrintable,
-                    typeHints: serviceTypeHints,
-                    terminalHints: serviceTerminalHints,
-                    specialHints: serviceSpecialHints,
+                const originalGridHtml = buildGridTableHtmlForDirection({
+                    rowsForDir: printableRows,
+                    typeHints: originalTypeHints,
+                    terminalHints: originalTerminalHints,
+                    specialHints: originalSpecialHints,
                     expanded: true,
                     nowMs: now,
                     serviceDayStartMs: displayServiceDayStartMs,
@@ -3655,73 +3465,320 @@ export function createPanel(options = {}) {
                     companyLogoMap,
                     currentStationName: effectivePrintStationName,
                     getCompanyLogoSrc,
-                    gridHintsHtml: serviceGridHintsHtml,
-                    gridHtml: serviceGridHtml,
+                    gridHintsHtml: originalGridHintsHtml,
+                    gridHtml: originalGridHtml,
                     lineId,
                     lineMeta: getLineMeta?.(lineId) || {},
-                    listHtml: serviceListHtml,
+                    listHtml: originalListHtml,
                     dirKey,
-                    dirLabel: label,
+                    dirLabel: buildOriginalDirectionLabel(dirKey),
                     serviceDay,
-                    stationInfoHtml: printableStationInfoHtml,
+                    stationInfoHtml: printableStationInfoHtmlForExport,
                     timetableViewMode: effectiveTimetableViewMode,
                     titleText: effectivePrintTitleText,
                     toText
                 });
             };
-
-            const currentPrintPayload = buildPrintPayloads
-                ? buildTimetablePrintPayload({
-                    companyLogoMap,
-                    currentStationName: effectivePrintStationName,
-                    getCompanyLogoSrc,
-                    gridHintsHtml: originalPrintGridHintsHtml,
-                    gridHtml: printableGridHtml,
-                    lineId,
-                    lineMeta: getLineMeta?.(lineId) || {},
-                    listHtml: printableListHtml,
-                    dirKey,
-                    dirLabel: label,
-                    serviceDay: currentServiceDay,
-                    stationInfoHtml: printableStationInfoHtml,
-                    timetableViewMode: effectiveTimetableViewMode,
-                    titleText: effectivePrintTitleText,
-                    toText
-                })
-                : null;
-            if (isThroughServiceDirection || !buildPrintPayloads) {
-                dirPrintPayloadByKey.delete(lineDirKey);
+            if (buildPrintPayloads) {
+                const originalLinePrintPayloads = originalDirectionStats.dirOrder
+                    .map((dirKey) => {
+                        const currentRowsForDir = rowsForPrintOriginal
+                            .filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
+                        const currentPayload = buildOriginalPrintPayload({
+                            dirKey,
+                            serviceDay: currentServiceDay,
+                            rowsForDir: currentRowsForDir
+                        });
+                        if (!currentPayload) return null;
+                        return {
+                            ...currentPayload,
+                            serviceDayVariants: PRINT_SERVICE_DAYS
+                                .map((serviceDay) => buildOriginalPrintPayload({
+                                    dirKey,
+                                    serviceDay,
+                                    rowsForDir: (printRowsByServiceDayOriginal.get(serviceDay) || [])
+                                        .filter((r) => (toText(r.dir) || 'Unknown') === dirKey)
+                                }))
+                                .filter(Boolean)
+                        };
+                    })
+                    .filter(Boolean);
+                if (originalLinePrintPayloads.length) {
+                    linePrintPayloadsByLineId.set(toText(lineId), { dirs: originalLinePrintPayloads });
+                } else {
+                    linePrintPayloadsByLineId.delete(toText(lineId));
+                }
             } else {
-                dirPrintPayloadByKey.set(lineDirKey, {
-                    ...currentPrintPayload,
-                    serviceDayVariants: PRINT_SERVICE_DAYS.map((serviceDay) => buildPrintPayloadForServiceDay(serviceDay))
-                });
+                linePrintPayloadsByLineId.delete(toText(lineId));
             }
 
-            const timetableHtml = effectiveTimetableViewMode === 'grid'
-                ? buildGridTableHtmlForDirection({
-                    rowsForDir: filteredRowsForDir,
+            // 分组显示：默认显示所有方向；方向内默认展示 3 条未来班次
+            let html = '';
+            const directionDebug = [];
+            for (const dirKey of visibleDirOrder) {
+                const counts = dirToDestCounts.get(dirKey) || new Map();
+                // If no destination anywhere met threshold, show all destinations sorted by frequency
+                const useAllIfBelowThreshold = !anyDestAboveThreshold;
+                const entries = Array.from(counts.entries());
+                const filteredNames = entries
+                    .filter(([name, c]) => useAllIfBelowThreshold ? true : Number(c) >= DEST_NAME_MIN_COUNT)
+                    .sort((a, b) => {
+                        const dc = Number(b[1]) - Number(a[1]);
+                        if (dc) return dc;
+                        return String(a[0]).localeCompare(String(b[0]));
+                    })
+                    .map(([name]) => name);
+                const lineDirKey = makeLineDirKey(lineId, dirKey);
+                const focused = focusedDirectionKey === lineDirKey;
+                const expanded = focused || isDirExpanded(lineId, dirKey);
+                const tri = expanded ? '▾' : '▸';
+
+                const {
+                    rowsForDir,
+                    throughServiceCategory,
+                    isThroughServiceDirection,
+                    filteredRowsForDir,
+                    rowsForDirThroughLabel,
+                    filteredRowsForDirThroughLabel
+                } = directionRowsByKey.get(dirKey);
+                const { typeHints, terminalHints, specialHints } = buildDirectionGridHints(rowsForDir, { currentLineId: lineId });
+                const labelRows = filteredRowsForDir.length ? filteredRowsForDir : rowsForDir;
+                const labelCount = new Map();
+                for (const item of labelRows) {
+                    const names = Array.isArray(item.destNamesForDir) ? item.destNamesForDir : [];
+                    for (const n of names) {
+                        const s = toText(n);
+                        if (!s) continue;
+                        labelCount.set(s, (labelCount.get(s) || 0) + 1);
+                    }
+                }
+
+                const lineMetaStations = getLineMeta?.(lineId)?.stations || [];
+                const lineStationNamesSet = new Set(lineMetaStations.map(x => toText(stationsIndex?.idToNameZh?.get?.(toText(x)) || toText(x))));
+                const maxLabelCount = Array.from(labelCount.values())
+                    .reduce((max, count) => Math.max(max, Number(count) || 0), 0);
+
+                const labelEntries = Array.from(labelCount.entries())
+                    .filter(([name, count]) => {
+                        const numericCount = Number(count) || 0;
+                        if (maxLabelCount > 0 && numericCount > maxLabelCount * 0.8) return true;
+                        if (numericCount < 5) return false;
+                        if (lineStationNamesSet.has(name)) return true;
+
+                        for (const row of labelRows) {
+                            const rowDests = Array.isArray(row.destNamesForDir) ? row.destNamesForDir : [];
+                            if (rowDests.includes(name)) continue;
+
+                            const validOtherDest = rowDests.some(d => (labelCount.get(d) || 0) > 5);
+                            if (!validOtherDest) continue;
+
+                            const rawStopNames = Array.isArray(row.rawStopNames) ? row.rawStopNames : [];
+                            if (rawStopNames.includes(name)) {
+                                return false;
+                            }
+                        }
+
+                        return true;
+                    })
+                    .sort((a, b) => {
+                        const dc = Number(b[1]) - Number(a[1]);
+                        if (dc) return dc;
+                        return String(a[0]).localeCompare(String(b[0]));
+                    })
+                    .map(([name]) => name);
+
+                const visibleDirFallback = (() => {
+                    if (!dirKey.startsWith('through:')) return dirKey;
+                    const parts = dirKey.split(':').map((part) => toText(part));
+                    return parts[2] || dirKey;
+                })();
+                const label = labelEntries.length ? labelEntries.join('，') : (filteredNames.length ? filteredNames.slice(0, 1).join('，') : visibleDirFallback);
+                const throughLabel = isThroughServiceDirection
+                    ? ''
+                    : buildDirectionThroughLabel(
+                        filteredRowsForDirThroughLabel.length ? filteredRowsForDirThroughLabel : rowsForDirThroughLabel
+                    );
+                const throughServiceDirectionName = isThroughServiceDirection
+                    ? resolveThroughServicePanelDirectionDisplayName({
+                        category: throughServiceCategory,
+                        dirKey,
+                        rowsForDir,
+                        stationId: currentStationId
+                    })
+                    : '';
+                const throughServiceDirectionColor = isThroughServiceDirection
+                    ? toText(THROUGH_SERVICE_CONFIGS_OBJECT?.[throughServiceCategory]?.color)
+                    : '';
+                const dirHeaderStyle = throughServiceDirectionColor
+                    ? ` style="--panel-line-accent:${escapeHtml(throughServiceDirectionColor)}"`
+                    : '';
+                const directionTimetablePaletteColor = throughServiceDirectionColor || lineColorForTimetablePalette;
+
+                directionDebug.push({
+                    dirKey,
+                    dirLabel: label,
+                    throughLabel,
+                    throughServiceDirectionName,
                     typeHints,
                     terminalHints,
-                    specialHints,
-                    expanded,
-                    nowMs: now,
-                    serviceDayStartMs: displayServiceDayStartMs,
-                    lineColor: directionTimetablePaletteColor,
-                    serviceDayColorMode: panelServiceDayColorMode
-                })
-                : renderPanelTimetableListHtml({
-                    rows: visible,
-                    renderTime,
-                    resolveBadgeTextColor: resolvePanelBadgeTextColor
+                    specialHints
                 });
-            const focusIconName = focused ? 'fullscreen-exit.svg' : 'fs.svg';
-            const focusButtonLabel = focused ? '退出方向聚焦' : '只看该方向班次';
-            const directionStationInfoHtml = directionStationInfoTypeItemsByDirKey.has(dirKey)
-                ? renderDirectionStationInfoHtml(directionStationInfoTypeItemsByDirKey.get(dirKey))
-                : '';
 
-            html += `
+                const timetableViewClass = effectiveTimetableViewMode === 'grid' ? 'panel-timetable-view-grid' : 'panel-timetable-view-list';
+                const gridHintsHtml = effectiveTimetableViewMode === 'grid' && expanded
+                    ? buildGridHintsHtml({ typeHints, terminalHints, specialHints })
+                    : '';
+                const rowsForListView = filteredRowsForDir;
+                const future = rowsForListView.filter((r) => !r.isPast);
+                const visible = expanded ? rowsForListView : future.slice(0, 3);
+
+                const originalPrintRowsForDir = !buildPrintPayloads || isThroughServiceDirection
+                    ? []
+                    : rowsForPrintOriginal
+                        .filter((r) => (toText(r.dir) || 'Unknown') === dirKey)
+                        .map((r) => ({ ...(r || {}), isPast: false }));
+                const {
+                    typeHints: originalPrintTypeHints,
+                    terminalHints: originalPrintTerminalHints,
+                    specialHints: originalPrintSpecialHints
+                } = buildPrintPayloads
+                    ? buildDirectionGridHints(originalPrintRowsForDir, { currentLineId: lineId })
+                    : { typeHints: [], terminalHints: [], specialHints: [] };
+                const originalPrintGridHintsHtml = buildPrintPayloads && effectiveTimetableViewMode === 'grid'
+                    ? buildGridHintsHtml({
+                        typeHints: originalPrintTypeHints,
+                        terminalHints: originalPrintTerminalHints,
+                        specialHints: originalPrintSpecialHints
+                    })
+                    : '';
+                const printableListHtml = buildPrintPayloads
+                    ? renderPanelPrintableTimetableListHtml({
+                        rows: originalPrintRowsForDir,
+                        renderTime: renderTimeForPrint,
+                        resolveBadgeTextColor: resolvePanelBadgeTextColor
+                    })
+                    : '';
+                const printableGridHtml = buildPrintPayloads
+                    ? buildGridTableHtmlForDirection({
+                        rowsForDir: originalPrintRowsForDir,
+                        typeHints: originalPrintTypeHints,
+                        terminalHints: originalPrintTerminalHints,
+                        specialHints: originalPrintSpecialHints,
+                        expanded: true,
+                        nowMs: now,
+                        serviceDayStartMs: displayServiceDayStartMs,
+                        lineColor: lineColorForTimetablePalette,
+                        serviceDayColorMode: currentPrintServiceDayColorMode
+                    })
+                    : '';
+                const printableStationInfoHtml = buildPrintPayloads
+                    ? renderPrintableStationInfoHtml({ typeItems: stationTypeSummaryItems })
+                    : '';
+
+                const buildPrintPayloadForServiceDay = (serviceDay) => {
+                    const serviceRowsForDir = (printRowsByServiceDayOriginal.get(serviceDay) || [])
+                        .filter((r) => (toText(r.dir) || 'Unknown') === dirKey);
+                    const {
+                        typeHints: serviceTypeHints,
+                        terminalHints: serviceTerminalHints,
+                        specialHints: serviceSpecialHints
+                    } = buildDirectionGridHints(serviceRowsForDir, { currentLineId: lineId });
+                    const serviceRowsPrintable = serviceRowsForDir.map((r) => ({ ...(r || {}), isPast: false }));
+                    const serviceGridHintsHtml = effectiveTimetableViewMode === 'grid'
+                        ? buildGridHintsHtml({
+                            typeHints: serviceTypeHints,
+                            terminalHints: serviceTerminalHints,
+                            specialHints: serviceSpecialHints
+                        })
+                        : '';
+                    const serviceListHtml = renderPanelPrintableTimetableListHtml({
+                        rows: serviceRowsPrintable,
+                        renderTime: renderTimeForPrint,
+                        resolveBadgeTextColor: resolvePanelBadgeTextColor
+                    });
+                    const serviceGridHtml = buildGridTableHtmlForDirection({
+                        rowsForDir: serviceRowsPrintable,
+                        typeHints: serviceTypeHints,
+                        terminalHints: serviceTerminalHints,
+                        specialHints: serviceSpecialHints,
+                        expanded: true,
+                        nowMs: now,
+                        serviceDayStartMs: displayServiceDayStartMs,
+                        lineColor: lineColorForTimetablePalette,
+                        serviceDayColorMode: serviceDay === 'SaturdayHoliday' ? 'complementary' : 'base'
+                    });
+
+                    return buildTimetablePrintPayload({
+                        companyLogoMap,
+                        currentStationName: effectivePrintStationName,
+                        getCompanyLogoSrc,
+                        gridHintsHtml: serviceGridHintsHtml,
+                        gridHtml: serviceGridHtml,
+                        lineId,
+                        lineMeta: getLineMeta?.(lineId) || {},
+                        listHtml: serviceListHtml,
+                        dirKey,
+                        dirLabel: label,
+                        serviceDay,
+                        stationInfoHtml: printableStationInfoHtml,
+                        timetableViewMode: effectiveTimetableViewMode,
+                        titleText: effectivePrintTitleText,
+                        toText
+                    });
+                };
+
+                const currentPrintPayload = buildPrintPayloads
+                    ? buildTimetablePrintPayload({
+                        companyLogoMap,
+                        currentStationName: effectivePrintStationName,
+                        getCompanyLogoSrc,
+                        gridHintsHtml: originalPrintGridHintsHtml,
+                        gridHtml: printableGridHtml,
+                        lineId,
+                        lineMeta: getLineMeta?.(lineId) || {},
+                        listHtml: printableListHtml,
+                        dirKey,
+                        dirLabel: label,
+                        serviceDay: currentServiceDay,
+                        stationInfoHtml: printableStationInfoHtml,
+                        timetableViewMode: effectiveTimetableViewMode,
+                        titleText: effectivePrintTitleText,
+                        toText
+                    })
+                    : null;
+                if (isThroughServiceDirection || !buildPrintPayloads) {
+                    dirPrintPayloadByKey.delete(lineDirKey);
+                } else {
+                    dirPrintPayloadByKey.set(lineDirKey, {
+                        ...currentPrintPayload,
+                        serviceDayVariants: PRINT_SERVICE_DAYS.map((serviceDay) => buildPrintPayloadForServiceDay(serviceDay))
+                    });
+                }
+
+                const timetableHtml = effectiveTimetableViewMode === 'grid'
+                    ? buildGridTableHtmlForDirection({
+                        rowsForDir: filteredRowsForDir,
+                        typeHints,
+                        terminalHints,
+                        specialHints,
+                        expanded,
+                        nowMs: now,
+                        serviceDayStartMs: displayServiceDayStartMs,
+                        lineColor: directionTimetablePaletteColor,
+                        serviceDayColorMode: panelServiceDayColorMode
+                    })
+                    : renderPanelTimetableListHtml({
+                        rows: visible,
+                        renderTime,
+                        resolveBadgeTextColor: resolvePanelBadgeTextColor
+                    });
+                const focusIconName = focused ? 'fullscreen-exit.svg' : 'fs.svg';
+                const focusButtonLabel = focused ? '退出方向聚焦' : '只看该方向班次';
+                const directionStationInfoHtml = directionStationInfoTypeItemsByDirKey.has(dirKey)
+                    ? renderDirectionStationInfoHtml(directionStationInfoTypeItemsByDirKey.get(dirKey))
+                    : '';
+
+                html += `
                 ${directionStationInfoHtml}
                 <div class="panel-dir">
                     <div class="panel-dir-header" data-dir-toggle="1" data-dir-key="${escapeHtml(dirKey)}"${dirHeaderStyle}>
@@ -3755,22 +3812,28 @@ export function createPanel(options = {}) {
                     </div>
                 </div>
             `;
-        }
-
-        const lineMeta = getLineMeta?.(lineId) || {};
-        gridDataDebugByLineId.set(toText(lineId), {
-            lineId: toText(lineId),
-            lineName: toText(lineMeta?.name) || toText(lineId),
-            postprocess: postprocessDebug,
-            directions: directionDebug
-        });
-
-        return {
-            html,
-            stationInfo: {
-                typeItems: displayStationTypeSummaryItems
             }
+
+            const lineMeta = getLineMeta?.(lineId) || {};
+            gridDataDebugByLineId.set(toText(lineId), {
+                lineId: toText(lineId),
+                lineName: toText(lineMeta?.name) || toText(lineId),
+                postprocess: postprocessDebug,
+                directions: directionDebug
+            });
+
+            return {
+                html,
+                stationInfo: {
+                    typeItems: displayStationTypeSummaryItems
+                }
+            };
         };
+    };
+
+    const buildTimetableRowsHtml = async (options) => {
+        const renderHtml = await prepareTimetableRowsRender(options);
+        return renderHtml();
     };
 
     const formatStationTypeBadgeLabel = (typeNameRaw) => {
@@ -4029,12 +4092,17 @@ export function createPanel(options = {}) {
         createLineStationPrintPayloadSession
     });
 
-    const renderTimetableForLineEl = async (lineEl, stationId, token, {
+    const prepareTimetableForLineEl = async (lineEl, stationId, token, {
         buildPrintPayloads = true
     } = {}) => {
         if (!lineEl || !(lineEl instanceof Element)) return;
         if (token !== timetableRenderToken) return;
 
+        const stationRenderTokenAtStart = stationRenderToken;
+        const stationIdAtStart = toText(currentStationId);
+        const isStillCurrentRender = () => token === timetableRenderToken
+            && stationRenderTokenAtStart === stationRenderToken
+            && stationIdAtStart === toText(currentStationId);
         const lineId = toText(lineEl.getAttribute('data-line-id'));
         if (!lineId) return;
 
@@ -4054,98 +4122,116 @@ export function createPanel(options = {}) {
         const resolvedStationId = sourceLineIds.length === 1
             ? await resolveStationIdForLine(sourceLineIds[0])
             : toText(stationId);
-        if (token !== timetableRenderToken) return;
+        if (!isStillCurrentRender()) return;
 
-        const rendered = await buildTimetableRowsHtml({
+        const renderHtml = await prepareTimetableRowsRender({
             lineId,
             stationId: resolvedStationId || stationId,
             sourceLineIds,
             allowedTripKeySet: temporaryPanelAllowedTripKeysByDisplayLineId.get(lineId) || null,
             throughServiceEntries: throughServiceDirectionsByEntityLineId.get(lineId) || [],
-            buildPrintPayloads
+            buildPrintPayloads,
+            isStillCurrentRender
         });
+        if (!isStillCurrentRender() || !renderHtml) return;
 
-        if (token !== timetableRenderToken) return;
-        ttEl.innerHTML = toText(rendered?.html) || '';
-        applyLineStationInfo(lineEl, rendered?.stationInfo || null);
+        return ({ deferDomCommit = false } = {}) => {
+            if (!isStillCurrentRender()) return;
+            const rendered = renderHtml();
+            const commit = () => {
+                if (!isStillCurrentRender()) return;
+                ttEl.innerHTML = toText(rendered?.html) || '';
+                applyLineStationInfo(lineEl, rendered?.stationInfo || null);
 
-        hydrateRenderedTimetable(ttEl, {
-            ElementRef: Element,
-            HTMLImageElementRef: HTMLImageElement,
-            getIconCandidates,
-            getPreferredCachedImageSrc,
-            setImageElementFromCache
-        });
-        /*
+                hydrateRenderedTimetable(ttEl, {
+                    ElementRef: Element,
+                    HTMLImageElementRef: HTMLImageElement,
+                    getIconCandidates,
+                    getPreferredCachedImageSrc,
+                    setImageElementFromCache
+                });
+            /*
 
-        // 方向展开态：默认把各方向可视区域滚到“最后一条已过班次”处（1 past + 9 future 的视觉效果）
-        try {
-            const expandedBodies = Array.from(ttEl.querySelectorAll('.panel-timetable.is-expanded'));
-            for (const bodyEl of expandedBodies) {
-                if (bodyEl.classList.contains('panel-timetable-view-grid')) {
-                    bodyEl.style.maxHeight = '';
+            // 方向展开态：默认把各方向可视区域滚到“最后一条已过班次”处（1 past + 9 future 的视觉效果）
+            try {
+                const expandedBodies = Array.from(ttEl.querySelectorAll('.panel-timetable.is-expanded'));
+                for (const bodyEl of expandedBodies) {
+                    if (bodyEl.classList.contains('panel-timetable-view-grid')) {
+                        bodyEl.style.maxHeight = '';
 
-                    const pastCells = Array.from(bodyEl.querySelectorAll('.panel-grid-cell-trip.is-past'));
-                    const lastPastCell = pastCells.length ? pastCells[pastCells.length - 1] : null;
-                    if (lastPastCell instanceof Element) {
-                        const bodyRect = bodyEl.getBoundingClientRect();
-                        const cellRect = lastPastCell.getBoundingClientRect();
-                        const naturalTop = bodyEl.scrollTop + (cellRect.top - bodyRect.top);
-                        const desired = Math.max(0, Math.floor(naturalTop) - 10);
+                        const pastCells = Array.from(bodyEl.querySelectorAll('.panel-grid-cell-trip.is-past'));
+                        const lastPastCell = pastCells.length ? pastCells[pastCells.length - 1] : null;
+                        if (lastPastCell instanceof Element) {
+                            const bodyRect = bodyEl.getBoundingClientRect();
+                            const cellRect = lastPastCell.getBoundingClientRect();
+                            const naturalTop = bodyEl.scrollTop + (cellRect.top - bodyRect.top);
+                            const desired = Math.max(0, Math.floor(naturalTop) - 10);
+                            const maxScroll = Math.max(0, (bodyEl.scrollHeight || 0) - (bodyEl.clientHeight || 0));
+                            bodyEl.scrollTop = Math.max(0, Math.min(desired, maxScroll));
+                        } else {
+                            const focusRow = bodyEl.querySelector('[data-grid-focus-start="1"]');
+                            if (focusRow instanceof Element) {
+                                bodyEl.scrollTop = Math.max(0, focusRow.offsetTop || 0);
+                            } else {
+                                bodyEl.scrollTop = 0;
+                            }
+                        }
+                        continue;
+                    }
+
+                    const rows = Array.from(bodyEl.querySelectorAll('.panel-timetable-row'));
+                    if (!rows.length) continue;
+
+                    let lastPastIndex = -1;
+                    for (let i = rows.length - 1; i >= 0; i -= 1) {
+                        if (rows[i]?.classList?.contains('is-past')) {
+                            lastPastIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (lastPastIndex > 0) {
+                        const rowH = rows[0]?.offsetHeight || 18;
+                        const desired = lastPastIndex * rowH;
                         const maxScroll = Math.max(0, (bodyEl.scrollHeight || 0) - (bodyEl.clientHeight || 0));
                         bodyEl.scrollTop = Math.max(0, Math.min(desired, maxScroll));
                     } else {
-                        const focusRow = bodyEl.querySelector('[data-grid-focus-start="1"]');
-                        if (focusRow instanceof Element) {
-                            bodyEl.scrollTop = Math.max(0, focusRow.offsetTop || 0);
-                        } else {
-                            bodyEl.scrollTop = 0;
-                        }
-                    }
-                    continue;
-                }
-
-                const rows = Array.from(bodyEl.querySelectorAll('.panel-timetable-row'));
-                if (!rows.length) continue;
-
-                let lastPastIndex = -1;
-                for (let i = rows.length - 1; i >= 0; i -= 1) {
-                    if (rows[i]?.classList?.contains('is-past')) {
-                        lastPastIndex = i;
-                        break;
+                        bodyEl.scrollTop = 0;
                     }
                 }
 
-                if (lastPastIndex > 0) {
-                    const rowH = rows[0]?.offsetHeight || 18;
-                    const desired = lastPastIndex * rowH;
-                    const maxScroll = Math.max(0, (bodyEl.scrollHeight || 0) - (bodyEl.clientHeight || 0));
-                    bodyEl.scrollTop = Math.max(0, Math.min(desired, maxScroll));
-                } else {
+                const collapsedGridBodies = Array.from(ttEl.querySelectorAll('.panel-timetable.panel-timetable-view-grid.is-collapsed'));
+                for (const bodyEl of collapsedGridBodies) {
+                    const collapsedBaseHeight = 70; // 两行车次（不按小时数）
+                    bodyEl.style.maxHeight = `${collapsedBaseHeight}px`;
+
+                    const currentHourRow = bodyEl.querySelector('[data-grid-current-hour="1"]') || bodyEl.querySelector('.panel-grid-row');
+                    if (!(currentHourRow instanceof Element)) continue;
+
+                    const currentHourFullHeight = Math.ceil((currentHourRow.offsetHeight || 0) + 1);
+                    const targetHeight = Math.max(collapsedBaseHeight, currentHourFullHeight);
+                    bodyEl.style.maxHeight = `${targetHeight}px`;
                     bodyEl.scrollTop = 0;
                 }
+            } catch {
+                // ignore
             }
 
-            const collapsedGridBodies = Array.from(ttEl.querySelectorAll('.panel-timetable.panel-timetable-view-grid.is-collapsed'));
-            for (const bodyEl of collapsedGridBodies) {
-                const collapsedBaseHeight = 70; // 两行车次（不按小时数）
-                bodyEl.style.maxHeight = `${collapsedBaseHeight}px`;
+            // 超长方向标题/班次终点站：自动滚动（等待布局稳定 + 已完成默认定位滚动后再测量）
+            */
+                scheduleMarqueeApply(ttEl);
+            };
+            if (deferDomCommit) return commit;
+            commit();
+        };
+    };
 
-                const currentHourRow = bodyEl.querySelector('[data-grid-current-hour="1"]') || bodyEl.querySelector('.panel-grid-row');
-                if (!(currentHourRow instanceof Element)) continue;
-
-                const currentHourFullHeight = Math.ceil((currentHourRow.offsetHeight || 0) + 1);
-                const targetHeight = Math.max(collapsedBaseHeight, currentHourFullHeight);
-                bodyEl.style.maxHeight = `${targetHeight}px`;
-                bodyEl.scrollTop = 0;
-            }
-        } catch {
-            // ignore
-        }
-
-        // 超长方向标题/班次终点站：自动滚动（等待布局稳定 + 已完成默认定位滚动后再测量）
-        */
-        scheduleMarqueeApply(ttEl);
+    const renderTimetableForLineEl = async (lineEl, stationId, token, {
+        buildPrintPayloads = true,
+        deferDomCommit = false
+    } = {}) => {
+        const renderTimetable = await prepareTimetableForLineEl(lineEl, stationId, token, { buildPrintPayloads });
+        return renderTimetable?.({ deferDomCommit });
     };
 
     const buildTripStops = (trip, stationsIndex, serviceDayStartMs, realOriginId = '') => {
@@ -4970,9 +5056,12 @@ export function createPanel(options = {}) {
 
     const renderAllTimetables = async ({
         buildPrintPayloads = true,
-        scheduleStationThroughPreviewAfterRender = true
+        scheduleStationThroughPreviewAfterRender = true,
+        beforeCommit = null,
+        prioritizeStationPreview = false,
+        closeDirFilterBeforeRender = true
     } = {}) => {
-        closeDirFilterPopover();
+        if (closeDirFilterBeforeRender) closeDirFilterPopover();
         syncDirectionFocusVisibility();
         const token = ++timetableRenderToken;
         const stationRenderTokenAtStart = stationRenderToken;
@@ -4983,18 +5072,65 @@ export function createPanel(options = {}) {
         dirPreviewMetaByKey.clear();
         if (pendingGridDataDebugLog) gridDataDebugByLineId.clear();
         const lineEls = Array.from(body.querySelectorAll('[data-line-id]'));
+        const commits = [];
+        const preparedTimetables = [];
+        const isStillCurrentRender = () => token === timetableRenderToken
+            && stationRenderTokenAtStart === stationRenderToken
+            && stationId === toText(currentStationId);
+        let batchStartedAt = nowMs();
+        const yieldToPanelPaint = async (force = false) => {
+            // 按时间预算让出主线程，只有地图提交后等待绘制机会，避免每批强制等待一帧。
+            if (!force && nowMs() - batchStartedAt < 128) return;
+            await new Promise((resolve) => {
+                if (force) schedulePanelPostPaintTask(resolve);
+                else setTimeout(resolve, 0);
+            });
+            batchStartedAt = nowMs();
+        };
         for (const el of lineEls) {
-            await renderTimetableForLineEl(el, stationId, token, { buildPrintPayloads });
+            if (prioritizeStationPreview) {
+                const renderTimetable = await prepareTimetableForLineEl(el, stationId, token, { buildPrintPayloads });
+                if (typeof renderTimetable === 'function') {
+                    preparedTimetables.push(renderTimetable);
+                    await yieldToPanelPaint();
+                }
+            } else {
+                const commit = await renderTimetableForLineEl(el, stationId, token, {
+                    buildPrintPayloads,
+                    deferDomCommit: typeof beforeCommit === 'function'
+                });
+                if (typeof commit === 'function') commits.push(commit);
+            }
+            if (!isStillCurrentRender()) return;
+        }
+        if (prioritizeStationPreview) {
+            await scheduleStationThroughPreview({
+                renderToken: stationRenderTokenAtStart,
+                stationId,
+                isStillCurrentRender
+            }).catch(() => null);
+            if (!isStillCurrentRender()) return;
+            await yieldToPanelPaint(true);
+            if (!isStillCurrentRender()) return;
+            for (const renderTimetable of preparedTimetables) {
+                const commit = renderTimetable({ deferDomCommit: typeof beforeCommit === 'function' });
+                if (typeof commit === 'function') commits.push(commit);
+                await yieldToPanelPaint();
+                if (!isStillCurrentRender()) return;
+            }
+        }
+        if (typeof beforeCommit === 'function') {
+            await beforeCommit();
             if (
                 token !== timetableRenderToken
                 || stationRenderTokenAtStart !== stationRenderToken
                 || stationId !== toText(currentStationId)
-            ) {
-                return;
-            }
+            ) return;
+            for (const commit of commits) commit();
         }
+        body.querySelector('[data-station-timetable-loading]')?.remove();
         syncDirectionFocusStickyMetrics();
-        if (scheduleStationThroughPreviewAfterRender) {
+        if (scheduleStationThroughPreviewAfterRender && !prioritizeStationPreview) {
             scheduleStationThroughPreview({
                 renderToken: stationRenderTokenAtStart,
                 stationId
@@ -5018,6 +5154,22 @@ export function createPanel(options = {}) {
     const rerenderLineById = async (lineId) => {
         const lineEl = body.querySelector(`[data-line-id="${escapeHtml(String(lineId))}"]`);
         if (!lineEl) return;
+        if (body.querySelector('[data-station-timetable-loading]')) {
+            const stationTokenAtStart = stationRenderToken;
+            const stationIdAtStart = toText(currentStationId);
+            const expectedTimetableToken = timetableRenderToken + 1;
+            await renderAllTimetables({
+                scheduleStationThroughPreviewAfterRender: false,
+                closeDirFilterBeforeRender: false
+            });
+            if (
+                stationTokenAtStart !== stationRenderToken
+                || stationIdAtStart !== toText(currentStationId)
+                || expectedTimetableToken !== timetableRenderToken
+            ) return;
+            if (!reapplyDirHeaderPreviewOwner()) restoreStationThroughPreviewDefault();
+            return;
+        }
         const token = ++timetableRenderToken;
         await renderTimetableForLineEl(lineEl, currentStationId, token);
     };
@@ -5222,9 +5374,7 @@ export function createPanel(options = {}) {
             dirKey: dkey,
             expanded: true
         });
-        const lineEl = body.querySelector(`[data-line-id="${escapeHtml(String(lid))}"]`);
-        const token = ++timetableRenderToken;
-        renderTimetableForLineEl(lineEl, currentStationId, token);
+        rerenderLineById(lid);
     };
 
     const toggleDirectionTimetable = (lineId, dirKey) => {
@@ -5238,9 +5388,7 @@ export function createPanel(options = {}) {
             dirKey: dkey,
             expanded: nextExpanded
         });
-        const lineEl = body.querySelector(`[data-line-id="${escapeHtml(String(lid))}"]`);
-        const token = ++timetableRenderToken;
-        renderTimetableForLineEl(lineEl, currentStationId, token);
+        rerenderLineById(lid);
     };
 
     const toggleDirectionFocus = (lineId, dirKey) => {
@@ -5274,8 +5422,7 @@ export function createPanel(options = {}) {
         }
 
         if (!changed) return;
-        const token = ++timetableRenderToken;
-        renderTimetableForLineEl(lineEl, currentStationId, token);
+        rerenderLineById(lid);
     };
 
     const showMobileLineRouteMapPanel = (lineId) => {
@@ -6322,6 +6469,11 @@ export function createPanel(options = {}) {
         let displayServingIds = stationRenderBootstrap.displayServingIds;
 
         if (deferHeavyRender) {
+            const isStillCurrentStationRender = () => (
+                renderToken === stationRenderToken &&
+                toText(currentStationId) === toText(props?.id)
+            );
+            const timetableLoadingHtml = '<div class="panel-timetable-empty" role="status" data-station-timetable-loading="1">正在加载班次…</div>';
             const initialStationRenderInputs = await buildPanelStationRenderInputs({
                 stationId: currentStationId,
                 stationNameZh: currentStationNameZh,
@@ -6338,8 +6490,9 @@ export function createPanel(options = {}) {
             currentLineStationMetaByLineId = initialLineStationNameByLineId;
             if (renderToken !== stationRenderToken) return;
 
-            body.innerHTML = buildPanelCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId: initialLineStationNameByLineId, toText });
+            body.innerHTML = timetableLoadingHtml + buildPanelCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId: initialLineStationNameByLineId, toText });
             await enhancePanelLineHeaderIcons(body);
+            if (!isStillCurrentStationRender()) return;
             applyDefaultPanelLineCollapse(body, displayServingIds.length > 3);
             openMobileStationOverview();
             scheduleCatalogRefresh();
@@ -6347,89 +6500,78 @@ export function createPanel(options = {}) {
             scheduleCatalogRefresh();
             panelScrollRuntime.syncPanelTitleForActiveLine();
 
-            const isStillCurrentStationRender = () => (
-                renderToken === stationRenderToken &&
-                toText(currentStationId) === toText(props?.id)
-            );
-
             schedulePanelPostPaintTask(async () => {
-                if (renderToken !== stationRenderToken || toText(currentStationId) !== toText(props?.id)) return;
+                if (!isStillCurrentStationRender()) return;
+                const throughServicePanelServingLineIds = await buildThroughServicePanelServingLineIds({
+                    currentServingLineIds: currentStationServingIds,
+                    displayLineIds: displayServingIds,
+                    stationId: currentStationId
+                });
+                if (!isStillCurrentStationRender()) return;
+
+                const throughPlan = await buildTemporaryThroughServicePanelPlan({
+                    stationId: currentStationId,
+                    servingLineIds: throughServicePanelServingLineIds,
+                    currentServiceDay,
+                    loadTimetableForLineId,
+                    resolveStationIdForLine,
+                    loadTripByRefId,
+                    parseTripServiceDayFromId,
+                    isStillCurrentStation: isStillCurrentStationRender
+                });
+                if (!isStillCurrentStationRender()) return;
+
+                ({
+                    temporaryLineMetaById: temporaryPanelLineMetaById,
+                    temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
+                    temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId,
+                    throughServiceDirectionsByEntityLineId,
+                    displayServingIds
+                } = resolvePanelThroughServiceSetup({
+                    throughPlan,
+                    displayServingIds,
+                    throughServiceConfigs: THROUGH_SERVICE_CONFIGS
+                }));
+
+                const stationRenderInputs = await buildPanelStationRenderInputs({
+                    stationId: currentStationId,
+                    stationNameZh: currentStationNameZh,
+                    displayServingIds,
+                    getLineMeta,
+                    temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
+                    buildPanelLineMergeInfo,
+                    applyTemporarySourceLineOverrides,
+                    buildTransferLineStationNameMap
+                });
+                if (!isStillCurrentStationRender()) return;
+                displayServingIds = stationRenderInputs.displayServingIds;
+                currentLineGroupByMainId = stationRenderInputs.lineGroupByMainId;
+                const lineStationNameByLineId = stationRenderInputs.lineStationNameByLineId;
+                currentLineStationMetaByLineId = lineStationNameByLineId;
+
+                body.innerHTML = timetableLoadingHtml + buildPanelCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId, toText });
+                reorderPanelThroughServiceLinesAfterHtml(body, {
+                    temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
+                    throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
+                    toText
+                });
+                await enhancePanelLineHeaderIcons(body);
+                if (!isStillCurrentStationRender()) return;
+                applyDefaultPanelLineCollapse(body, displayServingIds.length > 3);
+                openMobileStationOverview();
+                scheduleCatalogRefresh();
+                const timetableToken = timetableRenderToken + 1;
                 await renderAllTimetables({
                     buildPrintPayloads: false,
-                    scheduleStationThroughPreviewAfterRender: false
+                    scheduleStationThroughPreviewAfterRender: false,
+                    prioritizeStationPreview: true
                 });
+                if (!isStillCurrentStationRender() || timetableToken !== timetableRenderToken) return;
                 scheduleCatalogRefresh();
                 panelScrollRuntime.syncPanelTitleForActiveLine();
-
-                schedulePanelPostPaintTask(async () => {
-                    if (!isStillCurrentStationRender()) return;
-                    const throughServicePanelServingLineIds = await buildThroughServicePanelServingLineIds({
-                        currentServingLineIds: currentStationServingIds,
-                        displayLineIds: displayServingIds,
-                        stationId: currentStationId
-                    });
-                    if (!isStillCurrentStationRender()) return;
-
-                    const throughPlan = await buildTemporaryThroughServicePanelPlan({
-                        stationId: currentStationId,
-                        servingLineIds: throughServicePanelServingLineIds,
-                        currentServiceDay,
-                        loadTimetableForLineId,
-                        resolveStationIdForLine,
-                        loadTripByRefId,
-                        parseTripServiceDayFromId,
-                        isStillCurrentStation: isStillCurrentStationRender
-                    });
-                    if (!isStillCurrentStationRender()) return;
-
-                    ({
-                        temporaryLineMetaById: temporaryPanelLineMetaById,
-                        temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
-                        temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId,
-                        throughServiceDirectionsByEntityLineId,
-                        displayServingIds
-                    } = resolvePanelThroughServiceSetup({
-                        throughPlan,
-                        displayServingIds,
-                        throughServiceConfigs: THROUGH_SERVICE_CONFIGS
-                    }));
-
-                    const stationRenderInputs = await buildPanelStationRenderInputs({
-                        stationId: currentStationId,
-                        stationNameZh: currentStationNameZh,
-                        displayServingIds,
-                        getLineMeta,
-                        temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
-                        buildPanelLineMergeInfo,
-                        applyTemporarySourceLineOverrides,
-                        buildTransferLineStationNameMap
-                    });
-                    if (!isStillCurrentStationRender()) return;
-                    displayServingIds = stationRenderInputs.displayServingIds;
-                    currentLineGroupByMainId = stationRenderInputs.lineGroupByMainId;
-                    const lineStationNameByLineId = stationRenderInputs.lineStationNameByLineId;
-                    currentLineStationMetaByLineId = lineStationNameByLineId;
-
-                    body.innerHTML = buildPanelCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId, toText });
-                    reorderPanelThroughServiceLinesAfterHtml(body, {
-                        temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
-                        throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
-                        toText
-                    });
-                    await enhancePanelLineHeaderIcons(body);
-                    applyDefaultPanelLineCollapse(body, displayServingIds.length > 3);
-                    openMobileStationOverview();
-                    scheduleCatalogRefresh();
-                    await renderAllTimetables({
-                        buildPrintPayloads: false,
-                        scheduleStationThroughPreviewAfterRender: false
-                    });
-                    scheduleCatalogRefresh();
-                    panelScrollRuntime.syncPanelTitleForActiveLine();
-                    schedulePanelPostPaintTask(() => {
-                        if (!isStillCurrentStationRender()) return;
-                        scheduleStationThroughPreview({ renderToken, stationId: currentStationId }).catch(() => null);
-                    });
+                schedulePanelPostPaintTask(() => {
+                    if (!isStillCurrentStationRender() || timetableToken !== timetableRenderToken) return;
+                    options?.onTimetablesRendered?.();
                 });
             });
             return;

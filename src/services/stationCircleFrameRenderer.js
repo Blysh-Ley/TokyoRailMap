@@ -86,7 +86,9 @@ export function createStationCircleFrameRenderer({ geometry, getFrame, onFailure
                     const x = (clip.x + 1) * frame.width / 2;
                     const y = (1 - clip.y) * frame.height / 2;
                     if (x < -32 || x > frame.width + 32 || y < -32 || y > frame.height + 32) continue;
-                    const style = frame.evaluate(item.feature);
+                    const visibility = frame.evaluateVisibility?.(item.feature);
+                    if (visibility && visibility.opacity <= 0 && visibility.strokeOpacity <= 0) continue;
+                    const style = frame.evaluate(item.feature, visibility);
                     if (style.opacity <= 0 && style.strokeOpacity <= 0) continue;
                     const pitchScale = style.pitchScale === 'map' ? frame.cameraDistance / clip.w : 1;
                     const radius = Math.max(0, style.radius * pitchScale);
