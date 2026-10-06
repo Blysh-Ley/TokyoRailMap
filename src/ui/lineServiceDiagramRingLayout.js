@@ -113,9 +113,7 @@ const finishLayout = (data, sizes, lineSizes, positions, trackPaths, loopId, loo
     return { positions, trackPaths: paths, loops: new Set([loopId]), bends: new Map([...paths.keys()].map((id) => [id, {}])),
         stationLinks, lineLabels: label ? [label] : [], laneWidth: Math.max(12, data.trainTypes.length * 12), loopX: loopX + dx,
         width: right - left + 48, height: bottom - top + 48,
-        // 两条短线首屏展示完整形状；大江户线从环口开始，支线仍可向上拖动查看。
-        fitHeight: ['Yamaman.Yukarigaoka', 'Disney.DisneyResortLine'].includes(data.selectedLine.id),
         mainBounds: { left: 24, right: right + dx,
-            top: data.selectedLine.id === 'Toei.Oedo' ? positions.get('Toei.Oedo.Tochomae').y - 24 : 24,
+            top: 24,
             bottom: bottom + dy } };
 };

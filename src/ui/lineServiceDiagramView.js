@@ -1,6 +1,6 @@
 import { createLineServiceDiagramViewStore } from '../store/lineServiceDiagramViewStore.js';
 
-export const installLineServiceDiagramView = ({ root, viewport, layout, resolveColor, onMove }) => {
+export const installLineServiceDiagramView = ({ root, viewport, layout, resolveColor, onMove, showFullDiagram = () => false }) => {
     const canvas = viewport.querySelector('.route-map-diagram-canvas');
     const store = createLineServiceDiagramViewStore();
     const events = new AbortController();
@@ -18,11 +18,15 @@ export const installLineServiceDiagramView = ({ root, viewport, layout, resolveC
     };
     const unsubscribe = store.subscribe(render);
     const focus = () => {
-        const width = layout.mainBounds.right - layout.mainBounds.left;
-        const height = layout.mainBounds.bottom - layout.mainBounds.top;
-        const scale = Math.min(1, (viewport.clientWidth - 24) / width,
-            layout.fitHeight ? (viewport.clientHeight - 48) / height : Infinity);
-        store.dispatch({ type: 'set', payload: { scale, x: (viewport.clientWidth - width * scale) / 2 - layout.mainBounds.left * scale, y: 24 - layout.mainBounds.top * scale } });
+        const bounds = showFullDiagram()
+            ? { left: 0, right: layout.width, top: 0, bottom: layout.height }
+            : layout.mainBounds;
+        const width = bounds.right - bounds.left;
+        const height = bounds.bottom - bounds.top;
+        const scale = Math.min(1, (viewport.clientWidth - 24) / width, (viewport.clientHeight - 48) / height);
+        store.dispatch({ type: 'set', payload: { scale,
+            x: (viewport.clientWidth - width * scale) / 2 - bounds.left * scale,
+            y: (viewport.clientHeight - height * scale) / 2 - bounds.top * scale } });
     };
     const zoom = (factor, x = viewport.clientWidth / 2, y = viewport.clientHeight / 2) => store.dispatch({ type: 'zoom', payload: { factor, x, y } });
     listen(viewport, 'wheel', (event) => {
@@ -107,6 +111,7 @@ export const installLineServiceDiagramView = ({ root, viewport, layout, resolveC
     theme.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     focus();
     return {
+        focus,
         destroy() { events.abort(); unsubscribe(); resize.disconnect(); theme.disconnect(); },
         prepareExport() {
             exporting = true;

@@ -81,6 +81,8 @@ const nextFrame = () => new Promise((resolve) => window.requestAnimationFrame(()
 
 const ROUTE_MAP_STYLE_HREF = './src/styles/route-map.css';
 const MOBILE_FOLDABLE_MIN_WIDTH_PX = 600;
+// 小田急小田原线现有桌面面板的内容宽度，含边框后为 490px。
+const DESKTOP_ROUTE_MAP_WIDTH_PX = 488;
 
 const ensureStyleInstalled = () => {
     if (document.querySelector('link[data-route-map-style="1"], style[data-route-map-style="1"]')) return;
@@ -470,6 +472,7 @@ const setupRouteMapUi = () => {
         branchBtn.classList.toggle('is-busy', branchPreviewBusy);
         branchBtn.disabled = branchPreviewBusy;
         branchBtn.title = branchPreviewBusy ? '正在分析分支…' : (branchPreviewActive ? '关闭分支高亮' : '分支高亮');
+        if (!branchPreviewBusy) diagramView?.focus();
     };
 
     const clearBranchPreviewBySource = () => {
@@ -819,11 +822,12 @@ const setupRouteMapUi = () => {
                 const pad = 8;
                 const maxW = Math.max(180, window.innerWidth - pad * 2);
                 const maxH = Math.max(180, window.innerHeight - rect.top - pad);
-                const w = Math.min(rect.width, maxW);
+                const w = Math.min(DESKTOP_ROUTE_MAP_WIDTH_PX, maxW);
                 const h = Math.min(rect.height, maxH);
                 root.style.left = '';
                 root.style.right = '20px';
                 root.style.top = `${Math.max(pad, rect.top)}px`;
+                root.style.width = `${w}px`;
                 root.style.minWidth = '100px';
                 root.style.height = `${h}px`;
                 root.style.maxHeight = `${h}px`;
@@ -837,7 +841,7 @@ const setupRouteMapUi = () => {
         syncReturnTargetUi();
         root.style.right = '';
         root.style.bottom = '';
-        root.style.width = '';
+        root.style.width = `${DESKTOP_ROUTE_MAP_WIDTH_PX}px`;
         root.style.minWidth = '';
         root.style.height = '';
         root.style.maxHeight = '';
@@ -909,7 +913,8 @@ const setupRouteMapUi = () => {
             body.classList.toggle('has-service-diagram', !!rendered.layout);
             if (rendered.layout) diagramView = installLineServiceDiagramView({
                 root, viewport: body.querySelector('.route-map-diagram-viewport'),
-                layout: rendered.layout, resolveColor: resolveColorForTheme, onMove: transferHoverTouchController.cancel
+                layout: rendered.layout, resolveColor: resolveColorForTheme, onMove: transferHoverTouchController.cancel,
+                showFullDiagram: () => branchPreviewActive && branchPreviewLineId === activeLineId
             });
         } catch (error) {
             if (activeLineId !== lid) return;
