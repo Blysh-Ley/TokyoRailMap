@@ -4394,6 +4394,7 @@ const initMapApp = async () => {
             getViewportFitOptions: () => getMobileViewportFitOptions(),
             getMenuElement: () => menu?.wrapper || null,
             getPanelElement: () => panel?.el || null,
+            getRouteMapElement: () => document.querySelector('[data-route-map]'),
             getTripDetailElement: () => document.querySelector('[data-panel-trip-detail]'),
             getSelectedLineId: () => selectedLineId,
             getSelectedStationLineIds: () => selectedStationLineIds,

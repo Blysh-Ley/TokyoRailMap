@@ -877,9 +877,6 @@ const setupRouteMapUi = () => {
         activeLineName = toText(lineName) || lid;
         const isSameBranchLine = branchPreviewActive && branchPreviewLineId === lid;
         setBranchButtonState({ active: isSameBranchLine, busy: false });
-        await renderRouteMapTitleWithIcon(topTitle, lid, activeLineName, () => activeLineId === lid);
-        if (activeLineId !== lid) return;
-        topTitle.style.color = '';
         lastAnchorRect = anchorRect || null;
         const normalizedPlacement = toText(placement);
         lastPlacement = normalizedPlacement === 'mobile-panel'
@@ -899,6 +896,9 @@ const setupRouteMapUi = () => {
         body.innerHTML = '<div class="route-map-empty">加载中…</div>';
         root.classList.remove('is-hidden');
         positionPanel();
+        await renderRouteMapTitleWithIcon(topTitle, lid, activeLineName, () => activeLineId === lid);
+        if (activeLineId !== lid) return;
+        topTitle.style.color = '';
 
         try {
             const payload = cache.has(cacheKey) ? cache.get(cacheKey) : await computeLineServiceDiagramData(lid);

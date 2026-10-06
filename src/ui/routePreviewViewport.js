@@ -64,6 +64,7 @@ export const createRoutePreviewViewportController = ({
     isAdaptiveViewportEnabled = () => true,
     getMenuElement = () => null,
     getPanelElement = () => null,
+    getRouteMapElement = () => null,
     getTripDetailElement = () => null,
     getSelectedLineId = () => '',
     getSelectedStationLineIds = () => null,
@@ -99,21 +100,30 @@ export const createRoutePreviewViewportController = ({
         try {
             const el = getPanelElement?.();
             const rect = el?.getBoundingClientRect?.();
+            const routeMapEl = getRouteMapElement();
+            const routeMapRect = routeMapEl?.getBoundingClientRect();
+            const routeMapVisible = routeMapEl?.classList.contains('is-panel-placement')
+                && !routeMapEl.classList.contains('is-mobile-panel-placement')
+                && !routeMapEl.classList.contains('is-hidden')
+                && isRectOnScreen(routeMapRect);
             return {
                 rect,
-                visible: isRectOnScreen(rect)
+                visible: isRectOnScreen(rect),
+                // 固定面板按布局位置避让，不计入淡入动画的水平位移。
+                routeMapInset: routeMapVisible
+                    ? Math.max(0, mapEngine.getCanvas().getBoundingClientRect().right - routeMapEl.offsetLeft) : 0
             };
         } catch {
-            return { rect: null, visible: false };
+            return { rect: null, visible: false, routeMapInset: 0 };
         }
     };
 
     const getFitPadding = (paddingMode = 'auto', fitPaddingOptions = {}) => {
         const base = 60;
         const fallback = { top: base, right: base, bottom: base, left: base };
-        if (paddingMode === 'full') return fallback;
-        const ignoreTripDetail = fitPaddingOptions?.ignoreTripDetailInset === true;
         const panelLayout = readPanelLayout();
+        if (paddingMode === 'full') return { ...fallback, right: base + Math.ceil(panelLayout.routeMapInset) };
+        const ignoreTripDetail = fitPaddingOptions?.ignoreTripDetailInset === true;
 
         let left = base;
         const menuEl = panelLayout.visible ? null : getMenuElement?.();
@@ -125,7 +135,7 @@ export const createRoutePreviewViewportController = ({
             }
         }
 
-        let right = base;
+        let right = base + Math.ceil(panelLayout.routeMapInset);
         try {
             const panelRect = panelLayout.rect;
             if (panelRect && Number.isFinite(panelRect.width) && panelRect.width > 0) {
@@ -163,9 +173,9 @@ export const createRoutePreviewViewportController = ({
         const ignoreTripDetail = options?.ignoreTripDetailInset === true;
 
         const base = 50;
-        let right = base;
         let left = base;
         const panelLayout = readPanelLayout();
+        let right = base + Math.ceil(panelLayout.routeMapInset);
 
         try {
             const menuRect = panelLayout.visible ? null : getMenuElement?.()?.getBoundingClientRect?.();
@@ -256,17 +266,21 @@ export const createRoutePreviewViewportController = ({
         return bbox;
     };
 
+    const getFitPaddingSignature = (options, padding, viewportOptions) => {
+        const ignoreTripDetailSig = options?.ignoreTripDetailInset === true ? '1' : '0';
+        const viewportSig = viewportOptions ? `|${viewportOptions.viewportKey}|z${viewportOptions.minTargetZoom}` : '';
+        return `${ignoreTripDetailSig}|l${padding.left}|r${padding.right}|t${padding.top}|b${padding.bottom}${viewportSig}`;
+    };
+
     const scheduleFit = (key, bbox, options = {}) => {
         if (!isAdaptiveViewportEnabled?.()) return;
         if (!bbox) return;
         const viewportOptions = getViewportFitOptions(options);
         const padding = viewportOptions?.padding || getFitPadding(options?.paddingMode, options);
-        const ignoreTripDetailSig = options?.ignoreTripDetailInset === true ? '1' : '0';
-        const viewportSig = viewportOptions ? `|${viewportOptions.viewportKey}|z${viewportOptions.minTargetZoom}` : '';
-        const paddingSig = `${ignoreTripDetailSig}|l${padding.left}|r${padding.right}|t${padding.top}|b${padding.bottom}${viewportSig}`;
+        const paddingSig = getFitPaddingSignature(options, padding, viewportOptions);
         if (key && key === lastFitKey && paddingSig === lastFitPaddingSig) return;
 
-        pendingFit = { key, bbox, options, padding, paddingSig };
+        pendingFit = { key, bbox, options };
         if (fitRafId != null) return;
 
         fitRafId = requestFrame(() => {
@@ -280,16 +294,18 @@ export const createRoutePreviewViewportController = ({
             const flat = [bounds[0]?.[0], bounds[0]?.[1], bounds[1]?.[0], bounds[1]?.[1]];
             if (!flat.every(isFiniteNumber)) return;
 
+            // 选中线路会在同一帧打开面板，执行定位时读取最新遮挡范围。
+            const currentViewportOptions = getViewportFitOptions(next.options);
+            const currentPadding = currentViewportOptions?.padding || getFitPadding(next.options?.paddingMode, next.options);
             lastFitKey = next.key ?? null;
-            lastFitPaddingSig = next.paddingSig ?? null;
+            lastFitPaddingSig = getFitPaddingSignature(next.options, currentPadding, currentViewportOptions);
             const fitOptions = {
-                padding: next.padding || 60,
+                padding: currentPadding,
                 duration: 300,
                 easing: (t) => t,
                 essential: true
             };
             if (Number.isFinite(next.options?.maxZoom)) fitOptions.maxZoom = next.options.maxZoom;
-            const currentViewportOptions = getViewportFitOptions(next.options);
             if (currentViewportOptions) {
                 mapEngine.fitBoundsWithViewport(bounds, { ...fitOptions, ...currentViewportOptions });
                 return;
