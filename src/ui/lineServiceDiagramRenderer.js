@@ -1,7 +1,6 @@
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, getRoutesIndex } from '../lib/line-icons.js';
 import { appendStationJumpClass } from './stationJump.js';
 import { buildServiceTrackPath, layoutLineServiceDiagram } from './lineServiceDiagramLayout.js';
-import { getRouteIdFromStationId } from '../domain/transferBadgeDisplay.js';
 
 const escapeHtml = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const iconHtml = (element, size = 20) => {
@@ -29,14 +28,13 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
     const measure = document.createElement('canvas').getContext('2d');
     measure.font = '13px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';
     const sizes = new Map(data.topology.stations.map((station) => [station.id, {
-        labelWidth: Math.ceil(measure.measureText(station.name).width) + (station.code ? 26 : 0),
+        labelWidth: Math.ceil(measure.measureText(station.name).width) + (station.stationBadges.length ? station.stationBadges.length * 22 + 4 : 0),
         transferWidth: Math.min(5, station.transfers.length) * 22,
         height: Math.max(22, Math.ceil(station.transfers.length / 5) * 24 - 4)
     }]));
     const routesIndex = await getRoutesIndex();
-    const stationLineIds = new Map(data.topology.stations.map((station) => [station.id, getRouteIdFromStationId(station.displayStationId)]));
     const lineMeta = new Map();
-    await Promise.all([...new Set(stationLineIds.values())].map(async (id) => lineMeta.set(id, await getResolvedRouteIconMeta(id))));
+    await Promise.all([...new Set(data.topology.stations.flatMap((station) => station.stationBadges.map((badge) => badge.lineId)))].map(async (id) => lineMeta.set(id, await getResolvedRouteIconMeta(id))));
     measure.font = '500 19.5px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';
     const lineSizes = new Map(data.topology.lineOrders.map((line) => [line.lineId, {
         width: Math.ceil(measure.measureText(line.name).width) + (routesIndex.get(line.lineId)?.code ? 36 : 0), height: 30
@@ -98,9 +96,12 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
             }
         }
         if (point.hideLabel) continue;
-        const meta = lineMeta.get(stationLineIds.get(station.id));
-        const badge = station.code ? createStationCodeBadgeElement({ code: station.code, color: mainStations.has(station.id) ? data.selectedLine.color : meta?.color, routeId: meta?.id || stationLineIds.get(station.id) }) : null;
-        labels.push(`<span class="${appendStationJumpClass('route-map-station route-map-diagram-station')}${mainStations.has(station.id) ? ' is-main-line' : ''}" data-station-id="${escapeHtml(station.displayStationId)}" data-panel-station-jump="1" role="button" tabindex="0" title="${escapeHtml(station.name)}" style="left:${point.x + (point.labelOffset ?? point.rightTrackOffset + 6)}px;top:${point.y}px">${iconHtml(badge)}<span>${escapeHtml(station.name)}</span></span>`);
+        const badges = station.stationBadges.map((badge) => {
+            const meta = lineMeta.get(badge.lineId);
+            const color = mainStations.has(station.id) && badge.stationId === station.displayStationId ? data.selectedLine.color : badge.color || meta?.color;
+            return iconHtml(createStationCodeBadgeElement({ code: badge.code, color, routeId: meta?.id || badge.lineId }));
+        }).join('');
+        labels.push(`<span class="${appendStationJumpClass('route-map-station route-map-diagram-station')}${mainStations.has(station.id) ? ' is-main-line' : ''}" data-station-id="${escapeHtml(station.displayStationId)}" data-panel-station-jump="1" role="button" tabindex="0" title="${escapeHtml(station.name)}" style="left:${point.x + (point.labelOffset ?? point.rightTrackOffset + 6)}px;top:${point.y}px">${badges}<span>${escapeHtml(station.name)}</span></span>`);
         if (isTransfer) {
             const rows = transferRows(station.transfers.map(transferItem));
             transfers.push(`<span class="route-map-diagram-transfers" data-transfer-station="${escapeHtml(station.id)}" style="left:${point.x - layout.laneWidth / 2 - 14 - metrics.transferWidth}px;top:${point.y}px;width:${metrics.transferWidth}px"><span class="route-map-transfer-items-shell" tabindex="0" aria-label="${escapeHtml(station.name)}，换乘线路：${station.transfers.length}条"><span class="route-map-transfer-items route-map-transfer-items-main">${rows}</span><span class="route-map-transfer-hover-panel" role="tooltip"><span class="route-map-transfer-items route-map-transfer-items-popover">${rows}</span></span></span></span>`);

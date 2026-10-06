@@ -108,9 +108,25 @@ export const buildStationTopology = ({ lineId, railways, stations, stationGroups
         const displayStationId = (repeatedPositions.has(id) ? id : ids.find((alias) => preferred.has(alias)))
             || displayLineIds.map((lineId) => ids.find((alias) => lineIdOf(alias) === lineId)).find(Boolean) || id;
         const source = stationById.get(displayStationId);
+        // 直通交界取实际经过的线路；南北线和三田线的同站别名还表达目黑至白金高轮的共线区段。
+        const servingLines = new Set(displayLineIds);
+        if (servingLines.has('TokyoMetro.Namboku') || servingLines.has('Toei.Mita')) {
+            servingLines.add('TokyoMetro.Namboku');
+            servingLines.add('Toei.Mita');
+        }
+        const seenBadges = new Set();
+        const stationBadges = unique([displayStationId, ...ids.filter((alias) => servingLines.has(lineIdOf(alias)))])
+            .flatMap((stationId) => {
+                const lineId = lineIdOf(stationId), line = lineById.get(lineId);
+                const code = text(stationById.get(stationId)?.title?.code), color = text(line?.color);
+                const key = JSON.stringify([lineId.split('.')[0], code, color]);
+                if (!code || seenBadges.has(key)) return [];
+                seenBadges.add(key);
+                return [{ stationId, lineId, code, color }];
+            });
         return {
             id, displayStationId, name: title(source?.title) || id,
-            code: text(source?.title?.code), aliases: ids, lineIds: unique(ids.map(lineIdOf))
+            code: text(source?.title?.code), stationBadges, aliases: ids, lineIds: unique(ids.map(lineIdOf))
         };
     };
     return { selectedLineId: lineId, canon, segment, station, getOrder, orders, lineById, stationById, displayOrder: unique(displayOrder) };

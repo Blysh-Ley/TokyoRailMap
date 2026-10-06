@@ -48,9 +48,22 @@ export const planDiagramLineLabels = (data, positions, lineSizes, stationBoxes, 
         }
     }
     lines.sort((a, b) => Number(b.lineId === mainLineId) - Number(a.lineId === mainLineId));
-    for (const line of lines) {
-        const edges = line.edges;
-        if (!edges.length || !lineSizes.has(line.lineId)) continue;
+    const lineGroups = [];
+    for (const line of lines.filter((entry) => lineSizes.has(entry.lineId))) {
+        // 主线牌保留中段位置；共用真实区段的直通线路牌在同一空白区域上下排列。
+        const group = line.lineId === mainLineId ? null : lineGroups.find((entry) => entry.lines[0].lineId !== mainLineId
+            && entry.sharedEdges.some((edge) => line.edges.includes(edge)));
+        if (group) {
+            group.lines.push(line);
+            group.sharedEdges = group.sharedEdges.filter((edge) => line.edges.includes(edge));
+        } else lineGroups.push({ lines: [line], sharedEdges: line.edges });
+    }
+    const columnCount = (line) => new Set(line.edges.flatMap((edge) => [positions.get(edge.from).column, positions.get(edge.to).column])).size;
+    for (const entry of lineGroups) {
+        // 同列延伸的线路先占位，离开共线段的分支线路紧接在下方；锚点取真正共用的区段。
+        const group = entry.lines;
+        group.sort((a, b) => columnCount(a) - columnCount(b));
+        const line = group[0], edges = entry.sharedEdges;
         const ids = [...new Set(edges.flatMap((edge) => [edge.from, edge.to]))];
         const columns = new Map();
         for (const id of ids) {
@@ -64,7 +77,12 @@ export const planDiagramLineLabels = (data, positions, lineSizes, stationBoxes, 
             || b[1].filter((id) => !mainStations.has(id)).length - a[1].filter((id) => !mainStations.has(id)).length
             || Math.abs(a[0]) - Math.abs(b[0]))[0];
         const isMain = line.lineId === mainLineId, side = isMain || column >= 0 ? 'right' : 'left';
-        const metrics = lineSizes.get(line.lineId), edgeIds = new Set(edges.map((edge) => edge.id));
+        const firstSize = lineSizes.get(line.lineId);
+        const metrics = {
+            width: Math.max(...group.map((entry) => lineSizes.get(entry.lineId).width)),
+            height: group.reduce((height, entry) => height + lineSizes.get(entry.lineId).height, 0) + (group.length - 1) * 8
+        };
+        const edgeIds = new Set(edges.map((edge) => edge.id));
         const crossings = edges.filter((edge) => (positions.get(edge.from).column === column) !== (positions.get(edge.to).column === column));
         crossings.sort((a, b) => Math.min(distance.get(a.from), distance.get(a.to)) - Math.min(distance.get(b.from), distance.get(b.to)));
         const junctions = stations.filter((id) => adjacent.get(id).some((edge) => !edgeIds.has(edge.id)) || mainStations.has(id));
@@ -85,7 +103,8 @@ export const planDiagramLineLabels = (data, positions, lineSizes, stationBoxes, 
         }
         const point = positions.get(anchorId), anchorBox = stationById.get(anchorId);
         // 左侧牌靠在接续站下方，右侧牌靠近该站名称，均保留轨迹和站名原有位置。
-        const y = isMain ? mainY : side === 'left' ? point.y + (anchorBox.height + metrics.height) / 2 + 8 : point.y;
+        const y = isMain ? mainY : side === 'left' ? point.y + (anchorBox.height + metrics.height) / 2 + 8
+            : point.y + (metrics.height - firstSize.height) / 2;
         const baseX = side === 'right' ? anchorBox.right + 18 : point.x + point.leftTrackOffset - 18 - metrics.width;
         const candidates = [y, ...labels.flatMap((label) => [label.y - (label.height + metrics.height) / 2 - 8, label.y + (label.height + metrics.height) / 2 + 8])]
             .sort((a, b) => Math.abs(a - y) - Math.abs(b - y));
@@ -98,7 +117,12 @@ export const planDiagramLineLabels = (data, positions, lineSizes, stationBoxes, 
                 label.x = side === 'right' ? box.right + 18 : box.left - 18 - label.width;
             }
             if (!labels.some((other) => overlaps(label, other))) {
-                labels.push(label);
+                let top = label.y - metrics.height / 2;
+                for (const entry of group) {
+                    const size = lineSizes.get(entry.lineId);
+                    labels.push({ ...label, lineId: entry.lineId, width: size.width, height: size.height, y: top + size.height / 2 });
+                    top += size.height + 8;
+                }
                 break;
             }
         }

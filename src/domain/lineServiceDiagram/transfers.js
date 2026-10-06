@@ -29,7 +29,9 @@ export const buildDiagramTransfers = async ({ stations, stationGroups, topology 
     return stations.map((station) => {
         const company = lineIdOf(station.displayStationId).split('.')[0];
         const entries = (badges.get(station.displayStationId)?.entries || [])
-            .filter((entry) => !(entry.company === company && station.code && entry.stationCode === station.code));
+            .filter((entry) => !(entry.company === company && station.code && entry.stationCode === station.code))
+            .filter((entry) => !station.stationBadges.some((badge) => entry.routeId === badge.lineId
+                || (entry.company === badge.lineId.split('.')[0] && entry.stationCode === badge.code && entry.iconColor === badge.color)));
         return {
             ...station,
             transfers: compactTransferBadgeEntries(sortTransferBadgeEntriesByCompany(entries, { preferredCompanyOrder: preferredOrder }))
