@@ -743,7 +743,7 @@ const setupRouteMapUi = () => {
         show: showTransferHoverPortal
     });
 
-    const cache = new Map(); // key: lineId||all-days||minTrips -> payload
+    const cache = new Map();
 
     const clearTimers = () => {
         if (showTimer) {

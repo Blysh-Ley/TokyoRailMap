@@ -1,8 +1,6 @@
 import { addCount, consecutive, emptyCounts, serviceDay, stopIds, totalCounts, tripId, unique } from './trips.js';
 import { containsPath, edgeKey } from './topology.js';
 
-// 工作日与节假日合计不足五班的交路不增加图形结构；种别停站不按此阈值删除。
-const MIN_ROUTE_TRIPS = 5;
 const pathKey = (path) => {
     const forward = JSON.stringify(path), reverse = JSON.stringify(path.slice().reverse());
     return forward < reverse ? forward : reverse;
@@ -46,8 +44,7 @@ export const buildServicePatterns = (roots, runs, topology) => {
         addRoot(routesByPath.get(key), run.root);
     }
     const candidates = [...routesByPath.values()];
-    const frequent = candidates.filter((route) => totalCounts(route.counts) >= MIN_ROUTE_TRIPS);
-    const retained = frequent.filter((route) => !frequent.some((other) => (
+    const retained = candidates.filter((route) => !candidates.some((other) => (
         other.path.length > route.path.length && containsPath(route.path, other.path)
     )));
     const edges = new Map(), stationIds = new Set(topology.displayOrder);
@@ -115,7 +112,7 @@ export const buildServicePatterns = (roots, runs, topology) => {
     }
     const retainedRootIds = new Set(retained.flatMap((route) => [...route.rootIds]));
     const retainedRoutes = retained.map((route) => {
-        const absorbed = frequent.filter((short) => short.path.length < route.path.length && containsPath(short.path, route.path));
+        const absorbed = candidates.filter((short) => short.path.length < route.path.length && containsPath(short.path, route.path));
         for (const short of absorbed) for (const id of short.rootIds) retainedRootIds.add(id);
         return {
             id: route.id, path: route.path, counts: route.counts, totalTrips: totalCounts(route.counts),
@@ -127,10 +124,10 @@ export const buildServicePatterns = (roots, runs, topology) => {
         routes: retainedRoutes,
         servicePatterns: [...patterns.values()].map(({ rootIds, ...pattern }) => pattern),
         processing: {
-            serviceDays: unique(roots.map(serviceDay)), minRouteTrips: MIN_ROUTE_TRIPS, filterTarget: '交路结构',
+            serviceDays: unique(roots.map(serviceDay)),
             inputTrips: roots.length, retainedTrips: retainedRootIds.size,
-            routeCount: candidates.length, filteredRouteCount: candidates.length - frequent.length,
-            absorbedRouteCount: frequent.length - retained.length, retainedRouteCount: retained.length
+            routeCount: candidates.length,
+            absorbedRouteCount: candidates.length - retained.length, retainedRouteCount: retained.length
         }
     };
 };
