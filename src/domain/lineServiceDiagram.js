@@ -1,8 +1,9 @@
 import { sortTypeNamesByBaseAndStopCount } from '../lib/train-type-sort.js';
-import { addCount, buildTripChains, emptyCounts, selectDiagramTrips, serviceDay, stopIds, text, title, tripId, unique } from './lineServiceDiagram/trips.js';
+import { addCount, buildTripChains, emptyCounts, selectDiagramTrips, serviceDay, text, title, tripId, unique } from './lineServiceDiagram/trips.js';
 import { buildStationTopology, edgeKey } from './lineServiceDiagram/topology.js';
 import { buildServicePatterns, projectPaths } from './lineServiceDiagram/patterns.js';
 import { buildDiagramTransfers } from './lineServiceDiagram/transfers.js';
+import { buildDiagramServices, diagramTypeMeta } from './lineServiceDiagram/services.js';
 import { resolveMainLineIdByBranchRule } from '../lib/special-condition.js';
 
 const buildDisplayStations = (processed, topology) => {
@@ -28,11 +29,11 @@ const buildDisplayStations = (processed, topology) => {
     });
 };
 
-const buildTrainTypes = (roots, patterns, metadata, topology) => {
+const buildTrainTypes = (roots, patterns, metadata) => {
     const byId = new Map(metadata.map((type) => [type.id, type]));
     const types = unique(roots.map((trip) => text(trip.y))).map((id) => {
         const trips = roots.filter((trip) => trip.y === id);
-        const name = title(byId.get(id)?.title) || id;
+        const meta = diagramTypeMeta(id, byId);
         const counts = emptyCounts();
         for (const trip of trips) addCount(counts, serviceDay(trip));
         const directions = unique(trips.map((trip) => trip.d)).map((direction) => {
@@ -46,17 +47,15 @@ const buildTrainTypes = (roots, patterns, metadata, topology) => {
                 stopStationIds: unique(local.flatMap((pattern) => pattern.stopStationIds))
             };
         });
-        const localLike = name.includes('普通') || name.includes('各停') || name.includes('各站停车') || name.includes('各駅停車') || name.toLowerCase() === 'local';
-        return { id, name, color: localLike ? '#888' : text(byId.get(id)?.title?.color) || '#888', counts, directions };
+        return { ...meta, counts, directions };
     });
     const countByName = new Map(), stopsByName = new Map();
-    const visibleStations = new Set(topology.displayOrder);
     for (const type of types) {
         countByName.set(type.name, (countByName.get(type.name) || 0) + roots.filter((trip) => trip.y === type.id).length);
-        const stops = roots.filter((trip) => trip.y === type.id).flatMap((trip) => stopIds(trip).map(topology.canon).filter((id) => visibleStations.has(id)));
-        stopsByName.set(type.name, new Set([...(stopsByName.get(type.name) || []), ...stops]));
+        const stopCount = Math.min(...roots.filter((trip) => trip.y === type.id).map((trip) => trip.tt.length));
+        stopsByName.set(type.name, Math.min(stopsByName.get(type.name) ?? Infinity, stopCount));
     }
-    const order = sortTypeNamesByBaseAndStopCount(types.map((type) => type.name), countByName, new Map([...stopsByName].filter(([, ids]) => ids.size).map(([name, ids]) => [name, ids.size])));
+    const order = sortTypeNamesByBaseAndStopCount(types.map((type) => type.name), countByName, stopsByName);
     return types.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 };
 
@@ -105,7 +104,8 @@ export const buildLineServiceDiagramData = async ({
     return {
         selectedLine: { id: lineId, name: title(line.title) || lineId, color: line.color, stationOrder: topology.displayOrder },
         directions: unique(roots.map((trip) => trip.d)).sort().map((id) => ({ id, name: title(directionById.get(id)?.title) || id })),
-        trainTypes: buildTrainTypes(roots, processed.servicePatterns, trainTypes, topology),
+        trainTypes: buildTrainTypes(roots, processed.servicePatterns, trainTypes),
+        ...buildDiagramServices(runs, processed, topology, trainTypes, railDirections),
         topology: {
             stations: nodes, edges, junctions: buildJunctions(nodes, edges, processed.servicePatterns),
             lineOrders: [...topology.orders].map(([id, path]) => {

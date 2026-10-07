@@ -2,8 +2,10 @@ import { planDiagramLineLabels } from './lineServiceDiagramLineLabels.js';
 import { layoutRingDiagram } from './lineServiceDiagramRingLayout.js';
 
 // 布局只决定图形空间；种别、交路筛选和停站关系来自已处理的拓扑。
-export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map()) =>
-    layoutRingDiagram(data, stationSizes, lineSizes) || layoutDiagram(data, stationSizes, lineSizes);
+export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map()) => {
+    const layout = layoutRingDiagram(data, stationSizes, lineSizes) || layoutDiagram(data, stationSizes, lineSizes);
+    return { ...layout, ...layoutServices(data, layout) };
+};
 
 const layoutDiagram = (data, stationSizes, lineSizes) => {
     const stationById = new Map(data.topology.stations.map((station) => [station.id, station]));
@@ -23,15 +25,15 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
         adjacent.get(edge.from).push(edge.to);
         adjacent.get(edge.to).push(edge.from);
     }
-    const laneWidth = Math.max(12, data.trainTypes.length * 12);
+    const laneWidth = Math.max(12, data.trainTypes.length * 12, ...data.serviceBundles.map((bundle) => bundle.types.length * 12));
     const halfWidth = laneWidth / 2;
     const rightTrackOffsets = new Map(), leftTrackOffsets = new Map();
     // 支线缺席的种别不占站名右侧空间，经过但不停车的种别仍计入轨迹边界。
-    data.trainTypes.forEach((type, index) => {
-        const offset = (index - (data.trainTypes.length - 1) / 2) * 12;
+    for (const bundle of data.serviceBundles) bundle.types.forEach((type, index) => {
+        const offset = (index - (bundle.types.length - 1) / 2) * 12;
         for (const direction of type.directions) for (const id of direction.stationIds) {
-            rightTrackOffsets.set(id, offset);
-            if (!leftTrackOffsets.has(id)) leftTrackOffsets.set(id, offset);
+            rightTrackOffsets.set(id, Math.max(rightTrackOffsets.get(id) ?? -Infinity, offset));
+            leftTrackOffsets.set(id, Math.min(leftTrackOffsets.get(id) ?? Infinity, offset));
         }
     });
     const pitch = Math.max(240, laneWidth + 160);
@@ -202,7 +204,7 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
     let extra = 0;
     for (const [id, point] of [...positions].sort((a, b) => a[1].y - b[1].y || a[1].column - b[1].column)) {
         const metrics = size(id), x = columnX.get(point.column);
-        const left = x - halfWidth - 14 - metrics.transferWidth;
+        const left = x + point.leftTrackOffset - 14 - metrics.transferWidth;
         const right = x + labelOffset(point) + metrics.labelWidth;
         let y = point.y + extra;
         for (const box of boxes) if (left < box.right && right > box.left) {
@@ -239,7 +241,7 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
     const mainPoints = mainOrder.map((id) => ({ ...positions.get(id), id }));
     const mainLoops = loopBounds.filter((box) => ringStations.has(box.from) && ringStations.has(box.to))
         .map((box) => ({ left: box.left - left + margin, top: box.top - top + margin, bottom: box.bottom - top + margin }));
-    const mainLeft = Math.min(...mainPoints.map((point) => point.x - halfWidth - 14 - size(point.id).transferWidth), ...mainLoops.map((box) => box.left));
+    const mainLeft = Math.min(...mainPoints.map((point) => point.x + point.leftTrackOffset - 14 - size(point.id).transferWidth), ...mainLoops.map((box) => box.left));
     const mainRight = Math.max(...mainPoints.map((point) => point.x + labelOffset(point) + size(point.id).labelWidth));
     const mainLabel = lineLabels.find((label) => label.isMain);
     return {
@@ -249,6 +251,55 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
             top: Math.min(...mainPoints.map((point) => point.y), mainLabel ? mainLabel.y - mainLabel.height / 2 : Infinity, ...mainLoops.map((box) => box.top)),
             bottom: Math.max(...mainPoints.map((point) => point.y), ...mainLoops.map((box) => box.bottom)) }
     };
+};
+
+// 每束独立居中，轨迹沿用原来的站点骨架；不推导跨束种别的拼接关系。
+const layoutServices = (data, layout) => {
+    const edgeById = new Map(data.topology.edges.map((edge) => [edge.id, edge]));
+    const serviceTracks = new Map(data.topology.edges.map((edge) => [edge.id, []]));
+    const stops = new Map(data.topology.stations.map((station) => [station.id, new Map()]));
+    for (const bundle of data.serviceBundles) bundle.types.forEach((type, index) => {
+        const offset = (index - (bundle.types.length - 1) / 2) * 12;
+        for (const edgeId of bundle.edgeIds) {
+            const edge = edgeById.get(edgeId), a = layout.positions.get(edge.from), b = layout.positions.get(edge.to);
+            const path = layout.trackPaths?.get(edgeId)?.(offset)
+                ?? buildServiceTrackPath(a, b, offset, layout.loops.has(edgeId) ? layout.loopX : null, layout.bends.get(edgeId));
+            serviceTracks.get(edgeId).push({ type, bundleId: bundle.id, lineIds: bundle.lineIds, offset, path });
+        }
+        const stationIds = new Set(type.directions.flatMap((direction) => direction.stopStationIds));
+        for (const stationId of stationIds) {
+            const local = stops.get(stationId), key = JSON.stringify([type.key, offset]);
+            if (!local.has(key)) local.set(key, { type, offset, sourceTypeIds: new Set(), directions: new Map() });
+            const marker = local.get(key);
+            for (const id of type.sourceTypeIds) marker.sourceTypeIds.add(id);
+            for (const direction of type.directions) {
+                if (!marker.directions.has(direction.ascending)) marker.directions.set(direction.ascending, {
+                    ascending: direction.ascending, names: new Set(), stops: false
+                });
+                const entry = marker.directions.get(direction.ascending);
+                for (const name of direction.names) entry.names.add(name);
+                entry.stops ||= direction.stopStationIds.includes(stationId);
+            }
+        }
+    });
+    const serviceStops = new Map([...stops].map(([stationId, entries]) => {
+        const point = layout.positions.get(stationId);
+        const markers = [...entries.values()].map((entry) => {
+            const directions = [...entry.directions.values()].sort((a, b) => Number(b.ascending) - Number(a.ascending));
+            const stopping = directions.filter((direction) => direction.stops);
+            const round = directions.length === 1 || stopping.length === directions.length;
+            const sign = stopping.some((direction) => direction.ascending) ? -1 : 1;
+            const x = point.x + entry.offset, y = point.y;
+            return {
+                type: entry.type, sourceTypeIds: [...entry.sourceTypeIds], x, y, round,
+                directions: directions.map((direction) => ({ ...direction, names: [...direction.names] })),
+                dotY: round ? y : y - sign / 3,
+                path: round ? null : `M${x},${y + sign * 5.2}L${x - 4.4},${y - sign * 3.1}L${x + 4.4},${y - sign * 3.1}Z`
+            };
+        });
+        return [stationId, markers];
+    }));
+    return { serviceTracks, serviceStops };
 };
 
 export const buildServiceTrackPath = (a, b, offset, loopX = null, bend = null) => {
