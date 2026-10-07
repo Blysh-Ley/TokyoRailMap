@@ -1,9 +1,9 @@
 // 线路牌只占图外侧的空白，位置从拓扑和绘图几何派生，不改变站序或轨迹布局。
-export const planDiagramLineLabels = (data, positions, lineSizes, stationBoxes, { laneWidth, loops, loopX }) => {
+export const planDiagramLineLabels = (data, positions, lineSizes, stationBoxes, { edges, trackBoxes }) => {
     const mainStations = new Set(data.selectedLine.stationOrder);
     const adjacent = new Map([...positions.keys()].map((id) => [id, []]));
     const stationLines = new Map([...positions.keys()].map((id) => [id, new Set()]));
-    for (const edge of data.topology.edges) {
+    for (const edge of edges) {
         adjacent.get(edge.from).push(edge);
         adjacent.get(edge.to).push(edge);
         for (const id of [edge.from, edge.to]) for (const lineId of edge.lineIds) stationLines.get(id).add(lineId);
@@ -18,13 +18,7 @@ export const planDiagramLineLabels = (data, positions, lineSizes, stationBoxes, 
         }
     }
     const stationById = new Map(stationBoxes.map((box) => [box.id, box]));
-    const obstacles = [...stationBoxes];
-    for (const edge of data.topology.edges) {
-        const a = positions.get(edge.from), b = positions.get(edge.to);
-        obstacles.push({ left: Math.min(a.x + a.leftTrackOffset, b.x + b.leftTrackOffset, loops.has(edge.id) ? loopX - laneWidth / 2 : Infinity) - 5,
-            right: Math.max(a.x + a.rightTrackOffset, b.x + b.rightTrackOffset) + 5,
-            y: (a.y + b.y) / 2, height: Math.abs(a.y - b.y) + 10 });
-    }
+    const obstacles = [...stationBoxes, ...trackBoxes];
     const overlaps = (a, b) => a.x < b.x + b.width + 4 && a.x + a.width + 4 > b.x && Math.abs(a.y - b.y) < (a.height + b.height) / 2 + 4;
     const labels = [];
     // 主线优先占用中段右侧空白；其他线路根据与主干的接续关系靠近交界处。
@@ -32,7 +26,7 @@ export const planDiagramLineLabels = (data, positions, lineSizes, stationBoxes, 
     const mainLineId = displayIds.get(data.selectedLine.id) || data.selectedLine.id;
     const lines = [];
     for (const lineId of new Set(displayIds.values())) {
-        const remaining = new Set(data.topology.edges.filter((edge) => edge.lineIds.some((id) => displayIds.get(id) === lineId)));
+        const remaining = new Set(edges.filter((edge) => edge.lineIds.some((id) => displayIds.get(id) === lineId)));
         // 同一显示线路的连续区段共用线路牌，分离的区段仍分别寻找空白。
         while (remaining.size) {
             const edges = [remaining.values().next().value];

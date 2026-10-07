@@ -8,6 +8,17 @@ export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map
 };
 
 const layoutDiagram = (data, stationSizes, lineSizes) => {
+    const edgePaths = new Map(data.serviceEdgePaths.map(({ edgeId, path }) => [edgeId, path]));
+    const edgeByPair = new Map(data.topology.edges.map((edge) => [JSON.stringify([edge.from, edge.to].sort()), edge]));
+    const expandPath = (path) => path.flatMap((id, index) => {
+        if (!index) return [id];
+        const edge = edgeByPair.get(JSON.stringify([path[index - 1], id].sort()));
+        const projected = edgePaths.get(edge.id);
+        return (projected[0] === path[index - 1] ? projected : projected.slice().reverse()).slice(1);
+    });
+    const geometryEdges = data.topology.edges.filter((edge) => edgePaths.get(edge.id).length === 2).map((edge) => ({
+        ...edge, lineIds: [...new Set([...edge.lineIds, ...data.serviceBundles.filter((bundle) => bundle.edgeIds.includes(edge.id)).flatMap((bundle) => bundle.lineIds)])]
+    }));
     const stationById = new Map(data.topology.stations.map((station) => [station.id, station]));
     const cycles = data.topology.lineOrders.flatMap((order) => order.paths.flatMap((path) => path.flatMap((id, index) => {
         const end = path.indexOf(id, index + 1), cycle = path.slice(index, end);
@@ -18,10 +29,10 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
     const ringStations = new Set(selectedCycle?.stations || []);
     const mainOrder = (data.selectedLine.stationOrder.length ? data.selectedLine.stationOrder : data.routes[0]?.path || []).slice().reverse();
     // 环段先形成主干，真实支线从分岔站另列接出。
-    const backbone = selectedCycle ? mainOrder.filter((id) => ringStations.has(id)) : mainOrder;
+    const backbone = selectedCycle ? mainOrder.filter((id) => ringStations.has(id)) : expandPath(mainOrder);
     const backboneIndex = new Map(backbone.map((id, index) => [id, index]));
     const adjacent = new Map(data.topology.stations.map((station) => [station.id, []]));
-    for (const edge of data.topology.edges) {
+    for (const edge of geometryEdges) {
         adjacent.get(edge.from).push(edge.to);
         adjacent.get(edge.to).push(edge.from);
     }
@@ -36,7 +47,6 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
             leftTrackOffsets.set(id, Math.min(leftTrackOffsets.get(id) ?? Infinity, offset));
         }
     });
-    const pitch = Math.max(240, laneWidth + 160);
     const turnHeight = Math.max(120, laneWidth + 72);
     const stationGap = 8, stationStep = 22 + stationGap;
     const positions = new Map(backbone.map((id, index) => [id, { column: 0, y: index * stationStep }]));
@@ -51,7 +61,7 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
             const top = Math.min(from, to) - 12, bottom = Math.max(from, to) + 12;
             if ([...positions.values()].some((point) => point.column === column && point.y > top && point.y < bottom)) return true;
             // 站间轨迹也占用整段列空间，不能把另一支线塞进两站之间的空隙。
-            return data.topology.edges.some((edge) => {
+            return geometryEdges.some((edge) => {
                 const a = positions.get(edge.from), b = positions.get(edge.to);
                 return a?.column === column && b?.column === column && Math.min(a.y, b.y) < bottom && Math.max(a.y, b.y) > top;
             });
@@ -100,7 +110,7 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
     };
     const routes = data.routes.slice().sort((a, b) => b.path.length - a.path.length);
     for (const route of routes) {
-        let path = route.path.slice();
+        let path = expandPath(route.path);
         const anchors = path.filter((id) => backboneIndex.has(id));
         if (anchors.length > 1 && backboneIndex.get(anchors[0]) > backboneIndex.get(anchors.at(-1))) path.reverse();
         const singleAnchor = anchors.length === 1 ? backboneIndex.get(anchors[0]) : null;
@@ -118,7 +128,7 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
     }
     // 处理结果中的边也提供连接依据，覆盖不属于独立长交路的主干节点。
     while (positions.size < stationById.size) {
-        const edge = data.topology.edges.find(({ from, to }) => positions.has(from) !== positions.has(to));
+        const edge = geometryEdges.find(({ from, to }) => positions.has(from) !== positions.has(to));
         if (!edge) throw new Error('线路图存在无法连接到主干的站点');
         const before = positions.has(edge.from) ? edge.from : edge.to;
         place([positions.has(edge.from) ? edge.to : edge.from], before, null, 1);
@@ -129,7 +139,7 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
     }
     const cyclePairs = cycles.flatMap(({ stations }) => stations.map((from, at) => [from, stations[(at + 1) % stations.length]]));
     // 同列跨站边保持直连，只有站序明确闭合的边需要绕回，避免把通过区间画成分支。
-    const loops = new Set(data.topology.edges.filter((edge) => {
+    const loops = new Set(geometryEdges.filter((edge) => {
         const a = positions.get(edge.from), b = positions.get(edge.to);
         const closesLoop = cyclePairs.some(([from, to]) => (edge.from === from && edge.to === to) || (edge.from === to && edge.to === from));
         return closesLoop && a.column === b.column && [...positions].some(([id, point]) => id !== edge.from && id !== edge.to && point.column === a.column && point.y > Math.min(a.y, b.y) && point.y < Math.max(a.y, b.y));
@@ -151,7 +161,7 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
         if (delta) shiftBelow(anchor.y + (side === 'after' ? 0.1 : 0), delta);
     };
     // 转弯使用独立的空白行带，避免斜线穿过主干或另一支线的站名、换乘徽标。
-    for (const edge of data.topology.edges) {
+    for (const edge of geometryEdges) {
         const a = positions.get(edge.from), b = positions.get(edge.to);
         const topId = a.y <= b.y ? edge.from : edge.to, bottomId = topId === edge.from ? edge.to : edge.from;
         const top = positions.get(topId), bottom = positions.get(bottomId);
@@ -179,49 +189,28 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
             bends.set(edge.id, { side, height, padding, radius });
         }
     }
-    const columns = [...new Set([...positions.values()].map((point) => point.column))].sort((a, b) => a - b);
     const labelOffset = (point) => point.labelOffset ?? point.rightTrackOffset + 6;
-    const columnX = new Map([[columns[0], 0]]);
-    for (let index = 1; index < columns.length; index += 1) {
-        const previous = columns[index - 1], column = columns[index];
-        const previousPoints = [...positions].filter(([, point]) => point.column === previous);
-        const currentPoints = [...positions].filter(([, point]) => point.column === column);
-        const labelRight = Math.max(...previousPoints.map(([id, point]) => labelOffset(point) + size(id).labelWidth));
-        const transferWidth = Math.max(...currentPoints.map(([id]) => size(id).transferWidth));
-        let occupiedWidth = Math.max(laneWidth + 16, labelRight + halfWidth + 14);
-        for (const [leftId, leftPoint] of previousPoints) for (const [rightId, rightPoint] of currentPoints) {
-            const leftSize = size(leftId), rightSize = size(rightId);
-            if (Math.abs(leftPoint.y - rightPoint.y) < (leftSize.height + rightSize.height) / 2 + stationGap) {
-                occupiedWidth = Math.max(occupiedWidth, labelOffset(leftPoint) + leftSize.labelWidth + halfWidth + 14 + rightSize.transferWidth);
-            }
-        }
-        // 保留同高站名、轨迹和换乘的宽度，其余横向留白缩至原来的三分之一。
-        const previousGap = Math.max(pitch, halfWidth + 28 + labelRight + transferWidth);
-        columnX.set(column, columnX.get(previous) + occupiedWidth + (previousGap - occupiedWidth) / 3);
-    }
-    // 横向区域相交的站名和换乘徽标错开行，分支保持靠近主干。
+    packBranches(geometryEdges, positions, bends, stationSizes, backbone[0], loops);
+    // 沿用站名和换乘行的纵向避让，横向边界取各分支自己的实际位置。
     const boxes = [];
     let extra = 0;
-    for (const [id, point] of [...positions].sort((a, b) => a[1].y - b[1].y || a[1].column - b[1].column)) {
-        const metrics = size(id), x = columnX.get(point.column);
-        const left = x + point.leftTrackOffset - 14 - metrics.transferWidth;
-        const right = x + labelOffset(point) + metrics.labelWidth;
+    for (const [id, point] of [...positions].sort((a, b) => a[1].y - b[1].y || a[1].x - b[1].x)) {
+        const metrics = size(id), left = point.x + point.leftTrackOffset - 14 - metrics.transferWidth;
+        const right = point.x + labelOffset(point) + metrics.labelWidth;
         let y = point.y + extra;
-        for (const box of boxes) if (left < box.right && right > box.left) {
-            y = Math.max(y, box.y + (box.height + metrics.height) / 2 + stationGap);
-        }
-        extra = y - point.y;
-        point.y = y;
-        point.x = x;
+        for (const box of boxes) if (left < box.right && right > box.left) y = Math.max(y, box.y + (box.height + metrics.height) / 2 + stationGap);
+        extra = y - point.y; point.y = y;
         boxes.push({ id, left, right, y, height: metrics.height });
     }
+    const trackBoxes = geometryEdges.flatMap((edge) => trackBounds(edge, positions, bends.get(edge.id)));
     const loopRelativeX = Math.min(...boxes.map((box) => box.left)) - (loops.size ? laneWidth + 36 : 0) + halfWidth;
-    const lineLabels = planDiagramLineLabels(data, positions, lineSizes, boxes, { laneWidth, loops, loopX: loopRelativeX });
+    const lineLabels = planDiagramLineLabels(data, positions, lineSizes, boxes, { edges: geometryEdges, trackBoxes });
+    boxes.push(...trackBoxes);
     boxes.push(...lineLabels.map((label) => ({ left: label.x, right: label.x + label.width, y: label.y, height: label.height })));
     const margin = 24;
     const left = Math.min(...boxes.map((box) => box.left), loops.size ? loopRelativeX - halfWidth : Infinity);
     const loopBounds = [...loops].map((id) => {
-        const edge = data.topology.edges.find((edge) => edge.id === id);
+        const edge = geometryEdges.find((edge) => edge.id === id);
         const a = positions.get(edge.from), b = positions.get(edge.to);
         const extent = bends.get(id).radius + halfWidth;
         return { from: edge.from, to: edge.to, left: loopRelativeX - halfWidth,
@@ -231,7 +220,7 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
     const right = Math.max(...boxes.map((box) => box.right));
     const bottom = Math.max(...boxes.map((box) => box.y + box.height / 2), ...loopBounds.map((box) => box.bottom));
     for (const point of positions.values()) {
-        point.x = columnX.get(point.column) - left + margin;
+        point.x += -left + margin;
         point.y += -top + margin;
     }
     for (const label of lineLabels) {
@@ -251,6 +240,104 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
             top: Math.min(...mainPoints.map((point) => point.y), mainLabel ? mainLabel.y - mainLabel.height / 2 : Infinity, ...mainLoops.map((box) => box.top)),
             bottom: Math.max(...mainPoints.map((point) => point.y), ...mainLoops.map((box) => box.bottom)) }
     };
+};
+
+// 轨道与转弯的占用边界同时用于分支摆放、线路牌避让和画布边界。
+const trackBounds = (edge, positions, bend) => {
+    const a = positions.get(edge.from), b = positions.get(edge.to);
+    const top = a.y <= b.y ? a : b, bottom = top === a ? b : a;
+    const extent = Math.max(Math.abs(a.leftTrackOffset), Math.abs(a.rightTrackOffset), Math.abs(b.leftTrackOffset), Math.abs(b.rightTrackOffset)) + 7;
+    const box = (left, right, from, to) => ({ left: left - extent, right: right + extent, y: (from + to) / 2, height: Math.abs(to - from) + extent * 2 });
+    if (a.x === b.x) return [box(a.x, a.x, top.y, bottom.y)];
+    const height = bend.height, start = (bend.side === 'before' ? bottom.y - height : top.y) + bend.padding;
+    const radius = Math.min(bend.radius, Math.abs(a.x - b.x) / 2);
+    return [box(top.x, top.x, top.y, start), box(Math.min(a.x, b.x), Math.max(a.x, b.x), start, start + radius * 2),
+        box(bottom.x, bottom.x, start + radius * 2, bottom.y)];
+};
+
+// 连续直行区段共用横坐标；彼此独立的分支只避让实际占用，不再绑定整列宽度。
+const packBranches = (edges, positions, bends, sizes, mainId, loops) => {
+    const adjacent = new Map([...positions.keys()].map((id) => [id, []]));
+    for (const edge of edges) {
+        adjacent.get(edge.from).push(edge);
+        adjacent.get(edge.to).push(edge);
+    }
+    const groups = [], groupByStation = new Map();
+    for (const [id, point] of positions) {
+        if (groupByStation.has(id)) continue;
+        const group = { ids: [id], x: null, index: groups.length };
+        groups.push(group); groupByStation.set(id, group);
+        for (let index = 0; index < group.ids.length; index += 1) for (const edge of adjacent.get(group.ids[index])) {
+            const next = edge.from === group.ids[index] ? edge.to : edge.from;
+            if (groupByStation.has(next) || positions.get(next).column !== point.column) continue;
+            groupByStation.set(next, group); group.ids.push(next);
+        }
+    }
+    const overlaps = (a, b) => a.left < b.right + 8 && a.right + 8 > b.left && Math.abs(a.y - b.y) < (a.height + b.height) / 2 + 8;
+    const stationBox = (id) => {
+        const point = positions.get(id), metrics = sizes.get(id);
+        return { id, kind: 'station', left: point.x + point.leftTrackOffset - 14 - metrics.transferWidth,
+            right: point.x + (point.labelOffset ?? point.rightTrackOffset + 6) + metrics.labelWidth, y: point.y, height: metrics.height };
+    };
+    const localBoxes = (group) => [
+        ...group.ids.map(stationBox),
+        ...edges.filter((edge) => groupByStation.get(edge.from) === group && groupByStation.get(edge.to) === group)
+            .flatMap((edge) => trackBounds(edge, positions, bends.get(edge.id)).map((box) => ({ ...box, kind: 'track' })))
+    ];
+    const move = (group, x) => { for (const id of group.ids) positions.get(id).x = x; };
+    const main = groupByStation.get(mainId), remaining = new Set(groups.filter((group) => group !== main));
+    main.x = 0; move(main, 0);
+    const occupied = localBoxes(main).map((box) => ({ ...box, group: main }));
+    while (remaining.size) {
+        const group = [...remaining].find((entry) => entry.ids.some((id) => adjacent.get(id).some((edge) => {
+            const other = edge.from === id ? edge.to : edge.from;
+            return groupByStation.get(other).x != null;
+        })));
+        const connections = edges.filter((edge) => {
+            const a = groupByStation.get(edge.from), b = groupByStation.get(edge.to);
+            return a === group && b.x != null || b === group && a.x != null;
+        });
+        const anchorIds = connections.map((edge) => groupByStation.get(edge.from) === group ? edge.to : edge.from);
+        const anchor = positions.get(anchorIds[0]);
+        move(group, 0);
+        const relative = localBoxes(group);
+        const candidates = new Set([anchor.x]);
+        const extent = Math.max(...group.ids.flatMap((id) => [Math.abs(positions.get(id).leftTrackOffset), Math.abs(positions.get(id).rightTrackOffset)]),
+            ...anchorIds.flatMap((id) => [Math.abs(positions.get(id).leftTrackOffset), Math.abs(positions.get(id).rightTrackOffset)])) + 10;
+        candidates.add(anchor.x - extent * 2); candidates.add(anchor.x + extent * 2);
+        for (const own of relative) for (const box of occupied) {
+            if (Math.abs(own.y - box.y) >= (own.height + box.height) / 2 + 8) continue;
+            candidates.add(box.left - 8 - own.right); candidates.add(box.right + 8 - own.left);
+        }
+        const choices = [];
+        for (const x of candidates) {
+            if (anchorIds.some((id) => x !== positions.get(id).x && Math.abs(x - positions.get(id).x) < extent * 2)) continue;
+            move(group, x);
+            const own = localBoxes(group);
+            let collisions = own.reduce((count, box) => count + occupied.filter((other) => overlaps(box, other)).length, 0);
+            const turns = [];
+            for (const edge of connections) {
+                const anchorId = groupByStation.get(edge.from) === group ? edge.to : edge.from;
+                const parent = groupByStation.get(anchorId), point = positions.get(anchorId);
+                const boxes = trackBounds(edge, positions, bends.get(edge.id));
+                for (const box of boxes) for (const other of occupied) {
+                    if (!overlaps(box, other) || other.id === anchorId || other.kind === 'track' && other.group === parent) continue;
+                    // 同一接续站附近允许独立种别束接入，离开站点后的转弯仍须避让。
+                    const shared = other.anchors?.includes(anchorId) && Math.max(box.left, other.left) >= point.x + point.leftTrackOffset - 10
+                        && Math.min(box.right, other.right) <= point.x + point.rightTrackOffset + 10;
+                    if (!shared) collisions += 1;
+                }
+                turns.push(...boxes.map((box) => ({ ...box, kind: 'turn', anchors: [edge.from, edge.to], group })));
+            }
+            choices.push({ x, collisions, distance: Math.abs(x - anchor.x), turns });
+        }
+        choices.sort((a, b) => a.collisions - b.collisions || a.distance - b.distance || a.x - b.x);
+        const choice = choices[0];
+        group.x = choice.x; move(group, choice.x); remaining.delete(group);
+        occupied.push(...localBoxes(group).map((box) => ({ ...box, group })), ...choice.turns);
+    }
+    for (const [id, point] of positions) point.column = Math.sign(point.x) * (groupByStation.get(id).index + 1);
+    for (const edge of edges) if (positions.get(edge.from).x === positions.get(edge.to).x && !loops.has(edge.id)) bends.delete(edge.id);
 };
 
 // 每束独立居中，轨迹沿用原来的站点骨架；不推导跨束种别的拼接关系。

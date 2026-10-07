@@ -116,12 +116,18 @@ export const installLineServiceDiagramView = ({ root, viewport, layout, resolveC
         prepareExport() {
             exporting = true;
             const previous = store.getState(), styles = viewport.style.cssText;
+            const body = viewport.parentElement, rootWidth = root.style.width, bodyOverflow = body.style.overflow;
             store.dispatch({ type: 'set', payload: { x: 0, y: 0, scale: 1 } });
             viewport.style.width = `${layout.width}px`;
             viewport.style.height = `${layout.height}px`;
             viewport.style.overflow = 'visible';
+            // 导出容器随完整画布展开，避免仍按面板宽度裁掉支线。
+            root.style.width = `${layout.width}px`;
+            body.style.overflow = 'visible';
             return async () => {
                 viewport.style.cssText = styles;
+                root.style.width = rootWidth;
+                body.style.overflow = bodyOverflow;
                 store.dispatch({ type: 'set', payload: previous });
                 await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
                 exporting = false;

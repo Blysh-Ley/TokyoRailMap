@@ -20,23 +20,47 @@ const sortTypes = (types) => {
     return types.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 };
 
+// 同站关系已归一到线路站序；稀疏共线站序沿已有完整区段绘制，不改变逻辑连边。
+const buildServiceEdgePaths = (processed, topology) => {
+    const paths = new Map();
+    for (const [key, edge] of processed.edges) {
+        let path = [edge.from, edge.to];
+        for (const [lineId, order] of topology.orders) {
+            if (edge.lineIds.has(lineId)) continue;
+            const from = order.indexOf(edge.from), to = order.indexOf(edge.to);
+            if (from < 0 || to < 0) continue;
+            const candidate = from < to ? order.slice(from, to + 1) : order.slice(to, from + 1).reverse();
+            if (candidate.length <= path.length || new Set(candidate).size !== candidate.length) continue;
+            if (candidate.slice(1).every((id, index) => processed.edges.has(edgeKey(candidate[index], id)))) path = candidate;
+        }
+        paths.set(key, path);
+    }
+    return paths;
+};
+
 // 真实班次只按经过区段聚合；派生种别束不改变已有站点、边或交路。
 export const buildDiagramServices = (runs, processed, topology, metadata, railDirections) => {
     const typeById = new Map(metadata.map((type) => [type.id, type]));
     const directionById = new Map(railDirections.map((direction) => [direction.id, direction]));
     const lineOrder = new Map([...topology.orders.keys()].map((id, index) => [id, index]));
     const records = new Map(), stops = [];
+    const edgePaths = buildServiceEdgePaths(processed, topology);
+    const pathBetween = (from, to) => {
+        const path = edgePaths.get(edgeKey(from, to));
+        return path[0] === from ? path : path.slice().reverse();
+    };
     const edgeTrips = new Map([...processed.edges].map(([key, edge]) => [key, { edge, trips: new Map() }]));
     for (const run of runs) for (let index = 0; index < run.segments.length; index += 1) {
         const segment = run.segments[index], trip = run.chain[index], id = tripId(trip);
-        if (!records.has(id)) records.set(id, { trip, segment });
+        if (!records.has(id)) records.set(id, { trip, segment, stationIds: new Set() });
         const record = records.get(id), previous = run.segments[index - 1];
-        for (let at = 1; at < segment.path.length; at += 1) {
-            edgeTrips.get(edgeKey(segment.path[at - 1], segment.path[at])).trips.set(id, record);
-        }
-        if (previous && previous.path.at(-1) !== segment.path[0]) {
-            edgeTrips.get(edgeKey(previous.path.at(-1), segment.path[0])).trips.set(id, record);
-        }
+        const addPath = (from, to) => {
+            const path = pathBetween(from, to);
+            for (const stationId of path) record.stationIds.add(stationId);
+            for (let at = 1; at < path.length; at += 1) edgeTrips.get(edgeKey(path[at - 1], path[at])).trips.set(id, record);
+        };
+        for (let at = 1; at < segment.path.length; at += 1) addPath(segment.path[at - 1], segment.path[at]);
+        if (previous && previous.path.at(-1) !== segment.path[0]) addPath(previous.path.at(-1), segment.path[0]);
         let cursor = 0;
         for (const stationId of segment.stops) {
             const at = segment.path.indexOf(stationId, cursor);
@@ -45,7 +69,9 @@ export const buildDiagramServices = (runs, processed, topology, metadata, railDi
             if (at === 0 && previous?.path.at(-1) === stationId) continue;
             const from = at > 0 ? segment.path[at - 1] : previous?.path.at(-1);
             const to = segment.path[at + 1];
-            stops.push({ stationId, record, edge: from ? edgeKey(from, stationId) : to ? edgeKey(stationId, to) : null });
+            const path = from ? pathBetween(from, stationId) : to ? pathBetween(stationId, to) : null;
+            const edge = from ? edgeKey(path.at(-2), stationId) : to ? edgeKey(stationId, path[1]) : null;
+            stops.push({ stationId, record, edge });
         }
     }
 
@@ -87,14 +113,14 @@ export const buildDiagramServices = (runs, processed, topology, metadata, railDi
         const sourceTypeIds = unique(entries.map(({ segment }) => segment.typeId));
         const preferred = lineIds.map((lineId) => sourceTypeIds.find((id) => id.split('.')[0] === lineId.split('.')[0])).find(Boolean) || sourceTypeIds[0];
         const directions = new Map(), counts = emptyCounts();
-        for (const { trip, segment } of entries) {
+        for (const { trip, segment, stationIds: passedStations } of entries) {
             const ascending = segment.direction === topology.lineById.get(segment.lineId).ascending;
             if (!directions.has(ascending)) directions.set(ascending, {
                 ascending, ids: new Set(), stationIds: new Set(), counts: emptyCounts()
             });
             const direction = directions.get(ascending);
             direction.ids.add(segment.direction);
-            for (const id of segment.path) if (stationIds.has(id)) direction.stationIds.add(id);
+            for (const id of passedStations) if (stationIds.has(id)) direction.stationIds.add(id);
             addCount(direction.counts, serviceDay(trip));
             addCount(counts, serviceDay(trip));
         }
@@ -129,5 +155,8 @@ export const buildDiagramServices = (runs, processed, topology, metadata, railDi
     const serviceLegend = sortTypes([...legend.values()].map(({ entry, lineIds, meta }) => ({
         ...describeType(entry, lineIds, new Set()), id: meta.id, name: meta.name, color: meta.color
     })));
-    return { serviceBundles, serviceLegend };
+    return {
+        serviceBundles, serviceLegend,
+        serviceEdgePaths: [...processed.edges].map(([key, edge]) => ({ edgeId: edge.id, path: edgePaths.get(key) }))
+    };
 };
