@@ -125,7 +125,8 @@
 			"ja": "特急",
 			"ko": "특급",
 			"zh-Hans": "特急",
-			"zh-Hant": "特急"
+			"zh-Hant": "特急",
+			"color": "#FF1000"
 		}
 	},
 	{
@@ -496,7 +497,8 @@
 			"ja": "通勤特急",
 			"ko": "통근특급",
 			"zh-Hans": "通勤特急",
-			"zh-Hant": "通勤特急"
+			"zh-Hant": "通勤特急",
+			"color": "#1EB0E6"
 		}
 	},
 	{
@@ -789,7 +791,8 @@
 			"en": "Rapid",
 			"ko": "쾌속",
 			"zh-Hans": "快速",
-			"zh-Hant": "快速"
+			"zh-Hant": "快速",
+			"color": "#BFCEED"
 		}
 	},
 	{
@@ -799,7 +802,8 @@
 			"en": "SL-Taiju",
 			"ko": "SL 타이쥬",
 			"zh-Hans": "SL大树",
-			"zh-Hant": "SL大樹"
+			"zh-Hant": "SL大樹",
+			"color": "#383638"
 		}
 	},
 	{
@@ -908,7 +912,8 @@
 			"ja": "拝島ライナー",
 			"ko": "하이지마 라이너",
 			"zh-Hans": "拜岛Liner",
-			"zh-Hant": "拜島Liner"
+			"zh-Hant": "拜島Liner",
+			"color": "#8ABA2A"
 		}
 	},
 	{
@@ -1060,7 +1065,8 @@
 			"en": "Limited Express",
 			"ko": "특급",
 			"zh-Hans": "特急",
-			"zh-Hant": "特急"
+			"zh-Hant": "特急",
+			"color": "#FF1000"
 		}
 	},
 	{
@@ -1383,7 +1389,8 @@
 			"en": "Commuter Limited Express",
 			"ko": "통근특급",
 			"zh-Hans": "通勤特急",
-			"zh-Hant": "通勤特急"
+			"zh-Hant": "通勤特急",
+			"color": "#1EB0E6"
 		}
 	},
 	{
@@ -1393,7 +1400,8 @@
 			"en": "Limited Express",
 			"ko": "특급",
 			"zh-Hans": "特急",
-			"zh-Hant": "特急"
+			"zh-Hant": "特急",
+			"color": "#EE3D56"
 		}
 	},
 	{
@@ -1413,7 +1421,8 @@
 			"en": "Rapid Limited Express",
 			"ko": "쾌속특급",
 			"zh-Hans": "快速特急",
-			"zh-Hant": "快速特急"
+			"zh-Hant": "快速特急",
+			"color": "#0FA268"
 		}
 	},
 	{
@@ -1423,7 +1432,8 @@
 			"en": "Rapid",
 			"ko": "쾌속",
 			"zh-Hans": "快速",
-			"zh-Hant": "快速"
+			"zh-Hant": "快速",
+			"color": "#F386A0"
 		}
 	},
 	{
@@ -1443,7 +1453,8 @@
 			"en": "Rapid",
 			"ko": "쾌속",
 			"zh-Hans": "快速",
-			"zh-Hant": "快速"
+			"zh-Hant": "快速",
+			"color": "#161795"
 		}
 	},
 	{
@@ -1543,7 +1554,8 @@
 			"en": "SL-Moka",
 			"ko": "SL 모카",
 			"zh-Hans": "SL真冈",
-			"zh-Hant": "SL真岡"
+			"zh-Hant": "SL真岡",
+			"color": "#012060"
 		}
 	},
 	{
@@ -1563,7 +1575,8 @@
 			"en": "Rapid",
 			"ko": "쾌속",
 			"zh-Hans": "快速",
-			"zh-Hant": "快速"
+			"zh-Hant": "快速",
+			"color": "#FF7522"
 		}
 	},
 	{
@@ -1583,7 +1596,8 @@
 			"en": "Limited Express",
 			"ko": "특급",
 			"zh-Hans": "特急",
-			"zh-Hant": "特急"
+			"zh-Hant": "特急",
+			"color": "#FF1000"
 		}
 	},
 	{
@@ -1603,7 +1617,8 @@
 			"en": "Limited Express",
 			"ko": "특급",
 			"zh-Hans": "特急",
-			"zh-Hant": "特急"
+			"zh-Hant": "特急",
+			"color": "#FF1000"
 		}
 	},
 	{
@@ -1654,7 +1669,8 @@
 			"en": "Express",
 			"ko": "급행",
 			"zh-Hans": "急行",
-			"zh-Hant": "急行"
+			"zh-Hant": "急行",
+			"color": "#0032FF"
 		}
 	},
 	{
