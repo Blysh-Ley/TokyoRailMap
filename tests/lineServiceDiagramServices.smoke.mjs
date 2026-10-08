@@ -107,11 +107,21 @@ const bundleFor = (data, a, b) => data.serviceBundles.find((bundle) => bundle.ed
     const roots = [1, 2, 3].map((index) => trip(`A${index}`, main, 'Main.A', [stations[0], stations[index], stations[4]]));
     roots.push(trip('B', main, 'Main.B', [stations[0], stations[1], stations[2], stations[4]]));
     const data = await build([railway(main, stations)], roots, roots, [type('Main.A', '通勤快速A'), type('Main.B', '区间快速B')]);
-    assert.deepEqual(data.trainTypes.map((type) => type.id), ['Main.A', 'Main.B'], 'panel 使用单班次最少停站数，不使用停站并集');
+    assert.deepEqual(data.trainTypes.map((type) => type.id), ['Main.B', 'Main.A'], 'panel 站点信息按停站并集排序：B 有四站，A 有五站');
     const local = data.serviceBundles[0];
-    assert.deepEqual(local.types.map((type) => type.minStopCount), [3, 4]);
+    assert.deepEqual(local.types.map((type) => type.id), ['Main.B', 'Main.A']);
+    assert.deepEqual(data.serviceLegend.map((type) => type.id), ['Main.B', 'Main.A']);
     const result = layout(data);
     assert.deepEqual(result.serviceTracks.get(local.edgeIds[0]).map((track) => track.offset), [-10, 10], '偶数种别对称居中');
+}
+
+{
+    const stations = ['A', 'B', 'C'].map((id) => `${main}.${id}`);
+    const roots = [trip('A', main, 'Main.A', stations), ...[1, 2, 3].map((id) => trip(`B${id}`, main, 'Main.B', stations))];
+    const data = await build([railway(main, stations)], roots, roots, [type('Main.A', '快速A'), type('Main.B', '快速B')]);
+    assert.deepEqual(data.trainTypes.map((type) => type.id), ['Main.A', 'Main.B'], '停站并集相同，不按班次数重排');
+    assert.deepEqual(data.serviceBundles[0].types.map((type) => type.id), ['Main.A', 'Main.B']);
+    assert.deepEqual(data.serviceLegend.map((type) => type.id), ['Main.A', 'Main.B']);
 }
 
 console.log('线路图真实直通种别、转换站归属、共线合并、panel 排序和居中验证通过。');

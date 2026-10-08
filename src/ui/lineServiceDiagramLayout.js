@@ -206,6 +206,19 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
         extra = y - point.y; point.y = y;
         boxes.push({ id, left, right, y, height: metrics.height });
     }
+    // 收紧末端直线的空白，只移动末站，不改变分支的接续方向和其他站点。
+    for (const box of boxes) {
+        const neighbors = adjacent.get(box.id), point = positions.get(box.id);
+        if (neighbors.length !== 1) continue;
+        const neighbor = positions.get(neighbors[0]);
+        if (point.x !== neighbor.x || point.y <= neighbor.y) continue;
+        let y = neighbor.y + Math.max(stationStep, (size(box.id).height + size(neighbors[0]).height) / 2 + stationGap);
+        for (const other of boxes) if (other !== box && box.left < other.right && box.right > other.left
+            && Math.abs(y - other.y) < (box.height + other.height) / 2 + stationGap) {
+            y = other.y + (box.height + other.height) / 2 + stationGap;
+        }
+        if (y < point.y) point.y = box.y = y;
+    }
     const trackBoxes = geometryEdges.flatMap((edge) => trackBounds(edge, positions, bends.get(edge.id)));
     const loopRelativeX = Math.min(...boxes.map((box) => box.left)) - (loops.size ? laneWidth + 36 : 0) + halfWidth;
     const lineLabels = planDiagramLineLabels(data, positions, lineSizes, boxes, { edges: geometryEdges, trackBoxes });

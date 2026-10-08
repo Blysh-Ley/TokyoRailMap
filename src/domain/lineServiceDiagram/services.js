@@ -1,5 +1,5 @@
 import { sortTypeNamesByBaseAndStopCount } from '../../lib/train-type-sort.js';
-import { addCount, emptyCounts, serviceDay, title, tripId, unique } from './trips.js';
+import { addCount, emptyCounts, serviceDay, stopIds, title, tripId, unique } from './trips.js';
 import { edgeKey } from './topology.js';
 
 const typeKey = (id) => id.split('.').at(-1);
@@ -10,13 +10,17 @@ export const diagramTypeMeta = (id, metadata) => {
     return { id, name, color: local ? '#888' : source?.title?.color || '#888' };
 };
 
-const sortTypes = (types) => {
-    const counts = new Map(), stops = new Map();
-    for (const type of types) {
-        counts.set(type.name, (counts.get(type.name) || 0) + type.totalTrips);
-        stops.set(type.name, Math.min(stops.get(type.name) ?? Infinity, type.minStopCount));
+const sortTypes = (entries) => {
+    const stationsByName = new Map();
+    for (const { type, trips } of entries) {
+        if (!stationsByName.has(type.name)) stationsByName.set(type.name, new Set());
+        const stations = stationsByName.get(type.name);
+        for (const { trip } of trips.values()) for (const id of stopIds(trip)) stations.add(id);
     }
-    const order = sortTypeNamesByBaseAndStopCount(types.map((type) => type.name), counts, stops);
+    // 沿用 panel 站点信息列表的停站并集口径，不用班次数参与排序。
+    const types = entries.map(({ type }) => type);
+    const stops = new Map([...stationsByName].map(([name, ids]) => [name, ids.size]));
+    const order = sortTypeNamesByBaseAndStopCount(types.map((type) => type.name), null, stops);
     return types.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 };
 
@@ -126,7 +130,7 @@ export const buildDiagramServices = (runs, processed, topology, metadata, railDi
         }
         return {
             key: entry.key, ...diagramTypeMeta(preferred, typeById), sourceTypeIds, counts,
-            totalTrips: entries.length, minStopCount: Math.min(...entries.map(({ trip }) => trip.tt.length)),
+            totalTrips: entries.length,
             directions: [...directions.values()].sort((a, b) => Number(b.ascending) - Number(a.ascending)).map((direction) => ({
                 ascending: direction.ascending, ids: [...direction.ids],
                 names: [...direction.ids].map((id) => title(directionById.get(id)?.title) || id),
@@ -143,7 +147,9 @@ export const buildDiagramServices = (runs, processed, topology, metadata, railDi
             const edge = edgeById.get(id);
             return [edge.from, edge.to];
         }));
-        const types = sortTypes([...bundle.types.values()].map((entry) => describeType(entry, bundle.lineIds, stationIds)));
+        const types = sortTypes([...bundle.types.values()].map((entry) => ({
+            type: describeType(entry, bundle.lineIds, stationIds), trips: entry.trips
+        })));
         for (const type of types) {
             const key = JSON.stringify([type.name, type.color]);
             if (!legend.has(key)) legend.set(key, { entry: { key: type.key, trips: new Map(), stops: new Map() }, lineIds: bundle.lineIds, meta: type });
@@ -153,7 +159,8 @@ export const buildDiagramServices = (runs, processed, topology, metadata, railDi
         return { id: bundle.id, lineIds: bundle.lineIds, edgeIds: bundle.edgeIds, types };
     });
     const serviceLegend = sortTypes([...legend.values()].map(({ entry, lineIds, meta }) => ({
-        ...describeType(entry, lineIds, new Set()), id: meta.id, name: meta.name, color: meta.color
+        type: { ...describeType(entry, lineIds, new Set()), id: meta.id, name: meta.name, color: meta.color },
+        trips: entry.trips
     })));
     return {
         serviceBundles, serviceLegend,

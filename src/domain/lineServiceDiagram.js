@@ -1,5 +1,5 @@
 import { sortTypeNamesByBaseAndStopCount } from '../lib/train-type-sort.js';
-import { addCount, buildTripChains, emptyCounts, selectDiagramTrips, serviceDay, text, title, tripId, unique } from './lineServiceDiagram/trips.js';
+import { addCount, buildTripChains, emptyCounts, selectDiagramTrips, serviceDay, stopIds, text, title, tripId, unique } from './lineServiceDiagram/trips.js';
 import { buildStationTopology, edgeKey } from './lineServiceDiagram/topology.js';
 import { buildServicePatterns, projectPaths } from './lineServiceDiagram/patterns.js';
 import { buildDiagramTransfers } from './lineServiceDiagram/transfers.js';
@@ -49,13 +49,14 @@ const buildTrainTypes = (roots, patterns, metadata) => {
         });
         return { ...meta, counts, directions };
     });
-    const countByName = new Map(), stopsByName = new Map();
+    const stationsByName = new Map();
     for (const type of types) {
-        countByName.set(type.name, (countByName.get(type.name) || 0) + roots.filter((trip) => trip.y === type.id).length);
-        const stopCount = Math.min(...roots.filter((trip) => trip.y === type.id).map((trip) => trip.tt.length));
-        stopsByName.set(type.name, Math.min(stopsByName.get(type.name) ?? Infinity, stopCount));
+        if (!stationsByName.has(type.name)) stationsByName.set(type.name, new Set());
+        const stations = stationsByName.get(type.name);
+        for (const trip of roots.filter((trip) => trip.y === type.id)) for (const id of stopIds(trip)) stations.add(id);
     }
-    const order = sortTypeNamesByBaseAndStopCount(types.map((type) => type.name), countByName, stopsByName);
+    const stopsByName = new Map([...stationsByName].map(([name, ids]) => [name, ids.size]));
+    const order = sortTypeNamesByBaseAndStopCount(types.map((type) => type.name), null, stopsByName);
     return types.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 };
 
