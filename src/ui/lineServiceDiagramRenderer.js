@@ -47,9 +47,10 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
     const drawingEdges = data.topology.edges.slice().sort((a, b) => Number(layout.bends.has(a.id)) - Number(layout.bends.has(b.id)));
     for (const edge of drawingEdges) {
         const edgeTracks = [], clearances = [];
-        for (const { type, path, lineIds } of layout.serviceTracks.get(edge.id)) {
-            clearances.push(`<path class="route-map-service-track-clearance" d="${path}"/>`);
-            edgeTracks.push(`<path class="route-map-service-track" data-type-id="${escapeHtml(type.id)}" data-source-type-ids="${escapeHtml(type.sourceTypeIds.join(' '))}" data-line-ids="${escapeHtml(lineIds.join(' '))}" data-edge-id="${edge.id}" data-source-color="${escapeHtml(type.color)}" d="${path}" stroke="${escapeHtml(resolveColor(type.color))}"/>`);
+        for (const { type, path, lineIds, shift } of layout.serviceTracks.get(edge.id)) {
+            const transform = shift ? ` transform="translate(${shift} 0)"` : '';
+            clearances.push(`<path class="route-map-service-track-clearance" d="${path}"${transform}/>`);
+            edgeTracks.push(`<path class="route-map-service-track" data-type-id="${escapeHtml(type.id)}" data-source-type-ids="${escapeHtml(type.sourceTypeIds.join(' '))}" data-line-ids="${escapeHtml(lineIds.join(' '))}" data-edge-id="${edge.id}" data-source-color="${escapeHtml(type.color)}" d="${path}"${transform} stroke="${escapeHtml(resolveColor(type.color))}"/>`);
         }
         // 背景描边让几何交叉保留断口，避免把无连接的边看成分岔。
         tracks.push(`<g>${clearances.join('')}${edgeTracks.join('')}</g>`);

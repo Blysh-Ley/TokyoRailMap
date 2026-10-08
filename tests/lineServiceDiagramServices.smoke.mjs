@@ -59,7 +59,11 @@ const bundleFor = (data, a, b) => data.serviceBundles.find((bundle) => bundle.ed
     assert.ok(after.types[0].directions.find((direction) => !direction.ascending).stopStationIds.includes(change), '反向转换按反向到站种别归属');
     const result = layout(data);
     assert.deepEqual(result.serviceTracks.get(edge(data, junction, middle).id).map((track) => track.offset), [-20, 0, 20]);
-    assert.deepEqual(result.serviceTracks.get(edge(data, change, end).id).map((track) => track.offset), [0]);
+    assert.deepEqual(result.serviceTracks.get(edge(data, change, end).id).map((track) => track.offset), [20], '后续普通整段对齐前段的普通');
+    assert.equal(result.positions.get(end).leftTrackOffset, 20, '换乘徽标和换乘线左端跟随整段平移');
+    assert.equal(result.positions.get(end).rightTrackOffset, 20, '换乘线右端跟随整段平移');
+    assert.equal(result.positions.get(end).labelOffset, 32, '站名与最右轨道的间距保持不变');
+    assert.equal(result.serviceStops.get(end)[0].x, result.positions.get(end).x + 20, '停站标记跟随整段平移');
     const stops = result.serviceStops.get(change);
     assert.ok(stops.find((marker) => marker.type.id === 'Branch.Express' && !marker.round));
     assert.ok(stops.find((marker) => marker.type.id === 'Branch.Local' && !marker.round));

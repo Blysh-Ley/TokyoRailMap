@@ -31,13 +31,15 @@ const bundleFor = (data, a, b) => data.serviceBundles.find((bundle) => bundle.ed
     const start = `${main}.Start`, junction = `${main}.Junction`;
     const dense = 'Dense.Main', sparse = 'Sparse.Main';
     const full = ['Junction', 'One', 'Two', 'Three', 'End'].map((id) => `${dense}.${id}`);
+    const passed = `${dense}.Passed`;
+    const railwayStations = [...full.slice(0, 2), passed, ...full.slice(2)];
     const fast = ['Junction', 'End'].map((id) => `${sparse}.${id}`);
     const root = trip('Root', main, 'Main.Rapid', [start, junction]);
     const local = trip('Local', dense, 'Dense.Local', full);
     const express = trip('Express', sparse, 'Sparse.Express', fast);
     root.nt = [local.id, express.id];
     const data = await build([
-        railway(main, [start, junction]), railway(dense, full), railway(sparse, fast)
+        railway(main, [start, junction]), railway(dense, railwayStations), railway(sparse, fast)
     ], [root], [root, local, express], [type('Main.Rapid', '快速'), type('Dense.Local', '普通'), type('Sparse.Express', '急行')], [
         [[junction, full[0], fast[0]]], [[full.at(-1), fast.at(-1)]]
     ]);
@@ -47,6 +49,7 @@ const bundleFor = (data, a, b) => data.serviceBundles.find((bundle) => bundle.ed
     const expected = [junction, ...full.slice(1)];
     assert.deepEqual(projected.path, logical.from === junction ? expected : expected.reverse(), '共线稀疏路径沿完整站间区段绘制并保留原边方向');
     const result = layout(data);
+    assert.ok(!data.topology.stations.some((station) => station.id === passed), '共线投影沿显示区段连接，不恢复纯经过站');
     assert.deepEqual(result.serviceTracks.get(logical.id), [], '逻辑捷径不再单独画直线');
     for (let index = 1; index < projected.path.length; index += 1) {
         const tracks = result.serviceTracks.get(edge(data, projected.path[index - 1], projected.path[index]).id);
@@ -88,4 +91,28 @@ const bundleFor = (data, a, b) => data.serviceBundles.find((bundle) => bundle.ed
     for (const tracks of result.serviceTracks.values()) for (const track of tracks) assert.doesNotMatch(track.path, /NaN|Infinity|undefined|A-/);
 }
 
-console.log('线路图稀疏共线并排、原连边与停站保持、分支独立空间和向右分叉验证通过。');
+{
+    const ids = 'ABCDEFGHIJKLMN'.split('').map((id) => `${main}.${id}`);
+    const branchIds = ['Junction', 'One', 'Two', 'End'].map((id) => `${branch}.${id}`);
+    const roots = ['LimitedExpress', 'Express', 'Local'].map((id) => trip(id, main, `Main.${id}`, ids));
+    const throughRoot = trip('Through', main, 'Main.Local', ids.slice(0, 4));
+    const branchTrip = trip('Branch', branch, 'Branch.Local', branchIds);
+    connect(throughRoot, branchTrip);
+    const data = await build([railway(main, ids), railway(branch, branchIds)], [...roots, throughRoot], [...roots, throughRoot, branchTrip], [
+        type('Main.LimitedExpress', '特急'), type('Main.Express', '急行'), type('Main.Local', '普通'), type('Branch.Local', '普通')
+    ], [[[ids[3], branchIds[0]]]]);
+    const sizes = new Map(data.topology.stations.map((station) => [station.id, {
+        labelWidth: branchIds.includes(station.id) ? 140 : 60, transferWidth: 0, height: 22
+    }]));
+    const result = layoutLineServiceDiagram(data, sizes), mainPoint = result.positions.get(ids[3]);
+    const mainTrackLeft = mainPoint.x + mainPoint.leftTrackOffset - 7;
+    for (const id of branchIds.slice(1)) {
+        const point = result.positions.get(id);
+        assert.equal(point.rightTrackOffset, 20, '支线普通整段右移，对齐主干普通');
+        assert.ok(point.x < mainPoint.x, '横向避让保留原本向左分支的方向');
+        assert.ok(mainTrackLeft - (point.x + point.labelOffset + sizes.get(id).labelWidth) >= 8,
+            '偏移后的站名与相邻主干描边之间仍保留布局间距');
+    }
+}
+
+console.log('线路图稀疏共线并排、停站保持、分支独立空间、向右分叉和偏移后横向避让验证通过。');

@@ -33,7 +33,8 @@ const buildServiceEdgePaths = (processed, topology) => {
             if (edge.lineIds.has(lineId)) continue;
             const from = order.indexOf(edge.from), to = order.indexOf(edge.to);
             if (from < 0 || to < 0) continue;
-            const candidate = from < to ? order.slice(from, to + 1) : order.slice(to, from + 1).reverse();
+            const candidate = (from < to ? order.slice(from, to + 1) : order.slice(to, from + 1).reverse())
+                .filter((id) => processed.stationIds.has(id));
             if (candidate.length <= path.length || new Set(candidate).size !== candidate.length) continue;
             if (candidate.slice(1).every((id, index) => processed.edges.has(edgeKey(candidate[index], id)))) path = candidate;
         }
