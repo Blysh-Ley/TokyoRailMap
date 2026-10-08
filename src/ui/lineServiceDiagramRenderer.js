@@ -41,7 +41,7 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
     }]));
     const layout = layoutLineServiceDiagram(data, sizes, lineSizes);
     const types = data.serviceLegend;
-    const tracks = [], markers = [], connectors = [], transferDots = [], labels = [], transfers = [];
+    const tracks = [], markers = [], connectors = [], transferDots = [], capsules = [], labels = [], transfers = [];
     const mainStations = new Set(data.selectedLine.stationOrder);
     // 先画直行区段，再画转弯区段；主线描边不能擦掉分岔的连接和弧线。
     const drawingEdges = data.topology.edges.slice().sort((a, b) => Number(layout.bends.has(a.id)) - Number(layout.bends.has(b.id)));
@@ -57,15 +57,17 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
     for (const station of data.topology.stations) {
         const point = layout.positions.get(station.id), metrics = sizes.get(station.id);
         const isTransfer = station.transfers.length > 0;
+        const capsule = layout.stationCapsules.get(station.id);
+        if (capsule) capsules.push(`<rect class="route-map-diagram-station-capsule" data-capsule-station="${escapeHtml(station.id)}" x="${capsule.x}" y="${capsule.y}" width="${capsule.width}" height="${capsule.height}" rx="6"><title>${escapeHtml(station.name)}，线路与种别区段接续</title></rect>`);
         const link = (layout.stationLinks || []).find((link) => link.from === station.id);
-        if (!point.hideLabel && (isTransfer || link)) {
+        if (!capsule && !point.hideLabel && (isTransfer || link)) {
             const end = link ? layout.positions.get(link.to) : point;
             // 同站连接与换乘连接共用一条水平线，换乘信息只显示一份。
             const fromX = isTransfer ? point.x + point.leftTrackOffset - 8 : point.x + point.leftTrackOffset;
             const relation = link ? ` data-station-link="${escapeHtml(station.id)}"` : '';
             connectors.push(`<line class="route-map-diagram-transfer-line${link ? ' route-map-diagram-station-link' : ''}"${relation} x1="${fromX}" y1="${point.y}" x2="${end.x + end.rightTrackOffset}" y2="${end.y}">${link ? `<title>${escapeHtml(station.name)}，同站的两个站序位置</title>` : ''}</line>`);
         }
-        for (const marker of layout.serviceStops.get(station.id)) {
+        for (const marker of capsule ? [] : layout.serviceStops.get(station.id)) {
             const { type, x, y } = marker;
             const description = `${station.name}，${type.name}：${marker.directions.map((direction) => `${direction.names.join(' / ')}${direction.stops ? '停车' : '不停车'}`).join('，')}`;
             const attributes = `data-stop-type="${escapeHtml(type.id)}" data-source-type-ids="${escapeHtml(marker.sourceTypeIds.join(' '))}" data-stop-station="${escapeHtml(station.id)}"`;
@@ -103,6 +105,6 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
     return {
         layout,
         headHtml: `<div class="route-map-diagram-legend">${legend}</div>`,
-        bodyHtml: `<div class="route-map-diagram-viewport" tabindex="0" aria-label="${escapeHtml(data.selectedLine.name)}种别停站图，可拖动和缩放"><div class="route-map-grid route-map-diagram-canvas" style="width:${layout.width}px;height:${layout.height}px"><svg class="route-map-diagram-svg" xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="全部种别、分支与停站轨迹"><g>${tracks.join('')}</g><g>${markers.join('')}</g><g>${connectors.join('')}${transferDots.join('')}</g></svg>${labels.join('')}${transfers.join('')}${lineLabels.join('')}</div></div>`
+        bodyHtml: `<div class="route-map-diagram-viewport" tabindex="0" aria-label="${escapeHtml(data.selectedLine.name)}种别停站图，可拖动和缩放"><div class="route-map-grid route-map-diagram-canvas" style="width:${layout.width}px;height:${layout.height}px"><svg class="route-map-diagram-svg" xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="全部种别、分支与停站轨迹"><g>${tracks.join('')}</g><g>${markers.join('')}</g><g>${connectors.join('')}${transferDots.join('')}</g><g>${capsules.join('')}</g></svg>${labels.join('')}${transfers.join('')}${lineLabels.join('')}</div></div>`
     };
 };

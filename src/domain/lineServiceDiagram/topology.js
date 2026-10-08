@@ -67,13 +67,14 @@ export const buildStationTopology = ({ lineId, railways, stations, stationGroups
         orders.set(id, order);
         return orders.get(id);
     };
+    const servedStations = new Set([...visible.map(canon), ...runs.flatMap(({ chain }) => chain.flatMap((trip) => stopIds(trip).map(canon)))]);
     const segmentByTrip = new Map();
     const segment = (trip) => {
         if (segmentByTrip.has(trip)) return segmentByTrip.get(trip);
         const id = trip.r || lineIdOf(trip.id), railway = lineById.get(id);
         getOrder(id);
-        // 原始站点 ID 保留同站的不同位置；区间解析后只合并没有独立站序位置的同站记录。
-        const order = railway.stations, stops = consecutive(stopIds(trip));
+        // 区段只保留本线站点和实际停站，不补入纯经过站。
+        const order = railway.stations.filter((sid) => servedStations.has(canon(sid))), stops = consecutive(stopIds(trip));
         const circular = order.length > 2 && order[0] === order.at(-1);
         const sequence = circular ? order.slice(0, -1) : order;
         const indices = stops.map((sid) => sequence.indexOf(sid));

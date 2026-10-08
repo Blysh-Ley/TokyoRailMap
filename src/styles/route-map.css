@@ -777,6 +777,7 @@ html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
 .route-map-diagram-transfer-dot { fill:#000; pointer-events:none; }
 .route-map-diagram-direction-stop { fill:#fff; }
 .route-map-diagram-transfer-line { stroke:#0008; stroke-width:2; }
+.route-map-diagram-station-capsule { fill:#fff; stroke:#000; stroke-width:1.5; }
 .route-map-diagram-station { position:absolute; transform:translateY(-50%); display:inline-flex; align-items:center; overflow:visible; background:var(--route-map-bg); cursor:pointer; z-index:2; }
 .route-map-diagram-station.is-main-line { font-weight:500; }
 .route-map-diagram-station:focus-visible { outline:2px solid var(--ui-focus, #0a84ff); outline-offset:3px; }
@@ -790,6 +791,7 @@ html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
 .route-map-diagram-station .route-map-through-line-icon,
 .route-map-diagram-transfers .route-map-through-line-icon { width:20px !important; min-width:20px !important; height:20px !important; min-height:20px !important; }
 html[data-theme='dark'] .route-map-diagram-transfer-line { stroke:#fffa; }
+html[data-theme='dark'] .route-map-diagram-station-capsule { fill:#000; stroke:#fff; }
 html.is-route-map-exporting .route-map-diagram-transfers .route-map-transfer-items-main { display:flex !important; }
 html.is-route-map-exporting .route-map-diagram-transfers .route-map-transfer-hover-panel { display:none !important; }
 

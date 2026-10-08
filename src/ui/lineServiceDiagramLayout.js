@@ -4,6 +4,10 @@ import { layoutRingDiagram } from './lineServiceDiagramRingLayout.js';
 // 布局只决定图形空间；种别、交路筛选和停站关系来自已处理的拓扑。
 export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map()) => {
     const layout = layoutRingDiagram(data, stationSizes, lineSizes) || layoutDiagram(data, stationSizes, lineSizes);
+    // 只右移站名和扩展画布边界，保留已经确定的轨道与分支几何。
+    for (const point of layout.positions.values()) point.labelOffset = (point.labelOffset ?? point.rightTrackOffset + 6) + 6;
+    layout.width += 6;
+    layout.mainBounds.right += 6;
     return { ...layout, ...layoutServices(data, layout) };
 };
 
@@ -345,13 +349,17 @@ const layoutServices = (data, layout) => {
     const edgeById = new Map(data.topology.edges.map((edge) => [edge.id, edge]));
     const serviceTracks = new Map(data.topology.edges.map((edge) => [edge.id, []]));
     const stops = new Map(data.topology.stations.map((station) => [station.id, new Map()]));
+    const stationTracks = new Map(data.topology.stations.map((station) => [station.id, []]));
     for (const bundle of data.serviceBundles) bundle.types.forEach((type, index) => {
         const offset = (index - (bundle.types.length - 1) / 2) * 12;
         for (const edgeId of bundle.edgeIds) {
             const edge = edgeById.get(edgeId), a = layout.positions.get(edge.from), b = layout.positions.get(edge.to);
             const path = layout.trackPaths?.get(edgeId)?.(offset)
                 ?? buildServiceTrackPath(a, b, offset, layout.loops.has(edgeId) ? layout.loopX : null, layout.bends.get(edgeId));
-            serviceTracks.get(edgeId).push({ type, bundleId: bundle.id, lineIds: bundle.lineIds, offset, path });
+            const track = { type, bundleId: bundle.id, lineIds: bundle.lineIds, offset, path };
+            serviceTracks.get(edgeId).push(track);
+            stationTracks.get(edge.from).push(track);
+            stationTracks.get(edge.to).push(track);
         }
         const stationIds = new Set(type.directions.flatMap((direction) => direction.stopStationIds));
         for (const stationId of stationIds) {
@@ -386,7 +394,15 @@ const layoutServices = (data, layout) => {
         });
         return [stationId, markers];
     }));
-    return { serviceTracks, serviceStops };
+    // 不同线路或种别束在站点接续时，用胶囊覆盖原有线段接缝和停站符号。
+    const stationCapsules = new Map([...stationTracks].filter(([, tracks]) => new Set(tracks.map((track) => track.bundleId)).size > 1)
+        .map(([stationId, tracks]) => {
+            const point = layout.positions.get(stationId);
+            const left = Math.min(...tracks.map((track) => track.offset)) - 6;
+            const right = Math.max(...tracks.map((track) => track.offset)) + 6;
+            return [stationId, { x: point.x + left, y: point.y - 6, width: right - left, height: 12 }];
+        }));
+    return { serviceTracks, serviceStops, stationCapsules };
 };
 
 export const buildServiceTrackPath = (a, b, offset, loopX = null, bend = null) => {
