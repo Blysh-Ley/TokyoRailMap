@@ -111,7 +111,7 @@ const finishLayout = (data, sizes, lineSizes, positions, trackPaths, loopId, loo
     for (const point of positions.values()) { point.x += dx; point.y += dy; }
     if (label) { label.x += dx; label.y += dy; }
     return { positions, trackPaths: paths, loops: new Set([loopId]), bends: new Map([...paths.keys()].map((id) => [id, {}])),
-        stationLinks, lineLabels: label ? [label] : [], laneWidth: Math.max(12, data.trainTypes.length * 12), loopX: loopX + dx,
+        stationLinks, lineLabels: label ? [label] : [], laneWidth: Math.max(20, data.trainTypes.length * 20), loopX: loopX + dx,
         width: right - left + 48, height: bottom - top + 48,
         mainBounds: { left: 24, right: right + dx,
             top: 24,

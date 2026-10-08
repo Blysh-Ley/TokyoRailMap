@@ -771,8 +771,8 @@ html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
 .route-map.is-mobile-panel-placement .route-map-diagram-viewport { height:100%; }
 .route-map-diagram-canvas.route-map-grid { position:absolute; left:0; top:0; display:block; transform-origin:0 0; }
 .route-map-diagram-svg { display:block; position:absolute; left:0; top:0; overflow:visible; }
-.route-map-service-track-clearance { fill:none; stroke:var(--route-map-bg); stroke-width:13; stroke-linecap:butt; stroke-linejoin:round; }
-.route-map-service-track { fill:none; stroke-width:10; stroke-linecap:round; stroke-linejoin:round; }
+.route-map-service-track-clearance { fill:none; stroke:var(--route-map-bg); stroke-width:17; stroke-linecap:butt; stroke-linejoin:round; }
+.route-map-service-track { fill:none; stroke-width:14; stroke-linecap:round; stroke-linejoin:round; }
 .route-map-diagram-stop { fill:#fff; }
 .route-map-diagram-transfer-dot { fill:#000; pointer-events:none; }
 .route-map-diagram-direction-stop { fill:#fff; }

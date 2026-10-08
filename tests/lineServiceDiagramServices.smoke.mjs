@@ -58,7 +58,7 @@ const bundleFor = (data, a, b) => data.serviceBundles.find((bundle) => bundle.ed
     assert.ok(!incomingExpress.directions.find((direction) => !direction.ascending).stopStationIds.includes(change));
     assert.ok(after.types[0].directions.find((direction) => !direction.ascending).stopStationIds.includes(change), '反向转换按反向到站种别归属');
     const result = layout(data);
-    assert.deepEqual(result.serviceTracks.get(edge(data, junction, middle).id).map((track) => track.offset), [-12, 0, 12]);
+    assert.deepEqual(result.serviceTracks.get(edge(data, junction, middle).id).map((track) => track.offset), [-20, 0, 20]);
     assert.deepEqual(result.serviceTracks.get(edge(data, change, end).id).map((track) => track.offset), [0]);
     const stops = result.serviceStops.get(change);
     assert.ok(stops.find((marker) => marker.type.id === 'Branch.Express' && !marker.round));
@@ -98,7 +98,7 @@ const bundleFor = (data, a, b) => data.serviceBundles.find((bundle) => bundle.ed
     assert.equal(shared.types.length, 3, '中文名称和颜色相同但后缀不同的种别保持独立');
     const result = layout(data);
     const tracks = result.serviceTracks.get(shared.edgeIds[0]);
-    assert.deepEqual(tracks.map((track) => track.offset), [-12, 0, 12]);
+    assert.deepEqual(tracks.map((track) => track.offset), [-20, 0, 20]);
     assert.equal(tracks.filter((track) => track.type.key === 'Local').length, 1);
 }
 
@@ -111,7 +111,7 @@ const bundleFor = (data, a, b) => data.serviceBundles.find((bundle) => bundle.ed
     const local = data.serviceBundles[0];
     assert.deepEqual(local.types.map((type) => type.minStopCount), [3, 4]);
     const result = layout(data);
-    assert.deepEqual(result.serviceTracks.get(local.edgeIds[0]).map((track) => track.offset), [-6, 6], '偶数种别对称居中');
+    assert.deepEqual(result.serviceTracks.get(local.edgeIds[0]).map((track) => track.offset), [-10, 10], '偶数种别对称居中');
 }
 
 console.log('线路图真实直通种别、转换站归属、共线合并、panel 排序和居中验证通过。');

@@ -40,12 +40,12 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
         adjacent.get(edge.from).push(edge.to);
         adjacent.get(edge.to).push(edge.from);
     }
-    const laneWidth = Math.max(12, data.trainTypes.length * 12, ...data.serviceBundles.map((bundle) => bundle.types.length * 12));
+    const laneWidth = Math.max(20, data.trainTypes.length * 20, ...data.serviceBundles.map((bundle) => bundle.types.length * 20));
     const halfWidth = laneWidth / 2;
     const rightTrackOffsets = new Map(), leftTrackOffsets = new Map();
     // 支线缺席的种别不占站名右侧空间，经过但不停车的种别仍计入轨迹边界。
     for (const bundle of data.serviceBundles) bundle.types.forEach((type, index) => {
-        const offset = (index - (bundle.types.length - 1) / 2) * 12;
+        const offset = (index - (bundle.types.length - 1) / 2) * 20;
         for (const direction of type.directions) for (const id of direction.stationIds) {
             rightTrackOffsets.set(id, Math.max(rightTrackOffsets.get(id) ?? -Infinity, offset));
             leftTrackOffsets.set(id, Math.min(leftTrackOffsets.get(id) ?? Infinity, offset));
@@ -138,8 +138,8 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
         place([positions.has(edge.from) ? edge.to : edge.from], before, null, 1);
     }
     for (const [id, point] of positions) {
-        point.rightTrackOffset = rightTrackOffsets.get(id) ?? halfWidth - 6;
-        point.leftTrackOffset = leftTrackOffsets.get(id) ?? -halfWidth + 6;
+        point.rightTrackOffset = rightTrackOffsets.get(id) ?? halfWidth - 10;
+        point.leftTrackOffset = leftTrackOffsets.get(id) ?? -halfWidth + 10;
     }
     const cyclePairs = cycles.flatMap(({ stations }) => stations.map((from, at) => [from, stations[(at + 1) % stations.length]]));
     // 同列跨站边保持直连，只有站序明确闭合的边需要绕回，避免把通过区间画成分支。
@@ -351,7 +351,7 @@ const layoutServices = (data, layout) => {
     const stops = new Map(data.topology.stations.map((station) => [station.id, new Map()]));
     const stationTracks = new Map(data.topology.stations.map((station) => [station.id, []]));
     for (const bundle of data.serviceBundles) bundle.types.forEach((type, index) => {
-        const offset = (index - (bundle.types.length - 1) / 2) * 12;
+        const offset = (index - (bundle.types.length - 1) / 2) * 20;
         for (const edgeId of bundle.edgeIds) {
             const edge = edgeById.get(edgeId), a = layout.positions.get(edge.from), b = layout.positions.get(edge.to);
             const path = layout.trackPaths?.get(edgeId)?.(offset)
@@ -398,9 +398,9 @@ const layoutServices = (data, layout) => {
     const stationCapsules = new Map([...stationTracks].filter(([, tracks]) => new Set(tracks.map((track) => track.bundleId)).size > 1)
         .map(([stationId, tracks]) => {
             const point = layout.positions.get(stationId);
-            const left = Math.min(...tracks.map((track) => track.offset)) - 6;
-            const right = Math.max(...tracks.map((track) => track.offset)) + 6;
-            return [stationId, { x: point.x + left, y: point.y - 6, width: right - left, height: 12 }];
+            const left = Math.min(...tracks.map((track) => track.offset)) - 8;
+            const right = Math.max(...tracks.map((track) => track.offset)) + 8;
+            return [stationId, { x: point.x + left, y: point.y - 8, width: right - left, height: 16 }];
         }));
     return { serviceTracks, serviceStops, stationCapsules };
 };

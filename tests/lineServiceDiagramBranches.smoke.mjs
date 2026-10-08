@@ -51,11 +51,11 @@ const bundleFor = (data, a, b) => data.serviceBundles.find((bundle) => bundle.ed
     for (let index = 1; index < projected.path.length; index += 1) {
         const tracks = result.serviceTracks.get(edge(data, projected.path[index - 1], projected.path[index]).id);
         assert.deepEqual(new Set(tracks.map((track) => track.type.id)), new Set(['Dense.Local', 'Sparse.Express']));
-        assert.deepEqual(tracks.map((track) => track.offset), [-6, 6], '共线种别以十二像素间距统一居中');
+        assert.deepEqual(tracks.map((track) => track.offset), [-10, 10], '共线种别以二十像素间距统一居中');
     }
     for (const id of full.slice(1, -1)) {
         assert.ok(!result.serviceStops.get(id).some((marker) => marker.sourceTypeIds.includes('Sparse.Express')), '经过中间站不增加停站');
-        assert.ok(result.positions.get(id).rightTrackOffset === 6 && result.positions.get(id).leftTrackOffset === -6, '中间站文字也避让整个共线束');
+        assert.ok(result.positions.get(id).rightTrackOffset === 10 && result.positions.get(id).leftTrackOffset === -10, '中间站文字也避让整个共线束');
     }
     assert.equal(data.processing.retainedTrips, 1, '一班直通交路仍完整保留');
 }
