@@ -246,7 +246,10 @@ const layoutDiagram = (data, stationSizes, lineSizes, shifts) => {
         box.left = point.x + point.leftTrackOffset - 14 - size(box.id).transferWidth;
         box.right = point.x + point.labelOffset + size(box.id).labelWidth;
     }
-    const trackBoxes = geometryEdges.flatMap((edge) => trackBounds(edge, positions, bends.get(edge.id), edgeOffsets.get(edge.id)));
+    // 排布完成后，直线按实际描边高度占位，不把横向种别宽度算成纵向空间。
+    const trackBoxes = geometryEdges.flatMap((edge) => trackBounds(edge, positions, bends.get(edge.id), edgeOffsets.get(edge.id))
+        .map((box, index, boxes) => boxes.length === 3 && index === 1 ? box
+            : { ...box, height: box.height - (edgeOffsets.get(edge.id)?.half || 0) * 2 }));
     const loopRelativeX = Math.min(...boxes.map((box) => box.left)) - (loops.size ? laneWidth + 36 : 0) + halfWidth;
     const lineLabels = planDiagramLineLabels(data, positions, lineSizes, boxes, { edges: geometryEdges, trackBoxes });
     boxes.push(...trackBoxes);
