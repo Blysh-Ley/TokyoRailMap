@@ -156,11 +156,7 @@ export const writeLineNameLabelsEnabled = (enabled) => {
     return next;
 };
 
-export const readStationOffsetMode = () => {
-    const raw = String(getLocalStorageValue(STATION_OFFSET_MODE_STORAGE_KEY, 'dynamic')).trim().toLowerCase();
-    if (raw === 'dynamic' || raw === 'performance') return raw;
-    return 'dynamic';
-};
+export const readStationOffsetMode = () => 'dynamic';
 
 export const writeStationOffsetMode = (mode) => {
     const next = String(mode || '').trim().toLowerCase() === 'performance' ? 'performance' : 'dynamic';
