@@ -143,6 +143,20 @@ const bundleFor = (data, a, b) => data.serviceBundles.find((bundle) => bundle.ed
         assert.ok(to.y - from.y >= fork.height + merge.height, '相邻分叉与合并分别留白，不受处理先后顺序影响');
         assert.equal(result.positions.get(spurIds[1]).y - result.positions.get(spurIds[2]).y, 30, '增加接续空间时保留支线自身站距');
     }
+    for (const reverse of [false, true]) {
+        const result = layout({ ...data, selectedLine: { ...data.selectedLine,
+            stationOrder: reverse ? data.selectedLine.stationOrder.slice().reverse() : data.selectedLine.stationOrder
+        } });
+        const junction = result.positions.get(ids[7]), first = result.positions.get(spurIds[1]), last = result.positions.get(spurIds[2]);
+        const turn = result.bends.get(edge(data, ids[7], spurIds[1]).id);
+        assert.equal(Math.abs(first.y - junction.y), turn.height, '自由支线按转弯所需空间收紧，适用于向上与向下延伸');
+        assert.equal(last.y - first.y, reverse ? 30 : -30, '收紧整段支线，保留原有站距和延伸方向');
+        const middle = result.positions.get(bypassIds[1]);
+        for (const anchor of [ids[1], ids[8]]) {
+            const bend = result.bends.get(edge(data, anchor, bypassIds[1]).id);
+            assert.ok(Math.abs(middle.y - result.positions.get(anchor).y) > bend.height, '双端接续区段保留两端锚点，不作为自由支线收紧');
+        }
+    }
 }
 
-console.log('线路图稀疏共线并排、停站保持、分支独立空间、向右分叉、偏移后横向避让和分叉合并独立留白验证通过。');
+console.log('线路图稀疏共线并排、停站保持、分支独立空间、偏移后避让、分叉合并留白和自由支线双向收紧验证通过。');

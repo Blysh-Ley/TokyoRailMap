@@ -246,18 +246,46 @@ const layoutDiagram = (data, stationSizes, lineSizes, shifts) => {
         point.labelOffset = labelOffset(point) + 6 + (offsets ? offsets.right - point.rightTrackOffset : 0);
         if (offsets) { point.leftTrackOffset = offsets.left; point.rightTrackOffset = offsets.right; }
     }
-    packBranches(geometryEdges, positions, bends, stationSizes, backbone[0], loops, edgeOffsets);
+    const branchGroups = packBranches(geometryEdges, positions, bends, stationSizes, backbone[0], loops, edgeOffsets);
     for (const box of boxes) {
         const point = positions.get(box.id);
         box.left = point.x + point.leftTrackOffset - 14 - size(box.id).transferWidth;
         box.right = point.x + point.labelOffset + size(box.id).labelWidth;
     }
     // 排布完成后，直线按实际描边高度占位，不把横向种别宽度算成纵向空间。
-    const trackBoxes = geometryEdges.flatMap((edge) => trackBounds(edge, positions, bends.get(edge.id), edgeOffsets.get(edge.id))
+    const getTrackBoxes = (edge) => trackBounds(edge, positions, bends.get(edge.id), edgeOffsets.get(edge.id))
         .map((box, index, boxes) => boxes.length === 3 && index === 1 ? box
-            : { ...box, height: box.height - (edgeOffsets.get(edge.id)?.half || 0) * 2 }));
+            : { ...box, height: box.height - (edgeOffsets.get(edge.id)?.half || 0) * 2 });
+    let trackBoxes = geometryEdges.flatMap(getTrackBoxes);
     const loopRelativeX = Math.min(...boxes.map((box) => box.left)) - (loops.size ? laneWidth + 36 : 0) + halfWidth;
     const lineLabels = planDiagramLineLabels(data, positions, lineSizes, boxes, { edges: geometryEdges, trackBoxes });
+    for (const group of branchGroups) {
+        if (group.ids.some((id) => backboneIndex.has(id))) continue;
+        const ids = new Set(group.ids);
+        const boundaries = geometryEdges.filter((edge) => ids.has(edge.from) !== ids.has(edge.to));
+        if (boundaries.length !== 1) continue;
+        const edge = boundaries[0], bend = bends.get(edge.id);
+        const point = positions.get(ids.has(edge.from) ? edge.from : edge.to);
+        const anchor = positions.get(ids.has(edge.from) ? edge.to : edge.from);
+        const direction = Math.sign(anchor.y - point.y);
+        if (bend?.side !== (direction > 0 ? 'before' : 'after')) continue;
+        let distance = Math.max(0, Math.abs(anchor.y - point.y) - bend.height);
+        const labelBoxes = lineLabels.map((label) => ({ id: label.anchorId, left: label.x, right: label.x + label.width, y: label.y, height: label.height }));
+        const own = [...boxes, ...labelBoxes].filter((box) => ids.has(box.id));
+        own.push(...geometryEdges.filter((edge) => ids.has(edge.from) && ids.has(edge.to)).flatMap(getTrackBoxes));
+        const others = [...boxes, ...labelBoxes].filter((box) => !ids.has(box.id));
+        others.push(...geometryEdges.filter((edge) => !ids.has(edge.from) && !ids.has(edge.to)).flatMap(getTrackBoxes));
+        // 单端支线连同站名、换乘和线路牌整体靠近弯道，保留组内站距及沿途已有占用。
+        for (const box of own) for (const other of others) {
+            if (box.left >= other.right + stationGap || box.right + stationGap <= other.left) continue;
+            const gap = direction * (other.y - box.y) - (box.height + other.height) / 2 - stationGap;
+            if (gap >= 0) distance = Math.min(distance, gap);
+        }
+        for (const id of group.ids) positions.get(id).y += direction * distance;
+        for (const box of boxes) if (ids.has(box.id)) box.y += direction * distance;
+        for (const label of lineLabels) if (ids.has(label.anchorId)) label.y += direction * distance;
+    }
+    trackBoxes = geometryEdges.flatMap(getTrackBoxes);
     boxes.push(...trackBoxes);
     boxes.push(...lineLabels.map((label) => ({ left: label.x, right: label.x + label.width, y: label.y, height: label.height })));
     const margin = 24;
@@ -401,6 +429,7 @@ const packBranches = (edges, positions, bends, sizes, mainId, loops, edgeOffsets
     }
     for (const [id, point] of positions) point.column = Math.sign(point.x) * (groupByStation.get(id).index + 1);
     for (const edge of edges) if (positions.get(edge.from).x === positions.get(edge.to).x && !loops.has(edge.id)) bends.delete(edge.id);
+    return groups;
 };
 
 // 种别保留束内居中位置，整束平移与弯道半径、纵向位置分开计算。
