@@ -50,10 +50,13 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
         const edgeTracks = [], clearances = [];
         const crossingTracks = layout.bends.has(edge.id) && !layout.loops.has(edge.id) ? straightEdges
             .filter((other) => [edge.from, edge.to].some((id) => other.from === id || other.to === id))
-            .flatMap((other) => layout.serviceTracks.get(other.id)) : [];
-        for (const [index, { type, path, lineIds, shift, offset }] of layout.serviceTracks.get(edge.id).entries()) {
+            .flatMap((other) => layout.serviceTracks.get(other.id).map((track) => ({ track,
+                stationId: [edge.from, edge.to].find((id) => other.from === id || other.to === id)
+            }))) : [];
+        for (const [index, { type, path, lineIds, shift, endpointOffsets }] of layout.serviceTracks.get(edge.id).entries()) {
             const transform = shift ? ` transform="translate(${shift} 0)"` : '';
-            const occluders = crossingTracks.filter((other) => other.offset !== offset);
+            const occluders = crossingTracks.filter(({ track, stationId }) => track.endpointOffsets.get(stationId) !== endpointOffsets.get(stationId))
+                .map(({ track }) => track);
             const maskId = `route-map-branch-${data.selectedLine.id}-${edge.id}-${index}`;
             const mask = occluders.length ? ` mask="url(#${escapeHtml(maskId)})"` : '';
             if (occluders.length) masks.push(`<mask id="${escapeHtml(maskId)}" maskUnits="userSpaceOnUse" x="0" y="0" width="${layout.width}" height="${layout.height}"><rect width="${layout.width}" height="${layout.height}" fill="#fff"/>${occluders.map((other) => `<path class="route-map-service-track-clearance" style="stroke:#000" d="${other.path}"${other.shift ? ` transform="translate(${other.shift} 0)"` : ''}/>`).join('')}</mask>`);
