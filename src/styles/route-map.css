@@ -348,6 +348,10 @@
     background: var(--route-map-bg);
     overflow: hidden;
 }
+/* 顶部种别图例仅在面板及其导出中隐藏，保留内容生成逻辑。 */
+.route-map-popover > .route-map-grid-header {
+    display: none;
+}
 .route-map-grid-header .route-map-grid {
     display: grid;
     align-items: end;
