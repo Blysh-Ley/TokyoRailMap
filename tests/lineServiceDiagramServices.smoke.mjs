@@ -128,4 +128,29 @@ const bundleFor = (data, a, b) => data.serviceBundles.find((bundle) => bundle.ed
     assert.deepEqual(data.serviceLegend.map((type) => type.id), ['Main.A', 'Main.B']);
 }
 
-console.log('线路图真实直通种别、转换站归属、共线合并、panel 排序和居中验证通过。');
+{
+    const stations = ['A', 'B', 'C'].map((id) => `${main}.${id}`);
+    const roots = [
+        trip('Commuter', main, 'Main.CommuterLimitedExpress', [stations[0], stations[2]]),
+        trip('Limited', main, 'Main.LimitedExpress', stations),
+        trip('RapidLimited', main, 'Main.RapidLimitedExpress', stations)
+    ];
+    const metadata = [
+        { ...type('Main.RapidLimitedExpress', '快速特急'), displayOrder: 10 },
+        { ...type('Main.LimitedExpress', '特急'), displayOrder: 20 },
+        { ...type('Main.CommuterLimitedExpress', '通勤特急'), displayOrder: 30 }
+    ];
+    const data = await build([railway(main, stations)], roots, roots, metadata);
+    const expected = metadata.map((type) => type.id);
+    assert.deepEqual(data.trainTypes.map((type) => type.id), expected, '根线路摘要采用公司顺序');
+    assert.deepEqual(data.serviceLegend.map((type) => type.id), expected, '总图例采用公司顺序');
+    for (const bundle of data.serviceBundles) {
+        assert.deepEqual(bundle.types.map((type) => type.id), expected.filter((id) => bundle.types.some((type) => type.id === id)), '每个独立种别束采用公司顺序');
+    }
+    const result = layout(data);
+    for (const tracks of result.serviceTracks.values()) {
+        assert.deepEqual(tracks.map((track) => track.type.id), expected, '真实轨迹顺序与图例一致');
+    }
+}
+
+console.log('线路图真实直通种别、转换站归属、共线合并、公司排序和居中验证通过。');

@@ -1,4 +1,4 @@
-import { sortTypeNamesByBaseAndStopCount } from '../../lib/train-type-sort.js';
+import { sortTrainTypesByCompanyOrder } from '../trainTypeOrder.js';
 import { addCount, emptyCounts, serviceDay, stopIds, title, tripId, unique } from './trips.js';
 import { edgeKey } from './topology.js';
 
@@ -10,18 +10,17 @@ export const diagramTypeMeta = (id, metadata) => {
     return { id, name, color: local ? '#888' : source?.title?.color || '#888' };
 };
 
-const sortTypes = (entries) => {
+const sortTypes = (entries, metadata) => {
     const stationsByName = new Map();
     for (const { type, trips } of entries) {
         if (!stationsByName.has(type.name)) stationsByName.set(type.name, new Set());
         const stations = stationsByName.get(type.name);
         for (const { trip } of trips.values()) for (const id of stopIds(trip)) stations.add(id);
     }
-    // 沿用 panel 站点信息列表的停站并集口径，不用班次数参与排序。
+    // 公司内采用固定顺序；未定序种别仍沿用站点信息列表的停站并集口径。
     const types = entries.map(({ type }) => type);
     const stops = new Map([...stationsByName].map(([name, ids]) => [name, ids.size]));
-    const order = sortTypeNamesByBaseAndStopCount(types.map((type) => type.name), null, stops);
-    return types.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
+    return sortTrainTypesByCompanyOrder(types, null, stops, metadata);
 };
 
 // 同站关系已归一到线路站序；稀疏共线站序沿已有完整区段绘制，不改变逻辑连边。
@@ -150,7 +149,7 @@ export const buildDiagramServices = (runs, processed, topology, metadata, railDi
         }));
         const types = sortTypes([...bundle.types.values()].map((entry) => ({
             type: describeType(entry, bundle.lineIds, stationIds), trips: entry.trips
-        })));
+        })), typeById);
         for (const type of types) {
             const key = JSON.stringify([type.name, type.color]);
             if (!legend.has(key)) legend.set(key, { entry: { key: type.key, trips: new Map(), stops: new Map() }, lineIds: bundle.lineIds, meta: type });
@@ -162,7 +161,7 @@ export const buildDiagramServices = (runs, processed, topology, metadata, railDi
     const serviceLegend = sortTypes([...legend.values()].map(({ entry, lineIds, meta }) => ({
         type: { ...describeType(entry, lineIds, new Set()), id: meta.id, name: meta.name, color: meta.color },
         trips: entry.trips
-    })));
+    })), typeById);
     return {
         serviceBundles, serviceLegend,
         serviceEdgePaths: [...processed.edges].map(([key, edge]) => ({ edgeId: edge.id, path: edgePaths.get(key) }))

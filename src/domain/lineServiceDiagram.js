@@ -1,4 +1,4 @@
-import { sortTypeNamesByBaseAndStopCount } from '../lib/train-type-sort.js';
+import { sortTrainTypesByCompanyOrder } from './trainTypeOrder.js';
 import { addCount, buildTripChains, emptyCounts, selectDiagramTrips, serviceDay, stopIds, text, title, tripId, unique } from './lineServiceDiagram/trips.js';
 import { buildStationTopology, edgeKey } from './lineServiceDiagram/topology.js';
 import { buildServicePatterns, projectPaths } from './lineServiceDiagram/patterns.js';
@@ -56,8 +56,7 @@ const buildTrainTypes = (roots, patterns, metadata) => {
         for (const trip of roots.filter((trip) => trip.y === type.id)) for (const id of stopIds(trip)) stations.add(id);
     }
     const stopsByName = new Map([...stationsByName].map(([name, ids]) => [name, ids.size]));
-    const order = sortTypeNamesByBaseAndStopCount(types.map((type) => type.name), null, stopsByName);
-    return types.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
+    return sortTrainTypesByCompanyOrder(types, null, stopsByName, byId);
 };
 
 const buildJunctions = (stations, edges, patterns) => {

@@ -196,6 +196,7 @@ let stationGroupsIndexPromise_panelStationMetadata = null;
 let stationGroupsIndexIncludingAlternatesPromise_panelStationMetadata = null;
 let trainTypesIndexPromise_panelStationMetadata = null;
 let trainTypeColorIndexPromise_panelStationMetadata = null;
+let trainTypeMetadataIndexPromise_panelStationMetadata = null;
 
 export const resetPanelStationMetadataCachesForTest = () => {
     stationsIndexPromise_panelStationMetadata = null;
@@ -203,6 +204,7 @@ export const resetPanelStationMetadataCachesForTest = () => {
     stationGroupsIndexIncludingAlternatesPromise_panelStationMetadata = null;
     trainTypesIndexPromise_panelStationMetadata = null;
     trainTypeColorIndexPromise_panelStationMetadata = null;
+    trainTypeMetadataIndexPromise_panelStationMetadata = null;
 };
 
 export const getStationsIndex = async ({
@@ -332,6 +334,27 @@ export const getStationGroupsIndexIncludingAlternates = async ({
         }
     })();
     return stationGroupsIndexIncludingAlternatesPromise_panelStationMetadata;
+};
+
+export const getTrainTypeMetadataIndex = async ({
+    toText = defaultToText_panelStationMetadata,
+    loadJson = getCachedJson
+} = {}) => {
+    if (trainTypeMetadataIndexPromise_panelStationMetadata) return trainTypeMetadataIndexPromise_panelStationMetadata;
+    trainTypeMetadataIndexPromise_panelStationMetadata = (async () => {
+        try {
+            const list = await loadJson(DATA_URLS.trainTypes);
+            const map = new Map();
+            for (const item of Array.isArray(list) ? list : []) {
+                const id = toText(item?.id);
+                if (id) map.set(id, item);
+            }
+            return map;
+        } catch {
+            return new Map();
+        }
+    })();
+    return trainTypeMetadataIndexPromise_panelStationMetadata;
 };
 
 export const getTrainTypesIndex = async ({
