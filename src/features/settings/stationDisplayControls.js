@@ -3,29 +3,13 @@ import { normalizeStationLabelMode, STATION_LABEL_MODES } from '../../domain/sta
 import { createSegmentedSettingRow } from './settingRows.js';
 
 export const mountStationOffsetToggle = ({ hostEl, onModeChanged } = {}) => {
-    const row = createSegmentedSettingRow({
-        hostEl,
-        className: 'settings-item-station-offset',
-        title: '站点位置纠正',
-        options: [
-            { value: 'dynamic', label: '动态' },
-            { value: 'performance', label: '性能' }
-        ]
-    });
-    const btnDynamic = row.buttons.get('dynamic');
-    const btnPerformance = row.buttons.get('performance');
-
     const normalizeMode = (mode) => (
         String(mode || '').trim().toLowerCase() === 'performance' ? 'performance' : 'dynamic'
     );
 
     const setMode = (mode) => {
-        const next = onModeChanged?.(mode) || normalizeMode(mode);
-        row.setActive(next);
+        return onModeChanged?.(mode) || normalizeMode(mode);
     };
-
-    btnDynamic.addEventListener('click', () => setMode('dynamic'));
-    btnPerformance.addEventListener('click', () => setMode('performance'));
 
     setMode(readStationOffsetMode());
 
