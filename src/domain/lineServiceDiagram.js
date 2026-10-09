@@ -4,6 +4,7 @@ import { buildStationTopology, edgeKey } from './lineServiceDiagram/topology.js'
 import { buildServicePatterns, projectPaths } from './lineServiceDiagram/patterns.js';
 import { buildDiagramTransfers } from './lineServiceDiagram/transfers.js';
 import { buildDiagramServices, diagramTypeMeta } from './lineServiceDiagram/services.js';
+import { buildServiceLabelSections } from './lineServiceDiagram/typeLabels.js';
 import { resolveMainLineIdByBranchRule } from '../lib/special-condition.js';
 
 const buildDisplayStations = (processed, topology) => {
@@ -107,7 +108,7 @@ export const buildLineServiceDiagramData = async ({
         .sort((a, b) => currentTypes.findIndex((type) => type.name === a.name) - currentTypes.findIndex((type) => type.name === b.name));
     const currentTypeIds = new Set(currentTypes.map((type) => type.id));
     const companyId = lineId.split('.')[0];
-    return {
+    const data = {
         selectedLine: { id: lineId, name: title(line.title) || lineId, color: line.color, stationOrder: topology.displayOrder },
         directions: unique(roots.map((trip) => trip.d)).sort().map((id) => ({ id, name: title(directionById.get(id)?.title) || id })),
         trainTypes: currentTypes,
@@ -128,4 +129,5 @@ export const buildLineServiceDiagramData = async ({
         },
         routes: processed.routes, servicePatterns: processed.servicePatterns, processing: processed.processing
     };
+    return { ...data, serviceLabelSections: buildServiceLabelSections(data) };
 };

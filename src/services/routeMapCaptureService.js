@@ -1,3 +1,4 @@
+import { splitTypeHeadTextChunks } from '../lib/typeLabelText.js';
 import { shareOrSaveImageArtifact } from './nativeExportShareService.js';
 
 const toText = (v) => String(v ?? '').trim();
@@ -245,39 +246,6 @@ const downloadBlob = (blob, filename) => {
     a.click();
     a.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-};
-
-const splitTypeHeadTextChunks = (value) => {
-    const s = toText(value);
-    if (!s) return [];
-
-    const chunks = [];
-    const isAsciiWordChar = (ch) => /[A-Za-z0-9]/.test(ch);
-    const isAsciiConnectorChar = (ch) => /[\s\-+&\/().,']/.test(ch);
-
-    let i = 0;
-    while (i < s.length) {
-        const ch = s[i];
-        if (isAsciiWordChar(ch)) {
-            let j = i + 1;
-            while (j < s.length) {
-                const c = s[j];
-                if (isAsciiWordChar(c) || isAsciiConnectorChar(c)) {
-                    j += 1;
-                    continue;
-                }
-                break;
-            }
-            chunks.push({ text: s.slice(i, j), kind: 'en' });
-            i = j;
-            continue;
-        }
-
-        chunks.push({ text: ch, kind: 'other' });
-        i += 1;
-    }
-
-    return chunks.filter((x) => toText(x?.text));
 };
 
 export const captureRouteMapElementAsPng = async ({ element, filenameBase, buttonEl } = {}) => {

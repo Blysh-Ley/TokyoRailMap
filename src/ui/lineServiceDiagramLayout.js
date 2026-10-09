@@ -1,22 +1,31 @@
+import { planDiagramTypeLabels, reserveDiagramTypeLabelSpace, layoutDiagramTypeLabels, typeLabelExtensionBox } from './lineServiceDiagramTypeLabels.js';
 import { planDiagramLineLabels } from './lineServiceDiagramLineLabels.js';
 import { layoutDiagramLegendRows } from './lineServiceDiagramLegendLayout.js';
 import { layoutRingDiagram } from './lineServiceDiagramRingLayout.js';
 import { getServiceBundleShifts, getServiceEdgeShifts } from './lineServiceDiagramAlignment.js';
 
 // 布局只决定图形空间；种别、交路筛选和停站关系来自已处理的拓扑。
-export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map()) => {
-    const ring = layoutRingDiagram(data, stationSizes, lineSizes);
-    const layout = ring || layoutDiagram(data, stationSizes, lineSizes);
-    if (ring) {
-        for (const point of layout.positions.values()) point.labelOffset += 6;
-        layout.width += 6;
-        layout.mainBounds.right += 6;
-    }
-    const services = layoutServices(data, layout, ring ? getServiceBundleShifts(data, ring.positions) : layout.bundleShifts);
-    return { ...layout, ...services, legendRows: layoutDiagramLegendRows(data, layout, services.serviceTracks) };
+export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map(), typeSizes = new Map()) => {
+    const build = (reservations) => {
+        const ring = layoutRingDiagram(data, stationSizes, lineSizes, reservations);
+        const layout = ring || layoutDiagram(data, stationSizes, lineSizes, reservations);
+        if (ring) {
+            for (const point of layout.positions.values()) point.labelOffset += 6;
+            layout.width += 6;
+            layout.mainBounds.right += 6;
+        }
+        return { layout, services: layoutServices(data, layout, ring ? getServiceBundleShifts(data, ring.positions) : layout.bundleShifts) };
+    };
+    const initial = build({ edgeGaps: new Map(), horizontalWidths: new Map(), extension: null });
+    const plan = planDiagramTypeLabels(data, initial.layout, initial.services, stationSizes, typeSizes);
+    let result = build(plan);
+    while (reserveDiagramTypeLabelSpace(data, result.layout, result.services, plan, stationSizes, typeSizes)) result = build(plan);
+    const { layout, services } = result;
+    const labels = layoutDiagramTypeLabels(data, layout, services, plan, stationSizes, typeSizes);
+    return { ...layout, ...services, ...labels, legendRows: layoutDiagramLegendRows(data, layout, services.serviceTracks) };
 };
 
-const layoutDiagram = (data, stationSizes, lineSizes) => {
+const layoutDiagram = (data, stationSizes, lineSizes, reservations) => {
     const edgePaths = new Map(data.serviceEdgePaths.map(({ edgeId, path }) => [edgeId, path]));
     const edgeByPair = new Map(data.topology.edges.map((edge) => [JSON.stringify([edge.from, edge.to].sort()), edge]));
     const expandPath = (path) => path.flatMap((id, index) => {
@@ -146,6 +155,13 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
         point.rightTrackOffset = rightTrackOffsets.get(id) ?? halfWidth - 10;
         point.leftTrackOffset = leftTrackOffsets.get(id) ?? -halfWidth + 10;
     }
+    // 文字先取得最小站距，后续站名避让和转弯预留在此基础上继续增加空间。
+    for (const [id, minimum] of reservations.edgeGaps) {
+        const edge = geometryEdges.find((edge) => edge.id === id);
+        const a = positions.get(edge.from), b = positions.get(edge.to);
+        const delta = minimum - Math.abs(a.y - b.y);
+        if (delta > 0) shiftBelow(Math.max(a.y, b.y), delta);
+    }
     const cyclePairs = cycles.flatMap(({ stations }) => stations.map((from, at) => [from, stations[(at + 1) % stations.length]]));
     // 同列跨站边保持直连，只有站序明确闭合的边需要绕回，避免把通过区间画成分支。
     const loops = new Set(geometryEdges.filter((edge) => {
@@ -205,7 +221,7 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
         }
     }
     const labelOffset = (point) => point.labelOffset ?? point.rightTrackOffset + 6;
-    packBranches(geometryEdges, positions, bends, stationSizes, backbone[0], loops);
+    packBranches(geometryEdges, positions, bends, stationSizes, backbone[0], loops, null, reservations.horizontalWidths);
     // 沿用站名和换乘行的纵向避让，横向边界取各分支自己的实际位置。
     const boxes = [];
     let extra = 0;
@@ -223,7 +239,9 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
         if (neighbors.length !== 1) continue;
         const neighbor = positions.get(neighbors[0]);
         if (point.x !== neighbor.x || point.y <= neighbor.y) continue;
-        let y = neighbor.y + Math.max(stationStep, (size(box.id).height + size(neighbors[0]).height) / 2 + stationGap);
+        const edge = geometryEdges.find((edge) => [edge.from, edge.to].includes(box.id) && [edge.from, edge.to].includes(neighbors[0]));
+        let y = neighbor.y + Math.max(stationStep, reservations.edgeGaps.get(edge.id) || 0,
+            (size(box.id).height + size(neighbors[0]).height) / 2 + stationGap);
         for (const other of boxes) if (other !== box && box.left < other.right && box.right > other.left
             && Math.abs(y - other.y) < (box.height + other.height) / 2 + stationGap) {
             y = other.y + (box.height + other.height) / 2 + stationGap;
@@ -259,7 +277,7 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
         point.labelOffset = labelOffset(point) + 6 + (offsets ? offsets.right - point.rightTrackOffset : 0);
         if (offsets) { point.leftTrackOffset = offsets.left; point.rightTrackOffset = offsets.right; }
     }
-    const branchGroups = packBranches(geometryEdges, positions, bends, stationSizes, backbone[0], loops, edgeOffsets);
+    const branchGroups = packBranches(geometryEdges, positions, bends, stationSizes, backbone[0], loops, edgeOffsets, reservations.horizontalWidths);
     for (const box of boxes) {
         const point = positions.get(box.id);
         box.left = point.x + point.leftTrackOffset - 14 - size(box.id).transferWidth;
@@ -269,7 +287,7 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
     const getTrackBoxes = (edge) => trackBounds(edge, positions, bends.get(edge.id), edgeOffsets.get(edge.id))
         .map((box, index, boxes) => boxes.length === 3 && index === 1 ? box
             : { ...box, height: box.height - (edgeOffsets.get(edge.id)?.half || 0) * 2 });
-    let trackBoxes = geometryEdges.flatMap(getTrackBoxes);
+    let trackBoxes = [...geometryEdges.flatMap(getTrackBoxes), ...typeLabelExtensionBox(reservations.extension, positions)];
     const loopRelativeX = Math.min(...boxes.map((box) => box.left)) - (loops.size ? laneWidth + 36 : 0) + halfWidth;
     const lineLabels = planDiagramLineLabels(data, positions, lineSizes, boxes, { edges: geometryEdges, trackBoxes });
     for (const group of branchGroups) {
@@ -282,7 +300,7 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
         const anchor = positions.get(ids.has(edge.from) ? edge.to : edge.from);
         const direction = Math.sign(anchor.y - point.y);
         if (bend?.side !== (direction > 0 ? 'before' : 'after')) continue;
-        let distance = Math.max(0, Math.abs(anchor.y - point.y) - bend.height);
+        let distance = Math.max(0, Math.abs(anchor.y - point.y) - Math.max(bend.height, reservations.edgeGaps.get(edge.id) || 0));
         const labelBoxes = lineLabels.map((label) => ({ id: label.anchorId, left: label.x, right: label.x + label.width, y: label.y, height: label.height }));
         const own = [...boxes, ...labelBoxes].filter((box) => ids.has(box.id));
         own.push(...geometryEdges.filter((edge) => ids.has(edge.from) && ids.has(edge.to)).flatMap(getTrackBoxes));
@@ -298,7 +316,7 @@ const layoutDiagram = (data, stationSizes, lineSizes) => {
         for (const box of boxes) if (ids.has(box.id)) box.y += direction * distance;
         for (const label of lineLabels) if (ids.has(label.anchorId)) label.y += direction * distance;
     }
-    trackBoxes = geometryEdges.flatMap(getTrackBoxes);
+    trackBoxes = [...geometryEdges.flatMap(getTrackBoxes), ...typeLabelExtensionBox(reservations.extension, positions)];
     boxes.push(...trackBoxes);
     boxes.push(...lineLabels.map((label) => ({ left: label.x, right: label.x + label.width, y: label.y, height: label.height })));
     const margin = 24;
@@ -353,7 +371,7 @@ const trackBounds = (edge, positions, bend, offsets) => {
 };
 
 // 连续直行区段共用横坐标；彼此独立的分支只避让实际占用，不再绑定整列宽度。
-const packBranches = (edges, positions, bends, sizes, mainId, loops, edgeOffsets = null) => {
+const packBranches = (edges, positions, bends, sizes, mainId, loops, edgeOffsets = null, horizontalWidths = new Map()) => {
     const originalX = new Map([...positions].map(([id, point]) => [id, point.x]));
     const adjacent = new Map([...positions.keys()].map((id) => [id, []]));
     for (const edge of edges) {
@@ -405,6 +423,14 @@ const packBranches = (edges, positions, bends, sizes, mainId, loops, edgeOffsets
             : Math.max(...group.ids.flatMap((id) => [Math.abs(positions.get(id).leftTrackOffset), Math.abs(positions.get(id).rightTrackOffset)]),
             ...anchorIds.flatMap((id) => [Math.abs(positions.get(id).leftTrackOffset), Math.abs(positions.get(id).rightTrackOffset)])) + 10;
         candidates.add(anchor.x - extent * 2); candidates.add(anchor.x + extent * 2);
+        for (const edge of connections) {
+            const width = horizontalWidths.get(edge.id);
+            if (!width) continue;
+            const anchorId = groupByStation.get(edge.from) === group ? edge.to : edge.from;
+            const radius = bends.get(edge.id)?.radius || extent;
+            const minimum = radius * 2 + width + Math.abs((edgeOffsets?.get(edge.id)?.from || 0) - (edgeOffsets?.get(edge.id)?.to || 0));
+            candidates.add(positions.get(anchorId).x - minimum); candidates.add(positions.get(anchorId).x + minimum);
+        }
         for (const own of relative) for (const box of occupied) {
             if (Math.abs(own.y - box.y) >= (own.height + box.height) / 2 + 8) continue;
             candidates.add(box.left - 8 - own.right); candidates.add(box.right + 8 - own.left);
@@ -417,6 +443,14 @@ const packBranches = (edges, positions, bends, sizes, mainId, loops, edgeOffsets
                 return Math.sign(after) !== Math.sign(before) || Math.abs(after) < Math.abs(before);
             })) continue;
             if (anchorIds.some((id) => x !== positions.get(id).x && Math.abs(x - positions.get(id).x) < extent * 2)) continue;
+            if (connections.some((edge) => {
+                const width = horizontalWidths.get(edge.id);
+                if (!width) return false;
+                const id = groupByStation.get(edge.from) === group ? edge.to : edge.from;
+                const ends = edgeOffsets?.get(edge.id);
+                const span = Math.abs(x - positions.get(id).x) - Math.abs((ends?.from || 0) - (ends?.to || 0));
+                return span < (bends.get(edge.id)?.radius || extent) * 2 + width;
+            })) continue;
             move(group, x);
             const own = localBoxes(group);
             let collisions = own.reduce((count, box) => count + occupied.filter((other) => overlaps(box, other)).length, 0);

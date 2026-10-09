@@ -1,3 +1,5 @@
+import { getDiagramDrawingEdges, getDiagramCrossingTracks, getDiagramTrackOccluders } from './lineServiceDiagramTrackVisibility.js';
+import { measureTypeLabel, TYPE_LABEL_FONT, TYPE_LABEL_FONT_FAMILY } from '../lib/typeLabelText.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, getRoutesIndex } from '../lib/line-icons.js';
 import { appendStationJumpClass } from './stationJump.js';
 import { companyLogoMap } from '../lib/special-condition.js';
@@ -40,23 +42,35 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
     const lineSizes = new Map(data.topology.lineOrders.map((line) => [line.lineId, {
         width: Math.ceil(measure.measureText(line.name).width) + (routesIndex.get(line.lineId)?.code ? 36 : 0), height: 30
     }]));
-    const layout = layoutLineServiceDiagram(data, sizes, lineSizes);
+    measure.font = TYPE_LABEL_FONT;
+    const typeSizes = new Map(data.serviceBundles.flatMap((bundle) => bundle.types.map((type) => [
+        type.name, measureTypeLabel(type.name, (text) => measure.measureText(text).width)
+    ])));
+    const layout = layoutLineServiceDiagram(data, sizes, lineSizes, typeSizes);
     const tracks = [], masks = [], markers = [], connectors = [], transferDots = [], capsules = [], labels = [], transfers = [];
     const mainStations = new Set(data.selectedLine.stationOrder);
+    const typeExtensions = layout.typeLabelExtensions.map(({ type, path }) =>
+        `<path class="route-map-service-track" data-type-extension="${escapeHtml(type.id)}" data-source-color="${escapeHtml(type.color)}" d="${path}" stroke="${escapeHtml(resolveColor(type.color))}"/>`).join('');
+    const typeLabels = layout.typeLabels.map(({ type, edgeId, orientation, x, y, metrics }) => {
+        const text = orientation === 'horizontal'
+            ? `<text x="${x}" y="${y}">${escapeHtml(type.name)}</text>`
+            : metrics.runs.map((run) => {
+                const center = y - metrics.height / 2 + run.offset;
+                const position = run.rotate ? `transform="translate(${x} ${center}) rotate(90)"` : `x="${x}" y="${center}"`;
+                return `<text ${position}>${escapeHtml(run.text)}</text>`;
+            }).join('');
+        return `<g class="route-map-diagram-type-label" data-type-id="${escapeHtml(type.id)}" data-edge-id="${edgeId}" data-orientation="${orientation}" fill="#fff" font-size="12" font-weight="700" font-family="${escapeHtml(TYPE_LABEL_FONT_FAMILY)}" text-anchor="middle" dominant-baseline="central" pointer-events="none">${text}</g>`;
+    }).join('');
     // 共用起始直线的接点保持连续，其余交叉统一下穿；只看轨迹位置，不区分颜色或种别。
-    const drawingEdges = data.topology.edges.slice().sort((a, b) => Number(layout.bends.has(a.id)) - Number(layout.bends.has(b.id)));
+    const drawingEdges = getDiagramDrawingEdges(data, layout);
     const straightEdges = drawingEdges.filter((edge) => !layout.bends.has(edge.id));
     for (const edge of drawingEdges) {
         const edgeTracks = [], clearances = [];
-        const crossingTracks = layout.bends.has(edge.id) && !layout.loops.has(edge.id) ? straightEdges
-            .filter((other) => [edge.from, edge.to].some((id) => other.from === id || other.to === id))
-            .flatMap((other) => layout.serviceTracks.get(other.id).map((track) => ({ track,
-                stationId: [edge.from, edge.to].find((id) => other.from === id || other.to === id)
-            }))) : [];
-        for (const [index, { type, path, lineIds, shift, endpointOffsets }] of layout.serviceTracks.get(edge.id).entries()) {
+        const crossingTracks = getDiagramCrossingTracks(edge, layout, straightEdges, layout.serviceTracks);
+        for (const [index, track] of layout.serviceTracks.get(edge.id).entries()) {
+            const { type, path, lineIds, shift } = track;
             const transform = shift ? ` transform="translate(${shift} 0)"` : '';
-            const occluders = crossingTracks.filter(({ track, stationId }) => track.endpointOffsets.get(stationId) !== endpointOffsets.get(stationId))
-                .map(({ track }) => track);
+            const occluders = getDiagramTrackOccluders(track, crossingTracks);
             const maskId = `route-map-branch-${data.selectedLine.id}-${edge.id}-${index}`;
             const mask = occluders.length ? ` mask="url(#${escapeHtml(maskId)})"` : '';
             if (occluders.length) masks.push(`<mask id="${escapeHtml(maskId)}" maskUnits="userSpaceOnUse" x="0" y="0" width="${layout.width}" height="${layout.height}"><rect width="${layout.width}" height="${layout.height}" fill="#fff"/>${occluders.map((other) => `<path class="route-map-service-track-clearance" style="stroke:#000" d="${other.path}"${other.shift ? ` transform="translate(${other.shift} 0)"` : ''}/>`).join('')}</mask>`);
@@ -122,6 +136,6 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
     return {
         layout,
         headHtml: `<div class="route-map-diagram-legend">${legend}</div>`,
-        bodyHtml: `<div class="route-map-diagram-viewport" tabindex="0" aria-label="${escapeHtml(data.selectedLine.name)}种别停站图，可拖动和缩放"><div class="route-map-grid route-map-diagram-canvas" style="width:${layout.width}px;height:${layout.height}px"><svg class="route-map-diagram-svg" xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="全部种别、分支与停站轨迹"><defs>${masks.join('')}</defs><g>${connectors.join('')}</g><g>${tracks.join('')}</g><g>${markers.join('')}${transferDots.join('')}</g><g>${capsules.join('')}</g></svg>${labels.join('')}${transfers.join('')}${lineLabels.join('')}</div></div>`
+        bodyHtml: `<div class="route-map-diagram-viewport" tabindex="0" aria-label="${escapeHtml(data.selectedLine.name)}种别停站图，可拖动和缩放"><div class="route-map-grid route-map-diagram-canvas" style="width:${layout.width}px;height:${layout.height}px"><svg class="route-map-diagram-svg" xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="全部种别、分支与停站轨迹"><defs>${masks.join('')}</defs><g>${typeExtensions}</g><g>${connectors.join('')}</g><g>${tracks.join('')}</g><g>${typeLabels}</g><g>${markers.join('')}${transferDots.join('')}</g><g>${capsules.join('')}</g></svg>${labels.join('')}${transfers.join('')}${lineLabels.join('')}</div></div>`
     };
 };
