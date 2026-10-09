@@ -162,8 +162,37 @@ export const buildDiagramServices = (runs, processed, topology, metadata, railDi
         type: { ...describeType(entry, lineIds, new Set()), id: meta.id, name: meta.name, color: meta.color },
         trips: entry.trips
     })), typeById);
+    // 公司图例保留原始种别 ID，不能从已经合并共线种别的绘图束反推。
+    const companies = new Map();
+    for (const lineId of topology.orders.keys()) {
+        if (lineId === topology.selectedLineId) continue;
+        const entries = [...records.values()].filter(({ segment }) => segment.lineId === lineId);
+        if (!entries.length) continue;
+        const companyId = lineId.split('.')[0];
+        if (!companies.has(companyId)) companies.set(companyId, {
+            companyId, lineIds: [], edgeIds: new Set(), stationIds: new Set(), types: new Map()
+        });
+        const company = companies.get(companyId);
+        company.lineIds.push(lineId);
+        for (const record of entries) {
+            const id = record.segment.typeId;
+            if (!company.types.has(id)) company.types.set(id, { key: id, trips: new Map(), stops: new Map() });
+            company.types.get(id).trips.set(tripId(record.trip), record);
+            for (const stationId of [...record.stationIds, ...record.segment.stops]) company.stationIds.add(stationId);
+        }
+        for (const { edge, trips } of edgeTrips.values()) {
+            if ([...trips.values()].some(({ segment }) => segment.lineId === lineId)) company.edgeIds.add(edge.id);
+        }
+    }
+    const companyLegends = [...companies.values()].map((company) => ({
+        companyId: company.companyId, lineIds: company.lineIds,
+        edgeIds: [...company.edgeIds], stationIds: [...company.stationIds],
+        types: sortTypes([...company.types.values()].map((entry) => ({
+            type: describeType(entry, company.lineIds, company.stationIds), trips: entry.trips
+        })), typeById)
+    }));
     return {
-        serviceBundles, serviceLegend,
+        serviceBundles, serviceLegend, companyLegends,
         serviceEdgePaths: [...processed.edges].map(([key, edge]) => ({ edgeId: edge.id, path: edgePaths.get(key) }))
     };
 };

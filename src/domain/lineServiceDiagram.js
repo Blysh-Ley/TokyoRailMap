@@ -101,11 +101,19 @@ export const buildLineServiceDiagramData = async ({
     const edges = [...processed.edges.values()].map((edge) => ({ ...edge, lineIds: [...edge.lineIds] }));
     const line = topology.lineById.get(lineId);
     const directionById = new Map(railDirections.map((direction) => [direction.id, direction]));
+    const currentTypes = buildTrainTypes(roots, processed.servicePatterns, trainTypes);
+    const services = buildDiagramServices(runs, processed, topology, trainTypes, railDirections);
+    const currentLegend = services.serviceLegend.filter((type) => currentTypes.some((current) => current.name === type.name && current.color === type.color))
+        .sort((a, b) => currentTypes.findIndex((type) => type.name === a.name) - currentTypes.findIndex((type) => type.name === b.name));
+    const currentTypeIds = new Set(currentTypes.map((type) => type.id));
+    const companyId = lineId.split('.')[0];
     return {
         selectedLine: { id: lineId, name: title(line.title) || lineId, color: line.color, stationOrder: topology.displayOrder },
         directions: unique(roots.map((trip) => trip.d)).sort().map((id) => ({ id, name: title(directionById.get(id)?.title) || id })),
-        trainTypes: buildTrainTypes(roots, processed.servicePatterns, trainTypes),
-        ...buildDiagramServices(runs, processed, topology, trainTypes, railDirections),
+        trainTypes: currentTypes,
+        ...services, currentLegend,
+        companyLegends: services.companyLegends.filter((company) => company.companyId !== companyId
+            || company.types.some((type) => !currentTypeIds.has(type.id))),
         topology: {
             stations: nodes, edges, junctions: buildJunctions(nodes, edges, processed.servicePatterns),
             lineOrders: [...topology.orders].map(([id, path]) => {

@@ -1,5 +1,6 @@
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, getRoutesIndex } from '../lib/line-icons.js';
 import { appendStationJumpClass } from './stationJump.js';
+import { companyLogoMap } from '../lib/special-condition.js';
 import { layoutLineServiceDiagram } from './lineServiceDiagramLayout.js';
 
 const escapeHtml = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
@@ -40,8 +41,6 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
         width: Math.ceil(measure.measureText(line.name).width) + (routesIndex.get(line.lineId)?.code ? 36 : 0), height: 30
     }]));
     const layout = layoutLineServiceDiagram(data, sizes, lineSizes);
-    const types = data.serviceLegend.filter((type) => data.trainTypes.some((current) => current.name === type.name && current.color === type.color))
-        .sort((a, b) => data.trainTypes.findIndex((type) => type.name === a.name) - data.trainTypes.findIndex((type) => type.name === b.name));
     const tracks = [], masks = [], markers = [], connectors = [], transferDots = [], capsules = [], labels = [], transfers = [];
     const mainStations = new Set(data.selectedLine.stationOrder);
     // 共用起始直线的接点保持连续，其余交叉统一下穿；只看轨迹位置，不区分颜色或种别。
@@ -109,11 +108,16 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
         const icon = meta?.code ? createLineIconElement({ routeId: label.lineId, code: meta.code, color }) : null;
         return `<span class="route-map-diagram-line-label is-${label.side}" data-line-id="${escapeHtml(label.lineId)}" data-source-color="${escapeHtml(color)}" style="left:${label.x}px;top:${label.y}px;color:${escapeHtml(resolveColor(color))}">${iconHtml(icon, 30)}<span>${escapeHtml(line.name)}</span></span>`;
     });
-    const legend = types.map((type) => {
+    const legendType = (type) => {
         const direction = type.directions.length === 1 ? type.directions[0] : null;
         const directionLabel = direction ? `仅${direction.names.join(' / ')}运行` : '';
         const symbol = direction ? `<span class="route-map-diagram-type-direction" role="img" title="${escapeHtml(directionLabel)}" aria-label="${escapeHtml(directionLabel)}">${direction.ascending ? '△' : '▽'}</span>` : '';
         return `<span class="route-map-diagram-type" data-type-id="${escapeHtml(type.id)}" data-source-color="${escapeHtml(type.color)}" style="color:${escapeHtml(resolveColor(type.color))}"><i></i>${escapeHtml(type.name)}${symbol}</span>`;
+    };
+    const legend = layout.legendRows.map((row) => {
+        const companyName = row.companyId ? companyLogoMap[row.companyId]?.zh || row.companyId : '';
+        const company = companyName ? `<span class="route-map-diagram-legend-company">${escapeHtml(companyName)}：</span>` : '';
+        return `<div class="route-map-diagram-legend-row" data-company-id="${escapeHtml(row.companyId)}">${company}${row.types.map(legendType).join('')}</div>`;
     }).join('');
     return {
         layout,

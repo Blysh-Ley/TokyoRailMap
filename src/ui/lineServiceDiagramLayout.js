@@ -1,4 +1,5 @@
 import { planDiagramLineLabels } from './lineServiceDiagramLineLabels.js';
+import { layoutDiagramLegendRows } from './lineServiceDiagramLegendLayout.js';
 import { layoutRingDiagram } from './lineServiceDiagramRingLayout.js';
 import { getServiceBundleShifts, getServiceEdgeShifts } from './lineServiceDiagramAlignment.js';
 
@@ -12,7 +13,7 @@ export const layoutLineServiceDiagram = (data, stationSizes, lineSizes = new Map
         layout.mainBounds.right += 6;
     }
     const services = layoutServices(data, layout, ring ? getServiceBundleShifts(data, ring.positions) : layout.bundleShifts);
-    return { ...layout, ...services };
+    return { ...layout, ...services, legendRows: layoutDiagramLegendRows(data, layout, services.serviceTracks) };
 };
 
 const layoutDiagram = (data, stationSizes, lineSizes) => {

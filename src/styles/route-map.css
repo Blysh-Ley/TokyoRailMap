@@ -269,6 +269,12 @@
 }
 .route-map.is-mobile-panel-placement .route-map-grid-header {
     flex: 0 0 auto;
+    box-sizing: border-box;
+    max-height: calc((100% - var(--mobile-sheet-covered-offset, 0px)
+        - var(--mobile-bottom-nav-clearance, calc(env(safe-area-inset-bottom, 0px) + 76px))) * 0.4);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     background: transparent;
 }
 .route-map.is-mobile-panel-placement .route-map-section {
@@ -760,7 +766,9 @@ html[data-theme='dark'] .route-map-cell.is-stop.is-transfer::after {
 }
 
 /* 单张拓扑图：所有种别共用图形，名称只作信息标识。 */
-.route-map-diagram-legend { display:flex; flex-wrap:wrap; gap:7px 14px; font-size:12px; }
+.route-map-diagram-legend { display:flex; flex-direction:column; gap:7px; font-size:12px; }
+.route-map-diagram-legend-row { display:flex; flex-wrap:wrap; align-items:center; gap:7px 14px; }
+.route-map-diagram-legend-company { color:var(--ui-text); white-space:nowrap; }
 .route-map-diagram-type { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
 .route-map-diagram-type i { width:15px; height:10px; border-radius:2px; background:currentColor; }
 .route-map-body.has-service-diagram { display:flex; flex-direction:column; overflow:hidden; min-height:160px; }
