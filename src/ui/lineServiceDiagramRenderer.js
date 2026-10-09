@@ -40,7 +40,8 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
         width: Math.ceil(measure.measureText(line.name).width) + (routesIndex.get(line.lineId)?.code ? 36 : 0), height: 30
     }]));
     const layout = layoutLineServiceDiagram(data, sizes, lineSizes);
-    const types = data.serviceLegend;
+    const types = data.serviceLegend.filter((type) => data.trainTypes.some((current) => current.name === type.name && current.color === type.color))
+        .sort((a, b) => data.trainTypes.findIndex((type) => type.name === a.name) - data.trainTypes.findIndex((type) => type.name === b.name));
     const tracks = [], masks = [], markers = [], connectors = [], transferDots = [], capsules = [], labels = [], transfers = [];
     const mainStations = new Set(data.selectedLine.stationOrder);
     // 共用起始直线的接点保持连续，其余交叉统一下穿；只看轨迹位置，不区分颜色或种别。
