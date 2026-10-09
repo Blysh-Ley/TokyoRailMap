@@ -1,6 +1,7 @@
 [
 	{
 		"id": "JR-East.ChuoSpecialRapid",
+		"displayOrder": 10,
 		"title": {
 			"en": "Chuo Special Rapid",
 			"ja": "中央特快",
@@ -12,6 +13,7 @@
 	},
 	{
 		"id": "JR-East.CommuterRapid",
+		"displayOrder": 70,
 		"title": {
 			"en": "Commuter Rapid",
 			"ja": "通勤快速",
@@ -23,6 +25,7 @@
 	},
 	{
 		"id": "JR-East.CommuterSpecialRapid",
+		"displayOrder": 20,
 		"title": {
 			"en": "Commuter Special Rapid",
 			"ja": "通勤特快",
@@ -34,6 +37,7 @@
 	},
 	{
 		"id": "JR-East.Express",
+		"displayOrder": 60,
 		"title": {
 			"en": "Express",
 			"ja": "急行",
@@ -45,6 +49,7 @@
 	},
 	{
 		"id": "JR-East.LimitedExpress",
+		"displayOrder": 50,
 		"title": {
 			"en": "Limited Express",
 			"ja": "特急",
@@ -56,6 +61,7 @@
 	},
 	{
 		"id": "JR-East.Liner",
+		"displayOrder": 40,
 		"title": {
 			"en": "Liner",
 			"ja": "ライナー",
@@ -66,6 +72,7 @@
 	},
 	{
 		"id": "JR-East.Local",
+		"displayOrder": 100,
 		"title": {
 			"en": "Local",
 			"ja": "普通",
@@ -76,6 +83,7 @@
 	},
 	{
 		"id": "JR-East.OmeSpecialRapid",
+		"displayOrder": 30,
 		"title": {
 			"en": "Ome Special Rapid",
 			"ja": "青梅特快",
@@ -87,6 +95,7 @@
 	},
 	{
 		"id": "JR-East.Rapid",
+		"displayOrder": 90,
 		"title": {
 			"en": "Rapid",
 			"ja": "快速",
@@ -98,6 +107,7 @@
 	},
 	{
 		"id": "JR-East.SpecialRapid",
+		"displayOrder": 80,
 		"title": {
 			"en": "Special Rapid",
 			"ja": "特別快速",
@@ -109,6 +119,7 @@
 	},
 	{
 		"id": "TokyoMetro.CommuterExpress",
+		"displayOrder": 60,
 		"title": {
 			"en": "Commuter Express",
 			"ja": "通勤急行",
@@ -120,6 +131,7 @@
 	},
 	{
 		"id": "JR-Central.LimitedExpress",
+		"displayOrder": 10,
 		"title": {
 			"en": "Limited Express",
 			"ja": "特急",
@@ -131,6 +143,7 @@
 	},
 	{
 		"id": "JR-Central.Local",
+		"displayOrder": 20,
 		"title": {
 			"en": "Local",
 			"ja": "普通",
@@ -141,6 +154,7 @@
 	},
 	{
 		"id": "TokyoMetro.CommuterLimitedExpress",
+		"displayOrder": 50,
 		"title": {
 			"en": "Commuter Limited Express",
 			"ja": "通勤特急",
@@ -152,6 +166,7 @@
 	},
 	{
 		"id": "TokyoMetro.CommuterRapid",
+		"displayOrder": 90,
 		"title": {
 			"en": "Commuter Rapid",
 			"ja": "通勤快速",
@@ -163,6 +178,7 @@
 	},
 	{
 		"id": "TokyoMetro.Express",
+		"displayOrder": 80,
 		"title": {
 			"en": "Express",
 			"ja": "急行",
@@ -174,6 +190,7 @@
 	},
 	{
 		"id": "TokyoMetro.F-Liner",
+		"displayOrder": 10,
 		"title": {
 			"en": "F-Liner",
 			"ja": "Fライナー",
@@ -185,6 +202,7 @@
 	},
 	{
 		"id": "TokyoMetro.LimitedExpress",
+		"displayOrder": 40,
 		"title": {
 			"en": "Limited Express",
 			"ja": "特急",
@@ -196,6 +214,7 @@
 	},
 	{
 		"id": "TokyoMetro.Local",
+		"displayOrder": 120,
 		"title": {
 			"en": "Local",
 			"ja": "普通",
@@ -206,6 +225,7 @@
 	},
 	{
 		"id": "TokyoMetro.RapidExpress",
+		"displayOrder": 70,
 		"title": {
 			"en": "Rapid Express",
 			"ja": "快速急行",
@@ -217,6 +237,7 @@
 	},
 	{
 		"id": "TokyoMetro.Rapid",
+		"displayOrder": 100,
 		"title": {
 			"en": "Rapid",
 			"ja": "快速",
@@ -228,6 +249,7 @@
 	},
 	{
 		"id": "TokyoMetro.S-TRAIN",
+		"displayOrder": 20,
 		"title": {
 			"en": "S-TRAIN",
 			"ja": "Sトレイン",
@@ -240,6 +262,7 @@
 	},
 	{
 		"id": "TokyoMetro.SemiExpress",
+		"displayOrder": 110,
 		"title": {
 			"en": "Semi Express",
 			"ja": "準急",
@@ -251,6 +274,7 @@
 	},
 	{
 		"id": "TokyoMetro.TH-LINER",
+		"displayOrder": 30,
 		"title": {
 			"en": "TH-LINER",
 			"ja": "THライナー",
@@ -262,6 +286,7 @@
 	},
 	{
 		"id": "TWR.CommuterRapid",
+		"displayOrder": 10,
 		"title": {
 			"en": "Commuter Rapid",
 			"ja": "通勤快速",
@@ -273,6 +298,7 @@
 	},
 	{
 		"id": "TWR.Local",
+		"displayOrder": 30,
 		"title": {
 			"en": "Local",
 			"ja": "各駅停車",
@@ -283,6 +309,7 @@
 	},
 	{
 		"id": "TWR.Rapid",
+		"displayOrder": 20,
 		"title": {
 			"en": "Rapid",
 			"ja": "快速",
@@ -294,6 +321,7 @@
 	},
 	{
 		"id": "Toei.AccessExpress",
+		"displayOrder": 40,
 		"title": {
 			"en": "Access Express",
 			"ja": "アクセス特急",
@@ -305,6 +333,7 @@
 	},
 	{
 		"id": "Toei.AirportRapidLimitedExpress",
+		"displayOrder": 10,
 		"title": {
 			"en": "Airport Rapid Limited Express",
 			"ja": "エアポート快特",
@@ -317,6 +346,7 @@
 	},
 	{
 		"id": "Toei.CommuterLimitedExpress",
+		"displayOrder": 30,
 		"title": {
 			"en": "Commuter Limited Express",
 			"ja": "通勤特急",
@@ -328,6 +358,7 @@
 	},
 	{
 		"id": "Toei.Express",
+		"displayOrder": 60,
 		"title": {
 			"en": "Express",
 			"ja": "急行",
@@ -339,6 +370,7 @@
 	},
 	{
 		"id": "Toei.LimitedExpress",
+		"displayOrder": 50,
 		"title": {
 			"en": "Limited Express",
 			"ja": "特急",
@@ -350,6 +382,7 @@
 	},
 	{
 		"id": "Toei.Local",
+		"displayOrder": 80,
 		"title": {
 			"en": "Local",
 			"ja": "普通",
@@ -360,6 +393,7 @@
 	},
 	{
 		"id": "Toei.RapidLimitedExpress",
+		"displayOrder": 20,
 		"title": {
 			"en": "Rapid Limited Express",
 			"ja": "快特",
@@ -371,6 +405,7 @@
 	},
 	{
 		"id": "Toei.Rapid",
+		"displayOrder": 70,
 		"title": {
 			"en": "Rapid",
 			"ja": "快速",
@@ -382,6 +417,7 @@
 	},
 	{
 		"id": "YokohamaMunicipal.Local",
+		"displayOrder": 20,
 		"title": {
 			"en": "Local",
 			"ja": "普通",
@@ -392,6 +428,7 @@
 	},
 	{
 		"id": "YokohamaMunicipal.Rapid",
+		"displayOrder": 10,
 		"title": {
 			"en": "Rapid",
 			"ja": "快速",
@@ -403,6 +440,7 @@
 	},
 	{
 		"id": "Keio.Express",
+		"displayOrder": 30,
 		"title": {
 			"en": "Express",
 			"ja": "急行",
@@ -414,6 +452,7 @@
 	},
 	{
 		"id": "Keio.KeioLiner",
+		"displayOrder": 10,
 		"title": {
 			"en": "Keio Liner",
 			"ja": "京王ライナー",
@@ -425,6 +464,7 @@
 	},
 	{
 		"id": "Keio.LimitedExpress",
+		"displayOrder": 20,
 		"title": {
 			"en": "Limited Express",
 			"ja": "特急",
@@ -437,6 +477,7 @@
 	},
 	{
 		"id": "Keio.Local",
+		"displayOrder": 60,
 		"title": {
 			"en": "Local",
 			"ja": "各駅停車",
@@ -447,6 +488,7 @@
 	},
 	{
 		"id": "Keio.Rapid",
+		"displayOrder": 50,
 		"title": {
 			"en": "Rapid",
 			"ja": "快速",
@@ -458,6 +500,7 @@
 	},
 	{
 		"id": "Keio.SemiExpress",
+		"displayOrder": 40,
 		"title": {
 			"en": "Semi Express",
 			"ja": "区間急行",
@@ -469,6 +512,7 @@
 	},
 	{
 		"id": "Keikyu.AccessExpress",
+		"displayOrder": 50,
 		"title": {
 			"en": "Access Express",
 			"ja": "アクセス特急",
@@ -480,6 +524,7 @@
 	},
 	{
 		"id": "Keikyu.AirportRapidLimitedExpress",
+		"displayOrder": 30,
 		"title": {
 			"en": "Airport Rapid Limited Express",
 			"ja": "エアポート快特",
@@ -492,6 +537,7 @@
 	},
 	{
 		"id": "Keikyu.CommuterLimitedExpress",
+		"displayOrder": 60,
 		"title": {
 			"en": "Commuter Limited Express",
 			"ja": "通勤特急",
@@ -503,6 +549,7 @@
 	},
 	{
 		"id": "Keikyu.Express",
+		"displayOrder": 80,
 		"title": {
 			"en": "Express",
 			"ja": "急行",
@@ -514,6 +561,7 @@
 	},
 	{
 		"id": "Keikyu.EveningWing",
+		"displayOrder": 20,
 		"title": {
 			"en": "Evening Wing",
 			"ja": "イブニング・ウィング",
@@ -525,6 +573,7 @@
 	},
 	{
 		"id": "Keikyu.LimitedExpress",
+		"displayOrder": 70,
 		"title": {
 			"en": "Limited Express",
 			"ja": "特急",
@@ -537,6 +586,7 @@
 	},
 	{
 		"id": "Keikyu.Local",
+		"displayOrder": 100,
 		"title": {
 			"en": "Local",
 			"ja": "普通",
@@ -547,6 +597,7 @@
 	},
 	{
 		"id": "Keikyu.MorningWing",
+		"displayOrder": 10,
 		"title": {
 			"en": "Morning Wing",
 			"ja": "モーニング・ウィング",
@@ -558,6 +609,7 @@
 	},
 	{
 		"id": "Keikyu.RapidLimitedExpress",
+		"displayOrder": 40,
 		"title": {
 			"en": "Rapid Limited Express",
 			"ja": "快特",
@@ -569,6 +621,7 @@
 	},
 	{
 		"id": "Keikyu.Rapid",
+		"displayOrder": 90,
 		"title": {
 			"en": "Rapid",
 			"ja": "快速",
@@ -580,6 +633,7 @@
 	},
 	{
 		"id": "Keisei.AccessExpress",
+		"displayOrder": 40,
 		"title": {
 			"en": "Access Express",
 			"ja": "アクセス特急",
@@ -591,6 +645,7 @@
 	},
 	{
 		"id": "Keisei.CommuterLimitedExpress",
+		"displayOrder": 70,
 		"title": {
 			"en": "Commuter Limited Express",
 			"ja": "通勤特急",
@@ -602,6 +657,7 @@
 	},
 	{
 		"id": "Keisei.Eveningliner",
+		"displayOrder": 20,
 		"title": {
 			"en": "Eveningliner",
 			"ja": "イブニングライナー",
@@ -613,6 +669,7 @@
 	},
 	{
 		"id": "Keisei.Express",
+		"displayOrder": 75,
 		"title": {
 			"en": "Express",
 			"ja": "急行",
@@ -623,6 +680,7 @@
 	},
 	{
 		"id": "Keisei.LimitedExpress",
+		"displayOrder": 60,
 		"title": {
 			"en": "Limited Express",
 			"ja": "特急",
@@ -635,6 +693,7 @@
 	},
 	{
 		"id": "Keisei.Local",
+		"displayOrder": 90,
 		"title": {
 			"en": "Local",
 			"ja": "普通",
@@ -645,6 +704,7 @@
 	},
 	{
 		"id": "Keisei.Morningliner",
+		"displayOrder": 30,
 		"title": {
 			"en": "Morningliner",
 			"ja": "モーニングライナー",
@@ -656,6 +716,7 @@
 	},
 	{
 		"id": "Keisei.RapidLimitedExpress",
+		"displayOrder": 50,
 		"title": {
 			"en": "Rapid Limited Express",
 			"ja": "快速特急",
@@ -667,6 +728,7 @@
 	},
 	{
 		"id": "Keisei.Rapid",
+		"displayOrder": 80,
 		"title": {
 			"en": "Rapid",
 			"ja": "快速",
@@ -678,6 +740,7 @@
 	},
 	{
 		"id": "Keisei.Skyliner",
+		"displayOrder": 10,
 		"title": {
 			"en": "Skyliner",
 			"ja": "スカイライナー",
@@ -690,6 +753,7 @@
 	},
 	{
 		"id": "Hokuso.Local",
+		"displayOrder": 30,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -700,6 +764,7 @@
 	},
 	{
 		"id": "Hokuso.Express",
+		"displayOrder": 20,
 		"title": {
 			"ja": "急行",
 			"en": "Express",
@@ -710,6 +775,7 @@
 	},
 	{
 		"id": "Hokuso.LimitedExpress",
+		"displayOrder": 10,
 		"title": {
 			"ja": "特急",
 			"en": "Limited Express",
@@ -721,6 +787,7 @@
 	},
 	{
 		"id": "Tobu.Express",
+		"displayOrder": 90,
 		"title": {
 			"ja": "急行",
 			"en": "Express",
@@ -732,6 +799,7 @@
 	},
 	{
 		"id": "Tobu.F-Liner",
+		"displayOrder": 40,
 		"title": {
 			"ja": "Fライナー",
 			"en": "F-Liner",
@@ -743,6 +811,7 @@
 	},
 	{
 		"id": "Tobu.KawagoeLimitedExpress",
+		"displayOrder": 50,
 		"title": {
 			"ja": "川越特急",
 			"en": "Kawagoe Limited Express",
@@ -754,6 +823,7 @@
 	},
 	{
 		"id": "Tobu.LimitedExpress",
+		"displayOrder": 60,
 		"title": {
 			"ja": "特急",
 			"en": "Limited Express",
@@ -765,6 +835,7 @@
 	},
 	{
 		"id": "Tobu.Local",
+		"displayOrder": 130,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -775,6 +846,7 @@
 	},
 	{
 		"id": "Tobu.RapidExpress",
+		"displayOrder": 70,
 		"title": {
 			"ja": "快速急行",
 			"en": "Rapid Express",
@@ -786,6 +858,7 @@
 	},
 	{
 		"id": "Tobu.Rapid",
+		"displayOrder": 100,
 		"title": {
 			"ja": "快速",
 			"en": "Rapid",
@@ -797,6 +870,7 @@
 	},
 	{
 		"id": "Tobu.SL-Taiju",
+		"displayOrder": 10,
 		"title": {
 			"ja": "SL大樹",
 			"en": "SL-Taiju",
@@ -808,6 +882,7 @@
 	},
 	{
 		"id": "Tobu.SectionExpress",
+		"displayOrder": 80,
 		"title": {
 			"ja": "区間急行",
 			"en": "Section Express",
@@ -819,6 +894,7 @@
 	},
 	{
 		"id": "Tobu.SectionSemiExpress",
+		"displayOrder": 110,
 		"title": {
 			"ja": "区間準急",
 			"en": "Section Semi Express",
@@ -830,6 +906,7 @@
 	},
 	{
 		"id": "Tobu.SemiExpress",
+		"displayOrder": 120,
 		"title": {
 			"ja": "準急",
 			"en": "Semi Express",
@@ -841,6 +918,7 @@
 	},
 	{
 		"id": "Tobu.TJ-Liner",
+		"displayOrder": 30,
 		"title": {
 			"ja": "TJライナー",
 			"en": "TJ-Liner",
@@ -852,6 +930,7 @@
 	},
 	{
 		"id": "Tobu.TH-LINER",
+		"displayOrder": 20,
 		"title": {
 			"ja": "THライナー",
 			"en": "TH-LINER",
@@ -863,6 +942,7 @@
 	},
 	{
 		"id": "Seibu.CommuterExpress",
+		"displayOrder": 60,
 		"title": {
 			"en": "Commuter Express",
 			"ja": "通勤急行",
@@ -874,6 +954,7 @@
 	},
 	{
 		"id": "Seibu.CommuterSemiExpress",
+		"displayOrder": 90,
 		"title": {
 			"en": "Commuter Semi Express",
 			"ja": "通勤準急",
@@ -885,6 +966,7 @@
 	},
 	{
 		"id": "Seibu.Express",
+		"displayOrder": 70,
 		"title": {
 			"en": "Express",
 			"ja": "急行",
@@ -896,6 +978,7 @@
 	},
 	{
 		"id": "Seibu.F-Liner",
+		"displayOrder": 10,
 		"title": {
 			"en": "F-Liner",
 			"ja": "Fライナー",
@@ -907,6 +990,7 @@
 	},
 	{
 		"id": "Seibu.HaijimaLiner",
+		"displayOrder": 20,
 		"title": {
 			"en": "Haijima Liner",
 			"ja": "拝島ライナー",
@@ -918,6 +1002,7 @@
 	},
 	{
 		"id": "Seibu.LimitedExpress",
+		"displayOrder": 40,
 		"title": {
 			"en": "Limited Express",
 			"ja": "特急",
@@ -929,6 +1014,7 @@
 	},
 	{
 		"id": "Seibu.Local",
+		"displayOrder": 110,
 		"title": {
 			"en": "Local",
 			"ja": "各駅停車",
@@ -939,6 +1025,7 @@
 	},
 	{
 		"id": "Seibu.RapidExpress",
+		"displayOrder": 50,
 		"title": {
 			"en": "Rapid Express",
 			"ja": "快速急行",
@@ -950,6 +1037,7 @@
 	},
 	{
 		"id": "Seibu.Rapid",
+		"displayOrder": 80,
 		"title": {
 			"en": "Rapid",
 			"ja": "快速",
@@ -961,6 +1049,7 @@
 	},
 	{
 		"id": "Seibu.S-TRAIN",
+		"displayOrder": 30,
 		"title": {
 			"en": "S-TRAIN",
 			"ja": "Sトレイン",
@@ -973,6 +1062,7 @@
 	},
 	{
 		"id": "Seibu.SemiExpress",
+		"displayOrder": 100,
 		"title": {
 			"en": "Semi Express",
 			"ja": "準急",
@@ -984,6 +1074,7 @@
 	},
 	{
 		"id": "Odakyu.CommuterExpress",
+		"displayOrder": 20,
 		"title": {
 			"ja": "通勤急行",
 			"en": "Commuter Express",
@@ -995,6 +1086,7 @@
 	},
 	{
 		"id": "Odakyu.CommuterSemiExpress",
+		"displayOrder": 50,
 		"title": {
 			"ja": "通勤準急",
 			"en": "Commuter Semi Express",
@@ -1006,6 +1098,7 @@
 	},
 	{
 		"id": "Odakyu.Express",
+		"displayOrder": 40,
 		"title": {
 			"ja": "急行",
 			"en": "Express",
@@ -1017,6 +1110,7 @@
 	},
 	{
 		"id": "Odakyu.LimitedExpress",
+		"displayOrder": 10,
 		"title": {
 			"ja": "特急",
 			"en": "Limited Express",
@@ -1028,6 +1122,7 @@
 	},
 	{
 		"id": "Odakyu.Local",
+		"displayOrder": 70,
 		"title": {
 			"ja": "各駅停車",
 			"en": "Local",
@@ -1038,6 +1133,7 @@
 	},
 	{
 		"id": "Odakyu.RapidExpress",
+		"displayOrder": 30,
 		"title": {
 			"ja": "快速急行",
 			"en": "Rapid Express",
@@ -1049,6 +1145,7 @@
 	},
 	{
 		"id": "Odakyu.SemiExpress",
+		"displayOrder": 60,
 		"title": {
 			"ja": "準急",
 			"en": "Semi Express",
@@ -1060,6 +1157,7 @@
 	},
 	{
 		"id": "OdakyuHakone.LimitedExpress",
+		"displayOrder": 10,
 		"title": {
 			"ja": "特急",
 			"en": "Limited Express",
@@ -1071,6 +1169,7 @@
 	},
 	{
 		"id": "OdakyuHakone.Local",
+		"displayOrder": 20,
 		"title": {
 			"ja": "各駅停車",
 			"en": "Local",
@@ -1081,6 +1180,7 @@
 	},
 	{
 		"id": "Tokyu.CommuterLimitedExpress",
+		"displayOrder": 40,
 		"title": {
 			"en": "Commuter Limited Express",
 			"ja": "通勤特急",
@@ -1092,6 +1192,7 @@
 	},
 	{
 		"id": "Tokyu.Express",
+		"displayOrder": 50,
 		"title": {
 			"en": "Express",
 			"ja": "急行",
@@ -1103,6 +1204,7 @@
 	},
 	{
 		"id": "Tokyu.F-Liner",
+		"displayOrder": 20,
 		"title": {
 			"en": "F-Liner",
 			"ja": "Fライナー",
@@ -1114,6 +1216,7 @@
 	},
 	{
 		"id": "Tokyu.LimitedExpress",
+		"displayOrder": 30,
 		"title": {
 			"en": "Limited Express",
 			"ja": "特急",
@@ -1125,6 +1228,7 @@
 	},
 	{
 		"id": "Tokyu.Local",
+		"displayOrder": 70,
 		"title": {
 			"en": "Local",
 			"ja": "各駅停車",
@@ -1135,6 +1239,7 @@
 	},
 	{
 		"id": "Tokyu.S-TRAIN",
+		"displayOrder": 10,
 		"title": {
 			"en": "S-TRAIN",
 			"ja": "Sトレイン",
@@ -1147,6 +1252,7 @@
 	},
 	{
 		"id": "Tokyu.SemiExpress",
+		"displayOrder": 60,
 		"title": {
 			"en": "Semi Express",
 			"ja": "準急",
@@ -1158,6 +1264,7 @@
 	},
 	{
 		"id": "Minatomirai.CommuterLimitedExpress",
+		"displayOrder": 40,
 		"title": {
 			"ja": "通勤特急",
 			"en": "Commuter Limited Express",
@@ -1169,6 +1276,7 @@
 	},
 	{
 		"id": "Minatomirai.Express",
+		"displayOrder": 50,
 		"title": {
 			"ja": "急行",
 			"en": "Express",
@@ -1180,6 +1288,7 @@
 	},
 	{
 		"id": "Minatomirai.F-Liner",
+		"displayOrder": 10,
 		"title": {
 			"ja": "Fライナー",
 			"en": "F-Liner",
@@ -1191,6 +1300,7 @@
 	},
 	{
 		"id": "Minatomirai.LimitedExpress",
+		"displayOrder": 30,
 		"title": {
 			"ja": "特急",
 			"en": "Limited Express",
@@ -1202,6 +1312,7 @@
 	},
 	{
 		"id": "Minatomirai.Local",
+		"displayOrder": 60,
 		"title": {
 			"ja": "各駅停車",
 			"en": "Local",
@@ -1212,6 +1323,7 @@
 	},
 	{
 		"id": "Minatomirai.S-TRAIN",
+		"displayOrder": 20,
 		"title": {
 			"ja": "Sトレイン",
 			"en": "S-TRAIN",
@@ -1224,6 +1336,7 @@
 	},
 	{
 		"id": "Sotetsu.CommuterExpress",
+		"displayOrder": 30,
 		"title": {
 			"ja": "通勤急行",
 			"en": "Commuter Express",
@@ -1235,6 +1348,7 @@
 	},
 	{
 		"id": "Sotetsu.CommuterLimitedExpress",
+		"displayOrder": 10,
 		"title": {
 			"ja": "通勤特急",
 			"en": "Commuter Limited Express",
@@ -1246,6 +1360,7 @@
 	},
 	{
 		"id": "Sotetsu.Express",
+		"displayOrder": 40,
 		"title": {
 			"ja": "急行",
 			"en": "Express",
@@ -1256,6 +1371,7 @@
 	},
 	{
 		"id": "Sotetsu.LimitedExpress",
+		"displayOrder": 20,
 		"title": {
 			"ja": "特急",
 			"en": "Limited Express",
@@ -1267,6 +1383,7 @@
 	},
 	{
 		"id": "Sotetsu.Local",
+		"displayOrder": 60,
 		"title": {
 			"ja": "各駅停車",
 			"en": "Local",
@@ -1277,6 +1394,7 @@
 	},
 	{
 		"id": "Sotetsu.Rapid",
+		"displayOrder": 50,
 		"title": {
 			"ja": "快速",
 			"en": "Rapid",
@@ -1288,6 +1406,7 @@
 	},
 	{
 		"id": "SaitamaRailway.Local",
+		"displayOrder": 20,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1298,6 +1417,7 @@
 	},
 	{
 		"id": "SaitamaRailway.Express",
+		"displayOrder": 10,
 		"title": {
 			"ja": "急行",
 			"en": "Express",
@@ -1309,6 +1429,7 @@
 	},
 	{
 		"id": "MIR.CommuterRapid",
+		"displayOrder": 20,
 		"title": {
 			"en": "Commuter Rapid",
 			"ja": "通勤快速",
@@ -1320,6 +1441,7 @@
 	},
 	{
 		"id": "MIR.Local",
+		"displayOrder": 40,
 		"title": {
 			"en": "Local",
 			"ja": "普通",
@@ -1330,6 +1452,7 @@
 	},
 	{
 		"id": "MIR.Rapid",
+		"displayOrder": 10,
 		"title": {
 			"en": "Rapid",
 			"ja": "快速",
@@ -1341,6 +1464,7 @@
 	},
 	{
 		"id": "MIR.SemiRapid",
+		"displayOrder": 30,
 		"title": {
 			"en": "Semi Rapid",
 			"ja": "区間快速",
@@ -1352,6 +1476,7 @@
 	},
 	{
 		"id": "ToyoRapid.Local",
+		"displayOrder": 30,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1362,6 +1487,7 @@
 	},
 	{
 		"id": "ToyoRapid.Rapid",
+		"displayOrder": 20,
 		"title": {
 			"ja": "快速",
 			"en": "Rapid",
@@ -1373,6 +1499,7 @@
 	},
 	{
 		"id": "ToyoRapid.CommuterRapid",
+		"displayOrder": 10,
 		"title": {
 			"ja": "通勤快速",
 			"en": "Commuter Rapid",
@@ -1384,6 +1511,7 @@
 	},
 	{
 		"id": "Shibayama.CommuterLimitedExpress",
+		"displayOrder": 20,
 		"title": {
 			"ja": "通勤特急",
 			"en": "Commuter Limited Express",
@@ -1395,6 +1523,7 @@
 	},
 	{
 		"id": "Shibayama.LimitedExpress",
+		"displayOrder": 30,
 		"title": {
 			"ja": "特急",
 			"en": "Limited Express",
@@ -1406,6 +1535,7 @@
 	},
 	{
 		"id": "Shibayama.Local",
+		"displayOrder": 50,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1416,6 +1546,7 @@
 	},
 	{
 		"id": "Shibayama.RapidLimitedExpress",
+		"displayOrder": 10,
 		"title": {
 			"ja": "快速特急",
 			"en": "Rapid Limited Express",
@@ -1427,6 +1558,7 @@
 	},
 	{
 		"id": "Shibayama.Rapid",
+		"displayOrder": 40,
 		"title": {
 			"ja": "快速",
 			"en": "Rapid",
@@ -1438,6 +1570,7 @@
 	},
 	{
 		"id": "KantoRailway.Local",
+		"displayOrder": 20,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1448,6 +1581,7 @@
 	},
 	{
 		"id": "KantoRailway.Rapid",
+		"displayOrder": 10,
 		"title": {
 			"ja": "快速",
 			"en": "Rapid",
@@ -1459,6 +1593,7 @@
 	},
 	{
 		"id": "Ryutetsu.Local",
+		"displayOrder": 10,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1469,6 +1604,7 @@
 	},
 	{
 		"id": "Kominato.Local",
+		"displayOrder": 20,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1479,6 +1615,7 @@
 	},
 	{
 		"id": "Kominato.Bus",
+		"displayOrder": 10,
 		"title": {
 			"ja": "バス代行運転",
 			"en": "Bus Substitution",
@@ -1489,6 +1626,7 @@
 	},
 	{
 		"id": "Isumi.Local",
+		"displayOrder": 20,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1499,6 +1637,7 @@
 	},
 	{
 		"id": "Isumi.Express",
+		"displayOrder": 10,
 		"title": {
 			"ja": "急行",
 			"en": "Express",
@@ -1509,6 +1648,7 @@
 	},
 	{
 		"id": "Choshi.Local",
+		"displayOrder": 10,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1519,6 +1659,7 @@
 	},
 	{
 		"id": "KashimaRinkai.Local",
+		"displayOrder": 10,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1529,6 +1670,7 @@
 	},
 	{
 		"id": "Hitachinaka.Local",
+		"displayOrder": 10,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1539,6 +1681,7 @@
 	},
 	{
 		"id": "Moka.Local",
+		"displayOrder": 20,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1549,6 +1692,7 @@
 	},
 	{
 		"id": "Moka.SL-Moka",
+		"displayOrder": 10,
 		"title": {
 			"ja": "SLもおか",
 			"en": "SL-Moka",
@@ -1560,6 +1704,7 @@
 	},
 	{
 		"id": "UtsunomiyaLightRail.Local",
+		"displayOrder": 20,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1570,6 +1715,7 @@
 	},
 	{
 		"id": "UtsunomiyaLightRail.Rapid",
+		"displayOrder": 10,
 		"title": {
 			"ja": "快速",
 			"en": "Rapid",
@@ -1581,6 +1727,7 @@
 	},
 	{
 		"id": "Enoden.Local",
+		"displayOrder": 10,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1591,6 +1738,7 @@
 	},
 	{
 		"id": "IzuHakone.LimitedExpress",
+		"displayOrder": 10,
 		"title": {
 			"ja": "特急",
 			"en": "Limited Express",
@@ -1602,6 +1750,7 @@
 	},
 	{
 		"id": "IzuHakone.Local",
+		"displayOrder": 20,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1612,6 +1761,7 @@
 	},
 	{
 		"id": "Izukyu.LimitedExpress",
+		"displayOrder": 10,
 		"title": {
 			"ja": "特急",
 			"en": "Limited Express",
@@ -1623,6 +1773,7 @@
 	},
 	{
 		"id": "Izukyu.Local",
+		"displayOrder": 20,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1633,6 +1784,7 @@
 	},
 	{
 		"id": "Fujikyu.LimitedExpress",
+		"displayOrder": 10,
 		"title": {
 			"ja": "特急",
 			"en": "Limited Express",
@@ -1644,6 +1796,7 @@
 	},
 	{
 		"id": "Fujikyu.Local",
+		"displayOrder": 20,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1654,6 +1807,7 @@
 	},
 	{
 		"id": "Chichibu.Local",
+		"displayOrder": 30,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1664,6 +1818,7 @@
 	},
 	{
 		"id": "Chichibu.Express",
+		"displayOrder": 20,
 		"title": {
 			"ja": "急行",
 			"en": "Express",
@@ -1675,6 +1830,7 @@
 	},
 	{
 		"id": "Chichibu.PaleoExpress",
+		"displayOrder": 10,
 		"title": {
 			"ja": "パレオエクスプレス",
 			"en": "Paleo Express",
@@ -1685,6 +1841,7 @@
 	},
 	{
 		"id": "Jomo.Local",
+		"displayOrder": 10,
 		"title": {
 			"en": "Local",
 			"fr": "Omnibus",
@@ -1696,6 +1853,7 @@
 	},
 	{
 		"id": "Joshin.Local",
+		"displayOrder": 10,
 		"title": {
 			"en": "Local",
 			"fr": "Omnibus",
@@ -1707,6 +1865,7 @@
 	},
 	{
 		"id": "WataraseKeikoku.Local",
+		"displayOrder": 20,
 		"title": {
 			"en": "Local",
 			"fr": "Omnibus",
@@ -1718,6 +1877,7 @@
 	},
 	{
 		"id": "WataraseKeikoku.Torokko",
+		"displayOrder": 10,
 		"title": {
 			"en": "Torokko",
 			"fr": "Torokko",
@@ -1729,6 +1889,7 @@
 	},
 	{
 		"id": "Yurikamome.Local",
+		"displayOrder": 10,
 		"title": {
 			"en": "Local",
 			"ja": "普通",
@@ -1739,6 +1900,7 @@
 	},
 	{
 		"id": "YokohamaSeaside.Local",
+		"displayOrder": 10,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1749,6 +1911,7 @@
 	},
 	{
 		"id": "Yamaman.Local",
+		"displayOrder": 10,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1759,6 +1922,7 @@
 	},
 	{
 		"id": "SaitamaTransit.Local",
+		"displayOrder": 10,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1769,6 +1933,7 @@
 	},
 	{
 		"id": "TokyoMonorail.HanedaExpress",
+		"displayOrder": 10,
 		"title": {
 			"ja": "空港快速",
 			"en": "Haneda Express",
@@ -1780,6 +1945,7 @@
 	},
 	{
 		"id": "TokyoMonorail.Local",
+		"displayOrder": 30,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1790,6 +1956,7 @@
 	},
 	{
 		"id": "TokyoMonorail.Rapid",
+		"displayOrder": 20,
 		"title": {
 			"ja": "区間快速",
 			"en": "Rapid",
@@ -1801,6 +1968,7 @@
 	},
 	{
 		"id": "TamaMonorail.Local",
+		"displayOrder": 10,
 		"title": {
 			"en": "Local",
 			"ja": "普通",
@@ -1811,6 +1979,7 @@
 	},
 	{
 		"id": "ChibaMonorail.Local",
+		"displayOrder": 10,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1821,6 +1990,7 @@
 	},
 	{
 		"id": "ShonanMonorail.Local",
+		"displayOrder": 10,
 		"title": {
 			"ja": "普通",
 			"en": "Local",
@@ -1831,6 +2001,7 @@
 	},
 	{
 		"id": "Disney.Local",
+		"displayOrder": 10,
 		"title": {
 			"ja": "普通",
 			"en": "Local",

@@ -1,4 +1,4 @@
-import { sortTypeNamesByBaseAndStopCount } from '../../lib/train-type-sort.js';
+import { sortTrainTypesByCompanyOrder } from '../trainTypeOrder.js';
 import { addCount, emptyCounts, serviceDay, title, tripId, unique } from './trips.js';
 import { edgeKey } from './topology.js';
 
@@ -10,14 +10,13 @@ export const diagramTypeMeta = (id, metadata) => {
     return { id, name, color: local ? '#888' : source?.title?.color || '#888' };
 };
 
-const sortTypes = (types) => {
+const sortTypes = (types, metadata) => {
     const counts = new Map(), stops = new Map();
     for (const type of types) {
         counts.set(type.name, (counts.get(type.name) || 0) + type.totalTrips);
         stops.set(type.name, Math.min(stops.get(type.name) ?? Infinity, type.minStopCount));
     }
-    const order = sortTypeNamesByBaseAndStopCount(types.map((type) => type.name), counts, stops);
-    return types.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
+    return sortTrainTypesByCompanyOrder(types, counts, stops, metadata);
 };
 
 // 真实班次只按经过区段聚合；派生种别束不改变已有站点、边或交路。
@@ -117,7 +116,7 @@ export const buildDiagramServices = (runs, processed, topology, metadata, railDi
             const edge = edgeById.get(id);
             return [edge.from, edge.to];
         }));
-        const types = sortTypes([...bundle.types.values()].map((entry) => describeType(entry, bundle.lineIds, stationIds)));
+        const types = sortTypes([...bundle.types.values()].map((entry) => describeType(entry, bundle.lineIds, stationIds)), typeById);
         for (const type of types) {
             const key = JSON.stringify([type.name, type.color]);
             if (!legend.has(key)) legend.set(key, { entry: { key: type.key, trips: new Map(), stops: new Map() }, lineIds: bundle.lineIds, meta: type });
@@ -128,6 +127,6 @@ export const buildDiagramServices = (runs, processed, topology, metadata, railDi
     });
     const serviceLegend = sortTypes([...legend.values()].map(({ entry, lineIds, meta }) => ({
         ...describeType(entry, lineIds, new Set()), id: meta.id, name: meta.name, color: meta.color
-    })));
+    })), typeById);
     return { serviceBundles, serviceLegend };
 };

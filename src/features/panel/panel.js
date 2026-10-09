@@ -110,6 +110,7 @@ import {
     getStationGroupsIndexIncludingAlternates,
     getStationsIndex,
     getTrainTypeColorIndex,
+    getTrainTypeMetadataIndex,
     getTrainTypesIndex,
     readStationName,
     resolvePanelComputationStationIdForLine,
@@ -1176,7 +1177,8 @@ export function createPanel(options = {}) {
         stopTypeNameSet,
         typeCountByName,
         typeIdsByTypeName,
-        typeStopCountByName
+        typeStopCountByName,
+        trainTypesById
     }) => {
         const allColorMap = allTypeColorByName instanceof Map ? allTypeColorByName : new Map();
         const stopColorMap = stopTypeColorByName instanceof Map ? stopTypeColorByName : new Map();
@@ -1192,7 +1194,8 @@ export function createPanel(options = {}) {
                 typeIdsByTypeName
             }),
             null,
-            stopCountMap
+            stopCountMap,
+            { currentLineId, typeIdsByTypeName, trainTypesById }
         );
         const stopFallbackColor = '#555';
 
@@ -1228,7 +1231,7 @@ export function createPanel(options = {}) {
             .join('');
     };
 
-    const buildDirectionGridHints = (rowsForDir, { currentLineId = '' } = {}) => {
+    const buildDirectionGridHints = (rowsForDir, { currentLineId = '', trainTypesById = new Map() } = {}) => {
         const rows = Array.isArray(rowsForDir) ? rowsForDir : [];
 
         const typeCount = new Map();
@@ -1331,7 +1334,8 @@ export function createPanel(options = {}) {
                 typeIdsByTypeName: typeIdsByName
             }),
             typeCount,
-            typeStopCountByName
+            typeStopCountByName,
+            { currentLineId, typeIdsByTypeName: typeIdsByName, trainTypesById }
         );
         const typeHints = typeNames.map((name) => ({
             full: name,
@@ -2670,11 +2674,12 @@ export function createPanel(options = {}) {
         const effectivePrintStationName = toText(printStationName) || toText(currentStationNameZh);
         const effectivePrintTitleText = toText(printTitleText) || toText(titleMain.textContent);
 
-        const [stationsIndex, trainTypesIndex, trainTypeColorIndex, alternateLineMembership] = await Promise.all([
+        const [stationsIndex, trainTypesIndex, trainTypeColorIndex, alternateLineMembership, trainTypesById] = await Promise.all([
             getStationsIndex(),
             getTrainTypesIndex(),
             getTrainTypeColorIndex(),
-            getAlternateLineMembership()
+            getAlternateLineMembership(),
+            getTrainTypeMetadataIndex()
         ]);
         if (!isStillCurrentRender()) return null;
         const alternateSourcePlanIndex = buildAlternateTripSourceIndex(alternateLineMembership);
@@ -3190,7 +3195,8 @@ export function createPanel(options = {}) {
             stopTypeNameSet,
             typeCountByName,
             typeIdsByTypeName: typeIdsByName,
-            typeStopCountByName
+            typeStopCountByName,
+            trainTypesById
         });
 
         if (!rows.length) {
@@ -3247,7 +3253,8 @@ export function createPanel(options = {}) {
             stopTypeNameSet: summary?.stopTypeNameSet,
             typeCountByName: summary?.typeCountByName,
             typeIdsByTypeName: summary?.typeIdsByName,
-            typeStopCountByName: summary?.typeStopCountByName
+            typeStopCountByName: summary?.typeStopCountByName,
+            trainTypesById
         });
         const buildTypeSummaryItemsFromDirectionRows = (rowsForDir) => {
             const summary = createTypeSummaryState();
@@ -3436,7 +3443,7 @@ export function createPanel(options = {}) {
                     typeHints: originalTypeHints,
                     terminalHints: originalTerminalHints,
                     specialHints: originalSpecialHints
-                } = buildDirectionGridHints(printableRows, { currentLineId: lineId });
+                } = buildDirectionGridHints(printableRows, { currentLineId: lineId, trainTypesById });
                 const originalGridHintsHtml = effectiveTimetableViewMode === 'grid'
                     ? buildGridHintsHtml({
                         typeHints: originalTypeHints,
@@ -3541,7 +3548,7 @@ export function createPanel(options = {}) {
                     rowsForDirThroughLabel,
                     filteredRowsForDirThroughLabel
                 } = directionRowsByKey.get(dirKey);
-                const { typeHints, terminalHints, specialHints } = buildDirectionGridHints(rowsForDir, { currentLineId: lineId });
+                const { typeHints, terminalHints, specialHints } = buildDirectionGridHints(rowsForDir, { currentLineId: lineId, trainTypesById });
                 const labelRows = filteredRowsForDir.length ? filteredRowsForDir : rowsForDir;
                 const labelCount = new Map();
                 for (const item of labelRows) {
@@ -3642,7 +3649,7 @@ export function createPanel(options = {}) {
                     terminalHints: originalPrintTerminalHints,
                     specialHints: originalPrintSpecialHints
                 } = buildPrintPayloads
-                    ? buildDirectionGridHints(originalPrintRowsForDir, { currentLineId: lineId })
+                    ? buildDirectionGridHints(originalPrintRowsForDir, { currentLineId: lineId, trainTypesById })
                     : { typeHints: [], terminalHints: [], specialHints: [] };
                 const originalPrintGridHintsHtml = buildPrintPayloads && effectiveTimetableViewMode === 'grid'
                     ? buildGridHintsHtml({
@@ -3682,7 +3689,7 @@ export function createPanel(options = {}) {
                         typeHints: serviceTypeHints,
                         terminalHints: serviceTerminalHints,
                         specialHints: serviceSpecialHints
-                    } = buildDirectionGridHints(serviceRowsForDir, { currentLineId: lineId });
+                    } = buildDirectionGridHints(serviceRowsForDir, { currentLineId: lineId, trainTypesById });
                     const serviceRowsPrintable = serviceRowsForDir.map((r) => ({ ...(r || {}), isPast: false }));
                     const serviceGridHintsHtml = effectiveTimetableViewMode === 'grid'
                         ? buildGridHintsHtml({
