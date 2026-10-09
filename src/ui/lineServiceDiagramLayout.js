@@ -153,20 +153,24 @@ const layoutDiagram = (data, stationSizes, lineSizes, shifts) => {
         const closesLoop = cyclePairs.some(([from, to]) => (edge.from === from && edge.to === to) || (edge.from === to && edge.to === from));
         return closesLoop && a.column === b.column && [...positions].some(([id, point]) => id !== edge.from && id !== edge.to && point.column === a.column && point.y > Math.min(a.y, b.y) && point.y < Math.max(a.y, b.y));
     }).map((edge) => edge.id));
-    const bends = new Map(), reserved = new Set();
+    const bends = new Map(), reserved = new Map();
     const reserveTurn = (id, side, height = turnHeight, columns = null) => {
         const key = `${id}:${side}`;
         const anchor = positions.get(id);
         let delta = height;
         if (columns) {
-            const nearby = [...positions.values()].filter((point) => point.column >= columns[0] && point.column <= columns[1]
+            const nearby = [...positions].filter(([, point]) => point.column >= columns[0] && point.column <= columns[1]
                 && (side === 'after' ? point.y > anchor.y : point.y < anchor.y));
-            const gap = Math.min(...nearby.map((point) => Math.abs(point.y - anchor.y)));
-            delta = Math.max(0, height - gap);
+            // 同一站间的分叉和合并各留一份空间，不能重复使用另一端已预留的行带。
+            delta = Math.max(0, ...nearby.map(([otherId, point]) => {
+                const opposite = reserved.get(`${otherId}:${side === 'after' ? 'before' : 'after'}`) || 0;
+                const required = opposite ? Math.max(height, opposite) * 2 : height;
+                return required - Math.abs(point.y - anchor.y);
+            }));
         } else {
             if (reserved.has(key)) return;
-            reserved.add(key);
         }
+        reserved.set(key, Math.max(reserved.get(key) || 0, height));
         if (delta) shiftBelow(anchor.y + (side === 'after' ? 0.1 : 0), delta);
     };
     // 转弯使用独立的空白行带，避免斜线穿过主干或另一支线的站名、换乘徽标。
@@ -183,7 +187,9 @@ const layoutDiagram = (data, stationSizes, lineSizes, shifts) => {
             const bottomObstacles = between.filter((point) => point.column === bottom.column).length;
             const ringJunction = ringStations.has(topId) !== ringStations.has(bottomId);
             const junctionId = ringStations.has(topId) ? topId : bottomId;
-            const side = ringJunction ? junctionId === topId ? 'after' : 'before' : bottomObstacles <= topObstacles ? 'after' : 'before';
+            // 两端同样空闲时，合并弯道靠接入站放置，使用接入站前的独立留白。
+            const joinsBelow = topObstacles === bottomObstacles && adjacent.get(bottomId).length > 2 && adjacent.get(topId).length <= 2;
+            const side = ringJunction ? junctionId === topId ? 'after' : 'before' : joinsBelow || bottomObstacles > topObstacles ? 'before' : 'after';
             const baseRadius = Math.max(Math.abs(top.leftTrackOffset), Math.abs(top.rightTrackOffset), Math.abs(bottom.leftTrackOffset), Math.abs(bottom.rightTrackOffset)) + 10;
             // 环段支线直接从分岔站起弧，以更大的半径避开站名；不与环段重叠一截竖线。
             const radius = ringJunction ? baseRadius + size(junctionId).height / 2 + 6 : baseRadius;

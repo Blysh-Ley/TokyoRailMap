@@ -41,16 +41,24 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
     }]));
     const layout = layoutLineServiceDiagram(data, sizes, lineSizes);
     const types = data.serviceLegend;
-    const tracks = [], markers = [], connectors = [], transferDots = [], capsules = [], labels = [], transfers = [];
+    const tracks = [], masks = [], markers = [], connectors = [], transferDots = [], capsules = [], labels = [], transfers = [];
     const mainStations = new Set(data.selectedLine.stationOrder);
-    // 先画直行区段，再画转弯区段；主线描边不能擦掉分岔的连接和弧线。
+    // 共用起始直线的接点保持连续，其余交叉统一下穿；只看轨迹位置，不区分颜色或种别。
     const drawingEdges = data.topology.edges.slice().sort((a, b) => Number(layout.bends.has(a.id)) - Number(layout.bends.has(b.id)));
+    const straightEdges = drawingEdges.filter((edge) => !layout.bends.has(edge.id));
     for (const edge of drawingEdges) {
         const edgeTracks = [], clearances = [];
-        for (const { type, path, lineIds, shift } of layout.serviceTracks.get(edge.id)) {
+        const crossingTracks = layout.bends.has(edge.id) && !layout.loops.has(edge.id) ? straightEdges
+            .filter((other) => [edge.from, edge.to].some((id) => other.from === id || other.to === id))
+            .flatMap((other) => layout.serviceTracks.get(other.id)) : [];
+        for (const [index, { type, path, lineIds, shift, offset }] of layout.serviceTracks.get(edge.id).entries()) {
             const transform = shift ? ` transform="translate(${shift} 0)"` : '';
-            clearances.push(`<path class="route-map-service-track-clearance" d="${path}"${transform}/>`);
-            edgeTracks.push(`<path class="route-map-service-track" data-type-id="${escapeHtml(type.id)}" data-source-type-ids="${escapeHtml(type.sourceTypeIds.join(' '))}" data-line-ids="${escapeHtml(lineIds.join(' '))}" data-edge-id="${edge.id}" data-source-color="${escapeHtml(type.color)}" d="${path}"${transform} stroke="${escapeHtml(resolveColor(type.color))}"/>`);
+            const occluders = crossingTracks.filter((other) => other.offset !== offset);
+            const maskId = `route-map-branch-${data.selectedLine.id}-${edge.id}-${index}`;
+            const mask = occluders.length ? ` mask="url(#${escapeHtml(maskId)})"` : '';
+            if (occluders.length) masks.push(`<mask id="${escapeHtml(maskId)}" maskUnits="userSpaceOnUse" x="0" y="0" width="${layout.width}" height="${layout.height}"><rect width="${layout.width}" height="${layout.height}" fill="#fff"/>${occluders.map((other) => `<path class="route-map-service-track-clearance" style="stroke:#000" d="${other.path}"${other.shift ? ` transform="translate(${other.shift} 0)"` : ''}/>`).join('')}</mask>`);
+            clearances.push(`<g${mask}><path class="route-map-service-track-clearance" d="${path}"${transform}/></g>`);
+            edgeTracks.push(`<g${mask}><path class="route-map-service-track" data-type-id="${escapeHtml(type.id)}" data-source-type-ids="${escapeHtml(type.sourceTypeIds.join(' '))}" data-line-ids="${escapeHtml(lineIds.join(' '))}" data-edge-id="${edge.id}" data-source-color="${escapeHtml(type.color)}" d="${path}"${transform} stroke="${escapeHtml(resolveColor(type.color))}"/></g>`);
         }
         // 背景描边让几何交叉保留断口，避免把无连接的边看成分岔。
         tracks.push(`<g>${clearances.join('')}${edgeTracks.join('')}</g>`);
@@ -106,6 +114,6 @@ export const renderLineServiceDiagram = async (data, { resolveColor = (color) =>
     return {
         layout,
         headHtml: `<div class="route-map-diagram-legend">${legend}</div>`,
-        bodyHtml: `<div class="route-map-diagram-viewport" tabindex="0" aria-label="${escapeHtml(data.selectedLine.name)}种别停站图，可拖动和缩放"><div class="route-map-grid route-map-diagram-canvas" style="width:${layout.width}px;height:${layout.height}px"><svg class="route-map-diagram-svg" xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="全部种别、分支与停站轨迹"><g>${connectors.join('')}</g><g>${tracks.join('')}</g><g>${markers.join('')}${transferDots.join('')}</g><g>${capsules.join('')}</g></svg>${labels.join('')}${transfers.join('')}${lineLabels.join('')}</div></div>`
+        bodyHtml: `<div class="route-map-diagram-viewport" tabindex="0" aria-label="${escapeHtml(data.selectedLine.name)}种别停站图，可拖动和缩放"><div class="route-map-grid route-map-diagram-canvas" style="width:${layout.width}px;height:${layout.height}px"><svg class="route-map-diagram-svg" xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="全部种别、分支与停站轨迹"><defs>${masks.join('')}</defs><g>${connectors.join('')}</g><g>${tracks.join('')}</g><g>${markers.join('')}${transferDots.join('')}</g><g>${capsules.join('')}</g></svg>${labels.join('')}${transfers.join('')}${lineLabels.join('')}</div></div>`
     };
 };

@@ -115,4 +115,34 @@ const bundleFor = (data, a, b) => data.serviceBundles.find((bundle) => bundle.ed
     }
 }
 
-console.log('线路图稀疏共线并排、停站保持、分支独立空间、向右分叉和偏移后横向避让验证通过。');
+{
+    const ids = 'ABCDEFGHIJ'.split('').map((id) => `${main}.${id}`);
+    const bypass = 'Bypass.Main', spur = 'Spur.Main';
+    const bypassIds = ['Start', 'Middle', 'End'].map((id) => `${bypass}.${id}`);
+    const spurIds = ['Start', 'Middle', 'End'].map((id) => `${spur}.${id}`);
+    const full = trip('Full', main, 'Main.Local', ids);
+    const enter = trip('Enter', main, 'Main.Local', ids.slice(0, 2));
+    const bypassTrip = trip('Bypass', bypass, 'Bypass.Local', bypassIds);
+    const leave = trip('Leave', main, 'Main.Local', ids.slice(8));
+    connect(enter, bypassTrip, leave);
+    const toSpur = trip('ToSpur', main, 'Main.Local', ids.slice(0, 8));
+    const spurTrip = trip('Spur', spur, 'Spur.Local', spurIds);
+    connect(toSpur, spurTrip);
+    const data = await build([
+        railway(main, ids), railway(bypass, bypassIds), railway(spur, spurIds)
+    ], [full, enter, leave, toSpur], [full, enter, bypassTrip, leave, toSpur, spurTrip], [
+        type('Main.Local', '普通'), type('Bypass.Local', '普通'), type('Spur.Local', '普通')
+    ], [[[ids[1], bypassIds[0]]], [[ids[8], bypassIds[2]]], [[ids[7], spurIds[0]]]]);
+    for (const edges of [data.topology.edges, data.topology.edges.slice().reverse()]) {
+        const result = layout({ ...data, topology: { ...data.topology, edges } });
+        const fork = result.bends.get(edge(data, ids[8], bypassIds[1]).id);
+        const merge = result.bends.get(edge(data, ids[7], spurIds[1]).id);
+        const from = result.positions.get(ids[8]), to = result.positions.get(ids[7]);
+        assert.equal(fork.side, 'after', '分叉使用分出站后的留白');
+        assert.equal(merge.side, 'before', '合并使用接入站前的留白');
+        assert.ok(to.y - from.y >= fork.height + merge.height, '相邻分叉与合并分别留白，不受处理先后顺序影响');
+        assert.equal(result.positions.get(spurIds[1]).y - result.positions.get(spurIds[2]).y, 30, '增加接续空间时保留支线自身站距');
+    }
+}
+
+console.log('线路图稀疏共线并排、停站保持、分支独立空间、向右分叉、偏移后横向避让和分叉合并独立留白验证通过。');
