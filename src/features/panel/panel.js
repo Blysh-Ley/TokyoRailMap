@@ -6550,7 +6550,7 @@ export function createPanel(options = {}) {
                 renderToken === stationRenderToken &&
                 toText(currentStationId) === toText(props?.id)
             );
-            const timetableLoadingHtml = '<div class="panel-timetable-empty" role="status" data-station-timetable-loading="1">正在加载班次…</div>';
+            const timetableLoadingHtml = '<div hidden data-station-timetable-loading="1"></div>';
             const initialStationRenderInputs = await buildPanelStationRenderInputs({
                 stationId: currentStationId,
                 stationNameZh: currentStationNameZh,

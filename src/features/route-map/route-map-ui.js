@@ -893,7 +893,7 @@ const setupRouteMapUi = () => {
         diagramView = null;
         gridHeader.innerHTML = '';
         body.classList.remove('has-service-diagram');
-        body.innerHTML = '<div class="route-map-empty">加载中…</div>';
+        body.innerHTML = '';
         root.classList.remove('is-hidden');
         positionPanel();
         await renderRouteMapTitleWithIcon(topTitle, lid, activeLineName, () => activeLineId === lid);
