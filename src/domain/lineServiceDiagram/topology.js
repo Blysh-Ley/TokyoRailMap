@@ -109,11 +109,15 @@ export const buildStationTopology = ({ lineId, railways, stations, stationGroups
         const displayStationId = (repeatedPositions.has(id) ? id : ids.find((alias) => preferred.has(alias)))
             || displayLineIds.map((lineId) => ids.find((alias) => lineIdOf(alias) === lineId)).find(Boolean) || id;
         const source = stationById.get(displayStationId);
-        // 直通交界取实际经过的线路；南北线和三田线的同站别名还表达目黑至白金高轮的共线区段。
+        // 直通交界取实际经过的线路；南北／三田、有乐町／副都心的同站别名还表达共线区段。
         const servingLines = new Set(displayLineIds);
         if (servingLines.has('TokyoMetro.Namboku') || servingLines.has('Toei.Mita')) {
             servingLines.add('TokyoMetro.Namboku');
             servingLines.add('Toei.Mita');
+        }
+        if (servingLines.has('TokyoMetro.Yurakucho') || servingLines.has('TokyoMetro.Fukutoshin')) {
+            servingLines.add('TokyoMetro.Yurakucho');
+            servingLines.add('TokyoMetro.Fukutoshin');
         }
         const seenBadges = new Set();
         const stationBadges = unique([displayStationId, ...ids.filter((alias) => servingLines.has(lineIdOf(alias)))])
