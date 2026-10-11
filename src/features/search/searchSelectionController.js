@@ -26,7 +26,6 @@ export const createSearchSelectionController = ({
     fitToPointAsBounds,
     openPanelForStationWithAutoScroll,
     getServingLineIdsFromStationProps,
-    preloadTimetablesByLineIds,
     closeStationPopup,
     setFixedPopupStationLabelBelow
 } = {}) => {
@@ -181,13 +180,6 @@ export const createSearchSelectionController = ({
             if (meta?.showPanel === false) return;
 
             openPanelForStationWithAutoScroll?.(opened?.props || {}, { collapseMobileSearch: true });
-
-            try {
-                const ids = getServingLineIdsFromStationProps?.(opened?.props || {});
-                preloadTimetablesByLineIds?.(ids);
-            } catch {
-                // ignore
-            }
         },
 
         closeStationPopup({ committed } = {}) {

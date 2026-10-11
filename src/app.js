@@ -3298,18 +3298,28 @@ const initMapApp = async () => {
             mobileBottomNavController?.setActive?.('map', { emit: false });
         }
         const prevScrollTop = panel?.getScrollTop?.() || 0;
-        await panel?.showForStationProps?.(p, {
-            deferHeavyRender: options?.deferHeavyRender === true,
-            onTimetablesRendered: options?.onTimetablesRendered
-        });
         const shouldAutoScroll = options?.autoScroll !== false;
-        if (!shouldAutoScroll) {
-            panel?.setScrollTop?.(0, { behavior: 'auto' });
-            return;
-        }
-        panel?.setScrollTop?.(prevScrollTop, { behavior: 'auto' });
-        const lineId = getPreferredPanelScrollLineIdFromStationProps(p);
-        if (lineId) panel?.scrollToLineId?.(lineId, { behavior: 'smooth', block: 'start' });
+        const deferHeavyRender = options?.deferHeavyRender !== false;
+        const onTimetablesRendered = () => {
+            panel?.setScrollTop?.(shouldAutoScroll ? prevScrollTop : 0, { behavior: 'auto' });
+            if (shouldAutoScroll) {
+                const lineId = getPreferredPanelScrollLineIdFromStationProps(p);
+                if (lineId) panel?.scrollToLineId?.(lineId, { behavior: 'smooth', block: 'start' });
+            }
+            try {
+                const ids = getServingLineIdsFromStationProps(p);
+                timetableCache?.preloadRecursiveByLineIds?.(ids);
+            } catch {
+                // 保留关联时刻表预加载的可选行为。
+            }
+            options?.onTimetablesRendered?.();
+        };
+        await panel?.showForStationProps?.(p, {
+            deferHeavyRender,
+            onTimetablesRendered
+        });
+        // 分阶段渲染在基础面板显示后返回，最终滚动和预加载由完成回调执行。
+        if (!deferHeavyRender) onTimetablesRendered();
     };
 
     const jumpToPanelStation = async ({
@@ -3330,13 +3340,6 @@ const initMapApp = async () => {
         }
 
         await openPanelForStationWithAutoScroll(props, { autoScroll: false });
-
-        try {
-            const ids = getServingLineIdsFromStationProps(props);
-            timetableCache?.preloadRecursiveByLineIds?.(ids);
-        } catch {
-            // ignore
-        }
         return true;
     };
 
@@ -3570,7 +3573,6 @@ const initMapApp = async () => {
             fitSelectedMobileStation(String(props?.id || ''));
         },
         getServingLineIdsFromStationProps,
-        preloadTimetablesByLineIds: (ids) => timetableCache?.preloadRecursiveByLineIds?.(ids),
         closeStationPopup: (options) => stationPopup?.closePopup?.(options),
         setFixedPopupStationLabelBelow
     });
@@ -3579,10 +3581,6 @@ const initMapApp = async () => {
         if (!menu || typeof menu.markActive !== 'function') return;
         const el = menu.wrapper?.querySelector(`.RW-line-content[data-line-id="${cssEscape(lineId)}"]`);
         if (el) menu.markActive(el);
-    };
-
-    const preloadTimetablesForLineIds = (ids) => {
-        timetableCache?.preloadRecursiveByLineIds?.(ids);
     };
 
     const mapStationJourneyBridge = createPanelCrossFeatureBridgeController();
@@ -3739,10 +3737,7 @@ const initMapApp = async () => {
                 setStationVisualHighlight,
                 openPanelForStationWithAutoScroll,
                 fitSelectedStation: (stationId) => fitSelectedMobileStation(stationId, { preserveZoom: true }),
-                deferPanelHeavyRender: true,
-                getServingLineIdsFromStationProps,
                 recordStationHistory: recordStationSearchHistoryFromProps,
-                preloadTimetablesByLineIds: preloadTimetablesForLineIds,
                 isHighlightClickGateActive: shouldUseHighlightStyle,
                 getHighlightedStationIdsForClickGate: getHighlightedStationIdsForMapClickSelection,
                 resolveDomStationLabelProps: resolveDomStationLabelPropsForClick
@@ -5465,14 +5460,6 @@ const initMapApp = async () => {
                 recordStationSearchHistoryFromProps(item.props || {});
                 setStationVisualHighlight(item.stationId || item.props?.id);
                 openPanelForStationWithAutoScroll(item.props || {}, { autoScroll: hadStationSelection });
-
-                // 预加载该站点关联线路的时刻表
-                try {
-                    const ids = getServingLineIdsFromStationProps(item.props || {});
-                    timetableCache?.preloadRecursiveByLineIds?.(ids);
-                } catch {
-                    // ignore
-                }
             };
 
             stationLabels.forEach((item) => {

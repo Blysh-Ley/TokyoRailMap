@@ -212,10 +212,7 @@ export const bindStationClickHighlightServingLines = ({
     setStationVisualHighlight,
     openPanelForStationWithAutoScroll,
     fitSelectedStation = null,
-    deferPanelHeavyRender = false,
-    getServingLineIdsFromStationProps,
     recordStationHistory,
-    preloadTimetablesByLineIds,
     isHighlightClickGateActive,
     getHighlightedStationIdsForClickGate,
     resolveDomStationLabelProps
@@ -269,22 +266,10 @@ export const bindStationClickHighlightServingLines = ({
         recordStationHistory?.(props);
         setStationVisualHighlight?.(stationId);
 
-        const preloadStationTimetables = () => {
-            try {
-                const ids = getServingLineIdsFromStationProps?.(props) || [];
-                preloadTimetablesByLineIds?.(ids);
-            } catch {
-                // 保留旧调用方的可选预加载行为。
-            }
-        };
         await openPanelForStationWithAutoScroll?.(props, {
-            autoScroll: hadStationSelection,
-            deferHeavyRender: deferPanelHeavyRender === true,
-            ...(deferPanelHeavyRender === true ? { onTimetablesRendered: preloadStationTimetables } : {})
+            autoScroll: hadStationSelection
         });
         fitSelectedStation?.(stationId);
-
-        if (deferPanelHeavyRender !== true) preloadStationTimetables();
     };
 
     stationLayers.forEach((layerId) => {
