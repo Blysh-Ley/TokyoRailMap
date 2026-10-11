@@ -44,7 +44,6 @@ const syncToggleButton = () => {
     if (!button) return;
     button.setAttribute('aria-expanded', state.expanded ? 'true' : 'false');
     button.setAttribute('aria-label', state.expanded ? '收起路线规划' : '展开路线规划');
-    button.textContent = state.expanded ? '−' : '+';
 };
 
 const attachJourneyRoot = () => {

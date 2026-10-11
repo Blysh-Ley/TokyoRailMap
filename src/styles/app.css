@@ -1687,6 +1687,17 @@ html:not([data-mobile-ui='1']) .search-ui:not(.is-collapsed):not(.is-planner-ope
     padding: 0;
 }
 
+.search-planner-toggle-btn::before {
+    content: '';
+    display: block;
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+    background: var(--ui-text);
+    -webkit-mask: url('../../assets/icons/travel.svg') center / contain no-repeat;
+    mask: url('../../assets/icons/travel.svg') center / contain no-repeat;
+}
+
 .search-ui.is-planner-open .search-input {
     display: none;
 }

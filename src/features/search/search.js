@@ -912,7 +912,6 @@ export function mountSearchUI({ commitMobileTouchResultOnFirstTap = false } = {}
         'aria-label': '展开路线规划',
         'aria-expanded': 'false'
     });
-    plannerToggleBtn.textContent = '+';
 
     const results = el('div', 'search-results is-hidden');
     const list = el('ul', 'search-results-list');

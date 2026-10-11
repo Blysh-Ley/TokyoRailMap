@@ -159,9 +159,9 @@ export const createPanelMainView = ({
                 return false;
             }
         },
-        loadIcon: (iconEl) => setImageElementFromCache(iconEl, getIconCandidates('map-select.svg'), {
-            cacheKey: 'icon:map-select.svg',
-            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('map-select.svg'), { cacheKey: 'icon:map-select.svg' })
+        loadIcon: (iconEl) => setImageElementFromCache(iconEl, getIconCandidates('travel.svg'), {
+            cacheKey: 'icon:travel.svg',
+            fallbackSrc: getPreferredCachedImageSrc(getIconCandidates('travel.svg'), { cacheKey: 'icon:travel.svg' })
         }).catch(() => null),
         onSelectField: applyStationToJourneyField,
         onSelectHeatmap: handleTravelHeatmap,
