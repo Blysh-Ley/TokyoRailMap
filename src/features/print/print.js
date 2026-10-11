@@ -1245,8 +1245,11 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
 
     const shareOrDownloadBlob = async ({ blob, filename, mimeType, dialogTitle }) => {
         const api = window?.TokyoRailNativeExportShare;
-        if (typeof api?.shareOrDownloadArtifact === 'function') {
-            return await api.shareOrDownloadArtifact({
+        const exportArtifact = mimeType === 'image/png'
+            ? api?.shareOrSaveImageArtifact
+            : api?.shareOrDownloadArtifact;
+        if (typeof exportArtifact === 'function') {
+            return await exportArtifact({
                 blob,
                 filename,
                 mimeType,

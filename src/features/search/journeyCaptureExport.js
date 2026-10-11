@@ -1,4 +1,4 @@
-import { shareOrDownloadArtifact } from '../../services/nativeExportShareService.js';
+import { shareOrSaveImageArtifact } from '../../services/nativeExportShareService.js';
 
 const normalizeText = (value) => String(value ?? '').trim();
 
@@ -188,7 +188,7 @@ export const exportJourneyPopoverToPng = async (element, filenameBase, buttonEl)
 
         const base = sanitizeJourneyExportFilePart(filenameBase) || 'journey-detail';
         const filename = `${base}-${formatJourneyExportTimestamp()}.png`;
-        await shareOrDownloadArtifact({
+        await shareOrSaveImageArtifact({
             blob,
             filename,
             mimeType: 'image/png',
