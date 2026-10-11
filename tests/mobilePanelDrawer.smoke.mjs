@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { createMobilePanelShell } from '../src/ui/panelShellView.js';
+import { createDesktopPanelShell, createMobilePanelShell } from '../src/ui/panelShellView.js';
 
 const createFakeElement = () => {
     const attrs = new Map();
@@ -39,12 +39,19 @@ const createFakeElement = () => {
     };
 };
 
+const visibilityChanges = [];
 const shell = createMobilePanelShell({
     documentRef: { createElement: createFakeElement },
-    win: { innerHeight: 1000 }
+    win: { innerHeight: 1000 },
+    onVisibilityChange: (visible) => {
+        assert.equal(shell.isVisible(), visible, '通知时外壳可见状态应已更新');
+        visibilityChanges.push(visible);
+    }
 });
 
 shell.layout();
+shell.hide();
+assert.deepEqual(visibilityChanges, [], '初始隐藏和布局不应触发可见性通知');
 assert.equal(
     shell.root.style.height,
     'min(88vh, calc(100vh - var(--mobile-expanded-sheet-top-clearance)))'
@@ -56,6 +63,9 @@ assert.equal(shell.isVisible(), true);
 assert.equal(shell.isCollapsed(), false);
 assert.equal(shell.getMobileState(), 'expanded');
 assert.equal(shell.root.style.transform, 'translateY(0)');
+shell.show();
+shell.layout();
+assert.deepEqual(visibilityChanges, [true], '重复显示和布局只通知一次显示');
 
 assert.equal(shell.collapseHalf(), true);
 assert.equal(shell.isHalfCollapsed(), true);
@@ -105,10 +115,38 @@ assert.equal(shell.isCollapsed(), false);
 assert.equal(shell.isHalfCollapsed(), true);
 assert.equal(shell.root.style.transform, 'translateY(440px)');
 
+assert.deepEqual(visibilityChanges, [true], '折叠、半展开、拖动和已显示时展开不应重复通知');
 shell.hide();
 assert.equal(shell.isVisible(), false);
 assert.equal(shell.getMobileState(), 'hidden');
 assert.equal(shell.root.style.transform, 'translateY(calc(100% + 24px))');
+shell.hide();
+shell.layout();
+assert.deepEqual(visibilityChanges, [true, false], '重复隐藏和布局只通知一次隐藏');
+shell.expand();
+shell.expand();
+assert.deepEqual(visibilityChanges, [true, false, true], '从隐藏直接展开应通知一次显示');
+
+const desktopVisibilityChanges = [];
+const desktopShell = createDesktopPanelShell({
+    documentRef: { createElement: createFakeElement },
+    win: { innerHeight: 1000 },
+    onVisibilityChange: (visible) => {
+        assert.equal(desktopShell.isVisible(), visible, '桌面通知时外壳可见状态应已更新');
+        desktopVisibilityChanges.push(visible);
+    }
+});
+desktopShell.hide();
+desktopShell.layout();
+assert.deepEqual(desktopVisibilityChanges, [], '桌面初始隐藏和布局不应通知');
+desktopShell.show();
+desktopShell.show();
+desktopShell.layout();
+assert.deepEqual(desktopVisibilityChanges, [true], '桌面重复显示和布局只通知一次显示');
+desktopShell.hide();
+desktopShell.hide();
+desktopShell.layout();
+assert.deepEqual(desktopVisibilityChanges, [true, false], '桌面重复隐藏和布局只通知一次隐藏');
 
 const panelViewSource = readFileSync(join(process.cwd(), 'src/ui/panelMainView.js'), 'utf8');
 const panelSource = readFileSync(join(process.cwd(), 'src/features/panel/panel.js'), 'utf8');

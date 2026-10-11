@@ -686,6 +686,10 @@ export const createPanelMarqueeController = ({
     win = globalThis.window,
     maxAnimations = 30
 } = {}) => {
+    const animations = new Map();
+    const scheduledRoots = new Map();
+    const scrollHooks = new Map();
+    let lifecycle = 'active';
     const getElementCtor = () => win?.Element || globalThis.Element;
     const isElement = (value) => {
         const ElementCtor = getElementCtor();
@@ -722,6 +726,51 @@ export const createPanelMarqueeController = ({
         return { viewportW, contentW };
     };
     const isReducedMotion = () => !!win?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    const canRun = (rootEl) => lifecycle === 'active' && rootEl.isConnected !== false;
+
+    const cancelAnimation = (marqueeEl, innerEl = animations.get(marqueeEl)?.innerEl) => {
+        animations.get(marqueeEl)?.animation.cancel();
+        animations.delete(marqueeEl);
+        if (innerEl) innerEl.style.transform = '';
+    };
+
+    const cancelScheduledRoot = (rootEl) => {
+        const pending = scheduledRoots.get(rootEl);
+        if (!pending) return;
+        scheduledRoots.delete(rootEl);
+        win?.cancelAnimationFrame?.(pending.rafId);
+    };
+
+    const cleanup = (rootEl) => {
+        const withinRoot = (element) => !rootEl || element === rootEl || rootEl.contains(element);
+        for (const marqueeEl of animations.keys()) {
+            if (withinRoot(marqueeEl)) cancelAnimation(marqueeEl);
+        }
+        for (const scheduledRoot of scheduledRoots.keys()) {
+            if (withinRoot(scheduledRoot)) cancelScheduledRoot(scheduledRoot);
+        }
+        for (const [bodyEl, hook] of scrollHooks) {
+            if (!withinRoot(bodyEl)) continue;
+            scrollHooks.delete(bodyEl);
+            bodyEl.removeEventListener('scroll', hook.onScroll);
+            if (hook.pending) win?.cancelAnimationFrame?.(hook.pending.rafId);
+        }
+    };
+
+    const suspend = () => {
+        if (lifecycle === 'destroyed') return;
+        lifecycle = 'suspended';
+        cleanup();
+    };
+
+    const resume = () => {
+        if (lifecycle === 'suspended') lifecycle = 'active';
+    };
+
+    const destroy = () => {
+        lifecycle = 'destroyed';
+        cleanup();
+    };
 
     const applyMarqueeAnimation = ({
         marqueeEl,
@@ -733,14 +782,7 @@ export const createPanelMarqueeController = ({
         minTravelMs
     }) => {
         if (!marqueeEl || !innerEl) return false;
-        try {
-            marqueeEl.__panelMarqueeAnim?.cancel?.();
-        } catch {
-            // ignore
-        }
-
-        innerEl.style.transform = '';
-        marqueeEl.__panelMarqueeAnim = null;
+        cancelAnimation(marqueeEl, innerEl);
 
         if (!canAnimate(innerEl)) return false;
         if (!viewportW || contentW <= viewportW + 1) return false;
@@ -758,13 +800,13 @@ export const createPanelMarqueeController = ({
             iterations: Infinity,
             easing: 'linear'
         });
-        marqueeEl.__panelMarqueeAnim = anim;
+        animations.set(marqueeEl, { animation: anim, innerEl });
         return true;
     };
 
     const applyDirHeaderMarquees = (rootEl, maxAnims = Number.POSITIVE_INFINITY) => {
         try {
-            if (!isElement(rootEl)) return 0;
+            if (!isElement(rootEl) || !canRun(rootEl)) return 0;
 
             const marquees = Array.from(rootEl.querySelectorAll('.panel-dir-marquee'));
             let started = 0;
@@ -791,7 +833,7 @@ export const createPanelMarqueeController = ({
 
     const applyTimetableDestMarquees = (rootEl, maxAnims = maxAnimations) => {
         try {
-            if (!isElement(rootEl)) return 0;
+            if (!isElement(rootEl) || !canRun(rootEl)) return 0;
 
             const reducedMotion = isReducedMotion();
             const marquees = Array.from(rootEl.querySelectorAll('.panel-timetable-dest-marquee, .panel-timetable-type-marquee'));
@@ -803,13 +845,7 @@ export const createPanelMarqueeController = ({
                 const innerEl = marqueeEl.querySelector('.panel-timetable-dest-marquee-inner, .panel-timetable-type-marquee-inner');
                 if (!innerEl) continue;
 
-                try {
-                    marqueeEl.__panelMarqueeAnim?.cancel?.();
-                } catch {
-                    // ignore
-                }
-                innerEl.style.transform = '';
-                marqueeEl.__panelMarqueeAnim = null;
+                cancelAnimation(marqueeEl, innerEl);
 
                 if (!canAnimate(innerEl)) continue;
                 const { viewportW, contentW } = measureMarquee(marqueeEl, innerEl);
@@ -857,50 +893,52 @@ export const createPanelMarqueeController = ({
 
     const hookTimetableScrollMarquee = (rootEl) => {
         try {
-            if (!isElement(rootEl)) return;
-            const raf = win?.requestAnimationFrame;
-            if (typeof raf !== 'function') return;
+            if (!isElement(rootEl) || !canRun(rootEl)) return;
+            if (typeof win?.requestAnimationFrame !== 'function') return;
 
             const bodies = Array.from(rootEl.querySelectorAll('.panel-timetable.is-expanded'));
             for (const bodyEl of bodies) {
-                if (bodyEl.__panelDestMarqueeHooked) continue;
-                bodyEl.__panelDestMarqueeHooked = true;
-
-                let pending = false;
-                bodyEl.addEventListener('scroll', () => {
-                    if (pending) return;
-                    pending = true;
-                    raf(() => {
-                        pending = false;
+                if (scrollHooks.has(bodyEl)) continue;
+                const hook = { pending: null, onScroll: null };
+                hook.onScroll = () => {
+                    if (scrollHooks.get(bodyEl) !== hook || !canRun(bodyEl) || hook.pending) return;
+                    const pending = { rafId: null };
+                    hook.pending = pending;
+                    pending.rafId = win.requestAnimationFrame(() => {
+                        if (scrollHooks.get(bodyEl) !== hook || hook.pending !== pending) return;
+                        hook.pending = null;
+                        if (!canRun(bodyEl)) return;
                         const used = applyDirHeaderMarquees(bodyEl, maxAnimations);
                         const remain = Math.max(0, maxAnimations - used);
                         applyTimetableDestMarquees(bodyEl, remain);
                     });
-                }, { passive: true });
+                };
+                scrollHooks.set(bodyEl, hook);
+                bodyEl.addEventListener('scroll', hook.onScroll, { passive: true });
             }
         } catch {
-            // ignore
+            // 保持不支持动画的环境可用。
         }
     };
 
     const schedule = (rootEl) => {
         try {
-            if (!isElement(rootEl)) return;
-            const raf = win?.requestAnimationFrame;
-            if (typeof raf !== 'function') return;
+            if (!isElement(rootEl) || !canRun(rootEl)) return;
+            if (typeof win?.requestAnimationFrame !== 'function') return;
 
-            if (rootEl.__panelMarqueeRafId) {
-                try {
-                    win?.cancelAnimationFrame?.(rootEl.__panelMarqueeRafId);
-                } catch {
-                    // ignore
+            cancelScheduledRoot(rootEl);
+            const pending = { rafId: null };
+            scheduledRoots.set(rootEl, pending);
+            pending.rafId = win.requestAnimationFrame(() => {
+                if (scheduledRoots.get(rootEl) !== pending) return;
+                if (!canRun(rootEl)) {
+                    scheduledRoots.delete(rootEl);
+                    return;
                 }
-                rootEl.__panelMarqueeRafId = 0;
-            }
-
-            rootEl.__panelMarqueeRafId = raf(() => {
-                rootEl.__panelMarqueeRafId = raf(() => {
-                    rootEl.__panelMarqueeRafId = 0;
+                pending.rafId = win.requestAnimationFrame(() => {
+                    if (scheduledRoots.get(rootEl) !== pending) return;
+                    scheduledRoots.delete(rootEl);
+                    if (!canRun(rootEl)) return;
                     const used = applyDirHeaderMarquees(rootEl, maxAnimations);
                     const remain = Math.max(0, maxAnimations - used);
                     applyTimetableDestMarquees(rootEl, remain);
@@ -908,7 +946,7 @@ export const createPanelMarqueeController = ({
                 });
             });
         } catch {
-            // ignore
+            // 保持不支持动画的环境可用。
         }
     };
 
@@ -916,7 +954,11 @@ export const createPanelMarqueeController = ({
         applyDirHeaderMarquees,
         applyTimetableDestMarquees,
         hookTimetableScrollMarquee,
-        schedule
+        schedule,
+        cleanup,
+        suspend,
+        resume,
+        destroy
     };
 };
 

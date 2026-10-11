@@ -65,7 +65,8 @@ export const createDesktopPanelShell = ({
     win = globalThis.window,
     rightPx = 10,
     widthPx = 380,
-    zIndex = 4000
+    zIndex = 4000,
+    onVisibilityChange = null
 } = {}) => {
     if (!documentRef?.createElement) {
         throw new Error('createDesktopPanelShell requires documentRef');
@@ -102,12 +103,16 @@ export const createDesktopPanelShell = ({
         isVisible: () => visible,
         layout,
         show() {
+            const changed = !visible;
             visible = true;
             root.style.transform = 'translateX(0)';
+            if (changed) onVisibilityChange?.(true);
         },
         hide() {
+            const changed = visible;
             visible = false;
             root.style.transform = DEFAULT_DESKTOP_HIDDEN_TRANSFORM;
+            if (changed) onVisibilityChange?.(false);
         }
     };
 };
@@ -116,7 +121,8 @@ export const createMobilePanelShell = ({
     documentRef = globalThis.document,
     win = globalThis.window,
     zIndex = 4000,
-    collapsedPeekPx = DEFAULT_MOBILE_COLLAPSED_PEEK_PX
+    collapsedPeekPx = DEFAULT_MOBILE_COLLAPSED_PEEK_PX,
+    onVisibilityChange = null
 } = {}) => {
     if (!documentRef?.createElement) {
         throw new Error('createMobilePanelShell requires documentRef');
@@ -247,10 +253,12 @@ export const createMobilePanelShell = ({
         return true;
     };
     const expand = () => {
+        const changed = !visible;
         visible = true;
         collapsed = false;
         halfCollapsed = false;
         applyState('expanded');
+        if (changed) onVisibilityChange?.(true);
         return true;
     };
 
@@ -326,10 +334,12 @@ export const createMobilePanelShell = ({
             expand();
         },
         hide() {
+            const changed = visible;
             visible = false;
             collapsed = false;
             halfCollapsed = false;
             applyState('hidden');
+            if (changed) onVisibilityChange?.(false);
         }
     };
 };

@@ -427,7 +427,12 @@ export function createPanel(options = {}) {
     let panelTitleActiveLineId = '';
     let panelTitleSyncRafId = 0;
 
-    const panelShell = createPanelShell({ presentation: panelPresentation, rightPx, widthPx });
+    const panelShell = createPanelShell({
+        presentation: panelPresentation,
+        rightPx,
+        widthPx,
+        onVisibilityChange: () => syncPanelActivity()
+    });
     const panelContentApi = createPanelContentApi();
     const panelComposition = composePanelShellWithContent({ contentApi: panelContentApi, shell: panelShell });
     const touchInteraction = createPanelTouchInteractionController({ now: nowMs });
@@ -893,6 +898,7 @@ export function createPanel(options = {}) {
         return true;
     };
     let stationRenderToken = 0;
+    let pendingStationTimetableCompletion = null;
     let currentServiceDay = 'SaturdayHoliday';
 
     let day = Date.now();
@@ -902,6 +908,8 @@ export function createPanel(options = {}) {
     let hasTemporaryTimeOverride = false;
     let isAutoNowClock = true;
     let autoNowClockTimerId = null;
+    let timetableRefreshPending = false;
+    const isPanelActive = () => panelShell.isVisible() && !document.hidden;
     let currentPanelDate = new Date();
     const getDisplayNowMs = () => {
         const baseNowMs = Date.now();
@@ -928,22 +936,25 @@ export function createPanel(options = {}) {
             timeInput.value = hhmm;
         }
 
-        const changed = toText(currentNowOverrideHHMM) !== hhmm;
         currentNowOverrideHHMM = hhmm;
 
-        if ((changed || forceRender) && toText(currentStationId)) {
-            if (forceRender || !panelShell.isVisible()) {
-                renderAllTimetables();
-            }
+        // 阅读期间只推进时钟，保留当前班次列表；恢复显示或手动操作时再刷新。
+        if (forceRender && toText(currentStationId)) {
+            renderAllTimetables();
         }
     };
 
     const startAutoNowClock = () => {
-        if (autoNowClockTimerId != null) return;
+        if (autoNowClockTimerId != null || !isPanelActive()) return;
         syncAutoNowClock({ forceRender: false });
         autoNowClockTimerId = setInterval(() => {
             syncAutoNowClock({ forceRender: false });
         }, 15000);
+    };
+
+    const stopAutoNowClock = () => {
+        clearInterval(autoNowClockTimerId);
+        autoNowClockTimerId = null;
     };
 
     const restoreAutoNowClock = () => {
@@ -4147,6 +4158,7 @@ export function createPanel(options = {}) {
             const rendered = renderHtml();
             const commit = () => {
                 if (!isStillCurrentRender()) return;
+                panelMarqueeController.cleanup(ttEl);
                 ttEl.innerHTML = toText(rendered?.html) || '';
                 applyLineStationInfo(lineEl, rendered?.stationInfo || null);
 
@@ -4461,6 +4473,8 @@ export function createPanel(options = {}) {
         const openedMobileTripDetailEarly = !!pinned && isMobilePanelPresentation();
         if (openedMobileTripDetailEarly) {
             openMobileTripDetail({ lineId, tripKey });
+            panelMarqueeController.cleanup(tripDetailRoot);
+            panelMarqueeController.cleanup(header);
             tripDetailView.render({
                 titleHtml: '<div class="panel-trip-detail-title-main">加载中</div>',
                 bodyHtml: '<div class="panel-timetable-empty">正在加载班次详情</div>',
@@ -4479,6 +4493,8 @@ export function createPanel(options = {}) {
             if (openedMobileTripDetailEarly) {
                 hideTripDetail();
             } else {
+                panelMarqueeController.cleanup(tripDetailRoot);
+                panelMarqueeController.cleanup(header);
                 tripDetailView.hide();
             }
             return;
@@ -4999,6 +5015,8 @@ export function createPanel(options = {}) {
         if (pinned && !openedMobileTripDetailEarly) {
             openMobileTripDetail({ lineId: tripLineId || lineId, tripKey });
         }
+        panelMarqueeController.cleanup(tripDetailRoot);
+        panelMarqueeController.cleanup(header);
         tripDetailView.render({
             titleHtml: tripDetailTitleHtml,
             bodyHtml: tripDetailBodyHtml,
@@ -5028,6 +5046,8 @@ export function createPanel(options = {}) {
         clearTripDetailHideTimer();
         hideTripCurrentStationHint();
         clearTripDetailStationIndicator();
+        panelMarqueeController.cleanup(tripDetailRoot);
+        panelMarqueeController.cleanup(header);
         tripDetailView.hide();
         if (hadAppliedTripPreview) {
             try {
@@ -5061,13 +5081,43 @@ export function createPanel(options = {}) {
     const panelMarqueeController = createPanelMarqueeController({ maxAnimations: 30 });
     const scheduleMarqueeApply = panelMarqueeController.schedule;
 
+    const syncPanelActivity = () => {
+        if (!isPanelActive()) {
+            stopAutoNowClock();
+            panelMarqueeController.suspend();
+            timetableRenderToken += 1;
+            timetableRefreshPending = Boolean(toText(currentStationId));
+            return;
+        }
+        panelMarqueeController.resume();
+        startAutoNowClock();
+        if (timetableRefreshPending) {
+            timetableRefreshPending = false;
+            renderAllTimetables({
+                closeDirFilterBeforeRender: false,
+                canRefreshStationPreview: () => !(
+                    hasPinnedPanelState() || lastAppliedHoverKey || lastTripDetailKey
+                    || dirHeaderPreviewOwnerKey || dirFilterPopoverController.isOpen()
+                )
+            });
+        }
+        scheduleMarqueeApply(root);
+        if (!tripDetailRoot.classList.contains('is-hidden')) scheduleMarqueeApply(tripDetailRoot);
+    };
+
     const renderAllTimetables = async ({
         buildPrintPayloads = true,
         scheduleStationThroughPreviewAfterRender = true,
+        canRefreshStationPreview = () => true,
         beforeCommit = null,
         prioritizeStationPreview = false,
         closeDirFilterBeforeRender = true
     } = {}) => {
+        if (!isPanelActive()) {
+            timetableRefreshPending = true;
+            return;
+        }
+        timetableRefreshPending = false;
         if (closeDirFilterBeforeRender) closeDirFilterPopover();
         syncDirectionFocusVisibility();
         const token = ++timetableRenderToken;
@@ -5137,10 +5187,19 @@ export function createPanel(options = {}) {
         }
         body.querySelector('[data-station-timetable-loading]')?.remove();
         syncDirectionFocusStickyMetrics();
-        if (scheduleStationThroughPreviewAfterRender && !prioritizeStationPreview) {
+        const completion = pendingStationTimetableCompletion;
+        if (completion) {
+            schedulePanelPostPaintTask(() => {
+                if (!isStillCurrentRender() || pendingStationTimetableCompletion !== completion) return;
+                pendingStationTimetableCompletion = null;
+                completion();
+            });
+        }
+        if (scheduleStationThroughPreviewAfterRender && !prioritizeStationPreview && canRefreshStationPreview()) {
             scheduleStationThroughPreview({
                 renderToken: stationRenderTokenAtStart,
-                stationId
+                stationId,
+                isStillCurrentRender: () => isStillCurrentRender() && canRefreshStationPreview()
             }).catch(() => null);
         }
 
@@ -5159,6 +5218,10 @@ export function createPanel(options = {}) {
     };
 
     const rerenderLineById = async (lineId) => {
+        if (!isPanelActive()) {
+            timetableRefreshPending = true;
+            return;
+        }
         const lineEl = body.querySelector(`[data-line-id="${escapeHtml(String(lineId))}"]`);
         if (!lineEl) return;
         if (body.querySelector('[data-station-timetable-loading]')) {
@@ -5245,7 +5308,8 @@ export function createPanel(options = {}) {
         return true;
     };
 
-    startAutoNowClock();
+    syncPanelActivity();
+    document.addEventListener('visibilitychange', syncPanelActivity);
     applyTimetableViewMode(getTimetableViewMode ? getTimetableViewMode() : 'list', { rerender: false });
 
     const panelHoverRestoreRuntime = createPanelHoverRestoreRuntime({
@@ -6302,13 +6366,15 @@ export function createPanel(options = {}) {
     layout();
     window.addEventListener('resize', layout);
 
-    const show = () => {
+    const show = ({ refreshTimetables = true } = {}) => {
         layout();
+        if (!refreshTimetables) timetableRefreshPending = false;
         panelShell.show();
         scheduleCatalogRefresh();
     };
 
     const hide = () => {
+        pendingStationTimetableCompletion = null;
         invalidateStationRestoreSession({ cancelRender: true });
         clearDirectionFocus({ rerender: false });
         dateTimePickerFeature?.close();
@@ -6375,6 +6441,7 @@ export function createPanel(options = {}) {
     const setTitle = (text, subtitle = '') => {
         const mainText = typeof text === 'object' && text !== null ? toText(text.main || text.text || text.name || '') : toText(text);
         const subText = typeof text === 'object' && text !== null ? toText(text.sub || text.subtitle || '') : toText(subtitle);
+        panelMarqueeController.cleanup(header);
         titleMain.textContent = mainText;
         titleSub.textContent = subText;
         titleSub.hidden = !subText;
@@ -6415,6 +6482,9 @@ export function createPanel(options = {}) {
     const showForStationProps = async (props, options = {}) => {
         const deferHeavyRender = options?.deferHeavyRender === true;
         const renderToken = ++stationRenderToken;
+        pendingStationTimetableCompletion = null;
+        syncAutoNowClock();
+        panelMarqueeController.cleanup(body);
         const name = readStationName(props);
         stationThroughPreviewSuppressed = false;
         clearStationThroughPreviewCache();
@@ -6497,13 +6567,14 @@ export function createPanel(options = {}) {
             currentLineStationMetaByLineId = initialLineStationNameByLineId;
             if (renderToken !== stationRenderToken) return;
 
+            panelMarqueeController.cleanup(body);
             body.innerHTML = timetableLoadingHtml + buildPanelCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId: initialLineStationNameByLineId, toText });
             await enhancePanelLineHeaderIcons(body);
             if (!isStillCurrentStationRender()) return;
             applyDefaultPanelLineCollapse(body, displayServingIds.length > 3);
             openMobileStationOverview();
             scheduleCatalogRefresh();
-            show();
+            show({ refreshTimetables: false });
             scheduleCatalogRefresh();
             panelScrollRuntime.syncPanelTitleForActiveLine();
 
@@ -6556,6 +6627,7 @@ export function createPanel(options = {}) {
                 const lineStationNameByLineId = stationRenderInputs.lineStationNameByLineId;
                 currentLineStationMetaByLineId = lineStationNameByLineId;
 
+                panelMarqueeController.cleanup(body);
                 body.innerHTML = timetableLoadingHtml + buildPanelCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId, toText });
                 reorderPanelThroughServiceLinesAfterHtml(body, {
                     temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
@@ -6568,6 +6640,9 @@ export function createPanel(options = {}) {
                 openMobileStationOverview();
                 scheduleCatalogRefresh();
                 const timetableToken = timetableRenderToken + 1;
+                pendingStationTimetableCompletion = () => {
+                    if (isStillCurrentStationRender()) options?.onTimetablesRendered?.();
+                };
                 await renderAllTimetables({
                     buildPrintPayloads: false,
                     scheduleStationThroughPreviewAfterRender: false,
@@ -6576,10 +6651,6 @@ export function createPanel(options = {}) {
                 if (!isStillCurrentStationRender() || timetableToken !== timetableRenderToken) return;
                 scheduleCatalogRefresh();
                 panelScrollRuntime.syncPanelTitleForActiveLine();
-                schedulePanelPostPaintTask(() => {
-                    if (!isStillCurrentStationRender() || timetableToken !== timetableRenderToken) return;
-                    options?.onTimetablesRendered?.();
-                });
             });
             return;
         }
@@ -6647,6 +6718,7 @@ export function createPanel(options = {}) {
         if (renderToken !== stationRenderToken) return;
 
         // 渲染 popup 同结构的内容（公司分组 + 线路）
+        panelMarqueeController.cleanup(body);
         body.innerHTML = buildPanelCompaniesHtml({ ...(props || {}), display_serving_ids: displayServingIds }, { getLineMeta, companyLogoMap, lineStationNameByLineId, toText });
         reorderPanelThroughServiceLinesAfterHtml(body, {
             temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
@@ -6658,7 +6730,7 @@ export function createPanel(options = {}) {
         openMobileStationOverview();
         scheduleCatalogRefresh();
 
-        show();
+        show({ refreshTimetables: false });
 
         // 默认折叠态：填充每条线路的“未来最近 3 条”班次
         // 这里等待渲染完成，避免外部随后执行的 scrollToLineId 被后续异步渲染“拉回顶部”。
@@ -6760,6 +6832,13 @@ export function createPanel(options = {}) {
         setScrollTop: (...args) => panelScrollRuntime.setScrollTop(...args),
         layout,
         destroy: () => {
+            stopAutoNowClock();
+            pendingStationTimetableCompletion = null;
+            document.removeEventListener('visibilitychange', syncPanelActivity);
+            stationRenderToken += 1;
+            timetableRenderToken += 1;
+            tripDetailToken += 1;
+            panelMarqueeController.destroy();
             panelCatalogController?.destroy();
             panelEventDelegation.destroy();
         }
