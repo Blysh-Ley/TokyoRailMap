@@ -201,8 +201,9 @@ export const createPanelDirFilterPopoverController = ({
     getRows = () => [],
     getState = () => null,
     setState = () => {},
+    onOpen = () => {},
+    onChange = async () => {},
     onClose = () => {},
-    rerenderLineById = async () => {},
     getSuppressActivationAfterOpenMs = () => 0
 } = {}) => {
     const root = doc.createElement('div');
@@ -410,6 +411,7 @@ export const createPanelDirFilterPopoverController = ({
         position(anchorEl);
         const suppressMs = Math.max(0, Number(getSuppressActivationAfterOpenMs?.() || 0));
         suppressActivationUntil = suppressMs > 0 ? getNow() + suppressMs : 0;
+        onOpen({ lineId, dirKey });
     };
 
     const toggleFromButton = (buttonEl) => {
@@ -447,7 +449,8 @@ export const createPanelDirFilterPopoverController = ({
         const target = event?.target;
         if (!(target instanceof (win?.HTMLInputElement || globalThis.HTMLInputElement))) return;
         if (target.type !== 'checkbox' || !activeKey) return;
-        const [lineId] = activeKey.split('||');
+        const lineDirKey = activeKey;
+        const [lineId, dirKey] = lineDirKey.split('||');
         if (isLoopLine(lineId)) return;
 
         const rows = getRows(activeKey) || [];
@@ -468,8 +471,9 @@ export const createPanelDirFilterPopoverController = ({
             setState(activeKey, state);
         }
 
-        await rerenderLineById(lineId);
-        const updatedRows = getRows(activeKey) || rows;
+        await onChange({ lineId, dirKey });
+        if (activeKey !== lineDirKey || getState(lineDirKey) !== state) return;
+        const updatedRows = getRows(lineDirKey) || rows;
         updateInPlace({ rows: updatedRows, state });
         refreshAnchorPosition();
     });
@@ -479,13 +483,14 @@ export const createPanelDirFilterPopoverController = ({
         if (clearBtn) {
             stopEvent(event);
             if (!activeKey) return;
-            const [lineId, dirKey] = activeKey.split('||');
+            const lineDirKey = activeKey;
+            const [lineId, dirKey] = lineDirKey.split('||');
             const state = createEmptyDirFilterState();
-            setState(activeKey, state);
-            await rerenderLineById(lineId);
-            const anchorEl = body?.querySelector?.(`.panel-dir-filter-btn[data-line-id="${escapeHtml(String(lineId))}"][data-dir-key="${escapeHtml(String(dirKey))}"]`);
-            if (anchorEl) open({ lineId, dirKey, anchorEl });
-            else close({ clearPreview: true });
+            setState(lineDirKey, state);
+            await onChange({ lineId, dirKey });
+            if (activeKey !== lineDirKey || getState(lineDirKey) !== state) return;
+            renderBody({ rows: getRows(lineDirKey) || [], state });
+            refreshAnchorPosition();
             return;
         }
 

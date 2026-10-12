@@ -1692,7 +1692,6 @@ export function createPanel(options = {}) {
     const linePrintPayloadsByLineId = new Map(); // lineId -> raw export payloads before through-service panel split
     const dirPreviewMetaByKey = new Map(); // lineId||dir -> { lineId, originStationIds:string[], terminalStationIds:string[] }
     let dirFilterPreviewToken = 0;
-    let dirHeaderPreviewOwnerKey = '';
     const makeLineDirKey = (lineId, dirKey) => `${toText(lineId)}||${toText(dirKey) || 'Unknown'}`;
     const dirKeyOf = (lineId, dir) => `${toText(lineId)}||${toText(dir) || 'Unknown'}`;
     const getFocusedDirectionLineId = () => toText(focusedDirectionKey).split('||')[0] || '';
@@ -2340,12 +2339,12 @@ export function createPanel(options = {}) {
         if (!lineDirKey || !dirPreviewMetaByKey.has(lineDirKey)) return null;
 
         const scopedMeta = new Map([[lineDirKey, dirPreviewMetaByKey.get(lineDirKey)]]);
+        // 筛选预览只使用当前方向的筛选结果，来源线路仍用于直通链分析。
         const scopedTripKeys = new Map([[lineDirKey, dirFilteredTripKeysByKey.get(lineDirKey) || []]]);
         const requests = buildPanelStationThroughPreviewRequests({
             dirPreviewMetaByKey: scopedMeta,
             dirFilteredTripKeysByKey: scopedTripKeys,
             temporarySourceLineIdsByDisplayLineId: temporaryPanelSourceLineIdsByDisplayLineId,
-            temporaryAllowedTripKeysByDisplayLineId: temporaryPanelAllowedTripKeysByDisplayLineId,
             throughServiceConfigs: THROUGH_SERVICE_CONFIGS,
             getLineMeta,
             normalize: toText,
@@ -2358,29 +2357,34 @@ export function createPanel(options = {}) {
         return requests[0] || null;
     };
 
-    const previewPanelDirFilterDirection = async (lineId, dirKey) => {
+    const previewPanelDirFilterDirection = async (lineId, dirKey, { rerender = false } = {}) => {
         const lineDirKey = makeLineDirKey(lineId, dirKey);
         const previewToken = ++dirFilterPreviewToken;
-        const request = buildPanelDirFilterPreviewRequest(lineId, dirKey);
-        if (!request) {
-            clearPanelDirFilterDirectionPreview({
-                restoreStation: true,
-                clearHeaderOwner: dirHeaderPreviewOwnerKey === lineDirKey
-            });
-            return false;
-        }
-
-        const endpointStationIds = Array.from(new Set([
-            ...(Array.isArray(request.originStationIds) ? request.originStationIds : []),
-            ...(Array.isArray(request.terminalStationIds) ? request.terminalStationIds : [])
-        ].map((value) => toText(value)).filter(Boolean)));
-        const visualLineId = resolvePanelDirectionPreviewVisualLineId(request, { normalize: toText });
-        const panelCurrentStationVisualHighlightId = await resolvePanelCurrentStationVisualHighlightIdForLines(
-            visualLineId,
-            'panel-dir-filter-preview'
-        );
+        const stationTokenAtStart = stationRenderToken;
+        const isStillActive = () => previewToken === dirFilterPreviewToken
+            && stationTokenAtStart === stationRenderToken
+            && dirFilterPopoverController.getActiveKey() === lineDirKey;
 
         try {
+            if (rerender) await rerenderLineById(lineId);
+            if (!isStillActive()) return false;
+            const request = buildPanelDirFilterPreviewRequest(lineId, dirKey);
+            if (!request) {
+                // 无匹配班次时，同时清除关闭浮层后恢复的站点路线预览。
+                crossFeatureBridge.clearTripPathPreviewBySource(STATION_THROUGH_PREVIEW_SOURCE);
+                clearPanelDirFilterDirectionPreview();
+                return false;
+            }
+
+            const endpointStationIds = Array.from(new Set([
+                ...(Array.isArray(request.originStationIds) ? request.originStationIds : []),
+                ...(Array.isArray(request.terminalStationIds) ? request.terminalStationIds : [])
+            ].map((value) => toText(value)).filter(Boolean)));
+            const visualLineId = resolvePanelDirectionPreviewVisualLineId(request, { normalize: toText });
+            const panelCurrentStationVisualHighlightId = await resolvePanelCurrentStationVisualHighlightIdForLines(
+                visualLineId,
+                'panel-dir-filter-preview'
+            );
             const alternateLineMembership = await getAlternateLineMembership();
             const previewResult = await previewBranchesForLineRequests({
                 requests: [request],
@@ -2388,81 +2392,28 @@ export function createPanel(options = {}) {
                 highlightStationIds: endpointStationIds,
                 panelCurrentStationVisualHighlightId,
                 alternateLineMembership,
-                isStillActive: () => previewToken === dirFilterPreviewToken && dirPreviewMetaByKey.has(lineDirKey),
+                isStillActive,
                 previewSource: DIR_FILTER_TRIP_PREVIEW_SOURCE,
                 endpointOnlyStationPreview: true
             });
             if (previewResult?.ok === true) return true;
-            if (previewToken === dirFilterPreviewToken) {
-                clearPanelDirFilterDirectionPreview({
-                    restoreStation: true,
-                    clearHeaderOwner: dirHeaderPreviewOwnerKey === lineDirKey
-                });
+            if (isStillActive()) {
+                clearPanelDirFilterDirectionPreview({ restoreStation: true });
             }
             return false;
         } catch {
-            clearPanelDirFilterDirectionPreview({
-                restoreStation: true,
-                clearHeaderOwner: dirHeaderPreviewOwnerKey === lineDirKey
-            });
+            if (isStillActive()) {
+                clearPanelDirFilterDirectionPreview({ restoreStation: true });
+            }
             return false;
         }
     };
 
-    const clearPanelDirFilterDirectionPreview = ({
-        restoreStation = false,
-        clearHeaderOwner = false
-    } = {}) => {
+    const clearPanelDirFilterDirectionPreview = ({ restoreStation = false } = {}) => {
         dirFilterPreviewToken += 1;
-        if (clearHeaderOwner) {
-            dirHeaderPreviewOwnerKey = '';
-        }
-        try {
-            crossFeatureBridge.clearTripPathPreviewBySource(DIR_FILTER_TRIP_PREVIEW_SOURCE);
-        } catch {
-            // keep filter-popover cleanup independent from bridge availability
-        }
+        crossFeatureBridge.clearTripPathPreviewBySource(DIR_FILTER_TRIP_PREVIEW_SOURCE);
         if (restoreStation) {
             restoreStationThroughPreviewDefault();
-        }
-    };
-
-    const applyDirHeaderDirectionPreview = (lineId, dirKey) => {
-        const lid = toText(lineId);
-        const dkey = toText(dirKey);
-        if (!lid || !dkey) return;
-        dirHeaderPreviewOwnerKey = makeLineDirKey(lid, dkey);
-        previewPanelDirFilterDirection(lid, dkey);
-    };
-
-    const reapplyDirHeaderPreviewOwner = () => {
-        const key = toText(dirHeaderPreviewOwnerKey);
-        if (!key) return false;
-        const parts = key.split('||');
-        const lid = toText(parts[0]);
-        const dkey = toText(parts.slice(1).join('||'));
-        if (!lid || !dkey) return false;
-        previewPanelDirFilterDirection(lid, dkey);
-        return true;
-    };
-
-    const restoreDirHeaderDirectionPreviewIfOwner = (lineId, dirKey) => {
-        const lid = toText(lineId);
-        const dkey = toText(dirKey);
-        if (!lid || !dkey) return;
-        const lineDirKey = makeLineDirKey(lid, dkey);
-        if (dirHeaderPreviewOwnerKey !== lineDirKey) return;
-        clearPanelDirFilterDirectionPreview({
-            restoreStation: true,
-            clearHeaderOwner: true
-        });
-    };
-
-    const syncDirHeaderPreviewForExpandedState = ({ lineId, dirKey, expanded } = {}) => {
-        if (expanded) {
-            applyDirHeaderDirectionPreview(lineId, dirKey);
-        } else {
-            restoreDirHeaderDirectionPreviewIfOwner(lineId, dirKey);
         }
     };
 
@@ -2495,6 +2446,7 @@ export function createPanel(options = {}) {
     } = {}) => {
         const sid = toText(stationId);
         const isStillActive = () => !stationThroughPreviewSuppressed
+            && !dirFilterPopoverController.isOpen()
             && isStillCurrentRender()
             && renderToken === stationRenderToken
             && sid === toText(currentStationId);
@@ -5097,7 +5049,7 @@ export function createPanel(options = {}) {
                 closeDirFilterBeforeRender: false,
                 canRefreshStationPreview: () => !(
                     hasPinnedPanelState() || lastAppliedHoverKey || lastTripDetailKey
-                    || dirHeaderPreviewOwnerKey || dirFilterPopoverController.isOpen()
+                    || dirFilterPopoverController.isOpen()
                 )
             });
         }
@@ -5225,19 +5177,10 @@ export function createPanel(options = {}) {
         const lineEl = body.querySelector(`[data-line-id="${escapeHtml(String(lineId))}"]`);
         if (!lineEl) return;
         if (body.querySelector('[data-station-timetable-loading]')) {
-            const stationTokenAtStart = stationRenderToken;
-            const stationIdAtStart = toText(currentStationId);
-            const expectedTimetableToken = timetableRenderToken + 1;
             await renderAllTimetables({
                 scheduleStationThroughPreviewAfterRender: false,
                 closeDirFilterBeforeRender: false
             });
-            if (
-                stationTokenAtStart !== stationRenderToken
-                || stationIdAtStart !== toText(currentStationId)
-                || expectedTimetableToken !== timetableRenderToken
-            ) return;
-            if (!reapplyDirHeaderPreviewOwner()) restoreStationThroughPreviewDefault();
             return;
         }
         const token = ++timetableRenderToken;
@@ -5255,14 +5198,12 @@ export function createPanel(options = {}) {
         getRows: (lineDirKey) => dirFilterRowsByKey.get(lineDirKey) || [],
         getState: (lineDirKey) => dirFilterStateByKey.get(lineDirKey) || null,
         setState: (lineDirKey, state) => dirFilterStateByKey.set(lineDirKey, state),
+        onOpen: ({ lineId, dirKey }) => previewPanelDirFilterDirection(lineId, dirKey, { rerender: true }),
+        onChange: ({ lineId, dirKey }) => previewPanelDirFilterDirection(lineId, dirKey, { rerender: true }),
         onClose: ({ clearPreview } = {}) => {
-            if (clearPreview) {
-                if (!reapplyDirHeaderPreviewOwner()) {
-                    clearPanelDirFilterDirectionPreview({ restoreStation: true });
-                }
-            }
+            if (clearPreview) clearPanelDirFilterDirectionPreview({ restoreStation: true });
+            else dirFilterPreviewToken += 1;
         },
-        rerenderLineById,
         getSuppressActivationAfterOpenMs: () => (isMobilePanelPresentation() ? 350 : 0)
     });
 
@@ -5440,11 +5381,6 @@ export function createPanel(options = {}) {
         if (!lid || !dkey) return;
         if (isDirExpanded(lid, dkey)) return;
         setDirExpanded(lid, dkey, true);
-        syncDirHeaderPreviewForExpandedState({
-            lineId: lid,
-            dirKey: dkey,
-            expanded: true
-        });
         rerenderLineById(lid);
     };
 
@@ -5454,11 +5390,6 @@ export function createPanel(options = {}) {
         if (!lid || !dkey) return;
         const nextExpanded = !isDirExpanded(lid, dkey);
         setDirExpanded(lid, dkey, nextExpanded);
-        syncDirHeaderPreviewForExpandedState({
-            lineId: lid,
-            dirKey: dkey,
-            expanded: nextExpanded
-        });
         rerenderLineById(lid);
     };
 
@@ -5971,7 +5902,6 @@ export function createPanel(options = {}) {
             stopEvent(evt);
             dispatchPanelDirFilterIntent({
                 filterTarget: pendingTouchFilter.filterTarget,
-                previewDirFilterDirection: previewPanelDirFilterDirection,
                 toggleDirFilterPopoverFromButton
             });
             return;
@@ -6072,7 +6002,6 @@ export function createPanel(options = {}) {
             stopEvent(evt);
             dispatchPanelDirFilterIntent({
                 filterTarget,
-                previewDirFilterDirection: previewPanelDirFilterDirection,
                 toggleDirFilterPopoverFromButton
             });
             return;
