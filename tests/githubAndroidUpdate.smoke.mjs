@@ -56,6 +56,7 @@ const release = {
                     })
                 },
                 TokyoRailUpdate: {
+                    probeGoogleHttps: async () => ({ reachable: true }),
                     checkStoreUpdate: async () => storeCalls.push('check'),
                     openStorePage: async () => storeCalls.push('open'),
                     downloadAndInstallApk: async (options) => {
@@ -97,7 +98,7 @@ const release = {
                         build: '10300'
                     })
                 },
-                TokyoRailUpdate: {}
+                TokyoRailUpdate: { probeGoogleHttps: async () => ({ reachable: true }) }
             }
         }
     };

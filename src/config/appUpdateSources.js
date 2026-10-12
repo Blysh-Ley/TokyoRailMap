@@ -1,7 +1,9 @@
+import { RELEASE_UPDATE_SOURCES } from './releaseUpdateSources.mjs';
+
 export const APP_UPDATE_APP_ID = 'com.blysh.tokyorailmap';
 export const APP_UPDATE_MANIFEST_URL = '';
 export const IOS_APP_STORE_LOOKUP_URL = `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(APP_UPDATE_APP_ID)}`;
-export const ANDROID_GITHUB_LATEST_RELEASE_API = 'https://api.github.com/repos/Blysh-Ley/TokyoRailMap/releases/latest';
+export const ANDROID_GITHUB_LATEST_RELEASE_API = RELEASE_UPDATE_SOURCES.github.apiUrl;
 
 export const ANDROID_STORE_PROVIDERS = Object.freeze({
     google_play: {

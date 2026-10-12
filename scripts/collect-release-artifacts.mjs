@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { basename, extname, join, relative } from 'node:path';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+const { load: parseYaml } = createRequire(import.meta.url)('js-yaml');
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const packageJson = JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf8'));
@@ -123,5 +125,15 @@ if (!copied.length) {
     console.log(`[release:collect] Copied ${copied.length} installer artifact(s) into ${relative(rootDir, outputDir)}:`);
     for (const item of copied) {
         console.log(`- ${item}`);
+    }
+}
+
+// Windows 更新器必须收到构建时生成的同版本校验元数据，两个 Release 源需上传同一份文件。
+const windowsMetadataPath = join(rootDir, 'dist', 'latest.yml');
+if (existsSync(windowsMetadataPath)) {
+    const metadata = parseYaml(readFileSync(windowsMetadataPath, 'utf8'));
+    if (metadata.version === version && metadata.files?.every((file) => existsSync(join(outputDir, basename(file.url))))) {
+        copyFileSync(windowsMetadataPath, join(outputDir, 'latest.yml'));
+        console.log('[release:collect] 已收集 Windows 更新元数据 latest.yml。');
     }
 }

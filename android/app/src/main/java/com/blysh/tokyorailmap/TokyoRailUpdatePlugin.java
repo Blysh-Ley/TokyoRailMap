@@ -26,6 +26,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
@@ -39,15 +41,74 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class TokyoRailUpdatePlugin extends Plugin {
     private static final String GOOGLE_PLAY_INSTALLER = "com.android.vending";
     private static final String GITHUB_RELEASE_PATH_PREFIX = "/Blysh-Ley/TokyoRailMap/releases/download/";
+    private static final String ATOMGIT_RELEASE_PATH_PREFIX = "/blysh1210/TokyoRailMap/releases/download/";
+    private static final String GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/Blysh-Ley/TokyoRailMap/releases/latest";
+    private static final String ATOMGIT_LATEST_RELEASE_API = "https://api.atomgit.com/api/v5/repos/blysh1210/TokyoRailMap/releases/latest";
     private static final String APK_DOWNLOAD_PROGRESS_EVENT = "apkDownloadProgress";
     private static final long MAX_APK_SIZE_BYTES = 512L * 1024L * 1024L;
     private static final long PROGRESS_EMIT_INTERVAL_NANOS = 250_000_000L;
+    private final ExecutorService updateNetworkExecutor = Executors.newFixedThreadPool(2);
     private final ExecutorService downloadExecutor = Executors.newSingleThreadExecutor();
     private final AtomicBoolean downloadInProgress = new AtomicBoolean(false);
     private final AtomicBoolean cancelDownloadRequested = new AtomicBoolean(false);
     private volatile HttpURLConnection activeDownloadConnection;
     private volatile File activePartialFile;
     private File pendingInstallFile;
+
+    // 原生 HTTPS 请求避免 WebView 跨域限制；JS 服务统一限定探测总等待时间为 5 秒。
+    @PluginMethod
+    public void probeGoogleHttps(PluginCall call) {
+        updateNetworkExecutor.execute(() -> {
+            HttpURLConnection connection = null;
+            boolean reachable = false;
+            try {
+                connection = (HttpURLConnection) new URL("https://www.google.com/generate_204").openConnection();
+                connection.setInstanceFollowRedirects(false);
+                connection.setConnectTimeout(5_000);
+                connection.setReadTimeout(5_000);
+                reachable = connection.getResponseCode() == 204;
+            } catch (Exception ignored) {
+                // 探测异常与超时都交给共享服务选择 AtomGit。
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+            JSObject result = new JSObject();
+            result.put("reachable", reachable);
+            call.resolve(result);
+        });
+    }
+
+    @PluginMethod
+    public void getLatestRelease(PluginCall call) {
+        String rawUrl = call.getString("url", "");
+        if (!GITHUB_LATEST_RELEASE_API.equals(rawUrl) && !ATOMGIT_LATEST_RELEASE_API.equals(rawUrl)) {
+            call.reject("更新源地址无效", "INVALID_UPDATE_SOURCE");
+            return;
+        }
+        updateNetworkExecutor.execute(() -> {
+            HttpURLConnection connection = null;
+            try {
+                connection = (HttpURLConnection) new URL(rawUrl).openConnection();
+                connection.setConnectTimeout(20_000);
+                connection.setReadTimeout(30_000);
+                connection.setRequestProperty("Accept", "application/json");
+                connection.setRequestProperty("User-Agent", "TokyoRailMap-Android-Updater");
+                int status = connection.getResponseCode();
+                if (status != HttpURLConnection.HTTP_OK) throw new IOException("版本查询失败，HTTP " + status);
+                try (BufferedInputStream input = new BufferedInputStream(connection.getInputStream());
+                     ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                    byte[] buffer = new byte[8192];
+                    int count;
+                    while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                    call.resolve(new JSObject(new String(output.toByteArray(), StandardCharsets.UTF_8)));
+                }
+            } catch (Exception error) {
+                call.reject("无法读取所选源的更新信息", "UPDATE_QUERY_FAILED", error);
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        });
+    }
 
     @PluginMethod
     public void getStoreInfo(PluginCall call) {
@@ -183,7 +244,7 @@ public class TokyoRailUpdatePlugin extends Plugin {
         String expectedSha256 = normalizeSha256(call.getString("expectedSha256", ""));
 
         if (!isAllowedInitialDownloadUrl(rawUrl)) {
-            call.reject("Only the official TokyoRailMap GitHub release APK can be installed", "INVALID_APK_URL");
+            call.reject("只能安装 TokyoRailMap 官方发布源的 APK", "INVALID_APK_URL");
             return;
         }
         if (expectedSize < 0 || expectedSize > MAX_APK_SIZE_BYTES) {
@@ -212,7 +273,7 @@ public class TokyoRailUpdatePlugin extends Plugin {
                 if (cancelled) {
                     call.reject("APK download cancelled", "APK_DOWNLOAD_CANCELLED", error);
                 } else {
-                    call.reject("Unable to download the GitHub update", "APK_DOWNLOAD_FAILED", error);
+                    call.reject("无法下载所选源的更新", "APK_DOWNLOAD_FAILED", error);
                 }
             }
         });
@@ -312,13 +373,13 @@ public class TokyoRailUpdatePlugin extends Plugin {
             emitDownloadProgress("downloading", downloadedBytes, resolvedTotalBytes, 0);
             if (downloadedBytes <= 0 || (expectedSize > 0 && downloadedBytes != expectedSize)) {
                 partialFile.delete();
-                throw new IOException("Downloaded APK size does not match the GitHub release asset");
+                throw new IOException("下载的 APK 大小与发布附件不一致");
             }
 
             emitDownloadProgress("verifying", downloadedBytes, resolvedTotalBytes, 0);
             if (!expectedSha256.isEmpty() && !expectedSha256.equals(calculateSha256(partialFile))) {
                 partialFile.delete();
-                throw new IOException("Downloaded APK SHA-256 does not match the GitHub release asset");
+                throw new IOException("下载的 APK 校验值与发布附件不一致");
             }
             throwIfDownloadCancelled();
             if (apkFile.exists() && !apkFile.delete()) {
@@ -342,7 +403,7 @@ public class TokyoRailUpdatePlugin extends Plugin {
         URL nextUrl = new URI(rawUrl).toURL();
         for (int redirectCount = 0; redirectCount <= 8; redirectCount += 1) {
             if (!isAllowedDownloadHost(nextUrl)) {
-                throw new IOException("GitHub redirected the APK to an untrusted host");
+                throw new IOException("更新源将 APK 重定向到了不受信任的主机");
             }
 
             HttpURLConnection connection = (HttpURLConnection) nextUrl.openConnection();
@@ -358,16 +419,16 @@ public class TokyoRailUpdatePlugin extends Plugin {
                 String location = connection.getHeaderField("Location");
                 connection.disconnect();
                 if (location == null || location.trim().isEmpty()) {
-                    throw new IOException("GitHub returned an empty APK redirect");
+                    throw new IOException("更新源返回了空的 APK 重定向地址");
                 }
                 nextUrl = new URL(nextUrl, location);
                 continue;
             }
 
             connection.disconnect();
-            throw new IOException("GitHub APK download returned HTTP " + statusCode);
+            throw new IOException("APK 下载返回 HTTP " + statusCode);
         }
-        throw new IOException("Too many GitHub APK download redirects");
+        throw new IOException("APK 下载重定向次数过多");
     }
 
     private void beginPackageInstallation(PluginCall call, File apkFile, boolean permissionRequested) {
@@ -425,10 +486,14 @@ public class TokyoRailUpdatePlugin extends Plugin {
     private boolean isAllowedInitialDownloadUrl(String rawUrl) {
         try {
             URL url = new URI(rawUrl).toURL();
-            return "https".equalsIgnoreCase(url.getProtocol())
-                && "github.com".equalsIgnoreCase(url.getHost())
-                && url.getPath().startsWith(GITHUB_RELEASE_PATH_PREFIX)
-                && url.getPath().toLowerCase(Locale.ROOT).endsWith(".apk");
+            if (!"https".equalsIgnoreCase(url.getProtocol())) return false;
+            String host = url.getHost().toLowerCase(Locale.ROOT);
+            String path = url.getPath();
+            boolean github = "github.com".equals(host)
+                && path.startsWith(GITHUB_RELEASE_PATH_PREFIX) && path.toLowerCase(Locale.ROOT).endsWith(".apk");
+            boolean atomgit = "atomgit.com".equals(host)
+                && path.startsWith(ATOMGIT_RELEASE_PATH_PREFIX) && path.toLowerCase(Locale.ROOT).endsWith(".apk");
+            return github || atomgit;
         } catch (Exception ignored) {
             return false;
         }
@@ -437,7 +502,8 @@ public class TokyoRailUpdatePlugin extends Plugin {
     private boolean isAllowedDownloadHost(URL url) {
         if (!"https".equalsIgnoreCase(url.getProtocol())) return false;
         String host = url.getHost().toLowerCase(Locale.ROOT);
-        return "github.com".equals(host) || host.endsWith(".githubusercontent.com");
+        return "github.com".equals(host) || host.endsWith(".githubusercontent.com")
+            || "atomgit.com".equals(host) || "api.atomgit.com".equals(host) || "file-cdn.gitcode.com".equals(host);
     }
 
     private String normalizeSha256(String value) {
@@ -490,6 +556,7 @@ public class TokyoRailUpdatePlugin extends Plugin {
         HttpURLConnection connection = activeDownloadConnection;
         if (connection != null) connection.disconnect();
         downloadExecutor.shutdownNow();
+        updateNetworkExecutor.shutdownNow();
         super.handleOnDestroy();
     }
 

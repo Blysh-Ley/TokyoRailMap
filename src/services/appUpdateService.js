@@ -1,5 +1,4 @@
 import {
-    ANDROID_GITHUB_LATEST_RELEASE_API,
     ANDROID_STORE_PROVIDERS,
     APP_UPDATE_APP_ID,
     APP_UPDATE_MANIFEST_URL,
@@ -9,7 +8,8 @@ import {
     resolveAndroidStoreProvider
 } from '../config/appUpdateSources.js';
 import { compareAppVersions } from '../domain/appVersion.js';
-import { resolveGitHubAndroidRelease } from '../domain/githubAndroidRelease.js';
+import { resolveAndroidRelease } from '../domain/githubAndroidRelease.js';
+import { selectReleaseUpdateSource, readLatestRelease } from './releaseUpdateService.mjs';
 import {
     readAutoUpdateCheckEnabled,
     writeAutoUpdateCheckEnabled
@@ -134,17 +134,24 @@ const readIosAppStoreUpdate = async ({ target, appInfo }) => {
     };
 };
 
-const readGitHubAndroidUpdate = async ({ target, appInfo }) => {
-    const release = await fetchJson(ANDROID_GITHUB_LATEST_RELEASE_API, target, {
-        headers: {
-            Accept: 'application/vnd.github+json',
-            'X-GitHub-Api-Version': '2022-11-28'
-        }
+const readAndroidReleaseUpdate = async ({ target, appInfo }) => {
+    const plugin = getCapacitorPluginProxy(target, UPDATE_PLUGIN_NAME);
+    const source = await selectReleaseUpdateSource({
+        fetchImpl: target.fetch?.bind(target),
+        probeGoogleHttps: typeof plugin?.probeGoogleHttps === 'function'
+            ? () => plugin.probeGoogleHttps() : undefined
     });
-    return resolveGitHubAndroidRelease({
-        release,
-        currentVersion: appInfo.version
-    });
+    try {
+        const release = await readLatestRelease({
+            source,
+            fetchImpl: target.fetch?.bind(target),
+            readNativeRelease: typeof plugin?.getLatestRelease === 'function'
+                ? (options) => plugin.getLatestRelease(options) : undefined
+        });
+        return { ...resolveAndroidRelease({ release, currentVersion: appInfo.version, updateSource: source }), sourceLabel: source.label };
+    } catch {
+        return { available: false, currentVersion: appInfo.version, source: `${source.id}-release`, sourceLabel: source.label, reason: 'release-query-failed' };
+    }
 };
 
 const getAndroidStoreInfo = async ({ target, appInfo }) => {
@@ -306,10 +313,10 @@ const promptForNativeStoreUpdate = async ({ target, update, automatic }) => {
     };
 };
 
-const downloadAndInstallGitHubAndroidUpdate = async ({ target, update, dialogs }) => {
+const downloadAndInstallAndroidUpdate = async ({ target, update, dialogs }) => {
     const plugin = getCapacitorPluginProxy(target, UPDATE_PLUGIN_NAME);
     if (typeof plugin?.downloadAndInstallApk !== 'function') {
-        throw new Error('当前安装包不支持应用内安装，请安装包含 GitHub 更新器的新版本。');
+        throw new Error('当前安装包不支持应用内安装，请安装包含应用内更新器的新版本。');
     }
 
     let progressDialog = null;
@@ -379,20 +386,20 @@ const downloadAndInstallGitHubAndroidUpdate = async ({ target, update, dialogs }
     }
 };
 
-const promptForGitHubAndroidUpdate = async ({ target, update, dialogs }) => {
+const promptForAndroidUpdate = async ({ target, update, dialogs }) => {
     if (!update?.available) return { started: false, skipped: true };
 
     const title = `发现新版本：${update.latestVersion}`;
     const current = update.currentVersion ? `当前版本：${update.currentVersion}` : '';
     const notes = update.releaseNotes ? `\n\n${update.releaseNotes}` : '';
-    const question = '是否从 GitHub 下载并安装更新？\n下载完成后将打开 Android 系统安装界面。';
+    const question = `是否从 ${update.sourceLabel} 下载并安装更新？\n下载完成后将打开 Android 系统安装界面。`;
     const message = [title, current, question].filter(Boolean).join('\n') + notes;
     const accepted = dialogs?.confirm
         ? await dialogs.confirm(message)
         : typeof target?.confirm === 'function' ? target.confirm(message) : true;
     if (!accepted) return { started: false, skipped: true };
 
-    return downloadAndInstallGitHubAndroidUpdate({ target, update, dialogs });
+    return downloadAndInstallAndroidUpdate({ target, update, dialogs });
 };
 
 const showNoUpdatePrompt = ({ target, automatic, message = '已是最新版本', dialogs } = {}) => {
@@ -431,10 +438,10 @@ const checkMobileUpdate = async ({ target, automatic = false, dialogs } = {}) =>
     }
 
     if (platform === 'android') {
-        const update = await readGitHubAndroidUpdate({ target, appInfo });
+        const update = await readAndroidReleaseUpdate({ target, appInfo });
         if (update.available) {
             try {
-                const nativeAction = await promptForGitHubAndroidUpdate({ target, update, dialogs });
+                const nativeAction = await promptForAndroidUpdate({ target, update, dialogs });
                 return {
                     ok: nativeAction?.started !== false
                         || nativeAction?.skipped === true
@@ -455,15 +462,15 @@ const checkMobileUpdate = async ({ target, automatic = false, dialogs } = {}) =>
                     platform,
                     update,
                     opened: false,
-                    reason: 'github-apk-install-failed'
+                    reason: 'apk-install-failed'
                 };
             }
         }
 
-        const noUpdateMessage = update.reason === 'github-android-apk-missing'
-            ? `GitHub 已发布 ${update.latestVersion}，但暂未找到 Android APK 安装包。`
+        const noUpdateMessage = update.reason?.endsWith('-android-apk-missing')
+            ? `${update.sourceLabel} 已发布 ${update.latestVersion}，但暂未找到 Android APK 安装包。`
             : update.reason
-                ? '暂时无法从 GitHub 获取更新信息，请稍后重试。'
+                ? `暂时无法从 ${update.sourceLabel} 获取更新信息，请稍后重试。`
                 : formatUpToDateMessage(appInfo.version);
         const notice = showNoUpdatePrompt({ target, automatic, message: noUpdateMessage, dialogs });
         if (dialogs?.alert) await notice;

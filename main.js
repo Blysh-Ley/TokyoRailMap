@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Menu, session, dialog: nativeDialog, shell 
 const { createElectronUpdateDialogs } = require('./src/ui/electronUpdateDialogs.cjs');
 const dialog = createElectronUpdateDialogs({ nativeDialog, BrowserWindow });
 const { autoUpdater } = require('electron-updater');
+const { ReleaseUpdateProvider } = require('./src/services/releaseUpdateProvider.cjs');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
@@ -12,20 +13,8 @@ const OSM_POLICY_USER_AGENT = `TokyoRailMap/${app.getVersion()} (+https://github
 
 autoUpdater.autoDownload = false;
 
-const MANUAL_DOWNLOAD_URL = 'https://github.com/Blysh-Ley/TokyoRailMap/releases/latest';
-const MANUAL_DOWNLOAD_URL_BAIDU = 'https://pan.baidu.com/s/1AjvtvXRBL6aQj5XvIq7_Fg?pwd=tr54';
 const CHANGELOG_FILE = 'CHANGELOG.md';
 const DEBUG_FORCE_UPDATE_PROMPT = isDev && false;
-const GITHUB_LATEST_RELEASE_API = 'https://api.github.com/repos/Blysh-Ley/TokyoRailMap/releases/latest';
-
-const MANUAL_DOWNLOAD_SOURCES = [
-    { id: 'baiduyun', label: '百度云(国内)', url: MANUAL_DOWNLOAD_URL_BAIDU },
-    { id: 'github', label: 'github源(国外)', url: MANUAL_DOWNLOAD_URL }
-];
-
-const DEBUG_EXTRA_MANUAL_DOWNLOAD_SOURCES = [
-    { id: 'mirror-demo', label: '演示镜像(调试)', url: 'https://example.com/download', debugOnly: true }
-];
 
 let isUpdatePromptVisible = false;
 let isAutoUpdateCheckEnabled = true;
@@ -63,12 +52,6 @@ const getPackagedVariantId = () => {
         return 'offline';
     }
 };
-
-const getReleaseArtifactSuffix = () => getPackagedVariantId();
-
-const getReleaseDmgName = (version) => (
-    `TokyoRailMap-${version}-mac-arm64-${getReleaseArtifactSuffix()}.dmg`
-);
 
 const stripQueryAndHash = (value) => String(value ?? '').split(/[?#]/)[0] || '';
 
@@ -309,29 +292,17 @@ const loadChangelog = async () => {
     }
 };
 
-const loadLatestReleaseInfoFromGithub = async () => {
-    try {
-        const response = await fetch(GITHUB_LATEST_RELEASE_API, {
-            headers: {
-                Accept: 'application/vnd.github+json',
-                'User-Agent': OSM_POLICY_USER_AGENT
-            }
-        });
-        if (!response.ok) return null;
-        const data = await response.json();
-        const version = String(data?.tag_name || '').replace(/^v/i, '').trim();
-        const releaseNotes = String(data?.body || '').trim();
-        if (!version && !releaseNotes) return null;
-        return {
-            version: version || '未知版本',
-            releaseNotes,
-            isDebugTest: true,
-            debugUseRealNotes: true
-        };
-    } catch (err) {
-        console.error('[debug-update] 拉取 GitHub 最新发布信息失败:', err?.message || err);
-        return null;
-    }
+const loadLatestReleaseInfo = async () => {
+    const { selectReleaseUpdateSource, readLatestRelease } = await import('./src/services/releaseUpdateService.mjs');
+    const { resolveDesktopRelease } = await import('./src/domain/desktopRelease.mjs');
+    const updateSession = process.platform === 'win32' ? autoUpdater.netSession : session.defaultSession;
+    const fetchImpl = updateSession.fetch.bind(updateSession);
+    const source = await selectReleaseUpdateSource({ fetchImpl });
+    const release = await readLatestRelease({ source, fetchImpl });
+    return { ...resolveDesktopRelease({
+        release, source, currentVersion: app.getVersion(),
+        platform: process.platform, arch: process.arch, variant: getPackagedVariantId()
+    }), assets: Array.isArray(release.assets) ? release.assets : [] };
 };
 
 const resolveUpdateNotes = async (info, currentVersion = '') => {
@@ -361,7 +332,7 @@ const showUpdatePrompt = async (info) => {
         const resolvedNotes = await resolveUpdateNotes(info, currentVersion);
         const notes = info?.isDebugTest
             ? [
-                '【测试环境】当前内容来自 GitHub latest release，用于验证线上更新说明展示。',
+                `【测试环境】当前内容来自 ${info.source.label}，用于验证线上更新说明展示。`,
                 '',
                 resolvedNotes
             ].join('\n')
@@ -375,7 +346,7 @@ const showUpdatePrompt = async (info) => {
         const detail = [
             notes,
             '',
-            '国内网络请选择手动下载'
+            `下载源：${info.source.label}`
         ].join('\n');
 
         const result = await dialog.showMessageBox({
@@ -393,8 +364,8 @@ const showUpdatePrompt = async (info) => {
             
             if (process.platform === 'darwin') {
                 // macOS: 手动接管下载，保存并打开安装包
-                const dmgName = getReleaseDmgName(actualNewVersion);
-                const downloadUrl = `https://github.com/Blysh-Ley/TokyoRailMap/releases/download/v${actualNewVersion}/${dmgName}`;
+                const dmgName = info.assetName;
+                const downloadUrl = info.downloadUrl;
                 
                 const saveDialogResult = await dialog.showSaveDialog({
                     title: '保存安装包',
@@ -461,14 +432,26 @@ const showUpdatePrompt = async (info) => {
                     updateProgressUI(100, '测试模式下 Windows autoUpdater 拦截真实下载');
                     setTimeout(() => closeProgressWindow(), 2000);
                 } else {
-                    await autoUpdater.downloadUpdate();
+                    try {
+                        // AtomGit 使用完整 GET，保留更新器的校验与安装流程。
+                        autoUpdater.disableDifferentialDownload = info.source.id === 'atomgit';
+                        autoUpdater.setFeedURL({
+                            provider: 'custom', updateProvider: ReleaseUpdateProvider, releaseInfo: info,
+                            fetchImpl: autoUpdater.netSession.fetch.bind(autoUpdater.netSession)
+                        });
+                        await autoUpdater.checkForUpdates();
+                        await autoUpdater.downloadUpdate();
+                    } catch (error) {
+                        closeProgressWindow();
+                        dialog.showErrorBox('更新失败', error.message);
+                    }
                 }
             }
             return;
         }
 
         if (result.response === 1) {
-            await showManualDownloadSourcePrompt();
+            await shell.openExternal(info.releaseUrl);
         }
     } finally {
         isUpdatePromptVisible = false;
@@ -487,66 +470,6 @@ const showUpToDatePrompt = async () => {
     });
 };
 
-const showDevSkippedUpdateCheckPrompt = async () => {
-    const latestInfo = await loadLatestReleaseInfoFromGithub();
-    if (latestInfo?.version && compareVersions(latestInfo.version, app.getVersion()) > 0) {
-        await showUpdatePrompt(latestInfo);
-        return;
-    }
-    await showUpToDatePrompt();
-};
-
-const getManualDownloadSources = () => {
-    if (!DEBUG_FORCE_UPDATE_PROMPT) return [...MANUAL_DOWNLOAD_SOURCES];
-    return [...MANUAL_DOWNLOAD_SOURCES, ...DEBUG_EXTRA_MANUAL_DOWNLOAD_SOURCES];
-};
-
-const showMissingManualDownloadUrlPrompt = async (sourceLabel) => {
-    await dialog.showMessageBox({
-        type: 'info',
-        title: '下载源未配置',
-        message: `${sourceLabel}链接尚未填写`,
-        detail: '请在 main.js 中补充对应下载链接。',
-        buttons: ['确定'],
-        defaultId: 0,
-        noLink: true
-    });
-};
-
-const showManualDownloadSourcePrompt = async () => {
-    const sources = getManualDownloadSources();
-    if (!sources.length) return;
-
-    const result = await dialog.showMessageBox({
-        type: 'question',
-        title: '手动下载',
-        message: '请选择下载源',
-        buttons: [...sources.map((x) => x.label), '取消'],
-        defaultId: 0,
-        cancelId: sources.length,
-        noLink: true
-    });
-
-    if (result.response < 0 || result.response >= sources.length) return;
-
-    const selected = sources[result.response];
-    const url = String(selected?.url || '').trim();
-    if (!url) {
-        await showMissingManualDownloadUrlPrompt(selected?.label || '该下载源');
-        return;
-    }
-
-    await shell.openExternal(url);
-};
-
-const isGithubConnectivityError = (err) => {
-    const msg = String(err?.message || err || '').toLowerCase();
-    if (!msg) return false;
-
-    const markers = ['github', 'api.github.com', 'objects.githubusercontent.com', 'enotfound', 'econnrefused', 'etimedout', 'eai_again', 'socket hang up', 'network'];
-    return markers.some((item) => msg.includes(item));
-};
-
 const runUpdateCheck = ({ force = false, showUpToDateWhenNoUpdate = false } = {}) => {
     if (!force && !isAutoUpdateCheckEnabled) return Promise.resolve({ skipped: true, reason: 'auto-update-disabled' });
     if (updateCheckInFlight) {
@@ -554,49 +477,33 @@ const runUpdateCheck = ({ force = false, showUpToDateWhenNoUpdate = false } = {}
         return updateCheckInFlight;
     }
 
-    if (DEBUG_FORCE_UPDATE_PROMPT) {
-        return loadLatestReleaseInfoFromGithub()
-            .then((debugInfo) => showUpdatePrompt(debugInfo || {
-                version: app.getVersion(),
-                isDebugTest: true
-            }))
-            .catch(err => console.error(err));
-    }
-
     pendingUpToDateDialog = showUpToDateWhenNoUpdate === true;
-    updateCheckInFlight = autoUpdater.checkForUpdates().then(async (result) => {
-        if (pendingUpToDateDialog && result == null) {
+    updateCheckInFlight = loadLatestReleaseInfo().then(async (info) => {
+        if (info.available || DEBUG_FORCE_UPDATE_PROMPT) {
             pendingUpToDateDialog = false;
-            await showDevSkippedUpdateCheckPrompt();
-        }
-        return result;
-    }).catch(async (err) => {
-        if (pendingUpToDateDialog && isGithubConnectivityError(err)) {
+            await showUpdatePrompt({ ...info, isDebugTest: isDev });
+        } else if (pendingUpToDateDialog) {
             pendingUpToDateDialog = false;
             await showUpToDatePrompt();
-            return { degraded: true, reason: 'github-unreachable' };
         }
-        console.error('[autoUpdater] 启动更新检查失败:', err?.message || err);
-        throw err;
+        return info;
+    }).catch(async (error) => {
+        console.error('[update] 更新检查失败:', error.message);
+        if (pendingUpToDateDialog) {
+            await dialog.showMessageBox({
+                type: 'error', title: '版本检查失败', message: error.message,
+                buttons: ['确定'], noLink: true
+            });
+        }
+        throw error;
     }).finally(() => {
+        pendingUpToDateDialog = false;
         updateCheckInFlight = null;
     });
-
     return updateCheckInFlight;
 };
 
 const setupAutoUpdate = (win) => {
-    autoUpdater.on('update-available', async (info) => {
-        pendingUpToDateDialog = false;
-        await showUpdatePrompt(info);
-    });
-
-    autoUpdater.on('update-not-available', async () => {
-        if (!pendingUpToDateDialog) return;
-        pendingUpToDateDialog = false;
-        await showUpToDatePrompt();
-    });
-
     autoUpdater.on('error', (err) => {
         console.error('[autoUpdater] 更新检查失败:', err?.message || err);
     });

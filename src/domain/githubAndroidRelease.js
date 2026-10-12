@@ -30,13 +30,15 @@ const readSha256 = (asset = {}) => {
     return match?.[1]?.toLowerCase() || '';
 };
 
-export const resolveGitHubAndroidRelease = ({ release, currentVersion = '' } = {}) => {
+export const resolveAndroidRelease = ({ release, currentVersion = '', updateSource } = {}) => {
+    const sourceId = updateSource?.id || 'github';
+    const source = `${sourceId}-release`;
     if (!release || typeof release !== 'object') {
         return {
             available: false,
             currentVersion: toText(currentVersion),
-            reason: 'github-release-unavailable',
-            source: 'github-release'
+            reason: `${sourceId}-release-unavailable`,
+            source
         };
     }
 
@@ -45,8 +47,8 @@ export const resolveGitHubAndroidRelease = ({ release, currentVersion = '' } = {
         return {
             available: false,
             currentVersion: toText(currentVersion),
-            reason: 'github-release-version-missing',
-            source: 'github-release'
+            reason: `${sourceId}-release-version-missing`,
+            source
         };
     }
 
@@ -55,7 +57,7 @@ export const resolveGitHubAndroidRelease = ({ release, currentVersion = '' } = {
             available: false,
             latestVersion,
             currentVersion: toText(currentVersion),
-            source: 'github-release'
+            source
         };
     }
 
@@ -70,8 +72,8 @@ export const resolveGitHubAndroidRelease = ({ release, currentVersion = '' } = {
             available: false,
             latestVersion,
             currentVersion: toText(currentVersion),
-            reason: 'github-android-apk-missing',
-            source: 'github-release'
+            reason: `${sourceId}-android-apk-missing`,
+            source
         };
     }
 
@@ -81,11 +83,14 @@ export const resolveGitHubAndroidRelease = ({ release, currentVersion = '' } = {
         latestVersion,
         currentVersion: toText(currentVersion),
         releaseNotes: toText(release.body),
-        releaseUrl: toText(release.html_url),
+        releaseUrl: toText(release.html_url) || (updateSource ? `${updateSource.releasesUrl}/tag/${encodeURIComponent(release.tag_name)}` : ''),
+        sourceLabel: updateSource?.label || 'GitHub',
         downloadUrl: toText(asset.browser_download_url),
         assetName: toText(asset.name),
         assetSize: Number.isSafeInteger(assetSize) && assetSize > 0 ? assetSize : 0,
         assetSha256: readSha256(asset),
-        source: 'github-release'
+        source
     };
 };
+
+export const resolveGitHubAndroidRelease = (options) => resolveAndroidRelease(options);
