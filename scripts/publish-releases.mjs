@@ -30,7 +30,7 @@ export const readReleaseBundle = (root = process.cwd()) => {
     const entries = readdirSync(directory);
     if (!names.every((name) => entries.includes(name))) throw new Error('版本目录缺少本次必需安装包或 latest.yml');
     const additional = entries.filter((name) => !names.includes(name));
-    const installerExtensions = new Set(['.ipa', '.msi', '.pkg', '.AppImage', '.deb', '.rpm']);
+    const installerExtensions = new Set(['.dmg', '.exe', '.msi', '.pkg', '.AppImage', '.deb', '.rpm', '.apk', '.aab', '.ipa']);
     if (additional.some((name) => !name.startsWith(`TokyoRailMap-${version}-`) || !installerExtensions.has(extname(name)))) {
         throw new Error('版本目录含误收集的旧版本或无关产物，请先核对');
     }
