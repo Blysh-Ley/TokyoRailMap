@@ -1,10 +1,11 @@
 import { createReadStream, openSync, readSync, closeSync } from 'node:fs';
 import { Transform } from 'node:stream';
+import { releaseRequest } from './release-request.mjs';
 import { RELEASE_UPDATE_SOURCES } from '../src/config/releaseUpdateSources.mjs';
 
 const baseUrl = RELEASE_UPDATE_SOURCES.atomgit.apiUrl.replace(/\/latest$/, '');
 
-export const verifyReleaseAssetDownload = async (asset, url, fetchImpl = fetch) => {
+export const verifyReleaseAssetDownload = async (asset, url, fetchImpl = releaseRequest) => {
     const response = await fetchImpl(url, {
         headers: { Range: 'bytes=0-1023' }, signal: AbortSignal.timeout(60_000)
     });
@@ -30,7 +31,7 @@ export const verifyReleaseAssetDownload = async (asset, url, fetchImpl = fetch) 
     if (!prefix.equals(local)) throw new Error(`${asset.name} 文件片段不一致`);
 };
 
-export const createAtomGitReleaseClient = ({ token, fetchImpl = fetch, log = console.log }) => {
+export const createAtomGitReleaseClient = ({ token, fetchImpl = releaseRequest, log = console.log }) => {
     const requestJson = async (suffix = '', { method = 'GET', body } = {}) => {
         const response = await fetchImpl(`${baseUrl}${suffix}`, {
             method,
@@ -50,10 +51,13 @@ export const createAtomGitReleaseClient = ({ token, fetchImpl = fetch, log = con
             if (existing.name !== title || String(existing.body || '').trim() !== notes.trim()) {
                 throw new Error(`AtomGit ${tag} 已存在，但标题或更新说明不同`);
             }
+            if (existing.release_status !== 'pre' && existing.release_status !== 'latest') {
+                return requestJson(`/${encodeURIComponent(tag)}`, { method: 'PATCH', body: { name: title, body: notes, release_status: 'pre' } });
+            }
             return existing;
         }
         return requestJson('', { method: 'POST', body: {
-            tag_name: tag, target_commitish: 'main', name: title, body: notes, prerelease: true
+            tag_name: tag, target_commitish: 'main', name: title, body: notes, release_status: 'pre'
         } });
     };
 
@@ -101,6 +105,6 @@ export const createAtomGitReleaseClient = ({ token, fetchImpl = fetch, log = con
         return release;
     };
 
-    const publishRelease = (tag) => requestJson(`/${encodeURIComponent(tag)}`, { method: 'PUT', body: { prerelease: false } });
+    const publishRelease = ({ tag, title, notes }) => requestJson(`/${encodeURIComponent(tag)}`, { method: 'PATCH', body: { name: title, body: notes, release_status: 'latest' } });
     return { prepareRelease, uploadAssets, verifyRelease, publishRelease, getRelease };
 };

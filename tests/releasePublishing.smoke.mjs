@@ -35,10 +35,10 @@ try {
         if (url.includes('api.atomgit.com')) {
             assert.equal(options.headers.Authorization, 'Bearer 测试令牌');
             if (options.method === 'POST') {
-                assert.equal(JSON.parse(options.body).prerelease, true);
+                assert.equal(JSON.parse(options.body).release_status, 'pre');
                 return { ok: true, json: async () => publicRelease };
             }
-            if (options.method === 'PUT') return { ok: true, json: async () => ({ ...publicRelease, prerelease: false }) };
+            if (options.method === 'PATCH') return { ok: true, json: async () => ({ ...publicRelease, prerelease: false }) };
             return { ok: true, json: async () => url.endsWith('/releases') ? [] : publicRelease };
         }
         assert.equal(options.headers.Authorization, undefined);
@@ -50,8 +50,9 @@ try {
     assert.equal(calls[1].options.method, 'POST');
     await client.verifyRelease(bundle);
     assert.equal(calls.filter((item) => !item.url.includes('api.atomgit.com')).length, 5);
-    await client.publishRelease(bundle.tag);
-    assert.deepEqual(JSON.parse(calls.at(-1).options.body), { prerelease: false });
+    await client.publishRelease(bundle);
+    assert.deepEqual(JSON.parse(calls.at(-1).options.body), { name: bundle.title, body: bundle.notes, release_status: 'latest' });
+    assert.equal(calls.at(-1).options.method, 'PATCH');
     const failed = createAtomGitReleaseClient({ token: '测试令牌', fetchImpl: async () => ({ ok: false, status: 401 }) });
     await assert.rejects(failed.prepareRelease(bundle), /HTTP 401/);
 } finally { rmSync(root, { recursive: true }); }

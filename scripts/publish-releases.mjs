@@ -4,6 +4,7 @@ import { join, resolve, extname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { releaseRequest } from './release-request.mjs';
 import { createAtomGitReleaseClient, verifyReleaseAssetDownload } from './atomgit-release.mjs';
 const { load: parseYaml } = createRequire(import.meta.url)('js-yaml');
 const githubRepo = 'Blysh-Ley/TokyoRailMap';
@@ -91,17 +92,17 @@ export const publishReleases = async () => {
     verifyGithubRelease(bundle);
     await atomgit.verifyRelease(bundle);
     console.log('两个平台核对通过，设为正式最新版本');
-    await atomgit.publishRelease(bundle.tag);
+    await atomgit.publishRelease(bundle);
     gh(['release', 'edit', bundle.tag, '--draft=false', '--prerelease=false', '--latest'], { stdio: 'inherit' });
     const github = verifyGithubRelease(bundle);
     const mirror = await atomgit.getRelease(bundle.tag);
-    if (github.isDraft || github.isPrerelease || mirror.prerelease) throw new Error('两个平台尚未全部完成正式发布');
+    if (github.isDraft || github.isPrerelease || mirror.release_status !== 'latest') throw new Error('两个平台尚未全部完成正式发布');
     for (const asset of bundle.assets) {
         const remoteAsset = github.assets.find((item) => item.name === asset.name);
         await verifyReleaseAssetDownload(asset, remoteAsset.url);
         console.log(`GitHub ${asset.name} 匿名下载及大小核对通过`);
     }
-    const latestMirror = await fetch('https://api.atomgit.com/api/v5/repos/blysh1210/TokyoRailMap/releases/latest').then((response) => response.json());
+    const latestMirror = await releaseRequest('https://api.atomgit.com/api/v5/repos/blysh1210/TokyoRailMap/releases/latest').then((response) => response.json());
     const latestGithub = JSON.parse(gh(['release', 'view', '--json', 'tagName']));
     if (latestMirror.tag_name !== bundle.tag || latestGithub.tagName !== bundle.tag) throw new Error('两个平台最新版本尚未同步');
     console.log(`同步发布完成：${bundle.title}`);
