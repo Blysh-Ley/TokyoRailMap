@@ -1,41 +1,532 @@
 {
-    "JR-East.ChuoSobuLocal":0,
-    "JR-East.JobanRapid":-1,
-    "JR-East.Joban":-1,
-    "Keisei.NaritaSkyAccess":-1,
-    "JR-East.KeihinTohokuNegishi":1,
-    "JR-East.Yokosuka":1,
-    "TokyoMetro.Yurakucho":-2,
-    "TokyoMetro.Fukutoshin":-1,
-    "TokyoMetro.Tozai":-1,
-    "ToyoRapid.ToyoRapid":-1,
-    "JR-East.Yamanote":2,
-    "JR-East.ShonanShinjuku":1,
-    "JR-East.SaikyoKawagoe":-1,
-    "JR-East.KeiyoFutamataBranch":1,
-    "JR-East.Tokaido":0,
-    "Toei.Mita":-1,
-    "Tobu.Kameido":1,
-    "JR-Central.Gotemba":1,
-    "JR-East.KeiyoKoyaBranch":-1,
-    "ChibaMonorail.Line1":-1,
-    "ChibaMonorail.Line2":-1,
-    "Ryutetsu.Nagareyama":-1,
-    "Tokyu.Toyoko":1,
-    "Tokyu.TokyuTamagawa":-1,
-    "MIR.TsukubaExpress":1,
-    "JR-East.SotetsuDirect":0,
-    "TokyoMetro.Hanzomon":1,
-    "Tokyu.DenEnToshi":-1,
-    "Tokyu.Kodomonokuni":1,
-    "Tobu.TobuSkytreeBranch":1,
-    "YokohamaMunicipal.Green":-1,
-    "Keisei.Matsudo":1,
-    "Keisei.Chiba":1,
-    "Keisei.Chihara":1,
-    "JR-East.YamanoteFreight":1,
-    "JR-East.TokaidoFreight":1,
-    "JR-East.SobuRapid":-1,
-    "JR-East.ChuoRapid":-1,
-    "JR-East.MusashinoKunitachiBranch":-1
+  "Tokyu.Oimachi": {
+    "transitionMeters": 400,
+    "segments": [
+      {
+        "points": [
+          [
+            139.61050876891562,
+            35.5998003211692
+          ],
+          [
+            139.60806560845037,
+            35.59751803470604
+          ]
+        ],
+        "offset": -1
+      }
+    ]
+  },
+  "JR-East.JobanRapid": {
+    "offset": -1.2,
+    "transitionMeters": 2000,
+    "segments": [
+      {
+        "points": [
+          [
+            140.05829125000002,
+            35.88863235347735
+          ],
+          [
+            140.0627766,
+            35.89562260000001
+          ]
+        ],
+        "offset": 0
+      },
+       {
+        "points": [
+          [
+            139.7833169359593,
+            35.73247308815711
+          ],
+          [
+            139.7738356335758,
+            35.69987584050568
+          ]
+        ],
+        "offset": 1
+      },
+      {
+        "points": [
+          [
+            139.7738356335758,
+            35.69987584050568
+          ],
+          [
+            139.76559670876054,
+            35.67672051438055
+          ]
+        ],
+        "offset": 2
+      },
+      {
+        "points": [
+          [
+            139.76559670876054,
+            35.67672051438055
+          ],
+          [
+            139.73892617533255,
+            35.62771462319266
+          ]
+        ],
+        "offset": 1
+      }
+    ]
+  },
+  "JR-East.JobanLocal": {
+    "transitionMeters": 2000,
+    "segments": [
+      {
+        "points": [
+          [
+            140.05822968377066,
+            35.8886582169489
+          ],
+          [
+            140.0625410184585,
+            35.895417088691694
+          ]
+        ],
+        "offset": 1
+      }
+    ]
+  },
+  "Keisei.NaritaSkyAccess": {
+    "offset": -1.2
+  },
+  "TokyoMetro.Fukutoshin": {
+    "offset": 0,
+    "transitionMeters": 2000,
+    "segments": [
+      {
+        "points": [
+          [
+            139.62865215000005,
+            35.779414750142344
+          ],
+          [
+            139.7076533,
+            35.73168015009584
+          ]
+        ],
+        "offset": -1.2
+      }
+    ]
+  },
+  "Toei.Mita": {
+    "offset": 0,
+    "transitionMeters": 400,
+    "segments": [
+      {
+        "points": [
+          [
+            139.71550976289535,
+            35.633613623207715
+          ],
+          [
+            139.73744672564402,
+            35.64633733845736
+          ]
+        ],
+        "offset": 0.8
+      },
+      {
+        "points": [
+          [
+            139.7156558466562,
+            35.63279930737454
+          ],
+          [
+            139.71549983617047,
+            35.633698210044386
+          ]
+        ],
+        "offset": -0.3
+      }
+    ]
+  },
+  "JR-East.ChuoSobuLocal": {
+    "offset": 1.2
+  },
+  "TokyoMetro.Tozai": {
+    "offset": 0,
+    "transitionMeters": 400,
+    "segments": [
+      {
+        "points": [
+          [
+            139.6643163809705,
+            35.705900213671484
+          ],
+          [
+            139.68022134999995,
+            35.70896535005221
+          ]
+        ],
+        "offset": -1.2
+      }
+    ]
+  },
+  "JR-East.KeiyoFutamataBranch": {
+    "offset": -1.2,
+    "transitionMeters": 400,
+    "segments": [
+      {
+        "points": [
+          [
+            139.9554829509646,
+            35.691433900623856
+          ],
+          [
+            139.9604761,
+            35.709088099999995
+          ]
+        ],
+        "offset": 0
+      }
+    ]
+  },
+  "JR-East.KeiyoKoyaBranch": {
+    "offset": -1.2,
+    "transitionMeters": 400,
+    "segments": [
+      {
+        "points": [
+          [
+            139.95867405,
+            35.705773901035386
+          ],
+          [
+            139.95835380000005,
+            35.6925007500565
+          ]
+        ],
+        "offset": 0
+      }
+    ]
+  },
+  "MIR.TsukubaExpress": {
+    "offset": 1
+  },
+  "JR-East.KeihinTohokuNegishi": {
+    "offset": 0,
+    "transitionMeters": 400,
+    "segments": [
+      {
+        "points": [
+          [
+            139.72917489992324,
+            35.76149349984686
+          ],
+          [
+            139.52995422898096,
+    35.35206400683278
+          ]
+        ],
+        "offset": 1.2
+      }
+    ]
+  },
+  "JR-East.Yamanote":{
+    "offset":2.4,
+    "transitionMeters": 800,
+    "segments": [
+      {
+        "points": [
+          [
+            139.75424755020373,
+            35.73928162124574
+          ],
+          [
+            139.71345868391649,
+            35.73254308244606
+          ]
+        ],
+        "offset": 1.2
+      }
+    ]
+  },
+  "JR-East.SobuRapid": {
+    "offset": 0,
+    "transitionMeters": 400,
+    "segments": [
+      {
+        "points": [
+          [
+            139.77147757261338,
+            35.68815427900219
+          ],
+          [
+            139.76651083870559,
+            35.68284954893535
+          ]
+        ],
+        "offset": -1
+      }
+    ]
+  },
+  "JR-East.Utsunomiya": {
+    "offset": 0,
+    "transitionMeters": 2000,
+    "segments": [
+      {
+        "points": [
+          [
+            139.77362849978852,
+            35.701914248339094
+          ],
+          [
+            139.76689775135554,
+            35.68124897436722
+          ]
+        ],
+        "offset": 1
+      },
+      {
+        "points": [
+          [
+            139.7508557897969,
+            35.74806380930279
+          ],
+          [
+            139.6277471604639,
+            35.923612840032646
+          ]
+        ],
+        "offset": 1
+      }
+    ]
+  },
+  "JR-East.Tokaido": {
+    "offset": 0,
+    "transitionMeters": 800,
+    "segments": [
+      {
+        "points": [
+          [
+            139.76418673620446,
+            35.67582211416378
+          ],
+          [
+            139.76703461417594,
+            35.68169148911589
+          ]
+        ],
+        "offset": -1
+      },
+      {
+        "points": [
+          [
+            139.56895675821187,
+            35.4424655734167
+          ],
+          [
+            139.61895141205446,
+            35.46398995545354
+          ]
+        ],
+        "offset": 1
+      }
+    ]
+  },
+  "JR-East.SaikyoKawagoe": {
+    "offset": 0,
+    "transitionMeters": 400,
+    "segments": [
+      {
+        "points": [
+          [
+            139.72226189274164,
+            35.75117686369134
+          ],
+          [
+            139.68081268133074,
+            35.517261454045055
+          ]
+        ],
+        "offset": 1.2
+      }
+    ]
+  },
+  "JR-East.SotetsuDirect": {
+    "offset": 0,
+    "transitionMeters": 800,
+    "segments": [
+      {
+        "points": [
+          [
+            139.6527970759911,
+            35.49604583743003
+          ],
+          [
+            139.72751424425195,
+            35.62008515242205
+          ]
+        ],
+        "offset": -1.2
+      }
+    ]
+  },
+  "TWR.Rinkai": {
+    "offset": 0,
+    "transitionMeters": 800,
+    "segments": [
+      {
+        "points": [
+          [
+            139.74056296436999,
+            35.60689785129533
+          ],
+          [
+            139.72733859244,
+            35.62093775580318
+          ]
+        ],
+        "offset": 1
+      }
+    ]
+  },
+   "JR-East.ShonanShinjuku": {
+    "offset": 0,
+    "transitionMeters": 1200,
+    "segments": [
+      {
+        "points": [
+          [
+            139.7345223419651,
+            35.75708461388169
+          ],
+          [
+            139.62356063126498,
+            35.908074490154135
+          ]
+        ],
+        "offset": 2
+      }
+      ,
+      {
+        "points": [
+          [
+            139.62813909690522,
+            35.90083573772017
+          ],
+          [
+            139.62356063126498,
+            35.908074490154135
+          ]
+        ],
+        "offset": 1
+      },
+      {
+        "points": [
+          [
+            139.6761498151331,
+            35.53836153857273
+          ],
+          [
+            139.56788404004664,
+            35.44200080723793
+          ]
+        ],
+        "offset": -1
+      },
+        {
+        "points": [
+          [
+    139.6760316281468,
+    35.53355970606631
+          ],
+          [
+            139.56593755520265,
+            35.44149652075414
+          ]
+        ],
+        "offset": -2.4
+      }
+    ]
+  },
+  "JR-East.Takasaki": {
+    "offset": 0,
+    "transitionMeters": 800,
+    "segments": [
+      {
+        "points": [
+          [
+            139.61023742161444,
+            35.936718153383495
+          ],
+          [
+            139.62433750615884,
+            35.905511164068244
+          ]
+        ],
+        "offset": 1
+      }
+    ]
+  },
+  "JR-East.MusashinoOmiyaBranch": {
+    "offset": 0,
+    "transitionMeters": 800,
+    "segments": [
+      {
+        "points": [
+          [
+            139.63958301551497,
+            35.858956825979874
+          ],
+          [
+            139.64272724221075,
+            35.875464977227935
+          ]
+        ],
+        "offset": 2
+      }
+    ]
+  },
+  "JR-East.Yokosuka":{
+    "offset":1.2,
+    "transitionMeters": 1200,
+    "segments": [
+      {
+        "points": [
+          [
+    139.67449001162794,
+    35.534742282139476
+          ],
+          [
+    139.56593755520265,
+    35.44149652075414
+          ]
+        ],
+        "offset": 3.6
+      }
+    ]
+  },
+  "JR-East.TokaidoFreight":{
+    "offset":1
+  },
+  "JR-East.YamanoteFreight":{
+    "offset":2
+  },
+    "Keikyu.Main": {
+    "offset": 0,
+    "transitionMeters": 800,
+    "segments": [
+      {
+        "points": [
+          [
+            139.68495305226946,
+            35.51511575207796
+          ],
+          [
+            139.62069532713554,
+            35.45398501432818
+          ]
+        ],
+        "offset": -2
+      }
+    ]
+  }
 }
