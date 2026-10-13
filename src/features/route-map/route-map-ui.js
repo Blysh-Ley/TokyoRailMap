@@ -225,8 +225,8 @@ const setupRouteMapUi = () => {
     const branchBtn = document.createElement('button');
     branchBtn.type = 'button';
     branchBtn.className = 'panel-capture-btn route-map-branch-btn';
-    branchBtn.setAttribute('aria-label', '分支高亮');
-    branchBtn.title = '分支高亮';
+    branchBtn.setAttribute('aria-label', '显示全部直通');
+    branchBtn.title = '显示全部直通';
     const branchIcon = document.createElement('img');
     branchIcon.className = 'panel-capture-icon route-map-branch-icon';
     branchIcon.alt = '';
@@ -471,7 +471,8 @@ const setupRouteMapUi = () => {
         branchBtn.classList.toggle('is-active', branchPreviewActive);
         branchBtn.classList.toggle('is-busy', branchPreviewBusy);
         branchBtn.disabled = branchPreviewBusy;
-        branchBtn.title = branchPreviewBusy ? '正在分析分支…' : (branchPreviewActive ? '关闭分支高亮' : '分支高亮');
+        branchBtn.title = branchPreviewBusy ? '正在分析直通…' : (branchPreviewActive ? '仅显示当前线路' : '显示全部直通');
+        branchBtn.setAttribute('aria-label', branchBtn.title);
         if (!branchPreviewBusy) diagramView?.focus();
     };
 
@@ -511,9 +512,6 @@ const setupRouteMapUi = () => {
         }
     };
 
-    // 在外部增加一个变量用于记录点击阶段（0: 初始/未激活, 1: 已点击第一次, 2: 已点击第二次）
-    let branchPreviewStep = 0;
-
     branchBtn.addEventListener('click', async (evt) => {
         stopEvent(evt);
         pinned = true;
@@ -523,23 +521,12 @@ const setupRouteMapUi = () => {
         if (!lid || branchPreviewBusy) return;
 
         const isSameActive = branchPreviewActive && branchPreviewLineId === lid;
-        
-        // 如果点击了不同的行，或者由于其他原因（如点击其他地方）导致当前线段取消了激活，重置阶段
-        if (!isSameActive) {
-            branchPreviewStep = 0;
-        }
-
-        // 第三次点击：恢复原始状态（关闭预览并重置）
-        if (branchPreviewStep === 2) {
+        if (isSameActive) {
             clearBranchPreviewBySource();
             branchPreviewLineId = '';
-            branchPreviewStep = 0; // 重置阶段
             setBranchButtonState({ active: false, busy: false });
             return;
         }
-
-        // 判断是否是第一次点击
-        const isFirstClick = (branchPreviewStep === 0);
 
         setBranchButtonState({ active: false, busy: true });
         try {
@@ -547,24 +534,19 @@ const setupRouteMapUi = () => {
                 lineId: lid,
                 lineName: activeLineName,
                 fitMode: 'commit',
-                filterSpecial: isFirstClick, // 第一次 true，第二次 false
+                filterSpecial: false,
             });
             const ok = result?.ok === true;
             
             if (ok) {
                 branchPreviewLineId = lid;
-                // 成功后步数递增：第一次点击后变为 1，第二次点击后变为 2
-                branchPreviewStep = isFirstClick ? 1 : 2; 
                 setBranchButtonState({ active: true, busy: false });
             } else {
-                // 请求失败时重置状态
                 branchPreviewLineId = '';
-                branchPreviewStep = 0;
                 setBranchButtonState({ active: false, busy: false });
             }
         } catch {
             branchPreviewLineId = '';
-            branchPreviewStep = 0;
             setBranchButtonState({ active: false, busy: false });
         }
     }, { passive: false });
