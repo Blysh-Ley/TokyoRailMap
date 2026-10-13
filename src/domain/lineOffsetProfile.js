@@ -1,4 +1,4 @@
-// 矩形只选择原始坐标上的连续区间；偏移仍以屏幕像素单位表达。
+// 两个端点投影到线路后选择连续路径；偏移仍以屏幕像素单位表达。
 export const projectOffsetCoordinate = ([lng, lat]) => {
     const radians = lat * Math.PI / 180;
     return { x: (lng + 180) / 360, y: (1 - Math.log(Math.tan(Math.PI / 4 + radians / 2)) / Math.PI) / 2 };
@@ -34,17 +34,18 @@ export const readLineOffsetProfile = (properties = {}) => {
 };
 
 export const normalizeLineOffsetConfig = (value) => {
-    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-    if (!value || !Array.isArray(value.segments)) return null;
+    if (!value || (!Array.isArray(value.segments) && value.offset === undefined)) return null;
+    const offset = value.offset ?? 0;
+    if (!Number.isFinite(offset)) throw new Error('线路全局偏移需要数值 offset');
     const transitionMeters = Number(value.transitionMeters ?? 400);
     if (!Number.isFinite(transitionMeters) || transitionMeters <= 0) throw new Error('transitionMeters 必须是大于 0 的沿线距离（米）');
-    const segments = value.segments.map(({ bounds, offset }) => {
-        if (!Array.isArray(bounds) || bounds.length !== 2 || bounds.some(point => !Array.isArray(point) || point.length !== 2 || point.some(n => !Number.isFinite(n))) || !Number.isFinite(offset)) {
-            throw new Error('线路偏移区间需要 bounds: [[经度, 纬度], [经度, 纬度]] 和数值 offset');
+    const segments = (value.segments ?? []).map(({ points, offset }) => {
+        if (!Array.isArray(points) || points.length !== 2 || points.some(point => !Array.isArray(point) || point.length !== 2 || point.some(n => !Number.isFinite(n))) || !Number.isFinite(offset)) {
+            throw new Error('线路偏移区间需要 points: [[经度, 纬度], [经度, 纬度]] 和数值 offset');
         }
-        return { west: Math.min(bounds[0][0], bounds[1][0]), east: Math.max(bounds[0][0], bounds[1][0]), south: Math.min(bounds[0][1], bounds[1][1]), north: Math.max(bounds[0][1], bounds[1][1]), offset };
+        return { points, offset };
     });
-    return { transitionMeters, segments };
+    return { offset, transitionMeters, segments };
 };
 
 const distanceMeters = (a, b) => {
@@ -66,25 +67,32 @@ const interpolateDistance = (distances, values, distance) => {
 };
 
 export const buildLineOffsetProfile = (coordinates, config) => {
-    if (!config || typeof config === 'number' || coordinates.length < 2) return null;
+    if (!config || coordinates.length < 2) return null;
     const metrics = buildLineOffsetMetrics(coordinates);
-    if (!metrics.total) return [[0, 0], [1, 0]];
+    const baseOffset = config.offset ?? 0;
+    if (!metrics.total) return [[0, baseOffset], [1, baseOffset]];
     const meters = [0];
     for (let i = 1; i < coordinates.length; i += 1) meters.push(meters[i - 1] + distanceMeters(coordinates[i - 1], coordinates[i]));
     const totalMeters = meters.at(-1);
-    const units = coordinates.map(([lng, lat]) => {
-        let target = 0;
-        for (const segment of config.segments) {
-            if (lng >= segment.west && lng <= segment.east && lat >= segment.south && lat <= segment.north) target = segment.offset;
-        }
-        return target;
+    const intervals = config.segments.map(({ points, offset }) => {
+        const positions = points.map(point => {
+            const { segmentIndex, t } = nearestLineOffsetPosition(metrics, point);
+            return meters[segmentIndex] + (meters[segmentIndex + 1] - meters[segmentIndex]) * t;
+        });
+        return { start: Math.min(...positions), end: Math.max(...positions), units: offset };
     });
-    const runs = [{ start: 0, end: totalMeters, units: units[0] }];
-    for (let i = 1; i < units.length; i += 1) {
-        if (units[i] === units[i - 1]) continue;
-        const boundary = (meters[i - 1] + meters[i]) / 2;
-        runs.at(-1).end = boundary;
-        runs.push({ start: boundary, end: totalMeters, units: units[i] });
+    const boundaries = [...new Set([0, totalMeters, ...intervals.flatMap(({ start, end }) => [start, end])])].sort((a, b) => a - b);
+    const runs = [];
+    for (let i = 1; i < boundaries.length; i += 1) {
+        const start = boundaries[i - 1];
+        const end = boundaries[i];
+        const middle = (start + end) / 2;
+        let units = baseOffset;
+        for (const interval of intervals) {
+            if (middle >= interval.start && middle <= interval.end) units = interval.units;
+        }
+        if (runs.at(-1)?.units === units) runs.at(-1).end = end;
+        else runs.push({ start, end, units });
     }
     const stops = [[0, runs[0].units]];
     const append = (distance, value) => {
@@ -95,7 +103,7 @@ export const buildLineOffsetProfile = (coordinates, config) => {
     for (let i = 1; i < runs.length; i += 1) {
         const previous = runs[i - 1];
         const current = runs[i];
-        // 每侧最多占相邻区间的一半，短空白仍能达到 0，过渡不会互相覆盖。
+        // 每侧最多占相邻区间的一半，短空白仍能达到基础偏移，过渡不会互相覆盖。
         const half = Math.min(config.transitionMeters / 2, (previous.end - previous.start) / 2, (current.end - current.start) / 2);
         append(current.start - half, previous.units);
         append(current.start + half, current.units);
@@ -104,8 +112,7 @@ export const buildLineOffsetProfile = (coordinates, config) => {
     return stops;
 };
 
-export const nearestLineOffsetProgress = (coordinates, coordinate) => {
-    const { points, distances, total } = buildLineOffsetMetrics(coordinates);
+const nearestLineOffsetPosition = ({ points, distances, total }, coordinate) => {
     const target = projectOffsetCoordinate(coordinate);
     let best = null;
     for (let i = 1; i < points.length; i += 1) {
@@ -120,6 +127,10 @@ export const nearestLineOffsetProgress = (coordinates, coordinate) => {
     }
     return best;
 };
+
+export const nearestLineOffsetProgress = (coordinates, coordinate) => (
+    nearestLineOffsetPosition(buildLineOffsetMetrics(coordinates), coordinate)
+);
 
 export const lineOffsetUnitsAtCoordinate = (feature, coordinate) => {
     const profile = readLineOffsetProfile(feature?.properties);

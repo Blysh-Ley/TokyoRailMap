@@ -29,17 +29,17 @@ element('theme').addEventListener('click', () => {
 if (innerWidth <= 600) engine.reset();
 globalThis.offsetDemo = {engine, errors};
 
-const rectangleExample = {transitionMeters: 400, segments: [
-    {bounds: [[139.71, 35.67], [139.73, 35.68]], offset: 1},
-    {bounds: [[139.77, 35.67], [139.79, 35.68]], offset: -1}
+const segmentExample = {offset: 0, transitionMeters: 400, segments: [
+    {points: [[139.71, 35.675], [139.73, 35.675]], offset: 1},
+    {points: [[139.77, 35.675], [139.79, 35.675]], offset: -1}
 ]};
-element('config').value = JSON.stringify(rectangleExample, null, 2);
+element('config').value = JSON.stringify(segmentExample, null, 2);
 const applyConfig = () => {
     try { engine.setConfig(JSON.parse(element('config').value)); element('error').textContent = ''; }
     catch (error) { element('error').textContent = error.message; }
 };
 element('mode').addEventListener('change', event => {
-    const enabled = event.target.value === 'bounds';
+    const enabled = event.target.value === 'segment';
     element('config-editor').hidden = !enabled;
     if (enabled) applyConfig(); else engine.setConfig(null);
 });

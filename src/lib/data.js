@@ -1093,7 +1093,6 @@ export async function loadRailGeoDataFromDataFolder() {
                 const id = normalizeText(c?.id);
                 if (!id) continue;
                 const offsetConfig = lineOffsetByRailwayId.get(id);
-                const lineOffsetUnits = typeof offsetConfig === 'number' ? offsetConfig : 0;
 
                 const meta = railwayById.get(id);
                 const name = pickI18nTitle(meta?.title) || id;
@@ -1156,7 +1155,7 @@ export async function loadRailGeoDataFromDataFolder() {
                         name,
                         color,
                         company,
-                        line_offset_units: lineOffsetUnits,
+                        line_offset_units: 0,
                         ...offsetPropertiesFor(coordinatesVisible),
                         type: 'line',
                         hidden_by_opacity_zero: 0,
@@ -1176,7 +1175,7 @@ export async function loadRailGeoDataFromDataFolder() {
                         name,
                         color,
                         company,
-                        line_offset_units: lineOffsetUnits,
+                        line_offset_units: 0,
                         ...offsetPropertiesFor(coordinatesAll),
                         type: 'line',
                         hidden_by_opacity_zero: 1,
@@ -1217,7 +1216,7 @@ export async function loadRailGeoDataFromDataFolder() {
                             name,
                             color,
                             company,
-                            line_offset_units: lineOffsetUnits,
+                            line_offset_units: 0,
                             ...offsetPropertiesFor(coordinatesOpacityZero),
                             type: 'line',
                             hidden_by_opacity_zero: 1,

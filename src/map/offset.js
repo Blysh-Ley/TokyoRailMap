@@ -504,27 +504,24 @@ export const buildStationOffsetAlgorithmContext = ({ stationFeatures, lineOffset
         }
 
         const config = lineOffsetByRailwayId.get(railwayId);
-        let units = typeof config === 'number' ? config : 0;
-        if (config && typeof config === 'object') {
-            const reference = lineReferenceCoordinatesByRailwayId?.get(railwayId) || best.chain;
-            if (!profilesByChain.has(reference)) profilesByChain.set(reference, buildLineOffsetProfile(reference, config));
-            const profile = profilesByChain.get(reference);
-            const hit = nearestLineOffsetProgress(reference, stationLngLat);
-            units = profile && hit ? evaluateLineOffsetProfile(profile, hit.progress) : 0;
-            if (hit) {
-                const from = projectLngLatToPixelAtZoom12(reference[hit.segmentIndex]);
-                const to = projectLngLatToPixelAtZoom12(reference[hit.segmentIndex + 1]);
-                const localFrom = best.chainPx[best.hit.segmentIndex];
-                const localTo = best.chainPx[best.hit.segmentIndex + 1];
-                // 子链反向时法向也反向，站点沿用线路切片后的偏移方向。
-                const directionDot = (to.x - from.x) * (localTo.x - localFrom.x) + (to.y - from.y) * (localTo.y - localFrom.y);
-                if (directionDot < 0) units = -units;
-            }
+        const reference = lineReferenceCoordinatesByRailwayId?.get(railwayId) || best.chain;
+        if (!profilesByChain.has(reference)) profilesByChain.set(reference, buildLineOffsetProfile(reference, config));
+        const profile = profilesByChain.get(reference);
+        const hit = nearestLineOffsetProgress(reference, stationLngLat);
+        let units = profile && hit ? evaluateLineOffsetProfile(profile, hit.progress) : 0;
+        if (hit) {
+            const from = projectLngLatToPixelAtZoom12(reference[hit.segmentIndex]);
+            const to = projectLngLatToPixelAtZoom12(reference[hit.segmentIndex + 1]);
+            const localFrom = best.chainPx[best.hit.segmentIndex];
+            const localTo = best.chainPx[best.hit.segmentIndex + 1];
+            // 子链反向时法向也反向，站点沿用线路切片后的偏移方向。
+            const directionDot = (to.x - from.x) * (localTo.x - localFrom.x) + (to.y - from.y) * (localTo.y - localFrom.y);
+            if (directionDot < 0) units = -units;
         }
         stationLocalChainsById[stationId] = {
             railwayId,
             units,
-            ...(typeof config === 'object' ? { usesLineOffsetProfile: true } : {}),
+            usesLineOffsetProfile: true,
             stationLngLat,
             stationPixelAtZoom12: stationPx,
             localLineCoords: local.localChain,

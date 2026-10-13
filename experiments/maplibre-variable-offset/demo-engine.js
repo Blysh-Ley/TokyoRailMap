@@ -31,7 +31,7 @@ export const createDemoEngine = ({container, onState, onError}) => {
     const collection = () => {
         const coords = coordinates();
         const profile = state.config === null ? (state.geometry === 'loop' ? PROFILES.loop : PROFILES.open)
-            : (typeof state.config === 'number' ? [[0, state.config], [1, state.config]] : buildLineOffsetProfile(coords, state.config));
+            : buildLineOffsetProfile(coords, state.config);
         return {type: 'FeatureCollection', features: [{type: 'Feature', id: 1,
             properties: {line_offset_profile: JSON.stringify(profile)}, geometry: {type: 'LineString', coordinates: coords}}]};
     };
