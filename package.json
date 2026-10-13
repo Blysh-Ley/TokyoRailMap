@@ -15,7 +15,7 @@
     "icons:generate": "node scripts/generate-icons.mjs",
     "web:vendor": "node scripts/sync-web-vendor.mjs",
     "basemap:package:verify": "node scripts/verify-basemap-package-assets.mjs",
-    "prebuild": "npm run basemap:package:verify",
+    "prebuild": "npm run web:vendor && npm run basemap:package:verify",
     "prebuildall": "npm run basemap:package:verify",
     "web:static": "npm run icons:generate && npm run web:vendor && npm run basemap:package:verify && node scripts/sync-capacitor-web.mjs --out dist/static-site",
     "cap:web": "npm run icons:generate && npm run web:vendor && npm run basemap:package:verify && node scripts/sync-capacitor-web.mjs",
@@ -143,7 +143,8 @@
     "live-server": "^1.2.2",
     "maplibre-gl": "3.6.2",
     "pinyin-pro": "^3.28.1",
-    "pmtiles": "^4.4.1"
+    "pmtiles": "^4.4.1",
+    "esbuild": "0.25.12"
   },
   "dependencies": {
     "@capacitor-community/media": "^9.1.0",

@@ -198,7 +198,8 @@ const enhancePopupLineBadges = async ({ popup, mode }) => {
 export function addLinesLayer(mapOrEngine, linesData) {
     const mapAdapter = resolveMapAdapter(mapOrEngine);
     if (!mapAdapter.getSource('lines-source')) {
-        mapAdapter.addSource('lines-source', { type: 'geojson', data: linesData });
+        const hasVariableOffset = linesData?.features?.some((feature) => feature.properties?.line_offset_profile !== undefined);
+        mapAdapter.addSource('lines-source', { type: 'geojson', data: linesData, ...(hasVariableOffset ? { lineMetrics: true } : {}) });
     }
     const baseColorExpr = buildBaseLineColorExpr({ isDarkThemeActive: isDarkThemeActive() });
     const paint = buildFocusedLinePaint({ baseColorExpr });

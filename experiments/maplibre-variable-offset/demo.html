@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <title>MapLibre 分段偏移实验</title>
+    <link rel="stylesheet" href="../../vendor/maplibre-gl/maplibre-gl.css">
+    <style>
+        :root{color-scheme:light;--bg:#f2f5f8;--panel:#fff;--text:#18283c;--muted:#627289;--border:#d9e1eb}
+        html[data-theme="dark"]{color-scheme:dark;--bg:#152033;--panel:#202d42;--text:#edf3fc;--muted:#acb9cc;--border:#3b4a61}
+        *{box-sizing:border-box}body{margin:0;font:14px system-ui;color:var(--text);background:var(--bg)}#map{position:absolute;inset:0}
+        .panel{position:absolute;z-index:1;top:18px;left:18px;width:285px;padding:18px;background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:0 6px 24px #18283c15}
+        h1{font-size:18px;margin:0 0 14px}label{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:11px 0}select,button{font:inherit;border:1px solid var(--border);border-radius:7px;padding:6px 9px;background:var(--panel);color:var(--text)}textarea{width:100%;margin:8px 0;font:12px ui-monospace,monospace;background:var(--panel);color:var(--text);border:1px solid var(--border);resize:vertical}summary{cursor:pointer}input[type="range"]{width:150px}button{cursor:pointer}.buttons{display:flex;gap:6px;flex-wrap:wrap}.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--muted)}.legend span::before{content:"";display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:4px;background:var(--color)}#status{margin:12px 0 0;color:var(--muted);font-size:12px;line-height:1.5}#error{color:#cb3449;white-space:pre-wrap;margin:8px 0 0}#error:empty{display:none}
+        @media(max-width:600px){.panel{top:auto;bottom:12px;left:12px;width:calc(100% - 24px);padding:14px}h1{margin-bottom:8px}label{margin:7px 0}.legend{margin-top:9px}#status{margin-top:7px}}
+    </style>
+</head>
+<body>
+    <div id="map" aria-label="分段偏移实验地图"></div>
+    <main class="panel">
+        <h1>线路分段像素偏移</h1>
+        <label>配置方式<select id="mode"><option value="profile">沿线曲线示例</option><option value="bounds">矩形区间</option></select></label>
+        <details id="config-editor" hidden><summary>编辑区间配置</summary><textarea id="config" rows="9" aria-label="线路区间 JSON 配置"></textarea><button id="apply-config">应用配置</button></details>
+        <label>线路形状<select id="geometry"><option value="straight">直线</option><option value="curve">弯道</option><option value="loop">环线</option></select></label>
+        <label>线路样式<select id="style"><option value="solid">实线</option><option value="gradient">颜色渐变</option><option value="dash">虚线</option><option value="pattern">纹理</option></select></label>
+        <label>偏移 <output id="amplitude-value">12 px</output><input id="amplitude" type="range" min="0" max="32" step="1" value="12" aria-label="偏移像素数"></label>
+        <label><span>固定偏移对照</span><input id="comparison" type="checkbox" checked></label>
+        <div class="buttons"><button id="zoom-in">放大</button><button id="zoom-out">缩小</button><button id="reverse">反向</button><button id="theme">深色</button><button id="reset">复位</button></div>
+        <div class="legend"><span style="--color:#8b99ab">原始路径</span><span style="--color:#1772cd">分段偏移</span><span style="--color:#d15783">固定偏移</span></div>
+        <p id="status" role="status">正在加载地图</p><p id="error" role="alert"></p>
+    </main>
+    <script src="dist/maplibre-gl.js"></script>
+    <script type="module" src="demo.js"></script>
+</body>
+</html>

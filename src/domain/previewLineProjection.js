@@ -1,3 +1,6 @@
+import { readLineOffsetProfile } from './lineOffsetProfile.js';
+import { buildVariableOffsetPolylinePixels } from './lineOffsetGeometry.js';
+
 export const projectStationToPreviewLineFeature = ({
     baseCoord,
     buildOffsetPolylinePixelsWithMiter,
@@ -30,9 +33,12 @@ export const projectStationToPreviewLineFeature = ({
         : 0;
     const scaleToZoom12 = Math.pow(2, 12 - (Number.isFinite(resolvedZoom) ? resolvedZoom : 12));
     const offsetPxAtZoom12 = offsetPxAtZoom * scaleToZoom12;
-    const targetPixels = offsetPxAtZoom12 && typeof buildOffsetPolylinePixelsWithMiter === 'function'
-        ? buildOffsetPolylinePixelsWithMiter(sourcePixels, offsetPxAtZoom12)
-        : sourcePixels;
+    const profile = readLineOffsetProfile(feature?.properties);
+    const targetPixels = profile && typeof buildOffsetPolylinePixelsWithMiter === 'function'
+        ? buildVariableOffsetPolylinePixels(coords, profile, getLineOffsetPixelsPerUnitAtZoom(resolvedZoom) * scaleToZoom12, projectLngLatToPixelAtZoom12, buildOffsetPolylinePixelsWithMiter)
+        : (offsetPxAtZoom12 && typeof buildOffsetPolylinePixelsWithMiter === 'function'
+            ? buildOffsetPolylinePixelsWithMiter(sourcePixels, offsetPxAtZoom12)
+            : sourcePixels);
     if (!Array.isArray(targetPixels) || targetPixels.length < 2) return null;
 
     const hit = nearestProjectionOnPolylinePixels(targetPixels, basePx);

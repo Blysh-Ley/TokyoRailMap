@@ -1,0 +1,65 @@
+import assert from 'node:assert/strict';
+import Point from '@mapbox/point-geometry';
+import {readLineOffsetProfile, lineOffsetFactor, sampleLineOffsetGeometry, lineVertexProgress, offsetProfileGeometry} from '__NATIVE__/src/data/line_offset_profile';
+import {LineBucket} from '__NATIVE__/src/data/bucket/line_bucket';
+import {LineStyleLayer} from '__NATIVE__/src/style/style_layer/line_style_layer';
+import {serialize, deserialize} from '__NATIVE__/src/util/web_worker_transfer';
+
+const profile = readLineOffsetProfile({line_offset_profile: JSON.stringify([[0, 1], [.25, 1], [.75, -1], [1, -1]])});
+assert.equal(lineOffsetFactor(profile, .1), 1);
+assert.equal(lineOffsetFactor(profile, .5), 0);
+assert.equal(lineOffsetFactor(profile, .9), -1);
+assert.ok(Math.abs(lineOffsetFactor(profile, .25 + .00001) - 1) < 1e-8, '过渡起点的斜率应趋于零');
+assert.equal(readLineOffsetProfile({}), null);
+assert.equal(lineOffsetFactor(readLineOffsetProfile({line_offset_profile: profile, line_offset_units: 2}), .1), 3, '碰撞分道叠加到原曲线上');
+assert.throws(() => readLineOffsetProfile({line_offset_profile: '[[0,1],[0,-1]]'}));
+
+const full = [new Point(0, 0), new Point(1000, 0)];
+const sampled = sampleLineOffsetGeometry(full, profile, {start: 0, end: 1});
+assert.ok(sampled.length > 30, '两点直线也必须生成真实的曲线采样');
+assert.equal(sampled[0].x, 0);
+assert.equal(sampled.at(-1).x, 1000);
+const left = sampleLineOffsetGeometry([new Point(0, 0), new Point(500, 0)], profile, {start: 0, end: .5});
+const right = sampleLineOffsetGeometry([new Point(500, 0), new Point(1000, 0)], profile, {start: .5, end: 1});
+assert.equal(lineOffsetFactor(profile, lineVertexProgress(left, {start: 0, end: .5}).at(-1)), 0);
+assert.equal(lineOffsetFactor(profile, lineVertexProgress(right, {start: .5, end: 1})[0]), 0);
+const shifted = offsetProfileGeometry([full], profile, {start: 0, end: 1}, 12)[0];
+assert.equal(shifted[0].y, 12);
+assert.equal(shifted.at(-1).y, -12);
+assert.ok(shifted.some(point => point.x === 500 && point.y === 0));
+
+const folded = [new Point(0, 0), new Point(100, 0), new Point(0, 0)];
+const zeroFolded = offsetProfileGeometry([folded], [[0, 0], [1, 0]], {start: 0, end: 1}, 12)[0];
+assert.ok(zeroFolded.every((point, index) => point.equals(folded[index])), '零偏移在折返顶点也必须保留原查询几何');
+
+const layer = new LineStyleLayer({id: 'test', type: 'line', source: 'test', paint: {'line-offset': 12, 'line-width': 5}});
+layer.recalculate({zoom: 12, zoomHistory: {}}, []);
+const options = {layers: [layer], zoom: 12, overscaling: 1, index: 0};
+const native = new LineBucket(options);
+native.hasVariableOffset = true;
+const feature = {type: 2, id: 1, properties: {line_offset_profile: profile, mapbox_clip_start: 0, mapbox_clip_end: 1}};
+native.addFeature(feature, [full], 0, undefined, {});
+assert.equal(native.offsetFactors.length, native.layoutVertexArray.length, '每个渲染顶点都要具有对应的偏移属性');
+assert.equal(native.offsetFactors.float32[0], 1);
+assert.equal(native.offsetFactors.float32[native.offsetFactors.length - 1], -1);
+// Node 环境补齐浏览器内建类型，仅用于运行原生 Worker 序列化测试。
+globalThis.ImageData = class ImageData {};
+const lastByte = (native.layoutVertexArray.length - 1) * 8;
+const encodedDistance = ((native.layoutVertexArray.uint8[lastByte + 6] >> 2) + native.layoutVertexArray.uint8[lastByte + 7] * 64) * 2;
+assert.equal(encodedDistance, 1000, '虚线及纹理使用真实沿线距离，不能把归一化进度当作长度');
+const transfer = [];
+const revived = deserialize(serialize(native.offsetFactors, transfer));
+assert.equal(revived.float32[0], 1);
+assert.equal(revived.length, native.offsetFactors.length, 'Worker 传输后应保留倍率缓冲');
+const ordinary = new LineBucket(options);
+ordinary.addFeature({type: 2, properties: {}}, [full], 0, undefined, {});
+assert.equal(ordinary.offsetFactors.length, 0, '普通线路不增加偏移缓冲');
+assert.equal(ordinary.layoutVertexArray.length, 4);
+assert.equal(native.hasVariableOffset, true);
+const mixed = new LineBucket(options);
+mixed.hasVariableOffset = true;
+mixed.addFeature(feature, [full], 0, undefined, {});
+mixed.addFeature({type: 2, properties: {}}, [full], 1, undefined, {});
+assert.equal(mixed.offsetFactors.length, mixed.layoutVertexArray.length);
+assert.equal(mixed.offsetFactors.float32[mixed.offsetFactors.length - 1], 1, '同一 bucket 的普通线路倍率保持为一');
+console.log('原生测试通过：缓动、过渡采样、跨瓦片进度、查询几何、顶点对应、Worker 传输及普通线路兼容。');

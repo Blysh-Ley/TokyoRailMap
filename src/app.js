@@ -16,6 +16,7 @@ import {
     setImageElementFromCache,
     shouldHideCompanyLogos
 } from './lib/fetch.js';
+import { sliceLineOffsetProfile } from './domain/lineOffsetGeometry.js';
 import { loadRailGeoDataFromDataFolder } from './lib/data.js';
 import {
     buildOffsetPolylinePixelsWithMiter,
@@ -2294,7 +2295,12 @@ const initMapApp = async () => {
                 type: 'MultiLineString',
                 coordinates: group.chains
             }
-        }))));
+        })), {
+            offsetSourceFeatures: sourceFeatures.map((feature) => ({
+                ...feature,
+                properties: { ...feature.properties, id: getLineNameLabelSourceLineId(feature) }
+            }))
+        }));
     };
 
     const getProjectedLineNameLabelBBox = (feature) => {
@@ -3816,6 +3822,7 @@ const initMapApp = async () => {
             linesGeoJSONByZoom,
             lineNameLabelsGeoJSON,
             lineRoutingCoordsById,
+            lineOffsetProfilesById,
             stationsGeoJSON,
             stationGroups,
             rawRailways,
@@ -4457,6 +4464,11 @@ const initMapApp = async () => {
                 isLoopDirection,
                 extractLineSegment,
                 nearestBridgeBetweenLines,
+                getLineOffsetProfile: (lineId, coordinates) => {
+                    const profile = lineOffsetProfilesById[lineId];
+                    const source = lineRoutingCoordsById[lineId];
+                    return profile && source ? sliceLineOffsetProfile(source, profile, coordinates) : null;
+                },
                 getLineOffsetUnits: (lineId) => {
                     const id = String(lineId || '').trim();
                     if (!id || !lineOffsetUnitsById.has(id)) return 0;

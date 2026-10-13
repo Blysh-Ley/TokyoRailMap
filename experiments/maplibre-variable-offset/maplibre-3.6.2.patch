@@ -1,0 +1,336 @@
+--- a/src/data/bucket/line_bucket.ts
++++ b/src/data/bucket/line_bucket.ts
+@@ -1,4 +1,6 @@
+ import {LineLayoutArray, LineExtLayoutArray} from '../array_types.g';
++import {VariableLineOffsetArray, variableLineOffsetAttributes} from '../line_offset_array';
++import {readLineOffsetProfile, lineOffsetFactor, sampleLineOffsetGeometry, type LineOffsetProfile} from '../line_offset_profile';
+ 
+ import {members as layoutAttributes} from './line_attributes';
+ import {members as layoutAttributesExt} from './line_attributes_ext';
+@@ -86,6 +88,12 @@
+  * Line bucket class
+  */
+ export class LineBucket implements Bucket {
++    offsetFactors = new VariableLineOffsetArray();
++    offsetFactorBuffer: VertexBuffer;
++    hasVariableOffset = false;
++    maxOffsetFactor = 1;
++    offsetProfile: LineOffsetProfile | null = null;
++    offsetDrawDistance = 0;
+     distance: number;
+     totalDistance: number;
+     maxLineLength: number;
+@@ -173,6 +181,12 @@
+             bucketFeatures.push(bucketFeature);
+         }
+ 
++        this.hasVariableOffset = bucketFeatures.some(feature => readLineOffsetProfile(feature.properties) !== null);
++        for (const feature of bucketFeatures) {
++            const profile = readLineOffsetProfile(feature.properties);
++            if (profile) for (const stop of profile) this.maxOffsetFactor = Math.max(this.maxOffsetFactor, Math.abs(stop[1]));
++        }
++
+         if (sortFeaturesByKey) {
+             bucketFeatures.sort((a, b) => {
+                 return (a.sortKey) - (b.sortKey);
+@@ -217,6 +231,7 @@
+ 
+     upload(context: Context) {
+         if (!this.uploaded) {
++            if (this.hasVariableOffset) this.offsetFactorBuffer = context.createVertexBuffer(this.offsetFactors, variableLineOffsetAttributes);
+             if (this.layoutVertexArray2.length !== 0) {
+                 this.layoutVertexBuffer2 = context.createVertexBuffer(this.layoutVertexArray2, layoutAttributesExt);
+             }
+@@ -230,6 +245,7 @@
+     destroy() {
+         if (!this.layoutVertexBuffer) return;
+         this.layoutVertexBuffer.destroy();
++        this.offsetFactorBuffer?.destroy();
+         this.indexBuffer.destroy();
+         this.programConfigurations.destroy();
+         this.segments.destroy();
+@@ -250,6 +266,7 @@
+         const miterLimit = layout.get('line-miter-limit');
+         const roundLimit = layout.get('line-round-limit');
+         this.lineClips = this.lineFeatureClips(feature);
++        this.offsetProfile = readLineOffsetProfile(feature.properties);
+ 
+         for (const line of geometry) {
+             this.addLine(line, feature, join, cap, miterLimit, roundLimit);
+@@ -259,12 +276,14 @@
+     }
+ 
+     addLine(vertices: Array<Point>, feature: BucketFeature, join: string, cap: string, miterLimit: number, roundLimit: number) {
++        if (this.offsetProfile) vertices = sampleLineOffsetGeometry(vertices, this.offsetProfile, this.lineClips || {start: 0, end: 1});
+         this.distance = 0;
++        this.offsetDrawDistance = 0;
+         this.scaledDistance = 0;
+         this.totalDistance = 0;
+ 
+-        if (this.lineClips) {
+-            this.lineClipsArray.push(this.lineClips);
++        if (this.lineClips || this.offsetProfile) {
++            if (this.lineClips) this.lineClipsArray.push(this.lineClips);
+             // Calculate the total distance, in tile units, of this tiled line feature
+             for (let i = 0; i < vertices.length - 1; i++) {
+                 this.totalDistance += vertices[i].dist(vertices[i + 1]);
+@@ -525,15 +544,23 @@
+         // When we get close to the distance, reset it to zero and add the vertex again with
+         // a distance of zero. The max distance is determined by the number of bits we allocate
+         // to `linesofar`.
+-        if (this.distance > MAX_LINE_DISTANCE / 2 && this.totalDistance === 0) {
+-            this.distance = 0;
++        const drawDistance = this.offsetProfile ? this.offsetDrawDistance : this.distance;
++        if (drawDistance > MAX_LINE_DISTANCE / 2 && (this.offsetProfile || this.totalDistance === 0)) {
++            if (this.offsetProfile) this.offsetDrawDistance = 0;
++            else this.distance = 0;
+             this.updateScaledDistance();
+             this.addCurrentVertex(p, normal, endLeft, endRight, segment, round);
+         }
+     }
+ 
+     addHalfVertex({x, y}: Point, extrudeX: number, extrudeY: number, round: boolean, up: boolean, dir: number, segment: Segment) {
+-        const totalDistance = this.lineClips ? this.scaledDistance * (MAX_LINE_DISTANCE - 1) : this.scaledDistance;
++        if (this.hasVariableOffset) {
++            const progress = this.lineClips ? this.scaledDistance : (this.totalDistance ? this.distance / this.totalDistance : 0);
++            this.offsetFactors.emplaceBack(this.offsetProfile ? lineOffsetFactor(this.offsetProfile, progress) : 1);
++        }
++        // 全线进度只控制偏移和渐变；虚线及纹理继续使用真实沿线距离。
++        const totalDistance = this.offsetProfile ? this.offsetDrawDistance
++            : (this.lineClips ? this.scaledDistance * (MAX_LINE_DISTANCE - 1) : this.scaledDistance);
+         // scale down so that we can store longer distances while sacrificing precision.
+         const linesofarScaled = totalDistance * LINE_DISTANCE_SCALE;
+ 
+@@ -584,7 +611,9 @@
+     }
+ 
+     updateDistance(prev: Point, next: Point) {
+-        this.distance += prev.dist(next);
++        const distance = prev.dist(next);
++        this.distance += distance;
++        if (this.offsetProfile) this.offsetDrawDistance += distance;
+         this.updateScaledDistance();
+     }
+ }
+--- /dev/null
++++ b/src/data/line_offset_array.ts
+@@ -0,0 +1,10 @@
++import {StructArrayLayout1f4} from './array_types.g';
++import {register} from '../util/web_worker_transfer';
++import {createLayout} from '../util/struct_array';
++
++// 仅有可变偏移的 bucket 分配此缓冲；普通线路不增加顶点属性。
++export class VariableLineOffsetArray extends StructArrayLayout1f4 {}
++register('VariableLineOffsetArray', VariableLineOffsetArray);
++export const {members: variableLineOffsetAttributes} = createLayout([
++    {name: 'a_offset_factor', components: 1, type: 'Float32'}
++]);
+--- /dev/null
++++ b/src/data/line_offset_profile.ts
+@@ -0,0 +1,102 @@
++import Point from '@mapbox/point-geometry';
++
++export type LineOffsetProfile = Array<[number, number]>;
++export type LineOffsetClip = {start: number; end: number};
++
++// 曲线值是现有 line-offset 的倍率；不改变原始坐标或缩放表达式。
++export function readLineOffsetProfile(properties: {[key: string]: any}): LineOffsetProfile | null {
++    const raw = properties?.line_offset_profile;
++    if (raw === undefined) return null;
++    const profile = typeof raw === 'string' ? JSON.parse(raw) : raw;
++    if (!Array.isArray(profile) || profile.length === 0) throw new Error('line_offset_profile 必须是非空的 [沿线进度, 偏移倍率] 数组');
++    let previous = -1;
++    for (const stop of profile) {
++        if (!Array.isArray(stop) || stop.length !== 2 || !Number.isFinite(stop[0]) || !Number.isFinite(stop[1]) || stop[0] < 0 || stop[0] > 1 || stop[0] <= previous) {
++            throw new Error('line_offset_profile 的进度必须在 0 到 1 之间严格递增，偏移倍率必须为有限数值');
++        }
++        previous = stop[0];
++    }
++    const additional = Number(properties?.line_offset_units) || 0;
++    return additional ? profile.map(([progress, factor]) => [progress, factor + additional]) : profile;
++}
++
++export function lineOffsetFactor(profile: LineOffsetProfile, progress: number): number {
++    if (progress <= profile[0][0]) return profile[0][1];
++    for (let i = 1; i < profile.length; i++) {
++        const [end, to] = profile[i];
++        if (progress > end) continue;
++        const [start, from] = profile[i - 1];
++        const t = (progress - start) / (end - start);
++        const eased = t * t * (3 - 2 * t);
++        return from + (to - from) * eased;
++    }
++    return profile[profile.length - 1][1];
++}
++
++export function lineOffsetClip(properties: {[key: string]: any}): LineOffsetClip {
++    return {
++        start: properties?.mapbox_clip_start ?? 0,
++        end: properties?.mapbox_clip_end ?? 1
++    };
++}
++
++export function lineVertexProgress(vertices: Array<Point>, clip: LineOffsetClip): Array<number> {
++    const lengths = [0];
++    for (let i = 1; i < vertices.length; i++) lengths.push(lengths[i - 1] + vertices[i].dist(vertices[i - 1]));
++    const total = lengths[lengths.length - 1];
++    return lengths.map(length => total ? clip.start + (clip.end - clip.start) * length / total : clip.start);
++}
++
++// 在 Worker 完成瓦片切割之后补齐过渡采样；同一曲线使用全线进度，不在瓦片边界重启。
++export function sampleLineOffsetGeometry(vertices: Array<Point>, profile: LineOffsetProfile, clip: LineOffsetClip): Array<Point> {
++    if (vertices.length < 2 || clip.end <= clip.start) return vertices;
++    const progress = lineVertexProgress(vertices, clip);
++    const samples: Array<number> = [];
++    const values = profile.map(stop => stop[1]);
++    const span = Math.max(...values) - Math.min(...values);
++    for (let i = 1; i < profile.length; i++) {
++        const [start, from] = profile[i - 1];
++        const [end, to] = profile[i];
++        // 子段曲线已补过采样，按幅度分配细分，避免再次把每个采样区间扩展 32 倍。
++        const steps = from === to ? 1 : Math.max(1, Math.ceil(Math.abs(to - from) * 32 / span));
++        for (let j = 0; j <= steps; j++) {
++            const position = start + (end - start) * j / steps;
++            if (position > clip.start && position < clip.end) samples.push(position);
++        }
++    }
++    samples.sort((a, b) => a - b);
++    const result: Array<Point> = [vertices[0]];
++    let index = 0;
++    for (let i = 1; i < vertices.length; i++) {
++        const start = progress[i - 1];
++        const end = progress[i];
++        while (index < samples.length && samples[index] <= start) index++;
++        while (index < samples.length && samples[index] < end) {
++            const fraction = (samples[index++] - start) / (end - start);
++            const point = vertices[i - 1].add(vertices[i].sub(vertices[i - 1]).mult(fraction));
++            if (!point.equals(result[result.length - 1])) result.push(point);
++        }
++        if (!vertices[i].equals(result[result.length - 1])) result.push(vertices[i]);
++    }
++    return result;
++}
++
++// 查询复用与顶点生成相同的采样和缓动，让点击位置随显示路径移动。
++export function offsetProfileGeometry(rings: Array<Array<Point>>, profile: LineOffsetProfile, clip: LineOffsetClip, offset: number): Array<Array<Point>> {
++    return rings.map(ring => {
++        const vertices = sampleLineOffsetGeometry(ring, profile, clip);
++        const progress = lineVertexProgress(vertices, clip);
++        return vertices.map((point, index) => {
++            const amount = offset * lineOffsetFactor(profile, progress[index]);
++            if (amount === 0) return point;
++            const previous = vertices[index - 1];
++            const next = vertices[index + 1];
++            const before = previous ? point.sub(previous)._unit()._perp() : new Point(0, 0);
++            const after = next ? next.sub(point)._unit()._perp() : new Point(0, 0);
++            const normal = before._add(after)._unit();
++            const cosine = normal.x * after.x + normal.y * after.y;
++            if (cosine !== 0) normal._mult(1 / cosine);
++            return normal._mult(amount)._add(point);
++        });
++    });
++}
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -43,6 +43,7 @@
+  * @group Main
+  */
+ class MapLibreGL {
++    static variableLineOffset = 'profile-v1';
+     static Map = Map;
+     static NavigationControl = NavigationControl;
+     static GeolocateControl = GeolocateControl;
+--- a/src/render/draw_line.ts
++++ b/src/render/draw_line.ts
+@@ -54,7 +54,7 @@
+ 
+         const programConfiguration = bucket.programConfigurations.get(layer.id);
+         const prevProgram = painter.context.program.get();
+-        const program = painter.useProgram(programId, programConfiguration);
++        const program = painter.useProgram(bucket.hasVariableOffset ? `${programId}VariableOffset` : programId, programConfiguration);
+         const programChanged = firstTile || program.program !== prevProgram;
+         const terrainData = painter.style.map.terrain &&  painter.style.map.terrain.getTerrainData(coord);
+ 
+@@ -117,7 +117,7 @@
+         program.draw(context, gl.TRIANGLES, depthMode,
+             painter.stencilModeForClipping(coord), colorMode, CullFaceMode.disabled, uniformValues, terrainData,
+             layer.id, bucket.layoutVertexBuffer, bucket.indexBuffer, bucket.segments,
+-            layer.paint, painter.transform.zoom, programConfiguration, bucket.layoutVertexBuffer2);
++            layer.paint, painter.transform.zoom, programConfiguration, bucket.layoutVertexBuffer2, bucket.offsetFactorBuffer);
+ 
+         firstTile = false;
+         // once refactored so that bound texture state is managed, we'll also be able to remove this firstTile/programChanged logic
+--- a/src/render/program/program_uniforms.ts
++++ b/src/render/program/program_uniforms.ts
+@@ -29,9 +29,13 @@
+     hillshade: hillshadeUniforms,
+     hillshadePrepare: hillshadePrepareUniforms,
+     line: lineUniforms,
++    lineVariableOffset: lineUniforms,
+     lineGradient: lineGradientUniforms,
++    lineGradientVariableOffset: lineGradientUniforms,
+     linePattern: linePatternUniforms,
++    linePatternVariableOffset: linePatternUniforms,
+     lineSDF: lineSDFUniforms,
++    lineSDFVariableOffset: lineSDFUniforms,
+     raster: rasterUniforms,
+     symbolIcon: symbolIconUniforms,
+     symbolSDF: symbolSDFUniforms,
+--- a/src/shaders/shaders.ts
++++ b/src/shaders/shaders.ts
+@@ -1,3 +1,4 @@
++import {variableOffsetVertexSource} from './variable_offset';
+ 
+ // Disable Flow annotations here because Flow doesn't support importing GLSL files
+ 
+@@ -78,9 +79,13 @@
+     hillshadePrepare: compile(hillshadePrepareFrag, hillshadePrepareVert),
+     hillshade: compile(hillshadeFrag, hillshadeVert),
+     line: compile(lineFrag, lineVert),
++    lineVariableOffset: compile(lineFrag, variableOffsetVertexSource(lineVert)),
+     lineGradient: compile(lineGradientFrag, lineGradientVert),
++    lineGradientVariableOffset: compile(lineGradientFrag, variableOffsetVertexSource(lineGradientVert)),
+     linePattern: compile(linePatternFrag, linePatternVert),
++    linePatternVariableOffset: compile(linePatternFrag, variableOffsetVertexSource(linePatternVert)),
+     lineSDF: compile(lineSDFFrag, lineSDFVert),
++    lineSDFVariableOffset: compile(lineSDFFrag, variableOffsetVertexSource(lineSDFVert)),
+     raster: compile(rasterFrag, rasterVert),
+     symbolIcon: compile(symbolIconFrag, symbolIconVert),
+     symbolSDF: compile(symbolSDFFrag, symbolSDFVert),
+--- /dev/null
++++ b/src/shaders/variable_offset.ts
+@@ -0,0 +1,5 @@
++// 在原生线路着色器的同一个偏移位置应用倍率，沿用端帽、连接和抗锯齿处理。
++export function variableOffsetVertexSource(source: string): string {
++    return source.replace('attribute vec4 a_data;', 'attribute vec4 a_data;attribute float a_offset_factor;')
++        .replace(/offset\s*=\s*-1\.0\s*\*\s*offset;/, 'offset=-1.0*offset*a_offset_factor;');
++}
+--- a/src/style/style_layer/line_style_layer.ts
++++ b/src/style/style_layer/line_style_layer.ts
+@@ -1,4 +1,5 @@
+ import Point from '@mapbox/point-geometry';
++import {readLineOffsetProfile, lineOffsetClip, offsetProfileGeometry} from '../../data/line_offset_profile';
+ 
+ import {StyleLayer} from '../style_layer';
+ import {LineBucket} from '../../data/bucket/line_bucket';
+@@ -90,7 +91,7 @@
+             getMaximumPaintValue('line-width', this, lineBucket),
+             getMaximumPaintValue('line-gap-width', this, lineBucket));
+         const offset = getMaximumPaintValue('line-offset', this, lineBucket);
+-        return width / 2 + Math.abs(offset) + translateDistance(this.paint.get('line-translate'));
++        return width / 2 + Math.abs(offset) * lineBucket.maxOffsetFactor + translateDistance(this.paint.get('line-translate'));
+     }
+ 
+     queryIntersectsFeature(
+@@ -111,7 +112,10 @@
+             this.paint.get('line-gap-width').evaluate(feature, featureState));
+         const lineOffset = this.paint.get('line-offset').evaluate(feature, featureState);
+         if (lineOffset) {
+-            geometry = offsetLine(geometry, lineOffset * pixelsToTileUnits);
++            const profile = readLineOffsetProfile(feature.properties);
++            geometry = profile
++                ? offsetProfileGeometry(geometry, profile, lineOffsetClip(feature.properties), lineOffset * pixelsToTileUnits)
++                : offsetLine(geometry, lineOffset * pixelsToTileUnits);
+         }
+ 
+         return polygonIntersectsBufferedMultiLine(translatedPolygon, geometry, halfWidth);

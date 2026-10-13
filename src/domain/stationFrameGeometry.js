@@ -1,3 +1,4 @@
+import { getLineOffsetPixelsPerUnitAtZoom } from './lineOffsetScale.js';
 import { getOffsetPixelsPerUnitAtZoom, projectLngLatToPixelAtZoom12, unprojectPixelToLngLatAtZoom12 } from '../map/offset.js';
 
 const WORLD_AT_ZOOM_12 = 512 * 2 ** 12;
@@ -10,7 +11,8 @@ export function buildStationFrameGeometry(baseStationsGeoJSON, context) {
         const base = projectLngLatToPixelAtZoom12(feature.geometry.coordinates);
         if (!base) return null;
         return { id, feature, base, anchor: info?.anchorPixelAtZoom12 || base,
-            direction: info?.offsetDirectionAtZoom12 || { x: 0, y: 0 }, units: Number(info?.units) || 0 };
+            direction: info?.offsetDirectionAtZoom12 || { x: 0, y: 0 },
+            ...(info?.usesLineOffsetProfile ? { usesLineOffsetProfile: true } : {}), units: Number(info?.units) || 0 };
     }).filter(Boolean);
 }
 
@@ -19,9 +21,12 @@ export function createStationFrameProjection(zoom, { mode = 'dynamic', frozenZoo
     const magnitude = getOffsetPixelsPerUnitAtZoom(geometryZoom);
     const scale = magnitude * 2 ** (12 - geometryZoom)
         * (geometryZoom < 12 ? 0.85 ** (12 - geometryZoom) : 1);
+    const lineMagnitude = getLineOffsetPixelsPerUnitAtZoom(geometryZoom);
+    const lineScale = lineMagnitude * 2 ** (12 - geometryZoom);
     return (item) => {
-        if (!item.units || !magnitude) return { x: item.base.x / WORLD_AT_ZOOM_12, y: item.base.y / WORLD_AT_ZOOM_12 };
-        const amount = item.units * scale;
+        const itemMagnitude = item.usesLineOffsetProfile ? lineMagnitude : magnitude;
+        if (!item.units || !itemMagnitude) return { x: item.base.x / WORLD_AT_ZOOM_12, y: item.base.y / WORLD_AT_ZOOM_12 };
+        const amount = item.units * (item.usesLineOffsetProfile ? lineScale : scale);
         return { x: (item.anchor.x + item.direction.x * amount) / WORLD_AT_ZOOM_12,
             y: (item.anchor.y + item.direction.y * amount) / WORLD_AT_ZOOM_12 };
     };

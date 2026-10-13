@@ -1,3 +1,5 @@
+import { lineOffsetUnitsAtCoordinate, nearestLineOffsetProgress } from './lineOffsetProfile.js';
+
 const toText = (value) => String(value ?? '').trim();
 const LINE_NAME_LABEL_BLOCKED_TOKENS = Object.freeze(['货物', '貨物', '支线', '支線']);
 const LINE_NAME_LABEL_NORMAL_OFFSET_EM = 1.1;
@@ -312,7 +314,7 @@ const buildLineNameAnchorSegment = (segment, name) => {
     return isFiniteCoordinate(start) && isFiniteCoordinate(end) ? [start, end] : null;
 };
 
-export const buildLineNameLabelGeoJSON = (lineFeatures = []) => {
+export const buildLineNameLabelGeoJSON = (lineFeatures = [], { offsetSourceFeatures = lineFeatures } = {}) => {
     const features = [];
     const seen = new Set();
 
@@ -335,6 +337,15 @@ export const buildLineNameLabelGeoJSON = (lineFeatures = []) => {
         labelSegments.forEach((segment, index) => {
             const anchorSegment = buildLineNameAnchorSegment(segment, name);
             if (!anchorSegment) return;
+            const center = [(anchorSegment[0][0] + anchorSegment[1][0]) / 2, (anchorSegment[0][1] + anchorSegment[1][1]) / 2];
+            let offsetSource = null;
+            let distance = Infinity;
+            for (const candidate of offsetSourceFeatures) {
+                if (toText(candidate?.properties?.id || candidate?.id) !== lineId || candidate?.properties?.line_offset_profile === undefined) continue;
+                const hit = nearestLineOffsetProgress(candidate.geometry.coordinates, center);
+                if (hit && hit.d2 < distance) { distance = hit.d2; offsetSource = candidate; }
+            }
+            const localOffsetUnits = offsetSource ? lineOffsetUnitsAtCoordinate(offsetSource, center) : lineOffsetUnits;
             features.push({
                 type: 'Feature',
                 id: labelCount === 1 ? `${lineId}.name-label` : `${lineId}.name-label.${index + 1}`,
@@ -343,8 +354,8 @@ export const buildLineNameLabelGeoJSON = (lineFeatures = []) => {
                     name,
                     ...optionalTextProperty('color', props.color),
                     ...optionalTextProperty('_dark_color', props._dark_color),
-                    line_offset_units: lineOffsetUnits,
-                    text_offset: buildLineNameTextOffset(lineOffsetUnits),
+                    line_offset_units: localOffsetUnits,
+                    text_offset: buildLineNameTextOffset(localOffsetUnits),
                     label_index: index + 1,
                     label_count: labelCount,
                     type: 'line-name-label'

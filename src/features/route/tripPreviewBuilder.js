@@ -24,6 +24,7 @@ export const createTripPreviewBuilder = ({
     distMeters,
     extendBBox,
     getLineOffsetUnits = () => 0,
+    getLineOffsetProfile = () => null,
     isTripPastDimmingEnabled = () => true,
     isDarkThemeActive = () => false,
     isDebugLoopEnabled
@@ -412,6 +413,10 @@ export const createTripPreviewBuilder = ({
             const lineOffsetUnits = Number.isFinite(explicitOffsetUnits)
                 ? explicitOffsetUnits
                 : (role === 'line' ? resolveLineOffsetUnitsCached(offsetLineId) : 0);
+            const profile = role === 'line' || Number.isFinite(explicitOffsetUnits)
+                ? getLineOffsetProfile(offsetLineId, coords)
+                : null;
+            const profileJson = profile ? JSON.stringify(profile) : '';
             const featureKey = [
                 role,
                 String(lineId || ''),
@@ -421,6 +426,7 @@ export const createTripPreviewBuilder = ({
                 rawColor,
                 options?.isPast === true ? 'past' : 'current',
                 String(lineOffsetUnits),
+                profileJson,
                 coordsKey(coords)
             ].join('||');
             if (lineFeatureCache instanceof Map && lineFeatureCache.has(featureKey)) {
@@ -436,7 +442,8 @@ export const createTripPreviewBuilder = ({
                     line_offset_id: offsetLineId,
                     color: rawColor,
                     isPast: options?.isPast === true,
-                    line_offset_units: lineOffsetUnits
+                    line_offset_units: lineOffsetUnits,
+                    ...(profile ? { line_offset_profile: profileJson } : {})
                 },
                 geometry: { type: 'LineString', coordinates: coords }
             };

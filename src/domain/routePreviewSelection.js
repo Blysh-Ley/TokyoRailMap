@@ -121,7 +121,9 @@ export const buildTripPreviewLineFeatureDedupKey = (feature) => {
     if (!geom || geom.type !== 'LineString') return '';
     const pathKey = buildLineCoordsCanonicalKey(geom.coordinates);
     if (!pathKey) return '';
-    return `${role}||${lineId}||${pathKey}`;
+    const profile = feature?.properties?.line_offset_profile;
+    const profileKey = profile === undefined ? '' : toText(feature.properties.line_offset_id || feature.properties.id || profile);
+    return `${role}||${lineId}||${pathKey}${profileKey ? `||offset:${profileKey}` : ''}`;
 };
 
 export const buildTripPreviewLineFeatureCollisionKey = (feature) => {
@@ -131,7 +133,9 @@ export const buildTripPreviewLineFeatureCollisionKey = (feature) => {
     if (!geom || geom.type !== 'LineString') return '';
     const pathKey = buildLineCoordsCanonicalKey(geom.coordinates);
     if (!pathKey) return '';
-    return `${role}||${lineId}||${pathKey}`;
+    const profile = feature?.properties?.line_offset_profile;
+    const profileKey = profile === undefined ? '' : toText(feature.properties.line_offset_id || feature.properties.id || profile);
+    return `${role}||${lineId}||${pathKey}${profileKey ? `||offset:${profileKey}` : ''}`;
 };
 
 const buildLineFeatureItemContextKey = (item) => {

@@ -1,3 +1,5 @@
+import { readLineOffsetProfile } from '../../domain/lineOffsetProfile.js';
+import { sliceLineOffsetProfile, buildVariableOffsetPolylinePixels } from '../../domain/lineOffsetGeometry.js';
 import {
     getHighlightLineWidthAtZoom,
     getHighlightStationRadiusAtZoom,
@@ -1226,8 +1228,19 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         return pathFromPixelPoints(shifted);
     };
 
+    const getVariableLineFeaturePixels = (map, feature, coords) => {
+        const profile = readLineOffsetProfile(feature?.properties);
+        if (!profile) return null;
+        const sourceCoordinates = feature.geometry.type === 'LineString' ? feature.geometry.coordinates : coords;
+        const localProfile = sliceLineOffsetProfile(sourceCoordinates, profile, coords);
+        return buildVariableOffsetPolylinePixels(coords, localProfile, getLineOffsetPixelsPerUnitForExport(map),
+            (coordinate) => project(map, { lng: coordinate[0], lat: coordinate[1] }),
+            getRuntimeApi().buildOffsetPolylinePixelsWithMiter);
+    };
+
     const pathFromLineFeatureCoords = (map, feature, coords) => {
-        return pathFromCoords(map, coords, {
+        const points = getVariableLineFeaturePixels(map, feature, coords);
+        return points ? pathFromPixelPoints(points) : pathFromCoords(map, coords, {
             offsetPx: getLineOffsetPixelsForFeature(map, feature)
         });
     };
@@ -1814,6 +1827,13 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         for (const coord of coords) {
             const p = projectLngLat(map, coord[0], coord[1]);
             if (Number.isFinite(p.x) && Number.isFinite(p.y)) pts.push(p);
+        }
+        for (const feature of built?.lineFc?.features || []) {
+            if (feature.properties?.line_offset_profile === undefined) continue;
+            const chains = feature.geometry.type === 'LineString' ? [feature.geometry.coordinates] : feature.geometry.coordinates;
+            for (const chain of chains) {
+                for (const point of getVariableLineFeaturePixels(map, feature, chain)) pts.push(point);
+            }
         }
         if (!pts.length) return calcPixelBboxForGeoBbox(map, geoBbox);
 

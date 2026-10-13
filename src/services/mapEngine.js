@@ -736,6 +736,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
 
         map.addSource(sourceId, {
             type: 'geojson',
+            ...(sourceId === 'trip-preview-source' ? { lineMetrics: true } : {}),
             data: data || { type: 'FeatureCollection', features: [] }
         });
         return map.getSource(sourceId);

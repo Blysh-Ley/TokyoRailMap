@@ -11,6 +11,8 @@ import {
 import {
     buildStationOffsetAlgorithmContext
 } from '../map/offset.js';
+import { normalizeLineOffsetConfig, buildLineOffsetProfile } from '../domain/lineOffsetProfile.js';
+import { sliceLineOffsetProfile } from '../domain/lineOffsetGeometry.js';
 import { buildLineNameLabelGeoJSON } from '../domain/lineNameLabels.js';
 import { buildAlternateLineMembership } from '../domain/alternateLineMembership.js';
 import { buildTerminalStationIdSet } from '../domain/stationLabelDisplay.js';
@@ -652,9 +654,9 @@ export async function loadRailGeoDataFromDataFolder() {
             for (const [rawId, rawOffset] of Object.entries(lineOffsetConfig)) {
                 const id = normalizeText(rawId);
                 if (!id) continue;
-                const n = Number(rawOffset);
-                if (!Number.isFinite(n)) continue;
-                lineOffsetByRailwayId.set(id, n);
+                const config = normalizeLineOffsetConfig(rawOffset);
+                if (config === null) continue;
+                lineOffsetByRailwayId.set(id, config);
             }
         }
 
@@ -1079,6 +1081,7 @@ export async function loadRailGeoDataFromDataFolder() {
         const linesGeoJSONByZoom = {};
         const diagnosticsLargeGaps = [];
         const routingCoordsByRailwayId = new Map();
+        const lineOffsetProfilesById = {};
 
         for (const zoom of ZOOMS) {
             const unitKm = Math.pow(2, 14 - zoom) * 0.1; // 偏移
@@ -1089,7 +1092,8 @@ export async function loadRailGeoDataFromDataFolder() {
             for (const c of coordsRailways) {
                 const id = normalizeText(c?.id);
                 if (!id) continue;
-                const lineOffsetUnits = Number(lineOffsetByRailwayId.get(id)) || 0;
+                const offsetConfig = lineOffsetByRailwayId.get(id);
+                const lineOffsetUnits = typeof offsetConfig === 'number' ? offsetConfig : 0;
 
                 const meta = railwayById.get(id);
                 const name = pickI18nTitle(meta?.title) || id;
@@ -1125,6 +1129,11 @@ export async function loadRailGeoDataFromDataFolder() {
                 if (zoom === 18 && Array.isArray(coordinatesAll) && coordinatesAll.length >= 2) {
                     routingCoordsByRailwayId.set(id, coordinatesAll);
                 }
+                const offsetProfile = buildLineOffsetProfile(coordinatesAll || [], offsetConfig);
+                if (offsetProfile) lineOffsetProfilesById[id] = offsetProfile;
+                const offsetPropertiesFor = (coords) => offsetProfile && coords?.length >= 2
+                    ? { line_offset_profile: JSON.stringify(sliceLineOffsetProfile(coordinatesAll, offsetProfile, coords)) }
+                    : {};
 
                 const coordinatesOpacityZero = buildRailwayCoordinatesForZoom(
                     id,
@@ -1148,6 +1157,7 @@ export async function loadRailGeoDataFromDataFolder() {
                         color,
                         company,
                         line_offset_units: lineOffsetUnits,
+                        ...offsetPropertiesFor(coordinatesVisible),
                         type: 'line',
                         hidden_by_opacity_zero: 0,
                         zoom
@@ -1167,6 +1177,7 @@ export async function loadRailGeoDataFromDataFolder() {
                         color,
                         company,
                         line_offset_units: lineOffsetUnits,
+                        ...offsetPropertiesFor(coordinatesAll),
                         type: 'line',
                         hidden_by_opacity_zero: 1,
                         zoom
@@ -1207,6 +1218,7 @@ export async function loadRailGeoDataFromDataFolder() {
                             color,
                             company,
                             line_offset_units: lineOffsetUnits,
+                            ...offsetPropertiesFor(coordinatesOpacityZero),
                             type: 'line',
                             hidden_by_opacity_zero: 1,
                             zoom
@@ -1356,6 +1368,7 @@ export async function loadRailGeoDataFromDataFolder() {
             stationFeatures: stationsFeatures,
             lineOffsetByRailwayId,
             lineChainsByRailwayId: lineAllChainsByRailwayId,
+            lineReferenceCoordinatesByRailwayId: routingCoordsByRailwayId,
             options: {
                 maxNearestDistancePxAtZoom12: 24
             }
@@ -1366,6 +1379,7 @@ export async function loadRailGeoDataFromDataFolder() {
             linesGeoJSON: linesGeoJSONByZoom[18] || { type: 'FeatureCollection', features: [] },
             linesGeoJSONByZoom,
             lineNameLabelsGeoJSON: buildLineNameLabelGeoJSON(linesGeoJSONByZoom[18]?.features || []),
+            lineOffsetProfilesById,
             lineRoutingCoordsById: Object.fromEntries(Array.from(routingCoordsByRailwayId.entries())),
             stationsGeoJSON: { type: 'FeatureCollection', features: stationsFeatures },
             stationGroups: filteredStationGroups,

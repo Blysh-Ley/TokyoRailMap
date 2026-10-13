@@ -1,3 +1,6 @@
+import { getLineOffsetPixelsPerUnitAtZoom } from '../domain/lineOffsetScale.js';
+import { buildLineOffsetProfile, evaluateLineOffsetProfile, nearestLineOffsetProgress } from '../domain/lineOffsetProfile.js';
+
 const DEGREE_TO_RADIAN = Math.PI / 180;
 const RADIAN_TO_DEGREE = 180 / Math.PI;
 
@@ -95,7 +98,7 @@ const getLineIntersectionInPixels = (a1, a2, b1, b2) => {
 };
 
 export const buildOffsetPolylinePixelsWithMiter = (pixelPoints, offsetPx, options = {}) => {
-    const input = dedupePixelPointsByDistance(pixelPoints, 0.35);
+    const input = options.preserveVertices ? pixelPoints : dedupePixelPointsByDistance(pixelPoints, 0.35);
     if (input.length < 2) return input;
 
     const signedOffset = Number(offsetPx) || 0;
@@ -194,7 +197,7 @@ export const buildOffsetPolylinePixelsWithMiter = (pixelPoints, offsetPx, option
         out.push({ x: pLast.x + nLast.x * signedOffset, y: pLast.y + nLast.y * signedOffset });
     }
 
-    return dedupePixelPointsByDistance(out, 0.25);
+    return options.preserveVertices ? out : dedupePixelPointsByDistance(out, 0.25);
 };
 
 export const nearestProjectionOnPolylinePixels = (pixelPoints, targetPx) => {
@@ -419,7 +422,7 @@ export const getOffsetPixelsPerUnitAtZoom = (zoom) => {
     return pxAt14 * (1 - clamp(linearT, 0, 1));
 };
 
-export const buildStationOffsetAlgorithmContext = ({ stationFeatures, lineOffsetByRailwayId, lineChainsByRailwayId, options = {} }) => {
+export const buildStationOffsetAlgorithmContext = ({ stationFeatures, lineOffsetByRailwayId, lineChainsByRailwayId, lineReferenceCoordinatesByRailwayId, options = {} }) => {
     const list = Array.isArray(stationFeatures) ? stationFeatures : [];
     const maxNearestDistancePxAtZoom12 = Number.isFinite(options.maxNearestDistancePxAtZoom12)
         ? Math.max(0, Number(options.maxNearestDistancePxAtZoom12))
@@ -427,6 +430,7 @@ export const buildStationOffsetAlgorithmContext = ({ stationFeatures, lineOffset
 
     const stationLocalChainsById = {};
     const unresolvedStationIds = [];
+    const profilesByChain = new Map();
 
     for (const feature of list) {
         const stationId = normalizeText(feature?.properties?.id || feature?.id);
@@ -499,9 +503,28 @@ export const buildStationOffsetAlgorithmContext = ({ stationFeatures, lineOffset
             continue;
         }
 
+        const config = lineOffsetByRailwayId.get(railwayId);
+        let units = typeof config === 'number' ? config : 0;
+        if (config && typeof config === 'object') {
+            const reference = lineReferenceCoordinatesByRailwayId?.get(railwayId) || best.chain;
+            if (!profilesByChain.has(reference)) profilesByChain.set(reference, buildLineOffsetProfile(reference, config));
+            const profile = profilesByChain.get(reference);
+            const hit = nearestLineOffsetProgress(reference, stationLngLat);
+            units = profile && hit ? evaluateLineOffsetProfile(profile, hit.progress) : 0;
+            if (hit) {
+                const from = projectLngLatToPixelAtZoom12(reference[hit.segmentIndex]);
+                const to = projectLngLatToPixelAtZoom12(reference[hit.segmentIndex + 1]);
+                const localFrom = best.chainPx[best.hit.segmentIndex];
+                const localTo = best.chainPx[best.hit.segmentIndex + 1];
+                // 子链反向时法向也反向，站点沿用线路切片后的偏移方向。
+                const directionDot = (to.x - from.x) * (localTo.x - localFrom.x) + (to.y - from.y) * (localTo.y - localFrom.y);
+                if (directionDot < 0) units = -units;
+            }
+        }
         stationLocalChainsById[stationId] = {
             railwayId,
-            units: Number(lineOffsetByRailwayId.get(railwayId)) || 0,
+            units,
+            ...(typeof config === 'object' ? { usesLineOffsetProfile: true } : {}),
             stationLngLat,
             stationPixelAtZoom12: stationPx,
             localLineCoords: local.localChain,
@@ -554,11 +577,11 @@ export const buildStationOffsetGeoJSONAtZoom = ({ baseStationsGeoJSON, stationOf
         const offsetDirection = info?.offsetDirectionAtZoom12;
         if (!units || !anchorPx || !offsetDirection) continue;
 
-        const offsetPxAtCurrentZoom = units * pxPerUnit;
+        const offsetPxAtCurrentZoom = units * (info.usesLineOffsetProfile ? getLineOffsetPixelsPerUnitAtZoom(z) : pxPerUnit);
         if (!offsetPxAtCurrentZoom) continue;
 
         // localLinePixelsAtZoom12 lives in zoom=12 pixel space, so convert offset magnitude back to that space.
-        const offsetPxAtZoom12 = offsetPxAtCurrentZoom * scaleFactor * geoJsonLowZoomFactor;
+        const offsetPxAtZoom12 = offsetPxAtCurrentZoom * scaleFactor * (info.usesLineOffsetProfile ? 1 : geoJsonLowZoomFactor);
         if (!offsetPxAtZoom12) continue;
 
         const point = {
