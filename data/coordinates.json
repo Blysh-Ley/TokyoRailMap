@@ -213999,8 +213999,8 @@
 				{
 					"type": "sub",
 					"start": {
-						"railway": "Base.KotakeMukaiharaIkebukuro",
-						"offset": 0
+						"railway": "Seibu.S-Fukutoshin",
+						"offset": -1
 					},
 					"coords": [
 						[
@@ -214161,8 +214161,8 @@
 						]
 					],
 					"end": {
-						"railway": "Base.KotakeMukaiharaIkebukuro",
-						"offset": 0
+						"railway": "Seibu.S-Fukutoshin",
+						"offset": -1
 					}
 				},
 				{

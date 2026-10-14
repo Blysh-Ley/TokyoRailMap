@@ -957,7 +957,8 @@
 		"ascending": "JR-East.Kaihimmakuhari",
 		"descending": "JR-East.NishiFunabashi",
 		"color": "#F15A22",
-		"carComposition": 8
+		"carComposition": 8,
+		"dynamic": true
 	},
 	{
 		"id": "JR-East.KeiyoFutamataBranch",
@@ -984,7 +985,8 @@
 		"ascending": "JR-East.NishiFunabashi",
 		"descending": "JR-East.Tokyo",
 		"color": "#F15A22",
-		"carComposition": 8
+		"carComposition": 8,
+		"dynamic": true
 	},
 	{
 		"id": "JR-East.SaikyoKawagoe",
@@ -2006,6 +2008,7 @@
 		"altitude": -1,
 		"color": "#FF9500",
 		"carComposition": 6,
+		"dynamic": true,
 		"code": "G"
 	},
 	{
@@ -2050,6 +2053,7 @@
 		"altitude": -1,
 		"color": "#F62E36",
 		"carComposition": 6,
+		"dynamic": true,
 		"code": "M"
 	},
 	{
@@ -2073,6 +2077,7 @@
 		"altitude": -1,
 		"color": "#F62E36",
 		"carComposition": 6,
+		"dynamic": true,
 		"code": "Mb"
 	},
 	{
@@ -2115,6 +2120,7 @@
 		"altitude": -1,
 		"color": "#B5B5AC",
 		"carComposition": 7,
+		"dynamic": true,
 		"code": "H"
 	},
 	{
@@ -2157,6 +2163,7 @@
 		"altitude": -1,
 		"color": "#009BBF",
 		"carComposition": 10,
+		"dynamic": true,
 		"code": "T"
 	},
 	{
@@ -2198,6 +2205,7 @@
 		"altitude": -1,
 		"color": "#00BB85",
 		"carComposition": 10,
+		"dynamic": true,
 		"code": "C"
 	},
 	{
@@ -2241,6 +2249,7 @@
 		"altitude": -1,
 		"color": "#C1A470",
 		"carComposition": 10,
+		"dynamic": true,
 		"code": "Y"
 	},
 	{
@@ -2274,6 +2283,7 @@
 		"altitude": -1,
 		"color": "#8F76D6",
 		"carComposition": 10,
+		"dynamic": true,
 		"code": "Z"
 	},
 	{
@@ -2312,6 +2322,7 @@
 		"altitude": -1,
 		"color": "#00AC9B",
 		"carComposition": 8,
+		"dynamic": true,
 		"code": "N"
 	},
 	{
@@ -2347,6 +2358,7 @@
 		"altitude": -1,
 		"color": "#9C5E31",
 		"carComposition": 10,
+		"dynamic": true,
 		"code": "F"
 	},
 	{
@@ -4512,7 +4524,6 @@
 		"descending": "Inbound",
 		"color": "#20A288",
 		"carComposition": 10,
-		"dynamic": true,
 		"code": "DT"
 	},
 	{
@@ -4552,7 +4563,6 @@
 		"descending": "Inbound",
 		"color": "#DA0442",
 		"carComposition": 10,
-		"dynamic": true,
 		"code": "TY"
 	},
 	{
@@ -4584,7 +4594,6 @@
 		"descending": "Inbound",
 		"color": "#009CD2",
 		"carComposition": 8,
-		"dynamic": true,
 		"code": "ME"
 	},
 	{
@@ -4606,7 +4615,6 @@
 		"descending": "Inbound",
 		"color": "#5D4D8D",
 		"carComposition": 10,
-		"dynamic": true,
 		"code": "SH"
 	},
 	{
@@ -4643,7 +4651,6 @@
 		"descending": "Inbound",
 		"color": "#F18C43",
 		"carComposition": 5,
-		"dynamic": true,
 		"code": "OM"
 	},
 	{
@@ -4927,6 +4934,7 @@
 		"descending": "Inbound",
 		"color": "#000084",
 		"carComposition": 6,
+		"dynamic": true,
 		"code": "TX"
 	},
 	{
