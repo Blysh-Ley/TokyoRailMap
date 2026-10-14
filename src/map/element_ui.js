@@ -72,7 +72,8 @@ export const buildLineOffsetPaintExpr = () => {
         lowZoomOffsetPxPerUnit,
         offsetPxPerUnitAtZoom0,
         offsetPxPerUnitAtZoom14,
-        zBase
+        zBase,
+        zoomCutToZero
     } = buildLineOffsetPixelStops();
 
     const units = ['case', ['has', 'line_offset_profile'], 1, ['coalesce', ['get', 'line_offset_units'], 0]];
@@ -86,7 +87,7 @@ export const buildLineOffsetPaintExpr = () => {
         ['*', units, lowZoomOffsetPxPerUnit],
         14,
         ['*', units, offsetPxPerUnitAtZoom14],
-        14.01,
+        zoomCutToZero,
         0,
         22,
         0
