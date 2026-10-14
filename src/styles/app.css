@@ -1,4 +1,5 @@
 @import url('./searchHeatmapForm.css');
+@import url('./searchPlanningMode.css');
 @import url('./updateDialog.css');
 
 a {
@@ -348,6 +349,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui.is-planner-
         var(--mobile-search-field-bottom)
         + var(--mobile-search-waypoint-scroll-height)
         + var(--mobile-search-mode-switch-gap)
+        + var(--mobile-search-history-extra-offset, 0px)
     );
 }
 
@@ -421,6 +423,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui:not(.is-pla
         var(--mobile-search-field-bottom)
         + var(--mobile-search-field-height)
         + var(--mobile-search-mode-switch-gap)
+        + var(--mobile-search-history-extra-offset, 0px)
     );
 }
 
@@ -521,7 +524,7 @@ body[data-mobile-ui='1'][data-mobile-nav-active='search'][data-mobile-search-mod
     position: fixed;
     left: 12px;
     right: 12px;
-    bottom: var(--mobile-journey-sheet-bottom);
+    bottom: calc(var(--mobile-journey-sheet-bottom) + var(--mobile-search-history-extra-offset, 0px));
     max-height: var(--mobile-search-entry-list-max-height);
 }
 
@@ -2340,11 +2343,9 @@ html[data-theme='dark'] .search-ui > .journey-ui .journey-input-wrap {
     width: 16px;
     height: 16px;
     display: block;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    background: currentColor;
+    -webkit-mask: url('../../assets/icons/travel-heatmap.svg') center / contain no-repeat;
+    mask: url('../../assets/icons/travel-heatmap.svg') center / contain no-repeat;
     pointer-events: none;
 }
 

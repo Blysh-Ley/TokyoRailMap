@@ -1,0 +1,74 @@
+.search-planning-mode-btn {
+    display: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui:is(.is-planner-open, .is-heatmap-open) {
+    --mobile-search-history-extra-offset: calc(var(--search-action-size) + var(--mobile-search-mode-switch-gap));
+    --mobile-search-transition-duration: 0s;
+    --search-transition-duration: 0s;
+    transition: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui:is(.is-planner-open, .is-heatmap-open)::before,
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui:is(.is-planner-open, .is-heatmap-open) > .search-bar,
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui:is(.is-planner-open, .is-heatmap-open) :is(.search-results, .journey-results) {
+    transition: none;
+}
+
+html[data-mobile-ui='1'] .search-ui > .search-bar > .search-heatmap-select {
+    display: none;
+}
+
+html[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui:is(.is-planner-open, .is-heatmap-open) > .search-planning-mode-btn:not([hidden]) {
+    position: fixed;
+    left: var(--search-planning-mode-left);
+    bottom: var(--search-planning-mode-bottom);
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 128px;
+    height: var(--search-action-size);
+    box-sizing: border-box;
+    padding: 0 14px;
+    border: 1px solid var(--ui-frosted-border);
+    border-radius: var(--search-panel-radius);
+    background: var(--ui-frosted-background);
+    color: var(--ui-text);
+    box-shadow: var(--ui-frosted-shadow);
+    -webkit-backdrop-filter: var(--ui-frosted-blur);
+    backdrop-filter: var(--ui-frosted-blur);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.search-planning-mode-icon {
+    display: block;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    background: currentColor;
+    -webkit-mask: url('../../assets/icons/travel.svg') center / contain no-repeat;
+    mask: url('../../assets/icons/travel.svg') center / contain no-repeat;
+}
+
+.search-planning-mode-btn[data-mode='heatmap'] .search-planning-mode-icon {
+    -webkit-mask-image: url('../../assets/icons/travel-heatmap.svg');
+    mask-image: url('../../assets/icons/travel-heatmap.svg');
+}
+
+.search-planning-mode-btn:focus-visible {
+    outline: 2px solid var(--is-active-color);
+    outline-offset: 3px;
+}
+
+html[data-mobile-ui='1'][data-mobile-journey-plan-results='1'] .search-planning-mode-btn {
+    display: none !important;
+}

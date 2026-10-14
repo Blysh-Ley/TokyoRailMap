@@ -1,22 +1,14 @@
-import { SEARCH_PLANNER_STATE_EVENT } from './searchPlannerShell.js';
+import { SEARCH_PLANNER_STATE_EVENT, isSearchPlannerExpanded, setSearchPlannerExpanded } from './searchPlannerShell.js';
 import { createSearchHeatmapInteraction } from '../features/search/searchHeatmapInteraction.js';
+import { journeyRuntimeAdapter } from '../features/search/journeyRuntimeAdapter.js';
 import { createSearchHeatmapFormView } from './searchHeatmapFormView.js';
 import { MOBILE_BOTTOM_NAV_EVENT } from './mobileBottomNav.js';
+import { createSearchPlanningModeView } from './searchPlanningModeView.js';
 
-// Lucide Radar, ISC: https://lucide.dev/icons/radar
-const RADAR_ICON_MARKUP = `
+const HEATMAP_ICON_MARKUP = `
     <span class="search-heatmap-time-label" aria-hidden="true"></span>
     <span class="search-heatmap-icon-shell">
-        <svg class="search-heatmap-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/>
-            <path d="M4 6h.01"/>
-            <path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/>
-            <path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/>
-            <path d="M12 18h.01"/>
-            <path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/>
-            <circle cx="12" cy="12" r="2"/>
-            <path d="m13.41 10.59 5.66-5.66"/>
-        </svg>
+        <span class="search-heatmap-icon" aria-hidden="true"></span>
     </span>
 `;
 
@@ -38,7 +30,7 @@ export const createSearchHeatmapControl = ({
     button.setAttribute('aria-expanded', 'false');
     button.setAttribute('aria-pressed', 'false');
     button.title = '出行热图';
-    button.innerHTML = RADAR_ICON_MARKUP;
+    button.innerHTML = HEATMAP_ICON_MARKUP;
 
     const interaction = createSearchHeatmapInteraction({
         getActions,
@@ -50,12 +42,32 @@ export const createSearchHeatmapControl = ({
     const clear = () => interaction.dispatch({ type: 'close' });
     const view = createSearchHeatmapFormView({ interaction, historyView, onClose: clear });
     searchRoot.appendChild(view.form);
+    const modeView = createSearchPlanningModeView({
+        searchRoot,
+        onToggle: () => {
+            if (interaction.getState().visible) {
+                view.closePicker();
+                interaction.dispatch({ type: 'suspend', payload: { navigation: false } });
+                // 复用空输入框的历史入口，避免规划会话清理后首次聚焦只清空列表。
+                journeyRuntimeAdapter.getJourneyUI()?.showHistoryForNextEmptyField?.();
+                setSearchPlannerExpanded(true, { focusJourney: true });
+            } else {
+                open();
+                view.focusStationInput();
+            }
+        }
+    });
+    const syncModeView = () => modeView.render({
+        plannerExpanded: isSearchPlannerExpanded(),
+        heatmapVisible: interaction.getState().visible
+    });
     const render = (state) => {
         searchRoot.classList.toggle('is-heatmap-open', state.visible);
         if (state.visible) searchRoot.classList.remove('is-collapsed');
         button.classList.toggle('is-active', state.open);
         button.setAttribute('aria-pressed', String(state.open));
         button.setAttribute('aria-expanded', String(state.visible));
+        syncModeView();
     };
     const subscription = interaction.subscribe(render);
     const isOutsideMobileSearch = () => {
@@ -79,7 +91,10 @@ export const createSearchHeatmapControl = ({
         if (focusStationOnOpen) view.focusStationInput();
     });
     const onPlannerState = (event) => {
-        if (event?.detail?.expanded !== true && !isOutsideMobileSearch()) return;
+        if (event?.detail?.expanded !== true && !isOutsideMobileSearch()) {
+            syncModeView();
+            return;
+        }
         view.closePicker();
         interaction.dispatch({ type: 'suspend', payload: { navigation: event?.detail?.expanded !== true } });
     };
@@ -108,6 +123,7 @@ export const createSearchHeatmapControl = ({
             window.removeEventListener(SEARCH_PLANNER_STATE_EVENT, onPlannerState);
             window.removeEventListener(MOBILE_BOTTOM_NAV_EVENT, onMobileNav);
             subscription?.();
+            modeView.destroy();
             view.destroy();
         }
     });
