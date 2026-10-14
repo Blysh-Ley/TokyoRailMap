@@ -41,13 +41,11 @@ const createHistoryFavoriteButton = (item, onToggle) => {
     const button = make('button', 'search-history-favorite', favorite ? '★' : '☆');
     button.type = 'button';
     button.setAttribute('aria-label', favorite ? '取消收藏' : '收藏');
-    button.style.marginLeft = '8px';
     button.style.background = 'transparent';
     button.style.border = 'none';
     button.style.padding = '0 2px';
     button.style.cursor = 'pointer';
     button.style.color = favorite ? '#f5a400' : 'inherit';
-    button.style.fontSize = '16px';
     button.style.lineHeight = '1';
     button.style.opacity = favorite ? '1' : '0.6';
     button.addEventListener('click', (event) => {

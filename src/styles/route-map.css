@@ -267,6 +267,25 @@
     cursor: pointer;
     touch-action: manipulation;
 }
+.route-map.is-mobile-panel-placement .route-map-header .panel-capture-btn {
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    box-shadow: none;
+    -webkit-tap-highlight-color: transparent;
+}
+.route-map.is-mobile-panel-placement .route-map-header .panel-capture-icon {
+    width: 22px;
+    height: 22px;
+}
+.route-map.is-mobile-panel-placement .route-map-header .panel-capture-btn:active {
+    background: var(--ui-surface-hover);
+}
+.route-map.is-mobile-panel-placement .route-map-header .route-map-branch-btn.is-active {
+    background: var(--ui-accent-soft);
+}
 .route-map.is-mobile-panel-placement .route-map-grid-header {
     flex: 0 0 auto;
     box-sizing: border-box;

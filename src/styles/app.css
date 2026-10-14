@@ -1747,8 +1747,16 @@ html:not([data-mobile-ui='1']) .search-ui:not(.is-collapsed):not(.is-planner-ope
     padding-left: 10px;
 }
 
-.search-planner-toggle-btn:hover {
-    background: rgba(52, 152, 219, 0.2);
+/* 触屏会保留 hover 状态，蓝色悬停反馈仅用于鼠标。 */
+@media (hover: hover) and (pointer: fine) {
+    .search-planner-toggle-btn:hover {
+        background: rgba(52, 152, 219, 0.2);
+    }
+}
+
+.search-planner-toggle-btn:focus-visible {
+    outline: 2px solid var(--is-active-color);
+    outline-offset: 2px;
 }
 
 html[data-theme='dark'] .search-planner-toggle-btn {
@@ -1773,6 +1781,10 @@ html[data-theme='dark'] .search-planner-toggle-btn {
 
 .search-input::placeholder {
     color: var(--ui-text-muted);
+}
+
+html[data-mobile-ui='1'] .search-ui :is(.search-input, .journey-input, .search-heatmap-input)::placeholder {
+    font-size: 16px;
 }
 
 .search-input::-webkit-search-cancel-button,
@@ -2758,6 +2770,40 @@ html:not([data-mobile-ui='1']) .search-ui.is-planner-open[data-waypoint-count]:n
     body[data-mobile-ui='1'][data-mobile-nav-active='search'] .search-ui > .journey-ui .journey-plan-search-btn {
         right: calc(100vw - var(--mobile-foldable-pane-width));
     }
+}
+
+html[data-mobile-ui='1'] .search-ui:not(.is-planner-open):not(.is-heatmap-open) > .search-bar {
+    gap: 4px;
+    padding: 6px 8px;
+}
+
+html[data-mobile-ui='1'] .search-ui:not(.is-planner-open) .search-planner-toggle-btn,
+html[data-mobile-ui='1'] .search-ui .search-heatmap-select:not(.is-active) {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+}
+
+html[data-mobile-ui='1'] .search-ui .search-heatmap-icon-shell {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+}
+
+html[data-mobile-ui='1'] .search-ui .search-heatmap-select.is-active {
+    height: 32px;
+}
+
+html[data-mobile-ui='1'] .search-ui:not(.is-planner-open) .search-planner-toggle-btn::before,
+html[data-mobile-ui='1'] .search-ui .search-heatmap-collapse::before {
+    width: 22px;
+    height: 22px;
+    flex-basis: 22px;
+}
+
+html[data-mobile-ui='1'] .search-ui .search-heatmap-icon {
+    width: 22px;
+    height: 22px;
 }
 
 .journey-pick-pin-marker {
@@ -5834,24 +5880,6 @@ body[data-mobile-ui='1'] .panel-dir-filter-option-count {
     white-space: nowrap;
 }
 
-[data-panel-root][data-panel-presentation='mobile'][data-panel-mobile-stack-screen='tripDetail'] [data-panel-header] .panel-trip-detail-capture-btn {
-    width: 28px;
-    height: 28px;
-    border: 1px solid var(--ui-border);
-    border-radius: 9999px;
-    background: #fff;
-    padding: 0;
-}
-
-[data-panel-root][data-panel-presentation='mobile'][data-panel-mobile-stack-screen='tripDetail'] [data-panel-header] .panel-trip-detail-capture-btn:hover {
-    background: #f0f0f0;
-}
-
-[data-panel-root][data-panel-presentation='mobile'][data-panel-mobile-stack-screen='tripDetail'] [data-panel-header] .panel-trip-detail-capture-icon {
-    width: 14px;
-    height: 14px;
-}
-
 [data-panel-root][data-panel-presentation='mobile'][data-panel-mobile-stack-screen='tripDetail'] [data-panel-title] .panel-title-sub {
     align-items: center;
     color: var(--ui-text-muted, #6b7280);
@@ -6788,6 +6816,28 @@ body.is-pinned .panel-grid-cell-trip {
     pointer-events: none;
 }
 
+/* 移动端面板统一使用无圆环的图标按钮，包含班次详情返回和截图。 */
+[data-panel-root][data-panel-presentation='mobile'] [data-panel-header] :is(.panel-map-select-btn, .panel-day-print-btn, .panel-capture-btn) {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    box-shadow: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+[data-panel-root][data-panel-presentation='mobile'] [data-panel-header] :is(.panel-map-select-icon, .panel-day-print-icon, .panel-capture-icon) {
+    width: 22px;
+    height: 22px;
+}
+
+[data-panel-root][data-panel-presentation='mobile'] [data-panel-header] :is(.panel-map-select-btn, .panel-day-print-btn, .panel-capture-btn):active {
+    background: var(--ui-surface-hover);
+}
+
 .panel-map-select-menu {
     position: absolute;
     top: calc(100% + 6px);
@@ -6880,6 +6930,43 @@ body.is-pinned .panel-grid-cell-trip {
     color: var(--ui-text);
     position: relative;
     box-sizing: border-box;
+}
+
+.search-history-favorite {
+    margin-left: 8px;
+    font-size: 16px;
+}
+
+.search-history-delete-icon {
+    width: 12px;
+    height: 12px;
+}
+
+/* 三个搜索入口共用移动端操作尺寸，留白由按钮自身承担。 */
+html[data-mobile-ui='1'] .search-ui .search-result-item {
+    gap: 6px;
+    padding: 6px 10px;
+}
+
+html[data-mobile-ui='1'] .search-ui :is(.search-history-favorite, .search-history-delete, .search-heatmap-history-delete) {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    touch-action: manipulation;
+}
+
+html[data-mobile-ui='1'] .search-ui .search-history-favorite {
+    margin-left: 0;
+    font-size: 15px;
+}
+
+html[data-mobile-ui='1'] .search-ui :is(.search-history-delete-icon, .search-heatmap-history-delete-icon) {
+    width: 15px;
+    height: 15px;
 }
 
 .search-result-text--station {

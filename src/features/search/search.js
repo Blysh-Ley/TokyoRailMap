@@ -882,13 +882,11 @@ export function mountSearchUI({ commitMobileTouchResultOnFirstTap = false } = {}
             'aria-label': favorite ? '取消收藏' : '收藏'
         });
         btn.textContent = favorite ? '★' : '☆';
-        btn.style.marginLeft = '8px';
         btn.style.background = 'transparent';
         btn.style.border = 'none';
         btn.style.padding = '0 2px';
         btn.style.cursor = 'pointer';
         btn.style.color = favorite ? '#f5a400' : 'inherit';
-        btn.style.fontSize = '16px';
         btn.style.lineHeight = '1';
         btn.style.opacity = favorite ? '1' : '0.6';
         btn.addEventListener('click', (evt) => {
@@ -1183,10 +1181,8 @@ export function mountSearchUI({ commitMobileTouchResultOnFirstTap = false } = {}
                     const favoriteBtn = createHistoryFavoriteButton(item);
                     row.appendChild(favoriteBtn);
 
-                    const del = el('button', '', { type: 'button', 'aria-label': '删除记录' });
-                    const delIcon = el('img', '', { alt: '' });
-                    delIcon.style.width = '12px';
-                    delIcon.style.height = '12px';
+                    const del = el('button', 'search-history-delete', { type: 'button', 'aria-label': '删除记录' });
+                    const delIcon = el('img', 'search-history-delete-icon', { alt: '' });
                     delIcon.style.display = 'block';
                     if (isDark) delIcon.style.filter = 'invert(1)';
                     setImageElementFromCache(delIcon, getIconCandidates('x.svg'), {
