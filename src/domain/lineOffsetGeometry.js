@@ -7,16 +7,29 @@ export const sliceLineOffsetProfile = (coordinates, profile, segmentCoordinates)
     const master = buildLineOffsetMetrics(coordinates);
     const local = buildLineOffsetMetrics(segmentCoordinates);
     if (!master.total || !local.total) return [[0, evaluateLineOffsetProfile(profile, 0)], [1, evaluateLineOffsetProfile(profile, 0)]];
-    const positions = segmentCoordinates.map(coordinate => nearestLineOffsetProgress(coordinates, coordinate)?.progress || 0);
-    const closed = coordinates[0][0] === coordinates.at(-1)[0] && coordinates[0][1] === coordinates.at(-1)[1];
-    if (closed) {
-        for (let i = 1; i < positions.length; i += 1) {
-            while (positions[i] - positions[i - 1] > 0.5) positions[i] -= 1;
-            while (positions[i] - positions[i - 1] < -0.5) positions[i] += 1;
+    const projections = segmentCoordinates.map(coordinate => nearestLineOffsetProgress(coordinates, coordinate));
+    const positions = projections.map(projection => projection.progress);
+    // 首尾重叠时，最近投影的进度会跳到另一端；用几何切向判断走向，避免误翻偏移符号。
+    let orientedDistance = 0;
+    for (let i = 1; i < local.points.length; i += 1) {
+        const midpoint = segmentCoordinates[i - 1].map((value, axis) => (value + segmentCoordinates[i][axis]) / 2);
+        const sourceIndex = nearestLineOffsetProgress(coordinates, midpoint).segmentIndex;
+        const a = master.points[sourceIndex];
+        const b = master.points[sourceIndex + 1];
+        const length = Math.hypot(b.x - a.x, b.y - a.y);
+        if (length) orientedDistance += ((local.points[i].x - local.points[i - 1].x) * (b.x - a.x)
+            + (local.points[i].y - local.points[i - 1].y) * (b.y - a.y)) / length;
+    }
+    const direction = orientedDistance < 0 ? -1 : 1;
+    let wraps = coordinates[0][0] === coordinates.at(-1)[0] && coordinates[0][1] === coordinates.at(-1)[1];
+    for (let i = 1; i < positions.length; i += 1) {
+        // 也展开非完全闭合的重叠首尾，只修正与实际走向相反的跨端点跳变。
+        while (direction * (positions[i] - positions[i - 1]) < -0.5) {
+            positions[i] += direction;
+            wraps = true;
         }
     }
-    const direction = positions.at(-1) < positions[0] ? -1 : 1;
-    const at = progress => evaluateLineOffsetProfile(profile, closed ? ((progress % 1) + 1) % 1 : Math.max(0, Math.min(1, progress))) * direction;
+    const at = progress => evaluateLineOffsetProfile(profile, wraps ? ((progress % 1) + 1) % 1 : Math.max(0, Math.min(1, progress))) * direction;
     const out = [[0, at(positions[0])]];
     for (let i = 1; i < segmentCoordinates.length; i += 1) {
         const start = positions[i - 1];
