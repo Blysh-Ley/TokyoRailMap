@@ -6962,12 +6962,6 @@ html[data-mobile-ui='1'] .search-ui :is(.search-history-favorite, .search-histor
 
 html[data-mobile-ui='1'] .search-ui .search-history-favorite {
     margin-left: 0;
-    font-size: 15px;
-}
-
-html[data-mobile-ui='1'] .search-ui :is(.search-history-delete-icon, .search-heatmap-history-delete-icon) {
-    width: 15px;
-    height: 15px;
 }
 
 .search-result-text--station {
