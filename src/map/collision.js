@@ -216,7 +216,8 @@ export function setupCollisions(mapOrEngine, stationLabels, stationCircles, opti
     let pendingInteractionOnly = false;
     let domStationLabelsAttached = stationLabels.some((label) => label?.marker);
     let domStationLabelsHiddenForOffMode = false;
-    let symbolStationLabelsVisible = false;
+    // 首次更新必须同步图层可见性，不能把尚未设置的图层当作已隐藏。
+    let symbolStationLabelsVisible = null;
     let lastSymbolStationLabelFilterKey = '';
     let lastSymbolStationLabelSortKey = '';
     let lastSymbolStationLabelMode = '';
