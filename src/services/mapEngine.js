@@ -600,13 +600,17 @@ export const fitMapBoundsWithMinimumZoom = (map, maplibregl, bounds, options = {
     return fitOptions.linear ? map.easeTo(target) : map.flyTo(target);
 };
 
+export const configureMapLibreWorkers = (maplibregl) => {
+    // 主地图和打印地图都在创建前调用，确保最先建立的共享池使用配置后的数量。
+    if (maplibregl.workerCount < 2) maplibregl.workerCount = 2;
+};
+
 export const createMapEngine = ({ maplibregl, container, center, zoom, style, localIdeographFontFamily = 'sans-serif', stationCircleFrameRendering = false, stationCircleFrameLayerOrderSync = false, transferCapsuleFrameRendering = false, stationLabelFrameAnchors = false, stationFrameFallbackNotifications = false } = {}) => {
     if (!maplibregl?.Map) {
         throw new Error('MapLibre GL JS is not available');
     }
 
-    // 在首个地图创建 Worker 池之前增加并行度，保留库已有的更高默认值。
-    if (maplibregl.workerCount < 2) maplibregl.workerCount = 2;
+    configureMapLibreWorkers(maplibregl);
 
     const containerEl = typeof container === 'string' && typeof document !== 'undefined'
         ? document.getElementById(container)
