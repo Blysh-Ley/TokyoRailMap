@@ -605,6 +605,9 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         throw new Error('MapLibre GL JS is not available');
     }
 
+    // 在首个地图创建 Worker 池之前增加并行度，保留库已有的更高默认值。
+    if (maplibregl.workerCount < 2) maplibregl.workerCount = 2;
+
     const containerEl = typeof container === 'string' && typeof document !== 'undefined'
         ? document.getElementById(container)
         : container;
@@ -953,6 +956,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         removeLayer: (...args) => map.removeLayer(...args),
         removeSource: (...args) => map.removeSource(...args),
         getLayer: (...args) => map.getLayer(...args),
+        getLayersOrder: () => map.getLayersOrder(),
         hasImage: (...args) => map.hasImage(...args),
         getSource: (...args) => map.getSource(...args),
         getCanvas: (...args) => map.getCanvas(...args),

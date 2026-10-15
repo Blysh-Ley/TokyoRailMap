@@ -2397,7 +2397,12 @@ const initMapApp = async () => {
         currentLineNameLabelBlockingBBoxes = useNativePlacement
             ? []
             : currentLineNameLabelBlockingBBoxes;
-        if (currentLineNameLabelsData === nextData) return;
+        const currentFeatures = currentLineNameLabelsData?.features;
+        // 视野事件和选中刷新可能得到同一批要素，保持避让结果更新，但不重复提交数据源。
+        if (currentLineNameLabelsData === nextData || (
+            currentFeatures?.length === nextData.features.length
+            && currentFeatures.every((feature, index) => feature === nextData.features[index])
+        )) return;
         currentLineNameLabelsData = nextData;
         try {
             mapEngine.setSourceData?.('line-name-labels-source', nextData);

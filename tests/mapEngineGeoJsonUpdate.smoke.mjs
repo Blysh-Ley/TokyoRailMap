@@ -85,6 +85,19 @@ const createEngine = (MapCtor = FakeMap) => createMapEngine({
     container: 'map'
 });
 
+for (const [initialCount, expectedCount] of [[1, 2], [2, 2], [3, 3]]) {
+    const maplibregl = {
+        workerCount: initialCount,
+        Map: class extends FakeMap {
+            constructor() {
+                super();
+                assert.equal(maplibregl.workerCount, expectedCount, 'Worker 数应在创建地图前准备好');
+            }
+        }
+    };
+    createMapEngine({ maplibregl, container: 'map' });
+}
+
 {
     const engine = createEngine();
     engine.addSource('stations-source', {
