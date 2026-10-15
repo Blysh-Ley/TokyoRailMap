@@ -93,9 +93,6 @@
       }
     ]
   },
-  "Keisei.NaritaSkyAccess": {
-    "offset": -1.2
-  },
   "TokyoMetro.Fukutoshin": {
     "offset": 0,
     "transitionMeters": 2000,
@@ -610,6 +607,86 @@
           ]
         ],
         "offset": 1.1
+      }
+    ]
+  }
+,
+  "Tokyu.Toyoko": {
+    "offset": 0,
+    "transitionMeters": 800,
+    "segments": [
+      {
+        "points": [
+          [
+            139.66778104865517,
+            35.60399607799931
+          ],
+          [
+            139.6486575195898,
+            35.55687720124699
+          ]
+        ],
+        "offset": 1.1
+      }
+    ]
+  },
+
+"Keisei.NaritaSkyAccess": {
+    "offset": -1.2,
+    "transitionMeters": 2000,
+    "segments": [
+    {
+        "points": [
+          [
+            140.3123630399789,
+            35.7986246263642
+          ],
+          [
+            140.3866712965418,
+            35.764544347529736
+          ]
+        ],
+        "offset": -2.2
+      }
+    ]
+  },
+
+
+  "JR-East.Narita": {
+    "offset": 0,
+    "transitionMeters": 1000,
+    "segments": [
+      {
+        "points": [
+          [
+            140.22753341377808,
+            35.709888132352816
+          ],
+          [
+            140.31494053457612,
+            35.796775094453196
+          ]
+        ],
+        "offset": -1.1
+      }
+    ]
+  },
+  "JR-East.NaritaAirportBranch": {
+    "offset": 0,
+    "transitionMeters": 800,
+    "segments": [
+      {
+        "points": [
+          [
+            140.3859647282194,
+            35.76523070805965
+          ],
+          [
+            140.31452621245302,
+            35.79587808656561
+          ]
+        ],
+        "offset": -1.1
       }
     ]
   }
