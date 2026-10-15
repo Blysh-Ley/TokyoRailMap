@@ -8,6 +8,30 @@ const stationCoordByIdBase = new Map([
     ['D', [139.3, 35.0]]
 ]);
 
+// 不同显示颜色可以共用片段偏移，反向片段必须独立计算且不能丢失。
+const profileCalls = [];
+const profileBuilder = createTripPreviewBuilder({
+    stationCoordByIdBase,
+    lineColorById: new Map([['L2', '#222222']]),
+    extractLineSegment: (_lineId, from, to) => [from, to],
+    getLineOffsetProfile: (lineId, coordinates) => {
+        profileCalls.push({ lineId, coordinates });
+        const units = coordinates[0][0] < coordinates[1][0] ? 2 : -2;
+        return [[0, units], [1, units]];
+    }
+});
+const profilesBuilt = profileBuilder.buildTripPreviewFeatures({
+    segments: [
+        { lineId: 'L2', stationIds: ['A', 'B'], highlightColor: '#ff0000' },
+        { lineId: 'L2', stationIds: ['A', 'B'], highlightColor: '#0000ff' },
+        { lineId: 'L2', stationIds: ['B', 'A'], highlightColor: '#00ff00' }
+    ]
+});
+assert.equal(profileCalls.length, 2, '相同正向片段只计算一次，反向片段另算');
+const profileFeatures = profilesBuilt.lineFc.features.filter((feature) => feature.properties.role === 'line');
+assert.equal(profileFeatures.length, 3, '共用偏移结果不能合并不同颜色或方向的高亮');
+assert.deepEqual(profileFeatures.map((feature) => JSON.parse(feature.properties.line_offset_profile)[0][1]), [2, 2, -2]);
+
 const extractedLineIds = [];
 const extractedOptions = [];
 

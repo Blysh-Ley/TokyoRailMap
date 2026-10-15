@@ -1,19 +1,34 @@
-import { buildLineOffsetMetrics, evaluateLineOffsetProfile, nearestLineOffsetProgress } from './lineOffsetProfile.js';
+import { buildLineOffsetMetrics, buildLineOffsetSegmentIndex, evaluateLineOffsetProfile, nearestLineOffsetPosition } from './lineOffsetProfile.js';
 
 // 全线曲线切到路线子段时保留原曲线值，避免每个站间重新启动过渡。
-export const sliceLineOffsetProfile = (coordinates, profile, segmentCoordinates) => {
+export const sliceLineOffsetProfile = (coordinates, profile, segmentCoordinates, metricsByCoordinates = null) => {
     if (!profile || coordinates.length < 2 || segmentCoordinates.length < 2) return null;
     if (coordinates === segmentCoordinates || (coordinates.length === segmentCoordinates.length && coordinates.every((point, i) => point[0] === segmentCoordinates[i][0] && point[1] === segmentCoordinates[i][1]))) return profile;
-    const master = buildLineOffsetMetrics(coordinates);
-    const local = buildLineOffsetMetrics(segmentCoordinates);
+    const getMetrics = (points) => {
+        if (!metricsByCoordinates) return buildLineOffsetMetrics(points);
+        if (!metricsByCoordinates.has(points)) metricsByCoordinates.set(points, buildLineOffsetMetrics(points));
+        return metricsByCoordinates.get(points);
+    };
+    const master = getMetrics(coordinates);
+    const local = getMetrics(segmentCoordinates);
     if (!master.total || !local.total) return [[0, evaluateLineOffsetProfile(profile, 0)], [1, evaluateLineOffsetProfile(profile, 0)]];
-    const projections = segmentCoordinates.map(coordinate => nearestLineOffsetProgress(coordinates, coordinate));
+    if (metricsByCoordinates) master.segmentIndex ??= buildLineOffsetSegmentIndex(master.points);
+    // 相邻片段经常查询相同顶点；投影结果与片段颜色、方向无关，可在本次聚合内共用。
+    const positionCache = metricsByCoordinates ? (master.positionsByCoordinate ??= new Map()) : null;
+    const projectPosition = (coordinate) => {
+        if (!positionCache) return nearestLineOffsetPosition(master, coordinate);
+        const key = `${coordinate[0]},${coordinate[1]}`;
+        if (!positionCache.has(key)) positionCache.set(key, nearestLineOffsetPosition(master, coordinate));
+        return positionCache.get(key);
+    };
+    // 顶点和中点都复用同一份全线测量，保留最近点与方向判断的原有语义。
+    const projections = segmentCoordinates.map(projectPosition);
     const positions = projections.map(projection => projection.progress);
     // 首尾重叠时，最近投影的进度会跳到另一端；用几何切向判断走向，避免误翻偏移符号。
     let orientedDistance = 0;
     for (let i = 1; i < local.points.length; i += 1) {
         const midpoint = segmentCoordinates[i - 1].map((value, axis) => (value + segmentCoordinates[i][axis]) / 2);
-        const sourceIndex = nearestLineOffsetProgress(coordinates, midpoint).segmentIndex;
+        const sourceIndex = projectPosition(midpoint).segmentIndex;
         const a = master.points[sourceIndex];
         const b = master.points[sourceIndex + 1];
         const length = Math.hypot(b.x - a.x, b.y - a.y);

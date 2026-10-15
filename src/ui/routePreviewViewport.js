@@ -166,7 +166,7 @@ export const createRoutePreviewViewportController = ({
         const viewportOptions = getViewportFitOptions(options);
         if (viewportOptions) {
             mapEngine.fitBoundsWithViewport(bounds, {
-                duration: 280, easing: (t) => t, essential: true, ...viewportOptions
+                duration: options.duration ?? 280, easing: (t) => t, essential: true, ...viewportOptions
             });
             return;
         }
@@ -209,7 +209,7 @@ export const createRoutePreviewViewportController = ({
         try {
             mapEngine.fitBounds(bounds, {
                 padding: { top: base, bottom: base, left, right },
-                duration: 280,
+                duration: options.duration ?? 280,
                 easing: (t) => t,
                 essential: true
             });
