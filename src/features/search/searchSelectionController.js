@@ -85,7 +85,9 @@ export const createSearchSelectionController = ({
         if (!lineIds.length) selectPlatformLinesForStation?.(props);
         setIsolate(false);
         setStationLabelMode?.('all');
-        fitToPointAsBounds?.(coords, { maxZoom: meta?.maxZoom });
+        if (meta?.skipFit !== true) {
+            fitToPointAsBounds?.(coords, { maxZoom: meta?.maxZoom });
+        }
         return { props, coords, lineIds };
     };
 
@@ -176,10 +178,19 @@ export const createSearchSelectionController = ({
 
         commitStation(stationId, meta) {
             hoverLifecycle.commitPreview();
-            const opened = openStationForStationId(stationId, meta || {});
-            if (meta?.showPanel === false) return;
+            const showPanel = meta?.showPanel !== false;
+            const opened = openStationForStationId(stationId, { ...meta, skipFit: showPanel });
+            if (!showPanel) return;
 
-            openPanelForStationWithAutoScroll?.(opened?.props || {}, { collapseMobileSearch: true });
+            openPanelForStationWithAutoScroll?.(opened?.props || {}, {
+                collapseMobileSearch: true,
+                onTimetablesRendered: ({ stationPreviewApplied } = {}) => {
+                    // 面板已定位到预览范围时无需再缩放；无班次预览时保留站点定位。
+                    if (stationPreviewApplied === false) {
+                        fitToPointAsBounds?.(opened?.coords, { maxZoom: meta?.maxZoom });
+                    }
+                }
+            });
         },
 
         closeStationPopup({ committed } = {}) {

@@ -3306,7 +3306,7 @@ const initMapApp = async () => {
         const prevScrollTop = panel?.getScrollTop?.() || 0;
         const shouldAutoScroll = options?.autoScroll !== false;
         const deferHeavyRender = options?.deferHeavyRender !== false;
-        const onTimetablesRendered = () => {
+        const onTimetablesRendered = (result) => {
             panel?.setScrollTop?.(shouldAutoScroll ? prevScrollTop : 0, { behavior: 'auto' });
             if (shouldAutoScroll) {
                 const lineId = getPreferredPanelScrollLineIdFromStationProps(p);
@@ -3318,14 +3318,14 @@ const initMapApp = async () => {
             } catch {
                 // 保留关联时刻表预加载的可选行为。
             }
-            options?.onTimetablesRendered?.();
+            options?.onTimetablesRendered?.(result);
         };
-        await panel?.showForStationProps?.(p, {
+        const result = await panel?.showForStationProps?.(p, {
             deferHeavyRender,
             onTimetablesRendered
         });
         // 分阶段渲染在基础面板显示后返回，最终滚动和预加载由完成回调执行。
-        if (!deferHeavyRender) onTimetablesRendered();
+        if (!deferHeavyRender) onTimetablesRendered(result);
     };
 
     const jumpToPanelStation = async ({

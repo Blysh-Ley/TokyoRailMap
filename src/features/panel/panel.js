@@ -5083,6 +5083,7 @@ export function createPanel(options = {}) {
         const lineEls = Array.from(body.querySelectorAll('[data-line-id]'));
         const commits = [];
         const preparedTimetables = [];
+        let stationPreviewApplied;
         const isStillCurrentRender = () => token === timetableRenderToken
             && stationRenderTokenAtStart === stationRenderToken
             && stationId === toText(currentStationId);
@@ -5113,11 +5114,11 @@ export function createPanel(options = {}) {
             if (!isStillCurrentRender()) return;
         }
         if (prioritizeStationPreview) {
-            await scheduleStationThroughPreview({
+            stationPreviewApplied = await scheduleStationThroughPreview({
                 renderToken: stationRenderTokenAtStart,
                 stationId,
                 isStillCurrentRender
-            }).catch(() => null);
+            }).catch(() => false);
             if (!isStillCurrentRender()) return;
             await yieldToPanelPaint(true);
             if (!isStillCurrentRender()) return;
@@ -5140,19 +5141,24 @@ export function createPanel(options = {}) {
         body.querySelector('[data-station-timetable-loading]')?.remove();
         syncDirectionFocusStickyMetrics();
         const completion = pendingStationTimetableCompletion;
+        if (scheduleStationThroughPreviewAfterRender && !prioritizeStationPreview && canRefreshStationPreview()) {
+            const previewResult = scheduleStationThroughPreview({
+                renderToken: stationRenderTokenAtStart,
+                stationId,
+                isStillCurrentRender: () => isStillCurrentRender() && canRefreshStationPreview()
+            }).catch(() => false);
+            if (completion) {
+                const applied = await previewResult;
+                if (!isStillCurrentRender()) return;
+                stationPreviewApplied = canRefreshStationPreview() ? applied : undefined;
+            }
+        }
         if (completion) {
             schedulePanelPostPaintTask(() => {
                 if (!isStillCurrentRender() || pendingStationTimetableCompletion !== completion) return;
                 pendingStationTimetableCompletion = null;
-                completion();
+                completion({ stationPreviewApplied });
             });
-        }
-        if (scheduleStationThroughPreviewAfterRender && !prioritizeStationPreview && canRefreshStationPreview()) {
-            scheduleStationThroughPreview({
-                renderToken: stationRenderTokenAtStart,
-                stationId,
-                isStillCurrentRender: () => isStillCurrentRender() && canRefreshStationPreview()
-            }).catch(() => null);
         }
 
         if (pendingGridDataDebugLog) {
@@ -5167,6 +5173,7 @@ export function createPanel(options = {}) {
             */
             pendingGridDataDebugLog = false;
         }
+        return { stationPreviewApplied };
     };
 
     const rerenderLineById = async (lineId) => {
@@ -6111,7 +6118,7 @@ export function createPanel(options = {}) {
         if (hasPinnedPanelState()) return;
         const toEl = evt?.relatedTarget;
         if (toEl && (rowEl.contains(toEl) || tripDetailRoot.contains(toEl))) return;
-        clearUnpinnedTripPreview();
+        // 沿用详情的关闭延时，进入下一班次时可取消恢复，直接替换地图预览。
         scheduleTripDetailHide();
     };
 
@@ -6569,8 +6576,8 @@ export function createPanel(options = {}) {
                 openMobileStationOverview();
                 scheduleCatalogRefresh();
                 const timetableToken = timetableRenderToken + 1;
-                pendingStationTimetableCompletion = () => {
-                    if (isStillCurrentStationRender()) options?.onTimetablesRendered?.();
+                pendingStationTimetableCompletion = (result) => {
+                    if (isStillCurrentStationRender()) options?.onTimetablesRendered?.(result);
                 };
                 await renderAllTimetables({
                     buildPrintPayloads: false,
@@ -6663,9 +6670,10 @@ export function createPanel(options = {}) {
 
         // 默认折叠态：填充每条线路的“未来最近 3 条”班次
         // 这里等待渲染完成，避免外部随后执行的 scrollToLineId 被后续异步渲染“拉回顶部”。
-        await renderAllTimetables();
+        const result = await renderAllTimetables({ prioritizeStationPreview: true });
         scheduleCatalogRefresh();
         panelScrollRuntime.syncPanelTitleForActiveLine();
+        return result;
     };
 
     const refreshPanelThemeColors = async () => {
