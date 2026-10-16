@@ -1,3 +1,4 @@
+import { buildLineNameLabelGeoJSON, buildLineNameLabelCandidates, selectLineNameLabelCandidates, LINE_NAME_LABEL_LETTER_SPACING } from '../../domain/lineNameLabels.js';
 import { readLineOffsetProfile } from '../../domain/lineOffsetProfile.js';
 import { sliceLineOffsetProfile, buildVariableOffsetPolylinePixels } from '../../domain/lineOffsetGeometry.js';
 import {
@@ -1140,76 +1141,37 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         }
     };
 
-    const pickLineNameLabelsInBbox = async ({ baseMap, bbox, lineIds }) => {
-        if (!baseMap || !bbox || !isLineNameLabelsVisibleForExport(baseMap)) return [];
-        const allowedLineIds = lineIds instanceof Set ? lineIds : null;
-        if (allowedLineIds && !allowedLineIds.size) return [];
-
-        const fc = await getGeoJsonSourceData(baseMap, 'line-name-labels-source');
-        const features = Array.isArray(fc?.features) ? fc.features : [];
-        if (!features.length) return [];
-
-        const out = [];
-        for (const f of features) {
-            const props = f?.properties || {};
-            const lineId = toText(props.id);
-            if (allowedLineIds && !allowedLineIds.has(lineId)) continue;
-            const name = toText(props.name);
-            if (!name) continue;
-            const geom = f?.geometry;
-            if (!geom) continue;
-            if (geom.type === 'LineString') {
-                if (featureBboxIntersects(geom.coordinates, bbox)) out.push(f);
-            } else if (geom.type === 'MultiLineString' && Array.isArray(geom.coordinates)) {
-                if (geom.coordinates.some((line) => featureBboxIntersects(line, bbox))) out.push(f);
-            }
-        }
-        return out;
+    const pickLineNameLabelsInBbox = async ({ baseMap, map, lineFeatures, lineIds, labelScale = 1 }) => {
+        if (!baseMap || !isLineNameLabelsVisibleForExport(baseMap)) return [];
+        // 使用未筛选的真实路径，在导出视口重新布局，不能复用主图已经选过的候选。
+        const paths = getRuntimeApi().getLineNameLabelPaths?.(lineFeatures)
+            || buildLineNameLabelGeoJSON(lineFeatures || (await getGeoJsonSourceData(baseMap, 'lines-source'))?.features || []);
+        const context = document.createElement('canvas').getContext('2d');
+        const canvas = map.getCanvas();
+        const candidates = buildLineNameLabelCandidates(paths, {
+            project: coordinate => map.project(coordinate), unproject: point => map.unproject(point),
+            width: canvas.clientWidth, height: canvas.clientHeight, zoom: map.getZoom(), labelScale,
+            lineIds: lineIds instanceof Set ? lineIds : null,
+            buildFixedOffset: getRuntimeApi().buildOffsetPolylinePixelsWithMiter,
+            measureText: (text, size) => { context.font = `${size}px sans-serif`; return context.measureText(text).width; }
+        });
+        return selectLineNameLabelCandidates(candidates, coordinate => map.project(coordinate));
     };
 
-    const appendLineNameLabelsSvg = ({ parts, map, features, labelScale = 1 }) => {
-        const list = Array.isArray(features) ? features : [];
-        if (!list.length) return;
-
-        const scale = Math.max(1, Number(labelScale) || 1);
-        const fontPx = 10 * scale;
-        const fontFamily = "'Open Sans', 'Arial Unicode MS', sans-serif";
-
-        parts.push(`<g id="line-name-labels-export" font-family="${fontFamily}" font-size="${fontPx}" font-weight="700" text-anchor="middle" dominant-baseline="middle">`);
-        for (const f of list) {
-            const props = f?.properties || {};
-            const text = toText(props.name);
-            if (!text) continue;
-
-            const geom = f?.geometry;
-            const coords = geom?.type === 'LineString' ? geom.coordinates : null;
-            const points = (Array.isArray(coords) ? coords : [])
-                .filter((coord) => Array.isArray(coord) && coord.length >= 2);
-            if (points.length < 2) continue;
-
-            const first = project(map, { lng: Number(points[0][0]), lat: Number(points[0][1]) });
-            const lastCoord = points[points.length - 1];
-            const last = project(map, { lng: Number(lastCoord[0]), lat: Number(lastCoord[1]) });
-            if (!Number.isFinite(first.x) || !Number.isFinite(first.y) || !Number.isFinite(last.x) || !Number.isFinite(last.y)) continue;
-
-            let angle = Math.atan2(last.y - first.y, last.x - first.x) * 180 / Math.PI;
-            if (angle > 90 || angle < -90) angle += 180;
-
-            const cx = (first.x + last.x) / 2;
-            const cy = (first.y + last.y) / 2;
-            const rad = angle * Math.PI / 180;
-            const offset = Array.isArray(props.text_offset) ? Number(props.text_offset[1]) : 0;
-            const offsetPx = Number.isFinite(offset) ? offset * fontPx : 0;
-            const x = cx + (-Math.sin(rad) * offsetPx);
-            const y = cy + (Math.cos(rad) * offsetPx);
+    const appendLineNameLabelsSvg = ({ parts, map, features }) => {
+        parts.push(`<g id="line-name-labels-export" font-family="'Open Sans', 'Arial Unicode MS', sans-serif" text-anchor="middle" dominant-baseline="central">`);
+        for (const [index, feature] of features.entries()) {
+            const props = feature.properties;
+            const points = feature.geometry.coordinates.map(coordinate => map.project(coordinate));
+            // 与原生 keep-upright 一致，整段沿线文字保持从左向右可读。
+            if (points.at(-1).x < points[0].x) points.reverse();
+            const pathId = `line-name-export-path-${index}`;
+            const path = points.map((point, i) => `${i ? 'L' : 'M'}${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
             const color = escapeXml(resolveRailColorForTheme(props.color || '#2f6fdf') || '#2f6fdf');
-            const letterSpacing = `${(0.15 * fontPx).toFixed(2)}`;
-
-            parts.push(
-                `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" transform="rotate(${angle.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)})" fill="${color}" letter-spacing="${letterSpacing}">${escapeXml(text)}</text>`
-            );
+            const fontPx = props.label_font_size;
+            parts.push(`<defs><path id="${pathId}" d="${path}"/></defs><text data-line-id="${escapeXml(props.id)}" font-size="${fontPx}" letter-spacing="${LINE_NAME_LABEL_LETTER_SPACING * fontPx}" fill="${color}"><textPath href="#${pathId}" xlink:href="#${pathId}" startOffset="50%">${escapeXml(props.name)}</textPath></text>`);
         }
-        parts.push(`</g>`);
+        parts.push('</g>');
     };
 
     const pathFromCoords = (map, coords, options = {}) => {
@@ -1369,6 +1331,24 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
             parts.push(`</g>`);
         }
 
+        try {
+            const bounds = map.getBounds?.();
+            const baseMap = getRuntimeBaseMap() || map;
+            if (bounds && baseMap) {
+                const lineNameLabelFeatures = await pickLineNameLabelsInBbox({
+                    baseMap, map, lineFeatures, labelScale: stationLabelScale,
+                    lineIds: built?.lineIds
+                });
+                appendLineNameLabelsSvg({
+                    parts,
+                    map,
+                    features: lineNameLabelFeatures
+                });
+            }
+        } catch {
+            // 可选线路名读取失败时，继续保留其余导出内容。
+        }
+
         // lines
         const linesSorted = lineFeatures.slice().sort((a, b) => {
             const ra = String(a?.properties?.role || '');
@@ -1412,31 +1392,6 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
             capsuleLines: capsules?.lines,
             capsuleCentroids: capsules?.centroids
         });
-
-        try {
-            const bounds = map.getBounds?.();
-            const baseMap = getRuntimeBaseMap() || map;
-            if (bounds && baseMap) {
-                const lineNameLabelFeatures = await pickLineNameLabelsInBbox({
-                    baseMap,
-                    lineIds: built?.lineIds,
-                    bbox: {
-                        minLng: bounds.getWest(),
-                        minLat: bounds.getSouth(),
-                        maxLng: bounds.getEast(),
-                        maxLat: bounds.getNorth()
-                    }
-                });
-                appendLineNameLabelsSvg({
-                    parts,
-                    map,
-                    features: lineNameLabelFeatures,
-                    labelScale: stationLabelScale
-                });
-            }
-        } catch {
-            // keep export working even if optional line-name labels cannot be read
-        }
 
         // stops
         parts.push(`<g id="trip-preview-stops">`);

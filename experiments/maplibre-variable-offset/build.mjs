@@ -22,9 +22,11 @@ try {
     await mkdir(native, {recursive: true});
     await cp(join(upstream, 'src'), join(native, 'src'), {recursive: true});
     await cp(join(upstream, 'package.json'), join(native, 'package.json'));
-    const patch = join(experiment, 'maplibre-3.6.2.patch');
-    execFileSync('git', ['apply', '--check', patch], {cwd: native, stdio: 'inherit'});
-    execFileSync('git', ['apply', patch], {cwd: native, stdio: 'inherit'});
+    for (const name of ['maplibre-3.6.2.patch', 'maplibre-symbol-placement.patch']) {
+        const patch = join(experiment, name);
+        execFileSync('git', ['apply', '--check', patch], {cwd: native, stdio: 'inherit'});
+        execFileSync('git', ['apply', patch], {cwd: native, stdio: 'inherit'});
+    }
     const shared = {
         bundle: true,
         tsconfigRaw: {compilerOptions: {useDefineForClassFields: false}},

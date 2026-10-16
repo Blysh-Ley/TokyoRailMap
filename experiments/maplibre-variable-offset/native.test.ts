@@ -4,6 +4,23 @@ import {readLineOffsetProfile, lineOffsetFactor, sampleLineOffsetGeometry, lineV
 import {LineBucket} from '__NATIVE__/src/data/bucket/line_bucket';
 import {LineStyleLayer} from '__NATIVE__/src/style/style_layer/line_style_layer';
 import {serialize, deserialize} from '__NATIVE__/src/util/web_worker_transfer';
+import {CollisionGroups, SymbolCandidateGroups} from '__NATIVE__/src/symbol/symbol_candidate_groups';
+
+const groups = new CollisionGroups(true);
+const ordinaryGroup = groups.get('stations');
+const namesGroup = groups.get('names', 'railway-names');
+assert.equal(ordinaryGroup.ID, groups.get('basemap').ID, '普通图层继续跨源碰撞');
+assert.equal(ordinaryGroup.predicate({collisionGroupID: namesGroup.ID} as any), false, '站名不会被线路名阻挡');
+assert.equal(namesGroup.predicate({collisionGroupID: ordinaryGroup.ID} as any), false, '线路名不会被站名阻挡');
+assert.equal(namesGroup.predicate({collisionGroupID: namesGroup.ID} as any), true, '线路名之间继续避让');
+const separateSources = new CollisionGroups(false);
+assert.notEqual(separateSources.get('a').ID, separateSources.get('b').ID);
+const candidates = new SymbolCandidateGroups();
+assert.equal(candidates.accept('line-a', false), false);
+assert.equal(candidates.has('line-a'), false, '失败或视口外候选不能占名额');
+assert.equal(candidates.accept('line-a', true), true, '后续可见候选应成功');
+assert.equal(candidates.accept('line-a', true), false, '成功后跨瓦片去重');
+assert.equal(candidates.accept('line-b', true), true);
 
 const profile = readLineOffsetProfile({line_offset_profile: JSON.stringify([[0, 1], [.25, 1], [.75, -1], [1, -1]])});
 assert.equal(lineOffsetFactor(profile, .1), 1);

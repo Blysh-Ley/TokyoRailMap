@@ -2,6 +2,7 @@
  * 添加线路图层。
  */
 import { getGlobalTouchTapGuard } from './touchTapGuard.js';
+export { LINE_NAME_LABEL_TEXT_SIZE_EXPR, getLineNameLabelTextSizeForZoom } from '../domain/lineNameLabels.js';
 import { DATA_URLS, getCachedJson, getCompanyLogoSrc } from '../lib/fetch.js';
 import { createLineIconElement, createStationCodeBadgeElement, getResolvedRouteIconMeta, normalizeStationCodeBadgeCodes } from '../lib/line-icons.js';
 import { isSUStations, THROUGH_SERVICE_CONFIGS_OBJECT } from '../lib/throughServiceManager.js';
@@ -222,7 +223,7 @@ export function addLineNameLabelsLayer(mapOrEngine, labelsData) {
     if (!mapAdapter.getSource('line-name-labels-source')) {
         mapAdapter.addSource('line-name-labels-source', {
             type: 'geojson',
-            maxzoom: 8,
+            maxzoom: 18,
             data: labelsData || { type: 'FeatureCollection', features: [] }
         });
     }
@@ -233,18 +234,21 @@ export function addLineNameLabelsLayer(mapOrEngine, labelsData) {
             id: 'line-name-labels-layer',
             type: 'symbol',
             source: 'line-name-labels-source',
+            metadata: { tokyoRailSymbolPlacement: { collisionGroup: 'railway-names', candidateGroup: 'id' } },
             layout: {
                 'symbol-placement': 'line-center',
-                'symbol-spacing': ['interpolate', ['linear'], ['zoom'], 8, 300, 12, 800, 16, 1600],
+                'symbol-sort-key': ['get', 'label_rank'],
                 'symbol-avoid-edges': false,
                 'text-field': ['get', 'name'],
                 'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
-                'text-size':10,
+                'text-size': ['get', 'label_font_size'],
                 'text-letter-spacing': 0.15,
-                'text-offset': ['get', 'text_offset'],
-                'text-max-angle': 40,
+                'text-max-angle': 30,
                 'text-keep-upright': true,
+                'text-anchor': 'center',
+                'text-max-width': 100,
                 'text-rotation-alignment': 'map',
+                'text-pitch-alignment': 'viewport',
                 'text-allow-overlap': false,
                 'text-ignore-placement': false,
                 'text-padding': 2

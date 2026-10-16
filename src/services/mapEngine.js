@@ -1444,7 +1444,9 @@ export const createBasemapController = ({
             : getBasemapBackgroundColor(theme)
     );
     const getOverlayAnchorLayerId = () => (
-        mapEngine.getLayer('lines-layer')
+        mapEngine.getLayer('line-name-labels-layer')
+            ? 'line-name-labels-layer'
+            : mapEngine.getLayer('lines-layer')
             ? 'lines-layer'
             : (mapEngine.getLayer('stations-layer') ? 'stations-layer' : undefined)
     );

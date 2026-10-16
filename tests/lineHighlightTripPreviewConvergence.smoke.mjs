@@ -173,7 +173,8 @@ assert.match(printSource, /getLineOffsetPixelsForFeature[\s\S]*line_offset_units
 assert.match(printSource, /pathFromLineFeatureCoords\(map, f, geom\.coordinates\)/);
 assert.match(printSource, /pickLineNameLabelsInBbox/);
 assert.match(printSource, /lineIds:\s*built\?\.lineIds/);
-assert.match(printSource, /getGeoJsonSourceData\(baseMap, 'line-name-labels-source'\)/);
+assert.match(printSource, /getLineNameLabelPaths\?\.\(lineFeatures\)/);
+assert.match(printSource, /buildLineNameLabelCandidates\(paths/);
 assert.match(printSource, /appendLineNameLabelsSvg/);
 assert.match(printSource, /getExportStationOffsetGeoJSONForMap\(vmap\)/);
 assert.match(printSource, /remapStopFeatureCoordsToExportStations/);

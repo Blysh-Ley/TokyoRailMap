@@ -1,0 +1,148 @@
+--- a/src/symbol/placement.ts
++++ b/src/symbol/placement.ts
+@@ -1,3 +1,4 @@
++import {CollisionGroups, SymbolCandidateGroups, type CollisionGroup} from './symbol_candidate_groups';
+ import {CollisionIndex} from './collision_index';
+ import type {FeatureKey} from './collision_index';
+ import {EXTENT} from '../data/extent';
+@@ -97,43 +98,6 @@
+         this.sourceLayerIndex = sourceLayerIndex;
+         this.bucketIndex = bucketIndex;
+         this.tileID = tileID;
+-    }
+-}
+-
+-type CollisionGroup = {
+-    ID: number;
+-    predicate?: (key: FeatureKey) => boolean;
+-};
+-
+-class CollisionGroups {
+-    collisionGroups: {[groupName: string]: CollisionGroup};
+-    maxGroupID: number;
+-    crossSourceCollisions: boolean;
+-
+-    constructor(crossSourceCollisions: boolean) {
+-        this.crossSourceCollisions = crossSourceCollisions;
+-        this.maxGroupID = 0;
+-        this.collisionGroups = {};
+-    }
+-
+-    get(sourceID: string) {
+-        // The predicate/groupID mechanism allows for arbitrary grouping,
+-        // but the current interface defines one source == one group when
+-        // crossSourceCollisions == true.
+-        if (!this.crossSourceCollisions) {
+-            if (!this.collisionGroups[sourceID]) {
+-                const nextGroupID = ++this.maxGroupID;
+-                this.collisionGroups[sourceID] = {
+-                    ID: nextGroupID,
+-                    predicate: (key) => {
+-                        return key.collisionGroupID === nextGroupID;
+-                    }
+-                };
+-            }
+-            return this.collisionGroups[sourceID];
+-        } else {
+-            return {ID: 0, predicate: null};
+-        }
+     }
+ }
+ 
+@@ -233,6 +197,7 @@
+         [_: number]: RetainedQueryData;
+     };
+     collisionGroups: CollisionGroups;
++    candidateGroups: SymbolCandidateGroups;
+     prevPlacement: Placement;
+     zoomAtLastRecencyCheck: number;
+     collisionCircleArrays: {
+@@ -251,6 +216,7 @@
+         this.fadeDuration = fadeDuration;
+         this.retainedQueryData = {};
+         this.collisionGroups = new CollisionGroups(crossSourceCollisions);
++        this.candidateGroups = new SymbolCandidateGroups();
+         this.collisionCircleArrays = {};
+ 
+         this.prevPlacement = prevPlacement;
+@@ -320,7 +286,7 @@
+             holdingForFade: tile.holdingForFade(),
+             collisionBoxArray,
+             partiallyEvaluatedTextSize: symbolSize.evaluateSizeForZoom(symbolBucket.textSizeData, this.transform.zoom),
+-            collisionGroup: this.collisionGroups.get(symbolBucket.sourceID)
++            collisionGroup: this.collisionGroups.get(symbolBucket.sourceID, (styleLayer.metadata as any)?.tokyoRailSymbolPlacement?.collisionGroup)
+         };
+ 
+         if (sortAcrossTiles) {
+@@ -463,8 +429,19 @@
+         const tileID = this.retainedQueryData[bucket.bucketInstanceId].tileID;
+         const getElevation = this.terrain ? (x: number, y: number) => this.terrain.getElevation(tileID, x, y) : null;
+ 
++        const candidateProperty = (bucket.layers[0].metadata as any)?.tokyoRailSymbolPlacement?.candidateGroup;
++        const candidateFeatures = candidateProperty
++            ? this.retainedQueryData[bucket.bucketInstanceId].featureIndex.loadVTLayers()[bucket.layers[0].sourceLayer || '_geojsonTileLayer']
++            : null;
+         const placeSymbol = (symbolInstance: SymbolInstance, collisionArrays: CollisionArrays) => {
+             if (seenCrossTileIDs[symbolInstance.crossTileID]) return;
++            const candidateValue = candidateFeatures?.feature(symbolInstance.featureIndex).properties[candidateProperty];
++            const candidateKey = candidateValue === undefined ? null : `${bucket.layerIds[0]}:${candidateValue}`;
++            if (candidateKey && this.candidateGroups.has(candidateKey)) {
++                this.placements[symbolInstance.crossTileID] = new JointPlacement(false, false, true);
++                seenCrossTileIDs[symbolInstance.crossTileID] = true;
++                return;
++            }
+             if (holdingForFade) {
+                 // Mark all symbols from this tile as "not placed", but don't add to seenCrossTileIDs, because we don't
+                 // know yet if we have a duplicate in a parent tile that _should_ be placed.
+@@ -730,6 +707,13 @@
+                 placeText = placeIcon && placeText;
+             } else if (!iconWithoutText) {
+                 placeIcon = placeIcon && placeText;
++            }
++
++            // 视口外或失败的候选不能占名额，也不能向碰撞网格插入障碍。
++            const candidateOffscreen = symbolInstance.useRuntimeCollisionCircles ? placedGlyphCircles.offscreen : offscreen;
++            if (candidateKey && !this.candidateGroups.accept(candidateKey, placeText && !candidateOffscreen)) {
++                placeText = false;
++                placeIcon = false;
+             }
+ 
+             if (placeText && placedGlyphBoxes && placedGlyphBoxes.box) {
+--- /dev/null
++++ b/src/symbol/symbol_candidate_groups.ts
+@@ -0,0 +1,35 @@
++import type {FeatureKey} from './collision_index';
++
++export type CollisionGroup = {ID: number; predicate?: (key: FeatureKey) => boolean};
++
++// 显式碰撞组独立于默认共享组；普通图层继续保持原来的跨源策略。
++export class CollisionGroups {
++    collisionGroups: {[key: string]: CollisionGroup} = {};
++    maxGroupID = 0;
++    crossSourceCollisions: boolean;
++
++    constructor(crossSourceCollisions: boolean) {
++        this.crossSourceCollisions = crossSourceCollisions;
++    }
++
++    get(sourceID: string, name?: string): CollisionGroup {
++        if (!name && this.crossSourceCollisions) return {ID: 0, predicate: key => key.collisionGroupID === 0};
++        const key = name ? `group:${name}` : `source:${sourceID}`;
++        if (!this.collisionGroups[key]) {
++            const ID = ++this.maxGroupID;
++            this.collisionGroups[key] = {ID, predicate: feature => feature.collisionGroupID === ID};
++        }
++        return this.collisionGroups[key];
++    }
++}
++
++// 每轮 placement 跨瓦片共享，只有真正可见的成功候选才终止该组的尝试。
++export class SymbolCandidateGroups {
++    placed = new Set<string>();
++    has(key: string): boolean { return this.placed.has(key); }
++    accept(key: string, visible: boolean): boolean {
++        if (!visible || this.placed.has(key)) return false;
++        this.placed.add(key);
++        return true;
++    }
++}

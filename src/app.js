@@ -61,7 +61,7 @@ import { extractShortestLoopSegmentByIndex, isLoopDirection } from './lib/trip-p
 import { buildLineHighlightVirtualTripPayloads } from './domain/lineHighlightVirtualTripBuilder.js';
 import { buildAlternateLineMembership } from './domain/alternateLineMembership.js';
 import { buildLineHighlightLabelItems } from './domain/lineHighlightLabels.js';
-import { buildLineNameLabelGeoJSON } from './domain/lineNameLabels.js';
+import { buildLineNameLabelGeoJSON, buildLineNameLabelCandidates } from './domain/lineNameLabels.js';
 import { getFocusedStationLabelPriority } from './domain/stationLabelDisplay.js';
 import { previewBranchesForLine, prewarmThroughServiceBranchAnalysis } from './map/analyze_branch.js';
 import { createLineIconElement, getResolvedRouteIconMeta } from './lib/line-icons.js';
@@ -532,8 +532,10 @@ const initMapApp = async () => {
     let generatedAlternateLineMembership = null;
     let generatedLinesData = null;
     let generatedLineNameLabelsData = null;
-    let currentLineNameLabelsData = null;
-    let currentLineNameLabelBlockingBBoxes = [];
+    let lineNameLabelsFrame = null;
+    let movingLineNameLabels = null;
+    const lineNameLabelMeasureContext = document.createElement('canvas').getContext('2d');
+    const lineNameLabelWidths = new Map();
     let generatedStationsData = null;
     let generatedStationGroups = null;
     let generatedRawRailways = null;
@@ -2235,170 +2237,55 @@ const initMapApp = async () => {
         return '';
     };
 
-    const getLineNameLabelChains = (geometry) => {
-        if (geometry?.type === 'LineString' && Array.isArray(geometry.coordinates) && geometry.coordinates.length >= 2) {
-            return [geometry.coordinates];
-        }
-        if (geometry?.type === 'MultiLineString' && Array.isArray(geometry.coordinates)) {
-            return geometry.coordinates.filter((chain) => Array.isArray(chain) && chain.length >= 2);
-        }
-        return [];
-    };
-
     const buildTripPreviewLineNameLabelsData = ({ built } = {}) => {
         const sourceFeatures = Array.isArray(built?.lineFc?.features) ? built.lineFc.features : [];
-        if (!sourceFeatures.length) return EMPTY_LINE_NAME_LABELS_DATA;
-
-        const groups = new Map();
-
-        for (const feature of sourceFeatures) {
-            const props = feature?.properties || {};
-            if (String(props.role || 'line') !== 'line') continue;
-
+        const paths = sourceFeatures.filter(feature => String(feature?.properties?.role || 'line') === 'line').map(feature => {
+            const props = feature.properties || {};
             const lineIdCandidates = getLineNameLabelLineIdCandidates(feature);
             const labelId = getLineNameLabelSourceLineId(feature);
-            if (!labelId) continue;
-
-            const name = String(getFirstLineMetaValue(lineNameById, lineIdCandidates) || props.name || labelId).trim();
-            if (!name) continue;
-
-            const chains = getLineNameLabelChains(feature.geometry);
-            if (!chains.length) continue;
-
-            if (!groups.has(labelId)) {
-                groups.set(labelId, {
-                    id: labelId,
-                    name,
-                    color: String(getFirstLineMetaValue(lineColorById, lineIdCandidates) || props.color || '').trim(),
-                    lineOffsetUnits: Number(props.line_offset_units) || 0,
-                    chains: []
-                });
-            }
-
-            const group = groups.get(labelId);
-            group.chains.push(...chains);
-        }
-
-        if (!groups.size) return EMPTY_LINE_NAME_LABELS_DATA;
-
-        return applyLineNameLabelDarkColors(buildLineNameLabelGeoJSON(Array.from(groups.values()).map((group) => ({
-            type: 'Feature',
-            id: group.id,
-            properties: {
-                id: group.id,
-                name: group.name,
-                color: group.color,
-                line_offset_units: group.lineOffsetUnits,
-                hidden_by_opacity_zero: 0
-            },
-            geometry: {
-                type: 'MultiLineString',
-                coordinates: group.chains
-            }
-        })), {
-            offsetSourceFeatures: sourceFeatures.map((feature) => ({
-                ...feature,
-                properties: { ...feature.properties, id: getLineNameLabelSourceLineId(feature) }
-            }))
-        }));
+            return { ...feature, properties: { ...props, id: labelId,
+                name: String(getFirstLineMetaValue(lineNameById, lineIdCandidates) || props.name || labelId).trim(),
+                color: String(getFirstLineMetaValue(lineColorById, lineIdCandidates) || props.color || '').trim(),
+                hidden_by_opacity_zero: 0 } };
+        });
+        return applyLineNameLabelDarkColors(buildLineNameLabelGeoJSON(paths));
     };
 
-    const getProjectedLineNameLabelBBox = (feature) => {
-        const coords = Array.isArray(feature?.geometry?.coordinates) ? feature.geometry.coordinates : [];
-        const points = coords
-            .filter((coord) => Array.isArray(coord) && coord.length >= 2)
-            .map((coord) => {
-                try {
-                    return mapEngine.project({
-                        lng: Number(coord[0]),
-                        lat: Number(coord[1])
-                    });
-                } catch {
-                    return null;
-                }
-            })
-            .filter((point) => Number.isFinite(point?.x) && Number.isFinite(point?.y));
-
-        if (!points.length) return null;
-
-        const xs = points.map((point) => point.x);
-        const ys = points.map((point) => point.y);
-        const props = feature?.properties || {};
-        const name = String(props.name || '').trim();
-        const labelWidth = Math.max(48, Array.from(name).length * 11 + 22);
-        const labelHeight = 24;
-        const minX = Math.min(...xs);
-        const maxX = Math.max(...xs);
-        const minY = Math.min(...ys);
-        const maxY = Math.max(...ys);
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-
-        return {
-            minX: Math.min(minX, centerX - labelWidth / 2) - 6,
-            minY: Math.min(minY, centerY - labelHeight / 2) - 6,
-            maxX: Math.max(maxX, centerX + labelWidth / 2) + 6,
-            maxY: Math.max(maxY, centerY + labelHeight / 2) + 6
-        };
-    };
-
-    const isBBoxInViewport = (bbox) => {
-        const canvas = mapEngine.getCanvas?.();
-        const width = Number(canvas?.clientWidth || canvas?.width || window.innerWidth || 0);
-        const height = Number(canvas?.clientHeight || canvas?.height || window.innerHeight || 0);
-        if (!(width > 0) || !(height > 0)) return true;
-        return bbox.maxX >= -80 && bbox.minX <= width + 80 && bbox.maxY >= -80 && bbox.minY <= height + 80;
-    };
-
-    const doLineNameLabelBBoxesOverlap = (a, b) => (
-        a.minX <= b.maxX
-        && a.maxX >= b.minX
-        && a.minY <= b.maxY
-        && a.maxY >= b.minY
-    );
-
-    const shouldUseNativeLineNameLabelPlacement = () => {
-        const zoom = Number(mapEngine.getZoom?.());
-        return zoom > 15;
-    };
-
-    const selectLineNameLabelsForCurrentView = (sourceData = EMPTY_LINE_NAME_LABELS_DATA) => {
-        const selectedFeatures = [];
-        const blockingBBoxes = [];
-        const features = Array.isArray(sourceData?.features) ? sourceData.features : [];
-
-        for (const feature of features) {
-            const bbox = getProjectedLineNameLabelBBox(feature);
-            if (!bbox || !isBBoxInViewport(bbox)) continue;
-            if (blockingBBoxes.some((blocked) => doLineNameLabelBBoxesOverlap(bbox, blocked))) continue;
-
-            selectedFeatures.push(feature);
-            blockingBBoxes.push(bbox);
-        }
-
-        currentLineNameLabelBlockingBBoxes = blockingBBoxes;
-        return {
-            type: 'FeatureCollection',
-            features: selectedFeatures
-        };
-    };
+    const getLineNameLabelPaths = () => tripPreviewActive
+        ? (tripPreviewLineNameLabelsData || EMPTY_LINE_NAME_LABELS_DATA)
+        : (generatedLineNameLabelsData || EMPTY_LINE_NAME_LABELS_DATA);
 
     const syncLineNameLabelDataForCurrentState = () => {
-        const sourceData = tripPreviewActive
-            ? (tripPreviewLineNameLabelsData || EMPTY_LINE_NAME_LABELS_DATA)
-            : (generatedLineNameLabelsData || EMPTY_LINE_NAME_LABELS_DATA);
-        const useNativePlacement = shouldUseNativeLineNameLabelPlacement();
-        const nextData = useNativePlacement ? sourceData : selectLineNameLabelsForCurrentView(sourceData);
-        currentLineNameLabelBlockingBBoxes = useNativePlacement
-            ? []
-            : currentLineNameLabelBlockingBBoxes;
-        if (currentLineNameLabelsData === nextData) return;
-        currentLineNameLabelsData = nextData;
-        try {
-            mapEngine.setSourceData?.('line-name-labels-source', nextData);
-        } catch {
-            // ignore stale style/source timing while MapLibre reloads layers
-        }
+        if (lineNameLabelsFrame !== null) cancelAnimationFrame(lineNameLabelsFrame);
+        lineNameLabelsFrame = null;
+        if (!mapEngine.hasLayer?.('line-name-labels-layer')) return;
+        const canvas = mapEngine.getCanvas();
+        const previous = movingLineNameLabels || readVisibleLineNameLabels();
+        const nextData = buildLineNameLabelCandidates(getLineNameLabelPaths(), {
+            project: coordinate => mapEngine.project(coordinate),
+            unproject: point => map.unproject(point),
+            width: canvas.clientWidth, height: canvas.clientHeight, zoom: mapEngine.getZoom(),
+            lineIds: getLineNameLabelLineIdsForCurrentHighlight(), previous, previousOnly: movingLineNameLabels !== null,
+            buildFixedOffset: buildOffsetPolylinePixelsWithMiter,
+            measureText: (text, size) => {
+                if (!lineNameLabelWidths.has(text)) {
+                    lineNameLabelMeasureContext.font = '100px sans-serif';
+                    lineNameLabelWidths.set(text, lineNameLabelMeasureContext.measureText(text).width);
+                }
+                return lineNameLabelWidths.get(text) * size / 100;
+            }
+        });
+        mapEngine.setSourceData?.('line-name-labels-source', nextData);
+    };
+
+    function readVisibleLineNameLabels() {
+        return new Map(mapEngine.queryRenderedFeatures({ layers: ['line-name-labels-layer'] })
+            .map(feature => [feature.properties.id, feature.properties]));
+    }
+
+    const scheduleLineNameLabelPlacement = () => {
+        if (lineNameLabelsFrame !== null) return;
+        lineNameLabelsFrame = requestAnimationFrame(syncLineNameLabelDataForCurrentState);
     };
 
     const buildLineNameLabelFilter = (lineIds) => {
@@ -2416,6 +2303,7 @@ const initMapApp = async () => {
 
     function getLineNameLabelLineIdsForCurrentHighlight() {
         if (tripPreviewActive) return null;
+        if (dirPreviewActive) return dirPreviewLineIds && dirPreviewLineIds.size ? dirPreviewLineIds : new Set();
 
         if (isMultiSelectModeEnabled()) {
             const ids = getBaseMultiSelectedLineIds();
@@ -2435,7 +2323,6 @@ const initMapApp = async () => {
             return enabledLineIdsByCompany.get(selectedCompany);
         }
 
-        if (dirPreviewActive) return dirPreviewLineIds && dirPreviewLineIds.size ? dirPreviewLineIds : new Set();
 
         return null;
     }
@@ -2534,8 +2421,13 @@ const initMapApp = async () => {
         );
     }
 
-    mapEngine.on?.('moveend', syncLineNameLabelDataForCurrentState);
-    mapEngine.on?.('zoomend', syncLineNameLabelDataForCurrentState);
+    mapEngine.on?.('movestart', () => { movingLineNameLabels = readVisibleLineNameLabels(); });
+    mapEngine.on?.('move', scheduleLineNameLabelPlacement);
+    mapEngine.on?.('moveend', () => {
+        movingLineNameLabels = null;
+        scheduleLineNameLabelPlacement();
+    });
+    mapEngine.on?.('resize', scheduleLineNameLabelPlacement);
 
     function applyLineSelectionStyle() {
         if (!highlightRenderer.hasLayer('lines-layer')) return;
@@ -4992,7 +4884,8 @@ const initMapApp = async () => {
         addStationLabelsLayer(mapEngine, buildStationLabelGeoJSON(stationsData));
         const lineNameLabelsData = generatedLineNameLabelsData || loadedGeoData?.lineNameLabelsGeoJSON || EMPTY_LINE_NAME_LABELS_DATA;
         generatedLineNameLabelsData = lineNameLabelsData;
-        addLineNameLabelsLayer(mapEngine, lineNameLabelsData);
+        addLineNameLabelsLayer(mapEngine, EMPTY_LINE_NAME_LABELS_DATA);
+        syncLineNameLabelDataForCurrentState();
         applyLineNameLabelsEnabled(lineNameLabelsEnabled);
 
         try {
@@ -5339,6 +5232,9 @@ const initMapApp = async () => {
             map,
             mapEngine,
             basemapThemeRuntime,
+            getLineNameLabelPaths: (features) => features
+                ? buildTripPreviewLineNameLabelsData({ built: { lineFc: { features } } })
+                : getLineNameLabelPaths(),
             buildOffsetPolylinePixelsWithMiter,
             getLineOffsetPixelsPerUnitAtZoom,
             getStationOffsetGeoJSONAtZoom: (zoom) => buildStationOffsetGeoJSONAtZoom({

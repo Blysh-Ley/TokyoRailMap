@@ -6,6 +6,7 @@ export const registerTokyoRailMapRuntime = ({
     buildOffsetPolylinePixelsWithMiter,
     getLineOffsetPixelsPerUnitAtZoom,
     getStationOffsetGeoJSONAtZoom,
+    getLineNameLabelPaths,
     target = window
 } = {}) => {
     if (!target) return false;
@@ -35,6 +36,7 @@ export const registerTokyoRailMapRuntime = ({
             ...(typeof getLineOffsetPixelsPerUnitAtZoom === 'function'
                 ? { getLineOffsetPixelsPerUnitAtZoom }
                 : {}),
+            ...(typeof getLineNameLabelPaths === 'function' ? { getLineNameLabelPaths } : {}),
             ...(typeof getStationOffsetGeoJSONAtZoom === 'function'
                 ? { getStationOffsetGeoJSONAtZoom }
                 : {})
