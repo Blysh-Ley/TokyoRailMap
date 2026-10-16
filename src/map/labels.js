@@ -21,9 +21,10 @@ const resolveMarkerAdapter = (mapOrEngine, maplibregl) => {
     };
 };
 
-export function buildStationLabelGeoJSON(stationsData) {
+export function buildStationLabelGeoJSON(stationsData, stationLabels = []) {
     const features = [];
     const stationFeatures = Array.isArray(stationsData?.features) ? stationsData.features : [];
+    const labelById = new Map(stationLabels.map((label) => [String(label.stationId), label]));
 
     stationFeatures.forEach((feature) => {
         if (!feature || feature.geometry?.type !== 'Point') return;
@@ -37,7 +38,7 @@ export function buildStationLabelGeoJSON(stationsData) {
 
         const servingIds = Array.isArray(props.serving_ids) ? props.serving_ids.map(String) : [];
         const priority = servingIds.length;
-        const isTerminalStation = isTerminalStationLabel({ props });
+        const isTerminalStation = isTerminalStationLabel(labelById.get(String(stationId)) || { props });
         const focusPriority = getFocusedStationLabelPriority({ priority, isTerminalStation });
 
         features.push({

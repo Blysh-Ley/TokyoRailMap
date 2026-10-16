@@ -69,6 +69,17 @@ export const getFocusedStationLabelPriority = (stationLike = {}) => {
     return 0;
 };
 
+// 同名合并保留任一成员的首末站身份，代表位置仍由调用方选择。
+export const inheritMergedStationLabelTerminalState = (representative, members) => {
+    if (!members.some(isTerminalStationLabel)) return;
+    representative.isTerminalStation = true;
+    representative.focusPriority = getFocusedStationLabelPriority(representative);
+    if (representative.props) {
+        representative.props.is_terminal_station = 1;
+        representative.props.focus_priority = representative.focusPriority;
+    }
+};
+
 export const shouldShowFocusedStationLabel = (stationLike = {}) => (
     getFocusedStationLabelPriority(stationLike) > 0
 );
