@@ -2,6 +2,7 @@ import { pickSelectionViewportLineAnchor } from '../domain/selectionViewportFit.
 import { createTransferCapsuleFrameRenderer } from './transferCapsuleFrameRenderer.js';
 import { createStationCircleFrameRenderer } from './stationCircleFrameRenderer.js';
 import { createStationLabelAnchorBuffers } from './stationLabelAnchorBuffers.js';
+import { readRenderedStationLabelBounds } from './stationLabelBounds.js';
 import { createStationFrameProjection, stationFramePointToLngLat } from '../domain/stationFrameGeometry.js';
 import { DEFAULT_BASEMAP_MODE, normalizeBasemapMode } from '../domain/basemapMode.js';
 import {
@@ -513,7 +514,9 @@ const createStationLabelFrameRuntime = (map, version, { onFallback } = {}) => {
                         y: (1 - (matrix[1] * oldX + matrix[5] * oldY + matrix[13]) / oldW) * map.transform.height / 2 };
                     next.push({ type: 'Feature', properties: { id: part.id },
                         geometry: { type: 'Point', coordinates }, screenPoint, renderedZoom: zoom,
-                        renderer: 'native-symbol-anchor-buffer', nativeAnchor, bounds: part.bounds });
+                        renderer: 'native-symbol-anchor-buffer', nativeAnchor, bounds: part.bounds,
+                        // 原生着色器仍按保留的 a_pos 计算透视字号，锚点缓冲负责当前帧位置。
+                        perspectiveRatio: Math.max(0, Math.min(4, 0.5 + 0.5 * map.transform.cameraToCenterDistance / oldW)) });
                 }
             }
             for (const label of stationLabels) {
@@ -915,6 +918,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         getRenderedTransferCapsules: () => transferCapsuleFrameRuntime?.getRecords() || null,
         installStationLabelFrameAnchors: (options) => stationLabelFrameRuntime?.install(options) || null,
         getRenderedStationLabelAnchors: () => stationLabelFrameRuntime?.getRecords() || null,
+        getRenderedStationLabelBounds: () => readRenderedStationLabelBounds({ map, frameRecords: stationLabelFrameRuntime?.getRecords() }),
         addMetricScaleControl: ({ maxWidth = 100, position = 'bottom-left' } = {}) => {
             map.addControl(
                 new maplibregl.ScaleControl({ maxWidth, unit: 'metric' }),

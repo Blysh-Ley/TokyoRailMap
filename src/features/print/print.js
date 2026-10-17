@@ -1141,7 +1141,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         }
     };
 
-    const pickLineNameLabelsInBbox = async ({ baseMap, map, lineFeatures, lineIds, labelScale = 1 }) => {
+    const pickLineNameLabelsInBbox = async ({ baseMap, map, lineFeatures, lineIds, labelScale = 1, obstacles = [] }) => {
         if (!baseMap || !isLineNameLabelsVisibleForExport(baseMap)) return [];
         // 使用未筛选的真实路径，在导出视口重新布局，不能复用主图已经选过的候选。
         const paths = getRuntimeApi().getLineNameLabelPaths?.(lineFeatures)
@@ -1150,7 +1150,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         const canvas = map.getCanvas();
         const candidates = buildLineNameLabelCandidates(paths, {
             project: coordinate => map.project(coordinate), unproject: point => map.unproject(point),
-            width: canvas.clientWidth, height: canvas.clientHeight, zoom: map.getZoom(), labelScale,
+            width: canvas.clientWidth, height: canvas.clientHeight, zoom: map.getZoom(), labelScale, obstacles,
             lineIds: lineIds instanceof Set ? lineIds : null,
             buildFixedOffset: getRuntimeApi().buildOffsetPolylinePixelsWithMiter,
             measureText: (text, size) => { context.font = `${size}px sans-serif`; return context.measureText(text).width; }
@@ -1266,6 +1266,80 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         return OSM_BASEMAP_ATTRIBUTION_TEXT;
     };
 
+    // 先确定导出站名及其框，再让共用选位避开这些实际会绘制的内容。
+    const buildExportStationLabelLayout = async ({ map, stopFeatures, stationNameById, stationLabelScale }) => {
+        const mode = getCurrentStationLabelMode();
+        if (mode !== 'off') {
+            const stationPropsById = await getStationPropsById(map);
+            const scale = Math.max(1, Number(stationLabelScale) || 1);
+            const fontPx = 12 * scale;
+            const font = `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
+
+            const candidates = [];
+            for (const f of stopFeatures) {
+                const props = f?.properties || {};
+                const sid = String(props?.id || '').trim();
+                if (!sid) continue;
+                const geom = f?.geometry;
+                if (!geom || geom.type !== 'Point') continue;
+                const c = geom.coordinates;
+                if (!Array.isArray(c) || c.length < 2) continue;
+
+                const baseProps = stationPropsById?.get?.(sid) || {};
+                const mergedProps = { ...baseProps, ...props };
+                const name = resolveStationDisplayName({ props: mergedProps, stationId: sid, stationNameById });
+                if (!name) continue;
+                const servingIds = normalizeArrayLike(mergedProps?.serving_ids);
+                const servingCountRaw = Number(mergedProps?.serving_count);
+                const servingCount = Math.max(
+                    1,
+                    servingIds.length,
+                    Number.isFinite(servingCountRaw) ? servingCountRaw : 0
+                );
+                const isTerminalStation = isFocusTerminalStationProps(mergedProps);
+                const focusPriority = isTerminalStation ? 2 : (servingCount > 1 ? 1 : 0);
+                const textW = measureTextWidthPx(name, font);
+
+                candidates.push({
+                    id: sid,
+                    text: name,
+                    priority: servingCount,
+                    focusPriority,
+                    coordinates: [Number(c[0]), Number(c[1])],
+                    fontPx,
+                    font,
+                    widthPx: textW + 8 * scale,
+                    heightPx: Math.ceil(fontPx * 1.2 + 2),
+                    labelDyPx: (servingCount > 1 ? 6 : 3) * scale
+                });
+            }
+
+            const transferStationIdMap = await getTransferStationIdMapForExport();
+            const visibleIds = new Set(candidates.map((c) => String(c?.id || '').trim()).filter(Boolean));
+            const collapsedCandidates = applyTransferStationLabelCollapseForExport({
+                candidates,
+                transferStationIdMap,
+                visibleIds
+            });
+
+            const focusCandidates = mode === 'focus'
+                ? collapsedCandidates.filter((c) => Number(c?.focusPriority) > 0)
+                : collapsedCandidates;
+            const collisionCandidates = mode === 'focus'
+                ? focusCandidates.slice().sort((a, b) => {
+                    const focus = (Number(b?.focusPriority) || 0) - (Number(a?.focusPriority) || 0);
+                    if (focus) return focus;
+                    return (Number(b?.priority) || 0) - (Number(a?.priority) || 0);
+                })
+                : focusCandidates;
+            const visible = mode === 'auto' || mode === 'focus'
+                ? pickVisibleLabelIdsByCollision({ map, candidates: collisionCandidates, gridCellPx: 80 })
+                : new Set(collisionCandidates.map((c) => c.id));
+            return { candidates: collisionCandidates, visibleIds: visible, labelScale: scale };
+        }
+        return { candidates: [], visibleIds: new Set(), labelScale: stationLabelScale };
+    };
+
     const buildSvgFromBuilt = async ({ map, payload, built, backgroundImageHref, transparentBackground = false, capsules, stationLabelScale = 1 }) => {
         const container = map.getContainer?.();
         const rect = container?.getBoundingClientRect?.();
@@ -1281,6 +1355,14 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         const stopFc = built?.stopFc;
         const lineFeatures = Array.isArray(lineFc?.features) ? lineFc.features : [];
         const stopFeatures = Array.isArray(stopFc?.features) ? stopFc.features : [];
+        const stationLabelLayout = await buildExportStationLabelLayout({ map, stopFeatures, stationNameById, stationLabelScale });
+        const stationLabelObstacles = stationLabelLayout.candidates
+            .filter(item => stationLabelLayout.visibleIds.has(item.id))
+            .map(item => {
+                const point = project(map, item.coordinates);
+                return { id: item.id, minX: point.x - item.widthPx / 2, maxX: point.x + item.widthPx / 2,
+                    minY: point.y - item.labelDyPx - item.heightPx, maxY: point.y - item.labelDyPx };
+            });
 
         const bg = isDarkTheme() ? '#000' : '#fff';
 
@@ -1336,7 +1418,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
             const baseMap = getRuntimeBaseMap() || map;
             if (bounds && baseMap) {
                 const lineNameLabelFeatures = await pickLineNameLabelsInBbox({
-                    baseMap, map, lineFeatures, labelScale: stationLabelScale,
+                    baseMap, map, lineFeatures, labelScale: stationLabelScale, obstacles: stationLabelObstacles,
                     lineIds: built?.lineIds
                 });
                 appendLineNameLabelsSvg({
@@ -1415,86 +1497,10 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         }
         parts.push(`</g>`);
 
-        // labels
-        {
-            const mode = getCurrentStationLabelMode();
-            if (mode !== 'off') {
-                const stationPropsById = await getStationPropsById(map);
-                const scale = Math.max(1, Number(stationLabelScale) || 1);
-                const fontPx = 12 * scale;
-                const font = `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
-
-                const candidates = [];
-                for (const f of stopFeatures) {
-                    const props = f?.properties || {};
-                    const sid = String(props?.id || '').trim();
-                    if (!sid) continue;
-                    const geom = f?.geometry;
-                    if (!geom || geom.type !== 'Point') continue;
-                    const c = geom.coordinates;
-                    if (!Array.isArray(c) || c.length < 2) continue;
-
-                    const baseProps = stationPropsById?.get?.(sid) || {};
-                    const mergedProps = { ...baseProps, ...props };
-                    const name = resolveStationDisplayName({ props: mergedProps, stationId: sid, stationNameById });
-                    if (!name) continue;
-                    const servingIds = normalizeArrayLike(mergedProps?.serving_ids);
-                    const servingCountRaw = Number(mergedProps?.serving_count);
-                    const servingCount = Math.max(
-                        1,
-                        servingIds.length,
-                        Number.isFinite(servingCountRaw) ? servingCountRaw : 0
-                    );
-                    const isTerminalStation = isFocusTerminalStationProps(mergedProps);
-                    const focusPriority = isTerminalStation ? 2 : (servingCount > 1 ? 1 : 0);
-                    const textW = measureTextWidthPx(name, font);
-
-                    candidates.push({
-                        id: sid,
-                        text: name,
-                        priority: servingCount,
-                        focusPriority,
-                        coordinates: [Number(c[0]), Number(c[1])],
-                        fontPx,
-                        font,
-                        widthPx: textW + 8 * scale,
-                        heightPx: Math.ceil(fontPx * 1.2 + 2),
-                        labelDyPx: (servingCount > 1 ? 6 : 3) * scale
-                    });
-                }
-
-                const transferStationIdMap = await getTransferStationIdMapForExport();
-                const visibleIds = new Set(candidates.map((c) => String(c?.id || '').trim()).filter(Boolean));
-                const collapsedCandidates = applyTransferStationLabelCollapseForExport({
-                    candidates,
-                    transferStationIdMap,
-                    visibleIds
-                });
-
-                const focusCandidates = mode === 'focus'
-                    ? collapsedCandidates.filter((c) => Number(c?.focusPriority) > 0)
-                    : collapsedCandidates;
-                const collisionCandidates = mode === 'focus'
-                    ? focusCandidates.slice().sort((a, b) => {
-                        const focus = (Number(b?.focusPriority) || 0) - (Number(a?.focusPriority) || 0);
-                        if (focus) return focus;
-                        return (Number(b?.priority) || 0) - (Number(a?.priority) || 0);
-                    })
-                    : focusCandidates;
-                const visible = mode === 'auto' || mode === 'focus'
-                    ? pickVisibleLabelIdsByCollision({ map, candidates: collisionCandidates, gridCellPx: 80 })
-                    : new Set(collisionCandidates.map((c) => c.id));
-                appendStationLabelBoxesSvg({
-                    parts,
-                    groupId: 'trip-preview-labels',
-                    map,
-                    candidates: collisionCandidates,
-                    visibleIds: visible,
-                    labelScale: scale,
-                    omitBoxRect: Boolean(backgroundImageHref)
-                });
-            }
-        }
+        appendStationLabelBoxesSvg({
+            parts, groupId: 'trip-preview-labels', map, ...stationLabelLayout,
+            omitBoxRect: Boolean(backgroundImageHref)
+        });
 
         parts.push(`</g>`);
         appendExportAttributionSvg({ parts, width, height, text: getExportAttributionText() });

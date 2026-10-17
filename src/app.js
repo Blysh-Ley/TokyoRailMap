@@ -189,6 +189,7 @@ import { createJourneyPickPinElement } from './ui/journeyPickPinAdapter.js';
 import { createRouteEndpointPopupRuntime } from './ui/routeEndpointPopups.js';
 import { createRoutePreviewViewportController } from './ui/routePreviewViewport.js';
 import { readMobileSelectionViewportFit } from './ui/selectionViewportLayout.js';
+import { readLineNameLabelLayout } from './ui/lineNameLabelLayout.js';
 import { createBasemapThemeRuntime } from './app/basemapThemeRuntime.js';
 import { installAndroidBackRuntime } from './app/androidBackRuntime.js';
 import { createMobileStartupSplashRuntime } from './app/mobileStartupSplashRuntime.js';
@@ -534,6 +535,20 @@ const initMapApp = async () => {
     let generatedLineNameLabelsData = null;
     let lineNameLabelsFrame = null;
     let movingLineNameLabels = null;
+    let lineNameLabelLayout = null;
+    let lineNameLabelLayoutTimer = null;
+    const lineNameLabelObservedElements = new WeakSet();
+    const requestLineNameLabelLayout = () => {
+        clearTimeout(lineNameLabelLayoutTimer);
+        lineNameLabelLayoutTimer = setTimeout(() => {
+            lineNameLabelLayoutTimer = null;
+            if (movingLineNameLabels === null && readCurrentLineNameLabelLayout().signature !== lineNameLabelLayout?.signature) {
+                scheduleLineNameLabelPlacement();
+            }
+        }, 180);
+    };
+    const lineNameLabelLayoutObserver = new MutationObserver(requestLineNameLabelLayout);
+    const lineNameLabelResizeObserver = new ResizeObserver(requestLineNameLabelLayout);
     const lineNameLabelMeasureContext = document.createElement('canvas').getContext('2d');
     const lineNameLabelWidths = new Map();
     let generatedStationsData = null;
@@ -2255,17 +2270,40 @@ const initMapApp = async () => {
         ? (tripPreviewLineNameLabelsData || EMPTY_LINE_NAME_LABELS_DATA)
         : (generatedLineNameLabelsData || EMPTY_LINE_NAME_LABELS_DATA);
 
+    function readCurrentLineNameLabelLayout() {
+        const mobile = isMobileUiMode();
+        const routeMapElement = document.querySelector('[data-route-map]');
+        const mobileMenuElement = document.querySelector('[data-mobile-menu]');
+        const overlays = [
+            { element: mobile ? mobileMenuElement?.querySelector('.mobile-menu-panel') : menu?.wrapper, edge: mobile ? 'bottom' : 'left' },
+            { element: panel?.el, edge: mobile ? 'bottom' : 'right' },
+            { element: routeMapElement?.classList.contains('is-panel-placement') ? routeMapElement : null, edge: mobile ? 'bottom' : 'right' },
+            { element: document.querySelector('[data-panel-trip-detail]'), edge: mobile ? 'bottom' : 'right' }
+        ];
+        for (const element of [...overlays.map(overlay => overlay.element), mobileMenuElement]) {
+            if (!element || lineNameLabelObservedElements.has(element)) continue;
+            lineNameLabelObservedElements.add(element);
+            lineNameLabelLayoutObserver.observe(element, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
+            lineNameLabelResizeObserver.observe(element);
+        }
+        return readLineNameLabelLayout({ canvas: mapEngine.getCanvas(), mapEngine, stationLabels, overlays });
+    }
+
     const syncLineNameLabelDataForCurrentState = () => {
         if (lineNameLabelsFrame !== null) cancelAnimationFrame(lineNameLabelsFrame);
         lineNameLabelsFrame = null;
         if (!mapEngine.hasLayer?.('line-name-labels-layer')) return;
         const canvas = mapEngine.getCanvas();
         const previous = movingLineNameLabels || readVisibleLineNameLabels();
+        // 移动中只重投影原锚点；站名和面板布局稳定后再统一比较位置质量。
+        if (movingLineNameLabels === null) lineNameLabelLayout = readCurrentLineNameLabelLayout();
         const nextData = buildLineNameLabelCandidates(getLineNameLabelPaths(), {
             project: coordinate => mapEngine.project(coordinate),
             unproject: point => map.unproject(point),
             width: canvas.clientWidth, height: canvas.clientHeight, zoom: mapEngine.getZoom(),
             lineIds: getLineNameLabelLineIdsForCurrentHighlight(), previous, previousOnly: movingLineNameLabels !== null,
+            ...(lineNameLabelLayout ? { viewport: lineNameLabelLayout.viewport,
+                obstacles: movingLineNameLabels === null ? lineNameLabelLayout.obstacles : [] } : {}),
             buildFixedOffset: buildOffsetPolylinePixelsWithMiter,
             measureText: (text, size) => {
                 if (!lineNameLabelWidths.has(text)) {
@@ -2428,6 +2466,21 @@ const initMapApp = async () => {
         scheduleLineNameLabelPlacement();
     });
     mapEngine.on?.('resize', scheduleLineNameLabelPlacement);
+    mapEngine.on?.('idle', () => {
+        if (movingLineNameLabels === null && readCurrentLineNameLabelLayout().signature !== lineNameLabelLayout?.signature) {
+            scheduleLineNameLabelPlacement();
+        }
+    });
+    const onLineNameLabelPanelTransition = event => {
+        if (lineNameLabelObservedElements.has(event.target)) requestLineNameLabelLayout();
+    };
+    document.addEventListener('transitionend', onLineNameLabelPanelTransition);
+    mapEngine.on?.('remove', () => {
+        lineNameLabelLayoutObserver.disconnect();
+        lineNameLabelResizeObserver.disconnect();
+        clearTimeout(lineNameLabelLayoutTimer);
+        document.removeEventListener('transitionend', onLineNameLabelPanelTransition);
+    });
 
     function applyLineSelectionStyle() {
         if (!highlightRenderer.hasLayer('lines-layer')) return;

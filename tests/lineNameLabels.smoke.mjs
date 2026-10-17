@@ -4,6 +4,7 @@ import { buildLineNameLabelGeoJSON, buildLineNameLabelCandidates, selectLineName
 import { addLineNameLabelsLayer } from '../src/map/layers.js';
 import { buildOffsetPolylinePixelsWithMiter } from '../src/map/offset.js';
 import { createBasemapController } from '../src/services/mapEngine.js';
+import { getHighlightLineWidthAtZoom } from '../src/domain/highlightStyleSizing.js';
 
 const line = (id, coordinates, properties = {}) => ({ type: 'Feature', properties: { id, name: id, color: '#123456', ...properties },
     geometry: { type: 'LineString', coordinates } });
@@ -69,6 +70,12 @@ const sharp = buildLineNameLabelCandidates(buildLineNameLabelGeoJSON([line('急�
 assert.equal(sharp.features.length, 0, '整段文字覆盖九十度急弯时不强行排字');
 const folded = buildLineNameLabelCandidates(buildLineNameLabelGeoJSON([line('折返线路', [[200, 200], [220, 200], [200, 200], [220, 200], [200, 200]])]), options);
 assert.equal(folded.features.length, 0, '线路虽有足够累计长度，反复折返仍不可读');
+const shortLoop = buildLineNameLabelCandidates(buildLineNameLabelGeoJSON([line('任意短线', loopCoordinates(6), { name: '短线' })]), options);
+assert.equal(shortLoop.features.length, 0, '短名字也不能借外侧旁置扩张，在直径不足的环线上显示');
+const longWithBends = buildLineNameLabelCandidates(buildLineNameLabelGeoJSON([line('长弯曲线路', [
+    [30, 130], [170, 130], [185, 150], [170, 170], [185, 190], [170, 210], [185, 230], [470, 230]
+])]), options);
+assert.ok(longWithBends.features.length, '长线路局部有急弯时，仍应使用其他可读区间');
 const joined = buildLineNameLabelCandidates(buildLineNameLabelGeoJSON([
     line('接续', [[200, 200], [220, 200]]), line('接续', [[240, 200], [220, 200]])
 ]), options);
@@ -101,6 +108,52 @@ assert.equal(midpoint(selected[1])[0], 250, '碰撞失败后尝试同组的下�
 const choice = candidates.features.find(f => f.properties.id === 'A');
 const stable = buildLineNameLabelCandidates(paths, { ...options, previous: new Map([['A', choice.properties]]) });
 assert.equal(stable.features.find(f => f.properties.id === 'A').id, choice.id, '仍然可读时复用原位置');
+
+const qualityPaths = buildLineNameLabelGeoJSON([line('通用测试', [[20, 200], [480, 200]], { name: '测试线' })]);
+const quality = buildLineNameLabelCandidates(qualityPaths, options);
+const originalChoice = quality.features[0];
+const blocked = buildLineNameLabelCandidates(qualityPaths, { ...options,
+    obstacles: [{ minX: 190, maxX: 310, minY: 204, maxY: 225 }],
+    previous: new Map([['通用测试', originalChoice.properties]]) });
+assert.notEqual(blocked.features[0].id, originalChoice.id, '原位置被站名遮挡后，不能用复用奖励压过更清楚的位置');
+assert.ok(midpoint(blocked.features[0])[1] < 200 || Math.abs(midpoint(blocked.features[0])[0] - 250) > 75);
+const blockedBothSides = buildLineNameLabelCandidates(qualityPaths, { ...options,
+    obstacles: [{ minX: 100, maxX: 400, minY: 182, maxY: 218 }] });
+assert.ok(Math.abs(midpoint(blockedBothSides.features[0])[0] - 250) > 150,
+    '两侧都有站名时沿线另找空位，不能把名字向外推远');
+assert.ok(blockedBothSides.features.every(feature => Math.abs(midpoint(feature)[1] - 200) < feature.properties.label_height),
+    '所有备用候选保持相同的贴线间距');
+const nearCenter = quality.features.find(f => Math.abs(midpoint(f)[0] - 250) > 10 && Math.abs(midpoint(f)[0] - 250) < 30
+    && f.properties.label_side === originalChoice.properties.label_side);
+assert.ok(nearCenter);
+const keepNear = buildLineNameLabelCandidates(qualityPaths, { ...options, previous: new Map([['通用测试', nearCenter.properties]]) });
+assert.equal(keepNear.features[0].id, nearCenter.id, '质量差异很小时保持同一地理锚点');
+const corner = quality.features.find(f => midpoint(f)[0] < 80 && f.properties.label_side === 1);
+const leaveCorner = buildLineNameLabelCandidates(qualityPaths, { ...options, previous: new Map([['通用测试', corner.properties]]) });
+assert.ok(midpoint(leaveCorner.features[0])[0] > 180, '明显靠边的旧位置应允许迁移');
+const smallPan = buildLineNameLabelCandidates(qualityPaths, { ...options,
+    project: ([x, y]) => ({ x: x + 2, y }), unproject: ({ x, y }) => [x - 2, y],
+    previous: new Map([['通用测试', originalChoice.properties]]) });
+assert.equal(smallPan.features[0].id, originalChoice.id, '小幅平移后不为微小评分改善来回换位');
+const panelViewport = buildLineNameLabelCandidates(qualityPaths, { ...options, viewport: { minX: 0, maxX: 280, minY: 0, maxY: 400 } });
+assert.ok(midpoint(panelViewport.features[0])[0] < 200);
+assert.ok(panelViewport.features.every(f => f.geometry.coordinates.every(([x]) => x <= 280)), '以实际可见地图区域选位，不能把面板下的画布当成空白');
+const halfPanelViewport = buildLineNameLabelCandidates(qualityPaths, { ...options,
+    viewport: { minX: 0, minY: 0, maxX: 500, maxY: 400, occlusions: [{ minX: 0, minY: 80, maxX: 250, maxY: 400 }] } });
+assert.ok(halfPanelViewport.features.length, '折叠屏左侧抽屉不能误隐藏右侧仍有可读区间的长线路');
+assert.ok(halfPanelViewport.features.every(f => midpoint(f)[0] - f.properties.label_width / 2 >= 250), '线路名文字避开半屏抽屉实际覆盖的位置');
+const floatingPanel = { minX: 300, minY: 20, maxX: 500, maxY: 380 };
+const floatingViewport = { minX: 0, minY: 0, maxX: 500, maxY: 400, occlusions: [floatingPanel] };
+const besidePanel = buildLineNameLabelCandidates(qualityPaths, { ...options, viewport: floatingViewport });
+assert.ok(midpoint(besidePanel.features[0])[0] < 220, '浮动侧栏留出上下边距时，仍按实际可见地图的中心评分');
+assert.equal(buildLineNameLabelCandidates(qualityPaths, { ...options, viewport: { ...floatingViewport, occlusions: [floatingPanel, floatingPanel] } }).features[0].id,
+    besidePanel.features[0].id, '重叠面板不会重复扣除可见面积并推偏名字');
+const gapPaths = buildLineNameLabelGeoJSON([line('空隙测试', [[50, 150], [450, 150]], { name: '测试线' })]);
+const gap = buildLineNameLabelCandidates(gapPaths, { ...options, obstacles: [
+    { minX: 0, maxX: 185, minY: 100, maxY: 220 }, { minX: 229, maxX: 500, minY: 100, maxY: 220 }
+] });
+assert.ok(midpoint(gap.features[0])[0] > 203 && midpoint(gap.features[0])[0] < 211,
+    '局部细搜应找到粗采样之间足够容纳文字的站名空隙');
 const moving = buildLineNameLabelCandidates(paths, { ...options, zoom: 13,
     project: ([x, y]) => ({ x: 500 - y * 2, y: (x - 200) * 2 }),
     unproject: ({ x, y }) => [y / 2 + 200, (500 - x) / 2],
@@ -110,7 +163,13 @@ const moved = moving.features[0];
 assert.equal(moved.properties.label_segment_t, choice.properties.label_segment_t, '缩放旋转保持同一地理锚点');
 assert.ok(Math.abs(moved.geometry.coordinates[0][1] - moved.geometry.coordinates.at(-1)[1]) < 0.001, '旋转后的屏幕竖线仍来自原来的地理水平线');
 const movedPoint = { x: 500 - midpoint(moved)[1] * 2, y: (midpoint(moved)[0] - 200) * 2 };
-assert.ok(Math.abs(Math.abs(movedPoint.x - 300) - getLineNameLabelTextSizeForZoom(13) * 1.25) < 0.001, '旁置间距按当前字号重算，不随地图缩放翻倍');
+const movedFontSize = getLineNameLabelTextSizeForZoom(13);
+const movedGap = Math.abs(movedPoint.x - 300);
+assert.ok(movedGap >= moved.properties.label_height / 2 + getHighlightLineWidthAtZoom(13) / 2
+    && movedGap < movedFontSize * 1.2, '缩放后文字与笔画保持留白，同时仍贴近线路，不随地图缩放翻倍');
+const exportScaled = buildLineNameLabelCandidates(qualityPaths, { ...options, labelScale: 2 });
+assert.ok(exportScaled.features.every(feature => Math.abs(midpoint(feature)[1] - 200) < feature.properties.label_height),
+    '导出缩放后仍按文字和线宽保持贴线间距，不恢复远侧旁置');
 assert.ok(getLineNameLabelTextSizeForZoom(15.01) - getLineNameLabelTextSizeForZoom(15) < 0.01, '跨 zoom 15 没有策略跳变');
 const box = getLineNameLabelBounds({ x: 100, y: 100 }, 0, 40, 12);
 assert.equal(box.maxX - box.minX, 40, '碰撞边界只表示文字尺寸');
