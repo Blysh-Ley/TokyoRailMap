@@ -102,10 +102,11 @@ const collectPtNtRefs = (data, { maxNodes = 20000 } = {}) => {
 };
 
 class LruTimetableCache {
-    constructor({ maxBytes = 50 * 1024 * 1024, logFetch = false, logDiscover = false } = {}) {
+    constructor({ maxBytes = 50 * 1024 * 1024, logFetch = false, logDiscover = false, getLoadedTimetable = null } = {}) {
         this.maxBytes = Number.isFinite(maxBytes) && maxBytes > 0 ? maxBytes : 50 * 1024 * 1024;
         this.logFetch = logFetch === true;
         this.logDiscover = logDiscover === true;
+        this.getLoadedTimetable = getLoadedTimetable;
         this.bytes = 0;
         this.map = new Map(); // key(lineId) -> { data, bytes, at }
         this.pending = new Map(); // key(lineId) -> Promise<data|null>
@@ -173,12 +174,13 @@ class LruTimetableCache {
 
         const promise = (async () => {
             try {
-                const url = `./data/train-timetables/${encodeURIComponent(key)}.json`;
-                const resp = await cachedFetch(url);
-                if (!resp.ok) {
-                    return null;
+                let data = await this.getLoadedTimetable?.(lineId);
+                if (data == null) {
+                    const url = `./data/train-timetables/${encodeURIComponent(key)}.json`;
+                    const resp = await cachedFetch(url);
+                    if (!resp.ok) return null;
+                    data = await resp.json();
                 }
-                const data = await resp.json();
 
                 const bytes = estimateBytes(data);
                 // If one entry itself is absurdly big: clear cache and skip caching this entry

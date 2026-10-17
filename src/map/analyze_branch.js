@@ -753,11 +753,24 @@ const loadAllTimetableRecords = async () => {
             allRecords,
             idMap,
             lineStationIdsById,
-            recordsByLineId
+            recordsByLineId,
+            lineDataById
         };
     })();
 
     return allTimetableRecordsPromise;
+};
+
+// 启动时已为分支分析解析完整时刻表，面板和线路图可共用原数组，避免再次请求和解析。
+export const loadBranchAnalysisTimetableForLine = async (lineId) => {
+    const { lineDataById } = await loadAllTimetableRecords();
+    const id = toText(lineId);
+    if (lineDataById.has(id)) return lineDataById.get(id);
+    const stem = toFileStem(id);
+    for (const [sourceId, data] of lineDataById) {
+        if (toFileStem(sourceId) === stem) return data;
+    }
+    return null;
 };
 
 const alternateTripSourceIndexByMembership = new WeakMap();

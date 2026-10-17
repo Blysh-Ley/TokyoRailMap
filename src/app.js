@@ -63,7 +63,7 @@ import { buildAlternateLineMembership } from './domain/alternateLineMembership.j
 import { buildLineHighlightLabelItems } from './domain/lineHighlightLabels.js';
 import { buildLineNameLabelGeoJSON } from './domain/lineNameLabels.js';
 import { getFocusedStationLabelPriority, inheritMergedStationLabelTerminalState } from './domain/stationLabelDisplay.js';
-import { previewBranchesForLine, prewarmThroughServiceBranchAnalysis } from './map/analyze_branch.js';
+import { previewBranchesForLine, prewarmThroughServiceBranchAnalysis, loadBranchAnalysisTimetableForLine } from './map/analyze_branch.js';
 import { createLineIconElement, getResolvedRouteIconMeta } from './lib/line-icons.js';
 import {
     buildBaseLineColorExpr,
@@ -1339,7 +1339,12 @@ const initMapApp = async () => {
     });
 
 
-    const timetableCache = getGlobalTimetableCache({ maxBytes: 50 * 1024 * 1024, logFetch: true, logDiscover: true });
+    const timetableCache = getGlobalTimetableCache({
+        maxBytes: 50 * 1024 * 1024,
+        logFetch: true,
+        logDiscover: true,
+        getLoadedTimetable: loadBranchAnalysisTimetableForLine
+    });
 
     const cssEscape = (value) => {
         const s = String(value);
@@ -2405,7 +2410,12 @@ const initMapApp = async () => {
         currentLineNameLabelBlockingBBoxes = useNativePlacement
             ? []
             : currentLineNameLabelBlockingBBoxes;
-        if (currentLineNameLabelsData === nextData) return;
+        const currentFeatures = currentLineNameLabelsData?.features;
+        // 视野事件和选中刷新可能得到同一批要素，保持避让结果更新，但不重复提交数据源。
+        if (currentLineNameLabelsData === nextData || (
+            currentFeatures?.length === nextData.features.length
+            && currentFeatures.every((feature, index) => feature === nextData.features[index])
+        )) return;
         currentLineNameLabelsData = nextData;
         try {
             mapEngine.setSourceData?.('line-name-labels-source', nextData);
@@ -4477,10 +4487,10 @@ const initMapApp = async () => {
                 isLoopDirection,
                 extractLineSegment,
                 nearestBridgeBetweenLines,
-                getLineOffsetProfile: (lineId, coordinates) => {
+                getLineOffsetProfile: (lineId, coordinates, metricsByCoordinates) => {
                     const profile = lineOffsetProfilesById[lineId];
                     const source = lineRoutingCoordsById[lineId];
-                    return profile && source ? sliceLineOffsetProfile(source, profile, coordinates) : null;
+                    return profile && source ? sliceLineOffsetProfile(source, profile, coordinates, metricsByCoordinates) : null;
                 },
                 getLineOffsetUnits: (lineId) => {
                     const id = String(lineId || '').trim();
@@ -5366,6 +5376,8 @@ const initMapApp = async () => {
         });
 
         layerFeature.bindStationOffsetRuntime({ initialMode: stationOffsetMode });
+        // 高亮源和空图层随地图就绪，首次选站只需提交结果，不再临时初始化源。
+        tripPreviewRenderer.ensureLayers();
         
 
 

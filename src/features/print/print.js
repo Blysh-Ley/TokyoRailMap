@@ -7,7 +7,7 @@ import {
     getHighlightTransferCapsuleSizesAtZoom
 } from '../../domain/highlightStyleSizing.js';
 import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js';
-import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
+import { BASEMAP_GLYPHS_URL, configureMapLibreWorkers } from '../../services/mapEngine.js';
 import { inheritMergedStationLabelTerminalState } from '../../domain/stationLabelDisplay.js';
 
 /*
@@ -240,6 +240,7 @@ import { inheritMergedStationLabelTerminalState } from '../../domain/stationLabe
         if (virtualMapPromise) return virtualMapPromise;
         virtualMapPromise = (async () => {
             const maplibregl = await waitForMapLibre();
+            configureMapLibreWorkers(maplibregl);
 
             const container = document.createElement('div');
             container.setAttribute('data-virtual-export-map', '1');

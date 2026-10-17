@@ -53,44 +53,38 @@ export const createTripPreviewRenderer = ({
 
         mapEngine.ensureGeoJsonSource?.(LINE_SOURCE_ID, EMPTY_FEATURE_COLLECTION);
 
-        if (!mapEngine.getLayer(LINE_LAYER_ID)) {
-            mapEngine.ensureLayer?.({
-                id: LINE_LAYER_ID,
-                type: 'line',
-                source: LINE_SOURCE_ID,
-                filter: ['!=', ['get', 'role'], 'connector'],
-                layout: { 'line-join': 'round', 'line-cap': 'round' },
-                paint: getLinePaint()
-            }, beforeLayerId);
-        } else if (beforeLayerId) {
-            try {
-                mapEngine.moveLayer(LINE_LAYER_ID, beforeLayerId);
-            } catch {
-                // ignore
+        const linePaint = getLinePaint();
+        for (const [layerId, operator] of [[LINE_LAYER_ID, '!='], [CONNECTOR_LAYER_ID, '==']]) {
+            if (!mapEngine.getLayer(layerId)) {
+                mapEngine.ensureLayer?.({
+                    id: layerId,
+                    type: 'line',
+                    source: LINE_SOURCE_ID,
+                    filter: [operator, ['get', 'role'], 'connector'],
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: linePaint
+                }, beforeLayerId);
+            } else {
+                try {
+                    mapEngine.applyPaintProperties?.(layerId, linePaint);
+                } catch {
+                    // 保留已有图层样式。
+                }
             }
-            applyLinePaint();
-        } else {
-            applyLinePaint();
         }
 
-        if (!mapEngine.getLayer(CONNECTOR_LAYER_ID)) {
-            mapEngine.ensureLayer?.({
-                id: CONNECTOR_LAYER_ID,
-                type: 'line',
-                source: LINE_SOURCE_ID,
-                filter: ['==', ['get', 'role'], 'connector'],
-                layout: { 'line-join': 'round', 'line-cap': 'round' },
-                paint: getLinePaint()
-            }, beforeLayerId);
-        } else if (beforeLayerId) {
-            try {
-                mapEngine.moveLayer(CONNECTOR_LAYER_ID, beforeLayerId);
-            } catch {
-                // ignore
+        if (beforeLayerId) {
+            const order = mapEngine.getLayersOrder();
+            const beforeIndex = order.indexOf(beforeLayerId);
+            // 顺序未变时不调用 moveLayer，避免重复提交层级和触发布局更新。
+            if (order[beforeIndex - 2] !== LINE_LAYER_ID || order[beforeIndex - 1] !== CONNECTOR_LAYER_ID) {
+                try {
+                    mapEngine.moveLayer(LINE_LAYER_ID, beforeLayerId);
+                    mapEngine.moveLayer(CONNECTOR_LAYER_ID, beforeLayerId);
+                } catch {
+                    // 保留已有图层顺序。
+                }
             }
-            applyLinePaint();
-        } else {
-            applyLinePaint();
         }
 
         mapEngine.ensureGeoJsonSource?.(STOPS_SOURCE_ID, EMPTY_FEATURE_COLLECTION);

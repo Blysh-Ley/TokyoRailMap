@@ -540,8 +540,9 @@ const collectConnectedTrips = async (seedTrip, { loadTripByRefId, isStillCurrent
         outTrips.push(trip);
 
         const refs = [...getRefs(trip, 'pt'), ...getRefs(trip, 'nt')];
-        for (const refId of refs) {
-            const refTrip = await loadTripByRefId(refId);
+        // 同层引用互不依赖，并行加载后仍按原引用顺序遍历。
+        const refTrips = await Promise.all(refs.map((refId) => loadTripByRefId(refId)));
+        for (const refTrip of refTrips) {
             if (!refTrip) continue;
             const refTripId = getTripId(refTrip);
             if (refTripId && visitedTripIds.has(refTripId)) continue;
@@ -580,12 +581,21 @@ export async function buildTemporaryThroughServicePanelPlan(options = {}) {
         };
     }
 
-    for (const lineId of matchedServingLineIds) {
+    // 先同时准备各来源线路，避免逐条等待读取；归并仍保持 servingLineIds 的顺序。
+    const sourceDatas = await Promise.all(matchedServingLineIds.map(async (lineId) => {
         if (isStillCurrentStation && !isStillCurrentStation()) return null;
+        const [resolvedStationId, data] = await Promise.all([
+            resolveStationIdForLine(lineId),
+            loadTimetableForLineId(lineId)
+        ]);
+        return { lineId, lineStationId: toText(resolvedStationId) || stationId, data };
+    }));
 
-        const lineStationId = toText(await resolveStationIdForLine(lineId)) || stationId;
+    for (const source of sourceDatas) {
+        if (isStillCurrentStation && !isStillCurrentStation()) return null;
+        if (!source) return null;
+        const { lineId, lineStationId, data } = source;
         const stationIdSet = new Set([stationId, lineStationId].filter(Boolean));
-        const data = await loadTimetableForLineId(lineId);
         const list = Array.isArray(data) ? data : [];
 
         for (const trip of list) {

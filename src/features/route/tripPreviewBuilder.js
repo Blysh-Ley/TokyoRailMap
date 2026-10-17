@@ -143,6 +143,13 @@ export const createTripPreviewBuilder = ({
         const lineOffsetUnitsCache = context?.lineOffsetUnitsCache instanceof Map
             ? context.lineOffsetUnitsCache
             : null;
+        // 缓存仅属于本次聚合，不跨站点、数据或样式生命周期保留。
+        const lineOffsetMetricsCache = context?.lineOffsetMetricsCache instanceof Map
+            ? context.lineOffsetMetricsCache
+            : new Map();
+        const lineOffsetProfileCache = context?.lineOffsetProfileCache instanceof Map
+            ? context.lineOffsetProfileCache
+            : new Map();
         const debugLoop = !!isDebugLoopEnabled?.();
         const previewSource = String(payload?.previewSource || payload?.__previewSource || '').trim();
         const usePanelAlternateTripPreview = previewSource === 'panel-trip'
@@ -370,12 +377,17 @@ export const createTripPreviewBuilder = ({
             if (!(lineSegmentCache instanceof Map)) {
                 return extractLineSegment(id, from, to, options);
             }
+            // 普通片段保持源线路走向时，交换端点和行车方向不会改变裁切坐标；只统一缓存键。
+            const canReuseReverse = options?.preferLoopShortest !== true && options?.preserveLineDirection === true;
+            const fromKey = coordKey(from);
+            const toKey = coordKey(to);
+            const reverseKey = canReuseReverse && fromKey > toKey;
             const key = [
                 id,
-                coordKey(from),
-                coordKey(to),
+                reverseKey ? toKey : fromKey,
+                reverseKey ? fromKey : toKey,
                 options?.preferLoopShortest === true ? 'short' : 'default',
-                String(options?.direction || '').trim(),
+                canReuseReverse ? '' : String(options?.direction || '').trim(),
                 options?.preserveLineDirection === true ? 'preserve' : 'free'
             ].join('||');
             if (lineSegmentCache.has(key)) {
@@ -413,10 +425,16 @@ export const createTripPreviewBuilder = ({
             const lineOffsetUnits = Number.isFinite(explicitOffsetUnits)
                 ? explicitOffsetUnits
                 : (role === 'line' ? resolveLineOffsetUnitsCached(offsetLineId) : 0);
-            const profile = role === 'line' || Number.isFinite(explicitOffsetUnits)
-                ? getLineOffsetProfile(offsetLineId, coords)
-                : null;
-            const profileJson = profile ? JSON.stringify(profile) : '';
+            const geometryKey = coordsKey(coords);
+            let profileJson = '';
+            if (role === 'line' || Number.isFinite(explicitOffsetUnits)) {
+                const profileKey = `${offsetLineId}||${geometryKey}`;
+                if (!lineOffsetProfileCache.has(profileKey)) {
+                    const profile = getLineOffsetProfile(offsetLineId, coords, lineOffsetMetricsCache);
+                    lineOffsetProfileCache.set(profileKey, profile ? JSON.stringify(profile) : '');
+                }
+                profileJson = lineOffsetProfileCache.get(profileKey);
+            }
             const featureKey = [
                 role,
                 String(lineId || ''),
@@ -427,7 +445,7 @@ export const createTripPreviewBuilder = ({
                 options?.isPast === true ? 'past' : 'current',
                 String(lineOffsetUnits),
                 profileJson,
-                coordsKey(coords)
+                geometryKey
             ].join('||');
             if (lineFeatureCache instanceof Map && lineFeatureCache.has(featureKey)) {
                 return;
@@ -443,7 +461,7 @@ export const createTripPreviewBuilder = ({
                     color: rawColor,
                     isPast: options?.isPast === true,
                     line_offset_units: lineOffsetUnits,
-                    ...(profile ? { line_offset_profile: profileJson } : {})
+                    ...(profileJson ? { line_offset_profile: profileJson } : {})
                 },
                 geometry: { type: 'LineString', coordinates: coords }
             };

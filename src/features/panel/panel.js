@@ -2152,16 +2152,12 @@ export function createPanel(options = {}) {
         const list = Array.isArray(data) ? data : [];
         let index = refTripIndexes.get(list);
         if (!index) {
-            index = { byId: new Map(), byTrainId: new Map(), byPrefix: new Map() };
+            index = { byId: new Map(), byTrainId: new Map(), byPrefix: null };
             for (const trip of list) {
                 const id = toText(trip?.id);
                 const trainId = toText(trip?.t);
                 if (id && !index.byId.has(id)) index.byId.set(id, trip);
                 if (trainId && !index.byTrainId.has(trainId)) index.byTrainId.set(trainId, trip);
-                for (let dot = id.indexOf('.'); dot >= 0; dot = id.indexOf('.', dot + 1)) {
-                    const prefix = id.slice(0, dot);
-                    if (!index.byPrefix.has(prefix)) index.byPrefix.set(prefix, trip);
-                }
             }
             refTripIndexes.set(list, index);
         }
@@ -2169,11 +2165,21 @@ export function createPanel(options = {}) {
         if (!hit) {
             const parts = key.split('.').map((x) => x.trim()).filter(Boolean);
             const maybeNoDay = parts.length >= 2 ? parts.slice(0, -1).join('.') : key;
-            hit =
-                index.byTrainId.get(maybeNoDay) ||
-                index.byId.get(maybeNoDay) ||
-                index.byPrefix.get(maybeNoDay) ||
-                null;
+            hit = index.byTrainId.get(maybeNoDay) || index.byId.get(maybeNoDay) || null;
+            if (!hit) {
+                // 完整班次 ID 通常已命中；只有真正需要前缀回退时才建立该索引。
+                if (!index.byPrefix) {
+                    index.byPrefix = new Map();
+                    for (const trip of list) {
+                        const id = toText(trip?.id);
+                        for (let dot = id.indexOf('.'); dot >= 0; dot = id.indexOf('.', dot + 1)) {
+                            const prefix = id.slice(0, dot);
+                            if (!index.byPrefix.has(prefix)) index.byPrefix.set(prefix, trip);
+                        }
+                    }
+                }
+                hit = index.byPrefix.get(maybeNoDay) || null;
+            }
         }
 
         refTripCache.set(key, hit);
@@ -2451,6 +2457,8 @@ export function createPanel(options = {}) {
             && renderToken === stationRenderToken
             && sid === toText(currentStationId);
         if (!sid || !isStillActive()) return false;
+        // 站点高亮保留平滑定位，并为实际绘制留出一秒响应预算。
+        const normalizedFitOptions = { duration: 200, ...fitOptions };
 
         const requests = buildStationThroughPreviewRequests();
         const requestsSignature = buildStationThroughPreviewRequestsSignature(requests);
@@ -2471,7 +2479,6 @@ export function createPanel(options = {}) {
             && stationThroughPreviewCache.snapshot.source === STATION_THROUGH_PREVIEW_SOURCE
         ) {
             if (!isStillActive()) return false;
-            const normalizedFitOptions = fitOptions && typeof fitOptions === 'object' ? fitOptions : {};
             const applied = await crossFeatureBridge.applyTripPreviewSnapshot?.(
                 stationThroughPreviewCache.snapshot,
                 {
@@ -2505,7 +2512,7 @@ export function createPanel(options = {}) {
                 alternateLineMembership,
                 isStillActive,
                 previewSource: STATION_THROUGH_PREVIEW_SOURCE,
-                fitOptions: fitOptions
+                fitOptions: normalizedFitOptions
             });
             if (!previewResult?.ok) {
                 if (isStillActive()) {
