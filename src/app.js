@@ -62,8 +62,8 @@ import { buildLineHighlightVirtualTripPayloads } from './domain/lineHighlightVir
 import { buildAlternateLineMembership } from './domain/alternateLineMembership.js';
 import { buildLineHighlightLabelItems } from './domain/lineHighlightLabels.js';
 import { buildLineNameLabelGeoJSON, buildLineNameLabelCandidates } from './domain/lineNameLabels.js';
-import { getFocusedStationLabelPriority } from './domain/stationLabelDisplay.js';
-import { previewBranchesForLine, prewarmThroughServiceBranchAnalysis } from './map/analyze_branch.js';
+import { getFocusedStationLabelPriority, inheritMergedStationLabelTerminalState } from './domain/stationLabelDisplay.js';
+import { previewBranchesForLine, prewarmThroughServiceBranchAnalysis, loadBranchAnalysisTimetableForLine } from './map/analyze_branch.js';
 import { createLineIconElement, getResolvedRouteIconMeta } from './lib/line-icons.js';
 import {
     buildBaseLineColorExpr,
@@ -921,6 +921,8 @@ const initMapApp = async () => {
 
     const applyTransferStationLabelCollapse = () => {
         if (!Array.isArray(stationLabels) || !stationLabels.length) return;
+        // 每次从原始首末站与当前预览端点重算，避免沿用上次合并范围的继承结果。
+        applyTripPreviewEndpointLabelProtection();
 
         const visibleIds = getVisibleStationIdsForTransferCapsules();
         const visibleSet = visibleIds instanceof Set ? visibleIds : null;
@@ -1018,14 +1020,15 @@ const initMapApp = async () => {
             }
 
             const reps = [];
-            if (nameBuckets.size <= 1) {
-                const rep = pickNorthernmost(candidates, stationVisualHighlightId);
-                if (rep) reps.push(rep);
-            } else {
-                for (const bucket of nameBuckets.values()) {
-                    const rep = pickNorthernmost(bucket, stationVisualHighlightId);
-                    if (rep) reps.push(rep);
+            for (const bucket of nameBuckets.values()) {
+                const rep = pickNorthernmost(bucket, stationVisualHighlightId);
+                if (!rep) continue;
+                for (const label of bucket) {
+                    if (label === rep || label.labelPosition === 'below') {
+                        inheritMergedStationLabelTerminalState(label, bucket);
+                    }
                 }
+                reps.push(rep);
             }
 
             reps.sort((a, b) => {
@@ -1094,6 +1097,16 @@ const initMapApp = async () => {
                 ? (offsetByStationId.get(sid) || baseTranslate)
                 : baseTranslate);
             if (!isMultiSelectModeEnabled() && item?.el) item.el.textContent = baseName;
+        }
+
+        // 首末站属性变化需要刷新源；缩放时的几何增量更新不会更新这些属性。
+        const sourceData = mapEngine.getSource(STATION_LABELS_SOURCE_ID)?.serialize().data;
+        const terminalStateChanged = sourceData?.features.some((feature) => {
+            const label = labelById.get(String(feature.properties.id));
+            return label && Number(feature.properties.is_terminal_station) !== Number(label.isTerminalStation);
+        });
+        if (terminalStateChanged) {
+            mapEngine.setSourceData(STATION_LABELS_SOURCE_ID, buildStationLabelGeoJSON(sourceData, stationLabels));
         }
     };
 
@@ -1343,7 +1356,12 @@ const initMapApp = async () => {
     });
 
 
-    const timetableCache = getGlobalTimetableCache({ maxBytes: 50 * 1024 * 1024, logFetch: true, logDiscover: true });
+    const timetableCache = getGlobalTimetableCache({
+        maxBytes: 50 * 1024 * 1024,
+        logFetch: true,
+        logDiscover: true,
+        getLoadedTimetable: loadBranchAnalysisTimetableForLine
+    });
 
     const cssEscape = (value) => {
         const s = String(value);
@@ -4409,10 +4427,10 @@ const initMapApp = async () => {
                 isLoopDirection,
                 extractLineSegment,
                 nearestBridgeBetweenLines,
-                getLineOffsetProfile: (lineId, coordinates) => {
+                getLineOffsetProfile: (lineId, coordinates, metricsByCoordinates) => {
                     const profile = lineOffsetProfilesById[lineId];
                     const source = lineRoutingCoordsById[lineId];
-                    return profile && source ? sliceLineOffsetProfile(source, profile, coordinates) : null;
+                    return profile && source ? sliceLineOffsetProfile(source, profile, coordinates, metricsByCoordinates) : null;
                 },
                 getLineOffsetUnits: (lineId) => {
                     const id = String(lineId || '').trim();
@@ -5107,8 +5125,12 @@ const initMapApp = async () => {
                 try {
                     mapEngine.updateGeoJsonSourceDataLatest(
                         STATION_LABELS_SOURCE_ID,
-                        buildStationLabelGeoJSON(nextGeoJSON),
-                        { replaceDataOnEmptyDiff: true }
+                        nextGeoJSON,
+                        {
+                            // 排队期间合并范围可能改变，提交时读取最新的站名属性。
+                            fallbackData: () => buildStationLabelGeoJSON(nextGeoJSON, stationLabels),
+                            replaceDataOnEmptyDiff: true
+                        }
                     );
                 } catch {
                     // ignore
@@ -5298,6 +5320,8 @@ const initMapApp = async () => {
         });
 
         layerFeature.bindStationOffsetRuntime({ initialMode: stationOffsetMode });
+        // 高亮源和空图层随地图就绪，首次选站只需提交结果，不再临时初始化源。
+        tripPreviewRenderer.ensureLayers();
         
 
 

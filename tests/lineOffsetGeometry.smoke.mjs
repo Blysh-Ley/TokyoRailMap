@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { sliceLineOffsetProfile } from '../src/domain/lineOffsetGeometry.js';
-import { evaluateLineOffsetProfile } from '../src/domain/lineOffsetProfile.js';
+import { buildLineOffsetMetrics, buildLineOffsetSegmentIndex, evaluateLineOffsetProfile, nearestLineOffsetPosition } from '../src/domain/lineOffsetProfile.js';
 
 // 环线首尾重叠但并非同一点；起点投影到末尾，后续点投影到开头。
 const overlappingLine = [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0.001], [0.4, 0.001]];
@@ -38,4 +38,31 @@ const corner = [[0, 0], [1, 0], [1, 1], [2, 1]];
 const reverseCorner = sliceLineOffsetProfile(corner, [[0, 2.4], [1, 2.4]], [[1, 1], [1, 0]]);
 assert.ok(reverseCorner.every(([, value]) => value === -2.4));
 assert.equal(sliceLineOffsetProfile(openLine, transition, openLine), transition);
+
+// 同一轮处理多个片段时，全线只测量一次；缓存不改变正反向裁切结果。
+let measurementCount = 0;
+const measuredLine = openLine.map((point) => point.slice());
+measuredLine.map = function (...args) {
+    measurementCount += 1;
+    return Array.prototype.map.apply(this, args);
+};
+const metricsByCoordinates = new Map();
+for (const coordinates of [openLine.slice(1), openLine.slice(0, 3).reverse()]) {
+    assert.deepEqual(
+        sliceLineOffsetProfile(measuredLine, transition, coordinates, metricsByCoordinates),
+        sliceLineOffsetProfile(openLine, transition, coordinates)
+    );
+}
+assert.equal(measurementCount, 1, '多个片段的顶点和中点查询应共用一次全线测量');
+for (const coordinates of [overlappingLine, ring, openLine, [[0, 0], [0, 0], [1, 0], [0, 0]]]) {
+    const metrics = buildLineOffsetMetrics(coordinates);
+    const indexed = { ...metrics, segmentIndex: buildLineOffsetSegmentIndex(metrics.points) };
+    const samples = [...coordinates, ...coordinates.slice(1).map((point, i) => (
+        point.map((value, axis) => (value + coordinates[i][axis]) / 2)
+    ))];
+    for (const point of samples) {
+        assert.deepEqual(nearestLineOffsetPosition(indexed, point), nearestLineOffsetPosition(metrics, point),
+            '空间索引必须保持交叉、重叠、零长线段的最近点及最早线段选择');
+    }
+}
 console.log('线路偏移切段几何回归通过');

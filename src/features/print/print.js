@@ -8,7 +8,8 @@ import {
     getHighlightTransferCapsuleSizesAtZoom
 } from '../../domain/highlightStyleSizing.js';
 import { OSM_BASEMAP_ATTRIBUTION_TEXT } from '../../domain/osmBasemapPackage.js';
-import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
+import { BASEMAP_GLYPHS_URL, configureMapLibreWorkers } from '../../services/mapEngine.js';
+import { inheritMergedStationLabelTerminalState } from '../../domain/stationLabelDisplay.js';
 
 /*
  * print.js
@@ -240,6 +241,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
         if (virtualMapPromise) return virtualMapPromise;
         virtualMapPromise = (async () => {
             const maplibregl = await waitForMapLibre();
+            configureMapLibreWorkers(maplibregl);
 
             const container = document.createElement('div');
             container.setAttribute('data-virtual-export-map', '1');
@@ -579,14 +581,11 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
             }
 
             const reps = [];
-            if (nameBuckets.size <= 1) {
-                const rep = pickNorthernmost(candidatesInGroup);
-                if (rep) reps.push(rep);
-            } else {
-                for (const bucket of nameBuckets.values()) {
-                    const rep = pickNorthernmost(bucket);
-                    if (rep) reps.push(rep);
-                }
+            for (const bucket of nameBuckets.values()) {
+                const rep = pickNorthernmost(bucket);
+                if (!rep) continue;
+                inheritMergedStationLabelTerminalState(rep, bucket);
+                reps.push(rep);
             }
 
             reps.sort((a, b) => {
@@ -1304,6 +1303,7 @@ import { BASEMAP_GLYPHS_URL } from '../../services/mapEngine.js';
                     id: sid,
                     text: name,
                     priority: servingCount,
+                    isTerminalStation,
                     focusPriority,
                     coordinates: [Number(c[0]), Number(c[1])],
                     fontPx,

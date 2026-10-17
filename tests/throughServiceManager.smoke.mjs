@@ -429,4 +429,25 @@ for (const chain of uenoTokyoResult?.fullRouteChains || []) {
     }
 }
 
+// 来源线路的读取可以并行，但取消后不得继续生成旧站点方案。
+const pendingSources = new Map();
+const startedSources = [];
+let stationIsCurrent = true;
+const pendingPlan = buildTemporaryThroughServicePanelPlan({
+    stationId: 'JR-East.Yokosuka.Tokyo',
+    servingLineIds: ['JR-East.Yokosuka', 'JR-East.SobuRapid'],
+    resolveStationIdForLine: async (lineId) => `${lineId}.Tokyo`,
+    loadTimetableForLineId: (lineId) => {
+        startedSources.push(lineId);
+        return new Promise((resolve) => pendingSources.set(lineId, resolve));
+    },
+    loadTripByRefId: async () => null,
+    isStillCurrentStation: () => stationIsCurrent
+});
+await new Promise((resolve) => setImmediate(resolve));
+assert.deepEqual(startedSources, ['JR-East.Yokosuka', 'JR-East.SobuRapid'], '所有来源读取应在等待结果前启动');
+stationIsCurrent = false;
+for (const resolve of pendingSources.values()) resolve([]);
+assert.equal(await pendingPlan, null, '并行加载完成后仍须遵守旧站点取消');
+
 console.log('through service manager smoke ok');

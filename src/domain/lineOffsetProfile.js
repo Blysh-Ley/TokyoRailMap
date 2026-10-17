@@ -112,10 +112,34 @@ export const buildLineOffsetProfile = (coordinates, config) => {
     return stops;
 };
 
-const nearestLineOffsetPosition = ({ points, distances, total }, coordinate) => {
+// 包围盒树只筛选可能更近的线段，最终仍使用原来的投影公式和最早线段优先顺序。
+export const buildLineOffsetSegmentIndex = (points) => {
+    const build = (indices) => {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const index of indices) {
+            const a = points[index - 1], b = points[index];
+            minX = Math.min(minX, a.x, b.x); minY = Math.min(minY, a.y, b.y);
+            maxX = Math.max(maxX, a.x, b.x); maxY = Math.max(maxY, a.y, b.y);
+        }
+        // 包围盒向外扩展浮点误差余量，不能漏掉重叠处距离相同的较早线段。
+        const margin = Number.EPSILON * Math.max(1, Math.abs(minX), Math.abs(minY), Math.abs(maxX), Math.abs(maxY));
+        const node = { minX: minX - margin, minY: minY - margin, maxX: maxX + margin, maxY: maxY + margin };
+        if (indices.length === 1) return { ...node, index: indices[0] };
+        const axis = maxX - minX >= maxY - minY ? 'x' : 'y';
+        indices.sort((left, right) => (
+            points[left - 1][axis] + points[left][axis] - points[right - 1][axis] - points[right][axis]
+            || left - right
+        ));
+        const middle = Math.floor(indices.length / 2);
+        return { ...node, left: build(indices.slice(0, middle)), right: build(indices.slice(middle)) };
+    };
+    return build(points.slice(1).map((_point, index) => index + 1));
+};
+
+export const nearestLineOffsetPosition = ({ points, distances, total, segmentIndex }, coordinate) => {
     const target = projectOffsetCoordinate(coordinate);
     let best = null;
-    for (let i = 1; i < points.length; i += 1) {
+    const visitSegment = (i) => {
         const a = points[i - 1];
         const b = points[i];
         const dx = b.x - a.x;
@@ -123,7 +147,28 @@ const nearestLineOffsetPosition = ({ points, distances, total }, coordinate) => 
         const length2 = dx * dx + dy * dy;
         const t = length2 ? Math.max(0, Math.min(1, ((target.x - a.x) * dx + (target.y - a.y) * dy) / length2)) : 0;
         const d2 = (target.x - a.x - dx * t) ** 2 + (target.y - a.y - dy * t) ** 2;
-        if (!best || d2 < best.d2) best = { d2, progress: total ? (distances[i - 1] + (distances[i] - distances[i - 1]) * t) / total : 0, segmentIndex: i - 1, t };
+        if (!best || d2 < best.d2 || (d2 === best.d2 && i - 1 < best.segmentIndex)) {
+            best = { d2, progress: total ? (distances[i - 1] + (distances[i] - distances[i - 1]) * t) / total : 0, segmentIndex: i - 1, t };
+        }
+    };
+    if (segmentIndex) {
+        const distanceToBounds = (node) => (
+            Math.max(node.minX - target.x, 0, target.x - node.maxX) ** 2
+            + Math.max(node.minY - target.y, 0, target.y - node.maxY) ** 2
+        );
+        const visit = (node, distance) => {
+            if (best && distance > best.d2) return;
+            if (node.index !== undefined) return visitSegment(node.index);
+            const leftDistance = distanceToBounds(node.left), rightDistance = distanceToBounds(node.right);
+            if (leftDistance <= rightDistance) {
+                visit(node.left, leftDistance); visit(node.right, rightDistance);
+            } else {
+                visit(node.right, rightDistance); visit(node.left, leftDistance);
+            }
+        };
+        visit(segmentIndex, distanceToBounds(segmentIndex));
+    } else {
+        for (let i = 1; i < points.length; i += 1) visitSegment(i);
     }
     return best;
 };

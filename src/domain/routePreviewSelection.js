@@ -339,7 +339,9 @@ export const buildTripPreviewAggregateFromPayloadList = ({
         stopFeatureCache: new Map(),
         stationCoordCache: new Map(),
         servingCountCache: new Map(),
-        lineOffsetUnitsCache: new Map()
+        lineOffsetUnitsCache: new Map(),
+        lineOffsetMetricsCache: new Map(),
+        lineOffsetProfileCache: new Map()
     };
 
     for (const payload of list) {

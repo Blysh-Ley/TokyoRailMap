@@ -98,7 +98,7 @@ export const createMobileTripFitBoundsController = ({
     getStationCoord = () => null,
     getViewportFitOptions = () => null
 } = {}) => {
-    const fitTripPayload = (payload = {}, { lineFeatures } = {}) => {
+    const fitTripPayload = (payload = {}, { lineFeatures, duration = 300 } = {}) => {
         const stationIds = collectMobileTripFitStationIds(payload);
         if (stationIds.length < 2) return false;
 
@@ -115,7 +115,7 @@ export const createMobileTripFitBoundsController = ({
         const viewportOptions = getViewportFitOptions();
         const fitOptions = {
             padding: buildMobileTripFitPadding(resolveMapViewportSize(mapEngine)),
-            duration: 300,
+            duration,
             easing: (t) => t,
             essential: true
         };
