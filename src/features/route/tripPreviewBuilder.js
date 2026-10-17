@@ -377,12 +377,17 @@ export const createTripPreviewBuilder = ({
             if (!(lineSegmentCache instanceof Map)) {
                 return extractLineSegment(id, from, to, options);
             }
+            // 普通片段保持源线路走向时，交换端点和行车方向不会改变裁切坐标；只统一缓存键。
+            const canReuseReverse = options?.preferLoopShortest !== true && options?.preserveLineDirection === true;
+            const fromKey = coordKey(from);
+            const toKey = coordKey(to);
+            const reverseKey = canReuseReverse && fromKey > toKey;
             const key = [
                 id,
-                coordKey(from),
-                coordKey(to),
+                reverseKey ? toKey : fromKey,
+                reverseKey ? fromKey : toKey,
                 options?.preferLoopShortest === true ? 'short' : 'default',
-                String(options?.direction || '').trim(),
+                canReuseReverse ? '' : String(options?.direction || '').trim(),
                 options?.preserveLineDirection === true ? 'preserve' : 'free'
             ].join('||');
             if (lineSegmentCache.has(key)) {
