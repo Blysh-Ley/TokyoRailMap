@@ -67,4 +67,46 @@ for (const deletedName of [
 assert.match(source, /SELECTION_COMPANY_TRIP_PREVIEW_SOURCE = 'selection-company-trip-preview'/);
 assert.match(source, /previewSource: SELECTION_COMPANY_TRIP_PREVIEW_SOURCE/);
 
+{
+    const start = source.indexOf('const syncLineNameLabelDataForCurrentState =');
+    const end = source.indexOf('const buildLineNameLabelFilter =', start);
+    const frames = [];
+    const submissions = [];
+    let revision = 1;
+    const candidates = () => ({ type: 'FeatureCollection', features: [{ id: revision }] });
+    const runtime = new Function('requestAnimationFrame', 'mapEngine', 'buildLineNameLabelCandidates', `
+        const cancelAnimationFrame = () => {};
+        let lineNameLabelsFrame = null;
+        let lineNameLabelsDataSignature = '';
+        const movingLineNameLabels = null;
+        let lineNameLabelLayout = null;
+        const lineNameLabelWidths = new Map();
+        const lineNameLabelMeasureContext = {};
+        const readCurrentLineNameLabelLayout = () => ({ viewport: {}, obstacles: [] });
+        const getLineNameLabelPaths = () => ({});
+        const getLineNameLabelLineIdsForCurrentHighlight = () => null;
+        const buildOffsetPolylinePixelsWithMiter = () => [];
+        ${source.slice(start, end)}
+        return { schedule: scheduleLineNameLabelPlacement };
+    `)(callback => { frames.push(callback); return frames.length; }, {
+        hasLayer: () => true,
+        getCanvas: () => ({ clientWidth: 500, clientHeight: 400 }),
+        queryRenderedFeatures: () => [],
+        getZoom: () => 12,
+        setSourceData: (_id, data) => { submissions.push(data); return {}; }
+    }, candidates);
+    runtime.schedule();
+    runtime.schedule();
+    assert.equal(frames.length, 1, '同一轮多次请求只排入一帧');
+    frames.shift()();
+    assert.equal(submissions.length, 1);
+    runtime.schedule();
+    frames.shift()();
+    assert.equal(submissions.length, 1, '候选结果相同不能重复提交 GeoJSON');
+    revision += 1;
+    runtime.schedule();
+    frames.shift()();
+    assert.equal(submissions.length, 2, '候选结果变化后仍正常提交');
+}
+
 console.log('app line selection style smoke ok');

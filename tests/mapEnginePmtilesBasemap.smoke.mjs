@@ -154,6 +154,60 @@ assert.equal(BASEMAP_GLYPHS_URL, 'https://demotiles.maplibre.org/font/{fontstack
 }
 
 {
+    const oldPmtiles = globalThis.pmtiles;
+    const callbacks = [];
+    let readTile;
+    class PMTiles {
+        getZxy(...args) {
+            return readTile(...args);
+        }
+    }
+    globalThis.pmtiles = { PMTiles };
+    try {
+        let tile;
+        const engine = createMapEngine({ maplibregl: {
+            Map: FakeMap,
+            addProtocol: (_scheme, handler) => { tile = handler; }
+        }, container: 'map' });
+        engine.ensurePmtilesProtocol();
+        const params = { url: 'pmtiles://./tiles/kanto.pmtiles/1/0/0' };
+        const flush = () => new Promise(resolve => setImmediate(resolve));
+
+        let rejectRead;
+        readTile = () => new Promise((_resolve, reject) => { rejectRead = reject; });
+        const rejectedRequest = tile(params, (...args) => callbacks.push(args));
+        await flush();
+        rejectedRequest.cancel();
+        rejectRead(new DOMException('已取消瓦片请求', 'AbortError'));
+        await flush();
+        assert.equal(callbacks.length, 0, '取消请求后不能把 DOMException 回传给 Worker');
+
+        let resolveRead;
+        readTile = () => new Promise(resolve => { resolveRead = resolve; });
+        const resolvedRequest = tile(params, (...args) => callbacks.push(args));
+        await flush();
+        resolvedRequest.cancel();
+        resolveRead({ data: new Uint8Array([1, 2]) });
+        await flush();
+        assert.equal(callbacks.length, 0, '不可中断的读取在取消后完成时也不能回调');
+
+        readTile = async () => { throw new DOMException('瓦片读取失败', 'NetworkError'); };
+        const failure = await new Promise(resolve => tile(params, error => resolve(error)));
+        assert.equal(failure.constructor, Error, '真实异常必须转换成 MapLibre 可序列化的普通 Error');
+        assert.equal(failure.name, 'NetworkError');
+        assert.equal(failure.message, '瓦片读取失败');
+
+        readTile = async () => ({ data: new Uint8Array([7, 8]), cacheControl: 'max-age=60', expires: 'later' });
+        const success = await new Promise(resolve => tile(params, (...args) => resolve(args)));
+        assert.equal(success[0], null);
+        assert.deepEqual([...new Uint8Array(success[1])], [7, 8]);
+        assert.deepEqual(success.slice(2), ['max-age=60', 'later']);
+    } finally {
+        globalThis.pmtiles = oldPmtiles;
+    }
+}
+
+{
     const sources = new Map();
     const layers = new Map();
     const layoutCalls = [];

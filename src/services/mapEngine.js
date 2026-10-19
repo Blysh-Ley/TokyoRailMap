@@ -123,23 +123,25 @@ const createRangeSafePmtilesProtocol = (pmtilesGlobal) => {
             if (!match) throw new Error('Invalid PMTiles protocol URL');
             const [, archiveUrl, z, x, y] = match;
             const tileResult = await getArchive(archiveUrl).getZxy(+z, +x, +y, abortController.signal);
-            if (!tileResult) {
-                callback(null, new ArrayBuffer(0));
-                return;
-            }
-            const data = tileResult.data instanceof ArrayBuffer
-                ? tileResult.data
-                : tileResult.data.buffer.slice(
-                    tileResult.data.byteOffset,
-                    tileResult.data.byteOffset + tileResult.data.byteLength
-                );
-            callback(
-                null,
-                data,
-                tileResult.cacheControl || '',
-                tileResult.expires || ''
-            );
-        }).catch((error) => callback(error));
+            const data = !tileResult
+                ? new ArrayBuffer(0)
+                : tileResult.data instanceof ArrayBuffer
+                    ? tileResult.data
+                    : tileResult.data.buffer.slice(
+                        tileResult.data.byteOffset,
+                        tileResult.data.byteOffset + tileResult.data.byteLength
+                    );
+            return { data, cacheControl: tileResult?.cacheControl || '', expires: tileResult?.expires || '' };
+        }).then((result) => {
+            if (abortController.signal.aborted) return;
+            callback(null, result.data, result.cacheControl, result.expires);
+        }, (error) => {
+            if (abortController.signal.aborted) return;
+            // DOMException 的构造类未在 MapLibre 3 的 Worker 序列化器中注册。
+            const failure = new Error(error?.message || String(error));
+            failure.name = error?.name || 'Error';
+            callback(failure);
+        });
 
         return {
             cancel: () => abortController.abort()

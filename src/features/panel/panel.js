@@ -826,10 +826,11 @@ export function createPanel(options = {}) {
         lastAppliedHoverKey = null;
     };
 
-    const cancelStationThroughPreview = () => {
+    const cancelStationThroughPreview = ({ clearPreview = true } = {}) => {
         stationThroughPreviewSuppressed = true;
         stationRenderToken += 1;
         clearStationThroughPreviewCache();
+        if (!clearPreview) return;
         try {
             crossFeatureBridge.clearTripPathPreviewBySource(STATION_THROUGH_PREVIEW_SOURCE);
         } catch {

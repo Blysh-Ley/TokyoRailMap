@@ -89,14 +89,15 @@ export const bindBlankMapClickRestore = ({
         if (hits.length) return;
 
         hidePanel?.();
-        if (isMultiSelectModeEnabled?.() !== true) {
-            clearTripPathPreview?.();
-        }
-        cancelStationRestoreState?.();
         clearReachableStopsOverlay?.();
+        if (hasActiveSelection?.() === true) {
+            clearSelectionsAndRestore?.();
+            return;
+        }
 
-        if (hasActiveSelection?.() !== true) return;
-        clearSelectionsAndRestore?.();
+        const clearAllPreviews = isMultiSelectModeEnabled?.() !== true;
+        cancelStationRestoreState?.({ clearPreview: !clearAllPreviews });
+        if (clearAllPreviews) clearTripPathPreview?.();
     });
 };
 

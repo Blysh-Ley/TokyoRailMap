@@ -534,6 +534,7 @@ const initMapApp = async () => {
     let generatedLinesData = null;
     let generatedLineNameLabelsData = null;
     let lineNameLabelsFrame = null;
+    let lineNameLabelsDataSignature = '';
     let movingLineNameLabels = null;
     let lineNameLabelLayout = null;
     let lineNameLabelLayoutTimer = null;
@@ -1401,7 +1402,7 @@ const initMapApp = async () => {
         tripPreviewRenderer,
         emitTripPreviewUpdated: ({ payload, built } = {}) => {
             tripPreviewLineNameLabelsData = buildTripPreviewLineNameLabelsData({ built });
-            syncLineNameLabelDataForCurrentState();
+            scheduleLineNameLabelPlacement();
             try {
                 travelSearchMapRuntime?.syncJourneyPickPinsToStations?.();
             } catch {
@@ -1421,7 +1422,7 @@ const initMapApp = async () => {
         },
         emitTripPreviewCleared: () => {
             tripPreviewLineNameLabelsData = null;
-            syncLineNameLabelDataForCurrentState();
+            scheduleLineNameLabelPlacement();
             try {
                 window.dispatchEvent(new CustomEvent('__TokyoRailTripPreviewCleared', { detail: { ts: Date.now() } }));
             } catch {
@@ -2308,7 +2309,6 @@ const initMapApp = async () => {
     }
 
     const syncLineNameLabelDataForCurrentState = () => {
-        if (lineNameLabelsFrame !== null) cancelAnimationFrame(lineNameLabelsFrame);
         lineNameLabelsFrame = null;
         if (!mapEngine.hasLayer?.('line-name-labels-layer')) return;
         const canvas = mapEngine.getCanvas();
@@ -2331,7 +2331,11 @@ const initMapApp = async () => {
                 return lineNameLabelWidths.get(text) * size / 100;
             }
         });
-        mapEngine.setSourceData?.('line-name-labels-source', nextData);
+        const signature = JSON.stringify(nextData);
+        if (signature === lineNameLabelsDataSignature) return;
+        if (mapEngine.setSourceData?.('line-name-labels-source', nextData)) {
+            lineNameLabelsDataSignature = signature;
+        }
     };
 
     function readVisibleLineNameLabels() {
@@ -2471,7 +2475,7 @@ const initMapApp = async () => {
     }
 
     function applyLineNameLabelSelectionFilter() {
-        syncLineNameLabelDataForCurrentState();
+        scheduleLineNameLabelPlacement();
         highlightRenderer.applyLineNameLabelFilter(
             buildLineNameLabelFilter(getLineNameLabelLineIdsForCurrentHighlight())
         );
@@ -2848,9 +2852,9 @@ const initMapApp = async () => {
         });
     }
 
-    function cancelStationRestoreState() {
+    function cancelStationRestoreState({ clearPreview = true } = {}) {
         panel?.invalidateStationRestoreSession?.({ cancelRender: true });
-        panel?.cancelStationThroughPreview?.();
+        panel?.cancelStationThroughPreview?.({ clearPreview });
         const stationPopupMode = stationPopup?.getOpenMode?.() || null;
         stationPopup?.clearRestoreState?.();
         if (stationPopupMode) {
@@ -2860,7 +2864,7 @@ const initMapApp = async () => {
     }
 
     function clearSelectionsAndRestore() {
-        cancelStationRestoreState();
+        cancelStationRestoreState({ clearPreview: false });
         clearTripPathPreview();
         panel?.resetTemporaryTimeOverride?.();
         appStore.dispatch(selectionClear({ source: 'app.clearSelectionsAndRestore' }));
@@ -4956,7 +4960,7 @@ const initMapApp = async () => {
         const lineNameLabelsData = generatedLineNameLabelsData || loadedGeoData?.lineNameLabelsGeoJSON || EMPTY_LINE_NAME_LABELS_DATA;
         generatedLineNameLabelsData = lineNameLabelsData;
         addLineNameLabelsLayer(mapEngine, EMPTY_LINE_NAME_LABELS_DATA);
-        syncLineNameLabelDataForCurrentState();
+        scheduleLineNameLabelPlacement();
         applyLineNameLabelsEnabled(lineNameLabelsEnabled);
 
         try {
